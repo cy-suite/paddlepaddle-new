@@ -15,8 +15,7 @@ limitations under the License. */
 #include "paddle/fluid/framework/op_registry.h"
 #include "paddle/phi/kernels/funcs/math_function.h"
 
-namespace paddle {
-namespace operators {
+namespace paddle::operators {
 
 class BipartiteMatchOp : public framework::OperatorWithKernel {
  public:
@@ -26,24 +25,24 @@ class BipartiteMatchOp : public framework::OperatorWithKernel {
     PADDLE_ENFORCE_EQ(
         ctx->HasInput("DistMat"),
         true,
-        platform::errors::InvalidArgument(
+        phi::errors::InvalidArgument(
             "Input(DistMat) of BipartiteMatch should not be null."));
     PADDLE_ENFORCE_EQ(ctx->HasOutput("ColToRowMatchIndices"),
                       true,
-                      platform::errors::InvalidArgument(
+                      phi::errors::InvalidArgument(
                           "Output(ColToRowMatchIndices) of BipartiteMatch "
                           "should not be null."));
     PADDLE_ENFORCE_EQ(
         ctx->HasOutput("ColToRowMatchDist"),
         true,
-        platform::errors::InvalidArgument(
+        phi::errors::InvalidArgument(
             "Output(ColToRowMatchDist) of BipartiteMatch should not be null."));
 
     auto dims = ctx->GetInputDim("DistMat");
-    PADDLE_ENFORCE_EQ(dims.size(),
-                      2,
-                      platform::errors::InvalidArgument(
-                          "The rank of Input(DistMat) must be 2."));
+    PADDLE_ENFORCE_EQ(
+        dims.size(),
+        2,
+        phi::errors::InvalidArgument("The rank of Input(DistMat) must be 2."));
 
     ctx->SetOutputDim("ColToRowMatchIndices", dims);
     ctx->SetOutputDim("ColToRowMatchDist", dims);
@@ -54,7 +53,7 @@ class BipartiteMatchOp : public framework::OperatorWithKernel {
       const framework::ExecutionContext& ctx) const override {
     return phi::KernelKey(
         OperatorWithKernel::IndicateVarDataType(ctx, "DistMat"),
-        platform::CPUPlace());
+        phi::CPUPlace());
   }
 };
 
@@ -75,7 +74,7 @@ class BipartiteMatchKernel : public framework::OpKernel<T> {
     PADDLE_ENFORCE_EQ(
         dist.dims().size(),
         2,
-        platform::errors::InvalidArgument("The rank of dist must be 2."));
+        phi::errors::InvalidArgument("The rank of dist must be 2."));
     int64_t row = dist.dims()[0];
     int64_t col = dist.dims()[1];
     auto* dist_data = dist.data<T>();
@@ -140,7 +139,7 @@ class BipartiteMatchKernel : public framework::OpKernel<T> {
           PADDLE_ENFORCE_EQ(
               match_indices[max_idx],
               -1,
-              platform::errors::InvalidArgument(
+              phi::errors::InvalidArgument(
                   "The match_indices must be initialized to -1 at [%d].",
                   max_idx));
           match_indices[max_idx] = max_row_idx;
@@ -183,7 +182,7 @@ class BipartiteMatchKernel : public framework::OpKernel<T> {
         PADDLE_ENFORCE_EQ(
             match_indices[j],
             -1,
-            platform::errors::InvalidArgument(
+            phi::errors::InvalidArgument(
                 "The match_indices must be initialized to -1 at [%d].", j));
         match_indices[j] = max_row_idx;
         match_dist[j] = max_dist;
@@ -208,7 +207,7 @@ class BipartiteMatchKernel : public framework::OpKernel<T> {
       PADDLE_ENFORCE_EQ(
           dist_mat->lod().size(),
           1UL,
-          platform::errors::InvalidArgument("Only support 1 level of LoD."));
+          phi::errors::InvalidArgument("Only support 1 level of LoD."));
     }
     match_indices->mutable_data<int>({n, col}, context.GetPlace());
     match_dist->mutable_data<T>({n, col}, context.GetPlace());
@@ -308,8 +307,7 @@ If Tensor, the height of ColToRowMatchIndices is 1.
   }
 };
 
-}  // namespace operators
-}  // namespace paddle
+}  // namespace paddle::operators
 
 namespace ops = paddle::operators;
 REGISTER_OPERATOR(
