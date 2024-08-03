@@ -78,7 +78,7 @@ HeterParallelContext::HeterParallelContext(const ParallelStrategy &strategy,
 
   PADDLE_ENFORCE_NE(node_nranks,
                     0,
-                    platform::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "The number of local nranks should not be zero."));
   node_strategy_.nranks_ = node_nranks;
   node_strategy_.current_endpoint_ = strategy_.current_endpoint_;
@@ -113,7 +113,7 @@ void HeterParallelContext::Init() {
   PADDLE_ENFORCE_NE(
       node_parallel_ctx_,
       nullptr,
-      platform::errors::Unavailable(
+      common::errors::Unavailable(
           "The heter parallel context has not been initialized."));
 
   if (inter_parallel_ctx_ != nullptr) {
@@ -126,7 +126,7 @@ void HeterParallelContext::Init() {
 }
 
 void HeterParallelContext::InitWithRingID(int ring_id) {
-  PADDLE_THROW(platform::errors::Unimplemented(
+  PADDLE_THROW(common::errors::Unimplemented(
       "Unimplemented InitWithRingID from heter ctx."));
 }
 
@@ -169,7 +169,7 @@ void HeterParallelContext::AllReduceByStream(const framework::Variable &src,
 }
 
 void HeterParallelContext::Broadcast(framework::Variable *src, int ring_id) {
-  PADDLE_THROW(platform::errors::Unimplemented("Unimplemented function."));
+  PADDLE_THROW(common::errors::Unimplemented("Unimplemented function."));
 }
 
 phi::DeviceContext *HeterParallelContext::GetDeviceContext(int ring_id) {

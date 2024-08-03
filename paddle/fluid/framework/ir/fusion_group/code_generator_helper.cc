@@ -135,7 +135,7 @@ std::string OperationExpression::GetRHS(std::unordered_set<int>* used,
         int index = StringTo<int>(index_str);
         PADDLE_ENFORCE_LT(index,
                           input_ids_.size(),
-                          platform::errors::InvalidArgument(
+                          common::errors::InvalidArgument(
                               "Only %d inputs are provided, but need %d for "
                               "operation < %s >.",
                               input_ids_.size(),
@@ -143,7 +143,7 @@ std::string OperationExpression::GetRHS(std::unordered_set<int>* used,
                               op_type_));
         PADDLE_ENFORCE_GE(input_ids_[index],
                           0,
-                          platform::errors::InvalidArgument(
+                          common::errors::InvalidArgument(
                               "Expected %d-th input id > 0 for operation < %s "
                               ">. Received %d.",
                               index,
