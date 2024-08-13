@@ -5618,6 +5618,7 @@ void FusedMoeInferMeta(const MetaTensor& X,
                        const MetaTensor& ffn2_bias,
                        const std::string& quant_method,
                        const int moe_topk,
+                       const bool norm_topk_prob,
                        MetaTensor* out) {
   out->set_dims(X.dims());
   out->share_lod(X);
