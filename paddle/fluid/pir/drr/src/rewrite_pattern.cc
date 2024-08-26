@@ -26,8 +26,7 @@
 #include "paddle/phi/core/enforce.h"
 #include "paddle/pir/include/core/operation.h"
 
-namespace paddle {
-namespace drr {
+namespace paddle::drr {
 
 DrrRewritePattern::DrrRewritePattern(
     const std::string& pattern_name,
@@ -48,7 +47,7 @@ DrrRewritePattern::DrrRewritePattern(
       drr_pattern_owner_(std::move(drr_pattern_owner)) {
   PADDLE_ENFORCE_NE(source_pattern_graph_->owned_op_call().empty(),
                     true,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Source pattern graph is empty. Suggested fix: please "
                         "check the drr source pattern definition code."));
   if (VLOG_IS_ON(4)) {
@@ -271,13 +270,13 @@ bool DrrRewritePattern::MatchFromOutputToInput(
   std::queue<pir::Operation*> ir_q;
   // Initialize DRR matched queue.
   const auto& InitDrrQueue = [&]() -> void {
-    for (auto it = output_op_map.begin(); it != output_op_map.end(); ++it) {
-      VLOG(6) << "match (" << it->first->name() << " @" << it->first << " : @"
-              << it->second << ") in source_pattern_graph ";
-      drr_q.push(it->first);
-      drr_visited.insert(it->first);
-      ir_q.push(it->second);
-      ir_visited.insert(it->second);
+    for (const auto& [first, second] : output_op_map) {
+      VLOG(6) << "match (" << first->name() << " @" << first << " : @" << second
+              << ") in source_pattern_graph ";
+      drr_q.push(first);
+      drr_visited.insert(first);
+      ir_q.push(second);
+      ir_visited.insert(second);
     }
   };
   // Check whether DrrNode and Operation have the same Operands and Results
@@ -428,7 +427,7 @@ bool DrrRewritePattern::MatchFromOutputToInput(
     PADDLE_ENFORCE_EQ(
         step,
         source_pattern_graph.CountOfOpCalls(),
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "Pattern matching failed. The number of successful matches and the "
             "number of OpCalls in the source pattern graph are not equal."));
   } else {
@@ -478,7 +477,7 @@ MatchContextImpl DrrRewritePattern::CreateOperations(
     PADDLE_ENFORCE_NE(
         result_pattern_graph.id2owned_tensor().count(in_tensor),
         0,
-        phi::errors::NotFound(
+        common::errors::NotFound(
             "Not found the input tensor. Drr input tensor [%s] must exist in "
             "the result pattern graph to be obtained.",
             in_tensor));
@@ -640,5 +639,4 @@ std::unique_ptr<DrrRewritePattern> DrrPatternBase::Build(
                                              drr_pattern->shared_from_this());
 }
 
-}  // namespace drr
-}  // namespace paddle
+}  // namespace paddle::drr

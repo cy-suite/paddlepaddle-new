@@ -18,9 +18,7 @@ limitations under the License. */
 #include "paddle/fluid/inference/tensorrt/plugin_arg_mapping_context.h"
 #include "paddle/phi/common/data_type.h"
 
-namespace paddle {
-namespace inference {
-namespace tensorrt {
+namespace paddle::inference::tensorrt {
 
 class FlashMultiheadMatMulOpConverter : public OpConverter {
  public:
@@ -38,7 +36,7 @@ class FlashMultiheadMatMulOpConverter : public OpConverter {
     PADDLE_ENFORCE_EQ(
         with_fp16,
         true,
-        platform::errors::Unimplemented(
+        common::errors::Unimplemented(
             "Trt flash attention oss plugin only support fp16 mode yet."));
 
     framework::OpDesc op_desc(op, nullptr);
@@ -420,7 +418,7 @@ class FlashMultiheadMatMulOpConverter : public OpConverter {
         input->getType() == nvinfer1::DataType::kHALF ||
             input->getType() == nvinfer1::DataType::kFLOAT,
         true,
-        platform::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "This op has no dynamic plugin infershape function!"));
 
     if (input->getType() == nvinfer1::DataType::kHALF) {
@@ -530,9 +528,7 @@ class FlashMultiheadMatMulOpConverter : public OpConverter {
   }
 };
 
-}  // namespace tensorrt
-}  // namespace inference
-}  // namespace paddle
+}  // namespace paddle::inference::tensorrt
 
 REGISTER_TRT_OP_CONVERTER(flash_multihead_matmul,
                           FlashMultiheadMatMulOpConverter);

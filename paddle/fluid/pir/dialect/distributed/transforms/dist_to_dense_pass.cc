@@ -29,10 +29,11 @@
 #include "paddle/fluid/pir/dialect/operator/ir/op_type.h"
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 #include "paddle/fluid/pir/dialect/operator/utils/utils.h"
-#include "paddle/fluid/platform/place.h"
+#include "paddle/phi/common/place.h"
 #include "paddle/phi/core/enforce.h"
 #include "paddle/pir/include/core/attribute.h"
 #include "paddle/pir/include/core/builtin_attribute.h"
+#include "paddle/pir/include/dialect/control_flow/ir/cf_type.h"
 
 using paddle::dialect::DistDenseTensorType;
 
@@ -49,9 +50,10 @@ pir::Type CastToLocalType(pir::Type type) {
       local_types.push_back(CastToLocalType(vec_type[i]));
     }
     return pir::VectorType::get(vec_type.ir_context(), local_types);
-  } else if (!type) {
+  } else if (!type || type.isa<pir::StackType>() ||
+             type.isa<pir::InletType>() || type.isa<pir::OutletType>()) {
     // skip if <<NULL TYPE>>
-    return nullptr;
+    return type;
   } else {
     // TODO(2024-Q2) not all value are dist type
     PADDLE_THROW(common::errors::PreconditionNotMet(
@@ -63,8 +65,8 @@ inline bool IsDistType(pir::Type type) { return type.isa<DistTypeInterface>(); }
 
 void ProcessDistBlock(pir::Block* block) {
   auto ctx = pir::IrContext::Instance();
-  for (auto iter = block->begin(); iter != block->end(); ++iter) {
-    pir::Operation* op_item = &(*iter);
+  for (auto& val : *block) {
+    pir::Operation* op_item = &val;
     VLOG(6) << "dist_to_dense main loop over op [" << op_item->name() << "].";
 
     for (size_t i = 0; i < op_item->num_results(); ++i) {
@@ -93,7 +95,7 @@ void ProcessDistBlock(pir::Block* block) {
       auto array_attr = prev_op->attribute<pir::ArrayAttribute>("value");
       PADDLE_ENFORCE_EQ(array_attr.size(),
                         local_dims.size(),
-                        phi::errors::PreconditionNotMet(
+                        common::errors::PreconditionNotMet(
                             "The reshape's shape inputs element's size must "
                             "equal to result's dim size."));
       std::vector<pir::Attribute> new_dims;
@@ -125,8 +127,8 @@ void ProcessDistBlock(pir::Block* block) {
     3. no shard_tensor / reshard in block.
 */
 void VerifyDenseBlock(pir::Block* block) {
-  for (auto iter = block->begin(); iter != block->end(); ++iter) {
-    pir::Operation* op_item = &(*iter);
+  for (auto& val : *block) {
+    pir::Operation* op_item = &val;
 
     for (size_t i = 0; i < op_item->num_results(); ++i) {
       auto result = op_item->result(i);
@@ -134,7 +136,7 @@ void VerifyDenseBlock(pir::Block* block) {
       PADDLE_ENFORCE_EQ(
           IsDistType(result.type()),
           false,
-          phi::errors::PreconditionNotMet(
+          common::errors::PreconditionNotMet(
               "Block op [%s] still contain dist type.", op_item->name()));
     }
 

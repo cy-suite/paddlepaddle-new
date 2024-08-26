@@ -35,12 +35,17 @@ decomp_interface_declare_gen_op_list = [
     "gelu",
     "hardswish",
     "hardsigmoid",
+    "heaviside",
+    "huber_loss",
     "group_norm",
     "index_sample",
     "index_select",
     "instance_norm",
+    "kldiv_loss",
     "layer_norm",
     "leaky_relu",
+    "lerp",
+    "log_loss",
     "log_softmax",
     "mean",
     "mean_all",
@@ -55,12 +60,14 @@ decomp_interface_declare_gen_op_list = [
     "silu",
     "swiglu",
     "softmax",
+    "softsign",
     "square",
     "squared_l2_norm",
     "squeeze",
     "stack",
+    "unbind",
     "unsqueeze",
-    "huber_loss",
+    "unstack",
 ]
 
 # come into effect in generated file op_decomp.cc
@@ -79,12 +86,17 @@ decomp_interface_implementation_gen_op_list = [
     "gelu",
     "hardswish",
     "hardsigmoid",
+    "heaviside",
+    "huber_loss",
     "group_norm",
     "index_sample",
     "index_select",
     "instance_norm",
+    "kldiv_loss",
     "layer_norm",
     "leaky_relu",
+    "lerp",
+    "log_loss",
     "log_softmax",
     "mean",
     "mean_all",
@@ -98,12 +110,14 @@ decomp_interface_implementation_gen_op_list = [
     "silu",
     "swiglu",
     "softmax",
+    "softsign",
     "square",
     "squared_l2_norm",
     "squeeze",
     "stack",
+    "unbind",
     "unsqueeze",
-    "huber_loss",
+    "unstack",
 ]
 
 # xshape output will no longer used after decomp, but return none to keep output num the same as origin op
@@ -163,7 +177,7 @@ CUSTOM_VJP = [
 ]  # custom vjp list of composite op
 
 # declare belongs to codegen, but implementation not
-OTHER_VJP = ["concat_grad", "stack_grad"]
+OTHER_VJP = ["concat_grad", "stack_grad", 'slice_grad']
 
 vjp_list = (
     UNARY_PRIM_VJP_OPS + BINARY_PRIM_VJP_OPS + CUSTOM_VJP + OTHER_PRIM_VJP_OPS

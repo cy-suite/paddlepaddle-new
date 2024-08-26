@@ -25,7 +25,7 @@
 #include "paddle/cinn/common/object.h"
 #include "paddle/cinn/common/shared.h"
 #include "paddle/cinn/common/type.h"
-
+#include "paddle/common/enforce.h"
 namespace cinn {
 
 namespace ir {
@@ -230,11 +230,17 @@ struct ExprNode : public IrNode {
   std::vector<Expr>& operands() { return IrNode::operands; }
 
   Expr& operand(int i) {
-    CHECK_LT(i, operands().size());
+    PADDLE_ENFORCE_LT(
+        i,
+        operands().size(),
+        ::common::errors::InvalidArgument("The index %d is out of range", i));
     return operands()[i];
   }
   const Expr& operand(int i) const {
-    CHECK_LT(i, operands().size());
+    PADDLE_ENFORCE_LT(
+        i,
+        operands().size(),
+        ::common::errors::InvalidArgument("The index %d is out of range", i));
     return operands()[i];
   }
 
@@ -426,7 +432,6 @@ struct BinaryOpNode : public ExprNode<T> {
     operands().resize(2);
     this->a() = a;
     this->b() = b;
-    // CHECK_EQ(a.type(), b.type()) << "the type of two argument not match";
   }
 
   Expr& a() { return ExprNode<T>::operand(0); }
@@ -505,7 +510,8 @@ static std::ostream& operator<<(std::ostream& os, MemoryType t) {
     MEMORY_TYPE_FOR_ALL(__)
 
     default:
-      PADDLE_THROW(phi::errors::InvalidArgument("Not supported memory type"));
+      PADDLE_THROW(
+          ::common::errors::InvalidArgument("Not supported memory type"));
 #undef __
   }
   return os;
@@ -513,7 +519,7 @@ static std::ostream& operator<<(std::ostream& os, MemoryType t) {
 
 template <typename T>
 Expr ExprNode<T>::Copy() const {
-  PADDLE_THROW(phi::errors::Unimplemented("Not Implemented"));
+  PADDLE_THROW(::common::errors::Unimplemented("Not Implemented"));
   return Expr();
 }
 

@@ -136,14 +136,11 @@ class ProgramInfo:
 
 
 class PartialProgramLayerHook:
-    def before_append_backward(self, forward_program):
-        ...
+    def before_append_backward(self, forward_program): ...
 
-    def after_append_backward(self, whole_program, backward_start_idx):
-        ...
+    def after_append_backward(self, whole_program, backward_start_idx): ...
 
-    def after_infer(self, infer_program):
-        ...
+    def after_infer(self, infer_program): ...
 
 
 class PartialProgramLayer:
@@ -442,9 +439,6 @@ class PartialProgramLayer:
     @LazyInitialized
     def _train_program_id(self):
         program_id = paddle.utils._hash_with_id(self._train_program, self)
-        core._set_cached_executor_build_strategy(
-            program_id, self._build_strategy
-        )
         return program_id
 
     @LazyInitialized
@@ -454,9 +448,6 @@ class PartialProgramLayer:
     @LazyInitialized
     def _train_amp_program_id(self):
         program_id = paddle.utils._hash_with_id(self._train_amp_program, self)
-        core._set_cached_executor_build_strategy(
-            program_id, self._build_strategy
-        )
         return program_id
 
     @LazyInitialized
@@ -467,9 +458,6 @@ class PartialProgramLayer:
     def _train_pure_fp16_program_id(self):
         program_id = paddle.utils._hash_with_id(
             self._train_pure_fp16_program, self
-        )
-        core._set_cached_executor_build_strategy(
-            program_id, self._build_strategy
         )
         return program_id
 

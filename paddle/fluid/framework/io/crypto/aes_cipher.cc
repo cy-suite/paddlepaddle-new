@@ -28,8 +28,7 @@
 #include "paddle/fluid/framework/io/crypto/cipher_utils.h"
 #include "paddle/fluid/platform/enforce.h"
 
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 
 void AESCipher::Init(const std::string& cipher_name,
                      const int& iv_size,
@@ -156,8 +155,8 @@ std::string AESCipher::AuthenticatedDecryptInternal(
   PADDLE_ENFORCE_EQ(
       m_filter->GetLastResult(),
       true,
-      paddle::platform::errors::InvalidArgument("Integrity check failed. "
-                                                "Invalid ciphertext input."));
+      common::errors::InvalidArgument("Integrity check failed. "
+                                      "Invalid ciphertext input."));
   return plaintext;
 }
 
@@ -195,7 +194,7 @@ void AESCipher::BuildCipher(
     m_filter->reset(new CryptoPP::StreamTransformationFilter(
         **m_cipher, nullptr, CryptoPP::BlockPaddingSchemeDef::NO_PADDING));
   } else {
-    PADDLE_THROW(paddle::platform::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Create cipher error. "
         "Cipher name %s is error, or has not been implemented.",
         aes_cipher_name_));
@@ -217,7 +216,7 @@ void AESCipher::BuildAuthEncCipher(
         CryptoPP::DEFAULT_CHANNEL,
         CryptoPP::BlockPaddingSchemeDef::NO_PADDING));
   } else {
-    PADDLE_THROW(paddle::platform::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Create cipher error. "
         "Cipher name %s is error, or has not been implemented.",
         aes_cipher_name_));
@@ -238,7 +237,7 @@ void AESCipher::BuildAuthDecCipher(
         tag_size_ / 8,
         CryptoPP::BlockPaddingSchemeDef::NO_PADDING));
   } else {
-    PADDLE_THROW(paddle::platform::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Create cipher error. "
         "Cipher name %s is error, or has not been implemented.",
         aes_cipher_name_));
@@ -276,5 +275,4 @@ std::string AESCipher::DecryptFromFile(const std::string& key,
   return Decrypt(ciphertext, key);
 }
 
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework

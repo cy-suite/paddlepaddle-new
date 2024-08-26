@@ -23,7 +23,6 @@
 #include "paddle/cinn/hlir/dialect/operator/ir/op_attribute.h"
 #include "paddle/cinn/hlir/dialect/operator/ir/op_dialect.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/group_merge/generate_shape_util.h"
-#include "paddle/cinn/hlir/dialect/operator/transforms/group_merge/op_with_group_merge_pass.h"
 #include "paddle/cinn/hlir/dialect/runtime/ir/jit_kernel_op.h"
 #include "paddle/cinn/hlir/dialect/runtime/ir/runtime_dialect.h"
 #include "paddle/cinn/hlir/framework/pir_compiler.h"
@@ -69,7 +68,9 @@ class MoveGenerateShapeOpsToProloguePass : public pir::Pass {
 
   void Run(pir::Operation* op) override {
     auto group_op = op->dyn_cast<cinn::dialect::GroupOp>();
-    CHECK(group_op);
+    PADDLE_ENFORCE(
+        group_op,
+        phi::errors::InvalidArgument("The operation for group is failed"));
     ::pir::IrContext* ctx = ::pir::IrContext::Instance();
     pir::ShapeConstraintIRAnalysis& shape_analysis =
         pir::ShapeAnalysisManager::Instance().Get(group_op->GetParentProgram());
