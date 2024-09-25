@@ -203,8 +203,16 @@ void BindTensor(pybind11::module &m) {  // NOLINT
   g_framework_tensor_pytype =
       reinterpret_cast<PyTypeObject *>(framework_tensor.ptr());
   framework_tensor
-      .def("__array__",
-           [](phi::DenseTensor &self) { return TensorToPyArray(self); })
+      .def(
+          // TODO(risemeup): Modify the logic of
+          // TensorToPyArray() according to the dtype and copy
+          // parameters.
+          "__array__",
+          [](phi::DenseTensor &self, py::object dtype, py::object copy) {
+            return TensorToPyArray(self, copy);
+          },
+          py::arg("dtype") = py::none(),
+          py::arg("copy") = py::none())
       .def("_ptr",
            [](const phi::DenseTensor &self) {
              return reinterpret_cast<uintptr_t>(self.data());
@@ -422,20 +430,22 @@ void BindTensor(pybind11::module &m) {  // NOLINT
                     >>> print(t.shape())
                     [5, 30]
            )DOC")
-      .def("_to_dlpack",
-           [](phi::DenseTensor &self) {
-             DLManagedTensor *dmt = framework::toDLPack(self);
-             auto capsule = pybind11::capsule(
-                 static_cast<void *>(dmt), "dltensor", [](PyObject *ptr) {
-                   if (!PyCapsule_IsValid(ptr, "dltensor")) {
-                     return;
-                   }
-                   DLManagedTensor *dmt = static_cast<DLManagedTensor *>(
-                       PyCapsule_GetPointer(ptr, "dltensor"));
-                   dmt->deleter(dmt);
-                 });
-             return capsule;
-           })
+      .def(
+          "_to_dlpack",
+          [](phi::DenseTensor &self) {
+            DLManagedTensor *dlMTensor = framework::toDLPack(self);
+            auto capsule = pybind11::capsule(
+                static_cast<void *>(dlMTensor), "dltensor", [](PyObject *data) {
+                  if (!PyCapsule_IsValid(data, "dltensor")) {
+                    return;
+                  }
+                  DLManagedTensor *dlMTensor =
+                      reinterpret_cast<DLManagedTensor *>(
+                          PyCapsule_GetPointer(data, "dltensor"));
+                  dlMTensor->deleter(dlMTensor);
+                });
+            return capsule;
+          })
       .def("_set_float_element", TensorSetElement<float>)
       .def("_get_float_element", TensorGetElement<float>)
       .def("_set_double_element", TensorSetElement<double>)
@@ -729,7 +739,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
              auto dtype =
                  static_cast<phi::DataType>(t[1].cast<int>());
              auto dims = common::make_ddim(t[2].cast<std::vector<int>>());
-             auto lod_info = t[3].cast<framework::LoD>();
+             auto lod_info = t[3].cast<phi::LoD>();
              auto device_id = t[4].cast<int>();
 
              auto shared_reader_holder =
@@ -840,7 +850,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
                  shared_reader_holder,
                  static_cast<phi::DataType>(t[3].cast<int>()));
              tensor.Resize(common::make_ddim(t[4].cast<std::vector<int>>()));
-             tensor.set_lod(t[5].cast<framework::LoD>());
+             tensor.set_lod(t[5].cast<phi::LoD>());
 
              return tensor;
            },
@@ -975,7 +985,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
                  shared_holder,
                  static_cast<phi::DataType>(t[3].cast<int>()));
              tensor.Resize(common::make_ddim(t[4].cast<std::vector<int>>()));
-             tensor.set_lod(t[5].cast<framework::LoD>());
+             tensor.set_lod(t[5].cast<phi::LoD>());
 
              return tensor;
            },
@@ -1063,7 +1073,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
                 shared_reader_holder,
                 static_cast<phi::DataType>(t[2].cast<int>()));
             tensor.Resize(common::make_ddim(t[3].cast<std::vector<int>>()));
-            tensor.set_lod(t[4].cast<framework::LoD>());
+            tensor.set_lod(t[4].cast<phi::LoD>());
 
             return tensor;
           }));

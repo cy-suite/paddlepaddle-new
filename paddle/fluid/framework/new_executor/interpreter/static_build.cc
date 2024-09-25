@@ -57,9 +57,6 @@ std::set<std::string> OpsCanSkipedFakeAllocInStaticBuild = {
     "nop"};
 
 std::set<std::string> StaticBuildBlackList = {
-    "cinn_instruction_run" /*: to handle subgraph infermeta*/,
-    "cinn_launch" /*: to handle subgraph infermeta*/,
-    "run_program" /*: to handle scope output*/,
     "sparse_sparse_coo_tensor" /*: to handle sparse output*/,
     "distributed_fused_lamb_init"};
 
@@ -224,11 +221,6 @@ bool TensorShouldBeFakeInitialized(const OperatorBase& op,
   }
 
   if (op_type == "dgc" && parameter_name == "k") {
-    VLOG(2) << "Skip fake initialization for: " << parameter_name;
-    return false;
-  }
-
-  if (op_type == "distributed_fused_lamb" && parameter_name == "ParamOut") {
     VLOG(2) << "Skip fake initialization for: " << parameter_name;
     return false;
   }
@@ -626,7 +618,7 @@ void RunWhileBlockPreStaticBuild(const framework::Scope& scope,
       if (var->IsType<phi::DenseTensor>()) {
         // Clear all lod information for all lod_tensors.
         auto* t = var->GetMutable<phi::DenseTensor>();
-        framework::LoD empty_lod;
+        phi::LoD empty_lod;
         t->set_lod(empty_lod);
       } else if (var->IsType<phi::TensorArray>()) {
         // Clear elements of all tensor arrays.

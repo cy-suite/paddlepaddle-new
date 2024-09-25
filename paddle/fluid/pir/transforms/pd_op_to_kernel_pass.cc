@@ -1180,6 +1180,22 @@ phi::KernelKey GetKernelKey(
     return {backend, phi::DataLayout::ANY, dtype};
   }
 
+  if (op->isa<CreateArrayOp>()) {
+    VLOG(6) << "CreateArrayOp doesn't need a kernel";
+    auto backend = paddle::experimental::ParseBackend(place);
+    auto dtype = op->result(0)
+                     .type()
+                     .dyn_cast<paddle::dialect::DenseTensorArrayType>()
+                     .dtype();
+
+    phi::KernelKey res(
+        backend, phi::DataLayout::ANY, TransToPhiDataType(dtype));
+    if (NeedFallBackCpu(op, kernel_fn_str, res)) {
+      res.set_backend(phi::Backend::CPU);
+    }
+    return res;
+  }
+
   phi::Backend kernel_backend = phi::Backend::UNDEFINED;
   phi::DataLayout kernel_layout = phi::DataLayout::UNDEFINED;
   phi::DataType kernel_dtype = phi::DataType::UNDEFINED;
@@ -2146,8 +2162,11 @@ void HandleForSpecialOp(
 
   pir::OpInfo op_info = ctx->GetRegisteredOpInfo(op_item->name());
   // Generate new op
+
   pir::Operation* op = pir::Operation::Create(
       vec_inputs, op_item->attributes(), op_output_types, op_info);
+  op->set_attribute("origin_id", pir::Int64Attribute::get(ctx, op_item->id()));
+
   block->push_back(op);
   (*map_op_pair)[op_item] = op;
   // only deal with single output
@@ -2316,6 +2335,9 @@ void HandleForCustomOp(
   if (op_item->HasTrait<InplaceTrait>()) {
     op_attribute.emplace("is_inplace", pir::BoolAttribute::get(ctx, true));
   }
+
+  op_attribute.emplace("origin_id",
+                       pir::Int64Attribute::get(ctx, op_item->id()));
 
   VLOG(6) << "Lower custom op: " << op_item->name()
           << " to : " << CustomKernelOp::name();
@@ -3002,6 +3024,9 @@ pir::Operation* BuildKernelOp(
   if (op_item->HasTrait<InplaceTrait>()) {
     op_attribute.emplace("is_inplace", pir::BoolAttribute::get(ctx, true));
   }
+
+  op_attribute.emplace("origin_id",
+                       pir::Int64Attribute::get(ctx, op_item->id()));
 
   pir::Operation* op = nullptr;
 #ifdef PADDLE_WITH_DNNL
