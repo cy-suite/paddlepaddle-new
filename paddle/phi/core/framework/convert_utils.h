@@ -1,4 +1,4 @@
-//   Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved.
+// Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,8 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/phi/core/platform/collective_helper.h"
+#pragma once
 
-namespace paddle {
-namespace platform {}  // namespace platform
-}  // namespace paddle
+#include "paddle/phi/core/framework/var_type_helper.h"
+#include "paddle/phi/core/utils/data_type.h"
+
+namespace phi {
+
+inline proto::VarType::Type TransToProtoVarTypeReturnType(
+    const DataType& dtype) {
+  return static_cast<proto::VarType::Type>(phi::TransToProtoVarType(dtype));
+}
+
+}  // namespace phi
