@@ -88,6 +88,10 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
         CudaSyncThreadsDropIfThenElse(copied);
     // CudaTransBufferWithDynamicShape(&copied);
 #endif
+      },
+      [&](common::HygonDCUArchSYCL) {
+#ifdef CINN_WITH_SYCL
+#endif
       });
 
   SimplifyBlocks(&copied->body);
