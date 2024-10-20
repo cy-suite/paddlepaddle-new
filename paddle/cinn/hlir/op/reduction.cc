@@ -173,7 +173,8 @@ std::shared_ptr<OpStrategy> StrategyForReduce(
                       [&](std::variant<common::UnknownArch,
                                        common::X86Arch,
                                        common::ARMArch>) { NaiveCompute(); },
-                      [&](common::HygonDCUArchHIP) { NaiveCompute(); });
+                      [&](common::HygonDCUArchHIP) { NaiveCompute(); },
+                      [&](common::HygonDCUArchSYCL) { NaiveCompute(); });
   });
 
   framework::CINNSchedule reduction_schedule([=](lang::Args args,
@@ -236,9 +237,28 @@ std::shared_ptr<OpStrategy> StrategyForReduce(
                         *ret = CINNValuePack{res};
                       },
                       [&](common::HygonDCUArchHIP) {
+<<<<<<< HEAD
                         std::vector<CINNValue> res{
                             CINNValue(ir_sch.GetModule().GetExprs().at(0))};
                         *ret = CINNValuePack{res};
+=======
+                        if (!FLAGS_cinn_new_group_scheduler) {
+                          ReduceSchedule();
+                        } else {
+                          std::vector<CINNValue> res{
+                              CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+                          *ret = CINNValuePack{res};
+                        }
+                      },
+                      [&](common::HygonDCUArchSYCL) {
+                        if (!FLAGS_cinn_new_group_scheduler) {
+                          ReduceSchedule();
+                        } else {
+                          std::vector<CINNValue> res{
+                              CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+                          *ret = CINNValuePack{res};
+                        }
+>>>>>>> b0c04ca95d... add HygonDCUArchSYCL bakcend/common/hlir
                       });
   });
 
