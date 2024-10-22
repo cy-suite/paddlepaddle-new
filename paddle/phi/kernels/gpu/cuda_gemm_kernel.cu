@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/phi/kernels/gpu/cuda_gemm_kernel.h"
 #include <glog/logging.h>
+#include "paddle/phi/kernels/gpu/cuda_gemm_kernel.h"
 #include "paddle/phi/backends/gpu/gpu_context.h"
 #include "paddle/phi/common/memory_utils.h"
 #include "paddle/phi/core/enforce.h"
@@ -143,26 +143,6 @@ bool cudaCoreGemmLauncher(GemmParams const& params) {
   return cudaCoreGemmTemplateCaller<InputType, OutputType, 1, 2, 256>(params);
 }
 
-bool cuda_gemm_func(GemmParams params) {
-  bool dispatched = true;
-  if (params.n % 2 != 0) {
-    dispatched = false;
-  } else if (params.inputType == 4) {
-    if (params.k % 16 != 0) {
-      // Expect k % 16 == 0 for 128 bits alignment
-      dispatched = false;
-    } else if (params.outputType == 5) {
-      dispatched = cudaCoreGemmLauncher<int8_t, int32_t>(params);
-    } else {
-      dispatched = false;
-    }
-  } else {
-    dispatched = false;
-  }
-
-  return dispatched;
-}
-
 template <typename T, typename Context>
 void CudaGemm(const Context& ctx,
               const DenseTensor& input,
@@ -196,16 +176,6 @@ void CudaGemm(const Context& ctx,
           weight_dims[1]));
   const int k = weight_dims[1];
 
-  auto get_phi_dtype = [&](decltype(input.dtype()) x_type) -> int {
-    switch (x_type) {
-      case phi::DataType::INT8:
-        return 4;
-        break;
-      default:
-        return 4;
-    }
-  };
-
   GemmParams params = {
       reinterpret_cast<const void*>(input.data<T>()),
       reinterpret_cast<const void*>(w.data<T>()),
@@ -213,12 +183,10 @@ void CudaGemm(const Context& ctx,
       m,
       n,
       k,
-      get_phi_dtype(input.dtype()),
-      get_phi_dtype(input.dtype()) == 4 ? 5 : 1,
       ctx.stream(),
   };
 
-  if (!cuda_gemm_func(params)) {
+  if (!cudaCoreGemmLauncher<int8_t, int32_t>(params)) {
     PADDLE_THROW(common::errors::Fatal("cuda gemm kernel run error"));
   }
 }

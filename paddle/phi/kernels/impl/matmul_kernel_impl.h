@@ -1852,9 +1852,11 @@ MatmulJudgeDtypeKernel(const Context& ctx,
                        bool transpose_x,
                        bool transpose_y) {
 #if defined(PADDLE_WITH_CUDA)
-  if (std::is_same<Context, phi::GPUContext>::value &&
-      std::is_same<T, int8_t>::value) {
-    if (x.dtype() == phi::DataType::INT8 && x_dims[0] <= 4 && FLAGS_cuda_core_gemm) {
+  if constexpr (std::is_same<Context, phi::GPUContext>::value &&
+                std::is_same<T, int8_t>::value) {
+    if (x.dtype() == phi::DataType::INT8 && x_dims[0] <= 4 &&
+        y_dims.size() == 2 && y_dims[0] % 16 == 0 &&
+        y_dims[1] % 16 == 0 FLAGS_cuda_core_gemm) {
       if (!transpose_y) {
         DenseTensor delta;
         phi::EmptyKernel<float, Context>(
