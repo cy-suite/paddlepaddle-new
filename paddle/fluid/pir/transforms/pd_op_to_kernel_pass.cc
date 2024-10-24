@@ -3087,7 +3087,10 @@ void RemoveRedundantMemcpyAfterShadowFeed(pir::Block* block,
             break;
           }
           auto op_name = use_op->dyn_cast<PhiKernelOp>().op_name();
-          if (op_name == "pd_op.share_var") continue;
+          if (op_name == "pd_op.share_var") {
+            all_use_is_scalar = false;
+            break;
+          }
           auto op_info = ctx->GetRegisteredOpInfo(op_name);
 
           if (!op_info) {
