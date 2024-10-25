@@ -13,7 +13,7 @@
 ```
 source /opt/dtk/env.sh
 cd build/test/legacy_test/hygon_dcu
-bash test_hygon_llama_op.sh 
+bash test_hygon_llama_op.sh
 ```
 ## 通信库测试
 ### 测试目的
