@@ -231,7 +231,7 @@ def get_layer_pp_info(mesh, num_hidden_layers, layer_index):
 
 
 # mesh, config: input_spec
-def to_distributed(model, dataloader, mesh, config):
+def to_distributed(model, dataloader, optimizer, mesh, config):
     paddle.distributed.init_parallel_env()
 
     with_pp = True if "pp" in mesh.dim_names else False
@@ -239,7 +239,7 @@ def to_distributed(model, dataloader, mesh, config):
     # print(f"pp: {with_pp}, sp: {with_sp}")
     # breakpoint()
 
-    # # shard dataloader
+    # # data parallel, shard dataloader
     if with_pp:
         first_stage_mesh = mesh.get_mesh_with_dim("pp", 0)
         last_stage_mesh = mesh.get_mesh_with_dim("pp", 1)
@@ -252,6 +252,8 @@ def to_distributed(model, dataloader, mesh, config):
         loader = dist.shard_dataloader(
             dataloader, meshes=[mesh], shard_dims="dp"
         )
+
+    # # sharding parallel, shard optimizer
 
     # # # step1: register pre-hooks and post-hooks, thus recording corresponding static ops in following paddle.jit.to_static
     for layer in model.sublayers():
@@ -505,4 +507,4 @@ def to_distributed(model, dataloader, mesh, config):
         for hook_helper in layer._op_recorder.hooks:
             hook_helper.remove()
 
-    return model, loader
+    return model, loader, optimizer

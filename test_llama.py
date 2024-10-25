@@ -95,7 +95,9 @@ dist_config.input_spec = [input_seq_spec]
 dist_config.sequence_parallel = True
 
 # # wrap model by using **to_distributed**
-dist_model, dist_loader = to_distributed(model, loader, mesh, dist_config)
+dist_model, dist_loader, dist_opt = to_distributed(
+    model, loader, opt, mesh, dist_config
+)
 # dist_model = model
 
 dist_model.train()
@@ -105,7 +107,7 @@ for batch_id, (input_seq, label) in enumerate(dist_loader()):
     (loss, logits) = dist_model(input_ids=input_seq, labels=label)
     # print(f"batch: {batch_id}, loss is {loss}")
     loss.backward()
-    opt.step()
-    opt.clear_grad()
+    dist_opt.step()
+    dist_opt.clear_grad()
     # if batch_id == 2:
     #     breakpoint()
