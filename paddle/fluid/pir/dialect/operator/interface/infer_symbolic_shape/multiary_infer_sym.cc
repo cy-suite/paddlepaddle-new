@@ -3267,8 +3267,6 @@ bool RnnOpInferSymbolicShape(pir::Operation *op,
           .dyn_cast<symbol::TensorListShapeOrDataDimExprs>();
   const auto &sequence_length_shape_or_data =
       infer_context->GetShapeOrDataForValue(op->operand_source(3));
-  const auto &dropout_state_in_shape_or_data =
-      infer_context->GetShapeOrDataForValue(op->operand_source(4));
 
   const std::string &mode = op->attribute<pir::StrAttribute>("mode").AsString();
   const bool &is_bidirec =
