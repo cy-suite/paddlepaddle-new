@@ -606,7 +606,20 @@ struct RemainderGradXFunctor {
 template <typename T, typename Enable = void>
 struct RemainderGradYFunctor {
   inline HOSTDEVICE T operator()(const T x, const T y, const T dout) const {
-    return -dout * static_cast<T>((x / y));
+    // dy = -dout * (floor_div(x, y))
+    return -dout * static_cast<T>((std::floor(x / y)));
+  }
+};
+template <typename T>
+struct RemainderGradYFunctor<
+    T,
+    typename std::enable_if<std::is_floating_point<T>::value>::type> {
+  inline HOSTDEVICE T operator()(const T x, const T y, const T dout) const {
+    using MPType = typename phi::dtype::MPTypeTrait<T>::Type;
+    // dy = -dout * (floor_div(x, y))
+    auto x_ = static_cast<MPType>(x);
+    auto y_ = static_cast<MPType>(y);
+    return static_cast<T>(-static_cast<MPType>(dout) * (std::floor((x_ / y_))));
   }
 };
 template <typename T>
@@ -614,12 +627,8 @@ struct RemainderGradYFunctor<
     T,
     typename std::enable_if<std::is_integral<T>::value>::type> {
   inline HOSTDEVICE T operator()(const T x, const T y, const T dout) const {
-    PADDLE_ENFORCE_NE(y,
-                      0,
-                      common::errors::PreconditionNotMet(
-                          "divisor can not be zero when y is integral dtype"));
     // dy = -dout * (floor_div(x, y))
-    return -dout * (std::floor(x / y));
+    return -dout * (x / y);
   }
 };
 
@@ -641,6 +650,26 @@ template <typename InT, typename OutT>
 struct RemainderGradXYFunctor<
     InT,
     OutT,
+    typename std::enable_if<std::is_floating_point<InT>::value>::type> {
+  inline HOSTDEVICE Array<OutT, 2> operator()(const InT x,
+                                              const InT y,
+                                              const InT dout) {
+    Array<OutT, 2> outs;
+    // dx = dout
+    outs[0] = static_cast<OutT>(dout);
+    // dy = -dout * (x / y)
+    using MPType = typename phi::dtype::MPTypeTrait<InT>::Type;
+    auto x_ = static_cast<MPType>(x);
+    auto y_ = static_cast<MPType>(y);
+    outs[1] =
+        static_cast<OutT>(static_cast<MPType>(-dout) * std::floor(x_ / y_));
+    return outs;
+  }
+};
+template <typename InT, typename OutT>
+struct RemainderGradXYFunctor<
+    InT,
+    OutT,
     typename std::enable_if<std::is_integral<InT>::value>::type> {
   inline HOSTDEVICE Array<OutT, 2> operator()(const InT x,
                                               const InT y,
@@ -649,10 +678,6 @@ struct RemainderGradXYFunctor<
     // dx = dout
     outs[0] = static_cast<OutT>(dout);
     // dy = -dout * (x / y)
-    PADDLE_ENFORCE_NE(y,
-                      0,
-                      common::errors::PreconditionNotMet(
-                          "divisor can not be zero when y is integral dtype"));
     outs[1] = static_cast<OutT>(-dout * (x / y));
     return outs;
   }
