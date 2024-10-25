@@ -1262,7 +1262,8 @@ bool LstsqOpInferSymbolicShape(pir::Operation *op,
       residuals_shape.emplace_back(0);
     }
   }
-  if (paddle::dialect::details::IsFakeValue(op->result(1)) || residuals_shape.empty()) {
+  if (paddle::dialect::details::IsFakeValue(op->result(1)) ||
+      residuals_shape.empty()) {
     infer_context->SetSymbolForValueByStaticShape(op->result(1));
   } else {
     infer_context->SetShapeOrDataForValue(
