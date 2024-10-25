@@ -939,6 +939,62 @@ class GreaterEqualOpPattern
   }
 };
 
+class GreaterThanOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::GreaterThanOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::GreaterThanOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::GreaterThanOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+#if IS_TRT_VERSION_LT(8400)
+    VLOG(3) << "pd_op.greater_than op is not supported when TensorRT < 8.4";
+    return false;
+#else
+    pir::Value x = op.operand_source(0);
+    pir::Value y = op.operand_source(1);
+    auto x_dtype = pir::GetDataTypeFromValue(x);
+    auto y_dtype = pir::GetDataTypeFromValue(y);
+    if (x_dtype.isa<pir::BoolType>() || y_dtype.isa<pir::BoolType>()) {
+      VLOG(3) << "pd_op.greater_than op do not support bool datatype";
+      return false;
+    }
+#endif
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class LessThanOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::LessThanOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::LessThanOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::LessThanOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+#if IS_TRT_VERSION_LT(8400)
+    VLOG(3) << "pd_op.less_than op is not supported when TensorRT < 8.4";
+    return false;
+#else
+    pir::Value x = op.operand_source(0);
+    pir::Value y = op.operand_source(1);
+    auto x_dtype = pir::GetDataTypeFromValue(x);
+    auto y_dtype = pir::GetDataTypeFromValue(y);
+    if (x_dtype.isa<pir::BoolType>() || y_dtype.isa<pir::BoolType>()) {
+      VLOG(3) << "pd_op.less_than op do not support bool datatype";
+      return false;
+    }
+#endif
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 // Add ElementwiseCommonOpPattern base class to simplify code
 template <typename OpType>
 class ElementwiseCommonOpPattern : public pir::OpRewritePattern<OpType> {
@@ -1293,6 +1349,43 @@ class NearestInterV2Pattern
   }
 };
 
+class StackOpPattern : public pir::OpRewritePattern<paddle::dialect::StackOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::StackOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::StackOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+
+    pir::Value x = op.operand_source(0);
+    int rank;
+    auto x_type = x.type();
+    if (x_type.isa<pir::VectorType>()) {
+      rank = x_type.dyn_cast<pir::VectorType>().size();
+    } else {
+      auto x_shape = pir::GetShapeFromValue(x);
+      rank = x_shape.size();
+    }
+
+    int axis;
+    if (op->HasAttribute("axis")) {
+      axis = op->attribute<pir::Int32Attribute>("axis").data();
+    } else {
+      axis = -1;
+    }
+    if (axis > rank || axis < -(rank + 1)) {
+      VLOG(3) << "Invalid axis value: " << axis
+              << ". Axis should be in range [-" << (rank + 1) << ", " << rank
+              << "], where rank is " << rank << ".";
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 // Add ReduceCommonOpPattern base class to simplify code
 template <typename OpType>
 class ReduceCommonOpPattern : public pir::OpRewritePattern<OpType> {
@@ -1449,6 +1542,8 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<SplitOpPattern>(context));
     ps.Add(std::make_unique<SplitWithNumOpPattern>(context));
     ps.Add(std::make_unique<GreaterEqualOpPattern>(context));
+    ps.Add(std::make_unique<GreaterThanOpPattern>(context));
+    ps.Add(std::make_unique<LessThanOpPattern>(context));
     ps.Add(std::make_unique<MultiplyOpPattern>(context));
     ps.Add(std::make_unique<SubtractOpPattern>(context));
     ps.Add(std::make_unique<DivideOpPattern>(context));
@@ -1467,6 +1562,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<SumOpPattern>(context));
     ps.Add(std::make_unique<BilinearInterpV2Pattern>(context));
     ps.Add(std::make_unique<NearestInterV2Pattern>(context));
+    ps.Add(std::make_unique<StackOpPattern>(context));
     ps.Add(std::make_unique<TanhOpPattern>(context));
     return ps;
   }
