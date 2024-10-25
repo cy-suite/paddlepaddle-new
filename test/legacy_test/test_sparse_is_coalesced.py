@@ -18,7 +18,6 @@ import numpy as np
 
 import paddle
 from paddle.base import core
-from paddle.base.framework import in_pir_mode
 
 
 class TestSparseIsCoalescedAPI(unittest.TestCase):
@@ -245,45 +244,45 @@ class TestSparseIsCoalescedAPIStatic(unittest.TestCase):
         self.expected_result = [False, False]
 
     def test_is_coalesced(self):
-        if in_pir_mode():
-            paddle.enable_static()
-            with paddle.static.program_guard(
-                paddle.static.Program(), paddle.static.Program()
-            ):
-                # coo
-                coo_indices = paddle.static.data(
-                    name='coo_indices',
-                    shape=self.coo_indices.shape,
-                    dtype='int64',
-                )
-                coo_values = paddle.static.data(
-                    name='coo_values',
-                    shape=self.coo_indices.shape,
-                    dtype=self.dtype,
-                )
-                coo = paddle.sparse.sparse_coo_tensor(
-                    coo_indices,
-                    coo_values,
-                    shape=self.coo_shape,
-                    dtype=self.dtype,
-                )
-                # other
-                other = paddle.static.data(
-                    name='other',
-                    shape=self.other_tensor_arr.shape,
-                    dtype=self.dtype,
-                )
+        paddle.enable_static()
+        with paddle.static.program_guard(
+            paddle.static.Program(), paddle.static.Program()
+        ):
+            # coo
+            coo_indices = paddle.static.data(
+                name='coo_indices',
+                shape=self.coo_indices.shape,
+                dtype='int64',
+            )
+            coo_values = paddle.static.data(
+                name='coo_values',
+                shape=self.coo_indices.shape,
+                dtype=self.dtype,
+            )
+            coo = paddle.sparse.sparse_coo_tensor(
+                coo_indices,
+                coo_values,
+                shape=self.coo_shape,
+                dtype=self.dtype,
+            )
+            # other
+            other = paddle.static.data(
+                name='other',
+                shape=self.other_tensor_arr.shape,
+                dtype=self.dtype,
+            )
 
-                exe = paddle.static.Executor()
-                exe.run(
-                    feed={
-                        'coo_indices': self.coo_indices,
-                        'coo_values': self.coo_values,
-                        'other': self.other_tensor_arr,
-                    }
-                )
-                self.assertEqual(coo.is_coalesced(), self.expected_result[0])
-                self.assertEqual(other.is_coalesced(), self.expected_result[1])
+            exe = paddle.static.Executor()
+            exe.run(
+                feed={
+                    'coo_indices': self.coo_indices,
+                    'coo_values': self.coo_values,
+                    'other': self.other_tensor_arr,
+                }
+            )
+            self.assertEqual(coo.is_coalesced(), self.expected_result[0])
+            self.assertEqual(other.is_coalesced(), self.expected_result[1])
+        paddle.disable_static()
 
 
 class TestSparseIsCoalescedAPIStatic1(TestSparseIsCoalescedAPIStatic):
