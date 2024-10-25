@@ -1513,111 +1513,111 @@ class FullWithTensorPattern
                    "< 8.5.0";
         return false;
       }
-#endif
-      auto dtype =
-          op->attribute<paddle::dialect::DataTypeAttribute>("dtype").data();
-      if (dtype != phi::DataType::INT32 && dtype != phi::DataType::INT64 &&
-          dtype != phi::DataType::FLOAT32) {
-        VLOG(3) << "pd_op.full_with_tensor only support int32, int64, float32";
-        return false;
-      }
-
-      op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-      return true;
     }
-  };
+#endif
+    auto dtype =
+        op->attribute<paddle::dialect::DataTypeAttribute>("dtype").data();
+    if (dtype != phi::DataType::INT32 && dtype != phi::DataType::INT64 &&
+        dtype != phi::DataType::FLOAT32) {
+      VLOG(3) << "pd_op.full_with_tensor only support int32, int64, float32";
+      return false;
+    }
 
-  class TrtOpMarkerPass : public pir::PatternRewritePass {
-   public:
-    TrtOpMarkerPass() : pir::PatternRewritePass("trt_op_marker_pass", 2) {}
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
 
-    pir::RewritePatternSet InitializePatterns(
-        pir::IrContext *context) override {
-      pir::RewritePatternSet ps(context);
+class TrtOpMarkerPass : public pir::PatternRewritePass {
+ public:
+  TrtOpMarkerPass() : pir::PatternRewritePass("trt_op_marker_pass", 2) {}
+
+  pir::RewritePatternSet InitializePatterns(pir::IrContext *context) override {
+    pir::RewritePatternSet ps(context);
 
 #define ADD_PATTERN(OpName) \
   ps.Add(std::make_unique<OpName##OpPattern>(context));
-      ADD_PATTERN(Matmul)
-      ADD_PATTERN(BatchNorm)
-      ADD_PATTERN(BatchNorm_)
-      ADD_PATTERN(Softmax)
-      ADD_PATTERN(Relu)
-      ADD_PATTERN(FullIntArray)
-      ADD_PATTERN(Reshape)
-      ADD_PATTERN(Dropout)
-      ADD_PATTERN(Bmm)
-      ADD_PATTERN(Concat)
-      ADD_PATTERN(Full)
-      ADD_PATTERN(Fused_gemm_epilogue)
-      ADD_PATTERN(Add)
-      ADD_PATTERN(Silu)
-      ADD_PATTERN(Conv2d)
-      ADD_PATTERN(FusedConv2dAddAct)
-      ADD_PATTERN(DepthwiseConv2d)
-      ADD_PATTERN(Nonzero)
-      ADD_PATTERN(Gelu)
-      ADD_PATTERN(Shape)
-      ADD_PATTERN(Expand)
-      ADD_PATTERN(ExpandAs)
-      ADD_PATTERN(Sigmoid)
-      ADD_PATTERN(Sqrt)
-      ADD_PATTERN(Hardsigmoid)
-      ADD_PATTERN(Hardswish)
-      ADD_PATTERN(AssignOut)
-      ADD_PATTERN(Assign)
-      ADD_PATTERN(AssignValue_)
+    ADD_PATTERN(Matmul)
+    ADD_PATTERN(BatchNorm)
+    ADD_PATTERN(BatchNorm_)
+    ADD_PATTERN(Softmax)
+    ADD_PATTERN(Relu)
+    ADD_PATTERN(FullIntArray)
+    ADD_PATTERN(Reshape)
+    ADD_PATTERN(Dropout)
+    ADD_PATTERN(Bmm)
+    ADD_PATTERN(Concat)
+    ADD_PATTERN(Full)
+    ADD_PATTERN(Fused_gemm_epilogue)
+    ADD_PATTERN(Add)
+    ADD_PATTERN(Silu)
+    ADD_PATTERN(Conv2d)
+    ADD_PATTERN(FusedConv2dAddAct)
+    ADD_PATTERN(DepthwiseConv2d)
+    ADD_PATTERN(Nonzero)
+    ADD_PATTERN(Gelu)
+    ADD_PATTERN(Shape)
+    ADD_PATTERN(Expand)
+    ADD_PATTERN(ExpandAs)
+    ADD_PATTERN(Sigmoid)
+    ADD_PATTERN(Sqrt)
+    ADD_PATTERN(Hardsigmoid)
+    ADD_PATTERN(Hardswish)
+    ADD_PATTERN(AssignOut)
+    ADD_PATTERN(Assign)
+    ADD_PATTERN(AssignValue_)
 #if IS_TRT_VERSION_GE(8600)
-      ADD_PATTERN(Layer_norm)
+    ADD_PATTERN(Layer_norm)
 #endif
 #undef ADD_PATTERN
-      ps.Add(std::make_unique<Pool2dOpPattern>(context));
-      ps.Add(std::make_unique<Conv2dTransposeOpPattern>(context));
-      ps.Add(std::make_unique<DepthwiseConv2dTransposeOpPattern>(context));
-      ps.Add(std::make_unique<DeformableConvOpPattern>(context));
-      ps.Add(std::make_unique<ArangeOpPattern>(context));
-      ps.Add(std::make_unique<SignOpPattern>(context));
-      ps.Add(std::make_unique<LogicalNotOpPattern>(context));
-      ps.Add(std::make_unique<GroupNormOpPattern>(context));
-      ps.Add(std::make_unique<TransposeOpPattern>(context));
-      ps.Add(std::make_unique<GatherOpPattern>(context));
-      ps.Add(std::make_unique<GatherNdOpPattern>(context));
-      ps.Add(std::make_unique<ScaleOpPattern>(context));
-      ps.Add(std::make_unique<UnsqueezeOpPattern>(context));
-      ps.Add(std::make_unique<SqueezeOpPattern>(context));
-      ps.Add(std::make_unique<Unsqueeze_OpPattern>(context));
-      ps.Add(std::make_unique<SliceOpPattern>(context));
-      ps.Add(std::make_unique<IndexSelectOpPattern>(context));
-      ps.Add(std::make_unique<FlattenOpPattern>(context));
-      ps.Add(std::make_unique<CastOpPattern>(context));
-      ps.Add(std::make_unique<SplitOpPattern>(context));
-      ps.Add(std::make_unique<SplitWithNumOpPattern>(context));
-      ps.Add(std::make_unique<GreaterEqualOpPattern>(context));
-      ps.Add(std::make_unique<MultiplyOpPattern>(context));
-      ps.Add(std::make_unique<SubtractOpPattern>(context));
-      ps.Add(std::make_unique<DivideOpPattern>(context));
-      ps.Add(std::make_unique<ElementwisePowOpPattern>(context));
-      ps.Add(std::make_unique<MinimumOpPattern>(context));
-      ps.Add(std::make_unique<MaximumOpPattern>(context));
-      ps.Add(std::make_unique<FloorDivideOpPattern>(context));
-      ps.Add(std::make_unique<MeanOpPattern>(context));
-      ps.Add(std::make_unique<RemainderOpPattern>(context));
-      ps.Add(std::make_unique<MulticlassNms3OpPattern>(context));
-      ps.Add(std::make_unique<ArgmaxOpPattern>(context));
-      ps.Add(std::make_unique<MaxOpPattern>(context));
-      ps.Add(std::make_unique<MinOpPattern>(context));
-      ps.Add(std::make_unique<BilinearInterpV2Pattern>(context));
-      ps.Add(std::make_unique<NearestInterV2Pattern>(context));
-      ps.Add(std::make_unique<TanhOpPattern>(context));
-      ps.Add(std::make_unique<FullWithTensorPattern>(context));
-      return ps;
-    }
-  };
+    ps.Add(std::make_unique<Pool2dOpPattern>(context));
+    ps.Add(std::make_unique<Conv2dTransposeOpPattern>(context));
+    ps.Add(std::make_unique<DepthwiseConv2dTransposeOpPattern>(context));
+    ps.Add(std::make_unique<DeformableConvOpPattern>(context));
+    ps.Add(std::make_unique<ArangeOpPattern>(context));
+    ps.Add(std::make_unique<SignOpPattern>(context));
+    ps.Add(std::make_unique<LogicalNotOpPattern>(context));
+    ps.Add(std::make_unique<GroupNormOpPattern>(context));
+    ps.Add(std::make_unique<TransposeOpPattern>(context));
+    ps.Add(std::make_unique<GatherOpPattern>(context));
+    ps.Add(std::make_unique<GatherNdOpPattern>(context));
+    ps.Add(std::make_unique<ScaleOpPattern>(context));
+    ps.Add(std::make_unique<UnsqueezeOpPattern>(context));
+    ps.Add(std::make_unique<SqueezeOpPattern>(context));
+    ps.Add(std::make_unique<Unsqueeze_OpPattern>(context));
+    ps.Add(std::make_unique<SliceOpPattern>(context));
+    ps.Add(std::make_unique<IndexSelectOpPattern>(context));
+    ps.Add(std::make_unique<FlattenOpPattern>(context));
+    ps.Add(std::make_unique<CastOpPattern>(context));
+    ps.Add(std::make_unique<SplitOpPattern>(context));
+    ps.Add(std::make_unique<SplitWithNumOpPattern>(context));
+    ps.Add(std::make_unique<GreaterEqualOpPattern>(context));
+    ps.Add(std::make_unique<MultiplyOpPattern>(context));
+    ps.Add(std::make_unique<SubtractOpPattern>(context));
+    ps.Add(std::make_unique<DivideOpPattern>(context));
+    ps.Add(std::make_unique<ElementwisePowOpPattern>(context));
+    ps.Add(std::make_unique<MinimumOpPattern>(context));
+    ps.Add(std::make_unique<MaximumOpPattern>(context));
+    ps.Add(std::make_unique<FloorDivideOpPattern>(context));
+    ps.Add(std::make_unique<MeanOpPattern>(context));
+    ps.Add(std::make_unique<RemainderOpPattern>(context));
+    ps.Add(std::make_unique<MulticlassNms3OpPattern>(context));
+    ps.Add(std::make_unique<ArgmaxOpPattern>(context));
+    ps.Add(std::make_unique<MaxOpPattern>(context));
+    ps.Add(std::make_unique<MinOpPattern>(context));
+    ps.Add(std::make_unique<BilinearInterpV2Pattern>(context));
+    ps.Add(std::make_unique<NearestInterV2Pattern>(context));
+    ps.Add(std::make_unique<TanhOpPattern>(context));
+    ps.Add(std::make_unique<FullWithTensorPattern>(context));
+    return ps;
+  }
+};
 }  // namespace
 
 namespace pir {
-  std::unique_ptr<Pass> CreateTrtOpMarkerPass() {
-    return std::make_unique<TrtOpMarkerPass>();
-  }
+std::unique_ptr<Pass> CreateTrtOpMarkerPass() {
+  return std::make_unique<TrtOpMarkerPass>();
+}
 }  // namespace pir
 
 REGISTER_IR_PASS(trt_op_marker_pass, TrtOpMarkerPass);
