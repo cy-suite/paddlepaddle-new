@@ -57,8 +57,6 @@ class PartialAllGatherOpMaker : public framework::OpProtoAndCheckerMaker {
   void Make() override {
     AddInput("X", "(Tensor) tensor to be partial allgather");
     AddOutput("Out", "(Tensor) the allgather result");
-    AddAttr<int>("ring_id", "(int default 0) communication ring id.")
-        .SetDefault(0);
 
     AddAttr<int>("nranks",
                  "Total trainer count of the distributed training job");
