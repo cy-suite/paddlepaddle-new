@@ -685,12 +685,14 @@
   traits : paddle::dialect::ForwardOnlyTrait
 
 - op : partial_allgather
-  args : (Tensor x, int nranks, int rank, int ring_id = 0, bool use_calc_stream = false)
+  args : (Tensor x, int nranks, int rank, int ring_id = 0)
   output : Tensor(out)
   infer_meta :
     func: PartialAllgatherInferMeta
+    param: [x, nranks, rank]
   kernel :
     func : partial_allgather
+    param: [x, nranks, rank]
   inplace : (x -> out)
 
 - op : partial_recv
