@@ -37,16 +37,23 @@
 
 namespace {
 
+extern const std::set<std::string> op_in_NCHW;
+extern const std::set<std::string> op_with_axis;
+
 class AutoLayoutPass : public pir::Pass {
  public:
-  AutoLayoutPass() : pir::Pass("auto_layout_pass", 2) {}
+  AutoLayoutPass()
+      : pir::Pass("auto_layout_pass", 2),
+        ctx_(pir::IrContext::Instance()),
+        builder_(ctx_) {}
+
   void Run(pir::Operation* op) override {
     for (size_t i = 0; i < op->num_regions(); ++i) {
       auto& region = op->region(i);
       for (auto& block : region) {
-        pir::Builder builder = pir::Builder(ctx_, &block);
+        builder_ = pir::Builder(ctx_, &block);
         VLOG(4) << "Transforming block";
-        TransferLayout(builder, &block);
+        TransferLayout(&block);
       }
     }
   }
@@ -58,6 +65,14 @@ class AutoLayoutPass : public pir::Pass {
  private:
   void RewriteLayout(pir::Operation* op,
                      const std::vector<pir::Value>& input_values) {  // NOLINT
+    if (op->isa<paddle::dialect::ConcatOp>() ||
+        op->isa<paddle::dialect::ArgmaxOp>()) {
+      auto layout_interface =
+          op->dyn_cast<paddle::dialect::LayoutTransformationInterface>();
+      layout_interface.RewriteByLayout(op, common::DataLayout::NHWC);
+      return;
+    }
+
     auto InferMetaSpecificOp = [&]() {
       // Op not implement InferMetaInterface interface, so we need to rewrite
       // manually
@@ -96,15 +111,25 @@ class AutoLayoutPass : public pir::Pass {
     }
   }
 
-  bool IsInsertTransposeOpBefore(pir::Operation* op) {
-    bool is_insert_transpose = false;
-
-    auto JudgeOperand = [&](const pir::Value& operand,
-                            std::vector<int32_t> layout) {
+  bool JudgeOperand(const pir::Value& operand, std::vector<int32_t> layout) {
+    if (operand.type().isa<pir::VectorType>()) {
+      auto defined_op = operand.defining_op();
+      for (auto inner_operand : defined_op->operands_source()) {
+        if (JudgeOperand(inner_operand, NCHW2NHWC_)) {
+          return true;
+        }
+      }
+      return false;
+    } else {
       if (!JudgeValue(operand)) return false;
       auto transposeInputOp =
           operand.defining_op<paddle::dialect::TransposeOp>();
       if (!transposeInputOp) return false;
+      pir::Operation* op = transposeInputOp.operation();
+      if (!op->HasAttribute("source")) return false;
+      auto source =
+          transposeInputOp.attribute<pir::StrAttribute>("source").AsString();
+      if (source != "auto_layout_pass") return false;
       const auto perm_attr =
           transposeInputOp.attribute<pir::ArrayAttribute>("perm");
       std::vector<int32_t> perm;
@@ -113,23 +138,20 @@ class AutoLayoutPass : public pir::Pass {
         perm.push_back(attr.dyn_cast<pir::Int32Attribute>().data());
       }
       return perm == layout;
-    };
+    }
+  }
+
+  bool IsInsertTransposeOpBefore(pir::Operation* op) {
+    bool is_insert_transpose = false;
+
     for (pir::Value operand : op->operands_source()) {
-      if (operand.type().isa<pir::VectorType>()) {
-        auto defined_op = operand.defining_op();
-        for (auto inner_operand : defined_op->operands_source()) {
-          is_insert_transpose = JudgeOperand(inner_operand, NHWC2NCHW_);
-          if (is_insert_transpose) break;
-        }
-      } else {
-        is_insert_transpose = JudgeOperand(operand, NHWC2NCHW_);
-      }
       if (is_insert_transpose) break;
+      is_insert_transpose = JudgeOperand(operand, NHWC2NCHW_);
     }
     return is_insert_transpose;
   }
 
-  void TransferLayout(pir::Builder builder, pir::Block* block) {
+  void TransferLayout(pir::Block* block) {
     for (auto&& op_item : *block) {
       auto op = &op_item;
       auto op_name = op->name();
@@ -138,23 +160,25 @@ class AutoLayoutPass : public pir::Pass {
       if (op->HasTrait<pir::ImmutableLayoutTrait>()) continue;
       if (op->operands().size() == 0) continue;
 
-      // NHWC ops branch, Only support conv2d and fused_conv2d_add_act now, it
-      // will add white list later.
+      // NHWC ops branch, Only support conv2d now, it will add white list later.
       if (op->isa<paddle::dialect::Conv2dOp>() ||
-          op->isa<paddle::dialect::FusedConv2dAddActOp>()) {
+          op->isa<paddle::dialect::FusedConv2dAddActOp>() ||
+          op->isa<paddle::dialect::Conv2dTransposeOp>()) {
         if (op->HasAttribute("data_format") &&
             op->attribute<pir::StrAttribute>("data_format").AsString() ==
                 "NCHW") {
           VLOG(4) << "enter NHWC op: " << op_name;
-          DoTransposeOpOperand(op, builder);
+          DoTransposeOpOperand(op);
           RewriteLayout(op, op->operands_source());
-          DoTransposeOpResult(op, builder);
+          DoTransposeOpResult(op);
         }
-      } else if (IsInsertTransposeOpBefore(op)) {
+      } else if (op_in_NCHW.find(op_name) == op_in_NCHW.end() &&
+                 op_with_axis.find(op_name) == op_with_axis.end() &&
+                 IsInsertTransposeOpBefore(op)) {
         VLOG(4) << "enter NCHW op: " << op_name;
-        DoTransposeOpOperand(op, builder);
+        DoTransposeOpOperand(op);
         RewriteLayout(op, op->operands_source());
-        DoTransposeOpResult(op, builder);
+        DoTransposeOpResult(op);
       }
     }
   }
@@ -170,16 +194,20 @@ class AutoLayoutPass : public pir::Pass {
     return false;
   }
 
-  void DoTransposeOpOperand(pir::Operation* op,
-                            pir::Builder& builder) {  // NOLINT
-    builder.set_insertion_point(op);
+  void DoTransposeOpOperand(pir::Operation* op) {  // NOLINT
+    builder_.set_insertion_point(op);
 
     // For conv2d, only transpose the input.
-    if (op->isa<paddle::dialect::Conv2dOp>()) {
+    if (op->isa<paddle::dialect::Conv2dOp>() ||
+        op->isa<paddle::dialect::Conv2dTransposeOp>()) {
       auto inp = op->operand(0);
       if (!JudgeValue(inp.source())) return;
-      auto transpose_op =
-          builder.Build<paddle::dialect::TransposeOp>(inp.source(), NCHW2NHWC_);
+      auto transpose_op = builder_.Build<paddle::dialect::TransposeOp>(
+          inp.source(), NCHW2NHWC_);
+      transpose_op->set_attribute(
+          "source",
+          pir::StrAttribute::get(transpose_op->ir_context(),
+                                 "auto_layout_pass"));
       pir::SetNewLayoutForValue(transpose_op->result(0),
                                 common::DataLayout::NHWC);
       inp.set_source(transpose_op->result(0));
@@ -189,30 +217,125 @@ class AutoLayoutPass : public pir::Pass {
     for (auto& operand : op->operands()) {
       if (!JudgeValue(operand.source())) continue;
       // Canbe optimize with cache when not eliminate the transpose op.
-      auto transpose_op = builder.Build<paddle::dialect::TransposeOp>(
+      auto transpose_op = builder_.Build<paddle::dialect::TransposeOp>(
           operand.source(), NCHW2NHWC_);
+      transpose_op->set_attribute(
+          "source",
+          pir::StrAttribute::get(transpose_op->ir_context(),
+                                 "auto_layout_pass"));
       pir::SetNewLayoutForValue(transpose_op->result(0),
                                 common::DataLayout::NHWC);
       operand.set_source(transpose_op->result(0));
     }
   }
-  void DoTransposeOpResult(pir::Operation* op,
-                           pir::Builder& builder) {  // NOLINT
-    builder.SetInsertionPointAfter(op);
+  void DoTransposeOpResult(pir::Operation* op) {  // NOLINT
+    builder_.SetInsertionPointAfter(op);
     for (auto& result : op->results()) {
       if (!JudgeValue(result)) continue;
       auto transpose_op =
-          builder.Build<paddle::dialect::TransposeOp>(result, NHWC2NCHW_);
+          builder_.Build<paddle::dialect::TransposeOp>(result, NHWC2NCHW_);
+      transpose_op->set_attribute(
+          "source",
+          pir::StrAttribute::get(transpose_op->ir_context(),
+                                 "auto_layout_pass"));
       pir::SetNewLayoutForValue(transpose_op->result(0),
                                 common::DataLayout::NCHW);
       result.ReplaceAllUsesWith(transpose_op->result(0));
       transpose_op->operand(0).set_source(result);
     }
   }
-  pir::IrContext* ctx_ = pir::IrContext::Instance();
+  pir::IrContext* ctx_;
+  pir::Builder builder_;
   const std::vector<int32_t> NCHW2NHWC_ = {0, 2, 3, 1};
   const std::vector<int32_t> NHWC2NCHW_ = {0, 3, 1, 2};
 };
+
+const std::set<std::string> op_in_NCHW = {"pd_op.max_pool2d_with_index",
+                                          "pd_op.fractional_max_pool2d",
+                                          "pd_op.unpool3d",
+                                          "pd_op.unpool",
+                                          "pd_op.correlation",
+                                          "pd_op.depthwise_conv2d",
+                                          "pd_op.grid_sample",
+                                          "pd_op.shuffle_channel",
+                                          "cf.yield",
+                                          "pd_op.reshape",
+                                          "pd_op.instance_norm",
+                                          "pd_op.batch_norm_",
+                                          "pd_op.sigmoid",
+                                          "pd_op.bilinear_interp",
+                                          "pd_op.multiply",
+                                          "pd_op.shape",
+                                          "pd_op.deformable_conv"};
+const std::set<std::string> op_with_axis = {
+    "pd_op.all",
+    "pd_op.amax",
+    "pd_op.amin",
+    "pd_op.any",
+    //  "pd_op.argmax",
+    "pd_op.argmin",
+    "pd_op.argsort",
+    "pd_op.box_coder",
+    //  "pd_op.concat",
+    "pd_op.cross",
+    "pd_op.cross_entropy_with_softmax",
+    "pd_op.cummax",
+    "pd_op.cummin",
+    "pd_op.cumsum",
+    "pd_op.diagonal",
+    "pd_op.fake_channel_wise_dequantize_max_abs",
+    "pd_op.fake_channel_wise_quantize_abs_max",
+    "pd_op.fake_channel_wise_quantize_dequantize_abs_max",
+    "pd_op.flatten",
+    "pd_op.flip",
+    "pd_op.frame",
+    "pd_op.frobenius_norm",
+    "pd_op.gather",
+    "pd_op.gumbel_softmax",
+    "pd_op.index_add",
+    "pd_op.index_select",
+    "pd_op.index_select_strided",
+    "pd_op.kthvalue",
+    "pd_op.layer_norm",
+    "pd_op.log_softmax",
+    "pd_op.logcumsumexp",
+    "pd_op.logsumexp",
+    "pd_op.max",
+    "pd_op.maxout",
+    "pd_op.mean",
+    "pd_op.mode",
+    "pd_op.nanmedian",
+    "pd_op.norm",
+    "pd_op.overlap_add",
+    "pd_op.p_norm",
+    "pd_op.prod",
+    "pd_op.put_along_axis",
+    "pd_op.renorm",
+    "pd_op.repeat_interleave",
+    "pd_op.repeat_interleave_with_tensor_index",
+    "pd_op.reverse",
+    "pd_op.roll",
+    "pd_op.slice",
+    "pd_op.split",
+    "pd_op.split_with_num",
+    "pd_op.squeeze",
+    "pd_op.stack",
+    "pd_op.sum",
+    "pd_op.take_along_axis",
+    "pd_op.tensor_unfold",
+    "pd_op.topk",
+    "pd_op.trace",
+    "pd_op.unbind",
+    "pd_op.unique_consecutive",
+    "pd_op.dequantize_linear",
+    "pd_op.min",
+    "pd_op.quantize_linear",
+    "pd_op.softmax",
+    "pd_op.sparse_momentum",
+    "pd_op.unique",
+    "pd_op.unsqueeze",
+    "pd_op.unstack"};
+
 }  // namespace
 namespace pir {
 
