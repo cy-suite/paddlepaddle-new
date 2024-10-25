@@ -324,10 +324,9 @@ class Engine:
         paddle.framework.set_flags({'FLAGS_new_executor_sequential_run': 1})
         paddle.framework.set_flags({'FLAGS_new_executor_static_build': 1})
 
-        if auto_utils.use_new_executor():
-            is_pir_mode = os.environ.get("FLAGS_enable_pir_in_executor", None)
-            if is_pir_mode is None:
-                paddle.framework.set_flags({'FLAGS_enable_pir_in_executor': 1})
+        is_pir_mode = os.environ.get("FLAGS_enable_pir_in_executor", None)
+        if is_pir_mode is None:
+            paddle.framework.set_flags({'FLAGS_enable_pir_in_executor': 1})
 
         self.enable_job_schedule_profiler = False
 
@@ -2197,19 +2196,13 @@ class Engine:
         if batch_size is None:
             return None
 
-        if auto_utils.use_new_executor():
-            assert (
-                len(set(self._dp_world_sizes)) == 1
-            ), f"DistributedBatchSampler only support one data parallel group, but got [{len(set(self._dp_world_sizes))}] different data parallel groups"
-            assert (
-                batch_size % self._dp_world_sizes[0] == 0
-            ), f"batch_size [{batch_size}] is not divisible by dp_world_size [{self._dp_world_sizes[0]}]"
-            return batch_size // self._dp_world_sizes[0]
-        else:
-            assert (
-                batch_size % self._acc_steps == 0
-            ), f"Requires batch_size:[{batch_size}] to be divisible by acc_steps:[{self._acc_steps}]."
-            return batch_size // self._acc_steps
+        assert (
+            len(set(self._dp_world_sizes)) == 1
+        ), f"DistributedBatchSampler only support one data parallel group, but got [{len(set(self._dp_world_sizes))}] different data parallel groups"
+        assert (
+            batch_size % self._dp_world_sizes[0] == 0
+        ), f"batch_size [{batch_size}] is not divisible by dp_world_size [{self._dp_world_sizes[0]}]"
+        return batch_size // self._dp_world_sizes[0]
 
     def _validate_batch(self, batch):
         if batch is None:
