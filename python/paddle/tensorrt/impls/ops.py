@@ -18,8 +18,13 @@ from paddle.tensorrt.register import converter_registry
 
 @converter_registry.register("pd_op.sqrt", trt_version="8.x")
 @converter_registry.register("pd_op.sqrt_", trt_version="8.x")
+@converter_registry.register("pd_op.floor", trt_version="8.x")
 def sqrt_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
-
-    sqrt_layer = network.add_unary(input_tensor, trt.UnaryOperation.SQRT)
-    return sqrt_layer.get_output(0)
+    if paddle_op.name() in {"pd_op.sqrt", "pd_op.sqrt_"}:
+        layer = network.add_unary(input_tensor, trt.UnaryOperation.SQRT)
+    elif paddle_op.name() == "pd_op.floor":
+        layer = network.add_unary(input_tensor, trt.UnaryOperation.FLOOR)
+    else:
+        raise ValueError(f"Unexpected paddle_op: {paddle_op.name()}")
+    return layer.get_output(0)
