@@ -15,7 +15,7 @@
 
 from .api import (
     ignore_module,
-    json_to_pdmodel,
+    json_to_pdmodel,  # noqa: F401
     load,
     not_to_static,
     save,
@@ -35,5 +35,4 @@ __all__ = [
     'set_verbosity',
     'not_to_static',
     'enable_to_static',
-    'json_to_pdmodel',
 ]
