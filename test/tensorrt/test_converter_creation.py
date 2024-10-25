@@ -96,8 +96,8 @@ class TestFullWithTensorTRTPattern(TensorRTBaseTest):
         self.python_api = paddle.tensor.fill_constant
         self.api_args = {
             "shape": np.array([1]).astype("int32"),
-            "dtype": "float32",  # 添加dtype参数
-            "value": np.array([0.0]).astype("float32"),  # 保证传递value参数
+            "dtype": "float32",
+            "value": np.array([0.0]).astype("float32"),
         }
         self.program_config = {"feed_list": ["value", "shape"]}
         self.min_shape = {}
