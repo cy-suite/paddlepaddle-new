@@ -2515,6 +2515,16 @@
   composite: relu_grad(out, out_grad, x_grad)
   inplace : (out_grad -> x_grad)
 
+- backward_op : remainder_grad
+  forward : remainder (Tensor x, Tensor y) -> Tensor(out)
+  args : (Tensor x, Tensor y, Tensor out_grad)
+  output : Tensor(x_grad), Tensor(y_grad)
+  infer_meta :
+    func : GeneralBinaryGradInferMeta
+    param : [x, y]
+  kernel :
+    func : remainder_grad
+
 - backward_op : renorm_grad
   forward : renorm (Tensor x, float p, int axis, float max_norm) -> Tensor(out)
   args : (Tensor x, Tensor out_grad, float p, int axis, float max_norm)

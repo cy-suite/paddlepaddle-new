@@ -16,6 +16,8 @@ limitations under the License. */
 
 #include "glog/logging.h"
 
+#include "paddle/common/enforce.h"
+#include "paddle/common/errors.h"
 #include "paddle/phi/common/amp_type_traits.h"
 #include "paddle/phi/common/complex.h"
 #include "paddle/phi/common/float16.h"
@@ -1400,6 +1402,51 @@ void ElementwisePowGradKernel(const Context& dev_ctx,
       dev_ctx, x, y, dout, dout, axis, dx, dy, PowGradDX<T>(), PowGradDY<T>());
 }
 
+/*
+******************************
+    Remainder Grad
+******************************
+*/
+// RemainderGradDx
+template <typename T>
+struct RemainderGradDx {
+  HOSTDEVICE T operator()(T x, T y, T out UNUSED, T dout) const {
+    // dx = dout
+    return dout;
+  }
+};
+
+// RemainderGradDy
+template <typename T, typename Enable = void>
+struct RemainderGradDy {
+  HOSTDEVICE T operator()(T x, T y, T out UNUSED, T dout) const {
+    return -dout * (std::floor(static_cast<double>(x / y)));
+  }
+};
+template <typename T>
+struct RemainderGradDy<
+    T,
+    typename std::enable_if<std::is_floating_point<T>::value>::type> {
+  HOSTDEVICE T operator()(T x, T y, T out UNUSED, T dout) const {
+    using MPType = typename phi::dtype::MPTypeTrait<T>::Type;
+    auto x_ = static_cast<MPType>(x);
+    auto y_ = static_cast<MPType>(y);
+    return static_cast<T>(-static_cast<MPType>(dout) * (std::floor((x_ / y_))));
+  }
+};
+template <typename T>
+struct RemainderGradDy<
+    T,
+    typename std::enable_if<std::is_integral<T>::value>::type> {
+  HOSTDEVICE T operator()(T x, T y, T out UNUSED, T dout) const {
+    PADDLE_ENFORCE_NE(y,
+                      0,
+                      common::errors::PreconditionNotMet(
+                          "divisor can not be zero when y is integral dtype"));
+    // dy = -dout * (x / y)
+    return -dout * (x / y);
+  }
+};
 /*
 ******************************
     Copysign Grad

@@ -14,6 +14,8 @@ limitations under the License. */
 
 #pragma once
 
+#include "paddle/common/enforce.h"
+#include "paddle/common/errors.h"
 #include "paddle/common/hostdevice.h"
 #include "paddle/common/macros.h"
 #include "paddle/phi/common/bfloat16.h"
@@ -588,6 +590,71 @@ struct RemainderFunctor<dtype::bfloat16> {
     // remainder shall have the same sign as divsor.
     if ((res != 0.0f) && ((res < 0.0f) != (b_float < 0.0f))) res += b_float;
     return static_cast<dtype::bfloat16>(res);
+  }
+};
+
+// RemainderGradXFunctor
+template <typename T>
+struct RemainderGradXFunctor {
+  inline HOSTDEVICE T operator()(const T x, const T y, const T dout) const {
+    // dx = dout
+    return dout;
+  }
+};
+
+// RemainderGradYFunctor
+template <typename T, typename Enable = void>
+struct RemainderGradYFunctor {
+  inline HOSTDEVICE T operator()(const T x, const T y, const T dout) const {
+    return -dout * static_cast<T>((x / y));
+  }
+};
+template <typename T>
+struct RemainderGradYFunctor<
+    T,
+    typename std::enable_if<std::is_integral<T>::value>::type> {
+  inline HOSTDEVICE T operator()(const T x, const T y, const T dout) const {
+    PADDLE_ENFORCE_NE(y,
+                      0,
+                      common::errors::PreconditionNotMet(
+                          "divisor can not be zero when y is integral dtype"));
+    // dy = -dout * (floor_div(x, y))
+    return -dout * (std::floor(x / y));
+  }
+};
+
+// RemainderGradXYFunctor
+template <typename InT, typename OutT, typename Enable = void>
+struct RemainderGradXYFunctor {
+  inline HOSTDEVICE phi::Array<OutT, 2> operator()(const InT x,
+                                                   const InT y,
+                                                   const InT dout) {
+    phi::Array<OutT, 2> outs;
+    // dx = dout
+    outs[0] = static_cast<OutT>(dout);
+    // dy = -dout * (floor_div(x, y))
+    outs[1] = static_cast<OutT>(dout * static_cast<InT>(std::floor(x / y)));
+    return outs;
+  }
+};
+template <typename InT, typename OutT>
+struct RemainderGradXYFunctor<
+    InT,
+    OutT,
+    typename std::enable_if<std::is_integral<InT>::value>::type> {
+  inline HOSTDEVICE Array<OutT, 2> operator()(const InT x,
+                                              const InT y,
+                                              const InT dout) {
+    Array<OutT, 2> outs;
+    // dx = dout
+    outs[0] = static_cast<OutT>(dout);
+    // dy = -dout * (x / y)
+    PADDLE_ENFORCE_NE(y,
+                      0,
+                      common::errors::PreconditionNotMet(
+                          "divisor can not be zero when y is integral dtype"));
+    outs[1] = static_cast<OutT>(-dout * (x / y));
+    return outs;
   }
 };
 
