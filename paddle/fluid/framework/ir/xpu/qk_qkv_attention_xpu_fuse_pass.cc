@@ -206,13 +206,18 @@ void QkQkvAttentionXPUFusePass::ApplyQkQkvAttentionXPUFuse(
                      Graph* graph) {
     VLOG(4) << "handle QkQkvAttentionXPUFusePass";
 
+    ir::Node* scale = nullptr;
+    ir::Node* scale_out = nullptr;
+
     // declare operator node's name
     GET_IR_NODE(reshape_1);
     GET_IR_NODE(transpose2_1);
     GET_IR_NODE(slice_1);
     GET_IR_NODE(slice_2);
     GET_IR_NODE(slice_3);
-    GET_IR_NODE(scale);
+    if (with_q_scale) {
+      scale = subgraph.at(pattern.scale_n());
+    }
     GET_IR_NODE(transpose2_2);
     GET_IR_NODE(qk_matmul);
     GET_IR_NODE(qk_softmax);
@@ -227,7 +232,9 @@ void QkQkvAttentionXPUFusePass::ApplyQkQkvAttentionXPUFuse(
     GET_IR_NODE(slice_1_out);
     GET_IR_NODE(slice_2_out);
     GET_IR_NODE(slice_3_out);
-    GET_IR_NODE(scale_out);
+    if (with_q_scale) {
+      scale_out = subgraph.at(pattern.scale_out_n());
+    }
     GET_IR_NODE(transpose2_2_out);
     GET_IR_NODE(qk_matmul_out);
     GET_IR_NODE(qk_softmax_out);
@@ -302,7 +309,7 @@ void QkQkvAttentionXPUFusePass::ApplyQkQkvAttentionXPUFuse(
       VLOG(4) << "while with_q_scale, scale_val = " << scale_val;
     } else {
       // in xdnn, 0.0f is default value of NewBaseAttnParam.alpha
-      fused_op_desc.SetAttr("alpha", 0.0f);
+      fused_op_desc.SetAttr("alpha", 1.0f);
     }
     fused_op_desc.SetAttr(
         "head_num", static_cast<int>(transpose2_1_out->Var()->GetShape()[2]));
@@ -337,8 +344,10 @@ void QkQkvAttentionXPUFusePass::ApplyQkQkvAttentionXPUFuse(
     del_node_set.insert(slice_2_out);
     del_node_set.insert(slice_3);
     del_node_set.insert(slice_3_out);
-    del_node_set.insert(scale);
-    del_node_set.insert(scale_out);
+    if (with_q_scale) {
+      del_node_set.insert(scale);
+      del_node_set.insert(scale_out);
+    }
     del_node_set.insert(transpose2_2);
     del_node_set.insert(transpose2_2_out);
     del_node_set.insert(qk_matmul);
@@ -364,14 +373,9 @@ void QkQkvAttentionXPUFusePass::ApplyImpl(ir::Graph* graph) const {
       graph, common::errors::PreconditionNotMet("graph should not be null."));
   Init(name_scope_, graph);
 
-  for (auto with_q_scale : {true, false}) {
-    if (with_q_scale) {
-      for (auto scale_above_qk : {true, false}) {
-        ApplyQkQkvAttentionXPUFuse(graph, true, scale_above_qk);
-      }
-    } else {
-      ApplyQkQkvAttentionXPUFuse(graph, false, false);
-    }
+  ApplyQkQkvAttentionXPUFuse(graph, false, false);  // no scale op
+  for (auto scale_above_qk : {true, false}) {
+    ApplyQkQkvAttentionXPUFuse(graph, true, scale_above_qk);
   }
 }
 }  // namespace ir
