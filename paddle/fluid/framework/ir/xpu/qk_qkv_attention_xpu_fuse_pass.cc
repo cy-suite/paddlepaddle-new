@@ -31,7 +31,8 @@ namespace patterns {
 struct QkQkvAttentionFusePattern : public PatternBase {
   QkQkvAttentionFusePattern(PDPattern* pattern,
                             const std::string& name_scope,
-                            bool with_q_scale);
+                            bool with_q_scale,
+                            bool scale_above_qk);
 
   // declare operator node's name
   PATTERN_DECL_NODE(reshape_1);
@@ -64,12 +65,17 @@ struct QkQkvAttentionFusePattern : public PatternBase {
 
  private:
   bool with_q_scale_{false};
+  bool scale_above_qk_{false};
 };
 
 QkQkvAttentionFusePattern::QkQkvAttentionFusePattern(
-    PDPattern* pattern, const std::string& name_scope, bool with_q_scale)
+    PDPattern* pattern,
+    const std::string& name_scope,
+    bool with_q_scale,
+    bool scale_above_qk)
     : PatternBase(pattern, name_scope, name_scope),
-      with_q_scale_(with_q_scale) {
+      with_q_scale_(with_q_scale),
+      scale_above_qk_(scale_above_qk) {
   auto* input = pattern->NewNode(input_repr())
                     ->assert_is_op_input("reshape2", "X")
                     ->AsInput();
@@ -88,7 +94,7 @@ QkQkvAttentionFusePattern::QkQkvAttentionFusePattern(
   PDNode* slice_1_out = nullptr;
   PDNode* scale = nullptr;
   PDNode* scale_out = nullptr;
-  if (with_q_scale_) {
+  if (with_q_scale_ && scale_above_qk_) {
     slice_1_out = pattern->NewNode(slice_1_out_repr())
                       ->assert_is_op_output("slice", "Out")
                       ->assert_is_op_input("scale", "X");
@@ -120,9 +126,21 @@ QkQkvAttentionFusePattern::QkQkvAttentionFusePattern(
                                ->assert_is_op_input("matmul_v2", "Y");
   auto* qk_matmul =
       pattern->NewNode(qk_matmul_repr())->assert_is_op("matmul_v2");
-  auto* qk_matmul_out = pattern->NewNode(qk_matmul_out_repr())
-                            ->assert_is_op_output("matmul_v2", "Out")
-                            ->assert_is_op_input("softmax", "X");
+
+  PDNode* qk_matmul_out = nullptr;
+  if (with_q_scale_ && !scale_above_qk_) {
+    qk_matmul_out = pattern->NewNode(qk_matmul_out_repr())
+                        ->assert_is_op_output("matmul_v2", "Out")
+                        ->assert_is_op_input("scale", "X");
+    scale = pattern->NewNode(scale_repr())->assert_is_op("scale");
+    scale_out = pattern->NewNode(scale_out_repr())
+                    ->assert_is_op_output("scale", "Out")
+                    ->assert_is_op_input("softmax", "X");
+  } else {
+    qk_matmul_out = pattern->NewNode(qk_matmul_out_repr())
+                        ->assert_is_op_output("matmul_v2", "Out")
+                        ->assert_is_op_input("softmax", "X");
+  }
   auto* qk_softmax =
       pattern->NewNode(qk_softmax_repr())->assert_is_op("softmax");
   auto* qk_softmax_out = pattern->NewNode(qk_softmax_out_repr())
@@ -154,7 +172,7 @@ QkQkvAttentionFusePattern::QkQkvAttentionFusePattern(
   slice_1->LinksFrom({transpose2_1_out}).LinksTo({slice_1_out});
   slice_2->LinksFrom({transpose2_1_out}).LinksTo({slice_2_out});
   slice_3->LinksFrom({transpose2_1_out}).LinksTo({slice_3_out});
-  if (with_q_scale_) {
+  if (with_q_scale_ && scale_above_qk_) {
     scale->LinksFrom({slice_1_out}).LinksTo({scale_out});
     qk_matmul->LinksFrom({scale_out, transpose2_2_out})
         .LinksTo({qk_matmul_out});
@@ -163,7 +181,12 @@ QkQkvAttentionFusePattern::QkQkvAttentionFusePattern(
         .LinksTo({qk_matmul_out});
   }
   transpose2_2->LinksFrom({slice_2_out}).LinksTo({transpose2_2_out});
-  qk_softmax->LinksFrom({qk_matmul_out}).LinksTo({qk_softmax_out});
+  if (with_q_scale_ && !scale_above_qk_) {
+    scale->LinksFrom({qk_matmul_out}).LinksTo({scale_out});
+    qk_softmax->LinksFrom({scale_out}).LinksTo({qk_softmax_out});
+  } else {
+    qk_softmax->LinksFrom({qk_matmul_out}).LinksTo({qk_softmax_out});
+  }
   qkv_matmul->LinksFrom({slice_3_out, qk_softmax_out})
       .LinksTo({qkv_matmul_out});
   transpose2_3->LinksFrom({qkv_matmul_out}).LinksTo({transpose2_3_out});
@@ -173,10 +196,10 @@ QkQkvAttentionFusePattern::QkQkvAttentionFusePattern(
 }  // namespace patterns
 
 void QkQkvAttentionXPUFusePass::ApplyQkQkvAttentionXPUFuse(
-    ir::Graph* graph, bool with_q_scale) const {
+    ir::Graph* graph, bool with_q_scale, bool scale_above_qk) const {
   GraphPatternDetector gpd;
   patterns::QkQkvAttentionFusePattern pattern(
-      gpd.mutable_pattern(), name_scope_, with_q_scale);
+      gpd.mutable_pattern(), name_scope_, with_q_scale, scale_above_qk);
   int found_subgraph_count = 0;
 
   auto handler = [&](const GraphPatternDetector::subgraph_t& subgraph,
@@ -342,10 +365,15 @@ void QkQkvAttentionXPUFusePass::ApplyImpl(ir::Graph* graph) const {
   Init(name_scope_, graph);
 
   for (auto with_q_scale : {true, false}) {
-    ApplyQkQkvAttentionXPUFuse(graph, with_q_scale);
+    if (with_q_scale) {
+      for (auto scale_above_qk : {true, false}) {
+        ApplyQkQkvAttentionXPUFuse(graph, true, scale_above_qk);
+      }
+    } else {
+      ApplyQkQkvAttentionXPUFuse(graph, false, false);
+    }
   }
 }
-
 }  // namespace ir
 }  // namespace framework
 }  // namespace paddle
