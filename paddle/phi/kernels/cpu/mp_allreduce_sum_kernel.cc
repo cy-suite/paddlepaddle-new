@@ -19,8 +19,6 @@ namespace phi {
 template <typename T, typename Context>
 void MpAllReduceSumKernel(const Context& dev_ctx,
                           const DenseTensor& x,
-                          int ring_id UNUSED,
-                          bool use_calc_stream UNUSED,
                           DenseTensor* out) {
   AllReduceKernel<T, Context>(
       dev_ctx, x, static_cast<int>(ReduceType::kRedSum), out);
