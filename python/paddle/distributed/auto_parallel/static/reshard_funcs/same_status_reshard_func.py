@@ -72,11 +72,6 @@ class SameStatusReshardFunction(ReshardFunction):
                     assert all(
                         x == combine_op_chunk_id_list[0]
                         for x in combine_op_chunk_id_list
-                    )
-
-                    assert all(
-                        x == combine_op_chunk_id_list[0]
-                        for x in combine_op_chunk_id_list
                     ), "combine_op's operands has different chunk_id."
                     chunk_id = combine_op_chunk_id_list[0]
                     # reset add_n chunk_id
