@@ -1586,7 +1586,7 @@ class FullWithTensorPattern
     }
     pir::Value value = op.operand_source(0);
     if (value == nullptr) {
-      VLOG(3) << "pd_op.fill_with_tensor value is null";
+      VLOG(3) << "pd_op.full_with_tensor value is null";
       return false;
     }
 #if IS_TRT_VERSION_LT(8500)
