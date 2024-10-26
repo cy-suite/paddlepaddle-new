@@ -25,6 +25,7 @@
 #include "paddle/fluid/prim/api/all.h"
 #include "paddle/fluid/prim/api/composite_backward/composite_backward_api.h"
 #include "paddle/fluid/prim/utils/utils.h"
+#include "paddle/fluid/pybind/eager_utils.h"
 #include "paddle/phi/api/all.h"
 #include "paddle/phi/api/backward/backward_api.h"
 #include "paddle/phi/api/backward/sparse_bw_api.h"
@@ -64,6 +65,15 @@ MultiplyGradNode::operator()(
   auto y = egr::EagerUtils::RecoverTensorWrapper(&this->y_);
   auto& grad_out = hooked_grads[0][0];
   auto& axis = this->axis_;
+
+  // Convert All Inputs to DistTensor if Necessary
+  const phi::distributed::ProcessMesh* mesh = nullptr;
+  bool inputs_contain_dist_tensor =
+      paddle::pybind::InputsContainDistTensor(&mesh, grad_out);
+  if (inputs_contain_dist_tensor) {
+    paddle::pybind::ConvertAllInputsToDistTensor(mesh, x, y);
+  }
+
   // Prepare Grad function call
 
   const auto& out_metas = OutputMeta();
@@ -89,6 +99,9 @@ MultiplyGradNode::operator()(
   if (IsRunAutoParallel()) {
     egr::EagerUtils::SetGradOutputDistAttr(
         out_metas, {0, 1}, api_output_0, api_output_1);
+  } else if (inputs_contain_dist_tensor) {
+    egr::EagerUtils::SetGradOutputDistAttrByInput(api_output_0, x);
+    egr::EagerUtils::SetGradOutputDistAttrByInput(api_output_1, y);
   }
 
   // Inplace Check

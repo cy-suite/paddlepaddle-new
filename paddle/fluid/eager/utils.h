@@ -269,6 +269,12 @@ class TEST_API EagerUtils {
   }
 
   /**
+   * Set DistAttr By Input
+   */
+  static void SetGradOutputDistAttrByInput(const paddle::Tensor& input,
+                                           paddle::Tensor* grad);
+
+  /**
    * Print Input Output (level 0 means least info, level 2 means most info)
    * **/
   static std::string TensorStr(const paddle::Tensor& t);
