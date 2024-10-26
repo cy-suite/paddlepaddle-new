@@ -1280,12 +1280,125 @@ bool LuUnpackOpInferSymbolicShape(
   return true;
 }
 
-// bool MatrixRankTolOpInferSymbolicShape(pir::Operation *op,
-//                                        pir::InferSymbolicShapeContext
-//                                        *infer_context) {
-//   // pass
-//   return true;
-// }
+static inline void GetBroadcastDimsArrays(
+    const std::vector<symbol::DimExpr> &x_shape,
+    const std::vector<symbol::DimExpr> &y_shape,
+    symbol::DimExpr *x_shape_array,
+    symbol::DimExpr *y_shape_array,
+    symbol::DimExpr *out_shape_array,
+    const int max_dim,
+    const int axis,
+    pir::InferSymbolicShapeContext *infer_context) {
+  PADDLE_ENFORCE_GE(
+      axis,
+      0,
+      common::errors::InvalidArgument(
+          "Axis should be great than or equal to 0, but received axis is %d.",
+          axis));
+  PADDLE_ENFORCE_LE(
+      axis,
+      max_dim,
+      common::errors::InvalidArgument(
+          "Axis should be less than or equal to %d, but received axis is %d.",
+          max_dim,
+          axis));
+  if (x_shape.size() > y_shape.size()) {
+    std::fill(y_shape_array, y_shape_array + axis, symbol::DimExpr({1}));
+    if (axis + y_shape.size() < max_dim) {
+      std::fill(y_shape_array + axis + y_shape.size(),
+                y_shape_array + max_dim,
+                symbol::DimExpr({1}));
+    }
+    std::copy(x_shape.begin(), x_shape.begin() + axis, x_shape_array);
+    std::copy(y_shape.begin(), y_shape.end(), y_shape_array + axis);
+  } else {
+    std::fill(x_shape_array, x_shape_array + axis, symbol::DimExpr({1}));
+    if (axis + x_shape.size() < max_dim) {
+      std::fill(x_shape_array + axis + x_shape.size(),
+                x_shape_array + max_dim,
+                symbol::DimExpr({1}));
+    }
+    std::copy(x_shape.begin(), x_shape.end(), x_shape_array + axis);
+    std::copy(y_shape.begin(), y_shape.end(), y_shape_array);
+  }
+  for (int i = 0; i < max_dim; ++i) {
+    PADDLE_ENFORCE_EQ(
+        x_shape_array[i] == y_shape_array[i] || x_shape_array[i] == 1 ||
+            y_shape_array[i] == 1 || !x_shape_array[i].isa<int64_t>() ||
+            !y_shape_array[i].isa<int64_t>(),
+        true,
+        common::errors::InvalidArgument(
+            "Broadcast dimension mismatch. Operands could "
+            "not be broadcast together with the shape of X = [%s] and "
+            "the shape of Y = [%s]. Received [%d] in X is not equal to "
+            "[%d] in Y at i:%d.",
+            x_shape,
+            y_shape,
+            x_shape_array[i],
+            y_shape_array[i],
+            i));
+    symbol::DimExprBuilder builder;
+    if (((x_shape_array[i].isa<int64_t>() &&
+          x_shape_array[i].Get<int64_t>() > 1) ||
+         (y_shape_array[i].isa<int64_t>() &&
+          y_shape_array[i].Get<int64_t>() > 1)) ||
+        (x_shape_array[i] == 1 && y_shape_array[i] == 1)) {
+      out_shape_array[i] = builder.Max(x_shape_array[i], y_shape_array[i]);
+    } else {
+      out_shape_array[i] = infer_context->GetNextSymName();
+    }
+  }
+}
+
+bool MatrixRankTolOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0)).shape();
+  const auto &tol_shape =
+      infer_context->GetShapeOrDataForValue(op->operand_source(1)).shape();
+  size_t x_rank = x_shape.size();
+  PADDLE_ENFORCE_GE(x_rank,
+                    2,
+                    common::errors::InvalidArgument(
+                        "The dims of input must be greater than 2"));
+  bool hermitian = GetBoolAttr(op, "hermitian");
+  if (hermitian) {
+    infer_context->AddEqualCstr(x_shape[x_rank - 2], x_shape[x_rank - 1]);
+  }
+  std::vector<symbol::DimExpr> x_shape_batch = [&] {
+    std::vector<symbol::DimExpr> x_shape_batch;
+    for (size_t i = 0; i < x_rank - 2; ++i) {
+      x_shape_batch.push_back(x_shape[i]);
+    }
+    return x_shape_batch;
+  }();
+  if (tol_shape == x_shape_batch) {
+    infer_context->SetShapeOrDataForValue(
+        op->result(0),
+        symbol::ShapeOrDataDimExprs{
+            symbol::TensorShapeOrDataDimExprs(x_shape_batch)});
+  } else {
+    int max_dim = std::max(x_shape_batch.size(), tol_shape.size());
+    int axis =
+        std::abs(static_cast<int>(x_shape_batch.size() - tol_shape.size()));
+    std::vector<symbol::DimExpr> x_shape_array(max_dim);
+    std::vector<symbol::DimExpr> tol_shape_array(max_dim);
+    std::vector<symbol::DimExpr> out_shape_array(max_dim);
+    GetBroadcastDimsArrays(x_shape_batch,
+                           tol_shape,
+                           x_shape_array.data(),
+                           tol_shape_array.data(),
+                           out_shape_array.data(),
+                           max_dim,
+                           axis,
+                           infer_context);
+    infer_context->SetShapeOrDataForValue(
+        op->result(0),
+        symbol::ShapeOrDataDimExprs{
+            symbol::TensorShapeOrDataDimExprs(out_shape_array)});
+  }
+  return true;
+}
 
 bool MaskedSelectOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
