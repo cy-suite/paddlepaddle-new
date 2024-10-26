@@ -87,6 +87,8 @@ void PaddlePassBuilder::AppendAnalysisPass(const std::string &pass) {
 
 void PaddlePassBuilder::ClearPasses() { passes_.clear(); }
 
+const std::vector<std::string> kOVSubgraphPasses({"openvino_subgraph_pass"});
+
 const std::vector<std::string> kTRTSubgraphPasses({
   "set_subgraph_edge_pass",                                       //
       "trt_remove_amp_strategy_op_pass",                          //

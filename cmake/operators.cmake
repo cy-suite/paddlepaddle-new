@@ -437,7 +437,8 @@ function(op_library TARGET)
     "bitwise_op"
     "nccl_op"
     "tensor_array_read_write_op"
-    "tensorrt_engine_op")
+    "tensorrt_engine_op"
+    "openvino_engine_op")
 
     if("${TARGET}" STREQUAL "${manual_pybind_op}")
       set(pybind_flag 1)
@@ -648,6 +649,11 @@ function(op_library TARGET)
         STATUS
           "Pybind skips [tensorrt_engine_op], for this OP is only used in inference"
       )
+    elseif(${TARGET} STREQUAL "openvino_engine_op")
+      message(
+        STATUS
+          "Pybind skips [openvino_engine_op], for this OP is only used in inference"
+      )
     else()
       file(APPEND ${pybind_file} "USE_OP(${TARGET});\n")
     endif()
@@ -695,6 +701,7 @@ function(prune_pybind_h)
 
   list(APPEND op_list "load_combine")
   list(APPEND op_list "tensorrt_engine")
+  list(APPEND op_list "openvino_engine")
 
   # TODO(ming1753): conditional_block_infer is temporarily reserved here to avoid link errors in functions of standalone_executor
   list(APPEND op_list "conditional_block_infer")

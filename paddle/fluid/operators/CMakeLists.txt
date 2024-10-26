@@ -42,6 +42,10 @@ if (WITH_GPU AND TENSORRT_FOUND)
     add_subdirectory(tensorrt)
 endif()
 
+if (OPENVINO_FOUND)
+    add_subdirectory(openvino)
+endif()
+
 if(WITH_IPU)
     add_subdirectory(ipu)
 endif()

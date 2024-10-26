@@ -302,6 +302,7 @@ struct Argument {
                       TensorRtOpsRunFloat,
                       std::unordered_set<std::string>);
 
+  DECL_ARGUMENT_FIELD(use_openvino, UseOpenVINO, bool);
   DECL_ARGUMENT_FIELD(use_xpu, UseXpu, bool);
   DECL_ARGUMENT_FIELD(xpu_locked, XpuLocked, bool);
   DECL_ARGUMENT_FIELD(xpu_precision, XpuPrecision, std::string);

@@ -158,6 +158,26 @@ void IRPassManager::CreatePasses(Argument *argument,
                 new std::unordered_set<std::string>(
                     argument->bfloat16_enabled_op_types()));
 #endif
+    } else if (pass_name == "openvino_subgraph_pass") {
+      std::string model_program_path = argument->model_program_path();
+      std::string model_params_path = argument->model_params_path();
+      std::string optim_cache_dir = argument->optim_cache_dir();
+      if (optim_cache_dir.empty()) {
+        optim_cache_dir = "./__cache__";
+        LOG(INFO) << "optim_cache_dir is empty, set to ./__cache__";
+      }
+      if (!PathExists(optim_cache_dir)) {
+        PADDLE_ENFORCE_NE(
+            MKDIR(optim_cache_dir.c_str()),
+            -1,
+            common::errors::PreconditionNotMet(
+                "Can not create optimize cache directory: %s, Make sure you "
+                "have permission to write",
+                optim_cache_dir));
+      }
+      pass->Set("model_program_path", new std::string(model_program_path));
+      pass->Set("model_params_path", new std::string(model_params_path));
+      pass->Set("model_opt_cache_dir", new std::string(optim_cache_dir));
     } else if (pass_name == "tensorrt_subgraph_pass") {
       pass->Set("workspace_size",
                 new int64_t(argument->tensorrt_workspace_size()));

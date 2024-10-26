@@ -95,6 +95,11 @@ if(MKL_FOUND AND WITH_ONEMKL)
   list(APPEND DYNLOAD_COMMON_SRCS mklrt.cc)
 endif()
 
+if(OPENVINO_FOUND)
+  message("OPENVINO INCLUDE directory is ${OPENVINO_INCLUDE_DIR}")
+  list(APPEND DYNLOAD_COMMON_SRCS openvino.cc)
+endif()
+
 if(WITH_ROCM)
   collect_srcs(backends_srcs SRCS ${DYNLOAD_COMMON_SRCS} ${HIP_SRCS})
 elseif(WITH_GPU)

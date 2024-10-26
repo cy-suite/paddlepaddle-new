@@ -618,6 +618,21 @@ struct PD_INFER_DECL AnalysisConfig {
   bool specify_input_name() const { return specify_input_name_; }
 
   ///
+  /// \brief Turn on the OpenVINO engine.
+  /// The OpenVINO engine will accelerate some subgraphs in the original Fluid
+  /// computation graph. In some models such as resnet50, GoogleNet and so on,
+  /// it gains significant performance acceleration.
+  ///
+  void EnableOpenVINOEngine();
+
+  ///
+  /// \brief A boolean state telling whether the OpenVINO engine is used.
+  ///
+  /// \return bool Whether the OpenVINO engine is used.
+  ///
+  bool openvino_engine_enabled() const { return use_openvino_; }
+
+  ///
   /// \brief Turn on the TensorRT engine.
   /// The TensorRT engine will accelerate some subgraphs in the original Fluid
   /// computation graph. In some models such as resnet50, GoogleNet and so on,
@@ -1218,6 +1233,9 @@ struct PD_INFER_DECL AnalysisConfig {
 
   // Padding related
   bool use_fc_padding_{true};
+
+  // OpenVINO related.
+  bool use_openvino_{false};
 
   // TensorRT related.
   bool use_tensorrt_{false};

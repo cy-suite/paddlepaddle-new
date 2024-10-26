@@ -50,6 +50,7 @@ option(WITH_ONEMKL "Compile PaddlePaddle with oneMKL" OFF)
 option(WITH_GPU "Compile PaddlePaddle with NVIDIA GPU" ${CUDA_FOUND})
 option(WITH_MPI "Compile PaddlePaddle with MPI" OFF)
 option(WITH_TENSORRT "Compile PaddlePaddle with NVIDIA TensorRT" OFF)
+option(WITH_OPENVINO "Compile PaddlePaddle with Intel OpenVINO" OFF)
 option(WITH_XPU "Compile PaddlePaddle with BAIDU KUNLUN XPU" OFF)
 option(WITH_XPU_KP "Compile PaddlePaddle with BAIDU XPU compiler " OFF)
 option(WITH_XPU_XFT "Compile PaddlePaddle with BAIDU XPU-XFT" OFF)
@@ -81,6 +82,8 @@ endif()
 include(init)
 include(generic) # simplify cmake module
 include(experimental) # experimental build options
+
+include(openvino)
 
 if(WITH_GPU AND WITH_XPU)
   message(FATAL_ERROR "Error when compile GPU and XPU at the same time")

@@ -324,6 +324,9 @@ class PD_INFER_DECL IpuPassStrategy final : public PassStrategy {
   }
 };
 
+/// \brief List of OpenVINO subgraph passes.
+PD_INFER_DECL extern const std::vector<std::string> kOVSubgraphPasses;
+
 /// \brief List of tensorRT subgraph passes.
 PD_INFER_DECL extern const std::vector<std::string> kTRTSubgraphPasses;
 
