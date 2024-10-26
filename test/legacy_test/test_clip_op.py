@@ -478,88 +478,92 @@ class TestClipOpFp16(unittest.TestCase):
 
 
 class TestClipTensor(unittest.TestCase):
-    # def test_tensor_all_clip(self):
-    #     paddle.enable_static()
-    #     data_shape = [1, 9, 9, 4]
-    #     data = np.random.random(data_shape).astype('float32')
-    #     min_data = np.random.random(data_shape[-2:]).astype('float32')
-    #     max_data = np.random.random(data_shape[-3:]).astype('float32')
-    #     place = (
-    #         base.CUDAPlace(0)
-    #         if base.core.is_compiled_with_cuda()
-    #         else base.CPUPlace()
-    #     )
-    #     exe = base.Executor(place)
-    #     main = paddle.static.Program()
-    #     startup = paddle.static.Program()
-    #     with paddle.static.program_guard(main, startup):
-    #         images = paddle.static.data(
-    #             name='image', shape=data_shape, dtype='float32'
-    #         )
-    #         min = paddle.static.data(
-    #             name='min', shape=data_shape[-2:], dtype='float32'
-    #         )
-    #         max = paddle.static.data(
-    #             name='max', shape=data_shape[-3:], dtype='float32'
-    #         )
-    #         out = paddle.clip(images, min, max)
-    #         res = exe.run(
-    #             feed={"image": data, 'min': min_data, 'max': max_data},
-    #             fetch_list=[out],
-    #         )
-    #         res_np = np.clip(data, min_data, max_data)
-    #         np.testing.assert_allclose(res_np, res[0], rtol=1e-05)
-    #     paddle.disable_static()
+    def test_static_clip(self):
+        data_shape = [1, 2, 3, 4]
+        self.place = (
+            base.CUDAPlace(0)
+            if base.core.is_compiled_with_cuda()
+            else base.CPUPlace()
+        )
+        data = np.random.random(data_shape).astype('float32')
+        min_data = np.random.random(data_shape[-2:]).astype('float32')
+        max_data = np.random.random(data_shape[-3:]).astype('float32')
+        paddle.enable_static()
+        with paddle.static.program_guard(paddle.static.Program()):
+            x = paddle.static.data(
+                name='x', shape=data_shape, dtype='float32'
+            )
+            min = paddle.static.data(
+                name='min', shape=data_shape[-2:], dtype='float32'
+            )
+            max = paddle.static.data(
+                name='max', shape=data_shape[-3:], dtype='float32'
+            )
+            out = paddle.clip(x, min, max)
+            exe = base.Executor(self.place)
+            res = exe.run(
+                feed={
+                    "x": data,
+                    'min': min_data,
+                    'max': max_data,
+                },
+                fetch_list=[out],
+            )
+            res_np = np.clip(data, min_data, max_data)
+            np.testing.assert_allclose(res_np, res[0], rtol=1e-05)
+        paddle.disable_static()
 
-    #     data = np.random.random(data_shape).astype('float32')
-    #     min_data = np.random.random(data_shape[-2:]).astype('float32')
-    #     max_data = np.random.random(data_shape[-3:]).astype('float32')
-    #     out_np = np.clip(data, min_data, max_data)
-    #     data = paddle.to_tensor(data)
-    #     min_data = paddle.to_tensor(min_data)
-    #     max_data = paddle.to_tensor(max_data)
-    #     out = paddle.clip(data, min_data, max_data)
-    #     np.testing.assert_allclose(out.numpy(), out_np, rtol=1e-05)
+    def test_dygraph_clip(self):
+        self.place = (
+            base.CUDAPlace(0)
+            if base.core.is_compiled_with_cuda()
+            else base.CPUPlace()
+        )
+        paddle.disable_static(self.place)
+        data_shape = [1, 2, 3, 4]
+        data = np.random.random(data_shape).astype('float32')
+        min_data = np.random.random(data_shape[-2:]).astype('float32')
+        max_data = np.random.random(data_shape[-3:]).astype('float32')
+        out_np = np.clip(data, min_data, max_data)
+        data = paddle.to_tensor(data)
+        min_data = paddle.to_tensor(min_data)
+        max_data = paddle.to_tensor(max_data)
+        out = paddle.clip(data, min_data, max_data)
+        np.testing.assert_allclose(out.numpy(), out_np, rtol=1e-05)
 
-    # def test_tensor_none_clip(self):
-    #     paddle.enable_static()
-    #     data_shape = [1, 9, 9, 4]
-    #     data = np.random.random(data_shape).astype('float32')
-    #     min_data = np.random.random(data_shape[-2:]).astype('float32')
-    #     place = (
-    #         base.CUDAPlace(0)
-    #         if base.core.is_compiled_with_cuda()
-    #         else base.CPUPlace()
-    #     )
-    #     exe = base.Executor(place)
-    #     main = paddle.static.Program()
-    #     startup = paddle.static.Program()
-    #     with paddle.static.program_guard(main, startup):
-    #         images = paddle.static.data(
-    #             name='image', shape=data_shape, dtype='float32'
-    #         )
-    #         min = paddle.static.data(
-    #             name='min', shape=data_shape[-2:], dtype='float32'
-    #         )
-    #         max = paddle.static.data(
-    #             name='max', shape=data_shape[-3:], dtype='float32'
-    #         )
-    #         out = paddle.clip(images, min, max)
-    #         res = exe.run(
-    #             feed={"image": data, 'min': min_data, 'max': None}, fetch_list=[out]
-    #         )
-    #         res_np = np.clip(data, min_data)
-    #         np.testing.assert_allclose(res_np, res[0], rtol=1e-05)
+        data_shape = [1, 2, 3, 4]
+        data = np.random.random(data_shape).astype('float32')
+        min_data = np.random.random(data_shape[-2:]).astype('float32')
+        max_data = np.random.random(data_shape[-1:]).astype('float32')
+        out_np = np.clip(data, min_data, max_data)
+        data = paddle.to_tensor(data)
+        min_data = paddle.to_tensor(min_data)
+        max_data = paddle.to_tensor(max_data)
+        out = paddle.clip(data, min_data, max_data)
+        np.testing.assert_allclose(out.numpy(), out_np, rtol=1e-05)
 
-    #     paddle.disable_static()
+        data_shape = [1, 2, 3, 4]
+        data = np.random.random(data_shape).astype('int32')
+        min_data = np.random.random(data_shape[-2:]).astype('int32')
+        max_data = 5
+        out_np = np.clip(data, min_data, max_data)
+        data = paddle.to_tensor(data)
+        min_data = paddle.to_tensor(min_data)
+        max_data = paddle.to_tensor([max_data], dtype='int32')
+        out = paddle.clip(data, min_data, max_data)
+        np.testing.assert_allclose(out.numpy(), out_np, rtol=1e-05)
 
-    #     data = np.random.random(data_shape).astype('float32')
-    #     min_data = np.random.random(data_shape[-2:]).astype('float32')
-    #     out_np = np.clip(data, min_data)
-    #     data = paddle.to_tensor(data)
-    #     min_data = paddle.to_tensor(min_data)
-    #     out = paddle.clip(data, min_data)
-    #     np.testing.assert_allclose(out.numpy(), out_np, rtol=1e-05)
+        data_shape = [1, 2, 3, 4]
+        data = np.random.random(data_shape).astype('float32')
+        min_data = np.random.random(data_shape[-2:]).astype('float32')
+        max_data = float(np.finfo(np.float32).max)
+        out_np = np.clip(data, min_data, max_data)
+        data = paddle.to_tensor(data)
+        min_data = paddle.to_tensor(min_data)
+        out = paddle.clip(data, min_data)
+        np.testing.assert_allclose(out.numpy(), out_np, rtol=1e-05)
+
+        paddle.enable_static()
 
     def test_shapeerror_clip(self):
         data_shape = [1, 9, 9, 4]
