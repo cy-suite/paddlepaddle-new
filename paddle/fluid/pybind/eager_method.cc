@@ -2740,13 +2740,13 @@ PyDoc_STRVAR(tensor_is_coalesced__doc__,  // NOLINT
 --
 
 Check whether the Tensor is a coalesced SparseCooTensor. If not it will return False.
-Any Tensor type among DenseTensor/SparseCooTensor/SparseCsrTensor are supported.
+Tensor types other than SparseCooTensor are not supported.
 
 Notes:
     It will return always False for a newly created SparseCooTensor.
 
 Args:
-    x (Tensor): The input tensor. It can be DenseTensor/SparseCooTensor/SparseCsrTensor.
+    x (Tensor): The input tensor. It can only be SparseCooTensor.
 
 Returns:
     bool: True if the Tensor is a coalesced SparseCooTensor, and False otherwise.
@@ -2767,11 +2767,9 @@ Examples:
         >>> x.is_coalesced()
         True
 
-        >>> x = paddle.to_tensor([[1., 2., 3.]])
-        >>> x.is_coalesced()
-        False
-
-        >>> x = x.to_sparse_csr()
+        >>> indices = [[0, 1, 1], [1, 0, 2]]
+        >>> values = [1.0, 2.0, 3.0]
+        >>> x = paddle.sparse.sparse_coo_tensor(indices, values)
         >>> x.is_coalesced()
         False
 
@@ -2786,7 +2784,8 @@ static PyObject* tensor_method_is_coalesced(TensorObject* self,
         std::dynamic_pointer_cast<phi::SparseCooTensor>(self->tensor.impl());
     return ToPyObject(sparse_coo_tensor->coalesced());
   } else {
-    return ToPyObject(false);
+    PADDLE_THROW(common::errors::InvalidArgument(
+        "Method is_coalesced only support sparse coo tensor."));
   }
   EAGER_CATCH_AND_THROW_RETURN_NULL
 }

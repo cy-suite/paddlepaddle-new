@@ -25,19 +25,10 @@ class TestSparseIsCoalescedAPI(unittest.TestCase):
         self.dtype = "float32"
         coo_indices = [[0, 0, 0, 1], [0, 0, 1, 2]]
         coo_values = paddle.to_tensor([1.0, 2.0, 3.0, 4.0])
-        coo_tenosr = paddle.sparse.sparse_coo_tensor(
+        self.coo_tenosr = paddle.sparse.sparse_coo_tensor(
             coo_indices, coo_values, dtype=self.dtype
         )
-        csr_crows = [0, 2, 3, 5]
-        csr_cols = [1, 3, 2, 0, 1]
-        csr_values = paddle.to_tensor([1, 2, 3, 4, 5])
-        csr_shape = [3, 4]
-        csr_tensor = paddle.sparse.sparse_csr_tensor(
-            csr_crows, csr_cols, csr_values, csr_shape, dtype=self.dtype
-        )
-        other_tensor = paddle.to_tensor([1, 2, 3, 4], dtype=self.dtype)
-        self.tensors = [coo_tenosr, csr_tensor, other_tensor]
-        self.expected_result = [False, False, False]
+        self.expected_result = False
 
     def test_is_coalesced(self):
         places = [core.CPUPlace()]
@@ -46,10 +37,9 @@ class TestSparseIsCoalescedAPI(unittest.TestCase):
 
         for place in places:
             paddle.disable_static(place)
-            for i in range(len(self.tensors)):
-                self.assertEqual(
-                    self.tensors[i].is_coalesced(), self.expected_result[i]
-                )
+            self.assertEqual(
+                self.coo_tenosr.is_coalesced(), self.expected_result
+            )
 
 
 class TestSparseIsCoalescedAPI1(TestSparseIsCoalescedAPI):
@@ -57,19 +47,10 @@ class TestSparseIsCoalescedAPI1(TestSparseIsCoalescedAPI):
         self.dtype = "float64"
         coo_indices = [[0, 0, 1, 2], [0, 1, 1, 2]]
         coo_values = paddle.to_tensor([1.0, 2.0, 3.0, 4.0])
-        coo_tenosr = paddle.sparse.sparse_coo_tensor(
+        self.coo_tenosr = paddle.sparse.sparse_coo_tensor(
             coo_indices, coo_values, dtype=self.dtype
         )
-        csr_crows = [0, 2, 3, 5]
-        csr_cols = [1, 3, 2, 0, 1]
-        csr_values = paddle.to_tensor([1, 2, 3, 4, 5])
-        csr_shape = [3, 4]
-        csr_tensor = paddle.sparse.sparse_csr_tensor(
-            csr_crows, csr_cols, csr_values, csr_shape, dtype=self.dtype
-        )
-        other_tensor = paddle.to_tensor([1, 2, 3, 4], dtype=self.dtype)
-        self.tensors = [coo_tenosr, csr_tensor, other_tensor]
-        self.expected_result = [False, False, False]
+        self.expected_result = False
 
 
 class TestSparseIsCoalescedAPI2(TestSparseIsCoalescedAPI):
@@ -77,19 +58,10 @@ class TestSparseIsCoalescedAPI2(TestSparseIsCoalescedAPI):
         coo_indices = [[0, 0, 1, 2], [0, 2, 0, 2], [0, 1, 1, 0]]
         coo_values = paddle.to_tensor([1.0, 2.0, 3.0, 4.0])
         self.dtype = "int16"
-        coo_tenosr = paddle.sparse.sparse_coo_tensor(
+        self.coo_tenosr = paddle.sparse.sparse_coo_tensor(
             coo_indices, coo_values, dtype=self.dtype
         ).coalesce()
-        csr_crows = [0, 2, 3, 5]
-        csr_cols = [1, 3, 2, 0, 1]
-        csr_values = paddle.to_tensor([1, 2, 3, 4, 5])
-        csr_shape = [3, 4]
-        csr_tensor = paddle.sparse.sparse_csr_tensor(
-            csr_crows, csr_cols, csr_values, csr_shape, dtype=self.dtype
-        )
-        other_tensor = paddle.to_tensor([1, 2, 3, 4], dtype=self.dtype)
-        self.tensors = [coo_tenosr, csr_tensor, other_tensor]
-        self.expected_result = [True, False, False]
+        self.expected_result = True
 
 
 class TestSparseIsCoalescedAPI3(TestSparseIsCoalescedAPI):
@@ -97,19 +69,10 @@ class TestSparseIsCoalescedAPI3(TestSparseIsCoalescedAPI):
         coo_indices = [[0, 0, 0, 1], [0, 0, 1, 2]]
         coo_values = paddle.to_tensor([1.0, 2.0, 3.0, 4.0])
         self.dtype = "int32"
-        coo_tenosr = paddle.sparse.sparse_coo_tensor(
+        self.coo_tenosr = paddle.sparse.sparse_coo_tensor(
             coo_indices, coo_values, dtype=self.dtype
         ).coalesce()
-        csr_crows = [0, 2, 3, 5]
-        csr_cols = [1, 3, 2, 0, 1]
-        csr_values = paddle.to_tensor([1, 2, 3, 4, 5])
-        csr_shape = [3, 4]
-        csr_tensor = paddle.sparse.sparse_csr_tensor(
-            csr_crows, csr_cols, csr_values, csr_shape, dtype=self.dtype
-        )
-        other_tensor = paddle.to_tensor([1, 2, 3, 4], dtype=self.dtype)
-        self.tensors = [coo_tenosr, csr_tensor, other_tensor]
-        self.expected_result = [True, False, False]
+        self.expected_result = True
 
 
 class TestSparseIsCoalescedAPI4(TestSparseIsCoalescedAPI):
@@ -117,19 +80,10 @@ class TestSparseIsCoalescedAPI4(TestSparseIsCoalescedAPI):
         coo_indices = [[0, 0, 0, 1], [0, 0, 1, 2]]
         coo_values = paddle.to_tensor([1.0, 2.0, 3.0, 4.0])
         self.dtype = "int64"
-        coo_tenosr = paddle.sparse.sparse_coo_tensor(
+        self.coo_tenosr = paddle.sparse.sparse_coo_tensor(
             coo_indices, coo_values, dtype=self.dtype
         )
-        csr_crows = [0, 2, 3, 5]
-        csr_cols = [1, 3, 2, 0, 1]
-        csr_values = paddle.to_tensor([1, 2, 3, 4, 5])
-        csr_shape = [3, 4]
-        csr_tensor = paddle.sparse.sparse_csr_tensor(
-            csr_crows, csr_cols, csr_values, csr_shape, dtype=self.dtype
-        )
-        other_tensor = paddle.to_tensor([1, 2, 3, 4], dtype=self.dtype)
-        self.tensors = [coo_tenosr, csr_tensor, other_tensor]
-        self.expected_result = [False, False, False]
+        self.expected_result = False
 
 
 class TestSparseIsCoalescedAPI5(TestSparseIsCoalescedAPI):
@@ -137,74 +91,32 @@ class TestSparseIsCoalescedAPI5(TestSparseIsCoalescedAPI):
         coo_indices = [[0, 0, 0, 1], [0, 0, 1, 2]]
         coo_values = paddle.to_tensor([1.0, 2.0, 3.0, 4.0])
         self.dtype = "uint8"
-        coo_tenosr = paddle.sparse.sparse_coo_tensor(
+        self.coo_tenosr = paddle.sparse.sparse_coo_tensor(
             coo_indices, coo_values, dtype=self.dtype
         )
-        csr_crows = [0, 2, 3, 5]
-        csr_cols = [1, 3, 2, 0, 1]
-        csr_values = paddle.to_tensor([1, 2, 3, 4, 5])
-        csr_shape = [3, 4]
-        csr_tensor = paddle.sparse.sparse_csr_tensor(
-            csr_crows, csr_cols, csr_values, csr_shape, dtype=self.dtype
-        )
-        other_tensor = paddle.to_tensor([1, 2, 3, 4], dtype=self.dtype)
-        self.tensors = [coo_tenosr, csr_tensor, other_tensor]
-        self.expected_result = [False, False, False]
+        self.expected_result = False
 
 
 class TestSparseIsCoalescedAPI6(TestSparseIsCoalescedAPI):
     def setUp(self):
-        self.dtype = "bool"
-        csr_crows = [0, 2, 3, 5]
-        csr_cols = [1, 3, 2, 0, 1]
-        csr_values = paddle.to_tensor([1, 0, 1, 0, 0])
-        csr_shape = [3, 4]
-        csr_tensor = paddle.sparse.sparse_csr_tensor(
-            csr_crows, csr_cols, csr_values, csr_shape, dtype=self.dtype
-        )
-        other_tensor = paddle.to_tensor([1, 2, 3, 4], dtype=self.dtype)
-        self.tensors = [csr_tensor, other_tensor]
-        self.expected_result = [False, False]
+        coo_indices = [[0, 0, 1, 2], [0, 1, 1, 2], [0, 1, 1, 2]]
+        coo_values = paddle.to_tensor([1.0, 2.0, 3.0, 4.0])
+        self.dtype = "complex64"
+        self.coo_tenosr = paddle.sparse.sparse_coo_tensor(
+            coo_indices, coo_values, dtype=self.dtype
+        ).coalesce()
+        self.expected_result = True
 
 
 class TestSparseIsCoalescedAPI7(TestSparseIsCoalescedAPI):
     def setUp(self):
-        coo_indices = [[0, 0, 1, 2], [0, 1, 1, 2], [0, 1, 1, 2]]
-        coo_values = paddle.to_tensor([1.0, 2.0, 3.0, 4.0])
-        self.dtype = "complex64"
-        coo_tenosr = paddle.sparse.sparse_coo_tensor(
-            coo_indices, coo_values, dtype=self.dtype
-        ).coalesce()
-        csr_crows = [0, 2, 3, 5]
-        csr_cols = [1, 3, 2, 0, 1]
-        csr_values = paddle.to_tensor([1, 2, 3, 4, 5])
-        csr_shape = [3, 4]
-        csr_tensor = paddle.sparse.sparse_csr_tensor(
-            csr_crows, csr_cols, csr_values, csr_shape, dtype=self.dtype
-        )
-        other_tensor = paddle.to_tensor([1, 2, 3, 4], dtype=self.dtype)
-        self.tensors = [coo_tenosr, csr_tensor, other_tensor]
-        self.expected_result = [True, False, False]
-
-
-class TestSparseIsCoalescedAPI8(TestSparseIsCoalescedAPI):
-    def setUp(self):
         coo_indices = [[0, 0, 1, 2], [0, 1, 1, 2], [1, 0, 1, 2]]
         coo_values = paddle.to_tensor([1.0, 2.0, 3.0, 4.0])
         self.dtype = "complex128"
-        coo_tenosr = paddle.sparse.sparse_coo_tensor(
+        self.coo_tenosr = paddle.sparse.sparse_coo_tensor(
             coo_indices, coo_values, dtype=self.dtype
         )
-        csr_crows = [0, 2, 3, 5]
-        csr_cols = [1, 3, 2, 0, 1]
-        csr_values = paddle.to_tensor([1, 2, 3, 4, 5])
-        csr_shape = [3, 4]
-        csr_tensor = paddle.sparse.sparse_csr_tensor(
-            csr_crows, csr_cols, csr_values, csr_shape, dtype=self.dtype
-        )
-        other_tensor = paddle.to_tensor([1, 2, 3, 4], dtype=self.dtype)
-        self.tensors = [coo_tenosr, csr_tensor, other_tensor]
-        self.expected_result = [False, False, False]
+        self.expected_result = False
 
 
 @unittest.skipIf(
@@ -217,19 +129,10 @@ class TestSparseIsCoalescedFP16API(TestSparseIsCoalescedAPI):
         self.dtype = "float16"
         coo_indices = [[0, 0, 0, 1], [0, 0, 1, 2]]
         coo_values = paddle.to_tensor([1.0, 2.0, 3.0, 4.0])
-        coo_tenosr = paddle.sparse.sparse_coo_tensor(
+        self.coo_tenosr = paddle.sparse.sparse_coo_tensor(
             coo_indices, coo_values, dtype=self.dtype
         ).coalesce()
-        csr_crows = [0, 2, 3, 5]
-        csr_cols = [1, 3, 2, 0, 1]
-        csr_values = paddle.to_tensor([1, 2, 3, 4, 5])
-        csr_shape = [3, 4]
-        csr_tensor = paddle.sparse.sparse_csr_tensor(
-            csr_crows, csr_cols, csr_values, csr_shape, dtype=self.dtype
-        )
-        other_tensor = paddle.to_tensor([1, 2, 3, 4], dtype=self.dtype)
-        self.tensors = [coo_tenosr, csr_tensor, other_tensor]
-        self.expected_result = [True, False, False]
+        self.expected_result = True
 
 
 class TestSparseIsCoalescedAPIStatic(unittest.TestCase):
@@ -240,15 +143,13 @@ class TestSparseIsCoalescedAPIStatic(unittest.TestCase):
         )
         self.coo_values = np.array([1.0, 2.0, 3.0, 4.0]).astype(self.dtype)
         self.coo_shape = [2, 3]
-        self.other_tensor_arr = np.array([1, 2, 3, 4]).astype(self.dtype)
-        self.expected_result = [False, False]
+        self.expected_result = False
 
     def test_is_coalesced(self):
         paddle.enable_static()
         with paddle.static.program_guard(
             paddle.static.Program(), paddle.static.Program()
         ):
-            # coo
             coo_indices = paddle.static.data(
                 name='coo_indices',
                 shape=self.coo_indices.shape,
@@ -265,23 +166,15 @@ class TestSparseIsCoalescedAPIStatic(unittest.TestCase):
                 shape=self.coo_shape,
                 dtype=self.dtype,
             )
-            # other
-            other = paddle.static.data(
-                name='other',
-                shape=self.other_tensor_arr.shape,
-                dtype=self.dtype,
-            )
 
             exe = paddle.static.Executor()
             exe.run(
                 feed={
                     'coo_indices': self.coo_indices,
                     'coo_values': self.coo_values,
-                    'other': self.other_tensor_arr,
                 }
             )
-            self.assertEqual(coo.is_coalesced(), self.expected_result[0])
-            self.assertEqual(other.is_coalesced(), self.expected_result[1])
+            self.assertEqual(coo.is_coalesced(), self.expected_result)
         paddle.disable_static()
 
 
@@ -293,8 +186,7 @@ class TestSparseIsCoalescedAPIStatic1(TestSparseIsCoalescedAPIStatic):
         )
         self.coo_values = np.array([1.0, 2.0, 3.0, 4.0]).astype(self.dtype)
         self.coo_shape = [2, 3]
-        self.other_tensor_arr = np.array([1, 2, 3, 4]).astype(self.dtype)
-        self.expected_result = [False, False]
+        self.expected_result = False
 
 
 class TestSparseIsCoalescedAPIStatic2(TestSparseIsCoalescedAPIStatic):
@@ -305,8 +197,7 @@ class TestSparseIsCoalescedAPIStatic2(TestSparseIsCoalescedAPIStatic):
         )
         self.coo_values = np.array([1.0, 2.0, 3.0, 4.0]).astype(self.dtype)
         self.coo_shape = [2, 3]
-        self.other_tensor_arr = np.array([1, 2, 3, 4]).astype(self.dtype)
-        self.expected_result = [False, False]
+        self.expected_result = False
 
 
 class TestSparseIsCoalescedAPIStatic3(TestSparseIsCoalescedAPIStatic):
@@ -317,8 +208,7 @@ class TestSparseIsCoalescedAPIStatic3(TestSparseIsCoalescedAPIStatic):
         )
         self.coo_values = np.array([1.0, 2.0, 3.0, 4.0]).astype(self.dtype)
         self.coo_shape = [2, 3]
-        self.other_tensor_arr = np.array([1, 2, 3, 4]).astype(self.dtype)
-        self.expected_result = [False, False]
+        self.expected_result = False
 
 
 class TestSparseIsCoalescedAPIStatic4(TestSparseIsCoalescedAPIStatic):
@@ -329,8 +219,7 @@ class TestSparseIsCoalescedAPIStatic4(TestSparseIsCoalescedAPIStatic):
         )
         self.coo_values = np.array([1.0, 2.0, 3.0, 4.0]).astype(self.dtype)
         self.coo_shape = [2, 3]
-        self.other_tensor_arr = np.array([1, 2, 3, 4]).astype(self.dtype)
-        self.expected_result = [False, False]
+        self.expected_result = False
 
 
 class TestSparseIsCoalescedAPIStatic5(TestSparseIsCoalescedAPIStatic):
@@ -341,8 +230,7 @@ class TestSparseIsCoalescedAPIStatic5(TestSparseIsCoalescedAPIStatic):
         )
         self.coo_values = np.array([1.0, 2.0, 3.0, 4.0]).astype(self.dtype)
         self.coo_shape = [2, 3]
-        self.other_tensor_arr = np.array([1, 2, 3, 4]).astype(self.dtype)
-        self.expected_result = [False, False]
+        self.expected_result = False
 
 
 class TestSparseIsCoalescedAPIStatic6(TestSparseIsCoalescedAPIStatic):
@@ -353,8 +241,7 @@ class TestSparseIsCoalescedAPIStatic6(TestSparseIsCoalescedAPIStatic):
         )
         self.coo_values = np.array([1.0, 2.0, 3.0, 4.0]).astype(self.dtype)
         self.coo_shape = [2, 3]
-        self.other_tensor_arr = np.array([1, 2, 3, 4]).astype(self.dtype)
-        self.expected_result = [False, False]
+        self.expected_result = False
 
 
 class TestSparseIsCoalescedAPIStatic7(TestSparseIsCoalescedAPIStatic):
@@ -365,8 +252,7 @@ class TestSparseIsCoalescedAPIStatic7(TestSparseIsCoalescedAPIStatic):
         )
         self.coo_values = np.array([1.0, 2.0, 3.0, 4.0]).astype(self.dtype)
         self.coo_shape = [2, 3]
-        self.other_tensor_arr = np.array([1, 2, 3, 4]).astype(self.dtype)
-        self.expected_result = [False, False]
+        self.expected_result = False
 
 
 class TestSparseIsCoalescedAPIStatic8(TestSparseIsCoalescedAPIStatic):
@@ -377,8 +263,7 @@ class TestSparseIsCoalescedAPIStatic8(TestSparseIsCoalescedAPIStatic):
         )
         self.coo_values = np.array([1.0, 2.0, 3.0, 4.0]).astype(self.dtype)
         self.coo_shape = [2, 3]
-        self.other_tensor_arr = np.array([1, 2, 3, 4]).astype(self.dtype)
-        self.expected_result = [False, False]
+        self.expected_result = False
 
 
 @unittest.skipIf(
@@ -394,8 +279,28 @@ class TestSparseIsCoalescedAPIStaticFP16(TestSparseIsCoalescedAPIStatic):
         )
         self.coo_values = np.array([1.0, 2.0, 3.0, 4.0]).astype(self.dtype)
         self.coo_shape = [2, 3]
-        self.other_tensor_arr = np.array([1, 2, 3, 4]).astype(self.dtype)
-        self.expected_result = [False, False]
+        self.expected_result = False
+
+
+class TestSparseIsCoalescedError(unittest.TestCase):
+    def setUp(self):
+        self.place = paddle.CPUPlace()
+
+    def test_invalid_tensor_dygraph(self):
+        with self.assertRaises(ValueError):
+            x = paddle.to_tensor([[1.0, 0.0, 3.0, 0.0, 2.0]]).to_sparse_csr()
+            x.is_coalesced()
+
+    def test(self):
+        paddle.enable_static()
+        with self.assertRaises(ValueError):
+            x_np = np.array([[1.0, 3.0, 2.0]])
+            with paddle.static.program_guard(paddle.static.Program()):
+                x = paddle.static.data('x', [1], dtype=x_np.dtype)
+                x.is_coalesced()
+                exe = paddle.static.Executor(self.place)
+                exe.run(feed={'x': x_np})
+        paddle.disable_static()
 
 
 if __name__ == "__main__":

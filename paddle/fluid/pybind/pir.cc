@@ -1385,8 +1385,10 @@ void BindValue(py::module *m) {
                  self.type().dyn_cast<SparseCooTensorType>();
              if (sparse_coo_tensor_type) {
                return sparse_coo_tensor_type.coalesced();
+             } else {
+               PADDLE_THROW(common::errors::InvalidArgument(
+                   "Method is_coalesced only support sparse coo tensor."));
              }
-             return false;
            })
       .def_property_readonly("process_mesh", [](Value &self) -> py::object {
         auto type = self.type();
