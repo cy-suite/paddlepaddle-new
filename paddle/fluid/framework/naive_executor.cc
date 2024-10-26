@@ -33,7 +33,7 @@
 #include "paddle/fluid/operators/openvino/openvino_engine_op.h"
 #endif
 #ifdef PADDLE_WITH_NVTX
-#include "paddle/fluid/platform/device/gpu/cuda/cuda_profiler.h"
+#include "paddle/phi/core/platform/device/gpu/cuda/cuda_profiler.h"
 #endif
 
 namespace paddle::framework {
