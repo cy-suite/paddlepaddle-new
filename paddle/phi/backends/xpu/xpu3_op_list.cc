@@ -56,6 +56,7 @@ XPUOpMap& get_kl3_ops() {
                      phi::DataType::INT64})},
       {"arg_max",
        XPUKernelSet({phi::DataType::INT32,
+                     phi::DataType::INT64,
                      phi::DataType::FLOAT32,
                      phi::DataType::FLOAT16})},
       {"arg_min",
@@ -1458,6 +1459,7 @@ XPUOpMap& get_kl3_ops() {
        XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
       {"yolo_box_xpu",
        XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
+      {"yolo_box", XPUKernelSet({phi::DataType::FLOAT32})},
 
       // AddMore
       {"sequence_unpad", XPUKernelSet({phi::DataType::FLOAT32})},
