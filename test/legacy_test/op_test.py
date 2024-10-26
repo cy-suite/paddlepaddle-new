@@ -1686,10 +1686,9 @@ class OpTest(unittest.TestCase):
                     if isinstance(ret_tuple, (tuple, list)):
                         assert len(ret_tuple) == len(outputs_sig)
                         for var, sig_name in zip(ret_tuple, outputs_sig):
-                            if (
-                                not self._need_fetch(sig_name)
-                                or sig_name in no_check_set
-                            ):
+                            if not self._need_fetch(sig_name):
+                                continue
+                            if no_check_set is not None and var in no_check_set:
                                 continue
                             if isinstance(var, list):
                                 ret_to_check.append(var)
