@@ -1326,13 +1326,13 @@
 
 - backward_op : global_gather_grad
   forward : global_gather(Tensor x, Tensor local_count, Tensor global_count, int ring_id = 0) -> Tensor(out)
-  args : (Tensor out_grad, Tensor local_count, Tensor global_count, int ring_id = 0)
+  args : (Tensor local_count, Tensor global_count, Tensor out_grad, int ring_id = 0)
   output : Tensor(x_grad)
   invoke : global_scatter(out_grad, local_count, global_count, ring_id)
 
 - backward_op : global_scatter_grad
   forward : global_scatter(Tensor x, Tensor local_count, Tensor global_count, int ring_id = 0) -> Tensor(out)
-  args : (Tensor out_grad, Tensor local_count, Tensor global_count, int ring_id = 0)
+  args : (Tensor local_count, Tensor global_count, Tensor out_grad, int ring_id = 0)
   output : Tensor(x_grad)
   invoke : global_gather(out_grad, local_count, global_count, ring_id)
 
