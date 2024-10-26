@@ -166,7 +166,6 @@ NO_NEED_GEN_STATIC_ONLY_APIS = [
     'barrier',
     'c_allreduce_min',
     'c_allreduce_prod',
-    'c_identity',
     'c_reduce_sum',
     'c_split',
     'comm_init_all',
