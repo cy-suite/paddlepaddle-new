@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/binary_infer_sym.h"
+#include <cstdint>
 #include "paddle/common/ddim.h"
 #include "paddle/common/flags.h"
 #include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/infer_sym_utils.h"
@@ -1304,7 +1305,7 @@ static inline void GetBroadcastDimsArrays(
           axis));
   if (x_shape.size() > y_shape.size()) {
     std::fill(y_shape_array, y_shape_array + axis, symbol::DimExpr({1}));
-    if (axis + y_shape.size() < max_dim) {
+    if (static_cast<int64_t>(axis + y_shape.size()) < max_dim) {
       std::fill(y_shape_array + axis + y_shape.size(),
                 y_shape_array + max_dim,
                 symbol::DimExpr({1}));
@@ -1313,7 +1314,7 @@ static inline void GetBroadcastDimsArrays(
     std::copy(y_shape.begin(), y_shape.end(), y_shape_array + axis);
   } else {
     std::fill(x_shape_array, x_shape_array + axis, symbol::DimExpr({1}));
-    if (axis + x_shape.size() < max_dim) {
+    if (static_cast<int64_t>(axis + x_shape.size()) < max_dim) {
       std::fill(x_shape_array + axis + x_shape.size(),
                 x_shape_array + max_dim,
                 symbol::DimExpr({1}));
