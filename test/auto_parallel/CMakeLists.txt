@@ -133,6 +133,10 @@ if(WITH_DISTRIBUTE AND WITH_GPU)
     test_semi_auto_parallel_unshard_dtensor ENVS FLAGS_enable_pir_api=1)
   set_tests_properties(test_semi_auto_parallel_unshard_dtensor
                        PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE" TIMEOUT 100)
+  py_test_modules(test_auto_parallel_multiply_test MODULES
+                  test_auto_parallel_multiply_test ENVS)
+  set_tests_properties(test_auto_parallel_multiply_test
+                       PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE" TIMEOUT 100)
   # End of unittests WITH multi cards and timeout
 
   # NOTE(zyl): unittests WITH multi cards and WITHOUT timeout
