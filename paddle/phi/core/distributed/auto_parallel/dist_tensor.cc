@@ -49,6 +49,13 @@ TensorDistAttr ToTensorDistAttr(const ProcessMesh& process_mesh,
     auto& placement = placements[i];
     if (placement->is_shard()) {
       auto shard_dim = dynamic_cast<const Shard&>(*placement).get_dim();
+      if (dim_map[shard_dim] != -1) {
+        LOG(WARNING) << "WARNING: Tensor dim " << shard_dim
+                     << " is already sharded on "
+                     << "mesh dim" << dim_map[shard_dim]
+                     << ". Sharding a tensor dim with "
+                     << "multiple mesh dim is not supported yet.";
+      }
       // PADDLE_ENFORCE_EQ(
       //     dim_map[shard_dim],
       //     -1,

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import unittest
 
 import numpy as np
 
@@ -63,6 +64,19 @@ class TestMoEUtils:
         np.testing.assert_array_equal(
             splitted_np_grad[dist.get_rank()],
             dist_x.grad._local_value().numpy(),
+        )
+
+        with unittest.TestCase().assertRaises(AssertionError):
+            dist_z = dist.auto_parallel.moe_utils._dist_reshape(
+                dist_x,
+                dist_x.shape,
+                self._mesh1,
+                [dist.Replicate(), dist.Replicate()],
+            )
+
+        # test the warning log message
+        dist_z = dist.auto_parallel.moe_utils._dist_reshape(
+            dist_x, dist_x.shape, self._mesh0, [dist.Shard(1), dist.Shard(1)]
         )
 
     def test_nd_mesh_alltoall(self):

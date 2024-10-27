@@ -779,7 +779,6 @@ def reshard(
 
         alltoall_dim = _specific_alltoall_dim(dist_tensor, mesh, placements)
         if alltoall_dim is not None:
-            # return _nd_mesh_alltoall_reshard(dist_tensor, mesh, placements, alltoall_dim)
             return _NdMeshAlltoAll.apply(
                 dist_tensor, mesh, placements, alltoall_dim
             )

@@ -112,21 +112,21 @@ def _cal_local_shape(global_shape, mesh, placements):
     return local_shape
 
 
-def infer_pos_shape(src_shape, tgt_shape):
+def infer_positive_shape(src_shape, tgt_shape):
     if isinstance(tgt_shape, (list, tuple)):
         ret_shape = np.array(tgt_shape)
     else:
         ret_shape = tgt_shape.copy()
 
-    neg_one_idx = np.where(ret_shape == -1)[0]
-    if neg_one_idx.size > 0:
+    minus_one_idx = np.where(ret_shape == -1)[0]
+    if minus_one_idx.size > 0:
         assert (
-            neg_one_idx.size <= 1
+            minus_one_idx.size <= 1
         ), "At most one -1 is allowed in target shape."
 
         nelem = np.prod(src_shape)
-        ret_shape[neg_one_idx[0]] = 1
-        ret_shape[neg_one_idx[0]] = nelem // np.prod(ret_shape)
+        ret_shape[minus_one_idx[0]] = 1
+        ret_shape[minus_one_idx[0]] = nelem // np.prod(ret_shape)
 
     return list(ret_shape)
 
@@ -191,7 +191,17 @@ def _dist_reshape(
     Reshape the local tensors of the dist tensor on each rank,
     and mannualy set the process_mesh and placements of the output.
     """
-    tgt_global_shape = infer_pos_shape(dist_tensor.shape, global_shape)
+    tgt_global_shape = infer_positive_shape(dist_tensor.shape, global_shape)
+    src_mesh = dist_tensor.process_mesh
+    if (
+        src_mesh.process_ids == mesh.process_ids
+        and src_mesh.shape != mesh.shape
+    ):
+        # trying to modify the mesh shape, only supported when the
+        # input and output tensors are all replicated.
+        assert all(
+            p.is_replicated() for p in dist_tensor.placements + placements
+        ), "Only support modifying the mesh shape when the input and output tensors are all replicated."
     if paddle.in_dynamic_mode():
         return _local_reshape.apply(
             dist_tensor, tgt_global_shape, mesh, placements
