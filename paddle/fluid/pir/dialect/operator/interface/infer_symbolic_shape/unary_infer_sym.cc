@@ -4335,27 +4335,27 @@ bool WeightQuantizeOpInferSymbolicShape(
   const auto &x_shape =
       infer_context->GetShapeOrDataForValue(op->operand_source(0)).shape();
   PADDLE_ENFORCE_EQ(
-      x_dims.size(),
+      x_shape.size(),
       2UL,
       common::errors::InvalidArgument(
-          "The x tensor of quant op must be 2D, but got[%d]", x_dims.size()));
+          "The x tensor of quant op must be 2D, but got[%d]", x_shape.size()));
   if (x_shape[0].isa<int64_t>()) {
-    int64_t x_shapr_0 = x_shape[0].dyn_cast<int64_t>();
+    int64_t x_shape_0 = x_shape[0].dyn_cast<int64_t>();
     PADDLE_ENFORCE_EQ(
-        x_shapr_0 % 64,
+        x_shape_0 % 64,
         0,
         common::errors::InvalidArgument(
             "The first dimension of input must be divisible by 64, but got[%d]",
-            x_shapr_0));
+            x_shape_0));
   }
   if (x_shape[1].isa<int64_t>()) {
-    int64_t x_shapr_1 = x_shape[1].dyn_cast<int64_t>();
+    int64_t x_shape_1 = x_shape[1].dyn_cast<int64_t>();
     PADDLE_ENFORCE_EQ(
-        x_shapr_1 % 16,
+        x_shape_1 % 16,
         0,
         common::errors::InvalidArgument("The second dimension of input must be "
                                         "divisible by 16, but got[%d]",
-                                        x_shapr_1));
+                                        x_shape_1));
   }
 
   int group_size = op->attribute<pir::Int32Attribute>("group_size").data();
