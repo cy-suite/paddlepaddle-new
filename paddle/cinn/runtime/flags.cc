@@ -55,8 +55,7 @@ PD_DEFINE_string(cinn_kernel_execution_label,
                  "Label used to measure kernel execution time");
 
 PD_DEFINE_string(cinn_tile_config_filename_label,
-                 StringFromEnv("FLAGS_cinn_tile_config_filename_label",
-                               "./tile_file/"),
+                 StringFromEnv("FLAGS_cinn_tile_config_filename_label", ""),
                  "Label used to name file of tile config database");
 
 PD_DEFINE_string(
@@ -72,6 +71,10 @@ PD_DEFINE_int32(cinn_parallel_compile_thread,
 PD_DEFINE_bool(cinn_measure_kernel_time,
                BoolFromEnv("FLAGS_cinn_measure_kernel_time", false),
                "Whether to enable schedule config search mode.");
+
+PD_DEFINE_bool(cinn_enable_grid_reduce,
+               BoolFromEnv("FLAGS_cinn_enable_grid_reduce", true),
+               "Whether to enable the grid reduce method.");
 
 PD_DEFINE_bool(cinn_use_op_fusion,
                BoolFromEnv("FLAGS_cinn_use_op_fusion", true),

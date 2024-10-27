@@ -100,7 +100,9 @@ PARSE_PYTHON_C_ARGS_TEMPLATE = """    PyObject* {}_obj = PyTuple_GET_ITEM(args, 
 """
 
 
-RECORD_EVENT_TEMPLATE = 'phi::RecordEvent {}("{} {}", paddle::platform::TracerEventType::UserDefined, 1);'
+RECORD_EVENT_TEMPLATE = (
+    'phi::RecordEvent {}("{} {}", phi::TracerEventType::UserDefined, 1);'
+)
 
 
 RETURN_INPLACE_PYOBJECT_TEMPLATE = """
@@ -187,7 +189,7 @@ PYTHON_C_WRAPPER_TEMPLATE = """
 #include "paddle/phi/backends/device_manager.h"
 #include "paddle/fluid/pybind/eager_utils.h"
 #include "paddle/fluid/pybind/exception.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 #include "paddle/fluid/pybind/op_function_common.h"
 #include "paddle/fluid/eager/api/generated/eager_generated/forwards/dygraph_functions.h"
 #include "paddle/fluid/eager/api/manual/eager_manual/dygraph_forward_api.h"

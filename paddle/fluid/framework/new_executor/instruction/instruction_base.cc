@@ -17,10 +17,10 @@
 #include "paddle/fluid/framework/new_executor/instruction/instruction_util.h"
 #include "paddle/fluid/framework/new_executor/interpreter/interpreter_util.h"
 #include "paddle/fluid/framework/new_executor/pir_adaptor/pir_adaptor_util.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 #include "paddle/fluid/framework/new_executor/interpreter/stream_analyzer.h"
-#include "paddle/fluid/platform/collective_helper.h"
+#include "paddle/phi/core/platform/collective_helper.h"
 #include "paddle/pir/include/core/builtin_attribute.h"
 
 namespace paddle::framework {
@@ -197,8 +197,6 @@ InstructionBase::InstructionBase(size_t id, const phi::Place& place)
       no_need_buffer_values_() {
   id_ = id;
 
-  is_artificial_ = false;
-
   if (phi::is_cpu_place(place)) {
     type_ = OpFuncType::kCpuSync;
   } else {
@@ -220,7 +218,7 @@ const phi::DeviceContext& InstructionBase::DeviceContext() const {
 
 void InstructionBase::RecordEvent(const Place& place) const {
   phi::RecordEvent record(
-      "RecordStreamEvent", platform::TracerEventType::UserDefined, 10);
+      "RecordStreamEvent", phi::TracerEventType::UserDefined, 10);
   if (event_to_record_) {
     VLOG(6) << "Record event at instruction: " << id_;
     event_to_record_->event_->Record(dev_ctx_);
@@ -234,7 +232,7 @@ void InstructionBase::WaitEvent(const Place& place) const {
   }
   for (const EventInter& event_iter : events_to_wait_) {
     phi::RecordEvent record(
-        "WaitStreamEvent", platform::TracerEventType::UserDefined, 10);
+        "WaitStreamEvent", phi::TracerEventType::UserDefined, 10);
     VLOG(6) << "Wait instruction: " << event_iter.instr_id_
             << " 's event with waiter_type: " << event_iter.waiter_type_;
     event_iter.event_->Wait(event_iter.waiter_type_, dev_ctx_);

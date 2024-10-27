@@ -1373,7 +1373,7 @@ static std::string GenerateGradNodeCreationContent(
       "%s"
       "  {\n"
       "    phi::RecordEvent node_creation_record_event(\"%s\", "
-      "paddle::platform::TracerEventType::OperatorInner, 1);\n"
+      "phi::TracerEventType::OperatorInner, 1);\n"
       "%s"
       "    if(require_any_grad) {\n"
       "      VLOG(6) << \" Construct Grad for %s \";\n"
@@ -2097,7 +2097,7 @@ static std::pair<std::string, std::string> GenerateForwardFunctionContents(
 
   const char* DYGRAPH_FUNCTION_EVENT_RECORD_FUNCTION_TEMPLATE =
       "  phi::RecordEvent dygraph_entrance_record_event(\"%s\", "
-      "paddle::platform::TracerEventType::Operator, 1);";
+      "phi::TracerEventType::Operator, 1);";
   std::string event_name = op_type + " dygraph";
   std::string fwd_record_event_str = paddle::string::Sprintf(
       DYGRAPH_FUNCTION_EVENT_RECORD_FUNCTION_TEMPLATE, event_name);
@@ -3022,7 +3022,7 @@ static void GenerateForwardDygraphFile(const std::string& forward_cc_path,
       "#include \"paddle/fluid/eager/api/utils/global_utils.h\"\n"
       "#include \"paddle/fluid/imperative/amp_utils.h\"\n"
       "#include \"paddle/fluid/eager/amp_auto_cast.h\"\n"
-      "#include \"paddle/fluid/platform/profiler/event_tracing.h\"\n\n";
+      "#include \"paddle/phi/core/platform/profiler/event_tracing.h\"\n\n";
 
   std::string forward_cc_include_str =
       paddle::string::Sprintf(FORWARD_INCLUDE_TEMPLATE);

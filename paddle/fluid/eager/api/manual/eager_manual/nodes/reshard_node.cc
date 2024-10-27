@@ -18,7 +18,7 @@
 #include "paddle/fluid/eager/api/utils/global_utils.h"
 #include "paddle/fluid/eager/utils.h"
 #include "paddle/fluid/imperative/tracer.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 paddle::small_vector<std::vector<paddle::Tensor>,
                      egr::kSlotSmallVectorSize>  // NOLINT
@@ -39,9 +39,7 @@ ReshardGradNode::operator()(
   //    by other OP(s), which may have extra accumulation overhead than
   //    'Local_XXXGradNode'.
   phi::RecordEvent node_execution_inner(
-      "Local_ReshardGradNode",
-      paddle::platform::TracerEventType::OperatorInner,
-      1);
+      "Local_ReshardGradNode", phi::TracerEventType::OperatorInner, 1);
 
   // Apply Gradient Hooks
   auto hooked_grad = ApplyGradientHooks(grads);

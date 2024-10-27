@@ -14,8 +14,8 @@
 
 #include "paddle/fluid/framework/convert_utils.h"
 #include "paddle/fluid/framework/op_registry.h"
-#include "paddle/fluid/framework/reader.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
+#include "paddle/phi/core/framework/reader.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 namespace paddle {
 namespace operators {
@@ -110,7 +110,7 @@ class ReadOp : public framework::OperatorBase {
 
     // For profiling
     phi::RecordEvent record_event(
-        Type().c_str(), platform::TracerEventType::UserDefined, 1);
+        Type().c_str(), phi::TracerEventType::UserDefined, 1);
 
     reader->ReadNext(&ins);
     if (ins.empty()) {

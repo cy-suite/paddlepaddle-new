@@ -26,8 +26,8 @@
 #include "paddle/fluid/pir/transforms/pd_op_to_kernel_pass.h"
 #include "paddle/fluid/pir/utils/name_analysis.h"
 #include "paddle/fluid/platform/enforce.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
 #include "paddle/phi/api/lib/data_transform.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 #include "paddle/pir/include/core/attribute.h"
 #include "paddle/pir/include/core/block.h"
 #include "paddle/pir/include/core/builtin_attribute.h"
@@ -389,6 +389,10 @@ inline void PirRunProgramAPI(
     is_test = PADDLE_GET_CONST(bool, attrs.at("is_test"));
   }
   int64_t program_id = PADDLE_GET_CONST(int64_t, attrs.at("program_id"));
+  bool in_sot_mode = false;
+  if (attrs.count("in_sot_mode")) {
+    in_sot_mode = PADDLE_GET_CONST(bool, attrs.at("in_sot_mode"));
+  }
   auto place = egr::Controller::Instance().GetExpectedPlace();
 
   // NOTE(chenweihang): In order not to add new variable type, use vector
@@ -444,9 +448,7 @@ inline void PirRunProgramAPI(
                  /*is_grad=*/false,
                  /*in_pir_mode=*/true)) {
     phi::RecordEvent record_event(
-        "create_new_interpretercore",
-        paddle::platform::TracerEventType::UserDefined,
-        1);
+        "create_new_interpretercore", phi::TracerEventType::UserDefined, 1);
     VLOG(2) << "No interpretercore cache, so create a new interpretercore "
                "for program: "
             << program_id;
@@ -469,7 +471,8 @@ inline void PirRunProgramAPI(
         /*is_grad=*/false,
         program_id,
         global_inner_scope,
-        place_hash_key);
+        place_hash_key,
+        in_sot_mode);
     // Step 3. get all eager gc vars (skip_names = backward_inputs -
     // no_need_buffers + outputs)
     std::vector<std::string> skip_names;
@@ -501,9 +504,7 @@ inline void PirRunProgramAPI(
     // program_id, global_inner_scope, false, skip_eager_delete_vars);
   } else {
     phi::RecordEvent record_event(
-        "get_interpretercore_cache",
-        paddle::platform::TracerEventType::UserDefined,
-        1);
+        "get_interpretercore_cache", phi::TracerEventType::UserDefined, 1);
     VLOG(2) << "Get interpretercore cache by program:" << program_id;
     // Step 1. get cache interpretercore
     auto &cached_value = cache.GetMutable(program_id,
@@ -529,15 +530,13 @@ inline void PirRunProgramAPI(
   // interpretercore run
   if (!forward_program->block()->empty()) {
     phi::RecordEvent record_event(
-        "interpreter_core_run",
-        paddle::platform::TracerEventType::UserDefined,
-        1);
+        "interpreter_core_run", phi::TracerEventType::UserDefined, 1);
     interpreter_core->Run({});
   }
 
   {
     phi::RecordEvent record_event(
-        "fetch_and_gc", paddle::platform::TracerEventType::UserDefined, 1);
+        "fetch_and_gc", phi::TracerEventType::UserDefined, 1);
     // Get Output, and Middle Outputs
     details::ShareTensorsFromScopeByValue(
         out, output_values, global_inner_scope);
@@ -649,9 +648,7 @@ inline void RunProgramAPI(
                  /*is_grad=*/false,
                  /*in_pir_mode=*/in_pir_pt_mode)) {
     phi::RecordEvent record_event(
-        "create_new_interpretercore",
-        paddle::platform::TracerEventType::UserDefined,
-        1);
+        "create_new_interpretercore", phi::TracerEventType::UserDefined, 1);
     VLOG(2) << "No interpretercore cache, so create a new interpretercore "
                "for program: "
             << program_id;
@@ -676,7 +673,8 @@ inline void RunProgramAPI(
           /*is_grad=*/false,
           program_id,
           global_inner_scope,
-          place_hash_key);
+          place_hash_key,
+          /*used_for_sot=*/false);  // Simply pass false in PT mode
     } else {
       interpreter_core =
           paddle::framework::CreateProgramInterpreterCoreInfoToCache(
@@ -723,9 +721,7 @@ inline void RunProgramAPI(
     VLOG(2) << "Get skip GC vars size is: " << skip_eager_delete_vars.size();
   } else {
     phi::RecordEvent record_event(
-        "get_interpretercore_cache",
-        paddle::platform::TracerEventType::UserDefined,
-        1);
+        "get_interpretercore_cache", phi::TracerEventType::UserDefined, 1);
     VLOG(2) << "Get interpretercore cache by program:" << program_id;
     // Step 1. get cache interpretercore
     auto &cached_value = cache.GetMutable(program_id,
@@ -748,15 +744,13 @@ inline void RunProgramAPI(
   // interpretercore run
   if (forward_global_block->OpSize() > 0) {
     phi::RecordEvent record_event(
-        "interpreter_core_run",
-        paddle::platform::TracerEventType::UserDefined,
-        1);
+        "interpreter_core_run", phi::TracerEventType::UserDefined, 1);
     interpreter_core->Run({});
   }
   VLOG(3) << paddle::framework::GenScopeTreeDebugInfo(out_scope_vec->front());
   {
     phi::RecordEvent record_event(
-        "fetch_and_gc", paddle::platform::TracerEventType::UserDefined, 1);
+        "fetch_and_gc", phi::TracerEventType::UserDefined, 1);
     // Get Output
     details::ShareTensorsFromScopeWithPartialBlock(
         out, *forward_global_block, backward_global_block, global_inner_scope);
@@ -825,9 +819,7 @@ inline void RunProgramGradAPI(
                  /*is_grad=*/true,
                  /*in_pir_mode=*/in_pir_pt_mode)) {
     phi::RecordEvent record_event(
-        "create_new_interpretercore",
-        paddle::platform::TracerEventType::UserDefined,
-        1);
+        "create_new_interpretercore", phi::TracerEventType::UserDefined, 1);
     VLOG(2) << "No interpretercore cache, so create a new interpretercore"
                "for program: "
             << program_id;
@@ -848,7 +840,8 @@ inline void RunProgramGradAPI(
           /*is_grad=*/true,
           program_id,
           global_inner_scope,
-          place_hash_key);
+          place_hash_key,
+          /*used_for_sot=*/false);  // Simply pass false in PT mode
     } else {
       interpreter_core =
           paddle::framework::CreateProgramInterpreterCoreInfoToCache(
@@ -906,9 +899,7 @@ inline void RunProgramGradAPI(
     VLOG(2) << "Get skip GC vars size is: " << skip_eager_delete_vars.size();
   } else {
     phi::RecordEvent record_event(
-        "get_interpretercore_cache",
-        paddle::platform::TracerEventType::UserDefined,
-        1);
+        "get_interpretercore_cache", phi::TracerEventType::UserDefined, 1);
     VLOG(2) << "Get interpretercore cache by program:" << program_id;
     auto &cached_value = cache.GetMutable(program_id,
                                           global_inner_scope,
@@ -929,9 +920,7 @@ inline void RunProgramGradAPI(
 
   if (backward_global_block->OpSize() > 0) {
     phi::RecordEvent record_event(
-        "interpreter_core_run",
-        paddle::platform::TracerEventType::UserDefined,
-        1);
+        "interpreter_core_run", phi::TracerEventType::UserDefined, 1);
     // Debug info: scope info when run end
     VLOG(3) << paddle::framework::GenScopeTreeDebugInfo(out_scope_vec->front());
     interpreter_core->Run({});
@@ -939,7 +928,7 @@ inline void RunProgramGradAPI(
 
   {
     phi::RecordEvent record_event(
-        "fetch_and_gc", paddle::platform::TracerEventType::UserDefined, 1);
+        "fetch_and_gc", phi::TracerEventType::UserDefined, 1);
     // Step 4. get outputs
     details::ShareTensorsFromScopeWithPartialBlock(x_grad,
                                                    *forward_global_block,
@@ -973,6 +962,11 @@ inline void PirRunProgramGradAPI(
   paddle::framework::Scope *global_inner_scope = out_scope_vec->front();
 
   int64_t program_id = PADDLE_GET_CONST(int64_t, attrs.at("program_id"));
+
+  bool in_sot_mode = false;
+  if (attrs.count("in_sot_mode")) {
+    in_sot_mode = PADDLE_GET_CONST(bool, attrs.at("in_sot_mode"));
+  }
 
   auto place = egr::Controller::Instance().GetExpectedPlace();
   VLOG(2) << "RunProgramGradOp use interpretercore to execute program.";
@@ -1012,9 +1006,7 @@ inline void PirRunProgramGradAPI(
                  /*is_grad=*/true,
                  /*in_pir_mode=*/true)) {
     phi::RecordEvent record_event(
-        "create_new_interpretercore",
-        paddle::platform::TracerEventType::UserDefined,
-        1);
+        "create_new_interpretercore", phi::TracerEventType::UserDefined, 1);
     VLOG(2) << "No interpretercore cache, so create a new interpretercore";
     // Step 1. share input_vars & parameters into scope
     auto passed_kernel_program =
@@ -1036,7 +1028,8 @@ inline void PirRunProgramGradAPI(
         /*is_grad=*/true,
         program_id,
         global_inner_scope,
-        place_hash_key);
+        place_hash_key,
+        in_sot_mode);
     // share threadpool
     // NOTE(zhiqiu): this only works interpreter_core is executed strictly
     // after the related fwd_interpreter_core.
@@ -1074,9 +1067,7 @@ inline void PirRunProgramGradAPI(
     details::print_collection(skip_eager_delete_vars);
   } else {
     phi::RecordEvent record_event(
-        "get_interpretercore_cache",
-        paddle::platform::TracerEventType::UserDefined,
-        1);
+        "get_interpretercore_cache", phi::TracerEventType::UserDefined, 1);
     VLOG(2) << "Get interpretercore cache by program:" << program_id;
     auto &cached_value = cache.GetMutable(program_id,
                                           global_inner_scope,
@@ -1097,9 +1088,7 @@ inline void PirRunProgramGradAPI(
   paddle::framework::RunFeedHooks(*backward_program, *global_inner_scope);
   if (!backward_program->block()->empty()) {
     phi::RecordEvent record_event(
-        "interpreter_core_run",
-        paddle::platform::TracerEventType::UserDefined,
-        1);
+        "interpreter_core_run", phi::TracerEventType::UserDefined, 1);
     // Debug info: scope info when run end
     VLOG(3) << paddle::framework::GenScopeTreeDebugInfo(out_scope_vec->front());
     interpreter_core->Run({});
@@ -1107,7 +1096,7 @@ inline void PirRunProgramGradAPI(
 
   {
     phi::RecordEvent record_event(
-        "fetch_and_gc", paddle::platform::TracerEventType::UserDefined, 1);
+        "fetch_and_gc", phi::TracerEventType::UserDefined, 1);
     // Step 4. get outputs
     details::ShareTensorsFromScopeByValue(
         x_grad, x_grad_values, global_inner_scope);
@@ -1161,9 +1150,7 @@ class GradNodeRunProgram : public egr::GradNodeBase {
     std::vector<paddle::Tensor *> params_grad_ptr;
     {
       phi::RecordEvent record_event(
-          "construct_grad_tensor",
-          paddle::platform::TracerEventType::UserDefined,
-          1);
+          "construct_grad_tensor", phi::TracerEventType::UserDefined, 1);
 
       egr::EagerUtils::FillZeroForEmptyOptionalGradInput(&hooked_grads[0],
                                                          this->InputMeta()[0]);
@@ -1346,9 +1333,7 @@ class PirGradNodeRunProgram : public egr::GradNodeBase {
     std::vector<paddle::Tensor *> params_grad_ptr;
     {
       phi::RecordEvent record_event(
-          "construct_grad_tensor",
-          paddle::platform::TracerEventType::UserDefined,
-          1);
+          "construct_grad_tensor", phi::TracerEventType::UserDefined, 1);
 
       egr::EagerUtils::FillZeroForEmptyOptionalGradInput(&hooked_grads[0],
                                                          this->InputMeta()[0]);

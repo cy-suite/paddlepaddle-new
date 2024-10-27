@@ -42,6 +42,8 @@ void AssignValueInferMeta(const std::vector<int>& shape,
                           DataType dtype,
                           MetaTensor* out);
 
+void CommInitAllInferMeta(const std::vector<int>& devices, int ring_id);
+
 void CreateVecShapeInferMeta(const std::vector<int64_t>& shape,
                              DataType dtype,
                              MetaTensor* out);
@@ -75,6 +77,8 @@ void GaussianInferMeta(const IntArray& shape,
                        int seed,
                        DataType dtype,
                        MetaTensor* out);
+
+void LoadInferMeta(MetaTensor* out, MetaConfig config = MetaConfig());
 
 void RandpermInferMeta(int n, DataType dtype, MetaTensor* out);
 

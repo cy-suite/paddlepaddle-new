@@ -15,7 +15,7 @@
 #include "paddle/fluid/framework/details/eager_deletion_op_handle.h"
 
 #include "paddle/fluid/framework/ir/memory_optimize_pass/memory_optimization_var_info.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
 #include "paddle/phi/core/platform/cuda_device_guard.h"
 #endif
@@ -133,8 +133,7 @@ void EagerDeletionOpHandle::RunImpl() {
     CallOnce();
   }
 
-  phi::RecordEvent record_event(
-      Name(), platform::TracerEventType::UserDefined, 2);
+  phi::RecordEvent record_event(Name(), phi::TracerEventType::UserDefined, 2);
   std::deque<std::shared_ptr<memory::Allocation>> garbages;
   for (size_t i = 0; i < var_infos_.size(); ++i) {
     auto *var_info = var_infos_[i];

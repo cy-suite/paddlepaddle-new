@@ -41,6 +41,8 @@ void AssignValueInferMeta(const std::vector<int>& shape,
   out->set_dtype(dtype);
 }
 
+void CommInitAllInferMeta(const std::vector<int>& devices, int ring_id) {}
+
 void CreateArrayInferMeta(DataType dtype, MetaTensor* out) {
   out->set_dtype(dtype);
 }
@@ -181,6 +183,8 @@ void PartialRecvInferMeta(int ring_id,
   out->set_dims(common::make_ddim(out_shape));
   out->set_dtype(dtype);
 }
+
+void LoadInferMeta(MetaTensor* out, MetaConfig config) {}
 
 void RandpermInferMeta(int n, DataType dtype, MetaTensor* out) {
   out->set_dims(common::make_ddim({n}));
