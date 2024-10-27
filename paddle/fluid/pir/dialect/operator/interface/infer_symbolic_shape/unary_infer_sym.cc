@@ -3777,11 +3777,12 @@ bool SqueezeOpInferSymbolicShape(
       infer_context->GetShapeOrDataForValue(op->operand_source(1));
 
   std::vector<symbol::DimExpr> in_dims_sym;
-  in_dims_sym = GetOrCreateExprVecFromData(x_shape_or_data, infer_context);
+  in_dims_sym =
+      details::GetOrCreateExprVecFromData(x_shape_or_data, infer_context);
 
   std::vector<symbol::DimExpr> squeeze_dims_sym;
   squeeze_dims_sym =
-      GetOrCreateExprVecFromData(axes_shape_or_data, infer_context);
+      details::GetOrCreateExprVecFromData(axes_shape_or_data, infer_context);
 
   std::vector<int> squeeze_dims;
   for (auto squeeze_dim : squeeze_dims_sym) {

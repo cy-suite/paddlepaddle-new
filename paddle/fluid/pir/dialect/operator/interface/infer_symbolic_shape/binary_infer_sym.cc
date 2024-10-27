@@ -642,7 +642,8 @@ bool Conv2dTransposeOpInferSymbolicShape(
     const auto &output_shape_or_data =
         infer_context->GetShapeOrDataForValue(op->operand_source(2));
     const std::vector<symbol::DimExpr> &output_size =
-        detail::GetOrCreateExprVecFromData(output_shape_or_data, infer_context);
+        details::GetOrCreateExprVecFromData(output_shape_or_data,
+                                            infer_context);
     return ConvTransposeFunction(op, infer_context, output_size);
   }
 }
@@ -945,10 +946,10 @@ bool GatherOpInferSymbolicShape(pir::Operation *op,
   }
 
   const std::vector<symbol::DimExpr> &input_sym_shape =
-      detail::GetOrCreateExprVecFromData(input_shape_or_data, infer_context);
+      details::GetOrCreateExprVecFromData(input_shape_or_data, infer_context);
 
   const std::vector<symbol::DimExpr> &index_sym_shape =
-      identity::GetOrCreateExprVecFromData(index_shape_or_data, infer_context);
+      details::GetOrCreateExprVecFromData(index_shape_or_data, infer_context);
 
   if (axis < 0) axis += input_sym_shape.size();
 
@@ -1950,9 +1951,9 @@ bool TakeAlongAxisOpInferSymbolicShape(
   int axis = attributes.at("axis").dyn_cast<pir::Int32Attribute>().data();
 
   const std::vector<symbol::DimExpr> &arr_sym_shape =
-      detail::GetOrCreateExprVecFromData(arr_shape_or_data, infer_context);
+      details::GetOrCreateExprVecFromData(arr_shape_or_data, infer_context);
   const std::vector<symbol::DimExpr> &indices_sym_shape =
-      detail::GetOrCreateExprVecFromData(indices_shape_or_data, infer_context);
+      details::GetOrCreateExprVecFromData(indices_shape_or_data, infer_context);
 
   if (axis < 0) axis += arr_sym_shape.size();
 
@@ -1982,7 +1983,7 @@ bool TopPSamplingOpInferSymbolicShape(
   const auto &x_dims = [op, infer_context] {
     const auto &shape_or_data =
         infer_context->GetShapeOrDataForValue(op->operand_source(0));
-    return detail::GetOrCreateExprVecFromData(shape_or_data, infer_context);
+    return details::GetOrCreateExprVecFromData(shape_or_data, infer_context);
   }();
 
   // all the result have the same shape
