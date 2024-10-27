@@ -34,13 +34,14 @@ namespace common {
 using namespace ir;  // NOLINT
 
 Expr AutoSimplify(
-    Expr u,
+    const Expr& u,
     const absl::flat_hash_map<std::string, CasInterval>& var_intervals) {
   VLOG(7) << "Begin AutoSimplify: " << u;
-  if (u.type().is_float()) {
-    return u;
+  Expr copied = ir::ir_utils::IRCopy(u);
+  if (copied.type().is_float()) {
+    return copied;
   }
-  u = detail::ConvertCinnToCAS(u);
+  copied = detail::ConvertCinnToCAS(copied);
   absl::flat_hash_map<std::string, CasInterval> s_var_intervals;
   for (auto& item : var_intervals) {
     if (item.second.e_l.defined() && item.second.e_r.defined()) {
@@ -52,10 +53,10 @@ Expr AutoSimplify(
                               CasInterval(item.second.l, item.second.r));
     }
   }
-  u = CasSimplify(u, s_var_intervals);
-  u = detail::ConvertCasToCinn(u);
-  VLOG(7) << "End AutoSimplify " << u;
-  return u;
+  copied = CasSimplify(copied, s_var_intervals);
+  copied = detail::ConvertCasToCinn(copied);
+  VLOG(7) << "End AutoSimplify " << copied;
+  return copied;
 }
 
 int gcd(int a, int b) {
@@ -1761,8 +1762,8 @@ Expr ConvertCinnToCAS(Expr expr) {
     }
   };
 
-  Mutator()(&copied);
-  return copied;
+  Mutator()(&expr);
+  return expr;
 }
 
 /**
