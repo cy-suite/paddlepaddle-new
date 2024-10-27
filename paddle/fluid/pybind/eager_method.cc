@@ -2784,7 +2784,7 @@ static PyObject* tensor_method_is_coalesced(TensorObject* self,
         std::dynamic_pointer_cast<phi::SparseCooTensor>(self->tensor.impl());
     return ToPyObject(sparse_coo_tensor->coalesced());
   } else {
-    PADDLE_THROW(common::errors::InvalidArgument(
+    PADDLE_THROW(common::errors::InvalidType(
         "Method is_coalesced only support sparse coo tensor."));
   }
   EAGER_CATCH_AND_THROW_RETURN_NULL
