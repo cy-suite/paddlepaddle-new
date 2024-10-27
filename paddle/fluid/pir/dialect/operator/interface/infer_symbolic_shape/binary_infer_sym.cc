@@ -1784,12 +1784,39 @@ bool SequenceMaskOpInferSymbolicShape(
   return true;
 }
 
-// bool ShuffleBatchOpInferSymbolicShape(pir::Operation *op,
-//                                       pir::InferSymbolicShapeContext
-//                                       *infer_context) {
-//   // pass
-//   return true;
-// }
+bool ShuffleBatchOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0)).shape();
+  infer_context->SetShapeOrDataForValue(
+      op->result(0),
+      symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs(x_shape)});
+  infer_context->SetShapeOrDataForValue(
+      op->result(2),
+      symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs({1})});
+  symbol::DimExpr shuffleidx = {1};
+  bool check = [&] {
+    for (size_t i = 0; i < x_shape.size(); ++i) {
+      if (!x_shape[i].isa<int64_t>()) {
+        shuffleidx *= x_shape[i];
+        return false;
+      }
+    }
+    return true;
+  }();
+  if (check) {
+    infer_context->SetShapeOrDataForValue(
+        op->result(1),
+        symbol::ShapeOrDataDimExprs{
+            symbol::TensorShapeOrDataDimExprs({shuffleidx})});
+  } else {
+    infer_context->SetShapeOrDataForValue(
+        op->result(1),
+        symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs(
+            {infer_context->GetNextSymName()})});
+  }
+  return true;
+}
 
 // bool SolveOpInferSymbolicShape(
 //     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
