@@ -1644,7 +1644,6 @@ bool CASasSymbol(Expr expr) {
 
 Expr ConvertCinnToCAS(Expr expr) {
   VLOG(7) << "Begin ConvertCinnToCAS " << expr;
-  Expr copied = ir::ir_utils::IRCopy(expr);
   struct Mutator : public ir::IRMutator<ir::Expr*> {
     void operator()(Expr* expr) { Visit(expr); }
     void Visit(Expr* expr) { ir::IRMutator<>::Visit(expr, expr); }
@@ -1848,7 +1847,6 @@ Expr ReplaceMaxToConstant(Expr expr) {
 
 Expr ConvertCasToCinn(Expr expr) {
   VLOG(7) << "Begin ConvertCasToCinn : " << expr;
-  Expr copied = ir::ir_utils::IRCopy(expr);
 
   struct Mutator : ir::IRMutator<Expr*> {
     void operator()(Expr* expr) { Visit(expr); }
@@ -1943,8 +1941,8 @@ Expr ConvertCasToCinn(Expr expr) {
     }
   };
 
-  Mutator()(&copied);
-  return copied;
+  Mutator()(&expr);
+  return expr;
 }
 
 bool IsExprCasCompatible(Expr expr) {
