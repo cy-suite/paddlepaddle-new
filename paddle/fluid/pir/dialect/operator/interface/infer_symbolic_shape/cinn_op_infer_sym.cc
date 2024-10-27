@@ -301,10 +301,12 @@ bool GatherOpInferSymbolicShape(pir::Operation *op,
   }();
 
   const std::vector<symbol::DimExpr> &input_sym_shape =
-      details::GetOrCreateExprVecFromData(input_shape_or_data, infer_context);
+      paddle::dialect::details::GetOrCreateExprVecFromData(input_shape_or_data,
+                                                           infer_context);
 
   const std::vector<symbol::DimExpr> &index_sym_shape =
-      details::GetOrCreateExprVecFromData(index_shape_or_data, infer_context);
+      paddle::dialect::details::GetOrCreateExprVecFromData(index_shape_or_data,
+                                                           infer_context);
 
   int axis = op->attributes().at("axis").dyn_cast<pir::Int32Attribute>().data();
   if (axis < 0) axis += input_sym_shape.size();
