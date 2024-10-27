@@ -1445,9 +1445,8 @@ bool FullWithTensorOpInferSymbolicShape(
   const symbol::ShapeOrDataDimExprs &operand_shape_or_data =
       infer_context->GetShapeOrDataForValue(operand_source);
 
-  const auto &out_shape = operand_shape_or_data.data().has_value()
-                              ? operand_shape_or_data.data().value()
-                              : operand_shape_or_data.shape();
+  const auto &out_shape =
+      detail::GetOrCreateExprVecFromData(operand_shape_or_data, infer_context);
 
   infer_context->SetShapeOrDataForValue(
       op->result(0), symbol::TensorShapeOrDataDimExprs(out_shape));
@@ -2415,12 +2414,8 @@ bool LinspaceOpInferSymbolicShape(
       infer_context->GetShapeOrDataForValue(op->operand_source(2));
   const auto step = [&] {
     symbol::DimExpr expr;
-    if (num_shape_or_data.data().has_value()) {
-      expr = num_shape_or_data.data().value()[0];
-    } else {
-      expr = num_shape_or_data.shape()[0];
-    }
-    return expr;
+    return detail::GetOrCreateExprVecFromData(num_shape_or_data,
+                                              infer_context)[0];
   }();
   const symbol::ShapeOrDataDimExprs &shape_data = [&] {
     std::vector<symbol::DimExpr> out_dims{step};

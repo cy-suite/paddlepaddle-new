@@ -2862,11 +2862,8 @@ bool RepeatInterleaveOpInferSymbolicShape(
 
   const std::vector<symbol::DimExpr> &in_dims_sym = [&] {
     std::vector<symbol::DimExpr> dims;
-    if (operand_shape_or_data.data().has_value()) {
-      dims = operand_shape_or_data.data().value();
-    } else {
-      dims = operand_shape_or_data.shape();
-    }
+    dims = details::GetOrCreateExprVecFromData(operand_shape_or_data,
+                                               infer_context);
     return dims;
   }();
 
@@ -3596,11 +3593,7 @@ bool TopkOpInferSymbolicShape(pir::Operation *op,
   int axis = attributes.at("axis").dyn_cast<pir::Int32Attribute>().data();
   const std::vector<symbol::DimExpr> &in_dims_sym = [&] {
     std::vector<symbol::DimExpr> dims;
-    if (x_shape_or_data.data().has_value()) {
-      dims = x_shape_or_data.data().value();
-    } else {
-      dims = x_shape_or_data.shape();
-    }
+    dims = details::GetOrCreateExprVecFromData(x_shape_or_data, infer_context);
     return dims;
   }();
 
@@ -3784,18 +3777,11 @@ bool SqueezeOpInferSymbolicShape(
       infer_context->GetShapeOrDataForValue(op->operand_source(1));
 
   std::vector<symbol::DimExpr> in_dims_sym;
-  if (x_shape_or_data.data().has_value()) {
-    in_dims_sym = x_shape_or_data.data().value();
-  } else {
-    in_dims_sym = x_shape_or_data.shape();
-  }
+  in_dims_sym = GetOrCreateExprVecFromData(x_shape_or_data, infer_context);
 
   std::vector<symbol::DimExpr> squeeze_dims_sym;
-  if (axes_shape_or_data.data().has_value()) {
-    squeeze_dims_sym = axes_shape_or_data.data().value();
-  } else {
-    squeeze_dims_sym = axes_shape_or_data.shape();
-  }
+  squeeze_dims_sym =
+      GetOrCreateExprVecFromData(axes_shape_or_data, infer_context);
 
   std::vector<int> squeeze_dims;
   for (auto squeeze_dim : squeeze_dims_sym) {
@@ -3956,11 +3942,10 @@ bool UniformInplace_OpInferSymbolicShape(
   return UniformInplaceOpInferSymbolicShape(op, infer_context);
 }
 
-// bool UniformRandomBatchSizeLikeOpInferSymbolicShape(
-//     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
-//   // pass
-//   return true;
-// }
+bool UniformRandomBatchSizeLikeOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  return BatchSizeLikeInferSymbolicShape(op, infer_context);
+}
 
 bool UniqueOpInferSymbolicShape(pir::Operation *op,
                                 pir::InferSymbolicShapeContext *infer_context) {
@@ -4120,20 +4105,13 @@ bool UnsqueezeOpInferSymbolicShape(
       infer_context->GetShapeOrDataForValue(op->operand_source(1));
 
   std::vector<symbol::DimExpr> x_sym_shape;
-  if (x_shape_or_data.data().has_value()) {
-    x_sym_shape = x_shape_or_data.data().value();
-  } else {
-    x_sym_shape = x_shape_or_data.shape();
-  }
+  x_sym_shape =
+      details::GetOrCreateExprVecFromData(x_shape_or_data, infer_context);
   int x_dims_size = x_sym_shape.size();
 
   std::vector<symbol::DimExpr> axis_sym;
-  if (axis_shape_or_data.data().has_value()) {
-    axis_sym = axis_shape_or_data.data().value();
-  } else {
-    axis_sym =
-        details::GetOrCreateExprVecFromData(axis_shape_or_data, infer_context);
-  }
+  axis_sym =
+      details::GetOrCreateExprVecFromData(axis_shape_or_data, infer_context);
   int axis_sym_size = axis_sym.size();
 
   // GetUnsqueezeShape
