@@ -3947,6 +3947,11 @@ bool UniformRandomBatchSizeLikeOpInferSymbolicShape(
   return BatchSizeLikeInferSymbolicShape(op, infer_context);
 }
 
+bool UniformRandomBatchSizeLikeSrOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  return UniformRandomBatchSizeLikeOpInferSymbolicShape(op, infer_context);
+}
+
 bool UniqueOpInferSymbolicShape(pir::Operation *op,
                                 pir::InferSymbolicShapeContext *infer_context) {
   const auto &x_shape_or_data =
