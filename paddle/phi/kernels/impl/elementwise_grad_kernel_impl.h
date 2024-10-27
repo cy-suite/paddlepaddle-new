@@ -1444,7 +1444,8 @@ struct RemainderGradDy<
                       common::errors::PreconditionNotMet(
                           "divisor can not be zero when y is integral dtype"));
     // dy = -dout * (x / y)
-    return -dout * (x / y);
+    return -dout * static_cast<T>(std::floor(static_cast<double>(x) /
+                                             static_cast<double>(y)));
   }
 };
 /*

@@ -686,6 +686,10 @@ struct RemainderGradXYFunctor<
 template <typename T, typename Enable = void>
 struct InverseRemainderFunctor {
   inline HOSTDEVICE T operator()(const T a, const T b) const {
+    PADDLE_ENFORCE_NE(b,
+                      0,
+                      common::errors::PreconditionNotMet(
+                          "divisor can not be zero when y is integral dtype"));
     T res = b % a;
     if ((res != 0) && ((res < 0) != (a < 0))) res += a;
     return res;
