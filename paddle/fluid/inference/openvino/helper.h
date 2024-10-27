@@ -220,12 +220,13 @@ static ov_include::ov_shape_t ovPortGetShape(
 }
 
 // type
-static ov_include::ov_element_type_e* ovPortGetElementType(
+static ov_include::ov_element_type_e ovPortGetElementType(
     const ov_include::ov_output_const_port_t* port) {
-  ov_include::ov_element_type_e* type = new ov_include::ov_element_type_e();
-  ov_include::ov_status_e ov_status = dy::ov_port_get_element_type(port, type);
-  PADDLE_ENFORCE_NOT_NULL(
-      type,
+  ov_include::ov_element_type_e type;
+  ov_include::ov_status_e ov_status = dy::ov_port_get_element_type(port, &type);
+  PADDLE_ENFORCE_EQ(
+      ov_status,
+      ov_include::ov_status_e::OK,
       common::errors::Unavailable(
           "ovPortGetElementType failed, ov_status_e = %d", ov_status));
   return type;
