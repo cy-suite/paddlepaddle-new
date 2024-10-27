@@ -26,7 +26,7 @@ class TestMultiplyGradAutoParallel(test_base.CommunicationTestDistBase):
         self._changeable_envs = {"backend": ["gpu"]}
 
     def test_multiply_grad(self):
-        envs_list = test_base.·(
+        envs_list = test_base.gen_product_envs_list(
             self._default_envs, self._changeable_envs
         )
         for envs in envs_list:
