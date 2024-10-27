@@ -56,6 +56,7 @@ XPUOpMap& get_kl3_ops() {
                      phi::DataType::INT64})},
       {"arg_max",
        XPUKernelSet({phi::DataType::INT32,
+                     phi::DataType::INT64,
                      phi::DataType::FLOAT32,
                      phi::DataType::FLOAT16})},
       {"arg_min",
@@ -1049,6 +1050,7 @@ XPUOpMap& get_kl3_ops() {
                      phi::DataType::INT32,
                      phi::DataType::INT64,
                      phi::DataType::FLOAT16})},
+      {"sgd", XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
       {"silu_grad",
        XPUKernelSet({phi::DataType::FLOAT32,
                      phi::DataType::FLOAT16,
@@ -1457,6 +1459,7 @@ XPUOpMap& get_kl3_ops() {
        XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
       {"yolo_box_xpu",
        XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
+      {"yolo_box", XPUKernelSet({phi::DataType::FLOAT32})},
 
       // AddMore
       {"sequence_unpad", XPUKernelSet({phi::DataType::FLOAT32})},
@@ -1468,6 +1471,8 @@ XPUOpMap& get_kl3_ops() {
                      phi::DataType::FLOAT16,
                      phi::DataType::BFLOAT16})},
       {"fused_gemm_epilogue_grad",
+       XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
+      {"fused_linear_param_grad_add",
        XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
       {"fused_attention",
        XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
