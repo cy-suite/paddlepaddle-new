@@ -100,8 +100,8 @@ MultiplyGradNode::operator()(
     egr::EagerUtils::SetGradOutputDistAttr(
         out_metas, {0, 1}, api_output_0, api_output_1);
   } else if (inputs_contain_dist_tensor) {
-    egr::EagerUtils::SetGradOutputDistAttrByInput(api_output_0, x);
-    egr::EagerUtils::SetGradOutputDistAttrByInput(api_output_1, y);
+    egr::EagerUtils::SetGradOutputDistAttrByInput(x, api_output_0);
+    egr::EagerUtils::SetGradOutputDistAttrByInput(y, api_output_1);
   }
 
   // Inplace Check
