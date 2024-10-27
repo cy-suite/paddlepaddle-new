@@ -16,16 +16,17 @@ import unittest
 import collective.test_communication_api_base as test_base
 
 
-class TestAutoParallelCEmbeddingPass(test_base.CommunicationTestDistBase):
+class TestMultiplyGradAutoParallel(test_base.CommunicationTestDistBase):
     def setUp(self):
         super().setUp(
             num_of_devices=1,
             timeout=300,
         )
+        self._default_envs = {}
         self._changeable_envs = {"backend": ["gpu"]}
 
     def test_multiply_grad(self):
-        envs_list = test_base.gen_product_envs_list(
+        envs_list = test_base.·(
             self._default_envs, self._changeable_envs
         )
         for envs in envs_list:
