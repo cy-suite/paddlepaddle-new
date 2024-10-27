@@ -156,9 +156,9 @@ class OneDNNBf16PlacementPattern : public pir::RewritePattern {
     }
 
     // Workaround for reshape & slice when shape is unknown
-    // TODO: Since we can't distinguish when IntArray is produced by Combine,
-    // currently we fix it in a specific way. In future, we may think out a more
-    // generalized method
+    // TODO(Xinyi): Since we can't distinguish when IntArray is produced by
+    // Combine, currently we fix it in a specific way. In future, we may think
+    // out a more generalized method
     if (op_name == "onednn_op.reshape_" || op_name == "onednn_op.reshape") {
       return CheckIfknownShape(op, 1);
     } else if (op_name == "onednn_op.slice") {
