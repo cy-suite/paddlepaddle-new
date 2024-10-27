@@ -3496,7 +3496,7 @@ bool TensorUnfoldOpInferSymbolicShape(
   std::vector<symbol::DimExpr> output_shape(input_shape.size() + 1);
   output_shape[input_shape.size()] = symbol::DimExpr(size);
   for (size_t i = 0; i < input_shape.size(); ++i) {
-    if (i == axis) {
+    if (static_cast<int64_t>(i) == axis) {
       output_shape[i] = symbol::DimExpr((input_shape[i] - size) / step + 1);
     } else {
       output_shape[i] = input_shape[i];
