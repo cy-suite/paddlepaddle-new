@@ -96,6 +96,15 @@ class OneDNNBf16PlacementPattern : public pir::RewritePattern {
         return false;
       }
     }
+    if (op->name() == "onednn_op.scale" || op->name() == "onednn_op.scale_") {
+      bool bias_after_scale =
+          op_attr.at("bias_after_scale").dyn_cast<pir::BoolAttribute>().data();
+      if (bias_after_scale) {
+        // If bias after scale, add quant/dequant for sacle will cause some
+        // error
+        return false;
+      }
+    }
 
     const std::vector<std::string> permitted_input_names = {
         "x", "y", "input", "residual_param", "residual_data"};
@@ -130,6 +139,18 @@ class OneDNNBf16PlacementPattern : public pir::RewritePattern {
       if (!op_dtype.isa<pir::Float32Type>()) {
         return false;
       }
+    }
+
+    // Workaround for reshape when shape is unknown
+    if (op_name == "onednn_op.reshape_" || op_name == "onednn_op.reshape") {
+      bool is_from_tensor = false;
+      std::vector<int64_t> shape = paddle::dialect::ParseValueShape(
+          op->operand_source(1), &is_from_tensor);
+      int num_minus = 0;
+      for (auto i : shape) {
+        if (i == -1) num_minus++;
+      }
+      if (num_minus > 1 || (num_minus == 1 && shape.size() == 1)) return false;
     }
     return true;
   }

@@ -475,6 +475,20 @@ void scatter_grad(const Tensor& index,
   if (updates_grad) {
     Scalar tmp_zero = 0;
     auto tmp_updates_grad = gather<T>(out_grad, index, tmp_zero);
+
+    // NOTE: len(index) can be smaller than len(updates) when updates is not a
+    // scalar
+    auto updates_dims = common::vectorize(updates.dims());
+    auto index_dims = common::vectorize(index.dims());
+    if (updates_dims.size() > 0 && updates_dims[0] > index_dims[0]) {
+      // Pad zeros to the end of tmp_updates_grad to make its shape the same as
+      // updates.
+      decltype(updates_dims) padding_dims = updates_dims;
+      padding_dims[0] = updates_dims[0] - index_dims[0];
+      auto padding_zeros = full<T>(padding_dims, 0, updates.dtype());
+      tmp_updates_grad =
+          concat<T>({tmp_updates_grad, std::move(padding_zeros)}, 0);
+    }
     set_output<T>(tmp_updates_grad, updates_grad);
   }
 }
@@ -1282,9 +1296,14 @@ void gather_grad(const Tensor& x,
 
   // change axis to rank 0
   int axis_value = axis.to<int>();
+  int rank = x.dims().size();
+  if (axis_value < 0) {
+    axis_value += rank;
+  }
+
   tmp_perm.push_back(axis_value);
   // make other ranks
-  for (int i = 0; i < x.dims().size(); ++i) {
+  for (int i = 0; i < rank; ++i) {
     if (i != axis_value) {
       tmp_perm.push_back(i);
     }
@@ -2241,9 +2260,11 @@ void group_norm_grad(const Tensor& x,
   DataLayout data_layout_ = common::StringToDataLayout(data_layout);
   std::vector<int64_t> x_dims = x.shape();
   int rank = x_dims.size();
-  if (rank < 3 || rank > 5) {
+  if (rank < 3) {
     PADDLE_THROW(common::errors::Unimplemented(
-        "Only support NCHW and NHWC format in rank {3, 4, 5}."));
+        "Only support NCHW and NHWC format in rank higher or equal to 3. "
+        "Current rank: %zu",
+        rank));
   }
   int N = x_dims[0];
   int C;
@@ -2899,6 +2920,66 @@ void trunc_grad(const Tensor& out_grad, Tensor* x_grad) {
       zero = full<T>(out_grad.shape(), 0.0, out_grad.dtype());
     }
     set_output<T>(zero, x_grad);
+  }
+}
+
+template <typename T>
+void kthvalue_grad(const Tensor& x,
+                   const Tensor& indices,
+                   const Tensor& out_grad,
+                   int k,
+                   int axis,
+                   bool keepdim,
+                   Tensor* x_grad) {
+  if (x_grad) {
+    auto x_cast = ConverToMT<T>(x);
+    auto out_grad_cast = ConverToMT<T>(out_grad);
+    // put_along_axis doesn't support zero dim
+    if (x.dims().size() == 0) {
+      by_pass<T>(out_grad, x_grad);
+      return;
+    }
+
+    // function `put_along_axis` requires a non-negative axis
+    if (axis < 0) {
+      axis += x.dims().size();
+    }
+
+    Tensor zero_tensor;
+    Tensor x_grad_tmp;
+    if (has_dynamic_shape(x_cast.shape())) {
+      zero_tensor =
+          backend::full_with_tensor<T>(shape<T>(x_cast), 0, x_cast.dtype());
+
+      if (keepdim) {
+        x_grad_tmp = backend::put_along_axis<T>(
+            zero_tensor, indices, out_grad_cast, axis);
+      } else {
+        auto axis_ = std::vector<int64_t>(1, axis);
+        auto out_grad_shape =
+            get_unsqueeze_dims<T>(shape<T>(out_grad_cast), axis_);
+        auto out_grad_ = backend::reshape<T>(out_grad_cast, out_grad_shape);
+        auto indices_shape = get_unsqueeze_dims<T>(shape<T>(indices), axis_);
+        auto indices_ = backend::reshape<T>(indices, indices_shape);
+        x_grad_tmp =
+            backend::put_along_axis<T>(zero_tensor, indices_, out_grad_, axis);
+      }
+    } else {
+      zero_tensor =
+          full<T>(common::vectorize(x_cast.dims()), 0, x_cast.dtype());
+      if (keepdim) {
+        x_grad_tmp =
+            put_along_axis<T>(zero_tensor, indices, out_grad_cast, axis);
+      } else {
+        auto axis_ = std::vector<int64_t>(1, axis);
+        auto out_grad_shape = get_unsqueeze_dims(out_grad_cast, axis_);
+        auto out_grad_ = reshape<T>(out_grad_cast, out_grad_shape);
+        auto indices_shape = get_unsqueeze_dims(indices, axis_);
+        auto indices_ = reshape<T>(indices, indices_shape);
+        x_grad_tmp = put_along_axis<T>(zero_tensor, indices_, out_grad_, axis);
+      }
+    }
+    set_output<T>(ConverToOrig<T>(x_grad_tmp, x.dtype()), x_grad);
   }
 }
 
