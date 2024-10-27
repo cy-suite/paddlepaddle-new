@@ -3486,11 +3486,28 @@ bool SetValueWithTensor_OpInferSymbolicShape(
   return SetValueOpInferSymbolicShape(op, infer_context);
 }
 
-// bool TensorUnfoldOpInferSymbolicShape(
-//     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
-//   // pass
-//   return true;
-// }
+bool TensorUnfoldOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  const auto &input_shape =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0)).shape();
+  int64_t size = op->attribute<pir::Int64Attribute>("size").data();
+  int64_t axis = op->attribute<pir::Int64Attribute>("axis").data();
+  int64_t step = op->attribute<pir::Int64Attribute>("step").data();
+  std::vector<symbol::DimExpr> output_shape(input_shape.size() + 1);
+  output_shape[input_shape.size()] = symbol::DimExpr(size);
+  for (size_t i = 0; i < input_shape.size(); ++i) {
+    if (i == axis) {
+      output_shape[i] = symbol::DimExpr((input_shape[i] - size) / step + 1);
+    } else {
+      output_shape[i] = input_shape[i];
+    }
+  }
+  infer_context->SetShapeOrDataForValue(
+      op->result(0),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(output_shape)});
+  return true;
+}
 
 // bool TraceOpInferSymbolicShape(pir::Operation *op,
 //                                pir::InferSymbolicShapeContext *infer_context)

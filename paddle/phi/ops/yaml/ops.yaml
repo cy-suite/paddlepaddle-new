@@ -4912,7 +4912,7 @@
     func : tensor_unfold
   backward : tensor_unfold_grad
   no_need_buffer : input
-  # interfaces : paddle::dialect::InferSymbolicShapeInterface
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : thresholded_relu
   args : (Tensor x, float threshold = 1.0, float value = 0.0)
