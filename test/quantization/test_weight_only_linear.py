@@ -706,7 +706,7 @@ class WeightOnlyLinearTestCaseStatic(WeightOnlyLinearTestCase):
             res = exe.run(feed={}, fetch_list=[weight, dequant_weight])
             fetch_list = exe._check_fetch_list([weight, dequant_weight])
             check_symbolic_result(
-                paddle.static.default_main_program,
+                paddle.static.default_main_program(),
                 fetch_list,
                 res,
                 "weight_quantize and weight_dequantize",
@@ -730,7 +730,7 @@ class WeightOnlyLinearTestCaseStatic(WeightOnlyLinearTestCase):
             res = exe.run(feed={}, fetch_list=[weight, dequant_weight])
             fetch_list = exe._check_fetch_list([weight, dequant_weight])
             check_symbolic_result(
-                paddle.static.default_main_program,
+                paddle.static.default_main_program(),
                 fetch_list,
                 res,
                 "weight_quantize and weight_dequantize",
