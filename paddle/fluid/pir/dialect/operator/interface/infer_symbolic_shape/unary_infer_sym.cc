@@ -4330,10 +4330,69 @@ bool UnstackOpInferSymbolicShape(
   return true;
 }
 
-// bool WeightQuantizeOpInferSymbolicShape(
-//     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
-//   // pass
-//   return true;
-// }
+bool WeightQuantizeOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0)).shape();
+  PADDLE_ENFORCE_EQ(
+      x_dims.size(),
+      2UL,
+      common::errors::InvalidArgument(
+          "The x tensor of quant op must be 2D, but got[%d]", x_dims.size()));
+  if (x_shape[0].isa<int64_t>()) {
+    int64_t x_shapr_0 = x_shape[0].dyn_cast<int64_t>();
+    PADDLE_ENFORCE_EQ(
+        x_shapr_0 % 64,
+        0,
+        common::errors::InvalidArgument(
+            "The first dimension of input must be divisible by 64, but got[%d]",
+            x_shapr_0));
+  }
+  if (x_shape[1].isa<int64_t>()) {
+    int64_t x_shapr_1 = x_shape[1].dyn_cast<int64_t>();
+    PADDLE_ENFORCE_EQ(
+        x_shapr_1 % 16,
+        0,
+        common::errors::InvalidArgument("The second dimension of input must be "
+                                        "divisible by 16, but got[%d]",
+                                        x_shapr_1));
+  }
+
+  int group_size = op->attribute<pir::Int32Attribute>("group_size").data();
+  std::string algo = op->attribute<pir::StrAttribute>("algo").AsString();
+  PADDLE_ENFORCE_EQ(
+      ((group_size == -1) || (group_size == 64) || (group_size == 128)),
+      true,
+      common::errors::InvalidArgument(
+          "Currently, group_size only support -1, 64 or 128."));
+  std::vector<symbol::DimExpr> scale_shape;
+  std::vector<symbol::DimExpr> out_shape;
+  if (group_size != -1) {
+    symbol::DimExpr scale_shape_0 =
+        (x_shape[0] + (group_size - 1)) / group_size;
+    scale_shape = {scale_shape_0, x_shape[1]};
+  } else {
+    scale_shape = {x_shape[1]};
+  }
+  if (algo == "weight_only_int8" || algo == "llm.int8") {
+    out_shape = {x_shape[1], x_shape[0]};
+  } else if (algo == "weight_only_int4") {
+    out_shape = {x_shape[1] / 2, x_shape[0]};
+  } else {
+    common::errors::InvalidArgument(
+        "Currently, we only support weight_only_int8,"
+        " llm.int8 and weight_only_int4 algo.");
+  }
+  infer_context->SetShapeOrDataForValue(
+      op->result(0),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(out_shape)});
+
+  infer_context->SetShapeOrDataForValue(
+      op->result(1),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(scale_shape)});
+  return true;
+}
 
 }  // namespace paddle::dialect
