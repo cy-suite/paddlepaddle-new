@@ -287,13 +287,13 @@ class TestSparseIsCoalescedError(unittest.TestCase):
         self.place = paddle.CPUPlace()
 
     def test_invalid_tensor_dygraph(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             x = paddle.to_tensor([[1.0, 0.0, 3.0, 0.0, 2.0]]).to_sparse_csr()
             x.is_coalesced()
 
-    def test(self):
+    def test_invalid_tensor_static_graph(self):
         paddle.enable_static()
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             x_np = np.array([[1.0, 3.0, 2.0]])
             with paddle.static.program_guard(paddle.static.Program()):
                 x = paddle.static.data('x', [1], dtype=x_np.dtype)

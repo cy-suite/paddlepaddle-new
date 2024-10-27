@@ -1386,7 +1386,7 @@ void BindValue(py::module *m) {
              if (sparse_coo_tensor_type) {
                return sparse_coo_tensor_type.coalesced();
              } else {
-               PADDLE_THROW(common::errors::InvalidArgument(
+               PADDLE_THROW(common::errors::InvalidType(
                    "Method is_coalesced only support sparse coo tensor."));
              }
            })
