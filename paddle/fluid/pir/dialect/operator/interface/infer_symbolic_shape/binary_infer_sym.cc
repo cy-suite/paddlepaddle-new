@@ -1798,7 +1798,7 @@ bool ShuffleBatchOpInferSymbolicShape(
   bool check = [&] {
     for (size_t i = 0; i < x_shape.size(); ++i) {
       if (!x_shape[i].isa<int64_t>()) {
-        shuffleidx *= x_shape[i];
+        shuffleidx = shuffleidx * x_shape[i];
         return false;
       }
     }
