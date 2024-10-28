@@ -123,6 +123,7 @@ class AutoMixedPrecisionPass : public pir::Pass {
 
   void Run(pir::Operation* op) override {
     SubBlockRun(op->GetParentProgram()->block());
+    AddStatistics(op_run_low_precision_.size());
   }
 
   bool CanApplyOn(pir::Operation* op) const override {
@@ -737,7 +738,6 @@ class AutoMixedPrecisionPass : public pir::Pass {
     pir::Builder builder = pir::Builder(context_, block);
     ProcessBlock(block, builder);
     cached_cast_ops_.clear();
-    op_run_low_precision_.clear();
     op_should_not_handle_.clear();
     for (auto& op : *block) {
       SubOpRun(&op);
