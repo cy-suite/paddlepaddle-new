@@ -4146,6 +4146,11 @@ function clang-tidy_check() {
         "readability-container-size-empty"
     )
 
+    testT="abcabc"
+    testS="abc"
+    testcount=$(echo -n "$testT" | grep -o "$testS" | wc -l)
+    echo "test find: $[ $count ]"
+
     check_error=0
     length=$(echo -n "$T" | wc -c)
     echo "Clang Tidy output length: $[ $length ]"
