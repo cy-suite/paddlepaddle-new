@@ -188,14 +188,6 @@ inline void UnpackReduction(const ir::IndexExpr &value, FLeaf fleaf) {
   }
 }
 
-template <typename T>
-inline std::vector<ir::IndexExpr> GetFlatternExprs(ir::IndexExpr expr) {
-  std::vector<ir::IndexExpr> result;
-  auto fcollect = [&](ir::IndexExpr val) { result.push_back(val); };
-  UnpackReduction<T>(expr, fcollect);
-  return result;
-}
-
 // TODO(liuruyan): canby simplify into IndexExpr multiply.
 ir::IndexExpr MulAndNormalize(const ir::IndexExpr &lhs,
                               const ir::IndexExpr &rhs);
