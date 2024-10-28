@@ -20,40 +20,47 @@ from paddle.distributed.auto_parallel.intermediate.parallel_base import (
 )
 
 
-class TestStrategy(unittest.TestCase):
+class PP(BaseParallel):
+    def __init__(self, model):
+        super().__init__(model)
+        self.pp_parallelizer = self.pp_init
+
     def pp_init(self, model):
         return paddle.nn.Linear(2, 2)
+
+
+class TP(BaseParallel):
+    def __init__(self, model):
+        super().__init__(model)
+        self.tp_parallelizer = self.tp_init
 
     def tp_init(self, model):
         return paddle.nn.Linear(3, 3)
 
+
+class SD(BaseParallel):
+    def __init__(self, model):
+        super().__init__(model)
+        self.sharding_parallelizer = self.sd_init
+
     def sd_init(self, model):
         return paddle.nn.Linear(4, 4)
 
+
+class TestStrategy:
     def test_recursive(self):
         model = paddle.nn.Linear(1, 1)
-        pp = BaseParallel(model)
-        pp.pp_parallelizer = self.pp_init
+        pp = PP(model)
         data = paddle.rand([1, 2])
         pp(data)
         assert pp.model.weight.shape == [2, 2]
-
         model = paddle.nn.Linear(1, 1)
-        pp = BaseParallel(model)
-        pp.pp_parallelizer = self.pp_init
-        tp = BaseParallel(pp)
-        tp.tp_parallelizer = self.tp_init
+        tp = TP(PP(model))
         data = paddle.rand([1, 3])
         tp(data)
         assert tp.model.weight.shape == [3, 3]
-
         model = paddle.nn.Linear(1, 1)
-        pp = BaseParallel(model)
-        pp.pp_parallelizer = self.pp_init
-        tp = BaseParallel(pp)
-        tp.tp_parallelizer = self.tp_init
-        sd = BaseParallel(tp)
-        sd.sharding_parallelizer = self.sd_init
+        sd = SD(TP(PP(model)))
         data = paddle.rand([1, 4])
         sd(data)
         assert sd.model.weight.shape == [4, 4]
