@@ -1973,6 +1973,7 @@ bool ArrayReadOp::InferSymbolicShape(
         symbol::ShapeOrDataDimExprs{
             symbol::TensorShapeOrDataDimExprs({array_shape[i_value]})});
   }
+  return true;
 }
 
 OpInfoTuple ArrayWrite_Op::GetOpInfo() {
