@@ -119,7 +119,7 @@ class AutoLayoutPass : public pir::Pass {
           return true;
         }
       }
-      return true;
+      return false;
     } else {
       if (!JudgeValue(operand)) return false;
       auto transposeInputOp =
