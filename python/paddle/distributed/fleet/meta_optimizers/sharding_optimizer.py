@@ -1005,7 +1005,7 @@ class ShardingOptimizer(MetaOptimizerBase):
             output_names = op.desc.output_arg_names()
             # FIXME(wangxi): need use grads, pipeline grad is @GRAD@MERGE
             if (
-                block.ops[idx].type != 'all_reduce'
+                block.ops[idx].type == 'all_reduce'
                 and block.ops[idx].desc.attr("reduce_type") == dist.ReduceOp.SUM
                 and op.attr('use_model_parallel') is False
             ):
@@ -1038,7 +1038,7 @@ class ShardingOptimizer(MetaOptimizerBase):
             ]:
                 pass
             elif (
-                op.type != 'all_reduce'
+                op.type == 'all_reduce'
                 and op.desc.attr("reduce_type") == dist.ReduceOp.SUM
             ):
                 pass
