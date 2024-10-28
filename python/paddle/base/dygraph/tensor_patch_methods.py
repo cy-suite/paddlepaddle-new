@@ -17,11 +17,10 @@ from __future__ import annotations
 import hashlib
 import inspect
 import warnings
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, overload
 
 import numpy as np
 import numpy.typing as npt
-from typing_extensions import overload
 
 import paddle
 from paddle import _C_ops, profiler
@@ -119,7 +118,6 @@ def monkey_patch_tensor():
         attr_not_need_keys = [
             'grad',
             'T',
-            'mT',
             'place',
             '_place_str',
             'data',
@@ -627,7 +625,7 @@ def monkey_patch_tensor():
                 )
                 gpu_memory_available = core.gpu_memory_available()
                 if gpu_memory_available < waiting_alloc_memory:
-                    # Copy Tensor to cpu if needed
+                    # Copy Tensor to cpu
                     t_used = t._copy_to(paddle.CPUPlace(), blocking)
                     # Release memory of t
                     t._clear()
@@ -637,7 +635,7 @@ def monkey_patch_tensor():
             else:
                 t_used = t
 
-            # 2. cast Tensor to dtype if needed
+            # 2. cast Tensor to dtype
             if dtype is not None and dtype != t_used.dtype:
                 with paddle.base.framework._dygraph_place_guard(
                     place=t_used.place
@@ -646,13 +644,18 @@ def monkey_patch_tensor():
             else:
                 t_casted = t_used
 
-            # 3. Copy casted Tensor(in CPU or GPU) to device if needed
+            # 3. Copy casted Tensor(in CPU or GPU) to device
             if device is not None and not t_casted.place._equals(device):
                 new_t = t_casted._copy_to(device, blocking)
             else:
                 new_t = t_casted
 
-            return new_t
+            # 4. Share Tensor to origin Tensor
+            dst_tensor = t.value().get_tensor()
+            src_tensor = new_t.value().get_tensor()
+            dst_tensor._share_data_with(src_tensor)
+
+            return t
 
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=UserWarning)
@@ -686,11 +689,6 @@ def monkey_patch_tensor():
             1. to(dtype, blocking=True)
             2. to(device, dtype=None, blocking=True)
             3. to(other, blocking=True)
-
-        **Notes**:
-            **If the self Tensor already has the correct dtype and device,
-            then self is returned. Otherwise, the returned tensor is a copy of self with
-            the desired dtype and device.**
 
         Returns:
             Tensor: self
@@ -913,12 +911,6 @@ def monkey_patch_tensor():
         from paddle.tensor.to_string import tensor_to_string
 
         return tensor_to_string(self)
-
-    def __format__(self, format_spec: str) -> str:
-        if self.ndim == 0:
-            return self.item().__format__(format_spec)
-
-        return object.__format__(self, format_spec)
 
     def __deepcopy__(self, memo: dict[int, Tensor]) -> Tensor:
         """
@@ -1348,7 +1340,6 @@ def monkey_patch_tensor():
         ("register_hook", register_hook),
         ("__str__", __str__),
         ("__repr__", __str__),
-        ("__format__", __format__),
         ("__deepcopy__", __deepcopy__),
         ("__module__", "paddle"),
         ("__array__", __array__),

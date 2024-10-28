@@ -388,7 +388,7 @@ def check_op_config(op_entry, op_name):
     for key in op_entry.keys():
         assert (
             key in base_key_set
-        ), f"Op ({op_name}) : invalid key ({key}) in Yaml. {base_key_set}"
+        ), f"Op ({op_name}) : invalid key ({key}) in Yaml."
 
     if 'infer_meta' in op_entry:
         for infer_meta_key in op_entry['infer_meta'].keys():

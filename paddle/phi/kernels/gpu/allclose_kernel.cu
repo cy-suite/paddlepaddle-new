@@ -48,55 +48,6 @@ __global__ void AllcloseCUDAKernel(const T* in_data,
     if (!val) *out_data = false;
   }
 }
-__global__ void AllcloseCUDAKernel(const int64_t* in_data,
-                                   const int64_t* other_data,
-                                   const double rtol,
-                                   const double atol,
-                                   bool equal_nan,
-                                   int num,
-                                   bool* out_data) {
-  unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  bool val;
-  using MPType = double;
-  for (int i = idx; i < num; i += blockDim.x * gridDim.x) {
-    const MPType a = static_cast<MPType>(in_data[i]);
-    const MPType b = static_cast<MPType>(other_data[i]);
-    if (isnan(a) || isnan(b)) {
-      val = equal_nan && isnan(a) == isnan(b);
-    } else {
-      MPType left = (a > b ? a - b : b - a);
-      MPType right = atol + (b > 0 ? rtol * b : (-rtol) * b);
-      MPType diff = (left > right ? left - right : right - left);
-      val = a == b || left <= right || diff <= 1e-15;
-    }
-    if (!val) *out_data = false;
-  }
-}
-
-__global__ void AllcloseCUDAKernel(const int32_t* in_data,
-                                   const int32_t* other_data,
-                                   const double rtol,
-                                   const double atol,
-                                   bool equal_nan,
-                                   int num,
-                                   bool* out_data) {
-  unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  bool val;
-  using MPType = double;
-  for (int i = idx; i < num; i += blockDim.x * gridDim.x) {
-    const MPType a = static_cast<MPType>(in_data[i]);
-    const MPType b = static_cast<MPType>(other_data[i]);
-    if (isnan(a) || isnan(b)) {
-      val = equal_nan && isnan(a) == isnan(b);
-    } else {
-      MPType left = (a > b ? a - b : b - a);
-      MPType right = atol + (b > 0 ? rtol * b : (-rtol) * b);
-      MPType diff = (left > right ? left - right : right - left);
-      val = a == b || left <= right || diff <= 1e-15;
-    }
-    if (!val) *out_data = false;
-  }
-}
 
 template <typename T, typename Context>
 void AllCloseKernel(const Context& dev_ctx,
@@ -151,8 +102,6 @@ PD_REGISTER_KERNEL(allclose,
                    phi::AllCloseKernel,
                    float,
                    double,
-                   int32_t,
-                   int64_t,
                    phi::dtype::float16) {
   kernel->OutputAt(0).SetDataType(phi::DataType::BOOL);
 }
