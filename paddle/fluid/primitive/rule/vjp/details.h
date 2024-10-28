@@ -821,7 +821,7 @@ void layer_norm_grad(const Tensor& x,
   std::vector<int64_t> normlized_axis;
   std::vector<int64_t> unsqueeze_axis;
   int64_t normlized_numel = 1;
-  for (size_t i = begin_norm_axis; i < x_dims.size(); ++i) {
+  for (int i = begin_norm_axis; i < x_dims.size(); ++i) {
     PADDLE_ENFORCE_GT(
         x_dims[i],
         0,
@@ -836,7 +836,7 @@ void layer_norm_grad(const Tensor& x,
   }
 
   std::vector<int64_t> un_normlized_axis;
-  for (int64_t i = 0; i < begin_norm_axis; ++i) {
+  for (int i = 0; i < begin_norm_axis; ++i) {
     un_normlized_axis.push_back(i);
   }
 

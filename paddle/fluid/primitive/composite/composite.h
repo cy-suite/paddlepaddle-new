@@ -638,7 +638,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_decomp(
   std::vector<int64_t> squeeze_axis;
   auto x_dims = x.dims();
 
-  for (size_t i = begin_norm_axis; i < x_dims.size(); ++i) {
+  for (int i = begin_norm_axis; i < x_dims.size(); ++i) {
     PADDLE_ENFORCE_GT(
         x_dims[i],
         0,
@@ -651,7 +651,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_decomp(
   }
 
   auto x_dim = x.shape();
-  for (size_t i = begin_norm_axis; i < x_dim.size(); i++) {
+  for (int i = begin_norm_axis; i < x_dim.size(); i++) {
     reduce_axis.push_back(static_cast<int64_t>(i));
   }
   auto mean_ = mean_decomp<T>(x_cast, reduce_axis, true);
