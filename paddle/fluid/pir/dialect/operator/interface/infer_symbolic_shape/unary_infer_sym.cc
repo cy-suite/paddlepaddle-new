@@ -858,6 +858,29 @@ bool DecodeJpegOpInferSymbolicShape(
   return true;
 }
 
+bool DetOpInferSymbolicShape(pir::Operation *op,
+                             pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0));
+  const auto &x_shape = x_shape_or_data.shape();
+  int x_shape_size = x_shape.size();
+  PADDLE_ENFORCE_GE(
+      x_shape_size,
+      2,
+      common::errors::InvalidArgument("the input matrix dimension size should "
+                                      "greater than or equal to 2."));
+  infer_context->AddEqualCstr(x_shape[x_shape_size - 2],
+                              x_shape[x_shape_size - 1]);
+  std::vector<symbol::DimExpr> out_shape = x_shape;
+  out_shape.pop_back();
+  out_shape.pop_back();
+  infer_context->SetShapeOrDataForValue(
+      op->result(0),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(out_shape)});
+  return true;
+}
+
 bool DiagOpInferSymbolicShape(pir::Operation *op,
                               pir::InferSymbolicShapeContext *infer_context) {
   const auto x_shape_or_data =
@@ -1552,6 +1575,17 @@ bool IdentityLossOpInferSymbolicShape(
 
   return true;
 }
+
+bool IsEmptyOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  const std::vector<symbol::DimExpr> out_shape = {};
+  infer_context->SetShapeOrDataForValue(
+      op->result(0),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(out_shape)});
+  return true;
+}
+
 bool GumbelSoftmaxOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
   const auto &x_shape_or_data =
@@ -2931,9 +2965,12 @@ bool ReshapeOpInferSymbolicShape(
     return false;
   };
 
+  const auto &original_shape =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0)).shape();
+  const auto &input_numel =
+      GetProduct(original_shape, [](const auto &) { return true; });
+
   const std::vector<symbol::DimExpr> out_dims = [&] {
-    const auto &original_shape =
-        infer_context->GetShapeOrDataForValue(op->operand_source(0)).shape();
     ExprVec target_shape = paddle::dialect::details::GetOrCreateExprVecFromData(
         shape_dim_expr, infer_context);
 
@@ -2945,8 +2982,7 @@ bool ReshapeOpInferSymbolicShape(
     }
 
     // replace '-1' with infered shape
-    const auto &numel =
-        GetProduct(original_shape, [](const auto &) { return true; });
+
     const auto &product_exclude_minus_one =
         GetProduct(target_shape, IsPositiveInteger);
     const auto &input_dims = target_shape;
@@ -2956,7 +2992,7 @@ bool ReshapeOpInferSymbolicShape(
     for (size_t i = 0; i < input_dims.size(); ++i) {
       auto out_dim_expr = IsNotMinusOne(input_dims.at(i))
                               ? input_dims.at(i)
-                              : (numel / product_exclude_minus_one);
+                              : (input_numel / product_exclude_minus_one);
       out_dims.emplace_back(out_dim_expr);
     }
     return out_dims;
@@ -2969,6 +3005,11 @@ bool ReshapeOpInferSymbolicShape(
     }
     return symbol::TensorShapeOrDataDimExprs(out_dims);
   }();
+
+  const auto &output_numel =
+      GetProduct(out_dims, [](const auto &) { return true; });
+
+  infer_context->AddEqualCstr(input_numel, output_numel);
 
   infer_context->SetShapeOrDataForValue(op->result(0), shape_data);
   return true;
@@ -3155,8 +3196,8 @@ bool SlogdetOpInferSymbolicShape(
   PADDLE_ENFORCE_GE(
       x_shape_size,
       2,
-      common::errors::InvalidArgument(
-          "the input matrix dimension size should greater than 2."));
+      common::errors::InvalidArgument("the input matrix dimension size should "
+                                      "greater than or equal to 2."));
   infer_context->AddEqualCstr(x_shape[x_shape_size - 1],
                               x_shape[x_shape_size - 2]);
   std::vector<symbol::DimExpr> out_shape = {2};
