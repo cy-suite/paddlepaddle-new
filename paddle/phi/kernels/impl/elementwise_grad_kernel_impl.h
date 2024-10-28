@@ -16,8 +16,6 @@ limitations under the License. */
 
 #include "glog/logging.h"
 
-#include "paddle/common/enforce.h"
-#include "paddle/common/errors.h"
 #include "paddle/phi/common/amp_type_traits.h"
 #include "paddle/phi/common/complex.h"
 #include "paddle/phi/common/float16.h"
@@ -1439,10 +1437,6 @@ struct RemainderGradDy<
     T,
     typename std::enable_if<std::is_integral<T>::value>::type> {
   HOSTDEVICE T operator()(T x, T y, T out UNUSED, T dout) const {
-    PADDLE_ENFORCE_NE(y,
-                      0,
-                      common::errors::PreconditionNotMet(
-                          "divisor can not be zero when y is integral dtype"));
     // dy = -dout * (x / y)
     return -dout * static_cast<T>(std::floor(static_cast<double>(x) /
                                              static_cast<double>(y)));

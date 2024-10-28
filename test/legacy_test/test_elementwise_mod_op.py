@@ -283,42 +283,6 @@ class TestElementwiseDygraph(unittest.TestCase):
                 self.assertEqual(z.dtype, x.dtype)
                 np.testing.assert_allclose(z_np, z.numpy())
 
-    def test_dygraph_non_zero_y(self):
-        dtypes = ['int32', 'int64', 'float32', 'float64']
-        places = [paddle.CPUPlace()]  # only test in cpu
-        for dtype in dtypes:
-            for place in places:
-                # trigger divisor check in InverseRemainderFunctor
-                x_shape = [1, 1, 5]
-                y_shape = [2, 3, 4, 5]
-                x_np = np.random.uniform(-1000, 1000, x_shape).astype(dtype)
-                x_np[x_np == 0] = -1
-                y_np = np.random.uniform(-1000, 1000, y_shape).astype(dtype)
-                zero_mask = np.random.uniform(0, 2, y_shape).astype("bool")
-                y_np[zero_mask] = 0
-
-                x = paddle.to_tensor(x_np, dtype=dtype, place=place)
-                y = paddle.to_tensor(y_np, dtype=dtype, place=place)
-                try:
-                    _ = paddle.remainder(x, y)
-                except ValueError as e:
-                    pass
-                except Exception:
-                    raise
-
-                # trigger divisor check in RemainderFunctor
-                x_shape = [2, 3, 4, 5]
-                x_np = np.random.uniform(-1000, 1000, x_shape).astype(dtype)
-                x_np[x_np == 0] = -1
-
-                x = paddle.to_tensor(x_np, dtype=dtype, place=place)
-                try:
-                    _ = paddle.remainder(x, y)
-                except ValueError as e:
-                    pass
-                except Exception:
-                    raise
-
     def test_check_grad(self):
         dtypes = ['int32', 'int64', 'float32', 'float64']
         places = [paddle.CPUPlace()]  # only test in cpu
