@@ -347,11 +347,17 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::AllToAll(
         for (auto i = 0; i < size_; i++) {
           in_numel = in_size_each_rank[i] * in_row_size;
           input_partial = GetPartialTensor(in_tensor, in_offset, in_numel);
+          if (in_numel > 0) {
+            comm_context->Send(input_partial, in_numel, i, stream);
+          }
           comm_context->Send(input_partial, in_numel, i, stream);
           in_offset += in_numel;
 
           out_numel = out_size_each_rank[i] * out_row_size;
           output_partial = GetPartialTensor(*out_tensor, out_offset, out_numel);
+          if (out_numel > 0) {
+            comm_context->Recv(&output_partial, out_numel, i, stream);
+          }
           comm_context->Recv(&output_partial, out_numel, i, stream);
           out_offset += out_numel;
         }
