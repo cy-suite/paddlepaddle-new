@@ -60,6 +60,7 @@ class SameStatusReshardFunction(ReshardFunction):
                     and src_value.get_defining_op()
                     .operand_source(0)
                     .get_defining_op()
+                    .name()
                     == "builtin.combine"
                 ):
                     add_n_op = src_value.get_defining_op()
