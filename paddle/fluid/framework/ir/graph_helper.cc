@@ -542,7 +542,8 @@ void ReplaceAllReduceOp(const Node &node,
     VLOG(3) << "Old NCCLCommContext gets ring_id: " << ring_id;
   }
   all_reduce_op_desc.SetAttr("ring_id", ring_id);
-  all_reduce_op_desc.SetAttr("reduce_type", static_cast<int>(phi::ReduceType::kRedSum));
+  all_reduce_op_desc.SetAttr("reduce_type",
+                             static_cast<int>(phi::ReduceType::kRedSum));
   all_reduce_op_desc.SetAttr(OpProtoAndCheckerMaker::OpRoleAttrName(),
                              (static_cast<int>(OpRole::kBackward)));
 
