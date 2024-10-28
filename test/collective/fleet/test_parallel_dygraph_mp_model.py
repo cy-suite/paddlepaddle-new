@@ -1,4 +1,4 @@
-#   Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved.
+# Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +14,15 @@
 
 import unittest
 
-import test_pipeline
+from legacy_test.test_parallel_dygraph_dataparallel import (
+    TestMultipleAccelerators,
+)
 
 
-class TestPipelineWithIRPass(test_pipeline.TestPipeline):
-    def need_envs(self):
-        return {
-            'FLAGS_apply_pass_to_program': '1',
-            'FLAGS_new_executor_micro_batching': '0',
-        }
+class TestModelParallelLayer(TestMultipleAccelerators):
+    def test_hybrid_parallel_mp_layer(self):
+        self.run_mnist_2accelerators('hybrid_parallel_mp_model.py')
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
