@@ -1023,7 +1023,19 @@ struct IndexExpr : public Expr {
   explicit IndexExpr(int32_t x) : Expr(x) {}
   explicit IndexExpr(int64_t x) : Expr(x) {}
 
+  int64_t GetLargestMutiplyPart() const;
+
+  IndexExpr Normalize() const;
+
+  // count the `IndeExpr` length, each node has weight 1, e.g.
+  // S0,          length = 1
+  // S0 + S1,     length = 3
+  // S0 + S1 * 2, length = 5
+  int32_t length(int32_t count = 0) const;
+
   IndexExpr& operator=(const IndexExpr& other);
+
+  IndexExpr operator-() const;
 
 #define DEFINE_OPERATOR(op)               \
   IndexExpr operator op(int64_t v) const; \

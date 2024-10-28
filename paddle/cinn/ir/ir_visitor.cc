@@ -28,7 +28,7 @@ bool operator==(Expr a, Expr b) {
 }
 
 template <typename T>
-bool CompareExpressions(const Expr& a, const Expr& b) {
+static bool CompareExpressions(const Expr& a, const Expr& b) {
   auto aPart = common::GetFlatternExprs<T>(a);
   auto bPart = common::GetFlatternExprs<T>(b);
 
