@@ -17,7 +17,7 @@ import unittest
 
 import numpy as np
 from op_test import OpTest, convert_float_to_uint16, convert_uint16_to_float
-from utils import static_guard
+from utils import dygraph_guard, static_guard
 
 import paddle
 from paddle import static
@@ -200,133 +200,140 @@ class TestElementwiseModOpDouble(TestElementwiseModOpFloat):
 
 class TestElementwiseDygraph(unittest.TestCase):
     def test_dygraph_same_shape(self):
-        dtypes = ['int32', 'int64', 'float32', 'float64']
-        places = [paddle.CPUPlace()]
-        if core.is_compiled_with_cuda():
-            places.append(paddle.CUDAPlace(0))
-        for dtype in dtypes:
-            for place in places:
-                shape = [1, 2, 3, 4, 5]
-                x_np = np.random.uniform(-1000, 1000, shape).astype(dtype)
-                y_np = np.random.uniform(-1000, 1000, shape).astype(dtype)
-                # make sure all element in y is non-zero
-                y_np[np.isclose(y_np, 0)] = -1
-                z_np = np.remainder(x_np, y_np)
-                x = paddle.to_tensor(x_np, dtype=dtype, place=place)
-                x.stop_gradient = False
-                y = paddle.to_tensor(y_np, dtype=dtype, place=place)
-                y.stop_gradient = False
-                z = paddle.remainder(x, y)
-                self.assertEqual(z.dtype, x.dtype)
-                np.testing.assert_allclose(z_np, z.numpy())
+        with dygraph_guard():
+            dtypes = ['int32', 'int64', 'float32', 'float64']
+            places = [paddle.CPUPlace()]
+            if core.is_compiled_with_cuda():
+                places.append(paddle.CUDAPlace(0))
+            for dtype in dtypes:
+                for place in places:
+                    shape = [1, 2, 3, 4, 5]
+                    x_np = np.random.uniform(-1000, 1000, shape).astype(dtype)
+                    y_np = np.random.uniform(-1000, 1000, shape).astype(dtype)
+                    # make sure all element in y is non-zero
+                    y_np[np.isclose(y_np, 0)] = -1
+                    z_np = np.remainder(x_np, y_np)
+                    x = paddle.to_tensor(x_np, dtype=dtype, place=place)
+                    x.stop_gradient = False
+                    y = paddle.to_tensor(y_np, dtype=dtype, place=place)
+                    y.stop_gradient = False
+                    z = paddle.remainder(x, y)
+                    self.assertEqual(z.dtype, x.dtype)
+                    np.testing.assert_allclose(z_np, z.numpy())
 
     def test_dygraph_broadcast_to_x(self):
-        dtypes = ['int32', 'int64', 'float32', 'float64']
-        places = [paddle.CPUPlace()]
-        if core.is_compiled_with_cuda():
-            places.append(paddle.CUDAPlace(0))
-        for dtype in dtypes:
-            for place in places:
-                x_shape = [2, 3, 4, 5]
-                y_shape = [1, 1, 5]
-                x_np = np.random.uniform(-1000, 1000, x_shape).astype(dtype)
-                y_np = np.random.uniform(-1000, 1000, y_shape).astype(dtype)
-                # make sure all element in y is non-zero
-                y_np[np.isclose(y_np, 0)] = -1
-                z_np = np.remainder(x_np, y_np)
+        with dygraph_guard():
+            dtypes = ['int32', 'int64', 'float32', 'float64']
+            places = [paddle.CPUPlace()]
+            if core.is_compiled_with_cuda():
+                places.append(paddle.CUDAPlace(0))
+            for dtype in dtypes:
+                for place in places:
+                    x_shape = [2, 3, 4, 5]
+                    y_shape = [1, 1, 5]
+                    x_np = np.random.uniform(-1000, 1000, x_shape).astype(dtype)
+                    y_np = np.random.uniform(-1000, 1000, y_shape).astype(dtype)
+                    # make sure all element in y is non-zero
+                    y_np[np.isclose(y_np, 0)] = -1
+                    z_np = np.remainder(x_np, y_np)
 
-                x = paddle.to_tensor(x_np, dtype=dtype, place=place)
-                y = paddle.to_tensor(y_np, dtype=dtype, place=place)
-                z = paddle.remainder(x, y)
-                self.assertEqual(z.dtype, x.dtype)
-                np.testing.assert_allclose(z_np, z.numpy())
+                    x = paddle.to_tensor(x_np, dtype=dtype, place=place)
+                    y = paddle.to_tensor(y_np, dtype=dtype, place=place)
+                    z = paddle.remainder(x, y)
+                    self.assertEqual(z.dtype, x.dtype)
+                    np.testing.assert_allclose(z_np, z.numpy())
 
     def test_dygraph_broadcast_to_y(self):
-        dtypes = ['int32', 'int64', 'float32', 'float64']
-        places = [paddle.CPUPlace()]
-        if core.is_compiled_with_cuda():
-            places.append(paddle.CUDAPlace(0))
-        for dtype in dtypes:
-            for place in places:
-                x_shape = [1, 1, 5]
-                y_shape = [2, 3, 4, 5]
-                x_np = np.random.uniform(-1000, 1000, x_shape).astype(dtype)
-                y_np = np.random.uniform(-1000, 1000, y_shape).astype(dtype)
-                # make sure all element in y is non-zero
-                y_np[np.isclose(y_np, 0)] = -1
-                z_np = np.remainder(x_np, y_np)
+        with dygraph_guard():
+            dtypes = ['int32', 'int64', 'float32', 'float64']
+            places = [paddle.CPUPlace()]
+            if core.is_compiled_with_cuda():
+                places.append(paddle.CUDAPlace(0))
+            for dtype in dtypes:
+                for place in places:
+                    x_shape = [1, 1, 5]
+                    y_shape = [2, 3, 4, 5]
+                    x_np = np.random.uniform(-1000, 1000, x_shape).astype(dtype)
+                    y_np = np.random.uniform(-1000, 1000, y_shape).astype(dtype)
+                    # make sure all element in y is non-zero
+                    y_np[np.isclose(y_np, 0)] = -1
+                    z_np = np.remainder(x_np, y_np)
 
-                x = paddle.to_tensor(x_np, dtype=dtype, place=place)
-                y = paddle.to_tensor(y_np, dtype=dtype, place=place)
-                z = paddle.remainder(x, y)
-                self.assertEqual(z.dtype, x.dtype)
-                np.testing.assert_allclose(z_np, z.numpy())
+                    x = paddle.to_tensor(x_np, dtype=dtype, place=place)
+                    y = paddle.to_tensor(y_np, dtype=dtype, place=place)
+                    z = paddle.remainder(x, y)
+                    self.assertEqual(z.dtype, x.dtype)
+                    np.testing.assert_allclose(z_np, z.numpy())
 
     def test_dygraph_broadcast_to_z(self):
-        dtypes = ['int32', 'int64', 'float32', 'float64']
-        places = [paddle.CPUPlace()]
-        if core.is_compiled_with_cuda():
-            places.append(paddle.CUDAPlace(0))
-        for dtype in dtypes:
-            for place in places:
-                x_shape = [1, 3, 1, 5]
-                y_shape = [2, 1, 4, 1]
-                x_np = np.random.uniform(-1000, 1000, x_shape).astype(dtype)
-                y_np = np.random.uniform(-1000, 1000, y_shape).astype(dtype)
-                # make sure all element in y is non-zero
-                y_np[np.isclose(y_np, 0)] = -1
-                z_np = np.remainder(x_np, y_np)
+        with dygraph_guard():
+            dtypes = ['int32', 'int64', 'float32', 'float64']
+            places = [paddle.CPUPlace()]
+            if core.is_compiled_with_cuda():
+                places.append(paddle.CUDAPlace(0))
+            for dtype in dtypes:
+                for place in places:
+                    x_shape = [1, 3, 1, 5]
+                    y_shape = [2, 1, 4, 1]
+                    x_np = np.random.uniform(-1000, 1000, x_shape).astype(dtype)
+                    y_np = np.random.uniform(-1000, 1000, y_shape).astype(dtype)
+                    # make sure all element in y is non-zero
+                    y_np[np.isclose(y_np, 0)] = -1
+                    z_np = np.remainder(x_np, y_np)
 
-                x = paddle.to_tensor(x_np, dtype=dtype, place=place)
-                y = paddle.to_tensor(y_np, dtype=dtype, place=place)
-                z = paddle.remainder(x, y)
-                self.assertEqual(z.dtype, x.dtype)
-                np.testing.assert_allclose(z_np, z.numpy())
+                    x = paddle.to_tensor(x_np, dtype=dtype, place=place)
+                    y = paddle.to_tensor(y_np, dtype=dtype, place=place)
+                    z = paddle.remainder(x, y)
+                    self.assertEqual(z.dtype, x.dtype)
+                    np.testing.assert_allclose(z_np, z.numpy())
 
     def test_check_grad(self):
-        dtypes = ['int32', 'int64', 'float32', 'float64']
-        places = [paddle.CPUPlace()]  # only test in cpu
-        if core.is_compiled_with_cuda():
-            places.append(paddle.CUDAPlace(0))
-        for dtype in dtypes:
-            for place in places:
-                x_shape = [2, 1, 4, 1]
-                y_shape = [1, 3, 1, 5]
-                # x_shape = y_shape
-                x_np = np.random.uniform(0, 1000, x_shape).astype(dtype)
-                # make sure all element in y is non-zero
-                x_np[x_np == 0] = -1
-                y_np = np.random.uniform(0, 1000, y_shape).astype(dtype)
-                # make sure all element in y is non-zero
-                y_np[np.isclose(y_np, 0)] = -1
-                z_np = np.remainder(x_np, y_np)
+        with dygraph_guard():
+            dtypes = ['int32', 'int64', 'float32', 'float64']
+            places = [paddle.CPUPlace()]  # only test in cpu
+            if core.is_compiled_with_cuda():
+                places.append(paddle.CUDAPlace(0))
+            for dtype in dtypes:
+                for place in places:
+                    x_shape = [2, 1, 4, 1]
+                    y_shape = [1, 3, 1, 5]
+                    # x_shape = y_shape
+                    x_np = np.random.uniform(0, 1000, x_shape).astype(dtype)
+                    # make sure all element in y is non-zero
+                    x_np[x_np == 0] = -1
+                    y_np = np.random.uniform(0, 1000, y_shape).astype(dtype)
+                    # make sure all element in y is non-zero
+                    y_np[np.isclose(y_np, 0)] = -1
+                    z_np = np.remainder(x_np, y_np)
 
-                x = paddle.to_tensor(
-                    x_np, dtype=dtype, place=place, stop_gradient=False
-                )
-                y = paddle.to_tensor(
-                    y_np, dtype=dtype, place=place, stop_gradient=False
-                )
-                z = paddle.remainder(x, y)
-                self.assertEqual(z.dtype, x.dtype)
-                np.testing.assert_allclose(z_np, z.numpy())
+                    x = paddle.to_tensor(
+                        x_np, dtype=dtype, place=place, stop_gradient=False
+                    )
+                    y = paddle.to_tensor(
+                        y_np, dtype=dtype, place=place, stop_gradient=False
+                    )
+                    z = paddle.remainder(x, y)
+                    self.assertEqual(z.dtype, x.dtype)
+                    np.testing.assert_allclose(z_np, z.numpy())
 
-                v_np = np.random.uniform(-1000, 1000, z_np.shape).astype(dtype)
-                v = paddle.to_tensor(v_np, dtype=dtype, place=place)
-                dx = paddle.grad(z, x, v, retain_graph=True)[0]
+                    v_np = np.random.uniform(-1000, 1000, z_np.shape).astype(
+                        dtype
+                    )
+                    v = paddle.to_tensor(v_np, dtype=dtype, place=place)
+                    dx = paddle.grad(z, x, v, retain_graph=True)[0]
 
-                dx_np = v_np
-                for dim in range(len(x_shape)):
-                    if dx_np.shape[dim] > x.shape[dim]:
-                        dx_np = dx_np.sum(axis=dim, keepdims=True)
-                np.testing.assert_allclose(dx_np, dx.numpy(), 5e-5)
+                    dx_np = v_np
+                    for dim in range(len(x_shape)):
+                        if dx_np.shape[dim] > x.shape[dim]:
+                            dx_np = dx_np.sum(axis=dim, keepdims=True)
+                    np.testing.assert_allclose(dx_np, dx.numpy(), 5e-5)
 
-                dy = paddle.grad(z, y, v, retain_graph=True)[0]
-                dy_np = -v_np * np.floor_divide(x_np, y_np)
-                for dim in range(len(y_shape)):
-                    if dy_np.shape[dim] > y.shape[dim]:
-                        dy_np = dy_np.sum(axis=dim, keepdims=True)
-                np.testing.assert_allclose(dy_np, dy.numpy(), 5e-5)
+                    dy = paddle.grad(z, y, v, retain_graph=True)[0]
+                    dy_np = -v_np * np.floor_divide(x_np, y_np)
+                    for dim in range(len(y_shape)):
+                        if dy_np.shape[dim] > y.shape[dim]:
+                            dy_np = dy_np.sum(axis=dim, keepdims=True)
+                    np.testing.assert_allclose(dy_np, dy.numpy(), 5e-5)
 
 
 class TestRemainderOp(unittest.TestCase):
@@ -346,23 +353,23 @@ class TestRemainderOp(unittest.TestCase):
     def _executed_api(self, x, y, name=None):
         return paddle.remainder(x, y, name)
 
-    # def test_dygraph(self):
-    #     with base.dygraph.guard():
-    #         x = paddle.to_tensor(self.np_x1)
-    #         y = paddle.to_tensor(self.np_y1)
-    #         z = self._executed_api(x, y)
-    #         np_z = z.numpy()
-    #         self.assertEqual((np_z == self.z_expected1).all(), True)
+    def test_dygraph(self):
+        with dygraph_guard():
+            x = paddle.to_tensor(self.np_x1)
+            y = paddle.to_tensor(self.np_y1)
+            z = self._executed_api(x, y)
+            np_z = z.numpy()
+            self.assertEqual((np_z == self.z_expected1).all(), True)
 
-    #         x = paddle.to_tensor(self.np_x2)
-    #         y = paddle.to_tensor(self.np_y2)
-    #         z = x % y
-    #         np.testing.assert_allclose(self.z_expected2, z.numpy(), rtol=1e-05)
+            x = paddle.to_tensor(self.np_x2)
+            y = paddle.to_tensor(self.np_y2)
+            z = x % y
+            np.testing.assert_allclose(self.z_expected2, z.numpy(), rtol=1e-05)
 
-    #         x = paddle.to_tensor(self.np_x3, dtype="int64")
-    #         y = paddle.to_tensor(self.np_y3, dtype="int64")
-    #         z = x % y
-    #         np.testing.assert_allclose(self.z_expected3, z.numpy(), rtol=1e-05)
+            x = paddle.to_tensor(self.np_x3, dtype="int64")
+            y = paddle.to_tensor(self.np_y3, dtype="int64")
+            z = x % y
+            np.testing.assert_allclose(self.z_expected3, z.numpy(), rtol=1e-05)
 
     def test_static(self):
         with static_guard():
