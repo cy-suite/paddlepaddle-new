@@ -239,7 +239,7 @@ inline std::vector<ir::IndexExpr> GetFlatternExprs(const ir::IndexExpr &expr) {
  * \return A boolean value indicating whether the priority of `lhs` is higher
  * than `rhs`.
  */
-bool ComparePriority(const Expr &lhs, const Expr &rhs);
+bool ComparePriority(const ir::IndexExpr &lhs, const ir::IndexExpr &rhs);
 
 /*!
  * \brief Determines whether there are sub-parts in the `expr` that can be

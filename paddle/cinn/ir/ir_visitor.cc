@@ -15,6 +15,7 @@
 #include <unordered_set>
 
 #include "paddle/cinn/common/ir_util.h"
+#include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/ir_visitor.h"
 #include "paddle/cinn/ir/utils/ir_compare.h"
 #include "paddle/cinn/utils/string.h"
@@ -28,7 +29,7 @@ bool operator==(Expr a, Expr b) {
 }
 
 template <typename T>
-static bool CompareExpressions(const Expr& a, const Expr& b) {
+static bool CompareExpressions(const ir::IndexExpr& a, const ir::IndexExpr& b) {
   auto aPart = common::GetFlatternExprs<T>(a);
   auto bPart = common::GetFlatternExprs<T>(b);
 
@@ -37,24 +38,23 @@ static bool CompareExpressions(const Expr& a, const Expr& b) {
 
   if (aPart.size() != bPart.size()) return false;
 
-  std::size_t i = 0, j = 0;
-  while (i < aPart.size() && j < bPart.size()) {
-    int priorityA = common::ComparePriority(aPart[i]);
-    int priorityB = common::ComparePriority(bPart[j]);
+  size_t i = 0;
+  while (i < aPart.size()) {
+    if (!common::ComparePriority(aPart[i], bPart[i])) return false;
+    std::vector<std::pair<ir::IndexExpr, int>> aGroup, bGroup;
 
-    if (priorityA != priorityB) return false;
+    do {
+      aGroup.emplace_back(aPart[i], 0);
+      bGroup.emplace_back(bPart[i], 0);
+      ++i;
+    } while (i < aPart.size() &&
+             common::ComparePriority(aPart[i - 1], aPart[i]) == 1 &&
+             common::ComparePriority(bPart[i - 1], bPart[i]) == 1);
 
-    std::vector<std::pair<Expr, int>> aGroup, bGroup;
-    while (i < aPart.size() && common::ComparePriority(aPart[i]) == priorityA)
-      aGroup.push_back(std::pair(aPart[i++], 0));
-    while (j < bPart.size() && common::ComparePriority(bPart[j]) == priorityB)
-      bGroup.push_back(std::pair(bPart[j++], 0));
-
-    if (aGroup.size() != bGroup.size()) return false;
-
-    for (size_t k = 0; k < aGroup.size(); ++i) {
+    // compare expressions with same priority.
+    for (size_t k = 0; k < aGroup.size(); ++k) {
       for (auto& b : bGroup) {
-        if (b.second == 0 && aGroup[i].first == b.first) {
+        if (b.second == 0 && aGroup[k].first == b.first) {
           b.second = 1;
           aGroup[k].second = 1;
           break;
@@ -94,9 +94,9 @@ bool operator==(IndexExpr a, IndexExpr b) {
              a->operand(1).as_index() == b->operand(1).as_index();
     }
     case ir::IrNodeTy::Add:
-      return CompareExpressions<ir::Add>(a, b);
+      return CompareExpressions<ir::Add>(a.as_index(), b.as_index());
     case ir::IrNodeTy::Mul:
-      return CompareExpressions<ir::Mul>(a, b);
+      return CompareExpressions<ir::Mul>(a.as_index(), b.as_index());
   }
 }
 
