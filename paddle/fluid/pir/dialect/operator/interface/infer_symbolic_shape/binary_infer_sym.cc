@@ -313,13 +313,6 @@ bool BmmOpInferSymbolicShape(pir::Operation *op,
   return true;
 }
 
-// bool CholeskySolveOpInferSymbolicShape(pir::Operation *op,
-//                                        pir::InferSymbolicShapeContext
-//                                        *infer_context) {
-//   // pass
-//   return true;
-// }
-
 bool CtcAlignOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
   const auto &input_shape =
@@ -2072,6 +2065,38 @@ bool TriangularSolveOpInferSymbolicShape(
   const std::vector<symbol::DimExpr> &x_shape = x_shape_or_data.shape();
   const auto &y_shape_or_data =
       infer_context->GetShapeOrDataForValue(op->operand_source(1));
+  const std::vector<symbol::DimExpr> &y_shape = y_shape_or_data.shape();
+
+  const auto &x_rank = x_shape.size();
+  const auto &y_rank = y_shape.size();
+
+  infer_context->AddEqualCstr(x_shape[x_rank - 2], x_shape[x_rank - 1]);
+
+  std::vector<symbol::DimExpr> x_shape_cut(x_shape.begin(), x_shape.end() - 2);
+  std::vector<symbol::DimExpr> y_shape_cut(y_shape.begin(), y_shape.end() - 2);
+
+  std::vector<symbol::DimExpr> expand_batch_portion =
+      MatrixGetBroadcastBatchPortion(x_shape_cut, y_shape_cut, infer_context);
+
+  std::vector<symbol::DimExpr> output_shape({expand_batch_portion});
+  output_shape.insert(output_shape.end(),
+                      {y_shape[y_rank - 2], y_shape[y_rank - 1]});
+
+  infer_context->SetShapeOrDataForValue(
+      op->result(0),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(output_shape)});
+
+  return true;
+}
+
+bool CholeskySolveOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(1));
+  const std::vector<symbol::DimExpr> &x_shape = x_shape_or_data.shape();
+  const auto &y_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0));
   const std::vector<symbol::DimExpr> &y_shape = y_shape_or_data.shape();
 
   const auto &x_rank = x_shape.size();
