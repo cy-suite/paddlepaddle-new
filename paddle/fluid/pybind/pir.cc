@@ -1400,6 +1400,17 @@ void BindValue(py::module *m) {
            [](Value &self, TensorDistAttribute dist_attr) {
              self.set_type(dialect::CvtToPirDistType(self.type(), dist_attr));
            })
+      .def("is_coalesced",
+           [](Value self) {
+             auto sparse_coo_tensor_type =
+                 self.type().dyn_cast<SparseCooTensorType>();
+             if (sparse_coo_tensor_type) {
+               return sparse_coo_tensor_type.coalesced();
+             } else {
+               PADDLE_THROW(common::errors::InvalidType(
+                   "Method is_coalesced only support sparse coo tensor."));
+             }
+           })
       .def_property_readonly("process_mesh", [](Value &self) -> py::object {
         auto type = self.type();
         if (auto dist_type = type.dyn_cast<DistTypeInterface>()) {
@@ -2132,6 +2143,9 @@ void BindUtils(pybind11::module *m) {
          []() { ApiBuilder::Instance().ResetInsertionPointToStart(); });
   m->def("reset_insertion_point_to_end",
          []() { ApiBuilder::Instance().ResetInsertionPointToEnd(); });
+  m->def("set_op_role",
+         [](int op_role) { ApiBuilder::Instance().SetOpRole(op_role); });
+  m->def("get_op_role", []() { return ApiBuilder::Instance().GetOpRole(); });
   m->def("register_paddle_dialect", []() {
     pir::IrContext::Instance()
         ->GetOrRegisterDialect<paddle::dialect::OperatorDialect>();
