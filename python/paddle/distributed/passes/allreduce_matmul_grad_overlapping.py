@@ -76,7 +76,7 @@ class AllreduceMatmulGradOverlappingPass(PassBase):
                 x_grad = op_i.output("X@GRAD")
                 for j in range(i + 1, op_num):
                     op_j = ops[j]
-                    if op_j.type == 'all_reduce' and op_j.input("x") == x_grad:
+                    if op_j.type == 'all_reduce' and op_j.attr("reduce_type")==dist.ReduceOp.SUM and op_j.input("x") == x_grad:
                         matmul_grad_id_to_allreduce_id[i] = j
         return matmul_grad_id_to_allreduce_id
 
