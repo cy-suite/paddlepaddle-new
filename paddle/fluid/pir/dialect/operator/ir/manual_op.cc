@@ -4691,27 +4691,26 @@ std::vector<pir::Type> ArrayPopOp::InferMeta(
 
 bool ArrayPopOp::InferSymbolicShape(
     pir::InferSymbolicShapeContext *infer_context) {
-  const auto &array_shape_data =
-      infer_context->GetShapeOrDataForValue(array()).shape();
   int index =
       this->attributes().at("index").dyn_cast<pir::Int32Attribute>().data();
+  const auto &array_shape =
+      infer_context->GetShapeOrDataForValue(input())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  std::vector<symbol::DimExpr> result_shape = array_shape.GetShapeHint();
+
   if (index < 0) {
-    index + = array_shape_data.size();
+    index = result_shape.size() + index;
   }
-  symbol::DimExpr out = array_shape_data[index];
+  symbol::DimExpr out_ = result_shape[index];
   infer_context->SetShapeOrDataForValue(
       out(),
-      symbol::ShapeOrDataDimExprs(symbol::TensorShapeOrDataDimExprs(out)));
-  std::vector<symbol::DimExpr> array_out;
-  for (int i = 0; i < array_shape_data.size(); ++i) {
-    if (i != index)
-      array_out.push_back(
-          symbol::TensorArrayShapeOrDataDimExprs(array_shape_data[i]));
-  }
+      symbol::ShapeOrDataDimExprs(symbol::TensorShapeOrDataDimExprs({out_})));
+  result_shape[index] = symbol::DimExpr{infer_context->GetNextSymName()};
+
   infer_context->SetShapeOrDataForValue(
       array_out(),
       symbol::ShapeOrDataDimExprs(
-          symbol::TensorShapeOrDataDimExprs(array_out)));
+          symbol::TensorShapeOrDataDimExprs(result_shape)));
 }
 phi::DataType ArrayPopOp::GetKernelTypeForVar(
     const std::string &var_name,
