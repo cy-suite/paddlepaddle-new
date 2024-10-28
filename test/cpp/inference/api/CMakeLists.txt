@@ -755,6 +755,7 @@ if(WITH_TESTING AND WITH_INFERENCE_API_TEST)
       paddle_inference_shared
       ARGS
       --infer_model=${TRT_MODEL_INSTALL_DIR})
+    set_tests_properties(trt_dynamic_shape_test PROPERTIES TIMEOUT 300)
 
     set(TEST_TRT_ERNIE_MODEL "${TRT_MODEL_INSTALL_DIR}/ernie_test")
     if(NOT EXISTS ${TEST_TRT_ERNIE_MODEL}/ernie_model_4.tar.gz)
