@@ -415,18 +415,6 @@ class ShardingPass(PassBase):
                             OP_ROLE_KEY: OpRole.Optimize,
                         },
                     )
-                    # new_op = main_block._insert_op(
-                    #     idx + i + 1,
-                    #     type='all_reduce',
-                    #     inputs={'x': [sum_op_output]},
-                    #     outputs={'out': [sum_op_output]},
-                    #     attrs={
-                    #         'ring_id': sharding_info.group.id,
-                    #         'op_namescope': "/gradient_clip_model_parallelism",
-                    #         'reduce_type': dist.ReduceOp.SUM,
-                    #         OP_ROLE_KEY: OpRole.Optimize,
-                    #     },
-                    # )
                     dist_attr = (
                         self._dist_context.get_tensor_dist_attr_for_program(
                             main_block.var(sum_op_output)
