@@ -55,7 +55,13 @@ class SameStatusReshardFunction(ReshardFunction):
         for src, dst in zip(src_mesh.process_ids, dst_mesh.process_ids):
             if src == cur_global_rank:
                 chunk_id = -1
-                if src_value.get_defining_op().name() == "pd_op.add_n":
+                if (
+                    src_value.get_defining_op().name() == "pd_op.add_n"
+                    and src_value.get_defining_op()
+                    .operand_source(0)
+                    .get_defining_op()
+                    == "builtin.combine"
+                ):
                     add_n_op = src_value.get_defining_op()
                     combine_op = add_n_op.operand_source(0).get_defining_op()
                     combine_op_chunk_id_list = []
