@@ -15,19 +15,19 @@
 from paddle.nn import Layer
 
 
-class BaseParallel(Layer):
+class ParallelBase(Layer):
     def __init__(self, model, optimizer=None):
         super().__init__()
         self.pp_parallelizer = None
         self.tp_parallelizer = None
         self.sharding_parallelizer = None
 
-        if isinstance(model, BaseParallel):
+        if isinstance(model, ParallelBase):
             self.pp_parallelizer = model.pp_parallelizer
             self.tp_parallelizer = model.tp_parallelizer
             self.sharding_parallelizer = model.sharding_parallelizer
 
-        if isinstance(model, BaseParallel):
+        if isinstance(model, ParallelBase):
             self.model = model.model
         else:
             self.model = model
