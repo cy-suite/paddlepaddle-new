@@ -1481,6 +1481,7 @@ class TanhOpPattern : public pir::OpRewritePattern<paddle::dialect::TanhOp> {
     return true;
   }
 };
+
 class WherePattern : public pir::OpRewritePattern<paddle::dialect::WhereOp> {
  public:
   using pir::OpRewritePattern<paddle::dialect::WhereOp>::OpRewritePattern;
@@ -1512,6 +1513,12 @@ class FullWithTensorPattern
       return false;
     }
     pir::Value value = op.operand_source(0);
+    if (value == nullptr) {
+      VLOG(3) << "pd_op.full_with_tensor value is null";
+      return false;
+    }
+#if IS_TRT_VERSION_LT(8500)
+    if (pir::GetDefiningOpForInput(op, 1)
             ->isa<paddle::dialect::FullIntArrayOp>()) {
       paddle::dialect::FullIntArrayOp full_int_array =
           pir::GetDefiningOpForInput(op, 1)
@@ -1544,6 +1551,7 @@ class FullWithTensorPattern
   }
 };
 
+class TrtOpMarkerPass : public pir::PatternRewritePass {
  public:
   TrtOpMarkerPass() : pir::PatternRewritePass("trt_op_marker_pass", 2) {}
 
