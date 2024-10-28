@@ -791,9 +791,10 @@ def _decomp_bwd_program(pir_program, pir_grad_var_to_var):
         bwd_ops = _get_all_bwd_ops(pir_program)
         undecomposed_bwd_ops = []
         ops = pir_program.global_block().ops
+        black_fwd_ops = ["pd_op.swiglu_grad"]
         for op in ops:
             bwd_op_name = op.name()
-            if op.name() in bwd_ops:
+            if op.name() in bwd_ops and op.name() not in black_fwd_ops:
                 _, bwd_has_decomposed = _decomp_bwd_op(
                     pir_program.global_block(), op, pir_grad_var_to_var
                 )
@@ -814,7 +815,7 @@ def _decomp_fwd_program(pir_program, pir_grad_var_to_var):
         ops = pir_program.global_block().ops
         bwd_ops = _get_all_bwd_ops(pir_program)
         # ops including compile-time infermeta, causing mismatched input shape and output shape, which is unsupported when decomposing.
-        black_fwd_ops = ["pd_op.stack", "pd_op.squeeze"]
+        black_fwd_ops = ["pd_op.stack", "pd_op.squeeze", "pd_op.swiglu", "pd_op.squared_l2_norm"]
         undecomposed_fwd_ops = []
 
         prev_op = None

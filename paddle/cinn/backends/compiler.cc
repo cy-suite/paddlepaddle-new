@@ -243,7 +243,7 @@ void Compiler::Build(const Module& module, const std::string& code) {
 
 void Compiler::AppendCX86(const Module& module) {
   VLOG(3) << "Start Compiler::BuildCX86" << module;
-  CompileX86Module(module);
+  // CompileX86Module(module);
   VLOG(3) << "Over Compiler::BuildCX86";
 }
 
