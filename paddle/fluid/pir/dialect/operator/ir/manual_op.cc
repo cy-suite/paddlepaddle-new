@@ -4689,6 +4689,29 @@ std::vector<pir::Type> ArrayPopOp::InferMeta(
   return argument_outputs;
 }
 
+bool ArrayPopOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &array_shape_data =
+      infer_context->GetShapeOrDataForValue(array()).shape();
+  int index =
+      this->attributes().at("index").dyn_cast<pir::Int32Attribute>().data();
+  if (index < 0) {
+    index + = array.size();
+  }
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs(
+          symbol::TensorShapeOrDataDimExprs(array[index])));
+  std::vector<symbol::DimExpr> array_out;
+  for (int i = 0; i < array.size(); ++i) {
+    if (i != index)
+      array_out.push_back(symbol::TensorArrayShapeOrDataDimExprs(array[i]));
+  }
+  infer_context->SetShapeOrDataForValue(
+      array_out(),
+      symbol::ShapeOrDataDimExprs(
+          symbol::TensorShapeOrDataDimExprs(array_out)));
+}
 phi::DataType ArrayPopOp::GetKernelTypeForVar(
     const std::string &var_name,
     const phi::DataType &tensor_dtype,

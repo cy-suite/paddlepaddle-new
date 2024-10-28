@@ -811,6 +811,7 @@ class TEST_API ArrayPopOp
     : public pir::Op<ArrayPopOp,
                      paddle::dialect::OpYamlInfoInterface,
                      paddle::dialect::InferMetaInterface,
+                     paddle::dialect::InferSymbolicShapeInterface,
                      paddle::dialect::GetKernelTypeForVarInterface,
                      InplaceTrait,
                      paddle::dialect::ForwardOnlyTrait> {
@@ -840,6 +841,7 @@ class TEST_API ArrayPopOp
   static std::vector<pir::Type> InferMeta(
       const std::vector<pir::Value> &input_values,
       pir::AttributeMap *p_attributes);
+  bool InferSymbolicShape(pir::InferSymbolicShapeContext *infer_context);
 };
 
 }  // namespace dialect
