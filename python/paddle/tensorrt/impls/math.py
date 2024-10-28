@@ -16,7 +16,9 @@ import numpy as np
 import tensorrt as trt
 
 from paddle.tensorrt.converter_utils import (
+    add_cast_reduce_layer,
     add_elementwise_layer,
+    add_reduce_layer,
     broadcast,
     get_axes_for_reduce_op,
 )
@@ -117,4 +119,28 @@ def substract_converter(network, paddle_op, inputs):
 def multiply_converter(network, paddle_op, inputs):
     return add_elementwise_layer(
         network, paddle_op, inputs, trt.ElementWiseOperation.PROD
+    )
+
+
+@converter_registry.register("pd_op.min", trt_version="8.x")
+def min_converter(network, paddle_op, inputs):
+    return add_reduce_layer(network, paddle_op, inputs, trt.ReduceOperation.MIN)
+
+
+@converter_registry.register("pd_op.sum", trt_version="8.x")
+def sum_converter(network, paddle_op, inputs):
+    return add_reduce_layer(network, paddle_op, inputs, trt.ReduceOperation.SUM)
+
+
+@converter_registry.register("pd_op.any", trt_version="8.x")
+def any_converter(network, paddle_op, inputs):
+    return add_cast_reduce_layer(
+        network, paddle_op, inputs, trt.ReduceOperation.MAX
+    )
+
+
+@converter_registry.register("pd_op.all", trt_version="8.x")
+def all_converter(network, paddle_op, inputs):
+    return add_cast_reduce_layer(
+        network, paddle_op, inputs, trt.ReduceOperation.MIN
     )
