@@ -18,6 +18,7 @@ import re
 from dataclasses import dataclass
 
 import paddle
+import paddle.distributed as dist
 from paddle import pir
 from paddle.autograd.backward_utils import ValueDict
 from paddle.base.framework import pir_op_role_guard
@@ -525,12 +526,15 @@ comm_ops = [
     "pd_op.all_gather",
     "pd_op.reduce_scatter",
 ]
-reduce_type = [dist.ReduceOp.SUM,dist.ReduceOp.MAX]
+reduce_type = [dist.ReduceOp.SUM, dist.ReduceOp.MAX]
 
 
 def remove_unuseful_comm_op_pass(program):
     for op in program.global_block().ops:
-        if op.name() in comm_ops or (op.name()=="pd_op.all_reduce" and op.attr("reduce_type") in reduce_type):
+        if op.name() in comm_ops or (
+            op.name() == "pd_op.all_reduce"
+            and op.attr("reduce_type") in reduce_type
+        ):
             ring_id = op.int_attr("ring_id")
             process_group = get_process_group(ring_id)
             if process_group.nranks == 1:
