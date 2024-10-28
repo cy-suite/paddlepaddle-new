@@ -630,87 +630,52 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_decomp(
     const paddle::optional<Tensor>& bias,
     float epsilon,
     int begin_norm_axis) {
-  if (has_dynamic_shape(x.shape())) {
-    std::vector<int64_t> axis;
-    auto org_dtype = x.dtype();
-    Tensor x_cast = ConverToMT<T>(x);
-
-    auto x_dim = x.shape();
-    for (size_t i = begin_norm_axis; i < x_dim.size(); i++) {
-      axis.push_back(static_cast<int64_t>(i));
-    }
-    auto mean_ = mean_decomp<T>(x_cast, axis, true);
-    auto difference = x_cast - mean_;
-    auto var_tmp1 = difference * difference;
-    auto variance = mean_decomp<T>(var_tmp1, axis, true);
-    auto var_tmp3 = variance + full_scalar<T>(epsilon, variance.dtype());
-    auto rsqrt_var = rsqrt<T>(var_tmp3);
-    auto out = difference * rsqrt_var;
-
-    Tensor slice_shape_l = get_slice_vec<T>(shape<T>(x), 0, begin_norm_axis);
-    Tensor slice_shape_r =
-        get_slice_vec<T>(shape<T>(x), begin_norm_axis, x_dim.size());
-    Tensor scale_cast;
-    if (scale) {
-      scale_cast = backend::reshape_with_tensor<T>(scale.get(), slice_shape_r);
-      scale_cast = ConverToMT<T>(scale_cast);
-      out = out * scale_cast;
-    }
-    Tensor bias_cast;
-    if (bias) {
-      bias_cast = backend::reshape_with_tensor<T>(bias.get(), slice_shape_r);
-      bias_cast = ConverToMT<T>(bias_cast);
-      out = out + bias_cast;
-    }
-    mean_ = backend::reshape_with_tensor<T>(mean_, slice_shape_l);
-    variance = backend::reshape_with_tensor<T>(variance, slice_shape_l);
-
-    // same as LayerNormInferMeta
-    // x: float32 --> out: float32, mean: float32, variance: float32
-    // x: float16 --> out: float16, mean: float32, variance: float32
-    out = ConverToOrig<T>(out, org_dtype);
-    return std::make_tuple(out, mean_, variance);
-  }
-
-  std::vector<int64_t> axis;
+  std::vector<int64_t> reduce_axis;
   auto org_dtype = x.dtype();
   Tensor x_cast = ConverToMT<T>(x);
 
+  std::vector<int64_t> normlized_shape;
+  std::vector<int64_t> squeeze_axis;
+  auto x_dims = x.dims();
+
+  for (size_t i = begin_norm_axis; i < x_dims.size(); ++i) {
+    PADDLE_ENFORCE_GT(
+        x_dims[i],
+        0,
+        common::errors::InvalidArgument("The normlized dim MUST large than 0. "
+                                        "but received [%d]",
+                                        x_dims[i]));
+    normlized_shape.push_back(x_dims[i]);
+
+    squeeze_axis.push_back(i);
+  }
+
   auto x_dim = x.shape();
   for (size_t i = begin_norm_axis; i < x_dim.size(); i++) {
-    axis.push_back(static_cast<int64_t>(i));
+    reduce_axis.push_back(static_cast<int64_t>(i));
   }
-  auto mean_ = mean_decomp<T>(x_cast, axis, true);
+  auto mean_ = mean_decomp<T>(x_cast, reduce_axis, true);
   auto difference = x_cast - mean_;
   auto var_tmp1 = difference * difference;
-  auto variance = mean_decomp<T>(var_tmp1, axis, true);
+  auto variance = mean_decomp<T>(var_tmp1, reduce_axis, true);
   auto var_tmp3 = variance + epsilon;
   auto rsqrt_var = rsqrt<T>(var_tmp3);
   auto out = difference * rsqrt_var;
 
-  std::vector<int64_t> slice_shape_l;
-  std::vector<int64_t> slice_shape_r;
-  for (int64_t i = 0; i < static_cast<int64_t>(x_dim.size()); i++) {
-    if (i < begin_norm_axis) {
-      slice_shape_l.push_back(x_dim[i]);
-    } else {
-      slice_shape_r.push_back(x_dim[i]);
-    }
-  }
   Tensor scale_cast;
   if (scale) {
-    scale_cast = reshape<T>(scale.get(), slice_shape_r);
+    scale_cast = reshape<T>(scale.get(), normlized_shape);
     scale_cast = ConverToMT<T>(scale_cast);
     out = out * scale_cast;
   }
   Tensor bias_cast;
   if (bias) {
-    bias_cast = reshape<T>(bias.get(), slice_shape_r);
+    bias_cast = reshape<T>(bias.get(), normlized_shape);
     bias_cast = ConverToMT<T>(bias_cast);
     out = out + bias_cast;
   }
-  mean_ = reshape<T>(mean_, slice_shape_l);
-  variance = reshape<T>(variance, slice_shape_l);
+  mean_ = squeeze<T>(mean_, squeeze_axis);
+  variance = squeeze<T>(variance, squeeze_axis);
 
   // same as LayerNormInferMeta
   // x: float32 --> out: float32, mean: float32, variance: float32
