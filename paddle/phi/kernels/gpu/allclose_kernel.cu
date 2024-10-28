@@ -36,10 +36,12 @@ __global__ void AllcloseCUDAKernel(const T* in_data,
   bool val;
   using BaseMPType = typename phi::dtype::MPTypeTrait<T>::Type;
 
-  using MPType = typename std::conditional<std::is_same<T, int32_t>::value ||
-                                               std::is_same<T, int64_t>::value,
-                                           double,
-                                           BaseMPType>::type;
+  using MPType =
+      typename std::conditional<std::is_same<T, int32_t>::value ||
+                                    std::is_same<T, int64_t>::value ||
+                                    std::is_same<T, bool>::value,
+                                double,
+                                BaseMPType>::type;
 
   for (int i = idx; i < num; i += blockDim.x * gridDim.x) {
     const MPType a = static_cast<MPType>(in_data[i]);
@@ -109,7 +111,8 @@ PD_REGISTER_KERNEL(allclose,
                    phi::AllCloseKernel,
                    float,
                    double,
-                   int32_t,
+                   bool,
+                   int,
                    int64_t,
                    phi::dtype::float16) {
   kernel->OutputAt(0).SetDataType(phi::DataType::BOOL);

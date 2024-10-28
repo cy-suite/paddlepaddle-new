@@ -57,7 +57,8 @@ void AllCloseKernel(const Context& dev_ctx,
   *out_data = true;
 
   auto num = x.numel();
-  if (std::is_same<T, int32_t>::value || std::is_same<T, int64_t>::value) {
+  if (std::is_same<T, int32_t>::value || std::is_same<T, int64_t>::value ||
+      std::is_same<T, bool>::value) {
     for (int64_t i = 0; i < num; ++i) {
       const double a = static_cast<double>(in_a[i]),
                    b = static_cast<double>(in_b[i]);
@@ -92,6 +93,7 @@ PD_REGISTER_KERNEL(allclose,
                    phi::AllCloseKernel,
                    float,
                    double,
+                   bool,
                    int,
                    int64_t) {
   kernel->OutputAt(0).SetDataType(phi::DataType::BOOL);
