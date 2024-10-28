@@ -121,5 +121,20 @@ class TestFullLikeIntTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestFullLikeDynamicTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.full_like
+        self.api_args = {
+            "input": np.random.randn(3, 2).astype(np.float32),
+            "fill_value": np.array([5.0]).astype(np.float32),
+        }
+        self.program_config = {"feed_list": ["input", "fill_value"]}
+        self.min_shape = {"input": [1, 2]}
+        self.max_shape = {"input": [5, 2]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
 if __name__ == "__main__":
     unittest.main()

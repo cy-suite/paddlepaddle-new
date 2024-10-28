@@ -103,7 +103,7 @@ def arange_converter(network, paddle_op, inputs):
 def full_like_converter(network, paddle_op, inputs):
     shape = tuple(paddle_op.operands()[0].source().shape)
     ndims = len(shape)
-    value = paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
+
     out_dtype = int(paddle_op.attrs().get("dtype", None))
     # Reference paddle/phi/common/data_type.h enum DataType
     if out_dtype == 1:
@@ -123,12 +123,23 @@ def full_like_converter(network, paddle_op, inputs):
             f"cast converter currently doesn't support dtype: {out_dtype}"
         )
 
-    value_tensor = network.add_constant(
-        (1,), np.array([value], dtype=np.float32)
-    ).get_output(0)
-    value_tensor = trt_cast(network, value_tensor, out_dtype)
+    value_op = paddle_op.operands()[1].source().get_defining_op()
+    if value_op.name() == "pd_op.full":
+        fill_value = value_op.attrs()["value"]
+        value = network.add_constant(
+            (1,),
+            np.array(
+                [
+                    fill_value,
+                ],
+                dtype=np.float32,
+            ),
+        ).get_output(0)
+        value = trt_cast(network, value, out_dtype)
+    else:
+        value = inputs[1]
 
-    shuffle_layer = network.add_shuffle(value_tensor)
+    shuffle_layer = network.add_shuffle(value)
     shuffle_layer.reshape_dims = (1,) * ndims
 
     start_vec = np.zeros((ndims,), dtype=np.int32)
@@ -148,6 +159,6 @@ def full_like_converter(network, paddle_op, inputs):
     slice_layer.set_input(1, start_tensor)
     slice_layer.set_input(2, shape_tensor)
     slice_layer.set_input(3, stride_tensor)
-    fill_constant = network.add_input("value", dtype=out_dtype, shape=())
-    slice_layer.set_input(4, fill_constant)
+    value = trt_cast(network, value, out_dtype)
+    slice_layer.set_input(4, value)
     return slice_layer.get_output(0)
