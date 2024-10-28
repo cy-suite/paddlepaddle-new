@@ -1493,14 +1493,14 @@ class FullLikeOpPattern
     bool hasAttr = op->HasAttribute("dtype");
     auto dtype =
         op->attribute<paddle::dialect::DataTypeAttribute>("dtype").data();
-#if IS_TRT_VERSION_LT(8400)
+#if IS_TRT_VERSION_GE(8400)
     if (dtype == phi::DataType::BOOL ||
         (!hasAttr && x_dtype.isa<pir::BoolType>())) {
       op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
       VLOG(3) << "the pd_op.full_like supports input of BOOL by trt8.4 above";
       return true;
     }
-#endif
+#else
     if (hasAttr && dtype != phi::DataType::FLOAT32 &&
         dtype != phi::DataType::FLOAT64 && dtype != phi::DataType::INT32 &&
         dtype != phi::DataType::INT64) {
@@ -1519,6 +1519,8 @@ class FullLikeOpPattern
         return false;
       }
     }
+#endif
+
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }

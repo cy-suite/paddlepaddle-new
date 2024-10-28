@@ -18,6 +18,8 @@ import numpy as np
 from tensorrt_test_base import TensorRTBaseTest
 
 import paddle
+from paddle import _C_ops
+from paddle.framework import core
 
 
 class TestFlattenTRTPattern(TensorRTBaseTest):
@@ -91,16 +93,20 @@ class TestAssignOutTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+def full_like_api(input, fill_value):
+    return _C_ops.full_like(input, fill_value, input.dtype, core.Place())
+
+
 class TestFullLikeFloatTRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = paddle.full_like
+        self.python_api = full_like_api
         self.api_args = {
             "input": np.random.randn(3, 2).astype(np.float32),
-            "fill_value": 5,
+            "fill_value": np.array([5.0]).astype(np.float32),
         }
-        self.program_config = {"feed_list": ["input"]}
-        self.min_shape = {"input": [1, 2]}
-        self.max_shape = {"input": [5, 2]}
+        self.program_config = {"feed_list": ["input", "fill_value"]}
+        self.min_shape = {"input": [1, 2], "fill_value": [1]}
+        self.max_shape = {"input": [5, 2], "fill_value": [1]}
 
     def test_trt_result(self):
         self.check_trt_result()
