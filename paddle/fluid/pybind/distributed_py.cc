@@ -701,8 +701,8 @@ void BindDistributed(py::module *m) {
           .def(
               "alltoall",
               [](distributed::ProcessGroup &self,
-                 py::handle py_in_tensor,
-                 py::handle py_out_tensor) {
+                 py::handle py_out_tensor,
+                 py::handle py_in_tensor) {
                 auto in_tensor = CastPyArg2Tensor(py_in_tensor.ptr(), 0);
                 auto out_tensor = CastPyArg2Tensor(py_out_tensor.ptr(), 0);
                 auto in_dense = std::dynamic_pointer_cast<phi::DenseTensor>(
