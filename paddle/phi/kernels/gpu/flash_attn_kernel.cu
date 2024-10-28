@@ -542,8 +542,18 @@ void FlashAttnBaseKernel(
   bool succ;
   int arch =
       backends::gpu::GetGPUComputeCapability(ctx.GetPlace().GetDeviceId());
+
+  if (arch == 80 && version == 3) {
+    RaiseNotSupportedError(3);
+  }
+
   if (arch == 90 && version == 3) {
 #ifdef PADDLE_WITH_FLASHATTN_V3
+    if (is_flashmask || params.attn_mask_tensor) {
+      PADDLE_THROW(common::errors::Unimplemented(
+          "FlashMask or Dense Mask is unsupported in FlashAttention V3"));
+    }
+
     succ = phi::dynload::flash_attn_v3_fwd(
         q.data(),
         k.data(),
