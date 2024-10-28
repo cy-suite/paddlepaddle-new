@@ -132,6 +132,7 @@ class AutoMixedPrecisionPass : public pir::Pass {
       }
     }
     cached_cast_ops_.clear();
+    AddStatistics(op_run_low_precision_.size());
   }
 
   bool CanApplyOn(pir::Operation* op) const override {
