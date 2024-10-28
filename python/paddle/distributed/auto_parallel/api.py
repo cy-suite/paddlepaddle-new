@@ -51,6 +51,7 @@ from paddle.distributed.auto_parallel.static.utils import (
     convert_to_dims_mapping,
     fuse_param_func,
     get_dist_attr,
+    split_mesh,
     split_param_func,
     to_list,
 )
@@ -61,6 +62,12 @@ from paddle.io.dataloader.batch_sampler import (
 )
 from paddle.optimizer import Optimizer
 
+from .moe_utils import (
+    _dist_reshape,
+    _NdMeshAlltoAll,
+    _reshard_mesh_shape,
+    _specific_alltoall_dim,
+)
 from .placement_type import (
     check_placements_equal,
     get_shard_spec,
@@ -368,10 +375,10 @@ class _moe_global_mesh_tensor(PyLayer):
             local_mesh = None
 
         ctx.global_mesh = copy.deepcopy(mesh)
-        ctx.placements = placements
+        ctx.placements = copy.deepcopy(placements)
         ctx.local_dims = local_tensor.shape
         ctx.local_mesh_list = copy.deepcopy(local_mesh_list)
-        ctx.local_placements = local_placements
+        ctx.local_placements = copy.deepcopy(local_placements)
 
         place = paddle.framework._current_expected_place()
         place = paddle.framework._get_paddle_place(place)
@@ -408,29 +415,6 @@ class _moe_global_mesh_tensor(PyLayer):
             return out
 
 
-def split_mesh(global_mesh: dist.ProcessMesh, sub_mesh_dim: int):
-    mesh_shape = global_mesh.shape
-    mesh_ndim = len(mesh_shape)
-    if sub_mesh_dim >= mesh_ndim or (
-        sub_mesh_dim < 0 and -sub_mesh_dim > mesh_ndim
-    ):
-        raise ValueError(
-            f"The sub_mesh_dim should between (-{mesh_ndim}, {mesh_ndim}]"
-        )
-    if sub_mesh_dim < 0:
-        sub_mesh_dim += mesh_ndim
-
-    process_ids = np.array(global_mesh.process_ids).reshape(mesh_shape)
-    splitted_process_ids = np.split(
-        process_ids, mesh_shape[sub_mesh_dim], axis=sub_mesh_dim
-    )
-    sub_mesh_list = []
-    for sub_process_ids in splitted_process_ids:
-        sub_mesh_list.append(dist.ProcessMesh(sub_process_ids))
-
-    return sub_mesh_list
-
-
 def _get_sub_meshes_and_local_placements(
     global_mesh, global_placements, sub_mesh_dim
 ):
@@ -448,7 +432,7 @@ def _get_sub_meshes_and_local_placements(
     return sub_mesh_list, local_placements
 
 
-def cal_global_shape(local_shape, mesh, placements):
+def _cal_global_shape(local_shape, mesh, placements):
     # assume the each rank has the same tensor shape for now,
     # just use the local shape to calculate the global shape
     global_shape = list(local_shape)
@@ -473,7 +457,7 @@ def moe_global_mesh_tensor(
     local_tensor = local_tensor_list[local_tensor_idx]
 
     if paddle.in_dynamic_mode():
-        global_dims = cal_global_shape(
+        global_dims = _cal_global_shape(
             local_tensor._local_value().shape, mesh, placements
         )
         resharded_local_tensor_list = []
@@ -502,7 +486,7 @@ def moe_global_mesh_tensor(
             placements,
         )
     elif paddle.framework.in_pir_mode():
-        global_dims = cal_global_shape(
+        global_dims = _cal_global_shape(
             local_tensor._local_shape, mesh, placements
         )
         dist_tensor = paddle._C_ops.moe_global_mesh_tensor(
@@ -555,7 +539,7 @@ class _moe_sub_mesh_tensors(PyLayer):
                 )
             assert check_placements_equal(
                 global_placements, dist_tensor.placements
-            ), "the global_placements should be the same as dist_tensor's placements."
+            ), f"the global_placements ({global_placements}) is not equal to dist_tensor's placements ({dist_tensor.placements})."
             local_shape = dist_tensor._local_value().shape
             for idx, placement in enumerate(local_placements):
                 if placement.is_shard():
@@ -585,7 +569,6 @@ class _moe_sub_mesh_tensors(PyLayer):
     def backward(ctx, *grad_tensor):
         place = paddle.framework._current_expected_place()
         place = paddle.framework._get_paddle_place(place)
-        # idx = ctx.global_mesh.process_ids.index(dist.get_rank())
         mesh = ctx.global_mesh
         process_ids = np.array(mesh.process_ids).reshape(mesh.shape)
         local_coord = np.where(process_ids == dist.get_rank())
@@ -772,6 +755,16 @@ def reshard(
         if len(partial_dims) > 0:
             dist_attr._set_partial_dims(partial_dims)
 
+        alltoall_dim = _specific_alltoall_dim(dist_tensor, mesh, placements)
+        if alltoall_dim is not None:
+            return _NdMeshAlltoAll.apply(
+                dist_tensor, mesh, placements, alltoall_dim
+            )
+
+        if _reshard_mesh_shape(dist_tensor, mesh, placements):
+            return _dist_reshape(
+                dist_tensor, dist_tensor.shape, mesh, placements
+            )
         return paddle.base.core.reshard(dist_tensor, dist_attr)
     elif in_pir_mode():
         return paddle._C_ops.reshard(dist_tensor, mesh, placements)

@@ -137,6 +137,9 @@ if(WITH_DISTRIBUTE AND WITH_GPU)
                   test_auto_parallel_multiply_test ENVS)
   set_tests_properties(test_auto_parallel_multiply_test
                        PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE" TIMEOUT 100)
+  py_test_modules(test_moe_utils MODULES test_moe_utils)
+  set_tests_properties(test_moe_utils PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE"
+                                                 TIMEOUT 30)
   # End of unittests WITH multi cards and timeout
 
   # NOTE(zyl): unittests WITH multi cards and WITHOUT timeout
