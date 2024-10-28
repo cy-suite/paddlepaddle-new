@@ -213,7 +213,7 @@ def apply_partition_pass(program):
 class ReshardPasses:
 
     @staticmethod
-    def atomic_reshard_pass(dist_program):
+    def decompose_reshard_pass(dist_program):
         # split composed reshard op into atomic reshard ops, which would increase the oppotunity of reshard Re-Use in following fold_reshard_pass.
         del_ops = []
         for op in dist_program.global_block().ops:
@@ -223,10 +223,11 @@ class ReshardPasses:
             result = op.result(0)
 
             # split the reshard compose p2p and collective into one p2p reshard and one collective reshard.
+            # avoid global to sub mesh case
             if (
                 input.dist_attr().process_mesh
                 != result.dist_attr().process_mesh
-            ):
+            ) and input.dist_attr().process_mesh.ndim == result.dist_attr().process_mesh.ndim:
                 if (
                     input.dist_attr().placements
                     != result.dist_attr().placements
@@ -327,7 +328,7 @@ class ReshardPasses:
 
     @staticmethod
     def apply_reshard_pass(dist_program, params_grads=[]):
-        ReshardPasses.atomic_reshard_pass(dist_program)
+        ReshardPasses.decompose_reshard_pass(dist_program)
         ReshardPasses.fold_reshard_pass(dist_program)
         ReshardPasses.reshard_op_pass(dist_program, params_grads)
 
