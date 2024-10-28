@@ -32,7 +32,6 @@ class Model(paddle.nn.Layer):
                 block_name + "_fc_0",
                 paddle.nn.Linear(input_size, input_size, bias_attr=False),
             ),
-            (block_name + "_dropout", paddle.nn.Dropout(p=0.5)),
             (block_name + "_relu_1", paddle.nn.ReLU()),
             (
                 block_name + "_fc_1",
