@@ -1075,7 +1075,7 @@ def _split_program_for_vpp(
     for idx in range(len(all_ops) - 1, -1, -1):
         op = all_ops[idx]
         op_role = op.op_role
-        op_chunk_id = op.attrs()["chunk_id"]
+        op_chunk_id = op.chunk_id
         # Step2.1: infer chunk_id for ops that don't have chunk_id
         if op_role != int(OpRole.Optimize) and op_chunk_id == -1:
             op_chunk_id = infer_chunk_id(idx, all_ops, False)
