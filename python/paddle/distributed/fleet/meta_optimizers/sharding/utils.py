@@ -402,6 +402,7 @@ def insert_allreduce_ops(
                 outputs={'out': var},
                 attrs={
                     'ring_id': ring_id,
+                    'reduce_type': dist.ReduceOp.SUM,
                     OP_ROLE_KEY: op_role,
                 },
             )
@@ -511,6 +512,7 @@ def insert_fused_allreduce_ops(
             outputs={'out': fused_var},
             attrs={
                 'ring_id': ring_id,
+                'reduce_type': dist.ReduceOp.SUM,
                 OP_ROLE_KEY: op_role,
             },
         )
@@ -1065,6 +1067,7 @@ def append_naive_sync(block, sync_var, ring_id):
         outputs={'out': sync_var},
         attrs={
             'ring_id': ring_id,
+            'reduce_type': dist.ReduceOp.SUM,
             OP_ROLE_KEY: OpRole.Forward,
         },
     )
