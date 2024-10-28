@@ -37,8 +37,31 @@ static bool CompareExpressions(const Expr& a, const Expr& b) {
 
   if (aPart.size() != bPart.size()) return false;
 
-  for (std::size_t i = 0; i < aPart.size(); ++i) {
-    if (aPart.at(i) != bPart.at(i)) return false;
+  std::size_t i = 0, j = 0;
+  while (i < aPart.size() && j < bPart.size()) {
+    int priorityA = common::ComparePriority(aPart[i]);
+    int priorityB = common::ComparePriority(bPart[j]);
+
+    if (priorityA != priorityB) return false;
+
+    std::vector<std::pair<Expr, int>> aGroup, bGroup;
+    while (i < aPart.size() && common::ComparePriority(aPart[i]) == priorityA)
+      aGroup.push_back(std::pair(aPart[i++], 0));
+    while (j < bPart.size() && common::ComparePriority(bPart[j]) == priorityB)
+      bGroup.push_back(std::pair(bPart[j++], 0));
+
+    if (aGroup.size() != bGroup.size()) return false;
+
+    for (size_t k = 0; k < aGroup.size(); ++i) {
+      for (auto& b : bGroup) {
+        if (b.second == 0 && aGroup[i].first == b.first) {
+          b.second = 1;
+          aGroup[k].second = 1;
+          break;
+        }
+      }
+      if (aGroup[k].second == 0) return false;
+    }
   }
 
   return true;

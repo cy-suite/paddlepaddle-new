@@ -1708,52 +1708,6 @@ IndexExpr Simplify(const IndexExpr &expr) {
     }
   }
 }
-static IndexExpr SimplifyAdd(const IndexExpr &lhs, const IndexExpr &rhs) {
-  // 3 + 4 ===> 7.
-  if (auto constRes = cinn::common::TryConstFold<ir::Add>(lhs, rhs))
-    return constRes.value().as_index();
-  // 3 + d0 ===> d0 + 3.
-  // d0 + (d1 + d2) ===> (d1 + d2) + d0.
-  if (!ComparePriority(lhs, rhs)) {
-    return rhs + lhs;
-  }
-
-  // (d0 + d1) + (d2 + d3) ===> ((d0 + d1) + d2) + d3.
-  if (auto rhsAdd = rhs.As<Add>()) {
-    return lhs + rhsAdd->a().as_index() + rhsAdd->b().as_index();
-  }
-}
-
-IndexExpr Simplify(const IndexExpr &expr) {
-  switch (expr.node_type()) {
-    case ir::IrNodeTy::IntImm:
-      return expr;
-    case ir::IrNodeTy::_Var_: {
-      auto op = expr.As<ir::_Var_>();
-      if (op->lower_bound.defined() && op->upper_bound.defined()) {
-        if (!(op->lower_bound.is_constant() && op->upper_bound.is_constant()))
-          return expr;
-        auto l = op->lower_bound.as_int64();
-        auto u = op->upper_bound.as_int64();
-        if (l && u && l + 1 == u) return op->lower_bound.as_index();
-        return expr;
-      }
-      return expr;
-    }
-    case ir::IrNodeTy::Add:
-      [[fallthrough]];
-    case ir::IrNodeTy::Mul:
-      [[fallthrough]];
-    case ir::IrNodeTy::Div:
-      [[fallthrough]];
-    case ir::IrNodeTy::Mod: {
-      auto a1 = Simplify(expr->operand(0).as_index());
-      auto a2 = Simplify(expr->operand(1).as_index());
-
-      return ConstructIndexExprByNodeType(expr.node_type(), a1, a2);
-    }
-  }
-}
 
 IndexExpr IndexExpr::Normalize() const { return Simplify(*this); }
 
