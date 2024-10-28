@@ -195,6 +195,28 @@ inline void UnpackReduction(const ir::IndexExpr &expr, FLeaf fleaf) {
 }
 
 /*!
+ * \brief Flattern the expression into a vector of expressions splited by `Add`
+ * or `Mul`.
+ *
+ * For example (Add):
+ * 1. `S0 + S1` ==> {S0, S1}
+ * 2. `S0 + S1 * S2` ==> {S0, S1 * S2}
+ * 3. `S0 + S1 * (S2 + S3)` ==> {S0, S1 * (S2 + S3)}
+ *
+ * \param lhs The left hand side expression to be compared.
+ * \param rhs The right hand side expression to be compared.
+ * \return A boolean value indicating whether the priority of `lhs` is higher
+ * than `rhs`.
+ */
+template <typename T>
+inline std::vector<ir::IndexExpr> GetFlatternExprs(const ir::IndexExpr &expr) {
+  std::vector<ir::IndexExpr> result;
+  auto fcollect = [&](ir::IndexExpr val) { result.push_back(val); };
+  UnpackReduction<T>(expr, fcollect);
+  return result;
+}
+
+/*!
  * \brief Compare the priority of the two expressions. this func follows the
  * above rules:
  * 1. if lhs = var, rhs = const,    return true;
@@ -262,7 +284,7 @@ bool IsSumPartialBySymbol(const ir::IndexExpr &expr,
  * \param ty ty is `Mod` or `Div`.
  * \return True means there are sub-parts in the `expr` that can be simplified.
  * \note this func dont deal the corner case, please use `ProveDivisible` for
- * exact result. e.g. `IsDivisiblieBySymbol(f % S0  - f, S0, div)` is false
+ * exact result. e.g. `IsDivisiblieBySymbol(f % S0 - f, S0, div)` is false
  */
 bool IsDivisiblieBySymbol(const ir::IndexExpr &expr,
                           const ir::IndexExpr &symbol,
