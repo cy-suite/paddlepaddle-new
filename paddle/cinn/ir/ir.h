@@ -1040,7 +1040,7 @@ struct IndexExpr : public Expr {
 #define DEFINE_OPERATOR(op)               \
   IndexExpr operator op(int64_t v) const; \
   IndexExpr operator op(int32_t v) const; \
-  IndexExpr operator op(IndexExpr other) const;
+  IndexExpr operator op(const IndexExpr& other) const;
 
   DEFINE_OPERATOR(+)
   DEFINE_OPERATOR(-)

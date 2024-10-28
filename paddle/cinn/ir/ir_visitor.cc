@@ -32,8 +32,8 @@ static bool CompareExpressions(const Expr& a, const Expr& b) {
   auto aPart = common::GetFlatternExprs<T>(a);
   auto bPart = common::GetFlatternExprs<T>(b);
 
-  std::sort(aPart.begin(), aPart.end(), common::IsCorrectPriority);
-  std::sort(bPart.begin(), bPart.end(), common::IsCorrectPriority);
+  std::sort(aPart.begin(), aPart.end(), common::ComparePriority);
+  std::sort(bPart.begin(), bPart.end(), common::ComparePriority);
 
   if (aPart.size() != bPart.size()) return false;
 
