@@ -650,7 +650,6 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_decomp(
     squeeze_axis.push_back(i);
   }
 
-  auto x_dim = x.shape();
   for (int i = begin_norm_axis; i < x_dim.size(); i++) {
     reduce_axis.push_back(static_cast<int64_t>(i));
   }
