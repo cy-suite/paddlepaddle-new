@@ -14,7 +14,6 @@
 
 
 import paddle
-import paddle.distributed as dist
 from paddle.framework import core
 from paddle.utils import unique_name
 
@@ -125,12 +124,12 @@ class CollectiveHelper:
                 },
             )
             block.append_op(
-                type='all_reduce',
-                inputs={'x': [sync_var]},
-                outputs={'out': [sync_var]},
+                type='c_allreduce_sum',
+                inputs={'X': [sync_var]},
+                outputs={'Out': [sync_var]},
                 attrs={
                     'ring_id': global_ring_id,
-                    'reduce_type': dist.ReduceOp.SUM,
+                    'use_calc_stream': True,
                     OP_ROLE_KEY: OpRole.Forward,
                 },
             )
