@@ -795,7 +795,7 @@
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : remainder
-  args : (Tensor x, Tensor y, int axis=-1)
+  args : (Tensor x, Tensor y, int axis = -1)
   output : Tensor (out)
   infer_meta :
     func : ElementwiseInferMeta
