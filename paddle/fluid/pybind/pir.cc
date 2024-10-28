@@ -111,6 +111,7 @@ using pir::BlockArgument;
 using pir::BoolAttribute;
 using pir::CloneOptions;
 using pir::Int32Attribute;
+using pir::Int64Attribute;
 using pir::IrContext;
 using pir::IrMapping;
 using pir::IrParser;
@@ -1075,6 +1076,21 @@ void BindOperation(py::module *m) {
           },
           [](Operation &self, OperationDistAttribute op_dist_attr) {
             self.set_attribute(kAttrOpDistAttr, op_dist_attr);
+          })
+      .def_property(
+          "chunk_id",
+          [](Operation &self) -> py::object {
+            auto int64_attr = self.attribute<Int64Attribute>("chunk_id");
+            if (int64_attr) {
+              return py::cast(int64_attr.data());
+            } else {
+              return py::cast(-1);
+            }
+          },
+          [](Operation &self, const int &chunk_id) {
+            self.set_attribute(
+                "chunk_id",
+                Int64Attribute::get(pir::IrContext::Instance(), chunk_id));
           })
       .def_property(
           "op_role",

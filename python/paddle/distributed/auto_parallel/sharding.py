@@ -71,6 +71,7 @@ class ShardingOptimizerStage1(Optimizer):
         ), "`paddle.distributed.ShardOptimizer` only supports AdamW and SGD optimizer for now."
         self.__dict__["_inner_opt"] = optimizer
         self._shard_fn = shard_fn
+        paddle.enable_static()
         mesh = dist.auto_parallel.get_mesh()
         dp_groups = get_mesh_comm_list(mesh, "dp")
         for group in dp_groups:
@@ -102,6 +103,7 @@ class ShardingOptimizerStage1(Optimizer):
         if "mp" in mesh._dim_names:
             self._mp_mesh_axis = mesh._dim_names.index("mp")
             self._mp_degree = mesh._shape[self._mp_mesh_axis]
+        paddle.disable_static()
 
     def apply_gradients(self, params_grads):
         place = _get_device()
