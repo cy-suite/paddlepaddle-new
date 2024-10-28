@@ -126,7 +126,8 @@ class AutoMixedPrecisionPass : public pir::Pass {
   }
 
   bool CanApplyOn(pir::Operation* op) const override {
-    return op->num_regions() > 0 && op->isa<pir::ModuleOp>() && place_ == paddle::PlaceType::kGPU &&
+    return op->num_regions() > 0 && op->isa<pir::ModuleOp>() &&
+           place_ == paddle::PlaceType::kGPU &&
            (precision_mode_ == phi::DataType::FLOAT16 ||
             precision_mode_ == phi::DataType::BFLOAT16);
   }
@@ -721,17 +722,16 @@ class AutoMixedPrecisionPass : public pir::Pass {
       }
     }
   }
-  
-  void SubOpRun(pir::Operation* op){
+
+  void SubOpRun(pir::Operation* op) {
     for (auto& region : *op) {
       for (auto& block : region) {
-        SubBlockRun(&block); //subblock
+        SubBlockRun(&block);  // subblock
       }
     }
-
   }
 
-  void SubBlockRun(pir::Block* block){
+  void SubBlockRun(pir::Block* block) {
     GetOpPrecision(block);
     UpdateOpPrecision(block);
     pir::Builder builder = pir::Builder(context_, block);
