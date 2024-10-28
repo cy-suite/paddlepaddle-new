@@ -1136,11 +1136,7 @@ bool FrameOpInferSymbolicShape(pir::Operation *op,
     out_shape.push_back(x_shape[i]);
   }
 
-  if (!seq_length.isa<int64_t>()) {
-    n_frames = infer_context->GetNextSymName();
-  } else {
-    n_frames = symbol::DimExpr((seq_length - frame_length) / hop_length + 1);
-  }
+  n_frames = symbol::DimExpr((seq_length - frame_length) / hop_length + 1);
   if (axis == 0) {
     out_shape.insert(out_shape.begin(), symbol::DimExpr(frame_length));
     out_shape.insert(out_shape.begin(), n_frames);
