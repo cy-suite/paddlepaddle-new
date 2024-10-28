@@ -308,7 +308,7 @@ void QkQkvAttentionXPUFusePass::ApplyQkQkvAttentionXPUFuse(
       fused_op_desc.SetAttr("alpha", scale_val);
       VLOG(4) << "while with_q_scale, scale_val = " << scale_val;
     } else {
-      // in xdnn, 0.0f is default value of NewBaseAttnParam.alpha
+      // 1.0f is default value of NewBaseAttnParam.alpha. range:(0,1]
       fused_op_desc.SetAttr("alpha", 1.0f);
     }
     fused_op_desc.SetAttr(
