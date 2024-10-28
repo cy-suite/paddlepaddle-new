@@ -103,7 +103,7 @@ def arange_converter(network, paddle_op, inputs):
 def full_like_converter(network, paddle_op, inputs):
     shape = tuple(paddle_op.operands()[0].source().shape)
     ndims = len(shape)
-    value = paddle_op.attrs().get("value", 1.0)
+    value = paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
     out_dtype = int(paddle_op.attrs().get("dtype", None))
     # Reference paddle/phi/common/data_type.h enum DataType
     if out_dtype == 1:
