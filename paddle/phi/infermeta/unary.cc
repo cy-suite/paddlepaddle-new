@@ -785,10 +785,6 @@ void CropInferMeta(const MetaTensor& x,
   for (int i = 0; i < static_cast<int>(shape_dims.size()); ++i) {
     if (shape_dims[i] > 0) {
       out_dims[i] = static_cast<int64_t>(shape_dims[i]);
-    } else {
-      if (shape_dims[i] == -1 && offsets_vec[i] != -1 && x_dim[i] != -1) {
-        out_dims[i] = x_dim[i] - static_cast<int64_t>(offsets_vec[i]);
-      }
     }
   }
   out->set_dims(common::make_ddim(out_dims));
@@ -3707,6 +3703,17 @@ void ReduceInferMetaBase(const MetaTensor& x,
   out->set_dims(out_dim);
   out->set_dtype(x.dtype());
   out->set_layout(x.layout());
+}
+
+void ReduceSumInferMeta(const MetaTensor& x,
+                        const std::vector<int64_t>& axis,
+                        bool keep_dim,
+                        MetaTensor* out) {
+  bool reduce_all = false;
+  if (axis.empty()) {
+    reduce_all = true;
+  }
+  SumRawInferMeta(x, axis, keep_dim, reduce_all, DataType::UNDEFINED, out);
 }
 
 void ReduceInferMeta(const MetaTensor& x,

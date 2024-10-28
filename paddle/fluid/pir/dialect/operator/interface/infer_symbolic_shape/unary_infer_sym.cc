@@ -793,7 +793,7 @@ bool CropOpInferSymbolicShape(pir::Operation *op,
 
   PADDLE_ENFORCE_EQ(in_shape.size(),
                     x_shape.size(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "The number of elements (%d) of attribute 'shape' for "
                         "CropTensor must be equal to the number of "
                         "dimensions (%d) of the input.",
@@ -802,7 +802,7 @@ bool CropOpInferSymbolicShape(pir::Operation *op,
   PADDLE_ENFORCE_EQ(
       offsets.size(),
       x_shape.size(),
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "The number of elements (%d) of attribute 'offsets' for "
           "CropTensor must be equal to the number of "
           "dimensions (%d) of the input.",
@@ -855,6 +855,29 @@ bool DecodeJpegOpInferSymbolicShape(
       symbol::ShapeOrDataDimExprs{
           symbol::TensorShapeOrDataDimExprs(out_shape)});
 
+  return true;
+}
+
+bool DetOpInferSymbolicShape(pir::Operation *op,
+                             pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0));
+  const auto &x_shape = x_shape_or_data.shape();
+  int x_shape_size = x_shape.size();
+  PADDLE_ENFORCE_GE(
+      x_shape_size,
+      2,
+      common::errors::InvalidArgument("the input matrix dimension size should "
+                                      "greater than or equal to 2."));
+  infer_context->AddEqualCstr(x_shape[x_shape_size - 2],
+                              x_shape[x_shape_size - 1]);
+  std::vector<symbol::DimExpr> out_shape = x_shape;
+  out_shape.pop_back();
+  out_shape.pop_back();
+  infer_context->SetShapeOrDataForValue(
+      op->result(0),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(out_shape)});
   return true;
 }
 
@@ -1552,6 +1575,17 @@ bool IdentityLossOpInferSymbolicShape(
 
   return true;
 }
+
+bool IsEmptyOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  const std::vector<symbol::DimExpr> out_shape = {};
+  infer_context->SetShapeOrDataForValue(
+      op->result(0),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(out_shape)});
+  return true;
+}
+
 bool GumbelSoftmaxOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
   const auto &x_shape_or_data =
@@ -2004,8 +2038,19 @@ bool MeanOpInferSymbolicShape(pir::Operation *op,
                               pir::InferSymbolicShapeContext *infer_context) {
   bool keepdim = GetBoolAttr(op, "keepdim");
   std::vector<int64_t> axis;
-  if (paddle::dialect::details::GetAxisFromOpInput(
-          op->operand_source(1), infer_context, &axis)) {
+  if (op->num_operands() == 1) {
+    const auto attributes = op->attributes();
+    if (op->attributes().find("axis") != attributes.end()) {
+      axis = op->attribute<paddle::dialect::IntArrayAttribute>("axis")
+                 .data()
+                 .GetData();
+      bool reduce_all = axis.size() == 0;
+
+      return details::ReduceInferDim(
+          op, infer_context, axis, keepdim, reduce_all);
+    }
+  } else if (paddle::dialect::details::GetAxisFromOpInput(
+                 op->operand_source(1), infer_context, &axis)) {
     bool reduce_all = axis.size() == 0;
 
     return details::ReduceInferDim(
@@ -2586,7 +2631,7 @@ bool PartialSumOpInferSymbolicShape(
   int inputs_num = xs_shapes.size();
   PADDLE_ENFORCE_GT(inputs_num,
                     0,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "ShapeError: Input tensors count should > 0. But "
                         "received inputs' length is 0."));
   if (inputs_num == 1) {
@@ -2598,10 +2643,10 @@ bool PartialSumOpInferSymbolicShape(
 
   for (int i = 0; i < inputs_num; i++) {
     const std::vector<symbol::DimExpr> x_shape = xs_shapes[i].shape();
-    PADDLE_ENFORCE_EQ(
-        x_shape.size(),
-        2,
-        phi::errors::InvalidArgument("Only support two dimensions input now."));
+    PADDLE_ENFORCE_EQ(x_shape.size(),
+                      2,
+                      common::errors::InvalidArgument(
+                          "Only support two dimensions input now."));
 
     if (i > 0) {
       infer_context->AddEqualCstr(x_shape[0], batch_size);
@@ -2920,9 +2965,12 @@ bool ReshapeOpInferSymbolicShape(
     return false;
   };
 
+  const auto &original_shape =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0)).shape();
+  const auto &input_numel =
+      GetProduct(original_shape, [](const auto &) { return true; });
+
   const std::vector<symbol::DimExpr> out_dims = [&] {
-    const auto &original_shape =
-        infer_context->GetShapeOrDataForValue(op->operand_source(0)).shape();
     ExprVec target_shape = paddle::dialect::details::GetOrCreateExprVecFromData(
         shape_dim_expr, infer_context);
 
@@ -2934,8 +2982,7 @@ bool ReshapeOpInferSymbolicShape(
     }
 
     // replace '-1' with infered shape
-    const auto &numel =
-        GetProduct(original_shape, [](const auto &) { return true; });
+
     const auto &product_exclude_minus_one =
         GetProduct(target_shape, IsPositiveInteger);
     const auto &input_dims = target_shape;
@@ -2945,7 +2992,7 @@ bool ReshapeOpInferSymbolicShape(
     for (size_t i = 0; i < input_dims.size(); ++i) {
       auto out_dim_expr = IsNotMinusOne(input_dims.at(i))
                               ? input_dims.at(i)
-                              : (numel / product_exclude_minus_one);
+                              : (input_numel / product_exclude_minus_one);
       out_dims.emplace_back(out_dim_expr);
     }
     return out_dims;
@@ -2958,6 +3005,11 @@ bool ReshapeOpInferSymbolicShape(
     }
     return symbol::TensorShapeOrDataDimExprs(out_dims);
   }();
+
+  const auto &output_numel =
+      GetProduct(out_dims, [](const auto &) { return true; });
+
+  infer_context->AddEqualCstr(input_numel, output_numel);
 
   infer_context->SetShapeOrDataForValue(op->result(0), shape_data);
   return true;
@@ -3132,6 +3184,31 @@ bool SliceOpInferSymbolicShape(pir::Operation *op,
                                               decrease_axis,
                                               infer_context));
 
+  return true;
+}
+
+bool SlogdetOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0));
+  const auto &x_shape = x_shape_or_data.shape();
+  size_t x_shape_size = x_shape.size();
+  PADDLE_ENFORCE_GE(
+      x_shape_size,
+      2,
+      common::errors::InvalidArgument("the input matrix dimension size should "
+                                      "greater than or equal to 2."));
+  infer_context->AddEqualCstr(x_shape[x_shape_size - 1],
+                              x_shape[x_shape_size - 2]);
+  std::vector<symbol::DimExpr> out_shape = {2};
+  size_t addtional_dims = x_shape.size() - 2;
+  for (size_t i = 0; i < addtional_dims; i++) {
+    out_shape.push_back(x_shape[i]);
+  }
+  infer_context->SetShapeOrDataForValue(
+      op->result(0),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(out_shape)});
   return true;
 }
 

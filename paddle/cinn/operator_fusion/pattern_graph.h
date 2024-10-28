@@ -37,8 +37,9 @@ class PatternGraph {
   void ReduceLiftReduceTree();
   void ReduceTreeGrown();
   void ReduceTree_Trivial_Fusion();
-  void LiftToAnchorPattern();
-  void AnchorPatternFusion();
+  void LiftToItersPermutationPattern();
+  void LimitedAnchorFusion();
+  void ItersPermutationFusion();
   void SplitRecomputePattern();
   std::vector<PatternNodePtr> ReturnFusionResults();
 
@@ -56,6 +57,9 @@ class PatternGraph {
   }
   const std::vector<pir::Value>& outputs() const { return outputs_; }
   const PolicyManager& policy_manager() const { return policy_manager_; }
+  std::shared_ptr<ItersFusionPolicy> iters_fusion_policy() {
+    return policy_manager_.template GetPolicy<ItersFusionPolicy>();
+  }
 
  private:
   PatternNodePtrSet all_pattern_nodes_;
