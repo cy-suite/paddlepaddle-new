@@ -1,14 +1,3 @@
-# - backward_op : remainder_grad
-#   forward : remainder (Tensor x, Tensor y) -> Tensor(out)
-#   args : (Tensor x, Tensor y, Tensor out_grad)
-#   output : Tensor(x_grad), Tensor(y_grad)
-#   infer_meta :
-#     func : GeneralBinaryGradInferMeta
-#     param : [x, y]
-#     spmd_rule : ElementwiseBinaryGradInferSpmd
-#   kernel :
-#     func : remainder_grad
-
 - backward_op : add_double_grad
   forward : add_grad (Tensor x, Tensor y, Tensor grad_out, int axis = -1) -> Tensor(grad_x), Tensor(grad_y)
   args : (Tensor y, Tensor grad_out, Tensor grad_x_grad, Tensor grad_y_grad, int axis = -1)
@@ -276,6 +265,16 @@
   kernel :
     func : multiply_triple_grad
   optional : fwd_grad_grad_x, fwd_grad_grad_y, grad_x_grad, grad_y_grad, grad_grad_out_grad
+
+- backward_op : remainder_grad
+  forward : remainder (Tensor x, Tensor y) -> Tensor(out)
+  args : (Tensor x, Tensor y, Tensor out_grad)
+  output : Tensor(x_grad), Tensor(y_grad)
+  infer_meta :
+    func : GeneralBinaryGradInferMeta
+    param : [x, y]
+  kernel :
+    func : remainder_grad
 
 - backward_op : set_value_grad
   forward : set_value (Tensor x, IntArray starts, IntArray ends, IntArray steps, int64_t[] axes, int64_t[] decrease_axes, int64_t[] none_axes, int64_t[] shape, Scalar[] values) -> Tensor(out)

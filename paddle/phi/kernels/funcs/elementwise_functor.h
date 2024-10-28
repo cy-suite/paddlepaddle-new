@@ -542,7 +542,10 @@ struct MinGradXYFunctor {
 template <typename T, typename Enable = void>
 struct RemainderFunctor {
   inline HOSTDEVICE T operator()(const T a, const T b) const {
-    PADDLE_ENFORCE(b != 0, DIV_ERROR_INFO);
+    PADDLE_ENFORCE_NE(b,
+                      0,
+                      common::errors::InvalidArgument(
+                          "divisor can not be zero when y is integral dtype"));
     T res = a % b;
 
     // According to #PR26732: in dividen % divsor
@@ -686,10 +689,8 @@ struct RemainderGradXYFunctor<
 template <typename T, typename Enable = void>
 struct InverseRemainderFunctor {
   inline HOSTDEVICE T operator()(const T a, const T b) const {
-    PADDLE_ENFORCE_NE(b,
-                      0,
-                      common::errors::PreconditionNotMet(
-                          "divisor can not be zero when y is integral dtype"));
+    PADDLE_ENFORCE_NE(
+        a, 0, common::errors::InvalidArgument("divisor can not be zero"));
     T res = b % a;
     if ((res != 0) && ((res < 0) != (a < 0))) res += a;
     return res;
