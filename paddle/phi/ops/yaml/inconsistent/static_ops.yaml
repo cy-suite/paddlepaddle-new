@@ -806,7 +806,7 @@
     support_trans_dtype : x, y
   inplace : (x -> out)
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  backawrd: remainder_grad
+  backward: remainder_grad
 
 - op : row_conv
   args : (Tensor x, Tensor filter)
