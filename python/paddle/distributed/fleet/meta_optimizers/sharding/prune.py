@@ -60,7 +60,7 @@ class ProgramDeps:
             ]:
                 continue
             elif (
-                op.type != 'all_reduce'
+                op.type == 'all_reduce'
                 and op.desc.attr("reduce_type") == dist.ReduceOp.SUM
             ):
                 continue
