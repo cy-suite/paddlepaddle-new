@@ -243,35 +243,10 @@ Tensor Broadcast(const FuncOp& op,
                  const Tensor& b,
                  const std::string& output_name = "",
                  const Expr& axis = Expr(-1)) {
-  std::vector<Expr> common_shape;
-  std::vector<bool> broadcast_flags1;
-  std::vector<bool> broadcast_flags2;
-
-  // the counts of left-shift of tensor b so as to right alignment
-  int axis_offset = 0;
-
-  GetBroadcastShape(a,
-                    b,
-                    &common_shape,
-                    &broadcast_flags1,
-                    &broadcast_flags2,
-                    &axis_offset,
-                    axis);
-
   auto fn = [=](const std::vector<Expr>& indice) {
-    std::vector<Expr> broadcast_indice1;
-    std::vector<Expr> broadcast_indice2;
-    GetBroadcastIndice(indice,
-                       a,
-                       b,
-                       axis_offset,
-                       &broadcast_indice1,
-                       &broadcast_indice2,
-                       broadcast_flags1,
-                       broadcast_flags2);
-    return op(a(broadcast_indice1), b(broadcast_indice2));
+    return op(a(indice), b(indice));
   };
-  Tensor output = Compute(common_shape, fn, output_name);
+  Tensor output = Compute(a->shape, fn, output_name);
   return output;
 }
 
