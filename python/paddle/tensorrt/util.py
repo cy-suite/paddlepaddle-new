@@ -33,11 +33,9 @@ def map_dtype(pd_dtype):
         return trt.int8
     elif pd_dtype == "BOOL":
         return trt.bool
-     # trt version<10.0 not support int64,so convert int64 to int32
+    # trt version<10.0 not support int64,so convert int64 to int32
     elif pd_dtype == "INT64":
-        return trt.int64
-    elif pd_dtype == "INT64":
-        return trt.int64
+        return trt.int32
     # Add other dtype mappings as needed
     else:
         raise TypeError(f"Unsupported dtype: {pd_dtype}")
