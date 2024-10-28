@@ -4149,7 +4149,7 @@ function clang-tidy_check() {
     testT="abcabc"
     testS="abc"
     testcount=$(echo -n "$testT" | grep -o "$testS" | wc -l)
-    echo "test find: $[ $count ]"
+    echo "test find: $[ $testcount ]"
 
     check_error=0
     length=$(echo -n "$T" | wc -c)
