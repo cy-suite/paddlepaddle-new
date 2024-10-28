@@ -4696,16 +4696,17 @@ bool ArrayPopOp::InferSymbolicShape(
   int index =
       this->attributes().at("index").dyn_cast<pir::Int32Attribute>().data();
   if (index < 0) {
-    index + = array.size();
+    index + = array_shape_data.size();
   }
+  symbol::DimExpr out = array_shape_data[index];
   infer_context->SetShapeOrDataForValue(
       out(),
-      symbol::ShapeOrDataDimExprs(
-          symbol::TensorShapeOrDataDimExprs(array[index])));
+      symbol::ShapeOrDataDimExprs(symbol::TensorShapeOrDataDimExprs(out)));
   std::vector<symbol::DimExpr> array_out;
-  for (int i = 0; i < array.size(); ++i) {
+  for (int i = 0; i < array_shape_data.size(); ++i) {
     if (i != index)
-      array_out.push_back(symbol::TensorArrayShapeOrDataDimExprs(array[i]));
+      array_out.push_back(
+          symbol::TensorArrayShapeOrDataDimExprs(array_shape_data[i]));
   }
   infer_context->SetShapeOrDataForValue(
       array_out(),
