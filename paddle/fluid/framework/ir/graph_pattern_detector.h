@@ -111,6 +111,7 @@ struct PDNode {
   PDNode* assert_is_op();
   PDNode* assert_is_op(const std::string& op_type);
   PDNode* assert_is_op(const std::string& op_type, int reduce_type);
+  PDNode* assert_is_op(const std::string& op_type, int reduce_type);
   PDNode* assert_is_not_op_type(const std::string& op_type);
   PDNode* assert_is_var();
   PDNode* assert_var_dtype(proto::VarType::Type dtype);
@@ -118,12 +119,14 @@ struct PDNode {
   PDNode* assert_var_not_persistable();
   PDNode* assert_is_persistable_var();
   PDNode* assert_is_op_output(const std::string& op_type);
+  PDNode* assert_is_op_output(const std::string& op_type, int reduce_type);
   PDNode* assert_is_op_output(const std::string& op_type,
                               const std::string& argument);
   PDNode* assert_is_op_output(const std::string& op_type,
                               const std::string& argument,
                               int reduce_type);
   PDNode* assert_is_op_input(const std::string& op_type);
+  PDNode* assert_is_op_input(const std::string& op_type, int reduce_type);
   PDNode* assert_is_op_input(const std::string& op_type,
                              const std::string& argument);
   PDNode* assert_is_op_input(const std::string& op_type,

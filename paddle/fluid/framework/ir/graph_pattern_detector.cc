@@ -421,6 +421,15 @@ PDNode *PDNode::assert_is_op(const std::string &op_type) {
 }
 
 PDNode *PDNode::assert_is_op(const std::string &op_type, int reduce_type) {
+  asserts_.emplace_back([op_type](Node *x) {
+    return x && x->IsOp() && x->Op()->Type() == op_type &&
+           PADDLE_GET_CONST(int, op->Op()->GetAttr("reduce_type")) ==
+               reduce_type;
+  });
+  return this;
+}
+
+PDNode *PDNode::assert_is_op(const std::string &op_type, int reduce_type) {
   asserts_.emplace_back([op_type, reduce_type](Node *x) {
     return x && x->IsOp() && x->Op()->Type() == op_type &&
            PADDLE_GET_CONST(int, x->Op()->GetAttr("reduce_type")) ==
@@ -577,6 +586,22 @@ PDNode *PDNode::assert_is_op_output(const std::string &op_type) {
 }
 
 PDNode *PDNode::assert_is_op_output(const std::string &op_type,
+                                    int reduce_type) {
+  assert_is_var();
+  asserts_.emplace_back([=](Node *x) {
+    for (auto *op : x->inputs) {
+      if (op && op->IsOp() && op->Op() && op->Op()->Type() == op_type &&
+          PADDLE_GET_CONST(int, op->Op()->GetAttr("reduce_type")) ==
+              reduce_type) {
+        return true;
+      }
+    }
+    return false;
+  });
+  return this;
+}
+
+PDNode *PDNode::assert_is_op_output(const std::string &op_type,
                                     const std::string &argument) {
   assert_is_var();
   assert_is_op_nth_output(op_type, argument, 0);
@@ -596,6 +621,22 @@ PDNode *PDNode::assert_is_op_input(const std::string &op_type) {
   asserts_.emplace_back([=](Node *x) {
     for (auto *op : x->outputs) {
       if (op && op->IsOp() && op->Op() && op->Op()->Type() == op_type) {
+        return true;
+      }
+    }
+    return false;
+  });
+  return this;
+}
+
+PDNode *PDNode::assert_is_op_input(const std::string &op_type,
+                                   int reduce_type) {
+  assert_is_var();
+  asserts_.emplace_back([=](Node *x) {
+    for (auto *op : x->outputs) {
+      if (op && op->IsOp() && op->Op() && op->Op()->Type() == op_type &&
+          PADDLE_GET_CONST(int, op->Op()->GetAttr("reduce_type")) ==
+              reduce_type) {
         return true;
       }
     }
