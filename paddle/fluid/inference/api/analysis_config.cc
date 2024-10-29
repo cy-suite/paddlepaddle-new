@@ -1500,11 +1500,6 @@ bool AnalysisConfig::cinn_enabled() const {
   return is_enabled;
 }
 
-bool AnalysisConfig::autolayout_enabled() const {
-  bool is_enabled = FLAGS_enable_auto_layout_pass;
-  return is_enabled;
-}
-
 void AnalysisConfig::EnableCustomPasses(const std::vector<std::string> &passes,
                                         bool custom_pass_only) {
   custom_passes_ = passes;

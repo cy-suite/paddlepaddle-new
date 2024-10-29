@@ -136,7 +136,7 @@
 
 COMMON_DECLARE_bool(pir_apply_inplace_pass);
 COMMON_DECLARE_bool(enable_pir_api);
-
+COMMON_DECLARE_bool(enable_auto_layout_pass);
 namespace paddle {
 namespace {
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
@@ -886,7 +886,7 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
                         config_.deleted_passes_.end(),
                         gpu_pass) == config_.deleted_passes_.end()) {
             if (gpu_pass == "transfer_layout_pass" &&
-                config_.autolayout_enabled() && config_.cinn_enabled())
+                FLAGS_enable_auto_layout_pass && config_.cinn_enabled())
               continue;
             pass_pm.AddPass(pir::PassRegistry::Instance().Get(gpu_pass));
           }
