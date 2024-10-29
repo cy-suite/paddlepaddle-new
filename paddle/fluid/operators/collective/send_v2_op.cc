@@ -62,10 +62,6 @@ class SendOpV2Maker : public framework::OpProtoAndCheckerMaker {
     AddAttr<int>("peer", "(int default 0) rank id for receiver.").SetDefault(0);
 
     AddAttr<bool>(
-        "use_calc_stream",
-        "(bool default false) eject CUDA operations to calculation stream.")
-        .SetDefault(false);
-    AddAttr<bool>(
         "dynamic_shape",
         "(bool default false) the send/recv will be done with dynamic shape.")
         .SetDefault(false);

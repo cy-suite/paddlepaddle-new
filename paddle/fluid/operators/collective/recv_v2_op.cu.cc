@@ -207,10 +207,6 @@ class RecvOpV2CUDAKernel : public framework::OpKernel<T> {
       VLOG(3) << "old NCCLCommContext has rid " << rid;
     }
 
-    if (ctx.Attr<bool>("use_calc_stream")) {
-      // should ExecutionContext for calc stream.
-      stream = ctx.cuda_device_context().stream();
-    }
     int data_type = ctx.Attr<int>("dtype");
     framework::proto::VarType::Type type =
         framework::proto::VarType::Type(data_type);

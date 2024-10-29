@@ -91,10 +91,6 @@ class RecvOpV2Maker : public framework::OpProtoAndCheckerMaker {
     AddAttr<std::vector<int>>("out_shape", "shape of the output tensor.")
         .SetDefault(std::vector<int>());
     AddAttr<bool>(
-        "use_calc_stream",
-        "(bool default false) eject CUDA operations to calculation stream.")
-        .SetDefault(false);
-    AddAttr<bool>(
         "dynamic_shape",
         "(bool default false) the send/recv will be done with dynamic shape.")
         .SetDefault(false);

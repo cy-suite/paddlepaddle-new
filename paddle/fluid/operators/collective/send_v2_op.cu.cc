@@ -199,11 +199,6 @@ class SendOpV2CUDAKernel : public framework::OpKernel<T> {
       VLOG(3) << "old NCCLCommContext has rid " << rid;
     }
 
-    if (ctx.Attr<bool>("use_calc_stream")) {
-      // should ExecutionContext for calc stream.
-      stream = ctx.cuda_device_context().stream();
-    }
-
     auto* x_var = ctx.InputVar("X");
     if (x_var->IsType<phi::TensorArray>()) {
       PADDLE_ENFORCE_EQ(
