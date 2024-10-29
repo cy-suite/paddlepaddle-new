@@ -205,8 +205,9 @@ class TestGradSync(unittest.TestCase):
                 reducescatter_count += 1
 
             # check sequence parallel grad sync
-            elif op.type == "all_reduce" and op.attr("reduce_type") == str(
-                dist.ReduceOp.SUM
+            elif (
+                op.type == "all_reduce"
+                and op.attr("reduce_type") == dist.ReduceOp.SUM
             ):
                 assert (
                     "layer_norm" in op.output_arg_names[0]
