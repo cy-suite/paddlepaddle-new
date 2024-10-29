@@ -260,7 +260,6 @@ class TestAllcloseOpBool(unittest.TestCase):
                     out = paddle.allclose(
                         x, y, self.rtol.item(), self.atol.item(), self.equal_nan
                     )
-                    place = paddle.CUDAPlace(0)
                     exe = paddle.static.Executor(place)
                     exe.run(paddle.static.default_startup_program())
                     out = exe.run(
@@ -297,7 +296,6 @@ class TestAllcloseOpBool(unittest.TestCase):
                     out = paddle.allclose(
                         x, y, self.rtol.item(), self.atol.item(), self.equal_nan
                     )
-                    place = paddle.CUDAPlace(0)
                     exe = paddle.static.Executor(place)
                     exe.run(paddle.static.default_startup_program())
                     out = exe.run(
@@ -336,7 +334,6 @@ class TestAllcloseOpInt32(unittest.TestCase):
                     out = paddle.allclose(
                         x, y, self.rtol.item(), self.atol.item(), self.equal_nan
                     )
-                    place = paddle.CUDAPlace(0)
                     exe = paddle.static.Executor(place)
                     exe.run(paddle.static.default_startup_program())
                     out = exe.run(
@@ -373,7 +370,6 @@ class TestAllcloseOpInt32(unittest.TestCase):
                     out = paddle.allclose(
                         x, y, self.rtol.item(), self.atol.item(), self.equal_nan
                     )
-                    place = paddle.CUDAPlace(0)
                     exe = paddle.static.Executor(place)
                     exe.run(paddle.static.default_startup_program())
                     out = exe.run(
@@ -412,7 +408,6 @@ class TestAllcloseOpInt64(unittest.TestCase):
                     out = paddle.allclose(
                         x, y, self.rtol.item(), self.atol.item(), self.equal_nan
                     )
-                    place = paddle.CUDAPlace(0)
                     exe = paddle.static.Executor(place)
                     exe.run(paddle.static.default_startup_program())
                     out = exe.run(
@@ -449,7 +444,6 @@ class TestAllcloseOpInt64(unittest.TestCase):
                     out = paddle.allclose(
                         x, y, self.rtol.item(), self.atol.item(), self.equal_nan
                     )
-                    place = paddle.CUDAPlace(0)
                     exe = paddle.static.Executor(place)
                     exe.run(paddle.static.default_startup_program())
                     out = exe.run(
