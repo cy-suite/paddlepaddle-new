@@ -343,7 +343,6 @@
   kernel :
     func : sync_comm_stream
     data_type : DataType::FLOAT32
-  traits : paddle::dialect::ForwardOnlyTrait
 
 - op : tile
   args : (Tensor x, IntArray repeat_times = {})
