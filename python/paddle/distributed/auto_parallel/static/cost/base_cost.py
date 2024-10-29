@@ -417,7 +417,6 @@ def build_dp_costs(
     if not has_found:
         return
 
-    attrs['reduce_type'] = dist.ReduceOp.SUM
     all_reduce_sum_descs = build_comm_desc_from_dist_op(
         "all_reduce",
         dist_op,
