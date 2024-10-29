@@ -674,13 +674,15 @@
   inplace : (x -> out)
 
 - op : partial_recv
-  args : (int ring_id = 0, int peer = 0, DataType dtype=DataType::FLOAT32, int[] out_shape= {}, int num = 1, int id = 0)
+  args : (int peer = 0, DataType dtype=DataType::FLOAT32, int[] out_shape= {}, int num = 1, int id = 0, int ring_id = 0)
   output : Tensor(out)
   infer_meta :
     func: PartialRecvInferMeta
+    param: [peer, dtype, out_shape, num, id]
   kernel :
     func : partial_recv
     data_type : dtype
+    param: [peer, dtype, out_shape, num, id]
 
 - op : print
   args : (Tensor in, int first_n, str message, int summarize, bool print_tensor_name = true, bool print_tensor_type = true, bool print_tensor_shape = true, bool print_tensor_layout = true, bool print_tensor_lod = true, str print_phase = "BOTH", bool is_forward = true)
