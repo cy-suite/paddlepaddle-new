@@ -317,7 +317,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::AllToAll(
             in_dim[0] == 0 ? 0 : in_tensor.numel() / in_dim[0];
         int64_t out_row_size =
             out_dim[0] == 0 ? 0 : out_tensor->numel() / out_dim[0];
-
+        int64_t in_offset = 0, in_numel = 0, out_offset = 0, out_numel = 0;
         phi::DenseTensor input_partial, output_partial;
 
         VLOG(3) << "[AllToAll] "
