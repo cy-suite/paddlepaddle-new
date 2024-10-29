@@ -276,9 +276,15 @@ class TestWhereAPI(unittest.TestCase):
         with paddle.static.program_guard(main_program):
             x = paddle.static.data(name='x', shape=[-1, 4, 1], dtype='float32')
             y = paddle.static.data(name='y', shape=[-1, 4, 2], dtype='float32')
-            x_i = np.array([[0.9383, 0.1983, 3.2, 1.2]]).astype('float32')
-            y_i = np.array([[1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]]).astype(
-                'float32'
+            x_i = (
+                np.array([[0.9383, 0.1983, 3.2, 1.2]])
+                .astype('float32')
+                .reshape([1, 4, 1])
+            )
+            y_i = (
+                np.array([[1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]])
+                .astype('float32')
+                .reshape([1, 4, 2])
             )
             result = paddle.where((x > 1), x=x, y=y)
             for use_cuda in [False, True]:
