@@ -526,14 +526,13 @@ comm_ops = [
     "pd_op.all_gather",
     "pd_op.reduce_scatter",
 ]
-reduce_type = [dist.ReduceOp.SUM, dist.ReduceOp.MAX]
 
 
 def remove_unuseful_comm_op_pass(program):
     for op in program.global_block().ops:
         if op.name() in comm_ops or (
             op.name() == "pd_op.all_reduce"
-            and op.attr("reduce_type") in reduce_type
+            and op.attr("reduce_type") in [dist.ReduceOp.SUM, dist.ReduceOp.MAX]
         ):
             ring_id = op.int_attr("ring_id")
             process_group = get_process_group(ring_id)
