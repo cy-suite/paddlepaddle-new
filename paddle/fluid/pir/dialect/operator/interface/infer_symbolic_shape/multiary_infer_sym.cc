@@ -1677,15 +1677,24 @@ bool FusedAttentionOpInferSymbolicShape(
   const auto &qkv_bias_shape_or_data =
       infer_context->GetShapeOrDataForValue(op->operand_source(4));
 
-  const std::vector<symbol::DimExpr> &x_shape = x_shape_or_data.shape();
-
+  const std::vector<symbol::DimExpr> &x_shape =
+      [&]() -> std::vector<symbol::DimExpr> {
+    if (x_shape_or_data.isa<symbol::TensorListShapeOrDataDimExprs>()) {
+      const auto &x_weight_data_list =
+          x_shape_or_data.dyn_cast<symbol::TensorListShapeOrDataDimExprs>();
+      return x_weight_data_list.at(0).shape();
+    } else {
+      return x_shape_or_data.shape();
+    }
+  }();
   PADDLE_ENFORCE_EQ(x_shape.size(),
                     3,
                     common::errors::InvalidArgument(
                         "The dimensions of x must be 3 (batch_size, seq_len, "
                         "dim_embed), but received dimensions of Input is [%d]",
                         x_shape.size()));
-  const std::vector<symbol::DimExpr> qkv_weight_shape =
+
+  const std::vector<symbol::DimExpr> &qkv_weight_shape =
       [&]() -> std::vector<symbol::DimExpr> {
     if (qkv_weight_shape_or_data.isa<symbol::TensorListShapeOrDataDimExprs>()) {
       const auto &qkv_weight_data_list =
@@ -1696,7 +1705,7 @@ bool FusedAttentionOpInferSymbolicShape(
       return qkv_weight_shape_or_data.shape();
     }
   }();
-  const std::vector<symbol::DimExpr> cache_kv_shape =
+  const std::vector<symbol::DimExpr> &cache_kv_shape =
       [&]() -> std::vector<symbol::DimExpr> {
     if (cache_kv_shape_or_data.isa<symbol::TensorListShapeOrDataDimExprs>()) {
       const auto &cache_kv_data_list =
