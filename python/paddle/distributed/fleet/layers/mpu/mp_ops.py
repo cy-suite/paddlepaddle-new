@@ -524,9 +524,6 @@ def _linear(x, weight, bias=None, name=None):
         return dygraph_utils._append_bias_in_dygraph(
             pre_bias, bias, axis=len(x.shape) - 1
         )
-    elif in_pir_mode():
-        # need check
-        return _C_ops.matmul(x, weight, False, False)
     else:
         helper = LayerHelper('linear', **locals())
         dtype = x.dtype
