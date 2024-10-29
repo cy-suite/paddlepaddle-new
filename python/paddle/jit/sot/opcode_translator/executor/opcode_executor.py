@@ -1775,7 +1775,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             extra_store_vars: for iterator, we need store the holder if it is a Tensor
         """
         store_vars = list(OrderedSet(list(stack) + extra_store_vars))
-        store_var_info = {var.id: None for var in stack}
+        store_var_info = {var.id: [] for var in stack}
 
         for name in restore_names:
             _var = self.get_var(name, allow_undefined=True)
@@ -1783,7 +1783,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 continue
             if _var not in stack:
                 store_vars.append(_var)
-            store_var_info[_var.id] = name
+            store_var_info.setdefault(_var.id, [])
+            store_var_info[_var.id].append(name)
 
         compile_graph_result = self._graph.compile_graph(*store_vars)
         graph_fn, _ = compile_graph_result
