@@ -21,6 +21,27 @@ COMMON_DECLARE_bool(enable_transpose_iters_in_fusion);
 
 namespace cinn::fusion {
 
+bool ItersFusionPolicy::CheckItersRelation(const PatternNodePtr& source,
+                                           const PatternNodePtr& target) {
+  const auto source_iters = source->fusion_iters().loop_iters;
+  const auto target_iters = target->fusion_iters().loop_iters;
+  auto related_iters = MapKeyToVector(iters_manager_->related_iters_map());
+  const auto [source_related_iters, _UNUESD] =
+      SplitFirstWhetherInSecond(source_iters, related_iters);
+  if (source_related_iters.empty()) {
+    return true;
+  } else {
+    for (const auto& related_iter : source_related_iters) {
+      const auto target_related_iters =
+          iters_manager_->related_iters_map()[related_iter];
+      if (AnyFirstInSecond(target_iters, SetToVector(target_related_iters))) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
 bool ItersFusionPolicy::CanFuseSource2Target(const PatternNodePtr& source,
                                              const PatternNodePtr& target) {
   VLOG(4) << "Search iters transform route from "
@@ -29,6 +50,10 @@ bool ItersFusionPolicy::CanFuseSource2Target(const PatternNodePtr& source,
   if (source->fusion_iters().loop_iters.empty() ||
       target->fusion_iters().loop_iters.empty()) {
     VLOG(4) << "Pattern with empty loop iters can't be fused.";
+    return false;
+  }
+  if (!CheckItersRelation(source, target)) {
+    VLOG(4) << "Can't fuse source to target because of iters relation.";
     return false;
   }
   auto iters_transforms = SearchItersTransformRoute(
