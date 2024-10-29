@@ -22,9 +22,7 @@ namespace phi {
 template <typename T, typename Context>
 void PartialSendOpCPUKernel(const Context& dev_ctx UNUSED,
                             const DenseTensor& x UNUSED,
-                            int ring_id UNUSED,
                             int peer UNUSED,
-                            bool use_calc_stream UNUSED,
                             int num UNUSED,
                             int id UNUSED) {
   PADDLE_THROW(common::errors::Unavailable(

@@ -29,9 +29,7 @@ namespace phi {
 template <typename T, typename Context>
 void PartialSendCUDAKernel(const Context& dev_ctx,
                            const DenseTensor& x_in,
-                           int ring_id UNUSED,
                            int peer,
-                           bool use_calc_stream UNUSED,
                            int num,
                            int id) {
 #if (defined(PADDLE_WITH_RCCL) || defined(PADDLE_WITH_NCCL)) && \
