@@ -3039,6 +3039,15 @@ void AssignArrayOp::InferMeta(phi::InferMetaContext *infer_meta) {
   fn(infer_meta);
 }
 
+bool AssignArrayOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto x_shape = infer_context->GetShapeOrDataForValue(x()).shape;
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::RankedTensorArrayShapeOrDataDimExprs(x_shape)});
+  return true;
+}
 phi::DataType AssignArrayOp::GetKernelTypeForVar(
     const std::string &var_name,
     const phi::DataType &tensor_dtype,
