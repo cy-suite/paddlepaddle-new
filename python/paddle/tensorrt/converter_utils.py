@@ -188,7 +188,7 @@ def fill_constant_layer(network, shape_tensor, tensor_rank, data, trt_dtype):
     return fill_layer.get_output(0)
 
 
-def trt_expend(network, input, rank, shape_tensor, shape_rank):
+def trt_expand(network, input, rank, shape_tensor, shape_rank):
     if rank < shape_rank:
         one_rank_tensor = add_1D_constant_layer(
             network, [1] * (shape_rank - rank)
