@@ -504,30 +504,13 @@ def add_cast_reduce_layer(network, paddle_op, inputs, op_type):
     return layer.get_output(0)
 
 
-def fix_negative_index(network, shape_tensor, index_tensor, axis):
-    # 获取对应轴的维度大小
-    dim_i = get_shape_tensor_element(network, shape_tensor, axis)
+def fix_negative_indices(network, input_shape, indices):
+    rank = len(input_shape.shape)
+    zero_tensor = add_1D_constant_layer(network, [0] * rank)
+    minus_one_tensor = add_1D_constant_layer(network, [-1] * rank)
 
-    # 判断索引是否为负数
-    zero_tensor = network.add_constant(
-        (1,), np.array([0], dtype=np.int32)
-    ).get_output(0)
-    is_neg = network.add_elementwise(
-        index_tensor, zero_tensor, trt.ElementWiseOperation.LESS
-    ).get_output(0)
-
-    # 如果索引为负数，修正为 index + dim
-    neg_index = network.add_elementwise(
-        index_tensor, dim_i, trt.ElementWiseOperation.SUM
-    ).get_output(0)
-
-    # 使用逻辑运算符模拟 select 操作
-    cond_tensor = network.add_activation(
-        is_neg, trt.ActivationType.STEP
-    ).get_output(0)
-
-    fixed_index = network.add_elementwise(
-        neg_index, index_tensor, trt.ElementWiseOperation.SELECT, cond_tensor
-    ).get_output(0)
-
-    return fixed_index
+    min_indices_zero = trt_min(network, indices, zero_tensor)
+    sign = trt_max(network, min_indices_zero, minus_one_tensor)
+    sub = trt_mul(network, sign, input_shape)
+    fixed_indices = trt_sub(network, indices, sub)
+    return fixed_indices
