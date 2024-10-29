@@ -72,8 +72,10 @@ void AllCloseKernel(const Context& dev_ctx,
     for (int64_t i = 0; i < num; ++i) {
       const T a = in_a[i], b = in_b[i];
       bool val = false;
-      if (std::isnan(a) || std::isnan(b)) {
-        val = equal_nan && std::isnan(a) == std::isnan(b);
+      if (std::isnan(static_cast<double>(a)) ||
+          std::isnan(static_cast<double>(b))) {
+        val = equal_nan && std::isnan(static_cast<double>(a)) ==
+                               std::isnan(static_cast<double>(b));
       } else {
         T left = (a > b ? a - b : b - a);
         T right = atol_v + (b > 0 ? rtol_v * b : (-rtol_v) * b);
