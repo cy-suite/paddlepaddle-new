@@ -275,6 +275,13 @@ class TestSimpleNetForEP:
         criterion = Criterion()
         return model, dataloader, criterion, optimizer
 
+    def build_shared(self, config):
+        model = DemoSharedLayer(config)
+        dataloader = self.create_data_loader(config)
+        optimizer = self.create_optimizer(model)
+        criterion = Criterion()
+        return model, dataloader, criterion, optimizer
+
     def train(self, config, model, train_dataloader, criterion, optimizer):
         tr_loss = float(0)
         global_step = 0
@@ -347,7 +354,9 @@ class TestSimpleNetForEP:
         self.set_seed(self._seed)
         config = Config_shared()
         config.run_ep = True
-        model, train_dataloader, criterion, optimizer = self.build(config)
+        model, train_dataloader, criterion, optimizer = self.build_shared(
+            config
+        )
 
         dist_dataloader = dist.shard_dataloader(
             train_dataloader, config.mesh, shard_dims="x"
@@ -362,7 +371,9 @@ class TestSimpleNetForEP:
         self.set_seed(self._seed)
         config = Config_shared()
         config.run_ep = False
-        model, train_dataloader, criterion, optimizer = self.build(config)
+        model, train_dataloader, criterion, optimizer = self.build_shared(
+            config
+        )
 
         loss, logit = self.train(
             config, model, train_dataloader, criterion, optimizer
