@@ -139,6 +139,36 @@ static std::vector<paddle::Tensor> pir_filter_unused_input_var_in_backward(
   return filter_x;
 }
 
+static std::vector<paddle::Tensor>
+pir_filter_no_need_buffer_input_var_in_backward(
+    const std::vector<paddle::Tensor>& x,
+    const paddle::framework::AttributeMap& attrs) {
+  auto forward_inputs_values =
+      PADDLE_GET_CONST(std::vector<::pir::Value>, attrs.at("fx"));
+  auto no_need_buffers_values =
+      PADDLE_GET_CONST(std::vector<::pir::Value>, attrs.at("no_need_buffers"));
+  auto filter_x = std::vector<paddle::Tensor>(x);
+  std::deque<std::shared_ptr<paddle::memory::Allocation>>* garbages =
+      new std::deque<std::shared_ptr<paddle::memory::Allocation>>();
+  for (size_t i = 0; i < x.size(); i++) {
+    if (std::find(no_need_buffers_values.begin(),
+                  no_need_buffers_values.end(),
+                  forward_inputs_values[i]) != no_need_buffers_values.end()) {
+      auto& tensor = filter_x[i];
+      if (tensor.initialized() && tensor.is_dense_tensor()) {
+        auto copied_dense_tensor = std::make_shared<phi::DenseTensor>(
+            *std::dynamic_pointer_cast<phi::DenseTensor>(tensor.impl()));
+        garbages->emplace_back(copied_dense_tensor->MoveMemoryHolder());
+        auto fake = paddle::Tensor(
+            copied_dense_tensor, tensor.mutable_autograd_meta(), tensor.name());
+        filter_x[i] = fake;
+      }
+    }
+  }
+  delete garbages;
+  return filter_x;
+}
+
 static std::vector<paddle::Tensor> Trans2ContiguousTensors(
     const std::vector<paddle::Tensor>& tensors) {
   std::vector<paddle::Tensor> res;
@@ -311,7 +341,8 @@ inline void pir_run_program_ad_func(
     grad_node->SetAttrMap(attrs);
 
     // Clear unused x vars
-    auto filter_x = pir_filter_unused_input_var_in_backward(x_tmp, "bx", attrs);
+    auto filter_x = pir_filter_no_need_buffer_input_var_in_backward(
+        pir_filter_unused_input_var_in_backward(x_tmp, "bx", attrs), attrs);
     // Set TensorWrappers
     grad_node->SetFwdX(filter_x);
 
