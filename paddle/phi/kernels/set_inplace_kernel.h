@@ -18,7 +18,7 @@
 
 namespace phi {
 
-template <typename Context>
+template <typename T, typename Context>
 void SetInplaceKernel(const Context& dev_ctx,
                       const DenseTensor& x,
                       const DenseTensor& source,
