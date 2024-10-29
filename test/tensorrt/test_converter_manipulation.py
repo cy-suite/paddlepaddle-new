@@ -453,5 +453,23 @@ class TestStrideSliceCase4TRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestStrideSliceCase5TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.strided_slice
+        self.api_args = {
+            "x": np.random.random([3, 4, 10]).astype("float32"),
+            "axes": [0, 1, 2],
+            "starts": np.array([0, -1, 0]).astype("int32"),
+            "ends": np.array([2, -3, 5]).astype("int32"),
+            "strides": np.array([1, -1, 1]).astype("int32"),
+        }
+        self.program_config = {"feed_list": ["x", "starts", "ends", "strides"]}
+        self.min_shape = {"x": [1, 4, 10]}
+        self.max_shape = {"x": [5, 4, 10]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
 if __name__ == '__main__':
     unittest.main()
