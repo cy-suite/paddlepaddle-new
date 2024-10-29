@@ -32,6 +32,9 @@ def download_file():
     if paddle.is_compiled_with_rocm():
         url = "https://sys-p0.bj.bcebos.com/prec/{}".format('disable_ut_rocm')
 
+    if paddle.is_compiled_with_xpu():
+        url = "https://sys-p0.bj.bcebos.com/prec/{}".format('disable_ut_xpu')
+
     f = httpx.get(url, timeout=None, follow_redirects=True)
     data = f.text
     status_code = f.status_code
