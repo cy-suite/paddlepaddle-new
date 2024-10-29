@@ -254,7 +254,7 @@ class CostModel:
                 is_bwd = False
                 if (
                     op.type.startswith('c_')
-                    and op.type != "c_sync_calc_stream"
+                    and op.type != "sync_calc_stream"
                     and not op.type.startswith('c_embedding')
                 ):
                     ring_id = op.attr('ring_id')
@@ -408,7 +408,7 @@ class CostModel:
                 node = self.nodes[sub_idx][node_id]
                 if (
                     node_id.startswith('c_')
-                    and not node.id.startswith("c_sync_calc_stream")
+                    and not node.id.startswith("sync_calc_stream")
                     and not node.id.startswith('c_embedding')
                 ):
                     ring_id = node.node.attr('ring_id')

@@ -71,7 +71,7 @@ def check_broadcast(block):
         if op.type == "c_sync_comm_stream":
             last_sync_comm_op_idx = idx
             continue
-        if op.type == "c_sync_calc_stream":
+        if op.type == "sync_calc_stream":
             last_sync_calc_op_idx = idx
             continue
         if op.type == "c_broadcast":
@@ -146,7 +146,7 @@ def check_allreduce_sum(block, shard, sharding_ring_id, dp_ring_id=-1):
             idx_gradient_clip_allreduce = idx
 
     for op in block.ops:
-        if op.type == "c_sync_calc_stream":
+        if op.type == "sync_calc_stream":
             for var_name in vars_status:
                 if var_name in vars_status and vars_status[var_name] == 0:
                     vars_status[var_name] = 1
@@ -282,7 +282,7 @@ def insert_sync_calc_op(block, insert_idx, calc_dep_vars):
     op_role = get_valid_op_role(block, insert_idx)
     block._insert_op_without_sync(
         insert_idx,
-        type='c_sync_calc_stream',
+        type='sync_calc_stream',
         inputs={'X': calc_dep_vars},
         outputs={'Out': calc_dep_vars},
         attrs={OP_ROLE_KEY: op_role},
@@ -519,7 +519,7 @@ def insert_fused_allreduce_ops(
         if not use_calc_stream:
             block._insert_op_without_sync(
                 insert_idx + insert_num,
-                type='c_sync_calc_stream',
+                type='sync_calc_stream',
                 inputs={'X': fused_var},
                 outputs={'Out': fused_var},
                 attrs={OP_ROLE_KEY: op_role},
@@ -571,7 +571,7 @@ def insert_fused_reduce_ops(
             if not use_calc_stream:
                 block._insert_op_without_sync(
                     insert_idx + insert_num,
-                    type='c_sync_calc_stream',
+                    type='sync_calc_stream',
                     inputs={'X': fused_var},
                     outputs={'Out': fused_var},
                     attrs={OP_ROLE_KEY: op_role},
@@ -689,7 +689,7 @@ def insert_fused_broadcast_param_ops(
             if not use_calc_stream:
                 block._insert_op_without_sync(
                     insert_idx + insert_num,
-                    type='c_sync_calc_stream',
+                    type='sync_calc_stream',
                     inputs={'X': fused_var},
                     outputs={'Out': fused_var},
                     attrs={OP_ROLE_KEY: op_role},
@@ -1070,7 +1070,7 @@ def append_naive_sync(block, sync_var, ring_id):
         },
     )
     block.append_op(
-        type='c_sync_calc_stream',
+        type='sync_calc_stream',
         inputs={'X': [sync_var]},
         outputs={'Out': [sync_var]},
         attrs={OP_ROLE_KEY: OpRole.Forward},
