@@ -725,8 +725,8 @@ void BindDistributed(py::module *m) {
           .def(
               "alltoall_single",
               [](distributed::ProcessGroup &self,
-                 py::handle py_in_tensor,
                  py::handle py_out_tensor,
+                 py::handle py_in_tensor,
                  const std::vector<int64_t> in_sizes,
                  const std::vector<int64_t> out_sizes) {
                 auto out_tensor = CastPyArg2Tensor(py_out_tensor.ptr(), 0);
