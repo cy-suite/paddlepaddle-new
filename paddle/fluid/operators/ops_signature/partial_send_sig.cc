@@ -18,7 +18,7 @@ namespace phi {
 
 KernelSignature PartialSendOpArgumentMapping(
     const ArgumentMappingContext& ctx) {
-  return KernelSignature("partial_send", {"X"}, {"peer", "num", "id"}, {"Out"});
+  return KernelSignature("partial_send", {"X"}, {"peer", "num", "id"}, {});
 }
 
 }  // namespace phi
