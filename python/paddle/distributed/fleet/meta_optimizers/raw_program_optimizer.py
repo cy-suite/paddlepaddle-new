@@ -114,7 +114,7 @@ class RawProgramOptimizer(MetaOptimizerBase):
         if not param:
             return  # no parameter on this device
         block.append_op(
-            type='c_sync_comm_stream',
+            type='sync_comm_stream',
             inputs={'X': param},
             outputs={'Out': param},
             attrs={'ring_id': ring_id, OP_ROLE_KEY: OpRole.Forward},
@@ -269,7 +269,7 @@ class RawProgramOptimizer(MetaOptimizerBase):
 
         gm_block._insert_op(
             first_optimize_op_idx + insert_op_num,
-            type="c_sync_comm_stream",
+            type="sync_comm_stream",
             inputs={'X': grad_vars},
             outputs={'Out': grad_vars},
             attrs={
@@ -522,7 +522,7 @@ class RawProgramOptimizer(MetaOptimizerBase):
             if is_optimizer_op(op):
                 block._insert_op_without_sync(
                     idx,
-                    type='c_sync_comm_stream',
+                    type='sync_comm_stream',
                     inputs={'X': fused_vars},
                     outputs={'Out': fused_vars},
                     attrs={'ring_id': ring_id, OP_ROLE_KEY: OpRole.Backward},

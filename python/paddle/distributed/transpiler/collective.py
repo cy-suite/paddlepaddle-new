@@ -258,7 +258,7 @@ class Collective:
 
         for ring_id in range(self.nrings):
             block.append_op(
-                type='c_sync_comm_stream',
+                type='sync_comm_stream',
                 inputs={'X': param},
                 outputs={'Out': param},
                 attrs={'ring_id': ring_id, self.op_role_key: OpRole.Forward},
@@ -374,7 +374,7 @@ class GradAllReduce(Collective):
                 for ring_id in range(self.nrings):
                     block._insert_op(
                         idx + ring_id,
-                        type='c_sync_comm_stream',
+                        type='sync_comm_stream',
                         inputs={'X': grad},
                         outputs={'Out': grad},
                         attrs={
@@ -467,7 +467,7 @@ class LocalSGD(Collective):
 
         for ring_id in range(self.nrings):
             block.append_op(
-                type='c_sync_comm_stream',
+                type='sync_comm_stream',
                 inputs={'X': param},
                 outputs={'Out': param},
                 attrs={'ring_id': ring_id, self.op_role_key: OpRole.Optimize},
@@ -658,7 +658,7 @@ class SingleProcessMultiThread(GradAllReduce):
             # sync before adam
             block._insert_op(
                 global_offset,
-                type='c_sync_comm_stream',
+                type='sync_comm_stream',
                 inputs={'X': input_grads[0]},
                 outputs={'Out': input_grads[0]},
                 attrs={'ring_id': ring_id, self.op_role_key: OpRole.Backward},
@@ -711,7 +711,7 @@ class SingleProcessMultiThread(GradAllReduce):
             # sync before adam
             block._insert_op(
                 global_offset,
-                type='c_sync_comm_stream',
+                type='sync_comm_stream',
                 inputs={'X': fused_output},
                 outputs={'Out': fused_output},
                 attrs={'ring_id': ring_id, self.op_role_key: OpRole.Backward},
@@ -857,7 +857,7 @@ class MultiThread(GradAllReduce):
                 for ring_id in range(self.nrings):
                     block._insert_op(
                         idx + ring_id,
-                        type='c_sync_comm_stream',
+                        type='sync_comm_stream',
                         inputs={'X': grad},
                         outputs={'Out': grad},
                         attrs={
@@ -1046,7 +1046,7 @@ class MultiThread(GradAllReduce):
             if self._is_optimizer_op(op):
                 block._insert_op(
                     idx,
-                    type='c_sync_comm_stream',
+                    type='sync_comm_stream',
                     inputs={'X': fused_vars[0]},
                     outputs={'Out': fused_vars[0]},
                     attrs={

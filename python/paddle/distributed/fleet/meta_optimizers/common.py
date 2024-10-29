@@ -236,7 +236,7 @@ class CollectiveHelper:
 
         for ring_id in range(self.nrings):
             block.append_op(
-                type='c_sync_comm_stream',
+                type='sync_comm_stream',
                 inputs={'X': param},
                 outputs={'Out': param},
                 attrs={'ring_id': ring_id, OP_ROLE_KEY: OpRole.Forward},

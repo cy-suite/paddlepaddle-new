@@ -55,7 +55,7 @@ class TestCollectiveReduce(TestCollectiveRunnerBase):
                 outputs={'out': toutdata},
             )
             main_prog.global_block().append_op(
-                type="c_sync_comm_stream",
+                type="sync_comm_stream",
                 inputs={'X': toutdata},
                 outputs={'Out': toutdata},
                 attrs={'ring_id': ring_id},
