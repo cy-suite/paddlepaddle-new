@@ -261,6 +261,7 @@ class PaddleToTensorRTConverter:
                         value, False, paddle.base.core.ShapeMode.kMAX
                     )
                     if trt_input.is_shape_tensor:
+                        print("它是shape_tensor了吧")
                         min_value = get_value_shape_range_info(
                             value, True, paddle.base.core.ShapeMode.kMIN
                         )
@@ -270,13 +271,14 @@ class PaddleToTensorRTConverter:
                         max_value = get_value_shape_range_info(
                             value, True, paddle.base.core.ShapeMode.kMAX
                         )
-                _logger.info(f"set min_shape of {value} as {min_shape}")
-                _logger.info(f"set opt_shape of {value} as {opt_shape}")
-                _logger.info(f"set max_shape of {value} as {max_shape}")
-                profile.set_shape(
-                    input_name, min=min_shape, opt=opt_shape, max=max_shape
-                )
-                if trt_input.is_shape_tensor:
+                if not trt_input.is_shape_tensor:
+                    _logger.info(f"set min_shape of {value} as {min_shape}")
+                    _logger.info(f"set opt_shape of {value} as {opt_shape}")
+                    _logger.info(f"set max_shape of {value} as {max_shape}")
+                    profile.set_shape(
+                        input_name, min=min_shape, opt=opt_shape, max=max_shape
+                    )
+                else:
                     _logger.info(
                         f"set min_value of shape input: {value} as {min_value}"
                     )
