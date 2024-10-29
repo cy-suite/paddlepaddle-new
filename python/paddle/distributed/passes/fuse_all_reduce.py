@@ -171,10 +171,11 @@ def find_all_fuse_all_reduce_groups(block):
     collective_ops = [block.ops[i] for i in collective_op_indices]
 
     def is_valid_allreduce_op(op):
-        if (
+        is_all_reduce_sum = (
             op.type == "all_reduce"
-            and op.attr("reduce_type") != dist.ReduceOp.SUM
-        ) or op.attr("use_model_parallel"):
+            and op.attr("reduce_type") == dist.ReduceOp.SUM
+        )
+        if not is_all_reduce_sum or op.attr("use_model_parallel"):
             return False
         in_var_name = op.input("X")[0]
         out_var_name = op.output("Out")[0]

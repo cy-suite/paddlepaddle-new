@@ -57,9 +57,7 @@ class ProgramDeps:
             if op.type in [
                 "c_sync_comm_stream",
                 "c_calc_comm_stream",
-            ]:
-                continue
-            elif (
+            ] or (
                 op.type == 'all_reduce'
                 and op.desc.attr("reduce_type") == dist.ReduceOp.SUM
             ):

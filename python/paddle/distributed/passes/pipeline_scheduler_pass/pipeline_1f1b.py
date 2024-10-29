@@ -295,8 +295,9 @@ class Pipeline1F1BPass(PipelinePassBase):
 
         try:
             time = calc_time_by_cost_model(op)
-            if op.type == "all_reduce" and op.attr("reduce_type") == str(
-                dist.ReduceOp.SUM
+            if (
+                op.type == "all_reduce"
+                and op.attr("reduce_type") == dist.ReduceOp.SUM
             ):
                 time *= 8
             return time

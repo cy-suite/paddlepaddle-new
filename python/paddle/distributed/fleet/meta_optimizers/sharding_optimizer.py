@@ -1035,9 +1035,7 @@ class ShardingOptimizer(MetaOptimizerBase):
                 "c_comm_init",
                 'send_v2',
                 'recv_v2',
-            ]:
-                pass
-            elif (
+            ] or (
                 op.type == 'all_reduce'
                 and op.desc.attr("reduce_type") == dist.ReduceOp.SUM
             ):
