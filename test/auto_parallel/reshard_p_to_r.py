@@ -105,7 +105,10 @@ class TestReshardPToR:
         )
 
         for op in ops:
-            if op.name() == 'pd_op.all_reduce':
+            if (
+                op.name() == 'pd_op.all_reduce'
+                and op.int_attr('reduce_type') == dist.ReduceOp.SUM
+            ):
                 # check op dist_attr
                 assert op.dist_attr.num_operands() == 1
                 assert op.dist_attr.num_results() == 1

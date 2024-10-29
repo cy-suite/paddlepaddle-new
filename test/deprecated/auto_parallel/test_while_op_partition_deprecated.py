@@ -17,6 +17,7 @@ import unittest
 import numpy as np
 
 import paddle
+import paddle.distributed as dist
 import paddle.nn.functional as F
 from paddle import base, nn, static
 from paddle.distributed import fleet
@@ -385,17 +386,25 @@ class TestMLP(unittest.TestCase):
         global_block_ops = dist_main_prog.blocks[0].ops
 
         fill_op = None
+        check_all_reduce_sum = False
         for op in global_block_ops:
             if op.type == "fill_constant_batch_size_like":
                 fill_op = op
-
-        global_block_ops = [op.type for op in global_block_ops]
+            elif (
+                op.type == "all_reduce"
+                and op.attr("reduce_type") == dist.ReduceOp.SUM
+            ):
+                check_all_reduce_sum = True
+        self.assertTrue(check_all_reduce_sum)
         sub_block_ops = dist_main_prog.blocks[1].ops
-        sub_block_ops = [op.type for op in sub_block_ops]
-
-        self.assertTrue("all_reduce" in global_block_ops)
-        self.assertTrue("all_reduce" in sub_block_ops)
-
+        check_all_reduce_sum = False
+        for op in sub_block_ops:
+            if (
+                op.type == "all_reduce"
+                and op.attr("reduce_type") == dist.ReduceOp.SUM
+            ):
+                check_all_reduce_sum = True
+        self.assertTrue(check_all_reduce_sum)
         # test fill_constant_batch_size_like
         self.assertIsNotNone(fill_op)
 

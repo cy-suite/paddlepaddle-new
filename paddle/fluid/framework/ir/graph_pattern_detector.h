@@ -110,6 +110,7 @@ struct PDNode {
   // Assertions, helper functions to simplify the pattern definition.
   PDNode* assert_is_op();
   PDNode* assert_is_op(const std::string& op_type);
+  PDNode* assert_is_op(const std::string& op_type, int reduce_type);
   PDNode* assert_is_not_op_type(const std::string& op_type);
   PDNode* assert_is_var();
   PDNode* assert_var_dtype(proto::VarType::Type dtype);
@@ -119,16 +120,30 @@ struct PDNode {
   PDNode* assert_is_op_output(const std::string& op_type);
   PDNode* assert_is_op_output(const std::string& op_type,
                               const std::string& argument);
+  PDNode* assert_is_op_output(const std::string& op_type,
+                              const std::string& argument,
+                              int reduce_type);
   PDNode* assert_is_op_input(const std::string& op_type);
   PDNode* assert_is_op_input(const std::string& op_type,
                              const std::string& argument);
+  PDNode* assert_is_op_input(const std::string& op_type,
+                             const std::string& argument,
+                             int reduce_type);
   PDNode* assert_is_op_nth_input(const std::string& op_type,
                                  const std::string& argument,
                                  int nth);
+  PDNode* assert_is_op_nth_input(const std::string& op_type,
+                                 const std::string& argument,
+                                 int nth,
+                                 int reduce_type);
   PDNode* assert_is_not_op_input(const std::string& argument);
   PDNode* assert_is_op_nth_output(const std::string& op_type,
                                   const std::string& argument,
                                   int nth);
+  PDNode* assert_is_op_nth_output(const std::string& op_type,
+                                  const std::string& argument,
+                                  int nth,
+                                  int reduce_type);
   PDNode* assert_is_only_input_of_op(const std::string& op_type);
   PDNode* assert_is_only_output_of_op(const std::string& op_type);
   PDNode* assert_op_has_n_inputs(const std::string& op_type, size_t n);

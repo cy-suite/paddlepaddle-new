@@ -22,6 +22,7 @@ sys.path.append("../../auto_parallel")
 from test_cluster import cluster_json
 
 import paddle
+import paddle.distributed as dist
 import paddle.nn.functional as F
 from paddle import nn, static, utils
 from paddle.distributed import fleet
@@ -189,12 +190,13 @@ class TestBaseCost(unittest.TestCase):
                 var_names = None
                 if op.input_arg_names:
                     var_names = op.input_arg_names[0]
+                    attrs = {"reduce_type": dist.ReduceOp.SUM}
                     comm_descs = build_comm_desc_from_dist_op(
                         "all_reduce",
                         dist_op,
                         dist_context,
                         var_names,
-                        attrs=None,
+                        attrs=attrs,
                         parallel_axis=0,
                         group_ranks=None,
                     )
@@ -204,7 +206,7 @@ class TestBaseCost(unittest.TestCase):
                         dist_op,
                         dist_context,
                         var_names,
-                        attrs=None,
+                        attrs=attrs,
                         parallel_axis=None,
                         group_ranks=processes,
                     )

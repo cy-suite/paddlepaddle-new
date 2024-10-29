@@ -20,6 +20,7 @@ import unittest
 from test_cluster import cluster_json, multi_cluster_json
 
 import paddle
+import paddle.distributed as dist
 from paddle.distributed.auto_parallel.static.cluster import Cluster
 from paddle.distributed.auto_parallel.static.cost import (
     AllgatherOpCost,
@@ -62,6 +63,7 @@ class TestCommOpCost(unittest.TestCase):
             [0, 1, 2, 3, 4, 5, 6, 7],
             paddle.float32,
             [1, 32 * (10**6)],
+            {"reduce_type": dist.ReduceOp.SUM},
         )
         allreduce_sum_op_cost = AllreduceSumOpCost(
             op_desc=allreduce_sum_op_desc, comm_context=comm_context
@@ -142,6 +144,7 @@ class TestCommOpCost(unittest.TestCase):
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
             paddle.float32,
             [1, 32 * (10**6)],
+            {"reduce_type": dist.ReduceOp.SUM},
         )
         allreduce_sum_op_cost = AllreduceSumOpCost(
             op_desc=allreduce_sum_op_desc, comm_context=comm_context

@@ -102,8 +102,16 @@ class TestReshardNdMesh:
         new_ops_name = [op.name() for op in dist_program.global_block().ops]
 
         rank_id = dist.get_rank()
-        assert new_ops_name[-2] == "pd_op.all_reduce"
-        assert new_ops_name[-1] == "pd_op.all_reduce"
+        assert dist_program.global_block().ops[-2].name() == "pd_op.all_reduce"
+        assert (
+            dist_program.global_block().ops[-2].int_attr("reduce_type")
+            == dist.ReduceOp.SUM
+        )
+        assert dist_program.global_block().ops[-1].name() == "pd_op.all_reduce"
+        assert (
+            dist_program.global_block().ops[-1].int_attr("reduce_type")
+            == dist.ReduceOp.SUM
+        )
 
         # check the first allreduce_sum
         op = new_ops[-2]
@@ -153,8 +161,13 @@ class TestReshardNdMesh:
         new_ops = dist_program.global_block().ops
         new_ops_name = [op.name() for op in dist_program.global_block().ops]
 
+        check_all_reduce_sum = any(
+            op.name() == "pd_op.all_reduce"
+            and op.int_attr("reduce_type") == dist.ReduceOp.SUM
+            for op in dist_program.global_block().ops
+        )
+        assert check_all_reduce_sum
         rank_id = dist.get_rank()
-        assert "pd_op.all_reduce" in new_ops_name
         assert new_ops_name[-1] == "pd_op.slice"
 
         # check the allreduce_sum
@@ -281,7 +294,12 @@ class TestReshardNdMesh:
 
         ops = dist_program.global_block().ops
         op_names = [op.name() for op in ops]
-        assert "pd_op.all_reduce" in op_names
+        check_all_reduce_sum = any(
+            op.name() == "pd_op.all_reduce"
+            and op.int_attr("reduce_type") == dist.ReduceOp.SUM
+            for op in ops
+        )
+        assert check_all_reduce_sum
         assert "pd_op.all_gather" in op_names
         assert "pd_op.slice" in op_names
 

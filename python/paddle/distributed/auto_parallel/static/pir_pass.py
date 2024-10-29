@@ -532,7 +532,7 @@ def remove_unuseful_comm_op_pass(program):
     for op in program.global_block().ops:
         if op.name() in comm_ops or (
             op.name() == "pd_op.all_reduce"
-            and op.desc.attr("reduce_type")
+            and op.int_attr("reduce_type")
             in [dist.ReduceOp.SUM, dist.ReduceOp.MAX]
         ):
             ring_id = op.int_attr("ring_id")

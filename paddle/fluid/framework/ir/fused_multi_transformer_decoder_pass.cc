@@ -916,18 +916,24 @@ PDNode* MultiDevicesFusedMultiTransformerDecoderFuseQKVPattern::operator()() {
   auto* matmul_linear_w_var = pattern->NewNode(matmul_linear_w_repr())
                                   ->AsInput()
                                   ->assert_is_op_input("matmul_v2", "Y");
-  auto* matmul_linear_out_var = pattern->NewNode(matmul_linear_out_repr())
-                                    ->assert_is_op_output("matmul_v2")
-                                    ->AsIntermediate()
-                                    ->assert_is_op_input("all_reduce");
+  auto* matmul_linear_out_var =
+      pattern->NewNode(matmul_linear_out_repr())
+          ->assert_is_op_output("matmul_v2")
+          ->AsIntermediate()
+          ->assert_is_op_input("all_reduce",
+                               static_cast<int>(phi::ReduceType::kRedSum));
 
   // communication all_reduce
   auto* all_reduce =
-      pattern->NewNode(all_reduce_repr())->assert_is_op("all_reduce");
-  auto* all_reduce_out_var = pattern->NewNode(all_reduce_out_repr())
-                                 ->assert_is_op_output("all_reduce")
-                                 ->AsIntermediate()
-                                 ->assert_is_op_input("elementwise_add");
+      pattern->NewNode(all_reduce_repr())
+          ->assert_is_op("all_reduce",
+                         static_cast<int>(phi::ReduceType::kRedSum));
+  auto* all_reduce_out_var =
+      pattern->NewNode(all_reduce_out_repr())
+          ->assert_is_op_output("all_reduce",
+                                static_cast<int>(phi::ReduceType::kRedSum))
+          ->AsIntermediate()
+          ->assert_is_op_input("elementwise_add");
 
   auto* eltadd_linear =
       pattern->NewNode(eltadd_linear_repr())->assert_is_op("elementwise_add");
@@ -1035,18 +1041,24 @@ PDNode* MultiDevicesFusedMultiTransformerDecoderFuseQKVPattern::operator()() {
   auto* ffn_matmul1_w_var = pattern->NewNode(ffn_matmul1_w_repr())
                                 ->AsInput()
                                 ->assert_is_op_input("matmul_v2", "Y");
-  auto* ffn_matmul1_out_var = pattern->NewNode(ffn_matmul1_out_repr())
-                                  ->assert_is_op_output("matmul_v2")
-                                  ->AsIntermediate()
-                                  ->assert_is_op_input("all_reduce");
+  auto* ffn_matmul1_out_var =
+      pattern->NewNode(ffn_matmul1_out_repr())
+          ->assert_is_op_output("matmul_v2")
+          ->AsIntermediate()
+          ->assert_is_op_input("all_reduce",
+                               static_cast<int>(phi::ReduceType::kRedSum));
 
   // communication all_reduce
   auto* ffn_all_reduce =
-      pattern->NewNode(ffn_all_reduce_repr())->assert_is_op("all_reduce");
-  auto* ffn_all_reduce_out_var = pattern->NewNode(ffn_all_reduce_out_repr())
-                                     ->assert_is_op_output("all_reduce")
-                                     ->AsIntermediate()
-                                     ->assert_is_op_input("elementwise_add");
+      pattern->NewNode(ffn_all_reduce_repr())
+          ->assert_is_op("all_reduce",
+                         static_cast<int>(phi::ReduceType::kRedSum));
+  auto* ffn_all_reduce_out_var =
+      pattern->NewNode(ffn_all_reduce_out_repr())
+          ->assert_is_op_output("all_reduce",
+                                static_cast<int>(phi::ReduceType::kRedSum))
+          ->AsIntermediate()
+          ->assert_is_op_input("elementwise_add");
 
   auto* ffn_eltadd1 =
       pattern->NewNode(ffn_eltadd1_repr())->assert_is_op("elementwise_add");

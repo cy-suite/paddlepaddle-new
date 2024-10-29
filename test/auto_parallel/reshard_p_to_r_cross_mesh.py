@@ -145,7 +145,7 @@ class TestReshardPToRCrossMesh:
                 }
             elif (
                 op.name() == 'pd_op.all_reduce'
-                and op.desc.attr("reduce_type") == dist.ReduceOp.SUM
+                and op.int_attr("reduce_type") == dist.ReduceOp.SUM
             ):
                 continue
                 # check op dist_attr

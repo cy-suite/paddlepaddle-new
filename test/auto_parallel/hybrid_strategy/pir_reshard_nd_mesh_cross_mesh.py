@@ -105,11 +105,23 @@ class TestReshardNdMeshCrossMesh:
 
         rank_id = dist.get_rank()
         if rank_id in self._mesh0.process_ids:
-            assert new_ops_name[2] == "pd_op.send_v2"
+            assert dist_program.global_block().ops[2].name() == "pd_op.send_v2"
         else:
-            assert new_ops_name[2] == "pd_op.recv_v2"
-            assert new_ops_name[-2] == "pd_op.all_reduce"
-            assert new_ops_name[-1] == "pd_op.all_reduce"
+            assert dist_program.global_block().ops[2].name() == "pd_op.recv_v2"
+            assert (
+                dist_program.global_block().ops[-2].name() == "pd_op.all_reduce"
+            )
+            assert (
+                dist_program.global_block().ops[-2].int_attr("reduce_type")
+                == dist.ReduceOp.SUM
+            )
+            assert (
+                dist_program.global_block().ops[-1].name() == "pd_op.all_reduce"
+            )
+            assert (
+                dist_program.global_block().ops[-1].int_attr("reduce_type")
+                == dist.ReduceOp.SUM
+            )
 
             # check the first allreduce_sum
             op = new_ops[-2]
