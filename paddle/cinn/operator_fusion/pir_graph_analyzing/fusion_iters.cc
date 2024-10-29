@@ -46,6 +46,19 @@ std::string FusionItersManager::PrintItersSignature(
   return ss.str();
 }
 
+FusionItersManager::FusionItersManager(
+    pir::ShapeConstraintIRAnalysis* shape_analysis,
+    ShardableAxesInfoManager* axes_info)
+    : shape_analysis_(shape_analysis), axes_info_(axes_info) {
+  PADDLE_ENFORCE_NOT_NULL(shape_analysis,
+                          ::common::errors::InvalidArgument(
+                              "shape_analysis should not be nullptr."));
+  PADDLE_ENFORCE_NOT_NULL(
+      axes_info,
+      ::common::errors::InvalidArgument("axes_info should not be nullptr."));
+  GenerateRelatedIters();
+}
+
 void FusionItersManager::StoreIter2DimExprForValue(const pir::Value& value) {
   PADDLE_ENFORCE_NE(value2iters_.count(value),
                     0,
@@ -61,6 +74,18 @@ void FusionItersManager::StoreIter2DimExprForValue(const pir::Value& value) {
       }
       iter2dimexpr_[value_iters[i]] = dim_expr;
     }
+  }
+}
+
+void FusionItersManager::GenerateRelatedIters() {
+  for (const auto& pair : axes_info_->related_axes_map()) {
+    const auto src = axes_info_->GetNormalizedAxisName(pair.first);
+    const auto dst = axes_info_->GetNormalizedAxisName(pair.second);
+    related_iters_[src].insert(dst);
+  }
+  for (const auto& kv : related_iters_) {
+    VLOG(4) << "Related iters: " << kv.first << " -> "
+            << cinn::utils::Join(SetToVector(kv.second), ", ");
   }
 }
 
@@ -217,6 +242,23 @@ bool FusionItersManager::IterSymbolEqual(const std::string& lhs,
 
 bool FusionItersManager::IterSymbolEqualOne(const std::string& sym) {
   return shape_analysis_->IsEqual(iter2dimexpr_[sym], 1);
+}
+
+symbol::DimExpr FusionItersManager::GetIterSymbol(const std::string& iter) {
+  PADDLE_ENFORCE(iter2dimexpr_.count(iter),
+                 ::common::errors::InvalidArgument(
+                     "Can not find iter %s in iter2dimexpr_.", iter));
+  return iter2dimexpr_[iter];
+}
+
+symbol::DimExpr FusionItersManager::GetReduceDimsProduct(
+    const FusionItersSignature& sig) {
+  symbol::DimExpr result = 1;
+  for (size_t i = 0; i < sig.reduce_iter_nums; i++) {
+    result =
+        result * GetIterSymbol(sig.loop_iters[sig.loop_iters.size() - i - 1]);
+  }
+  return result;
 }
 
 std::pair<FusionIters, FusionIters> SplitReduceIters(

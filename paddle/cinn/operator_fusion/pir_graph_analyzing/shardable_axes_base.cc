@@ -17,20 +17,20 @@
 #include "paddle/common/enforce.h"
 
 namespace cinn::fusion {
+std::string ShardableAxesInfoManager::FindAxisRoot(const std::string& name) {
+  std::string result = name;
+  while (name_union_[result] != result) {
+    result = name_union_[result];
+  }
+  return result;
+}
 
 ShardableAxes ShardableAxesInfoManager::ReplaceShardableAxesWithRootName(
-    const ShardableAxes& axes, bool normalize_name) {
+    const ShardableAxes& axes, bool normalize) {
   std::vector<std::string> names;
-  const auto FindRoot = [&](std::string non_root) {
-    std::string result = non_root;
-    while (name_union_[result] != result) {
-      result = name_union_[result];
-    }
-    return result;
-  };
   for (auto name : axes.axis_names) {
-    names.push_back(normalize_name ? normalized_root_name_map_[FindRoot(name)]
-                                   : FindRoot(name));
+    names.push_back(normalize ? normalized_root_name_map_[FindAxisRoot(name)]
+                              : FindAxisRoot(name));
   }
   return ShardableAxes(names);
 }
@@ -305,6 +305,43 @@ ShardableAxesSignature CreateSignatureForBroadcast(
   return result;
 }
 
+ShardableAxesSignature CreateSignatureForConcat(
+    pir::Operation* op, ShardableAxesInfoManager* axes_manager) {
+  size_t rank = GetCompitableRank(op->result(0));
+  const auto same_axes = CreateNewNamesWithRank(rank - 1);
+
+  const auto axis_attr =
+      op->attributes().at("axis").dyn_cast<::pir::Int32Attribute>();
+  PADDLE_ENFORCE_NOT_NULL(axis_attr,
+                          ::common::errors::InvalidArgument(
+                              "The axis attribute should be int32 type."));
+  const int axis = axis_attr.data();
+
+  const auto create_axes_fn = [&]() -> decltype(auto) {
+    std::vector<std::string> axes = same_axes;
+    axes.insert(axes.begin() + axis, ShardableAxesInfoManager::GetUniqueName());
+    return axes;
+  };
+
+  ShardableAxesSignature result = ShardableAxesSignature();
+  for (int i = 0; i < op->num_operands(); ++i) {
+    PADDLE_ENFORCE_EQ(rank,
+                      GetCompitableRank(op->operand_source(i)),
+                      ::common::errors::PreconditionNotMet(
+                          "Required all inputs rank shall be equal output in "
+                          "concat op."));
+    result.inputs.emplace_back(create_axes_fn());
+  }
+  result.outputs.emplace_back(create_axes_fn());
+  result.loop = result.outputs.back();
+
+  for (int i = 0; i < op->num_operands(); ++i) {
+    axes_manager->related_axes_map()[result.inputs[i].axis_names[axis]] =
+        result.outputs[0].axis_names[axis];
+  }
+  return result;
+}
+
 ShardableAxesSignature ShardableAxesInfoManager::CreateShardableSignature(
     pir::Operation* op) {
   auto special_result = CreateSignatureForSpecialOps(op);
@@ -327,6 +364,8 @@ ShardableAxesSignature ShardableAxesInfoManager::CreateShardableSignature(
     result = CreateSignatureForTranspose(op);
   } else if (op->name() == "cinn_op.slice") {
     result = CreateSignatureForSlice(op);
+  } else if (op->name() == "cinn_op.concat") {
+    result = CreateSignatureForConcat(op, this);
   } else {
     result = CreateDefaultSignature(op);
   }
@@ -344,15 +383,6 @@ ShardableAxesInfoManager::ShardableAxesInfoManager(
     op_signature_map_[op] = CreateShardableSignature(op);
   }
 
-  // short cut
-  const auto FindRoot = [&](std::string non_root) {
-    std::string result = non_root;
-    while (name_union_[result] != result) {
-      result = name_union_[result];
-    }
-    return result;
-  };
-
   const auto CombineAxes = [&](const ShardableAxes& root,
                                const ShardableAxes& non_root) {
     VLOG(5) << "start CombineAxes: " << root.DebugStr() << " with "
@@ -364,16 +394,17 @@ ShardableAxesInfoManager::ShardableAxesInfoManager(
             "Required root and non_root shall have same size of axis_names."));
     for (int i = 0; i < non_root.axis_names.size(); i++) {
       std::string non_root_str =
-          non_root.axis_names[i] == FindRoot(non_root.axis_names[i])
+          non_root.axis_names[i] == FindAxisRoot(non_root.axis_names[i])
               ? ""
-              : " -> " + FindRoot(non_root.axis_names[i]);
-      std::string root_str = root.axis_names[i] == FindRoot(root.axis_names[i])
-                                 ? ""
-                                 : " -> " + root.axis_names[i];
+              : " -> " + FindAxisRoot(non_root.axis_names[i]);
+      std::string root_str =
+          root.axis_names[i] == FindAxisRoot(root.axis_names[i])
+              ? ""
+              : " -> " + root.axis_names[i];
       VLOG(4) << "Link " << non_root.axis_names[i] << non_root_str << root_str
-              << " -> " << FindRoot(root.axis_names[i]);
-      name_union_[FindRoot(non_root.axis_names[i])] =
-          FindRoot(root.axis_names[i]);
+              << " -> " << FindAxisRoot(root.axis_names[i]);
+      name_union_[FindAxisRoot(non_root.axis_names[i])] =
+          FindAxisRoot(root.axis_names[i]);
     }
   };
 
@@ -424,7 +455,7 @@ ShardableAxesInfoManager::ShardableAxesInfoManager(
   }
   // update the name union.
   for (const auto& [child, father] : name_union_) {
-    name_union_[child] = FindRoot(child);
+    name_union_[child] = FindAxisRoot(child);
   }
 
   root_to_sons_.clear();
@@ -485,8 +516,11 @@ std::string ShardableAxesInfoManager::NameUnionDebugStr() const {
   std::stringstream ss;
   ss << "[ShardableAxesInfoManager] NameUnion :\n";
   for (const auto& [root, sons] : root_to_sons_) {
-    ss << "Root " << root << ": ";
-    for (const auto& son : sons) {
+    const auto& normalized_root_name = normalized_root_name_map_.at(root);
+    ss << "Root " << root << " (" << normalized_root_name << ") : ";
+    std::vector<std::string> sorted_sons(sons.begin(), sons.end());
+    std::sort(sorted_sons.begin(), sorted_sons.end());
+    for (const auto& son : sorted_sons) {
       ss << son << ", ";
     }
     ss << "\n";
