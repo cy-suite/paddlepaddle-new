@@ -942,16 +942,16 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
           pass->name() == "conv2d_add_fuse_pass") {
         pass->Set("use_cutlass", new bool(config_.use_cutlass_));
       } else if (pass->name() == "auto_mixed_precision_pass") {
-        pass->Set("__mixed_precision_mode__",
+        pass->Set("mixed_precision_mode",
                   new phi::DataType(
                       paddle::ConvertPrecision(config_.mixed_precision_mode_)));
-        pass->Set("__enable_low_precision_io__",
+        pass->Set("enable_low_precision_io",
                   new bool(config_.enable_low_precision_io_));
         pass->Set(
-            "__mixed_black_list__",
+            "mixed_black_list",
             new std::unordered_set<std::string>(config_.mixed_black_list_));
         pass->Set(
-            "__mixed_white_list__",
+            "mixed_white_list",
             new std::unordered_set<std::string>(config_.mixed_white_list_));
       }
     }
