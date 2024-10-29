@@ -159,9 +159,9 @@ pir_filter_no_need_buffer_input_var_in_backward(
         auto copied_dense_tensor = std::make_shared<phi::DenseTensor>(
             *std::dynamic_pointer_cast<phi::DenseTensor>(tensor.impl()));
         garbages->emplace_back(copied_dense_tensor->MoveMemoryHolder());
-        auto fake = paddle::Tensor(
+        auto meta_only_tensor = paddle::Tensor(
             copied_dense_tensor, tensor.mutable_autograd_meta(), tensor.name());
-        filter_x[i] = fake;
+        filter_x[i] = meta_only_tensor;
       }
     }
   }
