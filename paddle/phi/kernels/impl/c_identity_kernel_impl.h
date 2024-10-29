@@ -23,16 +23,8 @@ namespace phi {
 template <typename T, typename Context>
 void CIdentityKernel(const Context& dev_ctx,
                      const DenseTensor& x,
-                     int ring_id,
-                     bool use_calc_stream,
                      bool use_model_parallel,
                      DenseTensor* out) {
-  PADDLE_ENFORCE_GE(
-      ring_id,
-      0,
-      errors::InvalidArgument(
-          "The ring_id (%d) for c_identity op must be non-negative.", ring_id));
-
   dev_ctx.template Alloc<T>(out);
 
   phi::Copy(dev_ctx, x, dev_ctx.GetPlace(), false, out);

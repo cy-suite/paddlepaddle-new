@@ -796,12 +796,14 @@
   traits : paddle::dialect::ForwardOnlyTrait
 
 - op : c_identity
-  args : (Tensor x, int ring_id, bool use_calc_stream, bool use_model_parallel)
+  args : (Tensor x, bool use_model_parallel, int ring_id=0)
   output : Tensor(out)
   infer_meta :
     func : CIdentityInferMeta
+    param: [x, use_model_parallel]
   kernel :
     func : c_identity
+    param: [x, use_model_parallel]
   inplace : (x -> out)
   traits : paddle::dialect::ForwardOnlyTrait
 

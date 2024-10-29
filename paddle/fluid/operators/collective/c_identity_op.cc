@@ -51,10 +51,6 @@ class CIdentityOpMaker : public framework::OpProtoAndCheckerMaker {
     AddOutput("Out", "(Tensor) identity tensor.");
     AddAttr<int>("ring_id", "(int default 0) nccl communication ring id.")
         .SetDefault(0);
-    AddAttr<bool>(
-        "use_calc_stream",
-        "(bool default true) eject CUDA operations to calculation stream.")
-        .SetDefault(true);
     AddAttr<bool>("use_model_parallel",
                   "(bool default true) use this op with model parallel.")
         .SetDefault(true);
