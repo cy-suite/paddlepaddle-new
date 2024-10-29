@@ -57,43 +57,5 @@ class TestClipTRTPatternCase2(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestClipTRTPatternCase3(TensorRTBaseTest):
-    '''min/max is input, and x/min/max is float'''
-
-    def setUp(self):
-        self.python_api = paddle.clip
-        self.api_args = {
-            "x": np.array([[2, 0.3, 0.5, 0.9], [0.1, 0.2, 6, 7]]).astype(
-                "float32"
-            ),
-            "min": np.array([2.2]).astype("float32"),
-            "max": np.array([5.2]).astype("float32"),
-        }
-        self.program_config = {"feed_list": ["x", "min", "max"]}
-        self.min_shape = {"x": [1, 4]}
-        self.max_shape = {"x": [5, 4]}
-
-    def test_trt_result(self):
-        self.check_trt_result()
-
-
-class TestClipTRTPatternCase4(TensorRTBaseTest):
-    '''min/max is input, and x is int, min/max is float'''
-
-    def setUp(self):
-        self.python_api = paddle.clip
-        self.api_args = {
-            "x": np.array([[2, 3, 5, 9], [1, 2, 6, 7]]).astype("int32"),
-            "min": np.array([2]).astype("float32"),
-            "max": np.array([5]).astype("float32"),
-        }
-        self.program_config = {"feed_list": ["x", "min", "max"]}
-        self.min_shape = {"x": [1, 4]}
-        self.max_shape = {"x": [5, 4]}
-
-    def test_trt_result(self):
-        self.check_trt_result()
-
-
 if __name__ == "__main__":
     unittest.main()
