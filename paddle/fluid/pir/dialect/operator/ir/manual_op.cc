@@ -4711,6 +4711,7 @@ bool ArrayPopOp::InferSymbolicShape(
       array_out(),
       symbol::ShapeOrDataDimExprs(
           symbol::TensorShapeOrDataDimExprs(result_shape)));
+  return true;
 }
 phi::DataType ArrayPopOp::GetKernelTypeForVar(
     const std::string &var_name,
