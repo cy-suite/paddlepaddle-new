@@ -474,7 +474,7 @@ struct IRCopyVisitor : public ir::IRVisitorRequireReImpl<Expr> {
     return IterSplit::Make(source, lower_factor, extent, scale);
   }
   Expr Visit(const ir::IterSum* op) override {
-    std::vector<Expr> args;
+    std::vector<IndexExpr> args;
     for (const auto& v : op->args) {
       args.push_back(Visit(&v));
     }
@@ -550,7 +550,7 @@ Expr IRCopyVisitor::Visit(const ir::intrinsics::BuiltinIntrin* op) {
       op->name, op->args, op->id, op->arg_nums, op->type());
 }
 }  // namespace
-Expr IRCopy(Expr x, bool copy_buffer_node) {
+Expr IRCopy(const Expr& x, bool copy_buffer_node) {
   IRCopyVisitor visitor(copy_buffer_node);
   auto copied = visitor.Visit(&x);
   return copied;
