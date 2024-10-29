@@ -385,15 +385,15 @@ class TestStrideSliceCase1TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.strided_slice
         self.api_args = {
-            "x": np.random.random([3, 4, 5, 6]).astype("float32"),
+            "x": np.random.random([3, 4, 10]).astype("float32"),
             "axes": [0, 1, 2],
             "starts": [1, 0, 2],
             "ends": [2, 3, 4],
             "strides": [1, 1, 1],
         }
         self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [1, 4, 5, 6]}
-        self.max_shape = {"x": [5, 4, 5, 6]}
+        self.min_shape = {"x": [1, 4, 10]}
+        self.max_shape = {"x": [5, 4, 10]}
 
     def test_trt_result(self):
         self.check_trt_result()
@@ -403,15 +403,15 @@ class TestStrideSliceCase2TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.strided_slice
         self.api_args = {
-            "x": np.random.random([3, 4, 5, 6]).astype("int32"),
+            "x": np.random.random([3, 4, 10]).astype("int32"),
             "axes": [0, 1, 2],
             "starts": [1, 0, 2],
             "ends": [2, 3, 4],
             "strides": [1, 1, 1],
         }
         self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [1, 4, 5, 6]}
-        self.max_shape = {"x": [5, 4, 5, 6]}
+        self.min_shape = {"x": [1, 4, 10]}
+        self.max_shape = {"x": [5, 4, 10]}
 
     def test_trt_result(self):
         self.check_trt_result()
