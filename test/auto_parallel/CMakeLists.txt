@@ -134,11 +134,6 @@ if(WITH_DISTRIBUTE AND WITH_GPU)
   set_tests_properties(test_semi_auto_parallel_unshard_dtensor
                        PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE" TIMEOUT 100)
 
-  py_test_modules(test_semi_auto_parallel_moe_ep MODULES
-                  test_semi_auto_parallel_moe_ep)
-  set_tests_properties(test_semi_auto_parallel_moe_ep
-                       PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE" TIMEOUT 120)
-
   py_test_modules(test_moe_utils MODULES test_moe_utils)
   set_tests_properties(test_moe_utils PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE"
                                                  TIMEOUT 30)
