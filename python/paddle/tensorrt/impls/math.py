@@ -23,8 +23,12 @@ from paddle.tensorrt.converter_utils import (
     cast_tensor,
     fill_constant_layer,
     get_axes_for_reduce_op,
+    trt_div,
     trt_expend,
+    trt_floor_div,
     trt_max,
+    trt_mul,
+    trt_sub,
 )
 from paddle.tensorrt.register import converter_registry
 
@@ -32,31 +36,9 @@ from paddle.tensorrt.register import converter_registry
 @converter_registry.register("pd_op.add", trt_version="8.x")
 @converter_registry.register("pd_op.add_", trt_version="8.x")
 def add_converter(network, paddle_op, inputs):
-    weight_shape = paddle_op.operands()[1].source().shape
-    input_shape = paddle_op.operands()[0].source().shape
-
-    weight_tensor = inputs[1]
-    input_tensor = inputs[0]
-    if type(inputs[1]) == trt.Weights:
-        weight_tensor = network.add_constant(
-            weight_shape, inputs[1]
-        ).get_output(0)
-    if type(inputs[0]) == trt.Weights:
-        input_tensor = network.add_constant(input_shape, inputs[0]).get_output(
-            0
-        )
-    lhs_val, rhs_val = broadcast(
-        network,
-        input_tensor,
-        weight_tensor,
-        input_tensor.name,
-        weight_tensor.name,
+    return add_elementwise_layer(
+        network, paddle_op, inputs, trt.ElementWiseOperation.SUM
     )
-
-    out = network.add_elementwise(
-        lhs_val, rhs_val, trt.ElementWiseOperation.SUM
-    )
-    return out.get_output(0)
 
 
 @converter_registry.register("pd_op.scale", trt_version="8.x")
@@ -169,6 +151,50 @@ def clip_converter(network, paddle_op, inputs):
         lower_clip, beta_t, trt.ElementWiseOperation.MIN
     )
     return layer.get_output(0)
+
+
+@converter_registry.register("pd_op.remainder", trt_version="8.x")
+@converter_registry.register("pd_op.remainder_", trt_version="8.x")
+def remainder_converter(network, paddle_op, inputs):
+    weight_shape = paddle_op.operands()[1].source().shape
+    input_shape = paddle_op.operands()[0].source().shape
+
+    weight_tensor = inputs[1]
+    input_tensor = inputs[0]
+    if type(inputs[1]) == trt.Weights:
+        weight_tensor = network.add_constant(
+            weight_shape, inputs[1]
+        ).get_output(0)
+    if type(inputs[0]) == trt.Weights:
+        input_tensor = network.add_constant(input_shape, inputs[0]).get_output(
+            0
+        )
+
+    lhs_val, rhs_val = broadcast(
+        network,
+        input_tensor,
+        weight_tensor,
+        input_tensor.name,
+        weight_tensor.name,
+    )
+
+    # Check if floor division is needed
+    is_floor_div = input_tensor.dtype != trt.DataType.INT32
+
+    # Floor division
+    quotient = (
+        trt_floor_div(network, lhs_val, rhs_val)
+        if is_floor_div
+        else trt_div(network, lhs_val, rhs_val)
+    )
+
+    # Multiply rhs by the quotient
+    product = trt_mul(network, rhs_val, quotient)
+
+    # Subtract the product from lhs to get the remainder
+    remainder = trt_sub(network, lhs_val, product)
+
+    return remainder
 
 
 @converter_registry.register("pd_op.min", trt_version="8.x")
