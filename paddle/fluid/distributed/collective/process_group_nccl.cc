@@ -301,17 +301,6 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::AllToAll(
   CheckSizeOnEachRank(out_dim, out_size_each_rank, size_);
   CheckSizeOnEachRank(in_dim, in_size_each_rank, size_);
 
-  // NOTE: Since `all_to_all` needs other processes' participation, it cannot
-  // simply be covered by static checks. Factors are set to 0 here to skip the
-  // shape check. Its shape check will be done by dynamic checks with
-  // FLAGS_enable_nccl_dynamic_check.
-  phi::distributed::CommStaticCheck::CheckShape(*out_tensor,
-                                                in_tensor,
-                                                /*dst_rank*/ rank_,
-                                                /*cur_rank*/ rank_,
-                                                size_,
-                                                /*out_size_factor*/ 0,
-                                                /*in_size_factor*/ 0);
   return Collective(
       [&](phi::distributed::NCCLCommContext* comm_context, gpuStream_t stream) {
         if (FLAGS_enable_nccl_dynamic_check) {
