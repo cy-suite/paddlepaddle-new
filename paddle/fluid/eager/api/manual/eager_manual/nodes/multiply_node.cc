@@ -24,13 +24,15 @@
 #include "paddle/fluid/prim/api/all.h"
 #include "paddle/fluid/prim/api/composite_backward/composite_backward_api.h"
 #include "paddle/fluid/prim/utils/utils.h"
-#include "paddle/fluid/pybind/eager_utils.h"
 #include "paddle/phi/api/all.h"
 #include "paddle/phi/api/backward/backward_api.h"
 #include "paddle/phi/api/backward/sparse_bw_api.h"
 #include "paddle/phi/api/include/sparse_api.h"
 #include "paddle/phi/api/lib/api_custom_impl.h"
 #include "paddle/phi/core/platform/profiler/event_tracing.h"
+
+using egr::ConvertAllInputsToDistTensor;
+using egr::InputsContainDistTensor;
 
 COMMON_DECLARE_bool(check_nan_inf);
 
@@ -68,10 +70,9 @@ MultiplyGradNode::operator()(
 
   // Convert All Inputs to DistTensor if Necessary
   const phi::distributed::ProcessMesh* mesh = nullptr;
-  bool inputs_contain_dist_tensor =
-      paddle::pybind::InputsContainDistTensor(&mesh, grad_out);
+  bool inputs_contain_dist_tensor = InputsContainDistTensor(&mesh, grad_out);
   if (inputs_contain_dist_tensor) {
-    paddle::pybind::ConvertAllInputsToDistTensor(mesh, x, y);
+    ConvertAllInputsToDistTensor(mesh, x, y);
   }
 
   // Prepare Grad function call
