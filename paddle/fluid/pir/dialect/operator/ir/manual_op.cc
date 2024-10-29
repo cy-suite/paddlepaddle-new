@@ -3213,6 +3213,15 @@ std::vector<pir::Type> AssignArray_Op::InferMeta(
   return argument_outputs;
 }
 
+bool AssignArray_Op::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape = infer_context->GetShapeOrDataForValue(x_()).shape;
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::RankedTensorArrayShapeOrDataDimExprs(x_shape)});
+  return true;
+}
 phi::DataType AssignArray_Op::GetKernelTypeForVar(
     const std::string &var_name,
     const phi::DataType &tensor_dtype,
