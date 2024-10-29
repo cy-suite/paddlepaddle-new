@@ -186,18 +186,6 @@ class FusedMultiTransformerOpOpMaker
                   "else, uses post_layer_norm architecture. "
                   "[default true].")
         .SetDefault(true);
-    AddAttr<int>("rotary_emb_dims",
-                 "the Attr(dims) for RotaryPosEmb's Computation  [default 0].")
-        .SetDefault(0)
-        .AddCustomChecker([](const int &rotary_emb_dims) {
-          PADDLE_ENFORCE_EQ(
-              rotary_emb_dims >= 0 && rotary_emb_dims <= 2,
-              true,
-              common::errors::InvalidArgument(
-                  "'rotary_emb_dims' in Op(Rotray) should be between"
-                  "0 and 2, But received [%s].",
-                  rotary_emb_dims));
-        });
     AddAttr<float>("epsilon",
                    "Constant for numerical stability [default 1e-5].")
         .SetDefault(1e-5)
@@ -222,7 +210,18 @@ class FusedMultiTransformerOpOpMaker
                             common::errors::InvalidArgument(
                                 "'dropout_rate' must be between 0.0 and 1.0."));
         });
-
+    AddAttr<int>("rotary_emb_dims",
+                 "the Attr(dims) for RotaryPosEmb's Computation  [default 0].")
+        .SetDefault(0)
+        .AddCustomChecker([](const int &rotary_emb_dims) {
+          PADDLE_ENFORCE_EQ(
+              rotary_emb_dims >= 0 && rotary_emb_dims <= 2,
+              true,
+              common::errors::InvalidArgument(
+                  "'rotary_emb_dims' in Op(Rotray) should be between"
+                  "0 and 2, But received [%s].",
+                  rotary_emb_dims));
+        });
     AddAttr<bool>("is_test",
                   "(bool, default false) Set to true for inference only, false "
                   "for training. Some layers may run faster when this is true.")

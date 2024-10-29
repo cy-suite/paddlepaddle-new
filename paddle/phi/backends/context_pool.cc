@@ -78,6 +78,7 @@ TEST_API phi::DeviceContext* DeviceContextPool::Get(const phi::Place& place) {
         "Executor.",
         place));
   }
+  VLOG(1) << "it->second.get().get() " << it->second.get().get();
   return it->second.get().get();
 }
 

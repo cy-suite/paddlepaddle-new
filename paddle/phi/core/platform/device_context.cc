@@ -105,6 +105,7 @@ inline std::unique_ptr<DeviceContext> CreateDeviceContext(
         instance.GetAllocator(phi::GPUPinnedPlace()).get());
 
     cuda_ctx->PartialInitWithAllocator();
+    VLOG(1) << "SetGenerator(phi::DefaultCUDAGenerator(p.GetDeviceId()).get()";
     dev_ctx->SetGenerator(phi::DefaultCUDAGenerator(p.GetDeviceId()).get());
 #endif
   } else if (p.GetType() == phi::AllocationType::XPU) {
@@ -195,6 +196,7 @@ void EmplaceDeviceContexts(
 #endif
     } else if (place.GetType() == phi::AllocationType::GPU) {
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
+      VLOG(1) << "EmplaceDeviceContext<phi::GPUContext>";
       EmplaceDeviceContext<phi::GPUContext>(
           place_to_device_context,
           place,
