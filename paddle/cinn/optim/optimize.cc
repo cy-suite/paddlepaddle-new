@@ -54,8 +54,6 @@ Expr Optimize(Expr e,
 
   auto copied = ir::ir_utils::IRCopy(e);
 
-  FoldCINNCallArguments(&copied);
-  TransformPolyForToFor(&copied);
   ReplaceConstParamToInteger(&copied);
   // Simplify already contains CastSimplify
   Simplify(&copied);
