@@ -111,7 +111,6 @@ struct PDNode {
   PDNode* assert_is_op();
   PDNode* assert_is_op(const std::string& op_type);
   PDNode* assert_is_op(const std::string& op_type, int reduce_type);
-  PDNode* assert_is_op(const std::string& op_type, int reduce_type);
   PDNode* assert_is_not_op_type(const std::string& op_type);
   PDNode* assert_is_var();
   PDNode* assert_var_dtype(proto::VarType::Type dtype);

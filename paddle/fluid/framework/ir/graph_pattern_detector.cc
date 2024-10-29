@@ -421,15 +421,6 @@ PDNode *PDNode::assert_is_op(const std::string &op_type) {
 }
 
 PDNode *PDNode::assert_is_op(const std::string &op_type, int reduce_type) {
-  asserts_.emplace_back([op_type](Node *x) {
-    return x && x->IsOp() && x->Op()->Type() == op_type &&
-           PADDLE_GET_CONST(int, op->Op()->GetAttr("reduce_type")) ==
-               reduce_type;
-  });
-  return this;
-}
-
-PDNode *PDNode::assert_is_op(const std::string &op_type, int reduce_type) {
   asserts_.emplace_back([op_type, reduce_type](Node *x) {
     return x && x->IsOp() && x->Op()->Type() == op_type &&
            PADDLE_GET_CONST(int, x->Op()->GetAttr("reduce_type")) ==
