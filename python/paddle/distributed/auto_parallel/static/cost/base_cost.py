@@ -17,7 +17,6 @@ from collections import OrderedDict
 import numpy as np
 
 import paddle
-import paddle.distributed as dist
 from paddle.utils.flops import flops
 
 from ..cluster import DeviceType, LinkType, get_default_cluster
