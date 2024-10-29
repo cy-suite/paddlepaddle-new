@@ -78,10 +78,13 @@ class RandomDataset(paddle.io.Dataset):
 
 
 class MLP(nn.Layer):
-    def __init__(self, config):
+    def __init__(self, config, is_shared=False):
         super().__init__()
         self.config = config
-        self.input_size = config.input_size
+        if is_shared:
+            self.input_size = config.input_size * config.num_experts
+        else:
+            self.input_size = config.input_size
         self.hidden_size = config.hidden_size
         self.class_num = config.class_num
         self.down_proj = nn.Linear(
