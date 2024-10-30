@@ -3711,13 +3711,15 @@ def check_clip_tensor(c_x, value, re_value, value_type, name):
         value = fill_constant([1], value_type, re_value)
     else:
         if isinstance(value, (Variable, paddle.pir.Value, paddle.Tensor)):
-            if value.shape == [0]:
+            if len(value.shape) == 1 and value.shape[-1] == 0:
                 raise ValueError(
                     f"The {name} dimension should be equal to the inner dimension of the x, but the {name} dimension is {value.shape}"
                 )
             elif (
-                value.shape != [] and value.shape != [1]
+                len(value.shape) != 0
                 and value.shape != c_x.shape[-len(value.shape) :]
+                and value.shape != [1]
+                and value.shpae != (1,)
             ):
                 raise ValueError(
                     f"The {name} dimension should be equal to the inner dimension of the x, but the {name} dimension is {value.shape} and the x dimension is {c_x.shape[-len(value.shape):]}."
@@ -3788,8 +3790,12 @@ def clip(
         max_ = float(np.finfo(np.float32).max)
         value_dtype = 'float32'
 
-    if (isinstance(min, (Variable, paddle.pir.Value, paddle.Tensor)) and (min.shape != [1] and min.shape != [0] and min.shape != [])) or (
-        isinstance(max, (Variable, paddle.pir.Value, paddle.Tensor)) and (max.shape != [1] and max.shape != [0] and max.shape != [])
+    if (
+        isinstance(min, (Variable, paddle.pir.Value, paddle.Tensor))
+        and ((len(min.shape) == 1 and min.shape[-1] not in [1, 0]) or len(min.shape) > 1)
+    ) or (
+        isinstance(max, (Variable, paddle.pir.Value, paddle.Tensor))
+        and ((len(max.shape) == 1 and max.shape[-1] not in [1, 0]) or len(max.shape) > 1)
     ):
         min_n = check_clip_tensor(x, min, min_, value_dtype, 'min')
         max_n = check_clip_tensor(x, max, max_, value_dtype, 'max')
@@ -3893,9 +3899,11 @@ def clip_(
 
     if in_dynamic_mode():
         if (
-            isinstance(min, paddle.Tensor) and min.shape not in [[1], [0], []]
+            isinstance(min, (Variable, paddle.pir.Value, paddle.Tensor))
+            and ((len(min.shape) == 1 and min.shape[-1] not in [1, 0]) or len(min.shape) > 1)
         ) or (
-            isinstance(max, paddle.Tensor) and max.shape not in [[1], [0], []]
+            isinstance(max, (Variable, paddle.pir.Value, paddle.Tensor))
+            and ((len(max.shape) == 1 and max.shape[-1] not in [1, 0]) or len(max.shape) > 1)
         ):
             max = check_clip_tensor(x, max, fmin, x.dtype, 'max')
             min = check_clip_tensor(x, min, fmin, x.dtype, 'min')

@@ -490,9 +490,7 @@ class TestClipTensor(unittest.TestCase):
         max_data = np.random.random(data_shape[-3:]).astype('float32')
         paddle.enable_static()
         with paddle.static.program_guard(paddle.static.Program()):
-            x = paddle.static.data(
-                name='x', shape=data_shape, dtype='float32'
-            )
+            x = paddle.static.data(name='x', shape=data_shape, dtype='float32')
             min = paddle.static.data(
                 name='min', shape=data_shape[-2:], dtype='float32'
             )
@@ -524,9 +522,7 @@ class TestClipTensor(unittest.TestCase):
         max_data = np.random.random(data_shape[-3:]).astype('float32')
         paddle.enable_static()
         with paddle.static.program_guard(paddle.static.Program()):
-            x = paddle.static.data(
-                name='x', shape=data_shape, dtype='float32'
-            )
+            x = paddle.static.data(name='x', shape=data_shape, dtype='float32')
             min = paddle.static.data(
                 name='min', shape=data_shape[-2:], dtype='float32'
             )
@@ -553,22 +549,17 @@ class TestClipTensor(unittest.TestCase):
         )
         data = np.random.random(data_shape).astype('float32')
         min_data = np.random.random(data_shape[-2:]).astype('float32')
-        max_data= float(np.finfo(np.float32).max)
+        max_data = float(np.finfo(np.float32).max)
         paddle.enable_static()
         with paddle.static.program_guard(paddle.static.Program()):
-            x = paddle.static.data(
-                name='x', shape=data_shape, dtype='float32'
-            )
+            x = paddle.static.data(name='x', shape=data_shape, dtype='float32')
             min = paddle.static.data(
                 name='min', shape=data_shape[-2:], dtype='float32'
             )
             out = paddle.clip(x, min)
             exe = base.Executor(self.place)
             res = exe.run(
-                feed={
-                    "x": data,
-                    'min': min_data
-                },
+                feed={"x": data, 'min': min_data},
                 fetch_list=[out],
             )
             res_np = np.clip(data, min_data, max_data)
