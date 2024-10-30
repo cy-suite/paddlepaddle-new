@@ -1440,8 +1440,8 @@ class GridSampleOpPattern
           << "grid_sample need attributes: mode, padding_mode, align_corners";
       return false;
     }
-    x = op.operand_source(0);
-    grid = op.operand_source(1);
+    auto x = op.operand_source(0);
+    auto grid = op.operand_source(1);
     auto x_shape = pir::GetShapeFromValue(x);
     auto grid_shape = pir::GetShapeFromValue(grid);
 
