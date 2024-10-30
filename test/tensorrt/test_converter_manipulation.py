@@ -243,6 +243,22 @@ class TestSplitWithNumAxisTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestSplitWithNumAllTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.split
+        self.api_args = {
+            "x": np.random.randn(1, 2).astype(np.float32),
+            "num_or_sections": 2,
+            "axis": np.array([1]).astype("int32"),
+        }
+        self.program_config = {"feed_list": ["x", "axis"]}
+        self.min_shape = {"x": [1, 2]}
+        self.max_shape = {"x": [1, 2]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
 class TestSplitWithNumNegativeAxisTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.split
@@ -322,6 +338,98 @@ class TestSplitDynamicSectionAndAxisTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x", "num_or_sections", "axis"]}
         self.min_shape = {"x": [1, 9, 5]}
         self.max_shape = {"x": [3, 9, 5]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestStackTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.stack
+        self.api_args = {
+            "x": [
+                np.array([[1.0, 2.0]]).astype("float32"),
+                np.array([[3.0, 4.0]]).astype("float32"),
+                np.array([[5.0, 6.0]]).astype("float32"),
+            ],
+            "axis": 0,
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [[1, 2], [1, 2], [1, 2]]}
+        self.max_shape = {"x": [[3, 2], [3, 2], [3, 2]]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestStackCase2TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.stack
+        self.api_args = {
+            "x": [
+                np.array([[1, 2]]).astype("int32"),
+                np.array([[3, 4]]).astype("int32"),
+                np.array([[5, 6]]).astype("int32"),
+            ],
+            "axis": -1,
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [[1, 2], [1, 2], [1, 2]]}
+        self.max_shape = {"x": [[3, 2], [3, 2], [3, 2]]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestStrideSliceCase1TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.strided_slice
+        self.api_args = {
+            "x": np.random.random([3, 4, 5, 6]).astype("float32"),
+            "axes": [0, 1, 2],
+            "starts": [1, 0, 2],
+            "ends": [2, 3, 4],
+            "strides": [1, 1, 1],
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 4, 5, 6]}
+        self.max_shape = {"x": [5, 4, 5, 6]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestStrideSliceCase2TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.strided_slice
+        self.api_args = {
+            "x": np.random.random([3, 4, 5, 6]).astype("int32"),
+            "axes": [0, 1, 2],
+            "starts": [1, 0, 2],
+            "ends": [2, 3, 4],
+            "strides": [1, 1, 1],
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 4, 5, 6]}
+        self.max_shape = {"x": [5, 4, 5, 6]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestStrideSliceCase3TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.strided_slice
+        self.api_args = {
+            "x": np.random.random([3, 4, 10]).astype("bool"),
+            "axes": [0, 1, 2],
+            "starts": [0, -1, 0],
+            "ends": [2, -3, 5],
+            "strides": [1, -1, 1],
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 4, 10]}
+        self.max_shape = {"x": [5, 4, 10]}
 
     def test_trt_result(self):
         self.check_trt_result()
