@@ -187,17 +187,18 @@ class DemoSharedLayer(nn.Layer):
         expert_out_list = []
         if self.config.run_ep:
             for i in range(self.config.num_devices):
-                tem = []
+                device_input = paddle.split(
+                    local_val_list[i],
+                    num_or_sections=self.config.num_experts
+                    // self.config.num_devices,
+                    axis=0,
+                )
+                device_out = []
                 for j in range(
                     self.config.num_experts // self.config.num_devices
                 ):
-                    local_val = paddle.split(
-                        local_val_list[i],
-                        num_or_sections=self.config.num_experts
-                        // self.config.num_devices,
-                        axis=0,
-                    )[j]
-                    tem.append(
+                    local_val = device_input[j]
+                    device_out.append(
                         self.experts[
                             i
                             * self.config.num_experts
@@ -205,7 +206,7 @@ class DemoSharedLayer(nn.Layer):
                             + j
                         ](local_val)
                     )
-                expert_out_list.append(paddle.stack(tem, axis=0))
+                expert_out_list.append(paddle.stack(device_out, axis=0))
         else:
             for i, expert in enumerate(self.experts):
                 local_val = local_val_list[i]
