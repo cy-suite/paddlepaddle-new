@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import paddle
-from paddle.distributed.communication.reduce import ReduceOp
 
 from ..process_group import new_process_group
 from .base_reshard_func import ReshardFunction, is_partial, is_replicated
@@ -39,38 +38,45 @@ class PToRReshardFunction(ReshardFunction):
             return False
         return True
 
-    def reshard(
-        self, program, op, src_dist_attr, dst_dist_attr, reshard_op=True
-    ):
+    def reshard(self, src_dist_attr, dst_dist_attr, src_value, dst_type):
+        reduce_ops = {
+            paddle.base.core.ReduceType.kRedSum: paddle._C_ops.c_allreduce_sum,
+            paddle.base.core.ReduceType.kRedAvg: paddle._C_ops.c_allreduce_avg,
+            paddle.base.core.ReduceType.kRedMax: paddle._C_ops.c_allreduce_max,
+        }
+
         src_mesh = src_dist_attr.process_mesh
         src_reduce_type = src_dist_attr.partial_status[0]
-        reduce_mean = False
-        if src_reduce_type == ReduceOp.AVG:
-            src_reduce_type = ReduceOp.SUM
-            reduce_mean = True
+        # reduce_mean = False
+        # if src_reduce_type == paddle.base.core.ReduceType.kRedAvg:
+        #     src_reduce_type = paddle.base.core.ReduceType.kRedSum
+        #     reduce_mean = True
 
-        op_value = op.result(0)
-        op_type = op_value.type()
-        if reshard_op:
-            paddle.pir.set_insertion_point(op)
-            op_value = op.operand_source(0)
+        group = new_process_group(sorted(src_mesh.process_ids))
+        reduce_op = reduce_ops[src_reduce_type]
+
+        if src_value.dtype == paddle.bool:
+            src_value = paddle.cast(src_value, 'int32')
+            reduced_value = reduce_op(src_value, group.id, True, False)
+            reduced_value = paddle.cast(reduced_value, 'bool')
         else:
-            paddle.pir.set_insertion_point_after(op)
-        group = new_process_group(src_mesh.process_ids)
-        reduced_value = paddle._pir_ops.c_allreduce_sum_(
-            op_value, group.id, False, False
-        )
+            reduced_value = reduce_op(src_value, group.id, True, False)
 
         # set dist type and dist attr
-        reduced_value.set_type(op_type)
+        reduced_value.set_type(dst_type)
+        chunk_id = -1
+        if src_value.get_defining_op().dist_attr:
+            chunk_id = src_value.get_defining_op().dist_attr.chunk_id
+
         reduced_value.get_defining_op().dist_attr = (
             paddle.base.libpaddle.pir.create_op_dist_attribute(
-                src_mesh, [src_dist_attr], [dst_dist_attr]
+                src_mesh,
+                [src_dist_attr],
+                [dst_dist_attr],
+                chunk_id,
             )
         )
-        if reshard_op:
-            op.result(0).replace_all_uses_with(reduced_value)
-            program.global_block().remove_op(op)
+        return reduced_value
 
 
 class PToRReshardFunctionCrossMesh(ReshardFunction):
@@ -96,23 +102,24 @@ class PToRReshardFunctionCrossMesh(ReshardFunction):
 
         return True
 
-    def reshard(self, program, op, src_dist_attr, dst_dist_attr):
+    def reshard(self, src_dist_attr, dst_dist_attr, src_value, dst_type):
         same_status_func = SameStatusReshardFunction()
         tmp_dist_attr = paddle.base.libpaddle.pir.create_tensor_dist_attribute(
             dst_dist_attr.process_mesh,
             src_dist_attr.dims_mapping,
             src_dist_attr.partial_status,
         )
-        out, out_dist_attr = same_status_func.reshard(
-            program, op, src_dist_attr, tmp_dist_attr
+        tmp_dst_type = paddle.base.libpaddle.pir.cvt_to_dist_type(
+            src_value.type(), tmp_dist_attr
+        )
+        src_value = same_status_func.reshard(
+            src_dist_attr, tmp_dist_attr, src_value, tmp_dst_type
         )
 
-        curr_global_rank = paddle.distributed.get_rank()
-        if curr_global_rank in dst_dist_attr.process_mesh.process_ids:
-            p_to_r_func = PToRReshardFunction()
-            assert p_to_r_func.is_suitable(
-                out_dist_attr, dst_dist_attr
-            ), f"Invoke the p to r reshard function is not valid from {out.dist_attr()} to {dst_dist_attr}"
-            p_to_r_func.reshard(
-                program, out, out_dist_attr, dst_dist_attr, False
-            )
+        p_to_r_func = PToRReshardFunction()
+        assert p_to_r_func.is_suitable(
+            tmp_dist_attr, dst_dist_attr
+        ), f"Invoke the p to r reshard function is not valid from {tmp_dist_attr} to {dst_dist_attr}"
+        return p_to_r_func.reshard(
+            tmp_dist_attr, dst_dist_attr, src_value, dst_type
+        )

@@ -46,7 +46,7 @@ struct SimplifyOneOperand {
     } else {
       return Op<DimExpr>{ret_operand};
     }
-    PADDLE_THROW(phi::errors::Fatal("Dead code."));
+    PADDLE_THROW(common::errors::Fatal("Dead code."));
   }
 };
 
@@ -71,7 +71,7 @@ struct SimplifyUnitOneOperand {
     } else {
       return expr;
     }
-    PADDLE_THROW(phi::errors::Fatal("Dead code."));
+    PADDLE_THROW(common::errors::Fatal("Dead code."));
   }
 };
 
@@ -126,7 +126,7 @@ struct SimplifyOperands {
     } else {
       return Op<DimExpr>{mut_operands};
     }
-    PADDLE_THROW(phi::errors::Fatal("Dead code."));
+    PADDLE_THROW(common::errors::Fatal("Dead code."));
   }
 };
 
@@ -185,6 +185,10 @@ struct IsListLhsBeforeListRhsStruct {
   static bool Call(const Op<DimExpr>& lhs, const Op<DimExpr>& rhs) {
     const auto& [lhs_operands] = lhs;
     const auto& [rhs_operands] = rhs;
+    if (lhs_operands->empty() || rhs_operands->empty()) {
+      // 处理错误情况或抛出异常
+      throw std::runtime_error("Operands are uninitialized.");
+    }
     if (lhs_operands->size() < rhs_operands->size()) {
       return true;
     }
@@ -285,7 +289,10 @@ struct SortOperands {
   }
 
   bool IsSorted(const List<DimExpr>& operands) {
-    CHECK(!operands->empty());
+    PADDLE_ENFORCE_EQ(
+        !operands->empty(),
+        true,
+        common::errors::InvalidArgument("input op is empty, pleace check!"));
     for (std::size_t i = 0; i < operands->size() - 1; ++i) {
       if (IsLhsBeforeRhs(operands->at(i + 1), operands->at(i))) {
         return false;
@@ -298,10 +305,18 @@ struct SortOperands {
 std::int64_t GetInteger(const DimExpr& expr) {
   if (expr.Has<Negative<DimExpr>>()) {
     const auto& integer = expr.Get<Negative<DimExpr>>()->data;
-    CHECK(integer.Has<std::int64_t>());
+    PADDLE_ENFORCE_EQ(integer.Has<std::int64_t>(),
+                      true,
+                      common::errors::InvalidArgument(
+                          "input expression's member `data` has no attribution "
+                          "`int64_t`, maybe input dim is empty"));
     return -integer.Get<std::int64_t>();
   }
-  CHECK(expr.Has<std::int64_t>());
+  PADDLE_ENFORCE_EQ(
+      expr.Has<std::int64_t>(),
+      true,
+      common::errors::InvalidArgument(
+          "input has no attribution `int64_t`, maybe input dim is empty"));
   return expr.Get<std::int64_t>();
 }
 
@@ -391,7 +406,7 @@ struct GetInversed<Mul> {
 template <>
 struct GetInversed<Broadcast> {
   static DimExpr Call(const DimExpr& expr) {
-    PADDLE_THROW(phi::errors::Fatal("Broadcast is not a group in math."));
+    PADDLE_THROW(common::errors::Fatal("Broadcast is not a group in math."));
   }
 };
 
@@ -464,7 +479,7 @@ struct FoldUnitConstant {
     } else {
       return Op<DimExpr>{ret_operands};
     }
-    PADDLE_THROW(phi::errors::Fatal("Dead code."));
+    PADDLE_THROW(common::errors::Fatal("Dead code."));
   }
 };
 
@@ -503,7 +518,7 @@ struct FoldConstants {
     } else {
       return Op<DimExpr>{ret_operands};
     }
-    PADDLE_THROW(phi::errors::Fatal("Dead code."));
+    PADDLE_THROW(common::errors::Fatal("Dead code."));
   }
 };
 
@@ -551,6 +566,82 @@ struct FoldOperandTrait<Add> {
   }
 };
 
+template <>
+struct FoldOperandTrait<Max> {
+  using const_value_type = std::int64_t;
+
+  static bool IsConstPattern(const DimExpr& dim_expr) {
+    if (dim_expr.Has<std::int64_t>()) {
+      return true;
+    }
+    if (dim_expr.Has<Negative<DimExpr>>()) {
+      const auto& operand = dim_expr.Get<Negative<DimExpr>>()->data;
+      return operand.Has<std::int64_t>();
+    }
+    return false;
+  }
+
+  static const_value_type MakeUnit() { return INT64_MIN; }
+  static void Accumulate(const_value_type* value, const DimExpr& expr) {
+    *value = std::max(*value, GetInteger(expr));
+  }
+  static bool IsUnit(const const_value_type& value) {
+    return value == INT64_MIN;
+  }
+  static bool IsUnitDimExpr(const DimExpr& dim_expr) {
+    if (!dim_expr.Has<std::int64_t>()) {
+      return false;
+    }
+    return dim_expr.Get<std::int64_t>() == INT64_MIN;
+  }
+  static void MakeAndAppendDimExpr(const const_value_type& value,
+                                   List<DimExpr>* ret) {
+    (*ret)->emplace_back(value);
+  }
+
+  static bool IsInversedPair(const DimExpr& lhs, const DimExpr& rhs) {
+    return false;
+  }
+};
+
+template <>
+struct FoldOperandTrait<Min> {
+  using const_value_type = std::int64_t;
+
+  static bool IsConstPattern(const DimExpr& dim_expr) {
+    if (dim_expr.Has<std::int64_t>()) {
+      return true;
+    }
+    if (dim_expr.Has<Negative<DimExpr>>()) {
+      const auto& operand = dim_expr.Get<Negative<DimExpr>>()->data;
+      return operand.Has<std::int64_t>();
+    }
+    return false;
+  }
+
+  static const_value_type MakeUnit() { return INT64_MAX; }
+  static void Accumulate(const_value_type* value, const DimExpr& expr) {
+    *value = std::min(*value, GetInteger(expr));
+  }
+  static bool IsUnit(const const_value_type& value) {
+    return value == INT64_MAX;
+  }
+  static bool IsUnitDimExpr(const DimExpr& dim_expr) {
+    if (!dim_expr.Has<std::int64_t>()) {
+      return false;
+    }
+    return dim_expr.Get<std::int64_t>() == INT64_MAX;
+  }
+  static void MakeAndAppendDimExpr(const const_value_type& value,
+                                   List<DimExpr>* ret) {
+    (*ret)->emplace_back(value);
+  }
+
+  static bool IsInversedPair(const DimExpr& lhs, const DimExpr& rhs) {
+    return false;
+  }
+};
+
 using ConstRational = std::pair<std::int64_t, std::int64_t>;
 
 ConstRational SimplifiedConstRational(int64_t num, int64_t dem) {
@@ -560,7 +651,7 @@ ConstRational SimplifiedConstRational(int64_t num, int64_t dem) {
 
 template <typename T>
 std::optional<ConstRational> GetConstRationalImpl(const T& expr) {
-  PADDLE_THROW(phi::errors::Fatal("not supported."));
+  PADDLE_THROW(common::errors::Fatal("not supported."));
   return std::nullopt;
 }
 
@@ -578,7 +669,10 @@ ConstRational GetConstRational(const DimExpr& expr) {
   return std::visit(
       [&](const auto& impl) {
         std::optional<ConstRational> opt_ret = GetConstRationalImpl(impl);
-        CHECK(opt_ret.has_value());
+        PADDLE_ENFORCE_EQ(
+            opt_ret.has_value(),
+            true,
+            common::errors::InvalidArgument("Input is empty, please check"));
         return opt_ret.value();
       },
       expr.variant());
@@ -631,7 +725,7 @@ struct FoldOperandTrait<Mul> {
     (*ret)->emplace_back(num);
     PADDLE_ENFORCE_NE(dem,
                       0,
-                      phi::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "The denominator of rational can not be zero."));
     if (dem != 1) {
       (*ret)->emplace_back(Reciprocal<DimExpr>{DimExpr{dem}});
@@ -663,18 +757,22 @@ struct FoldOperandTrait<Broadcast> {
 
   static const_value_type MakeUnit() { return 1; }
   static void Accumulate(const_value_type* value, const DimExpr& expr) {
-    CHECK(expr.Has<std::int64_t>());
+    PADDLE_ENFORCE_EQ(expr.Has<std::int64_t>(),
+                      true,
+                      common::errors::InvalidArgument(
+                          "Input constant `expr`(second argument) has no "
+                          "attribution `int64_T`, please check"));
     std::int64_t expr_value = expr.Get<std::int64_t>();
     if (*value == 1) {
       *value = expr_value;
     } else if (expr_value != 1) {
-      PADDLE_ENFORCE_EQ(
-          *value,
-          expr_value,
-          phi::errors::InvalidArgument("The value (%d) should be equel to expr "
-                                       "(%d) when they are both not 1.",
-                                       *value,
-                                       expr_value));
+      PADDLE_ENFORCE_EQ(*value,
+                        expr_value,
+                        common::errors::InvalidArgument(
+                            "The value (%d) should be equal to expr "
+                            "(%d) when they are both not 1.",
+                            *value,
+                            expr_value));
     } else {
       // do nothing.
     }
@@ -734,7 +832,7 @@ struct FoldInversedPairToUnit {
     } else {
       return Op<DimExpr>{ret_operands};
     }
-    PADDLE_THROW(phi::errors::Fatal("Dead code."));
+    PADDLE_THROW(common::errors::Fatal("Dead code."));
   }
 
   std::optional<SearchResult> SearchInversedPair(
@@ -788,7 +886,7 @@ struct FoldRedundantSymbolicBroadcast {
     } else {
       return Broadcast<DimExpr>{ret_operands};
     }
-    PADDLE_THROW(phi::errors::Fatal("Dead code."));
+    PADDLE_THROW(common::errors::Fatal("Dead code."));
   }
 
   std::optional<MaxInt64> SearchMaxInt64(const List<DimExpr>& operands) {
@@ -806,8 +904,8 @@ struct FoldRedundantSymbolicBroadcast {
             PADDLE_ENFORCE_EQ(
                 ret.value().value,
                 int64_value,
-                phi::errors::InvalidArgument(
-                    "The value of return (%d) should be equel to expr (%d) of "
+                common::errors::InvalidArgument(
+                    "The value of return (%d) should be equal to expr (%d) of "
                     "operands at index (%d) when they are both > 1.",
                     ret.value().value,
                     int64_value,
@@ -855,7 +953,7 @@ struct FoldRedundantBroadcast {
     } else {
       return Broadcast<DimExpr>{ret_operands};
     }
-    PADDLE_THROW(phi::errors::Fatal("Dead code."));
+    PADDLE_THROW(common::errors::Fatal("Dead code."));
   }
 
   std::optional<SearchResult> SearchInversedPair(
@@ -873,6 +971,68 @@ struct FoldRedundantBroadcast {
     return std::nullopt;
   }
 };
+
+/*
+ * Simplify Example:
+ * Broadcast(dim_expr0, Mul(dim_expr0, dim_expr1)) => Mul(dim_expr0, dim_expr1)
+ */
+struct SimplifyBroadcast {
+  using dim_expr_type = Broadcast<DimExpr>;
+
+  DimExpr Rewrite(const DimExpr& expr) {
+    auto [operands] = expr.Get<Broadcast<DimExpr>>();
+    while (operands->size() > 1) {
+      int pos_erasable = SearchErasable(operands);
+      if (pos_erasable < 0) break;
+      operands->erase(operands->begin() + pos_erasable);
+    }
+    if (operands->size() == 1) {
+      return operands->at(0);
+    } else {
+      return Broadcast<DimExpr>{operands};
+    }
+  }
+
+  bool IsLhsGreatThanRhs(const DimExpr& lhs, const DimExpr& rhs) {
+    auto LhsOperandsVisitor = common::Overloaded{
+        [&](const Mul<DimExpr>& mul) {
+          bool lhs_great_than_rhs = false;
+          for (const auto& expr : *mul.operands) {
+            if (expr == rhs)
+              lhs_great_than_rhs = true;
+            else if (!expr.isa<std::int64_t>() && !expr.isa<std::string>())
+              return false;
+          }
+          return lhs_great_than_rhs;
+        },
+        [&](const Add<DimExpr>& add) {
+          bool lhs_great_than_rhs = false;
+          for (const auto& expr : *add.operands) {
+            if (expr == rhs)
+              lhs_great_than_rhs = true;
+            else if (!expr.isa<std::int64_t>() && !expr.isa<std::string>())
+              return false;
+          }
+          return lhs_great_than_rhs;
+        },
+        [&](const auto& lhs) { return false; }};
+    return std::visit(LhsOperandsVisitor, lhs.variant());
+  }
+
+  int SearchErasable(const List<DimExpr>& operands) {
+    for (std::size_t i = 0; i < operands->size() - 1; ++i) {
+      for (std::size_t j = i + 1; j < operands->size(); ++j) {
+        if (IsLhsGreatThanRhs(operands->at(i), operands->at(j))) {
+          return j;
+        } else if (IsLhsGreatThanRhs(operands->at(j), operands->at(i))) {
+          return i;
+        }
+      }
+    }
+    return -1;
+  }
+};
+
 template <typename PassT>
 void DoPass(bool* rewrited, DimExpr* expr) {
   const auto old_expr = *expr;
@@ -903,11 +1063,14 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<FoldUnitConstant<Broadcast>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Add>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Mul>>(&keep_rewrite, &ret);
+    DoPass<FoldConstants<Max>>(&keep_rewrite, &ret);
+    DoPass<FoldConstants<Min>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Broadcast>>(&keep_rewrite, &ret);
     DoPass<FoldInversedPairToUnit<Add>>(&keep_rewrite, &ret);
     DoPass<FoldInversedPairToUnit<Mul>>(&keep_rewrite, &ret);
     DoPass<FoldRedundantBroadcast>(&keep_rewrite, &ret);
     DoPass<FoldRedundantSymbolicBroadcast>(&keep_rewrite, &ret);
+    DoPass<SimplifyBroadcast>(&keep_rewrite, &ret);
   }
   return ret;
 }
@@ -1063,7 +1226,7 @@ DimExpr SubstituteDimExpr(
 namespace symbol {
 
 IR_API int GetDimExprPriority(const DimExpr& dim_expr) {
-  return std::visit(Overloaded{
+  return std::visit(common::Overloaded{
                         [&](std::int64_t) { return 0; },
                         [&](const std::string&) { return 1; },
                         [&](const Negative<DimExpr>&) { return 2; },
@@ -1087,7 +1250,7 @@ IR_API PriorityComparisonStatus CompareDimExprPriority(const DimExpr& lhs,
                                        : PriorityComparisonStatus::LOWER;
   }
 
-  auto CompareForEqualPriority = Overloaded{
+  auto CompareForEqualPriority = common::Overloaded{
       [](const std::string& lhs, const std::string& rhs) {
         if (lhs.size() != rhs.size()) {
           return lhs.size() < rhs.size() ? PriorityComparisonStatus::HIGHER
@@ -1130,7 +1293,7 @@ void CollectListDimExprSymbolsImpl(const List<DimExpr>& dim_exprs,
 std::unordered_set<std::string> CollectDimExprSymbols(const DimExpr& dim_expr) {
   std::unordered_set<std::string> symbols;
   // clang-format off
-  auto lambdas = Overloaded{
+  auto lambdas = common::Overloaded{
       [&](std::int64_t dim_expr) { return; },
       [&](const std::string& dim_expr) { symbols.insert(dim_expr); },
       [&](const Negative<DimExpr>& dim_expr) {

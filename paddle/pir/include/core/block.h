@@ -91,7 +91,7 @@ class IR_API Block {
   bool HasOneUse() const;
   BlockOperand *first_use_addr() { return &first_use_; }
 
-  // This is a unsafe funcion, please use it carefully.
+  // This is a unsafe function, please use it carefully.
   void ResetOpListOrder(const OpListType &new_op_list);
 
   ///
@@ -197,6 +197,8 @@ class IR_API Block {
   KwargsType kwargs_;  // owned
   Region *parent_;     // not owned
 };
+
+std::ostream &operator<<(std::ostream &os, const Block &block);
 
 template <class TypeIter>
 void Block::AddArgs(TypeIter first, TypeIter last) {

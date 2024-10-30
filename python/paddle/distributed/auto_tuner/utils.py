@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
 
 import copy
 import csv
@@ -18,7 +19,8 @@ import itertools
 import logging
 import os
 import re
-from typing import Tuple
+
+import paddle
 
 from .prune import _PRUNE_FUNC
 
@@ -1066,7 +1068,10 @@ def gen_new_args(raw_args, cfg, tuner_cfg, run_best=False):
                         prefix + str(cfg[arg]) if prefix else cfg[arg]
                     )
                 json.dump(cmd_cfg, open(cmd[arg][0], "w"))
-                if tuner_cfg["run_cmd"].get("generate_launch_cfg", True):
+                if (
+                    tuner_cfg["run_cmd"].get("generate_launch_cfg", True)
+                    and not run_best
+                ):
                     new_cmd_apth = (
                         os.path.splitext(cmd[arg][0])[0]
                         + "_"
@@ -1105,7 +1110,10 @@ def gen_new_args(raw_args, cfg, tuner_cfg, run_best=False):
                         prefix + str(cfg[arg]) if prefix else cfg[arg]
                     )
                 yaml.dump(cmd_cfg, open(cmd[arg][0], "w"))
-                if tuner_cfg["run_cmd"].get("generate_launch_cfg", True):
+                if (
+                    tuner_cfg["run_cmd"].get("generate_launch_cfg", True)
+                    and not run_best
+                ):
                     new_cmd_apth = (
                         os.path.splitext(cmd[arg][0])[0]
                         + cfg["log_dir_name"]
@@ -1155,7 +1163,10 @@ def gen_new_args(raw_args, cfg, tuner_cfg, run_best=False):
                 else:
                     cmd_cfg[keys[-1]] = rr_values
                 json.dump(cmd_cfg, open(cmd[arg][0], "w"))
-                if tuner_cfg["run_cmd"].get("generate_launch_cfg", True):
+                if (
+                    tuner_cfg["run_cmd"].get("generate_launch_cfg", True)
+                    and not run_best
+                ):
                     new_cmd_apth = (
                         os.path.splitext(cmd[arg][0])[0]
                         + cfg["log_dir_name"]
@@ -1196,7 +1207,10 @@ def gen_new_args(raw_args, cfg, tuner_cfg, run_best=False):
                 else:
                     cmd_cfg[keys[-1]] = rr_values
                 yaml.dump(cmd_cfg, open(cmd[arg][0], "w"))
-                if tuner_cfg["run_cmd"].get("generate_launch_cfg", True):
+                if (
+                    tuner_cfg["run_cmd"].get("generate_launch_cfg", True)
+                    and not run_best
+                ):
                     new_cmd_apth = (
                         os.path.splitext(cmd[arg][0])[0]
                         + cfg["log_dir_name"]
@@ -1391,7 +1405,7 @@ def gen_new_ctx(ctx, cur_cfg, tuner_cfg):
 
 def read_metric_log(
     path, file="workerlog.0", target_metric='step/s'
-) -> Tuple[float, int]:
+) -> tuple[float, int]:
     """For extracting metric from log file."""
     """
     return:
@@ -1410,7 +1424,11 @@ def read_metric_log(
         re_metric_pattern = (
             target_metric + r":* *(\d+(\.\d*)?)|(\d+(\.\d*)?) *" + target_metric
         )
-        re_out_of_memory_pattern = r"Out of memory error on"
+        re_out_of_memory_pattern = (
+            r"out of memory"
+            if paddle.device.is_compiled_with_custom_device('npu')
+            else r"Out of memory error on"
+        )
         out_of_memory_flag = 0
         metric_list = []
         lines = f.readlines()
@@ -1451,7 +1469,7 @@ def read_metric_log(
 
 def read_step_time_log(
     path, file="workerlog.0", target_metric='interval_runtime'
-) -> Tuple[float, int]:
+) -> tuple[float, int]:
     target_file = path + "/" + file
     if not os.path.exists(target_file):
         return None
@@ -1521,7 +1539,7 @@ def read_allocated_memory_log(
             return metric_list[-1]
 
 
-def read_memory_log(path, file) -> Tuple[float, bool]:
+def read_memory_log(path, file) -> tuple[float, bool]:
     log_path = os.path.join(path, file)
     if not os.path.exists(log_path):
         return (0.0, True)
@@ -1549,12 +1567,39 @@ def read_memory_log(path, file) -> Tuple[float, bool]:
     return max(memory_used), False
 
 
+def read_completed(path):
+    """
+    check if training is completed
+    return:
+        True: completed
+        False: not completed
+    """
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            if not file.startswith("workerlog"):
+                continue
+            target_file = path + "/" + file
+            if not os.path.exists(target_file):
+                return False
+            with open(target_file, "r") as f:
+                # read file
+                re_completed_pattern = r"Training completed."
+                lines = f.readlines()
+                for line in lines:
+                    completed = re.findall(
+                        re_completed_pattern, line, re.IGNORECASE
+                    )
+                    if completed:
+                        return True
+    return False
+
+
 def read_log(
     path,
     metric_file="workerlog.0",
     target_metric='step/s',
     memory_file="0.gpu.log",
-) -> Tuple[float, float, int]:
+) -> tuple[float, float, int]:
     """
     extract metric and max memory usage from log file
     return:

@@ -21,15 +21,15 @@ DEFINE_C_ALLREDUCE_CUDA_KERNEL(CAllReduceMax, kRedMax)
 }  // namespace paddle
 
 namespace ops = paddle::operators;
-namespace plat = paddle::platform;
 
 PD_REGISTER_STRUCT_KERNEL(c_allreduce_max,
                           GPU,
                           ALL_LAYOUT,
                           ops::CAllReduceMaxCUDAKernel,
                           float,
-#if NCCL_VERSION_CODE >= 21000 && CUDA_VERSION >= 11000
-                          plat::bfloat16,
+#if (NCCL_VERSION_CODE >= 21000 && CUDA_VERSION >= 11000) || \
+    defined(PADDLE_WITH_HIP)
+                          phi::dtype::bfloat16,
 #endif
                           double,
                           int,

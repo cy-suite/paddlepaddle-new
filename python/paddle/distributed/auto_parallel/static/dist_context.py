@@ -15,7 +15,7 @@
 import copy
 from collections import defaultdict
 
-from paddle.distributed.passes import PassContext
+from paddle.distributed.passes.pass_base import PassContext
 from paddle.framework import IrGraph, core, set_flags
 
 from ..process_mesh import ProcessMesh
@@ -794,9 +794,9 @@ class DistributedContext:
                 new_dist_tensor = DistributedTensor(
                     dist_tensor.serial_tensor, dist_tensor.dist_attr
                 )
-                self._dist_tensors_for_graph[
-                    serial_tensor_node_id
-                ] = new_dist_tensor
+                self._dist_tensors_for_graph[serial_tensor_node_id] = (
+                    new_dist_tensor
+                )
             if node.is_op() and node.op() is not None:
                 dist_op = None
                 op_id = node.node.original_desc_id()
@@ -850,9 +850,9 @@ class DistributedContext:
                 new_dist_tensor = DistributedTensor(
                     dist_tensor.serial_tensor, dist_tensor.dist_attr
                 )
-                self._dist_tensors_for_graph[
-                    serial_tensor_node_id
-                ] = new_dist_tensor
+                self._dist_tensors_for_graph[serial_tensor_node_id] = (
+                    new_dist_tensor
+                )
             if node.is_op() and node.op() is not None:
                 dist_op = None
                 op_id = node.node.original_desc_id()

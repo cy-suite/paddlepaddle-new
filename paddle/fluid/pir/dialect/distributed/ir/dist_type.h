@@ -36,6 +36,8 @@ class DistDenseTensorType
   using Base::Base;
   using LoD = pir::DenseTensorTypeStorage::LoD;
 
+  static std::string name() { return "t_dist_dtensor"; }
+
   pir::DenseTensorType dense_tensor_type() const;
   TensorDistAttribute tensor_dist_attr() const;
   const common::DDim& global_ddim() const { return dense_tensor_type().dims(); }
@@ -64,8 +66,11 @@ class DistDenseTensorType
   DistDenseTensorType CopyWithNewMesh(ProcessMeshAttribute mesh) {
     return get(ir_context(),
                dense_tensor_type(),
-               tensor_dist_attr().CopyWithNewMesh(mesh),
-               local_ddim());
+               tensor_dist_attr().CopyWithNewMesh(mesh));
+  }
+
+  DistDenseTensorType CopyWithNewDistAttr(TensorDistAttribute dist_attr) {
+    return get(ir_context(), dense_tensor_type(), dist_attr);
   }
 
   static DistDenseTensorType get(pir::IrContext* ctx,

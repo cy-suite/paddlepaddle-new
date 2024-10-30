@@ -18,7 +18,7 @@
 #include <string>
 #include <unordered_map>
 #include "glog/logging.h"
-
+#include "paddle/cinn/hlir/dialect/operator/ir/generate_shape_util.h"
 #include "paddle/cinn/hlir/dialect/operator/ir/manual_op.h"
 #include "paddle/cinn/hlir/dialect/operator/ir/op_dialect.h"
 #include "paddle/cinn/hlir/framework/op.h"
@@ -63,6 +63,7 @@ const std::unordered_map<std::string, std::string> CompatibleInfo::OP_NAMES = {
     {"pd_op.unsqueeze", "reshape"},
     {"pd_op.split_with_num", "split"},
     {"pd_op.expand", "broadcast_to"},
+    {"pd_op.where", "select"},
     {"cinn_op.generate_shape", "generate_shape"},
     {"cinn_op.broadcast", "broadcast_to"}};
 
@@ -135,12 +136,18 @@ class OpTransInfo {
                                                     "dropout",
                                                     "pool2d",
                                                     "pool2d_grad",
+                                                    "pool3d",
+                                                    "pool3d_grad"
                                                     "split",
                                                     "matmul",
                                                     "matmul_grad",
                                                     "embedding_grad",
                                                     "embedding",
                                                     "arange",
+                                                    "argmax",
+                                                    "argsort",
+                                                    "assign_value",
+                                                    "one_hot",
                                                     "softmax",
                                                     "randint"};
 };
@@ -153,7 +160,10 @@ std::string OpNameAfterStripDialect(const ::pir::Operation& op) {
   }
   auto op_name = name.substr(pos + 1);
   VLOG(7) << "GetOpName: " << name << " -> " << op_name;
-  CHECK(op_name != "") << "Not Allow op name is empty";
+  PADDLE_ENFORCE_NE(
+      op_name,
+      "",
+      ::common::errors::InvalidArgument("Not Allow op name is empty"));
   return op_name;
 }
 
@@ -200,6 +210,7 @@ bool HaveUnkDim(const ::pir::Operation& op) {
   for (size_t i = 0; i < op.num_operands(); ++i) {
     auto value = op.operand_source(i);
     if (!value || !value.type()) continue;
+    // TODO(Hongqing-work): check if tensor array is needed
     if (auto vector_type = value.type().dyn_cast<::pir::VectorType>()) {
       if (HasUnkDimInVT(vector_type.data())) return true;
     } else if (HasNegDim(value.type())) {
@@ -220,25 +231,10 @@ bool HaveUnkDim(const ::pir::Operation& op) {
 }
 
 bool AllInputDenseTensor(const ::pir::Operation& op) {
-  const auto& IsDenseTensor = [](const ::pir::Type& type) -> bool {
-    return type.isa<::pir::DenseTensorType>();
-  };
-
-  // Judge for vector<Type>
-  const auto& IsAllDenseTensor =
-      [&](const std::vector<::pir::Type>& types) -> bool {
-    for (auto& type : types) {
-      if (!IsDenseTensor(type)) return false;
-    }
-    return true;
-  };
-
   for (size_t i = 0; i < op.num_operands(); ++i) {
     auto value = op.operand_source(i);
     if (!value || !value.type()) continue;
-    if (auto vector_type = value.type().dyn_cast<::pir::VectorType>()) {
-      if (!IsAllDenseTensor(vector_type.data())) return false;
-    } else if (!IsDenseTensor(value.type())) {
+    if (!value.type().isa<::pir::DenseTensorType>()) {
       return false;
     }
   }
@@ -287,51 +283,6 @@ bool IsSmallNumelOp(const ::pir::Operation& op) {
   return (0 <= max_value_numel && max_value_numel < 32);
 }
 
-bool IsShapeComputeOp(const ::pir::Operation& op) {
-  const auto& shape_analysis = ::pir::ShapeAnalysisManager::Instance().Get(
-      op.GetParent()->parent_program());
-  if (op.num_operands() == 0) {
-    return false;
-  }
-  bool all_input_has_shape_data = true;
-  for (uint32_t i = 0; i < op.num_operands(); ++i) {
-    if (shape_analysis.HasShapeOrDataForValue(op.operand_source(i))) {
-      const auto& shape_expr =
-          shape_analysis.GetShapeOrDataForValue(op.operand_source(i));
-      if (shape_expr.isa<symbol::TensorShapeOrDataDimExprs>() &&
-          shape_expr.data()) {  // has shape data
-        continue;
-      }
-    }
-    all_input_has_shape_data = false;
-    break;
-  }
-
-  for (uint32_t i = 0; i < op.num_results(); ++i) {
-    if (shape_analysis.HasShapeOrDataForValue(op.result(i))) {
-      const auto& shape_expr =
-          shape_analysis.GetShapeOrDataForValue(op.result(i));
-      if (shape_expr.isa<symbol::TensorShapeOrDataDimExprs>() &&
-          shape_expr.data()) {  // has shape data
-        continue;
-      }
-    }
-    all_input_has_shape_data = false;
-    break;
-  }
-
-  return all_input_has_shape_data;
-}
-
-// TODO(zyfncg): This function is a temporary solution, we need to remove it in
-// the future.
-bool IsTempDenySpecialOp(const ::pir::Operation& op) {
-  if (op.name() == "cinn_op.generate_shape") {
-    return false;
-  }
-  return IsShapeComputeOp(op);
-}
-
 // Mainly used for pd_to_cinn_pass and reused in IsSupportInCinn function.
 bool IsDeniedInCinn(const ::pir::Operation& op) {
   if (FLAGS_disable_dyshape_in_train && HaveUnkDim(op)) {
@@ -355,6 +306,81 @@ bool IsRegisteredInCINN(const ::pir::Operation& op) {
   return OpRegistry::Global()->Find(CompatibleInfo::OpName(op)) != nullptr;
 }
 
+std::unordered_set<std::string> CollectValueShapeSymbols(
+    const symbol::ShapeOrDataDimExprs& shape_or_data) {
+  std::unordered_set<std::string> res;
+  const auto& CollectVectorDimExprSymbols =
+      [&](const std::vector<symbol::DimExpr>& dim_exprs) {
+        for (const auto& dim_expr : dim_exprs) {
+          const auto& single_dim_expr_symbols =
+              symbol::CollectDimExprSymbols(dim_expr);
+          res.insert(single_dim_expr_symbols.begin(),
+                     single_dim_expr_symbols.end());
+        }
+      };
+
+  const auto& CollectTensorDimExprSymbols =
+      [&](const symbol::TensorShapeOrDataDimExprs& tensor_shape_or_data) {
+        CollectVectorDimExprSymbols(tensor_shape_or_data.shape());
+        if (tensor_shape_or_data.data()) {
+          CollectVectorDimExprSymbols(tensor_shape_or_data.data().value());
+        }
+      };
+
+  shape_or_data.Match(
+      [&](const symbol::TensorShapeOrDataDimExprs& impl) {
+        CollectTensorDimExprSymbols(impl);
+      },
+      [&](const symbol::TensorListShapeOrDataDimExprs& impl) {
+        for (const auto& tensor_shape_or_data : impl) {
+          CollectTensorDimExprSymbols(tensor_shape_or_data);
+        }
+      },
+      [&](const symbol::RankedTensorArrayShapeOrDataDimExprs& impl) {
+        // Tensor array no need to collect symbols.
+        return;
+      },
+      [&](const symbol::NullShapeOrDataDimExpr& impl) { return; });
+
+  return res;
+}
+
+bool CauseNewSymbolicShape(const ::pir::Operation& op) {
+  if (FLAGS_disable_dyshape_in_train) {
+    return false;
+  }
+  if (!HaveUnkDim(op)) {
+    return false;
+  }
+  auto& shape_analysis = ::pir::ShapeAnalysisManager::Instance().Get(
+      const_cast<::pir::Operation&>(op).GetParentProgram());
+  std::unordered_set<std::string> input_exprs = [&]() {
+    std::unordered_set<std::string> res;
+    for (const auto& input_value : op.operands_source()) {
+      const auto& single_value_symbol = CollectValueShapeSymbols(
+          shape_analysis.GetShapeOrDataForValue(input_value));
+      input_exprs.insert(single_value_symbol.begin(),
+                         single_value_symbol.end());
+    }
+    return res;
+  }();
+
+  bool outputs_have_new_symbol = [&]() {
+    for (const auto& output_value : op.results()) {
+      const auto& single_value_symbol = CollectValueShapeSymbols(
+          shape_analysis.GetShapeOrDataForValue(output_value));
+      for (const auto& symbol : single_value_symbol) {
+        if (input_exprs.find(symbol) == input_exprs.end()) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }();
+
+  return outputs_have_new_symbol;
+}
+
 #define PD_OP_NAME(op) paddle::dialect::op::name()
 // For op supports AttributeTensor but has handled in
 // pd_to_cinn_pass. Such as cinn_op.reshape, except pd_op.reshape;
@@ -367,12 +393,13 @@ const std::unordered_set<std::string> TOCINN_OPS = {
     PD_OP_NAME(ScaleOp),
     PD_OP_NAME(Pool2dOp),
     PD_OP_NAME(IscloseOp),
-    PD_OP_NAME(SliceOp),
+    // PD_OP_NAME(SliceOp),
     PD_OP_NAME(ConcatOp),
     PD_OP_NAME(SplitOp),
     PD_OP_NAME(SplitWithNumOp),
     PD_OP_NAME(AddNOp),
     PD_OP_NAME(UniformOp),
+    PD_OP_NAME(GatherOp),
 };
 #undef PD_OP_NAME
 
@@ -388,15 +415,17 @@ bool IsSupportInCinn(const ::pir::Operation& op) {
   const bool is_denied = IsDeniedInCinn(op);
   const bool is_registered = IsRegisteredInCINN(op);
   const bool is_handled = HasHandledInPass(op);
+  const bool cause_new_symbolic_shape = CauseNewSymbolicShape(op);
   VLOG(5) << op.name() << ": IsDeniedInCinn = " << is_denied
           << ", IsRegisteredInCINN = " << is_registered
-          << ", HasHandledInPass = " << is_handled;
-  return !is_denied && is_registered && is_handled;
+          << ", HasHandledInPass = " << is_handled
+          << ", CauseNewSymbolicShape = " << cause_new_symbolic_shape;
+  return !is_denied && is_registered && is_handled && !cause_new_symbolic_shape;
 }
 }  // namespace
 
 bool CompatibleInfo::IsDeniedForCinn(const ::pir::Operation& op) {
-  bool flag = IsDeniedInCinn(op);
+  bool flag = IsDeniedInCinn(op) || CauseNewSymbolicShape(op);
   VLOG(4) << "CompatibleInfo::IsDeniedForCinn of " << op.name()
           << " is: " << flag;
   return flag;
@@ -490,17 +519,18 @@ static utils::Attribute ConvertArrayAttribute(
               element.dyn_cast<::pir::StrAttribute>().AsString());
         }
       } else {
-        PADDLE_THROW(phi::errors::InvalidArgument(
+        PADDLE_THROW(::common::errors::InvalidArgument(
             "only support bool/int32/int64/float/double/string attribute in "
             "ArrayAttribute"));
       }
     }
+    // TODO(xiazichao): ADD branch logic for 0-size ArrayAttribute.
   } else if (src_attr.isa<::pir::shape::SymbolAttribute>()) {
     // do nothing for now
   } else {
     std::stringstream ss;
     ss << "unknown Attribute: " << src_attr;
-    PADDLE_THROW(phi::errors::InvalidArgument(ss.str()));
+    PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
   }
   return dst_attr;
 }
@@ -532,10 +562,24 @@ utils::AttributeMap CompatibleInfo::ConvertAttributes(
   utils::AttributeMap dst_attrs;
   for (auto& item : src_attrs) {
     VLOG(4) << "deal with " << item.first;
-    if (item.first == ::pir::kStopGradientAttrName ||
-        item.first == ::pir::kOutputDimExprs ||
-        item.first == ::pir::kSymbolBindings) {
+    if (item.first == ::pir::kStopGradientAttrName) {
       continue;
+    } else if (item.first == ::pir::kSymbolBindings) {
+      auto symbol_bindings =
+          cinn::dialect::GenerateShapeOp::ConvertAttributeToSymbolBindings(
+              item.second);
+      PADDLE_ENFORCE(symbol_bindings.has_value(),
+                     ::common::errors::PreconditionNotMet(
+                         "Required success to execute convert attribute to "
+                         "symbol bindings."));
+      dst_attrs[::pir::kSymbolBindings] = symbol_bindings.value();
+    } else if (item.first == ::pir::kOutputDimExprs) {
+      auto dim_exprs = cinn::dialect::ConvertAttributeToDimExprs(item.second);
+      PADDLE_ENFORCE(
+          dim_exprs.has_value(),
+          ::common::errors::PreconditionNotMet(
+              "Required success to execute convert attribute to dim exprs."));
+      dst_attrs[::pir::kOutputDimExprs] = dim_exprs.value();
     } else if (item.second.isa<paddle::dialect::PlaceAttribute>()) {
       auto is_cpu =
           item.second.dyn_cast<paddle::dialect::PlaceAttribute>().data() ==
@@ -571,7 +615,7 @@ cinn::common::Type CompatibleInfo::ConvertIRType(::pir::Type type) {
 
   std::stringstream ss;
   ss << "unknown ir::Type " << type;
-  PADDLE_THROW(phi::errors::InvalidArgument(ss.str()));
+  PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
 }
 #undef CASE_TYPE
 
@@ -586,7 +630,14 @@ OpPatternKind CompatibleInfo::OpKind(const ::pir::Operation& op) {
     return hlir::framework::kElementWise;
   }
   const hlir::framework::Operator* cinn_op = Operator::Get(op_name);
-  CHECK(op_pattern_dict.Find(cinn_op));
+  PADDLE_ENFORCE_EQ(
+      op_pattern_dict.Find(cinn_op),
+      true,
+      ::common::errors::PreconditionNotMet(
+          "Failed to find the op pattern kind for the operator in "
+          "Operator::GetAttrs<OpPatternKind>. "
+          "Ensure that the operator is registered "
+          "and its pattern is available."));
   auto kind = op_pattern_dict[cinn_op];
   if (kind == hlir::framework::kBroadcast) {
     // As binary op was defined as broadcast, actually it should be

@@ -47,7 +47,6 @@ NO_FP64_CHECK_GRAD_OP_LIST = [
     'fractional_max_pool2d',
     'fractional_max_pool3d',
     'minus',
-    'modified_huber_loss',
     'nce',
     'pool2d',
     'pool3d',
@@ -77,6 +76,9 @@ NO_FP64_CHECK_GRAD_OP_LIST = [
     'warprnnt',
     'bilateral_slice',
     'cast',
+    'fake_channel_wise_quantize_dequantize_abs_max',
+    'fake_quantize_dequantize_abs_max',
+    'fake_quantize_dequantize_moving_average_abs_max',
 ]
 
 NO_FP16_CHECK_GRAD_OP_LIST = [

@@ -21,12 +21,10 @@ from dygraph_to_static_utils import (
     Dy2StTestBase,
     enable_to_static_guard,
     test_ast_only,
-    test_legacy_and_pt_and_pir,
 )
 
 import paddle
 from paddle import nn
-from paddle.framework import use_pir_api
 
 
 class LSTMLayer(nn.Layer):
@@ -71,7 +69,6 @@ class TestLstm(Dy2StTestBase):
             y = net(x)
             return y.numpy()
 
-    @test_legacy_and_pt_and_pir
     def test_lstm_to_static(self):
         dygraph_out = self.run_lstm(to_static=False)
         static_out = self.run_lstm(to_static=True)
@@ -95,39 +92,36 @@ class TestLstm(Dy2StTestBase):
         net = paddle.jit.to_static(
             net, input_spec=[paddle.static.InputSpec(shape=[-1, 10, 12])]
         )
-        # TODO(pir-save-load): Fix this after we support save/load in PIR
-        if not use_pir_api():
-            model_path = os.path.join(self.temp_dir.name, 'simple_lstm')
-            paddle.jit.save(net, model_path)
 
-            dygraph_out = net(x)
-            # load saved model
-            load_net = paddle.jit.load(model_path)
+        model_path = os.path.join(self.temp_dir.name, 'simple_lstm')
+        paddle.jit.save(net, model_path)
 
-            static_out = load_net(x)
-            np.testing.assert_allclose(
-                dygraph_out.numpy(),
-                static_out.numpy(),
-                rtol=1e-05,
-                err_msg=f'dygraph_out is {dygraph_out}\n static_out is \n{static_out}',
-            )
-            # switch back into train mode.
-            net.train()
-            train_out = net(x)
-            np.testing.assert_allclose(
-                dygraph_out.numpy(),
-                train_out.numpy(),
-                rtol=1e-05,
-                err_msg=f'dygraph_out is {dygraph_out}\n static_out is \n{train_out}',
-            )
+        dygraph_out = net(x)
+        # load saved model
+        load_net = paddle.jit.load(model_path)
+
+        static_out = load_net(x)
+        np.testing.assert_allclose(
+            dygraph_out.numpy(),
+            static_out.numpy(),
+            rtol=1e-05,
+            err_msg=f'dygraph_out is {dygraph_out}\n static_out is \n{static_out}',
+        )
+        # switch back into train mode.
+        net.train()
+        train_out = net(x)
+        np.testing.assert_allclose(
+            dygraph_out.numpy(),
+            train_out.numpy(),
+            rtol=1e-05,
+            err_msg=f'dygraph_out is {dygraph_out}\n static_out is \n{train_out}',
+        )
 
     @test_ast_only
-    @test_legacy_and_pt_and_pir
     def test_save_without_training(self):
         self.save_in_eval(with_training=False)
 
     @test_ast_only
-    @test_legacy_and_pt_and_pir
     def test_save_with_training(self):
         self.save_in_eval(with_training=True)
 
@@ -167,7 +161,6 @@ class TestSaveInEvalMode(Dy2StTestBase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_legacy_and_pt_and_pir
     def test_save_in_eval(self):
         net = paddle.jit.to_static(LinearNet())
         x = paddle.randn((2, 10))
@@ -186,23 +179,21 @@ class TestSaveInEvalMode(Dy2StTestBase):
             net, input_spec=[paddle.static.InputSpec(shape=[-1, 10])]
         )
 
-        # TODO(pir-save-load): Fix this after we support save/load in PIR
-        if not use_pir_api():
-            model_path = os.path.join(self.temp_dir.name, 'linear_net')
-            paddle.jit.save(net, model_path)
-            # load saved model
-            load_net = paddle.jit.load(model_path)
+        model_path = os.path.join(self.temp_dir.name, 'linear_net')
+        paddle.jit.save(net, model_path)
+        # load saved model
+        load_net = paddle.jit.load(model_path)
 
-            x = paddle.randn((2, 10))
-            eval_out = net(x)
+        x = paddle.randn((2, 10))
+        eval_out = net(x)
 
-            infer_out = load_net(x)
-            np.testing.assert_allclose(
-                eval_out.numpy(),
-                infer_out.numpy(),
-                rtol=1e-05,
-                err_msg=f'eval_out is {eval_out}\n infer_out is \n{infer_out}',
-            )
+        infer_out = load_net(x)
+        np.testing.assert_allclose(
+            eval_out.numpy(),
+            infer_out.numpy(),
+            rtol=1e-05,
+            err_msg=f'eval_out is {eval_out}\n infer_out is \n{infer_out}',
+        )
 
 
 class TestEvalAfterSave(Dy2StTestBase):
@@ -212,7 +203,6 @@ class TestEvalAfterSave(Dy2StTestBase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_legacy_and_pt_and_pir
     def test_eval_after_save(self):
         x = paddle.randn((2, 10, 12)).astype('float32')
         net = Net(12, 2)
@@ -227,16 +217,29 @@ class TestEvalAfterSave(Dy2StTestBase):
         x = paddle.randn((2, 10, 12)).astype('float32')
         dy_out = net(x)
 
-        # TODO(pir-save-load): Fix this after we support save/load in PIR
-        if not use_pir_api():
-            # save model
-            model_path = os.path.join(self.temp_dir.name, 'jit.save/lstm')
-            paddle.jit.save(net, model_path, input_spec=[x])
-            load_net = paddle.jit.load(model_path)
-            load_out = load_net(x)
-            np.testing.assert_allclose(
-                dy_out.numpy(), load_out.numpy(), rtol=1e-05
-            )
+        # save model
+        model_path = os.path.join(self.temp_dir.name, 'jit.save/lstm')
+        paddle.jit.save(net, model_path, input_spec=[x])
+        paddle.enable_static()
+        exe = paddle.base.Executor()
+        [
+            inference_program,
+            feed_target_names,
+            fetch_targets,
+        ] = paddle.static.io.load_inference_model(model_path, executor=exe)
+
+        load_out = exe.run(
+            inference_program,
+            feed={feed_target_names[0]: x.numpy()},
+            fetch_list=fetch_targets,
+        )
+
+        np.testing.assert_allclose(dy_out.numpy(), load_out[0], rtol=1e-05)
+
+        paddle.disable_static()
+        load_net = paddle.jit.load(model_path)
+        load_out = load_net(x)
+        np.testing.assert_allclose(dy_out.numpy(), load_out.numpy(), rtol=1e-05)
         # eval
         net.eval()
         out = net(x)

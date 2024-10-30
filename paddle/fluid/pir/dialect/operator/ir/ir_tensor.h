@@ -33,7 +33,7 @@ class IrTensor : public phi::TensorBase,
   IrTensor(phi::DataType dtype,
            const phi::DDim& dims,
            phi::DataLayout layout,
-           const LoD& lod,
+           LoD lod,
            size_t offset = 0);
 
   IrTensor(IrTensor&& other) = default;
@@ -72,6 +72,11 @@ class IrTensor : public phi::TensorBase,
   size_t offset() const noexcept { return offset_; }
 
   bool valid() const noexcept override { return true; }
+
+  bool has_allocation() const override {
+    PADDLE_THROW(::common::errors::Unavailable(
+        "`has_allocation` is only available at runtime"));
+  }
 
   bool initialized() const override { return true; }
 

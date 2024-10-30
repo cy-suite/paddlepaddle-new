@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -55,7 +55,7 @@ function make_ce_framework_dockcerfile(){
   sed -i 's#<install_cpu_package>##g' ${dockerfile_name}
   sed -i "7i RUN chmod 777 /tmp" ${dockerfile_name}
   sed -i "${dockerfile_line}i RUN wget --no-check-certificate -q https://paddle-edl.bj.bcebos.com/hadoop-2.7.7.tar.gz \&\& \
-     tar -xzf  hadoop-2.7.7.tar.gz && mv hadoop-2.7.7 /usr/local/" ${dockerfile_name} 
+     tar -xzf  hadoop-2.7.7.tar.gz && mv hadoop-2.7.7 /usr/local/" ${dockerfile_name}
   sed -i "${dockerfile_line}i RUN apt-get update && apt install -y zstd pigz libcurl4-openssl-dev gettext ninja-build" ${dockerfile_name}
   sed -i "${dockerfile_line}i RUN pip3.10 install wheel distro" ${dockerfile_name}
   sed -i "${dockerfile_line}i RUN pip3.10 install nvidia-cuda-cupti-cu11==11.8.87 nvidia-cuda-runtime-cu11==11.8.89 nvidia-cudnn-cu11==8.7.0.84 nvidia-cublas-cu11==11.11.3.6 nvidia-cufft-cu11==10.9.0.58 nvidia-curand-cu11==10.3.0.86 nvidia-cusolver-cu11==11.4.1.48 nvidia-cusparse-cu11==11.7.5.86 nvidia-nccl-cu11==2.19.3" ${dockerfile_name}
@@ -85,6 +85,7 @@ function make_ubuntu20_cu12_dockerfile(){
     ./configure --with-openssl --with-curl --prefix=/usr/local \&\& \
     make -j8 \&\& make install " ${dockerfile_name}
   sed -i "${dockerfile_line}i RUN pip install wheel \&\& pip3 install PyGithub wheel distro \&\& pip3.8 install distro" ${dockerfile_name}
+  sed -i "${dockerfile_line}i RUN cd /usr/local/TensorRT-8.6.1.6/python \&\& pip3.9 install tensorrt-8.6.1-cp39-none-linux_x86_64.whl" ${dockerfile_name}
   sed -i 's# && rm /etc/apt/sources.list.d/nvidia-ml.list##g' ${dockerfile_name}
   sed -i 's#RUN bash /build_scripts/install_trt.sh#RUN bash /build_scripts/install_trt.sh trt8616#g' ${dockerfile_name}
   sed -i 's#RUN bash /build_scripts/install_cudnn.sh cudnn841#RUN bash /build_scripts/install_cudnn.sh cudnn896 #g' ${dockerfile_name}

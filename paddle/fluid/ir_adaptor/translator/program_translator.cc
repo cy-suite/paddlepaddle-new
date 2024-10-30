@@ -41,8 +41,7 @@
 #include "paddle/pir/include/dialect/control_flow/ir/cf_op.h"
 #include "paddle/pir/include/dialect/control_flow/ir/cf_type.h"
 
-namespace paddle {
-namespace translator {
+namespace paddle::translator {
 
 using ProgramDesc = ::paddle::framework::ProgramDesc;
 using BlockDesc = ::paddle::framework::BlockDesc;
@@ -78,13 +77,13 @@ const TCValue& TranslationContext::at(const TCKey& key) const {
   }
   PADDLE_ENFORCE_NE(it,
                     container_.end(),
-                    platform::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "param %s should exists in TranslationContext", key));
   const auto& values = it->second;
   PADDLE_ENFORCE_NE(
       values.size(),
       0,
-      platform::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "param %s should have size > 0, but get:%d", key, values.size()));
   return values.back();
 }
@@ -104,7 +103,7 @@ size_t TranslationContext::count(const TCKey& key) const {
   PADDLE_ENFORCE_NE(
       values.size(),
       0u,
-      platform::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "param %s should have size > 0, but get:%d", key, values.size()));
   return values.size();
 }
@@ -126,6 +125,9 @@ static std::vector<std::string> GetExternalInputs(const BlockDesc& block) {
   std::unordered_set<std::string> inner_outputs;
   for (auto op_desc : block.AllOps()) {
     for (const auto& n : op_desc->Inputs()) {
+      if (op_desc->Type() == "transpose2_grad" && n.first == "XShape") {
+        continue;
+      }
       const auto& input_var_names = n.second;
       for (const auto& var_name : input_var_names) {
         if (inner_outputs.count(var_name) == 0) {
@@ -197,7 +199,7 @@ void ProgramTranslator::TranslateBlock(const BlockDesc& src_block,
   VLOG(8) << "=============>start to translate a block: " << &src_block;
   PADDLE_ENFORCE(
       (src_block.OpSize() >= end_id) && (start_id <= end_id),
-      platform::errors::NotFound(
+      common::errors::NotFound(
           "Translation of Block needs to meet the requirements of start_id <= "
           "end_id <= block_size, but get start_id=%d, end_id=%d, block_size=%d",
           start_id,
@@ -211,7 +213,7 @@ void ProgramTranslator::TranslateBlock(const BlockDesc& src_block,
 
     PADDLE_ENFORCE_EQ(unsupported_ops.count(op->Type()),
                       0,
-                      platform::errors::PreconditionNotMet(
+                      common::errors::PreconditionNotMet(
                           "Not support translated %s op", op->Type()));
 
     if (op->Type() == "conditional_block") {
@@ -348,7 +350,7 @@ void ProgramTranslator::TranslateIfOperation(
   std::vector<pir::Type> if_op_output_types;
   for (auto var_desc : cond_op_output_vars) {
     PADDLE_ENFORCE_NOT_NULL(var_desc,
-                            phi::errors::PreconditionNotMet(
+                            common::errors::PreconditionNotMet(
                                 "[control flow] Output should not be null"));
     pir::Type translated_var_type =
         type_translator[var_desc->GetType()](ctx_, *var_desc);
@@ -361,7 +363,7 @@ void ProgramTranslator::TranslateIfOperation(
   // NOTE(zhangbo): If program has if_grad_op and if_grad_op sub_block use some
   // value defined in if_op, we should insert tuple_push_op into if_op sub_block
   // and tuple_pop_op into if_grad_op sub_block.
-  if (!for_bwd && push_pop_var_names_[op].size() != 0) {
+  if (!for_bwd && !push_pop_var_names_[op].empty()) {
     pir::Operation* create_stack_op = pir::Operation::Create(
         {},
         {},
@@ -386,7 +388,7 @@ void ProgramTranslator::TranslateIfOperation(
     auto* true_block_context = translation_ctx->CreateInnerContext();
 
     // insert tuple_pop op to if_grad
-    if (for_bwd && push_pop_var_names_[op].size() != 0) {
+    if (for_bwd && !push_pop_var_names_[op].empty()) {
       pir::Operation* tuple_pop_op = pir::Operation::Create(
           {cond_to_stack_value_[cond_grad_to_cond_[op]][1]},
           {},
@@ -407,7 +409,7 @@ void ProgramTranslator::TranslateIfOperation(
                    &true_region.front());
 
     // insert tuple_push op to true block before yield op
-    if (!for_bwd && push_pop_var_names_[op].size() != 0) {
+    if (!for_bwd && !push_pop_var_names_[op].empty()) {
       std::vector<pir::Value> local_values;
       local_values.push_back(cond_to_stack_value_[op][0]);
       for (auto& var_name : push_pop_var_names_[op]) {
@@ -451,7 +453,7 @@ void ProgramTranslator::TranslateIfOperation(
             InsertInitOpOrCreateArrayToBlock(&false_region.front(), true_type);
         PADDLE_ENFORCE_NOT_NULL(
             init_op,
-            phi::errors::PreconditionNotMet(
+            common::errors::PreconditionNotMet(
                 "Only support insert full or data op for DenseTensor or "
                 "DenseTensorArray to false block failed."));
         false_block_context->PushValue(
@@ -462,6 +464,8 @@ void ProgramTranslator::TranslateIfOperation(
     }
     false_region.front().push_back(
         pir::Operation::Create(false_yield_inputs, {}, {}, yield_info));
+    if_op->set_attribute("fake_false_branch",
+                         pir::BoolAttribute::get(ctx_, true));
   }
   VLOG(4) << "[general op][conditional_block] IfOp true block translate end.";
 
@@ -621,7 +625,7 @@ void ProgramTranslator::GetParameterForSingleBlock(const BlockDesc& block) {
         if (need_parameter_op) {
           PADDLE_ENFORCE_NOT_NULL(
               var_desc,
-              phi::errors::PreconditionNotMet(
+              common::errors::PreconditionNotMet(
                   "VarDesc of [%s] can not be nullptr", var_name));
           pir::Operation* op = InsertGetParamaterOp(ctx_, var_desc);
           program_->block()->push_back(op);
@@ -646,7 +650,7 @@ void ProgramTranslator::GetParameterForSingleBlock(const BlockDesc& block) {
 void ProgramTranslator::SetParameterFromSingleBlock(const BlockDesc& block) {
   const auto& ops = block.AllOps();
   for (auto op_desc = ops.rbegin(); op_desc != ops.rend(); op_desc++) {
-    if ((*op_desc)->Type() == "data") {
+    if ((*op_desc)->Type() == "data" || (*op_desc)->Type() == "feed") {
       continue;
     }
 
@@ -688,7 +692,7 @@ void ProgramTranslator::SetParameterFromSingleBlock(const BlockDesc& block) {
 
           PADDLE_ENFORCE_NE(insert_pos,
                             block->end(),
-                            phi::errors::InvalidArgument(
+                            common::errors::InvalidArgument(
                                 "Parameter %s must have corresponding its "
                                 "defining operation",
                                 var_name));
@@ -722,7 +726,7 @@ void ProgramTranslator::SetStopGradientAttributeForAllValue(
       auto* defining_op = value.owner();
       PADDLE_ENFORCE_NOT_NULL(
           defining_op,
-          phi::errors::PreconditionNotMet(
+          common::errors::PreconditionNotMet(
               "Defining operator of [%s] can not be nullptr", var_name));
       VLOG(8) << "[op translated][stop gradient]" << var_name
               << " from: " << defining_op->name();
@@ -789,7 +793,7 @@ void ProgramTranslator::SetIsPersistableAttributeForAllValue(
       auto* defining_op = value.owner();
       PADDLE_ENFORCE_NOT_NULL(
           defining_op,
-          phi::errors::PreconditionNotMet(
+          common::errors::PreconditionNotMet(
               "Defining operator of [%s] can not be nullptr", var_name));
       VLOG(8) << "[op translated][is persistable]" << var_name
               << " from: " << defining_op->name();
@@ -821,5 +825,4 @@ ProgramTranslator::VarDesc2Value() {
   return var_desc_2_value;
 }
 
-}  // namespace translator
-}  // namespace paddle
+}  // namespace paddle::translator

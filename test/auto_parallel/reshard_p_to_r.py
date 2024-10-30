@@ -27,8 +27,10 @@ import paddle
 import paddle.distributed as dist
 from paddle import nn
 from paddle.distributed.auto_parallel.static.pir_pass import (
-    apply_reshard_pass,
+    ReshardPasses,
 )
+from paddle.distributed.auto_parallel.static.utils import set_all_ops_op_role
+from paddle.distributed.fleet.meta_optimizers.common import OpRole
 from paddle.framework import core
 
 
@@ -88,27 +90,32 @@ class TestReshardPToR:
                 reshard_tensor = paddle._C_ops.reshard(
                     input_tensor, self._mesh, [dist.Replicate()]
                 )
-            dist_program = apply_reshard_pass(main_program)
-        np.testing.assert_equal(dist_program.num_ops(), 4)
-        ops = dist_program.global_block().ops
+            set_all_ops_op_role(main_program.global_block(), OpRole.Forward)
+            ReshardPasses.apply_reshard_pass(main_program)
+        np.testing.assert_equal(main_program.num_ops(), 4)
+        ops = main_program.global_block().ops
         np.testing.assert_equal(
             [op.name() for op in ops],
             [
                 'builtin.parameter',
                 'pd_op.data',
                 'dist_op.shard_tensor',
-                'pd_op.c_allreduce_sum_',
+                'pd_op.c_allreduce_sum',
             ],
         )
 
         for op in ops:
-            if op.name() == 'pd_op.c_allreduce_sum_':
+            if op.name() == 'pd_op.c_allreduce_sum':
                 # check op dist_attr
-                assert op.dist_attr.num_operand_dist_attrs() == 1
-                assert op.dist_attr.num_result_dist_attrs() == 1
+                assert op.dist_attr.num_operands() == 1
+                assert op.dist_attr.num_results() == 1
 
-                op_operand_dist_attr = op.dist_attr.operand_dist_attr(0)
-                op_result_dist_attr = op.dist_attr.result_dist_attr(0)
+                op_operand_dist_attr = op.dist_attr.operand(
+                    0
+                ).as_tensor_dist_attr()
+                op_result_dist_attr = op.dist_attr.result(
+                    0
+                ).as_tensor_dist_attr()
 
                 assert op.dist_attr.process_mesh == self._mesh
                 assert op_operand_dist_attr.process_mesh == self._mesh
@@ -163,7 +170,7 @@ class TestReshardPToR:
             "pd_op.sgd_",
             "pd_op.sgd_",
             "pd_op.relu_grad",
-            "pd_op.c_allreduce_sum_",
+            "pd_op.c_allreduce_sum",
             "pd_op.matmul_grad",
             "pd_op.relu_grad",
             "pd_op.matmul_grad",

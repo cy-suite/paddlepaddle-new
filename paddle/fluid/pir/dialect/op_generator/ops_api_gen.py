@@ -40,10 +40,10 @@ static PyMethodDef OpsAPI[] = {{
 
 void BindOpsAPI(pybind11::module *module) {{
   if (PyModule_AddFunctions(module->ptr(), OpsAPI) < 0) {{
-    PADDLE_THROW(phi::errors::Fatal("Add C++ api to core.ops failed!"));
+    PADDLE_THROW(common::errors::Fatal("Add C++ api to core.ops failed!"));
   }}
   if (PyModule_AddFunctions(module->ptr(), ManualOpsAPI) < 0) {{
-    PADDLE_THROW(phi::errors::Fatal("Add C++ api to core.ops failed!"));
+    PADDLE_THROW(common::errors::Fatal("Add C++ api to core.ops failed!"));
   }}
 }}
 """
@@ -59,19 +59,47 @@ static PyObject *{name}(PyObject *self, PyObject *args, PyObject *kwargs) {{
   }}
 }}"""
 
+
 STATIC_ONLY_FUNCTION_IMPL_TEMPLATE = """
 static PyObject *{name}(PyObject *self, PyObject *args, PyObject *kwargs) {{
   VLOG(6) << "Call static_api_{name}";
   return static_api_{name}(self, args, kwargs);
 }}"""
 
+SPARSE_FUNCTION_IMPL_TEMPLATE = """
+static PyObject *sparse_{name}(PyObject *self, PyObject *args, PyObject *kwargs) {{
+  if (egr::Controller::Instance().GetCurrentTracer() == nullptr) {{
+    VLOG(6) << "Call static_api_{name}";
+    return static_api_{name}{name_suffix}(self, args, kwargs);
+  }} else {{
+    VLOG(6) << "Call eager_api_{name}";
+    return sparse::eager_api_{name}(self, args, kwargs);
+  }}
+}}"""
+
+SPARSE_STATIC_ONLY_FUNCTION_IMPL_TEMPLATE = """
+static PyObject *sparse_{name}(PyObject *self, PyObject *args, PyObject *kwargs) {{
+  VLOG(6) << "Call static_api_{name}";
+  return static_api_{name}{name_suffix}(self, args, kwargs);
+}}"""
+
 OPS_API_TEMPLATE = """
 {{"{name}", (PyCFunction)(void (*)(void)){name}, METH_VARARGS | METH_KEYWORDS, "C++ interface function for {name}."}},"""
 
+SPARSE_OPS_API_TEMPLATE = """
+{{"sparse_{name}", (PyCFunction)(void (*)(void))sparse_{name}, METH_VARARGS | METH_KEYWORDS, "C++ interface function for sparse_{name}."}},"""
+
 NEED_GEN_STATIC_ONLY_APIS = [
     'c_allreduce_avg_',
+    'c_reduce_avg',
+    'c_reduce_avg_',
+    'c_allreduce_avg',
+    'c_allreduce_max',
+    'c_reducescatter',
     'c_allreduce_min_',
     'c_allreduce_prod_',
+    'c_concat',
+    'c_softmax_with_cross_entropy',
     'distributed_fused_lamb_init',
     'distributed_fused_lamb_init_',
     'fetch',
@@ -105,10 +133,10 @@ NEED_GEN_STATIC_ONLY_APIS = [
     'self_dp_attention',
     'get_tensor_from_selected_rows',
     'print',
-    'number_count',
     'assign_value',
-    'share_data',
+    'share_data_',
     'onednn_to_paddle_layout',
+    'lars_momentum_',
     'lrn',
     'multi_gru',
     'matmul_with_flatten',
@@ -121,51 +149,73 @@ NEED_GEN_STATIC_ONLY_APIS = [
     'coalesce_tensor_',
     'send_v2',
     'recv_v2',
+    'sequence_expand',
+    'sequence_softmax',
+    'c_allgather',
+    'qkv_unpack_mha',
+    'hash',
+    'beam_search_decode',
 ]
 
 NO_NEED_GEN_STATIC_ONLY_APIS = [
     'add_n_',
     'all_reduce',
     'all_reduce_',
-    'assign_pos',
+    'anchor_generator',
     'batch_fc',
     'barrier',
-    'c_allgather',
-    'c_allreduce_avg',
-    'c_allreduce_max',
     'c_allreduce_min',
-    'c_allreduce_sum',
     'c_allreduce_prod',
-    'c_embedding',
     'c_identity',
     'c_reduce_sum',
-    'c_reducescatter',
-    'c_softmax_with_cross_entropy',
     'c_split',
+    'comm_init_all',
     'decayed_adagrad',
-    'distributed_fused_lamb',
-    'distributed_fused_lamb_',
     'distributed_push_sparse',
     'distributed_lookup_table',
     'dgc_momentum',
     'dgc',
     'dpsgd',
     'embedding_grad_sparse',
+    'faster_tokenizer',
     'ftrl',
     'fused_adam_',
     'fused_batch_norm_act_',
     'fused_bn_add_activation_',
+    'fused_elemwise_activation',
     'fused_elemwise_add_activation',
     'fused_scale_bias_relu_conv_bn',
     'fused_scale_bias_add_relu',
     'fused_token_prune',
     'fused_dconv_drelu_dbn',
     'fused_dot_product_attention',
+    'fused_elementwise_add',
+    'fused_elementwise_div',
+    'fused_elementwise_mul',
+    'fused_elementwise_sub',
+    'fused_embedding_fc_lstm',
+    'fused_gate_attention',
+    'fused_multi_transformer_int8',
+    'fused_seqpool_cvm',
+    'fusion_group',
+    'fusion_lstm',
+    'fusion_seqpool_cvm_concat',
     'nce',
-    'lars_momentum',
-    'lars_momentum_',
+    'legacy_reshape',
+    'legacy_reshape_',
+    'legacy_reshape_grad',
+    'lookup_table',
+    'lrn',
+    'lod_reset',
+    'lod_reset_',
     'max_pool2d_v2',
+    'mp_allreduce_sum',
+    'mp_allreduce_sum_',
     'partial_sum',
+    'pull_gpups_sparse',
+    'pull_gpups_sparse_',
+    'push_gpups_sparse',
+    'push_gpups_sparse_',
     'random_routing',
     'rank_attention',
     'rnn_',
@@ -173,14 +223,11 @@ NO_NEED_GEN_STATIC_ONLY_APIS = [
     'seed',
     'shadow_feed',
     'shadow_feed_tensors',
-    'shuffle_batch',
     'sparse_momentum',
-    'tdm_sampler',
+    'sync_comm_stream',
+    'sync_comm_stream_',
     'soft_relu',
-    'uniform_random_batch_size_like',
     'match_matrix_tensor',
-    'c_reduce_avg',
-    'c_reduce_avg_',
     'c_reduce_max',
     'c_reduce_max_',
     'c_reduce_min',
@@ -188,9 +235,10 @@ NO_NEED_GEN_STATIC_ONLY_APIS = [
     'c_reduce_prod',
     'c_reduce_prod_',
     'c_scatter',
-    'prune_gate_by_capacity',
+    "cross_entropy_grad2",
     'push_sparse_v2',
     'push_sparse_v2_',
+    'pull_sparse_v2',
     'partial_concat',
     'partial_send',
     'partial_recv',
@@ -198,9 +246,19 @@ NO_NEED_GEN_STATIC_ONLY_APIS = [
     'partial_allgather_',
     'nop',
     'nop_',
+    'gemm_epilogue',
     'push_dense',
-    'limit_by_capacity',
+    'legacy_matmul',
+    'legacy_matmul_grad',
+    'legacy_matmul_double_grad',
     'global_scatter',
+    'global_gather',
+    'pull_box_sparse',
+    'pull_box_sparse_',
+    'push_box_sparse',
+    'push_box_sparse_',
+    'send_and_recv',
+    'send_and_recv_',
 ]
 
 
@@ -221,8 +279,16 @@ class OpsAPIGen(CodeGen):
         else:
             return FUNCTION_IMPL_TEMPLATE.format(name=name)
 
+    def _gen_sparse_one_function_impl(self, name, name_suffix):
+        return SPARSE_FUNCTION_IMPL_TEMPLATE.format(
+            name=name, name_suffix=name_suffix
+        )
+
     def _gen_one_ops_api(self, name):
         return OPS_API_TEMPLATE.format(name=name)
+
+    def _gen_sparse_one_ops_api(self, name):
+        return SPARSE_OPS_API_TEMPLATE.format(name=name)
 
     def gen_cpp_file(
         self, op_yaml_files, op_compat_yaml_file, namespaces, cpp_file_path
@@ -236,8 +302,15 @@ class OpsAPIGen(CodeGen):
             for op_name in op_info.op_phi_name:
                 if self._need_skip(op_info, op_name):
                     continue
-                function_impl_str += self._gen_one_function_impl(op_name)
-                ops_api_str += self._gen_one_ops_api(op_name)
+                if op_info.is_sparse_op:
+                    op_name_suffix = "sp_" if op_name[-1] == "_" else "_sp"
+                    function_impl_str += self._gen_sparse_one_function_impl(
+                        op_name, op_name_suffix
+                    )
+                    ops_api_str += self._gen_sparse_one_ops_api(op_name)
+                else:
+                    function_impl_str += self._gen_one_function_impl(op_name)
+                    ops_api_str += self._gen_one_ops_api(op_name)
 
         inner_body = NAMESPACE_INNER_TEMPLATE.format(
             function_impl=function_impl_str, ops_api=ops_api_str

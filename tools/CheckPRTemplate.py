@@ -46,7 +46,6 @@ def parameter_accuracy(body):
         'Auto Parallel',
         'Inference',
         'Environment Adaptation',
-        'Others',
     ]
     PR_Types = [
         'New features',
@@ -79,7 +78,7 @@ def parameter_accuracy(body):
             for i in value:
                 i = i.strip().lower()
                 if i not in test_list_lower:
-                    single_mess += '%s.' % i
+                    single_mess += f'{i}.'
             if len(single_mess) != 0:
                 message += f'{key} should be in {test_list}. but now is [{single_mess}].'
     return message
@@ -105,10 +104,10 @@ def checkPRTemplate(repo, body, CHECK_TEMPLATE):
         res: True or False
     """
     res = False
-    note = r'<!-- TemplateReference: https://github.com/PaddlePaddle/Paddle/wiki/PULL-REQUEST-TEMPLATE--REFERENCE -->\r\n|<!-- Demo: https://github.com/PaddlePaddle/Paddle/pull/24810 -->\r\n|<!-- One of \[ User Experience \| Execute Infrastructure \| Operator Mechanism \| CINN \| Custom Device \| Performance Optimization \| Distributed Strategy \| Parameter Server \| Communication Library \| Auto Parallel \| Inference \| Environment Adaptation \| Others \] -->|<!-- One of \[ New features \| Bug fixes \| Improvements \| Performance \| BC Breaking \| Deprecations \| Docs \| Devs \| Not User Facing \| Security \| Deprecations \| Others \] -->|<!-- Describe what you’ve done -->'
+    comment_pattern = re.compile(r'<!--.*?-->', re.DOTALL)
     if body is None:
         body = ''
-    body = re.sub(note, "", body)
+    body = comment_pattern.sub('', body)
     result = re_rule(body, CHECK_TEMPLATE)
     message = ''
     if len(CHECK_TEMPLATE) == 0 and len(body) == 0:

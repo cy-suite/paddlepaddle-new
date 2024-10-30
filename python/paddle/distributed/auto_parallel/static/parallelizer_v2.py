@@ -17,7 +17,7 @@ import logging
 import os
 import time
 
-from paddle.distributed.passes import PassManager, new_pass
+from paddle.distributed.passes.pass_base import PassManager, new_pass
 from paddle.framework import get_flags
 from paddle.static import append_backward, program_guard
 
@@ -29,13 +29,17 @@ from .reshard import Resharder
 from .utils import (
     get_pp_stage,
     is_sequential_run,
-    use_new_executor,
 )
 
-NEW_IR_PASS = [
+PIR_PASS = [
     'fused_gemm_epilogue_pass',
     'fused_linear_param_grad_add_pass',
+    'fuse_allreduce_split_to_reducescatter_pass',
     'fused_dropout_add_pass',
+]
+
+PIR_PYTHON_PASS = [
+    'eliminate_transpose',
 ]
 
 
@@ -409,9 +413,9 @@ class Parallelizer:
             config["dist_context"] = self._dist_context
             config["params_grads"] = params_grads
             config["global_rank"] = rank
-            config[
-                "gradient_sync_after_accumulate"
-            ] = gradient_sync_after_accumulate
+            config["gradient_sync_after_accumulate"] = (
+                gradient_sync_after_accumulate
+            )
             if self._strategy.amp.enable:
                 amp_config = copy.deepcopy(self._strategy.amp.to_dict())
                 config["amp_dtype"] = amp_config['dtype']
@@ -473,14 +477,17 @@ class Parallelizer:
             self._strategy.gradient_merge.avg = True
 
         # gradient_merge is then train-only optimization
+        grad_to_global_grad = {}
         if self.is_train and self._strategy.gradient_merge.enable:
             config = copy.deepcopy(self._strategy.gradient_merge.to_dict())
             config["dist_context"] = self._dist_context
+            config["grad_to_global_grad"] = grad_to_global_grad
+            config["pipeline_mode"] = self._strategy.pipeline.schedule_mode
             if gradient_sync_after_accumulate:
                 config["params_grads"] = global_params_grads
-                config[
-                    "gradient_sync_after_accumulate"
-                ] = gradient_sync_after_accumulate
+                config["gradient_sync_after_accumulate"] = (
+                    gradient_sync_after_accumulate
+                )
             else:
                 config["params_grads"] = params_grads
             auto_parallel_gradient_merge_pass = new_pass(
@@ -490,22 +497,11 @@ class Parallelizer:
                 [main_program], [startup_program], self._pass_context
             )
 
-        if self._strategy.pipeline.enable and not use_new_executor():
-            config = copy.deepcopy(self._strategy.pipeline.to_dict())
-            config["dist_context"] = self._dist_context
-            auto_parallel_pipeline_pass = new_pass(
-                "auto_parallel_pipeline", config
-            )
-            auto_parallel_pipeline_pass.apply(
-                [main_program], [startup_program], self._pass_context
-            )
-
-        if use_new_executor():
-            self._check_dist_attr(
-                main_program,
-                self._strategy.pipeline.vpp_degree,
-                self._dist_context,
-            )
+        self._check_dist_attr(
+            main_program,
+            self._strategy.pipeline.vpp_degree,
+            self._dist_context,
+        )
 
         enable_ir = get_flags("FLAGS_enable_pir_in_executor")[
             'FLAGS_enable_pir_in_executor'
@@ -513,23 +509,19 @@ class Parallelizer:
         ir_pass_list = []
         if self.is_train and self._strategy.fused_passes.enable:
             if len(self._strategy.fused_passes.fused_passes_list) > 0:
-                new_pass_list = []
+                program_pass_list = []
                 for p in self._strategy.fused_passes.fused_passes_list:
-                    if p in NEW_IR_PASS and enable_ir:
+                    if enable_ir and p in (PIR_PASS + PIR_PYTHON_PASS):
                         ir_pass_list.append(p)
                     else:
-                        new_pass_list.append(new_pass(p))
-                pass_manager = PassManager(new_pass_list)
+                        program_pass_list.append(new_pass(p))
+                pass_manager = PassManager(program_pass_list)
                 pass_manager.apply([main_program], [startup_program])
 
         main_program._pass_opt = {}
         main_program._pass_opt['pass_list'] = ir_pass_list
 
-        if (
-            self.is_train
-            and self._strategy.pipeline.enable
-            and use_new_executor()
-        ):
+        if self.is_train and self._strategy.pipeline.enable:
             enable_send_recv_overlap = (
                 self._strategy.pipeline.enable_send_recv_overlap
             )
@@ -542,6 +534,7 @@ class Parallelizer:
                     "variable CUDA_DEVICE_MAX_CONNECTIONS=1, which may leads to performance "
                     "loss. Try to export CUDA_DEVICE_MAX_CONNECTIONS=1 for better performance."
                 )
+
             main_program._pipeline_opt = {}
             main_program._pipeline_opt["standalone_opt"] = {
                 "enable_send_recv_overlap": enable_send_recv_overlap,
@@ -551,4 +544,8 @@ class Parallelizer:
                 "pp_stage": get_pp_stage(self._dist_context, rank),
                 "vpp_degree": self._strategy.pipeline.vpp_degree,
                 "dist_context": self._dist_context,
+                "program_runtimes": self._strategy.pipeline.program_runtimes,
+                "memory_limit_times": self._strategy.pipeline.memory_limit_times,
+                "split_backward": self._strategy.pipeline.split_backward,
+                "grad_to_global_grad": grad_to_global_grad,
             }

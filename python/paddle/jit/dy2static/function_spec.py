@@ -14,6 +14,7 @@
 
 import collections
 import inspect
+import weakref
 
 import numpy as np
 
@@ -25,6 +26,7 @@ from paddle.base.dygraph.base import switch_to_static_graph
 from paddle.distributed.auto_parallel.placement_type import (
     to_placements,
 )
+from paddle.jit.pir_translated_layer import PirTranslatedLayer
 from paddle.jit.translated_layer import TranslatedLayer
 from paddle.nn.layer import layers
 
@@ -45,7 +47,12 @@ class FunctionSpec:
     """
 
     def __init__(self, function, input_spec=None):
-        self._dygraph_function = function
+        if inspect.ismethod(function):
+            self._dygraph_function = function.__func__
+            self._class_instance = weakref.ref(function.__self__)
+        else:
+            self._dygraph_function = function
+            self._class_instance = None
         if input_spec is None:
             self._input_spec = None
             self._flat_input_spec = None
@@ -58,7 +65,8 @@ class FunctionSpec:
         # parse *args
         self.varargs_name = parse_varargs_name(function)
         if self.varargs_name is not None and isinstance(
-            getattr(function, '__self__', None), TranslatedLayer
+            getattr(function, '__self__', None),
+            (TranslatedLayer, PirTranslatedLayer),
         ):
             self._arg_names += function.__self__._input_args_names
 
@@ -81,7 +89,7 @@ class FunctionSpec:
             New arguments tuple containing default kwargs value.
         """
         if len(self._arg_names) < len(args):
-            error_msg = f"The decorated function `{self._dygraph_function.__name__}` requires {len(self._arg_names)} arguments: {self._arg_names}, but received {len(args)} with {args}."
+            error_msg = f"The decorated function `{self.dygraph_function.__name__}` requires {len(self._arg_names)} arguments: {self._arg_names}, but received {len(args)} with {args}."
             if args and inspect.isclass(args[0]):
                 error_msg += "\n\tMaybe the function has more than one decorator, we don't support this for now."
                 raise NotImplementedError(error_msg)
@@ -98,7 +106,7 @@ class FunctionSpec:
             else:
                 if arg_name not in self._default_kwargs:
                     raise ValueError(
-                        f"`{self._dygraph_function.__name__}()` requires `{arg_name}` arguments, but not found in input `args`: {args} and `kwargs`: {kwargs}."
+                        f"`{self.dygraph_function.__name__}()` requires `{arg_name}` arguments, but not found in input `args`: {args} and `kwargs`: {kwargs}."
                     )
                 args.append(self._default_kwargs[arg_name])
 
@@ -126,7 +134,7 @@ class FunctionSpec:
             # So we don't support to deal this case while specifying `input_spec` currently.
             if kwargs:
                 raise ValueError(
-                    f"{self._dygraph_function.__name__} got unexpected keyword arguments: {kwargs}. Cannot trace the function when `input_spec` is specified."
+                    f"{self.dygraph_function.__name__} got unexpected keyword arguments: {kwargs}. Cannot trace the function when `input_spec` is specified."
                 )
 
             # Note: The length of `input_spec` can be greater than `args`,
@@ -177,7 +185,7 @@ class FunctionSpec:
                 if isinstance(var_spec, paddle.static.InputSpec):
                     stop_gradient = getattr(var_spec, 'stop_gradient', False)
                     feed_value = paddle.static.input.data(
-                        name=var_spec.name or "feed_%s" % i,
+                        name=var_spec.name or f"feed_{i}",
                         shape=var_spec.shape,
                         dtype=convert_dtype(var_spec.dtype),
                     )
@@ -230,7 +238,7 @@ class FunctionSpec:
                 stop_gradient = getattr(var_spec, 'stop_gradient', False)
                 feed_layer = block.create_var(
                     # TODO(Aurelius84): consider a more elegant way to name this
-                    name=var_spec.name or "feed_%s" % i,
+                    name=var_spec.name or f"feed_{i}",
                     shape=var_spec.shape,
                     dtype=var_spec.dtype,
                     is_data=True,
@@ -277,14 +285,27 @@ class FunctionSpec:
 
     def __repr__(self):
         return "function: {}({}), input_spec: {}".format(
-            self._dygraph_function.__name__,
+            self.dygraph_function.__name__,
             ','.join(self._arg_names),
             self._input_spec,
         )
 
     @property
+    def class_instance(self):
+        if self._class_instance is None:
+            return None
+        if self._class_instance() is None:
+            raise RuntimeError(
+                "The instance of class has been deleted, please re-create the instance."
+            )
+        return self._class_instance()
+
+    @property
     def dygraph_function(self):
-        return self._dygraph_function
+        if self.class_instance is not None:
+            return self._dygraph_function.__get__(self.class_instance)
+        else:
+            return self._dygraph_function
 
     @property
     def args_name(self):
@@ -300,7 +321,7 @@ class FunctionSpec:
 
     @property
     def code(self):
-        return func_to_source_code(self._dygraph_function)
+        return func_to_source_code(self.dygraph_function)
 
 
 def get_parameters(layer_instance, include_sublayer=True):
@@ -401,7 +422,7 @@ def _replace_to_input_spec_with_new_name(args, arg_names):
                     paddle.base.framework.Variable,
                 ),
             ):
-                input_var.name = f"_jst.{str(order).zfill(order_digit)}.{name_prefix}.{str(index)}"
+                input_var.name = f"_jst.{str(order).zfill(order_digit)}.{name_prefix}.{index}"
                 index += 1
             args_with_spec.append(input_var)
     args_with_spec = paddle.utils.pack_sequence_as(args, args_with_spec)

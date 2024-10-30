@@ -19,7 +19,6 @@ from op_test import OpTest, convert_float_to_uint16
 
 import paddle
 from paddle import base
-from paddle.pir_utils import test_with_pir_api
 
 paddle.enable_static()
 
@@ -565,7 +564,7 @@ class TestStridedSliceOp_strides_Tensor(OpTest):
 
 # Test python API
 class TestStridedSliceAPI(unittest.TestCase):
-    @test_with_pir_api
+
     def test_static_api(self):
         paddle.enable_static()
         place = base.CPUPlace()
@@ -765,7 +764,7 @@ class TestStridedSliceTensorArray(unittest.TestCase):
 
         self.is_grads_equal_zeros(grads_zeros)
 
-        func = paddle.jit.to_static(net.forward)
+        func = paddle.jit.to_static(net.forward, full_graph=True)
         l2 = func(inps2)
         s2 = l2.numpy()
         l2.sum().backward()
@@ -807,7 +806,7 @@ class TestStridedSliceTensorArray(unittest.TestCase):
                         return array1 + array2 * array2
 
                 net = Simple()
-                func = paddle.jit.to_static(net.forward)
+                func = paddle.jit.to_static(net.forward, full_graph=True)
 
                 inps1 = paddle.to_tensor(
                     np.random.randn(2, 10),

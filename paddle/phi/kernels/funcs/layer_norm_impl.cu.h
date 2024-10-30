@@ -32,6 +32,7 @@ namespace cub = hipcub;
 #include "paddle/phi/backends/gpu/gpu_dnn.h"
 #include "paddle/phi/common/memory_utils.h"
 #include "paddle/phi/kernels/funcs/aligned_vector.h"
+#include "paddle/phi/kernels/funcs/fake_quantize_functor.h"
 
 namespace phi {
 namespace funcs {
@@ -351,20 +352,6 @@ __global__ __launch_bounds__(THREADS_PER_CTA) void fast_ln_fwd_kernel(
   }
 }
 #endif
-
-template <typename T>
-inline HOSTDEVICE T roundWithTiesToEven(T x) {
-  T xLower = floor(x);
-  T xUpper = ceil(x);
-  // x is in interval [xl,xu]. Choose closest of two bounds, breaking ties to
-  // even.
-  T dLower = x - xLower;
-  T dUpper = xUpper - x;
-  return static_cast<T>(
-      (dLower == dUpper ? fmod(xLower, 2.0F) == 0.0F : dLower < dUpper)
-          ? xLower
-          : xUpper);
-}
 
 template <typename T>
 __forceinline__ __device__ int8_t quant_helper(const T input,
@@ -1021,7 +1008,7 @@ void ln_bwd_fast_kernel_driver(const phi::GPUContext &dev_ctx,
 
     if (mask_ptr != nullptr) {
       if (d_dropout_src_ptr == nullptr) {
-        PADDLE_THROW(phi::errors::InvalidArgument(
+        PADDLE_THROW(common::errors::InvalidArgument(
             "To compute fused_dropout_residual_ln grad, d_dropout_src_ptr "
             "can't be null"));
       }
@@ -1134,7 +1121,7 @@ void ln_bwd_fast_kernel_driver(const phi::GPUContext &dev_ctx,
     // Note: it is not supported for double type.
     if (sizeof(U) > 4) {
       PADDLE_THROW(
-          phi::errors::InvalidArgument("Only support float and fp16 type"));
+          common::errors::InvalidArgument("Only support float and fp16 type"));
     } else {
       int gridx_2 = 0;
 
@@ -1167,7 +1154,7 @@ void ln_bwd_fast_kernel_driver(const phi::GPUContext &dev_ctx,
 #undef LAUNCH_LN_BWD_BETA_GAMMMA_KERNEL
     }
   } else {
-    PADDLE_THROW(phi::errors::InvalidArgument(
+    PADDLE_THROW(common::errors::InvalidArgument(
         "Fast layer_norm kernel is only used when feature_size is 1024"));
   }
 }

@@ -60,9 +60,9 @@ class MatmulTransposeReshapeFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &reshape = pat.Op(paddle::dialect::ReshapeOp::name());
     reshape({&pat.Tensor("transpose_out"), &pat.Tensor("shape")},
-            {&pat.Tensor("reshape_out"), &pat.Tensor("Xshape")});
+            {&pat.Tensor("reshape_out")});
 
-    pat.RequireNativeCall([&](const paddle::drr::MatchContext &match_ctx) {
+    pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       auto shape = match_ctx.Attr<std::vector<int64_t>>("int_array");
       auto perm = match_ctx.Attr<std::vector<int>>("perm");
       const std::vector<int> supported_axis{0, 2, 1, 3};
@@ -172,9 +172,9 @@ class FusedMatmulTransposeReshapeFusePattern
 
     const auto &reshape = pat.Op(paddle::dialect::ReshapeOp::name());
     reshape({&pat.Tensor("transpose_out"), &pat.Tensor("shape")},
-            {&pat.Tensor("reshape_out"), &pat.Tensor("Xshape")});
+            {&pat.Tensor("reshape_out")});
 
-    pat.RequireNativeCall([&](const paddle::drr::MatchContext &match_ctx) {
+    pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       auto shape = match_ctx.Attr<std::vector<int64_t>>("int_array");
       auto perm = match_ctx.Attr<std::vector<int>>("perm");
       const std::vector<int> supported_axis{0, 2, 1, 3};
@@ -185,7 +185,7 @@ class FusedMatmulTransposeReshapeFusePattern
       return true;
     });
 
-    pat.RequireNativeCall([&](const paddle::drr::MatchContext &match_ctx) {
+    pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       if (!(match_ctx.Attr<std::vector<int>>("fused_reshape_out").empty()))
         return false;
       return true;

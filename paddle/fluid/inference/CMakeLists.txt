@@ -38,13 +38,8 @@ add_subdirectory(api)
 # Create static inference library if needed
 # All static libs in inference/api
 set(STATIC_INFERENCE_API
-    paddle_inference_api
-    analysis_predictor
-    zero_copy_tensor
-    reset_tensor_array
-    analysis_config
-    paddle_pass_builder
-    ${mkldnn_quantizer_cfg})
+    paddle_inference_api analysis_predictor zero_copy_tensor reset_tensor_array
+    analysis_config paddle_pass_builder)
 
 set(OP_LIST
     ""
@@ -96,8 +91,11 @@ list(REMOVE_ITEM fluid_modules cinn_op_dialect)
 # shared library to prune library size.
 # list(REMOVE_ITEM fluid_modules ${not_infer_modules})
 
-set(SHARED_INFERENCE_DEPS phi common ${fluid_modules} analysis_predictor
-                          ${utils_modules})
+set(SHARED_INFERENCE_DEPS phi phi_core common ${fluid_modules}
+                          analysis_predictor ${utils_modules})
+if(WITH_GPU OR WITH_ROCM)
+  list(APPEND SHARED_INFERENCE_DEPS phi_gpu)
+endif()
 if(NOT WIN32)
   list(APPEND SHARED_INFERENCE_DEPS ${ir_targets})
 endif()

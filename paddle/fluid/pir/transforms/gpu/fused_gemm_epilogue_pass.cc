@@ -37,7 +37,7 @@ class FusedLinearPattern : public paddle::drr::DrrPatternBase {
     pat.Tensor("tmp") = matmul(pat.Tensor("x"), pat.Tensor("w"));
     pat.Tensor("out") = add(pat.Tensor("tmp"), pat.Tensor("bias"));
 
-    pat.RequireNativeCall([&](const paddle::drr::MatchContext &match_ctx) {
+    pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       auto w_dims = pir::GetShapeFromValue(match_ctx.Tensor("w"));
       auto x_dims = pir::GetShapeFromValue(match_ctx.Tensor("x"));
       auto bias_dims = pir::GetShapeFromValue(match_ctx.Tensor("bias"));
@@ -79,7 +79,7 @@ class FusedLinearGradPattern : public paddle::drr::DrrPatternBase {
     matmul_grad({&pat.Tensor("x"), &pat.Tensor("w"), &pat.Tensor("tmp_grad")},
                 {&pat.Tensor("x_grad"), &pat.Tensor("w_grad")});
 
-    pat.RequireNativeCall([&](const paddle::drr::MatchContext &match_ctx) {
+    pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       auto w_dims = pir::GetShapeFromValue(match_ctx.Tensor("w"));
       auto x_dims = pir::GetShapeFromValue(match_ctx.Tensor("x"));
       auto bias_dims = pir::GetShapeFromValue(match_ctx.Tensor("bias"));
@@ -112,6 +112,74 @@ class FusedLinearGradPattern : public paddle::drr::DrrPatternBase {
   }
 };
 
+//  %1 = pd_op.sum( %0, %2)
+//  %3 = pd_op.assign( %0 )
+//  %4, %5 = pd_op.matmul_grad( %6, %7, %3)
+//  fused to
+//  %4, %5 = pd_op.fused_gemm_epilogue_grad( %6, %7, none, %0)
+class FusedLinearGradSinglePattern
+    : public pir::OpRewritePattern<paddle::dialect::MatmulGradOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::MatmulGradOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::MatmulGradOp matmul_grad,
+                       pir::PatternRewriter &rewriter) const override {
+    auto dout = matmul_grad->operand_source(2);
+
+    if (pir::GetShapeFromValue(matmul_grad->operand_source(1)).size() != 2) {
+      return false;
+    }
+
+    if (auto assign_op =
+            dout.defining_op()->dyn_cast<paddle::dialect::AssignOp>()) {
+      dout = assign_op->operand_source(0);
+    }
+
+    bool have_sum_op = false;
+    pir::Value sum_output;
+    pir::Value sum_input;
+    for (auto user_it = dout.use_begin(); user_it != dout.use_end();
+         ++user_it) {
+      if (!user_it->owner()) {
+        continue;
+      }
+      if (auto sum_op = user_it->owner()->dyn_cast<paddle::dialect::SumOp>()) {
+        have_sum_op = true;
+        sum_output = sum_op->result(0);
+        sum_input = sum_op->operand_source(0);
+        rewriter.SetInsertionPointAfter(sum_op);
+        break;
+      }
+    }
+
+    if (!have_sum_op) {
+      return false;
+    }
+
+    pir::AttributeMap attr_map;
+    attr_map.emplace("trans_x", matmul_grad.attribute("transpose_x"));
+    attr_map.emplace("trans_y", matmul_grad.attribute("transpose_y"));
+    attr_map.emplace(
+        "activation_grad",
+        pir::StrAttribute::get(pir::IrContext::Instance(), "none"));
+
+    auto fuse_gemm = rewriter.Build<paddle::dialect::FusedGemmEpilogueGradOp>(
+        matmul_grad->operand_source(0),
+        matmul_grad->operand_source(1),
+        pir::Value(),
+        sum_input,
+        attr_map);
+
+    rewriter.ReplaceAllUsesWith(matmul_grad.result(0), fuse_gemm.result(0));
+    rewriter.ReplaceAllUsesWith(matmul_grad.result(1), fuse_gemm.result(1));
+    rewriter.ReplaceAllUsesWith(sum_output, fuse_gemm.result(2));
+
+    rewriter.EraseOp(matmul_grad);
+
+    return true;
+  }
+};
+
 class FusedLinearGeluPattern : public paddle::drr::DrrPatternBase {
  public:
   std::string name() const override { return "FusedLinearGeluPattern"; }
@@ -131,7 +199,7 @@ class FusedLinearGeluPattern : public paddle::drr::DrrPatternBase {
     pat.Tensor("out") = gelu(pat.Tensor("fuse_out"));
 
     // Constrains the activation is none
-    pat.RequireNativeCall([&](const paddle::drr::MatchContext &match_ctx) {
+    pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       return (match_ctx.Attr<std::string>("act") == "none");
     });
 
@@ -167,7 +235,7 @@ class FusedLinearReluPattern : public paddle::drr::DrrPatternBase {
     pat.Tensor("out") = relu(pat.Tensor("fuse_out"));
 
     // Constrains the activation is none
-    pat.RequireNativeCall([&](const paddle::drr::MatchContext &match_ctx) {
+    pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       return (match_ctx.Attr<std::string>("act") == "none");
     });
 
@@ -216,7 +284,7 @@ class FusedLinearGeluGradPattern : public paddle::drr::DrrPatternBase {
     pat.Tensor("gelu_dx") = pat.Op(paddle::dialect::GeluGradOp::name())(
         pat.Tensor("fuse_out"), pat.Tensor("x1_grad"));
 
-    pat.RequireNativeCall([&](const paddle::drr::MatchContext &match_ctx) {
+    pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       return match_ctx.Attr<std::string>("act1") == "none" &&
              match_ctx.Attr<std::string>("act2") == "none";
     });
@@ -288,7 +356,7 @@ class FusedLinearReluGradPattern : public paddle::drr::DrrPatternBase {
                               &pat.Tensor("w_grad"),
                               &pat.Tensor("bias_grad")});
 
-    pat.RequireNativeCall([&](const paddle::drr::MatchContext &match_ctx) {
+    pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       return match_ctx.Attr<std::string>("act1") == "relu" &&
              match_ctx.Attr<std::string>("act3") == "none";
     });
@@ -317,12 +385,13 @@ class FusedGemmEpiloguePass : public pir::PatternRewritePass {
 
   pir::RewritePatternSet InitializePatterns(pir::IrContext *context) override {
     pir::RewritePatternSet ps(context);
-    ps.Add(paddle::drr::Create<FusedLinearGradPattern>(context));
     ps.Add(paddle::drr::Create<FusedLinearPattern>(context));
+    ps.Add(paddle::drr::Create<FusedLinearGradPattern>(context));
     ps.Add(paddle::drr::Create<FusedLinearGeluPattern>(context));
     ps.Add(paddle::drr::Create<FusedLinearReluPattern>(context));
     ps.Add(paddle::drr::Create<FusedLinearGeluGradPattern>(context));
     ps.Add(paddle::drr::Create<FusedLinearReluGradPattern>(context));
+    ps.Add<FusedLinearGradSinglePattern>(context);
 
     return ps;
   }

@@ -108,7 +108,11 @@ const std::vector<std::string> kTRTSubgraphPasses({
       "trt_multihead_matmul_fuse_pass_v2",                        //
       "trt_multihead_matmul_fuse_pass_v3",                        //
       "multihead_matmul_roformer_fuse_pass",                      //
-      "constant_folding_pass",                                    //
+#if defined _WIN32  // Windows does not support sparse_conv3d_implicit_gemm
+#else
+      "sparse_conv_optim_pass",                //
+#endif
+      "constant_folding_pass",  //
 #ifdef PADDLE_WITH_TENSORRT
 #if !IS_TRT_VERSION_GE(8610)
       "trt_flash_multihead_matmul_fuse_pass",  //
@@ -161,16 +165,6 @@ const std::vector<std::string> kTRTSubgraphPasses({
 #endif
       "transpose_flatten_concat_fuse_pass",  //
       "auto_mixed_precision_pass",
-});
-
-const std::vector<std::string> kDlnneSubgraphPasses({
-    "is_test_pass",                  //
-    "delete_dropout_op_pass",        //
-    "simplify_with_basic_ops_pass",  //
-    "conv_bn_fuse_pass",             //
-    "depthwise_conv_bn_fuse_pass",   //
-    "shuffle_channel_detect_pass",   //
-    "dlnne_subgraph_pass",           //
 });
 
 // TODO(inference): Most of the existing pass fusion operators do not
@@ -259,11 +253,15 @@ const std::vector<std::string> CpuBasicPasses{
 
 GpuPassStrategy::GpuPassStrategy() : PassStrategy({}) {
   passes_.assign({
-    "map_op_to_another_pass",                                           //
-        "is_test_pass",                                                 //
-        "simplify_with_basic_ops_pass",                                 //
-        "delete_quant_dequant_linear_op_pass",                          //
-        "delete_weight_dequant_linear_op_pass",                         //
+    "map_op_to_another_pass",                    //
+        "is_test_pass",                          //
+        "simplify_with_basic_ops_pass",          //
+        "delete_quant_dequant_linear_op_pass",   //
+        "delete_weight_dequant_linear_op_pass",  //
+#if defined _WIN32  // Windows does not support sparse_conv3d_implicit_gemm
+#else
+        "sparse_conv_optim_pass",              //
+#endif
         "constant_folding_pass",                                        //
         "silu_fuse_pass",                                               //
         "conv_bn_fuse_pass",                                            //
@@ -319,10 +317,6 @@ void GpuPassStrategy::EnableCUDNN() {
 
 void GpuPassStrategy::EnableMKLDNN() {
   LOG(ERROR) << "GPU not support MKLDNN yet";
-}
-
-void GpuPassStrategy::EnableMkldnnQuantizer() {
-  LOG(ERROR) << "GPU not support MKL-DNN quantization";
 }
 
 void GpuPassStrategy::EnableMkldnnBfloat16() {
@@ -396,17 +390,6 @@ void CpuPassStrategy::EnableMKLDNN() {
 void CpuPassStrategy::DisableMKLDNN() {
   ClearPasses();
   passes_.assign(CpuBasicPasses.begin(), CpuBasicPasses.end());
-}
-
-void CpuPassStrategy::EnableMkldnnQuantizer() {
-#ifdef PADDLE_WITH_DNNL
-  if (!use_mkldnn_quantizer_) {
-    passes_.emplace_back("cpu_quantize_placement_pass");
-  }
-  use_mkldnn_quantizer_ = true;
-#else
-  use_mkldnn_quantizer_ = false;
-#endif
 }
 
 void CpuPassStrategy::EnableMkldnnBfloat16() {
@@ -514,6 +497,7 @@ void CpuPassStrategy::EraseFcMkldnnPasses() {
 
 XpuPassStrategy::XpuPassStrategy() : PassStrategy({}) {
   passes_.assign({
+      "map_op_to_another_pass",
       // "quant_dequant_xpu_pass", open this pass when use old int8 model
       "delete_quant_dequant_linear_op_pass",
       "delete_weight_dequant_linear_op_pass",
@@ -532,11 +516,14 @@ XpuPassStrategy::XpuPassStrategy() : PassStrategy({}) {
       "delete_elementwise_mul_op_pass",
       "generate_sequence_xpu_fuse_pass",
       "group_norm_silu_xpu_fuse_pass",
+      "layer_norm_relu_xpu_fuse_pass",
       "embedding_with_eltwise_add_xpu_fuse_pass",
       "qk_qkv_attention_xpu_fuse_pass",
+      "block_multihead_attention_xpu_pass",
       "multi_encoder_xpu_fuse_pass",
       "multi_encoder_xpu_adaptive_seqlen_fuse_pass",
       "multi_encoder_xpu_slice_fuse_pass",
+      "weight_only_linear_xpu_pass",
       "fused_multi_transformer_cachekv_layout_trans_pass",
       "fused_multi_transformer_int8_cachekv_layout_trans_pass",
       "cross_attention_xpu_fuse_pass",
@@ -576,6 +563,7 @@ XpuPassStrategy::XpuPassStrategy() : PassStrategy({}) {
       "fast_where_xpu_fuse_pass",
       "elementwise_mul_add_fuse_pass",
       "sine_pos_fuse_pass",
+      "pad2d_xpu_fuse_pass",
       // "auto_mixed_precision_pass",
       "cast_mixed_precision_op_fuse_pass",
       "xpu_quantize_op_pass",
@@ -594,6 +582,9 @@ IpuPassStrategy::IpuPassStrategy() : PassStrategy({}) {
 
 const std::vector<std::string> kPirGpuPasses{
     // Functional pass
+    "add_shadow_output_after_dead_parameter_pass",
+    "delete_quant_dequant_linear_op_pass",
+    "delete_weight_dequant_linear_op_pass",
     "map_op_to_another_pass",
     "identity_op_clean_pass",
     // Operator fusion pass
@@ -602,38 +593,90 @@ const std::vector<std::string> kPirGpuPasses{
     "conv2d_add_act_fuse_pass",
     "conv2d_add_fuse_pass",
     "embedding_eltwise_layernorm_fuse_pass",
+    "fused_rotary_position_embedding_pass",
+    "fused_flash_attn_pass",
     "multihead_matmul_fuse_pass",
-    "fc_fuse_pass",
+    "fused_weight_only_linear_pass",
+    "matmul_add_act_fuse_pass",
     "fc_elementwise_layernorm_fuse_pass",
+    "add_norm_fuse_pass",
+    "group_norm_silu_fuse_pass",
     "matmul_scale_fuse_pass",
     "matmul_transpose_fuse_pass",
     "transpose_flatten_concat_fuse_pass",
-    "remove_redundant_transpose_pass"};
+    "remove_redundant_transpose_pass",
+    "transfer_layout_pass",
+    "horizontal_fuse_pass",
+};
 
-const std::vector<std::string> kPirXpuPasses{// Functional pass
-                                             "map_op_to_another_pass",
-                                             "identity_op_clean_pass",
-                                             // Operator fusion pass
-                                             "add_layernorm_xpu_fuse_pass",
-                                             "group_norm_silu_xpu_fuse_pass"};
+const std::vector<std::string> kPirXpuPasses{
+    // Functional pass
+    "add_shadow_output_after_dead_parameter_pass",
+    "delete_quant_dequant_linear_op_pass",
+    "delete_weight_dequant_linear_op_pass",
+    "map_op_to_another_pass",
+    "identity_op_clean_pass",
+    // Operator fusion pass
+    "add_activation_xpu_fuse_pass",
+    "add_layernorm_xpu_fuse_pass",
+    "conv2d_bn_xpu_fuse_pass",
+    "conv2d_add_xpu_fuse_pass",
+    "group_norm_silu_fuse_pass",
+    "fc_xpu_fuse_pass"};
 
-const std::vector<std::string> kPirMkldnnPasses{
-    "depthwise_conv_onednn_pass",
-    "squeeze_transpose_onednn_fuse_pass",
-    "conv2d_bias_fuse_pass",
-    "conv2d_transpose_bias_fuse_pass",
-    "conv3d_bias_fuse_pass",
-    "batch_norm_act_fuse_pass",
-    "scale_matmul_fuse_pass",
-    "reshape_transpose_matmul_fuse_pass",
-    "matmul_transpose_reshape_fuse_pass",
-    "matmul_elementwise_add_fuse_pass",
-    "matmul_activation_fuse_pass",
-    "conv_elementwise_add_onednn_fuse_pass",
-    "conv_activation_onednn_fuse_pass",
-    "conv_concat_activation_onednn_fuse_pass",
-    "elementwise_act_onednn_fuse_pass"};
+const std::vector<std::string> kPirMkldnnPasses {
+  "add_shadow_output_after_dead_parameter_pass",
+      "delete_quant_dequant_linear_op_pass",      //
+      "delete_weight_dequant_linear_op_pass",     //
+      "depthwise_conv_onednn_pass",               //
+      "squeeze_transpose_onednn_fuse_pass",       //
+      "conv2d_bn_onednn_fuse_pass",               //
+      "conv2d_bias_bn_onednn_fuse_pass",          //
+      "conv2d_bias_fuse_pass",                    //
+      "conv2d_transpose_bn_fuse_pass",            //
+      "conv2d_transpose_bias_bn_fuse_pass",       //
+      "conv2d_transpose_bias_fuse_pass",          //
+      "conv3d_bias_fuse_pass",                    //
+      "conv_elementwise_add_onednn_fuse_pass",    //
+      "conv_activation_onednn_fuse_pass",         //
+      "conv_concat_activation_onednn_fuse_pass",  //
+      "matmul_scale_fuse_pass",                   //
+      "scale_matmul_fuse_pass",                   //
+      "reshape_transpose_matmul_fuse_pass",       //
+      "matmul_transpose_reshape_fuse_pass",       //
+      "matmul_add_act_fuse_pass",                 //
+      "matmul_reshape_add_fuse_pass",             //
+      "fc_onednn_enable_pass",                    //
+      "matmul_elementwise_add_fuse_pass",         //
+      "matmul_activation_fuse_pass",              //
+      "matmul_add_act_fuse_pass",                 //
+      "fc_onednn_enable_pass",                    //
+      "fc_activation_fuse_pass",                  //
+#if defined(PADDLE_WITH_AVX512F) && defined(PADDLE_WITH_MKLML) && \
+    defined(PADDLE_WITH_DNNL)
+      "self_attention_fuse_pass",  //
+#endif
+      "batch_norm_act_fuse_pass",             //
+      "softplus_activation_fuse_pass",        //
+      "shuffle_channel_detect_pass",          //
+      "elementwise_act_onednn_fuse_pass",     //
+      "operator_scale_onednn_fuse_pass",      //
+      "operator_unsqueeze_onednn_fuse_pass",  //
+      "operator_reshape_onednn_fuse_pass",    //
+      "onednn_placement_pass",                //
+};
 
-const std::vector<std::string> kPirCpuPasses{};
+const std::vector<std::string> kPirMkldnnBf16Passes{
+    "add_shadow_output_after_dead_parameter_pass",
+    "cpu_bfloat16_placement_pass",
+    "cpu_bfloat16_pass",
+    "cpu_bfloat16_type_placement_pass",
+    "cpu_bf16_quantize_squash_pass",
+};
+
+const std::vector<std::string> kPirCpuPasses{
+    "add_shadow_output_after_dead_parameter_pass",
+    "delete_quant_dequant_linear_op_pass",
+    "delete_weight_dequant_linear_op_pass"};
 
 }  // namespace paddle

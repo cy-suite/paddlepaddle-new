@@ -253,6 +253,7 @@ struct IRCopyVisitor : public ir::IRVisitorRequireReImpl<Expr> {
     std::vector<Expr> functions;
     std::vector<Expr> submodules;
     std::vector<Expr> predicates;
+    std::vector<int> priorities;
     Expr infer_shape_func;
     for (auto& expr : op->buffers) {
       buffers.push_back(Visit(&expr));
@@ -269,6 +270,11 @@ struct IRCopyVisitor : public ir::IRVisitorRequireReImpl<Expr> {
     for (auto& expr : op->predicates) {
       predicates.push_back(Visit(&expr));
     }
+
+    for (int priority : op->priorities) {
+      priorities.push_back(priority);
+    }
+
     if (op->infer_shape_func.defined()) {
       infer_shape_func = Visit(&op->infer_shape_func);
     }
@@ -278,6 +284,7 @@ struct IRCopyVisitor : public ir::IRVisitorRequireReImpl<Expr> {
     res->functions = functions;
     res->submodules = submodules;
     res->predicates = predicates;
+    res->priorities = priorities;
     res->infer_shape_func = infer_shape_func;
 
     return Expr(res);
@@ -290,6 +297,8 @@ struct IRCopyVisitor : public ir::IRVisitorRequireReImpl<Expr> {
     func->args = op->args;
     func->body = Visit(&op->body);
     func->temp_bufs = op->temp_bufs;
+    func->temp_spaces = op->temp_spaces;
+    func->num_output_tensors = op->num_output_tensors;
 
     func->device_api = op->device_api;
 
@@ -339,8 +348,16 @@ struct IRCopyVisitor : public ir::IRVisitorRequireReImpl<Expr> {
   Expr Visit(const Broadcast* op) override {
     auto value = Visit(&op->value);
     int lanes = op->lanes;
-    CHECK(value.defined());
-    CHECK(value.type().valid());
+    PADDLE_ENFORCE_EQ(value.defined(),
+                      true,
+                      ::common::errors::InvalidArgument(
+                          "Broadcasting value is not defined."));
+    PADDLE_ENFORCE_EQ(
+        value.type().valid(),
+        true,
+        ::common::errors::InvalidArgument("Broadcasting value type is invalid. "
+                                          "Expected a valid type, but got: %s",
+                                          value.type()));
 
     auto* n = make_shared<Broadcast>();
     n->value = value;
@@ -351,8 +368,14 @@ struct IRCopyVisitor : public ir::IRVisitorRequireReImpl<Expr> {
   Expr Visit(const FracOp* op) override {
     auto a = Visit(&op->a());
     auto b = Visit(&op->b());
-    CHECK(a.defined());
-    CHECK(b.defined());
+    PADDLE_ENFORCE_EQ(a.defined(),
+                      true,
+                      ::common::errors::InvalidArgument(
+                          "The first operand of FracOp is not defined."));
+    PADDLE_ENFORCE_EQ(b.defined(),
+                      true,
+                      ::common::errors::InvalidArgument(
+                          "The second operand of FracOp is not defined."));
 
     auto* n = make_shared<FracOp>();
     n->a() = a;
@@ -402,7 +425,11 @@ struct IRCopyVisitor : public ir::IRVisitorRequireReImpl<Expr> {
     std::vector<Var> iter_vars;
     for (auto iter_var : op->iter_vars) {
       auto* var = iter_var.As<_Var_>();
-      CHECK(var);
+      PADDLE_ENFORCE_NE(
+          var,
+          nullptr,
+          ::common::errors::InvalidArgument(
+              "ScheduleBlock iter_var is not a valid _Var_ type."));
       iter_vars.push_back(Visit(var));
     }
     std::vector<Expr> read_buffers;
@@ -431,6 +458,28 @@ struct IRCopyVisitor : public ir::IRVisitorRequireReImpl<Expr> {
 
   Expr Visit(const ir::_Dim_* op) override {
     return ir::_Dim_::Make(op->name, op->sym_dim);
+  }
+  Expr Visit(const ir::IterMark* op) override {
+    Expr source = Visit(&(op->source));
+    Expr extent = Visit(&(op->extent));
+
+    return IterMark::Make(source, extent);
+  }
+  Expr Visit(const ir::IterSplit* op) override {
+    Expr source = Visit(&(op->source));
+    Expr lower_factor = Visit(&(op->lower_factor));
+    Expr extent = Visit(&(op->extent));
+    Expr scale = Visit(&(op->scale));
+
+    return IterSplit::Make(source, lower_factor, extent, scale);
+  }
+  Expr Visit(const ir::IterSum* op) override {
+    std::vector<IndexExpr> args;
+    for (const auto& v : op->args) {
+      args.push_back(Visit(&v));
+    }
+    Expr base = Visit(&(op->base));
+    return IterSum::Make(args, base);
   }
 
 #define __(x__) Expr Visit(const ir::intrinsics::x__* op);
@@ -501,7 +550,7 @@ Expr IRCopyVisitor::Visit(const ir::intrinsics::BuiltinIntrin* op) {
       op->name, op->args, op->id, op->arg_nums, op->type());
 }
 }  // namespace
-Expr IRCopy(Expr x, bool copy_buffer_node) {
+Expr IRCopy(const Expr& x, bool copy_buffer_node) {
   IRCopyVisitor visitor(copy_buffer_node);
   auto copied = visitor.Visit(&x);
   return copied;

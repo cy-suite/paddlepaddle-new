@@ -11,7 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #pragma once
+#include "glog/logging.h"
+#include "paddle/fluid/pir/dialect/distributed/ir/dist_dialect.h"
+#include "paddle/fluid/pir/dialect/operator/ir/op_dialect.h"
+#include "paddle/pir/include/core/builtin_dialect.h"
+#include "paddle/pir/include/dialect/control_flow/ir/cf_dialect.h"
 
 namespace pir {
 /**
@@ -23,8 +29,8 @@ namespace pir {
 
 // all IR structure's identifier (region, block, op, attr, type value etc)
 // which can be string , int64_t etc.
-#define ID "id"
-
+#define ID "#"
+#define VALUE_ID "%"
 // program's key:
 #define REGIONS "regions"
 
@@ -35,19 +41,27 @@ namespace pir {
 // block's key:
 // which is json array with value json object
 #define BLOCKARGS "args"
+#define KEYWORDBLOCKARGS "kwargs"
+
+#define KEYWORDNAME "key"
+
 // which is json array with operation json object
 #define BLOCKOPS "ops"
 
 // operation's key:
+// input
 // which is json array with opoperand json object(ID)
 #define OPOPERANDS "I"
 
+// output
 // which is json array with value json object(ID and TYPE_TYPE)
 #define OPRESULTS "O"
 
 // which is json array with json object(NAME and ATTR_TYPE)
 #define ATTRS "A"
 #define OPRESULTS_ATTRS "OA"
+#define DIST_ATTRS "DA"
+#define QUANT_ATTRS "QA"
 
 // value's key:
 //  value's type which should be pir::Type's json object(ID or ID and DATA).
@@ -61,7 +75,46 @@ namespace pir {
 
 // type/attr's contents which is json::array.
 #define DATA "D"
+// float/double data with nan, inf, -inf
+#define VOID_DATA "VD"
 
 // NULL_TYPE
 #define NULL_TYPE "NULL"
+
+// special op compress
+#define PARAMETEROP "p"
+
+// actions for patch
+#define DELETE "DEL"
+#define ADD "ADD"
+#define UPDATE "UPD"
+#define NEW_NAME "NN"
+#define ADD_ATTRS "ADD_A"
+#define ADD_OPRESULTS_ATTRS "ADD_OA"
+#define PATCH "patch"
+
+std::pair<std::string, std::string> GetContentSplitByDot(
+    const std::string& str);
+
+std::vector<std::string> GetOpDistAttr();
+std::vector<std::string> GetOpQuantAttr();
+
+void GetCompressOpName(std::string* op_name);
+
+void GetDecompressOpName(std::string* op_name);
+class DialectIdMap {
+ public:
+  static DialectIdMap* Instance();
+  DialectIdMap();
+  void insert(const std::string& key, const std::string& value);
+
+  std::string GetCompressDialectId(const std::string& name);
+
+  std::string GetDecompressDialectId(const std::string& id);
+
+ private:
+  std::unordered_map<std::string, std::string> CompressDialect;
+  std::unordered_map<std::string, std::string> DecompressDialect;
+};
+
 }  // namespace pir

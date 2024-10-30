@@ -16,6 +16,9 @@
 #include "paddle/cinn/hlir/dialect/operator/ir/manual_op.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/lowering_pass/utils.h"
 #include "paddle/cinn/hlir/framework/pir_compiler.h"
+#include "paddle/common/flags.h"
+
+PD_DECLARE_bool(enable_cinn_compile_cache);
 
 namespace cinn::dialect::ir::details {
 using cinn::hlir::framework::PirCompiler;
@@ -42,14 +45,17 @@ void FusionOpAnalysis::RunImpl(pir::Operation* op) {
 }
 
 void FusionOpAnalysis::PreCompileGroup() {
+  // Make compilation into lazy mode while
+  // FLAGS_enable_cinn_compile_cache=false.
+  if (!FLAGS_enable_cinn_compile_cache) return;
+
   std::vector<OpLoweringGroupPtr> groups;
   for (auto& group_info : *group_infos_) {
-    if (is_dy_shape_ && NeedBroadcastWithCF(group_info.second)) continue;
     groups.push_back(group_info.second);
   }
   // Build and trigger compilaion cache.
   VLOG(4) << "Parallel Pre-Compile for Group with size: " << groups.size();
-  PirCompiler pir_compiler(cinn::common::DefaultNVGPUTarget());
+  PirCompiler pir_compiler(cinn::common::DefaultDeviceTarget());
   pir_compiler.Build(groups);
 }
 }  // namespace cinn::dialect::ir::details

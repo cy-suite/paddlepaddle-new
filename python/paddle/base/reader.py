@@ -23,6 +23,8 @@ import numpy as np
 
 import paddle
 from paddle.base.framework import _set_expected_place
+from paddle.pir.core import datatype_to_vartype
+from paddle.utils import deprecated
 
 from . import core
 from .data_feeder import BatchedTensorProvider, DataFeeder
@@ -35,6 +37,7 @@ from .framework import (
     default_main_program,
     default_startup_program,
     in_dygraph_mode,
+    in_pir_mode,
     program_guard,
 )
 from .layers.io import (
@@ -134,10 +137,10 @@ class DataLoaderBase:
         return self
 
     def __iter__(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def __next__(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @classmethod
     def _check_input_array(cls, item):
@@ -153,6 +156,7 @@ class DataLoaderBase:
         return arr
 
 
+@deprecated(update_to="paddle.io.DataLoader")
 class DataLoader:
     @staticmethod
     def from_generator(
@@ -840,10 +844,16 @@ class GeneratorLoader(DataLoaderBase):
         self._wait_thread_ends()
         self._var_names = [v.name for v in self._feed_list]
         self._shapes = [v.shape for v in self._feed_list]
-        self._dtypes = [v.dtype for v in self._feed_list]
-        self._need_check_feed = [
-            v.desc.need_check_feed() for v in self._feed_list
-        ]
+        if in_pir_mode():
+            self._dtypes = [
+                datatype_to_vartype[v.dtype] for v in self._feed_list
+            ]
+            self._need_check_feed = [False for v in self._feed_list]
+        else:
+            self._dtypes = [v.dtype for v in self._feed_list]
+            self._need_check_feed = [
+                v.desc.need_check_feed() for v in self._feed_list
+            ]
         self._queue = core.init_lod_tensor_blocking_queue(
             core.Variable(), self._capacity, self._keep_order
         )
@@ -873,8 +883,13 @@ class GeneratorLoader(DataLoaderBase):
             shape_concat.extend(feed_data.shape)
             ranks.append(len(feed_data.shape))
             shapes.append(feed_data.shape)
-            lod_levels.append(feed_data.lod_level)
-            need_check_feed.append(int(feed_data.desc.need_check_feed()))
+
+            if in_pir_mode():
+                need_check_feed.append(0)
+                lod_levels.append(0)
+            else:
+                need_check_feed.append(int(feed_data.desc.need_check_feed()))
+                lod_levels.append(feed_data.lod_level)
 
         queue_name = data_loader_unique_name_generator(
             'lod_tensor_blocking_queue'
@@ -1049,10 +1064,11 @@ class GeneratorLoader(DataLoaderBase):
         else:
             places = _get_paddle_place(places)
         has_lod = False
-        for f in self._feed_list:
-            if f.lod_level != 0:
-                has_lod = True
-                break
+        if not in_pir_mode():
+            for f in self._feed_list:
+                if f.lod_level != 0:
+                    has_lod = True
+                    break
 
         if has_lod:
             self.set_sample_list_generator(
@@ -1114,6 +1130,7 @@ class GeneratorLoader(DataLoaderBase):
         return self
 
 
+@deprecated()
 class PyReader(DataLoaderBase):
     r"""
     Create a reader object for data feeding in Python.

@@ -17,16 +17,16 @@
 
 bool InferSymbolicShapeElementWiseBinary(
     pir::Operation *op,
-    pir::ShapeConstraintIRAnalysis *shape_analysis,
+    pir::InferSymbolicShapeContext *infer_context,
     const std::function<symbol::DimExpr(const symbol::DimExpr &,
                                         const symbol::DimExpr &)>
         &DataComputeFunc = nullptr) {
   const auto &x_shape =
-      shape_analysis->GetShapeOrDataForValue(op->operand_source(0));
+      infer_context->GetShapeOrDataForValue(op->operand_source(0));
   std::vector<symbol::DimExpr> shape_0 = x_shape.shape();
 
   const auto &y_shape =
-      shape_analysis->GetShapeOrDataForValue(op->operand_source(1));
+      infer_context->GetShapeOrDataForValue(op->operand_source(1));
   std::vector<symbol::DimExpr> shape_1 = y_shape.shape();
 
   int diff = shape_0.size() - shape_1.size();
@@ -52,7 +52,7 @@ bool InferSymbolicShapeElementWiseBinary(
         shapes.emplace_back(shape_0[i]);
       } else {
         shapes.emplace_back(builder.Broadcast(shape_0[i], shape_1[i]));
-        shape_analysis->AddBroadcastableCstr(shape_0[i], shape_1[i]);
+        infer_context->AddBroadcastableCstr(shape_0[i], shape_1[i]);
       }
     }
     return shapes;
@@ -63,19 +63,19 @@ bool InferSymbolicShapeElementWiseBinary(
         x_shape.shape().size(),
         1,
         common::errors::InvalidArgument("When compute data, the rank of x "
-                                        "should be 0 or 1, but now recevied %d",
+                                        "should be 0 or 1, but now received %d",
                                         x_shape.shape().size()));
     PADDLE_ENFORCE_LE(
         y_shape.shape().size(),
         1,
         common::errors::InvalidArgument("When compute data, the rank of y "
-                                        "should be 0 or 1, but now recevied %d",
+                                        "should be 0 or 1, but now received %d",
                                         y_shape.shape().size()));
     PADDLE_ENFORCE_EQ(x_shape.data()->size(),
                       y_shape.data()->size(),
                       common::errors::InvalidArgument(
                           "When compute data, the size of x and y should be "
-                          "equal, but now recevied %d and %d",
+                          "equal, but now received %d and %d",
                           x_shape.data()->size(),
                           y_shape.data()->size()));
     std::vector<symbol::DimExpr> out_data;
@@ -85,69 +85,83 @@ bool InferSymbolicShapeElementWiseBinary(
     }
     symbol::ShapeOrDataDimExprs shape_data{
         symbol::TensorShapeOrDataDimExprs(shapes, out_data)};
-    shape_analysis->SetShapeOrDataForValue(op->result(0), shape_data);
+    infer_context->SetShapeOrDataForValue(op->result(0), shape_data);
   } else {
     symbol::ShapeOrDataDimExprs shape_data{
         symbol::TensorShapeOrDataDimExprs(shapes)};
-    shape_analysis->SetShapeOrDataForValue(op->result(0), shape_data);
+    infer_context->SetShapeOrDataForValue(op->result(0), shape_data);
   }
   return true;
 }
 
-#define OP_ELEMENT_WISE_BINARY(name)                                        \
-  bool name##OpInferSymbolicShape(                                          \
-      pir::Operation *op, pir::ShapeConstraintIRAnalysis *shape_analysis) { \
-    return InferSymbolicShapeElementWiseBinary(op, shape_analysis);         \
+#define OP_ELEMENT_WISE_BINARY(name)                                       \
+  bool name##OpInferSymbolicShape(                                         \
+      pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) { \
+    return InferSymbolicShapeElementWiseBinary(op, infer_context);         \
   }
 
 namespace paddle::dialect {
 
 bool AddOpInferSymbolicShape(pir::Operation *op,
-                             pir::ShapeConstraintIRAnalysis *shape_analysis) {
+                             pir::InferSymbolicShapeContext *infer_context) {
   return InferSymbolicShapeElementWiseBinary(
       op,
-      shape_analysis,
+      infer_context,
       [](const symbol::DimExpr &x, const symbol::DimExpr &y) { return x + y; });
 }
 
-bool DivideOpInferSymbolicShape(
-    pir::Operation *op, pir::ShapeConstraintIRAnalysis *shape_analysis) {
+bool DivideOpInferSymbolicShape(pir::Operation *op,
+                                pir::InferSymbolicShapeContext *infer_context) {
   return InferSymbolicShapeElementWiseBinary(
       op,
-      shape_analysis,
+      infer_context,
       [](const symbol::DimExpr &x, const symbol::DimExpr &y) { return x / y; });
 }
 
 bool MultiplyOpInferSymbolicShape(
-    pir::Operation *op, pir::ShapeConstraintIRAnalysis *shape_analysis) {
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
   return InferSymbolicShapeElementWiseBinary(
       op,
-      shape_analysis,
+      infer_context,
       [](const symbol::DimExpr &x, const symbol::DimExpr &y) { return x * y; });
 }
 
 bool SubtractOpInferSymbolicShape(
-    pir::Operation *op, pir::ShapeConstraintIRAnalysis *shape_analysis) {
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
   return InferSymbolicShapeElementWiseBinary(
       op,
-      shape_analysis,
+      infer_context,
       [](const symbol::DimExpr &x, const symbol::DimExpr &y) { return x - y; });
 }
 
 OP_ELEMENT_WISE_BINARY(Add_)
 OP_ELEMENT_WISE_BINARY(BitwiseAnd)
 OP_ELEMENT_WISE_BINARY(BitwiseAnd_)
+OP_ELEMENT_WISE_BINARY(BitwiseRightShift)
+OP_ELEMENT_WISE_BINARY(BitwiseRightShift_)
+OP_ELEMENT_WISE_BINARY(BitwiseLeftShift)
+OP_ELEMENT_WISE_BINARY(BitwiseLeftShift_)
+OP_ELEMENT_WISE_BINARY(BitwiseOr)
+OP_ELEMENT_WISE_BINARY(BitwiseOr_)
 OP_ELEMENT_WISE_BINARY(BitwiseXor)
 OP_ELEMENT_WISE_BINARY(BitwiseXor_)
 OP_ELEMENT_WISE_BINARY(Complex)
+OP_ELEMENT_WISE_BINARY(Copysign)
+OP_ELEMENT_WISE_BINARY(Copysign_)
 OP_ELEMENT_WISE_BINARY(Divide_)
 OP_ELEMENT_WISE_BINARY(ElementwisePow)
+OP_ELEMENT_WISE_BINARY(Equal)
+OP_ELEMENT_WISE_BINARY(Equal_)
+OP_ELEMENT_WISE_BINARY(FloorDivide)
 OP_ELEMENT_WISE_BINARY(Fmax)
 OP_ELEMENT_WISE_BINARY(Fmin)
+OP_ELEMENT_WISE_BINARY(Gammaincc)
+OP_ELEMENT_WISE_BINARY(Gammaincc_)
 OP_ELEMENT_WISE_BINARY(GreaterEqual)
 OP_ELEMENT_WISE_BINARY(GreaterEqual_)
 OP_ELEMENT_WISE_BINARY(GreaterThan)
 OP_ELEMENT_WISE_BINARY(GreaterThan_)
+OP_ELEMENT_WISE_BINARY(Heaviside)
 OP_ELEMENT_WISE_BINARY(LessEqual)
 OP_ELEMENT_WISE_BINARY(LessEqual_)
 OP_ELEMENT_WISE_BINARY(LessThan)
@@ -163,6 +177,7 @@ OP_ELEMENT_WISE_BINARY(Minimum)
 OP_ELEMENT_WISE_BINARY(MultiplySr)
 OP_ELEMENT_WISE_BINARY(MultiplySr_)
 OP_ELEMENT_WISE_BINARY(Multiply_)
+OP_ELEMENT_WISE_BINARY(Nextafter)
 OP_ELEMENT_WISE_BINARY(NotEqual)
 OP_ELEMENT_WISE_BINARY(NotEqual_)
 OP_ELEMENT_WISE_BINARY(Remainder)

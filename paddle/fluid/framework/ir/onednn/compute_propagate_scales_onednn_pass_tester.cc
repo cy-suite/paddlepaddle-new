@@ -19,9 +19,7 @@
 #include "paddle/fluid/framework/naive_executor.h"
 #include "paddle/phi/common/place.h"
 
-namespace paddle {
-namespace framework {
-namespace ir {
+namespace paddle::framework::ir {
 
 const std::array<float, 10> positive_and_negative_values = {-0.0482659,
                                                             -0.0102493,
@@ -98,7 +96,7 @@ class ComputePropagateScalesMkldnnPassTest : public testing::Test {
   }
 
   void InitTensorHolder(Scope* scope,
-                        const paddle::platform::Place& place,
+                        const phi::Place& place,
                         const std::string& var_name) {
     auto x = scope->Var(var_name);
     auto tensor = x->GetMutable<phi::DenseTensor>();
@@ -110,9 +108,8 @@ class ComputePropagateScalesMkldnnPassTest : public testing::Test {
     } else if (var_name == "wh") {
       tensor_size = wh.size();
     }
-    tensor->mutable_data(place,
-                         framework::TransToPhiDataType(proto::VarType::FP32),
-                         tensor_size);
+    tensor->mutable_data(
+        place, phi::TransToPhiDataType(proto::VarType::FP32), tensor_size);
   }
 
   void PrepareGraph(ir::Graph* graph,
@@ -347,6 +344,4 @@ TEST_F(ComputePropagateScalesMkldnnPassTest, update_relu_output_scales) {
       BuildConv2dReluProgramDesc(), &var_quant_scales, {"conv_out"});
 }
 
-}  // namespace ir
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework::ir

@@ -17,6 +17,7 @@ from __future__ import annotations
 import dis
 import functools
 import inspect
+import opcode
 import operator
 import sys
 import traceback
@@ -24,8 +25,6 @@ import types
 from dataclasses import dataclass
 from itertools import chain
 from typing import Any, Callable
-
-import opcode
 
 from paddle.jit.utils import OrderedSet
 
@@ -38,6 +37,7 @@ from ...utils import (
     InnerError,
     SotUndefinedVar,
     get_static_function,
+    is_comprehensive_name,
     log,
     log_do,
 )
@@ -82,11 +82,14 @@ from .variables import (
     ContainerVariable,
     DictVariable,
     GlobalVariable,
+    IterVariable,
     ListVariable,
     MethodVariable,
     NullVariable,
+    RangeVariable,
     SequenceIterVariable,
     SliceVariable,
+    SymbolicVariable,
     TensorVariable,
     TupleVariable,
     UserDefinedFunctionVariable,
@@ -203,7 +206,7 @@ def pop_jump_if_op_wrapper(fns: list[Callable[[Any], Any]]):
                     fn, graph=self._graph, tracker=DanglingTracker()
                 )(res)
 
-            assert isinstance(res, ConstantVariable)
+            assert isinstance(res, (ConstantVariable, SymbolicVariable))
             is_jump = res.get_py_value()
             assert isinstance(is_jump, bool)
             if is_jump:
@@ -363,9 +366,9 @@ class OpcodeExecutorBase:
         self.new_code: types.CodeType | None = self.empty_code
         self.guard_fn = None
         self._name = "Executor"
-        self._call_shape: tuple[
-            str, ...
-        ] | None = None  # store kwnames for Python 3.11+
+        self._call_shape: tuple[str, ...] | None = (
+            None  # store kwnames for Python 3.11+
+        )
         self._prepare_virtual_env()
         self.stop_state = None
 
@@ -405,7 +408,7 @@ class OpcodeExecutorBase:
             NotImplementedError: If the method is not implemented.
 
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def transform(self):
         """
@@ -415,7 +418,7 @@ class OpcodeExecutorBase:
             NotImplementedError: If the method is not implemented.
 
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def find_space_of_var_name(self, name):
         code = self._graph.pycode_gen._origin_code
@@ -519,13 +522,13 @@ class OpcodeExecutorBase:
             file = inspect.getfile(code)
             if file.startswith("<") and file.endswith(">"):
                 message_lines.append(
-                    f"{indent}  File \"{file}\", line {current_line}"
+                    f'{indent}  File "{file}", line {current_line}'
                 )
                 continue
             lines, start = inspect.getsourcelines(code)
             real_name = code.co_name
             message_lines.append(
-                f"{indent}  File \"{code.co_filename}\", line {current_line}, in {real_name}"
+                f'{indent}  File "{code.co_filename}", line {current_line}, in {real_name}'
             )
             if current_line != -1:
                 message_lines.append(
@@ -1054,8 +1057,11 @@ class OpcodeExecutorBase:
 
         retval = []
         for item in unpack_values:
-            assert isinstance(item, (TupleVariable, ListVariable))
-            retval.extend(item.get_wrapped_items())
+            if not isinstance(
+                item, (TupleVariable, ListVariable, RangeVariable)
+            ):
+                raise BreakGraphError(f"{type(item)} not support unpack")
+            retval.extend(item.get_iter().to_list())
 
         if instr.opname in {
             "BUILD_TUPLE_UNPACK_WITH_CALL",
@@ -1069,12 +1075,15 @@ class OpcodeExecutorBase:
             )
         )
 
+    @call_break_graph_decorator(push_n=1)
     def BUILD_TUPLE_UNPACK_WITH_CALL(self, instr: Instruction):
         self.build_seq_unpack(instr)
 
+    @call_break_graph_decorator(push_n=1)
     def BUILD_TUPLE_UNPACK(self, instr: Instruction):
         self.build_seq_unpack(instr)
 
+    @call_break_graph_decorator(push_n=1)
     def BUILD_LIST_UNPACK(self, instr: Instruction):
         self.build_seq_unpack(instr)
 
@@ -1235,7 +1244,7 @@ class OpcodeExecutorBase:
         if isinstance(method, NullVariable):
             method = self_var
         else:
-            args = [self_var] + args
+            args = [self_var, *args]
         self.stack.push(method(*args))
 
     @call_break_graph_decorator(
@@ -1559,6 +1568,7 @@ class OpcodeExecutorBase:
             self.stack.peek[instr.arg], key, value
         )
 
+    @call_break_graph_decorator(push_n=0)
     def LIST_EXTEND(self, instr: Instruction):
         list_value = self.stack.pop()
         assert isinstance(instr.arg, int)
@@ -1714,6 +1724,12 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 iterator.idx = backup_iter_idx
             self._graph.remove_global_guarded_variable(iterator)
             self.stack.push(iterator)
+            if is_comprehensive_name(self._code.co_name):
+                # NOTE(SigureMo): The loop body of comprehensive will access the
+                # value out of the loop, so we simply fallback it now.
+                raise FallbackError(
+                    "Comprehensive for loop break graph is not supported."
+                )
             self._break_graph_when_for_loop(iterator, instr)
             return Stop(state="BreakGraph")
 
@@ -1729,18 +1745,19 @@ class OpcodeExecutor(OpcodeExecutorBase):
         return self.compile_return(ret_const)
 
     def compile_return(self, ret_val):
-        compile_fn = self._graph.get_compiled_fn(ret_val)
-        if compile_fn.graph_size() < ENV_MIN_GRAPH_SIZE.get():
+        compile_graph_result = self._graph.compile_graph(ret_val)
+        graph_fn, _ = compile_graph_result
+        if graph_fn.graph_size() < ENV_MIN_GRAPH_SIZE.get():
             self.new_code = None
         else:
-            self._graph.start_compile(ret_val)
+            self._graph.compile_function(compile_graph_result, [ret_val])
             self._graph.pycode_gen.gen_return()
             self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
         return Stop(state="Return")
 
     def get_compute_fn_and_update_changed_vars(
-        self, restore_names, stack, end_idx
+        self, restore_names, stack, end_idx, extra_store_vars
     ):
         """
         this function will:
@@ -1755,9 +1772,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
             restore_names: the names used in resume functions.
             end_idx: instruction index where simulation get break.
             stack: current stack
+            extra_store_vars: for iterator, we need store the holder if it is a Tensor
         """
-        store_vars = list(OrderedSet(stack))
-        store_var_info = {var.id: None for var in stack}
+        store_vars = list(OrderedSet(list(stack) + extra_store_vars))
+        store_var_info = {var.id: [] for var in stack}
 
         for name in restore_names:
             _var = self.get_var(name, allow_undefined=True)
@@ -1765,17 +1783,19 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 continue
             if _var not in stack:
                 store_vars.append(_var)
-            store_var_info[_var.id] = name
+            store_var_info.setdefault(_var.id, [])
+            store_var_info[_var.id].append(name)
 
-        compile_fn = self._graph.get_compiled_fn(*store_vars)
+        compile_graph_result = self._graph.compile_graph(*store_vars)
+        graph_fn, _ = compile_graph_result
 
-        if compile_fn.graph_size() < ENV_MIN_GRAPH_SIZE.get():
+        if graph_fn.graph_size() < ENV_MIN_GRAPH_SIZE.get():
             return self._graph._restore_origin_opcode(
                 list(stack), store_var_info, end_idx
             )
         else:
             return self._graph._build_compile_fn_with_name_store(
-                store_vars, store_var_info
+                compile_graph_result, store_vars, store_var_info
             )
 
     @fallback_when_occur_error
@@ -1855,7 +1875,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         # 4. compile codes before if
         update_var_names = list(true_fn_read_names | false_fn_read_names)
         var_loader = self.get_compute_fn_and_update_changed_vars(
-            update_var_names, self.stack, cur_index
+            update_var_names, self.stack, cur_index, []
         )
 
         # 5. create if sturcture and call true_fn and false_fn
@@ -1955,7 +1975,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # 3. compile sub graph before call
         var_loader = self.get_compute_fn_and_update_changed_vars(
-            read_names, self.stack, cur_index
+            read_names, self.stack, cur_index, []
         )
 
         # 4. recover stack
@@ -2018,11 +2038,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
         loop_body_read_names, loop_body_write_names = analysis_used_names(
             self._instructions, loop_body_start_idx, loop_body_end_idx
         )
-        loop_body_inputs = self._find_names_in_space(
-            loop_body_read_names | loop_body_write_names,
-            (Space.locals, Space.cells),
-        ) + ["_break_flag"]
-        loop_body_outputs = list(loop_body_write_names) + ["_break_flag"]
+        loop_body_inputs = [
+            *self._find_names_in_space(
+                loop_body_read_names | loop_body_write_names,
+                (Space.locals, Space.cells),
+            ),
+            "_break_flag",
+        ]
+        loop_body_outputs = [*list(loop_body_write_names), "_break_flag"]
 
         def create_loop_body():
             pycode_gen = PyCodeGen(self._frame)
@@ -2118,8 +2141,17 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # 5. compile sub graph before for-loop
         update_names = list(loop_body_read_names | after_loop_read_names)
+        extra_store_vars = (
+            [iterator]
+            if isinstance(iterator, IterVariable)
+            and isinstance(iterator.hold, TensorVariable)
+            else []
+        )
         var_loader = self.get_compute_fn_and_update_changed_vars(
-            update_names, self.stack, self.indexof(for_iter)
+            update_names,
+            self.stack,
+            self.indexof(for_iter),
+            extra_store_vars,
         )
 
         # 6. prepare a new loop and call loop body
@@ -2208,10 +2240,13 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # why add write_names as input? check case in test/sot/test_12_for_loop.py
         # test_for_without_zero_iter
-        input_var_names = self._find_names_in_space(
-            read_names | write_names, (Space.locals, Space.cells)
-        ) + [iterator.id]
-        output_var_names = list(write_names) + [iterator.id]
+        input_var_names = [
+            *self._find_names_in_space(
+                read_names | write_names, (Space.locals, Space.cells)
+            ),
+            iterator.id,
+        ]
+        output_var_names = [*list(write_names), iterator.id]
 
         # 2. create inline call loop fn
         def create_inline_call_fn():

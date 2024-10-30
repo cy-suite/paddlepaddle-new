@@ -245,7 +245,10 @@ PADDLE_CAPI_EXPORT extern int32_t PD_ConfigXpuDeviceId(
 /// \param[in] device_id device_id the custom device card to use.
 ///
 PADDLE_CAPI_EXPORT extern void PD_ConfigEnableCustomDevice(
-    __pd_keep PD_Config* pd_config, char* device_type, int32_t device_id);
+    __pd_keep PD_Config* pd_config,
+    char* device_type,
+    int32_t device_id,
+    PD_PrecisionType precision);
 ///
 /// \brief A boolean state telling whether the custom device is turned on.
 ///
@@ -550,21 +553,6 @@ PADDLE_CAPI_EXPORT extern int32_t PD_ConfigGetCpuMathLibraryNumThreads(
 PADDLE_CAPI_EXPORT extern void PD_ConfigSetMkldnnOp(
     __pd_keep PD_Config* pd_config, size_t ops_num, const char** op_list);
 ///
-/// \brief Turn on OneDNN quantization.
-///
-/// \param[in] pd_config config
-///
-PADDLE_CAPI_EXPORT extern void PD_ConfigEnableMkldnnQuantizer(
-    __pd_keep PD_Config* pd_config);
-///
-/// \brief A boolean state telling whether the OneDNN quantization is enabled.
-///
-/// \param[in] pd_config config
-/// \return Whether the OneDNN quantization is enabled.
-///
-PADDLE_CAPI_EXPORT extern PD_Bool PD_ConfigMkldnnQuantizerEnabled(
-    __pd_keep PD_Config* pd_config);
-///
 /// \brief Turn on OneDNN bfloat16.
 ///
 /// \param[in] pd_config config
@@ -716,13 +704,6 @@ PADDLE_CAPI_EXPORT extern void PD_ConfigSetInvalid(
 /// \return Whether the Config is valid.
 ///
 PADDLE_CAPI_EXPORT extern PD_Bool PD_ConfigIsValid(
-    __pd_keep PD_Config* pd_config);
-///
-/// \brief Partially release the memory
-///
-/// \param[in] pd_config config
-///
-PADDLE_CAPI_EXPORT extern void PD_ConfigPartiallyRelease(
     __pd_keep PD_Config* pd_config);
 ///
 /// \brief Delete all passes that has a certain type 'pass'.

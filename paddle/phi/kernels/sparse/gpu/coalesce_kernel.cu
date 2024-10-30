@@ -171,6 +171,7 @@ void CoalesceCooGPUKernel(const GPUContext& dev_ctx,
 
   out->SetMember(out_indices, out_values, x.dims(), true);
   out->SetIndicesDict(x.GetIndicesDict());
+  out->SetKmaps(x.GetKmaps());
 }
 
 template <typename T, typename Context>
@@ -195,6 +196,8 @@ PD_REGISTER_KERNEL(coalesce_coo,
                    uint8_t,
                    int16_t,
                    int,
-                   int64_t) {
+                   int64_t,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>) {
   kernel->InputAt(0).SetDataLayout(phi::DataLayout::SPARSE_COO);
 }

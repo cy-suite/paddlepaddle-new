@@ -17,16 +17,15 @@
 #include "paddle/cinn/hlir/framework/compile_error.h"
 #include "paddle/cinn/hlir/framework/pir/op_lowering_util.h"
 #include "paddle/cinn/hlir/framework/pir/utils.h"
-#include "paddle/cinn/hlir/op/external_api_registry.h"
 #include "paddle/cinn/hlir/pe/map_expr_to_ir.h"
 #include "paddle/cinn/ir/dim.h"
 #include "paddle/cinn/ir/group_schedule/base_group_scheduler.h"
-#include "paddle/cinn/ir/group_schedule/st_shape_group_scheduler.h"
 #include "paddle/cinn/ir/schedule/ir_schedule.h"
 #include "paddle/cinn/lang/placeholder.h"
 #include "paddle/cinn/optim/schedule_block_dce.h"
 #include "paddle/cinn/optim/transform_gpu_forloop.h"
 #include "paddle/common/ddim.h"
+#include "paddle/common/enforce.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_type.h"
 #include "paddle/pir/include/dialect/control_flow/ir/cf_op.h"
 
@@ -51,7 +50,10 @@ std::unordered_map<T, U> MakeMap(const std::vector<T>& keys,
                                  const std::vector<U>& values) {
   std::unordered_map<T, U> result = std::unordered_map<T, U>();
 
-  CHECK(keys.size() == values.size());
+  PADDLE_ENFORCE_EQ(keys.size(),
+                    values.size(),
+                    ::common::errors::InvalidArgument(
+                        "Required keys shall have same size with values."));
   for (int i = 0; i < keys.size(); i++) {
     result[keys[i]] = values[i];
   }
@@ -74,6 +76,9 @@ struct MappingTargetExprToDestExprMutator : public ir::IRMutator<> {
   void Visit(const ir::Load* load, Expr* op) override;
   void Visit(const ir::Store* store, Expr* op) override;
   void Visit(const ir::Reduce* reduce, Expr* op) override;
+  void Visit(const ir::For* for_node, Expr* op) override;
+  void Visit(const ir::Block* block_node, Expr* op) override;
+  void Visit(const ir::ScheduleBlockRealize* realize, Expr* op) override;
 
  private:
   ir::Expr source_;
@@ -128,7 +133,7 @@ template <typename Teller>
 ExprSetFinder Collector(Teller t, std::string name = "") {
   return ExprSetFinder(
       [=](const ir::Expr& x) -> ExprSet {
-        const auto& rs = cinn::ir::ir_utils::CollectIRNodesWithoutTensor(x, t);
+        const auto& rs = cinn::ir::ir_utils::CollectIRNodesInOrder(x, t);
         return std::vector(rs.begin(), rs.end());
       },
       name);
@@ -152,19 +157,27 @@ extern ExprSetFinder Store2Value;
 
 extern ExprSetFinder Realizer2ScheduleBlock;
 
+extern ExprSetFinder Realizer2IterValues;
+
 extern ExprSetFinder ScheduleBlock2Body;
 
 extern ExprSetFinder ScheduleBlockRealizeNotRoot;
 
+extern ExprSetFinder ScheduleBlockRealizeIsRoot;
+
 extern ExprSetFinder ScheduleBlockRealizeIsNotInit;
 
 extern ExprSetFinder ScheduleBlockRealizeIsInit;
+
+extern ExprSetFinder ScheduleBlockRealizeIsSplitTransform;
 
 extern ExprSetFinder IsFor;
 
 extern ExprSetFinder ChildScheduleBlocks;
 
 extern ExprSetFinder ChildScheduleBlockRealizes;
+
+extern ExprSetFinder ChildRootScheduleBlockRealizes;
 
 extern ExprSetFinder For2Min;
 
@@ -177,6 +190,8 @@ extern ExprSetFinder ChildTensorLoads;
 extern ExprSetFinder ChildTensorStores;
 
 extern ExprSetFinder ChildFors;
+
+extern ExprSetFinder ChildIfThenElses;
 
 ExprSetFinder IsForIterVar(const ir::Var& var);
 
@@ -213,6 +228,8 @@ ExprTransformer ChangeTensorLoadTransformer(const ir::Tensor& tensor,
 
 void ReplaceTarget(ir::Expr* e, const ir::Expr& t, const ir::Expr dst);
 
+bool IsReduceBool(const ir::Expr& lhs, const ir::Expr& rhs);
+
 ExprTransformer WrapStoreTransformer(const ir::Tensor& tensor,
                                      const std::vector<ir::Expr>& indices);
 
@@ -226,10 +243,27 @@ std::vector<ir::Var> CreateInnerBlockVars(
 ExprTransformer ChangeVarTransformer(const std::vector<ir::Var>& target_vars,
                                      const std::vector<ir::Var>& dest_vars);
 
+ExprTransformer ReplaceVarTransformer(const std::vector<ir::Var>& target_vars,
+                                      const std::vector<ir::Expr>& dest_exprs);
+
+// insert after followed_finder. only support For and ScheduleBlockRealizer
+ExprTransformer UnsqueezeForTransformer(
+    const ExprSetFinderUtils::ExprSetFinder& followed_finder,
+    const ir::Var& to_append_var);
+
 ExprTransformer SubstitudeByScheduleBlockRealize(const ir::Expr& realize);
 
 ExprTransformer WrapScheduleRealizer(const std::vector<ir::Var>& block_vars,
                                      const std::string& tensor_name);
+
+ExprTransformer TransposeForsTransformer(const std::vector<int32_t>& perm);
+ExprTransformer RemoveOnesTransformer(const std::vector<int32_t>& ones);
+ExprTransformer InsertForsTransformer(const std::vector<int32_t>& axis,
+                                      const std::vector<ir::Var>& vars);
+ExprTransformer InsertIfForAppendVarsTransformer();
+int InplaceMutateSingleExpr(ir::Expr* root,
+                            const ExprSetFinderUtils::ExprSetFinder& finder,
+                            const ExprTransformer& transformer);
 }  // namespace ExprTransformerUtils
 
 std::vector<OpPatternKind> GetOpPatternKindVector(
@@ -248,6 +282,20 @@ bool IsTrivialKind(OpPatternKind kind);
 
 void CheckFusionInputValid(const std::vector<ir::Expr>& op_compute_bodies,
                            const std::vector<OpPatternKind>& op_patterns);
+
+static bool IsReduceBody(const ir::Expr& expr_body) {
+  return !(ExprSetFinderUtils::ChildScheduleBlockRealizes *
+           ExprSetFinderUtils::ScheduleBlockRealizeIsInit)(expr_body)
+              .empty();
+}
+
+std::vector<ir::Var> AppendBound(const std::vector<ir::Var> vars,
+                                 const ir::Expr& root);
+
+std::vector<ir::Var> GetNonReduceLoopVars(const ir::Expr& root);
+std::vector<ir::Var> GetAllLoopVars(const ir::Expr& root);
+
+ir::Expr GetBodyBlock(const ir::Expr& root);
 
 }  // namespace trivial_fusion_detail
 }  // namespace pir

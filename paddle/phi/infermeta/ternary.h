@@ -48,6 +48,13 @@ void AddmmInferMeta(const MetaTensor& input,
                     float alpha,
                     MetaTensor* out);
 
+void AffineChannelInferMeta(const MetaTensor& x,
+                            const MetaTensor& scale,
+                            const MetaTensor& bias,
+                            const std::string& data_layout,
+                            MetaTensor* out,
+                            MetaConfig config = MetaConfig());
+
 void ArangeTensorInferMeta(const MetaTensor& start,
                            const MetaTensor& end,
                            const MetaTensor& step,
@@ -73,6 +80,16 @@ void BoxCoderInferMeta(const MetaTensor& prior_box,
                        MetaTensor* output_box,
                        MetaConfig config = MetaConfig());
 
+void CollectFpnProposalsInferMeta(
+    const std::vector<const MetaTensor*>& multi_level_rois,
+    const std::vector<const MetaTensor*>& multi_level_scores,
+    const paddle::optional<std::vector<const MetaTensor*>>&
+        multi_level_rois_num,
+    int post_nms_topn,
+    MetaTensor* fpn_rois,
+    MetaTensor* rois_num,
+    MetaConfig config = MetaConfig());
+
 void DistributedPushSparseInferMeta(
     const std::vector<const MetaTensor*>& ids,
     const std::vector<const MetaTensor*>& shows,
@@ -96,6 +113,17 @@ void DpsgdInferMeta(const MetaTensor& param,
                     int size,
                     MetaTensor* param_out);
 
+void FakeQuantizeRangeAbsMaxInferMeta(const MetaTensor& x,
+                                      const MetaTensor& in_scale,
+                                      const MetaTensor& iter,
+                                      int window_size,
+                                      int bit_length,
+                                      bool is_test,
+                                      int round_type,
+                                      MetaTensor* out,
+                                      MetaTensor* out_scale,
+                                      MetaTensor* out_scales);
+
 void FlashAttnInferMeta(const MetaTensor& q,
                         const MetaTensor& k,
                         const MetaTensor& v,
@@ -103,6 +131,17 @@ void FlashAttnInferMeta(const MetaTensor& q,
                         MetaTensor* softmax,
                         MetaTensor* softmax_lse,
                         MetaTensor* seed_offset);
+
+void FlashAttnQKVPackedInferMeta(const MetaTensor& qkv,
+                                 MetaTensor* out,
+                                 MetaTensor* softmax,
+                                 MetaTensor* softmax_lse,
+                                 MetaTensor* seed_offset);
+
+void CalcReducedAttnScoresInferMeta(const MetaTensor& q,
+                                    const MetaTensor& k,
+                                    const MetaTensor& softmax_lse,
+                                    MetaTensor* reduced_scores);
 
 void InstanceNormInferMeta(const MetaTensor& x,
                            const MetaTensor& scale,
@@ -113,12 +152,39 @@ void InstanceNormInferMeta(const MetaTensor& x,
                            MetaTensor* saved_variance,
                            MetaConfig config = MetaConfig());
 
+void FasterTokenizerInferMeta(const MetaTensor& vocab,
+                              const MetaTensor& text,
+                              const MetaTensor& text_pair,
+                              bool do_lower_case,
+                              bool is_split_into_words,
+                              int max_seq_len,
+                              bool pad_to_max_seq_len,
+                              MetaTensor* input_ids,
+                              MetaTensor* segment_ids,
+                              MetaConfig config = MetaConfig());
+
+void GlobalGatherInferMeta(const MetaTensor& x,
+                           const MetaTensor& local_count,
+                           const MetaTensor& global_count,
+                           MetaTensor* out);
+
 void GlobalScatterInferMeta(const MetaTensor& x,
                             const MetaTensor& local_count,
                             const MetaTensor& global_count,
-                            int ring_id,
-                            bool use_calc_stream,
                             MetaTensor* out);
+
+void AddGroupNormSiluInferMeta(const MetaTensor& x,
+                               const MetaTensor& residual,
+                               const MetaTensor& scale,
+                               const MetaTensor& bias,
+                               float epsilon,
+                               int groups,
+                               const std::string& data_layout,
+                               const std::string& activation,
+                               MetaTensor* y,
+                               MetaTensor* residual_out,
+                               MetaTensor* mean,
+                               MetaTensor* variance);
 
 void GroupNormInferMeta(const MetaTensor& x,
                         const MetaTensor& scale,
@@ -128,7 +194,8 @@ void GroupNormInferMeta(const MetaTensor& x,
                         const std::string& data_layout,
                         MetaTensor* y,
                         MetaTensor* mean,
-                        MetaTensor* variance);
+                        MetaTensor* variance,
+                        MetaConfig config = MetaConfig());
 
 void LayerNormInferMeta(const MetaTensor& x,
                         const MetaTensor& scale,
@@ -171,6 +238,12 @@ void MatchMatrixTensorInferMeta(const MetaTensor& x,
                                 MetaTensor* tmp,
                                 MetaConfig config = MetaConfig());
 
+void MatrixRankAtolRtolInferMeta(const MetaTensor& x,
+                                 const MetaTensor& atol,
+                                 const MetaTensor& rtol,
+                                 bool hermitian,
+                                 MetaTensor* out);
+
 void MovingAverageAbsMaxScaleInferMeta(const MetaTensor& x,
                                        const MetaTensor& in_accum,
                                        const MetaTensor& in_state,
@@ -202,6 +275,13 @@ void NllLossRawInferMeta(const MetaTensor& input,
                          MetaTensor* out,
                          MetaTensor* total_weight,
                          MetaConfig config = MetaConfig());
+
+void PushGpupsSparseInferMeta(const std::vector<const MetaTensor*>& ids,
+                              const std::vector<const MetaTensor*>& out,
+                              const std::vector<int>& size,
+                              bool is_sparse,
+                              bool is_distributed,
+                              std::vector<MetaTensor*> out_grad);
 
 void PutAlongAxisInferMeta(const MetaTensor& x,
                            const MetaTensor& index,
@@ -263,12 +343,15 @@ void SendURecvInferMeta(const MetaTensor& x,
                         MetaTensor* out,
                         MetaTensor* dst_count);
 
-void SparseMomentumInferMeta(const MetaTensor& param,
-                             const MetaTensor& learning_rate,
-                             const MetaTensor& velocity,
-                             MetaTensor* param_out,
-                             MetaTensor* velocity_out,
-                             MetaTensor* master_param_out);
+void SequenceConvInferMeta(const MetaTensor& x,
+                           const MetaTensor& padding_data,
+                           const MetaTensor& filter,
+                           int context_length,
+                           bool padding_trainable,
+                           int context_start,
+                           int context_stride,
+                           MetaTensor* out);
+
 void SpectralNormInferMeta(const MetaTensor& weight,
                            const MetaTensor& u,
                            const MetaTensor& v,

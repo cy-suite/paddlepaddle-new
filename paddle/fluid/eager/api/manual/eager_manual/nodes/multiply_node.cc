@@ -21,7 +21,6 @@
 #include "paddle/fluid/eager/utils.h"
 #include "paddle/fluid/framework/op_registry.h"
 #include "paddle/fluid/imperative/tracer.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
 #include "paddle/fluid/prim/api/all.h"
 #include "paddle/fluid/prim/api/composite_backward/composite_backward_api.h"
 #include "paddle/fluid/prim/utils/utils.h"
@@ -30,6 +29,7 @@
 #include "paddle/phi/api/backward/sparse_bw_api.h"
 #include "paddle/phi/api/include/sparse_api.h"
 #include "paddle/phi/api/lib/api_custom_impl.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 COMMON_DECLARE_bool(check_nan_inf);
 
@@ -49,10 +49,8 @@ MultiplyGradNode::operator()(
   //    accumulation when the output(s) of corresponding forward OP are shared
   //    by other OP(s), which may have extra accumulation overhead than
   //    'Local_XXXGradNode'.
-  paddle::platform::RecordEvent node_execution_inner(
-      "Local_MultiplyGradNode",
-      paddle::platform::TracerEventType::OperatorInner,
-      1);
+  phi::RecordEvent node_execution_inner(
+      "Local_MultiplyGradNode", phi::TracerEventType::OperatorInner, 1);
 
   // Fill Zero For GradIn Tensors
   const auto& input_metas = this->InputMeta();
@@ -175,9 +173,9 @@ MultiplyGradNode::operator()(
 
   if (!paddle::prim::PrimCommonUtils::IsEagerPrimEnabled() || need_skip) {
     if (trace_backward) {
-      paddle::platform::RecordEvent node_creation_record_event(
+      phi::RecordEvent node_creation_record_event(
           "multiply_grad node_creation",
-          paddle::platform::TracerEventType::OperatorInner,
+          phi::TracerEventType::OperatorInner,
           1);
 
       // Node Construction
@@ -266,10 +264,8 @@ MultiplyDoubleGradNode::operator()(
   //    accumulation when the output(s) of corresponding forward OP are shared
   //    by other OP(s), which may have extra accumulation overhead than
   //    'Local_XXXGradNode'.
-  paddle::platform::RecordEvent node_execution_inner(
-      "Local_MultiplyDoubleGradNode",
-      paddle::platform::TracerEventType::OperatorInner,
-      1);
+  phi::RecordEvent node_execution_inner(
+      "Local_MultiplyDoubleGradNode", phi::TracerEventType::OperatorInner, 1);
 
   // Fill Zero For GradIn Tensors
   const auto& input_metas = this->InputMeta();
@@ -461,7 +457,7 @@ MultiplyDoubleGradNode::operator()(
 
   if (need_skip) {
     if (trace_backward) {
-      PADDLE_THROW(phi::errors::Unavailable(
+      PADDLE_THROW(common::errors::Unavailable(
           "The Op multiply_double_grad doesn't have any grad"
           "op. If you don't intend calculating higher order"
           "derivatives, please set `create_graph`to False."));
@@ -539,10 +535,8 @@ MultiplyGradNode::operator()(
   //    accumulation when the output(s) of corresponding forward OP are shared
   //    by other OP(s), which may have extra accumulation overhead than
   //    'Local_XXXGradNode'.
-  paddle::platform::RecordEvent node_execution_inner(
-      "Local_MultiplyGradNode",
-      paddle::platform::TracerEventType::OperatorInner,
-      1);
+  phi::RecordEvent node_execution_inner(
+      "Local_MultiplyGradNode", phi::TracerEventType::OperatorInner, 1);
 
   // Fill Zero For GradIn Tensors
   const auto& input_metas = this->InputMeta();
@@ -637,7 +631,7 @@ MultiplyGradNode::operator()(
 
   // Create Grad Node
   if (trace_backward) {
-    PADDLE_THROW(phi::errors::Unavailable(
+    PADDLE_THROW(common::errors::Unavailable(
         "The Op multiply_grad doesn't have any grad"
         "op. If you don't intend calculating higher order"
         "derivatives, please set `create_graph`to False."));

@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserved.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -96,4 +96,14 @@ elif [[ "$1" == "cudnn900" ]]; then
   cp -r lib /usr && cd ../ && \
   rm -f cudnn-linux-x86_64-9.0.0.312_cuda12-archive.tar.xz && \
   rm -rf cudnn-linux-x86_64-9.0.0.312_cuda12-archive
+elif [[ "$1" == "cudnn911" ]]; then
+  wget -q https://paddle-ci.gz.bcebos.com/cudnn/cudnn-linux-x86_64-9.1.1.17_cuda12-archive.tar.xz --no-check-certificate
+  tar xJvf cudnn-linux-x86_64-9.1.1.17_cuda12-archive.tar.xz && \
+  cd cudnn-linux-x86_64-9.1.1.17_cuda12-archive && \
+  cp -r include /usr && \
+  mkdir -p /usr/lib/x86_64-linux-gnu && \
+  cp -r lib/libcudnn* /usr/lib/x86_64-linux-gnu && \
+  cp -r lib /usr && cd ../ && \
+  rm -f cudnn-linux-x86_64-9.1.1.17_cuda12-archive.tar.xz && \
+  rm -rf cudnn-linux-x86_64-9.1.1.17_cuda12-archive
 fi

@@ -50,7 +50,7 @@ class DepthwiseConvPattern : public paddle::drr::DrrPatternBase {
     depthwise_conv({&pat.Tensor("input"), &pat.Tensor("filter")},
                    {&pat.Tensor("conv_out")});
 
-    pat.RequireNativeCall([&](const paddle::drr::MatchContext &match_ctx) {
+    pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       std::set<std::string> padding_algorithm = {"EXPLICIT", "SAME", "VALID"};
       std::set<std::string> data_format = {"NCHW", "NHWC", "AnyLayout"};
       if (padding_algorithm.count(
@@ -83,7 +83,7 @@ class DepthwiseConvPattern : public paddle::drr::DrrPatternBase {
 class DepthwiseConvMKLDNNPass : public pir::PatternRewritePass {
  public:
   DepthwiseConvMKLDNNPass()
-      : pir::PatternRewritePass("depthwise_conv_mkldnn_pass", 2) {}
+      : pir::PatternRewritePass("depthwise_conv_onednn_pass", 2) {}
 
   pir::RewritePatternSet InitializePatterns(pir::IrContext *context) override {
     pir::RewritePatternSet ps(context);

@@ -13,7 +13,8 @@ list(
   cusparse.cc
   nvtx.cc
   cufft.cc
-  cutlass_conv2d.cc)
+  cutlass_conv2d.cc
+  cutlass_gemm_epilogue.cc)
 
 if(NOT WITH_NV_JETSON)
   list(APPEND CUDA_SRCS nvjpeg.cc)
@@ -24,6 +25,7 @@ if(WITH_ROCM)
     APPEND
     HIP_SRCS
     rocblas.cc
+    hipblasLt.cc
     miopen.cc
     hiprand.cc
     hipfft.cc
@@ -82,6 +84,10 @@ endif()
 
 if(WITH_FLASHATTN)
   list(APPEND DYNLOAD_COMMON_SRCS flashattn.cc)
+endif()
+
+if(WITH_PSCORE)
+  list(APPEND DYNLOAD_COMMON_SRCS afs_api.cc)
 endif()
 
 if(MKL_FOUND AND WITH_ONEMKL)

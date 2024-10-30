@@ -14,6 +14,8 @@
 
 #include "paddle/fluid/pir/transforms/onednn/conv_activation_onednn_fuse_pass.h"
 
+#include <utility>
+
 #include "paddle/fluid/pir/dialect/operator/ir/onednn_op.h"
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 #include "paddle/fluid/pir/drr/include/drr_pattern_base.h"
@@ -29,7 +31,7 @@ class ConvActivationFusePattern : public paddle::drr::DrrPatternBase {
   const size_t activation_count_;
   std::string activation_name_;
   /*
-   * fused_level_ = 0 : conv2d + activation
+    fused_level_ = 0 : conv2d + activation
     fused_level_ > 0 : conv2d + bias + activation
                      : conv2d + residual + activation
                      : conv2d + + bias + residual + activation
@@ -38,10 +40,10 @@ class ConvActivationFusePattern : public paddle::drr::DrrPatternBase {
 
  public:
   ConvActivationFusePattern(size_t activation_count,
-                            const std::string &activation_name,
+                            std::string activation_name,
                             int fused_level)
       : activation_count_(activation_count),
-        activation_name_(activation_name),
+        activation_name_(std::move(activation_name)),
         fused_level_(fused_level) {}
 
   std::string name() const override {
@@ -100,7 +102,8 @@ class ConvActivationFusePattern : public paddle::drr::DrrPatternBase {
     if (activation_name_op == paddle::dialect::HardsigmoidOp::name()) {
       act_attrs.emplace("slope", pat.Attr("slope"));
       act_attrs.emplace("offset", pat.Attr("offset"));
-    } else if (activation_name_op == paddle::dialect::LeakyReluOp::name()) {
+    } else if (activation_name_op == paddle::dialect::LeakyRelu_Op::name() ||
+               activation_name_op == paddle::dialect::LeakyReluOp::name()) {
       act_attrs.emplace("negative_slope", pat.Attr("negative_slope"));
     } else if (activation_name_op == paddle::dialect::GeluOp::name()) {
       act_attrs.emplace("approximate", pat.Attr("approximate"));
@@ -120,7 +123,7 @@ class ConvActivationFusePattern : public paddle::drr::DrrPatternBase {
     pat.Tensor("act_out") = activation(pat.Tensor("conv2d_out"));
 
     if (fused_level_ > 0) {
-      pat.RequireNativeCall([&](const paddle::drr::MatchContext &match_ctx) {
+      pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
         auto act_type = match_ctx.Attr<std::string>("fuse_activation");
         if (act_type != "") {
           return false;
@@ -129,8 +132,9 @@ class ConvActivationFusePattern : public paddle::drr::DrrPatternBase {
       });
     }
 
-    pat.RequireNativeCall([&](const paddle::drr::MatchContext &match_ctx) {
-      if (activation_name_ == "leaky_relu") {
+    pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
+      if (activation_name_ == "leaky_relu_" ||
+          activation_name_ == "leaky_relu") {
         float negative_slope = match_ctx.Attr<float>("negative_slope");
         // leaky relu alpha is a positive number
         if (negative_slope <= 0.0) {
@@ -153,13 +157,18 @@ class ConvActivationFusePattern : public paddle::drr::DrrPatternBase {
       fuse_alpha = res.Float32Attr(1.f / 6.f);
     } else if (activation_name_ == "swish") {
       fuse_alpha = res.Float32Attr(1.0f);
-    } else if (activation_name_ == "leaky_relu") {
+    } else if (activation_name_ == "leaky_relu_" ||
+               activation_name_ == "leaky_relu") {
       fuse_alpha = pat.Attr("negative_slope");
     } else if (activation_name_ == "hard_sigmoid") {
       fuse_alpha = pat.Attr("slope");
       fuse_beta = pat.Attr("offset");
     }
 
+    std::string new_act_name = activation_name_;
+    if (activation_name_.back() == '_') {
+      new_act_name = activation_name_.substr(0, activation_name_.size() - 1);
+    }
     const auto &fused_conv =
         fused_level_ == 0
             ? res.Op(paddle::onednn::dialect::FusedConv2dOp::name(),
@@ -171,7 +180,7 @@ class ConvActivationFusePattern : public paddle::drr::DrrPatternBase {
                          {"groups", pat.Attr("groups")},
                          {"data_format", pat.Attr("data_format")},
                          {"mkldnn_data_type", res.StrAttr("float32")},
-                         {"fuse_activation", res.StrAttr(activation_name_)},
+                         {"fuse_activation", res.StrAttr(new_act_name)},
                          {"fuse_residual_connection", res.BoolAttr(false)},
                          {"force_fp32_output", res.BoolAttr(false)},
                          {"fuse_alpha", fuse_alpha},
@@ -190,7 +199,7 @@ class ConvActivationFusePattern : public paddle::drr::DrrPatternBase {
                          {"groups", pat.Attr("groups")},
                          {"data_format", pat.Attr("data_format")},
                          {"mkldnn_data_type", pat.Attr("mkldnn_data_type")},
-                         {"fuse_activation", res.StrAttr(activation_name_)},
+                         {"fuse_activation", res.StrAttr(new_act_name)},
                          {"fuse_residual_connection",
                           pat.Attr("fuse_residual_connection")},
                          {"force_fp32_output", pat.Attr("force_fp32_output")},
@@ -224,8 +233,9 @@ class ConvGeluFusePattern : public paddle::drr::DrrPatternBase {
   const int fused_level_;
 
  public:
-  ConvGeluFusePattern(const std::string &activation_name, int fused_level)
-      : activation_name_(activation_name), fused_level_(fused_level) {}
+  ConvGeluFusePattern(std::string activation_name, int fused_level)
+      : activation_name_(std::move(activation_name)),
+        fused_level_(fused_level) {}
 
   std::string name() const override { return "ConvGeluFusePattern"; }
 
@@ -285,7 +295,7 @@ class ConvGeluFusePattern : public paddle::drr::DrrPatternBase {
     pat.Tensor("act_out") = activation(pat.Tensor("conv2d_out"));
 
     if (fused_level_ > 0) {
-      pat.RequireNativeCall([&](const paddle::drr::MatchContext &match_ctx) {
+      pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
         auto act_type = match_ctx.Attr<std::string>("fuse_activation");
         if (act_type != "") {
           return false;
@@ -367,8 +377,9 @@ class ConvClipFusePattern : public paddle::drr::DrrPatternBase {
   const int fused_level_;
 
  public:
-  ConvClipFusePattern(const std::string &activation_name, int fused_level)
-      : activation_name_(activation_name), fused_level_(fused_level) {}
+  ConvClipFusePattern(std::string activation_name, int fused_level)
+      : activation_name_(std::move(activation_name)),
+        fused_level_(fused_level) {}
 
   std::string name() const override { return "ConvClipFusePattern"; }
 
@@ -433,7 +444,7 @@ class ConvClipFusePattern : public paddle::drr::DrrPatternBase {
         pat.Tensor("conv2d_out"), pat.Tensor("min"), pat.Tensor("max"));
 
     if (fused_level_ > 0) {
-      pat.RequireNativeCall([&](const paddle::drr::MatchContext &match_ctx) {
+      pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
         auto act_type = match_ctx.Attr<std::string>("fuse_activation");
         if (act_type != "") {
           return false;
@@ -443,6 +454,14 @@ class ConvClipFusePattern : public paddle::drr::DrrPatternBase {
     }
 
     paddle::drr::ResultPattern res = pat.ResultPattern();
+    const auto &fuse_alpha = res.ComputeAttr(
+        [](const paddle::drr::MatchContext &match_ctx) -> float {
+          return match_ctx.Attr<double>("full_1_value");
+        });
+    const auto &fuse_beta = res.ComputeAttr(
+        [](const paddle::drr::MatchContext &match_ctx) -> float {
+          return match_ctx.Attr<double>("full_2_value");
+        });
 
     const auto &fused_conv =
         fused_level_ == 0
@@ -458,8 +477,8 @@ class ConvClipFusePattern : public paddle::drr::DrrPatternBase {
                          {"fuse_activation", res.StrAttr("clip")},
                          {"fuse_residual_connection", res.BoolAttr(false)},
                          {"force_fp32_output", res.BoolAttr(false)},
-                         {"fuse_alpha", pat.Attr("full_1_value")},
-                         {"fuse_beta", pat.Attr("full_2_value")},
+                         {"fuse_alpha", fuse_alpha},
+                         {"fuse_beta", fuse_beta},
                          {"scale_in", res.Float32Attr(1.0f)},
                          {"scale_out", res.Float32Attr(1.0f)},
                          {"scale_in_eltwise", res.Float32Attr(1.0f)},
@@ -478,8 +497,8 @@ class ConvClipFusePattern : public paddle::drr::DrrPatternBase {
                          {"fuse_residual_connection",
                           pat.Attr("fuse_residual_connection")},
                          {"force_fp32_output", pat.Attr("force_fp32_output")},
-                         {"fuse_alpha", pat.Attr("full_1_value")},
-                         {"fuse_beta", pat.Attr("full_2_value")},
+                         {"fuse_alpha", fuse_alpha},
+                         {"fuse_beta", fuse_beta},
                          {"scale_in", pat.Attr("scale_in")},
                          {"scale_out", pat.Attr("scale_out")},
                          {"scale_in_eltwise", pat.Attr("scale_in_eltwise")},
@@ -512,15 +531,21 @@ class ConvActFusePass : public pir::PatternRewritePass {
 
     // This eleven activations have no extra attribute, can use the same pattern
     std::vector<std::string> supported_activations_name = {"abs",
+                                                           "abs_",
                                                            "sqrt",
+                                                           "sqrt_",
                                                            "mish",
                                                            "relu",
+                                                           "relu_",
                                                            "sigmoid",
+                                                           "sigmoid_",
                                                            "tanh",
+                                                           "tanh_",
                                                            "relu6",
                                                            "hard_swish",
                                                            "swish",
                                                            "leaky_relu",
+                                                           "leaky_relu_",
                                                            "hard_sigmoid"};
 
     size_t pattern_num = 1;
@@ -548,6 +573,10 @@ class ConvActFusePass : public pir::PatternRewritePass {
         context, paddle::dialect::ClipOp::name(), 0));
     ps.Add(paddle::drr::Create<ConvClipFusePattern>(
         context, paddle::dialect::ClipOp::name(), 1));
+    ps.Add(paddle::drr::Create<ConvClipFusePattern>(
+        context, paddle::dialect::Clip_Op::name(), 0));
+    ps.Add(paddle::drr::Create<ConvClipFusePattern>(
+        context, paddle::dialect::Clip_Op::name(), 1));
     return ps;
   }
 };

@@ -23,14 +23,20 @@ class CAllGatherOp : public framework::OperatorWithKernel {
  public:
   using framework::OperatorWithKernel::OperatorWithKernel;
   void InferShape(framework::InferShapeContext *ctx) const override {
-    OP_INOUT_CHECK(ctx->HasInput("X"), "Input", "X", "AllGather");
-    OP_INOUT_CHECK(ctx->HasOutput("Out"), "Input", "Out", "AllGather");
+    PADDLE_ENFORCE_EQ(ctx->HasInput("X"),
+                      true,
+                      common::errors::PreconditionNotMet(
+                          "Input 'X' of AllGather must be provided."));
+    PADDLE_ENFORCE_EQ(ctx->HasOutput("Out"),
+                      true,
+                      common::errors::PreconditionNotMet(
+                          "Output 'Out' of AllGather must be provided."));
     int nranks = ctx->Attrs().Get<int>("nranks");
     PADDLE_ENFORCE_GE(
         nranks,
         2,
-        phi::errors::InvalidArgument("The value of nranks should be >=2."));
-    framework::DDim dim = ctx->GetInputDim("X");
+        common::errors::InvalidArgument("The value of nranks should be >=2."));
+    phi::DDim dim = ctx->GetInputDim("X");
     // 0D use stack/unstack while others use concat/split
     if (dim.size() == 0) {
       dim = common::make_ddim({nranks});
@@ -68,7 +74,6 @@ reference: https://docs.nvidia.com/deeplearning/sdk/nccl-developer-guide/docs/us
 }  // namespace paddle
 
 namespace ops = paddle::operators;
-namespace plat = paddle::platform;
 
 REGISTER_OP_WITHOUT_GRADIENT(c_allgather,
                              ops::CAllGatherOp,

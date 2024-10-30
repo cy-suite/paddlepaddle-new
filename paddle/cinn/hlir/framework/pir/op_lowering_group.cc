@@ -74,18 +74,21 @@ std::vector<::pir::Value> OpLoweringGroup::GetGroupOutputValues() const {
   return output_values;
 }
 
-std::unordered_set<::pir::Value> OpLoweringGroup::GetInputOpValues() const {
-  std::unordered_set<::pir::Value> group_inputs;
+std::vector<::pir::Value> OpLoweringGroup::GetInputOpValues() const {
+  std::unordered_set<::pir::Value> visited_values;
+  std::vector<::pir::Value> group_inputs;
   std::unordered_set<::pir::Operation*> ops_set(this->ops_.begin(),
                                                 this->ops_.end());
 
   // count all op's input Value
-  for (auto op : ops_set) {
+  for (auto op : ops_) {
     for (auto& value : op->operands_source()) {
       if (!value || !value.type() || ops_set.count(value.defining_op()))
         continue;
+      if (visited_values.count(value)) continue;
       // if the input value owner op is not in OpSet, it's the group's input
-      group_inputs.insert(value);
+      visited_values.insert(value);
+      group_inputs.push_back(value);
     }
   }
   return group_inputs;
@@ -127,33 +130,17 @@ void OpLoweringGroup::SetShapeOrDataExprs(
 }
 
 std::shared_ptr<OpLoweringGroup> OpLoweringGroup::Clone(
-    ::pir::Block* target_block, ::pir::IrMapping* ir_mapping) const {
-  std::vector<::pir::Operation*> new_ops;
-  // Mapper from original to new ops.
-  std::unordered_map<::pir::Operation*, ::pir::Operation*> ops_mapper;
-  auto clone_options = ::pir::CloneOptions(false, true, false);
-  for (auto* op : ops_) {
-    VLOG(4) << "clone op :" << op->name();
-    auto* new_op = op->Clone(*ir_mapping, clone_options);
-    // NOTE(dev): Must call block.insert to deal with ownership, otherwise it
-    // will lead memory-leak.
-    target_block->insert(target_block->end(), new_op);
-    new_ops.push_back(new_op);
-    ops_mapper[op] = new_op;
-  }
-
+    const std::string& name_suffix) const {
+  const auto new_fn_name = this->fn_name_ + "_cloned_" + name_suffix;
   // Construct Base information for new Group
-  auto new_group = std::make_shared<OpLoweringGroup>(new_ops);
-  for (auto* op : this->output_ops_) {
-    new_group->output_ops_.insert(ops_mapper.at(op));
-  }
-  for (const auto& output_value : this->output_values_) {
-    new_group->output_values_.push_back(ir_mapping->Lookup(output_value));
-  }
+  auto new_group = std::make_shared<OpLoweringGroup>(
+      this->ops_, new_fn_name, this->fusion_tracker_ptr);
 
+  new_group->output_ops_ = this->output_ops_;
+  new_group->output_values_ = this->output_values_;
   new_group->input_names_ = this->input_names_;
   new_group->output_names_ = this->output_names_;
-  new_group->int_args_map_ = this->int_args_map_;
+  new_group->symbol_args_map_ = this->symbol_args_map_;
   new_group->alignment_schedule_info_ = this->alignment_schedule_info_;
   new_group->reduce_axis_ = this->reduce_axis_;
   new_group->loop_ranges_ = this->loop_ranges_;
@@ -180,9 +167,10 @@ std::ostream& operator<<(std::ostream& os, const OpLoweringGroup& group) {
     os << "}";
   };
   ::pir::IrPrinter printer(os);
-  os << "Group " << group.group_id() << " :\n";
+  os << "Group id: " << group.group_id() << ", func_name: " << group.FuncName()
+     << "\n";
   for (auto* op : group.ops()) {
-    printer.PrintOperation(op);
+    printer.PrintOperation(*op);
     PrintSymbolDims(*op);
     os << "\n";
   }

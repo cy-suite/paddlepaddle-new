@@ -145,8 +145,8 @@ class MatmulOpInferSymbolicShapeTest(TestBase):
             'shape[], data[NULL]',
             'shape[S0], data[NULL]',
             'shape[S0, S1], data[NULL]',
-            'shape[S0, S1, S5], data[NULL]',
-            'shape[S0, S1, S2, S7], data[NULL]',
+            'shape[Broadcast(S0, S3), S1, S5], data[NULL]',
+            'shape[Broadcast(S0, S4), Broadcast(S1, S5), S2, S7], data[NULL]',
             # with transpose
             'shape[S1, S3], data[NULL]',
             'shape[S0, S2], data[NULL]',
@@ -267,7 +267,7 @@ class MaskedSelectOpInferSymbolicShapeTest(TestBase):
                 shape=[None for _ in range(len(x.shape))], dtype='float32'
             )
             mask_spec = InputSpec(
-                shape=[None for _ in range(len(mask.shape))], dtype='float32'
+                shape=[None for _ in range(len(mask.shape))], dtype='bool'
             )
 
             input_spec = [x_spec, mask_spec]

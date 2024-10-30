@@ -27,13 +27,13 @@
 #include "paddle/cinn/adt/print.h"
 #include "paddle/cinn/adt/schedule_descriptor.h"
 #include "paddle/cinn/adt/tree.h"
-#include "paddle/cinn/hlir/framework/pir/group.h"
 #include "paddle/cinn/hlir/framework/pir/utils.h"
 #include "paddle/cinn/runtime/flags.h"
 #include "paddle/pir/include/core/operation.h"
 #include "paddle/pir/include/core/value.h"
 
 #include "glog/logging.h"
+#include "paddle/common/enforce.h"
 
 PD_DECLARE_bool(cinn_enable_map_expr);
 PD_DECLARE_bool(cinn_map_expr_enable_dynamic_shape);
@@ -102,7 +102,11 @@ bool HasDynamicShape(const ::pir::Value& tensor) {
   const auto& shape = hlir::framework::pir::CompatibleInfo::ValueShape(tensor);
   for (int dim : shape) {
     if (dim < 0) {
-      CHECK_EQ(dim, -1);
+      PADDLE_ENFORCE_EQ(
+          dim,
+          -1UL,
+          ::common::errors::InvalidArgument(
+              "The dynamic shape dim should be -1, but got %d.", dim));
       return true;
     }
   }
@@ -166,7 +170,11 @@ hlir::framework::OpPatternKind GetOpPatternKind(const ::pir::Operation* node) {
 bool CollectRewrittenReductionOpStmts(const OpStmt& op_stmt,
                                       List<OpStmt>* ret) {
   const auto& [op, inputs, outputs] = op_stmt.tuple();
-  CHECK(op.Has<const ::pir::Operation*>());
+  PADDLE_ENFORCE_EQ(
+      op.Has<const ::pir::Operation*>(),
+      true,
+      ::common::errors::InvalidArgument(
+          "The op should have a value of type ::pir::Operation*"));
   if (GetOpPatternKind(op.Get<const ::pir::Operation*>()) ==
       hlir::framework::OpPatternKind::kReduction) {
     tReduceInit<const ::pir::Operation*> init_op{
@@ -230,7 +238,10 @@ std::vector<std::shared_ptr<IGroup>> GenerateIGroups(
   std::vector<std::shared_ptr<IGroup>> ret{};
 
   List<OpStmt> op_stmts = MakeOpStmts(group);
-  CHECK(!op_stmts->empty());
+  PADDLE_ENFORCE_EQ(
+      !op_stmts->empty(),
+      true,
+      ::common::errors::InvalidArgument("The op_stmts should not be empty"));
 
   PartitionIGroupOpStmts(op_stmts, [&](const auto& igroup_spec) {
     ret.push_back(MakeIGroup(igroup_spec));
@@ -242,7 +253,11 @@ std::vector<std::shared_ptr<IGroup>> GenerateIGroups(
 std::shared_ptr<KGroup> GenerateKGroups(
     const std::shared_ptr<hlir::framework::pir::OpLoweringGroup>& group,
     const std::vector<std::shared_ptr<IGroup>>& igroups) {
-  CHECK_EQ(igroups.size(), 1);
+  PADDLE_ENFORCE_EQ(
+      igroups.size(),
+      1UL,
+      ::common::errors::InvalidArgument(
+          "The size of igroups should be 1, but got %d.", igroups.size()));
   return std::make_shared<KGroup>(group, igroups);
 }
 
@@ -263,9 +278,12 @@ std::unordered_map<Variable, const Value> MakeSdIterator2Iterator(
   std::unordered_map<Variable, const Value> ret{};
 
   for (std::size_t i = 0; i < igroup.loop_iterators()->size(); ++i) {
-    CHECK(ret.emplace(igroup.loop_iterators()->at(i),
-                      igroup.loop_iterators()->at(i))
-              .second);
+    PADDLE_ENFORCE_EQ(ret.emplace(igroup.loop_iterators()->at(i),
+                                  igroup.loop_iterators()->at(i))
+                          .second,
+                      true,
+                      ::common::errors::InvalidArgument(
+                          "The loop iterator should be unique"));
   }
 
   return ret;
@@ -315,11 +333,21 @@ TensorIteratorExpr4TensorT MakeGetterTensorIteratorExpr4Tensor(
 
 LoopDescriptor4IterVarT MakeGetterLoopDescriptor4IterVar(
     const LoopIterators& loop_iters, const LoopDescriptors& sd) {
-  CHECK_EQ(loop_iters->size(), sd->size());
+  PADDLE_ENFORCE_EQ(
+      loop_iters->size(),
+      sd->size(),
+      ::common::errors::InvalidArgument(
+          "The size of loop iterators and loop descriptors should be equal, "
+          "but got loop iterators size = %d, loop descriptors size = %d.",
+          loop_iters->size(),
+          sd->size()));
   using Cache = std::unordered_map<Iterator, LoopDescriptor>;
   const auto& sd_iter2sd = std::make_shared<Cache>();
   for (std::size_t i = 0; i < loop_iters->size(); ++i) {
-    CHECK(sd_iter2sd->emplace(loop_iters->at(i), sd->at(i)).second);
+    PADDLE_ENFORCE_EQ(sd_iter2sd->emplace(loop_iters->at(i), sd->at(i)).second,
+                      true,
+                      ::common::errors::InvalidArgument(
+                          "The loop iterator should be unique"));
   }
   return [sd_iter2sd](const auto& sd_iter) { return sd_iter2sd->at(sd_iter); };
 }
@@ -328,7 +356,10 @@ TreeMerger<Stmt> MakeTreeMerger(const MapIr& map_ir) {
   using Cache = std::unordered_map<OpStmt, LoopIterators>;
   auto cache = std::make_shared<Cache>();
   for (const auto& op_stmt : *(map_ir.op_stmts())) {
-    CHECK(cache->emplace(op_stmt, map_ir.loop_iterators()).second);
+    PADDLE_ENFORCE_EQ(
+        cache->emplace(op_stmt, map_ir.loop_iterators()).second,
+        true,
+        ::common::errors::InvalidArgument("The op_stmt should be unique"));
   }
 
   TreeMerger<Stmt> tree_merger{};
@@ -345,8 +376,15 @@ MapStmt<Stmt> MakeMapStmt(const MapIrList& map_irs) {
     const TreeMerger<Stmt>& tree_merger = MakeTreeMerger(map_ir);
     MergeTrees(tree_merger, &stmts, map_ir.op_stmts());
   }
-  CHECK_EQ(stmts->size(), 1);
-  CHECK(stmts->at(0).Has<MapStmt<Stmt>>());
+  PADDLE_ENFORCE_EQ(
+      stmts->size(),
+      1UL,
+      ::common::errors::InvalidArgument(
+          "The size of stmts should be 1, but got %d.", stmts->size()));
+  PADDLE_ENFORCE_EQ(stmts->at(0).Has<MapStmt<Stmt>>(),
+                    true,
+                    ::common::errors::InvalidArgument(
+                        "The stmts should have a value of type MapStmt<Stmt>"));
   return stmts->at(0).Get<MapStmt<Stmt>>();
 }
 

@@ -34,7 +34,7 @@ class IrSelectedRows
   IrSelectedRows(phi::DataType dtype,
                  const phi::DDim& dims,
                  phi::DataLayout layout,
-                 const LoD& lod,
+                 LoD lod,
                  size_t offset = 0);
 
   IrSelectedRows(IrSelectedRows&& other) = default;
@@ -73,6 +73,11 @@ class IrSelectedRows
   size_t offset() const noexcept { return offset_; }
 
   bool valid() const noexcept override { return true; }
+
+  bool has_allocation() const override {
+    PADDLE_THROW(::common::errors::Unavailable(
+        "`has_allocation` is only available at runtime"));
+  }
 
   bool initialized() const override { return true; }
 

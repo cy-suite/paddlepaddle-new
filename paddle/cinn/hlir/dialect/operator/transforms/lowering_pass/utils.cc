@@ -15,16 +15,19 @@
 #include "paddle/cinn/hlir/dialect/operator/transforms/lowering_pass/utils.h"
 
 #include "paddle/cinn/adt/generate_map_expr.h"
+#include "paddle/cinn/hlir/dialect/operator/ir/attribute_storage.h"
 #include "paddle/cinn/hlir/dialect/operator/ir/generate_shape_util.h"
 #include "paddle/cinn/hlir/dialect/operator/ir/op_attribute.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/lowering_pass/collect_sym_expr.h"
 #include "paddle/cinn/hlir/dialect/runtime/ir/jit_kernel_op.h"
 #include "paddle/cinn/hlir/dialect/runtime/ir/runtime_dialect.h"
 #include "paddle/cinn/hlir/framework/pir/compilation_cache.h"
+#include "paddle/cinn/hlir/framework/pir/utils.h"
 #include "paddle/cinn/hlir/framework/pir_compiler.h"
 #include "paddle/cinn/runtime/flags.h"
 
 PD_DECLARE_bool(cinn_enable_map_expr);
+PD_DECLARE_bool(enable_cinn_compile_cache);
 
 namespace cinn::dialect::ir::details {
 
@@ -56,34 +59,28 @@ std::vector<pir::Value> GetBlockOutsideInput(
   return vec_res;
 }
 
-std::unordered_map<OpLoweringGroupPtr,
-                   std::unordered_map<std::string, pir::Attribute>>
-CompileGroupAsOpAttribute(const std::vector<OpLoweringGroupPtr>& group_list) {
-  PirCompiler pir_compiler(cinn::common::DefaultNVGPUTarget());
-  auto fn_ptr_res = pir_compiler.Build(group_list);
-
-  std::unordered_map<OpLoweringGroupPtr,
-                     std::unordered_map<std::string, pir::Attribute>>
-      result;
-  for (size_t i = 0; i < group_list.size(); ++i) {
-    std::unordered_map<std::string, ::pir::Attribute> op_attrs{
-        {cinn::dialect::JitKernelOp::kAttrName,
-         cinn::dialect::CINNKernelInfoAttribute::get(pir::IrContext::Instance(),
-                                                     fn_ptr_res[i])},
-    };
-    result.insert({group_list[i], op_attrs});
-  }
-  return result;
-}
-
 std::unordered_map<std::string, ::pir::Attribute> GetJitKernelAttr(
     const OpLoweringGroupPtr& group) {
-  hlir::framework::pir::FusionInfo fusion_info(*group);
-  auto kernel_info = CompilationCache::Instance().GetKernelInfo(fusion_info);
+  const auto& CreateKernelInfo = [&]() -> CINNKernelInfo {
+    const auto& CreateFromCache = [&]() {
+      hlir::framework::pir::FusionInfo fusion_info(*group);
+      return CompilationCache::Instance().GetKernelInfo(fusion_info);
+    };
+    const auto& CreateFromNewCompile = [&]() {
+      PirCompiler pir_compiler(cinn::common::DefaultDeviceTarget());
+      return pir_compiler.Build({group})[0];
+    };
+
+    if (FLAGS_enable_cinn_compile_cache) {
+      return CreateFromCache();
+    } else {
+      return CreateFromNewCompile();
+    }
+  };
   std::unordered_map<std::string, ::pir::Attribute> attrs{
       {cinn::dialect::JitKernelOp::kAttrName,
        cinn::dialect::CINNKernelInfoAttribute::get(pir::IrContext::Instance(),
-                                                   kernel_info)}};
+                                                   CreateKernelInfo())}};
   return attrs;
 }
 
@@ -102,22 +99,31 @@ OpLoweringGroupPtr BuildOpLoweringGroup(pir::Operation* fusion_op_ptr) {
     }
   }
 
-  auto group = std::make_shared<OpLoweringGroup>(ops);
+  PADDLE_ENFORCE_GT(fusion_op.attributes().count("group_info"),
+                    0UL,
+                    ::common::errors::InvalidArgument(
+                        "fusion_op should have group_info attribute."));
 
-  if (fusion_op.attributes().count("group_info")) {
-    auto attr = fusion_op.attribute("group_info")
-                    .dyn_cast<cinn::dialect::GroupInfoAttribute>()
-                    .data();
+  const auto attr = fusion_op.attribute("group_info")
+                        .dyn_cast<cinn::dialect::GroupInfoAttribute>()
+                        .data();
 
-    group_op_kind =
-        static_cast<int>(attr.op_pattern_kind) > static_cast<int>(group_op_kind)
-            ? attr.op_pattern_kind
-            : group_op_kind;
-    group->set_loop_ranges(attr.loop_ranges);
-    group->set_loop_ranges_expr(attr.loop_ranges_expr);
-    group->set_reduce_axis(attr.reduce_axis);
-    group->set_alignment_schedule_info(attr.alignment_schedule_info);
-  }
+  const auto& fn_name = attr.fn_name;
+  auto group = std::make_shared<OpLoweringGroup>(
+      ops,
+      fn_name,
+      fusion_op_ptr->attribute("fusion_tracker")
+          .dyn_cast<cinn::dialect::FusionTrackerPtrAttribute>()
+          .data());
+
+  group_op_kind =
+      static_cast<int>(attr.op_pattern_kind) > static_cast<int>(group_op_kind)
+          ? attr.op_pattern_kind
+          : group_op_kind;
+  group->set_loop_ranges(attr.loop_ranges);
+  group->set_loop_ranges_expr(attr.loop_ranges_expr);
+  group->set_reduce_axis(attr.reduce_axis);
+  group->set_alignment_schedule_info(attr.alignment_schedule_info);
   group->set_op_pattern_kind(group_op_kind);
 
   // Rebuild output_ops and input_ops of the group
@@ -131,7 +137,6 @@ OpLoweringGroupPtr BuildOpLoweringGroup(pir::Operation* fusion_op_ptr) {
   // Because the group is rebuilt, the order of group.output_values generated
   // by BuildCUDAJITInfo may not be same with the order bound in the yield op,
   // so a mapping is required.
-  UpdateGroupShapeOrDataExprs(group);
   if (FLAGS_cinn_enable_map_expr) {
     cinn::adt::TryGenerateMapExprFromGroup(group);
   }

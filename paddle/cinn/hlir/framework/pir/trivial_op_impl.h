@@ -21,11 +21,9 @@
 #include "paddle/cinn/hlir/framework/pir/op_lowering_util.h"
 #include "paddle/cinn/hlir/framework/pir/trivial_op_util.h"
 #include "paddle/cinn/hlir/framework/pir/utils.h"
-#include "paddle/cinn/hlir/op/external_api_registry.h"
 #include "paddle/cinn/hlir/pe/map_expr_to_ir.h"
 #include "paddle/cinn/ir/dim.h"
 #include "paddle/cinn/ir/group_schedule/base_group_scheduler.h"
-#include "paddle/cinn/ir/group_schedule/st_shape_group_scheduler.h"
 #include "paddle/cinn/ir/schedule/ir_schedule.h"
 #include "paddle/cinn/ir/schedule/ir_schedule_util.h"
 #include "paddle/cinn/lang/placeholder.h"
@@ -81,9 +79,6 @@ ir::Expr GetComputeBody(const FusibleOp& op);
 
 ir::Tensor GetOutputTensor(const FusibleOp& op);
 
-std::vector<ir::Var> AppendBound(const std::vector<ir::Var> vars,
-                                 const ir::Expr& root);
-
 std::vector<ir::Var> GetOutputIters(const FusibleOp& op);
 
 std::vector<ir::Var> GetReduceIters(const ReduceOp& op);
@@ -110,8 +105,6 @@ ir::Expr CreateTrivialExpr(const std::vector<ir::Var>& output_iters,
 
 ir::Expr CreateExprWithNewComputeBody(const FusibleOp& fusible_op,
                                       const ir::Expr& new_compute_body);
-
-bool CheckAllLoopRangeEq(ReduceOp reduce_upper, TrivialOp trivial_down);
 
 FusibleOp CreateFusibleOp(ir::Expr compute_body, OpPatternKind op_pattern);
 
@@ -141,7 +134,7 @@ std::pair<TrivialOp, ReduceOp> SplitReduceOp(const ReduceOp& reduce_op);
 std::vector<FusibleOp> TransformReduceLoopRange(
     const ReduceOp& upstream,
     FusibleOp* downstream,
-    std::vector<size_t> fake_reduce_iter_idx);
+    const std::vector<size_t>& fake_reduce_iter_idx);
 
 template <typename T>
 std::vector<T> FilterWithFakeReduceIter(
@@ -161,25 +154,31 @@ FusibleOp SinkTrivialLoopAlign(TrivialOp trivial_op,
                                ReduceOp reduce_op,
                                std::vector<size_t> fake_reduce_iter_idx);
 
+std::vector<ir::Var> GetAllIterVars(const ir::Expr& expr);
+
+std::vector<ir::Var> GetAllForIters(const ir::Expr& expr);
+
 }  // namespace trivial_fusion_detail
 
 struct FusionGroupInfo {
   std::vector<int64_t> loop_ranges;
+  std::vector<int64_t> loop_strides;
   std::vector<int64_t> reduce_axis;
   std::vector<std::string> reduce_var_name;
+  bool can_apply_grid_reduce;
 
   std::string DebugPrint() {
-    return "GroupInfo\nloop_ranges: " + cinn::utils::Join(loop_ranges, " ") +
-           "\nreduce_axis: " + cinn::utils::Join(reduce_axis, " ") +
-           "\nreduce_var_name: " + cinn::utils::Join(reduce_var_name, " ");
+    std::stringstream ss;
+    ss << "GroupInfo\nloop_ranges: " << cinn::utils::Join(loop_ranges, " ")
+       << "\nloop_strides: " << cinn::utils::Join(loop_strides, ", ")
+       << "\nreduce_axis: " << cinn::utils::Join(reduce_axis, " ")
+       << "\nreduce_var_name: " << cinn::utils::Join(reduce_var_name, " ")
+       << "\ncan_apply_grid_reduce: " << can_apply_grid_reduce;
+    return ss.str();
   }
 };
 
-FusionGroupInfo GetFusionGroupInfo(
-    const std::vector<ir::Expr>& op_compute_bodies);
-
-std::vector<ir::Expr> OperationFusion(
-    const std::vector<::pir::Operation*>& ops,
+std::shared_ptr<FusionGroupInfo> GetFusionGroupInfo(
     const std::vector<ir::Expr>& op_compute_bodies);
 
 }  // namespace pir
