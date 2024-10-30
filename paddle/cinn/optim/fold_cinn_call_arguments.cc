@@ -30,7 +30,9 @@ namespace {
  * Fold the arguments of the Call nodes marked as CINN(calls an LoweredFunc).
  */
 struct FoldCINNCallArgumentsMutator : public ir::IRMutator<> {
-  void operator()(Expr* expr) { ir::IRMutator<>::Visit(expr, expr); }
+  void operator()(ir::LoweredFunc fn) {
+    ir::IRMutator<>::Visit(fn.As<ir::_LoweredFunc_>());
+  }
 
  private:
   void Visit(const ir::Block* op, Expr* expr) override {
@@ -113,7 +115,9 @@ struct FoldCINNCallArgumentsMutator : public ir::IRMutator<> {
 
 }  // namespace
 
-void FoldCINNCallArguments(Expr* expr) { FoldCINNCallArgumentsMutator()(expr); }
+void FoldCINNCallArguments(ir::LoweredFunc fn) {
+  FoldCINNCallArgumentsMutator()(fn);
+}
 
 }  // namespace optim
 }  // namespace cinn

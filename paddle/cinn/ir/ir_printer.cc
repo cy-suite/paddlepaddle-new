@@ -805,6 +805,14 @@ std::ostream &operator<<(std::ostream &os, Expr a) {
   return os;
 }
 
+std::ostream &operator<<(std::ostream &os, const ir::LoweredFunc &func) {
+  std::stringstream ss;
+  IrPrinter printer(ss);
+  printer.Visit(func.As<_LoweredFunc_>());
+  os << ss.str();
+  return os;
+}
+
 std::ostream &operator<<(std::ostream &os, const ir::Module &m) {
   os << "Module " << m->name << " {\n\n";
   for (auto &fn : m->functions) {

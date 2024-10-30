@@ -180,6 +180,10 @@ class CodeGenLLVM : public LLVMIRVisitor, public IrBuilderMixin<CodeGenLLVM> {
 
   using LLVMIRVisitor::Visit;
 
+  llvm::Value *Visit(const ir::_Module_ *op);
+
+  llvm::Value *Visit(const ir::_LoweredFunc_ *op);
+
 #define __(op__) llvm::Value *Visit(const ir::op__ *) override;
   NODETY_FORALL(__)
 #undef __

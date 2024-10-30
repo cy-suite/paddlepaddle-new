@@ -51,6 +51,7 @@ struct IrPrinter : public IRVisitorRequireReImpl<void> {
   std::ostream &os() { return os_; }
 
   void Visit(const Expr &x) { IRVisitorRequireReImpl::Visit(&x); }
+  void Visit(const ir::LoweredFunc &fn) { Visit(fn.As<ir::_LoweredFunc_>()); }
 
   void Visit(const std::vector<Expr> &exprs,
              const std::string &splitter = ", ") {
@@ -72,6 +73,9 @@ struct IrPrinter : public IRVisitorRequireReImpl<void> {
   void Visit(const IterSum *x);
   void Visit(const IterSplit *x);
 
+  virtual void Visit(const _Module_ *m);
+  virtual void Visit(const _LoweredFunc_ *f);
+
  protected:
   std::string str_;
 
@@ -82,9 +86,10 @@ struct IrPrinter : public IRVisitorRequireReImpl<void> {
 };
 
 std::ostream &operator<<(std::ostream &os, Expr a);
-std::ostream &operator<<(std::ostream &os, const Module &m);
 std::ostream &operator<<(std::ostream &os, const std::vector<Expr> &a);
 std::ostream &operator<<(std::ostream &os, const std::vector<Dim> &a);
+std::ostream &operator<<(std::ostream &os, const Module &m);
+std::ostream &operator<<(std::ostream &os, const ir::LoweredFunc &func);
 
 template <typename IRN>
 void IrPrinter::PrintBinaryOp(const std::string &op,

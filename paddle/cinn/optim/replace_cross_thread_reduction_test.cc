@@ -50,10 +50,11 @@ TEST(CrossThreadReductionReplacer, basic) {
   ir_sch.Bind(ir_sch.GetLoops("B")[0], "blockIdx.x");
   ir_sch.Bind(ir_sch.GetLoops("B")[1], "threadIdx.x");
 
-  ir::Expr new_func = ir_sch.GetModule().GetExprs()[0];
+  ir::Expr func_body = ir_sch.GetModule().GetExprs()[0];
+  auto new_func = ir::_LoweredFunc_::Make("test_func", {}, func_body, {});
   VLOG(6) << "After Bind: " << new_func;
 
-  ReplaceCrossThreadReduction(&new_func);
+  ReplaceCrossThreadReduction(new_func);
   VLOG(6) << "After ReplaceCrossThreadReduction: " << new_func;
 
   EXPECT_EQ(utils::GetStreamCnt(new_func), utils::Trim(R"ROC({
