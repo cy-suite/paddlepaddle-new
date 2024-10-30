@@ -656,7 +656,10 @@ bool AssignPosOpInferSymbolicShape(
         symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs(
             {eff_num_len_shape_or_data.data()->at(0)})});
   } else {
-    infer_context->SetSymbolForValueByStaticShape(op->result(0));
+    infer_context->SetShapeOrDataForValue(
+        op->result(0),
+        symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs(
+            {infer_context->GetNextSymName()})});
   }
   return true;
 }
