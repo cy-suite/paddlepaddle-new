@@ -131,8 +131,8 @@ if((WITH_GPU) AND (LINUX))
 endif()
 if((WITH_GPU) AND (LINUX))
   py_test_modules(
-    test_parallel_api MODULES test_parallel_api ENVS
+    test_parallel_api_with_llama MODULES test_parallel_api_with_llama ENVS
     "http_proxy=;https_proxy=;PYTHONPATH=../..:${PADDLE_BINARY_DIR}/python")
-  set_tests_properties(test_parallel_api PROPERTIES TIMEOUT "300" LABELS
-                                                    "RUN_TYPE=HYBRID")
+  set_tests_properties(test_parallel_api_with_llama
+                       PROPERTIES TIMEOUT "300" LABELS "RUN_TYPE=HYBRID")
 endif()
