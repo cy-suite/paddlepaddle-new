@@ -4636,9 +4636,9 @@ def expand_as(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         if convert_dtype(x.dtype) == 'bool' and not x.stop_gradient:
             raise ValueError(
                 "When the data type of input 'x' for expand_as is bool, "
-                "you must set its stop_gradient to be False by "
-                "some_var.stop_gradient = True, supporting "
-                "some_var as the input 'x'."
+                "you must set its stop_gradient to be True by "
+                "some_var.stop_gradient = True, supposing "
+                "some_var is the input 'x'."
             )
         return _C_ops.expand_as(x, y, y.shape)
     else:
@@ -4661,9 +4661,9 @@ def expand_as(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         if convert_dtype(x.dtype) == 'bool' and not x.stop_gradient:
             raise ValueError(
                 "When the data type of input 'x' for expand_as is bool, "
-                "you must set its stop_gradient to be False by "
-                "some_var.stop_gradient = True, supporting "
-                "some_var as the input 'x'."
+                "you must set its stop_gradient to be True by "
+                "some_var.stop_gradient = True, supposing "
+                "some_var is the input 'x'."
             )
         inputs = {"X": [x], "Y": [y]}
 
@@ -4791,9 +4791,9 @@ def expand(x: Tensor, shape: ShapeLike, name: str | None = None) -> Tensor:
         if convert_dtype(x.dtype) == 'bool' and not x.stop_gradient:
             raise ValueError(
                 "When the data type of input 'x' for expand is bool, "
-                "you must set its stop_gradient to be False by "
-                "some_var.stop_gradient = True, supporting "
-                "some_var as the input."
+                "you must set its stop_gradient to be True by "
+                "some_var.stop_gradient = True, supposing "
+                "some_var is the input."
             )
 
         inputs = {"X": [x]}
