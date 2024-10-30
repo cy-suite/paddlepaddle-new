@@ -4678,12 +4678,6 @@
   outputs:
     out : Out
 
-- op: sync_calc_stream
-  inputs :
-    x : X
-  outputs :
-    out : Out
-
 - op: sync_comm_stream
   inputs :
     x : X
