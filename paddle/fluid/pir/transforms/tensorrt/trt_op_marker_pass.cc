@@ -1440,15 +1440,10 @@ class GridSampleOpPattern
           << "grid_sample need attributes: mode, padding_mode, align_corners";
       return false;
     }
-    auto x_shape = op.operand_source(0)
-                       .type()
-                       .dyn_cast<paddle::dialect::DenseTensorType>()
-                       .dims();
-
-    auto grid_shape = op.operand_source(1)
-                          .type()
-                          .dyn_cast<paddle::dialect::DenseTensorType>()
-                          .dims();
+    x = op.operand_source(0);
+    grid = op.operand_source(1);
+    auto x_shape = pir::GetShapeFromValue(x);
+    auto grid_shape = pir::GetShapeFromValue(grid);
 
     if (x_shape.size() != 4 || grid_shape.size() != 4) {
       VLOG(3) << "The input and grid tensors must be shape tensors of rank 4 "
