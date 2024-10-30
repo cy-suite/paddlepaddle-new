@@ -4536,11 +4536,7 @@ def tile(
             'tile',
         )
         if convert_dtype(x.dtype) == 'bool' and not x.stop_gradient:
-            raise ValueError(
-                "When the date type is bool for the input 'x' of tile op, you "
-                "must set its stop_gradient to be True by "
-                "some_var.stop_gradient == True supporting some_var is the input."
-            )
+            x = x.detach()
 
     if in_dynamic_mode():
         if isinstance(repeat_times, core.eager.Tensor):
@@ -4634,12 +4630,8 @@ def expand_as(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         return _C_ops.expand_as(x, None, y.shape)
     elif in_pir_mode():
         if convert_dtype(x.dtype) == 'bool' and not x.stop_gradient:
-            raise ValueError(
-                "When the data type of input 'x' for expand_as is bool, "
-                "you must set its stop_gradient to be True by "
-                "some_var.stop_gradient = True, supposing "
-                "some_var is the input 'x'."
-            )
+            x = x.detach()
+
         return _C_ops.expand_as(x, y, y.shape)
     else:
         check_variable_and_dtype(
@@ -4659,12 +4651,8 @@ def expand_as(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         check_type(y, 'y', Variable, 'expand_as')
 
         if convert_dtype(x.dtype) == 'bool' and not x.stop_gradient:
-            raise ValueError(
-                "When the data type of input 'x' for expand_as is bool, "
-                "you must set its stop_gradient to be True by "
-                "some_var.stop_gradient = True, supposing "
-                "some_var is the input 'x'."
-            )
+            x = x.detach()
+
         inputs = {"X": [x], "Y": [y]}
 
         helper = LayerHelper('expand_as', **locals())
@@ -4746,7 +4734,7 @@ def expand(x: Tensor, shape: ShapeLike, name: str | None = None) -> Tensor:
         return _C_ops.expand(x, shape)
     elif in_pir_mode():
         if convert_dtype(x.dtype) == 'bool' and not x.stop_gradient:
-            x.stop_gradient = True
+            x = x.detach()
         if isinstance(shape, paddle.pir.Value):
             shape.stop_gradient = True
         elif isinstance(shape, (list, tuple)):
@@ -4789,12 +4777,7 @@ def expand(x: Tensor, shape: ShapeLike, name: str | None = None) -> Tensor:
         )
         check_type(shape, 'shape', (list, tuple, Variable), 'expand')
         if convert_dtype(x.dtype) == 'bool' and not x.stop_gradient:
-            raise ValueError(
-                "When the data type of input 'x' for expand is bool, "
-                "you must set its stop_gradient to be True by "
-                "some_var.stop_gradient = True, supposing "
-                "some_var is the input."
-            )
+            x = x.detach()
 
         inputs = {"X": [x]}
         attrs = {}
