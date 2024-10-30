@@ -1125,6 +1125,8 @@ const phi::DDim &GetTensorDims(Type type) {
   } else if (auto sparse_csr_tensr_type =
                  type.dyn_cast<SparseCsrTensorType>()) {
     return sparse_csr_tensr_type.dims();
+  } else if (auto dense_array_type = type.dyn_cast<DenseTensorArrayType>()) {
+    return dense_array_type.dims();
   } else {
     PADDLE_THROW(common::errors::InvalidArgument(
         "Currently, we can only get shape for dense and selsect rows type."));
@@ -1399,6 +1401,17 @@ void BindValue(py::module *m) {
       .def("update_dist_attr",
            [](Value &self, TensorDistAttribute dist_attr) {
              self.set_type(dialect::CvtToPirDistType(self.type(), dist_attr));
+           })
+      .def("is_coalesced",
+           [](Value self) {
+             auto sparse_coo_tensor_type =
+                 self.type().dyn_cast<SparseCooTensorType>();
+             if (sparse_coo_tensor_type) {
+               return sparse_coo_tensor_type.coalesced();
+             } else {
+               PADDLE_THROW(common::errors::InvalidType(
+                   "Method is_coalesced only support sparse coo tensor."));
+             }
            })
       .def_property_readonly("process_mesh", [](Value &self) -> py::object {
         auto type = self.type();
@@ -2132,6 +2145,9 @@ void BindUtils(pybind11::module *m) {
          []() { ApiBuilder::Instance().ResetInsertionPointToStart(); });
   m->def("reset_insertion_point_to_end",
          []() { ApiBuilder::Instance().ResetInsertionPointToEnd(); });
+  m->def("set_op_role",
+         [](int op_role) { ApiBuilder::Instance().SetOpRole(op_role); });
+  m->def("get_op_role", []() { return ApiBuilder::Instance().GetOpRole(); });
   m->def("register_paddle_dialect", []() {
     pir::IrContext::Instance()
         ->GetOrRegisterDialect<paddle::dialect::OperatorDialect>();
