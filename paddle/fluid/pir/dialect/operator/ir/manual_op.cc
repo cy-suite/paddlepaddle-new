@@ -1947,9 +1947,9 @@ bool ArrayReadOp::InferSymbolicShape(
   const auto &array_shape =
       infer_context->GetShapeOrDataForValue(array())
           .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
-  if (array_shape.size() > 1) {
-    auto output_shape = array_shape.GetShapeHint();
-    for (size_t i = 0, i < array_shape.size(); ++i) {
+  auto output_shape = array_shape.GetShapeHint();
+  if (output_shape.size() > 0) {
+    for (size_t i = 0; i < array_shape.size(); ++i) {
       output_shape[i] = infer_context->GetNextSymName();
     }
     infer_context->SetShapeOrDataForValue(
@@ -1959,8 +1959,7 @@ bool ArrayReadOp::InferSymbolicShape(
   } else {
     infer_context->SetShapeOrDataForValue(
         out(),
-        symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs(
-            {infer_context->GetNextSymName()})});
+        symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs({})});
   }
   return true;
 }
