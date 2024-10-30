@@ -193,7 +193,7 @@
   kernel :
     func : all_gather
     param: [x, nranks]
-  traits : paddle::dialect::ForwardOnlyTrait
+  traits : pir::SideEffectTrait, paddle::dialect::ForwardOnlyTrait
 
 - op : all_to_all
   args : (Tensor x, int ring_id = 0)
