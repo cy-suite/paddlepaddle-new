@@ -1488,7 +1488,6 @@ function get_quickly_disable_ut() {
 }
 
 function card_test() {
-    set -x
     set -m
     case_count $1 $2
     ut_startTime_s=`date +%s`
