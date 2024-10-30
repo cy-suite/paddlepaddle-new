@@ -27,7 +27,9 @@ class TestTensorParallelAPI(test_base.CommunicationTestDistBase):
         self._default_envs = {
             "dtype": "float32",
             "seed": "2023",
+            "dp": "1",
             "mp": "2",
+            "pp": "1",
             "acc_step": "2",
         }
         self._changeable_envs = {
