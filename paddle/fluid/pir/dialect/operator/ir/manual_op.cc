@@ -1637,6 +1637,18 @@ std::vector<pir::Type> CreateArrayLikeOp::InferMeta(
   return argument_outputs;
 }
 
+bool CreateArrayLikeOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &input_shape_or_data =
+      infer_context->GetShapeOrDataForValue(input())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>()
+              infer_context->SetShapeOrDataForValue(
+                  out(),
+                  symbol::ShapeOrDataDimExprs{
+                      symbol::RankedTensorArrayShapeOrDataDimExprs(
+                          input_shape_or_data.GetShapeHint())});
+  return true;
+}
 OpInfoTuple ArrayLengthOp::GetOpInfo() {
   std::vector<paddle::dialect::OpInputInfo> inputs = {
       OpInputInfo("x",
