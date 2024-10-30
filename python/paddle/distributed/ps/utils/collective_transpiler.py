@@ -350,9 +350,9 @@ class GradAllReduce(Collective):
                         offset += 1
                         block._insert_op(
                             offset,
-                            type='sync_calc_stream',
-                            inputs={'x': grad},
-                            outputs={'out': grad},
+                            type='c_sync_calc_stream',
+                            inputs={'X': grad},
+                            outputs={'Out': grad},
                             attrs={self.op_role_key: OpRole.Backward},
                         )
                         offset += 1
@@ -451,9 +451,9 @@ class LocalSGD(Collective):
                 )
                 block._insert_op(
                     idx + 2,
-                    type='sync_calc_stream',
-                    inputs={'x': param},
-                    outputs={'out': param},
+                    type='c_sync_calc_stream',
+                    inputs={'X': param},
+                    outputs={'Out': param},
                     attrs={self.op_role_key: OpRole.Optimize},
                 )
                 ring_id = (ring_id + 1) % self.nrings
@@ -624,9 +624,9 @@ class MultiThread(GradAllReduce):
                         offset += 1
                         block._insert_op(
                             offset,
-                            type='sync_calc_stream',
-                            inputs={'x': grad},
-                            outputs={'out': grad},
+                            type='c_sync_calc_stream',
+                            inputs={'X': grad},
+                            outputs={'Out': grad},
                             attrs={self.op_role_key: OpRole.Backward},
                         )
                         offset += 1
@@ -827,7 +827,7 @@ class MultiThread(GradAllReduce):
                     )
                     block._insert_op(
                         idx,
-                        type='sync_calc_stream',
+                        type='c_sync_calc_stream',
                         inputs={'X': fused_var},
                         outputs={'Out': fused_var},
                         attrs={self.op_role_key: OpRole.Backward},

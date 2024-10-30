@@ -252,8 +252,10 @@ class CostModel:
                 or op.type.startswith('recv')
             ):
                 is_bwd = False
-                if op.type.startswith('c_') and not op.type.startswith(
-                    'c_embedding'
+                if (
+                    op.type.startswith('c_')
+                    and op.type != "c_sync_calc_stream"
+                    and not op.type.startswith('c_embedding')
                 ):
                     ring_id = op.attr('ring_id')
                     if ring_id not in self.ring2rank:
@@ -404,8 +406,10 @@ class CostModel:
         for sub_idx in range(self.total_rank):
             for node_id, edges in self.op_graph[sub_idx].items():
                 node = self.nodes[sub_idx][node_id]
-                if node_id.startswith('c_') and not node.id.startswith(
-                    'c_embedding'
+                if (
+                    node_id.startswith('c_')
+                    and not node.id.startswith("c_sync_calc_stream")
+                    and not node.id.startswith('c_embedding')
                 ):
                     ring_id = node.node.attr('ring_id')
                     node.set_ranks(list(self.ring2rank[ring_id]))

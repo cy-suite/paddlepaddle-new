@@ -242,14 +242,14 @@ def get_group(id: int = 0) -> Group:
 
 def _sync_calc_stream(tensor):
     if framework.in_dynamic_mode():
-        return paddle._legacy_C_ops.sync_calc_stream(tensor, tensor)
+        return paddle._legacy_C_ops.c_sync_calc_stream(tensor, tensor)
     else:
-        op_type = 'sync_calc_stream'
+        op_type = 'c_sync_calc_stream'
         helper = framework.LayerHelper(op_type, **locals())
         helper.append_op(
             type=op_type,
-            inputs={'x': [tensor]},
-            outputs={'out': [tensor]},
+            inputs={'X': [tensor]},
+            outputs={'Out': [tensor]},
         )
 
 

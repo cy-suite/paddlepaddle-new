@@ -3169,7 +3169,7 @@ class Operator:
         "gen_nccl_id",
         "c_gen_nccl_id",
         "c_comm_init",
-        "sync_calc_stream",
+        "c_sync_calc_stream",
         "c_sync_comm_stream",
         "heter_listen_and_serv",
         "c_wait_comm",

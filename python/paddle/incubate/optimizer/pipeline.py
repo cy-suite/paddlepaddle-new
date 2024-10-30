@@ -875,9 +875,9 @@ class PipelineOptimizer:
 
                         block._insert_op_without_sync(
                             index=index + extra_index_info['index'],
-                            type='sync_calc_stream',
-                            inputs={'x': [var]},
-                            outputs={'out': [var]},
+                            type='c_sync_calc_stream',
+                            inputs={'X': [var]},
+                            outputs={'Out': [var]},
                             attrs={
                                 self._op_device_key: prev_dev,
                                 self._op_role_key: op_role,

@@ -134,9 +134,9 @@ class CollectiveHelper:
                 },
             )
             block.append_op(
-                type='sync_calc_stream',
-                inputs={'x': sync_var},
-                outputs={'out': sync_var},
+                type='c_sync_calc_stream',
+                inputs={'X': sync_var},
+                outputs={'Out': sync_var},
                 attrs={OP_ROLE_KEY: OpRole.Forward},
             )
 
