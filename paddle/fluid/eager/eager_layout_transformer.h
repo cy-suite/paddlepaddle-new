@@ -212,7 +212,8 @@ class EagerHeavilyLayoutSensitiveOpTransformer : public EagerLayoutTransformer {
     return in;
   }
 
-  void SetOutTensorLayout(paddle::Tensor* out_tensor) {
+  using EagerLayoutTransformer::SetOutTensorLayout;
+  void SetOutTensorLayout(paddle::Tensor* out_tensor) override {
     UpdateLayout(out_tensor, desired_layout_);
   }
 
@@ -222,7 +223,7 @@ class EagerHeavilyLayoutSensitiveOpTransformer : public EagerLayoutTransformer {
     }
   }
 
-  void SetOutTensorLayout(std::vector<paddle::Tensor>* out_tensor) {
+  void SetOutTensorLayout(std::vector<paddle::Tensor>* out_tensor) override {
     for (size_t i = 0; i < out_tensor->size(); i++) {
       if ((*out_tensor)[i].layout() != desired_layout_) {
         VLOG(4) << "Update out_tensor's layout from "
@@ -287,7 +288,8 @@ class EagerLightlyLayoutSensitiveOpTransformer : public EagerLayoutTransformer {
     return result;
   }
 
-  void SetOutTensorLayout(paddle::Tensor* out_tensor) {
+  using EagerLayoutTransformer::SetOutTensorLayout;
+  void SetOutTensorLayout(paddle::Tensor* out_tensor) override {
     UpdateLayout(out_tensor, DefaultLayout());
   }
 
@@ -297,7 +299,7 @@ class EagerLightlyLayoutSensitiveOpTransformer : public EagerLayoutTransformer {
     }
   }
 
-  void SetOutTensorLayout(std::vector<paddle::Tensor>* out_tensor) {
+  void SetOutTensorLayout(std::vector<paddle::Tensor>* out_tensor) override {
     auto default_layout = DefaultLayout();
     for (size_t i = 0; i < out_tensor->size(); i++) {
       phi::DenseTensorUtils::GetMutableMeta(
@@ -334,7 +336,7 @@ class EagerTransposeOpTransformer
     return in;
   }
 
-  void SetOutTensorLayout(paddle::Tensor* out_tensor) {
+  void SetOutTensorLayout(paddle::Tensor* out_tensor) override {
     UpdateLayout(out_tensor, DefaultLayout());
   }
 };
@@ -355,7 +357,7 @@ class EagerArgmaxOpTransformer
     (*axis) = static_cast<paddle::experimental::Scalar>(perm[axes]);
   }
 
-  void SetOutTensorLayout(paddle::Tensor* out_tensor) {
+  void SetOutTensorLayout(paddle::Tensor* out_tensor) override {
     UpdateLayout(out_tensor, DesiredLayout());
   }
 };
@@ -374,7 +376,7 @@ class EagerFlattenOpTransformer
     return in;
   }
 
-  void SetOutTensorLayout(paddle::Tensor* out_tensor) {
+  void SetOutTensorLayout(paddle::Tensor* out_tensor) override {
     UpdateLayout(out_tensor, DefaultLayout());
   }
 };
@@ -402,7 +404,7 @@ class EagerConcatOpTransformer
     return in;
   }
 
-  void SetOutTensorLayout(paddle::Tensor* out_tensor) {
+  void SetOutTensorLayout(paddle::Tensor* out_tensor) override {
     UpdateLayout(out_tensor, DesiredLayout());
   }
 };

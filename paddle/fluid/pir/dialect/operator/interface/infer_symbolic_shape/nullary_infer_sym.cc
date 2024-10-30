@@ -171,7 +171,7 @@ bool DataOpInferSymbolicShape(pir::Operation *op,
       details::GetSymShapeForInputValue(name, op->result(0), infer_context);
 
   auto IsNumelLEKMaxRank = [](pir::Value value) {
-    const auto &dims = value.type().dyn_cast<pir::DenseTensorType>().dims();
+    const auto dims = value.type().dyn_cast<pir::DenseTensorType>().dims();
     if (dims.size() == 0) return true;
     if (dims.size() != 1) return false;
     if (dims[0] >= 1 && dims[0] <= ::common::DDim::kMaxRank) {
@@ -186,7 +186,7 @@ bool DataOpInferSymbolicShape(pir::Operation *op,
   };
 
   auto CreateSymForEachNumel = [&](pir::Value value) -> decltype(auto) {
-    const auto &dims = value.type().dyn_cast<pir::DenseTensorType>().dims();
+    const auto dims = value.type().dyn_cast<pir::DenseTensorType>().dims();
     const int64_t numel = ::common::product(dims);
     std::vector<symbol::DimExpr> data;
     for (int64_t i = 0; i < numel; ++i) {
@@ -263,7 +263,7 @@ bool FullOpInferSymbolicShape(pir::Operation *op,
 
   const std::vector<symbol::DimExpr> shape = [&] {
     pir::Attribute attr_shape = attributes.at("shape");
-    const auto &shape_vec =
+    const auto shape_vec =
         attr_shape.dyn_cast<paddle::dialect::IntArrayAttribute>()
             .data()
             .GetData();

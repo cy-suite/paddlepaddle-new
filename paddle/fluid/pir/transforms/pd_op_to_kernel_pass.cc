@@ -3322,7 +3322,8 @@ void ProcessBlock(
   auto inputs_by_data_op = GetInputsByDataOp(block);
   for (auto& [keyword, arg] : block->kwargs()) {
     auto new_arg = new_block->AddKwarg(keyword, arg.type());
-    for (auto& [name, attr] : arg.dyn_cast<pir::BlockArgument>().attributes()) {
+    auto attrs = arg.dyn_cast<pir::BlockArgument>().attributes();
+    for (auto& [name, attr] : attrs) {
       new_arg.set_attribute(name, attr);
     }
     if (auto dense_tensor_type = arg.type().dyn_cast<DenseTensorType>()) {

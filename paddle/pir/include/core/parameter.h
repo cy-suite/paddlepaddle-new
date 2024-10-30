@@ -16,6 +16,7 @@
 
 #include <cstring>
 
+#include "paddle/common/enforce.h"
 #include "paddle/pir/include/core/type.h"
 
 namespace pir {
@@ -25,6 +26,10 @@ namespace pir {
 class IR_API Parameter {
  public:
   Parameter(void* data, size_t size, pir::Type type) {
+    PADDLE_ENFORCE_NE(data,
+                      nullptr,
+                      ::common::errors::InvalidArgument(
+                          "[PIR] The data of parameter cannot be nullptr."));
     data_ = malloc(size);
     memcpy(data_, data, size);
     size_ = size;
