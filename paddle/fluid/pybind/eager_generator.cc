@@ -3393,7 +3393,7 @@ std::map<std::string, std::set<std::string>> op_passing_outs_map = {
     {"partial_recv", {"Out"}},
     {"matmul", {"Out"}},
     {"c_broadcast", {"Out"}},
-    {"c_sync_calc_stream", {"Out"}},
+    {"sync_calc_stream", {"out"}},
     {"c_sync_comm_stream", {"Out"}},
     {"c_reduce_sum", {"Out"}},
     {"c_reduce_max", {"Out"}},

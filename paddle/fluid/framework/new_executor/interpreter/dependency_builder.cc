@@ -218,7 +218,7 @@ void DependencyBuilder::AddDependencyForCoalesceTensorOp() {
       // add depend:  first_read_fused_out_op -> first op that reads 'outputs'
 
       // special case for consecutive communication ops, for example,
-      // FusedOutput = c_sync_calc_stream(FusedOutput)
+      // FusedOutput = sync_calc_stream(FusedOutput)
       // FusedOutput= c_allreduce_sum(FusedOutput)
       // FusedOutput = c_sync_comm_stream(FusedOutput)
       // we should take the last one to add depend instead of
@@ -1095,7 +1095,7 @@ void DependencyBuilderSimplify::AddDependencyForCoalesceTensorOp() {
       // add depend:  first_read_fused_out_op -> first op that reads 'outputs'
 
       // special case for consecutive communication ops, for example,
-      // FusedOutput = c_sync_calc_stream(FusedOutput)
+      // FusedOutput = sync_calc_stream(FusedOutput)
       // FusedOutput= c_allreduce_sum(FusedOutput)
       // FusedOutput = c_sync_comm_stream(FusedOutput)
       // we should take the last one to add depend instead of

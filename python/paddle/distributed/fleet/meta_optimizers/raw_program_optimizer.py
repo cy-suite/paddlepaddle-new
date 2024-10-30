@@ -244,9 +244,9 @@ class RawProgramOptimizer(MetaOptimizerBase):
 
         gm_block._insert_op(
             first_optimize_op_idx,
-            type="c_sync_calc_stream",
-            inputs={'X': grad_vars[0]},
-            outputs={'Out': grad_vars[0]},
+            type="sync_calc_stream",
+            inputs={'x': grad_vars[0]},
+            outputs={'out': grad_vars[0]},
             attrs={OP_ROLE_KEY: OpRole.Backward},
         )
 
@@ -452,9 +452,9 @@ class RawProgramOptimizer(MetaOptimizerBase):
             if not self.calc_comm_same_stream and self.sync_before_allreduce:
                 block._insert_op_without_sync(
                     after_idx + 1,
-                    type='c_sync_calc_stream',
-                    inputs={'X': fused_var},
-                    outputs={'Out': fused_var},
+                    type='sync_calc_stream',
+                    inputs={'x': fused_var},
+                    outputs={'out': fused_var},
                     attrs={OP_ROLE_KEY: OpRole.Backward},
                 )
         idx = 0
