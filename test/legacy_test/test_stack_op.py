@@ -110,6 +110,18 @@ class TestStackOp_ZeroDim(TestStackOpBase):
         self.enable_cinn = False
 
 
+class TestStackOp_OneDim(TestStackOpBase):
+    def initParameters(self):
+        self.input_dim = (1,)
+        self.enable_cinn = False
+
+
+class TestStackOp_OneDim_1(TestStackOpBase):
+    def initParameters(self):
+        self.input_dim = (1,)
+        self.enable_cinn = True
+
+
 class TestStackFP16Op(TestStackOpBase):
     def initParameters(self):
         self.dtype = np.float16
