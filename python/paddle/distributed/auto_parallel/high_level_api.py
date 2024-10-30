@@ -23,7 +23,7 @@ from paddle.base import (
 from paddle.base.framework import (
     in_dygraph_mode,
 )
-from paddle.distributed.auto_parallel.static.tuner.pir_rule_based_tuner import (
+from paddle.distributed.auto_parallel.static.tuner.to_distributed_api_patterns import (
     clear_used_patterns,
     get_pattern,
     match_all_patterns,
@@ -46,7 +46,6 @@ def record_program_ops_pre_hook(layer, inputs):
             layer._op_recorder.start = len(
                 default_main_program().global_block().ops
             )
-            # print(f"start program is : {default_main_program()}")
             layer._op_recorder.is_valid = True
         else:
             layer._op_recorder.is_valid = False
@@ -66,8 +65,6 @@ def transpose_reshard_embedding_layer_output(layer, inputs, outputs):
 
 
 def reshard_transpose_attention_layer_input(layer, inputs):
-    # print(f"inputs are {list(inputs)}")
-    # breakpoint()
     new_inputs = list(inputs)
     x = new_inputs[0]
     if hasattr(layer, "current_mesh"):
@@ -75,14 +72,10 @@ def reshard_transpose_attention_layer_input(layer, inputs):
         new_x = dist.reshard(x, current_mesh, [dist.Shard(1), dist.Replicate()])
         new_x = paddle.transpose(new_x, [1, 0, 2])
         new_inputs[0] = new_x
-        # print(f"new_inputs are: {new_inputs}")
-        # breakpoint()
         return tuple(new_inputs)
 
 
 def transpose_reshard_attention_layer_output(layer, inputs, outputs):
-    # print(f"outputs are: {outputs}")
-    # breakpoint()
     attn_out = outputs
     if hasattr(layer, "current_mesh"):
         current_mesh = layer.__getattr__("current_mesh")
@@ -90,12 +83,10 @@ def transpose_reshard_attention_layer_output(layer, inputs, outputs):
         new_attn_out = dist.reshard(
             new_attn_out, current_mesh, [dist.Shard(1), dist.Shard(0)]
         )
-        # print(f"new_outputs are: {new_attn_out}")
-        # breakpoint()
         return new_attn_out
 
 
-def reshard_transpose_mlp_layer_input(layer, inputs):
+def reshard_mlp_layer_input(layer, inputs):
     new_inputs = list(inputs)
     mlp_input = new_inputs[0]
     if hasattr(layer, "current_mesh"):
@@ -103,30 +94,21 @@ def reshard_transpose_mlp_layer_input(layer, inputs):
         new_mlp_input = dist.reshard(
             mlp_input, current_mesh, [dist.Shard(1), dist.Replicate()]
         )
-        # print(f"new_mlp_input is {new_mlp_input}")
-        # breakpoint()
         new_inputs[0] = new_mlp_input
         return tuple(new_inputs)
 
 
-def transpose_reshard_mlp_layer_output(layer, inputs, outputs):
-    # print(f"outputs are: {outputs}")
-    # breakpoint()
+def reshard_mlp_layer_output(layer, inputs, outputs):
     mlp_out = outputs
     if hasattr(layer, "current_mesh"):
         current_mesh = layer.__getattr__("current_mesh")
         new_mlp_out = dist.reshard(
             mlp_out, current_mesh, [dist.Shard(1), dist.Shard(0)]
         )
-        # print(f"new_outputs are: {new_mlp_out}")
-        # breakpoint()
         return new_mlp_out
 
 
 def reshard_transpose_rms_norm_layer_output(layer, inputs, outputs):
-    # print(f"inputs are: {inputs}")
-    # print(f"outputs are: {outputs}")
-    # breakpoint()
     if hasattr(layer, "current_mesh"):
         current_mesh = layer.__getattr__("current_mesh")
         new_output = dist.reshard(
@@ -137,7 +119,6 @@ def reshard_transpose_rms_norm_layer_output(layer, inputs, outputs):
 
 
 def reshard_all_inputs(layer, inputs):
-    # print(f"inputs are {inputs}")
     if hasattr(layer, "current_mesh"):
         current_mesh = layer.__getattr__("current_mesh")
         if type(inputs) is tuple:
@@ -159,8 +140,6 @@ def reshard_all_inputs(layer, inputs):
                     new_inputs.append(new_input)
                 else:
                     new_inputs.append(input)
-            # print(f"new_inputs are: {tuple(new_inputs)}")
-            # breakpoint()
             return tuple(new_inputs)
         else:
             if input.is_dist():
@@ -177,7 +156,6 @@ def reshard_all_inputs(layer, inputs):
 def reshard_all_outputs(layer, inputs, outputs):
     if hasattr(layer, "next_mesh"):
         next_mesh = layer.__getattr__("next_mesh")
-        # print(f"outputs are {outputs}")
         if type(outputs) is tuple:
             new_outputs = []
             for output in outputs:
@@ -217,7 +195,6 @@ def record_program_ops_post_hook(layer, inputs, outputs):
                 .ops[layer._op_recorder.start : layer._op_recorder.end]
             )
         layer._op_recorder.ops = ops
-        # print(f"layer: {layer._full_name}, start: {layer._op_recorder.start}, end: {end}, corresponding ops: {ops}")
 
 
 def get_layer_pp_info(mesh, num_hidden_layers, layer_index):
@@ -236,10 +213,9 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
 
     with_pp = True if "pp" in mesh.dim_names else False
     with_sp = True if config.sequence_parallel else False
-    # print(f"pp: {with_pp}, sp: {with_sp}")
-    # breakpoint()
 
-    # # data parallel, shard dataloader
+    # # Data Parallel
+    # # step_0: shard dataloader
     if with_pp:
         first_stage_mesh = mesh.get_mesh_with_dim("pp", 0)
         last_stage_mesh = mesh.get_mesh_with_dim("pp", 1)
@@ -253,9 +229,10 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
             dataloader, meshes=[mesh], shard_dims="dp"
         )
 
-    # # sharding parallel, shard optimizer
+    # Sharding Parallel
+    # # step_1: shard optimizer
 
-    # # # step1: register pre-hooks and post-hooks, thus recording corresponding static ops in following paddle.jit.to_static
+    # # step_2: register pre-hooks and post-hooks, thus recording corresponding static ops in following paddle.jit.to_static
     for layer in model.sublayers():
         pre_hook_helper = layer.register_forward_pre_hook(
             record_program_ops_pre_hook
@@ -266,45 +243,36 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
         layer._op_recorder.hooks.append(pre_hook_helper)
         layer._op_recorder.hooks.append(post_hook_helper)
 
-    # # # step2: call @to_static, get program, and corresponding static ops of each layer
-    #               (1) with FLAGS_enable_pir_api=False, get program based on var and op, default to False
-    #               (2) with FLAGS_enable_pir_api=True, get pir program
-
+    # # step_3: call @to_static, get program, and corresponding static ops of each layer
+    # (1) with FLAGS_enable_pir_api=False, get program based on var and op, default to False
+    # (2) with FLAGS_enable_pir_api=True, get pir program
     static_func = paddle.jit.to_static(
         model.forward, input_spec=config.input_spec, full_graph=True
     )
-    pir_program = static_func.concrete_program.main_program
-    # print(f"convert to pir program: {pir_program}")
-    # breakpoint()
+    program = static_func.concrete_program.main_program
 
-    # record pir_program ops_to_ids
+    # # step_4: get the mapping [dynamic-layers : static ops]
     op_to_id = {}
-    for idx, op in enumerate(pir_program.global_block().ops):
+    for idx, op in enumerate(program.global_block().ops):
         op_to_id[op] = idx
 
-    # # # step3: get the mapping [dynamic-layers : static ops]
     ops_id_to_layer = {}
     op_id_to_layer = {}
     for layer in model.sublayers():
         layer_ops = layer._op_recorder.ops
         ops_id = []
         for op in layer_ops:
-            assert op in op_to_id.keys(), f"{op.name} is not in pir program"
+            assert op in op_to_id.keys(), f"{op.name} is not in program"
             op_id = op_to_id[op]
             op_id_to_layer[op_id] = layer
             ops_id.append(op_id)
         ops_id_to_layer[tuple(ops_id)] = layer
-    # print(f"ops id to layer is {ops_id_to_layer}")
-    # breakpoint()
 
-    # # # # step4: pattern recogincation
+    # # step_5: pattern recogincation
     DECODER_LAYER_NAME = 'decoder_layer'
     register_used_patterns(DECODER_LAYER_NAME)
-    results = match_all_patterns(pir_program)
-    # print(f"match patterns based on pir program is: {results}")
-    # breakpoint()
+    results = match_all_patterns(program)
 
-    # # # # step5: mark pir programs ops dist infos
     matched_programs = {}
     for pattern_name, matched_patterns in results.items():
         # process one pattern
@@ -312,10 +280,6 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
         assert (
             pattern_ops_dist_infos is not None
         ), f"{pattern_name} does not contain ops_dist_infos, cannot reshard, please check"
-        # print(f"{pattern_name} op dist infos are {pattern_ops_dist_infos}")
-        # print(
-        #     f"matched patterns are {matched_patterns}"
-        # )  # [dict{pattern_node_id : graph_node_id, ..., ...}, dict, dict]
         processed_patterns = []
         for matched_pattern in matched_patterns:
             # convert pattern_ops_dist_infos to program_ops_dist_infos
@@ -330,15 +294,11 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
                     program_ops_id.append(program_op_id)
                 program_ops_dist_infos[tuple(program_ops_id)] = op_dist_info
             processed_patterns.append(program_ops_dist_infos)
-
         matched_programs[pattern_name] = processed_patterns
-        # print(f"matched program and ops dist infos are {matched_programs}")
 
-    # # # #: shard model
+    # Tensor Parallel
+    # # step_6: shard weight tensors in decoder blocks
     num_hidden_layers = len(matched_programs[DECODER_LAYER_NAME])
-    # print(f"num_hidden_layers by pattern matching is {num_hidden_layers}")
-
-    # # # # step6: tensor parallel
     for pattern_name, processed_patterns in matched_programs.items():
         assert (
             len(processed_patterns) == num_hidden_layers
@@ -354,10 +314,7 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
                     program_ops_id in ops_id_to_layer.keys()
                 ), f"program_ops: {program_ops_id} is not corresponding to a dynamic layer"
                 dynamic_layer = ops_id_to_layer[program_ops_id]
-                # shard layers
-                # print(f"sharding info is {dist_infos.print_dist_infos()}")
                 mesh_num_dims = len(local_mesh.shape)
-                # breakpoint()
                 sharding_info = dist_infos.get_dist_info(mesh_num_dims)
                 dynamic_layer.weight = dist.shard_tensor(
                     dynamic_layer.weight, local_mesh, sharding_info[0]
@@ -366,8 +323,8 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
                     dynamic_layer.bias = dist.shard_tensor(
                         dynamic_layer.bias, local_mesh, sharding_info[1]
                     )
-
-    # # # # step6: pipeline parallel
+    # Pipeline Parallel
+    # # step_7: reshard inputs of decoder blocks to next pp mesh b when switching from pp stage a to pp stage b
     if with_pp:
         decoder_layers = []
         for pattern_name, matched_all_patterns in results.items():
@@ -380,7 +337,6 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
                         decoder_layers.append(
                             ops_id_to_layer[tuple(sorted(program_ops_id))]
                         )
-        # print(f"matched decoder layers are: {decoder_layers}")
 
         if decoder_layers is not None:
             num_decoder_blocks = len(decoder_layers)
@@ -399,12 +355,13 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
                     reshard_all_inputs
                 )
 
-    # # # # step7: sequence parallel
+    # Sequence Parallel
+    # # step_8: reshard or transpose sequence dims for inputs of attention/mlp inputs
     if with_sp:
         clear_used_patterns()
         EMBEDDING_LAYER_NAME = "embedding"
         ATTENTION_LAYER_NAME = "attention"
-        MLP_LAYER_NAME = "mlp"
+        MLP_LAYER_NAME = "mlp_3_with_swiglu"
         RMS_NORM_LAYER_NAME = "rmsnorm"
         used_patterns = [
             EMBEDDING_LAYER_NAME,
@@ -413,8 +370,7 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
             RMS_NORM_LAYER_NAME,
         ]
         register_used_patterns(used_patterns)
-        results = match_all_patterns(pir_program)
-        # print(f"match patterns based on pir program is: {results}")
+        results = match_all_patterns(program)
 
         matched_layers = {}
         for pattern_name, matched_all_patterns in results.items():
@@ -432,7 +388,6 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
                             matched_layers[pattern_name] = [
                                 ops_id_to_layer[tuple(sorted(program_ops_id))]
                             ]
-        # print(f"matched layers are: {matched_layers}")
 
         # init mesh
         GLOBAL_MESH = []
@@ -486,10 +441,10 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
                 mlp_layer = mlp_layers[i]
                 mlp_layer.__setattr__("current_mesh", current_mesh)
                 pre_hook_helper = mlp_layer.register_forward_pre_hook(
-                    reshard_transpose_mlp_layer_input
+                    reshard_mlp_layer_input
                 )
                 post_hook_helper = mlp_layer.register_forward_post_hook(
-                    transpose_reshard_mlp_layer_output
+                    reshard_mlp_layer_output
                 )
 
         # rms norm: for the last rms norm (after decoder blocks), input from [s/mp_degree, b/dp_degree, h] to [b, s, h]
@@ -502,7 +457,7 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
                 reshard_transpose_rms_norm_layer_output
             )
 
-    # # # # step8: clean layer_op recorder hooks
+    # # step_9: clean layer_op recorder hooks
     for layer in model.sublayers():
         for hook_helper in layer._op_recorder.hooks:
             hook_helper.remove()
