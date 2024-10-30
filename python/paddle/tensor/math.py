@@ -42,7 +42,7 @@ from ..framework import (
     in_dynamic_or_pir_mode,
     in_pir_mode,
 )
-from .creation import _complex_to_real_dtype, fill_constant
+from .creation import _complex_to_real_dtype
 from .layer_function_generator import generate_layer_fn
 from .manipulation import cast, cast_
 from .ops import (  # noqa: F401
@@ -3708,7 +3708,7 @@ def log10_(x: Tensor, name: str | None = None) -> Tensor:
 
 def check_clip_tensor(c_x, value, re_value, value_type, name):
     if value is None:
-        value = fill_constant([1], value_type, re_value)
+        value = paddle.full_like(c_x,  re_value, value_type)
     else:
         if isinstance(value, (Variable, paddle.pir.Value, paddle.Tensor)):
             if len(value.shape) == 1 and value.shape[-1] == 0:
@@ -3725,7 +3725,7 @@ def check_clip_tensor(c_x, value, re_value, value_type, name):
                     f"The {name} dimension should be equal to the inner dimension of the x, but the {name} dimension is {value.shape} and the x dimension is {c_x.shape[-len(value.shape):]}."
                 )
         else:
-            value = fill_constant([1], value_type, value)
+            value = paddle.full_like(c_x, value, value_type)
     return value
 
 
