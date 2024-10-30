@@ -60,7 +60,7 @@ Makefile
 third_party/
 *~
 bazel-*
-
+*.tar.gz*
 
 build_*
 # clion workspace.
