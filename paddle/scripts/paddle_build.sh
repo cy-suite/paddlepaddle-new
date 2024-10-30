@@ -2415,7 +2415,7 @@ set +x
             fi
             testcase=$(echo "$line"|grep -oEi "\w+$")
             single_card_test_num=$(($single_card_test_num+1))
-            if [[ $single_card_test_num -gt 1000 ]]; then
+            if [[ $single_card_test_num -gt 1200 ]]; then
                 # too many test cases in single set will lead to ctest "RegularExpression::compile(): Expression too big." error
                 # therefore use a new test set
                 if [[ "$single_card_tests_1" == "" ]]; then
