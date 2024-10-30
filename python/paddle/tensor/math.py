@@ -3719,7 +3719,7 @@ def check_clip_tensor(c_x, value, re_value, value_type, name):
                 len(value.shape) != 0
                 and value.shape != c_x.shape[-len(value.shape) :]
                 and value.shape != [1]
-                and value.shpae != (1,)
+                and value.shape != (1,)
             ):
                 raise ValueError(
                     f"The {name} dimension should be equal to the inner dimension of the x, but the {name} dimension is {value.shape} and the x dimension is {c_x.shape[-len(value.shape):]}."
