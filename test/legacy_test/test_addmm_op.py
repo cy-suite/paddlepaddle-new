@@ -244,7 +244,9 @@ class TestAddMMOp2(TestAddMMOp):
     # test alpha and beta
     def setUp(self):
         self.op_type = "addmm"
+        self.prim_op_type = "comp"
         self.python_api = paddle.addmm
+        self.public_python_api = paddle.addmm
         self.dtype = np.float64
         self.init_dtype_type()
         self.inputs = {
