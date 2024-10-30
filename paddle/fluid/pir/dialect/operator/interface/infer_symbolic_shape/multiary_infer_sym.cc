@@ -2332,9 +2332,7 @@ bool InstanceNormOpInferSymbolicShape(
             "of scale is [%d]",
             scale_shape,
             scale_shape.size()));
-    if (C.isa<int64_t>() && scale_shape[0].isa<int64_t>()) {
-      infer_context->AddEqualCstr(C, scale_shape[0]);
-    }
+    infer_context->AddEqualCstr(C, scale_shape[0]);
   }
   if (op->operand(2)) {
     const std::vector<symbol::DimExpr> &bias_shape =
@@ -2348,9 +2346,7 @@ bool InstanceNormOpInferSymbolicShape(
             "of bias is [%d]",
             bias_shape,
             bias_shape.size()));
-    if (C.isa<int64_t>() && bias_shape[0].isa<int64_t>()) {
-      infer_context->AddEqualCstr(C, bias_shape[0]);
-    }
+    infer_context->AddEqualCstr(C, bias_shape[0]);
   }
   infer_context->SetShapeOrDataForValue(
       op->result(0),
