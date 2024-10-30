@@ -4850,6 +4850,17 @@
   inplace : (x -> out)
   traits : paddle::dialect::ForwardOnlyTrait
 
+- op : sync_comm_stream
+  args : (Tensor x, int ring_id = 0)
+  output : Tensor(out)
+  infer_meta :
+    func : UnchangedInferMeta
+    param : [x]
+  kernel :
+    func : sync_comm_stream
+  inplace: (x -> out)
+  traits : paddle::dialect::ForwardOnlyTrait
+
 - op : take_along_axis
   args : (Tensor arr, Tensor indices, int axis)
   output : Tensor
