@@ -217,7 +217,7 @@ class DGCMomentumOptimizer(Optimizer):
             name=core.dgc.kDGCNRanksName(), value=self._num_trainers
         )
 
-        # rampup begin step var for all_reduce_op_handle
+        # rampup begin step var for all_reduce_sum_op_handle
         self._rampup_begin_step_var = create_global_var(
             shape=[1],
             dtype=core.VarDesc.VarType.FP32,
@@ -446,7 +446,7 @@ class DGCMomentumOptimizer(Optimizer):
 
     @imperative_base.no_grad()
     def apply_gradients(self, params_grads):
-        # Note: since we can't use all_reduce_op now,
+        # Note: since we can't use all_reduce_sum_op now,
         # dgc_op should be the last op of one grad.
         # Maybe need a grad allreduce pass.
         self._append_dgc_ops(params_grads)

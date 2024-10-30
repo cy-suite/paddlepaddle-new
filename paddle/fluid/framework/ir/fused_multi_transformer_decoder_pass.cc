@@ -923,13 +923,13 @@ PDNode* MultiDevicesFusedMultiTransformerDecoderFuseQKVPattern::operator()() {
           ->assert_is_op_input("all_reduce",
                                static_cast<int>(phi::ReduceType::kRedSum));
 
-  // communication all_reduce
-  auto* all_reduce =
-      pattern->NewNode(all_reduce_repr())
+  // communication all_reduce(sum)
+  auto* all_reduce_sum =
+      pattern->NewNode(all_reduce_sum_repr())
           ->assert_is_op("all_reduce",
                          static_cast<int>(phi::ReduceType::kRedSum));
-  auto* all_reduce_out_var =
-      pattern->NewNode(all_reduce_out_repr())
+  auto* all_reduce_sum_out_var =
+      pattern->NewNode(all_reduce_sum_out_repr())
           ->assert_is_op_output("all_reduce",
                                 static_cast<int>(phi::ReduceType::kRedSum))
           ->AsIntermediate()
@@ -960,8 +960,9 @@ PDNode* MultiDevicesFusedMultiTransformerDecoderFuseQKVPattern::operator()() {
       .LinksTo({reshape2_qkv_out_var});
   matmul_linear->LinksFrom({reshape2_qkv_out_var, matmul_linear_w_var})
       .LinksTo({matmul_linear_out_var});
-  all_reduce->LinksFrom({matmul_linear_out_var}).LinksTo({all_reduce_out_var});
-  eltadd_linear->LinksFrom({all_reduce_out_var, eltadd_linear_b_var})
+  all_reduce_sum->LinksFrom({matmul_linear_out_var})
+      .LinksTo({all_reduce_sum_out_var});
+  eltadd_linear->LinksFrom({all_reduce_sum_out_var, eltadd_linear_b_var})
       .LinksTo({eltadd_linear_out_var});
   eltadd_out->LinksFrom({input0, eltadd_linear_out_var})
       .LinksTo({attention_output});
@@ -1048,13 +1049,13 @@ PDNode* MultiDevicesFusedMultiTransformerDecoderFuseQKVPattern::operator()() {
           ->assert_is_op_input("all_reduce",
                                static_cast<int>(phi::ReduceType::kRedSum));
 
-  // communication all_reduce
-  auto* ffn_all_reduce =
-      pattern->NewNode(ffn_all_reduce_repr())
+  // communication all_reduce(sum)
+  auto* ffn_all_reduce_sum =
+      pattern->NewNode(ffn_all_reduce_sum_repr())
           ->assert_is_op("all_reduce",
                          static_cast<int>(phi::ReduceType::kRedSum));
-  auto* ffn_all_reduce_out_var =
-      pattern->NewNode(ffn_all_reduce_out_repr())
+  auto* ffn_all_reduce_sum_sum_out_var =
+      pattern->NewNode(ffn_all_reduce_sum_out_repr())
           ->assert_is_op_output("all_reduce",
                                 static_cast<int>(phi::ReduceType::kRedSum))
           ->AsIntermediate()
@@ -1083,9 +1084,9 @@ PDNode* MultiDevicesFusedMultiTransformerDecoderFuseQKVPattern::operator()() {
   ffn_act->LinksFrom({ffn_eltadd0_out_var}).LinksTo({ffn_act_out_var});
   ffn_matmul1->LinksFrom({ffn_act_out_var, ffn_matmul1_w_var})
       .LinksTo({ffn_matmul1_out_var});
-  ffn_all_reduce->LinksFrom({ffn_matmul1_out_var})
-      .LinksTo({ffn_all_reduce_out_var});
-  ffn_eltadd1->LinksFrom({ffn_all_reduce_out_var, ffn_eltadd1_b_var})
+  ffn_all_reduce_sum->LinksFrom({ffn_matmul1_out_var})
+      .LinksTo({ffn_all_reduce_sum_sum_out_var});
+  ffn_eltadd1->LinksFrom({ffn_all_reduce_sum_sum_out_var, ffn_eltadd1_b_var})
       .LinksTo({ffn_eltadd1_out_var});
 
   ffn_eltadd_out->LinksFrom({attention_output, ffn_eltadd1_out_var})
@@ -2962,11 +2963,11 @@ int MultiDevicesFusedMultiTransformerDecoderFuseQKVPass::BuildFusion(
                               fused_multi_transformer_fuse_qkv_pattern);
     GET_IR_NODE_FROM_SUBGRAPH(
         ffn_matmul1_w, ffn_matmul1_w, fused_multi_transformer_fuse_qkv_pattern);
-    GET_IR_NODE_FROM_SUBGRAPH(ffn_all_reduce,
-                              ffn_all_reduce,
+    GET_IR_NODE_FROM_SUBGRAPH(ffn_all_reduce_sum,
+                              ffn_all_reduce_sum,
                               fused_multi_transformer_fuse_qkv_pattern);
-    GET_IR_NODE_FROM_SUBGRAPH(ffn_all_reduce_out,
-                              ffn_all_reduce_out,
+    GET_IR_NODE_FROM_SUBGRAPH(ffn_all_reduce_sum_out,
+                              ffn_all_reduce_sum_out,
                               fused_multi_transformer_fuse_qkv_pattern);
     GET_IR_NODE_FROM_SUBGRAPH(
         ffn_eltadd1, ffn_eltadd1, fused_multi_transformer_fuse_qkv_pattern);
@@ -3039,10 +3040,11 @@ int MultiDevicesFusedMultiTransformerDecoderFuseQKVPass::BuildFusion(
     GET_IR_NODE_FROM_SUBGRAPH(matmul_linear_out,
                               matmul_linear_out,
                               fused_multi_transformer_fuse_qkv_pattern);
-    GET_IR_NODE_FROM_SUBGRAPH(
-        all_reduce, all_reduce, fused_multi_transformer_fuse_qkv_pattern);
-    GET_IR_NODE_FROM_SUBGRAPH(all_reduce_out,
-                              all_reduce_out,
+    GET_IR_NODE_FROM_SUBGRAPH(all_reduce_sum,
+                              all_reduce_sum,
+                              fused_multi_transformer_fuse_qkv_pattern);
+    GET_IR_NODE_FROM_SUBGRAPH(all_reduce_sum_out,
+                              all_reduce_sum_out,
                               fused_multi_transformer_fuse_qkv_pattern);
     GET_IR_NODE_FROM_SUBGRAPH(
         eltadd_linear, eltadd_linear, fused_multi_transformer_fuse_qkv_pattern)
@@ -3129,8 +3131,8 @@ int MultiDevicesFusedMultiTransformerDecoderFuseQKVPass::BuildFusion(
                                                   transpose2_qkv_out,
                                                   matmul_linear,
                                                   matmul_linear_out,
-                                                  all_reduce,
-                                                  all_reduce_out,
+                                                  all_reduce_sum,
+                                                  all_reduce_sum_out,
                                                   eltadd_linear,
                                                   eltadd_linear_out,
                                                   eltadd_out,
@@ -3144,8 +3146,8 @@ int MultiDevicesFusedMultiTransformerDecoderFuseQKVPass::BuildFusion(
                                                   ffn_matmul1,
                                                   ffn_matmul0_out,
                                                   ffn_matmul1_out,
-                                                  ffn_all_reduce,
-                                                  ffn_all_reduce_out,
+                                                  ffn_all_reduce_sum,
+                                                  ffn_all_reduce_sum_out,
                                                   ffn_eltadd0,
                                                   ffn_eltadd1,
                                                   ffn_eltadd0_out,

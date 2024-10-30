@@ -4666,17 +4666,17 @@ PDNode *patterns::FusedFeedForwardFwd::operator()(
   if (use_mp) {
     out_var->assert_is_op_input(
         "all_reduce", "x", static_cast<int>(phi::ReduceType::kRedSum));
-    auto *all_reduce_op =
-        pattern->NewNode(all_reduce_op_repr())
+    auto *all_reduce_sum_op =
+        pattern->NewNode(all_reduce_sum_op_repr())
             ->assert_is_op("all_reduce",
                            static_cast<int>(phi::ReduceType::kRedSum));
-    auto *all_reduce_out_var =
-        pattern->NewNode(all_reduce_out_repr())
+    auto *all_reduce_sum_out_var =
+        pattern->NewNode(all_reduce_sum_out_repr())
             ->assert_is_op_output("all_reduce",
                                   "out",
                                   static_cast<int>(phi::ReduceType::kRedSum));
-    all_reduce_op->LinksFrom({out_var}).LinksTo({all_reduce_out_var});
-    out_var = all_reduce_out_var;
+    all_reduce_sum_op->LinksFrom({out_var}).LinksTo({all_reduce_sum_out_var});
+    out_var = all_reduce_sum_out_var;
   }
 
   out_var->assert_is_op_input("elementwise_add", "X");
@@ -4951,21 +4951,21 @@ PDNode *patterns::FusedFeedForwardBwd::operator()(
       .LinksTo({matmul_in_grad_1, matmul_w_grad_1});
   out_grad = matmul_in_grad_1;
 
-  // Model parallel, all_reduce in backward.
+  // Model parallel, all_reduce(sum) in backward.
   if (use_mp) {
     out_grad->assert_is_op_input(
         "all_reduce", "x", static_cast<int>(phi::ReduceType::kRedSum));
-    auto *all_reduce_op =
-        pattern->NewNode(all_reduce_op_repr())
+    auto *all_reduce_sum_op =
+        pattern->NewNode(all_reduce_sum_op_repr())
             ->assert_is_op("all_reduce",
                            static_cast<int>(phi::ReduceType::kRedSum));
-    auto *all_reduce_out_grad =
-        pattern->NewNode(all_reduce_out_repr())
+    auto *all_reduce_sum_out_grad =
+        pattern->NewNode(all_reduce_sum_out_repr())
             ->assert_is_op_output("all_reduce",
                                   "out",
                                   static_cast<int>(phi::ReduceType::kRedSum));
-    all_reduce_op->LinksFrom({out_grad}).LinksTo({all_reduce_out_grad});
-    out_grad = all_reduce_out_grad;
+    all_reduce_sum_op->LinksFrom({out_grad}).LinksTo({all_reduce_sum_out_grad});
+    out_grad = all_reduce_sum_out_grad;
   }
 
   // pre LayerNorm
