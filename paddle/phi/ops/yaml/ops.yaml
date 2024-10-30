@@ -3482,6 +3482,18 @@
   inplace : (param -> param_out), (velocity -> velocity_out), (master_param -> master_param_out)
   traits : pir::SideEffectTrait, paddle::dialect::ForwardOnlyTrait
 
+- op : mp_allreduce_sum
+  args : (Tensor x, int ring_id = 0)
+  output : Tensor(out)
+  infer_meta :
+    func : AllReduceInferMeta
+    param: [x]
+  kernel :
+    func : mp_allreduce_sum
+    param: [x]
+  backward: mp_allreduce_sum_grad
+  inplace: (x -> out)
+
 - op : multi_dot
   args : (Tensor[] x)
   output : Tensor
@@ -3951,6 +3963,7 @@
     data_type : prob
   inplace : (topk_idx -> out)
   traits : pir::SideEffectTrait, paddle::dialect::ForwardOnlyTrait
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : randperm
   args : (int n, DataType dtype, Place place={})
