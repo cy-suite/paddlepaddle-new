@@ -4535,8 +4535,6 @@ def tile(
             ],
             'tile',
         )
-        if convert_dtype(x.dtype) == 'bool' and not x.stop_gradient:
-            x = x.detach()
 
     if in_dynamic_mode():
         if isinstance(repeat_times, core.eager.Tensor):
@@ -4629,8 +4627,6 @@ def expand_as(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
     if in_dynamic_mode():
         return _C_ops.expand_as(x, None, y.shape)
     elif in_pir_mode():
-        if convert_dtype(x.dtype) == 'bool' and not x.stop_gradient:
-            x = x.detach()
 
         return _C_ops.expand_as(x, y, y.shape)
     else:
@@ -4649,9 +4645,6 @@ def expand_as(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
             'expand_as',
         )
         check_type(y, 'y', Variable, 'expand_as')
-
-        if convert_dtype(x.dtype) == 'bool' and not x.stop_gradient:
-            x = x.detach()
 
         inputs = {"X": [x], "Y": [y]}
 
@@ -4733,8 +4726,6 @@ def expand(x: Tensor, shape: ShapeLike, name: str | None = None) -> Tensor:
     if in_dynamic_mode():
         return _C_ops.expand(x, shape)
     elif in_pir_mode():
-        if convert_dtype(x.dtype) == 'bool' and not x.stop_gradient:
-            x = x.detach()
         if isinstance(shape, paddle.pir.Value):
             shape.stop_gradient = True
         elif isinstance(shape, (list, tuple)):
@@ -4776,8 +4767,6 @@ def expand(x: Tensor, shape: ShapeLike, name: str | None = None) -> Tensor:
             'expand',
         )
         check_type(shape, 'shape', (list, tuple, Variable), 'expand')
-        if convert_dtype(x.dtype) == 'bool' and not x.stop_gradient:
-            x = x.detach()
 
         inputs = {"X": [x]}
         attrs = {}
