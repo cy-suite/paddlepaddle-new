@@ -208,7 +208,6 @@ class ShardingOptimizerStage1(Optimizer):
                     )
                     group_param_list.append(parameters[index])
                     group_grad_list.append(grads[index])
-                    grads[index].persistable = True
 
                 slice_param_dict, main_shard_fused_param, main_fused_param = (
                     self._fuse_group_param(group_param_list)
@@ -221,26 +220,79 @@ class ShardingOptimizerStage1(Optimizer):
                     // align[dtype]
                 )
                 align_size = align_size * self._sharding_degree
-                _, fused_grad = paddle._C_ops.coalesce_tensor_(
-                    group_grad_list,
-                    dtype,
-                    True,
-                    False,
-                    False,
-                    0.0,
-                    True,
-                    align_size,
-                    -1,
-                    [],
-                    [],
-                )
-                fused_grad.persistable = True
-                fused_type = paddle.pir.create_shaped_type(
-                    fused_grad.type(), main_fused_param._local_shape
-                )
-                fused_grad.set_type(
-                    pir.cvt_to_dist_type(fused_type, fused_grad.dist_attr())
-                )
+                if not sharding_config.release_gradients:
+                    _, fused_grad = paddle._C_ops.coalesce_tensor_(
+                        group_grad_list,
+                        dtype,
+                        True,
+                        False,
+                        False,
+                        0.0,
+                        True,
+                        align_size,
+                        -1,
+                        [],
+                        [],
+                    )
+                    for grad in group_grad_list:
+                        grad.persistable = True
+                    fused_grad.persistable = True
+                    fused_type = paddle.pir.create_shaped_type(
+                        fused_grad.type(), main_fused_param._local_shape
+                    )
+                    fused_grad.set_type(
+                        pir.cvt_to_dist_type(fused_type, fused_grad.dist_attr())
+                    )
+                else:
+                    first_grad_op = None
+                    first_index = None
+                    for grad in group_grad_list:
+                        grad_op = grad.get_defining_op()
+                        index = target_block.ops.index(grad_op)
+                        if first_index is None or index < first_index:
+                            first_index = index
+                            first_grad_op = grad_op
+                    pir.set_insertion_point(first_grad_op)
+                    fused_grad = paddle._C_ops.empty(
+                        main_fused_param._local_shape,
+                        dtype,
+                        self._place,
+                    )
+                    dist_attr = pir.create_tensor_dist_attribute(mesh, [-1], {})
+                    fused_grad.set_type(
+                        pir.cvt_to_dist_type(fused_grad.type(), dist_attr)
+                    )
+                    prev_var = fused_grad.get_defining_op().operand_source(0)
+                    prev_var.set_type(
+                        pir.cvt_to_dist_type(prev_var.type(), dist_attr)
+                    )
+
+                    grad_begin = 0
+                    for grad in group_grad_list:
+                        grad_op = grad.get_defining_op()
+                        size = np.prod(grad._local_shape)
+                        pir.set_insertion_point(grad_op)
+                        grad_buffer = paddle._C_ops.tensor_slice(
+                            fused_grad, grad_begin, grad_begin + size
+                        )
+                        grad_buffer = paddle._C_ops.view_shape(
+                            grad_buffer, grad._local_shape
+                        )
+                        pir.set_insertion_point_after(grad_op)
+                        paddle._C_ops.share_var([grad, grad_buffer])
+                        grad_begin += (
+                            (
+                                (
+                                    size * core.size_of_dtype(dtype)
+                                    + align_size
+                                    - 1
+                                )
+                                // align_size
+                            )
+                            * align_size
+                            // core.size_of_dtype(dtype)
+                        )
+                pir.reset_insertion_point_to_end()
                 shard_size = fused_grad._local_shape[0] // self._sharding_degree
                 rank = self._sharding_group.ranks.index(dist.get_rank())
                 rank_begin = rank * shard_size

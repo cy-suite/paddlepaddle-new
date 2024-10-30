@@ -3873,6 +3873,12 @@ void ReshapeInferMeta(const MetaTensor& x,
   InferMetaFromVecValue(x, shape_data, out);
 }
 
+void ViewShapeInferMeta(const MetaTensor& input,
+                        const std::vector<int64_t>& shape,
+                        MetaTensor* out) {
+  InferMetaFromVecValue(input, shape, out);
+}
+
 void ReshapeWithXShapeInferMeta(const MetaTensor& x,
                                 const IntArray& shape,
                                 MetaTensor* out,

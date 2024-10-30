@@ -624,6 +624,9 @@ void ReshapeInferMeta(const MetaTensor& x,
                       const IntArray& shape,
                       MetaTensor* out,
                       MetaConfig config = MetaConfig());
+void ViewShapeInferMeta(const MetaTensor& input,
+                        const std::vector<int64_t>& shape,
+                        MetaTensor* out);
 
 void ReshapeWithXShapeInferMeta(const MetaTensor& x,
                                 const IntArray& shape,
