@@ -553,7 +553,7 @@ class TestClipTensor(unittest.TestCase):
         )
         data = np.random.random(data_shape).astype('float32')
         min_data = np.random.random(data_shape[-2:]).astype('float32')
-         = float(np.finfo(np.float32).max)
+        max_data= float(np.finfo(np.float32).max)
         paddle.enable_static()
         with paddle.static.program_guard(paddle.static.Program()):
             x = paddle.static.data(
