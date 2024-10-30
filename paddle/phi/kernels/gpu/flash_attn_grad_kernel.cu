@@ -611,7 +611,11 @@ void FlashAttnGradBaseKernel(
   const float softmax_scale = 1.0f / std::sqrt(head_size);
   const float softmax_unscale = std::sqrt(head_size);
 
-  int version = FLAGS_flash_attn_version;
+  int version =
+      FLAGS_flash_attn_version == 3 &&
+              (head_size == 64 || head_size == 128 || head_size == 256)
+          ? FLAGS_flash_attn_version
+          : 2;
   FlashAttnBwdParamsV2 params =
       FlashAttnBwdParamsV2(ctx,
                            version,
@@ -629,14 +633,15 @@ void FlashAttnGradBaseKernel(
                            startend_row_indices,
                            seed_offset.data<int64_t>());
 
-  VLOG(10) << "[FlashAttn Forward] q.shape=[" << q.dims() << "], k.shape=["
-           << k.dims() << "], v.shape=[" << v.dims() << "]";
-  VLOG(10) << "[FlashAttn Forward] dropout=" << dropout
+  VLOG(10) << "[FlashAttn Backward" << version << "] q.shape=[" << q.dims()
+           << "], k.shape=[" << k.dims() << "], v.shape=[" << v.dims() << "]";
+  VLOG(10) << "[FlashAttn Backward" << version << "] dropout=" << dropout
            << ", seed=" << params.seed << ", offset=" << params.offset;
-  VLOG(10) << "[FlashAttn Forward] softmax_scale=" << softmax_scale
+  VLOG(10) << "[FlashAttn Backward" << version
+           << "] softmax_scale=" << softmax_scale
            << ", softmax_unscale=" << softmax_unscale;
   if (attn_mask.get_ptr()) {
-    VLOG(10) << "[FlashAttn Backward] attn_mask.shape=["
+    VLOG(10) << "[FlashAttn Backward" << version << "] attn_mask.shape=["
              << (attn_mask.get_ptr())->dims() << "]";
   }
 
