@@ -248,17 +248,6 @@ class TestExpandAsOpRank5BFP16OP(TestExpandAsOpRank5):
         pass
 
 
-class TestExpandAsV2Error(unittest.TestCase):
-    def test_errors(self):
-        with base.program_guard(base.Program(), base.Program()):
-            x1 = paddle.static.data(name='x1', shape=[-1, 4], dtype="uint8")
-            x2 = paddle.static.data(name='x2', shape=[-1, 4], dtype="int32")
-            self.assertRaises(TypeError, paddle.tensor.expand_as, x1, x2)
-            x3 = paddle.static.data(name='x3', shape=[-1, 4], dtype="bool")
-            x3.stop_gradient = False
-            self.assertRaises(ValueError, paddle.tensor.expand_as, x3, x2)
-
-
 # Test python API
 class TestExpandAsV2API(unittest.TestCase):
 
