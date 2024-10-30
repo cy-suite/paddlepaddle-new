@@ -3710,7 +3710,7 @@ def check_clip_tensor(c_x, value, re_value, value_type, name):
     if value is None:
         value = fill_constant([1], value_type, re_value)
     else:
-        if isinstance(value, Variable, paddle.pir.Value, paddle.Tensor):
+        if isinstance(value, (Variable, paddle.pir.Value, paddle.Tensor)):
             if value.shape == [0]:
                 raise ValueError(
                     f"The {name} dimension should be equal to the inner dimension of the x, but the {name} dimension is {value.shape}"
