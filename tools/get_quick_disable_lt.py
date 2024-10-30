@@ -18,6 +18,7 @@ import sys
 import httpx
 
 import paddle
+from paddle.base import core
 
 
 def download_file():
@@ -32,9 +33,16 @@ def download_file():
     if paddle.is_compiled_with_rocm():
         url = "https://sys-p0.bj.bcebos.com/prec/{}".format('disable_ut_rocm')
 
-    # un-comment the following two lines when xpu blacklist is ready
-    # if paddle.is_compiled_with_xpu():
-    #    url = "https://sys-p0.bj.bcebos.com/prec/{}".format('disable_ut_xpu')
+    if paddle.is_compiled_with_xpu():
+        xpu_version = core.get_xpu_device_version(0)
+        if xpu_version != core.XPUVersion.XPU3:
+            url = "https://sys-p0.bj.bcebos.com/prec/{}".format(
+                'disable_ut_xpu_kl2'
+            )
+        else:
+            url = "https://sys-p0.bj.bcebos.com/prec/{}".format(
+                'disable_ut_xpu_kl3'
+            )
 
     f = httpx.get(url, timeout=None, follow_redirects=True)
     data = f.text
