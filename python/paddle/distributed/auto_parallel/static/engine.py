@@ -903,6 +903,14 @@ class Engine:
         paddle.base.libpaddle.pir.apply_dist2dense_pass(dense_program)
         remove_unuseful_comm_op_pass(dense_program)
 
+        if core._enable_auto_recompute():
+            from paddle.decomposition import decomp
+
+            logging.info("apply auto_recompute in auto_parallel")
+            dense_program = decomp.auto_recompute_pir_program(
+                dense_program, None
+            )
+
         if self._strategy.pipeline.enable:
             self._job_plan = pipeline_pass(
                 [dense_program], [dense_program], self._strategy.pipeline
