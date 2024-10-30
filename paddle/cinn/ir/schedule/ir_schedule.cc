@@ -95,13 +95,19 @@ void BaseInliner::Visit(const ir::Block* expr, Expr* op) {
 
 bool BaseInliner::UpdateAndCheckIndexVars(const std::vector<Expr>& indices,
                                           int expected_ndim) {
-  int n = indices.size();
+  std::vector<cinn::Expr> squeeze_indices;
+  for (const auto& indice : indices) {
+    if (indice.is_var()) {
+      squeeze_indices.push_back(indice);
+    }
+  }
+  int n = squeeze_indices.size();
   if (n != expected_ndim) {
     return false;
   }
   std::vector<Var> result;
   result.reserve(n);
-  for (auto& i : indices) {
+  for (auto& i : squeeze_indices) {
     if (i.as_var()) {
       result.push_back(i.as_var_ref());
     } else {
@@ -124,16 +130,23 @@ bool BaseInliner::UpdateAndCheckIndexVars(const std::vector<Expr>& indices,
 }
 
 void BaseInliner::SetIndexSubstitution(const std::vector<Expr>& indices) {
-  PADDLE_ENFORCE_EQ(indices.size(),
-                    idx_vars_.size(),
-                    ::common::errors::InvalidArgument(
-                        "The size of indices should be equal to idx_vars_"));
+  std::vector<cinn::Expr> squeeze_indices;
+  for (const auto& indice : indices) {
+    if (indice.is_var()) {
+      squeeze_indices.push_back(indice);
+    }
+  }
+  PADDLE_ENFORCE_EQ(
+      squeeze_indices.size(),
+      idx_vars_.size(),
+      ::common::errors::InvalidArgument(
+          "The size of squeeze_indices should be equal to idx_vars_"));
   int n = idx_vars_.size();
   idx_sub_var_.reserve(n);
   idx_sub_expr_.reserve(n);
   for (int i = 0; i < n; ++i) {
     idx_sub_var_.push_back(idx_vars_[i]);
-    idx_sub_expr_.push_back(indices[i]);
+    idx_sub_expr_.push_back(squeeze_indices[i]);
   }
 }
 
