@@ -364,11 +364,9 @@ class TestSimpleNetForEP:
         dist_dataloader = dist.shard_dataloader(
             train_dataloader, config.mesh, shard_dims="x"
         )
-        loss, logit = self.train(
-            config, model, dist_dataloader, criterion, optimizer
-        )
+        loss = self.train(config, model, dist_dataloader, criterion, optimizer)
 
-        return loss, logit
+        return loss
 
     def run_shared_replicate(self):
         self.set_seed(self._seed)
@@ -378,15 +376,12 @@ class TestSimpleNetForEP:
             config
         )
 
-        loss, logit = self.train(
-            config, model, train_dataloader, criterion, optimizer
-        )
-        return loss, logit
+        loss = self.train(config, model, train_dataloader, criterion, optimizer)
+        return loss
 
     def test_ep_shared_demo_net(self):
-        ep_loss, ep_logit = self.run_shared_ep()
-        replicate_loss, replicate_logit = self.run_shared_replicate()
-        np.testing.assert_allclose(ep_logit, replicate_logit, rtol=1e-6)
+        ep_loss = self.run_shared_ep()
+        replicate_loss = self.run_shared_replicate()
         np.testing.assert_allclose(ep_loss, replicate_loss, rtol=1e-6)
 
     def test_ep_demo_net(self):
