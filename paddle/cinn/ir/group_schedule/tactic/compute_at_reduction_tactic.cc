@@ -19,6 +19,7 @@
 #include "paddle/cinn/ir/utils/ir_compare.h"
 #include "paddle/cinn/optim/replace_var_with_expr.h"
 #include "paddle/common/enforce.h"
+
 namespace cinn {
 namespace ir {
 
@@ -41,40 +42,6 @@ class ComputeAtReductionTactic final : public ScheduleTactic {
 
 void ComputeAtReductionTactic::Init(ScheduleContext* context) {
   context_ = context;
-}
-
-void ComputeAtReductionTactic::Apply(ir::IRSchedule* sch,
-                                     const std::string& block_id) {
-  const auto ContainsConditionOrLet = [&](const ir::Expr& expr) -> bool {
-    const auto condition_or_let = ir::ir_utils::CollectIRNodesWithoutTensor(
-        expr, [&](const Expr* x) -> bool {
-          if (x->As<ir::IfThenElse>()) return true;
-          if (x->As<ir::Select>()) return true;
-          if (x->As<ir::Let>()) return true;
-          return false;
-        });
-    return !condition_or_let.empty();
-  };
-  // Should analyze condition when dependency tools are done.
-  if (ContainsConditionOrLet(sch->GetModule().GetExprs().front())) return;
-
-  if (!compute_at_reduce_init_done_) {
-    for (const auto& block : sch->GetAllBlocks()) {
-      ComputeAtReduceInit(sch,
-                          block.As<ir::ScheduleBlockRealize>()
-                              ->schedule_block.As<ir::ScheduleBlock>()
-                              ->name);
-    }
-    VLOG(6) << "After ComputeAtReductionInit on expr: [" << block_id
-            << "], expr:\n"
-            << sch->GetModule().GetExprs().front();
-    compute_at_reduce_init_done_ = true;
-  }
-
-  ComputeAtReduceLoad(sch, block_id);
-  VLOG(6) << "After ComputeAtReductionLoad on expr: [" << block_id
-          << "], expr:\n"
-          << sch->GetModule().GetExprs().front();
 }
 
 bool ForExtentsEqual(const std::vector<ir::Expr>& first,
@@ -102,25 +69,67 @@ bool ForExtentsEqual(const std::vector<ir::Expr>& first,
   return true;
 }
 
+std::string BlockToName(const ir::Expr& block) {
+  PADDLE_ENFORCE_NOT_NULL(
+      block.As<ir::ScheduleBlockRealize>(),
+      ::common::errors::InvalidArgument(
+          "The input block should be a ScheduleBlockRealize!"));
+  return block.As<ir::ScheduleBlockRealize>()
+      ->schedule_block.As<ir::ScheduleBlock>()
+      ->name;
+}
+
+void ComputeAtReductionTactic::Apply(ir::IRSchedule* sch,
+                                     const std::string& block_id) {
+  const auto ContainsConditionOrLet = [&](const ir::Expr& expr) -> bool {
+    const auto condition_or_let = ir::ir_utils::CollectIRNodesWithoutTensor(
+        expr, [&](const Expr* x) -> bool {
+          if (x->As<ir::IfThenElse>()) return true;
+          if (x->As<ir::Select>()) return true;
+          if (x->As<ir::Let>()) return true;
+          return false;
+        });
+    return !condition_or_let.empty();
+  };
+  // Should analyze condition when dependency tools are done.
+  if (ContainsConditionOrLet(sch->GetModule().GetExprs().front())) return;
+
+  if (!compute_at_reduce_init_done_) {
+    for (const auto& block : sch->GetAllBlocks()) {
+      ComputeAtReduceInit(sch, BlockToName(block));
+    }
+    VLOG(6) << "After ComputeAtReductionInit on expr: [" << block_id
+            << "], expr:\n"
+            << sch->GetModule().GetExprs().front();
+    compute_at_reduce_init_done_ = true;
+  }
+
+  ComputeAtReduceLoad(sch, block_id);
+  VLOG(6) << "After ComputeAtReductionLoad on expr: [" << block_id
+          << "], expr:\n"
+          << sch->GetModule().GetExprs().front();
+}
+
 void ComputeAtReductionTactic::ComputeAtReduceInit(
     ir::IRSchedule* sch, const std::string& block_id) {
   if (!ir::IsReduceInitTensorName(block_id)) return;
 
   const auto GetRootInitBlockId =
-      [&](const std::vector<ir::Expr>& blocks) -> std::string {
+      [&](const std::vector<ir::Expr>& blocks) -> std::optional<std::string> {
     for (const auto& block : blocks) {
-      const std::string root_block_name =
-          block.As<ir::ScheduleBlockRealize>()
-              ->schedule_block.As<ir::ScheduleBlock>()
-              ->name;
-      if (ir::IsReduceInitTensorName(root_block_name)) return root_block_name;
+      const std::string root_block_name = BlockToName(block);
+      if (ir::IsReduceInitTensorName(root_block_name))
+        return std::optional<std::string>{root_block_name};
     }
-    return "";
+    return std::nullopt;
   };
 
   const std::vector<ir::Expr> blocks = sch->GetAllBlocks();
-  const std::string root_init_block_id = GetRootInitBlockId(blocks);
-  if (root_init_block_id.empty() || root_init_block_id == block_id) return;
+  std::optional<std::string> root_init_block_id_value =
+      GetRootInitBlockId(blocks);
+  if (!root_init_block_id_value.has_value()) return;
+  const std::string root_init_block_id = root_init_block_id_value.value();
+  if (root_init_block_id == block_id) return;
 
   const std::vector<ir::Expr> root_loops = sch->GetLoops(root_init_block_id);
   const std::vector<ir::Expr> cur_loops = sch->GetLoops(block_id);
@@ -130,9 +139,10 @@ void ComputeAtReductionTactic::ComputeAtReduceInit(
                        sch->GetLoops(root_init_block_id).back());
 }
 
-std::string FindCandidateBlockId(ir::IRSchedule* sch,
-                                 const std::vector<ir::Expr>& blocks,
-                                 const ir::Expr& cur_block) {
+std::optional<std::string> FindCandidateBlockId(
+    ir::IRSchedule* sch,
+    const std::vector<ir::Expr>& blocks,
+    const ir::Expr& cur_block) {
   const auto ConstructForVarMap = [&](const std::vector<ir::Expr>& lhs_loops,
                                       const std::vector<ir::Expr>& rhs_loops)
       -> std::unordered_map<ir::Var, ir::Var> {
@@ -173,37 +183,25 @@ std::string FindCandidateBlockId(ir::IRSchedule* sch,
     return tensor_indices;
   };
 
-  const auto LoadAndIndicesEqual = [&](const ir::Load* first,
-                                       const ir::Load* second,
-                                       const ir::Expr& first_block,
-                                       const ir::Expr& second_block) -> bool {
-    if (first->tensor.as_tensor_ref()->buffer->name !=
-        second->tensor.as_tensor_ref()->buffer->name)
-      return false;
-    const std::vector<ir::Expr> first_loops = sch->GetLoops(first_block);
-    const std::vector<ir::Expr> second_loops = sch->GetLoops(second_block);
-    if (!ForExtentsEqual(first_loops, second_loops)) return false;
-    std::unordered_map<ir::Var, ir::Var> for_var_map =
-        ConstructForVarMap(first_loops, second_loops);
-
-    const auto first_indices =
-        IndicesWithIterValues(first->indices,
-                              first_block.As<ir::ScheduleBlockRealize>(),
-                              for_var_map);
-    const auto second_indices =
-        IndicesWithIterValues(second->indices,
-                              second_block.As<ir::ScheduleBlockRealize>(),
-                              for_var_map);
-    if (first_indices.size() != second_indices.size()) return false;
-    for (size_t i = 0; i < first_indices.size(); ++i) {
-      if (!ir::ir_utils::IRCompare(first_indices[i], second_indices[i])) {
-        VLOG(8) << "Indices not equal, first: " << first_indices[i]
-                << " second: " << second_indices[i];
+  const auto LoadIndicesEqual =
+      [&](const std::vector<ir::Expr>& first,
+          const std::vector<ir::Expr>& second) -> bool {
+    if (first.size() != second.size()) return false;
+    for (size_t i = 0; i < first.size(); ++i) {
+      if (!ir::ir_utils::IRCompare(first[i], second[i])) {
+        VLOG(8) << "Indices not equal, first: " << first[i]
+                << " second: " << second[i];
         return false;
       }
     }
     VLOG(8) << "Indices equal";
     return true;
+  };
+
+  const auto LoadBufferEqual = [&](const ir::Load* first,
+                                   const ir::Load* second) -> bool {
+    return (first->tensor.as_tensor_ref()->buffer->name ==
+            second->tensor.as_tensor_ref()->buffer->name);
   };
 
   const auto IndicesContainLoad = [&](const ir::Load* load) -> bool {
@@ -217,17 +215,32 @@ std::string FindCandidateBlockId(ir::IRSchedule* sch,
     return false;
   };
 
-  const auto HasCommonLoad = [&](const ir::Load* load,
+  const auto HasCommonLoad = [&](const ir::Load* target_load,
                                  const std::set<ir::Expr>& load_nodes,
                                  const ir::Expr& first_block,
                                  const ir::Expr& second_block) -> bool {
+    if (IndicesContainLoad(target_load)) return false;
+    const std::vector<ir::Expr> first_loops = sch->GetLoops(first_block);
+    const std::vector<ir::Expr> second_loops = sch->GetLoops(second_block);
+    if (!ForExtentsEqual(first_loops, second_loops)) return false;
+    std::unordered_map<ir::Var, ir::Var> for_var_map =
+        ConstructForVarMap(first_loops, second_loops);
+
     for (const auto& load_node : load_nodes) {
-      PADDLE_ENFORCE_NOT_NULL(load_node.As<ir::Load>(),
+      const auto node = load_node.As<ir::Load>();
+      PADDLE_ENFORCE_NOT_NULL(node,
                               ::common::errors::InvalidArgument(
                                   "The input node should be a Load!"));
-      if (IndicesContainLoad(load_node.As<ir::Load>())) return false;
-      if (LoadAndIndicesEqual(
-              load, load_node.As<ir::Load>(), first_block, second_block))
+      const auto first_indices =
+          IndicesWithIterValues(target_load->indices,
+                                first_block.As<ir::ScheduleBlockRealize>(),
+                                for_var_map);
+      const auto second_indices =
+          IndicesWithIterValues(node->indices,
+                                second_block.As<ir::ScheduleBlockRealize>(),
+                                for_var_map);
+      if (LoadBufferEqual(target_load, node) &&
+          LoadIndicesEqual(first_indices, second_indices))
         return true;
     }
     return false;
@@ -235,7 +248,7 @@ std::string FindCandidateBlockId(ir::IRSchedule* sch,
 
   const auto GetCandidateBlockId =
       [&](const std::vector<ir::Expr>& blocks,
-          const ir::Expr& cur_block) -> std::string {
+          const ir::Expr& cur_block) -> std::optional<std::string> {
     const auto load_nodes = ir::ir_utils::CollectIRNodesWithoutTensor(
         cur_block, [&](const Expr* x) -> bool {
           return x->As<ir::Load>() &&
@@ -244,7 +257,6 @@ std::string FindCandidateBlockId(ir::IRSchedule* sch,
                          ->buffer->memory_type == ir::MemoryType::Heap;
         });
 
-    std::string candidate_block_id = "";
     for (const auto& block : blocks) {
       const auto common_loads = ir::ir_utils::CollectIRNodesWithoutTensor(
           block, [&](const Expr* x) -> bool {
@@ -253,13 +265,10 @@ std::string FindCandidateBlockId(ir::IRSchedule* sch,
                        x->As<ir::Load>(), load_nodes, block, cur_block);
           });
       if (!common_loads.empty()) {
-        candidate_block_id = block.As<ir::ScheduleBlockRealize>()
-                                 ->schedule_block.As<ir::ScheduleBlock>()
-                                 ->name;
-        break;
+        return std::optional<std::string>{BlockToName(block)};
       }
     }
-    return candidate_block_id;
+    return std::nullopt;
   };
 
   return GetCandidateBlockId(blocks, cur_block);
@@ -275,10 +284,7 @@ bool IsSafeComputeAt(ir::IRSchedule* sch,
       ir::ir_utils::CollectIRNodesWithoutTensor(
           loops[0], [&](const Expr* x) -> bool {
             if (x->As<ir::ScheduleBlockRealize>() &&
-                !(ir::IsReduceInitTensorName(
-                    x->As<ir::ScheduleBlockRealize>()
-                        ->schedule_block.As<ir::ScheduleBlock>()
-                        ->name))) {
+                !(ir::IsReduceInitTensorName(BlockToName(*x)))) {
               loop_sbrs.push_back(*x);
             }
             return false;
@@ -290,10 +296,7 @@ bool IsSafeComputeAt(ir::IRSchedule* sch,
   const auto GetBlockIndex = [&](const std::vector<ir::Expr>& blocks,
                                  const std::string& block_name) -> size_t {
     for (size_t i = 0; i < blocks.size(); ++i) {
-      if (blocks[i]
-              .As<ir::ScheduleBlockRealize>()
-              ->schedule_block.As<ir::ScheduleBlock>()
-              ->name == block_name) {
+      if (BlockToName(blocks[i]) == block_name) {
         return i;
       }
     }
@@ -327,20 +330,12 @@ bool IsSafeComputeAt(ir::IRSchedule* sch,
     if (GetTensor(first)->name == GetTensor(second)->name) return true;
     const auto consumers = GetConsumers(second, sch->GetRootBlock(second));
     const auto producers = GetProducers(second, sch->GetRootBlock(second));
-    const auto first_name = first.As<ir::ScheduleBlockRealize>()
-                                ->schedule_block.As<ir::ScheduleBlock>()
-                                ->name;
+    const auto first_name = BlockToName(first);
     for (const auto& consumer : consumers) {
-      if (consumer.As<ir::ScheduleBlockRealize>()
-              ->schedule_block.As<ir::ScheduleBlock>()
-              ->name == first_name)
-        return true;
+      if (BlockToName(consumer) == first_name) return true;
     }
     for (const auto& producer : producers) {
-      if (producer.As<ir::ScheduleBlockRealize>()
-              ->schedule_block.As<ir::ScheduleBlock>()
-              ->name == first_name)
-        return true;
+      if (BlockToName(producer) == first_name) return true;
     }
     return false;
   };
@@ -357,10 +352,7 @@ bool IsSafeComputeAt(ir::IRSchedule* sch,
         check_blocks.end(), affected_sbrs.begin(), affected_sbrs.end());
     for (const auto& block : check_blocks) {
       VLOG(8) << "Check dependency: " << block;
-      if (src_id == block.As<ir::ScheduleBlockRealize>()
-                        ->schedule_block.As<ir::ScheduleBlock>()
-                        ->name)
-        continue;
+      if (src_id == BlockToName(block)) continue;
       if (BlockDependency(block, sch->GetBlock(src_id))) return false;
     }
     return true;
@@ -372,12 +364,14 @@ bool IsSafeComputeAt(ir::IRSchedule* sch,
 void ComputeAtReductionTactic::ComputeAtReduceLoad(
     ir::IRSchedule* sch, const std::string& block_id) {
   // 1. Find candidate block, load buffer with same indices.
-  const std::string candidate_block_id =
+  std::optional<std::string> candidate_block_id_value =
       FindCandidateBlockId(sch, sch->GetAllBlocks(), sch->GetBlock(block_id));
-  if (candidate_block_id.empty() || candidate_block_id == block_id) return;
+  if (!candidate_block_id_value.has_value()) return;
+  const std::string candidate_block_id = candidate_block_id_value.value();
+  if (candidate_block_id == block_id) return;
   VLOG(8) << "Candidate block: " << candidate_block_id;
 
-  // 2. Check condition, loops structure and block-level dependency.
+  // 2. Check block-level dependency.
   if (!IsSafeComputeAt(sch, candidate_block_id, block_id)) return;
   VLOG(8) << "Compate at is safe: " << block_id;
 

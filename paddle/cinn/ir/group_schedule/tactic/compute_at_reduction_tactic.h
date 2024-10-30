@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include "paddle/cinn/ir/group_schedule/tactic/schedule_tactic.h"
 
