@@ -1189,8 +1189,11 @@ class ReduceAsOpPattern
       }
 
       bool keep_dim = (x_rank == y_rank);
+      auto pir_dtype =
+          op->operand_source(0).type().dyn_cast<pir::DenseTensorType>().dtype();
+      auto phi_dtype = paddle::dialect::TransToPhiDataType(pir_dtype);
       auto sum_op = rewriter.Build<paddle::dialect::SumOp>(
-          op.operand_source(0), reduce_axis, phi::DataType::FLOAT32, keep_dim);
+          op.operand_source(0), reduce_axis, phi_dtype, keep_dim);
 
       auto new_output = sum_op.result(0);
 
