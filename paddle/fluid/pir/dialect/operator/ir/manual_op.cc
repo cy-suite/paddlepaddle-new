@@ -1946,32 +1946,22 @@ bool ArrayReadOp::InferSymbolicShape(
     pir::InferSymbolicShapeContext *infer_context) {
   const auto &array_shape =
       infer_context->GetShapeOrDataForValue(array())
-          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>()
-          .GetShapeHint();
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
   const auto &i_shape_or_data = infer_context->GetShapeOrDataForValue(i());
-  if (!i_shape_or_data.data().has_value()) {
-    int array_rank = array_shape.size();
-    auto out_shape = array_shape;
-    if (array_rank > 1) {
-      for (int i = 0; i < array_rank; ++i) {
-        out_shape[i] = infer_context->GetNextSymName();
-      }
-      infer_context->SetShapeOrDataForValue(
-          out(),
-          symbol::ShapeOrDataDimExprs{
-              symbol::TensorShapeOrDataDimExprs(out_shape)});
-    } else {
-      infer_context->SetShapeOrDataForValue(
-          out(),
-          symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs(
-              {infer_context->GetNextSymName()})});
+  if (array_shape.size() > 1) {
+    auto output_shape = array_shape.GetShapeHint();
+    for (size_t i = 0, i < array_shape.size(); ++i) {
+      output_shape[i] = infer_context->GetNextSymName();
     }
-  } else {
-    int i_value = i_shape_or_data.data().value()[0].Get<int64_t>();
     infer_context->SetShapeOrDataForValue(
         out(),
         symbol::ShapeOrDataDimExprs{
-            symbol::TensorShapeOrDataDimExprs({array_shape[i_value]})});
+            symbol::TensorShapeOrDataDimExprs(output_shape)});
+  } else {
+    infer_context->SetShapeOrDataForValue(
+        out(),
+        symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs(
+            {infer_context->GetNextSymName()})});
   }
   return true;
 }
