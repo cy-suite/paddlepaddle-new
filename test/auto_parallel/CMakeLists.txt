@@ -133,6 +133,9 @@ if(WITH_DISTRIBUTE AND WITH_GPU)
     test_semi_auto_parallel_unshard_dtensor ENVS FLAGS_enable_pir_api=1)
   set_tests_properties(test_semi_auto_parallel_unshard_dtensor
                        PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE" TIMEOUT 100)
+  py_test_modules(test_moe_utils MODULES test_moe_utils)
+  set_tests_properties(test_moe_utils PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE"
+                                                 TIMEOUT 30)
   # End of unittests WITH multi cards and timeout
 
   # NOTE(zyl): unittests WITH multi cards and WITHOUT timeout
@@ -163,6 +166,7 @@ if(WITH_DISTRIBUTE AND WITH_GPU)
   py_test_modules(test_shard_tensor_api MODULES test_shard_tensor_api ENVS
                   FLAGS_enable_pir_api=1)
   py_test_modules(test_strategy_api MODULES test_strategy_api)
+  py_test_modules(test_parallel_api MODULES test_parallel_api)
   # End of unittests WITH single card WITHOUT timeout
 
 endif()
