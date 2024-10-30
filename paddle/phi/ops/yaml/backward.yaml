@@ -2093,7 +2093,7 @@
   forward : mp_allreduce_sum(Tensor x, int ring_id = 0) -> Tensor(out)
   args : (Tensor out_grad, int ring_id = 0)
   output : Tensor(x_grad)
-  invoke : c_identity(out_grad, ring_id, false, false)
+  invoke : c_identity(out_grad, false, ring_id)
 
 - backward_op : multi_dot_grad
   forward : multi_dot (Tensor[] x) -> Tensor(out)
