@@ -1202,8 +1202,6 @@ class _ExecutorCache:
                 ir_program = cached_data.plan.ir_program(job_type)
                 value_map = pir.IrMapping()
                 program_tmp = ir_program.clone(value_map)
-                print("~~~~~~~~~~~~~")
-                print(job_type, program_tmp)
                 type_to_program[job_type] = program_tmp
                 value_map_list.append(value_map)
 
