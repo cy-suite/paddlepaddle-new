@@ -78,6 +78,7 @@ class TestAssignPosOpInt64(op_test.OpTest):
         y = count(x, 16)
         cum_count = np.cumsum(y).astype(x.dtype)
         self.op_type = "assign_pos"
+        self.python_api = utils._assign_pos
         self.inputs = {
             'X': x,
             "cum_count": cum_count,
