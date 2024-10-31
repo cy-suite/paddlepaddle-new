@@ -2594,8 +2594,6 @@ bool TensorToArrayOp::InferSymbolicShape(
   const auto &x_shape_or_data =
       infer_context->GetShapeOrDataForValue(x())
           .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
-  const auto &out_grad_shape_or_data =
-      infer_context->GetShapeOrDataForValue(out_grad());
 
   const auto &UseStackInfer = [&]() {
     std::vector<symbol::DimExpr> result_shape = x_shape_or_data.GetShapeHint();

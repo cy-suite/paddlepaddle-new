@@ -181,7 +181,8 @@ class SelectInputOp
   bool InferSymbolicShape(pir::InferSymbolicShapeContext *infer_context);
 };
 
-class SelectOutputOp : public pir::Op<SelectOutputOp> {
+class SelectOutputOp
+    : public pir::Op<SelectOutputOp, InferSymbolicShapeInterface> {
  public:
   using Op::Op;
   static const char *name() { return "pd_op.select_output"; }
@@ -190,6 +191,7 @@ class SelectOutputOp : public pir::Op<SelectOutputOp> {
   void VerifySig();
   pir::Value mask() { return operand_source(0); }
   pir::Value x() { return operand_source(1); }
+  bool InferSymbolicShape(pir::InferSymbolicShapeContext *infer_context);
 };
 
 }  // namespace dialect
