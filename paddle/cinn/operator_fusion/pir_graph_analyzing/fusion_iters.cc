@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "paddle/cinn/operator_fusion/pir_graph_analyzing/fusion_iters.h"
+#include <queue>
 #include "paddle/cinn/operator_fusion/pattern_node.h"
 
 namespace cinn::fusion {
@@ -87,6 +88,29 @@ void FusionItersManager::GenerateRelatedIters() {
     VLOG(4) << "Related iters: " << kv.first << " -> "
             << cinn::utils::Join(SetToVector(kv.second), ", ");
   }
+}
+
+bool FusionItersManager::CanFindRelatedIters(
+    const std::string& source, const std::vector<std::string>& targets) {
+  auto candidates = ToUnorderedSet(targets);
+  candidates.erase(source);
+  if (related_iters_.count(source) == 0) return false;
+  // BFS
+  std::unordered_set<std::string> visited = {source};
+  std::queue<std::string> q;
+  q.push(source);
+  while (!q.empty()) {
+    auto cur = q.front();
+    q.pop();
+    if (candidates.count(cur) != 0) return true;
+    for (const auto& next : related_iters_[cur]) {
+      if (visited.count(next) == 0) {
+        visited.insert(next);
+        q.push(next);
+      }
+    }
+  }
+  return false;
 }
 
 FusionItersSignature FusionItersManager::GetItersSignature(pir::Operation* op) {

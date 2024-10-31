@@ -93,13 +93,7 @@ std::optional<ShardableAxesSignature> CreateSignatureForSpecialOps(
             << op->name();
     return CreateDefaultSignature(op);
   }
-  if (op->isa<cinn::dialect::ReshapeOp>()) {
-    return CreateDefaultSignature(op);
-  }
   if (op->name() == "cinn_op.generate_shape") {
-    return CreateDefaultSignature(op);
-  }
-  if (op->name() == "cinn_op.reshape") {
     return CreateDefaultSignature(op);
   }
   if (op->name() == "pd_op.reshape") {
@@ -305,6 +299,24 @@ ShardableAxesSignature CreateSignatureForBroadcast(
   return result;
 }
 
+ShardableAxesSignature CreateSignatureForReshape(
+    pir::Operation* op, ShardableAxesInfoManager* axes_manager) {
+  const auto input_axes =
+      CreateNewNamesWithRank(GetCompitableRank(op->operand_source(0)));
+  const auto output_axes =
+      CreateNewNamesWithRank(GetCompitableRank(op->result(0)));
+  for (const auto& in_axis : input_axes) {
+    for (const auto& out_axis : output_axes) {
+      axes_manager->related_axes_map()[in_axis] = out_axis;
+    }
+  }
+  ShardableAxesSignature result = ShardableAxesSignature();
+  result.inputs.emplace_back(input_axes);
+  result.outputs.emplace_back(output_axes);
+  result.loop = result.outputs.back();
+  return result;
+}
+
 ShardableAxesSignature CreateSignatureForConcat(
     pir::Operation* op, ShardableAxesInfoManager* axes_manager) {
   size_t rank = GetCompitableRank(op->result(0));
@@ -356,6 +368,8 @@ ShardableAxesSignature ShardableAxesInfoManager::CreateShardableSignature(
   const hlir::framework::OpPatternKind kind = GetOpPatternKind(op);
   if (kind == hlir::framework::kReduction) {
     result = CreateSignatureForReduce(op);
+  } else if (op->name() == "cinn_op.reshape") {
+    result = CreateSignatureForReshape(op, this);
   } else if (kind == hlir::framework::kElementWise) {
     result = CreateSignatureForElementWise(op);
   } else if (kind == hlir::framework::kBroadcast) {

@@ -32,9 +32,7 @@ bool ItersFusionPolicy::CheckItersRelation(const PatternNodePtr& source,
     return true;
   } else {
     for (const auto& related_iter : source_related_iters) {
-      const auto target_related_iters =
-          iters_manager_->related_iters_map()[related_iter];
-      if (AnyFirstInSecond(target_iters, SetToVector(target_related_iters))) {
+      if (iters_manager_->CanFindRelatedIters(related_iter, target_iters)) {
         return false;
       }
     }
