@@ -24,12 +24,15 @@ if TYPE_CHECKING:
 class Constraint:
     """Constraint condition for random variable."""
 
-    def check(self, value: Tensor) -> Tensor:
+    def __call__(self, value: Tensor) -> Tensor:
         raise NotImplementedError
+
+    def check(self, value: Tensor) -> Tensor:
+        return self.__call__(value)
 
 
 class Real(Constraint):
-    def check(self, value: Tensor) -> Tensor:
+    def __call__(self, value: Tensor) -> Tensor:
         return value == value
 
 
@@ -39,17 +42,17 @@ class Range(Constraint):
         self._upper = upper
         super().__init__()
 
-    def check(self, value: Tensor) -> Tensor:
+    def __call__(self, value: Tensor) -> Tensor:
         return self._lower <= value <= self._upper
 
 
 class Positive(Constraint):
-    def check(self, value: Tensor) -> Tensor:
+    def __call__(self, value: Tensor) -> Tensor:
         return value >= 0.0
 
 
 class Simplex(Constraint):
-    def check(self, value: Tensor) -> Tensor:
+    def __call__(self, value: Tensor) -> Tensor:
         return paddle.all(value >= 0, axis=-1) and (
             (value.sum(-1) - 1).abs() < 1e-6
         )
