@@ -805,7 +805,7 @@ class PipelineOptimizer:
                             attrs={
                                 self._op_device_key: prev_dev,
                                 self._op_role_key: op_role,
-                                'use_calc_stream': True,
+                                # 'use_calc_stream': True,
                                 'peer': 1,
                                 'ring_id': ring_id,
                             },
@@ -1613,7 +1613,7 @@ class PipelineOptimizer:
                     },
                     attrs={
                         self._op_device_key: write_device,
-                        'use_calc_stream': False,
+                        # 'use_calc_stream': False,
                         # A trick to make the role LRSched to avoid copy every
                         # microbatch
                         self._op_role_key: self._op_role.LRSched,
