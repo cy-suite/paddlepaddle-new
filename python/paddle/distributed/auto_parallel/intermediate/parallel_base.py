@@ -25,14 +25,14 @@ class ParallelOptimizer(Optimizer):
         return getattr(self.optimizer, item)
 
 
-class ParallelModelBase(Layer):
+class ParallelBase(Layer):
     def __init__(self, model, optimizer=None):
         super().__init__()
         self.pp_parallelizer = None
         self.tp_parallelizer = None
         self.sharding_parallelizer = None
 
-        if isinstance(model, ParallelModelBase):
+        if isinstance(model, ParallelBase):
             self.pp_parallelizer = model.pp_parallelizer
             self.tp_parallelizer = model.tp_parallelizer
             self.sharding_parallelizer = model.sharding_parallelizer
