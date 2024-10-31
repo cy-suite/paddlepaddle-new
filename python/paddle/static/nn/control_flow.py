@@ -1302,6 +1302,14 @@ def create_container_by_items_and_indices(*items_indices_pairs):
     return container
 
 
+def run_with_block(fn, block):
+    def new_fn(*args, **kwargs):
+        with block():
+            return fn(*args, **kwargs)
+
+    return new_fn
+
+
 class OutputSelector:
     def __init__(
         self, if_op, flattened_true_output, flattened_false_output, names
@@ -1412,9 +1420,11 @@ class OutputSelector:
                 return True
             return all(out.dtype == outs[0].dtype for out in outs[1:])
 
-        def constant_to_variable_with_block(constant, block_context_manager):
-            with block_context_manager():
-                return to_static_variable(constant)
+        def get_first_value_dtype(outs):
+            for out in outs:
+                if isinstance(out, paddle.pir.Value):
+                    return out.dtype
+            return None
 
         def promote_precision(out_with_blocks):
             def get_expected_precision(out_with_blocks):
@@ -1436,10 +1446,9 @@ class OutputSelector:
             expected_dtype = get_expected_precision(out_with_blocks)
             for out, block in out_with_blocks:
                 if expected_dtype != out.dtype:
-                    with block():
-                        out = paddle.cast(
-                            out, _PADDLE_PIR_DTYPE_2_NUMPY_DTYPE[expected_dtype]
-                        )
+                    run_with_block(paddle.cast, block)(
+                        out, _PADDLE_PIR_DTYPE_2_NUMPY_DTYPE[expected_dtype]
+                    )
                 new_outs.append(out)
             return new_outs
 
@@ -1475,7 +1484,9 @@ class OutputSelector:
                     "so we will promote the constant to variable."
                 )
                 return [
-                    constant_to_variable_with_block(out, block)
+                    # TODO(SigureMo): Should we use the same dtype for all the constants?
+                    # e.g. in true branch var is 3, else branch var is 2, then the dtype should be float64.
+                    run_with_block(to_static_variable, block)(out, dtype=None)
                     for out, block in out_with_blocks
                 ]
 
@@ -1489,7 +1500,9 @@ class OutputSelector:
                 + f"'{type(outs[0])}'"
             )
             return [
-                constant_to_variable_with_block(out, block)
+                run_with_block(to_static_variable, block)(
+                    out, dtype=get_first_value_dtype(outs)
+                )
                 for out, block in out_with_blocks
             ]
 
