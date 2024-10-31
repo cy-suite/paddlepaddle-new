@@ -68,8 +68,6 @@ class CollectShapeManager {
     is_shape_range_info_ready_ = false;
   }
 
-  bool IsShapeRangeInfoReady() const { return is_shape_range_info_ready_; }
-
  private:
   CollectShapeManager() {}
   std::unordered_map<pir::Value, pir::Value> op_value2kernel_value_;
