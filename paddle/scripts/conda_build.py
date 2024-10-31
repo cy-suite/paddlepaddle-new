@@ -19,6 +19,8 @@ import os
 import platform
 import string
 import yaml
+script_path = os.path.abspath(__file__)
+script_dir = os.path.dirname(script_path)
 
 package_path = os.getenv('PACKAGEPATH', default='/package')
 
@@ -57,7 +59,8 @@ class ConstantVar:
 
 def template_full(name, version, packages_string, python_version, cuda_str):
     # 读取模板文件
-    with open('conda_build_template.yaml', 'r') as template_file:
+    template_file_path = os.path.join(script_dir, 'conda_build_template.yaml')
+    with open(template_file_path, 'r') as template_file:
         template_content = template_file.read()
 
     paddlepaddle_cuda=''
@@ -187,4 +190,6 @@ if __name__ == "__main__":
     if args.only_download is not None:
         requirement_download(paddle_version,var)
     else:
+        os.system("mkdir paddle")
+        os.chdir(r"./paddle")
         conda_build(paddle_version, var)
