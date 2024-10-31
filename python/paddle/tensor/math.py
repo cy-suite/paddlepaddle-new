@@ -3807,9 +3807,6 @@ def clip(
             paddle.expand(max_n, x.shape) if max_n.shape != x.shape else max_n
         )
 
-        min_n.stop_gradient = True
-        max_n.stop_gradient = True
-
         output_min = paddle.where(x < min_n, min_n, x)
         output = paddle.where(output_min > max_n, max_n, output_min)
         return output
