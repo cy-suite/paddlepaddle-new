@@ -75,6 +75,7 @@ from .placement_type import (
     to_placements,
 )
 from .random import determinate_rng, rng_state
+from .sharding import ShardingOptimizerStage1
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -1137,10 +1138,12 @@ class _ShardOptimizer(Optimizer):
                 param.get_tensor()._share_data_with(out_param.get_tensor())
 
     def _create_accumulators(self, block, parameters):
-        self._inner_opt._create_accumulators(block, parameters)
         if isinstance(parameters, dict):
             parameters = parameters.get('params')
+        # NOTE(zhiqiu): we need to create and shard accumulators for parameters one by one,
+        # to avoid OOM caused by replcated accumulators.
         for p in parameters:
+            self._inner_opt._create_accumulators(block, [p])
             self._shard_accumulator(p)
 
     def _finish_update(self, block, parameters_and_grads):
@@ -2861,6 +2864,12 @@ def to_static(
                 raise NotImplementedError(
                     "Only sharding stage 1, 2 and 3 can to_static for now. User-defined shard_fn will be supported later."
                 )
+
+    if isinstance(optimizer, _ShardOptimizer) and use_pir_api():
+        shard_fn = optimizer._shard_fn
+        optimizer = optimizer._inner_opt
+        if isinstance(optimizer._shard_fn, ShardingStage1):
+            optimizer = ShardingOptimizerStage1(optimizer, shard_fn)
 
     dist_model = DistModel(layer, loader, loss, optimizer, strategy)
     return dist_model

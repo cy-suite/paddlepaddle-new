@@ -192,7 +192,7 @@ Tensor one_hot_decomp(const Tensor& x, const Tensor& num_classes) {
 template <typename T>
 Tensor squared_l2_norm_decomp(const Tensor& x) {
   auto res = sum<T>(x * x, {}, x.dtype(), false);
-  return backend::reshape<T>( res, {1});
+  return backend::reshape<T>(res, {1});
 }
 
 template <typename T>
