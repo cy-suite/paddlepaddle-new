@@ -450,10 +450,7 @@ class TestStrideSliceCase4TRTPattern(TensorRTBaseTest):
         self.max_shape = {"x": [6, 5, 5]}
 
     def test_trt_result(self):
-        for i in range(100):  # 运行100次
-            print(f"Running test iteration {i+1}")
-            self.check_trt_result()
-            # clear_shape_info()
+        self.check_trt_result()
 
 
 class TestStrideSliceCase5TRTPattern(TensorRTBaseTest):
