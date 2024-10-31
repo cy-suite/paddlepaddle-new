@@ -618,6 +618,11 @@ if(WITH_GPU
   endif()
 endif()
 
+if(WITH_GPU)
+  include(external/flux)
+  list(APPEND third_party_deps extern_flux)
+endif()
+
 if(WITH_CUDNN_FRONTEND)
   include(external/cudnn-frontend) # download cudnn-frontend
   list(APPEND third_party_deps extern_cudnn_frontend)

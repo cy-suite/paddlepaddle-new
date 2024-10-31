@@ -128,3 +128,6 @@
 [submodule "paddle/phi/kernels/gpu/flux"]
 	path = paddle/phi/kernels/gpu/flux
 	url = https://github.com/umiswing/flux.git
+[submodule "third_party/flux"]
+	path = third_party/flux
+	url = https://github.com/bytedance/flux.git

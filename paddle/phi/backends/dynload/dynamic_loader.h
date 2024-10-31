@@ -49,6 +49,7 @@ void* GetROCFFTDsoHandle();
 void* GetCusparseLtDsoHandle();
 void* GetXPTIDsoHandle();
 void* GetAfsApiDsoHandle();
+void* GetFluxDsoHandle();
 
 void SetPaddleLibPath(const std::string&);
 
