@@ -95,8 +95,8 @@ class PipelinePass(PassBase):
             # insert sync ops
             for index, op in enumerate(list(block.ops)):
                 # NOTE: pipeline might hang when dynamic_shape is True
-                # if op.type in ['send_v2', 'recv_v2']:
-                #     op._set_attr("dynamic_shape", False)
+                if op.type in ['send_v2', 'recv_v2']:
+                    op._set_attr("dynamic_shape", False)
                 # set send op on comm stream
                 if op.type == 'send_v2':
                     # step1: set 'use_calc_stream' False
