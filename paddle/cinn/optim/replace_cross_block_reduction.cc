@@ -89,9 +89,8 @@ void RemoveGridReduceAxisFromIfCondition(ir::Expr* expr) {
 }
 
 struct BaseMutator : public ir::IRMutator<> {
-  void operator()(ir::LoweredFunc fn) {
-    IRMutator::Visit(fn.As<ir::_LoweredFunc_>());
-  }
+  using ir::IRMutator<>::Visit;
+  void operator()(ir::LoweredFunc fn) { Visit(fn.As<ir::_LoweredFunc_>()); }
 
  protected:
   bool IsGridReduce(const ir::ScheduleBlockRealize* block_realize) {

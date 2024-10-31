@@ -58,9 +58,8 @@ namespace optim {
  */
 void RemoveGpuForloopsAxis(ir::LoweredFunc fn) {
   struct Mutator : public ir::IRMutator<Expr *> {
-    void operator()(ir::LoweredFunc fn) {
-      ir::IRMutator<>::Visit(fn.As<ir::_LoweredFunc_>());
-    }
+    using ir::IRMutator<>::Visit;
+    void operator()(ir::LoweredFunc fn) { Visit(fn.As<ir::_LoweredFunc_>()); }
 
    private:
     void Visit(const ir::For *op, Expr *expr) override {
@@ -173,9 +172,8 @@ void RemoveGpuForloopsAxis(ir::LoweredFunc fn) {
  */
 void CudaSyncThreadsDropIfThenElse(ir::LoweredFunc fn) {
   struct Mutator : public ir::IRMutator<> {
-    void operator()(ir::LoweredFunc fn) {
-      ir::IRMutator<>::Visit(fn.As<ir::_LoweredFunc_>());
-    }
+    using ir::IRMutator<>::Visit;
+    void operator()(ir::LoweredFunc fn) { Visit(fn.As<ir::_LoweredFunc_>()); }
 
     void Visit(const ir::IfThenElse *op, Expr *expr) override {
       blocked_statement_stack.push_back(expr);

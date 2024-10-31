@@ -48,6 +48,12 @@ void IrPrinter::Print(const std::vector<Expr> &exprs,
   str_ = "";
 }
 
+void IrPrinter::Print(const ir::LoweredFunc &fn) {
+  Visit(fn.As<ir::_LoweredFunc_>());
+  os_ << str_;
+  str_ = "";
+}
+
 void IrPrinter::Visit(const IntImm *x) {
   if (x->type().is_int(64)) {
     str_ += std::to_string(x->value);
@@ -808,7 +814,7 @@ std::ostream &operator<<(std::ostream &os, Expr a) {
 std::ostream &operator<<(std::ostream &os, const ir::LoweredFunc &func) {
   std::stringstream ss;
   IrPrinter printer(ss);
-  printer.Visit(func.As<_LoweredFunc_>());
+  printer.Print(func);
   os << ss.str();
   return os;
 }

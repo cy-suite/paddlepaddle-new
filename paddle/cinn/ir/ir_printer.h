@@ -41,6 +41,9 @@ struct IrPrinter : public IRVisitorRequireReImpl<void> {
   template <typename IRN>
   void PrintBinaryOp(const std::string &op, const BinaryOpNode<IRN> *x);
 
+  //! Emit an lowered_func on the output stream.
+  void Print(const ir::LoweredFunc &fn);
+
   //! Prefix the current line with `indent_` spaces.
   void DoIndent();
   //! Increase the indent size.

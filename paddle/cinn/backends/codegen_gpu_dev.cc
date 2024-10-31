@@ -73,7 +73,7 @@ void CodeGenGpuDev::Compile(const ir::Module &module, const Outputs &outputs) {
 
 void CodeGenGpuDev::Compile(const ir::LoweredFunc &func) {
   dyn_shared_mem_offset_ = Expr(-1);
-  IrPrinter::Visit(func.As<ir::_LoweredFunc_>());
+  Visit(func.As<ir::_LoweredFunc_>());
 }
 
 std::vector<Expr> CodeGenGpuDev::GenerateBufferAliasExprs(

@@ -213,7 +213,7 @@ struct CollectBucketStrategyHostFunctionVisitor
         tensor_shape_args_(TENSOR_SHAPE_ARGS, type_of<int64_t**>()) {}
 
   std::tuple<ir::Module, ir::Module> operator()(ir::Module m) {
-    ir::IRMutator<>::Visit(m.As<ir::_Module_>());
+    Visit(m.As<ir::_Module_>());
     return std::make_tuple(host_module_builder.Build(),
                            device_module_builder.Build());
   }
