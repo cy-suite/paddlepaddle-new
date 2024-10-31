@@ -3708,7 +3708,7 @@ def log10_(x: Tensor, name: str | None = None) -> Tensor:
 
 def check_clip_tensor(c_x, value, re_value, value_type, name):
     if value is None:
-        value = paddle.full_like(c_x,  re_value, value_type)
+        value = paddle.full_like(c_x, re_value, value_type)
     else:
         if isinstance(value, (Variable, paddle.pir.Value, paddle.Tensor)):
             if len(value.shape) == 1 and value.shape[-1] == 0:
@@ -3792,19 +3792,25 @@ def clip(
 
     if (
         isinstance(min, (Variable, paddle.pir.Value, paddle.Tensor))
-        and ((len(min.shape) == 1 and min.shape[-1] not in [1, 0]) or len(min.shape) > 1)
+        and (
+            (len(min.shape) == 1 and min.shape[-1] not in [1, 0])
+            or len(min.shape) > 1
+        )
     ) or (
         isinstance(max, (Variable, paddle.pir.Value, paddle.Tensor))
-        and ((len(max.shape) == 1 and max.shape[-1] not in [1, 0]) or len(max.shape) > 1)
+        and (
+            (len(max.shape) == 1 and max.shape[-1] not in [1, 0])
+            or len(max.shape) > 1
+        )
     ):
         min_n = check_clip_tensor(x, min, min_, value_dtype, 'min')
         max_n = check_clip_tensor(x, max, max_, value_dtype, 'max')
 
         min_n = (
-            paddle.expand(min_n, x.shape) if min_n.shape != x.shape else min_n
+            paddle.broadcast_to(min_n, x.shape) if min_n.shape != x.shape else min_n
         )
         max_n = (
-            paddle.expand(max_n, x.shape) if max_n.shape != x.shape else max_n
+            paddle.broadcast_to(max_n, x.shape) if max_n.shape != x.shape else max_n
         )
 
         output_min = paddle.where(x < min_n, min_n, x)
@@ -3897,19 +3903,25 @@ def clip_(
     if in_dynamic_mode():
         if (
             isinstance(min, (Variable, paddle.pir.Value, paddle.Tensor))
-            and ((len(min.shape) == 1 and min.shape[-1] not in [1, 0]) or len(min.shape) > 1)
+            and (
+                (len(min.shape) == 1 and min.shape[-1] not in [1, 0])
+                or len(min.shape) > 1
+            )
         ) or (
             isinstance(max, (Variable, paddle.pir.Value, paddle.Tensor))
-            and ((len(max.shape) == 1 and max.shape[-1] not in [1, 0]) or len(max.shape) > 1)
+            and (
+                (len(max.shape) == 1 and max.shape[-1] not in [1, 0])
+                or len(max.shape) > 1
+            )
         ):
             max = check_clip_tensor(x, max, fmin, x.dtype, 'max')
             min = check_clip_tensor(x, min, fmin, x.dtype, 'min')
 
             max_expand = (
-                paddle.expand(max, x.shape) if max.shape != x.shape else max
+                paddle.broadcast_to(max, x.shape) if max.shape != x.shape else max
             )
             min_expand = (
-                paddle.expand(min, x.shape) if min.shape != x.shape else min
+                paddle.broadcast_to(min, x.shape) if min.shape != x.shape else min
             )
 
             paddle.where_(x > min_expand, x, min_expand)
