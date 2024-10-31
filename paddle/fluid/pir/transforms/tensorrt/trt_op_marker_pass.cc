@@ -1492,8 +1492,8 @@ class WherePattern : public pir::OpRewritePattern<paddle::dialect::WhereOp> {
       return false;
     }
 #if IS_TRT_VERSION_LT(8400)
-      VLOG(3) << "where is not supported when TensorRT < 8.4";
-      return false;
+    VLOG(3) << "where is not supported when TensorRT < 8.4";
+    return false;
 #endif
 
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));

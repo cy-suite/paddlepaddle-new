@@ -43,9 +43,9 @@ class TestWhereTRTPatternCase1(TensorRTBaseTest):
             "x": np.random.randn(2, 3).astype(np.float32),
             "y": np.random.randn(2, 3).astype(np.float32),
         }
-        self.program_config = {"feed_list": ["condition","x","y"]}
-        self.min_shape = {"condition":[1, 3], "x": [1, 3], "y": [1, 3]}
-        self.max_shape = {"condition":[5, 3], "x": [5, 3], "y": [5, 3]}
+        self.program_config = {"feed_list": ["condition", "x", "y"]}
+        self.min_shape = {"condition": [1, 3], "x": [1, 3], "y": [1, 3]}
+        self.max_shape = {"condition": [5, 3], "x": [5, 3], "y": [5, 3]}
 
     def test_trt_result(self):
         self.check_trt_result()
@@ -59,9 +59,9 @@ class TestWhereTRTPatternCase2(TensorRTBaseTest):
             "x": np.random.randn(2, 3).astype(np.int32),
             "y": np.random.randn(2, 3).astype(np.int32),
         }
-        self.program_config = {"feed_list": ["condition","x","y"]}
-        self.min_shape = {"condition":[1, 3], "x": [1, 3], "y": [1, 3]}
-        self.max_shape = {"condition":[5, 3], "x": [5, 3], "y": [5, 3]}
+        self.program_config = {"feed_list": ["condition", "x", "y"]}
+        self.min_shape = {"condition": [1, 3], "x": [1, 3], "y": [1, 3]}
+        self.max_shape = {"condition": [5, 3], "x": [5, 3], "y": [5, 3]}
 
     def test_trt_result(self):
         self.check_trt_result()
