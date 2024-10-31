@@ -16,7 +16,7 @@ from paddle.nn import Layer
 from paddle.optimizer import Optimizer
 
 
-class OptimizerProxy(Optimizer):
+class ParallelOptimizer(Optimizer):
     def __init__(self, optimizer):
         self.optimizer = optimizer
         self.is_initialized = False
@@ -25,14 +25,14 @@ class OptimizerProxy(Optimizer):
         return getattr(self.optimizer, item)
 
 
-class ParallelBase(Layer):
+class ParallelModelBase(Layer):
     def __init__(self, model, optimizer=None):
         super().__init__()
         self.pp_parallelizer = None
         self.tp_parallelizer = None
         self.sharding_parallelizer = None
 
-        if isinstance(model, ParallelBase):
+        if isinstance(model, ParallelModelBase):
             self.pp_parallelizer = model.pp_parallelizer
             self.tp_parallelizer = model.tp_parallelizer
             self.sharding_parallelizer = model.sharding_parallelizer
@@ -41,7 +41,7 @@ class ParallelBase(Layer):
         else:
             self.model = model
             assert isinstance(optimizer, Optimizer)
-            self.optimizer = OptimizerProxy(optimizer)
+            self.optimizer = ParallelOptimizer(optimizer)
 
         self.is_parallelized = False
 
@@ -61,11 +61,12 @@ class ParallelBase(Layer):
             assert callable(self.sharding_parallelizer)
             self.model = self.sharding_parallelizer(self.model)
 
-        assert isinstance(self.optimizer, OptimizerProxy)
+        assert isinstance(self.optimizer, ParallelOptimizer)
         assert not self.optimizer.is_initialized
 
         # call shard optimizer here
         # self.optimizer.optimizer = ShardOptimizer()
+        self.optimizer.is_initialized = True
 
     def forward(self, *args):
         if not self.is_parallelized:
