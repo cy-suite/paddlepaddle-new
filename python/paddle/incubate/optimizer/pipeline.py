@@ -900,10 +900,10 @@ class PipelineOptimizer:
                             attrs={
                                 self._op_device_key: prev_dev,
                                 self._op_role_key: op_role,
-                                'use_calc_stream': False,
                                 'ring_id': ring_id,
                                 'peer': 1,
                                 # if send_v2, num&id attr is not in op_attrs, will not insert
+                                'use_calc_stream': False,
                                 'num': self.mp_degree,
                                 'id': self.mp_rank,
                             },
@@ -945,10 +945,10 @@ class PipelineOptimizer:
                                 'dtype': var.dtype,
                                 self._op_device_key: cur_dev,
                                 self._op_role_key: op_role,
-                                'use_calc_stream': True,
                                 'peer': 0,
                                 'ring_id': ring_id,
                                 # if recv_v2, num&id attr is not in op_attrs, will not insert
+                                'use_calc_stream': True,
                                 'num': self.mp_degree,
                                 'id': self.mp_rank,
                             },
@@ -1629,7 +1629,7 @@ class PipelineOptimizer:
                         'out_shape': read_block.var(var_name).shape,
                         'dtype': read_block.var(var_name).dtype,
                         self._op_device_key: read_device,
-                        'use_calc_stream': False,
+                        # 'use_calc_stream': False,
                         # A trick to make the role LRSched to avoid copy every
                         # microbatch
                         self._op_role_key: self._op_role.LRSched,
