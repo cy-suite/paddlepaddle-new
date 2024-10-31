@@ -102,6 +102,7 @@ using pir::TuplePopOp;
 
 using paddle::dialect::IntArrayAttribute;
 using paddle::dialect::OperationDistAttribute;
+using paddle::dialect::PlaceAttribute;
 using paddle::dialect::TensorDistAttribute;
 using pir::ArrayAttribute;
 using pir::Attribute;
@@ -110,6 +111,7 @@ using pir::BlockArgument;
 using pir::BoolAttribute;
 using pir::CloneOptions;
 using pir::Int32Attribute;
+using pir::Int64Attribute;
 using pir::IrContext;
 using pir::IrMapping;
 using pir::IrParser;
@@ -267,7 +269,7 @@ pir::Value AppendDataOp(pir::Block *block,
            ctx, phi::IntArray(phi::vectorize(GetValueDims(value))))},
       {"dtype",
        paddle::dialect::DataTypeAttribute::get(ctx, GetValueDtype(value))},
-      {"place", paddle::dialect::PlaceAttribute::get(ctx, phi::Place())}};
+      {"place", PlaceAttribute::get(ctx, phi::Place())}};
   std::vector<pir::Type> output_types{value.type()};
   pir::Operation *operation =
       pir::Operation::Create({}, attribute_map, output_types, op_info);
@@ -1076,6 +1078,21 @@ void BindOperation(py::module *m) {
             self.set_attribute(kAttrOpDistAttr, op_dist_attr);
           })
       .def_property(
+          "chunk_id",
+          [](Operation &self) -> py::object {
+            auto int64_attr = self.attribute<Int64Attribute>("chunk_id");
+            if (int64_attr) {
+              return py::cast(int64_attr.data());
+            } else {
+              return py::cast(-1);
+            }
+          },
+          [](Operation &self, const int &chunk_id) {
+            self.set_attribute(
+                "chunk_id",
+                Int64Attribute::get(pir::IrContext::Instance(), chunk_id));
+          })
+      .def_property(
           "op_role",
           [](Operation &self) -> py::object {
             auto int_attr = self.attribute<Int32Attribute>("op_role");
@@ -1300,6 +1317,18 @@ void BindValue(py::module *m) {
           [](Value self, phi::DataType dtype) {
             PADDLE_THROW(common::errors::InvalidArgument(
                 "can't set dtype when building static graph"));
+          })
+      .def_property(
+          "place_attr",
+          [](Value self) -> phi::Place {
+            auto palce_attr = self.attribute<PlaceAttribute>("place");
+            return palce_attr ? palce_attr.data() : phi::Place();
+          },
+          [](Value self, const phi::Place &place) {
+            // auto place = CastPyArg2Place(place_obj.release().ptr(), 1);
+            auto place_attr =
+                dialect::PlaceAttribute::get(pir::IrContext::Instance(), place);
+            self.set_attribute("palce", place_attr);
           })
       .def("initialized",
            [](Value self) {
