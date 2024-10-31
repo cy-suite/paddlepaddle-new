@@ -32,7 +32,6 @@ from paddle.distributed.auto_parallel.static.utils import (
     is_forward_op,
     is_optimize_op,
     naive_set_dist_op_attr_for_program_by_mesh_and_mapping,
-    use_new_executor,
 )
 
 from ..auto_parallel.static.utils import OpRole
@@ -597,15 +596,6 @@ def _insert_sync_for_fthenb_1f1b(program, dist_context=None):
                 var = block.var(var_name)
                 block._remove_op(index + offset, sync=False)
                 offset -= 1
-                if not use_new_executor():
-                    # NOTE: new executor will make sure gc are right without using nop op.
-                    block._insert_op_without_sync(
-                        index=backward_recv_index,
-                        type="nop",
-                        inputs={'X': [var]},
-                        outputs={'Out': [var]},
-                        attrs={'op_role': OpRole.Backward},
-                    )
         block._sync_with_cpp()
 
 
@@ -967,7 +957,7 @@ def _pir_get_backward_op_type(all_ops, op_idx):
             return False
 
         for i in range(8):
-            if all_ops[op_idx - i].name() != ops_pattern[i]:
+            if all_ops[op_idx - i].name() != ops_pattern[7 - i]:
                 return False
         return True
 

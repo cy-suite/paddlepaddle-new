@@ -785,10 +785,6 @@ void CropInferMeta(const MetaTensor& x,
   for (int i = 0; i < static_cast<int>(shape_dims.size()); ++i) {
     if (shape_dims[i] > 0) {
       out_dims[i] = static_cast<int64_t>(shape_dims[i]);
-    } else {
-      if (shape_dims[i] == -1 && offsets_vec[i] != -1 && x_dim[i] != -1) {
-        out_dims[i] = x_dim[i] - static_cast<int64_t>(offsets_vec[i]);
-      }
     }
   }
   out->set_dims(common::make_ddim(out_dims));
@@ -3136,8 +3132,6 @@ void Pad3dInferMeta(const MetaTensor& x,
 void PartialAllgatherInferMeta(const MetaTensor& x,
                                int nranks,
                                int rank,
-                               int ring_id,
-                               bool use_calc_stream,
                                MetaTensor* out) {
   PADDLE_ENFORCE_GE(
       nranks,

@@ -554,13 +554,9 @@ def auto_recompute(
             )
             value_id_dict[value_node.id] = value_node
 
-        # todo(wanghao107) hack for dynamic shape
-        if is_dynamic_value_node(value_node):
-            weight = 1
-        else:
-            weight = _get_node_weight(
-                value_node, placeholder_value_nodes=inputs | outputs
-            )
+        weight = _get_node_weight(
+            value_node, placeholder_value_nodes=inputs | outputs
+        )
 
         # Creates the weights on the "node" edge
         nx_graph.add_edge(
@@ -806,6 +802,11 @@ def replace_mid_values_with_forward_subgraph(
         program, origin_ops, origin_subgraph_inputs, first_backward_op
     )
 
+    for origin_op in origin_ops:
+        origin_op.set_bool_attr("is_recompute_op", True)
+    for cloned_op in cloned_ops:
+        cloned_op.set_bool_attr("is_recompute_bw_op", True)
+
     # 3. replace mid values that backward need to hold with recompute subgraph's outputs
     cloned_subgraph_outputs = backward_utils.ValueSet()
     for origin_value in origin_subgraph_outputs:
@@ -844,7 +845,9 @@ def classify_value_node(program, grad_outputs, fwd_op_end_idx):
         required_bw_ops = required_bw_ops | find_child_ops(grad_output)
         required_bw_ops.add(grad_output.get_defining_op())
     for required_bw_op in required_bw_ops:
-        bw_op_outputs = required_bw_op.results()
+        bw_op_outputs = (
+            required_bw_op.results() if required_bw_op is not None else []
+        )
         required_bw_value_nodes = (
             required_bw_value_nodes | backward_utils.ValueSet(bw_op_outputs)
         )
@@ -935,14 +938,32 @@ def is_dynamic_value_node(value_node):
         raise ValueError(f"value node not found in program: {value_node} ")
 
 
-def cal_value_node_size(value_node):
-    # todo(wanghao107) hack for dynamic shape
+def is_vector_value_node(value_node):
+    try:
+        return value_node.type().as_vec_type() is not None
+    except:
+        raise ValueError(f"value node illegal: {value_node} ")
+
+
+def cal_value_node_size_impl(value_node):
     if is_dynamic_value_node(value_node):
-        return 1
+        value_node_shape = [i for i in value_node.shape if i != -1]
+    else:
+        value_node_shape = value_node.shape
     return (
-        functools.reduce(lambda x, y: x * y, value_node.shape, 1)
+        functools.reduce(lambda x, y: x * y, value_node_shape, 1)
         * _PADDLE_DTYPE_2_NBYTES[value_node.dtype]
     )
+
+
+def cal_value_node_size(value_node):
+    if is_vector_value_node(value_node):
+        value_vec = value_node.type().as_vec_type().as_list()
+        sum_res = 0
+        for child_node in value_vec:
+            sum_res += cal_value_node_size_impl(child_node)
+        return sum_res
+    return cal_value_node_size_impl(value_node)
 
 
 def cal_value_nodes_dist_to_backward(all_ops, required_fw_value_nodes):

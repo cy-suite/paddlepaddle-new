@@ -40,7 +40,7 @@ std::set<std::string> OpsHandledInStaticBuild = {"conditional_block",
 
 std::set<std::string> OpsCanSkipedFakeAllocInStaticBuild = {
     "c_comm_init",
-    "c_comm_init_all",
+    "comm_init_all",
     "c_comm_init_multitrainer",
     "c_gen_bkcl_id",
     "c_gen_nccl_id",
@@ -540,8 +540,7 @@ void RunWhileBlockPreStaticBuild(const framework::Scope& scope,
     } else {
       VLOG(10) << "[while op]"
                << "skip backup input " << in_name << " type:"
-               << framework::TransToPhiDataType(
-                      framework::ToVarType(var->Type()));
+               << phi::TransToPhiDataType(framework::ToVarType(var->Type()));
     }
   }
 
