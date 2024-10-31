@@ -262,7 +262,6 @@ class PaddleToTensorRTConverter:
                         value, False, paddle.base.core.ShapeMode.kMAX
                     )
                     if trt_input.is_shape_tensor:
-                        print("它是shape_tensor了吧")
                         min_value = get_value_shape_range_info(
                             value, True, paddle.base.core.ShapeMode.kMIN
                         )
