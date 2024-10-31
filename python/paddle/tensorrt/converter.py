@@ -26,7 +26,7 @@ trt_plugin_lib.initLibNvInferPlugins(None, "")
 
 import paddle
 from paddle import pir
-from paddle.base.core import get_value_shape_range_info
+from paddle.base.core import clear_shape_info, get_value_shape_range_info
 from paddle.base.log_helper import get_logger
 
 from .impls.activation import *  # noqa: F403
@@ -123,6 +123,7 @@ class PaddleToTensorRTConverter:
 
     def convert_subgraph_to_trt(self, program, group_op):
         _logger.info(f"start process {group_op}")
+
         operations = next(iter(group_op.blocks())).ops
         input_values, output_values = self.find_graph_inputs_outputs(group_op)
         builder = trt.Builder(trt.Logger(trt.Logger.ERROR))
@@ -410,7 +411,8 @@ class PaddleToTensorRTConverter:
                     "opt_value": orin_opt_value,
                     "max_value": orin_max_value,
                 }
-
+        # Call clear_shape_info to clear the previous shape information
+        clear_shape_info()
         return out
 
     def convert(self, network, paddle_op, inputs):

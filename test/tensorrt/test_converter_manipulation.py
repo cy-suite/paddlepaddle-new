@@ -453,6 +453,7 @@ class TestStrideSliceCase4TRTPattern(TensorRTBaseTest):
         for i in range(100):  # 运行100次
             print(f"Running test iteration {i+1}")
             self.check_trt_result()
+            # clear_shape_info()
 
 
 class TestStrideSliceCase5TRTPattern(TensorRTBaseTest):
