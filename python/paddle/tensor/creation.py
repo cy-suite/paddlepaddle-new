@@ -3294,7 +3294,6 @@ def set_(
         .. code-block:: python
 
             >>> import paddle
-            >>> paddle.base.set_flags({"FLAGS_use_stride_kernel": True})
 
             >>> src = paddle.to_tensor([[11., 22., 33.]])
             >>> src2 = paddle.to_tensor([11., 22., 33., 44., 55., 66.])
@@ -3328,9 +3327,10 @@ def set_(
             [11., 33., 55.])
 
             >>> x = paddle.to_tensor([1., 2., 3., 4., 5.])
-            >>> x.set_(src2, offset=1)
-            >>> print(x.offset)
-            1
+            >>> x.set_(src2, shape=[5], offset=4)
+            >>> print(x)
+            Tensor(shape=[5], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [22., 33., 44., 55., 66.])
 
     """
     if in_dynamic_mode():

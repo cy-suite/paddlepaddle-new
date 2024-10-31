@@ -11,12 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "paddle/common/flags.h"
-#include "paddle/phi/backends/all_context.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/set_inplace_kernel.h"
-
-COMMON_DECLARE_bool(use_stride_kernel);
 
 namespace phi {
 
@@ -28,18 +24,17 @@ void SetInplaceKernel(const Context& dev_ctx,
                       const std::vector<int64_t>& stride,
                       int64_t offset,
                       DenseTensor* out) {
-  if (!FLAGS_use_stride_kernel) {
-    PADDLE_THROW(common::errors::Fatal(
-        "FLAGS_use_stride_kernel is closed. Strided kernel "
-        "be called, something wrong has happened!"));
-  }
   auto meta = out->meta();
   meta.dims = DDim(dims.data(), static_cast<int>(dims.size()));
   meta.strides = DDim(stride.data(), static_cast<int>(stride.size()));
   meta.offset = offset;
-  // reset holder to nullptr
-  out->clear();
-  *out = DenseTensor{source.Holder(), meta};
+  if (x.IsSharedWith(source)) {
+    out->set_meta(meta);
+  } else {
+    // reset holder to nullptr
+    out->clear();
+    *out = DenseTensor{source.Holder(), meta};
+  }
   out->ShareInplaceVersionCounterWith(x);
 }
 
@@ -47,7 +42,7 @@ void SetInplaceKernel(const Context& dev_ctx,
 
 PD_REGISTER_KERNEL(set,
                    CPU,
-                   STRIDED,
+                   ALL_LAYOUT,
                    phi::SetInplaceKernel,
                    bool,
                    uint8_t,
@@ -65,7 +60,7 @@ PD_REGISTER_KERNEL(set,
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
 PD_REGISTER_KERNEL(set,
                    GPU,
-                   STRIDED,
+                   ALL_LAYOUT,
                    phi::SetInplaceKernel,
                    bool,
                    uint8_t,
