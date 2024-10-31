@@ -118,6 +118,8 @@ def gen_build_scripts(name, cuda_major_version, paddle_version, only_download=No
             os.remove(build_filename)
         with open(build_filename, 'w') as f:
             f.write(f"pip install {name}=={paddle_version} -f {cur_package_path}\n")
+            if sysstr == "Linux" and cuda_major_version == 'cuda11.8':
+                f.write(f"pip install nvidia-cudnn-cu11==8.9.4.25 -f {cur_package_path} --no-deps\n")
 
 
 def requirement_download(paddle_version, var):
