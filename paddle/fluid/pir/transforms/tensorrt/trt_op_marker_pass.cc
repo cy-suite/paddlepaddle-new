@@ -79,6 +79,7 @@ DEFINE_GENERAL_PATTERN(Hardsigmoid, paddle::dialect::HardsigmoidOp)
 DEFINE_GENERAL_PATTERN(Hardswish, paddle::dialect::HardswishOp)
 DEFINE_GENERAL_PATTERN(Assign, paddle::dialect::AssignOp)
 DEFINE_GENERAL_PATTERN(AssignValue_, paddle::dialect::AssignValue_Op)
+DEFINE_GENERAL_PATTERN(Tile, paddle::dialect::Tile_Op)
 DEFINE_GENERAL_PATTERN(AssignOut, paddle::dialect::AssignOut_Op)
 
 #undef DEFINE_GENERAL_PATTERN
@@ -1485,25 +1486,6 @@ class TanhOpPattern : public pir::OpRewritePattern<paddle::dialect::TanhOp> {
   }
 };
 
-class TileOpPattern : public pir::OpRewritePattern<paddle::dialect::TileOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::TileOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::TileOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-#if IS_TRT_VERSION_LT(7000)
-      VLOG(3) << "tile op is not supported when TensorRT < 7.0";
-      return false;
-#endif
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
-
-
 class FullWithTensorPattern
     : public pir::OpRewritePattern<paddle::dialect::FullWithTensorOp> {
  public:
@@ -1618,6 +1600,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(AssignOut)
     ADD_PATTERN(Assign)
     ADD_PATTERN(AssignValue_)
+    ADD_PATTERN(Tile)
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
 #endif
@@ -1666,7 +1649,6 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<NearestInterV2Pattern>(context));
     ps.Add(std::make_unique<StackOpPattern>(context));
     ps.Add(std::make_unique<TanhOpPattern>(context));
-    ps.Add(std::make_unique<TileOpPattern>(context));
     ps.Add(std::make_unique<FullWithTensorPattern>(context));
     return ps;
   }
