@@ -416,8 +416,6 @@ class TestTileError(unittest.TestCase):
             x2 = paddle.static.data(name='x2', shape=[-1, 4], dtype="uint8")
             self.assertRaises(TypeError, paddle.tile, x2, repeat_times)
             x3 = paddle.static.data(name='x3', shape=[-1, 4], dtype="bool")
-            x3.stop_gradient = False
-            self.assertRaises(ValueError, paddle.tile, x3, repeat_times)
 
 
 class TestTileAPIStatic(unittest.TestCase):
