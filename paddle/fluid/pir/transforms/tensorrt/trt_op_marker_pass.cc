@@ -79,7 +79,7 @@ DEFINE_GENERAL_PATTERN(Hardsigmoid, paddle::dialect::HardsigmoidOp)
 DEFINE_GENERAL_PATTERN(Hardswish, paddle::dialect::HardswishOp)
 DEFINE_GENERAL_PATTERN(Assign, paddle::dialect::AssignOp)
 DEFINE_GENERAL_PATTERN(AssignValue_, paddle::dialect::AssignValue_Op)
-DEFINE_GENERAL_PATTERN(Tile, paddle::dialect::Tile_Op)
+DEFINE_GENERAL_PATTERN(Tile, paddle::dialect::TileOp)
 DEFINE_GENERAL_PATTERN(AssignOut, paddle::dialect::AssignOut_Op)
 
 #undef DEFINE_GENERAL_PATTERN
