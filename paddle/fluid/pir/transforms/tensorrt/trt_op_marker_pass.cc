@@ -1482,6 +1482,25 @@ class TanhOpPattern : public pir::OpRewritePattern<paddle::dialect::TanhOp> {
   }
 };
 
+class TileOpPattern : public pir::OpRewritePattern<paddle::dialect::TileOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::TileOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::TileOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+#if IS_TRT_VERSION_LT(7000)
+      VLOG(3) << "tile op is not supported when TensorRT < 7.0";
+      return false;
+#endif
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+
 class FullWithTensorPattern
     : public pir::OpRewritePattern<paddle::dialect::FullWithTensorOp> {
  public:
@@ -1618,6 +1637,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<NearestInterV2Pattern>(context));
     ps.Add(std::make_unique<StackOpPattern>(context));
     ps.Add(std::make_unique<TanhOpPattern>(context));
+    ps.Add(std::make_unique<TileOpPattern>(context));
     ps.Add(std::make_unique<FullWithTensorPattern>(context));
     return ps;
   }
