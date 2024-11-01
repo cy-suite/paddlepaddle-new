@@ -1301,6 +1301,7 @@ ir::Tensor Slice(const ir::Tensor& A,
   // ends=[2,0]
   // strides=[1,-1]
   // ==> result=[[8,7,6],]
+  std::cerr << "slice base !!!!!!!!!\n";
   return Compute(
       output_shape,
       [=](const std::vector<Expr>& indice) {
@@ -1337,7 +1338,7 @@ ir::Tensor SliceSymbolic(const ir::Tensor& A,
   }
 
   std::vector<Expr> new_starts = starts;
-  std::vector<int> axes;
+  std::vector<int64_t> axes;
   std::transform(const_axes.begin(),
                  const_axes.end(),
                  std::back_inserter(axes),
@@ -1369,6 +1370,14 @@ ir::Tensor SliceSymbolic(const ir::Tensor& A,
   // ends=[2,0]
   // strides=[1,-1]
   // ==> result=[[8,7,6],]
+
+  std::cerr << "slice symbol !!!!!!!!!\n";
+
+  for (size_t i = 0; i < new_starts.size(); ++i) {
+    std::cerr << "start " << i << "\t" << new_starts[i] << "\t"
+              << new_starts[i].type() << std::endl;
+  }
+
   return Compute(
       output_shape,
       [=](const std::vector<Expr>& indice) {

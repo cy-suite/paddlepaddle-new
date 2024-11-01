@@ -171,10 +171,10 @@ CUdeviceptr CUDAModule::GetGlobal(int device_id,
 CUDAModule::~CUDAModule() {
   for (int i = 0; i < module_per_card_.size(); i++) {
     auto* module = module_per_card_[i];
-    if (module) {
-      CUDA_CALL(cudaSetDevice(i));
-      CUDA_DRIVER_CALL(cuModuleUnload(module));
-    }
+    // if (module) {
+    //   CUDA_CALL(cudaSetDevice(i));
+    //   //CUDA_DRIVER_CALL(cuModuleUnload(module));
+    // }
   }
 }
 

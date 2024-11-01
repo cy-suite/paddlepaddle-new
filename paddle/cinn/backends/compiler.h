@@ -126,8 +126,6 @@ class Compiler final {
    */
   void* Lookup(absl::string_view fn_name);
 
-  std::vector<void*> GetFnPtr() const { return fn_ptr_; }
-
  private:
   // do not register device symbol until end=true for build fucntion
   void RegisterDeviceModuleSymbol();

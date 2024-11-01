@@ -31,6 +31,7 @@ namespace framework {
 namespace pir {
 struct CINNKernelInfo {
   std::string fn_name;
+  std::string cuda_source_code;
   void* fn_ptr;
   void* infer_shape_fn_ptr;
   void* CX86_fn_ptr;

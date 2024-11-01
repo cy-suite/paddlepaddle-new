@@ -142,6 +142,8 @@ class CinnJitInstruction::FnPtrImpl {
       if (is_gpu) {
         ((lower_func_ptr_g)cinn_kernel_info_.fn_ptr)(
             static_cast<void*>(func_args_.data()), func_args_.size(), stream);
+        // cuda launch kernel
+
       } else {
         ((lower_func_ptr_g)cinn_kernel_info_.CX86_fn_ptr)(
             static_cast<void*>(func_args_.data()), func_args_.size(), stream);
