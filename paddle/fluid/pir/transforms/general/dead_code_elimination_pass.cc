@@ -56,9 +56,10 @@ class DeadCodeEliminationPass : public pir::Pass {
                std::vector<std::string>* deleted_vars) {
     std::vector<pir::Operation*> deleted_ops;
     for (auto& op : block) {
-      if (op.HasTrait<pir::SideEffectTrait>() ||
+      if (op.num_regions() > 0 || op.HasTrait<pir::SideEffectTrait>() ||
           op.isa<paddle::dialect::DataOp>() ||
-          paddle::dialect::IsCustomOp(&op)) {
+          paddle::dialect::IsCustomOp(&op) ||
+          paddle::dialect::IsInplaceOp(&op)) {
         continue;
       }
       if (op.use_empty()) {
