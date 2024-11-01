@@ -259,39 +259,40 @@ void FusedMultiTransformerInferMeta(
                           "batch size %d, but got %d",
                           x_dim[0],
                           c_dim[1]));  // batch_size
-    // if (gqa_group_size > 0) {
-    //   PADDLE_ENFORCE_EQ(c_dim[2],
-    //                     trans_qkvw ? y_dim[0] - 2 * gqa_group_size : y_dim[1]
-    //                     - 2 * gqa_group_size,
-    //                     common::errors::InvalidArgument(
-    //                         "The third dim of CacheKV must be equal with num
-    //                         " "head %d, but got %d", trans_qkvw ? y_dim[0] -
-    //                         2 * gqa_group_size : y_dim[1] - 2 *
-    //                         gqa_group_size, c_dim[2]));  // num_head
 
-    //   PADDLE_ENFORCE_EQ(c_dim[4],
-    //               trans_qkvw ? y_dim[1] : y_dim[2],
-    //               common::errors::InvalidArgument(
-    //                   "The fifth dim of CacheKV must be equal with head "
-    //                   "size %d, but got %d",
-    //                   trans_qkvw ? y_dim[1] : y_dim[2],
-    //                   c_dim[4]));  // head_size
-    // } else {
-    //   PADDLE_ENFORCE_EQ(c_dim[2],
-    //                     trans_qkvw ? y_dim[1] : y_dim[2],
-    //                     common::errors::InvalidArgument(
-    //                         "The third dim of CacheKV must be equal with num
-    //                         " "head %d, but got %d", trans_qkvw ? y_dim[1] :
-    //                         y_dim[2], c_dim[2]));  // num_head
+    if (gqa_group_size > 0) {
+      PADDLE_ENFORCE_EQ(c_dim[2],
+                        gqa_group_size,
+                        common::errors::InvalidArgument(
+                            "The third dim of CacheKV must be equal with num"
+                            "head %d, but got %d",
+                            gqa_group_size,
+                            c_dim[2]));  // num_head
 
-    //   PADDLE_ENFORCE_EQ(c_dim[4],
-    //               trans_qkvw ? y_dim[2] : y_dim[3],
-    //               common::errors::InvalidArgument(
-    //                   "The fifth dim of CacheKV must be equal with head "
-    //                   "size %d, but got %d",
-    //                   trans_qkvw ? y_dim[2] : y_dim[3],
-    //                   c_dim[4]));  // head_size
-    // }
+      PADDLE_ENFORCE_EQ(c_dim[4],
+                        trans_qkvw ? y_dim[1] : y_dim[2],
+                        common::errors::InvalidArgument(
+                            "The fifth dim of CacheKV must be equal with head "
+                            "size %d, but got %d",
+                            trans_qkvw ? y_dim[1] : y_dim[2],
+                            c_dim[4]));  // head_size
+    } else {
+      PADDLE_ENFORCE_EQ(c_dim[2],
+                        trans_qkvw ? y_dim[1] : y_dim[2],
+                        common::errors::InvalidArgument(
+                            "The third dim of CacheKV must be equal with num"
+                            "head %d, but got %d",
+                            trans_qkvw ? y_dim[1] : y_dim[2],
+                            c_dim[2]));  // num_head
+
+      PADDLE_ENFORCE_EQ(c_dim[4],
+                        trans_qkvw ? y_dim[2] : y_dim[3],
+                        common::errors::InvalidArgument(
+                            "The fifth dim of CacheKV must be equal with head "
+                            "size %d, but got %d",
+                            trans_qkvw ? y_dim[2] : y_dim[3],
+                            c_dim[4]));  // head_size
+    }
   }
   out->set_dims(x.dims());
 }
