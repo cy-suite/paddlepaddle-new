@@ -4153,6 +4153,9 @@ function clang-tidy_check() {
 
     check_error=0
     length=$(echo -n "$T" | wc -c)
+
+    echo "output T first 5000 chars:"
+    echo "${T:0:5000}"
     echo "Clang Tidy output length: $[ $length ]"
     for str in "${S[@]}"; do
         count=$(echo -n "$T" | grep -o "$str" | wc -l)
