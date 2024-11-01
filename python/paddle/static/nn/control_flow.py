@@ -1339,6 +1339,13 @@ class OutputSelector:
                 ],
                 name,
             )
+            (true_out, false_out) = OutputSelector.precision_promotion(
+                [
+                    (true_out, self.if_op.true_block),
+                    (false_out, self.if_op.false_block),
+                ],
+                name,
+            )
             unified_true_output.append(true_out)
             unified_false_output.append(false_out)
         return unified_true_output, unified_false_output
@@ -1415,59 +1422,11 @@ class OutputSelector:
                 return True
             return all(type(out) is type(outs[0]) for out in outs[1:])
 
-        def all_has_same_dtype(outs):
-            if len(outs) <= 1:
-                return True
-            return all(out.dtype == outs[0].dtype for out in outs[1:])
-
         def get_first_value_dtype(outs):
             for out in outs:
                 if isinstance(out, paddle.pir.Value):
                     return out.dtype
             return None
-
-        def promote_precision(out_with_blocks):
-            def get_expected_precision(out_with_blocks):
-                if len(out_with_blocks) <= 1:
-                    return core.DataType.FLOAT32
-                # now only support FLOAT16 to FLOAT32
-                if any(
-                    out.dtype == core.DataType.FLOAT16
-                    for out, _ in out_with_blocks
-                ) and any(
-                    out.dtype == core.DataType.FLOAT32
-                    for out, _ in out_with_blocks
-                ):
-                    return core.DataType.FLOAT32
-                else:
-                    return out_with_blocks[0][0].dtype
-
-            new_outs = []
-            expected_dtype = get_expected_precision(out_with_blocks)
-            for out, block in out_with_blocks:
-                if expected_dtype != out.dtype:
-                    run_with_block(paddle.cast, block)(
-                        out, _PADDLE_PIR_DTYPE_2_NUMPY_DTYPE[expected_dtype]
-                    )
-                new_outs.append(out)
-            return new_outs
-
-        if all(isinstance(out, paddle.pir.Value) for out in outs):
-            amp_attrs = core._get_amp_attrs()
-            amp_level = amp_attrs._amp_level
-            apply_amp_level_list = [
-                core.AmpLevel.O1,
-                core.AmpLevel.O2,
-            ]
-            if (amp_level in apply_amp_level_list) and (
-                not all_has_same_dtype(outs)
-            ):
-                warnings.warn(
-                    f"Return results from different branches in cond has different dtype: true value dtype is '{outs[0].dtype}' and false value dtype is '{outs[1].dtype}', "
-                    "so we will promote the lower precision to the higher one."
-                )
-                return promote_precision(out_with_blocks)
-            return outs
 
         if all(arg is None for arg in outs):
             return outs
@@ -1517,6 +1476,61 @@ class OutputSelector:
             "Unsupported return type of true_fn and false_fn in cond: false_var "
             f"returned `{name}` by false_fn is `{outs[0]}` and true_var of true_fn is `{outs[1]}`"
         )
+
+    @staticmethod
+    def precision_promotion(out_with_blocks, name):
+        # Only support promotion from fp16 to fp32 in AMP mode
+        outs, _ = zip(*out_with_blocks)
+
+        amp_attrs = core._get_amp_attrs()
+        amp_level = amp_attrs._amp_level
+        apply_amp_level_list = [
+            core.AmpLevel.O1,
+            core.AmpLevel.O2,
+        ]
+        if amp_level not in apply_amp_level_list:
+            return outs
+
+        def all_has_same_dtype(outs):
+            if len(outs) <= 1:
+                return True
+            return all(out.dtype == outs[0].dtype for out in outs[1:])
+
+        def promote_precision(out_with_blocks):
+            def get_expected_precision(out_with_blocks):
+                if len(outs) <= 1:
+                    return outs[0].dtype
+                # now only support fp16 to fp32
+                if any(
+                    out.dtype == paddle.float16 for out, _ in out_with_blocks
+                ) and any(
+                    out.dtype == paddle.float32 for out, _ in out_with_blocks
+                ):
+                    return paddle.float32
+                else:
+                    return out_with_blocks[0][0].dtype
+
+            new_outs = []
+            expected_dtype = get_expected_precision(out_with_blocks)
+            for out, block in out_with_blocks:
+                if expected_dtype != out.dtype:
+                    out = run_with_block(paddle.cast, block)(
+                        out, _PADDLE_PIR_DTYPE_2_NUMPY_DTYPE[expected_dtype]
+                    )
+                new_outs.append(out)
+            return new_outs
+
+        if all(
+            isinstance(out, paddle.pir.Value) for out in outs
+        ) and not all_has_same_dtype(outs):
+            warnings.warn(
+                f"Return results from different branches in cond has different dtype: true value dtype is '{outs[0].dtype}' and false value dtype is '{outs[1].dtype}', "
+                "so we will promote the lower precision to the higher one."
+            )
+            outs = promote_precision(out_with_blocks)
+            return outs
+
+        return outs
 
 
 def cond(pred, true_fn=None, false_fn=None, name=None, return_names=None):
