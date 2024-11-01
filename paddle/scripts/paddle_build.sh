@@ -3925,7 +3925,6 @@ function clang-tidy_check() {
 
     exec 3>&1 4>&2
     temp_file=$(mktemp)
-
     python ./tools/codestyle/clang-tidy.py -p=build -j=20 \
         -clang-tidy-binary=clang-tidy \
         -extra-arg=-Wno-unknown-warning-option \
@@ -4171,9 +4170,9 @@ function clang-tidy_check() {
     echo "Clang Tidy output length: $[ $length ]"
     for str in "${S[@]}"; do
         count=$(echo -n "$T" | grep -o "$str" | wc -l)
-        echo "str: $[ $str] count: $[ $count ]"
-        if [ "$[ $count ]" -ge 2 ]; then
-            echo "check error: $[ $s ]"
+        echo "str: $str count: $[ $count ]"
+        if [ "$count" -ge 2 ]; then
+            echo "check error: $s"
             check_error=1
         fi
     done
