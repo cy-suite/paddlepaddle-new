@@ -514,3 +514,55 @@ def fix_negative_indices(network, input_shape, indices):
     sub = trt_mul(network, sign, input_shape)
     fixed_indices = trt_sub(network, indices, sub)
     return fixed_indices
+
+
+def unsqueeze_trt(network, input_tensor, axes):
+    input_shape = network.add_shape(input_tensor).get_output(0)
+
+    axis_set = set(axes)
+
+    subscripts = list(range(len(input_tensor.shape)))
+
+    for axis in sorted(axis_set):
+        subscripts.insert(axis, len(input_tensor.shape))
+
+    one_tensor = network.add_constant(
+        (1,), np.array([1], dtype=np.int32)
+    ).get_output(0)
+    extended_shape = network.add_concatenation(
+        [input_shape, one_tensor]
+    ).get_output(0)
+
+    gather_layer = network.add_gather(
+        extended_shape,
+        network.add_constant(
+            (len(subscripts),), np.array(subscripts, dtype=np.int32)
+        ).get_output(0),
+        axis=0,
+    )
+    new_shape_tensor = gather_layer.get_output(0)
+
+    reshaped_tensor = network.add_shuffle(input_tensor)
+    reshaped_tensor.set_input(1, new_shape_tensor)
+
+    return reshaped_tensor.get_output(0)
+
+
+def squeeze_trt(network, input_tensor, axes):
+    input_shape = network.add_shape(input_tensor).get_output(0)
+    input_shape = input_tensor.shape
+    all_dims = list(range(len(input_shape)))
+    remaining_dims = [dim for dim in all_dims if dim not in axes]
+
+    input_shape_tensor = network.add_shape(input_tensor).get_output(0)
+
+    remaining_dims_tensor = network.add_constant(
+        (len(remaining_dims),), np.array(remaining_dims, dtype=np.int32)
+    ).get_output(0)
+
+    new_shape_tensor = network.add_gather(
+        input_shape_tensor, remaining_dims_tensor, axis=0
+    ).get_output(0)
+    reshape_layer = network.add_shuffle(input_tensor)
+    reshape_layer.set_input(1, new_shape_tensor)
+    return reshape_layer.get_output(0)

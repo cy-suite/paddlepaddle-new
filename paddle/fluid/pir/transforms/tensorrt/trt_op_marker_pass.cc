@@ -1561,6 +1561,32 @@ class StridedSliceOpPattern
   }
 };
 
+class TopkOpPattern : public pir::OpRewritePattern<paddle::dialect::TopkOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::TopkOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::TopkOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (!op->HasAttribute("axis")) {
+      VLOG(3) << "pd_op.topk must has axis attribute";
+      return false;
+    }
+    if (op->HasAttribute("sorted")) {
+      bool sorted = op->attribute<pir::BoolAttribute>("sorted").data();
+      if (!sorted) {
+        VLOG(3)
+            << "pd_op.topk does not support results not sorted in tensorrt.";
+        return false;
+      }
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class TrtOpMarkerPass : public pir::PatternRewritePass {
  public:
   TrtOpMarkerPass() : pir::PatternRewritePass("trt_op_marker_pass", 2) {}
@@ -1648,6 +1674,8 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<StackOpPattern>(context));
     ps.Add(std::make_unique<TanhOpPattern>(context));
     ps.Add(std::make_unique<FullWithTensorPattern>(context));
+    ps.Add(std::make_unique<StridedSliceOpPattern>(context));
+    ps.Add(std::make_unique<TopkOpPattern>(context));
     return ps;
   }
 };
