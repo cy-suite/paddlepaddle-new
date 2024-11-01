@@ -140,11 +140,15 @@ void LoadSeparatePersistables(framework::Executor* executor,
   }
 
   size_t num_threads = 8;
-  size_t chunk_size = (persistable_vars.size() + num_threads - 1) / num_threads;
+  size_t chunk_size = std::max(1UL, persistable_vars.size() / num_threads);
+  num_threads = std::min(num_threads, persistable_vars.size() / chunk_size);
   VLOG(4) << "Start Load with multi-thread: " << num_threads
           << " chund size: " << chunk_size;
 
   auto load_handler = [&](const std::vector<framework::VarDesc*>& vars) {
+    if (vars.empty()) {
+      return;
+    }
     auto load_program = std::make_unique<framework::ProgramDesc>();
     auto load_block = load_program->MutableBlock(0);
 
