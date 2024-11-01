@@ -58,8 +58,8 @@ typedef struct PyInterpreterFrameProxy {
   }
 
 // clang-format off
-#define REGISTER_PROXY_PROPERTY(name) \
-  { #name, (getter)PyInterpreterFrameProxy_property_##name, NULL, NULL, NULL }
+#define REGISTER_PROXY_PROPERTY(property_name, func_name) \
+  { #property_name, (getter)PyInterpreterFrameProxy_property_##func_name, NULL, NULL, NULL }
 // clang-format on
 
 #if PY_3_13_PLUS
@@ -92,13 +92,13 @@ static PyObject *PyInterpreterFrameProxy_method_repr(
 
 static PyGetSetDef PyInterpreterFrameProxy_properties[] = {
 #if PY_3_13_PLUS
-    REGISTER_PROXY_PROPERTY(f_executable),
+    REGISTER_PROXY_PROPERTY(f_code, f_executable),
 #else
-    REGISTER_PROXY_PROPERTY(f_code),
+    REGISTER_PROXY_PROPERTY(f_code, f_code),
 #endif
-    REGISTER_PROXY_PROPERTY(f_locals),
-    REGISTER_PROXY_PROPERTY(f_globals),
-    REGISTER_PROXY_PROPERTY(f_builtins),
+    REGISTER_PROXY_PROPERTY(f_locals, f_locals),
+    REGISTER_PROXY_PROPERTY(f_globals, f_globals),
+    REGISTER_PROXY_PROPERTY(f_builtins, f_builtins),
     {NULL} /* Sentinel */
 };
 
