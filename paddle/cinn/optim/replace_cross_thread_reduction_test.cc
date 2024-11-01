@@ -51,13 +51,16 @@ TEST(CrossThreadReductionReplacer, basic) {
   ir_sch.Bind(ir_sch.GetLoops("B")[1], "threadIdx.x");
 
   ir::Expr func_body = ir_sch.GetModule().GetExprs()[0];
-  auto new_func = ir::_LoweredFunc_::Make("test_func", {}, func_body, {});
-  VLOG(6) << "After Bind: " << new_func;
+  std::vector<ir::Argument> args{
+      ir::Argument(ir::Var("A"), ir::Argument::IO::kInput),
+      ir::Argument(ir::Var("B"), ir::Argument::IO::kOutput)};
+  auto new_func = ir::_LoweredFunc_::Make("test_func", args, func_body, {});
+  VLOG(6) << "After Bind: " << new_func->body;
 
   ReplaceCrossThreadReduction(new_func);
-  VLOG(6) << "After ReplaceCrossThreadReduction: " << new_func;
+  VLOG(6) << "After ReplaceCrossThreadReduction: " << new_func->body;
 
-  EXPECT_EQ(utils::GetStreamCnt(new_func), utils::Trim(R"ROC({
+  EXPECT_EQ(utils::GetStreamCnt(new_func->body), utils::Trim(R"ROC({
   ScheduleBlock(root)
   {
     thread_bind[blockIdx.x] for (i, 0, 64)
