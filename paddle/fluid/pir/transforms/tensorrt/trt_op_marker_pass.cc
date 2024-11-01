@@ -1429,11 +1429,7 @@ class ClipPattern : public pir::OpRewritePattern<paddle::dialect::ClipOp> {
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-
-    auto x_shape = op.operand_source(0)
-                       .type()
-                       .dyn_cast<paddle::dialect::DenseTensorType>()
-                       .dims();
+    auto x_shape = pir::GetShapeFromValue(x);
     if (x_shape.size() == 0) {
       VLOG(3) << " clip op does not support input's dim is 0 in tensorrt.";
       return false;
