@@ -562,7 +562,7 @@ class SplitOpPattern : public pir::OpRewritePattern<paddle::dialect::SplitOp> {
     const auto &OnlyUsedBySplitOrSlice = [&]() -> bool {
       for (auto it = op.out().use_begin(); it != op.out().use_end();) {
         const pir::Operation *downstream_op = (it++)->owner();
-        if (!downstream_op->isa<::pir::SliceOp>() ||
+        if (!downstream_op->isa<::pir::SliceOp>() &&
             !downstream_op->isa<::pir::SplitOp>()) {
           return false;
         }
@@ -1293,7 +1293,7 @@ pir::RewritePatternSet PdOpToCinnOpPass::InitializePatterns(
   ps.Add<SigmoidOpPattern>(context);
   ps.Add<GatherOpPattern>(context);
   ps.Add<FlattenOpPattern>(context);
-  //ps.Add<ReduceAsOpPattern>(context);
+  ps.Add<ReduceAsOpPattern>(context);
 
   return ps;
 }
