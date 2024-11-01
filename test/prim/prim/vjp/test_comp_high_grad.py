@@ -1145,11 +1145,7 @@ class TestIndexPutHighGradCheck(unittest.TestCase):
         self.assertEqual(n_indices, self.value_shape[0])
         indices = tuple(
             [
-                paddle.randint(
-                    0,
-                    self.x_shape[i],
-                    shape=[n_indices],
-                ).to(place)
+                paddle.randint(0, self.x_shape[i], shape=[n_indices]).to(place)
                 for i in range(max(index_dim_size, 1))
             ]
         )
