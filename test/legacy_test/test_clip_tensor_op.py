@@ -186,14 +186,14 @@ class TestClipTensor(unittest.TestCase):
                 data, min=paddle.to_tensor([1, 2, 3, 4]), max=paddle.rand([0])
             )
 
-    # def test_tensor_clip_(self):
-    #     data_shape = [1, 9, 9, 4]
-    #     data = paddle.to_tensor(np.random.random(data_shape).astype('float32'))
-    #     min = paddle.to_tensor(
-    #         np.random.random(data_shape[-2:]).astype('float32')
-    #     )
-    #     max = min + 5
-    #     data.clip_(min, max)
+    def test_tensor_clip_(self):
+        data_shape = [1, 9, 9, 4]
+        data = paddle.to_tensor(np.random.random(data_shape).astype('float32'))
+        min = paddle.to_tensor(
+            np.random.random(data_shape[-2:]).astype('float32')
+        )
+        max = min + 5
+        data.clip_(min, max)
 
 
 if __name__ == '__main__':
