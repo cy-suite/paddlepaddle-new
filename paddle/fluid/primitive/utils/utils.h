@@ -360,7 +360,7 @@ class LayerNormDecompHelper {
     } else {
       auto x_shape = shape<T>(x);
       auto numel = get_slice<T>(x_shape, begin_norm_axis_);
-      for (size_t i = begin_norm_axis_ + 1; i < x_rank_; ++i) {
+      for (int64_t i = begin_norm_axis_ + 1; i < x_rank_; ++i) {
         numel = numel * get_slice<T>(x_shape, i);
       }
 
