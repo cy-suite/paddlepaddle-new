@@ -738,13 +738,6 @@ void AnalysisConfig::EnableMkldnnInt8(
 
 void AnalysisConfig::EnableOpenVINOEngine() {
   use_openvino_ = true;
-  std::string model_path = prog_file_;
-  std::string param_path = params_file_;
-  ov::Core core;
-  // core.set_property("CPU", {{"INFERENCE_NUM_THREADS", std::string(10)}});
-  core.set_property(ov::inference_num_threads(10));
-  std::shared_ptr<ov::Model> model = core.read_model(model_path, param_path);
-  ov::CompiledModel compiled_model = core.compile_model(model, "CPU");
   Update();
 }
 

@@ -2156,6 +2156,9 @@ void AnalysisPredictor::PrepareArgument() {
 
   argument_->SetUseXpu(config_.use_xpu_);
 
+  argument_->SetUseOpenVINO(config_.use_openvino_);
+  argument_->SetCpuMathLibraryNumThreads(config_.cpu_math_library_num_threads_);
+
 #ifdef PADDLE_WITH_IPU
   argument_->SetUseIpu(config_.use_ipu());
   argument_->SetIpuDeviceNum(config_.ipu_device_num());

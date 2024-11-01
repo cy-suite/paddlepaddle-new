@@ -32,6 +32,19 @@ include(GNUInstallDirs)
 set(LIBDIR "runtime/lib/intel64")
 set(TBBDIR "runtime/3rdparty/tbb/lib")
 
+set(OPENVINO_LIB_NAME
+    "libopenvino.so.2450"
+    CACHE PATH "libopenvino name." FORCE)
+set(OPENVINO_PADDLE_LIB_NAME
+    "libopenvino_paddle_frontend.so.2450"
+    CACHE PATH "libopenvino_paddle_frontend name." FORCE)
+set(OPENVINO_PLUGIN_LIB_NAME
+    "libopenvino_intel_cpu_plugin.so"
+    CACHE PATH "libopenvino_intel_cpu_plugin name." FORCE)
+set(TBB_LIB_NAME
+    "libtbb.so.12"
+    CACHE PATH "libtbb name." FORCE)
+
 message(STATUS "Set ${OPENVINO_INSTALL_DIR}/${LIBDIR} to runtime path")
 message(STATUS "Set ${OPENVINO_INSTALL_DIR}/${TBBDIR} to runtime path")
 set(OPENVINO_LIB_DIR ${OPENVINO_INSTALL_DIR}/${LIBDIR})
@@ -49,17 +62,24 @@ include_directories(${TBB_INC_DIR}
 
 if(LINUX)
   set(OPENVINO_LIB
-      "${OPENVINO_INSTALL_DIR}/${LIBDIR}/libopenvino.so.2450"
+      "${OPENVINO_INSTALL_DIR}/${LIBDIR}/${OPENVINO_LIB_NAME}"
       CACHE FILEPATH "OpenVINO library." FORCE)
+  set(OPENVINO_PADDLE_LIB
+      "${OPENVINO_INSTALL_DIR}/${LIBDIR}/${OPENVINO_PADDLE_LIB_NAME}"
+      CACHE FILEPATH "OpenVINO paddle frontend library." FORCE)
+  set(OPENVINO_PLUGIN_LIB
+      "${OPENVINO_INSTALL_DIR}/${LIBDIR}/${OPENVINO_PLUGIN_LIB_NAME}"
+      CACHE FILEPATH "OpenVINO cpu inference library." FORCE)
   set(TBB_LIB
-      "${OPENVINO_INSTALL_DIR}/${TBBDIR}/libtbb.so.12"
+      "${OPENVINO_INSTALL_DIR}/${TBBDIR}/${TBB_LIB_NAME}"
       CACHE FILEPATH "TBB library." FORCE)
 else()
   message(ERROR "Only support Linux.")
 endif()
 
 if(LINUX)
-  set(BUILD_BYPRODUCTS_ARGS ${OPENVINO_LIB} ${TBB_LIB})
+  set(BUILD_BYPRODUCTS_ARGS ${OPENVINO_LIB} ${TBB_LIB} ${OPENVINO_PADDLE_LIB}
+                            ${OPENVINO_PLUGIN_LIB})
 else()
   set(BUILD_BYPRODUCTS_ARGS "")
 endif()
@@ -79,12 +99,22 @@ ExternalProject_Add(
   BUILD_BYPRODUCTS ${BUILD_BYPRODUCTS_ARGS})
 
 message(STATUS "OpenVINO library: ${OPENVINO_LIB}")
+message(STATUS "OpenVINO Paddle library: ${OPENVINO_PADDLE_LIB}")
+message(STATUS "OpenVINO CPU Inference library: ${OPENVINO_PLUGIN_LIB}")
 message(STATUS "OpenVINO TBB library: ${TBB_LIB}")
 add_definitions(-DPADDLE_WITH_OPENVINO)
 
 add_library(openvino SHARED IMPORTED GLOBAL)
+add_library(openvino_paddle SHARED IMPORTED GLOBAL)
+add_library(openvino_cpu_plugin SHARED IMPORTED GLOBAL)
 add_library(tbb SHARED IMPORTED GLOBAL)
 set_property(TARGET openvino PROPERTY IMPORTED_LOCATION ${OPENVINO_LIB})
+set_property(TARGET openvino_paddle PROPERTY IMPORTED_LOCATION
+                                             ${OPENVINO_PADDLE_LIB})
+set_property(TARGET openvino_cpu_plugin PROPERTY IMPORTED_LOCATION
+                                                 ${OPENVINO_PLUGIN_LIB})
 set_property(TARGET tbb PROPERTY IMPORTED_LOCATION ${TBB_LIB})
 add_dependencies(openvino ${OPENVINO_PROJECT})
+add_dependencies(openvino_paddle ${OPENVINO_PROJECT})
+add_dependencies(openvino_cpu_plugin ${OPENVINO_PROJECT})
 add_dependencies(tbb ${OPENVINO_PROJECT})
