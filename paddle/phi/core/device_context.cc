@@ -240,9 +240,11 @@ struct DeviceContext::Impl {
         common::errors::InvalidArgument(
             "Required generator shall not be nullptr, but received nullptr."));
     device_generator_ = gen;
+    std::cout << "Set generator this " << this << std::endl;
   }
 
   Generator* GetGenerator() const {
+    std::cout << "Get generator this " << this << std::endl;
     PADDLE_ENFORCE_NOT_NULL(
         device_generator_,
         common::errors::InvalidArgument("Required generator_ shall not be "

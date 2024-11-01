@@ -68,6 +68,7 @@ void FusedMultiTransformerOpKernel(
   using U = phi::fusion::LayerNormParamType<T>;
 
   auto *time_step = time_step_in.get_ptr();
+  VLOG(1) << "FusedMultiTransformerOpKernel: 1";
   // 0. input
   auto *input_x = &x;
   const auto input_x_dims = input_x->dims();
@@ -76,28 +77,46 @@ void FusedMultiTransformerOpKernel(
   int dim_embed = input_x_dims[2];
   int bsz_seq = bsz * seq_len;
 
+
+  VLOG(1) << "FusedMultiTransformerOpKernel: 1.1";
+
   // Optional Bias input for LayerNorm / RMSNorm
-  auto ln_biases = ln_biases_in.get();
-  auto ffn_ln_biases = ffn_ln_biases_in.get();
+  auto ln_biases_ptr = ln_biases_in.get_ptr();
+  VLOG(1) << "FusedMultiTransformerOpKernel: 1.2";
+  auto ffn_ln_biases_ptr = ffn_ln_biases_in.get_ptr();
+  VLOG(1) << "FusedMultiTransformerOpKernel: 1.3";
+
+  std::vector<const DenseTensor *> ln_biases, ffn_ln_biases;
+  if (ln_biases_ptr) {
+    ln_biases = *ln_biases_ptr;
+  }
+
+  if (ffn_ln_biases_ptr) {
+    ffn_ln_biases = *ffn_ln_biases_ptr;
+  }
 
   bool use_glu = (act_method == "geglu" || act_method == "swiglu");
 
   bool remove_padding = false;
   auto *sequence_lengths = seq_lengths.get_ptr();
   phi::DenseTensor sequence_lengths_backup;
+  VLOG(1) << "sequence_lengths " << sequence_lengths;
   if (sequence_lengths) {
     remove_padding = true;
   } else {
     sequence_lengths_backup.Resize({{1}});
+    VLOG(1) << "FusedMultiTransformerOpKernel: 1.4";
     auto *sequence_lengths_backup_data = dev_ctx.template Alloc<int>(
         &sequence_lengths_backup,
         sequence_lengths_backup.numel() * sizeof(int));
+    VLOG(1) << "FusedMultiTransformerOpKernel: 1.5";
     phi::fusion::InitValue(dev_ctx,
                            sequence_lengths_backup_data,
                            sequence_lengths_backup.numel() * sizeof(int),
                            static_cast<int>(seq_len));
     remove_padding = true;
   }
+  VLOG(1) << "FusedMultiTransformerOpKernel: 2";
 
   auto *beam_cache_offset = beam_offset.get_ptr();
   int beam_size = 1;
@@ -115,6 +134,7 @@ void FusedMultiTransformerOpKernel(
   int token_num = 0;
 
   auto *from_data = dev_ctx.template Alloc<T>(out, out->numel() * sizeof(T));
+  VLOG(1) << "FusedMultiTransformerOpKernel: 3";
 
   // Init out
   if (encoder_remove_padding) {
@@ -123,6 +143,7 @@ void FusedMultiTransformerOpKernel(
     phi::fusion::InitValue(
         dev_ctx, from_data, out->numel(), static_cast<T>(0.));
   }
+  VLOG(1) << "FusedMultiTransformerOpKernel: 4";
 
   // remove padding in encoder
   if (encoder_remove_padding) {
@@ -163,6 +184,8 @@ void FusedMultiTransformerOpKernel(
     token_num = bsz_seq;
     if (token_num == 0) return;
   }
+
+  VLOG(1) << "FusedMultiTransformerOpKernel: 5";
 
   auto *padding_offset_data =
       encoder_remove_padding ? padding_offset_tensor.data<int>() : nullptr;
@@ -215,15 +238,23 @@ void FusedMultiTransformerOpKernel(
   auto *qkv_out_data =
       dev_ctx.template Alloc<T>(&qkv_out, qkv_out.numel() * sizeof(T));
 
+  VLOG(1) << "FusedMultiTransformerOpKernel: 6";
   // 2.1 rotary
   auto *rotary_tensor = rotary_tensor_in.get_ptr();
+  VLOG(1) << "FusedMultiTransformerOpKernel: 6.1";
 
   // 3. fmha
   phi::fusion::AttnDropoutParam attn_param(
       true, "upscale_in_train", 0.0, true, true, 0, nullptr);
   auto *src_mask = src_mask_in.get_ptr();
   auto cache_kvs = cache_kvs_in.get();
-  auto pre_caches = pre_caches_in.get();
+  auto pre_caches_ptr = pre_caches_in.get_ptr();
+  std::vector<const DenseTensor *> pre_caches;
+  if (pre_caches_ptr) {
+    pre_caches = *pre_caches_ptr;
+  }
+
+  VLOG(1) << "FusedMultiTransformerOpKernel: 6.2";
   int cache_offset = 0;
   if (pre_caches.size() > 0) {
     cache_offset = pre_caches[0]->dims()[3];
@@ -295,6 +326,7 @@ void FusedMultiTransformerOpKernel(
                            kv_transpose_out.numel(),
                            static_cast<T>(0.));
   }
+  VLOG(1) << "FusedMultiTransformerOpKernel: 7";
 
   // [2, bs, num_head, cache_seq_len + seq_len, head_dim]
   phi::DenseTensor pre_cache_kv_out;
@@ -471,7 +503,10 @@ void FusedMultiTransformerOpKernel(
   dev_ctx.template Alloc<T>(&partial_out_tensor,
                             partial_out_tensor.numel() * sizeof(T));
 
+  VLOG(1) << "FusedMultiTransformerOpKernel: 8";
   for (int i = 0; i < layers; ++i) {
+
+    VLOG(1) << "STEP " << i ;
     // step1. layer_norm
     if (i == 0 && pre_layer_norm) {
       norm_helper.Norm(x_data,
