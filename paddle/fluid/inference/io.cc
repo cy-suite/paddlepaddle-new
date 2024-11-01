@@ -84,56 +84,82 @@ void LoadPersistables(framework::Executor* executor,
                       bool model_from_memory = false) {
   const framework::BlockDesc& global_block = main_program.Block(0);
 
-  framework::ProgramDesc* load_program = new framework::ProgramDesc();
-  framework::BlockDesc* load_block = load_program->MutableBlock(0);
-  std::vector<std::string> param_list;
-
-  for (auto* var : global_block.AllVars()) {
+  std::vector<framework::VarDesc *> allVars = global_block.AllVars();
+  std::vector<framework::VarDesc *> pVars;
+  for( auto *var: allVars){
     if (IsPersistable(var)) {
-      VLOG(4) << "persistable variable's name: " << var->Name();
-
-      framework::VarDesc* new_var = load_block->Var(var->Name());
-      new_var->SetShape(var->GetShape());
-      new_var->SetDataType(var->GetDataType());
-      auto var_type = var->GetType();
-      new_var->SetType(var_type);
-
-      if ((var_type !=
-           framework::proto::VarType::Type::VarType_Type_SELECTED_ROWS) &&
-          (var_type != framework::proto::VarType::VOCAB)) {
-        new_var->SetLoDLevel(var->GetLoDLevel());
-      }
-
-      new_var->SetPersistable(true);
-
-      if (!param_filename.empty()) {
-        param_list.push_back(new_var->Name());
-      } else {
-        // append_op
-        framework::OpDesc* op = load_block->AppendOp();
-        op->SetType("load");
-        op->SetOutput("Out", {new_var->Name()});
-        op->SetAttr("file_path", {dirname + "/" + new_var->Name()});
-        op->CheckAttrs();
-      }
+      pVars.push_back(var);
     }
   }
 
-  if (!param_filename.empty()) {
-    // sort param_list to have consistent ordering
-    std::sort(param_list.begin(), param_list.end());
-    // append just the load_combine op
-    framework::OpDesc* op = load_block->AppendOp();
-    op->SetType("load_combine");
-    op->SetOutput("Out", param_list);
-    op->SetAttr("file_path", {param_filename});
-    op->SetAttr("model_from_memory", {model_from_memory});
-    op->CheckAttrs();
+  size_t num_threads = 2;
+  size_t chunk_size = pVars.size() / num_threads;
+  LOG(INFO) << "Start Load with multi-thread: " << num_threads << " chund size: " << chunk_size;
+
+  auto loadHandler = [&](const std::vector<framework::VarDesc *> vars){
+    framework::ProgramDesc* load_program = new framework::ProgramDesc();
+    framework::BlockDesc* load_block = load_program->MutableBlock(0);
+    std::vector<std::string> param_list;
+
+    for (auto* var : vars) {
+      if (IsPersistable(var)) {
+        VLOG(4) << "persistable variable's name: " << var->Name();
+
+        framework::VarDesc* new_var = load_block->Var(var->Name());
+        new_var->SetShape(var->GetShape());
+        new_var->SetDataType(var->GetDataType());
+        auto var_type = var->GetType();
+        new_var->SetType(var_type);
+
+        if ((var_type !=
+            framework::proto::VarType::Type::VarType_Type_SELECTED_ROWS) &&
+            (var_type != framework::proto::VarType::VOCAB)) {
+          new_var->SetLoDLevel(var->GetLoDLevel());
+        }
+
+        new_var->SetPersistable(true);
+
+        if (!param_filename.empty()) {
+          param_list.push_back(new_var->Name());
+        } else {
+          // append_op
+          framework::OpDesc* op = load_block->AppendOp();
+          op->SetType("load");
+          op->SetOutput("Out", {new_var->Name()});
+          op->SetAttr("file_path", {dirname + "/" + new_var->Name()});
+          op->CheckAttrs();
+        }
+      }
+    }
+
+    if (!param_filename.empty() && param_list.size() > 0) {
+      // sort param_list to have consistent ordering
+      std::sort(param_list.begin(), param_list.end());
+      // append just the load_combine op
+      framework::OpDesc* op = load_block->AppendOp();
+      op->SetType("load_combine");
+      op->SetOutput("Out", param_list);
+      op->SetAttr("file_path", {param_filename});
+      op->SetAttr("model_from_memory", {model_from_memory});
+      op->CheckAttrs();
+    }
+
+    executor->Run(*load_program, scope, 0, true, true);
+    delete load_program;
+  };
+
+  std::vector<std::future<void>> futures;
+  for (size_t i = 0; i < num_threads; ++i) {
+    auto start_it = pVars.begin() + i * chunk_size;
+    auto end_it = (i == num_threads - 1) ? pVars.end() : start_it + chunk_size;
+    futures.push_back(std::async(std::launch::async, loadHandler,
+      std::vector<framework::VarDesc *>(start_it, end_it)));
   }
 
-  executor->Run(*load_program, scope, 0, true, true);
+  for (auto& future : futures) {
+    future.get();
+  }
 
-  delete load_program;
 }
 
 std::unique_ptr<framework::ProgramDesc> Load(framework::Executor* executor,
