@@ -4172,7 +4172,7 @@ function clang-tidy_check() {
         count=$(echo -n "$T" | grep -o "$str" | wc -l)
         echo "str: $$str count: $[ $count ]"
         if [ "$count" -ge 2 ]; then
-            echo "check error: $[ $s ]"
+            echo "check error: $s"
             check_error=1
         fi
     done
