@@ -1151,87 +1151,113 @@ class ReduceAsOpPattern
  public:
   using pir::OpRewritePattern<paddle::dialect::ReduceAsOp>::OpRewritePattern;
 
-  bool Match(paddle::dialect::ReduceAsOp op) const override {
-    return CanReplaceWithReduce(op);
-  }
+  bool MatchAndRewrite(paddle::dialect::ReduceAsOp op,
+                       pir::PatternRewriter &rewriter) const override {
 
-  void Rewrite(paddle::dialect::ReduceAsOp op,
-               pir::PatternRewriter &rewriter) const override {
-    auto x_shape =
-        phi::vectorize(op->operand_source(0)
-                           .type()
-                           .dyn_cast<paddle::dialect::DenseTensorType>()
-                           .dims());
+    auto& shape_analysis =
+        pir::ShapeAnalysisManager::Instance().Get(op->GetParentProgram());
+    
+    const auto& x_shape =
+      shape_analysis.GetShapeOrDataForValue( op->operand_source(0) ).shape();
+    const auto& y_shape =
+      shape_analysis.GetShapeOrDataForValue(op->operand_source(1)).shape();
 
-    auto y_shape =
-        phi::vectorize(op->operand_source(1)
-                           .type()
-                           .dyn_cast<paddle::dialect::DenseTensorType>()
-                           .dims());
+    if( x_shape == y_shape)
+    {
+        rewriter.ReplaceAllUsesWith(op->result(0), op->operand_source(0));     
+        return true;
+    }
+    else
+    {
+        size_t x_rank = x_shape.size();
+        size_t y_rank = y_shape.size();
 
-    size_t x_rank = x_shape.size();
-    size_t y_rank = y_shape.size();
-
-    if (x_shape == y_shape) {
-      rewriter.ReplaceAllUsesWith(op.result(0), op.operand_source(0));
-    } else {
-      // Get reduc aixs and
-      int64_t compare_offset = x_rank - y_rank;
-      std::vector<int64_t> reduce_axis;
-      for (int64_t i = 0; i < compare_offset; ++i) {
-        reduce_axis.push_back(i);
-      }
-
-      for (size_t i = 0; i < y_rank; ++i) {
-        if (y_shape[i] == 1 && x_shape[i + compare_offset] != 1) {
-          reduce_axis.push_back(compare_offset + i);
+        int64_t compare_offset = x_rank - y_rank;
+        std::vector<int64_t> reduce_axis;
+        for (int64_t i = 0; i < compare_offset; ++i) {
+          reduce_axis.push_back(i);
         }
-      }
 
-      bool keep_dim = (x_rank == y_rank);
-      auto sum_op = rewriter.Build<paddle::dialect::SumOp>(
-          op.operand_source(0), reduce_axis, phi::DataType::FLOAT32, keep_dim);
+        bool all_can_reduce = true;
+        
+        std::vector<symbol::DimExpr> output_dims;
+        bool keep_dim = (x_rank == y_rank);
+        for (size_t i = 0; i < y_rank; ++i) {
 
-      auto new_output = sum_op.result(0);
+          if (y_shape[i].isa<int64_t>() && y_shape[i].Get<int64_t>() == 1) {
 
-      if (phi::vectorize(new_output.type()
-                             .dyn_cast<paddle::dialect::DenseTensorType>()
-                             .dims()) != y_shape) {
-        // add reshape op here
-        new_output =
-            rewriter.Build<paddle::dialect::ReshapeOp>(new_output, y_shape)
-                .result(0);
-      }
+            reduce_axis.push_back(compare_offset + i); 
 
-      rewriter.ReplaceAllUsesWith(op.result(0), new_output);
+            if( keep_dim )
+            {
+              output_dims.push_back( symbol::DimExpr(1));
+            }
+          }
+          else
+          {
+            output_dims.push_back( y_shape[i]);
+            all_can_reduce = false;
+          }
+            if( !x_shape[i + compare_offset].isa<int64_t>() || x_shape[i + compare_offset].Get<int64_t>() != 1  )
+            {
+              reduce_axis.push_back(compare_offset + i); 
+            }
+
+          if( x_shape[i + compare_offset] != y_shape[i])
+          {
+            if (y_shape[i].isa<int64_t>() && y_shape[i].Get<int64_t>() == 1) {
+                          
+            }
+            else
+            {
+              all_can_reduce = false;
+            }
+
+            
+          }
+          else
+          {
+            
+          }
+
+        }
+
+        if( ! all_can_reduce )
+        {
+        return true;
+        }
+
+        if (output_dims != y_shape) {
+          return true;
+        }
+        
+        auto out_dtype = paddle::dialect::TransToPhiDataType(
+            op->operand_source(1).type()
+                .dyn_cast<paddle::dialect::DenseTensorType>()
+                .dtype());
+        auto sum_op = rewriter.Build<paddle::dialect::SumOp>(
+            op.operand_source(0), reduce_axis, out_dtype, keep_dim);
+
+        auto new_output = sum_op.result(0);
+
+        shape_analysis.SetShapeOrDataForValue(new_output, symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(output_dims)});
+
+        // if (output_dims != y_shape) {
+        //   // add reshape op here
+
+        //   //throw std::runtime_error("no")
+        //   // new_output =
+        //   //     rewriter.Build<paddle::dialect::ReshapeOp>(new_output, y_shape)
+        //   //         .result(0);
+        // }
+
+        rewriter.ReplaceAllUsesWith(op.result(0), new_output);
+
+        return true;
+
     }
 
-    rewriter.EraseOp(op);
-  }
-
- private:
-  bool CanReplaceWithReduce(paddle::dialect::ReduceAsOp op) const {
-    auto x_shape =
-        phi::vectorize(op->operand_source(0)
-                           .type()
-                           .dyn_cast<paddle::dialect::DenseTensorType>()
-                           .dims());
-
-    auto y_shape =
-        phi::vectorize(op->operand_source(1)
-                           .type()
-                           .dyn_cast<paddle::dialect::DenseTensorType>()
-                           .dims());
-
-    bool x_has_dynamic_shape =
-        std::find(x_shape.begin(), x_shape.end(), -1) != x_shape.end();
-    bool y_has_dynamic_shape =
-        std::find(y_shape.begin(), y_shape.end(), -1) != y_shape.end();
-    if (x_has_dynamic_shape || y_has_dynamic_shape) {
-      return false;
-    }
-
-    return true;
   }
 };
 
@@ -1267,7 +1293,7 @@ pir::RewritePatternSet PdOpToCinnOpPass::InitializePatterns(
   ps.Add<SigmoidOpPattern>(context);
   ps.Add<GatherOpPattern>(context);
   ps.Add<FlattenOpPattern>(context);
-  ps.Add<ReduceAsOpPattern>(context);
+  //ps.Add<ReduceAsOpPattern>(context);
 
   return ps;
 }
