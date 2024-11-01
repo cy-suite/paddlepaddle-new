@@ -256,7 +256,7 @@ inline static PyObject *eval_custom_code_py311_plus(PyThreadState *tstate,
 // elaborate on see:
 // https://github.com/PaddlePaddle/Paddle/pull/61703#issuecomment-1933812625
 #if PY_3_13_PLUS
-  Internal_PyEval_FrameClearAndPop(tstate, shadow);
+  Internal_PyEval_FrameClearAndPop(tstate, frame);
 #else
   Internal_PyEvalFrameClearAndPop(tstate, frame);
 #endif
