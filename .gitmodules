@@ -128,3 +128,4 @@
 [submodule "third_party/openvino"]
 	path = third_party/openvino
 	url = https://github.com/bukejiyu/openvino.git
+	ignore = dirty
