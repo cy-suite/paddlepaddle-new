@@ -556,8 +556,8 @@ struct GradLayer {
       const CPUContext& dev_ctx UNUSED,
       const DenseTensor* input UNUSED,
       const DenseTensor* output UNUSED,
-      std::vector<DenseTensor>* init_h_unbind UNUSED,
-      std::vector<DenseTensor>* init_c_unbind UNUSED,
+      const std::vector<DenseTensor>& init_h_unbind UNUSED,
+      const std::vector<DenseTensor>& init_c_unbind UNUSED,
       const std::vector<DenseTensor>& last_h_grad_unbind UNUSED,
       const std::vector<DenseTensor>& last_c_grad_unbind UNUSED,
       const std::vector<DenseTensor>& gate_tensor_unbind UNUSED,
@@ -569,7 +569,7 @@ struct GradLayer {
       DenseTensor* input_grad UNUSED,
       std::vector<DenseTensor>* init_h_grad_unbind UNUSED,
       std::vector<DenseTensor>* init_c_grad_unbind UNUSED,
-      std::vector<std::vector<DenseTensor>>* weight_list_grad UNUSED,
+      const std::vector<std::vector<DenseTensor>>& weight_list_grad UNUSED,
       int layer_idx UNUSED,
       bool is_bidirec UNUSED,
       int hidden_size UNUSED,
@@ -691,6 +691,7 @@ struct SingleGradLayer : GradLayer<T, GradCellType> {
   explicit SingleGradLayer(const GradCellType& cell)
       : GradLayer<T, GradCellType>(cell) {}
   ~SingleGradLayer() override = default;
+  using GradLayer<T, GradCellType>::operator();
   void operator()(const CPUContext& dev_ctx,
                   const DenseTensor* input,
                   const DenseTensor* output,
@@ -712,7 +713,7 @@ struct SingleGradLayer : GradLayer<T, GradCellType> {
                   bool is_bidirec,
                   int hidden_size,
                   const std::string& mode,
-                  int gate_num) override {
+                  int gate_num) {
     phi::funcs::SetConstant<CPUContext, T> zero;
     zero(dev_ctx, input_grad, static_cast<T>(0.0));
 
@@ -803,6 +804,7 @@ struct BidirGradLayer : GradLayer<T, GradCellType> {
   explicit BidirGradLayer(const GradCellType& cell)
       : GradLayer<T, GradCellType>(cell) {}
   ~BidirGradLayer() override = default;
+  using GradLayer<T, GradCellType>::operator();
   void operator()(const CPUContext& dev_ctx,
                   const DenseTensor* input,
                   const DenseTensor* output,
@@ -824,7 +826,7 @@ struct BidirGradLayer : GradLayer<T, GradCellType> {
                   bool is_bidirec,
                   int hidden_size,
                   const std::string& mode,
-                  int gate_num) override {
+                  int gate_num) {
     int time_step = static_cast<int>(input->dims()[0]);
     int batch_size = static_cast<int>(input->dims()[1]);
     int direction_num = is_bidirec ? 2 : 1;

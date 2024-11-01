@@ -26,10 +26,12 @@ namespace pir {
 class IR_API Parameter {
  public:
   Parameter(void* data, size_t size, pir::Type type) {
-    PADDLE_ENFORCE_NE(data,
-                      nullptr,
-                      ::common::errors::InvalidArgument(
-                          "[PIR] The data of parameter cannot be nullptr."));
+    PADDLE_ENFORCE_EQ(
+        data == nullptr && size > 0,
+        false,
+        ::common::errors::InvalidArgument(
+            "[PIR] The data of parameter cannot be nullptr when size is: %d\n.",
+            size));
     data_ = malloc(size);
     memcpy(data_, data, size);
     size_ = size;
