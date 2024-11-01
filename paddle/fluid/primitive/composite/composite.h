@@ -621,72 +621,39 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_decomp(
     const paddle::optional<Tensor>& bias,
     float epsilon,
     int begin_norm_axis) {
-
   std::vector<int64_t> reduce_axis;
   auto org_dtype = x.dtype();
   Tensor x_cast = ConverToMT<T>(x);
 
-  std::vector<int64_t> normlized_shape;
-  std::vector<int64_t> squeeze_axis;
   auto x_dims = x.dims();
-  auto multi_dim_norm = (begin_norm_axis + 1 != x_dims.size());
 
-  for( size_t i = begin_norm_axis; i < x_dims.size(); ++i )
-  {
-    if( multi_dim_norm )
-    {
-      PADDLE_ENFORCE_GT(
-        x_dims[i],
-        0,
-        common::errors::InvalidArgument(
-            "The normlized dim MUST large than 0. "
-            "but received [%d]",
-            x_dims[i])); 
-      normlized_shape.push_back( x_dims[i]); 
-    }
+  LayerNormDecompHelper decomp_helper(x, scale, bias, begin_norm_axis);
 
-    squeeze_axis.push_back(i);
-  }
-
-  for (size_t i = begin_norm_axis; i < x_dims.size(); i++) {
+  for (int i = begin_norm_axis; i < x_dims.size(); i++) {
     reduce_axis.push_back(static_cast<int64_t>(i));
   }
   auto mean_ = mean_decomp<T>(x_cast, reduce_axis, true);
   auto difference = x_cast - mean_;
   auto var_tmp1 = difference * difference;
   auto variance = mean_decomp<T>(var_tmp1, reduce_axis, true);
-  auto var_tmp3 = variance + epsilon;
+  auto var_tmp3 = variance + full_scalar<T>(epsilon, variance.dtype());
   auto rsqrt_var = rsqrt<T>(var_tmp3);
   auto out = difference * rsqrt_var;
 
   Tensor scale_cast;
   if (scale) {
-    if( multi_dim_norm )
-    {
-      scale_cast = reshape<T>(scale.get(), normlized_shape);
-    }
-    else
-    {
-      scale_cast = scale.get();
-    }
+    scale_cast = decomp_helper.Process<T>(scale.get(), x_cast);
     scale_cast = ConverToMT<T>(scale_cast);
     out = out * scale_cast;
   }
   Tensor bias_cast;
   if (bias) {
-    if( multi_dim_norm )
-    {
-            bias_cast = reshape<T>(bias.get(), normlized_shape);
-    }
-    else
-    {
-      bias_cast = bias.get();
-    }
+    bias_cast = decomp_helper.Process<T>(bias.get(), x_cast);
     bias_cast = ConverToMT<T>(bias_cast);
     out = out + bias_cast;
   }
-  mean_ = squeeze<T>(mean_, squeeze_axis);
-  variance = squeeze<T>(variance, squeeze_axis);
+  mean_ = squeeze<T>(mean_, reduce_axis);
+  variance = squeeze<T>(variance, reduce_axis);
 
   // same as LayerNormInferMeta
   // x: float32 --> out: float32, mean: float32, variance: float32
