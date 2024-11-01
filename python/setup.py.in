@@ -1007,6 +1007,14 @@ if '${WITH_ONNXRUNTIME}' == 'ON':
     else:
         package_data['paddle.libs']+=['${PADDLE2ONNX_LIB_NAME}', '${ONNXRUNTIME_LIB_NAME}']
 
+if '${WITH_OPENVINO}' == 'ON':
+    shutil.copy('${OPENVINO_LIB}', libs_path)
+    shutil.copy('${TBB_LIB}', libs_path)
+    if os.name != 'nt':
+        package_data['paddle.libs'] += ['libopenvino.so.2450', 'libtbb.so.12']
+    else:
+        package_data['paddle.libs'] += ['openvino.dll', 'tbb.dll']
+
 if '${WITH_XPU}' == 'ON':
     shutil.copy('${XPU_API_LIB}', libs_path)
     package_data['paddle.libs']+=['${XPU_API_LIB_NAME}']

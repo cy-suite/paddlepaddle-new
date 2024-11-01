@@ -624,7 +624,7 @@ if(WITH_CUDNN_FRONTEND)
 endif()
 
 if(WITH_OPENVINO)
-  include(external/openvino) # download openvino
+  include(external/openvino)
   list(APPEND third_party_deps extern_openvino)
 endif()
 

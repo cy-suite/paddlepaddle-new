@@ -614,6 +614,22 @@ if(WITH_PYTHON)
       list(APPEND OP_IMPL_DEPS ${CMAKE_CURRENT_BINARY_DIR}/libdnnl.so.0)
       list(APPEND EAGER_OP_IMPL_DEPS ${CMAKE_CURRENT_BINARY_DIR}/libdnnl.so.0)
     endif()
+    if(WITH_OPENVINO)
+      add_custom_command(
+        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/libopenvino.so.2450
+        COMMAND ${CMAKE_COMMAND} -E copy ${OPENVINO_LIB}
+                ${CMAKE_CURRENT_BINARY_DIR}
+        DEPENDS openvino)
+      add_custom_command(
+        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/libtbb.so.12
+        COMMAND ${CMAKE_COMMAND} -E copy ${TBB_LIB} ${CMAKE_CURRENT_BINARY_DIR}
+        DEPENDS openvino)
+      list(APPEND OP_IMPL_DEPS ${CMAKE_CURRENT_BINARY_DIR}/libopenvino.so.2450)
+      list(APPEND EAGER_OP_IMPL_DEPS
+           ${CMAKE_CURRENT_BINARY_DIR}/libopenvino.so.2450)
+      list(APPEND OP_IMPL_DEPS ${CMAKE_CURRENT_BINARY_DIR}/libtbb.so.12)
+      list(APPEND EAGER_OP_IMPL_DEPS ${CMAKE_CURRENT_BINARY_DIR}/libtbb.so.12)
+    endif()
     if(NOT ((NOT WITH_PYTHON) AND ON_INFER))
       add_custom_command(
         OUTPUT ${eager_impl_file}
@@ -667,6 +683,10 @@ if(WITH_PYTHON)
 
   if(TENSORRT_FOUND)
     list(APPEND PYBIND_DEPS pir_tensorrt_plugin)
+  endif()
+
+  if(WITH_OPENVINO)
+    list(APPEND PYBIND_DEPS openvino tbb)
   endif()
 
   # On Linux, cc_library(paddle SHARED ..) will generate the libpaddle.so,

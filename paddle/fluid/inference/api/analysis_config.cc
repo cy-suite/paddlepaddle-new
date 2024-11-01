@@ -41,6 +41,12 @@ COMMON_DECLARE_uint64(initial_gpu_memory_in_mb);
 COMMON_DECLARE_bool(use_cinn);
 #endif
 
+#ifdef PADDLE_WITH_OPENVINO
+#include "oneapi/tbb.h"
+#include "openvino/frontend/manager.hpp"
+#include "openvino/openvino.hpp"
+#endif
+
 COMMON_DECLARE_bool(enable_pir_api);
 namespace paddle {
 
@@ -495,6 +501,8 @@ AnalysisConfig::AnalysisConfig(const AnalysisConfig &other) {
   CP_MEMBER(enable_low_precision_io_);
 
   CP_MEMBER(enable_memory_optim_);
+  // Openvino related.
+  CP_MEMBER(use_openvino_);
   // TensorRT related.
   CP_MEMBER(use_tensorrt_);
   CP_MEMBER(tensorrt_workspace_size_);
@@ -728,6 +736,18 @@ void AnalysisConfig::EnableMkldnnInt8(
   Update();
 }
 
+void AnalysisConfig::EnableOpenVINOEngine() {
+  use_openvino_ = true;
+  std::string model_path = prog_file_;
+  std::string param_path = params_file_;
+  ov::Core core;
+  // core.set_property("CPU", {{"INFERENCE_NUM_THREADS", std::string(10)}});
+  core.set_property(ov::inference_num_threads(10));
+  std::shared_ptr<ov::Model> model = core.read_model(model_path, param_path);
+  ov::CompiledModel compiled_model = core.compile_model(model, "CPU");
+  Update();
+}
+
 void AnalysisConfig::EnableTensorRtEngine(int64_t workspace_size,
                                           int max_batch_size,
                                           int min_subgraph_size,
@@ -958,6 +978,13 @@ void AnalysisConfig::Update() {
     pass_builder()->DisableMKLDNN();
   }
 #endif
+
+  if (use_openvino_) {
+    pass_builder()->ClearPasses();
+    for (const auto &pass : kOVSubgraphPasses) {
+      pass_builder()->AppendPass(pass);
+    }
+  }
 
   if (use_tensorrt_) {
     pass_builder()->ClearPasses();
@@ -1281,6 +1308,7 @@ std::string AnalysisConfig::Summary() {
   os.InsertRow({"enable_mkldnn", use_mkldnn_ ? "true" : "false"});
   os.InsertRow(
       {"mkldnn_cache_capacity", std::to_string(mkldnn_cache_capacity_)});
+  os.InsertRow({"use_openvino", use_openvino_ ? "true" : "false"});
   os.InsetDivider();
 
   // gpu info
