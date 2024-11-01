@@ -920,7 +920,7 @@ class PipelineOptimizer:
                             new_op_role = self._op_role.Backward
                         sync_comm_op = block._insert_op_without_sync(
                             index=insert_index + extra_index_info['index'],
-                            type='sync_comm_stream',
+                            type='c_sync_comm_stream',
                             inputs={'X': [var]},
                             outputs={'Out': [var]},
                             attrs={
@@ -1008,7 +1008,7 @@ class PipelineOptimizer:
             input_names = op.input_arg_names
             output_names = op.output_arg_names
             in_out_names = input_names + output_names
-            if op.type == 'cast' or op.type == "sync_comm_stream":
+            if op.type == 'cast' or op.type == "c_sync_comm_stream":
                 continue
             # append "MERGED" to the names of parameter gradients,
             # and modify the op_role_var attribute (by rename_arg func).
@@ -1639,7 +1639,7 @@ class PipelineOptimizer:
                 )
                 read_block._insert_op(
                     index=1,
-                    type='sync_comm_stream',
+                    type='c_sync_comm_stream',
                     inputs={'X': [read_block.var(var_name)]},
                     outputs={'Out': [read_block.var(var_name)]},
                     attrs={
@@ -1708,7 +1708,7 @@ class PipelineOptimizer:
         for index, op in enumerate(list(block.ops)):
             if index >= backward_recv_index:
                 break
-            if op.type == 'sync_comm_stream' and op.has_attr('pipeline_flag'):
+            if op.type == 'c_sync_comm_stream' and op.has_attr('pipeline_flag'):
                 var_name = op.input_arg_names[0]
                 var = block.var(var_name)
                 block._remove_op(index + offset, sync=False)

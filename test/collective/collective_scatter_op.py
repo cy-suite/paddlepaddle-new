@@ -50,7 +50,7 @@ class TestCollectiveScatter(TestCollectiveRunnerBase):
                 outputs={'Out': toutdata},
             )
             main_prog.global_block().append_op(
-                type="sync_comm_stream",
+                type="c_sync_comm_stream",
                 inputs={'X': toutdata},
                 outputs={'Out': toutdata},
                 attrs={'ring_id': ring_id},

@@ -332,7 +332,7 @@ void HogwildWorker::BuildShardingDepends(const ProgramDesc &program) {
     // broadcast op
     if (op_desc->Type() != "c_broadcast") {
       // has sync comm stream
-      if (op_desc->Type() == "sync_comm_stream") {
+      if (op_desc->Type() == "c_sync_comm_stream") {
         is_has_sync_comm_stream = true;
       }
       continue;
@@ -777,7 +777,7 @@ void HogwildWorker::CreateThreadOperators(const ProgramDesc &program) {
     }
     // skip remove ops, remove sync
     if (remove_ops_.find(op_desc) != remove_ops_.end() ||
-        op_name == "sync_comm_stream") {
+        op_name == "c_sync_comm_stream") {
       if (enable_adjust_op_order_) {
         remove_ids.insert(op_index);
       } else {

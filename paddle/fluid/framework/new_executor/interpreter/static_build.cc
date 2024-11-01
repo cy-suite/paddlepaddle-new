@@ -47,6 +47,7 @@ std::set<std::string> OpsCanSkipedFakeAllocInStaticBuild = {
     "sync_calc_stream",
     "c_sync_calc_stream",
     "sync_comm_stream",
+    "c_sync_comm_stream",
     "c_wait_comm",
     "c_wait_compute",
     "create_double_buffer_reader",

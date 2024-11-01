@@ -3171,6 +3171,7 @@ class Operator:
         "c_comm_init",
         "c_sync_calc_stream",
         "sync_comm_stream",
+        "c_sync_comm_stream",
         "heter_listen_and_serv",
         "c_wait_comm",
         "c_wait_compute",
@@ -4583,12 +4584,13 @@ class Block:
                 init_ops = []
                 for op in block.ops:
                     if var.name in op.output_arg_names:
-                        # In startup_program, "broadcast" and "sync_comm_stream"
+                        # In startup_program, "broadcast" and "c_sync_comm_stream"
                         # are treated as initialization ops that cause error.
-                        # Think of "broadcast" and "sync_comm_stream" as a special case here.
+                        # Think of "broadcast" and "c_sync_comm_stream" as a special case here.
                         # NOTE: "coalesce_tensor" is a special case for rnn with cudnn support
                         if op.type in [
                             "broadcast",
+                            "c_sync_comm_stream",
                             "sync_comm_stream",
                             "coalesce_tensor",
                         ]:
