@@ -623,23 +623,11 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_decomp(
   auto org_dtype = x.dtype();
   Tensor x_cast = ConverToMT<T>(x);
 
-  std::vector<int64_t> normlized_shape;
-  std::vector<int64_t> squeeze_axis;
   auto x_dims = x.dims();
 
-  for (int i = begin_norm_axis; i < x_dims.size(); ++i) {
-    PADDLE_ENFORCE_GT(
-        x_dims[i],
-        0,
-        common::errors::InvalidArgument("The normlized dim MUST large than 0. "
-                                        "but received [%d]",
-                                        x_dims[i]));
-    normlized_shape.push_back(x_dims[i]);
+  LayerNormDecompHelper decomp_helper(x, scale, bias, begin_norm_axis);
 
-    squeeze_axis.push_back(i);
-  }
-
-  for (int i = begin_norm_axis; i < x_dim.size(); i++) {
+  for (int i = begin_norm_axis; i < x_dims.size(); i++) {
     reduce_axis.push_back(static_cast<int64_t>(i));
   }
   auto mean_ = mean_decomp<T>(x_cast, reduce_axis, true);
@@ -652,18 +640,18 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_decomp(
 
   Tensor scale_cast;
   if (scale) {
-    scale_cast = reshape<T>(scale.get(), normlized_shape);
+    scale_cast = decomp_helper.Process<T>(scale.get(), x_cast);
     scale_cast = ConverToMT<T>(scale_cast);
     out = out * scale_cast;
   }
   Tensor bias_cast;
   if (bias) {
-    bias_cast = reshape<T>(bias.get(), normlized_shape);
+    bias_cast = decomp_helper.Process<T>(bias.get(), x_cast);
     bias_cast = ConverToMT<T>(bias_cast);
     out = out + bias_cast;
   }
-  mean_ = squeeze<T>(mean_, squeeze_axis);
-  variance = squeeze<T>(variance, squeeze_axis);
+  mean_ = squeeze<T>(mean_, reduce_axis);
+  variance = squeeze<T>(variance, reduce_axis);
 
   // same as LayerNormInferMeta
   // x: float32 --> out: float32, mean: float32, variance: float32
