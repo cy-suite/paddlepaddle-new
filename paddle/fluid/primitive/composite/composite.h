@@ -634,7 +634,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_decomp(
   auto difference = x_cast - mean_;
   auto var_tmp1 = difference * difference;
   auto variance = mean_decomp<T>(var_tmp1, reduce_axis, true);
-  auto var_tmp3 = variance + epsilon;
+  auto var_tmp3 = variance + full_scalar<T>(epsilon, variance.dtype());
   auto rsqrt_var = rsqrt<T>(var_tmp3);
   auto out = difference * rsqrt_var;
 
