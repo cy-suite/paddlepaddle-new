@@ -75,8 +75,13 @@ DECLARE_PROXY_PROPERTY(f_builtins)
 // https://github.com/python/cpython/blob/9414ddf91898892f3f6a672ae946931ee4b3ceb7/Objects/frameobject.c#L953-L961
 static PyObject *PyInterpreterFrameProxy_method_repr(
     PyInterpreterFrameProxy *self) {
+#if PY_3_13_PLUS
+  int lineno = Internal_PyUnstable_InterpreterFrame_GetLine(self->frame);
+  PyCodeObject *code = _PyFrame_GetCode(self->frame);
+#else
   int lineno = Internal_PyInterpreterFrame_GetLine(self->frame);
   PyCodeObject *code = self->frame->f_code;
+#endif
   return PyUnicode_FromFormat(
       "<PyInterpreterFrameProxy at %p, file %R, line %d, code %S>",
       self,
@@ -171,7 +176,11 @@ inline static PyObject *eval_custom_code_py311_plus(PyThreadState *tstate,
                                                     PyCodeObject *code,
                                                     int throw_flag) {
   Py_ssize_t nlocalsplus_new = code->co_nlocalsplus;
+#if PY_3_13_PLUS
+  Py_ssize_t nlocalsplus_old = _PyFrame_GetCode(frame)->co_nlocalsplus;
+#else
   Py_ssize_t nlocalsplus_old = frame->f_code->co_nlocalsplus;
+#endif
 #if PY_3_12_PLUS
   int size = code->co_framesize;
 #else
@@ -226,7 +235,12 @@ inline static PyObject *eval_custom_code_py311_plus(PyThreadState *tstate,
     PyDict_SetItem(namemap, name, index);
   }
   for (Py_ssize_t i = 0; i < nlocalsplus_old; ++i) {
+#if PY_3_13_PLUS
+    PyObject *name =
+        PyTuple_GET_ITEM(_PyFrame_GetCode(frame)->co_localsplusnames, i);
+#else
     PyObject *name = PyTuple_GET_ITEM(frame->f_code->co_localsplusnames, i);
+#endif
     PyObject *index = PyDict_GetItem(namemap, name);
     if (index == NULL) {
       continue;
@@ -237,11 +251,15 @@ inline static PyObject *eval_custom_code_py311_plus(PyThreadState *tstate,
 
   PyObject *result = eval_frame_default(tstate, shadow, throw_flag);
 #if PY_3_12_PLUS
-  // In Python 3.12+ believes that eval will be cleaned up, but we did not pass
-  // in the frame to _PyEval_EvalFrameDefault, so we need to clean it up.
-  // elaborate on see:
-  // https://github.com/PaddlePaddle/Paddle/pull/61703#issuecomment-1933812625
+// In Python 3.12+ believes that eval will be cleaned up, but we did not pass
+// in the frame to _PyEval_EvalFrameDefault, so we need to clean it up.
+// elaborate on see:
+// https://github.com/PaddlePaddle/Paddle/pull/61703#issuecomment-1933812625
+#if PY_3_13_PLUS
+  Internal_PyEval_FrameClearAndPop(tstate, shadow);
+#else
   Internal_PyEvalFrameClearAndPop(tstate, frame);
+#endif
 #else
   // In Python 3.11 we to create our own isolated frame(namely shadow) and
   // release it after completion
@@ -320,7 +338,11 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
     eval_frame_callback_set(callback);
     return out;
   }
+#if PY_3_13_PLUS
+  if (PyBytes_GET_SIZE(_PyFrame_GetCode(frame)->co_exceptiontable)) {
+#else
   if (PyBytes_GET_SIZE(frame->f_code->co_exceptiontable)) {
+#endif
     eval_frame_callback_set(callback);
     return eval_frame_default(tstate, frame, throw_flag);
   }
@@ -378,7 +400,11 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
     Py_DECREF(args);
     if (result == NULL) {
 #if PY_3_12_PLUS
+#if PY_3_13_PLUS
+      Internal_PyEval_FrameClearAndPop(tstate, frame);
+#else
       Internal_PyEvalFrameClearAndPop(tstate, frame);
+#endif
 #endif
       return NULL;
     }
@@ -387,10 +413,16 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
     Py_DECREF(result);
   }
 
-  // code status
+// code status
+#if PY_3_13_PLUS
+  if (is_code_without_graph(code == Py_None ? _PyFrame_GetCode(frame)
+                                            : (PyCodeObject *)code) &&
+      disable_eval_frame == Py_False) {
+#else
   if (is_code_without_graph(code == Py_None ? frame->f_code
                                             : (PyCodeObject *)code) &&
       disable_eval_frame == Py_False) {
+#endif
     out = eval_frame_default(tstate, frame, throw_flag);
     eval_frame_callback_set(callback);
     Py_DECREF(code);

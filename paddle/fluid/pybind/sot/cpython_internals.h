@@ -24,11 +24,18 @@ extern "C" {
 #if SOT_IS_SUPPORTED
 
 #if PY_3_11_PLUS
+#if PY_3_13_PLUS
+#define Py_BUILD_CORE
+#endif
 #include <internal/pycore_frame.h>
 #endif
 
 #if PY_3_11_PLUS
+#if PY_3_13_PLUS
+int Internal_PyUnstable_InterpreterFrame_GetLine(_PyInterpreterFrame *frame);
+#else
 int Internal_PyInterpreterFrame_GetLine(_PyInterpreterFrame *frame);
+#endif
 static int Internal_PyFrame_OpAlreadyRan(_PyInterpreterFrame *frame,
                                          int opcode,
                                          int oparg);
@@ -43,20 +50,17 @@ static void Internal_take_ownership(PyFrameObject *f,
 void Internal_PyFrame_Clear(_PyInterpreterFrame *frame);
 
 #if PY_3_12_PLUS
+#if PY_3_13_PLUS
+void Internal_PyEval_FrameClearAndPop(PyThreadState *tstate,
+                                      _PyInterpreterFrame *frame);
+#else
 void Internal_PyEvalFrameClearAndPop(PyThreadState *tstate,
                                      _PyInterpreterFrame *frame);
+#endif
 _PyInterpreterFrame *Internal_PyThreadState_PushFrame(PyThreadState *tstate,
                                                       size_t size);
 void Internal_PyFrame_ClearExceptCode(_PyInterpreterFrame *frame);
 #endif
-
-// #if PY_3_13_PLUS
-// static inline PyCodeObject *Internal_PyFrame_GetCode(_PyInterpreterFrame *f)
-// {
-//     assert(PyCode_Check(f->f_executable));
-//     return (PyCodeObject *)f->f_executable;
-// }
-// #endif
 
 #endif
 

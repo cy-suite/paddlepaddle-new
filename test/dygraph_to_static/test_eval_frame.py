@@ -43,11 +43,19 @@ class TestEvalFrame(unittest.TestCase):
 
         def callback(frame_obj):
             # Do your callback function here and return a object with `.code`
-            if frame_obj.f_code.co_name == "add":
-                return code
-            return CustomCode(
-                code=frame_obj.f_code, disable_eval_frame=True
-            )  # do nothing.
+            if sys.version_info >= (3, 13):
+                # in 3.13, the frame_obj.f_code is f_executable
+                if frame_obj.f_executable.co_name == "add":
+                    return code
+                return CustomCode(
+                    code=frame_obj.f_executable, disable_eval_frame=True
+                )  # do nothing.
+            else:
+                if frame_obj.f_code.co_name == "add":
+                    return code
+                return CustomCode(
+                    code=frame_obj.f_code, disable_eval_frame=True
+                )  # do nothing.
 
         def add(a, b):
             return a + b
