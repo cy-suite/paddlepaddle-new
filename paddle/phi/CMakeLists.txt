@@ -103,6 +103,8 @@ if(WITH_DGC)
   list(APPEND PHI_DEPS dgc)
 endif()
 
+list(APPEND PHI_DEPS flux)
+
 set(PHI_CORE_SRCS
     ${common_srcs}
     ${api_srcs}
@@ -302,6 +304,8 @@ endif()
 if(WITH_FLASHATTN)
   add_dependencies(phi flashattn)
 endif()
+
+add_dependencies(phi flux)
 
 # for inference static library
 if(NOT WITH_SHARED_PHI)
