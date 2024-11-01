@@ -3924,7 +3924,6 @@ function clang-tidy_check() {
     startTime_s=`date +%s`
 
     exec 3>&1 4>&2
-
     temp_file=$(mktemp)
     python ./tools/codestyle/clang-tidy.py -p=build -j=20 \
         -clang-tidy-binary=clang-tidy \
@@ -3937,7 +3936,7 @@ function clang-tidy_check() {
         -extra-arg=-Wno-implicit-int-float-conversion \
         -extra-arg=-Wno-inconsistent-missing-override \
         -extra-arg=-Wno-infinite-recursion \
-        -extra-arg=-Wno-mismatched-tags  \
+        -extra-arg=-Wno-mismatched-tags \
         -extra-arg=-Wno-self-assign \
         -extra-arg=-Wno-sign-compare \
         -extra-arg=-Wno-sometimes-uninitialized \
@@ -3946,12 +3945,12 @@ function clang-tidy_check() {
         -extra-arg=-Wno-unused-lambda-capture \
         -extra-arg=-Wno-unused-private-field \
         -extra-arg=-Wno-unused-value \
-        -extra-arg=-Wno-unused-variable  \
-        -extra-arg=-Wno-overloaded-virtual  \
-        -extra-arg=-Wno-defaulted-function-deleted  \
-        -extra-arg=-Wno-delete-non-abstract-non-virtual-dtor  \
+        -extra-arg=-Wno-unused-variable \
+        -extra-arg=-Wno-overloaded-virtual \
+        -extra-arg=-Wno-defaulted-function-deleted \
+        -extra-arg=-Wno-delete-non-abstract-non-virtual-dtor \
         -extra-arg=-Wno-error \
-        -extra-arg=-Wno-return-type-c-linkage 2>&1 1>&3 3>&- 4>&- | tee $temp_file
+        -extra-arg=-Wno-return-type-c-linkage 2>&1 | tee $temp_file 1>&3 3>&-
 
     T=$(cat $temp_file)
     S=(
