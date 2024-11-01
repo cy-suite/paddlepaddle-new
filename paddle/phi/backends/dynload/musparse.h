@@ -42,8 +42,8 @@ extern void *musparse_dso_handle;
 
 #if defined(PADDLE_WITH_MUSA)
 #define MUSPARSE_ROUTINE_EACH(__macro)   \
-  __macro(musparseCreateHandle);         \
-  __macro(musparseDestroyHandle);               \
+  __macro(musparseCreate);               \
+  __macro(musparseDestroy);              \
   __macro(musparseSetStream);            \
   __macro(musparseCreateMatDescr);       \
   __macro(musparseSnnz);                 \
@@ -73,4 +73,3 @@ MUSPARSE_ROUTINE_EACH(DECLARE_DYNAMIC_LOAD_MUSPARSE_WRAP)
 #undef DECLARE_DYNAMIC_LOAD_MUSPARSE_WRAP
 }  // namespace dynload
 }  // namespace phi
-

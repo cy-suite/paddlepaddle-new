@@ -106,8 +106,8 @@ MUBLAS_BLAS_ROUTINE_EACH(DECLARE_DYNAMIC_LOAD_MUBLAS_WRAP)
   __macro(mublasSgemmStridedBatched);        \
   __macro(mublasDgemmStridedBatched);        \
   __macro(mublasCgemmStridedBatched);        \
-  __macro(mublasZgemmStridedBatched);        \
-  __macro(mublasHgemmStridedBatched);
+  __macro(mublasZgemmStridedBatched);
+  // __macro(mublasHgemmStridedBatched);
 
 MUBLAS_BLAS_ROUTINE_EACH_R2(DECLARE_DYNAMIC_LOAD_MUBLAS_WRAP)
 

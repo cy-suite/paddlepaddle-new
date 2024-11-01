@@ -47,7 +47,7 @@ extern void* mccl_dso_handle;
   __macro(mcclCommAbort);               \
   __macro(mcclCommDestroy);             \
   __macro(mcclCommCount);               \
-  __macro(mcclCommCuDevice);            \
+  __macro(mcclCommMuDevice);            \
   __macro(mcclCommUserRank);            \
   __macro(mcclAllReduce);               \
   __macro(mcclBcast);                   \
