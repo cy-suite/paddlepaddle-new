@@ -22,7 +22,7 @@ import paddle
 
 class TestEvalFrame(unittest.TestCase):
     def setUp(self):
-        self.x = paddle.to_tensor(2).astype('int')
+        self.x = paddle.to_tensor(2).astype('int64')
 
     def tearDown(self):
         pass

@@ -39,6 +39,12 @@ extern "C" {
 #define SOT_NOT_SUPPORTED_VERSION PY_3_14_0_HEX
 #define SOT_IS_SUPPORTED PY_VERSION_HEX < SOT_NOT_SUPPORTED_VERSION
 
+#if PY_3_13_PLUS
+#define PyFrame_GET_CODE(frame) _PyFrame_GetCode(frame)
+#else
+#define PyFrame_GET_CODE(frame) (frame->f_code)
+#endif
+
 #ifdef __cplusplus
 }
 #endif

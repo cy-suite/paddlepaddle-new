@@ -337,7 +337,7 @@ error:
   Py_XDECREF(hidden);
   return NULL;
 }
-#endif  // PY_3_13_PLUS
+#endif  // !PY_3_13_PLUS
 
 int Internal_PyFrame_FastToLocalsWithError(_PyInterpreterFrame *frame) {
 #if !PY_3_13_PLUS
