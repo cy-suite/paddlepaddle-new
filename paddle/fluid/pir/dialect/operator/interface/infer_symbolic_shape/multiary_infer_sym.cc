@@ -1118,26 +1118,8 @@ bool ConcatOpInferSymbolicShape(pir::Operation *op,
     return axis >= 0 ? axis : std::max(int64_t(0), int64_t(axis + rank));
   }();
 
-  if (details::HasCompleteData(x_shape)) {
-    if (rank == 1) {
-      ExprVec data = details::GetExprVecFromData(x_shape);
-      const std::vector<symbol::DimExpr> shape{std::int64_t(data.size())};
-      symbol::ShapeOrDataDimExprs shape_data{
-          symbol::TensorShapeOrDataDimExprs(shape, data)};
-      pir::Value res = op->result(0);
-      infer_context->SetShapeOrDataForValue(res, shape_data);
-
-      return true;
-    } else {
-      PADDLE_THROW(common::errors::Unimplemented(
-          op->name() +
-          " 's InferSymbolicShape can NOT deal with rank > 1 now."));
-    }
-    std::vector<symbol::DimExpr> data;
-    data.reserve(shape_data_list.size());
-    for (auto &data_elem : shape_data_list) {
-      data.push_back(data_elem.data().value().at(0));
-    }
+  if (details::HasCompleteData(x_shape) && (rank == 1)) {
+    ExprVec data = details::GetExprVecFromData(x_shape);
     const std::vector<symbol::DimExpr> shape{std::int64_t(data.size())};
     symbol::ShapeOrDataDimExprs shape_data{
         symbol::TensorShapeOrDataDimExprs(shape, data)};
@@ -1748,6 +1730,75 @@ bool FlashAttnVarlenQkvpackedOpInferSymbolicShape(
 //   return true;
 // }
 
+bool FlashmaskAttentionOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  const symbol::ShapeOrDataDimExprs &q =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0));
+  const symbol::ShapeOrDataDimExprs &k =
+      infer_context->GetShapeOrDataForValue(op->operand_source(1));
+  const symbol::ShapeOrDataDimExprs &v =
+      infer_context->GetShapeOrDataForValue(op->operand_source(2));
+
+  PADDLE_ENFORCE_EQ(q.shape().size(),
+                    4,
+                    common::errors::InvalidArgument(
+                        "flash_attn receive input with dim "
+                        "[batch_size, seq_len, num_heads, head_dim]"));
+
+  infer_context->AddEqualCstr(q.shape()[0], k.shape()[0]);
+  infer_context->AddEqualCstr(q.shape()[0], v.shape()[0]);
+  infer_context->AddEqualCstr(k.shape()[1], v.shape()[1]);
+
+  if (op->operand_source(3)) {
+    const std::vector<symbol::DimExpr> &startend_row_indices =
+        infer_context->GetShapeOrDataForValue(op->operand_source(4)).shape();
+    PADDLE_ENFORCE_EQ(
+        startend_row_indices.size(),
+        4,
+        common::errors::InvalidArgument(
+            "flashmask_attention receive startend_row_indices with dim "
+            "[batch_size, num_heads,seq_len, mask_bounds]"));
+  }
+  std::vector<symbol::DimExpr> out_shape = q.shape();
+
+  out_shape.back() = v.shape().back();
+
+  infer_context->SetShapeOrDataForValue(
+      op->result(0), symbol::TensorShapeOrDataDimExprs(out_shape));
+
+  // GPU has round for seqlen, but XPU has not. Here we align with the GPU
+  // version.
+  auto round_multiple = [](symbol::DimExpr x) {
+    auto m = symbol::DimExpr{128};
+    auto m_minus_one = symbol::DimExpr{127};
+    return (x + m_minus_one) / m * m;
+  };
+  auto batch_size_expr = q.shape()[0];
+  auto num_heads_expr = q.shape()[2];
+  auto seqlen_q_rounded_expr = round_multiple(q.shape()[1]);
+  auto seqlen_k_rounded_expr = round_multiple(k.shape()[1]);
+
+  if (op->result(1)) {
+    std::vector<symbol::DimExpr> softmax_shape{batch_size_expr,
+                                               num_heads_expr,
+                                               seqlen_q_rounded_expr,
+                                               seqlen_k_rounded_expr};
+    infer_context->SetShapeOrDataForValue(
+        op->result(1), symbol::TensorShapeOrDataDimExprs(softmax_shape));
+  }
+  if (op->result(2)) {
+    std::vector<symbol::DimExpr> softmax_lse_shape{
+        batch_size_expr, num_heads_expr, seqlen_q_rounded_expr};
+    infer_context->SetShapeOrDataForValue(
+        op->result(2), symbol::TensorShapeOrDataDimExprs(softmax_lse_shape));
+  }
+  if (op->result(3)) {
+    std::vector<symbol::DimExpr> seed_offset_shape{symbol::DimExpr{2}};
+    infer_context->SetShapeOrDataForValue(
+        op->result(3), symbol::TensorShapeOrDataDimExprs(out_shape));
+  }
+  return true;
+}
 bool FusedBatchNormActOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
   return BatchNormOpInferSymbolicShape(op, infer_context);
@@ -2016,12 +2067,71 @@ bool GraphKhopSamplerOpInferSymbolicShape(
   return true;
 }
 
-// bool GraphReindexOpInferSymbolicShape(pir::Operation *op,
-//                                           pir::InferSymbolicShapeContext
-//                                           *infer_context) {
-//   // pass
-//   return true;
-// }
+bool ReindexGraphOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  const symbol::ShapeOrDataDimExprs &x_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0));
+  const symbol::ShapeOrDataDimExprs &neighbors_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(1));
+  const symbol::ShapeOrDataDimExprs &count_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(2));
+  const symbol::ShapeOrDataDimExprs &hashtable_value_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(3));
+  const symbol::ShapeOrDataDimExprs &hashtable_index_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(4));
+
+  const std::vector<symbol::DimExpr> &x_shape = x_shape_or_data.shape();
+  const std::vector<symbol::DimExpr> &neighbors_shape =
+      neighbors_shape_or_data.shape();
+  const std::vector<symbol::DimExpr> &count_shape = count_shape_or_data.shape();
+  const std::vector<symbol::DimExpr> &hashtable_value_shape =
+      hashtable_value_shape_or_data.shape();
+  const std::vector<symbol::DimExpr> &hashtable_index_shape =
+      hashtable_index_shape_or_data.shape();
+
+  auto GraphReindexShapeCheck = [&](const std::vector<symbol::DimExpr> &shape,
+                                    const std::string &tensor_name) {
+    if (shape.size() == 2) {
+      infer_context->AddEqualCstr(shape[1], symbol::DimExpr{1});
+    } else {
+      PADDLE_ENFORCE_EQ(
+          shape.size(),
+          1,
+          common::errors::InvalidArgument(
+              "The %s should be 1D, when it is not 2D, but we get %d",
+              tensor_name,
+              shape.size()));
+    }
+  };
+
+  GraphReindexShapeCheck(x_shape, "X");
+  GraphReindexShapeCheck(neighbors_shape, "Neighbors");
+  GraphReindexShapeCheck(count_shape, "Count");
+
+  if (!paddle::dialect::details::IsFakeValue(op->operand_source(3)) &&
+      !paddle::dialect::details::IsFakeValue(op->operand_source(4))) {
+    GraphReindexShapeCheck(hashtable_value_shape, "HashTable_Value");
+    GraphReindexShapeCheck(hashtable_index_shape, "HashTable_Index");
+  }
+
+  VLOG(3) << "ReindexGraphOpInferSymbolicShape";
+
+  symbol::DimExpr unique_dim_sym = infer_context->GetNextSymName();
+  infer_context->SetShapeOrDataForValue(
+      op->result(0),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs({neighbors_shape[0]})});
+  infer_context->SetShapeOrDataForValue(
+      op->result(1),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs({neighbors_shape[0]})});
+  infer_context->SetShapeOrDataForValue(
+      op->result(2),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs({unique_dim_sym})});
+
+  return true;
+}
 
 bool GraphSampleNeighborsOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
@@ -3216,6 +3326,28 @@ bool PyramidHashOpInferSymbolicShape(
 //   // pass
 //   return true;
 // }
+bool RandomRoutingOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  const auto &top_value_shape =
+      infer_context->GetShapeOrDataForValue(op->operand_source(1)).shape();
+  const auto &prob_shape =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0)).shape();
+  const auto &top_idx_shape =
+      infer_context->GetShapeOrDataForValue(op->operand_source(2)).shape();
+  infer_context->AddEqualCstr(prob_shape[0], top_value_shape[0]);
+  infer_context->AddEqualCstr(top_idx_shape[0], top_value_shape[0]);
+  infer_context->AddEqualCstr(top_idx_shape[1], top_value_shape[1]);
+  infer_context->SetShapeOrDataForValue(
+      op->result(0),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(top_idx_shape)});
+  return true;
+}
+
+bool RandomRouting_OpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  return RandomRoutingOpInferSymbolicShape(op, infer_context);
+}
 
 bool RmsNormOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
@@ -3565,18 +3697,10 @@ bool SigmoidCrossEntropyWithLogits_OpInferSymbolicShape(
   return SigmoidCrossEntropyWithLogitsOpInferSymbolicShape(op, infer_context);
 }
 
-// bool SyncBatchNormOpInferSymbolicShape(pir::Operation *op,
-//                                        pir::InferSymbolicShapeContext
-//                                        *infer_context) {
-//   // pass
-//   return true;
-// }
-
-// bool SyncBatchNorm_OpInferSymbolicShape(pir::Operation *op,
-//                                         pir::InferSymbolicShapeContext
-//                                         *infer_context) {
-//   return SyncBatchNormOpInferSymbolicShape(op, infer_context);
-// }
+bool SyncBatchNorm_OpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  return BatchNormOpInferSymbolicShape(op, infer_context);
+}
 
 bool TdmSamplerOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {

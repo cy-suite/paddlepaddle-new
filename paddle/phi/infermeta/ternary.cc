@@ -742,18 +742,26 @@ void InstanceNormInferMeta(const MetaTensor& x,
   }
 }
 
+void FasterTokenizerInferMeta(const MetaTensor& vocab,
+                              const MetaTensor& text,
+                              const MetaTensor& text_pair,
+                              bool do_lower_case,
+                              bool is_split_into_words,
+                              int max_seq_len,
+                              bool pad_to_max_seq_len,
+                              MetaTensor* input_ids,
+                              MetaTensor* segment_ids,
+                              MetaConfig config) {
+  input_ids->set_dims({-1, -1});
+  segment_ids->set_dims({-1, -1});
+  input_ids->set_dtype(phi::DataType::INT64);
+  segment_ids->set_dtype(phi::DataType::INT64);
+}
+
 void GlobalGatherInferMeta(const MetaTensor& x,
                            const MetaTensor& local_count,
                            const MetaTensor& global_count,
-                           int ring_id,
-                           bool use_calc_stream,
                            MetaTensor* out) {
-  PADDLE_ENFORCE_GE(
-      ring_id,
-      0,
-      common::errors::InvalidArgument(
-          "The ring_id (%d) for global gather op must be non-negative.",
-          ring_id));
   auto input_dims = x.dims();
   auto ndim_input = input_dims.size();
   // dim check
@@ -771,15 +779,7 @@ void GlobalGatherInferMeta(const MetaTensor& x,
 void GlobalScatterInferMeta(const MetaTensor& x,
                             const MetaTensor& local_count,
                             const MetaTensor& global_count,
-                            int ring_id,
-                            bool use_calc_stream,
                             MetaTensor* out) {
-  PADDLE_ENFORCE_GE(
-      ring_id,
-      0,
-      common::errors::InvalidArgument(
-          "The ring_id (%d) for global scatter op must be non-negative.",
-          ring_id));
   auto input_dims = x.dims();
   auto ndim_input = input_dims.size();
   // dim check
@@ -1780,15 +1780,15 @@ void ScatterInferMeta(const MetaTensor& x,
             "Input(Updates)'s shape is %d.",
             ref_dims.size(),
             updates_dims.size()));
-    PADDLE_ENFORCE_EQ(
-        updates_dims[0],
+    PADDLE_ENFORCE_LE(
         index_dims[0],
+        updates_dims[0],
         common::errors::InvalidArgument(
-            "Input(Updates) and Input(Ids) should have same batch-size, but"
-            " received Input(Updates)'s batch-size is %d, Input(Ids)'s "
-            "batch-size is %d.",
-            updates_dims[0],
-            index_dims[0]));
+            "The first dimension size of Input(Index) shoud be no greater than "
+            "Input(Updates), but received first dimension size of Input(Index) "
+            "is %d, Input(Updates) is  %d.",
+            index_dims[0],
+            updates_dims[0]));
   } else {
     PADDLE_ENFORCE_EQ(
         (ref_dims.size() - 1 == updates_dims.size()),

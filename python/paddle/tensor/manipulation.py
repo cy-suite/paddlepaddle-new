@@ -6342,6 +6342,24 @@ def non_negative_axis(arr, axis):
     return axis
 
 
+def infer_dynamic_broadcast_shape(
+    arr_shape: Tensor, indices_shape: Tensor, axis: int
+) -> Tensor:
+    """
+    Find the broadcast shape for indices when `arr` has a dynamic shape.
+
+    Args:
+        arr_shape (Tensor): Shape tensor of arr.
+        indices_shape (Tensor): Shape tensor of indices.
+        axis (int): The axis to put 1d slices along.
+
+    Returns:
+        Tensor: The shape tensor for later broadcasting
+    """
+    arr_shape[axis] = indices_shape[axis]
+    return arr_shape
+
+
 def infer_broadcast_shape(
     arr: Tensor, indices: Tensor, axis: int | Tensor
 ) -> tuple[int] | None:
@@ -6363,9 +6381,10 @@ def take_along_axis(
     Take values from the input array by given indices matrix along the designated axis.
 
     Args:
-        arr (Tensor) : The input Tensor. Supported data types are float32 and float64.
+        arr (Tensor) : The input Tensor. Supported data types are bfloat16, float16, float32, float64,
+            int32, int64, uint8.
         indices (Tensor) : Indices to take along each 1d slice of arr. This must match the dimension of arr,
-            and need to broadcast against arr. Supported data type are int and int64.
+            and need to broadcast against arr. Supported data type are int32 and int64.
         axis (int) : The axis to take 1d slices along.
         broadcast (bool, optional): whether the indices broadcast.
 
@@ -6459,9 +6478,10 @@ def put_along_axis(
     Put values into the destination array by given indices matrix along the designated axis.
 
     Args:
-        arr (Tensor) : The Destination Tensor. Supported data types are float32 and float64.
+        arr (Tensor) : The Destination Tensor. Supported data types are bfloat16, float16, float32, float64,
+            int32, int64, uint8.
         indices (Tensor) : Indices to put along each 1d slice of arr. This must match the dimension of arr,
-            and need to broadcast against arr if broadcast is 'True'. Supported data type are int and int64.
+            and need to broadcast against arr if broadcast is 'True'. Supported data type are int32 and int64.
         values (scalar|Tensor) : The value element(s) to put. The data types should be same as arr.
         axis (int) : The axis to put 1d slices along.
         reduce (str, optional): The reduce operation, default is 'assign', support 'add', 'assign', 'mul', 'multiply', 'mean', 'amin' and 'amax'.
@@ -6525,23 +6545,45 @@ def put_along_axis(
              [60, 40, 50]])
 
     """
+
+    def has_dynamic_shape(shapes):
+        return any(shape < 0 for shape in shapes)
+
     if len(arr.shape) != len(indices.shape):
         raise ValueError(
             "`indices` and `arr` must have the same number of dimensions!"
         )
     axis = non_negative_axis(arr, axis)
     if broadcast:
-        broadcast_shape = infer_broadcast_shape(arr, indices, axis)
-        values = (
-            paddle.to_tensor(values)
-            if not isinstance(
-                values, (paddle.Tensor, paddle.pir.Value, Variable)
+        if has_dynamic_shape(arr.shape) or has_dynamic_shape(indices.shape):
+            arr_shape = paddle.shape(arr)
+            indices_shape = paddle.shape(indices)
+            broadcast_shape = infer_dynamic_broadcast_shape(
+                arr_shape, indices_shape, axis
             )
-            else values
-        )
-        if broadcast_shape:
+            values = (
+                paddle.to_tensor(values)
+                if not isinstance(
+                    values, (paddle.Tensor, paddle.pir.Value, Variable)
+                )
+                else values
+            )
             indices = paddle.broadcast_to(indices, broadcast_shape)
-        values = paddle.broadcast_to(values, indices.shape)
+            values = paddle.broadcast_to(values, broadcast_shape)
+        else:
+            broadcast_shape = infer_broadcast_shape(arr, indices, axis)
+            values = (
+                paddle.to_tensor(values)
+                if not isinstance(
+                    values, (paddle.Tensor, paddle.pir.Value, Variable)
+                )
+                else values
+            )
+            if broadcast_shape:
+                indices = paddle.broadcast_to(indices, broadcast_shape)
+                values = paddle.broadcast_to(values, broadcast_shape)
+            else:
+                values = paddle.broadcast_to(values, indices.shape)
     else:
         if isinstance(values, (paddle.Tensor, paddle.pir.Value)):
             if len(indices.shape) != len(values.shape):
