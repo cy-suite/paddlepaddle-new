@@ -410,8 +410,7 @@ class PaddleToTensorRTConverter:
                     "opt_value": orin_opt_value,
                     "max_value": orin_max_value,
                 }
-        # Call clear_shape_info to clear the previous shape information
-        clear_shape_info()
+
         return out
 
     def convert(self, network, paddle_op, inputs):
@@ -441,5 +440,5 @@ class PaddleToTensorRTConverter:
                     orin_out_values[o_i].replace_all_uses_with(new_out[o_i])
 
                 self.program.global_block().remove_op(op)
-        # Call clear_shape_info to clear the previous shape information
+        # # Call clear_shape_info to clear the previous shape information
         clear_shape_info()
