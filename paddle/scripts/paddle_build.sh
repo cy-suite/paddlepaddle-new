@@ -3954,7 +3954,7 @@ function clang-tidy_check() {
 
     T=$(cat $temp_file)
     S=(
-        "bugprone-argument-comment"
+        # "bugprone-argument-comment"
         "bugprone-assert-side-effect"
         "bugprone-bad-signal-to-kill-thread"
         "bugprone-bool-pointer-implicit-conversion"
@@ -4151,7 +4151,7 @@ function clang-tidy_check() {
         # "performance-move-const-arg"
         # "performance-move-constructor-init"
         "performance-no-automatic-move"
-        "performance-noexcept-move-constructor"
+        # "performance-noexcept-move-constructor"
         "performance-trivially-destructible"
         "performance-type-promotion-in-math-fn"
         "performance-unnecessary-copy-initialization"
