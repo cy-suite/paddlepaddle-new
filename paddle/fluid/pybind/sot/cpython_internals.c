@@ -339,16 +339,16 @@ error:
 }
 #endif  // !PY_3_13_PLUS
 
-int Internal_PyFrame_FastToLocalsWithError(_PyInterpreterFrame *frame) {
 #if !PY_3_13_PLUS
+int Internal_PyFrame_FastToLocalsWithError(_PyInterpreterFrame *frame) {
   PyObject *locals = Internal_PyFrame_GetLocals(frame, 0);
   if (locals == NULL) {
     return -1;
   }
   Py_DECREF(locals);
-#endif
   return 0;
 }
+#endif
 
 static _PyStackChunk *Internal_allocate_chunk(int size_in_bytes,
                                               _PyStackChunk *previous) {

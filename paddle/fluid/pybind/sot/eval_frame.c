@@ -339,7 +339,9 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
   // original frame. So we pass a PyInterpreterFrame to
   // _PyFrame_FastToLocalsWithError directly. But this is an internal API, so we
   // copy many code from CPython project into our project.
+#if !PY_3_13_PLUS
   if (Internal_PyFrame_FastToLocalsWithError(frame) < 0) {
+#endif
 #else
   if (frame->f_code->co_flags & 0x20) {
     out = eval_frame_default(tstate, frame, throw_flag);
@@ -348,8 +350,10 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
   }
   if (PyFrame_FastToLocalsWithError(frame) < 0) {
 #endif
+#if !PY_3_13_PLUS
     return NULL;
   }
+#endif
 
   // NOTE:(xiongkun): Handle GeneratorExit exception: (Spend a day)
   // In Python, gen close is also a Python function call that will enter this
@@ -381,7 +385,7 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
 #if PY_3_11_PLUS
     PyObject *args = Py_BuildValue("(O)", PyInterpreterFrameProxy_New(frame));
 #else
-    PyObject *args = Py_BuildValue("(O)", frame);
+      PyObject *args = Py_BuildValue("(O)", frame);
 #endif
     PyObject *result = PyObject_CallObject(callback, args);
     Py_DECREF(args);
@@ -390,7 +394,7 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
 #if PY_3_13_PLUS
       Internal_PyEval_FrameClearAndPop(tstate, frame);
 #else
-      Internal_PyEvalFrameClearAndPop(tstate, frame);
+    Internal_PyEvalFrameClearAndPop(tstate, frame);
 #endif
 #endif
       return NULL;
@@ -454,10 +458,10 @@ static PyObject *custom_eval_frame_shim(PyThreadState *tstate,
   return _custom_eval_frame_shim(tstate, frame, throw_flag);
 }
 #else
-static PyObject *custom_eval_frame_shim(FrameObject *frame, int throw_flag) {
-  PyThreadState *tstate = PyThreadState_GET();
-  return _custom_eval_frame_shim(tstate, frame, throw_flag);
-}
+  static PyObject *custom_eval_frame_shim(FrameObject * frame, int throw_flag) {
+    PyThreadState *tstate = PyThreadState_GET();
+    return _custom_eval_frame_shim(tstate, frame, throw_flag);
+  }
 #endif
 
 static PyObject *set_eval_frame(PyObject *new_callback, PyThreadState *tstate) {
@@ -471,8 +475,8 @@ static PyObject *set_eval_frame(PyObject *new_callback, PyThreadState *tstate) {
   _PyFrameEvalFunction old_eval_frame =
       _PyInterpreterState_GetEvalFrameFunc(tstate->interp);
 #else
-  // Function pointer.
-  _PyFrameEvalFunction old_eval_frame = tstate->interp->eval_frame;
+    // Function pointer.
+    _PyFrameEvalFunction old_eval_frame = tstate->interp->eval_frame;
 #endif
 
   // NOTE: multi-threading is not supported now
@@ -483,7 +487,7 @@ static PyObject *set_eval_frame(PyObject *new_callback, PyThreadState *tstate) {
       _PyInterpreterState_SetEvalFrameFunc(tstate->interp,
                                            &_PyEval_EvalFrameDefault);
 #else
-      tstate->interp->eval_frame = &_PyEval_EvalFrameDefault;
+        tstate->interp->eval_frame = &_PyEval_EvalFrameDefault;
 #endif
     }
   } else if (old_callback == Py_None && new_callback != Py_None) {
@@ -493,7 +497,7 @@ static PyObject *set_eval_frame(PyObject *new_callback, PyThreadState *tstate) {
       _PyInterpreterState_SetEvalFrameFunc(tstate->interp,
                                            &custom_eval_frame_shim);
 #else
-      tstate->interp->eval_frame = &custom_eval_frame_shim;
+        tstate->interp->eval_frame = &custom_eval_frame_shim;
 #endif
     }
   }
