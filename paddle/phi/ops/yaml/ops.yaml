@@ -2021,7 +2021,7 @@
   # args: (Tensor input, Tensor weight, Tensor bias, Tensor input_scale, Tensor weight_scale, Tensor output_scale, Tensor[] output_buffers, Tensor[] reduce_buffers, Tensor[] barrier_buffers, Tensor[] sync_buffers, int nnodes, int max_m, int n_dim, bool transpose_weight, bool fuse_reduction, int ring_id, int root_id, int nranks)
   args: (Tensor input, Tensor weight, Tensor bias, Tensor input_scale, Tensor weight_scale, Tensor output_scale, int nnodes, int max_m, int n_dim, bool transpose_weight, bool fuse_reduction, int ring_id, int root_id, int nranks)
   # output : Tensor[](output_buffers){nnodes}, Tensor[](reduce_buffers){nnodes}, Tensor[](barrier_buffers){nnodes}, Tensor[](sync_buffers){nnodes}
-  output : Tensor(fake_output)
+  output : Tensor(output)
   infer_meta :
     func : GemmRSInferMeta
     param: [input, weight, bias, input_scale]

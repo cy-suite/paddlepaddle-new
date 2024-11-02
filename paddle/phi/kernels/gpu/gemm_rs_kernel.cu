@@ -414,7 +414,7 @@ void GemmRSKernel(const Context& dev_ctx,
                   int ring_id,
                   int root_id,
                   int nranks,
-                  DenseTensor* fake_output) {
+                  DenseTensor* output) {
   PADDLE_ENFORCE_GE(
       root_id,
       0,
@@ -583,14 +583,16 @@ void GemmRSKernel(const Context& dev_ctx,
   // nnodes == 1
   // TODO(umiswing): only 1 node, so just hack bcz idk how to do inplace scatter in paddle.
   // DenseTensor output;
-  fake_output->Resize(common::make_dim(m / gemm_rs_wrapper.world_size, n));
-  dev_ctx.template Alloc<T>(fake_output);
+  output->Resize(common::make_dim(m / gemm_rs_wrapper.world_size, n));
+  dev_ctx.template Alloc<T>(output);
   phi::SumKernel<T>(dev_ctx,
                     output_4d_local_node,
                     {0},
                     gemm_rs_wrapper.output_dtype,
                     false,
-                    fake_output);
+                    output);
+    phi::funcs::SetConstant<GPUContext, T> set_functor;
+    set_functor(dev_ctx, output, T{3.14});
   // return output;
 
 #if 0
