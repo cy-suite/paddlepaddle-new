@@ -1373,31 +1373,39 @@ bool MatrixRankTolOpInferSymbolicShape(
     }
     return x_shape_batch;
   }();
-  if (tol_shape == x_shape_batch) {
-    infer_context->SetShapeOrDataForValue(
-        op->result(0),
-        symbol::ShapeOrDataDimExprs{
-            symbol::TensorShapeOrDataDimExprs(x_shape_batch)});
+
+  int diff = x_shape_batch.size() - tol_shape.size();
+  if (diff > 0) {
+    for (int i = 0; i < diff; i++) {
+      tol_shape.emplace(tol_shape.begin(), 1);
+    }
   } else {
-    int max_dim = std::max(x_shape_batch.size(), tol_shape.size());
-    int axis =
-        std::abs(static_cast<int>(x_shape_batch.size() - tol_shape.size()));
-    std::vector<symbol::DimExpr> x_shape_array(max_dim);
-    std::vector<symbol::DimExpr> tol_shape_array(max_dim);
-    std::vector<symbol::DimExpr> out_shape_array(max_dim);
-    GetBroadcastDimsArrays(x_shape_batch,
-                           tol_shape,
-                           x_shape_array.data(),
-                           tol_shape_array.data(),
-                           out_shape_array.data(),
-                           max_dim,
-                           axis,
-                           infer_context);
-    infer_context->SetShapeOrDataForValue(
-        op->result(0),
-        symbol::ShapeOrDataDimExprs{
-            symbol::TensorShapeOrDataDimExprs(out_shape_array)});
+    for (int i = 0; i < -diff; i++) {
+      x_shape_batch.emplace(x_shape_batch.begin(), 1);
+    }
   }
+
+  const std::vector<symbol::DimExpr> shapes = [&] {
+    std::vector<symbol::DimExpr> shapes;
+    symbol::DimExprBuilder builder;
+    for (size_t i = 0; i < x_shape_batch.size(); i++) {
+      if (x_shape_batch[i] == tol_shape[i]) {
+        shapes.emplace_back(x_shape_batch[i]);
+      } else if (x_shape_batch[i] == 1) {
+        shapes.emplace_back(tol_shape[i]);
+      } else if (tol_shape[i] == 1) {
+        shapes.emplace_back(x_shape_batch[i]);
+      } else {
+        shapes.emplace_back(builder.Broadcast(x_shape_batch[i], tol_shape[i]));
+        infer_context->AddBroadcastableCstr(x_shape_batch[i], tol_shape[i]);
+      }
+    }
+    return shapes;
+  }();
+
+  symbol::ShapeOrDataDimExprs shape_data{
+      symbol::TensorShapeOrDataDimExprs(shapes)};
+  infer_context->SetShapeOrDataForValue(op->result(0), shape_data);
   return true;
 }
 
