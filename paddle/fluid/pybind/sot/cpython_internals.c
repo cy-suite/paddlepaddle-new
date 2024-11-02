@@ -125,7 +125,7 @@ static void Internal_clear_thread_frame(PyThreadState *tstate,
   assert(frame->owner == FRAME_OWNED_BY_THREAD);
   // Make sure that this is, indeed, the top frame. We can't check this in
   // _PyThreadState_PopFrame, since f_code is already cleared at that point:
-  assert((PyObject **)frame + frame->f_code->co_framesize ==
+  assert((PyObject **)frame + PyFrame_GET_CODE(frame)->co_framesize ==
          tstate->datastack_top);
   tstate->c_recursion_remaining--;
   assert(frame->frame_obj == NULL || frame->frame_obj->f_frame == frame);
@@ -684,7 +684,7 @@ void Internal_PyFrame_Clear(_PyInterpreterFrame *frame) {
 // GH-99729: Clearing this frame can expose the stack (via finalizers). It's
 // crucial that this frame has been unlinked, and is no longer visible:
 #if PY_3_13_PLUS
-  assert(_PyThreadState_GET()->current_frame != frame);
+  assert(PyThreadState_GET()->current_frame != frame);
 #else
   assert(PyThreadState_GET()->cframe->current_frame != frame);
 #endif
