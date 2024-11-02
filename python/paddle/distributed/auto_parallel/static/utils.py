@@ -2287,20 +2287,6 @@ def _dygraph_guard_(func):
 dygraph_guard = wrap_decorator(_dygraph_guard_)
 
 
-def use_new_executor():
-    new_executor_micro_batching = os.environ.get(
-        'FLAGS_new_executor_micro_batching', None
-    )
-    return new_executor_micro_batching in [
-        None,
-        1,
-        '1',
-        True,
-        'True',
-        'true',
-    ]
-
-
 def is_sequential_run():
     return bool(
         paddle.get_flags("FLAGS_new_executor_sequential_run")[
@@ -2678,3 +2664,26 @@ def split_param_func(
     else:
         # fuse_attention_ffn
         return split_fn(fused_param, split_nums, axis=-1)
+
+
+def split_mesh(global_mesh: ProcessMesh, sub_mesh_dim: int):
+    mesh_shape = global_mesh.shape
+    mesh_ndim = len(mesh_shape)
+    if sub_mesh_dim >= mesh_ndim or (
+        sub_mesh_dim < 0 and -sub_mesh_dim > mesh_ndim
+    ):
+        raise ValueError(
+            f"The sub_mesh_dim should between (-{mesh_ndim}, {mesh_ndim}]"
+        )
+    if sub_mesh_dim < 0:
+        sub_mesh_dim += mesh_ndim
+
+    process_ids = np.array(global_mesh.process_ids).reshape(mesh_shape)
+    splitted_process_ids = np.split(
+        process_ids, mesh_shape[sub_mesh_dim], axis=sub_mesh_dim
+    )
+    sub_mesh_list = []
+    for sub_process_ids in splitted_process_ids:
+        sub_mesh_list.append(ProcessMesh(sub_process_ids))
+
+    return sub_mesh_list
