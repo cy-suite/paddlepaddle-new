@@ -1,3 +1,6 @@
+#include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/common/data_type.h"
+
 #include "paddle/phi/core/distributed/comm_context_manager.h"
 #include "paddle/phi/backends/dynload/flux.h"
 
@@ -5,7 +8,8 @@
 #include "paddle/phi/backends/gpu/gpu_context.h"
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/core/dense_tensor.h"
-#include "paddle/fluid/distributed/collective/process_group_nccl.h"
+// #include "paddle/fluid/distributed/collective/process_group_nccl.h"
+#include "paddle/fluid/distributed/collective/process_group.h"
 #include "paddle/phi/kernels/empty_kernel.h"
 #include "paddle/phi/kernels/funcs/math_function.h"
 #include "paddle/phi/kernels/funcs/slice.h"
@@ -164,10 +168,12 @@ DenseTensor from_blob(void *data,
 
   // TODO(umiswing): this check looks nice
   // auto data_place = GetPlaceFromPtr(data);
-  // paddle::platform::is_gpu_place(place);
+  // phi::is_gpu_place(place);
+#if 0
   PADDLE_ENFORCE(
       dev_ctx.GetPlace().GetType() == phi::AllocationType::GPU,
       "gemm_rs not on GPU");
+#endif
 
   auto meta =
       phi::DenseTensorMeta(dtype, common::make_ddim(shape), layout);
@@ -265,7 +271,7 @@ cudaipc_create_tensor_list(
     // update max_m and allocate buffer
   int64_t device_id = dev_ctx.GetPlace().GetDeviceId();
   int sm_version = backends::gpu::GetGPUComputeCapability(device_id);
-  printf("\nsm_version:%d, sm_version == 90:%d\n", sm_version, sm_version == 90);
+  // printf("\nsm_version:%d, sm_version == 90:%d\n", sm_version, sm_version == 90);
     if (sm_version == 90 || no_nvlink || (sm_version == 80 && nnodes > 1)) {
       int reduce_m_dim = (sm_version == 90)
                              ? (max_m + world_size - 1) / world_size * nnodes * nnodes
@@ -301,7 +307,7 @@ cudaipc_create_tensor_list(
     for(size_t i=0;i<output_buffers.size();i++) {
       output_buffer_ptrs[i] = output_buffers[i].data();
     }
-    printf("\nreduce_buffers.size():%d\n", reduce_buffers.size());
+    // printf("\nreduce_buffers.size():%d\n", reduce_buffers.size());
 #ifndef FLUX_SHM_USE_NVSHMEM
     this->sync_buffers =
         cudaipc_create_tensor_list<int32_t>({this->world_size});
@@ -394,10 +400,12 @@ void GemmRSKernel(const Context& dev_ctx,
                   const paddle::optional<DenseTensor>& input_scale,
                   const paddle::optional<DenseTensor>& weight_scale,
                   const paddle::optional<DenseTensor>& output_scale,
+#if 0
                   const std::vector<const DenseTensor*>& output_buffers,
                   const std::vector<const DenseTensor*>& reduce_buffers,
                   const std::vector<const DenseTensor*>& barrier_buffers,
                   const std::vector<const DenseTensor*>& sync_buffers,
+#endif
                   const int32_t nnodes,
                   const int32_t max_m,
                   const int32_t n_dim,
@@ -436,6 +444,7 @@ void GemmRSKernel(const Context& dev_ctx,
                     common::errors::Unavailable(
                         "comm_ctx is nullptr."));
 
+#if 0
   auto get_non_const_buffers = [](const std::vector<const DenseTensor*>& buffers) {
     std::vector<DenseTensor*> nonconst_buffers;
 #if 0
@@ -451,6 +460,7 @@ void GemmRSKernel(const Context& dev_ctx,
   std::vector<DenseTensor*> nonconst_reduce_buffers = get_non_const_buffers(reduce_buffers);
   std::vector<DenseTensor*> nonconst_sync_buffers = get_non_const_buffers(sync_buffers);
   std::vector<DenseTensor*> nonconst_barrier_buffers = get_non_const_buffers(barrier_buffers);
+#endif
 
   static int num_blocks = 12;
   static bool use_barrier_queue = false;
@@ -476,7 +486,10 @@ void GemmRSKernel(const Context& dev_ctx,
   const int32_t n = transpose_weight ? weight.dims()[1] : weight.dims()[0];
   const int32_t wk = transpose_weight ? weight.dims()[0] : weight.dims()[1];
 
-  auto launcher = [&](const bool get_workspace_size_flag, const bool get_barrier_workspace_size) -> size_t {
+  static int32_t first_flag = 0;
+
+  auto launcher = [&](const bool get_workspace_size_flag,
+                      const bool get_barrier_workspace_size) -> size_t {
     return phi::dynload::gemm_rs(
         input.data(),
         weight.data(),
@@ -491,7 +504,9 @@ void GemmRSKernel(const Context& dev_ctx,
         gemm_rs_wrapper.output_buffer_ptrs.data(),
         gemm_rs_wrapper.barrier_buffer_ptrs.data(),
         gemm_rs_wrapper.sync_buffer_ptrs.data(),
-        m, n, k, wk,
+        m, n,
+        first_flag == 0 ? 2304 : k,
+        first_flag == 0 ? 2304 : wk,
         gemm_rs_wrapper.nnodes,
         gemm_rs_wrapper.max_m,
         gemm_rs_wrapper.n_dim,
@@ -521,23 +536,28 @@ void GemmRSKernel(const Context& dev_ctx,
         gemm_rs_wrapper.event_);
   };
 
-  auto get_workspace_size = [&]() -> size_t {
-    return launcher(true, false);
-  };
+  if (first_flag==0) {
+    auto get_workspace_size = [&]() -> size_t {
+      return launcher(true, false);
+    };
 
-  auto get_barrier_workspace_size = [&]() -> size_t {
-    return launcher(false, true);
-  };
+    auto get_barrier_workspace_size = [&]() -> size_t {
+      return launcher(false, true);
+    };
+
+    size_t workspace_size = get_workspace_size();
+    size_t barrier_workspace_size = get_barrier_workspace_size();
+
+    gemm_rs_wrapper.lazy_init_gemm_buffer(workspace_size);
+    gemm_rs_wrapper.lazy_init_barrier_buffer(barrier_workspace_size);
+  }
+
+  first_flag = 1;
 
   auto gemm_rs = [&]() {
     launcher(false, false);
   };
 
-  size_t workspace_size = get_workspace_size();
-  size_t barrier_workspace_size = get_barrier_workspace_size();
-
-  gemm_rs_wrapper.lazy_init_gemm_buffer(workspace_size);
-  gemm_rs_wrapper.lazy_init_barrier_buffer(barrier_workspace_size);
 
   gemm_rs();
 
