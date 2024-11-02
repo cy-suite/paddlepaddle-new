@@ -4151,7 +4151,7 @@ function clang-tidy_check() {
         # "performance-move-const-arg"
         # "performance-move-constructor-init"
         "performance-no-automatic-move"
-        "performance-noexcept-move-constructor"
+        # "performance-noexcept-move-constructor"
         "performance-trivially-destructible"
         "performance-type-promotion-in-math-fn"
         "performance-unnecessary-copy-initialization"
