@@ -3815,10 +3815,14 @@ def clip(
         max_n = check_clip_tensor(x, max, max_, value_dtype, 'max')
 
         min_n = (
-            paddle.broadcast_to(min_n, x.shape) if min_n.shape != x.shape else min_n
+            paddle.broadcast_to(min_n, x.shape)
+            if min_n.shape != x.shape
+            else min_n
         )
         max_n = (
-            paddle.broadcast_to(max_n, x.shape) if max_n.shape != x.shape else max_n
+            paddle.broadcast_to(max_n, x.shape)
+            if max_n.shape != x.shape
+            else max_n
         )
 
         output_min = paddle.where(x < min_n, min_n, x)
@@ -3827,17 +3831,19 @@ def clip(
 
     else:
         if in_dynamic_or_pir_mode():
-            if isinstance(min, Variable):
-                min = min.item(0)
-            if isinstance(max, Variable):
-                max = max.item(0)
+            if isinstance(min, (Variable, paddle.pir.Value)):
+                min = min.item()
+            if isinstance(max, (Variable, paddle.pir.Value)):
+                max = max.item()
             min = min_ if min is None else min
             max = max_ if max is None else max
             return _C_ops.clip(x, min, max)
         else:
             if min is not None:
-                check_type(min, 'min', (float, int, Variable), 'clip')
-                if isinstance(min, Variable):
+                check_type(
+                    min, 'min', (float, int, Variable, paddle.Tensor), 'clip'
+                )
+                if isinstance(min, (Variable, paddle.Tensor, paddle.pir.Value)):
                     check_dtype(
                         min.dtype,
                         'min',
@@ -3846,8 +3852,10 @@ def clip(
                         '(When the type of min in clip is Variable.)',
                     )
             if max is not None:
-                check_type(max, 'max', (float, int, Variable), 'clip')
-                if isinstance(max, Variable):
+                check_type(
+                    max, 'max', (float, int, Variable, paddle.Tensor), 'clip'
+                )
+                if isinstance(max, (Variable, paddle.Tensor, paddle.pir.Value)):
                     check_dtype(
                         max.dtype,
                         'max',
@@ -3866,13 +3874,13 @@ def clip(
             inputs = {'X': x}
             attrs = {'min': min_, 'max': max_}
 
-            if isinstance(min, Variable):
+            if isinstance(min, (Variable, paddle.Tensor, paddle.pir.Value)):
                 min.stop_gradient = True
                 inputs['Min'] = min
             elif min is not None:
                 attrs['min'] = min
 
-            if isinstance(max, Variable):
+            if isinstance(max, (Variable, paddle.Tensor, paddle.pir.Value)):
                 max.stop_gradient = True
                 inputs['Max'] = max
             elif max is not None:
@@ -3926,10 +3934,14 @@ def clip_(
             min = check_clip_tensor(x, min, fmin, x.dtype, 'min')
 
             max_expand = (
-                paddle.broadcast_to(max, x.shape) if max.shape != x.shape else max
+                paddle.broadcast_to(max, x.shape)
+                if max.shape != x.shape
+                else max
             )
             min_expand = (
-                paddle.broadcast_to(min, x.shape) if min.shape != x.shape else min
+                paddle.broadcast_to(min, x.shape)
+                if min.shape != x.shape
+                else min
             )
 
             paddle.where_(x > min_expand, x, min_expand)
