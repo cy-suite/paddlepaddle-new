@@ -1122,7 +1122,7 @@ void BindAnalysisPredictor(py::module *m) {
 
 void BindPaddleInferPredictor(py::module *m) {
   py::class_<paddle_infer::Predictor>(*m, "PaddleInferPredictor")
-  .def(py::init<const paddle_infer::Config &>())
+      .def(py::init<const paddle_infer::Config &>())
       .def("get_input_names", &paddle_infer::Predictor::GetInputNames)
       .def("get_output_names", &paddle_infer::Predictor::GetOutputNames)
       .def("get_input_handle", &paddle_infer::Predictor::GetInputHandle)
