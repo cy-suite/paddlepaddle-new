@@ -1461,6 +1461,7 @@ static void TensorDealloc(TensorObject* self) {
   if (self->weakrefs != nullptr)
     PyObject_ClearWeakRefs(reinterpret_cast<PyObject*>(self));
   self->tensor.~Tensor();
+  std::cout << "shifangla " << std::endl;
   Py_TYPE(self)->tp_free(reinterpret_cast<PyObject*>(self));
 }
 

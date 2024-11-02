@@ -13,10 +13,10 @@
 // limitations under the License.
 
 #include "paddle/fluid/pybind/inference_api.h"
-
 #include <pybind11/functional.h>
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
+#include "paddle/fluid/eager/api/generated/eager_generated/forwards/dygraph_functions.h"
 
 #include <cstring>
 #include <functional>
@@ -39,6 +39,7 @@
 #include "paddle/fluid/inference/utils/io_utils.h"
 #include "paddle/fluid/pybind/eager.h"
 #include "paddle/fluid/pybind/eager_utils.h"
+#include "paddle/fluid/pybind/exception.h"
 #include "paddle/phi/api/include/tensor.h"
 #include "paddle/phi/core/compat/convert_utils.h"
 
@@ -1121,9 +1122,90 @@ void BindAnalysisPredictor(py::module *m) {
       .def("get_serialized_program", &AnalysisPredictor::GetSerializedProgram);
 }
 
+PyObject *eager_api_abs1(PyObject *self, PyObject *args, PyObject *kwargs) {
+  phi::RecordEvent pythonc_record_event(
+      "abs pybind_imperative_func", phi::TracerEventType::UserDefined, 1);
+  PyThreadState *tstate = nullptr;
+  try {
+    VLOG(6) << "Running Eager Final State API: abs";
+
+    VLOG(8) << "args count: " << (PyTuple_Size(args) / 2);
+    // Get EagerTensors from args
+    auto &x = GetTensorFromArgs("abs", "x", args, 0, false);
+
+    const phi::distributed::ProcessMesh *mesh = nullptr;
+    if (InputsContainDistTensor(&mesh, x)) {
+      ConvertAllInputsToDistTensor(mesh, x);
+    }
+
+    // Parse Attributes if needed
+
+    tstate = PyEval_SaveThread();
+
+    // Set Device ID
+    auto place = egr::Controller::Instance().GetExpectedPlace();
+
+    SetPythonStack();
+    if (phi::is_gpu_place(place)) {
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
+      phi::backends::gpu::SetDeviceId(place.device);
+      VLOG(4) << "CurrentDeviceId: " << phi::backends::gpu::GetCurrentDeviceId()
+              << " from " << (int)place.device;
+#else
+      PADDLE_THROW(common::errors::PreconditionNotMet(
+          "PaddlePaddle should compile with GPU if use CUDAPlace."));
+#endif
+    }
+    if (phi::is_custom_place(place)) {
+#if defined(PADDLE_WITH_CUSTOM_DEVICE)
+      phi::DeviceManager::SetDevice(place);
+      VLOG(4) << "CurrentDeviceId: "
+              << phi::DeviceManager::GetDevice(place.GetDeviceType())
+              << " from " << (int)place.device;
+#else
+      PADDLE_THROW(common::errors::PreconditionNotMet(
+          "PaddlePaddle should compile with CUSTOM_DEVICE if use "
+          "CustomPlace."));
+#endif
+    }
+    if (phi::is_xpu_place(place)) {
+#if defined(PADDLE_WITH_XPU)
+      phi::backends::xpu::SetXPUDeviceId(place.device);
+      VLOG(4) << "CurrentDeviceId: "
+              << phi::backends::xpu::GetXPUCurrentDeviceId() << " from "
+              << (int)place.device;
+#else
+      PADDLE_THROW(common::errors::PreconditionNotMet(
+          "PaddlePaddle should compile with XPU if use XPUPlace."));
+#endif
+    }
+
+    // Call dygraph function
+    decltype(::abs_ad_func(x)) out = ::abs_ad_func(x);
+
+    PyEval_RestoreThread(tstate);
+    tstate = nullptr;
+    return ToPyObject(out);
+  } catch (...) {
+    if (tstate) {
+      PyEval_RestoreThread(tstate);
+    }
+    ThrowExceptionToPython(std::current_exception());
+    return nullptr;
+  }
+}
+
+static PyMethodDef EagerFinalStateMethods1[] = {
+    {"abs",
+     (PyCFunction)(void (*)(void))eager_api_abs1,
+     METH_VARARGS | METH_KEYWORDS,
+     "C++ interface function for abs in dygraph."},
+    {nullptr, nullptr, 0, nullptr}};
+
 void BindPaddleInferPredictor(py::module *m) {
-  py::class_<paddle_infer::Predictor>(*m, "PaddleInferPredictor")
-      .def(py::init<const paddle_infer::Config &>())
+  auto aa = py::class_<paddle_infer::Predictor>(*m, "PaddleInferPredictor");
+
+  aa.def(py::init<const paddle_infer::Config &>())
       .def("get_input_names", &paddle_infer::Predictor::GetInputNames)
       .def("get_output_names", &paddle_infer::Predictor::GetOutputNames)
       .def("get_input_handle", &paddle_infer::Predictor::GetInputHandle)
@@ -1138,7 +1220,8 @@ void BindPaddleInferPredictor(py::module *m) {
                 CastPyArg2VectorOfTensor(py_in_tensor_list.ptr(), 0);
             std::vector<paddle::Tensor> outputs;
             self.Run(in_tensor_list, &outputs);
-            return py::handle(ToPyObject(outputs));
+            return outputs;
+            // return py::handle(ToPyObject(outputs));
           },
           py::arg("inputs"))
       .def("run",
@@ -1160,7 +1243,22 @@ void BindPaddleInferPredictor(py::module *m) {
       .def("clear_intermediate_tensor",
            &paddle_infer::Predictor::ClearIntermediateTensor)
       .def("register_output_hook", &paddle_infer::Predictor::RegisterOutputHook)
+      .def("abs", &paddle_infer::Predictor::RegisterOutputHook)
       .def("register_input_hook", &paddle_infer::Predictor::RegisterInputHook);
+
+  printf("hahhaha\n");
+  printf("hahhaha\n");
+  printf("hahhaha\n");
+  printf("hahhaha\n");
+
+  if (PyModule_AddFunctions(m->ptr(), EagerFinalStateMethods1) < 0) {
+    printf("aaaaaaa\n");
+    printf("aaaaaaa\n");
+    printf("aaaaaaa\n");
+    printf("aaaaaaa\n");
+    printf("aaaaaaa\n");
+    // exit(0);
+  }
 }
 
 void BindZeroCopyTensor(py::module *m) {
