@@ -2385,6 +2385,18 @@ void FusionGroupInferMeta(const std::vector<const MetaTensor*>& ins,
   }
 }
 
+// TODO(umiswing): refine infermeta
+void GemmRSInferMeta(const MetaTensor& input,
+                     const MetaTensor& weight,
+                     const MetaTensor& bias,
+                     const MetaTensor& input_scale,
+                     MetaTensor* output) {
+
+    output->set_dtype(input.dtype());
+
+    output->set_dims(input.dims());
+}
+
 void GenerateProposalsV2InferMeta(const MetaTensor& scores,
                                   const MetaTensor& bbox_deltas,
                                   const MetaTensor& im_shape,

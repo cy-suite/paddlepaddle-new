@@ -98,6 +98,7 @@ enum class CommType : std::uint8_t {
   SEND = 9,
   RECV = 10,
   BARRIER = 11,
+  GEMM_RS = 12,
   UNKNOWN = 100,
 };
 

@@ -481,6 +481,12 @@ void FusionGroupInferMeta(const std::vector<const MetaTensor*>& ins,
                           int type,
                           std::vector<MetaTensor*> outs);
 
+void GemmRSInferMeta(const MetaTensor& input,
+                     const MetaTensor& weight,
+                     const MetaTensor& bias,
+                     const MetaTensor& input_scale,
+                     MetaTensor* output);
+
 void GenerateProposalsV2InferMeta(const MetaTensor& scores,
                                   const MetaTensor& bbox_deltas,
                                   const MetaTensor& im_shape,

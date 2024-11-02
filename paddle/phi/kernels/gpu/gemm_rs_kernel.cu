@@ -20,7 +20,7 @@ template<typename InT, typename OutT>
 class GemmRSWrapper {
 public:
   const phi::GPUContext& dev_ctx;
-  phi::distributed::ProcessGroup* tp_group;
+  paddle::distributed::ProcessGroup* tp_group;
   // umiswing: weird name, but it's used in source code of process group.
   const phi::GPUContext* comm_ctx;
   // TODO(umiswing): i find nobody use phi::intrusive_ptr...
@@ -72,7 +72,7 @@ public:
 
   GemmRSWrapper(
       const phi::GPUContext& dev_ctx,
-      phi::distributed::ProcessGroup* tp_group_,
+      paddle::distributed::ProcessGroup* tp_group_,
       const phi::GPUContext* comm_ctx,
       int32_t nnodes,
       int32_t max_m,
@@ -164,7 +164,10 @@ DenseTensor from_blob(void *data,
 
   // TODO(umiswing): this check looks nice
   // auto data_place = GetPlaceFromPtr(data);
-  phi::is_gpu_place(place);
+  // paddle::platform::is_gpu_place(place);
+  PADDLE_ENFORCE(
+      dev_ctx.GetPlace().GetType() == phi::AllocationType::GPU,
+      "gemm_rs not on GPU");
 
   auto meta =
       phi::DenseTensorMeta(dtype, common::make_ddim(shape), layout);
@@ -415,9 +418,9 @@ void GemmRSKernel(const Context& dev_ctx,
       common::errors::InvalidArgument(
           "The ring_id (%d) for c_scatter_op must be non-negative.", ring_id));
 
-  auto map = distributed::ProcessGroupMapFromGid::getInstance();
+  auto map = paddle::distributed::ProcessGroupMapFromGid::getInstance();
 
-  distributed::ProcessGroup* pg = map->get(ring_id);
+  paddle::distributed::ProcessGroup* pg = map->get(ring_id);
 
   PADDLE_ENFORCE_NE(pg,
                     nullptr,
