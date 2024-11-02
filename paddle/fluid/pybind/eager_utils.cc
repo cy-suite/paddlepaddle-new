@@ -1049,8 +1049,6 @@ PyObject* ToPyObject(const std::vector<paddle::Tensor>& value,
   PyObject* result = PyList_New((Py_ssize_t)value.size());
   PyGILState_Release(gstate);
 
-  std::cout << "哈哈哈哈哈哈" << std::endl;
-
   for (size_t i = 0; i < value.size(); i++) {
     if (!value[i].initialized() && return_py_none_if_not_initialize) {
       Py_INCREF(Py_None);
