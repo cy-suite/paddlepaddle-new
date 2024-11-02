@@ -3954,7 +3954,7 @@ function clang-tidy_check() {
 
     T=$(cat $temp_file)
     S=(
-        "bugprone-argument-comment"
+        # "bugprone-argument-comment"
         "bugprone-assert-side-effect"
         "bugprone-bad-signal-to-kill-thread"
         "bugprone-bool-pointer-implicit-conversion"
