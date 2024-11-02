@@ -204,7 +204,7 @@ class EagerHeavilyLayoutSensitiveOpTransformer : public EagerLayoutTransformer {
   }
 
   paddle::Tensor TransInTensor(const std::string& in_name,
-                               const paddle::Tensor& in) {
+                               const paddle::Tensor& in) override {
     if (heavily_input_.count(in_name) != 0 && in.layout() != desired_layout_) {
       auto out_tensor = EagerTraceTransposeOp(desired_layout_, in);
       return out_tensor;
@@ -253,7 +253,7 @@ class EagerLightlyLayoutSensitiveOpTransformer : public EagerLayoutTransformer {
 
   // transpose from desired to default
   paddle::Tensor TransInTensor(const std::string& in_name UNUSED,
-                               const paddle::Tensor& in) {
+                               const paddle::Tensor& in) override {
     std::string input_layout = common::DataLayoutToString(in.layout());
     auto default_layout = DefaultLayout();
     if (final_layout_ == input_layout && in.shape().size() == 4) {
@@ -266,9 +266,9 @@ class EagerLightlyLayoutSensitiveOpTransformer : public EagerLayoutTransformer {
     return in;
   }
 
-  virtual std::vector<paddle::Tensor> TransInTensors(
+  std::vector<paddle::Tensor> TransInTensors(
       const std::string& in_name UNUSED,
-      const std::vector<paddle::Tensor>& in) {
+      const std::vector<paddle::Tensor>& in) override {
     std::vector<paddle::Tensor> result;
     auto desired_layout = DesiredLayout();
     auto default_layout = DefaultLayout();
@@ -332,7 +332,7 @@ class EagerTransposeOpTransformer
   }
 
   paddle::Tensor TransInTensor(const std::string& in_name UNUSED,
-                               const paddle::Tensor& in) {
+                               const paddle::Tensor& in) override {
     return in;
   }
 
@@ -372,7 +372,7 @@ class EagerFlattenOpTransformer
 
   // transpose from NHWC to NCHW
   paddle::Tensor TransInTensor(const std::string& in_name UNUSED,
-                               const paddle::Tensor& in) {
+                               const paddle::Tensor& in) override {
     return in;
   }
 
@@ -398,9 +398,9 @@ class EagerConcatOpTransformer
     (*axis) = static_cast<paddle::experimental::Scalar>(perm[axes]);
   }
 
-  virtual std::vector<paddle::Tensor> TransInTensors(
+  std::vector<paddle::Tensor> TransInTensors(
       const std::string& in_name UNUSED,
-      const std::vector<paddle::Tensor>& in) {
+      const std::vector<paddle::Tensor>& in) override {
     return in;
   }
 
