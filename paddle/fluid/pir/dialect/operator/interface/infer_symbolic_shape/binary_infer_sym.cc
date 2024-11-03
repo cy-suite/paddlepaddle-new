@@ -1796,9 +1796,10 @@ bool ShuffleBatchOpInferSymbolicShape(
       symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs({1})});
   symbol::DimExpr shuffleidx = {1};
   bool check = [&] {
-    for (size_t i = 0; i < x_shape.size(); ++i) {
-      if (!x_shape[i].isa<int64_t>()) {
-        shuffleidx = shuffleidx * x_shape[i];
+    for (const auto &i : x_shape) {
+      if (i.isa<int64_t>()) {
+        shuffleidx = shuffleidx * i;
+      } else {
         return false;
       }
     }
