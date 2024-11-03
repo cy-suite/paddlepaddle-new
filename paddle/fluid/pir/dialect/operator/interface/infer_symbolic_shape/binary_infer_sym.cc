@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/binary_infer_sym.h"
-#include <cstdint>
 #include "paddle/common/ddim.h"
 #include "paddle/common/flags.h"
 #include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/infer_sym_utils.h"
@@ -1342,8 +1341,9 @@ bool MatrixRankTolOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
   const auto &x_shape =
       infer_context->GetShapeOrDataForValue(op->operand_source(0)).shape();
-  const auto &tol_shape =
-      infer_context->GetShapeOrDataForValue(op->operand_source(1)).shape();
+  const auto &tol_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(1));
+  std::vector<symbol::DimExpr> tol_shape = tol_shape_or_data.shape();
   size_t x_rank = x_shape.size();
   PADDLE_ENFORCE_GE(x_rank,
                     2,
