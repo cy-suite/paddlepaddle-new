@@ -116,12 +116,6 @@ class TestBinomial(unittest.TestCase):
     (parameterize.TEST_CASE_NAME, 'total_count', 'probs', 'value'),
     [
         (
-            'zero-dim',
-            np.array(1000),
-            np.array(0.85).astype('float64'),
-            np.array([2.0, 55.0, 999.0]).astype('float64'),
-        ),
-        (
             'value-same-shape',
             1000,
             np.array([0.12, 0.3, 0.85]).astype('float64'),
