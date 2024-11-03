@@ -1653,11 +1653,6 @@ bool FusedFeedforwardOpInferSymbolicShape(
 //   return true;
 // }
 
-bool FlashAttnQkvpackedOpInferSymbolicShape(
-    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
-  FlashAttnVarlenQkvpackedOpInferSymbolicShape(op, infer_context);
-}
-
 bool FlashAttnVarlenQkvpackedOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
   const auto &qkv_shape_or_data =
@@ -1726,6 +1721,11 @@ bool FlashAttnVarlenQkvpackedOpInferSymbolicShape(
             symbol::TensorShapeOrDataDimExprs(seed_offset_dims)});
   }
   return true;
+}
+
+bool FlashAttnQkvpackedOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  return FlashAttnVarlenQkvpackedOpInferSymbolicShape(op, infer_context);
 }
 
 // bool FlashAttnUnpaddedOpInferSymbolicShape(pir::Operation *op,
