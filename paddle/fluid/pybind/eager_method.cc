@@ -3374,9 +3374,10 @@ Examples:
     .. code-block:: python
 
         >>> import paddle
+        >>> import numpy as np
 
         >>> indices = [[0, 1, 1], [2, 0, 2]]
-        >>> values = [[3, 4], [5, 6], [7, 8]]
+        >>> values = np.array([[3, 4], [5, 6], [7, 8]])
         >>> dense_shape = [2, 3, 2]
         >>> coo = paddle.sparse.sparse_coo_tensor(indices, values, dense_shape)
         >>> coo.dense_dim()
