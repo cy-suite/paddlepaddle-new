@@ -2200,8 +2200,9 @@ bool WeightDequantizeOpInferSymbolicShape(
     real_channel_shape = x_shape[0] * 2;
   } else {
     PADDLE_THROW(common::errors::InvalidArgument(
-        "Currently, we only support weight_only_int8"
-        " and weight_only_int4 algo."));
+        "The algo must be in ['weight_only_int8', 'weight_only_int4'], "
+        "but got[%s]",
+        algo));
   }
   if (group_size == -1) {
     PADDLE_ENFORCE_EQ(scale_shape.size(),

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/unary_infer_sym.h"
+#include "paddle/common/enforce.h"
 #include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/infer_sym_slice_utils.h"
 #include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/infer_sym_utils.h"
 
@@ -4379,9 +4380,10 @@ bool WeightQuantizeOpInferSymbolicShape(
   } else if (algo == "weight_only_int4") {
     out_shape = {x_shape[1] / 2, x_shape[0]};
   } else {
-    common::errors::InvalidArgument(
-        "Currently, we only support weight_only_int8,"
-        " llm.int8 and weight_only_int4 algo.");
+    PADDLE_THROW(common::errors::InvalidArgument(
+        "The algo must be in ['weight_only_int8', 'weight_only_int4', "
+        "'llm.int8'], but got[%s]",
+        algo));
   }
   infer_context->SetShapeOrDataForValue(
       op->result(0),
