@@ -45,7 +45,7 @@ def batch(
         generator
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> def reader():

@@ -51,7 +51,7 @@ class Quantization(metaclass=abc.ABCMeta):
         Return: The converted model
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.quantization import QAT, QuantConfig

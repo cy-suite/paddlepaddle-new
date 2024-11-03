@@ -56,7 +56,7 @@ def backward(
 
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.to_tensor([[1, 2], [3, 4]], dtype='float32', stop_gradient=False)

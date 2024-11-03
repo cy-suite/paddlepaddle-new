@@ -138,7 +138,7 @@ def logical_and(
         N-D Tensor. A location into which the result is stored. It's dimension equals with ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -200,7 +200,7 @@ def logical_or(
         N-D Tensor. A location into which the result is stored. It's dimension equals with ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -261,7 +261,7 @@ def logical_xor(
         N-D Tensor. A location into which the result is stored. It's dimension equals with ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -323,7 +323,7 @@ def logical_not(
         N-D Tensor. A location into which the result is stored. It's dimension equals with ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -363,7 +363,7 @@ def is_empty(x: Tensor, name: str | None = None) -> Tensor:
         Tensor: A bool scalar Tensor. True if 'x' is an empty Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -410,7 +410,7 @@ def equal_all(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         Tensor: output Tensor, data type is bool, value is [False] or [True].
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -469,7 +469,7 @@ def allclose(
         Tensor: The output tensor, it's data type is bool.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -569,7 +569,7 @@ def equal(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         and the data type is bool. The result of this op is stop_gradient.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -666,7 +666,7 @@ def greater_equal(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         Tensor: The output shape is same as input :attr:`x`. The output data type is bool.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -756,7 +756,7 @@ def greater_than(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         Tensor: The output shape is same as input :attr:`x`. The output data type is bool.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -847,7 +847,7 @@ def less_equal(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         Tensor: The output shape is same as input :attr:`x`. The output data type is bool.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -938,7 +938,7 @@ def less_than(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         Tensor: The output shape is same as input :attr:`x`. The output data type is bool.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1030,7 +1030,7 @@ def not_equal(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         Tensor: The output shape is same as input :attr:`x`. The output data type is bool.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1117,7 +1117,7 @@ def is_tensor(x: Any) -> TypeGuard[Tensor]:
         A boolean value. True if ``x`` is a paddle.Tensor, otherwise False.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1214,7 +1214,7 @@ def bitwise_and(
         Tensor: Result of ``bitwise_and`` . It is a N-D Tensor with the same data type of input Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.to_tensor([-5, -1, 1])
@@ -1272,7 +1272,7 @@ def bitwise_or(
         Tensor: Result of ``bitwise_or`` . It is a N-D Tensor with the same data type of input Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.to_tensor([-5, -1, 1])
@@ -1331,7 +1331,7 @@ def bitwise_xor(
         Tensor: Result of ``bitwise_xor`` . It is a N-D Tensor with the same data type of input Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.to_tensor([-5, -1, 1])
@@ -1388,7 +1388,7 @@ def bitwise_not(
         Tensor: Result of ``bitwise_not`` . It is a N-D Tensor with the same data type of input Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.to_tensor([-5, -1, 1])
@@ -1447,7 +1447,7 @@ def isclose(
         Tensor: The output tensor, it's data type is bool.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 

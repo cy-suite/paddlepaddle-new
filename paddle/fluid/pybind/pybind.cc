@@ -1591,7 +1591,7 @@ All parameter, weight, gradient are variables in Paddle.
     You can create var in a scope and get it from the scope.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import numpy as np
@@ -2520,7 +2520,7 @@ All parameter, weight, gradient are variables in Paddle.
     LoDTensorArray is array of LoDTensor, it supports operator[], len() and for-loop iteration.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> arr = paddle.framework.core.LoDTensorArray()
@@ -2562,7 +2562,7 @@ All parameter, weight, gradient are variables in Paddle.
                    None.
 
              Examples:
-                    .. code-block:: python
+                    .. code-block:: python-console
 
                         >>> import paddle
                         >>> import numpy as np

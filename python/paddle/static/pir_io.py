@@ -248,7 +248,7 @@ def normalize_pir_program(program, feed_vars, fetch_vars, **kwargs):
         Program: Normalized/Optimized program.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -815,7 +815,7 @@ def load_inference_model_pir(path_prefix, executor, **kwargs):
         we can get inference results.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import numpy as np

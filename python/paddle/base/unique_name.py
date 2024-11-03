@@ -109,7 +109,7 @@ def generate(key: str) -> str:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> name1 = paddle.utils.unique_name.generate('fc')
@@ -168,7 +168,7 @@ def switch(new_generator=None, new_para_name_checker=None):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> name1 = paddle.utils.unique_name.generate('fc')
@@ -220,7 +220,7 @@ def guard(new_generator=None):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> with paddle.utils.unique_name.guard():

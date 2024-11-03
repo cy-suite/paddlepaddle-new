@@ -66,7 +66,7 @@ def kl_divergence(p: Distribution, q: Distribution) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -97,7 +97,7 @@ def register_kl(
         cls_q (type[Distribution]): The Distribution type of Instance q. Subclass derived from ``Distribution``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 

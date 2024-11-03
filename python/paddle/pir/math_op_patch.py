@@ -120,7 +120,7 @@ def monkey_patch_value():
         Examples:
             In Static Graph Mode:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> paddle.enable_static()
@@ -150,7 +150,7 @@ def monkey_patch_value():
         Examples:
             In Static Graph Mode:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> paddle.enable_static()
@@ -210,7 +210,7 @@ def monkey_patch_value():
             the dimension
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
 
@@ -232,7 +232,7 @@ def monkey_patch_value():
             the dimension
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
 
@@ -254,7 +254,7 @@ def monkey_patch_value():
             the dimension
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
 
@@ -297,7 +297,7 @@ def monkey_patch_value():
         Examples:
             In Static Graph Mode:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> paddle.enable_static()
@@ -435,7 +435,7 @@ def monkey_patch_value():
             Value, the number of elements for current Value
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.enable_static()
@@ -459,7 +459,7 @@ def monkey_patch_value():
         If `n` is the dimensions of `x` , `x.T` is equivalent to `x.transpose([n-1, n-2, ..., 0])`.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> paddle.enable_static()
@@ -488,7 +488,7 @@ def monkey_patch_value():
         If `n` is the dimensions of `x` , `x.mT` is equivalent to `x.transpose([0, 1, ..., n-1, n-2])`.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> paddle.enable_static()
@@ -604,7 +604,7 @@ def monkey_patch_value():
             Value, The cloned Value.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
 
@@ -631,7 +631,7 @@ def monkey_patch_value():
         Returns:  None
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import numpy as np
@@ -800,7 +800,7 @@ def monkey_patch_value():
             Tensor: self
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> tensorx = paddle.to_tensor([1,2,3])
@@ -968,7 +968,7 @@ def monkey_patch_value():
         Returns type:
             ndarray: dtype is same as current Variable
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
                 >>> import paddle
                 >>> import paddle.base as base
                 >>> from paddle.nn import Linear

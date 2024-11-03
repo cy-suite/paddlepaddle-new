@@ -60,7 +60,7 @@ def create_lod_tensor(data, recursive_seq_lens, place):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle.base as base
             >>> import numpy as np
@@ -155,7 +155,7 @@ def create_random_int_lodtensor(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle.base as base
 

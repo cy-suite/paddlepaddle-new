@@ -141,7 +141,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
         >>> x = paddle.to_tensor([[1.0, 2.0, 3.0],
@@ -643,7 +643,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -726,7 +726,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -790,7 +790,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -855,7 +855,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
         >>> input = paddle.uniform([10, 2])
@@ -1211,7 +1211,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -1314,7 +1314,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -2304,7 +2304,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -2351,7 +2351,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -2395,7 +2395,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -2447,7 +2447,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -2491,7 +2491,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -2531,7 +2531,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -2561,7 +2561,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -2594,7 +2594,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -2632,7 +2632,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -2669,7 +2669,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -2710,7 +2710,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -2759,7 +2759,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -2812,7 +2812,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -2858,7 +2858,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -3120,7 +3120,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -3183,7 +3183,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -3224,7 +3224,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -3275,7 +3275,7 @@ Returns:
 
 Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 

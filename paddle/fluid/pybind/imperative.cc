@@ -1032,7 +1032,7 @@ void BindImperative(py::module *m_ptr) {
                                  shape with the input numpy array.
 
   Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU)
             >>> import numpy as np
@@ -1166,7 +1166,7 @@ void BindImperative(py::module *m_ptr) {
                     should be one-dimensinal.
 
   Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import numpy as np
             >>> import paddle
@@ -1399,7 +1399,7 @@ void BindImperative(py::module *m_ptr) {
                     should be one-dimensinal.
 
   Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import numpy as np
             >>> import paddle

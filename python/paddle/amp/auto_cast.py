@@ -491,7 +491,7 @@ def amp_guard(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU)
             >>> import paddle
@@ -850,7 +850,7 @@ def amp_decorate(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU)
             >>> # Demo1: single model and optimizer:
@@ -1059,7 +1059,7 @@ def auto_cast(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU)
             >>> import paddle
@@ -1174,7 +1174,7 @@ def decorate(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU)
             >>> # Demo1: single model and optimizer:

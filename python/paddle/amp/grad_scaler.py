@@ -89,7 +89,7 @@ class AmpScaler:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import numpy as np
             >>> import paddle
@@ -196,7 +196,7 @@ class AmpScaler:
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import numpy as np
                 >>> import paddle
@@ -279,7 +279,7 @@ class AmpScaler:
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import numpy as np
                 >>> import paddle
@@ -687,7 +687,7 @@ class GradScaler(AmpScaler):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -738,7 +738,7 @@ class GradScaler(AmpScaler):
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
 
@@ -779,7 +779,7 @@ class GradScaler(AmpScaler):
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
 
@@ -811,7 +811,7 @@ class GradScaler(AmpScaler):
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:GPU)
                 >>> import paddle
@@ -865,7 +865,7 @@ class GradScaler(AmpScaler):
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:GPU)
                 >>> import paddle
@@ -904,7 +904,7 @@ class GradScaler(AmpScaler):
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:GPU)
                 >>> import paddle
@@ -934,7 +934,7 @@ class GradScaler(AmpScaler):
             bool: enable loss scaling return True else return False.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:GPU, env:XPU)
                 >>> import paddle
@@ -961,7 +961,7 @@ class GradScaler(AmpScaler):
             bool: if fixed loss_scaling is used return False, if the loss scaling is updated dynamically return true.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:GPU, env:XPU)
                 >>> import paddle
@@ -988,7 +988,7 @@ class GradScaler(AmpScaler):
             float:  the initial loss scaling factor.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:GPU, env:XPU)
                 >>> import paddle
@@ -1015,7 +1015,7 @@ class GradScaler(AmpScaler):
             new_init_loss_scaling(float):  The new_init_loss_scaling used to update initial loss scaling factor.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:GPU, env:XPU)
                 >>> import paddle
@@ -1045,7 +1045,7 @@ class GradScaler(AmpScaler):
             float:  the multiplier to use when increasing the loss scaling.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:GPU, env:XPU)
                 >>> import paddle
@@ -1072,7 +1072,7 @@ class GradScaler(AmpScaler):
             new_incr_ratio(float):  The new_incr_ratio used to update the multiplier to use when increasing the loss scaling.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:GPU, env:XPU)
                 >>> import paddle
@@ -1102,7 +1102,7 @@ class GradScaler(AmpScaler):
             float:  the less-than-one-multiplier to use when decreasing the loss scaling.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:GPU, env:XPU)
                 >>> import paddle
@@ -1129,7 +1129,7 @@ class GradScaler(AmpScaler):
             new_decr_ratio(float):  The new_decr_ratio used to update the less-than-one-multiplier to use when decreasing the loss scaling.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:GPU, env:XPU)
                 >>> import paddle
@@ -1159,7 +1159,7 @@ class GradScaler(AmpScaler):
             int:  the num `n`, `n` represent increases loss scaling every `n` consecutive steps with finite gradients.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:GPU, env:XPU)
                 >>> import paddle
@@ -1186,7 +1186,7 @@ class GradScaler(AmpScaler):
             new_incr_every_n_steps(int):  The new_incr_every_n_steps used to update the num `n`, `n` represent increases loss scaling every `n` consecutive steps with finite gradients.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:GPU, env:XPU)
                 >>> import paddle
@@ -1216,7 +1216,7 @@ class GradScaler(AmpScaler):
             int:  the num `n`, `n` represent decreases loss scaling every `n` accumulated steps with nan or inf gradients.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:GPU, env:XPU)
                 >>> import paddle
@@ -1245,7 +1245,7 @@ class GradScaler(AmpScaler):
             new_decr_every_n_nan_or_inf(int):  The new_decr_every_n_nan_or_inf used to update the num `n`, `n` represent decreases loss scaling every `n` accumulated steps with nan or inf gradients.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:GPU, env:XPU)
                 >>> import paddle
@@ -1285,7 +1285,7 @@ class GradScaler(AmpScaler):
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:GPU, env:XPU)
                 >>> import paddle
@@ -1312,7 +1312,7 @@ class GradScaler(AmpScaler):
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:GPU, env:XPU)
                 >>> import paddle

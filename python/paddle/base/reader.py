@@ -229,7 +229,7 @@ class DataLoader:
             loader (DataLoader): the created DataLoader object.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: example_1
 
                 >>> # Example in static graph mode
@@ -348,7 +348,7 @@ class DataLoader:
                 >>> else:
                 ...     train_non_iterable(exe, prog, loss, loader)
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: example_2
 
                 >>> # Example in dynamic graph mode.
@@ -464,7 +464,7 @@ class DataLoader:
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.static as static
@@ -1175,7 +1175,7 @@ class PyReader(DataLoaderBase):
            exception is caught, user should call :code:`reset()` to reset
            the reader manually.
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: example_1
 
             >>> import paddle
@@ -1234,7 +1234,7 @@ class PyReader(DataLoaderBase):
            is iterable. User should feed the data yielded from PyReader
            object into :code:`Executor.run(feed=...)`.
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: example_2
 
             >>> import paddle
@@ -1283,7 +1283,7 @@ class PyReader(DataLoaderBase):
         3. If return_list=True, the return values would be presented as list instead of dict.
            This is usually used in dygraph mode.
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: example_3
 
             >>> import paddle
@@ -1343,7 +1343,7 @@ class PyReader(DataLoaderBase):
         Can only call when the reader object is not iterable.
 
         Example:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.base as base
@@ -1381,7 +1381,7 @@ class PyReader(DataLoaderBase):
         Can only call when the reader object is not iterable.
 
         Example:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.base as base
@@ -1437,7 +1437,7 @@ class PyReader(DataLoaderBase):
                 be provided when PyReader is iterable.
 
         Example:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.base as base
@@ -1503,7 +1503,7 @@ class PyReader(DataLoaderBase):
                 be provided when PyReader is iterable.
 
         Example:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.base as base
@@ -1568,7 +1568,7 @@ class PyReader(DataLoaderBase):
                 be provided when PyReader is iterable.
 
         Example:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.base as base

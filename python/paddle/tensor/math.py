@@ -170,7 +170,7 @@ def log(x: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -254,7 +254,7 @@ def scale(
         Tensor: Output Tensor of scale operator, with shape and data type same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # scale as a float32 number
             >>> import paddle
@@ -270,7 +270,7 @@ def scale(
             [[1. , 3. , 5. ],
              [7. , 9. , 11.]])
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # scale with parameter scale as a Tensor
             >>> import paddle
@@ -359,7 +359,7 @@ def stanh(
         A Tensor with the same data type and shape as ``x`` .
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -429,7 +429,7 @@ def multiplex(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -526,7 +526,7 @@ def pow(x: Tensor, y: float | Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -722,7 +722,7 @@ def add(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -801,7 +801,7 @@ def logaddexp(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -841,7 +841,7 @@ def subtract(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -921,7 +921,7 @@ def divide(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -979,7 +979,7 @@ def floor_divide(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1042,7 +1042,7 @@ def remainder(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1123,7 +1123,7 @@ def multiply(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1247,7 +1247,7 @@ def maximum(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1309,7 +1309,7 @@ def minimum(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1373,7 +1373,7 @@ def fmax(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1437,7 +1437,7 @@ def fmin(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1509,7 +1509,7 @@ def sum(
         otherwise it's data type is the same as `x`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1640,7 +1640,7 @@ def reduce_as(x: Tensor, target: Tensor, name: str | None = None) -> Tensor:
         Tensor: The sum of the input tensor x along some axis has the same shape as the shape of the input tensor target, if `x.dtype='bool'`, `x.dtype='int32'`, it's data type is `'int64'`, otherwise it's data type is the same as `x`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1732,7 +1732,7 @@ def nan_to_num(
         Tensor: Results of nan_to_num operation input Tensor ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1862,7 +1862,7 @@ def nansum(
         Tensor: Results of summation operation on the specified axis of input Tensor `x`,
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1951,7 +1951,7 @@ def nanmean(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> # x is a 2-D Tensor:
@@ -2033,7 +2033,7 @@ def count_nonzero(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> # x is a 2-D Tensor:
@@ -2129,7 +2129,7 @@ def add_n(inputs: Tensor | Sequence[Tensor], name: str | None = None) -> Tensor:
         Tensor, the sum of input :math:`inputs` , its shape and data types are consistent with :math:`inputs`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -2208,7 +2208,7 @@ def trunc(input: Tensor, name: str | None = None) -> Tensor:
         Tensor: The output Tensor of trunc.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -2303,7 +2303,7 @@ def mm(input: Tensor, mat2: Tensor, name: str | None = None) -> Tensor:
         out: [1]
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> input = paddle.arange(1, 7).reshape((3, 2)).astype('float32')
@@ -2401,7 +2401,7 @@ def addmm(
         Tensor: The output Tensor of addmm.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -2550,7 +2550,7 @@ def renorm(x: Tensor, p: float, axis: int, max_norm: float) -> Tensor:
         Tensor: the renorm Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> input = [[[2.0, 2.0, -2.0], [3.0, 0.3, 3.0]],
@@ -2631,7 +2631,7 @@ def inner(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         Tensor: The inner-product Tensor, the output shape is x.shape[:-1] + y.shape[:-1].
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.arange(1, 7).reshape((2, 3)).astype('float32')
@@ -2705,7 +2705,7 @@ def outer(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         Tensor: The outer-product Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.arange(1, 4).astype('float32')
@@ -2785,7 +2785,7 @@ def logsumexp(
 
     Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -2836,7 +2836,7 @@ def inverse(x: Tensor, name: str | None = None) -> Tensor:
                         is the same as x.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -2909,7 +2909,7 @@ def max(
         it's data type is the same as `x`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -3067,7 +3067,7 @@ def min(
         it's data type is the same as input's Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -3212,7 +3212,7 @@ def amax(
         it's data type is the same as `x`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> # data_x is a Tensor with shape [2, 4] with multiple maximum elements
@@ -3365,7 +3365,7 @@ def amin(
         it's data type is the same as input's Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> # data_x is a Tensor with shape [2, 4] with multiple minimum elements
@@ -3499,7 +3499,7 @@ def log1p(x: Tensor, name: str | None = None) -> Tensor:
         Tensor, the natural log of the input Tensor computed element-wise.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -3566,7 +3566,7 @@ def log2(x: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -3649,7 +3649,7 @@ def log10(x: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -3740,7 +3740,7 @@ def clip(
         Tensor: A Tensor with the same data type and data shape as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -3893,7 +3893,7 @@ def trace(
         Tensor: the output data type is the same as input data type.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -3992,7 +3992,7 @@ def diagonal(
         Tensor: a partial view of input tensor in specify two dimensions, the output data type is the same as input data type.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4119,7 +4119,7 @@ def kron(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         Tensor: The output of kron, data type: bfloat16, float16, float32, float64, int32 or int64. Its data is the same with x.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.to_tensor([[1, 2], [3, 4]], dtype='int64')
@@ -4180,7 +4180,7 @@ def cumsum(
         Tensor, the result of cumsum operator.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4285,7 +4285,7 @@ def cummax(
         indices (Tensor), The corresponding index results of cummax operation.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4377,7 +4377,7 @@ def cummin(
         indices (Tensor), The corresponding index results of cummin operation.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> data = paddle.to_tensor([-1, 5, 0, -2, -3, 2])
@@ -4472,7 +4472,7 @@ def logcumsumexp(
         Tensor, the result of logcumsumexp operator.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4556,7 +4556,7 @@ def cumprod(
         Tensor, the result of cumprod operator.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4658,7 +4658,7 @@ def isfinite(x: Tensor, name: str | None = None) -> Tensor:
         `Tensor`, the bool result which shows every element of `x` whether it is finite number or not.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4705,7 +4705,7 @@ def isinf(x: Tensor, name: str | None = None) -> Tensor:
         `Tensor`, the bool result which shows every element of `x` whether it is `+/-INF` or not.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4753,7 +4753,7 @@ def isnan(x: Tensor, name: str | None = None) -> Tensor:
         `Tensor`, the bool result which shows every element of `x` whether it is `NaN` or not.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4813,7 +4813,7 @@ def prod(
         Tensor, result of product on the specified dim of input tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4904,7 +4904,7 @@ def sign(x: Tensor, name: str | None = None) -> Tensor:
         Tensor: The output sign tensor with identical shape and data type to the input :attr:`x`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4957,7 +4957,7 @@ def tanh(x: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5003,7 +5003,7 @@ def increment(x: Tensor, value: float = 1.0, name: str | None = None) -> Tensor:
         Tensor, the elementwise-incremented tensor with the same shape and data type as :attr:`x`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5060,7 +5060,7 @@ def all(
         Tensor: Results the ``logical and`` on the specified axis of input Tensor `x`,  it's data type is bool.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5151,7 +5151,7 @@ def any(
         Tensor: Results the ``logical or`` on the specified axis of input Tensor `x`,  it's data type is bool.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5237,7 +5237,7 @@ def broadcast_shape(
         list[int], the result shape.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5266,7 +5266,7 @@ def conj(x: Tensor, name: str | None = None) -> Tensor:
         out (Tensor): The conjugate of input. The shape and data type is the same with input. If the elements of tensor is real type such as float32, float64, int32 or int64, the out is the same with input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5323,7 +5323,7 @@ def gammaln(x: Tensor, name: str | None = None) -> Tensor:
         Tensor, The values of the logarithm of the absolute value of the gamma at the given tensor x.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5370,7 +5370,7 @@ def digamma(x: Tensor, name: str | None = None) -> Tensor:
         Tensor, the digamma of the input Tensor, the shape and data type is the same with input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5419,7 +5419,7 @@ def gammaincc(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         Tensor, the gammaincc of the input Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5480,7 +5480,7 @@ def gammainc(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         Tensor, the gammainc of the input Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5523,7 +5523,7 @@ def lgamma(x: Tensor, name: str | None = None) -> Tensor:
         Tensor, the lgamma of the input Tensor, the shape and data type is the same with input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5568,7 +5568,7 @@ def multigammaln(x: Tensor, p: int, name: str | None = None) -> Tensor:
         out (Tensor): The values of the log multivariate gamma at the given tensor x.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5617,7 +5617,7 @@ def neg(x: Tensor, name: str | None = None) -> Tensor:
         out (Tensor): The negative of input Tensor. The shape and data type are the same with input Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5669,7 +5669,7 @@ def atan2(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         out (Tensor): An N-D Tensor, the shape and data type is the same with input (The output data type is float64 when the input data type is int).
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5745,7 +5745,7 @@ def logit(
         out(Tensor): A Tensor with the same data type and shape as ``x`` .
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5810,7 +5810,7 @@ def lerp(
         out (Tensor): An N-D Tensor, the shape and data type is the same with input.
 
     Example:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5886,7 +5886,7 @@ def erfinv(x: Tensor, name: str | None = None) -> Tensor:
         out (Tensor), an N-D Tensor, the shape and data type is the same with input.
 
     Example:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5936,7 +5936,7 @@ def rad2deg(x: Tensor, name: str | None = None) -> Tensor:
         out (Tensor): An N-D Tensor, the shape and data type is the same with input (The output data type is float32 when the input data type is int).
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import math
@@ -6007,7 +6007,7 @@ def deg2rad(x: Tensor, name: str | None = None) -> Tensor:
         out (Tensor): An N-D Tensor, the shape and data type is the same with input (The output data type is float32 when the input data type is int).
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -6074,7 +6074,7 @@ def gcd(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         out (Tensor): An N-D Tensor, the data type is the same with input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -6202,7 +6202,7 @@ def lcm(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         out (Tensor): An N-D Tensor, the data type is the same with input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -6298,7 +6298,7 @@ def diff(
         Tensor: The output tensor with same dtype with x.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -6497,7 +6497,7 @@ def angle(x: Tensor, name: str | None = None) -> Tensor:
         Tensor: An N-D Tensor of real data type with the same precision as that of x's data type.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -6575,7 +6575,7 @@ def heaviside(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         N-D Tensor. A location into which the result is stored. If x and y have different shapes and are broadcastable, the resulting tensor shape is the shape of x and y after broadcasting. If x, y have the same shape, its shape is the same as x and y.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.to_tensor([-0.5, 0, 0.5])
@@ -6609,7 +6609,7 @@ def frac(x: Tensor, name: str | None = None) -> Tensor:
         Tensor: The output Tensor of frac.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -6688,7 +6688,7 @@ def sgn(x: Tensor, name: str | None = None) -> Tensor:
         Tensor: A sign Tensor for real input, or normalized Tensor for complex input, shape and data type are same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -6759,7 +6759,7 @@ def take(
         Tensor, Tensor with the same shape as index, the data type is the same with input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -6865,7 +6865,7 @@ def frexp(x: Tensor, name: str | None = None) -> tuple[Tensor, Tensor]:
             the same as those of input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -7017,7 +7017,7 @@ def trapezoid(
         If :attr:`y` is a 1D tensor, then the result is a float. If N is greater than 1, then the result is an (N-1)-D tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -7080,7 +7080,7 @@ def cumulative_trapezoid(
         The result is an N-D tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -7146,7 +7146,7 @@ def vander(
         If increasing is True, the columns are :math:`x^0`, :math:`x^1`, ..., :math:`x^{(N-1)}`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.to_tensor([1., 2., 3.], dtype="float32")
@@ -7235,7 +7235,7 @@ def nextafter(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         out (Tensor): An N-D Tensor, the shape and data type is the same with input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> out = paddle.nextafter(paddle.to_tensor([1.0,2.0]),paddle.to_tensor([2.0,1.0]))
@@ -7274,7 +7274,7 @@ def i0(x: Tensor, name: str | None = None) -> Tensor:
         - out (Tensor), A Tensor. the value of the modified bessel function of order 0 at x.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -7323,7 +7323,7 @@ def i0e(x: Tensor, name: str | None = None) -> Tensor:
         - out (Tensor), A Tensor. the value of the exponentially scaled modified Bessel function of order 0 at x.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -7355,7 +7355,7 @@ def i1(x: Tensor, name: str | None = None) -> Tensor:
         - out (Tensor), A Tensor. the value of the modified bessel function of order 1 at x.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -7390,7 +7390,7 @@ def i1e(x: Tensor, name: str | None = None) -> Tensor:
         - out (Tensor), A Tensor. the value of the exponentially scaled modified Bessel function of order 1 at x.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -7430,7 +7430,7 @@ def polygamma(x: Tensor, n: int, name: str | None = None) -> Tensor:
         - out (Tensor), A Tensor. the polygamma of the input Tensor, the shape and data type is the same with input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -7507,7 +7507,7 @@ def ldexp(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -7625,7 +7625,7 @@ def bitwise_left_shift(
         Tensor: Result of ``bitwise_left_shift`` . It is a N-D Tensor with the same data type of input Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: bitwise_left_shift_example1
 
             >>> import paddle
@@ -7636,7 +7636,7 @@ def bitwise_left_shift(
                    [[2  , 8  , 32 , 128],
                     [64 , 136, 128, 130]])
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: bitwise_left_shift_example2
 
             >>> import paddle
@@ -7712,7 +7712,7 @@ def bitwise_right_shift(
         Tensor: Result of ``bitwise_right_shift`` . It is a N-D Tensor with the same data type of input Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: bitwise_right_shift_example1
 
             >>> import paddle
@@ -7723,7 +7723,7 @@ def bitwise_right_shift(
                    [[5 , 5 , 5 , 5 ],
                     [4 , 2 , 8 , 32]])
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: bitwise_right_shift_example2
 
             >>> import paddle
@@ -7790,7 +7790,7 @@ def copysign(x: Tensor, y: Tensor | float, name: str | None = None) -> Tensor:
         out (Tensor), the output tensor. The data type is the same as the input tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: example1
 
             >>> import paddle
@@ -7801,7 +7801,7 @@ def copysign(x: Tensor, y: Tensor | float, name: str | None = None) -> Tensor:
             Tensor(shape=[3], dtype=float64, place=Place(gpu:0), stop_gradient=True,
                    [-1.,  2., -3.])
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: example2
 
             >>> import paddle
@@ -7812,7 +7812,7 @@ def copysign(x: Tensor, y: Tensor | float, name: str | None = None) -> Tensor:
             Tensor(shape=[3], dtype=float64, place=Place(gpu:0), stop_gradient=True,
                    [-1.,  -2.,  -3.])
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: example_zero1
 
             >>> import paddle
@@ -7823,7 +7823,7 @@ def copysign(x: Tensor, y: Tensor | float, name: str | None = None) -> Tensor:
             Tensor(shape=[3], dtype=float64, place=Place(gpu:0), stop_gradient=True,
                 [1., 2., 3.])
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: example_zero2
 
             >>> import paddle
@@ -7886,7 +7886,7 @@ def hypot(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -7943,7 +7943,7 @@ def combinations(
         out (Tensor). Tensor concatenated by combinations, same dtype with x.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.to_tensor([1, 2, 3], dtype='int32')
@@ -8005,7 +8005,7 @@ def signbit(x: Tensor, name: str | None = None) -> Tensor:
         out (Tensor): The output Tensor. The sign bit of the corresponding element of the input tensor, True means negative, False means positive.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: signbit-example-1
 
             >>> import paddle
@@ -8016,7 +8016,7 @@ def signbit(x: Tensor, name: str | None = None) -> Tensor:
             Tensor(shape=[5], dtype=bool, place=Place(cpu), stop_gradient=True,
             [True, False, True, False, False])
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: signbit-example-2
 
             >>> import paddle
@@ -8066,7 +8066,7 @@ def isposinf(x: Tensor, name: str | None = None) -> Tensor:
         out (Tensor), The output Tensor. Each element of output indicates whether the input element is positive infinity or not.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.set_device('cpu')
@@ -8113,7 +8113,7 @@ def isneginf(x: Tensor, name: str | None = None) -> Tensor:
         out (Tensor), The output Tensor. Each element of output indicates whether the input element is negative infinity or not.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.set_device('cpu')
@@ -8160,7 +8160,7 @@ def isreal(x: Tensor, name: str | None = None) -> Tensor:
         out (Tensor), The output Tensor. Each element of output indicates whether the input element is a real number or not.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.set_device('cpu')
@@ -8219,7 +8219,7 @@ def sinc(x: Tensor, name: str | None = None) -> Tensor:
         out (Tensor), The Tensor of elementwise-computed normalized sinc result.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.set_device('cpu')
@@ -8302,7 +8302,7 @@ def isin(
         out (Tensor), The output Tensor with the same shape as `x`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.set_device('cpu')
@@ -8485,7 +8485,7 @@ def cartesian_prod(x: Sequence[Tensor], name: str | None = None) -> Tensor:
         out (Tensor), cartesian product of input tensors with the same data type.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> a = paddle.to_tensor([1, 2, 3], dtype='int32')

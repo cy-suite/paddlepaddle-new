@@ -151,7 +151,7 @@ def ignore_module(modules: list[ModuleType]) -> None:
         modules (list[ModuleType]): Ignored modules that you want to add
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import scipy
             >>> import astor
@@ -257,7 +257,7 @@ def to_static(
         Tensor(s): containing the numerical result.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +SKIP('`paddle.jit.to_static` can not run in xdoctest')
             >>> import paddle
@@ -374,7 +374,7 @@ def not_to_static(func=None):
         callable: A function which won't be converted in Dynamic-to-Static.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +SKIP('`paddle.jit.to_static` can not run in xdoctest')
             >>> import paddle
@@ -812,7 +812,7 @@ def _register_save_pre_hook(hook):
         HookRemoveHelper: a HookRemoveHelper object that can be used to remove the added hook by calling `hook_remove_helper.remove()`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +SKIP('`paddle.jit.api.to_static` can not run in xdoctest')
             >>> import numpy as np
@@ -997,7 +997,7 @@ def save(
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +SKIP('`paddle.jit.to_static` can not run in xdoctest')
             >>> # example 1: save layer
@@ -1553,7 +1553,7 @@ def load(
     Examples:
         1. Load model saved by ``paddle.jit.save`` then performing inference and fine-tune training.
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example1
 
                 >>> # doctest: +SKIP('`paddle.jit.to_static` can not run in xdoctest')
@@ -1644,7 +1644,7 @@ def load(
 
         2. Load model saved by ``paddle.static.save_inference_model`` then performing and fine-tune training.
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example2
 
                 >>> # doctest: +SOLO('can not use multiprocessing testing `DataLoader`')

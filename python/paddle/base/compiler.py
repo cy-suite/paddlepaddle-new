@@ -144,7 +144,7 @@ class CompiledProgram:
         CompiledProgram
 
     Example:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import numpy
             >>> import paddle
@@ -592,7 +592,7 @@ class IpuStrategy:
         The IpuStrategy instance.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:IPU)
 
@@ -638,7 +638,7 @@ class IpuStrategy:
         Use `release_patch` to release the patch.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:IPU)
 
@@ -656,7 +656,7 @@ class IpuStrategy:
         Release the registered IPU functions.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:IPU)
 
@@ -680,7 +680,7 @@ class IpuStrategy:
               None.
 
           Examples:
-                .. code-block:: python
+                .. code-block:: python-console
 
                     >>> # doctest: +REQUIRES(env:IPU)
                     >>> import paddle
@@ -712,7 +712,7 @@ class IpuStrategy:
               Dict.
 
           Examples:
-                .. code-block:: python
+                .. code-block:: python-console
 
                     >>> # doctest: +REQUIRES(env:IPU)
 
@@ -762,7 +762,7 @@ class IpuStrategy:
             None.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:IPU)
 
@@ -813,7 +813,7 @@ class IpuStrategy:
             None.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:IPU)
 
@@ -852,7 +852,7 @@ class IpuStrategy:
             None.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:IPU)
 
@@ -892,7 +892,7 @@ class IpuStrategy:
             None.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:IPU)
 
@@ -928,7 +928,7 @@ class IpuStrategy:
             None.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:IPU)
 
@@ -958,7 +958,7 @@ class IpuStrategy:
             option value.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:IPU)
 
@@ -983,7 +983,7 @@ class IpuStrategy:
             None.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:IPU)
 
@@ -1008,7 +1008,7 @@ class IpuStrategy:
             None.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:IPU)
 
@@ -1071,7 +1071,7 @@ class IpuCompiledProgram:
         IpuCompiledProgram
 
     Example:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:IPU)
 
@@ -1151,7 +1151,7 @@ class IpuCompiledProgram:
             Program
 
         Example:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:IPU)
 

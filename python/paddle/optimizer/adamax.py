@@ -106,7 +106,7 @@ class Adamax(Optimizer):
         **Currently, Adamax doesn't support sparse parameter optimization.**
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 

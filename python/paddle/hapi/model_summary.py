@@ -67,7 +67,7 @@ def summary(
         dict: A summary of the network including total params and total trainable params.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-1
 
             >>> # example 1: Single Input Demo
@@ -128,7 +128,7 @@ def summary(
             >>> print(params_info)
             {'total_params': 61610, 'trainable_params': 61610}
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-2
 
             >>> # example 2: multi input demo
@@ -191,7 +191,7 @@ def summary(
             >>> print(params_info)
             {'total_params': 61610, 'trainable_params': 61610}
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-3
 
             >>> # example 3: List Input Demo
@@ -255,7 +255,7 @@ def summary(
             {'total_params': 61610, 'trainable_params': 61610}
 
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-4
 
             >>> # example 4: Dict Input Demo

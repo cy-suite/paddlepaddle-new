@@ -387,7 +387,7 @@ class DataFeeder:
         :code:`ValueError` - If some Variables are not in this Program.
 
     Example:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import numpy as np
             >>> import paddle
@@ -474,7 +474,7 @@ class DataFeeder:
             :code:`dict`: a :code:`dict` that contains (variable name - converted tensor) pairs
 
         Example:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # In this example, reader - generator will return a list of ndarray of 3 elements
                 >>> # feed API will convert each ndarray input into a tensor

@@ -210,7 +210,7 @@ def new_group(
         Group: The group instance.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env: DISTRIBUTED)
             >>> import paddle
@@ -328,7 +328,7 @@ def is_available() -> bool:
         Returns True if the distributed package is available, otherwise False.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> print(paddle.distributed.is_available())

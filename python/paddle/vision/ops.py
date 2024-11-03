@@ -188,7 +188,7 @@ def yolo_loss(
         Tensor: A 1-D tensor with shape [N], the value of yolov3 loss
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.rand([2, 14, 8, 8]).astype('float32')
@@ -368,7 +368,7 @@ def yolo_box(
         scores of boxes.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -491,7 +491,7 @@ def prior_box(
             The expanded variances is a 4-D tensor, same shape as the prior boxes.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -668,7 +668,7 @@ def box_coder(
             and M represents the number of decoded boxes.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -854,7 +854,7 @@ def deform_conv2d(
             A Tensor with type float32, float64.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> #deformable conv v2:
 
@@ -1062,7 +1062,7 @@ class DeformConv2D(Layer):
             W_{out}&= \frac{(W_{in} + 2 * paddings[1] - (dilations[1] * (kernel\_size[1] - 1) + 1))}{strides[1]} + 1
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> #deformable conv v2:
             >>> import paddle
@@ -1251,7 +1251,7 @@ def distribute_fpn_proposals(
           is [B] and data type of int32, where B is the number of images.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1357,7 +1357,7 @@ def read_file(filename: str, name: str | None = None) -> Tensor:
         A uint8 tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import cv2
             >>> import paddle
@@ -1407,7 +1407,7 @@ def decode_jpeg(
         Tensor: A decoded image tensor with shape (image_channels, image_height, image_width)
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU)
             >>> import cv2
@@ -1473,7 +1473,7 @@ def psroi_pool(
         The output_channels equal to C / (pooled_h * pooled_w), where C is the channels of input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.uniform([2, 490, 28, 28], dtype='float32')
@@ -1542,7 +1542,7 @@ class PSRoIPool(Layer):
         None.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1600,7 +1600,7 @@ def roi_pool(
         pool_out (Tensor): the pooled feature, 4D-Tensor with the shape of [num_boxes, C, output_size[0], output_size[1]].
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle.vision.ops import roi_pool
@@ -1667,7 +1667,7 @@ class RoIPool(Layer):
         pool_out (Tensor): the pooled feature, 4D-Tensor with the shape of [num_boxes, C, output_size[0], output_size[1]].
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle.vision.ops import RoIPool
@@ -1760,7 +1760,7 @@ def roi_align(
             channels, pooled_h, pooled_w). The data type is float32 or float64.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle.vision.ops import roi_align
@@ -1840,7 +1840,7 @@ class RoIAlign(Layer):
             shape (num_boxes, channels, pooled_h, pooled_w).
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle.vision.ops import RoIAlign
@@ -1977,7 +1977,7 @@ def nms(
         Tensor: 1D-Tensor with the shape of [num_boxes]. Indices of boxes kept by NMS.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.seed(2023)
@@ -2226,7 +2226,7 @@ def generate_proposals(
         - rpn_rois_num (Tensor): Rois's num of each image in one batch. 1-D Tensor with shape ``[B,]`` while ``B`` is the batch size. And its sum equals to RoIs number ``N`` .
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.seed(2023)
@@ -2513,7 +2513,7 @@ def matrix_nms(
           the number of detected boxes in each image.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle.vision.ops import matrix_nms

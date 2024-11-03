@@ -69,7 +69,7 @@ class L1Decay(WeightDecayRegularizer):
         coeff(float, optional): regularization coeff. Default:0.0.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> # Example1: set Regularizer in optimizer
@@ -90,7 +90,7 @@ class L1Decay(WeightDecayRegularizer):
             >>> momentum.step()
             >>> momentum.clear_grad()
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> # Example2: set Regularizer in parameters
@@ -187,7 +187,7 @@ class L2Decay(WeightDecayRegularizer):
         coeff(float, optional): regularization coeff. Default:0.0
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> # Example1: set Regularizer in optimizer
@@ -207,7 +207,7 @@ class L2Decay(WeightDecayRegularizer):
             >>> momentum.step()
             >>> momentum.clear_grad()
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> # Example2: set Regularizer in parameters

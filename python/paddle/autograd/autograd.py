@@ -541,7 +541,7 @@ def jacobian(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -641,7 +641,7 @@ def hessian(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 

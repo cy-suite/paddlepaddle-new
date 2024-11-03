@@ -196,7 +196,7 @@ void BindCompiledProgram(pybind11::module &m) {  // NOLINT
         BuildStrategy: An BuildStrategy object.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.static as static
@@ -242,7 +242,7 @@ void BindCompiledProgram(pybind11::module &m) {  // NOLINT
                 Default is 'AllReduce'.
 
                 Examples:
-                    .. code-block:: python
+                    .. code-block:: python-console
 
                         >>> import paddle
                         >>> import paddle.static as static
@@ -268,7 +268,7 @@ void BindCompiledProgram(pybind11::module &m) {  // NOLINT
                 It is useful for debugging. Default is empty string, that is, ""
 
                 Examples:
-                    .. code-block:: python
+                    .. code-block:: python-console
 
                         >>> import paddle
                         >>> import paddle.static as static
@@ -346,7 +346,7 @@ void BindCompiledProgram(pybind11::module &m) {  // NOLINT
                       Default False.
 
                       Examples:
-                            .. code-block:: python
+                            .. code-block:: python-console
 
                                 >>> import paddle
                                 >>> import paddle.static as static
@@ -372,7 +372,7 @@ void BindCompiledProgram(pybind11::module &m) {  // NOLINT
                 it may make the execution faster. Default is False.
 
                 Examples:
-                    .. code-block:: python
+                    .. code-block:: python-console
 
                         >>> import paddle
                         >>> import paddle.static as static
@@ -398,7 +398,7 @@ void BindCompiledProgram(pybind11::module &m) {  // NOLINT
                 it may make the execution faster. Default is False.
 
                 Examples:
-                    .. code-block:: python
+                    .. code-block:: python-console
 
                         >>> import paddle
                         >>> import paddle.static as static
@@ -451,7 +451,7 @@ void BindCompiledProgram(pybind11::module &m) {  // NOLINT
                 to fuse all adamw optimizers with multi_tensor_adam,
                 it may make the execution faster. Default is False.
                 Examples:
-                    .. code-block:: python
+                    .. code-block:: python-console
 
                         >>> import paddle
                         >>> import paddle.static as static
@@ -475,7 +475,7 @@ void BindCompiledProgram(pybind11::module &m) {  // NOLINT
                 it may make the execution faster. Default is False.
 
                 Examples:
-                    .. code-block:: python
+                    .. code-block:: python-console
 
                         >>> import paddle
                         >>> import paddle.static as static
@@ -501,7 +501,7 @@ void BindCompiledProgram(pybind11::module &m) {  // NOLINT
                 it may make the execution faster. Default is False.
 
                 Examples:
-                    .. code-block:: python
+                    .. code-block:: python-console
 
                         >>> import paddle
                         >>> import paddle.static as static
@@ -526,7 +526,7 @@ void BindCompiledProgram(pybind11::module &m) {  // NOLINT
           order of `ProgramDesc`. Default is False.
 
                 Examples:
-                    .. code-block:: python
+                    .. code-block:: python-console
 
                         >>> import paddle
                         >>> import paddle.static as static
@@ -582,7 +582,7 @@ void BindCompiledProgram(pybind11::module &m) {  // NOLINT
                 it may make the execution faster. Default is False.
 
                 Examples:
-                    .. code-block:: python
+                    .. code-block:: python-console
 
                         >>> import paddle
                         >>> import paddle.static as static
@@ -608,7 +608,7 @@ void BindCompiledProgram(pybind11::module &m) {  // NOLINT
                 it may make the execution faster. Default is True
 
                 Examples:
-                    .. code-block:: python
+                    .. code-block:: python-console
 
                         >>> import paddle
                         >>> import paddle.static as static
@@ -635,7 +635,7 @@ void BindCompiledProgram(pybind11::module &m) {  // NOLINT
                 without broadcast and activations.
 
                 Examples:
-                    .. code-block:: python
+                    .. code-block:: python-console
 
                         >>> import paddle
                         >>> import paddle.static as static
@@ -665,7 +665,7 @@ void BindCompiledProgram(pybind11::module &m) {  // NOLINT
                 Default is False.
 
                 Examples:
-                    .. code-block:: python
+                    .. code-block:: python-console
 
                         >>> import paddle
                         >>> import paddle.static as static
@@ -697,7 +697,7 @@ void BindCompiledProgram(pybind11::module &m) {  // NOLINT
                       for NCCLReduce operations for a period of time. Default False.
 
                       Examples:
-                            .. code-block:: python
+                            .. code-block:: python-console
 
                                 >>> import paddle
                                 >>> import paddle.static as static
@@ -739,7 +739,7 @@ void BindCompiledProgram(pybind11::module &m) {  // NOLINT
                 Default is False.
 
                 Examples:
-                    .. code-block:: python
+                    .. code-block:: python-console
 
                         >>> import paddle
                         >>> import paddle.static as static
@@ -779,7 +779,7 @@ void BindCompiledProgram(pybind11::module &m) {  // NOLINT
                 True means enabling and False means disabling. Default is None.
 
                 Examples:
-                    .. code-block:: python
+                    .. code-block:: python-console
 
                         >>> import paddle
                         >>> import paddle.static as static

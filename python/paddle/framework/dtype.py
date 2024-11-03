@@ -169,7 +169,7 @@ def iinfo(dtype):
             - dtype: str, The string name of the argument dtype.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -217,7 +217,7 @@ def finfo(dtype):
             - dtype(str): The string name of the argument dtype.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 

@@ -83,7 +83,7 @@ def is_compiled_with_custom_device(device_type: str) -> bool:
         bool, ``True`` if CustomDevice is supported, otherwise ``False``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> support_npu = paddle.device.is_compiled_with_custom_device("npu")
@@ -100,7 +100,7 @@ def is_compiled_with_ipu() -> bool:
     Returns (bool): `True` if IPU is supported, otherwise `False`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> support_ipu = paddle.is_compiled_with_ipu()
@@ -115,7 +115,7 @@ def IPUPlace() -> _IPUPlace:
     Return a Graphcore IPU Place
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:IPU)
 
@@ -135,7 +135,7 @@ def is_compiled_with_xpu() -> bool:
     Returns (bool): whether paddle was built with WITH_XPU=ON
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> support_xpu = paddle.device.is_compiled_with_xpu()
@@ -153,7 +153,7 @@ def XPUPlace(dev_id: int) -> _XPUPlace:
         dev_id(int): Baidu Kunlun device id
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:XPU)
 
@@ -175,7 +175,7 @@ def get_cudnn_version() -> int | None:
         int: A int value which represents the cudnn version. If cudnn version is not installed, it return None.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -295,7 +295,7 @@ def set_device(device: str) -> PlaceLike:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -320,7 +320,7 @@ def get_device() -> str:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> device = paddle.device.get_device()
@@ -359,7 +359,7 @@ def get_all_device_type() -> list[str]:
         A list of all available device types.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.device.get_all_device_type()
@@ -389,7 +389,7 @@ def get_all_custom_device_type() -> list[str] | None:
         A list of all available custom device types.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.device.get_all_custom_device_type()
@@ -413,7 +413,7 @@ def get_available_device() -> list[str]:
         A list of all available devices.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.device.get_available_device()
@@ -443,7 +443,7 @@ def get_available_custom_device() -> list[str] | None:
        A list of all available custom devices.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.device.get_available_custom_device()
@@ -475,7 +475,7 @@ class Event:
         Event: The event.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:CUSTOM_DEVICE)
             >>> import paddle
@@ -540,7 +540,7 @@ class Event:
             None.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:CUSTOM_DEVICE)
                 >>> import paddle
@@ -567,7 +567,7 @@ class Event:
             bool: Whether all work currently captured by event has completed.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:CUSTOM_DEVICE)
                 >>> import paddle
@@ -590,7 +590,7 @@ class Event:
             int: The time.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:CUSTOM_DEVICE)
                 >>> import paddle
@@ -617,7 +617,7 @@ class Event:
             None.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:CUSTOM_DEVICE)
                 >>> import paddle
@@ -651,7 +651,7 @@ class Stream:
         Stream: The stream.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:CUSTOM_DEVICE)
             >>> import paddle
@@ -724,7 +724,7 @@ class Stream:
             None.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:CUSTOM_DEVICE)
                 >>> import paddle
@@ -753,7 +753,7 @@ class Stream:
             None.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:CUSTOM_DEVICE)
                 >>> import paddle
@@ -779,7 +779,7 @@ class Stream:
             Event: Recorded event.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:CUSTOM_DEVICE)
                 >>> import paddle
@@ -806,7 +806,7 @@ class Stream:
             bool: Whether all kernels in this stream are completed.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:CUSTOM_DEVICE)
                 >>> import paddle
@@ -827,7 +827,7 @@ class Stream:
             None.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:CUSTOM_DEVICE)
                 >>> import paddle
@@ -872,7 +872,7 @@ def current_stream(device: PlaceLike | None = None) -> Stream:
         Stream: The stream to the device.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:CUSTOM_DEVICE)
             >>> import paddle
@@ -921,7 +921,7 @@ def set_stream(stream: Stream) -> Stream:
         Stream: The previous stream.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:CUSTOM_DEVICE)
             >>> import paddle
@@ -968,7 +968,7 @@ class stream_guard:
         None.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:CUSTOM_DEVICE)
             >>> import paddle
@@ -1032,7 +1032,7 @@ def synchronize(device: PlaceLike | None = None) -> None:
             where ``x`` is the index of the GPUs, XPUs. And it can be paddle.CUDAPlace(n) or paddle.XPUPlace(n) or paddle.CustomPlace(n).
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:CUSTOM_DEVICE)
             >>> import paddle

@@ -67,7 +67,7 @@ class ParamAttr:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -288,7 +288,7 @@ class WeightNormParamAttr(ParamAttr):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 

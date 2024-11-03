@@ -69,7 +69,7 @@ def addmm(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU)
             >>> import paddle

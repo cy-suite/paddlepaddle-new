@@ -508,7 +508,7 @@ def spawn(
         ``MultiprocessContext`` object, it hold the spawned processes.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:DISTRIBUTED)
             >>> import paddle

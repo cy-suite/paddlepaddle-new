@@ -38,7 +38,7 @@ class PyLayerContext:
     ``PyLayerContext`` can assist the :ref:`api_paddle_autograd_PyLayer` in implementing certain functionalities.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle.autograd import PyLayer
@@ -78,7 +78,7 @@ class PyLayerContext:
             None
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.autograd import PyLayer
@@ -111,7 +111,7 @@ class PyLayerContext:
             then return these tensors, otherwise return None.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.autograd import PyLayer
@@ -145,7 +145,7 @@ class PyLayerContext:
         Thereby preventing the auto grad information of the input Tensor from being overwritten.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
 
@@ -188,7 +188,7 @@ class PyLayerContext:
         output.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.autograd import PyLayer
@@ -227,7 +227,7 @@ class PyLayerContext:
         If False, undefined output grad tensors will be None.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.autograd import PyLayer
@@ -301,7 +301,7 @@ class PyLayer(core.eager.PyLayer, PyLayerContext, metaclass=PyLayerMeta):
     After building the custom operator, apply it by running the ``apply`` method.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle.autograd import PyLayer
@@ -350,7 +350,7 @@ class PyLayer(core.eager.PyLayer, PyLayerContext, metaclass=PyLayerMeta):
             tensors or other types : output of PyLayer.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.autograd import PyLayer
@@ -390,7 +390,7 @@ class PyLayer(core.eager.PyLayer, PyLayerContext, metaclass=PyLayerMeta):
             Tensor or list of Tensors: The gradient of forward's input tensor(s).
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.autograd import PyLayer

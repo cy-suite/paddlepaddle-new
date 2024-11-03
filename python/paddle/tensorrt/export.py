@@ -61,7 +61,7 @@ class Input:
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
         >>> # example :
         >>> from paddle.tensorrt.export import Input
         >>> input = Input(
@@ -96,7 +96,7 @@ class Input:
             tuple(numpy.ndarray, numpy.ndarray, numpy.ndarray): A tuple containing the generated input data for the minimum, optimal, and maximum shapes.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
             >>> # example :
             >>> from paddle.tensorrt.export import Input
             >>> input = Input(
@@ -167,7 +167,7 @@ class TensorRTConfig:
             None
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
             >>> # example :
             >>> from paddle.tensorrt.export import (
             ...    Input,
@@ -285,7 +285,7 @@ def convert(function=None, input_spec=None, config=None, **kwargs):
         tuple: A tuple containing two elements. The first element is the TensorRT optimized program., optionally optimized with TensorRT if configured. The second element is the scope containing the parameters.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
         >>> # example
         >>> from paddle import nn
         >>> from paddle.static import InputSpec
@@ -522,7 +522,7 @@ def convert_loaded_model(model_dir, config):
         program:The TensorRT optimized program.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             >>> import paddle
             >>> import numpy as np
             >>> import tempfile

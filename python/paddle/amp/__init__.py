@@ -60,7 +60,7 @@ def is_float16_supported(device: str | None = None) -> bool:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.amp.is_float16_supported() # True or False
@@ -87,7 +87,7 @@ def is_bfloat16_supported(device: str | None = None) -> bool:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.amp.is_bfloat16_supported() # True or False

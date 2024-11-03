@@ -53,7 +53,7 @@ class Gumbel(TransformedDistribution):
         scale(int|float|tensor): The std of gumbel distribution.The data type is int, float, tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle.distribution.gumbel import Gumbel

@@ -138,7 +138,7 @@ def set_flags(flags: dict[str, bool | str | float]) -> None:
         flags (dict): A dict contains flags and its value.
 
     Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> paddle.set_flags({'FLAGS_eager_delete_tensor_gb': 1.0})
@@ -166,7 +166,7 @@ def get_flags(flags: str | Sequence[str]) -> dict[str, bool | str | float]:
         flag's value in Paddle.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -335,7 +335,7 @@ def in_dygraph_mode() -> bool:
         bool: Whether paddle runs in dynamic graph mode.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> print(paddle.in_dynamic_mode())  # dynamic mode is turn ON by default since paddle 2.0.
@@ -362,7 +362,7 @@ def in_pir_mode() -> bool:
         bool: Whether paddle runs in static graph mode and use pir api.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -391,7 +391,7 @@ def in_dynamic_or_pir_mode() -> bool:
         bool: Whether paddle runs in static graph mode and use pir api.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -465,7 +465,7 @@ def ipu_shard_guard(
         duplicated index.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:IPU)
             >>> import paddle
@@ -530,7 +530,7 @@ def set_ipu_shard(call_func, index=-1, stage=-1):
         The wrapped call function.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:IPU)
             >>> import paddle
@@ -592,7 +592,7 @@ def require_version(min_version: str, max_version: str | None = None) -> None:
         Exception: if the installed version is lower than ``min_version`` or higher than ``max_version``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -905,7 +905,7 @@ def is_compiled_with_xpu() -> bool:
     Returns (bool): support xpu or not.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle.base as base
             >>> support_xpu = base.is_compiled_with_xpu()
@@ -931,7 +931,7 @@ def disable_signal_handler() -> None:
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.disable_signal_handler()
@@ -947,7 +947,7 @@ def is_compiled_with_cinn() -> bool:
         Bool: `True` if CINN is currently available, otherwise `False`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> support_cinn = paddle.device.is_compiled_with_cinn()
@@ -963,7 +963,7 @@ def is_compiled_with_cuda() -> bool:
         Bool: `True` if CUDA is currently available, otherwise `False`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> support_gpu = paddle.device.is_compiled_with_cuda()
@@ -979,7 +979,7 @@ def is_compiled_with_distribute() -> bool:
         Bool: `True` if distribute is currently available, otherwise `False`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> support_distribute = paddle.device.is_compiled_with_distribute()
@@ -995,7 +995,7 @@ def is_compiled_with_rocm() -> bool:
         Bool: `True` if ROCm is currently available, otherwise `False`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> support_gpu = paddle.device.is_compiled_with_rocm()
@@ -1033,7 +1033,7 @@ def cuda_places(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU)
             >>> import paddle
@@ -1074,7 +1074,7 @@ def xpu_places(device_ids: Sequence[int] | None = None) -> list[core.XPUPlace]:
     Returns:
         list of paddle.XPUPlace: Created XPU place list.
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:XPU)
             >>> import paddle
@@ -1111,7 +1111,7 @@ def cpu_places(device_count: int | None = None) -> list[core.CPUPlace]:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.static as static
@@ -1146,7 +1146,7 @@ def cuda_pinned_places(
         list of base.CUDAPinnedPlace: Created list of CUDA pinned places.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU)
             >>> import paddle.base as base
@@ -1204,7 +1204,7 @@ def name_scope(prefix: str | None = None) -> Generator[None, None, None]:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.enable_static()
@@ -1662,7 +1662,7 @@ class Variable(metaclass=VariableMetaClass):
     Examples:
         In Static Graph Mode:
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-1
 
             >>> import paddle.base as base
@@ -1674,7 +1674,7 @@ class Variable(metaclass=VariableMetaClass):
 
         In Dygraph  Mode:
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-2
 
             >>> import paddle.base as base
@@ -1815,7 +1815,7 @@ class Variable(metaclass=VariableMetaClass):
              ( :ref:`api_guide_Variable_en` | dtype is same as current Variable), The detached Variable.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
 
@@ -1867,7 +1867,7 @@ class Variable(metaclass=VariableMetaClass):
             ndarray: dtype is same as current Variable
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.base as base
@@ -1902,7 +1902,7 @@ class Variable(metaclass=VariableMetaClass):
             NoneType: None
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import numpy as np
                 >>> import paddle
@@ -1945,7 +1945,7 @@ class Variable(metaclass=VariableMetaClass):
             ndarray or tuple of ndarray: if Variable's type is LoDTensor, return numpy value of the gradient of current Variable, if Variable's type is SelectedRows, return tuple of ndarray, first element of tuple is numpy value of the gradient of current Variable, second element of tuple is numpy value of the rows of current Variable.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.base as base
@@ -1995,7 +1995,7 @@ class Variable(metaclass=VariableMetaClass):
         Returns:  None
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.base as base
@@ -2063,7 +2063,7 @@ class Variable(metaclass=VariableMetaClass):
             string: The formatted Variable string.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.static as static
@@ -2127,7 +2127,7 @@ class Variable(metaclass=VariableMetaClass):
             str: The debug string.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle.base as base
                 >>> import paddle
@@ -2176,7 +2176,7 @@ class Variable(metaclass=VariableMetaClass):
         Returns the size in bytes of an element in the Tensor.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> paddle.enable_static()
@@ -2211,7 +2211,7 @@ class Variable(metaclass=VariableMetaClass):
         **Notes: This Property has default value as** ``True`` **in** Dygraph **mode, while Parameter's default value is False. However, in Static Graph Mode all Variable's default stop_gradient value is** ``False``
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.base as base
@@ -2253,7 +2253,7 @@ class Variable(metaclass=VariableMetaClass):
             **2. In** Dygraph **mode, this property should not be changed**
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle.base as base
                 >>> cur_program = base.Program()
@@ -2276,7 +2276,7 @@ class Variable(metaclass=VariableMetaClass):
         Indicating if current Variable is a Parameter
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> paddle.enable_static()
@@ -2303,7 +2303,7 @@ class Variable(metaclass=VariableMetaClass):
         **Notes: If it has two or more Variable share the same name in the same** :ref:`api_guide_Block_en` **, it means these Variable will share content in no-** Dygraph **mode. This is how we achieve Parameter sharing**
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle.base as base
                 >>> cur_program = base.Program()
@@ -2326,7 +2326,7 @@ class Variable(metaclass=VariableMetaClass):
         the gradient exists.**
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> paddle.enable_static()
@@ -2349,7 +2349,7 @@ class Variable(metaclass=VariableMetaClass):
         **Notes: This is a read-only property**
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle.base as base
                 >>> cur_program = base.Program()
@@ -2371,7 +2371,7 @@ class Variable(metaclass=VariableMetaClass):
         **Notes: This is a read-only property**
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle.base as base
                 >>> cur_program = base.Program()
@@ -2397,7 +2397,7 @@ class Variable(metaclass=VariableMetaClass):
             **2. Don't support this property in** Dygraph **mode, it's value should be** ``0(int)``
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.base as base
@@ -2425,7 +2425,7 @@ class Variable(metaclass=VariableMetaClass):
         **Notes: This is a read-only property**
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle.base as base
                 >>> cur_program = base.Program()
@@ -2447,7 +2447,7 @@ class Variable(metaclass=VariableMetaClass):
         If `n` is the dimensions of `x` , `x.T` is equivalent to `x.transpose([n-1, n-2, ..., 0])`.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> paddle.enable_static()
@@ -2506,7 +2506,7 @@ class Variable(metaclass=VariableMetaClass):
             Variable, The cloned Variable.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
 
@@ -2769,7 +2769,7 @@ class Variable(metaclass=VariableMetaClass):
             Tensor, the value in given scope.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.static as static
@@ -2832,7 +2832,7 @@ class Variable(metaclass=VariableMetaClass):
             None
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.static as static
@@ -2929,7 +2929,7 @@ class Variable(metaclass=VariableMetaClass):
             Variable, the number of elements for current Variable
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
 
@@ -3135,7 +3135,7 @@ class Operator:
         Block.append_op or Block._prepend_op instead.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -3479,7 +3479,7 @@ class Operator:
             string: The formatted Operator string.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
 
@@ -4234,7 +4234,7 @@ class Block:
         use `Program._create_block()` to create a block.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4274,7 +4274,7 @@ class Block:
             string: The formatted Block string.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
 
@@ -5911,7 +5911,7 @@ class Program:
         Program: An empty Program.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.static as static
@@ -6142,7 +6142,7 @@ class Program:
             None.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.static as static
@@ -6305,7 +6305,7 @@ class Program:
             string: The formatted Program string.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.static as static
@@ -6348,7 +6348,7 @@ class Program:
             ValueError: If any of required fields is not set and throw_on_error is True.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.static as static
@@ -6431,7 +6431,7 @@ class Program:
           recommend you to use :code:`clone` before using :code:`Optimizer.minimize`.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example-1
 
                 >>> import paddle
@@ -6465,7 +6465,7 @@ class Program:
                 print Program Descs inorder to make sure you have same print result
                 after :code:`clone`:
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example-2
 
                 >>> import paddle
@@ -6483,7 +6483,7 @@ class Program:
 
 
             1. To clone a test program, the sample code is:
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-3
 
                     >>> import paddle
@@ -6536,7 +6536,7 @@ class Program:
 
 
             2. The clone method can be avoid if you create program for training and program for testing individually.
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-4
 
                     >>> import paddle
@@ -6956,7 +6956,7 @@ class Program:
             Program: A deserialized Program.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.static as static
@@ -7011,7 +7011,7 @@ class Program:
 
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.static as static
@@ -7049,7 +7049,7 @@ class Program:
 
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.static as static
@@ -7086,7 +7086,7 @@ class Program:
 
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.static as static
@@ -7114,7 +7114,7 @@ class Program:
             :ref:`api_guide_Block_en`: The :code:`index` block
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.static as static
@@ -7139,7 +7139,7 @@ class Program:
              :ref:`api_guide_Block_en`: The :code:`index`  :ref:`api_guide_Block_en`
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.static as static
@@ -7310,7 +7310,7 @@ class Program:
             iterable Tensors: The Generator will yield every Tensor in this program.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.static as static
@@ -7337,7 +7337,7 @@ class Program:
             list[ :ref:`api_guide_parameter_en` ]: The list contains all parameters in this program.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.static as static
@@ -7390,7 +7390,7 @@ class Program:
             dict: a dict contains the parameters and persistable buffers.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.static as static
@@ -7489,7 +7489,7 @@ class Program:
             None
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.static as static
@@ -7623,7 +7623,7 @@ class Parameter(Variable, metaclass=ParameterMetaClass):
         Returns(str): The debug string.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> paddle.enable_static()
@@ -7788,7 +7788,7 @@ class EagerParamBase(core.eager.Tensor):
         Returns(str): A readable string.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> linear = paddle.nn.Linear(3, 3)
@@ -7807,7 +7807,7 @@ class EagerParamBase(core.eager.Tensor):
         Deep copy parameter, it will always performs Tensor copy.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import copy
@@ -7868,7 +7868,7 @@ def default_startup_program() -> Program:
     Returns type:
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -7899,7 +7899,7 @@ def default_main_program() -> Program:
         Program: A ``Program`` which holding the descriptions of OPs and tensors in the network.
 
     Examples:
-        ..  code-block:: python
+        ... code-block:: python-console
 
             >>> import paddle
 
@@ -7968,7 +7968,7 @@ def program_guard(
             Default: None.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-1
 
             >>> import paddle
@@ -7984,7 +7984,7 @@ def program_guard(
     to construct either of startup program or main program.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-2
 
             >>> import paddle
@@ -8105,7 +8105,7 @@ def device_guard(device: str | None = None) -> Generator[None, None, None]:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU)
             >>> import paddle

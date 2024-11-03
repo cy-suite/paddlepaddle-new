@@ -806,7 +806,7 @@ def save(
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-1
 
             >>> # example 1: dynamic graph
@@ -829,7 +829,7 @@ def save(
             >>> # save weight of emb
             >>> paddle.save(emb.weight, "emb.weight.pdtensor")
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-2
 
             >>> # example 2: Save multiple state_dict at the same time
@@ -843,7 +843,7 @@ def save(
             >>> path = 'example/model.pdparams'
             >>> paddle.save(obj, path)
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-3
 
             >>> # example 3: static graph
@@ -873,7 +873,7 @@ def save(
             >>> path_state_dict = 'temp/model.pdparams'
             >>> paddle.save(prog.state_dict("param"), path_tensor)
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-4
 
             >>> # example 4: save program
@@ -888,7 +888,7 @@ def save(
             >>> path = "example/main_program.pdmodel"
             >>> paddle.save(main_program, path)
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-5
 
             >>> # example 5: save object to memory
@@ -1067,7 +1067,7 @@ def load(path: str | BytesIO, **configs: Unpack[_LoadOptions]) -> Any:
         Object(Object): a target object can be used in paddle
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-1
 
             >>> # example 1: dynamic graph
@@ -1097,7 +1097,7 @@ def load(path: str | BytesIO, **configs: Unpack[_LoadOptions]) -> Any:
             >>> # load weight of emb
             >>> load_weight = paddle.load("emb.weight.pdtensor")
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-2
 
             >>> # example 2: Load multiple state_dict at the same time
@@ -1112,7 +1112,7 @@ def load(path: str | BytesIO, **configs: Unpack[_LoadOptions]) -> Any:
             >>> paddle.save(obj, path)
             >>> obj_load = paddle.load(path)
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-3
 
             >>> # example 3: static graph
@@ -1144,7 +1144,7 @@ def load(path: str | BytesIO, **configs: Unpack[_LoadOptions]) -> Any:
             >>> paddle.save(prog.state_dict("param"), path_tensor)
             >>> load_state_dict = paddle.load(path_tensor)
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-4
 
             >>> # example 4: load program
@@ -1160,7 +1160,7 @@ def load(path: str | BytesIO, **configs: Unpack[_LoadOptions]) -> Any:
             >>> paddle.save(main_program, path)
             >>> load_main = paddle.load(path)
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-5
 
             >>> # example 5: save object to memory

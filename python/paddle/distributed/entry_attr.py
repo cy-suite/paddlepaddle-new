@@ -21,7 +21,7 @@ class EntryAttr:
     Entry Config for paddle.static.nn.sparse_embedding with Parameter Server.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.enable_static()
@@ -62,7 +62,7 @@ class EntryAttr:
 class ProbabilityEntry(EntryAttr):
     """
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.enable_static()
@@ -107,7 +107,7 @@ class ProbabilityEntry(EntryAttr):
 class CountFilterEntry(EntryAttr):
     """
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.enable_static()
@@ -155,7 +155,7 @@ class CountFilterEntry(EntryAttr):
 class ShowClickEntry(EntryAttr):
     """
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.enable_static()

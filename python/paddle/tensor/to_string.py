@@ -58,7 +58,7 @@ def set_printoptions(
         None.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 

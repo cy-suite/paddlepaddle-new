@@ -56,7 +56,7 @@ def viterbi_decode(
             and the data type is int64.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.seed(2023)
@@ -131,7 +131,7 @@ class ViterbiDecoder(Layer):
             and the data type is int64.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.seed(2023)

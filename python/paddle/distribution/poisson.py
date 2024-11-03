@@ -49,7 +49,7 @@ class Poisson(distribution.Distribution):
             1-D Tensor with paddle global default dtype.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle.distribution import Poisson

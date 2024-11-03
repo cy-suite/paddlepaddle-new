@@ -202,7 +202,7 @@ def fft(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import numpy as np
             >>> import paddle
@@ -271,7 +271,7 @@ def ifft(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import numpy as np
             >>> import paddle
@@ -338,7 +338,7 @@ def rfft(
 
     Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -394,7 +394,7 @@ def irfft(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -442,7 +442,7 @@ def hfft(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -497,7 +497,7 @@ def ihfft(
 
     Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -557,7 +557,7 @@ def fftn(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -640,7 +640,7 @@ def ifftn(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -722,7 +722,7 @@ def rfftn(
         out(Tensor), complex tensor
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -809,7 +809,7 @@ def irfftn(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -869,7 +869,7 @@ def hfftn(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -919,7 +919,7 @@ def ihfftn(
 
     Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -976,7 +976,7 @@ def fft2(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1049,7 +1049,7 @@ def ifft2(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1119,7 +1119,7 @@ def rfft2(
 
     Examples:
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import paddle
 
@@ -1186,7 +1186,7 @@ def irfft2(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1242,7 +1242,7 @@ def hfft2(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1301,7 +1301,7 @@ def ihfft2(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1369,7 +1369,7 @@ def fftfreq(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1423,7 +1423,7 @@ def rfftfreq(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1465,7 +1465,7 @@ def fftshift(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1512,7 +1512,7 @@ def ifftshift(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 

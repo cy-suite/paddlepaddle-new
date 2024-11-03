@@ -263,7 +263,7 @@ class DataParallel(Layer):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: dp-example
 
             >>> # doctest: +REQUIRES(env:DISTRIBUTED)
@@ -312,7 +312,7 @@ class DataParallel(Layer):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: dp-pylayer-example
 
             >>> # doctest: +REQUIRES(env:DISTRIBUTED)
@@ -521,7 +521,7 @@ class DataParallel(Layer):
         synchronized util the first forward-backward out of this context.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:DISTRIBUTED)
                 >>> import paddle
@@ -604,7 +604,7 @@ class DataParallel(Layer):
             dict: a dict contains all the parameters and persistable buffers.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:DISTRIBUTED)
                 >>> import paddle
@@ -641,7 +641,7 @@ class DataParallel(Layer):
             None
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:DISTRIBUTED)
                 >>> import paddle
@@ -688,7 +688,7 @@ class ParallelEnv:
     or ``paddle.distributed.spawn`` .
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:DISTRIBUTED)
             >>> import paddle
@@ -761,7 +761,7 @@ class ParallelEnv:
         Its value is equal to the value of the environment variable ``PADDLE_TRAINER_ID`` . The default value is 0.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:DISTRIBUTED)
                 >>> # execute this command in terminal: export PADDLE_TRAINER_ID=0
@@ -782,7 +782,7 @@ class ParallelEnv:
         Its value is equal to the value of the environment variable ``PADDLE_TRAINERS_NUM`` . The default value is 1.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:DISTRIBUTED)
                 >>> # execute this command in terminal: export PADDLE_TRAINERS_NUM=4
@@ -803,7 +803,7 @@ class ParallelEnv:
         Its value is equal to the value of the environment variable ``FLAGS_selected_gpus`` . The default value is 0.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:DISTRIBUTED)
                 >>> # execute this command in terminal: export FLAGS_selected_gpus=1
@@ -833,7 +833,7 @@ class ParallelEnv:
         Its value is equal to the value of the environment variable ``PADDLE_CURRENT_ENDPOINT`` . The default value is "".
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:DISTRIBUTED)
                 >>> # execute this command in terminal: export PADDLE_CURRENT_ENDPOINT=127.0.0.1:6170
@@ -854,7 +854,7 @@ class ParallelEnv:
         Its value is equal to the value of the environment variable ``PADDLE_TRAINER_ENDPOINTS`` . The default value is "".
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:DISTRIBUTED)
                 >>> # execute this command in terminal: export PADDLE_TRAINER_ENDPOINTS=127.0.0.1:6170,127.0.0.1:6171
@@ -875,7 +875,7 @@ class ParallelEnv:
         Its value is equal to the value of the environment variable ``FLAGS_nccl_nrings`` . The default value is 1.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:DISTRIBUTED)
                 >>> # execute this command in terminal: export FLAGS_nccl_nrings=1
@@ -895,7 +895,7 @@ class ParallelEnv:
         Its value is equal to the value of the environment variable ``PADDLE_PG_TIMEOUT`` . The default value is 30 minutes.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # execute this command in terminal: export PADDLE_PG_TIMEOUT=1800000
                 >>> import paddle.distributed as dist
@@ -992,7 +992,7 @@ def init_parallel_env() -> Group:
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU, env:DISTRIBUTED)
             >>> import paddle
@@ -1256,7 +1256,7 @@ def get_rank(group: Group | None = None) -> int:
         Argument ``group`` only supports in dygraph mode.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:DISTRIBUTED)
             >>> # Execute this script using distributed launch with one card configs.
@@ -1290,7 +1290,7 @@ def get_world_size(group: Group | None = None) -> int:
         Argument ``group`` only supports in dygraph mode.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:DISTRIBUTED)
             >>> # Execute this script using distributed launch with one card configs.

@@ -68,7 +68,7 @@ def clip_by_norm(x, max_norm, name=None):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle.nn import clip
@@ -122,7 +122,7 @@ def merge_selected_rows(x, name=None):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.base as base
@@ -175,7 +175,7 @@ def get_tensor_from_selected_rows(x, name=None):
         Variable: LoDTensor transformed from SelectedRows. The data type is same with input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.base as base
@@ -286,7 +286,7 @@ class ErrorClipByValue(BaseErrorClipAttr):
         will be set to ``-max`` by framework.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -413,7 +413,7 @@ class ClipGradByValue(ClipGradBase):
             automatically. In this case, ``max`` must be greater than :math:`0`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.uniform([10, 10], min=-1.0, max=1.0, dtype='float32')
@@ -521,7 +521,7 @@ class ClipGradByNorm(ClipGradBase):
         clip_norm(float): The maximum norm value.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.uniform([10, 10], min=-1.0, max=1.0, dtype='float32')
@@ -656,7 +656,7 @@ class ClipGradByGlobalNorm(ClipGradBase):
         auto_skip_clip (bool, optional): skip clipping gradient. Default value is ``False``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.uniform([10, 10], min=-1.0, max=1.0, dtype='float32')
@@ -1222,7 +1222,7 @@ def set_gradient_clip(clip, param_list=None, program=None):
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 

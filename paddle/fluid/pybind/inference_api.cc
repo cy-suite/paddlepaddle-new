@@ -993,7 +993,7 @@ void BindAnalysisConfig(py::module *m) {
                 None.
 
             Examples:
-                .. code-block:: python
+                .. code-block:: python-console
 
                     >>> from paddle.inference import Config
 

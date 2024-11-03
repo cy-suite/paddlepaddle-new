@@ -80,7 +80,7 @@ class LogNormal(TransformedDistribution):
         scale(int|float|list|tuple|numpy.ndarray|Tensor): The stddevs of the underlying Normal distribution.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle.distribution import LogNormal

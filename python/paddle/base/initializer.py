@@ -70,7 +70,7 @@ def set_global_initializer(
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.nn as nn

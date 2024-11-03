@@ -1505,7 +1505,7 @@ class Model:
     Examples:
         1. A common example
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> import paddle
@@ -1543,7 +1543,7 @@ class Model:
 
         2. An example using mixed precision training.
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> # doctest: +REQUIRES(env:GPU)
@@ -1651,7 +1651,7 @@ class Model:
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.nn as nn
@@ -1707,7 +1707,7 @@ class Model:
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.nn as nn
@@ -1758,7 +1758,7 @@ class Model:
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.nn as nn
@@ -1820,7 +1820,7 @@ class Model:
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +TIMEOUT(80)
                 >>> import paddle
@@ -1896,7 +1896,7 @@ class Model:
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.nn as nn
@@ -1988,7 +1988,7 @@ class Model:
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> import paddle.nn as nn
@@ -2270,7 +2270,7 @@ class Model:
             1. An example use Dataset and set batch size, shuffle in fit.
                How to make a batch is done internally.
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example3
 
                 >>> # doctest: +TIMEOUT(80)
@@ -2310,7 +2310,7 @@ class Model:
             2. An example use DataLoader, batch size and shuffle is set in
                DataLoader.
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example4
 
                 >>> # doctest: +TIMEOUT(80)
@@ -2486,7 +2486,7 @@ class Model:
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +SKIP('Cause each step's acc and using time are not same when repeat running')
                 >>> import paddle
@@ -2626,7 +2626,7 @@ class Model:
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import numpy as np
                 >>> import paddle
@@ -2878,7 +2878,7 @@ class Model:
             Dict: A summary of the network including total params and total trainable params.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.static import InputSpec

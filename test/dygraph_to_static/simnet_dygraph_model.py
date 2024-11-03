@@ -297,7 +297,7 @@ class FC(paddle.nn.Layer):
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.base as base

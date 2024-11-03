@@ -111,7 +111,7 @@ class AdamW(Optimizer):
         **Currently, AdamW doesn't support sparse parameter optimization.**
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -591,7 +591,7 @@ class AdamW(Optimizer):
             None
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
 

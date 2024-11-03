@@ -327,7 +327,7 @@ def auto_recompute(
         fwd_op_end_idx(int): The index of the last forward op in recomputed program.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
         >>> import numpy as np
         >>> import paddle

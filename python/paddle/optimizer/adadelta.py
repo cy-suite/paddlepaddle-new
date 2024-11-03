@@ -88,7 +88,7 @@ class Adadelta(Optimizer):
                 :ref:`api_guide_Name` .
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 

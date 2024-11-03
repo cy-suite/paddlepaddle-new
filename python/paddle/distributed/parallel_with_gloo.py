@@ -54,7 +54,7 @@ def gloo_init_parallel_env(
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import multiprocessing
@@ -149,7 +149,7 @@ def gloo_barrier() -> None:
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import multiprocessing
@@ -207,7 +207,7 @@ def gloo_release() -> None:
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import multiprocessing

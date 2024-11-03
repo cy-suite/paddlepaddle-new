@@ -388,7 +388,7 @@ class AbsTransform(Transform):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -452,7 +452,7 @@ class AffineTransform(Transform):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -537,7 +537,7 @@ class ChainTransform(Transform):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -659,7 +659,7 @@ class ExpTransform(Transform):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -730,7 +730,7 @@ class IndependentTransform(Transform):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -808,7 +808,7 @@ class PowerTransform(Transform):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -878,7 +878,7 @@ class ReshapeTransform(Transform):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -997,7 +997,7 @@ class SigmoidTransform(Transform):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1044,7 +1044,7 @@ class SoftmaxTransform(Transform):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1103,7 +1103,7 @@ class StackTransform(Transform):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1218,7 +1218,7 @@ class StickBreakingTransform(Transform):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1283,7 +1283,7 @@ class TanhTransform(Transform):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 

@@ -91,7 +91,7 @@ def check_layer_numerics(
         None.
 
     Example:
-        ..  code-block:: python
+        ... code-block:: python-console
 
             >>> import paddle
             >>> class MyLayer(paddle.nn.Layer):
@@ -191,7 +191,7 @@ class TensorCheckerConfig:
 
     Examples:
 
-        ..  code-block:: python
+        ... code-block:: python-console
 
             >>> import paddle
 
@@ -381,7 +381,7 @@ def check_numerics(
 
     Examples:
 
-        ..  code-block:: python
+        ... code-block:: python-console
 
             >>> import paddle
 
@@ -487,7 +487,7 @@ def enable_operator_stats_collection() -> None:
 
     Examples:
 
-        ..  code-block:: python
+        ... code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU)
             >>> import paddle
@@ -526,7 +526,7 @@ def disable_operator_stats_collection() -> None:
 
     Examples:
 
-        ..  code-block:: python
+        ... code-block:: python-console
 
             >>> import paddle
 
@@ -566,7 +566,7 @@ def collect_operator_stats() -> Generator[None, None, None]:
 
     Examples:
 
-        ..  code-block:: python
+        ... code-block:: python-console
 
             >>> import paddle
 
@@ -611,7 +611,7 @@ def compare_accuracy(
 
     Examples:
 
-        ..  code-block:: python
+        ... code-block:: python-console
 
             >>> import paddle
             >>> from paddle.base import core
@@ -664,7 +664,7 @@ def enable_tensor_checker(checker_config: TensorCheckerConfig) -> None:
 
     Examples:
 
-        ..  code-block:: python
+        ... code-block:: python-console
 
             >>> import paddle
 
@@ -702,7 +702,7 @@ def disable_tensor_checker() -> None:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 

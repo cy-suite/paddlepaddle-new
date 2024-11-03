@@ -93,7 +93,7 @@ class Adagrad(Optimizer):
             The default value is 0.0.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 

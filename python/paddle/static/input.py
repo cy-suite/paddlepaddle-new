@@ -87,7 +87,7 @@ def data(
         Variable: The global variable that gives access to the data.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import numpy as np
             >>> import paddle
@@ -217,7 +217,7 @@ class InputSpec:
         stop_gradient (bool, optional): A boolean that mentions whether gradient should flow. Default is False, means don't stop calculate gradients.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle.static import InputSpec
@@ -268,7 +268,7 @@ class InputSpec:
             A InputSpec instance generated from Tensor.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.static import InputSpec
@@ -302,7 +302,7 @@ class InputSpec:
             A InputSpec instance generated from Tensor.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import numpy as np
                 >>> from paddle.static import InputSpec
@@ -326,7 +326,7 @@ class InputSpec:
             The original InputSpec instance by inserting `batch_size` in front of `shape`.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> from paddle.static import InputSpec
 
@@ -360,7 +360,7 @@ class InputSpec:
             The original InputSpec instance by removing the first element of `shape` .
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> from paddle.static import InputSpec
 

@@ -45,7 +45,7 @@ def rank(input: Tensor) -> Tensor:
         Tensor, the output data type is int32.: The 0-D tensor with the dimensions of the input Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -90,7 +90,7 @@ def shape(input: Tensor) -> Tensor:
         Variable (Tensor): The shape of the input variable.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import numpy as np
             >>> import paddle
@@ -154,7 +154,7 @@ def is_complex(x: Tensor) -> bool:
         bool: True if the data type of the input is complex data type, otherwise false.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -195,7 +195,7 @@ def is_floating_point(x: Tensor) -> bool:
         bool: True if the dtype of `x` is floating type, otherwise false.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -234,7 +234,7 @@ def is_integer(x: Tensor) -> bool:
         bool: True if the data type of the input is integer data type, otherwise false.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -290,7 +290,7 @@ def real(x: Tensor, name: str | None = None) -> Tensor:
         Tensor: a Tensor containing real values of the input Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -338,7 +338,7 @@ def imag(x: Tensor, name: str | None = None) -> Tensor:
         Tensor: a tensor containing imaginary values of the input tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 

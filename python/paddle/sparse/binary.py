@@ -87,7 +87,7 @@ def matmul(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU)
             >>> import paddle
@@ -168,7 +168,7 @@ def masked_matmul(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU)
             >>> import paddle
@@ -232,7 +232,7 @@ def mv(x: Tensor, vec: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU)
             >>> import paddle
@@ -283,7 +283,7 @@ def add(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-    ..  code-block:: python
+    ... code-block:: python-console
 
         >>> import paddle
 
@@ -334,7 +334,7 @@ def subtract(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        ..  code-block:: python
+        ... code-block:: python-console
 
             >>> import paddle
 
@@ -382,7 +382,7 @@ def multiply(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        ..  code-block:: python
+        ... code-block:: python-console
 
             >>> import paddle
 
@@ -433,7 +433,7 @@ def divide(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        ..  code-block:: python
+        ... code-block:: python-console
 
             >>> import paddle
 
@@ -479,7 +479,7 @@ def is_same_shape(x: Tensor, y: Tensor) -> bool:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -519,7 +519,7 @@ def mask_as(x: Tensor, mask: Tensor, name: str | None = None) -> Tensor:
         Tensor: A sparse tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.set_device('cpu')

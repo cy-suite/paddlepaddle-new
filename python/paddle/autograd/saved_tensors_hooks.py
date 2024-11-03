@@ -50,7 +50,7 @@ class saved_tensors_hooks:
             None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> # Example1
@@ -72,7 +72,7 @@ class saved_tensors_hooks:
             ...     y = paddle.multiply(a, b)
             >>> y.sum().backward()
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> # Example2

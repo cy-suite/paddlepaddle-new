@@ -116,7 +116,7 @@ def create_global_var(
         Variable: The created Variable
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.enable_static()
@@ -207,7 +207,7 @@ def create_parameter(
         The created parameter.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.enable_static()
@@ -280,7 +280,7 @@ def create_tensor(
         Variable: The tensor to be created according to dtype.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> tensor = paddle.tensor.create_tensor(dtype='float32')
@@ -333,7 +333,7 @@ def linspace(
         the value with input :attr:`start`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> data = paddle.linspace(0, 10, 5, 'float32')
@@ -524,7 +524,7 @@ def logspace(
         just has the value with exponential of :attr:`start` with base :attr:`base`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> data = paddle.logspace(0, 10, 5, 2, 'float32')
@@ -894,7 +894,7 @@ def to_tensor(
         Tensor: A Tensor constructed from ``data`` .
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -964,7 +964,7 @@ def full_like(
         Tensor: Tensor which is created according to ``x``, ``fill_value`` and ``dtype``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1160,7 +1160,7 @@ def ones(
         Tensor: A Tensor of data type :attr:`dtype` with shape :attr:`shape` and all elements are 1.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1213,7 +1213,7 @@ def ones_like(
         data type (use ``dtype`` if ``dtype`` is not None) as ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1250,7 +1250,7 @@ def zeros(
         Tensor: A tensor of data type :attr:`dtype` with shape :attr:`shape` and all elements set to 0.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1304,7 +1304,7 @@ def zeros_like(
 
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1343,7 +1343,7 @@ def eye(
         Tensor: An identity Tensor or LoDTensor of shape [num_rows, num_columns].
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1440,7 +1440,7 @@ def full(
         Tensor: Tensor which is created according to ``shape``, ``fill_value`` and ``dtype``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1523,7 +1523,7 @@ def arange(
         data type is set by ``dtype``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1696,7 +1696,7 @@ def tril(
         it's data type is the same as x's Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1799,7 +1799,7 @@ def triu(
         it's data type is the same as x's Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1906,7 +1906,7 @@ def meshgrid(*args, **kwargs):
          Tensor: k tensors. The shape of each tensor is (N1, N2, ..., Nk)
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1988,7 +1988,7 @@ def diag_embed(
         Tensor, the output data type is the same as input data type.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -2111,7 +2111,7 @@ def diagflat(
         Tensor, a square matrix. The output data type is the same as input data type.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: diagflat-example-1
 
             >>> import paddle
@@ -2140,7 +2140,7 @@ def diagflat(
              [0, 2, 0, 0],
              [0, 0, 3, 0]])
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: diagflat-example-2
 
             >>> import paddle
@@ -2250,7 +2250,7 @@ def diag(
         Tensor, a square matrix or a vector. The output data type is the same as input data type.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: diag-example-1
 
             >>> import paddle
@@ -2279,7 +2279,7 @@ def diag(
              [6, 2, 6],
              [6, 6, 3]])
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: diag-example-2
 
             >>> import paddle
@@ -2363,7 +2363,7 @@ def empty(
         Tensor: Tensor which is created according to ``shape`` and ``dtype``, and is uninitialized.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -2501,7 +2501,7 @@ def empty_like(
         Tensor: Tensor which is created according to ``x`` and ``dtype``, and is uninitialized.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -2610,7 +2610,7 @@ def assign(x: TensorLike, output: paddle.Tensor | None = None) -> paddle.Tensor:
         Tensor: A Tensor with the same shape, data type and value as :attr:`x`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import numpy as np
@@ -2813,7 +2813,7 @@ def clone(x: paddle.Tensor, name: str | None = None) -> paddle.Tensor:
         Tensor, A Tensor copied from ``input``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import numpy as np
@@ -2851,7 +2851,7 @@ def _memcpy(input, place=None, output=None) -> paddle.Tensor:
         Tensor, A tensor with the same shape, data type and value as :attr:`input`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -2940,7 +2940,7 @@ def complex(
         .. _Introduction to Tensor: ../../guides/beginner/tensor_en.html#chapter5-broadcasting-of-tensor
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.arange(2, dtype=paddle.float32).unsqueeze(-1)
@@ -3000,7 +3000,7 @@ def tril_indices(
         where the first row contains row coordinates of and the second row contains column coordinates.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -3087,7 +3087,7 @@ def triu_indices(
         where the first row contains row coordinates of and the second row contains column coordinates.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> # example 1, default offset value
@@ -3161,7 +3161,7 @@ def polar(
         .. _Introduction to Tensor: ../../guides/beginner/tensor_en.html#chapter5-broadcasting-of-tensor
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import numpy as np
@@ -3201,7 +3201,7 @@ def cauchy_(
         Tensor: input tensor with numbers drawn from the Cauchy distribution.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.randn([3, 4])
@@ -3239,7 +3239,7 @@ def geometric_(
         Tensor: input tensor with numbers drawn from the Geometric distribution.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.randn([3, 4])

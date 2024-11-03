@@ -48,7 +48,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -60,7 +60,7 @@ class TestMypyChecker(unittest.TestCase):
             'multi': """
             placeholder
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example-0
 
                 this is some blabla...
@@ -71,7 +71,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -80,7 +80,7 @@ class TestMypyChecker(unittest.TestCase):
                     >>> print(1-1)
                     0
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-2
 
                     this is some blabla...
@@ -96,7 +96,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -114,7 +114,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -132,7 +132,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -150,7 +150,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -167,7 +167,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -186,7 +186,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -205,7 +205,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -250,7 +250,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -270,7 +270,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -290,7 +290,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -304,7 +304,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -318,7 +318,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -332,7 +332,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -346,7 +346,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -360,7 +360,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -392,7 +392,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -402,7 +402,7 @@ class TestMypyChecker(unittest.TestCase):
             'multi': """
             placeholder
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example-0
 
                 this is some blabla...
@@ -413,7 +413,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -423,7 +423,7 @@ class TestMypyChecker(unittest.TestCase):
                     >>> print(1-1)
                     0
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-2
 
                     this is some blabla...
@@ -448,7 +448,7 @@ class TestMypyChecker(unittest.TestCase):
             'multi': """
             placeholder
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example-0
 
                 this is some blabla...
@@ -459,7 +459,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -469,7 +469,7 @@ class TestMypyChecker(unittest.TestCase):
                     >>> print(1-1)
                     0
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-2
 
                     this is some blabla...
@@ -496,7 +496,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -507,7 +507,7 @@ class TestMypyChecker(unittest.TestCase):
             'multi': """
             placeholder
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example-0
 
                 this is some blabla...
@@ -518,7 +518,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -529,7 +529,7 @@ class TestMypyChecker(unittest.TestCase):
                     >>> print(1-1)
                     0
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-2
 
                     this is some blabla...
@@ -555,7 +555,7 @@ class TestMypyChecker(unittest.TestCase):
             'pass': """
             placeholder
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example-0
 
                 this is some blabla...
@@ -566,7 +566,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -578,7 +578,7 @@ class TestMypyChecker(unittest.TestCase):
                     >>> print(1-1)
                     0
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-2
 
                     this is some blabla...
@@ -605,7 +605,7 @@ class TestMypyChecker(unittest.TestCase):
             'fail': """
             placeholder
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example-0
 
                 this is some blabla...
@@ -616,7 +616,7 @@ class TestMypyChecker(unittest.TestCase):
 
             Examples:
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-1
 
                     this is some blabla...
@@ -629,7 +629,7 @@ class TestMypyChecker(unittest.TestCase):
                     >>> print(1-1)
                     0
 
-                .. code-block:: python
+                .. code-block:: python-console
                     :name: code-example-2
 
                     this is some blabla...

@@ -58,7 +58,7 @@ class PTQ(Quantization):
         Return: The prepared model for post-training quantization.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> from paddle.quantization import PTQ, QuantConfig
                 >>> from paddle.quantization.observers import AbsmaxObserver

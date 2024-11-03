@@ -2058,7 +2058,7 @@ def append_backward(
         AssertionError: If ``loss`` is not an instance of Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.nn.functional as F
@@ -2761,7 +2761,7 @@ def gradients(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.nn.functional as F
@@ -2873,7 +2873,7 @@ def gradients_with_optimizer(program, optimizer, inputs=None, outputs=None):
             ``fetch_list`` before run, see details in ``Executor``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.static as static

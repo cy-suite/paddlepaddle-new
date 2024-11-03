@@ -36,7 +36,7 @@ class TransformedDistribution(distribution.Distribution):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.seed(2023)

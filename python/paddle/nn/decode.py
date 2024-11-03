@@ -195,7 +195,7 @@ class BeamSearchDecoder(Decoder):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import numpy as np
             >>> import paddle
@@ -1337,7 +1337,7 @@ def dynamic_decode(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle.nn import BeamSearchDecoder, dynamic_decode

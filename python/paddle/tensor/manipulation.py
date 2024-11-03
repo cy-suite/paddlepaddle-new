@@ -133,7 +133,7 @@ def tensor_array_to_tensor(
             tensor contains all input including tensors' sizes along the axis.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import numpy
             >>> import paddle
@@ -224,7 +224,7 @@ def cast(x: Tensor, dtype: DTypeLike) -> Tensor:
         Tensor, A Tensor with the same shape as input's.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -360,7 +360,7 @@ def slice(
         Tensor, A ``Tensor``. The data type is same as ``input``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -564,7 +564,7 @@ def transpose(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -641,7 +641,7 @@ def unstack(x: Tensor, axis: int = 0, num: int | None = None) -> Tensor:
         list(Tensor), The unstacked Tensors list. The list elements are N-D Tensors of data types float32, float64, int32, int64, complex64, complex128.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.ones(name='x', shape=[2, 3, 5], dtype='float32')  # create a tensor with shape=[2, 3, 5]
@@ -720,7 +720,7 @@ def shard_index(
         Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> label = paddle.to_tensor([[16], [1]], "int64")
@@ -832,7 +832,7 @@ def crop(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.to_tensor([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
@@ -1028,7 +1028,7 @@ def fill_(x: Tensor, value: float) -> Tensor:
         x(Tensor), Tensor x filled with value inplace
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1061,7 +1061,7 @@ def zero_(x: Tensor) -> Tensor:
         x (Tensor), Tensor x filled with zero inplace
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1100,7 +1100,7 @@ def fill_diagonal_(
         Tensor, Tensor with diagonal filled with value.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.ones((4, 3)) * 2
@@ -1238,7 +1238,7 @@ def fill_diagonal_tensor_(
         Tensor, Tensor with diagonal filled with y.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1277,7 +1277,7 @@ def fill_diagonal_tensor(
         Tensor, Tensor with diagonal filled with y.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1309,7 +1309,7 @@ def tolist(x: Tensor) -> NestedList[int | float | complex]:
 
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1356,7 +1356,7 @@ def concat(
         Tensor, A Tensor with the same data type as ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1548,7 +1548,7 @@ def broadcast_tensors(
         list(Tensor), The list of broadcasted tensors following the same order as ``input``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x1 = paddle.rand([1, 2, 3, 4]).astype('float32')
@@ -1669,7 +1669,7 @@ def flip(
         Tensor, Tensor or LoDTensor calculated by flip layer. The data type is same with input x.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1745,7 +1745,7 @@ def rot90(
         Tensor, Tensor or LoDTensor calculated by rot90 layer. The data type is same with input x.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1881,7 +1881,7 @@ def flatten(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -2039,7 +2039,7 @@ def roll(
         Tensor, A Tensor with same data type as `x`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -2220,7 +2220,7 @@ def stack(
         Tensor, The stacked tensor with same data type as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -2364,7 +2364,7 @@ def hstack(x: Sequence[Tensor], name: str | None = None) -> Tensor:
         Tensor, The stacked tensor with same data type as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -2432,7 +2432,7 @@ def vstack(x: Sequence[Tensor], name: str | None = None) -> Tensor:
         Tensor, The stacked tensor with same data type as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -2494,7 +2494,7 @@ def dstack(x: Sequence[Tensor], name: str | None = None) -> Tensor:
         Tensor, The stacked tensor with same data type as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -2548,7 +2548,7 @@ def column_stack(x: Sequence[Tensor], name: str | None = None) -> Tensor:
         Tensor, The stacked tensor with same data type as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -2608,7 +2608,7 @@ def row_stack(x: Sequence[Tensor], name: str | None = None) -> Tensor:
         Tensor, The stacked tensor with same data type as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -2677,7 +2677,7 @@ def split(
         list(Tensor), The list of segmented Tensors.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -2912,7 +2912,7 @@ def tensor_split(
         list[Tensor], The list of segmented Tensors.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: tensor-split-example-1
 
             >>> import paddle
@@ -2929,7 +2929,7 @@ def tensor_split(
 
         .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/tensor_split/tensor_split-2.png
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: tensor-split-example-2
 
             >>> import paddle
@@ -2947,7 +2947,7 @@ def tensor_split(
 
         .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/tensor_split/tensor_split-3_en.png
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: tensor-split-example-3
 
             >>> import paddle
@@ -2965,7 +2965,7 @@ def tensor_split(
 
         .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/tensor_split/tensor_split-4.png
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: tensor-split-example-4
 
             >>> import paddle
@@ -2981,7 +2981,7 @@ def tensor_split(
 
         .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/tensor_split/tensor_split-5.png
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: tensor-spilt-example-5
 
             >>> import paddle
@@ -3074,7 +3074,7 @@ def hsplit(
         list[Tensor], The list of segmented Tensors.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -3138,7 +3138,7 @@ def dsplit(
         list[Tensor], The list of segmented Tensors.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -3196,7 +3196,7 @@ def vsplit(
         list[Tensor], The list of segmented Tensors.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -3284,7 +3284,7 @@ def squeeze(
         Tensor, Squeezed Tensor with the same data type as input Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -3426,7 +3426,7 @@ def unique_consecutive(
             counts is provided only if return_counts is True.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -3669,7 +3669,7 @@ def unique(
             is True. `counts` is provided only if `return_counts` is True.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -3830,7 +3830,7 @@ def unsqueeze(
         Tensor, Unsqueezed Tensor with the same data type as input Tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4001,7 +4001,7 @@ def gather(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4075,7 +4075,7 @@ def unbind(input: Tensor, axis: int = 0) -> list[Tensor]:
         list(Tensor), The list of segmented Tensor variables.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4156,7 +4156,7 @@ def scatter(
     **Scatter Layer**
     Output is obtained by updating the input on selected indices based on updates.
 
-    .. code-block:: python
+    .. code-block:: python-console
         :name: scatter-example-1
 
         >>> import paddle
@@ -4195,7 +4195,7 @@ def scatter(
         Tensor, The output is a Tensor with the same shape as x.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: scatter-example-2
 
             >>> import paddle
@@ -4319,7 +4319,7 @@ def scatter_nd_add(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4380,7 +4380,7 @@ def scatter_nd(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4426,7 +4426,7 @@ def chunk(
         list(Tensor), The list of segmented Tensors.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4471,7 +4471,7 @@ def tile(
         N-D Tensor. The data type is the same as ``x``. The size of the i-th dimension is equal to ``x[i] * repeat_times[i]``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4618,7 +4618,7 @@ def expand_as(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         N-D Tensor, A Tensor with the same shape as ``y``. The data type is the same as ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4699,7 +4699,7 @@ def broadcast_to(
         N-D Tensor, A Tensor with the given shape. The data type is the same as ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4731,7 +4731,7 @@ def expand(x: Tensor, shape: ShapeLike, name: str | None = None) -> Tensor:
         N-D Tensor, A Tensor with the given shape. The data type is the same as ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -4877,7 +4877,7 @@ def reshape(x: Tensor, shape: ShapeLike, name: str | None = None) -> Tensor:
         Tensor, A reshaped Tensor with the same data type as ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5071,7 +5071,7 @@ def masked_scatter(
         Tensor, A reshaped Tensor with the same data type as ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.seed(2048)
@@ -5186,7 +5186,7 @@ def atleast_1d(*inputs, name=None):
         List of Tensors, if there are more than one inputs.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5262,7 +5262,7 @@ def atleast_2d(*inputs, name=None):
         List of Tensors, if there are more than one inputs.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5340,7 +5340,7 @@ def atleast_3d(*inputs, name=None):
         List of Tensors, if there are more than one inputs.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5460,7 +5460,7 @@ def gather_nd(x: Tensor, index: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -5581,7 +5581,7 @@ def strided_slice(
         Tensor, A ``Tensor`` with the same dimension as ``x``. The data type is same as ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.zeros(shape=[3,4,5,6], dtype="float32")
@@ -5775,7 +5775,7 @@ def tensordot(
            while the corresponding axis sequences for ``y`` will be expanded from [1, 0] to [1, 0, 2, 3].
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from typing import Literal
@@ -5980,7 +5980,7 @@ def as_complex(x: Tensor, name: str | None = None) -> Tensor:
         Tensor, The output. Data type is 'complex64' or 'complex128', with the same precision as the input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.arange(12, dtype=paddle.float32).reshape([2, 3, 2])
@@ -6026,7 +6026,7 @@ def as_real(x: Tensor, name: str | None = None) -> Tensor:
         Tensor, The output. Data type is 'float32' or 'float64', with the same precision as the input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.arange(12, dtype=paddle.float32).reshape([2, 3, 2])
@@ -6079,7 +6079,7 @@ def repeat_interleave(
         Tensor, A Tensor with same data type as ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -6162,7 +6162,7 @@ def moveaxis(
         Tensor, A new tensor whose axis have been moved.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -6281,7 +6281,7 @@ def masked_fill(
         Tensor, same dimension and dtype with x.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU)
             >>> import paddle
@@ -6392,7 +6392,7 @@ def take_along_axis(
         Tensor, The indexed element, same dtype with arr
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -6492,7 +6492,7 @@ def put_along_axis(
         Tensor, The indexed element, same dtype with arr
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -6731,7 +6731,7 @@ def index_add(
         Tensor, same dimension and dtype with x.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU)
             >>> import paddle
@@ -6835,7 +6835,7 @@ def index_put(
         Tensor, same dimension and dtype with x.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -6908,7 +6908,7 @@ def unflatten(
         Tensor, return the unflatten tensor of :attr:`x`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -6982,7 +6982,7 @@ def as_strided(
         Tensor, A as_strided Tensor with the same data type as ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.base.set_flags({"FLAGS_use_stride_kernel": True})
@@ -7018,7 +7018,7 @@ def view(
         Tensor, A viewed Tensor with the same data as ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.base.set_flags({"FLAGS_use_stride_kernel": True})
@@ -7093,7 +7093,7 @@ def view_as(x: Tensor, other: Tensor, name: str | None = None) -> Tensor:
         Tensor, A viewed Tensor with the same shape as ``other``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.base.set_flags({"FLAGS_use_stride_kernel": True})
@@ -7129,7 +7129,7 @@ def unfold(
         Tensor, A unfold Tensor with the same data type as ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.base.set_flags({"FLAGS_use_stride_kernel": True})
@@ -7214,7 +7214,7 @@ def index_fill(
 
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> input_tensor = paddle.to_tensor([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype='int64')
@@ -7282,7 +7282,7 @@ def diagonal_scatter(
         Tensor, Tensor with diagonal embedded with ``y``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.arange(6.0).reshape((2, 3))
@@ -7314,7 +7314,7 @@ def select_scatter(
         Tensor, same dtype and shape with x
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -7431,7 +7431,7 @@ def slice_scatter(
         Tensor, same dtype and shape with x
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -7529,7 +7529,7 @@ def block_diag(inputs: Sequence[Tensor], name: str | None = None) -> Tensor:
         Tensor, A ``Tensor``. The data type is same as ``inputs``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 

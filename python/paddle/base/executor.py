@@ -84,7 +84,7 @@ def global_scope() -> core._Scope:
         Scope: The global/default scope instance.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import numpy
@@ -124,7 +124,7 @@ def scope_guard(scope: core._Scope) -> Generator[None, None, None]:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import numpy
@@ -151,7 +151,7 @@ def as_numpy(tensor, copy=False):
     For higher dimensional sequence data, please use LoDTensor directly.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle.base as base
             >>> import numpy
@@ -722,7 +722,7 @@ def _as_lodtensor(data, place, dtype=None):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import numpy as np
             >>> import paddle.base as base
@@ -1254,7 +1254,7 @@ class Executor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import numpy
@@ -1664,7 +1664,7 @@ class Executor:
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
 
@@ -1797,7 +1797,7 @@ class Executor:
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example-1
 
                 >>> import paddle
@@ -1829,7 +1829,7 @@ class Executor:
                 [array(0.16870381, dtype=float32)]
                 >>> # doctest: -SKIP
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example-2
 
                 >>> # doctest: +REQUIRES(env:GPU)
@@ -3194,7 +3194,7 @@ class Executor:
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
 
@@ -3316,7 +3316,7 @@ class Executor:
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
 

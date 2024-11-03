@@ -85,7 +85,7 @@ class LayerHelperBase:
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import numpy as np
                 >>> import paddle.base as base

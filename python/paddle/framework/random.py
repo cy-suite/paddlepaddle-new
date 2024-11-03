@@ -37,7 +37,7 @@ def seed(seed: int) -> paddle.base.core.Generator:
         Generator: The global default generator object.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> gen = paddle.seed(102)
@@ -84,7 +84,7 @@ def get_rng_state(
         list[GeneratorState], object.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> sts = paddle.get_rng_state()
@@ -136,7 +136,7 @@ def get_cuda_rng_state() -> list[paddle.base.core.GeneratorState]:
         GeneratorState:  object.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> sts = paddle.get_cuda_rng_state()
@@ -168,7 +168,7 @@ def set_rng_state(
         None.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> sts = paddle.get_rng_state()
@@ -233,7 +233,7 @@ def set_cuda_rng_state(
         None.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> sts = paddle.get_cuda_rng_state()

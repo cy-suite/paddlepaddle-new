@@ -30,7 +30,7 @@ def get_logger(name, level, fmt=None):
         logging.Logger: logging logger with given settings
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             >>> import paddle
             >>> import logging
             >>> logger = paddle.static.log_helper.get_logger(__name__, logging.INFO,

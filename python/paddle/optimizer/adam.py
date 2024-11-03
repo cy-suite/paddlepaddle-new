@@ -122,7 +122,7 @@ class Adam(Optimizer):
             The default value is None.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> import paddle
@@ -139,7 +139,7 @@ class Adam(Optimizer):
             >>> adam.step()
             >>> adam.clear_grad()
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> # Adam with beta1/beta2 as Tensor and weight_decay as float
@@ -451,7 +451,7 @@ class Adam(Optimizer):
             None
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
 

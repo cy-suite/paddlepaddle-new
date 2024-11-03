@@ -55,7 +55,7 @@ class MultivariateNormal(distribution.Distribution):
             convert to be the same as the type of loc.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle.distribution import MultivariateNormal

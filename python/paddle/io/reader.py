@@ -364,7 +364,7 @@ class DataLoader:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +SOLO('can not use multiprocessing testing `paddle.io.DataLoader`')
             >>> import numpy as np

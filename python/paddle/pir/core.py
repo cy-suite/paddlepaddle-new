@@ -151,7 +151,7 @@ def default_startup_program():
     Returns type:
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -182,7 +182,7 @@ def default_main_program():
         Program: A ``Program`` which holding the descriptions of OPs and tensors in the network.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -253,7 +253,7 @@ def program_guard(main_program, startup_program=None):
             Default: None.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-1
 
             >>> import paddle
@@ -269,7 +269,7 @@ def program_guard(main_program, startup_program=None):
     to construct either of startup program or main program.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example-2
 
             >>> import paddle
@@ -531,7 +531,7 @@ def set_state_dict(program, state_dict, scope=None):
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.static as static

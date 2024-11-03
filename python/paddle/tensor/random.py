@@ -69,7 +69,7 @@ def bernoulli(x: Tensor, name: str | None = None) -> Tensor:
         Tensor, A Tensor filled samples from Bernoulli distribution, whose shape and dtype are same as ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -135,7 +135,7 @@ def bernoulli_(
         Tensor, A Tensor filled with random values sampled from the bernoulli distribution with success probability ``p`` .
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.set_device('cpu')
@@ -186,7 +186,7 @@ def binomial(count: Tensor, prob: Tensor, name: str | None = None) -> Tensor:
         ``count`` and ``prob``. The data type is int64.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.set_device('cpu')
@@ -250,7 +250,7 @@ def poisson(x: Tensor, name: str | None = None) -> Tensor:
         Tensor, A Tensor filled with random number with the same shape and dtype as ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.set_device('cpu')
@@ -296,7 +296,7 @@ def standard_gamma(x: Tensor, name: str | None = None) -> Tensor:
         Tensor, A Tensor filled with random number with the same shape and dtype as ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.set_device('cpu')
@@ -364,7 +364,7 @@ def log_normal(
         Tensor, A Tensor filled with random values sampled from a log normal distribution with the underlying normal distribution's ``mean`` and ``std`` .
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.seed(200)
@@ -413,7 +413,7 @@ def log_normal_(
         Tensor, A Tensor filled with random values sampled from a log normal distribution with the underlying normal distribution's ``mean`` and ``std`` .
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.seed(200)
@@ -453,7 +453,7 @@ def multinomial(
         Tensor, A Tensor filled with sampled category index after ``num_samples`` times samples.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.seed(100) # on CPU device
@@ -560,7 +560,7 @@ def uniform_random_batch_size_like(
     Returns:
         Tensor, A Tensor of the specified shape filled with uniform_random values. The shape of the Tensor is determined by the shape parameter and the specified dimension of the input Tensor.
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.base as base
@@ -759,7 +759,7 @@ def gaussian_(
         Tensor, The input tensor x filled with random values sampled from a gaussian
         distribution.
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.randn([3, 4])
@@ -815,7 +815,7 @@ def standard_normal(
             ``shape`` and ``dtype``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -912,7 +912,7 @@ def randn(
         ``shape`` and ``dtype``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1006,7 +1006,7 @@ def normal(
         Tensor, A Tensor filled with random values sampled from a normal distribution with ``mean`` and ``std`` .
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1155,7 +1155,7 @@ def normal_(
     Returns:
         Tensor, A Tensor filled with random values sampled from a normal distribution with ``mean`` and ``std`` .
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.randn([3, 4])
@@ -1216,7 +1216,7 @@ def uniform(
         distribution in the range [``min``, ``max``), with ``shape`` and ``dtype``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> import paddle
@@ -1352,7 +1352,7 @@ def uniform_(
         Tensor, The input tensor x filled with random values sampled from a uniform
         distribution in the range [``min``, ``max``).
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1403,7 +1403,7 @@ def randint(
         distribution in the range [``low``, ``high``), with ``shape`` and ``dtype``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1546,7 +1546,7 @@ def randint_like(
         distribution in the range [``low``, ``high``), with ``shape`` and ``dtype``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1764,7 +1764,7 @@ def randperm(
         to n-1, with ``dtype``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1831,7 +1831,7 @@ def rand(
         distribution in the range [0, 1), with ``shape`` and ``dtype``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1894,7 +1894,7 @@ def exponential_(
         Tensor, Input Tensor ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.set_device('cpu')

@@ -387,7 +387,7 @@ void BindAutoParallel(py::module *m) {
         - ReduceType.kRedAll
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.distributed as dist
@@ -413,7 +413,7 @@ void BindAutoParallel(py::module *m) {
         The `Placement` is base class that describes how to place the tensor on ProcessMesh. it has three subclass: `Replicate`, `Shard` and `Partial`.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle.distributed as dist
                 >>> placements = [dist.Replicate(), dist.Shard(0), dist.Partial()]
@@ -458,7 +458,7 @@ void BindAutoParallel(py::module *m) {
                    dim (int): specify the slicing dimension of the tensor.
 
                Examples:
-                   .. code-block:: python
+                   .. code-block:: python-console
 
                        >>> import paddle
                        >>> import paddle.distributed as dist
@@ -496,7 +496,7 @@ void BindAutoParallel(py::module *m) {
                    The `Replicate` describes the tensor placed repeatedly on ProcessMesh.
 
                    Examples:
-                       .. code-block:: python
+                       .. code-block:: python-console
 
                            >>> import paddle
                            >>> import paddle.distributed as dist
@@ -534,7 +534,7 @@ void BindAutoParallel(py::module *m) {
                    reduce_type (paddle.distributed.ReduceType): the reduce type of the Partial state, default `paddle.distributed.ReduceType.kRedSum`.
 
                  Examples:
-                     .. code-block:: python
+                     .. code-block:: python-console
 
                          >>> import paddle
                          >>> import paddle.distributed as dist

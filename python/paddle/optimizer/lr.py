@@ -111,7 +111,7 @@ class LRScheduler:
     Examples:
         Here is an example of a simple ``StepDecay`` implementation.
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle.optimizer.lr import LRScheduler
@@ -183,7 +183,7 @@ class LRScheduler:
         Returns:
             None
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> value = paddle.arange(26, dtype='float32')
@@ -196,7 +196,7 @@ class LRScheduler:
                 >>> adadelta.step()
                 >>> adadelta.clear_grad()
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> value = paddle.arange(26, dtype='float32')
@@ -317,7 +317,7 @@ class NoamDecay(LRScheduler):
         ``NoamDecay`` instance to schedule learning rate.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> # Example1: train on default dynamic graph mode
@@ -339,7 +339,7 @@ class NoamDecay(LRScheduler):
             ...         scheduler.step()    # If you update learning rate each step
             ...     # scheduler.step()        # If you update learning rate each epoch
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> # Example2: train on static graph mode
@@ -430,7 +430,7 @@ class PiecewiseDecay(LRScheduler):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> # Example1: train on default dynamic graph mode
@@ -452,7 +452,7 @@ class PiecewiseDecay(LRScheduler):
             ...         scheduler.step()    # If you update learning rate each step
             ...     # scheduler.step()        # If you update learning rate each epoch
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> # Example2: train on static graph mode
@@ -536,7 +536,7 @@ class NaturalExpDecay(LRScheduler):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> # Example1: train on default dynamic graph mode
@@ -556,7 +556,7 @@ class NaturalExpDecay(LRScheduler):
             ...         scheduler.step()    # If you update learning rate each step
             ...     # scheduler.step()        # If you update learning rate each epoch
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> # Example2: train on static graph mode
@@ -631,7 +631,7 @@ class InverseTimeDecay(LRScheduler):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> # Example1: train on default dynamic graph mode
@@ -653,7 +653,7 @@ class InverseTimeDecay(LRScheduler):
             ...         scheduler.step()    # If you update learning rate each step
             ...     # scheduler.step()        # If you update learning rate each epoch
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> # Example2: train on static graph mode
@@ -742,7 +742,7 @@ class PolynomialDecay(LRScheduler):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> # Example1: train on default dynamic graph mode
@@ -764,7 +764,7 @@ class PolynomialDecay(LRScheduler):
             ...         scheduler.step()    # If you update learning rate each step
             ...     # scheduler.step()        # If you update learning rate each epoch
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> # Example2: train on static graph mode
@@ -878,7 +878,7 @@ class LinearWarmup(LRScheduler):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> # Example1: train on default dynamic graph mode
@@ -901,7 +901,7 @@ class LinearWarmup(LRScheduler):
             ...         scheduler.step()    # If you update learning rate each step
             ...     # scheduler.step()        # If you update learning rate each epoch
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> # Example2: train on static graph mode
@@ -1021,7 +1021,7 @@ class ExponentialDecay(LRScheduler):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> # Example1: train on default dynamic graph mode
@@ -1043,7 +1043,7 @@ class ExponentialDecay(LRScheduler):
             ...         scheduler.step()    # If you update learning rate each step
             ...     # scheduler.step()        # If you update learning rate each epoch
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> # Example2: train on static graph mode
@@ -1127,7 +1127,7 @@ class MultiStepDecay(LRScheduler):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> # Example1: train on default dynamic graph mode
@@ -1149,7 +1149,7 @@ class MultiStepDecay(LRScheduler):
             ...         scheduler.step()    # If you update learning rate each step
             ...     # scheduler.step()        # If you update learning rate each epoch
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> # Example2: train on static graph mode
@@ -1248,7 +1248,7 @@ class StepDecay(LRScheduler):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> # Example1: train on default dynamic graph mode
@@ -1270,7 +1270,7 @@ class StepDecay(LRScheduler):
             ...         scheduler.step()    # If you update learning rate each step
             ...     # scheduler.step()        # If you update learning rate each epoch
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> # Example2: train on static graph mode
@@ -1359,7 +1359,7 @@ class LambdaDecay(LRScheduler):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> # Example1: train on default dynamic graph mode
@@ -1381,7 +1381,7 @@ class LambdaDecay(LRScheduler):
             ...         scheduler.step()    # If you update learning rate each step
             ...     # scheduler.step()        # If you update learning rate each epoch
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> # Example2: train on static graph mode
@@ -1474,7 +1474,7 @@ class ReduceOnPlateau(LRScheduler):
 
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> # Example1: train on default dynamic graph mode
@@ -1496,7 +1496,7 @@ class ReduceOnPlateau(LRScheduler):
             ...         scheduler.step(loss)    # If you update learning rate each step
             ...     # scheduler.step(loss)        # If you update learning rate each epoch
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> # Example2: train on static graph mode
@@ -1709,7 +1709,7 @@ class CosineAnnealingDecay(LRScheduler):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> # Example1: train on default dynamic graph mode
@@ -1731,7 +1731,7 @@ class CosineAnnealingDecay(LRScheduler):
             ...         scheduler.step()    # If you update learning rate each step
             ...     # scheduler.step()        # If you update learning rate each epoch
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> # Example2: train on static graph mode
@@ -1841,7 +1841,7 @@ class MultiplicativeDecay(LRScheduler):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1928,7 +1928,7 @@ class OneCycleLR(LRScheduler):
         ``OneCycleLR`` instance to schedule learning rate.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> # Example1: train on default dynamic graph mode
@@ -1949,7 +1949,7 @@ class OneCycleLR(LRScheduler):
             ...         sgd.clear_gradients()
             ...         scheduler.step()        # You should update learning rate each step
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> # Example2: train on static graph mode
@@ -2166,7 +2166,7 @@ class CyclicLR(LRScheduler):
         ``CyclicLR`` instance to schedule learning rate.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> # Example1: train on default dynamic graph mode
@@ -2187,7 +2187,7 @@ class CyclicLR(LRScheduler):
             ...         sgd.clear_gradients()
             ...         scheduler.step()        # You should update learning rate each step
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> # Example2: train on static graph mode
@@ -2365,7 +2365,7 @@ class LinearLR(LRScheduler):
         ``LinearLR`` instance to schedule learning rate.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-dynamic
 
             >>> # Example1: train on default dynamic graph mode
@@ -2386,7 +2386,7 @@ class LinearLR(LRScheduler):
             ...         sgd.clear_gradients()
             ...         scheduler.step()
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-static
 
             >>> # Example2: train on static graph mode
@@ -2496,7 +2496,7 @@ class CosineAnnealingWarmRestarts(LRScheduler):
         ``CosineAnnealingWarmRestarts`` instance to schedule learning rate.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> import paddle
@@ -2515,7 +2515,7 @@ class CosineAnnealingWarmRestarts(LRScheduler):
             ...        adam.clear_grad()
             ...    scheduler.step(epoch)        # You should update learning rate each step
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example2
 
             >>> import paddle
@@ -2650,7 +2650,7 @@ def autoincreased_step_counter(counter_name=None, begin=1, step=1):
         Variable: The auto-increased Variable with data type int64.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.enable_static()
@@ -2699,7 +2699,7 @@ def noam_decay(d_model, warmup_steps, learning_rate=1.0):
 
     Noam decay method. The numpy implementation of noam decay as follows.
 
-    .. code-block:: python
+    .. code-block:: python-console
 
         >>> import numpy as np
         >>> # set hyper parameters
@@ -2725,7 +2725,7 @@ def noam_decay(d_model, warmup_steps, learning_rate=1.0):
         The decayed learning rate.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> warmup_steps = 100
@@ -2783,7 +2783,7 @@ def exponential_decay(learning_rate, decay_steps, decay_rate, staircase=False):
         Variable: The decayed learning rate. The data type is float32.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -2843,7 +2843,7 @@ def natural_exp_decay(learning_rate, decay_steps, decay_rate, staircase=False):
         The decayed learning rate. The data type is float32.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -2902,7 +2902,7 @@ def inverse_time_decay(learning_rate, decay_steps, decay_rate, staircase=False):
         Variable: The decayed learning rate. The data type is float32.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.enable_static()
@@ -2957,7 +2957,7 @@ def polynomial_decay(
         Variable: The decayed learning rate
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> start_lr = 0.01
@@ -3032,7 +3032,7 @@ def piecewise_decay(boundaries, values):
         The decayed learning rate.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.enable_static()
@@ -3108,7 +3108,7 @@ def cosine_decay(learning_rate, step_each_epoch, epochs):
         Variable: The decayed learning rate.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> base_lr = 0.1
@@ -3169,7 +3169,7 @@ def linear_lr_warmup(learning_rate, warmup_steps, start_lr, end_lr):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.enable_static()

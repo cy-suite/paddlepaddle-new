@@ -78,7 +78,7 @@ class Bernoulli(exponential_family.ExponentialFamily):
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle.distribution import Bernoulli
@@ -157,7 +157,7 @@ class Bernoulli(exponential_family.ExponentialFamily):
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.distribution import Bernoulli
@@ -212,7 +212,7 @@ class Bernoulli(exponential_family.ExponentialFamily):
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> paddle.seed(1)
@@ -308,7 +308,7 @@ class Bernoulli(exponential_family.ExponentialFamily):
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.distribution import Bernoulli
@@ -346,7 +346,7 @@ class Bernoulli(exponential_family.ExponentialFamily):
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.distribution import Bernoulli
@@ -385,7 +385,7 @@ class Bernoulli(exponential_family.ExponentialFamily):
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.distribution import Bernoulli
@@ -415,7 +415,7 @@ class Bernoulli(exponential_family.ExponentialFamily):
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.distribution import Bernoulli
@@ -448,7 +448,7 @@ class Bernoulli(exponential_family.ExponentialFamily):
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.distribution import Bernoulli

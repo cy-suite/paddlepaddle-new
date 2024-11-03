@@ -55,7 +55,7 @@ class RecordEvent(ContextDecorator):
             purpose, and it is better not to specify this parameter.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-example1
 
             >>> import paddle
@@ -109,7 +109,7 @@ class RecordEvent(ContextDecorator):
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example2
 
                 >>> import paddle
@@ -141,7 +141,7 @@ class RecordEvent(ContextDecorator):
 
         Examples:
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example3
 
                 >>> import paddle
@@ -169,7 +169,7 @@ def load_profiler_result(filename: str) -> _ProfilerResult:
         ``ProfilerResult`` object, which stores profiling data.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU)
             >>> import paddle.profiler as profiler
@@ -223,7 +223,7 @@ def _nvprof_range(iter_id, start, end, exit_after_prof=True):
     """
     A range profiler interface (not public yet).
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> model = Model()

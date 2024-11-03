@@ -35,7 +35,7 @@ def _load_distributed_persistables(executor, dirname, main_program=None):
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env: DISTRIBUTED)
             >>> import paddle
@@ -154,7 +154,7 @@ def load_persistables(executor, dirname, main_program=None, filename=None):
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.base as base
@@ -201,7 +201,7 @@ def _save_distributed_persistables(executor, dirname, main_program):
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env: DISTRIBUTED)
             >>> import paddle
@@ -361,7 +361,7 @@ def is_persistable(var):
         False if not.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
 
             >>> import paddle
@@ -419,7 +419,7 @@ def save_persistables(executor, dirname, main_program=None, filename=None):
              When saving parameters to memory, returns a binary string containing parameters.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -502,7 +502,7 @@ def load_inference_model_distributed(
 
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.base as base

@@ -136,7 +136,7 @@ class LKJCholesky(distribution.Distribution):
         sample_method (str, optional): The sampling method to use, either "onion" or "cvine". Default is "onion".
 
     Example:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 

@@ -69,7 +69,7 @@ def frame(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle import signal
@@ -190,7 +190,7 @@ def overlap_add(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle.signal import overlap_add
@@ -327,7 +327,7 @@ def stft(
         (`onesided` is `False`)
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle.signal import stft
@@ -513,7 +513,7 @@ def istft(
         `[..., seq_length]`
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import numpy as np
             >>> import paddle

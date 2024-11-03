@@ -60,7 +60,7 @@ def flops(
         Int: A number about the FLOPs of total network.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.nn as nn

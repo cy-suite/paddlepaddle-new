@@ -162,7 +162,7 @@ def make_scheduler(
 
         Assume batch 0: closed, batch 1: ready, batch [2, 5] record.
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example1
 
                 >>> import paddle.profiler as profiler
@@ -173,7 +173,7 @@ def make_scheduler(
 
         Assume batch 0: skipped, batch 1: closed, batch 2: ready, batch [3,6]: record, repeat.
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example2
 
                 >>> import paddle.profiler as profiler
@@ -242,7 +242,7 @@ def export_chrome_tracing(
     Examples:
         The return value can be used as parameter ``on_trace_ready`` in :ref:`Profiler <api_paddle_profiler_Profiler>` .
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU)
             >>> import paddle.profiler as profiler
@@ -295,7 +295,7 @@ def export_protobuf(
     Examples:
         The return value can be used as parameter ``on_trace_ready`` in :ref:`Profiler <api_paddle_profiler_Profiler>` .
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> # doctest: +REQUIRES(env:GPU)
             >>> import paddle.profiler as profiler
@@ -376,7 +376,7 @@ class Profiler:
     Examples:
         1. profiling range [2, 5).
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example1
 
                 >>> # doctest: +REQUIRES(env:GPU)
@@ -394,7 +394,7 @@ class Profiler:
 
         2. profiling range [2,4], [7, 9], [11,13].
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example2
 
                 >>> # doctest: +REQUIRES(env:GPU)
@@ -412,7 +412,7 @@ class Profiler:
 
         3. Use profiler without context manager, and use default parameters.
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example3
 
                 >>> # doctest: +REQUIRES(env:GPU)
@@ -429,7 +429,7 @@ class Profiler:
 
         4. Use profiler to get throughput and cost of the model.
 
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example-timer1
 
                 >>> import paddle
@@ -595,7 +595,7 @@ class Profiler:
         State transformed from CLOSED to self.current_state and trigger corresponding action.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example4
 
                 >>> # doctest: +REQUIRES(env:GPU)
@@ -644,7 +644,7 @@ class Profiler:
         Trigger corresponding action and post-process profiler result using self.on_trace_ready if result exists.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example5
 
                 >>> # doctest: +REQUIRES(env:GPU)
@@ -698,7 +698,7 @@ class Profiler:
                 that is used to compute throughput when `timer_only` is True. Default: None.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example6
 
                 >>> # doctest: +REQUIRES(env:GPU)
@@ -755,7 +755,7 @@ class Profiler:
             string: A string representing the statistic.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example-timer2
 
                 >>> import paddle.profiler as profiler
@@ -860,7 +860,7 @@ class Profiler:
 
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
                 :name: code-example7
 
                 >>> # doctest: +REQUIRES(env:GPU)
@@ -899,7 +899,7 @@ class Profiler:
             views(SummaryView|list[SummaryView], optional): summary tables to print, default to None means all views to be printed.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> # doctest: +REQUIRES(env:GPU)
                 >>> import paddle

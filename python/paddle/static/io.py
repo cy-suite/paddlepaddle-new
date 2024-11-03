@@ -202,7 +202,7 @@ def normalize_program(
         Program: Normalized/Optimized program.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -323,7 +323,7 @@ def serialize_program(
         bytes: serialized program.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.enable_static()
@@ -387,7 +387,7 @@ def serialize_persistables(
         bytes: serialized program.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.enable_static()
@@ -481,7 +481,7 @@ def save_to_file(path: str, content: bytes) -> None:
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.enable_static()
@@ -542,7 +542,7 @@ def save_inference_model(
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -654,7 +654,7 @@ def deserialize_program(data: bytes) -> Program:
         Program: deserialized program.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -705,7 +705,7 @@ def deserialize_persistables(
         Program: deserialized program.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -804,7 +804,7 @@ def load_from_file(path: str) -> bytes:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.enable_static()
@@ -866,7 +866,7 @@ def load_inference_model(
         we can get inference results.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import numpy as np
@@ -1103,7 +1103,7 @@ def save_vars(
         TypeError: If `main_program` is not an instance of Program nor None.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.static as static
@@ -1265,7 +1265,7 @@ def load_vars(
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.static as static
@@ -1506,7 +1506,7 @@ def save(
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.static as static
@@ -1616,7 +1616,7 @@ def load(
         None
 
      Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.static as static
@@ -1826,7 +1826,7 @@ def set_program_state(
         None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.static as static
@@ -1916,7 +1916,7 @@ def get_program_persistable_vars(program: Program) -> list[Tensor]:
     Returns:
         list: The list contains all persistable vars in the program
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.static.io as io
@@ -1948,7 +1948,7 @@ def load_program_state(
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.static as static

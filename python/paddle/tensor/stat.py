@@ -75,7 +75,7 @@ def mean(
         type as ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -175,7 +175,7 @@ def var(
         Tensor, results of variance along ``axis`` of ``x``, with the same data type as ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -248,7 +248,7 @@ def std(
         same data type as ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -285,7 +285,7 @@ def numel(x: Tensor, name: str | None = None) -> Tensor:
         Tensor: The number of elements for the input Tensor, whose shape is [].
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -366,7 +366,7 @@ def nanmedian(
         only nanmedian value will be returned.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> x = paddle.to_tensor([[float('nan'), 2. , 3. ], [0. , 1. , 2. ]])
@@ -512,7 +512,7 @@ def median(
         indices will be int64.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import numpy as np
@@ -922,7 +922,7 @@ def quantile(
         Tensor, results of quantile along ``axis`` of ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1006,7 +1006,7 @@ def nanquantile(
         Tensor, results of quantile along ``axis`` of ``x``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 

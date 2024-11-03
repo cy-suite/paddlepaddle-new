@@ -84,7 +84,7 @@ def abs(x: Tensor, name: str | None = None) -> Tensor:
         Tensor.A Tensor with the same data type and shape as :math:`x`.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -112,7 +112,7 @@ def acos(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Output of Acos operator, a Tensor with shape same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -159,7 +159,7 @@ def acosh(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Output of Acosh operator, a Tensor with shape same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -206,7 +206,7 @@ def asin(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Same shape and dtype as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -253,7 +253,7 @@ def asinh(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Output of Asinh operator, a Tensor with shape same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -300,7 +300,7 @@ def atan(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Same shape and dtype as input x.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -347,7 +347,7 @@ def atanh(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Output of Atanh operator, a Tensor with shape same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -395,7 +395,7 @@ def ceil(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Output of Ceil operator, a Tensor with shape same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -434,7 +434,7 @@ def cos(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Output of Cos operator, a Tensor with shape same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -476,7 +476,7 @@ def cosh(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Output of Cosh operator, a Tensor with shape same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -524,7 +524,7 @@ def exp(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Output of Exp operator, a Tensor with shape same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -574,7 +574,7 @@ def expm1(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Output of Expm1 operator, a Tensor with shape same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -624,7 +624,7 @@ def floor(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Output of Floor operator, a Tensor with shape same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -662,7 +662,7 @@ def reciprocal(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Output of Reciprocal operator, a Tensor with shape same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -710,7 +710,7 @@ def round(x: Tensor, decimals: int = 0, name: str | None = None) -> Tensor:
         Tensor. Output of Round operator, a Tensor with shape same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -763,7 +763,7 @@ def rsqrt(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Output of Rsqrt operator, a Tensor with shape same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -800,7 +800,7 @@ def sigmoid(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Output of Sigmoid operator, a Tensor with shape same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.nn.functional as F
@@ -848,7 +848,7 @@ def sin(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Output of Sin operator, a Tensor with shape same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -895,7 +895,7 @@ def sinh(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Output of Sinh operator, a Tensor with shape same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -942,7 +942,7 @@ def sqrt(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Output of Sqrt operator, a Tensor with shape same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -982,7 +982,7 @@ def square(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Output of Square operator, a Tensor with shape same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1032,7 +1032,7 @@ def tan(x: Tensor, name: str | None = None) -> Tensor:
         Tensor. Output of Tan operator, a Tensor with shape same as input.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -1082,7 +1082,7 @@ def erf(x: Tensor, name: str | None = None) -> Tensor:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 

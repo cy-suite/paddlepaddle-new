@@ -181,7 +181,7 @@ class Callback:
 
     Examples:
 
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -377,7 +377,7 @@ class ProgBarLogger(Callback):
             Default: 2.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.vision.transforms as T
@@ -647,7 +647,7 @@ class ModelCheckpoint(Callback):
             If None, will not save checkpoint. Default: None.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.vision.transforms as T
@@ -717,7 +717,7 @@ class LRScheduler(Callback):
             by epoch. Default: False.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.vision.transforms as T
@@ -837,7 +837,7 @@ class EarlyStopping(Callback):
         save_best_model(bool): Whether to save best model. Default: True.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle import Model
@@ -982,7 +982,7 @@ class VisualDL(Callback):
         log_dir (str): The directory to save visualdl log file.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.vision.transforms as T
@@ -1115,7 +1115,7 @@ class WandbCallback(Callback):
         job_type(str|None, optional): the type of run, for grouping runs together. Default: None
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> import paddle.vision.transforms as T
@@ -1300,7 +1300,7 @@ class ReduceLROnPlateau(Callback):
         min_lr(float, optional): lower bound on the learning rate. Default: 0.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> from paddle import Model

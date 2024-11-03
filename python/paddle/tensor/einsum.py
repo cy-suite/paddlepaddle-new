@@ -1041,7 +1041,7 @@ def einsum(equation: str, *operands: Tensor) -> Tensor | None:
         result (`Tensor`), the result tensor.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.seed(102)

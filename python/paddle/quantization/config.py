@@ -75,7 +75,7 @@ class QuantConfig:
         weight(QuanterFactory | None): The global quantizer used to quantize the weights.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> from paddle.quantization import QuantConfig
             >>> from paddle.quantization.quanters import FakeQuanterWithAbsMaxObserver
@@ -121,7 +121,7 @@ class QuantConfig:
             weight(QuanterFactory | None): Quanter used for weights. Default is None.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.nn import Linear
@@ -170,7 +170,7 @@ class QuantConfig:
             weight(QuanterFactory | None): Quanter used for weights. Default is None.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.nn import Linear
@@ -220,7 +220,7 @@ class QuantConfig:
             weight(QuanterFactory | None): Quanter used for weights. Default is None.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.nn import Linear
@@ -269,7 +269,7 @@ class QuantConfig:
             target(type[Layer]): The type of layers that will be converted to.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.nn import Conv2D
@@ -302,7 +302,7 @@ class QuantConfig:
             layer_type(type[Layer]): The type of layer to be declared as leaf.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> from paddle.nn import Sequential
                 >>> from paddle.quantization import QuantConfig
@@ -409,7 +409,7 @@ class QuantConfig:
             model(Layer): The model to be specified by the config.
 
         Examples:
-            .. code-block:: python
+            .. code-block:: python-console
 
                 >>> import paddle
                 >>> from paddle.nn import Linear, Sequential

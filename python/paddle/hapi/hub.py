@@ -204,7 +204,7 @@ def list(
         entrypoints: A list of available entrypoint names.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -256,7 +256,7 @@ def help(
         docs
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
 
@@ -306,7 +306,7 @@ def load(
         paddle model.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
 
             >>> import paddle
             >>> paddle.hub.load('lyuwenyu/paddlehub_demo:main', model='MM', source='github')

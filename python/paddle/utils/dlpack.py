@@ -76,7 +76,7 @@ def to_dlpack(x: Tensor) -> CapsuleType:
         dltensor, and the data type is PyCapsule.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-paddle-to-paddle
 
             >>> import paddle
@@ -95,7 +95,7 @@ def to_dlpack(x: Tensor) -> CapsuleType:
             >>> # doctest: +SKIP('the address will change in every run')
             <capsule object "used_dltensor" at 0x7f6103c681b0>
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-paddle-to-torch
 
             >>> # doctest: +SKIP('torch will not be installed')
@@ -146,7 +146,7 @@ def from_dlpack(
             The device of returned tensor can be one of: ``CPU``, ``CUDAPlace``, ``CUDAPinnedPlace``.
 
     Examples:
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-paddle-from-paddle
 
             >>> import paddle
@@ -172,7 +172,7 @@ def from_dlpack(
                    [[10.       , 0.30000001, 0.50000000, 0.89999998],
                     [0.10000000, 0.20000000, 0.60000002, 0.69999999]])
 
-        .. code-block:: python
+        .. code-block:: python-console
             :name: code-paddle-from-numpy
 
             >>> # Directly from external tensor that implements '__dlpack__' and '__dlpack_device__' methods
