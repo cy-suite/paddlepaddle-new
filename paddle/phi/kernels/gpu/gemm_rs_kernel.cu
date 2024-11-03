@@ -591,9 +591,6 @@ void GemmRSKernel(const Context& dev_ctx,
                     gemm_rs_wrapper.output_dtype,
                     false,
                     output);
-    phi::funcs::SetConstant<GPUContext, T> set_functor;
-    set_functor(dev_ctx, output, T{3.14});
-  // return output;
 
 #if 0
   DenseTensor full_output = phi::funcs::Slice<T>(dev_ctx, gemm_rs_wrapper.output_buffer, {0}, {0}, {m});
