@@ -3493,6 +3493,31 @@ bool TensorUnfoldOpInferSymbolicShape(
   int64_t size = op->attribute<pir::Int64Attribute>("size").data();
   int64_t axis = op->attribute<pir::Int64Attribute>("axis").data();
   int64_t step = op->attribute<pir::Int64Attribute>("step").data();
+  if (axis < 0) {
+    axis += input_shape.size();
+  }
+
+  int64_t max_size = -1;
+  if (input_shape.empty()) {
+    max_size = 1;
+  } else if (input_shape[axis].isa<int64_t>()) {
+    max_size = input_shape[axis].dyn_cast<int64_t>();
+  }
+
+  if (max_size > 0) {
+    PADDLE_ENFORCE_LE(
+        size,
+        max_size,
+        common::errors::InvalidArgument(
+            "paddle.unfold size(%d) must be less than shape[axis](%d).",
+            size,
+            max_size));
+  }
+  PADDLE_ENFORCE_GT(step,
+                    0,
+                    common::errors::InvalidArgument(
+                        "paddle.unfold step must be greater than 0"));
+
   std::vector<symbol::DimExpr> output_shape(input_shape.size() + 1);
   output_shape[input_shape.size()] = symbol::DimExpr(size);
   for (size_t i = 0; i < input_shape.size(); ++i) {
