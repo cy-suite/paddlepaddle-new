@@ -242,7 +242,7 @@ def _get_required_vars_of_program(program):
     for block in program.blocks:
         for op in block.ops:
             if op.type in [
-                "sync_comm_stream",
+                "c_sync_comm_stream",
                 "conditional_block",
                 "data",
                 "nop",
@@ -525,7 +525,7 @@ def _insert_sync_for_fthenb_1f1b(program, dist_context=None):
                     attrs={'op_role': op_role},
                 )
                 offset += 1
-                # step3: insert 'sync_comm_stream' op after 'send_v2' op or
+                # step3: insert 'c_sync_comm_stream' op after 'send_v2' op or
                 # before the first optimize op
                 insert_index = None
                 new_op_role = None
@@ -537,7 +537,7 @@ def _insert_sync_for_fthenb_1f1b(program, dist_context=None):
                     new_op_role = OpRole.Backward
                 sync_comm_op = block._insert_op_without_sync(
                     index=insert_index,
-                    type="sync_comm_stream",
+                    type="c_sync_comm_stream",
                     inputs={'X': [var]},
                     outputs={'Out': [var]},
                     attrs={
@@ -571,7 +571,7 @@ def _insert_sync_for_fthenb_1f1b(program, dist_context=None):
                         )
 
                 # step4: If 'send_v2' op in forward parse, set 'pipeline_flag' to distinguish
-                # whether the 'sync_comm_stream' op is inserted for pipeline.
+                # whether the 'c_sync_comm_stream' op is inserted for pipeline.
                 if int(op_role) == int(OpRole.Forward):
                     sync_comm_op._set_attr('pipeline_flag', '')
                     offset += 1
@@ -586,12 +586,12 @@ def _insert_sync_for_fthenb_1f1b(program, dist_context=None):
         if backward_recv_index is None:
             continue
 
-        # replace 'sync_comm_stream' op with 'nop' op
+        # replace 'c_sync_comm_stream' op with 'nop' op
         # use nop op for gc
         for index, op in enumerate(list(block.ops)):
             if index >= backward_recv_index:
                 break
-            if op.type == 'sync_comm_stream' and op.has_attr('pipeline_flag'):
+            if op.type == 'c_sync_comm_stream' and op.has_attr('pipeline_flag'):
                 var_name = op.output_arg_names[0]
                 var = block.var(var_name)
                 block._remove_op(index + offset, sync=False)

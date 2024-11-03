@@ -3170,7 +3170,6 @@ class Operator:
         "c_gen_nccl_id",
         "c_comm_init",
         "c_sync_calc_stream",
-        "sync_comm_stream",
         "c_sync_comm_stream",
         "heter_listen_and_serv",
         "c_wait_comm",
@@ -4591,7 +4590,6 @@ class Block:
                         if op.type in [
                             "broadcast",
                             "c_sync_comm_stream",
-                            "sync_comm_stream",
                             "coalesce_tensor",
                         ]:
                             continue

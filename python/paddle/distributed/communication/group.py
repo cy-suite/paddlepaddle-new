@@ -257,7 +257,7 @@ def _sync_comm_stream(tensor, ring_id=0):
     if framework.in_dynamic_mode():
         return paddle._C_ops.sync_comm_stream([tensor], ring_id)
     else:
-        op_type = 'sync_comm_stream'
+        op_type = 'c_sync_comm_stream'
         helper = framework.LayerHelper(op_type, **locals())
         helper.append_op(
             type=op_type,

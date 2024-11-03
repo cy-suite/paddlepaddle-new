@@ -54,7 +54,7 @@ class ProgramDeps:
         for idx, op in enumerate(self._block.ops):
             if op.type in [
                 "c_allreduce_sum",
-                "sync_comm_stream",
+                "c_sync_comm_stream",
                 "c_calc_comm_stream",
             ]:
                 continue

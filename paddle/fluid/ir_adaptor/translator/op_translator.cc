@@ -4040,7 +4040,7 @@ OpTranslator::OpTranslator() {
   special_handlers["unsqueeze2_grad"] =
       WithXShapeAndAxisGradOpTranscriber<dialect::UnsqueezeGradOp>();
 
-  special_handlers["sync_comm_stream"] = SyncCommStreamOpTranscriber();
+  special_handlers["c_sync_comm_stream"] = SyncCommStreamOpTranscriber();
 }
 }  // namespace translator
 }  // namespace paddle

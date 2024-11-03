@@ -167,7 +167,7 @@ class LocalSGDOptimizer(MetaOptimizerBase):
 
                 for ring_id in range(self.nrings):
                     sub_block.append_op(
-                        type='sync_comm_stream',
+                        type='c_sync_comm_stream',
                         inputs={'X': param},
                         outputs={'Out': param},
                         attrs={
@@ -418,7 +418,7 @@ class AdaptiveLocalSGDOptimizer(MetaOptimizerBase):
 
                 for ring_id in range(self.nrings):
                     sub_block.append_op(
-                        type='sync_comm_stream',
+                        type='c_sync_comm_stream',
                         inputs={'X': param},
                         outputs={'Out': param},
                         attrs={

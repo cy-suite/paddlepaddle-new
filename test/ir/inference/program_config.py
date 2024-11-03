@@ -138,7 +138,6 @@ _OP_WITHOUT_KERNEL_SET = {
     'c_comm_init',
     'c_sync_calc_stream',
     'c_sync_comm_stream',
-    'sync_comm_stream',
     'heter_listen_and_serv',
     'c_wait_comm',
     'c_wait_compute',
