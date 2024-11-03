@@ -28,7 +28,7 @@ class Constraint:
         raise NotImplementedError
 
     def check(self, value: Tensor) -> Tensor:
-        return self.__call__(value)
+        return self(value)
 
 
 class Real(Constraint):
