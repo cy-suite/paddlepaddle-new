@@ -534,14 +534,7 @@ class SplitOpPattern : public pir::OpRewritePattern<paddle::dialect::SplitOp> {
   bool Match(paddle::dialect::SplitOp op) const override {
     const bool is_denied = CompatibleInfo::IsDeniedForCinn(*op.operation());
 
-    const auto &section = GetSections(op);
-    bool have_negative =
-        std::find(section.begin(), section.end(), -1) != section.end();
-    if (have_negative && GetSplitDim(op) < 0) {
-      return false;
-    }
-
-    return !is_denied && PatternConstraint(op);
+    bool match = !is_denied && PatternConstraint(op);
   }
 
   void Rewrite(paddle::dialect::SplitOp op,
@@ -577,8 +570,19 @@ class SplitOpPattern : public pir::OpRewritePattern<paddle::dialect::SplitOp> {
       }
       return true;
     };
+
+    const auto &CanInferNegative = [&]() -> bool {
+      const auto &section = GetSections(op);
+      bool have_negative =
+          std::find(section.begin(), section.end(), -1) != section.end();
+      if (have_negative && GetSplitDim(op) < 0) {
+        return false;
+      }
+      return true;
+    };
+
     return IsDefinedBy<FullIntArrayOp>(op, 1) && IsDefinedBy<FullOp>(op, 2) &&
-           OnlyUsedBySplitOrSlice();
+           OnlyUsedBySplitOrSlice() && CanInferNegative();
   }
 
   int64_t GetSplitDim(paddle::dialect::SplitOp op) const {
