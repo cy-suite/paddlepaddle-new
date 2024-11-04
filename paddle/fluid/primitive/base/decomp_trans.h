@@ -86,7 +86,9 @@ class DecompProgram {
 };
 
 bool has_decomp_rule(const pir::Operation& op);
+bool has_decomp_vjp(const pir::Operation& vjp_op);
 
 std::vector<std::vector<pir::Value>> call_decomp_rule(pir::Operation* op);
+std::vector<std::vector<pir::Value>> call_decomp_vjp(pir::Operation* vjp_op);
 
 }  // namespace paddle

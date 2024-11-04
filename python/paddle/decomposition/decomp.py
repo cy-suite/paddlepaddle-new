@@ -23,7 +23,7 @@ from paddle.base.core import (
     call_decomp,
     call_decomp_vjp,
     decomp_ops_contain_unused_output,
-    has_decomp,
+    has_decomp_rule,
     has_decomp_vjp,
 )
 from paddle.base.framework import pir_chunk_id_guard, pir_op_role_guard
@@ -330,7 +330,7 @@ def _decomp_fwd_op(
         op_name = fwd_op.name()
         orig_outs = fwd_op.results()
         decom_rule = register.get_decomp_rule(op_name)
-        has_sink_decomp_rule = has_decomp(fwd_op)
+        has_sink_decomp_rule = has_decomp_rule(fwd_op)
         lower = decom_rule or has_sink_decomp_rule
 
         if lower:
