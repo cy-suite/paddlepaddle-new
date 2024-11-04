@@ -2398,10 +2398,10 @@ void group_norm_grad(const Tensor& x,
     }
 
     auto p2 = (d2 * mean_new - d1) * (inv_std_mul_s / var_eps);
-    auto p3 = -p2 * mean_new - d2 * inv_std_mul_s;
+    auto p3 = p2 * mean_new - d2 * inv_std_mul_s;
 
     auto tmp_1 = out_grad_data * p1;
-    auto tmp_2 = x_data * p2 + p3;
+    auto tmp_2 = x_data * p2 - p3;
     auto x_grad_data = tmp_1 + tmp_2;
     x_grad_data = decomp_helper.Merge(x_grad_data);
     x_grad_data = ConverToOrig<T>(x_grad_data, x.dtype());

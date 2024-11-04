@@ -1117,8 +1117,7 @@ std::tuple<Tensor, Tensor, Tensor> group_norm_decomp(
 
   auto mean_ = mean_decomp<T>(x_cast, c_axis, true);
   auto var_tmp_ = mean_decomp<T>(x_cast * x_cast, c_axis, true) - mean_ * mean_;
-  auto var_ =
-      maximum<T>(var_tmp_, full<T>(var_tmp_.shape(), 0, var_tmp_.dtype()));
+  auto var_ = maximum<T>(var_tmp_, full<T>({}, 0, var_tmp_.dtype()));
   auto var_inv = rsqrt<T>(var_ + full_scalar<T>(epsilon, var_.dtype()));
   auto out = (x_cast - mean_) * var_inv;
 
