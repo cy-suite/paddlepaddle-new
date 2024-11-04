@@ -16,6 +16,7 @@
 #include <cstdint>
 
 #include "paddle/fluid/framework/scope.h"
+#include "paddle/fluid/pir/dialect/operator/ir/control_flow_op.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_dialect.h"
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 
@@ -56,8 +57,9 @@ class DeadCodeEliminationPass : public pir::Pass {
                std::vector<std::string>* deleted_vars) {
     std::vector<pir::Operation*> deleted_ops;
     for (auto& op : block) {
-      if (op.num_regions() > 0 || op.HasTrait<pir::SideEffectTrait>() ||
+      if (op.HasTrait<pir::SideEffectTrait>() ||
           op.isa<paddle::dialect::DataOp>() ||
+          op.isa<paddle::dialect::WhileOp>() ||
           paddle::dialect::IsCustomOp(&op) ||
           paddle::dialect::IsInplaceOp(&op)) {
         continue;
