@@ -54,7 +54,7 @@ class TestTopkCase2TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.topk
         self.api_args = {
-            "x": np.random.randn(2).astype("int32"),
+            "x": np.random.randn(2).astype("int64"),
             "k": 1,
         }
         self.program_config = {"feed_list": ["x"]}
@@ -85,11 +85,11 @@ class TestTopkCase4TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.topk
         self.api_args = {
-            "x": np.array([[1, 4, 5, 7], [2, 6, 2, 5]]),
-            "k": 1,
+            "x": np.array([[1, 4, 5, 7], [2, 6, 2, 5]]).astype("int64"),
+            "k": np.array([1]).astype("int64"),
             "axis": -1,
         }
-        self.program_config = {"feed_list": ["x"]}
+        self.program_config = {"feed_list": ["x", "k"]}
         self.min_shape = {}
         self.max_shape = {}
 
