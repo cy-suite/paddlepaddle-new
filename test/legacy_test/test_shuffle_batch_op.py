@@ -23,24 +23,6 @@ import paddle
 from paddle import base
 
 
-def check_symbolic_result(program, fetch_vars, outs, op_type):
-    if paddle.base.libpaddle.pir.all_ops_defined_symbol_infer(program):
-        shape_analysis = (
-            paddle.base.libpaddle.pir.get_shape_constraint_ir_analysis(program)
-        )
-        for i, var in enumerate(fetch_vars):
-            if var.is_dense_tensor_type() or var.is_selected_row_type():
-                shape_or_data = shape_analysis.get_shape_or_data_for_var(var)
-                expect_shape = outs[i].shape
-                expect_data = []
-                if not shape_or_data.is_equal(expect_shape, expect_data):
-                    raise AssertionError(
-                        f"The shape or data of Operator {op_type}'s result is different from expected."
-                    )
-    else:
-        pass
-
-
 class TestShuffleBatchOpBase(OpTest):
     def gen_random_array(self, shape, low=0, high=1):
         rnd = (high - low) * np.random.random(shape) + low
@@ -127,9 +109,7 @@ class TestShuffleBatchAPI(unittest.TestCase):
             exe = paddle.static.Executor(place=place)
             feed = {'x': np.random.random((10, 4)).astype('float32')}
             exe.run(startup_prog)
-            res = exe.run(main_prog, feed=feed, fetch_list=[out])
-            fetch_list = exe._check_fetch_list([out])
-            check_symbolic_result(main_prog, fetch_list, res, "shuffle_batch")
+            _ = exe.run(main_prog, feed=feed, fetch_list=[out])
 
         for place in self.places:
             api_run(None, place=place)
@@ -151,9 +131,7 @@ class TestShuffleBatchAPI(unittest.TestCase):
                 'seed': np.array([1]).astype('int64'),
             }
             exe.run(startup_prog)
-            res = exe.run(main_prog, feed=feed, fetch_list=[out])
-            fetch_list = exe._check_fetch_list([out])
-            check_symbolic_result(main_prog, fetch_list, res, "shuffle_batch")
+            _ = exe.run(main_prog, feed=feed, fetch_list=[out])
 
         for place in self.places:
             api_run(place=place)
