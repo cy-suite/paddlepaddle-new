@@ -1794,28 +1794,18 @@ bool ShuffleBatchOpInferSymbolicShape(
   infer_context->SetShapeOrDataForValue(
       op->result(2),
       symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs({1})});
-  symbol::DimExpr shuffleidx = {1};
-  bool check = [&] {
+  const symbol::DimExpr shuffleidx = [&] {
+    symbol::DimExpr shuffleidx{1};
     for (const auto &i : x_shape) {
-      if (i.isa<int64_t>()) {
-        shuffleidx = shuffleidx * i;
-      } else {
-        return false;
-      }
+      shuffleidx = shuffleidx * i;
     }
-    return true;
+    return shuffleidx;
   }();
-  if (check) {
-    infer_context->SetShapeOrDataForValue(
-        op->result(1),
-        symbol::ShapeOrDataDimExprs{
-            symbol::TensorShapeOrDataDimExprs({shuffleidx})});
-  } else {
-    infer_context->SetShapeOrDataForValue(
-        op->result(1),
-        symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs(
-            {infer_context->GetNextSymName()})});
-  }
+
+  infer_context->SetShapeOrDataForValue(
+      op->result(1),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs({shuffleidx})});
   return true;
 }
 
