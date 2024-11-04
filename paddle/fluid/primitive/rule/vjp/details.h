@@ -2343,40 +2343,6 @@ void group_norm_grad(const Tensor& x,
                      Tensor* x_grad,
                      Tensor* scale_grad,
                      Tensor* bias_grad) {
-  // x.shape=[n,c,h,w]
-  // y.shape=[n,c,h,w]
-  // g_size = c/g
-  // scale.shape=[c]
-  // mean, var: shape=[n, g]
-  // inv_std = rsqrt(var + epsilon)
-  // ds = sum(dy * x, axes=(2,3))
-  // db = sum(dy, axes=(2,3))
-  //
-  // cal d_x:
-  // s = g / (h*w*c)
-  // if scale:
-  //  ds_val = sum((ds * scale).reshape(n, g, g_size), axes=2)
-  //  db_val = sum((db * scale).reshape(n, g, g_size), axes=2)
-  //  p1 = (inv_std.reshape(n, g, 1)) * (scale.reshape(1, g, g_size))
-  // else:
-  //  ds_val = sum(ds.reshape(n, g, g_size), axes=2)
-  //  db_val = sum(db.reshape(n, g, g_size), axes=2)
-  //  p1 = (inv_std.reshape(n, g, 1)) * (ones(1, g, g_size))
-  // p2 = (db_val * mean - ds_val) * inv_std * inv_std * inv_std * s
-  // p3 = -p2 * mean - db_val * inv_std * s
-  // p1.reshape(n, g, g_size, 1)
-  // p2.reshape(n, g, 1, 1)
-  // p3.reshape(n, g, 1, 1)
-  // d_x = dy.reshape(n, g, g_size, h*w) * p1 + x.reshape(n, g, g_size, h*w)* p2
-  // + p3
-  //
-  // cal d_scale:
-  // temp = ds.reshape(n, g, g_size) - db.reshape(n, g, g_size) *
-  // mean.reshape(n, g, 1)
-  // d_scale = sum(temp * inv_std.reshape(n, g, 1), axes=0).reshape(c)
-  //
-  // cal d_bias:
-  // d_bias = sum(dy, axes=(0,2,3))
   DataLayout data_layout_ = common::StringToDataLayout(data_layout);
   std::vector<int64_t> x_dims = x.shape();
   int rank = x_dims.size();
