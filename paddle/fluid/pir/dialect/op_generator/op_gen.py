@@ -44,7 +44,8 @@ from vjp_interface_black_list import vjp_interface_black_list
 sys.path.append(
     str(pathlib.Path(__file__).resolve().parents[3] / 'primitive/codegen')
 )
-import gen as vjp_gen
+
+import decomp_vjp_gen as vjp_gen
 
 # Note(Galaxy1458) The need_export_symbol_op_list is used
 # for some unittests these need to export symbol op compiled with dynamic lib.
@@ -1278,6 +1279,7 @@ def AutoCodeGen(
 
     # (4) parse name of ops which have custom vjp rules
     custom_vjp_op_name_list = []
+
     for custom_vjp in vjp_gen.CUSTOM_VJP:
         custom_vjp_op_name_list.append(custom_vjp[:-5])  # cut _grad
 
