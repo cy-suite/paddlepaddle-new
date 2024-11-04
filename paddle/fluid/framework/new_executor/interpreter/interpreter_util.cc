@@ -1450,4 +1450,18 @@ const std::vector<std::string> GetInstructionCallStack(
   }
   return vec_str;
 }
+
+std::unordered_map<std::string, std::set<std::string>> GetNoNeedBufferValues(
+    const std::unordered_map<std::string, std::shared_ptr<::pir::Program>>&
+        type_to_ir_program) {
+  for (auto& pair : type_to_ir_program) {
+    std::shared_ptr<::pir::Program> program = pair.second;
+    program->num_ops();
+  }
+  std::unordered_map<std::string, std::set<std::string>>
+      program_no_need_buffer_value_names;
+
+  return program_no_need_buffer_value_names;
+}
+
 }  // namespace paddle::framework::interpreter
