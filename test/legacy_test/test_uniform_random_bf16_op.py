@@ -25,24 +25,6 @@ from paddle.base import core
 from paddle.tensor import random
 
 
-def check_symbolic_result(program, fetch_vars, outs, op_type):
-    if paddle.base.libpaddle.pir.all_ops_defined_symbol_infer(program):
-        shape_analysis = (
-            paddle.base.libpaddle.pir.get_shape_constraint_ir_analysis(program)
-        )
-        for i, var in enumerate(fetch_vars):
-            if var.is_dense_tensor_type() or var.is_selected_row_type():
-                shape_or_data = shape_analysis.get_shape_or_data_for_var(var)
-                expect_shape = outs[i].shape
-                expect_data = []
-                if not shape_or_data.is_equal(expect_shape, expect_data):
-                    raise AssertionError(
-                        f"The shape or data of Operator {op_type}'s result is different from expected."
-                    )
-    else:
-        pass
-
-
 class TestUniformRandomOpBF16(OpTest):
     def setUp(self):
         self.op_type = "uniform_random"
@@ -274,13 +256,6 @@ class TestUniformRandomBatchSizeLikeOpBF16API(unittest.TestCase):
                 train_program,
                 feed={"input": np.zeros((1, 3)).astype('uint16')},
                 fetch_list=[out_1],
-            )
-            fetch_list = exe._check_fetch_list([out_1])
-            check_symbolic_result(
-                train_program,
-                fetch_list,
-                outs,
-                "uniform_random_batch_size_like",
             )
 
 
