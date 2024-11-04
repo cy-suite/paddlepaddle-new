@@ -18,9 +18,11 @@
 #include <unordered_set>
 
 #include "paddle/cinn/common/cas.h"
+#include "paddle/cinn/common/simplify_corner_case.h"
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/op/ir_operators.h"
+#include "paddle/cinn/ir/utils/ir_compare.h"
 #include "paddle/common/enforce.h"
 namespace cinn {
 namespace common {
@@ -322,44 +324,6 @@ void CheckTensorUniqueInExpr(Expr expr) {
   }
 }
 
-void CheckBufferUniqueInExpr(Expr expr) {
-  // the buffers exists in tensor and lowered functions.
-  CheckTensorUniqueInExpr(expr);
-
-  auto tensors = ir::ir_utils::CollectIRNodes(
-      expr, [](const Expr *x) { return x->as_tensor(); });
-  auto funcs = ir::ir_utils::CollectIRNodes(
-      expr, [](const Expr *x) { return x->as_lowered_func(); });
-
-  absl::flat_hash_map<std::string, const ir::_Buffer_ *> buffer_name;
-  auto check_buffer_uniq = [&](const ir::_Buffer_ *b) {
-    if (buffer_name.count(b->name)) {
-      PADDLE_ENFORCE_EQ(
-          buffer_name[b->name],
-          b,
-          ::common::errors::InvalidArgument(
-              "Found buffer not unique, The original express is %d .", expr));
-    } else {
-      buffer_name[b->name] = b->const_self();
-    }
-  };
-  for (auto &e : tensors) {
-    auto *t = e.as_tensor();
-    if (t->buffer.defined()) {
-      check_buffer_uniq(t->buffer->const_self());
-    }
-  }
-
-  for (auto &e : funcs) {
-    auto *f = e.as_lowered_func();
-    for (auto &b : f->temp_bufs) {
-      if (b.defined()) {
-        check_buffer_uniq(b->const_self());
-      }
-    }
-  }
-}
-
 Expr cast(Expr e, Type type) {
   if (e.is_constant()) {
     if (type.is_bool()) {
@@ -501,5 +465,104 @@ Expr min(Expr a, Expr b) {
   return ir::Min::Make(a, b);
 }
 
+bool ComparePriority(const ir::IndexExpr &lhs, const ir::IndexExpr &rhs) {
+  if (lhs.node_type() == ir::IrNodeTy::IntImm &&
+      rhs.node_type() != ir::IrNodeTy::IntImm)
+    return false;
+  if (rhs.node_type() == ir::IrNodeTy::IntImm &&
+      lhs.node_type() != ir::IrNodeTy::IntImm)
+    return true;
+  if (auto lhsVar = lhs.As<ir::_Var_>())
+    if (auto rhsVar = rhs.As<ir::_Var_>())
+      return std::make_tuple(lhsVar->name.length(), lhsVar->name) <=
+             std::make_tuple(rhsVar->name.length(), rhsVar->name);
+  auto lhsLen = lhs.length();
+  auto rhsLen = rhs.length();
+  if (lhsLen < rhsLen) return false;
+  // Add < Mul < Div < Mod.
+  else if (lhsLen == rhsLen)
+    return lhs.node_type() <= rhs.node_type();
+  else
+    return true;
+}
+
+bool IsSumPartialBySymbol(const ir::IndexExpr &expr,
+                          const ir::IndexExpr &symbol) {
+  // TODO(liujinnan): Check Ty
+  switch (expr.node_type()) {
+    case ir::IrNodeTy::IntImm: {
+      return false;
+    }
+    case ir::IrNodeTy::_Var_:
+      return expr == symbol;
+    case ir::IrNodeTy::Add:
+      return IsSumPartialBySymbol(expr->operand(0).as_index(), symbol) ||
+             IsSumPartialBySymbol(expr->operand(1).as_index(), symbol);
+    case ir::IrNodeTy::Mul: {
+      if (expr->operand(1).is_constant() &&
+          expr->operand(1).get_constant() == -1)
+        return IsSumPartialBySymbol(expr->operand(0).as_index(), symbol);
+      else
+        return expr->operand(0).as_index() == symbol ||
+               expr->operand(1).as_index() == symbol;
+    }
+
+    case ir::IrNodeTy::Div: {
+      return IsSumPartialBySymbol(expr->operand(0).as_index(), symbol);
+    }
+    case ir::IrNodeTy::Mod:
+      return false;
+  }
+}
+
+bool IsDivisiblieBySymbol(const ir::IndexExpr &expr,
+                          const ir::IndexExpr &symbol,
+                          const ir::IrNodeTy &ty) {
+  // TODO(liujinnan): Check Ty
+  switch (expr.node_type()) {
+    case ir::IrNodeTy::IntImm: {
+      auto imm = expr.As<ir::IntImm>();
+      return imm->value == 0;
+    }
+    case ir::IrNodeTy::_Var_:
+      return expr == symbol;
+    case ir::IrNodeTy::Add:
+      return IsDivisiblieBySymbol(expr->operand(0).as_index(), symbol, ty) &&
+             IsDivisiblieBySymbol(expr->operand(1).as_index(), symbol, ty);
+    case ir::IrNodeTy::Mul:
+      return IsDivisiblieBySymbol(expr->operand(0).as_index(), symbol, ty) ||
+             IsDivisiblieBySymbol(expr->operand(1).as_index(), symbol, ty);
+    case ir::IrNodeTy::Mod:
+      // Because S0 % 3 + S0 % 5 is not divisiblie by S0, so we push
+      // `expr.node_type()` into third parameter.
+      return IsDivisiblieBySymbol(
+                 expr->operand(0).as_index(), symbol, expr.node_type()) &&
+             IsDivisiblieBySymbol(
+                 expr->operand(1).as_index(), symbol, expr.node_type());
+    case ir::IrNodeTy::Div: {
+      if (ty != expr.node_type()) return false;
+      return IsDivisiblieBySymbol(
+          expr->operand(0).as_index(), symbol, expr.node_type());
+    }
+  }
+}
+
+bool ProveDivisible(const ir::IndexExpr &lhs, const ir::IndexExpr &rhs) {
+  if (IsZero(lhs % rhs)) return true;
+  // remove AutoSimplify later.
+  if (IsZero(AutoSimplify(lhs % rhs))) return true;
+  return false;
+}
+
+bool IsNegatedIndexExpr(const ir::IndexExpr &candidate,
+                        ir::IndexExpr &expr) {  // NOLINT
+  if (auto mul = candidate.As<ir::Mul>()) {
+    if (mul->b().is_constant() && mul->b().get_constant() == -1) {
+      expr = mul->a();
+      return true;
+    }
+  }
+  return false;
+}
 }  // namespace common
 }  // namespace cinn
