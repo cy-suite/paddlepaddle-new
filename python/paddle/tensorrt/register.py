@@ -35,15 +35,16 @@ class ConverterOpRegistry:
         return self._registry.get(op_name)
 
     def _version_match(self, trt_version, version_range):
-        if version_range is None:
-            return True
-
-        # Extract major, minor, and patch version numbers
         trt_major, trt_minor, trt_patch = map(int, trt_version.split('.'))
 
         if version_range.startswith('trt_version_ge='):
             min_version = version_range.split('=')[1]
-            min_major, min_minor, min_patch = map(int, min_version.split('.'))
+            min_version_parts = min_version.split('.')
+            # Ensure min_version has three parts, filling missing parts with 0
+            while len(min_version_parts) < 3:
+                min_version_parts.append('0')
+            min_major, min_minor, min_patch = map(int, min_version_parts)
+
             # Compare major, minor, and patch versions
             if trt_major > min_major:
                 return True
@@ -60,7 +61,12 @@ class ConverterOpRegistry:
 
         elif version_range.startswith('trt_version_le='):
             max_version = version_range.split('=')[1]
-            max_major, max_minor, max_patch = map(int, max_version.split('.'))
+            max_version_parts = max_version.split('.')
+            # Ensure max_version has three parts, filling missing parts with 0
+            while len(max_version_parts) < 3:
+                max_version_parts.append('0')
+            max_major, max_minor, max_patch = map(int, max_version_parts)
+
             # Compare major, minor, and patch versions
             if trt_major < max_major:
                 return True
