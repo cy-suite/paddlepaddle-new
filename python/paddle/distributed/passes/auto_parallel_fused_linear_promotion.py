@@ -17,7 +17,6 @@ import logging
 
 import numpy as np
 
-import paddle.distributed as dist
 from paddle.distributed.auto_parallel.static.utils import (
     is_optimize_op,
     is_recompute_op,
@@ -53,14 +52,14 @@ _supported_optimizer_type = [
 FUSED_LINEAR_SOURCE_PATTERNS_LIST = [
     # amp_level == 'o2' or 'o3'
     {  # only MP
-        "forward": ["matmul_v2", "all_reduce", "elementwise_add"],
+        "forward": ["matmul_v2", "c_allreduce_sum", "elementwise_add"],
         "backward": ["elementwise_add_grad", "matmul_v2_grad"],
     },
     {  # MP + SP
         "forward": ["matmul_v2", "reduce_scatter", "elementwise_add"],
         "backward": [
             "elementwise_add_grad",
-            "all_reduce",
+            "c_allreduce_sum",
             "scale",
             "all_gather",
             "matmul_v2_grad",
@@ -68,10 +67,10 @@ FUSED_LINEAR_SOURCE_PATTERNS_LIST = [
         ],
     },
     {  # DP + MP
-        "forward": ["matmul_v2", "all_reduce", "elementwise_add"],
+        "forward": ["matmul_v2", "c_allreduce_sum", "elementwise_add"],
         "backward": [
             "elementwise_add_grad",
-            "all_reduce",
+            "c_allreduce_sum",
             "scale",
             "matmul_v2_grad",
         ],
@@ -80,9 +79,9 @@ FUSED_LINEAR_SOURCE_PATTERNS_LIST = [
         "forward": ["matmul_v2", "reduce_scatter", "elementwise_add"],
         "backward": [
             "elementwise_add_grad",
-            "all_reduce",
+            "c_allreduce_sum",
             "scale",
-            "all_reduce",
+            "c_allreduce_sum",
             "scale",
             "all_gather",
             "matmul_v2_grad",
@@ -91,14 +90,14 @@ FUSED_LINEAR_SOURCE_PATTERNS_LIST = [
     },
     # amp_level == 'o1'
     {
-        "forward": ["matmul_v2", "all_reduce", "cast", "elementwise_add"],
+        "forward": ["matmul_v2", "c_allreduce_sum", "cast", "elementwise_add"],
         "backward": ["elementwise_add_grad", "matmul_v2_grad"],
     },
     {
         "forward": ["matmul_v2", "reduce_scatter", "cast", "elementwise_add"],
         "backward": [
             "elementwise_add_grad",
-            "all_reduce",
+            "c_allreduce_sum",
             "scale",
             "all_gather",
             "all_gather",
@@ -106,10 +105,10 @@ FUSED_LINEAR_SOURCE_PATTERNS_LIST = [
         ],
     },
     {
-        "forward": ["matmul_v2", "all_reduce", "cast", "elementwise_add"],
+        "forward": ["matmul_v2", "c_allreduce_sum", "cast", "elementwise_add"],
         "backward": [
             "elementwise_add_grad",
-            "all_reduce",
+            "c_allreduce_sum",
             "scale",
             "matmul_v2_grad",
         ],
@@ -118,9 +117,9 @@ FUSED_LINEAR_SOURCE_PATTERNS_LIST = [
         "forward": ["matmul_v2", "reduce_scatter", "cast", "elementwise_add"],
         "backward": [
             "elementwise_add_grad",
-            "all_reduce",
+            "c_allreduce_sum",
             "scale",
-            "all_reduce",
+            "c_allreduce_sum",
             "scale",
             "all_gather",
             "matmul_v2_grad",
@@ -531,7 +530,7 @@ class FusedLinearPromotionPass(PassBase):
                 global_block._remove_var(origin_matmul_output_name)
 
             # 4. deal comm op
-            # The input of all_reduce sum only be used once, so we don't need add it in the rename_vars_map
+            # The input of c_allreduce_sum only be used once, so we don't need add it in the rename_vars_map
             if is_first_rank:
                 origin_comm_op._rename_input(
                     origin_comm_op.input_arg_names[0],
@@ -542,10 +541,7 @@ class FusedLinearPromotionPass(PassBase):
                     origin_comm_op.input_arg_names[0],
                     origin_matmul_output_new_name,
                 )
-            if (
-                origin_comm_op.type == "all_reduce"
-                and origin_comm_op.attr("reduce_type") == dist.ReduceOp.SUM
-            ):
+            if origin_comm_op.type == "c_allreduce_sum":
                 new_comm_var_name = origin_comm_op.input_arg_names[0]
             else:
                 new_comm_var_name = unique_name.generate(
@@ -669,12 +665,12 @@ class FusedLinearPromotionPass(PassBase):
                         global_block._remove_op(segment[0] + 5)  # scale
                         global_block._remove_op(
                             segment[0] + 4
-                        )  # all_reduce sum
+                        )  # c_allreduce_sum
                     else:
                         global_block._remove_op(segment[0] + 3)  # scale
                         global_block._remove_op(
                             segment[0] + 2
-                        )  # all_reduce sum
+                        )  # c_allreduce_sum
                 global_block._sync_with_cpp()
         else:  # not is_first_rank_in tp or sp
             # need to delete the grad op associated with the deleted bias var
@@ -692,7 +688,7 @@ class FusedLinearPromotionPass(PassBase):
                         global_block._remove_op(segment[0] + 2)  # scale op
                         global_block._remove_op(
                             segment[0] + 1
-                        )  # all_reduce sum op
+                        )  # c_allreduce_sum op
                     global_block._remove_op(segment[0])
                 global_block._sync_with_cpp()
             else:
@@ -716,11 +712,11 @@ class FusedLinearPromotionPass(PassBase):
                         )  # scale op for dp
                         global_block._remove_op(
                             segment[0] + 3
-                        )  # all_reduce sum op for dp
+                        )  # c_allreduce_sum op for dp
                     global_block._remove_op(segment[0] + 2)  # scale op for sp
                     global_block._remove_op(
                         segment[0] + 1
-                    )  # all_reduce sum op for sp
+                    )  # c_allreduce_sum op for sp
                     global_block._remove_op(
                         segment[0]
                     )  # elementwise_add_grad op
@@ -838,7 +834,7 @@ class FusedLinearPromotionPass(PassBase):
                             if output_var not in to_delete_extra_vars:
                                 to_delete_extra_vars.append(output_var)
             else:
-                if op.type == "broadcast":
+                if op.type == "c_broadcast":
                     input_vars = op.input_arg_names
                     if (
                         input_vars[0] in deleted_bias_names

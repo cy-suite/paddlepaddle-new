@@ -83,12 +83,12 @@ class TestDistPNorm(unittest.TestCase):
             assert op_types == [
                 'reshape2',
                 'c_embedding',
-                'all_reduce',
+                'c_allreduce_sum',
                 'reduce_mean',
                 'fill_constant',
                 'reduce_mean_grad',
                 'c_embedding_grad',
-                'all_reduce',
+                'c_allreduce_sum',
                 'scale',
             ], f"Unexpexted op types: {op_types}"
 

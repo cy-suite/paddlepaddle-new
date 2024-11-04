@@ -169,7 +169,7 @@ class TestDistMatmul(unittest.TestCase):
         # [0, -1, 1] * [1, -1] --> [0, -1, -1]
         ref_ops = [
             "matmul_v2",
-            "all_reduce",
+            "c_allreduce_sum",
             "reduce_mean",
             "fill_constant",
             "reduce_mean_grad",
@@ -287,7 +287,7 @@ class TestDistMatmulV2(unittest.TestCase):
         # [0, -1, 1] * [1, -1] --> [0, -1, -1]
         ref_ops = [
             "matmul_v2",
-            "all_reduce",
+            "c_allreduce_sum",
             "reduce_mean",
             "fill_constant",
             "reduce_mean_grad",
@@ -404,9 +404,9 @@ class TestDistMatmulReshard(unittest.TestCase):
             "fill_constant",
             "reduce_mean_grad",
             "matmul_v2_grad",
-            "all_reduce",
+            "c_allreduce_sum",
             "scale",
-            "all_reduce",
+            "c_allreduce_sum",
             "assign",
         ]
         ops = []
