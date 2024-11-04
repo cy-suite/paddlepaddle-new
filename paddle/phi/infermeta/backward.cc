@@ -611,6 +611,20 @@ void GatherNdDoubleGradInferMeta(const MetaTensor& grad_out,
   grad_out_grad->set_dtype(dtype);
 }
 
+void IndexPutDoubleGradInferMeta(
+    const MetaTensor& x,
+    const std::vector<MetaTensor>& indices,
+    const MetaTensor& value,
+    const paddle::optional<MetaTensor>& grad_x_grad,
+    const paddle::optional<MetaTensor>& grad_value_grad,
+    const bool& accumulate,
+    MetaTensor* grad_out_grad) {
+  const auto& dtype = value.dtype();
+  grad_out_grad->set_dims(x.dims());
+  grad_out_grad->share_lod(x);
+  grad_out_grad->set_dtype(dtype);
+}
+
 void GeneralBinaryGradInferMeta(const MetaTensor& x,
                                 const MetaTensor& y,
                                 MetaTensor* dx,

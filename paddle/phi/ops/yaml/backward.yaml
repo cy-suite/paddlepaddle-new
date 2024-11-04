@@ -1310,6 +1310,7 @@
   kernel :
     func : gather_nd_grad
   no_need_buffer : x
+  composite : gather_nd_grad(x, index, out_grad, x_grad)
   backward : gather_nd_double_grad
 
 - backward_op : gaussian_inplace_grad
@@ -1563,16 +1564,17 @@
   inplace : (out_grad -> x_grad)
 
 - backward_op : index_put_double_grad
-  forward : index_put_grad (Tensor x, Tensor[] indices, Tensor value, Tensor out_grad, bool accumulate=false) -> Tensor(grad_x), Tensor(grad_value)
+  forward : index_put_grad (Tensor x, Tensor[] indices, Tensor value, Tensor grad_out, bool accumulate=false) -> Tensor(grad_x), Tensor(grad_value)
   args : (Tensor x, Tensor[] indices, Tensor value, Tensor grad_x_grad, Tensor grad_value_grad, bool accumulate=false)
-  output : Tensor(out_grad_grad)
+  output : Tensor(grad_out_grad)
   infer_meta :
     func : UnchangedInferMeta
     param: [x]
   data_transform :
     skip_transform : indices
-  composite : index_put_double_grad(x, indices, value, grad_x_grad, grad_value_grad, accumulate, out_grad_grad)
+  composite : index_put_double_grad(x, indices, value, grad_x_grad, grad_value_grad, accumulate, grad_out_grad)
   optional: grad_x_grad, grad_value_grad
+  no_need_buffer : x
 
 - backward_op : index_put_grad
   forward : index_put (Tensor x, Tensor[] indices, Tensor value, bool accumulate=false) -> Tensor(out)
