@@ -200,7 +200,7 @@ void ApplyDivideGroupOpToFusionOpPass(
   pass_manager->AddPass(cinn::dialect::ir::CreateSingleOpFallbackToPhiPass());
   pass_manager->AddPass(cinn::dialect::ir::CreateShapeOpsFallbackToPhiPass());
 
-  pass_manager->EnableIRPrinting();
+  //pass_manager->EnableIRPrinting();
   pass_manager->Run(program);
 }
 
