@@ -138,6 +138,9 @@ void LoadSeparatePersistables(framework::Executor* executor,
       persistable_vars.push_back(var);
     }
   }
+  if (persistable_vars.empty()) {
+    return;
+  }
 
   size_t num_threads = 8;
   size_t chunk_size =
