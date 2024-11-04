@@ -86,7 +86,7 @@ class TestMulticlassNMS3Marker(TensorRTBaseTest):
         self.check_marker(expected_result=False)
 
 
-class TestShare_DataTRTPatternCase1(TensorRTBaseTest):
+class TestShareDataTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = api_wrapper
         self.api_args = {
