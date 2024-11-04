@@ -435,6 +435,9 @@ class RemovePasses:
                 lr = op.result(0)
                 lr.replace_all_uses_with(lr_value)
                 op.erase()
+        for keyword, argument in dist_program.global_block().kwargs().items():
+            if argument.use_empty():
+                dist_program.global_block().erase_kwarg(keyword)
 
     @staticmethod
     def remove_no_need_in_startup(startup_program, main_program):
