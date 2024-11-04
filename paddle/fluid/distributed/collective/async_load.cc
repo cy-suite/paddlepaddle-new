@@ -36,12 +36,8 @@ void AsyncLoad::Task::CudaSynchronize() {
 }
 
 void AsyncLoad::Task::CpuSynchronize() {
-  const auto* calc_ctx =
-      platform::DeviceContextPool::Instance().Get(task_place_);
-  load_event_.Wait(platform::Place2DeviceType(task_place_), calc_ctx);
-  while (!IsCompleted()) {
-    std::this_thread::sleep_for(std::chrono::microseconds(1));
-  }
+  // cudaEventSynchronize
+  load_event_.Finish();
 }
 
 void AsyncLoad::Task::UpdateWaitChain(const phi::DeviceContext& ctx) {
