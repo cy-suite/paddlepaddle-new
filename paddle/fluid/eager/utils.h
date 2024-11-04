@@ -284,4 +284,16 @@ class TEST_API EagerUtils {
       const paddle::optional<std::vector<paddle::Tensor>>& tensors);
 };
 
+void print_mem_info3(const std::string& info);
+
+class print_mem_info_guard3 {
+ public:
+  explicit print_mem_info_guard3(const std::string& op_type) {
+    print_mem_info3(op_type + " begin");
+    op_type_ = op_type;
+  }
+  ~print_mem_info_guard3() { print_mem_info3(op_type_ + " end"); }
+  std::string op_type_;
+};
+
 }  // namespace egr
