@@ -59,7 +59,7 @@ class Poisson(distribution.Distribution):
 
             >>> print(rv.sample([3]))
             Tensor(shape=[3], dtype=float32, place=Place(cpu), stop_gradient=True,
-            [35., 35., 30.])
+            [32., 27., 25.])
 
             >>> print(rv.mean)
             Tensor(shape=[], dtype=float32, place=Place(cpu), stop_gradient=True,
