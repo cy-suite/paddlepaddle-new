@@ -14,7 +14,6 @@
 
 import copy
 
-import paddle.distributed as dist
 from paddle.distributed.fleet.meta_optimizers.common import OP_ROLE_KEY, OpRole
 
 from ..completion import get_phi_spmd_rule
@@ -205,12 +204,12 @@ class DistributedReduceSumPrimitiveImpl0(DistributedOperatorImpl):
         var_name = src_op.output_arg_names[0]
         sync_group = new_process_group(ctx.data_parallel_group)
         allreduce_op = main_block.append_op(
-            type='all_reduce',
-            inputs={'x': [var_name]},
-            outputs={'out': [var_name]},
+            type='c_allreduce_sum',
+            inputs={'X': [var_name]},
+            outputs={'Out': [var_name]},
             attrs={
                 'ring_id': sync_group.id,
-                'reduce_type': dist.ReduceOp.SUM,
+                'use_calc_stream': True,
                 OP_ROLE_KEY: OpRole.Forward,
             },
         )

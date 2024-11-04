@@ -15,7 +15,6 @@
 import os
 
 import paddle
-import paddle.distributed as dist
 from paddle.base import core
 from paddle.incubate.optimizer import PipelineOptimizer
 from paddle.static import (
@@ -1005,8 +1004,7 @@ class ShardingOptimizer(MetaOptimizerBase):
             output_names = op.desc.output_arg_names()
             # FIXME(wangxi): need use grads, pipeline grad is @GRAD@MERGE
             if (
-                block.ops[idx].type == 'all_reduce'
-                and block.ops[idx].desc.attr("reduce_type") == dist.ReduceOp.SUM
+                op.type == "c_allreduce_sum"
                 and op.attr('use_model_parallel') is False
             ):
                 assert len(output_names) == 1
@@ -1027,6 +1025,7 @@ class ShardingOptimizer(MetaOptimizerBase):
         # Prune
         for idx, op in reversed(list(enumerate(block.ops))):
             if op.type in [
+                "c_allreduce_sum",
                 "c_sync_comm_stream",
                 "c_calc_comm_stream",
                 "c_gen_nccl_id",
@@ -1035,10 +1034,7 @@ class ShardingOptimizer(MetaOptimizerBase):
                 "c_comm_init",
                 'send_v2',
                 'recv_v2',
-            ] or (
-                op.type == 'all_reduce'
-                and op.desc.attr("reduce_type") == dist.ReduceOp.SUM
-            ):
+            ]:
                 pass
             elif op.type == "conditional_block":
                 assert op.desc.has_attr("sub_block")
@@ -1894,12 +1890,12 @@ class ShardingOptimizer(MetaOptimizerBase):
             for grad, merged_grad in self._grad2merged_grad.items():
                 merged_grad_var = main_block.var(merged_grad)
                 cur_block.append_op(
-                    type='all_reduce',
-                    inputs={'x': merged_grad_var},
-                    outputs={'out': merged_grad_var},
+                    type='c_allreduce_sum',
+                    inputs={'X': merged_grad_var},
+                    outputs={'Out': merged_grad_var},
                     attrs={
                         'ring_id': self.dp_ring_id,
-                        'reduce_type': dist.ReduceOp.SUM,
+                        'use_calc_stream': True,
                         OP_ROLE_KEY: OpRole.Optimize,
                     },
                 )

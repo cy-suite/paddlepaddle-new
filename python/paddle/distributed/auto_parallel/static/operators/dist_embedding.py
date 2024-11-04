@@ -514,23 +514,23 @@ class DistributedEmbeddingImpl(DistributedOperatorImpl):
         naive_copy_op_dist_attr_for_program(c_embedding_op, src_op, ctx)
 
         # use_model_parallel
-        all_reduce_sum_op = main_block.append_op(
-            type='all_reduce',
-            inputs={'x': [Out_var]},
-            outputs={'out': [Out_var]},
+        c_allreduce_sum_op = main_block.append_op(
+            type='c_allreduce_sum',
+            inputs={'X': [Out_var]},
+            outputs={'Out': [Out_var]},
             attrs={
                 'ring_id': group.id,
-                'reduce_type': dist.ReduceOp.SUM,
+                'use_calc_stream': True,
                 'use_model_parallel': True,
                 OP_ROLE_KEY: src_op.attr('op_role'),
             },
         )
-        all_reduce_sum_op._set_attr(
+        c_allreduce_sum_op._set_attr(
             'op_namescope', '/' + ParallelMode.TensorParallel
         )
         # allreduce
         set_comm_op_dist_attr_for_program(
-            all_reduce_sum_op,
+            c_allreduce_sum_op,
             op_dist_attr.process_mesh,
             out_var_dist_attr,
             ctx,

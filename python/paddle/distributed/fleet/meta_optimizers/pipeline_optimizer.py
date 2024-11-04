@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 
 import paddle
-import paddle.distributed as dist
 from paddle.incubate.optimizer import PipelineOptimizer as PO
 
 from .common import (
@@ -309,12 +308,12 @@ class PipelineOptimizer(MetaOptimizerBase):
 
                     block._insert_op(
                         first_optimize_op_idx + offset,
-                        type='all_reduce',
-                        inputs={'x': grad},
-                        outputs={'out': grad},
+                        type='c_allreduce_sum',
+                        inputs={'X': grad},
+                        outputs={'Out': grad},
                         attrs={
                             'ring_id': ring_id,
-                            'reduce_type': dist.ReduceOp.SUM,
+                            'use_calc_stream': True,
                             OP_ROLE_KEY: OpRole.Optimize,
                         },
                     )

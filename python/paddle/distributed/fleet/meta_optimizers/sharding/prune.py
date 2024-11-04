@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import paddle.distributed as dist
-
 __all__ = []
 
 
@@ -55,12 +53,10 @@ class ProgramDeps:
 
         for idx, op in enumerate(self._block.ops):
             if op.type in [
+                "c_allreduce_sum",
                 "c_sync_comm_stream",
                 "c_calc_comm_stream",
-            ] or (
-                op.type == 'all_reduce'
-                and op.desc.attr("reduce_type") == dist.ReduceOp.SUM
-            ):
+            ]:
                 continue
             input_vars = op.desc.input_arg_names()
             output_vars = op.desc.output_arg_names()

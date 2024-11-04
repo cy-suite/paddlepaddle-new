@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 
-import paddle.distributed as dist
 from paddle.distributed.auto_parallel.static.process_group import (
     get_world_process_group,
 )
@@ -158,12 +157,12 @@ class DistributedCheckFiniteAndUnscaleImpl(DistributedOperatorImpl):
             },
         )
         allreduce_op = main_block.append_op(
-            type='all_reduce',
-            inputs={'x': inf_var_int32},
-            outputs={'out': inf_var_int32},
+            type='c_allreduce_max',
+            inputs={'X': inf_var_int32},
+            outputs={'Out': inf_var_int32},
             attrs={
                 'ring_id': group.id,
-                'reduce_type': dist.ReduceOp.MAX,
+                'use_calc_stream': True,
                 OP_ROLE_KEY: OpRole.Optimize,
             },
         )
