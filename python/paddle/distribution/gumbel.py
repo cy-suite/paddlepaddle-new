@@ -250,7 +250,7 @@ class Gumbel(TransformedDistribution):
         """
         return paddle.log(self.scale) + 1 + np.euler_gamma
 
-    def sample(self, shape: Sequence[int]) -> Tensor:
+    def sample(self, shape: Sequence[int] = ()) -> Tensor:
         """Sample from ``Gumbel``.
 
         Args:
@@ -263,10 +263,11 @@ class Gumbel(TransformedDistribution):
         with paddle.no_grad():
             return self.rsample(shape)
 
-    def rsample(self, shape: Sequence[int]) -> Tensor:
+    def rsample(self, shape: Sequence[int] = ()) -> Tensor:
         """reparameterized sample
         Args:
-            shape (Sequence[int]): 1D `int32`. Shape of the generated samples.
+            shape (Sequence[int], optional): 1D `int32`. Shape of the generated samples.
+                Defaults to ().
 
         Returns:
             Tensor: A tensor with prepended dimensions shape.The data type is float32.
