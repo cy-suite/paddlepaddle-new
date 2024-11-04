@@ -140,8 +140,10 @@ void LoadSeparatePersistables(framework::Executor* executor,
   }
 
   size_t num_threads = 8;
-  size_t chunk_size = std::max(1UL, persistable_vars.size() / num_threads);
+  size_t chunk_size =
+      std::max(static_cast<size_t>(1), persistable_vars.size() / num_threads);
   num_threads = std::min(num_threads, persistable_vars.size() / chunk_size);
+  size_t remains_size = persistable_vars.size() % num_threads;
   VLOG(4) << "Start Load with multi-thread: " << num_threads
           << " chund size: " << chunk_size;
 
@@ -182,12 +184,19 @@ void LoadSeparatePersistables(framework::Executor* executor,
   std::vector<std::future<void>> futures;
   for (size_t i = 0; i < num_threads; ++i) {
     auto start_it = persistable_vars.begin() + i * chunk_size;
-    auto end_it =
-        (i == num_threads - 1) ? persistable_vars.end() : start_it + chunk_size;
+    auto end_it = start_it + chunk_size;
     futures.push_back(
         std::async(std::launch::async,
                    load_handler,
                    std::vector<framework::VarDesc*>(start_it, end_it)));
+  }
+  if (remains_size > 0) {
+    futures.push_back(
+        std::async(std::launch::async,
+                   load_handler,
+                   std::vector<framework::VarDesc*>(
+                       persistable_vars.rbegin(),
+                       persistable_vars.rbegin() + remains_size)));
   }
   for (auto& future : futures) {
     future.wait();
