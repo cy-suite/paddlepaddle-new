@@ -866,7 +866,8 @@ void layer_norm_grad(const Tensor& x,
     auto d_std = d_std_1 * x_sub_mean_mul_sqrt_var_1;  // M,1 * M,N = M,N
 
     auto d_mean_d_std =
-        (d_mean + d_std) / decomp_help.GetNormlizedNumel<T>(x_cast);
+        (d_mean + d_std) / decomp_help.GetNormlizedNumel<T>(d_std);
+
     auto x_grad_tmp = dx_end - d_mean_d_std;
     x_grad_tmp = ConverToOrig<T>(x_grad_tmp, x.dtype());
 
