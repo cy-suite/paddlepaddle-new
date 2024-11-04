@@ -3402,4 +3402,3 @@ All parameter, weight, gradient are variables in Paddle.
 }
 }  // namespace pybind
 }  // namespace paddle
-}  // namespace paddle
