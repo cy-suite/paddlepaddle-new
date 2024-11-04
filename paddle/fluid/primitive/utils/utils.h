@@ -309,15 +309,35 @@ class GroupNormDecompHelper {
   GroupNormDecompHelper(const Tensor& x,
                         const paddle::optional<Tensor>& scale,
                         const paddle::optional<Tensor>& bias,
-                        int64_t axis,
-                        int64_t group_num) {
+                        int64_t group_num,
+                        const std::string& data_format) {
     auto x_dims = phi::vectorize(x.dims());
     auto x_rank = x_dims.size();
-    if (axis < 0) {
-      axis += x_rank;
+    x_rank_ = x_rank;
+
+    if (data_format == "NCHW") {
+      channel_axis_ = 1;
+      for (int64_t i = channel_axis_ + 1; i < x_rank + 1; ++i) {
+        reduce_axis_.push_back(i);
+      }
+    } else if (data_format == "NHWC") {
+      channel_axis_ = x_rank - 1;
+      for (int64_t i = 1; i < channel_axis_; ++i) {
+        reduce_axis_.push_back(i);
+      }
+      reduce_axis_.push_back(x_rank);
+    } else {
+      PADDLE_THROW(
+          common::errors::Unimplemented("Only support NCHW and NHWC format."));
     }
 
-    int64_t channel_dim = x_dims[axis];
+    scale_bias_new_shape_.push_back(group_num);
+    scale_bias_new_shape_.push_back(-1);
+    for (int64_t i = channel_axis_ + 1; i < x_rank; ++i) {
+      scale_bias_new_shape_.push_back(1);
+    }
+
+    int64_t channel_dim = x_dims[channel_axis_];
     if ((channel_dim < 0) && scale) {
       channel_dim = scale->dims()[0];
     }
@@ -327,7 +347,7 @@ class GroupNormDecompHelper {
 
     int unk_count = 0;
     for (size_t i = 0; i < x_dims.size(); ++i) {
-      if ((i != axis) && (x_dims[i] < 0)) {
+      if ((i != channel_axis_) && (x_dims[i] < 0)) {
         unk_count++;
       }
     }
@@ -338,8 +358,8 @@ class GroupNormDecompHelper {
       // case 1: axis is the last one
       // case 2: from axis + 1 to end all positive
       can_use_vector_int_as_output_shape_ =
-          (axis + 1 == x_rank) ||
-          std::find(x_dims.begin() + axis + 1, x_dims.end(), -1) ==
+          (channel_axis_ + 1 == x_rank) ||
+          std::find(x_dims.begin() + channel_axis_ + 1, x_dims.end(), -1) ==
               x_dims.end();
 
       // case 3: one ONE unk dim(-1) except axis
@@ -356,7 +376,7 @@ class GroupNormDecompHelper {
 
     if (can_use_vector_int_as_output_shape_) {
       split_out_shape_.reserve(x_rank + 1);
-      for (int64_t i = 0; i < axis; ++i) {
+      for (int64_t i = 0; i < channel_axis_; ++i) {
         split_out_shape_.push_back(0);
         merge_out_shape_.push_back(0);
       }
@@ -365,15 +385,17 @@ class GroupNormDecompHelper {
           split_out_shape_.end(), split_dim.begin(), split_dim.end());
       merge_out_shape_.push_back(channel_dim);
 
-      for (int64_t i = axis + 1; i < x_rank; ++i) {
+      for (int64_t i = channel_axis_ + 1; i < x_rank; ++i) {
         split_out_shape_.push_back(x_dims[i]);
         merge_out_shape_.push_back(x_dims[i]);
       }
     } else {
       auto x_shape = shape<T>(x);
-      if (axis > 0) {
-        split_shape_tensor_.push_back(get_slice_vec<T>(x_shape, 0, axis));
-        merge_shape_tensor_.push_back(get_slice_vec<T>(x_shape, 0, axis));
+      if (channel_axis_ > 0) {
+        split_shape_tensor_.push_back(
+            get_slice_vec<T>(x_shape, 0, channel_axis_));
+        merge_shape_tensor_.push_back(
+            get_slice_vec<T>(x_shape, 0, channel_axis_));
       }
 
       split_shape_tensor_.push_back(
@@ -384,11 +406,11 @@ class GroupNormDecompHelper {
       merge_shape_tensor_.push_back(
           full_scalar<T>(channel_dim, phi::DataType::INT64));
 
-      if (axis < x_rank) {
+      if (channel_axis_ < x_rank) {
         split_shape_tensor_.push_back(
-            get_slice_vec<T>(x_shape, axis + 1, x_rank));
+            get_slice_vec<T>(x_shape, channel_axis_ + 1, x_rank));
         merge_shape_tensor_.push_back(
-            get_slice_vec<T>(x_shape, axis + 1, x_rank));
+            get_slice_vec<T>(x_shape, channel_axis_ + 1, x_rank));
       }
     }
   }
@@ -409,6 +431,68 @@ class GroupNormDecompHelper {
     }
   }
 
+  const std::vector<int64_t>& GetReduceAxis() const { return reduce_axis_; }
+
+  const std::vector<int64_t>& GetScaleBiasNewShape() const {
+    return scale_bias_new_shape_;
+  }
+
+  Tensor GetHW(const Tensor& x) {
+    auto x_dims = x.dims();
+    int64_t hw_start;
+    int64_t hw_end;
+
+    if (channel_axis_ + 1 == x_dims.size()) {
+      // nhwc
+      hw_start = 1;
+      hw_end = channel_axis_;
+    } else {
+      // nchw
+      hw_start = channel_axis_ + 1;
+      hw_end = x_dims.size();
+    }
+
+    bool static_hw = true;
+    int64_t hw_numel = 1;
+    for (int64_t i = hw_start; i < hw_end; ++i) {
+      if (x_dims[i] < 0) {
+        static_hw = false;
+        break;
+      }
+      hw_numel *= x_dims[i];
+    }
+
+    if (static_hw) {
+      return full_scalar<T>(hw_numel, x.dtype());
+    } else {
+      return cast<T>(get_slice_vec<T>(shape<T>(x), hw_start, hw_end),
+                     x.dtype());
+    }
+  }
+
+  Tensor GetChannelDivGroup(const Tensor& x) {
+    auto x_dims = x.dims();
+    if (x_dims[channel_axis_] < 0) {
+      auto c = get_slice<T>(shape<T>(x), channel_axis_);
+      return cast<T>(c, x.dtype()) / full_scalar<T>(group_num_, x.dtype());
+    } else {
+      return full_scalar<T>(x_dims[channel_axis_] / group_num_, x.dtype());
+    }
+  }
+
+  std::vector<int64_t> GetReduceAxisExceptChannel() const {
+    std::vector<int64_t> reduce_axis;
+    reduce_axis.reserve(x_rank_ - 1);
+
+    for (int64_t i = 0; i < x_rank_ + 1; ++i) {
+      if (i != channel_axis_ && i != channel_axis_ + 1) {
+        reduce_axis.push_back(i);
+      }
+    }
+
+    return reduce_axis;
+  }
+
  private:
   bool can_use_vector_int_as_output_shape_{false};
   std::vector<int64_t> split_out_shape_;
@@ -416,6 +500,12 @@ class GroupNormDecompHelper {
 
   std::vector<int64_t> merge_out_shape_;
   std::vector<Tensor> merge_shape_tensor_;
+  std::vector<int64_t> reduce_axis_;
+  std::vector<int64_t> scale_bias_new_shape_;
+
+  int64_t group_num_;
+  int64_t channel_axis_;
+  int64_t x_rank_;
 };
 
 }  // namespace primitive

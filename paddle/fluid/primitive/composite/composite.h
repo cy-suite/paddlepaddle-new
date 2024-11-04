@@ -1096,31 +1096,12 @@ std::tuple<Tensor, Tensor, Tensor> group_norm_decomp(
     const float epsilon,
     const int groups,
     const std::string& data_format) {
-  int64_t channel_axis;
   size_t rank = x.shape().size();
-  std::vector<int64_t> c_axis;
-  if (data_format == "NCHW") {
-    channel_axis = 1;
-    for (int64_t i = channel_axis + 1; i < rank + 1; ++i) {
-      c_axis.push_back(i);
-    }
-  } else if (data_format == "NHWC") {
-    channel_axis = rank - 1;
-    for (int64_t i = 1; i < channel_axis; ++i) {
-      c_axis.push_back(i);
-    }
-    c_axis.push_back(rank);
-  } else {
-    PADDLE_THROW(
-        common::errors::Unimplemented("Only support NCHW and NHWC format."));
-  }
+  GroupNormDecompHelper<T> decomp_helper(x, scale, bias, groups, data_format);
+  const std::vector<int64_t>& c_axis = decomp_helper.GetReduceAxis();
+  const std::vector<int64_t>& scale_bias_new_shape =
+      decomp_helper.GetScaleBiasNewShape();
 
-  std::vector<int64_t> scale_bias_new_shape;
-  scale_bias_new_shape.push_back(groups);
-  scale_bias_new_shape.push_back(-1);
-  for (int64_t i = channel_axis + 1; i < rank; ++i) {
-    scale_bias_new_shape.push_back(1);
-  }
   if (rank < 3) {
     PADDLE_THROW(common::errors::Unimplemented(
         "Only support NCHW and NHWC format in rank higher or equal to 3. "
@@ -1128,7 +1109,6 @@ std::tuple<Tensor, Tensor, Tensor> group_norm_decomp(
         rank));
   }
 
-  GroupNormDecompHelper<T> decomp_helper(x, scale, bias, channel_axis, groups);
   auto org_dtype = x.dtype();
   Tensor x_cast = ConverToMT<T>(x);
 
