@@ -17,7 +17,6 @@ import unittest
 import numpy as np
 
 import paddle
-from paddle.pir_utils import test_with_pir_api
 
 
 def ref_divide(x, y, rounding_mode):
@@ -140,7 +139,6 @@ class TestDivideError(unittest.TestCase):
 
 
 class TestDividePIR(TestDivideAPI):
-    @test_with_pir_api
     def test_with_pir(self):
         paddle.enable_static()
         for device in self.devices:
