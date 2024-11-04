@@ -2057,7 +2057,7 @@ class TestDygraphInplaceSet(unittest.TestCase):
     def inplace_api_processing(
         self, x, new_x=None, shape=None, stride=None, offset=0
     ):
-        return paddle.set_(x, new_x, shape, stride, offset)
+        return paddle.Tensor.set_(x, new_x, shape, stride, offset)
 
     def test_inplace_api(self):
         for dtype in self.support_dtypes:

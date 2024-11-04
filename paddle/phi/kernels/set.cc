@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "paddle/phi/core/kernel_registry.h"
-#include "paddle/phi/kernels/set_inplace_kernel.h"
+#include "paddle/phi/kernels/set_kernel.h"
 
 namespace phi {
 
 template <typename T, typename Context>
-void SetInplaceKernel(const Context& dev_ctx,
-                      const DenseTensor& x,
-                      const DenseTensor& source,
-                      const std::vector<int64_t>& dims,
-                      const std::vector<int64_t>& stride,
-                      int64_t offset,
-                      DenseTensor* out) {
+void SetKernel(const Context& dev_ctx,
+               const DenseTensor& x,
+               const DenseTensor& source,
+               const std::vector<int64_t>& dims,
+               const std::vector<int64_t>& stride,
+               int64_t offset,
+               DenseTensor* out) {
   auto meta = out->meta();
   meta.dims = DDim(dims.data(), static_cast<int>(dims.size()));
   meta.strides = DDim(stride.data(), static_cast<int>(stride.size()));
@@ -43,7 +43,7 @@ void SetInplaceKernel(const Context& dev_ctx,
 PD_REGISTER_KERNEL(set,
                    CPU,
                    ALL_LAYOUT,
-                   phi::SetInplaceKernel,
+                   phi::SetKernel,
                    bool,
                    uint8_t,
                    int8_t,
@@ -61,7 +61,7 @@ PD_REGISTER_KERNEL(set,
 PD_REGISTER_KERNEL(set,
                    GPU,
                    ALL_LAYOUT,
-                   phi::SetInplaceKernel,
+                   phi::SetKernel,
                    bool,
                    uint8_t,
                    int8_t,

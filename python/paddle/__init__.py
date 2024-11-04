@@ -207,7 +207,6 @@ from .tensor.creation import (
     ones,
     ones_like,
     polar,
-    set_,
     to_tensor,
     tril,
     tril_,
@@ -1174,5 +1173,4 @@ __all__ = [
     'diagonal_scatter',
     'combinations',
     'signbit',
-    'set_',
 ]

@@ -19,12 +19,12 @@
 namespace phi {
 
 template <typename T, typename Context>
-void SetInplaceKernel(const Context& dev_ctx,
-                      const DenseTensor& x,
-                      const DenseTensor& source,
-                      const std::vector<int64_t>& dims,
-                      const std::vector<int64_t>& stride,
-                      int64_t offset,
-                      DenseTensor* out);
+void SetKernel(const Context& dev_ctx,
+               const DenseTensor& x,
+               const DenseTensor& source,
+               const std::vector<int64_t>& dims,
+               const std::vector<int64_t>& stride,
+               int64_t offset,
+               DenseTensor* out);
 
 }  // namespace phi
