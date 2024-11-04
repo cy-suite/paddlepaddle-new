@@ -1346,7 +1346,7 @@ pir::RewritePatternSet PdOpToCinnOpPass::InitializePatterns(
   ps.Add<SigmoidOpPattern>(context);
   ps.Add<GatherOpPattern>(context);
   ps.Add<FlattenOpPattern>(context);
-  ps.Add<ReduceAsOpPattern>(context);
+  // ps.Add<ReduceAsOpPattern>(context);
 
   return ps;
 }
