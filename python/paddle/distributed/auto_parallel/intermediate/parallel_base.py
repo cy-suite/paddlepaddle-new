@@ -21,6 +21,7 @@ from paddle.optimizer import Optimizer
 class ParallelOptimizer:
     def __init__(self, optimizer, level=None):
         self.level = None
+        self.optimizer = None
 
         if isinstance(optimizer, ParallelOptimizer):
             self.optimizer = optimizer.optimizer
