@@ -80,7 +80,7 @@ DEFINE_GENERAL_PATTERN(Hardswish, paddle::dialect::HardswishOp)
 DEFINE_GENERAL_PATTERN(Assign, paddle::dialect::AssignOp)
 DEFINE_GENERAL_PATTERN(AssignValue_, paddle::dialect::AssignValue_Op)
 DEFINE_GENERAL_PATTERN(AssignOut, paddle::dialect::AssignOut_Op)
-DEFINE_GENERAL_PATTERN(Roll,paddle::dialect::RollOp)
+DEFINE_GENERAL_PATTERN(Roll, paddle::dialect::RollOp)
 
 #undef DEFINE_GENERAL_PATTERN
 
@@ -1435,7 +1435,7 @@ class StackOpPattern : public pir::OpRewritePattern<paddle::dialect::StackOp> {
     }
 
     pir::Value x = op.operand_source(0);
-    int rank;
+    int rank=1;
     auto x_type = x.type();
     if (x_type.isa<pir::VectorType>()) {
       rank = x_type.dyn_cast<pir::VectorType>().size();
@@ -1444,7 +1444,7 @@ class StackOpPattern : public pir::OpRewritePattern<paddle::dialect::StackOp> {
       rank = x_shape.size();
     }
 
-    int axis;
+    int axis=1;
     if (op->HasAttribute("axis")) {
       axis = op->attribute<pir::Int32Attribute>("axis").data();
     } else {
