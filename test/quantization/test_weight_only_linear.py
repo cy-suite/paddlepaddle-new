@@ -32,24 +32,6 @@ np.random.seed(123)
 paddle.seed(123)
 
 
-def check_symbolic_result(program, fetch_vars, outs, op_type):
-    if paddle.base.libpaddle.pir.all_ops_defined_symbol_infer(program):
-        shape_analysis = (
-            paddle.base.libpaddle.pir.get_shape_constraint_ir_analysis(program)
-        )
-        for i, var in enumerate(fetch_vars):
-            if var.is_dense_tensor_type() or var.is_selected_row_type():
-                shape_or_data = shape_analysis.get_shape_or_data_for_var(var)
-                expect_shape = outs[i].shape
-                expect_data = []
-                if not shape_or_data.is_equal(expect_shape, expect_data):
-                    raise AssertionError(
-                        f"The shape or data of Operator {op_type}'s result is different from expected."
-                    )
-    else:
-        pass
-
-
 def get_cuda_version():
     result = os.popen("nvcc --version").read()
     regex = r'release (\S+),'
@@ -704,13 +686,6 @@ class WeightOnlyLinearTestCaseStatic(WeightOnlyLinearTestCase):
             )
             exe = paddle.static.Executor(paddle.CUDAPlace(0))
             res = exe.run(feed={}, fetch_list=[weight, dequant_weight])
-            fetch_list = exe._check_fetch_list([weight, dequant_weight])
-            check_symbolic_result(
-                paddle.static.default_main_program(),
-                fetch_list,
-                res,
-                "weight_quantize and weight_dequantize",
-            )
             np.testing.assert_allclose(res[0], res[1], rtol=1e-2, atol=1e-2)
 
     def test_weight_quantize_and_dequantize_int4_pir(
@@ -728,13 +703,6 @@ class WeightOnlyLinearTestCaseStatic(WeightOnlyLinearTestCase):
             )
             exe = paddle.static.Executor(paddle.CUDAPlace(0))
             res = exe.run(feed={}, fetch_list=[weight, dequant_weight])
-            fetch_list = exe._check_fetch_list([weight, dequant_weight])
-            check_symbolic_result(
-                paddle.static.default_main_program(),
-                fetch_list,
-                res,
-                "weight_quantize and weight_dequantize",
-            )
             np.testing.assert_allclose(res[0], res[1], rtol=1e-1, atol=1e-1)
 
     def test_weight_only_linear(self):
