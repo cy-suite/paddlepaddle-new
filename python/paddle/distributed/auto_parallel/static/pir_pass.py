@@ -1549,9 +1549,15 @@ def fuse_attention_ffn_qkv_pass(
                 # Fuse params and init pir program fusion params.
                 with paddle.base.dygraph.guard():
 
+                    dyparam_dtype = concated_dy_param_list[0].dtype
+                    for param in concated_dy_param_list:
+                        assert (
+                            dyparam_dtype == param.dtype
+                        ), "The dtypes of dy parameters to be fused are not the same."
+
                     dtensor = paddle.zeros(
                         shape=name2pir_param_map[pir_param].shape,
-                        dtype=concated_dy_param_list[0].dtype,
+                        dtype=dyparam_dtype,
                     )
                     fused_dy_param = EagerParamBase.from_tensor(dtensor)
                     fused_dy_param = dist.shard_tensor(
