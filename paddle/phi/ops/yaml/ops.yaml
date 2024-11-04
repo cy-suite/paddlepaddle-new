@@ -826,6 +826,17 @@
     func : c_scatter
   traits : paddle::dialect::ForwardOnlyTrait
 
+- op : c_sync_comm_stream
+  args : (Tensor x, int ring_id)
+  output : Tensor(out)
+  infer_meta :
+    func : UnchangedInferMeta
+    param : [x]
+  kernel :
+    func : c_sync_comm_stream
+  inplace : (x -> out)
+  traits : paddle::dialect::ForwardOnlyTrait
+
 - op : calc_reduced_attn_scores
   args : (Tensor q, Tensor k, Tensor softmax_lse)
   output : Tensor(reduced_scores)
@@ -4850,17 +4861,6 @@
   kernel :
     func : sync_calc_stream
   inplace : (x -> out)
-  traits : paddle::dialect::ForwardOnlyTrait
-
-- op : sync_comm_stream
-  args : (Tensor x, int ring_id = 0)
-  output : Tensor(out)
-  infer_meta :
-    func : UnchangedInferMeta
-    param : [x]
-  kernel :
-    func : sync_comm_stream
-  inplace: (x -> out)
   traits : paddle::dialect::ForwardOnlyTrait
 
 - op : take_along_axis
