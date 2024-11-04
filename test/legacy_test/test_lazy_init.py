@@ -213,23 +213,18 @@ class TestXavierUniform(TestUniform):
         self.b_initializer = XavierUniform()
 
 
-class SubNet(paddle.nn.Layer):
+class LinearNet(paddle.nn.Layer):
     def __init__(self):
         super().__init__()
         self.linear = paddle.nn.Linear(10, 10)
-
-
-class DemoNet(paddle.nn.Layer):
-    def __init__(self):
-        sub_net = SubNet()
-        sub_net_deepcopy = copy.deepcopy(sub_net)
 
 
 class TestDeepCopyLazyInitializedParam(unittest.TestCase):
     def test_deepcopy_lazy_initialized_param(self):
         paddle.disable_static()
         with LazyGuard():
-            demo_net = DemoNet()
+            net = LinearNet()
+            copy.deepcopy(net)
 
 
 if __name__ == '__main__':
