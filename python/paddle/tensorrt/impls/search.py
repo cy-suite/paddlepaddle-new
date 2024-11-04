@@ -78,7 +78,6 @@ def topk_converter(network, paddle_op, inputs):
     flag = trt.TopKOperation.MAX if largest else trt.TopKOperation.MIN
 
     input_rank = len(input_shape)
-    print("input_rank", input_rank)
 
     expand_to_2d = input_rank == 1
     if expand_to_2d:
