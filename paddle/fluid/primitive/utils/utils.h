@@ -345,7 +345,7 @@ class GroupNormDecompHelper {
     }
 
     int unk_count = 0;
-    for (size_t i = 0; i < x_dims.size(); ++i) {
+    for (int64_t i = 0; i < x_rank_; ++i) {
       if ((i != channel_axis_) && (x_dims[i] < 0)) {
         unk_count++;
       }
