@@ -4684,7 +4684,7 @@
   outputs :
     out : Out
 
-- op: sync_comm_stream(c_sync_comm_stream)
+- op: sync_comm_stream
   inputs :
     x : X
   outputs :
