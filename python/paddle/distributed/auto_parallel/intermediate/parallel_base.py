@@ -20,7 +20,6 @@ from paddle.optimizer import Optimizer
 
 class ParallelOptimizer:
     def __init__(self, optimizer, level=None):
-        assert self.optimizer is not None
         self.level = None
 
         if isinstance(optimizer, ParallelOptimizer):
@@ -35,6 +34,7 @@ class ParallelOptimizer:
         self.is_initialized = False
 
     def parallelize(self, parallelized_parameters):
+        assert self.optimizer is not None
         if self.is_initialized:
             return self.optimizer
         # 1.replace optimizer parameters

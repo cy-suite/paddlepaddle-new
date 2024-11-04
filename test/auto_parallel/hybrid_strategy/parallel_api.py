@@ -166,6 +166,9 @@ class TestParallelAPI:
             layer, optimizer = sharded_data_parallel(
                 layer, optimizer, self.level
             )
+        if self.mp > 1:
+            # TODO(yaliu): add mp here
+            return None, None
         layer, optimizer = parallelize_model_and_optimizer(layer, optimizer)
         return layer, optimizer
 
