@@ -405,7 +405,7 @@ def append_backward_ops(
 
             if (
                 value in state.value_to_valuegrad
-                and len(state.value_to_valuegrad[value]) > 1
+                and len(state.value_to_valuegrad[value]) > 0
             ):
                 append_add_n(
                     op,
