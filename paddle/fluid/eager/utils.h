@@ -18,6 +18,7 @@
 #include "paddle/fluid/eager/eager_tensor.h"
 #include "paddle/fluid/eager/grad_node_info.h"
 #include "paddle/phi/api/all.h"
+#include "paddle/phi/api/lib/kernel_dispatch.h"
 #include "paddle/phi/core/distributed/auto_parallel/dist_tensor.h"
 #include "paddle/utils/test_macros.h"
 
@@ -269,6 +270,12 @@ class TEST_API EagerUtils {
   }
 
   /**
+   * Set DistAttr By Input
+   */
+  static void SetGradOutputDistAttrByInput(const paddle::Tensor& input,
+                                           paddle::Tensor* grad);
+
+  /**
    * Print Input Output (level 0 means least info, level 2 means most info)
    * **/
   static std::string TensorStr(const paddle::Tensor& t);
@@ -284,6 +291,73 @@ class TEST_API EagerUtils {
       const paddle::optional<std::vector<paddle::Tensor>>& tensors);
 };
 
+using paddle::experimental::detail::ArgsIterator;
+
+struct DistTensorTypeParser : ArgsIterator<DistTensorTypeParser> {
+  bool result = false;
+  const phi::distributed::ProcessMesh** mesh = nullptr;
+
+  explicit DistTensorTypeParser(const phi::distributed::ProcessMesh** m)
+      : mesh(m) {}
+
+  bool short_circuit() { return result; }
+
+  void operator()(const paddle::Tensor& x);
+  void operator()(const paddle::optional<paddle::Tensor>& x);
+  void operator()(const std::vector<paddle::Tensor>& x);
+  void operator()(const paddle::optional<std::vector<paddle::Tensor>>& x);
+
+  // skip other type args, these args don't used in kernel selection
+  template <typename T>
+  void operator()(const T& x) {
+    // do nothing
+  }
+};
+
+struct DistTensorConverter : ArgsIterator<DistTensorConverter> {
+  const phi::distributed::ProcessMesh* mesh = nullptr;
+
+  explicit DistTensorConverter(const phi::distributed::ProcessMesh* m) {
+    PADDLE_ENFORCE_NE(
+        m,
+        nullptr,
+        common::errors::InvalidArgument(
+            "Input mesh of DistTensorConverter() shouldn't be nullptr."));
+    mesh = m;
+  }
+
+  void convert(paddle::Tensor* x);
+  void operator()(paddle::Tensor* x);
+  void operator()(paddle::optional<paddle::Tensor>* x);
+  void operator()(std::vector<paddle::Tensor>* x);
+  void operator()(paddle::optional<std::vector<paddle::Tensor>>* x);
+
+  // skip other type args, these args don't used in kernel selection
+  template <typename T>
+  void operator()(const T& x) {
+    // do nothing
+  }
+};
+
+template <typename... Args>
+bool InputsContainDistTensor(const phi::distributed::ProcessMesh** mesh,
+                             const Args&... args) {
+  return DistTensorTypeParser(mesh).apply(args...).result;
+}
+
+template <typename... Args>
+void ConvertAllInputsToDistTensor(const phi::distributed::ProcessMesh* mesh,
+                                  Args&... args) {
+  PADDLE_ENFORCE_NE(
+      mesh,
+      nullptr,
+      common::errors::InvalidArgument("Input mesh should not be nullptr."));
+  DistTensorConverter(mesh).apply(&args...);
+}
+
+void ConvertToDistTensor(paddle::Tensor* x,
+                         const phi::distributed::ProcessMesh* mesh);
+
 void print_mem_info3(const std::string& info);
 
 class print_mem_info_guard3 {
@@ -295,5 +369,4 @@ class print_mem_info_guard3 {
   ~print_mem_info_guard3() { print_mem_info3(op_type_ + " end"); }
   std::string op_type_;
 };
-
 }  // namespace egr
