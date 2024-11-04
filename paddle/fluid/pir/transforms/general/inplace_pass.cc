@@ -299,12 +299,14 @@ void GetEagerDelValueOfOp(
 
     for (size_t i = 0; i < op.num_operands(); ++i) {
       auto input = op.operand_source(i);
-      if (skip_dels.count(input) > 0 || !input || !CanBeDeleted(input)) {
+      if (skip_dels.count(input) > 0 || !input || !CanBeDeleted(input) ||
+          IsNoNeedBuffer(op, input)) {
         VLOG(6) << "The " << i << "-th input value of the Operation("
                 << upper_op_name << ") can not be deleted.";
         VLOG(8) << " -- skip dels: " << skip_dels.count(input);
         VLOG(8) << " -- value is null: " << !input;
         VLOG(8) << " -- can be deleted: " << !CanBeDeleted(input);
+        VLOG(8) << " -- is no_need_buffer: " << IsNoNeedBuffer(op, input);
         continue;
       }
       (*del_value_2_op)[input] = &op;
