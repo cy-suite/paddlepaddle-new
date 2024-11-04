@@ -162,11 +162,12 @@ def add_elementwise_layer(network, paddle_op, inputs, op_type):
 
 
 # Create and add 1D constant layer
-def add_1D_constant_layer(network, data, dtype=np.int32):
+def add_1D_constant_layer(network, data, dtype=np.int32, is_scalar=False):
     if not isinstance(data, list):
         data = [data]
     constant_data = np.array(data, dtype=dtype)
-    constant_layer = network.add_constant(constant_data.shape, constant_data)
+    shape = () if is_scalar else (len(data),)
+    constant_layer = network.add_constant(shape, constant_data)
     return constant_layer.get_output(0)
 
 
@@ -204,13 +205,12 @@ def trt_reshape(network, input, new_shape, name="", is_shape_tensor=False):
 
 
 # Get element tensor of 1D shape tensor
-def get_shape_tensor_element(network, x, index):
+def get_shape_tensor_element(network, x, index, is_scalar=False):
     assert index >= 0, (
         "The index should be greater or equal than 0, but got %d" % index
     )
-    gather_layer = network.add_gather(
-        input=x, indices=add_1D_constant_layer(network, index), axis=0
-    )
+    index_tensor = add_1D_constant_layer(network, index, is_scalar=is_scalar)
+    gather_layer = network.add_gather(input=x, indices=index_tensor, axis=0)
     return gather_layer.get_output(0)
 
 

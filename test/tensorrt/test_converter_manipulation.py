@@ -433,21 +433,6 @@ class TestStrideSliceCase3TRTPattern(TensorRTBaseTest):
 
     def test_trt_result(self):
         self.check_trt_result()
-     
-class TestRollCase1TRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = paddle.roll
-        self.api_args = {
-            "x": np.random.random([3, 4, 10]).astype("float32"),
-            "shift":1,
-            "axis":0,
-        }
-        self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [1, 4, 10]}
-        self.max_shape = {"x": [5, 4, 10]}
-
-    def test_trt_result(self):
-        self.check_trt_result()   
 
 
 class TestStrideSliceCase4TRTPattern(TensorRTBaseTest):
@@ -479,6 +464,54 @@ class TestStrideSliceCase5TRTPattern(TensorRTBaseTest):
             "strides": np.array([1, -1, 1]).astype("int32"),
         }
         self.program_config = {"feed_list": ["x", "starts", "ends", "strides"]}
+        self.min_shape = {"x": [1, 4, 10]}
+        self.max_shape = {"x": [5, 4, 10]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestRollCase1TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.roll
+        self.api_args = {
+            "x": np.random.random([3, 4, 10]).astype("float32"),
+            "shift": 1,
+            "axis": 0,
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 4, 10]}
+        self.max_shape = {"x": [5, 4, 10]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestRollCase2TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.roll
+        self.api_args = {
+            "x": np.random.random([3, 4, 10]).astype("int64"),
+            "shift": 1,
+            "axis": 1,
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 4, 10]}
+        self.max_shape = {"x": [5, 4, 10]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestRollCase3TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.roll
+        self.api_args = {
+            "x": np.random.random([3, 4, 10]).astype("float32"),
+            "shift": np.array([1]).astype("int64"),
+            "axis": 1,
+        }
+        self.program_config = {"feed_list": ["x", "shift"]}
         self.min_shape = {"x": [1, 4, 10]}
         self.max_shape = {"x": [5, 4, 10]}
 
