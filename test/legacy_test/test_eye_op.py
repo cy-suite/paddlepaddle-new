@@ -94,7 +94,7 @@ class TestEyeOp2(OpTest):
 class TestEyeOp3(OpTest):
     def setUp(self):
         '''
-        Test eye op with specified shape
+        Test eye op with np.int32 scalar
         '''
         self.python_api = paddle.eye
         self.op_type = "eye"
