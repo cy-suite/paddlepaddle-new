@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/set_kernel.h"
+#include "paddle/phi/core/kernel_registry.h"
 
 namespace phi {
 
