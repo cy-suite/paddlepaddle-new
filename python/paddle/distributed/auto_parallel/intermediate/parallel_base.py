@@ -68,6 +68,7 @@ class ParallelModel:
         self.pp_parallelizer = None
         self.tp_parallelizer = None
         self.sharding_parallelizer = None
+        self.model = None
 
         if isinstance(model, ParallelModel):
             self.pp_parallelizer = model.pp_parallelizer
@@ -81,6 +82,7 @@ class ParallelModel:
         self.is_parallelized = False
 
     def parallelize_model(self):
+        assert self.model is not None
         if self.is_parallelized:
             return self.model
 
