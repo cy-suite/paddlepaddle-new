@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import unittest
 
 import numpy as np
@@ -210,6 +211,25 @@ class TestXavierUniform(TestUniform):
     def set_initializer(self):
         self.w_initializer = XavierUniform()
         self.b_initializer = XavierUniform()
+
+
+class SubNet(paddle.nn.Layer):
+    def __init__(self):
+        super().__init__()
+        self.linear = paddle.nn.Linear(10, 10)
+
+
+class DemoNet(paddle.nn.Layer):
+    def __init__(self):
+        sub_net = SubNet()
+        sub_net_deepcopy = copy.deepcopy(sub_net)
+
+
+class TestDeepCopyLazyInitializedParam(unittest.TestCase):
+    def test_deepcopy_lazy_initialized_param(self):
+        paddle.disable_static()
+        with LazyGuard():
+            demo_net = DemoNet()
 
 
 if __name__ == '__main__':
