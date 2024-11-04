@@ -1435,7 +1435,7 @@ class StackOpPattern : public pir::OpRewritePattern<paddle::dialect::StackOp> {
     }
 
     pir::Value x = op.operand_source(0);
-    int rank=1;
+    int rank = 1;
     auto x_type = x.type();
     if (x_type.isa<pir::VectorType>()) {
       rank = x_type.dyn_cast<pir::VectorType>().size();
@@ -1444,7 +1444,7 @@ class StackOpPattern : public pir::OpRewritePattern<paddle::dialect::StackOp> {
       rank = x_shape.size();
     }
 
-    int axis=1;
+    int axis = 1;
     if (op->HasAttribute("axis")) {
       axis = op->attribute<pir::Int32Attribute>("axis").data();
     } else {
