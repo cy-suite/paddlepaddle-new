@@ -24,9 +24,11 @@
 #include "paddle/fluid/inference/api/paddle_pass_builder.h"
 #include "paddle/fluid/pir/dialect/operator/interface/layout_transformation.h"
 #include "paddle/fluid/pir/dialect/operator/ir/control_flow_op.h"
+#include "paddle/fluid/pir/dialect/operator/ir/op_attribute.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_dialect.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_type.h"
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
+#include "paddle/phi/common/data_type.h"
 #include "paddle/pir/include/core/builtin_dialect.h"
 #include "paddle/pir/include/core/ir_context.h"
 #include "paddle/pir/include/core/op_trait.h"
@@ -164,6 +166,16 @@ class AutoLayoutPass : public pir::Pass {
       if (op->isa<paddle::dialect::Conv2dOp>() ||
           op->isa<paddle::dialect::FusedConv2dAddActOp>() ||
           op->isa<paddle::dialect::Conv2dTransposeOp>()) {
+        if (op->isa<paddle::dialect::FusedConv2dAddActOp>() ||
+            op->isa<paddle::dialect::Conv2dOp>()) {
+          common::DataLayout new_layout;
+          auto layout_interface =
+              op->dyn_cast<paddle::dialect::LayoutTransformationInterface>();
+          new_layout = layout_interface.PreferLayout(op);
+          if (new_layout != common::DataLayout::NHWC) {
+            continue;
+          }
+        }
         if (op->HasAttribute("data_format") &&
             op->attribute<pir::StrAttribute>("data_format").AsString() ==
                 "NCHW") {
@@ -262,21 +274,19 @@ const std::set<std::string> op_in_NCHW = {"pd_op.max_pool2d_with_index",
                                           "pd_op.reshape",
                                           "pd_op.instance_norm",
                                           "pd_op.batch_norm_",
-                                          "pd_op.sigmoid",
                                           "pd_op.bilinear_interp",
-                                          "pd_op.multiply",
                                           "pd_op.shape",
-                                          "pd_op.deformable_conv"};
+                                          "pd_op.deformable_conv",
+                                          "pd_op.set_value_with_tensor_",
+                                          "pd_op.set_value_with_tensor"};
 const std::set<std::string> op_with_axis = {
     "pd_op.all",
     "pd_op.amax",
     "pd_op.amin",
     "pd_op.any",
-    //  "pd_op.argmax",
     "pd_op.argmin",
     "pd_op.argsort",
     "pd_op.box_coder",
-    //  "pd_op.concat",
     "pd_op.cross",
     "pd_op.cross_entropy_with_softmax",
     "pd_op.cummax",

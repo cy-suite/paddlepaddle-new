@@ -830,13 +830,20 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
       if (!config_.custom_pass_only_) {
         ::pir::PassManager fused_op_pm(::pir::IrContext::Instance(),
                                        config_.pm_opt_level_);
-        const std::vector<std::string> FusedOpPasses{
-            // Operator fusion pass
-            "conv2d_bn_fuse_pass",
-            "conv2d_add_act_fuse_pass",
-            "conv2d_add_fuse_pass",
-            "auto_layout_pass",
-            "auto_layout_simplify_pass"};
+        std::vector<std::string> FusedOpPasses{// Operator fusion pass
+                                               "conv2d_bn_fuse_pass",
+                                               "conv2d_add_act_fuse_pass",
+                                               "conv2d_add_fuse_pass"};
+        const std::vector<std::string> autoLayoutPasses = {
+            "auto_layout_pass", "auto_layout_simplify_pass"};
+
+        if (FLAGS_enable_auto_layout_pass) {
+          FusedOpPasses.insert(FusedOpPasses.end(),
+                               autoLayoutPasses.begin(),
+                               autoLayoutPasses.end());
+        } else {
+          FusedOpPasses.push_back("transfer_layout_pass");
+        }
 
         for (const auto &fused_op : FusedOpPasses) {
           fused_op_pm.AddPass(pir::PassRegistry::Instance().Get(fused_op));
