@@ -4105,16 +4105,16 @@ function clang-tidy_check() {
         "clang-analyzer-valist.Uninitialized"
         "clang-analyzer-valist.Unterminated"
         "clang-analyzer-valist.ValistBase"
-        "*******-avoid-c-arrays"
-        "*******-avoid-goto"
-        "*******-c-copy-assignment-signature"
-        "*******-explicit-virtual-functions"
-        "*******-init-variables"
-        "*******-narrowing-conversions"
-        "*******-no-malloc"
-        "*******-pro-type-const-cast"
-        "*******-pro-type-member-init"
-        "*******-slicing"
+        "cppcoreguidelines-avoid-c-arrays"
+        "cppcoreguidelines-avoid-goto"
+        "cppcoreguidelines-c-copy-assignment-signature"
+        "cppcoreguidelines-explicit-virtual-functions"
+        "cppcoreguidelines-init-variables"
+        "cppcoreguidelines-narrowing-conversions"
+        "cppcoreguidelines-no-malloc"
+        "cppcoreguidelines-pro-type-const-cast"
+        "cppcoreguidelines-pro-type-member-init"
+        "cppcoreguidelines-slicing"
         "hicpp-avoid-goto"
         "hicpp-exception-baseclass"
         "misc-unused-alias-decls"
@@ -4158,23 +4158,19 @@ function clang-tidy_check() {
         "readability-container-size-empty"
     )
 
-    testT="abcabc"
-    testS="abc"
-    testcount=$(echo -n "$testT" | grep -o "$testS" | wc -l)
-    echo "test find: $[ $testcount ]"
-
-    echo "output T first 5000 chars:"
-    echo "${T:0:5000}"
     check_error=0
-    length=$(echo -n "$T" | wc -c)
-    echo "Clang Tidy output length: $[ $length ]"
     for str in "${S[@]}"; do
-        count=$(echo -n "$T" | grep -o "$str" | wc -l)
-        echo "str: $$str count: $[ $count ]"
-        if [ "$count" -ge 2 ]; then
-            echo "check error: $s"
-            check_error=1
-        fi
+        count=0
+        while IFS= read -r line; do
+            if echo "$line" | grep -q "$str"; then
+                count=$((count + 1))
+                if [ "$count" -eq 2 ]; then
+                    file_path=$(echo "$line" | cut -d' ' -f2)
+                    echo "check error: $str in file: $file_path"
+                    check_error=1
+                fi
+            fi
+        done
     done
 
     rm $temp_file
