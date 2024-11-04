@@ -1647,7 +1647,7 @@ class OpTest(unittest.TestCase):
             # TODO(gongshaotian): raise error
             pass
 
-    def _infer_and_compare_symbol(self, place, no_check_set=None):
+    def _infer_and_compare_symbol(self, place):
         """Don't caculate the program, only infer the shape of var"""
 
         kernel_sig = self.get_kernel_signature(place)
@@ -1687,11 +1687,6 @@ class OpTest(unittest.TestCase):
                         assert len(ret_tuple) == len(outputs_sig)
                         for var, sig_name in zip(ret_tuple, outputs_sig):
                             if not self._need_fetch(sig_name):
-                                continue
-                            if (
-                                no_check_set is not None
-                                and sig_name in no_check_set
-                            ):
                                 continue
                             if isinstance(var, list):
                                 ret_to_check.append(var)
@@ -2652,9 +2647,7 @@ class OpTest(unittest.TestCase):
             def infer_and_compare_symbol(self):
                 """infer symbol and compare it with actualy shape and data"""
                 self.is_python_api_test = True
-                self.op_test._infer_and_compare_symbol(
-                    place, no_check_set=no_check_set
-                )
+                self.op_test._infer_and_compare_symbol(place)
 
         # set some flags by the combination of arguments.
         if self.is_float16_op():

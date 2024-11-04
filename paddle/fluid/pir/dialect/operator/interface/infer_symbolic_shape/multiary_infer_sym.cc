@@ -3320,9 +3320,9 @@ bool RnnOpInferSymbolicShape(pir::Operation *op,
       symbol::ShapeOrDataDimExprs{
           symbol::TensorShapeOrDataDimExprs(out_shape)});
 
-  int state_num = static_cast<int>(pre_state_shape_or_data_list.size());
+  size_t state_num = pre_state_shape_or_data_list.size();
   symbol::TensorListShapeOrDataDimExprs state_shape_or_data_list;
-  for (int i = 0; i < state_num; ++i) {
+  for (size_t i = 0; i < state_num; ++i) {
     state_shape_or_data_list.emplace_back(
         pre_state_shape_or_data_list[i].shape());
   }
