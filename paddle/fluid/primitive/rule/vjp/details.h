@@ -847,9 +847,10 @@ void layer_norm_grad(const Tensor& x,
     
   }
 
-  auto x_sub_mean = x_cast - mean_;          // M,N
-  auto tmp = ( full_scalar<T>(1.0, variance_.dtype()) / (variance_ + full_scalar<T>(epsilon, variance_.dtype())));  // M,1
-  auto sqrt_var_1 = sqrt<T>(tmp);            // M,1
+  auto x_sub_mean = x_cast - mean_;  // M,N
+  auto tmp = (full_scalar<T>(1.0, variance_.dtype()) /
+              (variance_ + full_scalar<T>(epsilon, variance_.dtype())));  // M,1
+  auto sqrt_var_1 = sqrt<T>(tmp);                                         // M,1
   auto x_sub_mean_mul_sqrt_var_1 = x_sub_mean * sqrt_var_1;
 
   if (x_grad) {
@@ -866,7 +867,8 @@ void layer_norm_grad(const Tensor& x,
     auto d_std = d_std_1 * x_sub_mean_mul_sqrt_var_1;  // M,1 * M,N = M,N
 
     auto d_mean_d_std =
-        (d_mean + d_std) / decomp_help.GetNormlizedNumel<T>(x_cast);
+        (d_mean + d_std) / decomp_help.GetNormlizedNumel<T>(d_std);
+
     auto x_grad_tmp = dx_end - d_mean_d_std;
     x_grad_tmp = ConverToOrig<T>(x_grad_tmp, x.dtype());
 

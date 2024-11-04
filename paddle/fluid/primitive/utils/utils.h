@@ -312,6 +312,9 @@ class LayerNormDecompHelper {
     auto x_dims = x.dims();
     x_rank_ = x_dims.size();
     begin_norm_axis_ = begin_norm_axis;
+    if (begin_norm_axis_ < 0) {
+      begin_norm_axis_ += x_rank_;
+    }
 
     scale_need_reshape_ = (begin_norm_axis + 1 != x_rank_);
     static_norm_shape_ = true;
@@ -334,7 +337,7 @@ class LayerNormDecompHelper {
       if (scale.get_ptr()) {
         normlized_numel_ = scale->dims()[0];
       } else if (bias.get_ptr()) {
-        normlized_numel_ = scale->dims()[0];
+        normlized_numel_ = bias->dims()[0];
       }
     }
   }
@@ -348,7 +351,7 @@ class LayerNormDecompHelper {
     if (static_norm_shape_) {
       return reshape<T>(s, normlized_shape_);
     } else {
-      return reshape<T>(
+      return backend::reshape_with_tensor<T>(
           s, get_slice_vec<T>(shape<T>(x), begin_norm_axis_, x_rank_));
     }
   }
@@ -364,7 +367,7 @@ class LayerNormDecompHelper {
         numel = numel * get_slice<T>(x_shape, i);
       }
 
-      return numel;
+      return cast<T>(numel, x.type());
     }
   }
 
