@@ -2344,7 +2344,6 @@ void group_norm_grad(const Tensor& x,
                      Tensor* scale_grad,
                      Tensor* bias_grad) {
   GroupNormDecompHelper<T> decomp_helper(x, scale, bias, groups, data_layout);
-  const std::vector<int64_t>& c_axis = decomp_helper.GetReduceAxis();
   const std::vector<int64_t>& scale_bias_new_shape =
       decomp_helper.GetScaleBiasNewShape();
 

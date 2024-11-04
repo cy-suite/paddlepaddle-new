@@ -312,20 +312,19 @@ class GroupNormDecompHelper {
                         int64_t group_num,
                         const std::string& data_format) {
     auto x_dims = phi::vectorize(x.dims());
-    auto x_rank = x_dims.size();
-    x_rank_ = x_rank;
+    x_rank_ = x_dims.size();
 
     if (data_format == "NCHW") {
       channel_axis_ = 1;
-      for (int64_t i = channel_axis_ + 1; i < x_rank + 1; ++i) {
+      for (int64_t i = channel_axis_ + 1; i < x_rank_ + 1; ++i) {
         reduce_axis_.push_back(i);
       }
     } else if (data_format == "NHWC") {
-      channel_axis_ = x_rank - 1;
+      channel_axis_ = x_rank_ - 1;
       for (int64_t i = 1; i < channel_axis_; ++i) {
         reduce_axis_.push_back(i);
       }
-      reduce_axis_.push_back(x_rank);
+      reduce_axis_.push_back(x_rank_);
     } else {
       PADDLE_THROW(
           common::errors::Unimplemented("Only support NCHW and NHWC format."));
@@ -333,7 +332,7 @@ class GroupNormDecompHelper {
 
     scale_bias_new_shape_.push_back(group_num);
     scale_bias_new_shape_.push_back(-1);
-    for (int64_t i = channel_axis_ + 1; i < x_rank; ++i) {
+    for (int64_t i = channel_axis_ + 1; i < x_rank_; ++i) {
       scale_bias_new_shape_.push_back(1);
     }
 
@@ -358,7 +357,7 @@ class GroupNormDecompHelper {
       // case 1: axis is the last one
       // case 2: from axis + 1 to end all positive
       can_use_vector_int_as_output_shape_ =
-          (channel_axis_ + 1 == x_rank) ||
+          (channel_axis_ + 1 == x_rank_) ||
           std::find(x_dims.begin() + channel_axis_ + 1, x_dims.end(), -1) ==
               x_dims.end();
 
@@ -375,7 +374,7 @@ class GroupNormDecompHelper {
     split_dim.push_back(channel_dim < 0 ? -1 : channel_dim / group_num);
 
     if (can_use_vector_int_as_output_shape_) {
-      split_out_shape_.reserve(x_rank + 1);
+      split_out_shape_.reserve(x_rank_ + 1);
       for (int64_t i = 0; i < channel_axis_; ++i) {
         split_out_shape_.push_back(0);
         merge_out_shape_.push_back(0);
@@ -385,7 +384,7 @@ class GroupNormDecompHelper {
           split_out_shape_.end(), split_dim.begin(), split_dim.end());
       merge_out_shape_.push_back(channel_dim);
 
-      for (int64_t i = channel_axis_ + 1; i < x_rank; ++i) {
+      for (int64_t i = channel_axis_ + 1; i < x_rank_; ++i) {
         split_out_shape_.push_back(x_dims[i]);
         merge_out_shape_.push_back(x_dims[i]);
       }
@@ -406,11 +405,11 @@ class GroupNormDecompHelper {
       merge_shape_tensor_.push_back(
           full_scalar<T>(channel_dim, phi::DataType::INT64));
 
-      if (channel_axis_ < x_rank) {
+      if (channel_axis_ < x_rank_) {
         split_shape_tensor_.push_back(
-            get_slice_vec<T>(x_shape, channel_axis_ + 1, x_rank));
+            get_slice_vec<T>(x_shape, channel_axis_ + 1, x_rank_));
         merge_shape_tensor_.push_back(
-            get_slice_vec<T>(x_shape, channel_axis_ + 1, x_rank));
+            get_slice_vec<T>(x_shape, channel_axis_ + 1, x_rank_));
       }
     }
   }
