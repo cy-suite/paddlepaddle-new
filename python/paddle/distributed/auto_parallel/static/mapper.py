@@ -18,7 +18,6 @@ import os
 from collections import deque
 
 import paddle
-import paddle.distributed as dist
 
 from .cluster import DeviceType
 from .graph import Graph
@@ -27,20 +26,22 @@ from .process_group import get_process_group
 
 def is_collective_comm_op(op):
     comm_list = [
+        "c_allreduce_sum",
+        "c_allreduce_min",
+        "c_allreduce_max",
+        "c_allreduce_prod",
+        "c_reduce_sum",
+        "c_reduce_min",
+        "c_reduce_max",
+        "c_reduce_prod",
+        "c_broadcast",
         "all_gather",
         "all_reduce",
-        "broadcast",
     ]
-    reduce_type = [
-        dist.ReduceOp.SUM,
-        dist.ReduceOp.MIN,
-        dist.ReduceOp.MAX,
-        dist.ReduceOp.PROD,
-    ]
-    if (op.type == "all_reduce" or op.type == "reduce") and op.attr(
-        "reduce_type"
-    ) in reduce_type:
+    if op.type in comm_list:
         return True
+    else:
+        return False
 
 
 def is_p2p_comm_op(op):
@@ -98,21 +99,16 @@ def get_comm_volume(comm_op, src_rank, tgt_rank):
             new_tensor_shape.append(val)
     tensor_size = functools.reduce(operator.mul, new_tensor_shape, 1)
     tensor_bytes = tensor_size * get_dtype_bytes(tensor.dtype)
-    if "all_reduce" in comm_op_type:
+    if "c_allreduce" in comm_op_type:
         comm_volume = 2 * tensor_bytes
     elif "all_gather" in comm_op_type:
         comm_volume = tensor_bytes
-    elif "broadcast" in comm_op_type:
+    elif "c_broadcast" in comm_op_type:
         if comm_op.attr("root") == src_rank:
             comm_volume = tensor_bytes
         else:
             comm_volume = None
     elif "c_reduce" in comm_op_type:
-        if comm_op.attr("root_id") == src_rank:
-            comm_volume = None
-        else:
-            comm_volume = tensor_bytes
-    elif "reduce" == comm_op_type:
         if comm_op.attr("root_id") == src_rank:
             comm_volume = None
         else:

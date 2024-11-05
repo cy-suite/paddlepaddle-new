@@ -26,7 +26,6 @@ from paddle.distributed.communication.reduce import (
     _get_reduce_op,
     _to_inplace_op,
 )
-from paddle.distributed.utils.stream_utils import ExecutionStreamType
 from paddle.framework import in_pir_mode
 
 if TYPE_CHECKING:
@@ -58,7 +57,7 @@ def _all_reduce_in_dygraph(
 
 def _all_reduce_in_static_mode(
     tensor: Tensor,
-    reduce_type: _ReduceOp,
+    op: _ReduceOp,
     group: Group,
     sync_op: bool,
     use_calc_stream: bool,
@@ -80,7 +79,7 @@ def _all_reduce_in_static_mode(
         'all_reduce',
     )
 
-    op_type = "all_reduce"
+    op_type = _get_reduce_op(op, "allreduce")
     ring_id = 0 if group is None else group.id
 
     if not isinstance(ring_id, int):
@@ -94,14 +93,12 @@ def _all_reduce_in_static_mode(
     # TODO: Support task and use task.wait in static graph mode
     #       Use use_calc_stream rather than sync_op
     helper = framework.LayerHelper(op_type, **locals())
-    op = helper.append_op(
+    helper.append_op(
         type=op_type,
-        inputs={'x': [tensor]},
-        outputs={'out': [tensor]},
-        attrs={'ring_id': ring_id, 'reduce_type': int(reduce_type)},
+        inputs={'X': [tensor]},
+        outputs={'Out': [tensor]},
+        attrs={'ring_id': ring_id, 'use_calc_stream': sync_op},
     )
-    if sync_op:
-        op.dist_attr.execution_stream = ExecutionStreamType.DefaultStream.value
 
 
 def all_reduce(

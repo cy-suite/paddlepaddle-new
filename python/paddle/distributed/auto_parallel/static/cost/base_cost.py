@@ -27,9 +27,9 @@ from ..utils import _get_comm_group, _get_idx_in_axis
 COMM_OP_TYPE = [
     "send_v2",
     "recv_v2",
-    "broadcast",
+    "c_broadcast",
     "all_gather",
-    "all_reduce",
+    "c_allreduce_sum",
     "c_identity",
 ]
 NON_COMP_TYPE = ["while", *COMM_OP_TYPE]
@@ -416,8 +416,8 @@ def build_dp_costs(
     if not has_found:
         return
 
-    all_reduce_sum_descs = build_comm_desc_from_dist_op(
-        "all_reduce",
+    c_allreduce_sum_descs = build_comm_desc_from_dist_op(
+        "c_allreduce_sum",
         dist_op,
         ctx,
         var_names,
@@ -425,10 +425,10 @@ def build_dp_costs(
         parallel_axis=parallel_axis,
     )
     comm_cost_list = build_comm_costs_from_descs(
-        _g_op_cost_factory["all_reduce"],
+        _g_op_cost_factory["c_allreduce_sum"],
         ctx,
         processes,
-        all_reduce_sum_descs,
+        c_allreduce_sum_descs,
         cluster,
         is_dp=True,
     )

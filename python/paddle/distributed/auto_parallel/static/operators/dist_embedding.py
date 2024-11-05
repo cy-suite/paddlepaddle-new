@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 
-import paddle.distributed as dist
 from paddle.common_ops_import import check_variable_and_dtype
 from paddle.distributed.auto_parallel.static.cost.comm_op_cost import (
     AllreduceSumOpCost,
@@ -247,13 +246,10 @@ class DistributedEmbeddingImpl(DistributedOperatorImpl):
         parallel_axis = dist_op.dist_attr.get_input_dims_mapping(
             serial_op.input("W")[0]
         )[0]
-        attrs = {
-            "reduce_type": dist.ReduceOp.SUM,
-            "use_model_parallel": True,
-        }
+        attrs = {"use_calc_stream": True, "use_model_parallel": True}
         var_names = serial_op.output("Out")
-        all_reduce_sum_desc_mapping = build_comm_desc_from_dist_op(
-            "all_reduce",
+        c_allreduce_sum_desc_mapping = build_comm_desc_from_dist_op(
+            "c_allreduce_sum",
             dist_op,
             ctx,
             var_names,
@@ -265,7 +261,7 @@ class DistributedEmbeddingImpl(DistributedOperatorImpl):
             AllreduceSumOpCost,
             ctx,
             processes,
-            all_reduce_sum_desc_mapping,
+            c_allreduce_sum_desc_mapping,
             cluster,
         )
 
@@ -560,13 +556,14 @@ class DistributedEmbeddingImpl(DistributedOperatorImpl):
                     )
                     sync_group = new_process_group(group_ranks)
 
-                    broadcast_op = startup_block.append_op(
-                        type='broadcast',
-                        inputs={'x': param},
-                        outputs={'out': param},
+                    startup_block.append_op(
+                        type='c_broadcast',
+                        inputs={'X': param},
+                        outputs={'Out': param},
                         attrs={
                             'ring_id': sync_group.id,
                             'root': 0,
+                            'use_calc_stream': True,
                             OP_ROLE_KEY: OpRole.Forward,
                         },
                     )
