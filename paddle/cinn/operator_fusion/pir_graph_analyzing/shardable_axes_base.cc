@@ -322,10 +322,9 @@ ShardableAxesSignature CreateSignatureForReshape(
 
   std::vector<std::pair<int, int>> partion_indices = {{-1, -1}};
   bool cur_product_equal = true;
-  for (int i = 1, j = 1, j_back = 1; i <= input_rank && j <= output_rank;) {
+  for (int i = 1, j = 1; i <= input_rank && j <= output_rank;) {
     if (shape_product_equal(i, j)) {
       partion_indices.emplace_back((i++ - 1), (j++ - 1));
-      j_back = j;
     } else if (j < output_rank) {
       j++;
     } else if (i < input_rank) {
