@@ -30,6 +30,8 @@ from paddle.distributed.auto_parallel.intermediate.sharded_data_parallel import 
 )
 from paddle.distributed.auto_parallel.intermediate.tensor_parallel import (
     ColWiseParallel,
+    PrepareLayerInput,
+    PrepareLayerOutput,
     RowWiseParallel,
     tensor_parallel,
 )
@@ -61,7 +63,6 @@ class Config:
     num_hidden_layers = 2
     num_attention_heads = 32
     rms_norm_eps = 1e-6
-    sequence_parallel = False
     use_lazy_init = False
 
 
@@ -118,8 +119,6 @@ class TestParallelAPI:
         self.dp = int(os.getenv("dp"))
         self.mp = int(os.getenv("mp"))
         self.pp = int(os.getenv("pp"))
-        if os.getenv("use_sp") == "true":
-            self.config.sequence_parallel = True
         if os.getenv("use_lazy_init") == "true":
             self.config.use_lazy_init = True
         self.gradient_accumulation_steps = int(os.getenv("acc_step"))
@@ -140,6 +139,9 @@ class TestParallelAPI:
         self.level = self.sharding_stage_to_level[
             int(os.getenv("sharding_stage", 0))
         ]
+        self.sequence_parallel = False
+        if os.getenv("sequence_parallel") == "true":
+            self.sequence_parallel = True
 
         seed = int(os.getenv("seed", 2024))
         np.random.seed(seed)
@@ -158,6 +160,18 @@ class TestParallelAPI:
         ).reshape(mesh_shape)
         global_mesh = dist.ProcessMesh(mesh_arr, dim_names)
         dist.auto_parallel.set_mesh(global_mesh)
+
+    def transpose_to_sp(self, process_mesh):
+        def transpose(layer, input, output=None):
+            return None
+
+        return transpose
+
+    def transpose_to_mp(self, process_mesh):
+        def transpose(layer, input, output=None):
+            return None
+
+        return transpose
 
     def check_mp(self, layer):
         if self.mp == 1:
@@ -212,6 +226,12 @@ class TestParallelAPI:
                 "llama.layers.*.mlp.down_proj": RowWiseParallel(),
                 "lm_head.weight": ColWiseParallel(),
             }
+            if self.sequence_parallel:
+                plan["llama.embed_tokens"] = [
+                    ColWiseParallel(),
+                    PrepareLayerOutput(self.transpose_to_sp),
+                ]
+                plan["lm_head"] = PrepareLayerInput(self.transpose_to_mp)
             layer, optimizer = tensor_parallel(layer, plan, optimizer)
         layer, optimizer = parallelize_model_and_optimizer(layer, optimizer)
         self.check_mp(layer)
