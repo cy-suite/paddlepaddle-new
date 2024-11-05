@@ -53,15 +53,15 @@ class TestMatmulHorizontalFusePattern(unittest.TestCase):
         layer = MatmulHorizontalLayer(self.hidden_size, self.intermediate_size)
         baseline_results = layer(x)
 
-        optimized_layer = paddle.incubate.jit.inference(
+        static_layer = paddle.incubate.jit.inference(
             layer,
             enable_new_ir=True,
             switch_ir_debug=True,
         )
 
-        optimized_results = optimized_layer(x)
+        static_results = static_layer(x)
 
-        self.verify_results(baseline_results, optimized_results)
+        self.verify_results(baseline_results, static_results)
 
         # check fused pattern
         valid_op_map = {
