@@ -2930,44 +2930,42 @@ void kron_grad(const Tensor& x,
     for (int i = 0; i < diff; i++) {
       if (x_shape.size() > y_shape.size()) {
         y_shape.insert(y_shape.begin(), 1);
+        y_ = expand<T>(y, y_shape);
       } else {
         x_shape.insert(x_shape.begin(), 1);
+        x_ = expand<T>(x, x_shape);
       }
     }
-    x_ = expand<T>(x, x_shape);
-    y_ = expand<T>(y, y_shape);
-
-    std::vector<int64_t> y_dim = common::vectorize<int64_t>(y_.dims());
-
-    // split out_grad into blocks
-    std::vector<int64_t> block_shape(out_grad_shape.size());
-    for (size_t i = 0; i < block_shape.size(); i++) {
-      block_shape[i] = out_grad_shape[i] / y_shape[i];
-    }
-
-    std::vector<int64_t> new_shape;
-    for (size_t i = 0; i < out_grad_shape.size(); i++) {
-      new_shape.push_back(block_shape[i]);
-      new_shape.push_back(y_shape[i]);
-    }
-    auto new_out_grad = reshape<T>(out_grad, new_shape);
-
-    // transpose out_grad
-    std::vector<size_t> permute_order;
-    for (size_t i = 0; i < out_grad_shape.size(); ++i) {
-      permute_order.push_back(i * 2);
-    }
-    for (size_t i = 0; i < out_grad_shape.size(); ++i) {
-      permute_order.push_back(i * 2 + 1);
-    }
-
-    std::vector<int> permute_order_int(permute_order.begin(),
-                                       permute_order.end());
-    auto transposed_out_grad = transpose<T>(new_out_grad, permute_order_int);
+    // x_ = expand<T>(x, x_shape);
+    // y_ = expand<T>(y, y_shape);
 
     // unsqueeze
+    std::vector<int64_t> y_dim = common::vectorize<int64_t>(y_.dims());
     y_dim.insert(y_dim.begin(), -1);
-    auto blocks = reshape<T>(transposed_out_grad, y_dim);
+
+    std::deque<Tensor> blocks;
+    blocks.push_front(out_grad);
+    for (size_t i = 0; i < x_shape.size(); i++) {
+      std::vector<Tensor> tmp_block;
+      while (!blocks.empty()) {
+        auto block = blocks.front();
+        blocks.pop_front();
+        std::vector<int> split_vec(static_cast<int>(x_shape[i]),
+                                   static_cast<int>(y_shape[i]));
+        std::vector<Tensor> block_split =
+            split<T>(block, IntArray(split_vec), i);
+
+        for (auto& b : block_split) {
+          tmp_block.push_back(b);
+        }
+      }
+      for (auto& tem_b : tmp_block) {
+        blocks.push_back(tem_b);
+      }
+    }
+    std::vector<Tensor> vec(blocks.begin(), blocks.end());
+    // auto out_grad_tmp = reshape<T>(concat<T>(vec, 0), y_dim);
+    auto out_grad_tmp = backend::stack<T>(vec, 0);
 
     std::vector<size_t> range;
     for (size_t i = 0; i <= y_shape.size(); i++) {
@@ -2977,7 +2975,7 @@ void kron_grad(const Tensor& x,
     }
 
     std::vector<int> range_int(range.begin(), range.end());
-    auto sum_tensor = sum<T>(blocks * y_, IntArray(range_int));
+    auto sum_tensor = sum<T>(out_grad_tmp * y_, IntArray(range_int));
     auto x_grad_tmp = reshape<T>(sum_tensor, x.shape());
 
     set_output<T>(x_grad_tmp, x_grad);
