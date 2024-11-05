@@ -27,7 +27,7 @@
 #include "paddle/cinn/ir/ir_base.h"
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/op/ir_operators.h"
-#include "paddle/cinn/ir/schedule/ir_schedule_error.h"
+#include "paddle/cinn/ir/schedule/ir_schedule.h"
 #include "paddle/cinn/ir/tensor.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
 #include "paddle/cinn/optim/replace_var_with_expr.h"
@@ -78,7 +78,7 @@ bool ContainVar(const std::vector<Expr>& exprs, const std::string& var_name);
  * \brief Given a _LoweredFunc_, set its cuda_axis_info based on its func_body.
  * @param lowered_func A pointer to the given _LoweredFunc_
  */
-void SetCudaAxisInfo(Expr* lowered_func);
+void SetCudaAxisInfo(ir::LoweredFunc lowered_func);
 
 /*!
  * \brief Check if a Expr node contains a ScheduleBlockRealize node.

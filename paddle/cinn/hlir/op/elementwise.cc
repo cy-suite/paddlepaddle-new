@@ -571,19 +571,6 @@ std::shared_ptr<OpStrategy> StrategyForFillConstantSymbolic(
                               "The attribute value of fill_constant "
                               "is not found! Please check."));
         auto value = GetScalarExpr(attrs.attr_store.at("value"));
-        PADDLE_ENFORCE_EQ(attrs.attr_store.count("force_cpu"),
-                          true,
-                          ::common::errors::InvalidArgument(
-                              "The attribute force_cpu of fill_constant "
-                              "is not found! Please check."));
-        force_cpu = absl::get<bool>(attrs.attr_store.at("force_cpu"));
-
-        if (force_cpu && target != cinn::common::DefaultHostTarget()) {
-          LOG(WARNING) << "The attribute force_cpu of fill_constant "
-                          "not supported in CINN! The fill_constant's "
-                          "output tensor will placed on "
-                       << target;
-        }
 
         CINNValuePack arg_pack = args[0];
         PADDLE_ENFORCE_EQ(
@@ -1262,8 +1249,11 @@ std::shared_ptr<framework::OpStrategy> StrategyForGenerateShapeSymbolic(
                               pack_args->size()));
 
         std::string tensor_name = pack_args.back().operator std::string();
-        ir::Tensor out = pe::GenerateShape(
-            inputs, symbol_bindings, output_dim_exprs, tensor_name);
+        ir::Tensor out = pe::GenerateShape(inputs,
+                                           symbol_bindings,
+                                           output_dim_exprs,
+                                           output_shapes[0],
+                                           tensor_name);
         std::vector<CINNValue> res;
         res.push_back(CINNValue(out));
         PADDLE_ENFORCE(!out_type.empty(),

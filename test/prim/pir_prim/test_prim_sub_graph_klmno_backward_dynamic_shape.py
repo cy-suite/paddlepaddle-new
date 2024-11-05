@@ -23,8 +23,48 @@ from test_prim_sub_graph_backward_dynamic_shape import (
 import paddle
 
 
+def kthvalue_net1(x):
+    return paddle.kthvalue(x, k=2)[0]
+
+
+def kthvalue_net2(x):
+    return paddle.kthvalue(x, k=1, axis=1)[0]
+
+
+def kthvalue_net3(x):
+    return paddle.kthvalue(x, k=1, axis=1, keepdim=True)[0]
+
+
 def leaky_relu_net(x):
     return paddle.nn.functional.leaky_relu(x)
+
+
+def logcumsumexp_net1(x):
+    return paddle.logcumsumexp(x)
+
+
+def logcumsumexp_net2(x):
+    return paddle.logcumsumexp(x, axis=0)
+
+
+def logcumsumexp_net3(x):
+    return paddle.logcumsumexp(x, axis=-1)
+
+
+def logsumexp_net1(x):
+    return paddle.logsumexp(x)
+
+
+def logsumexp_net2(x):
+    return paddle.logsumexp(x, keepdim=False)
+
+
+def logsumexp_net3(x):
+    return paddle.logsumexp(x, axis=-1, keepdim=False)
+
+
+def logsumexp_net4(x):
+    return paddle.logsumexp(x, axis=[0, 2], keepdim=False)
 
 
 def matmul_net(x, y):
@@ -79,9 +119,62 @@ def multiply_net(x, y):
     return x * y
 
 
+class TestPrimKthvalueWithGrad1(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.kthvalue_grad"
+        self.dtype = "float32"
+        self.x_shape = [30]
+        self.init_x_shape = [None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = kthvalue_net1
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimKthvalueWithGrad2(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.kthvalue_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = kthvalue_net1
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimKthvalueWithGrad3(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.kthvalue_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = kthvalue_net2
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimKthvalueWithGrad4(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.kthvalue_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = kthvalue_net3
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
 class TestPrimLeakyReluWithGrad(TestPrimBaseWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.leaky_relu_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.init_x_shape = [None, None, None]
@@ -91,9 +184,114 @@ class TestPrimLeakyReluWithGrad(TestPrimBaseWithGrad):
         self.tol = 1e-6
 
 
+class TestPrimLogcumsumexpWithGrad1(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.logcumsumexp_grad"
+        self.dtype = "float32"
+        self.x_shape = [10, 10, 10]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = logcumsumexp_net1
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimLogcumsumexpWithGrad2(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.logcumsumexp_grad"
+        self.dtype = "float32"
+        self.x_shape = [10, 10, 10]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = logcumsumexp_net2
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimLogcumsumexpWithGrad3(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.logcumsumexp_grad"
+        self.dtype = "float32"
+        self.x_shape = [10, 10, 10]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = logcumsumexp_net3
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimLogsumexpWithGrad1(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.logsumexp_grad"
+        self.dtype = "float32"
+        self.x_shape = [1000]
+        self.init_x_shape = [None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = logsumexp_net1
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimLogsumexpWithGrad2(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.logsumexp_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, 40]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = logsumexp_net2
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimLogsumexpWithGrad3(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.logsumexp_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, 40]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = logsumexp_net1
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimLogsumexpWithGrad4(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.logsumexp_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, 40]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = logsumexp_net3
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimLogsumexpWithGrad5(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.logsumexp_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, 40]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = logsumexp_net4
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
 class TestPrimMatmulWithGrad1(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2023)
+        self.op_name = "pd_op.matmul_grad"
         self.dtype = "float32"
         self.x_shape = [30, 40, 200]
         self.init_x_shape = [None, None, 200]
@@ -109,6 +307,7 @@ class TestPrimMatmulWithGrad1(TestPrimTwoWithGrad):
 class TestPrimMatmulWithGrad2(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2023)
+        self.op_name = "pd_op.matmul_grad"
         self.dtype = "float32"
         self.x_shape = [1, 30, 40, 200]
         self.init_x_shape = [None, None, None, 200]
@@ -124,6 +323,7 @@ class TestPrimMatmulWithGrad2(TestPrimTwoWithGrad):
 class TestPrimMatmulWithGrad3(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2023)
+        self.op_name = "pd_op.matmul_grad"
         self.dtype = "float32"
         self.x_shape = [1, 30, 40, 200]
         self.init_x_shape = [1, None, None, 200]
@@ -139,6 +339,7 @@ class TestPrimMatmulWithGrad3(TestPrimTwoWithGrad):
 class TestPrimMatmulWithGrad4(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2023)
+        self.op_name = "pd_op.matmul_grad"
         self.dtype = "float32"
         self.x_shape = [30, 1, 40, 200]
         self.init_x_shape = [None, None, None, 200]
@@ -154,6 +355,7 @@ class TestPrimMatmulWithGrad4(TestPrimTwoWithGrad):
 class TestPrimMatmulWithGrad5(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2023)
+        self.op_name = "pd_op.matmul_grad"
         self.dtype = "float32"
         self.x_shape = [30, 1, 40, 200]
         self.init_x_shape = [None, 1, None, 200]
@@ -169,6 +371,7 @@ class TestPrimMatmulWithGrad5(TestPrimTwoWithGrad):
 class TestPrimMaxWithGrad1(TestPrimBaseWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.max_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.init_x_shape = [None, None, None]
@@ -181,6 +384,7 @@ class TestPrimMaxWithGrad1(TestPrimBaseWithGrad):
 class TestPrimMaxWithGrad2(TestPrimBaseWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.max_grad"
         self.dtype = "float32"
         self.x_shape = [30]
         self.init_x_shape = [None]
@@ -193,6 +397,7 @@ class TestPrimMaxWithGrad2(TestPrimBaseWithGrad):
 class TestPrimMaxWithGrad3(TestPrimBaseWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.max_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.init_x_shape = [None, None, None]
@@ -205,6 +410,7 @@ class TestPrimMaxWithGrad3(TestPrimBaseWithGrad):
 class TestPrimMaxWithGrad4(TestPrimBaseWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.max_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.init_x_shape = [None, None, None]
@@ -217,6 +423,7 @@ class TestPrimMaxWithGrad4(TestPrimBaseWithGrad):
 class TestPrimMaxWithGrad5(TestPrimBaseWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.max_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.init_x_shape = [None, None, None]
@@ -229,6 +436,7 @@ class TestPrimMaxWithGrad5(TestPrimBaseWithGrad):
 class TestPrimMaxWithGrad6(TestPrimBaseWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.max_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.init_x_shape = [None, None, None]
@@ -241,6 +449,7 @@ class TestPrimMaxWithGrad6(TestPrimBaseWithGrad):
 class TestPrimMaxWithGrad7(TestPrimBaseWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.max_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.init_x_shape = [None, None, None]
@@ -253,6 +462,7 @@ class TestPrimMaxWithGrad7(TestPrimBaseWithGrad):
 class TestPrimMaximumWithGrad1(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.maximum_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.y_shape = [30, 200, 40]
@@ -268,6 +478,7 @@ class TestPrimMaximumWithGrad1(TestPrimTwoWithGrad):
 class TestPrimMaximumWithGrad2(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.maximum_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.y_shape = [200, 40]
@@ -283,6 +494,7 @@ class TestPrimMaximumWithGrad2(TestPrimTwoWithGrad):
 class TestPrimMaximumWithGrad3(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.maximum_grad"
         self.dtype = "float32"
         self.x_shape = [200, 40]
         self.y_shape = [30, 200, 40]
@@ -298,6 +510,7 @@ class TestPrimMaximumWithGrad3(TestPrimTwoWithGrad):
 class TestPrimMaximumWithGrad4(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.maximum_grad"
         self.dtype = "float32"
         self.x_shape = [40]
         self.y_shape = [30, 200, 40]
@@ -313,6 +526,7 @@ class TestPrimMaximumWithGrad4(TestPrimTwoWithGrad):
 class TestPrimMaximumWithGrad5(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.maximum_grad"
         self.dtype = "float32"
         self.x_shape = [1, 1]
         self.y_shape = [30, 200, 40]
@@ -328,6 +542,7 @@ class TestPrimMaximumWithGrad5(TestPrimTwoWithGrad):
 class TestPrimMaximumWithGrad6(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.maximum_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.y_shape = [1, 1]
@@ -343,6 +558,7 @@ class TestPrimMaximumWithGrad6(TestPrimTwoWithGrad):
 class TestPrimMeanWithGrad(TestPrimBaseWithGrad):
     def setUp(self):
         np.random.seed(2023)
+        self.op_name = "pd_op.mean_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.init_x_shape = [None, None, 40]
@@ -355,6 +571,7 @@ class TestPrimMeanWithGrad(TestPrimBaseWithGrad):
 class TestPrimMeanWithGrad2(TestPrimBaseWithGrad):
     def setUp(self):
         np.random.seed(2023)
+        self.op_name = "pd_op.mean_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.init_x_shape = [None, None, 40]
@@ -367,6 +584,7 @@ class TestPrimMeanWithGrad2(TestPrimBaseWithGrad):
 class TestPrimMeanWithGrad3(TestPrimBaseWithGrad):
     def setUp(self):
         np.random.seed(2023)
+        self.op_name = "pd_op.mean_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.init_x_shape = [None, None, 40]
@@ -379,6 +597,7 @@ class TestPrimMeanWithGrad3(TestPrimBaseWithGrad):
 class TestPrimMinimumWithGrad1(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.minimum_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.y_shape = [30, 200, 40]
@@ -394,6 +613,7 @@ class TestPrimMinimumWithGrad1(TestPrimTwoWithGrad):
 class TestPrimMinimumWithGrad2(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.minimum_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.y_shape = [200, 40]
@@ -409,6 +629,7 @@ class TestPrimMinimumWithGrad2(TestPrimTwoWithGrad):
 class TestPrimMinimumWithGrad3(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.minimum_grad"
         self.dtype = "float32"
         self.x_shape = [200, 40]
         self.y_shape = [30, 200, 40]
@@ -424,6 +645,7 @@ class TestPrimMinimumWithGrad3(TestPrimTwoWithGrad):
 class TestPrimMinimumWithGrad4(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.minimum_grad"
         self.dtype = "float32"
         self.x_shape = [40]
         self.y_shape = [30, 200, 40]
@@ -439,6 +661,7 @@ class TestPrimMinimumWithGrad4(TestPrimTwoWithGrad):
 class TestPrimMinimumWithGrad5(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.minimum_grad"
         self.dtype = "float32"
         self.x_shape = [1, 1]
         self.y_shape = [30, 200, 40]
@@ -454,6 +677,7 @@ class TestPrimMinimumWithGrad5(TestPrimTwoWithGrad):
 class TestPrimMinimumWithGrad6(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2024)
+        self.op_name = "pd_op.minimum_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.y_shape = [1, 1]
@@ -469,6 +693,7 @@ class TestPrimMinimumWithGrad6(TestPrimTwoWithGrad):
 class TestPrimMultiplyWithGrad1(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2023)
+        self.op_name = "pd_op.multiply_grad"
         self.dtype = "float32"
         self.x_shape = [1, 1, 40]
         self.init_x_shape = [None, None, 40]
@@ -484,6 +709,7 @@ class TestPrimMultiplyWithGrad1(TestPrimTwoWithGrad):
 class TestPrimMultiplyWithGrad2(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2023)
+        self.op_name = "pd_op.multiply_grad"
         self.dtype = "float32"
         self.x_shape = [1, 200, 1]
         self.init_x_shape = [None, None, 1]
@@ -499,6 +725,7 @@ class TestPrimMultiplyWithGrad2(TestPrimTwoWithGrad):
 class TestPrimMultiplyWithGrad3(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2023)
+        self.op_name = "pd_op.multiply_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 1]
         self.init_x_shape = [None, None, 1]
@@ -514,6 +741,7 @@ class TestPrimMultiplyWithGrad3(TestPrimTwoWithGrad):
 class TestPrimMultiplyWithGrad4(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2023)
+        self.op_name = "pd_op.multiply_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.init_x_shape = [None, None, 40]
@@ -529,6 +757,7 @@ class TestPrimMultiplyWithGrad4(TestPrimTwoWithGrad):
 class TestPrimMultiplyWithGrad5(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2023)
+        self.op_name = "pd_op.multiply_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.init_x_shape = [None, None, 40]
@@ -544,6 +773,7 @@ class TestPrimMultiplyWithGrad5(TestPrimTwoWithGrad):
 class TestPrimMultiplyWithGrad6(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2023)
+        self.op_name = "pd_op.multiply_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.init_x_shape = [None, None, 40]
@@ -559,6 +789,7 @@ class TestPrimMultiplyWithGrad6(TestPrimTwoWithGrad):
 class TestPrimMultiplyWithGrad7(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2023)
+        self.op_name = "pd_op.multiply_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.init_x_shape = [None, None, 40]
@@ -574,6 +805,7 @@ class TestPrimMultiplyWithGrad7(TestPrimTwoWithGrad):
 class TestPrimMultiplyWithGrad8(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2023)
+        self.op_name = "pd_op.multiply_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.init_x_shape = [None, None, 40]
@@ -589,6 +821,7 @@ class TestPrimMultiplyWithGrad8(TestPrimTwoWithGrad):
 class TestPrimMultiplyWithGrad9(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2023)
+        self.op_name = "pd_op.multiply_grad"
         self.dtype = "float32"
         self.x_shape = [40]
         self.init_x_shape = [None]
@@ -604,6 +837,7 @@ class TestPrimMultiplyWithGrad9(TestPrimTwoWithGrad):
 class TestPrimMultiplyWithGrad10(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2023)
+        self.op_name = "pd_op.multiply_grad"
         self.dtype = "float32"
         self.x_shape = [30, 200, 40]
         self.init_x_shape = [None, None, None]
@@ -619,6 +853,7 @@ class TestPrimMultiplyWithGrad10(TestPrimTwoWithGrad):
 class TestPrimMultiplyWithGrad11(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2023)
+        self.op_name = "pd_op.multiply_grad"
         self.dtype = "float32"
         self.x_shape = [200, 40]
         self.init_x_shape = self.x_shape

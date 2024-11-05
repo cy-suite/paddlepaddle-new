@@ -50,13 +50,17 @@ TEST(CrossThreadReductionReplacer, basic) {
   ir_sch.Bind(ir_sch.GetLoops("B")[0], "blockIdx.x");
   ir_sch.Bind(ir_sch.GetLoops("B")[1], "threadIdx.x");
 
-  ir::Expr new_func = ir_sch.GetModule().GetExprs()[0];
-  VLOG(6) << "After Bind: " << new_func;
+  ir::Expr func_body = ir_sch.GetModule().GetExprs()[0];
+  std::vector<ir::Argument> args{
+      ir::Argument(ir::Var("A"), ir::Argument::IO::kInput),
+      ir::Argument(ir::Var("B"), ir::Argument::IO::kOutput)};
+  auto new_func = ir::_LoweredFunc_::Make("test_func", args, func_body, {});
+  VLOG(6) << "After Bind: " << new_func->body;
 
-  ReplaceCrossThreadReduction(&new_func);
-  VLOG(6) << "After ReplaceCrossThreadReduction: " << new_func;
+  ReplaceCrossThreadReduction(new_func);
+  VLOG(6) << "After ReplaceCrossThreadReduction: " << new_func->body;
 
-  EXPECT_EQ(utils::GetStreamCnt(new_func), utils::Trim(R"ROC({
+  EXPECT_EQ(utils::GetStreamCnt(new_func->body), utils::Trim(R"ROC({
   ScheduleBlock(root)
   {
     thread_bind[blockIdx.x] for (i, 0, 64)
@@ -71,7 +75,7 @@ TEST(CrossThreadReductionReplacer, basic) {
         ScheduleBlock(B)
         {
           i0_0, i1 = axis.bind(i, reduce_j)
-          B[i0_0] = cinn_block_reduce_sum_fp32_internal_shm(A[i0_0, i1], _Buffer_<cinn_buffer_t*: 32>(shm32__fp32_reduce), false)
+          B[i0_0] = cinn_partial_block_reduce_sum_fp32_internal_shm(A[i0_0, i1], _Buffer_<cinn_buffer_t*: 32>(shm32__fp32_reduce), false)
         }
       }
     }

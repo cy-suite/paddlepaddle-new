@@ -26,6 +26,7 @@
 - gather_nd
 - log
 - max
+- min
 - maximum
 - minimum
 - prod
@@ -49,3 +50,4 @@
 - tanh
 - sign
 - sigmoid
+- index_put

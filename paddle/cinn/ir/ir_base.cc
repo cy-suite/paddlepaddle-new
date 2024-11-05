@@ -247,34 +247,46 @@ double Expr::get_constant() const {
 
 bool Expr::is_var() const { return As<_Var_>(); }
 
+bool Expr::is_index() const {
+  switch (node_type()) {
+    case ir::IrNodeTy::Cast:
+      [[fallthrough]];
+    case ir::IrNodeTy::_Var_:
+      return true;
+    case ir::IrNodeTy::IntImm: {
+      if (type().is_index_type()) return true;
+    }
+    case ir::IrNodeTy::Add:
+      [[fallthrough]];
+    case ir::IrNodeTy::Sub:
+      [[fallthrough]];
+    case ir::IrNodeTy::Mul:
+      [[fallthrough]];
+    case ir::IrNodeTy::Div:
+      [[fallthrough]];
+    case ir::IrNodeTy::Mod:
+      return p_->operand(0).is_index() && p_->operand(1).is_index();
+  }
+  return false;
+}
+
+const IndexExpr Expr::as_index() const {
+  if (is_index()) {
+    return IndexExpr(*this);
+  }
+  PADDLE_THROW(::common::errors::InvalidType("Expr is not IndexExpr!"));
+}
+
+IndexExpr Expr::as_index() {
+  if (is_index()) {
+    return IndexExpr(*this);
+  }
+  PADDLE_THROW(::common::errors::InvalidType("Expr is not IndexExpr!"));
+}
+
 _Buffer_ *Expr::as_buffer() { return As<_Buffer_>(); }
 const _Buffer_ *Expr::as_buffer() const { return As<_Buffer_>(); }
 Buffer Expr::as_buffer_ref() const { return Buffer(&Reference(as_buffer())); }
-
-_LoweredFunc_ *Expr::as_lowered_func() { return As<_LoweredFunc_>(); }
-const _LoweredFunc_ *Expr::as_lowered_func() const {
-  return As<_LoweredFunc_>();
-}
-
-_Module_ *Expr::as_module() { return As<_Module_>(); }
-const _Module_ *Expr::as_module() const { return As<_Module_>(); }
-ir::Module Expr::as_module_ref() const {
-  auto *module = as_module();
-  PADDLE_ENFORCE_NOT_NULL(
-      module,
-      ::common::errors::InvalidArgument(
-          "module is a nullptr. It must not be null"));  // Need check here?
-  // TODO(Superjomn) remove the Reference here.
-  return ir::Module(&Reference(module));
-}
-
-LoweredFunc Expr::as_lowered_func_ref() const {
-  auto *function = as_lowered_func();
-  PADDLE_ENFORCE_NOT_NULL(function,
-                          ::common::errors::InvalidArgument(
-                              "function is a nullptr. It must not be null"));
-  return LoweredFunc(&Reference(function));
-}
 
 _Tensor_ *Expr::as_tensor() { return As<_Tensor_>(); }
 const _Tensor_ *Expr::as_tensor() const { return As<_Tensor_>(); }

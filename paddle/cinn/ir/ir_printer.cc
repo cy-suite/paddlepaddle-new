@@ -48,6 +48,12 @@ void IrPrinter::Print(const std::vector<Expr> &exprs,
   str_ = "";
 }
 
+void IrPrinter::Print(const ir::LoweredFunc &fn) {
+  Visit(fn.As<ir::_LoweredFunc_>());
+  os_ << str_;
+  str_ = "";
+}
+
 void IrPrinter::Visit(const IntImm *x) {
   if (x->type().is_int(64)) {
     str_ += std::to_string(x->value);
@@ -124,7 +130,11 @@ void IrPrinter::Visit(const FloatImm *x) {
   std::ostringstream ss;
   if (x->type().is_float16()) {
     if (std::isinf(x->value)) {
-      ss << "cinn::common::raw_uint16_to_float16(0x7c00)";
+      if (x->value == std::numeric_limits<double>::infinity()) {
+        ss << "cinn::common::raw_uint16_to_float16(0x7c00)";
+      } else {
+        ss << "cinn::common::raw_uint16_to_float16(0xfc00)";
+      }
     } else if (std::isnan(x->value)) {
       ss << "cinn::common::raw_uint16_to_float16(0x7e00)";
     } else {
@@ -134,7 +144,11 @@ void IrPrinter::Visit(const FloatImm *x) {
     }
   } else if (x->type().is_bfloat16()) {
     if (std::isinf(x->value)) {
-      ss << "cinn::common::raw_uint16_to_bfloat16(0x7F80)";
+      if (x->value == std::numeric_limits<double>::infinity()) {
+        ss << "cinn::common::raw_uint16_to_bfloat16(0x7F80)";
+      } else {
+        ss << "cinn::common::raw_uint16_to_bfloat16(0xFF80)";
+      }
     } else if (std::isnan(x->value)) {
       ss << "cinn::common::raw_uint16_to_bfloat16(0x7FC0)";
     } else {
@@ -793,6 +807,14 @@ std::ostream &operator<<(std::ostream &os, Expr a) {
   std::stringstream ss;
   IrPrinter printer(ss);
   printer.Print(a);
+  os << ss.str();
+  return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const ir::LoweredFunc &func) {
+  std::stringstream ss;
+  IrPrinter printer(ss);
+  printer.Print(func);
   os << ss.str();
   return os;
 }

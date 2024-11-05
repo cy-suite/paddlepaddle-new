@@ -41,8 +41,6 @@ using pir::TuplePopOp;
 using pir::TuplePushOp;
 constexpr char kStopGradientAttrName[] = "stop_gradient";  // NOLINT
 
-COMMON_DECLARE_bool(pir_debug);
-
 namespace paddle::dialect {
 
 void IfOp::Build(pir::Builder &builder,             // NOLINT
@@ -168,28 +166,28 @@ pir::Block &IfOp::false_block() {
 void IfOp::Print(pir::IrPrinter &printer) {
   auto &os = printer.os;
   auto op = operation();
-  printer.PrintOpResult(op);
+  printer.PrintOpResult(*op);
   os << " = \"" << name() << "\"";
 
-  if (VLOG_IS_ON(1) || FLAGS_pir_debug) {
+  if (VLOG_IS_ON(1)) {
     os << " [id:" << op->id() << "]";
   }
 
-  printer.PrintOpOperands(op);
-  printer.PrintAttributeMap(op);
+  printer.PrintOpOperands(*op);
+  printer.PrintAttributeMap(*op);
   os << " -> ";
-  printer.PrintOpReturnType(op);
+  printer.PrintOpReturnType(*op);
   os << " {\n";
   printer.AddIndentation();
   for (auto &item : true_block()) {
-    printer.PrintOperation(&item);
+    printer.PrintOperation(item);
     os << "\n";
   }
   printer.DecreaseIndentation();
   os << printer.indentation() << "} else {\n";
   printer.AddIndentation();
   for (auto &item : false_block()) {
-    printer.PrintOperation(&item);
+    printer.PrintOperation(item);
     os << "\n";
   }
   printer.DecreaseIndentation();
@@ -426,9 +424,9 @@ pir::Value WhileOp::cond() { return (*this)->operand_source(0); }
 void WhileOp::Print(pir::IrPrinter &printer) {
   auto &os = printer.os;
   auto op = operation();
-  printer.PrintOpResult(op);
+  printer.PrintOpResult(*op);
   os << " = \"" << name() << "\"";
-  if (VLOG_IS_ON(1) || FLAGS_pir_debug) {
+  if (VLOG_IS_ON(1)) {
     os << " [id:" << op->id() << "]";
   }
   os << " (cond=";
@@ -450,7 +448,7 @@ void WhileOp::Print(pir::IrPrinter &printer) {
   os << "\n";
   printer.AddIndentation();
   for (auto &item : body()) {
-    printer.PrintOperation(&item);
+    printer.PrintOperation(item);
     os << "\n";
   }
   printer.DecreaseIndentation();

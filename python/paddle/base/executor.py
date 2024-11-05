@@ -40,7 +40,6 @@ from .framework import (
     Operator,
     Program,
     Variable,
-    _apply_pass,
     convert_np_dtype_to_dtype_,
     default_main_program,
     get_flags,
@@ -587,27 +586,6 @@ def _merge_tensors(tensor, micro_batch_num):
     return [np.array(chunk) for chunk in chunk_tensor]
 
 
-def _apply_inplace_addto_pass(
-    program, enable_inplace, enable_addto, skip_var_names
-):
-    use_cuda = True if core.is_compiled_with_cuda() else False
-
-    attrs = {"use_cuda": use_cuda, "mem_opt_skip_vars": skip_var_names}
-    attr_types = {"use_cuda": "bool", "mem_opt_skip_vars": "list[str]"}
-
-    empty_startup_program = Program()
-    if enable_inplace:
-        pass_name = "buffer_shared_inplace_pass"
-        _apply_pass(
-            program, empty_startup_program, pass_name, attrs, attr_types
-        )
-    if enable_addto and use_cuda:
-        pass_name = "inplace_addto_op_pass"
-        _apply_pass(
-            program, empty_startup_program, pass_name, attrs, attr_types
-        )
-
-
 def _fetch_var(name, scope=None, return_numpy=True):
     """
     Fetch the value of the variable with the given name from the
@@ -651,7 +629,7 @@ def _to_name_str(var):
         elif isinstance(var, Operator):
             return str(id(var))
         elif isinstance(var, Value):
-            return str(var)
+            return str(var.id)
         else:
             raise TypeError(str(var) + " should be Variable, Operator or str")
 
@@ -1046,34 +1024,6 @@ class _ExecutorCache:
             use_fetch_v2=True,
         )
 
-        # standalone executor will apply buffer_shared_inplace_pass and
-        # inplace_addto_op_pass to program according to build_strategy
-        enable_inplace = (
-            True
-            if build_strategy is None or build_strategy.enable_inplace
-            else False
-        )
-
-        enable_addto = (
-            True
-            if build_strategy is not None and build_strategy.enable_addto
-            else False
-        )
-
-        if get_flags('FLAGS_enable_pir_in_executor')[
-            'FLAGS_enable_pir_in_executor'
-        ]:
-            # todo(phlrain), skip inplace add addto pass in new IR
-            enable_inplace = False
-            enable_addto = False
-
-        if enable_inplace or enable_addto:
-            # inplace should skip feed and fetch var
-            skip_var_names = _get_feed_fetch_var_names(feed, fetch_list)
-            _apply_inplace_addto_pass(
-                program, enable_inplace, enable_addto, skip_var_names
-            )
-
         new_program = program.clone()
         if (
             new_program._pipeline_opt
@@ -1270,12 +1220,11 @@ class _ExecutorCache:
 
         if core._enable_dist_prim_all():
             with decomp.prim_guard():
-                pir_grad_var_to_var = decomp.decompose_dist_program(program)
-            if core._enable_auto_recompute():
-                print("apply auto_recompute in executor", flush=True)
-                program = decomp.auto_recompute_pir_program(
-                    program, pir_grad_var_to_var
-                )
+                decomp.decompose_dist_program(program)
+
+        if core._enable_auto_recompute():
+            logging.info("apply auto_recompute in executor")
+            program = decomp.auto_recompute_pir_program(program, None)
 
         if in_cinn_mode():
             apply_cinn_pass(program)
@@ -1989,35 +1938,6 @@ class Executor:
 
         fetch_list = self._check_fetch_list(fetch_list)
 
-        from paddle.distributed.auto_parallel.static.utils import (
-            use_new_executor,
-        )
-
-        if (
-            isinstance(program, Program)
-            and program._pipeline_opt
-            and not use_new_executor()
-        ):
-            if "fleet_opt" in program._pipeline_opt:
-                # Move prepare here for port conflict with nccl in startup program
-                if self._fleet_executor is None:
-                    self._fleet_executor = _prepare_fleet_executor()
-                return self._run_using_fleet_executor(
-                    program=program,
-                    feed=feed,
-                    fetch_list=fetch_list,
-                    with_standalone_executor=self._fleet_executor_with_standalone,
-                    return_numpy=return_numpy,
-                )
-            if "startup_program" in program._pipeline_opt:
-                program = program._pipeline_opt["startup_program"]
-            else:
-                return self._run_pipeline(
-                    program,
-                    fetch_list=fetch_list,
-                    use_program_cache=use_program_cache,
-                )
-
         if isinstance(program, Program) and program._heter_pipeline_opt:
             # print("program._heter_pipeline_opt: {}".format(
             #    program._heter_pipeline_opt))
@@ -2290,7 +2210,9 @@ class Executor:
             else:
                 tensor._copy_from(cpu_tensor, self.place)
 
-        ret = new_exe.run(list(feed.keys()), return_numpy)
+        ret = new_exe.run(
+            list(feed.keys()), return_numpy, self.enable_job_schedule_profiler
+        )
         return ret
 
     def _run_inference(self, exe, feed):

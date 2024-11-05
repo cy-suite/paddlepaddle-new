@@ -486,6 +486,7 @@
     {out : Out}
 
 - op : bmm
+  backward : bmm_grad, bmm_double_grad
   inputs :
     {x : X, y : Y}
   outputs :
@@ -1249,6 +1250,12 @@
     out_scale : OutScale
     out_scales : OutScales
 
+- op : faster_tokenizer
+  inputs:
+    {vocab : Vocab, text : Text, text_pair : TextPair}
+  outputs:
+    {input_ids : InputIds, segment_ids : SegmentIds}
+
 - op : fc
   inputs :
     input : Input
@@ -1658,16 +1665,6 @@
   outputs :
     {x_grad : DX, y_grad : DY, bias_grad : DBias}
 
-- op : fused_multi_transformer
-  inputs:
-    {x : X, ln_scales : LnScale, ln_biases : LnBias, qkv_weights : QKVW, qkv_biases : QKVBias, cache_kvs : CacheKV,
-    pre_caches : PreCaches, rotary_tensor : RotaryPosEmb, beam_offset : BeamCacheOffset, time_step : TimeStep,
-    seq_lengths : SeqLengths, src_mask : SrcMask, out_linear_weights : OutLinearW, out_linear_biases : OutLinearBias,
-    ffn_ln_scales : FFNLnScale, ffn_ln_biases : FFNLnBias, ffn1_weights : FFN1Weight, ffn1_biases : FFN1Bias,
-    ffn2_weights : FFN2Weight, ffn2_biases : FFN2Bias}
-  outputs:
-    {cache_kv_outs : CacheKVOut, out : Out}
-
 - op : fused_multi_transformer_int8
   inputs:
     {x : X, ln_scale : LnScale, ln_bias : LnBias, qkv_w : QKVW, qkv_bias : QKVBias, cache_kv : CacheKV,
@@ -1677,6 +1674,14 @@
     ffn1_out_scale : FFN1OutScale, ffn2_out_scale : FFN2OutScale}
   outputs:
     {cache_kv_out : CacheKVOut, out : Out}
+
+- op : fused_seqpool_cvm
+  backward: fused_seqpool_cvm_grad
+  inputs:
+    {x : X, cvm : CVM}
+  outputs:
+    out : Out
+  drop_empty_grad : [x_grad]
 
 - op : fused_transpose
   inputs:
@@ -2199,6 +2204,21 @@
   extra :
     attrs : [bool use_mkldnn = false]
 
+- op : legacy_reshape (reshape)
+  backward : legacy_reshape_grad (reshape_grad)
+  inputs:
+    x : X
+  outputs:
+    out : Out
+    xshape: XShape
+  int_array:
+    shape :
+      data_type : int
+      tensor_name : Shape
+      tensors_name : ShapeTensor
+  extra :
+    attrs : [bool use_mkldnn = false, str mkldnn_data_type = "float32", bool use_quantizer = false]
+
 - op : lerp
   backward : lerp_grad
   inputs :
@@ -2239,6 +2259,13 @@
   inputs :
     {start : Start, stop : Stop, number : Num}
   outputs :
+    out : Out
+
+- op : lod_reset
+  backward : lod_reset_grad
+  inputs:
+    {x : X, y : Y}
+  outputs:
     out : Out
 
 - op : log
@@ -2345,6 +2372,16 @@
     x : X
   outputs :
     out : Out
+
+- op : lookup_table
+  backward: lookup_table_grad
+  inputs:
+    {w : W, ids : Ids}
+  outputs:
+    out : Out
+  extra:
+    attrs: [int slot = 0]
+  manual_signature : [lookup_table, lookup_table_grad]
 
 - op : lrn
   backward : lrn_grad
@@ -3578,22 +3615,22 @@
   outputs:
     out : Out
   int_array:
-      sections :
-          data_type : int
-          support_tensor : true
+    sections :
+      data_type : int
+      support_tensor : true
   scalar :
-      axis :
-        data_type : int
-        support_tensor : true
+    axis :
+      data_type : int
+      support_tensor : true
   extra :
     attrs : [bool use_mkldnn = false, str mkldnn_data_type = "float32"]
 
 - op : split_with_num
   scalar :
-      axis :
-        data_type : int
-        support_tensor : true
-        tensor_name : AxisTensor
+    axis :
+      data_type : int
+      support_tensor : true
+      tensor_name : AxisTensor
 
 - op : sqrt
   backward : sqrt_grad, sqrt_double_grad (sqrt_grad_grad)
@@ -3994,7 +4031,7 @@
     {warpctcgrad : WarpCTCGrad, loss : Loss}
 
 - op : where
-  backward : where_grad
+  backward : where_grad, where_double_grad
   inputs :
     {condition : Condition, x : X, y : Y}
   outputs :
@@ -4141,7 +4178,7 @@
   outputs:
     {precision : Precision, recall : Recall, f1_score : F1-Score, num_infer_chunks : NumInferChunks, num_label_chunks : NumLabelChunks, num_correct_chunks : NumCorrectChunks}
 
-- op: comm_init_all(c_comm_init_all)
+- op: comm_init_all
 
 - op: crf_decoding
   inputs:
@@ -4435,6 +4472,12 @@
   outputs :
     out : Out
 
+- op: mp_allreduce_sum
+  inputs :
+    x : X
+  outputs :
+    out: Out
+
 - op: nce
   backward: nce_grad
   inputs:
@@ -4632,6 +4675,12 @@
     out : Out
 
 - op: sync_calc_stream(c_sync_calc_stream)
+  inputs :
+    x : X
+  outputs :
+    out : Out
+
+- op: sync_comm_stream
   inputs :
     x : X
   outputs :

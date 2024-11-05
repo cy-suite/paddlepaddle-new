@@ -41,16 +41,19 @@ from .utils import (
 __all__ = []
 
 
-def to_static_variable(x):
+def to_static_variable(x, dtype=None):
     '''
     Translate a Python Tensor to PaddlePaddle static graph Tensor
     '''
     if isinstance(x, bool):
-        return paddle.full(shape=[], dtype='bool', fill_value=x)
+        dtype = 'bool' if dtype is None else dtype
+        return paddle.full(shape=[], dtype=dtype, fill_value=x)
     if isinstance(x, float):
-        return paddle.full(shape=[], dtype='float64', fill_value=x)
+        dtype = 'float64' if dtype is None else dtype
+        return paddle.full(shape=[], dtype=dtype, fill_value=x)
     if isinstance(x, int):
-        return paddle.full(shape=[], dtype='int64', fill_value=x)
+        dtype = 'int64' if dtype is None else dtype
+        return paddle.full(shape=[], dtype=dtype, fill_value=x)
     if not use_pir_api() and (isinstance(x, UndefinedVar) or x is None):
         """
         for early return case, we need a variable to represent None, current we use data_layer_not_check.
@@ -90,13 +93,14 @@ def convert_load(x):
 
         # get the new output of the var
         if isinstance(x, Value):
-            cur_block = default_main_program().current_block()
 
             from paddle.jit.pir_dy2static.parameter_recorder import (
                 _global_inplace_map,
             )
 
-            new_var = _global_inplace_map.get(cur_block.program, x)
+            new_var = _global_inplace_map.get(
+                paddle.static.default_main_program(), x
+            )
             if new_var is not None:
                 return new_var
 
@@ -196,7 +200,12 @@ def _convert_tensor_arrray_if_necessary(setterhelper, push_pop_names):
 
     def maybe_to_tensor_array(v):
         if isinstance(v, list):
-            return paddle.tensor.create_array("float32", initialized_list=v)
+            dtype = (
+                paddle.base.libpaddle.DataType.UNDEFINED
+                if use_pir_api()
+                else "float32"
+            )
+            return paddle.tensor.create_array(dtype, initialized_list=v)
         else:
             return v
 
@@ -442,8 +451,12 @@ def _run_paddle_cond(
     pred = cast_bool_if_necessary(pred)
     init_args = helper.get(return_name_ids)
     from paddle.jit.dy2static.program_translator import ProgramTranslator
+    from paddle.jit.pir_dy2static.parameter_recorder import _global_inplace_map
 
-    inplace_map = ProgramTranslator.get_instance()._inplace_map
+    if use_pir_api():
+        inplace_map = _global_inplace_map
+    else:
+        inplace_map = ProgramTranslator.get_instance()._inplace_map
     union_name = None
     # TODO(@xiongkun) lambda can have push_pop_names, which will cause error.
     if return_name_ids is None and push_pop_names is None:
