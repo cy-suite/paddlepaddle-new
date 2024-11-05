@@ -40,8 +40,8 @@ class TestWhereTRTPatternCase1(TensorRTBaseTest):
         self.python_api = paddle.where
         self.api_args = {
             "condition": np.random.choice([True, False], size=(2, 3)),
-            "x": np.random.randn(2, 3).astype(np.float32),
-            "y": np.random.randn(2, 3).astype(np.float32),
+            "x": np.random.randn(2, 3).astype("float32"),
+            "y": np.random.randn(2, 3).astype("float32"),
         }
         self.program_config = {"feed_list": ["condition", "x", "y"]}
         self.min_shape = {"condition": [1, 3], "x": [1, 3], "y": [1, 3]}
@@ -56,8 +56,8 @@ class TestWhereTRTPatternCase2(TensorRTBaseTest):
         self.python_api = paddle.where
         self.api_args = {
             "condition": np.random.choice([True, False], size=(2, 3)),
-            "x": np.random.randn(2, 3).astype(np.int32),
-            "y": np.random.randn(2, 3).astype(np.int32),
+            "x": np.random.randn(2, 3).astype("int64"),
+            "y": np.random.randn(2, 3).astype("int64"),
         }
         self.program_config = {"feed_list": ["condition", "x", "y"]}
         self.min_shape = {"condition": [1, 3], "x": [1, 3], "y": [1, 3]}
