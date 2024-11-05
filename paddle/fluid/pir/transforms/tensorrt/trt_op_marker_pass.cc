@@ -1495,6 +1495,12 @@ class WherePattern : public pir::OpRewritePattern<paddle::dialect::WhereOp> {
         op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
+    pir::Value value1 = op.operand_source(1);
+    pir::Value value2 = op.operand_source(2);
+    if (value1 == nullptr || value2 == nullptr) {
+      VLOG(3) << "pd_op.full_with_tensor value is null";
+      return false;
+    }
 #if IS_TRT_VERSION_LT(8400)
     VLOG(3) << "where is not supported when TensorRT < 8.4";
     return false;
