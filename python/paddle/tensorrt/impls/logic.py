@@ -23,6 +23,8 @@ from paddle.tensorrt.register import converter_registry
 
 @converter_registry.register("pd_op.greater_than", trt_version="8.x")
 @converter_registry.register("pd_op.less_than", trt_version="8.x")
+@converter_registry.register("pd_op.equal", trt_version="8.x")
+@converter_registry.register("pd_op.not_equal", trt_version="8.x")
 def logic_converter(network, paddle_op, inputs):
     if paddle_op.name() == "pd_op.greater_than":
         layer_output = add_elementwise_layer(
@@ -32,6 +34,16 @@ def logic_converter(network, paddle_op, inputs):
         layer_output = add_elementwise_layer(
             network, paddle_op, inputs, trt.ElementWiseOperation.LESS
         )
+    elif paddle_op.name() == "pd_op.equal":
+        layer_output = add_elementwise_layer(
+            network, paddle_op, inputs, trt.ElementWiseOperation.EQUAL
+        )
+    elif paddle_op.name() == "pd_op.not_equal":
+        layer_output = add_elementwise_layer(
+            network, paddle_op, inputs, trt.ElementWiseOperation.EQUAL
+        )
+        not_layer = network.add_unary(layer_output, trt.UnaryOperation.NOT)
+        layer_output = not_layer.get_output(0)
     else:
         raise ValueError(f"Unexpected paddle_op: {paddle_op.name()}")
     return trt_cast(network, layer_output, inputs[0].dtype)

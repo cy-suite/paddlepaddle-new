@@ -80,6 +80,8 @@ DEFINE_GENERAL_PATTERN(Hardswish, paddle::dialect::HardswishOp)
 DEFINE_GENERAL_PATTERN(Assign, paddle::dialect::AssignOp)
 DEFINE_GENERAL_PATTERN(AssignValue_, paddle::dialect::AssignValue_Op)
 DEFINE_GENERAL_PATTERN(AssignOut, paddle::dialect::AssignOut_Op)
+DEFINE_GENERAL_PATTERN(NotEqual, paddle::dialect::NotEqualOp)
+DEFINE_GENERAL_PATTERN(Equal, paddle::dialect::EqualOp)
 
 #undef DEFINE_GENERAL_PATTERN
 
@@ -1599,6 +1601,8 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(AssignOut)
     ADD_PATTERN(Assign)
     ADD_PATTERN(AssignValue_)
+    ADD_PATTERN(NotEqual)
+    ADD_PATTERN(Equal)
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
 #endif
