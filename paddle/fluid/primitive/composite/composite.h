@@ -269,13 +269,6 @@ std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor, Tensor> batch_norm_decomp(
   auto reduce_axes = decomp_help.GetReduceAxis();
   auto scale_bias_new_shape = decomp_help.GetScaleBiasNewShape();
 
-  for (auto d : reduce_axes) {
-    std::cerr << "dd  " << d << std::endl;
-  }
-
-  for (auto d : scale_bias_new_shape) {
-    std::cerr << "ss  " << d << std::endl;
-  }
   bool use_run_stat = (is_test && (!trainable_statistics)) || use_global_stats;
 
   Tensor y, run_mean_, run_var_, batch_mean_, inv_std_, reserve_space;
@@ -288,11 +281,9 @@ std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor, Tensor> batch_norm_decomp(
   Tensor inv_std;
   if (!use_run_stat) {
     batch_mean = mean_decomp<T>(x_cast, reduce_axes, true);
-    std::cerr << "batch mean" << batch_mean.dims() << std::endl;
     auto temp = mean_decomp<T>(x_cast * x_cast, reduce_axes, true);
     auto batch_var = temp - batch_mean * batch_mean;
     inv_std = rsqrt<T>(batch_var + epsilon);
-    std::cerr << "inv std " << inv_std.dims() << std::endl;
 
     x_hat = (x_cast - batch_mean) * inv_std;
 
@@ -301,14 +292,13 @@ std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor, Tensor> batch_norm_decomp(
     run_var_ = reshape<T>(run_var, scale_bias_new_shape) * momentum +
                batch_var * (1. - momentum);
 
-    std::cerr << "run_var_ " << run_var_.dims() << std::endl;
-
     run_mean_ = squeeze<T>(run_mean_, reduce_axes);
     run_var_ = squeeze<T>(run_var_, reduce_axes);
     assign_out_<T>(run_mean_, run_mean);
     assign_out_<T>(run_var_, run_var);
   } else {
-    x_hat = (x_cast - run_mean) * rsqrt<T>(run_var + epsilon);
+    x_hat = (x_cast - reshape<T>(run_mean, scale_bias_new_shape)) *
+            rsqrt<T>(reshape<T>(run_var, scale_bias_new_shape) + epsilon);
 
     run_mean_ = run_mean;
     run_var_ = run_var;
@@ -327,11 +317,11 @@ std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor, Tensor> batch_norm_decomp(
                  : bias.get());
   }
 
-  batch_mean_ = squeeze<T>(batch_mean, reduce_axes);
-  inv_std_ = squeeze<T>(inv_std, reduce_axes);
   y = ConverToOrig<T>(y, org_dtype);
 
   if (!use_run_stat) {
+    batch_mean_ = squeeze<T>(batch_mean, reduce_axes);
+    inv_std_ = squeeze<T>(inv_std, reduce_axes);
     return std::make_tuple(
         y, run_mean_, run_var_, batch_mean_, inv_std_, reserve_space);
   } else {
