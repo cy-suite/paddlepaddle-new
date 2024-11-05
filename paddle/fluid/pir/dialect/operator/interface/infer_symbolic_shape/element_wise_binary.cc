@@ -143,9 +143,13 @@ bool FloorDivideOpInferSymbolicShape(
         if (x.isa<int64_t>() && y.isa<int64_t>()) {
           int64_t m = x.dyn_cast<int64_t>();
           int64_t n = y.dyn_cast<int64_t>();
+          if (n == 0) {
+            PADDLE_THROW(common::errors::InvalidArgument(
+                "Division by zero is undefined."))
+          }
           int64_t quotient = m / n;
           int64_t remainder = m % n;
-          if ((remainder != 0) && ((x < 0) != (y < 0))) {
+          if ((remainder != 0) && ((m < 0) != (n < 0))) {
             quotient -= 1;
           }
           return symbol::DimExpr{quotient};
