@@ -1309,8 +1309,8 @@
     func : GatherNdGradInferMeta
   kernel :
     func : gather_nd_grad
-  no_need_buffer : x
   composite : gather_nd_grad(x, index, out_grad, x_grad)
+  no_need_buffer : x
   backward : gather_nd_double_grad
 
 - backward_op : gaussian_inplace_grad
