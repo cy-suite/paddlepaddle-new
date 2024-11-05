@@ -2176,8 +2176,13 @@ class DistModel:
     ) -> None:
         self._feed_name_list = []
         self._inner_strategy = self.__convert_strategy(strategy)
+        state_dict = layer.state_dict()
+        if layer._keys_to_ignore_on_save is not None:
+            for ignore_key in layer._keys_to_ignore_on_save:
+                if ignore_key in state_dict.keys():
+                    del state_dict[ignore_key]
         self._structured_to_parameter_name = {
-            k: v.name for k, v in layer.state_dict().items()
+            k: v.name for k, v in state_dict().items()
         }
         self._parameter_to_structured_name = {
             v: k for k, v in self._structured_to_parameter_name.items()
