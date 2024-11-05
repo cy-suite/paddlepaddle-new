@@ -2183,6 +2183,15 @@ class DistModel:
         self._parameter_to_structured_name = {
             v: k for k, v in self._structured_to_parameter_name.items()
         }
+
+        if isinstance(optimizer, _ShardOptimizer) and use_pir_api():
+            shard_fn = optimizer._shard_fn
+            optimizer = optimizer._inner_opt
+            if isinstance(optimizer._shard_fn, ShardingStage1):
+                optimizer = ShardingOptimizerStage1(
+                    optimizer, shard_fn, self._inner_strategy
+                )
+
         self._engine = Engine(
             layer, loss, optimizer, metrics, strategy=self._inner_strategy
         )
@@ -2868,13 +2877,6 @@ def to_static(
                 raise NotImplementedError(
                     "Only sharding stage 1, 2 and 3 can to_static for now. User-defined shard_fn will be supported later."
                 )
-
-    if isinstance(optimizer, _ShardOptimizer) and use_pir_api():
-        shard_fn = optimizer._shard_fn
-        optimizer = optimizer._inner_opt
-        if isinstance(optimizer._shard_fn, ShardingStage1):
-            optimizer = ShardingOptimizerStage1(optimizer, shard_fn)
-
     dist_model = DistModel(layer, loader, loss, optimizer, strategy)
     return dist_model
 

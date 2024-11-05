@@ -36,6 +36,8 @@ from paddle.framework import (
 )
 from paddle.optimizer import Optimizer
 
+from .strategy import Strategy
+
 
 def get_mesh_comm_list(mesh, axis_name):
     assert axis_name in mesh.dim_names
@@ -62,7 +64,7 @@ class ShardingOptimizerStage1(Optimizer):
 
     """
 
-    def __init__(self, optimizer, shard_fn=None):
+    def __init__(self, optimizer, shard_fn=None, strategy=None):
         assert (
             optimizer is not None
         ), "The argument `optimizer` cannot be empty."
@@ -71,6 +73,7 @@ class ShardingOptimizerStage1(Optimizer):
         ), "`paddle.distributed.ShardOptimizer` only supports AdamW and SGD optimizer for now."
         self.__dict__["_inner_opt"] = optimizer
         self._shard_fn = shard_fn
+        self._strategy = strategy or Strategy()
         paddle.enable_static()
         mesh = dist.auto_parallel.get_mesh()
         dp_groups = get_mesh_comm_list(mesh, "dp")
@@ -114,8 +117,9 @@ class ShardingOptimizerStage1(Optimizer):
         self._place = paddle.base.libpaddle.Place()
         self._place.set_place(place)
 
-        strategy = fleet.fleet._user_defined_strategy
-        sharding_config = strategy.hybrid_configs['sharding_configs']
+        sharding_config = fleet.fleet._user_defined_strategy.hybrid_configs[
+            'sharding_configs'
+        ]
         comm_buffer_size_MB = sharding_config.comm_buffer_size_MB
         parameters_dict = {}
         grads_dict = {}
@@ -234,8 +238,9 @@ class ShardingOptimizerStage1(Optimizer):
                         [],
                         [],
                     )
-                    for grad in group_grad_list:
-                        grad.persistable = True
+                    if not self._strategy.gradient_merge.enable:
+                        for grad in group_grad_list:
+                            grad.persistable = True
                     fused_grad.persistable = True
                     fused_type = paddle.pir.create_shaped_type(
                         fused_grad.type(), main_fused_param._local_shape
