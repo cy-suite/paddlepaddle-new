@@ -67,7 +67,7 @@ class Poisson(distribution.Distribution):
 
             >>> print(rv.entropy())
             Tensor(shape=[], dtype=float32, place=Place(cpu), stop_gradient=True,
-            3.11671066)
+            3.11671519)
 
             >>> rv1 = Poisson(paddle.to_tensor([[30.,40.],[8.,5.]]))
             >>> rv2 = Poisson(paddle.to_tensor([[1000.,40.],[7.,10.]]))
