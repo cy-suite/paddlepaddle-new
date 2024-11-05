@@ -168,7 +168,7 @@ class AutoLayoutPass : public pir::Pass {
           op->isa<paddle::dialect::Conv2dTransposeOp>()) {
         if (op->isa<paddle::dialect::FusedConv2dAddActOp>() ||
             op->isa<paddle::dialect::Conv2dOp>()) {
-          common::DataLayout new_layout;
+          common::DataLayout new_layout = common::DataLayout::NCHW;
           if (op->isa<paddle::dialect::FusedConv2dAddActOp>()) {
             new_layout = PreferLayout<paddle::dialect::FusedConv2dAddActOp>(op);
           } else if (op->isa<paddle::dialect::Conv2dOp>()) {
