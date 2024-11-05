@@ -139,13 +139,13 @@ bool FloorDivideOpInferSymbolicShape(
   return InferSymbolicShapeElementWiseBinary(
       op,
       infer_context,
-      [](const symbol::DimExpr &x, const symbol::DimExpr &y) {
+      [&](const symbol::DimExpr &x, const symbol::DimExpr &y) {
         if (x.isa<int64_t>() && y.isa<int64_t>()) {
           int64_t m = x.dyn_cast<int64_t>();
           int64_t n = y.dyn_cast<int64_t>();
           if (n == 0) {
             PADDLE_THROW(common::errors::InvalidArgument(
-                "Division by zero is undefined."))
+                "Division by zero is undefined."));
           }
           int64_t quotient = m / n;
           int64_t remainder = m % n;
