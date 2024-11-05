@@ -31,10 +31,6 @@ if(WITH_OPENMP)
 endif()
 add_subdirectory(llvm)
 
-if(WITH_CUDA)
-  cinn_nv_test(test_raw_cuda_code SRCS raw_cuda_code_test.cu DEPS cinncore)
-endif()
-
 include_directories(${CMAKE_SOURCE_DIR}/paddle/cinn/runtime)
 
 foreach(cpp ${srcs})
