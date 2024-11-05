@@ -336,7 +336,6 @@ class CacheKey:
     @staticmethod
     def hash_class_instance(class_instance):
         if not hasattr(class_instance.__class__, "__cache_attrs__"):
-            print(class_instance.__class__)
             return (ClassInstanceHashType.INSTANCE_ID, class_instance)
         attrs = tuple(
             getattr(class_instance, attr)
