@@ -1599,15 +1599,14 @@ class OneHotOpPattern
       return false;
     }
 #if IS_TRT_VERSION_LT(8510)
-    VLOG(3) << "one_hot/one_hot_v2 is not supported when TensorRT<8.5.1";
+    VLOG(3) << "pd_op.one_hot is not supported when TensorRT<8.5.1";
     return false;
     pir::Value input = op.operand_source(0);
     auto input_type = pir::GetDataTypeFromValue(input);
     if (!input_type.isa<pir::Float32Type>() ||
         !input_type.isa<pir::Int32Type>() ||
         !input_type.isa<pir::Int64Type>()) {
-      VLOG(3) << "The type of one_hot/one_hot_v2 op only support "
-                 "int32,int64,float.";
+      VLOG(3) << "pd_op.one_hot only support int32,int64,float.";
       return false;
     }
 #endif
