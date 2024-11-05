@@ -40,6 +40,21 @@ class CheckOverflow : public ir::IRVisitor {
     ir::IRVisitor::Visit(&for_op->body);
     curr_product_ /= for_op->extent.as_int64();
   }
+  void Visit(const ir::ScheduleBlock* op) override {
+    ir::IRVisitor::Visit(&(op->body));
+  }
+  void Visit(const ir::ScheduleBlockRealize* op) override {
+    ir::IRVisitor::Visit(&(op->schedule_block));
+  }
+  void Visit(const ir::Block* op) {
+    for (auto& expr : op->stmts) {
+      ir::IRVisitor::Visit(&expr);
+    }
+  }
+  void Visit(const ir::IfThenElse* op) {
+    ir::IRVisitor::Visit(&(op->true_case));
+    if (op->false_case.defined()) ir::IRVisitor::Visit(&(op->false_case));
+  }
   int64_t curr_product_ = 1;
   bool is_overflow_ = false;
 };
