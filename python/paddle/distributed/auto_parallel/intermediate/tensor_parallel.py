@@ -17,7 +17,7 @@ import re
 import paddle
 import paddle.distributed as dist
 
-from .parallel_base import ParallelBase
+from .parallel_base import ParallelModel, ParallelOptimizer
 
 
 class PlanBase:
@@ -95,13 +95,13 @@ class RowWiseParallel(PlanBase):
             )
 
 
-class TensorParallel(ParallelBase):
+class TensorParallel(ParallelModel):
     """
     TODO(yaliu): DOC
     """
 
-    def __init__(self, model, parallelize_plan=None, optimizer=None):
-        super().__init__(model, optimizer)
+    def __init__(self, model, parallelize_plan=None):
+        super().__init__(model)
         if parallelize_plan is not None:
             assert isinstance(parallelize_plan, dict)
             for key, plan in parallelize_plan.items():
@@ -165,8 +165,6 @@ def tensor_parallel(model, parallelize_plan=None, optimizer=None):
             "No parallelize plan, tensor parallel won't do anything."
         )
         return model, optimizer
-    model = TensorParallel(model, parallelize_plan, optimizer)
-    optimizer = model.optimizer
 
     global_mesh = dist.auto_parallel.get_mesh()
 
@@ -176,5 +174,9 @@ def tensor_parallel(model, parallelize_plan=None, optimizer=None):
     assert (
         "mp" in global_mesh.dim_names
     ), "mp must in the mesh dim_names when use tensor_parallel"
+
+    model = TensorParallel(model, parallelize_plan)
+    if optimizer is not None:
+        optimizer = ParallelOptimizer(optimizer)
 
     return model, optimizer
