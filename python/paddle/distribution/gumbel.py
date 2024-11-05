@@ -266,8 +266,7 @@ class Gumbel(TransformedDistribution):
     def rsample(self, shape: Sequence[int] = ()) -> Tensor:
         """reparameterized sample
         Args:
-            shape (Sequence[int], optional): 1D `int32`. Shape of the generated samples.
-                Defaults to ().
+            shape (Sequence[int], optional): 1D `int32`. Shape of the generated samples. Defaults to ().
 
         Returns:
             Tensor: A tensor with prepended dimensions shape.The data type is float32.
