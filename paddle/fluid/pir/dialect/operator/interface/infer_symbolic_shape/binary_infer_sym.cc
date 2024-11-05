@@ -630,23 +630,10 @@ bool Conv3dTransposeOpInferSymbolicShape(
 bool Conv2dTransposeOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
   //  if ( op->attributes().find("output_size") !=  op->attributes().end()) {
-  if (op->HasAttribute("output_size")) {
-    std::vector<int> out_size =
-        paddle::dialect::details::GetVectorAttr<int>(op, "output_size");
-    std::vector<symbol::DimExpr> output_size;
-    for (const auto &i : out_size) {
-      output_size.emplace_back(symbol::DimExpr{i});
-    }
-    return ConvTransposeFunction(op, infer_context, output_size);
-  } else {
-    const auto &output_shape_or_data =
-        infer_context->GetShapeOrDataForValue(op->operand_source(2));
-    const std::vector<symbol::DimExpr> &output_size =
-        output_shape_or_data.data().has_value()
-            ? output_shape_or_data.data().value()
-            : output_shape_or_data.shape();
-    return ConvTransposeFunction(op, infer_context, output_size);
-  }
+  std::vector<symbol::DimExpr> output_size =
+      details::GetIntArrayFromAttrOrOperand(
+          op, infer_context, "output_size", 2);
+  return ConvTransposeFunction(op, infer_context, output_size);
 }
 
 bool Conv2dTransposeBiasOpInferSymbolicShape(
@@ -669,6 +656,11 @@ bool Conv2dTransposeBiasOpInferSymbolicShape(
 bool DepthwiseConv2dOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
   return Conv2dOpInferSymbolicShape(op, infer_context);
+}
+
+bool DepthwiseConv2dTransposeOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  return Conv2dTransposeOpInferSymbolicShape(op, infer_context);
 }
 
 bool DotOpInferSymbolicShape(pir::Operation *op,
@@ -1218,12 +1210,73 @@ bool KronOpInferSymbolicShape(pir::Operation *op,
   return true;
 }
 
-// bool LstsqOpInferSymbolicShape(pir::Operation *op,
-//                                pir::InferSymbolicShapeContext *infer_context)
-//                                {
-//   // pass
-//   return true;
-// }
+bool LstsqOpInferSymbolicShape(pir::Operation *op,
+                               pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0)).shape();
+  const auto &y_shape =
+      infer_context->GetShapeOrDataForValue(op->operand_source(1)).shape();
+  size_t x_rank = x_shape.size();
+  size_t y_rank = y_shape.size();
+
+  const symbol::DimExpr &m = x_shape[x_rank - 2];
+  const symbol::DimExpr &n = x_shape[x_rank - 1];
+  const symbol::DimExpr &nrhs = y_shape[y_rank - 1];
+  PADDLE_ENFORCE(
+      (x_rank >= 2 && y_rank >= 2 && x_rank == y_rank),
+      common::errors::InvalidArgument(
+          "Expects input tensor x and y to have the same dimension, "
+          "and the rank of input tensor x and y should be greater "
+          "than or equal to 2, but received the rank of input tensor "
+          "x is %d, the rank of input tensor y is %d",
+          x_rank,
+          y_rank));
+  std::vector<symbol::DimExpr> batch_dims_vec;
+  for (size_t i = 0; i < x_rank - 2; i++) {
+    infer_context->AddEqualCstr(x_shape[i], y_shape[i]);
+    batch_dims_vec.emplace_back(x_shape[i]);
+  }
+  infer_context->AddEqualCstr(m, y_shape[y_rank - 2]);
+  infer_context->SetShapeOrDataForValue(
+      op->result(2),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(batch_dims_vec)});
+
+  std::vector<symbol::DimExpr> residuals_shape{};
+  if (m.isa<int64_t>() && n.isa<int64_t>()) {
+    int64_t m_value = m.Get<std::int64_t>();
+    int64_t n_value = n.Get<std::int64_t>();
+    if (m_value > n_value) {
+      batch_dims_vec.emplace_back(nrhs);
+      residuals_shape = batch_dims_vec;
+      batch_dims_vec.pop_back();
+    } else {
+      residuals_shape.emplace_back(0);
+    }
+  }
+  if (paddle::dialect::details::IsFakeValue(op->result(1)) ||
+      residuals_shape.empty()) {
+    infer_context->SetSymbolForValueByStaticShape(op->result(1));
+  } else {
+    infer_context->SetShapeOrDataForValue(
+        op->result(1),
+        symbol::ShapeOrDataDimExprs{
+            symbol::TensorShapeOrDataDimExprs(residuals_shape)});
+  }
+  symbol::DimExprBuilder builder;
+  batch_dims_vec.emplace_back(builder.Min(m, n));
+  infer_context->SetShapeOrDataForValue(
+      op->result(3),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(batch_dims_vec)});
+  batch_dims_vec[x_rank - 2] = n;
+  batch_dims_vec.emplace_back(nrhs);
+  infer_context->SetShapeOrDataForValue(
+      op->result(0),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(batch_dims_vec)});
+  return true;
+}
 
 bool LuUnpackOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
