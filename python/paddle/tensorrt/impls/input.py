@@ -37,7 +37,7 @@ def one_hot_converter(network, paddle_op, inputs):
 
     trt_dtype = trt_dtype_map[input_type]
 
-    if trt_dtype == trt.int32:
+    if trt_dtype == trt.int32 or trt_dtype == trt.int64:
         values_data = [0, 1]
         np_dtype = np.int32
     elif trt_dtype == trt.float32:
