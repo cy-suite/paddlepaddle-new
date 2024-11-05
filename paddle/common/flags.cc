@@ -1319,6 +1319,10 @@ PHI_DEFINE_EXPORTED_bool(
     "Default cuda is asynchronous device, set to True will"
     "force op run in synchronous mode.");
 
+PHI_DEFINE_EXPORTED_bool(eager_communication_connection,
+                         false,
+                         "enable eager to create nccl comm");
+
 /**
  * Autotune related FLAG
  * Name: FLAGS_use_autotune
@@ -1664,9 +1668,6 @@ PHI_DEFINE_EXPORTED_int32(
 
 PHI_DEFINE_EXPORTED_bool(print_ir, false, "Whether print ir debug str.");
 
-PHI_DEFINE_EXPORTED_bool(pir_debug,
-                         false,
-                         "Whether print more pir debug info.");
 PHI_DEFINE_EXPORTED_bool(
     prim_skip_dynamic,
     true,
