@@ -39,8 +39,8 @@ class TestGreaterThanInt64TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.greater_than
         self.api_args = {
-            "x": np.random.randn(3).astype("float32"),
-            "y": np.random.randn(3).astype("float32"),
+            "x": np.random.randn(3).astype("int64"),
+            "y": np.random.randn(3).astype("int64"),
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
