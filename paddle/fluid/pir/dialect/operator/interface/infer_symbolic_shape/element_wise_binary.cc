@@ -134,6 +134,27 @@ bool SubtractOpInferSymbolicShape(
       [](const symbol::DimExpr &x, const symbol::DimExpr &y) { return x - y; });
 }
 
+bool FloorDivideOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  return InferSymbolicShapeElementWiseBinary(
+      op,
+      infer_context,
+      [](const symbol::DimExpr &x, const symbol::DimExpr &y) {
+        if (x.isa<int64_t>() && y.isa<int64_t>()) {
+          int64_t m = x.dyn_cast<int64_t>();
+          int64_t n = y.dyn_cast<int64_t>();
+          int64_t quotient = m / n;
+          int64_t remainder = m % n;
+          if ((remainder != 0) && ((x < 0) != (y < 0))) {
+            quotient -= 1;
+          }
+          return symbol::DimExpr{quotient};
+        } else {
+          return symbol::DimExpr{infer_context->GetNextSymName()};
+        }
+      });
+}
+
 OP_ELEMENT_WISE_BINARY(Add_)
 OP_ELEMENT_WISE_BINARY(BitwiseAnd)
 OP_ELEMENT_WISE_BINARY(BitwiseAnd_)
@@ -152,7 +173,6 @@ OP_ELEMENT_WISE_BINARY(Divide_)
 OP_ELEMENT_WISE_BINARY(ElementwisePow)
 OP_ELEMENT_WISE_BINARY(Equal)
 OP_ELEMENT_WISE_BINARY(Equal_)
-OP_ELEMENT_WISE_BINARY(FloorDivide)
 OP_ELEMENT_WISE_BINARY(Fmax)
 OP_ELEMENT_WISE_BINARY(Fmin)
 OP_ELEMENT_WISE_BINARY(Gammaincc)
