@@ -1582,18 +1582,9 @@ class SetValueOpPattern
       return false;
     }
 
-    if (!(op->HasAttribute("axes") && op->HasAttribute("steps") &&
-          op->HasAttribute("starts"))) {
+    if (!op->HasAttribute("axes")) {
       VLOG(3) << "the pd_op.set_value op does not have attr (axes or "
                  "starts or steps)";
-      return false;
-    }
-
-    auto axes = op->attribute<pir::ArrayAttribute>("axes");
-    if (axes.size() != 1UL) {
-      VLOG(3) << "the pd_op.set_value op"
-              << "has more than one element in attribute axes, it can not "
-                 "enter into trt.";
       return false;
     }
 
@@ -1690,6 +1681,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<TanhOpPattern>(context));
     ps.Add(std::make_unique<FullWithTensorPattern>(context));
     ps.Add(std::make_unique<StridedSliceOpPattern>(context));
+    ps.Add(std::make_unique<SetValueOpPattern>(context));
     return ps;
   }
 };
