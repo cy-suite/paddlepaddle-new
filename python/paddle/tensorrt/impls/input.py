@@ -37,12 +37,15 @@ def one_hot_converter(network, paddle_op, inputs):
 
     trt_dtype = trt_dtype_map[input_type]
 
-    if trt_dtype == trt.int32 or trt_dtype == trt.int64:
+    if trt_dtype == trt.int32:
         values_data = [0, 1]
         np_dtype = np.int32
     elif trt_dtype == trt.float32:
         values_data = [0.0, 1.0]
         np_dtype = np.float32
+    elif trt_dtype == trt.int64:
+        values_data = [0, 1]
+        np_dtype = np.int64
     else:
         raise ValueError(f"Unsupported trt_dtype for one_hot: {trt_dtype}")
 
