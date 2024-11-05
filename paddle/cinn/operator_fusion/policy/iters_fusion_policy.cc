@@ -28,13 +28,15 @@ bool ItersFusionPolicy::CheckItersRelation(const PatternNodePtr& source,
   auto related_iters = MapKeyToVector(iters_manager_->related_iters_map());
   const auto [source_related_iters, _UNUESD] =
       SplitFirstWhetherInSecond(source_iters, related_iters);
-  if (source_related_iters.empty()) {
+  const auto target_unique_iters =
+      GatherFirstNotInSecond(target_iters, source_iters);
+  if (source_related_iters.empty() || target_unique_iters.empty()) {
     return true;
   } else {
     for (const auto& related_iter : source_related_iters) {
-      const auto target_related_iters =
-          iters_manager_->related_iters_map()[related_iter];
-      if (AnyFirstInSecond(target_iters, SetToVector(target_related_iters))) {
+      if (iters_manager_->CanFindRelatedIters(related_iter,
+                                              target_unique_iters)) {
+        VLOG(4) << "Can not fuse because find related iters";
         return false;
       }
     }
@@ -50,10 +52,6 @@ bool ItersFusionPolicy::CanFuseSource2Target(const PatternNodePtr& source,
   if (source->fusion_iters().loop_iters.empty() ||
       target->fusion_iters().loop_iters.empty()) {
     VLOG(4) << "Pattern with empty loop iters can't be fused.";
-    return false;
-  }
-  if (!CheckItersRelation(source, target)) {
-    VLOG(4) << "Can't fuse source to target because of iters relation.";
     return false;
   }
   auto iters_transforms = SearchItersTransformRoute(

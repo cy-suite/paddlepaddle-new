@@ -53,6 +53,8 @@ struct FusionItersManager {
   symbol::DimExpr GetReduceDimsProduct(const FusionItersSignature& sig);
 
   auto related_iters_map() const { return related_iters_; }
+  bool CanFindRelatedIters(const std::string& source,
+                           const std::vector<std::string>& targets);
 
  private:
   void StoreIter2DimExprForValue(const pir::Value& value);

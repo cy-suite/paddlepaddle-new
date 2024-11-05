@@ -63,7 +63,8 @@ struct ShardableAxesInfoManager {
 
   std::unordered_map<std::string, std::vector<std::string>> root_to_sons_;
   std::unordered_map<std::string, std::string> normalized_root_name_map_;
-  std::unordered_map<std::string, std::string> related_axes_;
+  std::unordered_map<std::string, std::unordered_set<std::string>>
+      related_axes_;
 };
 
 }  // namespace cinn::fusion

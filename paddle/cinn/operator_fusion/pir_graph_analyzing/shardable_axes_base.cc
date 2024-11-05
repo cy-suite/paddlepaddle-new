@@ -93,13 +93,7 @@ std::optional<ShardableAxesSignature> CreateSignatureForSpecialOps(
             << op->name();
     return CreateDefaultSignature(op);
   }
-  if (op->isa<cinn::dialect::ReshapeOp>()) {
-    return CreateDefaultSignature(op);
-  }
   if (op->name() == "cinn_op.generate_shape") {
-    return CreateDefaultSignature(op);
-  }
-  if (op->name() == "cinn_op.reshape") {
     return CreateDefaultSignature(op);
   }
   if (op->name() == "pd_op.reshape") {
@@ -217,7 +211,8 @@ ShardableAxesSignature CreateSignatureForTranspose(pir::Operation* op) {
   return result;
 }
 
-ShardableAxesSignature CreateSignatureForSlice(pir::Operation* op) {
+ShardableAxesSignature CreateSignatureForSlice(
+    pir::Operation* op, ShardableAxesInfoManager* axes_manager) {
   PADDLE_ENFORCE_EQ(op->num_operands(),
                     1,
                     ::common::errors::PreconditionNotMet(
@@ -244,6 +239,8 @@ ShardableAxesSignature CreateSignatureForSlice(pir::Operation* op) {
         axes.emplace_back(input_axes[i]);
       } else if (keepdim) {
         axes.emplace_back(ShardableAxesInfoManager::GetUniqueName());
+        axes_manager->related_axes_map()[input_axes[i]].insert(axes.back());
+        VLOG(4) << "Relate " << input_axes[i] << " to " << axes.back();
       }
     }
     return axes;
@@ -305,6 +302,75 @@ ShardableAxesSignature CreateSignatureForBroadcast(
   return result;
 }
 
+ShardableAxesSignature CreateSignatureForReshape(
+    pir::Operation* op,
+    ShardableAxesInfoManager* axes_manager,
+    pir::ShapeConstraintIRAnalysis* shape_analysis) {
+  const auto input_rank = GetCompitableRank(op->operand_source(0));
+  const auto output_rank = GetCompitableRank(op->result(0));
+
+  const auto shape_product_equal = [&](int lhs_end, int rhs_end) {
+    PADDLE_ENFORCE(lhs_end <= input_rank && rhs_end <= output_rank,
+                   ::common::errors::InvalidArgument(
+                       "Index out of range for reshape op."));
+    return shape_analysis->IsProductEqual(
+        op->operand_source(0), 0, lhs_end, op->result(0), 0, rhs_end);
+  };
+  PADDLE_ENFORCE(shape_product_equal(input_rank, output_rank),
+                 ::common::errors::InvalidArgument(
+                     "Shape product should be equal for reshape op."));
+
+  std::vector<std::pair<int, int>> partion_indices = {{-1, -1}};
+  bool cur_product_equal = true;
+  for (int i = 1, j = 1, j_back = 1; i <= input_rank && j <= output_rank;) {
+    if (shape_product_equal(i, j)) {
+      partion_indices.emplace_back((i++ - 1), (j++ - 1));
+      j_back = j;
+    } else if (j < output_rank) {
+      j++;
+    } else if (i < input_rank) {
+      i++;
+      j = partion_indices.back().second + 2;
+    } else {
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Shape product should be equal with whole shape."));
+    }
+  }
+
+  const auto input_axes = CreateNewNamesWithRank(input_rank);
+  std::vector<std::string> output_axes;
+  for (int i = 1; i < partion_indices.size(); ++i) {
+    const auto& in_start = partion_indices[i - 1].first + 1;
+    const auto& in_end = partion_indices[i].first;
+    const auto& out_start = partion_indices[i - 1].second + 1;
+    const auto& out_end = partion_indices[i].second;
+    // VLOG(4) << "in_start: " << in_start << ", in_end: " << in_end
+    //         << ", out_start: " << out_start << ", out_end: " << out_end;
+    if (in_end == in_start && out_end == out_start) {
+      output_axes.emplace_back(input_axes[in_end]);
+    } else {
+      for (int i = out_start; i <= out_end; ++i) {
+        output_axes.emplace_back(ShardableAxesInfoManager::GetUniqueName());
+        for (int j = in_start; j <= in_end; ++j) {
+          axes_manager->related_axes_map()[input_axes[j]].insert(
+              output_axes.back());
+          VLOG(4) << "Relate " << input_axes[j] << " to " << output_axes.back();
+        }
+      }
+    }
+  }
+
+  PADDLE_ENFORCE_EQ(output_axes.size(),
+                    output_rank,
+                    ::common::errors::InvalidArgument(
+                        "Output axes size should be equal output rank."));
+  ShardableAxesSignature result = ShardableAxesSignature();
+  result.inputs.emplace_back(input_axes);
+  result.outputs.emplace_back(output_axes);
+  result.loop = result.outputs.back();
+  return result;
+}
+
 ShardableAxesSignature CreateSignatureForConcat(
     pir::Operation* op, ShardableAxesInfoManager* axes_manager) {
   size_t rank = GetCompitableRank(op->result(0));
@@ -336,19 +402,20 @@ ShardableAxesSignature CreateSignatureForConcat(
   result.loop = result.outputs.back();
 
   for (int i = 0; i < op->num_operands(); ++i) {
-    axes_manager->related_axes_map()[result.inputs[i].axis_names[axis]] =
-        result.outputs[0].axis_names[axis];
+    axes_manager->related_axes_map()[result.inputs[i].axis_names[axis]].insert(
+        result.outputs[0].axis_names[axis]);
+    VLOG(4) << "Relate " << result.inputs[i].axis_names[axis] << " to "
+            << result.outputs[0].axis_names[axis];
   }
   return result;
 }
 
 ShardableAxesSignature ShardableAxesInfoManager::CreateShardableSignature(
     pir::Operation* op) {
+  VLOG(4) << "[ShardableAxesInfoManager] Create Shardable Axes Signature for \n"
+          << OpsDebugStr({op});
   auto special_result = CreateSignatureForSpecialOps(op);
   if (special_result != std::nullopt) {
-    VLOG(4) << "[ShardableAxesInfoManager] Create Shardable Axes Signature for "
-               "Special Op: \n"
-            << op->name() << " : " << special_result.value().DebugStr();
     return special_result.value();
   }
 
@@ -356,6 +423,8 @@ ShardableAxesSignature ShardableAxesInfoManager::CreateShardableSignature(
   const hlir::framework::OpPatternKind kind = GetOpPatternKind(op);
   if (kind == hlir::framework::kReduction) {
     result = CreateSignatureForReduce(op);
+  } else if (op->name() == "cinn_op.reshape") {
+    result = CreateSignatureForReshape(op, this, shape_analysis_);
   } else if (kind == hlir::framework::kElementWise) {
     result = CreateSignatureForElementWise(op);
   } else if (kind == hlir::framework::kBroadcast) {
@@ -363,14 +432,13 @@ ShardableAxesSignature ShardableAxesInfoManager::CreateShardableSignature(
   } else if (op->name() == "pd_op.transpose") {
     result = CreateSignatureForTranspose(op);
   } else if (op->name() == "cinn_op.slice") {
-    result = CreateSignatureForSlice(op);
+    result = CreateSignatureForSlice(op, this);
   } else if (op->name() == "cinn_op.concat") {
     result = CreateSignatureForConcat(op, this);
   } else {
     result = CreateDefaultSignature(op);
   }
-  VLOG(4) << "[ShardableAxesInfoManager] Create Shardable Axes Signature : \n"
-          << op->name() << " : " << result.DebugStr();
+  VLOG(4) << "[ShardableAxesInfoManager] " << result.DebugStr();
   return result;
 }
 
