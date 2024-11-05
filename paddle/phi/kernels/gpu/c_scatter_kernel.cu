@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "glog/logging.h"
-#include "paddle/phi/core/distributed/comm_context_manager.h"
-
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
 #include "paddle/phi/core/distributed/nccl_comm_context.h"
 #endif
@@ -26,10 +23,8 @@ namespace phi {
 template <typename T, typename Context>
 void CScatterOpCUDAKernel(const Context& dev_ctx,
                           const DenseTensor& input,
-                          int ring_id,
                           int root,
                           int nranks,
-                          bool use_calc_stream,
                           DenseTensor* out) {
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
   auto x = &input;
@@ -45,26 +40,9 @@ void CScatterOpCUDAKernel(const Context& dev_ctx,
       0,
       common::errors::InvalidArgument(
           "The root_id (%d) for c_scatter_op must be non-negative.", root_id));
-  PADDLE_ENFORCE_GE(
-      ring_id,
-      0,
-      common::errors::InvalidArgument(
-          "The ring_id (%d) for c_scatter_op must be non-negative.", ring_id));
 
-  const auto& comm_context_manager =
-      phi::distributed::CommContextManager::GetInstance();
-
-  PADDLE_ENFORCE_EQ(comm_context_manager.Has(std::to_string(ring_id)),
-                    true,
-                    common::errors::InvalidArgument(
-                        "You choose to use new communication library by "
-                        "setting environment "
-                        "variable FLAGS_dynamic_static_unified_comm True. "
-                        "But ring_id(%d) is "
-                        "not found in comm_context_manager.",
-                        std::to_string(ring_id)));
-  comm_ctx = static_cast<phi::distributed::NCCLCommContext*>(
-      comm_context_manager.Get(std::to_string(ring_id)));
+  comm_ctx =
+      static_cast<phi::distributed::NCCLCommContext*>(dev_ctx.GetCommContext());
   PADDLE_ENFORCE_NE(comm_ctx,
                     nullptr,
                     common::errors::Unavailable(
@@ -79,12 +57,6 @@ void CScatterOpCUDAKernel(const Context& dev_ctx,
                         comm_ctx->GetSize()));
 
   stream = comm_ctx->GetStream();
-  VLOG(3) << "new comm_context_manager has ring_id " << ring_id;
-
-  if (use_calc_stream) {
-    // should ExecutionContext for calc stream.
-    stream = dev_ctx.stream();
-  }
 
   phi::DDim x_dims = x->dims();
   phi::DDim out_dims(x_dims);

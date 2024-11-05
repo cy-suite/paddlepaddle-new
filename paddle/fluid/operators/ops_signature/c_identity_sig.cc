@@ -1,4 +1,4 @@
-// Copyright (c) 2023 PaddlePaddle Authors. All Rights Reserved.
+// Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,22 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
-
-#include "paddle/phi/kernels/c_identity_kernel.h"
-
-#include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/core/compat/op_utils.h"
 
 namespace phi {
 
-template <typename T, typename Context>
-void CIdentityKernel(const Context& dev_ctx,
-                     const DenseTensor& x,
-                     bool use_model_parallel,
-                     DenseTensor* out) {
-  dev_ctx.template Alloc<T>(out);
-
-  phi::Copy(dev_ctx, x, dev_ctx.GetPlace(), false, out);
+KernelSignature CIdentityOpArgumentMapping(const ArgumentMappingContext& ctx) {
+  return KernelSignature("c_identity", {"X"}, {"use_model_parallel"}, {"Out"});
 }
 
 }  // namespace phi
+
+PD_REGISTER_ARG_MAPPING_FN(c_identity, phi::CIdentityOpArgumentMapping);

@@ -89,6 +89,22 @@
         - add_input : ValueTensor
           comment : In order to support multi-tag task.
 
+- op : c_identity
+  version :
+    - checkpoint : Upgrade c_identity delete 1 attribute[use_calc_stream].
+      action :
+        - delete_attr : use_calc_stream
+          comment : eject CUDA operations to calculation stream.
+          default : false
+
+- op : c_scatter
+  version :
+    - checkpoint : Upgrade c_scatter delete 1 attribute[use_calc_stream].
+      action :
+        - delete_attr : use_calc_stream
+          comment : eject CUDA operations to calculation stream.
+          default : false
+
 - op : c_split
   version :
     - checkpoint : Upgrade c_split delete 1 attribute[use_calc_stream].

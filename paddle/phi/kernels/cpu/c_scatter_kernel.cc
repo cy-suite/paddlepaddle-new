@@ -28,10 +28,8 @@ namespace phi {
 template <typename T, typename Context>
 void CScatterOpCPUKernel(const Context &dev_ctx,
                          const DenseTensor &x,
-                         int ring_id,
                          int root,
                          int nranks,
-                         bool use_calc_stream,
                          DenseTensor *out) {
 #if defined(PADDLE_WITH_GLOO)
   auto in = &x;

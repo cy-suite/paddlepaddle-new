@@ -604,7 +604,6 @@ void ClipByNormInferMeta(const MetaTensor& x, float max_norm, MetaTensor* out) {
 
 void CIdentityInferMeta(const MetaTensor& x,
                         int ring_id,
-                        bool use_calc_stream,
                         bool use_model_parallel,
                         MetaTensor* out) {
   PADDLE_ENFORCE_GE(
