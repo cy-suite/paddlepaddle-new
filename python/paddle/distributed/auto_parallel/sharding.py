@@ -238,7 +238,7 @@ class ShardingOptimizerStage1(Optimizer):
                         [],
                         [],
                     )
-                    if not self._strategy.gradient_merge.enable:
+                    if not self._strategy.pipeline.enable:
                         for grad in group_grad_list:
                             grad.persistable = True
                     fused_grad.persistable = True
