@@ -122,17 +122,17 @@ class TestRemainderIntTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.remainder
         self.api_args = {
-            "x": np.random.randint(1, 10, size=(2, 3)).astype(np.int32),
+            "x": np.random.randint(1, 10, size=(2, 3)).astype(np.int64),
             "y": np.random.randint(1, 10, size=(2, 3)).astype(
-                np.int32
+                np.int64
             ),  # Ensure y is non-zero
         }
         self.dynamic_shape_data = {
             "x": lambda shape: np.random.randint(1, 10, size=shape).astype(
-                np.int32
+                np.int64
             ),
             "y": lambda shape: np.random.randint(1, 10, size=shape).astype(
-                np.int32
+                np.int64
             ),
         }
         self.program_config = {"feed_list": ["x", "y"]}
@@ -162,7 +162,7 @@ class TestSumTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.sum
         self.api_args = {
-            "x": np.random.randn(2, 4, 6).astype(np.int32),
+            "x": np.random.randn(2, 4, 6).astype(np.int64),
             "axis": [1, 1],
         }
         self.program_config = {"feed_list": ["x"]}

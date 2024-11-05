@@ -35,12 +35,12 @@ class TestGreaterThanFloat32TRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestGreaterThanInt32TRTPattern(TensorRTBaseTest):
+class TestGreaterThanInt64TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.greater_than
         self.api_args = {
-            "x": np.random.randn(3).astype(np.int32),
-            "y": np.random.randn(3).astype(np.int32),
+            "x": np.random.randn(3).astype(np.int64),
+            "y": np.random.randn(3).astype(np.int64),
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
@@ -65,12 +65,12 @@ class TestLessThanFloat32TRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestLessThanInt32TRTPattern(TensorRTBaseTest):
+class TestLessThanInt64TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.less_than
         self.api_args = {
-            "x": np.random.randn(3).astype(np.int32),
-            "y": np.random.randn(3).astype(np.int32),
+            "x": np.random.randn(3).astype(np.int64),
+            "y": np.random.randn(3).astype(np.int64),
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
