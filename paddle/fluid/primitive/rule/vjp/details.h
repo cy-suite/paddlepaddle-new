@@ -842,10 +842,9 @@ void layer_norm_grad(const Tensor& x,
     scale_cast = ConverToMT<T>(scale_cast);
   }
 
-  auto x_sub_mean = x_cast - mean_;  // M,N
-  auto tmp = (full_scalar<T>(1.0, variance_.dtype()) /
-              (variance_ + full_scalar<T>(epsilon, variance_.dtype())));  // M,1
-  auto sqrt_var_1 = sqrt<T>(tmp);                                         // M,1
+  auto x_sub_mean = x_cast - mean_;          // M,N
+  auto tmp = (1.0 / (variance_ + epsilon));  // M,1
+  auto sqrt_var_1 = sqrt<T>(tmp);            // M,1
   auto x_sub_mean_mul_sqrt_var_1 = x_sub_mean * sqrt_var_1;
 
   if (x_grad) {
