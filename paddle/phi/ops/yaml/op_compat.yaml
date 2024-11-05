@@ -486,6 +486,7 @@
     {out : Out}
 
 - op : bmm
+  backward : bmm_grad, bmm_double_grad
   inputs :
     {x : X, y : Y}
   outputs :
@@ -1248,6 +1249,12 @@
     out : Out
     out_scale : OutScale
     out_scales : OutScales
+
+- op : faster_tokenizer
+  inputs:
+    {vocab : Vocab, text : Text, text_pair : TextPair}
+  outputs:
+    {input_ids : InputIds, segment_ids : SegmentIds}
 
 - op : fc
   inputs :
