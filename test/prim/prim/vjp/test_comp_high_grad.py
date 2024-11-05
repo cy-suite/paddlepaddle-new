@@ -1294,12 +1294,17 @@ class TestGatherNdHighGradCheck(unittest.TestCase):
             places.append(base.CPUPlace())
         if core.is_compiled_with_cuda():
             places.append(base.CUDAPlace(0))
+        core._set_prim_backward_enabled(True)
+        core._set_prim_backward_blacklist("gather_nd_grad")
+
         for p in places:
             for x_stop in [False, True]:
                 for y_stop in [False, True]:
                     with dygraph_guard():
                         self.func_double(p, x_stop, y_stop)
                         self.func_triple(p, x_stop, y_stop)
+
+        core._set_prim_backward_enabled(False)
 
 
 if __name__ == '__main__':
