@@ -2370,8 +2370,8 @@ void group_norm_grad(const Tensor& x,
 
   auto inv_std = rsqrt<T>(var_eps);
 
-  auto inv_std_mul_s = inv_std / decomp_helper.GetHW(inv_std) /
-                       decomp_helper.GetChannelDivGroup(inv_std);
+  auto inv_std_mul_s = inv_std / decomp_helper.GetHW(x_data);
+
   auto dtype = x_data.dtype();
   auto sum_y_grad_mul_x =
       sum<T>(out_grad_data * x_data, reduce_axis, dtype, true);

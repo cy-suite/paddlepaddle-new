@@ -405,7 +405,7 @@ class GroupNormDecompHelper {
       merge_shape_tensor_.push_back(
           full<T>({1}, channel_dim, phi::DataType::INT32));
 
-      if (channel_axis_ < x_rank_) {
+      if (channel_axis_ + 1 < x_rank_) {
         split_shape_tensor_.push_back(
             get_slice_vec<T>(x_shape, channel_axis_ + 1, x_rank_));
         merge_shape_tensor_.push_back(
@@ -440,44 +440,29 @@ class GroupNormDecompHelper {
 
   Tensor GetHW(const Tensor& x) {
     auto x_dims = x.dims();
-    int64_t hw_start;
-    int64_t hw_end;
-
-    if (channel_axis_ + 1 == x_dims.size()) {
-      // nhwc
-      hw_start = 1;
-      hw_end = channel_axis_;
-    } else {
-      // nchw
-      hw_start = channel_axis_ + 1;
-      hw_end = x_dims.size();
-    }
+    // process reduce axis
 
     bool static_hw = true;
-    int64_t hw_numel = 1;
-    for (int64_t i = hw_start; i < hw_end; ++i) {
-      if (x_dims[i] < 0) {
+    int64_t hwg_numel = 1;
+
+    for (size_t i = 0; i < reduce_axis_.size(); ++i) {
+      if (x_dims[reduce_axis_[i]] < 0) {
         static_hw = false;
         break;
       }
-      hw_numel *= x_dims[i];
+      hwg_numel *= x_dims[reduce_axis_[i]];
     }
 
     if (static_hw) {
-      return full_scalar<T>(hw_numel, x.dtype());
+      return full_scalar<T>(hwg_numel, x.dtype());
     } else {
-      return cast<T>(get_slice_vec<T>(shape<T>(x), hw_start, hw_end),
-                     x.dtype());
-    }
-  }
+      auto x_shape = shape<T>(x);
+      auto numel = get_slice<T>(x_shape, reduce_axis_.front());
+      for (size_t i = 1; i < reduce_axis_.size(); ++i) {
+        numel = numel * get_slice<T>(x_shape, reduce_axis_[i]);
+      }
 
-  Tensor GetChannelDivGroup(const Tensor& x) {
-    auto x_dims = x.dims();
-    if (x_dims[channel_axis_] < 0) {
-      auto c = get_slice<T>(shape<T>(x), channel_axis_);
-      return cast<T>(c, x.dtype()) / full_scalar<T>(group_num_, x.dtype());
-    } else {
-      return full_scalar<T>(x_dims[channel_axis_] / group_num_, x.dtype());
+      return cast<T>(numel, x.dtype());
     }
   }
 
