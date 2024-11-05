@@ -46,7 +46,7 @@ class TestAssignTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestAssignValueFloat32TRTPattern(TensorRTBaseTest):
+class TestAssignValueCase1TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.assign
         self.api_args = {
@@ -60,11 +60,11 @@ class TestAssignValueFloat32TRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestAssignValueInt32TRTPattern(TensorRTBaseTest):
+class TestAssignValueCase2TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.assign
         self.api_args = {
-            "x": np.array([[2.5, 2.5], [2.5, 2.5], [2.5, 2.5]], dtype='int32')
+            "x": np.array([[2.5, 2.5], [2.5, 2.5], [2.5, 2.5]], dtype='int64')
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {}
