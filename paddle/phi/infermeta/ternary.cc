@@ -1042,7 +1042,18 @@ void GroupNormInferMeta(const MetaTensor& x,
             channel_num,
             data_layout_str));
   }
-  y->set_dims(x_dim);
+  DDim output_dims = x_dim;
+  auto weight_channel = scale.dims()[0];
+  if( data_layout == DataLayout::kNCHW )
+  {
+    output_dims[1] = weight_channel;
+  }
+  else
+  {
+    output_dims[ x_dim.size() - 1 ] = weight_channel;
+  }  
+
+  y->set_dims(output_dims);
   y->set_dtype(x.dtype());
   y->share_lod(x);
 
