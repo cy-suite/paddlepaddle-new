@@ -215,6 +215,8 @@ class TestParallelAPI:
             layer, optimizer = tensor_parallel(layer, plan, optimizer)
         layer, optimizer = parallelize_model_and_optimizer(layer, optimizer)
         self.check_mp(layer)
+        if optimizer is None:
+            return layer
         return layer, optimizer
 
     def run_llama(self, to_static=0):
@@ -231,7 +233,7 @@ class TestParallelAPI:
         model, optimizer = self.parallel_model(model, optimizer)
 
         criterion = LlamaPretrainingCriterion(self.config)
-        criterion, _ = self.parallel_model(criterion)
+        criterion = self.parallel_model(criterion)
 
         if self.config.use_lazy_init:
             for param in model.parameters():
