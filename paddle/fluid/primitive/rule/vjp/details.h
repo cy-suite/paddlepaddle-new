@@ -2368,6 +2368,9 @@ void group_norm_grad(const Tensor& x,
   std::cerr << "var " << variance.dims() << std::endl;
 
   const auto& squeeze_axis = decomp_helper.GetMeanVarSqueezeAxis();
+  for (auto d : squeeze_axis) {
+    std::cerr << "dd  " << d << std::endl;
+  }
   auto variance_new = unsqueeze<T>(variance, squeeze_axis);
   auto mean_new = unsqueeze<T>(mean, squeeze_axis);
 
@@ -2380,13 +2383,10 @@ void group_norm_grad(const Tensor& x,
 
   auto inv_std = rsqrt<T>(var_eps);
 
-  auto inv_std_mul_s = inv_std / decomp_helper.GetHW(x_data);
-
-  std::cerr << "11\n";
+  auto inv_std_mul_s = inv_std;
   auto dtype = x_data.dtype();
-  auto sum_y_grad_mul_x =
-      sum<T>(out_grad_data * x_data, reduce_axis, dtype, true);
-  auto sum_y_grad = sum<T>(out_grad_data, reduce_axis, dtype, true);
+
+  auto sum_y_grad_mul_x = out_grad_data * x_data;
 
   Tensor scale_data;
   if (scale) {
@@ -2399,17 +2399,21 @@ void group_norm_grad(const Tensor& x,
 
   if (x_grad) {
     Tensor d1 = sum_y_grad_mul_x;
-    Tensor d2 = sum_y_grad;
+    Tensor d2 = out_grad_data;
     Tensor p1 = inv_std;
     if (scale) {
       scale_data = ConverToMT<T>(scale_data);
       d1 = sum_y_grad_mul_x * scale_data;
-      d2 = sum_y_grad * scale_data;
+      d2 = out_grad_data * scale_data;
       p1 = inv_std * scale_data;
     }
 
-    auto p2 = (d2 * mean_new - d1) * (inv_std_mul_s / var_eps);
-    auto p3 = p2 * mean_new + d2 * inv_std_mul_s;
+    d1 = sum<T>(d1, reduce_axis, dtype, true);
+    d2 = sum<T>(d2, reduce_axis, dtype, true);
+
+    auto p2 = (d2 * mean_new - d1) *
+              (inv_std_mul_s / var_eps / decomp_helper.GetHW(x_data));
+    auto p3 = p2 * mean_new + d2 * inv_std_mul_s / decomp_helper.GetHW(x_data);
 
     auto tmp_1 = out_grad_data * p1;
     auto tmp_2 = x_data * p2 - p3;
@@ -2417,6 +2421,7 @@ void group_norm_grad(const Tensor& x,
     x_grad_data = decomp_helper.Merge(x_grad_data);
     x_grad_data = ConverToOrig<T>(x_grad_data, x.dtype());
 
+    // set_output<T>(out_grad, x_grad);
     set_output<T>(x_grad_data, x_grad);
   }
 
