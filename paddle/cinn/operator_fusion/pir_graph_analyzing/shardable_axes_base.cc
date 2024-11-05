@@ -316,15 +316,19 @@ ShardableAxesSignature CreateSignatureForReshape(
     return shape_analysis->IsProductEqual(
         op->operand_source(0), 0, lhs_end, op->result(0), 0, rhs_end);
   };
+
   PADDLE_ENFORCE(shape_product_equal(input_rank, output_rank),
                  ::common::errors::InvalidArgument(
                      "Shape product should be equal for reshape op."));
 
   std::vector<std::pair<int, int>> partion_indices = {{-1, -1}};
-  bool cur_product_equal = true;
   for (int i = 1, j = 1; i <= input_rank && j <= output_rank;) {
     if (shape_product_equal(i, j)) {
       partion_indices.emplace_back((i++ - 1), (j++ - 1));
+      if (i > input_rank || j > output_rank) {
+        partion_indices.back().first = input_rank - 1;
+        partion_indices.back().second = output_rank - 1;
+      }
     } else if (j < output_rank) {
       j++;
     } else if (i < input_rank) {
@@ -336,6 +340,11 @@ ShardableAxesSignature CreateSignatureForReshape(
     }
   }
 
+  const auto axis_equal_one = [&shape_analysis](pir::Value v, int axis) {
+    const auto& sym = shape_analysis->GetProductDimExpr(v, {axis});
+    return shape_analysis->IsEqual(sym, symbol::DimExpr(1));
+  };
+
   const auto input_axes = CreateNewNamesWithRank(input_rank);
   std::vector<std::string> output_axes;
   for (int i = 1; i < partion_indices.size(); ++i) {
@@ -343,17 +352,19 @@ ShardableAxesSignature CreateSignatureForReshape(
     const auto& in_end = partion_indices[i].first;
     const auto& out_start = partion_indices[i - 1].second + 1;
     const auto& out_end = partion_indices[i].second;
-    // VLOG(4) << "in_start: " << in_start << ", in_end: " << in_end
-    //         << ", out_start: " << out_start << ", out_end: " << out_end;
     if (in_end == in_start && out_end == out_start) {
       output_axes.emplace_back(input_axes[in_end]);
     } else {
       for (int i = out_start; i <= out_end; ++i) {
         output_axes.emplace_back(ShardableAxesInfoManager::GetUniqueName());
         for (int j = in_start; j <= in_end; ++j) {
-          axes_manager->related_axes_map()[input_axes[j]].insert(
-              output_axes.back());
-          VLOG(4) << "Relate " << input_axes[j] << " to " << output_axes.back();
+          if (!axis_equal_one(op->operand_source(0), j) &&
+              !axis_equal_one(op->result(0), i)) {
+            axes_manager->related_axes_map()[input_axes[j]].insert(
+                output_axes.back());
+            VLOG(4) << "Relate " << input_axes[j] << " to "
+                    << output_axes.back();
+          }
         }
       }
     }
