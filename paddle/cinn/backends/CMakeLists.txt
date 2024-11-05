@@ -13,7 +13,6 @@ gather_srcs(
   function_prototype.cc
   extern_func_protos.cc
   extern_func_jit_register.cc
-  modular.cc
   compiler.cc
   codegen_device_util.cc
   codegen_gpu_dev.cc)
@@ -37,9 +36,6 @@ if(WITH_CUDA)
 endif()
 
 include_directories(${CMAKE_SOURCE_DIR}/paddle/cinn/runtime)
-if(TARGET test_generated1)
-  add_dependencies(test_generated1 test_codegen_c)
-endif()
 
 foreach(cpp ${srcs})
   set(cinnapi_src
