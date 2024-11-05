@@ -22,19 +22,34 @@ from .parallel_base import ParallelModel, ParallelOptimizer
 
 class PlanBase:
     def apply(self, param, process_mesh, shard_weight, shard_bias):
-        raise NotImplementedError
+        raise NotImplementedError("Don't call the PlanBase directly.")
 
 
 class ColWiseParallel(PlanBase):
     """
-    TODO(yaliu): DOC
+    Col wise parallel plan.
+    Will try to split weight on the second dim and the bias on the first dim.
+    This api is designed for paddle.nn.Linear or paddle.nn.Embedding.
+    If any other instance of paddle.nn.Layer is passed,
+    this plan will try to split `layer.weight` and `layer.bias` if it has.
+
+    Note: `layer.weight` should have two dims.
+    Note: `layer.bias` should have one dim.
     """
 
     def __init__(self):
         super().__init__()
 
     def apply(self, layer, process_mesh, shard_weight=True, shard_bias=True):
-        index = process_mesh.dim_names.index('mp')
+        """
+        With calling of this function, parameters will be marked as split and turn in to shard_tensor.
+        :param layer: paddle.nn.Layer, layer to be split
+        :param process_mesh: dist.ProcessMesh, process_mesh where the split will work on
+        :param shard_weight: BOOL, whether shard the weight or not
+        :param shard_bias: BOOL, whether shard the weight or not
+        :return: no return, the shard will happen on the origin layer
+        """
+        index = process_mesh.dim_names.index('mp')  # get the axis for the split
         size = len(process_mesh.shape)
         placement = [dist.Replicate() for _ in range(size)]
         assert isinstance(layer, paddle.nn.Layer)
@@ -64,14 +79,27 @@ class ColWiseParallel(PlanBase):
 
 class RowWiseParallel(PlanBase):
     """
-    TODO(yaliu): DOC
+    Row wise parallel plan.
+    Will try to split weight on the first dim.
+    This api is designed for paddle.nn.Linear or paddle.nn.Embedding.
+    If any other instance of paddle.nn.Layer is passed, this plan will try to split `layer.weight` if it has.
+
+    Note: `layer.weight` should have two dims.
     """
 
     def __init__(self):
         super().__init__()
 
     def apply(self, layer, process_mesh, shard_weight=True, shard_bias=False):
-        index = process_mesh.dim_names.index('mp')
+        """
+        With calling of this function, parameters will be marked as split and turn in to shard_tensor.
+        :param layer: paddle.nn.Layer, layer to be split
+        :param process_mesh: dist.ProcessMesh, process_mesh where the split will work on
+        :param shard_weight: BOOL, whether shard the weight or not
+        :param shard_bias: BOOL, whether shard the weight or not
+        :return: no return, the shard will happen on the origin layer
+        """
+        index = process_mesh.dim_names.index('mp')  # get the axis for the split
         size = len(process_mesh.shape)
         placement = [dist.Replicate() for _ in range(size)]
         placement[index] = dist.Shard(0)
@@ -96,10 +124,6 @@ class RowWiseParallel(PlanBase):
 
 
 class TensorParallel(ParallelModel):
-    """
-    TODO(yaliu): DOC
-    """
-
     def __init__(self, model, parallelize_plan=None):
         super().__init__(model)
         if parallelize_plan is not None:
@@ -118,6 +142,7 @@ class TensorParallel(ParallelModel):
 
     def get_mesh(self):
         # TODO(yaliu): fit pp
+        # Get local mesh for current pp.
         assert "mp" in self.global_mesh.dim_names
         if "pp" in self.global_mesh.dim_names:
             assert (
@@ -129,10 +154,15 @@ class TensorParallel(ParallelModel):
         assert len(mesh.shape) in [1, 2]
         return mesh
 
-    def parse_layer(self, name):
+    def match_layer(self, name):
+        # Match the layer to a plan.
+        # Will return the plan if the layer hits one, otherwise return None.
         for key, plan in self.parallelize_plan.items():
             shard_weight = True
             shard_bias = True
+            # Find some plan for specific parameter, such as
+            # "lm_head.weight": ColWiseParallel()
+            # Only support weight or bias.
             if key.endswith(".weight"):
                 key = key.replace(".weight", "")
                 shard_bias = False
@@ -149,7 +179,7 @@ class TensorParallel(ParallelModel):
             return
         for name, layer in model.named_sublayers():
             if len(layer.sublayers()) == 0:
-                plan, shard_weight, shard_bias = self.parse_layer(name)
+                plan, shard_weight, shard_bias = self.match_layer(name)
                 if plan is not None:
                     plan.apply(layer, self.get_mesh(), shard_weight, shard_bias)
         return model
@@ -157,7 +187,31 @@ class TensorParallel(ParallelModel):
 
 def tensor_parallel(model, parallelize_plan=None, optimizer=None):
     """
-    TODO(yaliu): DOC
+    Tensor parallel.
+    :param model: paddle.nn.Layer, the model to be shard into tensor parallel.
+    :param parallelize_plan: Dict, the plan to shard the layer.
+    :param optimizer: paddle.optimizer.Optimizer, the optimizer.
+    :return:
+        model: model after sharding
+        optimizer: optimizer after sharding
+
+    NOTE: the plan should be a dict maps layer name or parameter name to a split_plan,
+    which will be used to split the layer or the parameter. The name can be written in regular format.
+
+    An example for the plan is:
+    ```
+    plan = {
+        "llama.embed_tokens": ColWiseParallel(),
+        "llama.layers.*.self_attn.q_proj": ColWiseParallel(),
+        "llama.layers.*.self_attn.k_proj": ColWiseParallel(),
+        "llama.layers.*.self_attn.v_proj": ColWiseParallel(),
+        "llama.layers.*.self_attn.o_proj": RowWiseParallel(),
+        "llama.layers.*.mlp.gate_proj": ColWiseParallel(),
+        "llama.layers.*.mlp.up_proj": ColWiseParallel(),
+        "llama.layers.*.mlp.down_proj": RowWiseParallel(),
+        "lm_head.weight": ColWiseParallel(),
+    }
+    ```
     """
     if parallelize_plan is None:
         # Do nothing if no plan.
