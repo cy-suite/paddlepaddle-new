@@ -1815,12 +1815,6 @@ void batch_norm_grad(const Tensor& x,
                      Tensor* bias_grad) {
   use_global_stats = is_test || use_global_stats;
 
-  bool has_dynamic_shape_for_x = has_dynamic_shape(x.shape());
-  bool has_dynamic_shape_for_out_grad = has_dynamic_shape(out_grad.shape());
-  bool dim_three = x.dims().size() == 3;
-  bool dim_two = x.dims().size() == 2;
-  DataLayout data_layout_ = common::StringToDataLayout(data_layout);
-
   Tensor x_data = ConverToMT<T>(x);
   Tensor out_grad_data = ConverToMT<T>(out_grad);
 
