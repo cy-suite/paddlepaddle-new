@@ -46,6 +46,7 @@ class ReshapeZeroShapeNet(nn.Layer):
     def forward(self, x):
         # "O" represents COPY semantics.
         out = paddle.reshape(x, shape=[0, 0, 32, 128])
+        out = paddle.sin(out)
         return out
 
 
