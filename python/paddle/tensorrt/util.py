@@ -23,6 +23,7 @@ from paddle import pir
 
 
 def map_dtype(pd_dtype):
+    version_list = get_trt_version_list()
     if pd_dtype == "FLOAT32":
         return trt.float32
     elif pd_dtype == "FLOAT16":
@@ -35,7 +36,7 @@ def map_dtype(pd_dtype):
         return trt.bool
     # trt version<10.0 not support int64,so convert int64 to int32
     elif pd_dtype == "INT64":
-        return trt.int32
+        return trt.int64 if version_list[0] >= 10 else trt.int32
     # Add other dtype mappings as needed
     else:
         raise TypeError(f"Unsupported dtype: {pd_dtype}")
