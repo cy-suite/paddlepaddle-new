@@ -264,8 +264,6 @@ std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor, Tensor> batch_norm_decomp(
   auto org_dtype = x.dtype();
   Tensor x_cast = ConverToMT<T>(x);
 
-  int rank = x_cast.shape().size();
-
   BatchNormDecompHelper<T> decomp_help(x, scale, bias, data_layout);
 
   auto reduce_axes = decomp_help.GetReduceAxis();
