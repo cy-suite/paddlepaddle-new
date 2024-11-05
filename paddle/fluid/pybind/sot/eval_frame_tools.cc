@@ -19,8 +19,8 @@
 #include <unordered_set>
 
 #include "paddle/common/errors.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
 #include "paddle/phi/core/enforce.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 #if SOT_IS_SUPPORTED
 
@@ -213,14 +213,14 @@ void CodeStatus::clear() {
 
 int need_skip(FrameObject* frame) {
   auto& skip_info = SkipCodeInfo::Instance();
-  PyCodeObject* code = frame->f_code;  // NOLINT
+  PyCodeObject* code = PyFrame_GET_CODE(frame);
   PyObject* co_filename = code->co_filename;
 
   if (skip_info.is_no_skip_code(code)) {
     return 0;
   }
 
-#if PY_VERSION_HEX >= 0x030b0000
+#if PY_3_11_PLUS
   const char* filename = pystr_to_cstr(co_filename);
   PyObject* _filename = NULL;
   if (memcmp(filename, "<frozen", 7) == 0) {
@@ -235,7 +235,7 @@ int need_skip(FrameObject* frame) {
 
   int result = skip_info.in_skip_path(co_filename);
 
-#if PY_VERSION_HEX >= 0x030b0000
+#if PY_3_11_PLUS
   if (_filename != NULL) Py_DECREF(_filename);
 #endif
   return result;
