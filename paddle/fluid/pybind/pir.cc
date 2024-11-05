@@ -855,10 +855,10 @@ void BindOperation(py::module *m) {
                  attr_name, StrAttribute::get(pir::IrContext::Instance(), val));
            })
       .def("set_int_attr",
-           [](Operation &self, std::string &attr_name, const int64_t &val) {
+           [](Operation &self, std::string &attr_name, const int &val) {
              self.set_attribute(
                  attr_name,
-                 pir::Int64Attribute::get(pir::IrContext::Instance(), val));
+                 pir::Int32Attribute::get(pir::IrContext::Instance(), val));
            })
       .def("attrs",
            [](Operation &self) -> py::dict {
@@ -1076,21 +1076,6 @@ void BindOperation(py::module *m) {
           },
           [](Operation &self, OperationDistAttribute op_dist_attr) {
             self.set_attribute(kAttrOpDistAttr, op_dist_attr);
-          })
-      .def_property(
-          "chunk_id",
-          [](Operation &self) -> py::object {
-            auto int64_attr = self.attribute<Int64Attribute>("chunk_id");
-            if (int64_attr) {
-              return py::cast(int64_attr.data());
-            } else {
-              return py::cast(-1);
-            }
-          },
-          [](Operation &self, const int &chunk_id) {
-            self.set_attribute(
-                "chunk_id",
-                Int64Attribute::get(pir::IrContext::Instance(), chunk_id));
           })
       .def_property(
           "op_role",
