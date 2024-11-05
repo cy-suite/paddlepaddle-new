@@ -351,8 +351,6 @@ class BatchNormDecompHelper {
 
   Tensor GetNHW(const Tensor& x) {
     auto x_dims = x.dims();
-    int64_t hw_start;
-    int64_t hw_end;
 
     bool static_nhw = true;
     int64_t nhw_numel = 1;
