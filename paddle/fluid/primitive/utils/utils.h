@@ -377,7 +377,7 @@ class BatchNormDecompHelper {
           continue;
         }
 
-        nhw *= get_slice<T>(x_shape, i);
+        nhw = nhw * get_slice<T>(x_shape, i);
       }
 
       return cast<T>(nhw, x.dtype());
