@@ -852,6 +852,12 @@ void BindOperation(py::module *m) {
              self.set_attribute(
                  attr_name, StrAttribute::get(pir::IrContext::Instance(), val));
            })
+      .def("set_int_attr",
+           [](Operation &self, std::string &attr_name, const int64_t &val) {
+             self.set_attribute(
+                 attr_name,
+                 pir::Int64Attribute::get(pir::IrContext::Instance(), val));
+           })
       .def("attrs",
            [](Operation &self) -> py::dict {
              py::dict attrs_dict;
@@ -1083,6 +1089,21 @@ void BindOperation(py::module *m) {
             self.set_attribute(
                 "op_role",
                 Int32Attribute::get(pir::IrContext::Instance(), op_role));
+          })
+      .def_property(
+          "chunk_id",
+          [](Operation &self) -> py::object {
+            auto int_attr = self.attribute<Int32Attribute>("chunk_id");
+            if (int_attr) {
+              return py::cast(int_attr.data());
+            } else {
+              return py::cast(-1);
+            }
+          },
+          [](Operation &self, const int &chunk_id) {
+            self.set_attribute(
+                "chunk_id",
+                Int32Attribute::get(pir::IrContext::Instance(), chunk_id));
           });
   py::class_<Operation::BlockContainer> block_container(
       *m, "Operation_BlockContainer", R"DOC(
@@ -1119,6 +1140,8 @@ const phi::DDim &GetTensorDims(Type type) {
   } else if (auto sparse_csr_tensr_type =
                  type.dyn_cast<SparseCsrTensorType>()) {
     return sparse_csr_tensr_type.dims();
+  } else if (auto dense_array_type = type.dyn_cast<DenseTensorArrayType>()) {
+    return dense_array_type.dims();
   } else {
     PADDLE_THROW(common::errors::InvalidArgument(
         "Currently, we can only get shape for dense and selsect rows type."));
@@ -1393,6 +1416,17 @@ void BindValue(py::module *m) {
       .def("update_dist_attr",
            [](Value &self, TensorDistAttribute dist_attr) {
              self.set_type(dialect::CvtToPirDistType(self.type(), dist_attr));
+           })
+      .def("is_coalesced",
+           [](Value self) {
+             auto sparse_coo_tensor_type =
+                 self.type().dyn_cast<SparseCooTensorType>();
+             if (sparse_coo_tensor_type) {
+               return sparse_coo_tensor_type.coalesced();
+             } else {
+               PADDLE_THROW(common::errors::InvalidType(
+                   "Method is_coalesced only support sparse coo tensor."));
+             }
            })
       .def_property_readonly("process_mesh", [](Value &self) -> py::object {
         auto type = self.type();
@@ -1856,7 +1890,9 @@ SplitedResult SplitForwardBackward(
                              backward_range);
 
   pir::Block &backward_block = *backward_program->block();
-  bool has_backward = (backward_range[1] > backward_range[0]);
+  bool has_backward = forward_inputs_grads.size() > 0 ||
+                      forward_params_grads.size() > 0 ||
+                      forward_outputs_grads.size() > 0;
 
   // forward program construct.
   VLOG(4) << "start create forward program.";
@@ -2124,6 +2160,12 @@ void BindUtils(pybind11::module *m) {
          []() { ApiBuilder::Instance().ResetInsertionPointToStart(); });
   m->def("reset_insertion_point_to_end",
          []() { ApiBuilder::Instance().ResetInsertionPointToEnd(); });
+  m->def("set_chunk_id",
+         [](int chunk_id) { ApiBuilder::Instance().SetChunckId(chunk_id); });
+  m->def("get_chunk_id", []() { return ApiBuilder::Instance().GetChunckId(); });
+  m->def("set_op_role",
+         [](int op_role) { ApiBuilder::Instance().SetOpRole(op_role); });
+  m->def("get_op_role", []() { return ApiBuilder::Instance().GetOpRole(); });
   m->def("register_paddle_dialect", []() {
     pir::IrContext::Instance()
         ->GetOrRegisterDialect<paddle::dialect::OperatorDialect>();

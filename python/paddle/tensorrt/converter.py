@@ -26,7 +26,7 @@ trt_plugin_lib.initLibNvInferPlugins(None, "")
 
 import paddle
 from paddle import pir
-from paddle.base.core import get_value_shape_range_info
+from paddle.base.core import clear_shape_info, get_value_shape_range_info
 from paddle.base.log_helper import get_logger
 
 from .impls.activation import *  # noqa: F403
@@ -35,6 +35,7 @@ from .impls.common import *  # noqa: F403
 from .impls.conv import *  # noqa: F403
 from .impls.creation import *  # noqa: F403
 from .impls.linalg import *  # noqa: F403
+from .impls.logic import *  # noqa: F403
 from .impls.manipulation import *  # noqa: F403
 from .impls.math import *  # noqa: F403
 from .impls.norm import *  # noqa: F403
@@ -44,10 +45,9 @@ from .impls.pooling import *  # noqa: F403
 from .impls.search import *  # noqa: F403
 from .impls.stat import *  # noqa: F403
 from .register import converter_registry
-from .util import map_dtype
+from .util import get_trt_version_list, map_dtype
 
-version = trt.__version__
-version_list = list(map(int, version.split('.')))
+version_list = get_trt_version_list()
 
 
 def get_cache_path():
@@ -123,6 +123,7 @@ class PaddleToTensorRTConverter:
 
     def convert_subgraph_to_trt(self, program, group_op):
         _logger.info(f"start process {group_op}")
+
         operations = next(iter(group_op.blocks())).ops
         input_values, output_values = self.find_graph_inputs_outputs(group_op)
         builder = trt.Builder(trt.Logger(trt.Logger.ERROR))
@@ -173,6 +174,9 @@ class PaddleToTensorRTConverter:
                 value_to_trt_tensor[value.id] = input_tensor
 
         for op in operations:
+            # Adding marker labels to builtin ops facilitates convert processing, but they ultimately do not enter the TensorRT subgraph.
+            if op.name() == "builtin.split":
+                continue
             operands = []
             for operand in op.operands():
                 source = operand.source()
@@ -205,7 +209,18 @@ class PaddleToTensorRTConverter:
 
             trt_outs = self.convert(network, op, operands)
 
+            results = []
+
             for idx, result in enumerate(op.results()):
+                if result.is_combine():
+                    used_ops = result.all_used_ops()
+                    for use_op in used_ops:
+                        if use_op.name() == "builtin.split":
+                            split_outputs = use_op.results()
+                            results.extend(split_outputs)
+                else:
+                    results.append(result)
+            for idx, result in enumerate(results):
                 if idx < len(trt_outs):
                     value_to_trt_tensor[result.id] = trt_outs[idx]
                 else:
@@ -256,13 +271,14 @@ class PaddleToTensorRTConverter:
                         max_value = get_value_shape_range_info(
                             value, True, paddle.base.core.ShapeMode.kMAX
                         )
-                _logger.info(f"set min_shape of {value} as {min_shape}")
-                _logger.info(f"set opt_shape of {value} as {opt_shape}")
-                _logger.info(f"set max_shape of {value} as {max_shape}")
-                profile.set_shape(
-                    input_name, min=min_shape, opt=opt_shape, max=max_shape
-                )
-                if trt_input.is_shape_tensor:
+                if not trt_input.is_shape_tensor:
+                    _logger.info(f"set min_shape of {value} as {min_shape}")
+                    _logger.info(f"set opt_shape of {value} as {opt_shape}")
+                    _logger.info(f"set max_shape of {value} as {max_shape}")
+                    profile.set_shape(
+                        input_name, min=min_shape, opt=opt_shape, max=max_shape
+                    )
+                else:
                     _logger.info(
                         f"set min_value of shape input: {value} as {min_value}"
                     )
@@ -409,14 +425,10 @@ class PaddleToTensorRTConverter:
                     f"Converter for {op_name} not implemented."
                 )
             outs = converter_func(network, paddle_op, inputs)
-        if isinstance(outs, tuple):
-            return outs
-        elif isinstance(outs, trt.ITensor):
+        if isinstance(outs, trt.ITensor):
             return (outs,)
         else:
-            raise TypeError(
-                f"Expected outputs to be a tuple or ITensor, but got {type(outs)}"
-            )
+            return outs
 
     def convert_program_to_trt(self):
         for op in self.program.global_block().ops:
@@ -428,3 +440,5 @@ class PaddleToTensorRTConverter:
                     orin_out_values[o_i].replace_all_uses_with(new_out[o_i])
 
                 self.program.global_block().remove_op(op)
+        # # Call clear_shape_info to clear the previous shape information
+        clear_shape_info()

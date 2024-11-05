@@ -65,8 +65,6 @@ limitations under the License. */
 #include "paddle/fluid/framework/op_version_registry.h"
 #include "paddle/fluid/framework/phi_utils.h"
 #include "paddle/fluid/framework/prune.h"
-#include "paddle/fluid/framework/raw_tensor.h"
-#include "paddle/fluid/framework/reader.h"
 #include "paddle/fluid/framework/scope_pool.h"
 #include "paddle/fluid/framework/selected_rows_utils.h"
 #include "paddle/fluid/framework/tensor_util.h"
@@ -78,7 +76,9 @@ limitations under the License. */
 #include "paddle/fluid/prim/utils/utils.h"
 #include "paddle/phi/common/bfloat16.h"
 #include "paddle/phi/common/float16.h"
+#include "paddle/phi/core/framework/reader.h"
 #include "paddle/phi/core/memory/allocation/allocator_strategy.h"
+#include "paddle/phi/core/raw_tensor.h"
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
 #include "paddle/phi/core/memory/allocation/auto_growth_best_fit_allocator_v2.h"
 #include "paddle/phi/core/memory/allocation/cuda_ipc_allocator.h"
@@ -90,7 +90,6 @@ limitations under the License. */
 #include "paddle/fluid/platform/enforce.h"
 #include "paddle/fluid/platform/init.h"
 #include "paddle/fluid/platform/profiler/event_python.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
 #include "paddle/fluid/platform/profiler/profiler.h"
 #include "paddle/fluid/platform/tensorrt/engine_params.h"
 #include "paddle/fluid/pybind/auto_parallel_py.h"
@@ -136,6 +135,7 @@ limitations under the License. */
 #include "paddle/phi/core/platform/device_context.h"
 #include "paddle/phi/core/platform/monitor.h"
 #include "paddle/phi/core/platform/profiler.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 #include "paddle/phi/kernels/funcs/common_infer_shape_functions.h"
 #include "paddle/utils/none.h"
 
@@ -160,14 +160,14 @@ limitations under the License. */
 #include "paddle/fluid/operators/nccl/nccl_gpu_common.h"
 #endif
 #ifndef PADDLE_WITH_HIP
-#include "paddle/fluid/platform/device/gpu/cuda/cuda_profiler.h"
+#include "paddle/phi/core/platform/device/gpu/cuda/cuda_profiler.h"
 #endif
 #include "paddle/phi/core/platform/device/gpu/gpu_info.h"
 #endif
 
 #ifdef PADDLE_WITH_XPU
-#include "paddle/fluid/platform/device/xpu/xpu_op_list.h"
 #include "paddle/phi/core/platform/device/xpu/xpu_info.h"
+#include "paddle/phi/core/platform/device/xpu/xpu_op_list.h"
 #endif
 
 #ifdef PADDLE_WITH_CUSTOM_DEVICE
@@ -671,8 +671,7 @@ static void inline CreateVariableIfNotExist(
         auto *tensor_temp = var->GetMutable<phi::DenseTensor>();
         tensor_temp->Resize(common::make_ddim(var_desc.GetShape()));
         tensor_temp->mutable_data(
-            exe->GetPlace(),
-            framework::TransToPhiDataType(var_desc.GetDataType()));
+            exe->GetPlace(), phi::TransToPhiDataType(var_desc.GetDataType()));
       }
     }
   } else {
@@ -937,7 +936,7 @@ void BindVjp(pybind11::module *m) {
             PADDLE_ENFORCE_EQ(inputs[idx].size(),
                               vjp_res[grad_index].size(),
                               common::errors::InvalidArgument(
-                                  "The size of inouts[%d] should be the "
+                                  "The size of inputs[%d] should be the "
                                   "same as vjp_res[%d] size.",
                                   idx,
                                   grad_index));
@@ -1174,10 +1173,9 @@ PYBIND11_MODULE(libpaddle, m) {
         [](const std::string &op_name,
            framework::proto::VarType::Type type_x,
            framework::proto::VarType::Type type_y) {
-          return phi::NeedTypePromotionOldIr(
-              op_name,
-              framework::TransToPhiDataType(type_x),
-              framework::TransToPhiDataType(type_y));
+          return phi::NeedTypePromotionOldIr(op_name,
+                                             phi::TransToPhiDataType(type_x),
+                                             phi::TransToPhiDataType(type_y));
         });
   m.def("get_promote_dtype_old_ir",
         [](const std::string &op_name,
@@ -1185,15 +1183,14 @@ PYBIND11_MODULE(libpaddle, m) {
            framework::proto::VarType::Type type_y) {
           return framework::TransToProtoVarType(
               phi::GetPromoteDtypeOldIr(op_name,
-                                        framework::TransToPhiDataType(type_x),
-                                        framework::TransToPhiDataType(type_y)));
+                                        phi::TransToPhiDataType(type_x),
+                                        phi::TransToPhiDataType(type_y)));
         });
   m.def("is_common_dtype_for_scalar",
         [](framework::proto::VarType::Type type_x,
            framework::proto::VarType::Type type_y) {
           return phi::is_common_dtype_for_scalar(
-              framework::TransToPhiDataType(type_x),
-              framework::TransToPhiDataType(type_y));
+              phi::TransToPhiDataType(type_x), phi::TransToPhiDataType(type_y));
         });
   m.def("disable_signal_handler", &DisableSignalHandler);
 
@@ -1388,7 +1385,7 @@ PYBIND11_MODULE(libpaddle, m) {
            Return the registered kernels in paddle.
 
            Args:
-               lib[string]: the libarary, could be 'phi', 'fluid' and 'all'.
+               lib[string]: the library, could be 'phi', 'fluid' and 'all'.
            )DOC");
 
   m.def(
@@ -1440,7 +1437,7 @@ PYBIND11_MODULE(libpaddle, m) {
            Return the registered kernels in phi.
 
            Args:
-               kernel_registered_type[string]: the libarary, could be 'function', 'structure', and 'all'.
+               kernel_registered_type[string]: the library, could be 'function', 'structure', and 'all'.
            )DOC");
 
   // NOTE(Aganlengzi): KernelFactory static instance is initialized BEFORE
@@ -1828,7 +1825,7 @@ All parameter, weight, gradient are variables in Paddle.
           VLOG(3) << "need skip: " << need_skip << std::endl;
           if (paddle::prim::PrimCommonUtils::IsBwdPrimEnabled()) {
             if ((grad_comp_op_maker != nullptr) && (!need_skip)) {
-              VLOG(3) << "Prim Flag Open: Runing composite grad fun for "
+              VLOG(3) << "Prim Flag Open: Running composite grad fun for "
                       << op_desc.Type();
               grad_op_descs = grad_comp_op_maker(op_desc,
                                                  no_grad_set,
@@ -1841,12 +1838,12 @@ All parameter, weight, gradient are variables in Paddle.
             }
           } else {
             if (grad_op_maker != nullptr) {
-              VLOG(6) << "Prim Flag Close: Runing origin grad fun for "
+              VLOG(6) << "Prim Flag Close: Running origin grad fun for "
                       << op_desc.Type();
               grad_op_descs = grad_op_maker(
                   op_desc, no_grad_set, &grad_to_var, grad_sub_block);
             } else {
-              VLOG(6) << "Prim Flag Close: Runing composite grad fun for "
+              VLOG(6) << "Prim Flag Close: Running composite grad fun for "
                       << op_desc.Type();
               grad_op_descs = grad_comp_op_maker(op_desc,
                                                  no_grad_set,
@@ -2472,12 +2469,6 @@ All parameter, weight, gradient are variables in Paddle.
         static_cast<void (*)(  // NOLINT
             Scope *,
             const phi::DenseTensor &,
-            const std::string &,
-            size_t)>(&framework::SetFeedVariable));
-  m.def("set_feed_variable",
-        static_cast<void (*)(  // NOLINT
-            Scope *,
-            const std::vector<std::string> &,
             const std::string &,
             size_t)>(&framework::SetFeedVariable));
   m.def("get_fetch_variable",
@@ -3288,6 +3279,7 @@ All parameter, weight, gradient are variables in Paddle.
            bool is_shape_tensor,
            paddle::framework::ShapeMode shape_mode) -> py::list {
           py::list res;
+
           paddle::framework::CollectShapeManager::Instance()
               .StatisticShapeRangeInfo();
           auto shape_result =
@@ -3298,6 +3290,9 @@ All parameter, weight, gradient are variables in Paddle.
           }
           return res;
         });
+  m.def("clear_shape_info", []() {
+    paddle::framework::CollectShapeManager::Instance().ClearShapeInfo();
+  });
 
 #if defined(PADDLE_WITH_PSLIB) && !defined(PADDLE_WITH_HETERPS)
   BindHeterWrapper(&m);

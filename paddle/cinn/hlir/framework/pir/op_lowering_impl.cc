@@ -117,6 +117,12 @@ BucketLoweredFuncsWrapper OpLowererImpl::BucketLower(
   func_bodies = OperationFusion(ops, func_bodies, group->fusion_tracker_ptr);
   std::shared_ptr<FusionGroupInfo> fusion_group_info =
       GetFusionGroupInfo(func_bodies);
+  // TODO(liangshuhao): grid reduce is disabled for broadcast-leaf group now,
+  // because grid reduce introduces extra func args that currently cannot be
+  // unified with other broadcast-leaf groups.
+  if (group->IsBroadcastLeaf()) {
+    fusion_group_info->can_apply_grid_reduce = false;
+  }
 
   if (FLAGS_cinn_check_tensor_buffer_map) {
     optim::CheckTensorBufferMap(func_bodies, "BucketLower OpFusion");
@@ -192,7 +198,7 @@ BucketLoweredFuncsWrapper OpLowererImpl::BucketLower(
                                                    &infer_shape_tensor_args);
   if (FLAGS_cinn_check_tensor_buffer_map) {
     for (ir::LoweredFunc& func : funcs) {
-      optim::CheckTensorBufferMap(Expr(func), "BucketLower PostProcess");
+      optim::CheckTensorBufferMap(func->body, "BucketLower PostProcess");
     }
     VLOG(3) << "PostProcess tensor-buffer map check succeed";
   }
@@ -380,13 +386,24 @@ std::vector<ir::LoweredFunc> OpLowererImpl::PostProcess(
 
     // 4.Apply low level pass
     if (i != func_bodies.size() - 1) {
-      func = optim::Optimize(Expr(func), target_, false).as_lowered_func_ref();
+      func = optim::Optimize(func, target_, false);
       optim::RearrangeLoadInstruction(&(func->body));
     } else {
-      func = optim::Optimize(Expr(func), common::DefaultHostTarget(), false)
-                 .as_lowered_func_ref();
+      func = optim::Optimize(func, common::DefaultHostTarget(), false);
     }
+    func->num_output_tensors = infer_shape_arg_tensor->size();
     lowered_funcs.push_back(std::move(func));
+  }
+
+  // collect temp space sizes
+  if (lowered_funcs.size() > 1) {
+    for (auto& temp_space : lowered_funcs[0]->temp_spaces) {
+      int64_t size = -1;
+      if (temp_space.size().is_constant()) {
+        size = temp_space.size().as_int64();
+      }
+      group->mut_temp_space_sizes().push_back(size);
+    }
   }
 
   return lowered_funcs;

@@ -1075,7 +1075,7 @@ def get_paddle_extra_install_requirements():
                 "V11": (
                     "nvidia-cuda-runtime-cu11==11.8.89; platform_system == 'Linux' and platform_machine == 'x86_64' | "
                     "nvidia-cuda-cupti-cu11==11.8.87; platform_system == 'Linux' and platform_machine == 'x86_64' | "
-                    "nvidia-cudnn-cu11==8.7.0.84; platform_system == 'Linux' and platform_machine == 'x86_64' | "
+                    "nvidia-cudnn-cu11==8.9.6.50; platform_system == 'Linux' and platform_machine == 'x86_64' | "
                     "nvidia-cublas-cu11==11.11.3.6; platform_system == 'Linux' and platform_machine == 'x86_64' | "
                     "nvidia-cufft-cu11==10.9.0.58; platform_system == 'Linux' and platform_machine == 'x86_64' | "
                     "nvidia-curand-cu11==10.3.0.86; platform_system == 'Linux' and platform_machine == 'x86_64' | "
@@ -1473,6 +1473,8 @@ def get_package_data_and_package_dir():
         package_data['paddle.libs'] += [env_dict.get("XPU_XBLAS_LIB_NAME")]
         shutil.copy(env_dict.get("XPU_XFA_LIB"), libs_path)
         package_data['paddle.libs'] += [env_dict.get("XPU_XFA_LIB_NAME")]
+        shutil.copy(env_dict.get("XPU_XPUDNN_LIB"), libs_path)
+        package_data['paddle.libs'] += [env_dict.get("XPU_XPUDNN_LIB_NAME")]
 
     if env_dict.get("WITH_XPU_BKCL") == 'ON':
         shutil.copy(env_dict.get("XPU_BKCL_LIB"), libs_path)
@@ -1704,6 +1706,14 @@ def get_headers():
                 recursive=True,
             )
         )
+        + list(  # drr init headers
+            find_files(
+                '*.h',
+                paddle_source_dir
+                + '/paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape',
+                recursive=True,
+            )
+        )
         + list(  # operator init headers
             find_files(
                 '*.h',
@@ -1904,6 +1914,7 @@ def get_setup_parameters():
         'paddle.distributed.fleet.meta_parallel.sharding',
         'paddle.distributed.fleet.meta_parallel.parallel_layers',
         'paddle.distributed.auto_parallel',
+        'paddle.distributed.auto_parallel.intermediate',
         'paddle.distributed.auto_parallel.dygraph',
         'paddle.distributed.auto_parallel.static',
         'paddle.distributed.auto_parallel.static.operators',
@@ -2015,6 +2026,7 @@ def get_setup_parameters():
         'paddle.decomposition',
         'paddle._typing',
         'paddle._typing.libs',
+        'paddle.tensorrt',
     ]
 
     paddle_bins = ''
