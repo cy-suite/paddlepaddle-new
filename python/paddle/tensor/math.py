@@ -3714,10 +3714,33 @@ def log10_(x: Tensor, name: str | None = None) -> Tensor:
         return _C_ops.log10_(x)
 
 
+def check_clip_tensor(c_x, value, re_value, value_type, name):
+    if value is None:
+        value = paddle.full_like(c_x, re_value, value_type)
+    else:
+        if isinstance(value, (Variable, paddle.pir.Value, paddle.Tensor)):
+            if len(value.shape) == 1 and value.shape[-1] == 0:
+                raise ValueError(
+                    f"The {name} dimension should be equal to the inner dimension of the x, but the {name} dimension is {value.shape}"
+                )
+            elif (
+                len(value.shape) != 0
+                and value.shape != c_x.shape[-len(value.shape) :]
+                and value.shape != [1]
+                and value.shape != (1,)
+            ):
+                raise ValueError(
+                    f"The {name} dimension should be equal to the inner dimension of the x, but the {name} dimension is {value.shape} and the x dimension is {c_x.shape[-len(value.shape):]}."
+                )
+        else:
+            value = paddle.full_like(c_x, value, value_type)
+    return value
+
+
 def clip(
     x: Tensor,
-    min: float | None = None,
-    max: float | None = None,
+    min: float | Tensor | None = None,
+    max: float | Tensor | None = None,
     name: str | None = None,
 ) -> Tensor:
     """
@@ -3761,15 +3784,50 @@ def clip(
     if x_dtype == 'paddle.int32':
         min_ = np.iinfo(np.int32).min
         max_ = np.iinfo(np.int32).max - 2**7
+        value_dtype = 'int32'
     elif x_dtype == 'paddle.int64':
         min_ = np.iinfo(np.int64).min
         max_ = np.iinfo(np.int64).max - 2**39
+        value_dtype = 'int64'
     elif x_dtype == 'paddle.float16':
         min_ = float(np.finfo(np.float16).min)
         max_ = float(np.finfo(np.float16).max)
+        value_dtype = 'float16'
     else:
         min_ = float(np.finfo(np.float32).min)
         max_ = float(np.finfo(np.float32).max)
+        value_dtype = 'float32'
+
+    if (
+        isinstance(min, (Variable, paddle.pir.Value, paddle.Tensor))
+        and (
+            (len(min.shape) == 1 and min.shape[-1] not in [1, 0])
+            or len(min.shape) > 1
+        )
+    ) or (
+        isinstance(max, (Variable, paddle.pir.Value, paddle.Tensor))
+        and (
+            (len(max.shape) == 1 and max.shape[-1] not in [1, 0])
+            or len(max.shape) > 1
+        )
+    ):
+        min_n = check_clip_tensor(x, min, min_, value_dtype, 'min')
+        max_n = check_clip_tensor(x, max, max_, value_dtype, 'max')
+
+        min_n = (
+            paddle.broadcast_to(min_n, x.shape)
+            if min_n.shape != x.shape
+            else min_n
+        )
+        max_n = (
+            paddle.broadcast_to(max_n, x.shape)
+            if max_n.shape != x.shape
+            else max_n
+        )
+
+        output_min = paddle.where(x < min_n, min_n, x)
+        output = paddle.where(output_min > max_n, max_n, output_min)
+        return output
 
     if in_dynamic_or_pir_mode():
         if isinstance(min, Variable):
@@ -3837,8 +3895,8 @@ def clip(
 @inplace_apis_in_dygraph_only
 def clip_(
     x: Tensor,
-    min: float | None = None,
-    max: float | None = None,
+    min: float | Tensor | None = None,
+    max: float | Tensor | None = None,
     name: str | None = None,
 ) -> Tensor:
     """
@@ -3847,14 +3905,48 @@ def clip_(
     """
     fmin = float(np.finfo(np.float32).min)
     fmax = float(np.finfo(np.float32).max)
-    if isinstance(min, Variable):
+    if isinstance(min, Variable) and (
+        len(min.shape) == 0 or (len(min.shape) == 1 and min.shape[0] == 1)
+    ):
         min = min.item(0)
-    if isinstance(max, Variable):
+    if isinstance(max, Variable) and (
+        len(max.shape) == 0 or (len(max.shape) == 1 and max.shape[0] == 1)
+    ):
         max = max.item(0)
     min = fmin if min is None else min
     max = fmax if max is None else max
 
     if in_dynamic_mode():
+        if (
+            isinstance(min, (Variable, paddle.pir.Value, paddle.Tensor))
+            and (
+                (len(min.shape) == 1 and min.shape[-1] not in [1, 0])
+                or len(min.shape) > 1
+            )
+        ) or (
+            isinstance(max, (Variable, paddle.pir.Value, paddle.Tensor))
+            and (
+                (len(max.shape) == 1 and max.shape[-1] not in [1, 0])
+                or len(max.shape) > 1
+            )
+        ):
+            max = check_clip_tensor(x, max, fmin, x.dtype, 'max')
+            min = check_clip_tensor(x, min, fmin, x.dtype, 'min')
+
+            max_expand = (
+                paddle.broadcast_to(max, x.shape)
+                if max.shape != x.shape
+                else max
+            )
+            min_expand = (
+                paddle.broadcast_to(min, x.shape)
+                if min.shape != x.shape
+                else min
+            )
+
+            paddle.where_(x > min_expand, x, min_expand)
+            return paddle.where_(x < max_expand, x, max_expand)
+
         return _C_ops.clip_(x, min, max)
 
 
