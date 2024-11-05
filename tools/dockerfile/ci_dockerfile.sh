@@ -26,7 +26,8 @@ function make_ubuntu_trt7_dockerfile_temp_ues(){
 
 function make_cpu_dockerfile(){
   dockerfile_name="Dockerfile.cuda9_cudnn7_gcc48_py35_centos6"
-  sed "s#<baseimg>#ubuntu:24.04#g" ./Dockerfile.ubuntu24 >${dockerfile_name}
+  # sed "s#<baseimg>#ubuntu:24.04#g" ./Dockerfile.ubuntu24 >${dockerfile_name}
+  sed "s#<baseimg>#registry.baidubce.com/tianshuo/paddle-ci:ubuntu24.04#g" ./Dockerfile.ubuntu24 >${dockerfile_name}
   sed -i "s#<setcuda>##g" ${dockerfile_name}
   sed -i "s#WITH_GPU:-ON#WITH_GPU:-OFF#g" ${dockerfile_name}
   sed -i 's#RUN mv /etc/apt/sources.list.d/cuda.list /etc/apt/sources.list.d/cuda.list.bak##g' ${dockerfile_name}
