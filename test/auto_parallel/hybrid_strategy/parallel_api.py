@@ -145,7 +145,6 @@ class TestParallelAPI:
         np.random.seed(seed)
         random.seed(seed)
         paddle.seed(seed)
-        self.only_build = int(os.getenv("only_build", 0))
         self.init_dist_env()
 
     def init_dist_env(self):
@@ -159,6 +158,42 @@ class TestParallelAPI:
         ).reshape(mesh_shape)
         global_mesh = dist.ProcessMesh(mesh_arr, dim_names)
         dist.auto_parallel.set_mesh(global_mesh)
+
+    def check_mp(self, layer):
+        if self.mp == 1:
+            return
+        for name, sub_layer in layer.named_sublayers():
+            if len(sub_layer.sublayers()) == 0:
+                if 'q_proj' in name or 'k_proj' in name or 'v_proj' in name:
+                    assert sub_layer.weight.placements == [
+                        dist.Replicate(),
+                        dist.Shard(1),
+                    ]
+                    assert sub_layer.bias.placements == [
+                        dist.Replicate(),
+                        dist.Shard(0),
+                    ]
+                if (
+                    'gate_proj' in name
+                    or 'up_proj' in name
+                    or 'embed_tokens' in name
+                    or 'lm_head' in name
+                ):
+                    assert sub_layer.weight.placements == [
+                        dist.Replicate(),
+                        dist.Shard(1),
+                    ]
+                if 'o_proj' in name:
+                    assert sub_layer.weight.placements == [
+                        dist.Replicate(),
+                        dist.Shard(0),
+                    ]
+                    assert sub_layer.bias.placements is None
+                if 'down_proj' in name:
+                    assert sub_layer.weight.placements == [
+                        dist.Replicate(),
+                        dist.Shard(0),
+                    ]
 
     def parallel_model(self, layer, optimizer=None):
         if self.dp > 1:
@@ -178,46 +213,8 @@ class TestParallelAPI:
                 "lm_head.weight": ColWiseParallel(),
             }
             layer, optimizer = tensor_parallel(layer, plan, optimizer)
-            if self.only_build:
-                layer = layer.tensor_parallelizer_fn(layer.model)
-                for name, sub_layer in layer.named_sublayers():
-                    if len(sub_layer.sublayers()) == 0:
-                        if (
-                            'q_proj' in name
-                            or 'k_proj' in name
-                            or 'v_proj' in name
-                        ):
-                            assert sub_layer.weight.placements == [
-                                dist.Replicate(),
-                                dist.Shard(1),
-                            ]
-                            assert sub_layer.bias.placements == [
-                                dist.Replicate(),
-                                dist.Shard(0),
-                            ]
-                        if (
-                            'gate_proj' in name
-                            or 'up_proj' in name
-                            or 'embed_tokens' in name
-                            or 'lm_head' in name
-                        ):
-                            assert sub_layer.weight.placements == [
-                                dist.Replicate(),
-                                dist.Shard(1),
-                            ]
-                        if 'o_proj' in name:
-                            assert sub_layer.weight.placements == [
-                                dist.Replicate(),
-                                dist.Shard(0),
-                            ]
-                            assert sub_layer.bias.placements is None
-                        if 'down_proj' in name:
-                            assert sub_layer.weight.placements == [
-                                dist.Replicate(),
-                                dist.Shard(0),
-                            ]
-                return None, None
         layer, optimizer = parallelize_model_and_optimizer(layer, optimizer)
+        self.check_mp(layer)
         return layer, optimizer
 
     def run_llama(self, to_static=0):
@@ -235,10 +232,6 @@ class TestParallelAPI:
 
         criterion = LlamaPretrainingCriterion(self.config)
         criterion, _ = self.parallel_model(criterion)
-
-        if self.only_build:
-            # check model here
-            return
 
         if self.config.use_lazy_init:
             for param in model.parameters():
