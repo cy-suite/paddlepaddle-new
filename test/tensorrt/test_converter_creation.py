@@ -110,7 +110,7 @@ class TestFullLikeIntTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.full_like
         self.api_args = {
-            "input": np.random.randn(3, 2).astype(np.int32),
+            "input": np.random.randn(3, 2).astype(np.int64),
             "fill_value": 5,
         }
         self.program_config = {"feed_list": ["input"]}
