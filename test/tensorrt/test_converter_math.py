@@ -178,18 +178,18 @@ class TestFloorDivideIntTRTPattern(TensorRTBaseTest):
         self.python_api = paddle.floor_divide
         self.api_args = {
             "x": np.random.randint(
-                low=1, high=100, size=(2, 3), dtype=np.int32
+                low=1, high=100, size=(2, 3), dtype=np.int64
             ),
             "y": np.random.randint(
-                low=1, high=100, size=(2, 3), dtype=np.int32
+                low=1, high=100, size=(2, 3), dtype=np.int64
             ),
         }
         self.dynamic_shape_data = {
             "x": lambda shape: np.random.randint(
-                1, 100, size=shape, dtype=np.int32
+                1, 100, size=shape, dtype=np.int64
             ),
             "y": lambda shape: np.random.randint(
-                1, 100, size=shape, dtype=np.int32
+                1, 100, size=shape, dtype=np.int64
             ),
         }
         self.program_config = {"feed_list": ["x", "y"]}
