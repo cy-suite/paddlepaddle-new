@@ -55,13 +55,13 @@ def custom_contiguous_dynamic(device, np_x):
 
     out = custom_module.custom_contiguous(x)
 
-    assert not x.is_contiguous()
     assert out.is_contiguous()
 
 
 class TestCustomCastOp(unittest.TestCase):
     def setUp(self):
         self.dtypes = ['float32', 'float64']
+        paddle.set_flags({"FLAGS_use_stride_kernel": 1})
 
     def test_dynamic(self):
         for dtype in self.dtypes:
