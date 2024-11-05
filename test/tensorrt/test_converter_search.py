@@ -24,7 +24,7 @@ class TestArgmaxTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.argmax
         self.api_args = {
-            "x": np.random.randn(2, 3).astype(np.float32),
+            "x": np.random.randn(2, 3).astype("float32"),
             "axis": -1,
         }
         self.program_config = {"feed_list": ["x"]}

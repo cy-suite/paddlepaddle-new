@@ -24,8 +24,8 @@ class TestGreaterThanFloat32TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.greater_than
         self.api_args = {
-            "x": np.random.randn(2, 3).astype(np.float32),
-            "y": np.random.randn(3).astype(np.float32),
+            "x": np.random.randn(2, 3).astype("float32"),
+            "y": np.random.randn(3).astype("float32"),
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1, 3], "y": [3]}
@@ -39,8 +39,8 @@ class TestGreaterThanInt64TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.greater_than
         self.api_args = {
-            "x": np.random.randn(3).astype(np.int64),
-            "y": np.random.randn(3).astype(np.int64),
+            "x": np.random.randn(3).astype("float32"),
+            "y": np.random.randn(3).astype("float32"),
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
@@ -54,8 +54,8 @@ class TestLessThanFloat32TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.less_than
         self.api_args = {
-            "x": np.random.randn(2, 3).astype(np.float32),
-            "y": np.random.randn(3).astype(np.float32),
+            "x": np.random.randn(2, 3).astype("float32"),
+            "y": np.random.randn(3).astype("float32"),
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1, 3], "y": [3]}
@@ -69,8 +69,8 @@ class TestLessThanInt64TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.less_than
         self.api_args = {
-            "x": np.random.randn(3).astype(np.int64),
-            "y": np.random.randn(3).astype(np.int64),
+            "x": np.random.randn(3).astype("int64"),
+            "y": np.random.randn(3).astype("int64"),
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}

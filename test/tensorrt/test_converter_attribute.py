@@ -24,7 +24,7 @@ class TestShapeTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.shape
         self.api_args = {
-            "x": np.random.randn(2, 3).astype(np.float32),
+            "x": np.random.randn(2, 3).astype("float32"),
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3]}
