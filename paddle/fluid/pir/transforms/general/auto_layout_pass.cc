@@ -169,9 +169,11 @@ class AutoLayoutPass : public pir::Pass {
         if (op->isa<paddle::dialect::FusedConv2dAddActOp>() ||
             op->isa<paddle::dialect::Conv2dOp>()) {
           common::DataLayout new_layout;
-          auto layout_interface =
-              op->dyn_cast<paddle::dialect::LayoutTransformationInterface>();
-          new_layout = layout_interface.PreferLayout(op);
+          if (op->isa<paddle::dialect::FusedConv2dAddActOp>()) {
+            new_layout = PreferLayout<paddle::dialect::FusedConv2dAddActOp>(op);
+          } else if (op->isa<paddle::dialect::Conv2dOp>()) {
+            new_layout = PreferLayout<paddle::dialect::Conv2dOp>(op);
+          }
           if (new_layout != common::DataLayout::NHWC) {
             continue;
           }
@@ -256,6 +258,97 @@ class AutoLayoutPass : public pir::Pass {
       transpose_op->operand(0).set_source(result);
     }
   }
+
+  template <typename OpType>
+  common::DataLayout PreferLayout(pir::Operation* op) {
+    auto data_format_attr = op->attribute<pir::StrAttribute>("data_format");
+    if (!data_format_attr) {
+      PADDLE_THROW(common::errors::InvalidArgument(
+          "op (%s) should have attribute `data_format`, but got %s",
+          op,
+          data_format_attr));
+    }
+
+    bool is_fp16 = false;
+    bool flag_precision_mode = false;
+    phi::DataType precision_mode = phi::DataType::FLOAT32;
+
+    if (Has("mixed_precision_mode")) {
+      precision_mode = Get<phi::DataType>("mixed_precision_mode");
+      flag_precision_mode = true;
+    }
+
+    if (flag_precision_mode && precision_mode == phi::DataType::FLOAT16) {
+      is_fp16 = true;
+    }
+
+    if constexpr (std::is_same_v<OpType, paddle::dialect::Conv2dOp>) {
+      auto concrete_op = op->dyn_cast<paddle::dialect::Conv2dOp>();
+      if (auto in = concrete_op.input()) {
+        if (auto in_type = in.type()) {
+          if (in_type.isa<paddle::dialect::DenseTensorType>()) {
+            if (auto tensor_type =
+                    in_type.dyn_cast<paddle::dialect::DenseTensorType>()) {
+              if (is_fp16) {
+                return common::DataLayout::NHWC;
+              }
+            }
+          }
+        }
+      }
+
+      return common::StringToDataLayout(data_format_attr.AsString());
+    }
+
+    if constexpr (std::is_same_v<OpType,
+                                 paddle::dialect::FusedConv2dAddActOp>) {
+      auto original_layout =
+          common::StringToDataLayout(data_format_attr.AsString());
+
+      if (op->HasAttribute(paddle::dialect::kForceBackendAttr) &&
+          op->attributes()
+                  .at(paddle::dialect::kForceBackendAttr)
+                  .dyn_cast<pir::StrAttribute>()
+                  .AsString() == "gpu") {
+        return common::DataLayout::NHWC;
+      }
+
+      auto concrete_op = op->dyn_cast<paddle::dialect::FusedConv2dAddActOp>();
+      if (auto in = concrete_op.input()) {
+        if (auto in_type = in.type()) {
+          if (in_type.isa<paddle::dialect::DenseTensorType>()) {
+            if (auto tensor_type =
+                    in_type.dyn_cast<paddle::dialect::DenseTensorType>()) {
+              if (!is_fp16) {
+                return original_layout;
+              }
+            }
+          }
+        }
+      }
+
+      constexpr int CUDNN_ALIGNMENT = 8;
+
+      if (auto filter = concrete_op.filter()) {
+        if (auto filter_type = filter.type()) {
+          if (filter_type.isa<paddle::dialect::DenseTensorType>()) {
+            if (auto tensor_type =
+                    filter_type.dyn_cast<paddle::dialect::DenseTensorType>()) {
+              if (is_fp16) {
+                auto dims = tensor_type.dims();
+                if (dims.size() == 4 && (dims[0] % CUDNN_ALIGNMENT == 0) &&
+                    (dims[1] % CUDNN_ALIGNMENT == 0)) {
+                  return common::DataLayout::NHWC;
+                }
+              }
+            }
+          }
+        }
+      }
+      return original_layout;
+    }
+  }
+
   pir::IrContext* ctx_;
   pir::Builder builder_;
   const std::vector<int32_t> NCHW2NHWC_ = {0, 2, 3, 1};

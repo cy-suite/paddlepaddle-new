@@ -841,14 +841,19 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
           FusedOpPasses.insert(FusedOpPasses.end(),
                                autoLayoutPasses.begin(),
                                autoLayoutPasses.end());
-        } else {
-          FusedOpPasses.push_back("transfer_layout_pass");
         }
 
         for (const auto &fused_op : FusedOpPasses) {
           fused_op_pm.AddPass(pir::PassRegistry::Instance().Get(fused_op));
         }
 
+        for (const auto &pass : fused_op_pm.passes()) {
+          if (pass->name() == "auto_layout_pass" && config_.enable_gpu_mixed_) {
+            pass->Set("mixed_precision_mode",
+                      new phi::DataType(paddle::ConvertPrecision(
+                          config_.mixed_precision_mode_)));
+          }
+        }
         fused_op_pm.Run(pir_program_.get());
       }
     }
@@ -887,9 +892,10 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
                 gpu_pass == "auto_mixed_precision_pass") {
               continue;
             }
-            if (gpu_pass == "transfer_layout_pass" &&
-                FLAGS_enable_auto_layout_pass && config_.cinn_enabled())
+            if (FLAGS_enable_auto_layout_pass &&
+                gpu_pass == "transfer_layout_pass" && config_.cinn_enabled()) {
               continue;
+            }
             pass_pm.AddPass(pir::PassRegistry::Instance().Get(gpu_pass));
           }
         }
