@@ -347,6 +347,15 @@ def _pir_append_gradient_merge_backward_op(
                             break
                 if move_to_opt_block_flag:
                     used_grad_op.op_role = int(OpRole.Optimize)
+            elif used_grad_op.name() == "pd_op.slice":
+                move_to_opt_ops = []
+                move_to_opt_ops.append(used_grad_op)
+                for i in range(1, used_grad_op.num_operands()):
+                    move_to_opt_ops.append(
+                        used_grad_op.operand_source(i).get_defining_op()
+                    )
+                for move_op in move_to_opt_ops:
+                    move_op.op_role = int(OpRole.Optimize)
 
         opt_ops_use_grad = [
             op
