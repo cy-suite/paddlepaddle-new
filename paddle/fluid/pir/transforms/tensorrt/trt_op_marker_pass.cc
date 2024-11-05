@@ -1,4 +1,5 @@
 
+
 // Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -971,6 +972,7 @@ class SplitOpPattern : public pir::OpRewritePattern<paddle::dialect::SplitOp> {
     return true;
   }
 };
+
 class SplitWithNumOpPattern
     : public pir::OpRewritePattern<paddle::dialect::SplitWithNumOp> {
  public:
@@ -1038,6 +1040,7 @@ class SplitWithNumOpPattern
     return true;
   }
 };
+
 class GreaterEqualOpPattern
     : public pir::OpRewritePattern<paddle::dialect::GreaterEqualOp> {
  public:
@@ -1532,6 +1535,32 @@ class FullWithTensorPattern
   }
 };
 
+class StridedSliceOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::StridedSliceOp> {
+ public:
+  using pir::OpRewritePattern<
+      paddle::dialect::StridedSliceOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::StridedSliceOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (!op->HasAttribute("axes")) {
+      VLOG(3) << "The necessary attribute of the pd_op.strided_slice operator "
+                 "axes are missing.";
+      return false;
+    }
+    if (!op.operand_source(1) || !op.operand_source(2) ||
+        !op.operand_source(3)) {
+      VLOG(3) << "pd_op.strided_slice must has starts,ends and strides input";
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class TrtOpMarkerPass : public pir::PatternRewritePass {
  public:
   TrtOpMarkerPass() : pir::PatternRewritePass("trt_op_marker_pass", 2) {}
@@ -1619,6 +1648,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<StackOpPattern>(context));
     ps.Add(std::make_unique<TanhOpPattern>(context));
     ps.Add(std::make_unique<FullWithTensorPattern>(context));
+    ps.Add(std::make_unique<StridedSliceOpPattern>(context));
     return ps;
   }
 };

@@ -1,4 +1,4 @@
-#   Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved.
+#   Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,18 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
-
-import test_pipeline
-
-
-class TestPipelineWithIRPass(test_pipeline.TestPipeline):
-    def need_envs(self):
-        return {
-            'FLAGS_apply_pass_to_program': '1',
-            'FLAGS_new_executor_micro_batching': '0',
-        }
-
-
-if __name__ == '__main__':
-    unittest.main()
+__all__ = []
