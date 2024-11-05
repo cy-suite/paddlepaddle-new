@@ -1590,6 +1590,7 @@ def fuse_attention_ffn_qkv_pass(
                         paddle.assign(
                             concated_param, fused_dy_param._local_value()
                         )
+                        concated_param._clear()
 
                     # Pop and relase original params from concrete_program
                     for param in concated_dy_param_list:
