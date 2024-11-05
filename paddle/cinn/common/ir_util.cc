@@ -274,7 +274,6 @@ ir::IndexExpr MergeMulMod(SymbolicExprAnalyzer *analyzer,
                           const ir::IndexExpr &base) {
   ir::IndexExpr simplified_base = base.as_index().Normalize();
   std::vector<ir::IndexExpr> eles = GetFlattenExprs<ir::Add>(simplified_base);
-  std::cout << std::endl;
   std::list<ir::IndexExpr> mult_exprs;
   std::list<std::pair<ir::IndexExpr, ir::IndexExpr>> mod_exprs;
   ir::IndexExpr no_opt_sum;

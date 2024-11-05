@@ -452,11 +452,12 @@ TEST_F(TestIterSimplify, SimplifyBindings) {
   }
 
   // Create ScheduleBlock body
-  ir::Expr body = ir::ScheduleBlockRealize::Make(
+  ir::Expr body_ = ir::ScheduleBlockRealize::Make(
       iter_values,
       ir::ScheduleBlock::Make(block_vars, {}, {}, "Test", Expr(0)));
 
   // Create For loops
+  auto body = body_;
   for (int i = shape.size() - 1; i >= 0; --i) {
     ir::Var loop_var = axis_vars[i];
     ir::Expr loop_extent = shape[i];
@@ -468,11 +469,14 @@ TEST_F(TestIterSimplify, SimplifyBindings) {
                          ir::Block::Make({body}));
   }
 
+  // Create outter ScheduleBlockRealize
+  ir::Expr body_outter = ir::ScheduleBlockRealize::Make(
+      {}, ir::ScheduleBlock::Make({}, {}, {}, "test1", body));
+
   // Create ir schedule
-  ir::ModuleExpr mod_expr(std::vector<ir::Expr>({body}));
+  ir::ModuleExpr mod_expr({ir::Block::Make({body_outter})});
   ir::IRSchedule ir_sch(mod_expr);
-  auto blocks = ir_sch.GetAllBlocks();
-  std::vector<ir::Expr> loops = ir_sch.GetLoops(blocks[0]);
+  std::vector<ir::Expr> loops = ir_sch.GetLoops(body_);
 
   // Apply Fuse and Split
   ir::Expr loop_fuse = ir_sch.Fuse(loops);
@@ -512,9 +516,12 @@ TEST_F(TestIterSimplify, MergeMulMod) {
   auto e2 = ((((((S0 * 256) + S1) + (S2 * 1024)) / 2500) + -4) * 2500) +
             ((((S0 * 256) + S1) + (S2 * 1024)) % 2500);
 
+  auto e3 = (S1 / 784 * 28 + S1 % 784 / 28) * 28 + S1 % 28;
+
   EXPECT_EQ(MergeMulMod(&analyzer, e1), (((S0 * 256) + S1) + (S2 * 1024)));
   EXPECT_EQ(MergeMulMod(&analyzer, e2),
             ((((S0 * 256) + S1) + (S2 * 1024)) + -10000));
+  EXPECT_EQ(MergeMulMod(&analyzer, e3), S1);
 }
 }  // namespace common
 }  // namespace cinn
