@@ -471,5 +471,35 @@ class TestStrideSliceCase5TRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+def set_value_api(
+    x, starts, ends, steps, axes, decrease_axes, none_axes, shape, values
+):
+    return _C_ops.set_value(
+        x, starts, ends, steps, axes, decrease_axes, none_axes, shape, values
+    )
+
+
+class TestSetValueTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = set_value_api
+        self.api_args = {
+            "x": np.random.random([5, 5]).astype("float32"),
+            "starts": [0, 1],
+            "ends": [1, 4],
+            "steps": [1, 1],
+            "axes": [0, 1],
+            "decrease_axes": [],
+            "none_axes": [],
+            "shape": [1, 3],
+            "values": [2],
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 5]}
+        self.max_shape = {"x": [10, 5]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
 if __name__ == '__main__':
     unittest.main()

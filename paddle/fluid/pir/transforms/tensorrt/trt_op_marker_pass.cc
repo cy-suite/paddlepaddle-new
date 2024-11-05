@@ -1561,6 +1561,38 @@ class StridedSliceOpPattern
   }
 };
 
+class SetValueOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::SetValueOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::SetValueOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::SetValueOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+
+#if !IS_TRT_VERSION_GE(8200)
+    return false;
+#endif
+
+    if (!op.operand_source(1) || !op.operand_source(2) ||
+        !op.operand_source(3)) {
+      VLOG(3) << "pd_op.set_value must has starts,ends and strides input";
+      return false;
+    }
+
+    if (!op->HasAttribute("axes")) {
+      VLOG(3) << "the pd_op.set_value op does not have attr (axes or "
+                 "starts or steps)";
+      return false;
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class TrtOpMarkerPass : public pir::PatternRewritePass {
  public:
   TrtOpMarkerPass() : pir::PatternRewritePass("trt_op_marker_pass", 2) {}
@@ -1649,6 +1681,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<TanhOpPattern>(context));
     ps.Add(std::make_unique<FullWithTensorPattern>(context));
     ps.Add(std::make_unique<StridedSliceOpPattern>(context));
+    ps.Add(std::make_unique<SetValueOpPattern>(context));
     return ps;
   }
 };
