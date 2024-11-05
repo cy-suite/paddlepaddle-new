@@ -384,7 +384,7 @@ std::vector<std::vector<pir::Value>> call_decomp_rule(pir::Operation* op) {
   return decomp_res;
 }
 
-std::vector<std::vector<pir::Value>> call_decomp_vjp(pir::Operation* op) {
+std::vector<std::vector<pir::Value>> call_decomp_vjp(pir::Operation* vjp_op) {
   paddle::dialect::DecompVjpInterface decomp_vjp_interface =
       vjp_op.dyn_cast<paddle::dialect::DecompVjpInterface>();
   PADDLE_ENFORCE(
