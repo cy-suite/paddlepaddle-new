@@ -850,4 +850,5 @@ magic_method_func = [
     ('__or__', 'bitwise_or'),
     ('__xor__', 'bitwise_xor'),
     ('__invert__', 'bitwise_not'),
+    ('bitwise_invert', 'bitwise_not'),
 ]
