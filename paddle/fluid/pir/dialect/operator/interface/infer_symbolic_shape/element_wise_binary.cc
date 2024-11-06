@@ -21,7 +21,7 @@ bool InferSymbolicShapeElementWiseBinary(
     const std::function<symbol::DimExpr(const symbol::DimExpr &,
                                         const symbol::DimExpr &)>
         &DataComputeFunc = nullptr,
-    bool compute_one_or_zero_dim_data = false) {
+    bool check_one_or_zero_dim_data = false) {
   const auto &x_shape =
       infer_context->GetShapeOrDataForValue(op->operand_source(0));
   std::vector<symbol::DimExpr> shape_0 = x_shape.shape();
@@ -80,7 +80,7 @@ bool InferSymbolicShapeElementWiseBinary(
                           x_shape.data()->size(),
                           y_shape.data()->size()));
     std::vector<symbol::DimExpr> out_data;
-    if (compute_one_or_zero_dim_data) {
+    if (check_one_or_zero_dim_data) {
       symbol::DimExpr Unexcept_data = symbol::DimExpr{"Unexcepted"};
       bool return_flag = true;
       for (size_t i = 0; i < x_shape.data()->size(); ++i) {
