@@ -892,8 +892,12 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
                 gpu_pass == "auto_mixed_precision_pass") {
               continue;
             }
-            if (FLAGS_enable_auto_layout_pass &&
-                gpu_pass == "transfer_layout_pass" && config_.cinn_enabled()) {
+            if (gpu_pass == "transfer_layout_pass" &&
+                FLAGS_enable_auto_layout_pass && !config_.cinn_enabled()) {
+              pass_pm.AddPass(
+                  pir::PassRegistry::Instance().Get("auto_layout_pass"));
+              pass_pm.AddPass(pir::PassRegistry::Instance().Get(
+                  "auto_layout_simplify_pass"));
               continue;
             }
             pass_pm.AddPass(pir::PassRegistry::Instance().Get(gpu_pass));
