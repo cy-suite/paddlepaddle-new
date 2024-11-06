@@ -24,8 +24,8 @@ class TestMatmulTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.matmul
         self.api_args = {
-            "x": np.random.randn(2, 3).astype(np.float32),
-            "y": np.random.randn(3, 2).astype(np.float32),
+            "x": np.random.randn(2, 3).astype("float32"),
+            "y": np.random.randn(3, 2).astype("float32"),
             "transpose_x": False,
             "transpose_y": False,
         }
@@ -41,7 +41,7 @@ class TestTransposeTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.transpose
         self.api_args = {
-            "x": np.random.randn(2, 3, 4).astype(np.float32),
+            "x": np.random.randn(2, 3, 4).astype("float32"),
             "perm": [1, 0, 2],
         }
         self.program_config = {"feed_list": ["x"]}
@@ -56,8 +56,8 @@ class TestBmmTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.bmm
         self.api_args = {
-            "x": np.random.randn(2, 2, 3).astype(np.float32),
-            "y": np.random.randn(2, 3, 2).astype(np.float32),
+            "x": np.random.randn(2, 2, 3).astype("float32"),
+            "y": np.random.randn(2, 3, 2).astype("float32"),
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1, 2, 3], "y": [1, 3, 2]}

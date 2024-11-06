@@ -107,7 +107,7 @@ def full_like_converter(network, paddle_op, inputs):
     out_dtype = int(paddle_op.attrs().get("dtype", None))
     # Reference paddle/phi/common/data_type.h enum DataType
     if out_dtype == 1:  # paddle.bool
-        out_dtype = trt.bool
+        out_dtype = trt.int32
     elif out_dtype == 7:  # paddle.int32
         out_dtype = trt.int32
     elif out_dtype == 9:  # paddle.int64
@@ -116,8 +116,6 @@ def full_like_converter(network, paddle_op, inputs):
         out_dtype = trt.float32
     elif out_dtype == 11:  # paddle.float64
         out_dtype = trt.float32
-    elif out_dtype == 15:  # paddle.float16
-        out_dtype = trt.float16
     else:
         raise RuntimeError(
             f"cast converter currently doesn't support dtype: {out_dtype}"
