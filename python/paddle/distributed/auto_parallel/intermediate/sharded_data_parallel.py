@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from paddle.distributed import fleet
+from paddle.distributed import Replicate, fleet, shard_tensor
 
 from .parallel_base import ParallelModel, ParallelOptimizer
 
@@ -47,6 +47,34 @@ class ShardedDataParallel(ParallelModel):
         self.sharding_parallelizer = self.sharding_parallelizer_func
 
     def sharding_parallelizer_func(self, model):
+        global_mesh = fleet.auto.get_mesh()
+        # NOTE(zhangweilong): in ppnlp , the model input mesh is in pp[0]
+        if "pp" in global_mesh.dim_names:
+            global_mesh = global_mesh.get_mesh_with_dim("pp")[0]
+
+        def register_shard(layer):
+            if (
+                hasattr(layer, "weight")
+                and layer.weight is not None
+                and not layer.weight.is_dist()
+            ):
+                layer.weight = shard_tensor(
+                    layer.weight,
+                    global_mesh,
+                    [Replicate() for _ in range(len(global_mesh._shape))],
+                )
+            if (
+                hasattr(layer, "bias")
+                and layer.bias is not None
+                and not layer.bias.is_dist()
+            ):
+                layer.bias = shard_tensor(
+                    layer.bias,
+                    global_mesh,
+                    [Replicate() for _ in range(len(global_mesh._shape))],
+                )
+
+        model.apply(register_shard)
         return model
 
 
