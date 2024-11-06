@@ -349,7 +349,7 @@ void ConvertAllInputsToDistTensor(const phi::distributed::ProcessMesh* mesh,
       mesh,
       nullptr,
       common::errors::InvalidArgument("Input mesh should not be nullptr."));
-  DistTensorConverter(mesh).apply(args...);
+  DistTensorConverter(mesh).apply(&args...);
 }
 
 void ConvertToDistTensor(paddle::Tensor* x,
