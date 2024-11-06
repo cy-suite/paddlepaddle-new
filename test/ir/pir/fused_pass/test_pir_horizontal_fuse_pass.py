@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
-
 os.environ["FLAGS_enable_pir_api"] = "0"
 
 
@@ -22,7 +21,6 @@ import numpy as np
 
 import paddle
 from paddle import nn
-
 
 class MatmulHorizontalLayer(nn.Layer):
     def __init__(self, hidden_size, intermediate_size, num_layers=32):
@@ -50,7 +48,6 @@ class TestMatmulHorizontalFusePattern(unittest.TestCase):
         self.head_dim = 16
         self.hidden_size = self.num_head * self.head_dim
         self.intermediate_size = self.hidden_size
-        self.weight_attr = None
 
     def test_matmul_horizontal_fuse(self):
         x = paddle.randn(shape=[self.bsz, self.seq_len, self.hidden_size])
@@ -62,9 +59,9 @@ class TestMatmulHorizontalFusePattern(unittest.TestCase):
             enable_new_ir=True,
             switch_ir_debug=True,
         )
-
+        
+        # check precision and shape
         static_results = static_layer(x)
-
         self.verify_results(baseline_results, static_results)
 
         # check fused pattern
