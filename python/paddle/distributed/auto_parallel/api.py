@@ -2182,7 +2182,7 @@ class DistModel:
                 if ignore_key in state_dict.keys():
                     del state_dict[ignore_key]
         self._structured_to_parameter_name = {
-            k: v.name for k, v in state_dict().items()
+            k: v.name for k, v in state_dict.items()
         }
         self._parameter_to_structured_name = {
             v: k for k, v in self._structured_to_parameter_name.items()
