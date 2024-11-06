@@ -885,9 +885,16 @@ def while_loop(cond, body, loop_vars, is_test=False, name=None):
             # Filter out the constants from next_vars, we only pass the variables (Value) into cf_yield.
             # And pass the original fake value directly to constants position.
             map_structure(cast_value_in_amp, loop_vars)
+            # Move all Fake Value to the end of next_vars
             variable_loop_vars = list(
                 filter(
-                    lambda var: var.is_variable_curr_var, flatten(loop_vars)
+                    lambda var: var.is_variable_curr_var and not var.is_fake,
+                    flatten(loop_vars),
+                ),
+            ) + list(
+                filter(
+                    lambda var: var.is_variable_curr_var and var.is_fake,
+                    flatten(loop_vars),
                 ),
             )
             cf_yield([next_cond, *(var.next_var for var in variable_loop_vars)])
@@ -910,6 +917,7 @@ def while_loop(cond, body, loop_vars, is_test=False, name=None):
 
         # Restore the outputs by variable and constants
         optimized_results = while_op.optimize_update()
+        assert len(optimized_results) == len(variable_loop_vars)
         for loop_var, result in zip(variable_loop_vars, optimized_results):
             loop_var.next_var = result
 
