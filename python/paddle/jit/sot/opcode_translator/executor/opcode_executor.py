@@ -47,6 +47,7 @@ from ..instruction_utils import (
     Space,
     analysis_used_names,
     calc_stack_effect,
+    gen_instr,
     get_instructions,
 )
 from ..instruction_utils.opcode_info import RETURN, JumpDirection, PopJumpCond
@@ -827,6 +828,41 @@ class OpcodeExecutorBase:
     def DELETE_FAST(self, instr: Instruction):
         varname = self._code.co_varnames[instr.arg]
         del self._locals[varname]
+
+    def fused_load_store(self, instr: Instruction):
+        assert len(instr.argval) == 2
+        argval0, argval1 = instr.argval
+        match instr.opname:
+            case "LOAD_FAST_LOAD_FAST":
+                self.LOAD_FAST(
+                    gen_instr(name=self.LOAD_FAST.__name__, argval=argval0)
+                )
+                self.LOAD_FAST(
+                    gen_instr(name=self.LOAD_FAST.__name__, argval=argval1)
+                )
+            case "STORE_FAST_STORE_FAST":
+                self.STORE_FAST(
+                    gen_instr(name=self.STORE_FAST.__name__, argval=argval0)
+                )
+                self.STORE_FAST(
+                    gen_instr(name=self.STORE_FAST.__name__, argval=argval1)
+                )
+            case "STORE_FAST_LOAD_FAST":
+                self.STORE_FAST(
+                    gen_instr(name=self.STORE_FAST.__name__, argval=argval0)
+                )
+                self.LOAD_FAST(
+                    gen_instr(name=self.LOAD_FAST.__name__, argval=argval1)
+                )
+
+    def LOAD_FAST_LOAD_FAST(self, instr: Instruction):
+        self.fused_load_store(instr)
+
+    def STORE_FAST_STORE_FAST(self, instr: Instruction):
+        self.fused_load_store(instr)
+
+    def STORE_FAST_LOAD_FAST(self, instr: Instruction):
+        self.fused_load_store(instr)
 
     def LOAD_GLOBAL(self, instr: Instruction):
         namei: int = instr.arg
