@@ -601,16 +601,6 @@ void GatherNdGradInferMeta(const MetaTensor& x,
   x_grad->set_dtype(dtype);
 }
 
-void GatherNdDoubleGradInferMeta(const MetaTensor& grad_out,
-                                 const MetaTensor& index,
-                                 const MetaTensor& grad_x_grad,
-                                 MetaTensor* grad_out_grad) {
-  const auto& dtype = grad_x_grad.dtype();
-  grad_out_grad->set_dims(grad_out.dims());
-  grad_out_grad->share_lod(grad_out);
-  grad_out_grad->set_dtype(dtype);
-}
-
 void IndexPutDoubleGradInferMeta(
     const MetaTensor& x,
     const std::vector<MetaTensor>& indices,

@@ -1297,7 +1297,8 @@
   args : (Tensor grad_out, Tensor index, Tensor grad_x_grad)
   output : Tensor(grad_out_grad)
   infer_meta :
-    func : GatherNdDoubleGradInferMeta
+    func : UnchangedInferMeta
+    param: [grad_out]
   composite : gather_nd_double_grad(grad_out, index, grad_x_grad, grad_out_grad)
   no_need_buffer : grad_out
 
