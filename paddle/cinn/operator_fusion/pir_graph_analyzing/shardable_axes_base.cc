@@ -309,6 +309,26 @@ ShardableAxesSignature CreateSignatureForReshape(
   const auto input_rank = GetCompitableRank(op->operand_source(0));
   const auto output_rank = GetCompitableRank(op->result(0));
 
+  ShardableAxesSignature result = ShardableAxesSignature();
+  const auto input_axes = CreateNewNamesWithRank(input_rank);
+  result.inputs.emplace_back(input_axes);
+
+  if (GetRank(op->operand_source(0)) == 0 || GetRank(op->result(0)) == 0) {
+    // 0d reshape
+    result.outputs.emplace_back(CreateNewNamesWithRank(output_rank));
+    result.loop = result.outputs.back();
+    return result;
+  }
+
+  const auto has_dynamic_shape = [&shape_analysis](pir::Value v) {
+    for (int axis = 0; axis < GetRank(v); ++axis) {
+      const auto& sym = shape_analysis->GetProductDimExpr(v, {axis});
+      if (!sym.isa<std::int64_t>()) {
+        return true;
+      }
+    }
+    return false;
+  };
   const auto shape_product_equal = [&](int lhs_end, int rhs_end) {
     PADDLE_ENFORCE(lhs_end <= input_rank && rhs_end <= output_rank,
                    ::common::errors::InvalidArgument(
@@ -316,6 +336,25 @@ ShardableAxesSignature CreateSignatureForReshape(
     return shape_analysis->IsProductEqual(
         op->operand_source(0), 0, lhs_end, op->result(0), 0, rhs_end);
   };
+  const auto axis_equal_one = [&shape_analysis](pir::Value v, int axis) {
+    const auto& sym = shape_analysis->GetProductDimExpr(v, {axis});
+    return shape_analysis->IsEqual(sym, symbol::DimExpr(1));
+  };
+
+  if (has_dynamic_shape(op->operand_source(0)) ||
+      has_dynamic_shape(op->result(0))) {
+    // dynamic reshape
+    const auto output_axes = CreateNewNamesWithRank(output_rank);
+    for (int i = 0; i < input_rank; ++i) {
+      for (int j = 0; j < output_rank; ++j) {
+        axes_manager->related_axes_map()[input_axes[i]].insert(output_axes[j]);
+        VLOG(4) << "Relate " << input_axes[i] << " to " << output_axes[j];
+      }
+    }
+    result.outputs.emplace_back(output_axes);
+    result.loop = result.outputs.back();
+    return result;
+  }
 
   PADDLE_ENFORCE(shape_product_equal(input_rank, output_rank),
                  ::common::errors::InvalidArgument(
@@ -340,12 +379,6 @@ ShardableAxesSignature CreateSignatureForReshape(
     }
   }
 
-  const auto axis_equal_one = [&shape_analysis](pir::Value v, int axis) {
-    const auto& sym = shape_analysis->GetProductDimExpr(v, {axis});
-    return shape_analysis->IsEqual(sym, symbol::DimExpr(1));
-  };
-
-  const auto input_axes = CreateNewNamesWithRank(input_rank);
   std::vector<std::string> output_axes;
   for (int i = 1; i < partion_indices.size(); ++i) {
     const auto& in_start = partion_indices[i - 1].first + 1;
@@ -374,8 +407,6 @@ ShardableAxesSignature CreateSignatureForReshape(
                     output_rank,
                     ::common::errors::InvalidArgument(
                         "Output axes size should be equal output rank."));
-  ShardableAxesSignature result = ShardableAxesSignature();
-  result.inputs.emplace_back(input_axes);
   result.outputs.emplace_back(output_axes);
   result.loop = result.outputs.back();
   return result;
