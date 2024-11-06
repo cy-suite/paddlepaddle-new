@@ -26,13 +26,13 @@ const char *ModuleOp::attributes_name[attributes_num] = {"program"};  // NOLINT
 
 bool IsDynamicShapeTypeEqual(Type type1, Type type2) {
   // Only support DenseTensorType now
+  bool are_equal = false;
   if (type1.isa<DenseTensorType>() && type2.isa<DenseTensorType>()) {
     auto type_l = type1.dyn_cast<DenseTensorType>();
     auto type_r = type2.dyn_cast<DenseTensorType>();
     auto vec1 = type_l.dims();
     auto vec2 = type_r.dims();
     if (vec1.size() != vec2.size()) return false;
-    bool are_equal = false;
     for (auto i = 0; i < vec1.size(); ++i) {
       are_equal = ((vec1[i] == -1 || vec2[i] == -1) || (vec1[i] == vec2[i])) |
                   are_equal;
@@ -42,6 +42,7 @@ bool IsDynamicShapeTypeEqual(Type type1, Type type2) {
                              type_l.lod() == type_r.lod() &&
                              type_l.offset() == type_r.offset() && are_equal);
   }
+  bool are_equal;
 }
 
 void PassStopGradientsDefaultly(OperationArgument &argument) {  // NOLINT
