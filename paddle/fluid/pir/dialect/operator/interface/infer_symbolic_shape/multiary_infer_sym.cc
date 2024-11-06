@@ -2363,7 +2363,8 @@ bool GroupNormOpInferSymbolicShape(
   if (!scale_shape_or_data.isa<symbol::NullShapeOrDataDimExpr>()) {
     std::vector<symbol::DimExpr> scale_dims = scale_shape_or_data.shape();
     infer_context->AddEqualCstr(scale_dims[0], channel_dim);
-  } else if (!bias_shape_or_data.isa<symbol::NullShapeOrDataDimExpr>()) {
+  }
+  if (!bias_shape_or_data.isa<symbol::NullShapeOrDataDimExpr>()) {
     std::vector<symbol::DimExpr> bias_dims = bias_shape_or_data.shape();
     infer_context->AddEqualCstr(bias_dims[0], channel_dim);
   }
