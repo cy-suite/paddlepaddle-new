@@ -1447,7 +1447,7 @@ def bitwise_invert(
 
             >>> import paddle
             >>> x = paddle.to_tensor([-5, -1, 1])
-            >>> res = paddle.bitwise_invert(x)
+            >>> res = x.bitwise_invert()
             >>> print(res)
             Tensor(shape=[3], dtype=int64, place=Place(cpu), stop_gradient=True,
             [ 4,  0, -2])
