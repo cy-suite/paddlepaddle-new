@@ -986,7 +986,7 @@ class PartialProgramLayer:
                             if op == forward_end_op:
                                 forward_end_idx = idx + 1
                                 break
-
+            print("base program", program)
             for hooker in self._hookers:
                 (
                     program,
