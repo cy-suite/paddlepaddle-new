@@ -1406,8 +1406,8 @@ template <typename T>
 Tensor addmm_decomp(const Tensor& input,
                     const Tensor& x,
                     const Tensor& y,
-                    const float alpha,
-                    const float beta) {
+                    const paddle::Scalar& beta,
+                    const paddle::Scalar& alpha) {
   Tensor x_y_mat = matmul<T>(x, y);
   return full_scalar<T>(alpha, x_y_mat.dtype()) * x_y_mat +
          full_scalar<T>(beta, input.dtype()) * input;
