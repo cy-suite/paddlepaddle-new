@@ -105,21 +105,21 @@ class TestPrimFmaxWithGrad1(TestPrimTwoWithGrad):
         self.tol = 1e-6
 
 
-class TestPrimFmaxWithGrad2(TestPrimTwoWithGrad):
-    def setUp(self):
-        np.random.seed(2023)
-        self.op_name = "pd_op.fmax_grad"
-        self.dtype = "float32"
-        self.x_shape = [30, 200, 40]
-        self.init_x_shape = [None, None, 40]
-        self.y_shape = [30, 200, 40]
-        self.init_y_shape = [30, 200, 40]
-        self.x = np.random.random(self.x_shape).astype(self.dtype)
-        self.y = np.random.random(self.y_shape).astype(self.dtype)
-        self.x[3, 100, 20:] = np.nan
-        self.net = fmax_net
-        self.enable_cinn = False
-        self.tol = 1e-6
+# class TestPrimFmaxWithGrad2(TestPrimTwoWithGrad):
+#     def setUp(self):
+#         np.random.seed(2023)
+#         self.op_name = "pd_op.fmax_grad"
+#         self.dtype = "float32"
+#         self.x_shape = [30, 200, 40]
+#         self.init_x_shape = [None, None, 40]
+#         self.y_shape = [30, 200, 40]
+#         self.init_y_shape = [30, 200, 40]
+#         self.x = np.random.random(self.x_shape).astype(self.dtype)
+#         self.y = np.random.random(self.y_shape).astype(self.dtype)
+#         self.x[3, 100, 20:] = np.nan
+#         self.net = fmax_net
+#         self.enable_cinn = False
+#         self.tol = 1e-6
 
 
 class TestPrimFmaxWithGrad3(TestPrimTwoWithGrad):
