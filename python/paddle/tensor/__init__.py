@@ -106,6 +106,7 @@ from .logic import (  # noqa: F401
     allclose,
     bitwise_and,
     bitwise_and_,
+    bitwise_invert,
     bitwise_not,
     bitwise_not_,
     bitwise_or,
@@ -728,6 +729,7 @@ tensor_method_func = [
     'bitwise_xor_',
     'bitwise_not',
     'bitwise_not_',
+    'bitwise_invert',
     'broadcast_tensors',
     'eig',
     'uniform_',
@@ -850,5 +852,4 @@ magic_method_func = [
     ('__or__', 'bitwise_or'),
     ('__xor__', 'bitwise_xor'),
     ('__invert__', 'bitwise_not'),
-    ('bitwise_invert', 'bitwise_not'),
 ]
