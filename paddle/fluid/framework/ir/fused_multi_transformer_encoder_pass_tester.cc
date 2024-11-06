@@ -247,8 +247,8 @@ TEST(MultiDevicesFusedMultiTransformerEncoderPass, basic) {
   // (matmul_qkv)                     transpose        -> transpose_qkv
   // (transpose_qkv)                  reshape          -> reshape_qkv
   // (reshape_qkv)                    matmul_v2        -> matmul_linear
-  // (matmul_linear)                  c_all_reduce     -> c_all_reduce_out
-  // (c_all_reduce_out)               elementwise_add  -> eltadd_linear
+  // (matmul_linear)                  all_reduce_sum   -> all_reduce_sum_out
+  // (all_reduce_sum_out)             elementwise_add  -> eltadd_linear
   // (eltadd_linear)                  elementwise_add  -> attention_out
   //
   // (attention_out, scale, bias)     layer_norm       -> layer_norm_out
@@ -257,8 +257,8 @@ TEST(MultiDevicesFusedMultiTransformerEncoderPass, basic) {
   // (ffn_matmul0, ffn_bias0)         elementwise_add  -> ffn_eltadd0
   // (ffn_eltadd0)                    gelu             -> ffn_gelu
   // (ffn_gelu)                       matmul_v2        -> ffn_matmul1
-  // (ffn_matmul1)                    c_all_reduce     -> ffn_c_all_reduce_out
-  // (ffn_c_all_reduce_out, ffn_bias1)elementwise_add  -> ffn_eltadd1
+  // (ffn_matmul1)                    all_reduce_sum   -> ffn_all_reduce_sum_out
+  // (ffn_all_reduce_sum_out, ffn_bias1)elementwise_add-> ffn_eltadd1
   // (layer_norm_out, ffn_eltadd1)    elementwise_add  -> ffn_output
   // (ffn_output, scale, bias)        layer_norm       -> ffn_layer_norm_out
 
@@ -322,9 +322,9 @@ TEST(MultiDevicesFusedMultiTransformerEncoderPass, basic) {
   auto* bias_l = layers.data("bias_l", {1024}, true);
   auto* linear_matmut_out =
       layers.matmul_v2(reshape_qkv_out, weights_l, nullptr, false, false);
-  auto* c_allreduce_out = layers.c_allreduce_sum(linear_matmut_out);
+  auto* all_reduce_sum_out = layers.all_reduce_sum(linear_matmut_out);
   auto* linear_eltadd_out =
-      layers.elementwise_add(c_allreduce_out, bias_l, nullptr, 2);
+      layers.elementwise_add(all_reduce_sum_out, bias_l, nullptr, 2);
 
   auto* attention_out = layers.elementwise_add(x, linear_eltadd_out);
 
@@ -346,7 +346,7 @@ TEST(MultiDevicesFusedMultiTransformerEncoderPass, basic) {
   auto* ffn_gelu_out = layers.gelu(ffn_eltadd0_out);
   auto* ffn_matmul1_out =
       layers.matmul_v2(ffn_gelu_out, ffn_weights1, nullptr, false, false);
-  auto* ffn_allreduce_out = layers.c_allreduce_sum(ffn_matmul1_out);
+  auto* ffn_allreduce_out = layers.all_reduce_sum(ffn_matmul1_out);
   auto* ffn_eltadd1_out =
       layers.elementwise_add(ffn_allreduce_out, ffn_bias1, nullptr, 2);
 
@@ -567,8 +567,8 @@ TEST(MultiDevicesFusedMultiTransformerEncoderFuseQKVPass, basic) {
   // (matmul_qkv)                     transpose        -> transpose_qkv
   // (transpose_qkv)                  reshape          -> reshape_qkv
   // (reshape_qkv)                    matmul_v2        -> matmul_linear
-  // (matmul_linear)                  c_all_reduce     -> c_all_reduce_out
-  // (c_all_reduce_out)               elementwise_add  -> eltadd_linear
+  // (matmul_linear)                  all_reduce_sum   -> all_reduce_sum_out
+  // (all_reduce_sum_out)             elementwise_add  -> eltadd_linear
   // (eltadd_out)                     elementwise_add  -> attention_out
   //
   // (attention_out, scale, bias)     layer_norm       -> ffn_layer_norm_out
@@ -577,8 +577,8 @@ TEST(MultiDevicesFusedMultiTransformerEncoderFuseQKVPass, basic) {
   // (ffn_matmul0, ffn_bias0)         elementwise_add  -> ffn_eltadd0
   // (ffn_eltadd0)                    gelu             -> ffn_gelu
   // (ffn_gelu)                       matmul_v2        -> ffn_matmul1
-  // (ffn_matmul1)                    c_all_reduce     -> ffn_c_all_reduce_out
-  // (ffn_c_all_reduce_out, ffn_bias1)elementwise_add  -> ffn_eltadd1
+  // (ffn_matmul1)                    all_reduce_sum   -> ffn_all_reduce_sum_out
+  // (ffn_all_reduce_sum_out, ffn_bias1)elementwise_add-> ffn_eltadd1
   // (attention_out, ffn_eltadd1)     elementwise_add  -> ffn_output
   //
   // (transpose_1, transpose_2)       while            -> decoder block
@@ -635,9 +635,9 @@ TEST(MultiDevicesFusedMultiTransformerEncoderFuseQKVPass, basic) {
   auto* bias_l = layers.data("weightsl", {1024, 1024}, true);
   auto* linear_matmut_out =
       layers.matmul_v2(reshape_qkv_out, weights_l, nullptr, false, true);
-  auto* c_allreduce_out = layers.c_allreduce_sum(linear_matmut_out);
+  auto* all_reduce_sum_out = layers.all_reduce_sum(linear_matmut_out);
   auto* linear_eltadd_out =
-      layers.elementwise_add(c_allreduce_out, bias_l, nullptr, 2);
+      layers.elementwise_add(all_reduce_sum_out, bias_l, nullptr, 2);
 
   auto* attention_out = layers.elementwise_add(x, linear_eltadd_out);
 
@@ -660,7 +660,7 @@ TEST(MultiDevicesFusedMultiTransformerEncoderFuseQKVPass, basic) {
   auto* ffn_gelu_out = layers.gelu(ffn_eltadd0_out);
   auto* ffn_matmul1_out =
       layers.matmul_v2(ffn_gelu_out, ffn_weights1, nullptr, false, true);
-  auto* ffn_allreduce_out = layers.c_allreduce_sum(ffn_matmul1_out);
+  auto* ffn_allreduce_out = layers.all_reduce_sum(ffn_matmul1_out);
   auto* ffn_eltadd1_out =
       layers.elementwise_add(ffn_allreduce_out, ffn_bias1, nullptr, 2);
 
