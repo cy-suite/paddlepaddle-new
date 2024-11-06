@@ -118,6 +118,8 @@ struct CanFuseItersPermutationMatcher {
            graph.policy_manager()
                .template GetPolicy<GeneralTopoPolicy>()
                ->CanFuse(upstream, downstream) &&
+           graph.iters_fusion_policy()->CheckItersRelation(upstream,
+                                                           downstream) &&
            (graph.iters_fusion_policy()->CanFuseSource2Target(downstream,
                                                               upstream) ||
             graph.iters_fusion_policy()->CanFuseSource2Target(upstream,
