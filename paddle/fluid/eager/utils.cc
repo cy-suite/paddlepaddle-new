@@ -38,11 +38,25 @@ void SetGradOutputDistAttrIter::visit_element(paddle::Tensor* element,
                "SetGradOutputDistAttrIter.";
     return;
   }
-  // Here the element is empty or defined DistTensor
-  VLOG(4) << "The input element is set DistTensor impl when calling "
-             "SetGradOutputDistAttrIter.";
-  element->set_impl(std::make_shared<phi::distributed::DistTensor>(
-      phi::DDim(), meta.DistAttr()));
+  if (meta.IsDistMeta()) {
+    // Here the element is empty or defined DistTensor
+    VLOG(4) << "The input element is set DistTensor impl when calling "
+               "SetGradOutputDistAttrIter.";
+    element->set_impl(std::make_shared<phi::distributed::DistTensor>(
+        phi::DDim(), meta.DistAttr()));
+  } else {
+    // Here the element is empty or defined DenseTensor
+    VLOG(4) << "The input element is set DistTensor impl using dense meta "
+               "when calling SetGradOutputDistAttrIter.";
+    phi::distributed::Placements placements;
+    for (int64_t i = 0; i < mesh_.ndim(); ++i) {
+      placements.emplace_back(std::make_shared<phi::distributed::Replicate>());
+    }
+    auto dist_attr = phi::distributed::ToTensorDistAttr(
+        mesh_, placements, meta.GetTensorMeta().dims);
+    element->set_impl(
+        std::make_shared<phi::distributed::DistTensor>(phi::DDim(), dist_attr));
+  }
 }
 
 void SetGradOutputDistAttrIter::visit(paddle::Tensor* element) {
