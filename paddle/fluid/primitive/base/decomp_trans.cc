@@ -386,14 +386,14 @@ std::vector<std::vector<pir::Value>> call_decomp_rule(pir::Operation* op) {
 
 std::vector<std::vector<pir::Value>> call_decomp_vjp(pir::Operation* vjp_op) {
   paddle::dialect::DecompVjpInterface decomp_vjp_interface =
-      vjp_op.dyn_cast<paddle::dialect::DecompVjpInterface>();
+      vjp_op->dyn_cast<paddle::dialect::DecompVjpInterface>();
   PADDLE_ENFORCE(
       decomp_vjp_interface,
       common::errors::InvalidArgument(
           "[Prim] The decomp_vjp function is not registered in %s vjp_op ",
-          vjp_op.name()));
+          vjp_op->name()));
   std::vector<std::vector<pir::Value>> decomp_res =
-      decomp_vjp_interface.DecompVjp(&vjp_op);
+      decomp_vjp_interface.DecompVjp(vjp_op);
   return decomp_res;
 }
 std::vector<pir::Operation*> DecompProgram::parse_block_ops(pir::Block* block) {

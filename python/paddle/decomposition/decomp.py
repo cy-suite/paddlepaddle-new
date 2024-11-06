@@ -20,7 +20,7 @@ from paddle import pir
 from paddle.autograd import ir_backward
 from paddle.autograd.backward_utils import ValueDict, ValueSet
 from paddle.base.core import (
-    call_decomp,
+    call_decomp_rule,
     call_decomp_vjp,
     decomp_ops_contain_unused_output,
     has_decomp_rule,
@@ -347,7 +347,7 @@ def _decomp_fwd_op(
             # step3: decompose op, and get new outputs
             input_args = _prepare_python_api_arguments(fwd_op)
             if has_sink_decomp_rule:
-                decomp_outs = call_decomp(fwd_op)
+                decomp_outs = call_decomp_rule(fwd_op)
                 new_outs = _analyse_decomp_results(
                     orig_outs, decomp_outs, fwd_op
                 )
