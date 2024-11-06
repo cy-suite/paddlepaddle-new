@@ -22,8 +22,6 @@ typedef struct {
   void const* weight;
   void* output;
   int32_t m, n, k;
-  int inputType;
-  int outputType;
   cudaStream_t stream;
 } GemmParams;
 

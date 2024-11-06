@@ -39,7 +39,7 @@ limitations under the License. */
 #include "paddle/phi/kernels/autotune/auto_tune_base.h"
 #endif
 
-COMMON_DECLARE_bool(cuda_core_gemm);
+COMMON_DECLARE_bool(cuda_core_int8_gemm);
 
 namespace phi {
 
@@ -1855,8 +1855,8 @@ MatmulJudgeDtypeKernel(const Context& ctx,
   if constexpr (std::is_same<Context, phi::GPUContext>::value &&
                 std::is_same<T, int8_t>::value) {
     if (x.dtype() == phi::DataType::INT8 && x_dims[0] <= 4 &&
-        y_dims.size() == 2 && y_dims[0] % 16 == 0 &&
-        y_dims[1] % 16 == 0 FLAGS_cuda_core_gemm) {
+        y_dims.size() == 2 && y_dims[0] % 16 == 0 && y_dims[1] % 16 == 0 &&
+        FLAGS_cuda_core_int8_gemm) {
       if (!transpose_y) {
         DenseTensor delta;
         phi::EmptyKernel<float, Context>(

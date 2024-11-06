@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <glog/logging.h>
 #include "paddle/phi/kernels/gpu/cuda_gemm_kernel.h"
+#include <glog/logging.h>
 #include "paddle/phi/backends/gpu/gpu_context.h"
 #include "paddle/phi/common/memory_utils.h"
 #include "paddle/phi/core/enforce.h"
