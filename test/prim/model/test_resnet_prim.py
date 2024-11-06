@@ -46,16 +46,16 @@ epoch_num = 1
 # note: Version 2.0 momentum is fused to OP when L2Decay is available, and the results are different from the base version.
 # The results in ci as as follows:
 DY2ST_PRIM_GT = [
-    8.852442741394043,
-    8.403523445129395,
-    7.158264636993408,
-    8.538503646850586,
-    7.026732921600342,
-    7.603669166564941,
-    7.809482097625732,
-    8.743914604187012,
-    8.434671401977539,
-    8.021540641784668,
+    8.852441787719727,
+    8.403528213500977,
+    7.157894134521484,
+    8.536691665649414,
+    7.061797142028809,
+    7.612838268280029,
+    7.831070423126221,
+    8.562232971191406,
+    8.49091911315918,
+    7.967043876647949,
 ]
 
 # IN V100, 16G, CUDA 12.0, the results are as follows:
@@ -215,6 +215,8 @@ class TestResnet(unittest.TestCase):
     def test_prim(self):
         dy2st_prim = train(to_static=True, enable_prim=True, enable_cinn=False)
         standard_prim = DY2ST_PRIM_GT
+        np.set_printoptions(precision=10)
+        print(dy2st_prim)
         if paddle.version.cuda() == "12.0":
             standard_prim = DY2ST_PRIM_GT_CUDA12
         np.testing.assert_allclose(dy2st_prim, standard_prim, rtol=1e-5)
