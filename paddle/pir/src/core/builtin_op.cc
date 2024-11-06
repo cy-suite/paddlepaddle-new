@@ -42,6 +42,7 @@ bool IsDynamicShapeTypeEqual(Type type1, Type type2) {
             type_l.lod() == type_r.lod() &&
             type_l.offset() == type_r.offset() && are_equal};
   }
+  return false;
 }
 
 void PassStopGradientsDefaultly(OperationArgument &argument) {  // NOLINT
