@@ -18,7 +18,7 @@ import unittest
 import paddle
 
 sys.path.append("../legacy_test")
-import paddle.distributed as dist
+
 import paddle.nn.functional as F
 from paddle import nn, static, utils
 from paddle.base import ParamAttr
@@ -205,10 +205,7 @@ class TestGradSync(unittest.TestCase):
                 reducescatter_count += 1
 
             # check sequence parallel grad sync
-            elif (
-                op.type == "all_reduce"
-                and op.attr("reduce_type") == dist.ReduceOp.SUM
-            ):
+            elif op.type == "c_allreduce_sum":
                 assert (
                     "layer_norm" in op.output_arg_names[0]
                 ), f"sequence parallel reducescatter error grad sync var [{op.output_arg_names[0]}]"

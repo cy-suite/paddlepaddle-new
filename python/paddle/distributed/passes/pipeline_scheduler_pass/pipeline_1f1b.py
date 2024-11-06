@@ -14,7 +14,6 @@
 
 import logging
 
-import paddle.distributed as dist
 from paddle.base import core
 from paddle.distributed.auto_parallel.static.cost import calc_time_by_cost_model
 
@@ -257,7 +256,7 @@ class Pipeline1F1BPass(PipelinePassBase):
     # A more general cost estimation scheme is required.
     def _op_cost(self, op):
         handwritten_cost_map = {
-            "all_reduce": 0,
+            "c_allreduce_sum": 0,
             "elementwise_add": 40,
             "split": 76,
             "transpose2": 40,
@@ -295,10 +294,7 @@ class Pipeline1F1BPass(PipelinePassBase):
 
         try:
             time = calc_time_by_cost_model(op)
-            if (
-                op.type == "all_reduce"
-                and op.attr("reduce_type") == dist.ReduceOp.SUM
-            ):
+            if op.type == "c_allreduce_sum":
                 time *= 8
             return time
         except Exception as e:
@@ -376,8 +372,7 @@ class Pipeline1F1BPass(PipelinePassBase):
 
     def is_comm_op_valid_to_overlap(self, op):
         return (
-            op.type == "all_reduce"
-            and op.attr("reduce_type") == dist.ReduceOp.SUM
+            op.type == "c_allreduce_sum"
             and op.dist_attr.execution_stream
             == AutoParallelStreamType.CALC_STREAM.value
         )

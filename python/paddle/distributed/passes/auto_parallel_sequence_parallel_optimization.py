@@ -14,7 +14,6 @@
 
 
 import paddle
-import paddle.distributed as dist
 from paddle.distributed.auto_parallel.static.utils import (
     naive_set_dist_op_attr_for_program_by_mesh,
 )
@@ -84,10 +83,7 @@ class SequenceParallelOptimizationPass(PassBase):
             if not op.type == "split":
                 return False
             pre_op = block.ops[idx - 1]
-            if not (
-                pre_op.type == "all_reduce"
-                and pre_op.attr("reduce_type") == dist.ReduceOp.SUM
-            ):
+            if not pre_op.type == "c_allreduce_sum":
                 return False
             pre_output_name = pre_op.output_arg_names[0]
             cur_input_name = op.input_arg_names[0]
@@ -110,7 +106,7 @@ class SequenceParallelOptimizationPass(PassBase):
             split_op = block.ops[i]
             consumer_op = block.ops[i + 1]
 
-            allreduce_input_name = allreduce_op.input("x")[0]
+            allreduce_input_name = allreduce_op.input("X")[0]
             ring_id = int(allreduce_op.attr("ring_id"))
             split_output_names = split_op.output("Out")
             nranks = len(split_output_names)
