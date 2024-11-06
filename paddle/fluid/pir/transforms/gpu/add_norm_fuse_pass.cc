@@ -417,8 +417,8 @@ class AddNormFusePass : public pir::PatternRewritePass {
     pir::RewritePatternSet ps(context);
 
     bool enable_gpu_mixed = false;
-    if (Has(std::string("enable_gpu_mixed"))) {
-      enable_gpu_mixed = Get<bool>(std::string("enable_gpu_mixed"));
+    if (Has("enable_gpu_mixed")) {
+      enable_gpu_mixed = Get<bool>("enable_gpu_mixed");
     }
 
     // x-pow-mean-scale->rsqrt-

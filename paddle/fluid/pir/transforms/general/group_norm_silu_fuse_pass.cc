@@ -128,8 +128,8 @@ class GroupNormSiluFusePass : public pir::PatternRewritePass {
   pir::RewritePatternSet InitializePatterns(pir::IrContext *context) override {
     pir::RewritePatternSet ps(context);
     bool enable_gpu_mixed = false;
-    if (Has(std::string("enable_gpu_mixed"))) {
-      enable_gpu_mixed = Get<bool>(std::string("enable_gpu_mixed"));
+    if (Has("enable_gpu_mixed")) {
+      enable_gpu_mixed = Get<bool>("enable_gpu_mixed");
     }
     ps.Add(
         paddle::drr::Create<GroupNormSiluPattern>(context, enable_gpu_mixed));
