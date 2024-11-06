@@ -360,7 +360,7 @@ void CombineOp::VerifySig() const {
           input_num));
 
   // forall i in inputs.size(): inputs[i].type == outputs[0][i].type
-  for (auto i = 0; i < input_num; ++i) {
+  for (uint64_t i = 0; i < input_num; ++i) {
     auto type = (*this)->operand(i).type();
     PADDLE_ENFORCE_EQ(
         (output_type[i] == type ||
