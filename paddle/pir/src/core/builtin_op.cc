@@ -37,10 +37,10 @@ bool IsDynamicShapeTypeEqual(Type type1, Type type2) {
       are_equal = ((vec1[i] == -1 || vec2[i] == -1) || (vec1[i] == vec2[i])) |
                   are_equal;
     }
-    return {type_l.dtype() == type_r.dtype() &&
-            type_l.data_layout() == type_r.data_layout() &&
-            type_l.lod() == type_r.lod() &&
-            type_l.offset() == type_r.offset() && are_equal};
+    return static_cast<bool>(type_l.dtype() == type_r.dtype() &&
+                             type_l.data_layout() == type_r.data_layout() &&
+                             type_l.lod() == type_r.lod() &&
+                             type_l.offset() == type_r.offset() && are_equal);
   }
 }
 
