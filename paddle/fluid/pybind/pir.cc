@@ -681,6 +681,7 @@ void BindBlock(py::module *m) {
       .def("__len__", [](Block &self) { return self.size(); })
       .def("args", &Block::args, return_value_policy::reference)
       .def("kwargs", &Block::kwargs, return_value_policy::reference)
+      .def("add_arg", &Block::AddArg)
       .def("add_kwarg", &Block::AddKwarg)
       .def("erase_kwarg", &Block::EraseKwarg)
       .def("remove_op",

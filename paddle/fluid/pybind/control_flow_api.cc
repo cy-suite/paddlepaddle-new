@@ -144,7 +144,8 @@ void BindWhileOp(py::module* m) {
       .def("block_arguments",
            &WhileOp::block_args,
            return_value_policy::reference)
-      .def("optimize_update", &PyWhileOp::OptimizeUpdate);
+      .def("optimize_update", &PyWhileOp::OptimizeUpdate)
+      .def("add_extra_input", &PyWhileOp::AddExtraInput);
 }
 
 void BindAssertOp(py::module* m) {
@@ -304,6 +305,10 @@ PyWhileOp::PyWhileOp(WhileOp while_op) : WhileOp(while_op) {
           "The while_op used to construct PyWhileOp can't be nullptr"));
 }
 
+void PyWhileOp::AddExtraInput(const pir::Value& value) {
+  extra_inputs_.push_back(value);
+}
+
 std::vector<Value> PyWhileOp::OptimizeUpdate() {
   PADDLE_ENFORCE_NOT_NULL(operation_,
                           common::errors::InvalidArgument(
@@ -316,16 +321,25 @@ std::vector<Value> PyWhileOp::OptimizeUpdate() {
           "The parent block of while_op which used to remove "
           "unused loop vars can't be nullptr"));
 
-  operation_->Verify();
+  // operation_->Verify();
   auto& body_block = body();
   auto yield_op = body_block.back().dyn_cast<YieldOp>();
   auto operand_num = operation_->num_operands();
-  bool no_change = true;
+
+  PADDLE_ENFORCE_EQ(
+      operand_num - 1 + extra_inputs_.size(),
+      body_block.args().size(),
+      common::errors::InvalidArgument("The number of operands in while_op and "
+                                      "the number of args in body block "
+                                      "should be equal."));
+  bool no_change = extra_inputs_.empty();
   std::vector<size_t> index_vec;
   std::vector<Value> res, new_input, new_yield_val{yield_op.operand_source(0)};
   for (uint32_t i = 0; i < num_results(); ++i) {
     res.push_back(result(i));
   }
+  VLOG(9) << "[111] extra_inputs_[0].defining_op().name(): "
+          << extra_inputs_[0].defining_op()->name();
   for (size_t operand_index = 1u, arg_index = 0u; operand_index < operand_num;
        ++operand_index, ++arg_index) {
     if (!body_block.arg(arg_index).type().isa<pir::DenseTensorType>()) {
@@ -356,6 +370,8 @@ std::vector<Value> PyWhileOp::OptimizeUpdate() {
     }
   }
 
+  VLOG(9) << "[222] extra_inputs_[0].defining_op().name(): "
+          << extra_inputs_[0].defining_op()->name();
   for (size_t operand_index = 1u, arg_index = 0u; operand_index < operand_num;
        ++operand_index) {
     operand_source(operand_index).set_type(body_block.arg(arg_index).type());
@@ -372,20 +388,77 @@ std::vector<Value> PyWhileOp::OptimizeUpdate() {
       ++arg_index;
     }
   }
+  VLOG(9) << "[333] extra_inputs_[0].defining_op().name(): "
+          << extra_inputs_[0].defining_op()->name();
+  for (size_t extra_input_idx = 0u; extra_input_idx < extra_inputs_.size();
+       ++extra_input_idx) {
+    new_input.push_back(extra_inputs_[extra_input_idx]);
+    new_yield_val.push_back(
+        yield_op.operand_source(operand_num + extra_input_idx));
+  }
   if (no_change) return res;
   Block::Iterator iter = **this;
   Builder builder(ir_context(), false);
+  // new_input.insert(
+  //     new_input.end(), extra_inputs_.begin(), extra_inputs_.end()
+  // );
+  VLOG(9) << "[444] extra_inputs_[0].defining_op().name(): "
+          << extra_inputs_[0].defining_op()->name();
   auto new_while_op = builder.Build<WhileOp>(cond(), new_input, false);
+  VLOG(9) << "[555] extra_inputs_[0].defining_op().name(): "
+          << extra_inputs_[0].defining_op()->name();
   new_while_op->region(0).swap(std::move(operation_->region(0)));
+  VLOG(9) << "[666] extra_inputs_[0].defining_op().name(): "
+          << extra_inputs_[0].defining_op()->name();
   parent_block->Assign(iter, new_while_op);
+  VLOG(9) << "[777] extra_inputs_[0].defining_op().name(): "
+          << extra_inputs_[0].defining_op()->name();
   WhileOp::operator=(new_while_op);
+  VLOG(9) << "[888] extra_inputs_[0].defining_op().name(): "
+          << extra_inputs_[0].defining_op()->name();
   body_block.pop_back();
+  VLOG(9) << "[999] extra_inputs_[0].defining_op().name(): "
+          << extra_inputs_[0].defining_op()->name();
   builder.SetInsertionPointToBlockEnd(&body_block);
+  VLOG(9) << "[000] extra_inputs_[0].defining_op().name(): "
+          << extra_inputs_[0].defining_op()->name();
   builder.Build<YieldOp>(new_yield_val);
+  VLOG(9) << "[111] extra_inputs_[0].defining_op().name(): "
+          << extra_inputs_[0].defining_op()->name();
+  VLOG(9) << "original yield_op operand size " << yield_op->num_operands();
+  VLOG(9) << "new_yield_val operand size " << new_yield_val.size();
+  VLOG(9) << "Before verify";
   operation_->Verify();
-  for (size_t result_index = 0; result_index < num_results(); ++result_index) {
-    res[index_vec[result_index]] = result(result_index);
+  VLOG(9) << "[222] extra_inputs_[0].defining_op().name(): "
+          << extra_inputs_[0].defining_op()->name();
+  VLOG(9) << "After verify";
+  VLOG(9) << "num_results: " << num_results();
+  PADDLE_ENFORCE_EQ(
+      operand_num - 1 + extra_inputs_.size(),
+      num_results(),
+      common::errors::InvalidArgument("The number of operands in while_op and "
+                                      "the number of results in body block "
+                                      "should be equal."));
+  // for (size_t result_index = 0; result_index < num_results(); ++result_index)
+  // {
+  //   VLOG(9) << "result_index: " << result_index;
+  //   VLOG(9) << "index_vec[result_index]: " << index_vec[result_index];
+  //   res[index_vec[result_index]] = result(result_index);
+  // }
+  res.reserve(num_results());
+  VLOG(9) << "[333] extra_inputs_[0].defining_op().name(): "
+          << extra_inputs_[0].defining_op()->name();
+  for (size_t i = 0; i < index_vec.size(); ++i) {
+    res[index_vec[i]] = result(i);
   }
+  VLOG(9) << "[444] extra_inputs_[0].defining_op().name(): "
+          << extra_inputs_[0].defining_op()->name();
+  for (size_t i = 0; i < extra_inputs_.size(); ++i) {
+    res[operand_num - 1 + i] = result(operand_num - 1 + i);
+  }
+  VLOG(9) << "[555] extra_inputs_[0].defining_op().name(): "
+          << extra_inputs_[0].defining_op()->name();
+  VLOG(9) << "Before return";
   return res;
 }
 
