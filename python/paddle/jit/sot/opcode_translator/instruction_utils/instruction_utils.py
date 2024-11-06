@@ -99,81 +99,44 @@ def expand_super_instrs(instructions: list[Instruction]) -> list[Instruction]:
             if instr.jump_to == old_target:
                 instr.jump_to = new_target
 
+    def _gen_instr(instr, opname, argval, arg):
+        return Instruction(
+            opcode=dis.opmap[opname],
+            opname=opname,
+            arg=arg,
+            argval=argval,
+            is_jump_target=instr.is_jump_target,
+            is_generated=True,
+            jump_to=instr.jump_to,
+        )
+
     for instr in instructions:
         if instr.opname == "LOAD_FAST_LOAD_FAST":
-            instr1 = Instruction(
-                opcode=dis.opmap["LOAD_FAST"],
-                opname="LOAD_FAST",
-                arg=instr.arg >> 4,
-                argval=instr.argval[0],
-                offset=instr.offset,
-                starts_line=instr.starts_line,
-                is_jump_target=instr.is_jump_target,
-                jump_to=instr.jump_to,
-                is_generated=True,
+            instr1 = _gen_instr(
+                instr, "LOAD_FAST", instr.argval[0], instr.arg >> 4
             )
-            instr2 = Instruction(
-                opcode=dis.opmap["LOAD_FAST"],
-                opname="LOAD_FAST",
-                arg=instr.arg & 15,
-                argval=instr.argval[1],
-                offset=instr.offset,
-                starts_line=instr.starts_line,
-                is_jump_target=instr.is_jump_target,
-                jump_to=instr.jump_to,
-                is_generated=True,
+            instr2 = _gen_instr(
+                instr, "LOAD_FAST", instr.argval[1], instr.arg & 15
             )
             replace_jump_target(instructions, instr, instr1)
             expanded_instrs.append(instr1)
             expanded_instrs.append(instr2)
         elif instr.opname == "STORE_FAST_STORE_FAST":
-            instr1 = Instruction(
-                opcode=dis.opmap["STORE_FAST"],
-                opname="STORE_FAST",
-                arg=instr.arg >> 4,
-                argval=instr.argval[0],
-                offset=instr.offset,
-                starts_line=instr.starts_line,
-                is_jump_target=instr.is_jump_target,
-                jump_to=instr.jump_to,
-                is_generated=True,
+            instr1 = _gen_instr(
+                instr, "STORE_FAST", instr.argval[0], instr.arg >> 4
             )
-            instr2 = Instruction(
-                opcode=dis.opmap["STORE_FAST"],
-                opname="STORE_FAST",
-                arg=instr.arg & 15,
-                argval=instr.argval[1],
-                offset=instr.offset,
-                starts_line=instr.starts_line,
-                is_jump_target=instr.is_jump_target,
-                jump_to=instr.jump_to,
-                is_generated=True,
+            instr2 = _gen_instr(
+                instr, "STORE_FAST", instr.argval[1], instr.arg & 15
             )
             replace_jump_target(instructions, instr, instr1)
             expanded_instrs.append(instr1)
             expanded_instrs.append(instr2)
         elif instr.opname == "STORE_FAST_LOAD_FAST":
-            instr1 = Instruction(
-                opcode=dis.opmap["STORE_FAST"],
-                opname="STORE_FAST",
-                arg=instr.arg >> 4,
-                argval=instr.argval[0],
-                offset=instr.offset,
-                starts_line=instr.starts_line,
-                is_jump_target=instr.is_jump_target,
-                jump_to=instr.jump_to,
-                is_generated=True,
+            instr1 = _gen_instr(
+                instr, "STORE_FAST", instr.argval[0], instr.arg >> 4
             )
-            instr2 = Instruction(
-                opcode=dis.opmap["LOAD_FAST"],
-                opname="LOAD_FAST",
-                arg=instr.arg & 15,
-                argval=instr.argval[1],
-                offset=instr.offset,
-                starts_line=instr.starts_line,
-                is_jump_target=instr.is_jump_target,
-                jump_to=instr.jump_to,
-                is_generated=True,
+            instr2 = _gen_instr(
+                instr, "LOAD_FAST", instr.argval[1], instr.arg & 15
             )
             replace_jump_target(instructions, instr, instr1)
             expanded_instrs.append(instr1)
