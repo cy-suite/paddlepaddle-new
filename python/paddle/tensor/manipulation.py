@@ -52,7 +52,7 @@ if TYPE_CHECKING:
         DTypeLike,
         NestedList,
         NestedSequence,
-        Numberic,
+        Numeric,
         ShapeLike,
         TensorOrTensors,
     )
@@ -5972,6 +5972,13 @@ def as_complex(x: Tensor, name: str | None = None) -> Tensor:
     the size of the last axis should be 2, which represent the real and imag part
     of a complex number. The shape of the returned tensor is ``(*,)``.
 
+    The image below demonstrates the case that a real 3D-tensor with shape [2, 3, 2] is transformed into a complex 2D-tensor with shape [2, 3].
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/as_complex.png
+       :width: 500
+       :alt: Illustration of as_complex
+       :align: center
+
     Args:
         x (Tensor): The input tensor. Data type is 'float32' or 'float64'.
         name (str|None, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
@@ -6261,7 +6268,7 @@ def moveaxis(
 
 
 def masked_fill(
-    x, mask: Tensor, value: Numberic, name: str | None = None
+    x, mask: Tensor, value: Numeric, name: str | None = None
 ) -> Tensor:
     """
     Fills elements of self tensor with value where mask is True. The shape of mask must be broadcastable with the shape of the underlying tensor.
@@ -6307,7 +6314,7 @@ def masked_fill(
 
 @inplace_apis_in_dygraph_only
 def masked_fill_(
-    x, mask: Tensor, value: Numberic, name: str | None = None
+    x, mask: Tensor, value: Numeric, name: str | None = None
 ) -> Tensor:
     """
     Inplace version of ``masked_fill`` API, the output Tensor will be inplaced with input ``x``.
@@ -6381,9 +6388,10 @@ def take_along_axis(
     Take values from the input array by given indices matrix along the designated axis.
 
     Args:
-        arr (Tensor) : The input Tensor. Supported data types are float32 and float64.
+        arr (Tensor) : The input Tensor. Supported data types are bfloat16, float16, float32, float64,
+            int32, int64, uint8.
         indices (Tensor) : Indices to take along each 1d slice of arr. This must match the dimension of arr,
-            and need to broadcast against arr. Supported data type are int and int64.
+            and need to broadcast against arr. Supported data type are int32 and int64.
         axis (int) : The axis to take 1d slices along.
         broadcast (bool, optional): whether the indices broadcast.
 
@@ -6477,9 +6485,10 @@ def put_along_axis(
     Put values into the destination array by given indices matrix along the designated axis.
 
     Args:
-        arr (Tensor) : The Destination Tensor. Supported data types are float32 and float64.
+        arr (Tensor) : The Destination Tensor. Supported data types are bfloat16, float16, float32, float64,
+            int32, int64, uint8.
         indices (Tensor) : Indices to put along each 1d slice of arr. This must match the dimension of arr,
-            and need to broadcast against arr if broadcast is 'True'. Supported data type are int and int64.
+            and need to broadcast against arr if broadcast is 'True'. Supported data type are int32 and int64.
         values (scalar|Tensor) : The value element(s) to put. The data types should be same as arr.
         axis (int) : The axis to put 1d slices along.
         reduce (str, optional): The reduce operation, default is 'assign', support 'add', 'assign', 'mul', 'multiply', 'mean', 'amin' and 'amax'.
