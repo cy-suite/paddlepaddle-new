@@ -455,7 +455,7 @@ bool IsComplex(const ::pir::Operation& op) {
 }
 
 bool CompatibleInfo::IsDeniedForCinn(const ::pir::Operation& op) {
-  bool flag = IsDeniedInCinn(op) || CauseNewSymbolicShape(op) || !IsComplex(op);
+  bool flag = IsDeniedInCinn(op) || CauseNewSymbolicShape(op) || IsComplex(op);
   VLOG(4) << "CompatibleInfo::IsDeniedForCinn of " << op.name()
           << " is: " << flag;
   return flag;
