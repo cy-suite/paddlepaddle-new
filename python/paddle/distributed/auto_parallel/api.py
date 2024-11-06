@@ -84,7 +84,7 @@ if TYPE_CHECKING:
     from paddle import Tensor
     from paddle._typing import (
         DTypeLike,
-        NestedNumbericSequence,
+        NestedNumericSequence,
         PlaceLike,
         TensorLike,
     )
@@ -210,7 +210,7 @@ class DistAttr(core.TensorDistAttr):
 
 
 def shard_tensor(
-    data: Tensor | TensorLike | NestedNumbericSequence,
+    data: Tensor | TensorLike | NestedNumericSequence,
     mesh: ProcessMesh,
     placements: list[Placement],
     dtype: DTypeLike | None = None,
@@ -1043,6 +1043,10 @@ class _ShardOptimizer(Optimizer):
         ):
             self._sharding_degree = self._shard_fn._mesh.get_dim_size(0)
             self._sharding_mesh_axis = 0
+        elif (self._shard_fn._mesh is not None) and (
+            'dp' in self._shard_fn._mesh.dim_names
+        ):
+            self._sharding_degree = self._shard_fn._mesh.get_dim_size('dp')
         else:
             param_list = self._inner_opt._parameter_list
             for param in param_list:
@@ -1137,10 +1141,12 @@ class _ShardOptimizer(Optimizer):
                 param.get_tensor()._share_data_with(out_param.get_tensor())
 
     def _create_accumulators(self, block, parameters):
-        self._inner_opt._create_accumulators(block, parameters)
         if isinstance(parameters, dict):
             parameters = parameters.get('params')
+        # NOTE(zhiqiu): we need to create and shard accumulators for parameters one by one,
+        # to avoid OOM caused by replcated accumulators.
         for p in parameters:
+            self._inner_opt._create_accumulators(block, [p])
             self._shard_accumulator(p)
 
     def _finish_update(self, block, parameters_and_grads):
