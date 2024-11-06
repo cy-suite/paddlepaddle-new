@@ -823,6 +823,7 @@
   output : Tensor(out)
   infer_meta :
     func : CScatterInferMeta
+    param : [x, ring_id, root, nranks]
   kernel :
     func : c_scatter
     param : [x, root, nranks]
