@@ -131,7 +131,7 @@ class CinnJitInstruction::FnPtrImpl {
         phi::gpuStreamEndCapture(stream, &graph);
 #ifdef PADDLE_WITH_CUDA
         cudaGraphInstantiate(&instance, graph, NULL, NULL, 0);
-#else  defined(PADDLE_WITH_HIP)
+#elif defined(PADDLE_WITH_HIP)
         hipGraphInstantiate(&instance, graph, NULL, NULL, 0);
 #else
         CINN_NOT_IMPLEMENTED
