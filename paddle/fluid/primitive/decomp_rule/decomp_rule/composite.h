@@ -1406,11 +1406,68 @@ template <typename T>
 Tensor addmm_decomp(const Tensor& input,
                     const Tensor& x,
                     const Tensor& y,
-                    const paddle::Scalar& beta,
-                    const paddle::Scalar& alpha) {
+                    const float beta,
+                    const float alpha) {
+  VLOG(0) << "nmlb.";
+  int tmp1 = x.shape().size();
+  for (int i = 0; i < tmp1; i++) {
+    VLOG(0) << "x.shape() at " << i << " is: " << x.shape()[i];
+    VLOG(0) << "y.shape() at " << i << " is: " << y.shape()[i];
+  }
+  Tensor x_ = x;
+  Tensor y_ = y;
+
   Tensor x_y_mat = matmul<T>(x, y);
-  return full_scalar<T>(alpha, x_y_mat.dtype()) * x_y_mat +
-         full_scalar<T>(beta, input.dtype()) * input;
+  Tensor input_ = input;
+  Tensor res;
+
+  std::vector<int64_t> x_y_mat_dim = common::vectorize<int64_t>(x_y_mat.dims());
+  std::vector<int64_t> input_dim = common::vectorize<int64_t>(input_.dims());
+
+  auto x_y_mat_shape = x_y_mat.shape();
+  auto input_shape = input.shape();
+
+  // auto diff = static_cast<int>(x_y_mat.shape().size()) -
+  // static_cast<int>(input.shape().size());
+  auto diff = x_y_mat_dim.size() - input_dim.size();
+  if (diff < 0) {
+    while (diff++) {
+      x_y_mat_shape.insert(x_y_mat_shape.begin(), 1);
+    }
+    x_y_mat = expand<T>(reshape<T>(x_y_mat, x_y_mat_shape), {input_dim});
+  } else if (diff > 0) {
+    while (diff--) {
+      input_shape.insert(input_shape.begin(), 1);
+    }
+    input_ = expand<T>(reshape<T>(input_, input_shape), {x_y_mat_dim});
+  }
+  res = alpha * x_y_mat + beta * input_;
+
+  int tmp2 = res.shape().size();
+  for (int i = 0; i < tmp2; i++) {
+    VLOG(0) << "res.shape() at " << i << "is: " << res.shape()[i];
+  }
+
+  return res;
+
+  // for(int i = 0; i < diff; i++) {
+  //   if (x_y_mat.size() > input.size()) {
+  //     input_shape.insert(input_shape.begin(), 1);
+  //   } else {
+  //     x_y_mat_shape.insert(x_y_mat_shape.begin(), 1);
+  //   }
+  // }
+
+  // x_y_mat = reshape<T>(x_y_mat, x_y_mat_shape);
+  // input_ = reshape<T>(input, input_shape);
+
+  // // Tensor Alpha = full<T>(x_y_mat_shape, alpha, x_y_mat.dtype());
+  // // Tensor Beta = full<T>(input_shape, beta, input_.dtype());
+  // x_y_mat *= alpha;
+  // input_ *= beta;
+  // Tensor res = Alpha * x_y_mat + Beta * input_;
+
+  // return res;
 }
 
 }  // namespace details
