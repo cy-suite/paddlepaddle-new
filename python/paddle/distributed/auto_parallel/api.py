@@ -35,6 +35,7 @@ from paddle.base.framework import (
     in_pir_mode,
     use_pir_api,
 )
+from paddle.distributed import fleet
 from paddle.distributed.auto_parallel import Engine, strategy as auto_strategy
 from paddle.distributed.auto_parallel.interface import (
     shard_tensor as shard_tensor_static,
@@ -1038,6 +1039,7 @@ class _ShardOptimizer(Optimizer):
                 self._shard_fn._shard_parameter(param)
 
     def _set_and_check_sharding_prop_from_param(self):
+        all_params_replicated_on_each_mesh = True
         if (self._shard_fn._mesh is not None) and (
             len(self._shard_fn._mesh._shape) == 1
         ):
@@ -1061,11 +1063,17 @@ class _ShardOptimizer(Optimizer):
                         isinstance(placement, dist.Shard)
                         for placement in placements
                     ):
+                        all_params_replicated_on_each_mesh = False
                         for idx, placement in enumerate(placements):
                             if isinstance(placement, dist.Replicate):
                                 self._sharding_degree = mesh.dim_size(idx)
                                 self._sharding_mesh_axis = idx
                                 break
+                    elif any(
+                        isinstance(placement, dist.Partial)
+                        for placement in placements
+                    ):
+                        all_params_replicated_on_each_mesh = False
                 else:
                     # check the placement on sharding axis is Replicate
                     assert isinstance(
@@ -1077,6 +1085,16 @@ class _ShardOptimizer(Optimizer):
                         mesh.dim_size(self._sharding_mesh_axis)
                         == self._sharding_degree
                     ), "The sharding degree of all parameters must be equal currently."
+
+        # Note(luchang): When all parameters are replicated across meshes,
+        # we set sharding degree to dp degree and mesh axis to 0. This is sufficient
+        # because each device already holds a full copy of the parameters,
+        # so no additional sharding configuration is needed.
+        if self._sharding_degree is None and all_params_replicated_on_each_mesh:
+            global_mesh = fleet.auto.get_mesh()
+            if "dp" in global_mesh.dim_names:
+                self._sharding_degree = global_mesh.get_dim_size("dp")
+                self._sharding_mesh_axis = 0
 
         assert (
             self._sharding_degree is not None
