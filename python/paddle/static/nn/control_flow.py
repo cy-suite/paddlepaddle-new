@@ -848,8 +848,12 @@ def while_loop(cond, body, loop_vars, is_test=False, name=None):
             assert len(cur_block.args()) == len(variable_loop_vars)
             for loop_var, arg in zip(variable_loop_vars, cur_block.args()):
                 loop_var.bind_block_arg(arg)
-
-            next_vars = body(*[var.block_arg for var in variable_loop_vars])
+            # For non-variable inputs, we use the original value directly.
+            args = [
+                var.block_arg if var.is_variable_curr_var else var.curr_var
+                for var in flatten(loop_vars)
+            ]
+            next_vars = body(*args)
 
             if not isinstance(next_vars, (list, tuple)):
                 next_vars = [next_vars]
