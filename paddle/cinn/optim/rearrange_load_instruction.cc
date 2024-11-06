@@ -64,6 +64,15 @@ struct RearrangeLoadInstructionMutator : public ir::IRMutator<Expr *> {
     return false;
   }
   void Visit(const ir::Load *op, Expr *expr) override {
+    if (expr->type().is_customized()) {
+      VLOG(3) << "Expr is of type Customized:, skipping visit.";
+      return;
+    }
+    if (op->name().find("vectorized") != std::string::npos) {
+      VLOG(3) << "op name contains 'vectorized', skipping visit.";
+      return;
+    }
+
     auto load_op = expr->As<ir::Load>();
     if (is_inner_store) {
       if (op->tensor.as_tensor_ref()->buffer.operator->() != nullptr &&
