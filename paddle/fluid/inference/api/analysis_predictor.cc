@@ -386,10 +386,6 @@ AnalysisPredictor::AnalysisPredictor(const AnalysisConfig &config)
   if (config_.shape_range_info_collected()) {
     config_.SwitchIrOptim(false);
   }
-  if (FLAGS_enable_pir_api) {
-    config_.EnableNewExecutor(true);
-    config_.EnableNewIR(true);
-  }
   if (config_.new_executor_enabled()) {
     config_.EnableMemoryOptim(false);
     if (config_.new_ir_enabled()) {
@@ -447,13 +443,8 @@ bool AnalysisPredictor::Init(
   load_pir_model_ =
       model_path.substr(model_path.find_last_of(".") + 1) == "json";
   if (load_pir_model_) {
-    PADDLE_ENFORCE_EQ(
-        FLAGS_enable_pir_api || (config_.use_pir_ && config_.use_new_executor_),
-        true,
-        common::errors::InvalidArgument(
-            "Models with a .json suffix can only run in PIR mode. Please set "
-            "export FLAGS_enable_pir_api=True or "
-            "config.EnableNewExecutor(true)) and config.EnableNewIR(true)"));
+    config_.use_pir_ = true;
+    config_.use_new_executor_ = true;
   }
 
   // Use Optimized model to inference
@@ -883,6 +874,10 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
           if (std::find(config_.deleted_passes_.begin(),
                         config_.deleted_passes_.end(),
                         gpu_pass) == config_.deleted_passes_.end()) {
+            if (!config_.enable_gpu_mixed_ &&
+                gpu_pass == "auto_mixed_precision_pass") {
+              continue;
+            }
             pass_pm.AddPass(pir::PassRegistry::Instance().Get(gpu_pass));
           }
         }
@@ -946,6 +941,18 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
           pass->name() == "conv2d_add_act_fuse_pass" ||
           pass->name() == "conv2d_add_fuse_pass") {
         pass->Set("use_cutlass", new bool(config_.use_cutlass_));
+      } else if (pass->name() == "auto_mixed_precision_pass") {
+        pass->Set("mixed_precision_mode",
+                  new phi::DataType(
+                      paddle::ConvertPrecision(config_.mixed_precision_mode_)));
+        pass->Set("enable_low_precision_io",
+                  new bool(config_.enable_low_precision_io_));
+        pass->Set(
+            "mixed_black_list",
+            new std::unordered_set<std::string>(config_.mixed_black_list_));
+        pass->Set(
+            "mixed_white_list",
+            new std::unordered_set<std::string>(config_.mixed_white_list_));
       }
     }
 
@@ -979,28 +986,6 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
                 common_subexpression_elimination_pass->name()) ==
       config_.deleted_passes_.end()) {
     basic_pass_pm.AddPass(std::move(common_subexpression_elimination_pass));
-  }
-  if (config_.enable_gpu_mixed_) {
-    auto auto_mixed_precision_pass = ::pir::CreateAutoMixedPrecisionPass();
-    if (std::find(config_.deleted_passes_.begin(),
-                  config_.deleted_passes_.end(),
-                  auto_mixed_precision_pass->name()) ==
-        config_.deleted_passes_.end()) {
-      auto_mixed_precision_pass->SetNotOwned(pir::Pass::kPlaceAttr, &place_);
-      auto_mixed_precision_pass->Set("__mixed_precision_mode__",
-                                     new phi::DataType(paddle::ConvertPrecision(
-                                         config_.mixed_precision_mode_)));
-      auto_mixed_precision_pass->Set(
-          "__enable_low_precision_io__",
-          new bool(config_.enable_low_precision_io_));
-      auto_mixed_precision_pass->Set(
-          "__mixed_black_list__",
-          new std::unordered_set<std::string>(config_.mixed_black_list_));
-      auto_mixed_precision_pass->Set(
-          "__mixed_white_list__",
-          new std::unordered_set<std::string>(config_.mixed_white_list_));
-      basic_pass_pm.AddPass(std::move(auto_mixed_precision_pass));
-    }
   }
   auto params_sync_among_devices_pass =
       ::pir::CreateParamsSyncAmongDevicesPass();
