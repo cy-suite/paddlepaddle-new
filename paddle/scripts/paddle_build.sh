@@ -4159,15 +4159,27 @@ function clang-tidy_check() {
     )
 
     check_error=0
+    declare -A count_map
+
     for str in "${S[@]}"; do
-        count=0
-        while IFS= read -r line; do
-            if echo "$line" | grep -q "$str"; then
-                count=$((count + 1))
-                if [ "$count" -ge 2 ]; then
-                    file_path=$(echo "$line" | cut -d' ' -f2)
-                    echo "check error: $str in file: $file_path"
+        count_map["$str"]=0
+    done
+    check_error=0
+    declare -A count_map
+
+    for str in "${S[@]}"; do
+        count_map["$str"]=0
+    done
+
+    while IFS= read -r line; do
+        for str in "${S[@]}"; do
+            if [[ "$line" == *"$str"* ]]; then
+                count=$((count_map["$str"] + 1))
+                count_map["$str"]=$count
+                if (( $ [$count ] -ge 2 )); then
                     check_error=1
+                    file_path=$(echo "$line" | awk '{for (i=2; i<NF; i++) if ($i ~ /\/.*\/.*\/.*\.(c|cc|cpp|h|hpp):/) {print $i; break}}')
+                    echo "check error: $str in file $file_path"
                 fi
             fi
         done
