@@ -91,6 +91,98 @@ def convert_instruction(instr: dis.Instruction) -> Instruction:
     )
 
 
+def expand_super_instrs(instructions: list[Instruction]) -> list[Instruction]:
+    expanded_instrs = []
+
+    def replace_jump_target(instrs, old_target, new_target):
+        for instr in instrs:
+            if instr.jump_to == old_target:
+                instr.jump_to = new_target
+
+    for instr in instructions:
+        if instr.opname == "LOAD_FAST_LOAD_FAST":
+            instr1 = Instruction(
+                opcode=dis.opmap["LOAD_FAST"],
+                opname="LOAD_FAST",
+                arg=instr.arg >> 4,
+                argval=instr.argval[0],
+                offset=instr.offset,
+                starts_line=instr.starts_line,
+                is_jump_target=instr.is_jump_target,
+                jump_to=instr.jump_to,
+                is_generated=True,
+            )
+            instr2 = Instruction(
+                opcode=dis.opmap["LOAD_FAST"],
+                opname="LOAD_FAST",
+                arg=instr.arg & 15,
+                argval=instr.argval[1],
+                offset=instr.offset,
+                starts_line=instr.starts_line,
+                is_jump_target=instr.is_jump_target,
+                jump_to=instr.jump_to,
+                is_generated=True,
+            )
+            replace_jump_target(instructions, instr, instr1)
+            expanded_instrs.append(instr1)
+            expanded_instrs.append(instr2)
+        elif instr.opname == "STORE_FAST_STORE_FAST":
+            instr1 = Instruction(
+                opcode=dis.opmap["STORE_FAST"],
+                opname="STORE_FAST",
+                arg=instr.arg >> 4,
+                argval=instr.argval[0],
+                offset=instr.offset,
+                starts_line=instr.starts_line,
+                is_jump_target=instr.is_jump_target,
+                jump_to=instr.jump_to,
+                is_generated=True,
+            )
+            instr2 = Instruction(
+                opcode=dis.opmap["STORE_FAST"],
+                opname="STORE_FAST",
+                arg=instr.arg & 15,
+                argval=instr.argval[1],
+                offset=instr.offset,
+                starts_line=instr.starts_line,
+                is_jump_target=instr.is_jump_target,
+                jump_to=instr.jump_to,
+                is_generated=True,
+            )
+            replace_jump_target(instructions, instr, instr1)
+            expanded_instrs.append(instr1)
+            expanded_instrs.append(instr2)
+        elif instr.opname == "STORE_FAST_LOAD_FAST":
+            instr1 = Instruction(
+                opcode=dis.opmap["STORE_FAST"],
+                opname="STORE_FAST",
+                arg=instr.arg >> 4,
+                argval=instr.argval[0],
+                offset=instr.offset,
+                starts_line=instr.starts_line,
+                is_jump_target=instr.is_jump_target,
+                jump_to=instr.jump_to,
+                is_generated=True,
+            )
+            instr2 = Instruction(
+                opcode=dis.opmap["LOAD_FAST"],
+                opname="LOAD_FAST",
+                arg=instr.arg & 15,
+                argval=instr.argval[1],
+                offset=instr.offset,
+                starts_line=instr.starts_line,
+                is_jump_target=instr.is_jump_target,
+                jump_to=instr.jump_to,
+                is_generated=True,
+            )
+            replace_jump_target(instructions, instr, instr1)
+            expanded_instrs.append(instr1)
+            expanded_instrs.append(instr2)
+        else:
+            expanded_instrs.append(instr)
+    return expanded_instrs
+
+
 def get_instructions(code: types.CodeType) -> list[Instruction]:
     """
     Returns parsed instructions from the given code object and exclude
@@ -134,7 +226,7 @@ def get_instructions(code: types.CodeType) -> list[Instruction]:
     #         XX 388    <-  256 + 132
     # filter all EXTENDED_ARG here
     instrs = [x for x in instrs if x.opname != "EXTENDED_ARG"]
-    return instrs
+    return expand_super_instrs(instrs)
 
 
 def modify_instrs(instructions: list[Instruction]) -> None:
