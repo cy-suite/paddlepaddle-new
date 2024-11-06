@@ -65,8 +65,16 @@ case_list[${#case_list[*]}]=gpt-3_dygraph
 }
 
 print_info(){
-#解决异常退出-6的问题，CI中的偶现问题，无法发现
-if [[ $1 -ne 0 ]] && [[ $1 -ne 250 ]];then
+if [ $1 -eq 250 ];then
+    #解决异常退出-6的问题，CI中的偶现问题，无法复现
+    echo -e "\033[1;31m"
+    echo -e "\033[1;31m The CI execution encountered an abnormal termination with error code exit -6. \033[0m"
+    echo -e "\033[1;31m This is an intermittent issue. \033[0m"
+    echo -e "\033[1;31m Please re-run the CI. \033[0m"
+    echo -e "\033[1;31m"
+    exit 2
+fi
+if [[ $1 -ne 0 ]];then
     EXCODE=2
     if [ ! -f ${log_path}/$2 ];then
         echo -e "\033[31m run $2 CI FAIL \033"
@@ -77,7 +85,7 @@ if [[ $1 -ne 0 ]] && [[ $1 -ne 250 ]];then
     fi
     exit $EXCODE
 else
-    echo -e "\033[32m run $3 CI SUCCESS \033"
+    echo -e "\033[32m The $3 CI has completed \033"
 fi
 }
 
