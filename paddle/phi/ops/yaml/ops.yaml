@@ -826,17 +826,6 @@
     func : c_scatter
   traits : paddle::dialect::ForwardOnlyTrait
 
-- op : c_sync_comm_stream
-  args : (Tensor x, int ring_id)
-  output : Tensor(out)
-  infer_meta :
-    func : UnchangedInferMeta
-    param : [x]
-  kernel :
-    func : c_sync_comm_stream
-  inplace : (x -> out)
-  traits : paddle::dialect::ForwardOnlyTrait
-
 - op : calc_reduced_attn_scores
   args : (Tensor q, Tensor k, Tensor softmax_lse)
   output : Tensor(reduced_scores)
@@ -1958,7 +1947,7 @@
     func : flash_attn_qkvpacked
     data_type : qkv
   backward : flash_attn_qkvpacked_grad
-  # interfaces : paddle::dialect::InferSymbolicShapeInterface
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : flash_attn_unpadded
   args : (Tensor q, Tensor k, Tensor v, Tensor cu_seqlens_q,  Tensor cu_seqlens_k, Tensor fixed_seed_offset, Tensor attn_mask, int64_t max_seqlen_q, int64_t max_seqlen_k, float scale, float dropout = 0.0, bool causal = false, bool return_softmax = false, bool is_test = false, str rng_name = "")
@@ -4121,7 +4110,7 @@
     func : repeat_interleave_with_tensor_index
     data_type : x
   backward: repeat_interleave_with_tensor_index_grad
-  # interfaces : paddle::dialect::InferSymbolicShapeInterface
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : reshape
   args : (Tensor x, IntArray shape)
@@ -4635,7 +4624,7 @@
     func : solve
     data_type : x
   backward : solve_grad
-  # interfaces : paddle::dialect::InferSymbolicShapeInterface
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : sparse_attention
   args: (Tensor q, Tensor k, Tensor v, Tensor offset, Tensor columns, Tensor key_padding_mask,
