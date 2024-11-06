@@ -487,6 +487,13 @@ void GemmRSInferMeta(const MetaTensor& input,
                      const MetaTensor& input_scale,
                      MetaTensor* output);
 
+void AllGatherGemmInferMeta(const MetaTensor& input,
+                            const MetaTensor& weight,
+                            const MetaTensor& bias,
+                            const MetaTensor& input_scale,
+                            MetaTensor* output,
+                            MetaTensor* input_parallel);
+
 void GenerateProposalsV2InferMeta(const MetaTensor& scores,
                                   const MetaTensor& bbox_deltas,
                                   const MetaTensor& im_shape,

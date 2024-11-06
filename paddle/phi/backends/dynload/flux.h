@@ -45,7 +45,9 @@ extern void* flux_dso_handle;
   __macro(gemm_rs); \
   __macro(ensure_nvml_init_capi); \
   __macro(get_gpu_device_name_capi); \
-  __macro(cudaipc_barrier_all_on_stream_impl_capi);
+  __macro(cudaipc_barrier_all_on_stream_impl_capi); \
+  __macro(ag_gemm); \
+  __macro(set_ready);
 #endif
 
 FLUX_ROUTINE_EACH(DECLARE_DYNAMIC_LOAD_FLUX_WRAP);
