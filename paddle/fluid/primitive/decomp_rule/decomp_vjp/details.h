@@ -2952,7 +2952,7 @@ void kron_grad(const Tensor& x,
         std::vector<int> split_vec(static_cast<int>(x_shape[i]),
                                    static_cast<int>(y_shape[i]));
         std::vector<Tensor> block_split =
-            split<T>(block, IntArray(split_vec), i);
+            split<T>(block, IntArray(split_vec), static_cast<int>(i));
 
         for (auto& b : block_split) {
           tmp_block.push_back(b);
