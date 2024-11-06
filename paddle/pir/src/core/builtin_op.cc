@@ -33,7 +33,7 @@ bool IsDynamicShapeTypeEqual(Type type1, Type type2) {
     auto vec2 = type_r.dims();
     if (vec1.size() != vec2.size()) return false;
     bool are_equal = false;
-    for (size_t i = 0; i < vec1.size(); ++i) {
+    for (auto i = 0; i < vec1.size(); ++i) {
       are_equal = ((vec1[i] == -1 || vec2[i] == -1) || (vec1[i] == vec2[i])) |
                   are_equal;
     }
@@ -360,7 +360,7 @@ void CombineOp::VerifySig() const {
           input_num));
 
   // forall i in inputs.size(): inputs[i].type == outputs[0][i].type
-  for (int i = 0; i < input_num; ++i) {
+  for (auto i = 0; i < input_num; ++i) {
     auto type = (*this)->operand(i).type();
     PADDLE_ENFORCE_EQ(
         (output_type[i] == type ||
