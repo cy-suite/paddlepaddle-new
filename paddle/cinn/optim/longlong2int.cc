@@ -30,12 +30,12 @@ class CheckOverflow : public ir::IRVisitor {
 
  private:
   void Visit(const ir::For* for_op) override {
-    if (!for_op->extent.is_constant()) return;
-    if (!for_op->extent.type().is_index_type()) return;
-    if (curr_product_ > INT_MAX) {
-      is_overflow_ = true;
-      return;
-    }
+    if (!for_op->extent.is_constant()) is_overflow_ = true;
+    if (!for_op->extent.type().is_index_type()) is_overflow_ = true;
+    if (curr_product_ > INT_MAX) is_overflow_ = true;
+
+    if (is_overflow_) return;
+
     curr_product_ *= for_op->extent.as_int64();
     ir::IRVisitor::Visit(&for_op->body);
     curr_product_ /= for_op->extent.as_int64();
