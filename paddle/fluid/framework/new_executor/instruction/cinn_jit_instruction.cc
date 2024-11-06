@@ -114,13 +114,10 @@ class CinnJitInstruction::FnPtrImpl {
       ::common::PerformanceStatistician& ps =
           ::common::PerformanceStatistician::Instance();
       auto data_p = static_cast<void*>(func_args_.data());
-#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
       phi::gpuStream_t stream;
       phi::InitStream(&stream);
       phi::backends::gpu::GpuDeviceSync();
-#endif
       if (is_gpu) {
-#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
         ps.SetGraphNodesNum(25);
         int graph_nodes_num = ps.GetGraphNodesNum();
         phi::gpuGraph_t graph;
@@ -134,7 +131,7 @@ class CinnJitInstruction::FnPtrImpl {
         phi::gpuStreamEndCapture(stream, &graph);
 #ifdef PADDLE_WITH_CUDA
         cudaGraphInstantiate(&instance, graph, NULL, NULL, 0);
-#else
+#else defined(PADDLE_WITH_HIP)
         hipGraphInstantiate(&instance, graph, NULL, NULL, 0);
 #endif
         ps.CudaStart(FLAGS_cinn_kernel_execution_label);
