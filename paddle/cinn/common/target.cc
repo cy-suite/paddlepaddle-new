@@ -266,6 +266,8 @@ std::string Target::device_name_str() const {
   std::string device_name = properties.name;
   device_name = std::regex_replace(device_name, std::regex(" "), "_");
   return std::regex_replace(device_name, std::regex("-"), "_");
+#else
+  CINN_NOT_IMPLEMENTED
 #endif
 }
 

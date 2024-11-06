@@ -131,8 +131,11 @@ class CinnJitInstruction::FnPtrImpl {
         phi::gpuStreamEndCapture(stream, &graph);
 #ifdef PADDLE_WITH_CUDA
         cudaGraphInstantiate(&instance, graph, NULL, NULL, 0);
-#else defined(PADDLE_WITH_HIP)
+#else  defined(PADDLE_WITH_HIP)
         hipGraphInstantiate(&instance, graph, NULL, NULL, 0);
+#else
+       PADDLE_THROW(::common::errors::InvalidArgument(
+            "Please recompile with flag WITH_GPU or WITH_ROCM."));
 #endif
         ps.CudaStart(FLAGS_cinn_kernel_execution_label);
         phi::gpuGraphLaunch(instance, stream);
@@ -140,10 +143,6 @@ class CinnJitInstruction::FnPtrImpl {
         phi::gpuGraphDestroy(graph);
         phi::gpuGraphExecDestroy(instance);
         phi::DestoryStream(stream);
-#else
-        PADDLE_THROW(::common::errors::InvalidArgument(
-            "Please recompile with flag WITH_GPU or WITH_ROCM."));
-#endif
       } else {
         ((lower_func_ptr_g)cinn_kernel_info_.CX86_fn_ptr)(
             static_cast<void*>(func_args_.data()), func_args_.size(), stream);
