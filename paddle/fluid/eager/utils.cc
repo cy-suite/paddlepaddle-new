@@ -959,22 +959,6 @@ std::string EagerUtils::TensorStr(
   }
 }
 
-void EagerUtils::SetGradOutputDistAttrByInput(const paddle::Tensor& input,
-                                              paddle::Tensor* grad) {
-  if (!grad) {
-    VLOG(4) << "The grad element is nullptr when calling "
-               "SetGradOutputDistAttrByInput.";
-    return;
-  }
-  auto dist_attr =
-      std::static_pointer_cast<phi::distributed::DistTensor>(input.impl())
-          ->dist_attr();
-  grad->set_impl(
-      std::make_shared<phi::distributed::DistTensor>(phi::DDim(), dist_attr));
-  VLOG(4) << "The grad element is set DistTensor impl when calling "
-             "SetGradOutputDistAttrByInput.";
-}
-
 void DistTensorTypeParser::operator()(const paddle::Tensor& x) {
   if (x.defined() && x.is_dist_tensor()) {
     *mesh = &(std::dynamic_pointer_cast<phi::distributed::DistTensor>(x.impl())
