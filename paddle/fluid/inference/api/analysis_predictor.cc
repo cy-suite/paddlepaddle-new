@@ -933,6 +933,7 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
     for (const auto &pass : pass_pm.passes()) {
       pass->SetNotOwned(pir::Pass::kParamScopeAttr, sub_scope_);
       pass->SetNotOwned(pir::Pass::kPlaceAttr, &place_);
+      pass->Set("enable_gpu_mixed", new bool(config_.enable_gpu_mixed_));
       if (pass->name() == "matmul_add_act_fuse_pass" ||
           pass->name() == "conv2d_add_act_fuse_pass" ||
           pass->name() == "conv2d_add_fuse_pass") {
