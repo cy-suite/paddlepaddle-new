@@ -2363,23 +2363,34 @@ void group_norm_grad(const Tensor& x,
   Tensor x_data = ConverToMT<T>(x);
   Tensor out_grad_data = ConverToMT<T>(out_grad);
 
+  std::cerr << "x data " << x_data.dims() << std::endl;
   x_data = decomp_helper.Split(x_data);
+  std::cerr << "new data " << x_data.dims() << std::endl;
   out_grad_data = decomp_helper.Split(out_grad_data);
 
   const auto& reduce_axis = decomp_helper.GetReduceAxis();
-  auto variance_new = unsqueeze<T>(variance, reduce_axis);
-  auto mean_new = unsqueeze<T>(mean, reduce_axis);
+  std::cerr << "var " << variance.dims() << std::endl;
+
+  const auto& squeeze_axis = decomp_helper.GetMeanVarSqueezeAxis();
+  for (auto d : squeeze_axis) {
+    std::cerr << "dd  " << d << std::endl;
+  }
+  auto variance_new = unsqueeze<T>(variance, squeeze_axis);
+  auto mean_new = unsqueeze<T>(mean, squeeze_axis);
+
+  std::cerr << "var new " << variance_new.dims() << std::endl;
+  for (auto& d : reduce_axis) {
+    std::cerr << "reduc axis " << d << std::endl;
+  }
 
   auto var_eps = variance_new + full_scalar<T>(epsilon, variance_new.dtype());
 
   auto inv_std = rsqrt<T>(var_eps);
 
-  auto inv_std_mul_s = inv_std / decomp_helper.GetHW(x_data);
-
+  auto inv_std_mul_s = inv_std;
   auto dtype = x_data.dtype();
-  auto sum_y_grad_mul_x =
-      sum<T>(out_grad_data * x_data, reduce_axis, dtype, true);
-  auto sum_y_grad = sum<T>(out_grad_data, reduce_axis, dtype, true);
+
+  auto sum_y_grad_mul_x = out_grad_data * x_data;
 
   Tensor scale_data;
   if (scale) {
@@ -2392,17 +2403,21 @@ void group_norm_grad(const Tensor& x,
 
   if (x_grad) {
     Tensor d1 = sum_y_grad_mul_x;
-    Tensor d2 = sum_y_grad;
+    Tensor d2 = out_grad_data;
     Tensor p1 = inv_std;
     if (scale) {
       scale_data = ConverToMT<T>(scale_data);
       d1 = sum_y_grad_mul_x * scale_data;
-      d2 = sum_y_grad * scale_data;
+      d2 = out_grad_data * scale_data;
       p1 = inv_std * scale_data;
     }
 
-    auto p2 = (d2 * mean_new - d1) * (inv_std_mul_s / var_eps);
-    auto p3 = p2 * mean_new - d2 * inv_std_mul_s;
+    d1 = sum<T>(d1, reduce_axis, dtype, true);
+    d2 = sum<T>(d2, reduce_axis, dtype, true);
+
+    auto p2 = (d2 * mean_new - d1) *
+              (inv_std_mul_s / var_eps / decomp_helper.GetHW(x_data));
+    auto p3 = p2 * mean_new + d2 * inv_std_mul_s / decomp_helper.GetHW(x_data);
 
     auto tmp_1 = out_grad_data * p1;
     auto tmp_2 = x_data * p2 - p3;
@@ -2410,6 +2425,7 @@ void group_norm_grad(const Tensor& x,
     x_grad_data = decomp_helper.Merge(x_grad_data);
     x_grad_data = ConverToOrig<T>(x_grad_data, x.dtype());
 
+    // set_output<T>(out_grad, x_grad);
     set_output<T>(x_grad_data, x_grad);
   }
 

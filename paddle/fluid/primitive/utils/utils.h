@@ -435,6 +435,18 @@ class GroupNormDecompHelper {
 
   const std::vector<int64_t>& GetReduceAxis() const { return reduce_axis_; }
 
+  std::vector<int64_t> GetMeanVarSqueezeAxis() const {
+    std::vector<int64_t> output;
+
+    for (int64_t i = 1; i < channel_axis_; ++i) {
+      output.push_back(1);
+    }
+    for (int64_t i = channel_axis_ + 1; i <= x_rank_; ++i) {
+      output.push_back(-1);
+    }
+    return output;
+  }
+
   const std::vector<int64_t>& GetScaleBiasNewShape() const {
     return scale_bias_new_shape_;
   }
@@ -455,6 +467,7 @@ class GroupNormDecompHelper {
     }
 
     if (static_hw) {
+      std::cerr << "static hwg " << hwg_numel << std::endl;
       return full_scalar<T>(hwg_numel, x.dtype());
     } else {
       auto x_shape = shape<T>(x);
