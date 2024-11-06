@@ -35,16 +35,14 @@ class FusionOpPattern : public pir::OpRewritePattern<cinn::dialect::FusionOp> {
 
   bool MatchAndRewrite(cinn::dialect::FusionOp fusion_op,
                        pir::PatternRewriter& rewriter) const override {
-    // Fallback only when FusionOp has two operators inside: AnySingleOp + yiled store
-    // cf.yield
-    
+    // Fallback only when FusionOp has two operators inside: AnySingleOp + yiled
+    // store cf.yield
 
     if (fusion_op.GetOperators().size() != 3) {
       return false;
     }
 
-    if( !fusion_op.GetOperators()[1]->isa<cinn::dialect::YieldStoreOp>() )
-    {
+    if (!fusion_op.GetOperators()[1]->isa<cinn::dialect::YieldStoreOp>()) {
       return false;
     }
 
@@ -116,13 +114,14 @@ class FusionOpPattern : public pir::OpRewritePattern<cinn::dialect::FusionOp> {
     return paddle_reshape;
   }
 
-   pir::Operation* AssignOutOpPattern(
+  pir::Operation* AssignOutOpPattern(
       pir::Operation* op,
       pir::PatternRewriter& rewriter) const {  // NOLINT
-    PADDLE_ENFORCE(op->isa<paddle::dialect::AssignOut_Op>(),
-                   ::common::errors::InvalidArgument(
-                       "Input should be paddle::dialect::AssignOut_Op, but got %s",
-                       op->name()));
+    PADDLE_ENFORCE(
+        op->isa<paddle::dialect::AssignOut_Op>(),
+        ::common::errors::InvalidArgument(
+            "Input should be paddle::dialect::AssignOut_Op, but got %s",
+            op->name()));
     auto assign_out_op = op->dyn_cast<paddle::dialect::AssignOut_Op>();
 
     auto paddle_assign_out_ = rewriter.Build<paddle::dialect::AssignOut_Op>(
@@ -130,24 +129,25 @@ class FusionOpPattern : public pir::OpRewritePattern<cinn::dialect::FusionOp> {
     return paddle_assign_out_;
   }
 
-   pir::Operation* CastOpPattern(
+  pir::Operation* CastOpPattern(
       pir::Operation* op,
       pir::PatternRewriter& rewriter) const {  // NOLINT
-    PADDLE_ENFORCE(op->isa<paddle::dialect::CastOp>(),
-                   ::common::errors::InvalidArgument(
-                       "Input should be paddle::dialect::CastOp, but got %s",
-                       op->name()));
+    PADDLE_ENFORCE(
+        op->isa<paddle::dialect::CastOp>(),
+        ::common::errors::InvalidArgument(
+            "Input should be paddle::dialect::CastOp, but got %s", op->name()));
     auto cast_op = op->dyn_cast<paddle::dialect::CastOp>();
 
     auto paddle_cast_op = rewriter.Build<paddle::dialect::CastOp>(
-        cast_op->operand_source(0), cast_op->attributes() );
+        cast_op->operand_source(0), cast_op->attributes());
     return paddle_cast_op;
   }
 
   const std::unordered_map<std::string, CinnOpHandler>& op_handler_map() const {
     static std::unordered_map<std::string, CinnOpHandler> handler_map = {
         {cinn::dialect::ReshapeOp::name(), &FusionOpPattern::ReshapeOpPattern},
-        {paddle::dialect::AssignOut_Op::name(), &FusionOpPattern::AssignOutOpPattern},
+        {paddle::dialect::AssignOut_Op::name(),
+         &FusionOpPattern::AssignOutOpPattern},
         {paddle::dialect::CastOp::name(), &FusionOpPattern::CastOpPattern},
     };
     return handler_map;
