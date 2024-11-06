@@ -1571,6 +1571,12 @@ class TopkOpPattern : public pir::OpRewritePattern<paddle::dialect::TopkOp> {
         op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
+
+    if (!pir::GetDefiningOpForInput(op, 1)->isa<paddle::dialect::FullOp>()) {
+      VLOG(3) << "The 'k' input of pd_op.topk must be an integer";
+      return false;
+    }
+
     if (!op->HasAttribute("axis")) {
       VLOG(3) << "pd_op.topk must has axis attribute";
       return false;
