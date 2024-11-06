@@ -74,6 +74,17 @@ class NarrowLonglong2Int : public ir::IRMutator<> {
       expr->get()->set_type(Int(32));
     }
   }
+  // `Seclet` is a special op, because it requires two branch to have the same
+  // type. we convert them when both are `IndexType`.
+  void Visit(const ir::Select* op, Expr* expr) override {
+    auto node = expr->As<ir::Select>();
+    if (node->condition.is_index())
+      ir::IRMutator<>::Visit(&node->condition, &node->condition);
+    if (node->true_value.is_index() && node->false_value.is_index()) {
+      ir::IRMutator<>::Visit(&node->true_value, &node->true_value);
+      ir::IRMutator<>::Visit(&node->false_value, &node->false_value);
+    }
+  }
 };
 
 void TryNarrowLonglong2Int(Expr* expr) {
