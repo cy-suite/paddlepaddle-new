@@ -45,7 +45,7 @@ class TestClipTRTPatternCase2(TensorRTBaseTest):
         '''min/max is attr, and x is int, min/max is float'''
         self.python_api = paddle.clip
         self.api_args = {
-            "x": np.array([[2, 3, 5, 9], [1, 2, 6, 7]]).astype("int32"),
+            "x": np.array([[2, 3, 5, 9], [1, 2, 6, 7]]).astype("int64"),
             "min": 2.2,
             "max": 5.5,
         }
@@ -83,7 +83,7 @@ class TestClipTRTPatternCase4(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.clip
         self.api_args = {
-            "x": np.array([[2, 3, 5, 9], [1, 2, 6, 7]]).astype("int32"),
+            "x": np.array([[2, 3, 5, 9], [1, 2, 6, 7]]).astype("int64"),
             "min": np.array([2]).astype("float32"),
             "max": np.array([5]).astype("float32"),
         }
