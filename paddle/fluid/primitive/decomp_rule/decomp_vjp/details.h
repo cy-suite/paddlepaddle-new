@@ -2930,14 +2930,13 @@ void kron_grad(const Tensor& x,
     for (int i = 0; i < diff; i++) {
       if (x_shape.size() > y_shape.size()) {
         y_shape.insert(y_shape.begin(), 1);
-        y_ = expand<T>(y, y_shape);
       } else {
         x_shape.insert(x_shape.begin(), 1);
-        x_ = expand<T>(x, x_shape);
       }
     }
-    // x_ = expand<T>(x, x_shape);
-    // y_ = expand<T>(y, y_shape);
+
+    x_ = reshape<T>(x, x_shape);
+    y_ = reshape<T>(y, y_shape);
 
     // unsqueeze
     std::vector<int64_t> y_dim = common::vectorize<int64_t>(y_.dims());
@@ -2964,8 +2963,7 @@ void kron_grad(const Tensor& x,
       }
     }
     std::vector<Tensor> vec(blocks.begin(), blocks.end());
-    // auto out_grad_tmp = reshape<T>(concat<T>(vec, 0), y_dim);
-    auto out_grad_tmp = backend::stack<T>(vec, 0);
+    auto out_grad_tmp = reshape<T>(concat<T>(vec, 0), y_dim);
 
     std::vector<size_t> range;
     for (size_t i = 0; i <= y_shape.size(); i++) {
@@ -2974,8 +2972,12 @@ void kron_grad(const Tensor& x,
       }
     }
 
+    y_dim[0] = 1;
     std::vector<int> range_int(range.begin(), range.end());
-    auto sum_tensor = sum<T>(out_grad_tmp * y_, IntArray(range_int));
+
+    auto y_expand =
+        expand<T>(reshape<T>(y_, IntArray(y_dim)), out_grad_tmp.shape());
+    auto sum_tensor = sum<T>(out_grad_tmp * y_expand, IntArray(range_int));
     auto x_grad_tmp = reshape<T>(sum_tensor, x.shape());
 
     set_output<T>(x_grad_tmp, x_grad);
@@ -2998,7 +3000,7 @@ void kron_grad(const Tensor& x,
       }
     }
 
-    auto x_ = expand<T>(x_cast, x_shape);
+    auto x_ = reshape<T>(x_cast, x_shape);
 
     std::vector<int64_t> x_dim = common::vectorize<int64_t>(x_.dims());
     std::vector<int64_t> out_grad_shape(out_grad_cast.shape());
@@ -3009,7 +3011,7 @@ void kron_grad(const Tensor& x,
         std::vector<int64_t> expand_shape(out_grad_tmp.shape());
 
         int num_reduce = 0;
-        while (x_dim.size() != 0 && expand_shape.size() <= 8) {
+        while (x_dim.size() != 0) {
           int64_t repeat = x_dim.back();
           int64_t orig_size = out_grad_shape.back() / repeat;
           size_t out_grad_last_index = out_grad_shape.size() - 1;
