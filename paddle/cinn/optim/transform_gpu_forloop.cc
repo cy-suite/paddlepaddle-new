@@ -135,7 +135,35 @@ void RemoveGpuForloopsAxis(ir::LoweredFunc fn) {
 
       VLOG(3) << "GPU replacing\n" << *expr;
       VLOG(3) << "\nto\n";
-      auto if_n = ir::IfThenElse::Make(condition, for_n->body);
+      if (isSimpleLoop(for_n)) {
+        handleSimpleLoop(expr, for_n);
+      } else {
+        handleComplexLoop(expr, condition, for_n->body);
+      }
+    }
+
+    bool isSimpleLoop(ir::For *for_n) {
+      if (!for_n) return false;
+      auto extent = for_n->extent;
+      return for_n->min == cinn::common::make_const(0) &&
+             for_n->loop_var < extent && extent.As<ir::IntImm>();
+    }
+
+    void handleSimpleLoop(Expr *expr, const ir::For *for_n) {
+      auto block_n = for_n->body.As<ir::Block>();
+      if (block_n && block_n->stmts.size() == 1) {
+        VLOG(3) << block_n->stmts[0];
+        *expr = block_n->stmts[0];
+      } else {
+        VLOG(3) << for_n->body;
+        *expr = for_n->body;
+      }
+    }
+
+    void handleComplexLoop(Expr *expr,
+                           const Expr &condition,
+                           const Expr &body) {
+      auto if_n = ir::IfThenElse::Make(condition, body);
       VLOG(3) << if_n;
       *expr = if_n;
     }
