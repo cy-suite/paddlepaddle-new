@@ -2379,14 +2379,15 @@ void group_norm_grad(const Tensor& x,
     std::cerr << "reduc axis " << d << std::endl;
   }
 
-  auto var_eps = variance_new + full_scalar<T>(epsilon, variance_new.dtype());
+  // auto var_eps = variance_new + full_scalar<T>(epsilon,
+  // variance_new.dtype());
 
-  auto inv_std = rsqrt<T>(var_eps);
+  // auto inv_std = rsqrt<T>(var_eps);
 
-  auto inv_std_mul_s = inv_std;
-  auto dtype = x_data.dtype();
+  // auto inv_std_mul_s = inv_std;
+  // auto dtype = x_data.dtype();
 
-  auto sum_y_grad_mul_x = out_grad_data * x_data;
+  // auto sum_y_grad_mul_x = out_grad_data * x_data;
 
   Tensor scale_data;
   if (scale) {
@@ -2397,39 +2398,68 @@ void group_norm_grad(const Tensor& x,
     bias_data = reshape<T>(bias.get(), scale_bias_new_shape);
   }
 
+  // if (x_grad) {
+  //   Tensor d1 = sum_y_grad_mul_x;
+  //   Tensor d2 = out_grad_data;
+  //   Tensor p1 = inv_std;
+  //   if (scale) {
+  //     scale_data = ConverToMT<T>(scale_data);
+  //     d1 = sum_y_grad_mul_x * scale_data;
+  //     d2 = out_grad_data * scale_data;
+  //     p1 = inv_std * scale_data;
+  //   }
+
+  //   d1 = sum<T>(d1, reduce_axis, dtype, true);
+  //   d2 = sum<T>(d2, reduce_axis, dtype, true);
+
+  //   auto p2 = (d2 * mean_new - d1) *
+  //             (inv_std_mul_s / var_eps / decomp_helper.GetHW(x_data));
+  //   auto p3 = p2 * mean_new + d2 * inv_std_mul_s /
+  //   decomp_helper.GetHW(x_data);
+
+  //   auto tmp_1 = out_grad_data * p1;
+  //   auto tmp_2 = x_data * p2 - p3;
+  //   auto x_grad_data = tmp_1 + tmp_2;
+  //   x_grad_data = decomp_helper.Merge(x_grad_data);
+  //   x_grad_data = ConverToOrig<T>(x_grad_data, x.dtype());
+
+  //   // set_output<T>(out_grad, x_grad);
+  //   set_output<T>(x_grad_data, x_grad);
+  // }
+
+  auto x_sub_mean = x_data - mean_new;
+  auto tmp =
+      (full_scalar<T>(1.0, variance_new.dtype()) /
+       (variance_new + full_scalar<T>(epsilon, variance_new.dtype())));  // M,1
+  auto sqrt_var_1 = sqrt<T>(tmp);                                        // M,1
+  auto x_sub_mean_mul_sqrt_var_1 = x_sub_mean * sqrt_var_1;
+
   if (x_grad) {
-    Tensor d1 = sum_y_grad_mul_x;
-    Tensor d2 = out_grad_data;
-    Tensor p1 = inv_std;
+    auto out_grad_scale = out_grad_data;  // M,N
     if (scale) {
-      scale_data = ConverToMT<T>(scale_data);
-      d1 = sum_y_grad_mul_x * scale_data;
-      d2 = out_grad_data * scale_data;
-      p1 = inv_std * scale_data;
+      out_grad_scale = out_grad_data * scale_data;  // M,N * 1,N = M,N
     }
 
-    d1 = sum<T>(d1, reduce_axis, dtype, true);
-    d2 = sum<T>(d2, reduce_axis, dtype, true);
+    auto dx_end = sqrt_var_1 * out_grad_scale;
+    auto d_mean = dx_end.sum(reduce_axis, x_data.dtype(), true);  // M,1
 
-    auto p2 = (d2 * mean_new - d1) *
-              (inv_std_mul_s / var_eps / decomp_helper.GetHW(x_data));
-    auto p3 = p2 * mean_new + d2 * inv_std_mul_s / decomp_helper.GetHW(x_data);
+    auto d_std_1 = (tmp * x_sub_mean * out_grad_scale)
+                       .sum(reduce_axis, x_data.dtype(), true);  // M,1
+    auto d_std = d_std_1 * x_sub_mean_mul_sqrt_var_1;  // M,1 * M,N = M,N
 
-    auto tmp_1 = out_grad_data * p1;
-    auto tmp_2 = x_data * p2 - p3;
-    auto x_grad_data = tmp_1 + tmp_2;
-    x_grad_data = decomp_helper.Merge(x_grad_data);
-    x_grad_data = ConverToOrig<T>(x_grad_data, x.dtype());
+    auto d_mean_d_std = (d_mean + d_std) / decomp_helper.GetHW(x_data);
 
-    // set_output<T>(out_grad, x_grad);
-    set_output<T>(x_grad_data, x_grad);
+    auto x_grad_tmp = dx_end - d_mean_d_std;
+    x_grad_tmp = ConverToOrig<T>(x_grad_tmp, x.dtype());
+    x_grad_tmp = decomp_helper.Merge(x_grad_tmp);
+    set_output<T>(x_grad_tmp, x_grad);
   }
 
   auto reduce_axis_except_channel = decomp_helper.GetReduceAxisExceptChannel();
   if (scale_grad) {
     if (scale) {
       auto third_shape = get_unsqueeze_dims(mean, {2});
-      auto tmp1 = out_grad_data * (x_data - mean_new) * inv_std;
+      auto tmp1 = out_grad_data * (x_data - mean_new) * sqrt_var_1;
 
       auto scale_grad_tmp = reshape<T>(
           tmp1.sum(reduce_axis_except_channel, scale->dtype(), false), {-1});
