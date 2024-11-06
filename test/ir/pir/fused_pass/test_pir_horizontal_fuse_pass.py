@@ -52,6 +52,8 @@ class TestMatmulHorizontalFusePattern(unittest.TestCase):
         self.intermediate_size = self.hidden_size
 
     def test_matmul_horizontal_fuse(self):
+        if not paddle.is_compiled_with_cuda():
+            return
         x = paddle.randn(shape=[self.bsz, self.seq_len, self.hidden_size])
         layer = MatmulHorizontalLayer(self.hidden_size, self.intermediate_size)
         baseline_results = layer(x)
