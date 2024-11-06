@@ -4164,7 +4164,7 @@ function clang-tidy_check() {
         while IFS= read -r line; do
             if echo "$line" | grep -q "$str"; then
                 count=$((count + 1))
-                if [ "$count" -eq 2 ]; then
+                if [ "$count" -ge 2 ]; then
                     file_path=$(echo "$line" | cut -d' ' -f2)
                     echo "check error: $str in file: $file_path"
                     check_error=1
