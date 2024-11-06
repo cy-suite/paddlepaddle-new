@@ -412,7 +412,7 @@ def append_backward_ops(
 
             if (
                 value in state.value_to_valuegrad
-                and len(state.value_to_valuegrad[value]) > 0
+                and len(state.value_to_valuegrad[value]) > 1
             ):
                 append_add_n(
                     op,
@@ -470,7 +470,7 @@ def append_backward_ops(
             )
 
             if value in state.value_to_valuegrad:
-                if len(state.value_to_valuegrad[value]) > 0:
+                if len(state.value_to_valuegrad[value]) > 1:
                     append_add_n(
                         op,
                         value,
@@ -616,7 +616,7 @@ def append_backward_ops(
                 )
 
                 if value in state.value_to_valuegrad:
-                    if len(state.value_to_valuegrad[value]) > 0:
+                    if len(state.value_to_valuegrad[value]) > 1:
                         append_add_n(
                             base_op,
                             value,
@@ -796,7 +796,7 @@ def append_backward_ops(
                             get_used_external_value(while_block)
                         ):
                             if input in sub_state.value_to_valuegrad:
-                                if len(sub_state.value_to_valuegrad[input]) > 0:
+                                if len(sub_state.value_to_valuegrad[input]) > 1:
                                     append_add_n(
                                         op,
                                         input,
@@ -929,7 +929,7 @@ def append_backward_ops(
                     or op.name() == "pd_op.full_like"
                 ):
                     for value in op.results():
-                        if len(state.value_to_valuegrad[value]) > 0:
+                        if len(state.value_to_valuegrad[value]) > 1:
                             append_add_n(
                                 op,
                                 value,

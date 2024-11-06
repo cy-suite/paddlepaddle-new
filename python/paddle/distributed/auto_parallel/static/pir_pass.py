@@ -457,9 +457,15 @@ class RemovePasses:
             for var in op.operands_source():
                 if var.has_name and var.name not in main_program_var_names:
                     op.erase()
+
         # 3. dead code elimination
         pm = pir.PassManager()
         pm.add_pass('dead_code_elimination_pass', {})
+        pm.run(startup_program)
+        for op in startup_program.global_block().ops:
+            if op.name() == "pd_op.coalesce_tensor_":
+                if op.result(0).use_empty() and op.result(1).use_empty():
+                    op.erase()
         pm.run(startup_program)
 
     @staticmethod
