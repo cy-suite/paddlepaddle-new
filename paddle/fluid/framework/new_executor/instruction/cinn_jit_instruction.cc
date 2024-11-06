@@ -134,8 +134,7 @@ class CinnJitInstruction::FnPtrImpl {
 #else  defined(PADDLE_WITH_HIP)
         hipGraphInstantiate(&instance, graph, NULL, NULL, 0);
 #else
-       PADDLE_THROW(::common::errors::InvalidArgument(
-            "Please recompile with flag WITH_GPU or WITH_ROCM."));
+        CINN_NOT_IMPLEMENTED
 #endif
         ps.CudaStart(FLAGS_cinn_kernel_execution_label);
         phi::gpuGraphLaunch(instance, stream);
