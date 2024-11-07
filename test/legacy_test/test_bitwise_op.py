@@ -436,8 +436,7 @@ class TestBitwiseNotBool(TestBitwiseNot):
         self.outputs = {'Out': out}
 
 
-# ---------------  TEST OP: BitwiseInvert ----------------- #
-class TestBitwiseInvert(unittest.TestCase):
+class TestBitwiseInvertApi(unittest.TestCase):
     def setUp(self):
         paddle.disable_static()
 
