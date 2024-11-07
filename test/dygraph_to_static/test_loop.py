@@ -464,7 +464,7 @@ class TestForLoopMeetDict(Dy2StTestBase):
 
 
 def loop_with_inner_mutate_list(x):
-    out = paddle.full([], 100, dtype='int64')
+    out = 100
     # a is an UndefinedVar
     for i in range(x):
         a = []

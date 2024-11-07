@@ -321,7 +321,10 @@ std::vector<Value> PyWhileOp::OptimizeUpdate() {
           "The parent block of while_op which used to remove "
           "unused loop vars can't be nullptr"));
 
-  // operation_->Verify();
+  // Skip verify if operation has extra inputs
+  if (extra_inputs_.empty()) {
+    operation_->Verify();
+  }
   auto& body_block = body();
   auto yield_op = body_block.back().dyn_cast<YieldOp>();
   auto operand_num = operation_->num_operands();
@@ -393,9 +396,6 @@ std::vector<Value> PyWhileOp::OptimizeUpdate() {
   if (no_change) return res;
   Block::Iterator iter = **this;
   Builder builder(ir_context(), false);
-  // new_input.insert(
-  //     new_input.end(), extra_inputs_.begin(), extra_inputs_.end()
-  // );
   auto new_while_op = builder.Build<WhileOp>(cond(), new_input, false);
   new_while_op->region(0).swap(std::move(operation_->region(0)));
   parent_block->Assign(iter, new_while_op);
@@ -408,27 +408,17 @@ std::vector<Value> PyWhileOp::OptimizeUpdate() {
   VLOG(9) << "Before verify";
   operation_->Verify();
   VLOG(9) << "After verify";
+  VLOG(9) << "operand_num: " << operand_num;
+  VLOG(9) << "extra_inputs_.size(): " << extra_inputs_.size();
   VLOG(9) << "num_results: " << num_results();
-  PADDLE_ENFORCE_EQ(
-      operand_num - 1 + extra_inputs_.size(),
-      num_results(),
-      common::errors::InvalidArgument("The number of operands in while_op and "
-                                      "the number of results in body block "
-                                      "should be equal."));
-  // for (size_t result_index = 0; result_index < num_results(); ++result_index)
-  // {
-  //   VLOG(9) << "result_index: " << result_index;
-  //   VLOG(9) << "index_vec[result_index]: " << index_vec[result_index];
-  //   res[index_vec[result_index]] = result(result_index);
-  // }
-  res.reserve(num_results());
-  for (size_t i = 0; i < index_vec.size(); ++i) {
-    res[index_vec[i]] = result(i);
+  for (size_t result_index = 0;
+       result_index < num_results() - extra_inputs_.size();
+       ++result_index) {
+    res[index_vec[result_index]] = result(result_index);
   }
   for (size_t i = 0; i < extra_inputs_.size(); ++i) {
-    res.push_back(result(operand_num - 1 + i));
+    res.push_back(result(num_results() - extra_inputs_.size() + i));
   }
-  VLOG(9) << "Before return";
   return res;
 }
 

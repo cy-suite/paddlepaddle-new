@@ -1230,6 +1230,7 @@ void BindValue(py::module *m) {
   )DOC");
   g_ir_value_pytype = reinterpret_cast<PyTypeObject *>(value.ptr());
   value.def(py::init<>())
+      .def(py::init([](Value value) { return value; }))
       .def_property_readonly(
           "block",
           [](Value self) {
@@ -1336,9 +1337,14 @@ void BindValue(py::module *m) {
            [](Value self) -> uint32_t {
              if (auto op_result = self.dyn_cast<OpResult>()) {
                return op_result.index();
+             } else if (auto arg = self.dyn_cast<BlockArgument>()) {
+               if (!arg.is_kwarg()) {
+                 return arg.index();
+               }
              }
              PADDLE_THROW(common::errors::InvalidArgument(
-                 "only support accesss index from op_result."));
+                 "only support accesss index from op_result or positional "
+                 "block arg."));
            })
       .def("is_dense_tensor_type",
            [](Value self) { return self.type().isa<DenseTensorType>(); })
@@ -1414,14 +1420,21 @@ void BindValue(py::module *m) {
                    "Method is_coalesced only support sparse coo tensor."));
              }
            })
-      .def_property_readonly("process_mesh", [](Value &self) -> py::object {
-        auto type = self.type();
-        if (auto dist_type = type.dyn_cast<DistTypeInterface>()) {
-          return py::cast(
-              dist_type.tensor_dist_attr().process_mesh_attr().process_mesh());
-        } else {
-          return py::cast<py::none>(Py_None);
-        }
+      .def_property_readonly(
+          "process_mesh",
+          [](Value &self) -> py::object {
+            auto type = self.type();
+            if (auto dist_type = type.dyn_cast<DistTypeInterface>()) {
+              return py::cast(dist_type.tensor_dist_attr()
+                                  .process_mesh_attr()
+                                  .process_mesh());
+            } else {
+              return py::cast<py::none>(Py_None);
+            }
+          })
+      .def("_clone", [](Value self) {
+        // Return a new value owned by python side
+        return self;
       });
 }
 

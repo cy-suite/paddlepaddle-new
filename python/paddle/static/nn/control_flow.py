@@ -839,7 +839,9 @@ def while_loop(cond, body, loop_vars, is_test=False, name=None):
 
         loop_vars: Any = map_structure(LoopVar, loop_vars)
         variable_loop_vars = [
-            loop_var for loop_var in loop_vars if loop_var.is_variable_curr_var
+            loop_var
+            for loop_var in flatten(loop_vars)
+            if loop_var.is_variable_curr_var
         ]
         while_op = build_while_op(
             pre_cond, [var.curr_var for var in variable_loop_vars]
@@ -847,12 +849,15 @@ def while_loop(cond, body, loop_vars, is_test=False, name=None):
         with while_op.body() as cur_block:
             assert len(cur_block.args()) == len(variable_loop_vars)
             for loop_var, arg in zip(variable_loop_vars, cur_block.args()):
-                loop_var.bind_block_arg(arg)
+                loop_var.bind_block_arg(arg._clone())
+
             # For non-variable inputs, we use the original value directly.
-            args = [
-                var.block_arg if var.is_variable_curr_var else var.curr_var
-                for var in flatten(loop_vars)
-            ]
+            args = map_structure(
+                lambda var: (
+                    var.block_arg if var.is_variable_curr_var else var.curr_var
+                ),
+                loop_vars,
+            )
             next_vars = body(*args)
 
             if not isinstance(next_vars, (list, tuple)):
@@ -861,8 +866,13 @@ def while_loop(cond, body, loop_vars, is_test=False, name=None):
             assert len(next_vars) == len(loop_vars)
 
             def infer_loop_vars_type_with_next_vars(loop_vars, next_vars):
-                new_loop_vars = []
-                for next_var, loop_var in zip(next_vars, loop_vars):
+                def infer_loop_var_type_with_next_var(loop_var, next_var):
+                    if is_sequence(loop_var):
+                        return map_structure(
+                            infer_loop_var_type_with_next_var,
+                            loop_var,
+                            next_var,
+                        )
                     if loop_var.is_undefined_curr_var:
                         new_loop_var = loop_var.infer_type_with_next_var(
                             next_var, while_op
@@ -870,7 +880,13 @@ def while_loop(cond, body, loop_vars, is_test=False, name=None):
                     else:
                         loop_var.bind_next_var(next_var)
                         new_loop_var = loop_var
-                    new_loop_vars.append(new_loop_var)
+                    return new_loop_var
+
+                new_loop_vars = []
+                for next_var, loop_var in zip(next_vars, loop_vars):
+                    new_loop_vars.append(
+                        infer_loop_var_type_with_next_var(loop_var, next_var)
+                    )
                 return new_loop_vars
 
             loop_vars = infer_loop_vars_type_with_next_vars(
@@ -898,22 +914,6 @@ def while_loop(cond, body, loop_vars, is_test=False, name=None):
                 ),
             )
             cf_yield([next_cond, *(var.next_var for var in variable_loop_vars)])
-
-            # # Reset type and stop_gradient of UndefinedVar from next_vars
-            # for idx, value in undefined_var_mapping.items():
-            #     if idx in constant_next_var_indices:
-            #         continue
-            #     value_new_type = flatten(next_vars)[idx].type()
-            #     value.set_type(value_new_type)
-            #     cur_block.args()[idx].set_type(value_new_type)
-            #     while_op.as_operation().results()[idx].set_type(value_new_type)
-
-            #     value_new_stop_gradient = flatten(next_vars)[idx].stop_gradient
-            #     value.stop_gradient = value_new_stop_gradient
-            #     cur_block.args()[idx].stop_gradient = value_new_stop_gradient
-            #     while_op.as_operation().results()[
-            #         idx
-            #     ].stop_gradient = value_new_stop_gradient
 
         # Restore the outputs by variable and constants
         optimized_results = while_op.optimize_update()
