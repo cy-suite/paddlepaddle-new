@@ -3003,15 +3003,19 @@ void kron_grad(const Tensor& x,
     auto x_ = reshape<T>(x_cast, x_shape);
 
     std::vector<int64_t> x_dim = common::vectorize<int64_t>(x_.dims());
+    for (size_t i = 0; i < x_dim.size(); ++i) {
+      x_ = repeat_interleave<T>(x_, y_shape[i], i);
+    }
+
     std::vector<int64_t> out_grad_shape(out_grad_cast.shape());
-    Tensor out_grad_tmp = out_grad_cast;
+    Tensor out_grad_tmp = out_grad_cast * x_;
 
     if (x_dim.size() != 0) {
       while (true) {
         std::vector<int64_t> expand_shape(out_grad_tmp.shape());
 
         int num_reduce = 0;
-        while (x_dim.size() != 0) {
+        while (x_dim.size() != 0 && expand_shape.size() <= 8) {
           int64_t repeat = x_dim.back();
           int64_t orig_size = out_grad_shape.back() / repeat;
           size_t out_grad_last_index = out_grad_shape.size() - 1;
@@ -3032,12 +3036,7 @@ void kron_grad(const Tensor& x,
           axis += 2;
         }
 
-        auto x_tmp_dim = common::vectorize<int64_t>(x_.dims());
-        for (size_t i = 0; i < x_tmp_dim.size(); ++i) {
-          x_ = repeat_interleave<T>(x_, y_shape[i], i);
-        }
-
-        out_grad_tmp = reshape<T>(out_grad_tmp * x_, expand_shape);
+        out_grad_tmp = reshape<T>(out_grad_tmp, expand_shape);
         out_grad_tmp = sum<T>(out_grad_tmp, reduce_axes);
 
         if (x_dim.size() == 0) {

@@ -105,7 +105,7 @@ class TestKronOp4(TestKronOp):
         self.public_python_api = paddle.kron
         self.dtype = self._init_dtype()
         x = np.random.uniform(size=(5, 5, 5)).astype(self.dtype)
-        y = np.random.uniform(size=(2, 5, 4, 5)).astype(self.dtype)
+        y = np.random.uniform(size=(2, 3, 4, 2, 2, 3)).astype(self.dtype)
         out_ref = np.kron(x, y)
         self.inputs = {'X': x, 'Y': y}
         self.outputs = {'Out': out_ref}
@@ -118,7 +118,7 @@ class TestKronOp5(TestKronOp):
         self.python_api = paddle.kron
         self.public_python_api = paddle.kron
         self.dtype = self._init_dtype()
-        x = np.random.uniform(size=(2, 3, 4, 5)).astype(self.dtype)
+        x = np.random.uniform(size=(2, 3, 4, 3, 2, 2)).astype(self.dtype)
         y = np.random.uniform(size=(10, 10)).astype(self.dtype)
         out_ref = np.kron(x, y)
         self.inputs = {'X': x, 'Y': y}
