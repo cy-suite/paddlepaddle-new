@@ -987,6 +987,9 @@ def get_placement_with_sharding(param, sharding_mesh_axis):
             break
 
     new_placements = param.placements
+    print(
+        param.name, new_placements, sharding_mesh_axis, placement_with_sharding
+    )
     if placement_with_sharding is not None:
         new_placements[sharding_mesh_axis] = placement_with_sharding
 
@@ -1001,7 +1004,6 @@ class _ShardOptimizer(Optimizer):
         assert isinstance(
             optimizer, (paddle.optimizer.AdamW, paddle.optimizer.SGD)
         ), "`paddle.distributed.ShardOptimizer` only supports AdamW and SGD optimizer for now."
-
         # self.target_block = (
         #     paddle.base.framework.default_main_program().global_block()
         # )
@@ -1047,6 +1049,9 @@ class _ShardOptimizer(Optimizer):
             'dp' in self._shard_fn._mesh.dim_names
         ):
             self._sharding_degree = self._shard_fn._mesh.get_dim_size('dp')
+            self._sharding_mesh_axis = self._shard_fn._mesh.dim_names.index(
+                'dp'
+            )
         else:
             param_list = self._inner_opt._parameter_list
             for param in param_list:
@@ -1054,7 +1059,6 @@ class _ShardOptimizer(Optimizer):
                     continue
                 mesh = param.process_mesh
                 placements = param.placements
-
                 if self._sharding_degree is None:
                     # set the sharding degree if it has not been set
                     if any(
@@ -1066,6 +1070,15 @@ class _ShardOptimizer(Optimizer):
                                 self._sharding_degree = mesh.dim_size(idx)
                                 self._sharding_mesh_axis = idx
                                 break
+                    else:
+                        if 'dp' in mesh.dim_names:
+                            self._sharding_mesh_axis = mesh.dim_names.index(
+                                'dp'
+                            )
+                            self._sharding_degree = mesh.shape[
+                                self._sharding_mesh_axis
+                            ]
+                            break
                 else:
                     # check the placement on sharding axis is Replicate
                     assert isinstance(
@@ -1285,6 +1298,7 @@ class _ShardingStageBase:
         self._sharding_mesh_axis = None
 
     def _set_sharding_mesh_axis(self, sharding_mesh_axis):
+        print(" set_sharding_mesh_axis ", sharding_mesh_axis)
         self._sharding_mesh_axis = sharding_mesh_axis
 
     def shard_master_weight(
@@ -1359,8 +1373,12 @@ class ShardingStage1(_ShardingStageBase):
 
     def __init__(self, mesh: ProcessMesh | None = None) -> None:
         super().__init__(mesh)
+        print(" create sharding_stage 1 ")
 
     def __call__(self, key: str, param: Tensor, accumulator: Tensor) -> Tensor:
+        print(
+            f" stage1_call param {param.name} is distributed {param.is_dist()}"
+        )
         if param.is_dist():
             # Only deal with momentum in optimizer, beta should be replicated cross param's mesh
             if 'beta' not in key:
@@ -2176,13 +2194,8 @@ class DistModel:
     ) -> None:
         self._feed_name_list = []
         self._inner_strategy = self.__convert_strategy(strategy)
-        state_dict = layer.state_dict()
-        if layer._keys_to_ignore_on_save is not None:
-            for ignore_key in layer._keys_to_ignore_on_save:
-                if ignore_key in state_dict.keys():
-                    del state_dict[ignore_key]
         self._structured_to_parameter_name = {
-            k: v.name for k, v in state_dict.items()
+            k: v.name for k, v in layer.state_dict().items()
         }
         self._parameter_to_structured_name = {
             v: k for k, v in self._structured_to_parameter_name.items()
