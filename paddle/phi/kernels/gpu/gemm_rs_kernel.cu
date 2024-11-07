@@ -20,6 +20,162 @@
 #include "paddle/phi/kernels/reduce_sum_kernel.h"
 namespace phi {
 
+template<typename BufferT>
+class BuffersHolder {
+private:
+  const GPUContext& dev_ctx;
+  paddle::distributed::ProcessGroup* tp_group;
+  size_t world_size;
+  std::vector<void*> ptrs;
+  size_t size_in_bytes;
+  void * ptr;
+  phi::DataType dtype;
+public:
+
+#if 0
+  BuffersHolder(
+                const GPUContext& dev_ctx_,
+                paddle::distributed::ProcessGroup* tp_group_) :
+    dev_ctx(dev_ctx_),
+    tp_group(tp_group_),
+    world_size(tp_group->GetSize()),
+    ptrs(world_size, nullptr) {}
+#endif
+
+  BuffersHolder(const std::vector<int64_t>&shape,
+                const GPUContext& dev_ctx_,
+                paddle::distributed::ProcessGroup* tp_group_) :
+    dev_ctx(dev_ctx_),
+    tp_group(tp_group_),
+    world_size(tp_group->GetSize()),
+    ptrs(world_size, nullptr) {
+
+    if (std::is_same<BufferT, phi::dtype::float16>::value) dtype = phi::DataType::FLOAT16;
+    else if(std::is_same<BufferT, phi::dtype::bfloat16>::value) dtype = phi::DataType::BFLOAT16;
+    else if(std::is_same<BufferT, uint8_t>::value) dtype = phi::DataType::UINT8;
+    else if(std::is_same<BufferT, int32_t>::value) dtype = phi::DataType::INT32;
+    else throw std::runtime_error("cudaipc_create_tensor_list unexpected BufferT");
+
+    this->size_in_bytes = calc_size(shape);
+    alloc();
+  }
+
+  // TODO(umiswing): need to find a way to destruct BuffersHolder
+
+  std::vector<DenseTensor> get_buffers(const std::vector<int64_t>& shape) {
+    reserve(shape);
+    std::vector<DenseTensor> tensors;
+    for (int i = 0; i < tp_group->GetSize(); ++i) {
+      if (i == tp_group->GetRank()) {
+        DenseTensor local_tensor;
+        local_tensor =
+            // from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { cudaFree(allocation->ptr()); });
+            from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { });
+        tensors.emplace_back(local_tensor);
+      } else {
+        DenseTensor tensor;
+        tensor =
+            // from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { cudaIpcCloseMemHandle(allocation->ptr()); });
+            from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { });
+        tensors.emplace_back(tensor);
+      }
+    }
+
+    return tensors;
+
+  }
+
+private:
+  void alloc() {
+    PADDLE_ENFORCE_GPU_SUCCESS(cudaMalloc(&ptr, size_in_bytes));
+    PADDLE_ENFORCE_GPU_SUCCESS(cudaMemset(ptr, 0, size_in_bytes));
+
+    cudaIpcMemHandle_t handle;
+    PADDLE_ENFORCE_GPU_SUCCESS(cudaIpcGetMemHandle(&handle, ptr));
+
+    DenseTensor handle_d = phi::Empty<uint8_t>(dev_ctx, {sizeof(cudaIpcMemHandle_t)});
+    PADDLE_ENFORCE_GPU_SUCCESS(cudaMemcpy(
+        handle_d.data(), &handle, sizeof(cudaIpcMemHandle_t), cudaMemcpyHostToDevice));
+    long int handles_shape = sizeof(cudaIpcMemHandle_t) * tp_group->GetSize();
+    DenseTensor handles_d = phi::Empty<uint8_t>(dev_ctx, {handles_shape});
+    // TODO(umiswing): find a better way to wrap func params
+    tp_group->AllGather(&handles_d, handle_d, 0, -1, true, true)->Wait();
+
+    std::vector<cudaIpcMemHandle_t> handles_h(tp_group->GetSize());
+    PADDLE_ENFORCE_GPU_SUCCESS(cudaMemcpy(
+        handles_h.data(),
+        handles_d.data(),
+        sizeof(cudaIpcMemHandle_t) * tp_group->GetSize(),
+        cudaMemcpyDeviceToHost));
+
+    for (int i = 0; i < tp_group->GetSize(); ++i) {
+      if (i != tp_group->GetRank()) {
+          PADDLE_ENFORCE_GPU_SUCCESS(cudaIpcOpenMemHandle(&ptrs[i], handles_h[i], cudaIpcMemLazyEnablePeerAccess));
+      } else {
+        ptrs[i] = ptr;
+      }
+    }
+  }
+
+  size_t calc_size(const std::vector<int64_t>& shape) {
+    return sizeof(BufferT) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+  }
+
+  void release() {
+    for(int i=0; i<world_size; ++i) {
+      if(i != this->tp_group->GetRank()) {
+        cudaIpcCloseMemHandle(this->ptrs[i]);
+      }
+    }
+    int64_t device_id = dev_ctx.GetPlace().GetDeviceId();
+    distributed::BarrierOptions opts{};
+    opts.device_id = device_id;
+    this->tp_group->Barrier(opts)->Wait();
+    cudaFree(this->ptr);
+  }
+
+  void reserve(const std::vector<int64_t>& shape) {
+    size_t require_size = calc_size(shape);
+    if(require_size > this->size_in_bytes) {
+      this->size_in_bytes = require_size;
+      release();
+      alloc();
+    }
+  }
+
+  using Deleter = void (*)(phi::Allocation*);
+  using AllocationDeleter = void (*)(phi::Allocation*);
+  DenseTensor from_blob(void *data,
+                        const std::vector<int64_t>& shape,
+                        phi::DataType dtype,
+                        phi::Place place,
+                        const Deleter& deleter,
+                        phi::DataLayout layout = phi::DataLayout::NCHW ) {
+    PADDLE_ENFORCE_NOT_NULL(
+        data, common::errors::InvalidArgument("data can not be nullptr."));
+  
+    // TODO(umiswing): this check looks nice
+    // auto data_place = GetPlaceFromPtr(data);
+    // phi::is_gpu_place(place);
+  #if 0
+    PADDLE_ENFORCE(
+        dev_ctx.GetPlace().GetType() == phi::AllocationType::GPU,
+        "gemm_rs not on GPU");
+  #endif
+  
+    auto meta =
+        phi::DenseTensorMeta(dtype, common::make_ddim(shape), layout);
+  
+    size_t size = SizeOf(dtype) * (meta.is_scalar ? 1 : product(meta.dims));
+  
+    auto alloc =
+        // std::make_shared<phi::Allocation>(data, size, alloc_deleter, place/*data_place*/);
+        std::make_shared<phi::Allocation>(data, size, deleter, place/*data_place*/);
+  
+    return DenseTensor(alloc, meta);
+  }
+};
+
 template<typename InT, typename OutT>
 class GemmRSWrapper {
 public:
@@ -126,6 +282,7 @@ public:
 
   ~GemmRSWrapper() {
     PADDLE_ENFORCE_GPU_SUCCESS(cudaEventDestroy(event_));
+    PADDLE_ENFORCE_GPU_SUCCESS(cudaStreamDestroy(rs_stream_));
   }
 
   bool
@@ -155,6 +312,7 @@ public:
     return false;
   }
 
+#if 0
 using Deleter = void (*)(phi::Allocation*);
 using AllocationDeleter = void (*)(phi::Allocation*);
 DenseTensor from_blob(void *data,
@@ -265,6 +423,7 @@ cudaipc_create_tensor_list(
 
   return tensors;
 }
+#endif
 
   void
   init_output_buffer() {
@@ -276,18 +435,26 @@ cudaipc_create_tensor_list(
       int reduce_m_dim = (sm_version == 90)
                              ? (max_m + world_size - 1) / world_size * nnodes * nnodes
                              : max_m;
-      reduce_buffers =
-          cudaipc_create_tensor_list<OutT>({reduce_m_dim, n_dim});
+      static BuffersHolder<OutT> reduce_buffers_holder{{reduce_m_dim, n_dim},dev_ctx, tp_group};
+
+      reduce_buffers = reduce_buffers_holder.get_buffers({reduce_m_dim, n_dim});
+      // reduce_buffers =
+      //     cudaipc_create_tensor_list<OutT>({reduce_m_dim, n_dim});
       reduce_buffer = reduce_buffers[local_rank];
     }
+    static BuffersHolder<OutT> output_buffers_holder{{max_m, n_dim}, dev_ctx, tp_group};
     if (sm_version == 80 && nnodes > 1  && input_dtype == phi::DataType::BFLOAT16) {
       // SM80 does not support the fuse reduction for the bfloat16 data type
       // we have to use the float32 global_red instruction when SM80 && nnodes>1 && input_type=bf16
       // Therefore, in this case, here double the size of the output_buffer.
+      output_buffers = output_buffers_holder.get_buffers({max_m*2, n_dim});
+#if 0
       output_buffers =
           cudaipc_create_tensor_list<OutT>({max_m * 2, n_dim});
+#endif
     } else {
-      output_buffers = cudaipc_create_tensor_list<OutT>({max_m, n_dim});
+      output_buffers = output_buffers_holder.get_buffers({max_m, n_dim});
+      // output_buffers = cudaipc_create_tensor_list<OutT>({max_m, n_dim});
     }
     output_buffer = output_buffers[local_rank];
     for (int i = 0; i < world_size; ++i) {
@@ -309,8 +476,12 @@ cudaipc_create_tensor_list(
     }
     // printf("\nreduce_buffers.size():%d\n", reduce_buffers.size());
 #ifndef FLUX_SHM_USE_NVSHMEM
+    static BuffersHolder<int32_t> sync_buffers_holder{{this->world_size}, dev_ctx, tp_group};
+    this->sync_buffers = sync_buffers_holder.get_buffers({this->world_size});
+#if 0
     this->sync_buffers =
         cudaipc_create_tensor_list<int32_t>({this->world_size});
+#endif
     phi::funcs::SetConstant<GPUContext, int32_t> set_functor;
     set_functor(this->dev_ctx, &this->sync_buffers[this->rank], 0);
     for(size_t i=0;i<sync_buffers.size();i++) {
@@ -321,12 +492,23 @@ cudaipc_create_tensor_list(
 
   void
   lazy_init_barrier_buffer(int64_t buffer_size) {
+#if 0
     if ((buffer_size == 0) ||
         (barrier_buffer.initialized() && buffer_size <= barrier_buffer.numel())) {
       return;
     }
+#endif
+    if (buffer_size == 0) {
+      return;
+    }
+
+    static BuffersHolder<uint8_t> barrier_buffers_holder{{buffer_size}, dev_ctx, tp_group}; 
+    barrier_buffers = barrier_buffers_holder.get_buffers({buffer_size});
+
+#if 0
     barrier_buffers =
         cudaipc_create_tensor_list<uint8_t>({buffer_size});
+#endif
     for(size_t i=0;i<barrier_buffers.size();i++) {
       barrier_buffer_ptrs[i] = barrier_buffers[i].data();
     }
@@ -472,7 +654,7 @@ void GemmRSKernel(const Context& dev_ctx,
   static bool per_tile_flags = false;
   const bool fast_accum = false;
 
-  static GemmRSWrapper<T, T> gemm_rs_wrapper{dev_ctx,
+  GemmRSWrapper<T, T> gemm_rs_wrapper{dev_ctx,
                                       pg,
                                       comm_ctx,
                                       nnodes,
@@ -486,7 +668,9 @@ void GemmRSKernel(const Context& dev_ctx,
   const int32_t n = transpose_weight ? weight.dims()[1] : weight.dims()[0];
   const int32_t wk = transpose_weight ? weight.dims()[0] : weight.dims()[1];
 
+#if 0
   static int32_t first_flag = 0;
+#endif
 
   auto launcher = [&](const bool get_workspace_size_flag,
                       const bool get_barrier_workspace_size) -> size_t {
@@ -505,8 +689,12 @@ void GemmRSKernel(const Context& dev_ctx,
         gemm_rs_wrapper.barrier_buffer_ptrs.data(),
         gemm_rs_wrapper.sync_buffer_ptrs.data(),
         m, n,
+#if 0
         first_flag == 0 ? 2304 : k,
         first_flag == 0 ? 2304 : wk,
+#endif
+        k,
+        wk,
         gemm_rs_wrapper.nnodes,
         gemm_rs_wrapper.max_m,
         gemm_rs_wrapper.n_dim,
@@ -536,7 +724,9 @@ void GemmRSKernel(const Context& dev_ctx,
         gemm_rs_wrapper.event_);
   };
 
+#if 0
   if (first_flag==0) {
+#endif
     auto get_workspace_size = [&]() -> size_t {
       return launcher(true, false);
     };
@@ -550,9 +740,11 @@ void GemmRSKernel(const Context& dev_ctx,
 
     gemm_rs_wrapper.lazy_init_gemm_buffer(workspace_size);
     gemm_rs_wrapper.lazy_init_barrier_buffer(barrier_workspace_size);
+#if 0
   }
 
   first_flag = 1;
+#endif
 
   auto gemm_rs = [&]() {
     launcher(false, false);

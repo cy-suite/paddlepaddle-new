@@ -74,6 +74,8 @@ public:
     alloc();
   }
 
+  // TODO(umiswing): need to find a way to destruct BuffersHolder
+
   std::vector<DenseTensor> get_buffers(const std::vector<int64_t>& shape) {
     reserve(shape);
     std::vector<DenseTensor> tensors;
