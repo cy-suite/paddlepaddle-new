@@ -1408,7 +1408,7 @@ Tensor addmm_decomp(const Tensor& input,
                     const Tensor& y,
                     const float beta,
                     const float alpha) {
-  VLOG(0) << "nmlb.";
+  VLOG(0) << "aabb.";
   int tmp1 = x.shape().size();
   for (int i = 0; i < tmp1; i++) {
     VLOG(0) << "x.shape() at " << i << " is: " << x.shape()[i];
