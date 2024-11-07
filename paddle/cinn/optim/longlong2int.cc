@@ -66,15 +66,23 @@ class CastLonglong2Int : public ir::IRMutator<> {
  private:
   void Visit(const ir::Load* op, Expr* expr) override {
     auto node = expr->As<ir::Load>();
-    for (auto& node : op->indices) {
-      if (node.is_index()) node->convert_int64_to_int32();
+    for (auto& ids : node->indices) {
+      if (ids.is_index()) ids->convert_int64_to_int32();
+      // For case: A[0, B[...]]
+      else
+        ir::IRMutator<>::Visit(&ids, &ids);
     }
   }
   void Visit(const ir::Store* op, Expr* expr) override {
     auto node = expr->As<ir::Store>();
-    for (auto& node : op->indices) {
-      if (node.is_index()) node->convert_int64_to_int32();
+    for (auto& ids : node->indices) {
+      if (ids.is_index()) ids->convert_int64_to_int32();
+      // For case: A[0, B[...]]
+      else
+        ir::IRMutator<>::Visit(&ids, &ids);
     }
+    // For case: A[...] = B[...]
+    ir::IRMutator<>::Visit(&node->value, &node->value);
   }
   void Visit(const ir::For* op, Expr* expr) override {
     auto node = expr->As<ir::For>();
