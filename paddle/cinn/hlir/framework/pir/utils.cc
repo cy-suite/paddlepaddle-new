@@ -425,9 +425,16 @@ bool IsSupportInCinn(const ::pir::Operation& op) {
 }  // namespace
 
 bool IsComplex(const ::pir::Operation& op) {
-  for (size_t i = 0; i < op.num_operands(); ++i) {
-    if ((auto in = op.operand_source(i)) && (auto in_type = in.type()) &&
-        in_type.isa<paddle::dialect::DenseTensorType>()) {
+  const auto& IsComplexType = [&](const ::pir::Value& value) -> bool {
+    auto val = op.operand_source(0);
+    if (!val) {
+      return false;
+    }
+    auto type = val.type();
+    if (!type) {
+      return false;
+    }
+    if (type.isa<paddle::dialect::DenseTensorType>()) {
       auto dtype = op.operand_source(i)
                        .type()
                        .dyn_cast<paddle::dialect::DenseTensorType>()
@@ -437,19 +444,18 @@ bool IsComplex(const ::pir::Operation& op) {
         return true;
       }
     }
+    return false;
+  };
+
+  for (size_t i = 0; i < op.num_operands(); ++i) {
+    if (IsComplexType(op.operand_source(i))) {
+      return true;
+    }
   }
 
   for (size_t i = 0; i < op.num_results(); ++i) {
-    if ((auto out = op.result(i)) && (auto out_type = out.type()) &&
-        out_type.isa<paddle::dialect::DenseTensorType>()) {
-      auto dtype = op.result(i)
-                       .type()
-                       .dyn_cast<paddle::dialect::DenseTensorType>()
-                       .dtype();
-      if (dtype && (dtype.isa<::pir::Complex64Type>() ||
-                    dtype.isa<::pir::Complex128Type>())) {
-        return true;
-      }
+    if (IsComplexType(op.result(i))) {
+      return true;
     }
   }
 
