@@ -1060,8 +1060,8 @@ static PyObject* tensor__mod__method(TensorObject* self,
 }
 
 static PyObject* tensor__rmod__method(TensorObject* self,
-                                     PyObject* args,
-                                     PyObject* kwargs) {
+                                      PyObject* args,
+                                      PyObject* kwargs) {
   phi::RecordEvent pythonc_record_event(
       "__rmod__ pybind_patch_func", phi::TracerEventType::UserDefined, 1);
   EAGER_TRY
@@ -1974,7 +1974,7 @@ PyMethodDef math_op_patch_methods[] = {  // NOLINT
      (PyCFunction)(void (*)())tensor__mod__method,
      METH_VARARGS | METH_KEYWORDS,
      nullptr},
-     {"__rmod__",
+    {"__rmod__",
      (PyCFunction)(void (*)())tensor__rmod__method,
      METH_VARARGS | METH_KEYWORDS,
      nullptr},
