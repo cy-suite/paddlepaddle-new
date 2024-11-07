@@ -1057,11 +1057,6 @@ def clone_graph(
             if first_backward_use_op.has_attr(
                 'op_role'
             ) and first_backward_use_op.has_attr('chunk_id'):
-                print(
-                    "op.attrs()======",
-                    first_backward_use_op.attrs()["op_role"],
-                    flush=True,
-                )
                 new_op.set_int_attr("op_role", first_backward_use_op.op_role)
                 new_op.set_int_attr("chunk_id", first_backward_use_op.chunk_id)
             cloned_ops.append(new_op)
