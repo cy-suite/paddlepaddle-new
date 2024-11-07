@@ -74,8 +74,8 @@ class ReduceAsOpPattern
       x_y_shape_equal = (x_shape == y_shape);
       ProcessStaticShape(x_shape, y_shape, &reduce_axis, &keep_dim);
     } else {
-      bool can_repalce =
-          ProcessDynamicShape(op, &reduce_axis, &output_dims, &x_y_shape_equal, &keep_dim);
+      bool can_repalce = ProcessDynamicShape(
+          op, &reduce_axis, &output_dims, &x_y_shape_equal, &keep_dim);
       if (!can_repalce) {
         return true;
       }
@@ -136,7 +136,7 @@ class ReduceAsOpPattern
   void ProcessStaticShape(const std::vector<int64_t> &x_shape,
                           const std::vector<int64_t> &y_shape,
                           std::vector<int64_t> *reduce_axis,
-                          bool* keep_dim) const {
+                          bool *keep_dim) const {
     size_t x_rank = x_shape.size();
     size_t y_rank = y_shape.size();
 
@@ -149,18 +149,15 @@ class ReduceAsOpPattern
       }
     }
 
-    std::set<int64_t> reduce_axis_set( reduce_axis->begin(), reduce_axis->end());
+    std::set<int64_t> reduce_axis_set(reduce_axis->begin(), reduce_axis->end());
     std::vector<int64_t> new_shape;
-    for( size_t i = 0; i < x_shape.size(); ++i )
-    {
-      if( ! reduce_axis_set.count( i ))
-      {
-        new_shape.push_back( x_shape[i]);
+    for (size_t i = 0; i < x_shape.size(); ++i) {
+      if (!reduce_axis_set.count(i)) {
+        new_shape.push_back(x_shape[i]);
       }
     }
 
-    *keep_dim = ( new_shape != y_shape);
-
+    *keep_dim = (new_shape != y_shape);
   }
   bool ProcessDynamicShape(paddle::dialect::ReduceAsOp op,
                            std::vector<int64_t> *reduce_axis,
@@ -204,17 +201,15 @@ class ReduceAsOpPattern
         }
       }
 
-      std::set<int64_t> reduce_axis_set( reduce_axis->begin(), reduce_axis->end());
+      std::set<int64_t> reduce_axis_set(reduce_axis->begin(),
+                                        reduce_axis->end());
       std::vector<symbol::DimExpr> new_shape;
-      for( size_t i = 0; i < x_shape.size(); ++i )
-      {
-        if( ! reduce_axis_set.count( i ))
-        {
-          new_shape.push_back( x_shape[i]);
+      for (size_t i = 0; i < x_shape.size(); ++i) {
+        if (!reduce_axis_set.count(i)) {
+          new_shape.push_back(x_shape[i]);
         }
       }
-
-      *keep_dim = ( new_shape != y_shape);
+      *keep_dim = (new_shape != y_shape);
 
       return can_replace_with_sum;
     }
