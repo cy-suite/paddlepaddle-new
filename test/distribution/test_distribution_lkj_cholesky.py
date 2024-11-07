@@ -34,6 +34,15 @@ paddle.seed(2024)
     (parameterize.TEST_CASE_NAME, 'concentration'),
     [
         (
+            'zero-dim',
+            parameterize.xrand(
+                (1,),
+                dtype='float32',
+                max=1.0,
+                min=0,
+            ).reshape([]),
+        ),
+        (
             'one-dim',
             parameterize.xrand(
                 (2,),
@@ -55,10 +64,10 @@ paddle.seed(2024)
 )
 class TestLKJCholeskyShape(unittest.TestCase):
     def gen_cases(self):
-        extra_shape = (
-            len(self.concentration),
-            self._paddle_lkj_cholesky.dim,
-            self._paddle_lkj_cholesky.dim,
+        extra_shape = []
+        extra_shape.extend(self.concentration.shape)
+        extra_shape.extend(
+            [self._paddle_lkj_cholesky.dim, self._paddle_lkj_cholesky.dim]
         )
         cases = [
             {
