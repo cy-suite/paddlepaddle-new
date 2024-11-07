@@ -127,6 +127,11 @@ class RowWiseParallel(PlanBase):
 
 
 class PrepareLayerInput(PlanBase):
+    """
+    Prepare the input of specific layer. User should provide one callable function.
+    The function should take exactly one parameter named `process_mesh` and return the pre hook.
+    """
+
     def __init__(self, fn=None):
         super().__init__()
         assert callable(fn)
@@ -137,6 +142,11 @@ class PrepareLayerInput(PlanBase):
 
 
 class PrepareLayerOutput(PlanBase):
+    """
+    Prepare the output of specific layer. User should provide one callable function.
+    The function should take exactly one parameter named `process_mesh` and return the post hook.
+    """
+
     def __init__(self, fn=None):
         super().__init__()
         assert callable(fn)
@@ -144,14 +154,6 @@ class PrepareLayerOutput(PlanBase):
 
     def apply(self, layer, process_mesh, shard_weight=None, shard_bias=None):
         layer.register_forward_post_hook(self.fn(process_mesh=process_mesh))
-
-
-class SequenceParallel(PlanBase):
-    def __init__(self):
-        super().__init__()
-
-    def apply(self, layer, process_mesh, shard_weight=None, shard_bias=None):
-        pass
 
 
 class TensorParallel(ParallelModel):

@@ -161,27 +161,15 @@ class TestParallelAPI:
         global_mesh = dist.ProcessMesh(mesh_arr, dim_names)
         dist.auto_parallel.set_mesh(global_mesh)
 
-    def embedding_output_transpose(self, process_mesh):
+    def output_transpose(self, process_mesh):
         def transpose(layer, input, output=None):
-            return None
+            return paddle.transpose(output, perm=[1, 0, 2])
 
         return transpose
 
-    def lmhead_input_transpose(self, process_mesh):
+    def input_transpose(self, process_mesh):
         def transpose(layer, input, output=None):
-            return None
-
-        return transpose
-
-    def qkv_output_transpose(self, process_mesh):
-        def transpose(layer, input, output=None):
-            return None
-
-        return transpose
-
-    def attn_o_proj_input_transpose(self, process_mesh):
-        def transpose(layer, input, output=None):
-            return None
+            return paddle.transpose(input, perm=[1, 0, 2])
 
         return transpose
 
@@ -243,29 +231,29 @@ class TestParallelAPI:
                 plan = {
                     "llama.embed_tokens": [
                         ColWiseParallel(),
-                        PrepareLayerOutput(self.embedding_output_transpose),
+                        PrepareLayerOutput(self.output_transpose),
                     ],
                     "llama.layers.*.self_attn.q_proj": [
                         ColWiseParallel(),
-                        PrepareLayerOutput(self.qkv_output_transpose),
+                        PrepareLayerOutput(self.output_transpose),
                     ],
                     "llama.layers.*.self_attn.k_proj": [
                         ColWiseParallel(),
-                        PrepareLayerOutput(self.qkv_output_transpose),
+                        PrepareLayerOutput(self.output_transpose),
                     ],
                     "llama.layers.*.self_attn.v_proj": [
                         ColWiseParallel(),
-                        PrepareLayerOutput(self.qkv_output_transpose),
+                        PrepareLayerOutput(self.output_transpose),
                     ],
                     "llama.layers.*.self_attn.o_proj": [
                         RowWiseParallel(),
-                        PrepareLayerInput(self.attn_o_proj_input_transpose),
+                        PrepareLayerInput(self.input_transpose),
                     ],
                     "llama.layers.*.mlp.gate_proj": ColWiseParallel(),
                     "llama.layers.*.mlp.up_proj": ColWiseParallel(),
                     "llama.layers.*.mlp.down_proj": RowWiseParallel(),
                     "lm_head.weight": ColWiseParallel(),
-                    "lm_head": PrepareLayerInput(self.lmhead_input_transpose),
+                    "lm_head": PrepareLayerInput(self.input_transpose),
                 }
             layer, optimizer = tensor_parallel(layer, plan, optimizer)
         layer, optimizer = parallelize_model_and_optimizer(layer, optimizer)
