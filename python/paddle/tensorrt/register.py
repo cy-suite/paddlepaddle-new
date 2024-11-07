@@ -35,57 +35,37 @@ class ConverterOpRegistry:
         return self._registry.get(op_name)
 
     def _version_match(self, trt_version, version_range):
-        trt_major, trt_minor, trt_patch = map(int, trt_version.split('.'))
+        def _normalize_version(version):
+            """Normalize version string to a tuple of three parts."""
+            parts = version.split('.')
+            while len(parts) < 3:
+                parts.append('0')
+            return tuple(map(int, parts))
+
+        def _compare_versions(trt_version_tuple, ref_version_tuple, comparator):
+            """Compare TRT version tuple with reference version tuple."""
+            if comparator == 'ge':
+                return trt_version_tuple >= ref_version_tuple
+            elif comparator == 'le':
+                return trt_version_tuple <= ref_version_tuple
+
+        trt_version_tuple = _normalize_version(trt_version)
 
         if version_range.startswith('trt_version_ge='):
             min_version = version_range.split('=')[1]
-            min_version_parts = min_version.split('.')
-            # Ensure min_version has three parts, filling missing parts with 0
-            while len(min_version_parts) < 3:
-                min_version_parts.append('0')
-            min_major, min_minor, min_patch = map(int, min_version_parts)
-
-            # Compare major, minor, and patch versions
-            if trt_major > min_major:
-                return True
-            elif trt_major == min_major and trt_minor > min_minor:
-                return True
-            elif (
-                trt_major == min_major
-                and trt_minor == min_minor
-                and trt_patch >= min_patch
-            ):
-                return True
-            else:
-                return False
+            min_version_tuple = _normalize_version(min_version)
+            return _compare_versions(trt_version_tuple, min_version_tuple, 'ge')
 
         elif version_range.startswith('trt_version_le='):
             max_version = version_range.split('=')[1]
-            max_version_parts = max_version.split('.')
-            # Ensure max_version has three parts, filling missing parts with 0
-            while len(max_version_parts) < 3:
-                max_version_parts.append('0')
-            max_major, max_minor, max_patch = map(int, max_version_parts)
-
-            # Compare major, minor, and patch versions
-            if trt_major < max_major:
-                return True
-            elif trt_major == max_major and trt_minor < max_minor:
-                return True
-            elif (
-                trt_major == max_major
-                and trt_minor == max_minor
-                and trt_patch <= max_patch
-            ):
-                return True
-            else:
-                return False
+            max_version_tuple = _normalize_version(max_version)
+            return _compare_versions(trt_version_tuple, max_version_tuple, 'le')
 
         elif 'x' in version_range:
             major_version = int(version_range.split('.')[0])
-            return trt_major == major_version
+            return trt_version_tuple[0] == major_version
 
-        return False
+        return False  # If version_range doesn't match the expected formats
 
 
 converter_registry = ConverterOpRegistry()
