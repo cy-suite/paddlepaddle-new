@@ -34,6 +34,160 @@ get_ring_mode(AGRingMode ring_mode) {
       return AGRingMode::All2All;
 }
 
+template<typename BufferT>
+class BuffersHolder {
+private:
+  const GPUContext& dev_ctx;
+  paddle::distributed::ProcessGroup* tp_group;
+  size_t world_size;
+  std::vector<void*> ptrs;
+  size_t size_in_bytes;
+  void * ptr;
+  phi::DataType dtype;
+public:
+
+#if 0
+  BuffersHolder(
+                const GPUContext& dev_ctx_,
+                paddle::distributed::ProcessGroup* tp_group_) :
+    dev_ctx(dev_ctx_),
+    tp_group(tp_group_),
+    world_size(tp_group->GetSize()),
+    ptrs(world_size, nullptr) {}
+#endif
+
+  BuffersHolder(const std::vector<int64_t>&shape,
+                const GPUContext& dev_ctx_,
+                paddle::distributed::ProcessGroup* tp_group_) :
+    dev_ctx(dev_ctx_),
+    tp_group(tp_group_),
+    world_size(tp_group->GetSize()),
+    ptrs(world_size, nullptr) {
+
+    if (std::is_same<BufferT, phi::dtype::float16>::value) dtype = phi::DataType::FLOAT16;
+    else if(std::is_same<BufferT, phi::dtype::bfloat16>::value) dtype = phi::DataType::BFLOAT16;
+    else if(std::is_same<BufferT, uint8_t>::value) dtype = phi::DataType::UINT8;
+    else if(std::is_same<BufferT, int32_t>::value) dtype = phi::DataType::INT32;
+    else throw std::runtime_error("cudaipc_create_tensor_list unexpected BufferT");
+
+    this->size_in_bytes = calc_size(shape);
+    alloc();
+  }
+
+  std::vector<DenseTensor> get_buffers(const std::vector<int64_t>& shape) {
+    reserve(shape);
+    std::vector<DenseTensor> tensors;
+    for (int i = 0; i < tp_group->GetSize(); ++i) {
+      if (i == tp_group->GetRank()) {
+        DenseTensor local_tensor;
+        local_tensor =
+            // from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { cudaFree(allocation->ptr()); });
+            from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { });
+        tensors.emplace_back(local_tensor);
+      } else {
+        DenseTensor tensor;
+        tensor =
+            // from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { cudaIpcCloseMemHandle(allocation->ptr()); });
+            from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { });
+        tensors.emplace_back(tensor);
+      }
+    }
+
+    return tensors;
+
+  }
+
+private:
+  void alloc() {
+    PADDLE_ENFORCE_GPU_SUCCESS(cudaMalloc(&ptr, size_in_bytes));
+    PADDLE_ENFORCE_GPU_SUCCESS(cudaMemset(ptr, 0, size_in_bytes));
+
+    cudaIpcMemHandle_t handle;
+    PADDLE_ENFORCE_GPU_SUCCESS(cudaIpcGetMemHandle(&handle, ptr));
+
+    DenseTensor handle_d = phi::Empty<uint8_t>(dev_ctx, {sizeof(cudaIpcMemHandle_t)});
+    PADDLE_ENFORCE_GPU_SUCCESS(cudaMemcpy(
+        handle_d.data(), &handle, sizeof(cudaIpcMemHandle_t), cudaMemcpyHostToDevice));
+    long int handles_shape = sizeof(cudaIpcMemHandle_t) * tp_group->GetSize();
+    DenseTensor handles_d = phi::Empty<uint8_t>(dev_ctx, {handles_shape});
+    // TODO(umiswing): find a better way to wrap func params
+    tp_group->AllGather(&handles_d, handle_d, 0, -1, true, true)->Wait();
+
+    std::vector<cudaIpcMemHandle_t> handles_h(tp_group->GetSize());
+    PADDLE_ENFORCE_GPU_SUCCESS(cudaMemcpy(
+        handles_h.data(),
+        handles_d.data(),
+        sizeof(cudaIpcMemHandle_t) * tp_group->GetSize(),
+        cudaMemcpyDeviceToHost));
+
+    for (int i = 0; i < tp_group->GetSize(); ++i) {
+      if (i != tp_group->GetRank()) {
+          PADDLE_ENFORCE_GPU_SUCCESS(cudaIpcOpenMemHandle(&ptrs[i], handles_h[i], cudaIpcMemLazyEnablePeerAccess));
+      } else {
+        ptrs[i] = ptr;
+      }
+    }
+  }
+
+  size_t calc_size(const std::vector<int64_t>& shape) {
+    return sizeof(BufferT) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+  }
+
+  void release() {
+    for(int i=0; i<world_size; ++i) {
+      if(i != this->tp_group->GetRank()) {
+        cudaIpcCloseMemHandle(this->ptrs[i]);
+      }
+    }
+    int64_t device_id = dev_ctx.GetPlace().GetDeviceId();
+    distributed::BarrierOptions opts{};
+    opts.device_id = device_id;
+    this->tp_group->Barrier(opts)->Wait();
+    cudaFree(this->ptr);
+  }
+
+  void reserve(const std::vector<int64_t>& shape) {
+    size_t require_size = calc_size(shape);
+    if(require_size > this->size_in_bytes) {
+      this->size_in_bytes = require_size;
+      release();
+      alloc();
+    }
+  }
+
+  using Deleter = void (*)(phi::Allocation*);
+  using AllocationDeleter = void (*)(phi::Allocation*);
+  DenseTensor from_blob(void *data,
+                        const std::vector<int64_t>& shape,
+                        phi::DataType dtype,
+                        phi::Place place,
+                        const Deleter& deleter,
+                        phi::DataLayout layout = phi::DataLayout::NCHW ) {
+    PADDLE_ENFORCE_NOT_NULL(
+        data, common::errors::InvalidArgument("data can not be nullptr."));
+  
+    // TODO(umiswing): this check looks nice
+    // auto data_place = GetPlaceFromPtr(data);
+    // phi::is_gpu_place(place);
+  #if 0
+    PADDLE_ENFORCE(
+        dev_ctx.GetPlace().GetType() == phi::AllocationType::GPU,
+        "gemm_rs not on GPU");
+  #endif
+  
+    auto meta =
+        phi::DenseTensorMeta(dtype, common::make_ddim(shape), layout);
+  
+    size_t size = SizeOf(dtype) * (meta.is_scalar ? 1 : product(meta.dims));
+  
+    auto alloc =
+        // std::make_shared<phi::Allocation>(data, size, alloc_deleter, place/*data_place*/);
+        std::make_shared<phi::Allocation>(data, size, deleter, place/*data_place*/);
+  
+    return DenseTensor(alloc, meta);
+  }
+};
+
 template<typename InT, typename OutT>
 class AGGemmHelper {
 public:
@@ -140,7 +294,11 @@ int32_t local_rank;
         "FP8 GEMM does not support transpose weight");
     this->ring_mode = get_ring_mode(ring_mode_);
     // input buffer
-    this->input_buffers = cudaipc_create_tensor_list<InT>({full_m, k_dim});
+    static BuffersHolder<InT> input_buffers_holder{{full_m, k_dim}, dev_ctx, tp_group};
+    // BuffersHolder<InT> input_buffers_holder{dev_ctx, tp_group};
+    // BuffersHolder<InT> input_buffers_holder{{full_m, k_dim}, dev_ctx, tp_group};
+    this->input_buffers = input_buffers_holder.get_buffers({full_m, k_dim});
+    // this->input_buffers = cudaipc_create_tensor_list<InT>({full_m, k_dim});
     this->input_buffer = this->input_buffers[this->local_rank];
     for (int i = 0; i < world_size; ++i) {
       // this->input_buffer_ptrs[i] = this->input_buffers[i].data();
@@ -155,7 +313,9 @@ int32_t local_rank;
     // this->output_buffer = phi::Empty<OutT>(dev_ctx, IntArray{full_m, n_dim});
 
     int num_signals = MAX_NUM_SIGNAL;
-    this->barrier_buffers = cudaipc_create_tensor_list<int32_t>({num_signals});
+    static BuffersHolder<int32_t> barrier_buffers_holder{{num_signals}, dev_ctx, tp_group};
+    this->barrier_buffers = barrier_buffers_holder.get_buffers({num_signals});
+    // this->barrier_buffers = cudaipc_create_tensor_list<int32_t>({num_signals});
     this->barrier_buffer = this->barrier_buffers[this->local_rank];
     for (int i = 0; i < world_size; ++i) {
       // this->barrier_buffer_ptrs[i] = this->barrier_buffers[i].data();
@@ -189,8 +349,10 @@ int32_t local_rank;
     }
 #endif
 #ifndef FLUX_SHM_USE_NVSHMEM
-    this->sync_buffers =
-        cudaipc_create_tensor_list<int32_t>({this->world_size});
+    static BuffersHolder<int32_t> sync_buffers_holder{{this->world_size}, dev_ctx, tp_group};
+    this->sync_buffers = sync_buffers_holder.get_buffers({this->world_size});
+    // this->sync_buffers =
+    //     cudaipc_create_tensor_list<int32_t>({this->world_size});
     phi::funcs::SetConstant<GPUContext, int32_t> set_functor;
     set_functor(this->dev_ctx, &this->sync_buffers[this->rank], 0);
     for(size_t i=0;i<this->sync_buffers.size();i++) {
@@ -217,8 +379,27 @@ int32_t local_rank;
     cudaEventDestroy(cp_event);
     cudaEventDestroy(ready_event);
     cudaEventDestroy(all_gather_event);
+    cudaStreamDestroy(this->cp_streams[0]);
+
+#if 0
+    for (int i = 0; i < world_size; ++i) {
+      if(i != this->rank) {
+        cudaIpcCloseMemHandle(this->input_buffers[i].data());
+        cudaIpcCloseMemHandle(this->barrier_buffers[i].data());
+        cudaIpcCloseMemHandle(this->sync_buffers[i].data());
+      }
+    }
+    int64_t device_id = dev_ctx.GetPlace().GetDeviceId();
+    distributed::BarrierOptions opts{};
+    opts.device_id = device_id;
+    this->tp_group->Barrier(opts)->Wait();
+    cudaFree(this->input_buffers[this->rank].data());
+    cudaFree(this->barrier_buffers[this->rank].data());
+    cudaFree(this->sync_buffers[this->rank].data());
+#endif
   }
 
+#if 0
 using Deleter = void (*)(phi::Allocation*);
 using AllocationDeleter = void (*)(phi::Allocation*);
 DenseTensor from_blob(void *data,
@@ -317,18 +498,21 @@ cudaipc_create_tensor_list(
     if (i == tp_group->GetRank()) {
       DenseTensor local_tensor;
       local_tensor =
-          from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { cudaFree(allocation->ptr()); });
+          // from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { cudaFree(allocation->ptr()); });
+          from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { });
       tensors.emplace_back(local_tensor);
     } else {
       DenseTensor tensor;
       tensor =
-          from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { cudaIpcCloseMemHandle(allocation->ptr()); });
+          // from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { cudaIpcCloseMemHandle(allocation->ptr()); });
+          from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { });
       tensors.emplace_back(tensor);
     }
   }
 
   return tensors;
 }
+#endif
 };
 
 template<typename T, typename Context>
@@ -369,7 +553,7 @@ void AllGatherGemmKernel(const Context& dev_ctx,
 
   const int32_t n = transpose_weight ? weight.dims()[1] : weight.dims()[0];
   const int32_t k = transpose_weight ? weight.dims()[0] : weight.dims()[1];
-  static AGGemmHelper<T,T> helper{dev_ctx,
+  AGGemmHelper<T,T> helper{dev_ctx,
                              pg,
                              comm_ctx,
                              nnodes,
@@ -402,7 +586,7 @@ void AllGatherGemmKernel(const Context& dev_ctx,
 #endif
   DenseTensor output_buffer = phi::Empty<T>(dev_ctx, IntArray{full_m, n_dim});
 
-  static int32_t first_flag = 0;
+  // static int32_t first_flag = 0;
   auto launcher = [&](const bool return_workspace_size) -> size_t {
     return phi::dynload::ag_gemm(
         const_cast<void*>(input.data()),
@@ -415,7 +599,8 @@ void AllGatherGemmKernel(const Context& dev_ctx,
         helper.gemm_buffer.initialized() ? helper.gemm_buffer.data() : nullptr,
         dev_ctx.stream(),
         helper.ready_event,
-        first_flag == 0 ? 2304 : n, k, first_flag == 0 ? 2304 : helper.n_dim, helper.k_dim,
+        // first_flag == 0 ? 2304 : n, k, first_flag == 0 ? 2304 : helper.n_dim, helper.k_dim,
+        n, k, helper.n_dim, helper.k_dim,
         input.dims()[0],
         helper.rank,
         helper.world_size,
@@ -428,14 +613,14 @@ void AllGatherGemmKernel(const Context& dev_ctx,
         return_workspace_size);
   };
 
-  if (first_flag == 0) {
+  // if (first_flag == 0) {
     auto get_workspace_size = [&]() -> size_t {
       return launcher(true);
     };
     int64_t workspace_size = get_workspace_size();
     helper.lazy_init_gemm_buffer(workspace_size);
-  }
-  first_flag = 1;
+  // }
+  // first_flag = 1;
 
   auto ag_gemm = [&]() {
     launcher(false);
@@ -502,7 +687,9 @@ void AllGatherGemmKernel(const Context& dev_ctx,
                                  {0},
                                  {static_cast<int32_t>(input.dims()[0] * helper.world_size)});
 
-  *input_parallel = helper.input_buffer;
+  // *input_parallel = helper.input_buffer;
+  *input_parallel = phi::Empty<T>(dev_ctx, IntArray{full_m, k_dim});
+  phi::Copy(dev_ctx, helper.input_buffer, dev_ctx.GetPlace(), false, input_parallel);
 
   /// reset signals
   cudaStreamWaitEvent(current_stream, helper.cp_event);
