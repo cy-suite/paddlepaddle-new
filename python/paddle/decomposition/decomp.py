@@ -20,12 +20,13 @@ from paddle import pir
 from paddle.autograd import ir_backward
 from paddle.autograd.backward_utils import ValueDict, ValueSet
 from paddle.base.core import (
-    call_decomp,
+    call_decomp_rule,
     call_decomp_vjp,
     decomp_ops_contain_unused_output,
-    has_decomp,
+    has_decomp_rule,
     has_decomp_vjp,
 )
+from paddle.base.framework import pir_chunk_id_guard, pir_op_role_guard
 from paddle.base.libpaddle.pir import Block, Operation
 from paddle.base.wrapped_decorator import signature_safe_contextmanager
 from paddle.decomposition.recompute import DebugPrint, auto_recompute
@@ -329,7 +330,7 @@ def _decomp_fwd_op(
         op_name = fwd_op.name()
         orig_outs = fwd_op.results()
         decom_rule = register.get_decomp_rule(op_name)
-        has_sink_decomp_rule = has_decomp(fwd_op)
+        has_sink_decomp_rule = has_decomp_rule(fwd_op)
         lower = decom_rule or has_sink_decomp_rule
 
         if lower:
@@ -346,7 +347,7 @@ def _decomp_fwd_op(
             # step3: decompose op, and get new outputs
             input_args = _prepare_python_api_arguments(fwd_op)
             if has_sink_decomp_rule:
-                decomp_outs = call_decomp(fwd_op)
+                decomp_outs = call_decomp_rule(fwd_op)
                 new_outs = _analyse_decomp_results(
                     orig_outs, decomp_outs, fwd_op
                 )
@@ -868,23 +869,28 @@ def decompose_dist_program(pir_program):
                 ) and _check_prim_dynamic(op):
                     skip_decomp = True
                 if not skip_decomp:
-                    pir.set_insertion_point(op)
-                    orig_outs = op.results()
+                    with pir_op_role_guard(op.op_role), pir_chunk_id_guard(
+                        op.chunk_id
+                    ):
+                        pir.set_insertion_point(op)
+                        orig_outs = op.results()
 
-                    is_next_split = False
-                    decomp_outs = call_decomp_vjp(op)
-                    for i in range(len(orig_outs)):
-                        if orig_outs[i].has_one_use():
-                            next_op = orig_outs[i].first_use().owner()
-                            if next_op.name() == "builtin.split":
-                                is_next_split = True
-                                _check_op_results(
-                                    next_op.name(),
-                                    next_op.results(),
-                                    decomp_outs[i],
-                                )
-                                next_op.replace_all_uses_with(decomp_outs[i])
-                                block.remove_op(next_op)
+                        is_next_split = False
+                        decomp_outs = call_decomp_vjp(op)
+                        for i in range(len(orig_outs)):
+                            if orig_outs[i].has_one_use():
+                                next_op = orig_outs[i].first_use().owner()
+                                if next_op.name() == "builtin.split":
+                                    is_next_split = True
+                                    _check_op_results(
+                                        next_op.name(),
+                                        next_op.results(),
+                                        decomp_outs[i],
+                                    )
+                                    next_op.replace_all_uses_with(
+                                        decomp_outs[i]
+                                    )
+                                    block.remove_op(next_op)
 
                     if not is_next_split:
                         new_outs = _analyse_decomp_results(

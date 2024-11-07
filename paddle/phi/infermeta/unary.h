@@ -499,16 +499,9 @@ void Pad3dInferMeta(const MetaTensor& x,
 void PartialAllgatherInferMeta(const MetaTensor& x,
                                int nranks,
                                int rank,
-                               int ring_id,
-                               bool use_calc_stream,
                                MetaTensor* out);
 
-void PartialSendInferMeta(const MetaTensor& x,
-                          int ring_id,
-                          int peer,
-                          bool use_calc_stream,
-                          int num,
-                          int id);
+void PartialSendInferMeta(const MetaTensor& x, int peer, int num, int id);
 
 void PixelShuffleInferMeta(const MetaTensor& x,
                            int upscale_factor,
@@ -725,6 +718,11 @@ void FillSplitOutDims(const MetaTensor& x,
                       const int axis_value,
                       const std::vector<int64_t>& sections_vec,
                       std::vector<MetaTensor*>* out);
+
+void SetInferMeta(const MetaTensor& x,
+                  const std::vector<int64_t>& shape,
+                  const std::vector<int64_t>& stride,
+                  MetaTensor* out);
 
 void SequenceSoftmaxInferMeta(const MetaTensor& x, MetaTensor* out);
 
