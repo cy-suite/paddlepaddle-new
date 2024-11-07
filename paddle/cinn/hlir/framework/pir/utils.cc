@@ -426,7 +426,8 @@ bool IsSupportInCinn(const ::pir::Operation& op) {
 
 bool IsComplex(const ::pir::Operation& op) {
   for (size_t i = 0; i < op.num_operands(); ++i) {
-    if (op.operand_source(i).type().isa<paddle::dialect::DenseTensorType>()) {
+    if ((auto in = op.operand_source(i)) && (auto in_type = in.type()) &&
+        in_type.isa<paddle::dialect::DenseTensorType>()) {
       auto dtype = op.operand_source(i)
                        .type()
                        .dyn_cast<paddle::dialect::DenseTensorType>()
@@ -439,7 +440,8 @@ bool IsComplex(const ::pir::Operation& op) {
   }
 
   for (size_t i = 0; i < op.num_results(); ++i) {
-    if (op.result(i).type().isa<paddle::dialect::DenseTensorType>()) {
+    if ((auto out = op.result(i)) && (auto out_type = out.type()) &&
+        out_type.isa<paddle::dialect::DenseTensorType>()) {
       auto dtype = op.result(i)
                        .type()
                        .dyn_cast<paddle::dialect::DenseTensorType>()
