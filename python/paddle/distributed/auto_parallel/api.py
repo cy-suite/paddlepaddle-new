@@ -14,6 +14,8 @@
 from __future__ import annotations
 
 import copy
+import logging
+import os
 import warnings
 from types import MethodType
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
@@ -2183,6 +2185,11 @@ class DistModel:
         self._parameter_to_structured_name = {
             v: k for k, v in self._structured_to_parameter_name.items()
         }
+        if os.getenv("POD_NAME"):
+            dist.utils.log_utils.get_logger(logging.INFO).info(
+                "Distribute training by paddle.distributed.launch"
+            )
+            dist.fleet.init(is_collective=True)
 
         if isinstance(optimizer, _ShardOptimizer) and use_pir_api():
             shard_fn = optimizer._shard_fn

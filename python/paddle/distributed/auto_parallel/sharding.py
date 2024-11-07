@@ -75,7 +75,10 @@ class ShardingOptimizerStage1(Optimizer):
         self._shard_fn = shard_fn
         self._strategy = strategy or Strategy()
         paddle.enable_static()
-        mesh = dist.auto_parallel.get_mesh()
+        if self._shard_fn._mesh is None:
+            mesh = dist.auto_parallel.get_mesh()
+        else:
+            mesh = self._shard_fn._mesh
         dp_groups = get_mesh_comm_list(mesh, "dp")
         for group in dp_groups:
             comm_group = new_process_group(sorted(group))
