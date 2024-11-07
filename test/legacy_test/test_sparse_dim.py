@@ -37,7 +37,7 @@ class TestSparseDimAPI(unittest.TestCase):
         self.dtype = "float32"
         self.coo_indices = [[0, 0, 0, 1], [0, 0, 1, 2]]
         coo_values = [1.0, 2.0, 3.0, 4.0]
-        coo_tenosr = paddle.sparse.sparse_coo_tensor(
+        coo_tensor = paddle.sparse.sparse_coo_tensor(
             self.coo_indices, coo_values, dtype=self.dtype
         )
         csr_crows = [0, 2, 3, 5]
@@ -48,7 +48,7 @@ class TestSparseDimAPI(unittest.TestCase):
             csr_crows, csr_cols, csr_values, csr_shape, dtype=self.dtype
         )
         other_tensor = paddle.to_tensor([1, 2, 3, 4], dtype=self.dtype)
-        self.tensors = [coo_tenosr, csr_tensor, other_tensor]
+        self.tensors = [coo_tensor, csr_tensor, other_tensor]
 
     def test_sparse_dim(self):
         expected_result = [
@@ -71,7 +71,7 @@ class TestSparseDimAPI1(TestSparseDimAPI):
         self.dtype = "float64"
         self.coo_indices = [[0, 0, 1, 2], [0, 1, 1, 2], [0, 1, 1, 2]]
         coo_values = paddle.to_tensor([1.0, 2.0, 3.0, 4.0])
-        coo_tenosr = paddle.sparse.sparse_coo_tensor(
+        coo_tensor = paddle.sparse.sparse_coo_tensor(
             self.coo_indices, coo_values, dtype=self.dtype
         )
         csr_crows = [0, 2, 3, 5]
@@ -82,7 +82,7 @@ class TestSparseDimAPI1(TestSparseDimAPI):
             csr_crows, csr_cols, csr_values, csr_shape, dtype=self.dtype
         )
         other_tensor = paddle.to_tensor([1, 2, 3, 4], dtype=self.dtype)
-        self.tensors = [coo_tenosr, csr_tensor, other_tensor]
+        self.tensors = [coo_tensor, csr_tensor, other_tensor]
 
 
 class TestSparseDimAPI2(TestSparseDimAPI):
@@ -95,7 +95,7 @@ class TestSparseDimAPI2(TestSparseDimAPI):
             [0, 1, 1, 0],
         ]
         coo_values = paddle.to_tensor([1.0, 2.0, 3.0, 4.0])
-        coo_tenosr = paddle.sparse.sparse_coo_tensor(
+        coo_tensor = paddle.sparse.sparse_coo_tensor(
             self.coo_indices, coo_values, dtype=self.dtype
         )
         csr_crows = [0, 2, 3, 5]
@@ -106,46 +106,80 @@ class TestSparseDimAPI2(TestSparseDimAPI):
             csr_crows, csr_cols, csr_values, csr_shape, dtype=self.dtype
         )
         other_tensor = paddle.to_tensor([1, 2, 3, 4], dtype=self.dtype)
-        self.tensors = [coo_tenosr, csr_tensor, other_tensor]
+        self.tensors = [coo_tensor, csr_tensor, other_tensor]
 
 
 class TestSparseDimAPI3(TestSparseDimAPI):
     def setUp(self):
         self.dtype = "int32"
+        self.coo_indices = [[0, 0, 0], [0, 1, 2]]
+        coo_values = paddle.to_tensor(
+            [[[1, 2], [3, 4]], [[1, 2], [0, 0]], [[0, 2], [0, 4]]]
+        )
+        coo_tensor = paddle.sparse.sparse_coo_tensor(
+            self.coo_indices, coo_values, dtype=self.dtype
+        )
+        csr_crows = [0, 2, 4, 0, 2, 2, 0, 1, 2]
+        csr_cols = [0, 1, 0, 1, 0, 1, 1, 1]
+        csr_values = [1.0, 2.0, 3.0, 4.0, 1.0, 2.0, 2.0, 4.0]
+        csr_shape = [3, 2, 2]
+        csr_tensor = paddle.sparse.sparse_csr_tensor(
+            csr_crows, csr_cols, csr_values, csr_shape, dtype=self.dtype
+        )
         other_tensor = paddle.to_tensor(
             [[[[1, 2], [3, 4]], [[1, 2], [0, 0]], [[0, 2], [0, 4]]]],
             dtype=self.dtype,
         )
-        coo_tenosr = other_tensor.to_sparse_coo(sparse_dim=2)
-        self.coo_indices = coo_tenosr.indices().numpy()
-        csr_tensor = other_tensor.squeeze(0).to_sparse_csr()
-        self.tensors = [coo_tenosr, csr_tensor, other_tensor]
+        self.tensors = [coo_tensor, csr_tensor, other_tensor]
 
 
 class TestSparseDimAPI4(TestSparseDimAPI):
     def setUp(self):
         self.dtype = "int64"
+        self.coo_indices = [[0, 0, 1, 2], [0, 1, 1, 2]]
+        coo_values = paddle.to_tensor([1.0, 2.0, 3.0, 4.0])
+        coo_tensor = paddle.sparse.sparse_coo_tensor(
+            self.coo_indices, coo_values, dtype=self.dtype
+        )
+        csr_crows = [0, 2, 4, 0, 2, 2, 0, 1, 2]
+        csr_cols = [0, 1, 0, 1, 0, 1, 1, 1]
+        csr_values = [1.0, 2.0, 3.0, 4.0, 1.0, 2.0, 2.0, 4.0]
+        csr_shape = [3, 2, 2]
+        csr_tensor = paddle.sparse.sparse_csr_tensor(
+            csr_crows, csr_cols, csr_values, csr_shape, dtype=self.dtype
+        )
         other_tensor = paddle.to_tensor(
             [[[[1, 2], [3, 4]], [[1, 2], [0, 0]], [[0, 2], [0, 4]]]],
             dtype=self.dtype,
         )
-        coo_tenosr = other_tensor.to_sparse_coo(sparse_dim=3)
-        self.coo_indices = coo_tenosr.indices().numpy()
-        csr_tensor = other_tensor.squeeze(0).to_sparse_csr()
-        self.tensors = [coo_tenosr, csr_tensor, other_tensor]
+        self.tensors = [coo_tensor, csr_tensor, other_tensor]
 
 
 class TestSparseDimAPI5(TestSparseDimAPI):
     def setUp(self):
         self.dtype = "uint8"
+        self.coo_indices = [
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 1, 2, 2],
+            [0, 0, 1, 1, 0, 0, 0, 1],
+            [0, 1, 0, 1, 0, 1, 1, 1],
+        ]
+        coo_values = paddle.to_tensor([1, 2, 3, 4, 1, 2, 2, 4])
+        coo_tensor = paddle.sparse.sparse_coo_tensor(
+            self.coo_indices, coo_values, dtype=self.dtype
+        )
+        csr_crows = [0, 2, 4, 0, 2, 2, 0, 1, 2]
+        csr_cols = [0, 1, 0, 1, 0, 1, 1, 1]
+        csr_values = [1.0, 2.0, 3.0, 4.0, 1.0, 2.0, 2.0, 4.0]
+        csr_shape = [3, 2, 2]
+        csr_tensor = paddle.sparse.sparse_csr_tensor(
+            csr_crows, csr_cols, csr_values, csr_shape, dtype=self.dtype
+        )
         other_tensor = paddle.to_tensor(
             [[[[1, 2], [3, 4]], [[1, 2], [0, 0]], [[0, 2], [0, 4]]]],
             dtype=self.dtype,
         )
-        coo_tenosr = other_tensor.to_sparse_coo(sparse_dim=4)
-        self.coo_indices = coo_tenosr.indices().numpy()
-        csr_tensor = other_tensor.squeeze(0).to_sparse_csr()
-        self.tensors = [coo_tenosr, csr_tensor, other_tensor]
+        self.tensors = [coo_tensor, csr_tensor, other_tensor]
 
 
 class TestSparseDimAPIStatic(unittest.TestCase):
