@@ -431,8 +431,8 @@ bool IsComplex(const ::pir::Operation& op) {
                        .type()
                        .dyn_cast<paddle::dialect::DenseTensorType>()
                        .dtype();
-      if (dtype.isa<::pir::Complex64Type>() ||
-          dtype.isa<::pir::Complex128Type>()) {
+      if (type && (dtype.isa<::pir::Complex64Type>() ||
+                   dtype.isa<::pir::Complex128Type>())) {
         return true;
       }
     }
@@ -444,8 +444,8 @@ bool IsComplex(const ::pir::Operation& op) {
                        .type()
                        .dyn_cast<paddle::dialect::DenseTensorType>()
                        .dtype();
-      if (dtype.isa<::pir::Complex64Type>() ||
-          dtype.isa<::pir::Complex128Type>()) {
+      if (type && (dtype.isa<::pir::Complex64Type>() ||
+                   dtype.isa<::pir::Complex128Type>())) {
         return true;
       }
     }
