@@ -987,9 +987,6 @@ def get_placement_with_sharding(param, sharding_mesh_axis):
             break
 
     new_placements = param.placements
-    print(
-        param.name, new_placements, sharding_mesh_axis, placement_with_sharding
-    )
     if placement_with_sharding is not None:
         new_placements[sharding_mesh_axis] = placement_with_sharding
 
@@ -1298,7 +1295,6 @@ class _ShardingStageBase:
         self._sharding_mesh_axis = None
 
     def _set_sharding_mesh_axis(self, sharding_mesh_axis):
-        print(" set_sharding_mesh_axis ", sharding_mesh_axis)
         self._sharding_mesh_axis = sharding_mesh_axis
 
     def shard_master_weight(
@@ -1373,12 +1369,8 @@ class ShardingStage1(_ShardingStageBase):
 
     def __init__(self, mesh: ProcessMesh | None = None) -> None:
         super().__init__(mesh)
-        print(" create sharding_stage 1 ")
 
     def __call__(self, key: str, param: Tensor, accumulator: Tensor) -> Tensor:
-        print(
-            f" stage1_call param {param.name} is distributed {param.is_dist()}"
-        )
         if param.is_dist():
             # Only deal with momentum in optimizer, beta should be replicated cross param's mesh
             if 'beta' not in key:
