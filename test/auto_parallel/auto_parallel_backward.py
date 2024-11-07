@@ -47,4 +47,5 @@ class TestBackwardAutoParallel:
 
 # python -m paddle.distributed.launch --device=0 auto_parallel_backward.py
 if __name__ == '__main__':
-    TestBackwardAutoParallel().run_test_case()
+    TestBackwardAutoParallel().run_test_case1()
+    TestBackwardAutoParallel().run_test_case2()
