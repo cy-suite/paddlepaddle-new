@@ -25,7 +25,7 @@ namespace pir {
 const char *ModuleOp::attributes_name[attributes_num] = {"program"};  // NOLINT
 
 bool IsDynamicShapeTypeEqual(Type type1, Type type2) {
-  // Only support DenseTensorType now 
+  // Only support DenseTensorType now
   bool are_equal = false;
   if (type1.isa<DenseTensorType>() && type2.isa<DenseTensorType>()) {
     auto type_l = type1.dyn_cast<DenseTensorType>();
