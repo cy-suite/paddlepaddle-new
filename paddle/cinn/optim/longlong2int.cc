@@ -59,42 +59,41 @@ class CheckOverflow : public ir::IRVisitor {
   bool is_overflow_ = false;
 };
 
-class NarrowLonglong2Int : public ir::IRMutator<> {
+class CastLonglong2Int : public ir::IRMutator<> {
  public:
   void operator()(Expr* expr) { ir::IRMutator<>::Visit(expr, expr); }
 
  private:
-  void Visit(const ir::_Var_* op, Expr* expr) override {
-    if (expr->type().is_int(64)) {
-      expr->get()->set_type(Int(32));
+  void Visit(const ir::Load* op, Expr* expr) override {
+    auto node = expr->As<ir::Load>();
+    for (auto& node : op->indices) {
+      if (node.is_index()) node->convert_int64_to_int32();
     }
   }
-  void Visit(const ir::IntImm* op, Expr* expr) override {
-    if (expr->type().is_int(64)) {
-      expr->get()->set_type(Int(32));
+  void Visit(const ir::Store* op, Expr* expr) override {
+    auto node = expr->As<ir::Store>();
+    for (auto& node : op->indices) {
+      if (node.is_index()) node->convert_int64_to_int32();
     }
   }
-  // `Seclet` is a special op, because it requires two branch to have the same
-  // type. we convert them when both are `IndexType`.
-  void Visit(const ir::Select* op, Expr* expr) override {
-    auto node = expr->As<ir::Select>();
-    if (node->condition.is_index())
-      ir::IRMutator<>::Visit(&node->condition, &node->condition);
-    if (node->true_value.is_index() && node->false_value.is_index()) {
-      ir::IRMutator<>::Visit(&node->true_value, &node->true_value);
-      ir::IRMutator<>::Visit(&node->false_value, &node->false_value);
-    }
+  void Visit(const ir::For* op, Expr* expr) override {
+    auto node = expr->As<ir::For>();
+    if (!(node->extent.is_index() && node->min.is_index())) return;
+    node->loop_var->convert_int64_to_int32();
+    node->min->convert_int64_to_int32();
+    node->extent->convert_int64_to_int32();
+    ir::IRMutator<>::Visit(&node->body, &node->body);
   }
 };
 
-void TryNarrowLonglong2Int(Expr* expr) {
-  VLOG(6) << "Before TryNarrowLonglong2Int, Expr = \n" << *expr;
+void TryCastLonglong2Int(Expr* expr) {
+  VLOG(6) << "Before TryCastLonglong2Int, Expr = \n" << *expr;
   CheckOverflow check_overflow;
   if (!check_overflow.is_overflow(expr)) {
-    NarrowLonglong2Int narrow;
+    CastLonglong2Int narrow;
     narrow(expr);
   }
-  VLOG(6) << "After TryNarrowLonglong2Int, Expr = \n" << *expr;
+  VLOG(6) << "After TryCastLonglong2Int, Expr = \n" << *expr;
 }
 }  // namespace optim
 }  // namespace cinn

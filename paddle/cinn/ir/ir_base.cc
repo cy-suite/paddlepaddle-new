@@ -369,6 +369,21 @@ void IrNode::convert_int32_to_int64() {
   }
 }
 
+void IrNode::convert_int64_to_int32() {
+  if (type_ != Int(64))
+    if (type_ != Int(32))
+      PADDLE_ENFORCE_EQ(type_.is_unk(),
+                        true,
+                        ::common::errors::InvalidArgument(
+                            "Current only support convert int64_t "
+                            "to int32_t, but get type is: %s",
+                            type_));
+  type_ = Int(32);
+  for (Expr &operand : operands) {
+    operand->convert_int64_to_int32();
+  }
+}
+
 void TryElevateInt32ToInt64(const std::vector<Expr> &expr_vec) {
   Type type = expr_vec.front()->type();
   for (const Expr &expr : expr_vec) {

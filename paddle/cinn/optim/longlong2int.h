@@ -19,6 +19,6 @@ namespace cinn {
 namespace optim {
 
 // Try to change the type of longlong to int in the expr.
-void TryNarrowLonglong2Int(Expr* expr);
+void TryCastLonglong2Int(Expr* expr);
 }  // namespace optim
 }  // namespace cinn
