@@ -1054,9 +1054,11 @@ def clone_graph(
                 value_map, paddle.pir.CloneOptions(False, True, True)
             )
             first_backward_use_op = get_first_backward_use_op(op, backward_ops)
-            if first_backward_use_op.has_attr(
-                'op_role'
-            ) and first_backward_use_op.has_attr('chunk_id'):
+            if (
+                first_backward_use_op is not None
+                and first_backward_use_op.has_attr('op_role')
+                and first_backward_use_op.has_attr('chunk_id')
+            ):
                 new_op.set_int_attr("op_role", first_backward_use_op.op_role)
                 new_op.set_int_attr("chunk_id", first_backward_use_op.chunk_id)
             cloned_ops.append(new_op)
