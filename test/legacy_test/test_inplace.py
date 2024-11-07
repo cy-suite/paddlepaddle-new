@@ -1527,6 +1527,17 @@ class TestDygraphInplacBitwisNot(TestDygraphInplacBitwiseAnd):
         pass
 
 
+class TestDygraphInplacBitwiseInvert(TestDygraphInplacBitwiseAnd):
+    def inplace_api_processing(self, var):
+        return paddle.bitwise_invert_(var)
+
+    def non_inplace_api_processing(self, var):
+        return paddle.bitwise_invert(var)
+
+    def test_broadcast_error(self):
+        pass
+
+
 class TestDygraphInplaceDivide(TestDygraphInplace):
     def init_data(self):
         self.input_var_numpy = np.random.uniform(-5, 5, [10, 20, 1])
