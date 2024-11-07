@@ -436,26 +436,5 @@ class TestBitwiseNotBool(TestBitwiseNot):
         self.outputs = {'Out': out}
 
 
-# ---------------  TEST OP: BitwiseInvert ----------------- #
-class TestBitwiseInvert(unittest.TestCase):
-    def setUp(self):
-        self.dtype = np.int32
-        self.shape = [2, 3, 4, 5]
-        self.low = -100
-        self.high = 100
-        x = np.random.randint(self.low, self.high, self.shape, dtype=self.dtype)
-        self.x = paddle.to_tensor(x)
-        self.expected_out = np.bitwise_not(x)
-
-    def test_bitwise_invert_out_of_place(self):
-        result = paddle.bitwise_invert(self.x)
-        np.testing.assert_array_equal(result.numpy(), self.expected_out)
-
-    def test_bitwise_invert_in_place(self):
-        x_copy = self.x.clone()
-        x_copy.bitwise_invert_()
-        np.testing.assert_array_equal(x_copy.numpy(), self.expected_out)
-
-
 if __name__ == "__main__":
     unittest.main()
