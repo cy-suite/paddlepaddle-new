@@ -1092,14 +1092,14 @@ class _ShardOptimizer(Optimizer):
         # so no additional sharding configuration is needed.
         if self._sharding_degree is None and all_params_replicated_on_each_mesh:
             global_mesh = fleet.auto.get_mesh()
-            if self._shard_fn.axis in global_mesh.dim_names:
+            if self._shard_fn._shard_dim_name in global_mesh.dim_names:
                 self._sharding_degree = global_mesh.get_dim_size(
-                    self._shard_fn.axis
+                    self._shard_fn._shard_dim_name
                 )
                 self._sharding_mesh_axis = 0
             else:
                 raise ValueError(
-                    f"The sharding dimension {self._shard_fn.axis} is not found in the global mesh. Please check and set the sharding dimension name correctly."
+                    f"The sharding dimension {self._shard_fn._shard_dim_name} is not found in the global mesh. Please check and set the sharding dimension name correctly."
                 )
 
         assert (
@@ -1304,9 +1304,10 @@ class _ShardOptimizer(Optimizer):
 
 
 class _ShardingStageBase:
-    def __init__(self, mesh, axis):
+    def __init__(self, mesh, shard_dim_name):
         self._mesh = mesh
-        self._sharding_mesh_axis = axis
+        self._sharding_mesh_axis = None
+        self._shard_dim_name = shard_dim_name
 
     def _set_sharding_mesh_axis(self, sharding_mesh_axis):
         self._sharding_mesh_axis = sharding_mesh_axis
@@ -1349,7 +1350,7 @@ class ShardingStage1(_ShardingStageBase):
 
     Args:
         mesh(None|paddle.distributed.ProcessMesh): If mesh is not None, the `ProcessMesh` object describes the Cartesian topology of the used processes for dense type parameters. Note: Currently, only one mesh configuration is supported for all dense parameters. If there is a need for multiple mesh configurations, please configure them yourself in the upper layer networking code.
-        axis(None|str): The sharding dimension name in the mesh.
+        shard_dim_name(None|str): The sharding dimension name in the mesh.
 
     Examples:
         .. code-block:: python
@@ -1383,9 +1384,9 @@ class ShardingStage1(_ShardingStageBase):
     """
 
     def __init__(
-        self, mesh: ProcessMesh | None = None, axis: str | None = None
+        self, mesh: ProcessMesh | None = None, shard_dim_name: str | None = None
     ) -> None:
-        super().__init__(mesh, axis)
+        super().__init__(mesh, shard_dim_name)
 
     def __call__(self, key: str, param: Tensor, accumulator: Tensor) -> Tensor:
         if param.is_dist():
@@ -1439,7 +1440,7 @@ class ShardingStage2(_ShardingStageBase):
 
     Args:
         mesh(None|paddle.distributed.ProcessMesh): If mesh is not None, the `ProcessMesh` object describes the Cartesian topology of the used processes for dense type parameters. Note: Currently, only one mesh configuration is supported for all dense parameters. If there is a need for multiple mesh configurations, please configure them yourself in the upper layer networking code.
-        axis(None|str): The sharding dimension name in the mesh.
+        shard_dim_name(None|str): The sharding dimension name in the mesh.
 
     Examples:
         .. code-block:: python
@@ -1473,9 +1474,9 @@ class ShardingStage2(_ShardingStageBase):
     """
 
     def __init__(
-        self, mesh: ProcessMesh | None = None, axis: str | None = None
+        self, mesh: ProcessMesh | None = None, shard_dim_name: str | None = None
     ) -> None:
-        super().__init__(mesh, axis)
+        super().__init__(mesh, shard_dim_name)
 
     def __call__(self, key: str, param: Tensor, accumulator: Tensor) -> Tensor:
         if param.is_dist():
@@ -1553,7 +1554,7 @@ class ShardingStage3(_ShardingStageBase):
 
     Args:
         mesh(None|paddle.distributed.ProcessMesh): If mesh is not None, the `ProcessMesh` object describes the Cartesian topology of the used processes for dense type parameters. Note: Currently, only one mesh configuration is supported for all dense parameters. If there is a need for multiple mesh configurations, please configure them yourself in the upper layer networking code.
-        axis(None|str): The sharding dimension name in the mesh.
+        shard_dim_name(None|str): The sharding dimension name in the mesh.
 
     Examples:
         .. code-block:: python
@@ -1587,9 +1588,9 @@ class ShardingStage3(_ShardingStageBase):
     """
 
     def __init__(
-        self, mesh: ProcessMesh | None = None, axis: str | None = None
+        self, mesh: ProcessMesh | None = None, shard_dim_name: str | None = None
     ) -> None:
-        super().__init__(mesh, axis)
+        super().__init__(mesh, shard_dim_name)
 
     def _shard_parameter(self, param):
         if param.is_dense() and self._mesh is not None:
