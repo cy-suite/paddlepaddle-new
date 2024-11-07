@@ -6273,12 +6273,6 @@ def masked_fill(
     """
     Fills elements of self tensor with value where mask is True. The shape of mask must be broadcastable with the shape of the underlying tensor.
 
-    The following figure shows an example: suppose we have a 3x3 matrix x with all elements having value 1 and a matrix Mask of the same size with Value 3.
-
-    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/masked_fill.png
-       :width: 700
-       :align: center
-
     Args:
         x (Tensor) : The Destination Tensor. Supported data types are float,
             double, int, int64_t,float16 and bfloat16.
