@@ -14,7 +14,7 @@
 
 #include "paddle/fluid/pir/transforms/gpu/fused_gemm_epilogue_pass.h"
 
-#include "paddle/cinn/hlir/dialect/operator/transforms/group_merge/op_with_group_merge_util.h"
+#include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/infer_sym_utils.h"
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 #include "paddle/fluid/pir/drr/include/drr_pattern_base.h"
 #include "paddle/fluid/pir/utils/general_functions.h"
@@ -165,7 +165,8 @@ class FusedLinearGradSinglePattern
                                   .defining_op()
                                   ->dyn_cast<paddle::dialect::FullIntArrayOp>();
           const std::vector<int64_t> axis =
-              cinn::dialect::ir::GetVectorAttr<int64_t>(axis_full_op, "value");
+              paddle::dialect::details::GetVectorAttr<int64_t>(axis_full_op,
+                                                               "value");
 
           std::set<int64_t> reduce_set;
           for (auto d : axis) {
