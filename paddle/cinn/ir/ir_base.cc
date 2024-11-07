@@ -378,6 +378,13 @@ void IrNode::convert_int64_to_int32() {
                             "Current only support convert int64_t "
                             "to int32_t, but get type is: %s",
                             type_));
+
+  if (node_type() == IrNodeTy::IntImm) {
+    auto *int_imm = static_cast<IntImm *>(this);
+    if (int_imm->value >= INT_MAX) return;
+    int_imm->value = int32_t(int_imm->value);
+  }
+
   type_ = Int(32);
   for (Expr &operand : operands) {
     operand->convert_int64_to_int32();
