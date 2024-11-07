@@ -216,8 +216,7 @@ class TestResnet(unittest.TestCase):
     def test_prim(self):
         dy2st_prim = train(to_static=True, enable_prim=True, enable_cinn=False)
         standard_prim = DY2ST_PRIM_GT
-        np.set_printoptions(precision=10)
-        print(dy2st_prim)
+
         if paddle.version.cuda() == "12.0":
             standard_prim = DY2ST_PRIM_GT_CUDA12
         np.testing.assert_allclose(dy2st_prim, standard_prim, rtol=1e-5)
