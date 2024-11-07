@@ -146,7 +146,6 @@ class FusedLinearGradSinglePattern
       }
       if (auto sum_op = user_it->owner()->dyn_cast<paddle::dialect::SumOp>()) {
         sum_input = sum_op->operand_source(0);
-
         int64_t input_rank = -1;
         if (sum_input.type() &&
             sum_input.type().isa<paddle::dialect::DenseTensorType>()) {
