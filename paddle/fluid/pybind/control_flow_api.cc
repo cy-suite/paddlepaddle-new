@@ -403,14 +403,7 @@ std::vector<Value> PyWhileOp::OptimizeUpdate() {
   body_block.pop_back();
   builder.SetInsertionPointToBlockEnd(&body_block);
   builder.Build<YieldOp>(new_yield_val);
-  VLOG(9) << "original yield_op operand size " << yield_op->num_operands();
-  VLOG(9) << "new_yield_val operand size " << new_yield_val.size();
-  VLOG(9) << "Before verify";
   operation_->Verify();
-  VLOG(9) << "After verify";
-  VLOG(9) << "operand_num: " << operand_num;
-  VLOG(9) << "extra_inputs_.size(): " << extra_inputs_.size();
-  VLOG(9) << "num_results: " << num_results();
   for (size_t result_index = 0;
        result_index < num_results() - extra_inputs_.size();
        ++result_index) {
