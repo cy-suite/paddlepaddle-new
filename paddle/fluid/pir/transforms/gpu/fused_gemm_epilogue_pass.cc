@@ -175,7 +175,7 @@ class FusedLinearGradSinglePattern
             }
             reduce_set.insert(d);
           }
-          if ((reduce_set.size() == input_rank - 1) &&
+          if ((reduce_set.size() == static_cast<size_t>(input_rank - 1)) &&
               (!reduce_set.count(input_rank - 1))) {
             can_fuse_sum = true;
           }
