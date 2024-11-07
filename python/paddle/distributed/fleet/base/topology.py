@@ -251,11 +251,6 @@ class HybridCommunicateGroup:
                 ["pipe", "model"]
             )
 
-        (
-            self.sharding_check_group,
-            self.sharding_check_comm_group,
-        ) = self._set_check_group("sharding")
-
         # create p2p group
         self.is_first_stage = self.stage_id == 0
         self.is_last_stage = self.stage_id == (self._pp_degree - 1)
