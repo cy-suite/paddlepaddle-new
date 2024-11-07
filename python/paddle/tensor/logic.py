@@ -1453,6 +1453,16 @@ def bitwise_invert(
     return bitwise_not(x, out=out, name=name)
 
 
+@inplace_apis_in_dygraph_only
+def bitwise_invert_(x: Tensor, name: str | None = None) -> Tensor:
+    r"""
+    Inplace version of ``bitwise_invert`` API, the output Tensor will be inplaced with input ``x``.
+    Please refer to :ref:`api_paddle_bitwise_invert_`.
+    """
+    # Directly call bitwise_not_ for the implementation
+    return bitwise_not_(x, name=name)
+
+
 def isclose(
     x: Tensor,
     y: Tensor,
