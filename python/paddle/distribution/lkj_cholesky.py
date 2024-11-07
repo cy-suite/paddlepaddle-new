@@ -120,6 +120,7 @@ def tril_matrix_to_vec(mat: Tensor, diag: int = 0) -> Tensor:
     out_shape += (vec_len,)
 
     # Use the mask to index the lower triangular elements from the input matrix
+    tril_mask = paddle.broadcast_to(tril_mask, mat.shape)
     vec = paddle.masked_select(mat, tril_mask).reshape(out_shape)
     return vec
 
