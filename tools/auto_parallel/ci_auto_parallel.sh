@@ -89,6 +89,36 @@ else
 fi
 }
 
+function track_case_status() {
+    local case_name="$1"
+    local prefix="$2"
+    local original_path
+
+    original_path=$(pwd)
+    cd ${log_path} || { echo "Failed to enter log_path: $log_path"; return 1; }
+
+    total_count=$(ls -1 "$prefix"* 2>/dev/null | wc -l)
+    run_fail_count=$(ls -1 "$prefix"*_FAIL* 2>/dev/null | wc -l)
+    loss_fail_count=$(grep 'check failed! ' result.log | awk -v prefix="$prefix" '{if ($2 ~ "^" prefix) print $2}'| wc -l)
+
+    echo -e "\033[31m ---- $case_name total tests :  $total_count \033"
+    if [ $run_fail_count -eq 0 ] && [ $loss_fail_count  -eq 0 ]; then
+        echo -e "\033[32m ---- all cases Success  \033"
+    else
+        if [[ $run_fail_count -ne 0 ]] ; then
+            echo -e "\033[31m ---- $case_name runtime failed test  :  $run_fail_count \033"
+            ls -1 "$prefix"*_FAIL* 2>/dev/null | awk -v OFS="\t" '{print "\t" $0 "(failed)"}'
+        fi
+        if [[ $loss_fail_count -ne 0 ]] ; then
+            echo -e "\033[31m ---- $case_name verification failed test  :  $loss_fail_count \033"
+            grep 'check failed! ' result.log | awk -v prefix="$prefix" 'BEGIN {OFS="\t"} {if ($2 ~ "^" prefix) print "\t" $2 "(failed)"}'
+        fi
+        return 2
+    fi
+    cd "$original_path" || { echo "Failed to return to original path: $original_path"; return 1; }
+    return 0
+}
+
 # Get the list of pending cases
 get_diff_TO_case
 # Remove duplicates and store the results back to the original list
@@ -141,17 +171,9 @@ if [[ ${#case_list[*]} -ne 0 ]];then
         fi
     done
     echo -e "\033[31m ---- end run case  \033"
-    cd ${log_path}
-    if [ ! -f *FAIL* ];then
-        FF=0
-        EXCODE=0
-        echo -e "\033[32m ---- all case Success \033"
-    else
-        FF=`ls *FAIL*|wc -l`
-        EXCODE=2
-        echo -e "\033[31m ---- case Failed number: ${FF} \033"
-        ls *_FAIL*
-    fi
+
+    track_case_status  $FUNCNAME ""
+    EXCODE=$?
 else
     echo -e "\033[32m Changed Not CI case, Skips \033"
     EXCODE=0
