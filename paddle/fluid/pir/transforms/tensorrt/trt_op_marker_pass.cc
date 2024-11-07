@@ -187,7 +187,8 @@ class ElementwiseCommonOpPattern : public pir::OpRewritePattern<OpType> {
         VLOG(3) << "elementwise_sub do not support boolean datatype.";
       } else if constexpr (std::is_same_v<OpType, paddle::dialect::DivideOp>) {
         VLOG(3) << "elementwise_div do not support boolean datatype.";
-      } else if constexpr (std::is_same_v<OpType, paddle::dialect::ElementwisePowOp>) {
+      } else if constexpr (std::is_same_v<OpType,  // NOLINT
+                                          paddle::dialect::ElementwisePowOp>) {
         VLOG(3) << "elementwise_pow do not support boolean datatype.";
       } else if constexpr (std::is_same_v<OpType, paddle::dialect::MinimumOp>) {
         VLOG(3) << "elementwise_min do not support boolean datatype.";
