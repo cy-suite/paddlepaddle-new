@@ -623,7 +623,7 @@ class TestTensorAxis(unittest.TestCase):
 
                 self.assertEqual(
                     len(load_program.global_block().ops),
-                    11,
+                    9,
                 )
                 print(load_program)
                 self.assertEqual(
