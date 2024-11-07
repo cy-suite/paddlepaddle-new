@@ -863,8 +863,6 @@ def while_loop(cond, body, loop_vars, is_test=False, name=None):
             if not isinstance(next_vars, (list, tuple)):
                 next_vars = [next_vars]
 
-            assert len(next_vars) == len(loop_vars)
-
             def infer_loop_vars_type_with_next_vars(loop_vars, next_vars):
                 def infer_loop_var_type_with_next_var(loop_var, next_var):
                     if is_sequence(loop_var):
@@ -888,6 +886,25 @@ def while_loop(cond, body, loop_vars, is_test=False, name=None):
                         infer_loop_var_type_with_next_var(loop_var, next_var)
                     )
                 return new_loop_vars
+
+            try:
+                assert_same_structure(
+                    loop_vars,
+                    next_vars,
+                    check_types=False,
+                    skip_if=lambda x: (
+                        isinstance(x, LoopVar)
+                        and isinstance(
+                            x.curr_var, paddle.jit.dy2static.utils.UndefinedVar
+                        )
+                    )
+                    or (isinstance(x, paddle.jit.dy2static.utils.UndefinedVar)),
+                )
+            except ValueError as e:
+                raise ValueError(
+                    "body in while_loop should return the same arity "
+                    f"(length and structure) as loop_vars: {e}"
+                )
 
             loop_vars = infer_loop_vars_type_with_next_vars(
                 loop_vars, next_vars
