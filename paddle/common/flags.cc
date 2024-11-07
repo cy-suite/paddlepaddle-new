@@ -1668,9 +1668,6 @@ PHI_DEFINE_EXPORTED_int32(
 
 PHI_DEFINE_EXPORTED_bool(print_ir, false, "Whether print ir debug str.");
 
-PHI_DEFINE_EXPORTED_bool(pir_debug,
-                         false,
-                         "Whether print more pir debug info.");
 PHI_DEFINE_EXPORTED_bool(
     prim_skip_dynamic,
     true,
@@ -1689,6 +1686,14 @@ PHI_DEFINE_EXPORTED_bool(prim_check_ops,
 // `relu` and `mean` two ops in decompsition.
 PHI_DEFINE_EXPORTED_string(
     prim_forward_blacklist,
+    "",
+    "It controls the forward blacklist ops not to be decomposed.");
+
+// PIR and prim related FLAG
+// Example: If prim_backward_blacklist="relu_grad;mean_grad",
+// it will block the decompsitions of `relu` and `mean` backward grads.
+PHI_DEFINE_EXPORTED_string(
+    prim_backward_blacklist,
     "",
     "It controls the forward blacklist ops not to be decomposed.");
 
