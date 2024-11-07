@@ -20,8 +20,7 @@ bool InferSymbolicShapeElementWiseBinary(
     pir::InferSymbolicShapeContext *infer_context,
     const std::function<symbol::DimExpr(const symbol::DimExpr &,
                                         const symbol::DimExpr &)>
-        &DataComputeFunc = nullptr,
-    bool check_one_or_zero_dim_data = false) {
+        &DataComputeFunc = nullptr) {
   const auto &x_shape =
       infer_context->GetShapeOrDataForValue(op->operand_source(0));
   std::vector<symbol::DimExpr> shape_0 = x_shape.shape();
@@ -80,34 +79,13 @@ bool InferSymbolicShapeElementWiseBinary(
                           x_shape.data()->size(),
                           y_shape.data()->size()));
     std::vector<symbol::DimExpr> out_data;
-    if (check_one_or_zero_dim_data) {
-      symbol::DimExpr Unexcept_data = symbol::DimExpr{"Unexcepted"};
-      bool return_flag = true;
-      for (size_t i = 0; i < x_shape.data()->size(); ++i) {
-        symbol::DimExpr data_i =
-            DataComputeFunc(x_shape.data()->at(i), y_shape.data()->at(i));
-        out_data.emplace_back(data_i);
-        if (data_i == Unexcept_data) {
-          return_flag = false;
-          break;
-        }
-      }
-      if (return_flag) {
-        infer_context->SetShapeOrDataForValue(
-            op->result(0), symbol::TensorShapeOrDataDimExprs(shapes, out_data));
-      } else {
-        infer_context->SetShapeOrDataForValue(
-            op->result(0), symbol::TensorShapeOrDataDimExprs(shapes));
-      }
-    } else {
-      for (size_t i = 0; i < x_shape.data()->size(); ++i) {
-        out_data.emplace_back(
-            DataComputeFunc(x_shape.data()->at(i), y_shape.data()->at(i)));
-      }
-      symbol::ShapeOrDataDimExprs shape_data{
-          symbol::TensorShapeOrDataDimExprs(shapes, out_data)};
-      infer_context->SetShapeOrDataForValue(op->result(0), shape_data);
+    for (size_t i = 0; i < x_shape.data()->size(); ++i) {
+      out_data.emplace_back(
+          DataComputeFunc(x_shape.data()->at(i), y_shape.data()->at(i)));
     }
+    symbol::ShapeOrDataDimExprs shape_data{
+        symbol::TensorShapeOrDataDimExprs(shapes, out_data)};
+    infer_context->SetShapeOrDataForValue(op->result(0), shape_data);
   } else {
     symbol::ShapeOrDataDimExprs shape_data{
         symbol::TensorShapeOrDataDimExprs(shapes)};
@@ -162,13 +140,11 @@ bool FloorDivideOpInferSymbolicShape(
       op,
       infer_context,
       [&](const symbol::DimExpr &x, const symbol::DimExpr &y) {
-        if (x.isa<symbol::Negative<symbol::DimExpr>>() ||
-            y.isa<symbol::Negative<symbol::DimExpr>>()) {
-          return symbol::DimExpr{"Unexcepted"};
-        }
+        // Note: The floor_divide operation in Paddle rounds the quotients
+        // towards negative infinity. This is different from the standard
+        // division in C++, so rounding errors may occur.
         return x / y;
-      },
-      true);
+      });
 }
 
 OP_ELEMENT_WISE_BINARY(Add_)
