@@ -211,6 +211,10 @@ class ReduceAsOpPattern
       }
       *keep_dim = (new_shape != y_shape);
 
+      if (!(*keep_dim)) {
+        output_dims->swap(new_shape);
+      }
+
       return can_replace_with_sum;
     }
   }
@@ -223,6 +227,7 @@ pir::RewritePatternSet ReduceAsToSumPass::InitializePatterns(
     pir::IrContext *context) {
   pir::RewritePatternSet ps(context);
   ps.Add<ReduceAsOpPattern>(context);
+  ps.Add<RefreshCombineOpPattern>(context);
 
   return ps;
 }
