@@ -1428,10 +1428,6 @@ def bitwise_invert(
 
     Note:
         ``paddle.bitwise_invert`` is functionally equivalent to ``paddle.bitwise_not``.
-        It supports broadcasting, and you can refer to `Introduction to Tensor`_
-        for more information on broadcasting.
-
-        .. _Introduction to Tensor: ../../guides/beginner/tensor_en.html#chapter5-broadcasting-of-tensor
 
     Args:
         x (Tensor): Input Tensor of ``bitwise_invert``. It is a N-D Tensor of bool, uint8, int8, int16, int32, int64.
