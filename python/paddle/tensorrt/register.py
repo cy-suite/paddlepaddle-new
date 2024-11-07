@@ -36,14 +36,12 @@ class ConverterOpRegistry:
 
     def _version_match(self, trt_version, version_range):
         def _normalize_version(version):
-            """Normalize version string to a tuple of three parts."""
             parts = version.split('.')
             while len(parts) < 3:
                 parts.append('0')
             return tuple(map(int, parts))
 
         def _compare_versions(trt_version_tuple, ref_version_tuple, comparator):
-            """Compare TRT version tuple with reference version tuple."""
             if comparator == 'ge':
                 return trt_version_tuple >= ref_version_tuple
             elif comparator == 'le':
@@ -65,7 +63,7 @@ class ConverterOpRegistry:
             major_version = int(version_range.split('.')[0])
             return trt_version_tuple[0] == major_version
 
-        return False  # If version_range doesn't match the expected formats
+        return False
 
 
 converter_registry = ConverterOpRegistry()
