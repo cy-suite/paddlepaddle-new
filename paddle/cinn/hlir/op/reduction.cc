@@ -32,8 +32,6 @@
 
 PD_DECLARE_bool(cinn_enable_map_expr);
 
-PD_DECLARE_bool(cinn_new_group_scheduler);
-
 PD_DECLARE_bool(cinn_bucket_compile);
 
 namespace cinn {
@@ -191,39 +189,11 @@ std::shared_ptr<OpStrategy> StrategyForReduce(
       std::vector<CINNValue> cinn_values{CINNValue(out)};
       *ret = CINNValuePack{cinn_values};
     };
-    auto reductionComputeNvHygon = [&] {
-      if (!FLAGS_cinn_enable_map_expr && !FLAGS_cinn_new_group_scheduler) {
-        if (!WithoutLastDimInReduce(inputs[0]->shape, reduce_axes)) {
-          VLOG(3) << "Do Two Step Block Reduce Compute!";
-          auto res = gpu_reduce_with_last_axis_func(
-              x, reduce_axes, keepdim, tensor_name);
-
-          std::vector<CINNValue> cinn_values;
-          for (auto &t : res) {
-            cinn_values.emplace_back(t);
-          }
-          *ret = CINNValuePack{cinn_values};
-        } else {
-          VLOG(3) << "Do Block Shuffle Reduce Compute!";
-          auto res = gpu_reduce_without_last_axis_func(
-              x, reduce_axes, keepdim, tensor_name);
-
-          std::vector<CINNValue> cinn_values;
-          for (auto &t : res) {
-            cinn_values.emplace_back(t);
-          }
-          *ret = CINNValuePack{cinn_values};
-        }
-      } else {
-        NaiveCompute();
-      }
-    };
-    target.arch.Match(
-        [&](common::NVGPUArch) { reductionComputeNvHygon(); },
-        [&](std::variant<common::UnknownArch,
-                         common::X86Arch,
-                         common::ARMArch>) { NaiveCompute(); },
-        [&](common::HygonDCUArchHIP) { reductionComputeNvHygon(); });
+    target.arch.Match([&](common::NVGPUArch) { NaiveCompute(); },
+                      [&](std::variant<common::UnknownArch,
+                                       common::X86Arch,
+                                       common::ARMArch>) { NaiveCompute(); },
+                      [&](common::HygonDCUArchHIP) { NaiveCompute(); });
   });
 
   framework::CINNSchedule reduction_schedule([=](lang::Args args,
@@ -404,22 +374,14 @@ std::shared_ptr<OpStrategy> StrategyForReduce(
                         *ret = CINNValuePack{res};
                       },
                       [&](common::NVGPUArch) {
-                        if (!FLAGS_cinn_new_group_scheduler) {
-                          ReduceSchedule();
-                        } else {
-                          std::vector<CINNValue> res{
-                              CINNValue(ir_sch.GetModule().GetExprs().at(0))};
-                          *ret = CINNValuePack{res};
-                        }
+                        std::vector<CINNValue> res{
+                            CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+                        *ret = CINNValuePack{res};
                       },
                       [&](common::HygonDCUArchHIP) {
-                        if (!FLAGS_cinn_new_group_scheduler) {
-                          ReduceSchedule();
-                        } else {
-                          std::vector<CINNValue> res{
-                              CINNValue(ir_sch.GetModule().GetExprs().at(0))};
-                          *ret = CINNValuePack{res};
-                        }
+                        std::vector<CINNValue> res{
+                            CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+                        *ret = CINNValuePack{res};
                       });
   });
 
