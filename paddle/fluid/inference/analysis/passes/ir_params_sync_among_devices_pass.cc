@@ -75,34 +75,70 @@ void IrParamsSyncAmongDevicesPass::CopyParamsToGpu(Argument *argument) {
   }
 
   std::unordered_set<std::string> visited;
-  for (auto *node : paddle::framework::ir::TopologySortOperations(graph)) {
-    if (!node->IsOp()) continue;
-    if (node->Op()->Type() == "feed" || node->Op()->Type() == "fetch") continue;
-    for (auto *var_node : node->inputs) {
-      if (!var_node->Var()->Persistable()) continue;
-      auto var_name = var_node->Var()->Name();
-      if (std::count(
-              repetitive_params.begin(), repetitive_params.end(), var_name)) {
-        if (!reserve_cpu_weights) {
-          scope->EraseVars({var_name});
+  std::mutex visitedMutex;
+  auto *nodes = paddle::framework::ir::TopologySortOperations(graph)
+  size_t num_threads = std::thread::hardware_concurrency();
+  size_t chunk_size = 
+    std::max(static_cast<size_t>(1), nodes.size() / num_threads);
+  num_threads = std::min(num_threads, nodes.size() / chunk_size);
+  size_t remains_size = nodes.size() % num_threads;
+
+  auto sync_nodes = [&](const std::vector<paddle::framework::ir::Node*>& nodes){
+    for (auto *node : nodes) {
+      if (!node->IsOp()) continue;
+      if (node->Op()->Type() == "feed" || node->Op()->Type() == "fetch") continue;
+      for (auto *var_node : node->inputs) {
+        if (!var_node->Var()->Persistable()) continue;
+        auto var_name = var_node->Var()->Name();
+        if (std::count(
+                repetitive_params.begin(), repetitive_params.end(), var_name)) {
+          if (!reserve_cpu_weights) {
+            scope->EraseVars({var_name});
+          }
+          continue;
         }
-        continue;
-      }
-      if (visited.count(var_name)) continue;
-      visited.insert(var_name);
-      auto *var = scope->FindLocalVar(var_name);
-      PADDLE_ENFORCE_NOT_NULL(
-          var,
-          common::errors::PreconditionNotMet("The var should not be nullptr"));
-      if (var->IsType<phi::DenseTensor>()) {
-        auto *t = var->GetMutable<phi::DenseTensor>();
-        auto var_data_type = var_node->Var()->GetDataType();
-        VLOG(5) << "var_name is " << var_name << ", data type is "
-                << var_data_type;
-        paddle::framework::TensorCopySync(*t, place, t);
+
+        {
+          std::lock_guard<std::mutex> lock(visitedMutex);
+          if (visited.count(var_name)) continue;
+          visited.insert(var_name);
+        }
+
+        auto *var = scope->FindLocalVar(var_name);
+        PADDLE_ENFORCE_NOT_NULL(
+            var,
+            common::errors::PreconditionNotMet("The var should not be nullptr"));
+        if (var->IsType<phi::DenseTensor>()) {
+          auto *t = var->GetMutable<phi::DenseTensor>();
+          auto var_data_type = var_node->Var()->GetDataType();
+          VLOG(5) << "var_name is " << var_name << ", data type is "
+                  << var_data_type;
+          paddle::framework::TensorCopySync(*t, place, t);
+        }
       }
     }
+  };
+
+  std::vector<std::future<void>> futures;
+  for (size_t i = 0; i < num_threads; ++i) {
+    auto start_it = nodes.begin() + i * chunk_size;
+    auto end_it = start_it + chunk_size;
+    futures.push_back(std::async(std::launch::async, sync_nodes,
+      std::vector<paddle::framework::ir::Node*>(start_it, end_it)));
   }
+  if (remains_size > 0) {
+    futures.push_back(
+        std::async(std::launch::async,
+                   sync_nodes,
+                   std::vector<paddle::framework::ir::Node*>(
+                       nodes.rbegin(),
+                       nodes.rbegin() + remains_size)));
+  }
+
+  for (auto& future : futures) {
+    future.get();
+  }
+
 }
 #endif
 
