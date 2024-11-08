@@ -135,7 +135,18 @@ std::set<phi::DataType> _complex_dtypes{
 //     '__truediv__',
 //     '__rdiv__',
 //     '__rtruediv__',
+//     '__floordiv__',
+//     '__pow__',
+//     '__rpow__',
+//     '__mod__',
+//     '__rmod__',
 //     '__matmul__',
+//     '__gt__',
+//     '__ge__',
+//     '__lt__',
+//     '__le__',
+//     '__eq__',
+//     '__ne__'
 
 void SetDevice(phi::Place place) {
   if (phi::is_gpu_place(place)) {
