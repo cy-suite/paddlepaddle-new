@@ -151,7 +151,7 @@ class LlamaDecoderLayer(nn.Layer):
 
 
 class LlamaModel(nn.Layer):
-    def __init__(self, config):
+    def __init__(self, config, position_embedding=False):
         super().__init__()
         self.config = config
         self.vocab_size = self.config.vocab_size
@@ -160,6 +160,15 @@ class LlamaModel(nn.Layer):
         self.embed_tokens = nn.Embedding(
             self.vocab_size,
             self.hidden_size,
+        )
+
+        self.position_embedding = (
+            nn.Embedding(
+                self.vocab_size,
+                self.hidden_size,
+            )
+            if position_embedding
+            else None
         )
 
         decoder_layers = []
@@ -171,6 +180,12 @@ class LlamaModel(nn.Layer):
 
     def forward(self, input_ids):
         hidden_states = self.embed_tokens(input_ids)
+        if self.position_embedding is not None:
+            ones = paddle.ones(input_ids.shape, dtype="int64")
+            seq_length = paddle.cumsum(ones, axis=-1)
+            position_ids = seq_length - ones
+            position_embeddings = self.position_embedding(position_ids)
+            hidden_states = hidden_states + position_embeddings
 
         for idx, (decoder_layer) in enumerate(self.layers):
             hidden_states = decoder_layer(hidden_states)
@@ -232,11 +247,11 @@ class LlamaPretrainingCriterion(paddle.nn.Layer):
 class LlamaForCausalLM(nn.Layer):
     enable_to_static_method = True
 
-    def __init__(self, config, share_embedding=False):
+    def __init__(self, config, share_embedding=False, position_embedding=False):
         super().__init__()
         self.config = config
 
-        self.llama = LlamaModel(self.config)
+        self.llama = LlamaModel(self.config, position_embedding)
         if share_embedding:
             self.lm_head = LlamaLMHead(
                 self.config, self.llama.embed_tokens.weight

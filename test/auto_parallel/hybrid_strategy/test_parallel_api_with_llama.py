@@ -40,6 +40,12 @@ class TestTensorParallelAPI(test_base.CommunicationTestDistBase):
             "amp_master_grad": ["true"],
             "use_lazy_init": ["true", "false"],
             "sequence_parallel": ["true", "false"],
+            "test_share_embedding": [
+                "0",
+            ],
+            "test_position_embedding": [
+                "0",
+            ],
         }
 
     def test_simple_net_mp2(self):
@@ -80,6 +86,12 @@ class TestShardingParallelAPI(test_base.CommunicationTestDistBase):
             "sharding_stage": [
                 "1",
             ],
+            "test_share_embedding": [
+                "1",
+            ],
+            "test_position_embedding": [
+                "1",
+            ],
         }
 
     def test_simple_net_dp2(self):
@@ -116,6 +128,12 @@ class TestPipelineParallelAPI(test_base.CommunicationTestDistBase):
             ],
             "amp_master_grad": [
                 "False",
+            ],
+            "test_share_embedding": [
+                "0",
+            ],
+            "test_position_embedding": [
+                "0",
             ],
         }
 
