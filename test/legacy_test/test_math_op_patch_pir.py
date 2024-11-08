@@ -700,6 +700,8 @@ class TestMathOpPatchesPir(unittest.TestCase):
                     float(x)
                 with self.assertRaises(TypeError):
                     bool(x)
+                with self.assertRaises(TypeError):
+                    complex(x)
 
     def test_math_exists(self):
         with paddle.pir_utils.IrGuard():

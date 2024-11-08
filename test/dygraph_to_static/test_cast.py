@@ -58,6 +58,12 @@ def test_mix_cast(x):
     return x
 
 
+def test_complex_cast(x):
+    x = paddle.to_tensor(x)
+    x = complex(x)
+    return x
+
+
 class TestCastBase(Dy2StTestBase):
     def setUp(self):
         self.place = (
@@ -188,6 +194,21 @@ class TestNotVarCast(TestCastBase):
             res == ref_val,
             msg=f'The casted value is {res}.\nThe correct value is {ref_val}.',
         )
+
+
+class TestComplexCast(TestCastBase):
+    def prepare(self):
+        self.input_shape = (8, 16)
+        self.input_dtype = 'float32'
+        self.input = (
+            np.random.binomial(2, 0.5, size=np.prod(self.input_shape))
+            .reshape(self.input_shape)
+            .astype(self.input_dtype)
+        )
+        self.cast_dtype = 'complex64'
+
+    def set_func(self):
+        self.func = paddle.jit.to_static(full_graph=True)(test_complex_cast)
 
 
 if __name__ == '__main__':
