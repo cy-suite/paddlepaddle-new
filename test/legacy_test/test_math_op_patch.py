@@ -484,7 +484,7 @@ class TestDygraphMathOpPatches(unittest.TestCase):
         tensor_a = paddle.to_tensor(np_a, dtype="int32")
         tensor_b = paddle.to_tensor(np_b, dtype="int32")
         expect_out = np_b // np_a
-        actual_out = tensor_b // np_a
+        actual_out = tensor_b.__rfloordiv__(np_a)
         np.testing.assert_equal(actual_out, expect_out)
         paddle.enable_static()
 
