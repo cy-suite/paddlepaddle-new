@@ -32,6 +32,7 @@ def non_zero_converter(network, paddle_op, inputs):
     return non_zero_layer.get_output(0)
 
 
+@converter_registry.register("pd_op.argmin", trt_version="8.x")
 @converter_registry.register("pd_op.argmax", trt_version="8.x")
 def argmax_converter(network, paddle_op, inputs):
     x = inputs[0]
@@ -49,9 +50,16 @@ def argmax_converter(network, paddle_op, inputs):
     if axis < 0:
         axis += rank
 
-    topk_layer = network.add_topk(
-        input=x, op=trt.TopKOperation.MAX, k=1, axes=(1 << axis)
-    )
+    if paddle_op.name() == "pd_op.argmax":
+        topk_layer = network.add_topk(
+            input=x, op=trt.TopKOperation.MAX, k=1, axes=(1 << axis)
+        )
+    elif paddle_op.name() == "pd_op.argmin":
+        topk_layer = network.add_topk(
+            input=x, op=trt.TopKOperation.MIN, k=1, axes=(1 << axis)
+        )
+    else:
+        raise ValueError(f"Unexpected paddle_op: {paddle_op.name()}")
 
     if keepdims:
         return topk_layer.get_output(1)
@@ -64,6 +72,33 @@ def argmax_converter(network, paddle_op, inputs):
             output_dims.append(input_dims[i])
         squeeze_layer.reshape_dims = tuple(output_dims)
         return squeeze_layer.get_output(0)
+
+
+@converter_registry.register("pd_op.argsort", trt_version="8.x")
+def argsort_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    input_dims = x.shape
+    rank = len(input_dims)
+    axis = paddle_op.attrs()["axis"]
+    descending = paddle_op.attrs()["descending"]
+    if axis < 0:
+        axis += rank
+
+    if descending:
+        topk_layer = network.add_topk(
+            input=x,
+            op=trt.TopKOperation.MAX,
+            k=input_dims[axis],
+            axes=(1 << axis),
+        )
+    else:
+        topk_layer = network.add_topk(
+            input=x,
+            op=trt.TopKOperation.MIN,
+            k=input_dims[axis],
+            axes=(1 << axis),
+        )
+    return topk_layer.get_output(1)
 
 
 @converter_registry.register("pd_op.topk", trt_version="8.x")

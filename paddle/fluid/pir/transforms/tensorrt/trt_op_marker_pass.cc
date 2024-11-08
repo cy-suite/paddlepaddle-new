@@ -1249,6 +1249,78 @@ class ArgmaxOpPattern
   }
 };
 
+class ArgminOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::ArgminOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::ArgminOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::ArgminOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (!op.axis().defining_op()->isa<paddle::dialect::FullOp>()) {
+      VLOG(3) << "Skip to convert into TRT while found axis is not a constant "
+                 "data in arg_max.";
+      return false;
+    }
+    auto x = op.x();
+    auto x_tensor_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto data_type = paddle::dialect::TransToPhiDataType(x_tensor_type.dtype());
+    if (!(data_type == phi::DataType::FLOAT32 ||
+          data_type == phi::DataType::FLOAT16 ||
+          data_type == phi::DataType::FLOAT64)) {
+      return false;
+    }
+    int axis = static_cast<int>(op.axis()
+                                    .defining_op()
+                                    ->attribute<pir::DoubleAttribute>("value")
+                                    .data());
+
+    bool flatten = op.attribute<pir::BoolAttribute>("flatten").data();
+    phi::DataType dtype =
+        op.attribute<paddle::dialect::DataTypeAttribute>("dtype").data();
+    if (axis == 0 || flatten ||
+        (dtype != phi::DataType::INT32 && dtype != phi::DataType::INT64))
+      return false;
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class ArgsortOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::ArgsortOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::ArgsortOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::ArgsortOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (!op->HasAttribute("axis") || !op->HasAttribute("descending")) {
+      VLOG(3) << "pd_op.argsort op needs attributes: descending and axis.";
+      return false;
+    }
+
+    pir::Value input = op.operand_source(0);
+    auto shape =
+        input.type().dyn_cast<paddle::dialect::DenseTensorType>().dims();
+    int axis = op->attribute<pir::Int32Attribute>("axis").data();
+    if (axis < 0) axis += shape.size();
+
+    if (shape[axis] > 3840 || shape[axis] < 0) {
+      VLOG(3) << "pd_op.argsort op shape[" << axis << "] = " << shape[axis]
+              << " is invalid, it should less than 3840 and greater than "
+                 "zero in TensorRT.";
+      return false;
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class BilinearInterpV2Pattern
     : public pir::OpRewritePattern<paddle::dialect::BilinearInterpOp> {
  public:
@@ -1667,6 +1739,8 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<RemainderOpPattern>(context));
     ps.Add(std::make_unique<MulticlassNms3OpPattern>(context));
     ps.Add(std::make_unique<ArgmaxOpPattern>(context));
+    ps.Add(std::make_unique<ArgminOpPattern>(context));
+    ps.Add(std::make_unique<ArgsortOpPattern>(context));
     ps.Add(std::make_unique<MaxOpPattern>(context));
     ps.Add(std::make_unique<MinOpPattern>(context));
     ps.Add(std::make_unique<AllOpPattern>(context));
