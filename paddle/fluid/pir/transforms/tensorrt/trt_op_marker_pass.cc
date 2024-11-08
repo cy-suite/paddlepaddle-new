@@ -1503,31 +1503,6 @@ class WherePattern : public pir::OpRewritePattern<paddle::dialect::WhereOp> {
   }
 };
 
-class WherePattern : public pir::OpRewritePattern<paddle::dialect::WhereOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::WhereOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::WhereOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-    pir::Value x = op.operand_source(1);
-    pir::Value y = op.operand_source(2);
-    if (x == nullptr || y == nullptr) {
-      VLOG(3) << "pd_op.where x or y tensor value is null";
-      return false;
-    }
-#if IS_TRT_VERSION_LT(8400)
-    VLOG(3) << "where is not supported when TensorRT < 8.4";
-    return false;
-#endif
-
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
-
 class EqualOpPattern : public pir::OpRewritePattern<paddle::dialect::EqualOp> {
  public:
   using pir::OpRewritePattern<paddle::dialect::EqualOp>::OpRewritePattern;
