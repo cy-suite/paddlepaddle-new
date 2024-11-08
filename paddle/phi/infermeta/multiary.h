@@ -1216,6 +1216,16 @@ void MultiheadMatmulInferMeta(const MetaTensor& input,
                               const int head_number,
                               MetaTensor* out);
 
+void moe_dispatchInferMeta(
+                    const MetaTensor& X,
+                    const MetaTensor& gating_output,
+                    const int moe_topk,
+                    MetaTensor* out,
+                    MetaTensor* token_nums_per_expert,
+                    MetaTensor* scatter_index,
+                    MetaTensor* expert_scales_float,
+                    MetaTensor* expert_for_source_row_tensor);
+
 void MaskedMultiheadAttentionInferMeta(const MetaTensor& x,
                                        const MetaTensor& cache_kv,
                                        const MetaTensor& bias,
