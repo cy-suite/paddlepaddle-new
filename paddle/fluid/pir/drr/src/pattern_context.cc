@@ -78,84 +78,107 @@ void DrrPatternContext::AddPostProcess(
   post_processes_.emplace_back(post_process_fn);
 }
 
+// Op
+const std::string& Op::name() const {
+  return opimpl_->name();
+}
+
+const std::unordered_map<std::string, Attribute>& Op::attribute() const {
+  return opimpl_->attribute();
+}
+
+const std::unordered_map<std::string, Attribute>& Op::runtime_attribute() const {
+  return opimpl_->runtime_attribute();
+}
+
+const char* Op::prefix() {
+  return OpImpl::prefix();
+}
+
 void Op::operator()(const Tensor& arg, const Tensor* out) const {
-  std::vector<const Tensor*> inputs{&arg};
-  std::vector<const Tensor*> outputs{out};
-  pattern_graph_->AddOpCall(std::make_shared<OpCall>(this, inputs, outputs));
+  opimpl_->operator()(arg, out);
 }
 
 void Op::operator()(const std::vector<const Tensor*>& args,
                     const std::vector<const Tensor*>& outputs) const {
-  pattern_graph_->AddOpCall(std::make_shared<OpCall>(this, args, outputs));
+  opimpl_->operator()(args, outputs);
 }
 
 Tensor& Op::operator()(const Tensor& arg) const {
-  std::vector<const Tensor*> inputs{&arg};
-  auto& out = pattern_graph_->AddTmpTensor(std::shared_ptr<Tensor>(new Tensor(
-      prefix + op_type_name_ + "_" + std::to_string(count++), pattern_graph_)));
-  std::vector<const Tensor*> outputs{&out};
-  pattern_graph_->AddOpCall(std::make_shared<OpCall>(this, inputs, outputs));
-  return out;
+  return opimpl_->operator()(arg);
 }
 
 Tensor& Op::operator()(const Tensor& arg1, const Tensor& arg2) const {
-  std::vector<const Tensor*> inputs{&arg1, &arg2};
-  auto& out = pattern_graph_->AddTmpTensor(std::shared_ptr<Tensor>(new Tensor(
-      prefix + op_type_name_ + "_" + std::to_string(count++), pattern_graph_)));
-  std::vector<const Tensor*> outputs{&out};
-  pattern_graph_->AddOpCall(std::make_shared<OpCall>(this, inputs, outputs));
-  return out;
+  return opimpl_->operator()(arg1, arg2);
 }
 
 Tensor& Op::operator()(const Tensor& arg0,
                        const Tensor& arg1,
                        const Tensor& arg2) const {
-  std::vector<const Tensor*> inputs{&arg0, &arg1, &arg2};
-  auto& out = pattern_graph_->AddTmpTensor(std::shared_ptr<Tensor>(new Tensor(
-      prefix + op_type_name_ + "_" + std::to_string(count++), pattern_graph_)));
-  std::vector<const Tensor*> outputs{&out};
-  pattern_graph_->AddOpCall(std::make_shared<OpCall>(this, inputs, outputs));
-  return out;
+  return opimpl_->operator()(arg0, arg1, arg2);
 }
 
 Tensor& Op::operator()() const {
-  std::vector<const Tensor*> inputs{};
-  auto& out = pattern_graph_->AddTmpTensor(std::shared_ptr<Tensor>(new Tensor(
-      prefix + op_type_name_ + "_" + std::to_string(count++), pattern_graph_)));
-  std::vector<const Tensor*> outputs{&out};
-  pattern_graph_->AddOpCall(std::make_shared<OpCall>(this, inputs, outputs));
-  return out;
+  return opimpl_->operator()();
 }
 
-thread_local int64_t Op::count = 0;
-const char* Op::prefix = "@drr_temp@_";
+// Tensor
+const std::string Tensor::source_input_none_tensor_name() {
+  return TensorImpl::source_input_none_tensor_name();
+}
 
-const char Tensor::SOURCE_INPUT_NONE_TENSOR_NAME[] =  // NOLINT
-    "__@source_input_none_tensor@__";
-const char Tensor::SOURCE_OUTPUT_NONE_TENSOR_NAME[] =  // NOLINT
-    "__@source_output_none_tensor@__";
-const char Tensor::RESULT_INPUT_NONE_TENSOR_NAME[] =  // NOLINT
-    "__@result_input_none_tensor@__";
-const char Tensor::RESULT_OUTPUT_NONE_TENSOR_NAME[] =  // NOLINT
-    "__@result_output_none_tensor@__";
+const std::string Tensor::source_output_none_tensor_name() {
+  return TensorImpl::source_output_none_tensor_name();
+}
+
+const std::string Tensor::result_input_none_tensor_name() {
+  return TensorImpl::result_input_none_tensor_name();
+}
+
+const std::string Tensor::result_output_none_tensor_name() {
+  return TensorImpl::result_output_none_tensor_name();
+}
+
+PatternGraph* Tensor::pattern_graph() const {
+  return pimpl_->pattern_graph();
+}
+
+bool Tensor::is_none() const {
+  return pimpl_->is_none();
+}
 
 void Tensor::Assign(const Tensor& other) {
-  dynamic_cast<ResultPatternGraph*>(pattern_graph_)->AssignTensor(*this, other);
+  pimpl_->Assign(other);
 }
 
 void Tensor::operator=(const Tensor& other) const {  // NOLINT
-  // The two tensor must be in the same pattern graph.
-  PADDLE_ENFORCE_EQ(
-      this->pattern_graph_,
-      other.pattern_graph_,
-      common::errors::InvalidArgument("Matching failed."
-                                      "Two Tensors must be in the same pattern "
-                                      "graph to make the '=' judgment."));
-  if (other.name_.find(Op::prefix) == 0 &&
-      name_.find(Op::prefix) == std::string::npos) {
-    other.pattern_graph_->UpdateTmpTensor(other.name_, this->name_);
-  }
+  pimpl_->operator=(other);
 }
+
+const std::string& Tensor::name() const {
+  return pimpl_->name();
+}
+
+void Tensor::set_name(const std::string& name) {
+  pimpl_->set_name(name);
+}
+
+OpCall* Tensor::producer() const {
+  return pimpl_->producer();
+}
+
+void Tensor::set_producer(OpCall* producer) {
+  return pimpl_->set_producer(producer);
+}
+
+const std::unordered_set<const OpCall*>& Tensor::consumers() const {
+  return pimpl_->consumers();
+}
+
+void Tensor::AddConsumer(const OpCall* consumer) {
+  pimpl_->AddConsumer(consumer);
+}
+// Tensor
 
 const drr::Op& ResultPattern::Op(
     const std::string& op_type,
@@ -169,11 +192,11 @@ drr::Tensor& ResultPattern::Tensor(const std::string& name) {
 }
 
 drr::Tensor& ResultPattern::InputNoneTensor() {
-  return ctx_->ResultTensorPattern(Tensor::RESULT_INPUT_NONE_TENSOR_NAME);
+  return ctx_->ResultTensorPattern(Tensor::result_input_none_tensor_name());
 }
 
 drr::Tensor& ResultPattern::OutputNoneTensor() {
-  return ctx_->ResultTensorPattern(Tensor::RESULT_OUTPUT_NONE_TENSOR_NAME);
+  return ctx_->ResultTensorPattern(Tensor::result_output_none_tensor_name());
 }
 
 Attribute ResultPattern::StrAttr(const std::string& value) const {
@@ -286,11 +309,11 @@ void SourcePattern::AddPostProcess(const PostProcessFunction& post_process_fn) {
 }
 
 drr::Tensor& SourcePattern::InputNoneTensor() {
-  return ctx_->SourceTensorPattern(Tensor::SOURCE_INPUT_NONE_TENSOR_NAME);
+  return ctx_->SourceTensorPattern(Tensor::source_input_none_tensor_name());
 }
 
 drr::Tensor& SourcePattern::OutputNoneTensor() {
-  return ctx_->SourceTensorPattern(Tensor::SOURCE_OUTPUT_NONE_TENSOR_NAME);
+  return ctx_->SourceTensorPattern(Tensor::source_output_none_tensor_name());
 }
 
 }  // namespace paddle::drr

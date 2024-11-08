@@ -31,6 +31,8 @@ namespace paddle {
 namespace drr {
 
 class Op;
+class OpImpl;
+class TensorImpl;
 class Tensor;
 class OpCall;
 class SourcePattern;
@@ -138,9 +140,25 @@ class TEST_API DrrPatternContext {
   std::vector<std::shared_ptr<const drr::Op>> owned_ops_;
 };
 
-class Op {
+
+class OpImpl {
  public:
+
+  OpImpl(Op* op,
+        const std::string& op_type_name,
+        PatternGraph* pattern_graph,
+        const std::unordered_map<std::string, Attribute>& attributes,
+        const std::unordered_map<std::string, Attribute>& runtime_attributes = {})
+        :   op_(op),
+            op_type_name_(op_type_name),
+            pattern_graph_(pattern_graph),
+            attributes_(attributes),
+            runtime_attributes_(runtime_attributes) {}
+
   TEST_API const std::string& name() const { return op_type_name_; }
+  TEST_API const std::unordered_map<std::string, Attribute>& attribute() const {return attributes_; }
+  TEST_API const std::unordered_map<std::string, Attribute>& runtime_attribute() const {return runtime_attributes_; }
+  TEST_API static const char* prefix() { return prefix_; }
 
   TEST_API Tensor& operator()() const;
   TEST_API void operator()(const Tensor& arg, const Tensor* out) const;
@@ -152,72 +170,161 @@ class Op {
   TEST_API void operator()(const std::vector<const Tensor*>& args,
                            const std::vector<const Tensor*>& outputs) const;
 
-  static const char* prefix;
+  static const char* prefix_;
 
  private:
-  Op(const std::string& op_type_name,
-     PatternGraph* pattern_graph,
-     const std::unordered_map<std::string, Attribute>& attributes,
-     const std::unordered_map<std::string, Attribute>& runtime_attributes = {})
-      : op_type_name_(op_type_name),
-        pattern_graph_(pattern_graph),
-        attributes_(attributes),
-        runtime_attributes_(runtime_attributes) {}
-
+  Op* op_;
   std::string op_type_name_;
   PatternGraph* pattern_graph_{nullptr};
   std::unordered_map<std::string, Attribute> attributes_;
   std::unordered_map<std::string, Attribute> runtime_attributes_;
 
   thread_local static int64_t count;
+};
+
+
+class Op {
+ public:
+  TEST_API const std::string& name() const;
+  TEST_API const std::unordered_map<std::string, Attribute>& attribute() const;
+  TEST_API const std::unordered_map<std::string, Attribute>& runtime_attribute() const;
+  TEST_API static const char* prefix();
+
+  TEST_API Tensor& operator()() const;
+  TEST_API void operator()(const Tensor& arg, const Tensor* out) const;
+  TEST_API Tensor& operator()(const Tensor& arg) const;
+  TEST_API Tensor& operator()(const Tensor& arg0, const Tensor& arg1) const;
+  TEST_API Tensor& operator()(const Tensor& arg0,
+                              const Tensor& arg1,
+                              const Tensor& arg2) const;
+  TEST_API void operator()(const std::vector<const Tensor*>& args,
+                           const std::vector<const Tensor*>& outputs) const;
+
+ private:
+  Op(const std::string& op_type_name,
+     PatternGraph* pattern_graph,
+     const std::unordered_map<std::string, Attribute>& attributes,
+     const std::unordered_map<std::string, Attribute>& runtime_attributes = {})
+     : opimpl_(new OpImpl(
+              this, 
+              op_type_name, 
+              pattern_graph, 
+              attributes, 
+              runtime_attributes)) {}
+
+  // impl
+  OpImpl* opimpl_;
 
   friend class DrrPatternContext;
   friend class OpCall;
 };
 
+class TensorImpl {
+public:
+
+    static const char RESULT_INPUT_NONE_TENSOR_NAME[];
+    static const char RESULT_OUTPUT_NONE_TENSOR_NAME[];
+    static const char SOURCE_INPUT_NONE_TENSOR_NAME[];
+    static const char SOURCE_OUTPUT_NONE_TENSOR_NAME[];
+
+    TensorImpl(Tensor* tensor, const std::string& name, PatternGraph* pattern_graph)
+        : tensor_(tensor),
+          name_(name),
+          producer_(nullptr),
+          pattern_graph_(pattern_graph) {}
+
+    PatternGraph* pattern_graph() const {return pattern_graph_;}
+
+    static const std::string source_input_none_tensor_name() {
+      return std::string(SOURCE_INPUT_NONE_TENSOR_NAME);
+    }
+
+    static const std::string source_output_none_tensor_name() {
+      return std::string(SOURCE_OUTPUT_NONE_TENSOR_NAME);
+    }
+
+    static const std::string result_input_none_tensor_name() {
+      return std::string(RESULT_INPUT_NONE_TENSOR_NAME);
+    }
+
+    static const std::string result_output_none_tensor_name() {
+      return std::string(RESULT_OUTPUT_NONE_TENSOR_NAME);
+    }
+
+    bool is_none() const {
+        return name_ == RESULT_INPUT_NONE_TENSOR_NAME ||
+            name_ == RESULT_OUTPUT_NONE_TENSOR_NAME ||
+            name_ == SOURCE_INPUT_NONE_TENSOR_NAME ||
+            name_ == SOURCE_OUTPUT_NONE_TENSOR_NAME;
+    }
+
+    void Assign(const Tensor& other);
+
+    void operator=(const Tensor& other) const;
+
+    const std::string& name() const { return name_; }
+
+    void set_name(const std::string& name) { name_ = name; }
+
+    OpCall* producer() const { return producer_; }
+
+    void set_producer(OpCall* producer) { producer_ = producer; }
+
+    const std::unordered_set<const OpCall*>& consumers() const {
+        return consumers_;
+    }
+
+    void AddConsumer(const OpCall* consumer) { consumers_.insert(consumer); }
+
+private:
+    Tensor* tensor_;
+    std::string name_;
+    OpCall* producer_{nullptr};
+    std::unordered_set<const OpCall*> consumers_;
+    PatternGraph* pattern_graph_{nullptr};
+
+};
+
+
 class TEST_API Tensor {
  public:
-  static const char RESULT_INPUT_NONE_TENSOR_NAME[];
-  static const char RESULT_OUTPUT_NONE_TENSOR_NAME[];
-  static const char SOURCE_INPUT_NONE_TENSOR_NAME[];
-  static const char SOURCE_OUTPUT_NONE_TENSOR_NAME[];
 
-  bool is_none() const {
-    return name_ == RESULT_INPUT_NONE_TENSOR_NAME ||
-           name_ == RESULT_OUTPUT_NONE_TENSOR_NAME ||
-           name_ == SOURCE_INPUT_NONE_TENSOR_NAME ||
-           name_ == SOURCE_OUTPUT_NONE_TENSOR_NAME;
-  }
+  static const std::string source_input_none_tensor_name();
+  static const std::string source_output_none_tensor_name();
+  static const std::string result_input_none_tensor_name();
+  static const std::string result_output_none_tensor_name();
+
+  PatternGraph* pattern_graph() const;
+
+  bool is_none() const;
 
   void Assign(const Tensor& other);
 
   void operator=(const Tensor& other) const;  // NOLINT
 
-  const std::string& name() const { return name_; }
+  const std::string& name() const;
 
-  void set_name(const std::string& name) { name_ = name; }
+  void set_name(const std::string& name);
 
-  OpCall* producer() const { return producer_; }
+  OpCall* producer() const;
 
-  void set_producer(OpCall* producer) { producer_ = producer; }
+  void set_producer(OpCall* producer);
 
-  const std::unordered_set<const OpCall*>& consumers() const {
-    return consumers_;
-  }
+  const std::unordered_set<const OpCall*>& consumers() const;
 
-  void AddConsumer(const OpCall* consumer) { consumers_.insert(consumer); }
+  void AddConsumer(const OpCall* consumer);
 
  private:
   Tensor(const std::string& name, PatternGraph* pattern_graph)
-      : name_(name), pattern_graph_(pattern_graph) {}
+  : pimpl_(new TensorImpl(
+              this,
+              name, 
+              pattern_graph)) {}
+  //Impl
+  TensorImpl* pimpl_;
 
   friend class DrrPatternContext;
-  friend class Op;
-
-  std::string name_;
-  OpCall* producer_{nullptr};
-  std::unordered_set<const OpCall*> consumers_;
-  PatternGraph* pattern_graph_{nullptr};
+  friend class OpImpl;
 };
 
 class TEST_API OpCall {
@@ -225,11 +332,11 @@ class TEST_API OpCall {
   OpCall(const Op* op,
          const std::vector<const Tensor*>& inputs,
          const std::vector<const Tensor*>& outputs)
-      : op_name_(op->op_type_name_),
+      : op_name_(op->name()),
         inputs_(inputs),
         outputs_(outputs),
-        attributes_(op->attributes_),
-        runtime_attributes_(op->runtime_attributes_) {}
+        attributes_(op->attribute()),
+        runtime_attributes_(op->runtime_attribute()) {}
 
   const std::string& name() const { return op_name_; }
 
