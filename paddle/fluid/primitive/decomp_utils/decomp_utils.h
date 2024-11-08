@@ -473,7 +473,7 @@ class InstanceNormDecompHelper {
     x_dims_ = phi::vectorize(x.dims());
     x_rank_ = x_dims_.size();
 
-    for (int64_t i = 2; i < x_dims_.size(); ++i) {
+    for (int64_t i = 2; i < x_rank_; ++i) {
       reduce_axis_.push_back(i);
       n_plus_reduce_axis_.push_back(i);
     }
