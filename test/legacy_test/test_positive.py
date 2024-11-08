@@ -32,21 +32,21 @@ class TestPositiveApi(unittest.TestCase):
         expected_out = np.positive(x)
         x_tensor = paddle.to_tensor(x)
         out = paddle.positive(x_tensor).numpy()
-        self.assertTrue(np.allclose(out, expected_out, atol=1e-5))
+        np.testing.assert_allclose(out, expected_out, atol=1e-5)
 
     def test_positive_int32(self):
         x = np.random.randint(self.low, self.high, self.shape, dtype=np.int32)
         expected_out = np.positive(x)
         x_tensor = paddle.to_tensor(x)
         out = paddle.positive(x_tensor).numpy()
-        self.assertTrue(np.allclose(out, expected_out, atol=1e-5))
+        np.testing.assert_allclose(out, expected_out, atol=1e-5)
 
     def test_positive_int64(self):
         x = np.random.randint(self.low, self.high, self.shape, dtype=np.int64)
         expected_out = np.positive(x)
         x_tensor = paddle.to_tensor(x)
         out = paddle.positive(x_tensor).numpy()
-        self.assertTrue(np.allclose(out, expected_out, atol=1e-5))
+        np.testing.assert_allclose(out, expected_out, atol=1e-5)
 
     def test_positive_float16(self):
         x = np.random.uniform(self.low, self.high, self.shape).astype(
@@ -55,7 +55,7 @@ class TestPositiveApi(unittest.TestCase):
         expected_out = np.positive(x)
         x_tensor = paddle.to_tensor(x)
         out = paddle.positive(x_tensor).numpy()
-        self.assertTrue(np.allclose(out, expected_out, atol=1e-3))
+        np.testing.assert_allclose(out, expected_out, atol=1e-3)
 
     def test_positive_float32(self):
         x = np.random.uniform(self.low, self.high, self.shape).astype(
@@ -64,7 +64,7 @@ class TestPositiveApi(unittest.TestCase):
         expected_out = np.positive(x)
         x_tensor = paddle.to_tensor(x)
         out = paddle.positive(x_tensor).numpy()
-        self.assertTrue(np.allclose(out, expected_out, atol=1e-3))
+        np.testing.assert_allclose(out, expected_out, atol=1e-3)
 
     def test_positive_float64(self):
         x = np.random.uniform(self.low, self.high, self.shape).astype(
@@ -73,7 +73,7 @@ class TestPositiveApi(unittest.TestCase):
         expected_out = np.positive(x)
         x_tensor = paddle.to_tensor(x)
         out = paddle.positive(x_tensor).numpy()
-        self.assertTrue(np.allclose(out, expected_out, atol=1e-3))
+        np.testing.assert_allclose(out, expected_out, atol=1e-3)
 
 
 if __name__ == '__main__':
