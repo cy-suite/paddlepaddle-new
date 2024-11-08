@@ -1488,6 +1488,7 @@ def positive(x: Tensor) -> Tensor:
             [-1, 0, 1]
         Example of raising ValueError for bool type tensor:
         .. code-block:: python
+            >>> import paddle
             >>> x_bool = paddle.to_tensor([True, False, True], dtype=paddle.bool)
             >>> out = paddle.positive(x_bool)
             ValueError: The `+` operator, on a bool tensor is not supported.
