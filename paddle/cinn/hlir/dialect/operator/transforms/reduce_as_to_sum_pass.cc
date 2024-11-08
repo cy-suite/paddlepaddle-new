@@ -247,6 +247,10 @@ class ReduceAsOpPattern
         output_dims->swap(new_shape);
       }
 
+      if (!(*keep_dim)) {
+        output_dims->swap(new_shape);
+      }
+
       return can_replace_with_sum;
     }
   }
