@@ -64,6 +64,16 @@ class DeadCodeEliminationPass : public pir::Pass {
           paddle::dialect::IsInplaceOp(&op)) {
         continue;
       }
+
+      // if( op.isa<paddle::dialect::FlashAttnGradOp>() )
+      // {
+      //   for( size_t i = 0; i < op.num_results(); ++i )
+      //   {
+      //     std::cerr << "i " << i << "\t" << op.result(i).use_count() <<
+      //     std::endl;
+      //   }
+      // }
+
       if (op.use_empty()) {
         deleted_ops.push_back(&op);
       }

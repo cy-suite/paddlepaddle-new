@@ -194,6 +194,7 @@ class FoldManipulationOpsPass : public pir::PatternRewritePass {
     ps.Add<RemoveUnchangedOpPattern<paddle::dialect::AssignOp>>(context);
     ps.Add<RemoveUnchangedOpPattern<cinn::dialect::ConcatOp>>(context);
     ps.Add<RemoveUnchangedOpPattern<paddle::dialect::CastOp, true>>(context);
+    // ps.Add<RemoveUnchangedOpPattern<paddle::dialect::ReshapeGradOp, true>>(context);
 
     // merge redundant ops
     ps.Add<MergeRedundantOpPattern<cinn::dialect::ReshapeOp>>(context);
