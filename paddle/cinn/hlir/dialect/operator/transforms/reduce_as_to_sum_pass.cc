@@ -70,12 +70,18 @@ class ReduceAsOpPattern
     std::vector<symbol::DimExpr> output_dims;
     bool is_static_shape = IsStaicShape(x_shape, y_shape);
     bool keep_dim = true;
+    bool need_squeeze = false;
     if (is_static_shape) {
       x_y_shape_equal = (x_shape == y_shape);
-      ProcessStaticShape(x_shape, y_shape, &reduce_axis, &keep_dim);
+      ProcessStaticShape(
+          x_shape, y_shape, &reduce_axis, &keep_dim, &need_squeeze);
     } else {
-      bool can_repalce = ProcessDynamicShape(
-          op, &reduce_axis, &output_dims, &x_y_shape_equal, &keep_dim);
+      bool can_repalce = ProcessDynamicShape(op,
+                                             &reduce_axis,
+                                             &output_dims,
+                                             &x_y_shape_equal,
+                                             &keep_dim,
+                                             &need_squeeze);
       if (!can_repalce) {
         return true;
       }
@@ -102,10 +108,16 @@ class ReduceAsOpPattern
               symbol::TensorShapeOrDataDimExprs(output_dims)});
     }
 
-    if (keep_dim) {
-      new_output =
-          rewriter.Build<paddle::dialect::SqueezeOp>(new_output, reduce_axis)
-              .result(0);
+    if (need_squeeze) {
+      std::vector<int64_t> sequeeze_dim;
+      for (int64_t i = 0; i < compare_offset; ++i) {
+        sequeeze_dim.push_back(i);
+      }
+
+      auto squeeze_op =
+          rewriter.Build<paddle::dialect::SqueezeOp>(new_output, sequeeze_dim);
+      auto new_output = squeeze_op.result(0);
+
       if (!is_static_shape) {
         auto &shape_analysis =
             pir::ShapeAnalysisManager::Instance().Get(op->GetParentProgram());
@@ -133,10 +145,28 @@ class ReduceAsOpPattern
     return (!x_has_dynamic_shape) && (!y_has_dynamic_shape);
   }
 
+  void GetKeepDimAndSqueezeInfo(size_t x_rank,
+                                size_t y_rank,
+                                bool no_keep_dim_eq_output,
+                                bool *keep_dim,
+                                bool *need_squeeze) const {
+    if (x_rank == y_rank) {
+      *keep_dim = true;
+      *need_squeeze = false;
+    } else if (no_keep_dim_eq_output) {
+      *keep_dim = false;
+      *need_squeeze = false;
+    } else {
+      *keep_dim = true;
+      *need_squeeze = true;
+    }
+  }
+
   void ProcessStaticShape(const std::vector<int64_t> &x_shape,
                           const std::vector<int64_t> &y_shape,
                           std::vector<int64_t> *reduce_axis,
-                          bool *keep_dim) const {
+                          bool *keep_dim,
+                          bool *need_squeeze) const {
     size_t x_rank = x_shape.size();
     size_t y_rank = y_shape.size();
 
@@ -157,13 +187,15 @@ class ReduceAsOpPattern
       }
     }
 
-    *keep_dim = (new_shape != y_shape);
+    GetKeepDimAndSqueezeInfo(
+        x_rank, y_rank, (new_shape == y_shape), keep_dim, need_squeeze);
   }
   bool ProcessDynamicShape(paddle::dialect::ReduceAsOp op,
                            std::vector<int64_t> *reduce_axis,
                            std::vector<symbol::DimExpr> *output_dims,
                            bool *x_y_shape_equal,
-                           bool *keep_dim) const {
+                           bool *keep_dim,
+                           bool *need_squeeze) const {
     auto &shape_analysis =
         pir::ShapeAnalysisManager::Instance().Get(op->GetParentProgram());
 
@@ -209,7 +241,11 @@ class ReduceAsOpPattern
           new_shape.push_back(x_shape[i]);
         }
       }
-      *keep_dim = (new_shape != y_shape);
+      GetKeepDimAndSqueezeInfo(
+          x_rank, y_rank, (new_shape == y_shape), keep_dim, need_squeeze);
+      if (!(*keep_dim)) {
+        output_dims->swap(new_shape);
+      }
 
       return can_replace_with_sum;
     }
@@ -223,6 +259,7 @@ pir::RewritePatternSet ReduceAsToSumPass::InitializePatterns(
     pir::IrContext *context) {
   pir::RewritePatternSet ps(context);
   ps.Add<ReduceAsOpPattern>(context);
+  ps.Add<RefreshCombineOpPattern>(context);
 
   return ps;
 }
