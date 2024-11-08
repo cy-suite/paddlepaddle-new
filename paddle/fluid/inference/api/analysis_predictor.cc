@@ -889,10 +889,6 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
           if (std::find(config_.deleted_passes_.begin(),
                         config_.deleted_passes_.end(),
                         gpu_pass) == config_.deleted_passes_.end()) {
-            if (!config_.enable_gpu_mixed_ &&
-                gpu_pass == "auto_mixed_precision_pass") {
-              continue;
-            }
             if (FLAGS_enable_auto_layout_pass &&
                 gpu_pass == "transfer_layout_pass") {
               if (config_.cinn_enabled()) {
