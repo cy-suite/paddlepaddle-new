@@ -67,9 +67,14 @@ class FusionOpPattern : public pir::OpRewritePattern<cinn::dialect::FusionOp> {
       return false;
     }
 
+    PADDLE_ENFORCE_EQ(
+        paddle_op.value()->num_results(),
+        1u,
+        ::common::errors::PreconditionNotMet("Only support ONE output op"));
+
     for (size_t i = 0; i < fusion_op.num_results(); ++i) {
       rewriter.ReplaceAllUsesWith(fusion_op.result(i),
-                                  paddle_op.value()->result(i));
+                                  paddle_op.value()->result(0));
     }
 
     rewriter.EraseOp(fusion_op);
