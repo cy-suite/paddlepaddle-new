@@ -170,3 +170,10 @@ def all_converter(network, paddle_op, inputs):
     return add_cast_reduce_layer(
         network, paddle_op, inputs, trt.ReduceOperation.MIN
     )
+
+
+@converter_registry.register("pd_op.log", trt_version="8.x")
+def sqrt_converter(network, paddle_op, inputs):
+    input_tensor = inputs[0]
+    layer = network.add_unary(input_tensor, trt.UnaryOperation.LOG)
+    return layer.get_output(0)
