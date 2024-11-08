@@ -97,7 +97,7 @@ MultiplyGradNode::operator()(
   bool trace_backward = egr::Controller::Instance().HasGrad() && create_graph;
 
   // Set DistAttr of Out Tensor for semi-auto parallel
-  if (IsRunAutoParallel()) {
+  if (IsRunAutoParallel() || inputs_contain_dist_tensor) {
     egr::EagerUtils::SetGradOutputDistAttr(
         out_metas, {0, 1}, *mesh, api_output_0, api_output_1);
   }
