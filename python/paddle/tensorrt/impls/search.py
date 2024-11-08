@@ -83,17 +83,17 @@ def argsort_converter(network, paddle_op, inputs):
     descending = paddle_op.attrs()["descending"]
     if axis < 0:
         axis += rank
-
+    cast_output = trt_cast(network, x, trt.float32)
     if descending:
         topk_layer = network.add_topk(
-            input=x,
+            input=cast_output,
             op=trt.TopKOperation.MAX,
             k=input_dims[axis],
             axes=(1 << axis),
         )
     else:
         topk_layer = network.add_topk(
-            input=x,
+            input=cast_output,
             op=trt.TopKOperation.MIN,
             k=input_dims[axis],
             axes=(1 << axis),
