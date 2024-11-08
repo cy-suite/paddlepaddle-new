@@ -78,7 +78,6 @@ DEFINE_GENERAL_PATTERN(Sqrt, paddle::dialect::SqrtOp)
 DEFINE_GENERAL_PATTERN(Hardsigmoid, paddle::dialect::HardsigmoidOp)
 DEFINE_GENERAL_PATTERN(Hardswish, paddle::dialect::HardswishOp)
 DEFINE_GENERAL_PATTERN(Assign, paddle::dialect::AssignOp)
-DEFINE_GENERAL_PATTERN(AssignValue_, paddle::dialect::AssignValue_Op)
 DEFINE_GENERAL_PATTERN(AssignOut, paddle::dialect::AssignOut_Op)
 DEFINE_GENERAL_PATTERN(Roll, paddle::dialect::RollOp)
 
@@ -211,6 +210,38 @@ using FloorDivideOpPattern =
     ElementwiseCommonOpPattern<paddle::dialect::FloorDivideOp>;
 using RemainderOpPattern =
     ElementwiseCommonOpPattern<paddle::dialect::RemainderOp>;
+
+template <typename OpType>
+class AssignCommonOpPattern : public pir::OpRewritePattern<OpType> {
+ public:
+  using pir::OpRewritePattern<OpType>::OpRewritePattern;
+  bool MatchAndRewrite(OpType op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->template attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    std::vector<int32_t> vec_shape;
+    auto shape_attr = op->template attribute<pir::ArrayAttribute>("shape");
+    for (const auto &attr : shape_attr.template AsVector()) {
+      vec_shape.push_back(attr.template dyn_cast<pir::Int32Attribute>().data());
+    }
+    for (int32_t dim : vec_shape) {
+      if (dim == -1) {
+        VLOG(3) << "pd_op.assign_value_ or pd_op.assign_value can not support "
+                   "dynamic shape";
+        return false;
+      }
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+using AssignValue_OpPattern =
+    AssignCommonOpPattern<paddle::dialect::AssignValue_Op>;
+using AssignValueOpPattern =
+    AssignCommonOpPattern<paddle::dialect::AssignValueOp>;
 
 class Pool2dOpPattern
     : public pir::OpRewritePattern<paddle::dialect::Pool2dOp> {
@@ -1659,7 +1690,6 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Hardswish)
     ADD_PATTERN(AssignOut)
     ADD_PATTERN(Assign)
-    ADD_PATTERN(AssignValue_)
     ADD_PATTERN(Roll)
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
@@ -1712,6 +1742,8 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<FullWithTensorPattern>(context));
     ps.Add(std::make_unique<StridedSliceOpPattern>(context));
     ps.Add(std::make_unique<TopkOpPattern>(context));
+    ps.Add(std::make_unique<AssignValueOpPattern>(context));
+    ps.Add(std::make_unique<AssignValue_OpPattern>(context));
     ps.Add(std::make_unique<OneHotOpPattern>(context));
     return ps;
   }

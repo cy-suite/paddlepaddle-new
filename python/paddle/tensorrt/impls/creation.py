@@ -57,6 +57,7 @@ def assign_converter(network, paddle_op, inputs):
 
 
 @converter_registry.register("pd_op.assign_value_", trt_version="8.x")
+@converter_registry.register("pd_op.assign_value", trt_version="8.x")
 def assign_value_converter(network, paddle_op, inputs):
     attrs = paddle_op.attrs()
     shape = attrs['shape']
@@ -87,7 +88,7 @@ def assign_value_converter(network, paddle_op, inputs):
     constant_layer = network.add_constant(shape=tuple(shape), weights=np_values)
     constant_layer.name = paddle_op.name()
 
-    return [constant_layer.get_output(0)]
+    return constant_layer.get_output(0)
 
 
 @converter_registry.register("pd_op.arange", trt_version="8.x")
