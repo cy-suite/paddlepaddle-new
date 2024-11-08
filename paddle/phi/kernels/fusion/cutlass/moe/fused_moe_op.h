@@ -559,10 +559,10 @@ void topk_gating_softmax_kernelLauncher(const T* input,
     }
     default: {
       static constexpr int TPB = 256;
-      // moe_softmax<T, TPB>
-      //     <<<num_rows, TPB, 0, stream>>>(input, finished, softmax, num_experts);
+      moe_softmax<T, TPB>
+           <<<num_rows, TPB, 0, stream>>>(input, finished, softmax, num_experts);
       moe_top_k<T, TPB><<<num_rows, TPB, 0, stream>>>(
-          input, finished, output, indices, source_row, num_experts, k);
+          softmax, finished, output, indices, source_row, num_experts, k);
     }
   }
 }

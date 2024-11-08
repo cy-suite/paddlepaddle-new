@@ -36,7 +36,7 @@ void MoeDispatchKernel(const Context& ctx,
                     DenseTensor* scatter_index,
                     DenseTensor* expert_scales_float,
                     // 下面这个就是返回每个token的专家的索引！结果很清晰！
-                    DenseTensor* expert_for_source_row_tensor) {
+                    DenseTensor* topk_expert_indices) {
     
     const int num_rows = X.dims()[0];
     const int hidden_size = X.dims()[1];
@@ -59,8 +59,8 @@ void MoeDispatchKernel(const Context& ctx,
     int *source_rows_ = reinterpret_cast<int *>(ws_ptr);
     
 
-    expert_for_source_row_tensor->Resize({num_rows, moe_topk});
-    int *expert_for_source_row = ctx.template Alloc<int>(expert_for_source_row_tensor);
+    topk_expert_indices->Resize({num_rows, moe_topk});
+    int *expert_for_source_row = ctx.template Alloc<int>(topk_expert_indices);
 
     DenseTensor tmp1 = Empty<float>(ctx, {num_rows * expert_num});
     float *softmax_out_ = tmp1.data<float>();
