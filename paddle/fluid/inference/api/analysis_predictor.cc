@@ -808,6 +808,23 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
                      pass->name()) != this->config_.ir_debug_passes_.end();
   };
 
+  auto handleAutoLayoutPass = [](pir::PassManager &pass_pm,
+                                 const paddle::AnalysisConfig &config) {
+    pass_pm.AddPass(pir::PassRegistry::Instance().Get("auto_layout_pass"));
+    pass_pm.AddPass(
+        pir::PassRegistry::Instance().Get("auto_layout_simplify_pass"));
+
+    if (config.enable_gpu_mixed_) {
+      for (const auto &pass : pass_pm.passes()) {
+        if (pass->name() == "auto_layout_pass") {
+          pass->Set("mixed_precision_mode",
+                    new phi::DataType(paddle::ConvertPrecision(
+                        config.mixed_precision_mode_)));
+        }
+      }
+    }
+  };
+
   if (!config_.use_optimized_model_) {
 #ifdef PADDLE_WITH_CINN
     auto CreatePassMgr = [&] {
@@ -831,30 +848,19 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
       if (!config_.custom_pass_only_) {
         ::pir::PassManager fused_op_pm(::pir::IrContext::Instance(),
                                        config_.pm_opt_level_);
-        std::vector<std::string> FusedOpPasses{// Operator fusion pass
-                                               "conv2d_bn_fuse_pass",
-                                               "conv2d_add_act_fuse_pass",
-                                               "conv2d_add_fuse_pass"};
-        const std::vector<std::string> autoLayoutPasses = {
-            "auto_layout_pass", "auto_layout_simplify_pass"};
-
-        if (FLAGS_enable_auto_layout_pass) {
-          FusedOpPasses.insert(FusedOpPasses.end(),
-                               autoLayoutPasses.begin(),
-                               autoLayoutPasses.end());
-        }
+        const std::vector<std::string> FusedOpPasses{// Operator fusion pass
+                                                     "conv2d_bn_fuse_pass",
+                                                     "conv2d_add_act_fuse_pass",
+                                                     "conv2d_add_fuse_pass"};
 
         for (const auto &fused_op : FusedOpPasses) {
           fused_op_pm.AddPass(pir::PassRegistry::Instance().Get(fused_op));
         }
 
-        for (const auto &pass : fused_op_pm.passes()) {
-          if (pass->name() == "auto_layout_pass" && config_.enable_gpu_mixed_) {
-            pass->Set("mixed_precision_mode",
-                      new phi::DataType(paddle::ConvertPrecision(
-                          config_.mixed_precision_mode_)));
-          }
+        if (FLAGS_enable_auto_layout_pass) {
+          handleAutoLayoutPass(fused_op_pm, config_);
         }
+
         fused_op_pm.Run(pir_program_.get());
       }
     }
@@ -889,30 +895,10 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
           if (std::find(config_.deleted_passes_.begin(),
                         config_.deleted_passes_.end(),
                         gpu_pass) == config_.deleted_passes_.end()) {
-            if (FLAGS_enable_auto_layout_pass &&
-                gpu_pass == "transfer_layout_pass") {
-              if (config_.cinn_enabled()) {
-                continue;
-              } else {
-                pass_pm.AddPass(
-                    pir::PassRegistry::Instance().Get("auto_layout_pass"));
-                pass_pm.AddPass(pir::PassRegistry::Instance().Get(
-                    "auto_layout_simplify_pass"));
-                for (const auto &pass : pass_pm.passes()) {
-                  if (pass->name() == "auto_layout_pass" &&
-                      config_.enable_gpu_mixed_) {
-                    pass->Set("mixed_precision_mode",
-                              new phi::DataType(paddle::ConvertPrecision(
-                                  config_.mixed_precision_mode_)));
-                  }
-                }
-              }
-            }
             pass_pm.AddPass(pir::PassRegistry::Instance().Get(gpu_pass));
           }
         }
       }
-
 #ifdef PADDLE_WITH_XPU
     } else if (config_.use_xpu()) {
       // xpu
@@ -1019,12 +1005,18 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
           new std::unordered_set<std::string>(config_.mixed_white_list_));
       basic_pass_pm.AddPass(std::move(auto_mixed_precision_pass));
     }
-    auto transfer_layout_pass = ::pir::CreateTransferLayoutPass();
-    if (std::find(config_.deleted_passes_.begin(),
-                  config_.deleted_passes_.end(),
-                  transfer_layout_pass->name()) ==
-        config_.deleted_passes_.end()) {
-      basic_pass_pm.AddPass(std::move(transfer_layout_pass));
+
+    if (FLAGS_enable_auto_layout_pass && !config_.cinn_enabled()) {
+      handleAutoLayoutPass(basic_pass_pm, config_);
+    }
+    if (!FLAGS_enable_auto_layout_pass) {
+      auto transfer_layout_pass = ::pir::CreateTransferLayoutPass();
+      if (std::find(config_.deleted_passes_.begin(),
+                    config_.deleted_passes_.end(),
+                    transfer_layout_pass->name()) ==
+          config_.deleted_passes_.end()) {
+        basic_pass_pm.AddPass(std::move(transfer_layout_pass));
+      }
     }
   }
   auto params_sync_among_devices_pass =
