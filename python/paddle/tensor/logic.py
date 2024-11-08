@@ -1463,6 +1463,48 @@ def bitwise_invert_(x: Tensor, name: str | None = None) -> Tensor:
     return bitwise_not_(x, name=name)
 
 
+def positive(x: Tensor) -> Tensor:
+    r"""
+    Returns the input Tensor as it is. This is used in `Tensor.__pos__`, applying the
+    unary `+` operator to the tensor.
+    In dynamic mode, the input tensor is returned directly. In static mode, a copy of
+    the tensor is returned to avoid in-place modifications.
+    Args:
+        x (Tensor): The input tensor. It must be a tensor with one of the following data types:
+                    float16, float32, float64, int32, or int64.
+                    The tensor cannot be of type bool.
+    Returns:
+        Tensor: A tensor with the same shape and data type as the input tensor. The returned tensor
+                is the same in dynamic mode and a clone in static mode.
+    Raises:
+        ValueError: If the input tensor is of bool type. The `+` operator is not supported for
+                    boolean tensors, as it does not have a meaningful mathematical definition.
+    Examples:
+        .. code-block:: python
+            >>> import paddle
+            >>> x = paddle.to_tensor([-1, 0, 1])
+            >>> out = paddle.positive(x)
+            >>> print(out)
+            [-1, 0, 1]
+        Example of raising ValueError for bool type tensor:
+        .. code-block:: python
+            >>> x_bool = paddle.to_tensor([True, False, True], dtype=paddle.bool)
+            >>> out = paddle.positive(x_bool)
+            ValueError: The `+` operator, on a bool tensor is not supported.
+    """
+
+    # Check if the input tensor is of bool type and raise an error
+    if x.dtype == paddle.bool:
+        raise ValueError("The `+` operator, on a bool tensor is not supported.")
+
+    # In dynamic mode, return the tensor directly (same behavior as before)
+    if in_dynamic_mode():
+        return x
+
+    # In static mode, return a clone of the tensor
+    return x.clone()
+
+
 def isclose(
     x: Tensor,
     y: Tensor,
