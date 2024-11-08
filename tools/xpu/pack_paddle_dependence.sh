@@ -62,7 +62,7 @@ function check_files() {
 
 function xre_prepare() {
   check_files ${XRE_DIR_NAME}/include/xpu/runtime.h ${XRE_DIR_NAME}/so/libxpurt.so
-  if [ $WITH_XPU_XRE5 -eq 1 ]; then
+  if [ "$WITH_XPU_XRE5" -eq 1 ]; then
     check_files ${XRE_DIR_NAME}/so/libcudart.so
   fi
   cp -r ${XRE_DIR_NAME}/include/xpu/* xpu/include/xpu/
@@ -75,7 +75,7 @@ function xhpc_prepare() {
   cp -r ${XHPC_DIR_NAME}/xdnn/include/* xpu/include/
   cp -r ${XHPC_DIR_NAME}/xdnn/so/libxpuapi.so xpu/lib
 
-  if [ $WITH_XPU_XRE5 -eq 1 ]; then
+  if [ "$WITH_XPU_XRE5" -eq 1 ]; then
     check_files ${XHPC_DIR_NAME}/xblas/include/cublasLt.h ${XHPC_DIR_NAME}/xblas/so/libxpu_blas.so
     cp -r ${XHPC_DIR_NAME}/xblas/include/* xpu/include/xhpc/xblas
     cp -r ${XHPC_DIR_NAME}/xblas/so/libxpu_blas.so xpu/lib/
@@ -130,7 +130,7 @@ function local_assemble() {
     cp -r ${LOCAL_PATH}/${XHPC_DIR_NAME}/xdnn/include/* xpu/include/
     cp -r ${LOCAL_PATH}/${XHPC_DIR_NAME}/xdnn/so/libxpuapi.so xpu/lib
 
-    if [ $WITH_XPU_XRE5 -eq 1 ]; then
+    if [ "$WITH_XPU_XRE5" -eq 1 ]; then
       cp -r ${LOCAL_PATH}/${XHPC_DIR_NAME}/xblas/include/* xpu/include/xhpc/xblas
       cp -r ${LOCAL_PATH}/${XHPC_DIR_NAME}/xblas/so/libxpu_blas.so xpu/lib/
 

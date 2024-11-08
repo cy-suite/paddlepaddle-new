@@ -75,7 +75,7 @@ void GetSinCosByPassValue(const Context& dev_ctx,
             "The batch_size and seq_len of position_ids must be the same as "
             "those of q."));
 
-    ret = xpu::gather<XPUSCType, int64_t>(
+    ret = xpu::paddle_gather<XPUSCType, int64_t>(
         dev_ctx.x_context(),
         reinterpret_cast<const XPUSCType*>(sin->data()),
         position_ids->data<int64_t>(),
@@ -84,7 +84,7 @@ void GetSinCosByPassValue(const Context& dev_ctx,
         batch_size * seq_len,
         0);
     PADDLE_ENFORCE_XDNN_SUCCESS(ret, "gather");
-    ret = xpu::gather<XPUSCType, int64_t>(
+    ret = xpu::paddle_gather<XPUSCType, int64_t>(
         dev_ctx.x_context(),
         reinterpret_cast<const XPUSCType*>(cos->data()),
         position_ids->data<int64_t>(),
