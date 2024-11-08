@@ -2029,8 +2029,9 @@ void p_norm_grad(const Tensor& x,
 
         auto _zero_tensor =
             full<T>(common::vectorize(x.dims()), 0.0, x.dtype());
-        auto out_non_zero_mask = not_equal<T>(expand_out, _zero_tensor);
-        scale_v = scale_v * cast<T>(out_non_zero_mask, scale_v.dtype());
+        auto non_nan_or_inf_mask =
+            bitwise_not<T>(bitwise_or<T>(isnan<T>(scale_v), isinf<T>(scale_v)));
+        scale_v = where<T>(non_nan_or_inf_mask, scale_v, _zero_tensor);
 
         x_grad_tmp = x * x_abs_pow * scale_v;
       }
