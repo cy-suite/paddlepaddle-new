@@ -36,32 +36,23 @@ class ConverterOpRegistry:
 
     def _version_match(self, trt_version, version_range):
         def _normalize_version(version):
-            parts = version.split('.')
-            while len(parts) < 3:
-                parts.append('0')
-            return tuple(map(int, parts))
-
-        def _compare_versions(trt_version_tuple, ref_version_tuple, comparator):
-            if comparator == 'ge':
-                return trt_version_tuple >= ref_version_tuple
-            elif comparator == 'le':
-                return trt_version_tuple <= ref_version_tuple
+            return tuple(map(int, [*version.split('.'), '0', '0'][:3]))
 
         trt_version_tuple = _normalize_version(trt_version)
 
-        if version_range.startswith('trt_version_ge='):
-            min_version = version_range.split('=')[1]
-            min_version_tuple = _normalize_version(min_version)
-            return _compare_versions(trt_version_tuple, min_version_tuple, 'ge')
+        if '=' in version_range:
+            comparator, ref_version = version_range.split('=')
+            ref_version_tuple = _normalize_version(ref_version)
+            return (
+                comparator == 'trt_version_ge'
+                and trt_version_tuple >= ref_version_tuple
+            ) or (
+                comparator == 'trt_version_le'
+                and trt_version_tuple <= ref_version_tuple
+            )
 
-        elif version_range.startswith('trt_version_le='):
-            max_version = version_range.split('=')[1]
-            max_version_tuple = _normalize_version(max_version)
-            return _compare_versions(trt_version_tuple, max_version_tuple, 'le')
-
-        elif 'x' in version_range:
-            major_version = int(version_range.split('.')[0])
-            return trt_version_tuple[0] == major_version
+        if 'x' in version_range:
+            return trt_version_tuple[0] == int(version_range.split('.')[0])
 
         return False
 

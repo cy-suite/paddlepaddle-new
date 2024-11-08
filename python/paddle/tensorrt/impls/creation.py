@@ -63,15 +63,31 @@ def assign_value_converter(network, paddle_op, inputs):
     dtype = attrs['dtype']
     values = attrs['values']
 
-    if dtype == paddle.float32:
-        dtype = np.float32
-    elif dtype == paddle.int32:
-        dtype = np.int32
-    elif dtype == paddle.int64:
-        dtype = np.int64
+    dtype_map = {
+        paddle.float32: np.float32,
+        paddle.int32: np.int32,
+    }
+    np_dtype = dtype_map.get(dtype)
+    if np_dtype is None:
+        raise NotImplementedError(
+            f"assign_value_ converter does not support dtype {dtype}"
+        )
 
-    constant_layer = network.add_constant(shape, np.array(values, dtype=dtype))
-    return constant_layer.get_output(0)
+    np_values = np.zeros(shape, dtype=np_dtype)
+
+    flat_np_values = np_values.flatten()
+    if len(values) <= flat_np_values.size:
+        flat_np_values[: len(values)] = values
+    else:
+        raise ValueError(
+            "Number of values exceeds number of elements in tensor"
+        )
+    np_values = flat_np_values.reshape(shape)
+
+    constant_layer = network.add_constant(shape=tuple(shape), weights=np_values)
+    constant_layer.name = paddle_op.name()
+
+    return [constant_layer.get_output(0)]
 
 
 @converter_registry.register("pd_op.arange", trt_version="8.x")
