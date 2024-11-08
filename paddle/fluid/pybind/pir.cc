@@ -681,6 +681,7 @@ void BindBlock(py::module *m) {
       .def("__len__", [](Block &self) { return self.size(); })
       .def("args", &Block::args, return_value_policy::reference)
       .def("kwargs", &Block::kwargs, return_value_policy::reference)
+      .def("add_arg", &Block::AddArg)
       .def("add_kwarg", &Block::AddKwarg)
       .def("erase_kwarg", &Block::EraseKwarg)
       .def("remove_op",
@@ -1089,6 +1090,21 @@ void BindOperation(py::module *m) {
             self.set_attribute(
                 "op_role",
                 Int32Attribute::get(pir::IrContext::Instance(), op_role));
+          })
+      .def_property(
+          "chunk_id",
+          [](Operation &self) -> py::object {
+            auto int_attr = self.attribute<Int32Attribute>("chunk_id");
+            if (int_attr) {
+              return py::cast(int_attr.data());
+            } else {
+              return py::cast(-1);
+            }
+          },
+          [](Operation &self, const int &chunk_id) {
+            self.set_attribute(
+                "chunk_id",
+                Int32Attribute::get(pir::IrContext::Instance(), chunk_id));
           });
   py::class_<Operation::BlockContainer> block_container(
       *m, "Operation_BlockContainer", R"DOC(
@@ -1125,6 +1141,8 @@ const phi::DDim &GetTensorDims(Type type) {
   } else if (auto sparse_csr_tensr_type =
                  type.dyn_cast<SparseCsrTensorType>()) {
     return sparse_csr_tensr_type.dims();
+  } else if (auto dense_array_type = type.dyn_cast<DenseTensorArrayType>()) {
+    return dense_array_type.dims();
   } else {
     PADDLE_THROW(common::errors::InvalidArgument(
         "Currently, we can only get shape for dense and selsect rows type."));
@@ -1227,6 +1245,7 @@ void BindValue(py::module *m) {
   )DOC");
   g_ir_value_pytype = reinterpret_cast<PyTypeObject *>(value.ptr());
   value.def(py::init<>())
+      .def(py::init([](Value value) { return value; }))
       .def_property_readonly(
           "block",
           [](Value self) {
@@ -1333,9 +1352,14 @@ void BindValue(py::module *m) {
            [](Value self) -> uint32_t {
              if (auto op_result = self.dyn_cast<OpResult>()) {
                return op_result.index();
+             } else if (auto arg = self.dyn_cast<BlockArgument>()) {
+               if (!arg.is_kwarg()) {
+                 return arg.index();
+               }
              }
              PADDLE_THROW(common::errors::InvalidArgument(
-                 "only support accesss index from op_result."));
+                 "only support accesss index from op_result or positional "
+                 "block arg."));
            })
       .def("is_dense_tensor_type",
            [](Value self) { return self.type().isa<DenseTensorType>(); })
@@ -1400,14 +1424,32 @@ void BindValue(py::module *m) {
            [](Value &self, TensorDistAttribute dist_attr) {
              self.set_type(dialect::CvtToPirDistType(self.type(), dist_attr));
            })
-      .def_property_readonly("process_mesh", [](Value &self) -> py::object {
-        auto type = self.type();
-        if (auto dist_type = type.dyn_cast<DistTypeInterface>()) {
-          return py::cast(
-              dist_type.tensor_dist_attr().process_mesh_attr().process_mesh());
-        } else {
-          return py::cast<py::none>(Py_None);
-        }
+      .def("is_coalesced",
+           [](Value self) {
+             auto sparse_coo_tensor_type =
+                 self.type().dyn_cast<SparseCooTensorType>();
+             if (sparse_coo_tensor_type) {
+               return sparse_coo_tensor_type.coalesced();
+             } else {
+               PADDLE_THROW(common::errors::InvalidType(
+                   "Method is_coalesced only support sparse coo tensor."));
+             }
+           })
+      .def_property_readonly(
+          "process_mesh",
+          [](Value &self) -> py::object {
+            auto type = self.type();
+            if (auto dist_type = type.dyn_cast<DistTypeInterface>()) {
+              return py::cast(dist_type.tensor_dist_attr()
+                                  .process_mesh_attr()
+                                  .process_mesh());
+            } else {
+              return py::cast<py::none>(Py_None);
+            }
+          })
+      .def("_clone", [](Value self) {
+        // Return a new value owned by python side
+        return self;
       });
 }
 
@@ -2132,6 +2174,9 @@ void BindUtils(pybind11::module *m) {
          []() { ApiBuilder::Instance().ResetInsertionPointToStart(); });
   m->def("reset_insertion_point_to_end",
          []() { ApiBuilder::Instance().ResetInsertionPointToEnd(); });
+  m->def("set_chunk_id",
+         [](int chunk_id) { ApiBuilder::Instance().SetChunckId(chunk_id); });
+  m->def("get_chunk_id", []() { return ApiBuilder::Instance().GetChunckId(); });
   m->def("set_op_role",
          [](int op_role) { ApiBuilder::Instance().SetOpRole(op_role); });
   m->def("get_op_role", []() { return ApiBuilder::Instance().GetOpRole(); });

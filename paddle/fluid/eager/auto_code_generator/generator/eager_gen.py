@@ -80,6 +80,8 @@ prim_white_list = [
     "log_double_grad",
     "where_double_grad",
     "bmm_double_grad",
+    "index_put_double_grad",
+    "gather_nd_double_grad",
 ]
 
 # white ops list whose kernel can automatically do type promotion.

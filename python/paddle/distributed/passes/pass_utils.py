@@ -23,16 +23,12 @@ from paddle.base.framework import Parameter, Program
 from paddle.distributed.auto_parallel.static.dist_attribute import (
     OperatorDistAttr,
 )
-from paddle.distributed.auto_parallel.static.mix_to_dist_pass import (
-    dist_skip_op_list,
-)
 from paddle.distributed.auto_parallel.static.utils import (
     get_logger,
     is_backward_op,
     is_forward_op,
     is_optimize_op,
     naive_set_dist_op_attr_for_program_by_mesh_and_mapping,
-    use_new_executor,
 )
 
 from ..auto_parallel.static.utils import OpRole
@@ -597,15 +593,6 @@ def _insert_sync_for_fthenb_1f1b(program, dist_context=None):
                 var = block.var(var_name)
                 block._remove_op(index + offset, sync=False)
                 offset -= 1
-                if not use_new_executor():
-                    # NOTE: new executor will make sure gc are right without using nop op.
-                    block._insert_op_without_sync(
-                        index=backward_recv_index,
-                        type="nop",
-                        inputs={'X': [var]},
-                        outputs={'Out': [var]},
-                        attrs={'op_role': OpRole.Backward},
-                    )
         block._sync_with_cpp()
 
 
@@ -813,16 +800,24 @@ def infer_chunk_id(op_idx, ops, with_dist=True):
 
 
 def find_var_used_op_chunk_id(var):
-    all_used_ops = var.all_used_ops()
-    for used_op in all_used_ops:
-        if used_op.name() in dist_skip_op_list:
-            for output_var in used_op.results():
-                chunk_id = find_var_used_op_chunk_id(output_var)
-                if chunk_id != -1:
-                    return chunk_id
-        elif used_op.dist_attr and used_op.dist_attr.chunk_id != -1:
-            return used_op.dist_attr.chunk_id
-    return -1
+    visited = set()
+
+    def dfs(var):
+        all_used_ops = var.all_used_ops()
+        for used_op in all_used_ops:
+            if used_op in visited:
+                return -1
+            visited.add(used_op)
+            if used_op.dist_attr and used_op.dist_attr.chunk_id != -1:
+                return used_op.dist_attr.chunk_id
+            else:
+                for output_var in used_op.results():
+                    chunk_id = dfs(output_var)
+                    if chunk_id != -1:
+                        return chunk_id
+        return -1
+
+    return dfs(var)
 
 
 def _split_program_into_forward_backward_optimize(

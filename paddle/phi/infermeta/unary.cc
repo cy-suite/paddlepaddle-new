@@ -3132,8 +3132,6 @@ void Pad3dInferMeta(const MetaTensor& x,
 void PartialAllgatherInferMeta(const MetaTensor& x,
                                int nranks,
                                int rank,
-                               int ring_id,
-                               bool use_calc_stream,
                                MetaTensor* out) {
   PADDLE_ENFORCE_GE(
       nranks,
@@ -3152,23 +3150,12 @@ void PartialAllgatherInferMeta(const MetaTensor& x,
   out->set_dtype(x.dtype());
 }
 
-void PartialSendInferMeta(const MetaTensor& x,
-                          int ring_id,
-                          int peer,
-                          bool use_calc_stream,
-                          int num,
-                          int id) {
+void PartialSendInferMeta(const MetaTensor& x, int peer, int num, int id) {
   PADDLE_ENFORCE_GE(
       peer,
       0,
       common::errors::InvalidArgument(
           "The peer (%d) for partial_send op must be non-negative.", peer));
-  PADDLE_ENFORCE_GE(
-      ring_id,
-      0,
-      common::errors::InvalidArgument(
-          "The ring_id (%d) for partial_send op must be non-negative.",
-          ring_id));
   PADDLE_ENFORCE_GE(num,
                     1,
                     common::errors::InvalidArgument(
@@ -3441,6 +3428,15 @@ void PSendArrayInferMeta(const MetaTensor& x, int peer) {
       0,
       errors::InvalidArgument(
           "The peer (%d) for p_send op must be non-negative.", peer));
+}
+
+void SetInferMeta(const MetaTensor& x,
+                  const std::vector<int64_t>& shape,
+                  const std::vector<int64_t>& stride,
+                  MetaTensor* out) {
+  out->set_dtype(x.dtype());
+  out->set_dims(common::make_ddim(shape));
+  out->set_strides(common::make_ddim(stride));
 }
 
 void SendV2InferMeta(const int peer, const int ring_id) {
@@ -5356,8 +5352,7 @@ void UnchangedArrayInferMeta(const MetaTensor& x, MetaTensor* out) {
 void UnchangedVectorInferMeta(const std::vector<const MetaTensor*>& xs,
                               std::vector<MetaTensor*> outs) {
   for (size_t i = 0; i < xs.size(); ++i) {
-    outs[i]->set_dtype(xs[i]->dtype());
-    outs[i]->set_layout(xs[i]->layout());
+    outs[i]->share_meta(*xs[i]);
   }
 }
 
