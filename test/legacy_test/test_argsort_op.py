@@ -500,7 +500,7 @@ class TestArgsortFP16Op(OpTest):
         self.check_grad(
             ['X'],
             'Out',
-            check_dygraph=False,
+            check_dygraph=True,
             check_pir=True,
             check_prim_pir=True,
         )
@@ -557,7 +557,7 @@ class TestArgsortBF16Op(OpTest):
             place,
             ['X'],
             'Out',
-            check_dygraph=False,
+            check_dygraph=True,
             check_pir=True,
             check_prim_pir=True,
         )
