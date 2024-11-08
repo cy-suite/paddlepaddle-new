@@ -972,6 +972,26 @@ class Engine:
                 for job_type in self._job_plan.job_types():
                     ir_program = self._job_plan.ir_program(job_type)
                     pm.run(ir_program)
+
+        def move_send_op(program):
+            send_op_num = 0
+            insert_pos_op = None
+            for op in reversed(program.global_block().ops):
+                if op.name() == 'pd_op.send_v2':
+                    if send_op_num > 0:
+                        if len(op.operand_source(0).all_used_ops()) == 1:
+                            op.move_before(insert_pos_op)
+                    insert_pos_op = op
+                    send_op_num += 1
+            return program
+
+        if self._job_plan is None:
+            move_send_op(dense_program)
+        else:
+            for job_type in self._job_plan.job_types():
+                ir_program = self._job_plan.ir_program(job_type)
+                move_send_op(ir_program)
+
         remove_unuseful_comm_op_pass(dense_program)
         self._pir_dense_main_progs[mode] = dense_program
         self._pir_dist_main_progs[mode] = dist_program
