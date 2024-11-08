@@ -274,6 +274,7 @@ from .tensor.logic import (
     logical_xor_,  # noqa: F401
     not_equal,
     not_equal_,  # noqa: F401
+    positive,
 )
 from .tensor.manipulation import (
     as_complex,
@@ -1176,4 +1177,5 @@ __all__ = [
     'diagonal_scatter',
     'combinations',
     'signbit',
+    'positive',
 ]
