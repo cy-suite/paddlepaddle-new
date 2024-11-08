@@ -1505,7 +1505,8 @@ class EqualOpPattern : public pir::OpRewritePattern<paddle::dialect::EqualOp> {
     auto x_shape = x_type.dims();
     int dims = x_shape.size();
     if (dims < 1) {
-      VLOG(3) << "Tanh op does not support 0 dim input when TensorRT < 8.6.";
+      VLOG(3)
+          << "pd_op.equal op does not support 0 dim input when TensorRT < 8.6.";
       return false;
     }
 #endif
@@ -1531,7 +1532,8 @@ class NotEqualOpPattern
     auto x_shape = x_type.dims();
     int dims = x_shape.size();
     if (dims < 1) {
-      VLOG(3) << "Tanh op does not support 0 dim input when TensorRT < 8.6.";
+      VLOG(3) << "pd_op.not_equal op does not support 0 dim input when "
+                 "TensorRT < 8.6.";
       return false;
     }
 #endif
@@ -1556,33 +1558,13 @@ class FullLikeOpPattern
     bool hasAttr = op->HasAttribute("dtype");
     auto dtype =
         op->attribute<paddle::dialect::DataTypeAttribute>("dtype").data();
-#if IS_TRT_VERSION_GE(8400)
+
     if (dtype == phi::DataType::BOOL ||
         (!hasAttr && x_dtype.isa<pir::BoolType>())) {
       op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
       VLOG(3) << "the pd_op.full_like supports input of BOOL by trt8.4 above";
       return true;
     }
-#else
-    if (hasAttr && dtype != phi::DataType::FLOAT32 &&
-        dtype != phi::DataType::FLOAT64 && dtype != phi::DataType::INT32 &&
-        dtype != phi::DataType::INT64) {
-      VLOG(3)
-          << "the pd_op.full_like only supports int32/int64/float32/float64 by"
-             "trt8.4 below";
-      return false;
-    }
-    if (!hasAttr) {
-      if (!x_dtype.isa<pir::Float32Type>() &&
-          !x_dtype.isa<pir::Float64Type>() && !x_dtype.isa<pir::Int32Type>() &&
-          !x_dtype.isa<pir::Int64Type>()) {
-        VLOG(3) << "the pd_op.full_like only supports "
-                   "int32/int64/float32/float64 by"
-                   "trt8.4 below";
-        return false;
-      }
-    }
-#endif
 
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
