@@ -181,17 +181,23 @@ class LlamaModel(nn.Layer):
 
 
 class LlamaLMHead(nn.Layer):
-    def __init__(self, config):
+    def __init__(self, config, weight=None):
         super().__init__()
         self.config = config
-
-        self.weight = self.create_parameter(
-            shape=[self.config.hidden_size, self.config.vocab_size],
-            dtype=paddle.get_default_dtype(),
-        )
+        self.transpose_y = False
+        if weight is not None:
+            self.weight = weight
+            self.transpose_y = True
+        else:
+            self.weight = self.create_parameter(
+                shape=[self.config.hidden_size, self.config.vocab_size],
+                dtype=paddle.get_default_dtype(),
+            )
 
     def forward(self, hidden_states):
-        logits = paddle.matmul(hidden_states, self.weight, transpose_y=False)
+        logits = paddle.matmul(
+            hidden_states, self.weight, transpose_y=self.transpose_y
+        )
         return logits
 
 
@@ -226,12 +232,17 @@ class LlamaPretrainingCriterion(paddle.nn.Layer):
 class LlamaForCausalLM(nn.Layer):
     enable_to_static_method = True
 
-    def __init__(self, config):
+    def __init__(self, config, share_embedding=False):
         super().__init__()
         self.config = config
 
         self.llama = LlamaModel(self.config)
-        self.lm_head = LlamaLMHead(self.config)
+        if share_embedding:
+            self.lm_head = LlamaLMHead(
+                self.config, self.llama.embed_tokens.weight
+            )
+        else:
+            self.lm_head = LlamaLMHead(self.config)
 
     def forward(self, input_ids=None):
         input_ids.stop_gradient = True

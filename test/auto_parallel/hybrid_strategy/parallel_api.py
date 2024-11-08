@@ -280,11 +280,12 @@ class TestParallelAPI:
         return layer, optimizer
 
     def run_llama(self, to_static=0):
+        share_embedding = True if self.dp > 1 else False
         if self.config.use_lazy_init:
             with LazyGuard():
-                model = LlamaForCausalLM(self.config)
+                model = LlamaForCausalLM(self.config, share_embedding)
         else:
-            model = LlamaForCausalLM(self.config)
+            model = LlamaForCausalLM(self.config, share_embedding)
 
         lr_scheduler = paddle.optimizer.lr.LinearWarmup(
             learning_rate=0.0001, warmup_steps=2, start_lr=0, end_lr=0.0001
