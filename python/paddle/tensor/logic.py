@@ -1409,7 +1409,7 @@ def bitwise_not(
 def bitwise_not_(x: Tensor, name: str | None = None) -> Tensor:
     r"""
     Inplace version of ``bitwise_not`` API, the output Tensor will be inplaced with input ``x``.
-    Please refer to :ref:`papi_paddle_bitwise_not`.
+    Please refer to :ref:`api_paddle_bitwise_not`.
     """
     if in_dynamic_mode():
         return _C_ops.bitwise_not_(x)
