@@ -67,6 +67,7 @@ class FusionOpPattern : public pir::OpRewritePattern<cinn::dialect::FusionOp> {
       return false;
     }
 
+    // TODO(phlrain): support multi output
     PADDLE_ENFORCE_EQ(
         paddle_op.value()->num_results(),
         1u,
