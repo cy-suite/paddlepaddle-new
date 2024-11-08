@@ -893,8 +893,23 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
               continue;
             }
             if (FLAGS_enable_auto_layout_pass &&
-                gpu_pass == "transfer_layout_pass" && config_.cinn_enabled()) {
-              continue;
+                gpu_pass == "transfer_layout_pass") {
+              if (config_.cinn_enabled()) {
+                continue;
+              } else {
+                pass_pm.AddPass(
+                    pir::PassRegistry::Instance().Get("auto_layout_pass"));
+                pass_pm.AddPass(pir::PassRegistry::Instance().Get(
+                    "auto_layout_simplify_pass"));
+                for (const auto &pass : pass_pm.passes()) {
+                  if (pass->name() == "auto_layout_pass" &&
+                      config_.enable_gpu_mixed_) {
+                    pass->Set("mixed_precision_mode",
+                              new phi::DataType(paddle::ConvertPrecision(
+                                  config_.mixed_precision_mode_)));
+                  }
+                }
+              }
             }
             pass_pm.AddPass(pir::PassRegistry::Instance().Get(gpu_pass));
           }
