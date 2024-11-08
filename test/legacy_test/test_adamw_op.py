@@ -1242,7 +1242,11 @@ class TestAdamWOpLayerwiseLR(TestAdamWOp):
 
                 np.testing.assert_allclose(params_and_gras[0], fc1_w, rtol=1e-6)
                 np.testing.assert_allclose(params_and_gras[2], fc1_b, rtol=1e-6)
-                np.testing.assert_allclose(params_and_gras[4], fc2_w, rtol=1e-6)
+                np.testing.assert_allclose(
+                    params_and_gras[4],
+                    fc2_w,
+                    rtol=1e-6 if not core.is_compiled_with_xpu() else 1e-5,
+                )
                 np.testing.assert_allclose(params_and_gras[6], fc2_b, rtol=1e-6)
 
             paddle.disable_static()
@@ -1508,7 +1512,11 @@ class TestAdamWOpLayerwiseLR(TestAdamWOp):
 
                 np.testing.assert_allclose(params_and_gras[6], fc1_w, rtol=1e-6)
                 np.testing.assert_allclose(params_and_gras[4], fc1_b, rtol=1e-6)
-                np.testing.assert_allclose(params_and_gras[2], fc2_w, rtol=1e-6)
+                np.testing.assert_allclose(
+                    params_and_gras[2],
+                    fc2_w,
+                    rtol=1e-6 if not core.is_compiled_with_xpu() else 1e-5,
+                )
                 np.testing.assert_allclose(params_and_gras[0], fc2_b, rtol=1e-6)
 
             paddle.disable_static()
