@@ -630,8 +630,6 @@ class FusedFlashAttnPass : public pir::PatternRewritePass {
       enable_gpu_mixed = Get<bool>("enable_gpu_mixed");
     }
 
-    LOG(INFO) << "liuyuanle: " << enable_gpu_mixed;
-
     ps.Add(paddle::drr::Create<FlashAttnPatternQscaleWithMask>(
         context, true, enable_gpu_mixed));
     ps.Add(paddle::drr::Create<FlashAttnPatternQscaleWithMask>(
