@@ -259,6 +259,7 @@ class TestAdamW2(OpTest):
             check_pir=True,
         )
 
+
 class TestAdamW2AMSGrad(TestAdamW2):
     def set_amsgrad(self):
         # xpu not support `amsgrad`
