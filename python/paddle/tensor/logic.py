@@ -1481,13 +1481,17 @@ def positive(x: Tensor) -> Tensor:
                     boolean tensors, as it does not have a meaningful mathematical definition.
     Examples:
         .. code-block:: python
+            :name: positive_example1
+
             >>> import paddle
             >>> x = paddle.to_tensor([-1, 0, 1])
             >>> out = paddle.positive(x)
             >>> print(out)
             [-1, 0, 1]
-        Example of raising ValueError for bool type tensor:
+
         .. code-block:: python
+            :name: positive_example2
+
             >>> import paddle
             >>> x_bool = paddle.to_tensor([True, False, True], dtype=paddle.bool)
             >>> out = paddle.positive(x_bool)
