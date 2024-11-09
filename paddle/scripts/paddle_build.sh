@@ -3925,6 +3925,24 @@ function clang-tidy_check() {
 
     exec 3>&1 4>&2
     temp_file=$(mktemp)
+    modified_files=$(git diff --name-only test..upstream/develop)
+    diff_files=()
+    num_diff_files=0
+    for file in $modified_files
+    do
+        if [[ $file == *.cpp || $file == *.cc || $file == *.cxx || $file == *.c++ || $file == *.h || $file == *.hpp || $file == *.hh || $file == *.hxx || $file == *.h++ ]]; then
+            diff_files+=($file)
+            num_diff_files=$((num_diff_files + 1))
+        fi
+    done
+
+    echo "C++-related files updated: $num_diff_files"
+
+    if [[ $num_diff_files -eq 0 ]]; then
+        echo "No C++ related files to analyze."
+        exit 0
+    fi
+
     python ./tools/codestyle/clang-tidy.py -p=build -j=20 \
         -clang-tidy-binary=clang-tidy \
         -extra-arg=-Wno-unknown-warning-option \
@@ -3950,7 +3968,9 @@ function clang-tidy_check() {
         -extra-arg=-Wno-defaulted-function-deleted \
         -extra-arg=-Wno-delete-non-abstract-non-virtual-dtor \
         -extra-arg=-Wno-error \
-        -extra-arg=-Wno-return-type-c-linkage 2>&1 | tee $temp_file 1>&3 3>&-
+        -extra-arg=-Wno-return-type-c-linkage \
+        "${diff_files[@]}" 2>&1 | tee $temp_file 1>&3 3>&-
+
 
     T=$(cat $temp_file)
     S=(

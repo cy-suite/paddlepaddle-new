@@ -363,6 +363,8 @@ def main():
     args = parser.parse_args()
 
     db_path = 'compile_commands.json'
+    
+    print(f"in clang-tidy.py detected updated files: {args.files}")
 
     if args.build_path is not None:
         build_path = args.build_path
