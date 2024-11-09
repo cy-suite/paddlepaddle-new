@@ -14,6 +14,7 @@
 import logging
 import os
 import random
+from collections import OrderedDict
 from functools import reduce
 
 import numpy as np
@@ -22,8 +23,22 @@ from single_llama_model import LlamaForCausalLM, LlamaPretrainingCriterion
 import paddle
 import paddle.distributed as dist
 from paddle import LazyGuard
+from paddle.distributed.auto_parallel.intermediate.parallel_base import (
+    parallelize_model_and_optimizer,
+)
+from paddle.distributed.auto_parallel.intermediate.pipeline_parallel import (
+    SplitPoint,
+    pipeline_parallel,
+)
 from paddle.distributed.auto_parallel.intermediate.sharded_data_parallel import (
     sharded_data_parallel,
+)
+from paddle.distributed.auto_parallel.intermediate.tensor_parallel import (
+    ColWiseParallel,
+    PrepareLayerInput,
+    PrepareLayerOutput,
+    RowWiseParallel,
+    tensor_parallel,
 )
 from paddle.io import BatchSampler, DataLoader, Dataset
 
@@ -53,7 +68,6 @@ class Config:
     num_hidden_layers = 2
     num_attention_heads = 32
     rms_norm_eps = 1e-6
-    sequence_parallel = False
     use_lazy_init = False
 
 
@@ -110,8 +124,6 @@ class TestParallelAPI:
         self.dp = int(os.getenv("dp"))
         self.mp = int(os.getenv("mp"))
         self.pp = int(os.getenv("pp"))
-        if os.getenv("use_sp") == "true":
-            self.config.sequence_parallel = True
         if os.getenv("use_lazy_init") == "true":
             self.config.use_lazy_init = True
         self.gradient_accumulation_steps = int(os.getenv("acc_step"))
@@ -132,23 +144,20 @@ class TestParallelAPI:
         self.level = self.sharding_stage_to_level[
             int(os.getenv("sharding_stage", 0))
         ]
+        self.sequence_parallel = False
+        if os.getenv("sequence_parallel") == "true":
+            self.sequence_parallel = True
 
         seed = int(os.getenv("seed", 2024))
         np.random.seed(seed)
         random.seed(seed)
         paddle.seed(seed)
-        self.only_build = int(os.getenv("only_build", 0))
         self.init_dist_env()
 
     def init_dist_env(self):
-        order = ["dp", "pp", "mp"]
-        dp_degree = self.dp
-        mp_degree = self.mp
-        pp_degree = self.pp
-        degree = [dp_degree, pp_degree, mp_degree]
-        mesh_dims = list(filter(lambda x: x[1] > 1, list(zip(order, degree))))
-        if not mesh_dims:
-            mesh_dims = [("dp", 1)]
+        mesh_dims = [("dp", self.dp), ("pp", self.pp), ("mp", self.mp)]
+        if self.pp * self.mp == 1:
+            mesh_dims = [("dp", self.dp)]
         dim_names = [mesh_dim[0] for mesh_dim in mesh_dims]
         mesh_shape = [mesh_dim[1] for mesh_dim in mesh_dims]
         mesh_arr = np.arange(
@@ -157,12 +166,117 @@ class TestParallelAPI:
         global_mesh = dist.ProcessMesh(mesh_arr, dim_names)
         dist.auto_parallel.set_mesh(global_mesh)
 
+    def output_transpose(self, process_mesh):
+        def transpose(layer, input, output=None):
+            return paddle.transpose(output, perm=[1, 0, 2])
+
+        return transpose
+
+    def input_transpose(self, process_mesh):
+        def transpose(layer, input, output=None):
+            return paddle.transpose(input, perm=[1, 0, 2])
+
+        return transpose
+
+    def check_mp(self, layer):
+        if self.mp == 1:
+            return
+        for name, sub_layer in layer.named_sublayers():
+            if len(sub_layer.sublayers()) == 0:
+                if 'q_proj' in name or 'k_proj' in name or 'v_proj' in name:
+                    assert sub_layer.weight.placements == [
+                        dist.Replicate(),
+                        dist.Shard(1),
+                    ]
+                    assert sub_layer.bias.placements == [
+                        dist.Replicate(),
+                        dist.Shard(0),
+                    ]
+                if (
+                    'gate_proj' in name
+                    or 'up_proj' in name
+                    or 'embed_tokens' in name
+                    or 'lm_head' in name
+                ):
+                    assert sub_layer.weight.placements == [
+                        dist.Replicate(),
+                        dist.Shard(1),
+                    ]
+                if 'o_proj' in name:
+                    assert sub_layer.weight.placements == [
+                        dist.Replicate(),
+                        dist.Shard(0),
+                    ]
+                    assert sub_layer.bias.placements is None
+                if 'down_proj' in name:
+                    assert sub_layer.weight.placements == [
+                        dist.Replicate(),
+                        dist.Shard(0),
+                    ]
+
     def parallel_model(self, layer, optimizer=None):
-        # call parallel api here
+        if self.pp > 1:
+            decoders_per_rank = self.config.num_hidden_layers // self.pp
+            split_spec = OrderedDict(
+                [
+                    (
+                        f"llama.layers.{i * decoders_per_rank - 1}",
+                        SplitPoint.END,
+                    )
+                    for i in range(1, self.pp)
+                ]
+            )
+            layer, optimizer = pipeline_parallel(layer, optimizer, split_spec)
         if self.dp > 1:
             layer, optimizer = sharded_data_parallel(
                 layer, optimizer, self.level
             )
+        if self.mp > 1:
+            if not self.sequence_parallel:
+                plan = {
+                    "llama.embed_tokens": ColWiseParallel(),
+                    "llama.layers.*.self_attn.q_proj": ColWiseParallel(),
+                    "llama.layers.*.self_attn.k_proj": ColWiseParallel(),
+                    "llama.layers.*.self_attn.v_proj": ColWiseParallel(),
+                    "llama.layers.*.self_attn.o_proj": RowWiseParallel(),
+                    "llama.layers.*.mlp.gate_proj": ColWiseParallel(),
+                    "llama.layers.*.mlp.up_proj": ColWiseParallel(),
+                    "llama.layers.*.mlp.down_proj": RowWiseParallel(),
+                    "lm_head.weight": ColWiseParallel(),
+                }
+            if self.sequence_parallel:
+                plan = {
+                    "llama.embed_tokens": [
+                        ColWiseParallel(),
+                        PrepareLayerOutput(self.output_transpose),
+                    ],
+                    "llama.layers.*.self_attn.q_proj": [
+                        ColWiseParallel(),
+                        PrepareLayerOutput(self.output_transpose),
+                    ],
+                    "llama.layers.*.self_attn.k_proj": [
+                        ColWiseParallel(),
+                        PrepareLayerOutput(self.output_transpose),
+                    ],
+                    "llama.layers.*.self_attn.v_proj": [
+                        ColWiseParallel(),
+                        PrepareLayerOutput(self.output_transpose),
+                    ],
+                    "llama.layers.*.self_attn.o_proj": [
+                        RowWiseParallel(),
+                        PrepareLayerInput(self.input_transpose),
+                    ],
+                    "llama.layers.*.mlp.gate_proj": ColWiseParallel(),
+                    "llama.layers.*.mlp.up_proj": ColWiseParallel(),
+                    "llama.layers.*.mlp.down_proj": RowWiseParallel(),
+                    "lm_head.weight": ColWiseParallel(),
+                    "lm_head": PrepareLayerInput(self.input_transpose),
+                }
+            layer, optimizer = tensor_parallel(layer, plan, optimizer)
+        layer, optimizer = parallelize_model_and_optimizer(layer, optimizer)
+        self.check_mp(layer)
+        if optimizer is None:
+            return layer
         return layer, optimizer
 
     def run_llama(self, to_static=0):
@@ -176,6 +290,15 @@ class TestParallelAPI:
             learning_rate=0.0001, warmup_steps=2, start_lr=0, end_lr=0.0001
         )
         optimizer = create_optimizer(model, lr_scheduler)
+        model, optimizer = self.parallel_model(model, optimizer)
+
+        criterion = LlamaPretrainingCriterion(self.config)
+
+        if self.config.use_lazy_init:
+            for param in model.parameters():
+                assert not param._is_initialized()
+                param.initialize()
+
         if self.amp and not to_static:
             model, optimizer = paddle.amp.decorate(
                 models=model,
@@ -184,17 +307,6 @@ class TestParallelAPI:
                 dtype=self.amp_dtype,
                 master_grad=self.amp_master_grad,
             )
-        model, optimizer = self.parallel_model(model, optimizer)
-
-        criterion = LlamaPretrainingCriterion(self.config)
-        if self.config.use_lazy_init:
-            for param in model.parameters():
-                assert not param._is_initialized()
-                param.initialize()
-
-        if self.only_build:
-            # check model here
-            return
 
         train_dataset = RandomDataset(self.config.seq_length)
         train_sampler = BatchSampler(
