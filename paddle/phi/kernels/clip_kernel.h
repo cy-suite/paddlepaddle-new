@@ -14,7 +14,6 @@
 
 #pragma once
 
-#include "paddle/phi/common/scalar.h"
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/device_context.h"
 #include "paddle/phi/core/selected_rows.h"
@@ -24,8 +23,8 @@ namespace phi {
 template <typename T, typename Context>
 void ClipKernel(const Context& dev_ctx,
                 const DenseTensor& x,
-                const Scalar& min,
-                const Scalar& max,
+                const DenseTensor& min,
+                const DenseTensor& max,
                 DenseTensor* out);
 
 }  // namespace phi

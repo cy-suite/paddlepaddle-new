@@ -950,7 +950,7 @@
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : clip
-  args : (Tensor x, Scalar(float) min, Scalar(float) max)
+  args : (Tensor x, Tensor min, Tensor max)
   output : Tensor(out)
   inplace : (x -> out)
   infer_meta :

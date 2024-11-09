@@ -380,8 +380,8 @@
     func : cholesky_solve_grad
 
 - backward_op : clip_double_grad
-  forward : clip_grad (Tensor x, Tensor grad_out, Scalar min = 0., Scalar max = 0.) -> Tensor(grad_x)
-  args : (Tensor x, Tensor grad_x_grad, Scalar min = 0., Scalar max = 0.)
+  forward : clip_grad (Tensor x, Tensor grad_out, Tensor min = 0., Tensor max = 0.) -> Tensor(grad_x)
+  args : (Tensor x, Tensor grad_x_grad, Tensor min = 0., Tensor max = 0.)
   output : Tensor(grad_out_grad)
   infer_meta :
     func : UnchangedInferMeta
@@ -391,8 +391,8 @@
     data_type : x
 
 - backward_op : clip_grad
-  forward : clip (Tensor x, Scalar min, Scalar max) -> Tensor(out)
-  args : (Tensor x, Tensor out_grad, Scalar min = 0., Scalar max = 0.)
+  forward : clip (Tensor x, Tensor min, Tensor max) -> Tensor(out)
+  args : (Tensor x, Tensor out_grad, Tensor min = 0., Tensor max = 0.)
   output : Tensor(x_grad)
   infer_meta :
     func : UnchangedInferMeta

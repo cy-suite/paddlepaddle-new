@@ -25,8 +25,8 @@ namespace phi {
 template <typename T, typename Context>
 void ClipKernel(const Context& dev_ctx,
                 const DenseTensor& x,
-                const Scalar& min,
-                const Scalar& max,
+                const DenseTensor& min,
+                const DenseTensor& max,
                 DenseTensor* out) {
   dev_ctx.template Alloc<T>(out);
   using XPUDataType = typename XPUTypeTrait<T>::Type;
@@ -36,8 +36,8 @@ void ClipKernel(const Context& dev_ctx,
                        x_data,
                        out_data,
                        x.numel(),
-                       static_cast<XPUDataType>(min.to<T>()),
-                       static_cast<XPUDataType>(max.to<T>()));
+                       static_cast<XPUDataType>(min.data.to<T>()),
+                       static_cast<XPUDataType>(max.data.to<T>()));
 
   PADDLE_ENFORCE_EQ(r,
                     XPU_SUCCESS,

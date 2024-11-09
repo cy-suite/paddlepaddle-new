@@ -589,16 +589,9 @@
 - op : clip
   backward : clip_grad, clip_double_grad
   inputs :
-    x : X
+    {x : X, min : Min, max : Max}
   outputs :
     out : Out
-  scalar :
-    min :
-      data_type : float
-      tensor_name : Min
-    max :
-      data_type :  float
-      tensor_name : Max
   extra :
     attrs : [bool use_mkldnn = false, str mkldnn_data_type = "float32"]
 

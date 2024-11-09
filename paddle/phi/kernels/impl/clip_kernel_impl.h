@@ -43,8 +43,8 @@ void ClipKernel(const Context& dev_ctx,
                 const Scalar& min,
                 const Scalar& max,
                 DenseTensor* out) {
-  auto max_ = max.to<T>();
-  auto min_ = min.to<T>();
+  auto max_ = max.data.to<T>();
+  auto min_ = min.data.to<T>();
 
   PADDLE_ENFORCE_LE(
       min_,

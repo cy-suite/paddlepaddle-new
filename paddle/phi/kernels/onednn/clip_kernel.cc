@@ -21,13 +21,13 @@ namespace phi {
 template <typename T, typename Context>
 void ClipKernel(const Context& dev_ctx,
                 const DenseTensor& x,
-                const Scalar& min,
-                const Scalar& max,
+                const DenseTensor& min,
+                const DenseTensor& max,
                 DenseTensor* out) {
   const auto& onednn_engine = dev_ctx.GetEngine();
 
   funcs::ClipOneDNNHandler<T> handler(
-      min, max, onednn_engine, dev_ctx.GetPlace(), &x);
+      &min, &max, onednn_engine, dev_ctx.GetPlace(), &x);
 
   auto src_memory_p = handler.AcquireSrcMemory(&x);
   auto dst_memory_p = handler.AcquireDstMemory(out);
