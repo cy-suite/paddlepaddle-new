@@ -66,6 +66,56 @@ def argmax_converter(network, paddle_op, inputs):
         return squeeze_layer.get_output(0)
 
 
+@converter_registry.register("pd_op.argmin", trt_version="8.x")
+def argmin_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    input_dims = x.shape
+    rank = len(input_dims)
+    axis = int(
+        paddle_op.operands()[1]
+        .source()
+        .get_defining_op()
+        .attrs()
+        .get("value", -1)
+    )
+    keepdims = paddle_op.attrs()["keepdims"]
+
+    if axis < 0:
+        axis += rank
+
+    topk_layer = network.add_topk(
+        input=x, op=trt.TopKOperation.Min, k=1, axes=(1 << axis)
+    )
+
+    if keepdims:
+        return topk_layer.get_output(1)
+    else:
+        squeeze_layer = network.add_shuffle(topk_layer.get_output(1))
+        output_dims = []
+        for i in range(len(input_dims)):
+            if i == axis:
+                continue
+            output_dims.append(input_dims[i])
+        squeeze_layer.reshape_dims = tuple(output_dims)
+        return squeeze_layer.get_output(0)
+
+
+@converter_registry.register("pd_op.argsort", trt_version="8.x")
+def argsort_converter(network, paddle_op, inputs):
+    input_tensor = inputs[0]
+    input_shape = input_tensor.shape
+    # The following two attributes is judged in Marker Pass.
+    # Default value maybe redundant.
+    axis = paddle_op.attrs().get("axis", -1)
+    descending = paddle_op.attrs().get("descending", False)
+    if axis < 0:
+        axis += len(input_shape)
+    topk_op = trt.TopKOperation.MAX if descending else trt.TopKOperation.MIN
+    k = input_shape[axis]
+    topk_layer = network.add_topk(input_tensor, topk_op, k, 1 << axis)
+    return topk_layer.get_output(1)
+
+
 @converter_registry.register("pd_op.topk", trt_version="8.x")
 def topk_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]

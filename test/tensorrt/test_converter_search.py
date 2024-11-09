@@ -35,6 +35,82 @@ class TestArgmaxTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestArgminCase1TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.argmin
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype(np.float32),
+            "axis": -1,
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3]}
+        self.max_shape = {"x": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestArgminCase2TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.argmin
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype(np.int64),
+            "axis": -1,
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3]}
+        self.max_shape = {"x": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestArgsortCase1TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.argsort
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype(np.float32),
+            "axis": -1,
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3]}
+        self.max_shape = {"x": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestArgsortCase2TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.argsort
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype(np.int64),
+            "axis": -1,
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3]}
+        self.max_shape = {"x": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestArgsortCase3TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.argsort
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype(np.int64),
+            "axis": -1,
+            "descending": True,
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3]}
+        self.max_shape = {"x": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
 class TestTopkCase1TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.topk
