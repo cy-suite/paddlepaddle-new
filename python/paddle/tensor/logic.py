@@ -1481,21 +1481,13 @@ def positive(x: Tensor) -> Tensor:
                     boolean tensors, as it does not have a meaningful mathematical definition.
     Examples:
         .. code-block:: python
-            :name: positive_example1
 
             >>> import paddle
             >>> x = paddle.to_tensor([-1, 0, 1])
             >>> out = paddle.positive(x)
             >>> print(out)
-            [-1, 0, 1]
-
-        .. code-block:: python
-            :name: positive_example2
-
-            >>> import paddle
-            >>> x_bool = paddle.to_tensor([True, False, True], dtype=paddle.bool)
-            >>> out = paddle.positive(x_bool)
-            ValueError: The `+` operator, on a bool tensor is not supported.
+            Tensor(shape=[3], dtype=int64, place=Place(cpu), stop_gradient=True,
+            [-1,  0,  1])
     """
 
     # Check if the input tensor is of bool type and raise an error
