@@ -1945,11 +1945,11 @@ void p_norm_grad(const Tensor& x,
                  /*output of forward was reserved for efficient backward*/
                  const Tensor& out,
                  const Tensor& out_grad,
-                 const float& porder,
+                 float porder,
                  int axis,
-                 const float& epsilon,
-                 const bool& keepdim,
-                 const bool& asvector,
+                 float epsilon,
+                 bool keepdim,
+                 bool asvector,
                  Tensor* x_grad) {
   if (x_grad) {
     if (axis < 0) {
@@ -1961,6 +1961,12 @@ void p_norm_grad(const Tensor& x,
       // dx = 0
       x_grad_tmp = full<T>(x.shape(), 0, x.dtype());
     } else {
+      /* generic case formula:
+          dx = {
+            dy * y^(1-p) * |x|^(p-1) * sgn(x), if p != +-inf,
+            dy * sgn(x) * (x==y), if p == +-inf.
+          }
+      */
       Tensor expand_out = out;
       Tensor expand_out_grad = out_grad;
       // firstly expand output_grad to same ndim with x for convenience
@@ -1972,21 +1978,21 @@ void p_norm_grad(const Tensor& x,
       }
 
       if (porder == 1.0) {
-        // dx = sign(x) * dy
+        // dx = dy * sign(x)
         auto x_sign = sign<T>(x);
         x_grad_tmp = x_sign * expand_out_grad;
       } else if (porder == 2.0) {
-        // dx = (x / y) * dy
+        // dx = dy * (x / y)
         x_grad_tmp = x / expand_out;
         // fill zero to avoid division by zero
         auto _zero_tensor =
             full<T>(common::vectorize(x.dims()), 0.0, x.dtype());
-        auto non_nan_or_inf_mask = bitwise_not<T>(
-            bitwise_or<T>(isnan<T>(x_grad_tmp), isinf<T>(x_grad_tmp)));
-        x_grad_tmp = where<T>(non_nan_or_inf_mask, x_grad_tmp, _zero_tensor);
+        auto finite_mask = isfinite<T>(x_grad_tmp);
+        x_grad_tmp = where<T>(finite_mask, x_grad_tmp, _zero_tensor);
         x_grad_tmp = expand_out_grad * (x_grad_tmp);
 
       } else if (porder == INFINITY || porder == -INFINITY) {
+        // dy * sgn(x) * (x==y), if p == +-inf.
         auto x_abs = abs<T>(x);
         auto mask =
             cast<T>(bitwise_or<T>(equal<T>(x_abs, expand_out), isnan<T>(x_abs)),
@@ -1998,42 +2004,38 @@ void p_norm_grad(const Tensor& x,
                       mask);
 
       } else if (porder < 1.0) {
+        // dx = dy * y^(1-p) * |x|^(p-1) * sgn(x)
         auto x_sign = sign<T>(x);
-
         auto x_abs_pow = abs<T>(x);
         x_abs_pow = x_abs_pow.pow(porder - 1);
-        auto _zero_tensor =
-            full<T>(common::vectorize(x.dims()), 0.0, x.dtype());
-        auto x_non_zero_mask = not_equal<T>(x, _zero_tensor);
 
-        auto x_scaled =
-            x_sign * (x_abs_pow * cast<T>(x_non_zero_mask, expand_out.dtype()));
+        auto x_scaled = x_sign * x_abs_pow;
         x_grad_tmp = x_scaled * expand_out_grad * expand_out.pow(1 - porder);
 
       } else if (porder < 2.0) {
+        // dx = dy * y^(1-p) * |x|^(p-1) * sgn(x)
         auto x_sign = sign<T>(x);
         auto x_abs_pow = abs<T>(x);
         x_abs_pow = x_abs_pow.pow(porder - 1);
 
-        auto scale_v = expand_out_grad / expand_out.pow(porder - 1);
-        auto _zero_tensor =
-            full<T>(common::vectorize(x.dims()), 0.0, x.dtype());
-        auto out_non_zero_mask = not_equal<T>(expand_out, _zero_tensor);
-        scale_v = scale_v * cast<T>(out_non_zero_mask, scale_v.dtype());
+        // auto scale_v = expand_out_grad / expand_out.pow(porder - 1);
+        // auto _zero_tensor =
+        //     full<T>(common::vectorize(x.dims()), 0.0, x.dtype());
+        // auto out_non_zero_mask = not_equal<T>(expand_out, _zero_tensor);
+        // scale_v = scale_v * cast<T>(out_non_zero_mask, scale_v.dtype());
+        // x_grad_tmp = x_sign * x_abs_pow * scale_v;
+
+        auto scale_v = expand_out_grad * expand_out.pow(1 - porder);
         x_grad_tmp = x_sign * x_abs_pow * scale_v;
 
       } else {
+        // dx = dy * y^(1-p) * |x|^(p-1) * sgn(x)
+        auto x_sign = sign<T>(x);
         auto x_abs_pow = abs<T>(x);
-        x_abs_pow = x_abs_pow.pow(porder - 2);
-        auto scale_v = expand_out_grad / expand_out.pow(porder - 1);
+        x_abs_pow = x_abs_pow.pow(porder - 1);
 
-        auto _zero_tensor =
-            full<T>(common::vectorize(x.dims()), 0.0, x.dtype());
-        auto non_nan_or_inf_mask =
-            bitwise_not<T>(bitwise_or<T>(isnan<T>(scale_v), isinf<T>(scale_v)));
-        scale_v = where<T>(non_nan_or_inf_mask, scale_v, _zero_tensor);
-
-        x_grad_tmp = x * x_abs_pow * scale_v;
+        auto x_scaled = x_sign * x_abs_pow;
+        x_grad_tmp = x_scaled * expand_out_grad * expand_out.pow(1 - porder);
       }
     }
     set_output<T>(x_grad_tmp, x_grad);

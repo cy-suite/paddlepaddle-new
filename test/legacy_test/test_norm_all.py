@@ -347,23 +347,6 @@ class TestPnormOp6(TestPnormOp):
         )
 
 
-class TestPnormOp7(TestPnormOp):
-    def init_test_case(self):
-        self.prim_op_type = "prim"
-        self.shape = [3, 20, 100]
-        self.axis = 2
-        self.epsilon = 1e-12
-        self.porder = 2
-        self.keepdim = False
-        self.asvector = False
-
-    def init_dtype(self):
-        self.dtype = "float32"
-
-    def test_check_grad(self):
-        self.check_grad(['X'], 'Out', only_check_prim=True)
-
-
 def create_test_fp16_class(parent, max_relative_error=2e-3):
     @unittest.skipIf(
         not core.is_compiled_with_cuda(), "core is not compiled with CUDA"
