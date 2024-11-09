@@ -4105,16 +4105,16 @@ function clang-tidy_check() {
         "clang-analyzer-valist.Uninitialized"
         "clang-analyzer-valist.Unterminated"
         "clang-analyzer-valist.ValistBase"
-        "*******-avoid-c-arrays"
-        "*******-avoid-goto"
-        "*******-c-copy-assignment-signature"
-        "*******-explicit-virtual-functions"
-        "*******-init-variables"
-        "*******-narrowing-conversions"
-        "*******-no-malloc"
-        "*******-pro-type-const-cast"
-        "*******-pro-type-member-init"
-        "*******-slicing"
+        "cppcoreguidelines-avoid-c-arrays"
+        "cppcoreguidelines-avoid-goto"
+        "cppcoreguidelines-c-copy-assignment-signature"
+        "cppcoreguidelines-explicit-virtual-functions"
+        "cppcoreguidelines-init-variables"
+        "cppcoreguidelines-narrowing-conversions"
+        "cppcoreguidelines-no-malloc"
+        "cppcoreguidelines-pro-type-const-cast"
+        "cppcoreguidelines-pro-type-member-init"
+        "cppcoreguidelines-slicing"
         "hicpp-avoid-goto"
         "hicpp-exception-baseclass"
         "misc-unused-alias-decls"
@@ -4158,23 +4158,31 @@ function clang-tidy_check() {
         "readability-container-size-empty"
     )
 
-    testT="abcabc"
-    testS="abc"
-    testcount=$(echo -n "$testT" | grep -o "$testS" | wc -l)
-    echo "test find: $[ $testcount ]"
-
-    echo "output T first 5000 chars:"
-    echo "${T:0:5000}"
     check_error=0
-    length=$(echo -n "$T" | wc -c)
-    echo "Clang Tidy output length: $[ $length ]"
+    declare -A count_map
+
     for str in "${S[@]}"; do
-        count=$(echo -n "$T" | grep -o "$str" | wc -l)
-        echo "str: $$str count: $[ $count ]"
-        if [ "$count" -ge 2 ]; then
-            echo "check error: $s"
-            check_error=1
-        fi
+        count_map["$str"]=0
+    done
+    check_error=0
+    declare -A count_map
+
+    for str in "${S[@]}"; do
+        count_map["$str"]=0
+    done
+
+    while IFS= read -r line; do
+        for str in "${S[@]}"; do
+            if [[ "$line" == *"$str"* ]]; then
+                count=$((count_map["$str"] + 1))
+                count_map["$str"]=$count
+                if (( $ [$count ] -ge 2 )); then
+                    check_error=1
+                    file_path=$(echo "$line" | awk '{for (i=2; i<NF; i++) if ($i ~ /\/.*\/.*\/.*\.(c|cc|cpp|h|hpp):/) {print $i; break}}')
+                    echo "check error: $str in file $file_path"
+                fi
+            fi
+        done
     done
 
     rm $temp_file
