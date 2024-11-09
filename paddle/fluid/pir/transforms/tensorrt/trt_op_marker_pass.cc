@@ -1276,7 +1276,7 @@ class ArgminOpPattern
   }
 };
 
-class ArgsortPattern
+class ArgsortOpPattern
     : public pir::OpRewritePattern<paddle::dialect::ArgsortOp> {
  public:
   using pir::OpRewritePattern<paddle::dialect::ArgsortOp>::OpRewritePattern;
