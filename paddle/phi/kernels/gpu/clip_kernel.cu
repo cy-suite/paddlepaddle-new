@@ -17,7 +17,34 @@
 #include "paddle/phi/backends/gpu/gpu_context.h"
 #include "paddle/phi/common/float16.h"
 #include "paddle/phi/core/kernel_registry.h"
-#include "paddle/phi/kernels/impl/clip_kernel_impl.h"
+#include "paddle/phi/kernels/funcs/broadcast_function.h"
+#include "paddle/phi/kernels/funcs/elementwise_functor.h"
+
+namespace phi {
+
+// Cond
+template <typename T>
+struct ClipGPUFunctor {
+  inline HOSTDEVICE T operator()(const T x, const T min_, const T max_) const {
+    return x < min_ ? min_ : x > max_ ? max_ : x;
+  }
+};
+
+template <typename T, typename Context>
+void ClipKernel(const Context& ctx,
+                 const DenseTensor& x,
+                 const DenseTensor& min,
+                 const DenseTensor& max,
+                 DenseTensor* out) {
+  std::vector<const DenseTensor*> ins = {&x, &min, &max};
+  std::vector<DenseTensor*> outs = {out};
+  ctx.template Alloc<T>(out);
+
+  ClipGPUFunctor<T> func;
+  funcs::ElementwiseKernel<T, ClipGPUFunctor<T>, 1>(ctx, ins, &outs, func);
+}
+
+}  // namespace phi
 
 PD_REGISTER_KERNEL(clip,
                    GPU,

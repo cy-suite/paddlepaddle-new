@@ -16,7 +16,29 @@
 
 #include "paddle/phi/backends/cpu/cpu_context.h"
 #include "paddle/phi/core/kernel_registry.h"
-#include "paddle/phi/kernels/impl/clip_grad_kernel_impl.h"
+
+namespace phi {
+
+template <typename T, typename Context>
+void ClipGradKernel(const Context& ctx,
+                    const DenseTensor& x,
+                    const DenseTensor& out_grad,
+                    const DenseTensor& min,
+                    const DenseTensor& max,
+                    DenseTensor* x_grad) {
+  int64_t numel = out_grad.numel();
+  auto *d_x_data = dev_ctx.template Alloc<T>(x_grad);
+  const auto* x_data = x.data<T>();
+  const auto* min_data = min.data<T>();
+  const auto* max_data = max.data<T>();
+  auto* d_out_data = out_grad.data<T>();
+
+ for (int i = 0; i < numel; i++) {
+    d_x_data[i] = ( x_data[i] > min_data[i] && x_data[i] < max_data[i]) ? d_out_data[i] : static_cast<T>(0);
+ }
+}
+
+}  // namespace phi
 
 PD_REGISTER_KERNEL(clip_grad,
                    CPU,

@@ -3770,48 +3770,45 @@ def clip(
     else:
         min_ = float(np.finfo(np.float32).min)
         max_ = float(np.finfo(np.float32).max)
-    
+
     min = min_ if min is None else min
     max = max_ if max is None else max
 
     if not isinstance(min, Variable):
-        min = paddle.full_like([1], min)
+        min = paddle.full_like(x, min, x.dtype)
     if not isinstance(max, Variable):
-        max = paddle.full_like([1], max)
+        max = paddle.full_like(x, max, x.dtype)
 
     if min.shape != x.shape[-len(min.shape)] or min.shape[-1] == 0:
         raise ValueError(
             f"The min dimension should be equal to the inner dimension of the x, but the min dimension is {min.shape}"
         )
-    
+
     if max.shape != x.shape[-len(max.shape)] or max.shape[-1] == 0:
         raise ValueError(
             f"The max dimension should be equal to the inner dimension of the x, but the max dimension is {max.shape}"
         )
+    
+    broadcast_min = paddle.broadcast_to(min, x.shape) if min.shape != x.shape else min
+    broadcast_max = paddle.broadcast_to(max, x.shape) if max.shape != x.shape else max
 
     if in_dynamic_or_pir_mode():
-        return _C_ops.clip(x, min, max)
+        return _C_ops.clip(x, broadcast_min, broadcast_max)
     else:
-        if min is not None:
-            check_type(min, 'min', (float, int, Variable), 'clip')
-            if isinstance(min, Variable):
-                check_dtype(
-                    min.dtype,
-                    'min',
-                    ['float16', 'float32', 'float64', 'int32', 'uint16'],
-                    'clip',
-                    '(When the type of min in clip is Variable.)',
-                )
-        if max is not None:
-            check_type(max, 'max', (float, int, Variable), 'clip')
-            if isinstance(max, Variable):
-                check_dtype(
-                    max.dtype,
-                    'max',
-                    ['float16', 'float32', 'float64', 'int32', 'uint16'],
-                    'clip',
-                    '(When the type of max in clip is Variable.)',
-                )
+        check_variable_and_dtype(
+            broadcast_min,
+            'min',
+            ['float16', 'float32', 'float64', 'int32', 'uint16'],
+            'clip',
+            '(When the type of min in clip is Variable.)',
+        )
+        check_variable_and_dtype(
+            broadcast_max,
+            'max',
+            ['float16', 'float32', 'float64', 'int32', 'uint16'],
+            'clip',
+            '(When the type of max in clip is Variable.)',
+        )
 
         check_variable_and_dtype(
             x,
@@ -3832,9 +3829,7 @@ def clip(
         output = helper.create_variable_for_type_inference(
             dtype=helper.input_dtype('x')
         )
-        helper.append_op(
-            type='clip', inputs=inputs, outputs={'Out': [output]}
-        )
+        helper.append_op(type='clip', inputs=inputs, outputs={'Out': [output]})
 
         return output
 
@@ -3857,22 +3852,25 @@ def clip_(
     max = fmax if max is None else max
 
     if not isinstance(min, Variable):
-        min = paddle.full_like(x, min)
+        min = paddle.full_like(x, min, x.dtype)
     if not isinstance(max, Variable):
-        max = paddle.full_like(x, max)
+        max = paddle.full_like(x, max, x.dtype)
 
     if min.shape != x.shape[-len(min.shape)] or min.shape[-1] == 0:
         raise ValueError(
             f"The min dimension should be equal to the inner dimension of the x, but the min dimension is {min.shape}"
         )
-    
+
     if max.shape != x.shape[-len(max.shape)] or max.shape[-1] == 0:
         raise ValueError(
             f"The max dimension should be equal to the inner dimension of the x, but the max dimension is {max.shape}"
         )
 
+    broadcast_min = paddle.broadcast_to(min, x.shape) if min.shape != x.shape else min
+    broadcast_max = paddle.broadcast_to(max, x.shape) if max.shape != x.shape else max
+
     if in_dynamic_mode():
-        return _C_ops.clip_(x, min, max)
+        return _C_ops.clip_(x, broadcast_min, broadcast_max)
 
 
 def trace(
