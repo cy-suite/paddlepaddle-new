@@ -266,7 +266,6 @@ class TensorRTBaseTest(unittest.TestCase):
                 trt_fetch_list = [
                     split_op.result(index) for index in fetch_index
                 ]
-                # trt_fetch_list = [split_op.result(0)]
             else:
                 raise ValueError(
                     "The last op of convert pir Program in test must be split op that is the next op of pd_op.engine."
