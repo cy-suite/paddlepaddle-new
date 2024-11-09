@@ -1467,8 +1467,10 @@ def positive(x: Tensor) -> Tensor:
     r"""
     Returns the input Tensor as it is. This is used in `Tensor.__pos__`, applying the
     unary `+` operator to the tensor.
-    In dynamic mode, the input tensor is returned directly. In static mode, a copy of
-    the tensor is returned to avoid in-place modifications.
+
+    .. math::
+        Out = +X
+
     Args:
         x (Tensor): The input tensor. It must be a tensor with one of the following data types:
                     float16, float32, float64, int32, or int64.
@@ -1476,9 +1478,7 @@ def positive(x: Tensor) -> Tensor:
     Returns:
         Tensor: A tensor with the same shape and data type as the input tensor. The returned tensor
                 is the same in dynamic mode and a clone in static mode.
-    Raises:
-        ValueError: If the input tensor is of bool type. The `+` operator is not supported for
-                    boolean tensors, as it does not have a meaningful mathematical definition.
+
     Examples:
         .. code-block:: python
 
