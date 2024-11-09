@@ -1249,7 +1249,7 @@ class ArgminOpPattern
     }
     if (!op.axis().defining_op()->isa<paddle::dialect::FullOp>()) {
       VLOG(3) << "Skip to convert into TRT while found axis is not a constant "
-                 "data in arg_max.";
+                 "data in arg_min.";
       return false;
     }
     auto x = op.x();
