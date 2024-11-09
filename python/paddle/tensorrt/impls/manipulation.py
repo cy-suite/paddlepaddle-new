@@ -904,7 +904,7 @@ def numel_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     shape_tensor = network.add_shape(input_tensor).get_output(0)
     # Make keep_dims=Flase to return a 0D Tensor
-    numel_tensor = network.add_reduce(
+    layer = network.add_reduce(
         shape_tensor, trt.ReduceOperation.PROD, axes=0, keep_dims=False
     )
-    return numel_tensor
+    return layer.get_output(0)
