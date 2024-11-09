@@ -75,6 +75,13 @@ class TestPositiveApi(unittest.TestCase):
         out = paddle.positive(x_tensor).numpy()
         np.testing.assert_allclose(out, expected_out, atol=1e-3)
 
+    def test_positive_bool(self):
+        x = np.random.choice([True, False], size=self.shape)
+        x_tensor = paddle.to_tensor(x, dtype=paddle.bool)
+
+        with self.assertRaises(ValueError):
+            paddle.positive(x_tensor)
+
 
 if __name__ == '__main__':
     unittest.main()
