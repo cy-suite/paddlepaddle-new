@@ -64,6 +64,11 @@ def test_complex_cast(x):
     return x
 
 
+def test_not_var_complex_cast(x):
+    x = complex(x)
+    return x
+
+
 class TestCastBase(Dy2StTestBase):
     def setUp(self):
         self.place = (
@@ -209,6 +214,30 @@ class TestComplexCast(TestCastBase):
 
     def set_func(self):
         self.func = paddle.jit.to_static(full_graph=True)(test_complex_cast)
+
+
+class TestNotVarComplexCast(TestCastBase):
+    def prepare(self):
+        self.input = 3.14
+        self.cast_dtype = 'complex'
+
+    def set_func(self):
+        self.func = paddle.jit.to_static(full_graph=True)(
+            test_not_var_complex_cast
+        )
+
+    @test_ast_only
+    def test_cast_result(self):
+        self.set_func()
+        res = self.do_test()
+        self.assertTrue(
+            type(res) == complex, msg='The casted dtype is not complex.'
+        )
+        ref_val = complex(self.input)
+        self.assertTrue(
+            res == ref_val,
+            msg=f'The casted value is {res}.\nThe correct value is {ref_val}.',
+        )
 
 
 if __name__ == '__main__':

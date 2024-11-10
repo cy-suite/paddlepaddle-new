@@ -598,7 +598,7 @@ def monkey_patch_value():
             complex(Tensor) is not supported in static graph mode. Because it's value is not available during the static mode.
             It's usually triggered by the logging implicitly, for example:
                 >>> logging.info("The value of x is: {complex(x)}")
-                                                            ^ `x` is Tensor, `complex(x)` triggers complex(Tensor)
+                                                              ^ `x` is Tensor, `complex(x)` triggers complex(Tensor)
 
                 There are two common workarounds available:
                 If you are logging Tensor values, then consider logging only at dynamic graphs, for example:

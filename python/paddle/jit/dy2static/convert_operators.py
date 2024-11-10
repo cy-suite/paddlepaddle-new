@@ -759,7 +759,10 @@ def convert_var_dtype(var, dtype):
             'bool',
             'int',
             'float',
+            'complex',
         ], f"The casted target dtype is {dtype}, which is not supported in type casting."
+        if dtype == 'complex':
+            return var.astype('complex64')
         cast_map = {
             'bool': 'bool',
             'int': 'int32',
@@ -771,6 +774,7 @@ def convert_var_dtype(var, dtype):
             'bool',
             'int',
             'float',
+            'complex',
         ], f"The casted target dtype is {dtype}, which is not supported in type casting."
         return eval(dtype)(var)
 
