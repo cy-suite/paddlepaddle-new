@@ -4033,6 +4033,7 @@ def gather(
                 'uint16',
                 'complex64',
                 'complex128',
+                'bool',
             ],
             'gather',
         )
