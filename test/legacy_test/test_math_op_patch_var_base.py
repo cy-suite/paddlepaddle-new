@@ -454,7 +454,7 @@ class TestMathOpPatchesVarBase(unittest.TestCase):
             res_tensor = a.less(b)
             res_paddle = paddle.less(a, b)
             np.testing.assert_array_equal(res_tensor.numpy(), a_np < b_np)
-            np.testing.assert_array_equal(res_paddle.numpy, a_np < b_np)
+            np.testing.assert_array_equal(res_paddle.numpy(), a_np < b_np)
 
     def test_less_equal(self):
         a_np = np.random.random(self.shape).astype(self.dtype)
