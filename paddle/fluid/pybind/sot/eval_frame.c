@@ -349,11 +349,15 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
   // _PyFrame_FastToLocalsWithError directly. But this is an internal API, so we
   // copy many code from CPython project into our project.
 #if PY_3_13_PLUS
-  Internal_PyFrame_GetLocals(frame);
+  PyObject *f_locals = Internal_PyFrame_GetLocals(frame);
+  if (f_locals == NULL) {
 #else
   if (Internal_PyFrame_FastToLocalsWithError(frame) < 0) {
+#endif
     return NULL;
   }
+#if PY_3_13_PLUS
+  Py_DECREF(f_locals);
 #endif
 #else
   if (frame->f_code->co_flags & 0x20) {
