@@ -1013,11 +1013,6 @@ def less_than_(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         return _C_ops.less_than_(x, y)
 
 
-less = less_than
-
-less_ = less_than_
-
-
 def not_equal(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
     """
     Returns the truth value of :math:`x != y` elementwise, which is equivalent function to the overloaded operator `!=`.
