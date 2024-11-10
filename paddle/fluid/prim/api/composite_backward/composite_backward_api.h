@@ -118,6 +118,7 @@ void softmax_grad(const Tensor& out,
       axis += out.dims().size();
     }
     if (out_grad.dims().size() > 0) {
+      // dx = dy * y - y * (dy*y).sum(axis)
       auto new_out_grad = out_grad * out;
       auto tmp_x_grad =
           new_out_grad - out * sum<T>(new_out_grad, {axis}, out.dtype(), true);
