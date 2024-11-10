@@ -185,6 +185,15 @@ class TestIndexSelectComplex128(TestIndexSelectOp):
         self.index_size = 10
 
 
+class TestIndexSelectBool(TestIndexSelectOp):
+    def init_dtype_type(self):
+        self.x_type = np.bool
+        self.index_type = np.int32
+        self.dim = -2
+        self.x_shape = (10, 10, 4, 10)
+        self.index_size = 10
+
+
 class TestIndexSelectAPI(unittest.TestCase):
     def input_data(self):
         self.data_x = np.array(

@@ -178,6 +178,8 @@ def get_numeric_gradient(
         tensor_to_check_dtype = np.complex64
     elif tensor_to_check_dtype == paddle.complex128:
         tensor_to_check_dtype = np.complex128
+    elif tensor_to_check_dtype == paddle.bool:
+        tensor_to_check_dtype = np.bool
     else:
         raise ValueError(
             "Not supported data type "

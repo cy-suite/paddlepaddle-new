@@ -62,4 +62,5 @@ PD_REGISTER_KERNEL(scatter,
                    int,
                    int64_t,
                    phi::dtype::float16,
-                   phi::dtype::bfloat16) {}
+                   phi::dtype::bfloat16,
+                   bool) {}

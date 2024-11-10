@@ -71,4 +71,5 @@ PD_REGISTER_KERNEL(scatter_grad,
                    float,
                    double,
                    int,
-                   int64_t) {}
+                   int64_t,
+                   bool) {}
