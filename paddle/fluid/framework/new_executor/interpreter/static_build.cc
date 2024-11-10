@@ -18,10 +18,10 @@
 #include "paddle/fluid/eager/api/utils/global_utils.h"
 #include "paddle/fluid/framework/new_executor/new_executor_defs.h"
 #include "paddle/fluid/framework/new_executor/standalone_executor.h"
-#include "paddle/fluid/framework/reader.h"
 #include "paddle/fluid/operators/controlflow/control_flow_op_helper.h"
 #include "paddle/fluid/operators/controlflow/while_op_helper.h"
-#include "paddle/fluid/operators/reader/buffered_reader.h"
+#include "paddle/phi/core/framework/reader.h"
+#include "paddle/phi/core/operators/reader/buffered_reader.h"
 
 #ifdef PADDLE_WITH_DNNL
 #include "paddle/fluid/platform/onednn_helper.h"
@@ -40,11 +40,13 @@ std::set<std::string> OpsHandledInStaticBuild = {"conditional_block",
 
 std::set<std::string> OpsCanSkipedFakeAllocInStaticBuild = {
     "c_comm_init",
-    "c_comm_init_all",
+    "comm_init_all",
     "c_comm_init_multitrainer",
     "c_gen_bkcl_id",
     "c_gen_nccl_id",
+    "sync_calc_stream",
     "c_sync_calc_stream",
+    "sync_comm_stream",
     "c_sync_comm_stream",
     "c_wait_comm",
     "c_wait_compute",
@@ -186,8 +188,8 @@ bool BlockCanBeStaticBuilt(const framework::BlockDesc& block) {
 }
 
 inline bool IsExtendedTensor(const phi::TensorBase& tensor) {
-  return framework::RawTensor::classof(&tensor) ||
-         phi::Strings::classof(&tensor) || phi::Vocab::classof(&tensor);
+  return phi::RawTensor::classof(&tensor) || phi::Strings::classof(&tensor) ||
+         phi::Vocab::classof(&tensor);
 }
 
 bool TensorShouldBeFakeInitialized(const OperatorBase& op,
@@ -281,9 +283,11 @@ phi::TensorBase* GetTensorFormVar(framework::Variable* var) {
       return var->template GetMutable<phi::TensorArray>();
     } else if (var->template IsType<phi::Strings>()) {
       return var->template GetMutable<phi::Strings>();
-    } else if (var->template IsType<paddle::framework::RawTensor>() ||
+    } else if (var->template IsType<phi::Vocab>()) {
+      return var->template GetMutable<phi::Vocab>();
+    } else if (var->template IsType<phi::RawTensor>() ||
                !var->IsInitialized()) {
-      return var->template GetMutable<paddle::framework::RawTensor>();
+      return var->template GetMutable<phi::RawTensor>();
     } else {
       PADDLE_THROW(common::errors::Unimplemented(
           "Unsupported `%s` type when get tensor.",
@@ -538,8 +542,7 @@ void RunWhileBlockPreStaticBuild(const framework::Scope& scope,
     } else {
       VLOG(10) << "[while op]"
                << "skip backup input " << in_name << " type:"
-               << framework::TransToPhiDataType(
-                      framework::ToVarType(var->Type()));
+               << phi::TransToPhiDataType(framework::ToVarType(var->Type()));
     }
   }
 

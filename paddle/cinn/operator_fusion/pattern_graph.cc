@@ -20,9 +20,6 @@
 #include "paddle/cinn/operator_fusion/pattern.h"
 #include "paddle/cinn/operator_fusion/pattern_fuser.h"
 
-COMMON_DECLARE_bool(enable_all_trivial_sink);
-COMMON_DECLARE_bool(enable_anchor_fusion);
-
 namespace cinn::fusion {
 
 std::vector<PatternNodePtr> PatternGraph::ClusterOps() {
@@ -54,16 +51,19 @@ std::vector<PatternNodePtr> PatternGraph::ClusterOps() {
           << GraphInfo();
 
   // ItersPermutationPattern x ItersPermutationPattern Fusion
-  if (FLAGS_enable_anchor_fusion) {
-    VLOG(4) << "[Group Cluster] Start ItersPermutationFusion";
-    ItersPermutationFusion();
-    VLOG(4) << "[Group Cluster] After ItersPermutationFusion: " << GraphInfo();
-  }
+  VLOG(4) << "[Group Cluster] Start IdentityAnchorFusion";
+  LimitedAnchorFusion();
+  VLOG(4) << "[Group Cluster] After IdentityAnchorFusion: " << GraphInfo();
 
   // Sink single trivial op pattern
   VLOG(4) << "[Group Cluster] Start SplitRecomputePattern";
   SplitRecomputePattern();
   VLOG(4) << "[Group Cluster] After SplitRecomputePattern: " << GraphInfo();
+
+  // ItersPermutationPattern x ItersPermutationPattern Fusion
+  VLOG(4) << "[Group Cluster] Start ItersPermutationFusion";
+  ItersPermutationFusion();
+  VLOG(4) << "[Group Cluster] After ItersPermutationFusion: " << GraphInfo();
 
   // Horizontal fusion.
   VLOG(4) << "[Group Cluster] Start HorizontalFusion";
@@ -139,20 +139,20 @@ void PatternGraph::SinkTrivialPattern() {
                        DownstreamSmallerThan<2>,
                        NonSinkNodeMatcher>,
                    MergeTrivialPatternOperation>(this);
-  if (FLAGS_enable_all_trivial_sink) {
-    GraphTransformer<NodePattern,
-                     And<StmtPatternGraphMatcher<TrivialPattern>,
-                         NonSinkNodeMatcher,
-                         NotAllElementWiseDownstreamMatcher>,
-                     MergeTrivialPatternOperation>(this);
-  } else {
-    // TODO(huangjiyi): remove sink multi downstream transpose after
-    // supporting transpose plus reduce anchor fusion
-    GraphTransformer<
-        NodePattern,
-        And<StmtPatternGraphMatcher<TrivialPattern>, TransposeOpMatcher>,
-        MergeTrivialPatternOperation>(this);
-  }
+
+  // TODO(huangjiyi): remove sink multi downstream transpose after
+  // supporting transpose plus reduce anchor fusion
+  GraphTransformer<
+      NodePattern,
+      And<StmtPatternGraphMatcher<TrivialPattern>, TransposeOpMatcher>,
+      MergeTrivialPatternOperation>(this);
+
+  // Sink Trivial pattern whose downstream containing related iters.
+  // TODO(huangjiyi): Only sink to the related iters pattern.
+  GraphTransformer<NodePattern,
+                   And<StmtPatternGraphMatcher<TrivialPattern>,
+                       DownstreamHasItersRelationMatcher>,
+                   MergeTrivialPatternOperation>(this);
 }
 
 void PatternGraph::ReduceLiftReduceTree() {
@@ -201,35 +201,30 @@ void PatternGraph::LiftToItersPermutationPattern() {
                    LiftToItersPermutationPatternOperation>(this);
 }
 
-void PatternGraph::ItersPermutationFusion() {
+void PatternGraph::LimitedAnchorFusion() {
+  iters_fusion_policy()
+      ->DisableStrategy(ItersTransformType::ReuseIters)
+      ->DisableStrategy(ItersTransformType::AppendIters);
+
   GraphTransformer<ReverseTopoNodePairPattern,
                    CanFuseItersPermutationMatcher,
                    FuseItersPermutatioOperation>(this);
 }
 
-void PatternGraph::LiftToAnchorPattern() {
-  GraphTransformer<NodePattern,
-                   LiftToAnchorPatternMatcher,
-                   LiftToAnchorPatternOperation>(this);
-}
+void PatternGraph::ItersPermutationFusion() {
+  iters_fusion_policy()->EnableAllStrategies();
 
-void PatternGraph::AnchorPatternFusion() {
   GraphTransformer<ReverseTopoNodePairPattern,
-                   HasUpstreamAnchorMatcher,
-                   FuseUpstreamAnchorOperation>(this);
-
-  GraphTransformer<NodePairPattern,
-                   HasUpstreamAnchorMatcher,
-                   FuseUpstreamAnchorOperation>(this);
-
-  GraphTransformer<NodePairPattern,
-                   HasDownstreamAnchorMatcher,
-                   FuseDownstreamAnchorOperation>(this);
+                   CanFuseItersPermutationMatcher,
+                   FuseItersPermutatioOperation>(this);
 }
 
 void PatternGraph::SplitRecomputePattern() {
   GraphTransformer<NodePattern, RecomputeNodeMatcher, SplitRecomputeOperation>(
       this);
+  GraphTransformer<NodePattern,
+                   StmtPatternGraphMatcher<TrivialPattern>,
+                   LiftToItersPermutationPatternOperation>(this);
 }
 
 PatternGraph::PatternGraph(const std::vector<PatternContent>& contents,

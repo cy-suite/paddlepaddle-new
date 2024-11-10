@@ -1319,6 +1319,10 @@ PHI_DEFINE_EXPORTED_bool(
     "Default cuda is asynchronous device, set to True will"
     "force op run in synchronous mode.");
 
+PHI_DEFINE_EXPORTED_bool(eager_communication_connection,
+                         false,
+                         "enable eager to create nccl comm");
+
 /**
  * Autotune related FLAG
  * Name: FLAGS_use_autotune
@@ -1368,27 +1372,6 @@ PHI_DEFINE_EXPORTED_bool(enable_fuse_parallel_matmul_pass,
 PHI_DEFINE_EXPORTED_bool(enable_fusion_fallback,
                          false,
                          "Whether enable fallback fusion ops in cinn.");
-
-/**
- * CINN sink all trivial pattren FLAG
- * Name: FLAGS_enable_all_trivial_sink
- * Since Version: 3.0 beta
- * Value Range: bool, default=false
- */
-PHI_DEFINE_EXPORTED_bool(
-    enable_all_trivial_sink,
-    false,
-    "Whether enable sink all trivial pattren first in cinn fusion.");
-
-/**
- * CINN AnchorFusion FLAG
- * Name: FLAGS_enable_anchor_fusion
- * Since Version: 3.0 beta
- * Value Range: bool, default=true
- */
-PHI_DEFINE_EXPORTED_bool(enable_anchor_fusion,
-                         true,
-                         "Whether enable anchorfusion in cinn fusion.");
 
 /**
  * CINN TransposeItesr transform fusion FLAG
@@ -1685,9 +1668,6 @@ PHI_DEFINE_EXPORTED_int32(
 
 PHI_DEFINE_EXPORTED_bool(print_ir, false, "Whether print ir debug str.");
 
-PHI_DEFINE_EXPORTED_bool(pir_debug,
-                         false,
-                         "Whether print more pir debug info.");
 PHI_DEFINE_EXPORTED_bool(
     prim_skip_dynamic,
     true,
@@ -1706,6 +1686,14 @@ PHI_DEFINE_EXPORTED_bool(prim_check_ops,
 // `relu` and `mean` two ops in decompsition.
 PHI_DEFINE_EXPORTED_string(
     prim_forward_blacklist,
+    "",
+    "It controls the forward blacklist ops not to be decomposed.");
+
+// PIR and prim related FLAG
+// Example: If prim_backward_blacklist="relu_grad;mean_grad",
+// it will block the decompsitions of `relu` and `mean` backward grads.
+PHI_DEFINE_EXPORTED_string(
+    prim_backward_blacklist,
     "",
     "It controls the forward blacklist ops not to be decomposed.");
 

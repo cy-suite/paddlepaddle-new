@@ -19,7 +19,6 @@ limitations under the License. */
 #include "glog/logging.h"
 
 COMMON_DECLARE_bool(enable_pir_in_executor);
-COMMON_DECLARE_bool(enable_pir_api);
 
 namespace phi {
 class DenseTensor;
@@ -69,27 +68,11 @@ void SetFeedVariable(Scope* scope,
       feed_inputs.resize(index + 1);
     }
     // shared data with input tensor
-    auto& val = PADDLE_GET(phi::DenseTensor, feed_inputs[index]);
+    auto& val = feed_inputs[index];
     val.ShareDataWith(input);
     // set lod
     val.set_lod(input.lod());
   }
-}
-
-void SetFeedVariable(Scope* scope,
-                     const std::vector<std::string>& input,
-                     const std::string& var_name,
-                     size_t index) {
-  // If var_name Variable is not found in GlobalScope, a new variable will
-  // be created.
-  VLOG(3) << "SetFeedStringVariable name=" << var_name << " index=" << index;
-  Variable* g_feed_value = scope->Var(var_name);
-  auto& feed_inputs = *(g_feed_value->GetMutable<FeedList>());
-  if (index >= feed_inputs.size()) {
-    feed_inputs.resize(index + 1);
-  }
-  // shared data with input tensor
-  feed_inputs[index] = Strings(input);
 }
 
 FetchType& GetFetchVariable(const Scope& scope,

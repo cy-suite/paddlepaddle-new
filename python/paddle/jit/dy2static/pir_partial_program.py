@@ -129,14 +129,15 @@ class RunnableProgram:
     @staticmethod
     def _get_program_all_values(program):
         all_values = []
-        all_values.extend(
-            arg for arg in program.global_block().kwargs().values()
-        )
-        all_values.extend(
-            result
-            for op in program.global_block().ops
-            for result in op.results()
-        )
+
+        def extend_values(block):
+            all_values.extend(block.kwargs().values())
+            for op in block.ops:
+                all_values.extend(op.results())
+                for block in op.blocks():
+                    extend_values(block)
+
+        extend_values(program.global_block())
         return all_values
 
     @staticmethod
@@ -592,7 +593,7 @@ class PartialProgramLayer:
         """
         in_vars = self._prepare_inputs(inputs)
         out_vars = self._prepare_outputs()
-        attrs = self._prepare_attributes()
+        attrs = self._prepare_attributes(in_sot_mode=False)
         _legacy_C_ops.pir_run_program(
             self._valid_vars(in_vars),
             self._valid_vars(self._params),
@@ -611,7 +612,7 @@ class PartialProgramLayer:
         In sot, inputs and outputs of partial program only contain tensors, so we can skip some step to speed up
         """
         out_vars = self._prepare_outputs()
-        attrs = self._prepare_attributes()
+        attrs = self._prepare_attributes(in_sot_mode=True)
         _legacy_C_ops.pir_run_program(
             self._valid_vars(inputs),
             self._valid_vars(self._params),
@@ -1061,7 +1062,7 @@ class PartialProgramLayer:
             (backward_start_op_index, backward_end_op_index),
         )
 
-    def _prepare_attributes(self):
+    def _prepare_attributes(self, in_sot_mode=False):
         attrs = [
             'forward_program',
             self.program.forward_program,
@@ -1071,6 +1072,8 @@ class PartialProgramLayer:
             not self.training,
             'program_id',
             self.program_id,
+            'in_sot_mode',
+            in_sot_mode,
         ]
         for key, val in self.program.program_attr.items():
             attrs.append(key)
