@@ -761,12 +761,11 @@ def convert_var_dtype(var, dtype):
             'float',
             'complex',
         ], f"The casted target dtype is {dtype}, which is not supported in type casting."
-        if dtype == 'complex':
-            return var.astype('complex64')
         cast_map = {
             'bool': 'bool',
             'int': 'int32',
             'float': 'float32',
+            'complex': 'complex64',
         }
         return paddle.cast(var, dtype=cast_map[dtype])
     else:
