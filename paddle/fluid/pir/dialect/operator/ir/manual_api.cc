@@ -37,6 +37,11 @@ pir::Value builtin_combine(const std::vector<pir::Value>& x) {
   return combine_op.out();
 }
 
+std::vector<pir::Value> builtin_split(const pir::Value& x) {
+  auto split_op = ApiBuilder::Instance().GetBuilder()->Build<pir::SplitOp>(x);
+  return split_op.outputs();
+}
+
 std::vector<pir::Value> add_n_grad(const std::vector<pir::Value>& inputs,
                                    const pir::Value& out_grad) {
   std::vector<pir::Value> inputs_grad;
@@ -361,6 +366,10 @@ std::vector<pir::Value> tensorrt_engine(
   auto out_split_op = ApiBuilder::Instance().GetBuilder()->Build<pir::SplitOp>(
       tensorrt_engine_op.result(0));
   return out_split_op.outputs();
+}
+
+pir::Operation* share_var(const std::vector<pir::Value>& x) {
+  return ApiBuilder::Instance().GetBuilder()->Build<ShareVarOp>(x);
 }
 
 }  // namespace paddle::dialect

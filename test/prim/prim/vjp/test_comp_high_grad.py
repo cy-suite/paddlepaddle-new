@@ -983,10 +983,10 @@ class TestMaximumHighGradCheck(unittest.TestCase):
 @param.parameterized_class(
     ('shape1', 'shape2'),
     [
-        ([2], [2], True),
-        ([2, 3], [2, 3], True),
-        ([2, 3, 4], [2, 3, 4], True),
-        ([2, 3, 3, 4], [2, 3, 3, 4], True),
+        ([2], [2]),
+        ([2, 3], [2, 3]),
+        ([2, 3, 4], [2, 3, 4]),
+        ([2, 3, 3, 4], [2, 3, 3, 4]),
     ],
 )
 class TestMaximumHighGradCheck2(unittest.TestCase):
@@ -1041,6 +1041,270 @@ class TestMaximumHighGradCheck2(unittest.TestCase):
                     with dygraph_guard():
                         self.func_double(p, x_stop, y_stop)
                         self.func_triple(p, x_stop, y_stop)
+
+
+@param.parameterized_class(
+    ('shape1', 'shape2'),
+    [
+        ([1, 2, 3], [1, 3, 4]),
+        ([5, 6, 7], [5, 7, 8]),
+        ([512, 16, 13], [512, 13, 9]),
+    ],
+)
+class TestBmmHighGradCheck2(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.shape1 = cls.shape1
+        cls.shape2 = cls.shape2
+
+    def _grad(self, y, x, order):
+        u = y
+        dx = paddle.ones_like(x)
+        for _ in range(order):
+            dx = paddle.grad(u, x, create_graph=True)[0]
+            u = dx
+        return dx
+
+    def func_double(self, place, x_stop, y_stop):
+        x = paddle.randn(self.shape1).astype("float32").to(device=place)
+        x.stop_gradient = x_stop
+        y = paddle.randn(self.shape2).astype("float32").to(device=place)
+        y.stop_gradient = y_stop
+
+        # wraping with tanh to enable high order gradient
+        z = paddle.bmm(paddle.tanh(x), paddle.tanh(y))
+
+        if not x.stop_gradient:
+            dzdx = self._grad(z, x, 2)
+        if not y.stop_gradient:
+            dzdy = self._grad(z, y, 2)
+
+    def func_triple(self, place, x_stop, y_stop):
+        x = paddle.randn(self.shape1).astype("float32")
+        x.stop_gradient = x_stop
+        y = paddle.randn(self.shape2).astype("float32")
+        y.stop_gradient = y_stop
+
+        z = paddle.bmm(paddle.tanh(x), paddle.tanh(y))
+
+        if not x.stop_gradient:
+            dzdx = self._grad(z, x, 3)
+        if not y.stop_gradient:
+            dzdy = self._grad(z, y, 3)
+
+    def test_high_grad(self):
+        places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not core.is_compiled_with_cuda()
+        ):
+            places.append(base.CPUPlace())
+        if core.is_compiled_with_cuda():
+            places.append(base.CUDAPlace(0))
+        for p in places:
+            for x_stop in [False, True]:
+                for y_stop in [False, True]:
+                    with dygraph_guard():
+                        self.func_double(p, x_stop, y_stop)
+                        self.func_triple(p, x_stop, y_stop)
+
+
+@param.parameterized_class(
+    ('x_shape', 'indices_shape', 'value_shape'),
+    [
+        ([16], [10], [10]),
+        ([16, 16], [20, 2], [20]),
+        ([12, 13, 14], [88, 1], [88, 13, 14]),
+        ([12, 13, 14], [88, 2], [88, 14]),
+        ([12, 13, 14], [88, 3], [88]),
+    ],
+)
+class TestIndexPutHighGradCheck(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.x_shape = cls.x_shape
+        cls.indices_shape = cls.indices_shape
+        cls.value_shape = cls.value_shape
+
+    def _grad(self, y, x, order):
+        u = y
+        dx = paddle.ones_like(x)
+        for _ in range(order):
+            dx = paddle.grad(u, x, create_graph=True)[0]
+            u = dx
+        return dx
+
+    def func_double(self, place, x_stop, y_stop):
+        x = paddle.randn(self.x_shape).astype("float32").to(device=place)
+        x.stop_gradient = x_stop
+        n_indices = self.indices_shape[0]
+        index_dim_size = (
+            self.indices_shape[1] if len(self.indices_shape) > 1 else 1
+        )
+        self.assertEqual(n_indices, self.value_shape[0])
+        indices = tuple(
+            [
+                paddle.randint(0, self.x_shape[i], shape=[n_indices]).to(place)
+                for i in range(max(index_dim_size, 1))
+            ]
+        )
+        value = (
+            paddle.randn(self.value_shape).astype("float32").to(device=place)
+        )
+        value.stop_gradient = y_stop
+
+        z = paddle.index_put(x, indices, value)
+        z = paddle.tanh(z)
+
+        if not x.stop_gradient:
+            dzdx = self._grad(z, x, 2)
+        if not value.stop_gradient:
+            dzdy = self._grad(z, value, 2)
+
+    def func_triple(self, place, x_stop, y_stop):
+        x = paddle.randn(self.x_shape).astype("float32").to(device=place)
+        x.stop_gradient = x_stop
+        n_indices = self.indices_shape[0]
+        index_dim_size = (
+            self.indices_shape[1] if len(self.indices_shape) > 1 else 1
+        )
+        self.assertEqual(n_indices, self.value_shape[0])
+        indices = tuple(
+            [
+                paddle.randint(
+                    0,
+                    self.x_shape[i],
+                    shape=[n_indices],
+                ).to(place)
+                for i in range(max(index_dim_size, 1))
+            ]
+        )
+        value = (
+            paddle.randn(self.value_shape).astype("float32").to(device=place)
+        )
+        value.stop_gradient = y_stop
+
+        # wraping with tanh to enable high order gradient
+        z = paddle.index_put(paddle.tanh(x), indices, paddle.tanh(value))
+        z = paddle.tanh(z)
+
+        if not x.stop_gradient:
+            dzdx = self._grad(z, x, 3)
+        if not value.stop_gradient:
+            dzdy = self._grad(z, value, 3)
+
+    def test_high_grad(self):
+        places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not core.is_compiled_with_cuda()
+        ):
+            places.append(base.CPUPlace())
+        if core.is_compiled_with_cuda():
+            places.append(base.CUDAPlace(0))
+        for p in places:
+            for x_stop in [False, True]:
+                for y_stop in [False, True]:
+                    with dygraph_guard():
+                        self.func_double(p, x_stop, y_stop)
+                        self.func_triple(p, x_stop, y_stop)
+
+
+@param.parameterized_class(
+    ('x_shape', 'index_shape'),
+    [
+        ([16], [10]),
+        ([16, 16], [20, 2]),
+        ([12, 13, 14], [88, 1]),
+        ([12, 13, 14], [88, 2]),
+        ([12, 13, 14], [88, 3]),
+        ([23, 32, 32], [23 * 32 * 32, 1]),
+        ([23, 32, 32], [23 * 32 * 32, 2]),
+        ([23, 32, 32], [23 * 32 * 32, 3]),
+    ],
+)
+class TestGatherNdHighGradCheck(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.x_shape = cls.x_shape
+        cls.index_shape = cls.index_shape
+
+    def _grad(self, y, x, order):
+        u = y
+        dx = paddle.ones_like(x)
+        for _ in range(order):
+            dx = paddle.grad(u, x, create_graph=True)[0]
+            u = dx
+        return dx
+
+    def func_double(self, place, x_stop, y_stop):
+        x = paddle.randn(self.x_shape).astype("float32").to(device=place)
+        x.stop_gradient = x_stop
+        n_index = self.index_shape[0]
+        index_dim_size = self.index_shape[1] if len(self.index_shape) > 1 else 1
+        index = [
+            paddle.to_tensor(
+                np.random.randint(
+                    -self.x_shape[i], self.x_shape[i], size=[n_index]
+                ),
+                place=place,
+            )
+            for i in range(index_dim_size)
+        ]
+        index = paddle.stack(index, axis=-1)  # [N, D]
+
+        z = paddle.gather_nd(x, index)
+        z = paddle.tanh(z)
+
+        if not x.stop_gradient:
+            dzdx = self._grad(z, x, 2)
+
+    def func_triple(self, place, x_stop, y_stop):
+        x = paddle.randn(self.x_shape).astype("float32").to(device=place)
+        x.stop_gradient = x_stop
+        n_index = self.index_shape[0]
+        index_dim_size = self.index_shape[1] if len(self.index_shape) > 1 else 1
+        index = [
+            paddle.to_tensor(
+                np.random.randint(
+                    -self.x_shape[i], self.x_shape[i], size=[n_index]
+                ),
+                place=place,
+            )
+            for i in range(index_dim_size)
+        ]
+        index = paddle.stack(index, axis=-1)  # [N, D]
+
+        # wraping with tanh to enable high order gradient
+        z = paddle.gather_nd(x, index)
+        z = paddle.tanh(z)
+
+        if not x.stop_gradient:
+            dzdx = self._grad(z, x, 3)
+
+    def test_high_grad(self):
+        places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not core.is_compiled_with_cuda()
+        ):
+            places.append(base.CPUPlace())
+        if core.is_compiled_with_cuda():
+            places.append(base.CUDAPlace(0))
+        core._set_prim_backward_enabled(True)
+        core._set_prim_backward_blacklist("gather_nd_grad")
+
+        for p in places:
+            for x_stop in [False, True]:
+                for y_stop in [False, True]:
+                    with dygraph_guard():
+                        self.func_double(p, x_stop, y_stop)
+                        self.func_triple(p, x_stop, y_stop)
+
+        core._set_prim_backward_enabled(False)
 
 
 if __name__ == '__main__':
