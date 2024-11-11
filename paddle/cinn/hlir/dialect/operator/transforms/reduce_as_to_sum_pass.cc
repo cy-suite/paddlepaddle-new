@@ -1,4 +1,4 @@
-// Copyright (c) 2023 PaddlePaddle Authors. All Rights Reserved.
+// Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -71,7 +71,6 @@ class ReduceAsOpPattern
     }
 
     bool x_y_shape_equal = false;
-    std::vector<symbol::DimExpr> output_dims;
     bool is_static_shape = IsStaicShape(x_shape, y_shape);
     bool keep_dim = true;
     bool need_squeeze = false;
@@ -80,19 +79,15 @@ class ReduceAsOpPattern
       ProcessStaticShape(
           x_shape, y_shape, &reduce_axis, &keep_dim, &need_squeeze);
     } else {
-      bool can_repalce = ProcessDynamicShape(op,
-                                             &reduce_axis,
-                                             &output_dims,
-                                             &x_y_shape_equal,
-                                             &keep_dim,
-                                             &need_squeeze);
+      bool can_repalce = ProcessDynamicShape(
+          op, &reduce_axis, &x_y_shape_equal, &keep_dim, &need_squeeze);
       if (!can_repalce) {
         return true;
       }
     }
     if (x_y_shape_equal) {
       rewriter.ReplaceAllUsesWith(op.result(0), op.operand_source(0));
-      return true;
+      return false;
     }
 
     auto pir_dtype =
@@ -103,15 +98,6 @@ class ReduceAsOpPattern
 
     auto new_output = sum_op.result(0);
 
-    if (!is_static_shape) {
-      auto &shape_analysis =
-          pir::ShapeAnalysisManager::Instance().Get(op->GetParentProgram());
-      shape_analysis.SetShapeOrDataForValue(
-          new_output,
-          symbol::ShapeOrDataDimExprs{
-              symbol::TensorShapeOrDataDimExprs(output_dims)});
-    }
-
     if (need_squeeze) {
       std::vector<int64_t> sequeeze_dim;
       for (int64_t i = 0; i < compare_offset; ++i) {
@@ -120,15 +106,7 @@ class ReduceAsOpPattern
 
       auto squeeze_op =
           rewriter.Build<paddle::dialect::SqueezeOp>(new_output, sequeeze_dim);
-      auto new_output = squeeze_op.result(0);
-
-      if (!is_static_shape) {
-        auto &shape_analysis =
-            pir::ShapeAnalysisManager::Instance().Get(op->GetParentProgram());
-        shape_analysis.SetShapeOrDataForValue(
-            new_output,
-            shape_analysis.GetShapeOrDataForValue(op->operand_source(1)));
-      }
+      new_output = squeeze_op.result(0);
     }
 
     rewriter.ReplaceAllUsesWith(op.result(0), new_output);
@@ -196,7 +174,6 @@ class ReduceAsOpPattern
   }
   bool ProcessDynamicShape(paddle::dialect::ReduceAsOp op,
                            std::vector<int64_t> *reduce_axis,
-                           std::vector<symbol::DimExpr> *output_dims,
                            bool *x_y_shape_equal,
                            bool *keep_dim,
                            bool *need_squeeze) const {
@@ -217,9 +194,6 @@ class ReduceAsOpPattern
 
       int64_t compare_offset = x_rank - y_rank;
       bool can_replace_with_sum = true;
-      for (int64_t i = 0; i < compare_offset; ++i) {
-        output_dims->push_back(symbol::DimExpr(1));
-      }
 
       for (size_t i = 0; i < y_rank; ++i) {
         bool x_dim_i_eq_one = x_shape[i + compare_offset].isa<int64_t>() &&
@@ -228,12 +202,9 @@ class ReduceAsOpPattern
             y_shape[i].isa<int64_t>() && y_shape[i].Get<int64_t>() == 1;
         if (y_dim_i_eq_one && (!x_dim_i_eq_one)) {
           reduce_axis->push_back(compare_offset + i);
-          output_dims->push_back(symbol::DimExpr(1));
         } else if (x_shape[i + compare_offset] != y_shape[i]) {
           can_replace_with_sum = false;
           break;
-        } else {
-          output_dims->push_back(y_shape[i]);
         }
       }
 
@@ -247,9 +218,6 @@ class ReduceAsOpPattern
       }
       GetKeepDimAndSqueezeInfo(
           x_rank, y_rank, (new_shape == y_shape), keep_dim, need_squeeze);
-      if (!(*keep_dim)) {
-        output_dims->swap(new_shape);
-      }
 
       return can_replace_with_sum;
     }
