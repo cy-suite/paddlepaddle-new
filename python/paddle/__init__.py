@@ -233,13 +233,13 @@ from .tensor.linalg import (  # noqa: F401
     histogram_bin_edges,
     histogramdd,
     matmul,
+    matrix_transpose,
     mv,
     norm,
     t,
     t_,
     transpose,
     transpose_,
-    matrix_transpose,
 )
 from .tensor.logic import (
     allclose,
@@ -1174,6 +1174,7 @@ __all__ = [
     'masked_fill_',
     'masked_scatter',
     'masked_scatter_',
+    'matrix_transpose',
     'hypot',
     'hypot_',
     'index_fill',
@@ -1181,5 +1182,4 @@ __all__ = [
     'diagonal_scatter',
     'combinations',
     'signbit',
-    'matrix_transpose',
 ]

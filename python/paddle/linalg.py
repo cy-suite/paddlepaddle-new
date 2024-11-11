@@ -34,6 +34,7 @@ from .tensor.linalg import (
     matrix_norm,
     matrix_power,
     matrix_rank,
+    matrix_transpose,
     multi_dot,
     norm,
     ormqr,
@@ -46,7 +47,6 @@ from .tensor.linalg import (
     svd_lowrank,
     triangular_solve,
     vector_norm,
-    matrix_transpose,
 )
 
 __all__ = [
@@ -63,6 +63,7 @@ __all__ = [
     'eigvals',
     'multi_dot',
     'matrix_rank',
+    'matrix_transpose',
     'svd',
     'qr',
     'householder_product',
@@ -83,5 +84,4 @@ __all__ = [
     'lstsq',
     'ormqr',
     'fp8_fp8_half_gemm_fused',
-    'matrix_transpose',
 ]
