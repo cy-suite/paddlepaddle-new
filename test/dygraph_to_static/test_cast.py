@@ -202,6 +202,10 @@ class TestNotVarCast(TestCastBase):
         )
 
 
+@unittest.skipIf(
+    paddle.core.is_compiled_with_xpu(),
+    "xpu does not support complex cast temporarily",
+)
 class TestComplexCast(TestCastBase):
     def prepare(self):
         self.input_shape = (8, 16)
