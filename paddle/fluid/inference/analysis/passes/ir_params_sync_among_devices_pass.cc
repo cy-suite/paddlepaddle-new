@@ -113,9 +113,14 @@ void IrParamsSyncAmongDevicesPass::CopyParamsToGpu(Argument *argument) {
   num_threads = std::min(num_threads, dense_tensors.size() / chunk_size);
   const size_t remains_size = dense_tensors.size() % num_threads;
 
-  auto sync_nodes = [&](const std::vector<phi::DenseTensor *> &tensors) {
+  auto sync_handler = [&](const std::vector<phi::DenseTensor *> &tensors) {
+#ifdef PADDLE_WITH_HIP
+    hipStream_t stream;
+    hipStreamCreateWithFlags(&stream, hipStreamNonBlocking);
+#else
     cudaStream_t stream;
     cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+#endif
     for (auto *t : tensors) {
       auto t_tmp = *t;
       void *src_ptr = t_tmp.data();
@@ -130,8 +135,13 @@ void IrParamsSyncAmongDevicesPass::CopyParamsToGpu(Argument *argument) {
                               t->numel() * phi::SizeOf(t->dtype()),
                               stream);
     }
+#ifdef PADDLE_WITH_HIP
+    hipStreamSynchronize(stream);
+    hipStreamDestroy(stream);
+#else
     cudaStreamSynchronize(stream);
     cudaStreamDestroy(stream);
+#endif
   };
 
   std::vector<std::future<void>> futures;
@@ -140,13 +150,13 @@ void IrParamsSyncAmongDevicesPass::CopyParamsToGpu(Argument *argument) {
     auto end_it = start_it + chunk_size;
     futures.push_back(
         std::async(std::launch::async,
-                   sync_nodes,
+                   sync_handler,
                    std::vector<phi::DenseTensor *>(start_it, end_it)));
   }
   if (remains_size > 0) {
     futures.push_back(std::async(
         std::launch::async,
-        sync_nodes,
+        sync_handler,
         std::vector<phi::DenseTensor *>(
             dense_tensors.rbegin(), dense_tensors.rbegin() + remains_size)));
   }
