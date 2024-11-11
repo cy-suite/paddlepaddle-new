@@ -26,8 +26,10 @@ class TestSemiAutoParallelShardingStage1:
     def __init__(self):
         self._backend = os.getenv("backend")
         self._seed = eval(os.getenv("seed"))
-        self._mesh = dist.ProcessMesh([0, 1], dim_names=["x"])
-        self._multi_dim_mesh = dist.ProcessMesh([[0, 1]], dim_names=["x", "y"])
+        self._mesh = dist.ProcessMesh([0, 1], dim_names=["dp"])
+        self._multi_dim_mesh = dist.ProcessMesh(
+            [[0, 1]], dim_names=["dp", "mp"]
+        )
 
     def check_tensor_eq(self, a, b, rtol=1e-05, atol=0, verbose=True):
         np.testing.assert_allclose(a, b, rtol=rtol, atol=atol, verbose=verbose)
@@ -73,7 +75,7 @@ class TestSemiAutoParallelShardingStage1:
         # shard optimizer with stage 1 fn
         opt = paddle.optimizer.AdamW(parameters=linear.parameters())
         opt = dist.shard_optimizer(
-            opt, dist.ShardingStage1(self._mesh, shard_dim_name="y")
+            opt, dist.ShardingStage1(self._mesh, shard_dim_name="dp")
         )
         for _ in range(5):
             loss = linear(batch)
@@ -116,8 +118,8 @@ class TestSemiAutoParallelShardingStage1:
 
         self.get_single_card_rst()
         self.test_pure_sharding_stage_1()
-        self.test_pure_sharding_multi_mesh_stage_1()
         self.test_sharding_stage_1_to_static()
+        self.test_pure_sharding_multi_mesh_stage_1()
 
 
 if __name__ == '__main__':
