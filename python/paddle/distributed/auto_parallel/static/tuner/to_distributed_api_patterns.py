@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import math
 from abc import abstractmethod
 
@@ -21,6 +22,8 @@ import paddle.nn.functional as F
 
 _ALL_PATTERNS = {}
 _USED_PATTERNS = []
+
+logger = logging.getLogger(__name__)
 
 
 def register_pattern(cls):
@@ -1272,6 +1275,9 @@ def match_pattern(pattern, program):
             return
 
         if is_op:
+            logger.debug(
+                f'comparing src op {src.name()} with tgt op {tgt.name()}'
+            )
             # skip comparing data_op
             if src.name() == "pd_op.data" or src.name() == "builtin.parameter":
                 return
@@ -1306,7 +1312,7 @@ def match_pattern(pattern, program):
                 _match_core(src_result, tgt_result, is_op=False)
 
         else:
-
+            logger.debug('comparing operands')
             # as input for op node
             src_as_input_ops = src.all_used_ops()
             tgt_as_input_ops = tgt.all_used_ops()
@@ -1350,8 +1356,8 @@ def match_pattern(pattern, program):
         if op.name() != "pd_op.data" and op.name() != "builtin.parameter":
             src_start_op = op
             break
-    # src_start_op = src_ops[0] # to be done, need to check pattern start op
     assert src_start_op is not None, "src_start_op is none"
+    logger.debug(f'Pattern matching, start op is {src_start_op.name()}')
 
     tgt_ops = program.global_block().ops
     for idx, tgt_op in enumerate(tgt_ops):
@@ -1384,6 +1390,7 @@ def match_all_patterns(program):
     matched_ids = set()
     for pattern_name in _ALL_PATTERNS:
         if pattern_name in _USED_PATTERNS:
+            logger.debug(f'Matching Pattern {pattern_name}')
             pattern = _ALL_PATTERNS[pattern_name]
             results, matched = match_pattern(pattern, program)
             for result in results:

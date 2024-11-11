@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import math
 import warnings
 
@@ -29,6 +30,8 @@ from paddle.distributed.auto_parallel.static.tuner.to_distributed_api_patterns i
     match_all_patterns,
     register_used_patterns,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ToDistributedConfig:
@@ -250,6 +253,9 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
         model.forward, input_spec=config.input_spec, full_graph=True
     )
     program = static_func.concrete_program.main_program
+    logger.debug(
+        f'Converted model to pir program: {program}, for pattern matching'
+    )
 
     # # step_4: get the mapping [dynamic-layers : static ops]
     op_to_id = {}
@@ -272,6 +278,7 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
     DECODER_LAYER_NAME = 'decoder_layer'
     register_used_patterns(DECODER_LAYER_NAME)
     results = match_all_patterns(program)
+    logger.debug(f'Matched decoder layer patterns are: {results}')
 
     matched_programs = {}
     for pattern_name, matched_patterns in results.items():
@@ -388,7 +395,7 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
                             matched_layers[pattern_name] = [
                                 ops_id_to_layer[tuple(sorted(program_ops_id))]
                             ]
-
+        logger.debug(f'Matched attention/mlp layers are: {matched_layers}')
         # init mesh
         GLOBAL_MESH = []
         if with_pp:
