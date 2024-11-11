@@ -474,18 +474,9 @@ def moe_global_mesh_tensor(
             local_tensor_list[local_tensor_idx]._local_value().shape
         )
     local_tensor = local_tensor_list[local_tensor_idx]
-    print(
-        "===== moe_global_mesh_tensor local_tensor: ",
-        local_tensor_shape,
-        local_tensor.shape,
-        local_tensor._local_shape,
-        local_tensor.process_mesh,
-        local_tensor.placements,
-    )
 
     if paddle.in_dynamic_mode():
         global_dims = _cal_global_shape(local_tensor_shape, mesh, placements)
-        print("===== moe_global_mesh_tensor global_dims: ", global_dims)
         resharded_local_tensor_list = []
         for i, tensor in enumerate(local_tensor_list):
             tensor.get_tensor()._unsafe_set_skip_check_mesh(True)
@@ -569,7 +560,6 @@ class _moe_sub_mesh_tensors(PyLayer):
             local_shape = _cal_local_shape(
                 dist_tensor.shape, global_mesh, global_placements
             )
-            print("======= _moe_sub_mesh_tensors local_shape: ", local_shape)
             for idx, placement in enumerate(local_placements):
                 if placement.is_shard():
                     shard_dim = placement.get_dim()
@@ -589,13 +579,6 @@ class _moe_sub_mesh_tensors(PyLayer):
                     placements=local_placements,
                     place=place,
                 )
-                print(
-                    "======= _moe_sub_mesh_tensors local_tensor: ",
-                    local_tensor.shape,
-                    local_tensor._local_shape,
-                    local_tensor.process_mesh,
-                    local_tensor.placements,
-                )
                 local_tensor.get_tensor()._unsafe_set_skip_check_mesh(True)
                 local_tensor.stop_gradient = dist_tensor.stop_gradient
                 local_tensor_list.append(local_tensor)
@@ -613,26 +596,12 @@ class _moe_sub_mesh_tensors(PyLayer):
         else:
             local_tensor_idx = local_coord[ctx.local_mesh_dim][0]
         local_grad = grad_tensor[local_tensor_idx]
-        print(
-            "===== _moe_sub_mesh_tensors backward local_grad: ",
-            local_grad.shape,
-            local_grad._local_shape,
-            local_grad.process_mesh,
-            local_grad.placements,
-        )
         global_tensor = paddle.Tensor(
             local_grad._local_value(),
             dims=ctx.global_shape,
             process_mesh=mesh,
             placements=ctx.global_placements,
             place=place,
-        )
-        print(
-            "===== _moe_sub_mesh_tensors backward global_tensor: ",
-            global_tensor.shape,
-            global_tensor._local_shape,
-            global_tensor.process_mesh,
-            global_tensor.placements,
         )
         return global_tensor
 
@@ -724,21 +693,11 @@ def moe_dtensor_from_local(local_tensor, local_tensor_shape, mesh, placements):
     # assume the each rank has the same tensor shape for now, just use the local shape to calculate the global shape
     # global_dims = list(local_tensor.shape)
     global_dims = local_tensor_shape
-    print(
-        "============== dtensor_from_local global_dims ============= ",
-        global_dims,
-        mesh,
-        placements,
-    )
     for idx, placement in enumerate(placements):
         if placement.is_shard():
             shard_dim = placement.get_dim()
             local_dim_size = global_dims[shard_dim]
             global_dims[shard_dim] = local_dim_size * mesh.shape[idx]
-    print(
-        "============== dtensor_from_local global_dims after ============= ",
-        global_dims,
-    )
 
     if paddle.in_dynamic_mode():
         place = paddle.framework._current_expected_place()

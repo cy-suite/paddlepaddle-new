@@ -43,8 +43,7 @@ TensorDistAttr ToTensorDistAttr(const ProcessMesh& process_mesh,
   dist_attr.set_process_mesh(process_mesh);
 
   // Step2: set dim_mapping
-  int64_t ndim = dims == phi::make_ddim({}) ? 0 : dims.size();
-  VLOG(4) << " debug ToTensorDistAttr ndim: " << ndim;
+  int64_t ndim = dims.size();
   std::vector<int64_t> dim_map(ndim, -1);
   for (size_t i = 0; i < placements.size(); i++) {
     auto& placement = placements[i];
@@ -198,7 +197,8 @@ DistTensor::DistTensor(const std::shared_ptr<phi::DenseTensor>& global_value,
     : global_dims_(global_value->dims()) {
   process_mesh_ = process_mesh;
   placements_ = placements;
-  // If the global_dims_ == DDim(), it's rank=-1, but dims=[0], which will
+  // If the dims.size() == -1, the dims=[0] by default, which is not consistent
+  // and will cause ToTensorDistAttr‘s error.
   if (global_dims_ == DDim()) {
     global_dims_ = phi::make_ddim({});
   }

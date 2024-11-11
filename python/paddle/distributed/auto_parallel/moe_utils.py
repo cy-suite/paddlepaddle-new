@@ -96,26 +96,10 @@ class _NdMeshAlltoAll(PyLayer):
             sub_mesh,
             [dist_tensor.placements[dim]],
         )
-        print(
-            "======= _NdMeshAlltoAll 1:  ",
-            local_shape,
-            out.shape,
-            out._local_shape,
-            out.process_mesh,
-            out.placements,
-        )
         out = dist.reshard(out, sub_mesh, [placements[dim]])
         local_shape = _cal_local_shape(out.shape, mesh, out.placements)
         out = dist.auto_parallel.api.moe_dtensor_from_local(
             out._local_value(), local_shape, mesh, placements
-        )
-        print(
-            "======= _NdMeshAlltoAll 2:  ",
-            local_shape,
-            out.shape,
-            out._local_shape,
-            out.process_mesh,
-            out.placements,
         )
         out.stop_gradient = dist_tensor.stop_gradient
         return out
@@ -188,13 +172,6 @@ class _local_reshape(PyLayer):
             placements=placements,
             place=place,
         )
-        print(
-            "=========  _local_reshape forward paddle.Tensor: ",
-            out.shape,
-            out._local_shape,
-            out.process_mesh,
-            out.placements,
-        )
         out.stop_gradient = dist_tensor.stop_gradient
         return out
 
@@ -203,15 +180,7 @@ class _local_reshape(PyLayer):
         place = paddle.framework._current_expected_place()
         place = paddle.framework._get_paddle_place(place)
 
-        print(
-            "=========  _local_reshape backward: ",
-            out_grad.shape,
-            out_grad._local_shape,
-            out_grad.placements,
-            ctx.x_local_shape,
-        )
         if out_grad._local_value()._is_initialized():
-            print("================= out_grad._local_value()._is_initialized()")
             local_grad = out_grad._local_value().clone()
             x_local_shape = ctx.x_local_shape
         else:
@@ -224,13 +193,6 @@ class _local_reshape(PyLayer):
             process_mesh=ctx.x_mesh,
             placements=ctx.x_placements,
             place=place,
-        )
-        print(
-            "=========  _local_reshape backward paddle.Tensor: ",
-            ret.shape,
-            ret._local_shape,
-            ret.process_mesh,
-            ret.placements,
         )
         return ret
 

@@ -447,7 +447,9 @@ paddle::Tensor BuildEmptyDistPaddleTensor(
 
   auto dist_attr = phi::distributed::TensorDistAttr(common::vectorize(dims));
   dist_attr.set_process_mesh(process_mesh);
-  dist_attr.set_dims_mapping(dims_mapping);
+  if (!dims_mapping.empty()) {
+    dist_attr.set_dims_mapping(dims_mapping);
+  }
 
   auto dist_t = std::make_shared<phi::distributed::DistTensor>(
       std::make_shared<phi::DenseTensor>(
