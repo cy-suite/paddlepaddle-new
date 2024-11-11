@@ -1305,7 +1305,7 @@ class ArgsortOpPattern
       }
     }
     pir::Value x = op.x();
-    auto x_type = pir::GetDataTypeFromValue(x);
+    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
     auto x_shape = x_type.dims();
     int axis = op->attribute<pir::Int32Attribute>("axis").data();
     if (axis < 0) {

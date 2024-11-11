@@ -87,7 +87,7 @@ def argmin_converter(network, paddle_op, inputs):
         axis += rank
 
     topk_layer = network.add_topk(
-        input=x, op=trt.TopKOperation.Min, k=1, axes=(1 << axis)
+        input=x, op=trt.TopKOperation.MIN, k=1, axes=(1 << axis)
     )
 
     if keepdims:
@@ -114,7 +114,7 @@ def argsort_converter(network, paddle_op, inputs):
     if axis < 0:
         axis += len(input_shape)
     topk_op = trt.TopKOperation.MAX if descending else trt.TopKOperation.MIN
-    need_cast = True if in_type == trt.DataType.FLOAT else False
+    need_cast = True if in_type != trt.DataType.FLOAT else False
     if in_rank == 1:
         unsqueeze_shape = trt.Dims([1, -1])
         input_tensor = trt_reshape(
@@ -124,13 +124,13 @@ def argsort_converter(network, paddle_op, inputs):
     if need_cast:
         input_tensor = trt_cast(network, input_tensor, trt.DataType.FLOAT)
     topk_layer = network.add_topk(input_tensor, topk_op, 1, 1 << axis)
-    shape = trt_shape(network, input_shape)
+    shape = trt_shape(network, input_tensor)
     k_tensor = get_shape_tensor_element(network, shape, axis, True)
     topk_layer.set_input(1, k_tensor)
     out = topk_layer.get_output(0)
     indices = topk_layer.get_ouput(1)
     if in_rank == 1:
-        squeeze_shape = trt.Dims([1, -1])
+        squeeze_shape = trt.Dims([-1])
         out = trt_reshape(network, out, squeeze_shape, is_shape_tensor=True)
         indices = trt_reshape(
             network, indices, squeeze_shape, is_shape_tensor=True
