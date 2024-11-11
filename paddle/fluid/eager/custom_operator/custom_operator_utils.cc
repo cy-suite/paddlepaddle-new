@@ -438,7 +438,8 @@ static std::vector<std::vector<phi::DataType>> RunInferDtypeFunc(
 paddle::Tensor BuildEmptyDistPaddleTensor(
     const phi::distributed::ProcessMesh& process_mesh,
     const phi::DDim& dims,
-    phi::DataType dtype) {
+    phi::DataType dtype,
+    const std::vector<int64_t>& dims_mapping = {}) {
   paddle::Tensor empty_tensor;
   phi::DenseTensorMeta meta;
   meta.dims = dims;
@@ -446,6 +447,7 @@ paddle::Tensor BuildEmptyDistPaddleTensor(
 
   auto dist_attr = phi::distributed::TensorDistAttr(common::vectorize(dims));
   dist_attr.set_process_mesh(process_mesh);
+  dist_attr.set_dims_mapping(dims_mapping);
 
   auto dist_t = std::make_shared<phi::distributed::DistTensor>(
       std::make_shared<phi::DenseTensor>(
@@ -700,7 +702,10 @@ std::
         output_dims.emplace_back(out_dim[0]);
         if (!rank_is_in_current_mesh) {
           *(ctx.MutableOutputAt(pair.first)) = BuildEmptyDistPaddleTensor(
-              current_process_mesh, out_dim[0], out_dtype[0]);
+              current_process_mesh,
+              out_dim[0],
+              out_dtype[0],
+              paddle::get<0>(spmd_info.second[i]).dims_mapping());
         }
       } else {
         for (size_t j = pair.first; j < pair.second; j++) {

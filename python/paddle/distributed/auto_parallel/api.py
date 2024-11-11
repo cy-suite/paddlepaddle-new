@@ -432,6 +432,15 @@ def _get_sub_meshes_and_local_placements(
     return sub_mesh_list, local_placements
 
 
+def _cal_local_shape(global_shape, mesh, placements):
+    local_shape = list(global_shape)
+    for idx, placement in enumerate(placements):
+        if placement.is_shard():
+            shard_dim = placement.get_dim()
+            local_shape[shard_dim] = local_shape[shard_dim] // mesh.shape[idx]
+    return local_shape
+
+
 def _cal_global_shape(local_shape, mesh, placements):
     # assume the each rank has the same tensor shape for now,
     # just use the local shape to calculate the global shape
@@ -452,14 +461,31 @@ def moe_global_mesh_tensor(
     )
     process_ids = np.array(mesh.process_ids).reshape(mesh.shape)
     local_coord = np.where(process_ids == dist.get_rank())
-    local_tensor_idx = local_coord[local_mesh_dim][0]
-    # local_tensor_idx = mesh.process_ids.index(dist.get_rank())
+    # when rank is not in current mesh, local_coord is empty, so we should calculate the
+    # local tensor's shape.
+    if local_coord[0].size == 0:
+        local_tensor_idx = 0
+        local_tensor_shape = _cal_local_shape(
+            local_tensor_list[0].shape, local_mesh_list[0], local_placements
+        )
+    else:
+        local_tensor_idx = local_coord[local_mesh_dim][0]
+        local_tensor_shape = (
+            local_tensor_list[local_tensor_idx]._local_value().shape
+        )
     local_tensor = local_tensor_list[local_tensor_idx]
+    print(
+        "===== moe_global_mesh_tensor local_tensor: ",
+        local_tensor_shape,
+        local_tensor.shape,
+        local_tensor._local_shape,
+        local_tensor.process_mesh,
+        local_tensor.placements,
+    )
 
     if paddle.in_dynamic_mode():
-        global_dims = _cal_global_shape(
-            local_tensor._local_value().shape, mesh, placements
-        )
+        global_dims = _cal_global_shape(local_tensor_shape, mesh, placements)
+        print("===== moe_global_mesh_tensor global_dims: ", global_dims)
         resharded_local_tensor_list = []
         for i, tensor in enumerate(local_tensor_list):
             tensor.get_tensor()._unsafe_set_skip_check_mesh(True)
@@ -540,7 +566,10 @@ class _moe_sub_mesh_tensors(PyLayer):
             assert check_placements_equal(
                 global_placements, dist_tensor.placements
             ), f"the global_placements ({global_placements}) is not equal to dist_tensor's placements ({dist_tensor.placements})."
-            local_shape = dist_tensor._local_value().shape
+            local_shape = _cal_local_shape(
+                dist_tensor.shape, global_mesh, global_placements
+            )
+            print("======= _moe_sub_mesh_tensors local_shape: ", local_shape)
             for idx, placement in enumerate(local_placements):
                 if placement.is_shard():
                     shard_dim = placement.get_dim()
@@ -560,6 +589,13 @@ class _moe_sub_mesh_tensors(PyLayer):
                     placements=local_placements,
                     place=place,
                 )
+                print(
+                    "======= _moe_sub_mesh_tensors local_tensor: ",
+                    local_tensor.shape,
+                    local_tensor._local_shape,
+                    local_tensor.process_mesh,
+                    local_tensor.placements,
+                )
                 local_tensor.get_tensor()._unsafe_set_skip_check_mesh(True)
                 local_tensor.stop_gradient = dist_tensor.stop_gradient
                 local_tensor_list.append(local_tensor)
@@ -572,14 +608,31 @@ class _moe_sub_mesh_tensors(PyLayer):
         mesh = ctx.global_mesh
         process_ids = np.array(mesh.process_ids).reshape(mesh.shape)
         local_coord = np.where(process_ids == dist.get_rank())
-        local_tensor_idx = local_coord[ctx.local_mesh_dim][0]
+        if local_coord[0].size == 0:
+            local_tensor_idx = 0
+        else:
+            local_tensor_idx = local_coord[ctx.local_mesh_dim][0]
         local_grad = grad_tensor[local_tensor_idx]
+        print(
+            "===== _moe_sub_mesh_tensors backward local_grad: ",
+            local_grad.shape,
+            local_grad._local_shape,
+            local_grad.process_mesh,
+            local_grad.placements,
+        )
         global_tensor = paddle.Tensor(
             local_grad._local_value(),
             dims=ctx.global_shape,
             process_mesh=mesh,
             placements=ctx.global_placements,
             place=place,
+        )
+        print(
+            "===== _moe_sub_mesh_tensors backward global_tensor: ",
+            global_tensor.shape,
+            global_tensor._local_shape,
+            global_tensor.process_mesh,
+            global_tensor.placements,
         )
         return global_tensor
 
@@ -629,6 +682,63 @@ def dtensor_from_local(local_tensor, mesh, placements):
             shard_dim = placement.get_dim()
             local_dim_size = global_dims[shard_dim]
             global_dims[shard_dim] = local_dim_size * mesh.shape[idx]
+
+    if paddle.in_dynamic_mode():
+        place = paddle.framework._current_expected_place()
+        place = paddle.framework._get_paddle_place(place)
+
+        return paddle.Tensor(
+            local_tensor,
+            dims=global_dims,
+            process_mesh=mesh,
+            placements=placements,
+            place=place,
+        )
+
+    # TODO Adopt Mix2Dist Pass to allow the program could be executed actually.
+    elif paddle.framework.in_pir_mode():
+        assert isinstance(
+            local_tensor, (type(None), pir.Value)
+        ), "input tensor is not pir value."
+        assert (
+            local_tensor.is_dense_tensor_type()
+        ), "dtensor_from_local() are only supported dense tensor type right."
+        sharding_specs = get_shard_spec(mesh, placements, local_tensor.ndim)
+        dims_mapping = convert_to_dims_mapping(sharding_specs, mesh)
+        local_shape = local_tensor.shape
+        global_tensor_type = paddle.pir.create_shaped_type(
+            local_tensor.type(), global_dims
+        )
+        dist_dense_tensor_type = paddle.base.libpaddle.pir.create_dist_dense_tensor_type_by_dense_tensor(
+            global_tensor_type, local_shape, mesh, dims_mapping
+        )
+        local_tensor.set_type(dist_dense_tensor_type)
+        return local_tensor
+    else:
+        raise RuntimeError(
+            "dtensor_from_local() are only supported in dynamic or pir mode."
+        )
+
+
+def moe_dtensor_from_local(local_tensor, local_tensor_shape, mesh, placements):
+    # assume the each rank has the same tensor shape for now, just use the local shape to calculate the global shape
+    # global_dims = list(local_tensor.shape)
+    global_dims = local_tensor_shape
+    print(
+        "============== dtensor_from_local global_dims ============= ",
+        global_dims,
+        mesh,
+        placements,
+    )
+    for idx, placement in enumerate(placements):
+        if placement.is_shard():
+            shard_dim = placement.get_dim()
+            local_dim_size = global_dims[shard_dim]
+            global_dims[shard_dim] = local_dim_size * mesh.shape[idx]
+    print(
+        "============== dtensor_from_local global_dims after ============= ",
+        global_dims,
+    )
 
     if paddle.in_dynamic_mode():
         place = paddle.framework._current_expected_place()
