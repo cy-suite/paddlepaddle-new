@@ -1493,13 +1493,7 @@ def positive(x: Tensor) -> Tensor:
     # Check if the input tensor is of bool type and raise an error
     if x.dtype == paddle.bool:
         raise ValueError("The `+` operator, on a bool tensor is not supported.")
-
-    # In dynamic mode, return the tensor directly (same behavior as before)
-    if in_dynamic_mode():
-        return x
-
-    # In static mode, return a clone of the tensor
-    return x.clone()
+    return x
 
 
 def isclose(
