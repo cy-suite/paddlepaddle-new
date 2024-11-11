@@ -862,11 +862,11 @@ class TestMatrixTransposeAPI_ZeroDim(unittest.TestCase):
         x = paddle.rand([])
         with self.assertRaises(ValueError) as context:
             out = paddle.matrix_transpose(x)
-        self.assertIn("Tensor.ndim(0) is required to be greater than or equal to 2", str(context.exception))
+        self.assertIn("Tensor.ndim(0) is required to be greater than or equal to 2",str(context.exception))
         paddle.enable_static()
 
 
-class TestMatrixTransposeApi(unittest.TestCase):
+class TestMatrixTransposeApiFPPrecision(unittest.TestCase):
     def setUp(self):
         paddle.disable_static()
 
