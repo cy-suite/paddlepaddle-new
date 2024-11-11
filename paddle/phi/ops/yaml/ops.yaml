@@ -5285,6 +5285,16 @@
   backward : view_shape_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
+- op : view_slice
+  args : (Tensor input, int64_t begin_idx, int64_t end_idx)
+  output : Tensor
+  infer_meta :
+    func : ViewSliceInferMeta
+    spmd_rule : ViewSliceInferSpmd
+  kernel :
+    func : view_slice
+  interfaces : paddle::dialect::InplaceTrait
+
 - op : viterbi_decode
   args : (Tensor potentials, Tensor transition_params, Tensor lengths, bool include_bos_eos_tag = true)
   output : Tensor(scores), Tensor(path)
