@@ -1547,6 +1547,7 @@ def broadcast_tensors(
     In the third-to-last dimension, Tensor2 lacks this dimension, while Tensor1 and Tensor3 have sizes of 4; consequently, 
     this dimension is expanded to 4 for all tensors. Ultimately, all tensors are expanded to [4, 2, 3].
 
+
     .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/broadcast.png
        :width: 800
        :alt: Illustration of BroadCast
