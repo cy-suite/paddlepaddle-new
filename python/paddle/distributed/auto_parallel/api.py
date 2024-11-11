@@ -14,6 +14,8 @@
 from __future__ import annotations
 
 import copy
+import logging
+import os
 import warnings
 from types import MethodType
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
@@ -75,6 +77,7 @@ from .placement_type import (
     to_placements,
 )
 from .random import determinate_rng, rng_state
+from .sharding import ShardingOptimizerStage1
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -84,7 +87,7 @@ if TYPE_CHECKING:
     from paddle import Tensor
     from paddle._typing import (
         DTypeLike,
-        NestedNumbericSequence,
+        NestedNumericSequence,
         PlaceLike,
         TensorLike,
     )
@@ -210,7 +213,7 @@ class DistAttr(core.TensorDistAttr):
 
 
 def shard_tensor(
-    data: Tensor | TensorLike | NestedNumbericSequence,
+    data: Tensor | TensorLike | NestedNumericSequence,
     mesh: ProcessMesh,
     placements: list[Placement],
     dtype: DTypeLike | None = None,
@@ -1043,6 +1046,10 @@ class _ShardOptimizer(Optimizer):
         ):
             self._sharding_degree = self._shard_fn._mesh.get_dim_size(0)
             self._sharding_mesh_axis = 0
+        elif (self._shard_fn._mesh is not None) and (
+            'dp' in self._shard_fn._mesh.dim_names
+        ):
+            self._sharding_degree = self._shard_fn._mesh.get_dim_size('dp')
         else:
             param_list = self._inner_opt._parameter_list
             for param in param_list:
@@ -2178,6 +2185,20 @@ class DistModel:
         self._parameter_to_structured_name = {
             v: k for k, v in self._structured_to_parameter_name.items()
         }
+        if os.getenv("POD_NAME"):
+            dist.utils.log_utils.get_logger(logging.INFO).info(
+                "Distribute training by paddle.distributed.launch"
+            )
+            dist.fleet.init(is_collective=True)
+
+        if isinstance(optimizer, _ShardOptimizer) and use_pir_api():
+            shard_fn = optimizer._shard_fn
+            optimizer = optimizer._inner_opt
+            if isinstance(optimizer._shard_fn, ShardingStage1):
+                optimizer = ShardingOptimizerStage1(
+                    optimizer, shard_fn, self._inner_strategy
+                )
+
         self._engine = Engine(
             layer, loss, optimizer, metrics, strategy=self._inner_strategy
         )
@@ -2863,7 +2884,6 @@ def to_static(
                 raise NotImplementedError(
                     "Only sharding stage 1, 2 and 3 can to_static for now. User-defined shard_fn will be supported later."
                 )
-
     dist_model = DistModel(layer, loader, loss, optimizer, strategy)
     return dist_model
 

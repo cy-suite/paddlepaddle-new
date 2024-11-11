@@ -15,7 +15,7 @@
 import paddle
 import paddle.nn.functional as F
 from paddle import nn
-from paddle.nn.functional.flash_attention import flash_attention
+from paddle.nn.functional.flash_attention import _math_attention
 
 
 class LlamaAttention(nn.Layer):
@@ -52,7 +52,6 @@ class LlamaAttention(nn.Layer):
         )
 
     def forward(self, hidden_states):
-        bsz, q_len, _ = hidden_states.shape
         query_states = self.q_proj(hidden_states).reshape(
             shape=[0, 0, self.num_heads, self.head_dim]
         )
@@ -63,7 +62,9 @@ class LlamaAttention(nn.Layer):
             shape=[0, 0, self.num_heads, self.head_dim]
         )
 
-        outputs, _ = flash_attention(
+        bsz, q_len, _, _ = query_states.shape
+
+        outputs, _ = _math_attention(
             query_states,
             key_states,
             value_states,

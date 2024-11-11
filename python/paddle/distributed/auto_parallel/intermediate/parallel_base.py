@@ -12,43 +12,86 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import paddle.distributed as dist
+from paddle.distributed import fleet
 from paddle.nn import Layer
 from paddle.optimizer import Optimizer
 
 
-class ParallelOptimizer(Optimizer):
-    def __init__(self, optimizer):
-        self.optimizer = optimizer
+class ParallelOptimizer:
+    def __init__(self, optimizer, level=None):
+        self.level = None
+        self.optimizer = None
+
+        if isinstance(optimizer, ParallelOptimizer):
+            self.optimizer = optimizer.optimizer
+            self.level = optimizer.level
+        else:
+            assert isinstance(optimizer, Optimizer)
+            self.optimizer = optimizer
+            assert level in ("os", "os_g", "p_g_os", None)
+            self.level = level
+
         self.is_initialized = False
 
-    def __getattr__(self, item):
-        return getattr(self.optimizer, item)
+    def parallelize(self, parallelized_parameters):
+        assert self.optimizer is not None
+        if self.is_initialized:
+            return self.optimizer
+        # 1.replace optimizer parameters
+        self.optimizer._parameter_list = parallelized_parameters
+
+        # 2.wrap with shard_optimizer
+        mesh = fleet.auto.get_mesh()
+        if self.level == "os":
+            self.optimizer = dist.shard_optimizer(
+                self.optimizer, dist.ShardingStage1(mesh)
+            )
+        elif self.level == "os_g":
+            self.optimizer = dist.shard_optimizer(
+                self.optimizer, dist.ShardingStage2(mesh)
+            )
+        elif self.level == "p_g_os":
+            self.optimizer = dist.shard_optimizer(
+                self.optimizer, dist.ShardingStage3(mesh)
+            )
+        else:
+            self.optimizer = dist.shard_optimizer(self.optimizer)
+        self.is_initialized = True
+
+        return self.optimizer
 
 
-class ParallelBase(Layer):
-    def __init__(self, model, optimizer=None):
+class ParallelModel:
+    def __init__(self, model):
         super().__init__()
         self.pp_parallelizer = None
         self.tp_parallelizer = None
         self.sharding_parallelizer = None
+        self.model = None
 
-        if isinstance(model, ParallelBase):
+        if isinstance(model, ParallelModel):
             self.pp_parallelizer = model.pp_parallelizer
             self.tp_parallelizer = model.tp_parallelizer
             self.sharding_parallelizer = model.sharding_parallelizer
             self.model = model.model
-            self.optimizer = model.optimizer
         else:
+            assert isinstance(model, Layer)
             self.model = model
-            assert isinstance(optimizer, Optimizer)
-            self.optimizer = ParallelOptimizer(optimizer)
 
         self.is_parallelized = False
 
-    def __getattr__(self, item):
-        return getattr(self.model, item)
+    def get_mesh(self, pp_idx=0):
+        mesh = fleet.auto.get_mesh()
+        if "pp" in mesh.dim_names:
+            mesh = mesh.get_mesh_with_dim("pp", pp_idx)
+        return mesh
 
-    def parallelize_model_and_optimizer(self):
+    def parallelize_model(self):
+        assert self.model is not None
+        if self.is_parallelized:
+            return self.model
+
         if self.pp_parallelizer is not None:
             assert callable(self.pp_parallelizer)
             self.model = self.pp_parallelizer(self.model)
@@ -61,15 +104,19 @@ class ParallelBase(Layer):
             assert callable(self.sharding_parallelizer)
             self.model = self.sharding_parallelizer(self.model)
 
-        assert isinstance(self.optimizer, ParallelOptimizer)
-        assert not self.optimizer.is_initialized
+        self.is_parallelized = True
 
-        # call shard optimizer here
-        # self.optimizer.optimizer = ShardOptimizer()
-        self.optimizer.is_initialized = True
+        return self.model
 
-    def forward(self, *args):
-        if not self.is_parallelized:
-            self.parallelize_model_and_optimizer()
-            self.is_parallelized = True
-        self.model(*args)
+
+def parallelize_model_and_optimizer(model, optimizer=None):
+    assert isinstance(model, ParallelModel)
+    parallelized_model = model.parallelize_model()
+    parallelized_optimizer = None
+    if optimizer is not None:
+        assert isinstance(optimizer, ParallelOptimizer)
+        parallelized_optimizer = optimizer.parallelize(
+            parallelized_model.parameters()
+        )
+
+    return parallelized_model, parallelized_optimizer
