@@ -3831,7 +3831,7 @@ def clip(
             raise ValueError(
                 f"The max dimension should be equal to the inner dimension of the x, but the max dimension is {max.shape}"
             )
-        
+
         if in_dynamic_or_pir_mode():
             return _C_ops.clipwithtensor(x, min, max)
         else:

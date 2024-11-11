@@ -963,6 +963,17 @@
   backward : clip_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
+- op : clip_by_norm
+  args : (Tensor x, float max_norm)
+  output : Tensor(out)
+  infer_meta :
+    func : ClipByNormInferMeta
+  kernel :
+    func : clip_by_norm {dense -> dense}
+           clip_by_norm_sr {selected_rows -> selected_rows}
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits : paddle::dialect::ForwardOnlyTrait
+
 - op : clipwithtensor
   args : (Tensor x, Tensor min, Tensor max)
   output : Tensor(out)
@@ -975,17 +986,6 @@
     data_type : x
   backward : clipwithtensor_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-
-- op : clip_by_norm
-  args : (Tensor x, float max_norm)
-  output : Tensor(out)
-  infer_meta :
-    func : ClipByNormInferMeta
-  kernel :
-    func : clip_by_norm {dense -> dense}
-           clip_by_norm_sr {selected_rows -> selected_rows}
-  interfaces : paddle::dialect::InferSymbolicShapeInterface
-  traits : paddle::dialect::ForwardOnlyTrait
 
 - op : coalesce_tensor
   args : (Tensor[] input, DataType dtype, bool copy_data = false, bool set_constant = false, bool persist_output = false, float constant = 0.0, bool use_align = true, int align_size = -1, int size_of_dtype = -1, int64_t[] concated_shapes = {}, int64_t[] concated_ranks = {})

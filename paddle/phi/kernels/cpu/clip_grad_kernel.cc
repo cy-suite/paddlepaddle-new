@@ -21,12 +21,11 @@
 namespace phi {
 
 template <typename T, typename Context>
-void ClipWithTensorGradKernel(const Context& ctx,
-                    const Context& dev_ctx,
+void ClipWithTensorGradKernel(const Context& dev_ctx,
                     const DenseTensor& x,
-                    const DenseTensor& out_grad,
                     const DenseTensor& min,
                     const DenseTensor& max,
+                    const DenseTensor& out_grad,
                     DenseTensor* x_grad) {
   const T* x_data = x.data<T>();
   const T* min_data = min.data<T>();
@@ -34,7 +33,7 @@ void ClipWithTensorGradKernel(const Context& ctx,
   auto numel = x.numel();
   auto* dout = out_grad.data<T>();
 
-  auto* dx = ctx.template Alloc<T>(x_grad);
+  auto* dx = dev_ctx.template Alloc<T>(x_grad);
   for (int i = 0; i < numel; i++) {
     dx[i] = (x_data[i] > min_data[i] && x_data[i] < max_data[i]) ? dout[i] : static_cast<T>(0);
   }
