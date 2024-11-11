@@ -1013,6 +1013,7 @@
   kernel:
     func: c_softmax_with_cross_entropy
     data_type : logits
+    param: [logits, label, ignore_index, rank, nranks]
   backward: c_softmax_with_cross_entropy_grad
 
 - op: faster_tokenizer
