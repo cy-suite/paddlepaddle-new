@@ -337,6 +337,8 @@ option(WITH_FLPS "FL PS mode" OFF)
 option(WITH_RPC "Compile with rpc support" ${WITH_DISTRIBUTE})
 option(WITH_CUDNN_FRONTEND
        "Compile with CUDNN Frontend API support (experimental)" OFF)
+option(WITH_FASTDEPLOY_MODEL "Compile with fastdeploy encrypted model" OFF)
+option(WITH_FASTDEPLOY_AUTH "Compile with fastdeploy easypack auth" OFF)
 option(WITH_SHARED_IR "Compile PaddlePaddle with SHARED LIB of IR" ON)
 option(WITH_NVCC_LAZY
        "Compile PaddlePaddle with nvcc lazy mode, used for CI-Inference only."
@@ -714,6 +716,25 @@ set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -DNDEBUG")
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O3 -g -DNDEBUG")
 
 add_definitions(-DPADDLE_DLL_EXPORT)
+
+option(FASTDEPLOY_MODEL_TOOL_PATH "FastDeploy Model Tool Path")
+if(WITH_FASTDEPLOY_MODEL)
+  add_definitions(-DPADDLE_WITH_FASTDEPLOY_MODEL)
+  find_library(
+      FASTDEPLOY_WENXIN_LIB
+      NAMES fastdeploy_wenxin
+      PATHS ${FASTDEPLOY_MODEL_TOOL_ROOT}/lib)
+  set(
+      FASTDEPLOY_MODEL_LIB
+      ${FASTDEPLOY_MODEL_TOOL_ROOT}/lib/libfastdeploy_model.so.2.0.0)
+endif()
+if(WITH_FASTDEPLOY_AUTH)
+  add_definitions(-DPADDLE_WITH_FASTDEPLOY_AUTH)
+  find_library(
+      FASTDEPLOY_AUTH_LIB
+      NAMES fastdeploy_auth
+      PATHS ${FASTDEPLOY_MODEL_TOOL_ROOT}/auth)
+endif()
 
 if(ON_INFER)
   # you can trun off the paddle fluid and inference lib by set ON_INFER=OFF

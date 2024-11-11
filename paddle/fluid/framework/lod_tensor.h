@@ -178,6 +178,10 @@ void SerializeToStream(std::ostream& os,
 void DeserializeFromStream(std::istream& is,
                            phi::DenseTensor* tensor,
                            const phi::DeviceContext& dev_ctx);
+void DeserializeFromFDStream(std::istream& is,
+                             phi::DenseTensor* tensor,
+                             const platform::DeviceContext& dev_ctx,
+                             const std::string& parse = "");
 void DeserializeFromStream(std::istream& is,
                            phi::DenseTensor* tensor,
                            const phi::DeviceContext& dev_ctx,

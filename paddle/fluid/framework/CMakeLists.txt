@@ -125,10 +125,15 @@ cc_library(
   SRCS tensor_util.cc
   DEPS data_type device_context phi common)
 
+set(lod_tensor_deps phi common tensor framework_proto version)
+if(WITH_FASTDEPLOY_MODEL)
+  set(lod_tensor_deps ${lod_tensor_deps} ${FASTDEPLOY_WENXIN_LIB})
+endif()
+
 cc_library(
   lod_tensor
   SRCS lod_tensor.cc
-  DEPS phi common tensor framework_proto version)
+  DEPS ${lod_tensor_deps})
 
 cc_library(
   garbage_collector
