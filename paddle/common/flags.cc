@@ -1361,7 +1361,7 @@ PHI_DEFINE_EXPORTED_bool(enable_cinn_accuracy_check,
  */
 PHI_DEFINE_EXPORTED_bool(enable_auto_recompute,
                          true,
-                         "Whether enable auto recompute.");
+                         "Whether enable auto recompute in cinn.");
 
 /**
  * CINN fuse parallel matmul pass related FLAG
