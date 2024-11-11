@@ -83,6 +83,8 @@ ir::Module CreateSwitchWithBroadcastConditionModule(
       arg_defs.push_back(stmt);
     }
     return arg_defs;
+#else
+    CINN_NOT_IMPLEMENTED
 #endif
   }();
 
@@ -347,6 +349,8 @@ void detail::CollectBucketStrategyHostFunctionVisitor::ProcessArgs(
                          ir::CallType::Extern,
                          ir::FunctionRef(),
                          0);
+#else
+      CINN_NOT_IMPLEMENTED
 #endif
       ir::Expr let_symbol = ir::Expr(args[i].var_arg());
       let_symbol->set_type(type_of<int64_t>());

@@ -18,7 +18,6 @@
 
 #include "paddle/cinn/backends/llvm/codegen_llvm.h"
 #include "paddle/cinn/runtime/intrinsic.h"
-#include <variant>
 
 namespace cinn {
 namespace backends {
