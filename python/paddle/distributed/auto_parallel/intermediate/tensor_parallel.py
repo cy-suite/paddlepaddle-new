@@ -255,8 +255,12 @@ class SequenceParallel(PlanBase):
         super().__init__()
 
     def apply(self, layer, process_mesh, shard_weight=None, shard_bias=None):
-        layer.register_forward_pre_hook(sequence_parallel_end(process_mesh))
-        layer.register_forward_post_hook(sequence_parallel_begin(process_mesh))
+        layer.register_forward_pre_hook(
+            sequence_parallel_begin(process_mesh, need_transpose=False)
+        )
+        layer.register_forward_post_hook(
+            sequence_parallel_end(process_mesh, need_transpose=False)
+        )
 
 
 class TensorParallel(ParallelModel):
