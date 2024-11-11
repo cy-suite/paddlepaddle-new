@@ -156,6 +156,109 @@ class PrepareLayerOutput(PlanBase):
         layer.register_forward_post_hook(self.fn(process_mesh=process_mesh))
 
 
+def sequence_parallel_begin(process_mesh, need_transpose=True):
+    def begin(layer, input, output=None):
+        index = process_mesh.dim_names.index('mp')  # get the axis for the split
+        if isinstance(output, tuple):
+            target_output = output[0]
+        else:
+            target_output = output
+        assert isinstance(target_output, paddle.Tensor)
+        assert len(target_output.shape) == 3
+        if need_transpose:
+            target_output = paddle.transpose(target_output, perm=[1, 0, 2])
+        placements = target_output.placements
+        if placements is None:
+            placements = [
+                dist.Replicate() for _ in range(len(process_mesh.shape))
+            ]
+        placements[index] = dist.Shard(0)
+        target_output = dist.reshard(target_output, process_mesh, placements)
+        if isinstance(output, tuple):
+            output = list(output)
+            output[0] = target_output
+            output = tuple(output)
+        else:
+            output = target_output
+        return output
+
+    return begin
+
+
+def sequence_parallel_end(process_mesh, need_transpose=True):
+    def end(layer, input, output=None):
+        index = process_mesh.dim_names.index('mp')  # get the axis for the split
+        if isinstance(input, tuple):
+            target_input = input[0]
+        else:
+            target_input = input
+        assert isinstance(target_input, paddle.Tensor)
+        assert len(target_input.shape) == 3
+        placements = target_input.placements
+        if placements is None:
+            placements = [
+                dist.Replicate() for _ in range(len(process_mesh.shape))
+            ]
+        placements[index] = dist.Replicate()
+        target_input = dist.reshard(target_input, process_mesh, placements)
+        if need_transpose:
+            target_input = paddle.transpose(target_input, perm=[1, 0, 2])
+        if isinstance(input, tuple):
+            input = list(input)
+            input[0] = target_input
+            input = tuple(input)
+        else:
+            input = target_input
+        return input
+
+    return end
+
+
+class SequenceParallelBegin(PlanBase):
+    """
+    With need_transpose=True, this plan will transpose and reshard the output from [b, s, h] to [s/mp, b, h].
+    With need_transpose=False, this plan will reshard the output from [s, b, h] to [s/mp, b, h].
+    """
+
+    def __init__(self, need_transpose=True):
+        super().__init__()
+        self.need_transpose = need_transpose
+
+    def apply(self, layer, process_mesh, shard_weight=None, shard_bias=None):
+        layer.register_forward_post_hook(
+            sequence_parallel_begin(process_mesh, self.need_transpose)
+        )
+
+
+class SequenceParallelEnd(PlanBase):
+    """
+    With need_transpose=True, this plan will reshard and transpose the input from [s/mp, b, h] to [b, s, h].
+    With need_transpose=False, this plan will reshard the input from [s/mp, b, h] to [s, b, h].
+    """
+
+    def __init__(self, need_transpose=True):
+        super().__init__()
+        self.need_transpose = need_transpose
+
+    def apply(self, layer, process_mesh, shard_weight=None, shard_bias=None):
+        layer.register_forward_pre_hook(
+            sequence_parallel_end(process_mesh, self.need_transpose)
+        )
+
+
+class SequenceParallel(PlanBase):
+    """
+    Do sequence parallel on the layer. Note the input should be in [b, s, h] format.
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    def apply(self, layer, process_mesh, shard_weight=None, shard_bias=None):
+        layer.register_forward_pre_hook(sequence_parallel_end(process_mesh))
+        layer.register_forward_post_hook(sequence_parallel_begin(process_mesh))
+
+
 class TensorParallel(ParallelModel):
     def __init__(self, model, parallelize_plan=None):
         super().__init__(model)
@@ -207,7 +310,10 @@ class TensorParallel(ParallelModel):
                 key = key.replace(".bias", "")
                 shard_weight = False
             re_find = re.match(key, name)
-            if key == name or (re_find is not None and re_find.string == name):
+            if key == name or (
+                re_find is not None
+                and int(re_find.end()) - int(re_find.start()) == len(name)
+            ):
                 if isinstance(plan, PlanBase):
                     plan = [plan]
                 plans.append([plan, shard_weight, shard_bias])
@@ -217,15 +323,14 @@ class TensorParallel(ParallelModel):
         if self.parallelize_plan is None:
             return
         for name, layer in model.named_sublayers():
-            if len(layer.sublayers()) == 0:
-                plans = self.match_layer(name)
-                if len(plans) > 0:
-                    for plan in plans:
-                        real_plan, shard_weight, shard_bias = plan
-                        for p in real_plan:
-                            p.apply(
-                                layer, self.get_mesh(), shard_weight, shard_bias
-                            )
+            plans = self.match_layer(name)
+            if len(plans) > 0:
+                for plan in plans:
+                    real_plan, shard_weight, shard_bias = plan
+                    for p in real_plan:
+                        p.apply(
+                            layer, self.get_mesh(), shard_weight, shard_bias
+                        )
         return model
 
 
