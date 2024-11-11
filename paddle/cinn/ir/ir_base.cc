@@ -250,7 +250,7 @@ bool Expr::is_var() const { return As<_Var_>(); }
 bool Expr::is_index() const {
   switch (node_type()) {
     case ir::IrNodeTy::_Var_:
-      return true;
+      [[fallthrough]];
     case ir::IrNodeTy::IntImm: {
       if (type().is_index_type()) return true;
     }

@@ -64,33 +64,91 @@ class CastLonglong2Int : public ir::IRMutator<> {
   void operator()(Expr* expr) { ir::IRMutator<>::Visit(expr, expr); }
 
  private:
+  void Visit(const ir::_Tensor_* op, Expr* expr) override {
+    auto node = expr->As<ir::_Tensor_>();
+    std::for_each(node->shape.begin(),
+                  node->shape.end(),
+                  [&](cinn::ir::Expr& e) { e->convert_int64_to_int32(); });
+    CastBuffer(node->buffer);
+  }
   void Visit(const ir::Load* op, Expr* expr) override {
     auto node = expr->As<ir::Load>();
-    for (auto& ids : node->indices) {
-      if (ids.is_index()) ids->convert_int64_to_int32();
-      // For case: A[0, B[...]]
-      else
-        ir::IRMutator<>::Visit(&ids, &ids);
-    }
+    std::for_each(node->indices.begin(),
+                  node->indices.end(),
+                  [&](cinn::ir::Expr& e) { e->convert_int64_to_int32(); });
+
+    ir::IRMutator<>::Visit(&node->tensor, &node->tensor);
   }
   void Visit(const ir::Store* op, Expr* expr) override {
     auto node = expr->As<ir::Store>();
-    for (auto& ids : node->indices) {
-      if (ids.is_index()) ids->convert_int64_to_int32();
-      // For case: A[0, B[...]]
-      else
-        ir::IRMutator<>::Visit(&ids, &ids);
-    }
-    // For case: A[...] = B[...]
+    std::for_each(node->indices.begin(),
+                  node->indices.end(),
+                  [&](cinn::ir::Expr& e) { e->convert_int64_to_int32(); });
     ir::IRMutator<>::Visit(&node->value, &node->value);
+    ir::IRMutator<>::Visit(&node->tensor, &node->tensor);
   }
   void Visit(const ir::For* op, Expr* expr) override {
     auto node = expr->As<ir::For>();
-    if (!(node->extent.is_index() && node->min.is_index())) return;
-    node->loop_var->convert_int64_to_int32();
+    CastVarWithBound(node->loop_var);
     node->min->convert_int64_to_int32();
     node->extent->convert_int64_to_int32();
     ir::IRMutator<>::Visit(&node->body, &node->body);
+  }
+  void Visit(const ir::ScheduleBlock* op, Expr* expr) override {
+    auto* node = expr->As<ir::ScheduleBlock>();
+
+    std::for_each(node->iter_vars.begin(),
+                  node->iter_vars.end(),
+                  [&](cinn::ir::Var& v) { CastVarWithBound(v); });
+
+    for (auto& buffer_range : node->read_buffers) {
+      if (auto range = buffer_range.As<ir::_BufferRange_>()) {
+        std::for_each(range->ranges.begin(),
+                      range->ranges.end(),
+                      [&](cinn::ir::Var& v) { CastVarWithBound(v); });
+        auto bf = range->buffer.as_buffer_ref();
+        CastBuffer(bf);
+      }
+    }
+
+    for (auto& buffer_range : node->write_buffers) {
+      if (auto range = buffer_range.As<ir::_BufferRange_>()) {
+        std::for_each(range->ranges.begin(),
+                      range->ranges.end(),
+                      [&](cinn::ir::Var& v) { CastVarWithBound(v); });
+        auto bf = range->buffer.as_buffer_ref();
+        CastBuffer(bf);
+      }
+    }
+    ir::IRMutator<>::Visit(&(node->body), &(node->body));
+  }
+
+  void Visit(const ir::ScheduleBlockRealize* op, Expr* expr) override {
+    auto* node = expr->As<ir::ScheduleBlockRealize>();
+
+    std::for_each(node->iter_values.begin(),
+                  node->iter_values.end(),
+                  [&](cinn::ir::Expr& e) { e->convert_int64_to_int32(); });
+    ir::IRMutator<>::Visit(&node->schedule_block, &node->schedule_block);
+  }
+
+  void CastVarWithBound(cinn::ir::Var& var) {  // NOLINT
+    if (!var.defined()) return;
+    var->convert_int64_to_int32();
+    auto lb = var->lower_bound;
+    auto ub = var->upper_bound;
+    if (lb.defined()) lb->convert_int64_to_int32();
+    if (ub.defined()) ub->convert_int64_to_int32();
+  }
+  void CastBuffer(cinn::ir::Buffer& bf) {  // NOLINT
+    if (!bf.defined()) return;
+    std::for_each(bf->shape.begin(), bf->shape.end(), [&](cinn::ir::Expr& e) {
+      e->convert_int64_to_int32();
+    });
+    std::for_each(bf->strides.begin(),
+                  bf->strides.end(),
+                  [&](cinn::ir::Expr& e) { e->convert_int64_to_int32(); });
+    bf->elem_offset->convert_int64_to_int32();
   }
 };
 
