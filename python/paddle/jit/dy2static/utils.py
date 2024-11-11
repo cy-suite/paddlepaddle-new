@@ -730,7 +730,6 @@ def is_builtin(func, name=None):
 
 @signature_safe_contextmanager
 def backend_guard(backend):
-    core.check_and_set_prim_all_enabled()
     origin_fwd = core._is_fwd_prim_enabled()
     origin_bwd = core._is_bwd_prim_enabled()
 
