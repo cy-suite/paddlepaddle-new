@@ -18,6 +18,7 @@ import numpy as np
 from dygraph_to_static_utils import (
     Dy2StTestBase,
     test_ast_only,
+    test_pir_only,
 )
 
 import paddle
@@ -214,6 +215,22 @@ class TestComplexCast(TestCastBase):
 
     def set_func(self):
         self.func = paddle.jit.to_static(full_graph=True)(test_complex_cast)
+
+    @test_pir_only
+    def test_cast_result(self):
+        self.set_func()
+        res = self.do_test().numpy()
+        self.assertTrue(
+            res.dtype == self.cast_dtype,
+            msg=f'The target dtype is {self.cast_dtype}, but the casted dtype is {res.dtype}.',
+        )
+        ref_val = self.input.astype(self.cast_dtype)
+        np.testing.assert_allclose(
+            res,
+            ref_val,
+            rtol=1e-05,
+            err_msg=f'The casted value is {res}.\nThe correct value is {ref_val}.',
+        )
 
 
 class TestNotVarComplexCast(TestCastBase):
