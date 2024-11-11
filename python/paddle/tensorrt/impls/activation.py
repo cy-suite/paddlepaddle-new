@@ -99,3 +99,10 @@ def hardswish_converter(network, paddle_op, inputs):
         x, hardsigmoid_layer.get_output(0), trt.ElementWiseOperation.PROD
     )
     return hardswish_layer.get_output(0)
+
+
+@converter_registry.register("pd_op.elu", trt_version="8.x")
+def elu_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    elu_layer = network.add_activation(x, trt.ActivationType.ELU)
+    return elu_layer.get_output(0)
