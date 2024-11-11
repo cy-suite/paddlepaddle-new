@@ -454,6 +454,8 @@ void BindTensor(pybind11::module &m) {  // NOLINT
       .def("_get_complex64_element", TensorGetElement<paddle::complex64>)
       .def("_set_complex128_element", TensorSetElement<paddle::complex128>)
       .def("_get_complex128_element", TensorGetElement<paddle::complex128>)
+      .def("_set_bool_element", TensorSetElement<bool>)
+      .def("_get_bool_element", TensorGetElement<bool>)
       .def("_place", [](phi::DenseTensor &self) { return self.place(); })
 #ifdef PADDLE_WITH_XPU
       .def("get_xpu_scale_value",
