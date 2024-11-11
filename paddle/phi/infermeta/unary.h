@@ -763,6 +763,8 @@ void StridedSliceInferMeta(const MetaTensor& x,
                            const IntArray& starts,
                            const IntArray& ends,
                            const IntArray& strides,
+                           const std::vector<int>& infer_flags,
+                           const std::vector<int>& decrease_axis,
                            MetaTensor* out,
                            MetaConfig config = MetaConfig());
 

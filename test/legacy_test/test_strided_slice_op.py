@@ -326,7 +326,6 @@ class TestStridedSliceOp_starts_ListTensor(OpTest):
             starts_tensor.append(
                 ("x" + str(index), np.ones(1).astype('int32') * ele)
             )
-
         self.inputs = {'Input': self.input, 'StartsTensorList': starts_tensor}
         self.outputs = {'Out': self.output}
         self.attrs = {

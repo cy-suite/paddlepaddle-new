@@ -3385,12 +3385,47 @@ bool SplitWithNumOpInferSymbolicShape(
   return true;
 }
 
-// bool StridedSliceOpInferSymbolicShape(pir::Operation *op,
-//                                       pir::InferSymbolicShapeContext
-//                                       *infer_context) {
-//   // pass
-//   return true;
-// }
+bool StridedSliceOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  pir::Value operand_source = op->operand_source(0);
+  pir::Value operand_starts = op->operand_source(1);
+  pir::Value operand_ends = op->operand_source(2);
+  pir::Value operand_strides = op->operand_source(3);
+  pir::Value res = op->result(0);
+
+  const symbol::ShapeOrDataDimExprs &starts_shape_data =
+      infer_context->GetShapeOrDataForValue(operand_starts);
+  const symbol::ShapeOrDataDimExprs &ends_shape_data =
+      infer_context->GetShapeOrDataForValue(operand_ends);
+  const symbol::ShapeOrDataDimExprs &strides_shape_data =
+      infer_context->GetShapeOrDataForValue(operand_strides);
+
+  VLOG(3) << "StridedSliceOpInferSymbolicShape: axes_vec: ";
+
+  std::vector<int> axes_int_vec = details::GetVectorAttr<int>(op, "axes");
+  std::vector<int64_t> axes_vec(axes_int_vec.begin(), axes_int_vec.end());
+
+  ExprVec starts = slice_utils::GetExprVecFromData(starts_shape_data);
+  ExprVec ends = slice_utils::GetExprVecFromData(ends_shape_data);
+  ExprVec strides = slice_utils::GetExprVecFromData(strides_shape_data);
+
+  std::vector<int64_t> infer_flags(axes_vec.size(), 1);
+  const std::vector<int64_t> decrease_axis;
+
+  infer_context->SetShapeOrDataForValue(
+      res,
+      slice_utils::StridedSliceRawInferSymbolicShape(operand_source,
+                                                     res,
+                                                     starts,
+                                                     ends,
+                                                     strides,
+                                                     axes_vec,
+                                                     infer_flags,
+                                                     decrease_axis,
+                                                     infer_context));
+
+  return true;
+}
 
 bool SumOpInferSymbolicShape(pir::Operation *op,
                              pir::InferSymbolicShapeContext *infer_context) {
