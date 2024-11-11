@@ -962,6 +962,19 @@
   backward : clip_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
+- op : clipwithtensor
+  args : (Tensor x, Tensor min, Tensor max)
+  output : Tensor(out)
+  inplace : (x -> out)
+  infer_meta :
+    func : UnchangedInferMeta
+    param : [x]
+  kernel :
+    func : clipwithtensor
+    data_type : x
+  backward : clipwithtensor_grad
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
+
 - op : clip_by_norm
   args : (Tensor x, float max_norm)
   output : Tensor(out)

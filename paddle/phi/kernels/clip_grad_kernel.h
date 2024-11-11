@@ -28,4 +28,11 @@ void ClipGradKernel(const Context& dev_ctx,
                     const Scalar& max,
                     DenseTensor* x_grad);
 
+template <typename T, typename Context>
+void ClipWithTensorGradKernel(const Context& dev_ctx,
+                             const DenseTensor& x,
+                             const DenseTensor& out_grad,
+                             const DenseTensor& min,
+                             const DenseTensor& max,
+                             DenseTensor* x_grad);
 }  // namespace phi

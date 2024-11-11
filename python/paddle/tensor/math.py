@@ -3823,6 +3823,42 @@ def clip(
             raise ValueError(
                 f"The max dimension should be equal to the inner dimension of the x, but the max dimension is {max.shape}"
             )
+        
+        if in_dynamic_or_pir_mode():
+            return _C_ops.clipwithtensor(x, min, max)
+        else:
+            check_variable_and_dtype(
+                min,
+                'min',
+                ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
+                'clipwithtensor',
+            )
+            check_variable_and_dtype(
+                max,
+                'max',
+                ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
+                'clipwithtensor',
+            )
+            check_variable_and_dtype(
+                x,
+                'x',
+                ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
+                'clipwithtensor',
+            )
+
+            inputs = {'X': x, 'Min': min, 'Max': max}
+
+            helper = LayerHelper('clipwithtensor', **locals())
+            output = helper.create_variable_for_type_inference(
+                dtype=helper.input_dtype('x')
+            )
+            helper.append_op(
+                type='clipwithtensor',
+                inputs=inputs,
+                outputs={'Out': [output]},
+            )
+
+            return output
     else:
         if in_dynamic_or_pir_mode():
             if isinstance(min, Variable):
@@ -3938,6 +3974,9 @@ def clip_(
             raise ValueError(
                 f"The max dimension should be equal to the inner dimension of the x, but the max dimension is {max.shape}"
             )
+
+        if in_dynamic_mode():
+            return _C_ops.clipwithtensor_(x, min, max)
     else:
         if isinstance(min, Variable):
             min = min.item(0)

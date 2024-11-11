@@ -401,6 +401,29 @@
   backward : clip_double_grad
   inplace : (out_grad -> x_grad)
 
+- backward_op : clipwithtensor_double_grad
+  forward : clipwithtensor_grad (Tensor x, Tensor grad_out, Tensor min, Tensor max) -> Tensor(grad_x)
+  args : (Tensor x, Tensor grad_x_grad, Tensor min, Tensor max)
+  output : Tensor(grad_out_grad)
+  infer_meta :
+    func : UnchangedInferMeta
+    param : [x]
+  kernel :
+    func : clipwithtensor_grad
+    data_type : x
+
+- backward_op : clipwithtensor_grad
+  forward : clipwithtensor (Tensor x, Tensor min, Tensor max) -> Tensor(out)
+  args : (Tensor x, Tensor out_grad, Tensor min, Tensor)
+  output : Tensor(x_grad)
+  infer_meta :
+    func : UnchangedInferMeta
+    param : [x]
+  kernel :
+    func : clipwithtensor_grad
+  backward : clipwithtensor_double_grad
+  inplace : (out_grad -> x_grad)
+
 - backward_op : complex_grad
   forward : complex (Tensor real, Tensor imag) -> Tensor(out)
   args : (Tensor real, Tensor imag, Tensor out_grad)
