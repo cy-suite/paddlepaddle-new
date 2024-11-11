@@ -170,3 +170,23 @@ def all_converter(network, paddle_op, inputs):
     return add_cast_reduce_layer(
         network, paddle_op, inputs, trt.ReduceOperation.MIN
     )
+
+
+@converter_registry.register("pd_op.cumsum", trt_version="8.x")
+def cumsum_converter(network, paddle_op, inputs):
+    input_tensor = inputs[0]
+    axis = paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
+    input_shape = input_tensor.shape
+    print(input_shape)
+    rank = len(input_shape)
+
+    if axis < 0:
+        axis += rank
+
+    start = [0] * rank
+    size = [1] * rank
+    stride = [1] * rank
+    size[axis] = input_shape[axis]
+    input_sliced = network.add_slice(input_tensor, start, size, stride)
+
+    loop = network.add_loop()
