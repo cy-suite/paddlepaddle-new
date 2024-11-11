@@ -706,7 +706,9 @@ class Engine:
             auto_parallel_replace_with_parallel_cross_entropy_pass.apply(
                 [dist_program], [startup_program]
             )
-
+        print(
+            f"[liyamei check 0] after apply_mix2dist_pass forward dist_program \n{dist_program}"
+        )
         set_all_ops_op_role(dist_program.global_block(), OpRole.Forward)
         if (
             self._strategy.pipeline.enable
@@ -802,7 +804,13 @@ class Engine:
                 )
 
         # re-run apply_mix2dist_pass to dist accumulator.
+        print(
+            f"[liyamei check 1] after pir backward dist_program \n{dist_program}"
+        )
         apply_mix2dist_pass(dist_program)
+        print(
+            f"[liyamei check 2] after apply_mix2dist_pass dist_program \n{dist_program}"
+        )
 
         # Part 2: Parallelism search (for full auto-parallel)
         # NOTE make all parallelis search logic work as Pass,
@@ -827,6 +835,9 @@ class Engine:
         #   insert reshard op if operand tensor's placements is different from what the cumsumer op need.
         #   Partition the computation graph into different pipeline stage if need.
         apply_partition_pass(dist_program)
+        print(
+            f"[liyamei check 3] after apply_partition_pass dist_program \n{dist_program}"
+        )
 
         if mode == "train" and self._loss and self._optimizer:
             global_params_grads = params_grads
@@ -838,6 +849,9 @@ class Engine:
         #   resolute the reshard op into special collective operation.
         #   collect the communicator created during resolution.
         ReshardPasses.apply_reshard_pass(dist_program, params_grads)
+        print(
+            f"[liyamei check 4] after apply_reshard_pass dist_program \n{dist_program}"
+        )
 
         # Note(luchang): When using VPP pipeline pass, we need to split the whole graph into
         # multiple chunks and adjust the process mesh accordingly. Here, we need to store the
@@ -976,6 +990,8 @@ class Engine:
         self._pir_dense_main_progs[mode] = dense_program
         self._pir_dist_main_progs[mode] = dist_program
         self._pir_dist_startup_progs[mode] = startup_program
+        print(f"[liyamei check final] dist_program \n{dist_program}")
+        print(f"[liyamei check final] dense_program \n{dense_program}")
 
     def _prepare_program(self, mode, init_parameters=True):
         if self._in_pir_mode:
