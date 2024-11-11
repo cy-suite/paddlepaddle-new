@@ -56,6 +56,7 @@ limitations under the License. */
 #include "paddle/fluid/framework/lod_rank_table.h"
 #include "paddle/fluid/framework/lod_tensor_array.h"
 #include "paddle/fluid/framework/new_executor/collect_shape_manager.h"
+#include "paddle/fluid/framework/new_executor/auto_mix_precision_pass.h"
 #include "paddle/fluid/framework/new_executor/executor_statistics.h"
 #include "paddle/fluid/framework/new_executor/interpreter/job.h"
 #include "paddle/fluid/framework/new_executor/interpreter/plan.h"
@@ -2484,6 +2485,8 @@ All parameter, weight, gradient are variables in Paddle.
         });
   m.def("get_variable_tensor", framework::GetVariableTensor);
 
+  
+
   m.def("_is_program_version_supported", IsProgramVersionSupported);
 #if defined(PADDLE_WITH_CUDA)
   m.def("alloctor_dump", [](const phi::GPUPlace &place) {
@@ -3182,6 +3185,8 @@ All parameter, weight, gradient are variables in Paddle.
                                                                       stop);
   });
 
+ 
+
   m.def("update_autotune_status",
         [] { return phi::autotune::AutoTuneStatus::Instance().Update(); });
 
@@ -3290,9 +3295,14 @@ All parameter, weight, gradient are variables in Paddle.
           }
           return res;
         });
+
   m.def("clear_shape_info", []() {
     paddle::framework::CollectShapeManager::Instance().ClearShapeInfo();
   });
+
+
+  
+ 
 
 #if defined(PADDLE_WITH_PSLIB) && !defined(PADDLE_WITH_HETERPS)
   BindHeterWrapper(&m);
