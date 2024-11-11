@@ -156,77 +156,78 @@ class PrepareLayerOutput(PlanBase):
         layer.register_forward_post_hook(self.fn(process_mesh=process_mesh))
 
 
-def sequence_parallel_begin(process_mesh, need_transpose=True):
-    def begin(layer, input, output=None):
-        index = process_mesh.dim_names.index('mp')  # get the axis for the split
-        if isinstance(output, tuple):
-            target_output = output[0]
-        else:
-            target_output = output
-        assert isinstance(target_output, paddle.Tensor)
-        assert len(target_output.shape) == 3
-        if need_transpose:
-            target_output = paddle.transpose(target_output, perm=[1, 0, 2])
-        placements = target_output.placements
-        if placements is None:
-            placements = [
-                dist.Replicate() for _ in range(len(process_mesh.shape))
-            ]
-        placements[index] = dist.Shard(0)
-        target_output = dist.reshard(target_output, process_mesh, placements)
-        if isinstance(output, tuple):
-            output = list(output)
-            output[0] = target_output
-            output = tuple(output)
-        else:
-            output = target_output
-        return output
+def sp_split(x, process_mesh, need_transpose):
+    index = process_mesh.dim_names.index('mp')  # get the axis for the split
+    if isinstance(x, tuple):
+        target_x = x[0]
+    else:
+        target_x = x
+    assert isinstance(target_x, paddle.Tensor)
+    assert len(target_x.shape) == 3
+    if need_transpose:
+        target_x = paddle.transpose(target_x, perm=[1, 0, 2])
+    placements = target_x.placements
+    if placements is None:
+        placements = [dist.Replicate() for _ in range(len(process_mesh.shape))]
+    placements[index] = dist.Shard(0)
+    target_x = dist.reshard(target_x, process_mesh, placements)
+    if isinstance(x, tuple):
+        x = list(x)
+        x[0] = target_x
+        x = tuple(x)
+    else:
+        x = target_x
 
-    return begin
+    return x
 
 
-def sequence_parallel_end(process_mesh, need_transpose=True):
-    def end(layer, input, output=None):
-        index = process_mesh.dim_names.index('mp')  # get the axis for the split
-        if isinstance(input, tuple):
-            target_input = input[0]
-        else:
-            target_input = input
-        assert isinstance(target_input, paddle.Tensor)
-        assert len(target_input.shape) == 3
-        placements = target_input.placements
-        if placements is None:
-            placements = [
-                dist.Replicate() for _ in range(len(process_mesh.shape))
-            ]
-        placements[index] = dist.Replicate()
-        target_input = dist.reshard(target_input, process_mesh, placements)
-        if need_transpose:
-            target_input = paddle.transpose(target_input, perm=[1, 0, 2])
-        if isinstance(input, tuple):
-            input = list(input)
-            input[0] = target_input
-            input = tuple(input)
-        else:
-            input = target_input
-        return input
+def sp_reduce_scatter(x, process_mesh, need_transpose):
+    index = process_mesh.dim_names.index('mp')  # get the axis for the split
+    if isinstance(x, tuple):
+        target_x = x[0]
+    else:
+        target_x = x
+    assert isinstance(target_x, paddle.Tensor)
+    assert len(target_x.shape) == 3
+    placements = target_x.placements
+    if placements is None:
+        placements = [dist.Replicate() for _ in range(len(process_mesh.shape))]
+    placements[index] = dist.Replicate()
+    target_x = dist.reshard(target_x, process_mesh, placements)
+    if need_transpose:
+        target_x = paddle.transpose(target_x, perm=[1, 0, 2])
+    if isinstance(x, tuple):
+        x = list(x)
+        x[0] = target_x
+        x = tuple(x)
+    else:
+        x = target_x
 
-    return end
+    return x
 
 
 class SequenceParallelBegin(PlanBase):
     """
     With need_transpose=True, this plan will transpose and reshard the output from [b, s, h] to [s/mp, b, h].
     With need_transpose=False, this plan will reshard the output from [s, b, h] to [s/mp, b, h].
+
+    This plan marks the beginning of the sp and should be added to the LAST layer before the sp range.
+    DON'T mark any layer in the sp range.
     """
 
     def __init__(self, need_transpose=True):
         super().__init__()
         self.need_transpose = need_transpose
 
+    def sequence_parallel_begin(self, process_mesh):
+        def begin(layer, input, output=None):
+            return sp_split(output, process_mesh, self.need_transpose)
+
+        return begin
+
     def apply(self, layer, process_mesh, shard_weight=None, shard_bias=None):
         layer.register_forward_post_hook(
-            sequence_parallel_begin(process_mesh, self.need_transpose)
+            self.sequence_parallel_begin(process_mesh)
         )
 
 
@@ -234,15 +235,24 @@ class SequenceParallelEnd(PlanBase):
     """
     With need_transpose=True, this plan will reshard and transpose the input from [s/mp, b, h] to [b, s, h].
     With need_transpose=False, this plan will reshard the input from [s/mp, b, h] to [s, b, h].
+
+    This plan marks the ending of the sp and should be added to the FIRST layer after the sp range.
+    DON'T mark any layer in the sp range.
     """
 
     def __init__(self, need_transpose=True):
         super().__init__()
         self.need_transpose = need_transpose
 
+    def sequence_parallel_end(self, process_mesh):
+        def end(layer, input, output=None):
+            return sp_reduce_scatter(input, process_mesh, self.need_transpose)
+
+        return end
+
     def apply(self, layer, process_mesh, shard_weight=None, shard_bias=None):
         layer.register_forward_pre_hook(
-            sequence_parallel_end(process_mesh, self.need_transpose)
+            self.sequence_parallel_end(process_mesh)
         )
 
 
@@ -254,12 +264,28 @@ class SequenceParallel(PlanBase):
     def __init__(self):
         super().__init__()
 
+    def sequence_parallel_begin(self, process_mesh):
+        def begin(layer, input, output=None):
+            return sp_split(input, process_mesh, True)
+
+        return begin
+
+    def sequence_parallel_end(self, process_mesh):
+        def end(layer, input, output=None):
+            return sp_reduce_scatter(output, process_mesh, True)
+
+        return end
+
     def apply(self, layer, process_mesh, shard_weight=None, shard_bias=None):
+        logging.warning(
+            "Sequence parallel with the usage of SequenceParallel may not reach the best throughput. "
+            "Try to use SequenceParallelBegin/End to achieve better performance"
+        )
         layer.register_forward_pre_hook(
-            sequence_parallel_begin(process_mesh, need_transpose=False)
+            self.sequence_parallel_begin(process_mesh)
         )
         layer.register_forward_post_hook(
-            sequence_parallel_end(process_mesh, need_transpose=False)
+            self.sequence_parallel_end(process_mesh)
         )
 
 

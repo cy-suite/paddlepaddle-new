@@ -35,8 +35,6 @@ from paddle.distributed.auto_parallel.intermediate.sharded_data_parallel import 
 )
 from paddle.distributed.auto_parallel.intermediate.tensor_parallel import (
     ColWiseParallel,
-    PrepareLayerInput,
-    PrepareLayerOutput,
     RowWiseParallel,
     SequenceParallel,
     SequenceParallelBegin,
@@ -172,18 +170,6 @@ class TestParallelAPI:
         global_mesh = dist.ProcessMesh(mesh_arr, dim_names)
         dist.auto_parallel.set_mesh(global_mesh)
 
-    def output_transpose(self, process_mesh):
-        def transpose(layer, input, output=None):
-            return paddle.transpose(output, perm=[1, 0, 2])
-
-        return transpose
-
-    def input_transpose(self, process_mesh):
-        def transpose(layer, input, output=None):
-            return paddle.transpose(input, perm=[1, 0, 2])
-
-        return transpose
-
     def check_mp(self, layer):
         if self.mp == 1:
             return
@@ -253,31 +239,15 @@ class TestParallelAPI:
             else:
                 if self.prepare_input_output:
                     plan = {
-                        "llama.embed_tokens": [
-                            ColWiseParallel(),
-                            PrepareLayerOutput(self.output_transpose),
-                        ],
-                        "llama.layers.*.self_attn.q_proj": [
-                            ColWiseParallel(),
-                            PrepareLayerOutput(self.output_transpose),
-                        ],
-                        "llama.layers.*.self_attn.k_proj": [
-                            ColWiseParallel(),
-                            PrepareLayerOutput(self.output_transpose),
-                        ],
-                        "llama.layers.*.self_attn.v_proj": [
-                            ColWiseParallel(),
-                            PrepareLayerOutput(self.output_transpose),
-                        ],
-                        "llama.layers.*.self_attn.o_proj": [
-                            RowWiseParallel(),
-                            PrepareLayerInput(self.input_transpose),
-                        ],
+                        "llama.embed_tokens": ColWiseParallel(),
+                        "llama.layers.*.self_attn.q_proj": ColWiseParallel(),
+                        "llama.layers.*.self_attn.k_proj": ColWiseParallel(),
+                        "llama.layers.*.self_attn.v_proj": ColWiseParallel(),
+                        "llama.layers.*.self_attn.o_proj": RowWiseParallel(),
                         "llama.layers.*.mlp.gate_proj": ColWiseParallel(),
                         "llama.layers.*.mlp.up_proj": ColWiseParallel(),
                         "llama.layers.*.mlp.down_proj": RowWiseParallel(),
                         "lm_head.weight": ColWiseParallel(),
-                        "lm_head": PrepareLayerInput(self.input_transpose),
                         "llama.layers.*.input_layernorm": SequenceParallel(),
                         "llama.layers.*.post_attention_layernorm": SequenceParallel(),
                         "llama.norm": SequenceParallel(),
