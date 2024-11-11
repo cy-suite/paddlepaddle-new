@@ -34,29 +34,39 @@ class ParallelOptimizer:
 
         self.is_initialized = False
 
-    def parallelize(self, parallelized_parameters):
+    def parallelize(
+        self, parallelized_parameters, gradient_accumulation_steps=1
+    ):
         assert self.optimizer is not None
         if self.is_initialized:
             return self.optimizer
         # 1.replace optimizer parameters
         self.optimizer._parameter_list = parallelized_parameters
-
+        self.optimizer._param_groups = self.optimizer._parameter_list
         # 2.wrap with shard_optimizer
         mesh = fleet.auto.get_mesh()
         if self.level == "os":
             self.optimizer = dist.shard_optimizer(
-                self.optimizer, dist.ShardingStage1(mesh)
+                self.optimizer,
+                dist.ShardingStage1(mesh),
+                gradient_accumulation_steps,
             )
         elif self.level == "os_g":
             self.optimizer = dist.shard_optimizer(
-                self.optimizer, dist.ShardingStage2(mesh)
+                self.optimizer,
+                dist.ShardingStage2(mesh),
+                gradient_accumulation_steps,
             )
         elif self.level == "p_g_os":
             self.optimizer = dist.shard_optimizer(
-                self.optimizer, dist.ShardingStage3(mesh)
+                self.optimizer,
+                dist.ShardingStage3(mesh),
+                gradient_accumulation_steps,
             )
         else:
-            self.optimizer = dist.shard_optimizer(self.optimizer)
+            self.optimizer = dist.shard_optimizer(
+                self.optimizer, None, gradient_accumulation_steps
+            )
         self.is_initialized = True
 
         return self.optimizer
@@ -109,14 +119,16 @@ class ParallelModel:
         return self.model
 
 
-def parallelize_model_and_optimizer(model, optimizer=None):
+def parallelize_model_and_optimizer(
+    model, optimizer=None, gradient_accumulation_steps=1
+):
     assert isinstance(model, ParallelModel)
     parallelized_model = model.parallelize_model()
     parallelized_optimizer = None
     if optimizer is not None:
         assert isinstance(optimizer, ParallelOptimizer)
         parallelized_optimizer = optimizer.parallelize(
-            parallelized_model.parameters()
+            parallelized_model.parameters(), gradient_accumulation_steps
         )
 
     return parallelized_model, parallelized_optimizer
