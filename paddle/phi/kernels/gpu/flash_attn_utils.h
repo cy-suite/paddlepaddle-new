@@ -190,10 +190,10 @@ struct FlashAttnParamsBase {
     auto round_multiple = [](int x, int m) { return (x + m - 1) / m * m; };
     // FLAGS_flash_attn_version
     if (_version == 3 && !_is_fwd) {
-      kBlockM = 128;
+      kBlockM = head_size <= 64 ? 128 : (head_size < 256 ? 64 : 32);
       head_size_rounded = head_size <= 64 ? 64 : round_multiple(head_size, 32);
     } else {
-      kBlockM = head_size <= 64 ? 128 : (head_size < 256 ? 64 : 32);
+      kBlockM = 128;
       head_size_rounded = round_multiple(head_size, 32);
     }
 
