@@ -234,6 +234,7 @@ limitations under the License. */
 #endif
 
 COMMON_DECLARE_bool(use_mkldnn);
+COMMON_DECLARE_string(prim_backward_blacklist);
 
 // disable auto conversion to list in Python
 PYBIND11_MAKE_OPAQUE(phi::TensorArray);
@@ -848,6 +849,25 @@ static std::vector<std::vector<pir::Value>> GenerateBackwardBlockForPyLayerOp(
   return res;
 }
 
+namespace {
+std::unordered_set<std::string> StringSplit(const std::string &str) {
+  std::istringstream iss(str);
+  std::unordered_set<std::string> tokens;
+  std::string token;
+  while (std::getline(iss, token, ';')) {
+    size_t startpos = token.find_first_not_of(' ');
+    size_t endpos = token.find_last_not_of(' ');
+    if ((startpos != std::string::npos) && (endpos != std::string::npos)) {
+      token = token.substr(startpos, endpos - startpos + 1);
+    } else if (startpos != std::string::npos) {
+      token = token.substr(startpos);
+    }
+    tokens.insert(token);
+  }
+  return tokens;
+}
+}  // namespace
+
 void BindVjp(pybind11::module *m) {
   m->def(
       "call_vjp",
@@ -879,6 +899,10 @@ void BindVjp(pybind11::module *m) {
                          common::errors::InvalidArgument(
                              "The vjp function is not registered in %s op ",
                              fwd_op.name()));
+          const std::unordered_set<std::string> backward_blacklist_ops =
+              StringSplit(FLAGS_prim_backward_blacklist);
+          paddle::prim::PrimCommonUtils::SetPrimBackwardBlacklist(
+              backward_blacklist_ops);
           vjp_res = vjp_interface.Vjp(
               &fwd_op, inputs, outputs, out_grads, stop_gradients);
         }
@@ -1009,7 +1033,7 @@ void BindVjp(pybind11::module *m) {
            )DOC");
 }
 
-void BindDecomp(pybind11::module *m) {
+void BindDecompRule(pybind11::module *m) {
   m->def("sinking_decomp",
          [](pir::Program *program,
             std::vector<pir::Value> &src_vars,
@@ -1034,7 +1058,7 @@ void BindDecomp(pybind11::module *m) {
            return res;
          });
 
-  m->def("call_decomp", [](pir::Operation &fwd_op) {
+  m->def("call_decomp_rule", [](pir::Operation &fwd_op) {
     py::list res;
     std::vector<std::vector<pir::Value>> decomp_res = call_decomp_rule(&fwd_op);
     for (size_t i = 0; i < decomp_res.size(); ++i) {
@@ -1051,7 +1075,7 @@ void BindDecomp(pybind11::module *m) {
     return res;
   });
 
-  m->def("has_decomp", [](pir::Operation &fwd_op) {
+  m->def("has_decomp_rule", [](pir::Operation &fwd_op) {
     return paddle::has_decomp_rule(fwd_op);
   });
 }
@@ -1059,16 +1083,7 @@ void BindDecomp(pybind11::module *m) {
 void BindDecompVjp(pybind11::module *m) {
   m->def("call_decomp_vjp", [](pir::Operation &vjp_op) {
     py::list res;
-    paddle::dialect::DecompVjpInterface decomp_vjp_interface =
-        vjp_op.dyn_cast<paddle::dialect::DecompVjpInterface>();
-    PADDLE_ENFORCE(
-        decomp_vjp_interface,
-        common::errors::InvalidArgument(
-            "[Prim] The decomp_vjp function is not registered in %s vjp_op ",
-            vjp_op.name()));
-    std::vector<std::vector<pir::Value>> decomp_res =
-        decomp_vjp_interface.DecompVjp(&vjp_op);
-
+    std::vector<std::vector<pir::Value>> decomp_res = call_decomp_vjp(&vjp_op);
     for (size_t i = 0; i < decomp_res.size(); ++i) {
       py::list sub_res;
       for (size_t j = 0; j < decomp_res[i].size(); ++j) {
@@ -1079,13 +1094,8 @@ void BindDecompVjp(pybind11::module *m) {
     return res;
   });
 
-  m->def("has_decomp_vjp", [](pir::Operation &vjp_op) {
-    pir::IrContext *ctx = pir::IrContext::Instance();
-    pir::OpInfo vjp_op_info = ctx->GetRegisteredOpInfo(vjp_op.name());
-    auto decomp_vjp_interface_impl =
-        vjp_op_info.GetInterfaceImpl<paddle::dialect::DecompVjpInterface>();
-    return decomp_vjp_interface_impl != nullptr;
-  });
+  m->def("has_decomp_vjp",
+         [](pir::Operation &vjp_op) { return paddle::has_decomp_vjp(vjp_op); });
 }
 
 PYBIND11_MODULE(libpaddle, m) {
@@ -3249,6 +3259,8 @@ All parameter, weight, gradient are variables in Paddle.
       .value("BFLOAT16", phi::DataType::BFLOAT16)
       .value("FLOAT8_E4M3FN", phi::DataType::FLOAT8_E4M3FN)
       .value("FLOAT8_E5M2", phi::DataType::FLOAT8_E5M2)
+      .value("PSTRING", phi::DataType::PSTRING)
+      .value("ALL_DTYPE", phi::DataType::ALL_DTYPE)
       .export_values();
 
   py::class_<paddle::platform::EngineParams> engine_params(m,
@@ -3380,7 +3392,7 @@ All parameter, weight, gradient are variables in Paddle.
 
   BindPir(&m);
   BindVjp(&m);
-  BindDecomp(&m);
+  BindDecompRule(&m);
   BindDecompVjp(&m);
 #ifdef PADDLE_WITH_DISTRIBUTE
   BindDistApi(&m);
