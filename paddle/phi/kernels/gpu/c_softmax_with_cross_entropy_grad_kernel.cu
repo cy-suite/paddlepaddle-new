@@ -143,7 +143,7 @@ void CSoftmaxWithCrossEntropyGradKernel(const Context& dev_ctx,
     if (C > 1) {
       phi::DenseTensor is_ignore;
       is_ignore.Resize({N, 1});
-      dev_ctx.Alloc<int32_t>(&is_ignore);
+      dev_ctx.template Alloc<int32_t>(&is_ignore);
 
       CaculateSoftLogitsGrad<T, int32_t>
           <<<blocks_cal, threads, 0, dev_ctx.stream()>>>(
@@ -181,7 +181,7 @@ void CSoftmaxWithCrossEntropyGradKernel(const Context& dev_ctx,
     if (C > 1) {
       phi::DenseTensor is_ignore;
       is_ignore.Resize({N, 1});
-      dev_ctx.Alloc<int32_t>(&is_ignore);
+      dev_ctx.template Alloc<int32_t>(&is_ignore);
 
       CaculateSoftLogitsGrad<T, int64_t>
           <<<blocks_cal, threads, 0, dev_ctx.stream()>>>(
