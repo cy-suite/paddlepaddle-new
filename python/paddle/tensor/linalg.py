@@ -188,6 +188,32 @@ def transpose_(x, perm, name=None):
         return _C_ops.transpose_(x, perm)
 
 
+def matrix_transpose(x: paddle.Tensor, name: str = None) -> paddle.Tensor:
+    """
+    Transpose the input tensor by reversing its last two dimensions.
+    If `n` is the number of dimensions of `x`, `paddle.matrix_transpose(x)` is equivalent to `x.transpose([0, 1, ..., n-2, n-1])`.
+
+    Examples:
+        .. code-block:: python
+            >>> import paddle
+            >>> paddle.enable_static()
+            >>> x = paddle.ones(shape=[2, 3, 5])
+            >>> x_transposed = paddle.matrix_transpose(x)
+            >>> exe = paddle.static.Executor()
+            >>> x_transposed_np = exe.run(paddle.static.default_main_program(), fetch_list=[x_transposed])[0]
+            >>> print(x_transposed_np.shape)
+            (2, 5, 3)
+    """
+    if len(x.shape) < 2:
+        raise ValueError(
+            f"Tensor.ndim({len(x.shape)}) is required to be greater than or equal to 2."
+        )
+
+    perm = list(range(len(x.shape)))
+    perm[-1], perm[-2] = perm[-2], perm[-1]
+    return paddle.transpose(x, perm)
+
+
 def matmul(
     x: Tensor,
     y: Tensor,

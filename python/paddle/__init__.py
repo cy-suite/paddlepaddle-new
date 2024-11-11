@@ -239,6 +239,7 @@ from .tensor.linalg import (  # noqa: F401
     t_,
     transpose,
     transpose_,
+    matrix_transpose,
 )
 from .tensor.logic import (
     allclose,
@@ -1180,4 +1181,5 @@ __all__ = [
     'diagonal_scatter',
     'combinations',
     'signbit',
+    'matrix_transpose',
 ]
