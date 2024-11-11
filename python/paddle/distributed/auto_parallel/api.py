@@ -2166,11 +2166,12 @@ class DistModel:
         strategy(paddle.distributed.Strategy|None, optional): Configs for
             parallel strategies and optimization settings (e.g. sharding,
             pipeline parallelism). Default: None.
-        custom_spec(list[list[paddle.distributed.DistributedInputSpec]]|None, optional):
-            The custom input specs for the model. If it is not None, the inputs spec
-            and labels spec will be inferred from the custom input specs. The custom
-            input specs should be a list containing two lists, the first list is the
-            inputs spec and the second list is the labels spec. Default: None.
+        input_spec(list[list[paddle.distributed.DistributedInputSpec]]|None, optional):
+            The custom input specs to specific the shape/dtype/name information
+            of model inputs and labels. If it is not None, the inputs spec and
+            labels spec will be inferred from the custom input specs. The custom
+            input specs should be a list containing two lists, the first list is
+            the inputs spec and the second list is the labels spec. Default: None.
     """
 
     def __init__(
@@ -2181,7 +2182,7 @@ class DistModel:
         optimizer: Optimizer | None = None,
         strategy: Strategy | None = None,
         metrics: list[Metric] | None = None,
-        custom_spec: list[list[DistributedInputSpec]] | None = None,
+        input_spec: list[list[DistributedInputSpec]] | None = None,
     ) -> None:
         self._feed_name_list = []
         self._inner_strategy = self.__convert_strategy(strategy)
@@ -2198,9 +2199,9 @@ class DistModel:
         self._feed_name_list = {}
 
         # convert dygraph model to static model
-        if custom_spec is not None:
-            self._engine._inputs_spec = custom_spec[0]
-            self._engine._labels_spec = custom_spec[1]
+        if input_spec is not None:
+            self._engine._inputs_spec = input_spec[0]
+            self._engine._labels_spec = input_spec[1]
         elif isinstance(loader, ShardDataloader):
             (
                 self._engine._inputs_spec,
@@ -2729,7 +2730,7 @@ def to_static(
     loss: Layer | Callable[..., Any] | None = None,
     optimizer: Optimizer | None = None,
     strategy: Strategy | None = None,
-    custom_spec: list[list[DistributedInputSpec]] | None = None,
+    input_spec: list[list[DistributedInputSpec]] | None = None,
 ) -> DistModel:
     """
     Converts the ``layer`` with distributed tensor (constructed from
@@ -2751,11 +2752,12 @@ def to_static(
         strategy(paddle.distributed.Strategy|None, optional): Configs for
             parallel strategies and optimization settings (e.g. sharding,
             pipeline parallelism). Default: None.
-        custom_spec(list[list[paddle.distributed.DistributedInputSpec]]|None, optional):
-            The custom input specs for the model. If it is not None, the inputs spec
-            and labels spec will be inferred from the custom input specs. The custom
-            input specs should be a list containing two lists, the first list is the
-            inputs spec and the second list is the labels spec. Default: None.
+        input_spec(list[list[paddle.distributed.DistributedInputSpec]]|None, optional):
+            The custom input specs to specific the shape/dtype/name information
+            of model inputs and labels. If it is not None, the inputs spec and
+            labels spec will be inferred from the custom input specs. The custom
+            input specs should be a list containing two lists, the first list is
+            the inputs spec and the second list is the labels spec. Default: None.
 
     Returns:
         DistModel: A ``DistModel`` instance converted the input ``layer``.
@@ -2887,7 +2889,7 @@ def to_static(
                 )
 
     dist_model = DistModel(
-        layer, loader, loss, optimizer, strategy, custom_spec=custom_spec
+        layer, loader, loss, optimizer, strategy, input_spec=input_spec
     )
     return dist_model
 
