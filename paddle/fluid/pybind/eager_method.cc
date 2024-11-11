@@ -72,6 +72,9 @@ typedef SSIZE_T ssize_t;
 COMMON_DECLARE_bool(set_to_1d);
 COMMON_DECLARE_bool(use_stride_kernel);
 
+using egr::ConvertAllInputsToDistTensor;
+using egr::InputsContainDistTensor;
+
 namespace paddle::pybind {
 
 extern void InitTensorWithNumpyValue(TensorObject* self,
@@ -693,11 +696,11 @@ static PyObject* tensor_method_copy_(TensorObject* self,
     egr::EagerUtils::autograd_meta(&(self->tensor))
         ->SetPersistable(
             egr::EagerUtils::autograd_meta(&(src_tensor))->Persistable());
-    if (src_tensor.initialized()) {
+    if (src_tensor.has_allocation()) {
       self->tensor.copy_(src_tensor, src_tensor.place(), blocking);
     }
   } else {
-    if (src_tensor.initialized()) {
+    if (src_tensor.has_allocation()) {
       eager_gil_scoped_release guard;
       self->tensor.copy_(src_tensor, self->tensor.place(), blocking);
     }
@@ -716,7 +719,7 @@ PyDoc_STRVAR(tensor_method_clone__doc__,  // NOLINT
 
 Returns a new Tensor, which is clone of origin Tensor, and it remains in the current graph.
 It will always have a Tensor copy.
-Tn addition, the cloned Tensor provides gradient propagation.
+In addition, the cloned Tensor provides gradient propagation.
 
 Returns:
     Tensor, The cloned Tensor.
@@ -838,7 +841,7 @@ PyDoc_STRVAR(tensor_clear_gradient__doc__,  // NOLINT
 --
 
 Only for Tensor that has gradient, normally we use this for Parameters since
-other temporary Tensor doesen't has gradient.
+other temporary Tensor doesn't has gradient.
 
 The Gradient of current Tensor will be set to ``0`` elementwise or ``None``.
 
@@ -2738,6 +2741,61 @@ static PyObject* tensor_method_to_sparse_csr(TensorObject* self,
   EAGER_CATCH_AND_THROW_RETURN_NULL
 }
 
+PyDoc_STRVAR(tensor_is_coalesced__doc__,  // NOLINT
+             R"DOC(is_coalesced($self, /)
+--
+
+Check whether the Tensor is a coalesced SparseCooTensor. If not it will return False.
+Tensor types other than SparseCooTensor are not supported.
+
+Notes:
+    It will return always False for a newly created SparseCooTensor.
+
+Args:
+    x (Tensor): The input tensor. It can only be SparseCooTensor.
+
+Returns:
+    bool: True if the Tensor is a coalesced SparseCooTensor, and False otherwise.
+
+Examples:
+
+    .. code-block:: python
+
+        >>> import paddle
+
+        >>> indices = [[0, 0, 1], [1, 1, 2]]
+        >>> values = [1.0, 2.0, 3.0]
+        >>> x = paddle.sparse.sparse_coo_tensor(indices, values)
+
+        >>> x.is_coalesced()
+        False
+        >>> x = x.coalesce()
+        >>> x.is_coalesced()
+        True
+
+        >>> indices = [[0, 1, 1], [1, 0, 2]]
+        >>> values = [1.0, 2.0, 3.0]
+        >>> x = paddle.sparse.sparse_coo_tensor(indices, values)
+        >>> x.is_coalesced()
+        False
+
+)DOC");                                   // NOLINT
+
+static PyObject* tensor_method_is_coalesced(TensorObject* self,
+                                            PyObject* args,
+                                            PyObject* kwargs) {
+  EAGER_TRY
+  if (self->tensor.is_sparse_coo_tensor()) {
+    auto sparse_coo_tensor =
+        std::dynamic_pointer_cast<phi::SparseCooTensor>(self->tensor.impl());
+    return ToPyObject(sparse_coo_tensor->coalesced());
+  } else {
+    PADDLE_THROW(common::errors::InvalidType(
+        "Method is_coalesced only support sparse coo tensor."));
+  }
+  EAGER_CATCH_AND_THROW_RETURN_NULL
+}
+
 PyDoc_STRVAR(tensor_is_same_shape__doc__,  // NOLINT
              R"DOC(is_same_shape($self, y, /)
 --
@@ -3506,6 +3564,10 @@ PyMethodDef variable_methods[] = {  // NOLINT
      (PyCFunction)(void (*)())tensor_method_to_sparse_csr,
      METH_VARARGS | METH_KEYWORDS,
      tensor_to_sparse_csr__doc__},
+    {"is_coalesced",
+     (PyCFunction)(void (*)())tensor_method_is_coalesced,
+     METH_VARARGS | METH_KEYWORDS,
+     tensor_is_coalesced__doc__},
     /***the method of sparse tensor****/
     {"element_size",
      (PyCFunction)(void (*)())tensor_method_element_size,

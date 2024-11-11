@@ -1914,6 +1914,7 @@ def get_setup_parameters():
         'paddle.distributed.fleet.meta_parallel.sharding',
         'paddle.distributed.fleet.meta_parallel.parallel_layers',
         'paddle.distributed.auto_parallel',
+        'paddle.distributed.auto_parallel.intermediate',
         'paddle.distributed.auto_parallel.dygraph',
         'paddle.distributed.auto_parallel.static',
         'paddle.distributed.auto_parallel.static.operators',
@@ -2025,6 +2026,7 @@ def get_setup_parameters():
         'paddle.decomposition',
         'paddle._typing',
         'paddle._typing.libs',
+        'paddle.tensorrt',
     ]
 
     paddle_bins = ''
@@ -2348,6 +2350,7 @@ def main():
             'Programming Language :: Python :: 3.10',
             'Programming Language :: Python :: 3.11',
             'Programming Language :: Python :: 3.12',
+            'Programming Language :: Python :: 3.13',
             'Typing :: Typed',
         ],
     )

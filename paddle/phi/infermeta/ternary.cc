@@ -761,15 +761,7 @@ void FasterTokenizerInferMeta(const MetaTensor& vocab,
 void GlobalGatherInferMeta(const MetaTensor& x,
                            const MetaTensor& local_count,
                            const MetaTensor& global_count,
-                           int ring_id,
-                           bool use_calc_stream,
                            MetaTensor* out) {
-  PADDLE_ENFORCE_GE(
-      ring_id,
-      0,
-      common::errors::InvalidArgument(
-          "The ring_id (%d) for global gather op must be non-negative.",
-          ring_id));
   auto input_dims = x.dims();
   auto ndim_input = input_dims.size();
   // dim check
@@ -787,15 +779,7 @@ void GlobalGatherInferMeta(const MetaTensor& x,
 void GlobalScatterInferMeta(const MetaTensor& x,
                             const MetaTensor& local_count,
                             const MetaTensor& global_count,
-                            int ring_id,
-                            bool use_calc_stream,
                             MetaTensor* out) {
-  PADDLE_ENFORCE_GE(
-      ring_id,
-      0,
-      common::errors::InvalidArgument(
-          "The ring_id (%d) for global scatter op must be non-negative.",
-          ring_id));
   auto input_dims = x.dims();
   auto ndim_input = input_dims.size();
   // dim check
@@ -1058,7 +1042,25 @@ void GroupNormInferMeta(const MetaTensor& x,
             channel_num,
             data_layout_str));
   }
-  y->set_dims(x_dim);
+  DDim output_dims = x_dim;
+  int64_t weight_channel = data_layout == DataLayout::kNCHW
+                               ? output_dims[1]
+                               : output_dims[x_dim.size() - 1];
+  bool need_update = weight_channel < 0;
+  if (weight_channel < 0 && scale) {
+    weight_channel = scale.dims()[0];
+  } else if (weight_channel < 0 && bias) {
+    weight_channel = bias.dims()[0];
+  }
+  if (need_update && weight_channel > 0) {
+    if (data_layout == DataLayout::kNCHW) {
+      output_dims[1] = weight_channel;
+    } else {
+      output_dims[x_dim.size() - 1] = weight_channel;
+    }
+  }
+
+  y->set_dims(output_dims);
   y->set_dtype(x.dtype());
   y->share_lod(x);
 

@@ -14,6 +14,8 @@
 from __future__ import annotations
 
 import copy
+import logging
+import os
 import warnings
 from types import MethodType
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
@@ -62,6 +64,12 @@ from paddle.io.dataloader.batch_sampler import (
 )
 from paddle.optimizer import Optimizer
 
+from .moe_utils import (
+    _dist_reshape,
+    _NdMeshAlltoAll,
+    _reshard_mesh_shape,
+    _specific_alltoall_dim,
+)
 from .placement_type import (
     check_placements_equal,
     get_shard_spec,
@@ -69,6 +77,7 @@ from .placement_type import (
     to_placements,
 )
 from .random import determinate_rng, rng_state
+from .sharding import ShardingOptimizerStage1
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -78,7 +87,7 @@ if TYPE_CHECKING:
     from paddle import Tensor
     from paddle._typing import (
         DTypeLike,
-        NestedNumbericSequence,
+        NestedNumericSequence,
         PlaceLike,
         TensorLike,
     )
@@ -204,7 +213,7 @@ class DistAttr(core.TensorDistAttr):
 
 
 def shard_tensor(
-    data: Tensor | TensorLike | NestedNumbericSequence,
+    data: Tensor | TensorLike | NestedNumericSequence,
     mesh: ProcessMesh,
     placements: list[Placement],
     dtype: DTypeLike | None = None,
@@ -369,10 +378,10 @@ class _moe_global_mesh_tensor(PyLayer):
             local_mesh = None
 
         ctx.global_mesh = copy.deepcopy(mesh)
-        ctx.placements = placements
+        ctx.placements = copy.deepcopy(placements)
         ctx.local_dims = local_tensor.shape
         ctx.local_mesh_list = copy.deepcopy(local_mesh_list)
-        ctx.local_placements = local_placements
+        ctx.local_placements = copy.deepcopy(local_placements)
 
         place = paddle.framework._current_expected_place()
         place = paddle.framework._get_paddle_place(place)
@@ -426,7 +435,7 @@ def _get_sub_meshes_and_local_placements(
     return sub_mesh_list, local_placements
 
 
-def cal_global_shape(local_shape, mesh, placements):
+def _cal_global_shape(local_shape, mesh, placements):
     # assume the each rank has the same tensor shape for now,
     # just use the local shape to calculate the global shape
     global_shape = list(local_shape)
@@ -451,7 +460,7 @@ def moe_global_mesh_tensor(
     local_tensor = local_tensor_list[local_tensor_idx]
 
     if paddle.in_dynamic_mode():
-        global_dims = cal_global_shape(
+        global_dims = _cal_global_shape(
             local_tensor._local_value().shape, mesh, placements
         )
         resharded_local_tensor_list = []
@@ -480,7 +489,7 @@ def moe_global_mesh_tensor(
             placements,
         )
     elif paddle.framework.in_pir_mode():
-        global_dims = cal_global_shape(
+        global_dims = _cal_global_shape(
             local_tensor._local_shape, mesh, placements
         )
         dist_tensor = paddle._C_ops.moe_global_mesh_tensor(
@@ -533,7 +542,7 @@ class _moe_sub_mesh_tensors(PyLayer):
                 )
             assert check_placements_equal(
                 global_placements, dist_tensor.placements
-            ), "the global_placements should be the same as dist_tensor's placements."
+            ), f"the global_placements ({global_placements}) is not equal to dist_tensor's placements ({dist_tensor.placements})."
             local_shape = dist_tensor._local_value().shape
             for idx, placement in enumerate(local_placements):
                 if placement.is_shard():
@@ -563,7 +572,6 @@ class _moe_sub_mesh_tensors(PyLayer):
     def backward(ctx, *grad_tensor):
         place = paddle.framework._current_expected_place()
         place = paddle.framework._get_paddle_place(place)
-        # idx = ctx.global_mesh.process_ids.index(dist.get_rank())
         mesh = ctx.global_mesh
         process_ids = np.array(mesh.process_ids).reshape(mesh.shape)
         local_coord = np.where(process_ids == dist.get_rank())
@@ -750,6 +758,16 @@ def reshard(
         if len(partial_dims) > 0:
             dist_attr._set_partial_dims(partial_dims)
 
+        alltoall_dim = _specific_alltoall_dim(dist_tensor, mesh, placements)
+        if alltoall_dim is not None:
+            return _NdMeshAlltoAll.apply(
+                dist_tensor, mesh, placements, alltoall_dim
+            )
+
+        if _reshard_mesh_shape(dist_tensor, mesh, placements):
+            return _dist_reshape(
+                dist_tensor, dist_tensor.shape, mesh, placements
+            )
         return paddle.base.core.reshard(dist_tensor, dist_attr)
     elif in_pir_mode():
         return paddle._C_ops.reshard(dist_tensor, mesh, placements)
@@ -1028,6 +1046,10 @@ class _ShardOptimizer(Optimizer):
         ):
             self._sharding_degree = self._shard_fn._mesh.get_dim_size(0)
             self._sharding_mesh_axis = 0
+        elif (self._shard_fn._mesh is not None) and (
+            'dp' in self._shard_fn._mesh.dim_names
+        ):
+            self._sharding_degree = self._shard_fn._mesh.get_dim_size('dp')
         else:
             param_list = self._inner_opt._parameter_list
             for param in param_list:
@@ -1122,10 +1144,12 @@ class _ShardOptimizer(Optimizer):
                 param.get_tensor()._share_data_with(out_param.get_tensor())
 
     def _create_accumulators(self, block, parameters):
-        self._inner_opt._create_accumulators(block, parameters)
         if isinstance(parameters, dict):
             parameters = parameters.get('params')
+        # NOTE(zhiqiu): we need to create and shard accumulators for parameters one by one,
+        # to avoid OOM caused by replcated accumulators.
         for p in parameters:
+            self._inner_opt._create_accumulators(block, [p])
             self._shard_accumulator(p)
 
     def _finish_update(self, block, parameters_and_grads):
@@ -2161,6 +2185,20 @@ class DistModel:
         self._parameter_to_structured_name = {
             v: k for k, v in self._structured_to_parameter_name.items()
         }
+        if os.getenv("POD_NAME"):
+            dist.utils.log_utils.get_logger(logging.INFO).info(
+                "Distribute training by paddle.distributed.launch"
+            )
+            dist.fleet.init(is_collective=True)
+
+        if isinstance(optimizer, _ShardOptimizer) and use_pir_api():
+            shard_fn = optimizer._shard_fn
+            optimizer = optimizer._inner_opt
+            if isinstance(optimizer._shard_fn, ShardingStage1):
+                optimizer = ShardingOptimizerStage1(
+                    optimizer, shard_fn, self._inner_strategy
+                )
+
         self._engine = Engine(
             layer, loss, optimizer, metrics, strategy=self._inner_strategy
         )
@@ -2846,7 +2884,6 @@ def to_static(
                 raise NotImplementedError(
                     "Only sharding stage 1, 2 and 3 can to_static for now. User-defined shard_fn will be supported later."
                 )
-
     dist_model = DistModel(layer, loader, loss, optimizer, strategy)
     return dist_model
 
