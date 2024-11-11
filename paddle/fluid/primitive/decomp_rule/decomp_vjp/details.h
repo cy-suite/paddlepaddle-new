@@ -2921,10 +2921,7 @@ void kron_grad(const Tensor& x,
   if (x_grad) {
     auto x_shape = x.shape();
     auto y_shape = y.shape();
-    auto out_grad_shape = out_grad.shape();
 
-    Tensor x_ = x;
-    Tensor y_ = y;
     auto diff = std::abs(static_cast<int>(x_shape.size()) -
                          static_cast<int>(y_shape.size()));
     for (int i = 0; i < diff; i++) {
@@ -2935,51 +2932,52 @@ void kron_grad(const Tensor& x,
       }
     }
 
-    x_ = reshape<T>(x, x_shape);
-    y_ = reshape<T>(y, y_shape);
+    auto x_ = reshape<T>(x, x_shape);
+    auto y_ = reshape<T>(y, y_shape);
 
-    // unsqueeze
-    std::vector<int64_t> y_dim = common::vectorize<int64_t>(y_.dims());
-    y_dim.insert(y_dim.begin(), -1);
+    // tile
+    std::vector<int64_t> x_dim = common::vectorize<int64_t>(x_.dims());
+    auto y_tile = tile<T>(y_, x_dim);
 
-    std::deque<Tensor> blocks;
-    blocks.push_front(out_grad);
-    for (size_t i = 0; i < x_shape.size(); i++) {
-      std::vector<Tensor> tmp_block;
-      while (!blocks.empty()) {
-        auto block = blocks.front();
-        blocks.pop_front();
-        std::vector<int> split_vec(static_cast<int>(x_shape[i]),
-                                   static_cast<int>(y_shape[i]));
-        std::vector<Tensor> block_split =
-            split<T>(block, IntArray(split_vec), static_cast<int>(i));
+    auto out_grad_tmp = y_tile * out_grad;
 
-        for (auto& b : block_split) {
-          tmp_block.push_back(b);
+    std::vector<int64_t> out_grad_shape(out_grad_tmp.shape());
+
+    if (x_dim.size() != 0) {
+      while (true) {
+        std::vector<int64_t> expand_shape(out_grad_tmp.shape());
+
+        int num_reduce = 0;
+        while (x_dim.size() != 0 && expand_shape.size() <= 8) {
+          int64_t repeat = x_dim.back();
+          int64_t orig_size = out_grad_shape.back() / repeat;
+          size_t out_grad_last_index = out_grad_shape.size() - 1;
+
+          expand_shape[out_grad_last_index] = repeat;
+          expand_shape.insert(
+              expand_shape.begin() + out_grad_shape.size(), 1, orig_size);
+
+          x_dim.pop_back();
+          out_grad_shape.pop_back();
+          ++num_reduce;
+        }
+
+        int64_t axis = static_cast<int64_t>(out_grad_shape.size()) + 1;
+        std::vector<int64_t> reduce_axes;
+        for (int i = 0; i < num_reduce; ++i) {
+          reduce_axes.push_back(axis);
+          axis += 2;
+        }
+
+        out_grad_tmp = reshape<T>(out_grad_tmp, expand_shape);
+        out_grad_tmp = sum<T>(out_grad_tmp, reduce_axes);
+
+        if (x_dim.size() == 0) {
+          break;
         }
       }
-      for (auto& tem_b : tmp_block) {
-        blocks.push_back(tem_b);
-      }
     }
-    std::vector<Tensor> vec(blocks.begin(), blocks.end());
-    auto out_grad_tmp = reshape<T>(concat<T>(vec, 0), y_dim);
-
-    std::vector<size_t> range;
-    for (size_t i = 0; i <= y_shape.size(); i++) {
-      if (i != 0) {
-        range.push_back(i);
-      }
-    }
-
-    y_dim[0] = 1;
-    std::vector<int> range_int(range.begin(), range.end());
-
-    auto y_expand =
-        expand<T>(reshape<T>(y_, IntArray(y_dim)), out_grad_tmp.shape());
-    auto sum_tensor = sum<T>(out_grad_tmp * y_expand, IntArray(range_int));
-    auto x_grad_tmp = reshape<T>(sum_tensor, x.shape());
-
+    Tensor x_grad_tmp = reshape<T>(out_grad_tmp, x.shape());
     set_output<T>(x_grad_tmp, x_grad);
   }
 
