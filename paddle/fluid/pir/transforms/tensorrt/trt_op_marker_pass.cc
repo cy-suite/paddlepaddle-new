@@ -1213,12 +1213,13 @@ class ArgmaxOpPattern
                  "data in arg_max.";
       return false;
     }
-    auto x = op.x();
-    auto x_tensor_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
-    auto data_type = paddle::dialect::TransToPhiDataType(x_tensor_type.dtype());
-    if (!(data_type == phi::DataType::FLOAT32 ||
-          data_type == phi::DataType::FLOAT16 ||
-          data_type == phi::DataType::FLOAT64)) {
+    pir::Value x = op.x();
+    auto data_type = pir::GetDataTypeFromValue(x);
+    if (!(data_type.isa<pir::Float32Type>() ||
+          data_type.isa<pir::Float16Type>() ||
+          data_type.isa<pir::Float64Type>())) {
+      VLOG(3) << "At present, pd_op.argmax only support float32 or float16 or "
+                 "float64 into trt.";
       return false;
     }
     int axis = static_cast<int>(op.axis()
@@ -1230,8 +1231,12 @@ class ArgmaxOpPattern
     phi::DataType dtype =
         op.attribute<paddle::dialect::DataTypeAttribute>("dtype").data();
     if (axis == 0 || flatten ||
-        (dtype != phi::DataType::INT32 && dtype != phi::DataType::INT64))
+        (dtype != phi::DataType::INT32 && dtype != phi::DataType::INT64)) {
+      VLOG(3) << "Skipping TRT conversion in pd_op.argmax: axis is zero, "
+                 "flatten is True, or "
+                 "dtype is int32/int64";
       return false;
+    }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
@@ -1249,15 +1254,16 @@ class ArgminOpPattern
     }
     if (!op.axis().defining_op()->isa<paddle::dialect::FullOp>()) {
       VLOG(3) << "Skip to convert into TRT while found axis is not a constant "
-                 "data in arg_max.";
+                 "data in arg_mix.";
       return false;
     }
-    auto x = op.x();
-    auto x_tensor_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
-    auto data_type = paddle::dialect::TransToPhiDataType(x_tensor_type.dtype());
-    if (!(data_type == phi::DataType::FLOAT32 ||
-          data_type == phi::DataType::FLOAT16 ||
-          data_type == phi::DataType::FLOAT64)) {
+    pir::Value x = op.x();
+    auto data_type = pir::GetDataTypeFromValue(x);
+    if (!(data_type.isa<pir::Float32Type>() ||
+          data_type.isa<pir::Float16Type>() ||
+          data_type.isa<pir::Float64Type>())) {
+      VLOG(3) << "At present, pd_op.argmin only support float32 or float16 or "
+                 "float64 into trt.";
       return false;
     }
     int axis = static_cast<int>(op.axis()
@@ -1269,8 +1275,13 @@ class ArgminOpPattern
     phi::DataType dtype =
         op.attribute<paddle::dialect::DataTypeAttribute>("dtype").data();
     if (axis == 0 || flatten ||
-        (dtype != phi::DataType::INT32 && dtype != phi::DataType::INT64))
+        (dtype != phi::DataType::INT32 && dtype != phi::DataType::INT64)) {
+      VLOG(3) << "Skipping TRT conversion in pd_op.argmin: axis is zero, "
+                 "flatten is True, or "
+                 "dtype is int32/int64";
       return false;
+    }
+
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
@@ -1289,20 +1300,21 @@ class ArgsortOpPattern
     const std::vector<std::string> required_attrs = {"axis", "descending"};
     for (const auto &attr : required_attrs) {
       if (!op->HasAttribute(attr)) {
-        VLOG(3) << "Argsort " << attr << " attribute does not exist";
+        VLOG(3) << "pd_op.argsort " << attr << " attribute does not exist";
         return false;
       }
     }
-    auto x = op.x();
-    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    pir::Value x = op.x();
+    auto x_type = pir::GetDataTypeFromValue(x);
     auto x_shape = x_type.dims();
     int axis = op->attribute<pir::Int32Attribute>("axis").data();
     if (axis < 0) {
       axis += x_shape.size();
     }
     if (x_shape[axis] > 3840 || x_shape[axis] < 0) {
-      VLOG(3) << "The axis dim of input should be less than 3840 and greater "
-                 "than 0 in Tensorrt argsort";
+      VLOG(3) << "In pd_op.argsort,the axis dim of input should be less than "
+                 "3840 and greater "
+                 "than 0 in Tensorrt";
       return false;
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));

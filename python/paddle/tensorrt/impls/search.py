@@ -16,8 +16,11 @@
 import tensorrt as trt
 
 from paddle.tensorrt.converter_utils import (
+    get_shape_tensor_element,
     squeeze_trt,
     trt_cast,
+    trt_reshape,
+    trt_shape,
     unsqueeze_trt,
 )
 from paddle.tensorrt.register import converter_registry
@@ -104,16 +107,37 @@ def argmin_converter(network, paddle_op, inputs):
 def argsort_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     input_shape = input_tensor.shape
-    # The following two attributes is judged in Marker Pass.
-    # Default value maybe redundant.
-    axis = paddle_op.attrs().get("axis", -1)
-    descending = paddle_op.attrs().get("descending", False)
+    in_type = input_tensor.dtype
+    in_rank = len(input_shape)
+    axis = paddle_op.attrs()["axis"]
+    descending = paddle_op.attrs()["descending"]
     if axis < 0:
         axis += len(input_shape)
     topk_op = trt.TopKOperation.MAX if descending else trt.TopKOperation.MIN
-    k = input_shape[axis]
-    topk_layer = network.add_topk(input_tensor, topk_op, k, 1 << axis)
-    return topk_layer.get_output(1)
+    need_cast = True if in_type == trt.DataType.FLOAT else False
+    if in_rank == 1:
+        unsqueeze_shape = trt.Dims([1, -1])
+        input_tensor = trt_reshape(
+            network, input_tensor, unsqueeze_shape, is_shape_tensor=True
+        )
+        axis = 1
+    if need_cast:
+        input_tensor = trt_cast(network, input_tensor, trt.DataType.FLOAT)
+    topk_layer = network.add_topk(input_tensor, topk_op, 1, 1 << axis)
+    shape = trt_shape(network, input_shape)
+    k_tensor = get_shape_tensor_element(network, shape, axis, True)
+    topk_layer.set_input(1, k_tensor)
+    out = topk_layer.get_output(0)
+    indices = topk_layer.get_ouput(1)
+    if in_rank == 1:
+        squeeze_shape = trt.Dims([1, -1])
+        out = trt_reshape(network, out, squeeze_shape, is_shape_tensor=True)
+        indices = trt_reshape(
+            network, indices, squeeze_shape, is_shape_tensor=True
+        )
+    out_tensor = trt_cast(network, out, in_type)
+    indices_tensor = trt_cast(network, indices, indices.dtype)
+    return out_tensor, indices_tensor
 
 
 @converter_registry.register("pd_op.where", trt_version="8.x")
