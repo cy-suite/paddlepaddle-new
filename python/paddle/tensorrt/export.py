@@ -35,7 +35,6 @@ from paddle.nn import Layer
 from paddle.tensorrt.converter import PaddleToTensorRTConverter
 from paddle.tensorrt.util import (
     forbid_op_lower_trt,
-    mark_buitlin_op,
     run_pir_pass,
     warmup_shape_infer,
 )
@@ -150,6 +149,7 @@ class TensorRTConfig:
         min_subgraph_size: int | None = 3,
         save_model_dir: str | None = None,
         disable_ops: str | list | None = None,
+        enable_fp16: bool | None = False,
     ) -> None:
         """
         A class for configuring TensorRT optimizations.
@@ -160,10 +160,11 @@ class TensorRTConfig:
             min_subgraph_size (int, optional):
                 The minimum number of operations in a subgraph for TensorRT to optimize (default is 3).
             save_model_dir (str, optional):
-                The directory where the optimized model will be saved (default is None).
+                The directory where the optimized model will be saved (The default is not to save).
             disable_ops : (str|list, optional):
                 A string representing the names of operations that should not be entering by TensorRT (default is None).
-
+            enable_fp16 (bool, optional):
+                Whether to enable FP16 mode (default is False).
         Returns:
             None
 
@@ -189,6 +190,7 @@ class TensorRTConfig:
         self.min_subgraph_size = min_subgraph_size
         self.save_model_dir = save_model_dir
         self.disable_ops = disable_ops
+        self.enable_fp16 = enable_fp16
         paddle.framework.set_flags(
             {'FLAGS_trt_min_group_size': min_subgraph_size}
         )
@@ -232,14 +234,13 @@ def convert_to_trt(program, trt_config, scope):
         if trt_config.disable_ops:
             forbid_op_lower_trt(program, trt_config.disable_ops)
 
-        # Adding marker labels to builtin ops facilitates convert processing, but they ultimately do not enter the TensorRT subgraph.
-        mark_buitlin_op(program)
-
         # run pir pass (including trt_sub_graph_extract_pass)
         program_with_pir = run_pir_pass(program, partition_mode=True)
 
         # Step4: run TRTConverter (would lower group_op into tensorrt_engine_op)
-        converter = PaddleToTensorRTConverter(program_with_pir, scope)
+        converter = PaddleToTensorRTConverter(
+            program_with_pir, scope, trt_config
+        )
         converter.convert_program_to_trt()
         trt_output_var = []
 
