@@ -2167,11 +2167,12 @@ class DistModel:
             parallel strategies and optimization settings (e.g. sharding,
             pipeline parallelism). Default: None.
         input_spec(list[list[paddle.distributed.DistributedInputSpec]]|None, optional):
-            The custom input specs to specific the shape/dtype/name information
-            of model inputs and labels. If it is not None, the inputs spec and
-            labels spec will be inferred from the custom input specs. The custom
-            input specs should be a list containing two lists, the first list is
-            the inputs spec and the second list is the labels spec. Default: None.
+            The custom input specs specify the shape, dtype, and name information
+            of model inputs and labels. If it is not None, the input specs and
+            label specs will be inferred from the custom input specs. The custom
+            input specs should be a list containing two sublists: the first
+            sublist represents theinput specs, and the second sublist represents
+            the label specs. Default: None.
     """
 
     def __init__(
@@ -2753,11 +2754,12 @@ def to_static(
             parallel strategies and optimization settings (e.g. sharding,
             pipeline parallelism). Default: None.
         input_spec(list[list[paddle.distributed.DistributedInputSpec]]|None, optional):
-            The custom input specs to specific the shape/dtype/name information
-            of model inputs and labels. If it is not None, the inputs spec and
-            labels spec will be inferred from the custom input specs. The custom
-            input specs should be a list containing two lists, the first list is
-            the inputs spec and the second list is the labels spec. Default: None.
+            The custom input specs specify the shape, dtype, and name information
+            of model inputs and labels. If it is not None, the input specs and
+            label specs will be inferred from the custom input specs. The custom
+            input specs should be a list containing two sublists: the first
+            sublist represents theinput specs, and the second sublist represents
+            the label specs. Default: None.
 
     Returns:
         DistModel: A ``DistModel`` instance converted the input ``layer``.
