@@ -1003,6 +1003,7 @@
   infer_meta:
     func : CSoftmaxWithCrossEntropyInferMeta
     spmd_rule : CSoftmaxWithCrossEntropyInferSpmd
+    param: [logits, label, ignore_index, rank, nranks]
   kernel:
     func: c_softmax_with_cross_entropy
     data_type : logits
