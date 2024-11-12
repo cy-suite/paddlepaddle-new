@@ -81,6 +81,8 @@ prim_white_list = [
     "where_double_grad",
     "bmm_double_grad",
     "index_put_double_grad",
+    "gather_nd_double_grad",
+    "reshape_double_grad",
 ]
 
 # white ops list whose kernel can automatically do type promotion.
@@ -2250,8 +2252,8 @@ class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
   if (!paddle::prim::PrimCommonUtils::IsEagerPrimEnabled() || need_skip) {{
     if (trace_backward) {{
        PADDLE_THROW(common::errors::Unavailable(
-       \"The Op {self.backward_api_name} doesn't have any grad\"
-       \"op. If you don't intend calculating higher order\"
+       \"The Op {self.backward_api_name} doesn't have any grad \"
+       \"op. If you don't intend calculating higher order \"
        \"derivatives, please set `create_graph`to False.\"));
     }}
   }}
@@ -2270,8 +2272,8 @@ class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
         elif not is_invoke_forward_api and not is_composite_grad_api:
             next_grad_node_creation_str = f"""  if (trace_backward) {{
     PADDLE_THROW(common::errors::Unavailable(
-    \"The Op {self.backward_api_name} doesn't have any grad\"
-    \"op. If you don't intend calculating higher order\"
+    \"The Op {self.backward_api_name} doesn't have any grad \"
+    \"op. If you don't intend calculating higher order \"
     \"derivatives, please set `create_graph`to False.\"));
   }}"""
 

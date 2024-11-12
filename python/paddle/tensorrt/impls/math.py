@@ -24,7 +24,7 @@ from paddle.tensorrt.converter_utils import (
     fill_constant_layer,
     get_axes_for_reduce_op,
     trt_div,
-    trt_expend,
+    trt_expand,
     trt_floor_div,
     trt_max,
     trt_mul,
@@ -119,7 +119,7 @@ def clip_converter(network, paddle_op, inputs):
                 network, input_shape_tensor, rank, value, input_tensor.dtype
             )
         else:
-            expanded_tensor = trt_expend(
+            expanded_tensor = trt_expand(
                 network, constant_inputs, 1, input_shape_tensor, rank
             )
             if expanded_tensor.dtype != input_tensor.dtype:

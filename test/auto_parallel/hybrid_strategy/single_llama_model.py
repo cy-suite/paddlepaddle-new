@@ -52,7 +52,6 @@ class LlamaAttention(nn.Layer):
         )
 
     def forward(self, hidden_states):
-        bsz, q_len, _ = hidden_states.shape
         query_states = self.q_proj(hidden_states).reshape(
             shape=[0, 0, self.num_heads, self.head_dim]
         )
@@ -62,6 +61,8 @@ class LlamaAttention(nn.Layer):
         value_states = self.v_proj(hidden_states).reshape(
             shape=[0, 0, self.num_heads, self.head_dim]
         )
+
+        bsz, q_len, _, _ = query_states.shape
 
         outputs, _ = _math_attention(
             query_states,
@@ -97,9 +98,9 @@ class LlamaMLP(nn.Layer):
             self.intermediate_size, self.hidden_size, bias_attr=False
         )
 
-    def forward(self, x):
+    def forward(self, x, test_for_list_input_output):
         out = self.down_proj(F.silu(self.gate_proj(x)) * self.up_proj(x))
-        return out
+        return out, test_for_list_input_output
 
 
 class LlamaRMSNorm(nn.Layer):
@@ -143,7 +144,7 @@ class LlamaDecoderLayer(nn.Layer):
 
         residual = hidden_states
         hidden_states = self.post_attention_layernorm(hidden_states)
-        hidden_states = self.mlp(hidden_states)
+        hidden_states, _ = self.mlp(hidden_states, "ONLY_FOR_TEST")
         hidden_states = residual + hidden_states
 
         return hidden_states
