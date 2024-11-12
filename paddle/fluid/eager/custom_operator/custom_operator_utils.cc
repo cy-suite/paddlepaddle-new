@@ -707,7 +707,9 @@ std::
               current_process_mesh,
               out_dim[0],
               out_dtype[0],
-              paddle::get<0>(spmd_info.second[i]).dims_mapping());
+              PADDLE_GET_CONST(phi::distributed::TensorDistAttr,
+                               spmd_info.second[i])
+                  .dims_mapping());
         }
       } else {
         for (size_t j = pair.first; j < pair.second; j++) {

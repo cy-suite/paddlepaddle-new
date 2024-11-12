@@ -90,16 +90,16 @@ class _NdMeshAlltoAll(PyLayer):
         local_shape = _cal_local_shape(
             dist_tensor.shape, mesh, dist_tensor.placements
         )
-        out = dist.auto_parallel.api.moe_dtensor_from_local(
+        out = dist.auto_parallel.api.dtensor_from_local(
             dist_tensor._local_value(),
-            local_shape,
             sub_mesh,
             [dist_tensor.placements[dim]],
+            local_shape,
         )
         out = dist.reshard(out, sub_mesh, [placements[dim]])
         local_shape = _cal_local_shape(out.shape, mesh, out.placements)
-        out = dist.auto_parallel.api.moe_dtensor_from_local(
-            out._local_value(), local_shape, mesh, placements
+        out = dist.auto_parallel.api.dtensor_from_local(
+            out._local_value(), mesh, placements, local_shape
         )
         out.stop_gradient = dist_tensor.stop_gradient
         return out
