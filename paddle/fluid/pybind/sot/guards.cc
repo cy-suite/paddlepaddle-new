@@ -13,13 +13,17 @@ See the License for the specific language governing permissions and
 limitations under the License. */
 
 #include "paddle/fluid/pybind/sot/guards.h"
-#include <iostream>
-#include "paddle/phi/api/ext/op_meta_info.h"
 
 #if SOT_IS_SUPPORTED
 
 #include <Python.h>
 #include <frameobject.h>
+
+#if !defined(PyObject_CallOneArg) && PY_VERSION_HEX < 0x030900A4
+static inline PyObject* PyObject_CallOneArg(PyObject* func, PyObject* arg) {
+  return PyObject_CallFunctionObjArgs(func, arg, NULL);
+}
+#endif
 
 bool LambdaGuard::check(PyObject* value) {
   PyObject* x = PyObject_CallOneArg(_guard_check_fn, value);
