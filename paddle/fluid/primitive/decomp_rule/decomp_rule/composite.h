@@ -778,15 +778,13 @@ std::tuple<Tensor, Tensor, Tensor> instance_norm_decomp(
 
     Tensor scale_cast;
     if (scale) {
-      scale_cast =
-          backend::reshape_with_tensor<T>(scale.get(), slice_shape_tensor);
+      scale_cast = backend::reshape<T>(scale.get(), slice_shape_tensor);
       scale_cast = ConverToMT<T>(scale_cast);
       out = out * scale_cast;
     }
     Tensor bias_cast;
     if (bias) {
-      bias_cast =
-          backend::reshape_with_tensor<T>(bias.get(), slice_shape_tensor);
+      bias_cast = backend::reshape<T>(bias.get(), slice_shape_tensor);
       bias_cast = ConverToMT<T>(bias_cast);
       out = out + bias_cast;
     }
@@ -1354,7 +1352,7 @@ std::vector<Tensor> unstack_decomp(const Tensor& x, int axis, const int num) {
     }
     const Tensor new_shape = concat<T>(new_shape_vec);
     std::transform(res.begin(), res.end(), res.begin(), [&](Tensor& x) {
-      return backend::reshape_with_tensor<T>(x, new_shape);
+      return backend::reshape<T>(x, new_shape);
     });
   } else {
     std::vector<int64_t> new_shape;
