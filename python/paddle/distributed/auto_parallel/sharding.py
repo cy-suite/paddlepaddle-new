@@ -226,7 +226,7 @@ class ShardingOptimizerStage1(Optimizer):
 
                 last_grad_op = None
                 last_index = None
-                print("\n[liyamei check mycode] ---------------------")
+                # print("\n[liyamei check mycode] ---------------------")
                 for grad in group_grad_list:
                     stack = [grad.get_defining_op()]  # cast
                     the_grad_op = None
@@ -234,7 +234,7 @@ class ShardingOptimizerStage1(Optimizer):
                     while len(stack) > 0:
                         op = stack.pop()
                         if op.op_role == int(OpRole.Backward):
-                            print(f"\t[liyamei check grad_op] {op.name()}")
+                            # print(f"\t[liyamei check grad_op] {op.name()}")
                             the_grad_op = op
                             break
                         if op.num_operands() == 1:  # 之后再处理 > 1
@@ -262,23 +262,7 @@ class ShardingOptimizerStage1(Optimizer):
                                 last_grad_op = op
                 if last_index is not None:
                     pir.set_insertion_point_after(last_grad_op)
-                print(f"\t[liyamei check last_index] {last_index}")
-
-                # for grad in group_grad_list:
-                #     op = grad.get_defining_op()
-                #     if op.num_operands() == 1: # 之后再处理 > 1
-
-                # last_grad_op = None
-                # last_index = None
-                # for grad in group_grad_list:
-                #     grad_op = grad.get_defining_op()
-                #     index = target_block.ops.index(grad_op)
-                #     if last_index is None or index > last_index:
-                #         last_index = index
-                #         last_grad_op = grad_op
-
-                # print(f"[liyamei check last_grad_op] {last_grad_op}")
-                # pir.set_insertion_point_after(last_grad_op)
+                # # print(f"\t[liyamei check last_index] {last_index}")
 
                 slice_param_dict, main_shard_fused_param, main_fused_param = (
                     self._fuse_group_param(group_param_list)
@@ -384,6 +368,7 @@ class ShardingOptimizerStage1(Optimizer):
                     AutoParallelStreamType.SHARDING_STREAM.value
                 )
                 pir.reset_insertion_point_to_end()
+
                 paddle._C_ops.share_var(
                     [view_shard_fused_grad, shard_fused_grad]
                 )
@@ -412,9 +397,9 @@ class ShardingOptimizerStage1(Optimizer):
                         )
                     )
                     new_params_grads.append((slice_param, slice_grad))
-        print(
-            f"[liyamei check sharding 2] main_program \n{paddle.static.default_main_program()}"
-        )
+        # print(
+        #     f"[liyamei check sharding 2] main_program \n{paddle.static.default_main_program()}"
+        # )
         if self._inner_opt._grad_clip is not None:
             self._inner_opt._grad_clip.should_comm_on_shard_dim = True
             self._inner_opt._grad_clip.sharding_group = self._sharding_group
@@ -429,14 +414,18 @@ class ShardingOptimizerStage1(Optimizer):
             allgather_value = paddle._C_ops.all_gather(
                 shard_param, self._sharding_group.id, self._sharding_degree
             )
-            # from paddle.distributed.passes.pass_utils import AutoParallelStreamType
-            # allgather_value.get_defining_op().set_execution_stream(
-            #         AutoParallelStreamType.SHARDING_STREAM.value)
+            from paddle.distributed.passes.pass_utils import (
+                AutoParallelStreamType,
+            )
+
+            allgather_value.get_defining_op().set_execution_stream(
+                AutoParallelStreamType.SHARDING_STREAM.value
+            )
             paddle._C_ops.share_var([fused_param, allgather_value])
         start_index = target_block.ops.index(last_op) + 1
-        print(
-            f"[liyamei check sharding 3] main_program \n{paddle.static.default_main_program()}"
-        )
+        # print(
+        #     f"[liyamei check sharding 3] main_program \n{paddle.static.default_main_program()}"
+        # )
         return target_block.ops[start_index:]
 
     def _fuse_group_param(self, group_param_list):
