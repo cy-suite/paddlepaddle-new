@@ -483,7 +483,7 @@ std::vector<Tensor> meshgrid_decomp(const std::vector<Tensor>& x) {
 
     for (int64_t i = 0; i < rank; i++) {
       if (tar_shape[i] == 1) {
-        res.push_back(backend::expand_with_tensor<T>(x[i], tar_tensor_shape));
+        res.push_back(backend::expand<T>(x[i], tar_tensor_shape));
       } else {
         std::vector<int64_t> unsqueeze_dim;
         for (int64_t k = 0; k < rank; k++) {
@@ -491,8 +491,8 @@ std::vector<Tensor> meshgrid_decomp(const std::vector<Tensor>& x) {
             unsqueeze_dim.push_back(k);
           }
         }
-        res.push_back(backend::expand_with_tensor<T>(
-            unsqueeze<T>(x[i], unsqueeze_dim), tar_tensor_shape));
+        res.push_back(backend::expand<T>(unsqueeze<T>(x[i], unsqueeze_dim),
+                                         tar_tensor_shape));
       }
     }
 
@@ -927,8 +927,8 @@ Tensor clip_decomp(const Tensor& x, const Tensor& min, const Tensor& max) {
   }
 
   if (has_dynamic_shape(x.shape())) {
-    min_reshape = backend::expand_with_tensor<T>(min_reshape, shape<T>(x));
-    max_reshape = backend::expand_with_tensor<T>(max_reshape, shape<T>(x));
+    min_reshape = backend::expand<T>(min_reshape, shape<T>(x));
+    max_reshape = backend::expand<T>(max_reshape, shape<T>(x));
   } else {
     min_reshape = expand<T>(min_reshape, x.shape());
     max_reshape = expand<T>(max_reshape, x.shape());
@@ -1219,8 +1219,8 @@ Tensor index_sample_decomp(const Tensor& x, const Tensor& index) {
       backend::arange_with_tensor<T>(start, index_dim, step, index.dtype()),
       tmp_shape);
 
-  auto index_res = reshape<T>(
-      backend::expand_with_tensor<T>(arange_tmp, shape<T>(index)), tmp_shape);
+  auto index_res =
+      reshape<T>(backend::expand<T>(arange_tmp, shape<T>(index)), tmp_shape);
   auto index_ = reshape<T>(index, tmp_shape);
   auto concat_res = concat<T>({index_res, index_}, 1);
   auto res = backend::reshape<T>(gather_nd<T>(x, concat_res), shape<T>(index));
