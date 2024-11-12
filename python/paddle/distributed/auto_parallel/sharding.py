@@ -27,9 +27,13 @@ from paddle.distributed.auto_parallel.static.process_group import (
 from paddle.distributed.auto_parallel.static.reshard_funcs.nd_mesh_reshard_func import (
     get_1D_sub_process_mesh,
 )
+from paddle.distributed.fleet.meta_optimizers.common import OpRole
 from paddle.distributed.fleet.utils.tensor_fusion_helper import (
     align,
     get_current_device_type,
+)
+from paddle.distributed.passes.pass_utils import (
+    AutoParallelStreamType,
 )
 from paddle.framework import (
     _current_expected_place_ as _get_device,
@@ -112,9 +116,6 @@ class ShardingOptimizerStage1(Optimizer):
         paddle.disable_static()
 
     def apply_gradients(self, params_grads):
-        print(
-            f"[liyamei check sharding start apply_gradients] main_program \n{paddle.static.default_main_program()}"
-        )
         place = _get_device()
         if isinstance(place, paddle.framework.CUDAPlace):
             place = paddle.framework.CUDAPlace(
@@ -197,7 +198,6 @@ class ShardingOptimizerStage1(Optimizer):
             grads_dict.setdefault(param_dist_attr.process_mesh, []).append(grad)
 
         main_program = paddle.static.default_main_program()
-        print(f"[liyamei check sharding 1] main_program \n{main_program}")
         target_block = main_program.global_block()
         last_op = target_block.ops[-1]
 
@@ -220,49 +220,8 @@ class ShardingOptimizerStage1(Optimizer):
                     group_param_list.append(parameters[index])
                     group_grad_list.append(grads[index])
 
-                from paddle.distributed.fleet.meta_optimizers.common import (
-                    OpRole,
-                )
-
-                last_grad_op = None
-                last_index = None
-                # print("\n[liyamei check mycode] ---------------------")
-                for grad in group_grad_list:
-                    stack = [grad.get_defining_op()]  # cast
-                    the_grad_op = None
-                    move_ops = []
-                    while len(stack) > 0:
-                        op = stack.pop()
-                        if op.op_role == int(OpRole.Backward):
-                            # print(f"\t[liyamei check grad_op] {op.name()}")
-                            the_grad_op = op
-                            break
-                        if op.num_operands() == 1:  # 之后再处理 > 1
-                            operand = op.operand_source(0)
-                            stack.append(operand.get_defining_op())
-                            if op.op_role != int(OpRole.Backward):
-                                move_ops.append(op)
-                        else:
-                            break
-                    if the_grad_op is not None:
-                        grad_index = target_block.ops.index(the_grad_op)
-                        for op in move_ops:
-                            old_index = target_block.ops.index(op)
-                            # offset = old_index - grad_index - 1
-                            offset = grad_index + 1
-                            # print(f"[liyamei check move_op] {op.name()} from old_index={old_index} grad_index={grad_index} offset={offset}")
-                            if offset != old_index:
-                                target_block.move_op(op, offset)
-                            new_index = target_block.ops.index(op)
-                            print(
-                                f"\t[liyamei check move_op] {op.name()} from {old_index} to {new_index} offset {offset}"
-                            )
-                            if last_index is None or new_index > last_index:
-                                last_index = new_index
-                                last_grad_op = op
-                if last_index is not None:
-                    pir.set_insertion_point_after(last_grad_op)
-                # # print(f"\t[liyamei check last_index] {last_index}")
+                if self._strategy.sharding.enable_overlap:
+                    self._reduce_scatter_overlap(group_grad_list, target_block)
 
                 slice_param_dict, main_shard_fused_param, main_fused_param = (
                     self._fuse_group_param(group_param_list)
@@ -348,7 +307,9 @@ class ShardingOptimizerStage1(Optimizer):
                             * align_size
                             // core.size_of_dtype(dtype)
                         )
-                # pir.reset_insertion_point_to_end()
+                if not self._strategy.sharding.enable_overlap:
+                    pir.reset_insertion_point_to_end()
+
                 shard_size = fused_grad._local_shape[0] // self._sharding_degree
                 rank = self._sharding_group.ranks.index(dist.get_rank())
                 rank_begin = rank * shard_size
@@ -360,13 +321,11 @@ class ShardingOptimizerStage1(Optimizer):
                 shard_fused_grad = paddle._C_ops.reduce_scatter(
                     fused_grad, self._sharding_group.id, self._sharding_degree
                 )
-                from paddle.distributed.passes.pass_utils import (
-                    AutoParallelStreamType,
-                )
 
-                shard_fused_grad.get_defining_op().set_execution_stream(
-                    AutoParallelStreamType.SHARDING_STREAM.value
-                )
+                if self._strategy.sharding.enable_overlap:
+                    shard_fused_grad.get_defining_op().set_execution_stream(
+                        AutoParallelStreamType.SHARDING_STREAM.value
+                    )
                 pir.reset_insertion_point_to_end()
 
                 paddle._C_ops.share_var(
@@ -397,9 +356,6 @@ class ShardingOptimizerStage1(Optimizer):
                         )
                     )
                     new_params_grads.append((slice_param, slice_grad))
-        # print(
-        #     f"[liyamei check sharding 2] main_program \n{paddle.static.default_main_program()}"
-        # )
         if self._inner_opt._grad_clip is not None:
             self._inner_opt._grad_clip.should_comm_on_shard_dim = True
             self._inner_opt._grad_clip.sharding_group = self._sharding_group
@@ -414,19 +370,57 @@ class ShardingOptimizerStage1(Optimizer):
             allgather_value = paddle._C_ops.all_gather(
                 shard_param, self._sharding_group.id, self._sharding_degree
             )
-            from paddle.distributed.passes.pass_utils import (
-                AutoParallelStreamType,
-            )
-
-            allgather_value.get_defining_op().set_execution_stream(
-                AutoParallelStreamType.SHARDING_STREAM.value
-            )
+            if self._strategy.sharding.enable_overlap:
+                allgather_value.get_defining_op().set_execution_stream(
+                    AutoParallelStreamType.SHARDING_STREAM.value
+                )
             paddle._C_ops.share_var([fused_param, allgather_value])
         start_index = target_block.ops.index(last_op) + 1
-        # print(
-        #     f"[liyamei check sharding 3] main_program \n{paddle.static.default_main_program()}"
-        # )
         return target_block.ops[start_index:]
+
+    def _reduce_scatter_overlap(self, group_grad_list, target_block):
+        '''
+        In order to overlap computation and reduce_scatter communication, we need to:
+          a. place reduce_scatter in communication stream
+          b. place reduce_scatter op and its producer ops after the last grad define op
+        This function will complete the item b.
+        '''
+        insertion_info = {"idx": None, "op": None}
+        # 1. move ops after the grad op
+        for grad in group_grad_list:
+            stack = [grad.get_defining_op()]
+            grad_op = None
+            advance_ops = []
+            # 1.1 get the grad define op
+            while len(stack) > 0:
+                op = stack.pop()
+                if op.op_role == int(OpRole.Backward):
+                    grad_op = op
+                    break
+                if op.num_operands() == 1:  # only one operand
+                    operand = op.operand_source(0)
+                    stack.append(operand.get_defining_op())
+                    if op.op_role != int(OpRole.Backward):
+                        advance_ops.append(op)
+                else:
+                    break
+            # 1.2 move ops
+            if grad_op is not None:
+                grad_idx = target_block.ops.index(grad_op)
+                for op in advance_ops:
+                    old_idx = target_block.ops.index(op)
+                    new_idx = grad_idx + 1
+                    if new_idx != old_idx:
+                        target_block.move_op(op, new_idx)
+                    if (
+                        insertion_info["idx"] is None
+                        or new_idx > insertion_info["idx"]
+                    ):
+                        insertion_info["idx"] = new_idx
+                        insertion_info["op"] = op
+        # 2. set insertion point
+        if insertion_info["op"] is not None:
+            pir.set_insertion_point_after(insertion_info["op"])
 
     def _fuse_group_param(self, group_param_list):
         startup_program = paddle.static.default_startup_program()
