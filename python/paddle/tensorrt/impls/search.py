@@ -18,7 +18,7 @@ import tensorrt as trt
 from paddle.tensorrt.converter_utils import (
     squeeze_trt,
     trt_cast,
-    unsqueeze_trt,
+    trt_unsqueeze,
 )
 from paddle.tensorrt.register import converter_registry
 
@@ -81,7 +81,7 @@ def topk_converter(network, paddle_op, inputs):
 
     expand_to_2d = input_rank == 1
     if expand_to_2d:
-        input_tensor = unsqueeze_trt(network, input_tensor, [1])
+        input_tensor = trt_unsqueeze(network, input_tensor, [1])
 
     input_type = input_tensor.dtype
     if input_type == trt.DataType.INT32:

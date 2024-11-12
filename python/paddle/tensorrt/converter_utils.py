@@ -258,6 +258,11 @@ def trt_equal(network, a, b):
     return layer.get_output(0)
 
 
+def trt_prod(network, a, b):
+    layer = network.add_elementwise(a, b, trt.ElementWiseOperation.PROD)
+    return layer.get_output(0)
+
+
 def cast_tensor(network, input_tensor, dtype):
     layer = network.add_identity(input_tensor)
     layer.set_output_type(0, dtype)
@@ -515,7 +520,7 @@ def fix_negative_indices(network, input_shape, indices):
     return fixed_indices
 
 
-def unsqueeze_trt(network, input_tensor, axes):
+def trt_unsqueeze(network, input_tensor, axes):
     input_shape = network.add_shape(input_tensor).get_output(0)
 
     axis_set = set(axes)
@@ -565,3 +570,17 @@ def squeeze_trt(network, input_tensor, axes):
     reshape_layer = network.add_shuffle(input_tensor)
     reshape_layer.set_input(1, new_shape_tensor)
     return reshape_layer.get_output(0)
+
+
+def fill_constant_layer(
+    network, shape_tensor, tensor_rank, value, dtype=np.int32
+):
+    fill_layer = network.add_fill(shape=(), op=trt.FillOperation.LINSPACE)
+    fill_layer.set_input(0, shape_tensor)
+    beta_vec = [0] * tensor_rank
+    value_vec = [value]
+    fill_layer.set_input(
+        1, add_1D_constant_layer(network, value_vec, dtype, True)
+    )
+    fill_layer.set_input(2, add_1D_constant_layer(network, beta_vec, dtype))
+    return fill_layer.get_output(0)
