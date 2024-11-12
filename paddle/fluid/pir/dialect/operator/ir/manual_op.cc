@@ -4711,7 +4711,7 @@ bool ArrayPopOp::InferSymbolicShape(
     for (size_t i = 0; i < size; ++i) {
       shape.push_back(infer_context->GetNextSymName());
     }
-    return symbol::TensorShapeOrDataDimExprs(shape);
+    return shape;
   };
   std::vector<symbol::DimExpr> out_shape = gen_shape_with_size(input_rank);
   std::vector<symbol::DimExpr> array_out_shape =
