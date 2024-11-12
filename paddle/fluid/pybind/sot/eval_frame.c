@@ -137,7 +137,9 @@ PyInterpreterFrameProxy *PyInterpreterFrameProxy_New(
     return NULL;
   }
   self->frame = frame;
+#if PY_3_13_PLUS
   self->locals = NULL;
+#endif
   return self;
 }
 
