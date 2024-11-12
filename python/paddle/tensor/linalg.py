@@ -212,7 +212,7 @@ def matrix_transpose(
             >>> x_transposed = paddle.matrix_transpose(x)
             >>> print(x_transposed.shape)
             (2, 5, 3)
-"""
+    """
     if len(x.shape) < 2:
         raise ValueError(
             f"Tensor.ndim({len(x.shape)}) is required to be greater than or equal to 2."
