@@ -124,8 +124,6 @@ static void Internal_clear_thread_frame(PyThreadState *tstate,
          tstate->datastack_top);
   tstate->c_recursion_remaining--;
   assert(frame->frame_obj == NULL || frame->frame_obj->f_frame == frame);
-  printf("[Internal_clear_thread_frame] opname: %s\n",
-         PyUnicode_AsUTF8(PyFrame_GET_CODE(frame)->co_name));
   Internal_PyFrame_ClearExceptCode(frame);
 #if PY_3_13_PLUS
   Py_DECREF(frame->f_executable);
@@ -287,7 +285,6 @@ PyObject *Internal_PyFrame_GetLocals(_PyInterpreterFrame *frame) {
     return Py_NewRef(frame->f_locals);
   }
 
-  printf("[Internal_PyFrame_GetLocals] frame: %p\n", frame);
   PyFrameObject *f = Internal_PyFrame_GetFrameObject(frame);
 
   return Internal_PyFrameLocalsProxy_New(f);
