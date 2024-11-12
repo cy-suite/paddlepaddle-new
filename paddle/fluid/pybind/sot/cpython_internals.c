@@ -703,7 +703,9 @@ static void Internal_take_ownership(PyFrameObject *f,
   Py_ssize_t size =
       ((char *)&frame->localsplus[frame->stacktop]) - (char *)frame;
 
+#if PY_3_12_PLUS
   Py_INCREF(PyFrame_GET_CODE(frame));
+#endif
 
   memcpy((_PyInterpreterFrame *)f->_f_frame_data, frame, size);
   frame = (_PyInterpreterFrame *)f->_f_frame_data;
