@@ -1354,7 +1354,7 @@ def grad_var_name(var_name):
 
 def convert_np_dtype_to_proto_type(
     np_dtype: np.dtype | str,
-) -> paddle.base.libpaddle.VarDesc.VarType:
+) -> core.VarDesc.VarType:
     """
     Convert the data type in numpy to the data type in Paddle.
 
@@ -1413,7 +1413,7 @@ def convert_np_dtype_to_proto_type(
 
 def convert_np_dtype_to_dtype_(
     np_dtype: np.dtype | str,
-) -> paddle.dtype | paddle.base.libpaddle.VarDesc.VarType:
+) -> core.VarDesc.VarType | core.DataType:
     """
     Convert the data type in numpy to the data type in Paddle.
 

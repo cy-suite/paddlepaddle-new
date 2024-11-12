@@ -480,7 +480,7 @@ class TestMathOpPatchesPir(unittest.TestCase):
         with paddle.pir_utils.IrGuard():
             x = paddle.static.data(name='x', shape=[3, 2, 1])
             y = x.astype(x.dtype)
-            self.assertEqual(x, y)
+            self.assertTrue(x.is_same(y))
 
     def test_mT(self):
         with paddle.pir_utils.IrGuard():
