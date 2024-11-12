@@ -62,6 +62,7 @@ void BindJit(pybind11::module *m) {
 }
 
 void BindGuard(pybind11::module *m) {
+#if SOT_IS_SUPPORTED
   py::class_<GuardBase, std::shared_ptr<GuardBase>>(
       *m, "GuardBase", R"DOC(GuardBase Class.)DOC")
       .def("check", &GuardBase::check_pybind);
@@ -96,6 +97,7 @@ void BindGuard(pybind11::module *m) {
         return GuardGroup(py_guards);
       },
       py::arg("py_guards"));
+#endif
 }
 
 void BindSot(pybind11::module *m) {
