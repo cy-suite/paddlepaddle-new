@@ -47,7 +47,9 @@ typedef _PyInterpreterFrame FrameObject;
 typedef struct PyInterpreterFrameProxy {
   PyObject_HEAD
   _PyInterpreterFrame *frame;
+  #if PY_3_13_PLUS
   PyObject* locals;
+  #endif
 } PyInterpreterFrameProxy;
 // clang-format on
 
