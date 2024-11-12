@@ -1,4 +1,4 @@
-// Copyright (c) 2024 CINN Authors. All Rights Reserved.
+// Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,14 +14,25 @@
 
 #pragma once
 
-#include <optional>
-#include <string>
-#include "paddle/cinn/ir/group_schedule/tactic/schedule_tactic.h"
+#include "paddle/pir/include/core/program.h"
+#include "paddle/pir/include/pass/pass.h"
+#include "paddle/pir/include/pattern_rewrite/frozen_rewrite_pattern_set.h"
 
 namespace cinn {
+namespace dialect {
 namespace ir {
 
-std::unique_ptr<ScheduleTactic> CreateComputeAtReductionTactic();
+class ReduceAsToSumPass : public pir::PatternRewritePass {
+ public:
+  ReduceAsToSumPass();
+
+  pir::RewritePatternSet InitializePatterns(pir::IrContext *context) override;
+
+  bool CanApplyOn(pir::Operation *op) const override;
+};
+
+IR_API std::unique_ptr<pir::Pass> CreateReduceAsToSumPass();
 
 }  // namespace ir
+}  // namespace dialect
 }  // namespace cinn
