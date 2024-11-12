@@ -195,6 +195,18 @@
     param: [x, nranks]
   traits : paddle::dialect::ForwardOnlyTrait
 
+- op : all_reduce
+  args : (Tensor x, int ring_id = 0, int reduce_type = 0)
+  output : Tensor(out)
+  infer_meta :
+    func : AllReduceInferMeta
+    param: [x]
+  kernel :
+    func : all_reduce
+    param: [x, reduce_type]
+  inplace : (x -> out)
+  traits : paddle::dialect::ForwardOnlyTrait
+
 - op : all_to_all
   args : (Tensor x, int ring_id = 0)
   output : Tensor(out)
@@ -390,6 +402,7 @@
   kernel :
     func : assign_pos
   traits : paddle::dialect::ForwardOnlyTrait
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : assign_value_
   args : (Tensor output, int[] shape, DataType dtype, Scalar[] values, Place place = {})
@@ -824,17 +837,6 @@
     param : [x, ring_id, root, nranks]
   kernel :
     func : c_scatter
-  traits : paddle::dialect::ForwardOnlyTrait
-
-- op : c_sync_comm_stream
-  args : (Tensor x, int ring_id)
-  output : Tensor(out)
-  infer_meta :
-    func : UnchangedInferMeta
-    param : [x]
-  kernel :
-    func : c_sync_comm_stream
-  inplace : (x -> out)
   traits : paddle::dialect::ForwardOnlyTrait
 
 - op : calc_reduced_attn_scores
@@ -1351,7 +1353,7 @@
     func : depthwise_conv2d_transpose
     data_type : x
   backward : depthwise_conv2d_transpose_grad
-  # interfaces : paddle::dialect::InferSymbolicShapeInterface
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : dequantize_abs_max
   args : (Tensor x, Tensor scale, float max_range)
@@ -1958,7 +1960,7 @@
     func : flash_attn_qkvpacked
     data_type : qkv
   backward : flash_attn_qkvpacked_grad
-  # interfaces : paddle::dialect::InferSymbolicShapeInterface
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : flash_attn_unpadded
   args : (Tensor q, Tensor k, Tensor v, Tensor cu_seqlens_q,  Tensor cu_seqlens_k, Tensor fixed_seed_offset, Tensor attn_mask, int64_t max_seqlen_q, int64_t max_seqlen_k, float scale, float dropout = 0.0, bool causal = false, bool return_softmax = false, bool is_test = false, str rng_name = "")
@@ -2095,6 +2097,7 @@
   kernel :
     func : frame
   backward : frame_grad
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : frobenius_norm
   args : (Tensor x, IntArray axis,  bool keep_dim,  bool reduce_all)
@@ -3008,6 +3011,7 @@
     func : log_softmax
     data_type : x
   backward : log_softmax_grad
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : logcumsumexp
   args : (Tensor x, int axis=-1, bool flatten=false, bool exclusive=false, bool reverse=false)
@@ -3169,6 +3173,7 @@
     data_type : x
   optional : residuals
   traits : paddle::dialect::ForwardOnlyTrait
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : lu
   args : (Tensor x, bool pivot = true)
@@ -3288,6 +3293,7 @@
   kernel :
     func : matrix_rank_tol
   traits : paddle::dialect::ForwardOnlyTrait
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : max
   args : (Tensor x, IntArray axis={}, bool keepdim=false)
@@ -3865,6 +3871,7 @@
   kernel :
     func : prune_gate_by_capacity
     data_type : gate_idx
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
   traits : paddle::dialect::ForwardOnlyTrait
 
 - op : psroi_pool
@@ -4119,7 +4126,7 @@
     func : repeat_interleave_with_tensor_index
     data_type : x
   backward: repeat_interleave_with_tensor_index_grad
-  # interfaces : paddle::dialect::InferSymbolicShapeInterface
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : reshape
   args : (Tensor x, IntArray shape)
@@ -4187,7 +4194,7 @@
   optional : sequence_length
   intermediate : reserve
   view : (dropout_state_in -> dropout_state_out)
-  # interfaces : paddle::dialect::InferSymbolicShapeInterface
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : roi_align
   args : (Tensor x, Tensor boxes, Tensor boxes_num, int pooled_height=1, int pooled_width=1, float spatial_scale=1.0, int sampling_ratio=-1, bool aligned=false)
@@ -4416,6 +4423,16 @@
   backward: sequence_pool_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
+- op : set
+  args : (Tensor x, Tensor source, int64_t[] dims = {}, int64_t[] stride = {}, int64_t offset = 0)
+  output : Tensor (out)
+  infer_meta :
+    func : SetInferMeta
+    param : [x, dims, stride]
+  kernel :
+    func : set
+  inplace : (x -> out)
+
 - op : set_value_with_tensor
   args : (Tensor x, Tensor values, IntArray starts, IntArray ends, IntArray steps, int64_t[] axes, int64_t[] decrease_axes, int64_t[] none_axes)
   output : Tensor(out)
@@ -4491,7 +4508,7 @@
   traits : pir::SideEffectTrait
   data_transform :
     skip_transform : seed
-  # interfaces : paddle::dialect::InferSymbolicShapeInterface
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : shuffle_channel
   args : (Tensor x, int group = 1)
@@ -4633,7 +4650,7 @@
     func : solve
     data_type : x
   backward : solve_grad
-  # interfaces : paddle::dialect::InferSymbolicShapeInterface
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : sparse_attention
   args: (Tensor q, Tensor k, Tensor v, Tensor offset, Tensor columns, Tensor key_padding_mask,
@@ -5173,7 +5190,7 @@
     data_type: dtype
   no_need_buffer: input
   traits : pir::SideEffectTrait, paddle::dialect::ForwardOnlyTrait
-  # interfaces : paddle::dialect::InferSymbolicShapeInterface
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : unique_consecutive
   args : (Tensor x, bool return_inverse = false, bool return_counts = false, int[] axis = {}, DataType dtype = DataType::FLOAT32)
@@ -5266,13 +5283,21 @@
   args : (Tensor input, int64_t[] dims = {})
   output : Tensor(out)
   infer_meta :
-    func : StridedUnChangedInferMeta
-    param : [input]
+    func : ViewShapeInferMeta
   kernel :
     func : view_shape
   backward : view_shape_grad
-  no_need_buffer : input
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+
+- op : view_slice
+  args : (Tensor input, int64_t begin_idx, int64_t end_idx)
+  output : Tensor
+  infer_meta :
+    func : ViewSliceInferMeta
+    spmd_rule : ViewSliceInferSpmd
+  kernel :
+    func : view_slice
+  interfaces : paddle::dialect::InplaceTrait
 
 - op : viterbi_decode
   args : (Tensor potentials, Tensor transition_params, Tensor lengths, bool include_bos_eos_tag = true)
