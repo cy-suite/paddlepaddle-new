@@ -44,11 +44,13 @@ SUPPORT_PROMOTION_OPS = [
     "__mul__",
     "__rmul__",
     "__mod__",
+    "__rmod__",
     "__div__",
     "__rdiv__",
     "__truediv__",
     "__rtruediv__",
     "__floordiv__",
+    "__rfloordiv__",
     "__pow__",
     "__rpow__",
     "__eq__",
@@ -1092,8 +1094,18 @@ def monkey_patch_value():
             ),
         ),
         (
+            '__rfloordiv__',
+            _binary_creator_(
+                '__rfloordiv__', paddle.tensor.floor_divide, True, None
+            ),
+        ),
+        (
             '__mod__',
             _binary_creator_('__mod__', paddle.tensor.remainder, False, None),
+        ),
+        (
+            '__rmod__',
+            _binary_creator_('__rmod__', paddle.tensor.remainder, True, None),
         ),
         (
             '__matmul__',
