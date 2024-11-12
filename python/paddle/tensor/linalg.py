@@ -190,7 +190,7 @@ def transpose_(x, perm, name=None):
 
 def matrix_transpose(
     x: paddle.Tensor,
-    name: str = None,
+    name: str | None = None,
 ) -> paddle.Tensor:
     """
     Transpose the input tensor by reversing its last two dimensions.
