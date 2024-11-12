@@ -16,11 +16,13 @@ import numpy as np
 import tensorrt as trt
 
 from paddle.tensorrt.converter_utils import (
+    add_1D_constant_layer,
     add_cast_reduce_layer,
     add_elementwise_layer,
     add_reduce_layer,
     broadcast,
     get_axes_for_reduce_op,
+    trt_cast,
     trt_div,
     trt_floor_div,
     trt_mul,
@@ -175,18 +177,88 @@ def all_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.cumsum", trt_version="8.x")
 def cumsum_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
+    dtype = input_tensor.dtype
     axis = paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
     input_shape = input_tensor.shape
-    print(input_shape)
     rank = len(input_shape)
 
     if axis < 0:
         axis += rank
+    axis = int(axis)
+
+    # Obtain the number of cycles
+    if input_shape[axis] > 0:
+        axis_tensor = np.array(input_shape[axis], dtype=np.int32)
+        trip_limit = network.add_constant((), axis_tensor)
+    else:
+        dynamic_shape = network.add_shape(input_tensor).get_output(0)
+        axis_tensor = np.array(axis, dtype=np.int32)
+        index = network.add_constant((), axis_tensor).get_output(0)
+        trip_limit = network.add_gather(dynamic_shape, index, 0)
+
+    # Obtain the slice shape
+    shape_list = []
+    for i in range(rank):
+        if i == axis:
+            shape_list.append(add_1D_constant_layer(network, [1]))
+        elif input_shape[i] < 0:
+            dynamic_shape = network.add_shape(input_tensor).get_output(0)
+            index = network.add_constant(
+                (), np.array(i, dtype=np.int32)
+            ).get_output(0)
+            shape_index = network.add_gather(dynamic_shape, index, 0)
+            shuffle_layer = network.add_shuffle(shape_index.get_output(0))
+            shuffle_layer.reshape_dims = (1,)
+            shape_list.append(shuffle_layer.get_output(0))
+        else:
+            shape_list.append(add_1D_constant_layer(network, input_shape[i]))
+    slice_shape = network.add_concatenation(shape_list).get_output(0)
 
     start = [0] * rank
     size = [1] * rank
     stride = [1] * rank
-    size[axis] = input_shape[axis]
     input_sliced = network.add_slice(input_tensor, start, size, stride)
+    input_sliced.set_input(2, slice_shape)
+
+    # squeeze axis
+    shape_list.pop(axis)
+    new_shape = network.add_concatenation(shape_list).get_output(0)
+    squeeze_layer = network.add_shuffle(input_sliced.get_output(0))
+    squeeze_layer.set_input(1, new_shape)
 
     loop = network.add_loop()
+    loop.add_trip_limit(trip_limit.get_output(0), trt.TripLimit.COUNT)
+
+    iterator = loop.add_iterator(input_tensor, axis)
+    data = iterator.get_output(0)
+
+    # create zero tensor
+    zero_vec = np.array([0.0], dtype=np.float32)
+    zero = network.add_constant((1,), zero_vec).get_output(0)
+    lhs_val, rhs_val = broadcast(
+        network,
+        squeeze_layer.get_output(0),
+        zero,
+        squeeze_layer.get_output(0).name,
+        zero.name,
+    )
+    cast_tensor = trt_cast(network, rhs_val, dtype)
+    zero_tensor = network.add_elementwise(
+        lhs_val, cast_tensor, trt.ElementWiseOperation.PROD
+    ).get_output(0)
+
+    # Cycle and add according to the axis
+    running_sum = loop.add_recurrence(zero_tensor)
+    running_sum_tensor = running_sum.get_output(0)
+
+    cur_sum = network.add_elementwise(
+        data, running_sum_tensor, trt.ElementWiseOperation.SUM
+    ).get_output(0)
+
+    running_sum.set_input(1, cur_sum)
+
+    reverse_flag = trt.LoopOutput.CONCATENATE
+    loop_out = loop.add_loop_output(cur_sum, reverse_flag, axis)
+    loop_out.set_input(1, trip_limit.get_output(0))
+
+    return loop_out.get_output(0)
