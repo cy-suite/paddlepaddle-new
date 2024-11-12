@@ -9,7 +9,10 @@
 #include "paddle/fluid/distributed/collective/process_group.h"
 #include "paddle/phi/kernels/empty_kernel.h"
 #include "paddle/phi/kernels/funcs/math_function.h"
-#include "paddle/phi/kernels/funcs/slice.h"
+// #include "paddle/phi/kernels/funcs/slice.h"
+#include "paddle/phi/kernels/slice_kernel.h"
+#include "paddle/phi/kernels/impl/slice_kernel_impl.h"
+#include <nvtx3/nvToolsExt.h>
 namespace phi {
 
 inline void *
@@ -587,6 +590,7 @@ void AllGatherGemmKernel(const Context& dev_ctx,
   static bool kPushMode = true;
 #endif
   DenseTensor output_buffer = phi::Empty<T>(dev_ctx, IntArray{full_m, n_dim});
+  // *output = phi::Empty<T>(dev_ctx, IntArray{full_m, n_dim});
 
   // static int32_t first_flag = 0;
   auto launcher = [&](const bool return_workspace_size) -> size_t {
@@ -597,6 +601,7 @@ void AllGatherGemmKernel(const Context& dev_ctx,
         bias.is_initialized() ? const_cast<void*>(bias->data()) : nullptr,
         // helper.output_buffer.data(),
         output_buffer.data(),
+        // output->data(),
         helper.barrier_buffer.data(),
         helper.gemm_buffer.initialized() ? helper.gemm_buffer.data() : nullptr,
         dev_ctx.stream(),
@@ -682,12 +687,36 @@ void AllGatherGemmKernel(const Context& dev_ctx,
 
   ag_gemm();
 
+#if 0
   *output = phi::funcs::Slice<T>(dev_ctx,
                                  // helper.output_buffer,
                                  output_buffer,
                                  {0},
                                  {0},
                                  {static_cast<int32_t>(input.dims()[0] * helper.world_size)});
+#endif
+
+  // *output = phi::Slice<T>(dev_ctx, output_buffer, {0}, {0}, {static_cast<int32_t>(input.dims()[0] * helper.world_size)});
+  // phi::SliceKernel<T>(dev_ctx, output, {0}, {0}, {static_cast<int32_t>(input.dims()[0] * helper.world_size)});
+#if 0
+  std::vector<int64_t> infer_flags = {1};
+  std::vector<int64_t> decrease_axis = {};
+  phi::SliceKernel<T, Context>(
+    dev_ctx, *output, {0}, {0}, {static_cast<int32_t>(input.dims()[0] * helper.world_size)}, infer_flags, decrease_axis, output);
+#endif
+  PADDLE_ENFORCE(
+    output_buffer.meta().is_contiguous(),
+    "output_buffer is not contiguous");
+  MetaTensor meta_output(output);
+  std::vector<int64_t> infer_flags = {1};
+  std::vector<int64_t> decrease_axis = {};
+  SliceRawInferMeta(
+    output_buffer, {0}, {0}, {static_cast<int32_t>(input.dims()[0] * helper.world_size)}, infer_flags, decrease_axis, &meta_output);
+  phi::SliceStridedKernel<Context>(dev_ctx, output_buffer, {0}, {0}, {static_cast<int32_t>(input.dims()[0] * helper.world_size)}, infer_flags, decrease_axis, output);
+  if(!output->meta().is_contiguous()) {
+    phi::SliceKernel<T, Context>(
+      dev_ctx, output_buffer, {0}, {0}, {static_cast<int32_t>(input.dims()[0] * helper.world_size)}, infer_flags, decrease_axis, output);
+  }
 
   // *input_parallel = helper.input_buffer;
   *input_parallel = phi::Empty<T>(dev_ctx, IntArray{full_m, k_dim});

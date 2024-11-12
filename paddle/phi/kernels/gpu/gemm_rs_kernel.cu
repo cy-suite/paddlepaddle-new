@@ -18,6 +18,7 @@
 #include "paddle/phi/kernels/unsqueeze_kernel.h"
 #include "paddle/phi/kernels/view_kernel.h"
 #include "paddle/phi/kernels/reduce_sum_kernel.h"
+#include "paddle/phi/kernels/impl/slice_kernel_impl.h"
 namespace phi {
 
 template<typename BufferT>
@@ -757,21 +758,90 @@ void GemmRSKernel(const Context& dev_ctx,
 
   // if arch == sm90
   int reduce_m_dim = m / gemm_rs_wrapper.world_size * gemm_rs_wrapper.nnodes * gemm_rs_wrapper.nnodes;
+#if 0
   DenseTensor full_output = phi::funcs::Slice<T>(dev_ctx,
                                                  gemm_rs_wrapper.reduce_buffer,
                                                  {0},
                                                  {0},
                                                  {reduce_m_dim});
+#endif
+
+#if 0
+  auto safe_slice = [&](const DenseTensor& input,
+                        const std::vector<int64_t>& axes,
+                        const IntArray& starts,
+                        const IntArray& ends,
+                        DenseTensor* out) -> void {
+    PADDLE_ENFORCE(
+      input.meta().is_contiguous(),
+      "safe_slice input is not contiguous");
+    std::vector<int64_t> infer_flags={1};
+    std::vector<int64_t> decrease_axis = {};
+    MetaTensor meta_out(output);
+    SliceRawInferMeta(
+      input, axes, starts, ends, infer_flags, decrease_axis, &meta_out);
+    phi::SliceStridedKernel<Context>(dev_ctx, input, axes, starts, ends,
+                                     infer_flags, decrease_axis, output);
+    if(!output->meta().is_contiguous()) {
+      phi::SliceKernel<T, Context>(
+        dev_ctx, input, axes, starts, ends, infer_flags, decrease_axis, output);
+    }
+  };
+#endif
+
+  std::vector<int64_t> infer_flags={1};
+  std::vector<int64_t> decrease_axis = {};
+
+  DenseTensor full_output;
+
+#if 0
+  safe_slice(gemm_rs_wrapper.reduce_buffer, {0}, {0}, {reduce_m_dim}, &full_output);
+#endif
+
+  MetaTensor meta_fullout(&full_output);
+  SliceRawInferMeta(
+    gemm_rs_wrapper.reduce_buffer, {0}, {0}, {reduce_m_dim}, infer_flags, decrease_axis, &meta_fullout);
+  phi::SliceStridedKernel<Context>(dev_ctx, gemm_rs_wrapper.reduce_buffer, {0}, {0}, {reduce_m_dim},
+                                   infer_flags, decrease_axis, &full_output);
+
+  if(!full_output.meta().is_contiguous()) {
+    phi::SliceKernel<T, Context>(dev_ctx, gemm_rs_wrapper.reduce_buffer, {0}, {0}, {reduce_m_dim},
+                                     infer_flags, decrease_axis, &full_output);
+  }
+
   DenseTensor output_4d;
   phi::ViewShapeKernel(dev_ctx,
                        full_output,
                        {gemm_rs_wrapper.nnodes, gemm_rs_wrapper.nnodes, m / gemm_rs_wrapper.world_size, n},
                        &output_4d);
+
+#if 0
   DenseTensor output_4d_local_node = phi::funcs::Slice<T>(dev_ctx,
                                                           output_4d,
                                                           {0},
                                                           {gemm_rs_wrapper.node_idx},
                                                           {gemm_rs_wrapper.node_idx+1});
+#endif
+
+  DenseTensor output_4d_local_node;
+
+#if 0
+  safe_slice(output_4d, {0}, {gemm_rs_wrapper.node_idx}, {gemm_rs_wrapper.node_idx+1}, &output_4d_local_node);
+#endif
+
+  MetaTensor meta_output_4d_local_node(&output_4d_local_node);
+  SliceRawInferMeta(
+    output_4d, {0}, {gemm_rs_wrapper.node_idx}, {gemm_rs_wrapper.node_idx+1},
+    infer_flags, decrease_axis, &meta_output_4d_local_node);
+  phi::SliceStridedKernel<Context>(dev_ctx, output_4d, {0}, {gemm_rs_wrapper.node_idx}, {gemm_rs_wrapper.node_idx+1},
+                                   infer_flags, decrease_axis, &output_4d_local_node);
+
+  if(!output_4d_local_node.meta().is_contiguous()) {
+    phi::SliceKernel<T, Context>(dev_ctx, output_4d, {0}, {gemm_rs_wrapper.node_idx}, {gemm_rs_wrapper.node_idx+1},
+                                     infer_flags, decrease_axis, &output_4d_local_node);
+  }
+
+
   // nnodes == 1
   // TODO(umiswing): only 1 node, so just hack bcz idk how to do inplace scatter in paddle.
   // DenseTensor output;
