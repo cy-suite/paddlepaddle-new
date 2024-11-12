@@ -368,7 +368,7 @@ T CalcMAP(APType ap_type,
       ++count;
     } else {
       PADDLE_THROW(common::errors::Unimplemented(
-          "Unkown ap version %s. Now only supports integral and l1point.",
+          "Unknown ap version %s. Now only supports integral and l1point.",
           ap_type));
     }
   }
@@ -465,7 +465,7 @@ void DetectionMAPOpKernel(const Context& dev_ctx,
   PADDLE_ENFORCE_EQ(
       label_lod.size(),
       1UL,
-      common::errors::InvalidArgument("Only support LodTensor of lod_level "
+      common::errors::InvalidArgument("Only support DenseTensor of lod_level "
                                       "with 1 in label, but received %d.",
                                       label_lod.size()));
   PADDLE_ENFORCE_EQ(label_lod[0].size(),

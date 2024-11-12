@@ -48,11 +48,13 @@ SUPPORT_PROMOTION_OPS = [
     "__mul__",
     "__rmul__",
     "__mod__",
+    "__rmod__",
     "__div__",
     "__rdiv__",
     "__truediv__",
     "__rtruediv__",
     "__floordiv__",
+    "__rfloordiv__",
     "__pow__",
     "__rpow__",
     "__eq__",
@@ -77,7 +79,9 @@ EXPRESSION_MAP = {
     "__pow__": "A ** B",
     "__rpow__": "A **= B",
     "__floordiv__": "A //B",
+    "__rfloordiv__": "A //=B",
     "__mod__": "A % B",
+    "__rmod__": "A %= B",
     "__matmul__": "A @ B",
     "__eq__": "A == B",
     "__ne__": "A != B",
@@ -415,7 +419,7 @@ def monkey_patch_variable():
     def pop(self, *args):
         """
         The type variable must be LoD Tensor Array.
-        When self is LoDTensorArray, calling pop is similar to Python's pop on list.
+        When self is DenseTensorArray, calling pop is similar to Python's pop on list.
         This interface is used to simplify dygraph to static graph operations.
 
         Args:
@@ -859,8 +863,18 @@ def monkey_patch_variable():
             ),
         ),
         (
+            '__rfloordiv__',
+            _binary_creator_(
+                '__rfloordiv__', 'elementwise_floordiv', True, None
+            ),
+        ),
+        (
             '__mod__',
             _binary_creator_('__mod__', 'elementwise_mod', False, None),
+        ),
+        (
+            '__rmod__',
+            _binary_creator_('__rmod__', 'elementwise_mod', True, None),
         ),
         (
             '__matmul__',

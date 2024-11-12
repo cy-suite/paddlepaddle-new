@@ -169,7 +169,7 @@ def as_numpy(tensor, copy=False):
     Returns:
         numpy.ndarray
     """
-    if isinstance(tensor, core.LoDTensorArray):
+    if isinstance(tensor, core.DenseTensorArray):
         return [as_numpy(t, copy) for t in tensor]
     if isinstance(tensor, list):
         return [as_numpy(t, copy) for t in tensor]
@@ -1938,35 +1938,6 @@ class Executor:
 
         fetch_list = self._check_fetch_list(fetch_list)
 
-        from paddle.distributed.auto_parallel.static.utils import (
-            use_new_executor,
-        )
-
-        if (
-            isinstance(program, Program)
-            and program._pipeline_opt
-            and not use_new_executor()
-        ):
-            if "fleet_opt" in program._pipeline_opt:
-                # Move prepare here for port conflict with nccl in startup program
-                if self._fleet_executor is None:
-                    self._fleet_executor = _prepare_fleet_executor()
-                return self._run_using_fleet_executor(
-                    program=program,
-                    feed=feed,
-                    fetch_list=fetch_list,
-                    with_standalone_executor=self._fleet_executor_with_standalone,
-                    return_numpy=return_numpy,
-                )
-            if "startup_program" in program._pipeline_opt:
-                program = program._pipeline_opt["startup_program"]
-            else:
-                return self._run_pipeline(
-                    program,
-                    fetch_list=fetch_list,
-                    use_program_cache=use_program_cache,
-                )
-
         if isinstance(program, Program) and program._heter_pipeline_opt:
             # print("program._heter_pipeline_opt: {}".format(
             #    program._heter_pipeline_opt))
@@ -2239,7 +2210,9 @@ class Executor:
             else:
                 tensor._copy_from(cpu_tensor, self.place)
 
-        ret = new_exe.run(list(feed.keys()), return_numpy)
+        ret = new_exe.run(
+            list(feed.keys()), return_numpy, self.enable_job_schedule_profiler
+        )
         return ret
 
     def _run_inference(self, exe, feed):

@@ -44,11 +44,13 @@ SUPPORT_PROMOTION_OPS = [
     "__mul__",
     "__rmul__",
     "__mod__",
+    "__rmod__",
     "__div__",
     "__rdiv__",
     "__truediv__",
     "__rtruediv__",
     "__floordiv__",
+    "__rfloordiv__",
     "__pow__",
     "__rpow__",
     "__eq__",
@@ -476,6 +478,39 @@ def monkey_patch_value():
         if len(self.shape) == 1:
             return self
         perm = list(reversed(range(len(self.shape))))
+
+        return _C_ops.transpose(self, perm)
+
+    @property
+    def _mT_(self):
+        """
+
+        Permute current Value with its last two dimensions reversed.
+
+        If `n` is the dimensions of `x` , `x.mT` is equivalent to `x.transpose([0, 1, ..., n-1, n-2])`.
+
+        Examples:
+            .. code-block:: python
+
+                >>> import paddle
+                >>> paddle.enable_static()
+
+                >>> x = paddle.ones(shape=[2, 3, 5])
+                >>> x_mT = x.mT
+
+                >>> exe = paddle.static.Executor()
+                >>> x_mT_np = exe.run(paddle.static.default_main_program(), fetch_list=[x_mT])[0]
+                >>> print(x_mT_np.shape)
+                (2, 5, 3)
+
+        """
+        if len(self.shape) < 2:
+            raise ValueError(
+                f"Tensor.ndim({len(self.shape)}) is required to be greater than or equal to 2."
+            )
+
+        perm = list(range(len(self.shape)))
+        perm[-1], perm[-2] = perm[-2], perm[-1]
 
         return _C_ops.transpose(self, perm)
 
@@ -973,6 +1008,7 @@ def monkey_patch_value():
         ('astype', astype),
         ('size', _size_),
         ('T', _T_),
+        ('mT', _mT_),
         ('clone', clone),
         ('clear_gradient', clear_gradient),
         ('append', append),
@@ -1058,8 +1094,18 @@ def monkey_patch_value():
             ),
         ),
         (
+            '__rfloordiv__',
+            _binary_creator_(
+                '__rfloordiv__', paddle.tensor.floor_divide, True, None
+            ),
+        ),
+        (
             '__mod__',
             _binary_creator_('__mod__', paddle.tensor.remainder, False, None),
+        ),
+        (
+            '__rmod__',
+            _binary_creator_('__rmod__', paddle.tensor.remainder, True, None),
         ),
         (
             '__matmul__',

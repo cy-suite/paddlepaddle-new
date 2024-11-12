@@ -19,8 +19,6 @@ import sys
 import numpy as np
 import tensorrt as trt
 
-from .util import get_trt_version_list
-
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
 if parent_dir not in sys.path:
@@ -33,7 +31,8 @@ _logger = get_logger(
     __name__, logging.INFO, fmt='%(asctime)s-%(levelname)s: %(message)s'
 )
 
-version_list = get_trt_version_list()
+version = trt.__version__
+version_list = list(map(int, version.split('.')))
 
 
 def has_dynamic_shape(shape):
@@ -162,11 +161,12 @@ def add_elementwise_layer(network, paddle_op, inputs, op_type):
 
 
 # Create and add 1D constant layer
-def add_1D_constant_layer(network, data, dtype=np.int32):
+def add_1D_constant_layer(network, data, dtype=np.int32, is_scalar=False):
     if not isinstance(data, list):
         data = [data]
     constant_data = np.array(data, dtype=dtype)
-    constant_layer = network.add_constant(constant_data.shape, constant_data)
+    shape = () if is_scalar else (len(data),)
+    constant_layer = network.add_constant(shape, constant_data)
     return constant_layer.get_output(0)
 
 
@@ -204,13 +204,12 @@ def trt_reshape(network, input, new_shape, name="", is_shape_tensor=False):
 
 
 # Get element tensor of 1D shape tensor
-def get_shape_tensor_element(network, x, index):
+def get_shape_tensor_element(network, x, index, is_scalar=False):
     assert index >= 0, (
         "The index should be greater or equal than 0, but got %d" % index
     )
-    gather_layer = network.add_gather(
-        input=x, indices=add_1D_constant_layer(network, index), axis=0
-    )
+    index_tensor = add_1D_constant_layer(network, index, is_scalar=is_scalar)
+    gather_layer = network.add_gather(input=x, indices=index_tensor, axis=0)
     return gather_layer.get_output(0)
 
 
@@ -323,3 +322,246 @@ def build_size_tensor(
     ).get_output(0)
 
     return size_tensor
+
+
+# Reduce the given tensor in the TensorRT network to a scalar
+def trt_reduce_to_scalar(network, tensor):
+    if len(tensor.shape) == 0:
+        return tensor
+    axes = 0
+    for i in range(len(tensor.shape)):
+        axes |= 1 << i
+    reduce_layer = network.add_reduce(
+        tensor, trt.ReduceOperation.SUM, axes, keep_dims=False
+    )
+    return reduce_layer.get_output(0)
+
+
+def convert_conv2d(network, paddle_op, inputs):
+    if (
+        paddle_op.name() == "pd_op.conv2d"
+        or paddle_op.name() == "pd_op.depthwise_conv2d"
+    ):
+        input_tensor, filter = inputs
+    elif (
+        paddle_op.name() == "pd_op.conv2d_transpose"
+        or paddle_op.name() == "pd_op.depthwise_conv2d_transpose"
+    ):
+        if len(inputs) == 3:
+            input_tensor, filter, output_size = inputs
+        elif len(inputs) == 2:
+            input_tensor, filter = inputs
+            output_size = None
+        else:
+            raise ValueError("Invalid number of inputs for conv2d_transpose")
+
+    input_shape = paddle_op.operands()[0].source().shape
+    filter_shape = paddle_op.operands()[1].source().shape
+
+    if len(filter_shape) != 4:
+        raise ValueError(
+            f"filter's dims size should be 4, but got {len(filter_shape)}"
+        )
+
+    n_output = filter_shape[0]
+    n_input = filter_shape[1]
+    filter_h = filter_shape[2]
+    filter_w = filter_shape[3]
+
+    paddings = paddle_op.attrs().get("paddings", [0, 0])
+    stride = paddle_op.attrs().get("strides", [1, 1])
+    dilation = paddle_op.attrs().get("dilations", [1, 1])
+    groups = paddle_op.attrs().get("groups", 1)
+
+    if has_dynamic_shape(input_shape):
+        assert (
+            input_shape[1] != -1
+        ), "Channel dim can't be dynamic for transpose convolution."
+
+    output_padding = paddle_op.attrs().get("output_padding", [0, 0])
+    padding_algorithm = paddle_op.attrs().get("padding_algorithm", "EXPLICIT")
+    if padding_algorithm == "VALID":
+        paddings = [0] * len(paddings)
+
+    nv_ksize = trt.DimsHW(filter_h, filter_w)
+    nv_dilations = trt.DimsHW(dilation[0], dilation[1])
+    nv_strides = trt.DimsHW(stride[0], stride[1])
+
+    pre_paddings = [0, 0]
+    post_paddings = [0, 0]
+
+    if len(paddings) == 2:
+        pre_paddings[0] = paddings[0]
+        pre_paddings[1] = paddings[1]
+        post_paddings[0] = paddings[0]
+        post_paddings[1] = paddings[1]
+    elif len(paddings) == 4:
+        pre_paddings[0] = paddings[0]
+        pre_paddings[1] = paddings[2]
+        post_paddings[0] = paddings[1]
+        post_paddings[1] = paddings[3]
+    else:
+        raise ValueError(f"Unsupported paddings size: {len(paddings)}")
+
+    if (
+        paddle_op.name() == "pd_op.conv2d"
+        or paddle_op.name() == "pd_op.depthwise_conv2d"
+    ):
+        layer = network.add_convolution_nd(
+            input=input_tensor,
+            num_output_maps=n_output,
+            kernel_shape=nv_ksize,
+            kernel=filter,
+            bias=None,
+        )
+    elif (
+        paddle_op.name() == "pd_op.conv2d_transpose"
+        or paddle_op.name() == "pd_op.depthwise_conv2d_transpose"
+    ):
+        layer = network.add_deconvolution_nd(
+            input=input_tensor,
+            num_output_maps=n_input * groups,
+            kernel_shape=nv_ksize,
+            kernel=filter,
+            bias=None,
+        )
+
+    layer.stride_nd = nv_strides
+    layer.pre_padding = pre_paddings
+
+    if output_padding:
+        post_paddings[0] -= output_padding[0]
+        post_paddings[1] -= output_padding[1]
+
+    if post_paddings[0] < 0 or post_paddings[1] < 0:
+        raise ValueError("The value PostPadding should be >= 0.")
+
+    layer.post_padding = post_paddings
+    layer.num_groups = groups
+
+    if padding_algorithm == "SAME":
+        layer.padding_mode = trt.PaddingMode.SAME_UPPER
+        nv_dilations = trt.DimsHW(1, 1)
+
+    layer.dilation_nd = nv_dilations
+
+    return layer.get_output(0)
+
+
+def add_reduce_layer(network, paddle_op, inputs, op_type):
+    input_tensor = inputs[0]
+    axis = paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
+    input_shape = paddle_op.operands()[0].source().shape
+    keepdim = paddle_op.attrs()["keepdim"]
+    if network.has_implicit_batch_dimension:
+        assert (
+            axis != 0
+        ), "can't reduce on axis == 0 when network has implicit batch dimension"
+    output_shape = []
+    if len(axis) == 0:
+        axis = list(range(len(input_shape)))
+    for i in range(len(axis)):
+        if axis[i] < 0:
+            axis[i] = len(input_shape) + axis[i]
+    layer = network.add_reduce(
+        input_tensor,
+        op_type,
+        axes=get_axes_for_reduce_op(axis),
+        keep_dims=keepdim,
+    )
+    layer.get_output(0).dtype = layer.get_input(0).dtype
+    return layer.get_output(0)
+
+
+def add_cast_reduce_layer(network, paddle_op, inputs, op_type):
+    input_tensor = inputs[0]
+    cast_layer = network.add_identity(input_tensor)
+    cast_layer.set_output_type(0, trt.int32)
+    cast_layer.get_output(0).dtype = trt.int32
+
+    axis = paddle_op.attrs().get("axis")
+    input_shape = paddle_op.operands()[0].source().shape
+    keepdim = paddle_op.attrs()["keepdim"]
+    if network.has_implicit_batch_dimension:
+        assert (
+            axis != 0
+        ), "can't reduce on axis == 0 when network has implicit batch dimension"
+    output_shape = []
+    if len(axis) == 0:
+        axis = list(range(len(input_shape)))
+    for i in range(len(axis)):
+        if axis[i] < 0:
+            axis[i] = len(input_shape) + axis[i]
+    layer = network.add_reduce(
+        cast_layer.get_output(0),
+        op_type,
+        axes=get_axes_for_reduce_op(axis),
+        keep_dims=keepdim,
+    )
+    layer.set_output_type(0, trt.bool)
+    layer.get_output(0).dtype = cast_layer.get_output(0).dtype
+    return layer.get_output(0)
+
+
+def fix_negative_indices(network, input_shape, indices):
+    rank = len(input_shape.shape)
+    zero_tensor = add_1D_constant_layer(network, [0] * rank)
+    minus_one_tensor = add_1D_constant_layer(network, [-1] * rank)
+
+    min_indices_zero = trt_min(network, indices, zero_tensor)
+    sign = trt_max(network, min_indices_zero, minus_one_tensor)
+    sub = trt_mul(network, sign, input_shape)
+    fixed_indices = trt_sub(network, indices, sub)
+    return fixed_indices
+
+
+def unsqueeze_trt(network, input_tensor, axes):
+    input_shape = network.add_shape(input_tensor).get_output(0)
+
+    axis_set = set(axes)
+
+    subscripts = list(range(len(input_tensor.shape)))
+
+    for axis in sorted(axis_set):
+        subscripts.insert(axis, len(input_tensor.shape))
+
+    one_tensor = network.add_constant(
+        (1,), np.array([1], dtype=np.int32)
+    ).get_output(0)
+    extended_shape = network.add_concatenation(
+        [input_shape, one_tensor]
+    ).get_output(0)
+
+    gather_layer = network.add_gather(
+        extended_shape,
+        network.add_constant(
+            (len(subscripts),), np.array(subscripts, dtype=np.int32)
+        ).get_output(0),
+        axis=0,
+    )
+    new_shape_tensor = gather_layer.get_output(0)
+
+    reshaped_tensor = network.add_shuffle(input_tensor)
+    reshaped_tensor.set_input(1, new_shape_tensor)
+
+    return reshaped_tensor.get_output(0)
+
+
+def squeeze_trt(network, input_tensor, axes):
+    input_shape = network.add_shape(input_tensor).get_output(0)
+    input_shape = input_tensor.shape
+    all_dims = list(range(len(input_shape)))
+    remaining_dims = [dim for dim in all_dims if dim not in axes]
+
+    input_shape_tensor = network.add_shape(input_tensor).get_output(0)
+
+    remaining_dims_tensor = network.add_constant(
+        (len(remaining_dims),), np.array(remaining_dims, dtype=np.int32)
+    ).get_output(0)
+
+    new_shape_tensor = network.add_gather(
+        input_shape_tensor, remaining_dims_tensor, axis=0
+    ).get_output(0)
+    reshape_layer = network.add_shuffle(input_tensor)
+    reshape_layer.set_input(1, new_shape_tensor)
+    return reshape_layer.get_output(0)

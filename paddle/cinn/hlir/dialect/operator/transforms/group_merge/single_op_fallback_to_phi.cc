@@ -35,22 +35,28 @@ class FusionOpPattern : public pir::OpRewritePattern<cinn::dialect::FusionOp> {
 
   bool MatchAndRewrite(cinn::dialect::FusionOp fusion_op,
                        pir::PatternRewriter& rewriter) const override {
-    // Fallback only when FusionOp has two operators inside: AnySingleOp +
-    // cf.yield
-    if (fusion_op.GetOperators().size() > 2) {
+    // Fallback only when FusionOp has two operators inside: AnySingleOp + yiled
+    // store cf.yield
+
+    if (fusion_op.GetOperators().size() != 3) {
       return false;
     }
+
+    if (!fusion_op.GetOperators()[1]->isa<cinn::dialect::YieldStoreOp>()) {
+      return false;
+    }
+
     PADDLE_ENFORCE_EQ(
         fusion_op.GetOperators().size(),
-        2,
+        3,
         ::common::errors::InvalidArgument(
             "fusion_op should have two operators inside, but got %d",
             fusion_op.GetOperators().size()));
     PADDLE_ENFORCE(
-        fusion_op.GetOperators()[1]->isa<::pir::YieldOp>(),
+        fusion_op.GetOperators()[2]->isa<::pir::YieldOp>(),
         ::common::errors::InvalidArgument(
             "The last operator of fusion_op must be YieldOp, but got %s",
-            fusion_op.GetOperators()[1]->name()));
+            fusion_op.GetOperators()[2]->name()));
 
     auto* program = fusion_op->GetParentProgram();
     auto& shape_analysis = pir::ShapeAnalysisManager::Instance().Get(
@@ -61,9 +67,14 @@ class FusionOpPattern : public pir::OpRewritePattern<cinn::dialect::FusionOp> {
       return false;
     }
 
-    for (size_t i = 0; i < fusion_op.num_results(); ++i) {
-      rewriter.ReplaceAllUsesWith(fusion_op.result(i),
-                                  paddle_op.value()->result(i));
+    // Results num of FusionOp may be more than the signal op when the signal
+    // has multiple downstream ops including yieldstore op.
+    auto num_results = paddle_op.value()->num_results();
+    for (size_t i = 0; i * num_results < fusion_op.num_results(); i++) {
+      for (size_t j = 0; j < num_results; ++j) {
+        rewriter.ReplaceAllUsesWith(fusion_op.result(i * num_results + j),
+                                    paddle_op.value()->result(j));
+      }
     }
 
     rewriter.EraseOp(fusion_op);

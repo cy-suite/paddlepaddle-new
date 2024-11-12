@@ -123,6 +123,7 @@
 #include "paddle/fluid/pir/transforms/general/params_sync_among_devices_pass.h"
 #include "paddle/fluid/pir/transforms/general/remove_shadow_feed_pass.h"
 #include "paddle/fluid/pir/transforms/general/replace_fetch_with_shadow_output_pass.h"
+#include "paddle/fluid/pir/transforms/general/transfer_layout_pass.h"
 #include "paddle/fluid/pir/transforms/passes.h"
 #include "paddle/fluid/pir/transforms/pd_op_to_kernel_pass.h"
 #include "paddle/fluid/pir/utils/general_functions.h"
@@ -135,7 +136,6 @@
 #include "paddle/pir/include/pass/pass_registry.h"
 
 COMMON_DECLARE_bool(pir_apply_inplace_pass);
-COMMON_DECLARE_bool(enable_pir_api);
 
 namespace paddle {
 namespace {
@@ -386,10 +386,6 @@ AnalysisPredictor::AnalysisPredictor(const AnalysisConfig &config)
   if (config_.shape_range_info_collected()) {
     config_.SwitchIrOptim(false);
   }
-  if (FLAGS_enable_pir_api) {
-    config_.EnableNewExecutor(true);
-    config_.EnableNewIR(true);
-  }
   if (config_.new_executor_enabled()) {
     config_.EnableMemoryOptim(false);
     if (config_.new_ir_enabled()) {
@@ -447,13 +443,8 @@ bool AnalysisPredictor::Init(
   load_pir_model_ =
       model_path.substr(model_path.find_last_of(".") + 1) == "json";
   if (load_pir_model_) {
-    PADDLE_ENFORCE_EQ(
-        FLAGS_enable_pir_api || (config_.use_pir_ && config_.use_new_executor_),
-        true,
-        common::errors::InvalidArgument(
-            "Models with a .json suffix can only run in PIR mode. Please set "
-            "export FLAGS_enable_pir_api=True or "
-            "config.EnableNewExecutor(true)) and config.EnableNewIR(true)"));
+    config_.use_pir_ = true;
+    config_.use_new_executor_ = true;
   }
 
   // Use Optimized model to inference
@@ -942,6 +933,7 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
     for (const auto &pass : pass_pm.passes()) {
       pass->SetNotOwned(pir::Pass::kParamScopeAttr, sub_scope_);
       pass->SetNotOwned(pir::Pass::kPlaceAttr, &place_);
+      pass->Set("enable_gpu_mixed", new bool(config_.enable_gpu_mixed_));
       if (pass->name() == "matmul_add_act_fuse_pass" ||
           pass->name() == "conv2d_add_act_fuse_pass" ||
           pass->name() == "conv2d_add_fuse_pass") {
@@ -972,14 +964,6 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
   // Apply some basic passes required by the framework
   ::pir::PassManager basic_pass_pm(::pir::IrContext::Instance(),
                                    config_.pm_opt_level_);
-  auto common_subexpression_elimination_pass =
-      ::pir::CreateCommonSubexpressionEliminationPass();
-  if (std::find(config_.deleted_passes_.begin(),
-                config_.deleted_passes_.end(),
-                common_subexpression_elimination_pass->name()) ==
-      config_.deleted_passes_.end()) {
-    basic_pass_pm.AddPass(std::move(common_subexpression_elimination_pass));
-  }
   if (config_.enable_gpu_mixed_) {
     auto auto_mixed_precision_pass = ::pir::CreateAutoMixedPrecisionPass();
     if (std::find(config_.deleted_passes_.begin(),
@@ -987,19 +971,26 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
                   auto_mixed_precision_pass->name()) ==
         config_.deleted_passes_.end()) {
       auto_mixed_precision_pass->SetNotOwned(pir::Pass::kPlaceAttr, &place_);
-      auto_mixed_precision_pass->Set("__mixed_precision_mode__",
+      auto_mixed_precision_pass->Set("mixed_precision_mode",
                                      new phi::DataType(paddle::ConvertPrecision(
                                          config_.mixed_precision_mode_)));
       auto_mixed_precision_pass->Set(
-          "__enable_low_precision_io__",
+          "enable_low_precision_io",
           new bool(config_.enable_low_precision_io_));
       auto_mixed_precision_pass->Set(
-          "__mixed_black_list__",
+          "mixed_black_list",
           new std::unordered_set<std::string>(config_.mixed_black_list_));
       auto_mixed_precision_pass->Set(
-          "__mixed_white_list__",
+          "mixed_white_list",
           new std::unordered_set<std::string>(config_.mixed_white_list_));
       basic_pass_pm.AddPass(std::move(auto_mixed_precision_pass));
+    }
+    auto transfer_layout_pass = ::pir::CreateTransferLayoutPass();
+    if (std::find(config_.deleted_passes_.begin(),
+                  config_.deleted_passes_.end(),
+                  transfer_layout_pass->name()) ==
+        config_.deleted_passes_.end()) {
+      basic_pass_pm.AddPass(std::move(transfer_layout_pass));
     }
   }
   auto params_sync_among_devices_pass =
@@ -1031,7 +1022,22 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
                                             sub_scope_);
     basic_pass_pm.AddPass(std::move(dead_code_elimination_pass));
   }
-  basic_pass_pm.AddPass(::pir::CreateReplaceFetchWithShadowOutputPass());
+  auto common_subexpression_elimination_pass =
+      ::pir::CreateCommonSubexpressionEliminationPass();
+  if (std::find(config_.deleted_passes_.begin(),
+                config_.deleted_passes_.end(),
+                common_subexpression_elimination_pass->name()) ==
+      config_.deleted_passes_.end()) {
+    basic_pass_pm.AddPass(std::move(common_subexpression_elimination_pass));
+  }
+  auto replace_fetch_with_shadow_output_pass =
+      ::pir::CreateReplaceFetchWithShadowOutputPass();
+  if (std::find(config_.deleted_passes_.begin(),
+                config_.deleted_passes_.end(),
+                replace_fetch_with_shadow_output_pass->name()) ==
+      config_.deleted_passes_.end()) {
+    basic_pass_pm.AddPass(std::move(replace_fetch_with_shadow_output_pass));
+  }
   if (!config_.glog_info_disabled()) {
     basic_pass_pm.EnablePrintStatistics();
   }
@@ -1048,10 +1054,20 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
 
   ::pir::PassManager lowered_pm(::pir::IrContext::Instance(), 3);
   auto remove_shadow_feed_pass = ::pir::CreateRemoveShadowFeedPass();
-  remove_shadow_feed_pass->Set("used_for_inference", new bool(true));
-  lowered_pm.AddPass(std::move(remove_shadow_feed_pass));
+  if (std::find(config_.deleted_passes_.begin(),
+                config_.deleted_passes_.end(),
+                remove_shadow_feed_pass->name()) ==
+      config_.deleted_passes_.end()) {
+    remove_shadow_feed_pass->Set("used_for_inference", new bool(true));
+    lowered_pm.AddPass(std::move(remove_shadow_feed_pass));
+  }
   if (FLAGS_pir_apply_inplace_pass) {
-    lowered_pm.AddPass(::pir::CreateInplacePass());
+    auto inplace_pass = ::pir::CreateInplacePass();
+    if (std::find(config_.deleted_passes_.begin(),
+                  config_.deleted_passes_.end(),
+                  inplace_pass->name()) == config_.deleted_passes_.end()) {
+      lowered_pm.AddPass(std::move(inplace_pass));
+    }
   }
   if (!config_.glog_info_disabled()) {
     lowered_pm.EnablePrintStatistics();
@@ -1080,6 +1096,8 @@ bool AnalysisPredictor::SaveOrLoadPirParameters(bool for_save) {
         std::string fetch_name =
             op->attribute("name").dyn_cast<pir::StrAttribute>().AsString();
         idx2fetches_[idx] = fetch_name;
+        fetch_name2shapes_[fetch_name] =
+            pir::GetShapeFromValue(op->operand_source(0));
       }
     } else if (op->isa<paddle::dialect::DataOp>() ||
                op->isa<paddle::dialect::FeedOp>()) {
@@ -1092,6 +1110,7 @@ bool AnalysisPredictor::SaveOrLoadPirParameters(bool for_save) {
       feed_names_[data_name] = feed_idx;
       feed_idx++;
       pir_feeds_.emplace_back(op);
+      feed_name2shapes_[data_name] = pir::GetShapeFromValue(op->result(0));
     }
 
     if (op->isa<::pir::ParameterOp>()) {
@@ -2535,6 +2554,9 @@ std::vector<std::string> AnalysisPredictor::GetInputNames() {
 
 std::map<std::string, std::vector<int64_t>>
 AnalysisPredictor::GetInputTensorShape() {
+  if (load_pir_model_) {
+    return feed_name2shapes_;
+  }
   std::map<std::string, std::vector<int64_t>> input_shapes;
   std::vector<std::string> names = GetInputNames();
   for (std::string const &name : names) {
@@ -2594,6 +2616,9 @@ std::vector<std::string> AnalysisPredictor::GetOutputNames() {
 
 std::map<std::string, std::vector<int64_t>>
 AnalysisPredictor::GetOutputTensorShape() {
+  if (load_pir_model_) {
+    return fetch_name2shapes_;
+  }
   std::map<std::string, std::vector<int64_t>> output_shapes;
   std::vector<std::string> names = GetOutputNames();
   for (std::string const &name : names) {
