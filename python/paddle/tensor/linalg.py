@@ -188,7 +188,10 @@ def transpose_(x, perm, name=None):
         return _C_ops.transpose_(x, perm)
 
 
-def matrix_transpose(x: paddle.Tensor, name: str = None) -> paddle.Tensor:
+def matrix_transpose(
+    x: paddle.Tensor,
+    name: str = None,
+) -> paddle.Tensor:
     """
     Transpose the input tensor by reversing its last two dimensions.
     If `n` is the number of dimensions of `x`, `paddle.matrix_transpose(x)` is equivalent to `x.transpose([0, 1, ..., n-2, n-1])`.
