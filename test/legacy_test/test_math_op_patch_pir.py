@@ -476,6 +476,12 @@ class TestMathOpPatchesPir(unittest.TestCase):
                     (output_x,) = exe.run(main_program, fetch_list=[x_T])
                     self.assertEqual(output_x.shape, tuple(out_shape))
 
+    def test_astype_zero_copy_if_same_dtype(self):
+        with paddle.pir_utils.IrGuard():
+            x = paddle.static.data(name='x', shape=[3, 2, 1])
+            y = x.astype(x.dtype)
+            self.assertEqual(x, y)
+
     def test_mT(self):
         with paddle.pir_utils.IrGuard():
             shape = [1]

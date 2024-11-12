@@ -99,7 +99,7 @@ _PADDLE_PIR_DTYPE_2_NUMPY_DTYPE = {
 }
 
 
-def convert_np_dtype_to_dtype_(np_dtype):
+def convert_np_dtype_to_dtype_(np_dtype) -> paddle.dtype:
     """
     Convert the data type in numpy to the data type in Paddle.
 
@@ -123,7 +123,7 @@ def convert_np_dtype_to_dtype_(np_dtype):
     else:
         dtype = np.dtype(np_dtype)
 
-    if dtype in np_type_to_paddle_type.keys():
+    if dtype in np_type_to_paddle_type:
         return np_type_to_paddle_type[dtype]
     else:
         raise ValueError(f"Not supported numpy dtype {dtype}")
