@@ -3277,6 +3277,12 @@
     data_type : out_grad
   optional : reserve_space
 
+- backward_op : take_along_axis_double_grad
+  forward : take_along_axis_grad (Tensor arr, Tensor indices, Tensor grad_out, int axis) -> Tensor(grad_arr)
+  args : (Tensor grad_arr_grad, Tensor indices, int axis)
+  output : Tensor(grad_out_grad)
+  invoke : take_along_axis(grad_arr_grad, indices, axis)
+
 - backward_op : take_along_axis_grad
   forward : take_along_axis (Tensor arr, Tensor indices, int axis) -> Tensor(out)
   args : (Tensor arr, Tensor indices, Tensor out_grad, int axis)

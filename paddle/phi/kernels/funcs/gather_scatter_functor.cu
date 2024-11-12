@@ -127,6 +127,18 @@ __global__ void ScatterAssignGPUKernel(tensor_t* self_data,
   j = remind / outer_dim_size;
   k = remind % outer_dim_size;
   index_t index = index_data[tid];
+  PADDLE_ENFORCE(
+      index >= -src_select_dim_size && index < src_select_dim_size,
+      "The index is out of bounds, "
+      "please check whether the index and "
+      "input's shape meet the requirements. It should "
+      "be less than [%ld] and greater or equal to [%ld], but received [%d]",
+      src_select_dim_size,
+      -src_select_dim_size,
+      index);
+  if (index < 0) {
+    index += src_select_dim_size;
+  }
   /*
     gather computation formula:
 
@@ -202,6 +214,18 @@ __global__ void GatherScatterGPUKernel(tensor_t* self_data,
   j = remind / outer_dim_size;
   k = remind % outer_dim_size;
   index_t index = index_data[tid];
+  PADDLE_ENFORCE(
+      index >= -src_select_dim_size && index < src_select_dim_size,
+      "The index is out of bounds, "
+      "please check whether the index and "
+      "input's shape meet the requirements. It should "
+      "be less than [%d] and greater or equal to [%d], but received [%ld]",
+      src_select_dim_size,
+      -src_select_dim_size,
+      index);
+  if (index < 0) {
+    index += src_select_dim_size;
+  }
   /*
     gather computation formula:
 
@@ -275,6 +299,18 @@ __global__ void ScatterMeanGPUKernel(tensor_t* self_data,
   j = remind / outer_dim_size;
   k = remind % outer_dim_size;
   index_t index = index_data[tid];
+  PADDLE_ENFORCE(
+      index >= -src_select_dim_size && index < src_select_dim_size,
+      "The index is out of bounds, "
+      "please check whether the index and "
+      "input's shape meet the requirements. It should "
+      "be less than [%ld] and greater or equal to [%ld], but received [%d]",
+      src_select_dim_size,
+      -src_select_dim_size,
+      index);
+  if (index < 0) {
+    index += src_select_dim_size;
+  }
   /*
     gather computation formula:
 
