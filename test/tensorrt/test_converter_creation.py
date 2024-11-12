@@ -67,100 +67,55 @@ def assign_value_api_case2(input, dtype, values):
     )
 
 
-class TestAssignValueCase1TRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = assign_value_api
-        self.api_args = {
-            "x": np.random.random([1, 3, 2, 2]).astype("float32"),
-            "dtype": paddle.float32,
-            "values": [1.0],
-        }
-        self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {}
-        self.max_shape = {}
-
+class TestAssignValueInTRTPattern(TensorRTBaseTest):
     def test_trt_result(self):
-        self.check_trt_result()
+        test_cases = [
+            # Test case 1
+            (
+                assign_value_api,
+                {
+                    "x": np.random.random([1, 3, 2, 2]).astype("float32"),
+                    "dtype": paddle.float32,
+                    "values": [1.0],
+                },
+            ),
+            # Test case 2
+            (
+                assign_value_api,
+                {
+                    "x": np.random.random([2, 2]).astype("int32"),
+                    "dtype": paddle.int32,
+                    "values": [1.0, 1.0, 1.0, 1.0],
+                },
+            ),
+            # Test case 3
+            (
+                assign_value_api_case2,
+                {
+                    "x": np.random.random([1, 3, 2, 2]).astype("float32"),
+                    "dtype": paddle.float32,
+                    "values": [1.0],
+                },
+            ),
+            # Test case 4
+            (
+                assign_value_api_case2,
+                {
+                    "x": np.random.random([2, 2]).astype("int32"),
+                    "dtype": paddle.int32,
+                    "values": [1.0, 1.0, 1.0, 1.0],
+                },
+            ),
+        ]
 
-
-class TestAssignValueCase2TRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = assign_value_api
-        self.api_args = {
-            "x": np.random.random([2, 2]).astype("int32"),
-            "dtype": paddle.int32,
-            "values": [1.0, 1.0, 1.0, 1.0],
-        }
-        self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {}
-        self.max_shape = {}
-
-    def test_trt_result(self):
-        self.check_trt_result()
-
-
-class TestAssignValueCase3TRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = assign_value_api
-        self.api_args = {
-            "x": np.random.random([2, 2]).astype("int32"),
-            "dtype": paddle.int32,
-            "values": [1.0, 1.0, 1.0],
-        }
-        self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {}
-        self.max_shape = {}
-
-    def test_trt_result(self):
-        self.check_trt_result()
-
-
-class TestAssignValueCase4TRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = assign_value_api_case2
-        self.api_args = {
-            "x": np.random.random([2, 2]).astype("int32"),
-            "dtype": paddle.int32,
-            "values": [1.0],
-        }
-        self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {}
-        self.max_shape = {}
-
-    def test_trt_result(self):
-        self.check_trt_result()
-
-
-class TestAssignValueCase5TRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = assign_value_api_case2
-        self.api_args = {
-            "x": np.random.random([2, 2]).astype("int32"),
-            "dtype": paddle.int32,
-            "values": [1.0, 1.0, 1.0],
-        }
-        self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {}
-        self.max_shape = {}
-
-    def test_trt_result(self):
-        self.check_trt_result()
-
-
-class TestAssignValueCase6TRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = assign_value_api_case2
-        self.api_args = {
-            "x": np.random.random([2, 2]).astype("int32"),
-            "dtype": paddle.int32,
-            "values": [1.0, 1.0, 1.0],
-        }
-        self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {}
-        self.max_shape = {}
-
-    def test_trt_result(self):
-        self.check_trt_result()
+        for python_api, api_args in test_cases:
+            with self.subTest(python_api=python_api, api_args=api_args):
+                self.python_api = python_api
+                self.api_args = api_args
+                self.program_config = {"feed_list": ["x"]}
+                self.min_shape = {}
+                self.max_shape = {}
+                self.check_trt_result()
 
 
 class TestArangeTRTPattern(TensorRTBaseTest):
@@ -177,6 +132,11 @@ class TestArangeTRTPattern(TensorRTBaseTest):
 
     def test_trt_result(self):
         self.check_trt_result()
+
+
+class TestAssignValueallTRTPattern(TensorRTBaseTest):
+    def test_trt_result(self):
+        test_cases = []
 
 
 class TestAssignOutTRTPattern(TensorRTBaseTest):
