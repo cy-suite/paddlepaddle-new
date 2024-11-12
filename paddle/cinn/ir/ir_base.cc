@@ -348,7 +348,7 @@ void IrNode::convert_int32_to_int64() {
 
 void IrNode::convert_int64_to_int32() {
   if (type_ != Int(64) && type_ != UInt(64))
-    if (type_ != Int(32) && type_ != UInt(64))
+    if (type_ != Int(32) && type_ != UInt(32))
       PADDLE_ENFORCE_EQ(type_.is_unk(),
                         true,
                         ::common::errors::InvalidArgument(
@@ -362,7 +362,9 @@ void IrNode::convert_int64_to_int32() {
     int_imm->value = int32_t(int_imm->value);
   }
 
-  type_ = Int(32);
+  if (type_ == Int(64)) type_ = Int(32);
+  if (type_ == UInt(64)) type_ = UInt(32);
+
   for (Expr &operand : operands) {
     operand->convert_int64_to_int32();
   }
