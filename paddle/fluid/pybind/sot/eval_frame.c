@@ -47,6 +47,7 @@ typedef _PyInterpreterFrame FrameObject;
 typedef struct PyInterpreterFrameProxy {
   PyObject_HEAD
   _PyInterpreterFrame *frame;
+  PyObject* locals;
 } PyInterpreterFrameProxy;
 // clang-format on
 
@@ -70,9 +71,9 @@ DECLARE_PROXY_PROPERTY(f_code)
 #if PY_3_13_PLUS
 static PyObject *PyInterpreterFrameProxy_property_f_locals(
     PyInterpreterFrameProxy *self, void *closure) {
-  PyObject *f_locals = Internal_PyFrame_GetLocals(self->frame);
-  Py_XINCREF(f_locals);
-  return f_locals;
+  // PyObject *f_locals = Internal_PyFrame_GetLocals(self->frame);
+  Py_XINCREF(self->locals);
+  return self->locals;
 }
 #else
 DECLARE_PROXY_PROPERTY(f_locals)
@@ -134,6 +135,7 @@ PyInterpreterFrameProxy *PyInterpreterFrameProxy_New(
     return NULL;
   }
   self->frame = frame;
+  self->locals = NULL;
   return self;
 }
 
@@ -356,9 +358,6 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
 #endif
     return NULL;
   }
-#if PY_3_13_PLUS
-  Py_DECREF(f_locals);
-#endif
 #else
   if (frame->f_code->co_flags & 0x20) {
     out = eval_frame_default(tstate, frame, throw_flag);
@@ -391,6 +390,7 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
 
   // get code & disable_eval_frame
   if (need_skip(frame)) {
+    printf("[_custom_eval_frame] skip frame\n");
     Py_INCREF(Py_None);
     code = Py_None;
     Py_INCREF(Py_False);
@@ -398,7 +398,17 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
   } else {
     /* should calculate guards here if we want */
 #if PY_3_11_PLUS
-    PyObject *args = Py_BuildValue("(O)", PyInterpreterFrameProxy_New(frame));
+    PyInterpreterFrameProxy *frame_ = PyInterpreterFrameProxy_New(frame);
+    if (frame_ == NULL) {
+#if PY_3_13_PLUS
+      Py_DECREF(f_locals);
+#endif
+      return NULL;
+    }
+#if PY_3_13_PLUS
+    frame_->locals = f_locals;
+#endif
+    PyObject *args = Py_BuildValue("(O)", frame_);
 #else
     PyObject *args = Py_BuildValue("(O)", frame);
 #endif
@@ -406,7 +416,9 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
     Py_DECREF(args);
     if (result == NULL) {
 #if PY_3_12_PLUS
+      printf("[_custom_eval_frame] result is NULL\n");
 #if PY_3_13_PLUS
+      Py_DECREF(f_locals);
       Internal_PyEval_FrameClearAndPop(tstate, frame);
 #else
       Internal_PyEvalFrameClearAndPop(tstate, frame);
@@ -414,10 +426,16 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
 #endif
       return NULL;
     }
+    printf("[_custom_eval_frame] result: %s\n",
+           PyUnicode_AsUTF8(PyObject_Repr(result)));
     code = PyObject_GetAttrString(result, "code");
     disable_eval_frame = PyObject_GetAttrString(result, "disable_eval_frame");
     Py_DECREF(result);
   }
+
+#if PY_3_13_PLUS
+  Py_DECREF(f_locals);
+#endif
 
   // code status
   if (is_code_without_graph(code == Py_None ? PyFrame_GET_CODE(frame)

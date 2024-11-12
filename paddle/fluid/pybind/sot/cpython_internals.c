@@ -124,6 +124,8 @@ static void Internal_clear_thread_frame(PyThreadState *tstate,
          tstate->datastack_top);
   tstate->c_recursion_remaining--;
   assert(frame->frame_obj == NULL || frame->frame_obj->f_frame == frame);
+  printf("[Internal_clear_thread_frame] opname: %s\n",
+         PyUnicode_AsUTF8(PyFrame_GET_CODE(frame)->co_name));
   Internal_PyFrame_ClearExceptCode(frame);
 #if PY_3_13_PLUS
   Py_DECREF(frame->f_executable);
@@ -285,6 +287,7 @@ PyObject *Internal_PyFrame_GetLocals(_PyInterpreterFrame *frame) {
     return Py_NewRef(frame->f_locals);
   }
 
+  printf("[Internal_PyFrame_GetLocals] frame: %p\n", frame);
   PyFrameObject *f = Internal_PyFrame_GetFrameObject(frame);
 
   return Internal_PyFrameLocalsProxy_New(f);
@@ -692,6 +695,24 @@ static inline PyFrameObject *Internal_PyFrame_GetFrameObject(
   return Internal_PyFrame_MakeAndSetFrameObject(frame);
 }
 
+// static inline bool
+// Internal_PyFrame_IsIncomplete(_PyInterpreterFrame *frame)
+// {
+//     if (frame->owner == FRAME_OWNED_BY_CSTACK) {
+//         return true;
+//     }
+//     PyTypeObject *type = Py_TYPE(frame);  // 获取对象的类型
+//     if (type && type->tp_name) {
+//         printf("[Internal_take_ownership] Type of object: %s\n",
+//         type->tp_name);
+//     }else{
+//         printf("[Internal_take_ownership] Type of object: unknown\n");
+//     }
+//     return frame->owner != FRAME_OWNED_BY_GENERATOR &&
+//         frame->instr_ptr < _PyCode_CODE(_PyFrame_GetCode(frame)) +
+//         _PyFrame_GetCode(frame)->_co_firsttraceable;
+// }
+
 static void Internal_take_ownership(PyFrameObject *f,
                                     _PyInterpreterFrame *frame) {
 #if PY_3_12_PLUS
@@ -781,15 +802,27 @@ void Internal_PyFrame_Clear(_PyInterpreterFrame *frame) {
          _PyFrame_GetGenerator(frame)->gi_frame_state == FRAME_CLEARED);
   // GH-99729: Clearing this frame can expose the stack (via finalizers). It's
   // crucial that this frame has been unlinked, and is no longer visible:
+#if PY_3_13_PLUS
   assert(PyThreadState_GET()->current_frame != frame);
+#else
+  assert(PyThreadState_GET()->cframe->current_frame != frame);
+#endif
+  printf("[Internal_PyFrame_ClearExceptCode] frame->owner: %d\n", frame->owner);
+  printf("[Internal_PyFrame_ClearExceptCode] frame_obj: %p\n",
+         frame->frame_obj);
   if (frame->frame_obj) {
     PyFrameObject *f = frame->frame_obj;
     frame->frame_obj = NULL;
     if (Py_REFCNT(f) > 1) {
+      printf(
+          "[Internal_PyFrame_ClearExceptCode] frame object refcnt > 1 : %zd\n",
+          Py_REFCNT(f));
       Internal_take_ownership(f, frame);
       Py_DECREF(f);
       return;
     }
+    printf("[Internal_PyFrame_ClearExceptCode] frame object refcnt: %zd\n",
+           Py_REFCNT(f));
     Py_DECREF(f);
   }
 #if PY_3_13_PLUS
