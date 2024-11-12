@@ -69,7 +69,7 @@ class MlpModel(paddle.nn.Layer):
 
 
 class TestCustomSpec:
-    def get_custom_spec(self, dist_dataloader):
+    def get_input_spec(self, dist_dataloader):
         dist_dataloader._dataloader.mode = "A"
         input1, label1 = next(dist_dataloader())
         dist_dataloader._dataloader.mode = "B"
@@ -103,19 +103,19 @@ class TestCustomSpec:
         )
         opt2 = copy.deepcopy(opt)
 
-        custom_spec1, custom_spec2 = self.get_custom_spec(dist_dataloader)
+        input_spec1, input_spec2 = self.get_input_spec(dist_dataloader)
 
         model.w0.stop_gradient = True
         model.w1.stop_gradient = False
         dist_model1 = dist.to_static(
-            model, dist_dataloader, loss_func, opt, custom_spec=custom_spec1
+            model, dist_dataloader, loss_func, opt, input_spec=input_spec1
         )
         dist_model1.train()
 
         model.w0.stop_gradient = False
         model.w1.stop_gradient = True
         dist_model2 = dist.to_static(
-            model, dist_dataloader, loss_func, opt2, custom_spec=custom_spec2
+            model, dist_dataloader, loss_func, opt2, input_spec=input_spec2
         )
         dist_model2.train()
 
