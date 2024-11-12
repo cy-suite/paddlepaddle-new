@@ -18,7 +18,7 @@
 
 namespace phi {
 
-KernelSignature FetchOpArgumentMapping(const ArgumentMappingContext& ctx) {
+KernelSignature FetchV2OpArgumentMapping(const ArgumentMappingContext& ctx) {
   if (ctx.IsDenseTensorVectorInput("X")) {
     return KernelSignature("fetch_array", {"X"}, {}, {"Out"});
   }
@@ -28,4 +28,4 @@ KernelSignature FetchOpArgumentMapping(const ArgumentMappingContext& ctx) {
 
 }  // namespace phi
 
-PD_REGISTER_ARG_MAPPING_FN(fetch_v2, phi::FetchOpArgumentMapping);
+PD_REGISTER_ARG_MAPPING_FN(fetch_v2, phi::FetchV2OpArgumentMapping);
