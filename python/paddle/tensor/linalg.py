@@ -211,7 +211,7 @@ def matrix_transpose(
             >>> x = paddle.ones(shape=[2, 3, 5])
             >>> x_transposed = paddle.matrix_transpose(x)
             >>> print(x_transposed.shape)
-            (2, 5, 3)
+            [2, 5, 3]
     """
     if len(x.shape) < 2:
         raise ValueError(
