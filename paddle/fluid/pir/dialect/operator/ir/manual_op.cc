@@ -3122,17 +3122,10 @@ bool AssignArrayOp::InferSymbolicShape(
       infer_context->GetShapeOrDataForValue(x())
           .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
   const std::vector<symbol::DimExpr> x_shape = x_shape_or_data.GetShapeHint();
-  std::vector<symbol::DimExpr> out_shape = [&]() {
-    std::vector<symbol::DimExpr> out_shape;
-    for (size_t i = 0; i < x_shape.size(); ++i) {
-      out_shape.push_back(infer_context->GetNextSymName());
-    }
-    return out_shape;
-  }();
   infer_context->SetShapeOrDataForValue(
       out(),
       symbol::ShapeOrDataDimExprs{
-          symbol::RankedTensorArrayShapeOrDataDimExprs(out_shape)});
+          symbol::RankedTensorArrayShapeOrDataDimExprs(x_shape)});
   return true;
 }
 
@@ -3239,17 +3232,10 @@ bool AssignArray_Op::InferSymbolicShape(
       infer_context->GetShapeOrDataForValue(x())
           .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
   const std::vector<symbol::DimExpr> x_shape = x_shape_or_data.GetShapeHint();
-  std::vector<symbol::DimExpr> out_shape = [&]() {
-    std::vector<symbol::DimExpr> out_shape;
-    for (size_t i = 0; i < x_shape.size(); ++i) {
-      out_shape.push_back(infer_context->GetNextSymName());
-    }
-    return out_shape;
-  }();
   infer_context->SetShapeOrDataForValue(
       out(),
       symbol::ShapeOrDataDimExprs{
-          symbol::RankedTensorArrayShapeOrDataDimExprs(out_shape)});
+          symbol::RankedTensorArrayShapeOrDataDimExprs(x_shape)});
   return true;
 }
 
