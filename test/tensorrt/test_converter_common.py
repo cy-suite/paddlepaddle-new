@@ -166,7 +166,7 @@ class TestBilinearOutSizeTRTPattern(TensorRTBaseTest):
         self.python_api = bilinear_python_api
         self.api_args = {
             "x": np.random.random([2, 3, 6, 10]).astype("float32"),
-            "OutSize": np.array([12, 12], dtype="int64"),
+            "OutSize": np.array([12, 12], dtype="int32"),
             "SizeTensor": None,
             "Scale": None,
             "attrs": {
