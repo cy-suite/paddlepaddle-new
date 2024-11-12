@@ -132,6 +132,10 @@ private:
         ptrs[i] = ptr;
       }
     }
+    int64_t device_id = dev_ctx.GetPlace().GetDeviceId();
+    distributed::BarrierOptions opts{};
+    opts.device_id = device_id;
+    this->tp_group->Barrier(opts)->Wait();
   }
 
   size_t calc_size(const std::vector<int64_t>& shape) {
@@ -331,6 +335,12 @@ int32_t local_rank;
         this->barrier_ptrs[i] = (FlagType *)nullptr;
       }
     }
+#if 0
+  int64_t device_id = dev_ctx.GetPlace().GetDeviceId();
+  distributed::BarrierOptions opts{};
+  opts.device_id = device_id;
+  this->tp_group->Barrier(opts)->Wait();
+#endif
 
     // copy stream
     this->num_cp_streams = 1;
@@ -359,15 +369,13 @@ int32_t local_rank;
     // this->sync_buffers =
     //     cudaipc_create_tensor_list<int32_t>({this->world_size});
     phi::funcs::SetConstant<GPUContext, int32_t> set_functor;
+#if 0
     set_functor(this->dev_ctx, &this->sync_buffers[this->rank], 0);
+#endif
     for(size_t i=0;i<this->sync_buffers.size();i++) {
       this->sync_buffer_ptrs[i] = static_cast<int32_t *>(this->sync_buffers[i].data());
     }
 #endif
-  int64_t device_id = dev_ctx.GetPlace().GetDeviceId();
-  distributed::BarrierOptions opts{};
-  opts.device_id = device_id;
-  this->tp_group->Barrier(opts)->Wait();
   }
 
   void
