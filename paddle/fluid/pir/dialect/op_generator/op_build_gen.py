@@ -322,7 +322,9 @@ def GenBuildInputs(op_input_name_list, op_mutable_attribute_name_list):
 
 
 def GenBuildAttributes(
-    op_non_mutable_attribute_name_list, op_non_mutable_attribute_type_list
+    op_non_mutable_attribute_name_list,
+    op_non_mutable_attribute_type_list,
+    attr_args_is_map=False,
 ):
     INTARRAY_STR_TEMPLATE = """  pir::Attribute attr_{attr_name} = {op_attribute_type}::get(pir::IrContext::Instance(), phi::IntArray({attr}));
 """
@@ -403,6 +405,9 @@ def GenBuildAttributes(
             )
         attr_str += f"""  argument_attributes.insert({{"{op_non_mutable_attribute_name_list[idx]}", attr_{op_non_mutable_attribute_name_list[idx]}}});\n"""
 
+    attr_str += """  for (const auto& [attr_name, attr] : attributes) {
+    argument_attributes.insert({attr_name, attr});
+  }"""
     return attr_str
 
 
@@ -832,6 +837,7 @@ def gen_build_func_str(
     build_attributes_str = GenBuildAttributes(
         op_non_mutable_attribute_name_list,
         op_non_mutable_attribute_type_list,
+        attr_args_is_map,
     )
     build_outputs_str = f"""
   std::vector<pir::Type> argument_outputs = {op_info.class_name}::InferMeta(argument_inputs, &argument_attributes);
