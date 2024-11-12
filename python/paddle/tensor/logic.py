@@ -1476,7 +1476,7 @@ def positive(x: Tensor) -> Tensor:
 
     Returns:
         Tensor: A tensor with the same shape and data type as the input tensor. The returned tensor
-                is the same in dynamic mode and a clone in static mode.
+                is the same.
 
     Examples:
         .. code-block:: python
