@@ -27,7 +27,7 @@ from paddle.tensorrt.converter_utils import (
     get_shape_tensor_element,
     has_dynamic_shape,
     trt_concat,
-    trt_expend,
+    trt_expand,
     trt_floor_div,
     trt_less,
     trt_max,
@@ -246,7 +246,7 @@ def expand_converter(network, paddle_op, inputs):
     else:
         shape_tensor = inputs[1]
         shape_rank = shape_tensor.shape[0]
-    return trt_expend(network, input, rank, shape_tensor, shape_rank)
+    return trt_expand(network, input, rank, shape_tensor, shape_rank)
 
 
 @converter_registry.register("pd_op.expand_as", trt_version="8.x")
@@ -264,7 +264,7 @@ def expand_as_converter(network, paddle_op, inputs):
         shape = paddle_op.attrs().get("target_shape")
         shape_tensor = add_1D_constant_layer(network, shape)
         shape_rank = len(shape)
-    return trt_expend(network, input, rank, shape_tensor, shape_rank)
+    return trt_expand(network, input, rank, shape_tensor, shape_rank)
 
 
 @converter_registry.register("pd_op.cast", trt_version="8.x")
