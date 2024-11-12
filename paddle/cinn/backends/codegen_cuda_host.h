@@ -18,8 +18,6 @@
 #include "paddle/cinn/backends/codegen_invoke_module.h"
 #include "paddle/cinn/runtime/intrinsic.h"
 
-PD_DECLARE_bool(cinn_bucket_compile);
-
 namespace cinn {
 namespace backends {
 
@@ -36,10 +34,7 @@ class CodeGenGpuHost : public CodeGenHost {
 
   // TODO(Hongqing-work): remove this after we clear some old codes.
   llvm::Value *Visit(const ir::_LoweredFunc_ *func) {
-    if (FLAGS_cinn_bucket_compile) {
-      return CodeGenHost::Visit(func);
-    }
-    return LowerGPUKernelLauncher(func);
+    return CodeGenHost::Visit(func);
   }
 
   llvm::Value *Visit(const ir::Call *op) override {
@@ -77,8 +72,6 @@ class CodeGenGpuHost : public CodeGenHost {
    * external function.
    *
    */
-  llvm::Value *LowerGPUKernelLauncher(const ir::_LoweredFunc_ *func);
-
   llvm::Value *LowerGPUKernelCall(const ir::Call *op);
 };
 
