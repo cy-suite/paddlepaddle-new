@@ -394,7 +394,6 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
 
   // get code & disable_eval_frame
   if (need_skip(frame)) {
-    printf("[_custom_eval_frame] skip frame\n");
     Py_INCREF(Py_None);
     code = Py_None;
     Py_INCREF(Py_False);
@@ -402,17 +401,17 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
   } else {
     /* should calculate guards here if we want */
 #if PY_3_11_PLUS
-    PyInterpreterFrameProxy *frame_ = PyInterpreterFrameProxy_New(frame);
-    if (frame_ == NULL) {
+    PyInterpreterFrameProxy *frame_proxy = PyInterpreterFrameProxy_New(frame);
+    if (frame_proxy == NULL) {
 #if PY_3_13_PLUS
       Py_DECREF(f_locals);
 #endif
       return NULL;
     }
 #if PY_3_13_PLUS
-    frame_->locals = f_locals;
+    frame_proxy->locals = f_locals;
 #endif
-    PyObject *args = Py_BuildValue("(O)", frame_);
+    PyObject *args = Py_BuildValue("(O)", frame_proxy);
 #else
     PyObject *args = Py_BuildValue("(O)", frame);
 #endif
@@ -420,7 +419,6 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
     Py_DECREF(args);
     if (result == NULL) {
 #if PY_3_12_PLUS
-      printf("[_custom_eval_frame] result is NULL\n");
 #if PY_3_13_PLUS
       Py_DECREF(f_locals);
       Internal_PyEval_FrameClearAndPop(tstate, frame);
@@ -430,8 +428,6 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
 #endif
       return NULL;
     }
-    printf("[_custom_eval_frame] result: %s\n",
-           PyUnicode_AsUTF8(PyObject_Repr(result)));
     code = PyObject_GetAttrString(result, "code");
     disable_eval_frame = PyObject_GetAttrString(result, "disable_eval_frame");
     Py_DECREF(result);
