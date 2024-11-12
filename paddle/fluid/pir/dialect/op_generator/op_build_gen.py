@@ -405,9 +405,8 @@ def GenBuildAttributes(
             )
         attr_str += f"""  argument_attributes.insert({{"{op_non_mutable_attribute_name_list[idx]}", attr_{op_non_mutable_attribute_name_list[idx]}}});\n"""
 
-    attr_str += """  for (const auto& [attr_name, attr] : attributes) {
-    argument_attributes.insert({attr_name, attr});
-  }"""
+    if attr_args_is_map:
+        attr_str += """  for (auto it = attributes.begin(); it != attributes.end(); ++it) {\n    argument_attributes.insert({it->first, it->second});\n  }"""
     return attr_str
 
 
