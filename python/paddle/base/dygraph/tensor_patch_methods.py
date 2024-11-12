@@ -1002,7 +1002,11 @@ def monkey_patch_tensor():
     def pre_deal_index(self, item):
         # since in pybind there is no efficiency way to transfer Py_Tuple/Py_List/Py_Range to Tensor
         # we call this function in python level.
-        item = list(item) if isinstance(item, tuple) else [item]
+        if isinstance(item, tuple):
+            item = list(item)
+        elif not isinstance(item, list):
+            item = [item]
+
         for i, slice_item in enumerate(item):
             if isinstance(slice_item, (list, np.ndarray, tuple)):
                 item[i] = paddle.to_tensor(slice_item)

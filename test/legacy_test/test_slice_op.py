@@ -19,6 +19,7 @@ import gradient_checker
 import numpy as np
 from decorator_helper import prog_scope
 from op_test import OpTest, convert_float_to_uint16, paddle_static_guard
+from utils import dygraph_guard
 
 import paddle
 from paddle import base
@@ -913,6 +914,27 @@ class TestSliceApiEager(unittest.TestCase):
             np.testing.assert_allclose(
                 a_1.numpy(), a[-3:3, 0:2, 2:4], rtol=1e-05
             )
+
+    def test_slice_api_with_tuple_or_list_item(self):
+        with dygraph_guard():
+            x = paddle.rand(shape=[4, 5, 6], dtype='float32')
+
+            # slices nested in tuple
+            tuple_slices = (
+                slice(None, None, None),
+                slice(0, 2, None),
+                slice(2, -1, None),
+            )
+            out_1 = x[tuple_slices]
+
+            # slices nested in list
+            list_slices = list(tuple_slices)
+            out_2 = x[list_slices]
+
+            out_ref = x.numpy()[tuple_slices]
+
+            np.testing.assert_allclose(out_1.numpy(), out_ref)
+            np.testing.assert_allclose(out_2.numpy(), out_ref)
 
 
 class TestSliceApiWithDenseTensorArray(unittest.TestCase):
