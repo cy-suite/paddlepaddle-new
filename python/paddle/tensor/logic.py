@@ -1472,9 +1472,8 @@ def positive(x: Tensor) -> Tensor:
         Out = +X
 
     Args:
-        x (Tensor): The input tensor. It must be a tensor with one of the following data types:
-                    float16, float32, float64, int32, or int64.
-                    The tensor cannot be of type bool.
+        x (Tensor): The input tensor. The tensor cannot be of type bool.
+
     Returns:
         Tensor: A tensor with the same shape and data type as the input tensor. The returned tensor
                 is the same in dynamic mode and a clone in static mode.
@@ -1492,7 +1491,7 @@ def positive(x: Tensor) -> Tensor:
 
     # Check if the input tensor is of bool type and raise an error
     if x.dtype == paddle.bool:
-        raise ValueError("The `+` operator, on a bool tensor is not supported.")
+        raise TypeError("The `+` operator, on a bool tensor is not supported.")
     return x
 
 
