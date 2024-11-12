@@ -193,27 +193,26 @@ def matrix_transpose(
     name: str | None = None,
 ) -> paddle.Tensor:
     """
+        Transpose the last two dimensions of the input tensor `x`.
 
+        Note:
+            If `n` is the number of dimensions of `x`, `paddle.matrix_transpose(x)` is equivalent to `x.transpose([0, 1, ..., n-2, n-1])`.
 
-    Transpose the input tensor by reversing its last two dimensions.
+        Args:
+            x (Tensor): The input tensor to be transposed. `x` must be an N-dimensional tensor (N >= 2) of any data type supported by Paddle.
 
-    If `n` is the number of dimensions of `x`, `paddle.matrix_transpose(x)` is equivalent to `x.transpose([0, 1, ..., n-2, n-1])`.
+        Returns:
+            Tensor: A new tensor with the same shape as `x`, except that the last two dimensions are transposed.
 
-    Examples:
-        .. code-block:: python
+        Examples:
+            .. code-block:: python
 
-            >>> import paddle
-            >>> paddle.enable_static()
+                >>> import paddle
 
-            >>> x = paddle.ones(shape=[2, 3, 5])
-            >>> x_transposed = paddle.matrix_transpose(x)
-
-            >>> exe = paddle.static.Executor()
-            >>> x_transposed_np = exe.run(paddle.static.default_main_program(), fetch_list=[x_transposed])[0]
-            >>> print(x_transposed_np.shape)
-            (2, 5, 3)
-
-
+                >>> x = paddle.ones(shape=[2, 3, 5])
+                >>> x_transposed = paddle.matrix_transpose(x)
+                >>> print(x_transposed.shape)
+                (2, 5, 3)
     """
     if len(x.shape) < 2:
         raise ValueError(
