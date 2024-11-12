@@ -117,6 +117,7 @@ static std::vector<CutlassTileConfig> get_candidate_tiles(
   std::vector<CutlassTileConfig> square_configs{
       CutlassTileConfig::CtaShape32x128x64_WarpShape32x32x64,
       CutlassTileConfig::CtaShape64x128x64_WarpShape32x64x64,
+      CutlassTileConfig::CtaShape128x128x64_WarpShape64x32x64,
   };
   std::vector<CutlassTileConfig> quant_B_configs_sm70{
       CutlassTileConfig::CtaShape32x128x64_WarpShape32x32x64,
@@ -244,6 +245,19 @@ static CutlassGemmConfig estimate_best_config_from_occupancies(
                           }) != candidate_configs.end()) {
     best_config = CutlassGemmConfig{
         CutlassTileConfig::CtaShape128x256x64_WarpShape64x64x64,
+        SplitKStyle::NO_SPLIT_K,
+        1,
+        5};
+  } else if (m >= 128 && sm == 80 && group_size <= 0 &&
+              std::find_if(candidate_configs.begin(),
+                          candidate_configs.end(),
+                          [](const CutlassGemmConfig& gemm_config) {
+                            return gemm_config.tile_config ==
+                                   CutlassTileConfig::
+                                       CtaShape128x128x64_WarpShape64x32x64;
+                          }) != candidate_configs.end()) {
+    best_config = CutlassGemmConfig{
+        CutlassTileConfig::CtaShape128x128x64_WarpShape64x32x64,
         SplitKStyle::NO_SPLIT_K,
         1,
         5};
