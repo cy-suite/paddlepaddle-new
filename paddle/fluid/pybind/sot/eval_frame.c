@@ -73,7 +73,6 @@ DECLARE_PROXY_PROPERTY(f_code)
 #if PY_3_13_PLUS
 static PyObject *PyInterpreterFrameProxy_property_f_locals(
     PyInterpreterFrameProxy *self, void *closure) {
-  // PyObject *f_locals = Internal_PyFrame_GetLocals(self->frame);
   Py_XINCREF(self->locals);
   return self->locals;
 }
