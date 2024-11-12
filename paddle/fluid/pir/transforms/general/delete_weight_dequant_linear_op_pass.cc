@@ -43,15 +43,15 @@ class DeleteWeightDequantLinearOpPattern : public paddle::drr::DrrPatternBase {
     const auto& dequantize_linear_op =
         pat.Op(paddle::dialect::DequantizeLinearOp::name());
 
-    dequantize_linear_op({&pat.Tensor("weight"),
-                          &pat.Tensor("scale"),
-                          &pat.Tensor("dezero_point"),
-                          &pat.InputNoneTensor(),
-                          &pat.InputNoneTensor()},
-                         {&pat.Tensor("dequantize_linear_out"),
-                          &pat.OutputNoneTensor(),
-                          &pat.OutputNoneTensor(),
-                          &pat.OutputNoneTensor()});
+    dequantize_linear_op({pat.Tensor("weight"),
+                          pat.Tensor("scale"),
+                          pat.Tensor("dezero_point"),
+                          pat.InputNoneTensor(),
+                          pat.InputNoneTensor()},
+                         {pat.Tensor("dequantize_linear_out"),
+                          pat.OutputNoneTensor(),
+                          pat.OutputNoneTensor(),
+                          pat.OutputNoneTensor()});
 
     pat.AddConstraint([this](const paddle::drr::MatchContext& match_ctx) {
       if (!pir::ValueIsPersistable(match_ctx.Tensor("weight"))) {
@@ -175,7 +175,7 @@ class DeleteWeightDequantLinearOpPattern : public paddle::drr::DrrPatternBase {
     });
 
     paddle::drr::ResultPattern res = pat.ResultPattern();
-    res.Tensor("dequantize_linear_out").Assign(res.Tensor("weight"));
+    res.Tensor("dequantize_linear_out")->Assign(res.Tensor("weight"));
   }
 
  private:

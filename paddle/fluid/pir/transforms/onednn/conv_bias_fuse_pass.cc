@@ -53,8 +53,7 @@ class ConvBiasFusePattern : public paddle::drr::DrrPatternBase {
                 {"data_format", pat.Attr("data_format")}});
 
     const auto &add = pat.Op(paddle::dialect::AddOp::name());
-    conv({&pat.Tensor("input"), &pat.Tensor("filter")},
-         {&pat.Tensor("conv_out")});
+    conv({pat.Tensor("input"), pat.Tensor("filter")}, {pat.Tensor("conv_out")});
 
     pat.Tensor("add_out") = add(pat.Tensor("conv_out"), pat.Tensor("bias"));
 
@@ -134,11 +133,11 @@ class ConvBiasFusePattern : public paddle::drr::DrrPatternBase {
                    {"scale_weights", res.VectorFloatAttr({1.0f})},
                }});
 
-    fused_conv({&res.Tensor("input"),
-                &res.Tensor("filter"),
-                &res.Tensor("bias"),
-                &res.InputNoneTensor()},
-               {&res.Tensor("add_out")});
+    fused_conv({res.Tensor("input"),
+                res.Tensor("filter"),
+                res.Tensor("bias"),
+                res.InputNoneTensor()},
+               {res.Tensor("add_out")});
   }
 };
 
@@ -161,10 +160,8 @@ class ConvTransposeBiasFusePattern : public paddle::drr::DrrPatternBase {
                 {"data_format", pat.Attr("data_format")}});
 
     const auto &add = pat.Op(paddle::dialect::AddOp::name());
-    conv({&pat.Tensor("input"),
-          &pat.Tensor("filter"),
-          &pat.Tensor("output_size")},
-         {&pat.Tensor("conv_out")});
+    conv({pat.Tensor("input"), pat.Tensor("filter"), pat.Tensor("output_size")},
+         {pat.Tensor("conv_out")});
 
     pat.Tensor("add_out") = add(pat.Tensor("conv_out"), pat.Tensor("bias"));
 
@@ -211,11 +208,11 @@ class ConvTransposeBiasFusePattern : public paddle::drr::DrrPatternBase {
                    {"is_test", res.BoolAttr(true)},
                }});
 
-    fused_conv({&res.Tensor("input"),
-                &res.Tensor("filter"),
-                &res.Tensor("bias"),
-                &res.Tensor("output_size")},
-               {&res.Tensor("add_out")});
+    fused_conv({res.Tensor("input"),
+                res.Tensor("filter"),
+                res.Tensor("bias"),
+                res.Tensor("output_size")},
+               {res.Tensor("add_out")});
   }
 };
 
@@ -247,11 +244,11 @@ class FusedConvTransposeAddFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &add = pat.Op(paddle::dialect::AddOp::name());
 
-    conv({&pat.Tensor("input"),
-          &pat.Tensor("filter"),
-          &pat.Tensor("bias"),
-          &pat.Tensor("output_size")},
-         {&pat.Tensor("conv_out")});
+    conv({pat.Tensor("input"),
+          pat.Tensor("filter"),
+          pat.Tensor("bias"),
+          pat.Tensor("output_size")},
+         {pat.Tensor("conv_out")});
 
     pat.Tensor("result") =
         add(pat.Tensor("conv_out"), pat.Tensor("other_param"));
@@ -305,11 +302,11 @@ class FusedConvTransposeAddFusePattern : public paddle::drr::DrrPatternBase {
                    {"is_test", pat.Attr("is_test")},
                }});
 
-    fused_conv({&res.Tensor("input"),
-                &res.Tensor("filter"),
-                &res.Tensor("bias2"),
-                &res.Tensor("output_size")},
-               {&res.Tensor("result")});
+    fused_conv({res.Tensor("input"),
+                res.Tensor("filter"),
+                res.Tensor("bias2"),
+                res.Tensor("output_size")},
+               {res.Tensor("result")});
   }
 };
 

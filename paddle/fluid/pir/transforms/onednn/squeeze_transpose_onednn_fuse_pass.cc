@@ -38,12 +38,12 @@ class SqueezeTransposePattern : public paddle::drr::DrrPatternBase {
     const auto &full_1 = pat.Op(paddle::dialect::FullIntArrayOp::name(),
                                 {{"value", pat.Attr("full_1_value")}});
 
-    squeeze({&pat.Tensor("x"), &full_1()}, {&pat.Tensor("squeeze_out")});
+    squeeze({pat.Tensor("x"), full_1()}, {pat.Tensor("squeeze_out")});
 
     const auto &transpose = pat.Op(paddle::dialect::TransposeOp::name(),
                                    {{"perm", pat.Attr("perm")}});
 
-    transpose({&pat.Tensor("squeeze_out")}, {&pat.Tensor("transpose_op_out")});
+    transpose({pat.Tensor("squeeze_out")}, {pat.Tensor("transpose_op_out")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       auto axis = match_ctx.Attr<std::vector<int64_t>>("full_1_value");
@@ -78,7 +78,7 @@ class SqueezeTransposePattern : public paddle::drr::DrrPatternBase {
                    {"data_format", res.StrAttr("AnyLayout")},
                    {"mkldnn_data_type", res.StrAttr("float32")},
                }});
-    fused_transpose({&res.Tensor("x")}, {&res.Tensor("transpose_op_out")});
+    fused_transpose({res.Tensor("x")}, {res.Tensor("transpose_op_out")});
   }
 };
 

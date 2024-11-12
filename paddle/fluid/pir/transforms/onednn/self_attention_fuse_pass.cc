@@ -151,7 +151,7 @@ class SelfAttentionFusePattern : public paddle::drr::DrrPatternBase {
         self_attn_name_,
         {{"alpha", res.Float32Attr(1.0f)}, {"head_number", head_number_attr}});
 
-    self_dp_attention({&res.Tensor("input")}, {&res.Tensor("transpose_2_out")});
+    self_dp_attention({res.Tensor("input")}, {res.Tensor("transpose_2_out")});
   }
 };
 

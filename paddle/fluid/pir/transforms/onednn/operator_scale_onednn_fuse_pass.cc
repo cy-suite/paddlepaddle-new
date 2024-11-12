@@ -119,10 +119,10 @@ class OperatorScaleFusePattern : public paddle::drr::DrrPatternBase {
                }});
     if (fusable_ops_ == paddle::onednn::dialect::FcOp::name() ||
         fusable_ops_ == paddle::onednn::dialect::FusedMatmulOp::name()) {
-      op({&pat.Tensor("X"), &pat.Tensor("Y"), &pat.Tensor("Input3")},
-         {&pat.Tensor("Out")});
+      op({pat.Tensor("X"), pat.Tensor("Y"), pat.Tensor("Input3")},
+         {pat.Tensor("Out")});
     } else {
-      op({&pat.Tensor("X"), &pat.Tensor("Y")}, {&pat.Tensor("Out")});
+      op({pat.Tensor("X"), pat.Tensor("Y")}, {pat.Tensor("Out")});
     }
 
     pat.Tensor("Scale_out") = scale(pat.Tensor("Out"), pat.Tensor("Scale"));
@@ -260,14 +260,13 @@ class OperatorScaleFusePattern : public paddle::drr::DrrPatternBase {
     const auto &fused_op = res.Op(fused_ops_name_, fused_op_attrs);
     if (fusable_ops_ == paddle::onednn::dialect::FcOp::name() ||
         fusable_ops_ == paddle::onednn::dialect::FusedMatmulOp::name()) {
-      fused_op({&res.Tensor("X"), &res.Tensor("Y"), &res.Tensor("Input3")},
-               {&res.Tensor("Scale_out")});
+      fused_op({res.Tensor("X"), res.Tensor("Y"), res.Tensor("Input3")},
+               {res.Tensor("Scale_out")});
     } else if (fusable_ops_ == paddle::dialect::MatmulOp::name()) {
-      fused_op({&res.Tensor("X"), &res.Tensor("Y"), &res.InputNoneTensor()},
-               {&res.Tensor("Scale_out")});
+      fused_op({res.Tensor("X"), res.Tensor("Y"), res.InputNoneTensor()},
+               {res.Tensor("Scale_out")});
     } else {
-      fused_op({&res.Tensor("X"), &res.Tensor("Y")},
-               {&res.Tensor("Scale_out")});
+      fused_op({res.Tensor("X"), res.Tensor("Y")}, {res.Tensor("Scale_out")});
     }
   }
 };

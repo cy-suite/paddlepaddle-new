@@ -73,11 +73,10 @@ class FCXpuFusePattern : public paddle::drr::DrrPatternBase {
                              {{"transpose_x", pat.Attr("transpose_x")},
                               {"transpose_y", pat.Attr("transpose_y")}});
 
-    mul({&pat.Tensor("x"), &pat.Tensor("w")}, {&pat.Tensor("mul_out")});
+    mul({pat.Tensor("x"), pat.Tensor("w")}, {pat.Tensor("mul_out")});
     if (with_bias_) {
       const auto &add = pat.Op(paddle::dialect::AddOp::name());
-      add({&pat.Tensor("mul_out"), &pat.Tensor("bias")},
-          {&pat.Tensor("add_out")});
+      add({pat.Tensor("mul_out"), pat.Tensor("bias")}, {pat.Tensor("add_out")});
     }
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       auto w_shape = pir::GetShapeFromValue(match_ctx.Tensor("w"));
@@ -192,17 +191,16 @@ class FCXpuFusePattern : public paddle::drr::DrrPatternBase {
                }});
     fc_xpu(
         {
-            &res.Tensor("x"),
-            &res.InputNoneTensor(),
-            w_transpose_ ? &res.Tensor("w_quant")
-                         : &res.Tensor("w_quant_trans"),
-            &res.Tensor("res_w_max"),
-            with_bias_ ? &res.Tensor("bias") : &res.InputNoneTensor(),
-            &res.InputNoneTensor(),
-            &res.InputNoneTensor(),
+            res.Tensor("x"),
+            res.InputNoneTensor(),
+            w_transpose_ ? res.Tensor("w_quant") : res.Tensor("w_quant_trans"),
+            res.Tensor("res_w_max"),
+            with_bias_ ? res.Tensor("bias") : res.InputNoneTensor(),
+            res.InputNoneTensor(),
+            res.InputNoneTensor(),
         },
-        {with_bias_ ? &res.Tensor("add_out") : &res.Tensor("mul_out"),
-         &res.Tensor("out_max")});
+        {with_bias_ ? res.Tensor("add_out") : res.Tensor("mul_out"),
+         res.Tensor("out_max")});
   }
 };
 

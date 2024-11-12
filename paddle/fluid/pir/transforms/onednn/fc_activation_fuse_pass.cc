@@ -104,8 +104,8 @@ class FusedFcActivationFusePattern : public paddle::drr::DrrPatternBase {
     }
 
     const auto &act = pat.Op(act_type_, act_attrs);
-    fc({&pat.Tensor("input"), &pat.Tensor("weight"), &pat.Tensor("bias")},
-       {&pat.Tensor("Out")});
+    fc({pat.Tensor("input"), pat.Tensor("weight"), pat.Tensor("bias")},
+       {pat.Tensor("Out")});
 
     pat.Tensor("act_out") = act(pat.Tensor("Out"));
 
@@ -161,8 +161,8 @@ class FusedFcActivationFusePattern : public paddle::drr::DrrPatternBase {
     const auto &fused_fc =
         res.Op(paddle::onednn::dialect::FcOp::name(), fused_attrs);
 
-    fused_fc({&res.Tensor("input"), &res.Tensor("weight"), &res.Tensor("bias")},
-             {&res.Tensor("act_out")});
+    fused_fc({res.Tensor("input"), res.Tensor("weight"), res.Tensor("bias")},
+             {res.Tensor("act_out")});
   }
 };
 
@@ -196,8 +196,8 @@ class FusedFcGeluTanhFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &act = pat.Op(paddle::dialect::GeluOp::name(),
                              {{"approximate", pat.Attr("approximate")}});
-    fc({&pat.Tensor("input"), &pat.Tensor("weight"), &pat.Tensor("bias")},
-       {&pat.Tensor("Out")});
+    fc({pat.Tensor("input"), pat.Tensor("weight"), pat.Tensor("bias")},
+       {pat.Tensor("Out")});
 
     pat.Tensor("act_out") = act(pat.Tensor("Out"));
 
@@ -234,8 +234,8 @@ class FusedFcGeluTanhFusePattern : public paddle::drr::DrrPatternBase {
     const auto &fused_fc =
         res.Op(paddle::onednn::dialect::FcOp::name(), fused_attrs);
 
-    fused_fc({&res.Tensor("input"), &res.Tensor("weight"), &res.Tensor("bias")},
-             {&res.Tensor("act_out")});
+    fused_fc({res.Tensor("input"), res.Tensor("weight"), res.Tensor("bias")},
+             {res.Tensor("act_out")});
   }
 };
 
@@ -280,8 +280,8 @@ class FusedFcClipFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &act = inplace_ ? pat.Op(paddle::dialect::Clip_Op::name())
                                : pat.Op(paddle::dialect::ClipOp::name());
-    fc({&pat.Tensor("input"), &pat.Tensor("weight"), &pat.Tensor("bias")},
-       {&pat.Tensor("Out")});
+    fc({pat.Tensor("input"), pat.Tensor("weight"), pat.Tensor("bias")},
+       {pat.Tensor("Out")});
 
     pat.Tensor("act_out") =
         act(pat.Tensor("Out"), pat.Tensor("min"), pat.Tensor("max"));
@@ -322,8 +322,8 @@ class FusedFcClipFusePattern : public paddle::drr::DrrPatternBase {
     const auto &fused_fc =
         res.Op(paddle::onednn::dialect::FcOp::name(), fused_attrs);
 
-    fused_fc({&res.Tensor("input"), &res.Tensor("weight"), &res.Tensor("bias")},
-             {&res.Tensor("act_out")});
+    fused_fc({res.Tensor("input"), res.Tensor("weight"), res.Tensor("bias")},
+             {res.Tensor("act_out")});
   }
 };
 

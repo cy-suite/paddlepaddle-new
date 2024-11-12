@@ -40,17 +40,17 @@ class FusedBnAddActPattern : public paddle::drr::DrrPatternBase {
     const auto &add = pat.Op(paddle::dialect::AddOp::name());
     const auto &relu = pat.Op(paddle::dialect::ReluOp::name());
 
-    bn({&pat.Tensor("x"),
-        &pat.Tensor("mean"),
-        &pat.Tensor("variance"),
-        &pat.Tensor("scale"),
-        &pat.Tensor("bias")},
-       {&pat.Tensor("out"),
-        &pat.Tensor("mean_out"),
-        &pat.Tensor("variance_out"),
-        &pat.Tensor("saved_mean"),
-        &pat.Tensor("saved_variance"),
-        &pat.Tensor("reserve_space")});
+    bn({pat.Tensor("x"),
+        pat.Tensor("mean"),
+        pat.Tensor("variance"),
+        pat.Tensor("scale"),
+        pat.Tensor("bias")},
+       {pat.Tensor("out"),
+        pat.Tensor("mean_out"),
+        pat.Tensor("variance_out"),
+        pat.Tensor("saved_mean"),
+        pat.Tensor("saved_variance"),
+        pat.Tensor("reserve_space")});
     pat.Tensor("add_out") = add(pat.Tensor("out"), pat.Tensor("z"));
     pat.Tensor("relu_out") = relu(pat.Tensor("add_out"));
 
@@ -74,18 +74,18 @@ class FusedBnAddActPattern : public paddle::drr::DrrPatternBase {
                    {"epsilon", pat.Attr("epsilon")},
                    {"act_type", res.StrAttr("relu")},
                });
-    fused_bn_add_act({&res.Tensor("x"),
-                      &res.Tensor("z"),
-                      &res.Tensor("scale"),
-                      &res.Tensor("bias"),
-                      &res.Tensor("mean"),
-                      &res.Tensor("variance")},
-                     {&res.Tensor("relu_out"),
-                      &res.Tensor("mean_out"),
-                      &res.Tensor("variance_out"),
-                      &res.Tensor("saved_mean"),
-                      &res.Tensor("saved_variance"),
-                      &res.Tensor("reserve_space")});
+    fused_bn_add_act({res.Tensor("x"),
+                      res.Tensor("z"),
+                      res.Tensor("scale"),
+                      res.Tensor("bias"),
+                      res.Tensor("mean"),
+                      res.Tensor("variance")},
+                     {res.Tensor("relu_out"),
+                      res.Tensor("mean_out"),
+                      res.Tensor("variance_out"),
+                      res.Tensor("saved_mean"),
+                      res.Tensor("saved_variance"),
+                      res.Tensor("reserve_space")});
   }
 };
 
@@ -117,52 +117,52 @@ class FusedBnAddActGradPattern : public paddle::drr::DrrPatternBase {
                 {"data_format", pat.Attr("data_format")},
                 {"use_global_stats", pat.Attr("use_global_stats")},
                 {"trainable_statistics", pat.Attr("trainable_statistics")}});
-    bn({&pat.Tensor("x"),
-        &pat.Tensor("mean"),
-        &pat.Tensor("variance"),
-        &pat.Tensor("scale"),
-        &pat.Tensor("bias")},
-       {&pat.Tensor("out"),
-        &pat.Tensor("mean_out"),
-        &pat.Tensor("variance_out"),
-        &pat.Tensor("saved_mean"),
-        &pat.Tensor("saved_variance"),
-        &pat.Tensor("reserve_space")});
+    bn({pat.Tensor("x"),
+        pat.Tensor("mean"),
+        pat.Tensor("variance"),
+        pat.Tensor("scale"),
+        pat.Tensor("bias")},
+       {pat.Tensor("out"),
+        pat.Tensor("mean_out"),
+        pat.Tensor("variance_out"),
+        pat.Tensor("saved_mean"),
+        pat.Tensor("saved_variance"),
+        pat.Tensor("reserve_space")});
     pat.Tensor("add_out") = add(pat.Tensor("out"), pat.Tensor("z"));
     pat.Tensor("relu_out1") = relu(pat.Tensor("add_out"));
 
     relu_grad(
         {
-            &pat.Tensor("relu_out2"),
-            &pat.Tensor("relu_out_grad"),
+            pat.Tensor("relu_out2"),
+            pat.Tensor("relu_out_grad"),
         },
-        {&pat.Tensor("add_out_grad")});
+        {pat.Tensor("add_out_grad")});
     add_grad(
         {
-            &pat.Tensor("out"),
-            &pat.Tensor("z"),
-            &pat.Tensor("add_out_grad"),
+            pat.Tensor("out"),
+            pat.Tensor("z"),
+            pat.Tensor("add_out_grad"),
         },
         {
-            &pat.Tensor("out_grad"),
-            &pat.Tensor("z_grad"),
+            pat.Tensor("out_grad"),
+            pat.Tensor("z_grad"),
         });
     bn_grad(
         {
-            &pat.Tensor("x"),
-            &pat.Tensor("scale"),
-            &pat.Tensor("bias"),
-            &pat.Tensor("mean_out"),
-            &pat.Tensor("variance_out"),
-            &pat.Tensor("saved_mean"),
-            &pat.Tensor("saved_variance"),
-            &pat.Tensor("reserve_space"),
-            &pat.Tensor("out_grad"),
+            pat.Tensor("x"),
+            pat.Tensor("scale"),
+            pat.Tensor("bias"),
+            pat.Tensor("mean_out"),
+            pat.Tensor("variance_out"),
+            pat.Tensor("saved_mean"),
+            pat.Tensor("saved_variance"),
+            pat.Tensor("reserve_space"),
+            pat.Tensor("out_grad"),
         },
         {
-            &pat.Tensor("x_grad"),
-            &pat.Tensor("scale_grad"),
-            &pat.Tensor("bias_grad"),
+            pat.Tensor("x_grad"),
+            pat.Tensor("scale_grad"),
+            pat.Tensor("bias_grad"),
         });
 
     pat.AddConstraint([](const paddle::drr::MatchContext &match_ctx) -> bool {
@@ -195,31 +195,31 @@ class FusedBnAddActGradPattern : public paddle::drr::DrrPatternBase {
                    {"act_type", res.StrAttr("relu")},
                });
 
-    fused_bn_add_act({&res.Tensor("x"),
-                      &res.Tensor("z"),
-                      &res.Tensor("scale"),
-                      &res.Tensor("bias"),
-                      &res.Tensor("mean"),
-                      &res.Tensor("variance")},
-                     {&res.Tensor("relu_out1"),
-                      &res.Tensor("mean_out"),
-                      &res.Tensor("variance_out"),
-                      &res.Tensor("saved_mean"),
-                      &res.Tensor("saved_variance"),
-                      &res.Tensor("reserve_space")});
+    fused_bn_add_act({res.Tensor("x"),
+                      res.Tensor("z"),
+                      res.Tensor("scale"),
+                      res.Tensor("bias"),
+                      res.Tensor("mean"),
+                      res.Tensor("variance")},
+                     {res.Tensor("relu_out1"),
+                      res.Tensor("mean_out"),
+                      res.Tensor("variance_out"),
+                      res.Tensor("saved_mean"),
+                      res.Tensor("saved_variance"),
+                      res.Tensor("reserve_space")});
 
-    fused_bn_add_act_grad({&res.Tensor("x"),
-                           &res.Tensor("scale"),
-                           &res.Tensor("bias"),
-                           &res.Tensor("relu_out2"),
-                           &res.Tensor("saved_mean"),
-                           &res.Tensor("saved_variance"),
-                           &res.Tensor("reserve_space"),
-                           &res.Tensor("relu_out_grad")},
-                          {&res.Tensor("x_grad"),
-                           &res.Tensor("z_grad"),
-                           &res.Tensor("scale_grad"),
-                           &res.Tensor("bias_grad")});
+    fused_bn_add_act_grad({res.Tensor("x"),
+                           res.Tensor("scale"),
+                           res.Tensor("bias"),
+                           res.Tensor("relu_out2"),
+                           res.Tensor("saved_mean"),
+                           res.Tensor("saved_variance"),
+                           res.Tensor("reserve_space"),
+                           res.Tensor("relu_out_grad")},
+                          {res.Tensor("x_grad"),
+                           res.Tensor("z_grad"),
+                           res.Tensor("scale_grad"),
+                           res.Tensor("bias_grad")});
   }
 };
 

@@ -47,8 +47,8 @@ class DepthwiseConvPattern : public paddle::drr::DrrPatternBase {
                 {"groups", pat.Attr("groups")},
                 {"data_format", pat.Attr("data_format")}});
 
-    depthwise_conv({&pat.Tensor("input"), &pat.Tensor("filter")},
-                   {&pat.Tensor("conv_out")});
+    depthwise_conv({pat.Tensor("input"), pat.Tensor("filter")},
+                   {pat.Tensor("conv_out")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       std::set<std::string> padding_algorithm = {"EXPLICIT", "SAME", "VALID"};
@@ -75,8 +75,8 @@ class DepthwiseConvPattern : public paddle::drr::DrrPatternBase {
                    {"data_format", pat.Attr("data_format")},
                }});
 
-    conv2d({&res.Tensor("input"), &res.Tensor("filter")},
-           {&res.Tensor("conv_out")});
+    conv2d({res.Tensor("input"), res.Tensor("filter")},
+           {res.Tensor("conv_out")});
   }
 };
 

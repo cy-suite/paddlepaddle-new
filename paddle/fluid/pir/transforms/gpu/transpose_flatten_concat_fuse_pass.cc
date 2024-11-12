@@ -40,7 +40,7 @@ class NTransposeFlattenConcatFusePattern : public paddle::drr::DrrPatternBase {
 
   void operator()(paddle::drr::DrrPatternContext *ctx) const override {
     paddle::drr::SourcePattern pat = ctx->SourcePattern();
-    std::vector<const paddle::drr::Tensor *> combine_in;
+    std::vector<std::shared_ptr<paddle::drr::Tensor>> combine_in;
     for (size_t i = 0; i < transpose_flatten_count_; i++) {
       const auto &transpose_op =
           pat.Op(paddle::dialect::TransposeOp::name(),
@@ -49,19 +49,19 @@ class NTransposeFlattenConcatFusePattern : public paddle::drr::DrrPatternBase {
           pat.Op(paddle::dialect::FlattenOp::name(),
                  {{"start_axis", pat.Attr("start_axis_" + std::to_string(i))},
                   {"stop_axis", pat.Attr("stop_axis_" + std::to_string(i))}});
-      transpose_op({&pat.Tensor("transpose_in_" + std::to_string(i))},
-                   {&pat.Tensor("transpose_out_" + std::to_string(i))});
-      flatten_op({&pat.Tensor("transpose_out_" + std::to_string(i))},
-                 {&pat.Tensor("flatten_out_" + std::to_string(i))});
-      combine_in.push_back(&pat.Tensor("flatten_out_" + std::to_string(i)));
+      transpose_op({pat.Tensor("transpose_in_" + std::to_string(i))},
+                   {pat.Tensor("transpose_out_" + std::to_string(i))});
+      flatten_op({pat.Tensor("transpose_out_" + std::to_string(i))},
+                 {pat.Tensor("flatten_out_" + std::to_string(i))});
+      combine_in.push_back(pat.Tensor("flatten_out_" + std::to_string(i)));
     }
     const auto &combine_op = pat.Op(pir::CombineOp::name());
     const auto &full_op = pat.Op(paddle::dialect::FullOp::name(),
                                  {{"value", pat.Attr("full_value")}});
     const auto &concat_op = pat.Op(paddle::dialect::ConcatOp::name());
-    combine_op(combine_in, {&pat.Tensor("combine_out")});
-    concat_op({&pat.Tensor("combine_out"), &full_op()},
-              {&pat.Tensor("concat_out")});
+    combine_op(combine_in, {pat.Tensor("combine_out")});
+    concat_op({pat.Tensor("combine_out"), full_op()},
+              {pat.Tensor("concat_out")});
     pat.AddConstraint([this](
                           const paddle::drr::MatchContext &match_ctx) -> bool {
       auto flatten_out_shape_0 =
@@ -130,14 +130,14 @@ class NTransposeFlattenConcatFusePattern : public paddle::drr::DrrPatternBase {
                    {"flatten_axis", res_flatten_axis},
                    {"concat_axis", res_concat_axis},
                });
-    std::vector<const paddle::drr::Tensor *> x_in;
+    std::vector<std::shared_ptr<paddle::drr::Tensor>> x_in;
     for (size_t i = 0; i < transpose_flatten_count_; i++) {
-      x_in.push_back(&res.Tensor("transpose_in_" + std::to_string(i)));
+      x_in.push_back(res.Tensor("transpose_in_" + std::to_string(i)));
     }
     const auto &combine_2 = res.Op(pir::CombineOp::name());
-    combine_2(x_in, {&res.Tensor("combine_2_out")});
-    fusion_transpose_flatten_concat_op({&res.Tensor("combine_2_out")},
-                                       {&res.Tensor("concat_out")});
+    combine_2(x_in, {res.Tensor("combine_2_out")});
+    fusion_transpose_flatten_concat_op({res.Tensor("combine_2_out")},
+                                       {res.Tensor("concat_out")});
   }
 };
 

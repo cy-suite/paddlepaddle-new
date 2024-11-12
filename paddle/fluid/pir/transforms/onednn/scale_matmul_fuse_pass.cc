@@ -54,18 +54,18 @@ class ScaleMatmulFusePattern : public paddle::drr::DrrPatternBase {
         pat.Op(paddle::dialect::ScaleOp::name(),
                {{"bias", pat.Attr("bias")},
                 {"bias_after_scale", pat.Attr("bias_after_scale")}});
-    scale({&pat.Tensor("scale_in"), &pat.Tensor("scale")},
-          {&pat.Tensor("scale_out")});
+    scale({pat.Tensor("scale_in"), pat.Tensor("scale")},
+          {pat.Tensor("scale_out")});
 
     const auto &matmul = pat.Op(matmul_name_,
                                 {{"transpose_x", pat.Attr("transpose_x")},
                                  {"transpose_y", pat.Attr("transpose_y")}});
     if (as_x_) {
-      matmul({&pat.Tensor("scale_out"), &pat.Tensor("other")},
-             {&pat.Tensor("Out")});
+      matmul({pat.Tensor("scale_out"), pat.Tensor("other")},
+             {pat.Tensor("Out")});
     } else {
-      matmul({&pat.Tensor("other"), &pat.Tensor("scale_out")},
-             {&pat.Tensor("Out")});
+      matmul({pat.Tensor("other"), pat.Tensor("scale_out")},
+             {pat.Tensor("Out")});
     }
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
@@ -110,15 +110,13 @@ class ScaleMatmulFusePattern : public paddle::drr::DrrPatternBase {
     const auto &fused_matmul = res.Op(fused_matmul_name_, fused_attrs);
 
     if (as_x_) {
-      fused_matmul({&res.Tensor("scale_in"),
-                    &res.Tensor("other"),
-                    &res.InputNoneTensor()},
-                   {&res.Tensor("Out")});
+      fused_matmul(
+          {res.Tensor("scale_in"), res.Tensor("other"), res.InputNoneTensor()},
+          {res.Tensor("Out")});
     } else {
-      fused_matmul({&res.Tensor("other"),
-                    &res.Tensor("scale_in"),
-                    &res.InputNoneTensor()},
-                   {&res.Tensor("Out")});
+      fused_matmul(
+          {res.Tensor("other"), res.Tensor("scale_in"), res.InputNoneTensor()},
+          {res.Tensor("Out")});
     }
   }
 };
@@ -155,8 +153,8 @@ class ScaleFusedMatmulFusePattern : public paddle::drr::DrrPatternBase {
         pat.Op(paddle::dialect::ScaleOp::name(),
                {{"bias", pat.Attr("bias")},
                 {"bias_after_scale", pat.Attr("bias_after_scale")}});
-    scale({&pat.Tensor("scale_in"), &pat.Tensor("scale")},
-          {&pat.Tensor("scale_out")});
+    scale({pat.Tensor("scale_in"), pat.Tensor("scale")},
+          {pat.Tensor("scale_out")});
 
     const auto &matmul =
         pat.Op(matmul_name_,
@@ -180,15 +178,15 @@ class ScaleFusedMatmulFusePattern : public paddle::drr::DrrPatternBase {
                 {"scale_out", pat.Attr("scale_out")},
                 {"force_fp32_output", pat.Attr("force_fp32_output")}});
     if (as_x_) {
-      matmul({&pat.Tensor("scale_out"),
-              &pat.Tensor("other"),
-              &pat.Tensor("residual")},
-             {&pat.Tensor("Out")});
+      matmul({pat.Tensor("scale_out"),
+              pat.Tensor("other"),
+              pat.Tensor("residual")},
+             {pat.Tensor("Out")});
     } else {
-      matmul({&pat.Tensor("other"),
-              &pat.Tensor("scale_out"),
-              &pat.Tensor("residual")},
-             {&pat.Tensor("Out")});
+      matmul({pat.Tensor("other"),
+              pat.Tensor("scale_out"),
+              pat.Tensor("residual")},
+             {pat.Tensor("Out")});
     }
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
@@ -236,15 +234,13 @@ class ScaleFusedMatmulFusePattern : public paddle::drr::DrrPatternBase {
     const auto &fused_matmul = res.Op(fused_matmul_name_, fused_attrs);
 
     if (as_x_) {
-      fused_matmul({&res.Tensor("scale_in"),
-                    &res.Tensor("other"),
-                    &res.Tensor("residual")},
-                   {&res.Tensor("Out")});
+      fused_matmul(
+          {res.Tensor("scale_in"), res.Tensor("other"), res.Tensor("residual")},
+          {res.Tensor("Out")});
     } else {
-      fused_matmul({&res.Tensor("other"),
-                    &res.Tensor("scale_in"),
-                    &res.Tensor("residual")},
-                   {&res.Tensor("Out")});
+      fused_matmul(
+          {res.Tensor("other"), res.Tensor("scale_in"), res.Tensor("residual")},
+          {res.Tensor("Out")});
     }
   }
 };

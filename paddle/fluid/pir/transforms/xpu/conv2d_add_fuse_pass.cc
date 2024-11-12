@@ -75,8 +75,8 @@ class Conv2dAddXpuFusePattern : public paddle::drr::DrrPatternBase {
                 {"dilations", pat.Attr("dilations")},
                 {"groups", pat.Attr("groups")},
                 {"data_format", pat.Attr("data_format")}});
-    conv2d({&pat.Tensor("input"), &pat.Tensor("filter")},
-           {&pat.Tensor("conv2d_out")});
+    conv2d({pat.Tensor("input"), pat.Tensor("filter")},
+           {pat.Tensor("conv2d_out")});
     // add
     const auto &add = pat.Op(paddle::dialect::AddOp::name());
     pat.Tensor("add_out") = add(pat.Tensor("conv2d_out"), pat.Tensor("y"));
@@ -236,19 +236,19 @@ class Conv2dAddXpuFusePattern : public paddle::drr::DrrPatternBase {
 
     fused_conv2d_add_act(
         {
-            &res.Tensor("input"),
-            &res.InputNoneTensor(),
-            &res.Tensor("filter_quant"),
-            &res.Tensor("res_filter_max"),
-            &res.Tensor("y"),
-            &res.InputNoneTensor(),
-            &res.InputNoneTensor(),
-            &res.InputNoneTensor(),
-            &res.Tensor("scale_fp32_max"),
+            res.Tensor("input"),
+            res.InputNoneTensor(),
+            res.Tensor("filter_quant"),
+            res.Tensor("res_filter_max"),
+            res.Tensor("y"),
+            res.InputNoneTensor(),
+            res.InputNoneTensor(),
+            res.InputNoneTensor(),
+            res.Tensor("scale_fp32_max"),
         },
         {
-            &res.Tensor("add_out"),
-            &res.Tensor("out_max"),
+            res.Tensor("add_out"),
+            res.Tensor("out_max"),
         });
   }
 };

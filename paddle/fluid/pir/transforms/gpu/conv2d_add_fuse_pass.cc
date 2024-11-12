@@ -45,8 +45,8 @@ class Conv2dAddFusePattern : public paddle::drr::DrrPatternBase {
                 {"groups", pat.Attr("groups")},
                 {"data_format", pat.Attr("data_format")}});
     const auto &add = pat.Op(paddle::dialect::AddOp::name());
-    conv2d({&pat.Tensor("input"), &pat.Tensor("filter")},
-           {&pat.Tensor("conv2d_out")});
+    conv2d({pat.Tensor("input"), pat.Tensor("filter")},
+           {pat.Tensor("conv2d_out")});
     pat.Tensor("add_out") = add(pat.Tensor("conv2d_out"), pat.Tensor("bias"));
     pat.AddConstraint([this](
                           const paddle::drr::MatchContext &match_ctx) -> bool {
@@ -163,11 +163,11 @@ class Conv2dAddFusePattern : public paddle::drr::DrrPatternBase {
         }},
         {{{paddle::dialect::kForceBackendAttr, force_backend_runtime_attr}}});
 
-    fused_conv2d_add_act({&res.Tensor("input"),
-                          &res.Tensor("filter"),
-                          &res.Tensor("bias"),
-                          &res.InputNoneTensor()},
-                         {&res.Tensor("add_out"), &res.OutputNoneTensor()});
+    fused_conv2d_add_act({res.Tensor("input"),
+                          res.Tensor("filter"),
+                          res.Tensor("bias"),
+                          res.InputNoneTensor()},
+                         {res.Tensor("add_out"), res.OutputNoneTensor()});
   }
 };
 

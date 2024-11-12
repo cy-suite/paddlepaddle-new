@@ -35,7 +35,7 @@ class FusedDropoutAddPattern : public paddle::drr::DrrPatternBase {
                                           {"shape", pat.Attr("shape")},
                                           {"value", pat.Attr("value")},
                                       });
-    full_orig_op({}, {&pat.Tensor("p")});
+    full_orig_op({}, {pat.Tensor("p")});
     const auto &dropout = pat.Op(paddle::dialect::DropoutOp::name(),
                                  {{"is_test", pat.Attr("is_test")},
                                   {"mode", pat.Attr("mod")},
@@ -43,8 +43,8 @@ class FusedDropoutAddPattern : public paddle::drr::DrrPatternBase {
                                   {"fix_seed", pat.Attr("fix_seed")}});
     const auto &add = pat.Op(paddle::dialect::AddOp::name());
 
-    dropout({&pat.Tensor("x"), &pat.Tensor("seed_tensor"), &pat.Tensor("p")},
-            {&pat.Tensor("dropout_out"), &pat.Tensor("mask")});
+    dropout({pat.Tensor("x"), pat.Tensor("seed_tensor"), pat.Tensor("p")},
+            {pat.Tensor("dropout_out"), pat.Tensor("mask")});
     pat.Tensor("add_out") = add(pat.Tensor("dropout_out"), pat.Tensor("y"));
 
     paddle::drr::ResultPattern res = pat.ResultPattern();
@@ -56,8 +56,8 @@ class FusedDropoutAddPattern : public paddle::drr::DrrPatternBase {
                  {"seed", pat.Attr("seed")},
                  {"fix_seed", pat.Attr("fix_seed")}}});
     fused_dropout_add(
-        {&res.Tensor("x"), &res.Tensor("y"), &res.Tensor("seed_tensor")},
-        {&res.Tensor("add_out"), &res.Tensor("mask")});
+        {res.Tensor("x"), res.Tensor("y"), res.Tensor("seed_tensor")},
+        {res.Tensor("add_out"), res.Tensor("mask")});
   }
 };
 
@@ -74,7 +74,7 @@ class FusedDropoutGradAddGradPattern : public paddle::drr::DrrPatternBase {
                                           {"shape", pat.Attr("shape")},
                                           {"value", pat.Attr("value")},
                                       });
-    full_orig_op({}, {&pat.Tensor("p")});
+    full_orig_op({}, {pat.Tensor("p")});
     const auto &dropout = pat.Op(paddle::dialect::DropoutOp::name(),
                                  {{"is_test", pat.Attr("is_test")},
                                   {"mode", pat.Attr("mod")},
@@ -87,17 +87,16 @@ class FusedDropoutGradAddGradPattern : public paddle::drr::DrrPatternBase {
         pat.Op(paddle::dialect::DropoutGradOp::name(),
                {{"is_test", pat.Attr("is_test")}, {"mode", pat.Attr("mod")}});
 
-    dropout({&pat.Tensor("x"), &pat.Tensor("seed_tensor"), &pat.Tensor("p")},
-            {&pat.Tensor("dropout_out"), &pat.Tensor("mask")});
+    dropout({pat.Tensor("x"), pat.Tensor("seed_tensor"), pat.Tensor("p")},
+            {pat.Tensor("dropout_out"), pat.Tensor("mask")});
     pat.Tensor("add_out") = add(pat.Tensor("dropout_out"), pat.Tensor("y"));
-    add_grad({&pat.Tensor("dropout_out"),
-              &pat.Tensor("y"),
-              &pat.Tensor("add_out_grad")},
-             {&pat.Tensor("dropout_out_grad"), &pat.Tensor("y_grad")});
-    dropout_grad({&pat.Tensor("mask"),
-                  &pat.Tensor("dropout_out_grad"),
-                  &pat.Tensor("p")},
-                 {&pat.Tensor("x_grad")});
+    add_grad({pat.Tensor("dropout_out"),
+              pat.Tensor("y"),
+              pat.Tensor("add_out_grad")},
+             {pat.Tensor("dropout_out_grad"), pat.Tensor("y_grad")});
+    dropout_grad(
+        {pat.Tensor("mask"), pat.Tensor("dropout_out_grad"), pat.Tensor("p")},
+        {pat.Tensor("x_grad")});
 
     paddle::drr::ResultPattern res = pat.ResultPattern();
     const auto &fused_dropout_add =
@@ -116,10 +115,10 @@ class FusedDropoutGradAddGradPattern : public paddle::drr::DrrPatternBase {
                  {"fix_seed", pat.Attr("fix_seed")}}});
 
     fused_dropout_add(
-        {&res.Tensor("x"), &res.Tensor("y"), &res.Tensor("seed_tensor")},
-        {&res.Tensor("add_out"), &res.Tensor("mask")});
-    fused_dropout_add_grad({&res.Tensor("mask"), &res.Tensor("add_out_grad")},
-                           {&res.Tensor("x_grad"), &res.Tensor("y_grad")});
+        {res.Tensor("x"), res.Tensor("y"), res.Tensor("seed_tensor")},
+        {res.Tensor("add_out"), res.Tensor("mask")});
+    fused_dropout_add_grad({res.Tensor("mask"), res.Tensor("add_out_grad")},
+                           {res.Tensor("x_grad"), res.Tensor("y_grad")});
   }
 };
 

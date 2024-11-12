@@ -69,10 +69,9 @@ class GroupNormSiluPattern : public paddle::drr::DrrPatternBase {
 
     const auto &silu = pat.Op(paddle::dialect::SiluOp::name());
 
-    group_norm(
-        {&pat.Tensor("X"), &pat.Tensor("Scale"), &pat.Tensor("Bias")},
-        {&pat.Tensor("Y"), &pat.Tensor("Mean"), &pat.Tensor("Variance")});
-    silu({&pat.Tensor("Y")}, {&pat.Tensor("Out")});
+    group_norm({pat.Tensor("X"), pat.Tensor("Scale"), pat.Tensor("Bias")},
+               {pat.Tensor("Y"), pat.Tensor("Mean"), pat.Tensor("Variance")});
+    silu({pat.Tensor("Y")}, {pat.Tensor("Out")});
 
 #ifdef PADDLE_WITH_CUDA
     pat.AddConstraint([](const paddle::drr::MatchContext &match_ctx) {
@@ -93,14 +92,14 @@ class GroupNormSiluPattern : public paddle::drr::DrrPatternBase {
                 {"groups", pat.Attr("groups")},
                 {"data_format", pat.Attr("data_format")},
                 {"activation", res.StrAttr("silu")}});
-    add_group_norm_silu_op({&res.Tensor("X"),
-                            &res.InputNoneTensor(),
-                            &res.Tensor("Scale"),
-                            &res.Tensor("Bias")},
-                           {&res.Tensor("Out"),
-                            &res.OutputNoneTensor(),
-                            &res.Tensor("Mean"),
-                            &res.Tensor("Variance")});
+    add_group_norm_silu_op({res.Tensor("X"),
+                            res.InputNoneTensor(),
+                            res.Tensor("Scale"),
+                            res.Tensor("Bias")},
+                           {res.Tensor("Out"),
+                            res.OutputNoneTensor(),
+                            res.Tensor("Mean"),
+                            res.Tensor("Variance")});
 #endif
 #ifdef PADDLE_WITH_XPU
     paddle::drr::ResultPattern res = pat.ResultPattern();
@@ -108,8 +107,8 @@ class GroupNormSiluPattern : public paddle::drr::DrrPatternBase {
         paddle::dialect::GroupNormSiluXpuOp::name(),
         {{{"epsilon", pat.Attr("epsilon")}, {"groups", pat.Attr("groups")}}});
     group_norm_silu_xpu(
-        {&res.Tensor("X"), &res.Tensor("Scale"), &res.Tensor("Bias")},
-        {&res.Tensor("Out")});
+        {res.Tensor("X"), res.Tensor("Scale"), res.Tensor("Bias")},
+        {res.Tensor("Out")});
 #endif
   }
 };

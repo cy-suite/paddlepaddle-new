@@ -102,7 +102,7 @@ class SoftplusActivationFusePattern : public paddle::drr::DrrPatternBase {
     }
 
     const auto &act = pat.Op(act_type_, act_attrs);
-    softplus({&pat.Tensor("x")}, {&pat.Tensor("Out")});
+    softplus({pat.Tensor("x")}, {pat.Tensor("Out")});
 
     pat.Tensor("act_out") = act(pat.Tensor("Out"));
 
@@ -141,7 +141,7 @@ class SoftplusActivationFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &fused_softplus = res.Op(fused_softplus_name_, fused_attrs);
 
-    fused_softplus({&res.Tensor("x")}, {&res.Tensor("act_out")});
+    fused_softplus({res.Tensor("x")}, {res.Tensor("act_out")});
   }
 };
 
@@ -172,7 +172,7 @@ class SoftplusGeluTanhFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &act = pat.Op(paddle::dialect::GeluOp::name(),
                              {{"approximate", pat.Attr("approximate")}});
-    softplus({&pat.Tensor("x")}, {&pat.Tensor("Out")});
+    softplus({pat.Tensor("x")}, {pat.Tensor("Out")});
 
     pat.Tensor("act_out") = act(pat.Tensor("Out"));
 
@@ -193,7 +193,7 @@ class SoftplusGeluTanhFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &fused_softplus = res.Op(fused_softplus_name_, fused_attrs);
 
-    fused_softplus({&res.Tensor("x")}, {&res.Tensor("act_out")});
+    fused_softplus({res.Tensor("x")}, {res.Tensor("act_out")});
   }
 };
 
@@ -236,7 +236,7 @@ class SoftplusClipFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &act = inplace_ ? pat.Op(paddle::dialect::Clip_Op::name())
                                : pat.Op(paddle::dialect::ClipOp::name());
-    softplus({&pat.Tensor("x")}, {&pat.Tensor("Out")});
+    softplus({pat.Tensor("x")}, {pat.Tensor("Out")});
 
     pat.Tensor("act_out") =
         act(pat.Tensor("Out"), pat.Tensor("min"), pat.Tensor("max"));
@@ -261,7 +261,7 @@ class SoftplusClipFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &fused_softplus = res.Op(fused_softplus_name_, fused_attrs);
 
-    fused_softplus({&res.Tensor("x")}, {&res.Tensor("act_out")});
+    fused_softplus({res.Tensor("x")}, {res.Tensor("act_out")});
   }
 };
 

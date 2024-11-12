@@ -38,8 +38,8 @@ class FcOneDNNEnablePattern : public paddle::drr::DrrPatternBase {
                              {"activation_type", pat.Attr("activation_type")},
                              {"padding_weights", pat.Attr("padding_weights")}});
 
-    fc({&pat.Tensor("input"), &pat.Tensor("weight"), &pat.Tensor("bias")},
-       {&pat.Tensor("Out")});
+    fc({pat.Tensor("input"), pat.Tensor("weight"), pat.Tensor("bias")},
+       {pat.Tensor("Out")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       auto input_shape = pir::GetShapeFromValue(match_ctx.Tensor("input"));
@@ -81,8 +81,8 @@ class FcOneDNNEnablePattern : public paddle::drr::DrrPatternBase {
     const auto &fused_fc =
         res.Op(paddle::onednn::dialect::FcOp::name(), fused_attrs);
 
-    fused_fc({&res.Tensor("input"), &res.Tensor("weight"), &res.Tensor("bias")},
-             {&res.Tensor("Out")});
+    fused_fc({res.Tensor("input"), res.Tensor("weight"), res.Tensor("bias")},
+             {res.Tensor("Out")});
   }
 };
 

@@ -49,17 +49,17 @@ class BatchNormActFusePattern : public paddle::drr::DrrPatternBase {
                 {"trainable_statistics", pat.Attr("trainable_statistics")},
                 {"is_test", pat.Attr("is_test")}});
     const auto &relu = pat.Op(paddle::dialect::ReluOp::name());
-    bn({&pat.Tensor("x"),
-        &pat.Tensor("mean"),
-        &pat.Tensor("variance"),
-        &pat.Tensor("scale"),
-        &pat.Tensor("bias")},
-       {&pat.Tensor("bn_out"),
-        &pat.Tensor("mean_out"),
-        &pat.Tensor("variance_out"),
-        &pat.Tensor("saved_mean"),
-        &pat.Tensor("saved_variance"),
-        &pat.Tensor("reserve_space")});
+    bn({pat.Tensor("x"),
+        pat.Tensor("mean"),
+        pat.Tensor("variance"),
+        pat.Tensor("scale"),
+        pat.Tensor("bias")},
+       {pat.Tensor("bn_out"),
+        pat.Tensor("mean_out"),
+        pat.Tensor("variance_out"),
+        pat.Tensor("saved_mean"),
+        pat.Tensor("saved_variance"),
+        pat.Tensor("reserve_space")});
     pat.Tensor("relu_out") = relu(pat.Tensor("bn_out"));
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
@@ -86,17 +86,17 @@ class BatchNormActFusePattern : public paddle::drr::DrrPatternBase {
                    {"fuse_with_relu", res.BoolAttr(true)},
                }});
 
-    fused_bn({&res.Tensor("x"),
-              &res.Tensor("mean"),
-              &res.Tensor("variance"),
-              &res.Tensor("scale"),
-              &res.Tensor("bias")},
-             {&res.Tensor("relu_out"),
-              &res.Tensor("mean_out"),
-              &res.Tensor("variance_out"),
-              &res.Tensor("saved_mean"),
-              &res.Tensor("saved_variance"),
-              &res.Tensor("reserve_space")});
+    fused_bn({res.Tensor("x"),
+              res.Tensor("mean"),
+              res.Tensor("variance"),
+              res.Tensor("scale"),
+              res.Tensor("bias")},
+             {res.Tensor("relu_out"),
+              res.Tensor("mean_out"),
+              res.Tensor("variance_out"),
+              res.Tensor("saved_mean"),
+              res.Tensor("saved_variance"),
+              res.Tensor("reserve_space")});
   }
 };
 

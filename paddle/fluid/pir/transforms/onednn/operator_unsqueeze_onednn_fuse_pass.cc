@@ -78,15 +78,15 @@ class OperatorUnsqueezeFusePattern : public paddle::drr::DrrPatternBase {
 
     if (fusable_ops_ == paddle::dialect::TransposeOp::name() ||
         fusable_ops_ == paddle::onednn::dialect::FusedTransposeOp::name()) {
-      op({&pat.Tensor("X")}, {&pat.Tensor("Out")});
+      op({pat.Tensor("X")}, {pat.Tensor("Out")});
     } else {
-      op({&pat.Tensor("X"), &pat.Tensor("Y")}, {&pat.Tensor("Out")});
+      op({pat.Tensor("X"), pat.Tensor("Y")}, {pat.Tensor("Out")});
     }
     const auto &unsqueeze = pat.Op(paddle::dialect::UnsqueezeOp::name());
     const auto &full_1 = pat.Op(paddle::dialect::FullIntArrayOp::name(),
                                 {{"value", pat.Attr("full_1_value")}});
 
-    unsqueeze({&pat.Tensor("Out"), &full_1()}, {&pat.Tensor("Unsqueeze_out")});
+    unsqueeze({pat.Tensor("Out"), full_1()}, {pat.Tensor("Unsqueeze_out")});
 
     if (fusable_ops_ == paddle::onednn::dialect::FusedTransposeOp::name() ||
         fusable_ops_ ==
@@ -166,10 +166,10 @@ class OperatorUnsqueezeFusePattern : public paddle::drr::DrrPatternBase {
     const auto &fused_op = res.Op(fused_ops_name_, fused_op_attrs);
     if (fusable_ops_ == paddle::dialect::TransposeOp::name() ||
         fusable_ops_ == paddle::onednn::dialect::FusedTransposeOp::name()) {
-      fused_op({&res.Tensor("X")}, {&res.Tensor("Unsqueeze_out")});
+      fused_op({res.Tensor("X")}, {res.Tensor("Unsqueeze_out")});
     } else {
-      fused_op({&res.Tensor("X"), &res.Tensor("Y")},
-               {&res.Tensor("Unsqueeze_out")});
+      fused_op({res.Tensor("X"), res.Tensor("Y")},
+               {res.Tensor("Unsqueeze_out")});
     }
   }
 };

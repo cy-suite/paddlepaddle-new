@@ -77,8 +77,8 @@ class ElementwiseActivationFusePattern : public paddle::drr::DrrPatternBase {
       act_attrs.emplace("negative_slope", pat.Attr("negative_slope"));
     }
     const auto &activation = pat.Op(activation_name_op, act_attrs);
-    elementwise({&pat.Tensor("x"), &pat.Tensor("y")},
-                {&pat.Tensor("elementwise_out")});
+    elementwise({pat.Tensor("x"), pat.Tensor("y")},
+                {pat.Tensor("elementwise_out")});
 
     pat.Tensor("act_out") = activation(pat.Tensor("elementwise_out"));
 
@@ -126,8 +126,8 @@ class ElementwiseActivationFusePattern : public paddle::drr::DrrPatternBase {
                    {"scale_out", res.Float32Attr(1.0f)},
                }});
 
-    fused_elementwise({&res.Tensor("x"), &res.Tensor("y")},
-                      {&res.Tensor("act_out")});
+    fused_elementwise({res.Tensor("x"), res.Tensor("y")},
+                      {res.Tensor("act_out")});
   }
 };
 
@@ -157,8 +157,8 @@ class ElementwiseGeluFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &activation =
         pat.Op(activation_name_, {{"approximate", pat.Attr("approximate")}});
-    elementwise({&pat.Tensor("x"), &pat.Tensor("y")},
-                {&pat.Tensor("elementwise_out")});
+    elementwise({pat.Tensor("x"), pat.Tensor("y")},
+                {pat.Tensor("elementwise_out")});
 
     pat.Tensor("act_out") = activation(pat.Tensor("elementwise_out"));
 
@@ -184,8 +184,8 @@ class ElementwiseGeluFusePattern : public paddle::drr::DrrPatternBase {
                    {"scale_out", res.Float32Attr(1.0f)},
                }});
 
-    fused_elementwise({&res.Tensor("x"), &res.Tensor("y")},
-                      {&res.Tensor("act_out")});
+    fused_elementwise({res.Tensor("x"), res.Tensor("y")},
+                      {res.Tensor("act_out")});
   }
 };
 
@@ -221,8 +221,8 @@ class ElementwiseClipFusePattern : public paddle::drr::DrrPatternBase {
     pat.Tensor("max") = full_2();
 
     const auto &activation = pat.Op(activation_name_);
-    elementwise({&pat.Tensor("x"), &pat.Tensor("y")},
-                {&pat.Tensor("elementwise_out")});
+    elementwise({pat.Tensor("x"), pat.Tensor("y")},
+                {pat.Tensor("elementwise_out")});
 
     pat.Tensor("act_out") = activation(
         pat.Tensor("elementwise_out"), pat.Tensor("min"), pat.Tensor("max"));
@@ -253,8 +253,8 @@ class ElementwiseClipFusePattern : public paddle::drr::DrrPatternBase {
                    {"scale_out", res.Float32Attr(1.0f)},
                }});
 
-    fused_elementwise({&res.Tensor("x"), &res.Tensor("y")},
-                      {&res.Tensor("act_out")});
+    fused_elementwise({res.Tensor("x"), res.Tensor("y")},
+                      {res.Tensor("act_out")});
   }
 };
 

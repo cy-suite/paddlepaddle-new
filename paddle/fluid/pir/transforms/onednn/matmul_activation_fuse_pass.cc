@@ -101,7 +101,7 @@ class MatmulActivationFusePattern : public paddle::drr::DrrPatternBase {
     }
 
     const auto &act = pat.Op(act_type_, act_attrs);
-    matmul({&pat.Tensor("X"), &pat.Tensor("Y")}, {&pat.Tensor("Out")});
+    matmul({pat.Tensor("X"), pat.Tensor("Y")}, {pat.Tensor("Out")});
 
     pat.Tensor("act_out") = act(pat.Tensor("Out"));
 
@@ -155,8 +155,8 @@ class MatmulActivationFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &fused_matmul = res.Op(fused_matmul_name_, fused_attrs);
 
-    fused_matmul({&res.Tensor("X"), &res.Tensor("Y"), &res.InputNoneTensor()},
-                 {&res.Tensor("act_out")});
+    fused_matmul({res.Tensor("X"), res.Tensor("Y"), res.InputNoneTensor()},
+                 {res.Tensor("act_out")});
   }
 };
 
@@ -187,7 +187,7 @@ class MatmulGeluTanhFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &act = pat.Op(paddle::dialect::GeluOp::name(),
                              {{"approximate", pat.Attr("approximate")}});
-    matmul({&pat.Tensor("X"), &pat.Tensor("Y")}, {&pat.Tensor("Out")});
+    matmul({pat.Tensor("X"), pat.Tensor("Y")}, {pat.Tensor("Out")});
 
     pat.Tensor("act_out") = act(pat.Tensor("Out"));
 
@@ -222,8 +222,8 @@ class MatmulGeluTanhFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &fused_matmul = res.Op(fused_matmul_name_, fused_attrs);
 
-    fused_matmul({&res.Tensor("X"), &res.Tensor("Y"), &res.InputNoneTensor()},
-                 {&res.Tensor("act_out")});
+    fused_matmul({res.Tensor("X"), res.Tensor("Y"), res.InputNoneTensor()},
+                 {res.Tensor("act_out")});
   }
 };
 
@@ -266,7 +266,7 @@ class MatmulClipFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &act = inplace_ ? pat.Op(paddle::dialect::Clip_Op::name())
                                : pat.Op(paddle::dialect::ClipOp::name());
-    matmul({&pat.Tensor("X"), &pat.Tensor("Y")}, {&pat.Tensor("Out")});
+    matmul({pat.Tensor("X"), pat.Tensor("Y")}, {pat.Tensor("Out")});
 
     pat.Tensor("act_out") =
         act(pat.Tensor("Out"), pat.Tensor("min"), pat.Tensor("max"));
@@ -305,8 +305,8 @@ class MatmulClipFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &fused_matmul = res.Op(fused_matmul_name_, fused_attrs);
 
-    fused_matmul({&res.Tensor("X"), &res.Tensor("Y"), &res.InputNoneTensor()},
-                 {&res.Tensor("act_out")});
+    fused_matmul({res.Tensor("X"), res.Tensor("Y"), res.InputNoneTensor()},
+                 {res.Tensor("act_out")});
   }
 };
 
@@ -368,8 +368,8 @@ class FusedMatmulActivationFusePattern : public paddle::drr::DrrPatternBase {
     }
 
     const auto &act = pat.Op(act_type_, act_attrs);
-    matmul({&pat.Tensor("X"), &pat.Tensor("Y"), &pat.Tensor("residual")},
-           {&pat.Tensor("Out")});
+    matmul({pat.Tensor("X"), pat.Tensor("Y"), pat.Tensor("residual")},
+           {pat.Tensor("Out")});
 
     pat.Tensor("act_out") = act(pat.Tensor("Out"));
 
@@ -429,8 +429,8 @@ class FusedMatmulActivationFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &fused_matmul = res.Op(fused_matmul_name_, fused_attrs);
 
-    fused_matmul({&res.Tensor("X"), &res.Tensor("Y"), &res.Tensor("residual")},
-                 {&res.Tensor("act_out")});
+    fused_matmul({res.Tensor("X"), res.Tensor("Y"), res.Tensor("residual")},
+                 {res.Tensor("act_out")});
   }
 };
 
@@ -479,8 +479,8 @@ class FusedMatmulGeluTanhFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &act = pat.Op(paddle::dialect::GeluOp::name(),
                              {{"approximate", pat.Attr("approximate")}});
-    matmul({&pat.Tensor("X"), &pat.Tensor("Y"), &pat.Tensor("residual")},
-           {&pat.Tensor("Out")});
+    matmul({pat.Tensor("X"), pat.Tensor("Y"), pat.Tensor("residual")},
+           {pat.Tensor("Out")});
 
     pat.Tensor("act_out") = act(pat.Tensor("Out"));
 
@@ -521,8 +521,8 @@ class FusedMatmulGeluTanhFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &fused_matmul = res.Op(fused_matmul_name_, fused_attrs);
 
-    fused_matmul({&res.Tensor("X"), &res.Tensor("Y"), &res.Tensor("residual")},
-                 {&res.Tensor("act_out")});
+    fused_matmul({res.Tensor("X"), res.Tensor("Y"), res.Tensor("residual")},
+                 {res.Tensor("act_out")});
   }
 };
 
@@ -583,8 +583,8 @@ class FusedMatmulClipFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &act = inplace_ ? pat.Op(paddle::dialect::Clip_Op::name())
                                : pat.Op(paddle::dialect::ClipOp::name());
-    matmul({&pat.Tensor("X"), &pat.Tensor("Y"), &pat.Tensor("residual")},
-           {&pat.Tensor("Out")});
+    matmul({pat.Tensor("X"), pat.Tensor("Y"), pat.Tensor("residual")},
+           {pat.Tensor("Out")});
 
     pat.Tensor("act_out") =
         act(pat.Tensor("Out"), pat.Tensor("min"), pat.Tensor("max"));
@@ -629,8 +629,8 @@ class FusedMatmulClipFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &fused_matmul = res.Op(fused_matmul_name_, fused_attrs);
 
-    fused_matmul({&res.Tensor("X"), &res.Tensor("Y"), &res.Tensor("residual")},
-                 {&res.Tensor("act_out")});
+    fused_matmul({res.Tensor("X"), res.Tensor("Y"), res.Tensor("residual")},
+                 {res.Tensor("act_out")});
   }
 };
 

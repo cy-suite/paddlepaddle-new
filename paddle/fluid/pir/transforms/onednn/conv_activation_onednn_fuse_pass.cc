@@ -111,14 +111,14 @@ class ConvActivationFusePattern : public paddle::drr::DrrPatternBase {
     const auto &activation = pat.Op(activation_name_op, act_attrs);
 
     if (fused_level_ > 0) {
-      conv({&pat.Tensor("input"),
-            &pat.Tensor("filter"),
-            &pat.Tensor("bias"),
-            &pat.Tensor("residual_param")},
-           {&pat.Tensor("conv2d_out")});
+      conv({pat.Tensor("input"),
+            pat.Tensor("filter"),
+            pat.Tensor("bias"),
+            pat.Tensor("residual_param")},
+           {pat.Tensor("conv2d_out")});
     } else {
-      conv({&pat.Tensor("input"), &pat.Tensor("filter")},
-           {&pat.Tensor("conv2d_out")});
+      conv({pat.Tensor("input"), pat.Tensor("filter")},
+           {pat.Tensor("conv2d_out")});
     }
     pat.Tensor("act_out") = activation(pat.Tensor("conv2d_out"));
 
@@ -212,17 +212,17 @@ class ConvActivationFusePattern : public paddle::drr::DrrPatternBase {
                      }});
 
     if (fused_level_ > 0) {
-      fused_conv({&res.Tensor("input"),
-                  &res.Tensor("filter"),
-                  &res.Tensor("bias"),
-                  &res.Tensor("residual_param")},
-                 {&res.Tensor("act_out")});
+      fused_conv({res.Tensor("input"),
+                  res.Tensor("filter"),
+                  res.Tensor("bias"),
+                  res.Tensor("residual_param")},
+                 {res.Tensor("act_out")});
     } else {
-      fused_conv({&res.Tensor("input"),
-                  &res.Tensor("filter"),
-                  &res.InputNoneTensor(),
-                  &res.InputNoneTensor()},
-                 {&res.Tensor("act_out")});
+      fused_conv({res.Tensor("input"),
+                  res.Tensor("filter"),
+                  res.InputNoneTensor(),
+                  res.InputNoneTensor()},
+                 {res.Tensor("act_out")});
     }
   }
 };
@@ -281,15 +281,15 @@ class ConvGeluFusePattern : public paddle::drr::DrrPatternBase {
     const auto &activation =
         pat.Op(activation_name_, {{"approximate", pat.Attr("approximate")}});
     if (fused_level_ > 0) {
-      conv({&pat.Tensor("input"),
-            &pat.Tensor("filter"),
-            &pat.Tensor("bias"),
-            &pat.Tensor("residual_param")},
-           {&pat.Tensor("conv2d_out")});
+      conv({pat.Tensor("input"),
+            pat.Tensor("filter"),
+            pat.Tensor("bias"),
+            pat.Tensor("residual_param")},
+           {pat.Tensor("conv2d_out")});
 
     } else {
-      conv({&pat.Tensor("input"), &pat.Tensor("filter")},
-           {&pat.Tensor("conv2d_out")});
+      conv({pat.Tensor("input"), pat.Tensor("filter")},
+           {pat.Tensor("conv2d_out")});
     }
 
     pat.Tensor("act_out") = activation(pat.Tensor("conv2d_out"));
@@ -356,17 +356,17 @@ class ConvGeluFusePattern : public paddle::drr::DrrPatternBase {
                      }});
 
     if (fused_level_ > 0) {
-      fused_conv({&res.Tensor("input"),
-                  &res.Tensor("filter"),
-                  &res.Tensor("bias"),
-                  &res.Tensor("residual_param")},
-                 {&res.Tensor("act_out")});
+      fused_conv({res.Tensor("input"),
+                  res.Tensor("filter"),
+                  res.Tensor("bias"),
+                  res.Tensor("residual_param")},
+                 {res.Tensor("act_out")});
     } else {
-      fused_conv({&res.Tensor("input"),
-                  &res.Tensor("filter"),
-                  &res.InputNoneTensor(),
-                  &res.InputNoneTensor()},
-                 {&res.Tensor("act_out")});
+      fused_conv({res.Tensor("input"),
+                  res.Tensor("filter"),
+                  res.InputNoneTensor(),
+                  res.InputNoneTensor()},
+                 {res.Tensor("act_out")});
     }
   }
 };
@@ -430,15 +430,15 @@ class ConvClipFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &activation = pat.Op(activation_name_);
     if (fused_level_ > 0) {
-      conv({&pat.Tensor("input"),
-            &pat.Tensor("filter"),
-            &pat.Tensor("bias"),
-            &pat.Tensor("residual_param")},
-           {&pat.Tensor("conv2d_out")});
+      conv({pat.Tensor("input"),
+            pat.Tensor("filter"),
+            pat.Tensor("bias"),
+            pat.Tensor("residual_param")},
+           {pat.Tensor("conv2d_out")});
 
     } else {
-      conv({&pat.Tensor("input"), &pat.Tensor("filter")},
-           {&pat.Tensor("conv2d_out")});
+      conv({pat.Tensor("input"), pat.Tensor("filter")},
+           {pat.Tensor("conv2d_out")});
     }
     pat.Tensor("act_out") = activation(
         pat.Tensor("conv2d_out"), pat.Tensor("min"), pat.Tensor("max"));
@@ -506,17 +506,17 @@ class ConvClipFusePattern : public paddle::drr::DrrPatternBase {
                      }});
 
     if (fused_level_ > 0) {
-      fused_conv({&res.Tensor("input"),
-                  &res.Tensor("filter"),
-                  &res.Tensor("bias"),
-                  &res.Tensor("residual_param")},
-                 {&res.Tensor("act_out")});
+      fused_conv({res.Tensor("input"),
+                  res.Tensor("filter"),
+                  res.Tensor("bias"),
+                  res.Tensor("residual_param")},
+                 {res.Tensor("act_out")});
     } else {
-      fused_conv({&res.Tensor("input"),
-                  &res.Tensor("filter"),
-                  &res.InputNoneTensor(),
-                  &res.InputNoneTensor()},
-                 {&res.Tensor("act_out")});
+      fused_conv({res.Tensor("input"),
+                  res.Tensor("filter"),
+                  res.InputNoneTensor(),
+                  res.InputNoneTensor()},
+                 {res.Tensor("act_out")});
     }
   }
 };

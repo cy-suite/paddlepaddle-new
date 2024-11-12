@@ -125,8 +125,8 @@ class CpuBfloat16Pattern : public paddle::drr::DrrPatternBase {
     }
 
     const auto &op = pat.Op(bfloat16_ops_, op_attrs);
-    op({&pat.Tensor("quantize_0"), &pat.Tensor("quantize_1")},
-       {&pat.Tensor("out")});
+    op({pat.Tensor("quantize_0"), pat.Tensor("quantize_1")},
+       {pat.Tensor("out")});
 
     pat.AddConstraint([this](const paddle::drr::MatchContext &match_ctx) {
       auto mkldnn_data_type = match_ctx.Attr<std::string>("mkldnn_data_type");
@@ -187,17 +187,17 @@ class CpuBfloat16Pattern : public paddle::drr::DrrPatternBase {
                    {"is_negative_input", res.BoolAttr(false)},
                    {"output_format", res.StrAttr("NCHW")},
                }});
-    quantize_op({&res.Tensor("quantize_" + std::to_string(index_))},
-                {&res.Tensor("quantize_out_" + std::to_string(index_))});
+    quantize_op({res.Tensor("quantize_" + std::to_string(index_))},
+                {res.Tensor("quantize_out_" + std::to_string(index_))});
 
     const auto &res_op = res.Op(bfloat16_ops_, op_attrs);
     if (index_ == 0) {
-      res_op({&res.Tensor("quantize_out_0"), &res.Tensor("quantize_1")},
-             {&res.Tensor("out")});
+      res_op({res.Tensor("quantize_out_0"), res.Tensor("quantize_1")},
+             {res.Tensor("out")});
 
     } else if (index_ == 1) {
-      res_op({&res.Tensor("quantize_0"), &res.Tensor("quantize_out_1")},
-             {&res.Tensor("out")});
+      res_op({res.Tensor("quantize_0"), res.Tensor("quantize_out_1")},
+             {res.Tensor("out")});
     }
   }
 };
@@ -301,7 +301,7 @@ class CpuBfloat16DequantPattern : public paddle::drr::DrrPatternBase {
     }
 
     const auto &op = pat.Op(bfloat16_ops_, op_attrs);
-    op({&pat.Tensor("x"), &pat.Tensor("y")}, {&pat.Tensor("out")});
+    op({pat.Tensor("x"), pat.Tensor("y")}, {pat.Tensor("out")});
 
     paddle::drr::ResultPattern res = pat.ResultPattern();
 
@@ -352,14 +352,14 @@ class CpuBfloat16DequantPattern : public paddle::drr::DrrPatternBase {
     });
 
     const auto &res_op = res.Op(bfloat16_ops_, op_attrs);
-    res_op({&res.Tensor("x"), &res.Tensor("y")}, {&res.Tensor("dequantize")});
+    res_op({res.Tensor("x"), res.Tensor("y")}, {res.Tensor("dequantize")});
     const auto &dequantize_op = res.Op("onednn_op.dequantize",
                                        {{
                                            {"scale", res.Float32Attr(1.f)},
                                            {"shift", res.Float32Attr(0.0f)},
                                        }});
 
-    dequantize_op({&res.Tensor("dequantize")}, {&res.Tensor("out")});
+    dequantize_op({res.Tensor("dequantize")}, {res.Tensor("out")});
   }
 };
 
@@ -408,7 +408,7 @@ class CpuBfloat16PatternOne_one : public paddle::drr::DrrPatternBase {
     }
 
     const auto &op = pat.Op(bfloat16_ops_, op_attrs);
-    op({&pat.Tensor("quantize_0")}, {&pat.Tensor("out")});
+    op({pat.Tensor("quantize_0")}, {pat.Tensor("out")});
 
     pat.AddConstraint([this](const paddle::drr::MatchContext &match_ctx) {
       auto mkldnn_data_type = match_ctx.Attr<std::string>("mkldnn_data_type");
@@ -470,10 +470,10 @@ class CpuBfloat16PatternOne_one : public paddle::drr::DrrPatternBase {
                    {"is_negative_input", res.BoolAttr(false)},
                    {"output_format", res.StrAttr("NCHW")},
                }});
-    quantize_op({&res.Tensor("quantize_0")}, {&res.Tensor("quantize_out_0")});
+    quantize_op({res.Tensor("quantize_0")}, {res.Tensor("quantize_out_0")});
 
     const auto &res_op = res.Op(bfloat16_ops_, op_attrs);
-    res_op({&res.Tensor("quantize_out_0")}, {&res.Tensor("out")});
+    res_op({res.Tensor("quantize_out_0")}, {res.Tensor("out")});
   }
 };
 
@@ -523,7 +523,7 @@ class CpuBfloat16DequantPatternOne_one : public paddle::drr::DrrPatternBase {
     }
 
     const auto &op = pat.Op(bfloat16_ops_, op_attrs);
-    op({&pat.Tensor("x")}, {&pat.Tensor("out")});
+    op({pat.Tensor("x")}, {pat.Tensor("out")});
 
     paddle::drr::ResultPattern res = pat.ResultPattern();
 
@@ -574,14 +574,14 @@ class CpuBfloat16DequantPatternOne_one : public paddle::drr::DrrPatternBase {
     });
 
     const auto &res_op = res.Op(bfloat16_ops_, op_attrs);
-    res_op({&res.Tensor("x")}, {&res.Tensor("dequantize")});
+    res_op({res.Tensor("x")}, {res.Tensor("dequantize")});
     const auto &dequantize_op = res.Op("onednn_op.dequantize",
                                        {{
                                            {"scale", res.Float32Attr(1.f)},
                                            {"shift", res.Float32Attr(0.0f)},
                                        }});
 
-    dequantize_op({&res.Tensor("dequantize")}, {&res.Tensor("out")});
+    dequantize_op({res.Tensor("dequantize")}, {res.Tensor("out")});
   }
 };
 
@@ -613,8 +613,8 @@ class CpuBfloat16Pattern2_2 : public paddle::drr::DrrPatternBase {
     }
     const auto &op = pat.Op(bfloat16_ops_, op_attrs);
 
-    op({&pat.Tensor("quantize_0"), &pat.Tensor("quantize_1")},
-       {&pat.Tensor("out_0"), &pat.Tensor("out_1")});
+    op({pat.Tensor("quantize_0"), pat.Tensor("quantize_1")},
+       {pat.Tensor("out_0"), pat.Tensor("out_1")});
 
     pat.AddConstraint([this](const paddle::drr::MatchContext &match_ctx) {
       auto mkldnn_data_type = match_ctx.Attr<std::string>("mkldnn_data_type");
@@ -672,17 +672,17 @@ class CpuBfloat16Pattern2_2 : public paddle::drr::DrrPatternBase {
                    {"is_negative_input", res.BoolAttr(false)},
                    {"output_format", res.StrAttr("NCHW")},
                }});
-    quantize_op({&res.Tensor("quantize_" + std::to_string(index_))},
-                {&res.Tensor("quantize_out_" + std::to_string(index_))});
+    quantize_op({res.Tensor("quantize_" + std::to_string(index_))},
+                {res.Tensor("quantize_out_" + std::to_string(index_))});
 
     const auto &res_op = res.Op(bfloat16_ops_, op_attrs);
     if (index_ == 0) {
-      res_op({&res.Tensor("quantize_out_0"), &res.Tensor("quantize_1")},
-             {{&res.Tensor("out_0"), &res.Tensor("out_1")}});
+      res_op({res.Tensor("quantize_out_0"), res.Tensor("quantize_1")},
+             {{res.Tensor("out_0"), res.Tensor("out_1")}});
 
     } else {
-      res_op({&res.Tensor("quantize_0"), &res.Tensor("quantize_out_1")},
-             {{&res.Tensor("out_0"), &res.Tensor("out_1")}});
+      res_op({res.Tensor("quantize_0"), res.Tensor("quantize_out_1")},
+             {{res.Tensor("out_0"), res.Tensor("out_1")}});
     }
   }
 };
@@ -714,8 +714,8 @@ class CpuBfloat16DequantPattern2_2 : public paddle::drr::DrrPatternBase {
       op_attrs.emplace("mkldnn_data_type", pat.Attr("mkldnn_data_type"));
     }
     const auto &op = pat.Op(bfloat16_ops_, op_attrs);
-    op({&pat.Tensor("x"), &pat.Tensor("y")},
-       {&pat.Tensor("out_0"), &pat.Tensor("out_1")});
+    op({pat.Tensor("x"), pat.Tensor("y")},
+       {pat.Tensor("out_0"), pat.Tensor("out_1")});
 
     paddle::drr::ResultPattern res = pat.ResultPattern();
 
@@ -767,25 +767,25 @@ class CpuBfloat16DequantPattern2_2 : public paddle::drr::DrrPatternBase {
 
     const auto &res_op = res.Op(bfloat16_ops_, op_attrs);
     if (index_ == 0) {
-      res_op({&res.Tensor("x"), &res.Tensor("y")},
-             {&res.Tensor("dequantize_0"), &res.Tensor("out_1")});
+      res_op({res.Tensor("x"), res.Tensor("y")},
+             {res.Tensor("dequantize_0"), res.Tensor("out_1")});
       const auto &dequantize_op = res.Op("onednn_op.dequantize",
                                          {{
                                              {"scale", res.Float32Attr(1.f)},
                                              {"shift", res.Float32Attr(0.0f)},
                                          }});
 
-      dequantize_op({&res.Tensor("dequantize_0")}, {&res.Tensor("out_0")});
+      dequantize_op({res.Tensor("dequantize_0")}, {res.Tensor("out_0")});
     } else {
-      res_op({&res.Tensor("x"), &res.Tensor("y")},
-             {&res.Tensor("out_0"), &res.Tensor("dequantize_1")});
+      res_op({res.Tensor("x"), res.Tensor("y")},
+             {res.Tensor("out_0"), res.Tensor("dequantize_1")});
       const auto &dequantize_op = res.Op("onednn_op.dequantize",
                                          {{
                                              {"scale", res.Float32Attr(1.f)},
                                              {"shift", res.Float32Attr(0.0f)},
                                          }});
 
-      dequantize_op({&res.Tensor("dequantize_1")}, {&res.Tensor("out_1")});
+      dequantize_op({res.Tensor("dequantize_1")}, {res.Tensor("out_1")});
     }
   }
 };
@@ -873,10 +873,10 @@ class CpuBfloat16PatternThree_one : public paddle::drr::DrrPatternBase {
     }
 
     const auto &op = pat.Op(bfloat16_ops_, op_attrs);
-    op({&pat.Tensor("quantize_0"),
-        &pat.Tensor("quantize_1"),
-        &pat.Tensor("quantize_2")},
-       {&pat.Tensor("out")});
+    op({pat.Tensor("quantize_0"),
+        pat.Tensor("quantize_1"),
+        pat.Tensor("quantize_2")},
+       {pat.Tensor("out")});
 
     pat.AddConstraint([this](const paddle::drr::MatchContext &match_ctx) {
       auto mkldnn_data_type = match_ctx.Attr<std::string>("mkldnn_data_type");
@@ -939,27 +939,27 @@ class CpuBfloat16PatternThree_one : public paddle::drr::DrrPatternBase {
                    {"is_negative_input", res.BoolAttr(false)},
                    {"output_format", res.StrAttr("NCHW")},
                }});
-    quantize_op({&res.Tensor("quantize_" + std::to_string(index_))},
-                {&res.Tensor("quantize_out_" + std::to_string(index_))});
+    quantize_op({res.Tensor("quantize_" + std::to_string(index_))},
+                {res.Tensor("quantize_out_" + std::to_string(index_))});
 
     const auto &res_op = res.Op(bfloat16_ops_, op_attrs);
     if (index_ == 0) {
-      res_op({&res.Tensor("quantize_out_0"),
-              &res.Tensor("quantize_1"),
-              &res.Tensor("quantize_2")},
-             {&res.Tensor("out")});
+      res_op({res.Tensor("quantize_out_0"),
+              res.Tensor("quantize_1"),
+              res.Tensor("quantize_2")},
+             {res.Tensor("out")});
 
     } else if (index_ == 1) {
-      res_op({&res.Tensor("quantize_0"),
-              &res.Tensor("quantize_out_1"),
-              &res.Tensor("quantize_2")},
-             {&res.Tensor("out")});
+      res_op({res.Tensor("quantize_0"),
+              res.Tensor("quantize_out_1"),
+              res.Tensor("quantize_2")},
+             {res.Tensor("out")});
 
     } else if (index_ == 2) {
-      res_op({&res.Tensor("quantize_0"),
-              &res.Tensor("quantize_1"),
-              &res.Tensor("quantize_out_2")},
-             {&res.Tensor("out")});
+      res_op({res.Tensor("quantize_0"),
+              res.Tensor("quantize_1"),
+              res.Tensor("quantize_out_2")},
+             {res.Tensor("out")});
     }
   }
 };
@@ -1046,8 +1046,8 @@ class CpuBfloat16DequantPatternThree_one : public paddle::drr::DrrPatternBase {
     }
 
     const auto &op = pat.Op(bfloat16_ops_, op_attrs);
-    op({&pat.Tensor("x"), &pat.Tensor("y"), &pat.Tensor("z")},
-       {&pat.Tensor("out")});
+    op({pat.Tensor("x"), pat.Tensor("y"), pat.Tensor("z")},
+       {pat.Tensor("out")});
 
     paddle::drr::ResultPattern res = pat.ResultPattern();
 
@@ -1098,15 +1098,15 @@ class CpuBfloat16DequantPatternThree_one : public paddle::drr::DrrPatternBase {
     });
 
     const auto &res_op = res.Op(bfloat16_ops_, op_attrs);
-    res_op({&res.Tensor("x"), &res.Tensor("y"), &res.Tensor("z")},
-           {&res.Tensor("dequantize")});
+    res_op({res.Tensor("x"), res.Tensor("y"), res.Tensor("z")},
+           {res.Tensor("dequantize")});
     const auto &dequantize_op = res.Op("onednn_op.dequantize",
                                        {{
                                            {"scale", res.Float32Attr(1.f)},
                                            {"shift", res.Float32Attr(0.0f)},
                                        }});
 
-    dequantize_op({&res.Tensor("dequantize")}, {&res.Tensor("out")});
+    dequantize_op({res.Tensor("dequantize")}, {res.Tensor("out")});
   }
 };
 
@@ -1144,16 +1144,16 @@ class CpuBfloat16FusionGruPattern : public paddle::drr::DrrPatternBase {
     op_attrs.emplace("activation", pat.Attr("activation"));
 
     const auto &op = pat.Op(bfloat16_ops_, op_attrs);
-    op({&pat.Tensor("quantize_0"),
-        &pat.Tensor("quantize_1"),
-        &pat.Tensor("quantize_2"),
-        &pat.Tensor("quantize_3"),
-        &pat.Tensor("quantize_4")},
-       {&pat.Tensor("out_0"),
-        &pat.Tensor("out_1"),
-        &pat.Tensor("out_2"),
-        &pat.Tensor("out_3"),
-        &pat.Tensor("out_4")});
+    op({pat.Tensor("quantize_0"),
+        pat.Tensor("quantize_1"),
+        pat.Tensor("quantize_2"),
+        pat.Tensor("quantize_3"),
+        pat.Tensor("quantize_4")},
+       {pat.Tensor("out_0"),
+        pat.Tensor("out_1"),
+        pat.Tensor("out_2"),
+        pat.Tensor("out_3"),
+        pat.Tensor("out_4")});
 
     pat.AddConstraint([this](const paddle::drr::MatchContext &match_ctx) {
       auto mkldnn_data_type = match_ctx.Attr<std::string>("mkldnn_data_type");
@@ -1214,69 +1214,69 @@ class CpuBfloat16FusionGruPattern : public paddle::drr::DrrPatternBase {
                    {"is_negative_input", res.BoolAttr(false)},
                    {"output_format", res.StrAttr("NCHW")},
                }});
-    quantize_op({&res.Tensor("quantize_" + std::to_string(index_))},
-                {&res.Tensor("quantize_out_" + std::to_string(index_))});
+    quantize_op({res.Tensor("quantize_" + std::to_string(index_))},
+                {res.Tensor("quantize_out_" + std::to_string(index_))});
 
     const auto &res_op = res.Op(bfloat16_ops_, op_attrs);
     if (index_ == 0) {
-      res_op({&res.Tensor("quantize_out_0"),
-              &res.Tensor("quantize_1"),
-              &res.Tensor("quantize_2"),
-              &res.Tensor("quantize_3"),
-              &res.Tensor("quantize_4")},
-             {{&res.Tensor("out_0"),
-               &res.Tensor("out_1"),
-               &res.Tensor("out_2"),
-               &res.Tensor("out_3"),
-               &res.Tensor("out_4")}});
+      res_op({res.Tensor("quantize_out_0"),
+              res.Tensor("quantize_1"),
+              res.Tensor("quantize_2"),
+              res.Tensor("quantize_3"),
+              res.Tensor("quantize_4")},
+             {{res.Tensor("out_0"),
+               res.Tensor("out_1"),
+               res.Tensor("out_2"),
+               res.Tensor("out_3"),
+               res.Tensor("out_4")}});
 
     } else if (index_ == 1) {
-      res_op({&res.Tensor("quantize_0"),
-              &res.Tensor("quantize_out_1"),
-              &res.Tensor("quantize_2"),
-              &res.Tensor("quantize_3"),
-              &res.Tensor("quantize_4")},
-             {{&res.Tensor("out_0"),
-               &res.Tensor("out_1"),
-               &res.Tensor("out_2"),
-               &res.Tensor("out_3"),
-               &res.Tensor("out_4")}});
+      res_op({res.Tensor("quantize_0"),
+              res.Tensor("quantize_out_1"),
+              res.Tensor("quantize_2"),
+              res.Tensor("quantize_3"),
+              res.Tensor("quantize_4")},
+             {{res.Tensor("out_0"),
+               res.Tensor("out_1"),
+               res.Tensor("out_2"),
+               res.Tensor("out_3"),
+               res.Tensor("out_4")}});
 
     } else if (index_ == 2) {
-      res_op({&res.Tensor("quantize_0"),
-              &res.Tensor("quantize_1"),
-              &res.Tensor("quantize_out_2"),
-              &res.Tensor("quantize_3"),
-              &res.Tensor("quantize_4")},
-             {{&res.Tensor("out_0"),
-               &res.Tensor("out_1"),
-               &res.Tensor("out_2"),
-               &res.Tensor("out_3"),
-               &res.Tensor("out_4")}});
+      res_op({res.Tensor("quantize_0"),
+              res.Tensor("quantize_1"),
+              res.Tensor("quantize_out_2"),
+              res.Tensor("quantize_3"),
+              res.Tensor("quantize_4")},
+             {{res.Tensor("out_0"),
+               res.Tensor("out_1"),
+               res.Tensor("out_2"),
+               res.Tensor("out_3"),
+               res.Tensor("out_4")}});
 
     } else if (index_ == 3) {
-      res_op({&res.Tensor("quantize_0"),
-              &res.Tensor("quantize_1"),
-              &res.Tensor("quantize_2"),
-              &res.Tensor("quantize_out_3"),
-              &res.Tensor("quantize_4")},
-             {{&res.Tensor("out_0"),
-               &res.Tensor("out_1"),
-               &res.Tensor("out_2"),
-               &res.Tensor("out_3"),
-               &res.Tensor("out_4")}});
+      res_op({res.Tensor("quantize_0"),
+              res.Tensor("quantize_1"),
+              res.Tensor("quantize_2"),
+              res.Tensor("quantize_out_3"),
+              res.Tensor("quantize_4")},
+             {{res.Tensor("out_0"),
+               res.Tensor("out_1"),
+               res.Tensor("out_2"),
+               res.Tensor("out_3"),
+               res.Tensor("out_4")}});
 
     } else if (index_ == 4) {
-      res_op({&res.Tensor("quantize_0"),
-              &res.Tensor("quantize_1"),
-              &res.Tensor("quantize_2"),
-              &res.Tensor("quantize_3"),
-              &res.Tensor("quantize_out_4")},
-             {{&res.Tensor("out_0"),
-               &res.Tensor("out_1"),
-               &res.Tensor("out_2"),
-               &res.Tensor("out_3"),
-               &res.Tensor("out_4")}});
+      res_op({res.Tensor("quantize_0"),
+              res.Tensor("quantize_1"),
+              res.Tensor("quantize_2"),
+              res.Tensor("quantize_3"),
+              res.Tensor("quantize_out_4")},
+             {{res.Tensor("out_0"),
+               res.Tensor("out_1"),
+               res.Tensor("out_2"),
+               res.Tensor("out_3"),
+               res.Tensor("out_4")}});
     }
   }
 };
@@ -1315,16 +1315,16 @@ class CpuBfloat16FusionGruDequantPattern : public paddle::drr::DrrPatternBase {
     op_attrs.emplace("activation", pat.Attr("activation"));
 
     const auto &op = pat.Op(bfloat16_ops_, op_attrs);
-    op({&pat.Tensor("quantize_0"),
-        &pat.Tensor("quantize_1"),
-        &pat.Tensor("quantize_2"),
-        &pat.Tensor("quantize_3"),
-        &pat.Tensor("quantize_4")},
-       {&pat.Tensor("out_0"),
-        &pat.Tensor("out_1"),
-        &pat.Tensor("out_2"),
-        &pat.Tensor("out_3"),
-        &pat.Tensor("out_4")});
+    op({pat.Tensor("quantize_0"),
+        pat.Tensor("quantize_1"),
+        pat.Tensor("quantize_2"),
+        pat.Tensor("quantize_3"),
+        pat.Tensor("quantize_4")},
+       {pat.Tensor("out_0"),
+        pat.Tensor("out_1"),
+        pat.Tensor("out_2"),
+        pat.Tensor("out_3"),
+        pat.Tensor("out_4")});
 
     paddle::drr::ResultPattern res = pat.ResultPattern();
 
@@ -1376,98 +1376,98 @@ class CpuBfloat16FusionGruDequantPattern : public paddle::drr::DrrPatternBase {
 
     const auto &res_op = res.Op(bfloat16_ops_, op_attrs);
     if (index_ == 0) {
-      res_op({&res.Tensor("quantize_0"),
-              &res.Tensor("quantize_1"),
-              &res.Tensor("quantize_2"),
-              &res.Tensor("quantize_3"),
-              &res.Tensor("quantize_4")},
-             {&res.Tensor("dequantize_0"),
-              &res.Tensor("out_1"),
-              &res.Tensor("out_2"),
-              &res.Tensor("out_3"),
-              &res.Tensor("out_4")});
+      res_op({res.Tensor("quantize_0"),
+              res.Tensor("quantize_1"),
+              res.Tensor("quantize_2"),
+              res.Tensor("quantize_3"),
+              res.Tensor("quantize_4")},
+             {res.Tensor("dequantize_0"),
+              res.Tensor("out_1"),
+              res.Tensor("out_2"),
+              res.Tensor("out_3"),
+              res.Tensor("out_4")});
       const auto &dequantize_op = res.Op("onednn_op.dequantize",
                                          {{
                                              {"scale", res.Float32Attr(1.f)},
                                              {"shift", res.Float32Attr(0.0f)},
                                          }});
 
-      dequantize_op({&res.Tensor("dequantize_0")}, {&res.Tensor("out_0")});
+      dequantize_op({res.Tensor("dequantize_0")}, {res.Tensor("out_0")});
     } else if (index_ == 1) {
-      res_op({&res.Tensor("quantize_0"),
-              &res.Tensor("quantize_1"),
-              &res.Tensor("quantize_2"),
-              &res.Tensor("quantize_3"),
-              &res.Tensor("quantize_4")},
-             {&res.Tensor("out_0"),
-              &res.Tensor("dequantize_1"),
-              &res.Tensor("out_2"),
-              &res.Tensor("out_3"),
-              &res.Tensor("out_4")});
+      res_op({res.Tensor("quantize_0"),
+              res.Tensor("quantize_1"),
+              res.Tensor("quantize_2"),
+              res.Tensor("quantize_3"),
+              res.Tensor("quantize_4")},
+             {res.Tensor("out_0"),
+              res.Tensor("dequantize_1"),
+              res.Tensor("out_2"),
+              res.Tensor("out_3"),
+              res.Tensor("out_4")});
       const auto &dequantize_op = res.Op("onednn_op.dequantize",
                                          {{
                                              {"scale", res.Float32Attr(1.f)},
                                              {"shift", res.Float32Attr(0.0f)},
                                          }});
 
-      dequantize_op({&res.Tensor("dequantize_1")}, {&res.Tensor("out_1")});
+      dequantize_op({res.Tensor("dequantize_1")}, {res.Tensor("out_1")});
 
     } else if (index_ == 2) {
-      res_op({&res.Tensor("quantize_0"),
-              &res.Tensor("quantize_1"),
-              &res.Tensor("quantize_2"),
-              &res.Tensor("quantize_3"),
-              &res.Tensor("quantize_4")},
-             {&res.Tensor("out_0"),
-              &res.Tensor("out_1"),
-              &res.Tensor("dequantize_2"),
-              &res.Tensor("out_3"),
-              &res.Tensor("out_4")});
+      res_op({res.Tensor("quantize_0"),
+              res.Tensor("quantize_1"),
+              res.Tensor("quantize_2"),
+              res.Tensor("quantize_3"),
+              res.Tensor("quantize_4")},
+             {res.Tensor("out_0"),
+              res.Tensor("out_1"),
+              res.Tensor("dequantize_2"),
+              res.Tensor("out_3"),
+              res.Tensor("out_4")});
       const auto &dequantize_op = res.Op("onednn_op.dequantize",
                                          {{
                                              {"scale", res.Float32Attr(1.f)},
                                              {"shift", res.Float32Attr(0.0f)},
                                          }});
 
-      dequantize_op({&res.Tensor("dequantize_2")}, {&res.Tensor("out_2")});
+      dequantize_op({res.Tensor("dequantize_2")}, {res.Tensor("out_2")});
 
     } else if (index_ == 3) {
-      res_op({&res.Tensor("quantize_0"),
-              &res.Tensor("quantize_1"),
-              &res.Tensor("quantize_2"),
-              &res.Tensor("quantize_3"),
-              &res.Tensor("quantize_4")},
-             {&res.Tensor("out_0"),
-              &res.Tensor("out_1"),
-              &res.Tensor("out_2"),
-              &res.Tensor("dequantize_3"),
-              &res.Tensor("out_4")});
+      res_op({res.Tensor("quantize_0"),
+              res.Tensor("quantize_1"),
+              res.Tensor("quantize_2"),
+              res.Tensor("quantize_3"),
+              res.Tensor("quantize_4")},
+             {res.Tensor("out_0"),
+              res.Tensor("out_1"),
+              res.Tensor("out_2"),
+              res.Tensor("dequantize_3"),
+              res.Tensor("out_4")});
       const auto &dequantize_op = res.Op("onednn_op.dequantize",
                                          {{
                                              {"scale", res.Float32Attr(1.f)},
                                              {"shift", res.Float32Attr(0.0f)},
                                          }});
 
-      dequantize_op({&res.Tensor("dequantize_3")}, {&res.Tensor("out_3")});
+      dequantize_op({res.Tensor("dequantize_3")}, {res.Tensor("out_3")});
 
     } else if (index_ == 4) {
-      res_op({&res.Tensor("quantize_0"),
-              &res.Tensor("quantize_1"),
-              &res.Tensor("quantize_2"),
-              &res.Tensor("quantize_3"),
-              &res.Tensor("quantize_4")},
-             {&res.Tensor("out_0"),
-              &res.Tensor("out_1"),
-              &res.Tensor("out_2"),
-              &res.Tensor("out_3"),
-              &res.Tensor("dequantize_4")});
+      res_op({res.Tensor("quantize_0"),
+              res.Tensor("quantize_1"),
+              res.Tensor("quantize_2"),
+              res.Tensor("quantize_3"),
+              res.Tensor("quantize_4")},
+             {res.Tensor("out_0"),
+              res.Tensor("out_1"),
+              res.Tensor("out_2"),
+              res.Tensor("out_3"),
+              res.Tensor("dequantize_4")});
       const auto &dequantize_op = res.Op("onednn_op.dequantize",
                                          {{
                                              {"scale", res.Float32Attr(1.f)},
                                              {"shift", res.Float32Attr(0.0f)},
                                          }});
 
-      dequantize_op({&res.Tensor("dequantize_4")}, {&res.Tensor("out_4")});
+      dequantize_op({res.Tensor("dequantize_4")}, {res.Tensor("out_4")});
     }
   }
 };
@@ -1500,10 +1500,10 @@ class CpuBfloat16LayerNormOpPattern : public paddle::drr::DrrPatternBase {
     op_attrs.emplace("epsilon", pat.Attr("epsilon"));
 
     const auto &op = pat.Op(bfloat16_ops_, op_attrs);
-    op({&pat.Tensor("quantize_0"),
-        &pat.Tensor("quantize_1"),
-        &pat.Tensor("quantize_2")},
-       {&pat.Tensor("out_0"), &pat.Tensor("out_1"), &pat.Tensor("out_2")});
+    op({pat.Tensor("quantize_0"),
+        pat.Tensor("quantize_1"),
+        pat.Tensor("quantize_2")},
+       {pat.Tensor("out_0"), pat.Tensor("out_1"), pat.Tensor("out_2")});
 
     pat.AddConstraint([this](const paddle::drr::MatchContext &match_ctx) {
       auto mkldnn_data_type = match_ctx.Attr<std::string>("mkldnn_data_type");
@@ -1565,30 +1565,27 @@ class CpuBfloat16LayerNormOpPattern : public paddle::drr::DrrPatternBase {
                    {"is_negative_input", res.BoolAttr(false)},
                    {"output_format", res.StrAttr("NCHW")},
                }});
-    quantize_op({&res.Tensor("quantize_" + std::to_string(index_))},
-                {&res.Tensor("quantize_out_" + std::to_string(index_))});
+    quantize_op({res.Tensor("quantize_" + std::to_string(index_))},
+                {res.Tensor("quantize_out_" + std::to_string(index_))});
 
     const auto &res_op = res.Op(bfloat16_ops_, op_attrs);
     if (index_ == 0) {
-      res_op(
-          {&res.Tensor("quantize_out_0"),
-           &res.Tensor("quantize_1"),
-           &res.Tensor("quantize_2")},
-          {{&res.Tensor("out_0"), &res.Tensor("out_1"), &res.Tensor("out_2")}});
+      res_op({res.Tensor("quantize_out_0"),
+              res.Tensor("quantize_1"),
+              res.Tensor("quantize_2")},
+             {{res.Tensor("out_0"), res.Tensor("out_1"), res.Tensor("out_2")}});
 
     } else if (index_ == 1) {
-      res_op(
-          {&res.Tensor("quantize_0"),
-           &res.Tensor("quantize_out_1"),
-           &res.Tensor("quantize_2")},
-          {{&res.Tensor("out_0"), &res.Tensor("out_1"), &res.Tensor("out_2")}});
+      res_op({res.Tensor("quantize_0"),
+              res.Tensor("quantize_out_1"),
+              res.Tensor("quantize_2")},
+             {{res.Tensor("out_0"), res.Tensor("out_1"), res.Tensor("out_2")}});
 
     } else if (index_ == 2) {
-      res_op(
-          {&res.Tensor("quantize_0"),
-           &res.Tensor("quantize_1"),
-           &res.Tensor("quantize_out_2")},
-          {{&res.Tensor("out_0"), &res.Tensor("out_1"), &res.Tensor("out_2")}});
+      res_op({res.Tensor("quantize_0"),
+              res.Tensor("quantize_1"),
+              res.Tensor("quantize_out_2")},
+             {{res.Tensor("out_0"), res.Tensor("out_1"), res.Tensor("out_2")}});
     }
   }
 };
@@ -1621,10 +1618,10 @@ class CpuBfloat16LayerNormDequantPattern : public paddle::drr::DrrPatternBase {
     op_attrs.emplace("epsilon", pat.Attr("epsilon"));
 
     const auto &op = pat.Op(bfloat16_ops_, op_attrs);
-    op({&pat.Tensor("quantize_0"),
-        &pat.Tensor("quantize_1"),
-        &pat.Tensor("quantize_2")},
-       {&pat.Tensor("out_0"), &pat.Tensor("out_1"), &pat.Tensor("out_2")});
+    op({pat.Tensor("quantize_0"),
+        pat.Tensor("quantize_1"),
+        pat.Tensor("quantize_2")},
+       {pat.Tensor("out_0"), pat.Tensor("out_1"), pat.Tensor("out_2")});
 
     paddle::drr::ResultPattern res = pat.ResultPattern();
 
@@ -1680,48 +1677,48 @@ class CpuBfloat16LayerNormDequantPattern : public paddle::drr::DrrPatternBase {
 
     const auto &res_op = res.Op(bfloat16_ops_, op_attrs);
     if (index_ == 0) {
-      res_op({&res.Tensor("quantize_0"),
-              &res.Tensor("quantize_1"),
-              &res.Tensor("quantize_2")},
-             {&res.Tensor("dequantize_0"),
-              &res.Tensor("out_1"),
-              &res.Tensor("out_2")});
+      res_op({res.Tensor("quantize_0"),
+              res.Tensor("quantize_1"),
+              res.Tensor("quantize_2")},
+             {res.Tensor("dequantize_0"),
+              res.Tensor("out_1"),
+              res.Tensor("out_2")});
       const auto &dequantize_op = res.Op("onednn_op.dequantize",
                                          {{
                                              {"scale", res.Float32Attr(1.f)},
                                              {"shift", res.Float32Attr(0.0f)},
                                          }});
 
-      dequantize_op({&res.Tensor("dequantize_0")}, {&res.Tensor("out_0")});
+      dequantize_op({res.Tensor("dequantize_0")}, {res.Tensor("out_0")});
     } else if (index_ == 1) {
-      res_op({&res.Tensor("quantize_0"),
-              &res.Tensor("quantize_1"),
-              &res.Tensor("quantize_2")},
-             {&res.Tensor("out_0"),
-              &res.Tensor("dequantize_1"),
-              &res.Tensor("out_2")});
+      res_op({res.Tensor("quantize_0"),
+              res.Tensor("quantize_1"),
+              res.Tensor("quantize_2")},
+             {res.Tensor("out_0"),
+              res.Tensor("dequantize_1"),
+              res.Tensor("out_2")});
       const auto &dequantize_op = res.Op("onednn_op.dequantize",
                                          {{
                                              {"scale", res.Float32Attr(1.f)},
                                              {"shift", res.Float32Attr(0.0f)},
                                          }});
 
-      dequantize_op({&res.Tensor("dequantize_1")}, {&res.Tensor("out_1")});
+      dequantize_op({res.Tensor("dequantize_1")}, {res.Tensor("out_1")});
 
     } else if (index_ == 2) {
-      res_op({&res.Tensor("quantize_0"),
-              &res.Tensor("quantize_1"),
-              &res.Tensor("quantize_2")},
-             {&res.Tensor("out_0"),
-              &res.Tensor("out_1"),
-              &res.Tensor("dequantize_2")});
+      res_op({res.Tensor("quantize_0"),
+              res.Tensor("quantize_1"),
+              res.Tensor("quantize_2")},
+             {res.Tensor("out_0"),
+              res.Tensor("out_1"),
+              res.Tensor("dequantize_2")});
       const auto &dequantize_op = res.Op("onednn_op.dequantize",
                                          {{
                                              {"scale", res.Float32Attr(1.f)},
                                              {"shift", res.Float32Attr(0.0f)},
                                          }});
 
-      dequantize_op({&res.Tensor("dequantize_2")}, {&res.Tensor("out_2")});
+      dequantize_op({res.Tensor("dequantize_2")}, {res.Tensor("out_2")});
     }
   }
 };
@@ -1794,11 +1791,11 @@ class CpuBfloat16PatternFour_one : public paddle::drr::DrrPatternBase {
     }
 
     const auto &op = pat.Op(bfloat16_ops_, op_attrs);
-    op({&pat.Tensor("quantize_0"),
-        &pat.Tensor("quantize_1"),
-        &pat.Tensor("quantize_2"),
-        &pat.Tensor("quantize_3")},
-       {&pat.Tensor("out")});
+    op({pat.Tensor("quantize_0"),
+        pat.Tensor("quantize_1"),
+        pat.Tensor("quantize_2"),
+        pat.Tensor("quantize_3")},
+       {pat.Tensor("out")});
 
     pat.AddConstraint([this](const paddle::drr::MatchContext &match_ctx) {
       auto mkldnn_data_type = match_ctx.Attr<std::string>("mkldnn_data_type");
@@ -1860,37 +1857,37 @@ class CpuBfloat16PatternFour_one : public paddle::drr::DrrPatternBase {
                    {"is_negative_input", res.BoolAttr(false)},
                    {"output_format", res.StrAttr("NCHW")},
                }});
-    quantize_op({&res.Tensor("quantize_" + std::to_string(index_))},
-                {&res.Tensor("quantize_out_" + std::to_string(index_))});
+    quantize_op({res.Tensor("quantize_" + std::to_string(index_))},
+                {res.Tensor("quantize_out_" + std::to_string(index_))});
 
     const auto &res_op = res.Op(bfloat16_ops_, op_attrs);
     if (index_ == 0) {
-      res_op({&res.Tensor("quantize_out_0"),
-              &res.Tensor("quantize_1"),
-              &res.Tensor("quantize_2"),
-              &res.Tensor("quantize_3")},
-             {&res.Tensor("out")});
+      res_op({res.Tensor("quantize_out_0"),
+              res.Tensor("quantize_1"),
+              res.Tensor("quantize_2"),
+              res.Tensor("quantize_3")},
+             {res.Tensor("out")});
 
     } else if (index_ == 1) {
-      res_op({&res.Tensor("quantize_0"),
-              &res.Tensor("quantize_out_1"),
-              &res.Tensor("quantize_2"),
-              &res.Tensor("quantize_3")},
-             {&res.Tensor("out")});
+      res_op({res.Tensor("quantize_0"),
+              res.Tensor("quantize_out_1"),
+              res.Tensor("quantize_2"),
+              res.Tensor("quantize_3")},
+             {res.Tensor("out")});
 
     } else if (index_ == 2) {
-      res_op({&res.Tensor("quantize_0"),
-              &res.Tensor("quantize_1"),
-              &res.Tensor("quantize_out_2"),
-              &res.Tensor("quantize_3")},
-             {&res.Tensor("out")});
+      res_op({res.Tensor("quantize_0"),
+              res.Tensor("quantize_1"),
+              res.Tensor("quantize_out_2"),
+              res.Tensor("quantize_3")},
+             {res.Tensor("out")});
 
     } else if (index_ == 3) {
-      res_op({&res.Tensor("quantize_0"),
-              &res.Tensor("quantize_1"),
-              &res.Tensor("quantize_2"),
-              &res.Tensor("quantize_out_3")},
-             {&res.Tensor("out")});
+      res_op({res.Tensor("quantize_0"),
+              res.Tensor("quantize_1"),
+              res.Tensor("quantize_2"),
+              res.Tensor("quantize_out_3")},
+             {res.Tensor("out")});
     }
   }
 };
@@ -1962,8 +1959,8 @@ class CpuBfloat16DequantPatternFour_one : public paddle::drr::DrrPatternBase {
     }
 
     const auto &op = pat.Op(bfloat16_ops_, op_attrs);
-    op({&pat.Tensor("x"), &pat.Tensor("y"), &pat.Tensor("z"), &pat.Tensor("s")},
-       {&pat.Tensor("out")});
+    op({pat.Tensor("x"), pat.Tensor("y"), pat.Tensor("z"), pat.Tensor("s")},
+       {pat.Tensor("out")});
 
     paddle::drr::ResultPattern res = pat.ResultPattern();
 
@@ -2014,18 +2011,15 @@ class CpuBfloat16DequantPatternFour_one : public paddle::drr::DrrPatternBase {
     });
 
     const auto &res_op = res.Op(bfloat16_ops_, op_attrs);
-    res_op({&res.Tensor("x"),
-            &res.Tensor("y"),
-            &res.Tensor("z"),
-            &res.Tensor("s")},
-           {&res.Tensor("dequantize")});
+    res_op({res.Tensor("x"), res.Tensor("y"), res.Tensor("z"), res.Tensor("s")},
+           {res.Tensor("dequantize")});
     const auto &dequantize_op = res.Op("onednn_op.dequantize",
                                        {{
                                            {"scale", res.Float32Attr(1.f)},
                                            {"shift", res.Float32Attr(0.0f)},
                                        }});
 
-    dequantize_op({&res.Tensor("dequantize")}, {&res.Tensor("out")});
+    dequantize_op({res.Tensor("dequantize")}, {res.Tensor("out")});
   }
 };
 

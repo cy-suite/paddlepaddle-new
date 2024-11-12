@@ -53,8 +53,8 @@ class ReshapeTransposeMatmulFusePattern : public paddle::drr::DrrPatternBase {
     pat.Tensor("shape") = full_int_array();
 
     const auto &reshape = pat.Op(paddle::dialect::ReshapeOp::name());
-    reshape({&pat.Tensor("reshape_in"), &pat.Tensor("shape")},
-            {&pat.Tensor("reshape_out")});
+    reshape({pat.Tensor("reshape_in"), pat.Tensor("shape")},
+            {pat.Tensor("reshape_out")});
 
     const auto &transpose = pat.Op(paddle::dialect::TransposeOp::name(),
                                    {{"perm", pat.Attr("perm")}});
@@ -64,11 +64,11 @@ class ReshapeTransposeMatmulFusePattern : public paddle::drr::DrrPatternBase {
                                 {{"transpose_x", pat.Attr("transpose_x")},
                                  {"transpose_y", pat.Attr("transpose_y")}});
     if (as_x_) {
-      matmul({&pat.Tensor("transpose_out"), &pat.Tensor("other")},
-             {&pat.Tensor("Out")});
+      matmul({pat.Tensor("transpose_out"), pat.Tensor("other")},
+             {pat.Tensor("Out")});
     } else {
-      matmul({&pat.Tensor("other"), &pat.Tensor("transpose_out")},
-             {&pat.Tensor("Out")});
+      matmul({pat.Tensor("other"), pat.Tensor("transpose_out")},
+             {pat.Tensor("Out")});
     }
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
@@ -124,15 +124,15 @@ class ReshapeTransposeMatmulFusePattern : public paddle::drr::DrrPatternBase {
     const auto &fused_matmul = res.Op(fused_matmul_name_, fused_attrs);
 
     if (as_x_) {
-      fused_matmul({&res.Tensor("reshape_in"),
-                    &res.Tensor("other"),
-                    &res.InputNoneTensor()},
-                   {&res.Tensor("Out")});
+      fused_matmul({res.Tensor("reshape_in"),
+                    res.Tensor("other"),
+                    res.InputNoneTensor()},
+                   {res.Tensor("Out")});
     } else {
-      fused_matmul({&res.Tensor("other"),
-                    &res.Tensor("reshape_in"),
-                    &res.InputNoneTensor()},
-                   {&res.Tensor("Out")});
+      fused_matmul({res.Tensor("other"),
+                    res.Tensor("reshape_in"),
+                    res.InputNoneTensor()},
+                   {res.Tensor("Out")});
     }
   }
 };
@@ -169,8 +169,8 @@ class ReshapeTransposeFusedMatmulFusePattern
     pat.Tensor("shape") = full_int_array();
 
     const auto &reshape = pat.Op(paddle::dialect::ReshapeOp::name());
-    reshape({&pat.Tensor("reshape_in"), &pat.Tensor("shape")},
-            {&pat.Tensor("reshape_out")});
+    reshape({pat.Tensor("reshape_in"), pat.Tensor("shape")},
+            {pat.Tensor("reshape_out")});
 
     const auto &transpose = pat.Op(paddle::dialect::TransposeOp::name(),
                                    {{"perm", pat.Attr("perm")}});
@@ -198,15 +198,15 @@ class ReshapeTransposeFusedMatmulFusePattern
                 {"scale_out", pat.Attr("scale_out")},
                 {"force_fp32_output", pat.Attr("force_fp32_output")}});
     if (as_x_) {
-      matmul({&pat.Tensor("transpose_out"),
-              &pat.Tensor("other"),
-              &pat.Tensor("residual")},
-             {&pat.Tensor("Out")});
+      matmul({pat.Tensor("transpose_out"),
+              pat.Tensor("other"),
+              pat.Tensor("residual")},
+             {pat.Tensor("Out")});
     } else {
-      matmul({&pat.Tensor("other"),
-              &pat.Tensor("transpose_out"),
-              &pat.Tensor("residual")},
-             {&pat.Tensor("Out")});
+      matmul({pat.Tensor("other"),
+              pat.Tensor("transpose_out"),
+              pat.Tensor("residual")},
+             {pat.Tensor("Out")});
     }
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
@@ -274,15 +274,15 @@ class ReshapeTransposeFusedMatmulFusePattern
     const auto &fused_matmul = res.Op(fused_matmul_name_, fused_attrs);
 
     if (as_x_) {
-      fused_matmul({&res.Tensor("reshape_in"),
-                    &res.Tensor("other"),
-                    &res.Tensor("residual")},
-                   {&res.Tensor("Out")});
+      fused_matmul({res.Tensor("reshape_in"),
+                    res.Tensor("other"),
+                    res.Tensor("residual")},
+                   {res.Tensor("Out")});
     } else {
-      fused_matmul({&res.Tensor("other"),
-                    &res.Tensor("reshape_in"),
-                    &res.Tensor("residual")},
-                   {&res.Tensor("Out")});
+      fused_matmul({res.Tensor("other"),
+                    res.Tensor("reshape_in"),
+                    res.Tensor("residual")},
+                   {res.Tensor("Out")});
     }
   }
 };

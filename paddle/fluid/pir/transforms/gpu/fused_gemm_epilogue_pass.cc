@@ -51,9 +51,8 @@ class FusedLinearPattern : public paddle::drr::DrrPatternBase {
                {{{"trans_x", pat.Attr("trans_x")},
                  {"trans_y", pat.Attr("trans_y")},
                  {"activation", res.StrAttr("none")}}});
-    fused_gemm_epilogue(
-        {&res.Tensor("x"), &res.Tensor("w"), &res.Tensor("bias")},
-        {&res.Tensor("out")});
+    fused_gemm_epilogue({res.Tensor("x"), res.Tensor("w"), res.Tensor("bias")},
+                        {res.Tensor("out")});
   }
 };
 
@@ -74,10 +73,10 @@ class FusedLinearGradPattern : public paddle::drr::DrrPatternBase {
 
     pat.Tensor("tmp") = matmul(pat.Tensor("x"), pat.Tensor("w"));
     pat.Tensor("out") = add(pat.Tensor("tmp"), pat.Tensor("bias"));
-    add_grad({&pat.Tensor("tmp"), &pat.Tensor("bias"), &pat.Tensor("out_grad")},
-             {&pat.Tensor("tmp_grad"), &pat.Tensor("bias_grad")});
-    matmul_grad({&pat.Tensor("x"), &pat.Tensor("w"), &pat.Tensor("tmp_grad")},
-                {&pat.Tensor("x_grad"), &pat.Tensor("w_grad")});
+    add_grad({pat.Tensor("tmp"), pat.Tensor("bias"), pat.Tensor("out_grad")},
+             {pat.Tensor("tmp_grad"), pat.Tensor("bias_grad")});
+    matmul_grad({pat.Tensor("x"), pat.Tensor("w"), pat.Tensor("tmp_grad")},
+                {pat.Tensor("x_grad"), pat.Tensor("w_grad")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       auto w_dims = pir::GetShapeFromValue(match_ctx.Tensor("w"));
@@ -99,16 +98,14 @@ class FusedLinearGradPattern : public paddle::drr::DrrPatternBase {
                {{{"trans_x", pat.Attr("trans_x")},
                  {"trans_y", pat.Attr("trans_y")},
                  {"activation_grad", res.StrAttr("none")}}});
-    fused_gemm_epilogue(
-        {&res.Tensor("x"), &res.Tensor("w"), &res.Tensor("bias")},
-        {&res.Tensor("out")});
-    fused_gemm_epilogue_grad({&res.Tensor("x"),
-                              &res.Tensor("w"),
-                              &res.InputNoneTensor(),
-                              &res.Tensor("out_grad")},
-                             {&res.Tensor("x_grad"),
-                              &res.Tensor("w_grad"),
-                              &res.Tensor("bias_grad")});
+    fused_gemm_epilogue({res.Tensor("x"), res.Tensor("w"), res.Tensor("bias")},
+                        {res.Tensor("out")});
+    fused_gemm_epilogue_grad(
+        {res.Tensor("x"),
+         res.Tensor("w"),
+         res.InputNoneTensor(),
+         res.Tensor("out_grad")},
+        {res.Tensor("x_grad"), res.Tensor("w_grad"), res.Tensor("bias_grad")});
   }
 };
 
@@ -193,9 +190,8 @@ class FusedLinearGeluPattern : public paddle::drr::DrrPatternBase {
                  {"trans_y", pat.Attr("trans_y")},
                  {"activation", pat.Attr("act")}}});
     const auto &gelu = pat.Op(paddle::dialect::GeluOp::name());
-    fused_gemm_epilogue(
-        {&pat.Tensor("x"), &pat.Tensor("w"), &pat.Tensor("bias")},
-        {&pat.Tensor("fuse_out"), &pat.Tensor("reserve_space")});
+    fused_gemm_epilogue({pat.Tensor("x"), pat.Tensor("w"), pat.Tensor("bias")},
+                        {pat.Tensor("fuse_out"), pat.Tensor("reserve_space")});
     pat.Tensor("out") = gelu(pat.Tensor("fuse_out"));
 
     // Constrains the activation is none
@@ -211,8 +207,8 @@ class FusedLinearGeluPattern : public paddle::drr::DrrPatternBase {
                  {"trans_y", pat.Attr("trans_y")},
                  {"activation", res.StrAttr("gelu")}}});
     fused_gemm_epilogue_gelu(
-        {&res.Tensor("x"), &res.Tensor("w"), &res.Tensor("bias")},
-        {&res.Tensor("out"), &res.Tensor("reserve_space")});
+        {res.Tensor("x"), res.Tensor("w"), res.Tensor("bias")},
+        {res.Tensor("out"), res.Tensor("reserve_space")});
   }
 };
 
@@ -229,9 +225,8 @@ class FusedLinearReluPattern : public paddle::drr::DrrPatternBase {
                  {"trans_y", pat.Attr("trans_y")},
                  {"activation", pat.Attr("act")}}});
     const auto &relu = pat.Op(paddle::dialect::ReluOp::name());
-    fused_gemm_epilogue(
-        {&pat.Tensor("x"), &pat.Tensor("w"), &pat.Tensor("bias")},
-        {&pat.Tensor("fuse_out"), &pat.Tensor("reserve_space")});
+    fused_gemm_epilogue({pat.Tensor("x"), pat.Tensor("w"), pat.Tensor("bias")},
+                        {pat.Tensor("fuse_out"), pat.Tensor("reserve_space")});
     pat.Tensor("out") = relu(pat.Tensor("fuse_out"));
 
     // Constrains the activation is none
@@ -247,8 +242,8 @@ class FusedLinearReluPattern : public paddle::drr::DrrPatternBase {
                  {"trans_y", pat.Attr("trans_y")},
                  {"activation", res.StrAttr("relu")}}});
     fused_gemm_epilogue_relu(
-        {&res.Tensor("x"), &res.Tensor("w"), &res.Tensor("bias")},
-        {&res.Tensor("out"), &res.Tensor("reserve_space")});
+        {res.Tensor("x"), res.Tensor("w"), res.Tensor("bias")},
+        {res.Tensor("out"), res.Tensor("reserve_space")});
   }
 };
 
@@ -268,19 +263,18 @@ class FusedLinearGeluGradPattern : public paddle::drr::DrrPatternBase {
                {{{"trans_x", pat.Attr("trans_x2")},
                  {"trans_y", pat.Attr("trans_y2")},
                  {"activation_grad", pat.Attr("act2")}}});
-    fused_gemm_epilogue(
-        {&pat.Tensor("x"), &pat.Tensor("w"), &pat.Tensor("bias")},
-        {&pat.Tensor("fuse_out"), &pat.Tensor("reserve_space")});
+    fused_gemm_epilogue({pat.Tensor("x"), pat.Tensor("w"), pat.Tensor("bias")},
+                        {pat.Tensor("fuse_out"), pat.Tensor("reserve_space")});
     pat.Tensor("out") =
         pat.Op(paddle::dialect::GeluOp::name())(pat.Tensor("fuse_out"));
 
-    fused_gemm_epilogue_grad1({&pat.Tensor("x1"),
-                               &pat.Tensor("w1"),
-                               &pat.Tensor("reserve_space1"),
-                               &pat.Tensor("out_grad")},
-                              {&pat.Tensor("x1_grad"),
-                               &pat.Tensor("w1_grad"),
-                               &pat.Tensor("bias1_grad")});
+    fused_gemm_epilogue_grad1({pat.Tensor("x1"),
+                               pat.Tensor("w1"),
+                               pat.Tensor("reserve_space1"),
+                               pat.Tensor("out_grad")},
+                              {pat.Tensor("x1_grad"),
+                               pat.Tensor("w1_grad"),
+                               pat.Tensor("bias1_grad")});
     pat.Tensor("gelu_dx") = pat.Op(paddle::dialect::GeluGradOp::name())(
         pat.Tensor("fuse_out"), pat.Tensor("x1_grad"));
 
@@ -301,15 +295,15 @@ class FusedLinearGeluGradPattern : public paddle::drr::DrrPatternBase {
                  {"trans_y", pat.Attr("trans_y2")},
                  {"activation_grad", res.StrAttr("gelu_grad")}}});
     fused_gemm_epilogue_new(
-        {&res.Tensor("x"), &res.Tensor("w"), &res.Tensor("bias")},
-        {&res.Tensor("out"), &res.Tensor("reserve_space2")});
-    fused_gemm_epilogue_grad_new({&res.Tensor("x1"),
-                                  &res.Tensor("w1"),
-                                  &res.Tensor("reserve_space2"),
-                                  &res.Tensor("out_grad")},
-                                 {&res.Tensor("gelu_dx"),
-                                  &res.Tensor("w1_grad"),
-                                  &res.Tensor("bias1_grad")});
+        {res.Tensor("x"), res.Tensor("w"), res.Tensor("bias")},
+        {res.Tensor("out"), res.Tensor("reserve_space2")});
+    fused_gemm_epilogue_grad_new({res.Tensor("x1"),
+                                  res.Tensor("w1"),
+                                  res.Tensor("reserve_space2"),
+                                  res.Tensor("out_grad")},
+                                 {res.Tensor("gelu_dx"),
+                                  res.Tensor("w1_grad"),
+                                  res.Tensor("bias1_grad")});
   }
 };
 
@@ -335,26 +329,24 @@ class FusedLinearReluGradPattern : public paddle::drr::DrrPatternBase {
                  {"trans_y", pat.Attr("trans_y3")},
                  {"activation_grad", pat.Attr("act3")}}});
 
-    fused_gemm_epilogue(
-        {&pat.Tensor("x"), &pat.Tensor("w"), &pat.Tensor("bias")},
-        {&pat.Tensor("fuse_out"), &pat.Tensor("reserve_space")});
-    fused_gemm_epilogue_grad1({&pat.Tensor("x1"),
-                               &pat.Tensor("w1"),
-                               &pat.Tensor("reserve_space2"),
-                               &pat.Tensor("out_grad")},
-                              {&pat.Tensor("x1_grad"),
-                               &pat.Tensor("w1_grad"),
-                               &pat.Tensor("bias1_grad")});
+    fused_gemm_epilogue({pat.Tensor("x"), pat.Tensor("w"), pat.Tensor("bias")},
+                        {pat.Tensor("fuse_out"), pat.Tensor("reserve_space")});
+    fused_gemm_epilogue_grad1({pat.Tensor("x1"),
+                               pat.Tensor("w1"),
+                               pat.Tensor("reserve_space2"),
+                               pat.Tensor("out_grad")},
+                              {pat.Tensor("x1_grad"),
+                               pat.Tensor("w1_grad"),
+                               pat.Tensor("bias1_grad")});
 
     pat.Tensor("relu_dx") = pat.Op(paddle::dialect::ReluGradOp::name())(
         pat.Tensor("x1"), pat.Tensor("x1_grad"));
-    fused_gemm_epilogue_grad({&pat.Tensor("x"),
-                              &pat.Tensor("w"),
-                              &pat.Tensor("reserve_space1"),
-                              &pat.Tensor("relu_dx")},
-                             {&pat.Tensor("x_grad"),
-                              &pat.Tensor("w_grad"),
-                              &pat.Tensor("bias_grad")});
+    fused_gemm_epilogue_grad(
+        {pat.Tensor("x"),
+         pat.Tensor("w"),
+         pat.Tensor("reserve_space1"),
+         pat.Tensor("relu_dx")},
+        {pat.Tensor("x_grad"), pat.Tensor("w_grad"), pat.Tensor("bias_grad")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       return match_ctx.Attr<std::string>("act1") == "relu" &&
@@ -368,13 +360,13 @@ class FusedLinearReluGradPattern : public paddle::drr::DrrPatternBase {
                  {"trans_y", pat.Attr("trans_y3")},
                  {"activation_grad", res.StrAttr("relu_grad")}}});
 
-    res_fused_gemm_epilogue_grad1({&res.Tensor("x1"),
-                                   &res.Tensor("w1"),
-                                   &res.Tensor("reserve_space"),
-                                   &res.Tensor("out_grad")},
-                                  {&res.Tensor("relu_dx"),
-                                   &res.Tensor("w1_grad"),
-                                   &res.Tensor("bias1_grad")});
+    res_fused_gemm_epilogue_grad1({res.Tensor("x1"),
+                                   res.Tensor("w1"),
+                                   res.Tensor("reserve_space"),
+                                   res.Tensor("out_grad")},
+                                  {res.Tensor("relu_dx"),
+                                   res.Tensor("w1_grad"),
+                                   res.Tensor("bias1_grad")});
   }
 };
 

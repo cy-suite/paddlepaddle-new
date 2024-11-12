@@ -50,19 +50,19 @@ class Conv2dBnFusePattern : public paddle::drr::DrrPatternBase {
                                 {"epsilon", pat.Attr("epsilon")},
                             });
 
-    conv2d({&pat.Tensor("input"), &pat.Tensor("filter")},
-           {&pat.Tensor("conv2d_out")});
-    bn({&pat.Tensor("conv2d_out"),
-        &pat.Tensor("bn_mean"),
-        &pat.Tensor("bn_var"),
-        &pat.Tensor("bn_scale"),
-        &pat.Tensor("bn_bias")},
-       {&pat.Tensor("bn_out"),
-        &pat.Tensor("mean_out"),
-        &pat.Tensor("var_out"),
-        &pat.Tensor("saved_mean"),
-        &pat.Tensor("saved_variance"),
-        &pat.Tensor("reserve_space")});
+    conv2d({pat.Tensor("input"), pat.Tensor("filter")},
+           {pat.Tensor("conv2d_out")});
+    bn({pat.Tensor("conv2d_out"),
+        pat.Tensor("bn_mean"),
+        pat.Tensor("bn_var"),
+        pat.Tensor("bn_scale"),
+        pat.Tensor("bn_bias")},
+       {pat.Tensor("bn_out"),
+        pat.Tensor("mean_out"),
+        pat.Tensor("var_out"),
+        pat.Tensor("saved_mean"),
+        pat.Tensor("saved_variance"),
+        pat.Tensor("reserve_space")});
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       std::vector<int64_t> conv_input_shape =
           pir::GetShapeFromValue(match_ctx.Tensor("input"));
@@ -191,17 +191,17 @@ class Conv2dBnFusePattern : public paddle::drr::DrrPatternBase {
                }});
     conv2d_xpu(
         {
-            &res.Tensor("input"),
-            &res.InputNoneTensor(),
-            &res.Tensor("res_filter"),
-            &res.Tensor("res_filter_max"),
-            &res.Tensor("res_bias"),
-            &res.InputNoneTensor(),
-            &res.InputNoneTensor(),
-            &res.InputNoneTensor(),
-            &res.InputNoneTensor(),
+            res.Tensor("input"),
+            res.InputNoneTensor(),
+            res.Tensor("res_filter"),
+            res.Tensor("res_filter_max"),
+            res.Tensor("res_bias"),
+            res.InputNoneTensor(),
+            res.InputNoneTensor(),
+            res.InputNoneTensor(),
+            res.InputNoneTensor(),
         },
-        {&res.Tensor("bn_out"), &res.Tensor("out_max")});
+        {res.Tensor("bn_out"), res.Tensor("out_max")});
   }
 };
 

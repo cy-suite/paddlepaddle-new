@@ -43,14 +43,13 @@ class FcElementwiseLayerNormFusePattern : public paddle::drr::DrrPatternBase {
                {{"epsilon", pat.Attr("epsilon")},
                 {"begin_norm_axis", pat.Attr("begin_norm_axis")}});
 
-    fc({&pat.Tensor("x"), &pat.Tensor("w"), &pat.Tensor("bias0")},
-       {&pat.Tensor("fc_out")});
-    add({&pat.Tensor("fc_out"), &pat.Tensor("y")}, {&pat.Tensor("add_out")});
-    layernorm(
-        {&pat.Tensor("add_out"), &pat.Tensor("scale"), &pat.Tensor("bias1")},
-        {&pat.Tensor("layernorm_out"),
-         &pat.Tensor("layernorm_mean"),
-         &pat.Tensor("layernorm_variance")});
+    fc({pat.Tensor("x"), pat.Tensor("w"), pat.Tensor("bias0")},
+       {pat.Tensor("fc_out")});
+    add({pat.Tensor("fc_out"), pat.Tensor("y")}, {pat.Tensor("add_out")});
+    layernorm({pat.Tensor("add_out"), pat.Tensor("scale"), pat.Tensor("bias1")},
+              {pat.Tensor("layernorm_out"),
+               pat.Tensor("layernorm_mean"),
+               pat.Tensor("layernorm_variance")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       auto x_dtype = pir::GetDataTypeFromValue(match_ctx.Tensor("x"));
@@ -94,15 +93,15 @@ class FcElementwiseLayerNormFusePattern : public paddle::drr::DrrPatternBase {
                    {"epsilon", pat.Attr("epsilon")},
                    {"begin_norm_axis", pat.Attr("begin_norm_axis")},
                }});
-    fused_fc_elementwise_op({&res.Tensor("x"),
-                             &res.Tensor("w"),
-                             &res.Tensor("y"),
-                             &res.Tensor("bias0"),
-                             &res.Tensor("casted_scale"),
-                             &res.Tensor("casted_bias1")},
-                            {&res.Tensor("layernorm_out"),
-                             &res.Tensor("layernorm_mean"),
-                             &res.Tensor("layernorm_variance")});
+    fused_fc_elementwise_op({res.Tensor("x"),
+                             res.Tensor("w"),
+                             res.Tensor("y"),
+                             res.Tensor("bias0"),
+                             res.Tensor("casted_scale"),
+                             res.Tensor("casted_bias1")},
+                            {res.Tensor("layernorm_out"),
+                             res.Tensor("layernorm_mean"),
+                             res.Tensor("layernorm_variance")});
   }
 };
 

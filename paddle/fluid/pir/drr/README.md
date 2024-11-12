@@ -158,8 +158,8 @@ class FusedLinearPattern : public paddle::drr::DrrPatternBase {
                                                {"trans_y", pat.Attr("trans_y")},
                                                {"activation", res.StrAttr("none")}}});
     fused_gemm_epilogue(
-        {&res.Tensor("x"), &res.Tensor("w"), &res.Tensor("bias")},
-        {&res.Tensor("out")});
+        {res.Tensor("x"), res.Tensor("w"), res.Tensor("bias")},
+        {res.Tensor("out")});
   }
 };
 ~~~

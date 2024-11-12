@@ -68,8 +68,8 @@ class AddActivationPattern : public paddle::drr::DrrPatternBase {
 
     const auto &add = pat.Op(paddle::dialect::AddOp::name());
     const auto &act = pat.Op(act_op_name);
-    add({&pat.Tensor("x"), &pat.Tensor("y")}, {&pat.Tensor("add_out")});
-    act({&pat.Tensor("add_out")}, {&pat.Tensor("out")});
+    add({pat.Tensor("x"), pat.Tensor("y")}, {pat.Tensor("add_out")});
+    act({pat.Tensor("add_out")}, {pat.Tensor("out")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       std::vector<int64_t> x_shape =
@@ -88,12 +88,12 @@ class AddActivationPattern : public paddle::drr::DrrPatternBase {
                                      {{{"act_type", res.Int32Attr(act_type)}}});
     add_act_xpu(
         {
-            &res.Tensor("x"),
-            &res.InputNoneTensor(),
-            &res.Tensor("y"),
-            &res.InputNoneTensor(),
+            res.Tensor("x"),
+            res.InputNoneTensor(),
+            res.Tensor("y"),
+            res.InputNoneTensor(),
         },
-        {&res.Tensor("out"), &res.Tensor("out_max")});
+        {res.Tensor("out"), res.Tensor("out_max")});
   }
 };
 

@@ -33,11 +33,12 @@ class PatternGraph {
  public:
   virtual ~PatternGraph() {}
 
-  const drr::OpCall& AddOpCall(const std::shared_ptr<drr::OpCall>& op_call);
+  const std::shared_ptr<OpCall>& AddOpCall(
+      const std::shared_ptr<drr::OpCall>& op_call);
 
-  drr::Tensor& AddTensor(const std::shared_ptr<drr::Tensor>& tensor);
+  std::shared_ptr<Tensor>& AddTensor(const std::string& tensor_name);
 
-  drr::Tensor& AddTmpTensor(const std::shared_ptr<drr::Tensor>& tensor);
+  std::shared_ptr<Tensor>& AddTmpTensor(const std::string& tensor);
 
   void UpdateTmpTensor(const std::string& tmp_tensor_name,
                        const std::string& new_tensor_name);

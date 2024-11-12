@@ -77,7 +77,7 @@ class RemoveInvalidTransposePattern : public paddle::drr::DrrPatternBase {
       return true;
     });
     paddle::drr::ResultPattern res = pat.ResultPattern();
-    res.Tensor("ret").Assign(res.Tensor("arg_transpose"));
+    res.Tensor("ret")->Assign(res.Tensor("arg_transpose"));
   }
 };
 

@@ -121,15 +121,15 @@ class FusedDotProductAttentionPattern : public paddle::drr::DrrPatternBase {
                  {"mask_type_str", res.StrAttr("none")},
                  {"bias_type_str", res.StrAttr("post_scale_bias")}}});
 
-    dot_product_attention({&res.Tensor("q"),
-                           &res.Tensor("k"),
-                           &res.Tensor("v"),
-                           &res.Tensor("mask_scale2_out"),
-                           &res.InputNoneTensor(),   // cu_seqlen_q is none
-                           &res.InputNoneTensor()},  // cu_seqlen_k is none
-                          {&res.Tensor("out"),
-                           &res.Tensor("softmax_aux"),
-                           &res.Tensor("rng_state")});
+    dot_product_attention({res.Tensor("q"),
+                           res.Tensor("k"),
+                           res.Tensor("v"),
+                           res.Tensor("mask_scale2_out"),
+                           res.InputNoneTensor(),   // cu_seqlen_q is none
+                           res.InputNoneTensor()},  // cu_seqlen_k is none
+                          {res.Tensor("out"),
+                           res.Tensor("softmax_aux"),
+                           res.Tensor("rng_state")});
   }
 };
 
@@ -205,40 +205,40 @@ class FusedDotProductAttentionGradPattern : public paddle::drr::DrrPatternBase {
                {{"transpose_x", src.Attr("context_matmul_grad_transpose_x")},
                 {"transpose_y", src.Attr("context_matmul_grad_transpose_y")}});
     context_matmul_grad(
-        {&src.Tensor("softmax_out"),
-         &src.Tensor("v_transpose_out"),
-         &src.Tensor("o_transpose_grad_out")},
-        {&src.Tensor("softmax_out_grad"), &src.Tensor("v_transpose_out_grad")});
+        {src.Tensor("softmax_out"),
+         src.Tensor("v_transpose_out"),
+         src.Tensor("o_transpose_grad_out")},
+        {src.Tensor("softmax_out_grad"), src.Tensor("v_transpose_out_grad")});
     const auto &softmax_grad = src.Op("pd_op.softmax_grad");
-    softmax_grad({&src.Tensor("softmax_out"), &src.Tensor("softmax_out_grad")},
-                 {&src.Tensor("mask_add_out_grad")});
+    softmax_grad({src.Tensor("softmax_out"), src.Tensor("softmax_out_grad")},
+                 {src.Tensor("mask_add_out_grad")});
     const auto &v_transpose_grad = src.Op("pd_op.transpose_grad");
-    v_transpose_grad({&src.Tensor("v_transpose_out_grad")},
-                     {&src.Tensor("v_grad")});
+    v_transpose_grad({src.Tensor("v_transpose_out_grad")},
+                     {src.Tensor("v_grad")});
     const auto &mask_add_grad = src.Op("pd_op.add_grad");
-    mask_add_grad({&src.Tensor("qk_matmul_out"),
-                   &src.Tensor("mask_scale2_out"),
-                   &src.Tensor("mask_add_out_grad")},
-                  {&src.Tensor("qk_matmul_out_grad"),
-                   &src.Tensor("mask_scale2_out_grad")});
+    mask_add_grad(
+        {src.Tensor("qk_matmul_out"),
+         src.Tensor("mask_scale2_out"),
+         src.Tensor("mask_add_out_grad")},
+        {src.Tensor("qk_matmul_out_grad"), src.Tensor("mask_scale2_out_grad")});
     const auto &qk_matmul_grad =
         src.Op("pd_op.matmul_grad",
                {{"transpose_x", src.Attr("qk_matmul_grad_transpose_x")},
                 {"transpose_y", src.Attr("qk_matmul_grad_transpose_y")}});
     qk_matmul_grad(
-        {&src.Tensor("q_scale_out"),
-         &src.Tensor("k_transpose_out"),
-         &src.Tensor("qk_matmul_out_grad")},
-        {&src.Tensor("q_scale_out_grad"), &src.Tensor("k_transpose_out_grad")});
+        {src.Tensor("q_scale_out"),
+         src.Tensor("k_transpose_out"),
+         src.Tensor("qk_matmul_out_grad")},
+        {src.Tensor("q_scale_out_grad"), src.Tensor("k_transpose_out_grad")});
     const auto &q_scale_grad = src.Op("pd_op.scale");
     src.Tensor("q_transpose_out_grad") = q_scale_grad(
         src.Tensor("q_scale_out_grad"), src.Tensor("q_scale_full_out"));
     const auto &q_transpose_grad = src.Op("pd_op.transpose_grad");
-    q_transpose_grad({&src.Tensor("q_transpose_out_grad")},
-                     {&src.Tensor("q_grad")});
+    q_transpose_grad({src.Tensor("q_transpose_out_grad")},
+                     {src.Tensor("q_grad")});
     const auto &k_transpose_grad = src.Op("pd_op.transpose_grad");
-    k_transpose_grad({&src.Tensor("k_transpose_out_grad")},
-                     {&src.Tensor("k_grad")});
+    k_transpose_grad({src.Tensor("k_transpose_out_grad")},
+                     {src.Tensor("k_grad")});
 
     // Constraints
     src.AddConstraint([](const paddle::drr::MatchContext &match_ctx) -> bool {
@@ -276,15 +276,15 @@ class FusedDotProductAttentionGradPattern : public paddle::drr::DrrPatternBase {
                  {"mask_type_str", res.StrAttr("none")},
                  {"bias_type_str", res.StrAttr("post_scale_bias")}}});
 
-    dot_product_attention({&res.Tensor("q"),
-                           &res.Tensor("k"),
-                           &res.Tensor("v"),
-                           &res.Tensor("mask_scale2_out"),
-                           &res.InputNoneTensor(),   // cu_seqlen_q is none
-                           &res.InputNoneTensor()},  // cu_seqlen_k is none
-                          {&res.Tensor("out"),
-                           &res.Tensor("softmax_aux"),
-                           &res.Tensor("rng_state")});
+    dot_product_attention({res.Tensor("q"),
+                           res.Tensor("k"),
+                           res.Tensor("v"),
+                           res.Tensor("mask_scale2_out"),
+                           res.InputNoneTensor(),   // cu_seqlen_q is none
+                           res.InputNoneTensor()},  // cu_seqlen_k is none
+                          {res.Tensor("out"),
+                           res.Tensor("softmax_aux"),
+                           res.Tensor("rng_state")});
     const auto &dot_product_attention_grad =
         res.Op(paddle::dialect::FusedDotProductAttentionGradOp::name(),
                {{{"scaling_factor", scaling_factor},
@@ -292,17 +292,17 @@ class FusedDotProductAttentionGradPattern : public paddle::drr::DrrPatternBase {
                  {"mask_type_str", res.StrAttr("none")},
                  {"bias_type_str", res.StrAttr("post_scale_bias")}}});
     dot_product_attention_grad(
-        {&res.Tensor("q"),
-         &res.Tensor("k"),
-         &res.Tensor("v"),
-         &res.Tensor("mask_scale2_out"),
-         &res.InputNoneTensor(),  // cu_seqlen_q is none
-         &res.InputNoneTensor(),  // cu_seqlen_k is none
-         &res.Tensor("out"),
-         &res.Tensor("softmax_aux"),
-         &res.Tensor("rng_state"),
-         &res.Tensor("out_grad")},
-        {&res.Tensor("q_grad"), &res.Tensor("k_grad"), &res.Tensor("v_grad")});
+        {res.Tensor("q"),
+         res.Tensor("k"),
+         res.Tensor("v"),
+         res.Tensor("mask_scale2_out"),
+         res.InputNoneTensor(),  // cu_seqlen_q is none
+         res.InputNoneTensor(),  // cu_seqlen_k is none
+         res.Tensor("out"),
+         res.Tensor("softmax_aux"),
+         res.Tensor("rng_state"),
+         res.Tensor("out_grad")},
+        {res.Tensor("q_grad"), res.Tensor("k_grad"), res.Tensor("v_grad")});
   }
 };
 
@@ -367,8 +367,8 @@ class FusedDotProductAttentionWithDropoutPattern
                                   {"mode", src.Attr("mode")},
                                   {"seed", src.Attr("seed")},
                                   {"fix_seed", src.Attr("fix_seed")}});
-    dropout({&src.Tensor("softmax_out"), &src.Tensor("seed_tensor")},
-            {&src.Tensor("dropout_out"), &src.Tensor("dropout_mask")});
+    dropout({src.Tensor("softmax_out"), src.Tensor("seed_tensor")},
+            {src.Tensor("dropout_out"), src.Tensor("dropout_mask")});
     const auto &context_matmul =
         src.Op("pd_op.matmul",
                {{"transpose_x", src.Attr("context_matmul_transpose_x")},
@@ -414,15 +414,15 @@ class FusedDotProductAttentionWithDropoutPattern
                  {"mask_type_str", res.StrAttr("none")},
                  {"bias_type_str", res.StrAttr("post_scale_bias")}}});
 
-    dot_product_attention({&res.Tensor("q"),
-                           &res.Tensor("k"),
-                           &res.Tensor("v"),
-                           &res.Tensor("mask_scale2_out"),
-                           &res.InputNoneTensor(),   // cu_seqlen_q is none
-                           &res.InputNoneTensor()},  // cu_seqlen_k is none
-                          {&res.Tensor("out"),
-                           &res.Tensor("softmax_aux"),
-                           &res.Tensor("rng_state")});
+    dot_product_attention({res.Tensor("q"),
+                           res.Tensor("k"),
+                           res.Tensor("v"),
+                           res.Tensor("mask_scale2_out"),
+                           res.InputNoneTensor(),   // cu_seqlen_q is none
+                           res.InputNoneTensor()},  // cu_seqlen_k is none
+                          {res.Tensor("out"),
+                           res.Tensor("softmax_aux"),
+                           res.Tensor("rng_state")});
   }
 };
 
@@ -487,8 +487,8 @@ class FusedDotProductAttentionGradWithDropoutPattern
                                   {"mode", src.Attr("mode")},
                                   {"seed", src.Attr("seed")},
                                   {"fix_seed", src.Attr("fix_seed")}});
-    dropout({&src.Tensor("softmax_out"), &src.Tensor("seed_tensor")},
-            {&src.Tensor("dropout_out"), &src.Tensor("dropout_mask")});
+    dropout({src.Tensor("softmax_out"), src.Tensor("seed_tensor")},
+            {src.Tensor("dropout_out"), src.Tensor("dropout_mask")});
     const auto &context_matmul =
         src.Op("pd_op.matmul",
                {{"transpose_x", src.Attr("context_matmul_transpose_x")},
@@ -507,46 +507,46 @@ class FusedDotProductAttentionGradWithDropoutPattern
                {{"transpose_x", src.Attr("context_matmul_grad_transpose_x")},
                 {"transpose_y", src.Attr("context_matmul_grad_transpose_y")}});
     context_matmul_grad(
-        {&src.Tensor("dropout_out"),
-         &src.Tensor("v_transpose_out"),
-         &src.Tensor("o_transpose_grad_out")},
-        {&src.Tensor("dropout_out_grad"), &src.Tensor("v_transpose_out_grad")});
+        {src.Tensor("dropout_out"),
+         src.Tensor("v_transpose_out"),
+         src.Tensor("o_transpose_grad_out")},
+        {src.Tensor("dropout_out_grad"), src.Tensor("v_transpose_out_grad")});
     const auto &dropout_grad = src.Op("pd_op.dropout_grad",
                                       {{"p", src.Attr("dropout_prob")},
                                        {"is_test", src.Attr("is_test")},
                                        {"mode", src.Attr("mode")}});
-    dropout_grad({&src.Tensor("dropout_mask"), &src.Tensor("dropout_out_grad")},
-                 {&src.Tensor("softmax_out_grad")});
+    dropout_grad({src.Tensor("dropout_mask"), src.Tensor("dropout_out_grad")},
+                 {src.Tensor("softmax_out_grad")});
     const auto &softmax_grad = src.Op("pd_op.softmax_grad");
-    softmax_grad({&src.Tensor("softmax_out"), &src.Tensor("softmax_out_grad")},
-                 {&src.Tensor("mask_add_out_grad")});
+    softmax_grad({src.Tensor("softmax_out"), src.Tensor("softmax_out_grad")},
+                 {src.Tensor("mask_add_out_grad")});
     const auto &v_transpose_grad = src.Op("pd_op.transpose_grad");
-    v_transpose_grad({&src.Tensor("v_transpose_out_grad")},
-                     {&src.Tensor("v_grad")});
+    v_transpose_grad({src.Tensor("v_transpose_out_grad")},
+                     {src.Tensor("v_grad")});
     const auto &mask_add_grad = src.Op("pd_op.add_grad");
-    mask_add_grad({&src.Tensor("qk_matmul_out"),
-                   &src.Tensor("mask_scale2_out"),
-                   &src.Tensor("mask_add_out_grad")},
-                  {&src.Tensor("qk_matmul_out_grad"),
-                   &src.Tensor("mask_scale2_out_grad")});
+    mask_add_grad(
+        {src.Tensor("qk_matmul_out"),
+         src.Tensor("mask_scale2_out"),
+         src.Tensor("mask_add_out_grad")},
+        {src.Tensor("qk_matmul_out_grad"), src.Tensor("mask_scale2_out_grad")});
     const auto &qk_matmul_grad =
         src.Op("pd_op.matmul_grad",
                {{"transpose_x", src.Attr("qk_matmul_grad_transpose_x")},
                 {"transpose_y", src.Attr("qk_matmul_grad_transpose_y")}});
     qk_matmul_grad(
-        {&src.Tensor("q_scale_out"),
-         &src.Tensor("k_transpose_out"),
-         &src.Tensor("qk_matmul_out_grad")},
-        {&src.Tensor("q_scale_out_grad"), &src.Tensor("k_transpose_out_grad")});
+        {src.Tensor("q_scale_out"),
+         src.Tensor("k_transpose_out"),
+         src.Tensor("qk_matmul_out_grad")},
+        {src.Tensor("q_scale_out_grad"), src.Tensor("k_transpose_out_grad")});
     const auto &q_scale_grad = src.Op("pd_op.scale");
     src.Tensor("q_transpose_out_grad") = q_scale_grad(
         src.Tensor("q_scale_out_grad"), src.Tensor("q_scale_full_out"));
     const auto &q_transpose_grad = src.Op("pd_op.transpose_grad");
-    q_transpose_grad({&src.Tensor("q_transpose_out_grad")},
-                     {&src.Tensor("q_grad")});
+    q_transpose_grad({src.Tensor("q_transpose_out_grad")},
+                     {src.Tensor("q_grad")});
     const auto &k_transpose_grad = src.Op("pd_op.transpose_grad");
-    k_transpose_grad({&src.Tensor("k_transpose_out_grad")},
-                     {&src.Tensor("k_grad")});
+    k_transpose_grad({src.Tensor("k_transpose_out_grad")},
+                     {src.Tensor("k_grad")});
 
     // Constraints
     src.AddConstraint([](const paddle::drr::MatchContext &match_ctx) -> bool {
@@ -584,15 +584,15 @@ class FusedDotProductAttentionGradWithDropoutPattern
                  {"mask_type_str", res.StrAttr("none")},
                  {"bias_type_str", res.StrAttr("post_scale_bias")}}});
 
-    dot_product_attention({&res.Tensor("q"),
-                           &res.Tensor("k"),
-                           &res.Tensor("v"),
-                           &res.Tensor("mask_scale2_out"),
-                           &res.InputNoneTensor(),   // cu_seqlen_q is none
-                           &res.InputNoneTensor()},  // cu_seqlen_k is none
-                          {&res.Tensor("out"),
-                           &res.Tensor("softmax_aux"),
-                           &res.Tensor("rng_state")});
+    dot_product_attention({res.Tensor("q"),
+                           res.Tensor("k"),
+                           res.Tensor("v"),
+                           res.Tensor("mask_scale2_out"),
+                           res.InputNoneTensor(),   // cu_seqlen_q is none
+                           res.InputNoneTensor()},  // cu_seqlen_k is none
+                          {res.Tensor("out"),
+                           res.Tensor("softmax_aux"),
+                           res.Tensor("rng_state")});
     const auto &dot_product_attention_grad =
         res.Op(paddle::dialect::FusedDotProductAttentionGradOp::name(),
                {{{"scaling_factor", scaling_factor},
@@ -600,17 +600,17 @@ class FusedDotProductAttentionGradWithDropoutPattern
                  {"mask_type_str", res.StrAttr("none")},
                  {"bias_type_str", res.StrAttr("post_scale_bias")}}});
     dot_product_attention_grad(
-        {&res.Tensor("q"),
-         &res.Tensor("k"),
-         &res.Tensor("v"),
-         &res.Tensor("mask_scale2_out"),
-         &res.InputNoneTensor(),  // cu_seqlen_q is none
-         &res.InputNoneTensor(),  // cu_seqlen_k is none
-         &res.Tensor("out"),
-         &res.Tensor("softmax_aux"),
-         &res.Tensor("rng_state"),
-         &res.Tensor("out_grad")},
-        {&res.Tensor("q_grad"), &res.Tensor("k_grad"), &res.Tensor("v_grad")});
+        {res.Tensor("q"),
+         res.Tensor("k"),
+         res.Tensor("v"),
+         res.Tensor("mask_scale2_out"),
+         res.InputNoneTensor(),  // cu_seqlen_q is none
+         res.InputNoneTensor(),  // cu_seqlen_k is none
+         res.Tensor("out"),
+         res.Tensor("softmax_aux"),
+         res.Tensor("rng_state"),
+         res.Tensor("out_grad")},
+        {res.Tensor("q_grad"), res.Tensor("k_grad"), res.Tensor("v_grad")});
   }
 };
 

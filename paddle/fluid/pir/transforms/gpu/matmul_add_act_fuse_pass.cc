@@ -53,7 +53,7 @@ class MatmulAddPattern : public paddle::drr::DrrPatternBase {
                                 {{"transpose_x", pat.Attr("transpose_x")},
                                  {"transpose_y", pat.Attr("transpose_y")}});
     const auto &add = pat.Op(paddle::dialect::AddOp::name());
-    matmul({&pat.Tensor("x"), &pat.Tensor("w")}, {&pat.Tensor("matmul_out")});
+    matmul({pat.Tensor("x"), pat.Tensor("w")}, {pat.Tensor("matmul_out")});
     pat.Tensor("add_out") =
         reverse_add_ ? add(pat.Tensor("y"), pat.Tensor("matmul_out"))
                      : add(pat.Tensor("matmul_out"), pat.Tensor("y"));
@@ -131,8 +131,8 @@ class MatmulAddPattern : public paddle::drr::DrrPatternBase {
                    {"activation_type", res.StrAttr("")},
                    {"padding_weights", res.BoolAttr(false)},
                }});
-    gemm_epilogue({&res.Tensor("x"), &res.Tensor("w"), &res.Tensor("y")},
-                  {&res.Tensor("add_out")});
+    gemm_epilogue({res.Tensor("x"), res.Tensor("w"), res.Tensor("y")},
+                  {res.Tensor("add_out")});
   }
 };
 
@@ -165,9 +165,9 @@ class MatmulAddActPattern : public paddle::drr::DrrPatternBase {
     }
     const auto &act = pat.Op(activation_type[act_type_], act_attrs);
 
-    gemm_epilogue({&pat.Tensor("x"), &pat.Tensor("w"), &pat.Tensor("y")},
-                  {&pat.Tensor("gemm_epilogue_out")});
-    act({&pat.Tensor("gemm_epilogue_out")}, {&pat.Tensor("act_out")});
+    gemm_epilogue({pat.Tensor("x"), pat.Tensor("w"), pat.Tensor("y")},
+                  {pat.Tensor("gemm_epilogue_out")});
+    act({pat.Tensor("gemm_epilogue_out")}, {pat.Tensor("act_out")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       const std::string &act_type =
@@ -187,9 +187,8 @@ class MatmulAddActPattern : public paddle::drr::DrrPatternBase {
         {"padding_weights", pat.Attr("padding_weights")},
     };
     const auto &gemm_epilogue_with_act = res.Op(fused_op_name_, fused_attrs);
-    gemm_epilogue_with_act(
-        {&res.Tensor("x"), &res.Tensor("w"), &res.Tensor("y")},
-        {&res.Tensor("act_out")});
+    gemm_epilogue_with_act({res.Tensor("x"), res.Tensor("w"), res.Tensor("y")},
+                           {res.Tensor("act_out")});
   }
 };
 

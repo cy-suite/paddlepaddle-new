@@ -53,7 +53,7 @@ class MatmulElementwiseAddFusePattern : public paddle::drr::DrrPatternBase {
                                  {"transpose_y", pat.Attr("transpose_y")}});
 
     const auto &add = pat.Op(paddle::dialect::AddOp::name());
-    matmul({&pat.Tensor("X"), &pat.Tensor("Y")}, {&pat.Tensor("Out")});
+    matmul({pat.Tensor("X"), pat.Tensor("Y")}, {pat.Tensor("Out")});
 
     pat.Tensor("add_out") =
         as_x_ ? add(pat.Tensor("Out"), pat.Tensor("residual"))
@@ -85,8 +85,8 @@ class MatmulElementwiseAddFusePattern : public paddle::drr::DrrPatternBase {
                    {"force_fp32_output", res.BoolAttr(false)},
                }});
 
-    fused_matmul({&res.Tensor("X"), &res.Tensor("Y"), &res.Tensor("residual")},
-                 {&res.Tensor("add_out")});
+    fused_matmul({res.Tensor("X"), res.Tensor("Y"), res.Tensor("residual")},
+                 {res.Tensor("add_out")});
   }
 };
 
@@ -140,8 +140,8 @@ class FusedMatmulElementwiseAddFusePattern
                 {"force_fp32_output", pat.Attr("force_fp32_output")}});
 
     const auto &add = pat.Op(paddle::dialect::AddOp::name());
-    matmul({&pat.Tensor("X"), &pat.Tensor("Y"), &pat.Tensor("none")},
-           {&pat.Tensor("Out")});
+    matmul({pat.Tensor("X"), pat.Tensor("Y"), pat.Tensor("none")},
+           {pat.Tensor("Out")});
 
     pat.Tensor("add_out") =
         as_x_ ? add(pat.Tensor("Out"), pat.Tensor("residual"))
@@ -181,8 +181,8 @@ class FusedMatmulElementwiseAddFusePattern
                    {"force_fp32_output", pat.Attr("force_fp32_output")},
                }});
 
-    fused_matmul({&res.Tensor("X"), &res.Tensor("Y"), &res.Tensor("residual")},
-                 {&res.Tensor("add_out")});
+    fused_matmul({res.Tensor("X"), res.Tensor("Y"), res.Tensor("residual")},
+                 {res.Tensor("add_out")});
   }
 };
 

@@ -126,15 +126,15 @@ class RmsNormFusePattern : public paddle::drr::DrrPatternBase {
 
     rms_norm(
         {
-            &res.Tensor("x"),
-            &res.InputNoneTensor(),
-            &res.InputNoneTensor(),
-            &res.Tensor("w"),
-            &res.InputNoneTensor(),
+            res.Tensor("x"),
+            res.InputNoneTensor(),
+            res.InputNoneTensor(),
+            res.Tensor("w"),
+            res.InputNoneTensor(),
         },
-        {&res.Tensor("multiply_out2"),
-         &res.Tensor("residual_out"),
-         &res.Tensor("inv_var")});
+        {res.Tensor("multiply_out2"),
+         res.Tensor("residual_out"),
+         res.Tensor("inv_var")});
   }
 };
 
@@ -165,14 +165,14 @@ class AddRmsNormFusePattern : public paddle::drr::DrrPatternBase {
                    {"quant_min_bound", pat.Attr("quant_min_bound")},
                });
     pat.Tensor("add_out") = add(pat.Tensor("x"), pat.Tensor("residual"));
-    pat_rms_norm({&pat.Tensor("add_out"),
-                  &pat.Tensor("bias"),
-                  &pat.InputNoneTensor(),
-                  &pat.Tensor("w"),
-                  &pat.InputNoneTensor()},
-                 {&pat.Tensor("rms_norm_out"),
-                  &pat.Tensor("residual_out_0"),
-                  &pat.Tensor("inv_var_0")});
+    pat_rms_norm({pat.Tensor("add_out"),
+                  pat.Tensor("bias"),
+                  pat.InputNoneTensor(),
+                  pat.Tensor("w"),
+                  pat.InputNoneTensor()},
+                 {pat.Tensor("rms_norm_out"),
+                  pat.Tensor("residual_out_0"),
+                  pat.Tensor("inv_var_0")});
     // TODO(bukejiyu) :DRR support matching placeholder op,
     // the following needs to be deleted
     if (extra_add_) {
@@ -196,15 +196,15 @@ class AddRmsNormFusePattern : public paddle::drr::DrrPatternBase {
 
     res_rms_norm(
         {
-            &res.Tensor("x"),
-            &res.Tensor("bias"),
-            &res.Tensor("residual"),
-            &res.Tensor("w"),
-            &res.InputNoneTensor(),
+            res.Tensor("x"),
+            res.Tensor("bias"),
+            res.Tensor("residual"),
+            res.Tensor("w"),
+            res.InputNoneTensor(),
         },
-        {&res.Tensor("rms_norm_out"),
-         &res.Tensor("add_out"),
-         &res.Tensor("inv_var")});
+        {res.Tensor("rms_norm_out"),
+         res.Tensor("add_out"),
+         res.Tensor("inv_var")});
   }
 };
 
@@ -228,10 +228,10 @@ class AddLayerNormFusePattern : public paddle::drr::DrrPatternBase {
                {{"epsilon", pat.Attr("epsilon")},
                 {"begin_norm_axis", pat.Attr("begin_norm_axis")}});
     pat.Tensor("add_out") = add(pat.Tensor("x"), pat.Tensor("residual"));
-    layer_norm({&pat.Tensor("add_out"), &pat.Tensor("w"), &pat.Tensor("bias")},
-               {&pat.Tensor("layer_norm_out"),
-                &pat.Tensor("mean_out_0"),
-                &pat.Tensor("variance_out_0")});
+    layer_norm({pat.Tensor("add_out"), pat.Tensor("w"), pat.Tensor("bias")},
+               {pat.Tensor("layer_norm_out"),
+                pat.Tensor("mean_out_0"),
+                pat.Tensor("variance_out_0")});
     // TODO(bukejiyu) :DRR support matching placeholder op,
     // the following needs to be deleted
     if (extra_add_) {
@@ -271,16 +271,16 @@ class AddLayerNormFusePattern : public paddle::drr::DrrPatternBase {
     res.Tensor("bias_cast") = cast_1_op(res.Tensor("bias"));
     fuse_layer_norm(
         {
-            &res.Tensor("x"),
-            &res.InputNoneTensor(),
-            &res.Tensor("residual"),
-            &res.Tensor("w_cast"),
-            &res.Tensor("bias_cast"),
+            res.Tensor("x"),
+            res.InputNoneTensor(),
+            res.Tensor("residual"),
+            res.Tensor("w_cast"),
+            res.Tensor("bias_cast"),
         },
-        {&res.Tensor("layer_norm_out"),
-         &res.Tensor("add_out"),
-         &res.Tensor("mean_out"),
-         &res.Tensor("variance_out")});
+        {res.Tensor("layer_norm_out"),
+         res.Tensor("add_out"),
+         res.Tensor("mean_out"),
+         res.Tensor("variance_out")});
   }
 };
 
@@ -304,11 +304,10 @@ class AddGroupNormFusePattern : public paddle::drr::DrrPatternBase {
                                      {"groups", pat.Attr("groups")},
                                      {"data_format", pat.Attr("data_format")}});
     pat.Tensor("add_out") = add(pat.Tensor("x"), pat.Tensor("residual"));
-    group_norm(
-        {&pat.Tensor("add_out"), &pat.Tensor("scale"), &pat.Tensor("bias")},
-        {&pat.Tensor("group_out"),
-         &pat.Tensor("mean_out_0"),
-         &pat.Tensor("variance_out_0")});
+    group_norm({pat.Tensor("add_out"), pat.Tensor("scale"), pat.Tensor("bias")},
+               {pat.Tensor("group_out"),
+                pat.Tensor("mean_out_0"),
+                pat.Tensor("variance_out_0")});
     // TODO(bukejiyu) :DRR support matching placeholder op,
     // the following needs to be deleted
     if (extra_add_) {
@@ -334,14 +333,14 @@ class AddGroupNormFusePattern : public paddle::drr::DrrPatternBase {
                 {"data_format", pat.Attr("data_format")},
                 {"activation", res.StrAttr("")}});
 
-    add_group_norm_silu_op({&res.Tensor("x"),
-                            &res.Tensor("residual"),
-                            &res.Tensor("scale"),
-                            &res.Tensor("bias")},
-                           {&res.Tensor("group_out"),
-                            &res.Tensor("add_out"),
-                            &res.Tensor("mean_out"),
-                            &res.Tensor("variance_out")});
+    add_group_norm_silu_op({res.Tensor("x"),
+                            res.Tensor("residual"),
+                            res.Tensor("scale"),
+                            res.Tensor("bias")},
+                           {res.Tensor("group_out"),
+                            res.Tensor("add_out"),
+                            res.Tensor("mean_out"),
+                            res.Tensor("variance_out")});
   }
 };
 
@@ -359,14 +358,14 @@ class AddGroupNormWithActPattern : public paddle::drr::DrrPatternBase {
                 {"data_format", pat.Attr("data_format")},
                 {"activation", pat.Attr("activation")}});
     const auto &silu = pat.Op(paddle::dialect::SiluOp::name());
-    add_group_norm_silu_op({&pat.Tensor("x"),
-                            &pat.Tensor("residual"),
-                            &pat.Tensor("scale"),
-                            &pat.Tensor("bias")},
-                           {&pat.Tensor("group_out"),
-                            &pat.Tensor("add_out"),
-                            &pat.Tensor("mean_out_0"),
-                            &pat.Tensor("variance_out_0")});
+    add_group_norm_silu_op({pat.Tensor("x"),
+                            pat.Tensor("residual"),
+                            pat.Tensor("scale"),
+                            pat.Tensor("bias")},
+                           {pat.Tensor("group_out"),
+                            pat.Tensor("add_out"),
+                            pat.Tensor("mean_out_0"),
+                            pat.Tensor("variance_out_0")});
     pat.Tensor("silu_out") = silu(pat.Tensor("group_out"));
     pat.AddConstraint([](const paddle::drr::MatchContext &match_ctx) {
       auto x_dtype = pir::GetDataTypeFromValue(match_ctx.Tensor("x"));
@@ -387,14 +386,14 @@ class AddGroupNormWithActPattern : public paddle::drr::DrrPatternBase {
                 {"groups", pat.Attr("groups")},
                 {"data_format", pat.Attr("data_format")},
                 {"activation", res.StrAttr("silu")}});
-    res_add_group_norm_silu_op({&res.Tensor("x"),
-                                &res.Tensor("residual"),
-                                &res.Tensor("scale"),
-                                &res.Tensor("bias")},
-                               {&res.Tensor("silu_out"),
-                                &res.Tensor("add_out"),
-                                &res.Tensor("mean_out"),
-                                &res.Tensor("variance_out")});
+    res_add_group_norm_silu_op({res.Tensor("x"),
+                                res.Tensor("residual"),
+                                res.Tensor("scale"),
+                                res.Tensor("bias")},
+                               {res.Tensor("silu_out"),
+                                res.Tensor("add_out"),
+                                res.Tensor("mean_out"),
+                                res.Tensor("variance_out")});
   }
 };
 

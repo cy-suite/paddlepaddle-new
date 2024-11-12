@@ -66,10 +66,9 @@ class FusedTransposeReshapeFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &reshape = pat.Op(paddle::dialect::ReshapeOp::name());
 
-    op({&pat.Tensor("X")}, {&pat.Tensor("Out")});
+    op({pat.Tensor("X")}, {pat.Tensor("Out")});
 
-    reshape({&pat.Tensor("Out"), &pat.Tensor("shape")},
-            {&pat.Tensor("ShapeOut")});
+    reshape({pat.Tensor("Out"), pat.Tensor("shape")}, {pat.Tensor("ShapeOut")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       int num_of_minus_ones = 0;
@@ -132,7 +131,7 @@ class FusedTransposeReshapeFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &fused_op = res.Op(fused_ops_name_, fused_op_attrs);
 
-    fused_op({&res.Tensor("X")}, {&res.Tensor("ShapeOut")});
+    fused_op({res.Tensor("X")}, {res.Tensor("ShapeOut")});
   }
 };
 
@@ -185,11 +184,10 @@ class FcReshapeFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &reshape = pat.Op(paddle::dialect::ReshapeOp::name());
 
-    op({&pat.Tensor("X"), &pat.Tensor("Y"), &pat.Tensor("Input3")},
-       {&pat.Tensor("Out")});
+    op({pat.Tensor("X"), pat.Tensor("Y"), pat.Tensor("Input3")},
+       {pat.Tensor("Out")});
 
-    reshape({&pat.Tensor("Out"), &pat.Tensor("shape")},
-            {&pat.Tensor("ShapeOut")});
+    reshape({pat.Tensor("Out"), pat.Tensor("shape")}, {pat.Tensor("ShapeOut")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       int num_of_minus_ones = 0;
@@ -254,8 +252,8 @@ class FcReshapeFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &fused_op = res.Op(fused_ops_name_, fused_op_attrs);
 
-    fused_op({&res.Tensor("X"), &res.Tensor("Y"), &res.Tensor("Input3")},
-             {&res.Tensor("ShapeOut")});
+    fused_op({res.Tensor("X"), res.Tensor("Y"), res.Tensor("Input3")},
+             {res.Tensor("ShapeOut")});
   }
 };
 
@@ -291,10 +289,9 @@ class TransposeReshapeFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &reshape = pat.Op(paddle::dialect::ReshapeOp::name());
 
-    op({&pat.Tensor("X")}, {&pat.Tensor("Out")});
+    op({pat.Tensor("X")}, {pat.Tensor("Out")});
 
-    reshape({&pat.Tensor("Out"), &pat.Tensor("shape")},
-            {&pat.Tensor("ShapeOut")});
+    reshape({pat.Tensor("Out"), pat.Tensor("shape")}, {pat.Tensor("ShapeOut")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       int num_of_minus_ones = 0;
@@ -342,7 +339,7 @@ class TransposeReshapeFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &fused_op = res.Op(fused_ops_name_, fused_op_attrs);
 
-    fused_op({&res.Tensor("X")}, {&res.Tensor("ShapeOut")});
+    fused_op({res.Tensor("X")}, {res.Tensor("ShapeOut")});
   }
 };
 

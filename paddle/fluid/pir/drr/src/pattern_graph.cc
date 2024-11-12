@@ -22,7 +22,7 @@
 
 namespace paddle::drr {
 
-const drr::OpCall &PatternGraph::AddOpCall(
+const std::shared_ptr<OpCall> &PatternGraph::AddOpCall(
     const std::shared_ptr<drr::OpCall> &op_call) {
   owned_op_call_.push_back(op_call);
   for (const auto *input : op_call->inputs()) {
@@ -52,31 +52,34 @@ const drr::OpCall &PatternGraph::AddOpCall(
                                  "The output tensor [%s] must exist "
                                  "in pattern graph to be obtained.",
                                  out_tensor_name));
+    std::cout << "set_producer: " << output->name() << ", " << op_call.get();
     id2owned_tensor_[output->name()]->set_producer(op_call.get());
   }
-  return *owned_op_call_.back();
+  return owned_op_call_.back();
 }
 
-drr::Tensor &PatternGraph::AddTensor(
-    const std::shared_ptr<drr::Tensor> &tensor) {
-  if (id2owned_tensor_.find(tensor->name()) == id2owned_tensor_.end()) {
-    id2owned_tensor_[tensor->name()] = tensor;
-    output_tensors_.insert(tensor->name());
+std::shared_ptr<Tensor> &PatternGraph::AddTensor(
+    const std::string &tensor_name) {
+  if (id2owned_tensor_.find(tensor_name) == id2owned_tensor_.end()) {
+    id2owned_tensor_[tensor_name] =
+        std::shared_ptr<drr::Tensor>(new drr::Tensor(tensor_name, this));
+    output_tensors_.insert(tensor_name);
   }
-  return *id2owned_tensor_[tensor->name()];
+  return id2owned_tensor_[tensor_name];
 }
 
-drr::Tensor &PatternGraph::AddTmpTensor(
-    const std::shared_ptr<drr::Tensor> &tensor) {
-  PADDLE_ENFORCE_EQ(id2owned_tensor_.count(tensor->name()),
+std::shared_ptr<Tensor> &PatternGraph::AddTmpTensor(
+    const std::string &tensor_name) {
+  PADDLE_ENFORCE_EQ(id2owned_tensor_.count(tensor_name),
                     0,
                     common::errors::AlreadyExists(
                         "Tensor already exists."
                         "The tensor [%s] must not exist in pattern graph.",
-                        tensor->name()));
-  id2owned_tensor_[tensor->name()] = tensor;
-  output_tensors_.insert(tensor->name());
-  return *id2owned_tensor_[tensor->name()];
+                        tensor_name));
+  id2owned_tensor_[tensor_name] =
+      std::shared_ptr<Tensor>(new drr::Tensor(tensor_name, this));
+  output_tensors_.insert(tensor_name);
+  return id2owned_tensor_[tensor_name];
 }
 
 void PatternGraph::UpdateTmpTensor(const std::string &tmp_tensor_name,
@@ -101,21 +104,38 @@ void PatternGraph::UpdateTmpTensor(const std::string &tmp_tensor_name,
 size_t PatternGraph::CountOfOpCalls() const { return owned_op_call_.size(); }
 
 std::unordered_set<const OpCall *> SourcePatternGraph::OutputNodes() const {
+  std::cout << " --- "
+            << " here 1" << std::endl;
   std::unordered_set<const OpCall *> output_op_set;
+  std::cout << " --- "
+            << " here 2" << std::endl;
   for (const auto &output_tensor : output_tensors_) {
-    OpCall *output_op_candidate =
-        id2owned_tensor_.at(output_tensor)->producer();
+    std::cout << " --- "
+              << " here 3, " << output_tensor << std::endl;
+    auto output_op_candidate = id2owned_tensor_.at(output_tensor)->producer();
+    std::cout << " --- "
+              << " here 3.1: " << output_op_candidate << std::endl;
     if (std::all_of(output_op_candidate->outputs().begin(),
                     output_op_candidate->outputs().end(),
                     [this](const Tensor *output) -> bool {
+                      std::cout << " --- "
+                                << " here 4" << std::endl;
                       return this->output_tensors().count(output->name());
                     }))
-      output_op_set.insert(output_op_candidate);
+      std::cout << " --- "
+                << " here 5" << std::endl;
+    output_op_set.insert(output_op_candidate);
+    std::cout << " --- "
+              << " here 6" << std::endl;
   }
+  std::cout << " --- "
+            << " here 7" << std::endl;
   if (output_op_set.empty()) {
     PADDLE_THROW(common::errors::InvalidArgument(
         "Unable to find a valid anchor in drr's source result pattern!"));
   }
+  std::cout << " --- "
+            << " here 8" << std::endl;
   return output_op_set;
 }
 
@@ -215,7 +235,7 @@ std::ostream &operator<<(std::ostream &os, const PatternGraph &pattern_graph) {
   for (const auto &op_call : pattern_graph.owned_op_call()) {
     os << "  " << op_call->name() << " : ";
     os << "inputs[ ";
-    for (const auto *input : op_call->inputs()) {
+    for (const auto &input : op_call->inputs()) {
       os << input->name() << " ";
     }
     os << "], ";

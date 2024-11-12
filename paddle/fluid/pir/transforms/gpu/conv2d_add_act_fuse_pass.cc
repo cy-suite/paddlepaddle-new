@@ -181,11 +181,11 @@ class Conv2dAddActFusePassDrrPattern : public paddle::drr::DrrPatternBase {
             {"fuse_alpha", res.Float32Attr(0.0f)},
         }},
         {{{paddle::dialect::kForceBackendAttr, force_backend_runtime_attr}}});
-    fused_conv2d_add_act({&res.Tensor("input"),
-                          &res.Tensor("filter"),
-                          &res.Tensor("bias"),
-                          &res.InputNoneTensor()},
-                         {&res.Tensor("act_out")});
+    fused_conv2d_add_act({res.Tensor("input"),
+                          res.Tensor("filter"),
+                          res.Tensor("bias"),
+                          res.InputNoneTensor()},
+                         {res.Tensor("act_out")});
   }
 };
 

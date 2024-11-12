@@ -117,14 +117,14 @@ class TEST_API DrrPatternContext {
   const Op& SourceOpPattern(
       const std::string& op_type,
       const std::unordered_map<std::string, Attribute>& attributes = {});
-  drr::Tensor& SourceTensorPattern(const std::string& name);
+  std::shared_ptr<Tensor>& SourceTensorPattern(const std::string& name);
 
   const Op& ResultOpPattern(
       const std::string& op_type,
       const std::unordered_map<std::string, Attribute>& attributes = {},
       const std::unordered_map<std::string, Attribute>& runtime_attributes =
           {});
-  drr::Tensor& ResultTensorPattern(const std::string& name);
+  std::shared_ptr<Tensor>& ResultTensorPattern(const std::string& name);
 
   void AddConstraint(const ConstraintFunction& constraint_fn);
 
@@ -142,15 +142,19 @@ class Op {
  public:
   TEST_API const std::string& name() const { return op_type_name_; }
 
-  TEST_API Tensor& operator()() const;
-  TEST_API void operator()(const Tensor& arg, const Tensor* out) const;
-  TEST_API Tensor& operator()(const Tensor& arg) const;
-  TEST_API Tensor& operator()(const Tensor& arg0, const Tensor& arg1) const;
-  TEST_API Tensor& operator()(const Tensor& arg0,
-                              const Tensor& arg1,
-                              const Tensor& arg2) const;
-  TEST_API void operator()(const std::vector<const Tensor*>& args,
-                           const std::vector<const Tensor*>& outputs) const;
+  TEST_API std::shared_ptr<Tensor>& operator()() const;
+  TEST_API std::shared_ptr<Tensor>& operator()(
+      const std::shared_ptr<drr::Tensor>& arg) const;
+  TEST_API std::shared_ptr<Tensor>& operator()(
+      const std::shared_ptr<drr::Tensor>& arg0,
+      const std::shared_ptr<drr::Tensor>& arg1) const;
+  TEST_API std::shared_ptr<Tensor>& operator()(
+      const std::shared_ptr<drr::Tensor>& arg0,
+      const std::shared_ptr<drr::Tensor>& arg1,
+      const std::shared_ptr<drr::Tensor>& arg2) const;
+  TEST_API void operator()(
+      const std::vector<std::shared_ptr<drr::Tensor>>& args,
+      const std::vector<std::shared_ptr<drr::Tensor>>& outputs) const;
 
   static const char* prefix;
 
@@ -189,7 +193,7 @@ class TEST_API Tensor {
            name_ == SOURCE_OUTPUT_NONE_TENSOR_NAME;
   }
 
-  void Assign(const Tensor& other);
+  void Assign(const std::shared_ptr<drr::Tensor>& other);
 
   void operator=(const Tensor& other) const;  // NOLINT
 
@@ -197,9 +201,9 @@ class TEST_API Tensor {
 
   void set_name(const std::string& name) { name_ = name; }
 
-  OpCall* producer() const { return producer_; }
+  OpCall* producer() const;
 
-  void set_producer(OpCall* producer) { producer_ = producer; }
+  void set_producer(OpCall* producer);
 
   const std::unordered_set<const OpCall*>& consumers() const {
     return consumers_;
@@ -207,12 +211,15 @@ class TEST_API Tensor {
 
   void AddConsumer(const OpCall* consumer) { consumers_.insert(consumer); }
 
+  PatternGraph* pattern_graph() const { return pattern_graph_; }
+
  private:
   Tensor(const std::string& name, PatternGraph* pattern_graph)
       : name_(name), pattern_graph_(pattern_graph) {}
 
   friend class DrrPatternContext;
   friend class Op;
+  friend class PatternGraph;
 
   std::string name_;
   OpCall* producer_{nullptr};
@@ -260,7 +267,7 @@ class TEST_API ResultPattern {
      const std::unordered_map<std::string, Attribute>& attributes = {},
      const std::unordered_map<std::string, Attribute>& runtime_attributes = {});
 
-  drr::Tensor& Tensor(const std::string& name);
+  std::shared_ptr<drr::Tensor>& Tensor(const std::string& name);
 
   // Represent the input tensor which is none.
   // Example:
@@ -269,7 +276,7 @@ class TEST_API ResultPattern {
   // When scale is none, we can write a instance_norm op in drr as follow:
   // res.Op("instance_norm")(res.Tensor("x"), res.InputNoneTensor(),
   // res.Tensor("bias"));
-  drr::Tensor& InputNoneTensor();
+  std::shared_ptr<drr::Tensor>& InputNoneTensor();
 
   // Represent the output tensor which is none.
   // Example:
@@ -277,7 +284,7 @@ class TEST_API ResultPattern {
   // it may be none). We can write a reshape op in drr as follow:
   // res.Op("reshape")({res.Tensor("x")}, {res.Tensor("out"),
   // res.OutputNoneTensor()});
-  drr::Tensor& OutputNoneTensor();
+  std::shared_ptr<drr::Tensor>& OutputNoneTensor();
 
   Attribute StrAttr(const std::string& value) const;
 
@@ -353,7 +360,7 @@ class TEST_API SourcePattern {
       const std::string& op_type,
       const std::unordered_map<std::string, Attribute>& attributes = {});
 
-  const drr::Tensor& Tensor(const std::string& name);
+  std::shared_ptr<drr::Tensor>& Tensor(const std::string& name);
 
   Attribute Attr(const std::string& attr_name) const;
 
@@ -362,10 +369,10 @@ class TEST_API SourcePattern {
   void AddPostProcess(const PostProcessFunction& post_process_fn);
 
   // Same as a ResultPattern::InputNoneTensor
-  drr::Tensor& InputNoneTensor();
+  std::shared_ptr<drr::Tensor>& InputNoneTensor();
 
   // Same as a ResultPattern::OutputNoneTensor
-  drr::Tensor& OutputNoneTensor();
+  std::shared_ptr<drr::Tensor>& OutputNoneTensor();
 
  private:
   friend class DrrPatternContext;

@@ -87,12 +87,11 @@ class SameTypeBindingTestPattern : public paddle::drr::DrrPatternBase {
         src.Op("pd_op.layer_norm",
                {{"epsilon", src.Attr("layernorm_epsilon")},
                 {"begin_norm_axis", src.Attr("layernorm_begin_norm_axis")}});
-    layernorm_1({&src.Tensor("transpose_1_out"),
-                 &src.Tensor("full_1_out"),
-                 &src.Tensor("softmax_1_out")},
-                {&src.Tensor("output0"),
-                 &src.Tensor("output1"),
-                 &src.Tensor("output2")});
+    layernorm_1(
+        {src.Tensor("transpose_1_out"),
+         src.Tensor("full_1_out"),
+         src.Tensor("softmax_1_out")},
+        {src.Tensor("output0"), src.Tensor("output1"), src.Tensor("output2")});
 
     // path 3
     const auto &transpose_2 =

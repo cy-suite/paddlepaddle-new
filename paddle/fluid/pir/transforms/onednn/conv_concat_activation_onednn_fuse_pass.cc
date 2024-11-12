@@ -14,6 +14,7 @@
 
 #include "paddle/fluid/pir/transforms/onednn/conv_concat_activation_onednn_fuse_pass.h"
 
+#include <memory>
 #include <utility>
 
 #include "paddle/fluid/pir/dialect/operator/ir/onednn_op.h"
@@ -61,7 +62,7 @@ class NConvConcatActivationFusePattern : public paddle::drr::DrrPatternBase {
     if (fused_level_ > 0) {
       conv_name = paddle::onednn::dialect::FusedConv2dOp::name();
     }
-    std::vector<const paddle::drr::Tensor *> combine_in;
+    std::vector<std::shared_ptr<paddle::drr::Tensor>> combine_in;
     for (size_t i = 1; i <= concat_count_; i++) {
       const auto &conv =
           fused_level_ == 0
@@ -110,19 +111,19 @@ class NConvConcatActivationFusePattern : public paddle::drr::DrrPatternBase {
                     }});
 
       if (fused_level_ > 0) {
-        conv({&pat.Tensor("input" + std::to_string(i)),
-              &pat.Tensor("filter" + std::to_string(i)),
-              &pat.Tensor("__@bias" + std::to_string(i) + "@__"),
-              &pat.Tensor("__@residual" + std::to_string(i) + "@__")},
-             {&pat.Tensor("conv2d_out_" + std::to_string(i))});
+        conv({pat.Tensor("input" + std::to_string(i)),
+              pat.Tensor("filter" + std::to_string(i)),
+              pat.Tensor("__@bias" + std::to_string(i) + "@__"),
+              pat.Tensor("__@residual" + std::to_string(i) + "@__")},
+             {pat.Tensor("conv2d_out_" + std::to_string(i))});
 
       } else {
-        conv({&pat.Tensor("input" + std::to_string(i)),
-              &pat.Tensor("filter" + std::to_string(i))},
-             {&pat.Tensor("conv2d_out_" + std::to_string(i))});
+        conv({pat.Tensor("input" + std::to_string(i)),
+              pat.Tensor("filter" + std::to_string(i))},
+             {pat.Tensor("conv2d_out_" + std::to_string(i))});
       }
 
-      combine_in.push_back(&pat.Tensor("conv2d_out_" + std::to_string(i)));
+      combine_in.push_back(pat.Tensor("conv2d_out_" + std::to_string(i)));
     }
     const auto &combine_op = pat.Op(pir::CombineOp::name());
     const auto &full_op = pat.Op(paddle::dialect::FullOp::name(),
@@ -131,10 +132,10 @@ class NConvConcatActivationFusePattern : public paddle::drr::DrrPatternBase {
                                   {"dtype", pat.Attr("dtype")},
                                   {"place", pat.Attr("place")}});
 
-    combine_op(combine_in, {&pat.Tensor("combine_out")});
+    combine_op(combine_in, {pat.Tensor("combine_out")});
     const auto &concat_op = pat.Op(paddle::dialect::ConcatOp::name());
-    concat_op({&pat.Tensor("combine_out"), &full_op()},
-              {&pat.Tensor("concat_out")});
+    concat_op({pat.Tensor("combine_out"), full_op()},
+              {pat.Tensor("concat_out")});
 
     std::string activation_name_op = "pd_op." + activation_name_;
     if (activation_name_ == "hard_swish") {
@@ -185,7 +186,7 @@ class NConvConcatActivationFusePattern : public paddle::drr::DrrPatternBase {
       fuse_alpha = pat.Attr("negative_slope");
     }
 
-    std::vector<const paddle::drr::Tensor *> combine_result_in;
+    std::vector<std::shared_ptr<paddle::drr::Tensor>> combine_result_in;
     // int input_num = 1;
     for (size_t i = 1; i <= concat_count_; i++) {
       const auto &fused_conv =
@@ -245,25 +246,25 @@ class NConvConcatActivationFusePattern : public paddle::drr::DrrPatternBase {
                     }});
 
       if (fused_level_ > 0) {
-        fused_conv({&res.Tensor("input" + std::to_string(i)),
-                    &res.Tensor("filter" + std::to_string(i)),
-                    &res.Tensor("__@bias" + std::to_string(i) + "@__"),
-                    &res.Tensor("__@residual" + std::to_string(i) + "@__")},
-                   {&res.Tensor("act_out_" + std::to_string(i))});
+        fused_conv({res.Tensor("input" + std::to_string(i)),
+                    res.Tensor("filter" + std::to_string(i)),
+                    res.Tensor("__@bias" + std::to_string(i) + "@__"),
+                    res.Tensor("__@residual" + std::to_string(i) + "@__")},
+                   {res.Tensor("act_out_" + std::to_string(i))});
 
       } else {
-        fused_conv({&res.Tensor("input" + std::to_string(i)),
-                    &res.Tensor("filter" + std::to_string(i)),
-                    &res.InputNoneTensor(),
-                    &res.InputNoneTensor()},
-                   {&res.Tensor("act_out_" + std::to_string(i))});
+        fused_conv({res.Tensor("input" + std::to_string(i)),
+                    res.Tensor("filter" + std::to_string(i)),
+                    res.InputNoneTensor(),
+                    res.InputNoneTensor()},
+                   {res.Tensor("act_out_" + std::to_string(i))});
       }
-      combine_result_in.push_back(&res.Tensor("act_out_" + std::to_string(i)));
+      combine_result_in.push_back(res.Tensor("act_out_" + std::to_string(i)));
     }
 
     const auto &combine = res.Op(pir::CombineOp::name());
 
-    combine(combine_result_in, {&res.Tensor("combine_result_out")});
+    combine(combine_result_in, {res.Tensor("combine_result_out")});
 
     // const auto &concat_result_op =
     // res.Op(paddle::dialect::ConcatOp::name(),{{"axis", res.Int32Attr(0) }});
@@ -274,10 +275,10 @@ class NConvConcatActivationFusePattern : public paddle::drr::DrrPatternBase {
                                          {"place", pat.Attr("place")}});
 
     const auto &concat_result_op = res.Op(paddle::dialect::ConcatOp::name());
-    concat_result_op({&res.Tensor("combine_result_out"), &full_result_op()},
-                     {&res.Tensor("activation_out")});
+    concat_result_op({res.Tensor("combine_result_out"), full_result_op()},
+                     {res.Tensor("activation_out")});
 
-    // concat_result_op(combine_result_in, {&res.Tensor("concat_out")});
+    // concat_result_op(combine_result_in, {res.Tensor("concat_out")});
   }
 };
 
@@ -314,7 +315,7 @@ class NConvConcatHardSigmoidFusePattern : public paddle::drr::DrrPatternBase {
     if (fused_level_ > 0) {
       conv_name = paddle::onednn::dialect::FusedConv2dOp::name();
     }
-    std::vector<const paddle::drr::Tensor *> combine_in;
+    std::vector<std::shared_ptr<paddle::drr::Tensor>> combine_in;
     for (size_t i = 1; i <= concat_count_; i++) {
       const auto &conv =
           fused_level_ == 0
@@ -363,19 +364,19 @@ class NConvConcatHardSigmoidFusePattern : public paddle::drr::DrrPatternBase {
                     }});
 
       if (fused_level_ > 0) {
-        conv({&pat.Tensor("input" + std::to_string(i)),
-              &pat.Tensor("filter" + std::to_string(i)),
-              &pat.Tensor("__@bias" + std::to_string(i) + "@__"),
-              &pat.Tensor("__@residual" + std::to_string(i) + "@__")},
-             {&pat.Tensor("conv2d_out_" + std::to_string(i))});
+        conv({pat.Tensor("input" + std::to_string(i)),
+              pat.Tensor("filter" + std::to_string(i)),
+              pat.Tensor("__@bias" + std::to_string(i) + "@__"),
+              pat.Tensor("__@residual" + std::to_string(i) + "@__")},
+             {pat.Tensor("conv2d_out_" + std::to_string(i))});
 
       } else {
-        conv({&pat.Tensor("input" + std::to_string(i)),
-              &pat.Tensor("filter" + std::to_string(i))},
-             {&pat.Tensor("conv2d_out_" + std::to_string(i))});
+        conv({pat.Tensor("input" + std::to_string(i)),
+              pat.Tensor("filter" + std::to_string(i))},
+             {pat.Tensor("conv2d_out_" + std::to_string(i))});
       }
 
-      combine_in.push_back(&pat.Tensor("conv2d_out_" + std::to_string(i)));
+      combine_in.push_back(pat.Tensor("conv2d_out_" + std::to_string(i)));
     }
     const auto &combine_op = pat.Op(pir::CombineOp::name());
     const auto &full_op = pat.Op(paddle::dialect::FullOp::name(),
@@ -384,10 +385,10 @@ class NConvConcatHardSigmoidFusePattern : public paddle::drr::DrrPatternBase {
                                   {"dtype", pat.Attr("dtype")},
                                   {"place", pat.Attr("place")}});
 
-    combine_op(combine_in, {&pat.Tensor("combine_out")});
+    combine_op(combine_in, {pat.Tensor("combine_out")});
     const auto &concat_op = pat.Op(paddle::dialect::ConcatOp::name());
-    concat_op({&pat.Tensor("combine_out"), &full_op()},
-              {&pat.Tensor("concat_out")});
+    concat_op({pat.Tensor("combine_out"), full_op()},
+              {pat.Tensor("concat_out")});
 
     const auto &activation =
         pat.Op(activation_name_,
@@ -405,7 +406,7 @@ class NConvConcatHardSigmoidFusePattern : public paddle::drr::DrrPatternBase {
     }
     paddle::drr::ResultPattern res = pat.ResultPattern();
 
-    std::vector<const paddle::drr::Tensor *> combine_result_in;
+    std::vector<std::shared_ptr<paddle::drr::Tensor>> combine_result_in;
     for (size_t i = 1; i <= concat_count_; i++) {
       const auto &fused_conv =
           fused_level_ == 0
@@ -464,25 +465,25 @@ class NConvConcatHardSigmoidFusePattern : public paddle::drr::DrrPatternBase {
                     }});
 
       if (fused_level_ > 0) {
-        fused_conv({&res.Tensor("input" + std::to_string(i)),
-                    &res.Tensor("filter" + std::to_string(i)),
-                    &res.Tensor("__@bias" + std::to_string(i) + "@__"),
-                    &res.Tensor("__@residual" + std::to_string(i) + "@__")},
-                   {&res.Tensor("act_out_" + std::to_string(i))});
+        fused_conv({res.Tensor("input" + std::to_string(i)),
+                    res.Tensor("filter" + std::to_string(i)),
+                    res.Tensor("__@bias" + std::to_string(i) + "@__"),
+                    res.Tensor("__@residual" + std::to_string(i) + "@__")},
+                   {res.Tensor("act_out_" + std::to_string(i))});
 
       } else {
-        fused_conv({&res.Tensor("input" + std::to_string(i)),
-                    &res.Tensor("filter" + std::to_string(i)),
-                    &res.InputNoneTensor(),
-                    &res.InputNoneTensor()},
-                   {&res.Tensor("act_out_" + std::to_string(i))});
+        fused_conv({res.Tensor("input" + std::to_string(i)),
+                    res.Tensor("filter" + std::to_string(i)),
+                    res.InputNoneTensor(),
+                    res.InputNoneTensor()},
+                   {res.Tensor("act_out_" + std::to_string(i))});
       }
-      combine_result_in.push_back(&res.Tensor("act_out_" + std::to_string(i)));
+      combine_result_in.push_back(res.Tensor("act_out_" + std::to_string(i)));
     }
 
     const auto &combine = res.Op(pir::CombineOp::name());
 
-    combine(combine_result_in, {&res.Tensor("combine_result_out")});
+    combine(combine_result_in, {res.Tensor("combine_result_out")});
 
     // const auto &concat_result_op =
     // res.Op(paddle::dialect::ConcatOp::name(),{{"axis", res.Int32Attr(0) }});
@@ -493,10 +494,10 @@ class NConvConcatHardSigmoidFusePattern : public paddle::drr::DrrPatternBase {
                                          {"place", pat.Attr("place")}});
 
     const auto &concat_result_op = res.Op(paddle::dialect::ConcatOp::name());
-    concat_result_op({&res.Tensor("combine_result_out"), &full_result_op()},
-                     {&res.Tensor("activation_out")});
+    concat_result_op({res.Tensor("combine_result_out"), full_result_op()},
+                     {res.Tensor("activation_out")});
 
-    // concat_result_op(combine_result_in, {&res.Tensor("concat_out")});
+    // concat_result_op(combine_result_in, {res.Tensor("concat_out")});
   }
 };
 
@@ -533,7 +534,7 @@ class NConvConcatGeluFusePattern : public paddle::drr::DrrPatternBase {
     if (fused_level_ > 0) {
       conv_name = paddle::onednn::dialect::FusedConv2dOp::name();
     }
-    std::vector<const paddle::drr::Tensor *> combine_in;
+    std::vector<std::shared_ptr<paddle::drr::Tensor>> combine_in;
     for (size_t i = 1; i <= concat_count_; i++) {
       const auto &conv =
           fused_level_ == 0
@@ -582,19 +583,19 @@ class NConvConcatGeluFusePattern : public paddle::drr::DrrPatternBase {
                     }});
 
       if (fused_level_ > 0) {
-        conv({&pat.Tensor("input" + std::to_string(i)),
-              &pat.Tensor("filter" + std::to_string(i)),
-              &pat.Tensor("__@bias" + std::to_string(i) + "@__"),
-              &pat.Tensor("__@residual" + std::to_string(i) + "@__")},
-             {&pat.Tensor("conv2d_out_" + std::to_string(i))});
+        conv({pat.Tensor("input" + std::to_string(i)),
+              pat.Tensor("filter" + std::to_string(i)),
+              pat.Tensor("__@bias" + std::to_string(i) + "@__"),
+              pat.Tensor("__@residual" + std::to_string(i) + "@__")},
+             {pat.Tensor("conv2d_out_" + std::to_string(i))});
 
       } else {
-        conv({&pat.Tensor("input" + std::to_string(i)),
-              &pat.Tensor("filter" + std::to_string(i))},
-             {&pat.Tensor("conv2d_out_" + std::to_string(i))});
+        conv({pat.Tensor("input" + std::to_string(i)),
+              pat.Tensor("filter" + std::to_string(i))},
+             {pat.Tensor("conv2d_out_" + std::to_string(i))});
       }
 
-      combine_in.push_back(&pat.Tensor("conv2d_out_" + std::to_string(i)));
+      combine_in.push_back(pat.Tensor("conv2d_out_" + std::to_string(i)));
     }
     const auto &combine_op = pat.Op(pir::CombineOp::name());
     const auto &full_op = pat.Op(paddle::dialect::FullOp::name(),
@@ -603,10 +604,10 @@ class NConvConcatGeluFusePattern : public paddle::drr::DrrPatternBase {
                                   {"dtype", pat.Attr("dtype")},
                                   {"place", pat.Attr("place")}});
 
-    combine_op(combine_in, {&pat.Tensor("combine_out")});
+    combine_op(combine_in, {pat.Tensor("combine_out")});
     const auto &concat_op = pat.Op(paddle::dialect::ConcatOp::name());
-    concat_op({&pat.Tensor("combine_out"), &full_op()},
-              {&pat.Tensor("concat_out")});
+    concat_op({pat.Tensor("combine_out"), full_op()},
+              {pat.Tensor("concat_out")});
 
     const auto &activation =
         pat.Op(activation_name_, {{"approximate", pat.Attr("approximate")}});
@@ -623,7 +624,7 @@ class NConvConcatGeluFusePattern : public paddle::drr::DrrPatternBase {
     }
     paddle::drr::ResultPattern res = pat.ResultPattern();
 
-    std::vector<const paddle::drr::Tensor *> combine_result_in;
+    std::vector<std::shared_ptr<paddle::drr::Tensor>> combine_result_in;
     const auto &gelu = res.ComputeAttr(
         [](const paddle::drr::MatchContext &match_ctx) -> std::string {
           bool approximate = match_ctx.Attr<bool>("approximate");
@@ -689,25 +690,25 @@ class NConvConcatGeluFusePattern : public paddle::drr::DrrPatternBase {
                     }});
 
       if (fused_level_ > 0) {
-        fused_conv({&res.Tensor("input" + std::to_string(i)),
-                    &res.Tensor("filter" + std::to_string(i)),
-                    &res.Tensor("__@bias" + std::to_string(i) + "@__"),
-                    &res.Tensor("__@residual" + std::to_string(i) + "@__")},
-                   {&res.Tensor("act_out_" + std::to_string(i))});
+        fused_conv({res.Tensor("input" + std::to_string(i)),
+                    res.Tensor("filter" + std::to_string(i)),
+                    res.Tensor("__@bias" + std::to_string(i) + "@__"),
+                    res.Tensor("__@residual" + std::to_string(i) + "@__")},
+                   {res.Tensor("act_out_" + std::to_string(i))});
 
       } else {
-        fused_conv({&res.Tensor("input" + std::to_string(i)),
-                    &res.Tensor("filter" + std::to_string(i)),
-                    &res.InputNoneTensor(),
-                    &res.InputNoneTensor()},
-                   {&res.Tensor("act_out_" + std::to_string(i))});
+        fused_conv({res.Tensor("input" + std::to_string(i)),
+                    res.Tensor("filter" + std::to_string(i)),
+                    res.InputNoneTensor(),
+                    res.InputNoneTensor()},
+                   {res.Tensor("act_out_" + std::to_string(i))});
       }
-      combine_result_in.push_back(&res.Tensor("act_out_" + std::to_string(i)));
+      combine_result_in.push_back(res.Tensor("act_out_" + std::to_string(i)));
     }
 
     const auto &combine = res.Op(pir::CombineOp::name());
 
-    combine(combine_result_in, {&res.Tensor("combine_result_out")});
+    combine(combine_result_in, {res.Tensor("combine_result_out")});
 
     // const auto &concat_result_op =
     // res.Op(paddle::dialect::ConcatOp::name(),{{"axis", res.Int32Attr(0) }});
@@ -718,10 +719,10 @@ class NConvConcatGeluFusePattern : public paddle::drr::DrrPatternBase {
                                          {"place", pat.Attr("place")}});
 
     const auto &concat_result_op = res.Op(paddle::dialect::ConcatOp::name());
-    concat_result_op({&res.Tensor("combine_result_out"), &full_result_op()},
-                     {&res.Tensor("activation_out")});
+    concat_result_op({res.Tensor("combine_result_out"), full_result_op()},
+                     {res.Tensor("activation_out")});
 
-    // concat_result_op(combine_result_in, {&res.Tensor("concat_out")});
+    // concat_result_op(combine_result_in, {res.Tensor("concat_out")});
   }
 };
 
@@ -759,7 +760,7 @@ class NConvConcatClipFusePattern : public paddle::drr::DrrPatternBase {
       conv_name = paddle::onednn::dialect::FusedConv2dOp::name();
     }
 
-    std::vector<const paddle::drr::Tensor *> combine_in;
+    std::vector<std::shared_ptr<paddle::drr::Tensor>> combine_in;
     for (size_t i = 1; i <= concat_count_; i++) {
       const auto &conv =
           fused_level_ == 0
@@ -808,19 +809,19 @@ class NConvConcatClipFusePattern : public paddle::drr::DrrPatternBase {
                     }});
 
       if (fused_level_ > 0) {
-        conv({&pat.Tensor("input" + std::to_string(i)),
-              &pat.Tensor("filter" + std::to_string(i)),
-              &pat.Tensor("__@bias" + std::to_string(i) + "@__"),
-              &pat.Tensor("__@residual" + std::to_string(i) + "@__")},
-             {&pat.Tensor("conv2d_out_" + std::to_string(i))});
+        conv({pat.Tensor("input" + std::to_string(i)),
+              pat.Tensor("filter" + std::to_string(i)),
+              pat.Tensor("__@bias" + std::to_string(i) + "@__"),
+              pat.Tensor("__@residual" + std::to_string(i) + "@__")},
+             {pat.Tensor("conv2d_out_" + std::to_string(i))});
 
       } else {
-        conv({&pat.Tensor("input" + std::to_string(i)),
-              &pat.Tensor("filter" + std::to_string(i))},
-             {&pat.Tensor("conv2d_out_" + std::to_string(i))});
+        conv({pat.Tensor("input" + std::to_string(i)),
+              pat.Tensor("filter" + std::to_string(i))},
+             {pat.Tensor("conv2d_out_" + std::to_string(i))});
       }
 
-      combine_in.push_back(&pat.Tensor("conv2d_out_" + std::to_string(i)));
+      combine_in.push_back(pat.Tensor("conv2d_out_" + std::to_string(i)));
     }
     const auto &combine_op = pat.Op(pir::CombineOp::name());
     const auto &full_op = pat.Op(paddle::dialect::FullOp::name(),
@@ -829,10 +830,10 @@ class NConvConcatClipFusePattern : public paddle::drr::DrrPatternBase {
                                   {"dtype", pat.Attr("dtype")},
                                   {"place", pat.Attr("place")}});
 
-    combine_op(combine_in, {&pat.Tensor("combine_out")});
+    combine_op(combine_in, {pat.Tensor("combine_out")});
     const auto &concat_op = pat.Op(paddle::dialect::ConcatOp::name());
-    concat_op({&pat.Tensor("combine_out"), &full_op()},
-              {&pat.Tensor("concat_out")});
+    concat_op({pat.Tensor("combine_out"), full_op()},
+              {pat.Tensor("concat_out")});
 
     const auto &full_1 = pat.Op(paddle::dialect::FullOp::name(),
                                 {{"value", pat.Attr("full_1_value")}});
@@ -866,7 +867,7 @@ class NConvConcatClipFusePattern : public paddle::drr::DrrPatternBase {
           return match_ctx.Attr<double>("full_2_value");
         });
 
-    std::vector<const paddle::drr::Tensor *> combine_result_in;
+    std::vector<std::shared_ptr<paddle::drr::Tensor>> combine_result_in;
     for (size_t i = 1; i <= concat_count_; i++) {
       const auto &fused_conv =
           fused_level_ == 0
@@ -925,25 +926,25 @@ class NConvConcatClipFusePattern : public paddle::drr::DrrPatternBase {
                     }});
 
       if (fused_level_ > 0) {
-        fused_conv({&res.Tensor("input" + std::to_string(i)),
-                    &res.Tensor("filter" + std::to_string(i)),
-                    &res.Tensor("__@bias" + std::to_string(i) + "@__"),
-                    &res.Tensor("__@residual" + std::to_string(i) + "@__")},
-                   {&res.Tensor("act_out_" + std::to_string(i))});
+        fused_conv({res.Tensor("input" + std::to_string(i)),
+                    res.Tensor("filter" + std::to_string(i)),
+                    res.Tensor("__@bias" + std::to_string(i) + "@__"),
+                    res.Tensor("__@residual" + std::to_string(i) + "@__")},
+                   {res.Tensor("act_out_" + std::to_string(i))});
 
       } else {
-        fused_conv({&res.Tensor("input" + std::to_string(i)),
-                    &res.Tensor("filter" + std::to_string(i)),
-                    &res.InputNoneTensor(),
-                    &res.InputNoneTensor()},
-                   {&res.Tensor("act_out_" + std::to_string(i))});
+        fused_conv({res.Tensor("input" + std::to_string(i)),
+                    res.Tensor("filter" + std::to_string(i)),
+                    res.InputNoneTensor(),
+                    res.InputNoneTensor()},
+                   {res.Tensor("act_out_" + std::to_string(i))});
       }
-      combine_result_in.push_back(&res.Tensor("act_out_" + std::to_string(i)));
+      combine_result_in.push_back(res.Tensor("act_out_" + std::to_string(i)));
     }
 
     const auto &combine = res.Op(pir::CombineOp::name());
 
-    combine(combine_result_in, {&res.Tensor("combine_result_out")});
+    combine(combine_result_in, {res.Tensor("combine_result_out")});
 
     // const auto &concat_result_op =
     // res.Op(paddle::dialect::ConcatOp::name(),{{"axis", res.Int32Attr(0) }});
@@ -954,10 +955,10 @@ class NConvConcatClipFusePattern : public paddle::drr::DrrPatternBase {
                                          {"place", pat.Attr("place")}});
 
     const auto &concat_result_op = res.Op(paddle::dialect::ConcatOp::name());
-    concat_result_op({&res.Tensor("combine_result_out"), &full_result_op()},
-                     {&res.Tensor("activation_out")});
+    concat_result_op({res.Tensor("combine_result_out"), full_result_op()},
+                     {res.Tensor("activation_out")});
 
-    // concat_result_op(combine_result_in, {&res.Tensor("concat_out")});
+    // concat_result_op(combine_result_in, {res.Tensor("concat_out")});
   }
 };
 

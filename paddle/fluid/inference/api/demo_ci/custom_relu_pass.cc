@@ -23,11 +23,11 @@ class ReluReplacePattern : public paddle::drr::DrrPatternBase {
   void operator()(paddle::drr::DrrPatternContext *ctx) const override {
     paddle::drr::SourcePattern pat = ctx->SourcePattern();
     const auto &relu = pat.Op("pd_op.relu");
-    relu({&pat.Tensor("in")}, {&pat.Tensor("out")});
+    relu({pat.Tensor("in")}, {pat.Tensor("out")});
 
     paddle::drr::ResultPattern res = pat.ResultPattern();
     const auto &custom_relu = res.Op("custom_op.custom_relu");
-    custom_relu({&res.Tensor("in")}, {&res.Tensor("out")});
+    custom_relu({res.Tensor("in")}, {res.Tensor("out")});
   }
 };
 

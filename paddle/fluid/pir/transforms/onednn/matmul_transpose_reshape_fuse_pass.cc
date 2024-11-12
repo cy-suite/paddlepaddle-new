@@ -48,7 +48,7 @@ class MatmulTransposeReshapeFusePattern : public paddle::drr::DrrPatternBase {
     const auto &matmul = pat.Op(matmul_name_,
                                 {{"transpose_x", pat.Attr("transpose_x")},
                                  {"transpose_y", pat.Attr("transpose_y")}});
-    matmul({&pat.Tensor("X"), &pat.Tensor("Y")}, {&pat.Tensor("Out")});
+    matmul({pat.Tensor("X"), pat.Tensor("Y")}, {pat.Tensor("Out")});
 
     const auto &transpose = pat.Op(paddle::dialect::TransposeOp::name(),
                                    {{"perm", pat.Attr("perm")}});
@@ -59,8 +59,8 @@ class MatmulTransposeReshapeFusePattern : public paddle::drr::DrrPatternBase {
     pat.Tensor("shape") = full_int_array();
 
     const auto &reshape = pat.Op(paddle::dialect::ReshapeOp::name());
-    reshape({&pat.Tensor("transpose_out"), &pat.Tensor("shape")},
-            {&pat.Tensor("reshape_out")});
+    reshape({pat.Tensor("transpose_out"), pat.Tensor("shape")},
+            {pat.Tensor("reshape_out")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       auto shape = match_ctx.Attr<std::vector<int64_t>>("int_array");
@@ -108,8 +108,8 @@ class MatmulTransposeReshapeFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &fused_matmul = res.Op(fused_matmul_name_, fused_attrs);
 
-    fused_matmul({&res.Tensor("X"), &res.Tensor("Y"), &res.InputNoneTensor()},
-                 {&res.Tensor("reshape_out")});
+    fused_matmul({res.Tensor("X"), res.Tensor("Y"), res.InputNoneTensor()},
+                 {res.Tensor("reshape_out")});
   }
 };
 
@@ -159,8 +159,8 @@ class FusedMatmulTransposeReshapeFusePattern
                 {"scale_out", pat.Attr("scale_out")},
                 {"force_fp32_output", pat.Attr("force_fp32_output")}});
 
-    matmul({&pat.Tensor("X"), &pat.Tensor("Y"), &pat.Tensor("residual")},
-           {&pat.Tensor("Out")});
+    matmul({pat.Tensor("X"), pat.Tensor("Y"), pat.Tensor("residual")},
+           {pat.Tensor("Out")});
 
     const auto &transpose = pat.Op(paddle::dialect::TransposeOp::name(),
                                    {{"perm", pat.Attr("perm")}});
@@ -171,8 +171,8 @@ class FusedMatmulTransposeReshapeFusePattern
     pat.Tensor("shape") = full_int_array();
 
     const auto &reshape = pat.Op(paddle::dialect::ReshapeOp::name());
-    reshape({&pat.Tensor("transpose_out"), &pat.Tensor("shape")},
-            {&pat.Tensor("reshape_out")});
+    reshape({pat.Tensor("transpose_out"), pat.Tensor("shape")},
+            {pat.Tensor("reshape_out")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       auto shape = match_ctx.Attr<std::vector<int64_t>>("int_array");
@@ -227,8 +227,8 @@ class FusedMatmulTransposeReshapeFusePattern
 
     const auto &fused_matmul = res.Op(fused_matmul_name_, fused_attrs);
 
-    fused_matmul({&res.Tensor("X"), &res.Tensor("Y"), &res.Tensor("residual")},
-                 {&res.Tensor("reshape_out")});
+    fused_matmul({res.Tensor("X"), res.Tensor("Y"), res.Tensor("residual")},
+                 {res.Tensor("reshape_out")});
   }
 };
 

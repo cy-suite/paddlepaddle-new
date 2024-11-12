@@ -42,9 +42,9 @@ const Op& DrrPatternContext::SourceOpPattern(
   return *owned_ops_.back();
 }
 
-drr::Tensor& DrrPatternContext::SourceTensorPattern(const std::string& name) {
-  return source_pattern_graph_->AddTensor(std::shared_ptr<drr::Tensor>(
-      new drr::Tensor(name, source_pattern_graph_.get())));
+std::shared_ptr<Tensor>& DrrPatternContext::SourceTensorPattern(
+    const std::string& name) {
+  return source_pattern_graph_->AddTensor(name);
 }
 
 const Op& DrrPatternContext::ResultOpPattern(
@@ -56,9 +56,9 @@ const Op& DrrPatternContext::ResultOpPattern(
   return *owned_ops_.back();
 }
 
-drr::Tensor& DrrPatternContext::ResultTensorPattern(const std::string& name) {
-  return result_pattern_graph_->AddTensor(std::shared_ptr<drr::Tensor>(
-      new drr::Tensor(name, result_pattern_graph_.get())));
+std::shared_ptr<Tensor>& DrrPatternContext::ResultTensorPattern(
+    const std::string& name) {
+  return result_pattern_graph_->AddTensor(name);
 }
 
 std::vector<Constraint> DrrPatternContext::constraints() const {
@@ -78,51 +78,64 @@ void DrrPatternContext::AddPostProcess(
   post_processes_.emplace_back(post_process_fn);
 }
 
-void Op::operator()(const Tensor& arg, const Tensor* out) const {
-  std::vector<const Tensor*> inputs{&arg};
-  std::vector<const Tensor*> outputs{out};
-  pattern_graph_->AddOpCall(std::make_shared<OpCall>(this, inputs, outputs));
+// void Op::operator()(const Tensor& arg, const Tensor* out) const {
+//   std::vector<const Tensor*> inputs{&arg};
+//   std::vector<const Tensor*> outputs{out};
+//   pattern_graph_->AddOpCall(std::make_shared<OpCall>(this, inputs, outputs));
+// }
+
+void Op::operator()(
+    const std::vector<std::shared_ptr<drr::Tensor>>& args,
+    const std::vector<std::shared_ptr<drr::Tensor>>& outputs) const {
+  std::vector<const Tensor*> inputs;
+  for (const auto& arg : args) {
+    inputs.push_back(arg.get());
+  }
+  std::vector<const Tensor*> outs;
+  for (const auto& output : outputs) {
+    outs.push_back(output.get());
+  }
+  pattern_graph_->AddOpCall(std::make_shared<OpCall>(this, inputs, outs));
 }
 
-void Op::operator()(const std::vector<const Tensor*>& args,
-                    const std::vector<const Tensor*>& outputs) const {
-  pattern_graph_->AddOpCall(std::make_shared<OpCall>(this, args, outputs));
-}
-
-Tensor& Op::operator()(const Tensor& arg) const {
-  std::vector<const Tensor*> inputs{&arg};
-  auto& out = pattern_graph_->AddTmpTensor(std::shared_ptr<Tensor>(new Tensor(
-      prefix + op_type_name_ + "_" + std::to_string(count++), pattern_graph_)));
-  std::vector<const Tensor*> outputs{&out};
-  pattern_graph_->AddOpCall(std::make_shared<OpCall>(this, inputs, outputs));
-  return out;
-}
-
-Tensor& Op::operator()(const Tensor& arg1, const Tensor& arg2) const {
-  std::vector<const Tensor*> inputs{&arg1, &arg2};
-  auto& out = pattern_graph_->AddTmpTensor(std::shared_ptr<Tensor>(new Tensor(
-      prefix + op_type_name_ + "_" + std::to_string(count++), pattern_graph_)));
-  std::vector<const Tensor*> outputs{&out};
-  pattern_graph_->AddOpCall(std::make_shared<OpCall>(this, inputs, outputs));
-  return out;
-}
-
-Tensor& Op::operator()(const Tensor& arg0,
-                       const Tensor& arg1,
-                       const Tensor& arg2) const {
-  std::vector<const Tensor*> inputs{&arg0, &arg1, &arg2};
-  auto& out = pattern_graph_->AddTmpTensor(std::shared_ptr<Tensor>(new Tensor(
-      prefix + op_type_name_ + "_" + std::to_string(count++), pattern_graph_)));
-  std::vector<const Tensor*> outputs{&out};
+std::shared_ptr<Tensor>& Op::operator()(
+    const std::shared_ptr<Tensor>& arg) const {
+  std::vector<const Tensor*> inputs{arg.get()};
+  auto& out = pattern_graph_->AddTmpTensor(prefix + op_type_name_ + "_" +
+                                           std::to_string(count++));
+  std::vector<const Tensor*> outputs{out.get()};
   pattern_graph_->AddOpCall(std::make_shared<OpCall>(this, inputs, outputs));
   return out;
 }
 
-Tensor& Op::operator()() const {
+std::shared_ptr<Tensor>& Op::operator()(
+    const std::shared_ptr<Tensor>& arg1,
+    const std::shared_ptr<Tensor>& arg2) const {
+  std::vector<const Tensor*> inputs{arg1.get(), arg2.get()};
+  auto& out = pattern_graph_->AddTmpTensor(prefix + op_type_name_ + "_" +
+                                           std::to_string(count++));
+  std::vector<const Tensor*> outputs{out.get()};
+  pattern_graph_->AddOpCall(std::make_shared<OpCall>(this, inputs, outputs));
+  return out;
+}
+
+std::shared_ptr<Tensor>& Op::operator()(
+    const std::shared_ptr<Tensor>& arg0,
+    const std::shared_ptr<Tensor>& arg1,
+    const std::shared_ptr<Tensor>& arg2) const {
+  std::vector<const Tensor*> inputs{arg0.get(), arg1.get(), arg2.get()};
+  auto& out = pattern_graph_->AddTmpTensor(prefix + op_type_name_ + "_" +
+                                           std::to_string(count++));
+  std::vector<const Tensor*> outputs{out.get()};
+  pattern_graph_->AddOpCall(std::make_shared<OpCall>(this, inputs, outputs));
+  return out;
+}
+
+std::shared_ptr<Tensor>& Op::operator()() const {
   std::vector<const Tensor*> inputs{};
-  auto& out = pattern_graph_->AddTmpTensor(std::shared_ptr<Tensor>(new Tensor(
-      prefix + op_type_name_ + "_" + std::to_string(count++), pattern_graph_)));
-  std::vector<const Tensor*> outputs{&out};
+  auto& out = pattern_graph_->AddTmpTensor(prefix + op_type_name_ + "_" +
+                                           std::to_string(count++));
+  std::vector<const Tensor*> outputs{out.get()};
   pattern_graph_->AddOpCall(std::make_shared<OpCall>(this, inputs, outputs));
   return out;
 }
@@ -139,8 +152,22 @@ const char Tensor::RESULT_INPUT_NONE_TENSOR_NAME[] =  // NOLINT
 const char Tensor::RESULT_OUTPUT_NONE_TENSOR_NAME[] =  // NOLINT
     "__@result_output_none_tensor@__";
 
-void Tensor::Assign(const Tensor& other) {
-  dynamic_cast<ResultPatternGraph*>(pattern_graph_)->AssignTensor(*this, other);
+void Tensor::Assign(const std::shared_ptr<drr::Tensor>& other) {
+  dynamic_cast<ResultPatternGraph*>(pattern_graph_)
+      ->AssignTensor(*this, *other.get());
+}
+
+OpCall* Tensor::producer() const {
+  if (producer_) {
+    std::cout << " --- get: " << producer_->name() << " " << producer_
+              << std::endl;
+  }
+  return producer_;
+}
+
+void Tensor::set_producer(OpCall* producer) {
+  std::cout << " --- set: " << producer->name() << " " << producer << std::endl;
+  producer_ = producer;
 }
 
 void Tensor::operator=(const Tensor& other) const {  // NOLINT
@@ -164,15 +191,15 @@ const drr::Op& ResultPattern::Op(
   return ctx_->ResultOpPattern(op_type, attributes, runtime_attributes);
 }
 
-drr::Tensor& ResultPattern::Tensor(const std::string& name) {
+std::shared_ptr<Tensor>& ResultPattern::Tensor(const std::string& name) {
   return ctx_->ResultTensorPattern(name);
 }
 
-drr::Tensor& ResultPattern::InputNoneTensor() {
+std::shared_ptr<Tensor>& ResultPattern::InputNoneTensor() {
   return ctx_->ResultTensorPattern(Tensor::RESULT_INPUT_NONE_TENSOR_NAME);
 }
 
-drr::Tensor& ResultPattern::OutputNoneTensor() {
+std::shared_ptr<Tensor>& ResultPattern::OutputNoneTensor() {
   return ctx_->ResultTensorPattern(Tensor::RESULT_OUTPUT_NONE_TENSOR_NAME);
 }
 
@@ -269,7 +296,7 @@ const drr::Op& SourcePattern::Op(
   return ctx_->SourceOpPattern(op_type, attributes);
 }
 
-const drr::Tensor& SourcePattern::Tensor(const std::string& name) {
+std::shared_ptr<Tensor>& SourcePattern::Tensor(const std::string& name) {
   return ctx_->SourceTensorPattern(name);
 }
 
@@ -285,11 +312,11 @@ void SourcePattern::AddPostProcess(const PostProcessFunction& post_process_fn) {
   ctx_->AddPostProcess(post_process_fn);
 }
 
-drr::Tensor& SourcePattern::InputNoneTensor() {
+std::shared_ptr<Tensor>& SourcePattern::InputNoneTensor() {
   return ctx_->SourceTensorPattern(Tensor::SOURCE_INPUT_NONE_TENSOR_NAME);
 }
 
-drr::Tensor& SourcePattern::OutputNoneTensor() {
+std::shared_ptr<Tensor>& SourcePattern::OutputNoneTensor() {
   return ctx_->SourceTensorPattern(Tensor::SOURCE_OUTPUT_NONE_TENSOR_NAME);
 }
 

@@ -34,12 +34,11 @@ class AddLayernormPattern : public paddle::drr::DrrPatternBase {
         pat.Op(paddle::dialect::LayerNormOp::name(),
                {{"epsilon", pat.Attr("epsilon")},
                 {"begin_norm_axis", pat.Attr("begin_norm_axis")}});
-    add({&pat.Tensor("x"), &pat.Tensor("y")}, {&pat.Tensor("add_out")});
-    layernorm(
-        {&pat.Tensor("add_out"), &pat.Tensor("scale"), &pat.Tensor("bias")},
-        {&pat.Tensor("layernorm_out"),
-         &pat.Tensor("layernorm_mean"),
-         &pat.Tensor("layernorm_variance")});
+    add({pat.Tensor("x"), pat.Tensor("y")}, {pat.Tensor("add_out")});
+    layernorm({pat.Tensor("add_out"), pat.Tensor("scale"), pat.Tensor("bias")},
+              {pat.Tensor("layernorm_out"),
+               pat.Tensor("layernorm_mean"),
+               pat.Tensor("layernorm_variance")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       std::vector<int64_t> x_shape =
@@ -58,11 +57,11 @@ class AddLayernormPattern : public paddle::drr::DrrPatternBase {
         res.Op(paddle::dialect::AddLayernormXpuOp::name(),
                {{{"epsilon", pat.Attr("epsilon")},
                  {"begin_norm_axis", pat.Attr("begin_norm_axis")}}});
-    add_layernorm_xpu({&res.Tensor("x"),
-                       &res.Tensor("y"),
-                       &res.Tensor("scale"),
-                       &res.Tensor("bias")},
-                      {&res.Tensor("layernorm_out")});
+    add_layernorm_xpu({res.Tensor("x"),
+                       res.Tensor("y"),
+                       res.Tensor("scale"),
+                       res.Tensor("bias")},
+                      {res.Tensor("layernorm_out")});
   }
 };
 

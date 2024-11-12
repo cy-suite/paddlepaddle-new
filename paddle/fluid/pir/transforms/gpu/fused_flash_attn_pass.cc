@@ -157,15 +157,15 @@ class FlashAttnPatternQscaleWithMask : public paddle::drr::DrrPatternBase {
                                       {"return_softmax", res.BoolAttr(false)},
                                       {"is_test", res.BoolAttr(true)},
                                       {"rng_name", res.StrAttr("")}}});
-    flash_attn({&res.Tensor("q"),
-                &res.Tensor("k"),
-                &res.Tensor("v"),
-                &res.InputNoneTensor(),
-                &res.Tensor("mask")},
-               {&res.Tensor("out"),
-                &res.Tensor("softmax"),
-                &res.Tensor("softmax_lse"),
-                &res.Tensor("seed_offset")});
+    flash_attn({res.Tensor("q"),
+                res.Tensor("k"),
+                res.Tensor("v"),
+                res.InputNoneTensor(),
+                res.Tensor("mask")},
+               {res.Tensor("out"),
+                res.Tensor("softmax"),
+                res.Tensor("softmax_lse"),
+                res.Tensor("seed_offset")});
   }
 };
 
@@ -304,15 +304,15 @@ class FlashAttnPatternOutscaleWithMask : public paddle::drr::DrrPatternBase {
                                       {"return_softmax", res.BoolAttr(false)},
                                       {"is_test", res.BoolAttr(true)},
                                       {"rng_name", res.StrAttr("")}}});
-    flash_attn({&res.Tensor("q"),
-                &res.Tensor("k"),
-                &res.Tensor("v"),
-                &res.InputNoneTensor(),
-                &res.Tensor("mask")},
-               {&res.Tensor("out"),
-                &res.Tensor("softmax"),
-                &res.Tensor("softmax_lse"),
-                &res.Tensor("seed_offset")});
+    flash_attn({res.Tensor("q"),
+                res.Tensor("k"),
+                res.Tensor("v"),
+                res.InputNoneTensor(),
+                res.Tensor("mask")},
+               {res.Tensor("out"),
+                res.Tensor("softmax"),
+                res.Tensor("softmax_lse"),
+                res.Tensor("seed_offset")});
   }
 };
 
@@ -434,15 +434,15 @@ class FlashAttnPatternOutscaleNoMask : public paddle::drr::DrrPatternBase {
                                       {"return_softmax", res.BoolAttr(false)},
                                       {"is_test", res.BoolAttr(true)},
                                       {"rng_name", res.StrAttr("")}}});
-    flash_attn({&res.Tensor("q"),
-                &res.Tensor("k"),
-                &res.Tensor("v"),
-                &res.InputNoneTensor(),
-                &res.InputNoneTensor()},
-               {&res.Tensor("out"),
-                &res.Tensor("softmax"),
-                &res.Tensor("softmax_lse"),
-                &res.Tensor("seed_offset")});
+    flash_attn({res.Tensor("q"),
+                res.Tensor("k"),
+                res.Tensor("v"),
+                res.InputNoneTensor(),
+                res.InputNoneTensor()},
+               {res.Tensor("out"),
+                res.Tensor("softmax"),
+                res.Tensor("softmax_lse"),
+                res.Tensor("seed_offset")});
   }
 };
 
@@ -588,15 +588,15 @@ class TransposeSliceFlashAttnPattern : public paddle::drr::DrrPatternBase {
                                       {"return_softmax", res.BoolAttr(false)},
                                       {"is_test", res.BoolAttr(true)},
                                       {"rng_name", res.StrAttr("")}}});
-    flash_attn({&res.Tensor("q_transpose"),
-                &res.Tensor("k_transpose"),
-                &res.Tensor("v_transpose"),
-                &res.InputNoneTensor(),
-                &res.Tensor("mask")},
-               {&res.Tensor("out"),
-                &res.Tensor("softmax"),
-                &res.Tensor("softmax_lse"),
-                &res.Tensor("seed_offset")});
+    flash_attn({res.Tensor("q_transpose"),
+                res.Tensor("k_transpose"),
+                res.Tensor("v_transpose"),
+                res.InputNoneTensor(),
+                res.Tensor("mask")},
+               {res.Tensor("out"),
+                res.Tensor("softmax"),
+                res.Tensor("softmax_lse"),
+                res.Tensor("seed_offset")});
   }
 };
 

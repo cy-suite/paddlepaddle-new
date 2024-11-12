@@ -84,7 +84,7 @@ class FusedAllReduceSplitPattern1 : public paddle::drr::DrrPatternBase {
                 {"event_to_record", pat.Attr("event_to_record")},
                 {"events_to_wait", pat.Attr("events_to_wait")}});
 
-    reduce_scatter({&res.Tensor("input_grad_partial")}, {&res.Tensor("out")});
+    reduce_scatter({res.Tensor("input_grad_partial")}, {res.Tensor("out")});
   }
 };
 
@@ -182,14 +182,13 @@ class FusedAllReduceSplitPattern2 : public paddle::drr::DrrPatternBase {
 
     pat.Tensor("out_g_assign") = assign1(pat.Tensor("out_g"));
     pat.Tensor("out_g_all") = all_gather(pat.Tensor("out_g_assign"));
-    add_grad(
-        {&pat.Tensor("out2"), &pat.Tensor("bias"), &pat.Tensor("out_g_all")},
-        {&pat.Tensor("out2_g"), &pat.Tensor("bias_g")});
+    add_grad({pat.Tensor("out2"), pat.Tensor("bias"), pat.Tensor("out_g_all")},
+             {pat.Tensor("out2_g"), pat.Tensor("bias_g")});
     pat.Tensor("bias_g_m2") =
         add_(pat.Tensor("bias_g_m1"), pat.Tensor("bias_g"));
     matmul_grad(
-        {&pat.Tensor("input"), &pat.Tensor("weight"), &pat.Tensor("out2_g")},
-        {&pat.Tensor("input_g"), &pat.Tensor("weight_g")});
+        {pat.Tensor("input"), pat.Tensor("weight"), pat.Tensor("out2_g")},
+        {pat.Tensor("input_g"), pat.Tensor("weight_g")});
 
     paddle::drr::ResultPattern res = pat.ResultPattern();
     const auto &res_matmul = res.Op(paddle::dialect::MatmulOp::name(),
@@ -218,15 +217,14 @@ class FusedAllReduceSplitPattern2 : public paddle::drr::DrrPatternBase {
     res.Tensor("out2") = res_reduce_scatter(res.Tensor("out1"));
     res.Tensor("out6") = res_add(res.Tensor("out2"), res.Tensor("bias"));
 
-    res_add_grad(
-        {&res.Tensor("out2"), &res.Tensor("bias"), &res.Tensor("out_g")},
-        {&res.Tensor("out_g_assign"), &res.Tensor("bias_g")});
+    res_add_grad({res.Tensor("out2"), res.Tensor("bias"), res.Tensor("out_g")},
+                 {res.Tensor("out_g_assign"), res.Tensor("bias_g")});
     res.Tensor("bias_g_m2") =
         res_add_(res.Tensor("bias_g_m1"), res.Tensor("bias_g"));
     res.Tensor("out_g_all") = res_all_gather(res.Tensor("out_g_assign"));
     res_matmul_grad(
-        {&res.Tensor("input"), &res.Tensor("weight"), &res.Tensor("out_g_all")},
-        {&res.Tensor("input_g"), &res.Tensor("weight_g")});
+        {res.Tensor("input"), res.Tensor("weight"), res.Tensor("out_g_all")},
+        {res.Tensor("input_g"), res.Tensor("weight_g")});
   }
 };
 

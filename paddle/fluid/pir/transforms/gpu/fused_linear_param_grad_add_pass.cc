@@ -42,13 +42,11 @@ class FusedMatmulAddGradAddPattern : public paddle::drr::DrrPatternBase {
 
     pat.Tensor("out") = matmul0(pat.Tensor("x"), pat.Tensor("weight"));
     pat.Tensor("fwd_add_out") = add0(pat.Tensor("out"), pat.Tensor("bias"));
-    add_grad({&pat.Tensor("out"),
-              &pat.Tensor("bias"),
-              &pat.Tensor("fwd_add_out_grad")},
-             {&pat.Tensor("out_grad"), &pat.Tensor("dbias")});
-    matmul_grad(
-        {&pat.Tensor("x"), &pat.Tensor("weight"), &pat.Tensor("out_grad")},
-        {&pat.Tensor("x_grad"), &pat.Tensor("weight_grad")});
+    add_grad(
+        {pat.Tensor("out"), pat.Tensor("bias"), pat.Tensor("fwd_add_out_grad")},
+        {pat.Tensor("out_grad"), pat.Tensor("dbias")});
+    matmul_grad({pat.Tensor("x"), pat.Tensor("weight"), pat.Tensor("out_grad")},
+                {pat.Tensor("x_grad"), pat.Tensor("weight_grad")});
     pat.Tensor("add_out") =
         add_(pat.Tensor("dweight"), pat.Tensor("weight_grad"));
 
@@ -81,13 +79,13 @@ class FusedMatmulAddGradAddPattern : public paddle::drr::DrrPatternBase {
                {{{"multi_precision", multi_precision_attr},
                  {"has_bias", res.BoolAttr(true)}}});
 
-    matmul({&res.Tensor("fwd_add_out_grad"), &res.Tensor("weight")},
-           {&res.Tensor("x_grad")});
-    fused_linear_param_grad_add({&res.Tensor("x"),
-                                 &res.Tensor("fwd_add_out_grad"),
-                                 &res.Tensor("dweight"),
-                                 &res.InputNoneTensor()},
-                                {&res.Tensor("add_out"), &res.Tensor("dbias")});
+    matmul({res.Tensor("fwd_add_out_grad"), res.Tensor("weight")},
+           {res.Tensor("x_grad")});
+    fused_linear_param_grad_add({res.Tensor("x"),
+                                 res.Tensor("fwd_add_out_grad"),
+                                 res.Tensor("dweight"),
+                                 res.InputNoneTensor()},
+                                {res.Tensor("add_out"), res.Tensor("dbias")});
   }
 };
 
@@ -103,9 +101,8 @@ class FusedMatmulGradAddPattern : public paddle::drr::DrrPatternBase {
                                       {"transpose_y", pat.Attr("trans_y")}});
     const auto &add_ = pat.Op(paddle::dialect::Add_Op::name());
 
-    matmul_grad(
-        {&pat.Tensor("x"), &pat.Tensor("weight"), &pat.Tensor("out_grad")},
-        {&pat.Tensor("x_grad"), &pat.Tensor("weight_grad")});
+    matmul_grad({pat.Tensor("x"), pat.Tensor("weight"), pat.Tensor("out_grad")},
+                {pat.Tensor("x_grad"), pat.Tensor("weight_grad")});
     pat.Tensor("add_out") =
         add_(pat.Tensor("dweight"), pat.Tensor("weight_grad"));
 
@@ -136,14 +133,14 @@ class FusedMatmulGradAddPattern : public paddle::drr::DrrPatternBase {
                {{{"multi_precision", multi_precision_attr},
                  {"has_bias", res.BoolAttr(false)}}});
 
-    matmul({&res.Tensor("out_grad"), &res.Tensor("weight")},
-           {&res.Tensor("x_grad")});
+    matmul({res.Tensor("out_grad"), res.Tensor("weight")},
+           {res.Tensor("x_grad")});
     fused_linear_param_grad_add(
-        {&res.Tensor("x"),
-         &res.Tensor("out_grad"),
-         &res.Tensor("dweight"),
-         &res.InputNoneTensor()},
-        {&res.Tensor("add_out"), &res.Tensor("dbias_out")});
+        {res.Tensor("x"),
+         res.Tensor("out_grad"),
+         res.Tensor("dweight"),
+         res.InputNoneTensor()},
+        {res.Tensor("add_out"), res.Tensor("dbias_out")});
   }
 };
 
@@ -159,14 +156,12 @@ class FusedMatmulReshapeMatmulAddPattern : public paddle::drr::DrrPatternBase {
     const auto &full_int_array1 =
         pat.Op(paddle::dialect::FullIntArrayOp::name());
     const auto &reshape1 = pat.Op(paddle::dialect::ReshapeOp::name());
-    reshape1({&pat.Tensor("x"), &full_int_array1()},
-             {&pat.Tensor("reshape_x")});
+    reshape1({pat.Tensor("x"), full_int_array1()}, {pat.Tensor("reshape_x")});
 
     const auto &full_int_array2 =
         pat.Op(paddle::dialect::FullIntArrayOp::name());
     const auto &reshape2 = pat.Op(paddle::dialect::ReshapeOp::name());
-    reshape2({&pat.Tensor("dy"), &full_int_array2()},
-             {&pat.Tensor("reshape_dy")});
+    reshape2({pat.Tensor("dy"), full_int_array2()}, {pat.Tensor("reshape_dy")});
 
     const auto &matmul = pat.Op(paddle::dialect::MatmulOp::name(),
                                 {{"transpose_x", pat.Attr("trans_x")},
@@ -177,8 +172,8 @@ class FusedMatmulReshapeMatmulAddPattern : public paddle::drr::DrrPatternBase {
     const auto &full_int_array3 =
         pat.Op(paddle::dialect::FullIntArrayOp::name());
     const auto &reshape3 = pat.Op(paddle::dialect::ReshapeOp::name());
-    reshape3({&pat.Tensor("matmul_out"), &full_int_array3()},
-             {&pat.Tensor("w_grad")});
+    reshape3({pat.Tensor("matmul_out"), full_int_array3()},
+             {pat.Tensor("w_grad")});
 
     const auto &add_ = pat.Op(paddle::dialect::Add_Op::name());
     pat.Tensor("dweight_inplace") =
@@ -206,11 +201,11 @@ class FusedMatmulReshapeMatmulAddPattern : public paddle::drr::DrrPatternBase {
                  {"has_bias", res.BoolAttr(false)}}});
 
     fused_linear_param_grad_add(
-        {&res.Tensor("x"),
-         &res.Tensor("dy"),
-         &res.Tensor("dweight"),
-         &res.InputNoneTensor()},
-        {&res.Tensor("dweight_inplace"), &res.Tensor("dbias_out")});
+        {res.Tensor("x"),
+         res.Tensor("dy"),
+         res.Tensor("dweight"),
+         res.InputNoneTensor()},
+        {res.Tensor("dweight_inplace"), res.Tensor("dbias_out")});
   }
 };
 
@@ -226,8 +221,8 @@ class FusedMatmulAddaPattern : public paddle::drr::DrrPatternBase {
                                  {"transpose_y", pat.Attr("trans_y")}});
     const auto &add_ = pat.Op(paddle::dialect::Add_Op::name());
 
-    matmul({&pat.Tensor("x"), &pat.Tensor("out_grad")},
-           {&pat.Tensor("weight_grad")});
+    matmul({pat.Tensor("x"), pat.Tensor("out_grad")},
+           {pat.Tensor("weight_grad")});
     pat.Tensor("add_out") =
         add_(pat.Tensor("dweight"), pat.Tensor("weight_grad"));
 
@@ -250,11 +245,11 @@ class FusedMatmulAddaPattern : public paddle::drr::DrrPatternBase {
                {{{"multi_precision", multi_precision_attr},
                  {"has_bias", res.BoolAttr(false)}}});
     fused_linear_param_grad_add(
-        {&res.Tensor("x"),
-         &res.Tensor("out_grad"),
-         &res.Tensor("dweight"),
-         &res.InputNoneTensor()},
-        {&res.Tensor("add_out"), &res.Tensor("dbias_out")});
+        {res.Tensor("x"),
+         res.Tensor("out_grad"),
+         res.Tensor("dweight"),
+         res.InputNoneTensor()},
+        {res.Tensor("add_out"), res.Tensor("dbias_out")});
   }
 };
 
@@ -270,8 +265,8 @@ class FusedMatmulAddbPattern : public paddle::drr::DrrPatternBase {
                                  {"transpose_y", pat.Attr("trans_y")}});
     const auto &add_ = pat.Op(paddle::dialect::Add_Op::name());
 
-    matmul({&pat.Tensor("x"), &pat.Tensor("out_grad")},
-           {&pat.Tensor("weight_grad")});
+    matmul({pat.Tensor("x"), pat.Tensor("out_grad")},
+           {pat.Tensor("weight_grad")});
     pat.Tensor("add_out") =
         add_(pat.Tensor("weight_grad"), pat.Tensor("dweight"));
 
@@ -294,11 +289,11 @@ class FusedMatmulAddbPattern : public paddle::drr::DrrPatternBase {
                {{{"multi_precision", multi_precision_attr},
                  {"has_bias", res.BoolAttr(false)}}});
     fused_linear_param_grad_add(
-        {&res.Tensor("x"),
-         &res.Tensor("out_grad"),
-         &res.Tensor("dweight"),
-         &res.InputNoneTensor()},
-        {&res.Tensor("add_out"), &res.Tensor("dbias_out")});
+        {res.Tensor("x"),
+         res.Tensor("out_grad"),
+         res.Tensor("dweight"),
+         res.InputNoneTensor()},
+        {res.Tensor("add_out"), res.Tensor("dbias_out")});
   }
 };
 
@@ -324,8 +319,8 @@ class FusedMatmulAddGradAddaPattern : public paddle::drr::DrrPatternBase {
 
     pat.Tensor("out") = matmul(pat.Tensor("x"), pat.Tensor("weight"));
     pat.Tensor("fwd_add_out") = add(pat.Tensor("out"), pat.Tensor("bias"));
-    add_grad({&pat.Tensor("out"), &pat.Tensor("bias"), &pat.Tensor("dadd_out")},
-             {&pat.Tensor("dout"), &pat.Tensor("dbias")});
+    add_grad({pat.Tensor("out"), pat.Tensor("bias"), pat.Tensor("dadd_out")},
+             {pat.Tensor("dout"), pat.Tensor("dbias")});
     pat.Tensor("dx") = matmul_g0(pat.Tensor("dout"), pat.Tensor("weight"));
     pat.Tensor("weight_grad") = matmul_g1(pat.Tensor("x"), pat.Tensor("dout"));
     pat.Tensor("dweight_out") =
@@ -352,11 +347,11 @@ class FusedMatmulAddGradAddaPattern : public paddle::drr::DrrPatternBase {
                {{{"multi_precision", multi_precision_attr},
                  {"has_bias", res.BoolAttr(true)}}});
     fused_linear_param_grad_add(
-        {&res.Tensor("x"),
-         &res.Tensor("dadd_out"),
-         &res.Tensor("dweight"),
-         &res.InputNoneTensor()},
-        {&res.Tensor("dweight_out"), &res.Tensor("dbias")});
+        {res.Tensor("x"),
+         res.Tensor("dadd_out"),
+         res.Tensor("dweight"),
+         res.InputNoneTensor()},
+        {res.Tensor("dweight_out"), res.Tensor("dbias")});
   }
 };
 
@@ -382,8 +377,8 @@ class FusedMatmulAddGradAddbPattern : public paddle::drr::DrrPatternBase {
 
     pat.Tensor("out") = matmul(pat.Tensor("x"), pat.Tensor("weight"));
     pat.Tensor("fwd_add_out") = add(pat.Tensor("out"), pat.Tensor("bias"));
-    add_grad({&pat.Tensor("out"), &pat.Tensor("bias"), &pat.Tensor("dadd_out")},
-             {&pat.Tensor("dout"), &pat.Tensor("dbias")});
+    add_grad({pat.Tensor("out"), pat.Tensor("bias"), pat.Tensor("dadd_out")},
+             {pat.Tensor("dout"), pat.Tensor("dbias")});
     pat.Tensor("dx") = matmul_g0(pat.Tensor("dout"), pat.Tensor("weight"));
     pat.Tensor("weight_grad") = matmul_g1(pat.Tensor("x"), pat.Tensor("dout"));
     pat.Tensor("dweight_out") =
@@ -409,11 +404,11 @@ class FusedMatmulAddGradAddbPattern : public paddle::drr::DrrPatternBase {
                {{{"multi_precision", multi_precision_attr},
                  {"has_bias", res.BoolAttr(true)}}});
     fused_linear_param_grad_add(
-        {&res.Tensor("x"),
-         &res.Tensor("dadd_out"),
-         &res.Tensor("dweight"),
-         &res.InputNoneTensor()},
-        {&res.Tensor("dweight_out"), &res.Tensor("dbias")});
+        {res.Tensor("x"),
+         res.Tensor("dadd_out"),
+         res.Tensor("dweight"),
+         res.InputNoneTensor()},
+        {res.Tensor("dweight_out"), res.Tensor("dbias")});
   }
 };
 class FusedLinearParamGradAddPass : public pir::PatternRewritePass {

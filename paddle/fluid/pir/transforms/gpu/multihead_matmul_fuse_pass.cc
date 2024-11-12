@@ -48,8 +48,8 @@ class MultiHeadMatmulFuseNoBiasQKPattern : public paddle::drr::DrrPatternBase {
         src.Op("pd_op.full_int_array",
                {{"value", src.Attr("full_int_array_1_value")}});
     const auto &reshape_1 = src.Op("pd_op.reshape");
-    reshape_1({&src.Tensor("add_1_out"), &full_int_array_1()},
-              {&src.Tensor("reshape_1_out")});
+    reshape_1({src.Tensor("add_1_out"), full_int_array_1()},
+              {src.Tensor("reshape_1_out")});
     const auto &transpose_1 = src.Op("pd_op.transpose");
     src.Tensor("transpose_1_out") = transpose_1(src.Tensor("reshape_1_out"));
     const auto &full_1 =
@@ -69,8 +69,8 @@ class MultiHeadMatmulFuseNoBiasQKPattern : public paddle::drr::DrrPatternBase {
         add_2(src.Tensor("matmul_2_out"), src.Tensor("add_2_in_2"));
     const auto &full_int_array_2 = src.Op("pd_op.full_int_array");
     const auto &reshape_2 = src.Op("pd_op.reshape");
-    reshape_2({&src.Tensor("add_2_out"), &full_int_array_2()},
-              {&src.Tensor("reshape_2_out")});
+    reshape_2({src.Tensor("add_2_out"), full_int_array_2()},
+              {src.Tensor("reshape_2_out")});
     const auto &transpose_2 = src.Op("pd_op.transpose");
     src.Tensor("transpose_2_out") = transpose_2(src.Tensor("reshape_2_out"));
 
@@ -86,8 +86,8 @@ class MultiHeadMatmulFuseNoBiasQKPattern : public paddle::drr::DrrPatternBase {
         add_3(src.Tensor("matmul_3_out"), src.Tensor("add_3_in_2"));
     const auto &full_int_array_3 = src.Op("pd_op.full_int_array");
     const auto &reshape_3 = src.Op("pd_op.reshape");
-    reshape_3({&src.Tensor("add_3_out"), &full_int_array_3()},
-              {&src.Tensor("reshape_3_out")});
+    reshape_3({src.Tensor("add_3_out"), full_int_array_3()},
+              {src.Tensor("reshape_3_out")});
     const auto &transpose_3 = src.Op("pd_op.transpose");
     src.Tensor("transpose_3_out") = transpose_3(src.Tensor("reshape_3_out"));
 
@@ -112,8 +112,8 @@ class MultiHeadMatmulFuseNoBiasQKPattern : public paddle::drr::DrrPatternBase {
     src.Tensor("transpose_4_out") = transpose_4(src.Tensor("matmul_5_out"));
     const auto &full_int_array_4 = src.Op("pd_op.full_int_array");
     const auto &reshape_4 = src.Op("pd_op.reshape");
-    reshape_4({&src.Tensor("transpose_4_out"), &full_int_array_4()},
-              {&src.Tensor("reshape_4_out")});
+    reshape_4({src.Tensor("transpose_4_out"), full_int_array_4()},
+              {src.Tensor("reshape_4_out")});
 
     //
     // Constraints.
@@ -183,23 +183,23 @@ class MultiHeadMatmulFuseNoBiasQKPattern : public paddle::drr::DrrPatternBase {
         });
     const auto &reshape_5 =
         res.Op("pd_op.reshape", {{"shape", reshape_w_shape_attr}});
-    reshape_5({&res.Tensor("matmul_1_in_2")},
-              {&res.Tensor("reshape_5_out"), &res.OutputNoneTensor()});
+    reshape_5({res.Tensor("matmul_1_in_2")},
+              {res.Tensor("reshape_5_out"), res.OutputNoneTensor()});
     const auto &reshape_6 =
         res.Op("pd_op.reshape", {{"shape", reshape_w_shape_attr}});
-    reshape_6({&res.Tensor("matmul_2_in_2")},
-              {&res.Tensor("reshape_6_out"), &res.OutputNoneTensor()});
+    reshape_6({res.Tensor("matmul_2_in_2")},
+              {res.Tensor("reshape_6_out"), res.OutputNoneTensor()});
     const auto &reshape_7 =
         res.Op("pd_op.reshape", {{"shape", reshape_w_shape_attr}});
-    reshape_7({&res.Tensor("matmul_3_in_2")},
-              {&res.Tensor("reshape_7_out"), &res.OutputNoneTensor()});
+    reshape_7({res.Tensor("matmul_3_in_2")},
+              {res.Tensor("reshape_7_out"), res.OutputNoneTensor()});
 
     // W combine.
     const auto &combine_1 = res.Op("builtin.combine");
-    combine_1({&res.Tensor("reshape_5_out"),
-               &res.Tensor("reshape_6_out"),
-               &res.Tensor("reshape_7_out")},
-              {&res.Tensor("combine_1_out")});
+    combine_1({res.Tensor("reshape_5_out"),
+               res.Tensor("reshape_6_out"),
+               res.Tensor("reshape_7_out")},
+              {res.Tensor("combine_1_out")});
 
     const auto &concat_1 = res.Op("pd_op.concat", {{"axis", res.Int32Attr(1)}});
     res.Tensor("concat_1_out") = concat_1(res.Tensor("combine_1_out"));
@@ -213,23 +213,23 @@ class MultiHeadMatmulFuseNoBiasQKPattern : public paddle::drr::DrrPatternBase {
         });
     const auto &reshape_8 =
         res.Op("pd_op.reshape", {{"shape", reshape_b_shape_attr}});
-    reshape_8({&res.Tensor("add_1_in_2")},
-              {&res.Tensor("reshape_8_out"), &res.OutputNoneTensor()});
+    reshape_8({res.Tensor("add_1_in_2")},
+              {res.Tensor("reshape_8_out"), res.OutputNoneTensor()});
     const auto &reshape_9 =
         res.Op("pd_op.reshape", {{"shape", reshape_b_shape_attr}});
-    reshape_9({&res.Tensor("add_2_in_2")},
-              {&res.Tensor("reshape_9_out"), &res.OutputNoneTensor()});
+    reshape_9({res.Tensor("add_2_in_2")},
+              {res.Tensor("reshape_9_out"), res.OutputNoneTensor()});
     const auto &reshape_10 =
         res.Op("pd_op.reshape", {{"shape", reshape_b_shape_attr}});
-    reshape_10({&res.Tensor("add_3_in_2")},
-               {&res.Tensor("reshape_10_out"), &res.OutputNoneTensor()});
+    reshape_10({res.Tensor("add_3_in_2")},
+               {res.Tensor("reshape_10_out"), res.OutputNoneTensor()});
 
     // Bias combine.
     const auto &combine_2 = res.Op("builtin.combine");
-    combine_2({&res.Tensor("reshape_8_out"),
-               &res.Tensor("reshape_9_out"),
-               &res.Tensor("reshape_10_out")},
-              {&res.Tensor("combine_2_out")});
+    combine_2({res.Tensor("reshape_8_out"),
+               res.Tensor("reshape_9_out"),
+               res.Tensor("reshape_10_out")},
+              {res.Tensor("combine_2_out")});
 
     const auto &concat_2 = res.Op("pd_op.concat", {{"axis", res.Int32Attr(0)}});
     res.Tensor("concat_2_out") = concat_2(res.Tensor("combine_2_out"));
@@ -250,11 +250,11 @@ class MultiHeadMatmulFuseNoBiasQKPattern : public paddle::drr::DrrPatternBase {
                                            {"transpose_v", res.BoolAttr(false)},
                                            {"head_number", head_number},
                                            {"alpha", alpha}});
-    multihead_matmul({&res.Tensor("matmul_1_in_1"),
-                      &res.Tensor("concat_1_out"),
-                      &res.Tensor("concat_2_out"),
-                      &res.InputNoneTensor()},
-                     {&res.Tensor("reshape_4_out")});
+    multihead_matmul({res.Tensor("matmul_1_in_1"),
+                      res.Tensor("concat_1_out"),
+                      res.Tensor("concat_2_out"),
+                      res.InputNoneTensor()},
+                     {res.Tensor("reshape_4_out")});
   }
 };
 
@@ -284,8 +284,8 @@ class MultiHeadMatmulFuseWithBiasQKPattern
         src.Op("pd_op.full_int_array",
                {{"value", src.Attr("full_int_array_1_value")}});
     const auto &reshape_1 = src.Op("pd_op.reshape");
-    reshape_1({&src.Tensor("add_1_out"), &full_int_array_1()},
-              {&src.Tensor("reshape_1_out")});
+    reshape_1({src.Tensor("add_1_out"), full_int_array_1()},
+              {src.Tensor("reshape_1_out")});
     const auto &transpose_1 = src.Op("pd_op.transpose");
     src.Tensor("transpose_1_out") = transpose_1(src.Tensor("reshape_1_out"));
     const auto &full_1 =
@@ -305,8 +305,8 @@ class MultiHeadMatmulFuseWithBiasQKPattern
         add_2(src.Tensor("matmul_2_out"), src.Tensor("add_2_in_2"));
     const auto &full_int_array_2 = src.Op("pd_op.full_int_array");
     const auto &reshape_2 = src.Op("pd_op.reshape");
-    reshape_2({&src.Tensor("add_2_out"), &full_int_array_2()},
-              {&src.Tensor("reshape_2_out")});
+    reshape_2({src.Tensor("add_2_out"), full_int_array_2()},
+              {src.Tensor("reshape_2_out")});
     const auto &transpose_2 = src.Op("pd_op.transpose");
     src.Tensor("transpose_2_out") = transpose_2(src.Tensor("reshape_2_out"));
 
@@ -322,8 +322,8 @@ class MultiHeadMatmulFuseWithBiasQKPattern
         add_3(src.Tensor("matmul_3_out"), src.Tensor("add_3_in_2"));
     const auto &full_int_array_3 = src.Op("pd_op.full_int_array");
     const auto &reshape_3 = src.Op("pd_op.reshape");
-    reshape_3({&src.Tensor("add_3_out"), &full_int_array_3()},
-              {&src.Tensor("reshape_3_out")});
+    reshape_3({src.Tensor("add_3_out"), full_int_array_3()},
+              {src.Tensor("reshape_3_out")});
     const auto &transpose_3 = src.Op("pd_op.transpose");
     src.Tensor("transpose_3_out") = transpose_3(src.Tensor("reshape_3_out"));
 
@@ -350,8 +350,8 @@ class MultiHeadMatmulFuseWithBiasQKPattern
     src.Tensor("transpose_4_out") = transpose_4(src.Tensor("matmul_5_out"));
     const auto &full_int_array_4 = src.Op("pd_op.full_int_array");
     const auto &reshape_4 = src.Op("pd_op.reshape");
-    reshape_4({&src.Tensor("transpose_4_out"), &full_int_array_4()},
-              {&src.Tensor("reshape_4_out")});
+    reshape_4({src.Tensor("transpose_4_out"), full_int_array_4()},
+              {src.Tensor("reshape_4_out")});
 
     //
     // Constraints.
@@ -421,23 +421,23 @@ class MultiHeadMatmulFuseWithBiasQKPattern
         });
     const auto &reshape_5 =
         res.Op("pd_op.reshape", {{"shape", reshape_w_shape_attr}});
-    reshape_5({&res.Tensor("matmul_1_in_2")},
-              {&res.Tensor("reshape_5_out"), &res.OutputNoneTensor()});
+    reshape_5({res.Tensor("matmul_1_in_2")},
+              {res.Tensor("reshape_5_out"), res.OutputNoneTensor()});
     const auto &reshape_6 =
         res.Op("pd_op.reshape", {{"shape", reshape_w_shape_attr}});
-    reshape_6({&res.Tensor("matmul_2_in_2")},
-              {&res.Tensor("reshape_6_out"), &res.OutputNoneTensor()});
+    reshape_6({res.Tensor("matmul_2_in_2")},
+              {res.Tensor("reshape_6_out"), res.OutputNoneTensor()});
     const auto &reshape_7 =
         res.Op("pd_op.reshape", {{"shape", reshape_w_shape_attr}});
-    reshape_7({&res.Tensor("matmul_3_in_2")},
-              {&res.Tensor("reshape_7_out"), &res.OutputNoneTensor()});
+    reshape_7({res.Tensor("matmul_3_in_2")},
+              {res.Tensor("reshape_7_out"), res.OutputNoneTensor()});
 
     // W combine.
     const auto &combine_1 = res.Op("builtin.combine");
-    combine_1({&res.Tensor("reshape_5_out"),
-               &res.Tensor("reshape_6_out"),
-               &res.Tensor("reshape_7_out")},
-              {&res.Tensor("combine_1_out")});
+    combine_1({res.Tensor("reshape_5_out"),
+               res.Tensor("reshape_6_out"),
+               res.Tensor("reshape_7_out")},
+              {res.Tensor("combine_1_out")});
 
     const auto &concat_1 = res.Op("pd_op.concat", {{"axis", res.Int32Attr(1)}});
     res.Tensor("concat_1_out") = concat_1(res.Tensor("combine_1_out"));
@@ -451,23 +451,23 @@ class MultiHeadMatmulFuseWithBiasQKPattern
         });
     const auto &reshape_8 =
         res.Op("pd_op.reshape", {{"shape", reshape_b_shape_attr}});
-    reshape_8({&res.Tensor("add_1_in_2")},
-              {&res.Tensor("reshape_8_out"), &res.OutputNoneTensor()});
+    reshape_8({res.Tensor("add_1_in_2")},
+              {res.Tensor("reshape_8_out"), res.OutputNoneTensor()});
     const auto &reshape_9 =
         res.Op("pd_op.reshape", {{"shape", reshape_b_shape_attr}});
-    reshape_9({&res.Tensor("add_2_in_2")},
-              {&res.Tensor("reshape_9_out"), &res.OutputNoneTensor()});
+    reshape_9({res.Tensor("add_2_in_2")},
+              {res.Tensor("reshape_9_out"), res.OutputNoneTensor()});
     const auto &reshape_10 =
         res.Op("pd_op.reshape", {{"shape", reshape_b_shape_attr}});
-    reshape_10({&res.Tensor("add_3_in_2")},
-               {&res.Tensor("reshape_10_out"), &res.OutputNoneTensor()});
+    reshape_10({res.Tensor("add_3_in_2")},
+               {res.Tensor("reshape_10_out"), res.OutputNoneTensor()});
 
     // Bias combine.
     const auto &combine_2 = res.Op("builtin.combine");
-    combine_2({&res.Tensor("reshape_8_out"),
-               &res.Tensor("reshape_9_out"),
-               &res.Tensor("reshape_10_out")},
-              {&res.Tensor("combine_2_out")});
+    combine_2({res.Tensor("reshape_8_out"),
+               res.Tensor("reshape_9_out"),
+               res.Tensor("reshape_10_out")},
+              {res.Tensor("combine_2_out")});
 
     const auto &concat_2 = res.Op("pd_op.concat", {{"axis", res.Int32Attr(0)}});
     res.Tensor("concat_2_out") = concat_2(res.Tensor("combine_2_out"));
@@ -488,11 +488,11 @@ class MultiHeadMatmulFuseWithBiasQKPattern
                                            {"transpose_v", res.BoolAttr(false)},
                                            {"head_number", head_number},
                                            {"alpha", alpha}});
-    multihead_matmul({&res.Tensor("matmul_1_in_1"),
-                      &res.Tensor("concat_1_out"),
-                      &res.Tensor("concat_2_out"),
-                      &res.Tensor("add_4_in_2")},
-                     {&res.Tensor("reshape_4_out")});
+    multihead_matmul({res.Tensor("matmul_1_in_1"),
+                      res.Tensor("concat_1_out"),
+                      res.Tensor("concat_2_out"),
+                      res.Tensor("add_4_in_2")},
+                     {res.Tensor("reshape_4_out")});
   }
 };
 
@@ -570,8 +570,8 @@ class VitAttentionFusePattern : public paddle::drr::DrrPatternBase {
     pat.Tensor("matmul_out_1") = matmul_1(pat.Tensor("x1"), pat.Tensor("w1"));
     pat.Tensor("add_1_out") =
         add(pat.Tensor("matmul_out_1"), pat.Tensor("bias"));
-    reshape_1({&pat.Tensor("add_1_out"), &full_int_array_1()},
-              {&pat.Tensor("reshape_1_out")});
+    reshape_1({pat.Tensor("add_1_out"), full_int_array_1()},
+              {pat.Tensor("reshape_1_out")});
     pat.Tensor("transpose_1_out") = transpose_1(pat.Tensor("reshape_1_out"));
     pat.Tensor("slice_out_1") = slice_1(
         pat.Tensor("transpose_1_out"), full_int_array_3(), full_int_array_4());
@@ -588,8 +588,8 @@ class VitAttentionFusePattern : public paddle::drr::DrrPatternBase {
     pat.Tensor("matmul_out_3") =
         matmul_3(pat.Tensor("softmax_out"), pat.Tensor("slice_out_1"));
     pat.Tensor("transpose_3_out") = transpose_3(pat.Tensor("matmul_out_3"));
-    reshape_2({&pat.Tensor("transpose_3_out"), &full_int_array_2()},
-              {&pat.Tensor("reshape_2_out")});
+    reshape_2({pat.Tensor("transpose_3_out"), full_int_array_2()},
+              {pat.Tensor("reshape_2_out")});
 
     // Constrains the activation is none
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
@@ -624,8 +624,8 @@ class VitAttentionFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &res_reshape1 = res.Op(paddle::dialect::ReshapeOp::name(),
                                       {{"shape", reshape_w_shape_attr}});
-    res_reshape1({&res.Tensor("w1")},
-                 {&res.Tensor("reshape_w_out"), &res.OutputNoneTensor()});
+    res_reshape1({res.Tensor("w1")},
+                 {res.Tensor("reshape_w_out"), res.OutputNoneTensor()});
     // Bias reshape.
     const auto &reshape_b_shape_attr = res.ComputeAttr(
         [](const paddle::drr::MatchContext &match_ctx) -> std::vector<int64_t> {
@@ -636,8 +636,8 @@ class VitAttentionFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &res_reshape2 = res.Op(paddle::dialect::ReshapeOp::name(),
                                       {{"shape", reshape_b_shape_attr}});
-    res_reshape2({&res.Tensor("bias")},
-                 {&res.Tensor("reshape_bias_out"), &res.OutputNoneTensor()});
+    res_reshape2({res.Tensor("bias")},
+                 {res.Tensor("reshape_bias_out"), res.OutputNoneTensor()});
 
     const auto &head_number =
         res.ComputeAttr([](const paddle::drr::MatchContext &match_ctx) -> int {
@@ -658,11 +658,11 @@ class VitAttentionFusePattern : public paddle::drr::DrrPatternBase {
                    {"alpha", alpha},
                    {"head_number", head_number},
                }});
-    multihead_matmul_op({&res.Tensor("x1"),
-                         &res.Tensor("reshape_w_out"),
-                         &res.Tensor("reshape_bias_out"),
-                         &res.InputNoneTensor()},
-                        {&res.Tensor("reshape_2_out")});
+    multihead_matmul_op({res.Tensor("x1"),
+                         res.Tensor("reshape_w_out"),
+                         res.Tensor("reshape_bias_out"),
+                         res.InputNoneTensor()},
+                        {res.Tensor("reshape_2_out")});
   }
   std::string name() const override { return "VitAttentionFusePattern"; }
 };

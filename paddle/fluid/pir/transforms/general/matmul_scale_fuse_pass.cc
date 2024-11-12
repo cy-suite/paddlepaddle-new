@@ -33,8 +33,7 @@ class MatmulScaleFusePattern : public paddle::drr::DrrPatternBase {
                                    {{"transpose_x", pat.Attr("transpose_x")},
                                     {"transpose_y", pat.Attr("transpose_y")}});
 
-    matmul_op({&pat.Tensor("x"), &pat.Tensor("w")},
-              {&pat.Tensor("matmul_out")});
+    matmul_op({pat.Tensor("x"), pat.Tensor("w")}, {pat.Tensor("matmul_out")});
     const auto &full_op = pat.Op(paddle::dialect::FullOp::name(),
                                  {{"shape", pat.Attr("shape")},
                                   {"value", pat.Attr("value")},
@@ -44,8 +43,7 @@ class MatmulScaleFusePattern : public paddle::drr::DrrPatternBase {
         pat.Op(paddle::dialect::ScaleOp::name(),
                {{"bias", pat.Attr("bias")},
                 {"bias_after_scale", pat.Attr("bias_after_scale")}});
-    scale_op({&pat.Tensor("matmul_out"), &full_op()},
-             {&pat.Tensor("scale_out")});
+    scale_op({pat.Tensor("matmul_out"), full_op()}, {pat.Tensor("scale_out")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       if (!pir::ValueIsPersistable(match_ctx.Tensor("w"))) {
@@ -68,10 +66,10 @@ class MatmulScaleFusePattern : public paddle::drr::DrrPatternBase {
         res.Op(paddle::dialect::MatmulOp::name(),
                {{"transpose_x", pat.Attr("transpose_x")},
                 {"transpose_y", pat.Attr("transpose_y")}});
-    scale_op_res({&res.Tensor("w"), &full_op_res()},
-                 {&res.Tensor("scale_res_out")});
-    matmul_op_res({&res.Tensor("x"), &res.Tensor("scale_res_out")},
-                  {&res.Tensor("scale_out")});
+    scale_op_res({res.Tensor("w"), full_op_res()},
+                 {res.Tensor("scale_res_out")});
+    matmul_op_res({res.Tensor("x"), res.Tensor("scale_res_out")},
+                  {res.Tensor("scale_out")});
   }
 };
 

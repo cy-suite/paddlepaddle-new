@@ -120,9 +120,9 @@ class FusedWeightOnlyLinearWithBiasPattern
                  {{"algo", res.StrAttr(algo_)},
                   {"arch", res.Int32Attr(sm_version_)},
                   {"group_size", res.Int32Attr(-1)}});
-      weight_quantize({&res.Tensor("w_cpu")},
-                      {&res.Tensor("quanted_weight_tensor_cpu"),
-                       &res.Tensor("weight_scale_tensor_cpu")});
+      weight_quantize({res.Tensor("w_cpu")},
+                      {res.Tensor("quanted_weight_tensor_cpu"),
+                       res.Tensor("weight_scale_tensor_cpu")});
 
       const auto &memcpy_h2d_1 =
           res.Op(paddle::dialect::MemcpyH2dOp::name(),
@@ -141,9 +141,9 @@ class FusedWeightOnlyLinearWithBiasPattern
                   {"arch", res.Int32Attr(sm_version_)},
                   {"group_size", res.Int32Attr(-1)}});
 
-      weight_quantize({&res.Tensor("w")},
-                      {&res.Tensor("quanted_weight_tensor"),
-                       &res.Tensor("weight_scale_tensor")});
+      weight_quantize({res.Tensor("w")},
+                      {res.Tensor("quanted_weight_tensor"),
+                       res.Tensor("weight_scale_tensor")});
     }
 
     const auto &weight_only_linear =
@@ -152,11 +152,11 @@ class FusedWeightOnlyLinearWithBiasPattern
                  res.StrAttr(algo_ == "weight_only_int8" ? "int8" : "int4")},
                 {"arch", res.Int32Attr(sm_version_)},
                 {"group_size", res.Int32Attr(-1)}});
-    weight_only_linear({&res.Tensor("x"),
-                        &res.Tensor("quanted_weight_tensor"),
-                        &res.Tensor("bias"),
-                        &res.Tensor("weight_scale_tensor")},
-                       {&res.Tensor("add_out")});
+    weight_only_linear({res.Tensor("x"),
+                        res.Tensor("quanted_weight_tensor"),
+                        res.Tensor("bias"),
+                        res.Tensor("weight_scale_tensor")},
+                       {res.Tensor("add_out")});
   }
 };
 
@@ -231,9 +231,9 @@ class FusedWeightOnlyLinearNoBiasPattern : public paddle::drr::DrrPatternBase {
                  {{"algo", res.StrAttr(algo_)},
                   {"arch", res.Int32Attr(sm_version_)},
                   {"group_size", res.Int32Attr(-1)}});
-      weight_quantize({&res.Tensor("w_cpu")},
-                      {&res.Tensor("quanted_weight_tensor_cpu"),
-                       &res.Tensor("weight_scale_tensor_cpu")});
+      weight_quantize({res.Tensor("w_cpu")},
+                      {res.Tensor("quanted_weight_tensor_cpu"),
+                       res.Tensor("weight_scale_tensor_cpu")});
 
       const auto &memcpy_h2d_1 =
           res.Op(paddle::dialect::MemcpyH2dOp::name(),
@@ -252,9 +252,9 @@ class FusedWeightOnlyLinearNoBiasPattern : public paddle::drr::DrrPatternBase {
                   {"arch", res.Int32Attr(sm_version_)},
                   {"group_size", res.Int32Attr(-1)}});
 
-      weight_quantize({&res.Tensor("w")},
-                      {&res.Tensor("quanted_weight_tensor"),
-                       &res.Tensor("weight_scale_tensor")});
+      weight_quantize({res.Tensor("w")},
+                      {res.Tensor("quanted_weight_tensor"),
+                       res.Tensor("weight_scale_tensor")});
     }
     const auto &weight_only_linear =
         res.Op(paddle::dialect::WeightOnlyLinearOp::name(),
@@ -262,11 +262,11 @@ class FusedWeightOnlyLinearNoBiasPattern : public paddle::drr::DrrPatternBase {
                  res.StrAttr(algo_ == "weight_only_int8" ? "int8" : "int4")},
                 {"arch", res.Int32Attr(sm_version_)},
                 {"group_size", res.Int32Attr(-1)}});
-    weight_only_linear({&res.Tensor("x"),
-                        &res.Tensor("quanted_weight_tensor"),
-                        &res.InputNoneTensor(),
-                        &res.Tensor("weight_scale_tensor")},
-                       {&res.Tensor("matmul_out")});
+    weight_only_linear({res.Tensor("x"),
+                        res.Tensor("quanted_weight_tensor"),
+                        res.InputNoneTensor(),
+                        res.Tensor("weight_scale_tensor")},
+                       {res.Tensor("matmul_out")});
   }
 };
 

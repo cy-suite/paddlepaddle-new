@@ -53,8 +53,8 @@ class ConvElementwiseAddPattern : public paddle::drr::DrrPatternBase {
                 {"data_format", pat.Attr("data_format")}});
 
     const auto &add = pat.Op(paddle::dialect::AddOp::name());
-    conv({&pat.Tensor("input"), &pat.Tensor("filter")},
-         {&pat.Tensor("conv2d_out")});
+    conv({pat.Tensor("input"), pat.Tensor("filter")},
+         {pat.Tensor("conv2d_out")});
 
     pat.Tensor("add_out") =
         add(pat.Tensor("conv2d_out"), pat.Tensor("residual_param"));
@@ -110,11 +110,11 @@ class ConvElementwiseAddPattern : public paddle::drr::DrrPatternBase {
                    {"scale_weights", res.VectorFloatAttr({1.0f})},
                }});
 
-    fused_conv2d_add({&res.Tensor("input"),
-                      &res.Tensor("filter"),
-                      &res.InputNoneTensor(),
-                      &res.Tensor("residual_param")},
-                     {&res.Tensor("add_out")});
+    fused_conv2d_add({res.Tensor("input"),
+                      res.Tensor("filter"),
+                      res.InputNoneTensor(),
+                      res.Tensor("residual_param")},
+                     {res.Tensor("add_out")});
   }
 };
 
@@ -146,8 +146,8 @@ class ConvElementwiseAddAsYPattern : public paddle::drr::DrrPatternBase {
                 {"data_format", pat.Attr("data_format")}});
 
     const auto &add = pat.Op(paddle::dialect::AddOp::name());
-    conv({&pat.Tensor("input"), &pat.Tensor("filter")},
-         {&pat.Tensor("conv2d_out")});
+    conv({pat.Tensor("input"), pat.Tensor("filter")},
+         {pat.Tensor("conv2d_out")});
     pat.Tensor("add_out") =
         add(pat.Tensor("residual_param"), pat.Tensor("conv2d_out"));
 
@@ -203,11 +203,11 @@ class ConvElementwiseAddAsYPattern : public paddle::drr::DrrPatternBase {
                    {"scale_weights", res.VectorFloatAttr({1.0f})},
                }});
 
-    fused_conv2d_add({&res.Tensor("input"),
-                      &res.Tensor("filter"),
-                      &res.InputNoneTensor(),
-                      &res.Tensor("residual_param")},
-                     {&res.Tensor("add_out")});
+    fused_conv2d_add({res.Tensor("input"),
+                      res.Tensor("filter"),
+                      res.InputNoneTensor(),
+                      res.Tensor("residual_param")},
+                     {res.Tensor("add_out")});
   }
 };
 
@@ -252,11 +252,11 @@ class FusedConvBiasElementwiseAddPattern : public paddle::drr::DrrPatternBase {
         }});
 
     const auto &add = pat.Op(paddle::dialect::AddOp::name());
-    conv({&pat.Tensor("input"),
-          &pat.Tensor("filter"),
-          &pat.Tensor("bias"),
-          &pat.InputNoneTensor()},
-         {&pat.Tensor("conv2d_out")});
+    conv({pat.Tensor("input"),
+          pat.Tensor("filter"),
+          pat.Tensor("bias"),
+          pat.InputNoneTensor()},
+         {pat.Tensor("conv2d_out")});
 
     pat.Tensor("add_out") =
         add(pat.Tensor("conv2d_out"), pat.Tensor("residual_param"));
@@ -322,11 +322,11 @@ class FusedConvBiasElementwiseAddPattern : public paddle::drr::DrrPatternBase {
                    {"scale_weights", pat.Attr("scale_weights")},
                }});
 
-    fused_conv2d_add({&res.Tensor("input"),
-                      &res.Tensor("filter"),
-                      &res.Tensor("bias"),
-                      &res.Tensor("residual_param")},
-                     {&res.Tensor("add_out")});
+    fused_conv2d_add({res.Tensor("input"),
+                      res.Tensor("filter"),
+                      res.Tensor("bias"),
+                      res.Tensor("residual_param")},
+                     {res.Tensor("add_out")});
   }
 };
 
@@ -373,11 +373,11 @@ class FusedConvBiasElementwiseAddAsYPattern
         }});
 
     const auto &add = pat.Op(paddle::dialect::AddOp::name());
-    conv({&pat.Tensor("input"),
-          &pat.Tensor("filter"),
-          &pat.Tensor("bias"),
-          &pat.InputNoneTensor()},
-         {&pat.Tensor("conv2d_out")});
+    conv({pat.Tensor("input"),
+          pat.Tensor("filter"),
+          pat.Tensor("bias"),
+          pat.InputNoneTensor()},
+         {pat.Tensor("conv2d_out")});
 
     pat.Tensor("add_out") =
         add(pat.Tensor("residual_param"), pat.Tensor("conv2d_out"));
@@ -443,11 +443,11 @@ class FusedConvBiasElementwiseAddAsYPattern
                    {"scale_weights", pat.Attr("scale_weights")},
                }});
 
-    fused_conv2d_add({&res.Tensor("input"),
-                      &res.Tensor("filter"),
-                      &res.Tensor("bias"),
-                      &res.Tensor("residual_param")},
-                     {&res.Tensor("add_out")});
+    fused_conv2d_add({res.Tensor("input"),
+                      res.Tensor("filter"),
+                      res.Tensor("bias"),
+                      res.Tensor("residual_param")},
+                     {res.Tensor("add_out")});
   }
 };
 

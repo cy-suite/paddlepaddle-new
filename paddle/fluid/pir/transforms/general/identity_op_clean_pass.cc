@@ -42,7 +42,7 @@ class RemoveUselessScalePattern : public paddle::drr::DrrPatternBase {
         pat.Op(paddle::dialect::ScaleOp::name(),
                {{"bias", pat.Attr("bias")},
                 {"bias_after_scale", pat.Attr("bias_after_scale")}});
-    scale_op({&pat.Tensor("x"), &full_op()}, {&pat.Tensor("scale_out")});
+    scale_op({pat.Tensor("x"), full_op()}, {pat.Tensor("scale_out")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       return (match_ctx.Attr<double>("value") == 1.0 &&
@@ -50,7 +50,7 @@ class RemoveUselessScalePattern : public paddle::drr::DrrPatternBase {
     });
 
     paddle::drr::ResultPattern res = pat.ResultPattern();
-    res.Tensor("scale_out").Assign(res.Tensor("x"));
+    res.Tensor("scale_out")->Assign(res.Tensor("x"));
   }
 };
 
@@ -78,9 +78,9 @@ class RemoveRedundantScalePattern : public paddle::drr::DrrPatternBase {
         pat.Op(paddle::dialect::ScaleOp::name(),
                {{"bias", pat.Attr("bias_2")},
                 {"bias_after_scale", pat.Attr("bias_after_scale_2")}});
-    scale_op_1({&pat.Tensor("x"), &full_op_1()}, {&pat.Tensor("scale_1_out")});
-    scale_op_2({&pat.Tensor("scale_1_out"), &full_op_2()},
-               {&pat.Tensor("scale_2_out")});
+    scale_op_1({pat.Tensor("x"), full_op_1()}, {pat.Tensor("scale_1_out")});
+    scale_op_2({pat.Tensor("scale_1_out"), full_op_2()},
+               {pat.Tensor("scale_2_out")});
 
     paddle::drr::ResultPattern res = pat.ResultPattern();
 
@@ -117,8 +117,7 @@ class RemoveRedundantScalePattern : public paddle::drr::DrrPatternBase {
     const auto &scale_op_res =
         res.Op("pd_op.scale",
                {{"bias", bias_attr}, {"bias_after_scale", res.BoolAttr(true)}});
-    scale_op_res({&res.Tensor("x"), &full_op_res()},
-                 {&res.Tensor("scale_2_out")});
+    scale_op_res({res.Tensor("x"), full_op_res()}, {res.Tensor("scale_2_out")});
   }
 };
 
@@ -135,7 +134,7 @@ class RemoveUselessCastPattern : public paddle::drr::DrrPatternBase {
       return ret_dtype == arg0_dtype;
     });
     auto res = pat.ResultPattern();
-    res.Tensor("ret").Assign(res.Tensor("arg0"));
+    res.Tensor("ret")->Assign(res.Tensor("arg0"));
   }
 };
 
@@ -146,7 +145,7 @@ class RemoveUselessConcatPattern : public paddle::drr::DrrPatternBase {
   void operator()(paddle::drr::DrrPatternContext *ctx) const override {
     auto pat = ctx->SourcePattern();
     const auto &combine = pat.Op(pir::CombineOp::name());
-    combine({&pat.Tensor("x")}, {&pat.Tensor("combine_out")});
+    combine({pat.Tensor("x")}, {pat.Tensor("combine_out")});
     pat.Tensor("out") = pat.Op(paddle::dialect::ConcatOp::name())(
         pat.Tensor("combine_out"), pat.Tensor("axis"));
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
@@ -155,7 +154,7 @@ class RemoveUselessConcatPattern : public paddle::drr::DrrPatternBase {
              combine_out.type().dyn_cast<pir::VectorType>().size() == 1;
     });
     auto res = pat.ResultPattern();
-    res.Tensor("out").Assign(res.Tensor("x"));
+    res.Tensor("out")->Assign(res.Tensor("x"));
   }
 };
 
@@ -194,20 +193,20 @@ class DeleteDropoutOpPattern : public paddle::drr::DrrPatternBase {
                                           {"shape", pat.Attr("shape")},
                                           {"value", pat.Attr("value")},
                                       });
-    full_orig_op({}, {&pat.Tensor("p")});
+    full_orig_op({}, {pat.Tensor("p")});
     const auto &dropout_op =
         pat.Op("pd_op.dropout",
                {{"is_test", pat.Attr("is_test")}, {"mode", pat.Attr("mode")}});
     dropout_op(
-        {&pat.Tensor("dropout_in"), &pat.InputNoneTensor(), &pat.Tensor("p")},
-        {&pat.Tensor("dropout_out"), &pat.Tensor("dropout_mask")});
+        {pat.Tensor("dropout_in"), pat.InputNoneTensor(), pat.Tensor("p")},
+        {pat.Tensor("dropout_out"), pat.Tensor("dropout_mask")});
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       auto is_test = match_ctx.Attr<bool>("is_test");
       auto mode = match_ctx.Attr<std::string>("mode");
       return is_test && mode == "upscale_in_train";
     });
     auto res = pat.ResultPattern();
-    res.Tensor("dropout_out").Assign(res.Tensor("dropout_in"));
+    res.Tensor("dropout_out")->Assign(res.Tensor("dropout_in"));
   }
 };
 
@@ -224,14 +223,14 @@ class ReplaceDropoutWithScalePattern : public paddle::drr::DrrPatternBase {
                                           {"shape", pat.Attr("shape")},
                                           {"value", pat.Attr("value")},
                                       });
-    full_orig_op({}, {&pat.Tensor("p")});
+    full_orig_op({}, {pat.Tensor("p")});
 
     const auto &dropout_op =
         pat.Op("pd_op.dropout",
                {{"is_test", pat.Attr("is_test")}, {"mode", pat.Attr("mode")}});
     dropout_op(
-        {&pat.Tensor("dropout_in"), &pat.InputNoneTensor(), &pat.Tensor("p")},
-        {&pat.Tensor("dropout_out"), &pat.Tensor("dropout_mask")});
+        {pat.Tensor("dropout_in"), pat.InputNoneTensor(), pat.Tensor("p")},
+        {pat.Tensor("dropout_out"), pat.Tensor("dropout_mask")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       auto is_test = match_ctx.Attr<bool>("is_test");
@@ -264,8 +263,8 @@ class ReplaceDropoutWithScalePattern : public paddle::drr::DrrPatternBase {
         res.Op("pd_op.scale",
                {{"bias", res.Float32Attr(0)},
                 {"bias_after_scale", res.BoolAttr(true)}});
-    scale_op_res({&res.Tensor("dropout_in"), &full_op_res()},
-                 {&res.Tensor("dropout_out")});
+    scale_op_res({res.Tensor("dropout_in"), full_op_res()},
+                 {res.Tensor("dropout_out")});
   }
 };
 

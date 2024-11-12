@@ -44,10 +44,8 @@ class Conv2dTransposeBnOneDNNFusePattern : public paddle::drr::DrrPatternBase {
                 {"groups", pat.Attr("groups")},
                 {"data_format", pat.Attr("data_format")}});
 
-    conv({&pat.Tensor("input"),
-          &pat.Tensor("filter"),
-          &pat.Tensor("output_size")},
-         {&pat.Tensor("conv2d_out")});
+    conv({pat.Tensor("input"), pat.Tensor("filter"), pat.Tensor("output_size")},
+         {pat.Tensor("conv2d_out")});
 
     const auto &bn =
         pat.Op(paddle::dialect::BatchNorm_Op::name(),
@@ -58,17 +56,17 @@ class Conv2dTransposeBnOneDNNFusePattern : public paddle::drr::DrrPatternBase {
                 {"use_global_stats", pat.Attr("use_global_stats")},
                 {"trainable_statistics", pat.Attr("trainable_statistics")}});
 
-    bn({&pat.Tensor("conv2d_out"),
-        &pat.Tensor("bn_mean"),
-        &pat.Tensor("bn_var"),
-        &pat.Tensor("bn_scale"),
-        &pat.Tensor("bn_bias")},
-       {&pat.Tensor("bn_out"),
-        &pat.Tensor("mean_out"),
-        &pat.Tensor("var_out"),
-        &pat.Tensor("saved_mean"),
-        &pat.Tensor("saved_variance"),
-        &pat.Tensor("reserve_space")});
+    bn({pat.Tensor("conv2d_out"),
+        pat.Tensor("bn_mean"),
+        pat.Tensor("bn_var"),
+        pat.Tensor("bn_scale"),
+        pat.Tensor("bn_bias")},
+       {pat.Tensor("bn_out"),
+        pat.Tensor("mean_out"),
+        pat.Tensor("var_out"),
+        pat.Tensor("saved_mean"),
+        pat.Tensor("saved_variance"),
+        pat.Tensor("reserve_space")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       std::vector<int64_t> conv_input_shape =
@@ -198,11 +196,11 @@ class Conv2dTransposeBnOneDNNFusePattern : public paddle::drr::DrrPatternBase {
                    {"fuse_beta", res.Float32Attr(0.0f)},
                    {"is_test", res.BoolAttr(true)},
                }});
-    fused_conv({&res.Tensor("input"),
-                &res.Tensor("res_transpose_filter"),
-                &res.Tensor("res_bias"),
-                &res.Tensor("output_size")},
-               {&res.Tensor("bn_out")});
+    fused_conv({res.Tensor("input"),
+                res.Tensor("res_transpose_filter"),
+                res.Tensor("res_bias"),
+                res.Tensor("output_size")},
+               {res.Tensor("bn_out")});
   }
 };
 
@@ -227,10 +225,8 @@ class Conv2dTransposeEltwiseBnOneDNNFusePattern
                 {"groups", pat.Attr("groups")},
                 {"data_format", pat.Attr("data_format")}});
 
-    conv({&pat.Tensor("input"),
-          &pat.Tensor("filter"),
-          &pat.Tensor("output_size")},
-         {&pat.Tensor("conv2d_out")});
+    conv({pat.Tensor("input"), pat.Tensor("filter"), pat.Tensor("output_size")},
+         {pat.Tensor("conv2d_out")});
 
     const auto &add = pat.Op(paddle::dialect::AddOp::name());
     pat.Tensor("add_out") =
@@ -245,17 +241,17 @@ class Conv2dTransposeEltwiseBnOneDNNFusePattern
                 {"use_global_stats", pat.Attr("use_global_stats")},
                 {"trainable_statistics", pat.Attr("trainable_statistics")}});
 
-    bn({&pat.Tensor("add_out"),
-        &pat.Tensor("bn_mean"),
-        &pat.Tensor("bn_var"),
-        &pat.Tensor("bn_scale"),
-        &pat.Tensor("bn_bias")},
-       {&pat.Tensor("bn_out"),
-        &pat.Tensor("mean_out"),
-        &pat.Tensor("var_out"),
-        &pat.Tensor("saved_mean"),
-        &pat.Tensor("saved_variance"),
-        &pat.Tensor("reserve_space")});
+    bn({pat.Tensor("add_out"),
+        pat.Tensor("bn_mean"),
+        pat.Tensor("bn_var"),
+        pat.Tensor("bn_scale"),
+        pat.Tensor("bn_bias")},
+       {pat.Tensor("bn_out"),
+        pat.Tensor("mean_out"),
+        pat.Tensor("var_out"),
+        pat.Tensor("saved_mean"),
+        pat.Tensor("saved_variance"),
+        pat.Tensor("reserve_space")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       if (!pir::ValueIsPersistable(match_ctx.Tensor("residual_param"))) {
@@ -395,11 +391,11 @@ class Conv2dTransposeEltwiseBnOneDNNFusePattern
                    {"fuse_beta", res.Float32Attr(0.0f)},
                    {"is_test", res.BoolAttr(true)},
                }});
-    fused_conv({&res.Tensor("input"),
-                &res.Tensor("res_transpose_filter"),
-                &res.Tensor("add_bn_bias"),
-                &res.Tensor("output_size")},
-               {&res.Tensor("bn_out")});
+    fused_conv({res.Tensor("input"),
+                res.Tensor("res_transpose_filter"),
+                res.Tensor("add_bn_bias"),
+                res.Tensor("output_size")},
+               {res.Tensor("bn_out")});
   }
 };
 
