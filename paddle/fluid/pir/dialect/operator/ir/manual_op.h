@@ -425,7 +425,8 @@ class TEST_API SliceArrayOp
                      paddle::dialect::OpYamlInfoInterface,
                      paddle::dialect::InferMetaInterface,
                      paddle::dialect::GetKernelTypeForVarInterface,
-                     paddle::dialect::ForwardOnlyTrait> {
+                     paddle::dialect::ForwardOnlyTrait,
+                     paddle::dialect::InferSymbolicShapeInterface> {
  public:
   using Op::Op;
   static const char *name() { return "pd_op.slice_array"; }
@@ -453,6 +454,7 @@ class TEST_API SliceArrayOp
   static std::vector<pir::Type> InferMeta(
       const std::vector<pir::Value> &input_values,
       pir::AttributeMap *p_attributes);
+  bool InferSymbolicShape(pir::InferSymbolicShapeContext *infer_context);
 };
 
 class TEST_API SliceArrayDenseOp
@@ -460,7 +462,8 @@ class TEST_API SliceArrayDenseOp
                      paddle::dialect::OpYamlInfoInterface,
                      paddle::dialect::InferMetaInterface,
                      paddle::dialect::GetKernelTypeForVarInterface,
-                     paddle::dialect::ForwardOnlyTrait> {
+                     paddle::dialect::ForwardOnlyTrait,
+                     paddle::dialect::InferSymbolicShapeInterface> {
  public:
   using Op::Op;
   static const char *name() { return "pd_op.slice_array_dense"; }
@@ -486,6 +489,7 @@ class TEST_API SliceArrayDenseOp
   static std::vector<pir::Type> InferMeta(
       const std::vector<pir::Value> &input_values,
       pir::AttributeMap *p_attributes);
+  bool InferSymbolicShape(pir::InferSymbolicShapeContext *infer_context);
 };
 
 class TEST_API AssignArrayOp
