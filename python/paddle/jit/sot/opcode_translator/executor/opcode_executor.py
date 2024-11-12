@@ -1534,6 +1534,20 @@ class OpcodeExecutorBase:
         else:
             raise FallbackError(f"Do not support format {type(value)} now")
 
+    def FORMAT_SIMPLE(self, instr: Instruction):
+        value = self.stack.pop()
+        assert value is not None, "value passed to FORMAT_SIMPLE must be a valid object!"
+
+        if isinstance(value, ConstantVariable):
+            result = value.get_py_value().__format__("")
+            self.stack.push(
+                ConstantVariable(result, self._graph, DummyTracker([value]))
+            )
+        else:
+            raise FallbackError(
+                f"Do not support format {type(value)} now"
+            )
+    
     # NOTE: This operation will generate SideEffects, and the mechanism has not been completed yet
     def DICT_UPDATE(self, instr: Instruction):
         dict_value = self.stack.pop()
