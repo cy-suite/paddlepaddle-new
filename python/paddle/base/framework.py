@@ -2065,6 +2065,7 @@ class Variable(metaclass=VariableMetaClass):
         Examples:
             .. code-block:: python
 
+                >>> # doctest: +SKIP("This has diff in xdoctest env")
                 >>> import paddle
                 >>> import paddle.static as static
 
@@ -2129,6 +2130,7 @@ class Variable(metaclass=VariableMetaClass):
         Examples:
             .. code-block:: python
 
+                >>> # doctest: +SKIP("This has diff in xdoctest env")
                 >>> import paddle.base as base
                 >>> import paddle
 
@@ -2427,6 +2429,7 @@ class Variable(metaclass=VariableMetaClass):
         Examples:
             .. code-block:: python
 
+                >>> # doctest: +SKIP("This has diff in xdoctest env")
                 >>> import paddle.base as base
                 >>> cur_program = base.Program()
                 >>> cur_block = cur_program.current_block()
@@ -7312,6 +7315,7 @@ class Program:
         Examples:
             .. code-block:: python
 
+                >>> # doctest: +SKIP("This has diff in xdoctest env")
                 >>> import paddle
                 >>> import paddle.static as static
 
@@ -7339,6 +7343,7 @@ class Program:
         Examples:
             .. code-block:: python
 
+                >>> # doctest: +SKIP("This has diff in xdoctest env")
                 >>> import paddle
                 >>> import paddle.static as static
 

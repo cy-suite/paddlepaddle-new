@@ -153,6 +153,7 @@ def fc(
     Examples:
         .. code-block:: python
 
+            >>> # doctest: +SKIP("This has diff in xdoctest env")
             >>> import paddle
             >>> paddle.enable_static()
 

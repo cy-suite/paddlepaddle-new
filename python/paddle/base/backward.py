@@ -2763,6 +2763,7 @@ def gradients(
 
         .. code-block:: python
 
+            >>> # doctest: +SKIP("This has diff in xdoctest env")
             >>> import paddle
             >>> import paddle.nn.functional as F
 
