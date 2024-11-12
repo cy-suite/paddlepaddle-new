@@ -128,7 +128,7 @@ def argsort_converter(network, paddle_op, inputs):
     k_tensor = get_shape_tensor_element(network, shape, axis, True)
     topk_layer.set_input(1, k_tensor)
     out = topk_layer.get_output(0)
-    indices = topk_layer.get_ouput(1)
+    indices = topk_layer.get_output(1)
     if in_rank == 1:
         squeeze_shape = trt.Dims([-1])
         out = trt_reshape(network, out, squeeze_shape, is_shape_tensor=True)
