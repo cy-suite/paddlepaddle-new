@@ -28,7 +28,7 @@ class TestSemiAutoParallelShardingStage1:
         self._seed = eval(os.getenv("seed"))
         self._mesh = dist.ProcessMesh([0, 1], dim_names=["dp"])
         self._multi_dim_mesh = dist.ProcessMesh(
-            [[0, 1]], dim_names=["dp", "mp"]
+            [[0, 1]], dim_names=["pp", "dp"]
         )
 
     def check_tensor_eq(self, a, b, rtol=1e-05, atol=0, verbose=True):
