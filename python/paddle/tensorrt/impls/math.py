@@ -23,7 +23,7 @@ from paddle.tensorrt.converter_utils import (
     get_axes_for_reduce_op,
     trt_div,
     trt_floor_div,
-    trt_mul,
+    trt_prod,
     trt_sub,
 )
 from paddle.tensorrt.register import converter_registry
@@ -140,7 +140,7 @@ def remainder_converter(network, paddle_op, inputs):
     )
 
     # Multiply rhs by the quotient
-    product = trt_mul(network, rhs_val, quotient)
+    product = trt_prod(network, rhs_val, quotient)
 
     # Subtract the product from lhs to get the remainder
     remainder = trt_sub(network, lhs_val, product)

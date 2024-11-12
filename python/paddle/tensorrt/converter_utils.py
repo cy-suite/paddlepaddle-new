@@ -238,11 +238,6 @@ def trt_min(network, a, b):
     return layer.get_output(0)
 
 
-def trt_mul(network, a, b):
-    layer = network.add_elementwise(a, b, trt.ElementWiseOperation.PROD)
-    return layer.get_output(0)
-
-
 def trt_div(network, a, b):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.DIV)
     return layer.get_output(0)
@@ -515,7 +510,7 @@ def fix_negative_indices(network, input_shape, indices):
 
     min_indices_zero = trt_min(network, indices, zero_tensor)
     sign = trt_max(network, min_indices_zero, minus_one_tensor)
-    sub = trt_mul(network, sign, input_shape)
+    sub = trt_prod(network, sign, input_shape)
     fixed_indices = trt_sub(network, indices, sub)
     return fixed_indices
 
