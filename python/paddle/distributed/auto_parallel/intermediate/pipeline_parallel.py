@@ -85,6 +85,23 @@ class PipelineParallel(ParallelModel):
             return input
 
         split_layer_names = list(self.split_spec.keys())
+        pipeline_stage_index = 0
+        meet_split_layer = False
+        for layer_name, layer in model.named_sublayers():
+            # NOTE: this marking is not support SplitPoint.BEGINNING for now.
+            if layer_name in split_layer_names:
+                meet_split_layer = True
+
+            if meet_split_layer is False:
+                layer.pipeline_stage_index = pipeline_stage_index
+            else:
+                if split_layer_names[pipeline_stage_index] in layer_name:
+                    layer.pipeline_stage_index = pipeline_stage_index
+                else:
+                    pipeline_stage_index += 1
+                    layer.pipeline_stage_index = pipeline_stage_index
+                    meet_split_layer = False
+
         for index, name in enumerate(split_layer_names):
             layer = get_layer_by_name(name)
             split_point = self.split_spec[name]
