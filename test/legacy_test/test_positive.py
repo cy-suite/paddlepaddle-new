@@ -79,7 +79,7 @@ class TestPositiveApi(unittest.TestCase):
         x = np.random.choice([True, False], size=self.shape)
         x_tensor = paddle.to_tensor(x, dtype=paddle.bool)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             paddle.positive(x_tensor)
 
 
