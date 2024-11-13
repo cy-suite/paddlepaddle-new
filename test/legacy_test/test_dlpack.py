@@ -55,8 +55,12 @@ class TestDLPack(unittest.TestCase):
             out_v2 = paddle.from_dlpack(dlpack_v2)
             self.assertEqual(str(t.place), str(out_v1.place))
             self.assertEqual(str(t.place), str(out_v2.place))
-            np.testing.assert_allclose(numpy_data, out_v1.numpy(), rtol=1e-05)
-            np.testing.assert_allclose(numpy_data, out_v2.numpy(), rtol=1e-05)
+            np.testing.assert_allclose(
+                numpy_data, out_v1.numpy(), rtol=1e-05
+            )
+            np.testing.assert_allclose(
+                numpy_data, out_v2.numpy(), rtol=1e-05
+            )
 
     def test_dlpack_static(self):
         with static_guard():
@@ -89,8 +93,12 @@ class TestDLPack(unittest.TestCase):
                 )
                 gdlpack_v1 = paddle.utils.dlpack.to_dlpack(gtensor)
                 gdlpack_v2 = paddle.to_dlpack(gtensor)
-                gout_from_dlpack_v1 = paddle.utils.dlpack.from_dlpack(gdlpack_v1)
-                gout_from_dlpack_v2 = paddle.from_dlpack(gdlpack_v2)
+                gout_from_dlpack_v1 = paddle.utils.dlpack.from_dlpack(
+                    gdlpack_v1
+                )
+                gout_from_dlpack_v2 = paddle.from_dlpack(
+                    gdlpack_v2
+                )
                 self.assertTrue(isinstance(gout_from_dlpack_v1, base.core.Tensor))
                 self.assertTrue(isinstance(gout_from_dlpack_v2, base.core.Tensor))
                 np.testing.assert_array_equal(
@@ -131,8 +139,12 @@ class TestDLPack(unittest.TestCase):
                     o_v2 = paddle.from_dlpack(dlpack_v2)
                     self.assertEqual(x.dtype, o_v1.dtype)
                     self.assertEqual(x.dtype, o_v2.dtype)
-                    np.testing.assert_allclose(x.numpy(), o_v1.numpy(), rtol=1e-05)
-                    np.testing.assert_allclose(x.numpy(), o_v2.numpy(), rtol=1e-05)
+                    np.testing.assert_allclose(
+                        x.numpy(), o_v1.numpy(), rtol=1e-05
+                    )
+                    np.testing.assert_allclose(
+                        x.numpy(), o_v2.numpy(), rtol=1e-05
+                    )
                     self.assertEqual(str(x.place), str(o_v1.place))
                     self.assertEqual(str(x.place), str(o_v2.place))
 
@@ -150,8 +162,12 @@ class TestDLPack(unittest.TestCase):
                     o_v2 = paddle.from_dlpack(dlpack_v2)
                     self.assertEqual(x.dtype, o_v1.dtype)
                     self.assertEqual(x.dtype, o_v2.dtype)
-                    np.testing.assert_allclose(x.numpy(), o_v1.numpy(), rtol=1e-05)
-                    np.testing.assert_allclose(x.numpy(), o_v2.numpy(), rtol=1e-05)
+                    np.testing.assert_allclose(
+                        x.numpy(), o_v1.numpy(), rtol=1e-05
+                    )
+                    np.testing.assert_allclose(
+                        x.numpy(), o_v2.numpy(), rtol=1e-05
+                    )
                     self.assertEqual(str(x.place), str(o_v1.place))
                     self.assertEqual(str(x.place), str(o_v2.place))
 
@@ -252,8 +268,12 @@ class TestDLPack(unittest.TestCase):
                 y1 = paddle.utils.dlpack.from_dlpack(x)
                 y2 = paddle.from_dlpack(x)
 
-                self.assertEqual(x.__array_interface__['data'][0], y1.data_ptr())
-                self.assertEqual(x.__array_interface__['data'][0], y2.data_ptr())
+                self.assertEqual(
+                    x.__array_interface__['data'][0], y1.data_ptr()
+                )
+                self.assertEqual(
+                    x.__array_interface__['data'][0], y2.data_ptr()
+                )
                 np.testing.assert_allclose(x, y1.numpy())
                 np.testing.assert_allclose(x, y2.numpy())
 
