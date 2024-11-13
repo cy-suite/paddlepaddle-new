@@ -851,6 +851,7 @@ def gen_build_func_str(
       common::errors::InvalidArgument(
           "'{attribute_name}' Attribute is expected for {op_name}. "));
   {attr_type} {attribute_name} = attributes.at("{attribute_name}").dyn_cast<{attr_ir_type}>().data();
+  attributes.erase("{attribute_name}");
 """
     GET_STR_ATTRIBUTES_FROM_MAP_TEMPLATE = """
   PADDLE_ENFORCE_NE(
@@ -859,6 +860,7 @@ def gen_build_func_str(
       common::errors::InvalidArgument(
           "'{attribute_name}' Attribute is expected for {op_name}. "));
   {attr_type} {attribute_name} = attributes.at("{attribute_name}").dyn_cast<pir::StrAttribute>().AsString();
+  attributes.erase("{attribute_name}");
 """
     GET_ARRAY_ATTRIBUTE_FROM_MAP_TEMPLATE = """
   PADDLE_ENFORCE_NE(
@@ -870,6 +872,7 @@ def gen_build_func_str(
   for (size_t i = 0; i < attributes.at("{attribute_name}").dyn_cast<pir::ArrayAttribute>().size(); i++) {{
     {attribute_name}.push_back(attributes.at("{attribute_name}").dyn_cast<pir::ArrayAttribute>().at(i).dyn_cast<{inner_type}>().{data_name}());
   }}
+  attributes.erase("{attribute_name}");
 """
     GET_INTARRAY_ATTRIBUTE_FROM_MAP_TEMPLATE = """
   PADDLE_ENFORCE_NE(
@@ -878,6 +881,7 @@ def gen_build_func_str(
       common::errors::InvalidArgument(
           "'{attribute_name}' Attribute is expected for {op_name}. "));
   {attr_type} {attribute_name} = attributes.at("{attribute_name}").dyn_cast<paddle::dialect::IntArrayAttribute>().data().GetData();
+  attributes.erase("{attribute_name}");
 """
     GET_SCALAR_ATTRIBUTE_FROM_MAP_TEMPLATE = """
   PADDLE_ENFORCE_NE(
@@ -886,6 +890,7 @@ def gen_build_func_str(
       common::errors::InvalidArgument(
           "'{attribute_name}' Attribute is expected for {op_name}. "));
   {attr_type} {attribute_name} = attributes.at("{attribute_name}").dyn_cast<paddle::dialect::ScalarAttribute>().data().to<{attr_type}>();
+  attributes.erase("{attribute_name}");
 """
 
     get_attributes_str = ""
