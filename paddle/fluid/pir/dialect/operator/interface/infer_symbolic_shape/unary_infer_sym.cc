@@ -3357,8 +3357,7 @@ bool SplitOpInferSymbolicShape(pir::Operation *op,
   }();
 
   infer_context->SetShapeOrDataForValue(
-      op->result(0),
-      symbol::TensorListShapeOrDataDimExprs{output_shape_data_list});
+      op->result(0), symbol::ShapeOrDataDimExprs{output_shape_data_list});
 
   return true;
 }
