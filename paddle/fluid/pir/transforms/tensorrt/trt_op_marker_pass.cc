@@ -1416,7 +1416,6 @@ class NearestInterV2Pattern
   }
 };
 
-
 class ClipPattern : public pir::OpRewritePattern<paddle::dialect::ClipOp> {
  public:
   using pir::OpRewritePattern<paddle::dialect::ClipOp>::OpRewritePattern;
@@ -1442,8 +1441,7 @@ class ClipPattern : public pir::OpRewritePattern<paddle::dialect::ClipOp> {
     return true;
   }
 };
-
-                       
+                   
 class GridSampleOpPattern
     : public pir::OpRewritePattern<paddle::dialect::GridSampleOp> {
  public:
