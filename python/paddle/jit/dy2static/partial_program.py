@@ -152,7 +152,7 @@ class PartialProgramLayer:
         **1. This is a very low level API. Users should not use this API
              directly. Please use `partial_program_from(concrete_program)`
              to create it.
-        **2. LoDTensorArray is not currently supported in the output.
+        **2. DenseTensorArray is not currently supported in the output.
 
     Args:
         main_program(Program): The main program that contains ops need to be executed.
@@ -591,7 +591,7 @@ class PartialProgramLayer:
             if exist a op whose inputs is var, then return True
             """
             if not isinstance(var, framework.Variable) or var.type not in [
-                core.VarDesc.VarType.LOD_TENSOR,
+                core.VarDesc.VarType.DENSE_TENSOR,
                 core.VarDesc.VarType.SELECTED_ROWS,
             ]:
                 return False
