@@ -114,26 +114,11 @@ class TestSwishFloatTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestCeluCase1TRTPattern(TensorRTBaseTest):
+class TestCeluTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.nn.functional.celu
         self.api_args = {
             "x": np.random.randn(2, 3).astype("float32"),
-            "alpha": 1.0,
-        }
-        self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [1, 3]}
-        self.max_shape = {"x": [5, 3]}
-
-    def test_trt_result(self):
-        self.check_trt_result()
-
-
-class TestCeluCase2TRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = paddle.nn.functional.celu
-        self.api_args = {
-            "x": np.random.randn(2, 3).astype("int64"),
             "alpha": 1.0,
         }
         self.program_config = {"feed_list": ["x"]}

@@ -122,12 +122,18 @@ def swish_silu_converter(network, paddle_op, inputs):
 def celu_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     alpha = paddle_op.attrs()["alpha"]
-    input_rank = input_tensor.shape.size()
+    input_rank = len(input_tensor.shape)
     constant_shape = trt.Dims([1] * input_rank)
-    alpha_data = add_constant_layer(network, [alpha], constant_shape)
-    constant_zero_data = add_constant_layer(network, [0.0], constant_shape)
-    constant_one_data = add_constant_layer(network, [1.0], constant_shape)
-    input_div_with_alpha = trt_div(network, input_tensor, alpha)
+    alpha_data = add_constant_layer(
+        network, [alpha], constant_shape, dtype="float32"
+    )
+    constant_zero_data = add_constant_layer(
+        network, [0.0], constant_shape, dtype="float32"
+    )
+    constant_one_data = add_constant_layer(
+        network, [1.0], constant_shape, dtype="float32"
+    )
+    input_div_with_alpha = trt_div(network, input_tensor, alpha_data)
     input_exp_layer = network.add_unary(
         input_div_with_alpha, trt.UnaryOperation.EXP
     )
