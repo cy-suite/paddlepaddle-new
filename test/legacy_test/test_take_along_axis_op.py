@@ -375,7 +375,7 @@ class TestTakeAlongAxisAPICase3(unittest.TestCase):
         with self.assertRaises(ValueError):
             res = paddle.take_along_axis(tensorx, indices, axis, False)
 
-        # only test cpu because gpu error can not be caught by assertRaises
+        # only test cpu below because gpu error can not be caught by assertRaises
         # the element of indices out of range
         with self.assertRaises(ValueError):
             indices = paddle.to_tensor([[100]]).astype("int32")
@@ -388,7 +388,7 @@ class TestTakeAlongAxisAPICase3(unittest.TestCase):
                 [[1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0]]
             ).astype("int32")
             res = paddle.take_along_axis(
-                tensorx.cpu(), indices.cpu(), axis, False
+                tensorx.to("cpu"), indices.to("cpu"), axis, False
             )
         # the index value in indices do not in range: [-arr_shape[axis], arr_shape[axis])
         with self.assertRaises(ValueError):
