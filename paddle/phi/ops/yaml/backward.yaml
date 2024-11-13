@@ -413,7 +413,7 @@
     func : clipmul_grad
     data_type : x
 
-- backward_op : clipmul
+- backward_op : clipmul_grad
   forward : clipmul (Tensor x, Tensor min, Tensor max) -> Tensor(out)
   args : (Tensor x, Tensor min, Tensor max, Tensor out_grad)
   output : Tensor(x_grad)
