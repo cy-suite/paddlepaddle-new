@@ -113,7 +113,6 @@ def swish_silu_converter(network, paddle_op, inputs):
     return trt_mul(network, inputs[0], layer_output)
 
 
-@converter_registry.register("pd_op.leaky_relu_", trt_version="8.x")
 @converter_registry.register("pd_op.leaky_relu", trt_version="8.x")
 def leaky_relu_converter(network, paddle_op, inputs):
     x = inputs[0]
