@@ -3919,12 +3919,29 @@ function clang-tidy_check() {
 
     cd ${PADDLE_ROOT}
     pwd
-
     echo "Checking code style by clang-tidy ..."
     startTime_s=`date +%s`
 
     exec 3>&1 4>&2
     temp_file=$(mktemp)
+    modified_files=$(git diff --name-only test..upstream/develop)
+    diff_files=()
+    num_diff_files=0
+    for file in $modified_files
+    do
+        if [[ $file == *.cpp || $file == *.cc || $file == *.cxx || $file == *.c++ || $file == *.h || $file == *.hpp || $file == *.hh || $file == *.hxx || $file == *.h++ ]]; then
+            diff_files+=($file)
+            num_diff_files=$((num_diff_files + 1))
+        fi
+    done
+
+    echo "C++-related files updated: $num_diff_files"
+
+    if [[ $num_diff_files -eq 0 ]]; then
+        echo "No C++ related files to analyze."
+        exit 0
+    fi
+
     python ./tools/codestyle/clang-tidy.py -p=build -j=20 \
         -clang-tidy-binary=clang-tidy \
         -extra-arg=-Wno-unknown-warning-option \
@@ -3950,7 +3967,8 @@ function clang-tidy_check() {
         -extra-arg=-Wno-defaulted-function-deleted \
         -extra-arg=-Wno-delete-non-abstract-non-virtual-dtor \
         -extra-arg=-Wno-error \
-        -extra-arg=-Wno-return-type-c-linkage 2>&1 | tee $temp_file 1>&3 3>&-
+        -extra-arg=-Wno-return-type-c-linkage \
+        "${diff_files[@]}" 2>&1 | tee $temp_file 1>&3 3>&-
 
     T=$(cat $temp_file)
     S=(
@@ -4159,15 +4177,21 @@ function clang-tidy_check() {
     )
 
     check_error=0
+    declare -A count_map
+
     for str in "${S[@]}"; do
-        count=0
-        while IFS= read -r line; do
-            if echo "$line" | grep -q "$str"; then
-                count=$((count + 1))
-                if [ "$count" -eq 2 ]; then
-                    file_path=$(echo "$line" | cut -d' ' -f2)
-                    echo "check error: $str in file: $file_path"
+        count_map["$str"]=0
+    done
+
+    while IFS= read -r line; do
+        for str in "${S[@]}"; do
+            if [[ "$line" == *"$str"* ]]; then
+                count=$((count_map["$str"] + 1))
+                count_map["$str"]=$count
+                if (( $ [$count ] -ge 2 )); then
                     check_error=1
+                    file_path=$(echo "$line" | awk '{for (i=2; i<NF; i++) if ($i ~ /\/.*\/.*\/.*\.(c|cc|cpp|h|hpp):/) {print $i; break}}')
+                    echo "check error: $str in file $file_path"
                 fi
             fi
         done
