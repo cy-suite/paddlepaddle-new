@@ -624,11 +624,11 @@ def convert_len(var):
             if var.shape[0] > 0 and var.type == core.VarDesc.VarType.LOD_TENSOR:
                 return var.shape[0]
             return paddle.shape(var)[0]
-        elif var.type == core.VarDesc.VarType.LOD_TENSOR_ARRAY:
+        elif var.type == core.VarDesc.VarType.DENSE_TENSOR_ARRAY:
             return paddle.tensor.array_length(var)
         else:
             raise TypeError(
-                f'len(var) only supports LoDTensor/LoDTensorArray/SelectedRows, but received {type(var)}.'
+                f'len(var) only supports LoDTensor/DenseTensorArray/SelectedRows, but received {type(var)}.'
             )
     elif isinstance(var, Value):
         if var.is_dense_tensor_type() or var.is_selected_row_type():

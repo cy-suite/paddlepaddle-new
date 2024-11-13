@@ -48,11 +48,13 @@ SUPPORT_PROMOTION_OPS = [
     "__mul__",
     "__rmul__",
     "__mod__",
+    "__rmod__",
     "__div__",
     "__rdiv__",
     "__truediv__",
     "__rtruediv__",
     "__floordiv__",
+    "__rfloordiv__",
     "__pow__",
     "__rpow__",
     "__eq__",
@@ -77,7 +79,9 @@ EXPRESSION_MAP = {
     "__pow__": "A ** B",
     "__rpow__": "A **= B",
     "__floordiv__": "A //B",
+    "__rfloordiv__": "A //=B",
     "__mod__": "A % B",
+    "__rmod__": "A %= B",
     "__matmul__": "A @ B",
     "__eq__": "A == B",
     "__ne__": "A != B",
@@ -391,9 +395,9 @@ def monkey_patch_variable():
                 raise TypeError(
                     f"Required input var should be Variable, but received {type(var)}"
                 )
-        if self.type != core.VarDesc.VarType.LOD_TENSOR_ARRAY:
+        if self.type != core.VarDesc.VarType.DENSE_TENSOR_ARRAY:
             raise TypeError(
-                f"Only Variable with VarType.LOD_TENSOR_ARRAY support `append` method, but received type: {self.type}"
+                f"Only Variable with VarType.DENSE_TENSOR_ARRAY support `append` method, but received type: {self.type}"
             )
         from paddle.tensor.array import array_length, array_write
 
@@ -415,11 +419,11 @@ def monkey_patch_variable():
     def pop(self, *args):
         """
         The type variable must be LoD Tensor Array.
-        When self is LoDTensorArray, calling pop is similar to Python's pop on list.
+        When self is DenseTensorArray, calling pop is similar to Python's pop on list.
         This interface is used to simplify dygraph to static graph operations.
 
         Args:
-            self(Variable): The source variable, which must be LOD_TENSOR_ARRAY
+            self(Variable): The source variable, which must be DENSE_TENSOR_ARRAY
             *args: optional, a int means index.
         Returns:
             Variable: self[index]
@@ -428,9 +432,9 @@ def monkey_patch_variable():
         from paddle.static.nn import while_loop
         from paddle.tensor import fill_constant
 
-        if self.type != core.VarDesc.VarType.LOD_TENSOR_ARRAY:
+        if self.type != core.VarDesc.VarType.DENSE_TENSOR_ARRAY:
             raise TypeError(
-                f"Only Variable with VarType.LOD_TENSOR_ARRAY support `pop` method, but received type: {self.type}"
+                f"Only Variable with VarType.DENSE_TENSOR_ARRAY support `pop` method, but received type: {self.type}"
             )
         if len(args) == 0:
             idx = -1
@@ -859,8 +863,18 @@ def monkey_patch_variable():
             ),
         ),
         (
+            '__rfloordiv__',
+            _binary_creator_(
+                '__rfloordiv__', 'elementwise_floordiv', True, None
+            ),
+        ),
+        (
             '__mod__',
             _binary_creator_('__mod__', 'elementwise_mod', False, None),
+        ),
+        (
+            '__rmod__',
+            _binary_creator_('__rmod__', 'elementwise_mod', True, None),
         ),
         (
             '__matmul__',
