@@ -402,7 +402,7 @@ class ConstantFoldingPattern : public pir::RewritePattern {
       std::string output_var_name =
           "constant_folding@_" + ss.str() + std::to_string((*suffix_)++);
 
-      builder.Build<pir::ShadowOutputOp>(cast_op->result(0), output_var_name);
+      builder.Build<pir::ShadowOutputOp>(cast_op.result(0), output_var_name);
       output_var_names.push_back(output_var_name);
     }
 
