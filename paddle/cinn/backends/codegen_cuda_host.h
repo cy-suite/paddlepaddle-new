@@ -59,19 +59,6 @@ class CodeGenGpuHost : public CodeGenHost {
   }
 
  private:
-  /**
-   * Lower a CUDA/HIP kernel launcher.
-   *
-   * We launch a CUDA/HIP kernel in the following way:
-   *
-   * 1. a GPU function (called fn) will compiled to PTX and lower by CUDA driver
-   * to a function pointer, which we store as a `void*` type global variable
-   * [fn_kernel_ptr] in LLVM module.
-   * 2. when lower the host launcher, we replace the Call of the original kernel
-   * [fn] to a Call of `cinn_call_cuda_kernel` method which is registered as an
-   * external function.
-   *
-   */
   llvm::Value *LowerGPUKernelCall(const ir::Call *op);
 };
 
