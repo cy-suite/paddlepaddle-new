@@ -99,6 +99,7 @@ class FasterStringifiedExpression(StringifiedExpression):
     ):
         self.faster_guard = faster_guard
         if ENV_SOT_ENABLE_FASTER_GUARD:
+            original_expr_template = expr_template
             guard_name = f"guard_check_{id(faster_guard)}"
             expr_template = (
                 guard_name + "(" + ", ".join(["{}"] * len(sub_exprs)) + ")"
@@ -106,6 +107,11 @@ class FasterStringifiedExpression(StringifiedExpression):
             free_vars = union_free_vars(
                 free_vars, {guard_name: faster_guard.check}
             )
+            log(
+                3,
+                f"[FasterGuard]: transform {original_expr_template} to {expr_template}\n",
+            )
+
         super().__init__(expr_template, sub_exprs, free_vars)
 
 
