@@ -637,11 +637,9 @@ def moe_sub_mesh_tensors(
         )
 
 
-def dtensor_from_local(local_tensor, mesh, placements, local_tensor_shape=None):
+def dtensor_from_local(local_tensor, mesh, placements):
     # assume the each rank has the same tensor shape for now, just use the local shape to calculate the global shape
     global_dims = list(local_tensor.shape)
-    if local_tensor_shape is not None:
-        global_dims = local_tensor_shape
     for idx, placement in enumerate(placements):
         if placement.is_shard():
             shard_dim = placement.get_dim()
