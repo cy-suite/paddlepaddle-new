@@ -29,6 +29,7 @@ import paddle.distributed.auto_parallel.static.utils as auto_utils
 from paddle import pir, static, utils
 from paddle.base.executor import _to_name_str
 from paddle.base.framework import auto_complete_op_role
+from paddle.decomposition import decomp
 from paddle.distributed.fleet.meta_optimizers.common import OpRole
 from paddle.distributed.passes.pass_base import new_pass
 from paddle.distributed.passes.pass_utils import (
@@ -897,14 +898,11 @@ class Engine:
         remove_unuseful_comm_op_pass(dense_program)
 
         if core._enable_dist_prim_all():
-            from paddle.decomposition import decomp
-
+            logging.info("apply decompose in auto parallel")
             with decomp.prim_guard():
                 decomp.decompose_dist_program(dense_program)
 
         if core._enable_auto_recompute():
-            from paddle.decomposition import decomp
-
             logging.info("apply auto_recompute in auto parallel")
             dense_program = decomp.auto_recompute_pir_program(
                 dense_program,

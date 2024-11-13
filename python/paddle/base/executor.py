@@ -1174,6 +1174,10 @@ class _ExecutorCache:
                 fetch_var_name=fetch_var_name,
             )
             default_job = core.Job("default")
+
+            if not is_startup_program and in_cinn_mode():
+                apply_cinn_pass(program)
+
             type_to_program = {"default": program}
             plan = core.Plan([default_job], type_to_program)
         else:
@@ -1200,6 +1204,11 @@ class _ExecutorCache:
                     value.block.program, value, fetch_var_name + str(i), i
                 )
 
+            if in_cinn_mode():
+                for job_type in plan.job_types():
+                    ir_program = plan.ir_program(job_type)
+                    apply_cinn_pass(ir_program)
+
         new_exe = _StandaloneExecutor(place, plan, scope)
 
         data_op_infos = []
@@ -1216,18 +1225,7 @@ class _ExecutorCache:
                     op.result(0).persistable,
                 )
                 data_op_infos.append(tup)
-        from paddle.decomposition import decomp
 
-        if core._enable_dist_prim_all():
-            with decomp.prim_guard():
-                decomp.decompose_dist_program(program)
-
-        if core._enable_auto_recompute():
-            logging.info("apply auto_recompute in executor")
-            program = decomp.auto_recompute_pir_program(program, None)
-
-        if in_cinn_mode():
-            apply_cinn_pass(program)
         return program, new_exe, data_op_infos
 
 
