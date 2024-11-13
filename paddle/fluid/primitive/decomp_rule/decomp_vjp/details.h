@@ -3245,7 +3245,7 @@ void take_along_axis_grad(const Tensor& arr,
     }
     auto arr_grad_tmp =
         put_along_axis<T>(zero_tensor, indices, out_grad_cast, axis);
-    set_output<T>(ConverToOrig<T>(arr_grad_tmp, arr_cast.dtype()), arr_grad);
+    set_output<T>(ConverToOrig<T>(arr_grad_tmp, arr.dtype()), arr_grad);
   }
 }
 
