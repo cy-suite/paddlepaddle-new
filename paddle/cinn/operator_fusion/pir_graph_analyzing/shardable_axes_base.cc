@@ -73,7 +73,8 @@ std::vector<std::string> CreateNewNamesWithRank(int64_t rank) {
   return result;
 }
 
-ShardableAxesSignature CreateDefaultSignature(pir::Operation* op) {
+ShardableAxesSignature CreateDefaultSignature(
+    pir::Operation* op, ShardableAxesInfoManager* axes_manager) {
   ShardableAxesSignature result = ShardableAxesSignature();
   for (int i = 0; i < op->num_operands(); ++i) {
     result.inputs.emplace_back(
@@ -83,21 +84,32 @@ ShardableAxesSignature CreateDefaultSignature(pir::Operation* op) {
     result.outputs.emplace_back(
         CreateNewNamesWithRank(GetCompitableRank(op->result(i))));
   }
+  result.loop = result.outputs.back();
+  for (int i = 0; i < result.inputs.size(); ++i) {
+    for (int j = 0; j < result.inputs[i].axis_names.size(); ++j) {
+      for (int k = 0; k < result.outputs.size(); ++k) {
+        for (int m = 0; m < result.outputs[k].axis_names.size(); ++m) {
+          axes_manager->related_axes_map()[result.inputs[i].axis_names[j]]
+              .insert(result.outputs[k].axis_names[m]);
+        }
+      }
+    }
+  }
   return result;
 }
 
 std::optional<ShardableAxesSignature> CreateSignatureForSpecialOps(
-    pir::Operation* op) {
+    pir::Operation* op, ShardableAxesInfoManager* axes_manager) {
   if (op->num_results() != 1) {
     VLOG(4) << "Now we do not support op with multi outputs, create default: "
             << op->name();
-    return CreateDefaultSignature(op);
+    return CreateDefaultSignature(op, axes_manager);
   }
   if (op->name() == "cinn_op.generate_shape") {
-    return CreateDefaultSignature(op);
+    return CreateDefaultSignature(op, axes_manager);
   }
   if (op->name() == "pd_op.reshape") {
-    return CreateDefaultSignature(op);
+    return CreateDefaultSignature(op, axes_manager);
   }
   return std::nullopt;
 }
@@ -467,7 +479,7 @@ ShardableAxesSignature ShardableAxesInfoManager::CreateShardableSignature(
     pir::Operation* op) {
   VLOG(4) << "[ShardableAxesInfoManager] Create Shardable Axes Signature for \n"
           << OpsDebugStr({op});
-  auto special_result = CreateSignatureForSpecialOps(op);
+  auto special_result = CreateSignatureForSpecialOps(op, this);
   if (special_result != std::nullopt) {
     return special_result.value();
   }
@@ -489,7 +501,7 @@ ShardableAxesSignature ShardableAxesInfoManager::CreateShardableSignature(
   } else if (op->name() == "cinn_op.concat") {
     result = CreateSignatureForConcat(op, this);
   } else {
-    result = CreateDefaultSignature(op);
+    result = CreateDefaultSignature(op, this);
   }
   VLOG(4) << "[ShardableAxesInfoManager] " << result.DebugStr();
   return result;
