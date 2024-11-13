@@ -100,7 +100,8 @@ class FasterStringifiedExpression(StringifiedExpression):
         self.faster_guard = faster_guard
         if ENV_SOT_ENABLE_FASTER_GUARD:
             original_expr_template = expr_template
-            guard_name = f"guard_check_{id(faster_guard)}"
+            guard_cls_name = faster_guard.__class__.__name__
+            guard_name = f"{guard_cls_name}_{id(faster_guard)}"
             expr_template = (
                 guard_name + "(" + ", ".join(["{}"] * len(sub_exprs)) + ")"
             )
