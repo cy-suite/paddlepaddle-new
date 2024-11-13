@@ -869,5 +869,5 @@ magic_method_func = [
     ('__lshift__', 'left_shift'),
     ('__rshift__', 'right_shift'),
     ('__rlshift__', 'right_left_shift'),
-    ('_rrshift__', 'right_right_shift'),
+    ('__rrshift__', 'right_right_shift'),
 ]
