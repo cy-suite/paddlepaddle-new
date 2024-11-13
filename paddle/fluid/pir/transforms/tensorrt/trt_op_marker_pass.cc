@@ -1234,7 +1234,7 @@ class ArgmaxOpPattern
         (dtype != phi::DataType::INT32 && dtype != phi::DataType::INT64)) {
       VLOG(3) << "Skipping TRT conversion in pd_op.argmax: axis is zero, "
                  "flatten is True, or "
-                 "dtype is int32/int64";
+                 "dtype isn't int32/int64";
       return false;
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
@@ -1278,7 +1278,7 @@ class ArgminOpPattern
         (dtype != phi::DataType::INT32 && dtype != phi::DataType::INT64)) {
       VLOG(3) << "Skipping TRT conversion in pd_op.argmin: axis is zero, "
                  "flatten is True, or "
-                 "dtype is int32/int64";
+                 "dtype isn't int32/int64";
       return false;
     }
 
