@@ -239,7 +239,7 @@ class ActivaeCommonOpPattern : public pir::OpRewritePattern<OpType> {
   bool MatchAndRewrite(OpType op,
                        pir::PatternRewriter &rewriter) const override {
     if (op->HasAttribute(kCanRunTrtAttr) &&
-        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+        op->template attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
 #if IS_TRT_VERSION_LT(8600)
