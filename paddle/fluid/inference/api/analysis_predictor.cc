@@ -123,6 +123,7 @@
 #include "paddle/fluid/pir/transforms/general/params_sync_among_devices_pass.h"
 #include "paddle/fluid/pir/transforms/general/remove_shadow_feed_pass.h"
 #include "paddle/fluid/pir/transforms/general/replace_fetch_with_shadow_output_pass.h"
+#include "paddle/fluid/pir/transforms/general/transfer_layout_pass.h"
 #include "paddle/fluid/pir/transforms/passes.h"
 #include "paddle/fluid/pir/transforms/pd_op_to_kernel_pass.h"
 #include "paddle/fluid/pir/utils/general_functions.h"
@@ -135,7 +136,6 @@
 #include "paddle/pir/include/pass/pass_registry.h"
 
 COMMON_DECLARE_bool(pir_apply_inplace_pass);
-COMMON_DECLARE_bool(enable_pir_api);
 
 namespace paddle {
 namespace {
@@ -933,6 +933,7 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
     for (const auto &pass : pass_pm.passes()) {
       pass->SetNotOwned(pir::Pass::kParamScopeAttr, sub_scope_);
       pass->SetNotOwned(pir::Pass::kPlaceAttr, &place_);
+      pass->Set("enable_gpu_mixed", new bool(config_.enable_gpu_mixed_));
       if (pass->name() == "matmul_add_act_fuse_pass" ||
           pass->name() == "conv2d_add_act_fuse_pass" ||
           pass->name() == "conv2d_add_fuse_pass") {
@@ -963,14 +964,6 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
   // Apply some basic passes required by the framework
   ::pir::PassManager basic_pass_pm(::pir::IrContext::Instance(),
                                    config_.pm_opt_level_);
-  auto common_subexpression_elimination_pass =
-      ::pir::CreateCommonSubexpressionEliminationPass();
-  if (std::find(config_.deleted_passes_.begin(),
-                config_.deleted_passes_.end(),
-                common_subexpression_elimination_pass->name()) ==
-      config_.deleted_passes_.end()) {
-    basic_pass_pm.AddPass(std::move(common_subexpression_elimination_pass));
-  }
   if (config_.enable_gpu_mixed_) {
     auto auto_mixed_precision_pass = ::pir::CreateAutoMixedPrecisionPass();
     if (std::find(config_.deleted_passes_.begin(),
@@ -978,20 +971,35 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
                   auto_mixed_precision_pass->name()) ==
         config_.deleted_passes_.end()) {
       auto_mixed_precision_pass->SetNotOwned(pir::Pass::kPlaceAttr, &place_);
-      auto_mixed_precision_pass->Set("__mixed_precision_mode__",
+      auto_mixed_precision_pass->Set("mixed_precision_mode",
                                      new phi::DataType(paddle::ConvertPrecision(
                                          config_.mixed_precision_mode_)));
       auto_mixed_precision_pass->Set(
-          "__enable_low_precision_io__",
+          "enable_low_precision_io",
           new bool(config_.enable_low_precision_io_));
       auto_mixed_precision_pass->Set(
-          "__mixed_black_list__",
+          "mixed_black_list",
           new std::unordered_set<std::string>(config_.mixed_black_list_));
       auto_mixed_precision_pass->Set(
-          "__mixed_white_list__",
+          "mixed_white_list",
           new std::unordered_set<std::string>(config_.mixed_white_list_));
       basic_pass_pm.AddPass(std::move(auto_mixed_precision_pass));
     }
+    auto transfer_layout_pass = ::pir::CreateTransferLayoutPass();
+    if (std::find(config_.deleted_passes_.begin(),
+                  config_.deleted_passes_.end(),
+                  transfer_layout_pass->name()) ==
+        config_.deleted_passes_.end()) {
+      basic_pass_pm.AddPass(std::move(transfer_layout_pass));
+    }
+  }
+  auto common_subexpression_elimination_pass =
+      ::pir::CreateCommonSubexpressionEliminationPass();
+  if (std::find(config_.deleted_passes_.begin(),
+                config_.deleted_passes_.end(),
+                common_subexpression_elimination_pass->name()) ==
+      config_.deleted_passes_.end()) {
+    basic_pass_pm.AddPass(std::move(common_subexpression_elimination_pass));
   }
   auto params_sync_among_devices_pass =
       ::pir::CreateParamsSyncAmongDevicesPass();

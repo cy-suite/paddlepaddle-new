@@ -533,6 +533,7 @@ class SplitOpPattern : public pir::OpRewritePattern<paddle::dialect::SplitOp> {
 
   bool Match(paddle::dialect::SplitOp op) const override {
     const bool is_denied = CompatibleInfo::IsDeniedForCinn(*op.operation());
+
     return !is_denied && PatternConstraint(op);
   }
 
@@ -569,9 +570,28 @@ class SplitOpPattern : public pir::OpRewritePattern<paddle::dialect::SplitOp> {
       }
       return true;
     };
+
+    const auto &CanInferNegative = [&]() -> bool {
+      const auto &section = GetSections(op);
+      bool have_negative =
+          std::find(section.begin(), section.end(), -1) != section.end();
+      if (have_negative && GetSplitDim(op) < 0) {
+        return false;
+      }
+      return true;
+    };
+
     return IsDefinedBy<FullIntArrayOp>(op, 1) && IsDefinedBy<FullOp>(op, 2) &&
-           OnlyUsedBySplitOrSlice();
+           OnlyUsedBySplitOrSlice() && CanInferNegative();
   }
+
+  int64_t GetSplitDim(paddle::dialect::SplitOp op) const {
+    return op.x()
+        .type()
+        .dyn_cast<paddle::dialect::DenseTensorType>()
+        .dims()[GetAxis(op)];
+  }
+
   int GetAxis(paddle::dialect::SplitOp op) const {
     auto axis_gen_op = op->operand_source(2).defining_op();
     auto full_op = axis_gen_op->dyn_cast<paddle::dialect::FullOp>();
@@ -590,6 +610,36 @@ class SplitOpPattern : public pir::OpRewritePattern<paddle::dialect::SplitOp> {
     return axis;
   }
 
+  std::vector<int64_t> UpdateSectionBySplitDim(
+      const std::vector<int64_t> &section,
+      paddle::dialect::SplitOp op,
+      int axis) const {
+    // process negative
+    int negative_index = -1;
+    std::vector<int64_t> result(section);
+    int64_t numel = 0;
+    for (int i = 0; i < result.size(); ++i) {
+      if (result[i] < 0) {
+        negative_index = i;
+      } else {
+        numel += result[i];
+      }
+    }
+
+    if (negative_index != -1) {
+      auto split_dim = op.x()
+                           .type()
+                           .dyn_cast<paddle::dialect::DenseTensorType>()
+                           .dims()[axis];
+
+      if (split_dim > 0) {
+        result[negative_index] = split_dim - numel;
+      }
+    }
+
+    return result;
+  }
+
   std::vector<int64_t> GetSections(paddle::dialect::SplitOp op) const {
     std::vector<int64_t> result;
     auto sections_gen_op = op->operand_source(1)
@@ -603,6 +653,7 @@ class SplitOpPattern : public pir::OpRewritePattern<paddle::dialect::SplitOp> {
             section_attr[i].dyn_cast<::pir::Int64Attribute>().data());
       }
     }
+
     return result;
   }
 
@@ -611,7 +662,8 @@ class SplitOpPattern : public pir::OpRewritePattern<paddle::dialect::SplitOp> {
       ::pir::SliceOp slice,
       pir::PatternRewriter &rewriter) const {  // NOLINT
     const int axis = GetAxis(split);
-    const std::vector<int64_t> &sections = GetSections(split);
+    const std::vector<int64_t> &sections =
+        UpdateSectionBySplitDim(GetSections(split), split, axis);
     const int index = slice->attribute<::pir::Int32Attribute>("index").data();
     int64_t start =
         std::accumulate(sections.begin(), sections.begin() + index, 0);
@@ -636,7 +688,9 @@ class SplitOpPattern : public pir::OpRewritePattern<paddle::dialect::SplitOp> {
       ::pir::SplitOp pir_split,
       pir::PatternRewriter &rewriter) const {  // NOLINT
     const int axis = GetAxis(split);
-    const std::vector<int64_t> &sections = GetSections(split);
+    const std::vector<int64_t> &sections =
+        UpdateSectionBySplitDim(GetSections(split), split, axis);
+
     int64_t start = 0, end = 0;
     for (size_t i = 0; i < pir_split->num_results(); ++i) {
       start = end;
@@ -1117,6 +1171,18 @@ class GatherOpPattern
   using pir::OpRewritePattern<paddle::dialect::GatherOp>::OpRewritePattern;
 
   bool Match(paddle::dialect::GatherOp op) const override {
+    auto x_shape =
+        phi::vectorize(op->operand_source(0)
+                           .type()
+                           .dyn_cast<paddle::dialect::DenseTensorType>()
+                           .dims());
+
+    auto y_shape =
+        phi::vectorize(op->operand_source(1)
+                           .type()
+                           .dyn_cast<paddle::dialect::DenseTensorType>()
+                           .dims());
+
     const bool is_denied = CompatibleInfo::IsDeniedForCinn(*op.operation());
     return !is_denied && IsDefinedBy<FullOp>(op, 2);
   }
@@ -1143,98 +1209,6 @@ class GatherOpPattern
         rewriter.Build<cinn::dialect::GatherOp>(x, index, axis)->result(0);
     rewriter.ReplaceAllUsesWith(op->result(0), out);
     rewriter.EraseOp(op);
-  }
-};
-
-class ReduceAsOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::ReduceAsOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::ReduceAsOp>::OpRewritePattern;
-
-  bool Match(paddle::dialect::ReduceAsOp op) const override {
-    return CanReplaceWithReduce(op);
-  }
-
-  void Rewrite(paddle::dialect::ReduceAsOp op,
-               pir::PatternRewriter &rewriter) const override {
-    auto x_shape =
-        phi::vectorize(op->operand_source(0)
-                           .type()
-                           .dyn_cast<paddle::dialect::DenseTensorType>()
-                           .dims());
-
-    auto y_shape =
-        phi::vectorize(op->operand_source(1)
-                           .type()
-                           .dyn_cast<paddle::dialect::DenseTensorType>()
-                           .dims());
-
-    size_t x_rank = x_shape.size();
-    size_t y_rank = y_shape.size();
-
-    if (x_shape == y_shape) {
-      rewriter.ReplaceAllUsesWith(op.result(0), op.operand_source(0));
-    } else {
-      // Get reduc aixs and
-      int64_t compare_offset = x_rank - y_rank;
-      std::vector<int64_t> reduce_axis;
-      for (int64_t i = 0; i < compare_offset; ++i) {
-        reduce_axis.push_back(i);
-      }
-
-      for (size_t i = 0; i < y_rank; ++i) {
-        if (y_shape[i] == 1 && x_shape[i + compare_offset] != 1) {
-          reduce_axis.push_back(compare_offset + i);
-        }
-      }
-
-      bool keep_dim = (x_rank == y_rank);
-      auto pir_dtype =
-          op->operand_source(0).type().dyn_cast<pir::DenseTensorType>().dtype();
-      auto phi_dtype = paddle::dialect::TransToPhiDataType(pir_dtype);
-      auto sum_op = rewriter.Build<paddle::dialect::SumOp>(
-          op.operand_source(0), reduce_axis, phi_dtype, keep_dim);
-
-      auto new_output = sum_op.result(0);
-
-      if (phi::vectorize(new_output.type()
-                             .dyn_cast<paddle::dialect::DenseTensorType>()
-                             .dims()) != y_shape) {
-        // add reshape op here
-        new_output =
-            rewriter.Build<paddle::dialect::ReshapeOp>(new_output, y_shape)
-                .result(0);
-      }
-
-      rewriter.ReplaceAllUsesWith(op.result(0), new_output);
-    }
-
-    rewriter.EraseOp(op);
-  }
-
- private:
-  bool CanReplaceWithReduce(paddle::dialect::ReduceAsOp op) const {
-    auto x_shape =
-        phi::vectorize(op->operand_source(0)
-                           .type()
-                           .dyn_cast<paddle::dialect::DenseTensorType>()
-                           .dims());
-
-    auto y_shape =
-        phi::vectorize(op->operand_source(1)
-                           .type()
-                           .dyn_cast<paddle::dialect::DenseTensorType>()
-                           .dims());
-
-    bool x_has_dynamic_shape =
-        std::find(x_shape.begin(), x_shape.end(), -1) != x_shape.end();
-    bool y_has_dynamic_shape =
-        std::find(y_shape.begin(), y_shape.end(), -1) != y_shape.end();
-    if (x_has_dynamic_shape || y_has_dynamic_shape) {
-      return false;
-    }
-
-    return true;
   }
 };
 
@@ -1270,7 +1244,6 @@ pir::RewritePatternSet PdOpToCinnOpPass::InitializePatterns(
   ps.Add<SigmoidOpPattern>(context);
   ps.Add<GatherOpPattern>(context);
   ps.Add<FlattenOpPattern>(context);
-  ps.Add<ReduceAsOpPattern>(context);
 
   return ps;
 }

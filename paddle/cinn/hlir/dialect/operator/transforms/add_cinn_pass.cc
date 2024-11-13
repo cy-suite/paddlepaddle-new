@@ -49,6 +49,7 @@
 #include "paddle/cinn/hlir/dialect/operator/transforms/lowering_pass/lower_cinn_fusion_op_pass.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/pd_to_cinn_pass.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/pir_to_py_code_converter.h"
+#include "paddle/cinn/hlir/dialect/operator/transforms/reduce_as_to_sum_pass.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/remove_assign_out_pass.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/replace_dynamic_expand_pass.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/shape_ops_fallback_to_phi_pass.h"
@@ -61,7 +62,6 @@
 COMMON_DECLARE_bool(cinn_specify_input_dynamic_dim);
 COMMON_DECLARE_string(cinn_input_dynamic_dim_spec_file);
 COMMON_DECLARE_bool(print_ir);
-COMMON_DECLARE_bool(pir_debug);
 COMMON_DECLARE_bool(disable_dyshape_in_train);
 COMMON_DECLARE_bool(enable_cinn_accuracy_check);
 COMMON_DECLARE_bool(enable_fuse_parallel_matmul_pass);
@@ -121,6 +121,7 @@ void ApplyPdToCinnPass(
     const std::function<std::shared_ptr<::pir::PassManager>()>&
         CreatePassManager) {
   std::shared_ptr<pir::PassManager> pass_manager = CreatePassManager();
+  pass_manager->AddPass(cinn::dialect::ir::CreateReduceAsToSumPass());
   pass_manager->AddPass(pir::CreateFusedGemmEpiloguePass());
   if (FLAGS_enable_fuse_parallel_matmul_pass) {
     pass_manager->AddPass(cinn::dialect::ir::CreateFuseParallelMatmulPass());
@@ -133,6 +134,7 @@ void ApplyPdToCinnPass(
 
   pass_manager->AddPass(pir::CreateDeadCodeEliminationPass());
 
+  // pass_manager->EnableIRPrinting();
   pass_manager->Run(program);
 }
 
@@ -170,14 +172,11 @@ void ApplyGroupOpPass(::pir::Program* program,
   std::shared_ptr<pir::PassManager> pass_manager = CreatePassManager();
   pass_manager->AddPass(
       cinn::dialect::ir::CreateAddBroadcastToElementwisePass());
-  if (HasDynamicShape(*program)) {
-    pass_manager->AddPass(cinn::dialect::ir::CreateInsertBroadcastPass());
-    pass_manager->AddPass(cinn::dialect::ir::CreateSimplifyDimExprPass());
-    pass_manager->AddPass(
-        cinn::dialect::ir::CreateFuseShapeOpsIntoGenerateShapeOpPass());
-    pass_manager->AddPass(
-        cinn::dialect::ir::CreateMoveGenerateShapeOpsToProloguePass());
-  }
+  pass_manager->AddPass(cinn::dialect::ir::CreateInsertBroadcastPass());
+  pass_manager->AddPass(
+      cinn::dialect::ir::CreateFuseShapeOpsIntoGenerateShapeOpPass());
+  pass_manager->AddPass(
+      cinn::dialect::ir::CreateMoveGenerateShapeOpsToProloguePass());
 
   pass_manager->AddPass(cinn::dialect::ir::CreateDynamicReshapeOpPass());
   pass_manager->AddPass(cinn::dialect::ir::CreateFoldManipulationOpsPass());
@@ -279,7 +278,7 @@ void ApplyCinnPass(::pir::Program* program,
   LOG(INFO) << "FusionOp count before lowering : *****[ "
             << GetOpCount<cinn::dialect::FusionOp>(program->module_op())
             << " ]*****";
-  if (FLAGS_pir_debug) {
+  if (FLAGS_print_ir) {
     auto& shape_analysis = pir::ShapeAnalysisManager::Instance().Get(program);
     std::cout << "Program before lowering: \n"
               << pir::CustomPrintHelper(*program, shape_analysis.PrintHook())

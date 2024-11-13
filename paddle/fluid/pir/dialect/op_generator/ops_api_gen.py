@@ -159,8 +159,6 @@ NEED_GEN_STATIC_ONLY_APIS = [
 
 NO_NEED_GEN_STATIC_ONLY_APIS = [
     'add_n_',
-    'all_reduce',
-    'all_reduce_',
     'anchor_generator',
     'batch_fc',
     'barrier',
@@ -217,7 +215,6 @@ NO_NEED_GEN_STATIC_ONLY_APIS = [
     'push_gpups_sparse',
     'push_gpups_sparse_',
     'random_routing',
-    'rank_attention',
     'rnn_',
     'row_conv',
     'seed',

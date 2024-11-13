@@ -129,14 +129,15 @@ class RunnableProgram:
     @staticmethod
     def _get_program_all_values(program):
         all_values = []
-        all_values.extend(
-            arg for arg in program.global_block().kwargs().values()
-        )
-        all_values.extend(
-            result
-            for op in program.global_block().ops
-            for result in op.results()
-        )
+
+        def extend_values(block):
+            all_values.extend(block.kwargs().values())
+            for op in block.ops:
+                all_values.extend(op.results())
+                for block in op.blocks():
+                    extend_values(block)
+
+        extend_values(program.global_block())
         return all_values
 
     @staticmethod
@@ -857,7 +858,7 @@ class PartialProgramLayer:
             if exist a op whose inputs is var, then return True
             """
             if var.type not in [
-                core.VarDesc.VarType.LOD_TENSOR,
+                core.VarDesc.VarType.DENSE_TENSOR,
                 core.VarDesc.VarType.SELECTED_ROWS,
             ]:
                 return False
@@ -1220,7 +1221,7 @@ class PartialProgramLayer:
                 )
             elif value.is_dense_tensor_type():
                 param._set_grad_type(
-                    paddle.base.core.VarDesc.VarType.LOD_TENSOR
+                    paddle.base.core.VarDesc.VarType.DENSE_TENSOR
                 )
             else:
                 raise NotImplementedError(
