@@ -111,3 +111,13 @@ def swish_silu_converter(network, paddle_op, inputs):
         inputs[0], activation_type_map[paddle_op.name()]
     ).get_output(0)
     return trt_mul(network, inputs[0], layer_output)
+
+
+@converter_registry.register("pd_op.leaky_relu_", trt_version="8.x")
+@converter_registry.register("pd_op.leaky_relu", trt_version="8.x")
+def leaky_relu_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    negative_slope = paddle_op.attrs()["negative_slope"]
+    leaky_relu_layer = network.add_activation(x, trt.ActivationType.LEAKY_RELU)
+    leaky_relu_layer.alpha = negative_slope
+    return leaky_relu_layer.get_output(0)
