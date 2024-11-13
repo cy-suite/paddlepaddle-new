@@ -166,9 +166,8 @@ def swish_net(x):
     return paddle.nn.functional.swish(x)
 
 
-def take_along_axis_net(x):
-    indices = np.full(x.shape, 2).astype("int32")
-    return paddle.take_along_axis(x, indices=indices, axis=0)
+def take_along_axis_net(x, y):
+    return paddle.take_along_axis(x, y, 1, True)
 
 
 def tanh_net(x):
@@ -1048,22 +1047,55 @@ class TestPrimSwishWithGrad(TestPrimBaseWithGrad):
         self.tol = 1e-6
 
 
-class TestPrimTakeAlongAxisWithGrad(TestPrimBaseWithGrad):
+class TestPrimTakeAlongAxisWithGrad(TestPrimTwoWithGrad):
     def setUp(self):
         np.random.seed(2024)
         self.op_name = "pd_op.take_along_axis_grad"
         self.dtype = "float32"
-        # self.y_dtype = "int32"
-        self.x_shape = [30, 200, 40]
+        self.x_shape = [2, 3, 2]
+        self.x_shape = [3, 3]
         self.init_x_shape = [None, None, None]
-        # self.indices_shape = [30, 200, 40]
-        # self.init_indices_shape = [None, None, None]
+        self.init_x_shape = [None, None]
+        self.y_shape = [1, 1]
+        self.init_y_shape = [None, None]
         self.x = np.random.random(self.x_shape).astype(self.dtype)
-        # self.y = np.array([[0], [1], [2]]).astype(self.y_dtype)
-        # self.y = np.full(self.x_shape, 2).astype(self.y_dtype)
+        # self.y = np.array([[[1,2], [0,1], [2,1]], [[1,2], [0,1], [2,1]]], dtype="int32")
+        self.y = np.array([[1]], dtype="int32")
         self.net = take_along_axis_net
         self.enable_cinn = False
         self.tol = 1e-6
+
+    def base_net(self, flag=None):
+        if flag == "prim":
+            core._set_prim_all_enabled(True)
+        x = paddle.to_tensor(self.x, stop_gradient=False)
+        y = paddle.to_tensor(self.y)
+        y = paddle.broadcast_to(y, [3, 1])
+        if flag == "prim":
+            fn = apply_to_static(
+                self.net,
+                use_cinn=self.enable_cinn,
+                input_spec=[
+                    InputSpec(shape=self.init_x_shape, dtype='float32'),
+                    InputSpec(shape=self.init_y_shape, dtype='int32'),
+                ],
+            )
+            fn.train()
+        else:
+            fn = self.net
+        res = fn(x, y)
+        res.backward()
+        x_grad = x.gradient()
+        if flag == "prim":
+            ops = [
+                op.name()
+                for op in fn.get_concrete_program(x, y)[-1]
+                .program.backward_program.global_block()
+                .ops
+            ]
+            assert self.op_name not in ops
+            core._set_prim_all_enabled(False)
+        return res, [x_grad]
 
 
 class TestPrimTanhWithGrad(TestPrimBaseWithGrad):
