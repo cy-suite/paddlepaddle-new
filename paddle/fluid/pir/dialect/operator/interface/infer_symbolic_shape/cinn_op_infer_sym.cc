@@ -148,14 +148,14 @@ bool SplitOpInferSymbolicShape(pir::Operation *op,
   std::vector<symbol::DimExpr> sections_sym;
   if (sections_array.size() > 0) {
     PADDLE_ENFORCE_EQ(
-        sections_array[0].isa<pir::Int64Attribute>(),
+        sections_array[0].isa<pir::Int32Attribute>(),
         true,
         common::errors::PreconditionNotMet(
             "Element in sections_array MUST be pir::Int64Attribute "));
 
     for (size_t i = 0; i < sections_array.size(); ++i) {
       sections_sym.push_back(
-          sections_array[i].dyn_cast<pir::Int64Attribute>().data());
+          sections_array[i].dyn_cast<pir::Int32Attribute>().data());
     }
   }
 
