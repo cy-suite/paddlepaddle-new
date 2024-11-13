@@ -654,7 +654,7 @@ def check_and_set_prim_all_enabled(print_flag=False):
 check_and_set_prim_all_enabled(True)
 
 
-SKIPPED_PRIM_VJP_DEFAULT_OPS = ["pd_op.matmul_grad"]
+SKIPPED_PRIM_VJP_DEFAULT_OPS = ["matmul_grad"]
 
 
 def _clear_prim_vjp_skip_default_ops():
@@ -682,7 +682,10 @@ def _check_prim_vjp_ops():
     if ops_org:
         ops = []
         for item in ops_org.split(";"):
-            ops.append(item.strip())
+            item = item.strip()
+            if item.startswith("pd_op."):
+                item = item[6:]
+            ops.append(item)
         _set_prim_backward_blacklist(*ops)
 
 

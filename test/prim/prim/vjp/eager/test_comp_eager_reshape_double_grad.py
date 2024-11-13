@@ -45,7 +45,7 @@ class TestReshapeDoubleGradComp(unittest.TestCase):
             core.set_prim_eager_enabled(True)
             paddle.disable_static()
             # diable rshape_grad to trigger the compsite double_grad
-            core._set_prim_backward_blacklist("pd_op.reshape_grad")
+            core._set_prim_backward_blacklist("reshape_grad")
 
             x = paddle.to_tensor(primal0, dtype='float32', stop_gradient=False)
             x.stop_gradient = False

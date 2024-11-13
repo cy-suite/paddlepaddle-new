@@ -872,7 +872,7 @@ class TestMinimumHighGradCheck(unittest.TestCase):
         from paddle.base import core
 
         core._set_prim_backward_enabled(True)
-        core._set_prim_backward_blacklist("pd_op.minimum_grad")
+        core._set_prim_backward_blacklist("minimum_grad")
         gradient_checker.double_grad_check(
             [x, y], y=out, x_init=[x_arr, y_arr], place=place, eps=eps
         )
@@ -952,7 +952,7 @@ class TestMaximumHighGradCheck(unittest.TestCase):
         from paddle.base import core
 
         core._set_prim_backward_enabled(True)
-        core._set_prim_backward_blacklist("pd_op.minimum_grad")
+        core._set_prim_backward_blacklist("minimum_grad")
         gradient_checker.double_grad_check(
             [x, y], y=out, x_init=[x_arr, y_arr], place=place, eps=eps
         )
@@ -1295,7 +1295,7 @@ class TestGatherNdHighGradCheck(unittest.TestCase):
         if core.is_compiled_with_cuda():
             places.append(base.CUDAPlace(0))
         core._set_prim_backward_enabled(True)
-        core._set_prim_backward_blacklist("pd_op.gather_nd_grad")
+        core._set_prim_backward_blacklist("gather_nd_grad")
 
         for p in places:
             for x_stop in [False, True]:
