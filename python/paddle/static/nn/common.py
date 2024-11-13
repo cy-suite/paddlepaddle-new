@@ -2968,6 +2968,7 @@ def prelu(x, mode, param_attr=None, data_format="NCHW", name=None):
 
         .. code-block:: python
 
+            >>> # doctest: +SKIP("This has diff in xdoctest env")
             >>> import paddle
             >>> paddle.enable_static()
 
@@ -3775,6 +3776,7 @@ def embedding(
     Static Examples:
         .. code-block:: python
 
+            >>> # doctest: +SKIP("This has diff in xdoctest env")
             >>> import paddle
             >>> import numpy as np
             >>> paddle.enable_static()
@@ -3933,6 +3935,7 @@ def sparse_embedding(
     Examples:
         .. code-block:: python
 
+            >>> # doctest: +SKIP("This has diff in xdoctest env")
             >>> import paddle
 
             >>> paddle.enable_static()

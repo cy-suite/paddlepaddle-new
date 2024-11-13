@@ -404,6 +404,7 @@ def ctr_metric_bundle(input, label, ins_tag_weight=None):
         .. code-block:: python
             :name: example-1
 
+            >>> # doctest: +SKIP("This has diff in xdoctest env")
             >>> import paddle
             >>> paddle.enable_static()
             >>> data = paddle.static.data(name="data", shape=[-1, 32], dtype="float32")
@@ -414,6 +415,7 @@ def ctr_metric_bundle(input, label, ins_tag_weight=None):
         .. code-block:: python
             :name: example-2
 
+            >>> # doctest: +SKIP("This has diff in xdoctest env")
             >>> import paddle
             >>> paddle.enable_static()
             >>> data = paddle.static.data(name="data", shape=[-1, 32], dtype="float32")
