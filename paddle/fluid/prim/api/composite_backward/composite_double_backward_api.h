@@ -1049,5 +1049,28 @@ void index_put_double_grad(const Tensor& x,
   }
 }
 
+template <typename T>
+void gather_nd_double_grad(const Tensor& grad_out,
+                           const Tensor& index,
+                           const Tensor& grad_x_grad,
+                           Tensor* grad_out_grad) {
+  if (grad_out_grad) {
+    // ddout = gather_nd(ddx, index)
+    auto grad_out_grad_tmp = gather_nd<T>(grad_x_grad, index);
+    set_output<T>(grad_out_grad_tmp, grad_out_grad);
+  }
+}
+
+template <typename T>
+void reshape_double_grad(const Tensor& grad_out,
+                         const Tensor& grad_x_grad,
+                         Tensor* grad_out_grad) {
+  if (grad_out_grad) {
+    // ddout = reshape(ddx, ddout.shape)
+    auto grad_out_grad_tmp = reshape<T>(grad_x_grad, grad_out.shape());
+    set_output<T>(grad_out_grad_tmp, grad_out_grad);
+  }
+}
+
 }  // namespace prim
 }  // namespace paddle
