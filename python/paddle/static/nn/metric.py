@@ -390,7 +390,7 @@ def ctr_metric_bundle(input, label, ins_tag_weight=None):
                          data. The height is batch size and width is always 1.
         ins_tag_weight(Tensor): A 2D int Tensor indicating the ins_tag_weight of the training
                          data. 1 means real data, 0 means fake data.
-                         A LoDTensor or Tensor with type float32,float64.
+                         A DenseTensor or Tensor with type float32,float64.
 
     Returns:
         local_sqrerr(Tensor): Local sum of squared error
