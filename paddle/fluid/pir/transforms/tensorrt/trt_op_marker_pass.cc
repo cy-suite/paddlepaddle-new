@@ -1233,8 +1233,7 @@ class ArgmaxOpPattern
     if (axis == 0 || flatten ||
         (dtype != phi::DataType::INT32 && dtype != phi::DataType::INT64)) {
       VLOG(3) << "Skipping TRT conversion in pd_op.argmax: axis is zero, "
-                 "flatten is True, or "
-                 "dtype isn't int32/int64";
+                 "flatten is True, or dtype isn't int32/int64";
       return false;
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
@@ -1277,8 +1276,7 @@ class ArgminOpPattern
     if (axis == 0 || flatten ||
         (dtype != phi::DataType::INT32 && dtype != phi::DataType::INT64)) {
       VLOG(3) << "Skipping TRT conversion in pd_op.argmin: axis is zero, "
-                 "flatten is True, or "
-                 "dtype isn't int32/int64";
+                 "flatten is True, or dtype isn't int32/int64";
       return false;
     }
 
@@ -1312,8 +1310,8 @@ class ArgsortOpPattern
       axis += x_shape.size();
     }
     if (x_shape[axis] > 3840) {
-      VLOG(3) << "In pd_op.argsort,the axis dim of input should be less than "
-                 "3840";
+      VLOG(3)
+          << "In pd_op.argsort,the axis dim of input should be less than 3840";
       return false;
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
