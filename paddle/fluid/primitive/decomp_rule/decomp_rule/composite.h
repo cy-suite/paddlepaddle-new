@@ -1380,6 +1380,7 @@ Tensor addmm_decomp(const Tensor& input,
          full_scalar<T>(beta, input.dtype()) * input;
 }
 
+template <typename T>
 Tensor numel_decomp(const Tensor& x) {
   auto x_shape = x.shape();
   if (has_dynamic_shape(x_shape)) {
