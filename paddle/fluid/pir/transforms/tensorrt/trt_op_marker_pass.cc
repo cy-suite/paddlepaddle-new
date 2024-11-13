@@ -1671,8 +1671,9 @@ bool SetValueOpMatchAndRewrite(const pir::Operation *op) {
   auto value = values[0];
   auto value_dtype =
       value.dyn_cast<paddle::dialect::ScalarAttribute>().data().dtype();
-  if (value_dtype != phi::DataType::FLOAT32) {
-    VLOG(3) << "SetValueOp only support float32 value when translate "
+  if (value_dtype != phi::DataType::FLOAT32 &&
+      value_dtype != phi::DataType::FLOAT64) {
+    VLOG(3) << "SetValueOp only support float32/float64 value when translate "
                "to trt.";
     return false;
   }
@@ -1726,10 +1727,11 @@ class SetValueWithTensorOpPattern
     }
     pir::Value values = op.operand_source(1);
     auto values_dtype = pir::GetDataTypeFromValue(values);
-    if (!values_dtype.isa<pir::Float32Type>()) {
-      VLOG(3)
-          << "SetValueWithTensorOp only support float32 value when translate "
-             "to trt.";
+    if (!values_dtype.isa<pir::Float32Type>() &&
+        !values_dtype.isa<pir::Float64Type>()) {
+      VLOG(3) << "SetValueWithTensorOp only support float32/float64 value when "
+                 "translate "
+                 "to trt.";
       return false;
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
@@ -1754,10 +1756,11 @@ class SetValueWithTensor_OpPattern
     }
     pir::Value values = op.operand_source(1);
     auto values_dtype = pir::GetDataTypeFromValue(values);
-    if (!values_dtype.isa<pir::Float32Type>()) {
-      VLOG(3)
-          << "SetValueWithTensor_Op only support float32 value when translate "
-             "to trt.";
+    if (!values_dtype.isa<pir::Float32Type>() &&
+        !values_dtype.isa<pir::Float64Type>()) {
+      VLOG(3) << "SetValueWithTensorOp only support float32/float64 value when "
+                 "translate "
+                 "to trt.";
       return false;
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
