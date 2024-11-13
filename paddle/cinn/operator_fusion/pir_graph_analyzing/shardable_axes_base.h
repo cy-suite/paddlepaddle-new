@@ -27,6 +27,8 @@ struct ShardableAxes {
 };
 
 struct ShardableAxesSignature {
+  ShardableAxes loop;
+  size_t reduce_size;
   std::vector<ShardableAxes> inputs;
   std::vector<ShardableAxes> outputs;
   std::string DebugStr() const;
@@ -38,18 +40,31 @@ struct ShardableAxesInfoManager {
   ShardableAxesSignature GetSignature(pir::Operation* op);
   ShardableAxesSignature GetModifiedSignature(pir::Operation* op);
   ShardableAxes GetAxes(pir::Value value);
-  ShardableAxesSignature CreateShardableSignature(pir::Operation* op);
-  ShardableAxes ReplaceShardableAxesWithRootName(const ShardableAxes& axes);
   static std::string GetUniqueName();
   std::string NameUnionDebugStr() const;
 
+  std::string GetNormalizedAxisName(const std::string& axis_name) {
+    return normalized_root_name_map_[FindAxisRoot(axis_name)];
+  }
+  auto& related_axes_map() { return related_axes_; }
+
  private:
+  ShardableAxesSignature CreateShardableSignature(pir::Operation* op);
+  ShardableAxes ReplaceShardableAxesWithRootName(const ShardableAxes& axes,
+                                                 bool normalize = false);
+  std::string FindAxisRoot(const std::string& name);
+
   const std::vector<pir::Operation*>& ops_;
   pir::ShapeConstraintIRAnalysis* shape_analysis_;
 
   std::unordered_map<pir::Operation*, ShardableAxesSignature> op_signature_map_;
   std::unordered_map<pir::Value, ShardableAxes> value_axes_map_;
   std::unordered_map<std::string, std::string> name_union_;
+
+  std::unordered_map<std::string, std::vector<std::string>> root_to_sons_;
+  std::unordered_map<std::string, std::string> normalized_root_name_map_;
+  std::unordered_map<std::string, std::unordered_set<std::string>>
+      related_axes_;
 };
 
 }  // namespace cinn::fusion

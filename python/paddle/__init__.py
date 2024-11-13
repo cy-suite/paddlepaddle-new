@@ -75,6 +75,8 @@ from .framework.dtype import (
     int16,
     int32,
     int64,
+    pstring,
+    raw,
     uint8,
 )
 
@@ -87,42 +89,43 @@ else:
 import paddle.distributed.fleet
 import paddle.text
 import paddle.vision
-from paddle import (  # noqa: F401
-    amp,
-    audio,
-    autograd,
-    dataset,
-    decomposition,
-    device,
-    distributed,
-    distribution,
-    geometric,
-    incubate,
-    inference,
-    io,
-    jit,
-    metric,
-    nn,
-    onnx,
-    optimizer,
-    quantization,
-    reader,
-    regularizer,
-    sparse,
-    static,
-    sysconfig,
-    vision,
+from paddle import (
+    amp as amp,
+    audio as audio,
+    autograd as autograd,
+    dataset as dataset,
+    decomposition as decomposition,
+    device as device,
+    distributed as distributed,
+    distribution as distribution,
+    geometric as geometric,
+    incubate as incubate,
+    inference as inference,
+    io as io,
+    jit as jit,
+    metric as metric,
+    nn as nn,
+    onnx as onnx,
+    optimizer as optimizer,
+    quantization as quantization,
+    reader as reader,
+    regularizer as regularizer,
+    sparse as sparse,
+    static as static,
+    sysconfig as sysconfig,
+    vision as vision,
 )
 
 # high-level api
-from . import (  # noqa: F401
-    _pir_ops,
+from . import (
+    _pir_ops as _pir_ops,
     _typing as _typing,
-    callbacks,
-    fft,
-    hub,
-    linalg,
-    signal,
+    callbacks as callbacks,
+    fft as fft,
+    hub as hub,
+    linalg as linalg,
+    signal as signal,
+    tensor as tensor,
 )
 from .autograd import (
     enable_grad,
@@ -241,6 +244,8 @@ from .tensor.logic import (
     allclose,
     bitwise_and,
     bitwise_and_,
+    bitwise_invert,
+    bitwise_invert_,
     bitwise_not,
     bitwise_not_,
     bitwise_or,
@@ -260,7 +265,9 @@ from .tensor.logic import (
     less_equal,
     less_equal_,
     less_than,
+    less_than as less,
     less_than_,
+    less_than_ as less_,
     logical_and,
     logical_and_,
     logical_not,
@@ -271,6 +278,7 @@ from .tensor.logic import (
     logical_xor_,  # noqa: F401
     not_equal,
     not_equal_,  # noqa: F401
+    positive,
 )
 from .tensor.manipulation import (
     as_complex,
@@ -582,6 +590,7 @@ from .tensor.to_string import set_printoptions
 # CINN has to set a flag to include a lib
 if is_compiled_with_cinn():
     import os
+    from importlib import resources
 
     package_dir = os.path.dirname(os.path.abspath(__file__))
     runtime_include_dir = os.path.join(package_dir, "libs")
@@ -589,10 +598,8 @@ if is_compiled_with_cinn():
     if os.path.exists(cuh_file):
         os.environ.setdefault('runtime_include_dir', runtime_include_dir)
 
-    import pkg_resources
-
-    data_file_path = pkg_resources.resource_filename('paddle.cinn_config', '')
-    os.environ['CINN_CONFIG_PATH'] = data_file_path
+    data_file_path = resources.files('paddle.cinn_config')
+    os.environ['CINN_CONFIG_PATH'] = str(data_file_path)
 
 if __is_metainfo_generated and is_compiled_with_cuda():
     import os
@@ -768,6 +775,8 @@ __all__ = [
     'bool',
     'complex64',
     'complex128',
+    'pstring',
+    'raw',
     'addmm',
     'addmm_',
     'allclose',
@@ -852,6 +861,8 @@ __all__ = [
     'full_like',
     'less_than',
     'less_than_',
+    'less',
+    'less_',
     'kron',
     'clip',
     'Tensor',
@@ -895,10 +906,13 @@ __all__ = [
     'bitwise_xor_',
     'bitwise_not',
     'bitwise_not_',
+    'bitwise_invert',
+    'bitwise_invert_',
     'mm',
     'flip',
     'rot90',
     'bincount',
+    'histogram_bin_edges',
     'histogram',
     'histogramdd',
     'multiplex',
@@ -1171,4 +1185,5 @@ __all__ = [
     'diagonal_scatter',
     'combinations',
     'signbit',
+    'positive',
 ]

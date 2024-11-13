@@ -33,6 +33,7 @@ using Tensor = paddle::Tensor;
 using IntArray = paddle::experimental::IntArrayBase<paddle::Tensor>;
 //  This function should have as same signature as phi, which defined in
 //  paddle/phi/api/backward/backward_api.h
+
 template <typename T>
 void pow_grad(const Tensor& x,
               const Tensor& out_grad,
@@ -113,21 +114,15 @@ void softmax_grad(const Tensor& out,
                   int axis,
                   Tensor* x_grad) {
   if (x_grad) {
+    if (axis < 0) {
+      axis += out.dims().size();
+    }
     if (out_grad.dims().size() > 0) {
-      if (axis >= 0) {
-        auto new_out_grad = out_grad * out;
-        auto tmp_x_grad = new_out_grad -
-                          out * sum<T>(new_out_grad, {axis}, out.dtype(), true);
-        set_output<T>(tmp_x_grad, x_grad);
-      } else {
-        auto new_out_grad = out_grad * out;
-        auto tmp_x_grad =
-            new_out_grad - out * sum<T>(new_out_grad,
-                                        {out.dims().size() + axis},
-                                        out.dtype(),
-                                        true);
-        set_output<T>(tmp_x_grad, x_grad);
-      }
+      // dx = dy * y - y * (dy*y).sum(axis)
+      auto new_out_grad = out_grad * out;
+      auto tmp_x_grad =
+          new_out_grad - out * sum<T>(new_out_grad, {axis}, out.dtype(), true);
+      set_output<T>(tmp_x_grad, x_grad);
     } else {
       set_output<T>(
           full<T>(common::vectorize(out_grad.dims()), 0.0, out_grad.dtype()),
@@ -155,9 +150,13 @@ void gather_grad(const Tensor& x,
 
   // change axis to rank 0
   int axis_value = axis.to<int>();
+  int rank = x.dims().size();
+  if (axis_value < 0) {
+    axis_value += rank;
+  }
   tmp_perm.push_back(axis_value);
   // make other ranks
-  for (int i = 0; i < x.dims().size(); ++i) {
+  for (int i = 0; i < rank; ++i) {
     if (i != axis_value) {
       tmp_perm.push_back(i);
     }
@@ -1450,6 +1449,20 @@ void scatter_grad(const Tensor& index,
   if (updates_grad) {
     Scalar tmp_zero = 0;
     auto tmp_updates_grad = gather<T>(out_grad, index, tmp_zero);
+
+    // NOTE: len(index) can be smaller than len(updates) when updates is not a
+    // scalar
+    auto updates_dims = common::vectorize(updates.dims());
+    auto index_dims = common::vectorize(index.dims());
+    if (updates_dims.size() > 0 && updates_dims[0] > index_dims[0]) {
+      // Pad zeros to the end of tmp_updates_grad to make its shape the same as
+      // updates.
+      decltype(updates_dims) padding_dims = updates_dims;
+      padding_dims[0] = updates_dims[0] - index_dims[0];
+      auto padding_zeros = full<T>(padding_dims, 0, updates.dtype());
+      tmp_updates_grad =
+          concat<T>({tmp_updates_grad, std::move(padding_zeros)}, 0);
+    }
     set_output<T>(tmp_updates_grad, updates_grad);
   }
 }
@@ -1925,6 +1938,108 @@ void scatter_nd_add_grad(const Tensor& index,
     // Gradient by Gather: dUpdates = dO[Ids]
     auto tmp_updates_grad = gather_nd<T>(out_grad, index);
     set_output<T>(tmp_updates_grad, updates_grad);
+  }
+}
+
+template <typename T>
+void p_norm_grad(const Tensor& x,
+                 /*output of forward was reserved for efficient backward*/
+                 const Tensor& out,
+                 const Tensor& out_grad,
+                 float porder,
+                 int axis,
+                 float epsilon,
+                 bool keepdim,
+                 bool asvector,
+                 Tensor* x_grad) {
+  if (x_grad) {
+    if (axis < 0) {
+      axis += x.dims().size();
+    }
+
+    Tensor x_grad_tmp;
+    if (porder == 0.0) {
+      // dx = 0
+      x_grad_tmp = full<T>(x.shape(), 0, x.dtype());
+    } else {
+      /* generic case formula:
+          dx = {
+            dy * y^(1-p) * |x|^(p-1) * sgn(x), if p != +-inf,
+            dy * sgn(x) * (x==y), if p == +-inf.
+          }
+      */
+      Tensor expand_out = out;
+      Tensor expand_out_grad = out_grad;
+      // firstly expand output_grad to same ndim with x for convenience
+      if (!keepdim) {
+        auto expand_shape = common::vectorize(out_grad.dims());
+        expand_shape.insert(expand_shape.begin() + axis, 1);
+        expand_out_grad = reshape<T>(out_grad, expand_shape);
+        expand_out = reshape<T>(out, expand_shape);
+      }
+
+      if (porder == 1.0) {
+        // dx = dy * sign(x)
+        auto x_sign = sign<T>(x);
+        x_grad_tmp = x_sign * expand_out_grad;
+      } else if (porder == 2.0) {
+        // dx = dy * (x / y)
+        x_grad_tmp = x / expand_out;
+        // fill zero to avoid division by zero
+        auto _zero_tensor =
+            full<T>(common::vectorize(x.dims()), 0.0, x.dtype());
+        auto finite_mask = isfinite<T>(x_grad_tmp);
+        x_grad_tmp = where<T>(finite_mask, x_grad_tmp, _zero_tensor);
+        x_grad_tmp = expand_out_grad * (x_grad_tmp);
+
+      } else if (porder == INFINITY || porder == -INFINITY) {
+        // dy * sgn(x) * (x==y), if p == +-inf.
+        auto x_abs = abs<T>(x);
+        auto mask =
+            cast<T>(bitwise_or<T>(equal<T>(x_abs, expand_out), isnan<T>(x_abs)),
+                    expand_out.dtype());
+        auto x_sign = sign<T>(x);
+        x_grad_tmp =
+            x_sign * ((expand_out_grad /
+                       sum<T>(mask, {axis}, expand_out_grad.dtype(), true)) *
+                      mask);
+
+      } else if (porder < 1.0) {
+        // dx = dy * y^(1-p) * |x|^(p-1) * sgn(x)
+        auto x_sign = sign<T>(x);
+        auto x_abs_pow = abs<T>(x);
+        x_abs_pow = x_abs_pow.pow(porder - 1);
+
+        auto x_scaled = x_sign * x_abs_pow;
+        x_grad_tmp = x_scaled * expand_out_grad * expand_out.pow(1 - porder);
+
+      } else if (porder < 2.0) {
+        // dx = dy * y^(1-p) * |x|^(p-1) * sgn(x)
+        auto x_sign = sign<T>(x);
+        auto x_abs_pow = abs<T>(x);
+        x_abs_pow = x_abs_pow.pow(porder - 1);
+
+        // auto scale_v = expand_out_grad / expand_out.pow(porder - 1);
+        // auto _zero_tensor =
+        //     full<T>(common::vectorize(x.dims()), 0.0, x.dtype());
+        // auto out_non_zero_mask = not_equal<T>(expand_out, _zero_tensor);
+        // scale_v = scale_v * cast<T>(out_non_zero_mask, scale_v.dtype());
+        // x_grad_tmp = x_sign * x_abs_pow * scale_v;
+
+        auto scale_v = expand_out_grad * expand_out.pow(1 - porder);
+        x_grad_tmp = x_sign * x_abs_pow * scale_v;
+
+      } else {
+        // dx = dy * y^(1-p) * |x|^(p-1) * sgn(x)
+        auto x_sign = sign<T>(x);
+        auto x_abs_pow = abs<T>(x);
+        x_abs_pow = x_abs_pow.pow(porder - 1);
+
+        auto x_scaled = x_sign * x_abs_pow;
+        x_grad_tmp = x_scaled * expand_out_grad * expand_out.pow(1 - porder);
+      }
+    }
+    set_output<T>(x_grad_tmp, x_grad);
   }
 }
 

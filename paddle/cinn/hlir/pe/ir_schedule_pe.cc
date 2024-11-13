@@ -37,7 +37,7 @@
 #include "paddle/cinn/poly/isl_utils.h"
 #include "paddle/cinn/utils/string.h"
 #include "paddle/common/enforce.h"
-PD_DECLARE_bool(cinn_new_group_scheduler);
+
 namespace cinn {
 namespace hlir {
 namespace pe {
@@ -220,7 +220,7 @@ std::vector<cinn::common::CINNValue> IRGpuScheduleMatMul(
   }
   PADDLE_ENFORCE_EQ(vec_ast.empty(),
                     false,
-                    phi::errors::InvalidArgument(
+                    ::common::errors::InvalidArgument(
                         "The vector 'vec_ast' should not be empty."));
   ir::ModuleExpr mod_expr(vec_ast);
   ir::IRSchedule ir_sch(mod_expr);
@@ -316,11 +316,11 @@ void IRCudaSplitSchedule(ir::IRSchedule &ir_sch,  // NOLINT
   auto get_block_name = [](ir::Expr expr) {
     PADDLE_ENFORCE_NOT_NULL(
         expr.As<ir::ScheduleBlockRealize>(),
-        phi::errors::InvalidArgument(
+        ::common::errors::InvalidArgument(
             "The expression must be convertible to ir::ScheduleBlockRealize."));
     PADDLE_ENFORCE_NOT_NULL(expr.As<ir::ScheduleBlockRealize>()
                                 ->schedule_block.As<ir::ScheduleBlock>(),
-                            phi::errors::InvalidArgument(
+                            ::common::errors::InvalidArgument(
                                 "Failed to convert ir::ScheduleBlockRealize to "
                                 "ir::ScheduleBlock."));
     return expr.As<ir::ScheduleBlockRealize>()
@@ -499,12 +499,12 @@ void IRGpuScheduleBlockReduceInternal(ir::IRSchedule &ir_sch,  // NOLINT
 
     PADDLE_ENFORCE_NOT_NULL(
         out_block->as<ir::ScheduleBlockRealize>(),
-        phi::errors::InvalidArgument(
+        ::common::errors::InvalidArgument(
             "The out_block must be convertible to ir::ScheduleBlockRealize."));
     PADDLE_ENFORCE_NOT_NULL(
         out_block->as<ir::ScheduleBlockRealize>()
             ->schedule_block->as<ir::ScheduleBlock>(),
-        phi::errors::InvalidArgument(
+        ::common::errors::InvalidArgument(
             "The schedule_block within ir::ScheduleBlockRealize must be "
             "convertible to ir::ScheduleBlock."));
 
@@ -517,12 +517,12 @@ void IRGpuScheduleBlockReduceInternal(ir::IRSchedule &ir_sch,  // NOLINT
 
     PADDLE_ENFORCE_NOT_NULL(
         root_block->as<ir::ScheduleBlockRealize>(),
-        phi::errors::InvalidArgument(
+        ::common::errors::InvalidArgument(
             "The root_block must be convertible to ir::ScheduleBlockRealize."));
     PADDLE_ENFORCE_NOT_NULL(
         root_block->as<ir::ScheduleBlockRealize>()
             ->schedule_block->as<ir::ScheduleBlock>(),
-        phi::errors::InvalidArgument(
+        ::common::errors::InvalidArgument(
             "The schedule_block within ir::ScheduleBlockRealize must be "
             "convertible to ir::ScheduleBlock."));
 
@@ -555,15 +555,11 @@ void IRGpuScheduleBlockReduceInternal(ir::IRSchedule &ir_sch,  // NOLINT
   if (loops_tmp_out.size() == 1) {
     ir_sch.Bind(loops_tmp_out[0], "threadIdx.x");
     ir_sch.Bind(loops_out[0], "threadIdx.x");
-    if (FLAGS_cinn_new_group_scheduler) {
-      SetReduceAxis(loops_tmp_out[0], ir_sch.GetBlock(tmp_out->name));
-    }
+    SetReduceAxis(loops_tmp_out[0], ir_sch.GetBlock(tmp_out->name));
   } else {
     ir_sch.Bind(loops_tmp_out[0], "blockIdx.x");
     ir_sch.Bind(loops_tmp_out[1], "threadIdx.x");
-    if (FLAGS_cinn_new_group_scheduler) {
-      SetReduceAxis(loops_tmp_out[1], ir_sch.GetBlock(tmp_out->name));
-    }
+    SetReduceAxis(loops_tmp_out[1], ir_sch.GetBlock(tmp_out->name));
 
     if (loops_out.size() == 1) {
       ir_sch.Split(loops_out[0], {-1, 1});
@@ -575,11 +571,7 @@ void IRGpuScheduleBlockReduceInternal(ir::IRSchedule &ir_sch,  // NOLINT
 
   for (auto &tensor : {tmp_out}) {
     auto block = ir_sch.GetBlock(tensor->name);
-    if (FLAGS_cinn_new_group_scheduler) {
-      ir_sch.SetBuffer(block, "local");
-    } else {
-      ir_sch.SetBuffer(block, "local", true);
-    }
+    ir_sch.SetBuffer(block, "local");
   }
 
   VLOG(3) << "After IRGpuScheduleBlockReduceInternal : "
@@ -597,7 +589,7 @@ void IRGpuScheduleBlockReduce(ir::IRSchedule &ir_sch,  // NOLINT
   for (auto i : tmp_out->shape) {
     PADDLE_ENFORCE_EQ(i.is_constant(),
                       true,
-                      phi::errors::InvalidArgument(
+                      ::common::errors::InvalidArgument(
                           "The value must be a constant but it is not."));
     if (i.as_int32() != 1) tmp_put_shape_size_without_reduce++;
   }
@@ -607,7 +599,7 @@ void IRGpuScheduleBlockReduce(ir::IRSchedule &ir_sch,  // NOLINT
   for (auto i : reduce_tmp_out->shape) {
     PADDLE_ENFORCE_EQ(i.is_constant(),
                       true,
-                      phi::errors::InvalidArgument(
+                      ::common::errors::InvalidArgument(
                           "The value must be a constant but it is not."));
     if (i.as_int32() != 1) reduce_temp_out_shape_size++;
   }
@@ -654,12 +646,12 @@ void IRGpuScheduleBlockReduce(ir::IRSchedule &ir_sch,  // NOLINT
 
     PADDLE_ENFORCE_NOT_NULL(
         out_block->as<ir::ScheduleBlockRealize>(),
-        phi::errors::InvalidArgument(
+        ::common::errors::InvalidArgument(
             "The out_block must be convertible to ir::ScheduleBlockRealize."));
     PADDLE_ENFORCE_NOT_NULL(
         out_block->as<ir::ScheduleBlockRealize>()
             ->schedule_block->as<ir::ScheduleBlock>(),
-        phi::errors::InvalidArgument(
+        ::common::errors::InvalidArgument(
             "The schedule_block within ir::ScheduleBlockRealize must be "
             "convertible to ir::ScheduleBlock."));
 
@@ -672,12 +664,12 @@ void IRGpuScheduleBlockReduce(ir::IRSchedule &ir_sch,  // NOLINT
 
     PADDLE_ENFORCE_NOT_NULL(
         root_block->as<ir::ScheduleBlockRealize>(),
-        phi::errors::InvalidArgument(
+        ::common::errors::InvalidArgument(
             "The root_block must be convertible to ir::ScheduleBlockRealize."));
     PADDLE_ENFORCE_NOT_NULL(
         root_block->as<ir::ScheduleBlockRealize>()
             ->schedule_block->as<ir::ScheduleBlock>(),
-        phi::errors::InvalidArgument(
+        ::common::errors::InvalidArgument(
             "The schedule_block within ir::ScheduleBlockRealize must be "
             "convertible to ir::ScheduleBlock."));
 
@@ -731,9 +723,7 @@ void IRGpuScheduleBlockReduce(ir::IRSchedule &ir_sch,  // NOLINT
 
     ir_sch.Bind(loops[0], "blockIdx.x");
     ir_sch.Bind(loops[1], "threadIdx.x");
-    if (FLAGS_cinn_new_group_scheduler) {
-      SetReduceAxis(loops[1], ir_sch.GetBlock(tmp_out->name));
-    }
+    SetReduceAxis(loops[1], ir_sch.GetBlock(tmp_out->name));
   }
   // out
   {
@@ -748,11 +738,7 @@ void IRGpuScheduleBlockReduce(ir::IRSchedule &ir_sch,  // NOLINT
 
   for (auto &tensor : {reduce_tmp_out, tmp_out}) {
     auto block = ir_sch.GetBlock(tensor->name);
-    if (FLAGS_cinn_new_group_scheduler) {
-      ir_sch.SetBuffer(block, "local");
-    } else {
-      ir_sch.SetBuffer(block, "local", true);
-    }
+    ir_sch.SetBuffer(block, "local");
   }
 
   VLOG(3) << "After IRGpuScheduleBlockReduce : "
@@ -814,10 +800,6 @@ void IRGpuScheduleBlockShuffleReduce(ir::IRSchedule &ir_sch,  // NOLINT
       auto load = exprs.front().As<ir::Load>();
       load->indices = {index};
     };
-    if (!FLAGS_cinn_new_group_scheduler) {
-      hand_write_simplify(ir_sch.GetLoops(reshape->name),
-                          ir_sch.GetBlock(reshape->name));
-    }
     auto block = ir_sch.GetBlock(reshape->name);
     ir_sch.ComputeInline(block);
     VLOG(4) << "After simplify reshape index : "
@@ -1055,12 +1037,12 @@ void IRGpuTwoStepReduceSchedule(ir::IRSchedule &ir_sch,  // NOLINT
 
     PADDLE_ENFORCE_NOT_NULL(
         out_block->as<ir::ScheduleBlockRealize>(),
-        phi::errors::InvalidArgument(
+        ::common::errors::InvalidArgument(
             "The out_block must be convertible to ir::ScheduleBlockRealize."));
     PADDLE_ENFORCE_NOT_NULL(
         out_block->as<ir::ScheduleBlockRealize>()
             ->schedule_block->as<ir::ScheduleBlock>(),
-        phi::errors::InvalidArgument(
+        ::common::errors::InvalidArgument(
             "The schedule_block within ir::ScheduleBlockRealize must be "
             "convertible to ir::ScheduleBlock."));
 
@@ -1074,12 +1056,12 @@ void IRGpuTwoStepReduceSchedule(ir::IRSchedule &ir_sch,  // NOLINT
 
     PADDLE_ENFORCE_NOT_NULL(
         root_block->as<ir::ScheduleBlockRealize>(),
-        phi::errors::InvalidArgument(
+        ::common::errors::InvalidArgument(
             "The root_block must be convertible to ir::ScheduleBlockRealize."));
     PADDLE_ENFORCE_NOT_NULL(
         root_block->as<ir::ScheduleBlockRealize>()
             ->schedule_block->as<ir::ScheduleBlock>(),
-        phi::errors::InvalidArgument(
+        ::common::errors::InvalidArgument(
             "The schedule_block within ir::ScheduleBlockRealize must be "
             "convertible to ir::ScheduleBlock."));
 
@@ -1118,13 +1100,8 @@ void IRGpuTwoStepReduceSchedule(ir::IRSchedule &ir_sch,  // NOLINT
 
   auto internal_block = ir_sch.GetBlock(internal->name);
   auto tmp_out_block = ir_sch.GetBlock(tmp_out->name);
-  if (FLAGS_cinn_new_group_scheduler) {
-    ir_sch.SetBuffer(internal_block, "local");
-    ir_sch.SetBuffer(tmp_out_block, "local");
-  } else {
-    ir_sch.SetBuffer(internal_block, "local", true);
-    ir_sch.SetBuffer(tmp_out_block, "local", true);
-  }
+  ir_sch.SetBuffer(internal_block, "local");
+  ir_sch.SetBuffer(tmp_out_block, "local");
 
   // The current one-dimensional reduce does not make full use of SM.
   // This case is optimized into a two-dimensional.
@@ -1144,13 +1121,13 @@ void IRGpuTwoStepReduceSchedule(ir::IRSchedule &ir_sch,  // NOLINT
       ir_sch.Bind(loops[0], "blockIdx.x");
       ir_sch.Bind(loops[1], "threadIdx.y");
       ir_sch.Bind(loops[2], "threadIdx.x");
-      if (FLAGS_cinn_new_group_scheduler && tensor->name == tmp_out->name) {
+      if (tensor->name == tmp_out->name) {
         SetReduceAxis(loops[2], ir_sch.GetBlock(tmp_out->name));
       }
     } else {
       ir_sch.Bind(loops[0], "blockIdx.x");
       ir_sch.Bind(loops[1], "threadIdx.x");
-      if (FLAGS_cinn_new_group_scheduler && tensor->name == tmp_out->name) {
+      if (tensor->name == tmp_out->name) {
         SetReduceAxis(loops[1], ir_sch.GetBlock(tmp_out->name));
       }
     }
@@ -1263,7 +1240,7 @@ void IRCudaScheduleDepthwiseConv(ir::IRSchedule &ir_sch,  // NOLINT
                                  const std::vector<ir::Expr> &tensors) {
   if (tensors.size() == 3U) {
     PADDLE_ENFORCE_NOT_NULL(tensors[1].as_tensor(),
-                            phi::errors::InvalidArgument(
+                            ::common::errors::InvalidArgument(
                                 "The tensor at index 1 must not be null."));
     auto input_pad = ir_sch.GetBlock(tensors[1].as_tensor_ref()->name);
     ir_sch.ComputeInline(input_pad);

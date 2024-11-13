@@ -32,8 +32,6 @@
 
 PD_DECLARE_bool(cinn_enable_map_expr);
 
-PD_DECLARE_bool(cinn_new_group_scheduler);
-
 PD_DECLARE_bool(cinn_bucket_compile);
 
 namespace cinn {
@@ -99,7 +97,7 @@ std::shared_ptr<OpStrategy> StrategyForReduce(
     PADDLE_ENFORCE_LE(
         reduce_axes.size(),
         ndim,
-        phi::errors::InvalidArgument(
+        ::common::errors::InvalidArgument(
             "The reduce axes size %d should be less than or equal "
             "to the input tensor's dimension %d.",
             reduce_axes.size(),
@@ -107,7 +105,7 @@ std::shared_ptr<OpStrategy> StrategyForReduce(
     PADDLE_ENFORCE_LE(
         reduce_axes.back(),
         ndim,
-        phi::errors::InvalidArgument(
+        ::common::errors::InvalidArgument(
             "The reduce axes size %d should be less than or equal "
             "to the input tensor's dimension %d.",
             reduce_axes.back(),
@@ -127,26 +125,6 @@ std::shared_ptr<OpStrategy> StrategyForReduce(
   if (attrs.attr_store.count("keepdim")) {
     keepdim = absl::get<bool>(attrs.attr_store.at("keepdim"));
   }
-
-  auto WithoutLastDimInReduce = [](const std::vector<ir::Expr> &inshape,
-                                   const std::vector<int> &axes) {
-    // if last axis is in reduce.
-    if (std::find(axes.begin(), axes.end(), inshape.size() - 1) != axes.end() ||
-        std::find(axes.begin(), axes.end(), -1) != axes.end()) {
-      return false;
-    }
-
-    int sum_last_axes = 1;
-    for (int idx = axes.back() + 1; idx < inshape.size(); ++idx) {
-      sum_last_axes *= inshape[idx].as_int32();
-    }
-
-    if (sum_last_axes > 1) {
-      return true;
-    } else {
-      return false;
-    }
-  };
 
   framework::CINNCompute reduction_compute([=](lang::Args args,
                                                lang::RetValue *ret) {
@@ -191,39 +169,11 @@ std::shared_ptr<OpStrategy> StrategyForReduce(
       std::vector<CINNValue> cinn_values{CINNValue(out)};
       *ret = CINNValuePack{cinn_values};
     };
-    auto reductionComputeNvHygon = [&] {
-      if (!FLAGS_cinn_enable_map_expr && !FLAGS_cinn_new_group_scheduler) {
-        if (!WithoutLastDimInReduce(inputs[0]->shape, reduce_axes)) {
-          VLOG(3) << "Do Two Step Block Reduce Compute!";
-          auto res = gpu_reduce_with_last_axis_func(
-              x, reduce_axes, keepdim, tensor_name);
-
-          std::vector<CINNValue> cinn_values;
-          for (auto &t : res) {
-            cinn_values.emplace_back(t);
-          }
-          *ret = CINNValuePack{cinn_values};
-        } else {
-          VLOG(3) << "Do Block Shuffle Reduce Compute!";
-          auto res = gpu_reduce_without_last_axis_func(
-              x, reduce_axes, keepdim, tensor_name);
-
-          std::vector<CINNValue> cinn_values;
-          for (auto &t : res) {
-            cinn_values.emplace_back(t);
-          }
-          *ret = CINNValuePack{cinn_values};
-        }
-      } else {
-        NaiveCompute();
-      }
-    };
-    target.arch.Match(
-        [&](common::NVGPUArch) { reductionComputeNvHygon(); },
-        [&](std::variant<common::UnknownArch,
-                         common::X86Arch,
-                         common::ARMArch>) { NaiveCompute(); },
-        [&](common::HygonDCUArchHIP) { reductionComputeNvHygon(); });
+    target.arch.Match([&](common::NVGPUArch) { NaiveCompute(); },
+                      [&](std::variant<common::UnknownArch,
+                                       common::X86Arch,
+                                       common::ARMArch>) { NaiveCompute(); },
+                      [&](common::HygonDCUArchHIP) { NaiveCompute(); });
   });
 
   framework::CINNSchedule reduction_schedule([=](lang::Args args,
@@ -237,11 +187,11 @@ std::shared_ptr<OpStrategy> StrategyForReduce(
     CINNValuePack arg_pack = args[0];
     PADDLE_ENFORCE_GE(arg_pack.size(),
                       2UL,
-                      phi::errors::InvalidArgument(
+                      ::common::errors::InvalidArgument(
                           "The input tensor size should be greater than 2!"));
     PADDLE_ENFORCE_LE(arg_pack.size(),
                       8UL,
-                      phi::errors::InvalidArgument(
+                      ::common::errors::InvalidArgument(
                           "The input tensor size should be less than 8!"));
     std::vector<Expr> vec_ast;
     std::vector<Expr> vec_tensor;
@@ -269,129 +219,6 @@ std::shared_ptr<OpStrategy> StrategyForReduce(
     ir::ModuleExpr mod_expr(vec_ast);
     ir::IRSchedule ir_sch(mod_expr);
     ir_sch.MergeExprs();
-    const auto ReduceSchedule = [&]() {
-      if (!WithoutLastDimInReduce(inputs[0]->shape, reduce_axes)) {
-        if (arg_pack.size() == 4) {
-          PADDLE_ENFORCE_EQ(vec_tensor.size(),
-                            2,
-                            phi::errors::InvalidArgument(
-                                "The input tensor size should be 2!"));
-          Expr out = vec_tensor[0];
-          Expr tmp_out = vec_tensor[1];
-
-          VLOG(3) << "Do IRGpuScheduleBlockReduceInternal Schedule!";
-          pe::IRGpuScheduleBlockReduceInternal(
-              ir_sch, tmp_out.as_tensor_ref(), out.as_tensor_ref(), target);
-
-          std::vector<CINNValue> res{
-              CINNValue(ir_sch.GetModule().GetExprs().at(0))};
-          *ret = CINNValuePack{res};
-        } else if (arg_pack.size() == 6) {
-          PADDLE_ENFORCE_EQ(vec_tensor.size(),
-                            3,
-                            phi::errors::InvalidArgument(
-                                "The input tensor size should be 3!"));
-          Expr out = vec_tensor[0];
-          Expr tmp_out = vec_tensor[1];
-          Expr reduce_tmp_out = vec_tensor[2];
-
-          VLOG(3) << "Do IRGpuScheduleBlockReduce Schedule!";
-          pe::IRGpuScheduleBlockReduce(ir_sch,
-                                       reduce_tmp_out.as_tensor_ref(),
-                                       tmp_out.as_tensor_ref(),
-                                       out.as_tensor_ref(),
-                                       target);
-
-          std::vector<CINNValue> res{
-              CINNValue(ir_sch.GetModule().GetExprs().at(0))};
-          *ret = CINNValuePack{res};
-        } else if (arg_pack.size() == 7) {
-          PADDLE_ENFORCE_EQ(vec_tensor.size(),
-                            4,
-                            phi::errors::InvalidArgument(
-                                "The input tensor size should be 4!"));
-          Expr out = vec_tensor[0];
-          Expr tmp_out = vec_tensor[1];
-          Expr reduce_tmp_out = vec_tensor[2];
-          Expr reshape = vec_tensor[3];
-
-          VLOG(3) << "Do IRGpuTwoStepReduceSchedule Schedule!";
-          pe::IRGpuTwoStepReduceSchedule(ir_sch,
-                                         reshape.as_tensor_ref(),
-                                         reduce_tmp_out.as_tensor_ref(),
-                                         tmp_out.as_tensor_ref(),
-                                         out.as_tensor_ref(),
-                                         cinn::common::DefaultDeviceTarget());
-
-          std::vector<CINNValue> res{
-              CINNValue(ir_sch.GetModule().GetExprs().at(0))};
-          *ret = CINNValuePack{res};
-        } else if (arg_pack.size() == 5) {
-          PADDLE_ENFORCE_EQ(vec_tensor.size(),
-                            3,
-                            phi::errors::InvalidArgument(
-                                "The input tensor size should be 3!"));
-          Expr out = vec_tensor[0];
-          Expr tmp_out = vec_tensor[1];
-          Expr reduce_tmp_out = vec_tensor[2];
-
-          VLOG(3) << "Do IRGpuScheduleBlockReduce Schedule!";
-          pe::IRGpuScheduleBlockReduce(ir_sch,
-                                       reduce_tmp_out.as_tensor_ref(),
-                                       tmp_out.as_tensor_ref(),
-                                       out.as_tensor_ref(),
-                                       cinn::common::DefaultDeviceTarget());
-
-          std::vector<CINNValue> res{
-              CINNValue(ir_sch.GetModule().GetExprs().at(0))};
-          *ret = CINNValuePack{res};
-        } else {
-          PADDLE_THROW(
-              ::common::errors::InvalidArgument("Unkown Reduce Type!"));
-        }
-      } else {
-        if (arg_pack.size() == 2) {
-          PADDLE_ENFORCE_EQ(vec_tensor.size(),
-                            1,
-                            phi::errors::InvalidArgument(
-                                "The input tensor size should be 1!"));
-          Expr reduce_out = vec_tensor[0];
-
-          VLOG(3) << "Do IRGpuScheduleReduce Schedule!";
-          pe::IRGpuScheduleReduce(
-              ir_sch,
-              reduce_out.as_tensor_ref(),
-              inputs[0]->shape.size() - reduce_axes.back() - 1,
-              target);
-
-          std::vector<CINNValue> res{
-              CINNValue(ir_sch.GetModule().GetExprs().at(0))};
-          *ret = CINNValuePack{res};
-        } else if (arg_pack.size() == 6) {
-          PADDLE_ENFORCE_EQ(vec_tensor.size(),
-                            3,
-                            phi::errors::InvalidArgument(
-                                "The input tensor size should be 3!"));
-          Expr reduce_out = vec_tensor[0];
-          Expr reduce_internal = vec_tensor[1];
-          Expr reduce_reshape = vec_tensor[2];
-
-          VLOG(3) << "Do IRGpuScheduleBlockShuffleReduce Schedule!";
-          pe::IRGpuScheduleBlockShuffleReduce(ir_sch,
-                                              reduce_reshape.as_tensor_ref(),
-                                              reduce_internal.as_tensor_ref(),
-                                              reduce_out.as_tensor_ref(),
-                                              target);
-
-          std::vector<CINNValue> res{
-              CINNValue(ir_sch.GetModule().GetExprs().at(0))};
-          *ret = CINNValuePack{res};
-        } else {
-          PADDLE_THROW(
-              ::common::errors::InvalidArgument("Unkown Reduce Type!"));
-        }
-      }
-    };
     target.arch.Match([&](common::UnknownArch) { CINN_NOT_IMPLEMENTED; },
                       [&](common::X86Arch) {
                         std::vector<CINNValue> res{
@@ -404,22 +231,14 @@ std::shared_ptr<OpStrategy> StrategyForReduce(
                         *ret = CINNValuePack{res};
                       },
                       [&](common::NVGPUArch) {
-                        if (!FLAGS_cinn_new_group_scheduler) {
-                          ReduceSchedule();
-                        } else {
-                          std::vector<CINNValue> res{
-                              CINNValue(ir_sch.GetModule().GetExprs().at(0))};
-                          *ret = CINNValuePack{res};
-                        }
+                        std::vector<CINNValue> res{
+                            CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+                        *ret = CINNValuePack{res};
                       },
                       [&](common::HygonDCUArchHIP) {
-                        if (!FLAGS_cinn_new_group_scheduler) {
-                          ReduceSchedule();
-                        } else {
-                          std::vector<CINNValue> res{
-                              CINNValue(ir_sch.GetModule().GetExprs().at(0))};
-                          *ret = CINNValuePack{res};
-                        }
+                        std::vector<CINNValue> res{
+                            CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+                        *ret = CINNValuePack{res};
                       });
   });
 
@@ -472,23 +291,23 @@ std::shared_ptr<OpStrategy> StrategyForReduceSymbolic(
     PADDLE_ENFORCE_LE(
         reduce_axes.size(),
         ndim,
-        phi::errors::InvalidArgument(
+        ::common::errors::InvalidArgument(
             "The reduce axes size %d should be less than or equal "
             "to the input tensor's dimension %d.",
             reduce_axes.size(),
             ndim));
     PADDLE_ENFORCE_LT(reduce_axes.back(),
                       ndim,
-                      phi::errors::InvalidArgument(
+                      ::common::errors::InvalidArgument(
                           "The reduce axes back %d should be less than "
                           "to the input tensor's dimension %d.",
                           reduce_axes.back(),
                           ndim));
     for (int idx = 1; idx < reduce_axes.size(); ++idx) {
-      PADDLE_ENFORCE_NE(
-          reduce_axes[idx - 1],
-          reduce_axes[idx],
-          phi::errors::InvalidArgument("The reduce axes should be unique!"));
+      PADDLE_ENFORCE_NE(reduce_axes[idx - 1],
+                        reduce_axes[idx],
+                        ::common::errors::InvalidArgument(
+                            "The reduce axes should be unique!"));
     }
   } else {
     PADDLE_THROW(
@@ -510,7 +329,7 @@ std::shared_ptr<OpStrategy> StrategyForReduceSymbolic(
     CINNValuePack arg_packs = args[0];
     PADDLE_ENFORCE_EQ(arg_packs.size(),
                       2U,
-                      phi::errors::InvalidArgument(
+                      ::common::errors::InvalidArgument(
                           "There should be 2 input args for compute"));
     PADDLE_ENFORCE_EQ(arg_packs[1].is_string(),
                       true,

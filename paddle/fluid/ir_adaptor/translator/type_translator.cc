@@ -14,9 +14,9 @@
 
 #include "paddle/fluid/ir_adaptor/translator/type_translator.h"
 
-#include "paddle/fluid/framework/framework.pb.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_type.h"
 #include "paddle/fluid/pir/dialect/operator/ir/type_storage.h"
+#include "paddle/phi/core/framework/framework.pb.h"
 #include "paddle/pir/include/core/builtin_type.h"
 
 namespace paddle::translator {
@@ -40,7 +40,7 @@ TypeTranslator::TypeTranslator() {
   const auto& HandleTensor = [&](pir::IrContext* ctx,
                                  const VarDesc& var_desc) -> pir::Type {
     VLOG(10) << "[vartype translating]"
-             << "[" << var_desc.Name() << "] from LOD_TENSOR";
+             << "[" << var_desc.Name() << "] from DENSE_TENSOR";
     const pir::Type dtype =
         this->operator[](var_desc.GetDataType())(ctx, var_desc);
     const auto dim = common::make_ddim(var_desc.GetShape());
@@ -52,7 +52,7 @@ TypeTranslator::TypeTranslator() {
   const auto& HandleTensorArray = [&](pir::IrContext* ctx,
                                       const VarDesc& var_desc) -> pir::Type {
     VLOG(10) << "[vartype translating]"
-             << "[" << var_desc.Name() << "] from LOD_TENSOR_ARRAY";
+             << "[" << var_desc.Name() << "] from DENSE_TENSOR_ARRAY";
     const pir::Type dtype =
         this->operator[](var_desc.GetDataType())(ctx, var_desc);
     const auto dims = common::make_ddim(var_desc.GetShape());
@@ -185,8 +185,8 @@ TypeTranslator::TypeTranslator() {
        [&](pir::IrContext* ctx, const VarDesc& var_desc) -> pir::Type {
          return pir::Float8E5M2Type::get(ctx);
        }},
-      {VarType::LOD_TENSOR, HandleTensor},
-      {VarType::LOD_TENSOR_ARRAY, HandleTensorArray},
+      {VarType::DENSE_TENSOR, HandleTensor},
+      {VarType::DENSE_TENSOR_ARRAY, HandleTensorArray},
       {VarType::SELECTED_ROWS, HandleSelectedRows},
       {VarType::SPARSE_COO, HandleSparseCooTensor},
       {VarType::SPARSE_CSR, HandleSparseCsrTensor},

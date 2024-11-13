@@ -326,7 +326,7 @@ pir::OpInfo OpTranscriber::LookUpOpInfo(pir::IrContext* ctx,
                  paddle::framework::proto::VarType::SPARSE_CSR) {
         input_types.emplace_back("sparse_csr");
       } else if (var_desc->GetType() ==
-                 paddle::framework::proto::VarType::LOD_TENSOR) {
+                 paddle::framework::proto::VarType::DENSE_TENSOR) {
         input_types.emplace_back("dense");
       } else {
         PADDLE_THROW(common::errors::InvalidArgument(
@@ -419,7 +419,7 @@ pir::OpInfo OpTranscriber::LookUpOpInfo(pir::IrContext* ctx,
                                         op_desc.Type(),
                                         legacy_input_vars[0]));
 
-    if (var->GetType() == paddle::framework::proto::VarType::LOD_TENSOR) {
+    if (var->GetType() == paddle::framework::proto::VarType::DENSE_TENSOR) {
       need_inputs_sig.emplace_back("dense");
     } else if (var->GetType() ==
                paddle::framework::proto::VarType::SELECTED_ROWS) {
@@ -635,7 +635,7 @@ std::vector<pir::Value> OpTranscriber::GenerateOperationInput(
                                           op_desc.Type(),
                                           legacy_input_vars[0]));
       if (var->GetType() ==
-          paddle::framework::proto::VarType::LOD_TENSOR_ARRAY) {
+          paddle::framework::proto::VarType::DENSE_TENSOR_ARRAY) {
         is_vector = false;
       }
     }
@@ -725,7 +725,7 @@ OpTranscriber::GenerateOperationOutput(pir::IrContext* ctx,
                             op_desc.Type(),
                             legacy_output_vars[0]));
       if (var->GetType() ==
-          paddle::framework::proto::VarType::LOD_TENSOR_ARRAY) {
+          paddle::framework::proto::VarType::DENSE_TENSOR_ARRAY) {
         pir::Type translated_var_type =
             type_translator[var->GetType()](ctx, *var);
         op_output_types.push_back(translated_var_type);
@@ -974,7 +974,7 @@ struct Assign2AssignOpTranscriber : public OpTranscriber {
                           op_desc.Type(),
                           input_vars.size()));
     const auto* input_var = op_desc.Block()->FindVarRecursive(input_vars[0]);
-    if (input_var->GetType() == framework::proto::VarType::LOD_TENSOR_ARRAY) {
+    if (input_var->GetType() == framework::proto::VarType::DENSE_TENSOR_ARRAY) {
       target_op_name = dialect::AssignArray_Op::name();
     } else {
       return OpTranscriber::LookUpOpInfo(ctx, op_desc);
@@ -1087,6 +1087,50 @@ struct Conv2dOpTranscriber : public OpTranscriber {
                                   const OpAttributeInfo& info) override {
     if (info.name == "padding_algorithm") {
       (*attribute_map)[info.name] = pir::StrAttribute::get(ctx, "EXPLICIT");
+    }
+  }
+};
+
+struct Conv3dOpTranscriber : public OpTranscriber {
+  void HandleNonexistentAttribute(pir::IrContext* ctx,
+                                  pir::AttributeMap* attribute_map,
+                                  const OpAttributeInfo& info) override {
+    if (info.name == "padding_algorithm") {
+      (*attribute_map)[info.name] = pir::StrAttribute::get(ctx, "EXPLICIT");
+    }
+  }
+};
+
+struct ScaleOpTranscriber : public OpTranscriber {
+  void HandleNonexistentAttribute(pir::IrContext* ctx,
+                                  pir::AttributeMap* attribute_map,
+                                  const OpAttributeInfo& info) override {
+    if (info.name == "bias") {
+      (*attribute_map)[info.name] =
+          paddle::dialect::ScalarAttribute::get(ctx, phi::Scalar(0.0));
+    } else if (info.name == "bias_after_scale") {
+      (*attribute_map)[info.name] = pir::BoolAttribute::get(ctx, true);
+    }
+  }
+};
+
+struct DropoutOpTranscriber : public OpTranscriber {
+  void HandleNonexistentAttribute(pir::IrContext* ctx,
+                                  pir::AttributeMap* attribute_map,
+                                  const OpAttributeInfo& info) override {
+    if (info.name == "mode") {
+      (*attribute_map)[info.name] =
+          pir::StrAttribute::get(ctx, "downscale_in_infer");
+    }
+  }
+};
+
+struct SequencePoolOpTranscriber : public OpTranscriber {
+  void HandleNonexistentAttribute(pir::IrContext* ctx,
+                                  pir::AttributeMap* attribute_map,
+                                  const OpAttributeInfo& info) override {
+    if (info.name == "pad_value") {
+      (*attribute_map)[info.name] = pir::FloatAttribute::get(ctx, 0.0f);
     }
   }
 };
@@ -1483,6 +1527,19 @@ struct DataOpTranscriber : public FeedOpTranscriber {
              ctx, phi::Place(static_cast<phi::AllocationType>(allocate_type)))},
     };
 
+    if (static_cast<phi::AllocationType>(allocate_type) ==
+        phi::AllocationType::CUSTOM) {
+      int place_device_id =
+          PADDLE_GET_CONST(int, op_desc.GetAttr("place_device_id"));
+      std::string place_device_type =
+          PADDLE_GET_CONST(std::string, op_desc.GetAttr("place_device_type"));
+      attribute_map["place"] = paddle::dialect::PlaceAttribute::get(
+          ctx,
+          phi::Place(static_cast<phi::AllocationType>(allocate_type),
+                     place_device_id,
+                     place_device_type));
+    }
+
     return attribute_map;
   }
 };
@@ -1507,6 +1564,25 @@ struct BoxCoderOpTranscriber : public OpTranscriber {
     if (info.name == "variance") {
       std::vector<pir::Attribute> variance;
       (*attribute_map)[info.name] = pir::ArrayAttribute::get(ctx, variance);
+    }
+  }
+};
+
+struct Im2sequenceOpTranscriber : public OpTranscriber {
+  void HandleNonexistentAttribute(pir::IrContext* ctx,
+                                  pir::AttributeMap* attribute_map,
+                                  const OpAttributeInfo& info) override {
+    if (info.name == "out_stride") {
+      std::vector<pir::Attribute> vec_out_stride;
+      std::vector<int> out_stride = {1, 1};
+      for (size_t i = 0; i < static_cast<size_t>(out_stride.size()); i++) {
+        pir::Attribute attr_out_stride =
+            pir::Int32Attribute::get(pir::IrContext::Instance(), out_stride[i]);
+
+        vec_out_stride.push_back(attr_out_stride);
+      }
+      (*attribute_map)[info.name] =
+          pir::ArrayAttribute::get(ctx, vec_out_stride);
     }
   }
 };
@@ -2633,6 +2709,22 @@ struct Pool2dOpTranscriber : public OpTranscriber {
   }
 };
 
+struct Pool3dOpTranscriber : public OpTranscriber {
+  void HandleNonexistentAttribute(pir::IrContext* ctx,
+                                  pir::AttributeMap* attribute_map,
+                                  const OpAttributeInfo& info) override {
+    if (info.name == "exclusive") {
+      (*attribute_map)[info.name] = pir::BoolAttribute::get(ctx, true);
+    }
+    if (info.name == "adaptive") {
+      (*attribute_map)[info.name] = pir::BoolAttribute::get(ctx, false);
+    }
+    if (info.name == "padding_algorithm") {
+      (*attribute_map)[info.name] = pir::StrAttribute::get(ctx, "EXPLICIT");
+    }
+  }
+};
+
 pir::Attribute TranslateDtypeForArange(pir::IrContext* ctx,
                                        const OpDesc& op_desc,
                                        const OpAttributeInfo& attr_info) {
@@ -3487,7 +3579,7 @@ struct SliceOpTranscriber : public OpTranscriber {
                           op_desc.Type(),
                           input_vars.size()));
     const auto* input_var = op_desc.Block()->FindVarRecursive(input_vars[0]);
-    if (input_var->GetType() == framework::proto::VarType::LOD_TENSOR_ARRAY) {
+    if (input_var->GetType() == framework::proto::VarType::DENSE_TENSOR_ARRAY) {
       PADDLE_ENFORCE_EQ(op_desc.HasOutput("Out"),
                         true,
                         common::errors::InvalidArgument(
@@ -3508,7 +3600,7 @@ struct SliceOpTranscriber : public OpTranscriber {
                             op_desc.Type(),
                             output_vars[0]));
 
-      if (output_var->GetType() == framework::proto::VarType::LOD_TENSOR) {
+      if (output_var->GetType() == framework::proto::VarType::DENSE_TENSOR) {
         target_op_name = dialect::SliceArrayDenseOp::name();
       } else {
         target_op_name = dialect::SliceArrayOp::name();
@@ -3823,6 +3915,20 @@ struct WithXShapeAndAxisGradOpTranscriber : public OpTranscriber {
   }
 };
 
+struct SyncCommStreamOpTranscriber : public OpTranscriber {
+  pir::OpInfo LookUpOpInfo(pir::IrContext* ctx,
+                           const OpDesc& op_desc) override {
+    std::string target_op_name = "pd_op.sync_comm_stream_";
+    const auto& op_info = ctx->GetRegisteredOpInfo(target_op_name);
+    if (!op_info) {
+      PADDLE_THROW(common::errors::InvalidArgument(
+          "Op c_sync_comm_stream should have corresponding "
+          "OpInfo pd_op.sync_comm_stream_."));
+    }
+    return op_info;
+  }
+};
+
 OpTranslator::OpTranslator() {
   pir::IrContext* ctx = pir::IrContext::Instance();
   ctx->GetOrRegisterDialect<paddle::dialect::OperatorDialect>();
@@ -3836,10 +3942,12 @@ OpTranslator::OpTranslator() {
   special_handlers["range"] = ArangeOpTranscriber();
   special_handlers["cast"] = CastOpTranscriber();
   special_handlers["conv2d"] = Conv2dOpTranscriber();
+  special_handlers["conv3d"] = Conv3dOpTranscriber();
   special_handlers["cross_entropy_with_softmax"] =
       CrossEntropyWithSoftmaxOpTranscriber();
   special_handlers["data"] = DataOpTranscriber();
   special_handlers["depthwise_conv2d"] = DepthwiseConv2dOpTranscriber();
+  special_handlers["im2sequence"] = Im2sequenceOpTranscriber();
   special_handlers["feed"] = FeedOpTranscriber();
   special_handlers["fetch"] = FetchOpTranscriber();
   special_handlers["fetch_v2"] = FetchOpTranscriber();
@@ -3863,6 +3971,7 @@ OpTranslator::OpTranslator() {
   special_handlers["lookup_table"] = EmbeddingOpTranscriber();
   special_handlers["one_hot_v2"] = OneHotTranscriber();
   special_handlers["pool2d"] = Pool2dOpTranscriber();
+  special_handlers["pool3d"] = Pool3dOpTranscriber();
   special_handlers["randint"] = RandIntOpTranscriber();
   special_handlers["reduce_all"] = ReduceOpTranscriber();
   special_handlers["reduce_any"] = ReduceOpTranscriber();
@@ -3874,6 +3983,9 @@ OpTranslator::OpTranslator() {
   special_handlers["set_value_grad"] = SetValueGradOpTranscriber();
   special_handlers["shadow_output"] = ShadowOutputOpTranscriber();
   special_handlers["share_buffer"] = ShareBufferOpTranscriber();
+  special_handlers["sequence_pool"] = SequencePoolOpTranscriber();
+  special_handlers["dropout"] = DropoutOpTranscriber();
+  special_handlers["scale"] = ScaleOpTranscriber();
   special_handlers["slice"] = SliceOpTranscriber();
   special_handlers["split"] = SplitOpTranscriber();
   special_handlers["sum"] = AddNOpTranscriber();
@@ -3892,7 +4004,7 @@ OpTranslator::OpTranslator() {
   special_handlers["gather"] = GatherOpTranscriber();
   special_handlers["box_coder"] = BoxCoderOpTranscriber();
 
-  // To adapt LodTensorArray
+  // To adapt DenseTensorArray
   special_handlers["lod_array_length"] = LodArrayLengthOpTranscriber();
   special_handlers["write_to_array"] = WriteArrayOpTranscriber();
   special_handlers["read_from_array"] = ReadArrayOpTranscriber();
@@ -3927,6 +4039,8 @@ OpTranslator::OpTranslator() {
       WithXShapeAndAxisGradOpTranscriber<dialect::SqueezeGradOp>();
   special_handlers["unsqueeze2_grad"] =
       WithXShapeAndAxisGradOpTranscriber<dialect::UnsqueezeGradOp>();
+
+  special_handlers["c_sync_comm_stream"] = SyncCommStreamOpTranscriber();
 }
 }  // namespace translator
 }  // namespace paddle

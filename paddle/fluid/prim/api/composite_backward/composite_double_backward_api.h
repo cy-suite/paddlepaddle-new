@@ -159,6 +159,32 @@ void maximum_double_grad(const Tensor& x,
 }
 
 template <typename T>
+void where_double_grad(const Tensor& condition,
+                       const paddle::optional<Tensor>& grad_x_grad,
+                       const paddle::optional<Tensor>& grad_y_grad,
+                       Tensor* grad_out_grad) {
+  if (grad_out_grad) {
+    if (grad_x_grad && grad_y_grad) {
+      // ddz = ddx * cond + (1-cond) * ddy
+      auto condition_mask = cast<T>(condition, grad_x_grad.get().dtype());
+      auto ddout = condition_mask * grad_x_grad.get() +
+                   (1 - condition_mask) * grad_y_grad.get();
+      set_output<T>(ddout, grad_out_grad);
+    } else if (grad_x_grad) {
+      // ddz = ddx * cond
+      auto condition_mask = cast<T>(condition, grad_x_grad.get().dtype());
+      auto ddout = condition_mask * grad_x_grad.get();
+      set_output<T>(ddout, grad_out_grad);
+    } else if (grad_y_grad) {
+      // ddz = (1-cond) * ddy
+      auto condition_mask = cast<T>(condition, grad_y_grad.get().dtype());
+      auto ddout = (1 - condition_mask) * grad_y_grad.get();
+      set_output<T>(ddout, grad_out_grad);
+    }
+  }
+}
+
+template <typename T>
 void tanh_triple_grad(const Tensor& out,
                       const Tensor& grad_out_forward,
                       const Tensor& grad_x_grad_forward,
@@ -906,6 +932,143 @@ void abs_triple_grad(const Tensor& x,
   if (grad_grad_x_grad) {
     auto grad_grad_x_grad_tmp = sign<T>(x) * grad_out_grad_grad;
     set_output<T>(grad_grad_x_grad_tmp, grad_grad_x_grad);
+  }
+}
+
+template <typename T>
+void bmm_double_grad(const Tensor& x,
+                     const Tensor& y,
+                     const Tensor& grad_out,
+                     const paddle::optional<Tensor>& grad_x_grad,
+                     const paddle::optional<Tensor>& grad_y_grad,
+                     Tensor* x_grad,
+                     Tensor* y_grad,
+                     Tensor* grad_out_grad) {
+  if (x_grad) {
+    // dx' = bmm(dout, ddy.mT)
+    Tensor x_grad_tmp;
+    if (grad_y_grad) {
+      x_grad_tmp =
+          matmul<T>(grad_out, transpose<T>(grad_y_grad.get(), {0, 2, 1}));
+    } else {
+      x_grad_tmp = full<T>(common::vectorize(x.dims()), 0, x.dtype());
+    }
+    set_output<T>(x_grad_tmp, x_grad);
+  }
+  if (y_grad) {
+    // dy' = bmm(ddx.mT, dout)
+    Tensor y_grad_tmp;
+    if (grad_x_grad) {
+      y_grad_tmp =
+          matmul<T>(transpose<T>(grad_x_grad.get(), {0, 2, 1}), grad_out);
+    } else {
+      y_grad_tmp = full<T>(common::vectorize(y.dims()), 0, y.dtype());
+    }
+    set_output<T>(y_grad_tmp, y_grad);
+  }
+  if (grad_out_grad) {
+    // ddout = bmm(ddx, y) + bmm(x, ddy)
+    Tensor grad_out_grad_tmp;
+    if (grad_x_grad && grad_y_grad) {
+      grad_out_grad_tmp =
+          matmul<T>(grad_x_grad.get(), y) + matmul<T>(x, grad_y_grad.get());
+    } else if (grad_x_grad) {
+      grad_out_grad_tmp = matmul<T>(grad_x_grad.get(), y);
+    } else if (grad_y_grad) {
+      grad_out_grad_tmp = matmul<T>(x, grad_y_grad.get());
+    } else {
+      grad_out_grad_tmp =
+          full<T>(common::vectorize(grad_out.dims()), 0, grad_out.dtype());
+    }
+    set_output<T>(grad_out_grad_tmp, grad_out_grad);
+  }
+}
+
+template <typename T>
+void index_put_double_grad(const Tensor& x,
+                           const std::vector<Tensor>& indices,
+                           const Tensor& value,
+                           const paddle::optional<Tensor>& grad_x_grad,
+                           const paddle::optional<Tensor>& grad_value_grad,
+                           const bool& accumulate,
+                           Tensor* grad_out_grad) {
+  if (grad_out_grad) {
+    if (grad_x_grad && grad_value_grad) {
+      /*
+        ddout_{i,j} = {
+          ddx_{i, j},           (i, j) \notin indices,
+          ddv_{k},              (i, j) \in indices and accumulate is false.
+          ddx_{i, j} + ddv_{k}, (i, j) \in indices and accumulate is true.
+        }
+      */
+      Tensor grad_out_grad_tmp = grad_x_grad.get();
+      grad_out_grad_tmp = index_put<T>(
+          grad_out_grad_tmp, indices, grad_value_grad.get(), accumulate);
+      set_output<T>(grad_out_grad_tmp, grad_out_grad);
+
+    } else if (grad_x_grad) {
+      /*
+        ddout_{i,j} = {
+          ddx_{i, j},           (i, j) \notin indices,
+          0,                    (i, j) \in indices and accumulate is false.
+          ddx_{i, j},           (i, j) \in indices and accumulate is true.
+        }
+      */
+      Tensor grad_out_grad_tmp = grad_x_grad.get();
+      if (!accumulate) {
+        auto zero_to_fill =
+            full<T>(common::vectorize(value.dims()), 0, value.dtype());
+        grad_out_grad_tmp =
+            index_put<T>(grad_out_grad_tmp, indices, zero_to_fill, accumulate);
+      }
+      set_output<T>(grad_out_grad_tmp, grad_out_grad);
+
+    } else if (grad_value_grad) {
+      /*
+        ddout_{i,j} = {
+          0,                    (i, j) \notin indices,
+          ddv_{k},              (i, j) \in indices.
+        }
+      */
+      Tensor grad_out_grad_tmp =
+          full<T>(common::vectorize(x.dims()), 0, x.dtype());
+      grad_out_grad_tmp = index_put<T>(grad_out_grad_tmp,
+                                       indices,
+                                       grad_value_grad.get(),
+                                       /*accumulate*/ false);
+      set_output<T>(grad_out_grad_tmp, grad_out_grad);
+
+    } else {
+      /*
+        ddout_{i,j} = 0
+      */
+      Tensor grad_out_grad_tmp =
+          full<T>(common::vectorize(x.dims()), 0, x.dtype());
+      set_output<T>(grad_out_grad_tmp, grad_out_grad);
+    }
+  }
+}
+
+template <typename T>
+void gather_nd_double_grad(const Tensor& grad_out,
+                           const Tensor& index,
+                           const Tensor& grad_x_grad,
+                           Tensor* grad_out_grad) {
+  if (grad_out_grad) {
+    // ddout = gather_nd(ddx, index)
+    auto grad_out_grad_tmp = gather_nd<T>(grad_x_grad, index);
+    set_output<T>(grad_out_grad_tmp, grad_out_grad);
+  }
+}
+
+template <typename T>
+void reshape_double_grad(const Tensor& grad_out,
+                         const Tensor& grad_x_grad,
+                         Tensor* grad_out_grad) {
+  if (grad_out_grad) {
+    // ddout = reshape(ddx, ddout.shape)
+    auto grad_out_grad_tmp = reshape<T>(grad_x_grad, grad_out.shape());
+    set_output<T>(grad_out_grad_tmp, grad_out_grad);
   }
 }
 

@@ -81,8 +81,8 @@ class Momentum(Optimizer):
             represents the scale of base learning_rate. \
             The default value is None in static graph mode, at this time all parameters will be updated.
         use_nesterov(bool, optional): Enables Nesterov momentum. The default value is False.
-        weight_decay (float|WeightDecayRegularizer|None, optional): The strategy of regularization. \
-            It can be a float value as coeff of L2 regularization or \
+        weight_decay (int|float|WeightDecayRegularizer|None, optional): The strategy of regularization. \
+            It can be a int or float value as coeff of L2 regularization or \
             :ref:`api_paddle_regularizer_L1Decay`, :ref:`api_paddle_regularizer_L2Decay`.
             If a parameter has set regularizer using :ref:`api_paddle_ParamAttr` already, \
             the regularization setting here in optimizer will be ignored for this parameter. \
@@ -166,6 +166,8 @@ class Momentum(Optimizer):
         if momentum is None:
             raise ValueError("momentum is not set")
 
+        if isinstance(weight_decay, int):
+            weight_decay = float(weight_decay)
         predicate = lambda regular: isinstance(regular, (L2Decay, float))
         if isinstance(parameters, list):
             if isinstance(parameters[0], dict):
@@ -420,7 +422,7 @@ class Momentum(Optimizer):
                 ].append(regularization_coeff)
             else:
                 raise ValueError(
-                    "Now multi_tensor_momentum only support fp32, fp16 or bf16 parameters and grad is LOD_TENSOR."
+                    "Now multi_tensor_momentum only support fp32, fp16 or bf16 parameters and grad is DENSE_TENSOR."
                 )
 
     def _append_optimize_multi_tensor_op(
@@ -445,7 +447,7 @@ class Momentum(Optimizer):
                     if (
                         param_and_grad[0].dtype == paddle.float32
                         and param_and_grad[1].type
-                        == core.VarDesc.VarType.LOD_TENSOR
+                        == core.VarDesc.VarType.DENSE_TENSOR
                     ):
                         grad_dict['FP32_LODTensor'].append(param_and_grad[1])
                         lr = self._create_param_lr(param_and_grad)
@@ -453,7 +455,7 @@ class Momentum(Optimizer):
                     elif (
                         self._is_dtype_fp16_or_bf16(param_and_grad[0].dtype)
                         and param_and_grad[1].type
-                        == core.VarDesc.VarType.LOD_TENSOR
+                        == core.VarDesc.VarType.DENSE_TENSOR
                     ):
                         grad_dict['FP16_LODTensor'].append(param_and_grad[1])
                         lr = self._create_param_lr(param_and_grad)
@@ -476,7 +478,7 @@ class Momentum(Optimizer):
                     if (
                         param_and_grad[0].dtype == paddle.float32
                         and param_and_grad[1].type
-                        == core.VarDesc.VarType.LOD_TENSOR
+                        == core.VarDesc.VarType.DENSE_TENSOR
                     ):
                         grad_dict['FP32_LODTensor'].append(param_and_grad[1])
                         lr = self._create_param_lr(param_and_grad)
@@ -484,7 +486,7 @@ class Momentum(Optimizer):
                     elif (
                         self._is_dtype_fp16_or_bf16(param_and_grad[0].dtype)
                         and param_and_grad[1].type
-                        == core.VarDesc.VarType.LOD_TENSOR
+                        == core.VarDesc.VarType.DENSE_TENSOR
                     ):
                         grad_dict['FP16_LODTensor'].append(param_and_grad[1])
                         lr = self._create_param_lr(param_and_grad)

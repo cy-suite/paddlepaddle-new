@@ -14,8 +14,8 @@
 
 #include "paddle/fluid/framework/convert_utils.h"
 #include "paddle/fluid/framework/op_registry.h"
-#include "paddle/fluid/framework/reader.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
+#include "paddle/phi/core/framework/reader.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 namespace paddle {
 namespace operators {
@@ -86,7 +86,7 @@ class ReadInferVarType : public framework::StaticGraphVarTypeInference {
                             "The number of input reader's dtypes do not match "
                             "the output variable number."));
       for (size_t i = 0; i < dtypes.size(); ++i) {
-        SetType(ctx, out_names[i], framework::proto::VarType::LOD_TENSOR);
+        SetType(ctx, out_names[i], framework::proto::VarType::DENSE_TENSOR);
         SetDataType(ctx, out_names[i], dtypes[i]);
       }
     }

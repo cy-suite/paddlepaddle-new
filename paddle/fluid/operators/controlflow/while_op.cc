@@ -157,14 +157,13 @@ class WhileOp : public framework::OperatorBase {
                 << "input not found:" << in_name;
       }
 
-      if (var->Type() == framework::proto::VarType::LOD_TENSOR) {
+      if (var->Type() == framework::proto::VarType::DENSE_TENSOR) {
         input_var_original_places[in_name] =
             (var->Get<phi::DenseTensor>()).place();
       } else {
         VLOG(10) << "[while op]"
                  << "skip backup input " << in_name << " type:"
-                 << framework::TransToPhiDataType(
-                        framework::ToVarType(var->Type()));
+                 << phi::TransToPhiDataType(framework::ToVarType(var->Type()));
       }
     }
 
@@ -258,7 +257,7 @@ class WhileOp : public framework::OperatorBase {
           if (var->IsType<phi::DenseTensor>()) {
             // Clear all lod information for all lod_tensors.
             auto *t = var->GetMutable<phi::DenseTensor>();
-            framework::LoD empty_lod;
+            phi::LoD empty_lod;
             t->set_lod(empty_lod);
           } else if (var->IsType<phi::TensorArray>()) {
             // Clear elements of all tensor arrays.

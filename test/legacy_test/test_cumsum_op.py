@@ -28,7 +28,6 @@ import paddle
 import paddle.inference as paddle_infer
 from paddle import base
 from paddle.base import core
-from paddle.pir_utils import test_with_pir_api
 
 
 class TestCumsumOp(unittest.TestCase):
@@ -100,7 +99,6 @@ class TestCumsumOp(unittest.TestCase):
         self.run_cases()
         paddle.enable_static()
 
-    @test_with_pir_api
     def test_cpu_static(self):
         self.run_static()
 
@@ -111,7 +109,6 @@ class TestCumsumOp(unittest.TestCase):
         self.run_cases()
         paddle.enable_static()
 
-    @test_with_pir_api
     def test_gpu_static(self):
         if not base.core.is_compiled_with_cuda():
             return
@@ -502,7 +499,7 @@ create_test_bf16_class(TestSumOpReverseExclusive)
 
 
 class BadInputTest(unittest.TestCase):
-    @test_with_pir_api
+
     def test_error(self):
         paddle.enable_static()
         with paddle.static.program_guard(
@@ -539,7 +536,6 @@ class TestTensorAxis(unittest.TestCase):
         )
         np.testing.assert_allclose(np_out, pd_out.numpy())
 
-    @test_with_pir_api
     def test_static_and_infer(self):
         paddle.enable_static()
         np_x = np.random.randn(9, 10, 11).astype('float32')
@@ -614,7 +610,6 @@ class TestTensorAxis(unittest.TestCase):
                 exe = paddle.static.Executor(self.place)
                 exe.run(startup_prog)
                 static_out = exe.run(feed={'x': np_x}, fetch_list=[out])
-
                 # run infer
                 paddle.static.save_inference_model(
                     self.save_path, [x], [out], exe, program=main_prog
@@ -627,7 +622,7 @@ class TestTensorAxis(unittest.TestCase):
 
                 self.assertEqual(
                     len(load_program.global_block().ops),
-                    11,
+                    9,
                 )
                 print(load_program)
                 self.assertEqual(
@@ -643,7 +638,7 @@ class TestTensorAxis(unittest.TestCase):
 
 
 class TestCumSumOpFp16(unittest.TestCase):
-    @test_with_pir_api
+
     def test_fp16(self):
         if core.is_compiled_with_cuda():
             paddle.enable_static()

@@ -672,13 +672,11 @@ void EagerGradientAccumulator::SumGrad(std::shared_ptr<VariableWrapper> var,
         VLOG(6) << "Dims of " << dst_var->Name()
                 << " is set as: " << var->Var().Get<phi::DenseTensor>().dims();
         tensor->Resize(var->Var().Get<phi::DenseTensor>().dims());
-        tensor->mutable_data(place,
-                             framework::TransToPhiDataType(var->DataType()));
+        tensor->mutable_data(place, phi::TransToPhiDataType(var->DataType()));
         phi::funcs::set_constant(*dev_ctx, tensor, 0.0f);
       } else {
         auto* tensor = dst_var->MutableVar()->GetMutable<phi::DenseTensor>();
-        tensor->mutable_data(place,
-                             framework::TransToPhiDataType(var->DataType()));
+        tensor->mutable_data(place, phi::TransToPhiDataType(var->DataType()));
         phi::funcs::set_constant(*dev_ctx, tensor, 0.0f);
       }
     }
@@ -687,7 +685,7 @@ void EagerGradientAccumulator::SumGrad(std::shared_ptr<VariableWrapper> var,
   // Type may be changed after OP run, such as VarTypeInference
   // so synchronous VariableWrapper with Variable.
   if (dst_var->Var().IsType<phi::DenseTensor>()) {
-    dst_var->SetType(framework::proto::VarType::LOD_TENSOR);
+    dst_var->SetType(framework::proto::VarType::DENSE_TENSOR);
   } else if (dst_var->Var().IsType<phi::SelectedRows>()) {
     dst_var->SetType(framework::proto::VarType::SELECTED_ROWS);
   }
@@ -812,13 +810,11 @@ void SortedGradientAccumulator::SumGrad(std::shared_ptr<VariableWrapper> var,
         VLOG(6) << "Dims of " << dst_var->Name()
                 << " is set as: " << var->Var().Get<phi::DenseTensor>().dims();
         tensor->Resize(var->Var().Get<phi::DenseTensor>().dims());
-        tensor->mutable_data(place,
-                             framework::TransToPhiDataType(var->DataType()));
+        tensor->mutable_data(place, phi::TransToPhiDataType(var->DataType()));
         phi::funcs::set_constant(*dev_ctx, tensor, 0.0f);
       } else {
         auto* tensor = dst_var->MutableVar()->GetMutable<phi::DenseTensor>();
-        tensor->mutable_data(place,
-                             framework::TransToPhiDataType(var->DataType()));
+        tensor->mutable_data(place, phi::TransToPhiDataType(var->DataType()));
         phi::funcs::set_constant(*dev_ctx, tensor, 0.0f);
       }
     }
@@ -827,7 +823,7 @@ void SortedGradientAccumulator::SumGrad(std::shared_ptr<VariableWrapper> var,
   }
 
   if (dst_var->Var().IsType<phi::DenseTensor>()) {
-    dst_var->SetType(framework::proto::VarType::LOD_TENSOR);
+    dst_var->SetType(framework::proto::VarType::DENSE_TENSOR);
   } else if (dst_var->Var().IsType<phi::SelectedRows>()) {
     dst_var->SetType(framework::proto::VarType::SELECTED_ROWS);
   }

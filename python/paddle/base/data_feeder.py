@@ -60,6 +60,8 @@ _PADDLE_DTYPE_2_NUMPY_DTYPE = {
     core.VarDesc.VarType.UINT8: 'uint8',
     core.VarDesc.VarType.COMPLEX64: 'complex64',
     core.VarDesc.VarType.COMPLEX128: 'complex128',
+    core.VarDesc.VarType.STRING: 'pstring',
+    core.VarDesc.VarType.RAW: 'raw',
 }
 
 _NUMPY_DTYPE_2_PADDLE_DTYPE = {
@@ -136,6 +138,7 @@ def convert_dtype(dtype: DTypeLike) -> _DTypeLiteral:
             'uint16',
             'float32',
             'float64',
+            'int4',
             'int8',
             'int16',
             'int32',

@@ -164,7 +164,7 @@ static void InitVarBaseOnly(imperative::VarBase *self,
     self->SetOverriddenStopGradient(stop_gradient);
   }
   self->SetPersistable(persistable);
-  self->SetType(framework::proto::VarType::LOD_TENSOR);
+  self->SetType(framework::proto::VarType::DENSE_TENSOR);
 }
 
 // initialize varbase and its tensor.
@@ -250,7 +250,7 @@ static void InitVarBaseFromNumpyWithArg(imperative::VarBase *self,
     self->SetOverriddenStopGradient(stop_gradient);
   }
   SetTensorFromPyArray<P>(tensor, array, place, zero_copy);
-  self->SetType(framework::proto::VarType::LOD_TENSOR);
+  self->SetType(framework::proto::VarType::DENSE_TENSOR);
   self->SetDataType(framework::TransToProtoVarType(tensor->dtype()));
 }
 
@@ -272,7 +272,7 @@ static void InitVarBaseFromTensorWithArgDefault(imperative::VarBase *self,
                    : name;
   new (self) imperative::VarBase(name_);
   self->SetPersistable(false);
-  self->SetType(framework::proto::VarType::LOD_TENSOR);
+  self->SetType(framework::proto::VarType::DENSE_TENSOR);
   self->SetDataType(framework::TransToProtoVarType(tensor.dtype()));
   auto *new_tensor = self->MutableVar()->GetMutable<phi::DenseTensor>();
   // Same place, share data directly
@@ -297,7 +297,7 @@ static void InitVarBaseFromTensorWithArg(imperative::VarBase *self,
                    : name;
   new (self) imperative::VarBase(name_);
   self->SetPersistable(false);
-  self->SetType(framework::proto::VarType::LOD_TENSOR);
+  self->SetType(framework::proto::VarType::DENSE_TENSOR);
   self->SetDataType(framework::TransToProtoVarType(tensor.dtype()));
   auto *new_tensor = self->MutableVar()->GetMutable<phi::DenseTensor>();
   // Same place, share data directly
@@ -629,6 +629,10 @@ void BindImperative(py::module *m_ptr) {
           egr::Controller::Instance().SetCurrentTracer(tracer);
           imperative::SetCurrentTracer(tracer);
         });
+  m.def("_has_grad", []() { return egr::Controller::Instance().HasGrad(); });
+  m.def("_set_has_grad", [](bool has_grad) {
+    return egr::Controller::Instance().SetHasGrad(has_grad);
+  });
   m.def("_get_amp_attrs",
         []() { return egr::Controller::Instance().GetCurrentAmpAttrs(); });
   m.def("_set_amp_op_list",

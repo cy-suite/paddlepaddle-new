@@ -116,16 +116,21 @@ pir::Block &PyLayerOp::forward_block() {
 void PyLayerOp::Print(pir::IrPrinter &printer) {
   auto &os = printer.os;
   auto op = operation();
-  printer.PrintOpResult(op);
+  printer.PrintOpResult(*op);
   os << " = pd_op.pylayer";
-  printer.PrintOpOperands(op);
-  printer.PrintAttributeMap(op);
+
+  if (VLOG_IS_ON(1)) {
+    os << " [id:" << op->id() << "]";
+  }
+
+  printer.PrintOpOperands(*op);
+  printer.PrintAttributeMap(*op);
   os << " -> ";
-  printer.PrintOpReturnType(op);
+  printer.PrintOpReturnType(*op);
   os << "{";
   for (auto &item : forward_block()) {
     os << "\n  ";
-    printer.PrintOperation(&item);
+    printer.PrintOperation(item);
   }
   os << "\n }";
 }

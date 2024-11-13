@@ -84,10 +84,10 @@ class AddNArrayOp : public pir::Op<AddNArrayOp,
       pir::AttributeMap *p_attributes);
 };
 
-class FusedGemmEpilogueOp
-    : public pir::Op<FusedGemmEpilogueOp,
-                     paddle::dialect::OpYamlInfoInterface,
-                     paddle::dialect::InferMetaInterface> {
+class FusedGemmEpilogueOp : public pir::Op<FusedGemmEpilogueOp,
+                                           paddle::dialect::OpYamlInfoInterface,
+                                           paddle::dialect::InferMetaInterface,
+                                           InferSymbolicShapeInterface> {
  public:
   using Op::Op;
   static const char *name() { return "pd_op.fused_gemm_epilogue"; }
@@ -112,6 +112,7 @@ class FusedGemmEpilogueOp
   static std::vector<pir::Type> InferMeta(
       const std::vector<pir::Value> &input_values,
       pir::AttributeMap *p_attributes);
+  bool InferSymbolicShape(pir::InferSymbolicShapeContext *infer_context);
 };
 
 class TEST_API FusedGemmEpilogueGradOp
@@ -841,6 +842,20 @@ class TEST_API ArrayPopOp
       pir::AttributeMap *p_attributes);
 };
 
+class ShareVarOp : public pir::Op<ShareVarOp, pir::SideEffectTrait> {
+ public:
+  using Op::Op;
+  static const char *name() { return "pd_op.share_var"; }
+  static constexpr const char **attributes_name = nullptr;
+  static constexpr uint32_t attributes_num = 0;
+  TEST_API static void Build(pir::Builder &builder,             // NOLINT
+                             pir::OperationArgument &argument,  // NOLINT
+                             const std::vector<pir::Value> &inputs) {
+    argument.AddInputs(inputs);
+  }
+  void VerifySig() {}
+};
+
 }  // namespace dialect
 }  // namespace paddle
 
@@ -868,3 +883,4 @@ IR_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::Increment_Op)
 IR_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::ShapeBroadcastOp)
 IR_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::MemcpyD2hMultiIoOp)
 IR_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::ArrayPopOp)
+IR_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::ShareVarOp)

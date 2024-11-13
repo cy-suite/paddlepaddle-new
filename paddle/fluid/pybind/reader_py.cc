@@ -25,13 +25,13 @@
 
 #include "paddle/common/ddim.h"
 #include "paddle/common/flags.h"
-#include "paddle/fluid/framework/reader.h"
 #include "paddle/fluid/imperative/layer.h"
 #include "paddle/fluid/imperative/tracer.h"
-#include "paddle/fluid/operators/reader/buffered_reader.h"
-#include "paddle/fluid/operators/reader/lod_tensor_blocking_queue.h"
-#include "paddle/fluid/operators/reader/py_reader.h"
 #include "paddle/phi/common/place.h"
+#include "paddle/phi/core/framework/reader.h"
+#include "paddle/phi/core/operators/reader/buffered_reader.h"
+#include "paddle/phi/core/operators/reader/lod_tensor_blocking_queue.h"
+#include "paddle/phi/core/operators/reader/py_reader.h"
 #include "pybind11/stl.h"
 
 COMMON_DECLARE_bool(reader_queue_speed_test_mode);
@@ -376,7 +376,7 @@ void BindMultiDeviceReader(py::module *module, const char *reader_name) {
                       "generated_var");
               auto new_var = std::make_shared<imperative::VarBase>(act_name);
               new_var->SetPersistable(false);
-              new_var->SetType(framework::proto::VarType::LOD_TENSOR);
+              new_var->SetType(framework::proto::VarType::DENSE_TENSOR);
               new_var->SetDataType(
                   framework::TransToProtoVarType(lod_tensor.dtype()));
               auto *tensor =

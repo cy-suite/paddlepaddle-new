@@ -298,6 +298,7 @@ try:
         _get_phi_kernel_name,
         _get_registered_phi_kernels,
         _get_use_default_grad_op_desc_maker_ops,
+        _has_grad,
         _is_compiled_with_heterps,
         _is_dygraph_debug_enabled,
         _is_program_version_supported,
@@ -311,6 +312,7 @@ try:
         _set_eager_deletion_mode,
         _set_fuse_parameter_group_size,
         _set_fuse_parameter_memory_size,
+        _set_has_grad,
         _set_paddle_lib_path,
         _set_warmup,
         _switch_tracer,
@@ -447,7 +449,7 @@ def _prim_return_log():
 # # # _set_prim_all_enabled > FLAGS_prim_all > check_and_set_prim_all_enabled == _set_prim_backward_enabled == _set_prim_backward_enabled > FLAGS_prim_forward == FLAGS_prim_backward
 # else:
 # # # _set_prim_all_enabled > FLAGS_prim_all == check_and_set_prim_all_enabled == _set_prim_backward_enabled == _set_prim_backward_enabled > FLAGS_prim_forward == FLAGS_prim_backward
-def __sync_stat_with_flag(flag):
+def __sync_stat_with_flag(flag, print_flag=True):
     if flag == "FLAGS_prim_forward":
         flag_value = os.getenv("FLAGS_prim_forward")
         assert flag_value is not None
@@ -458,7 +460,8 @@ def __sync_stat_with_flag(flag):
             __set_fwd_prim_enabled(True)
         else:
             raise TypeError(f"flag {flag} should be true or false.")
-        print("forward prim enabled: ", bool(_is_fwd_prim_enabled()))
+        if print_flag:
+            print("forward prim enabled: ", bool(_is_fwd_prim_enabled()))
     elif flag == "FLAGS_prim_backward":
         flag_value = os.getenv("FLAGS_prim_backward")
         assert flag_value is not None
@@ -469,7 +472,8 @@ def __sync_stat_with_flag(flag):
             __set_bwd_prim_enabled(True)
         else:
             raise TypeError(f"flag {flag} should be true or false.")
-        print("backward prim enabled: ", bool(_is_bwd_prim_enabled()))
+        if print_flag:
+            print("backward prim enabled: ", bool(_is_bwd_prim_enabled()))
     elif flag == "FLAGS_prim_all":
         flag_value = os.getenv("FLAGS_prim_all")
         assert flag_value is not None
@@ -480,10 +484,11 @@ def __sync_stat_with_flag(flag):
             __set_all_prim_enabled(True)
         else:
             raise TypeError(f"flag {flag} should be true or false.")
-        print(
-            "all prim enabled: ",
-            bool(_is_fwd_prim_enabled() and _is_bwd_prim_enabled()),
-        )
+        if print_flag:
+            print(
+                "all prim enabled: ",
+                bool(_is_fwd_prim_enabled() and _is_bwd_prim_enabled()),
+            )
     else:
         raise TypeError(
             f"We only support FLAGS_prim_forward/FLAGS_prim_backward/FLAGS_prim_all but we got {flag}."
@@ -637,16 +642,16 @@ def __sync_prim_forward_status():
         __sync_stat_with_flag("FLAGS_prim_forward")
 
 
-def check_and_set_prim_all_enabled():
+def check_and_set_prim_all_enabled(print_flag=False):
     flag_value = os.getenv("FLAGS_prim_all")
     if flag_value is None:
         __sync_prim_backward_status()
         __sync_prim_forward_status()
     else:
-        __sync_stat_with_flag("FLAGS_prim_all")
+        __sync_stat_with_flag("FLAGS_prim_all", print_flag)
 
 
-check_and_set_prim_all_enabled()
+check_and_set_prim_all_enabled(True)
 
 
 SKIPPED_PRIM_VJP_DEFAULT_OPS = ["matmul_grad"]

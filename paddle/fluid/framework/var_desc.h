@@ -22,8 +22,8 @@ limitations under the License. */
 #include "glog/logging.h"
 #include "paddle/fluid/distributed/auto_parallel/dist_attr.h"
 #include "paddle/fluid/framework/attribute.h"
-#include "paddle/fluid/framework/framework.pb.h"
 #include "paddle/fluid/framework/type_defs.h"
+#include "paddle/phi/core/framework/framework.pb.h"
 #include "paddle/utils/test_macros.h"
 
 namespace paddle {
@@ -68,7 +68,7 @@ class TEST_API VarDesc {
   explicit VarDesc(const std::string &name) {
     desc_.set_name(name);
     // TODO(paddle-dev): Why default to lodtensor.
-    desc_.mutable_type()->set_type(proto::VarType::LOD_TENSOR);
+    desc_.mutable_type()->set_type(proto::VarType::DENSE_TENSOR);
     need_updated_ = true;
   }
 

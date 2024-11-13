@@ -14,10 +14,12 @@
 
 from __future__ import annotations
 
+import functools
 import math
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
+from typing_extensions import overload
 
 import paddle
 from paddle import _C_ops
@@ -50,7 +52,7 @@ if TYPE_CHECKING:
         DTypeLike,
         NestedList,
         NestedSequence,
-        Numberic,
+        Numeric,
         ShapeLike,
         TensorOrTensors,
     )
@@ -65,7 +67,7 @@ def tensor_array_to_tensor(
     name: str | None = None,
 ) -> tuple[Tensor, Tensor]:
     r"""
-    This function concatenates or stacks all tensors in the input LoDTensorArray
+    This function concatenates or stacks all tensors in the input DenseTensorArray
     along the axis mentioned and returns that as the output.
 
     For Example:
@@ -292,7 +294,7 @@ def cast_(x: Tensor, dtype: DTypeLike) -> Tensor:
     Please refer to :ref:`api_paddle_cast`.
     """
     if in_dynamic_mode():
-        if not isinstance(dtype, core.VarDesc.VarType):
+        if not isinstance(dtype, (core.VarDesc.VarType, core.DataType)):
             dtype = convert_np_dtype_to_dtype_(dtype)
         return _C_ops.cast_(x, dtype)
 
@@ -336,6 +338,13 @@ def slice(
                 ends = [-1, 1000]       # -1 denotes the reverse 0th position of dimension 0.
             Then:
                 result = [ [2, 3, 4], ] # result = data[0:1, 1:4]
+
+    The following figure illustrates the first case -- a 2D tensor of shape [2, 4] is transformed into a 2D tensor of shape [1, 3] through a slicing operation.
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/slice.png
+        :width: 500
+        :alt: legend of slice API
+        :align: center
 
     Args:
         input (Tensor): A ``Tensor`` . The data type is ``float16``, ``float32``, ``float64``, ``int32`` or ``int64``.
@@ -794,6 +803,13 @@ def crop(
                               [5, 6, 7]],
                              [[3, 4, 5],
                               [6, 7, 8]]]
+
+    The image below demonstrates the  Case 2 that a 3D tensor with shape [2,3,4] is cropped into a 3D tensor with shape [2,2,3]
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/crop.png
+       :width: 500
+       :alt: Illustration of Case 2
+       :align: center
 
     Parameters:
         x (Tensor): 1-D to 6-D Tensor, the data type is float32, float64, int32 or int64.
@@ -1477,13 +1493,13 @@ def concat(
             dtype=helper.input_dtype()
         )
 
-        if input[0].desc.type() == core.VarDesc.VarType.LOD_TENSOR_ARRAY:
+        if input[0].desc.type() == core.VarDesc.VarType.DENSE_TENSOR_ARRAY:
             # NOTE(liym27): Don't remove this if branch!
             # This feature is supported for Dynamic-to-Static, because after transformed, the type of inputs[0]
-            # is LOD_TENSOR_ARRAY in some scenarios. And this feature can be used in static graph mode.
+            # is DENSE_TENSOR_ARRAY in some scenarios. And this feature can be used in static graph mode.
 
             assert len(input) == 1, (
-                "If the elements of 'input' in concat are Variable(LoDTensorArray), "
+                "If the elements of 'input' in concat are Variable(DenseTensorArray), "
                 f"number of the elements must be 1, but received {len(input)}."
             )
             out_index = helper.create_variable_for_type_inference(dtype="int32")
@@ -1635,6 +1651,13 @@ def flip(
 ) -> Tensor:
     """
     Reverse the order of a n-D tensor along given axis in axis.
+
+    The image below illustrates how ``flip`` works.
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/flip.png
+        :width: 500
+        :alt: legend of flip API
+        :align: center
 
     Args:
         x (Tensor): A Tensor(or LoDTensor) with shape :math:`[N_1, N_2,..., N_k]` . The data type of the input Tensor x
@@ -2004,6 +2027,13 @@ def roll(
         name(str|None, optional): The default value is None.  Normally there is no need for user to set this property.
                 For more information, please refer to :ref:`api_guide_Name` .
 
+    The image below shows a 2D tensor `[[1,2,3],[4,5,6],[7,8,9]]` being transformed into tensors with
+    different shapes through the roll operation.
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/roll.png
+        :width: 700
+        :align: center
+        :alt: legend of roll API
 
     Returns:
         Tensor, A Tensor with same data type as `x`.
@@ -2241,11 +2271,11 @@ def stack(
         return _C_ops.stack(x, axis)
 
     if not isinstance(x, list) and not isinstance(x, tuple):
-        # NOTE:(zhiqiu) Only support Variable as input if the Variable is a LOD_TENSOR_ARRAY create by create_array, array_write, array_read, etc.
+        # NOTE:(zhiqiu) Only support Variable as input if the Variable is a DENSE_TENSOR_ARRAY create by create_array, array_write, array_read, etc.
         # In that case, Variable is array of tensors indeed.
         if (
             isinstance(x, Variable)
-            and x.desc.type() == core.VarDesc.VarType.LOD_TENSOR_ARRAY
+            and x.desc.type() == core.VarDesc.VarType.DENSE_TENSOR_ARRAY
         ) or (
             isinstance(x, paddle.pir.Value) and x.is_dense_tensor_array_type()
         ):
@@ -2263,7 +2293,7 @@ def stack(
     if in_pir_mode():
         if x[0].is_dense_tensor_array_type():
             assert len(x) == 1, (
-                "If the elements of 'x' in stack are Variable(LoDTensorArray), "
+                "If the elements of 'x' in stack are Variable(DenseTensorArray), "
                 f"number of the elements must be 1, but received {len(x)}."
             )
             out, _ = _C_ops.array_to_tensor(x, axis, True)
@@ -2274,9 +2304,9 @@ def stack(
     helper = LayerHelper('stack', **locals())
 
     out = helper.create_variable_for_type_inference(x[0].dtype)
-    if x[0].desc.type() == core.VarDesc.VarType.LOD_TENSOR_ARRAY:
+    if x[0].desc.type() == core.VarDesc.VarType.DENSE_TENSOR_ARRAY:
         assert len(x) == 1, (
-            "If the elements of 'x' in stack are Variable(LoDTensorArray), "
+            "If the elements of 'x' in stack are Variable(DenseTensorArray), "
             f"number of the elements must be 1, but received {len(x)}."
         )
         out_index = helper.create_variable_for_type_inference(dtype="int32")
@@ -2385,6 +2415,13 @@ def vstack(x: Sequence[Tensor], name: str | None = None) -> Tensor:
     """
     Stacks all the input tensors ``x`` along vertical axis.
     All tensors must be of the same dtype.
+
+    The image below illustrates how ``vstack`` works.
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/vstack.png
+        :width: 500
+        :alt: legend of vstack API
+        :align: center
 
     Args:
         x (list[Tensor]|tuple[Tensor]): Input ``x`` can be a ``list`` or ``tuple`` of tensors, the Tensors in ``x`` must be of the same
@@ -4364,6 +4401,19 @@ def chunk(
     """
     Split the input tensor into multiple sub-Tensors.
 
+    Here are some examples to explain it.
+
+        - 1. Given a 3-D tensor x with a shape [3, 3, 3], if we split the first dimension into three equal parts, it will output a list containing three 3-D tensors with a shape of [1, 3, 3].
+        - 2. Given a 3-D tensor x with a shape [3, 3, 3], if we split the second dimension into three equal parts, it will output a list containing three 3-D tensors with a shape of [3, 1, 3].
+        - 3. Given a 3-D tensor x with a shape [3, 3, 3], if we split the third dimension into three equal parts, it will output a list containing three 3-D tensors with a shape of [3, 3, 1].
+
+    The following figure illustrates the first example.
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/chunk.png
+        :width: 800
+        :alt: legend of reshape API
+        :align: center
+
     Args:
         x (Tensor): A N-D Tensor. The data type is bool, float16, float32, float64, int32 or int64.
         chunks(int): The number of tensor to be split along the certain axis.
@@ -4459,8 +4509,9 @@ def tile(
         else:
             for elem in repeat_times:
                 if isinstance(elem, (Variable, paddle.pir.Value)):
+                    numel = functools.reduce(lambda x, y: x * y, elem.shape, 1)
                     assert (
-                        elem.numel() == 1
+                        numel == 1
                     ), 'Elements in repeat_times must be Tensor with one element or integers.'
                 else:
                     type_tuple = (int, np.int32, np.int64)
@@ -4550,6 +4601,13 @@ def expand_as(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
     Expand the input tensor ``x`` to the same shape as the input tensor ``y``.
 
     Both the number of dimensions of ``x`` and ``y`` must be less than or equal to 6, and the number of dimensions of ``y`` must be greater than or equal to that of ``x``. The dimension to expand must have a value of 0.
+
+    The following diagram illustrates how a one-dimensional tensor is transformed into a tensor with a shape of [2,3] through the expand_as operation. The target tensor has a shape of [2,3], and through expand_as, the one-dimensional tensor is expanded into a tensor with a shape of [2,3].
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/expand_as.png
+        :width: 800
+        :alt: expand_as API
+        :align: center
 
     Args:
         x (Tensor): The input tensor, its data type is bool, float32, float64, int32 or int64.
@@ -5914,6 +5972,13 @@ def as_complex(x: Tensor, name: str | None = None) -> Tensor:
     the size of the last axis should be 2, which represent the real and imag part
     of a complex number. The shape of the returned tensor is ``(*,)``.
 
+    The image below demonstrates the case that a real 3D-tensor with shape [2, 3, 2] is transformed into a complex 2D-tensor with shape [2, 3].
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/as_complex.png
+       :width: 500
+       :alt: Illustration of as_complex
+       :align: center
+
     Args:
         x (Tensor): The input tensor. Data type is 'float32' or 'float64'.
         name (str|None, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
@@ -6203,10 +6268,16 @@ def moveaxis(
 
 
 def masked_fill(
-    x, mask: Tensor, value: Numberic, name: str | None = None
+    x, mask: Tensor, value: Numeric, name: str | None = None
 ) -> Tensor:
     """
     Fills elements of self tensor with value where mask is True. The shape of mask must be broadcastable with the shape of the underlying tensor.
+
+    The following figure shows an example: consider a 3x3 matrix `x`,where all elements have a value of 1, and a matrix `mask` of the same size, and `value` is 3.
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/masked_fill.png
+       :width: 700
+       :align: center
 
     Args:
         x (Tensor) : The Destination Tensor. Supported data types are float,
@@ -6249,25 +6320,11 @@ def masked_fill(
 
 @inplace_apis_in_dygraph_only
 def masked_fill_(
-    x, mask: Tensor, value: Numberic, name: str | None = None
+    x, mask: Tensor, value: Numeric, name: str | None = None
 ) -> Tensor:
     """
     Inplace version of ``masked_fill`` API, the output Tensor will be inplaced with input ``x``.
     Please refer to :ref:`api_paddle_masked_fill`.
-
-    Examples:
-        .. code-block:: python
-
-            >>> # doctest: +REQUIRES(env:GPU)
-            >>> import paddle
-            >>> x = paddle.ones((3, 3), dtype="float32")
-            >>> mask = paddle.to_tensor([[True, False, False]])
-            >>> out = paddle.masked_fill_(x, mask, 2)
-            >>> print(out)
-            Tensor(shape=[3, 3], dtype=float32, place=Place(gpu:0), stop_gradient=True,
-                   [[2., 1., 1.],
-                    [2., 1., 1.],
-                    [2., 1., 1.]])
     """
     if np.isscalar(value):
         value = paddle.full([], value, x.dtype)
@@ -6298,6 +6355,29 @@ def non_negative_axis(arr, axis):
     return axis
 
 
+def infer_dynamic_broadcast_shape(
+    arr_shape: Tensor, arr_shape_dim: int, indices_shape: Tensor, axis: int
+) -> Tensor:
+    """
+    Find the broadcast shape for indices when `arr` has a dynamic shape.
+
+    Args:
+        arr_shape (Tensor): Shape tensor of arr.
+        arr_shape_dim (int): Dimensions of arr.
+        indices_shape (Tensor): Shape tensor of indices.
+        axis (int): The axis to put 1d slices along.
+
+    Returns:
+        Tensor: The shape tensor for later broadcasting
+    """
+    new_shapes = [
+        arr_shape[:axis],
+        indices_shape[axis : axis + 1],
+        arr_shape[axis + 1 :],
+    ]
+    return paddle.concat(new_shapes)
+
+
 def infer_broadcast_shape(
     arr: Tensor, indices: Tensor, axis: int | Tensor
 ) -> tuple[int] | None:
@@ -6319,9 +6399,10 @@ def take_along_axis(
     Take values from the input array by given indices matrix along the designated axis.
 
     Args:
-        arr (Tensor) : The input Tensor. Supported data types are float32 and float64.
+        arr (Tensor) : The input Tensor. Supported data types are bfloat16, float16, float32, float64,
+            int32, int64, uint8.
         indices (Tensor) : Indices to take along each 1d slice of arr. This must match the dimension of arr,
-            and need to broadcast against arr. Supported data type are int and int64.
+            and need to broadcast against arr. Supported data type are int32 and int64.
         axis (int) : The axis to take 1d slices along.
         broadcast (bool, optional): whether the indices broadcast.
 
@@ -6415,9 +6496,10 @@ def put_along_axis(
     Put values into the destination array by given indices matrix along the designated axis.
 
     Args:
-        arr (Tensor) : The Destination Tensor. Supported data types are float32 and float64.
+        arr (Tensor) : The Destination Tensor. Supported data types are bfloat16, float16, float32, float64,
+            int32, int64, uint8.
         indices (Tensor) : Indices to put along each 1d slice of arr. This must match the dimension of arr,
-            and need to broadcast against arr if broadcast is 'True'. Supported data type are int and int64.
+            and need to broadcast against arr if broadcast is 'True'. Supported data type are int32 and int64.
         values (scalar|Tensor) : The value element(s) to put. The data types should be same as arr.
         axis (int) : The axis to put 1d slices along.
         reduce (str, optional): The reduce operation, default is 'assign', support 'add', 'assign', 'mul', 'multiply', 'mean', 'amin' and 'amax'.
@@ -6481,22 +6563,45 @@ def put_along_axis(
              [60, 40, 50]])
 
     """
+
+    def has_dynamic_shape(shapes):
+        return any(shape < 0 for shape in shapes)
+
     if len(arr.shape) != len(indices.shape):
         raise ValueError(
             "`indices` and `arr` must have the same number of dimensions!"
         )
     axis = non_negative_axis(arr, axis)
     if broadcast:
-        broadcast_shape = infer_broadcast_shape(arr, indices, axis)
-        if in_dynamic_or_pir_mode():
+        if has_dynamic_shape(arr.shape) or has_dynamic_shape(indices.shape):
+            arr_shape = paddle.shape(arr)
+            indices_shape = paddle.shape(indices)
+            broadcast_shape = infer_dynamic_broadcast_shape(
+                arr_shape, arr.ndim, indices_shape, axis
+            )
             values = (
                 paddle.to_tensor(values)
-                if not isinstance(values, (paddle.Tensor, paddle.pir.Value))
+                if not isinstance(
+                    values, (paddle.Tensor, paddle.pir.Value, Variable)
+                )
                 else values
             )
-        if broadcast_shape:
             indices = paddle.broadcast_to(indices, broadcast_shape)
-        values = paddle.broadcast_to(values, indices.shape)
+            values = paddle.broadcast_to(values, broadcast_shape)
+        else:
+            broadcast_shape = infer_broadcast_shape(arr, indices, axis)
+            values = (
+                paddle.to_tensor(values)
+                if not isinstance(
+                    values, (paddle.Tensor, paddle.pir.Value, Variable)
+                )
+                else values
+            )
+            if broadcast_shape:
+                indices = paddle.broadcast_to(indices, broadcast_shape)
+                values = paddle.broadcast_to(values, broadcast_shape)
+            else:
+                values = paddle.broadcast_to(values, indices.shape)
     else:
         if isinstance(values, (paddle.Tensor, paddle.pir.Value)):
             if len(indices.shape) != len(values.shape):
@@ -6705,29 +6810,26 @@ def index_add_(
     """
     Inplace version of ``index_add`` API, the output Tensor will be inplaced with input ``x``.
     Please refer to :ref:`api_paddle_index_add`.
-
-    Examples:
-        .. code-block:: python
-
-            >>> # doctest: +REQUIRES(env:GPU)
-            >>> import paddle
-            >>> paddle.device.set_device('gpu')
-
-            >>> input_tensor = paddle.to_tensor(paddle.ones((3, 3)), dtype="float32")
-            >>> index = paddle.to_tensor([0, 2], dtype="int32")
-            >>> value = paddle.to_tensor([[1, 1], [1, 1], [1, 1]], dtype="float32")
-            >>> inplace_res = paddle.index_add_(input_tensor, index, 1, value)
-            >>> print(inplace_res)
-            Tensor(shape=[3, 3], dtype=float32, place=Place(gpu:0), stop_gradient=True,
-            [[2., 1., 2.],
-             [2., 1., 2.],
-             [2., 1., 2.]])
     """
     return _C_ops.index_add_(x, index, value, axis)
 
 
 @inplace_apis_in_dygraph_only
 def index_put_(
+    x: Tensor,
+    indices: Sequence[Tensor],
+    value: Tensor,
+    accumulate: bool = False,
+    name: str | None = None,
+) -> Tensor:
+    """
+    Inplace version of ``index_put`` API, the output Tensor will be inplaced with input ``x``.
+    Please refer to :ref:`api_paddle_index_put`.
+    """
+    return _C_ops.index_put_(x, indices, value, accumulate)
+
+
+def index_put(
     x: Tensor,
     indices: Sequence[Tensor],
     value: Tensor,
@@ -6749,43 +6851,6 @@ def index_put_(
 
     Returns:
         Tensor, same dimension and dtype with x.
-
-    Examples:
-        .. code-block:: python
-
-            >>> import paddle
-
-            >>> x = paddle.zeros([3, 3])
-            >>> value = paddle.ones([3])
-            >>> ix1 = paddle.to_tensor([0,1,2])
-            >>> ix2 = paddle.to_tensor([1,2,1])
-            >>> indices=(ix1,ix2)
-
-            >>> out = paddle.index_put_(x,indices,value)
-            >>> print(x)
-            Tensor(shape=[3, 3], dtype=float32, place=Place(cpu), stop_gradient=True,
-            [[0., 1., 0.],
-             [0., 0., 1.],
-             [0., 1., 0.]])
-            >>> print(out)
-            Tensor(shape=[3, 3], dtype=float32, place=Place(cpu), stop_gradient=True,
-            [[0., 1., 0.],
-             [0., 0., 1.],
-             [0., 1., 0.]])
-    """
-    return _C_ops.index_put_(x, indices, value, accumulate)
-
-
-def index_put(
-    x: Tensor,
-    indices: Sequence[Tensor],
-    value: Tensor,
-    accumulate: bool = False,
-    name: str | None = None,
-) -> Tensor:
-    """
-    Outplace version of ``index_put_`` API, the output Tensor will be inplaced with input ``x``.
-    Please refer to :ref:`api_paddle_index_put`.
 
     Examples:
         .. code-block:: python
@@ -7152,8 +7217,19 @@ def index_fill(
     x: Tensor, index: Tensor, axis: int, value: float, name: str | None = None
 ):
     """
-    Outplace version of ``index_fill_`` API, the output Tensor will be inplaced with input ``x``.
-    Please refer to :ref:`api_paddle_index_fill_`.
+    Fill the elements of the input tensor with value by the specific axis and index.
+
+    Args:
+        x (Tensor) : The Destination Tensor. Supported data types are int32, int64, float16, float32, float64.
+        index (Tensor): The 1-D Tensor containing the indices to index.
+            The data type of ``index`` must be int32 or int64.
+        axis (int): The dimension along which to index.
+        value (int|float): The tensor used to fill with.
+        name(str|None, optional): For details, please refer to :ref:`api_guide_Name`. Generally, no setting is required. Default: None.
+
+    Returns:
+        Tensor, same dimension and dtype with x.
+
 
     Examples:
         .. code-block:: python
@@ -7183,38 +7259,8 @@ def index_fill_(
     x: Tensor, index: Tensor, axis: int, value: float, name: str | None = None
 ):
     """
-    Fill the elements of the input tensor with value by the specific axis and index.
-
-    Args:
-        x (Tensor) : The Destination Tensor. Supported data types are int32, int64, float16, float32, float64.
-        index (Tensor): The 1-D Tensor containing the indices to index.
-            The data type of ``index`` must be int32 or int64.
-        axis (int): The dimension along which to index.
-        value (int|float): The tensor used to fill with.
-        name(str|None, optional): For details, please refer to :ref:`api_guide_Name`. Generally, no setting is required. Default: None.
-
-    Returns:
-        Tensor, same dimension and dtype with x.
-
-    Examples:
-        .. code-block:: python
-
-            >>> import paddle
-            >>> input_tensor = paddle.to_tensor([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype='int64')
-            >>> index = paddle.to_tensor([0, 2], dtype="int32")
-            >>> value = -1
-            >>> res = paddle.index_fill_(input_tensor, index, 0, value)
-            >>> print(input_tensor)
-            Tensor(shape=[3, 3], dtype=int64, place=Place(gpu:0), stop_gradient=True,
-                   [[-1, -1, -1],
-                    [ 4,  5,  6],
-                    [-1, -1, -1]])
-            >>> print(res)
-            Tensor(shape=[3, 3], dtype=int64, place=Place(gpu:0), stop_gradient=True,
-                   [[-1, -1, -1],
-                    [ 4,  5,  6],
-                    [-1, -1, -1]])
-
+    Inplace version of ``index_fill`` API, the output Tensor will be inplaced with input ``x``.
+    Please refer to :ref:`api_paddle_index_fill`.
     """
     return _index_fill_impl(x, index, axis, value, True)
 

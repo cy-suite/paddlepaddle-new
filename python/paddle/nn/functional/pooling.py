@@ -640,7 +640,7 @@ def max_pool1d(
         padding, 1, ceil_mode=ceil_mode
     )
 
-    # use 2d to implenment 1d should expand padding in advance.
+    # use 2d to implement 1d should expand padding in advance.
     padding = _expand_low_nd_padding(padding)
 
     if in_dynamic_or_pir_mode():
@@ -780,7 +780,7 @@ def max_unpool1d(
         indices (Tensor): The indices given out by maxpooling1d which is a 3-D tensor with
                           shape [N, C, L]. The format of input tensor is `"NCL"` ,
                           where `N` is batch size, `C` is the number of channels, `L` is
-                          the length of the feature. The data type is float32 or float64.
+                          the length of the feature. The data type is int32 or int64.
         kernel_size (int|list|tuple): The unpool kernel size. If unpool kernel size is a tuple or list,
             it must contain an integer.
         stride (int|list|tuple): The unpool stride size. If unpool stride size is a tuple or list,
@@ -831,7 +831,7 @@ def max_unpool1d(
     else:
         stride = [1, *convert_to_list(stride, 1, 'pool_stride')]
     padding, padding_algorithm = _update_padding_nd(padding, 1)
-    # use 2d to implenment 1d should expand padding in advance.
+    # use 2d to implement 1d should expand padding in advance.
     padding = _expand_low_nd_padding(padding)
 
     if output_size is not None:
@@ -895,7 +895,7 @@ def max_unpool2d(
                           shape [N, C, H, W]. The format of input tensor is `"NCHW"` ,
                           where `N` is batch size, `C` is the number of channels,
                           `H` is the height of the feature, and `W` is the width of the
-                          feature. The data type is float32 or float64.
+                          feature. The data type is int32 or int64.
         kernel_size (int|list|tuple): The unpool kernel size. If unpool kernel size is a tuple or list,
             it must contain an integer.
         stride (int|list|tuple): The unpool stride size. If unpool stride size is a tuple or list,
@@ -1043,7 +1043,7 @@ def max_unpool3d(
                           shape [N, C, D, H, W]. The format of input tensor is `"NCDHW"` ,
                           where `N` is batch size, `C` is the number of channels, `D` is
                           the depth of the feature, `H` is the height of the feature,
-                          and `W` is the width of the feature. The data type is float32 or float64.
+                          and `W` is the width of the feature. The data type is int32 or int64.
         kernel_size (int|list|tuple): The unpool kernel size. If unpool kernel size is a tuple or list,
             it must contain an integer.
         stride (int|list|tuple): The unpool stride size. If unpool stride size is a tuple or list,

@@ -18,9 +18,6 @@ limitations under the License. */
 
 #include "paddle/fluid/framework/op_registry.h"
 #include "paddle/fluid/framework/operator.h"
-#include "paddle/phi/kernels/funcs/blas/blas.h"
-#include "paddle/phi/kernels/funcs/fc_functor.h"
-#include "paddle/phi/kernels/funcs/sequence2batch.h"
 
 namespace paddle {
 namespace operators {
@@ -166,7 +163,7 @@ phi::KernelKey MultiGRUOp::GetExpectedKernelType(
 void MultiGRUOpMaker::Make() {
   AddInput(
       "X",
-      "(phi::DenseTensor) the input is an LodTensor, which support "
+      "(phi::DenseTensor) the input is an DenseTensor, which support "
       "variable-time length input sequence. The underlying tensor in "
       "this phi::DenseTensor is a matrix with shape (T X M), where T is the "
       "total time steps in this mini-batch, M is the dim size of x.");

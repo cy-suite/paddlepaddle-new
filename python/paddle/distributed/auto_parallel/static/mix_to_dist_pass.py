@@ -34,8 +34,28 @@ def verify_dist_block(block):
         if op.name() == "dist_op.shard_tensor":
             raise RuntimeError("Block still contain shard_tensor_op.")
         if op.dist_attr is None:
-            raise RuntimeError(
-                f"The op {op} does not have OperatorDistAttr after Mix2Dist Pass."
+            # Note (luchang): Temp fix, remove unused parameter 'op'.
+            # Will be removed in the future.
+            if op.name() == "builtin.parameter":
+                if op.result(0).use_empty():
+                    op.erase()
+                    continue
+            mesh = None
+            operand_attrs = []
+            result_attrs = []
+            for operand in op.operands_source():
+                operand_attrs.append(operand.dist_attr())
+                if mesh is None:
+                    mesh = operand.dist_attr().process_mesh
+            for result in op.results():
+                result_attrs.append(result.dist_attr())
+                if mesh is None:
+                    mesh = result.dist_attr().process_mesh
+
+            op.dist_attr = paddle.base.libpaddle.pir.create_op_dist_attribute(
+                mesh,
+                operand_attrs,
+                result_attrs,
             )
         for result in op.results():
             if not result.initialized():

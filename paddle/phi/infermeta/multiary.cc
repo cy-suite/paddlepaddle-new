@@ -1166,6 +1166,16 @@ void CoalesceTensorInferMeta(const std::vector<const MetaTensor*>& input,
   if (size_of_dtype == -1) {
     size_of_dtype = static_cast<int>(phi::SizeOf(dtype));
   }
+  PADDLE_ENFORCE_EQ(
+      input.size(),
+      output.size(),
+      common::errors::InvalidArgument(
+          "The size of output meta vector should be equal to input"));
+  for (size_t idx = 0; idx < input.size(); ++idx) {
+    output[idx]->set_dims(input[idx]->dims());
+    output[idx]->set_dtype(input[idx]->dtype());
+    output[idx]->set_layout(input[idx]->layout());
+  }
   if (config.is_runtime) {
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
     int64_t numel = 0;
@@ -1247,7 +1257,7 @@ void ConcatInferMeta(const std::vector<const MetaTensor*>& x,
                     common::errors::InvalidArgument(
                         "The size of input meta vector should be greater"
                         "than 0."));
-  if (axis_scalar.FromTensor()) {
+  if (axis_scalar.FromTensor() && !config.is_runtime) {
     auto out_dims =
         common::make_ddim(std::vector<int>(x.at(0)->dims().size(), -1));
     out->set_dims(out_dims);
@@ -2399,7 +2409,8 @@ void FusedLayerNormInferMeta(const MetaTensor& x,
                              MetaTensor* out,
                              MetaTensor* residual_out,
                              MetaTensor* mean,
-                             MetaTensor* variance) {
+                             MetaTensor* variance,
+                             MetaConfig config) {
   std::vector<int64_t> x_dims_vec = common::vectorize(x.dims());
   auto x_dims_size = x_dims_vec.size();
 
@@ -2412,17 +2423,18 @@ void FusedLayerNormInferMeta(const MetaTensor& x,
   for (int i = 0; i < begin_norm_axis; i++) {
     rows *= static_cast<int32_t>(x.dims()[i]);
   }
-
-  if (norm_weight) {
-    PADDLE_ENFORCE_EQ(normalized_dims,
-                      norm_weight.dims()[0],
-                      common::errors::InvalidArgument(
-                          "The normalized size of Input(X) must equal to be"
-                          "the size of Weight, but received"
-                          "normalized size of Input(X) is [%d], received size"
-                          "of Weight is [%d]",
-                          normalized_dims,
-                          norm_weight.dims()[0]));
+  if (config.is_runtime) {
+    if (norm_weight) {
+      PADDLE_ENFORCE_EQ(normalized_dims,
+                        norm_weight.dims()[0],
+                        common::errors::InvalidArgument(
+                            "The normalized size of Input(X) must equal to be"
+                            "the size of Weight, but received"
+                            "normalized size of Input(X) is [%d], received size"
+                            "of Weight is [%d]",
+                            normalized_dims,
+                            norm_weight.dims()[0]));
+    }
   }
 
   auto out_dims = common::make_ddim(x_dims_vec);
@@ -2597,6 +2609,9 @@ void GenerateProposalsV2InferMeta(const MetaTensor& scores,
                                   MetaTensor* rpn_rois_num) {
   rpn_rois->set_dims(common::make_ddim({-1, 4}));
   rpn_roi_probs->set_dims(common::make_ddim({-1, 1}));
+  if (rpn_rois_num) {
+    rpn_rois_num->set_dims(common::make_ddim({scores.dims()[0]}));
+  }
 }
 
 void LegacyGenerateProposalsInferMeta(const MetaTensor& scores,
@@ -4712,9 +4727,9 @@ void RmsNormInferMeta(const MetaTensor& x,
   PADDLE_ENFORCE_EQ(normalized_dims,
                     norm_weight.dims()[0],
                     common::errors::InvalidArgument(
-                        "The normalized size of Input(X) must equal to be"
-                        "the size of Weight, but received"
-                        "normalized size of Input(X) is [%d], received size"
+                        "The normalized size of Input(X) must equal to be "
+                        "the size of Weight, but received "
+                        "normalized size of Input(X) is [%d], received size "
                         "of Weight is [%d]",
                         normalized_dims,
                         norm_weight.dims()[0]));
@@ -4741,25 +4756,12 @@ void RmsNormInferMeta(const MetaTensor& x,
     inv_var->set_layout(x.layout());
   }
 
-  residual_out->set_dims(out_dims);
-  residual_out->set_dtype(x.dtype());
-  residual_out->set_layout(x.layout());
-  residual_out->share_lod(x);
-}
-
-void RmsNormGradInferMeta(const MetaTensor& x,
-                          const MetaTensor& norm_weight,
-                          MetaTensor* x_grad,
-                          MetaTensor* norm_weight_grad) {
-  x_grad->set_dtype(x.dtype());
-  x_grad->set_layout(x.layout());
-  x_grad->share_lod(x);
-  x_grad->set_dims(x.dims());
-
-  norm_weight_grad->set_dtype(norm_weight.dtype());
-  norm_weight_grad->set_layout(norm_weight.layout());
-  norm_weight_grad->share_lod(norm_weight);
-  norm_weight_grad->set_dims(norm_weight.dims());
+  if (residual != nullptr) {
+    residual_out->set_dims(out_dims);
+    residual_out->set_dtype(x.dtype());
+    residual_out->set_layout(x.layout());
+    residual_out->share_lod(x);
+  }
 }
 
 void RmspropInferMeta(const MetaTensor& param,
@@ -5894,20 +5896,6 @@ void FusedRopeInferMeta(const MetaTensor& q,
       out_v->set_dtype(q.dtype());
     }
   }
-}
-
-void MoeInferMeta(const MetaTensor& x,
-                  const MetaTensor& gate,
-                  const MetaTensor& bmm0,
-                  const MetaTensor& bias0,
-                  const MetaTensor& bmm1,
-                  const MetaTensor& bias1,
-                  const std::string& act_type,
-                  MetaTensor* out) {
-  out->set_dims(x.dims());
-  out->share_lod(x);
-  out->set_dtype(x.dtype());
-  out->set_layout(x.layout());
 }
 
 void FusedMoeInferMeta(const MetaTensor& X,

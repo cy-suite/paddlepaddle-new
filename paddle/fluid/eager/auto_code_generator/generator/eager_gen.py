@@ -78,6 +78,11 @@ prim_white_list = [
     "abs_triple_grad",
     "exp_double_grad",
     "log_double_grad",
+    "where_double_grad",
+    "bmm_double_grad",
+    "index_put_double_grad",
+    "gather_nd_double_grad",
+    "reshape_double_grad",
 ]
 
 # white ops list whose kernel can automatically do type promotion.
@@ -487,7 +492,7 @@ NODE_CC_FILE_TEMPLATE = """
 #include "paddle/phi/api/backward/sparse_bw_api.h"
 #include "paddle/fluid/imperative/tracer.h"
 #include "paddle/fluid/framework/op_registry.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 #include "paddle/fluid/eager/utils.h"
 #include "paddle/fluid/eager/api/utils/global_utils.h"
 #include "paddle/fluid/eager/api/generated/eager_generated/backwards/nodes.h"
@@ -523,7 +528,7 @@ FORWARD_CC_FILE_TEMPLATE = """
 #include "paddle/phi/api/include/strings_api.h"
 #include "paddle/phi/api/include/sparse_api.h"
 #include "paddle/fluid/eager/api/utils/global_utils.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 #include "paddle/phi/backends/gpu/gpu_info.h"
 #include "paddle/fluid/eager/nan_inf_utils.h"
 #include "paddle/fluid/eager/api/manual/eager_manual/dygraph_forward_api.h"
@@ -2247,8 +2252,8 @@ class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
   if (!paddle::prim::PrimCommonUtils::IsEagerPrimEnabled() || need_skip) {{
     if (trace_backward) {{
        PADDLE_THROW(common::errors::Unavailable(
-       \"The Op {self.backward_api_name} doesn't have any grad\"
-       \"op. If you don't intend calculating higher order\"
+       \"The Op {self.backward_api_name} doesn't have any grad \"
+       \"op. If you don't intend calculating higher order \"
        \"derivatives, please set `create_graph`to False.\"));
     }}
   }}
@@ -2267,8 +2272,8 @@ class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
         elif not is_invoke_forward_api and not is_composite_grad_api:
             next_grad_node_creation_str = f"""  if (trace_backward) {{
     PADDLE_THROW(common::errors::Unavailable(
-    \"The Op {self.backward_api_name} doesn't have any grad\"
-    \"op. If you don't intend calculating higher order\"
+    \"The Op {self.backward_api_name} doesn't have any grad \"
+    \"op. If you don't intend calculating higher order \"
     \"derivatives, please set `create_graph`to False.\"));
   }}"""
 

@@ -66,7 +66,10 @@ from .instr_flag import (
     MAKE_FUNCTION_FLAG as MF,
     IntrinsicsUnaryFunctions,
 )
-from .pycode_generator import PyCodeGen
+from .pycode_generator import (
+    ResumeFunctionCreator,
+    ResumeFunctionType,
+)
 from .tracker import (
     CellTracker,
     ConstTracker,
@@ -86,6 +89,7 @@ from .variables import (
     ListVariable,
     MethodVariable,
     NullVariable,
+    RangeVariable,
     SequenceIterVariable,
     SliceVariable,
     SymbolicVariable,
@@ -1056,8 +1060,11 @@ class OpcodeExecutorBase:
 
         retval = []
         for item in unpack_values:
-            assert isinstance(item, (TupleVariable, ListVariable))
-            retval.extend(item.get_wrapped_items())
+            if not isinstance(
+                item, (TupleVariable, ListVariable, RangeVariable)
+            ):
+                raise BreakGraphError(f"{type(item)} not support unpack")
+            retval.extend(item.get_iter().to_list())
 
         if instr.opname in {
             "BUILD_TUPLE_UNPACK_WITH_CALL",
@@ -1071,12 +1078,15 @@ class OpcodeExecutorBase:
             )
         )
 
+    @call_break_graph_decorator(push_n=1)
     def BUILD_TUPLE_UNPACK_WITH_CALL(self, instr: Instruction):
         self.build_seq_unpack(instr)
 
+    @call_break_graph_decorator(push_n=1)
     def BUILD_TUPLE_UNPACK(self, instr: Instruction):
         self.build_seq_unpack(instr)
 
+    @call_break_graph_decorator(push_n=1)
     def BUILD_LIST_UNPACK(self, instr: Instruction):
         self.build_seq_unpack(instr)
 
@@ -1561,6 +1571,7 @@ class OpcodeExecutorBase:
             self.stack.peek[instr.arg], key, value
         )
 
+    @call_break_graph_decorator(push_n=0)
     def LIST_EXTEND(self, instr: Instruction):
         list_value = self.stack.pop()
         assert isinstance(instr.arg, int)
@@ -1767,7 +1778,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             extra_store_vars: for iterator, we need store the holder if it is a Tensor
         """
         store_vars = list(OrderedSet(list(stack) + extra_store_vars))
-        store_var_info = {var.id: None for var in stack}
+        store_var_info = {var.id: [] for var in stack}
 
         for name in restore_names:
             _var = self.get_var(name, allow_undefined=True)
@@ -1775,7 +1786,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 continue
             if _var not in stack:
                 store_vars.append(_var)
-            store_var_info[_var.id] = name
+            store_var_info.setdefault(_var.id, [])
+            store_var_info[_var.id].append(name)
 
         compile_graph_result = self._graph.compile_graph(*store_vars)
         graph_fn, _ = compile_graph_result
@@ -1816,15 +1828,21 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 and not is_pop_jump_branch
             ):
                 return None
-            pycode_gen = PyCodeGen(self._frame)
+            cache_key = (ResumeFunctionType.IF_RESUME, self._code, start_idx)
+            resume_fn_creator = ResumeFunctionCreator(self._frame)
+            if (
+                maybe_resume_fn := resume_fn_creator.lookup(cache_key)
+            ) is not None:
+                return maybe_resume_fn
+            pycode_gen = resume_fn_creator.codegen
             origin_instrs = get_instructions(pycode_gen._origin_code)
-            pycode_gen.set_function_inputs(
+            resume_fn_creator.set_inputs(
                 input_var_names, stack_size=stack_size_after_if
             )
             pycode_gen.extend_instrs(origin_instrs[start_idx:])
             # the resume_fn contains return code, so we don't need set output here
             # global vars are updated correctly, and need local vars will return
-            resume_fn = pycode_gen.create_function()
+            resume_fn = resume_fn_creator.generate(cache_key=cache_key)
             return resume_fn
 
         true_fn_read_names, _ = analysis_used_names(
@@ -1951,15 +1969,21 @@ class OpcodeExecutor(OpcodeExecutorBase):
         def create_resume_fn():
             if self._instructions[next_index].opname == "RETURN_VALUE":
                 return None
-            pycode_gen = PyCodeGen(self._frame)
+            cache_key = (ResumeFunctionType.CALL_RESUME, self._code, next_index)
+            resume_fn_creator = ResumeFunctionCreator(self._frame)
+            if (
+                maybe_resume_fn := resume_fn_creator.lookup(cache_key)
+            ) is not None:
+                return maybe_resume_fn
+            pycode_gen = resume_fn_creator.codegen
             origin_instrs = get_instructions(pycode_gen._origin_code)
-            pycode_gen.set_function_inputs(
+            resume_fn_creator.set_inputs(
                 input_var_names, stack_size=stack_size_after_call
             )
             pycode_gen.extend_instrs(origin_instrs[next_index:])
             # the resume_fn contains return code, so we don't need set output here
             # global vars are updated correctly, and need local vars will return
-            resume_fn = pycode_gen.create_function()
+            resume_fn = resume_fn_creator.generate(cache_key=cache_key)
             return resume_fn
 
         resume_fn = create_resume_fn()
@@ -2039,9 +2063,20 @@ class OpcodeExecutor(OpcodeExecutorBase):
         loop_body_outputs = [*list(loop_body_write_names), "_break_flag"]
 
         def create_loop_body():
-            pycode_gen = PyCodeGen(self._frame)
+            cache_key = (
+                ResumeFunctionType.LOOP_BODY_RESUME,
+                self._code,
+                loop_body_start_idx,
+                loop_body_end_idx,
+            )
+            resume_fn_creator = ResumeFunctionCreator(self._frame)
+            if (
+                maybe_resume_fn := resume_fn_creator.lookup(cache_key)
+            ) is not None:
+                return maybe_resume_fn
+            pycode_gen = resume_fn_creator.codegen
 
-            pycode_gen.set_function_inputs(loop_body_inputs, stack_size=0)
+            resume_fn_creator.set_inputs(loop_body_inputs, stack_size=0)
 
             origin_instrs = get_instructions(pycode_gen._origin_code)
             for_iter = origin_instrs[for_iter_idx]
@@ -2076,8 +2111,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
                     instr.jump_to = nop_for_break
 
             # outputs is the same as inputs
-            pycode_gen.set_function_outputs(loop_body_outputs)
-            loop_body_fn = pycode_gen.create_function()
+            resume_fn_creator.set_outputs(loop_body_outputs)
+            loop_body_fn = resume_fn_creator.generate(cache_key=cache_key)
 
             log(
                 3,
@@ -2100,7 +2135,17 @@ class OpcodeExecutor(OpcodeExecutorBase):
         def create_after_loop_fn():
             if self._instructions[loop_body_end_idx].opname == "RETURN_VALUE":
                 return None
-            pycode_gen = PyCodeGen(self._frame)
+            cache_key = (
+                ResumeFunctionType.AFTER_LOOP_RESUME,
+                self._code,
+                loop_body_end_idx,
+            )
+            resume_fn_creator = ResumeFunctionCreator(self._frame)
+            if (
+                maybe_resume_fn := resume_fn_creator.lookup(cache_key)
+            ) is not None:
+                return maybe_resume_fn
+            pycode_gen = resume_fn_creator.codegen
             origin_instrs = get_instructions(pycode_gen._origin_code)
             resume_fn_end_idx = loop_body_end_idx
 
@@ -2109,13 +2154,13 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 assert origin_instrs[loop_body_end_idx].opname == "END_FOR"
                 resume_fn_end_idx += 1
 
-            pycode_gen.set_function_inputs(
+            resume_fn_creator.set_inputs(
                 after_loop_fn_inputs, stack_size=len(self.stack) - 1
             )
             pycode_gen.extend_instrs(origin_instrs[resume_fn_end_idx:])
             # the resume_fn contains return code, so we don't need set output here
             # global vars are updated correctly, and need local vars will return
-            after_loop_fn = pycode_gen.create_function()
+            after_loop_fn = resume_fn_creator.generate(cache_key=cache_key)
             return after_loop_fn
 
         after_loop_fn = create_after_loop_fn()
@@ -2241,10 +2286,21 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # 2. create inline call loop fn
         def create_inline_call_fn():
-            pycode_gen = PyCodeGen(self._frame)
+            cache_key = (
+                ResumeFunctionType.LOOP_BODY_INLINE_CALL,
+                self._code,
+                start_idx,
+                end_idx,
+            )
+            resume_fn_creator = ResumeFunctionCreator(self._frame)
+            if (
+                maybe_resume_fn := resume_fn_creator.lookup(cache_key)
+            ) is not None:
+                return maybe_resume_fn
+            pycode_gen = resume_fn_creator.codegen
             origin_instrs = get_instructions(pycode_gen._origin_code)
 
-            pycode_gen.set_function_inputs(input_var_names, stack_size=0)
+            resume_fn_creator.set_inputs(input_var_names, stack_size=0)
 
             # 2.1. load iter, it is a input of loop fn
             pycode_gen.gen_load_fast(iterator.id)
@@ -2283,8 +2339,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
             if sys.version_info >= (3, 12):
                 for_iter_instr.jump_to = end_for
 
-            pycode_gen.set_function_outputs(output_var_names)
-            inline_call_fn = pycode_gen.create_function()
+            resume_fn_creator.set_outputs(output_var_names)
+            inline_call_fn = resume_fn_creator.generate(cache_key=cache_key)
 
             log(
                 3,

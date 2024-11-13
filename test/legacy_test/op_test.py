@@ -1002,7 +1002,7 @@ class OpTest(unittest.TestCase):
                     v = block.create_var(
                         name=name,
                         dtype=np.float32,
-                        type=core.VarDesc.VarType.LOD_TENSOR,
+                        type=core.VarDesc.VarType.DENSE_TENSOR,
                         persistable=False,
                         stop_gradient=False,
                     )
@@ -1010,7 +1010,7 @@ class OpTest(unittest.TestCase):
                     v = block.create_var(
                         name=name,
                         dtype=np_value_temp.dtype,
-                        type=core.VarDesc.VarType.LOD_TENSOR,
+                        type=core.VarDesc.VarType.DENSE_TENSOR,
                         persistable=False,
                         stop_gradient=False,
                     )
@@ -1028,7 +1028,7 @@ class OpTest(unittest.TestCase):
             if name not in np_list:
                 assert var_proto.intermediate, f"{name} not found"
                 v = block.create_var(
-                    dtype='float32', type=core.VarDesc.VarType.LOD_TENSOR
+                    dtype='float32', type=core.VarDesc.VarType.DENSE_TENSOR
                 )
                 var_dict[name].append(v)
                 if if_return_inputs_grad_dict:
@@ -1653,7 +1653,8 @@ class OpTest(unittest.TestCase):
         kernel_sig = self.get_kernel_signature(place)
         program = paddle.static.Program()
         with paddle.static.program_guard(program):
-            with scope_guard(Scope()):
+            scope = Scope()
+            with scope_guard(scope):
                 # prepare inps attributes feed
                 (
                     static_inputs,
@@ -1708,8 +1709,22 @@ class OpTest(unittest.TestCase):
                 # executor run
                 executor = Executor(place)
                 outs = executor.run(program, feed=feed, fetch_list=[fetch_list])
+                # get fetch program
+                fetch_list = executor._check_fetch_list([fetch_list])
+                fetch_program, _, _ = (
+                    executor._executor_cache.get_pir_program_and_executor(
+                        program=program,
+                        feed=feed,
+                        fetch_list=fetch_list,
+                        feed_var_name='feed',
+                        fetch_var_name='fetch',
+                        place=place,
+                        scope=scope,
+                        plan=None,
+                    )
+                )
 
-                self._compare_symbol(program, outs)
+                self._compare_symbol(fetch_program, outs)
 
     def _compare_expect_and_actual_outputs(
         self, place, fetch_list, expect_outs, actual_outs, inplace_atol=None
@@ -2843,14 +2858,14 @@ class OpTest(unittest.TestCase):
                 if isinstance(out, core.LoDTensor):
                     lod_level_runtime = len(out.lod())
                 else:
-                    if isinstance(out, core.LoDTensorArray):
+                    if isinstance(out, core.DenseTensorArray):
                         warnings.warn(
-                            "The check of LoDTensorArray's lod_level is not implemented now!"
+                            "The check of DenseTensorArray's lod_level is not implemented now!"
                         )
                     lod_level_runtime = 0
 
                 var = self.program.global_block().var(var_name)
-                if var.type == core.VarDesc.VarType.LOD_TENSOR:
+                if var.type == core.VarDesc.VarType.DENSE_TENSOR:
                     lod_level_compile = var.lod_level
                 else:
                     lod_level_compile = 0

@@ -26,6 +26,7 @@ namespace paddle {
 namespace dialect {
 
 pir::Value builtin_combine(const std::vector<pir::Value>& x);
+std::vector<pir::Value> builtin_split(const pir::Value& x);
 
 std::vector<pir::Value> add_n_grad(const std::vector<pir::Value>& inputs,
                                    const pir::Value& out_grad);
@@ -111,5 +112,7 @@ std::vector<pir::Value> tensorrt_engine(
     std::vector<std::vector<int64_t>> outputs_shape,
     std::vector<phi::DataType> outputs_dtype,
     const std::string& converter_debug_info);
+
+pir::Operation* share_var(const std::vector<pir::Value>& x);
 }  // namespace dialect
 }  // namespace paddle

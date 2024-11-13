@@ -31,7 +31,6 @@ decomp_interface_declare_gen_op_list = [
     "elu",
     "embedding",
     "flatten",
-    "floor_divide",
     "full_like",
     "gelu",
     "hardswish",
@@ -51,6 +50,7 @@ decomp_interface_declare_gen_op_list = [
     "mean",
     "mean_all",
     "meshgrid",
+    "numel",
     "one_hot",
     "p_norm",
     "pow",
@@ -60,6 +60,7 @@ decomp_interface_declare_gen_op_list = [
     "sigmoid_cross_entropy_with_logits",
     "silu",
     "swiglu",
+    "swish",
     "softmax",
     "softsign",
     "square",
@@ -71,7 +72,7 @@ decomp_interface_declare_gen_op_list = [
     "unstack",
 ]
 
-# come into effect in generated file op_decomp.cc
+# come into effect in generated file op_decomp_rule.cc
 # manual decomp interface implementation are located in manual_op_decomp.cc
 decomp_interface_implementation_gen_op_list = [
     "add_n",
@@ -83,7 +84,6 @@ decomp_interface_implementation_gen_op_list = [
     "elu",
     "embedding",
     "flatten",
-    "floor_divide",
     "full_like",
     "gelu",
     "hardswish",
@@ -103,6 +103,7 @@ decomp_interface_implementation_gen_op_list = [
     "mean",
     "mean_all",
     "meshgrid",
+    "numel",
     "p_norm",
     "pow",
     "reciprocal",
@@ -111,6 +112,7 @@ decomp_interface_implementation_gen_op_list = [
     "sigmoid_cross_entropy_with_logits",
     "silu",
     "swiglu",
+    "swish",
     "softmax",
     "softsign",
     "square",
@@ -162,6 +164,7 @@ OTHER_PRIM_VJP_OPS = [
 
 
 CUSTOM_VJP = [
+    'bce_loss_grad',
     'gelu_grad',
     'hardswish_grad',
     'leaky_relu_grad',

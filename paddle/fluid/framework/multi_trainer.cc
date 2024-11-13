@@ -120,16 +120,15 @@ void MultiTrainer::InitDumpEnv() {
     dump_thread_.emplace_back([this, i] { DumpWork(i); });
   }
 }
-inline std::vector<std::shared_ptr<paddle::framework::ThreadPool>>&
-GetThreadPool(int thread_num) {
-  static std::vector<std::shared_ptr<paddle::framework::ThreadPool>>
-      thread_pools;
+inline std::vector<std::shared_ptr<phi::ThreadPool>>& GetThreadPool(
+    int thread_num) {
+  static std::vector<std::shared_ptr<phi::ThreadPool>> thread_pools;
   if (!thread_pools.empty()) {
     return thread_pools;
   }
   thread_pools.resize(thread_num);
   for (int i = 0; i < thread_num; ++i) {
-    thread_pools[i].reset(new paddle::framework::ThreadPool(1));
+    thread_pools[i].reset(new phi::ThreadPool(1));
   }
   return thread_pools;
 }
@@ -187,7 +186,7 @@ void MultiTrainer::InitTrainerEnv(const ProgramDesc& main_program,
           phi::DenseTensor* root_tensor =
               root_var->GetMutable<phi::DenseTensor>();
           auto* ptr = scope->Var(name);
-          InitializeVariable(ptr, proto::VarType::LOD_TENSOR);
+          InitializeVariable(ptr, proto::VarType::DENSE_TENSOR);
           phi::DenseTensor* thread_tensor = ptr->GetMutable<phi::DenseTensor>();
           TensorCopy(*root_tensor, place, thread_tensor);
         }
