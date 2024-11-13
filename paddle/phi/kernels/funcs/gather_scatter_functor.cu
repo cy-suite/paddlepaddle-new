@@ -132,7 +132,7 @@ __global__ void ScatterAssignGPUKernel(tensor_t* self_data,
       "The index is out of bounds, "
       "please check whether the index and "
       "input's shape meet the requirements. It should "
-      "be less than [%ld] and greater or equal to [%ld], but received [%d]",
+      "be less than [%d] and greater or equal to [%d], but received [%d]",
       src_select_dim_size,
       -src_select_dim_size,
       index);
@@ -304,10 +304,10 @@ __global__ void ScatterMeanGPUKernel(tensor_t* self_data,
       "The index is out of bounds, "
       "please check whether the index and "
       "input's shape meet the requirements. It should "
-      "be less than [%ld] and greater or equal to [%ld], but received [%d]",
+      "be less than [%d] and greater or equal to [%d], but received [%d]",
       src_select_dim_size,
       -src_select_dim_size,
-      index);
+      (int32_t)index);
   if (index < 0) {
     index += src_select_dim_size;
   }
