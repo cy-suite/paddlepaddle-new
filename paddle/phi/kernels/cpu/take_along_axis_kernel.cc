@@ -32,6 +32,20 @@ void TakeAlongAxisKernel(const Context& dev_ctx,
       dev_ctx.GetPlace().GetType() == phi::AllocationType::CPU,
       true,
       errors::PreconditionNotMet("This kernel only runs on CPU."));
+  const int x_ndim = x.dims().size();
+  PADDLE_ENFORCE_LT(
+      axis,
+      x_ndim,
+      errors::InvalidArgument(
+          "axis(%d) should be less than the x.ndim(%d).", axis, x_ndim));
+  PADDLE_ENFORCE_GE(
+      axis,
+      -x_ndim,
+      errors::InvalidArgument(
+          "axis(%d) should be larger or equal to -x.ndim(%d).", axis, -x_ndim));
+  if (axis < 0) {
+    axis += x.dims().size();
+  }
 
   out->Resize(index.dims());
   dev_ctx.template Alloc<T>(out);

@@ -83,6 +83,7 @@ prim_white_list = [
     "index_put_double_grad",
     "gather_nd_double_grad",
     "reshape_double_grad",
+    "take_along_axis_double_grad",
 ]
 
 # white ops list whose kernel can automatically do type promotion.
@@ -932,6 +933,8 @@ class DygraphFunctionGeneratorBase(FunctionGeneratorBase):
 
         max_grad_tensor_position = -1
         for _, (_, _, pos) in backward_grad_inputs_map.items():
+            if pos <= max_fwd_input_position:
+                print(self.grad_api_contents)
             assert pos > max_fwd_input_position, AssertMessage(
                 pos, max_fwd_input_position
             )

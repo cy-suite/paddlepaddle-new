@@ -3771,7 +3771,7 @@
     attrs : [bool use_mkldnn = false, bool fuse_with_relu = false]
 
 - op : take_along_axis
-  backward : take_along_axis_grad, take_along_axis_double_grad
+  backward : take_along_axis_grad
   inputs :
     {arr : Input, indices : Index}
   outputs :

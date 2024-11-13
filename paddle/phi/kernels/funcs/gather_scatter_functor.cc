@@ -99,7 +99,7 @@ struct cpu_gather_scatter_functor {
     int64_t select_dim_size = index_dims[dim];
     // index matrix has different shape with self matrix or src matrix.
     int self_select_dim_size = self_dims[dim];
-    int src_select_dim_size = src_dims[dim];
+    int64_t src_select_dim_size = src_dims[dim];
     int64_t outer_dim_size_self = 1;
     int64_t outer_dim_size_src = 1;
     int64_t inner_dim_size = 1;
@@ -120,7 +120,29 @@ struct cpu_gather_scatter_functor {
       for (int64_t j = 0; j < select_dim_size; j++) {
         for (int64_t k = 0; k < outer_dim_size; k++) {
           int64_t index = index_data[index_idx];
-
+          PADDLE_ENFORCE_GE(index,
+                            -src_select_dim_size,
+                            common::errors::InvalidArgument(
+                                "Variable value (index) of OP(take_along_axis) "
+                                "expected >= %ld and < %ld, but got %ld. "
+                                "Please check the input "
+                                "value.",
+                                -src_select_dim_size,
+                                src_select_dim_size,
+                                index));
+          PADDLE_ENFORCE_LT(index,
+                            src_select_dim_size,
+                            common::errors::InvalidArgument(
+                                "Variable value (index) of OP(take_along_axis) "
+                                "expected >= %ld and < %ld, but got %ld. "
+                                "Please check the input "
+                                "value.",
+                                -src_select_dim_size,
+                                src_select_dim_size,
+                                index));
+          if (index < 0) {
+            index += src_select_dim_size;
+          }
           /*
             gather computation formula:
 
