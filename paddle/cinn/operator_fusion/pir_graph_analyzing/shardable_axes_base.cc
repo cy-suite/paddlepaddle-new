@@ -108,9 +108,6 @@ std::optional<ShardableAxesSignature> CreateSignatureForSpecialOps(
   if (op->name() == "cinn_op.generate_shape") {
     return CreateDefaultSignature(op, axes_manager);
   }
-  if (op->name() == "pd_op.reshape") {
-    return CreateDefaultSignature(op, axes_manager);
-  }
   return std::nullopt;
 }
 
@@ -325,6 +322,11 @@ ShardableAxesSignature CreateSignatureForReshape(
   const auto input_axes = CreateNewNamesWithRank(input_rank);
   result.inputs.emplace_back(input_axes);
 
+  if (op->name() == "pd_op.reshape" && op->num_operands() == 2) {
+    result.inputs.emplace_back(
+        CreateNewNamesWithRank(GetCompitableRank(op->operand_source(1))));
+  }
+
   if (GetRank(op->operand_source(0)) == 0 || GetRank(op->result(0)) == 0) {
     // 0d reshape
     result.outputs.emplace_back(CreateNewNamesWithRank(output_rank));
@@ -488,7 +490,7 @@ ShardableAxesSignature ShardableAxesInfoManager::CreateShardableSignature(
   const hlir::framework::OpPatternKind kind = GetOpPatternKind(op);
   if (kind == hlir::framework::kReduction) {
     result = CreateSignatureForReduce(op);
-  } else if (op->name() == "cinn_op.reshape") {
+  } else if (op->name() == "cinn_op.reshape" || op->name() == "pd_op.reshape") {
     result = CreateSignatureForReshape(op, this, shape_analysis_);
   } else if (kind == hlir::framework::kElementWise) {
     result = CreateSignatureForElementWise(op);
