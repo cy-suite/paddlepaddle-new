@@ -1416,22 +1416,18 @@ class NearestInterV2Pattern
   }
 };
 
+
 class ClipPattern : public pir::OpRewritePattern<paddle::dialect::ClipOp> {
  public:
   using pir::OpRewritePattern<paddle::dialect::ClipOp>::OpRewritePattern;
   bool MatchAndRewrite(paddle::dialect::ClipOp op,
                        pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
     pir::Value x = op.operand_source(0);
     auto x_shape = pir::GetShapeFromValue(x);
     if (x_shape.size() == 0) {
       VLOG(3) << " clip op does not support input's dim is 0 in tensorrt.";
       return false;
     }
-
     auto min_tensor = op.operand_source(1);
     if (!min_tensor) {
       VLOG(3) << "clip op does not have input min tensor";
@@ -1442,6 +1438,43 @@ class ClipPattern : public pir::OpRewritePattern<paddle::dialect::ClipOp> {
       VLOG(3) << "clip op does not have input max tensor";
       return false;
     }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+                       
+class GridSampleOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::GridSampleOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::GridSampleOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::GridSampleOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+#if IS_TRT_VERSION_LT(8510)
+    VLOG(3) << "grid_sample is not supported when TensorRT < 8.5.1";
+    return false;
+#else
+    if (!op->HasAttribute("mode") || !op->HasAttribute("padding_mode") ||
+        !op->HasAttribute("align_corners")) {
+      VLOG(3)
+          << "grid_sample need attributes: mode, padding_mode, align_corners";
+      return false;
+    }
+    auto x = op.operand_source(0);
+    auto grid = op.operand_source(1);
+    auto x_shape = pir::GetShapeFromValue(x);
+    auto grid_shape = pir::GetShapeFromValue(grid);
+
+    if (x_shape.size() != 4 || grid_shape.size() != 4) {
+      VLOG(3) << "The input and grid tensors must be shape tensors of rank 4 "
+                 "when using TRT GridSample layer.";
+      return false;
+    }
+#endif
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
@@ -1808,6 +1841,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<BilinearInterpV2Pattern>(context));
     ps.Add(std::make_unique<NearestInterV2Pattern>(context));
     ps.Add(std::make_unique<ClipPattern>(context));
+    ps.Add(std::make_unique<GridSampleOpPattern>(context));
     ps.Add(std::make_unique<StackOpPattern>(context));
     ps.Add(std::make_unique<TanhOpPattern>(context));
     ps.Add(std::make_unique<WherePattern>(context));
