@@ -1300,9 +1300,6 @@ def AutoCodeGen(
         # get op mutable attribute
         op_mutable_attribute_name_list = op_info.mutable_attribute_name_list
         op_mutable_attribute_type_list = op_info.mutable_attribute_type_list
-        print(
-            "op_mutable_attribute_type_list: ", op_mutable_attribute_type_list
-        )
         # get op attribute
         op_attribute_name_list = op_info.attribute_name_list
         op_attribute_type_list = op_info.attribute_type_list
@@ -1583,10 +1580,6 @@ def AutoCodeGen(
                         op_non_mutable_attribute_build_arg_type_list,
                         op_non_mutable_attribute_default_value_list,
                         muta_attr_is_input=False,
-                    )
-                    print(
-                        "op_mutable_attribute_type_list: ",
-                        op_mutable_attribute_type_list,
                     )
                     if len(op_attribute_name_list) > 0:
                         (
