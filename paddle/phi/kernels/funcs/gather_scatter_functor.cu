@@ -127,18 +127,6 @@ __global__ void ScatterAssignGPUKernel(tensor_t* self_data,
   j = remind / outer_dim_size;
   k = remind % outer_dim_size;
   index_t index = index_data[tid];
-  PADDLE_ENFORCE(
-      index >= -src_select_dim_size && index < src_select_dim_size,
-      "The index is out of bounds, "
-      "please check whether the index and "
-      "input's shape meet the requirements. It should "
-      "be less than [%d] and greater or equal to [%d], but received [%d]",
-      src_select_dim_size,
-      -src_select_dim_size,
-      index);
-  if (index < 0) {
-    index += src_select_dim_size;
-  }
   /*
     gather computation formula:
 
@@ -156,12 +144,36 @@ __global__ void ScatterAssignGPUKernel(tensor_t* self_data,
   // index matrix has different shape with self matrix or src matrix.
   int64_t replace_index_self, replace_index_src;
   if (is_scatter_like) {
+    PADDLE_ENFORCE(
+        index >= -self_select_dim_size && index < self_select_dim_size,
+        "The index is out of bounds, "
+        "please check whether the index and "
+        "input's shape meet the requirements. It should "
+        "be greater or equal to [%d] and less than [%d], but received [%d]",
+        -self_select_dim_size,
+        self_select_dim_size,
+        index);
+    if (index < 0) {
+      index += self_select_dim_size;
+    }
     replace_index_self = k + index * outer_dim_size_self +
                          i * outer_dim_size_self * self_select_dim_size;
 
     replace_index_src = k + j * outer_dim_size_src +
                         i * outer_dim_size_src * src_select_dim_size;
   } else {
+    PADDLE_ENFORCE(
+        index >= -src_select_dim_size && index < src_select_dim_size,
+        "The index is out of bounds, "
+        "please check whether the index and "
+        "input's shape meet the requirements. It should "
+        "be greater or equal to [%d] and less than [%d], but received [%d]",
+        -src_select_dim_size,
+        src_select_dim_size,
+        index);
+    if (index < 0) {
+      index += src_select_dim_size;
+    }
     replace_index_self = tid;
 
     replace_index_src = k + index * outer_dim_size_src +
@@ -214,18 +226,6 @@ __global__ void GatherScatterGPUKernel(tensor_t* self_data,
   j = remind / outer_dim_size;
   k = remind % outer_dim_size;
   index_t index = index_data[tid];
-  PADDLE_ENFORCE(
-      index >= -src_select_dim_size && index < src_select_dim_size,
-      "The index is out of bounds, "
-      "please check whether the index and "
-      "input's shape meet the requirements. It should "
-      "be less than [%d] and greater or equal to [%d], but received [%d]",
-      src_select_dim_size,
-      -src_select_dim_size,
-      (int32_t)index);
-  if (index < 0) {
-    index += src_select_dim_size;
-  }
   /*
     gather computation formula:
 
@@ -243,12 +243,38 @@ __global__ void GatherScatterGPUKernel(tensor_t* self_data,
   // index matrix has different shape with self matrix or src matrix.
   int64_t replace_index_self, replace_index_src;
   if (is_scatter_like) {
+    // scatter
+    PADDLE_ENFORCE(
+        index >= -self_select_dim_size && index < self_select_dim_size,
+        "The index is out of bounds, "
+        "please check whether the index and "
+        "input's shape meet the requirements. It should "
+        "be greater or equal to [%d] and less than [%d], but received [%d]",
+        -self_select_dim_size,
+        self_select_dim_size,
+        (int32_t)index);
+    if (index < 0) {
+      index += self_select_dim_size;
+    }
     replace_index_self = k + index * outer_dim_size_self +
                          i * outer_dim_size_self * self_select_dim_size;
 
     replace_index_src = k + j * outer_dim_size_src +
                         i * outer_dim_size_src * src_select_dim_size;
   } else {
+    // gather
+    PADDLE_ENFORCE(
+        index >= -src_select_dim_size && index < src_select_dim_size,
+        "The index is out of bounds, "
+        "please check whether the index and "
+        "input's shape meet the requirements. It should "
+        "be greater or equal to [%d] and less than [%d], but received [%d]",
+        -src_select_dim_size,
+        src_select_dim_size,
+        (int32_t)index);
+    if (index < 0) {
+      index += src_select_dim_size;
+    }
     replace_index_self = tid;
 
     replace_index_src = k + index * outer_dim_size_src +
@@ -299,18 +325,6 @@ __global__ void ScatterMeanGPUKernel(tensor_t* self_data,
   j = remind / outer_dim_size;
   k = remind % outer_dim_size;
   index_t index = index_data[tid];
-  PADDLE_ENFORCE(
-      index >= -src_select_dim_size && index < src_select_dim_size,
-      "The index is out of bounds, "
-      "please check whether the index and "
-      "input's shape meet the requirements. It should "
-      "be less than [%d] and greater or equal to [%d], but received [%d]",
-      src_select_dim_size,
-      -src_select_dim_size,
-      (int32_t)index);
-  if (index < 0) {
-    index += src_select_dim_size;
-  }
   /*
     gather computation formula:
 
@@ -328,12 +342,36 @@ __global__ void ScatterMeanGPUKernel(tensor_t* self_data,
   // index matrix has different shape with self matrix or src matrix.
   int64_t replace_index_self, replace_index_src;
   if (is_scatter_like) {
+    PADDLE_ENFORCE(
+        index >= -self_select_dim_size && index < self_select_dim_size,
+        "The index is out of bounds, "
+        "please check whether the index and "
+        "input's shape meet the requirements. It should "
+        "be greater or equal to [%d] and less than [%d], but received [%d]",
+        -self_select_dim_size,
+        self_select_dim_size,
+        (int32_t)index);
+    if (index < 0) {
+      index += self_select_dim_size;
+    }
     replace_index_self = k + index * outer_dim_size_self +
                          i * outer_dim_size_self * self_select_dim_size;
 
     replace_index_src = k + j * outer_dim_size_src +
                         i * outer_dim_size_src * src_select_dim_size;
   } else {
+    PADDLE_ENFORCE(
+        index >= -src_select_dim_size && index < src_select_dim_size,
+        "The index is out of bounds, "
+        "please check whether the index and "
+        "input's shape meet the requirements. It should "
+        "be greater or equal to [%d] and less than [%d], but received [%d]",
+        -src_select_dim_size,
+        src_select_dim_size,
+        (int32_t)index);
+    if (index < 0) {
+      index += src_select_dim_size;
+    }
     replace_index_self = tid;
 
     replace_index_src = k + index * outer_dim_size_src +
@@ -676,6 +714,19 @@ __global__ void ScatterMulInputGradGPUKernel(tensor_t* grad_data,
   j = remind / outer_dim_size;
   k = remind % outer_dim_size;
   index_t index = index_data[tid];
+  PADDLE_ENFORCE(
+      index >= -grad_select_dim_size && index < grad_select_dim_size,
+      "The index is out of bounds, "
+      "please check whether the index and "
+      "input's shape meet the requirements. It should "
+      "be greater or equal to [%d] and less than [%d], but received [%d]",
+      -grad_select_dim_size,
+      grad_select_dim_size,
+      (int32_t)index);
+  if (index < 0) {
+    index += grad_select_dim_size;
+  }
+
   int64_t replace_index = k + index * outer_dim_size_grad +
                           i * outer_dim_size_grad * grad_select_dim_size;
   atomicMax(thread_ids + replace_index, tid);
@@ -712,6 +763,19 @@ __global__ void ScatterMinMaxInputGradGPUKernel(tensor_t* grad_data,
   j = remind / outer_dim_size;
   k = remind % outer_dim_size;
   index_t index = index_data[tid];
+  PADDLE_ENFORCE(
+      index >= -grad_select_dim_size && index < grad_select_dim_size,
+      "The index is out of bounds, "
+      "please check whether the index and "
+      "input's shape meet the requirements. It should "
+      "be greater or equal to [%d] and less than [%d], but received [%d]",
+      -grad_select_dim_size,
+      grad_select_dim_size,
+      (int32_t)index);
+  if (index < 0) {
+    index += grad_select_dim_size;
+  }
+
   int64_t replace_index = k + index * outer_dim_size_grad +
                           i * outer_dim_size_grad * grad_select_dim_size;
   int64_t replace_index_value =
@@ -751,8 +815,24 @@ void gpu_scatter_mul_min_max_input_grad_kernel(phi::DenseTensor self,
   int64_t index_size = index.numel();
   auto index_dims = index.dims();
   auto grad_dims = grad.dims();
+  auto grad_ndim = grad_dims.size();
   auto x_dims = x.dims();
   auto value_dims = value.dims();
+
+  PADDLE_ENFORCE_LT(
+      dim,
+      grad_ndim,
+      errors::InvalidArgument(
+          "axis(%d) should be less than the x.ndim(%d).", dim, grad_ndim));
+  PADDLE_ENFORCE_GE(dim,
+                    -grad_ndim,
+                    errors::InvalidArgument(
+                        "axis(%d) should be larger or equal to -x.ndim(%d).",
+                        dim,
+                        -grad_ndim));
+  if (dim < 0) {
+    dim += grad_ndim;
+  }
 
   int64_t inner_dim_size = 1;
   int64_t outer_dim_size = 1;
@@ -837,6 +917,19 @@ __global__ void ScatterMeanInputGradGPUKernel(tensor_t* grad_data,
   index_t index = index_data[tid];
   int64_t replace_index = k + index * outer_dim_size_grad +
                           i * outer_dim_size_grad * grad_select_dim_size;
+  PADDLE_ENFORCE(
+      index >= -grad_select_dim_size && index < grad_select_dim_size,
+      "The index is out of bounds, "
+      "please check whether the index and "
+      "input's shape meet the requirements. It should "
+      "be greater or equal to [%d] and less than [%d], but received [%d]",
+      -grad_select_dim_size,
+      grad_select_dim_size,
+      (int32_t)index);
+  if (index < 0) {
+    index += grad_select_dim_size;
+  }
+
   atomicMax(shared_mem + replace_index, tid);
   phi::CudaAtomicAdd(shared_mem + numel_grad + replace_index, 1);
   __syncthreads();
@@ -929,6 +1022,19 @@ __global__ void ScatterValueGradGPUKernel(tensor_t* grad_data,
   index_t index = index_data[tid];
   int64_t replace_index_self = k + index * outer_dim_size_self +
                                i * outer_dim_size_self * self_select_dim_size;
+  PADDLE_ENFORCE(
+      index >= -grad_select_dim_size && index < grad_select_dim_size,
+      "The index is out of bounds, "
+      "please check whether the index and "
+      "input's shape meet the requirements. It should "
+      "be greater or equal to [%d] and less than [%d], but received [%d]",
+      -grad_select_dim_size,
+      grad_select_dim_size,
+      (int32_t)index);
+  if (index < 0) {
+    index += grad_select_dim_size;
+  }
+
   atomicMax(thread_ids + replace_index_self, tid);
   __syncthreads();
 
@@ -1023,6 +1129,18 @@ __global__ void ScatterMeanValueGradGPUKernel(tensor_t* grad_data,
   index_t index = index_data[tid];
   int64_t replace_index_self = k + index * outer_dim_size_self +
                                i * outer_dim_size_self * self_select_dim_size;
+  PADDLE_ENFORCE(
+      index >= -grad_select_dim_size && index < grad_select_dim_size,
+      "The index is out of bounds, "
+      "please check whether the index and "
+      "input's shape meet the requirements. It should "
+      "be greater or equal to [%d] and less than [%d], but received [%d]",
+      -grad_select_dim_size,
+      grad_select_dim_size,
+      (int32_t)index);
+  if (index < 0) {
+    index += grad_select_dim_size;
+  }
 
   phi::CudaAtomicAdd(shared_mem + replace_index_self, 1);
   __syncthreads();
@@ -1054,6 +1172,19 @@ __global__ void ScatterAddValueGradGPUKernel(tensor_t* grad_data,
   j = remind / outer_dim_size;
   k = remind % outer_dim_size;
   index_t index = index_data[tid];
+  PADDLE_ENFORCE(
+      index >= -grad_select_dim_size && index < grad_select_dim_size,
+      "The index is out of bounds, "
+      "please check whether the index and "
+      "input's shape meet the requirements. It should "
+      "be greater or equal to [%d] and less than [%d], but received [%d]",
+      -grad_select_dim_size,
+      grad_select_dim_size,
+      (int32_t)index);
+  if (index < 0) {
+    index += grad_select_dim_size;
+  }
+
   int64_t replace_index_self = k + index * outer_dim_size_self +
                                i * outer_dim_size_self * self_select_dim_size;
   int64_t replace_index_grad = k + j * outer_dim_size_grad +
@@ -1167,6 +1298,19 @@ __global__ void ScatterMulValueGradGPUKernel(tensor_t* grad_data,
   j = remind / outer_dim_size;
   k = remind % outer_dim_size;
   index_t index = index_data[tid];
+  PADDLE_ENFORCE(
+      index >= -grad_select_dim_size && index < grad_select_dim_size,
+      "The index is out of bounds, "
+      "please check whether the index and "
+      "input's shape meet the requirements. It should "
+      "be greater or equal to [%d] and less than [%d], but received [%d]",
+      -grad_select_dim_size,
+      grad_select_dim_size,
+      (int32_t)index);
+  if (index < 0) {
+    index += grad_select_dim_size;
+  }
+
   int64_t replace_index_self = k + index * outer_dim_size_self +
                                i * outer_dim_size_self * self_select_dim_size;
   int64_t replace_index_grad = k + j * outer_dim_size_grad +
@@ -1202,6 +1346,19 @@ __global__ void ScatterMinMaxValueGradGPUKernel(tensor_t* grad_data,
   j = remind / outer_dim_size;
   k = remind % outer_dim_size;
   index_t index = index_data[tid];
+  PADDLE_ENFORCE(
+      index >= -grad_select_dim_size && index < grad_select_dim_size,
+      "The index is out of bounds, "
+      "please check whether the index and "
+      "input's shape meet the requirements. It should "
+      "be greater or equal to [%d] and less than [%d], but received [%d]",
+      -grad_select_dim_size,
+      grad_select_dim_size,
+      (int32_t)index);
+  if (index < 0) {
+    index += grad_select_dim_size;
+  }
+
   int64_t replace_index_self = k + index * outer_dim_size_self +
                                i * outer_dim_size_self * self_select_dim_size;
   int64_t replace_index_grad = k + j * outer_dim_size_grad +

@@ -120,29 +120,6 @@ struct cpu_gather_scatter_functor {
       for (int64_t j = 0; j < select_dim_size; j++) {
         for (int64_t k = 0; k < outer_dim_size; k++) {
           int64_t index = index_data[index_idx];
-          PADDLE_ENFORCE_GE(index,
-                            -src_select_dim_size,
-                            common::errors::InvalidArgument(
-                                "Variable value (index) of OP(take_along_axis) "
-                                "expected >= %ld and < %ld, but got %ld. "
-                                "Please check the input "
-                                "value.",
-                                -src_select_dim_size,
-                                src_select_dim_size,
-                                index));
-          PADDLE_ENFORCE_LT(index,
-                            src_select_dim_size,
-                            common::errors::InvalidArgument(
-                                "Variable value (index) of OP(take_along_axis) "
-                                "expected >= %ld and < %ld, but got %ld. "
-                                "Please check the input "
-                                "value.",
-                                -src_select_dim_size,
-                                src_select_dim_size,
-                                index));
-          if (index < 0) {
-            index += src_select_dim_size;
-          }
           /*
             gather computation formula:
 
@@ -162,12 +139,64 @@ struct cpu_gather_scatter_functor {
           // multiply the replaced_select_dim_size.
           int64_t replace_index_self, replace_index_src;
           if (is_scatter_like) {
+            // scatter
+            PADDLE_ENFORCE_GE(
+                index,
+                -self_select_dim_size,
+                common::errors::InvalidArgument(
+                    "Variable value (index) of OP(take_along_axis) "
+                    "expected >= %ld and < %ld, but got %ld. "
+                    "Please check the input "
+                    "value.",
+                    -self_select_dim_size,
+                    self_select_dim_size,
+                    index));
+            PADDLE_ENFORCE_LT(
+                index,
+                self_select_dim_size,
+                common::errors::InvalidArgument(
+                    "Variable value (index) of OP(take_along_axis) "
+                    "expected >= %ld and < %ld, but got %ld. "
+                    "Please check the input "
+                    "value.",
+                    -self_select_dim_size,
+                    self_select_dim_size,
+                    index));
+            if (index < 0) {
+              index += self_select_dim_size;
+            }
             replace_index_self = k + index * outer_dim_size_self +
                                  i * outer_dim_size_self * self_select_dim_size;
 
             replace_index_src = k + j * outer_dim_size_src +
                                 i * outer_dim_size_src * src_select_dim_size;
           } else {
+            // gather
+            PADDLE_ENFORCE_GE(
+                index,
+                -src_select_dim_size,
+                common::errors::InvalidArgument(
+                    "Variable value (index) of OP(take_along_axis) "
+                    "expected >= %ld and < %ld, but got %ld. "
+                    "Please check the input "
+                    "value.",
+                    -src_select_dim_size,
+                    src_select_dim_size,
+                    index));
+            PADDLE_ENFORCE_LT(
+                index,
+                src_select_dim_size,
+                common::errors::InvalidArgument(
+                    "Variable value (index) of OP(take_along_axis) "
+                    "expected >= %ld and < %ld, but got %ld. "
+                    "Please check the input "
+                    "value.",
+                    -src_select_dim_size,
+                    src_select_dim_size,
+                    index));
+            if (index < 0) {
+              index += src_select_dim_size;
+            }
             replace_index_self = index_idx;
 
             replace_index_src = k + index * outer_dim_size_src +

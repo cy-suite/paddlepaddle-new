@@ -302,17 +302,23 @@ class TestTakeAlongAxisAPICase2(unittest.TestCase):
         indices = paddle.to_tensor([1]).astype("int32")
         # len(arr.shape) != len(indices.shape)
         with self.assertRaises(ValueError):
-            res = paddle.take_along_axis(tensorx, indices, 0, False)
+            res = paddle.take_along_axis(
+                tensorx.to("cpu"), indices.to("cpu"), 0, False
+            )
         # the element of indices out of range
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(ValueError):
             indices = paddle.to_tensor([[100]]).astype("int32")
-            res = paddle.take_along_axis(tensorx, indices, 0, False)
+            res = paddle.take_along_axis(
+                tensorx.to("cpu"), indices.to("cpu"), 0, False
+            )
         # the shape of indices doesn't match
         with self.assertRaises(RuntimeError):
             indices = paddle.to_tensor(
                 [[1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0]]
             ).astype("int32")
-            res = paddle.take_along_axis(tensorx, indices, 0, False)
+            res = paddle.take_along_axis(
+                tensorx.to("cpu"), indices.to("cpu"), 0, False
+            )
 
 
 class TestTakeAlongAxisAPICase3(unittest.TestCase):
