@@ -654,7 +654,7 @@ def check_and_set_prim_all_enabled(print_flag=False):
 check_and_set_prim_all_enabled(True)
 
 
-SKIPPED_PRIM_VJP_DEFAULT_OPS = ["matmul_grad"]
+SKIPPED_PRIM_VJP_DEFAULT_OPS = ["pd_op.matmul_grad"]
 
 
 def _clear_prim_vjp_skip_default_ops():
