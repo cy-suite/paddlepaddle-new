@@ -13,6 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License. */
 
 #include "paddle/fluid/pybind/sot/guards.h"
+#include "paddle/phi/api/include/tensor.h"
 
 #if SOT_IS_SUPPORTED
 
@@ -24,6 +25,14 @@ static inline PyObject* PyObject_CallOneArg(PyObject* func, PyObject* arg) {
   return PyObject_CallFunctionObjArgs(func, arg, NULL);
 }
 #endif
+
+std::optional<paddle::Tensor> GetTensorFromPyObject(PyObject* obj) {
+  if (!paddle::pybind::PyCheckTensor(obj)) {
+    // TODO(zrr1999): PyCheckTensor only check if the object is a p_tensor_type.
+    return std::nullopt;
+  }
+  return reinterpret_cast<paddle::pybind::TensorObject*>(obj)->tensor;
+}
 
 bool LambdaGuard::check(PyObject* value) {
   PyObject* x = PyObject_CallOneArg(_guard_check_fn, value);
@@ -70,13 +79,29 @@ bool LengthMatchGuard::check(PyObject* value) {
 }
 
 bool DtypeMatchGuard::check(PyObject* value) {
-  if (!paddle::pybind::PyCheckTensor(value)) {
-    // TODO(zrr1999): PyCheckTensor only check if the object is a p_tensor_type.
+  auto tensor = GetTensorFromPyObject(value);
+  if (!tensor) {
     return false;
   }
-  auto dtype =
-      reinterpret_cast<paddle::pybind::TensorObject*>(value)->tensor.type();
+  auto dtype = tensor->type();
   return phi::TransToProtoVarType(dtype) == _expected;
+}
+
+bool ShapeMatchGuard::check(PyObject* value) {
+  auto tensor = GetTensorFromPyObject(value);
+  if (!tensor) {
+    return false;
+  }
+  auto shape = tensor->shape();
+  if (shape.size() != _expected.size()) {
+    return false;
+  }
+  for (size_t i = 0; i < shape.size(); ++i) {
+    if (_expected[i] && shape[i] != *_expected[i]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 bool LayerMatchGuard::check(PyObject* value) {

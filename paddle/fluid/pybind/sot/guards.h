@@ -16,7 +16,6 @@ limitations under the License. */
 #include <Python.h>
 #include "paddle/fluid/framework/data_type.h"
 #include "paddle/fluid/pybind/sot/macros.h"
-#include "paddle/phi/core/framework/heter_service.pb.h"
 #include "paddle/phi/core/utils/data_type.h"
 #include "paddle/utils/pybind.h"
 #include "pybind11/pybind11.h"
@@ -55,7 +54,7 @@ class LambdaGuard : public GuardBase {
 
 class GuardGroup : public GuardBase {
  public:
-  explicit GuardGroup(std::vector<std::shared_ptr<GuardBase>> guards) {
+  explicit GuardGroup(const std::vector<std::shared_ptr<GuardBase>>& guards) {
     for (auto& guard : guards) {
       if (auto group = dynamic_cast<GuardGroup*>(guard.get())) {
         _guards.insert(
@@ -107,7 +106,7 @@ class ValueMatchGuard : public GuardBase {
 
 class LengthMatchGuard : public GuardBase {
  public:
-  explicit LengthMatchGuard(Py_ssize_t length) : _expected(length) {}
+  explicit LengthMatchGuard(const Py_ssize_t& length) : _expected(length) {}
 
   bool check(PyObject* value);
 
@@ -127,6 +126,26 @@ class DtypeMatchGuard : public GuardBase {
 
  private:
   int _expected;
+};
+
+class ShapeMatchGuard : public GuardBase {
+ public:
+  explicit ShapeMatchGuard(const std::vector<std::optional<int64_t>>& shape)
+      : _expected(shape) {}
+
+  explicit ShapeMatchGuard(const std::vector<py::object>& shape) {
+    _expected.resize(shape.size());
+    for (size_t i = 0; i < shape.size(); ++i) {
+      if (py::isinstance<py::int_>(shape[i])) {
+        _expected[i] = std::make_optional(shape[i].cast<int64_t>());
+      }
+    }
+  }
+
+  bool check(PyObject* value);
+
+ private:
+  std::vector<std::optional<int64_t>> _expected;
 };
 
 class LayerMatchGuard : public GuardBase {
