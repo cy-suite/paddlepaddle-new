@@ -315,6 +315,98 @@ class TestTakeAlongAxisAPICase2(unittest.TestCase):
             res = paddle.take_along_axis(tensorx, indices, 0, False)
 
 
+class TestTakeAlongAxisAPICase3(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(0)
+        self.arr_shape = [10, 10]
+        self.indices_shape = [10, 10]
+        self.axis = -1
+        self.index_np = np.random.randint(
+            -self.arr_shape[self.axis], self.arr_shape[self.axis], size=[10, 10]
+        ).astype('int64')
+        self.x_np = np.random.randn(*self.arr_shape).astype(np.float32)
+        self.place = []
+        self.axis = 0
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not core.is_compiled_with_cuda()
+        ):
+            self.place.append(paddle.CPUPlace())
+        if core.is_compiled_with_cuda():
+            self.place.append(paddle.CUDAPlace(0))
+
+    def test_api_static(self):
+        paddle.enable_static()
+        with paddle.static.program_guard(paddle.static.Program()):
+            x = paddle.static.data('X', self.arr_shape)
+            index = paddle.static.data('Index', self.indices_shape, "int64")
+            out = paddle.take_along_axis(x, index, self.axis, False)
+            exe = paddle.static.Executor(self.place[0])
+            res = exe.run(
+                feed={'X': self.x_np, 'Index': self.index_np}, fetch_list=[out]
+            )
+        out_ref = np.zeros_like(self.index_np, dtype=self.x_np.dtype)
+        for i in range(self.indices_shape[0]):
+            for j in range(self.indices_shape[1]):
+                out_ref[i, j] = self.x_np[self.index_np[i, j], j]
+        for out in res:
+            np.testing.assert_allclose(out, out_ref, rtol=0.001)
+
+    def test_api_dygraph(self):
+        paddle.disable_static(self.place[0])
+        x_tensor = paddle.to_tensor(self.x_np)
+        self.index = paddle.to_tensor(self.index_np)
+        out = paddle.take_along_axis(x_tensor, self.index, self.axis, False)
+        out_ref = np.zeros_like(self.index_np, dtype=self.x_np.dtype)
+        for i in range(self.indices_shape[0]):
+            for j in range(self.indices_shape[1]):
+                out_ref[i, j] = self.x_np[self.index_np[i, j], j]
+        np.testing.assert_allclose(out.numpy(), out_ref, rtol=0.001)
+        paddle.enable_static()
+
+    def test_error(self):
+        paddle.disable_static(self.place[0])
+
+        tensorx = paddle.to_tensor([[1, 2, 3], [4, 5, 6]]).astype("float32")
+        indices = paddle.to_tensor([1]).astype("int32")
+        axis = 0
+        # len(arr.shape) != len(indices.shape)
+        with self.assertRaises(ValueError):
+            res = paddle.take_along_axis(tensorx, indices, axis, False)
+
+        # only test cpu because gpu error can not be caught by assertRaises
+        # the element of indices out of range
+        with self.assertRaises(ValueError):
+            indices = paddle.to_tensor([[100]]).astype("int32")
+            res = paddle.take_along_axis(
+                tensorx.to("cpu"), indices.to("cpu"), axis, False
+            )
+        # the shape of indices doesn't match
+        with self.assertRaises(RuntimeError):
+            indices = paddle.to_tensor(
+                [[1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0]]
+            ).astype("int32")
+            res = paddle.take_along_axis(
+                tensorx.cpu(), indices.cpu(), axis, False
+            )
+        # the index value in indices do not in range: [-arr_shape[axis], arr_shape[axis])
+        with self.assertRaises(ValueError):
+            indices = paddle.to_tensor(
+                [[-tensorx.shape[axis] - 1]], place="cpu"
+            ).astype("int32")
+            res = paddle.take_along_axis(
+                tensorx.to("cpu"), indices, axis, False
+            )
+        with self.assertRaises(ValueError):
+            indices = paddle.to_tensor(
+                [[tensorx.shape[axis]]], place="cpu"
+            ).astype("int32")
+            res = paddle.take_along_axis(
+                tensorx.to("cpu"), indices, axis, False
+            )
+
+
 if __name__ == "__main__":
     paddle.enable_static()
     unittest.main()

@@ -219,10 +219,10 @@ __global__ void GatherScatterGPUKernel(tensor_t* self_data,
       "The index is out of bounds, "
       "please check whether the index and "
       "input's shape meet the requirements. It should "
-      "be less than [%d] and greater or equal to [%d], but received [%ld]",
+      "be less than [%d] and greater or equal to [%d], but received [%d]",
       src_select_dim_size,
       -src_select_dim_size,
-      index);
+      (int32_t)index);
   if (index < 0) {
     index += src_select_dim_size;
   }
