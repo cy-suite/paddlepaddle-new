@@ -178,11 +178,11 @@ def fill_constant_layer(network, shape_tensor, tensor_rank, data, trt_dtype):
     np_dtype = map_trt_dtype(trt_dtype)
     fill_layer.set_input(0, shape_tensor)
     fill_layer.set_input(
-        1, add_1D_constant_layer(network, data, np_dtype, scalar=True)
+        1, add_1D_constant_layer(network, data, np_dtype, is_scalar=True)
     )
     beta = [0] * tensor_rank
     fill_layer.set_input(
-        2, add_1D_constant_layer(network, beta, np_dtype, scalar=False)
+        2, add_1D_constant_layer(network, beta, np_dtype, is_scalar=False)
     )
     return fill_layer.get_output(0)
 
