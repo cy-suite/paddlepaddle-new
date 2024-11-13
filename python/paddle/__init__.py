@@ -586,6 +586,10 @@ from .tensor.stat import (
     var,
 )
 from .tensor.to_string import set_printoptions
+from .utils.dlpack import (
+    to_dlpack,
+    from_dlpack,
+)
 
 # CINN has to set a flag to include a lib
 if is_compiled_with_cinn():
@@ -1186,4 +1190,6 @@ __all__ = [
     'combinations',
     'signbit',
     'positive',
+    'to_dlpack',
+    'from_dlpack',
 ]
