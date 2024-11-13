@@ -7769,6 +7769,131 @@ def bitwise_right_shift_(
         return _C_ops.bitwise_right_shift_(x, y, is_arithmetic)
 
 
+def left_shift(
+    x: Tensor,
+    y: Tensor,
+    is_arithmetic: bool = True,
+    out: Tensor | None = None,
+    name: str | None = None,
+) -> Tensor:
+    r"""
+    Apply ``left_shift`` on Tensor ``X`` and ``Y`` .
+    .. math::
+        Out = X \gg Y
+    .. note::
+        ``Tensor.__rshift__`` supports broadcasting. If you want know more about broadcasting, please refer to please refer to `Introduction to Tensor`_ .
+    .. _Introduction to Tensor: ../../guides/beginner/tensor_en.html#chapter5-broadcasting-of-tensor
+    Args:
+        x (Tensor): Input Tensor of ``__rshift__`` . It is a N-D Tensor of uint8, int8, int16, int32, int64.
+        y (Tensor): Input Tensor of ``__rshift__`` . It is a N-D Tensor of uint8, int8, int16, int32, int64.
+        is_arithmetic (bool, optional): A boolean indicating whether to choose arithmetic shift, if False, means logic shift. Default True.
+        out (Tensor|None, optional): Result of ``__rshift__`` . It is a N-D Tensor with the same data type of input Tensor. Default: None.
+        name (str|None, optional): The default value is None.  Normally there is no need for
+            user to set this property.  For more information, please refer to :ref:`api_guide_Name`.
+    Returns:
+        Tensor: Result of ``__rshift__`` . It is a N-D Tensor with the same data type of input Tensor.
+    Examples:
+        .. code-block:: python
+            :name: rshift_example1
+            >>> import paddle
+            >>> x = paddle.to_tensor([[10,20,40,80],[16,17,32,65]])
+            >>> y = paddle.to_tensor([[1,2,3,4,], [2,3,2,1]])
+            >>> x >> y
+            Tensor(shape=[2, 4], dtype=int64, place=Place(cpu), stop_gradient=True,
+                   [[5 , 5 , 5 , 5 ],
+                    [4 , 2 , 8 , 32]])
+        .. code-block:: python
+            :name: rshift_example2
+            >>> import paddle
+            >>> x = paddle.to_tensor([[10,20,40,80],[16,17,32,65]])
+            >>> y = paddle.to_tensor([1])
+            >>> x >> y
+            Tensor(shape=[2, 4], dtype=int64, place=Place(cpu), stop_gradient=True,
+                    [[5 , 10, 20, 40],
+                        [8 , 8 , 16, 32]])
+    """
+    # Directly call bitwise_left_shift
+    return bitwise_left_shift(x, y, is_arithmetic, out, name)
+
+
+def right_shift(
+    x: Tensor,
+    y: Tensor,
+    is_arithmetic: bool = True,
+    out: Tensor | None = None,
+    name: str | None = None,
+) -> Tensor:
+    r"""
+    Apply ``right_shift`` on Tensor ``X`` and ``Y`` .
+    .. math::
+        Out = X \gg Y
+    .. note::
+        ``Tensor.__lshift__`` supports broadcasting. If you want know more about broadcasting, please refer to please refer to `Introduction to Tensor`_ .
+    .. _Introduction to Tensor: ../../guides/beginner/tensor_en.html#chapter5-broadcasting-of-tensor
+    Args:
+        x (Tensor): Input Tensor of ``__lshift__`` . It is a N-D Tensor of uint8, int8, int16, int32, int64.
+        y (Tensor): Input Tensor of ``__lshift__`` . It is a N-D Tensor of uint8, int8, int16, int32, int64.
+        is_arithmetic (bool, optional): A boolean indicating whether to choose arithmetic shift, if False, means logic shift. Default True.
+        out (Tensor|None, optional): Result of ``__lshift__`` . It is a N-D Tensor with the same data type of input Tensor. Default: None.
+        name (str|None, optional): The default value is None.  Normally there is no need for
+            user to set this property.  For more information, please refer to :ref:`api_guide_Name`.
+    Returns:
+        Tensor: Result of ``__lshift__`` . It is a N-D Tensor with the same data type of input Tensor.
+    Examples:
+        .. code-block:: python
+            :name: lshift_example1
+            >>> import paddle
+            >>> x = paddle.to_tensor([[10,20,40,80],[16,17,32,65]])
+            >>> y = paddle.to_tensor([[1,2,3,4,], [2,3,2,1]])
+            >>> x << y
+            Tensor(shape=[2, 4], dtype=int64, place=Place(cpu), stop_gradient=True,
+                   [[5 , 5 , 5 , 5 ],
+                    [4 , 2 , 8 , 32]])
+        .. code-block:: python
+            :name: lshift_example2
+            >>> import paddle
+            >>> x = paddle.to_tensor([[10,20,40,80],[16,17,32,65]])
+            >>> y = paddle.to_tensor([1])
+            >>> x << y
+            Tensor(shape=[2, 4], dtype=int64, place=Place(cpu), stop_gradient=True,
+                    [[5 , 10, 20, 40],
+                        [8 , 8 , 16, 32]])
+    """
+    # Directly call bitwise_right_shift
+    return bitwise_right_shift(x, y, is_arithmetic, out, name)
+
+
+def right_left_shift(
+    x: Tensor,
+    y: Tensor,
+    is_arithmetic: bool = True,
+    out: Tensor | None = None,
+    name: str | None = None,
+):
+
+    # equals to: x.rlshift(y)
+    # example: x = 1,y = Tensor([2,4,8])
+    # equals to: 1 << y
+    # expected output: Tensor([4,8,16])
+    # But it will raise TypeError,doesn't support for `int`
+    return bitwise_left_shift(x, y, is_arithmetic, out, name)
+
+
+def right_right_shift(
+    x: Tensor,
+    y: Tensor,
+    is_arithmetic: bool = True,
+    out: Tensor | None = None,
+    name: str | None = None,
+):
+    # equals to: x.rrshift(y)
+    # example: x = 1,y = Tensor([2,4,8])
+    # equals to: 1 >> y
+    # expected output:Tensor([1,2,4])
+    # But it will raise TypeError,doesn't support for `int`
+    return bitwise_right_shift(x, y, is_arithmetic, out, name)
+
+
 def copysign(x: Tensor, y: Tensor | float, name: str | None = None) -> Tensor:
     r"""
     Create a new floating-point tensor with the magnitude of input ``x`` and the sign of ``y``, elementwise.
