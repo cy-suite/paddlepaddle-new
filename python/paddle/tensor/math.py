@@ -7874,7 +7874,7 @@ def right_left_shift(
     # equals to: x.rlshift(y)
     # example: x = 1,y = Tensor([2,4,8])
     # equals to: 1 << y
-    # expected output: Tensor([4,8,16])
+    # expected output: Tensor([  4,  16, 256])
     # But it will raise TypeError,doesn't support for `int`
     return bitwise_left_shift(x, y, is_arithmetic, out, name)
 
@@ -7889,7 +7889,7 @@ def right_right_shift(
     # equals to: x.rrshift(y)
     # example: x = 1,y = Tensor([2,4,8])
     # equals to: 1 >> y
-    # expected output:Tensor([1,2,4])
+    # expected output:Tensor([0,0,0])
     # But it will raise TypeError,doesn't support for `int`
     return bitwise_right_shift(x, y, is_arithmetic, out, name)
 
