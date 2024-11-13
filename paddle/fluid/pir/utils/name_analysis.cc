@@ -216,7 +216,6 @@ pir::Value GetCorrespondingInplaceValue(pir::Operation *op) {
           ->get_op_info_(op_name),
       paddle::dialect::IsLegacyOp(op_name));
   for (size_t i = 0; i < op->num_results(); ++i) {
-    pir::Value value = op->result(i);
     std::string value_name = yaml_parser.OutputNames()[i];
     if (yaml_parser.HasInplace(value_name)) {
       const std::string &inplace_name = yaml_parser.InplaceName(value_name);
