@@ -1441,7 +1441,7 @@ class ClipPattern : public pir::OpRewritePattern<paddle::dialect::ClipOp> {
     return true;
   }
 };
-                   
+
 class GridSampleOpPattern
     : public pir::OpRewritePattern<paddle::dialect::GridSampleOp> {
  public:
