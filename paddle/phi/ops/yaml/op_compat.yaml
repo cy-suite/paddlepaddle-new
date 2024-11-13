@@ -608,8 +608,8 @@
   outputs :
     out : Out
 
-- op : clipwithtensor
-  backward : clipwithtensor_grad, clipwithtensor_double_grad
+- op : clipmul
+  backward : clipmul_grad, clipmul_double_grad
   inputs :
     x : X
     min : Min

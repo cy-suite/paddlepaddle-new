@@ -29,7 +29,7 @@ void ClipKernel(const Context& dev_ctx,
                 DenseTensor* out);
 
 template <typename T, typename Context>
-void ClipWithTensorKernel(const Context& dev_ctx,
+void ClipMulKernel(const Context& dev_ctx,
                          const DenseTensor& x,
                          const DenseTensor& min,
                          const DenseTensor& max,

@@ -45,7 +45,7 @@ void ClipGradKernel(const Context& ctx,
 }
 
 template <typename T, typename Context>
-void ClipWithTensorGradKernel(const Context& dev_ctx,
+void ClipMulGradKernel(const Context& dev_ctx,
                     const DenseTensor& x,
                     const DenseTensor& min,
                     const DenseTensor& max,
@@ -75,10 +75,10 @@ PD_REGISTER_KERNEL(clip_grad,
                    int64_t,
                    int) {}
 
-PD_REGISTER_KERNEL(clipwithtensor_grad,
+PD_REGISTER_KERNEL(clipmul_grad,
                    XPU,
                    ALL_LAYOUT,
-                   phi::ClipWithTensorGradKernel,
+                   phi::ClipMulGradKernel,
                    float,
                    phi::dtype::float16,
                    int64_t,

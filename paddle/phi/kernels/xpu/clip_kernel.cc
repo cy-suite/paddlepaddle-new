@@ -51,7 +51,7 @@ void ClipKernel(const Context& dev_ctx,
 }
 
 template <typename T, typename Context>
-void ClipWithTensorKernel(const Context& dev_ctx,
+void ClipMulKernel(const Context& dev_ctx,
                  const DenseTensor& x,
                  const DenseTensor& min,
                  const DenseTensor& max,
@@ -112,10 +112,10 @@ PD_REGISTER_KERNEL(clip,
                    int64_t,
                    int) {}
 
-PD_REGISTER_KERNEL(clipwithtensor,
+PD_REGISTER_KERNEL(clipmul,
                    XPU,
                    ALL_LAYOUT,
-                   phi::ClipWithTensorKernel,
+                   phi::ClipMulKernel,
                    float,
                    phi::dtype::float16,
                    phi::dtype::bfloat16,

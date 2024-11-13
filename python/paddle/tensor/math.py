@@ -3833,35 +3833,35 @@ def clip(
             )
 
         if in_dynamic_or_pir_mode():
-            return _C_ops.clipwithtensor(x, min, max)
+            return _C_ops.clipmul(x, min, max)
         else:
             check_variable_and_dtype(
                 min,
                 'min',
                 ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
-                'clipwithtensor',
+                'clipmul',
             )
             check_variable_and_dtype(
                 max,
                 'max',
                 ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
-                'clipwithtensor',
+                'clipmul',
             )
             check_variable_and_dtype(
                 x,
                 'x',
                 ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
-                'clipwithtensor',
+                'clipmul',
             )
 
             inputs = {'X': x, 'Min': min, 'Max': max}
 
-            helper = LayerHelper('clipwithtensor', **locals())
+            helper = LayerHelper('clipmul', **locals())
             output = helper.create_variable_for_type_inference(
                 dtype=helper.input_dtype('x')
             )
             helper.append_op(
-                type='clipwithtensor',
+                type='clipmul',
                 inputs=inputs,
                 outputs={'Out': [output]},
             )
