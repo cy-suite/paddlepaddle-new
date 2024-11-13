@@ -98,7 +98,7 @@ class TestPowDoubleGradComp(unittest.TestCase):
         def actual(primal):
             paddle.disable_static()
             core.set_prim_eager_enabled(True)
-            core._set_prim_backward_blacklist("pow_grad")
+            core._set_prim_backward_blacklist("pd_op.pow_grad")
             x = paddle.to_tensor(primal, dtype='float32', stop_gradient=False)
             x.stop_gradient = False
             y = paddle.pow(x, 2.7)

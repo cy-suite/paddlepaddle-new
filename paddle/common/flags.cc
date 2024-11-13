@@ -1686,7 +1686,7 @@ PHI_DEFINE_EXPORTED_string(
     "It controls the forward blacklist ops not to be decomposed.");
 
 // PIR and prim related FLAG
-// Example: If prim_backward_blacklist="relu_grad;mean_grad",
+// Example: If prim_backward_blacklist="pd_op.relu_grad;pd_op.mean_grad",
 // it will block the decompsitions of `relu` and `mean` backward grads.
 PHI_DEFINE_EXPORTED_string(
     prim_backward_blacklist,

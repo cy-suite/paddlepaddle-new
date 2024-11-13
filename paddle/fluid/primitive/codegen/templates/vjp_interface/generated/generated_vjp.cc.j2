@@ -48,7 +48,7 @@ for (auto arg: stop_gradients) {
   vjp_res.push_back(std::vector<paddle::Tensor>(arg.size()));
 }
   {% if api.name in vjp_comp_white_list %}
-std::string op_name = "{{api.name}}";
+std::string op_name = "pd_op.{{api.name}}";
 auto need_skip = paddle::prim::StaticCompositeContext::Instance().CheckSkipCompOps(op_name);
 {{join_need_skip(api.attrs, api.name)}}
 if (paddle::prim::StaticCompositeContext::Instance().IsBwdPrimEnabled() && !need_skip) {
