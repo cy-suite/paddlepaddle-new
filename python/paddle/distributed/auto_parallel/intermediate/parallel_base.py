@@ -12,10 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import paddle
 import paddle.distributed as dist
+from paddle import pir
+from paddle.base.framework import (
+    in_dygraph_mode,
+    in_pir_mode,
+)
 from paddle.distributed import fleet
 from paddle.nn import Layer
 from paddle.optimizer import Optimizer
+
+
+def is_tensor(tensor):
+    if in_dygraph_mode():
+        return isinstance(tensor, paddle.Tensor)
+    elif in_pir_mode():
+        return isinstance(tensor, pir.Value)
+    else:
+        raise RuntimeError(
+            "PipelineParallel are only supported in dynamic or pir mode."
+        )
 
 
 class ParallelOptimizer:
@@ -40,7 +57,12 @@ class ParallelOptimizer:
             return self.optimizer
         # 1.replace optimizer parameters
         self.optimizer._parameter_list = parallelized_parameters
-
+        if isinstance(parallelized_parameters[0], dict):
+            self.optimizer._param_groups = []
+            for param_group in self.parallelized_parameters:
+                self.optimizer._add_param_group(param_group.copy())
+        else:
+            self.optimizer._param_groups = self.optimizer._parameter_list
         # 2.wrap with shard_optimizer
         mesh = fleet.auto.get_mesh()
         if self.level == "os":
