@@ -248,8 +248,7 @@ std::optional<std::string> GetValueInputName(pir::Value value) {
     pir::Operation *owner = value.defining_op();
     if (owner->isa<pir::ParameterOp>()) {
       pir::ParameterOp parameter_op = owner->dyn_cast<pir::ParameterOp>();
-      std::string name = parameter_op.param_name();
-      return name;
+      name = parameter_op.param_name();
     }
   }
   return name;
