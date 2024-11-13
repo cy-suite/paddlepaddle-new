@@ -10,7 +10,6 @@ test/sot/test_16_paddle_api.py
 test/sot/test_17_paddle_layer.py
 test/sot/test_18_tensor_method.py
 test/sot/test_19_closure.py
-test/sot/test_20_string.py
 test/sot/test_21_global.py
 test/sot/test_analysis_inputs.py
 test/sot/test_binary_operator_tracker.py

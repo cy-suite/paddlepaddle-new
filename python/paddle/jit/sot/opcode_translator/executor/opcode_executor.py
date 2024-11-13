@@ -1262,7 +1262,7 @@ class OpcodeExecutorBase:
         # in python3.13, the offset is 5
         if sys.version_info >= (3, 13):
             cmp_op_index >>= 1
-        # TODO 3.13修改了COMPARE_OP的行为，需要进一步适配，并且加入了TO_BOOL
+        # TODO 3.13 modified the behavior related to TO_BOOL, needs further modification
         op = dis.cmp_op[cmp_op_index]
         right, left = self.stack.pop(), self.stack.pop()
         self.stack.push(
@@ -1540,15 +1540,17 @@ class OpcodeExecutorBase:
 
     def FORMAT_SIMPLE(self, instr: Instruction):
         value = self.stack.pop()
-        assert (
-            value is not None
-        ), "value passed to FORMAT_SIMPLE must be a valid object!"
-        if isinstance(value, ConstantVariable):
+
+        if isinstance(value, ConstantVariable) and isinstance(value, str):
+            self.stack.push(value)
+
+        elif isinstance(value, ConstantVariable):
             result = value.get_py_value()
-            result = result.__format__("")
+            result = format(result, "")
             self.stack.push(
                 ConstantVariable(result, self._graph, DummyTracker([value]))
             )
+            return
         else:
             raise FallbackError(f"Do not support format {type(value)} now")
 
