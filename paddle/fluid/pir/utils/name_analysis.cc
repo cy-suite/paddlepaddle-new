@@ -207,7 +207,7 @@ std::map<std::string, std::string> RenameValue(Value value,
   return rename_mapping;
 }
 
-std::optional<std::string> GetCorrespondingInplaceName(pir::Operation *op) {
+pir::Value GetCorrespondingInplaceValue(pir::Operation *op) {
   pir::IrContext *ctx = pir::IrContext::Instance();
   auto op_name = op->name();
   pir::OpInfo op_info = ctx->GetRegisteredOpInfo(op_name);
@@ -222,15 +222,10 @@ std::optional<std::string> GetCorrespondingInplaceName(pir::Operation *op) {
       const std::string &inplace_name = yaml_parser.InplaceName(value_name);
       pir::Value inplace_value =
           op->operand_source(yaml_parser.InputName2Id().at(inplace_name));
-      pir::Operation *owner = inplace_value.defining_op();
-      if (owner->isa<pir::ParameterOp>()) {
-        pir::ParameterOp parameter_op = owner->dyn_cast<pir::ParameterOp>();
-        std::string name = parameter_op.param_name();
-        return name;
-      }
+      return inplace_value;
     }
   }
-  return std::nullopt;
+  return nullptr;
 }
 
 std::optional<std::string> GetValueInputName(pir::Value value) {
@@ -249,7 +244,13 @@ std::optional<std::string> GetValueInputName(pir::Value value) {
     name = constant_op.tensor_name();
   } else if (value.defining_op()->HasTrait<paddle::dialect::InplaceTrait>()) {
     auto defining_op = value.defining_op();
-    name = GetCorrespondingInplaceName(defining_op);
+    auto value = GetCorrespondingInplaceValue(defining_op);
+    pir::Operation *owner = value.defining_op();
+    if (owner->isa<pir::ParameterOp>()) {
+      pir::ParameterOp parameter_op = owner->dyn_cast<pir::ParameterOp>();
+      std::string name = parameter_op.param_name();
+      return name;
+    }
   }
   return name;
 }
