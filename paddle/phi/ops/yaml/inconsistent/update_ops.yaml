@@ -4,7 +4,7 @@
 # the dynamic graph is simultaneously upgraded, the operators in this file will be migrated to paddle/phi/ops/yaml/ops.yaml.
 
 - op : arange
-  args : (Scalar start, Scalar end, Scalar step, DataType dtype=DataType::FLOAT64, Place place=CPUPlace())
+  args : (Scalar(double) start, Scalar(double) end, Scalar(double) step, DataType dtype=DataType::FLOAT64, Place place=CPUPlace())
   output : Tensor(out)
   infer_meta :
     func : ArangeInferMeta
