@@ -644,10 +644,6 @@ PHI_DEFINE_EXPORTED_uint64(
     "The real chunk size is max(request_size, "
     "FLAGS_auto_growth_chunk_size_in_mb).");
 
-PHI_DEFINE_EXPORTED_bool(custom_device_mem_record,
-                         false,
-                         "Enable mem record event on custom device");
-
 #endif
 
 /**
@@ -1897,6 +1893,10 @@ PHI_DEFINE_EXPORTED_bool(
     use_xqa_optim,
     false,
     "Enable xqa optim in block_multihead_attention kernel (GQA).");
+
+PHI_DEFINE_EXPORTED_bool(cuda_core_int8_gemm,
+                         false,
+                         "Enable speed up int8 gemm calculations when m<=4");
 
 PHI_DEFINE_EXPORTED_string(
     mkl_dir,  // NOLINT

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 CINN Authors. All Rights Reserved.
+// Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,15 +13,22 @@
 // limitations under the License.
 
 #pragma once
+#include "paddle/phi/core/dense_tensor.h"
 
-#include <optional>
-#include <string>
-#include "paddle/cinn/ir/group_schedule/tactic/schedule_tactic.h"
+namespace phi {
 
-namespace cinn {
-namespace ir {
+typedef struct {
+  void const* act;
+  void const* weight;
+  void* output;
+  int32_t m, n, k;
+  cudaStream_t stream;
+} GemmParams;
 
-std::unique_ptr<ScheduleTactic> CreateComputeAtReductionTactic();
+template <typename T, typename Context>
+void CudaGemm(const Context& ctx,
+              const DenseTensor& input,
+              const DenseTensor& w,
+              DenseTensor* output);
 
-}  // namespace ir
-}  // namespace cinn
+}  // namespace phi
