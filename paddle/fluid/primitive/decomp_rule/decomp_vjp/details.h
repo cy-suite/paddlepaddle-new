@@ -3222,25 +3222,30 @@ void take_along_axis_grad(const Tensor& arr,
                           int axis,
                           Tensor* arr_grad) {
   if (arr_grad) {
+    auto arr_cast = ConverToMT<T>(arr);
+    auto out_grad_cast = ConverToMT<T>(out_grad);
     // put_along_axis doesn't support zero dim
-    if (arr.dims().size() == 0) {
-      by_pass<T>(out_grad, arr_grad);
+    if (arr_cast.dims().size() == 0) {
+      by_pass<T>(ConverToOrig<T>(out_grad_cast, out_grad.dtype()), arr_grad);
       return;
     }
 
     // function `put_along_axis` requires a non-negative axis
     if (axis < 0) {
-      axis += arr.dims().size();
+      axis += arr_cast.dims().size();
     }
 
     Tensor zero_tensor;
-    if (has_dynamic_shape(arr.shape())) {
-      zero_tensor = backend::full_with_tensor<T>(shape<T>(arr), 0, arr.dtype());
+    if (has_dynamic_shape(arr_cast.shape())) {
+      zero_tensor =
+          backend::full_with_tensor<T>(shape<T>(arr_cast), 0, arr_cast.dtype());
     } else {
-      zero_tensor = full<T>(common::vectorize(arr.dims()), 0, arr.dtype());
+      zero_tensor =
+          full<T>(common::vectorize(arr_cast.dims()), 0, arr_cast.dtype());
     }
-    auto arr_grad_tmp = put_along_axis<T>(zero_tensor, indices, out_grad, axis);
-    set_output<T>(arr_grad_tmp, arr_grad);
+    auto arr_grad_tmp =
+        put_along_axis<T>(zero_tensor, indices, out_grad_cast, axis);
+    set_output<T>(ConverToOrig<T>(arr_grad_tmp, arr_cast.dtype()), arr_grad);
   }
 }
 

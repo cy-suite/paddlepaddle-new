@@ -166,6 +166,11 @@ def swish_net(x):
     return paddle.nn.functional.swish(x)
 
 
+def take_along_axis_net(x):
+    indices = np.full(x.shape, 2).astype("int32")
+    return paddle.take_along_axis(x, indices=indices, axis=0)
+
+
 def tanh_net(x):
     return paddle.tanh(x)
 
@@ -1039,6 +1044,24 @@ class TestPrimSwishWithGrad(TestPrimBaseWithGrad):
         self.init_x_shape = [None, None, None]
         self.x = np.random.random(self.x_shape).astype(self.dtype)
         self.net = swish_net
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimTakeAlongAxisWithGrad(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.take_along_axis_grad"
+        self.dtype = "float32"
+        # self.y_dtype = "int32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, None]
+        # self.indices_shape = [30, 200, 40]
+        # self.init_indices_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        # self.y = np.array([[0], [1], [2]]).astype(self.y_dtype)
+        # self.y = np.full(self.x_shape, 2).astype(self.y_dtype)
+        self.net = take_along_axis_net
         self.enable_cinn = False
         self.tol = 1e-6
 
