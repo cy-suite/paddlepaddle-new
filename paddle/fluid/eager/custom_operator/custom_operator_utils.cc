@@ -703,13 +703,14 @@ std::
       if (out_dim.size() == 1) {
         output_dims.emplace_back(out_dim[0]);
         if (!rank_is_in_current_mesh) {
+          std::vector<int64_t> dims_mapping = {};
+          if (!spmd_info.second.empty()) {
+            dims_mapping = PADDLE_GET_CONST(phi::distributed::TensorDistAttr,
+                                            spmd_info.second[i])
+                               .dims_mapping();
+          }
           *(ctx.MutableOutputAt(pair.first)) = BuildEmptyDistPaddleTensor(
-              current_process_mesh,
-              out_dim[0],
-              out_dtype[0],
-              PADDLE_GET_CONST(phi::distributed::TensorDistAttr,
-                               spmd_info.second[i])
-                  .dims_mapping());
+              current_process_mesh, out_dim[0], out_dtype[0], dims_mapping);
         }
       } else {
         for (size_t j = pair.first; j < pair.second; j++) {

@@ -63,6 +63,7 @@ from paddle.io.dataloader.batch_sampler import (
 from paddle.optimizer import Optimizer
 
 from .moe_utils import (
+    _cal_local_shape,
     _dist_reshape,
     _NdMeshAlltoAll,
     _reshard_mesh_shape,
@@ -430,15 +431,6 @@ def _get_sub_meshes_and_local_placements(
         local_placements[sub_mesh_dim] = dist.Replicate()
 
     return sub_mesh_list, local_placements
-
-
-def _cal_local_shape(global_shape, mesh, placements):
-    local_shape = list(global_shape)
-    for idx, placement in enumerate(placements):
-        if placement.is_shard():
-            shard_dim = placement.get_dim()
-            local_shape[shard_dim] = local_shape[shard_dim] // mesh.shape[idx]
-    return local_shape
 
 
 def _cal_global_shape(local_shape, mesh, placements):

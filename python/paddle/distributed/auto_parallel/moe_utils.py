@@ -71,6 +71,62 @@ def _specific_alltoall_dim(
     return mesh_dim
 
 
+def _dtensor_from_local(
+    local_tensor, mesh, placements, local_tensor_shape=None
+):
+    # assume the each rank has the same tensor shape for now, just use the local shape to calculate the global shape
+    global_dims = list(local_tensor.shape)
+    if local_tensor_shape is not None:
+        global_dims = local_tensor_shape
+    for idx, placement in enumerate(placements):
+        if placement.is_shard():
+            shard_dim = placement.get_dim()
+            local_dim_size = global_dims[shard_dim]
+            global_dims[shard_dim] = local_dim_size * mesh.shape[idx]
+
+    if paddle.in_dynamic_mode():
+        place = paddle.framework._current_expected_place()
+        place = paddle.framework._get_paddle_place(place)
+
+        return paddle.Tensor(
+            local_tensor,
+            dims=global_dims,
+            process_mesh=mesh,
+            placements=placements,
+            place=place,
+        )
+
+    # TODO Adopt Mix2Dist Pass to allow the program could be executed actually.
+    elif paddle.framework.in_pir_mode():
+        assert isinstance(
+            local_tensor, (type(None), paddle.pir.Value)
+        ), "input tensor is not pir value."
+        assert (
+            local_tensor.is_dense_tensor_type()
+        ), "dtensor_from_local() are only supported dense tensor type right."
+        sharding_specs = (
+            paddle.distributed.auto_parallel.placement_type.get_shard_spec(
+                mesh, placements, local_tensor.ndim
+            )
+        )
+        dims_mapping = paddle.distributed.auto_parallel.static.utils.convert_to_dims_mapping(
+            sharding_specs, mesh
+        )
+        local_shape = local_tensor.shape
+        global_tensor_type = paddle.pir.create_shaped_type(
+            local_tensor.type(), global_dims
+        )
+        dist_dense_tensor_type = paddle.base.libpaddle.pir.create_dist_dense_tensor_type_by_dense_tensor(
+            global_tensor_type, local_shape, mesh, dims_mapping
+        )
+        local_tensor.set_type(dist_dense_tensor_type)
+        return local_tensor
+    else:
+        raise RuntimeError(
+            "dtensor_from_local() are only supported in dynamic or pir mode."
+        )
+
+
 class _NdMeshAlltoAll(PyLayer):
     @staticmethod
     def forward(
@@ -90,7 +146,7 @@ class _NdMeshAlltoAll(PyLayer):
         local_shape = _cal_local_shape(
             dist_tensor.shape, mesh, dist_tensor.placements
         )
-        out = dist.auto_parallel.api.dtensor_from_local(
+        out = _dtensor_from_local(
             dist_tensor._local_value(),
             sub_mesh,
             [dist_tensor.placements[dim]],
@@ -98,7 +154,7 @@ class _NdMeshAlltoAll(PyLayer):
         )
         out = dist.reshard(out, sub_mesh, [placements[dim]])
         local_shape = _cal_local_shape(out.shape, mesh, out.placements)
-        out = dist.auto_parallel.api.dtensor_from_local(
+        out = _dtensor_from_local(
             out._local_value(), mesh, placements, local_shape
         )
         out.stop_gradient = dist_tensor.stop_gradient
