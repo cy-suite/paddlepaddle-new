@@ -89,7 +89,9 @@ class TestDLPack(unittest.TestCase):
                 )
                 gdlpack_v1 = paddle.utils.dlpack.to_dlpack(gtensor)
                 gdlpack_v2 = paddle.to_dlpack(gtensor)
-                gout_from_dlpack_v1 = paddle.utils.dlpack.from_dlpack(gdlpack_v1)
+                gout_from_dlpack_v1 = paddle.utils.dlpack.from_dlpack(
+                    gdlpack_v1
+                )
                 gout_from_dlpack_v2 = paddle.from_dlpack(gdlpack_v2)
                 self.assertTrue(
                     isinstance(gout_from_dlpack_v1, base.core.Tensor)
