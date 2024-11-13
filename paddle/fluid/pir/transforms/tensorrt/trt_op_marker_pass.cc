@@ -248,6 +248,16 @@ class AssignCommonOpPattern : public pir::OpRewritePattern<OpType> {
         return false;
       }
     }
+    int shape_size = vec_shape.size();
+    std::vector<phi::Scalar> values;
+    int values_count =
+        op->template attribute<pir::ArrayAttribute>("values").size();
+    if (shape_size != values_count) {
+      VLOG(3)
+          << "pd_op.assign_value shape size is not equal to the values size";
+      return false;
+    }
+
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
@@ -1616,6 +1626,7 @@ class TopkOpPattern : public pir::OpRewritePattern<paddle::dialect::TopkOp> {
         op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
+
     if (!pir::GetDefiningOpForInput(op, 1)->isa<paddle::dialect::FullOp>()) {
       VLOG(3) << "The 'k' input of pd_op.topk must be an integer";
       return false;
@@ -1703,6 +1714,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Hardswish)
     ADD_PATTERN(AssignOut)
     ADD_PATTERN(Assign)
+    ADD_PATTERN(AssignValue_)
     ADD_PATTERN(Tile)
     ADD_PATTERN(Share_Data)
     ADD_PATTERN(Roll)

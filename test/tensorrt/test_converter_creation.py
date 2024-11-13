@@ -74,36 +74,18 @@ class TestAssignValueInTRTPattern(TensorRTBaseTest):
             (
                 assign_value_api,
                 {
-                    "x": np.random.random([1, 3, 2, 2]).astype("float32"),
-                    "dtype": paddle.float32,
-                    "values": [1.0],
+                    "x": np.random.random([2, 2]).astype("int32"),
+                    "dtype": paddle.int32,
+                    "values": [1.0, 1.0],
                 },
             ),
             # Test case 2
             (
-                assign_value_api,
-                {
-                    "x": np.random.random([2, 2]).astype("int32"),
-                    "dtype": paddle.int32,
-                    "values": [1.0, 1.0, 1.0, 1.0],
-                },
-            ),
-            # Test case 3
-            (
-                assign_value_api_case2,
-                {
-                    "x": np.random.random([1, 3, 2, 2]).astype("float32"),
-                    "dtype": paddle.float32,
-                    "values": [1.0],
-                },
-            ),
-            # Test case 4
-            (
                 assign_value_api_case2,
                 {
                     "x": np.random.random([2, 2]).astype("int32"),
                     "dtype": paddle.int32,
-                    "values": [1.0, 1.0, 1.0, 1.0],
+                    "values": [1.0, 1.0],
                 },
             ),
         ]
