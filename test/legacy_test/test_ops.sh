@@ -1,4 +1,4 @@
-python test_elementwise_add_op.py
+python test_adamw_op.py
 python test_elementwise_add_op.py
 python test_reduce_op.py
 python test_arange.py
