@@ -287,7 +287,7 @@ class TestMathOpPatches(unittest.TestCase):
         b = a.astype('float64')
 
         c = a.astype(a.dtype)
-        self.assertEqual(id(b), id(c))
+        self.assertTrue(c.is_same(a))
 
         place = base.CPUPlace()
         exe = base.Executor(place)
