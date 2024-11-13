@@ -225,7 +225,6 @@ std::optional<std::string> GetCorrespondingInplaceName(pir::Operation *op) {
       pir::Operation *owner = inplace_value.defining_op();
       if (owner->isa<pir::ParameterOp>()) {
         pir::ParameterOp parameter_op = owner->dyn_cast<pir::ParameterOp>();
-        // auto value = parameter_op->result(0);
         std::string name = parameter_op.param_name();
         return name;
       }
@@ -299,11 +298,6 @@ std::optional<std::string> TryGetValueFirstName(pir::Value value) {
 
 std::string GetValueFirstName(pir::Value value) {
   auto name = TryGetValueFirstName(value);
-  if (name.has_value()) {
-    std::cout << name.value() << std::endl;
-  } else {
-    std::cout << "No value" << std::endl;
-  }
   PADDLE_ENFORCE(name.has_value(),
                  common::errors::InvalidArgument(
                      "Currently, we can only get name of Value from "
