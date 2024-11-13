@@ -1311,10 +1311,9 @@ class ArgsortOpPattern
     if (axis < 0) {
       axis += x_shape.size();
     }
-    if (x_shape[axis] > 3840 || x_shape[axis] < 0) {
+    if (x_shape[axis] > 3840) {
       VLOG(3) << "In pd_op.argsort,the axis dim of input should be less than "
-                 "3840 and greater "
-                 "than 0 in Tensorrt";
+                 "3840";
       return false;
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
