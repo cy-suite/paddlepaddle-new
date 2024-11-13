@@ -280,9 +280,8 @@ class TensorDtypeVariable(DataVariable):
             # TODO(cleanup-legacy-ir): Remove this branch after we remove legacy IR
             if not paddle.framework.use_pir_api():
                 return [
-                    FasterStringifiedExpression(
+                    StringifiedExpression(
                         f"MetaInfo.from_tensor({{}}).dtype == {dtype_str}",
-                        paddle.framework.core.DtypeMatchGuard(self.value),
                         [tensor_value_tracer],
                         union_free_vars(
                             {"MetaInfo": MetaInfo},
