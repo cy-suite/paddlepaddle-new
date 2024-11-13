@@ -105,7 +105,7 @@ class TestLoDTensor(unittest.TestCase):
         self.assertEqual(tensor.shape(), [10, 1])
         np.testing.assert_array_equal(np.array(tensor), data)
 
-        # Create DenseTensor from another LoDTensor, they are differnt instances
+        # Create DenseTensor from another DenseTensor, they are differnt instances
         new_recursive_seq_lens = [[2, 2, 1], [1, 2, 2, 3, 2]]
         new_tensor = create_lod_tensor(
             tensor, new_recursive_seq_lens, base.CPUPlace()
