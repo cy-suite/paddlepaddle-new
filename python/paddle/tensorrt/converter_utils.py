@@ -170,6 +170,14 @@ def add_1D_constant_layer(network, data, dtype=np.int32, is_scalar=False):
     return constant_layer.get_output(0)
 
 
+# Create and add ND constant layer
+def add_constant_layer(network, data, shape, dtype=np.int32):
+    constant_data = np.array(data, dtype=dtype)
+    shape = constant_data.size
+    constant_layer = network.add_constant(shape, constant_data)
+    return constant_layer.get_output(0)
+
+
 # Concat not make rank changed
 def trt_concat(network, inputs, axis=0):
     concat_layer = network.add_concatenation(inputs=inputs)

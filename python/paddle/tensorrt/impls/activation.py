@@ -16,8 +16,13 @@ import numpy as np
 import tensorrt as trt
 
 from paddle.tensorrt.converter_utils import (
+    add_constant_layer,
     get_trt_plugin,
+    trt_div,
+    trt_min,
     trt_mul,
+    trt_sub,
+    trt_sum,
 )
 from paddle.tensorrt.register import converter_registry
 
@@ -111,3 +116,26 @@ def swish_silu_converter(network, paddle_op, inputs):
         inputs[0], activation_type_map[paddle_op.name()]
     ).get_output(0)
     return trt_mul(network, inputs[0], layer_output)
+
+
+@converter_registry.register("pd_op.celu", trt_version="8.x")
+def celu_converter(network, paddle_op, inputs):
+    input_tensor = inputs[0]
+    alpha = paddle_op.attrs()["alpha"]
+    input_rank = input_tensor.shape.size()
+    constant_shape = trt.Dims([1] * input_rank)
+    alpha_data = add_constant_layer(network, [alpha], constant_shape)
+    constant_zero_data = add_constant_layer(network, [0.0], constant_shape)
+    constant_one_data = add_constant_layer(network, [1.0], constant_shape)
+    input_div_with_alpha = trt_div(network, input_tensor, alpha)
+    input_exp_layer = network.add_unary(
+        input_div_with_alpha, trt.UnaryOperation.EXP
+    )
+    input_sub_with_one = trt_sub(
+        network, input_exp_layer.get_output(0), constant_one_data
+    )
+    input_prod_with_alpha = trt_mul(network, input_sub_with_one, alpha_data)
+    min_input = trt_min(network, input_prod_with_alpha, constant_zero_data)
+    relu_layer = network.add_activation(input_tensor, trt.ActivationType.RELU)
+    output_tensor = trt_sum(network, relu_layer.get_output(0), min_input)
+    return output_tensor
