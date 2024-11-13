@@ -35,7 +35,7 @@ std::optional<paddle::Tensor> GetTensorFromPyObject(PyObject* obj) {
 }
 
 bool LambdaGuard::check(PyObject* value) {
-  PyObject* x = PyObject_CallOneArg(_guard_check_fn, value);
+  PyObject* x = PyObject_CallOneArg(guard_check_fn_, value);
   if (x == nullptr) {
     PyErr_Clear();
     return false;
@@ -46,7 +46,7 @@ bool LambdaGuard::check(PyObject* value) {
 }
 
 bool GuardGroup::check(PyObject* value) {
-  for (auto& guard : _guards) {
+  for (auto& guard : guards_) {
     if (!guard->check(value)) {
       return false;
     }
@@ -55,17 +55,17 @@ bool GuardGroup::check(PyObject* value) {
 }
 
 bool TypeMatchGuard::check(PyObject* value) {
-  return Py_TYPE(value) == _expected;
+  return Py_TYPE(value) == expected_;
 }
 
 bool ValueMatchGuard::check(PyObject* value) {
-  if (value == _expected_value) {
+  if (value == expected_value_) {
     return true;
   }
-  if (Py_TYPE(value) != _expected_type) {
+  if (Py_TYPE(value) != expected_type_) {
     return false;
   }
-  int result = PyObject_RichCompareBool(value, _expected_value, Py_EQ);
+  int result = PyObject_RichCompareBool(value, expected_value_, Py_EQ);
   // Check for exception
   if (result == -1) {
     PyErr_Clear();
@@ -75,7 +75,7 @@ bool ValueMatchGuard::check(PyObject* value) {
 }
 
 bool LengthMatchGuard::check(PyObject* value) {
-  return PySequence_Size(value) == _expected;
+  return PySequence_Size(value) == expected_;
 }
 
 bool DtypeMatchGuard::check(PyObject* value) {
@@ -84,7 +84,7 @@ bool DtypeMatchGuard::check(PyObject* value) {
     return false;
   }
   auto dtype = tensor->type();
-  return phi::TransToProtoVarType(dtype) == _expected;
+  return phi::TransToProtoVarType(dtype) == expected_;
 }
 
 bool ShapeMatchGuard::check(PyObject* value) {
@@ -93,11 +93,11 @@ bool ShapeMatchGuard::check(PyObject* value) {
     return false;
   }
   auto shape = tensor->shape();
-  if (shape.size() != _expected.size()) {
+  if (shape.size() != expected_.size()) {
     return false;
   }
   for (size_t i = 0; i < shape.size(); ++i) {
-    if (_expected[i] && shape[i] != *_expected[i]) {
+    if (expected_[i] && shape[i] != *expected_[i]) {
       return false;
     }
   }
@@ -105,11 +105,11 @@ bool ShapeMatchGuard::check(PyObject* value) {
 }
 
 bool LayerMatchGuard::check(PyObject* value) {
-  if (value != _layer_ptr) {
+  if (value != layer_ptr_) {
     return false;
   }
   PyObject* training = PyObject_GetAttrString(value, "training");
-  return (training == Py_True) == _training;
+  return (training == Py_True) == training_;
 }
 
 #endif
