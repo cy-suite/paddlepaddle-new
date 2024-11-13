@@ -213,14 +213,7 @@ def matrix_transpose(
             >>> print(x_transposed.shape)
             [2, 5, 3]
     """
-    if len(x.shape) < 2:
-        raise ValueError(
-            f"Tensor.ndim({len(x.shape)}) is required to be greater than or equal to 2."
-        )
-
-    perm = list(range(len(x.shape)))
-    perm[-1], perm[-2] = perm[-2], perm[-1]
-    return paddle.transpose(x, perm)
+    return x.mT
 
 
 def matmul(
