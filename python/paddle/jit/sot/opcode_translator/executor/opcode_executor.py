@@ -1535,7 +1535,10 @@ class OpcodeExecutorBase:
             spec = spec.get_py_value()
             result = value.get_py_value()
             result = format(result, spec)
-            assert result
+            if result is None:
+                raise InnerError(
+                    f"The format operation failed in {instr.opname}"
+                )
             self.stack.push(
                 ConstantVariable(result, self._graph, DummyTracker([value]))
             )
