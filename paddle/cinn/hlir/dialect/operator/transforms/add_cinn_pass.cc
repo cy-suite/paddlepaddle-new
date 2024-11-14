@@ -55,6 +55,7 @@
 #include "paddle/cinn/hlir/dialect/operator/transforms/shape_ops_fallback_to_phi_pass.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/specify_input_dynamic_dim_util.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/split_generate_shape_into_shape_ops_pass.h"
+#include "paddle/cinn/hlir/dialect/operator/transforms/transpose_optimize_pass.h"
 #include "paddle/fluid/pir/transforms/build_cinn_pass.h"
 #include "paddle/fluid/pir/transforms/general/dead_code_elimination_pass.h"
 #include "paddle/fluid/pir/transforms/gpu/fused_gemm_epilogue_pass.h"
@@ -150,6 +151,7 @@ void ApplyCinnPreprocessPass(
         cinn::dialect::ir::CreateFuseShapeOpsIntoGenerateShapeOpPass());
     pass_manager->AddPass(pir::CreateDeadCodeEliminationPass());
   }
+  pass_manager->AddPass(cinn::dialect::ir::CreateTransposeOptimizePass());
 
   pass_manager->Run(program);
 }
