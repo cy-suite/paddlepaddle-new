@@ -54,7 +54,7 @@ Expr Cast::Make(Type t, Expr v) {
                         "The expression is not defined. "
                         "A defined expression is required for casting."));
 
-  if (v.is_index() && t == Int(64)) {
+  if (v.node_type() != ir::IrNodeTy::_Var_ && v.is_index() && t == Int(64)) {
     v->convert_int32_to_int64();
     return v;
   }
