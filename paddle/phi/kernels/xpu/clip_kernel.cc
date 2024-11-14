@@ -16,8 +16,8 @@
 
 #include "glog/logging.h"
 
-#include "paddle/phi/backends/xpu/xpu_context.h"
 #include "paddle/phi/backends/xpu/enforce_xpu.h"
+#include "paddle/phi/backends/xpu/xpu_context.h"
 #include "paddle/phi/backends/xpu/xpu_header.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/compare_kernel.h"
@@ -51,17 +51,20 @@ void ClipKernel(const Context& dev_ctx,
 }
 
 template <typename T, typename Context>
-void ClipMulKernel(const Context& dev_ctx,
-                 const DenseTensor& x,
-                 const DenseTensor& min,
-                 const DenseTensor& max,
-                 DenseTensor* out) {
+void ClipTensorKernel(const Context& dev_ctx,
+                      const DenseTensor& x,
+                      const DenseTensor& min,
+                      const DenseTensor& max,
+                      DenseTensor* out) {
   using XPUDataType = typename XPUTypeTrait<T>::Type;
   const XPUDataType* x_data = reinterpret_cast<const XPUDataType*>(x.data<T>());
-  const XPUDataType* min_data = reinterpret_cast<const XPUDataType*>(min.data<T>());
-  const XPUDataType* max_data = reinterpret_cast<const XPUDataType*>(max.data<T>());
-  XPUDataType* out_data = reinterpret_cast<XPUDataType*>(dev_ctx.template Alloc<T>(out));
-  
+  const XPUDataType* min_data =
+      reinterpret_cast<const XPUDataType*>(min.data<T>());
+  const XPUDataType* max_data =
+      reinterpret_cast<const XPUDataType*>(max.data<T>());
+  XPUDataType* out_data =
+      reinterpret_cast<XPUDataType*>(dev_ctx.template Alloc<T>(out));
+
   auto min_dims = common::vectorize<int>(min.dims());
   if (min_dims.size() == 0) {
     min_dims = std::vector<int>({1});
@@ -70,7 +73,7 @@ void ClipMulKernel(const Context& dev_ctx,
   if (max_dims.size() == 0) {
     max_dims = std::vector<int>({1});
   }
-  
+
   DenseTensor min_tensor(phi::DataType::BOOL);
   LessThanKernel<T, Context>(dev_ctx, x, min, &min_tensor);
 
@@ -80,8 +83,13 @@ void ClipMulKernel(const Context& dev_ctx,
   }
 
   const bool* min_tensor_data = min_tensor.data<bool>();
-  int ret = xpu::select(
-      dev_ctx.x_context(), min_tensor_data, min_data, x_data, out_data, min_tensor_dims, min_dims);
+  int ret = xpu::select(dev_ctx.x_context(),
+                        min_tensor_data,
+                        min_data,
+                        x_data,
+                        out_data,
+                        min_tensor_dims,
+                        min_dims);
 
   PADDLE_ENFORCE_XDNN_SUCCESS(ret, "xpu::select");
 
@@ -94,10 +102,14 @@ void ClipMulKernel(const Context& dev_ctx,
   }
 
   const bool* max_tensor_data = max_tensor.data<bool>();
-  int ret2 = xpu::select(
-      dev_ctx.x_context(), max_tensor_data, max_data, x_data, out_data, max_tensor_dims, max_dims);
+  int ret2 = xpu::select(dev_ctx.x_context(),
+                         max_tensor_data,
+                         max_data,
+                         x_data,
+                         out_data,
+                         max_tensor_dims,
+                         max_dims);
   PADDLE_ENFORCE_XDNN_SUCCESS(ret2, "xpu::select");
-  
 }
 
 }  // namespace phi
@@ -112,10 +124,10 @@ PD_REGISTER_KERNEL(clip,
                    int64_t,
                    int) {}
 
-PD_REGISTER_KERNEL(clipmul,
+PD_REGISTER_KERNEL(clip_tensor,
                    XPU,
                    ALL_LAYOUT,
-                   phi::ClipMulKernel,
+                   phi::ClipTensorKernel,
                    float,
                    phi::dtype::float16,
                    phi::dtype::bfloat16,

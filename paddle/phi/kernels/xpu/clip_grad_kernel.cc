@@ -14,8 +14,8 @@
 
 #include "paddle/phi/kernels/clip_grad_kernel.h"
 
-#include "paddle/phi/backends/xpu/xpu_context.h"
 #include "paddle/phi/backends/xpu/enforce_xpu.h"
+#include "paddle/phi/backends/xpu/xpu_context.h"
 #include "paddle/phi/backends/xpu/xpu_header.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/compare_kernel.h"
@@ -45,14 +45,13 @@ void ClipGradKernel(const Context& ctx,
 }
 
 template <typename T, typename Context>
-void ClipMulGradKernel(const Context& dev_ctx,
-                    const DenseTensor& x,
-                    const DenseTensor& min,
-                    const DenseTensor& max,
-                    const DenseTensor& out_grad,
-                    DenseTensor* x_grad) {
+void ClipTensorGradKernel(const Context& dev_ctx,
+                          const DenseTensor& x,
+                          const DenseTensor& min,
+                          const DenseTensor& max,
+                          const DenseTensor& out_grad,
+                          DenseTensor* x_grad) {
   dev_ctx.template Alloc<T>(x_grad);
-  using XPUDataType = typename XPUTypeTrait<T>::Type;
 
   DenseTensor min_tensor(phi::DataType::BOOL);
   DenseTensor max_tensor(phi::DataType::BOOL);
@@ -61,7 +60,11 @@ void ClipMulGradKernel(const Context& dev_ctx,
   DenseTensor out(phi::DataType::BOOL);
   EqualKernel<T, Context>(dev_ctx, min_tensor, max_tensor, &out);
   DenseTensor zero_tensor(x_grad->dtype());
-  FullKernel<T, Context>(dev_ctx, common::vectorize(x_grad->dims()), 0.0f, zero_tensor.dtype(), &zero_tensor);
+  FullKernel<T, Context>(dev_ctx,
+                         common::vectorize(x_grad->dims()),
+                         0.0f,
+                         zero_tensor.dtype(),
+                         &zero_tensor);
   WhereKernel<T, Context>(dev_ctx, out, out_grad, zero_tensor, x_grad);
 }
 }  // namespace phi
@@ -75,10 +78,10 @@ PD_REGISTER_KERNEL(clip_grad,
                    int64_t,
                    int) {}
 
-PD_REGISTER_KERNEL(clipmul_grad,
+PD_REGISTER_KERNEL(clip_tensor_grad,
                    XPU,
                    ALL_LAYOUT,
-                   phi::ClipMulGradKernel,
+                   phi::ClipTensorGradKernel,
                    float,
                    phi::dtype::float16,
                    int64_t,

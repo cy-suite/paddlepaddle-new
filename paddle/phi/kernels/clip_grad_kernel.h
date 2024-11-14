@@ -29,7 +29,7 @@ void ClipGradKernel(const Context& dev_ctx,
                     DenseTensor* x_grad);
 
 template <typename T, typename Context>
-void ClipMulGradKernel(const Context& dev_ctx,
+void ClipTensorGradKernel(const Context& dev_ctx,
                              const DenseTensor& x,
                              const DenseTensor& min,
                              const DenseTensor& max,

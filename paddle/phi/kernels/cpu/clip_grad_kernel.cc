@@ -21,12 +21,12 @@
 namespace phi {
 
 template <typename T, typename Context>
-void ClipMulGradKernel(const Context& dev_ctx,
-                    const DenseTensor& x,
-                    const DenseTensor& min,
-                    const DenseTensor& max,
-                    const DenseTensor& out_grad,
-                    DenseTensor* x_grad) {
+void ClipTensorGradKernel(const Context& dev_ctx,
+                          const DenseTensor& x,
+                          const DenseTensor& min,
+                          const DenseTensor& max,
+                          const DenseTensor& out_grad,
+                          DenseTensor* x_grad) {
   const T* x_data = x.data<T>();
   const T* min_data = min.data<T>();
   const T* max_data = max.data<T>();
@@ -35,7 +35,9 @@ void ClipMulGradKernel(const Context& dev_ctx,
 
   auto* dx = dev_ctx.template Alloc<T>(x_grad);
   for (int i = 0; i < numel; i++) {
-    dx[i] = (x_data[i] > min_data[i] && x_data[i] < max_data[i]) ? dout[i] : static_cast<T>(0);
+    dx[i] = (x_data[i] > min_data[i] && x_data[i] < max_data[i])
+                ? dout[i]
+                : static_cast<T>(0);
   }
 }
 
@@ -50,10 +52,10 @@ PD_REGISTER_KERNEL(clip_grad,
                    int,
                    int64_t) {}
 
-PD_REGISTER_KERNEL(clipmul_grad,
+PD_REGISTER_KERNEL(clip_tensor_grad,
                    CPU,
                    ALL_LAYOUT,
-                   phi::ClipMulGradKernel,
+                   phi::ClipTensorGradKernel,
                    float,
                    double,
                    int,

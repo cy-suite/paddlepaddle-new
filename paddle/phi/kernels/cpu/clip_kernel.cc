@@ -21,11 +21,11 @@
 namespace phi {
 
 template <typename T, typename Context>
-void ClipMulKernel(const Context& dev_ctx,
-                 const DenseTensor& x,
-                 const DenseTensor& min,
-                 const DenseTensor& max,
-                 DenseTensor* out) {
+void ClipTensorKernel(const Context& dev_ctx,
+                      const DenseTensor& x,
+                      const DenseTensor& min,
+                      const DenseTensor& max,
+                      DenseTensor* out) {
   const T* x_data = x.data<T>();
   const T* min_data = min.data<T>();
   const T* max_data = max.data<T>();
@@ -34,7 +34,8 @@ void ClipMulKernel(const Context& dev_ctx,
   T* out_data = dev_ctx.template Alloc<T>(out);
 
   for (int i = 0; i < x_numel; i++) {
-    out_data[i] = x_data[i] < min_data[i] ? min_data[i] : x_data[i] > max_data[i] ? max_data[i] : x_data[i];
+    out_data[i] = x_data[i] < min_data[i] ? min_data[i] : x_data[i];
+    out_data[i] = out_data[i] > max_data[i] ? max_data[i] : out_data[i];
   }
 }
 
@@ -43,5 +44,11 @@ void ClipMulKernel(const Context& dev_ctx,
 PD_REGISTER_KERNEL(
     clip, CPU, ALL_LAYOUT, phi::ClipKernel, float, double, int, int64_t) {}
 
-PD_REGISTER_KERNEL(
-    clipmul, CPU, ALL_LAYOUT, phi::ClipMulKernel, float, double, int, int64_t) {}
+PD_REGISTER_KERNEL(clip_tensor,
+                   CPU,
+                   ALL_LAYOUT,
+                   phi::ClipTensorKernel,
+                   float,
+                   double,
+                   int,
+                   int64_t) {}

@@ -17,26 +17,33 @@
 #include "paddle/phi/backends/gpu/gpu_context.h"
 #include "paddle/phi/common/float16.h"
 #include "paddle/phi/core/kernel_registry.h"
-#include "paddle/phi/kernels/impl/clip_grad_kernel_impl.h"
 #include "paddle/phi/kernels/funcs/broadcast_function.h"
+#include "paddle/phi/kernels/impl/clip_grad_kernel_impl.h"
 
 namespace phi {
 
 template <typename T>
-__global__ void ClipMulGradFunctor(const int N, const T* out_grad, const T* x, const T* min, const T* max, T* x_grad) {
+__global__ void ClipTensorGradFunctor(const int N,
+                                      const T* out_grad,
+                                      const T* x,
+                                      const T* min,
+                                      const T* max,
+                                      T* x_grad) {
   int idx = blockDim.x * blockIdx.x + threadIdx.x;
   for (; idx < N; idx += blockDim.x * gridDim.x) {
-    x_grad[idx] = (x[idx] > min[idx]) && (x[idx] < max[idx]) ? out_grad[idx] : static_cast<T>(0);
+    x_grad[idx] = (x[idx] > min[idx]) && (x[idx] < max[idx])
+                      ? out_grad[idx]
+                      : static_cast<T>(0);
   }
 };
 
 template <typename T, typename Context>
-void ClipMulGradKernel(const Context& dev_ctx,
-                    const DenseTensor& x,
-                    const DenseTensor& min,
-                    const DenseTensor& max,
-                    const DenseTensor& out_grad,
-                    DenseTensor* x_grad) {
+void ClipTensorGradKernel(const Context& dev_ctx,
+                          const DenseTensor& x,
+                          const DenseTensor& min,
+                          const DenseTensor& max,
+                          const DenseTensor& out_grad,
+                          DenseTensor* x_grad) {
 
   const T* x_data = x.data<T>();
   auto numel = x.numel();
@@ -48,11 +55,12 @@ void ClipMulGradKernel(const Context& dev_ctx,
 
   auto stream = dev_ctx.stream();
   auto config = backends::gpu::GetGpuLaunchConfig1D(dev_ctx, numel);
-  ClipMulGradFunctor<T><<<config.block_per_grid.x, config.thread_per_block.x, 0, stream>>>(
-    numel, out_grad_data, x_data, min_data, max_data, x_grad_data);
+  ClipTensorGradFunctor<T>
+      <<<config.block_per_grid.x, config.thread_per_block.x, 0, stream>>>(
+          numel, out_grad_data, x_data, min_data, max_data, x_grad_data);
 }
 
-}
+}  // namespace phi
 PD_REGISTER_KERNEL(clip_grad,
                    GPU,
                    ALL_LAYOUT,
@@ -64,10 +72,10 @@ PD_REGISTER_KERNEL(clip_grad,
                    phi::dtype::bfloat16,
                    phi::dtype::float16) {}
 
-PD_REGISTER_KERNEL(clipmul_grad,
+PD_REGISTER_KERNEL(clip_tensor_grad,
                    GPU,
                    ALL_LAYOUT,
-                   phi::ClipMulGradKernel,
+                   phi::ClipTensorGradKernel,
                    float,
                    double,
                    int,
