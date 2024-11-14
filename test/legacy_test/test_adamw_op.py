@@ -463,7 +463,7 @@ class TestAdamWOpMultiPrecisionWithMainGrad(unittest.TestCase):
         beta2_pow_acc = paddle.ones([1]).astype(paddle.float32)
         beta2_pow_acc[0] = _beta2**10
 
-        ref_param = param.astype(paddle.float32)
+        ref_param = param.astype(paddle.float32).clone().detach()
         ref_beta1_pow_acc = (
             beta1_pow_acc.astype(paddle.float32).clone().detach()
         )
