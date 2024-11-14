@@ -60,26 +60,8 @@ void analysis::OpenVINOSubgraphPass::ApplyImpl(
             << graph->GetBlockId();
   }
 
-  std::string model_program_path = Get<std::string>("model_program_path");
-  std::string model_params_path = Get<std::string>("model_params_path");
-  std::string model_opt_cache_dir = Get<std::string>("model_opt_cache_dir");
-  int cpu_math_library_num_threads = Get<int>("cpu_math_library_num_threads");
-  openvino::OpenVINOEngine::ConstructionParams params;
-  params.model_program_path = model_program_path;
-  params.model_params_path = model_params_path;
-  params.model_opt_cache_dir = model_opt_cache_dir;
-  params.cpu_math_library_num_threads = cpu_math_library_num_threads;
-  auto inference_precision = Get<int>("inference_precision");
-  params.inference_precision = inference_precision;
-
-  std::string engine_key{"openvino"};
-  openvino::OpenVINOEngine *ov_engine =
-      inference::Singleton<inference::openvino::OVEngineManager>::Global()
-          .Create(engine_key, params);
-  ov_engine->BuildEngine();
-
   std::unordered_set<const Node *> nodes2remove;
-  std::unordered_map<std::string, const Node *> white_nodes;
+  std::unordered_set<std::string> white_nodes;
   std::vector<Node *> input_nodes;
   std::vector<Node *> output_nodes;
   for (auto *node : graph->Nodes()) {
@@ -87,18 +69,33 @@ void analysis::OpenVINOSubgraphPass::ApplyImpl(
       continue;
     }
     if (node->Op()->Type() == "feed") {
+      for (auto *var : node->inputs) {
+        white_nodes.insert(var->Var()->Name());
+      }
       for (auto *var : node->outputs) {
-        white_nodes.insert(std::make_pair(var->Var()->Name(), var));
+        white_nodes.insert(var->Var()->Name());
         input_nodes.push_back(var);
       }
     } else if (node->Op()->Type() == "fetch") {
+      for (auto *var : node->outputs) {
+        white_nodes.insert(var->Var()->Name());
+      }
       for (auto *var : node->inputs) {
-        white_nodes.insert(std::make_pair(var->Var()->Name(), var));
+        white_nodes.insert(var->Var()->Name());
         output_nodes.push_back(var);
       }
     } else {
       nodes2remove.insert(node);
     }
+  }
+  for (auto *node : graph->Nodes()) {
+    if (!(node->IsVar())) {
+      continue;
+    }
+    if (white_nodes.count(node->Var()->Name())) {
+      continue;
+    }
+    nodes2remove.insert(node);
   }
 
   std::vector<std::string> repetitive_params =
@@ -122,6 +119,25 @@ void analysis::OpenVINOSubgraphPass::ApplyImpl(
   for (auto &var_name : repetitive_params) {
     scope->EraseVars({var_name});
   }
+
+  std::string model_program_path = Get<std::string>("model_program_path");
+  std::string model_params_path = Get<std::string>("model_params_path");
+  std::string model_opt_cache_dir = Get<std::string>("model_opt_cache_dir");
+  int cpu_math_library_num_threads = Get<int>("cpu_math_library_num_threads");
+  openvino::OpenVINOEngine::ConstructionParams params;
+  params.model_program_path = model_program_path;
+  params.model_params_path = model_params_path;
+  params.model_opt_cache_dir = model_opt_cache_dir;
+  params.cpu_math_library_num_threads = cpu_math_library_num_threads;
+  auto inference_precision = Get<int>("inference_precision");
+  params.inference_precision = inference_precision;
+
+  std::string engine_key{"openvino"};
+  openvino::OpenVINOEngine *ov_engine =
+      inference::Singleton<inference::openvino::OVEngineManager>::Global()
+          .Create(engine_key, params);
+  ov_engine->BuildEngine();
+
   framework::OpDesc openvino_desc;
   openvino_desc.SetType("openvino_engine");
   openvino_desc.SetAttr("model_opt_cache_dir", model_opt_cache_dir);
