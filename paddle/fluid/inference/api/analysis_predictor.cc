@@ -1157,6 +1157,7 @@ bool AnalysisPredictor::SaveOrLoadPirParameters(bool for_save) {
             "Only support parameter data of type DenseTensor."));
       }
     }
+    // we only load params which are persistable(means TRUE parameters))
     auto *tensor_temp = var->GetMutable<phi::DenseTensor>();
     if (value.attribute("persistable")
             .dyn_cast<::pir::BoolAttribute>()
