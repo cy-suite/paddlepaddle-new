@@ -194,12 +194,12 @@ class Uniform(distribution.Distribution):
 
         super().__init__(self.low.shape)
 
-    def sample(self, shape: Sequence[int] = (), seed: int = 0) -> Tensor:
+    def sample(self, shape: Sequence[int] = [], seed: int = 0) -> Tensor:
         """Generate samples of the specified shape.
 
         Args:
             shape (Sequence[int], optional): 1D `int32`. Shape of the generated samples.
-                Defaults to ().
+                Defaults to [].
             seed (int): Python integer number.
 
         Returns:

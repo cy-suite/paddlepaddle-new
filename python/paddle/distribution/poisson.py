@@ -118,7 +118,7 @@ class Poisson(distribution.Distribution):
         """
         return self.rate
 
-    def sample(self, shape: Sequence[int] = ()) -> Tensor:
+    def sample(self, shape: Sequence[int] = []) -> Tensor:
         """Generate poisson samples of the specified shape. The final shape would be ``shape+batch_shape`` .
 
         Args:

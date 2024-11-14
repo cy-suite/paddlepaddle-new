@@ -303,12 +303,12 @@ class Laplace(distribution.Distribution):
 
         return loc - scale * (term).sign() * paddle.log1p(-2 * term.abs())
 
-    def sample(self, shape: Sequence[int] = ()) -> Tensor:
+    def sample(self, shape: Sequence[int] = []) -> Tensor:
         r"""Generate samples of the specified shape.
 
         Args:
             shape(Sequence[int], optional): The shape of generated samples.
-                Defaults to ().
+                Defaults to [].
 
         Returns:
             Tensor: A sample tensor that fits the Laplace distribution.
@@ -327,12 +327,12 @@ class Laplace(distribution.Distribution):
         with paddle.no_grad():
             return self.rsample(shape)
 
-    def rsample(self, shape: Sequence[int] = ()) -> Tensor:
+    def rsample(self, shape: Sequence[int] = []) -> Tensor:
         r"""Reparameterized sample.
 
         Args:
             shape(Sequence[int], optional): The shape of generated samples.
-                Defaults to ().
+                Defaults to [].
 
         Returns:
             Tensor: A sample tensor that fits the Laplace distribution.
