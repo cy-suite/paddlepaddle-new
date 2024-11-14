@@ -233,6 +233,7 @@ from .tensor.linalg import (  # noqa: F401
     histogram_bin_edges,
     histogramdd,
     matmul,
+    matrix_transpose,
     mv,
     norm,
     t,
@@ -586,6 +587,10 @@ from .tensor.stat import (
     var,
 )
 from .tensor.to_string import set_printoptions
+from .utils.dlpack import (
+    from_dlpack,
+    to_dlpack,
+)
 
 # CINN has to set a flag to include a lib
 if is_compiled_with_cinn():
@@ -1178,6 +1183,7 @@ __all__ = [
     'masked_fill_',
     'masked_scatter',
     'masked_scatter_',
+    'matrix_transpose',
     'hypot',
     'hypot_',
     'index_fill',
@@ -1186,4 +1192,6 @@ __all__ = [
     'combinations',
     'signbit',
     'positive',
+    'from_dlpack',
+    'to_dlpack',
 ]
