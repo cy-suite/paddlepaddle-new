@@ -468,18 +468,12 @@ class InferMetaCache(Cache, metaclass=Singleton):
     def key_fn(
         self, func, *args, **kwargs
     ):  # args & kwargs have transformed to MetaInfo
-        try:
-            retval = hash_with_rehash_int(
-                (
-                    func,
-                    tuple(flatten(args)),
-                    tuple(kwargs.keys()),
-                    tuple(flatten(kwargs)),
-                )
-            )
-        except Exception as e:
-            return None
-        return retval
+        return (
+            func,
+            tuple(flatten(args)),
+            tuple(kwargs.keys()),
+            tuple(flatten(kwargs)),
+        )
 
     def value_fn(self, func, *args, **kwargs):
         return infer_meta(func, *args, **kwargs)
@@ -491,19 +485,13 @@ class LayerInferMetaCache(Cache, metaclass=Singleton):
             MetaInfo.from_value(x)
             for x in layer.parameters(include_sublayers=True)
         ]
-        try:
-            retval = hash_with_rehash_int(
-                (
-                    layer,
-                    tuple(params),
-                    tuple(flatten(args)),
-                    tuple(kwargs.keys()),
-                    tuple(flatten(kwargs)),
-                )
-            )
-        except Exception as e:
-            return None
-        return retval
+        return (
+            layer,
+            tuple(params),
+            tuple(flatten(args)),
+            tuple(kwargs.keys()),
+            tuple(flatten(kwargs)),
+        )
 
     def value_fn(self, layer, *args, **kwargs):
         return infer_meta_for_layer(layer, *args, **kwargs)
