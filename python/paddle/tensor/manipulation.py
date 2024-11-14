@@ -6912,7 +6912,7 @@ def unflatten(
 ) -> Tensor:
     """
     Expand a certain dimension of the input x Tensor into a desired shape.
-    
+
     The figure below shows the shape of a [2, 6] Tensor after applying ``unflatten(X, axis=1, shape=(2, 3))``, with data ranging from 0 to 11 in sequence.
 
     .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/unflatten.png
