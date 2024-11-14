@@ -353,18 +353,23 @@ class TestBitwiseRightShiftAPI(unittest.TestCase):
             x = paddle.static.data('x', self.x.shape, dtype=self.x.dtype)
             y = paddle.static.data('y', self.y.shape, dtype=self.y.dtype)
             out = paddle.bitwise_right_shift(x, y, False)
+            out_ = y.__rrshift__(x, False)
             exe = paddle.static.Executor(self.place)
             res = exe.run(feed={'x': self.x, 'y': self.y}, fetch_list=[out])
+            res_ = exe.run(feed={'x': self.x, 'y': self.y}, fetch_list=[out_])
             out_ref = ref_right_shift_logical(self.x, self.y)
             np.testing.assert_allclose(out_ref, res[0])
+            np.testing.assert_allclose(out_ref, res_[0])
 
     def test_dygraph_api_logical(self):
         paddle.disable_static()
         x = paddle.to_tensor(self.x)
         y = paddle.to_tensor(self.y)
         out = paddle.bitwise_right_shift(x, y, False)
+        out_ = y.__rrshift__(x, False)
         out_ref = ref_right_shift_logical(self.x, self.y)
         np.testing.assert_allclose(out_ref, out.numpy())
+        np.testing.assert_allclose(out_ref, out_.numpy())
         paddle.enable_static()
 
 
