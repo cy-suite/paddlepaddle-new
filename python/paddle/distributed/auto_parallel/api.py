@@ -1045,67 +1045,30 @@ class _ShardOptimizer(Optimizer):
                 self._shard_fn._shard_parameter(param)
 
     def _set_and_check_sharding_prop_from_param(self):
-        all_params_replicated_on_each_mesh = True
-        if (self._shard_fn._mesh is not None) and (
-            len(self._shard_fn._mesh._shape) == 1
-        ):
-            self._sharding_degree = self._shard_fn._mesh.get_dim_size(0)
-            self._sharding_mesh_axis = 0
-        elif (self._shard_fn._mesh is not None) and (
-            'dp' in self._shard_fn._mesh.dim_names
-        ):
-            self._sharding_degree = self._shard_fn._mesh.get_dim_size('dp')
-        else:
-            param_list = self._inner_opt._parameter_list
-            for param in param_list:
-                if not param.is_dist():
-                    continue
-                mesh = param.process_mesh
-                placements = param.placements
+        global_mesh = fleet.auto.get_mesh()
+        self._sharding_degree = global_mesh.get_dim_size(
+            self._shard_fn._shard_mesh_dim
+        )
+        # Note(luchang): Now we only support sharding on one axis
+        self._sharding_mesh_axis = 0
 
-                if self._sharding_degree is None:
-                    # set the sharding degree if it has not been set
-                    if any(
-                        isinstance(placement, dist.Shard)
-                        for placement in placements
-                    ):
-                        all_params_replicated_on_each_mesh = False
-                        for idx, placement in enumerate(placements):
-                            if isinstance(placement, dist.Replicate):
-                                self._sharding_degree = mesh.dim_size(idx)
-                                self._sharding_mesh_axis = idx
-                                break
-                    elif any(
-                        isinstance(placement, dist.Partial)
-                        for placement in placements
-                    ):
-                        all_params_replicated_on_each_mesh = False
-                else:
-                    # check the placement on sharding axis is Replicate
-                    assert isinstance(
-                        placements[self._sharding_mesh_axis], dist.Replicate
-                    ), "The placement on sharding_mesh_axis should be Replicate"
+        # check the placement on sharding axis is Replicate
+        param_list = self._inner_opt._parameter_list
+        for param in param_list:
+            if not param.is_dist():
+                continue
+            mesh = param.process_mesh
+            placements = param.placements
 
-                    # check the sharding degree since it has already been set
-                    assert (
-                        mesh.dim_size(self._sharding_mesh_axis)
-                        == self._sharding_degree
-                    ), "The sharding degree of all parameters must be equal currently."
+            # check the placement on sharding axis is Replicate
+            assert isinstance(
+                placements[self._sharding_mesh_axis], dist.Replicate
+            ), "The placement on sharding_mesh_axis should be Replicate"
 
-        # Note(luchang): When all parameters are replicated across meshes,
-        # we set sharding degree to dp degree and mesh axis to 0. This is sufficient
-        # because each device already holds a full copy of the parameters,
-        # so no additional sharding configuration is needed.
-        if self._sharding_degree is None and all_params_replicated_on_each_mesh:
-            global_mesh = fleet.auto.get_mesh()
-            self._sharding_degree = global_mesh.get_dim_size(
-                self._shard_fn._shard_mesh_dim
-            )
-            self._sharding_mesh_axis = 0
-
-        assert (
-            self._sharding_degree is not None
-        ), "The sharding degree is None in ShardOptimizer"
+            # check the sharding degree since it has already been set
+            assert (
+                mesh.dim_size(self._sharding_mesh_axis) == self._sharding_degree
+            ), "The sharding degree of all parameters must be equal currently."
 
     def _shard_accumulator(self, param):
         target_name = param.name
@@ -1305,7 +1268,7 @@ class _ShardOptimizer(Optimizer):
 
 
 class _ShardingStageBase:
-    def __init__(self, mesh, shard_mesh_dim):
+    def __init__(self, shard_mesh_dim, mesh):
         self._mesh = mesh
         self._sharding_mesh_axis = 0
         self._shard_mesh_dim = shard_mesh_dim
@@ -1350,8 +1313,8 @@ class ShardingStage1(_ShardingStageBase):
     A builtin shard_fn for shard_optimizer interface, users can pass it to shard_optimizer to implement sharding optimization with stage 1.
 
     Args:
+        shard_mesh_dim(int|str): The sharding dimension in the mesh.
         mesh(None|paddle.distributed.ProcessMesh): If mesh is not None, the `ProcessMesh` object describes the Cartesian topology of the used processes for dense type parameters. Note: Currently, only one mesh configuration is supported for all dense parameters. If there is a need for multiple mesh configurations, please configure them yourself in the upper layer networking code.
-        shard_mesh_dim(None|int|str): The sharding dimension in the mesh.
 
     Examples:
         .. code-block:: python
@@ -1374,7 +1337,7 @@ class ShardingStage1(_ShardingStageBase):
             >>> layer = MLP()
             >>> batch = paddle.rand(shape=[8, 8])
             >>> opt = paddle.optimizer.AdamW(parameters=layer.parameters())
-            >>> opt = dist.shard_optimizer(opt, dist.ShardingStage1(mesh))
+            >>> opt = dist.shard_optimizer(opt, dist.ShardingStage1("x", mesh))
             >>> for _ in range(5):
             >>>     loss = layer(batch)
             >>>     loss.backward()
@@ -1386,10 +1349,10 @@ class ShardingStage1(_ShardingStageBase):
 
     def __init__(
         self,
+        shard_mesh_dim: int | str,
         mesh: ProcessMesh | None = None,
-        shard_mesh_dim: int | str | None = None,
     ) -> None:
-        super().__init__(mesh, shard_mesh_dim)
+        super().__init__(shard_mesh_dim, mesh)
 
     def __call__(self, key: str, param: Tensor, accumulator: Tensor) -> Tensor:
         if param.is_dist():
@@ -1442,8 +1405,8 @@ class ShardingStage2(_ShardingStageBase):
     A builtin shard_fn for shard_optimizer interface, users can pass it to shard_optimizer to implement sharding optimization with stage 2.
 
     Args:
+        shard_mesh_dim(int|str): The sharding dimension name in the mesh.
         mesh(None|paddle.distributed.ProcessMesh): If mesh is not None, the `ProcessMesh` object describes the Cartesian topology of the used processes for dense type parameters. Note: Currently, only one mesh configuration is supported for all dense parameters. If there is a need for multiple mesh configurations, please configure them yourself in the upper layer networking code.
-        shard_dims(None|int|str): The sharding dimension name in the mesh.
 
     Examples:
         .. code-block:: python
@@ -1466,7 +1429,7 @@ class ShardingStage2(_ShardingStageBase):
             >>> layer = MLP()
             >>> batch = paddle.rand(shape=[8, 8])
             >>> opt = paddle.optimizer.AdamW(parameters=layer.parameters())
-            >>> opt = dist.shard_optimizer(opt, dist.ShardingStage2(mesh))
+            >>> opt = dist.shard_optimizer(opt, dist.ShardingStage2("x", mesh))
             >>> for _ in range(5):
             >>>     loss = layer(batch)
             >>>     loss.backward()
@@ -1478,10 +1441,10 @@ class ShardingStage2(_ShardingStageBase):
 
     def __init__(
         self,
+        shard_mesh_dim: int | str,
         mesh: ProcessMesh | None = None,
-        shard_mesh_dim: int | str | None = None,
     ) -> None:
-        super().__init__(mesh, shard_mesh_dim)
+        super().__init__(shard_mesh_dim, mesh)
 
     def __call__(self, key: str, param: Tensor, accumulator: Tensor) -> Tensor:
         if param.is_dist():
@@ -1558,8 +1521,8 @@ class ShardingStage3(_ShardingStageBase):
     A builtin shard_fn for shard_optimizer interface, users can pass it to shard_optimizer to implement sharding optimization with stage 3.
 
     Args:
+        shard_mesh_dim(int|str): The sharding dimension name in the mesh.
         mesh(None|paddle.distributed.ProcessMesh): If mesh is not None, the `ProcessMesh` object describes the Cartesian topology of the used processes for dense type parameters. Note: Currently, only one mesh configuration is supported for all dense parameters. If there is a need for multiple mesh configurations, please configure them yourself in the upper layer networking code.
-        shard_mesh_dim(None|int|str): The sharding dimension name in the mesh.
 
     Examples:
         .. code-block:: python
@@ -1582,7 +1545,7 @@ class ShardingStage3(_ShardingStageBase):
             >>> layer = MLP()
             >>> batch = paddle.rand(shape=[8, 8])
             >>> opt = paddle.optimizer.AdamW(parameters=layer.parameters())
-            >>> opt = dist.shard_optimizer(opt, dist.ShardingStage3(mesh))
+            >>> opt = dist.shard_optimizer(opt, dist.ShardingStage3("x", mesh))
             >>> for _ in range(5):
             >>>     loss = layer(batch)
             >>>     loss.backward()
@@ -1594,10 +1557,10 @@ class ShardingStage3(_ShardingStageBase):
 
     def __init__(
         self,
+        shard_mesh_dim: int | str,
         mesh: ProcessMesh | None = None,
-        shard_mesh_dim: int | str | None = None,
     ) -> None:
-        super().__init__(mesh, shard_mesh_dim)
+        super().__init__(shard_mesh_dim, mesh)
 
     def _shard_parameter(self, param):
         if param.is_dense() and self._mesh is not None:
