@@ -16,6 +16,7 @@ import numpy as np
 import tensorrt as trt
 
 from paddle.tensorrt.converter_utils import (
+    add_1D_constant_layer,
     get_trt_plugin,
     trt_mul,
 )
@@ -111,3 +112,33 @@ def swish_silu_converter(network, paddle_op, inputs):
         inputs[0], activation_type_map[paddle_op.name()]
     ).get_output(0)
     return trt_mul(network, inputs[0], layer_output)
+
+
+@converter_registry.register("pd_op.prelu", trt_version="8.x")
+def prelu_converter(network, paddle_op, inputs):
+    input_tensor, alpha_weight = inputs
+    alpha_np = alpha_weight.numpy()
+    alpha_dims = alpha_np.shape
+    alpha_tensor = network.add_constant(
+        trt.Dims(alpha_dims), alpha_weight
+    ).get_output(0)
+    data_format = paddle_op.attrs().get("data_format", "NCHW")
+    input_rank = len(input_tensor.shape)
+    alpha_rank = len(alpha_dims)
+    real_alpha_tensor = alpha_tensor
+    if input_rank != alpha_rank:
+        reshape_layer = network.add_shuffle(alpha_tensor)
+        c = alpha_dims[0]
+        n = 1
+        other_dim_num = input_rank - 2
+        other_dim = [1 for _ in range(other_dim_num)]
+        if data_format[1] == 'C':
+            # NC,NCL,NCHW,NCDHW
+            shape_tensor = add_1D_constant_layer(network, [n, c, *other_dim])
+        elif data_format[-1] == 'C':
+            # NLC,NHWC,NDHWC
+            shape_tensor = add_1D_constant_layer(network, [n, *other_dim, c])
+        reshape_layer.set_input(1, shape_tensor)
+        real_alpha_tensor = reshape_layer.get_output(0)
+    layer = network.add_parametric_relu(input_tensor, real_alpha_tensor)
+    return layer.get_output(0)

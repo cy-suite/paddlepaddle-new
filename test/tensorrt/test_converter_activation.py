@@ -114,5 +114,54 @@ class TestSwishFloatTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+def prelu_wrapper(x, num_parameters, data_format="NCHW"):
+    prelu = paddle.nn.PReLU(num_parameters, 0.25, data_format=data_format)
+    return prelu(x)
+
+
+class TestPreluCase1TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = prelu_wrapper
+        self.api_args = {
+            "x": np.arange(24).reshape([2, 2, 2, 3]).astype("float32"),
+            "num_parameters": 2,
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 2, 2, 3]}
+        self.max_shape = {"x": [5, 2, 2, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestPreluCase2TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = prelu_wrapper
+        self.api_args = {
+            "x": np.arange(24).reshape([2, 2, 2, 3]).astype("float32"),
+            "num_parameters": 3,
+            "data_format": "NHWC",
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 2, 2, 3]}
+        self.max_shape = {"x": [5, 2, 2, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestPreluCase3TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.nn.functional.prelu
+        self.api_args = {
+            "x": np.arange(24).reshape([2, 2, 2, 3]).astype("float32"),
+            "weight": np.array(1.0).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x", "weight"]}
+
+    def test_trt_result(self):
+        self.check_marker(expected_result=False)
+
+
 if __name__ == '__main__':
     unittest.main()

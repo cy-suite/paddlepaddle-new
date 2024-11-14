@@ -1686,6 +1686,31 @@ class TopkOpPattern : public pir::OpRewritePattern<paddle::dialect::TopkOp> {
   }
 };
 
+class PreluOpPattern : public pir::OpRewritePattern<paddle::dialect::PreluOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::PreluOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::PreluOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (!(pir::GetDefiningOpForInput(op, 1)->name() == "builtin.parameter")) {
+      // paddle.nn.functional.prelu willn't into tensorrt.
+      VLOG(3)
+          << "Skip to convert into TRT while found alpha is not a parameter.";
+      return false;
+    }
+    if (len(op->operand_source(1).shape) < 1) {
+      // Accoding to paddle.nn.Prelu, the alpha should be a 1-D tensor.
+      VLOG(3)
+          << "Skip to convert into TRT while found alpha shape less than one.";
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class TrtOpMarkerPass : public pir::PatternRewritePass {
  public:
   TrtOpMarkerPass() : pir::PatternRewritePass("trt_op_marker_pass", 2) {}
@@ -1785,6 +1810,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<TopkOpPattern>(context));
     ps.Add(std::make_unique<EqualOpPattern>(context));
     ps.Add(std::make_unique<NotEqualOpPattern>(context));
+    ps.Add(std::make_unique<PreluOpPattern>(context));
     return ps;
   }
 };
