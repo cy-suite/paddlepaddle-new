@@ -125,3 +125,6 @@
 [submodule "third_party/yaml-cpp"]
 	path = third_party/yaml-cpp
 	url = https://github.com/jbeder/yaml-cpp
+[submodule "third_party/flux"]
+	path = third_party/flux
+	url = https://github.com/umiswing/flux.git
