@@ -1686,8 +1686,6 @@ bool FusedAttentionOpInferSymbolicShape(
   int ring_id = op->attribute<pir::Int32Attribute>("ring_id").data();
   bool pre_layer_norm =
       op->attribute<pir::BoolAttribute>("pre_layer_norm").data();
-  bool transpose_qkv_wb =
-      op->attribute<pir::BoolAttribute>("transpose_qkv_wb").data();
   bool is_test = op->attribute<pir::BoolAttribute>("is_test").data();
   if (transpose_qkv_wb) {
     PADDLE_ENFORCE_EQ(qkv_weight_shape.size(),
