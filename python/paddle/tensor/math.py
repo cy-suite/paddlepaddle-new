@@ -7773,57 +7773,49 @@ def __lshift__(
     x: Tensor,
     y: Tensor | int,
     is_arithmetic: bool = True,
-    out: Tensor | None = None,
-    name: str | None = None,
 ) -> Tensor:
     if isinstance(y, int):
         y = paddle.to_tensor(y, dtype=x.dtype)
     elif isinstance(y, float):
         raise TypeError("unsupported operand type(s) for <<:'float'")
-    return bitwise_left_shift(x, y, is_arithmetic, out, name)
+    return bitwise_left_shift(x, y, is_arithmetic, None, None)
 
 
 def __rshift__(
     x: Tensor,
     y: Tensor | int,
     is_arithmetic: bool = True,
-    out: Tensor | None = None,
-    name: str | None = None,
 ) -> Tensor:
 
     if isinstance(y, int):
         y = paddle.to_tensor(y, dtype=x.dtype)
     elif isinstance(y, float):
         raise TypeError("unsupported operand type(s) for >>:'float'")
-    return bitwise_right_shift(x, y, is_arithmetic, out, name)
+    return bitwise_right_shift(x, y, is_arithmetic, None, None)
 
 
 def __rlshift__(
     x: Tensor,
     y: Tensor | int,
     is_arithmetic: bool = True,
-    out: Tensor | None = None,
-    name: str | None = None,
 ):
     if isinstance(y, int):
         y = paddle.to_tensor(y, dtype=x.dtype)
     elif isinstance(y, float):
         raise TypeError("unsupported operand type(s) for <<:'float'")
-    return bitwise_left_shift(y, x, is_arithmetic, out, name)
+    return bitwise_left_shift(y, x, is_arithmetic, None, None)
 
 
 def __rrshift__(
     x: Tensor,
     y: Tensor | int,
     is_arithmetic: bool = True,
-    out: Tensor | None = None,
-    name: str | None = None,
 ):
     if isinstance(y, int):
         y = paddle.to_tensor(y, dtype=x.dtype)
     elif isinstance(y, float):
         raise TypeError("unsupported operand type(s) for >>:'float'")
-    return bitwise_right_shift(y, x, is_arithmetic, out, name)
+    return bitwise_right_shift(y, x, is_arithmetic, None, None)
 
 
 def copysign(x: Tensor, y: Tensor | float, name: str | None = None) -> Tensor:
