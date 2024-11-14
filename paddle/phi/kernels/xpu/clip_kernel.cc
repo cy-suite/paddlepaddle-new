@@ -51,7 +51,7 @@ void ClipKernel(const Context& dev_ctx,
 }
 
 template <typename T, typename Context>
-void ClipMulKernel(const Context& dev_ctx,
+void ClipTensorKernel(const Context& dev_ctx,
                  const DenseTensor& x,
                  const DenseTensor& min,
                  const DenseTensor& max,
@@ -61,7 +61,7 @@ void ClipMulKernel(const Context& dev_ctx,
   const XPUDataType* min_data = reinterpret_cast<const XPUDataType*>(min.data<T>());
   const XPUDataType* max_data = reinterpret_cast<const XPUDataType*>(max.data<T>());
   XPUDataType* out_data = reinterpret_cast<XPUDataType*>(dev_ctx.template Alloc<T>(out));
-  
+
   auto min_dims = common::vectorize<int>(min.dims());
   if (min_dims.size() == 0) {
     min_dims = std::vector<int>({1});
@@ -70,7 +70,7 @@ void ClipMulKernel(const Context& dev_ctx,
   if (max_dims.size() == 0) {
     max_dims = std::vector<int>({1});
   }
-  
+
   DenseTensor min_tensor(phi::DataType::BOOL);
   LessThanKernel<T, Context>(dev_ctx, x, min, &min_tensor);
 
@@ -97,7 +97,7 @@ void ClipMulKernel(const Context& dev_ctx,
   int ret2 = xpu::select(
       dev_ctx.x_context(), max_tensor_data, max_data, x_data, out_data, max_tensor_dims, max_dims);
   PADDLE_ENFORCE_XDNN_SUCCESS(ret2, "xpu::select");
-  
+
 }
 
 }  // namespace phi
@@ -112,10 +112,10 @@ PD_REGISTER_KERNEL(clip,
                    int64_t,
                    int) {}
 
-PD_REGISTER_KERNEL(clipmul,
+PD_REGISTER_KERNEL(clip_tensor,
                    XPU,
                    ALL_LAYOUT,
-                   phi::ClipMulKernel,
+                   phi::ClipTensorKernel,
                    float,
                    phi::dtype::float16,
                    phi::dtype::bfloat16,

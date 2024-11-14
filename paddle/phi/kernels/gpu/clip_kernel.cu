@@ -25,14 +25,14 @@
 namespace phi {
 
 template <typename T>
-struct ClipMulFunctor {
+struct ClipTensorFunctor {
   inline HOSTDEVICE T operator()(const T x, const T min_, const T max_) const {
     return x < min_ ? min_ : (x > max_ ? max_ : x);
   }
 };
 
 template <typename T, typename Context>
-void ClipMulKernel(const Context& dev_ctx,
+void ClipTensorKernel(const Context& dev_ctx,
                  const DenseTensor& x,
                  const DenseTensor& min,
                  const DenseTensor& max,
@@ -41,8 +41,8 @@ void ClipMulKernel(const Context& dev_ctx,
   std::vector<DenseTensor*> outs = {out};
   dev_ctx.template Alloc<T>(out);
 
-  ClipMulFunctor<T> func;
-  funcs::ElementwiseKernel<T, ClipMulFunctor<T>, 1>(dev_ctx, ins, &outs, func);
+  ClipTensorFunctor<T> func;
+  funcs::ElementwiseKernel<T, ClipTensorFunctor<T>, 1>(dev_ctx, ins, &outs, func);
 }
 
 }  // namespace phi
@@ -58,10 +58,10 @@ PD_REGISTER_KERNEL(clip,
                    phi::dtype::float16,
                    phi::dtype::bfloat16) {}
 
-PD_REGISTER_KERNEL(clipmul,
+PD_REGISTER_KERNEL(clip_tensor,
                    GPU,
                    ALL_LAYOUT,
-                   phi::ClipMulKernel,
+                   phi::ClipTensorKernel,
                    float,
                    double,
                    int,

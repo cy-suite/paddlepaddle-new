@@ -21,7 +21,7 @@
 namespace phi {
 
 template <typename T, typename Context>
-void ClipMulGradKernel(const Context& dev_ctx,
+void ClipTensorGradKernel(const Context& dev_ctx,
                     const DenseTensor& x,
                     const DenseTensor& min,
                     const DenseTensor& max,
@@ -50,10 +50,10 @@ PD_REGISTER_KERNEL(clip_grad,
                    int,
                    int64_t) {}
 
-PD_REGISTER_KERNEL(clipmul_grad,
+PD_REGISTER_KERNEL(clip_tensor_grad,
                    CPU,
                    ALL_LAYOUT,
-                   phi::ClipMulGradKernel,
+                   phi::ClipTensorGradKernel,
                    float,
                    double,
                    int,

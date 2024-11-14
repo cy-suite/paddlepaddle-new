@@ -45,14 +45,13 @@ void ClipGradKernel(const Context& ctx,
 }
 
 template <typename T, typename Context>
-void ClipMulGradKernel(const Context& dev_ctx,
+void ClipTensorGradKernel(const Context& dev_ctx,
                     const DenseTensor& x,
                     const DenseTensor& min,
                     const DenseTensor& max,
                     const DenseTensor& out_grad,
                     DenseTensor* x_grad) {
   dev_ctx.template Alloc<T>(x_grad);
-  using XPUDataType = typename XPUTypeTrait<T>::Type;
 
   DenseTensor min_tensor(phi::DataType::BOOL);
   DenseTensor max_tensor(phi::DataType::BOOL);
@@ -75,10 +74,10 @@ PD_REGISTER_KERNEL(clip_grad,
                    int64_t,
                    int) {}
 
-PD_REGISTER_KERNEL(clipmul_grad,
+PD_REGISTER_KERNEL(clip_tensor_grad,
                    XPU,
                    ALL_LAYOUT,
-                   phi::ClipMulGradKernel,
+                   phi::ClipTensorGradKernel,
                    float,
                    phi::dtype::float16,
                    int64_t,
