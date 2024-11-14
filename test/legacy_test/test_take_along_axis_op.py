@@ -124,7 +124,9 @@ class TestTakeAlongAxisBF16Op(OpTest):
     def setUp(self):
         self.init_data()
         self.op_type = "take_along_axis"
+        self.prim_op_type = "prim"
         self.python_api = paddle.tensor.take_along_axis
+        self.public_python_api = paddle.tensor.take_along_axis
         self.check_cinn = True
         self.xnp = np.random.random(self.x_shape).astype(self.x_type)
         self.target = np.take_along_axis(self.xnp, self.index, self.axis)
