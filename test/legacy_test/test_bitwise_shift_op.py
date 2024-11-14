@@ -256,51 +256,36 @@ class TestTensorRlshiftAPI(unittest.TestCase):
 
     def init_input(self):
         self.x = np.random.randint(-255, 256)
-        self.y = np.random.randint(0, 256, [200, 300])
-        self.y.shape = [200, 300]
+        self.y = np.random.randint(0, 256, [200, 300]).astype('int32')
 
-    def test_dygraph_tensor_rlshift_int32(self):
+    def test_dygraph_tensor_rlshift(self):
         paddle.disable_static()
         x = self.x
-        y = paddle.to_tensor(self.y.astype('int32'), dtype=paddle.int32)
+        y = paddle.to_tensor(self.y, dtype=self.y.dtype)
         out = x << y
         expected_out = x << y.numpy()
         np.testing.assert_allclose(out.numpy(), expected_out)
         paddle.enable_static()
 
-    def test_static_rlshift_int32(self):
+    def test_static_rlshift(self):
         paddle.enable_static()
         with paddle.static.program_guard(paddle.static.Program()):
             x = self.x
-            y = paddle.static.data('y', self.y.shape, dtype=paddle.int32)
+            y = paddle.static.data('y', self.y.shape, dtype=self.y.dtype)
             out = x << y
             exe = paddle.static.Executor(self.place)
             res = exe.run(
-                feed={'x': self.x, 'y': self.y.astype(np.int32)},
+                feed={'x': self.x, 'y': self.y},
                 fetch_list=[out],
             )
-            out_ref = ref_left_shift_arithmetic(self.x, self.y.astype(np.int32))
-            np.testing.assert_allclose(out_ref, res[0])
-
-    def test_dygraph_tensor_rlshift_int64(self):
-        paddle.disable_static()
-        x = self.x
-        y = paddle.to_tensor(self.y.astype('int64'), dtype=paddle.int64)
-        out = x << y
-        expected_out = x << y.numpy()
-        np.testing.assert_allclose(out.numpy(), expected_out)
-        paddle.enable_static()
-
-    def test_static_rlshift_int64(self):
-        paddle.enable_static()
-        with paddle.static.program_guard(paddle.static.Program()):
-            x = self.x
-            y = paddle.static.data('y', self.y.shape, dtype=paddle.int64)
-            out = x << y
-            exe = paddle.static.Executor(self.place)
-            res = exe.run(feed={'x': self.x, 'y': self.y}, fetch_list=[out])
             out_ref = ref_left_shift_arithmetic(self.x, self.y)
             np.testing.assert_allclose(out_ref, res[0])
+
+
+class TestTensorRlshiftAPI_INT64(TestTensorRlshiftAPI):
+    def init_input(self):
+        self.x = np.random.randint(-255, 256)
+        self.y = np.random.randint(0, 256, [200, 300]).astype('int64')
 
 
 class TestBitwiseRightShiftAPI(unittest.TestCase):
@@ -498,53 +483,36 @@ class TestTensorRrshiftAPI(unittest.TestCase):
 
     def init_input(self):
         self.x = np.random.randint(-255, 256)
-        self.y = np.random.randint(0, 256, [200, 300])
-        self.y.shape = [200, 300]
+        self.y = np.random.randint(0, 256, [200, 300]).astype('int32')
 
-    def test_dygraph_tensor_rrshift_int32(self):
+    def test_dygraph_tensor_rrshift(self):
         paddle.disable_static()
         x = self.x
-        y = paddle.to_tensor(self.y.astype('int32'), dtype=paddle.int32)
+        y = paddle.to_tensor(self.y, dtype=self.y.dtype)
         out = x >> y
         expected_out = x >> y.numpy()
         np.testing.assert_allclose(out.numpy(), expected_out)
         paddle.enable_static()
 
-    def test_static_rrshift_int32(self):
+    def test_static_rrshift(self):
         paddle.enable_static()
         with paddle.static.program_guard(paddle.static.Program()):
             x = self.x
-            y = paddle.static.data('y', self.y.shape, dtype=paddle.int32)
+            y = paddle.static.data('y', self.y.shape, dtype=self.y.dtype)
             out = x >> y
             exe = paddle.static.Executor(self.place)
             res = exe.run(
-                feed={'x': self.x, 'y': self.y.astype(np.int32)},
+                feed={'x': self.x, 'y': self.y},
                 fetch_list=[out],
             )
-            out_ref = ref_right_shift_arithmetic(
-                self.x, self.y.astype(np.int32)
-            )
-            np.testing.assert_allclose(out_ref, res[0])
-
-    def test_dygraph_tensor_rrshift_int64(self):
-        paddle.disable_static()
-        x = self.x
-        y = paddle.to_tensor(self.y.astype('int64'), dtype=paddle.int64)
-        out = x >> y
-        expected_out = x >> y.numpy()
-        np.testing.assert_allclose(out.numpy(), expected_out)
-        paddle.enable_static()
-
-    def test_static_rrshift_int64(self):
-        paddle.enable_static()
-        with paddle.static.program_guard(paddle.static.Program()):
-            x = self.x
-            y = paddle.static.data('y', self.y.shape, dtype=paddle.int64)
-            out = x >> y
-            exe = paddle.static.Executor(self.place)
-            res = exe.run(feed={'x': self.x, 'y': self.y}, fetch_list=[out])
             out_ref = ref_right_shift_arithmetic(self.x, self.y)
             np.testing.assert_allclose(out_ref, res[0])
+
+
+class TestTensorRrshiftAPI_INT64(TestTensorRrshiftAPI):
+    def init_input(self):
+        self.x = np.random.randint(-255, 256)
+        self.y = np.random.randint(0, 256, [200, 300]).astype('int64')
 
 
 if __name__ == '__main__':
