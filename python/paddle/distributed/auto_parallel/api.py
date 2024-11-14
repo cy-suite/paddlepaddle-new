@@ -1443,7 +1443,7 @@ class ShardingStage2(_ShardingStageBase):
 
     Args:
         mesh(None|paddle.distributed.ProcessMesh): If mesh is not None, the `ProcessMesh` object describes the Cartesian topology of the used processes for dense type parameters. Note: Currently, only one mesh configuration is supported for all dense parameters. If there is a need for multiple mesh configurations, please configure them yourself in the upper layer networking code.
-        shard_dims(None|int|str): The sharding dimension name in the mesh.
+        shard_mesh_dim(None|int|str): The sharding dimension name in the mesh.
 
     Examples:
         .. code-block:: python
