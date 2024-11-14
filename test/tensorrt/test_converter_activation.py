@@ -48,7 +48,7 @@ class TestHardSwishTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestRELUTRTPattern(TensorRTBaseTest):
+class TestReluTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.nn.functional.relu
         self.api_args = {"x": np.random.randn(3).astype("float32")}
@@ -60,7 +60,7 @@ class TestRELUTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestTANHTRTPattern(TensorRTBaseTest):
+class TestTanhTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.tanh
         self.api_args = {"x": np.random.randn(3).astype("float32")}
@@ -79,8 +79,22 @@ class TestSigmoidTRTPattern(TensorRTBaseTest):
             "x": np.random.randn(2, 3).astype("float32"),
         }
         self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [1, 3], "y": [1, 3]}
-        self.max_shape = {"x": [5, 3], "y": [5, 3]}
+        self.min_shape = {"x": [1, 3]}
+        self.max_shape = {"x": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestSoftplusTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.nn.Softplus()
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3]}
+        self.max_shape = {"x": [5, 3]}
 
     def test_trt_result(self):
         self.check_trt_result()

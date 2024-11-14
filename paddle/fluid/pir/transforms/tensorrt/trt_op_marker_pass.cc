@@ -233,7 +233,7 @@ using RemainderOpPattern =
     ElementwiseCommonOpPattern<paddle::dialect::RemainderOp>;
 
 template <typename OpType>
-class ActivaeCommonOpPattern : public pir::OpRewritePattern<OpType> {
+class ActOpPattern : public pir::OpRewritePattern<OpType> {
  public:
   using pir::OpRewritePattern<OpType>::OpRewritePattern;
   bool MatchAndRewrite(OpType op,
@@ -248,8 +248,8 @@ class ActivaeCommonOpPattern : public pir::OpRewritePattern<OpType> {
     auto x_shape = x_type.dims();
     int dims = x_shape.size();
     if (dims < 1) {
-      VLOG(3) << op.name()
-              << "op does not support 0 dim input when TensorRT < 8.6.";
+      VLOG(3) << op->name()
+              << " op does not support 0 dim input when TensorRT < 8.6.";
       return false;
     }
 #endif
@@ -258,6 +258,7 @@ class ActivaeCommonOpPattern : public pir::OpRewritePattern<OpType> {
     return true;
   }
 };
+using SoftplusOpPatten = ActOpPattern<paddle::dialect::SoftplusOp>;
 
 class Pool2dOpPattern
     : public pir::OpRewritePattern<paddle::dialect::Pool2dOp> {
@@ -1445,6 +1446,43 @@ class NearestInterV2Pattern
   }
 };
 
+class GridSampleOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::GridSampleOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::GridSampleOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::GridSampleOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+#if IS_TRT_VERSION_LT(8510)
+    VLOG(3) << "grid_sample is not supported when TensorRT < 8.5.1";
+    return false;
+#else
+    if (!op->HasAttribute("mode") || !op->HasAttribute("padding_mode") ||
+        !op->HasAttribute("align_corners")) {
+      VLOG(3)
+          << "grid_sample need attributes: mode, padding_mode, align_corners";
+      return false;
+    }
+    auto x = op.operand_source(0);
+    auto grid = op.operand_source(1);
+    auto x_shape = pir::GetShapeFromValue(x);
+    auto grid_shape = pir::GetShapeFromValue(grid);
+
+    if (x_shape.size() != 4 || grid_shape.size() != 4) {
+      VLOG(3) << "The input and grid tensors must be shape tensors of rank 4 "
+                 "when using TRT GridSample layer.";
+      return false;
+    }
+#endif
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class StackOpPattern : public pir::OpRewritePattern<paddle::dialect::StackOp> {
  public:
   using pir::OpRewritePattern<paddle::dialect::StackOp>::OpRewritePattern;
@@ -1782,12 +1820,14 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<SumOpPattern>(context));
     ps.Add(std::make_unique<BilinearInterpV2Pattern>(context));
     ps.Add(std::make_unique<NearestInterV2Pattern>(context));
+    ps.Add(std::make_unique<GridSampleOpPattern>(context));
     ps.Add(std::make_unique<StackOpPattern>(context));
     ps.Add(std::make_unique<WherePattern>(context));
     ps.Add(std::make_unique<FullLikeOpPattern>(context));
     ps.Add(std::make_unique<FullWithTensorPattern>(context));
     ps.Add(std::make_unique<StridedSliceOpPattern>(context));
     ps.Add(std::make_unique<TopkOpPattern>(context));
+    ps.Add(std::make_unique<SoftplusOpPatten>(context));
     ps.Add(std::make_unique<EqualOpPattern>(context));
     ps.Add(std::make_unique<NotEqualOpPattern>(context));
     return ps;
