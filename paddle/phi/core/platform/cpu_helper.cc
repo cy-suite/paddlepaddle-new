@@ -30,7 +30,10 @@ namespace paddle {
 namespace platform {
 
 void SetNumThreads(int num_threads) {
-#ifdef PADDLE_USE_OPENBLAS
+#ifdef PADDLE_WITH_OPENVINO
+  // not sure about openvino
+  return;
+#elif defined(PADDLE_USE_OPENBLAS)
 // windows has no support for openblas multi-thread
 // please refer to: https://github.com/PaddlePaddle/Paddle/issues/7234
 #ifdef _WIN32
@@ -49,9 +52,6 @@ void SetNumThreads(int num_threads) {
   return;
 #elif defined(PADDLE_USE_ACCELERATE)
   // not sure about apple's blas
-  return;
-#elif defined(PADDLE_WITH_OPENVINO)
-  // not sure about openvino
   return;
 #else
   PADDLE_THROW(common::errors::Unimplemented(
