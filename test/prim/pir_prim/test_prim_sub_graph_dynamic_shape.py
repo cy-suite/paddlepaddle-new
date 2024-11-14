@@ -1672,6 +1672,7 @@ class TestPrimAddmm1(TestPrimThree):
         self.net = addmm_net
         self.necessary_ops = "pd_op.addmm"
         self.enable_cinn = False
+        self.tol = 1e-6
 
 
 class TestPrimAddmm2(TestPrimThree):
@@ -1692,6 +1693,7 @@ class TestPrimAddmm2(TestPrimThree):
         self.net = addmm_net
         self.necessary_ops = "pd_op.addmm"
         self.enable_cinn = False
+        self.tol = 1e-6
 
 
 class TestPrimNumel(TestPrimBase):
