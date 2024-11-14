@@ -26,10 +26,30 @@ from paddle.base.unique_name import (
 from paddle.framework import use_pir_api
 from paddle.utils import flatten, is_sequence
 
-from .utils import Cache, Singleton, map_if_extend, meta_str
+from .utils import Cache, Singleton, map_if, map_if_extend, meta_str
 
 DynamicSymbolT = TypeVar("DynamicSymbolT")
 SOT_INFER_META_INNER_VAR = "___SOT_INFER_META_INNER_VAR"
+HASH_MAGIC = 0x9E3779B9
+
+
+def rehash_int(x):
+    type_name = type(x).__name__
+    # Because -1 and -2 has same hash value, we need to rehash it.
+    x = x ^ HASH_MAGIC
+    # Because True and 1, False and 0 has same hash value, we need to add type_name to rehash it.
+    return (type_name, x)
+
+
+def hash_with_rehash_int(structure):
+    return hash(
+        map_if(
+            structure,
+            pred=lambda x: isinstance(x, int),
+            true_fn=lambda x: rehash_int(x),
+            false_fn=lambda x: x,
+        )
+    )
 
 
 class SymbolicValue(metaclass=Singleton):
@@ -200,7 +220,9 @@ class MetaInfo:
         )
 
     def __hash__(self):
-        return hash((tuple(self.shape), self.dtype, self.stop_gradient))
+        return hash_with_rehash_int(
+            (tuple(self.shape), self.dtype, self.stop_gradient)
+        )
 
 
 class VariableCreator(metaclass=Singleton):
@@ -447,7 +469,7 @@ class InferMetaCache(Cache, metaclass=Singleton):
         self, func, *args, **kwargs
     ):  # args & kwargs have transformed to MetaInfo
         try:
-            retval = hash(
+            retval = hash_with_rehash_int(
                 (
                     func,
                     tuple(flatten(args)),
@@ -457,6 +479,17 @@ class InferMetaCache(Cache, metaclass=Singleton):
             )
         except Exception as e:
             return None
+        print(
+            (
+                func,
+                tuple(flatten(args)),
+                tuple(kwargs.keys()),
+                tuple(flatten(kwargs)),
+            )
+        )
+        print("CACHE HIT!!!", retval in self.cache)
+        print("CACHE HIT!!!", self.cache.keys())
+        print("CACHE HIT!!!", retval)
         return retval
 
     def value_fn(self, func, *args, **kwargs):
@@ -470,7 +503,7 @@ class LayerInferMetaCache(Cache, metaclass=Singleton):
             for x in layer.parameters(include_sublayers=True)
         ]
         try:
-            retval = hash(
+            retval = hash_with_rehash_int(
                 (
                     layer,
                     tuple(params),
