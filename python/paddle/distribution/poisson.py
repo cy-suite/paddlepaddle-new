@@ -73,8 +73,8 @@ class Poisson(distribution.Distribution):
             >>> rv2 = Poisson(paddle.to_tensor([[1000.,40.],[7.,10.]]))
             >>> print(rv1.kl_divergence(rv2))
             Tensor(shape=[2, 2], dtype=float32, place=Place(cpu), stop_gradient=True,
-            [[864.80285645, 0.          ],
-             [0.06825157  , 1.53426421  ]])
+            [[864.80499268, 0.          ],
+             [0.06825146  , 1.53426409  ])
     """
 
     rate: Tensor
