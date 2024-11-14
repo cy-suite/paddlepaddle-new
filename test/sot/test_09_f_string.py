@@ -28,6 +28,10 @@ def foo(x: paddle.Tensor):
     whilespace = 123
     hello_world = f"Hello {whilespace} World"
     z = assert_true(hello_world == "Hello 123 World")
+
+    float_num = 3.1415
+    float_string = f"{float_num:.2f}"
+    z = assert_true(float_string == "3.14")
     x = x + 1
     return x
 

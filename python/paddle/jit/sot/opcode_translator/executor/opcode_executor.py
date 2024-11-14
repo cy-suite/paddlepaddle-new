@@ -62,7 +62,7 @@ from .dispatcher import Dispatcher
 from .function_graph import FunctionGraph
 from .instr_flag import (
     CALL_FUNCTION_EX_FLAG as CFE,
-    FORMAT_VALUE_FLAG as FV,
+    CONVERT_VALUE_FLAG as CV,
     MAKE_FUNCTION_FLAG as MF,
     IntrinsicsUnaryFunctions,
 )
@@ -1501,42 +1501,48 @@ class OpcodeExecutorBase:
         for i in range(front_nums - 1, -1, -1):
             self.stack.push(getitem(sequence, i))
 
-    def FORMAT_VALUE(self, instr: Instruction):
-        flag = instr.arg
-        assert flag is not None
-        which_conversion = flag & FV.FVC_MASK
-        have_fmt_spec = bool((flag & FV.FVS_MASK) == FV.FVS_HAVE_SPEC)
-
-        fmt_spec = self.stack.pop().get_py_value() if have_fmt_spec else ""
-        value = self.stack.pop()
-
-        if which_conversion == FV.FVC_NONE:
-            convert_fn = None
-        elif which_conversion == FV.FVC_STR:
-            convert_fn = "__str__"
-        elif which_conversion == FV.FVC_REPR:
-            convert_fn = "__repr__"
-        elif which_conversion == FV.FVC_ASCII:
-            convert_fn = "__ascii__"
-        else:
-            raise InnerError(
-                f"Unexpected conversion flag {flag} for FORMAT_VALUE"
-            )
-
-        # different type will lead to different Tracker, so call self.stack.push in different branch
-        if isinstance(value, ConstantVariable):
-            result = value.get_py_value()
-            if convert_fn is not None:
+        def CONVERT_VALUE(self, instr: Instruction):
+            value = self.stack.pop()
+            flag = instr.arg
+            if flag == CV.CV_STR:
+                convert_fn = "__str__"
+            elif flag == CV.CV_REPR:
+                convert_fn = "__repr__"
+            elif flag == CV.CV_ASCII:
+                convert_fn = "__ascii__"
+            else:
+                raise InnerError(
+                    f"Unexpected conversion flag {flag} in {instr.opname}"
+                )
+            if isinstance(value, ConstantVariable):
+                result = value.get_py_value()
                 result = getattr(result, convert_fn)(result)
+                self.stack.push(
+                    ConstantVariable(result, self._graph, DummyTracker([value]))
+                )
+            else:
+                raise FallbackError(
+                    f"Do not support format {type(value)} now in {instr.opname} now"
+                )
 
-            if not isinstance(result, str) or fmt_spec != "":
-                result = format(result, fmt_spec)
-
+    def FORMAT_WITH_SPEC(self, instr: Instruction):
+        # unlike the former FORMAT_VALUE, the FORMAT_WITH_SPEC opcode has no parameter flag.
+        spec = self.stack.pop()
+        value = self.stack.pop()
+        if isinstance(value, ConstantVariable) and isinstance(
+            spec, ConstantVariable
+        ):
+            spec = spec.get_py_value()
+            result = value.get_py_value()
+            result = format(result, spec)
+            assert result
             self.stack.push(
                 ConstantVariable(result, self._graph, DummyTracker([value]))
             )
         else:
-            raise FallbackError(f"Do not support format {type(value)} now")
+            raise FallbackError(
+                f"Do not support format {type(value)} or {type(spec)} in {instr.opname} now"
+            )
 
     def FORMAT_SIMPLE(self, instr: Instruction):
         value = self.stack.pop()
