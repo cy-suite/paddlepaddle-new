@@ -1690,31 +1690,20 @@ bool CheckSetValue(const pir::Operation *op, int starts_input_loc = 1) {
   paddle::dialect::FullIntArrayOp starts_defining_op =
       pir::GetDefiningOpForInput(op, starts_input_loc)
           ->dyn_cast<paddle::dialect::FullIntArrayOp>();
-  if (!starts_defining_op) {
-    VLOG(3) << "SetValueOp Input : starts , is not initialized with constant "
+  paddle::dialect::FullIntArrayOp ends_defining_op =
+      pir::GetDefiningOpForInput(op, starts_input_loc + 1)
+          ->dyn_cast<paddle::dialect::FullIntArrayOp>();
+  paddle::dialect::FullIntArrayOp steps_defining_op =
+      pir::GetDefiningOpForInput(op, starts_input_loc + 2)
+          ->dyn_cast<paddle::dialect::FullIntArrayOp>();
+  if (!starts_defining_op || !ends_defining_op || !steps_defining_op) {
+    VLOG(3) << "SetValueOp Input : starts/ends/steps, is not initialized with "
+               "constant "
                "value, this op will not be translated to TRT Layer.";
     return false;
   }
   auto starts = starts_defining_op->attribute<pir::ArrayAttribute>("value");
-
-  paddle::dialect::FullIntArrayOp ends_defining_op =
-      pir::GetDefiningOpForInput(op, starts_input_loc + 1)
-          ->dyn_cast<paddle::dialect::FullIntArrayOp>();
-  if (!ends_defining_op) {
-    VLOG(3) << "SetValueOp Input : ends , is not initialized with constant "
-               "value, this op will not be translated to TRT Layer.";
-    return false;
-  }
   auto ends = ends_defining_op->attribute<pir::ArrayAttribute>("value");
-
-  paddle::dialect::FullIntArrayOp steps_defining_op =
-      pir::GetDefiningOpForInput(op, starts_input_loc + 2)
-          ->dyn_cast<paddle::dialect::FullIntArrayOp>();
-  if (!steps_defining_op) {
-    VLOG(3) << "SetValueOp Input : steps , is not initialized with constant "
-               "value, this op will not be translated to TRT Layer.";
-    return false;
-  }
   auto steps = steps_defining_op->attribute<pir::ArrayAttribute>("value");
   auto axes = op->attribute<pir::ArrayAttribute>("axes");
   if (starts.size() != 1UL || ends.size() != 1UL || steps.size() != 1UL ||
