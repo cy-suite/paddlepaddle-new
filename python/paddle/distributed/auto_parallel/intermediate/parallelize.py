@@ -37,7 +37,7 @@ def parallelize(
         model, optimizer = sharded_data_parallel(
             model,
             optimizer,
-            level=dp_config.get('level'),
+            level=dp_config.get('sharding_level'),
             offload=bool(dp_config.get('offload')),
             exclude_layer=dp_config.get('exclude_layer'),
         )

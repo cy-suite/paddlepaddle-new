@@ -216,7 +216,7 @@ class TestParallelAPI:
             )
             pp_config = {'split_spec': split_spec}
         if self.dp > 1:
-            dp_config = {'level': self.level}
+            dp_config = {'sharding_level': self.level}
         if self.mp > 1:
             if not self.sequence_parallel:
                 plan = {
