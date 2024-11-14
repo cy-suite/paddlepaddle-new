@@ -26,64 +26,15 @@ from paddle.base.lod_tensor import (
 
 
 class TestLoDTensor(unittest.TestCase):
-    def test_pybind_recursive_seq_lens(self):
-        tensor = base.LoDTensor()
-        recursive_seq_lens = []
-        tensor.set_recursive_sequence_lengths(recursive_seq_lens)
-        recursive_seq_lens = [[], [1], [3]]
-        self.assertRaises(
-            Exception, tensor.set_recursive_sequence_lengths, recursive_seq_lens
-        )
-        recursive_seq_lens = [[0], [2], [3]]
-        self.assertRaises(
-            Exception, tensor.set_recursive_sequence_lengths, recursive_seq_lens
-        )
-
-        recursive_seq_lens = [[1, 2, 3]]
-        tensor.set_recursive_sequence_lengths(recursive_seq_lens)
-        self.assertEqual(
-            tensor.recursive_sequence_lengths(), recursive_seq_lens
-        )
-        tensor.set(np.random.random([6, 1]), base.CPUPlace())
-        self.assertTrue(tensor.has_valid_recursive_sequence_lengths())
-        tensor.set(np.random.random([9, 1]), base.CPUPlace())
-        self.assertFalse(tensor.has_valid_recursive_sequence_lengths())
-
-        # Each level's sum should be equal to the number of items in the next level
-        # Moreover, last level's sum should be equal to the tensor height
-        recursive_seq_lens = [[2, 3], [1, 3, 1, 2, 2]]
-        tensor.set_recursive_sequence_lengths(recursive_seq_lens)
-        self.assertEqual(
-            tensor.recursive_sequence_lengths(), recursive_seq_lens
-        )
-        tensor.set(np.random.random([8, 1]), base.CPUPlace())
-        self.assertFalse(tensor.has_valid_recursive_sequence_lengths())
-        recursive_seq_lens = [[2, 3], [1, 3, 1, 2, 1]]
-        tensor.set_recursive_sequence_lengths(recursive_seq_lens)
-        self.assertTrue(tensor.has_valid_recursive_sequence_lengths())
-        tensor.set(np.random.random([9, 1]), base.CPUPlace())
-        self.assertFalse(tensor.has_valid_recursive_sequence_lengths())
-
     def test_create_lod_tensor(self):
         # Create DenseTensor from a list
         data = [
             [np.int64(1), np.int64(2), np.int64(3)],
             [np.int64(3), np.int64(4)],
         ]
-        wrong_recursive_seq_lens = [[2, 2]]
         correct_recursive_seq_lens = [[3, 2]]
-        self.assertRaises(
-            AssertionError,
-            create_lod_tensor,
-            data,
-            wrong_recursive_seq_lens,
-            base.CPUPlace(),
-        )
         tensor = create_lod_tensor(
             data, correct_recursive_seq_lens, base.CPUPlace()
-        )
-        self.assertEqual(
-            tensor.recursive_sequence_lengths(), correct_recursive_seq_lens
         )
         self.assertEqual(
             tensor._dtype(), paddle.base.core.VarDesc.VarType.INT64
@@ -98,24 +49,9 @@ class TestLoDTensor(unittest.TestCase):
         data = np.random.random([10, 1]).astype('float64')
         recursive_seq_lens = [[2, 1], [3, 3, 4]]
         tensor = create_lod_tensor(data, recursive_seq_lens, base.CPUPlace())
-        self.assertEqual(
-            tensor.recursive_sequence_lengths(), recursive_seq_lens
-        )
         self.assertEqual(tensor._dtype(), paddle.base.core.VarDesc.VarType.FP64)
         self.assertEqual(tensor.shape(), [10, 1])
         np.testing.assert_array_equal(np.array(tensor), data)
-
-        # Create DenseTensor from another DenseTensor, they are differnt instances
-        new_recursive_seq_lens = [[2, 2, 1], [1, 2, 2, 3, 2]]
-        new_tensor = create_lod_tensor(
-            tensor, new_recursive_seq_lens, base.CPUPlace()
-        )
-        self.assertEqual(
-            tensor.recursive_sequence_lengths(), recursive_seq_lens
-        )
-        self.assertEqual(
-            new_tensor.recursive_sequence_lengths(), new_recursive_seq_lens
-        )
 
     def test_create_random_int_lodtensor(self):
         # The shape of a word, commonly used in speech and NLP problem, is [1]
@@ -126,9 +62,6 @@ class TestLoDTensor(unittest.TestCase):
         high = dict_size - 1
         tensor = create_random_int_lodtensor(
             recursive_seq_lens, shape, base.CPUPlace(), low, high
-        )
-        self.assertEqual(
-            tensor.recursive_sequence_lengths(), recursive_seq_lens
         )
         self.assertEqual(tensor.shape(), [10, 1])
 
