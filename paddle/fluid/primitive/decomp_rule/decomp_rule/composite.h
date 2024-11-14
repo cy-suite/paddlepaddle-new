@@ -1420,7 +1420,7 @@ Tensor allclose_decomp(const Tensor& x,
   if (equal_nan) {
     Tensor x_nan = isnan<T>(x);
     Tensor y_nan = isnan<T>(y);
-    res = backend::logical_and<T>(
+    res = backend::logical_or<T>(
         res, backend::logical_or<T>(backend::logical_not<T>(x_nan), y_nan));
   }
   return backend::all<T>(res);
@@ -1441,7 +1441,7 @@ Tensor isclose_decomp(const Tensor& x,
   if (equal_nan) {
     Tensor x_nan = isnan<T>(x);
     Tensor y_nan = isnan<T>(y);
-    res = backend::logical_and<T>(
+    res = backend::logical_or<T>(
         res, backend::logical_or<T>(backend::logical_not<T>(x_nan), y_nan));
   }
   return res;
