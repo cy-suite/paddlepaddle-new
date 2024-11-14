@@ -592,6 +592,8 @@ def _reset_prim_forward_blacklist():
 def _set_prim_backward_blacklist(*args):
     ops = set(args)
     for item in ops:
+        if item.startswith("pd_op."):
+            item = item[6:]
         prim_config["backward_blacklist"].add(item)
         if not isinstance(item, str):
             raise TypeError("all items in set must belong to string")
