@@ -1362,6 +1362,11 @@ def get_package_data_and_package_dir():
                 os.path.basename(env_dict.get("FLASHATTN_LIBRARIES"))
             ]
             shutil.copy(env_dict.get("FLASHATTN_LIBRARIES"), libs_path)
+        if len(env_dict.get("FLASHATTN_V3_LIBRARIES", "")) > 1:
+            package_data['paddle.libs'] += [
+                os.path.basename(env_dict.get("FLASHATTN_V3_LIBRARIES"))
+            ]
+            shutil.copy(env_dict.get("FLASHATTN_V3_LIBRARIES"), libs_path)
     if env_dict.get("WITH_CINN") == 'ON':
         shutil.copy(
             env_dict.get("CINN_LIB_LOCATION")
@@ -1468,13 +1473,21 @@ def get_package_data_and_package_dir():
         for xpu_cuda_lib_file in xpu_cuda_lib_list:
             shutil.copy(xpu_cuda_lib_file, libs_path)
             package_data['paddle.libs'] += [os.path.basename(xpu_cuda_lib_file)]
-
-        shutil.copy(env_dict.get("XPU_XBLAS_LIB"), libs_path)
-        package_data['paddle.libs'] += [env_dict.get("XPU_XBLAS_LIB_NAME")]
-        shutil.copy(env_dict.get("XPU_XFA_LIB"), libs_path)
-        package_data['paddle.libs'] += [env_dict.get("XPU_XFA_LIB_NAME")]
-        shutil.copy(env_dict.get("XPU_XPUDNN_LIB"), libs_path)
-        package_data['paddle.libs'] += [env_dict.get("XPU_XPUDNN_LIB_NAME")]
+        if env_dict.get("WITH_XPU_XRE5") == 'ON':
+            xpu_cuda_rt_lib_list = glob.glob(
+                env_dict.get("XPU_CUDA_RT_LIB") + '*'
+            )
+            for xpu_cuda_rt_lib_file in xpu_cuda_rt_lib_list:
+                shutil.copy(xpu_cuda_rt_lib_file, libs_path)
+                package_data['paddle.libs'] += [
+                    os.path.basename(xpu_cuda_rt_lib_file)
+                ]
+            shutil.copy(env_dict.get("XPU_XBLAS_LIB"), libs_path)
+            package_data['paddle.libs'] += [env_dict.get("XPU_XBLAS_LIB_NAME")]
+            shutil.copy(env_dict.get("XPU_XFA_LIB"), libs_path)
+            package_data['paddle.libs'] += [env_dict.get("XPU_XFA_LIB_NAME")]
+            shutil.copy(env_dict.get("XPU_XPUDNN_LIB"), libs_path)
+            package_data['paddle.libs'] += [env_dict.get("XPU_XPUDNN_LIB_NAME")]
 
     if env_dict.get("WITH_XPU_BKCL") == 'ON':
         shutil.copy(env_dict.get("XPU_BKCL_LIB"), libs_path)
@@ -1832,6 +1845,13 @@ def get_headers():
                 recursive=True,
             )
         )  # xdnn api headers
+        headers += list(
+            find_files(
+                '*.hpp',
+                paddle_binary_dir + '/third_party/xpu/src/extern_xpu/xpu',
+                recursive=True,
+            )
+        )  # xre headers with .hpp extension
 
     # pybind headers
     headers += list(find_files('*.h', env_dict.get("PYBIND_INCLUDE_DIR"), True))
@@ -1914,6 +1934,7 @@ def get_setup_parameters():
         'paddle.distributed.fleet.meta_parallel.sharding',
         'paddle.distributed.fleet.meta_parallel.parallel_layers',
         'paddle.distributed.auto_parallel',
+        'paddle.distributed.auto_parallel.intermediate',
         'paddle.distributed.auto_parallel.dygraph',
         'paddle.distributed.auto_parallel.static',
         'paddle.distributed.auto_parallel.static.operators',
@@ -2025,6 +2046,7 @@ def get_setup_parameters():
         'paddle.decomposition',
         'paddle._typing',
         'paddle._typing.libs',
+        'paddle.tensorrt',
     ]
 
     paddle_bins = ''
@@ -2348,6 +2370,7 @@ def main():
             'Programming Language :: Python :: 3.10',
             'Programming Language :: Python :: 3.11',
             'Programming Language :: Python :: 3.12',
+            'Programming Language :: Python :: 3.13',
             'Typing :: Typed',
         ],
     )
