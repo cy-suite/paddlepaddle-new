@@ -174,6 +174,10 @@ def take_along_axis_net2(x, y):
     return paddle.take_along_axis(x, y, 1, True)
 
 
+def take_along_axis_net3(x, y):
+    return paddle.take_along_axis(x, y, 1, False)
+
+
 def tanh_net(x):
     return paddle.tanh(x)
 
@@ -1145,6 +1149,22 @@ class TestPrimTakeAlongAxisWithGrad2(TestPrimTwoWithGrad):
             assert self.op_name not in ops
             core._set_prim_all_enabled(False)
         return res, [x_grad]
+
+
+class TestPrimTakeAlongAxisWithGrad3(TestPrimTakeAlongAxisWithGrad2):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.take_along_axis_grad"
+        self.dtype = "float32"
+        self.x_shape = [2, 40, 200]
+        self.init_x_shape = [None, None, None]
+        self.y_shape = [2, 1, 1]
+        self.init_y_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.y = np.array([[[1]], [[3]]], dtype="int32")
+        self.net = take_along_axis_net3
+        self.enable_cinn = False
+        self.tol = 1e-6
 
 
 class TestPrimTanhWithGrad(TestPrimBaseWithGrad):
