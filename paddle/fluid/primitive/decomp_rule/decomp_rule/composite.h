@@ -1405,6 +1405,48 @@ Tensor swish_decomp(const Tensor& x) {
   return x * sigmoid<T>(x);
 }
 
+template <typename T>
+Tensor allclose_decomp(const Tensor& x,
+                       const Tensor& y,
+                       const float rtol,
+                       const float atol,
+                       const bool equal_nan) {
+  Tensor diff = abs<T>(x - y);
+  Tensor rtol_tensor = full_scalar<T>(rtol, x.dtype());
+  Tensor atol_tensor = full_scalar<T>(atol, x.dtype());
+  Tensor rtol_diff = rtol_tensor * abs<T>(y);
+  Tensor tol_diff = atol_tensor + rtol_diff;
+  Tensor res = less_equal<T>(diff, tol_diff);
+  if (equal_nan) {
+    Tensor x_nan = isnan<T>(x);
+    Tensor y_nan = isnan<T>(y);
+    res = backend::logical_and<T>(
+        res, backend::logical_or<T>(backend::logical_not<T>(x_nan), y_nan));
+  }
+  return backend::all<T>(res);
+}
+
+template <typename T>
+Tensor isclose_decomp(const Tensor& x,
+                      const Tensor& y,
+                      const float rtol,
+                      const float atol,
+                      const bool equal_nan) {
+  Tensor diff = abs<T>(x - y);
+  Tensor rtol_tensor = full_scalar<T>(rtol, x.dtype());
+  Tensor atol_tensor = full_scalar<T>(atol, x.dtype());
+  Tensor rtol_diff = rtol_tensor * abs<T>(y);
+  Tensor tol_diff = atol_tensor + rtol_diff;
+  Tensor res = less_equal<T>(diff, tol_diff);
+  if (equal_nan) {
+    Tensor x_nan = isnan<T>(x);
+    Tensor y_nan = isnan<T>(y);
+    res = backend::logical_and<T>(
+        res, backend::logical_or<T>(backend::logical_not<T>(x_nan), y_nan));
+  }
+  return res;
+}
+
 }  // namespace details
 
 }  // namespace primitive

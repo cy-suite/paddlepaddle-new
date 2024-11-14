@@ -20,6 +20,7 @@
 # manual decomp interface declare are located in manual_op.h
 decomp_interface_declare_gen_op_list = [
     "add_n",
+    "allclose",
     "any",
     "batch_norm",
     "batch_norm_",
@@ -40,6 +41,7 @@ decomp_interface_declare_gen_op_list = [
     "index_sample",
     "index_select",
     "instance_norm",
+    "isclose",
     "kldiv_loss",
     "layer_norm",
     "leaky_relu",
@@ -76,6 +78,7 @@ decomp_interface_declare_gen_op_list = [
 decomp_interface_implementation_gen_op_list = [
     "any",
     "add_n",
+    "allclose",
     "bce_loss",
     "bmm",
     "dropout",
@@ -92,6 +95,7 @@ decomp_interface_implementation_gen_op_list = [
     "index_sample",
     "index_select",
     "instance_norm",
+    "isclose",
     "kldiv_loss",
     "layer_norm",
     "leaky_relu",
