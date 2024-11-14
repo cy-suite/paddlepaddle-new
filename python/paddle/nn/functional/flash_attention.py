@@ -32,6 +32,19 @@ if TYPE_CHECKING:
 
     from paddle import Tensor
 
+def _get_arch_info():
+    # Get SMVersion from device.
+    cuda_version = paddle.version.cuda()
+    if (
+        cuda_version is not None and cuda_version != 'False'
+    ) or paddle.is_compiled_with_rocm():
+        major, minor = get_device_capability()
+        arch = int(major * 10 + minor)
+        return arch
+    else:
+        raise ValueError(
+            "Paddle is not compiled with CUDA, we cannot get SMVersion from device, please try to compile Paddle with CUDA"
+        )
 
 @signature_safe_contextmanager
 def sdp_kernel(
@@ -73,6 +86,7 @@ def _math_attention(
     query: Tensor,
     key: Tensor,
     value: Tensor,
+    mask: Tensor,
     dropout_rate: float = ...,
     causal: bool = ...,
     return_softmax: Literal[False] = ...,
@@ -85,6 +99,7 @@ def _math_attention(
     query: Tensor,
     key: Tensor,
     value: Tensor,
+    mask: Tensor,
     dropout_rate: float = ...,
     causal: bool = ...,
     return_softmax: Literal[True] = ...,
@@ -97,6 +112,7 @@ def _math_attention(
     query: Tensor,
     key: Tensor,
     value: Tensor,
+    mask: Tensor,
     dropout_rate: float = ...,
     causal: bool = ...,
     return_softmax: bool = ...,
@@ -108,11 +124,11 @@ def _math_attention(
     query,
     key,
     value,
+    mask=None,
     dropout_rate=0.0,
     causal=False,
     return_softmax=False,
     training=True,
-    mask=None,
 ):
     r"""
     This is a basic implementation of scaled dot product attention composed of
@@ -150,13 +166,14 @@ def _math_attention(
 
 
 def _select_sdp_cuda(head_dim: int) -> str:
+
     if head_dim <= 256:
         return "flash_attn"
     else:
         return "mem_efficient"
 
 
-def _select_sdp(head_dim: int) -> str:
+def _select_sdp(head_dim: int, dtype: str="fp16") -> str:
     r"""
     There are currently three different implementation options available for
     scaled dot product attention, and the chosen approach depends on whether it
@@ -169,10 +186,22 @@ def _select_sdp(head_dim: int) -> str:
 
     # not use sdp_kernel
     if g_enable_flash is None:
+        arch = _get_arch_info()
         if "gpu" not in place:
             return "math"
+        # handle fp32 case
+        elif dtype is "fp32":
+            if arch >= 70:
+                return "mem_efficient"
+            else:
+                return "math"
         else:
-            return _select_sdp_cuda(head_dim)
+            if arch >= 80:
+                return _select_sdp_cuda(head_dim)
+            elif arch < 80 and arch >= 70:
+                return "mem_efficient"
+            else:
+                return "math"
 
     if (
         g_enable_math is False
@@ -570,7 +599,6 @@ def flash_attn_qkvpacked(
             from paddle.incubate.nn.memory_efficient_attention import (
                 memory_efficient_attention,
             )
-
             output = memory_efficient_attention(
                 query,
                 key,
@@ -1107,7 +1135,7 @@ def scaled_dot_product_attention(
             )
 
             seq_lens = paddle.to_tensor(
-                [query.shape[-2]] * query.shape[0], dtype=query.dtype()
+                [query.shape[1], ] * query.shape[0], dtype='int32'
             )
 
             output = variable_length_memory_efficient_attention(
@@ -1126,12 +1154,12 @@ def scaled_dot_product_attention(
                 query,
                 key,
                 value,
+                attn_mask,
                 dropout_p,
                 is_causal,
                 False,
                 training,
-                attn_mask,
-            )
+            )[0]
 
 
 def flashmask_attention(
