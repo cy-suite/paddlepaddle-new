@@ -3939,6 +3939,8 @@ function clang-tidy_check() {
 
     if [[ $num_diff_files -eq 0 ]]; then
         echo "No C++ related files to analyze."
+        trap : 0
+        set -x
         exit 0
     fi
 
