@@ -479,17 +479,6 @@ class InferMetaCache(Cache, metaclass=Singleton):
             )
         except Exception as e:
             return None
-        print(
-            (
-                func,
-                tuple(flatten(args)),
-                tuple(kwargs.keys()),
-                tuple(flatten(kwargs)),
-            )
-        )
-        print("CACHE HIT!!!", retval in self.cache)
-        print("CACHE HIT!!!", self.cache.keys())
-        print("CACHE HIT!!!", retval)
         return retval
 
     def value_fn(self, func, *args, **kwargs):
