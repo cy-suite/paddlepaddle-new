@@ -1701,10 +1701,15 @@ class PreluOpPattern : public pir::OpRewritePattern<paddle::dialect::PreluOp> {
           << "Skip to convert into TRT while found alpha is not a parameter.";
       return false;
     }
-    if (len(op->operand_source(1).shape) < 1) {
+    pir::Value alpha = op.operand_source(1);
+    auto alpha_type = alpha.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto alpha_shape = alpha_type.dims();
+
+    if (alpha_shape.size() < 1) {
       // Accoding to paddle.nn.Prelu, the alpha should be a 1-D tensor.
       VLOG(3)
           << "Skip to convert into TRT while found alpha shape less than one.";
+      return false;
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
