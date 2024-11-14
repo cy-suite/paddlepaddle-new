@@ -1068,7 +1068,10 @@ def scaled_dot_product_attention(
     """
 
     head_dim = query.shape[3]
-    sdp_func_name = _select_sdp(head_dim)
+    if query.dtype == paddle.float32:
+        sdp_func_name = _select_sdp(head_dim, query, "float32")
+    else:
+        sdp_func_name = _select_sdp(head_dim, query)
 
     if attn_mask is None:
         # downgraded to ordinary flash attention implementation
