@@ -47,8 +47,8 @@ ir::Module CreateSwitchWithBroadcastConditionModule(
 
   const auto &symbolic_arg_define = [&]() -> std::vector<ir::Expr> {
     std::vector<ir::Expr> arg_defs;
-#ifdef CINN_WITH_CUDA
     for (const auto &item : symbolic_shape_var_index) {
+#ifdef CINN_WITH_CUDA
       ir::Expr call_get_value_in_kernel_args =
           ir::Call::Make(Int(64),
                          runtime::intrinsic::get_value_in_cuda_kernel_args,
@@ -57,14 +57,7 @@ ir::Module CreateSwitchWithBroadcastConditionModule(
                          ir::CallType::Extern,
                          ir::FunctionRef(),
                          0);
-      ir::Expr let_symbol = ir::Expr(item.second);
-      let_symbol->set_type(type_of<int64_t>());
-      ir::Expr stmt = ir::Let::Make(let_symbol, call_get_value_in_kernel_args);
-      arg_defs.push_back(stmt);
-    }
-    return arg_defs;
 #elif defined(CINN_WITH_HIP)
-    for (const auto &item : symbolic_shape_var_index) {
       ir::Expr call_get_value_in_kernel_args =
           ir::Call::Make(Int(64),
                          runtime::intrinsic::get_value_in_hip_kernel_args,
@@ -73,15 +66,15 @@ ir::Module CreateSwitchWithBroadcastConditionModule(
                          ir::CallType::Extern,
                          ir::FunctionRef(),
                          0);
+#else
+      CINN_NOT_IMPLEMENTED
+#endif
       ir::Expr let_symbol = ir::Expr(item.second);
       let_symbol->set_type(type_of<int64_t>());
       ir::Expr stmt = ir::Let::Make(let_symbol, call_get_value_in_kernel_args);
       arg_defs.push_back(stmt);
     }
     return arg_defs;
-#else
-    CINN_NOT_IMPLEMENTED
-#endif
   }();
 
   const auto &CreateSwitchFunction =
