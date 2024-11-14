@@ -69,8 +69,6 @@ class TestLayer(TestBase):
         )
         self.net = LayerCase
 
-    # NOTE prim + cinn lead to error
-
 
 if __name__ == '__main__':
     unittest.main()
