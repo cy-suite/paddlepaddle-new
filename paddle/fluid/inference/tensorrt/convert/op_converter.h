@@ -328,7 +328,7 @@ class OpConverter {
           var->GetType(),
           FluidDT::VarType_Type_DENSE_TENSOR,
           common::errors::InvalidArgument("TensorRT engine only takes "
-                                          "DenseTensor as input"));
+                                          "LoDTensor as input"));
       nvinfer1::DataType in_dtype = FluidDataType2TRT(var->GetDataType());
       if (engine->precision() == phi::DataType::FLOAT16 &&
           in_dtype == nvinfer1::DataType::kFLOAT &&

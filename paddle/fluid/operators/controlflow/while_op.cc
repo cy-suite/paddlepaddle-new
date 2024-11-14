@@ -447,7 +447,7 @@ class WhileGradOp : public framework::OperatorBase {
                   inside_array[j].numel(),
                   0,
                   common::errors::InvalidArgument(
-                      "The numel of %d-th element of var %s (DenseTensorArray) "
+                      "The numel of %d-th element of var %s (LoDTensorArray) "
                       "in while block must be 0, but received its numel is %d.",
                       j,
                       inside_og_name,

@@ -130,7 +130,7 @@ void DistributeFpnProposalsKernel(
       }
     }
   }
-  // merge lod information into DenseTensor
+  // merge lod information into LoDTensor
   for (int i = 0; i < num_level; ++i) {
     LoD lod;
     lod.emplace_back(multi_fpn_rois_lod0[i]);
