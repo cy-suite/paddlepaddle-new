@@ -1671,20 +1671,7 @@ class TestPrimAddmm1(TestPrimThree):
         self.z = np.random.random(self.shape_z).astype(self.dtype_z)
         self.net = addmm_net
         self.necessary_ops = "pd_op.addmm"
-
-
-class TestPrimNumel(TestPrimBase):
-    def setUp(self):
-        np.random.seed(2024)
-        paddle.seed(2024)
-        self.shape_x = [5, 10, 15]
-        self.dtype_x = "float32"
-        self.init_x_shape = [None, None, None]
-        self.x = np.random.random(self.shape_x).astype(self.dtype_x)
-        self.net = numel_net
-        self.necessary_ops = "pd_op.numel"
         self.enable_cinn = False
-        self.tol = 1e-6
 
 
 class TestPrimAddmm2(TestPrimThree):
@@ -1704,6 +1691,21 @@ class TestPrimAddmm2(TestPrimThree):
         self.z = np.random.random(self.shape_z).astype(self.dtype_z)
         self.net = addmm_net
         self.necessary_ops = "pd_op.addmm"
+        self.enable_cinn = False
+
+
+class TestPrimNumel(TestPrimBase):
+    def setUp(self):
+        np.random.seed(2024)
+        paddle.seed(2024)
+        self.shape_x = [5, 10, 15]
+        self.dtype_x = "float32"
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.shape_x).astype(self.dtype_x)
+        self.net = numel_net
+        self.necessary_ops = "pd_op.numel"
+        self.enable_cinn = False
+        self.tol = 1e-6
 
 
 class TestPrimSwish(TestPrimBase):
