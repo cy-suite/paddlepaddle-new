@@ -120,3 +120,13 @@ def leaky_relu_converter(network, paddle_op, inputs):
     leaky_relu_layer = network.add_activation(x, trt.ActivationType.LEAKY_RELU)
     leaky_relu_layer.alpha = negative_slope
     return leaky_relu_layer.get_output(0)
+
+
+@converter_registry.register("pd_op.logsigmoid", trt_version="8.x")
+def logsigmoid_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    leaky_relu_layer = network.add_activation(x, trt.ActivationType.SIGMOID)
+    unary_layer = network.add_unary(
+        leaky_relu_layer.get_output(0), trt.UnaryOperation.LOG
+    )
+    return unary_layer.get_output(0)
