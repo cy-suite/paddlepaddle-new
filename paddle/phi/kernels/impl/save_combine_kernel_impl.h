@@ -81,12 +81,6 @@ void SaveCombineTensorKernel(const Context& dev_ctx,
   }
 
   std::ostringstream ss;
-  PADDLE_ENFORCE_GT(x.size(),
-                    0UL,
-                    common::errors::InvalidArgument(
-                        "The number of variables to be saved is %d, expect "
-                        "it to be greater than 0.",
-                        x.size()));
 
   for (size_t i = 0; i < x.size(); i++) {
     auto& tensor = *(x[i]);

@@ -1470,7 +1470,12 @@ def get_package_data_and_package_dir():
                 'libopenvino_intel_cpu_plugin.so',
             ]
         else:
-            package_data['paddle.libs'] += ['openvino.dll', 'tbb.dll']
+            package_data['paddle.libs'] += [
+                'openvino.dll',
+                'tbb.dll',
+                'openvino_paddle_frontend.dll',
+                'openvino_intel_cpu_plugin.dll',
+            ]
 
     if env_dict.get("WITH_XPU") == 'ON':
         shutil.copy(env_dict.get("XPU_API_LIB"), libs_path)
