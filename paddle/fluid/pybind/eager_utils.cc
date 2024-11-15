@@ -726,7 +726,7 @@ std::vector<phi::DenseTensor> CastPyArg2VectorOfTensorBase(PyObject* obj,
       } else {
         PADDLE_THROW(common::errors::InvalidType(
             "argument (position %d) must be "
-            "list of LoDTensor, but got %s at pos %d",
+            "list of DenseTensor, but got %s at pos %d",
             arg_pos + 1,
             reinterpret_cast<PyTypeObject*>(item->ob_type)->tp_name,
             i));
@@ -742,7 +742,7 @@ std::vector<phi::DenseTensor> CastPyArg2VectorOfTensorBase(PyObject* obj,
       } else {
         PADDLE_THROW(common::errors::InvalidType(
             "argument (position %d) must be "
-            "list of LoDTensor, but got %s at pos %d",
+            "list of DenseTensor, but got %s at pos %d",
             arg_pos + 1,
             reinterpret_cast<PyTypeObject*>(item->ob_type)->tp_name,
             i));
@@ -1075,6 +1075,12 @@ PyObject* ToPyObject(const std::vector<phi::DataType>& dtypes) {
 
 PyObject* ToPyObject(const pir::Value& value) {
   auto obj = ::pybind11::cast(value);
+  obj.inc_ref();
+  return obj.ptr();
+}
+
+PyObject* ToPyObject(pir::Operation* op) {
+  auto obj = ::pybind11::cast(op, ::pybind11::return_value_policy::reference);
   obj.inc_ref();
   return obj.ptr();
 }
@@ -1906,7 +1912,7 @@ paddle::Tensor CreateTensorFromVarDesc(
   autograd_meta->SetPersistable(false);
   autograd_meta->SetStopGradient(var_desc.StopGradient());
 
-  if (var_type == paddle::framework::proto::VarType::LOD_TENSOR) {
+  if (var_type == paddle::framework::proto::VarType::DENSE_TENSOR) {
     // TODO(jiabin): Maybe support LOD later
     std::shared_ptr<phi::DenseTensor> dense_tensor = nullptr;
     if (dims.size() == 1 && dims[0] == 0) {
