@@ -141,7 +141,6 @@ from .logic import (  # noqa: F401
     logical_xor_,
     not_equal,
     not_equal_,
-    positive,
 )
 from .manipulation import (  # noqa: F401
     as_complex,
@@ -366,6 +365,7 @@ from .math import (  # noqa: F401
     outer,
     polygamma,
     polygamma_,
+    positive,
     pow,
     pow_,
     prod,
