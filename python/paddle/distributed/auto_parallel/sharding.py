@@ -363,6 +363,7 @@ class ShardingOptimizerStage1(Optimizer):
                         )
                     )
                     new_params_grads.append((slice_param, slice_grad))
+
         if self._inner_opt._grad_clip is not None:
             self._inner_opt._grad_clip.should_comm_on_shard_dim = True
             self._inner_opt._grad_clip.sharding_group = self._sharding_group
