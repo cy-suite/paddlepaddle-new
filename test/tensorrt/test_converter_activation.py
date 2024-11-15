@@ -20,11 +20,26 @@ from tensorrt_test_base import TensorRTBaseTest
 import paddle
 
 
-class TestEluTRTPattern(TensorRTBaseTest):
+class TestEluTRTPatternCase1(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.nn.functional.elu
         self.api_args = {
-            "x": np.random.randn(3).astype(np.float32),
+            "x": np.random.randn(3).astype("float32"),
+            "alpha": 1.0,
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1]}
+        self.max_shape = {"x": [5]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestEluTRTPatternCase2(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.nn.functional.elu
+        self.api_args = {
+            "x": np.random.randn(3).astype("int64"),
             "alpha": 1.0,
         }
         self.program_config = {"feed_list": ["x"]}
