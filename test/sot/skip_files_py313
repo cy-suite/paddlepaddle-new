@@ -1,7 +1,6 @@
 test/sot/test_03_tuple.py
 test/sot/test_04_list.py
 test/sot/test_06_call_function.py
-test/sot/test_09_f_string.py
 test/sot/test_11_jumps.py
 test/sot/test_12_for_loop.py
 test/sot/test_13_make_function.py
@@ -11,7 +10,6 @@ test/sot/test_16_paddle_api.py
 test/sot/test_17_paddle_layer.py
 test/sot/test_18_tensor_method.py
 test/sot/test_19_closure.py
-test/sot/test_20_string.py
 test/sot/test_21_global.py
 test/sot/test_analysis_inputs.py
 test/sot/test_binary_operator_tracker.py
@@ -23,8 +21,6 @@ test/sot/test_builtin_range.py
 test/sot/test_builtin_zip.py
 test/sot/test_call_object.py
 test/sot/test_constant_graph.py
-test/sot/test_dataclass.py
-test/sot/test_delete_fast.py
 test/sot/test_dtype.py
 test/sot/test_dup_top.py
 test/sot/test_enumerate.py
@@ -36,7 +32,6 @@ test/sot/test_numpy.py
 test/sot/test_numpy_var_if.py
 test/sot/test_side_effects.py
 test/sot/test_simulate_initialize.py
-test/sot/test_sir_rollback.py
 test/sot/test_sot_cost_model.py
 test/sot/test_sot_dynamic_shape.py
 test/sot/test_sot_exception.py

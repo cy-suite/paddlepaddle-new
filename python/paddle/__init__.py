@@ -233,6 +233,7 @@ from .tensor.linalg import (  # noqa: F401
     histogram_bin_edges,
     histogramdd,
     matmul,
+    matrix_transpose,
     mv,
     norm,
     t,
@@ -244,6 +245,8 @@ from .tensor.logic import (
     allclose,
     bitwise_and,
     bitwise_and_,
+    bitwise_invert,
+    bitwise_invert_,
     bitwise_not,
     bitwise_not_,
     bitwise_or,
@@ -263,7 +266,9 @@ from .tensor.logic import (
     less_equal,
     less_equal_,
     less_than,
+    less_than as less,
     less_than_,
+    less_than_ as less_,
     logical_and,
     logical_and_,
     logical_not,
@@ -274,6 +279,7 @@ from .tensor.logic import (
     logical_xor_,  # noqa: F401
     not_equal,
     not_equal_,  # noqa: F401
+    positive,
 )
 from .tensor.manipulation import (
     as_complex,
@@ -581,6 +587,10 @@ from .tensor.stat import (
     var,
 )
 from .tensor.to_string import set_printoptions
+from .utils.dlpack import (
+    from_dlpack,
+    to_dlpack,
+)
 
 # CINN has to set a flag to include a lib
 if is_compiled_with_cinn():
@@ -856,6 +866,8 @@ __all__ = [
     'full_like',
     'less_than',
     'less_than_',
+    'less',
+    'less_',
     'kron',
     'clip',
     'Tensor',
@@ -899,6 +911,8 @@ __all__ = [
     'bitwise_xor_',
     'bitwise_not',
     'bitwise_not_',
+    'bitwise_invert',
+    'bitwise_invert_',
     'mm',
     'flip',
     'rot90',
@@ -1169,6 +1183,7 @@ __all__ = [
     'masked_fill_',
     'masked_scatter',
     'masked_scatter_',
+    'matrix_transpose',
     'hypot',
     'hypot_',
     'index_fill',
@@ -1176,4 +1191,7 @@ __all__ = [
     'diagonal_scatter',
     'combinations',
     'signbit',
+    'positive',
+    'from_dlpack',
+    'to_dlpack',
 ]
