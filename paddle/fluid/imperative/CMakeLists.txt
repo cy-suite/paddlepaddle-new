@@ -20,8 +20,9 @@ if(WITH_XPU)
          data_transform
          phi
          common
-         var_helper)
-elseif((WITH_GPU OR WITH_ROCM) AND NOT WIN32)
+         var_helper
+         process_group_bkcl)
+elseif(WITH_NCCL OR WITH_RCCL)
   cc_library(
     prepared_operator
     SRCS prepared_operator.cc
