@@ -224,7 +224,7 @@ class ShardingOptimizerStage1(Optimizer):
                     // align[dtype]
                 )
                 align_size = align_size * self._sharding_degree
-                if not self._strategy.release_gradients:
+                if not self._strategy.sharding.release_gradients:
                     _, fused_grad = paddle._C_ops.coalesce_tensor_(
                         group_grad_list,
                         dtype,
