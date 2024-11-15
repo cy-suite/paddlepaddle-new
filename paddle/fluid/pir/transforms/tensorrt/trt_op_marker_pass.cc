@@ -1944,7 +1944,6 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Hardswish)
     ADD_PATTERN(AssignOut)
     ADD_PATTERN(Assign)
-    ADD_PATTERN(AssignValue_)
     ADD_PATTERN(Tile)
     ADD_PATTERN(Share_Data)
     ADD_PATTERN(Swish)
