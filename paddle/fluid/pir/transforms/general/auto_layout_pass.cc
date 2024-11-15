@@ -44,18 +44,15 @@ extern const std::set<std::string> op_with_axis;
 
 class AutoLayoutPass : public pir::Pass {
  public:
-  AutoLayoutPass()
-      : pir::Pass("auto_layout_pass", 2),
-        ctx_(pir::IrContext::Instance()),
-        builder_(ctx_) {}
+  AutoLayoutPass() : pir::Pass("auto_layout_pass", 2) {}
 
   void Run(pir::Operation* op) override {
     for (size_t i = 0; i < op->num_regions(); ++i) {
       auto& region = op->region(i);
       for (auto& block : region) {
-        builder_ = pir::Builder(ctx_, &block);
+        pir::Builder builder = pir::Builder(ctx_, &block);
         VLOG(4) << "Transforming block";
-        TransferLayout(&block);
+        TransferLayout(builder, &block);
       }
     }
   }
@@ -113,7 +110,8 @@ class AutoLayoutPass : public pir::Pass {
     }
   }
 
-  bool JudgeOperand(const pir::Value& operand, std::vector<int32_t> layout) {
+  bool JudgeOperand(const pir::Value& operand,
+                    const std::vector<int32_t>& layout) {
     if (operand.type().isa<pir::VectorType>()) {
       auto defined_op = operand.defining_op();
       for (auto inner_operand : defined_op->operands_source()) {
@@ -153,7 +151,13 @@ class AutoLayoutPass : public pir::Pass {
     return is_insert_transpose;
   }
 
-  void TransferLayout(pir::Block* block) {
+  bool IsConvRelatedOp(const pir::Operation* op) {
+    return op->isa<paddle::dialect::Conv2dOp>() ||
+           op->isa<paddle::dialect::FusedConv2dAddActOp>() ||
+           op->isa<paddle::dialect::Conv2dTransposeOp>();
+  }
+
+  void TransferLayout(pir::Builder builder, pir::Block* block) {
     for (auto&& op_item : *block) {
       auto op = &op_item;
       auto op_name = op->name();
@@ -163,36 +167,34 @@ class AutoLayoutPass : public pir::Pass {
       if (op->operands().size() == 0) continue;
 
       // NHWC ops branch, Only support conv2d now, it will add white list later.
-      if (op->isa<paddle::dialect::Conv2dOp>() ||
-          op->isa<paddle::dialect::FusedConv2dAddActOp>() ||
-          op->isa<paddle::dialect::Conv2dTransposeOp>()) {
+      if (IsConvRelatedOp(op)) {
         if (op->isa<paddle::dialect::FusedConv2dAddActOp>() ||
             op->isa<paddle::dialect::Conv2dOp>()) {
-          common::DataLayout new_layout = common::DataLayout::NCHW;
-          if (op->isa<paddle::dialect::FusedConv2dAddActOp>()) {
-            new_layout = PreferLayout<paddle::dialect::FusedConv2dAddActOp>(op);
-          } else if (op->isa<paddle::dialect::Conv2dOp>()) {
-            new_layout = PreferLayout<paddle::dialect::Conv2dOp>(op);
-          }
+          common::DataLayout new_layout =
+              op->isa<paddle::dialect::FusedConv2dAddActOp>()
+                  ? PreferLayout<paddle::dialect::FusedConv2dAddActOp>(op)
+                  : PreferLayout<paddle::dialect::Conv2dOp>(op);
+
           if (new_layout != common::DataLayout::NHWC) {
             continue;
           }
         }
+
         if (op->HasAttribute("data_format") &&
             op->attribute<pir::StrAttribute>("data_format").AsString() ==
                 "NCHW") {
           VLOG(4) << "enter NHWC op: " << op_name;
-          DoTransposeOpOperand(op);
+          DoTransposeOpOperand(op, builder);
           RewriteLayout(op, op->operands_source());
-          DoTransposeOpResult(op);
+          DoTransposeOpResult(op, builder);
         }
       } else if (op_in_NCHW.find(op_name) == op_in_NCHW.end() &&
                  op_with_axis.find(op_name) == op_with_axis.end() &&
                  IsInsertTransposeOpBefore(op)) {
         VLOG(4) << "enter NCHW op: " << op_name;
-        DoTransposeOpOperand(op);
+        DoTransposeOpOperand(op, builder);
         RewriteLayout(op, op->operands_source());
-        DoTransposeOpResult(op);
+        DoTransposeOpResult(op, builder);
       }
     }
   }
@@ -208,16 +210,17 @@ class AutoLayoutPass : public pir::Pass {
     return false;
   }
 
-  void DoTransposeOpOperand(pir::Operation* op) {  // NOLINT
-    builder_.set_insertion_point(op);
+  void DoTransposeOpOperand(pir::Operation* op,
+                            pir::Builder& builder) {  // NOLINT
+    builder.set_insertion_point(op);
 
     // For conv2d, only transpose the input.
     if (op->isa<paddle::dialect::Conv2dOp>() ||
         op->isa<paddle::dialect::Conv2dTransposeOp>()) {
       auto inp = op->operand(0);
       if (!JudgeValue(inp.source())) return;
-      auto transpose_op = builder_.Build<paddle::dialect::TransposeOp>(
-          inp.source(), NCHW2NHWC_);
+      auto transpose_op =
+          builder.Build<paddle::dialect::TransposeOp>(inp.source(), NCHW2NHWC_);
       transpose_op->set_attribute(
           "source",
           pir::StrAttribute::get(transpose_op->ir_context(),
@@ -231,7 +234,7 @@ class AutoLayoutPass : public pir::Pass {
     for (auto& operand : op->operands()) {
       if (!JudgeValue(operand.source())) continue;
       // Canbe optimize with cache when not eliminate the transpose op.
-      auto transpose_op = builder_.Build<paddle::dialect::TransposeOp>(
+      auto transpose_op = builder.Build<paddle::dialect::TransposeOp>(
           operand.source(), NCHW2NHWC_);
       transpose_op->set_attribute(
           "source",
@@ -242,12 +245,13 @@ class AutoLayoutPass : public pir::Pass {
       operand.set_source(transpose_op->result(0));
     }
   }
-  void DoTransposeOpResult(pir::Operation* op) {  // NOLINT
-    builder_.SetInsertionPointAfter(op);
+  void DoTransposeOpResult(pir::Operation* op,
+                           pir::Builder& builder) {  // NOLINT
+    builder.SetInsertionPointAfter(op);
     for (auto& result : op->results()) {
       if (!JudgeValue(result)) continue;
       auto transpose_op =
-          builder_.Build<paddle::dialect::TransposeOp>(result, NHWC2NCHW_);
+          builder.Build<paddle::dialect::TransposeOp>(result, NHWC2NCHW_);
       transpose_op->set_attribute(
           "source",
           pir::StrAttribute::get(transpose_op->ir_context(),
@@ -269,7 +273,7 @@ class AutoLayoutPass : public pir::Pass {
           data_format_attr));
     }
 
-    bool is_fp16 = false;
+    bool mixed_precision_mode_fp16 = false;
     bool flag_precision_mode = false;
     phi::DataType precision_mode = phi::DataType::FLOAT32;
 
@@ -279,7 +283,7 @@ class AutoLayoutPass : public pir::Pass {
     }
 
     if (flag_precision_mode && precision_mode == phi::DataType::FLOAT16) {
-      is_fp16 = true;
+      mixed_precision_mode_fp16 = true;
     }
 
     if constexpr (std::is_same_v<OpType, paddle::dialect::Conv2dOp>) {
@@ -289,7 +293,8 @@ class AutoLayoutPass : public pir::Pass {
           if (in_type.isa<paddle::dialect::DenseTensorType>()) {
             if (auto tensor_type =
                     in_type.dyn_cast<paddle::dialect::DenseTensorType>()) {
-              if (is_fp16) {
+              if (mixed_precision_mode_fp16 ||
+                  tensor_type.dtype().isa<pir::Float16Type>()) {
                 return common::DataLayout::NHWC;
               }
             }
@@ -319,7 +324,8 @@ class AutoLayoutPass : public pir::Pass {
           if (in_type.isa<paddle::dialect::DenseTensorType>()) {
             if (auto tensor_type =
                     in_type.dyn_cast<paddle::dialect::DenseTensorType>()) {
-              if (!is_fp16) {
+              if (!mixed_precision_mode_fp16 ||
+                  tensor_type.dtype().isa<pir::Float16Type>()) {
                 return original_layout;
               }
             }
@@ -334,7 +340,8 @@ class AutoLayoutPass : public pir::Pass {
           if (filter_type.isa<paddle::dialect::DenseTensorType>()) {
             if (auto tensor_type =
                     filter_type.dyn_cast<paddle::dialect::DenseTensorType>()) {
-              if (is_fp16) {
+              if (mixed_precision_mode_fp16 ||
+                  tensor_type.dtype().isa<pir::Float16Type>()) {
                 auto dims = tensor_type.dims();
                 if (dims.size() == 4 && (dims[0] % CUDNN_ALIGNMENT == 0) &&
                     (dims[1] % CUDNN_ALIGNMENT == 0)) {
@@ -349,8 +356,7 @@ class AutoLayoutPass : public pir::Pass {
     }
   }
 
-  pir::IrContext* ctx_;
-  pir::Builder builder_;
+  pir::IrContext* ctx_ = pir::IrContext::Instance();
   const std::vector<int32_t> NCHW2NHWC_ = {0, 2, 3, 1};
   const std::vector<int32_t> NHWC2NCHW_ = {0, 3, 1, 2};
 };
