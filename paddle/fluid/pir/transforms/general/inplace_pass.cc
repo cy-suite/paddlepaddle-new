@@ -75,11 +75,11 @@ bool IsLastUser(const pir::Value& value,
   auto current_value = value;
   while (use_count_map.at(current_value) == 0) {
     if (inplace_map.count(current_value) == 0) {
-      return false;
+      return true;
     }
     current_value = inplace_map.at(current_value);
   }
-  return true;
+  return false;
 }
 
 bool CanDoInplace(const std::unordered_set<pir::Value>& eager_dels,
@@ -248,7 +248,6 @@ std::unordered_set<pir::Value> GetSkipDeletionValues(
                                         .at("output_name")
                                         .dyn_cast<pir::StrAttribute>()
                                         .AsString()) == 0) {
-      skip_dels.insert(op.operand_source(0));
       continue;
     }
     if (op.dialect()->name() != paddle::dialect::KernelDialect::name()) {
@@ -295,6 +294,10 @@ void GetEagerDelValueOfOp(
                           .at("op_name")
                           .dyn_cast<pir::StrAttribute>()
                           .AsString();
+    }
+
+    if (upper_op_name == "builtin.shadow_output") {
+      continue;
     }
 
     for (size_t i = 0; i < op.num_operands(); ++i) {
@@ -349,11 +352,28 @@ std::unordered_map<pir::Operation*, std::string> GetInplaceOps(
     const pir::Block& block,
     const std::set<std::string>& no_need_buffer_values) {
   const auto eager_dels = GetEagerDeletionValues(block, no_need_buffer_values);
-  auto use_count_map = [](const pir::Block& block) {
+
+  auto is_no_need_buffer = [&no_need_buffer_values](pir::Operation* op,
+                                                    pir::Value value) {
+    if (auto shadow_output_op = op->dyn_cast<pir::ShadowOutputOp>()) {
+      if (no_need_buffer_values.count(shadow_output_op.attributes()
+                                          .at("output_name")
+                                          .dyn_cast<pir::StrAttribute>()
+                                          .AsString())) {
+        return true;
+      }
+    }
+    return IsNoNeedBuffer(op, value);
+  };
+  auto use_count_map = [&is_no_need_buffer](const pir::Block& block) {
     std::unordered_map<pir::Value, size_t> use_count_map;
     for (auto& op : block) {
       for (auto value : op.results()) {
-        use_count_map[value] = value.use_count();
+        size_t use_count = 0;
+        for (auto it = value.use_begin(); it != value.use_end(); ++it) {
+          use_count += is_no_need_buffer(it->owner(), value) ? 0 : 1;
+        }
+        use_count_map[value] = use_count;
       }
     }
     return use_count_map;
@@ -367,7 +387,8 @@ std::unordered_map<pir::Operation*, std::string> GetInplaceOps(
   for (auto& op : block) {
     for (size_t i = 0; i < op.num_operands(); ++i) {
       visited_values.insert(op.operand_source(i));
-      use_count_map[op.operand_source(i)]--;
+      use_count_map[op.operand_source(i)] -=
+          is_no_need_buffer(&op, op.operand_source(i)) ? 0 : 1;
     }
 
     if (op.dialect()->name() != paddle::dialect::KernelDialect::name()) {
@@ -479,7 +500,7 @@ std::unordered_map<pir::Operation*, std::string> GetInplaceOps(
                          upper_op_name)) ||
           (visited_values.count(op.result(out_slot)) > 0) ||
           (!CanBeDeleted(op.result(out_slot))) ||
-          IsLastUser(op.operand_source(in_slot), use_count_map, inplace_map) ||
+          !IsLastUser(op.operand_source(in_slot), use_count_map, inplace_map) ||
           (std::find(used_external_values.begin(),
                      used_external_values.end(),
                      op.operand_source(in_slot)) !=
@@ -504,7 +525,7 @@ std::unordered_map<pir::Operation*, std::string> GetInplaceOps(
             << " -- result " << out_slot
             << " visited: " << (visited_values.count(op.result(out_slot)) > 0);
         VLOG_IF(8, in_slot < op.num_operands())
-            << " -- operand " << in_slot << " has not user: "
+            << " -- operand " << in_slot << " is last user: "
             << IsLastUser(
                    op.operand_source(in_slot), use_count_map, inplace_map);
         break;
