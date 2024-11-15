@@ -1159,9 +1159,11 @@ class OpcodeExecutorBase:
         self._call_shape = self._co_consts[instr.arg].get_py_value()
 
     def call_impl(
-        self, num_args: int, kwnames_getter: Callable[[], tuple[str, ...]]
+        self,
+        num_args: int,
+        kwnames_getter: Callable[[OpcodeExecutor], tuple[str, ...]],
     ):
-        kwnames = kwnames_getter()
+        kwnames = kwnames_getter(self)
         assert num_args + 2 <= len(self.stack)
         is_method = not isinstance(self.stack.peek[num_args + 2], NullVariable)
         total_args = num_args + int(is_method)
@@ -1181,7 +1183,9 @@ class OpcodeExecutorBase:
         assert isinstance(instr.arg, int)
         self.call_impl(
             instr.arg,
-            lambda: (self._call_shape if self._call_shape is not None else ()),
+            lambda exe: (
+                exe._call_shape if exe._call_shape is not None else ()
+            ),
         )
 
     CALL = (
@@ -1194,8 +1198,8 @@ class OpcodeExecutorBase:
     def CALL_KW(self, instr: Instruction):
         assert isinstance(instr.arg, int)
 
-        def get_kwnames():
-            kwnames_var = self.stack.pop()
+        def get_kwnames(exe: OpcodeExecutor):
+            kwnames_var = exe.stack.pop()
             assert isinstance(kwnames_var, TupleVariable)
             kwnames = kwnames_var.get_py_value()
             return kwnames
