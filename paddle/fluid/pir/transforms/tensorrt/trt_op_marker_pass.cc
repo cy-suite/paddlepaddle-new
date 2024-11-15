@@ -86,8 +86,7 @@ DEFINE_GENERAL_PATTERN(Swish, paddle::dialect::SwishOp)
 DEFINE_GENERAL_PATTERN(Log, paddle::dialect::LogOp)
 DEFINE_GENERAL_PATTERN(Floor, paddle::dialect::FloorOp)
 DEFINE_GENERAL_PATTERN(Roll, paddle::dialect::RollOp)
-DEFINE_GENERAL_PATTERN(Tanh, paddle::dialect::TanhOp)
-DEFINE_GENERAL_PATTERN(Celu, paddle::dialect::CeluOp)
+DEFINE_GENERAL_PATTERN(Softplus, paddle::dialect::SoftplusOp)
 
 #undef DEFINE_GENERAL_PATTERN
 
@@ -258,7 +257,8 @@ class ActOpPattern : public pir::OpRewritePattern<OpType> {
     return true;
   }
 };
-using SoftplusOpPatten = ActOpPattern<paddle::dialect::SoftplusOp>;
+using TanhOpPatten = ActOpPattern<paddle::dialect::TanhOp>;
+using CeluOpPatten = ActOpPattern<paddle::dialect::CeluOp>;
 
 class Pool2dOpPattern
     : public pir::OpRewritePattern<paddle::dialect::Pool2dOp> {
@@ -1878,8 +1878,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Log)
     ADD_PATTERN(Floor)
     ADD_PATTERN(Roll)
-    ADD_PATTERN(Tanh)
-    ADD_PATTERN(Celu)
+    ADD_PATTERN(Softplus)
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
 #endif
@@ -1939,6 +1938,8 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<SoftplusOpPatten>(context));
     ps.Add(std::make_unique<EqualOpPattern>(context));
     ps.Add(std::make_unique<NotEqualOpPattern>(context));
+    ps.Add(std::make_unique<TanhOpPattern>(context));
+    ps.Add(std::make_unique<CeluOpPattern>(context));
     return ps;
   }
 };
