@@ -232,7 +232,7 @@ using RemainderOpPattern =
     ElementwiseCommonOpPattern<paddle::dialect::RemainderOp>;
 
 template <typename OpType>
-class ActivaeCommonOpPattern : public pir::OpRewritePattern<OpType> {
+class ActOpPattern : public pir::OpRewritePattern<OpType> {
  public:
   using pir::OpRewritePattern<OpType>::OpRewritePattern;
   bool MatchAndRewrite(OpType op,
@@ -247,8 +247,8 @@ class ActivaeCommonOpPattern : public pir::OpRewritePattern<OpType> {
     auto x_shape = x_type.dims();
     int dims = x_shape.size();
     if (dims < 1) {
-      VLOG(3) << op.name()
-              << "op does not support 0 dim input when TensorRT < 8.6.";
+      VLOG(3) << op->name()
+              << " op does not support 0 dim input when TensorRT < 8.6.";
       return false;
     }
 #endif
@@ -258,7 +258,7 @@ class ActivaeCommonOpPattern : public pir::OpRewritePattern<OpType> {
   }
 };
 
-using LeakyReluOpPattern = ActivaeCommonOpPattern<paddle::dialect::LeakyReluOp>;
+using LeakyReluOpPattern = ActOpPattern<paddle::dialect::LeakyReluOp>;
 
 class Pool2dOpPattern
     : public pir::OpRewritePattern<paddle::dialect::Pool2dOp> {
