@@ -2243,9 +2243,7 @@ class DistModel:
             )
             dist.fleet.init(is_collective=True)
 
-        if paddle.base.framework.get_flags(
-            "FLAGS_enable_sharding_stage1_tensor_fusion"
-        )["FLAGS_enable_sharding_stage1_tensor_fusion"]:
+        if os.environ.get('FLAGS_enable_sharding_stage1_tensor_fusion', False):
             if isinstance(optimizer, _ShardOptimizer) and use_pir_api():
                 shard_fn = optimizer._shard_fn
                 optimizer = optimizer._inner_opt
