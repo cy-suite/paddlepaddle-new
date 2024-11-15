@@ -180,9 +180,6 @@ std::unique_ptr<::pir::Program> ApplyIrPass(
 
   if (FLAGS_pir_apply_inplace_pass) {
     ::pir::PassManager pm(::pir::IrContext::Instance(), 3);
-    for (auto no_need_buffer_name : no_need_buffer_names) {
-      VLOG(0) << "[ApplyIrPass] no_need_buffer_name: " << no_need_buffer_name;
-    }
     pm.AddPass(::pir::CreateInplacePass(no_need_buffer_names));
     pm.Run(ir_res.get());
 
