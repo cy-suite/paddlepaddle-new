@@ -1287,8 +1287,8 @@ static PyObject* tensor__matmul__method(TensorObject* self,
 }
 
 static PyObject* tensor__rmatmul__method(TensorObject* self,
-                                        PyObject* args,
-                                        PyObject* kwargs) {
+                                         PyObject* args,
+                                         PyObject* kwargs) {
   phi::RecordEvent pythonc_record_event(
       "__rmatmul__ pybind_patch_func", phi::TracerEventType::UserDefined, 1);
   EAGER_TRY
@@ -2213,9 +2213,9 @@ PyMethodDef math_op_patch_methods[] = {  // NOLINT
      METH_VARARGS | METH_KEYWORDS,
      nullptr},
     {"__rmatmul__",
-   (PyCFunction)(void (*)())tensor__rmatmul__method,
-   METH_VARARGS | METH_KEYWORDS,
-   nullptr},
+     (PyCFunction)(void (*)())tensor__rmatmul__method,
+     METH_VARARGS | METH_KEYWORDS,
+     nullptr},
     {"__gt__",
      (PyCFunction)(void (*)())tensor__gt__method,
      METH_VARARGS | METH_KEYWORDS,

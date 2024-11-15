@@ -137,8 +137,6 @@ class TestMathOpPatchesPir(unittest.TestCase):
                 np.testing.assert_allclose(res_np_d, d_np, atol=1e-05)
                 np.testing.assert_allclose(res_np_e, e_np, atol=1e-05)
 
-
-
     def test_floordiv(self):
         paddle.disable_static()
         x_np = np.full([10, 1024], 10, np.int64)
