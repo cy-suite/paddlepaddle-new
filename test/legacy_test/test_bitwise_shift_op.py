@@ -282,6 +282,24 @@ class TestTensorRlshiftAPI(unittest.TestCase):
             np.testing.assert_allclose(out_ref, res[0])
 
 
+class TestTensorRlshiftAPI_UINT8(TestTensorRlshiftAPI):
+    def init_input(self):
+        self.x = np.random.randint(0, 64)
+        self.y = np.random.randint(0, 64, [200, 300]).astype('uint8')
+
+
+class TestTensorRlshiftAPI_INT8(TestTensorRlshiftAPI):
+    def init_input(self):
+        self.x = np.random.randint(-64, 64)
+        self.y = np.random.randint(0, 64, [200, 300]).astype('int8')
+
+
+class TestTensorRlshiftAPI_INT16(TestTensorRlshiftAPI):
+    def init_input(self):
+        self.x = np.random.randint(-256, 256)
+        self.y = np.random.randint(0, 256, [200, 300]).astype('int16')
+
+
 class TestTensorRlshiftAPI_INT64(TestTensorRlshiftAPI):
     def init_input(self):
         self.x = np.random.randint(-255, 256)
@@ -507,6 +525,24 @@ class TestTensorRrshiftAPI(unittest.TestCase):
             )
             out_ref = ref_right_shift_arithmetic(self.x, self.y)
             np.testing.assert_allclose(out_ref, res[0])
+
+
+class TestTensorRrshiftAPI_UINT8(TestTensorRrshiftAPI):
+    def init_input(self):
+        self.x = np.random.randint(0, 64)
+        self.y = np.random.randint(0, 64, [200, 300]).astype('uint8')
+
+
+class TestTensorRrshiftAPI_INT8(TestTensorRrshiftAPI):
+    def init_input(self):
+        self.x = np.random.randint(-64, 64)
+        self.y = np.random.randint(0, 64, [200, 300]).astype('int8')
+
+
+class TestTensorRrshiftAPI_INT16(TestTensorRrshiftAPI):
+    def init_input(self):
+        self.x = np.random.randint(-256, 256)
+        self.y = np.random.randint(0, 256, [200, 300]).astype('int16')
 
 
 class TestTensorRrshiftAPI_INT64(TestTensorRrshiftAPI):
