@@ -12,10 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import unittest
-
-os.environ['FLAGS_prim_backward_blacklist'] = "pd_op.tanh_grad;pd_op.exp_grad"
 
 import paddle
 from paddle.base import core
@@ -53,7 +50,7 @@ class TestPrimBackwardBlacklistFlags(unittest.TestCase):
         block = program.global_block()
         ops = [op.name() for op in block.ops]
         self.assertTrue('pd_op.tanh_grad' in ops)
-        self.assertTrue('pd_op.exp_grad' in ops)
+        self.assertTrue('pd_op.exp_grad' not in ops)
         self.assertTrue('pd_op.gelu_grad' not in ops)
 
     def test_prim_backward_blacklist_flag(self):
