@@ -551,6 +551,40 @@ class TestTensorRrshiftAPI_INT64(TestTensorRrshiftAPI):
         self.y = np.random.randint(0, 256, [200, 300]).astype('int64')
 
 
+class TestTensorShiftAPI_BOOL(unittest.TestCase):
+    def setup(self):
+        paddle.disable_static()
+        self.place = (
+            paddle.CUDAPlace(0)
+            if paddle.is_compiled_with_cuda()
+            else paddle.CPUPlace()
+        )
+
+    def test_lshift_bool(self):
+        x = paddle.to_tensor(np.random.randint(-255, 256, [200, 300]))
+        y = np.random.uniform(0, 256)
+        with self.assertRaises(TypeError):
+            x.__lshift__(y)
+
+    def test_rshift_bool(self):
+        x = paddle.to_tensor(np.random.randint(-255, 256, [200, 300]))
+        y = np.random.uniform(0, 256)
+        with self.assertRaises(TypeError):
+            x.__rshift__(y)
+
+    def test_rlshift_bool(self):
+        x = np.random.uniform(0, 256)
+        y = paddle.to_tensor(np.random.randint(-255, 256, [200, 300]))
+        with self.assertRaises(TypeError):
+            y.__rlshift__(x)
+
+    def test_rrshift_bool(self):
+        x = np.random.uniform(0, 256)
+        y = paddle.to_tensor(np.random.randint(-255, 256, [200, 300]))
+        with self.assertRaises(TypeError):
+            y.__rrshift__(x)
+
+
 if __name__ == '__main__':
     paddle.enable_static()
     unittest.main()
