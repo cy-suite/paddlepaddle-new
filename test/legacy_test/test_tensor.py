@@ -24,7 +24,7 @@ from paddle.base import core
 
 class TestTensorPtr(unittest.TestCase):
     def test_tensor_ptr(self):
-        t = core.Tensor()
+        t = core.DenseTensor()
         np_arr = np.zeros([2, 3])
         t.set(np_arr, core.CPUPlace())
         self.assertGreater(t._ptr(), 0)
@@ -188,39 +188,6 @@ class TestTensor(unittest.TestCase):
 
         tensor_array = np.array(lod_tensor)
         self.assertEqual((5, 2, 3, 4), tensor_array.shape)
-        tensor_array[0, 0, 0, 0] = 1.0
-        tensor_array[0, 0, 0, 1] = 2.0
-        lod_tensor.set(tensor_array, place)
-
-        lod_v = np.array(lod_tensor)
-        self.assertAlmostEqual(1.0, lod_v[0, 0, 0, 0])
-        self.assertAlmostEqual(2.0, lod_v[0, 0, 0, 1])
-
-    def test_lod_tensor_init(self):
-        place = core.CPUPlace()
-        lod_tensor = core.LoDTensor()
-
-        lod_tensor._set_dims([5, 2, 3, 4])
-        lod_tensor._alloc_float(place)
-        tensor_array = np.array(lod_tensor)
-        tensor_array[0, 0, 0, 0] = 1.0
-        tensor_array[0, 0, 0, 1] = 2.0
-        lod_tensor.set(tensor_array, place)
-
-        lod_v = np.array(lod_tensor)
-        self.assertAlmostEqual(1.0, lod_v[0, 0, 0, 0])
-        self.assertAlmostEqual(2.0, lod_v[0, 0, 0, 1])
-
-    def test_lod_tensor_gpu_init(self):
-        if not core.is_compiled_with_cuda():
-            return
-        place = core.CUDAPlace(0)
-        lod_py = [[2, 1], [1, 2, 2]]
-        lod_tensor = core.LoDTensor()
-
-        lod_tensor._set_dims([5, 2, 3, 4])
-        lod_tensor._alloc_float(place)
-        tensor_array = np.array(lod_tensor)
         tensor_array[0, 0, 0, 0] = 1.0
         tensor_array[0, 0, 0, 1] = 2.0
         lod_tensor.set(tensor_array, place)

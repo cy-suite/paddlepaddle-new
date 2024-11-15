@@ -28,7 +28,7 @@ class TestDenseTensorArray(unittest.TestCase):
         self.assertEqual(0, len(tensor_array))
         cpu = core.CPUPlace()
         for i in range(10):
-            t = core.LoDTensor()
+            t = core.DenseTensor()
             t.set(np.array([i], dtype='float32'), cpu)
             tensor_array.append(t)
 
@@ -38,7 +38,7 @@ class TestDenseTensorArray(unittest.TestCase):
             t = tensor_array[i]
             self.assertEqual(np.array(t), np.array([i], dtype='float32'))
 
-            t = core.LoDTensor()
+            t = core.DenseTensor()
             t.set(np.array([i + 10], dtype='float32'), cpu)
             tensor_array[i] = t
             t = tensor_array[i]
