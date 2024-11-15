@@ -7777,7 +7777,9 @@ def __lshift__(
     if isinstance(y, int):
         y = paddle.to_tensor(y, dtype=x.dtype)
     elif isinstance(y, float):
-        raise TypeError("unsupported operand type(s) for <<:'float'")
+        raise TypeError(
+            "unsupported operand type(s) for <<: 'Tensor' and 'float'"
+        )
     return bitwise_left_shift(x, y, is_arithmetic, None, None)
 
 
@@ -7790,7 +7792,9 @@ def __rshift__(
     if isinstance(y, int):
         y = paddle.to_tensor(y, dtype=x.dtype)
     elif isinstance(y, float):
-        raise TypeError("unsupported operand type(s) for >>:'float'")
+        raise TypeError(
+            "unsupported operand type(s) for <<: 'Tensor' and 'float'"
+        )
     return bitwise_right_shift(x, y, is_arithmetic, None, None)
 
 
@@ -7802,7 +7806,9 @@ def __rlshift__(
     if isinstance(y, int):
         y = paddle.to_tensor(y, dtype=x.dtype)
     elif isinstance(y, float):
-        raise TypeError("unsupported operand type(s) for <<:'float'")
+        raise TypeError(
+            "unsupported operand type(s) for <<: 'float' and 'Tensor'"
+        )
     return bitwise_left_shift(y, x, is_arithmetic, None, None)
 
 
@@ -7814,7 +7820,9 @@ def __rrshift__(
     if isinstance(y, int):
         y = paddle.to_tensor(y, dtype=x.dtype)
     elif isinstance(y, float):
-        raise TypeError("unsupported operand type(s) for >>:'float'")
+        raise TypeError(
+            "unsupported operand type(s) for <<: 'float' and 'Tensor'"
+        )
     return bitwise_right_shift(y, x, is_arithmetic, None, None)
 
 
