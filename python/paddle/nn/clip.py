@@ -172,7 +172,7 @@ def get_tensor_from_selected_rows(x, name=None):
             For more information, please refer to :ref:`api_guide_Name` .
 
     Returns:
-        Variable: LoDTensor transformed from SelectedRows. The data type is same with input.
+        Variable: DenseTensor transformed from SelectedRows. The data type is same with input.
 
     Examples:
         .. code-block:: python
@@ -940,7 +940,7 @@ class ClipGradByGlobalNorm(ClipGradBase):
             global_norm_var_fp16 = async_add_n(sum_square_dist_fp16)
             global_norm_dist.append(global_norm_var_fp16.astype(sum_dtype))
         if len(sum_square_not_dist_fp16) > 0:
-            global_norm_var_fp16 = async_add_n(sum_square_dist_fp16)
+            global_norm_var_fp16 = async_add_n(sum_square_not_dist_fp16)
             global_norm_not_dist.append(global_norm_var_fp16.astype(sum_dtype))
 
         if len(sum_square_dist_fp32) > 0:
