@@ -591,13 +591,15 @@ def _reset_prim_forward_blacklist():
 
 def _set_prim_backward_blacklist(*args):
     ops = set(args)
+    new_ops = set()
     for item in ops:
+        if not isinstance(item, str):
+            raise TypeError("All items in set must be strings.")
         if item.startswith("pd_op."):
             item = item[6:]
         prim_config["backward_blacklist"].add(item)
-        if not isinstance(item, str):
-            raise TypeError("all items in set must belong to string")
-    _set_bwd_prim_blacklist(ops)
+        new_ops.add(item)
+    _set_bwd_prim_blacklist(new_ops)
 
 
 def _set_prim_backward_enabled(value):
@@ -685,10 +687,7 @@ def _check_prim_vjp_ops():
     if ops_org:
         ops = []
         for item in ops_org.split(";"):
-            item = item.strip()
-            if item.startswith("pd_op."):
-                item = item[6:]
-            ops.append(item)
+            ops.append(item.strip())
         _set_prim_backward_blacklist(*ops)
 
 

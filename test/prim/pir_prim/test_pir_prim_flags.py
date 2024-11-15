@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import unittest
 
 import numpy as np
@@ -130,15 +129,7 @@ class TestPrimBackwardBlacklistFlags(unittest.TestCase):
 
     def test_prim_backward_blacklist(self):
         core._set_prim_all_enabled(True)
-        core._set_prim_backward_blacklist("tanh_grad", "exp_grad")
-        self.train()
-        core._set_prim_all_enabled(False)
-
-    def test_prim_backward_blacklist_flag(self):
-        core._set_prim_all_enabled(True)
-        os.environ['FLAGS_prim_backward_blacklist'] = (
-            "pd_op.tanh_grad;pd_op.exp_grad"
-        )
+        core._set_prim_backward_blacklist("pd_op.tanh_grad", "pd_op.exp_grad")
         self.train()
         core._set_prim_all_enabled(False)
 

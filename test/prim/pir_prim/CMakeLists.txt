@@ -11,6 +11,7 @@ set(TEST_PRIM_PURE_PIR_CASES
     test_prim_jit
     test_pir_prim_flags
     test_pir_prim_flags_v2
+    test_pir_prim_flags_v4
     test_sink_decomp
     test_prim_skip_dynamic
     test_prim_dynamic
