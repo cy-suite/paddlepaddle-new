@@ -1046,9 +1046,19 @@ class _ShardOptimizer(Optimizer):
 
     def _set_and_check_sharding_prop_from_param(self):
         global_mesh = fleet.auto.get_mesh()
-        self._sharding_degree = global_mesh.get_dim_size(
-            self._shard_fn._shard_mesh_dim
-        )
+        if global_mesh:
+            self._sharding_degree = global_mesh.get_dim_size(
+                self._shard_fn._shard_mesh_dim
+            )
+        elif self._shard_fn._mesh:
+            self._sharding_degree = self._shard_fn._mesh.get_dim_size(
+                self._shard_fn._shard_mesh_dim
+            )
+        else:
+            raise ValueError(
+                "The global mesh or shard_fn mesh should be set for the sharding strategy."
+            )
+
         # Note(luchang): Now we only support sharding on one axis
         self._sharding_mesh_axis = 0
 
