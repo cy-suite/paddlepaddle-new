@@ -125,7 +125,6 @@ void SaveOptimizedModelPass::SaveOptimizedModel(Argument* argument) {
 }
 
 void SaveOptimizedModelPass::RunImpl(Argument* argument) {
-  // TODO(bukejiyu): Using OpenVINO supports saving the cache.
   if (!argument->save_optimized_model() || !argument->enable_ir_optim()) {
     return;
   }
