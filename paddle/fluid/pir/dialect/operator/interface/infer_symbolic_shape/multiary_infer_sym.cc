@@ -1673,12 +1673,9 @@ bool FusedAttentionOpInferSymbolicShape(
   const std::vector<symbol::DimExpr> &x_shape = x_shape_or_data.shape();
   const std::vector<symbol::DimExpr> &qkv_weight_shape =
       qkv_weight_shape_or_data.shape();
-  const std::vector<symbol::DimExpr> &cache_kv_shape =
-      cache_kv_shape_or_data.shape();
   symbol::DimExpr dim_head = 0;
   symbol::DimExpr hidden_size = 0;
   symbol::DimExpr nranks = 1;
-
   bool transpose_qkv_wb =
       op->attribute<pir::BoolAttribute>("transpose_qkv_wb").data();
   int num_heads_ = op->attribute<pir::Int32Attribute>("num_heads").data();
@@ -1710,6 +1707,8 @@ bool FusedAttentionOpInferSymbolicShape(
     } else {
       nranks = (qkv_weight_shape[0] * symbol::DimExpr(3)) / qkv_weight_shape[1];
     }
+    dim_head = qkv_weight_shape[0] / (num_heads * nranks);
+    hidden_size = qkv_weight_shape[0];
   } else {
     PADDLE_ENFORCE_EQ(qkv_weight_shape.size(),
                       4,
@@ -1748,6 +1747,11 @@ bool FusedAttentionOpInferSymbolicShape(
         symbol::ShapeOrDataDimExprs{
             symbol::TensorShapeOrDataDimExprs(x_shape)});
   } else {
+    // The follwing three code used to set unoptional output value.
+    // Now it's result related to the infermeta.
+    infer_context->SetSymbolForValueByStaticShape(op->result(0));
+    infer_context->SetSymbolForValueByStaticShape(op->result(1));
+    infer_context->SetSymbolForValueByStaticShape(op->result(2));
     if (paddle::dialect::details::IsFakeValue(op->result(15))) {
       infer_context->SetSymbolForValueByStaticShape(op->result(15));
     } else {
@@ -1818,6 +1822,8 @@ bool FusedAttentionOpInferSymbolicShape(
   // cache_seq_len + seq_len if cache else seq_len
   symbol::DimExpr out_seq_len = x_shape[1];
   if (!cache_kv_shape_or_data.isa<symbol::NullShapeOrDataDimExpr>()) {
+    const std::vector<symbol::DimExpr> &cache_kv_shape =
+        cache_kv_shape_or_data.shape();
     PADDLE_ENFORCE_EQ(
         cache_kv_shape.size(),
         5,
@@ -1852,6 +1858,10 @@ bool FusedAttentionOpInferSymbolicShape(
         op->result(11),
         symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs(
             {x_shape[0], num_heads, x_shape[1], out_seq_len})});
+  } else {
+    // The follwing code used to set unoptional output value.
+    // Now it's result related to the infermeta.
+    infer_context->SetSymbolForValueByStaticShape(op->result(11));
   }
   // the same as QKOut's shape
   infer_context->SetShapeOrDataForValue(
@@ -1863,6 +1873,10 @@ bool FusedAttentionOpInferSymbolicShape(
         op->result(9),
         symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs(
             {x_shape[0], num_heads, x_shape[1], out_seq_len})});
+  } else {
+    // The follwing code used to set unoptional output value.
+    // Now it's result related to the infermeta.
+    infer_context->SetSymbolForValueByStaticShape(op->result(9));
   }
 
   infer_context->SetShapeOrDataForValue(
@@ -1891,12 +1905,15 @@ bool FusedAttentionOpInferSymbolicShape(
         op->result(14),
         symbol::ShapeOrDataDimExprs{
             symbol::TensorShapeOrDataDimExprs(x_shape)});
+  } else {
+    // The follwing code used to set unoptional output value.
+    // Now it's result related to the infermeta.
+    infer_context->SetSymbolForValueByStaticShape(op->result(14));
   }
 
   infer_context->SetShapeOrDataForValue(
       op->result(19),
       symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs(x_shape)});
-
   return true;
 }
 
