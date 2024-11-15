@@ -307,6 +307,7 @@ class ShardingOptimizerStage1(Optimizer):
                             * align_size
                             // core.size_of_dtype(dtype)
                         )
+
                 if not self._strategy.sharding.enable_overlap:
                     pir.reset_insertion_point_to_end()
 
@@ -331,8 +332,14 @@ class ShardingOptimizerStage1(Optimizer):
                 paddle._C_ops.share_var(
                     [view_shard_fused_grad, shard_fused_grad]
                 )
+
+                slice_param_list = []
+                for slice_param, param_info in slice_param_dict.items():
+                    slice_param_list.append(slice_param)
+
                 all_gather_param_info_list.append(
                     (
+                        slice_param_list,
                         main_shard_fused_param,
                         main_fused_param,
                     )
@@ -363,18 +370,32 @@ class ShardingOptimizerStage1(Optimizer):
             self._inner_opt._grad_clip.has_dist_param = has_dist_param
             self._inner_opt._grad_clip.has_not_dist_param = has_not_dist_param
         self._inner_opt.apply_gradients(new_params_grads)
+
         for (
+            slice_param_list,
             shard_param,
             fused_param,
         ) in all_gather_param_info_list:
-            allgather_value = paddle._C_ops.all_gather(
-                shard_param, self._sharding_group.id, self._sharding_degree
-            )
             if self._strategy.sharding.enable_overlap:
+                opt_op = slice_param_list[-1].all_used_ops()[-1]
+                # NOTE: add dependency between opt op and allgather_value for correctness
+                tmp = paddle._C_ops.nop(opt_op.results()[0])
+                tmp.get_defining_op().set_execution_stream(
+                    AutoParallelStreamType.SHARDING_STREAM.value
+                )
+
+                allgather_value = paddle._C_ops.all_gather(
+                    shard_param, self._sharding_group.id, self._sharding_degree
+                )
                 allgather_value.get_defining_op().set_execution_stream(
                     AutoParallelStreamType.SHARDING_STREAM.value
                 )
+            else:
+                allgather_value = paddle._C_ops.all_gather(
+                    shard_param, self._sharding_group.id, self._sharding_degree
+                )
             paddle._C_ops.share_var([fused_param, allgather_value])
+
         start_index = target_block.ops.index(last_op) + 1
         return target_block.ops[start_index:]
 
