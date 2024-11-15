@@ -1,4 +1,4 @@
-// Copyright (c) 2024 CINN Authors. All Rights Reserved.
+// Copyright (c) 2023 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,16 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+#include "paddle/phi/backends/dynload/flashattnv3.h"
 
-#include <optional>
-#include <string>
-#include "paddle/cinn/ir/group_schedule/tactic/schedule_tactic.h"
+namespace phi {
+namespace dynload {
 
-namespace cinn {
-namespace ir {
+std::once_flag flashattnv3_dso_flag;
+void* flashattnv3_dso_handle = nullptr;
 
-std::unique_ptr<ScheduleTactic> CreateComputeAtReductionTactic();
+#define DEFINE_WRAP(__name) DynLoad__##__name __name
 
-}  // namespace ir
-}  // namespace cinn
+FLASHATTN_V3_ROUTINE_EACH(DEFINE_WRAP);
+
+}  // namespace dynload
+}  // namespace phi

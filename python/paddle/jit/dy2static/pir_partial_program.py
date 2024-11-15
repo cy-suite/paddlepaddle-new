@@ -858,7 +858,7 @@ class PartialProgramLayer:
             if exist a op whose inputs is var, then return True
             """
             if var.type not in [
-                core.VarDesc.VarType.LOD_TENSOR,
+                core.VarDesc.VarType.DENSE_TENSOR,
                 core.VarDesc.VarType.SELECTED_ROWS,
             ]:
                 return False
@@ -1208,7 +1208,7 @@ class PartialProgramLayer:
         # will be SelectedRows, not LoDTensor. But tracer will just
         # set param grad Tensor by forward Tensor(LoDTensor)
         # If we don't change grad_var type here, RunProgramOp need
-        # transform SelectedRows to LoDTensor forcibly, it may not
+        # transform SelectedRows to DenseTensor forcibly, it may not
         # be user wanted result.
         forward_params_grads = train_program.param_grad_values
         train_program = train_program.program
@@ -1221,7 +1221,7 @@ class PartialProgramLayer:
                 )
             elif value.is_dense_tensor_type():
                 param._set_grad_type(
-                    paddle.base.core.VarDesc.VarType.LOD_TENSOR
+                    paddle.base.core.VarDesc.VarType.DENSE_TENSOR
                 )
             else:
                 raise NotImplementedError(
