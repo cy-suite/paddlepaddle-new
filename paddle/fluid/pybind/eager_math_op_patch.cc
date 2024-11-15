@@ -1305,7 +1305,7 @@ static PyObject* tensor__rmatmul__method(TensorObject* self,
   PyObject* other_obj = PyTuple_GET_ITEM(args, 0);
 
   // 1. scalar exists cases
-  // there is no scalar_matmul function for __matmul__ now
+  // there is no scalar_matmul function for __rmatmul__ now
   float other_double = 0.0f;
   bool has_other_double = false;
   if (PyFloat_Check(other_obj) || PyCheckInteger(other_obj) ||

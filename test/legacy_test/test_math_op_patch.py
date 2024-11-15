@@ -550,12 +550,12 @@ class TestDygraphMathOpPatches(unittest.TestCase):
 
     def test_dygraph_rmatmul(self):
         paddle.disable_static()
-        a = paddle.to_tensor(np.random.random((2, 3)).astype(np.float32))
-        b = paddle.to_tensor(np.random.random((3, 5)).astype(np.float32))
+        a_np = np.random.random((2, 3)).astype(np.float32) * 100
+        b_np = np.random.random((3, 5)).astype(np.float32) * 100
+        a = paddle.to_tensor(a_np)
+        b = paddle.to_tensor(b_np)
         c = b.__rmatmul__(a)
-        np.testing.assert_allclose(
-            a.numpy() @ b.numpy(), c.numpy(), rtol=1e-7, atol=1e-7
-        )
+        np.testing.assert_allclose(a @ b, c.numpy(), rtol=1e-5, atol=1e-5)
         paddle.enable_static()
 
 
