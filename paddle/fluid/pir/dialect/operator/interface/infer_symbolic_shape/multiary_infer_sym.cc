@@ -1792,6 +1792,8 @@ bool FusedAttentionOpInferSymbolicShape(
               {x_shape[0],
                x_shape[1],
                symbol::DimExpr(3) * num_heads * dim_head})});
+    } else {
+      infer_context->SetSymbolForValueByStaticShape(op->result(4));
     }
   } else {
     // [batch_size, seq_len, 3, num_head, head_size]
@@ -1812,6 +1814,8 @@ bool FusedAttentionOpInferSymbolicShape(
                                                  symbol::DimExpr(3),
                                                  num_heads,
                                                  dim_head})});
+    } else {
+      infer_context->SetSymbolForValueByStaticShape(op->result(4));
     }
   }
   // [3, batch_size, num_head, seq_len, head_size]
