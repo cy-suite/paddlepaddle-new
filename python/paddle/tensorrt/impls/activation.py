@@ -103,6 +103,7 @@ def hardswish_converter(network, paddle_op, inputs):
     )
     return hardswish_layer.get_output(0)
 
+
 @converter_registry.register("pd_op.elu", trt_version="8.x")
 def elu_converter(network, paddle_op, inputs):
     x = inputs[0]
@@ -110,6 +111,7 @@ def elu_converter(network, paddle_op, inputs):
     elu_layer = network.add_activation(x, trt.ActivationType.ELU)
     elu_layer.alpha = alpha
     return elu_layer.get_output(0)
+
 
 @converter_registry.register("pd_op.softplus", trt_version="8.x")
 def softplus_converter(network, paddle_op, inputs):
