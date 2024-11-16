@@ -3228,11 +3228,8 @@ bool AssignArray_Op::InferSymbolicShape(
   const auto &x_shape_or_data =
       infer_context->GetShapeOrDataForValue(x())
           .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
-  const std::vector<symbol::DimExpr> x_shape = x_shape_or_data.GetShapeHint();
   infer_context->SetShapeOrDataForValue(
-      out(),
-      symbol::ShapeOrDataDimExprs{
-          symbol::RankedTensorArrayShapeOrDataDimExprs(x_shape)});
+      out(), symbol::ShapeOrDataDimExprs{x_shape_or_data});
   return true;
 }
 
