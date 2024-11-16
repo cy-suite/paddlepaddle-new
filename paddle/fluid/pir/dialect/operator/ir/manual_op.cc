@@ -1644,9 +1644,7 @@ bool CreateArrayLikeOp::InferSymbolicShape(
       infer_context->GetShapeOrDataForValue(input())
           .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
   infer_context->SetShapeOrDataForValue(
-      out(),
-      symbol::ShapeOrDataDimExprs{symbol::RankedTensorArrayShapeOrDataDimExprs(
-          input_shape_or_data.GetShapeHint())});
+      out(), symbol::ShapeOrDataDimExprs{input_shape_or_data});
   return true;
 }
 OpInfoTuple ArrayLengthOp::GetOpInfo() {
