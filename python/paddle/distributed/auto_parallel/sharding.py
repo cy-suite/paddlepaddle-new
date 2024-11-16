@@ -134,6 +134,8 @@ class ShardingOptimizerStage1(Optimizer):
         has_not_dist_param = False
 
         for param, grad in params_grads:
+            if grad is None:
+                continue
             param_dist_attr = param.dist_attr()
             grad_dist_attr = grad.dist_attr()
             assert (
