@@ -1158,15 +1158,15 @@ class OpcodeExecutorBase:
         assert isinstance(instr.arg, int)
         self._call_shape = self._co_consts[instr.arg].get_py_value()
 
-    def call_impl(
+    def call_impl_py312_minus(
         self,
-        num_args: int,
-        kwnames_getter: Callable[[OpcodeExecutor], tuple[str, ...]],
+        instr: Instruction,
     ):
-        kwnames = kwnames_getter(self)
-        assert num_args + 2 <= len(self.stack)
-        is_method = not isinstance(self.stack.peek[num_args + 2], NullVariable)
-        total_args = num_args + int(is_method)
+        assert isinstance(instr.arg, int)
+        assert instr.arg + 2 <= len(self.stack)
+        is_method = not isinstance(self.stack.peek[instr.arg + 2], NullVariable)
+        total_args = instr.arg + int(is_method)
+        kwnames = self._call_shape if self._call_shape is not None else ()
         n_kwargs = len(kwnames)
         n_positional_args = total_args - n_kwargs
         kwargs_list = self.stack.pop_n(n_kwargs)
@@ -1179,32 +1179,63 @@ class OpcodeExecutorBase:
         self.stack.push(fn(*args, **kwargs))
         self._call_shape = None
 
-    def call(self, instr: Instruction):
-        assert isinstance(instr.arg, int)
-        self.call_impl(
-            instr.arg,
-            lambda exe: (
-                exe._call_shape if exe._call_shape is not None else ()
-            ),
-        )
+    def call_impl_py313_plus(
+        self,
+        num_args: int,
+        kwnames_getter: Callable[[OpcodeExecutorBase], tuple[str, ...]],
+    ):
+        kwnames = kwnames_getter(self)
+        assert num_args + 2 <= len(self.stack)
+        args = self.stack.pop_n(num_args)
+        self_or_null = self.stack.pop()
+        callable = self.stack.pop()
 
-    CALL = (
-        call_break_graph_decorator(push_n=1)(call)
-        if sys.version_info >= (3, 12)
-        else call
-    )
+        if not isinstance(self_or_null, NullVariable):
+            args = [self_or_null, *args]
+        if isinstance(self_or_null, NullVariable) and isinstance(
+            callable, MethodVariable
+        ):
+            unbound_method = callable.fn
+            self_var = callable.bound_instance
+            args = [self_var, *args]
+            callable = unbound_method
+
+        n_positional_args = len(args) - len(kwnames)
+        kwargs_list = args[n_positional_args:]
+        args = args[:n_positional_args]
+        kwargs = dict(zip(kwnames, kwargs_list))
+        self.stack.push(callable(*args, **kwargs))
+
+    if sys.version_info >= (3, 13):
+
+        @call_break_graph_decorator(push_n=1)
+        def CALL(self, instr: Instruction):
+            assert isinstance(instr.arg, int)
+
+            self.call_impl_py313_plus(instr.arg, lambda exe: ())
+
+    elif sys.version_info >= (3, 12):
+
+        @call_break_graph_decorator(push_n=1)
+        def CALL(self, instr: Instruction):
+            self.call_impl_py312_minus(instr)
+
+    else:
+
+        def CALL(self, instr: Instruction):
+            self.call_impl_py312_minus(instr)
 
     @call_break_graph_decorator(push_n=1)
     def CALL_KW(self, instr: Instruction):
         assert isinstance(instr.arg, int)
 
-        def get_kwnames(exe: OpcodeExecutor):
+        def get_kwnames(exe: OpcodeExecutorBase):
             kwnames_var = exe.stack.pop()
             assert isinstance(kwnames_var, TupleVariable)
             kwnames = kwnames_var.get_py_value()
             return kwnames
 
-        self.call_impl(instr.arg, get_kwnames)
+        self.call_impl_py313_plus(instr.arg, get_kwnames)
 
     @call_break_graph_decorator(push_n=1)
     def CALL_FUNCTION(self, instr: Instruction):
