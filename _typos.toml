@@ -1,4 +1,5 @@
 [default.extend-words]
+# these should not be modify
 lod = "lod"
 dout = "dout"
 unpacket = "unpacket"
@@ -8,10 +9,8 @@ Nce = "Nce"
 grad = "grad"
 arange = "arange"
 ot = 'ot'
-
-
-# error catch
-
+pash = 'pash'
+# error catch,a total of 831 lines alias to 831 task..
 ontext = 'ontext'
 Direcly = 'Direcly'
 Keyward = 'Keyward'
@@ -843,12 +842,3 @@ compatable = 'compatable'
 SMAE = 'SMAE'
 commericial = 'commericial'
 wieghts = 'wieghts'
-
-
-# paddle/fluid/framework/details/build_strategy.h:
-
-delte = 'delte'
-bewteen = 'bewteen'
-
-# paddle/.set_python_path.sh:
-pash = 'pash'
