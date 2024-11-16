@@ -420,27 +420,30 @@ class ShardingOptimizerStage1(Optimizer):
                     grad_op = op
                     break
                 if op.num_operands() == 1:  # only one operand
-                    operand = op.operand_source(0)
-                    stack.append(operand.get_defining_op())
+                    stack.append(op.operand_source(0).get_defining_op())
                     if op.op_role != int(OpRole.Backward):
                         advance_ops.append(op)
                 else:
                     break
-            # 1.2 move ops
             if grad_op is not None:
-                grad_idx = target_block.ops.index(grad_op)
+                new_idx = target_block.ops.index(grad_op) + 1
+                # 1.2 move ops
                 for op in advance_ops:
                     old_idx = target_block.ops.index(op)
-                    new_idx = grad_idx + 1
                     if new_idx != old_idx:
                         target_block.move_op(op, new_idx)
-                    if (
-                        insertion_info["idx"] is None
-                        or new_idx > insertion_info["idx"]
-                    ):
-                        insertion_info["idx"] = new_idx
-                        insertion_info["op"] = op
-        # 2. set insertion point
+                # 2.1 get insertion point
+                if (
+                    insertion_info["idx"] is None
+                    or new_idx > insertion_info["idx"]
+                ):
+                    insertion_info["idx"] = new_idx
+                    if len(advance_ops) > 0:
+                        insertion_info["op"] = advance_ops[-1]
+                    else:
+                        insertion_info["op"] = grad_op
+
+        # 2.2 set insertion point
         if insertion_info["op"] is not None:
             pir.set_insertion_point_after(insertion_info["op"])
 
