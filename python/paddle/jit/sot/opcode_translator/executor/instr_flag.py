@@ -16,6 +16,16 @@
 from enum import Enum
 
 
+class FORMAT_VALUE_FLAG:
+    FVC_MASK = 0x3
+    FVC_NONE = 0x0
+    FVC_STR = 0x1
+    FVC_REPR = 0x2
+    FVC_ASCII = 0x3
+    FVS_MASK = 0x4
+    FVS_HAVE_SPEC = 0x4
+
+
 class CONVERT_VALUE_FLAG(Enum):
     CV_STR = 1
     CV_REPR = 2
