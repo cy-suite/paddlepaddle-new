@@ -117,7 +117,7 @@ SUPPORT_COMPARE_OP = {
 }
 
 # In Python 3.13, the method layout is changed, and a NULL will be pushed after the value.
-NULL_AFTER_VALUE = sys.version_info >= (3, 13)
+CALL_METHOD_LAYOUT_NULL_AFTER_VALUE = sys.version_info >= (3, 13)
 
 
 @dataclass
@@ -840,7 +840,7 @@ class OpcodeExecutorBase:
         if sys.version_info >= (3, 11):
             push_null = namei & 1
             namei >>= 1
-        if push_null and not NULL_AFTER_VALUE:
+        if push_null and not CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
             self.stack.push(NullVariable())
         name = self._code.co_names[namei]
         if name in self._globals.keys():
@@ -850,7 +850,7 @@ class OpcodeExecutorBase:
         else:
             raise InnerError(f"{name} not in globals and builtins")
         self.stack.push(value)
-        if push_null and NULL_AFTER_VALUE:
+        if push_null and CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
             self.stack.push(NullVariable())
 
     def load_method(self, method_name):
@@ -872,10 +872,10 @@ class OpcodeExecutorBase:
             self.stack.push(obj)
         else:
             # unbound method, push the dummy and the function
-            if not NULL_AFTER_VALUE:
+            if not CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
                 self.stack.push(NullVariable())
             self.stack.push(method)
-            if NULL_AFTER_VALUE:
+            if CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
                 self.stack.push(NullVariable())
 
     def LOAD_METHOD(self, instr: Instruction):
@@ -1293,11 +1293,14 @@ class OpcodeExecutorBase:
         assert isinstance(args_variable, (TupleVariable, ListVariable))
         args = args_variable.get_wrapped_items()
 
-        if sys.version_info >= (3, 11) and NULL_AFTER_VALUE:
+        if sys.version_info >= (3, 11) and CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
             null = self.stack.pop()
             assert isinstance(null, NullVariable)
         fn = self.stack.pop()
-        if sys.version_info >= (3, 11) and not NULL_AFTER_VALUE:
+        if (
+            sys.version_info >= (3, 11)
+            and not CALL_METHOD_LAYOUT_NULL_AFTER_VALUE
+        ):
             null = self.stack.pop()
             assert isinstance(null, NullVariable)
         ret = fn(*args, **kwargs)
