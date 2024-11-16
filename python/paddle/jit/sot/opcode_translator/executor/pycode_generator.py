@@ -49,7 +49,6 @@ from ..instruction_utils import (
     modify_vars,
 )
 from ..instruction_utils.opcode_info import (
-    PYOPCODE_CACHE_SIZE,
     UNCONDITIONAL_JUMP,
     JumpDirection,
     PopJumpCond,
