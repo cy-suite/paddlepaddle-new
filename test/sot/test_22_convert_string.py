@@ -32,8 +32,8 @@ def foo(x: paddle.Tensor):
     return x
 
 
-class TestFString(TestCaseBase):
-    def test_fstring(self):
+class TestConvertString(TestCaseBase):
+    def test_convert_string(self):
         self.assert_results(foo, paddle.to_tensor(1))
 
 
