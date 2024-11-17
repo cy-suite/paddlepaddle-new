@@ -681,6 +681,11 @@ class PyCodeGen:
         null_var = self.global_null_variable
         return self.gen_load_object(null_var, "___null_var", push_null=False)
 
+    def gen_push_null(self):
+        if sys.version_info < (3, 11):
+            raise InnerError("gen_push_null is only supported in Python 3.11+")
+        return self.add_instr("PUSH_NULL")
+
     def gen_load_fast(self, name):
         """
         Generate the bytecode for loading a local variable.
@@ -821,8 +826,10 @@ class PyCodeGen:
     def gen_kw_names(self, kw_names: tuple[str, ...] | None):
         if kw_names is None:
             return
-        if sys.version_info < (3, 11):
-            raise InnerError("gen_kw_names is not supported before python3.11")
+        if sys.version_info < (3, 11) or sys.version_info >= (3, 13):
+            raise InnerError(
+                "gen_kw_names is only supported in Python 3.11 and 3.12"
+            )
         if kw_names not in self._code_options["co_consts"]:
             self._code_options["co_consts"].append(kw_names)
         idx = self._code_options["co_consts"].index(kw_names)
