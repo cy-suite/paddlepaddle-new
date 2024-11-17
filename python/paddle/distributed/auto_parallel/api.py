@@ -136,7 +136,7 @@ if TYPE_CHECKING:
 
 
 def _to_lodtensor(tensor: paddle.Tensor):
-    lodtensor = core.LoDTensor()
+    lodtensor = core.DenseTensor()
     if tensor.is_dist():
         if tensor._is_initialized():
             lodtensor._share_data_with(tensor._local_value().get_tensor())
@@ -1055,6 +1055,7 @@ class _ShardOptimizer(Optimizer):
             'dp' in self._shard_fn._mesh.dim_names
         ):
             self._sharding_degree = self._shard_fn._mesh.get_dim_size('dp')
+            self._sharding_mesh_axis = 0
         else:
             param_list = self._inner_opt._parameter_list
             for param in param_list:
@@ -2517,7 +2518,7 @@ class DistModel:
         for feed_item in list(args):
             if isinstance(feed_item, (list, tuple)):
                 feed_list += list(feed_item)
-            elif isinstance(feed_item, (paddle.Tensor, core.LoDTensor)):
+            elif isinstance(feed_item, (paddle.Tensor, core.DenseTensor)):
                 feed_list += [feed_item]
             else:
                 raise TypeError(
