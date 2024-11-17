@@ -1,14 +1,15 @@
 #include "paddle/phi/kernels/svdvals_kernel.h"
 #include "paddle/phi/backends/cpu/cpu_context.h"
+#include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/funcs/lapack/lapack_function.h"
 #include "paddle/phi/kernels/transpose_kernel.h"
-#include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/kernels/funcs/complex_functors.h"
 
 namespace phi {
 
 template <typename T>
 void LapackSvdvals(const T* X, T* S, int rows, int cols) {
-	// Using N to neglect computing U、VH
+  // Using N to neglect computing U、VH
   char jobz = 'N';
   int mx = std::max(rows, cols);
   int mn = std::min(rows, cols);
@@ -71,7 +72,7 @@ void SvdvalsKernel(const Context& dev_ctx,
 
   // Allocate memory for output
   auto* S_out = dev_ctx.template Alloc<phi::dtype::Real<T>>(S);
-
+  
   // Transpose the last two dimensions for LAPACK compatibility
   DenseTensor trans_x = ::phi::TransposeLast2Dim<T>(dev_ctx, X);
   auto* x_data = trans_x.data<T>();
