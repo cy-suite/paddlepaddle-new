@@ -3234,7 +3234,7 @@
 - backward_op : svdvals_grad
   forward : svdvals (Tensor x) -> Tensor(s)
   args : (Tensor x, Tensor s_grad)
-  output : (Tensor x_grad)
+  output : Tensor(x_grad)
   infer_meta : 
     func : UnchangedInferMeta
     param : [x]
