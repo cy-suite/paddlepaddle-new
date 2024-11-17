@@ -49,6 +49,11 @@ repos:
                 paddle/utils/.*|
                 paddle/cinn/utils/registry.h
             )$
+-   repo: https://github.com/crate-ci/typos
+    rev: v1.27.3
+    hooks:
+      - id: typos
+        args: []
 # For Python files
 -   repo: https://github.com/psf/black-pre-commit-mirror
     rev: 24.8.0
@@ -157,9 +162,3 @@ repos:
         language: python
         files: test/white_list/pir_op_test_white_list
         args: []
-# Typos
--   repo: https://github.com/crate-ci/typos
-    rev: v1.27.3
-    hooks:
-      - id: typos
-        args: ["--format","brief"]
