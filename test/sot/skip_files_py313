@@ -1,4 +1,3 @@
-test/sot/test_03_tuple.py
 test/sot/test_04_list.py
 test/sot/test_06_call_function.py
 test/sot/test_11_jumps.py
@@ -12,7 +11,6 @@ test/sot/test_18_tensor_method.py
 test/sot/test_19_closure.py
 test/sot/test_21_global.py
 test/sot/test_analysis_inputs.py
-test/sot/test_binary_operator_tracker.py
 test/sot/test_break_graph.py
 test/sot/test_builtin_bool.py
 test/sot/test_builtin_dispatch.py
@@ -29,14 +27,11 @@ test/sot/test_inplace_api.py
 test/sot/test_min_graph_size.py
 test/sot/test_model_switch_training.py
 test/sot/test_numpy.py
-test/sot/test_numpy_var_if.py
 test/sot/test_side_effects.py
 test/sot/test_simulate_initialize.py
 test/sot/test_sot_cost_model.py
 test/sot/test_sot_dynamic_shape.py
-test/sot/test_sot_exception.py
 test/sot/test_sot_export.py
 test/sot/test_sot_resnet.py
 test/sot/test_sot_resnet50_backward.py
 test/sot/test_str_format.py
-test/sot/test_tensor_dtype_in_guard.py
