@@ -4814,6 +4814,16 @@
   backward : sum_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
+- op : svdvals
+  args : (Tensor x)
+  output :  Tensor(s)
+  infer_meta : 
+    func : SvdvalsInferMeta
+  kernel : 
+    func : svdvals
+  backward : svdvals_grad
+  # interfaces : 
+
 - op : svd
   args : (Tensor x, bool full_matrices = false)
   output : Tensor(u), Tensor(s), Tensor(vh)
