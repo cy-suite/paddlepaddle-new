@@ -1,5 +1,5 @@
 [default.extend-words]
-# these should not be modify
+# Special words for PaddlePaddle
 lod = "lod"
 dout = "dout"
 unpacket = "unpacket"
@@ -10,7 +10,8 @@ grad = "grad"
 arange = "arange"
 ot = 'ot'
 pash = 'pash'
-# error catch,a total of 831 lines alias to 831 task..
+
+# These words need to be fixed
 ontext = 'ontext'
 Direcly = 'Direcly'
 Keyward = 'Keyward'
