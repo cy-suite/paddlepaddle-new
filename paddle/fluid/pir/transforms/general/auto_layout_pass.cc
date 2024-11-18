@@ -39,6 +39,7 @@
 
 namespace {
 
+extern const std::set<std::string> op_in_NHWC;
 extern const std::set<std::string> op_in_NCHW;
 extern const std::set<std::string> op_with_axis;
 
@@ -151,12 +152,6 @@ class AutoLayoutPass : public pir::Pass {
     return is_insert_transpose;
   }
 
-  bool IsConvRelatedOp(const pir::Operation* op) {
-    return op->isa<paddle::dialect::Conv2dOp>() ||
-           op->isa<paddle::dialect::FusedConv2dAddActOp>() ||
-           op->isa<paddle::dialect::Conv2dTransposeOp>();
-  }
-
   void TransferLayout(pir::Builder builder, pir::Block* block) {
     for (auto&& op_item : *block) {
       auto op = &op_item;
@@ -166,18 +161,15 @@ class AutoLayoutPass : public pir::Pass {
       if (op->HasTrait<pir::ImmutableLayoutTrait>()) continue;
       if (op->operands().size() == 0) continue;
 
-      // NHWC ops branch, Only support conv2d now, it will add white list later.
-      if (IsConvRelatedOp(op)) {
-        if (op->isa<paddle::dialect::FusedConv2dAddActOp>() ||
-            op->isa<paddle::dialect::Conv2dOp>()) {
-          common::DataLayout new_layout =
-              op->isa<paddle::dialect::FusedConv2dAddActOp>()
-                  ? PreferLayout<paddle::dialect::FusedConv2dAddActOp>(op)
-                  : PreferLayout<paddle::dialect::Conv2dOp>(op);
-
-          if (new_layout != common::DataLayout::NHWC) {
-            continue;
-          }
+      // NHWC ops branch, Only support
+      // conv2d、fused_conv2d_add_act、conv2d_transpose now, it will add white
+      // list later.
+      if (op_in_NHWC.find(op_name) != op_in_NHWC.end()) {
+        auto layout_interface =
+            op->dyn_cast<paddle::dialect::LayoutTransformationInterface>();
+        common::DataLayout new_layout = layout_interface.PreferLayout(op);
+        if (new_layout != common::DataLayout::NHWC) {
+          continue;
         }
 
         if (op->HasAttribute("data_format") &&
@@ -263,104 +255,12 @@ class AutoLayoutPass : public pir::Pass {
     }
   }
 
-  template <typename OpType>
-  common::DataLayout PreferLayout(pir::Operation* op) {
-    auto data_format_attr = op->attribute<pir::StrAttribute>("data_format");
-    if (!data_format_attr) {
-      PADDLE_THROW(common::errors::InvalidArgument(
-          "op (%s) should have attribute `data_format`, but got %s",
-          op,
-          data_format_attr));
-    }
-
-    bool mixed_precision_mode_fp16 = false;
-    bool flag_precision_mode = false;
-    phi::DataType precision_mode = phi::DataType::FLOAT32;
-
-    if (Has("mixed_precision_mode")) {
-      precision_mode = Get<phi::DataType>("mixed_precision_mode");
-      flag_precision_mode = true;
-    }
-
-    if (flag_precision_mode && precision_mode == phi::DataType::FLOAT16) {
-      mixed_precision_mode_fp16 = true;
-    }
-
-    if constexpr (std::is_same_v<OpType, paddle::dialect::Conv2dOp>) {
-      auto concrete_op = op->dyn_cast<paddle::dialect::Conv2dOp>();
-      if (auto in = concrete_op.input()) {
-        if (auto in_type = in.type()) {
-          if (in_type.isa<paddle::dialect::DenseTensorType>()) {
-            if (auto tensor_type =
-                    in_type.dyn_cast<paddle::dialect::DenseTensorType>()) {
-              if (mixed_precision_mode_fp16 ||
-                  tensor_type.dtype().isa<pir::Float16Type>()) {
-                return common::DataLayout::NHWC;
-              }
-            }
-          }
-        }
-      }
-
-      return common::StringToDataLayout(data_format_attr.AsString());
-    }
-
-    if constexpr (std::is_same_v<OpType,
-                                 paddle::dialect::FusedConv2dAddActOp>) {
-      auto original_layout =
-          common::StringToDataLayout(data_format_attr.AsString());
-
-      if (op->HasAttribute(paddle::dialect::kForceBackendAttr) &&
-          op->attributes()
-                  .at(paddle::dialect::kForceBackendAttr)
-                  .dyn_cast<pir::StrAttribute>()
-                  .AsString() == "gpu") {
-        return common::DataLayout::NHWC;
-      }
-
-      auto concrete_op = op->dyn_cast<paddle::dialect::FusedConv2dAddActOp>();
-      if (auto in = concrete_op.input()) {
-        if (auto in_type = in.type()) {
-          if (in_type.isa<paddle::dialect::DenseTensorType>()) {
-            if (auto tensor_type =
-                    in_type.dyn_cast<paddle::dialect::DenseTensorType>()) {
-              if (!mixed_precision_mode_fp16 ||
-                  tensor_type.dtype().isa<pir::Float16Type>()) {
-                return original_layout;
-              }
-            }
-          }
-        }
-      }
-
-      constexpr int CUDNN_ALIGNMENT = 8;
-
-      if (auto filter = concrete_op.filter()) {
-        if (auto filter_type = filter.type()) {
-          if (filter_type.isa<paddle::dialect::DenseTensorType>()) {
-            if (auto tensor_type =
-                    filter_type.dyn_cast<paddle::dialect::DenseTensorType>()) {
-              if (mixed_precision_mode_fp16 ||
-                  tensor_type.dtype().isa<pir::Float16Type>()) {
-                auto dims = tensor_type.dims();
-                if (dims.size() == 4 && (dims[0] % CUDNN_ALIGNMENT == 0) &&
-                    (dims[1] % CUDNN_ALIGNMENT == 0)) {
-                  return common::DataLayout::NHWC;
-                }
-              }
-            }
-          }
-        }
-      }
-      return original_layout;
-    }
-  }
-
   pir::IrContext* ctx_ = pir::IrContext::Instance();
   const std::vector<int32_t> NCHW2NHWC_ = {0, 2, 3, 1};
   const std::vector<int32_t> NHWC2NCHW_ = {0, 3, 1, 2};
 };
-
+const std::set<std::string> op_in_NHWC = {
+    "pd_op.fused_conv2d_add_act", "pd_op.conv2d", "pd_op.conv2d_transpose"};
 const std::set<std::string> op_in_NCHW = {"pd_op.max_pool2d_with_index",
                                           "pd_op.fractional_max_pool2d",
                                           "pd_op.unpool3d",
