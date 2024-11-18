@@ -278,7 +278,7 @@ void tanh_triple_grad(const Tensor& out,
     }
     if (grad_out_forward_grad) {
       auto grad_out_forward_grad_tmp =
-          full<T>(common::vectorize(out.dims()), 0, out.dtype(), out.dtype());
+          full<T>(common::vectorize(out.dims()), 0, out.dtype(), out.place());
       set_output<T>(grad_out_forward_grad_tmp, grad_out_forward_grad);
     }
     if (grad_x_grad_forward_grad) {
@@ -295,12 +295,12 @@ void tanh_triple_grad(const Tensor& out,
     */
     if (out_grad) {
       auto out_grad_tmp =
-          full<T>(common::vectorize(out.dims()), 0, out.dtype(), out.dtype());
+          full<T>(common::vectorize(out.dims()), 0, out.dtype(), out.place());
       set_output<T>(out_grad_tmp, out_grad);
     }
     if (grad_out_forward_grad) {
       auto grad_out_forward_grad_tmp =
-          full<T>(common::vectorize(out.dims()), 0, out.dtype(), out.dtype());
+          full<T>(common::vectorize(out.dims()), 0, out.dtype(), out.place());
       set_output<T>(grad_out_forward_grad_tmp, grad_out_forward_grad);
     }
     if (grad_x_grad_forward_grad) {

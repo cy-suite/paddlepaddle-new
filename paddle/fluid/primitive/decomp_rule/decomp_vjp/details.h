@@ -92,11 +92,13 @@ void cumprod_grad(const Tensor& x,
     // dx = cumsum(out * out_grad, dim, false, exclusive, !reverse) / x
     Tensor zero_tensor, ones_tensor;
     if (has_dynamic_shape(x.shape())) {
-      zero_tensor = backend::full_with_tensor<T>(shape<T>(x), 0.0, x.dtype());
-      ones_tensor = backend::full_with_tensor<T>(shape<T>(x), 1.0, x.dtype());
+      zero_tensor =
+          backend::full_with_tensor<T>(shape<T>(x), 0.0, x.dtype(), x.place());
+      ones_tensor =
+          backend::full_with_tensor<T>(shape<T>(x), 1.0, x.dtype(), x.place());
     } else {
       zero_tensor = full<T>(x.shape(), 0.0, x.dtype(), x.place());
-      ones_tensor = full<T>(x.shape(), 1.0, x.dtype(), x.place();
+      ones_tensor = full<T>(x.shape(), 1.0, x.dtype(), x.place());
     }
     auto zero_mask = cast<T>(equal<T>(x, zero_tensor), x.dtype());
     // determine the index of first zero
@@ -163,7 +165,7 @@ void floor_grad(const Tensor& out_grad, Tensor* x_grad) {
     Tensor zero_tensor;
     if (has_dynamic_shape(out_grad.shape())) {
       zero_tensor = backend::full_with_tensor<T>(
-          shape<T>(out_grad), 0.0, out_grad.dtype());
+          shape<T>(out_grad), 0.0, out_grad.dtype(), out_grad.place());
     } else {
       zero_tensor = full<T>(common::vectorize(out_grad.dims()),
                             0.0,
@@ -465,8 +467,8 @@ void scatter_grad(const Tensor& index,
   if (x_grad) {
     Tensor zero_tensor;
     if (has_dynamic_shape(updates.shape())) {
-      zero_tensor =
-          backend::full_with_tensor<T>(shape<T>(updates), 0.0, updates.dtype());
+      zero_tensor = backend::full_with_tensor<T>(
+          shape<T>(updates), 0.0, updates.dtype(), updates.place());
     } else {
       zero_tensor = full<T>(common::vectorize(updates.dims()),
                             0.0,
@@ -733,7 +735,8 @@ void pow_grad(const Tensor& x,
               Tensor* x_grad) {
   if (x_grad) {
     if (has_dynamic_shape(x.shape())) {
-      Tensor y_tensor = backend::full_with_tensor<T>(shape<T>(x), y, x.dtype());
+      Tensor y_tensor =
+          backend::full_with_tensor<T>(shape<T>(x), y, x.dtype(), x.place());
       Tensor one_tensor = full_scalar<T>(1.0, x.dtype());
       auto dx_res = y_tensor * elementwise_pow<T>(x, y - one_tensor) * out_grad;
       set_output<T>(dx_res, x_grad);
@@ -1245,8 +1248,8 @@ void masked_select_grad(const Tensor& x,
     auto end = full<T>({1}, x_num, x.dtype(), x.place());
     auto start = full<T>({1}, 0, x.dtype(), x.place());
     auto step = full<T>({1}, 1, x.dtype(), x.place());
-    auto x_arange =
-        backend::arange_with_tensor<T>(start, end, step, promoted_x.dtype());
+    auto x_arange = backend::arange_with_tensor<T>(
+        start, end, step, promoted_x.dtype(), promoted_x.place());
 
     auto x_arange_reshape = reshape<T>(x_arange, promoted_x.shape());
 
@@ -1295,7 +1298,8 @@ void gather_grad(const Tensor& x,
                  Tensor* grad_x) {
   Tensor zero_tensor;
   if (has_dynamic_shape(x.shape())) {
-    zero_tensor = backend::full_with_tensor<T>(shape<T>(x), 0.0, x.dtype());
+    zero_tensor =
+        backend::full_with_tensor<T>(shape<T>(x), 0.0, x.dtype(), x.place());
   } else {
     zero_tensor =
         full<T>(common::vectorize(x.dims()), 0.0, x.dtype(), x.place());
@@ -1352,7 +1356,8 @@ void gather_nd_grad(const Tensor& x,
   if (x_grad) {
     Tensor zero_tensor;
     if (has_dynamic_shape(x.shape())) {
-      zero_tensor = backend::full_with_tensor<T>(shape<T>(x), 0.0, x.dtype());
+      zero_tensor =
+          backend::full_with_tensor<T>(shape<T>(x), 0.0, x.dtype(), x.place());
     } else {
       zero_tensor =
           full<T>(common::vectorize(x.dims()), 0.0, x.dtype(), x.place());
@@ -1446,8 +1451,8 @@ void pad_grad(const Tensor& input,
       auto out_shape = shape<T>(out_grad);
       std::vector<Tensor> starts, ends;
       for (size_t i = 0; i < rank; ++i) {
-        starts.push_back(full<T>({1}, paddings[2 * i], out_shape.dtype()),
-                         out_grad.place());
+        starts.push_back(
+            full<T>({1}, paddings[2 * i], out_shape.dtype(), out_grad.place()));
         ends.push_back(get_slice<T>(out_shape, i) - full<T>({1},
                                                             paddings[2 * i + 1],
                                                             out_shape.dtype(),
@@ -1494,7 +1499,7 @@ void max_grad(const Tensor& x,
   if (has_dynamic_shape(x.shape())) {
     const Tensor x_shape = shape<T>(x);
     const Tensor zero_tensor =
-        backend::full_with_tensor<T>(x_shape, 0.0, x.dtype());
+        backend::full_with_tensor<T>(x_shape, 0.0, x.dtype(), x.place());
     const int64_t axis_size = axis.size();
     const int64_t x_dim_size = x.dims().size();
 
@@ -1747,7 +1752,8 @@ void hardswish_grad(const Tensor& x, const Tensor& out_grad, Tensor* x_grad) {
     const Tensor offset = full_scalar<T>(3.0, x.dtype());
     Tensor zero;
     if (has_dynamic_shape(x.shape())) {
-      zero = backend::full_with_tensor<T>(shape<T>(x), 0.0, x.dtype());
+      zero =
+          backend::full_with_tensor<T>(shape<T>(x), 0.0, x.dtype(), x.place());
     } else {
       zero = full<T>(common::vectorize(x.dims()), 0.0, x.dtype(), x.place());
     }
@@ -1805,7 +1811,8 @@ void topk_grad(const Tensor& x,
 
     Tensor zero_tensor;
     if (has_dynamic_shape(x.shape())) {
-      zero_tensor = backend::full_with_tensor<T>(shape<T>(x), 0, x.dtype());
+      zero_tensor =
+          backend::full_with_tensor<T>(shape<T>(x), 0, x.dtype(), x.place());
     } else {
       zero_tensor =
           full<T>(common::vectorize(x.dims()), 0, x.dtype(), x.place());
@@ -2358,8 +2365,8 @@ void where_grad(const Tensor& condition,
                 Tensor* y_grad) {
   Tensor zero;
   if (has_dynamic_shape(out_grad.shape())) {
-    zero =
-        backend::full_with_tensor<T>(shape<T>(out_grad), 0.0, out_grad.dtype());
+    zero = backend::full_with_tensor<T>(
+        shape<T>(out_grad), 0.0, out_grad.dtype(), out_grad.place());
   } else {
     zero = full<T>(common::vectorize(out_grad.dims()),
                    0.0,
@@ -2697,15 +2704,17 @@ void logcumsumexp_grad(const Tensor& x,
         lowest =
             backend::full_with_tensor<T>(out_grad_shape,
                                          std::numeric_limits<float>::lowest(),
-                                         out_grad_dtype);
+                                         out_grad_dtype,
+                                         out_grad.place());
       } else if (out_grad_dtype == DataType::FLOAT64) {
         lowest =
             backend::full_with_tensor<T>(out_grad_shape,
                                          std::numeric_limits<double>::lowest(),
-                                         out_grad_dtype);
+                                         out_grad_dtype,
+                                         out_grad.place());
       }
-      const Tensor zero =
-          backend::full_with_tensor<T>(out_grad_shape, 0.0, out_grad_dtype);
+      const Tensor zero = backend::full_with_tensor<T>(
+          out_grad_shape, 0.0, out_grad_dtype, out_grad.place());
 
       // compute positive
       Tensor out_grad_pos =
@@ -2851,7 +2860,7 @@ void trunc_grad(const Tensor& out_grad, Tensor* x_grad) {
   if (x_grad) {
     if (has_dynamic_shape(out_grad.shape())) {
       zero = backend::full_with_tensor<T>(
-          shape<T>(out_grad), 0.0, out_grad.dtype());
+          shape<T>(out_grad), 0.0, out_grad.dtype(), out_grad.place());
     } else {
       zero = full<T>(out_grad.shape(), 0.0, out_grad.dtype(), out_grad.place());
     }
@@ -2884,8 +2893,8 @@ void kthvalue_grad(const Tensor& x,
     Tensor zero_tensor;
     Tensor x_grad_tmp;
     if (has_dynamic_shape(x_cast.shape())) {
-      zero_tensor =
-          backend::full_with_tensor<T>(shape<T>(x_cast), 0, x_cast.dtype());
+      zero_tensor = backend::full_with_tensor<T>(
+          shape<T>(x_cast), 0, x_cast.dtype(), x_cast.place());
 
       if (keepdim) {
         x_grad_tmp = backend::put_along_axis<T>(
@@ -2938,8 +2947,8 @@ void argsort_grad(const Tensor& indices,
     Tensor zero_tensor;
     auto x_grad_tmp = Tensor();
     if (has_dynamic_shape(x_cast.shape())) {
-      zero_tensor =
-          backend::full_with_tensor<T>(shape<T>(x_cast), 0, x_cast.dtype());
+      zero_tensor = backend::full_with_tensor<T>(
+          shape<T>(x_cast), 0, x_cast.dtype(), x_cast.place());
     } else {
       zero_tensor = full<T>(
           common::vectorize(x_cast.dims()), 0, x_cast.dtype(), x_cast.place());

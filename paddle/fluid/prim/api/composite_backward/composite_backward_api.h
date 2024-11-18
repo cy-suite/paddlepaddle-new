@@ -1982,7 +1982,7 @@ void p_norm_grad(const Tensor& x,
     Tensor x_grad_tmp;
     if (porder == 0.0) {
       // dx = 0
-      x_grad_tmp = full<T>(x.shape(), 0, x.dtype(), x.place(), x.place());
+      x_grad_tmp = full<T>(x.shape(), 0, x.dtype(), x.place());
     } else {
       /* generic case formula:
           dx = {
@@ -2008,8 +2008,8 @@ void p_norm_grad(const Tensor& x,
         // dx = dy * (x / y)
         x_grad_tmp = x / expand_out;
         // fill zero to avoid division by zero
-        auto _zero_tensor = full<T>(
-            common::vectorize(x.dims()), 0.0, x.dtype(), x.place(), x.place());
+        auto _zero_tensor =
+            full<T>(common::vectorize(x.dims()), 0.0, x.dtype(), x.place());
         auto finite_mask = isfinite<T>(x_grad_tmp);
         x_grad_tmp = where<T>(finite_mask, x_grad_tmp, _zero_tensor);
         x_grad_tmp = expand_out_grad * (x_grad_tmp);
