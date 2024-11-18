@@ -1288,7 +1288,17 @@ def bitwise_or(
     return _bitwise_op(
         op_name="bitwise_or", x=x, y=y, name=name, out=out, binary_op=True
     )
+def bitwise_ror(
+    x: Tensor, y: Tensor, out: Tensor | None = None, name: str | None = None
+) -> Tensor:
+    if in_dynamic_or_pir_mode() and out is None:
+        return _C_ops.bitwise_or(
+            x >> y, (x << (x.bit_length() - y)) & ((1 << x.bit_length()) - 1)
+        )
 
+    return _bitwise_op(
+        op_name="bitwise_ror", x=x, y=y, name=name, out=out, binary_op=True
+    )
 
 @inplace_apis_in_dygraph_only
 def bitwise_or_(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
@@ -1303,6 +1313,23 @@ def bitwise_or_(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         )
     if in_dynamic_mode():
         return _C_ops.bitwise_or_(x, y)
+@inplace_apis_in_dygraph_only
+def bitwise_ror_(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
+    r"""
+    Inplace version of ``bitwise_ror`` API, the output Tensor will be inplaced with input ``x``.
+    Please refer to :ref:`api_paddle_bitwise_ror`.
+    """
+    out_shape = broadcast_shape(x.shape, y.shape)
+    if out_shape != x.shape:
+        raise ValueError(
+            f"The shape of broadcast output {out_shape} is different from that of inplace tensor {x.shape} in the Inplace operation."
+        )
+    if in_dynamic_mode():
+        return _C_ops.bitwise_or_(
+            x >> y, (x << (x.bit_length() - y)) & ((1 << x.bit_length()) - 1)
+        )  # Reuse _C_ops.bitwise_or_ as specified
+
+
 
 
 def bitwise_xor(

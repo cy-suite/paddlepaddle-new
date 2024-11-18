@@ -247,6 +247,37 @@ class TestMathOpPatchesPir(unittest.TestCase):
                 np.testing.assert_array_equal(res_np_b, b_np)
                 np.testing.assert_array_equal(res_np_c, c_np)
                 np.testing.assert_array_equal(res_np_d, d_np)
+    def test_bitwise_ror(self):
+        paddle.disable_static()
+        x_np = np.random.randint(-100, 100, [2, 3, 5]).astype("int32")
+        y_np = np.random.randint(0, 32, [2, 3, 5]).astype("int32")
+
+        def np_bitwise_ror(x, y):
+            bit_length = x.shape[-1] * 8
+            return (x >> y) | (x << (bit_length - y)) & ((1 << bit_length) - 1)
+
+        res_np_b = np_bitwise_ror(x_np, y_np)
+        res_np_c = paddle.bitwise_ror(
+            paddle.to_tensor(x_np), paddle.to_tensor(y_np)
+        )
+        res_np_d = np_bitwise_ror(x_np, y_np)
+        paddle.enable_static()
+        with paddle.pir_utils.IrGuard():
+            main_program, exe, program_guard = new_program()
+            with program_guard:
+                x = paddle.static.data(name="x", shape=[2, 3, 5], dtype="int32")
+                y = paddle.static.data(name="y", shape=[2, 3, 5], dtype="int32")
+                b = np_bitwise_ror(x, y)
+                c = x.bitwise_ror(y)
+                d = x.__ror__(y)
+                (b_np, c_np, d_np) = exe.run(
+                    main_program,
+                    feed={"x": x_np, "y": y_np},
+                    fetch_list=[b, c, d],
+                )
+                np.testing.assert_array_equal(res_np_b, b_np)
+                np.testing.assert_array_equal(res_np_c, c_np)
+                np.testing.assert_array_equal(res_np_d, d_np)
 
     def test_bitwise_and(self):
         paddle.disable_static()
