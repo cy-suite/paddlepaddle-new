@@ -1292,9 +1292,7 @@ def bitwise_ror(
     x: Tensor, y: Tensor, out: Tensor | None = None, name: str | None = None
 ) -> Tensor:
     if in_dynamic_or_pir_mode() and out is None:
-        return _C_ops.bitwise_or(
-            x >> y, (x << (x.bit_length() - y)) & ((1 << x.bit_length()) - 1)
-        )
+        return _C_ops.bitwise_or(y,x)
 
     return _bitwise_op(
         op_name="bitwise_ror", x=x, y=y, name=name, out=out, binary_op=True
@@ -1325,9 +1323,7 @@ def bitwise_ror_(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
             f"The shape of broadcast output {out_shape} is different from that of inplace tensor {x.shape} in the Inplace operation."
         )
     if in_dynamic_mode():
-        return _C_ops.bitwise_or_(
-            x >> y, (x << (x.bit_length() - y)) & ((1 << x.bit_length()) - 1)
-        )  # Reuse _C_ops.bitwise_or_ as specified
+        return _C_ops.bitwise_or_(y,x)
 
 
 
