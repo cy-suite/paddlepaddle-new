@@ -421,7 +421,7 @@ class TestTupleShape1(TestTensorShapeBasic):
         self.expected_slice_op_num = 2
 
     def _set_pir_expected_op_num(self):
-        self.pir_expected_op_num = 13
+        self.pir_expected_op_num = 11
         self.pir_expected_shape_op_num = 1
         self.pir_expected_slice_op_num = 2
 
@@ -440,7 +440,7 @@ class TestTupleShape2(TestTensorShapeBasic):
         self.expected_slice_op_num = 1
 
     def _set_pir_expected_op_num(self):
-        self.pir_expected_op_num = 10
+        self.pir_expected_op_num = 9
         self.pir_expected_shape_op_num = 1
         self.pir_expected_slice_op_num = 1
 
@@ -457,7 +457,7 @@ class TestTupleShape3(TestTensorShapeBasic):
         self.expected_slice_op_num = 2
 
     def _set_pir_expected_op_num(self):
-        self.pir_expected_op_num = 13
+        self.pir_expected_op_num = 11
         self.pir_expected_shape_op_num = 1
         self.pir_expected_slice_op_num = 2
 
@@ -474,7 +474,7 @@ class TestPaddleShapeApi(TestTensorShapeBasic):
         self.expected_slice_op_num = 2
 
     def _set_pir_expected_op_num(self):
-        self.pir_expected_op_num = 14
+        self.pir_expected_op_num = 12
         self.pir_expected_shape_op_num = 2
         self.pir_expected_slice_op_num = 2
 
@@ -639,7 +639,7 @@ class TestOpNumBasicWithTensorShape(Dy2StTestBase):
         self.expected_slice_op_num = 1
 
     def _set_pir_expected_op_num(self):
-        self.pir_expected_op_num = 10
+        self.pir_expected_op_num = 9
         self.pir_expected_shape_op_num = 1
         self.pir_expected_slice_op_num = 1
 
@@ -694,7 +694,7 @@ class TestOpNumBasicWithTensorShape4(TestOpNumBasicWithTensorShape):
         self.expected_slice_op_num = 2
 
     def _set_pir_expected_op_num(self):
-        self.pir_expected_op_num = 15
+        self.pir_expected_op_num = 14
         self.pir_expected_shape_op_num = 2
         self.pir_expected_slice_op_num = 2
 
@@ -709,7 +709,7 @@ class TestOpNumWithTensorShapeTuple1(TestOpNumBasicWithTensorShape):
         self.expected_slice_op_num = 1
 
     def _set_pir_expected_op_num(self):
-        self.pir_expected_op_num = 10
+        self.pir_expected_op_num = 9
         self.pir_expected_shape_op_num = 1
         self.pir_expected_slice_op_num = 1
 
@@ -719,12 +719,12 @@ class TestOpNumWithTensorShapeInIf1(TestOpNumBasicWithTensorShape):
         self.dygraph_func = dyfunc_with_if_1
 
     def _set_expected_op_num(self):
-        self.expected_op_num = 31
+        self.expected_op_num = 33
         self.expected_shape_op_num = 4
         self.expected_slice_op_num = 4
 
     def _set_pir_expected_op_num(self):
-        self.pir_expected_op_num = 41
+        self.pir_expected_op_num = 39
         self.pir_expected_shape_op_num = 4
         self.pir_expected_slice_op_num = 4
 
@@ -734,12 +734,12 @@ class TestOpNumWithTensorShapeInFor1(TestOpNumBasicWithTensorShape):
         self.dygraph_func = dyfunc_with_for_1
 
     def _set_expected_op_num(self):
-        self.expected_op_num = 26
+        self.expected_op_num = 23
         self.expected_shape_op_num = 2
         self.expected_slice_op_num = 3
 
     def _set_pir_expected_op_num(self):
-        self.pir_expected_op_num = 35
+        self.pir_expected_op_num = 32
         self.pir_expected_shape_op_num = 2
         self.pir_expected_slice_op_num = 3
 
@@ -749,12 +749,12 @@ class TestOpNumWithTensorShapeInWhile1(TestOpNumBasicWithTensorShape):
         self.dygraph_func = dyfunc_with_while_1
 
     def _set_expected_op_num(self):
-        self.expected_op_num = 20
+        self.expected_op_num = 18
         self.expected_shape_op_num = 3
         self.expected_slice_op_num = 3
 
     def _set_pir_expected_op_num(self):
-        self.pir_expected_op_num = 27
+        self.pir_expected_op_num = 25
         self.pir_expected_shape_op_num = 3
         self.pir_expected_slice_op_num = 3
 
@@ -773,7 +773,7 @@ class TestChangeShapeAfterAssign(TestTensorShapeBasic):
         self.expected_slice_op_num = 1
 
     def _set_pir_expected_op_num(self):
-        self.pir_expected_op_num = 12
+        self.pir_expected_op_num = 11
         self.pir_expected_shape_op_num = 1
         self.pir_expected_slice_op_num = 1
 
