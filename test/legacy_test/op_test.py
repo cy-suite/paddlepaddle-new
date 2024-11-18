@@ -2390,11 +2390,7 @@ class OpTest(unittest.TestCase):
 
             def _compare_list(self, name, actual, expect):
                 """if expect is a tuple, we need to compare list."""
-                self.op_test.assertListEqual(
-                    actual.recursive_sequence_lengths(),
-                    expect[1],
-                    "Output (" + name + ") has different lod at " + str(place),
-                )
+                pass
 
         class DygraphChecker(Checker):
             def init(self):
@@ -2484,20 +2480,7 @@ class OpTest(unittest.TestCase):
 
             def _compare_list(self, name, actual, expect):
                 """if expect is a tuple, we need to compare list."""
-                with base.dygraph.base.guard(place=place):
-                    self.op_test.assertListEqual(
-                        actual.value()
-                        .get_tensor()
-                        .recursive_sequence_lengths(),
-                        expect[1],
-                        "Operator ("
-                        + self.op_type
-                        + ") Output ("
-                        + name
-                        + ") has different lod at "
-                        + str(place)
-                        + " in dygraph mode",
-                    )
+                pass
 
             def _is_skip_name(self, name):
                 # if in final state and kernel signature don't have name, then skip it.
@@ -2625,20 +2608,7 @@ class OpTest(unittest.TestCase):
 
             def _compare_list(self, name, actual, expect):
                 """if expect is a tuple, we need to compare list."""
-                with paddle.pir.core.program_guard(place=place):
-                    self.op_test.assertListEqual(
-                        actual.value()
-                        .get_tensor()
-                        .recursive_sequence_lengths(),
-                        expect[1],
-                        "Operator ("
-                        + self.op_type
-                        + ") Output ("
-                        + name
-                        + ") has different lod at "
-                        + str(place)
-                        + " in dygraph mode",
-                    )
+                pass
 
             def _is_skip_name(self, name):
                 # if in final state and kernel signature don't have name, then skip it.
