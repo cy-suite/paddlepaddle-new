@@ -385,7 +385,7 @@ void RewriteByLayoutImpl<ArgmaxOp>(pir::Operation* op,
   auto axis = concrete_op.axis();
   if (!axis || !(axis.defining_op()->isa<FullOp>())) {
     PADDLE_THROW(common::errors::InvalidArgument(
-        "Argmax's axis must be processed when rewirte by layout."));
+        "Argmax's axis must be processed when rewrite by layout."));
   }
 
   auto axis_op = axis.defining_op()->dyn_cast<FullOp>();
