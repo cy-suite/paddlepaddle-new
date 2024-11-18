@@ -1666,7 +1666,7 @@ def flip(
         name (str|None, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
 
     Returns:
-        Tensor, Tensor or LoDTensor calculated by flip layer. The data type is same with input x.
+        Tensor, Tensor or DenseTensor calculated by flip layer. The data type is same with input x.
 
     Examples:
         .. code-block:: python
@@ -1742,7 +1742,7 @@ def rot90(
             For more information, please refer to :ref:`api_guide_Name` .
 
     Returns:
-        Tensor, Tensor or LoDTensor calculated by rot90 layer. The data type is same with input x.
+        Tensor, Tensor or DenseTensor calculated by rot90 layer. The data type is same with input x.
 
     Examples:
         .. code-block:: python
@@ -6444,11 +6444,6 @@ def take_along_axis(
                     f"Size does not match at dimension {i} expected index {indices.shape} to be smaller than self {arr.shape} apart from dimension {axis}"
                 )
 
-        axis_max_size = arr.shape[axis]
-        if in_dynamic_mode() and not (indices < axis_max_size).all():
-            raise RuntimeError(
-                f"one of element of indices is out of bounds for dimension {axis} with size {axis_max_size}"
-            )
     if in_dynamic_or_pir_mode():
         return _C_ops.take_along_axis(arr, indices, axis)
     else:
