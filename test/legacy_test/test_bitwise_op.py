@@ -238,8 +238,8 @@ class TestBitwiseOrBool(TestBitwiseOr):
 
         self.inputs = {'X': x, 'Y': y}
         self.outputs = {'Out': out}
-# ----------------- TEST OP: BitwiseROr ------------------ #
-class TestBitwiseROr(OpTest):
+# ----------------- TEST OP: BitwiseRor ------------------ #
+class TestBitwiseRor(OpTest):
     def setUp(self):
         self.op_type = "bitwise_ror"
         self.python_api = paddle.tensor.logic.bitwise_ror
@@ -277,23 +277,23 @@ class TestBitwiseROr(OpTest):
         self.high = 100
 
 
-class TestBitwisROr_ZeroDim1(TestBitwiseROr):
+class TestBitwisRor_ZeroDim1(TestBitwiseRor):
     def init_shape(self):
         self.x_shape = []
         self.y_shape = []
 
 
-class TestBitwiseROr_ZeroDim2(TestBitwiseROr):
+class TestBitwiseRor_ZeroDim2(TestBitwiseRor):
     def init_shape(self):
         self.x_shape = [2, 3, 4, 5]
         self.y_shape = []
 
 
-class TestBitwiseROr_ZeroDim3(TestBitwiseROr):
+class TestBitwiseRor_ZeroDim3(TestBitwiseRor):
     def init_shape(self):
         self.x_shape = []
         self.y_shape = [2, 3, 4, 5]
-class TestBitwiseROrUInt8(TestBitwiseROr):
+class TestBitwiseRorUInt8(TestBitwiseRor):
     def init_dtype(self):
         self.dtype = np.uint8
 
@@ -302,7 +302,7 @@ class TestBitwiseROrUInt8(TestBitwiseROr):
         self.high = 100
 
 
-class TestBitwiseROrInt8(TestBitwiseROr):
+class TestBitwiseRorInt8(TestBitwiseRor):
     def init_dtype(self):
         self.dtype = np.int8
 
@@ -311,14 +311,14 @@ class TestBitwiseROrInt8(TestBitwiseROr):
         self.y_shape = [2, 3, 4, 5]
 
 
-class TestBitwiseROrInt16(TestBitwiseROr):
+class TestBitwiseRorInt16(TestBitwiseRor):
     def init_dtype(self):
         self.dtype = np.int16
 
     def init_shape(self):
         self.x_shape = [2, 3, 4, 5]
         self.y_shape = [4, 1]
-class TestBitwiseROrInt64(TestBitwiseROr):
+class TestBitwiseRorInt64(TestBitwiseRor):
     def init_dtype(self):
         self.dtype = np.int64
 
@@ -327,9 +327,9 @@ class TestBitwiseROrInt64(TestBitwiseROr):
         self.y_shape = [2, 3, 4, 5]
 
 
-class TestBitwiseROrBool(TestBitwiseROr):
+class TestBitwiseRorBool(TestBitwiseRor):
     def setUp(self):
-        self.op_type = "bitwise_or"
+        self.op_type = "bitwise_ror"
         self.python_api = paddle.tensor.logic.bitwise_ror
 
         self.init_shape()
@@ -340,7 +340,7 @@ class TestBitwiseROrBool(TestBitwiseROr):
 
         self.inputs = {'X': x, 'Y': y}
         self.outputs = {'Out': out}
-# ----------------- TEST OP: BitwiseROr ------------------ #
+# ----------------- TEST OP: BitwiseRor ------------------ #
 
 
 # ----------------- TEST OP: BitwiseXor ---------------- #
