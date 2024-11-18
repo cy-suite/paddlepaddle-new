@@ -150,7 +150,7 @@ void CodeGenGpuDev::Visit(const ir::_LoweredFunc_ *op) {
 
   auto alloca_temp_buffers = op->PrepareAllocTempBufferExprs();
   auto temp_buffer_alias = GenerateBufferAliasExprs(op, op->temp_bufs);
-  auto alis_var_exprs = op->CudaAliasVarExprs();
+  auto alias_var_exprs = op->CudaAliasVarExprs();
   auto dealloc_temp_buffers =
       FilterDeallocTempBuffers(op->PrepareDeallocTempBufferExprs());
 
@@ -158,7 +158,7 @@ void CodeGenGpuDev::Visit(const ir::_LoweredFunc_ *op) {
   new_body.insert(std::end(new_body), std::begin(field__), std::end(field__));
   APPEND_TO_NEW_BODY(alloca_temp_buffers)
   APPEND_TO_NEW_BODY(temp_buffer_alias)
-  APPEND_TO_NEW_BODY(alis_var_exprs)
+  APPEND_TO_NEW_BODY(alias_var_exprs)
 
   new_body.push_back(op->body);
   APPEND_TO_NEW_BODY(dealloc_temp_buffers);
