@@ -136,7 +136,6 @@
 #include "paddle/pir/include/pass/pass_registry.h"
 
 COMMON_DECLARE_bool(pir_apply_inplace_pass);
-COMMON_DECLARE_bool(enable_pir_api);
 COMMON_DECLARE_bool(enable_auto_layout_pass);
 namespace paddle {
 namespace {
