@@ -52,8 +52,6 @@ monkey_patch_dtype()
 
 from math import e
 
-newaxis: Nane = Nane
-
 __all__.extend(["e"])
 
 from .base.dataset import *  # noqa: F403
