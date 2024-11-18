@@ -1867,46 +1867,49 @@ def dot(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         return out
 
 
-def vecdot(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
+def vecdot(
+    x: Tensor,
+    y: Tensor,
+    axis: int = -1,
+    name: str | None = None,
+) -> Tensor:
     """
-    This operator calculates inner product for vectors.
+    Computes the dot product of two tensors along a specified axis.
 
-    Note:
-       Support 1-d and 2-d Tensor. When it is 2d, the first dimension of this matrix
-       is the batch dimension, which means that the vectors of multiple batches are dotted.
+    This function multiplies two tensors element-wise and sums them along a specified axis to compute their dot product. It supports tensors with a dimensionality of 1-D or 2-D. For 2-D tensors, it treats the first dimension as the batch dimension, allowing the computation of dot products for multiple batch entries simultaneously.
 
     Parameters:
-        x(Tensor): 1-D or 2-D ``Tensor``. Its dtype should be ``float32``, ``float64``, ``int32``, ``int64``, ``complex64``, ``complex128``
-        y(Tensor): 1-D or 2-D ``Tensor``. Its dtype should be ``float32``, ``float64``, ``int32``, ``int64``, ``complex64``, ``complex128``
-        name(str|None, optional): Name of the output. Default is None. It's used to print debug info for developers. Details: :ref:`api_guide_Name`
+        x (Tensor): The first input tensor. It should be a 1-D or 2-D tensor with dtype of float32, float64, int32, int64, complex64, or complex128.
+        y (Tensor): The second input tensor, which must have the same shape and dtype as tensor `x` except possibly at the specified `axis`.
+        axis (int, optional): The axis along which to compute the dot product. Default is -1, which indicates the last axis.
+        name (str|None, optional): An optional name for the operation. Default is None. Useful for debugging.
 
     Returns:
-        Tensor: the calculated result Tensor.
+        Tensor: A tensor containing the dot product of `x` and `y` along the specified axis.
 
     Examples:
 
         .. code-block:: python
 
             >>> import paddle
+            >>> x = paddle.to_tensor([1, 2, 3], dtype='float32')
+            >>> y = paddle.to_tensor([4, 5, 6], dtype='float32')
+            >>> result = paddle.linalg.vecdot(x, y)
+            >>> print(result)
+            Tensor(shape=[], dtype=float32, place=Place(cpu), stop_gradient=True,
+               [32.0])
 
-            >>> # 1-D Tensor * 1-D Tensor
-            >>> x = paddle.to_tensor([1, 2, 3])
-            >>> y = paddle.to_tensor([4, 5, 6])
-            >>> z = paddle.linalg.vecdot(x, y)
-            >>> print(z)
-            Tensor(shape=[], dtype=int64, place=Place(cpu), stop_gradient=True,
-            32)
-
-            >>> # 2-D Tensor * 2-D Tensor
-            >>> x = paddle.to_tensor([[1, 2, 3], [2, 4, 6]])
-            >>> y = paddle.to_tensor([[4, 5, 6], [4, 5, 6]])
-            >>> z = paddle.linalg.vecdot(x, y)
-            >>> print(z)
-            Tensor(shape=[2], dtype=int64, place=Place(cpu), stop_gradient=True,
-            [32, 64])
-
+            >>> x2 = paddle.to_tensor([[1, 2, 3], [4, 5, 6]], dtype='float32')
+            >>> y2 = paddle.to_tensor([[1, 2, 3], [4, 5, 6]], dtype='float32')
+            >>> result2 = paddle.linalg.vecdot(x2, y2, axis=1)
+            >>> print(result2)
+            Tensor(shape=[2], dtype=float32, place=Place(cpu), stop_gradient=True,
+               [14.0, 77.0])
     """
-    return dot(x, y)
+    if x.shape[axis] != y.shape[axis]:
+        raise ValueError("Size of the specified axis must match for both tensors.")
+    out = (x.conj() * y).sum(axis=axis)
+    return out
 
 
 def cov(
