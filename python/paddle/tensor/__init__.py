@@ -863,7 +863,7 @@ tensor_method_func = [
 magic_method_func = [
     ('__and__', 'bitwise_and'),
     ('__or__', 'bitwise_or'),
-    ('__ror__', 'bitwise_ror')
+    ('__ror__', 'bitwise_ror'),
     ('__xor__', 'bitwise_xor'),
     ('__invert__', 'bitwise_not'),
     ('__pos__', 'positive'),
