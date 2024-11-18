@@ -1,4 +1,4 @@
-// Copyright (c) 2023 PaddlePaddle Authors. All Rights Reserved.
+// Copyright (c) 2024 CINN Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/phi/kernels/nop_kernel.h"
-#include "paddle/phi/backends/gpu/gpu_context.h"
-#include "paddle/phi/core/kernel_registry.h"
+#pragma once
 
-#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
-PD_REGISTER_KERNEL(nop,
-                   GPU,
-                   ALL_LAYOUT,
-                   phi::NopKernel,
-                   float,
-                   phi::dtype::bfloat16,
-                   phi::dtype::float16) {}
-#endif
+#include <optional>
+#include <string>
+#include "paddle/cinn/ir/group_schedule/tactic/schedule_tactic.h"
+
+namespace cinn {
+namespace ir {
+
+std::unique_ptr<ScheduleTactic> CreateComputeAtReductionTactic();
+
+}  // namespace ir
+}  // namespace cinn
