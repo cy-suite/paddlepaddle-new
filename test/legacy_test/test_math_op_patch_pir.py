@@ -278,33 +278,6 @@ class TestMathOpPatchesPir(unittest.TestCase):
                 np.testing.assert_array_equal(res_np_c, c_np)
                 np.testing.assert_array_equal(res_np_d, d_np)
 
-def test_bitwise_rand(self):
-    paddle.disable_static()
-    x_np = np.random.randint(-100, 100, [2, 3, 5]).astype("int32")
-    y_np = np.random.randint(-100, 100, [2, 3, 5]).astype("int32")
-    res_np_b = y_np & x_np
-    res_np_c = paddle.bitwise_and(
-        paddle.to_tensor(y_np), paddle.to_tensor(x_np)
-    )
-    res_np_d = y_np.__rand__(x_np)
-    paddle.enable_static()
-    with paddle.pir_utils.IrGuard():
-        main_program, exe, program_guard = new_program()
-        with program_guard:
-            x = paddle.static.data(name="x", shape=[2, 3, 5], dtype="int32")
-            y = paddle.static.data(name="y", shape=[2, 3, 5], dtype="int32")
-            b = y & x
-            c = y.bitwise_and(x)
-            d = y.__rand__(x)
-            (b_np, c_np, d_np) = exe.run(
-                main_program,
-                feed={"x": x_np, "y": y_np},
-                fetch_list=[b, c, d],
-            )
-            np.testing.assert_array_equal(res_np_b, b_np)
-            np.testing.assert_array_equal(res_np_c, c_np)
-            np.testing.assert_array_equal(res_np_d, d_np)
-
     def test_positive(self):
         paddle.disable_static()
         x_np = np.random.random([10, 1024]).astype('float32')
