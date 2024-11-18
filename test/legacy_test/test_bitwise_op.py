@@ -460,5 +460,31 @@ class TestBitwiseInvertApi(unittest.TestCase):
         np.testing.assert_array_equal(x_copy.numpy(), self.expected_out)
 
 
+class TestBitwiseRorApi(unittest.TestCase):
+    def setUp(self):
+        paddle.disable_static()
+
+        self.dtype = np.int64
+        self.shape = [2, 3, 4, 5]
+        self.low = -100
+        self.high = 100
+        self.np_x = np.random.randint(self.low, self.high, self.shape, dtype=self.dtype)
+        self.pp_x = paddle.to_tensor(self.np_x)
+
+    def test_bitwise_ror_int(self):
+        np_y = 4
+        pp_y = 4
+        expected_out = np_y | self.np_x
+        result = pp_y | self.pp_x
+        np.testing.assert_array_equal(result.numpy(), expected_out)
+
+    def test_bitwise_ror_tensor(self):
+        np_y = np.random.randint(self.low, self.high, self.shape, dtype=self.dtype)
+        pp_y = paddle.to_tensor(np_y)
+        expected_out = np_y | self.np_x
+        result = pp_y | self.pp_x
+        np.testing.assert_array_equal(result.numpy(), expected_out)  
+
+
 if __name__ == "__main__":
     unittest.main()
