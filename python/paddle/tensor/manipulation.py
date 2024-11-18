@@ -4348,10 +4348,6 @@ def scatter_nd_add(
            :alt: Example 1 Illustration
            :align: center
         """
-     if x.dtype != updates.dtype:
-    raise TypeError(
-        # Your error handling code
-    )
     if x.dtype != updates.dtype:
         raise TypeError(
             f"x and updates must have same data type but x.dtype={convert_dtype(x.dtype)}, updates.dtype={convert_dtype(updates.dtype)}"
