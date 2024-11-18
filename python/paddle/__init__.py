@@ -49,8 +49,6 @@ monkey_patch_value()
 monkey_patch_program()
 monkey_patch_dtype()
 
-
-
 from .base.dataset import *  # noqa: F403
 from .framework import (
     disable_signal_handler,
@@ -774,7 +772,6 @@ ir_guard = IrGuard()
 ir_guard._switch_to_pir()
 
 from math import e
-
 __all__ = [
     'e',
     'block_diag',
