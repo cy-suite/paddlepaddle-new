@@ -1907,7 +1907,9 @@ def vecdot(
                [14.0, 77.0])
     """
     if x.shape[axis] != y.shape[axis]:
-        raise ValueError("Size of the specified axis must match for both tensors.")
+        raise ValueError(
+            "Size of the specified axis must match for both tensors."
+        )
     out = (x.conj() * y).sum(axis=axis)
     return out
 
