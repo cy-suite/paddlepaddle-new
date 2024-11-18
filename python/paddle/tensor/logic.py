@@ -1290,6 +1290,72 @@ def bitwise_or(
     )
 
 
+def bitwise_ror(
+    x: Tensor, y: int | Tensor, out: Tensor | None = None, name: str | None = None
+) -> Tensor:
+    r"""
+    Apply a right-side bitwise OR operation (``|``) between a Tensor ``x`` and another operand ``y``.
+
+    The method performs a bitwise OR operation between each element of the input Tensor ``x`` 
+    and the operand ``y``. If ``y`` is an integer, it will be converted to a Tensor of the 
+    same data type as ``x`` before the operation. Broadcasting is supported when ``y`` is 
+    a Tensor.
+
+    .. math::
+        Out = Y | X
+
+    Note:
+        - ``paddle.bitwise_ror`` supports broadcasting when ``y`` is a Tensor. 
+          If you want to know more about broadcasting, please refer to 
+          `Introduction to Tensor`_ .
+        - This function is specifically designed to emulate the right-side behavior 
+          of the bitwise OR operator (``|``).
+
+        .. _Introduction to Tensor: ../../guides/beginner/tensor_en.html#chapter5-broadcasting-of-tensor
+
+    Args:
+        x (Tensor): Input Tensor of the right-side bitwise OR operation. 
+                    It is a N-D Tensor with data types bool, uint8, int8, int16, int32, or int64.
+        y (int|Tensor): Operand for the right-side bitwise OR operation. 
+                        It can be an integer or a Tensor of the same data type as ``x``.
+        out (Tensor|None, optional): Result Tensor to store the output. 
+                                      It is a N-D Tensor with the same data type as the input Tensor. Default: None.
+        name (str|None, optional): The default value is None. Normally, there is no need for
+                                   the user to set this property. For more information, please 
+                                   refer to :ref:`api_guide_Name`.
+
+    Returns:
+        Tensor: Result of the right-side bitwise OR operation. It is a N-D Tensor 
+                with the same data type as the input Tensor.
+
+    Raises:
+        TypeError: If ``y`` is not of type int or Tensor.
+
+    Examples:
+        .. code-block:: python
+
+            >>> import paddle
+            >>> x = paddle.to_tensor([-2, -1, 1], dtype='int64')
+            >>> y = 4
+            >>> res = y | x
+            >>> print(res)
+            Tensor(shape=[3], dtype=int64, place=Place(cpu), stop_gradient=True,
+            [-2, -1,  5])
+
+            >>> # Using a Tensor as the second operand
+            >>> y_tensor = paddle.to_tensor([1, 2, 3], dtype='int64')
+            >>> res = y | x
+            >>> print(res)
+            Tensor(shape=[3], dtype=int64, place=Place(cpu), stop_gradient=True,
+            [-1, -1,  3])
+    """
+    if isinstance(y, (int, )):
+        y = paddle.to_tensor(y, dtype=x.dtype)
+    elif not isinstance(y, paddle.Tensor):
+        raise TypeError(f"Unsupported type {type(y)} for __ror__ operation")
+    return bitwise_or(y, x, out=out, name=name)
+
+
 @inplace_apis_in_dygraph_only
 def bitwise_or_(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
     r"""
