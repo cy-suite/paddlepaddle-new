@@ -1055,6 +1055,7 @@ class _ShardOptimizer(Optimizer):
             'dp' in self._shard_fn._mesh.dim_names
         ):
             self._sharding_degree = self._shard_fn._mesh.get_dim_size('dp')
+            self._sharding_mesh_axis = 0
         else:
             param_list = self._inner_opt._parameter_list
             for param in param_list:
@@ -2243,13 +2244,14 @@ class DistModel:
             )
             dist.fleet.init(is_collective=True)
 
-        if isinstance(optimizer, _ShardOptimizer) and use_pir_api():
-            shard_fn = optimizer._shard_fn
-            optimizer = optimizer._inner_opt
-            if isinstance(optimizer._shard_fn, ShardingStage1):
-                optimizer = ShardingOptimizerStage1(
-                    optimizer, shard_fn, self._inner_strategy
-                )
+        if os.environ.get('FLAGS_enable_sharding_stage1_tensor_fusion', False):
+            if isinstance(optimizer, _ShardOptimizer) and use_pir_api():
+                shard_fn = optimizer._shard_fn
+                optimizer = optimizer._inner_opt
+                if isinstance(optimizer._shard_fn, ShardingStage1):
+                    optimizer = ShardingOptimizerStage1(
+                        optimizer, shard_fn, self._inner_strategy
+                    )
 
         self._engine = Engine(
             layer, loss, optimizer, metrics, strategy=self._inner_strategy
