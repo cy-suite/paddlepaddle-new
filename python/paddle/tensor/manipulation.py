@@ -531,8 +531,6 @@ def transpose(
     The `i`-th dimension  of the returned tensor will correspond to the
     perm[i]-th dimension of `input`.
 
-    The image illustrates the second example of the transpose operation.
-
     Args:
         x (Tensor): The input Tensor. It is a N-D Tensor of data types bool, float32, float64, int32.
         perm (list|tuple): Permute the input according to the data of perm.
