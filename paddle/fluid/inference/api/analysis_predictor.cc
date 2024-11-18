@@ -807,7 +807,7 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
                      pass->name()) != this->config_.ir_debug_passes_.end();
   };
 
-  auto AddAutoMixedPrecisionPass = [&](auto &pass_manager) {
+  auto AddAutoMixedPrecisionPass = [&](pir::PassManager &pass_manager) {
     auto auto_mixed_precision_pass = ::pir::CreateAutoMixedPrecisionPass();
     if (std::find(config_.deleted_passes_.begin(),
                   config_.deleted_passes_.end(),
