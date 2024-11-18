@@ -233,28 +233,34 @@ template <typename OpType>
 class AssignCommonOpPattern : public pir::OpRewritePattern<OpType> {
  public:
   using pir::OpRewritePattern<OpType>::OpRewritePattern;
+
   bool MatchAndRewrite(OpType op,
                        pir::PatternRewriter &rewriter) const override {
     if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->template attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+        op->attribute(kCanRunTrtAttr)
+            .template dyn_cast<pir::BoolAttribute>()
+            .data()) {
       return false;
     }
+
     std::vector<int32_t> vec_shape;
-    auto shape_attr = op->template attribute<pir::ArrayAttribute>("shape");
+    auto shape_attr =
+        op->attribute("shape").template dyn_cast<pir::ArrayAttribute>();
     for (const auto &attr : shape_attr.template AsVector()) {
       vec_shape.push_back(attr.template dyn_cast<pir::Int32Attribute>().data());
     }
+
     for (int32_t dim : vec_shape) {
       if (dim == -1) {
-        VLOG(3) << "pd_op.assign_value_ or pd_op.assign_value can not support "
+        VLOG(3) << "pd_op.assign_value_ or pd_op.assign_value cannot support "
                    "dynamic shape";
         return false;
       }
     }
+
     int shape_size = vec_shape.size();
-    std::vector<phi::Scalar> values;
     int values_count =
-        op->template attribute<pir::ArrayAttribute>("values").size();
+        op->attribute("values").template dyn_cast<pir::ArrayAttribute>().size();
     if (shape_size != values_count) {
       VLOG(3)
           << "pd_op.assign_value shape size is not equal to the values size";
