@@ -164,8 +164,7 @@ struct ReshapeAlignInstr : public FusionInstruction {
   std::string result_;
 
   virtual std::string DebugStr() const {
-    return "ReshapeAlignInstr || " + input_ + " => " + result_ +
-           ", dst_shape = (" + cinn::utils::Join(out_shape_, ",") + ")";
+    return "ReshapeAlignInstr || " + input_ + " => " + result_;
   }
 };
 
