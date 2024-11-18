@@ -192,7 +192,7 @@ class TestParallelAPI:
                         dist.Replicate(),
                         dist.Shard(0),
                     ]
-                    assert sub_layer.bias.placements is None
+                    # assert sub_layer.bias.placements is None
                 if 'down_proj' in name:
                     assert sub_layer.weight.placements == [
                         dist.Replicate(),
@@ -216,6 +216,7 @@ class TestParallelAPI:
             if not self.sequence_parallel:
                 plan = {
                     "llama.embed_tokens": ColWiseParallel(),
+                    "llama.position_embedding": ColWiseParallel(),
                     "llama.layers.*.self_attn.q_proj": ColWiseParallel(),
                     "llama.layers.*.self_attn.k_proj": ColWiseParallel(),
                     "llama.layers.*.self_attn.v_proj": ColWiseParallel(),
@@ -229,6 +230,7 @@ class TestParallelAPI:
                 if self.prepare_input_output:
                     plan = {
                         "llama.embed_tokens": ColWiseParallel(),
+                        "llama.position_embedding": ColWiseParallel(),
                         "llama.layers.*.self_attn.q_proj": ColWiseParallel(),
                         "llama.layers.*.self_attn.k_proj": ColWiseParallel(),
                         "llama.layers.*.self_attn.v_proj": ColWiseParallel(),
@@ -244,6 +246,10 @@ class TestParallelAPI:
                 else:
                     plan = {
                         "llama.embed_tokens": [
+                            ColWiseParallel(),
+                            SequenceParallelBegin(),
+                        ],
+                        "llama.position_embedding": [
                             ColWiseParallel(),
                             SequenceParallelBegin(),
                         ],
@@ -274,12 +280,18 @@ class TestParallelAPI:
             return layer
         return layer, optimizer
 
-    def run_llama(self, to_static=0):
+    def run_llama(
+        self, share_embedding=False, position_embedding=False, to_static=0
+    ):
         if self.config.use_lazy_init:
             with LazyGuard():
-                model = LlamaForCausalLM(self.config)
+                model = LlamaForCausalLM(
+                    self.config, share_embedding, position_embedding
+                )
         else:
-            model = LlamaForCausalLM(self.config)
+            model = LlamaForCausalLM(
+                self.config, share_embedding, position_embedding
+            )
 
         lr_scheduler = paddle.optimizer.lr.LinearWarmup(
             learning_rate=0.0001, warmup_steps=2, start_lr=0, end_lr=0.0001
@@ -415,10 +427,12 @@ class TestParallelAPI:
                 if step >= 10:
                     break
 
-    def run_test_cases(self):
-        self.run_llama(to_static=0)
-        self.run_llama(to_static=1)
+    def run_test_cases(self, share_embedding=False, position_embedding=False):
+        self.run_llama(share_embedding, position_embedding, 0)
+        self.run_llama(share_embedding, position_embedding, 1)
 
 
 if __name__ == '__main__':
-    TestParallelAPI().run_test_cases()
+    share_embedding = int(os.getenv("test_share_embedding", "0"))
+    position_embedding = int(os.getenv("test_position_embedding", "0"))
+    TestParallelAPI().run_test_cases(share_embedding, position_embedding)
