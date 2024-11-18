@@ -47,6 +47,7 @@ from .tensor.linalg import (
     svd_lowrank,
     triangular_solve,
     vector_norm,
+    vecdot,
 )
 
 __all__ = [
@@ -55,6 +56,7 @@ __all__ = [
     'norm',
     'matrix_norm',
     'vector_norm',
+    'vecdot',
     'cond',
     'cov',
     'corrcoef',

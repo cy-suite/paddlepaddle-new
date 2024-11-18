@@ -240,6 +240,7 @@ from .tensor.linalg import (  # noqa: F401
     t_,
     transpose,
     transpose_,
+    vecdot,
 )
 from .tensor.logic import (
     allclose,
@@ -1204,4 +1205,5 @@ __all__ = [
     'positive',
     'from_dlpack',
     'to_dlpack',
+    'vecdot',
 ]
