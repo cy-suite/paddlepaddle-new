@@ -8,6 +8,8 @@
 #include "paddle/phi/kernels/funcs/math_function.h"
 #include "paddle/phi/kernels/matmul_kernel.h"
 #include "paddle/phi/kernels/slice_kernel.h"
+#include "paddle/phi/kernels/transpose_kernel.h"
+
 namespace phi {
 
 static DenseTensor Unsqueeze(const DenseTensor& x, int axis = 0) {
