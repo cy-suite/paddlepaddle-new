@@ -113,6 +113,8 @@ from .logic import (  # noqa: F401
     bitwise_not_,
     bitwise_or,
     bitwise_or_,
+    bitwise_ror,
+    bitwise_ror_,
     bitwise_xor,
     bitwise_xor_,
     equal,
@@ -128,8 +130,6 @@ from .logic import (  # noqa: F401
     less_equal,
     less_equal_,
     less_than,
-    less_than as less,
-    less_than as less_,
     less_than_,
     logical_and,
     logical_and_,
@@ -141,7 +141,6 @@ from .logic import (  # noqa: F401
     logical_xor_,
     not_equal,
     not_equal_,
-    positive,
 )
 from .manipulation import (  # noqa: F401
     as_complex,
@@ -221,6 +220,10 @@ from .manipulation import (  # noqa: F401
     vstack,
 )
 from .math import (  # noqa: F401
+    __lshift__,
+    __rlshift__,
+    __rrshift__,
+    __rshift__,
     abs,
     abs_,
     acos,
@@ -366,6 +369,7 @@ from .math import (  # noqa: F401
     outer,
     polygamma,
     polygamma_,
+    positive,
     pow,
     pow_,
     prod,
@@ -631,8 +635,6 @@ tensor_method_func = [
     'less_equal_',
     'less_than',
     'less_than_',
-    'less',
-    'less_',
     'logical_and',
     'logical_and_',
     'logical_not',
@@ -732,6 +734,8 @@ tensor_method_func = [
     'bitwise_and_',
     'bitwise_or',
     'bitwise_or_',
+    'bitwise_ror',
+    'bitwise_ror_',
     'bitwise_xor',
     'bitwise_xor_',
     'bitwise_not',
@@ -859,7 +863,15 @@ tensor_method_func = [
 magic_method_func = [
     ('__and__', 'bitwise_and'),
     ('__or__', 'bitwise_or'),
+    ('__ror__', 'bitwise_ror'),
     ('__xor__', 'bitwise_xor'),
     ('__invert__', 'bitwise_not'),
+<<<<<<< HEAD
+=======
     ('__pos__', 'positive'),
+    ('__lshift__', '__lshift__'),
+    ('__rshift__', '__rshift__'),
+    ('__rlshift__', '__rlshift__'),
+    ('__rrshift__', '__rrshift__'),
+>>>>>>> e7262e8a259e8d0c0186ded439281fb5d9ebf6e2
 ]
