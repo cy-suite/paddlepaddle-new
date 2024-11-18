@@ -25,7 +25,7 @@ void ShapeKernel(const Context& ctx,
                  DenseTensor* out) {
   auto& in_dims = input.dims();
   out->Resize({in_dims.size()});
-  auto out_data = ctx.template HostAlloc<int32_t>(out);
+  auto out_data = ctx.template HostAlloc<int64_t>(out);
   for (int i = 0; i < in_dims.size(); ++i) {
     out_data[i] = in_dims[i];
   }
@@ -48,7 +48,7 @@ PD_REGISTER_KERNEL(shape,
                    phi::dtype::complex<double>) {
   kernel->InputAt(0).SetBackend(phi::Backend::ALL_BACKEND);
   kernel->OutputAt(0).SetBackend(phi::Backend::CPU);
-  kernel->OutputAt(0).SetDataType(phi::DataType::INT32);
+  kernel->OutputAt(0).SetDataType(phi::DataType::INT64);
 }
 
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
@@ -69,7 +69,7 @@ PD_REGISTER_KERNEL(shape,
                    phi::dtype::bfloat16) {
   kernel->InputAt(0).SetBackend(phi::Backend::ALL_BACKEND);
   kernel->OutputAt(0).SetBackend(phi::Backend::CPU);
-  kernel->OutputAt(0).SetDataType(phi::DataType::INT32);
+  kernel->OutputAt(0).SetDataType(phi::DataType::INT64);
 }
 #endif
 
@@ -87,7 +87,7 @@ PD_REGISTER_KERNEL(shape,
                    phi::dtype::bfloat16) {
   kernel->InputAt(0).SetBackend(phi::Backend::ALL_BACKEND);
   kernel->OutputAt(0).SetBackend(phi::Backend::CPU);
-  kernel->OutputAt(0).SetDataType(phi::DataType::INT32);
+  kernel->OutputAt(0).SetDataType(phi::DataType::INT64);
 }
 #endif
 
@@ -109,6 +109,6 @@ PD_REGISTER_KERNEL(shape,
                    phi::dtype::bfloat16) {
   kernel->InputAt(0).SetBackend(phi::Backend::ALL_BACKEND);
   kernel->OutputAt(0).SetBackend(phi::Backend::CPU);
-  kernel->OutputAt(0).SetDataType(phi::DataType::INT32);
+  kernel->OutputAt(0).SetDataType(phi::DataType::INT64);
 }
 #endif
