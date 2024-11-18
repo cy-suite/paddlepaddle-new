@@ -26,7 +26,7 @@ class FORMAT_VALUE_FLAG:
     FVS_HAVE_SPEC = 0x4
 
 
-class CONVERT_VALUE_FLAG(Enum):
+class CONVERT_VALUE_FLAG:
     CV_STR = 1
     CV_REPR = 2
     CV_ASCII = 3

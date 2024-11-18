@@ -1597,7 +1597,7 @@ class OpcodeExecutorBase:
         if isinstance(value, ConstantVariable):
             result = value.get_py_value()
             if convert_fn is not None:
-                result = getattr(result, convert_fn)(result)
+                result = getattr(result, convert_fn)()
 
             if not isinstance(result, str) or fmt_spec != "":
                 result = format(result, fmt_spec)
@@ -1623,7 +1623,7 @@ class OpcodeExecutorBase:
             )
         if isinstance(value, ConstantVariable):
             result = value.get_py_value()
-            result = getattr(result, convert_fn)(result)
+            result = getattr(result, convert_fn)()
             self.stack.push(
                 ConstantVariable(result, self._graph, DummyTracker([value]))
             )
@@ -1634,12 +1634,12 @@ class OpcodeExecutorBase:
 
     def FORMAT_WITH_SPEC(self, instr: Instruction):
         # unlike the former FORMAT_VALUE, the FORMAT_WITH_SPEC opcode has no parameter flag.
-        spec = self.stack.pop()
+        raw_spec = self.stack.pop()
         value = self.stack.pop()
         if isinstance(value, ConstantVariable) and isinstance(
-            spec, ConstantVariable
+            raw_spec, ConstantVariable
         ):
-            spec = spec.get_py_value()
+            spec = raw_spec.get_py_value()
             result = value.get_py_value()
             result = format(result, spec)
             if result is None:
@@ -1647,7 +1647,9 @@ class OpcodeExecutorBase:
                     f"The format operation failed in {instr.opname}"
                 )
             self.stack.push(
-                ConstantVariable(result, self._graph, DummyTracker([value]))
+                ConstantVariable(
+                    result, self._graph, DummyTracker([raw_spec, value])
+                )
             )
         else:
             raise FallbackError(
