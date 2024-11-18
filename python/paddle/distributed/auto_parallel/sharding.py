@@ -380,9 +380,16 @@ class ShardingOptimizerStage1(Optimizer):
             fused_param,
         ) in all_gather_param_info_list:
             if self._strategy.sharding.enable_overlap:
-                opt_op = slice_param_list[-1].all_used_ops()[-1]
+                last_idx = None
+                last_op = None
+                for op in slice_param_list[-1].all_used_ops():
+                    idx = target_block.ops.index(op)
+                    if last_idx is None or idx > last_idx:
+                        last_idx = idx
+                        last_op = op
+
                 # NOTE: add dependency between opt op and allgather_value for correctness
-                tmp = paddle._C_ops.nop(opt_op.results()[0])
+                tmp = paddle._C_ops.nop(last_op.results()[0])
                 tmp.get_defining_op().set_execution_stream(
                     AutoParallelStreamType.SHARDING_STREAM.value
                 )
