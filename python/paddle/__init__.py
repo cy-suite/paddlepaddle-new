@@ -116,6 +116,12 @@ from paddle import (
     vision as vision,
 )
 
+from math import e
+
+newaxis: Nane = Nane
+
+__all__.extend(["e"])
+
 # high-level api
 from . import (
     _pir_ops as _pir_ops,
