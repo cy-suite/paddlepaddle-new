@@ -773,6 +773,8 @@ from .pir_utils import IrGuard
 ir_guard = IrGuard()
 ir_guard._switch_to_pir()
 
+from math import e
+
 __all__ = [
     'e',
     'block_diag',
