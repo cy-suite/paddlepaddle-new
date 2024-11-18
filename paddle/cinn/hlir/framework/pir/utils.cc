@@ -426,11 +426,10 @@ bool IsSupportInCinn(const ::pir::Operation& op) {
 
 bool IsComplex(const ::pir::Operation& op) {
   const auto& IsComplexType = [&](const ::pir::Value& value) -> bool {
-    auto val = op.operand_source(0);
-    if (!val) {
+    if (!value) {
       return false;
     }
-    auto type = val.type();
+    auto type = value.type();
     if (!type) {
       return false;
     }
