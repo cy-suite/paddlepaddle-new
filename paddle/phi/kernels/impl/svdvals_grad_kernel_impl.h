@@ -8,9 +8,8 @@
 #include "paddle/phi/kernels/funcs/math_function.h"
 #include "paddle/phi/kernels/matmul_kernel.h"
 #include "paddle/phi/kernels/slice_kernel.h"
-
 namespace phi {
-  
+
 static DenseTensor Unsqueeze(const DenseTensor& x, int axis = 0) {
   // don't copy data, only change the dims
   DenseTensor out;
@@ -26,7 +25,6 @@ static DenseTensor Unsqueeze(const DenseTensor& x, int axis = 0) {
   out.Resize(common::make_ddim(out_shape));
   return out;
 }
-
 template <typename T, typename Context>
 void SvdvalsGradKernel(const Context& dev_ctx,
                        const DenseTensor& x,
@@ -43,70 +41,70 @@ void SvdvalsGradKernel(const Context& dev_ctx,
   int n = x.dims()[1];
   int k = s.dims()[0];  // k = min(m, n)
 
-  // 1. Allocate memory for U, VT, and working space:
+  DenseTensor x_copy = x;  // Create a copy! Important to avoid const
+                           // correctness issues with LAPACK
+  dev_ctx.template Alloc<T>(&x_copy);
+  Copy(dev_ctx, x, dev_ctx.GetPlace(), false, &x_copy);
+
+  // 1. Allocate memory (using Thin SVD for potential memory optimization):
   DenseTensor u, vt;
-  u.Resize({m, m});   // Full U (adjust if you want a "thin" U)
-  vt.Resize({n, n});  // Full VT (adjust for "thin" VT)
+  u.Resize({m, k});   // Thin U
+  vt.Resize({k, n});  // Thin VT
   dev_ctx.template Alloc<T>(&u);
   dev_ctx.template Alloc<T>(&vt);
 
   DenseTensor work;
-  int lwork = -1;                // Query optimal workspace size
-  std::vector<T> work_query(1);  // Workspace for query
+  int lwork = -1;
+  std::vector<T> work_query(1);
   int info;
-  phi::funcs::lapackSvd<T>(
-      'A',  // All singular vectors (U and VT)
-      m,
-      n,
-      x.data<T>(),
-      m,            // Leading dimension of x
-      s.data<T>(),  // Singular values (already computed in forward)
-      u.data<T>(),
-      m,  // Leading dimension of U
-      vt.data<T>(),
-      n,  // Leading dimension of VT
-      work_query.data(),
-      lwork,
-      nullptr,  // iwork (not needed for float/double)
-      &info);
 
-  lwork = static_cast<int>(work_query[0]);  // Get optimal size
+  DenseTensor temp_s;  // Avoid overwriting input 's'
+  temp_s.Resize({k});
+  dev_ctx.template Alloc<T>(&temp_s);
+
+  phi::funcs::lapackSvd<T>('S',
+                           m,
+                           n,
+                           x_copy.data<T>(),
+                           m,
+                           temp_s.data<T>(),
+                           u.data<T>(),
+                           m,
+                           vt.data<T>(),
+                           n,
+                           work_query.data(),
+                           lwork,
+                           nullptr,
+                           &info);
+
+  lwork = static_cast<int>(work_query[0]);
   work.Resize({lwork});
   dev_ctx.template Alloc<T>(&work);
 
-  // 2. Perform SVD:
-  phi::funcs::lapackSvd<T>(
-      'A',
-      m,
-      n,
-      x.data<T>(),
-      m,
-      s.data<T>(),  // Overwrites singular values (not used here)
-      u.data<T>(),
-      m,
-      vt.data<T>(),
-      n,
-      work.data<T>(),
-      lwork,
-      nullptr,
-      &info);
+  phi::funcs::lapackSvd<T>('S',
+                           m,
+                           n,
+                           x_copy.data<T>(),
+                           m,
+                           temp_s.data<T>(),
+                           u.data<T>(),
+                           m,
+                           vt.data<T>(),
+                           n,
+                           work.data<T>(),
+                           lwork,
+                           nullptr,
+                           &info);
 
   if (info != 0) {
-    // Handle LAPACK error (e.g., throw an exception)
-    PADDLE_THROW(
-        phi::errors::External("Lapack SVD function failed. Info = %d", info));
+    PADDLE_THROW(phi::errors::External("Lapack SVD failed. Info = %d", info));
   }
 
-  DenseTensor v = Transpose<T, Context>(dev_ctx, vt);  // Get V
+  DenseTensor v = Transpose<T, Context>(dev_ctx, vt);  // Get V (n x k)
 
-  // Now you have U and V as DenseTensors (VT has been transposed to V):
   DenseTensor sigma_term = Multiply<T, Context>(dev_ctx, Unsqueeze(gS, -2), u);
-
-  DenseTensor vh =
-      Slice<T, Context>(dev_ctx, v, {v.dims().size() - 2}, {0}, {k});
-
-  sigma_term = Matmul<T, Context>(dev_ctx, sigma_term, vh);
+  sigma_term =
+      Matmul<T, Context>(dev_ctx, sigma_term, v);  // Use v directly (thin SVD)
   *x_grad = sigma_term;
 }
-
 }  // namespace phi
