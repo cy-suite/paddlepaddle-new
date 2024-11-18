@@ -585,8 +585,10 @@ def _set_prim_forward_blacklist(*args):
             prim_config["forward_blacklist"].add(item)
 
 
-def _reset_prim_forward_blacklist():
-    prim_config["forward_blacklist"] = set()
+# Currently, this function is not utilized anywhere in the codebase.
+# It may be intended for future use or could be removed if unnecessary.
+# def _reset_prim_forward_blacklist():
+#     prim_config["forward_blacklist"] = set()
 
 
 def _set_prim_backward_blacklist(*args):
