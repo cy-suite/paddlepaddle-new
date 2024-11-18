@@ -253,7 +253,7 @@ class TestBitwiseROr(OpTest):
         y = np.random.randint(
             self.low, self.high, self.y_shape, dtype=self.dtype
         )
-        out = np.bitwise_ror(y, x)
+        out = np.bitwise_or(y, x)
 
         self.inputs = {'X': x, 'Y': y}
         self.outputs = {'Out': out}
