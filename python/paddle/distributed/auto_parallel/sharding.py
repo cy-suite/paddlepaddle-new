@@ -120,10 +120,7 @@ class ShardingOptimizerStage1(Optimizer):
         self._place = paddle.base.libpaddle.Place()
         self._place.set_place(place)
 
-        sharding_config = fleet.fleet._user_defined_strategy.hybrid_configs[
-            'sharding_configs'
-        ]
-        comm_buffer_size_MB = sharding_config.comm_buffer_size_MB
+        comm_buffer_size_MB = self._strategy.sharding.comm_buffer_size_MB
         parameters_dict = {}
         grads_dict = {}
         has_dist_param = False
@@ -227,7 +224,7 @@ class ShardingOptimizerStage1(Optimizer):
                     // align[dtype]
                 )
                 align_size = align_size * self._sharding_degree
-                if not sharding_config.release_gradients:
+                if not self._strategy.sharding.release_gradients:
                     _, fused_grad = paddle._C_ops.coalesce_tensor_(
                         group_grad_list,
                         dtype,
@@ -280,7 +277,7 @@ class ShardingOptimizerStage1(Optimizer):
                         grad_op = grad.get_defining_op()
                         size = np.prod(grad._local_shape)
                         pir.set_insertion_point(grad_op)
-                        grad_buffer = paddle._C_ops.tensor_slice(
+                        grad_buffer = paddle._C_ops.view_slice(
                             fused_grad, grad_begin, grad_begin + size
                         )
                         grad_buffer = paddle._C_ops.view_shape(
@@ -305,7 +302,7 @@ class ShardingOptimizerStage1(Optimizer):
                 rank = self._sharding_group.ranks.index(dist.get_rank())
                 rank_begin = rank * shard_size
                 rank_end = rank_begin + shard_size
-                view_shard_fused_grad = paddle._C_ops.tensor_slice(
+                view_shard_fused_grad = paddle._C_ops.view_slice(
                     fused_grad, rank_begin, rank_end
                 )
 
@@ -325,7 +322,7 @@ class ShardingOptimizerStage1(Optimizer):
 
                 for slice_param, param_info in slice_param_dict.items():
                     index, param_begin, param_end = param_info
-                    slice_grad = paddle._C_ops.tensor_slice(
+                    slice_grad = paddle._C_ops.view_slice(
                         shard_fused_grad, param_begin, param_end
                     )
                     partail_status = (
@@ -434,7 +431,7 @@ class ShardingOptimizerStage1(Optimizer):
             rank = self._sharding_group.ranks.index(dist.get_rank())
             rank_begin = rank * shard_size
             rank_end = rank_begin + shard_size
-            shard_fused_param = paddle._C_ops.tensor_slice(
+            shard_fused_param = paddle._C_ops.view_slice(
                 fused_param, rank_begin, rank_begin + shard_size
             )
             shard_fused_param.persistable = True
@@ -460,7 +457,7 @@ class ShardingOptimizerStage1(Optimizer):
                 total_buffer_size += padded_size
                 param_end = min(total_buffer_size - rank_begin, shard_size)
                 if param_begin < param_end:
-                    init_slice_param = paddle._C_ops.tensor_slice(
+                    init_slice_param = paddle._C_ops.view_slice(
                         shard_fused_param, param_begin, param_end
                     )
                     init_slice_param.persistable = True
