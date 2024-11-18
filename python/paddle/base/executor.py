@@ -148,7 +148,7 @@ def scope_guard(scope: core._Scope) -> Generator[None, None, None]:
 def as_numpy(tensor, copy=False):
     """
     Convert a Tensor to a numpy.ndarray, its only support Tensor without LoD information.
-    For higher dimensional sequence data, please use LoDTensor directly.
+    For higher dimensional sequence data, please use DenseTensor directly.
 
     Examples:
         .. code-block:: python
@@ -169,11 +169,11 @@ def as_numpy(tensor, copy=False):
     Returns:
         numpy.ndarray
     """
-    if isinstance(tensor, core.LoDTensorArray):
+    if isinstance(tensor, core.DenseTensorArray):
         return [as_numpy(t, copy) for t in tensor]
     if isinstance(tensor, list):
         return [as_numpy(t, copy) for t in tensor]
-    assert isinstance(tensor, core.LoDTensor)
+    assert isinstance(tensor, core.DenseTensor)
     lod = tensor.lod()
     if len(lod) > 0:
         raise RuntimeError(
@@ -718,7 +718,7 @@ def _get_program_cache_key(feed, fetch_list):
 def _as_lodtensor(data, place, dtype=None):
     """
     Convert numpy.ndarray to Tensor, its only support Tensor without LoD information.
-    For higher dimensional sequence data, please use LoDTensor directly.
+    For higher dimensional sequence data, please use DenseTensor directly.
 
     Examples:
 
@@ -762,7 +762,7 @@ def _as_lodtensor(data, place, dtype=None):
             )
 
     # convert numpy.ndarray to tensor
-    tensor = core.LoDTensor()
+    tensor = core.DenseTensor()
     tensor.set(data, place)
     return tensor
 
@@ -1404,7 +1404,7 @@ class Executor:
                 cur_feed = feed[feed_target_name]
                 var = global_block.var(feed_target_name)
                 if var.dtype != core.VarDesc.VarType.STRINGS:
-                    if not isinstance(cur_feed, core.LoDTensor):
+                    if not isinstance(cur_feed, core.DenseTensor):
                         cur_feed = _as_lodtensor(
                             cur_feed, self.place, var.dtype
                         )
@@ -1465,7 +1465,7 @@ class Executor:
                 # and don't need feed data.
                 continue
             cur_feed = feed[feed_target_name]
-            if not isinstance(cur_feed, core.LoDTensor):
+            if not isinstance(cur_feed, core.DenseTensor):
                 cur_feed = _as_lodtensor(cur_feed, self.place, var_type)
             pir_check_feed_shape_type(
                 cur_feed, feed_target_name, var_shape, var_type
@@ -1938,35 +1938,6 @@ class Executor:
 
         fetch_list = self._check_fetch_list(fetch_list)
 
-        from paddle.distributed.auto_parallel.static.utils import (
-            use_new_executor,
-        )
-
-        if (
-            isinstance(program, Program)
-            and program._pipeline_opt
-            and not use_new_executor()
-        ):
-            if "fleet_opt" in program._pipeline_opt:
-                # Move prepare here for port conflict with nccl in startup program
-                if self._fleet_executor is None:
-                    self._fleet_executor = _prepare_fleet_executor()
-                return self._run_using_fleet_executor(
-                    program=program,
-                    feed=feed,
-                    fetch_list=fetch_list,
-                    with_standalone_executor=self._fleet_executor_with_standalone,
-                    return_numpy=return_numpy,
-                )
-            if "startup_program" in program._pipeline_opt:
-                program = program._pipeline_opt["startup_program"]
-            else:
-                return self._run_pipeline(
-                    program,
-                    fetch_list=fetch_list,
-                    use_program_cache=use_program_cache,
-                )
-
         if isinstance(program, Program) and program._heter_pipeline_opt:
             # print("program._heter_pipeline_opt: {}".format(
             #    program._heter_pipeline_opt))
@@ -2130,7 +2101,7 @@ class Executor:
 
                 if (
                     vardesc.persistable() is False
-                    and vardesc.type() == core.VarDesc.VarType.LOD_TENSOR
+                    and vardesc.type() == core.VarDesc.VarType.DENSE_TENSOR
                     and vardesc.need_check_feed() is True
                     and varobj.stop_gradient is True
                     and varobj.is_data is True
@@ -2239,7 +2210,9 @@ class Executor:
             else:
                 tensor._copy_from(cpu_tensor, self.place)
 
-        ret = new_exe.run(list(feed.keys()), return_numpy)
+        ret = new_exe.run(
+            list(feed.keys()), return_numpy, self.enable_job_schedule_profiler
+        )
         return ret
 
     def _run_inference(self, exe, feed):
