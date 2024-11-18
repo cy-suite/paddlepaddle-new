@@ -231,7 +231,7 @@ def set_value_converter(network, paddle_op, inputs):
         vec_tensor[axes] = add_1D_constant_layer(network, axes_vec)
         output_shape_tensor = trt_concat(network, vec_tensor, 0)
         updates = fill_constant_layer(
-            network, output_shape_tensor, len(x.shape), value, np.float32
+            network, output_shape_tensor, len(x.shape), value, x.dtype
         )
 
     _logger.info(f"Set_value_op: input's dimension is {input_dims}")
