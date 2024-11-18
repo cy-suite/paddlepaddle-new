@@ -533,11 +533,6 @@ def transpose(
 
     The image illustrates the second example of the transpose operation.
 
-    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/transpose.png
-        :width: 500
-        :alt: legend of concat API
-        :align: center
-
     Args:
         x (Tensor): The input Tensor. It is a N-D Tensor of data types bool, float32, float64, int32.
         perm (list|tuple): Permute the input according to the data of perm.
