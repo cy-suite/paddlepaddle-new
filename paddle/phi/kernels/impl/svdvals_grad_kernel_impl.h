@@ -10,6 +10,22 @@
 #include "paddle/phi/kernels/slice_kernel.h"
 
 namespace phi {
+  
+static DenseTensor Unsqueeze(const DenseTensor& x, int axis = 0) {
+  // don't copy data, only change the dims
+  DenseTensor out;
+  out.ShareDataWith(x);
+  std::vector<int> out_shape = common::vectorize<int>(x.dims());
+  if (axis >= 0) {
+    auto index = (out_shape.begin() + axis);
+    out_shape.insert(index, 1);
+  } else if (axis < 0) {
+    auto index = (out_shape.end() + axis + 1);
+    out_shape.insert(index, 1);
+  }
+  out.Resize(common::make_ddim(out_shape));
+  return out;
+}
 
 template <typename T, typename Context>
 void SvdvalsGradKernel(const Context& dev_ctx,
