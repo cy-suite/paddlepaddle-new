@@ -248,6 +248,7 @@ std::unordered_set<pir::Value> GetSkipDeletionValues(
                                         .at("output_name")
                                         .dyn_cast<pir::StrAttribute>()
                                         .AsString()) == 0) {
+      skip_dels.insert(op.operand_source(0));
       continue;
     }
     if (op.dialect()->name() != paddle::dialect::KernelDialect::name()) {
