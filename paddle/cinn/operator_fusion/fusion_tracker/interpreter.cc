@@ -159,6 +159,19 @@ void RunItersTransformInstr(const std::shared_ptr<ItersTransformInstr>& instr,
   interpreter->scope[instr->target_] = new_pattern;
 }
 
+void RunReshapeAlignInstr(const std::shared_ptr<ReshapeAlignInstr>& instr,
+                          FusionInterpreter* interpreter) {
+  const auto expr = std::visit(
+      FusibleOp2Expr(), interpreter->scope[instr->input_]->fusion_ops[0])[0];
+  cinn::hlir::framework::pir::trivial_fusion_detail::ReshapeLoop(
+      expr, instr->in_shape_, instr->out_shape_);
+
+  auto new_pattern = std::make_shared<ScopeElement>();
+  new_pattern->fusion_ops.emplace_back(TrivialOp(expr));
+  interpreter->scope[instr->result_] = new_pattern;
+  VLOG(4) << "After ReshapeAlignInstr: \n" << expr;
+}
+
 void RunPaddingInstr(const std::shared_ptr<PaddingInstr>& instr,
                      FusionInterpreter* interpreter) {
   ScopeElementPtr new_pattern = std::make_shared<ScopeElement>();
@@ -228,6 +241,10 @@ std::vector<ir::Expr> FusionInterpreter::Run() {
       case T_ItersTransform:
         RunItersTransformInstr(
             dynamic_cast_instr_with_err<ItersTransformInstr>(instr), this);
+        break;
+      case T_ReshapeAlign:
+        RunReshapeAlignInstr(
+            dynamic_cast_instr_with_err<ReshapeAlignInstr>(instr), this);
         break;
       default:
         PADDLE_THROW(

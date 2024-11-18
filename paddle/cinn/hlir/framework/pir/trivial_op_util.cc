@@ -14,6 +14,7 @@
 
 #include "paddle/cinn/hlir/framework/pir/trivial_op_util.h"
 
+#include "paddle/cinn/common/dim_expr_converter.h"
 #include "paddle/cinn/hlir/dialect/operator/ir/manual_op.h"
 #include "paddle/cinn/hlir/framework/compile_error.h"
 #include "paddle/cinn/hlir/framework/pir/op_lowering_util.h"
@@ -963,6 +964,41 @@ ir::Expr GetBodyBlock(const ir::Expr& root) {
       .GetSingle(root)
       .As<ir::For>()
       ->body;
+}
+
+ir::Expr ReshapeLoop(const ir::Expr& root,
+                     const std::vector<symbol::DimExpr>& in_shape,
+                     const std::vector<symbol::DimExpr>& out_shape) {
+  ir::ModuleExpr mod_expr({root});
+  ir::IRSchedule ir_sch(
+      mod_expr, -1, false, cinn::utils::ErrorMessageLevel::kGeneral, true);
+
+  const auto block_realize =
+      (ExprSetFinderUtils::ChildScheduleBlockRealizes).GetSingle(root);
+  const auto block_name = block_realize.As<ir::ScheduleBlockRealize>()
+                              ->schedule_block.As<ir::ScheduleBlock>()
+                              ->name;
+  const auto shape_partion = fusion::PartionReshapeAxes(in_shape, out_shape);
+
+  for (int i = shape_partion.size() - 1; i > 0; --i) {
+    const auto& in_s = shape_partion[i - 1].first;
+    const auto& in_e = shape_partion[i].first;
+    const auto& out_s = shape_partion[i - 1].second;
+    const auto& out_e = shape_partion[i].second;
+    if (in_e != in_s + 1) {
+      ir_sch.Fuse(block_name, fusion::ArangeVector(in_s, in_e));
+    }
+    if (out_e != out_s + 1) {
+      std::vector<ir::Expr> split_shapes;
+      for (int i = out_s; i < out_e; ++i) {
+        split_shapes.push_back(
+            cinn::common::DimExprConverter().ConvertToIrExpr(out_shape[i]));
+      }
+      ir_sch.Split(ir_sch.GetLoops(block_name)[in_s], split_shapes)[0];
+    }
+  }
+
+  return root;
 }
 
 }  // namespace trivial_fusion_detail
