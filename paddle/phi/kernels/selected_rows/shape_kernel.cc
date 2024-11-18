@@ -47,7 +47,7 @@ PD_REGISTER_KERNEL(shape_sr,
                    phi::dtype::complex<double>) {
   kernel->InputAt(0).SetBackend(phi::Backend::ALL_BACKEND);
   kernel->OutputAt(0).SetBackend(phi::Backend::CPU);
-  kernel->OutputAt(0).SetDataType(phi::DataType::INT32);
+  kernel->OutputAt(0).SetDataType(phi::DataType::INT64);
 }
 
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
@@ -66,7 +66,7 @@ PD_REGISTER_KERNEL(shape_sr,
                    phi::dtype::complex<double>) {
   kernel->InputAt(0).SetBackend(phi::Backend::ALL_BACKEND);
   kernel->OutputAt(0).SetBackend(phi::Backend::CPU);
-  kernel->OutputAt(0).SetDataType(phi::DataType::INT32);
+  kernel->OutputAt(0).SetDataType(phi::DataType::INT64);
 }
 #endif
 
@@ -84,7 +84,7 @@ PD_REGISTER_KERNEL(shape_sr,
                    phi::dtype::bfloat16) {
   kernel->InputAt(0).SetBackend(phi::Backend::ALL_BACKEND);
   kernel->OutputAt(0).SetBackend(phi::Backend::CPU);
-  kernel->OutputAt(0).SetDataType(phi::DataType::INT32);
+  kernel->OutputAt(0).SetDataType(phi::DataType::INT64);
 }
 #endif
 
@@ -104,6 +104,6 @@ PD_REGISTER_KERNEL(shape_sr,
                    phi::dtype::complex<double>) {
   kernel->InputAt(0).SetBackend(phi::Backend::ALL_BACKEND);
   kernel->OutputAt(0).SetBackend(phi::Backend::CPU);
-  kernel->OutputAt(0).SetDataType(phi::DataType::INT32);
+  kernel->OutputAt(0).SetDataType(phi::DataType::INT64);
 }
 #endif
