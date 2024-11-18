@@ -50,9 +50,6 @@ monkey_patch_program()
 monkey_patch_dtype()
 
 
-from math import e
-
-__all__.extend(["e"])
 
 from .base.dataset import *  # noqa: F403
 from .framework import (
@@ -777,6 +774,7 @@ ir_guard = IrGuard()
 ir_guard._switch_to_pir()
 
 __all__ = [
+    'e',
     'block_diag',
     'iinfo',
     'finfo',
