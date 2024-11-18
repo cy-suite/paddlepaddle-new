@@ -532,7 +532,7 @@ def transpose(
     perm[i]-th dimension of `input`.
 
     The image illustrates the second example of the transpose operation.
-    
+
     .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/transpose.png
         :width: 500
         :alt: legend of concat API
