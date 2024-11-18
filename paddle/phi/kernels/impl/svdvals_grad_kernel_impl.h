@@ -1,5 +1,12 @@
 #pragma once
+
 #include "paddle/phi/core/dense_tensor.h"
+#include "paddle/phi/kernels/activation_kernel.h"
+#include "paddle/phi/kernels/diag_kernel.h"
+#include "paddle/phi/kernels/elementwise_multiply_kernel.h"
+#include "paddle/phi/kernels/funcs/math_function.h"
+#include "paddle/phi/kernels/matmul_kernel.h"
+#include "paddle/phi/kernels/slice_kernel.h"
 
 namespace phi {
 
@@ -9,28 +16,24 @@ void SvdvalsGradKernel(const Context& dev_ctx,
                        const DenseTensor& s,
                        const paddle::optional<DenseTensor>& s_grad,
                        DenseTensor* x_grad) {
-  const auto& dX = *x_grad;
-  int m = dX.dims()[dX.dims().size() - 2];
-  int n = dX.dims()[dX.dims().size() - 1];
-  int k = s.dims()[s.dims().size() - 1];
-
-  // Ensure s_grad is provided
-  if (!s_grad.get_ptr()) {
-    phi::errors::InvalidArgument("s_grad must be provided for svdvals_grad");
+  // Check s_grad
+  if (!s_grad.get_ptr() || s_grad.get_ptr()->numel() == 0) {
+    funcs::SetConstant<Context, T>()(dev_ctx, x_grad, T(0.0));
+    x_grad->Resize(x.dims());
+    return;
   }
 
-  const auto& gS = *(s_grad.get_ptr());
-  auto S_diag =
-      Diag<T, Context>(dev_ctx, gS, 0, 0);  // Construct diagonal tensor from gS
-  auto U = DenseTensor();                   // Placeholder for U
-  auto VH = DenseTensor();                  // Placeholder for VH
+  // Gain the rank of s matrix
+  int k = s.dims()[s.dims().size() - 1];
+  const DenseTensor& dS = *(s_grad.get_ptr());
+  // Convert vector to diagnal matrix
+  DenseTensor dX_term = Diag<T, Context>(dev_ctx, dS, 0, 0);
 
-  // Approximate gradient computation for X
-  auto sigma_term =
-      Matmul<T, Context>(dev_ctx, Matmul<T, Context>(dev_ctx, U, S_diag), VH);
+  DenseTensor U, VH, S_recomputed;
+  Svd<T, Context>(dev_ctx, x, &U, &S_recomputed, &VH, /*full_matrices=*/false);
 
-  // Write the result back to x_grad
-  *x_grad = sigma_term;
+  *x_grad =
+      Matmul<T, Context>(dev_ctx, Matmul<T, Context>(dev_ctx, U, dX_term), VH);
 }
 
 }  // namespace phi
