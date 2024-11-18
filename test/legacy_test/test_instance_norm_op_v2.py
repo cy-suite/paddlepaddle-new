@@ -319,6 +319,24 @@ class TestInstanceNormWithNCL(TestInstanceNormFP32OP):
         )
 
 
+class TestInstanceNormWithNC(TestInstanceNormFP32OP):
+    def init_shape(self):
+        self.shape = [4, 100]
+
+    def test_check_output(self):
+        pass
+
+    def test_check_grad(self):
+        self.check_grad(
+            ['X', 'Scale', 'Bias'],
+            'Y',
+            check_pir=True,
+            check_prim_pir=(
+                False if os.getenv("FLAGS_enable_pir_in_executor") else True
+            ),
+        )
+
+
 @unittest.skipIf(
     not core.is_compiled_with_cuda()
     or not core.is_float16_supported(core.CUDAPlace(0)),

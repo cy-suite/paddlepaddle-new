@@ -742,22 +742,25 @@ std::tuple<Tensor, Tensor, Tensor> instance_norm_decomp(
     const paddle::optional<Tensor>& scale,
     const paddle::optional<Tensor>& bias,
     float epsilon) {
+  std::vector<int64_t> axis;
+  auto x_dim = x.shape();
+  for (size_t i = 2; i < x_dim.size(); i++) {
+    axis.push_back(static_cast<int64_t>(i));
+  }
+  bool reduce_axes_empty = axis.empty();
+
   if (has_dynamic_shape(x.shape())) {
     auto org_dtype = x.dtype();
     Tensor x_cast = ConverToMT<T>(x);
 
-    std::vector<int64_t> axis;
-    auto x_dim = x.shape();
-    for (size_t i = 2; i < x_dim.size(); i++) {
-      axis.push_back(static_cast<int64_t>(i));
-    }
-
     // out = (x - mean(x)) / sqrt(var + epsilon))
     // var = mean((x-mean(x))^2)
-    auto mean_ = mean_decomp<T>(x_cast, axis, true);
+    auto mean_ =
+        reduce_axes_empty ? x_cast : mean_decomp<T>(x_cast, axis, true);
     auto difference = x_cast - mean_;
     auto var_tmp1 = difference * difference;
-    auto variance = mean_decomp<T>(var_tmp1, axis, true);
+    auto variance =
+        reduce_axes_empty ? var_tmp1 : mean_decomp<T>(var_tmp1, axis, true);
     auto var_shape = shape<T>(variance);
     auto var_tmp3 = variance + full_scalar<T>(epsilon, variance.dtype());
     auto rsqrt_var = rsqrt<T>(var_tmp3);
@@ -767,14 +770,13 @@ std::tuple<Tensor, Tensor, Tensor> instance_norm_decomp(
     auto x_shape_tensor = shape<T>(x);
     std::vector<Tensor> slice_shape_concat;
 
-    auto shape_1 = full<T>({1}, 1, x_shape_tensor.dtype());
-    auto shape_2 =
-        cast<T>(get_slice<T>(x_shape_tensor, 1), x_shape_tensor.dtype());
-    auto shape_3 = full<T>({dim_size - 2}, 1, x_shape_tensor.dtype());
-
-    slice_shape_concat.push_back(shape_1);
-    slice_shape_concat.push_back(shape_2);
-    slice_shape_concat.push_back(shape_3);
+    slice_shape_concat.push_back(full<T>({1}, 1, x_shape_tensor.dtype()));
+    slice_shape_concat.push_back(
+        cast<T>(get_slice<T>(x_shape_tensor, 1), x_shape_tensor.dtype()));
+    if (dim_size > 2) {
+      slice_shape_concat.push_back(
+          full<T>({dim_size - 2}, 1, x_shape_tensor.dtype()));
+    }
     auto slice_shape_tensor = concat<T>(slice_shape_concat, 0);
 
     Tensor scale_cast;
@@ -802,18 +804,13 @@ std::tuple<Tensor, Tensor, Tensor> instance_norm_decomp(
   auto org_dtype = x.dtype();
   Tensor x_cast = ConverToMT<T>(x);
 
-  std::vector<int64_t> axis;
-  auto x_dim = x.shape();
-  for (size_t i = 2; i < x_dim.size(); i++) {
-    axis.push_back(static_cast<int64_t>(i));
-  }
-
   // out = (x - mean(x)) / sqrt(var + epsilon))
   // var = mean((x-mean(x))^2)
-  auto mean_ = mean_decomp<T>(x_cast, axis, true);
+  auto mean_ = reduce_axes_empty ? x_cast : mean_decomp<T>(x_cast, axis, true);
   auto difference = x_cast - mean_;
   auto var_tmp1 = difference * difference;
-  auto variance = mean_decomp<T>(var_tmp1, axis, true);
+  auto variance =
+      reduce_axes_empty ? var_tmp1 : mean_decomp<T>(var_tmp1, axis, true);
   auto var_tmp3 = variance + epsilon;
   auto rsqrt_var = rsqrt<T>(var_tmp3);
   auto out = difference * rsqrt_var;
