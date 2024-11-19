@@ -1230,6 +1230,11 @@ def bitwise_and(
         op_name="bitwise_and", x=x, y=y, name=name, out=out, binary_op=True
     )
 
+def __rand__(
+    x: Tensor,
+    y: Tensor,
+) -> Tensor:
+    return bitwise_and(x, y, None, None)
 
 @inplace_apis_in_dygraph_only
 def bitwise_and_(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
