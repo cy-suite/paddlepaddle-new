@@ -5611,7 +5611,20 @@ def lgamma(x: Tensor, name: str | None = None) -> Tensor:
         return _C_ops.lgamma(x)
     else:
         check_variable_and_dtype(
-            x, 'x', ['float16', 'float32', 'float64', 'uint16'], 'lgamma'
+            x,
+            'x',
+            [
+                'float16',
+                'float32',
+                'float64',
+                'uint16',
+                'uint8',
+                'int8',
+                'int16',
+                'int32',
+                'int64',
+            ],
+            'lgamma',
         )
         helper = LayerHelper('lgamma', **locals())
         out = helper.create_variable_for_type_inference(x.dtype)

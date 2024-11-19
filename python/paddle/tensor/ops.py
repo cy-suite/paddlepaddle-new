@@ -749,7 +749,7 @@ def reciprocal(x: Tensor, name: str | None = None) -> Tensor:
 
     Args:
         x (Tensor): Input of Reciprocal operator, an N-D Tensor, with data type float32, float64, float16, bfloat16,
-            uint8, int8, int16, int32, int64, complex64 or complex128.
+            uint8, int8, int16, int32, int64.
         name (str|None, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
 
     Returns:
