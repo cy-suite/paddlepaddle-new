@@ -229,16 +229,16 @@ def infer(target, save_dirname=None):
         high = dict_size - 1
         # The range of random integers is [low, high]
         first_word = paddle.randint(
-            low=low, hight=high, shape=shape, dtype=paddle.int64
+            low=low, high=high, shape=shape, dtype=paddle.int64
         )
         second_word = paddle.randint(
-            low=low, hight=high, shape=shape, dtype=paddle.int64
+            low=low, high=high, shape=shape, dtype=paddle.int64
         )
         third_word = paddle.randint(
-            low=low, hight=high, shape=shape, dtype=paddle.int64
+            low=low, high=high, shape=shape, dtype=paddle.int64
         )
         fourth_word = paddle.randint(
-            low=low, hight=high, shape=shape, dtype=paddle.int64
+            low=low, high=high, shape=shape, dtype=paddle.int64
         )
 
         assert feed_target_names[0] == 'firstw'

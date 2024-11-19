@@ -177,7 +177,7 @@ def infer(word_dict, use_cuda, save_dirname=None):
         # Note that recursive_sequence_lengths should be a list of lists.
         # The range of random integers is [low, high]
         tensor_words = paddle.randint(
-            low=0, hight=word_dict_len - 1, shape=[9, 1], dtype=paddle.int64
+            low=0, high=word_dict_len - 1, shape=[9, 1], dtype=paddle.int64
         )
 
         # Construct feed as a dictionary of {feed_target_name: feed_target_data}
