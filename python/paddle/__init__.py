@@ -251,8 +251,6 @@ from .tensor.logic import (
     bitwise_not_,
     bitwise_or,
     bitwise_or_,
-    bitwise_ror,
-    bitwise_ror_,
     bitwise_xor,
     bitwise_xor_,
     equal,

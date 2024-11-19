@@ -104,6 +104,7 @@ from .linalg import (  # noqa: F401
     transpose_,
 )
 from .logic import (  # noqa: F401
+    __ror__,
     allclose,
     bitwise_and,
     bitwise_and_,
@@ -113,8 +114,6 @@ from .logic import (  # noqa: F401
     bitwise_not_,
     bitwise_or,
     bitwise_or_,
-    bitwise_ror,
-    bitwise_ror_,
     bitwise_xor,
     bitwise_xor_,
     equal,
@@ -734,8 +733,6 @@ tensor_method_func = [
     'bitwise_and_',
     'bitwise_or',
     'bitwise_or_',
-    'bitwise_ror',
-    'bitwise_ror_',
     'bitwise_xor',
     'bitwise_xor_',
     'bitwise_not',
@@ -863,7 +860,7 @@ tensor_method_func = [
 magic_method_func = [
     ('__and__', 'bitwise_and'),
     ('__or__', 'bitwise_or'),
-    ('__ror__', 'bitwise_ror'),
+    ('__ror__', '__ror__'),
     ('__xor__', 'bitwise_xor'),
     ('__invert__', 'bitwise_not'),
     ('__pos__', 'positive'),
