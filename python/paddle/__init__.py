@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import typing
+import math
 
 __is_metainfo_generated = False
 try:
@@ -771,9 +772,9 @@ from .pir_utils import IrGuard
 ir_guard = IrGuard()
 ir_guard._switch_to_pir()
 
-from math import inf
-
+# Constants
 newaxis: None = None
+inf = math.inf
 
 __all__ = [
     'block_diag',
