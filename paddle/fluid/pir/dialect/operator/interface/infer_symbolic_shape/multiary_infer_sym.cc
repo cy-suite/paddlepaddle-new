@@ -1747,7 +1747,7 @@ bool FusedAttentionOpInferSymbolicShape(
         symbol::ShapeOrDataDimExprs{
             symbol::TensorShapeOrDataDimExprs(x_shape)});
   } else {
-    // The follwing three code used to set unoptional output value.
+    // The following three code used to set unoptional output value.
     // Now it's result related to the infermeta.
     infer_context->SetSymbolForValueByStaticShape(op->result(0));
     infer_context->SetSymbolForValueByStaticShape(op->result(1));
@@ -1793,7 +1793,7 @@ bool FusedAttentionOpInferSymbolicShape(
                x_shape[1],
                symbol::DimExpr(3) * num_heads * dim_head})});
     } else {
-      // The follwing code used to set unoptional output value.
+      // The following code used to set unoptional output value.
       // Now it's result related to the infermeta.
       infer_context->SetSymbolForValueByStaticShape(op->result(4));
     }
@@ -1817,7 +1817,7 @@ bool FusedAttentionOpInferSymbolicShape(
                                                  num_heads,
                                                  dim_head})});
     } else {
-      // The follwing code used to set unoptional output value.
+      // The following code used to set unoptional output value.
       // Now it's result related to the infermeta.
       infer_context->SetSymbolForValueByStaticShape(op->result(4));
     }
@@ -1867,7 +1867,7 @@ bool FusedAttentionOpInferSymbolicShape(
         symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs(
             {x_shape[0], num_heads, x_shape[1], out_seq_len})});
   } else {
-    // The follwing code used to set unoptional output value.
+    // The following code used to set unoptional output value.
     // Now it's result related to the infermeta.
     infer_context->SetSymbolForValueByStaticShape(op->result(11));
   }
@@ -1882,7 +1882,7 @@ bool FusedAttentionOpInferSymbolicShape(
         symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs(
             {x_shape[0], num_heads, x_shape[1], out_seq_len})});
   } else {
-    // The follwing code used to set unoptional output value.
+    // The following code used to set unoptional output value.
     // Now it's result related to the infermeta.
     infer_context->SetSymbolForValueByStaticShape(op->result(9));
   }
@@ -1914,7 +1914,7 @@ bool FusedAttentionOpInferSymbolicShape(
         symbol::ShapeOrDataDimExprs{
             symbol::TensorShapeOrDataDimExprs(x_shape)});
   } else {
-    // The follwing code used to set unoptional output value.
+    // The following code used to set unoptional output value.
     // Now it's result related to the infermeta.
     infer_context->SetSymbolForValueByStaticShape(op->result(14));
   }
