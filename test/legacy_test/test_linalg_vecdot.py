@@ -53,8 +53,8 @@ class VecDotTestCase(unittest.TestCase):
     def test_dygraph(self):
         for place in self.places:
             paddle.disable_static(place)
-            x_tensor = paddle.to_tensor(self.x, place=place)
-            y_tensor = paddle.to_tensor(self.y, place=place)
+            x_tensor = paddle.to_tensor(self.x, dtype=self.dtype, place=place)
+            y_tensor = paddle.to_tensor(self.y, dtype=self.dtype, place=place)
             result = paddle.vecdot(x_tensor, y_tensor, axis=self.axis)
 
             np.testing.assert_allclose(
