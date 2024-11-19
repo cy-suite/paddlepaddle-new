@@ -354,7 +354,7 @@ class PostTrainingQuantization:
         self._quantized_weight_var_name = set()
         self._quantized_act_var_name = set()
         self._weight_op_pairs = {}
-        # The vars for alog = KL or hist#algo->alog
+        # The vars for along = KL or hist
         self._sampling_act_abs_min_max = {}
         self._sampling_act_histogram = {}
         self._sampling_data = {}
