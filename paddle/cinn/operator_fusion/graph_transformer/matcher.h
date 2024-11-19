@@ -172,7 +172,15 @@ struct RecomputeNodeMatcher {
       if (node->fusion_iters().output_values.size() > 1) {
         return false;
       }
-
+      bool has_combine_fusion =
+          std::any_of(node->fusion_tracker()->instructions_.begin(),
+                      node->fusion_tracker()->instructions_.end(),
+                      [](const FusionInstrPtr& instr) {
+                        return instr->type() == T_Combine;
+                      });
+      if (has_combine_fusion) {
+        return false;
+      }
       for (const auto& op : GetOpsInPattern(node->stmt_pattern())) {
         const auto& op_kind = GetOpPatternKind(op);
         if (op_kind >= hlir::framework::kReduction) {

@@ -568,7 +568,8 @@ ExprTransformer RemoveVarInScheduleBlockRealize(const ir::Var& target_vars,
           i_var.is_var(),
           true,
           ::common::errors::InvalidArgument("RemoveVarInScheduleBlockRealize: "
-                                            "axes.bind rhs is is not a Var."));
+                                            "axis.bind rhs %s is not a Var.",
+                                            i_var));
     }
     // find replace idx
     int target_idx = -1;
@@ -969,36 +970,61 @@ ir::Expr GetBodyBlock(const ir::Expr& root) {
 ir::Expr ReshapeLoop(const ir::Expr& root,
                      const std::vector<symbol::DimExpr>& in_shape,
                      const std::vector<symbol::DimExpr>& out_shape) {
-  ir::ModuleExpr mod_expr({root});
+  auto copied = ir::ir_utils::IRCopy(root);
+
+  ir::ModuleExpr mod_expr({copied});
   ir::IRSchedule ir_sch(
       mod_expr, -1, false, cinn::utils::ErrorMessageLevel::kGeneral, true);
 
   const auto block_realize =
-      (ExprSetFinderUtils::ChildScheduleBlockRealizes).GetSingle(root);
+      (ExprSetFinderUtils::ChildScheduleBlockRealizes).GetSingle(copied);
   const auto block_name = block_realize.As<ir::ScheduleBlockRealize>()
                               ->schedule_block.As<ir::ScheduleBlock>()
                               ->name;
   const auto shape_partion = fusion::PartionReshapeAxes(in_shape, out_shape);
 
-  for (int i = shape_partion.size() - 1; i > 0; --i) {
-    const auto& in_s = shape_partion[i - 1].first;
-    const auto& in_e = shape_partion[i].first;
-    const auto& out_s = shape_partion[i - 1].second;
-    const auto& out_e = shape_partion[i].second;
-    if (in_e != in_s + 1) {
-      ir_sch.Fuse(block_name, fusion::ArangeVector(in_s, in_e));
+  for (int idx = shape_partion.size() - 1; idx > 0; --idx) {
+    const auto& in_s = shape_partion[idx - 1].first;
+    const auto& in_e = shape_partion[idx].first;
+    const auto& out_s = shape_partion[idx - 1].second;
+    const auto& out_e = shape_partion[idx].second;
+
+    std::vector<int> fuse_indices;
+    for (int i = in_s; i < in_e; ++i) {
+      if (in_shape[i] != symbol::DimExpr(1)) {
+        fuse_indices.push_back(i);
+      } else {
+        copied = ExprTransformerUtils::RemoveOneTransformer(i)(copied);
+      }
     }
-    if (out_e != out_s + 1) {
-      std::vector<ir::Expr> split_shapes;
-      for (int i = out_s; i < out_e; ++i) {
+    if (fuse_indices.size() > 1) {
+      ir_sch.Fuse(block_name, fuse_indices);
+    }
+
+    std::vector<ir::Expr> split_shapes;
+    for (int i = out_s; i < out_e; ++i) {
+      if (out_shape[i] != symbol::DimExpr(1)) {
         split_shapes.push_back(
             cinn::common::DimExprConverter().ConvertToIrExpr(out_shape[i]));
       }
+    }
+    if (split_shapes.size() > 1) {
       ir_sch.Split(ir_sch.GetLoops(block_name)[in_s], split_shapes)[0];
     }
   }
 
-  return root;
+  std::vector<int> insert_axis;
+  std::vector<ir::Var> ones_var;
+  for (int i = 0; i < out_shape.size(); ++i) {
+    if (out_shape[i] == symbol::DimExpr(1)) {
+      insert_axis.push_back(i);
+      ones_var.push_back(ir::Var(1, "one_" + std::to_string(ones_var.size())));
+    }
+  }
+  copied = ExprTransformerUtils::InsertForsTransformer(insert_axis,
+                                                       ones_var)(copied);
+
+  return copied;
 }
 
 }  // namespace trivial_fusion_detail
