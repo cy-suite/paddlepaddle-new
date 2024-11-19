@@ -34,4 +34,6 @@ vjp_interface_black_list = [
     'where_grad',
     'bmm_grad',
     'index_put_grad',
+    'gather_nd_grad',
+    'take_along_axis_grad',
 ]

@@ -67,7 +67,7 @@ def tensor_array_to_tensor(
     name: str | None = None,
 ) -> tuple[Tensor, Tensor]:
     r"""
-    This function concatenates or stacks all tensors in the input LoDTensorArray
+    This function concatenates or stacks all tensors in the input DenseTensorArray
     along the axis mentioned and returns that as the output.
 
     For Example:
@@ -1493,13 +1493,13 @@ def concat(
             dtype=helper.input_dtype()
         )
 
-        if input[0].desc.type() == core.VarDesc.VarType.LOD_TENSOR_ARRAY:
+        if input[0].desc.type() == core.VarDesc.VarType.DENSE_TENSOR_ARRAY:
             # NOTE(liym27): Don't remove this if branch!
             # This feature is supported for Dynamic-to-Static, because after transformed, the type of inputs[0]
-            # is LOD_TENSOR_ARRAY in some scenarios. And this feature can be used in static graph mode.
+            # is DENSE_TENSOR_ARRAY in some scenarios. And this feature can be used in static graph mode.
 
             assert len(input) == 1, (
-                "If the elements of 'input' in concat are Variable(LoDTensorArray), "
+                "If the elements of 'input' in concat are Variable(DenseTensorArray), "
                 f"number of the elements must be 1, but received {len(input)}."
             )
             out_index = helper.create_variable_for_type_inference(dtype="int32")
@@ -1666,7 +1666,7 @@ def flip(
         name (str|None, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
 
     Returns:
-        Tensor, Tensor or LoDTensor calculated by flip layer. The data type is same with input x.
+        Tensor, Tensor or DenseTensor calculated by flip layer. The data type is same with input x.
 
     Examples:
         .. code-block:: python
@@ -1742,7 +1742,7 @@ def rot90(
             For more information, please refer to :ref:`api_guide_Name` .
 
     Returns:
-        Tensor, Tensor or LoDTensor calculated by rot90 layer. The data type is same with input x.
+        Tensor, Tensor or DenseTensor calculated by rot90 layer. The data type is same with input x.
 
     Examples:
         .. code-block:: python
@@ -2271,11 +2271,11 @@ def stack(
         return _C_ops.stack(x, axis)
 
     if not isinstance(x, list) and not isinstance(x, tuple):
-        # NOTE:(zhiqiu) Only support Variable as input if the Variable is a LOD_TENSOR_ARRAY create by create_array, array_write, array_read, etc.
+        # NOTE:(zhiqiu) Only support Variable as input if the Variable is a DENSE_TENSOR_ARRAY create by create_array, array_write, array_read, etc.
         # In that case, Variable is array of tensors indeed.
         if (
             isinstance(x, Variable)
-            and x.desc.type() == core.VarDesc.VarType.LOD_TENSOR_ARRAY
+            and x.desc.type() == core.VarDesc.VarType.DENSE_TENSOR_ARRAY
         ) or (
             isinstance(x, paddle.pir.Value) and x.is_dense_tensor_array_type()
         ):
@@ -2293,7 +2293,7 @@ def stack(
     if in_pir_mode():
         if x[0].is_dense_tensor_array_type():
             assert len(x) == 1, (
-                "If the elements of 'x' in stack are Variable(LoDTensorArray), "
+                "If the elements of 'x' in stack are Variable(DenseTensorArray), "
                 f"number of the elements must be 1, but received {len(x)}."
             )
             out, _ = _C_ops.array_to_tensor(x, axis, True)
@@ -2304,9 +2304,9 @@ def stack(
     helper = LayerHelper('stack', **locals())
 
     out = helper.create_variable_for_type_inference(x[0].dtype)
-    if x[0].desc.type() == core.VarDesc.VarType.LOD_TENSOR_ARRAY:
+    if x[0].desc.type() == core.VarDesc.VarType.DENSE_TENSOR_ARRAY:
         assert len(x) == 1, (
-            "If the elements of 'x' in stack are Variable(LoDTensorArray), "
+            "If the elements of 'x' in stack are Variable(DenseTensorArray), "
             f"number of the elements must be 1, but received {len(x)}."
         )
         out_index = helper.create_variable_for_type_inference(dtype="int32")
@@ -6273,6 +6273,12 @@ def masked_fill(
     """
     Fills elements of self tensor with value where mask is True. The shape of mask must be broadcastable with the shape of the underlying tensor.
 
+    The following figure shows an example: consider a 3x3 matrix `x`,where all elements have a value of 1, and a matrix `mask` of the same size, and `value` is 3.
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/masked_fill.png
+       :width: 700
+       :align: center
+
     Args:
         x (Tensor) : The Destination Tensor. Supported data types are float,
             double, int, int64_t,float16 and bfloat16.
@@ -6350,21 +6356,26 @@ def non_negative_axis(arr, axis):
 
 
 def infer_dynamic_broadcast_shape(
-    arr_shape: Tensor, indices_shape: Tensor, axis: int
+    arr_shape: Tensor, arr_shape_dim: int, indices_shape: Tensor, axis: int
 ) -> Tensor:
     """
     Find the broadcast shape for indices when `arr` has a dynamic shape.
 
     Args:
         arr_shape (Tensor): Shape tensor of arr.
+        arr_shape_dim (int): Dimensions of arr.
         indices_shape (Tensor): Shape tensor of indices.
         axis (int): The axis to put 1d slices along.
 
     Returns:
         Tensor: The shape tensor for later broadcasting
     """
-    arr_shape[axis] = indices_shape[axis]
-    return arr_shape
+    new_shapes = [
+        arr_shape[:axis],
+        indices_shape[axis : axis + 1],
+        arr_shape[axis + 1 :],
+    ]
+    return paddle.concat(new_shapes)
 
 
 def infer_broadcast_shape(
@@ -6433,11 +6444,6 @@ def take_along_axis(
                     f"Size does not match at dimension {i} expected index {indices.shape} to be smaller than self {arr.shape} apart from dimension {axis}"
                 )
 
-        axis_max_size = arr.shape[axis]
-        if in_dynamic_mode() and not (indices < axis_max_size).all():
-            raise RuntimeError(
-                f"one of element of indices is out of bounds for dimension {axis} with size {axis_max_size}"
-            )
     if in_dynamic_or_pir_mode():
         return _C_ops.take_along_axis(arr, indices, axis)
     else:
@@ -6566,7 +6572,7 @@ def put_along_axis(
             arr_shape = paddle.shape(arr)
             indices_shape = paddle.shape(indices)
             broadcast_shape = infer_dynamic_broadcast_shape(
-                arr_shape, indices_shape, axis
+                arr_shape, arr.ndim, indices_shape, axis
             )
             values = (
                 paddle.to_tensor(values)
@@ -6901,6 +6907,13 @@ def unflatten(
 ) -> Tensor:
     """
     Expand a certain dimension of the input x Tensor into a desired shape.
+
+    The figure below shows the shape of a [2, 6] Tensor after applying ``unflatten(X, axis=1, shape=(2, 3))``, with data ranging from 0 to 11 in sequence.
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/unflatten.png
+       :width: 500
+       :alt: Illustration of unflatten
+       :align: center
 
     Args:
         x (Tensor) : An N-D Tensor. The data type is float16, float32, float64, int16, int32, int64, bool, uint16.

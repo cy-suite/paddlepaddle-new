@@ -567,6 +567,18 @@ class TestDygraphInplaceRsqrt(TestDygraphInplaceSqrt):
         return var.rsqrt_()
 
 
+class TestDygraphInplaceSquare(TestDygraphInplace):
+    def init_data(self):
+        self.input_var_numpy = np.random.uniform(0, 5, [10, 20, 1])
+        self.dtype = "float32"
+
+    def non_inplace_api_processing(self, var):
+        return var.square()
+
+    def inplace_api_processing(self, var):
+        return var.square_()
+
+
 class TestDygraphInplaceClip(TestDygraphInplace):
     def non_inplace_api_processing(self, var):
         return var.clip(0.6, 1.5)
@@ -1430,6 +1442,14 @@ class TestDygraphInplaceLessThan(TestDygraphInplaceLogicAnd):
         return paddle.less_than(var, self.y)
 
 
+class TestDygraphInplaceLess(TestDygraphInplaceLogicAnd):
+    def inplace_api_processing(self, var):
+        return paddle.less_(var, self.y)
+
+    def non_inplace_api_processing(self, var):
+        return paddle.less(var, self.y)
+
+
 class TestDygraphInplaceLessEqual(TestDygraphInplaceLogicAnd):
     def inplace_api_processing(self, var):
         return paddle.less_equal_(var, self.y)
@@ -1500,7 +1520,7 @@ class TestDygraphInplacBitwiseAnd(TestDygraphInplaceLogicAnd):
             self.inplace_api_processing(broadcast_input)
 
 
-class TestDygraphInplacBitwisOr(TestDygraphInplacBitwiseAnd):
+class TestDygraphInplacBitwiseOr(TestDygraphInplacBitwiseAnd):
     def inplace_api_processing(self, var):
         return paddle.bitwise_or_(var, self.y)
 
@@ -1508,7 +1528,7 @@ class TestDygraphInplacBitwisOr(TestDygraphInplacBitwiseAnd):
         return paddle.bitwise_or(var, self.y)
 
 
-class TestDygraphInplacBitwisXor(TestDygraphInplacBitwiseAnd):
+class TestDygraphInplacBitwiseXor(TestDygraphInplacBitwiseAnd):
     def inplace_api_processing(self, var):
         return paddle.bitwise_xor_(var, self.y)
 
@@ -1516,12 +1536,23 @@ class TestDygraphInplacBitwisXor(TestDygraphInplacBitwiseAnd):
         return paddle.bitwise_xor(var, self.y)
 
 
-class TestDygraphInplacBitwisNot(TestDygraphInplacBitwiseAnd):
+class TestDygraphInplacBitwiseNot(TestDygraphInplacBitwiseAnd):
     def inplace_api_processing(self, var):
         return paddle.bitwise_not_(var)
 
     def non_inplace_api_processing(self, var):
         return paddle.bitwise_not(var)
+
+    def test_broadcast_error(self):
+        pass
+
+
+class TestDygraphInplacBitwiseInvert(TestDygraphInplacBitwiseAnd):
+    def inplace_api_processing(self, var):
+        return paddle.bitwise_invert_(var)
+
+    def non_inplace_api_processing(self, var):
+        return paddle.bitwise_invert(var)
 
     def test_broadcast_error(self):
         pass

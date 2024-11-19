@@ -12,24 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import tempfile
 import unittest
 
 import collective.test_communication_api_base as test_base
 
-os.environ['FLAGS_enable_pir_api'] = '0'
 
-
-class TestTensorParallelAPI(test_base.CommunicationTestDistBase):
+class TestDPMPPPAPI(test_base.CommunicationTestDistBase):
     def setUp(self):
-        super().setUp(num_of_devices=2, timeout=120, nnode=1)
+        super().setUp(num_of_devices=8, timeout=120, nnode=1)
         self._default_envs = {
             "dtype": "float32",
             "seed": "2023",
-            "dp": "1",
+            "dp": "2",
             "mp": "2",
-            "pp": "1",
+            "pp": "2",
             "acc_step": "2",
         }
         self._changeable_envs = {
@@ -38,50 +35,13 @@ class TestTensorParallelAPI(test_base.CommunicationTestDistBase):
             "amp_level": ["O2"],
             "amp_dtype": ["bfloat16"],
             "amp_master_grad": ["true"],
-            "layz_init": ["true", "false"],
+            "use_lazy_init": ["true"],
+            "sequence_parallel": ["true"],
+            "prepare_input_output": ["false"],
+            "sharding_stage": ["0", "1"],
         }
 
-    def test_simple_net_mp2(self):
-        envs_list = test_base.gen_product_envs_list(
-            self._default_envs, self._changeable_envs
-        )
-        for envs in envs_list:
-            ckpt_path = tempfile.TemporaryDirectory()
-            envs["ckpt_path"] = ckpt_path.name
-            self.run_test_case(
-                "parallel_api.py",
-                user_defined_envs=envs,
-            )
-            ckpt_path.cleanup()
-
-
-class TestShardingParallelAPI(test_base.CommunicationTestDistBase):
-    def setUp(self):
-        super().setUp(num_of_devices=2, timeout=120, nnode=1)
-        self._default_envs = {
-            "dtype": "float32",
-            "seed": "2023",
-            "dp": "2",
-            "mp": "1",
-            "pp": "1",
-            "acc_step": "2",
-        }
-        self._changeable_envs = {
-            "backend": ["gpu"],
-            "amp": ["true"],
-            "amp_level": ["O2"],
-            "amp_dtype": [
-                "bfloat16",
-            ],
-            "amp_master_grad": [
-                "False",
-            ],
-            "sharding_stage": [
-                "1",
-            ],
-        }
-
-    def test_simple_net_dp2(self):
+    def test_simple_net_dp2_mp2_pp2(self):
         envs_list = test_base.gen_product_envs_list(
             self._default_envs, self._changeable_envs
         )

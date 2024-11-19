@@ -645,12 +645,24 @@ bool BilinearOpInferSymbolicShape(
   return true;
 }
 
-// bool AssignPosOpInferSymbolicShape(pir::Operation *op,
-//                                    pir::InferSymbolicShapeContext
-//                                    *infer_context) {
-//   // pass
-//   return true;
-// }
+bool AssignPosOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  const auto &eff_num_len_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(2));
+  if (eff_num_len_shape_or_data.data()
+          .has_value()) {  // accoding to the kernel code
+    infer_context->SetShapeOrDataForValue(
+        op->result(0),
+        symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs(
+            {eff_num_len_shape_or_data.data()->at(0)})});
+  } else {
+    infer_context->SetShapeOrDataForValue(
+        op->result(0),
+        symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs(
+            {infer_context->GetNextSymName()})});
+  }
+  return true;
+}
 
 bool BroadcastTensorsOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
@@ -2918,13 +2930,14 @@ bool RoiPoolOpInferSymbolicShape(
           "The input data should be a four-dimensional tensor with [N,C,H,W], "
           "but received input data with %d dimension",
           x_shape.size()));
-  PADDLE_ENFORCE_EQ(rois_shape.size(),
-                    2,
-                    common::errors::InvalidArgument(
-                        "rois should be a 2-D LoDTensor with shape (num_rois, "
-                        "4) given as [[x1, y1, x2, y2], ...], but received "
-                        "rois is %d-dimensional LoDTensor",
-                        rois_shape.size()));
+  PADDLE_ENFORCE_EQ(
+      rois_shape.size(),
+      2,
+      common::errors::InvalidArgument(
+          "rois should be a 2-D DenseTensor with shape (num_rois, "
+          "4) given as [[x1, y1, x2, y2], ...], but received "
+          "rois is %d-dimensional DenseTensor",
+          rois_shape.size()));
   const auto &four = symbol::DimExpr(4);
   infer_context->AddEqualCstr(rois_shape[1], four);
 
@@ -3368,11 +3381,12 @@ bool PsroiPoolOpInferSymbolicShape(
       input_dims.size(),
       4,
       common::errors::InvalidArgument("The format of input tensor is NCHW"));
-  PADDLE_ENFORCE_EQ(rois_dims.size(),
-                    2,
-                    common::errors::InvalidArgument(
-                        "ROIs should be a 2-D LoDTensor of shape (num_rois, 4) "
-                        "given as [(x1, y1, x2, y2), ...]"));
+  PADDLE_ENFORCE_EQ(
+      rois_dims.size(),
+      2,
+      common::errors::InvalidArgument(
+          "ROIs should be a 2-D DenseTensor of shape (num_rois, 4) "
+          "given as [(x1, y1, x2, y2), ...]"));
   infer_context->AddEqualCstr(rois_dims[1], symbol::DimExpr(4));
   if (op->operand_source(2)) {
     auto &rois_num_shape_or_data =
@@ -3637,11 +3651,117 @@ bool RmsNormOpInferSymbolicShape(
   return true;
 }
 
-// bool RnnOpInferSymbolicShape(pir::Operation *op,
-//                              pir::InferSymbolicShapeContext *infer_context) {
-//   // pass
-//   return true;
-// }
+bool RnnOpInferSymbolicShape(pir::Operation *op,
+                             pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0));
+  const auto &pre_state_shape_or_data_list =
+      infer_context->GetShapeOrDataForValue(op->operand_source(1))
+          .dyn_cast<symbol::TensorListShapeOrDataDimExprs>();
+  const auto &sequence_length_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(3));
+
+  const std::string &mode = op->attribute<pir::StrAttribute>("mode").AsString();
+  const bool &is_bidirec =
+      op->attribute<pir::BoolAttribute>("is_bidirec").data();
+  const int &hidden_size =
+      op->attribute<pir::Int32Attribute>("hidden_size").data();
+
+  const auto &x_shape = x_shape_or_data.shape();
+  PADDLE_ENFORCE_EQ(x_shape.size(),
+                    3,
+                    common::errors::InvalidArgument(
+                        "The rank of Input in RNN  must be 3. But "
+                        "received Input's rank is %d.",
+                        x_shape.size()));
+
+  if (!sequence_length_shape_or_data.isa<symbol::NullShapeOrDataDimExpr>()) {
+    const auto &sequence_length_shape = sequence_length_shape_or_data.shape();
+    infer_context->AddEqualCstr(x_shape[1], sequence_length_shape[0]);
+  }
+
+  PADDLE_ENFORCE_EQ(pre_state_shape_or_data_list[0].shape().size(),
+                    3,
+                    common::errors::InvalidArgument(
+                        "The rank of PreState in RNN  must be 3. But "
+                        "the received rank is %d.",
+                        pre_state_shape_or_data_list[0].shape().size()));
+  for (size_t i = 0; i < 3; ++i) {
+    details::BuildCstrEqForTensorListAlongAxis(
+        infer_context, pre_state_shape_or_data_list, i);
+  }
+  size_t i = 0;
+  for (; i < pre_state_shape_or_data_list.size(); ++i) {
+    infer_context->AddEqualCstr(x_shape[1],
+                                pre_state_shape_or_data_list[i].shape()[1]);
+  }
+  size_t num_state = mode == "LSTM" ? 2 : 1;
+  PADDLE_ENFORCE_EQ(i,
+                    num_state,
+                    common::errors::InvalidArgument(
+                        "The number of tensors in PreState of %s should be %d, "
+                        "but received %d.",
+                        mode,
+                        2,
+                        i));
+  std::vector<symbol::DimExpr> out_shape = x_shape;
+  out_shape[2] = is_bidirec
+                     ? symbol::DimExpr(static_cast<int64_t>(hidden_size) * 2)
+                     : symbol::DimExpr(static_cast<int64_t>(hidden_size));
+  infer_context->SetShapeOrDataForValue(
+      op->result(0),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(out_shape)});
+
+  size_t state_num = pre_state_shape_or_data_list.size();
+  symbol::TensorListShapeOrDataDimExprs state_shape_or_data_list;
+  for (size_t i = 0; i < state_num; ++i) {
+    state_shape_or_data_list.emplace_back(
+        pre_state_shape_or_data_list[i].shape());
+  }
+  infer_context->SetShapeOrDataForValue(
+      op->result(2), symbol::ShapeOrDataDimExprs{state_shape_or_data_list});
+
+  int gate_num = 4;
+  if (mode == "RNN_RELU" || mode == "RNN_TANH") {
+    gate_num = 1;
+  } else if (mode == "GRU") {
+    gate_num = 3;
+  }
+  const int &num_layers =
+      op->attribute<pir::Int32Attribute>("num_layers").data();
+
+  int hidden_date_idx = num_layers - 1;
+  if (mode == "LSTM") {
+    hidden_date_idx += (gate_num + 2) * num_layers;
+  } else if (mode == "GRU") {
+    hidden_date_idx += (gate_num + 1) * num_layers;
+  } else {
+    hidden_date_idx += gate_num * num_layers;
+  }
+  symbol::DimExpr block_size =
+      symbol::DimExpr(static_cast<int64_t>(num_state)) * x_shape[0] *
+      x_shape[1] * symbol::DimExpr(hidden_size);
+  std::vector<symbol::DimExpr> reserve_shape = {symbol::DimExpr(hidden_size),
+                                                block_size};
+  infer_context->SetShapeOrDataForValue(
+      op->result(3),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(reserve_shape)});
+
+  symbol::DimExpr dropout_state_shape = infer_context->GetNextSymName();
+
+  infer_context->SetShapeOrDataForValue(
+      op->result(1),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs({dropout_state_shape})});
+  return true;
+}
+
+bool Rnn_OpInferSymbolicShape(pir::Operation *op,
+                              pir::InferSymbolicShapeContext *infer_context) {
+  return RnnOpInferSymbolicShape(op, infer_context);
+}
 
 // bool RoiPoolOpInferSymbolicShape(pir::Operation *op,
 //                                  pir::InferSymbolicShapeContext
