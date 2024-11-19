@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import operator
+import sys
 import types
 from functools import cached_property, reduce
 from typing import TYPE_CHECKING, Any
@@ -708,15 +709,19 @@ def get_symbolic_from_meta(meta: MetaInfo) -> SymbolicValue:
         value = SymbolicBool()
     elif meta.dtype in [
         paddle.int8,
+        paddle.uint8,
         paddle.int16,
         paddle.int32,
         paddle.int64,
     ]:
         value = SymbolicInt()
     elif meta.dtype in [
+        paddle.bfloat16,
         paddle.float16,
         paddle.float32,
         paddle.float64,
+        paddle.float8_e4m3fn,
+        paddle.float8_e5m2,
     ]:
         value = SymbolicFloat()
     else:
@@ -1205,6 +1210,9 @@ class NullVariable(VariableBase):
         return func(*args[1:], **kwargs)
 
     def reconstruct(self, codegen: PyCodeGen):
+        if sys.version_info >= (3, 13):
+            codegen.gen_push_null()
+            return
         codegen.gen_load_null_variable()
 
 
