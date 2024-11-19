@@ -175,6 +175,12 @@ class InstructionBase {
   // if scope is not null, also show dimensions of arguments
   virtual std::string DebugStringEx(const paddle::framework::Scope* scope,
                                     ValueExecutionInfo* value_exe_info) const;
+  int GetNeedRecordStreamForGCState() const {
+    return need_record_stream_for_gc_;
+  }
+  void SetNeedRecordStreamForGCState(int state) {
+    need_record_stream_for_gc_ = state;
+  }
 
  protected:
   size_t id_;
@@ -224,6 +230,8 @@ class InstructionBase {
   std::unordered_map<::pir::Value, std::vector<int>> output_index_;
 
   std::unordered_set<::pir::Value> no_need_buffer_values_;
+
+  int need_record_stream_for_gc_{0};  // 0:not init, 1:need record, 2:not need
 };
 
 }  // namespace framework

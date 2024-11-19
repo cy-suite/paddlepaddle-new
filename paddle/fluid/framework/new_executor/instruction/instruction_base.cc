@@ -217,10 +217,9 @@ const phi::DeviceContext& InstructionBase::DeviceContext() const {
 }
 
 void InstructionBase::RecordEvent(const Place& place) const {
-  phi::RecordEvent record(
-      "RecordStreamEvent", phi::TracerEventType::UserDefined, 10);
   if (event_to_record_) {
-    VLOG(6) << "Record event at instruction: " << id_;
+    phi::RecordEvent record(
+        "RecordStreamEvent", phi::TracerEventType::UserDefined, 10);
     event_to_record_->event_->Record(dev_ctx_);
   }
 }

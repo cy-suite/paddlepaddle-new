@@ -1149,12 +1149,18 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
   PADDLE_THROW(common::errors::Unimplemented(
       "RecordStreamForGC is only implemented when compiled with GPU."));
 #else
+  if (instr->GetNeedRecordStreamForGCState() > 1) {
+    return;
+  }
+
   if (!IsInterpretercoreFastGCEnabled() ||
       instr->KernelType() != OpFuncType::kGpuAsync) {
+    instr->SetNeedRecordStreamForGCState(2);
     return;
   }
   if (instr->DeviceContext().GetPlace().GetType() ==
       phi::AllocationType::CUSTOM) {
+    instr->SetNeedRecordStreamForGCState(2);
     return;
   }
   phi::RecordEvent record(
@@ -1193,6 +1199,9 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
 
     const phi::Place& place = allocation->place();
     if (phi::is_gpu_place(place)) {
+      if () {
+        instr->SetNeedRecordStreamForGCState(1);
+      }
       memory::RecordStream(allocation, stream);
     } else if (phi::is_cuda_pinned_place(place)) {
       // TODO(Ruibiao): Here should do something to make sure that the tensor
