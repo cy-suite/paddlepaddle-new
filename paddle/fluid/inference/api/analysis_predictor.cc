@@ -992,7 +992,10 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
   ::pir::PassManager basic_pass_pm(::pir::IrContext::Instance(),
                                    config_.pm_opt_level_);
   if (config_.enable_gpu_mixed_) {
-    AddAutoMixedPrecisionPass(basic_pass_pm);
+    if (!config_.cinn_enabled()) {
+      AddAutoMixedPrecisionPass(basic_pass_pm);
+    }
+
     auto transfer_layout_pass = ::pir::CreateTransferLayoutPass();
     if (std::find(config_.deleted_passes_.begin(),
                   config_.deleted_passes_.end(),
