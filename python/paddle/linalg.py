@@ -46,8 +46,8 @@ from .tensor.linalg import (
     svd,
     svd_lowrank,
     triangular_solve,
-    vector_norm,
     vecdot,
+    vector_norm,
 )
 
 __all__ = [
@@ -55,8 +55,8 @@ __all__ = [
     'cholesky_inverse',
     'norm',
     'matrix_norm',
-    'vector_norm',
     'vecdot',
+    'vector_norm',
     'cond',
     'cov',
     'corrcoef',
