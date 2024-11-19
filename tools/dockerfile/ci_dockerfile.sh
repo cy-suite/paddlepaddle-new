@@ -44,7 +44,7 @@ function make_cpu_dockerfile(){
     ./configure --with-openssl --with-curl --prefix=/usr/local \&\& \
     make -j8 \&\& make install " ${dockerfile_name}
   sed -i 's#<install_cpu_package>#RUN apt-get install -y gcc g++ make#g' ${dockerfile_name}
-  sed -i 's#RUN bash /build_scripts/install_gcc.sh gcc121#RUN add-apt-repository ppa:ubuntu-toolchain-r/test \&\& apt-get update \&\& apt-get install gcc-13 g++-13#g' ${dockerfile_name}
+  sed -i 's#RUN bash /build_scripts/install_gcc.sh gcc121#RUN add-apt-repository ppa:ubuntu-toolchain-r/test \&\& apt-get update \&\& apt-get install -y gcc-13 g++-13#g' ${dockerfile_name}
   sed -i 's#/usr/local/gcc-12.1/bin/gcc#/usr/bin/gcc-13#g' ${dockerfile_name}
   sed -i 's#/usr/local/gcc-12.1/bin/g++#/usr/bin/g++-13#g' ${dockerfile_name}
   sed -i 's#ENV PATH=/usr/local/gcc-12.1/bin:$PATH##g' ${dockerfile_name}
