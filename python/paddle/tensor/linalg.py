@@ -1878,7 +1878,7 @@ def vecdot(
 
     This function multiplies two tensors element-wise and sums them along a specified axis to compute their dot product. It supports tensors with a dimensionality of 1-D or 2-D. For 2-D tensors, it treats the first dimension as the batch dimension, allowing the computation of dot products for multiple batch entries simultaneously.
 
-    Parameters:
+    Args:
         x (Tensor): The first input tensor. It should be a 1-D or 2-D tensor with dtype of float32, float64, int32, int64, complex64, or complex128.
         y (Tensor): The second input tensor, which must have the same shape and dtype as tensor `x` except possibly at the specified `axis`.
         axis (int, optional): The axis along which to compute the dot product. Default is -1, which indicates the last axis.
