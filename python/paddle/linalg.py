@@ -45,6 +45,7 @@ from .tensor.linalg import (
     solve,
     svd,
     svd_lowrank,
+    svdvals,
     triangular_solve,
     vector_norm,
 )
@@ -65,6 +66,7 @@ __all__ = [
     'matrix_rank',
     'matrix_transpose',
     'svd',
+    'svdvals',
     'qr',
     'householder_product',
     'pca_lowrank',
