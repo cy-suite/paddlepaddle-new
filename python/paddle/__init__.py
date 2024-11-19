@@ -767,11 +767,13 @@ if __is_metainfo_generated and is_compiled_with_cuda():
 disable_static()
 
 from .pir_utils import IrGuard
+from math import pi
 
 ir_guard = IrGuard()
 ir_guard._switch_to_pir()
 
 __all__ = [
+    'pi',
     'block_diag',
     'iinfo',
     'finfo',
