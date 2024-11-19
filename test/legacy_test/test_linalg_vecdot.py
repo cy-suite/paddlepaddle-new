@@ -134,7 +134,9 @@ class VecDotTestCaseComplex(unittest.TestCase):
         y = paddle.to_tensor([[9 + 1j, 8 + 2j], [7 + 3j, 6 + 4j]], dtype="complex64")
         result = paddle.vecdot(x, y, axis=-1)
         expected = np.sum((x.numpy().conj() * y.numpy()), axis=-1)
-        np.testing.assert_allclose(result.numpy(), expected, rtol=1e-5, atol=1e-5)
+        np.testing.assert_allclose(
+            result.numpy(), expected, rtol=1e-5, atol=1e-5
+        )
 
     def run_test_static(self):
         paddle.enable_static()
@@ -175,7 +177,9 @@ class VecDotTestCaseTypePromotion1(unittest.TestCase):
         result = paddle.vecdot(x, y, axis=-1)
 
         expected = np.sum(x.numpy().astype("float64") * y.numpy(), axis=-1)
-        np.testing.assert_allclose(result.numpy(), expected, rtol=1e-6, atol=1e-6)
+        np.testing.assert_allclose(
+            result.numpy(), expected, rtol=1e-6, atol=1e-6
+        )
 
 
 class VecDotTestCaseTypePromotion2(unittest.TestCase):
@@ -186,7 +190,9 @@ class VecDotTestCaseTypePromotion2(unittest.TestCase):
         result = paddle.vecdot(x, y, axis=-1)
 
         expected = np.sum(x.numpy().astype("complex64") * y.numpy(), axis=-1)
-        np.testing.assert_allclose(result.numpy(), expected, rtol=1e-5, atol=1e-5)
+        np.testing.assert_allclose(
+            result.numpy(), expected, rtol=1e-5, atol=1e-5
+        )
 
 
 class VecDotTestCaseBroadcast0DTensor(unittest.TestCase):
@@ -197,7 +203,9 @@ class VecDotTestCaseBroadcast0DTensor(unittest.TestCase):
         result = paddle.vecdot(x, y)
 
         expected = x.numpy() * y.numpy()
-        np.testing.assert_allclose(result.numpy(), expected, rtol=1e-6, atol=1e-6)
+        np.testing.assert_allclose(
+            result.numpy(), expected, rtol=1e-6, atol=1e-6
+        )
 
 
 class VecDotTestCaseBroadcast1DTensor(unittest.TestCase):
@@ -208,18 +216,24 @@ class VecDotTestCaseBroadcast1DTensor(unittest.TestCase):
         result = paddle.vecdot(x, y)
 
         expected = np.dot(x.numpy(), y.numpy())
-        np.testing.assert_allclose(result.numpy(), expected, rtol=1e-6, atol=1e-6)
+        np.testing.assert_allclose(
+            result.numpy(), expected, rtol=1e-6, atol=1e-6
+        )
 
 
 class VecDotTestCaseBroadcast1DNDTensor(unittest.TestCase):
     def test_1d_nd_tensor_broadcast(self):
         paddle.disable_static()
         x = paddle.to_tensor([1.0, 2.0], dtype="float32")
-        y = paddle.to_tensor([[3.0, 4.0], [5.0, 6.0]], dtype="float32")
+        y = paddle.to_tensor(
+            [[3.0, 4.0], [5.0, 6.0]], dtype="float32"
+        )
         result = paddle.vecdot(x, y, axis=-1)
 
         expected = np.sum(x.numpy() * y.numpy(), axis=-1)
-        np.testing.assert_allclose(result.numpy(), expected, rtol=1e-6, atol=1e-6)
+        np.testing.assert_allclose(
+            result.numpy(), expected, rtol=1e-6, atol=1e-6
+        )
 
 
 class VecDotTestCaseBroadcastNDTensor(unittest.TestCase):
@@ -230,7 +244,9 @@ class VecDotTestCaseBroadcastNDTensor(unittest.TestCase):
         result = paddle.vecdot(x, y, axis=-1)
 
         expected = np.sum(x.numpy() * y.numpy(), axis=-1)
-        np.testing.assert_allclose(result.numpy(), expected, rtol=1e-6, atol=1e-6)
+        np.testing.assert_allclose(
+            result.numpy(), expected, rtol=1e-6, atol=1e-6
+        )
 
 
 if __name__ == '__main__':
