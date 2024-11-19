@@ -2215,27 +2215,27 @@ bool TriangularSolveOpInferSymbolicShape(
 
 bool CholeskySolveOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
-  const auto &x_shape_or_data =
-      infer_context->GetShapeOrDataForValue(op->operand_source(1));
-  const std::vector<symbol::DimExpr> &x_shape = x_shape_or_data.shape();
-  const auto &y_shape_or_data =
+  const auto &b_shape_or_data =
       infer_context->GetShapeOrDataForValue(op->operand_source(0));
-  const std::vector<symbol::DimExpr> &y_shape = y_shape_or_data.shape();
+  const auto &a_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(1));
 
-  const auto &x_rank = x_shape.size();
-  const auto &y_rank = y_shape.size();
+  const std::vector<symbol::DimExpr> &a_shape = a_shape_or_data.shape();
+  const std::vector<symbol::DimExpr> &b_shape = b_shape_or_data.shape();
+  const auto &a_rank = a_shape.size();
+  const auto &b_rank = b_shape.size();
 
-  infer_context->AddEqualCstr(x_shape[x_rank - 2], x_shape[x_rank - 1]);
+  infer_context->AddEqualCstr(a_shape[a_rank - 2], a_shape[a_rank - 1]);
 
-  std::vector<symbol::DimExpr> x_shape_cut(x_shape.begin(), x_shape.end() - 2);
-  std::vector<symbol::DimExpr> y_shape_cut(y_shape.begin(), y_shape.end() - 2);
+  std::vector<symbol::DimExpr> a_shape_cut(a_shape.begin(), a_shape.end() - 2);
+  std::vector<symbol::DimExpr> b_shape_cut(b_shape.begin(), b_shape.end() - 2);
 
   std::vector<symbol::DimExpr> expand_batch_portion =
-      MatrixGetBroadcastBatchPortion(x_shape_cut, y_shape_cut, infer_context);
+      MatrixGetBroadcastBatchPortion(a_shape_cut, b_shape_cut, infer_context);
 
   std::vector<symbol::DimExpr> output_shape({expand_batch_portion});
   output_shape.insert(output_shape.end(),
-                      {y_shape[y_rank - 2], y_shape[y_rank - 1]});
+                      {b_shape[b_rank - 2], b_shape[b_rank - 1]});
 
   infer_context->SetShapeOrDataForValue(
       op->result(0),
