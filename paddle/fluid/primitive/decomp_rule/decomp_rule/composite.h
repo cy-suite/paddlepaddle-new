@@ -1408,12 +1408,12 @@ Tensor swish_decomp(const Tensor& x) {
 template <typename T>
 Tensor allclose_decomp(const Tensor& x,
                        const Tensor& y,
-                       const float rtol,
-                       const float atol,
+                       const paddle::Scalar& rtol,
+                       const paddle::Scalar& atol,
                        const bool equal_nan) {
   Tensor diff = abs<T>(x - y);
-  Tensor rtol_tensor = full_scalar<T>(rtol, x.dtype());
-  Tensor atol_tensor = full_scalar<T>(atol, x.dtype());
+  Tensor rtol_tensor = full_scalar<T>(rtol, rtol.dtype());
+  Tensor atol_tensor = full_scalar<T>(atol, atol.dtype());
   Tensor rtol_diff = rtol_tensor * abs<T>(y);
   Tensor tol_diff = atol_tensor + rtol_diff;
   Tensor res = less_equal<T>(diff, tol_diff);
@@ -1429,12 +1429,12 @@ Tensor allclose_decomp(const Tensor& x,
 template <typename T>
 Tensor isclose_decomp(const Tensor& x,
                       const Tensor& y,
-                      const float rtol,
-                      const float atol,
+                      const paddle::Scalar& rtol,
+                      const paddle::Scalar& atol,
                       const bool equal_nan) {
   Tensor diff = abs<T>(x - y);
-  Tensor rtol_tensor = full_scalar<T>(rtol, x.dtype());
-  Tensor atol_tensor = full_scalar<T>(atol, x.dtype());
+  Tensor rtol_tensor = full_scalar<T>(rtol, rtol.dtype());
+  Tensor atol_tensor = full_scalar<T>(atol, atol.dtype());
   Tensor rtol_diff = rtol_tensor * abs<T>(y);
   Tensor tol_diff = atol_tensor + rtol_diff;
   Tensor res = less_equal<T>(diff, tol_diff);
