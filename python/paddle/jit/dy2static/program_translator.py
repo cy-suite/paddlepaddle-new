@@ -115,6 +115,12 @@ def show_op_callstack(op):
                 f"You must find the location of the strided ops be called, and call paddle.assign() before inplace input. "
                 f"If you certainly make sure it's safe, you can set env stride_in_no_check_dy2st_diff to 1."
             )
+    raise ValueError(
+        f"Sorry about what's happened. In to_static mode, {op.name()}'s output variable is a viewed Tensor in dygraph. "
+        f"This will result in inconsistent calculation behavior between dynamic and static graphs. "
+        f"You must find the location of the strided ops be called, and call paddle.assign() before inplace input. "
+        f"If you certainly make sure it's safe, you can set env stride_in_no_check_dy2st_diff to 1."
+    )
 
 
 def check_view_api_used_by_inplace(program: paddle.pir.Program) -> None:
