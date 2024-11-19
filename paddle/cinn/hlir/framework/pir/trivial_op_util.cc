@@ -951,6 +951,10 @@ std::vector<ir::Var> GetAllLoopVars(const ir::Expr& root) {
 
 ir::Expr GetBodyBlock(const ir::Expr& root) {
   const auto& iters = GetNonReduceLoopVars(root);
+  if (iters.empty()) {
+    return ir::Block::Make(
+        {ExprSetFinderUtils::ChildScheduleBlockRealizes.GetSingle(root)});
+  }
   const size_t reduce_size =
       std::count_if(iters.begin(), iters.end(), [](const ir::Var& v) {
         return v->is_reduce_axis;
