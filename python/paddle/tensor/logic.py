@@ -1247,29 +1247,32 @@ def bitwise_and_(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
 
 def bitwise_or(
-    x: Tensor, y: Tensor, out: Tensor | None = None, name: str | None = None
+    x: Tensor,
+    y: Tensor | int | bool,
+    out: Tensor | None = None,
+    name: str | None = None,
 ) -> Tensor:
     r"""
 
-    Apply ``bitwise_or`` on Tensor ``X`` and ``Y`` .
+    Apply ``bitwise_or`` on Tensor ``x`` and ``y``.
 
     .. math::
         Out = X | Y
 
     Note:
-        ``paddle.bitwise_or`` supports broadcasting. If you want know more about broadcasting, please refer to please refer to `Introduction to Tensor`_ .
+        ``paddle.bitwise_or`` supports broadcasting. If you want to know more about broadcasting, please refer to `Introduction to Tensor`_.
 
         .. _Introduction to Tensor: ../../guides/beginner/tensor_en.html#chapter5-broadcasting-of-tensor
 
     Args:
-        x (Tensor): Input Tensor of ``bitwise_or`` . It is a N-D Tensor of bool, uint8, int8, int16, int32, int64.
-        y (Tensor): Input Tensor of ``bitwise_or`` . It is a N-D Tensor of bool, uint8, int8, int16, int32, int64.
-        out (Tensor|None, optional): Result of ``bitwise_or`` . It is a N-D Tensor with the same data type of input Tensor. Default: None.
-        name (str|None, optional): The default value is None.  Normally there is no need for
-            user to set this property.  For more information, please refer to :ref:`api_guide_Name`.
+        x (Tensor): Input Tensor of ``bitwise_or``. It is an N-D Tensor of bool, uint8, int8, int16, int32, int64.
+        y (Tensor|int|bool): Input Tensor, scalar integer, or boolean of ``bitwise_or``. It can be an N-D Tensor, an integer value, or a boolean value of bool, uint8, int8, int16, int32, int64.
+        out (Tensor|None, optional): Result of ``bitwise_or``. It is an N-D Tensor with the same data type as the input Tensor. Default: None.
+        name (str|None, optional): The default value is None. Normally, there is no need for
+            users to set this property. For more information, please refer to :ref:`api_guide_Name`.
 
     Returns:
-        Tensor: Result of ``bitwise_or`` . It is a N-D Tensor with the same data type of input Tensor.
+        Tensor: Result of ``bitwise_or``. It is an N-D Tensor with the same data type as the input Tensor.
 
     Examples:
         .. code-block:: python
@@ -1281,7 +1284,28 @@ def bitwise_or(
             >>> print(res)
             Tensor(shape=[3], dtype=int64, place=Place(cpu), stop_gradient=True,
             [-1, -1, -3])
+
+            >>> # Example with an integer input
+            >>> x = paddle.to_tensor([1, 2, 3])
+            >>> y = 4
+            >>> res = paddle.bitwise_or(x, y)
+            >>> print(res)
+            Tensor(shape=[3], dtype=int64, place=Place(cpu), stop_gradient=True,
+            [5, 6, 7])
+
+            >>> # Example with a boolean input
+            >>> x = paddle.to_tensor([True, False, True])
+            >>> y = False
+            >>> res = paddle.bitwise_or(x, y)
+            >>> print(res)
+            Tensor(shape=[3], dtype=bool, place=Place(cpu), stop_gradient=True,
+            [True, False, True])
     """
+    if isinstance(y, (int, bool)):
+        y = paddle.to_tensor(y, dtype=x.dtype)
+    elif not isinstance(y, (paddle.Tensor, paddle.base.libpaddle.pir.Value)):
+        raise TypeError(f"Unsupported type {type(y)} for __or__ operation")
+
     if in_dynamic_or_pir_mode() and out is None:
         return _C_ops.bitwise_or(x, y)
 
@@ -1290,12 +1314,36 @@ def bitwise_or(
     )
 
 
-@inplace_apis_in_dygraph_only
-def bitwise_or_(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
+def bitwise_ror(
+    x: Tensor,
+    y: Tensor | int | bool,
+    out: Tensor | None = None,
+    name: str | None = None,
+) -> Tensor:
     r"""
-    Inplace version of ``bitwise_or`` API, the output Tensor will be inplaced with input ``x``.
+    Reverse version of ``bitwise_or`` API, the output Tensor will be inplaced with input ``x``.
     Please refer to :ref:`api_paddle_bitwise_or`.
     """
+    if isinstance(y, (int, bool)):
+        y = paddle.to_tensor(y, dtype=x.dtype)
+    elif not isinstance(y, (paddle.Tensor, paddle.base.libpaddle.pir.Value)):
+        raise TypeError(f"Unsupported type {type(y)} for __or__ operation")
+    return bitwise_or(y, x, out=out, name=name)
+
+
+@inplace_apis_in_dygraph_only
+def bitwise_or_(
+    x: Tensor, y: Tensor | int | bool, name: str | None = None
+) -> Tensor:
+    r"""
+    Inplace version of ``bitwise_or`` API, it will be toggled by the case that input ``x`` is .
+    Please refer to :ref:`api_paddle_bitwise_or`.
+    """
+    if isinstance(y, (int, bool)):
+        y = paddle.to_tensor(y, dtype=x.dtype)
+    elif not isinstance(y, (paddle.Tensor, paddle.base.libpaddle.pir.Value)):
+        raise TypeError(f"Unsupported type {type(y)} for __or__ operation")
+
     out_shape = broadcast_shape(x.shape, y.shape)
     if out_shape != x.shape:
         raise ValueError(

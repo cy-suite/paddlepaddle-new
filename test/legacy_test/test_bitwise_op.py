@@ -460,5 +460,91 @@ class TestBitwiseInvertApi(unittest.TestCase):
         np.testing.assert_array_equal(x_copy.numpy(), self.expected_out)
 
 
+class TestBitwiseRorApi(unittest.TestCase):
+    def setUp(self):
+        paddle.disable_static()
+
+        self.dtype = np.int64
+        self.shape = [2, 3, 4, 5]
+        self.low = -100
+        self.high = 100
+        self.np_x = np.random.randint(
+            self.low, self.high, self.shape, dtype=self.dtype
+        )
+        self.pp_x = paddle.to_tensor(self.np_x)
+
+    def test_bitwise_or_python_int(self):
+        np_y = 4
+        expected_out = np_y | self.np_x
+        result = np_y | self.pp_x
+        np.testing.assert_array_equal(result.numpy(), expected_out)
+
+    def test_bitwise_or_python_bool(self):
+        np_y = True
+        expected_out = np_y | self.np_x
+        result = np_y | self.pp_x
+        np.testing.assert_array_equal(result.numpy(), expected_out)
+
+    def test_bitwise_or_python_float_error(self):
+        np_y = 3.5  # float should raise an error
+        with self.assertRaises(TypeError):
+            _ = np_y | self.pp_x
+
+    def test_bitwise_or_tensor_zero_dim(self):
+        np_y = np.random.randint(self.low, self.high, dtype=self.dtype)
+        pp_y = paddle.to_tensor(np_y)
+        expected_out = np_y | self.np_x
+        result = pp_y | self.pp_x
+        np.testing.assert_array_equal(result.numpy(), expected_out)
+
+    def test_bitwise_or_tensor_int8(self):
+        np_y = np.random.randint(self.low, self.high, self.shape, dtype=np.int8)
+        pp_y = paddle.to_tensor(np_y, dtype='int8')
+        expected_out = np_y | self.np_x.astype(np.int8)
+        result = pp_y | self.pp_x.astype('int8')
+        np.testing.assert_array_equal(result.numpy(), expected_out)
+
+    def test_bitwise_or_tensor_int16(self):
+        np_y = np.random.randint(
+            self.low, self.high, self.shape, dtype=np.int16
+        )
+        pp_y = paddle.to_tensor(np_y, dtype='int16')
+        expected_out = np_y | self.np_x.astype(np.int16)
+        result = pp_y | self.pp_x.astype('int16')
+        np.testing.assert_array_equal(result.numpy(), expected_out)
+
+    def test_bitwise_or_tensor_int32(self):
+        np_y = np.random.randint(
+            self.low, self.high, self.shape, dtype=np.int32
+        )
+        pp_y = paddle.to_tensor(np_y, dtype='int32')
+        expected_out = np_y | self.np_x.astype(np.int32)
+        result = pp_y | self.pp_x.astype('int32')
+        np.testing.assert_array_equal(result.numpy(), expected_out)
+
+    def test_bitwise_or_tensor_int64(self):
+        np_y = np.random.randint(
+            self.low, self.high, self.shape, dtype=np.int64
+        )
+        pp_y = paddle.to_tensor(np_y, dtype='int64')
+        expected_out = np_y | self.np_x
+        result = pp_y | self.pp_x
+        np.testing.assert_array_equal(result.numpy(), expected_out)
+
+    def test_bitwise_or_tensor_uint8(self):
+        np_y = np.random.randint(0, 255, self.shape, dtype=np.uint8)
+        pp_y = paddle.to_tensor(np_y, dtype='uint8')
+        expected_out = np_y | self.np_x.astype(np.uint8)
+        result = pp_y | self.pp_x.astype('uint8')
+        np.testing.assert_array_equal(result.numpy(), expected_out)
+
+    def test_bitwise_or_tensor_bool(self):
+        np_y = np.random.choice([True, False], size=self.shape)
+        pp_y = paddle.to_tensor(np_y, dtype='bool')
+        expected_out = np_y | self.np_x.astype(bool)
+        result = pp_y | self.pp_x.astype('bool')
+        np.testing.assert_array_equal(result.numpy(), expected_out)
+
+
 if __name__ == "__main__":
     unittest.main()
