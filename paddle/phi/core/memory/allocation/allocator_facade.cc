@@ -522,8 +522,8 @@ class AllocatorFacadePrivate {
     }
   }
 
-  bool_constant RecordStream(std::shared_ptr<phi::Allocation> allocation,
-                             gpuStream_t stream) {
+  bool RecordStream(std::shared_ptr<phi::Allocation> allocation,
+                    gpuStream_t stream) {
     if (auto stream_safe_cuda_allocation =
             std::dynamic_pointer_cast<StreamSafeCUDAAllocation>(allocation)) {
       return stream_safe_cuda_allocation->RecordStream(stream);
