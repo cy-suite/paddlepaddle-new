@@ -1348,7 +1348,6 @@ def bitwise_or(
         y = paddle.to_tensor(y, dtype=x.dtype)
     elif not isinstance(y, (paddle.Tensor, paddle.base.libpaddle.pir.Value)):
         raise TypeError(f"Unsupported type {type(y)} for __or__ operation")
-
     if in_dynamic_or_pir_mode() and out is None:
         return _C_ops.bitwise_or(x, y)
 
@@ -1386,7 +1385,6 @@ def bitwise_or_(
         y = paddle.to_tensor(y, dtype=x.dtype)
     elif not isinstance(y, (paddle.Tensor, paddle.base.libpaddle.pir.Value)):
         raise TypeError(f"Unsupported type {type(y)} for __or__ operation")
-
     out_shape = broadcast_shape(x.shape, y.shape)
     if out_shape != x.shape:
         raise ValueError(
