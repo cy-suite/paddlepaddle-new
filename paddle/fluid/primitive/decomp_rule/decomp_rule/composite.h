@@ -383,15 +383,15 @@ Tensor stack_decomp(const std::vector<Tensor>& x, const int& axis) {
         shapes.push_back(get_slice<T>(temp_shape, j));
       } else {
         shapes.push_back(
-            full<T>({1}, combined_shape[j], temp_shape.type(), x.place()));
+            full<T>({1}, combined_shape[j], temp_shape.type(), x[0].place()));
       }
     }
     if (axis < 0) {
       shapes.insert(shapes.begin() + (axis + rank + 1),
-                    full<T>({1}, 1, temp_shape.type(), x.place()));
+                    full<T>({1}, 1, temp_shape.type(), x[0].place()));
     } else {
       shapes.insert(shapes.begin() + axis,
-                    full<T>({1}, 1, temp_shape.type(), x.place()));
+                    full<T>({1}, 1, temp_shape.type(), x[0].place()));
     }
 
     Tensor out_shape = concat<T>(shapes);
@@ -479,7 +479,7 @@ std::vector<Tensor> meshgrid_decomp(const std::vector<Tensor>& x) {
     for (int64_t i = 0; i < rank; i++) {
       if (tar_shape[i] == 1) {
         tmp_shape.push_back(
-            full<T>({1}, tar_shape[i], DataType::INT32, x.place()));
+            full<T>({1}, tar_shape[i], DataType::INT32, x[0].place()));
       } else {
         tmp_shape.push_back(shape<T>(x[i]));
       }
@@ -1278,7 +1278,7 @@ Tensor log_loss_decomp(const Tensor& input,
                        const Tensor& label,
                        float epsilon) {
   Tensor ones = full_scalar<T>(1.0, input.dtype(), input.place());
-  Tensor eps = full_scalar<T>(epsilon, input.place());
+  Tensor eps = full_scalar<T>(epsilon, input.dtype(), input.place());
   Tensor term1 = -label * log<T>(input + eps);
   Tensor term2 = (ones - label) * log<T>(ones - input + eps);
   return term1 - term2;
