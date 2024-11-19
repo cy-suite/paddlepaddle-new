@@ -2214,13 +2214,6 @@ def stack(
        :alt: Legend 1
        :align: center
 
-    The image below demonstrates the following case: three 2-dimensional tensors with shape [2, 2] are stacked in the dimension of axis=1 to form a 3-dimensional tensors with shape [2, 3, 2].
-
-    .. figure:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/stack/stack-1.png
-       :width: 1000
-       :alt: Legend 2
-       :align: center
-
     Args:
         x (list[Tensor]|tuple[Tensor]): Input ``x`` can be a ``list`` or ``tuple`` of tensors, the Tensors in ``x``
                                      must be of the same shape and dtype. Supported data types: float32, float64, int32, int64.
