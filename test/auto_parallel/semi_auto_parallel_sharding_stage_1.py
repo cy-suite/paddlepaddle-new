@@ -75,7 +75,7 @@ class TestSemiAutoParallelShardingStage1:
         # shard optimizer with stage 1 fn
         opt = paddle.optimizer.AdamW(parameters=linear.parameters())
         opt = dist.shard_optimizer(
-            opt, dist.ShardingStage1(shard_mesh_dim="dp")
+            opt, dist.ShardingStage1(sharding_mesh_dim="dp")
         )
         for _ in range(5):
             loss = linear(batch)
