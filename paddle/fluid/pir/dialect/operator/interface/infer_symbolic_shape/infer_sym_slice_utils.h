@@ -289,6 +289,10 @@ inline ExprVec GetStridesSliceDims(
             (starts.at(i).Get<int64_t>() > in_dims.at(axis).Get<int64_t>())
                 ? in_dims.at(axis)
                 : starts.at(i);
+        starts.at(i) =
+            (starts.at(i).Get<int64_t>() < -in_dims.at(axis).Get<int64_t>())
+                ? symbol::DimExpr({-1}) * in_dims.at(axis)
+                : starts.at(i);
       }
       start_i = starts.at(i).Get<int64_t>();
     }
@@ -313,6 +317,8 @@ inline ExprVec GetStridesSliceDims(
     bool start_negative_end_positive = start_i <= 0 && end_i >= 0;
     bool start_positive_end_negative = start_i >= 0 && end_i <= 0;
 
+    ends.at(i) = ends.at(i) + (stride_i > 0 ? -1 : 1);
+
     if (both_negative_or_positive) {
       continue;
     } else if (start_negative_end_positive) {
@@ -334,12 +340,12 @@ inline ExprVec GetStridesSliceDims(
 
   for (size_t i = 0; i < axes.size(); ++i) {
     int64_t axis = axes[i];
-    auto out_dim = (ends[i] - starts[i] + strides[i] - 1) / strides[i];
+    auto out_dim = (ends[i] - starts[i] + strides[i]) / strides[i];
 
     if (!out_dim.isa<int64_t>() &&
         (!in_dims[axis].isa<int64_t>() || !ends[i].isa<int64_t>())) {
       symbol::List<symbol::DimExpr> min_lists{
-          (in_dims[axis] - starts[i] + strides[i] - 1) / strides[i], out_dim};
+          (in_dims[axis] - starts[i] + strides[i]) / strides[i], out_dim};
 
       slice_dims[axis] =
           symbol::DimExpr({symbol::Min<symbol::DimExpr>({min_lists})});

@@ -5601,22 +5601,14 @@ def strided_slice(
             >>> # sliced_2 is x[:, 1:3:1, 0:2:1, 2:4:2].
     """
     if in_dynamic_mode():
-        infer_flags = [1 for i in range(len(axes))]
-        return _C_ops.strided_slice(
-            x, axes, starts, ends, strides, infer_flags, []
-        )
+        return _C_ops.strided_slice(x, axes, starts, ends, strides)
     elif in_pir_mode():
-        infer_flags = [1 for i in range(len(axes))]
 
         def _convert_to_tensor_list(input):
             if isinstance(input, paddle.pir.Value):
                 input.stop_gradient = True
-                infer_flags = [-1 for i in range(len(axes))]
             elif isinstance(input, (list, tuple)):
                 if paddle.utils._contain_var(input):
-                    for i, dim in enumerate(input):
-                        if isinstance(dim, Variable):
-                            infer_flags[i] = -1
                     input = paddle.utils.get_int_tensor_list(input)
             return input
 
@@ -5624,9 +5616,7 @@ def strided_slice(
         ends = _convert_to_tensor_list(ends)
         strides = _convert_to_tensor_list(strides)
 
-        return _C_ops.strided_slice(
-            x, axes, starts, ends, strides, infer_flags, []
-        )
+        return _C_ops.strided_slice(x, axes, starts, ends, strides)
     else:
         helper = LayerHelper('strided_slice', **locals())
 

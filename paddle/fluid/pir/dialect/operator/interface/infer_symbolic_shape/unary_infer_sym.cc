@@ -3400,8 +3400,6 @@ bool StridedSliceOpInferSymbolicShape(
   const symbol::ShapeOrDataDimExprs &strides_shape_data =
       infer_context->GetShapeOrDataForValue(operand_strides);
 
-  VLOG(3) << "StridedSliceOpInferSymbolicShape: axes_vec: ";
-
   std::vector<int> axes_int_vec = details::GetVectorAttr<int>(op, "axes");
   std::vector<int64_t> axes_vec(axes_int_vec.begin(), axes_int_vec.end());
 
