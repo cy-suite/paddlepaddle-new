@@ -20,7 +20,7 @@ from paddle.tensorrt.converter_utils import (
     get_trt_plugin,
     trt_div,
     trt_min,
-    trt_mul,
+    trt_prod,
     trt_sub,
     trt_sum,
 )
@@ -132,7 +132,7 @@ def swish_silu_converter(network, paddle_op, inputs):
     layer_output = network.add_activation(
         inputs[0], activation_type_map[paddle_op.name()]
     ).get_output(0)
-    return trt_mul(network, inputs[0], layer_output)
+    return trt_prod(network, inputs[0], layer_output)
 
 
 @converter_registry.register("pd_op.celu", trt_version="8.x")
@@ -157,7 +157,7 @@ def celu_converter(network, paddle_op, inputs):
     input_sub_with_one = trt_sub(
         network, input_exp_layer.get_output(0), constant_one_data
     )
-    input_prod_with_alpha = trt_mul(network, input_sub_with_one, alpha_data)
+    input_prod_with_alpha = trt_prod(network, input_sub_with_one, alpha_data)
     min_input = trt_min(network, input_prod_with_alpha, constant_zero_data)
     relu_layer = network.add_activation(input_tensor, trt.ActivationType.RELU)
     output_tensor = trt_sum(network, relu_layer.get_output(0), min_input)
