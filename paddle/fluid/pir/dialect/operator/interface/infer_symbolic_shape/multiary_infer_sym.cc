@@ -1793,6 +1793,8 @@ bool FusedAttentionOpInferSymbolicShape(
                x_shape[1],
                symbol::DimExpr(3) * num_heads * dim_head})});
     } else {
+      // The follwing code used to set unoptional output value.
+      // Now it's result related to the infermeta.
       infer_context->SetSymbolForValueByStaticShape(op->result(4));
     }
   } else {
@@ -1815,6 +1817,8 @@ bool FusedAttentionOpInferSymbolicShape(
                                                  num_heads,
                                                  dim_head})});
     } else {
+      // The follwing code used to set unoptional output value.
+      // Now it's result related to the infermeta.
       infer_context->SetSymbolForValueByStaticShape(op->result(4));
     }
   }
