@@ -1117,7 +1117,10 @@ def _complete_op_dist_attr(program, block=None):
                     result_attrs.append(tmp_attr)
                     meshes.append(tmp_attr.process_mesh)
             if len(meshes) > 0:
-                mesh = merge_process_meshes(meshes)
+                if len(meshes) == 1:
+                    mesh = meshes[0]
+                else:
+                    mesh = merge_process_meshes(meshes)
                 op.dist_attr = pir.create_op_dist_attribute(
                     mesh,
                     operand_attrs,
