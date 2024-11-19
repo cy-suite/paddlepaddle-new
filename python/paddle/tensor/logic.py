@@ -1364,7 +1364,7 @@ def bitwise_ror(
     name: str | None = None,
 ) -> Tensor:
     r"""
-    Reverse version of ``bitwise_or`` API, the output Tensor will be inplaced with input ``x``.
+    Reverse version of ``bitwise_or`` API, it will be toggled when input ``x`` tries to use method ``__or__`` but doesn't have its own implementation.
     Please refer to :ref:`api_paddle_bitwise_or`.
     """
     if isinstance(y, (int, bool)):
@@ -1379,7 +1379,7 @@ def bitwise_or_(
     x: Tensor, y: Tensor | int | bool, name: str | None = None
 ) -> Tensor:
     r"""
-    Inplace version of ``bitwise_or`` API, it will be toggled by the case that input ``x`` is .
+    Inplace version of ``bitwise_or`` API, the output Tensor will be inplaced with input ``x``.
     Please refer to :ref:`api_paddle_bitwise_or`.
     """
     if isinstance(y, (int, bool)):
