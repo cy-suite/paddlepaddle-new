@@ -4332,7 +4332,22 @@ def scatter_nd_add(
             >>> output = paddle.scatter_nd_add(x, index, updates)
             >>> print(output.shape)
             [3, 5, 9, 10]
-    """
+
+
+    
+        **Explanation of Example 1**:
+        In this example, the scatter_nd_add function of Paddle performs sparse addition on the tensor `x`.
+        The initial tensor `x` is `[0, 1, 2, 3, 4, 5]`. The `index` specifies the positions to be updated,
+        and the values in `updates` are used to accumulate them. The scatter_nd_add function will add the corresponding
+        values in `updates` to the specified positions in `x`, rather than replacing the original values.
+        Finally, the output tensor is `[0, 22, 12, 14, 4, 5]`, achieving the cumulative update of specific elements
+        in the tensor while keeping other elements unchanged.
+        
+        .. figure:: ../../images/api_legend/scatter_nd_add.png
+           :width: 700
+           :alt: Example 1 Illustration
+           :align: center
+        """
     if x.dtype != updates.dtype:
         raise TypeError(
             f"x and updates must have same data type but x.dtype={convert_dtype(x.dtype)}, updates.dtype={convert_dtype(updates.dtype)}"
