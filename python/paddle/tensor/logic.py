@@ -1352,7 +1352,7 @@ def __ror__(
     x: Tensor,
     y: Tensor,
 ) -> Tensor:
-    return bitwise_or(x, y, None, None)
+    return bitwise_or(y, x, None, None)
 
 
 def bitwise_xor(
