@@ -10,7 +10,7 @@ grad = "grad"
 arange = "arange"
 ot = 'ot'
 pash = 'pash'
-
+anc = 'anc'
 # These words need to be fixed
 ontext = 'ontext'
 Direcly = 'Direcly'
@@ -753,7 +753,6 @@ compitable = 'compitable'
 comple = 'comple'
 dealed = 'dealed'
 ser = 'ser'
-anc = 'anc'
 contraints = 'contraints'
 propogated = 'propogated'
 beacuse = 'beacuse'

@@ -31,7 +31,7 @@ class TestMikolov(unittest.TestCase):
         self.check_reader(paddle.dataset.imikolov.train(WORD_DICT, n), n)
 
         first_line = (
-            'aer banknote berlitz calloway centrust cluett fromstein '
+            'are banknote berlitz calloway centrust cluett fromstein '
             'gitano guterman hydro-quebec ipo kia memotec mlx nahb punts '
             'rake regatta rubens sim snack-food ssangyong swapo wachter'
         )
