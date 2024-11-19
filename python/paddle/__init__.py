@@ -772,6 +772,7 @@ ir_guard = IrGuard()
 ir_guard._switch_to_pir()
 
 from math import inf
+
 newaxis: None = None
 
 __all__ = [

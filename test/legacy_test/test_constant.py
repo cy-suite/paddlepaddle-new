@@ -29,4 +29,3 @@ class TestConstant(unittest.TestCase):
         a = np.array([1, 2, 3])
         np.testing.assert_equal(a[None], a[paddle.newaxis])
         np.testing.assert_equal(a[None].ndim, a.ndim + 1)
-
