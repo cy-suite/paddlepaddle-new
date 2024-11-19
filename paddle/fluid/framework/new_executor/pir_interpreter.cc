@@ -1199,10 +1199,9 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
 
     const phi::Place& place = allocation->place();
     if (phi::is_gpu_place(place)) {
-      if () {
+      if (memory::RecordStream(allocation, stream)) {
         instr->SetNeedRecordStreamForGCState(1);
       }
-      memory::RecordStream(allocation, stream);
     } else if (phi::is_cuda_pinned_place(place)) {
       // TODO(Ruibiao): Here should do something to make sure that the tensor
       // is not freed until the H2D copies done. However, simply launch a
@@ -1287,6 +1286,10 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
           "The variable(%s) is not supported in eager deletion.",
           framework::ToTypeName(var->Type())));
     }
+  }
+
+  if (instr->GetNeedRecordStreamForGCState() == 0) {
+    instr->SetNeedRecordStreamForGCState(2);
   }
 #endif
 }
