@@ -1638,6 +1638,15 @@ std::vector<pir::Type> CreateArrayLikeOp::InferMeta(
   return argument_outputs;
 }
 
+bool CreateArrayLikeOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &input_shape_or_data =
+      infer_context->GetShapeOrDataForValue(input())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  infer_context->SetShapeOrDataForValue(
+      out(), symbol::ShapeOrDataDimExprs{input_shape_or_data});
+  return true;
+}
 OpInfoTuple ArrayLengthOp::GetOpInfo() {
   std::vector<paddle::dialect::OpInputInfo> inputs = {
       OpInputInfo("x",
@@ -3116,6 +3125,15 @@ OpInfoTuple AssignArray_Op::GetOpInfo() {
   return std::make_tuple(
       inputs, attributes, outputs, run_time_info, "assign_array");
 }
+bool AssignArrayOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape_or_data =
+      infer_context->GetShapeOrDataForValue(x())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  infer_context->SetShapeOrDataForValue(
+      out(), symbol::ShapeOrDataDimExprs{x_shape_or_data});
+  return true;
+}
 
 void AssignArray_Op::VerifySig() {
   VLOG(4)
@@ -3212,6 +3230,16 @@ phi::DataType AssignArray_Op::GetKernelTypeForVar(
   VLOG(4) << "Get KernelType for Var of op: AssignArray_Op";
 
   return expected_kernel_dtype;
+}
+
+bool AssignArray_Op::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape_or_data =
+      infer_context->GetShapeOrDataForValue(x())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  infer_context->SetShapeOrDataForValue(
+      out(), symbol::ShapeOrDataDimExprs{x_shape_or_data});
+  return true;
 }
 
 OpInfoTuple ExpandOp::GetOpInfo() {
@@ -4697,6 +4725,34 @@ phi::DataType ArrayPopOp::GetKernelTypeForVar(
   VLOG(4) << "Get KernelType for Var of op: ArrayPopOp";
 
   return expected_kernel_dtype;
+}
+
+bool ArrayPopOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &input_shape_or_data =
+      infer_context->GetShapeOrDataForValue(input())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  std::vector<symbol::DimExpr> input_shape = input_shape_or_data.GetShapeHint();
+  size_t input_rank = input_shape.size();
+  auto gen_shape_with_size = [&](size_t size) {
+    std::vector<symbol::DimExpr> shape;
+    for (size_t i = 0; i < size; ++i) {
+      shape.push_back(infer_context->GetNextSymName());
+    }
+    return shape;
+  };
+  std::vector<symbol::DimExpr> out_shape = gen_shape_with_size(input_rank);
+  std::vector<symbol::DimExpr> array_out_shape =
+      gen_shape_with_size(input_rank);
+  infer_context->SetShapeOrDataForValue(
+      array_out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::RankedTensorArrayShapeOrDataDimExprs(array_out_shape)});
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(out_shape)});
+  return true;
 }
 
 }  // namespace paddle::dialect
