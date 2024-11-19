@@ -139,7 +139,7 @@ template <typename Kind, typename GraphMatcher, typename GraphOperation>
 void GraphTransformer(PatternGraph* graph) {
   VLOG(4) << "Start GraphTransformer...";
   auto alog = SearchAlgorithm<Kind, GraphMatcher, GraphOperation>(graph);
-  alog();
+  alog();#不修改algorithm的缩写
 }
 
 }  // namespace cinn::fusion

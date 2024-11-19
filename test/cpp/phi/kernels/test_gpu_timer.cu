@@ -86,8 +86,8 @@ TEST(GpuTimer, Sum) {
 #endif
 
   using Functor = std::function<void(float *, float *, size_t)>;
-  Functor alog0 = Algo<4, 256, 1024>;
-  Functor algo1 = Algo<1, 256, 1024>;
+  Functor alog0 = Algo<4, 256, 1024>;#alog为变量名不用修改
+  Functor alog1 = Algo<1, 256, 1024>;#algo->alog
   Functor alog2 = Algo<1, 256, 8>;
 
   std::vector<Functor> algos = {alog0, algo1, alog2};
