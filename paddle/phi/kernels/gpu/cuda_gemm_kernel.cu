@@ -186,9 +186,13 @@ void CudaGemm(const Context& ctx,
       ctx.stream(),
   };
 
+#if defined(PADDLE_WITH_CUDA) && defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
   if (!cudaCoreGemmLauncher<int8_t, int32_t>(params)) {
     PADDLE_THROW(common::errors::Fatal("cuda gemm kernel run error"));
   }
+#else
+  PADDLE_THROW(common::errors::Fatal("cuda gemm kernel do not support sm<70"));
+#endif
 }
 }  // namespace phi
 
