@@ -66,11 +66,13 @@ inline OneDNNDataType ToOneDNNDataType(DataType type) {
       std::unordered_map<DataType, OneDNNDataType, DataTypeHash, DataTypeEqual>;
 #endif
 
-  static DataTypeMapping dict{{DataType::FLOAT32, OneDNNDataType::f32},
-                              {DataType::INT8, OneDNNDataType::s8},
-                              {DataType::UINT8, OneDNNDataType::u8},
-                              {DataType::INT32, OneDNNDataType::s32},
-                              {DataType::BFLOAT16, OneDNNDataType::bf16}};
+  static DataTypeMapping dict{
+      {DataType::FLOAT32, OneDNNDataType::f32},
+      {DataType::INT8, OneDNNDataType::s8},
+      {DataType::UINT8, OneDNNDataType::u8},
+      {DataType::INT32, OneDNNDataType::s32},
+      {DataType::INT64, OneDNNDataType::f64},  // NOTE: onednn not support int64
+      {DataType::BFLOAT16, OneDNNDataType::bf16}};
 
   auto iter = dict.find(type);
   if (iter != dict.end()) return iter->second;
