@@ -29,12 +29,12 @@ void SvdvalsGradKernel(const Context& dev_ctx,
   DenseTensor dX_term = Diag<T, Context>(dev_ctx, dS, 0, 0);
 
   DenseTensor U, VH, S_recomputed;
-  phi::SvdKernel<T>(dev_ctx,
-                    x,
-                    false,
-                    &U,
-                    &S_recomputed,
-                    &VH);  // Crucial: recomputing SVD
+  phi::SvdKernel<T, Context>(dev_ctx,
+                             x,
+                             false,
+                             &U,
+                             &S_recomputed,
+                             &VH);  // Crucial: recomputing SVD
 
   *x_grad =
       Matmul<T, Context>(dev_ctx, Matmul<T, Context>(dev_ctx, U, dX_term), VH);
