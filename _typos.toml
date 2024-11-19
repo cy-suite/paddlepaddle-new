@@ -11,6 +11,7 @@ arange = "arange"
 ot = 'ot'
 pash = 'pash'
 anc = 'anc'
+algo = "algo"
 
 # These words need to be fixed
 ontext = 'ontext'
