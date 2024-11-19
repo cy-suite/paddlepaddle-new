@@ -112,8 +112,11 @@ class NestSequence:
 
     @cached_property
     def quick_index_map(self):
-        assert all(isinstance(v, Value) for v in self._raw_input)
-        return [self._var_map[v] for v in self._raw_input]
+        raw_inputs = self._raw_input
+        if len(raw_inputs) == 1:
+            raw_inputs = raw_inputs[0]
+        assert all(isinstance(v, Value) for v in raw_inputs)
+        return [self._var_map[v] for v in raw_inputs]
 
     def quick_restore(self, tensor_list):
         return [tensor_list[idx] for idx in self.quick_index_map]
