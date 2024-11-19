@@ -535,8 +535,7 @@ def transpose(
 
     .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/transpose.png
         :width: 500
-        :alt: legend of concat API
-        :align: center
+        :alt: legend of transpose API
 
     Args:
         x (Tensor): The input Tensor. It is a N-D Tensor of data types bool, float32, float64, int32.
