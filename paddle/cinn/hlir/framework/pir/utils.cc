@@ -345,15 +345,33 @@ std::unordered_set<std::string> CollectValueShapeSymbols(
   return res;
 }
 
+bool IsProcessableSliceOp(
+    const ::pir::ShapeConstraintIRAnalysis& shape_analysis,
+    const ::pir::Operation& op) {
+  const ::pir::Value& starts_value = op.operand_source(1);
+  const ::pir::Value& ends_value = op.operand_source(2);
+  const bool& has_starts_data =
+      shape_analysis.GetShapeOrDataForValue(starts_value).data().has_value();
+  const bool& has_ends_data =
+      shape_analysis.GetShapeOrDataForValue(ends_value).data().has_value();
+  return has_starts_data && has_ends_data;
+}
+
 bool CauseNewSymbolicShape(const ::pir::Operation& op) {
   if (FLAGS_disable_dyshape_in_train) {
     return false;
   }
+
+  auto& shape_analysis = ::pir::ShapeAnalysisManager::Instance().Get(
+      const_cast<::pir::Operation&>(op).GetParentProgram());
+  if (op.name() == "pd_op.slice" && !IsProcessableSliceOp(shape_analysis, op)) {
+    return true;
+  }
+
   if (!HaveUnkDim(op)) {
     return false;
   }
-  auto& shape_analysis = ::pir::ShapeAnalysisManager::Instance().Get(
-      const_cast<::pir::Operation&>(op).GetParentProgram());
+
   std::unordered_set<std::string> input_exprs = [&]() {
     std::unordered_set<std::string> res;
     for (const auto& input_value : op.operands_source()) {

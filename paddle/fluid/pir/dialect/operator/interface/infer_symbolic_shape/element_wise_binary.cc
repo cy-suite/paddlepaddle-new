@@ -147,6 +147,14 @@ bool FloorDivideOpInferSymbolicShape(
       });
 }
 
+bool MinimumOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  return InferSymbolicShapeElementWiseBinary(
+      op,
+      infer_context,
+      [](const symbol::DimExpr &x, const symbol::DimExpr &y) { return x; });
+}
+
 OP_ELEMENT_WISE_BINARY(Add_)
 OP_ELEMENT_WISE_BINARY(BitwiseAnd)
 OP_ELEMENT_WISE_BINARY(BitwiseAnd_)
@@ -186,7 +194,6 @@ OP_ELEMENT_WISE_BINARY(LogicalOr_)
 OP_ELEMENT_WISE_BINARY(LogicalXor)
 OP_ELEMENT_WISE_BINARY(LogicalXor_)
 OP_ELEMENT_WISE_BINARY(Maximum)
-OP_ELEMENT_WISE_BINARY(Minimum)
 OP_ELEMENT_WISE_BINARY(MultiplySr)
 OP_ELEMENT_WISE_BINARY(MultiplySr_)
 OP_ELEMENT_WISE_BINARY(Multiply_)
