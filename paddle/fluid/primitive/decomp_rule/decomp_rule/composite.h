@@ -77,7 +77,7 @@ Tensor mean_decomp(const Tensor& x, const IntArray& axis, bool keepdim) {
     for (size_t i = 0; i < axis_.size(); i++) {
       value_ *= x_dim[axis_[i]];
     }
-    value = full_scalar<T>(value_, sum_x.dtype(), x.place());
+    value = full_scalar<T>(value_, sum_x.dtype(), sum_x.place());
   }
 
   Tensor res = sum_x / value;
@@ -117,7 +117,7 @@ Tensor p_norm_decomp(const Tensor& x,
   Tensor res;
   if (porder == 0.0) {
     // 0-norm
-    auto zero = full_scalar<T>(0, x_tmp.dtype(), x.place());
+    auto zero = full_scalar<T>(0, x_tmp.dtype(), x_tmp.place());
     auto none_zero = not_equal<T>(x_tmp, zero);
     res = cast<T>(none_zero, x_tmp.dtype());
     res = sum<T>(res, {axis}, x_tmp.dtype(), keepdim);
@@ -623,14 +623,15 @@ std::tuple<Tensor, Tensor> dropout_decomp(
     auto shape_tensor = shape<T>(x);
     auto zero = full_scalar<T>(0.0, dtype_tmp, x.place());
     auto one = full_scalar<T>(1.0, dtype_tmp, x.place());
-    uniform_tensor =
-        backend::uniform<T>(shape_tensor, zero, one, dtype_tmp, seed_tmp);
+    uniform_tensor = backend::uniform<T>(
+        shape_tensor, zero, one, dtype_tmp, seed_tmp, x.place());
   } else {
-    uniform_tensor =
-        uniform<T>(phi::vectorize(x.dims()), dtype_tmp, 0.0, 1.0, seed_tmp);
+    uniform_tensor = uniform<T>(
+        phi::vectorize(x.dims()), dtype_tmp, 0.0, 1.0, seed_tmp, x.place());
   }
   auto mask = cast<T>(
-      greater_equal<T>(uniform_tensor, full_scalar<T>(p, dtype_tmp, x.place())),
+      greater_equal<T>(uniform_tensor,
+                       full_scalar<T>(p, dtype_tmp, uniform_tensor.place())),
       org_dtype);
   auto ones_p = full_scalar<T>(1.0 - p.to<float>(), org_dtype, x.place());
   if (upscale_in_train) {
@@ -767,7 +768,7 @@ std::tuple<Tensor, Tensor, Tensor> instance_norm_decomp(
     auto variance = mean_decomp<T>(var_tmp1, axis, true);
     auto var_shape = shape<T>(variance);
     auto var_tmp3 =
-        variance + full_scalar<T>(epsilon, variance.dtype(), x.place());
+        variance + full_scalar<T>(epsilon, variance.dtype(), variance.place());
     auto rsqrt_var = rsqrt<T>(var_tmp3);
     auto out = difference * rsqrt_var;
 
