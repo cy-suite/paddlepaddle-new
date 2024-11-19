@@ -231,6 +231,12 @@ class TestMathOpPatchesPir(unittest.TestCase):
         )
         res_np_d = x_np.__or__(y_np)
         res_np_e = x_np.__or__(y_np)
+        tensor_x = paddle.to_tensor(x_np)
+        tensor_y = paddle.to_tensor(y_np)
+        res_ndarray_ror = x_np | tensor_y
+        res_tensor_ror = tensor_x | y_np
+        np.testing.assert_array_equal(res_np_b, res_ndarray_ror.numpy())
+        np.testing.assert_array_equal(res_np_b, res_tensor_ror.numpy())
         paddle.enable_static()
         with paddle.pir_utils.IrGuard():
             main_program, exe, program_guard = new_program()
