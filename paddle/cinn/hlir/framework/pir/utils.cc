@@ -345,14 +345,13 @@ std::unordered_set<std::string> CollectValueShapeSymbols(
   return res;
 }
 
-bool IsProcessableSliceOp(
-    const ::pir::ShapeConstraintIRAnalysis& shape_analysis,
-    const ::pir::Operation& op) {
+bool IsProcessableSliceOp(::pir::ShapeConstraintIRAnalysis& shape_analysis,
+                          const ::pir::Operation& op) {
   const ::pir::Value& starts_value = op.operand_source(1);
   const ::pir::Value& ends_value = op.operand_source(2);
-  const bool& has_starts_data =
+  bool has_starts_data =
       shape_analysis.GetShapeOrDataForValue(starts_value).data().has_value();
-  const bool& has_ends_data =
+  bool has_ends_data =
       shape_analysis.GetShapeOrDataForValue(ends_value).data().has_value();
   return has_starts_data && has_ends_data;
 }
