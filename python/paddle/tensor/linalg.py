@@ -1876,13 +1876,13 @@ def vecdot(
     """
     Computes the dot product of two tensors along a specified axis.
 
-    This function multiplies two tensors element-wise and sums them along a specified axis to compute their dot product. It supports tensors with a dimensionality of 1-D or 2-D. For 2-D tensors, it treats the first dimension as the batch dimension, allowing the computation of dot products for multiple batch entries simultaneously.
+    This function multiplies two tensors element-wise and sums them along a specified axis to compute their dot product. It supports tensors of any dimensionality, including 0-D tensors, as long as the shapes of `x` and `y` are broadcastable along the specified axis.
 
     Args:
-        x (Tensor): The first input tensor. It should be a 1-D or 2-D tensor with dtype of float32, float64, int32, int64, complex64, or complex128.
-        y (Tensor): The second input tensor, which must have the same shape and dtype as tensor `x` except possibly at the specified `axis`.
+        x (Tensor): The first input tensor. It should be a tensor with dtype of float32, float64, int32, int64, complex64, or complex128.
+        y (Tensor): The second input tensor. Its shape must be broadcastable with `x` along the specified `axis`, and it must have the same dtype as `x`.
         axis (int, optional): The axis along which to compute the dot product. Default is -1, which indicates the last axis.
-        name (str|None, optional): An optional name for the operation. Default is None. Useful for debugging.
+        name (str|None, optional): Name of the output. Default is None. It's used to print debug info for developers. Details: :ref:`api_guide_Name`
 
     Returns:
         Tensor: A tensor containing the dot product of `x` and `y` along the specified axis.
@@ -1906,10 +1906,14 @@ def vecdot(
             Tensor(shape=[2], dtype=float32, place=Place(cpu), stop_gradient=True,
                [14.0, 77.0])
     """
-    if x.shape[axis] != y.shape[axis]:
+    try:
+        broadcast_shape = paddle.broadcast_shape(x.shape, y.shape)
+    except ValueError:
         raise ValueError(
-            "Size of the specified axis must match for both tensors."
+            f"Shapes {x.shape} and {y.shape} are not broadcastable."
         )
+
+    x, y = paddle.broadcast_to(x, broadcast_shape), paddle.broadcast_to(y, broadcast_shape)
     out = (x.conj() * y).sum(axis=axis)
     return out
 
