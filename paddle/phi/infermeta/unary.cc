@@ -4903,12 +4903,12 @@ void PartialConcatInferMeta(const std::vector<const MetaTensor*>& xs,
 }
 
 void SvdvalsInferMeta(const MetaTensor& x, MetaTensor* s) {
-  auto SDDim = [](const DDim& x_dim, int k){
+  auto SDDim = [](const DDim& x_dim, int k) {
     auto x_vec = common::vectorize(x_dim);
     x_vec.erase(x_vec.end() - 2, x_vec.end());
     x_vec.push_back(k);
     return common::make_ddim(x_vec);
-  }
+  };
 
   auto in_dims = x.dims();
   int x_rank = in_dims.size();
