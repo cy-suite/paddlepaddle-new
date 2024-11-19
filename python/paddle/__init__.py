@@ -773,7 +773,6 @@ ir_guard._switch_to_pir()
 
 from math import e
 __all__ = [
-    'e',
     'block_diag',
     'iinfo',
     'finfo',
@@ -814,6 +813,7 @@ __all__ = [
     'get_cuda_rng_state',
     'get_rng_state',
     'rank',
+    'e',
     'empty_like',
     'eye',
     'cumsum',
