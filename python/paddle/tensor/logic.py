@@ -1305,6 +1305,13 @@ def bitwise_or_(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         return _C_ops.bitwise_or_(x, y)
 
 
+def __ror__(
+    x: Tensor,
+    y: Tensor,
+) -> Tensor:
+    return bitwise_or(x, y, None, None)
+
+
 def bitwise_xor(
     x: Tensor, y: Tensor, out: Tensor | None = None, name: str | None = None
 ) -> Tensor:
