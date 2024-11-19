@@ -130,8 +130,12 @@ class VecDotTestCaseError(unittest.TestCase):
 class VecDotTestCaseComplex(unittest.TestCase):
     def run_test_dynamic(self):
         paddle.disable_static()
-        x = paddle.to_tensor([[1 + 2j, 3 + 4j], [5 + 6j, 7 + 8j]], dtype="complex64")
-        y = paddle.to_tensor([[9 + 1j, 8 + 2j], [7 + 3j, 6 + 4j]], dtype="complex64")
+        x = paddle.to_tensor(
+            [[1 + 2j, 3 + 4j], [5 + 6j, 7 + 8j]], dtype="complex64"
+        )
+        y = paddle.to_tensor(
+            [[9 + 1j, 8 + 2j], [7 + 3j, 6 + 4j]], dtype="complex64"
+        )
         result = paddle.vecdot(x, y, axis=-1)
         expected = np.sum((x.numpy().conj() * y.numpy()), axis=-1)
         np.testing.assert_allclose(
@@ -142,24 +146,28 @@ class VecDotTestCaseComplex(unittest.TestCase):
         paddle.enable_static()
         place = paddle.CPUPlace()
         with paddle.static.program_guard(paddle.static.Program()):
-            x = paddle.static.data(
-                name="x", shape=[2, 2], dtype="complex64"
-            )
-            y = paddle.static.data(
-                name="y", shape=[2, 2], dtype="complex64"
-            )
+            x = paddle.static.data(name="x", shape=[2, 2], dtype="complex64")
+            y = paddle.static.data(name="y", shape=[2, 2], dtype="complex64")
             result = paddle.vecdot(x, y, axis=-1)
             exe = paddle.static.Executor(place)
             output = exe.run(
                 feed={
-                    "x": np.array([[1 + 2j, 3 + 4j], [5 + 6j, 7 + 8j]]).astype("complex64"),
-                    "y": np.array([[9 + 1j, 8 + 2j], [7 + 3j, 6 + 4j]]).astype("complex64"),
+                    "x": np.array([[1 + 2j, 3 + 4j], [5 + 6j, 7 + 8j]]).astype(
+                        "complex64"
+                    ),
+                    "y": np.array([[9 + 1j, 8 + 2j], [7 + 3j, 6 + 4j]]).astype(
+                        "complex64"
+                    ),
                 },
                 fetch_list=[result],
             )[0]
         expected = np.sum(
-            np.conj(np.array([[1 + 2j, 3 + 4j], [5 + 6j, 7 + 8j]])).astype("complex64")
-            * np.array([[9 + 1j, 8 + 2j], [7 + 3j, 6 + 4j]]).astype("complex64"),
+            np.conj(np.array([[1 + 2j, 3 + 4j], [5 + 6j, 7 + 8j]])).astype(
+                "complex64"
+            )
+            * np.array([[9 + 1j, 8 + 2j], [7 + 3j, 6 + 4j]]).astype(
+                "complex64"
+            ),
             axis=-1,
         )
         np.testing.assert_allclose(output, expected, rtol=1e-5, atol=1e-5)
@@ -186,7 +194,9 @@ class VecDotTestCaseTypePromotion2(unittest.TestCase):
     def test_float64_complex64_promotion(self):
         paddle.disable_static()
         x = paddle.to_tensor([[1.0, 2.0], [3.0, 4.0]], dtype="float64")
-        y = paddle.to_tensor([[5 + 6j, 7 + 8j], [9 + 1j, 2 + 3j]], dtype="complex64")
+        y = paddle.to_tensor(
+            [[5 + 6j, 7 + 8j], [9 + 1j, 2 + 3j]], dtype="complex64"
+        )
         result = paddle.vecdot(x, y, axis=-1)
 
         expected = np.sum(x.numpy().astype("complex64") * y.numpy(), axis=-1)
@@ -225,9 +235,7 @@ class VecDotTestCaseBroadcast1DNDTensor(unittest.TestCase):
     def test_1d_nd_tensor_broadcast(self):
         paddle.disable_static()
         x = paddle.to_tensor([1.0, 2.0], dtype="float32")
-        y = paddle.to_tensor(
-            [[3.0, 4.0], [5.0, 6.0]], dtype="float32"
-        )
+        y = paddle.to_tensor([[3.0, 4.0], [5.0, 6.0]], dtype="float32")
         result = paddle.vecdot(x, y, axis=-1)
 
         expected = np.sum(x.numpy() * y.numpy(), axis=-1)

@@ -1913,7 +1913,9 @@ def vecdot(
             f"Shapes {x.shape} and {y.shape} are not broadcastable."
         )
 
-    x, y = paddle.broadcast_to(x, broadcast_shape), paddle.broadcast_to(y, broadcast_shape)
+    x, y = paddle.broadcast_to(x, broadcast_shape), paddle.broadcast_to(
+        y, broadcast_shape
+    )
     out = (x.conj() * y).sum(axis=axis)
     return out
 
