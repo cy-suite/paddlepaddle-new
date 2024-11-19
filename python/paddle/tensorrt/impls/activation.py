@@ -17,7 +17,7 @@ import tensorrt as trt
 
 from paddle.tensorrt.converter_utils import (
     get_trt_plugin,
-    trt_mul,
+    trt_prod,
 )
 from paddle.tensorrt.register import converter_registry
 
@@ -104,10 +104,27 @@ def hardswish_converter(network, paddle_op, inputs):
     return hardswish_layer.get_output(0)
 
 
+@converter_registry.register("pd_op.softplus", trt_version="8.x")
+def softplus_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    beta = paddle_op.attrs()["beta"]
+    threshold = paddle_op.attrs()["threshold"]
+    layer_clip = network.add_activation(x, trt.ActivationType.CLIP)
+    layer_clip.alpha = -3.40282e038
+    layer_clip.beta = threshold / beta
+
+    softplus_layer = network.add_activation(
+        layer_clip.get_output(0), trt.ActivationType.SOFTPLUS
+    )
+    softplus_layer.alpha = 1.0 / beta
+    softplus_layer.beta = beta
+    return softplus_layer.get_output(0)
+
+
 @converter_registry.register("pd_op.swish", trt_version="8.x")
 @converter_registry.register("pd_op.silu", trt_version="8.x")
 def swish_silu_converter(network, paddle_op, inputs):
     layer_output = network.add_activation(
         inputs[0], activation_type_map[paddle_op.name()]
     ).get_output(0)
-    return trt_mul(network, inputs[0], layer_output)
+    return trt_prod(network, inputs[0], layer_output)

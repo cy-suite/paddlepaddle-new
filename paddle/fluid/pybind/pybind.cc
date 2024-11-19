@@ -256,7 +256,7 @@ namespace paddle {
 namespace pybind {
 
 PyTypeObject *g_framework_scope_pytype = nullptr;
-PyTypeObject *g_framework_lodtensorarray_pytype = nullptr;
+PyTypeObject *g_framework_densetensorarray_pytype = nullptr;
 PyTypeObject *g_custom_op_kernel_ctx_pytype = nullptr;
 PyTypeObject *g_data_type_pytype = nullptr;
 PyTypeObject *g_tensorrt_engine_params_pytype = nullptr;
@@ -848,25 +848,6 @@ static std::vector<std::vector<pir::Value>> GenerateBackwardBlockForPyLayerOp(
   return res;
 }
 
-namespace {
-std::unordered_set<std::string> StringSplit(const std::string &str) {
-  std::istringstream iss(str);
-  std::unordered_set<std::string> tokens;
-  std::string token;
-  while (std::getline(iss, token, ';')) {
-    size_t startpos = token.find_first_not_of(' ');
-    size_t endpos = token.find_last_not_of(' ');
-    if ((startpos != std::string::npos) && (endpos != std::string::npos)) {
-      token = token.substr(startpos, endpos - startpos + 1);
-    } else if (startpos != std::string::npos) {
-      token = token.substr(startpos);
-    }
-    tokens.insert(token);
-  }
-  return tokens;
-}
-}  // namespace
-
 void BindVjp(pybind11::module *m) {
   m->def(
       "call_vjp",
@@ -898,10 +879,6 @@ void BindVjp(pybind11::module *m) {
                          common::errors::InvalidArgument(
                              "The vjp function is not registered in %s op ",
                              fwd_op.name()));
-          const std::unordered_set<std::string> backward_blacklist_ops =
-              StringSplit(FLAGS_prim_backward_blacklist);
-          paddle::prim::PrimCommonUtils::SetPrimBackwardBlacklist(
-              backward_blacklist_ops);
           vjp_res = vjp_interface.Vjp(
               &fwd_op, inputs, outputs, out_grads, stop_gradients);
         }
@@ -2360,6 +2337,9 @@ All parameter, weight, gradient are variables in Paddle.
       .def("ir_program", &framework::interpreter::Plan::IrProgram)
       .def("program", &framework::interpreter::Plan::Program);
 
+  m.def("get_no_need_buffer_values",
+        framework::interpreter::GetNoNeedBufferValues);
+
   m.def("init_gflags", framework::InitGflags);
   m.def("init_glog", framework::InitGLOG);
   m.def("init_memory_method", framework::InitMemoryMethod);
@@ -2526,7 +2506,7 @@ All parameter, weight, gradient are variables in Paddle.
         return res;
       });
 
-  py::class_<phi::TensorArray> pylodtensorarray(m, "DenseTensorArray", R"DOC(
+  py::class_<phi::TensorArray> pydensetensorarray(m, "DenseTensorArray", R"DOC(
     DenseTensorArray is array of DenseTensor, it supports operator[], len() and for-loop iteration.
 
     Examples:
@@ -2535,9 +2515,9 @@ All parameter, weight, gradient are variables in Paddle.
             >>> import paddle
             >>> arr = paddle.framework.core.DenseTensorArray()
 )DOC");
-  g_framework_lodtensorarray_pytype =
-      reinterpret_cast<PyTypeObject *>(pylodtensorarray.ptr());
-  pylodtensorarray
+  g_framework_densetensorarray_pytype =
+      reinterpret_cast<PyTypeObject *>(pydensetensorarray.ptr());
+  pydensetensorarray
       .def(py::init([]() { return std::make_unique<phi::TensorArray>(); }))
       .def(
           "__getitem__",
@@ -2578,7 +2558,7 @@ All parameter, weight, gradient are variables in Paddle.
                         >>> import numpy as np
 
                         >>> arr = paddle.framework.core.DenseTensorArray()
-                        >>> t = paddle.framework.core.LoDTensor()
+                        >>> t = paddle.framework.core.DenseTensor()
                         >>> t.set(np.ndarray([5, 30]), paddle.CPUPlace())
                         >>> arr.append(t)
            )DOC")
@@ -2595,7 +2575,7 @@ All parameter, weight, gradient are variables in Paddle.
           py::return_value_policy::take_ownership);
 
   py::class_<FetchList>(m, "FetchList", R"DOC( FetchList is a
-        vector of paddle::variant<LoDTensor, DenseTensorArray>.
+        vector of paddle::variant<DenseTensor, DenseTensorArray>.
         )DOC")
       .def(
           "_move_to_list",
@@ -2645,7 +2625,7 @@ All parameter, weight, gradient are variables in Paddle.
           py::arg("var"));
 
   py::class_<FetchUnmergedList>(m, "FetchUnmergedList", R"DOC(
-        FetchUnmergedList is 2-D array of FetchType(paddle::variant(LoDTensor, DenseTensorArray)).
+        FetchUnmergedList is 2-D array of FetchType(paddle::variant(DenseTensor, DenseTensorArray)).
         )DOC")
       .def(
           "_move_to_list",
