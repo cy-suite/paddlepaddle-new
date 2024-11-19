@@ -32,6 +32,18 @@ class StaticPyLayerContext:
             self.tuple_push_op_name = "cf.tuple_push"
             self.tuple_pop_op_name = "cf.tuple_pop"
 
+    def __setattr__(self, attr: str, value: object):
+        attr_allow_list = ["saved_vars"]
+        if (
+            in_pir_mode()
+            and attr not in attr_allow_list
+            and isinstance(value, pir.Value)
+        ):
+            raise AttributeError(
+                f"ctx.{attr} = tensor is not allowed in static mode, please use `ctx.save_for_backward(tensor)` instead."
+            )
+        super().__setattr__(attr, value)
+
     def save_for_backward(self, *tensors):
         if in_pir_mode():
             current_insert_point = pir.get_current_insertion_point()
