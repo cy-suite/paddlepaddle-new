@@ -240,7 +240,7 @@ class VecDotTestCaseBroadcastNDTensor(unittest.TestCase):
     def test_nd_nd_tensor_broadcast(self):
         paddle.disable_static()
         x = paddle.to_tensor([[1.0, 2.0], [3.0, 4.0]], dtype="float32")
-        y = paddle.to_tensor([5.0, 6.0], dtype="float32")  # 1-D broadcast to 2-D
+        y = paddle.to_tensor([5.0, 6.0], dtype="float32")
         result = paddle.vecdot(x, y, axis=-1)
 
         expected = np.sum(x.numpy() * y.numpy(), axis=-1)
