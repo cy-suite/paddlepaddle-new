@@ -105,7 +105,7 @@ def bernoulli(
              [0., 0., 0.]])
     """
 
-    if p:
+    if p is not None:
         x = paddle.full_like(x, p)
 
     if in_dynamic_or_pir_mode():
