@@ -29,3 +29,7 @@ class TestConstant(unittest.TestCase):
         a = np.array([1, 2, 3])
         np.testing.assert_equal(a[None], a[paddle.newaxis])
         np.testing.assert_equal(a[None].ndim, a.ndim + 1)
+
+    def test_pi(self):
+        p = np.array([paddle.pi])
+        np.testing.assert_equal(repr(p), 'array([pi])')

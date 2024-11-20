@@ -775,8 +775,10 @@ ir_guard._switch_to_pir()
 # Constants
 newaxis: None = None
 inf = math.inf
+pi = math.pi
 
 __all__ = [
+    'pi',
     'block_diag',
     'iinfo',
     'finfo',
