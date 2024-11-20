@@ -588,7 +588,6 @@ from .tensor.stat import (
 )
 from .tensor.to_string import set_printoptions
 from .utils.dlpack import (
-    dlpack_device,
     from_dlpack,
     to_dlpack,
 )
@@ -1195,5 +1194,4 @@ __all__ = [
     'positive',
     'from_dlpack',
     'to_dlpack',
-    "dlpack_device",
 ]
