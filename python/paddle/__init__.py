@@ -589,6 +589,7 @@ from .tensor.stat import (
 )
 from .tensor.to_string import set_printoptions
 from .utils.dlpack import (
+    dlpack_device,
     from_dlpack,
     to_dlpack,
 )
@@ -1211,4 +1212,5 @@ __all__ = [
     'to_dlpack',
     'inf',
     'newaxis',
+    "dlpack_device",
 ]
