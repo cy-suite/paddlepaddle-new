@@ -48,19 +48,19 @@ class StaticPyLayerContext:
                 For example:
 
                     >>> class ExamplePyLayer(PyLayer):
-                    ... @staticmethod
-                    ... def forward(ctx, x):
-                    ...     # ctx.x = x  # This is not allowed in static mode, Replace it with `ctx.save_for_backward(x)`
-                    ...     ctx.save_for_backward(x)
-                    ...     x1 = paddle.tanh(x)
-                    ...     return x1
+                    ...     @staticmethod
+                    ...     def forward(ctx, x):
+                    ...         # ctx.x = x  # This is not allowed in static mode, Replace it with `ctx.save_for_backward(x)`
+                    ...         ctx.save_for_backward(x)
+                    ...         x1 = paddle.tanh(x)
+                    ...         return x1
 
-                    ... @staticmethod
-                    ... def backward(ctx, grad):
-                    ...     # x = ctx.x  # Same as above, replace it with `x, = ctx.saved_tensor()`
-                    ...     x, = ctx.saved_tensor()
-                    ...     x_grad = grad * (1 - paddle.square(x))
-                    ...     return x_grad
+                    ...     @staticmethod
+                    ...     def backward(ctx, grad):
+                    ...         # x = ctx.x  # Same as above, replace it with `x, = ctx.saved_tensor()`
+                    ...         x, = ctx.saved_tensor()
+                    ...         x_grad = grad * (1 - paddle.square(x))
+                    ...         return x_grad
                 """
                 )
             )
