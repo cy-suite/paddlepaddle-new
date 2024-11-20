@@ -569,10 +569,11 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_decomp(
   mean_ = squeeze<T>(mean_, reduce_axis);
   variance = squeeze<T>(variance, reduce_axis);
 
-  // same as LayerNormInferMeta
   // x: float32 --> out: float32, mean: float32, variance: float32
-  // x: float16 --> out: float16, mean: float32, variance: float32
+  // x: float16 --> out: float16, mean: float16, variance: float16
   out = ConverToOrig<T>(out, org_dtype);
+  mean_ = ConverToOrig<T>(mean_, org_dtype);
+  variance = ConverToOrig<T>(variance, org_dtype);
   return std::make_tuple(out, mean_, variance);
 }
 
