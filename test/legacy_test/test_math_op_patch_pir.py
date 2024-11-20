@@ -230,7 +230,7 @@ class TestMathOpPatchesPir(unittest.TestCase):
             paddle.to_tensor(x_np), paddle.to_tensor(y_np)
         )
         res_np_d = x_np.__or__(y_np)
-        res_np_e = x_np.__ror__(y_np)
+        res_np_e = y_np.__ror__(x_np)
         paddle.enable_static()
         with paddle.pir_utils.IrGuard():
             main_program, exe, program_guard = new_program()
@@ -240,7 +240,7 @@ class TestMathOpPatchesPir(unittest.TestCase):
                 b = x | y
                 c = x.bitwise_or(y)
                 d = x.__or__(y)
-                e = x.__ror__(y)
+                e = y.__ror__(x)
                 (b_np, c_np, d_np, e_np) = exe.run(
                     main_program,
                     feed={"x": x_np, "y": y_np},
@@ -253,12 +253,24 @@ class TestMathOpPatchesPir(unittest.TestCase):
 
     def test_dygraph_ror(self):
         paddle.disable_static()
-        x_int = 5
+        x_int32 = 5
+        x_bool = True
         y_np = np.random.randint(0, 2, [2, 3, 5]).astype("int32")
         y_tensor = paddle.to_tensor(y_np)
-        res_ror = x_int | y_tensor
-        res_py = x_int | (y_tensor.numpy())
-        np.testing.assert_array_equal(res_py, res_ror)
+        res_ror_int32 = x_int32 | y_tensor
+        res_py_int32 = x_int32 | y_tensor.numpy()
+        np.testing.assert_array_equal(res_py_int32, res_ror_int32.numpy())
+        res_ror_bool = x_bool | y_tensor
+        res_py_bool = x_bool | y_tensor.numpy()
+        np.testing.assert_array_equal(res_py_bool, res_ror_bool.numpy())
+        for x_np in (
+            np.float32(5.0),
+            np.float64(5.0),
+            np.complex64(5),
+            np.complex128(5.0 + 2j),
+        ):
+            with self.assertRaises(TypeError):
+                x_np | y_tensor
         paddle.enable_static()
 
     def test_bitwise_and(self):

@@ -334,6 +334,27 @@ class TestMathOpPatches(unittest.TestCase):
         np.testing.assert_array_equal(out[0], out_np)
 
     @prog_scope()
+    def test_ror(self):
+        x_np = np.random.randint(-100, 100, [2, 3, 5]).astype("int32")
+        y_np = np.random.randint(-100, 100, [2, 3, 5]).astype("int32")
+        out_np = x_np | y_np
+
+        x = paddle.static.data(name="x", shape=[2, 3, 5], dtype="int32")
+        y = paddle.static.data(name="y", shape=[2, 3, 5], dtype="int32")
+        z = x | y
+        out_ror = y.__ror__(x)
+
+        exe = base.Executor()
+        exe = base.Executor()
+        out = exe.run(
+            base.default_main_program(),
+            feed={"x": x_np, "y": y_np},
+            fetch_list=[z, out_ror],
+        )
+        np.testing.assert_array_equal(out[0], out_np)
+        np.testing.assert_array_equal(out[1], out_np)
+
+    @prog_scope()
     def test_bitwise_xor(self):
         x_np = np.random.randint(-100, 100, [2, 3, 5]).astype("int32")
         y_np = np.random.randint(-100, 100, [2, 3, 5]).astype("int32")
