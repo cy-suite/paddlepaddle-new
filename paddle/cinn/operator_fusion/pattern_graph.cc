@@ -283,16 +283,17 @@ PatternGraph::PatternGraph(const std::vector<PatternContent>& contents,
 }
 
 void PatternGraph::RemoveNode(const PatternNodePtr& node) {
-  VLOG(4) << "Start Remove: " << node;
-  if (all_pattern_nodes_.find(node) != all_pattern_nodes_.end()) {
-    VLOG(4) << "Removed! ";
-    all_pattern_nodes_.erase(node);
+  VLOG(4) << "Start Remove: " << node->id() << "(" << node << ")";
+  for (const auto& n : all_pattern_nodes_) {
+    if (n->id() == node->id()) {
+      VLOG(4) << "Removed " << n->id();
+      all_pattern_nodes_.erase(n);
+      break;
+    }
   }
-
   for (const PatternNodePtr& upstream : node->upstream()) {
     upstream->RemoveNodeFromDownstream(node);
   }
-
   for (const PatternNodePtr& downstream : node->downstream()) {
     downstream->RemoveNodeFromUpstream(node);
   }
@@ -302,10 +303,12 @@ void PatternGraph::AppendNode(const PatternNodePtr& node) {
   all_pattern_nodes_.emplace(node);
 }
 
+// void PatternGraph
+
 std::string PatternGraph::GraphInfo() const {
   std::stringstream ss;
   ss << "\n========= GraphInfo ===========";
-  for (const auto& v : SortByTopoOrder()) {
+  for (const auto& v : all_pattern_nodes_) {
     ss << "\n##############################";
     ss << "\n" << v->DebugStr();
     ss << "    IsOutput: " << IsOutputNodeMatcher()(*this, v);
