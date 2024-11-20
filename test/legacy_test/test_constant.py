@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
 import unittest
 
 import numpy as np
@@ -31,5 +32,8 @@ class TestConstant(unittest.TestCase):
         np.testing.assert_equal(a[None].ndim, a.ndim + 1)
 
     def test_pi(self):
-        p = np.array([paddle.pi])
-        np.testing.assert_equal(repr(p), 'array([pi])')
+        np.testing.assert_equal(paddle.pi, math.pi)
+
+
+if __name__ == '__main__':
+    unittest.main()
