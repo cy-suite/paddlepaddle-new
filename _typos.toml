@@ -1,3 +1,7 @@
+[files]
+extend-exclude = [
+    "test/dataset/imikolov_test.py"
+]
 [default.extend-words]
 # PaddlePaddle specific words
 lod = "lod"
@@ -11,7 +15,6 @@ arange = "arange"
 ot = 'ot'
 pash = 'pash'
 anc = 'anc'
-algo = 'algo'
 
 # These words need to be fixed
 ontext = 'ontext'
