@@ -533,7 +533,7 @@ class TestSetitemInDygraph(unittest.TestCase):
         else:
             np.testing.assert_equal(v.grad.numpy(), expected_v_grad)
 
-    def test_boolean_mask_tensor_broadcast_v():
+    def test_boolean_mask_tensor_broadcast_v(self):
         tensor_np = np.zeros((2, 2, 3)).astype(np.float32)
         mask_np = np.array([[True, False], [False, True]])
         value_np = np.array([100] * 3).astype(np.float32)
