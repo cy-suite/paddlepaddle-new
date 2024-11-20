@@ -96,7 +96,7 @@ class NestSequence:
 
     def restore(self, tensor_result_list):
         """
-        Restores the nested sequence from value list.
+        Restores the nested sequence from tenosr list.
         """
         assert len(self._var_list) == len(tensor_result_list)
 
