@@ -1,4 +1,5 @@
 [files]
+# The following files will be excluded from spell check during commits
 extend-exclude = [
     "test/dataset/imikolov_test.py"
 ]
