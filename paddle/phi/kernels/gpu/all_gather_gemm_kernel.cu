@@ -732,9 +732,20 @@ void AllGatherGemmKernel(const Context& dev_ctx,
       dev_ctx, output_buffer, {0}, {0}, {static_cast<int32_t>(input.dims()[0] * helper.world_size)}, infer_flags, decrease_axis, output);
   }
 
-  // *input_parallel = helper.input_buffer;
-  *input_parallel = phi::Empty<T>(dev_ctx, IntArray{full_m, k_dim});
+  if (fast_accum) {
+    *input_parallel = helper.input_buffer;
+  } else {
+    *input_parallel = phi::Empty<T>(dev_ctx, IntArray{full_m, k_dim});
+    PADDLE_ENFORCE_GPU_SUCCESS(cudaMemcpyAsync(
+      input_parallel->data(),
+      helper.input_buffer.data(),
+      sizeof(T) * full_m * k_dim,
+      cudaMemcpyDefault,
+      helper.cp_streams[0]));
+  }
+#if 0
   phi::Copy(dev_ctx, helper.input_buffer, dev_ctx.GetPlace(), false, input_parallel);
+#endif
 
   /// reset signals
   cudaStreamWaitEvent(current_stream, helper.cp_event);
