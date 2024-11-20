@@ -809,7 +809,7 @@ void PartialSumInferMeta(const std::vector<const MetaTensor*>& xs,
                          int length,
                          MetaTensor* out,
                          MetaConfig config = MetaConfig());
-                         
+
 void SvdvalsInferMeta(const MetaTensor& x, MetaTensor* s);
 
 void SvdInferMeta(const MetaTensor& x,
