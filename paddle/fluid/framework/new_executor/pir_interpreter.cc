@@ -1191,7 +1191,7 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
     }
   }
 #endif
-  auto TensorRecordStream = [&stream](phi::DenseTensor& tensor) {
+  auto TensorRecordStream = [&stream, &instr](phi::DenseTensor& tensor) {
     auto allocation = tensor.Holder();
     if (allocation == nullptr) {
       return;
