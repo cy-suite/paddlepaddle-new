@@ -605,7 +605,6 @@ void BindTensor(pybind11::module &m) {  // NOLINT
                     >>> print(t.lod())
                     [[0, 2, 5]]
            )DOC")
-
       .def(
           "lod",
           [](phi::DenseTensor &self) -> std::vector<std::vector<size_t>> {
