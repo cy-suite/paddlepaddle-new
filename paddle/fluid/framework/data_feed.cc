@@ -424,7 +424,7 @@ int InMemoryDataFeed<T>::Next() {
         consume_channel_ != nullptr,
         true,
         common::errors::InvalidArgument(
-            "Consume channel   should not be null, please check!"));
+            "Consume channel should not be null, please check!"));
     VLOG(3) << "output_channel_ size=" << output_channel_->Size()
             << ", consume_channel_ size=" << consume_channel_->Size()
             << ", thread_id=" << thread_id_;
