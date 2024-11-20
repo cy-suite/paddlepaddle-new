@@ -139,7 +139,7 @@ def stanh_converter(network, paddle_op, inputs):
         shape=[1] * len(x.shape),
         weights=np.array([scale_a], dtype=np.float32).reshape(
             [1] * len(x.shape)
-        )
+        ),
     )
     scaled_a_x = network.add_elementwise(
         x, scale_a_const.get_output(0), trt.ElementWiseOperation.PROD
@@ -151,7 +151,7 @@ def stanh_converter(network, paddle_op, inputs):
         shape=[1] * len(x.shape),
         weights=np.array([scale_b], dtype=np.float32).reshape(
             [1] * len(x.shape)
-        )
+        ),
     )
     stanh_layer = network.add_elementwise(
         tanh_layer.get_output(0),
