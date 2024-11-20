@@ -116,11 +116,6 @@ class TestArangeTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestAssignValueallTRTPattern(TensorRTBaseTest):
-    def test_trt_result(self):
-        test_cases = []
-
-
 class TestAssignOutTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.assign
