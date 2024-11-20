@@ -285,6 +285,10 @@ PatternGraph::PatternGraph(const std::vector<PatternContent>& contents,
 void PatternGraph::RemoveNode(const PatternNodePtr& node) {
   VLOG(4) << "Start Remove: " << node->id() << "(" << node << ")";
   for (const auto& n : all_pattern_nodes_) {
+    // Here we use traversal instead of count() or find() builtin function
+    // because all_pattern_nodes_ is sorted by node id when initialization
+    // but node id may be changed in copy instruction that may destroy the
+    // order of set.
     if (n->id() == node->id()) {
       VLOG(4) << "Removed " << n->id();
       all_pattern_nodes_.erase(n);
@@ -302,8 +306,6 @@ void PatternGraph::RemoveNode(const PatternNodePtr& node) {
 void PatternGraph::AppendNode(const PatternNodePtr& node) {
   all_pattern_nodes_.emplace(node);
 }
-
-// void PatternGraph
 
 std::string PatternGraph::GraphInfo() const {
   std::stringstream ss;
