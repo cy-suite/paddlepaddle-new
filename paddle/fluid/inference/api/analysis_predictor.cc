@@ -136,7 +136,6 @@
 #include "paddle/pir/include/pass/pass_registry.h"
 
 COMMON_DECLARE_bool(pir_apply_inplace_pass);
-COMMON_DECLARE_bool(enable_pir_api);
 COMMON_DECLARE_bool(enable_auto_layout_pass);
 namespace paddle {
 namespace {
@@ -808,7 +807,7 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
                      pass->name()) != this->config_.ir_debug_passes_.end();
   };
 
-  auto AddAutoLayoutPasses = [&](pir::PassManager &pass_pm) {
+  auto AddAutoLayoutPasses = [&](pir::PassManager &pass_manager) {
     auto &pass_registry = pir::PassRegistry::Instance();
     // std::vector<std::string> passes = {"auto_layout_pass",
     //                                    "auto_layout_simplify_pass"};
@@ -819,12 +818,12 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
       if (std::find(config_.deleted_passes_.begin(),
                     config_.deleted_passes_.end(),
                     pass_name) == config_.deleted_passes_.end()) {
-        pass_pm.AddPass(pass_registry.Get(pass_name));
+        pass_manager.AddPass(pass_registry.Get(pass_name));
       }
     }
   };
 
-  auto AddAutoMixedPrecisionPass = [&](auto &pass_manager) {
+  auto AddAutoMixedPrecisionPass = [&](pir::PassManager &pass_manager) {
     auto auto_mixed_precision_pass = ::pir::CreateAutoMixedPrecisionPass();
     if (std::find(config_.deleted_passes_.begin(),
                   config_.deleted_passes_.end(),
@@ -880,11 +879,12 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
           fused_op_pm.AddPass(pir::PassRegistry::Instance().Get(fused_op));
         }
 
-        if (FLAGS_enable_auto_layout_pass && config_.enable_gpu_mixed_) {
+        if (config_.enable_gpu_mixed_) {
           AddAutoMixedPrecisionPass(fused_op_pm);
-          AddAutoLayoutPasses(fused_op_pm);
+          if (FLAGS_enable_auto_layout_pass) {
+            AddAutoLayoutPasses(fused_op_pm);
+          }
         }
-
         fused_op_pm.Run(pir_program_.get());
       }
     }
@@ -1009,13 +1009,15 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
   ::pir::PassManager basic_pass_pm(::pir::IrContext::Instance(),
                                    config_.pm_opt_level_);
   if (config_.enable_gpu_mixed_) {
+    if (!config_.cinn_enabled()) {
+      AddAutoMixedPrecisionPass(basic_pass_pm);
+    }
+
     if (FLAGS_enable_auto_layout_pass) {
       if (!config_.cinn_enabled()) {
-        AddAutoMixedPrecisionPass(basic_pass_pm);
         AddAutoLayoutPasses(basic_pass_pm);
       }
     } else {
-      AddAutoMixedPrecisionPass(basic_pass_pm);
       auto transfer_layout_pass = ::pir::CreateTransferLayoutPass();
       if (std::find(config_.deleted_passes_.begin(),
                     config_.deleted_passes_.end(),
