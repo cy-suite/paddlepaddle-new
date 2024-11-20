@@ -265,7 +265,7 @@ def squeeze_converter(network, paddle_op, inputs):
     return layer.get_output(0)
 
 
-@converter_registry.register("pd_op.expand", trt_version="8.x")
+@converter_registry.register("pd_op.expand", trt_version="trt_version_ge=8.0")
 def expand_converter(network, paddle_op, inputs):
     input = inputs[0]
     input_dims = input.shape
@@ -287,7 +287,9 @@ def expand_converter(network, paddle_op, inputs):
     return trt_expand(network, input, rank, shape_tensor, shape_rank)
 
 
-@converter_registry.register("pd_op.expand_as", trt_version="8.x")
+@converter_registry.register(
+    "pd_op.expand_as", trt_version="trt_version_ge=8.0"
+)
 def expand_as_converter(network, paddle_op, inputs):
     input = inputs[0]
     input_dims = input.shape
@@ -333,7 +335,7 @@ def cast_converter(network, paddle_op, inputs):
     return cast_layer.get_output(0)
 
 
-@converter_registry.register("pd_op.slice", trt_version="8.x")
+@converter_registry.register("pd_op.slice", trt_version="trt_version_ge=8.0")
 def slice_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     axes = paddle_op.attrs()["axes"]
@@ -341,7 +343,7 @@ def slice_converter(network, paddle_op, inputs):
 
     starts_op = paddle_op.operands()[1].source().get_defining_op()
     ends_op = paddle_op.operands()[2].source().get_defining_op()
-    input_shape_tensor = network.add_shape(input_tensor).get_output(0)
+    input_shape_tensor = trt_shape(network, input_tensor)
     input_rank = len(input_tensor.shape)
 
     starts_tensor = []
