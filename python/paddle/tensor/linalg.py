@@ -188,6 +188,34 @@ def transpose_(x, perm, name=None):
         return _C_ops.transpose_(x, perm)
 
 
+def matrix_transpose(
+    x: paddle.Tensor,
+    name: str | None = None,
+) -> paddle.Tensor:
+    """
+    Transpose the last two dimensions of the input tensor `x`.
+
+    Note:
+        If `n` is the number of dimensions of `x`, `paddle.matrix_transpose(x)` is equivalent to `x.transpose([0, 1, ..., n-2, n-1])`.
+
+    Args:
+        x (Tensor): The input tensor to be transposed. `x` must be an N-dimensional tensor (N >= 2) of any data type supported by Paddle.
+
+    Returns:
+        Tensor: A new tensor with the same shape as `x`, except that the last two dimensions are transposed.
+
+    Examples:
+        .. code-block:: python
+
+            >>> import paddle
+            >>> x = paddle.ones(shape=[2, 3, 5])
+            >>> x_transposed = paddle.matrix_transpose(x)
+            >>> print(x_transposed.shape)
+            [2, 5, 3]
+    """
+    return x.mT
+
+
 def matmul(
     x: Tensor,
     y: Tensor,
@@ -2465,7 +2493,7 @@ def histogram(
     If min and max are both zero, the minimum and maximum values of the data are used.
 
     Args:
-        input (Tensor): A Tensor(or LoDTensor) with shape :math:`[N_1, N_2,..., N_k]` . The data type of the input Tensor
+        input (Tensor): A Tensor with shape :math:`[N_1, N_2,..., N_k]` . The data type of the input Tensor
             should be float32, float64, int32, int64.
         bins (int, optional): number of histogram bins. Default: 100.
         min (int, optional): lower end of the range (inclusive). Default: 0.

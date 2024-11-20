@@ -59,10 +59,10 @@ def fused_seqpool_cvm(
 
     This OP is the fusion of sequence_pool and continuous_value_model op.
 
-    **Note:** The Op only receives List of LoDTensor as input, only support SUM pooling now.
+    **Note:** The Op only receives List of DenseTensor as input, only support SUM pooling now.
 
     Args:
-        input(Tensor): Input is List of LoDTensor.
+        input(Tensor): Input is List of DenseTensor.
         pool_type(str): pooling type, only support SUM pooling now.
         cvm(Tensor): cvm Tensor.
         pad_value(float, optional): padding value of sequence pool. Default: 0.0.
@@ -153,7 +153,7 @@ def search_pyramid_hash(
     **Pyramid hash embedding**
 
     Args:
-        input (Tensor): LoDTensor<int32> Tensor contained the IDs' information.
+        input (Tensor): DenseTensor<int32> Tensor contained the IDs' information.
         num_emb (int): The embedding size of output.
         space_len (int): The length of pyramid hash embedding space.
         pyramid_layer (int): The number of pyramid layers. It should be greater than 2.
@@ -181,7 +181,7 @@ def search_pyramid_hash(
         dtype (str, optional): The data type of output Tensor, float32. Default: float32.
 
     Returns:
-        Tensor: LoDTensor of pyramid hash embedding.
+        Tensor: DenseTensor of pyramid hash embedding.
     """
     helper = LayerHelper('search_pyramid_hash', **locals())
 
@@ -273,9 +273,9 @@ def search_pyramid_hash(
 
 def shuffle_batch(x: Tensor, seed: int | Tensor | None = None) -> Tensor:
     """
-    This layer shuffle input tensor :attr:`x` . Normally, :attr:`x` is 2-D LoDTensor.
+    This layer shuffle input tensor :attr:`x` . Normally, :attr:`x` is 2-D DenseTensor.
 
-    :attr:`x` is a LoDTensor to be shuffled with shape :math:`[N_1, N_2, ..., N_k, D]` . Note that the last dim of input will not be shuffled.
+    :attr:`x` is a DenseTensor to be shuffled with shape :math:`[N_1, N_2, ..., N_k, D]` . Note that the last dim of input will not be shuffled.
     :math:`N_1 * N_2 * ... * N_k` numbers of elements with length :math:`D` will be shuffled randomly.
 
     Examples:
@@ -294,12 +294,12 @@ def shuffle_batch(x: Tensor, seed: int | Tensor | None = None) -> Tensor:
               Out.dims = [4, 2]
 
     Args:
-        x (Tensor): The input Tensor. The input Tensor is a N-D LoDTensor with type int, float32 or float64.
+        x (Tensor): The input Tensor. The input Tensor is a N-D DenseTensor with type int, float32 or float64.
         seed (None|int|Tensor, optional): The start up seed. If set, seed will be set as the start up seed of shuffle engine.
             If not set(Default), start up seed of shuffle engine will be generated randomly. Default: None.
 
     Returns:
-        Tensor: The shuffled LoDTensor with the same shape and lod as input.
+        Tensor: The shuffled DenseTensor with the same shape and lod as input.
 
     Examples:
 
@@ -350,7 +350,7 @@ def partial_concat(
     **Partial Concat**
     This OP concatenates the inputs according to the start index and length. This
     OP exists in incubate layers, which means that it is not shown to the public.
-    Only 2-D Tensor or LodTensor input is supported. Slice and concat can only be
+    Only 2-D Tensor input is supported. Slice and concat can only be
     performed along the second dimension.
 
     .. code-block:: text
@@ -430,7 +430,7 @@ def partial_sum(
     **PartialSum**
     This Op can sum the vars by specifying the initial position(start_index) and length(length).
     This Op exists in incubate layers, which means that it is not shown to the public.
-    Only 2-D Tensor or LodTensor input is supported. Slice and concat can only be
+    Only 2-D Tensor input is supported. Slice and concat can only be
     performed along the second dimension.
 
     .. code-block:: text

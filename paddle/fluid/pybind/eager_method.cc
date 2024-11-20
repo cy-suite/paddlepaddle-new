@@ -1863,13 +1863,11 @@ static PyObject* tensor__setitem_dygraph(TensorObject* self,
         ConvertAllInputsToDistTensor(
             mesh, self->tensor, transed_sub_tensor, value_tensor);
       }
-
       if (transed_index.size() == 1 &&
           transed_index[0].dtype() == phi::DataType::BOOL &&
-          transed_index[0].shape().size() == self->tensor.shape().size()) {
-        if (value_tensor.shape() != self->tensor.shape()) {
-          value_tensor = expand_ad_func(value_tensor, self->tensor.shape());
-        }
+          transed_index[0].shape().size() == self->tensor.shape().size() &&
+          value_tensor.numel() == 1) {
+        value_tensor = expand_ad_func(value_tensor, self->tensor.shape());
         transed_sub_tensor =
             where__ad_func(logical_not_ad_func(transed_index[0]),
                            transed_sub_tensor,
@@ -1878,7 +1876,6 @@ static PyObject* tensor__setitem_dygraph(TensorObject* self,
         transed_sub_tensor =
             index_put__ad_func(transed_sub_tensor, transed_index, value_tensor);
       }
-
       if (out_is_view) {
         // NOTE(zoooo0820): if out_is_view is true, it is a case of
         // combined-indexing setitem, i.e. firstly we get a view of
@@ -2130,7 +2127,7 @@ static PyObject* tensor__set_grad_type(TensorObject* self,
   auto var_type = pybind::CastPyArg2ProtoType(PyTuple_GET_ITEM(args, 0), 0);
   auto grad_tensor =
       egr::EagerUtils::autograd_meta(&self->tensor)->MutableGrad();
-  if (var_type == framework::proto::VarType::LOD_TENSOR) {
+  if (var_type == framework::proto::VarType::DENSE_TENSOR) {
     grad_tensor->set_impl(std::make_shared<phi::DenseTensor>());
   } else if (var_type == framework::proto::VarType::SELECTED_ROWS) {
     grad_tensor->set_impl(std::make_shared<phi::SelectedRows>());
@@ -2965,7 +2962,7 @@ static PyObject* tensor_method__share_memory(TensorObject* self,
                     true,
                     common::errors::InvalidArgument(
                         "Sharing memory only support CPU Tensor currently"));
-  // 1. get LoDTensor
+  // 1. get DenseTensor
   auto* t =
       std::dynamic_pointer_cast<phi::DenseTensor>(self->tensor.impl()).get();
   // 2. allocate shared memory
