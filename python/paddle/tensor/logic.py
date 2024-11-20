@@ -14,12 +14,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from typing_extensions import TypeGuard
 
 import paddle
-from paddle import _C_ops
+from paddle import Tensor, _C_ops
 from paddle.tensor.creation import full
 from paddle.tensor.math import broadcast_shape
 from paddle.utils.inplace_utils import inplace_apis_in_dygraph_only
@@ -32,9 +32,6 @@ from ..framework import (
     in_dynamic_or_pir_mode,
     in_pir_mode,
 )
-
-if TYPE_CHECKING:
-    from paddle import Tensor
 
 __all__ = []
 
