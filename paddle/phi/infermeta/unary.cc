@@ -4918,8 +4918,8 @@ void SvdvalsInferMeta(const MetaTensor& x, MetaTensor* s) {
       2,
       common::errors::InvalidArgument("The rank of input tensor must be >= 2"));
 
-  int64_t m = static_cast<int64_t>(in_dims[x_rank - 2]);
-  int64_t n = static_cast<int64_t>(in_dims[x_rank - 1]);
+  int64_t m = in_dims[x_rank - 2];
+  int64_t n = in_dims[x_rank - 1];
 
   int64_t k = std::min(m, n);
   s->set_dims(SDDim(in_dims, k));
