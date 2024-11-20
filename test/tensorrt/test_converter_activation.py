@@ -166,6 +166,22 @@ class TestPreluCase2TRTPattern(TensorRTBaseTest):
 
 class TestPreluCase3TRTPattern(TensorRTBaseTest):
     def setUp(self):
+        self.python_api = prelu_wrapper
+        self.api_args = {
+            "x": np.arange(12).reshape([2, 2, 3]).astype("float32"),
+            "num_parameters": 2,
+            "data_format": "NCL",
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 2, 3]}
+        self.max_shape = {"x": [5, 2, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestPreluCase4TRTPattern(TensorRTBaseTest):
+    def setUp(self):
         self.python_api = paddle.nn.functional.prelu
         self.api_args = {
             "x": np.arange(24).reshape([2, 2, 2, 3]).astype("float32"),
