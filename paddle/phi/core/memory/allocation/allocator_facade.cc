@@ -1916,8 +1916,8 @@ uint64_t AllocatorFacade::Release(const phi::CustomPlace& place,
   return m->GetAllocator(place, stream)->Release(place);
 }
 
-return AllocatorFacade::RecordStream(
-    std::shared_ptr<phi::Allocation> allocation, phi::stream::stream_t stream) {
+bool AllocatorFacade::RecordStream(std::shared_ptr<phi::Allocation> allocation,
+                                   phi::stream::stream_t stream) {
   return GetPrivate()->RecordStream(allocation, stream);
 }
 

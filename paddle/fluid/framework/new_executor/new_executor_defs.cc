@@ -192,6 +192,7 @@ void Instruction::RecordEvent(const Place& place) const {
   if (event_to_record_) {
     phi::RecordEvent record(
         "RecordStreamEvent", phi::TracerEventType::UserDefined, 10);
+    VLOG(6) << "Record event at instruction: " << id_;
     event_to_record_->event_->Record(&dev_ctx_);
   }
 }
