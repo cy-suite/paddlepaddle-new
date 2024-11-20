@@ -128,3 +128,20 @@ def swish_silu_converter(network, paddle_op, inputs):
         inputs[0], activation_type_map[paddle_op.name()]
     ).get_output(0)
     return trt_prod(network, inputs[0], layer_output)
+
+
+@converter_registry.register("pd_op.thresholded_relu", trt_version="8.x")
+def thresholded_relu_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    threshold = paddle_op.attrs()["threshold"]
+    threshold_const = network.add_constant(
+        shape=[1] * len(x.shape),
+        weights=np.array([threshold], dtype=np.float32).reshape([1] * len(x.shape))
+    ).get_output(0)
+    zero_tensor = network.add_constant(
+        shape=[1] * len(x.shape),
+        weights=np.array(0, dtype=np.float32)
+    ).get_output(0)
+    condition = network.add_elementwise(x, threshold_const, trt.ElementWiseOperation.GREATER).get_output(0)
+    result_layer = network.add_select(condition, x, zero_tensor)
+    return result_layer.get_output(0)
