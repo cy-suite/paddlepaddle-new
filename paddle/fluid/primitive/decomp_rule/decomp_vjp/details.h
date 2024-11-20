@@ -740,7 +740,8 @@ void pow_grad(const Tensor& x,
       if (pow_val == 1.0f) {
         set_output<T>(out_grad, x_grad);
       } else {
-        auto dx_res = x.pow(pow_val - 1) * pow_val * out_grad;
+        auto dx_res =
+            x.pow(pow_val - 1) * full_scalar<T>(pow_val, x.dtype()) * out_grad;
         set_output<T>(dx_res, x_grad);
       }
     } else {
