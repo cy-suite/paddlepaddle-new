@@ -1341,6 +1341,14 @@ class OpcodeExecutorBase:
             )(left, right)
         )
 
+    def TO_BOOL(self, instr: Instruction):
+        # we don't do anything in TO_BOOL, we simply check if the bytecode is legal
+        next_instr = self._instructions[self._lasti]
+        assert (
+            next_instr.opname == 'POP_JUMP_IF_FALSE'
+            or next_instr.opname == 'POP_JUMP_IF_TRUE'
+        ), "The bytecode is illegal!"
+
     @call_break_graph_decorator(push_n=1)
     def IS_OP(self, instr: Instruction):
         # It will only be 0 or 1
@@ -1353,10 +1361,12 @@ class OpcodeExecutorBase:
             )(left, right)
         )
 
+    @call_break_graph_decorator(push_n=1)
     def MAKE_FUNCTION(self, instr: Instruction):
         if sys.version_info < (3, 11):
             fn_name = self.stack.pop()
         codeobj = self.stack.pop()
+
         if sys.version_info >= (3, 11):
             # MAKE_FUNCTION behavior actually changed in 3.11, see
             # https://github.com/python/cpython/pull/93189/
@@ -1369,7 +1379,31 @@ class OpcodeExecutorBase:
 
         related_list = [fn_name, codeobj]
 
-        flag = instr.arg
+        # the function has no default values in 3.13
+        if self._instructions[
+            self._lasti
+        ].opname != 'SET_FUNCTION_ATTRIBUTE' and sys.version_info >= (3, 13):
+            self.push_new_fn_on_stack(
+                codeobj, global_dict, fn_name, (), (), related_list
+            )
+            return
+        # the function has default values in 3.13
+        elif self._instructions[
+            self._lasti
+        ].opname == 'SET_FUNCTION_ATTRIBUTE' and sys.version_info >= (3, 13):
+            flag = 0
+            start_idx = self._lasti
+            while (
+                start_idx < len(self._instructions)
+                and self._instructions[start_idx].opname
+                == 'SET_FUNCTION_ATTRIBUTE'
+            ):
+                flag += self._instructions[start_idx].arg
+                start_idx += 1
+        else:
+            flag = instr.arg
+        kw_defaults = None
+
         if flag & MF.MF_HAS_CLOSURE:
             # closure should be a tuple of Variables
             closure_variable = self.stack.pop()
@@ -1386,10 +1420,13 @@ class OpcodeExecutorBase:
             # can not set annotation in python env, skip it
             related_list.append(self.stack.pop())
 
+        # although types.FunctionType doesn't support dictionary parameters, we can still bind the dictionary with the function
+        # dynamically after creating the function object.
         if flag & MF.MF_HAS_KWDEFAULTS:
-            raise FallbackError(
-                "Found need func_kwdefaults when MAKE_FUNCTION."
-            )
+            kw_default_args_variable = self.stack.pop()
+            assert isinstance(kw_default_args_variable, DictVariable)
+            related_list.append(kw_default_args_variable)
+            kw_defaults = kw_default_args_variable.get_py_value()
 
         if flag & MF.MF_HAS_DEFAULTS:
             '''
@@ -1406,6 +1443,36 @@ class OpcodeExecutorBase:
         else:
             default_args = ()
 
+        self.push_new_fn_on_stack(
+            codeobj,
+            global_dict,
+            fn_name,
+            default_args,
+            closure,
+            related_list,
+            kw_defaults,
+        )
+
+    def SET_FUNCTION_ATTRIBUTE(self, instr: Instruction):
+        # in python3.13, SET_FUNCTION_ATTRIBUTE must fllow a MAKE_FUNCTION
+        # The flags appear in descending order.
+        start_idx = self._lasti - 1
+        while self._instructions[start_idx].opname == 'SET_FUNCTION_ATTRIBUTE':
+            start_idx -= 1
+        assert (
+            self._instructions[start_idx].opname == 'MAKE_FUNCTION'
+        ), "There's no MAKE_FUNCTION before SET_FUNCTION_ATTRIBUTE, the bytecode is illegal!"
+
+    def push_new_fn_on_stack(
+        self,
+        codeobj,
+        global_dict,
+        fn_name,
+        default_args,
+        closure,
+        related_list,
+        kw_defaults=None,
+    ):
         new_fn = types.FunctionType(
             codeobj.get_py_value(),
             global_dict,
@@ -1413,6 +1480,10 @@ class OpcodeExecutorBase:
             default_args,
             closure,
         )
+
+        if kw_defaults is not None:
+            new_fn.__kwdefaults__ = kw_defaults
+
         # new_fn is created for which is binded with Variables
         # so new_fn.__module__ is a ConstantVariable
         # can not use VariableFactory.from_value
