@@ -345,17 +345,6 @@ std::unordered_set<std::string> CollectValueShapeSymbols(
   return res;
 }
 
-bool IsProcessableSliceOp(::pir::ShapeConstraintIRAnalysis& shape_analysis,
-                          const ::pir::Operation& op) {
-  const ::pir::Value& starts_value = op.operand_source(1);
-  const ::pir::Value& ends_value = op.operand_source(2);
-  bool has_starts_data =
-      shape_analysis.GetShapeOrDataForValue(starts_value).data().has_value();
-  bool has_ends_data =
-      shape_analysis.GetShapeOrDataForValue(ends_value).data().has_value();
-  return has_starts_data && has_ends_data;
-}
-
 bool CauseNewSymbolicShape(const ::pir::Operation& op) {
   if (FLAGS_disable_dyshape_in_train) {
     return false;
@@ -363,7 +352,19 @@ bool CauseNewSymbolicShape(const ::pir::Operation& op) {
 
   auto& shape_analysis = ::pir::ShapeAnalysisManager::Instance().Get(
       const_cast<::pir::Operation&>(op).GetParentProgram());
-  if (op.name() == "pd_op.slice" && !IsProcessableSliceOp(shape_analysis, op)) {
+
+  const bool is_processable_slice = [&]() {
+    const ::pir::Value& starts_value = op.operand_source(1);
+    const ::pir::Value& ends_value = op.operand_source(2);
+    const symbol::ShapeOrDataDimExprs& starts_shape_data =
+        shape_analysis.GetShapeOrDataForValue(starts_value);
+    const symbol::ShapeOrDataDimExprs& ends_shape_data =
+        shape_analysis.GetShapeOrDataForValue(ends_value);
+    return starts_shape_data.data().has_value() &&
+           ends_shape_data.data().has_value();
+  }();
+
+  if (op.name() == "pd_op.slice" && !is_processable_slice) {
     return true;
   }
 

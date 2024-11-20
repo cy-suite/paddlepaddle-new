@@ -282,11 +282,6 @@ bool ArgsortOpInferSymbolicShape(
 
 bool CeilOpInferSymbolicShape(pir::Operation *op,
                               pir::InferSymbolicShapeContext *infer_context) {
-  VLOG(3) << "CeilOpInferSymbolicShape, op id:" << op->id();
-  VLOG(3) << "opreand 0 has data:"
-          << infer_context->GetShapeOrDataForValue(op->operand_source(0))
-                 .data()
-                 .has_value();
   const symbol::ShapeOrDataDimExprs &operand_shape_or_data =
       infer_context->GetShapeOrDataForValue(op->operand_source(0));
   infer_context->SetShapeOrDataForValue(op->result(0), operand_shape_or_data);
