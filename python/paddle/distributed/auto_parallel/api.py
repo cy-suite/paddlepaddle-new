@@ -1068,7 +1068,7 @@ class _ShardOptimizer(Optimizer):
             )
         elif self._shard_fn._mesh:
             self._sharding_degree = self._shard_fn._mesh.get_dim_size(
-                self._shard_fn._shard_mesh_dim
+                self._shard_fn._sharding_mesh_dim
             )
         else:
             raise ValueError(
@@ -1339,9 +1339,8 @@ class ShardingStage1(_ShardingStageBase):
     A builtin shard_fn for shard_optimizer interface, users can pass it to shard_optimizer to implement sharding optimization with stage 1.
 
     Args:
-        shard_mesh_dim(int|str): The sharding dimension in the mesh.
+        sharding_mesh_dim(int|str): The sharding dimension in the mesh.
         mesh(None|paddle.distributed.ProcessMesh): If mesh is not None, the `ProcessMesh` object describes the Cartesian topology of the used processes for dense type parameters. Note: Currently, only one mesh configuration is supported for all dense parameters. If there is a need for multiple mesh configurations, please configure them yourself in the upper layer networking code.
-        sharding_mesh_dim(None|int|str): The sharding dimension in the mesh.
 
     Examples:
         .. code-block:: python
@@ -1376,9 +1375,8 @@ class ShardingStage1(_ShardingStageBase):
 
     def __init__(
         self,
-        shard_mesh_dim: int | str,
+        sharding_mesh_dim: int | str,
         mesh: ProcessMesh | None = None,
-        sharding_mesh_dim: int | str | None = None,
     ) -> None:
         super().__init__(mesh, sharding_mesh_dim)
 
@@ -1433,9 +1431,8 @@ class ShardingStage2(_ShardingStageBase):
     A builtin shard_fn for shard_optimizer interface, users can pass it to shard_optimizer to implement sharding optimization with stage 2.
 
     Args:
-        shard_mesh_dim(int|str): The sharding dimension name in the mesh.
+        sharding_mesh_dim(int|str): The sharding dimension name in the mesh.
         mesh(None|paddle.distributed.ProcessMesh): If mesh is not None, the `ProcessMesh` object describes the Cartesian topology of the used processes for dense type parameters. Note: Currently, only one mesh configuration is supported for all dense parameters. If there is a need for multiple mesh configurations, please configure them yourself in the upper layer networking code.
-        sharding_mesh_dim(None|int|str): The sharding dimension name in the mesh.
 
     Examples:
         .. code-block:: python
@@ -1470,9 +1467,8 @@ class ShardingStage2(_ShardingStageBase):
 
     def __init__(
         self,
-        shard_mesh_dim: int | str,
+        sharding_mesh_dim: int | str,
         mesh: ProcessMesh | None = None,
-        sharding_mesh_dim: int | str | None = None,
     ) -> None:
         super().__init__(mesh, sharding_mesh_dim)
 
@@ -1551,9 +1547,8 @@ class ShardingStage3(_ShardingStageBase):
     A builtin shard_fn for shard_optimizer interface, users can pass it to shard_optimizer to implement sharding optimization with stage 3.
 
     Args:
-        shard_mesh_dim(int|str): The sharding dimension name in the mesh.
+        sharding_mesh_dim(int|str): The sharding dimension name in the mesh.
         mesh(None|paddle.distributed.ProcessMesh): If mesh is not None, the `ProcessMesh` object describes the Cartesian topology of the used processes for dense type parameters. Note: Currently, only one mesh configuration is supported for all dense parameters. If there is a need for multiple mesh configurations, please configure them yourself in the upper layer networking code.
-        sharding_mesh_dim(None|int|str): The sharding dimension name in the mesh.
 
     Examples:
         .. code-block:: python
@@ -1588,9 +1583,8 @@ class ShardingStage3(_ShardingStageBase):
 
     def __init__(
         self,
-        shard_mesh_dim: int | str,
+        sharding_mesh_dim: int | str,
         mesh: ProcessMesh | None = None,
-        sharding_mesh_dim: int | str | None = None,
     ) -> None:
         super().__init__(mesh, sharding_mesh_dim)
 
