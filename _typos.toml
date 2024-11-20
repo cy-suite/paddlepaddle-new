@@ -3,7 +3,6 @@ extend-exclude = [
     "test/dataset/imikolov_test.py"
 ]
 [default.extend-words]
-
 # PaddlePaddle specific words
 lod = "lod"
 dout = "dout"
