@@ -475,7 +475,7 @@ std::vector<Tensor> meshgrid_decomp(const std::vector<Tensor>& x) {
     std::vector<Tensor> tmp_shape;
     for (int64_t i = 0; i < rank; i++) {
       if (tar_shape[i] == 1) {
-        tmp_shape.push_back(full<T>({1}, tar_shape[i], DataType::INT32));
+        tmp_shape.push_back(full<T>({1}, tar_shape[i], DataType::INT64));
       } else {
         tmp_shape.push_back(shape<T>(x[i]));
       }
