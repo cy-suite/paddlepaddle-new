@@ -17,6 +17,7 @@ import unittest
 
 import numpy as np
 from op_test import OpTest, skip_check_grad_ci
+from utils import dygraph_guard, static_guard
 
 import paddle
 from paddle import base
@@ -24,7 +25,6 @@ from paddle import base
 
 class TestSvdvalsOp(OpTest):
     def setUp(self):
-        paddle.enable_static()
         self.python_api = paddle.linalg.svdvals
         self.generate_input()
         self.generate_output()
@@ -50,12 +50,11 @@ class TestSvdvalsOp(OpTest):
         single_input = self._input_data.reshape(
             [-1, self._input_shape[-2], self._input_shape[-1]]
         )[0]
-        paddle.disable_static()
-        dy_x = paddle.to_tensor(single_input)
-        dy_s = paddle.linalg.svdvals(dy_x)
-        np_s = np.linalg.svd(single_input, compute_uv=False)
-        np.testing.assert_allclose(dy_s.numpy(), np_s, rtol=1e-6)
-        paddle.enable_static()
+        with dygraph_guard():
+            dy_x = paddle.to_tensor(single_input)
+            dy_s = paddle.linalg.svdvals(dy_x)
+            np_s = np.linalg.svd(single_input, compute_uv=False)
+            np.testing.assert_allclose(dy_s.numpy(), np_s, rtol=1e-6)
 
 
 class TestSvdValsBatched(TestSvdvalsOp):
@@ -76,17 +75,16 @@ class TestSvdValsBatched(TestSvdvalsOp):
 
     def test_svdvals_forward(self):
         """Check singular values calculation for batched input."""
-        paddle.disable_static()
-        dy_x = paddle.to_tensor(self._input_data)
-        dy_s = paddle.linalg.svdvals(dy_x)
-        np_s = np.array(
-            [
-                np.linalg.svd(matrix, compute_uv=False)
-                for matrix in self._input_data
-            ]
-        )
-        np.testing.assert_allclose(dy_s.numpy(), np_s, rtol=1e-6)
-        paddle.enable_static()
+        with dygraph_guard():
+            dy_x = paddle.to_tensor(self._input_data)
+            dy_s = paddle.linalg.svdvals(dy_x)
+            np_s = np.array(
+                [
+                    np.linalg.svd(matrix, compute_uv=False)
+                    for matrix in self._input_data
+                ]
+            )
+            np.testing.assert_allclose(dy_s.numpy(), np_s, rtol=1e-6)
 
 
 @skip_check_grad_ci(
@@ -104,15 +102,14 @@ class TestSvdValsBigMatrix(TestSvdvalsOp):
 
 class TestSvdValsAPI(unittest.TestCase):
     def test_dygraph(self):
-        paddle.disable_static()
-        a = np.random.rand(5, 5)
-        x = paddle.to_tensor(a)
-        s = paddle.linalg.svdvals(x)
-        gt_s = np.linalg.svd(a, compute_uv=False)
-        np.testing.assert_allclose(s.numpy(), gt_s, rtol=1e-5)
+        with dygraph_guard():
+            a = np.random.rand(5, 5)
+            x = paddle.to_tensor(a)
+            s = paddle.linalg.svdvals(x)
+            gt_s = np.linalg.svd(a, compute_uv=False)
+            np.testing.assert_allclose(s.numpy(), gt_s, rtol=1e-5)
 
     def test_static(self):
-        paddle.enable_static()
         places = []
         if os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower() in [
             '1',
@@ -122,18 +119,19 @@ class TestSvdValsAPI(unittest.TestCase):
             places = [paddle.CPUPlace(), paddle.CUDAPlace(0)]
         else:
             places = [paddle.CPUPlace()]
-
-        for place in places:
-            with base.program_guard(base.Program(), base.Program()):
-                x = paddle.static.data(name="x", shape=[5, 5], dtype="float64")
-                s = paddle.linalg.svdvals(x)
-                exe = base.Executor(place)
-                a = np.random.rand(5, 5).astype("float64")
-                out = exe.run(feed={"x": a}, fetch_list=[s])[0]
-                gt_s = np.linalg.svd(a, compute_uv=False)
-                np.testing.assert_allclose(out, gt_s, rtol=1e-5)
+        with static_guard():
+            for place in places:
+                with base.program_guard(base.Program(), base.Program()):
+                    x = paddle.static.data(
+                        name="x", shape=[5, 5], dtype="float64"
+                    )
+                    s = paddle.linalg.svdvals(x)
+                    exe = base.Executor(place)
+                    a = np.random.rand(5, 5).astype("float64")
+                    out = exe.run(feed={"x": a}, fetch_list=[s])[0]
+                    gt_s = np.linalg.svd(a, compute_uv=False)
+                    np.testing.assert_allclose(out, gt_s, rtol=1e-5)
 
 
 if __name__ == "__main__":
-    paddle.enable_static()
     unittest.main()
