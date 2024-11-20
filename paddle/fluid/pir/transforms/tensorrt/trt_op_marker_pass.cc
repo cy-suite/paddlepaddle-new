@@ -1623,6 +1623,7 @@ class ActOpPattern : public pir::OpRewritePattern<OpType> {
 };
 using TanhOpPattern = ActOpPattern<paddle::dialect::TanhOp>;
 using SoftplusOpPatten = ActOpPattern<paddle::dialect::SoftplusOp>;
+using StanhOpPattern = ActOpPattern<paddle::dialect::StanhOp>;
 
 class WherePattern : public pir::OpRewritePattern<paddle::dialect::WhereOp> {
  public:
@@ -2093,6 +2094,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<SetValueWithTensorOpPattern>(context));
     ps.Add(std::make_unique<SetValueWithTensor_OpPattern>(context));
     ps.Add(std::make_unique<SoftplusOpPatten>(context));
+    ps.Add(std::make_unique<StanhOpPattern>(context));
     ps.Add(std::make_unique<EqualOpPattern>(context));
     ps.Add(std::make_unique<NotEqualOpPattern>(context));
     return ps;

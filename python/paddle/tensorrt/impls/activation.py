@@ -128,3 +128,33 @@ def swish_silu_converter(network, paddle_op, inputs):
         inputs[0], activation_type_map[paddle_op.name()]
     ).get_output(0)
     return trt_prod(network, inputs[0], layer_output)
+
+
+@converter_registry.register("pd_op.stanh", trt_version="8.x")
+def stanh_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    scale_a = paddle_op.attrs()["scale_a"]
+    scale_b = paddle_op.attrs()["scale_b"]
+    scale_a_const = network.add_constant(
+        shape=[1] * len(x.shape),
+        weights=np.array([scale_a], dtype=np.float32).reshape([1] * len(x.shape))
+    )
+    scaled_a_x = network.add_elementwise(
+        x,
+        scale_a_const.get_output(0),
+        trt.ElementWiseOperation.PROD
+    )
+    tanh_layer = network.add_activation(
+        scaled_a_x.get_output(0),
+        trt.ActivationType.TANH
+    )
+    scale_b_const = network.add_constant(
+        shape=[1] * len(x.shape),
+        weights=np.array([scale_b], dtype=np.float32).reshape([1] * len(x.shape))
+    )
+    stanh_layer = network.add_elementwise(
+        tanh_layer.get_output(0),
+        scale_b_const.get_output(0),
+        trt.ElementWiseOperation.PROD
+    )
+    return stanh_layer.get_output(0)
