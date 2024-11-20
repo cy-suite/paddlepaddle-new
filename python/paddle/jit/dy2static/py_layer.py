@@ -43,7 +43,7 @@ class StaticPyLayerContext:
             raise AttributeError(
                 textwrap.dedent(
                     f"""\
-                ctx.{attr} = tensor is not allowed in static mode, please use `ctx.save_for_backward(tensor)` instead.
+                `ctx.{attr} = tensor` is not allowed in static mode, please use `ctx.save_for_backward(tensor)` instead.
 
                 For example:
 
