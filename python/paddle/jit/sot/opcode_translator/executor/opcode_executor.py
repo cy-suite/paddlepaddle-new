@@ -1344,10 +1344,14 @@ class OpcodeExecutorBase:
     def TO_BOOL(self, instr: Instruction):
         # we don't do anything in TO_BOOL, we simply check if the bytecode is legal
         next_instr = self._instructions[self._lasti]
-        assert (
-            next_instr.opname == 'POP_JUMP_IF_FALSE'
-            or next_instr.opname == 'POP_JUMP_IF_TRUE'
-        ), "The bytecode is illegal!"
+        if next_instr.opname not in [
+            'POP_JUMP_IF_TRUE',
+            'POP_JUMP_IF_FALSE',
+            'UNARY_NOT',
+        ]:
+            raise FallbackError(
+                f"The bytecode is illegal! The opcode following TO_BOOL must bu in ['POP_JUMP_IF_TRUE', 'POP_JUMP_IF_FALSE', 'UNARY_NOT'], the next instuction now is {next_instr.opname}"
+            )
 
     @call_break_graph_decorator(push_n=1)
     def IS_OP(self, instr: Instruction):
@@ -1361,7 +1365,6 @@ class OpcodeExecutorBase:
             )(left, right)
         )
 
-    @call_break_graph_decorator(push_n=1)
     def MAKE_FUNCTION(self, instr: Instruction):
         if sys.version_info < (3, 11):
             fn_name = self.stack.pop()
