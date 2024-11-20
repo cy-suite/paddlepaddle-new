@@ -253,11 +253,11 @@ class TestMathOpPatchesPir(unittest.TestCase):
 
     def test_dygraph_ror(self):
         paddle.disable_static()
-        x_int = np.int32(5)
+        x_int = 5
         y_np = np.random.randint(0, 2, [2, 3, 5]).astype("int32")
         y_tensor = paddle.to_tensor(y_np)
-        res_py = x_int | y_tensor.numpy()
-        res_ror = x_int.__ror__(y_tensor.numpy())
+        res_ror = x_int | y_tensor
+        res_py = x_int | (y_tensor.numpy())
         np.testing.assert_array_equal(res_py, res_ror)
         paddle.enable_static()
 
