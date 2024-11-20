@@ -123,6 +123,26 @@ def to_dlpack(x: Tensor) -> CapsuleType:
     return x._to_dlpack()
 
 
+def dlpack_device(x: Tensor):
+    """
+    Return the device type and ID of the tensor in DLPack format.
+
+    Args:
+        x (Tensor): The input tensor.
+
+    Returns:
+        Tuple[int, int]: A tuple (device_type, device_id) where:
+            - device_type: The DLPack device type (e.g., kDLCPU, kDLGPU).
+            - device_id: The device ID.
+    """
+    if not isinstance(x, paddle.Tensor):
+        raise TypeError(
+            "The input to dlpack_device must be a paddle.Tensor, "
+            f"but received {type(x)}."
+        )
+    return x._dlpack_device_()
+
+
 def from_dlpack(
     dlpack: SupportDLPack | CapsuleType,
 ) -> Tensor:

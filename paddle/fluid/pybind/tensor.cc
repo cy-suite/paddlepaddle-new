@@ -446,6 +446,27 @@ void BindTensor(pybind11::module &m) {  // NOLINT
                 });
             return capsule;
           })
+      .def(
+        "_dlpack_device_",
+        [](const phi::DenseTensor &self) {
+            auto place = self.place();
+            int device_type = -1;
+            int device_id = -1;
+            if (platform::is_cpu_place(place)) {
+                device_type = kDLCPU;
+                device_id = 0;
+            } else if (platform::is_gpu_place(place)) {
+                device_type = kDLGPU;
+                device_id = place.GetDeviceId();
+            } else if (platform::is_xpu_place(place)) {
+                device_type = kDLXPU;
+                device_id = place.GetDeviceId();
+            } else {
+                throw std::runtime_error("Unsupported device type for DLPack.");
+            }
+            return std::make_tuple(device_type, device_id);
+        })
+
       .def("_set_float_element", TensorSetElement<float>)
       .def("_get_float_element", TensorGetElement<float>)
       .def("_set_double_element", TensorSetElement<double>)
