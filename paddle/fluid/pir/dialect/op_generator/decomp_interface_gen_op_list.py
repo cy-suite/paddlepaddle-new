@@ -102,7 +102,6 @@ decomp_interface_implementation_gen_op_list = [
     "meshgrid",
     "numel",
     "p_norm",
-    "pow",
     "reciprocal",
     "relu",
     "relu6",
