@@ -70,6 +70,8 @@ bool ReplaceWithFullOp(pir::Operation* op,
 
     return true;
   }
+
+  return false;
 }
 
 class ReplaceZeroScaleToFullPattern
