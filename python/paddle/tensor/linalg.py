@@ -1906,16 +1906,6 @@ def vecdot(
             Tensor(shape=[2], dtype=float32, place=Place(cpu), stop_gradient=True,
                [14.0, 77.0])
     """
-    try:
-        broadcast_shape = paddle.broadcast_shape(x.shape, y.shape)
-    except ValueError:
-        raise ValueError(
-            f"Shapes {x.shape} and {y.shape} are not broadcastable."
-        )
-
-    x, y = paddle.broadcast_to(x, broadcast_shape), paddle.broadcast_to(
-        y, broadcast_shape
-    )
     out = (x.conj() * y).sum(axis=axis)
     return out
 
