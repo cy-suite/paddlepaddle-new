@@ -65,8 +65,6 @@ def bernoulli(
             1-x_i,&y=0
         \end{cases}.
 
-
-
     Args:
         x (Tensor): The input Tensor, it's data type should be float32, float64.
         p (float|None, optional): If ``p`` is given, the success probability will always be ``p``. Default is None, which means
