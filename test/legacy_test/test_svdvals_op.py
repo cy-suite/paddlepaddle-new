@@ -56,6 +56,12 @@ class TestSvdvalsOp(OpTest):
             np_s = np.linalg.svd(single_input, compute_uv=False)
             np.testing.assert_allclose(dy_s.numpy(), np_s, rtol=1e-6)
 
+    def check_S_grad(self):
+        self.check_grad(['X'], ['S'], numeric_grad_delta=0.001, check_pir=True)
+
+    def test_check_grad(self):
+        self.check_S_grad()
+
 
 class TestSvdValsBatched(TestSvdvalsOp):
     def generate_input(self):
