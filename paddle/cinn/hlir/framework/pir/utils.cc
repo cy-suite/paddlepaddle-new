@@ -353,7 +353,7 @@ bool CauseNewSymbolicShape(const ::pir::Operation& op) {
   auto& shape_analysis = ::pir::ShapeAnalysisManager::Instance().Get(
       const_cast<::pir::Operation&>(op).GetParentProgram());
 
-  const bool is_processable_slice = [&]() {
+  const auto& is_processable_slice = [&]() {
     const ::pir::Value& starts_value = op.operand_source(1);
     const ::pir::Value& ends_value = op.operand_source(2);
     const symbol::ShapeOrDataDimExprs& starts_shape_data =
@@ -362,9 +362,9 @@ bool CauseNewSymbolicShape(const ::pir::Operation& op) {
         shape_analysis.GetShapeOrDataForValue(ends_value);
     return starts_shape_data.data().has_value() &&
            ends_shape_data.data().has_value();
-  }();
+  };
 
-  if (op.name() == "pd_op.slice" && !is_processable_slice) {
+  if (op.name() == "pd_op.slice" && !is_processable_slice()) {
     return true;
   }
 
