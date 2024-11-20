@@ -39,13 +39,14 @@
 
 namespace {
 
-extern const std::set<std::string> op_in_NHWC;
 extern const std::set<std::string> op_in_NCHW;
 extern const std::set<std::string> op_with_axis;
 
 class AutoLayoutPass : public pir::Pass {
  public:
   AutoLayoutPass() : pir::Pass("auto_layout_pass", 2) {}
+  AutoLayoutPass(const std::set<std::string>& op_in_NHWC)  // NOLINT
+      : pir::Pass("auto_layout_pass", 2), op_in_NHWC_(op_in_NHWC) {}
 
   void Run(pir::Operation* op) override {
     for (size_t i = 0; i < op->num_regions(); ++i) {
@@ -164,13 +165,11 @@ class AutoLayoutPass : public pir::Pass {
       // NHWC ops branch, Only support
       // conv2d、fused_conv2d_add_act、conv2d_transpose now, it will add white
       // list later.
-      if (op_in_NHWC.find(op_name) != op_in_NHWC.end()) {
+      if (op_in_NHWC_.find(op_name) != op_in_NHWC_.end()) {
         auto layout_interface =
             op->dyn_cast<paddle::dialect::LayoutTransformationInterface>();
         common::DataLayout new_layout = layout_interface.PreferLayout(op);
-        if (new_layout != common::DataLayout::NHWC) {
-          continue;
-        }
+        if (new_layout != common::DataLayout::NHWC) continue;
 
         if (op->HasAttribute("data_format") &&
             op->attribute<pir::StrAttribute>("data_format").AsString() ==
@@ -256,11 +255,11 @@ class AutoLayoutPass : public pir::Pass {
   }
 
   pir::IrContext* ctx_ = pir::IrContext::Instance();
+  std::set<std::string> op_in_NHWC_;
   const std::vector<int32_t> NCHW2NHWC_ = {0, 2, 3, 1};
   const std::vector<int32_t> NHWC2NCHW_ = {0, 3, 1, 2};
 };
-const std::set<std::string> op_in_NHWC = {
-    "pd_op.fused_conv2d_add_act", "pd_op.conv2d", "pd_op.conv2d_transpose"};
+
 const std::set<std::string> op_in_NCHW = {"pd_op.max_pool2d_with_index",
                                           "pd_op.fractional_max_pool2d",
                                           "pd_op.unpool3d",
@@ -348,8 +347,9 @@ const std::set<std::string> op_with_axis = {
 }  // namespace
 namespace pir {
 
-std::unique_ptr<Pass> CreateAutoLayoutPass() {
-  return std::make_unique<AutoLayoutPass>();
+std::unique_ptr<Pass> CreateAutoLayoutPass(
+    const std::set<std::string>& op_in_NHWC) {
+  return std::make_unique<AutoLayoutPass>(op_in_NHWC);
 }
 
 }  // namespace pir

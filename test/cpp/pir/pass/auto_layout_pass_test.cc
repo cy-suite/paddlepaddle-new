@@ -62,7 +62,10 @@ TEST(auto_layout_pass, pass_test) {
   auto program = pir::IrParser(ctx, ss).ParseProgram();
 
   pir::PassManager auto_layout_pm(::pir::IrContext::Instance(), 3);
-  auto_layout_pm.AddPass(pir::CreateAutoLayoutPass());
+  auto_layout_pm.AddPass(
+      pir::CreateAutoLayoutPass({"pd_op.fused_conv2d_add_act",
+                                 "pd_op.conv2d",
+                                 "pd_op.conv2d_transpose"}));
   auto_layout_pm.AddPass(pir::CreateAutoLayoutSimplifyPass());
   auto_layout_pm.Run(program.get());
 }
