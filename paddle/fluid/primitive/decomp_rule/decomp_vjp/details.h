@@ -3009,7 +3009,7 @@ void kron_grad(const Tensor& x,
           while (x_shape_vec.size() != 0 && expand_shape_vec.size() <= 8) {
             Tensor repeat = x_shape_vec.back();
             auto orig_size =
-                cast<T>(out_grad_shape_vec.back() / repeat, DataType::INT32);
+                cast<T>(out_grad_shape_vec.back() / repeat, DataType::INT64);
             size_t out_grad_last_index = out_grad_shape_vec.size() - 1;
             expand_shape_vec[out_grad_last_index] = repeat;
             expand_shape_vec.insert(
@@ -3154,7 +3154,7 @@ void kron_grad(const Tensor& x,
           while (x_shape_vec.size() != 0 && expand_shape_vec.size() <= 8) {
             auto repeat = x_shape_vec.back();
             auto orig_size =
-                cast<T>(out_grad_shape_vec.back() / repeat, DataType::INT32);
+                cast<T>(out_grad_shape_vec.back() / repeat, DataType::INT64);
             size_t out_grad_last_index = out_grad_shape_vec.size() - 1;
             expand_shape_vec[out_grad_last_index] = repeat;
             expand_shape_vec.insert(
