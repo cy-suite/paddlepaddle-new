@@ -1295,7 +1295,11 @@ def __ror__(
 ) -> Tensor:
     if isinstance(y, (int, bool)):
         y = paddle.to_tensor(y, dtype=x.dtype)
-    return bitwise_or(y, x, out=out, name=name)
+        return bitwise_or(y, x, out=out, name=name)
+    else:
+        raise TypeError(
+            f"unsupported operand type(s) for |: '{type(y).__name__}' and 'Tensor' ."
+        )
 
 
 @inplace_apis_in_dygraph_only
