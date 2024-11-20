@@ -3230,8 +3230,8 @@ bool SliceOpInferSymbolicShape(pir::Operation *op,
       }
       PADDLE_ENFORCE_EQ(
           se_shape_data.shape().at(0).isa<std::int64_t>() &&
-              axes_vec.size() ==
-                  se_shape_data.shape().at(0).dyn_cast<std::int64_t>(),
+              (static_cast<int64_t>(axes_vec.size()) ==
+               se_shape_data.shape().at(0).dyn_cast<std::int64_t>()),
           true,
           common::errors::InvalidArgument(
               "The size of axes must equal size of starts and ends."));
