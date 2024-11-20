@@ -25,13 +25,32 @@ template <typename T>
 void LapackSvdvals(const T* X, T* S, int rows, int cols) {
   // Using N to neglect computing U、VH
   char jobz = 'N';
-  int mx = std::max(rows, cols);
-  int mn = std::min(rows, cols);
   T* a = const_cast<T*>(X);
   int lda = rows;
-  int lwork = 4 * mn + mx;
-  std::vector<T> work(lwork);
+  int lwork = -1;
+  std::vector<T> work(1);
   int info = 0;
+  // Get the best lwork
+  phi::funcs::lapackSvd<T>(jobz,
+                           rows,
+                           cols,
+                           a,
+                           lda,
+                           S,
+                           nullptr,  // U is not needed
+                           1,        // dummy dimension for U
+                           nullptr,  // VH is not needed
+                           1,        // dummy dimension for VH
+                           work.data(),
+                           lwork,
+                           nullptr,  // iwork is not needed
+                           &info);
+  if (info != 0) {
+    PADDLE_THROW(phi::errors::InvalidArgument(
+        "Error during LAPACK lwork query. Invalid matrix or arguments."));
+  }
+  lwork = static_cast<int>(work[0]);
+  work.resize(lwork);
   phi::funcs::lapackSvd<T>(jobz,
                            rows,
                            cols,

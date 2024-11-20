@@ -4911,17 +4911,17 @@ void SvdvalsInferMeta(const MetaTensor& x, MetaTensor* s) {
   };
 
   auto in_dims = x.dims();
-  int x_rank = in_dims.size();
+  int64_t x_rank = in_dims.size();
 
   PADDLE_ENFORCE_GE(
       x_rank,
       2,
       common::errors::InvalidArgument("The rank of input tensor must be >= 2"));
 
-  int m = static_cast<int>(in_dims[x_rank - 2]);
-  int n = static_cast<int>(in_dims[x_rank - 1]);
+  int64_t m = static_cast<int64_t>(in_dims[x_rank - 2]);
+  int64_t n = static_cast<int64_t>(in_dims[x_rank - 1]);
 
-  int k = std::min(m, n);
+  int64_t k = std::min(m, n);
   s->set_dims(SDDim(in_dims, k));
   s->share_lod(x);
   s->set_dtype(x.dtype());
