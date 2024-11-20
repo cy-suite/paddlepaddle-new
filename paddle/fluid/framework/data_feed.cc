@@ -419,7 +419,7 @@ int InMemoryDataFeed<T>::Next() {
     PADDLE_ENFORCE_EQ(output_channel_ != nullptr,
                       true,
                       common::errors::InvalidArgument(
-                          "Output channel  should not be null, please check!"));
+                          "Output channel should not be null, please check!"));
     PADDLE_ENFORCE_EQ(
         consume_channel_ != nullptr,
         true,
