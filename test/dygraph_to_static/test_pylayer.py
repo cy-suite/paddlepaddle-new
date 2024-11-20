@@ -815,7 +815,7 @@ class TestPyLayerWrongUsage(unittest.TestCase):
         x = paddle.to_tensor(np.random.random((1, 784)).astype('float32'))
         with self.assertRaisesRegex(
             AttributeError,
-            r"ctx.x = tensor is not allowed in static mode, please use `ctx.save_for_backward\(tensor\)` instead.",
+            r"`ctx.x = tensor` is not allowed in static mode, please use `ctx.save_for_backward\(tensor\)` instead.",
         ):
             static_layer(x)
 
