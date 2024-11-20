@@ -229,68 +229,6 @@ using FloorDivideOpPattern =
 using RemainderOpPattern =
     ElementwiseCommonOpPattern<paddle::dialect::RemainderOp>;
 
-bool CheckStaticShape(const pir::Operation *op) {
-  std::vector<int32_t> vec_shape;
-  auto shape_attr = op->attribute("shape").dyn_cast<pir::ArrayAttribute>();
-  for (const auto &attr : shape_attr.AsVector()) {
-    vec_shape.push_back(attr.dyn_cast<pir::Int32Attribute>().data());
-  }
-  for (int32_t dim : vec_shape) {
-    if (dim == -1) {
-      VLOG(3) << "pd_op.assign_value_ or pd_op.assign_value cannot support "
-                 "dynamic shape";
-      return false;
-    }
-  }
-  int shape_size = vec_shape.size();
-  int values_count =
-      op->attribute("values").dyn_cast<pir::ArrayAttribute>().size();
-  if (shape_size != values_count) {
-    VLOG(3) << "pd_op.assign_value shape size is not equal to the values size";
-    return false;
-  }
-  return true;
-}
-
-class AssignValue_OpPattern
-    : public pir::OpRewritePattern<paddle::dialect::AssignValue_Op> {
- public:
-  using pir::OpRewritePattern<
-      paddle::dialect::AssignValue_Op>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::AssignValue_Op op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-    if (!CheckStaticShape(op)) {
-      return false;
-    }
-
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
-
-class AssignValueOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::AssignValueOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::AssignValueOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::AssignValueOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-    if (!CheckStaticShape(op)) {
-      return false;
-    }
-
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
-
 class Pool2dOpPattern
     : public pir::OpRewritePattern<paddle::dialect::Pool2dOp> {
  public:
@@ -1876,16 +1814,15 @@ class TopkOpPattern : public pir::OpRewritePattern<paddle::dialect::TopkOp> {
         op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-
+    if (!op->HasAttribute("axis")) {
+      VLOG(3) << "pd_op.topk must has axis attribute";
+      return false;
+    }
     if (!pir::GetDefiningOpForInput(op, 1)->isa<paddle::dialect::FullOp>()) {
       VLOG(3) << "The 'k' input of pd_op.topk must be an integer";
       return false;
     }
 
-    if (!op->HasAttribute("axis")) {
-      VLOG(3) << "pd_op.topk must has axis attribute";
-      return false;
-    }
     if (op->HasAttribute("sorted")) {
       bool sorted = op->attribute<pir::BoolAttribute>("sorted").data();
       if (!sorted) {
@@ -2007,6 +1944,21 @@ class SetValueWithTensorOpPattern
         op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
+    bool in_trt = CheckSetValue(op, 2);
+    if (!in_trt) {
+      return false;
+    }
+    pir::Value values = op.operand_source(1);
+    auto values_dtype = pir::GetDataTypeFromValue(values);
+    if (!values_dtype.isa<pir::Float32Type>() &&
+        !values_dtype.isa<pir::Float64Type>()) {
+      VLOG(3) << "SetValueWithTensorOp only support float32/float64 value when "
+                 "translate "
+                 "to trt.";
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
   }
 };
 
@@ -2067,8 +2019,72 @@ class OneHotOpPattern
   }
 };
 
+bool CheckStaticShape(const pir::Operation *op) {
+  std::vector<int32_t> vec_shape;
+  auto shape_attr = op->attribute("shape").dyn_cast<pir::ArrayAttribute>();
+  for (const auto &attr : shape_attr.AsVector()) {
+    vec_shape.push_back(attr.dyn_cast<pir::Int32Attribute>().data());
+  }
+  for (int32_t dim : vec_shape) {
+    if (dim == -1) {
+      VLOG(3) << "pd_op.assign_value_ or pd_op.assign_value cannot support "
+                 "dynamic shape";
+      return false;
+    }
+  }
+  int shape_size = vec_shape.size();
+  int values_count =
+      op->attribute("values").dyn_cast<pir::ArrayAttribute>().size();
+  if (shape_size != values_count) {
+    VLOG(3) << "pd_op.assign_value or pd_op.assign_value shape size is not "
+               "equal to the values size";
+    return false;
+  }
+  return true;
+}
+
+class AssignValue_OpPattern
+    : public pir::OpRewritePattern<paddle::dialect::AssignValue_Op> {
+ public:
+  using pir::OpRewritePattern<
+      paddle::dialect::AssignValue_Op>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::AssignValue_Op op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (!CheckStaticShape(op)) {
+      return false;
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class AssignValueOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::AssignValueOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::AssignValueOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::AssignValueOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (!CheckStaticShape(op)) {
+      return false;
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class TrtOpMarkerPass : public pir::PatternRewritePass {
  public:
+  TrtOpMarkerPass() : pir::PatternRewritePass("trt_op_marker_pass", 2) {}
 
   pir::RewritePatternSet InitializePatterns(pir::IrContext *context) override {
     pir::RewritePatternSet ps(context);
@@ -2076,6 +2092,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
 #define ADD_PATTERN(OpName) \
   ps.Add(std::make_unique<OpName##OpPattern>(context));
     ADD_PATTERN(Matmul)
+    ADD_PATTERN(BatchNorm)
     ADD_PATTERN(BatchNorm_)
     ADD_PATTERN(Softmax)
     ADD_PATTERN(Relu)
@@ -2165,9 +2182,6 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<FullWithTensorPattern>(context));
     ps.Add(std::make_unique<StridedSliceOpPattern>(context));
     ps.Add(std::make_unique<TopkOpPattern>(context));
-    ps.Add(std::make_unique<AssignValueOpPattern>(context));
-    ps.Add(std::make_unique<AssignValue_OpPattern>(context));
-    ps.Add(std::make_unique<OneHotOpPattern>(context));
     ps.Add(std::make_unique<SetValueOpPattern>(context));
     ps.Add(std::make_unique<SetValue_OpPattern>(context));
     ps.Add(std::make_unique<SetValueWithTensorOpPattern>(context));
@@ -2175,6 +2189,9 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<SoftplusOpPatten>(context));
     ps.Add(std::make_unique<EqualOpPattern>(context));
     ps.Add(std::make_unique<NotEqualOpPattern>(context));
+    ps.Add(std::make_unique<OneHotOpPattern>(context));
+    ps.Add(std::make_unique<AssignValueOpPattern>(context));
+    ps.Add(std::make_unique<AssignValue_OpPattern>(context));
     return ps;
   }
 };
