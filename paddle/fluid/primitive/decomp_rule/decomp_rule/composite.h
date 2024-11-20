@@ -149,16 +149,6 @@ Tensor p_norm_decomp(const Tensor& x,
 }
 
 template <typename T>
-Tensor pow_decomp(const Tensor& x, const paddle::Scalar& y) {
-  auto x_cast = ConverToMT<T>(x);
-
-  check_valid_type(y.dtype());
-  Tensor y_full = full_scalar<T>(y, x_cast.dtype());
-  auto ans = elementwise_pow<T>(x_cast, y_full);
-  return ConverToOrig<T>(ans, x.dtype());
-}
-
-template <typename T>
 std::tuple<Tensor, Tensor> huber_loss_decomp(const Tensor& input,
                                              const Tensor& label,
                                              float delta) {

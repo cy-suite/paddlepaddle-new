@@ -52,7 +52,6 @@ decomp_interface_declare_gen_op_list = [
     "numel",
     "one_hot",
     "p_norm",
-    "pow",
     "reciprocal",
     "relu",
     "relu6",
