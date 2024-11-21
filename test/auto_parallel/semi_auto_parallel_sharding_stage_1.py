@@ -115,7 +115,7 @@ class TestSemiAutoParallelShardingStage1:
         opt = paddle.optimizer.SGD(
             learning_rate=0.1, parameters=layer.parameters()
         )
-        opt = dist.shard_optimizer(opt, dist.ShardingStage1(self._mesh))
+        opt = dist.shard_optimizer(opt, dist.ShardingStage1("dp", self._mesh))
         loss_fn = nn.MSELoss()
 
         dist_loader = dist.shard_dataloader(
