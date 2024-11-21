@@ -724,7 +724,7 @@ def replace_mid_values_with_forward_subgraph(
             new_chain = list(chain)
             new_chain.append(recompute_value)
             define_op = recompute_value.get_defining_op()
-            if define_op in marked_recompute_ops:
+            if define_op in marked_recompute_ops or define_op is None:
                 return
             op_inputs = define_op.operands_source()
             if len(op_inputs) == 0 and define_op.name() not in [
