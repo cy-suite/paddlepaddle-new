@@ -325,9 +325,6 @@ std::vector<std::vector<pir::Value>> FusedGemmEpilogueOp::Vjp(
   Tensor y(std::make_shared<primitive::LazyTensor>(inputs_[1][0]));
   Tensor reserve_space(std::make_shared<primitive::LazyTensor>(inputs_[2][0]));
   Tensor out_grad(std::make_shared<primitive::LazyTensor>(inputs_[3][0]));
-  // Tensor x_grad(std::make_shared<primitive::LazyTensor>(out_grads[0][0]));
-  // Tensor y_grad(std::make_shared<primitive::LazyTensor>(out_grads[1][0]));
-  // Tensor bias_grad(std::make_shared<primitive::LazyTensor>(out_grads[2][0]));
 
   VLOG(6) << "Vjp prepare Prepare attributes of fused_gemm_epilogue_grad";
 

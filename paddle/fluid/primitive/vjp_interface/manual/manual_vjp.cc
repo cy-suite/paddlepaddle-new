@@ -198,16 +198,8 @@ std::vector<std::vector<paddle::Tensor>> fused_gemm_epilogue_vjp(
   for (auto arg : stop_gradients) {
     vjp_res.push_back(std::vector<paddle::Tensor>(arg.size()));
   }
-  auto op_res = backend::fused_gemm_epilogue_grad<LazyTensor>(x,
-                                                              y,
-                                                              reserve_space,
-                                                              out_grad,
-                                                              // x_grad,
-                                                              // y_grad,
-                                                              // bias_grad,
-                                                              trans_x,
-                                                              trans_y,
-                                                              activation);
+  auto op_res = backend::fused_gemm_epilogue_grad<LazyTensor>(
+      x, y, reserve_space, out_grad, trans_x, trans_y, activation);
   vjp_res[0][0] = std::get<0>(op_res);
   vjp_res[1][0] = std::get<1>(op_res);
   vjp_res[2][0] = std::get<2>(op_res);
