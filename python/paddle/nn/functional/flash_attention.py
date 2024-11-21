@@ -366,7 +366,7 @@ def flash_attention(
 
     """
     head_dim = query.shape[3]
-    sdp_func_name = _select_sdp(head_dim)
+    sdp_func_name = _select_sdp(head_dim, query.dtype, query.place)
 
     if sdp_func_name == "flash_attn":
         if in_dynamic_or_pir_mode():
@@ -555,7 +555,7 @@ def flash_attn_qkvpacked(
 
     """
     head_dim = qkv.shape[-1]
-    sdp_func_name = _select_sdp(head_dim)
+    sdp_func_name = _select_sdp(head_dim, qkv.dtype, qkv.place)
 
     if sdp_func_name == "flash_attn":
         if in_dynamic_or_pir_mode():
