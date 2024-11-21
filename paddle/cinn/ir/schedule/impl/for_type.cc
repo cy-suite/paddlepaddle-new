@@ -216,9 +216,8 @@ void DyScheduleImpl::Bind(const Expr& loop, const std::string& thread_axis) {
 #endif
       },
       [&](common::HygonDCUArchSYCL) {
-#ifdef CINN_WITH_SYCL
-      
-#endif
+        PADDLE_THROW(phi::errors::Unimplemented(
+            "CINN todo: new hardware HygonDCUArchSYCL"));
       });
 }
 }  // namespace ir

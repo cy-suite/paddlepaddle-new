@@ -90,8 +90,8 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
 #endif
       },
       [&](common::HygonDCUArchSYCL) {
-#ifdef CINN_WITH_SYCL
-#endif
+        PADDLE_THROW(phi::errors::Unimplemented(
+            "CINN todo: new hardware HygonDCUArchSYCL"));
       });
 
   SimplifyBlocks(&copied->body);
