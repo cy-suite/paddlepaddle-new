@@ -1296,16 +1296,15 @@ def __ror__(
     out: Tensor | None = None,
     name: str | None = None,
 ) -> Tensor:
-    if paddle.in_dynamic_mode():
-        if isinstance(y, (int, bool)):
-            y = paddle.to_tensor(y, dtype=x.dtype)
-            return bitwise_or(y, x, out=out, name=name)
-        else:
-            raise TypeError(
-                f"unsupported operand type(s) for |: '{type(y).__name__}' and 'Tensor'"
-            )
-    else:
+    if isinstance(y, (int, bool)):
+        y = paddle.to_tensor(y, dtype=x.dtype)
         return bitwise_or(y, x, out=out, name=name)
+    elif isinstance(y, paddle.base.libpaddle.pir.Value):
+        return bitwise_or(y, x, out=out, name=name)
+    else:
+        raise TypeError(
+            f"unsupported operand type(s) for |: '{type(y).__name__}' and 'Tensor'"
+        )
 
 
 @inplace_apis_in_dygraph_only

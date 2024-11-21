@@ -335,24 +335,39 @@ class TestMathOpPatches(unittest.TestCase):
 
     @prog_scope()
     def test_ror(self):
-        x_np = np.random.randint(-100, 100, [2, 3, 5]).astype("int32")
-        y_np = np.random.randint(-100, 100, [2, 3, 5]).astype("int32")
-        out_np = x_np | y_np
-
-        x = paddle.static.data(name="x", shape=[2, 3, 5], dtype="int32")
-        y = paddle.static.data(name="y", shape=[2, 3, 5], dtype="int32")
-        z = x | y
-        out_ror = y.__ror__(x)
-
-        exe = base.Executor()
-        exe = base.Executor()
-        out = exe.run(
-            base.default_main_program(),
-            feed={"x": x_np, "y": y_np},
-            fetch_list=[z, out_ror],
+        place = (
+            paddle.CUDAPlace(0)
+            if paddle.is_compiled_with_cuda()
+            else paddle.CPUPlace()
         )
-        np.testing.assert_array_equal(out[0], out_np)
-        np.testing.assert_array_equal(out[1], out_np)
+        x_int = 5
+        y_np = np.random.randint(-100, 100, [2, 3, 5]).astype("int32")
+        y = paddle.static.data("y", y_np.shape, dtype=y_np.dtype)
+        z = x_int | y
+        exe = paddle.static.Executor(place)
+        out = exe.run(
+            feed={'x': x_int, 'y': y_np},
+            fetch_list=[z],
+        )
+        out_ref = x_int | y_np
+        np.testing.assert_array_equal(out[0], out_ref)
+        x_bool = True
+        res_ror_bool = x_bool | y
+        out_bool = exe.run(
+            feed={'x': x_bool, 'y': y_np},
+            fetch_list=[res_ror_bool],
+        )
+        res_py_bool = x_bool | y_np
+        np.testing.assert_array_equal(out_bool[0], res_py_bool)
+
+        for x_invalid in (
+            np.float32(5.0),
+            np.float64(5.0),
+            np.complex64(5),
+            np.complex128(5.0 + 2j),
+        ):
+            with self.assertRaises(TypeError):
+                x_invalid | y
 
     @prog_scope()
     def test_bitwise_xor(self):
