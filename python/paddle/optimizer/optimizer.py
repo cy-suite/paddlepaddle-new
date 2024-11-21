@@ -48,6 +48,7 @@ from ..base.backward import (
 )
 from ..base.framework import Parameter
 from ..base.layer_helper import LayerHelper, LayerHelperBase
+from .fusion_utils import FusionStorage
 from .lr import LRScheduler
 
 
@@ -310,6 +311,7 @@ class Optimizer:
         self._master_weights = {}
         # create master gradients' states
         self._create_master_grad_states()
+        self.fusion_storage = None
 
     def _create_master_grad_states(self):
         # master gradients states
@@ -331,6 +333,36 @@ class Optimizer:
 
     def _get_auxiliary_var(self, key):
         return self._auxiliary_vars.get(key, None)
+
+    @imperative_base.no_grad()
+    def fuse_optimizer_states(self):
+        # only support dygraph mode
+        if not framework.in_dygraph_mode():
+            return
+
+        # TODO(@gexiao): support other optimizer if needed
+        if self.__class__.__name__ != "AdamW":
+            return
+
+        # TODO(@gexiao): support fuse optimizer states when training from scratch
+        if len(self._accumulators_holder) < 1:
+            return
+
+        self.helper = LayerHelper(self.__class__.__name__)
+
+        # TODO(@gexiao): exclude freeze params
+        def __is_excluded_param(param):
+            return param.stop_gradient or (not param._is_initialized())
+
+        global_block = framework.default_main_program().global_block()
+        with paddle.base.framework.dygraph_guard_if_declarative():
+            self._create_accumulators(
+                global_block,
+                [p for p in self._parameter_list if not __is_excluded_param(p)],
+            )
+        self.fusion_storage = FusionStorage(
+            self._accumulators, self._master_weights
+        )
 
     @framework.dygraph_only
     def state_dict(self) -> dict[str, Tensor]:
@@ -814,9 +846,20 @@ class Optimizer:
             return self._global_learning_rate()
 
     def _create_master_weight(self, param):
+        assert (
+            param.name in self._master_weights
+        ), f"param {param.name} is not in master weights: {self._master_weights.keys()}"
         if param.name in self._master_weights:
             var = self._master_weights[param.name]
         else:
+            # TODO(@gexiao): support fused buffer mode for from-scratch training
+            if self.fusion_storage:
+                raise Exception(
+                    "Fused buffer mode is enabled, cannot create master weight after training is started"
+                )
+            print(
+                f"check param after before _create_master_weight: {param.name} {param.shape}"
+            )
             var_name = self._gen_master_weight_var_name(param)
             if in_pir_mode():
                 startup_program = paddle.static.default_startup_program()
@@ -964,6 +1007,12 @@ class Optimizer:
             raise Exception(
                 f"Accumulator {name} already exists for parameter {param.name}"
             )
+        else:
+            # TODO(@gexiao): support fused buffer mode for from-scratch training
+            if self.fusion_storage:
+                raise Exception(
+                    "Fused buffer mode is enabled, cannot add accumulator after training is started"
+                )
         if shape is None:
             shape = param.shape
 
@@ -1546,6 +1595,11 @@ class Optimizer:
         if framework.in_dygraph_mode() and g_shard_bypass_dygraph_optimizer:
             return
 
+        check_param = params_grads[0][0]
+        print(
+            f"check param inside _apply_optimize: {check_param.name} {check_param.shape}"
+        )
+
         if in_dynamic_or_pir_mode():
             with paddle.static.program_guard(
                 paddle.static.default_main_program(),
@@ -1554,8 +1608,16 @@ class Optimizer:
                 if isinstance(params_grads, list):
                     if self._grad_clip is not None:
                         params_grads = self._grad_clip(params_grads)
+                    check_param = params_grads[0][0]
+                    print(
+                        f"check param after grad_clip: {check_param.name} {check_param.shape}"
+                    )
                     params_grads = self.append_regularization_ops(
                         params_grads, self.regularization
+                    )
+                    check_param = params_grads[0][0]
+                    print(
+                        f"check param after append_regularization_ops: {check_param.name} {check_param.shape}"
                     )
                 else:
                     grad_clip = params_grads['grad_clip']
@@ -1574,6 +1636,10 @@ class Optimizer:
                 else:
                     optimize_ops = self._create_optimization_pass(
                         params_grads, param_group_idx=param_group_idx
+                    )
+                    check_param = params_grads[0][0]
+                    print(
+                        f"check param after _create_optimization_pass: {check_param.name} {check_param.shape}"
                     )
         else:
             assert param_group_idx == 0

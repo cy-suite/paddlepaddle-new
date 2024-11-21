@@ -765,6 +765,19 @@ class DygraphShardingOptimizerV2:
                     use_reduce_avg=self.use_reduce_avg,
                     free_grads_in_comm=free_grads_in_comm,
                 )
+                for param in buffer.params:
+                    if (
+                        buffer._sharding_param_grad_view[
+                            param.name
+                        ]._param_begin
+                        < buffer._sharding_param_grad_view[
+                            param.name
+                        ]._param_end
+                    ):
+                        print(f"processing sharding_grad_view:{param.name}")
+                        buffer._sharding_param_grad_view[
+                            param.name
+                        ].fill_slice_param(self._slice_params[param.name])
                 group_idx += 1
                 self._comm_buffer_list.append(buffer)
 
@@ -949,6 +962,7 @@ class DygraphShardingOptimizerV2:
                 if self.sd_release_grads and hasattr(slice_param, "main_grad"):
                     assert not slice_param.main_grad._is_initialized()
                     del slice_param.main_grad
+                # print(f"check {comm_buffer._id} buffer: {param.name}; start: {comm_buffer._sharding_param_grad_view[param.name]._param_begin}, end: {comm_buffer._sharding_param_grad_view[param.name]._param_end}")
                 comm_buffer.assign_slice_grad(param, slice_param)
 
         assert param_num == len(self._parameter_list)
@@ -963,8 +977,17 @@ class DygraphShardingOptimizerV2:
                 hook_remove.remove()
             self._forward_pre_hook_remove_helper = []
 
+        print(
+            f"check param before _collect_comm_buffers: {self._inner_opt._parameter_list[0].name}; {self._inner_opt._parameter_list[0].shape}"
+        )
         self._collect_comm_buffers()
+        print(
+            f"check param after _collect_comm_buffers: {self._inner_opt._parameter_list[0].name}; {self._inner_opt._parameter_list[0].shape}"
+        )
         self._assign_slice_grad()
+        print(
+            f"check param after _assign_slice_grad: {self._inner_opt._parameter_list[0].name}; {self._inner_opt._parameter_list[0].shape}"
+        )
 
         if not isinstance(self._parameter_list[0], dict):
             params_grads = []
@@ -989,6 +1012,9 @@ class DygraphShardingOptimizerV2:
 
             if self._enable_timer:
                 self.timers("apply-optimize").start()
+            print(
+                f"check param before _apply_optimize: {self._inner_opt._parameter_list[0].name}; {self._inner_opt._parameter_list[0].shape}"
+            )
             self._apply_optimize(
                 loss=None,
                 startup_program=None,
