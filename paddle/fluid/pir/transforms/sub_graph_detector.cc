@@ -741,6 +741,9 @@ void ReplaceWithGroupOp(pir::Block* block,
 #ifdef PADDLE_WITH_DNNL
   ctx->GetOrRegisterDialect<paddle::dialect::OneDNNOperatorDialect>();
 #endif
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+  ctx->GetOrRegisterDialect<paddle::dialect::CustomEngineDialect>();
+#endif
   ::pir::Builder builder = ::pir::Builder(ctx, block);
   const std::vector<pir::Value> outputs = AnalysisOutputs(group_ops);
 

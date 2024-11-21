@@ -53,6 +53,25 @@ class CustomKernelDialect : public pir::Dialect {
   void initialize();
 };
 
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+class CustomEngineKernelDialect : public pir::Dialect {
+ public:
+  explicit CustomEngineKernelDialect(pir::IrContext* context);
+
+  static const char* name() { return "custom_engine_kernel"; }
+
+  void PrintType(pir::Type type, std::ostream& os) const override;
+
+  void PrintAttribute(pir::Attribute attr, std::ostream& os) const override;
+
+  pir::OpPrintFn PrintOperation(
+      const pir::Operation& op) const override;  // NOLINT
+
+ private:
+  void initialize();
+};
+#endif
+
 #ifdef PADDLE_WITH_DNNL
 class OneDNNKernelDialect : public pir::Dialect {
  public:

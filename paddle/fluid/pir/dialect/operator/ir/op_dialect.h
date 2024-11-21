@@ -46,6 +46,11 @@ inline bool IsCustomOp(pir::Operation* op) {
   return op_name.find("custom_op") != op_name.npos;
 }
 
+inline bool IsCustomEngineOp(pir::Operation* op) {
+  std::string op_name = op->name();
+  return op_name.find("custom_engine") != op_name.npos;
+}
+
 inline bool IsInplaceOp(pir::Operation* op) {
   std::string op_name = op->name();
   return op_name.back() == '_';
@@ -82,8 +87,36 @@ class CustomOpDialect : public pir::Dialect {
   std::vector<const char*> op_names_;
 };
 
+class CustomEngineDialect : public pir::Dialect {
+ public:
+  explicit CustomEngineDialect(pir::IrContext* context);
+
+  static const char* name() { return "custom_engine"; }
+
+  void PrintType(pir::Type type, std::ostream& os) const override;
+  void PrintAttribute(pir::Attribute type, std::ostream& os) const override;
+
+  pir::OpPrintFn PrintOperation(
+      const pir::Operation& op) const override;  // NOLINT
+
+  template <typename ConcreteOp>
+  void RegisterCustomEngineOp();
+
+  bool HasRegistered(const std::string& op_name) {
+    if (std::find(op_names_.begin(), op_names_.end(), op_name) !=
+        op_names_.end()) {
+      return true;
+    }
+    return false;
+  }
+
+ private:
+  std::vector<const char*> op_names_;
+};
+
 }  // namespace dialect
 }  // namespace paddle
 
 IR_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::OperatorDialect)
 IR_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::CustomOpDialect)
+IR_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::CustomEngineDialect)
