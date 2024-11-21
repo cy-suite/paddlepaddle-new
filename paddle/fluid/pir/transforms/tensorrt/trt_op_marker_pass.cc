@@ -1623,6 +1623,10 @@ class ActOpPattern : public pir::OpRewritePattern<OpType> {
 };
 using TanhOpPattern = ActOpPattern<paddle::dialect::TanhOp>;
 using SoftplusOpPatten = ActOpPattern<paddle::dialect::SoftplusOp>;
+using EqualOpPattern = ActOpPattern<paddle::dialect::EqualOp>;
+using Equal_OpPattern = ActOpPattern<paddle::dialect::Equal_Op>;
+using NotEqualOpPattern = ActOpPattern<paddle::dialect::NotEqualOp>;
+using NotEqual_OpPattern = ActOpPattern<paddle::dialect::NotEqual_Op>;
 
 class WherePattern : public pir::OpRewritePattern<paddle::dialect::WhereOp> {
  public:
@@ -1642,59 +1646,6 @@ class WherePattern : public pir::OpRewritePattern<paddle::dialect::WhereOp> {
 #if IS_TRT_VERSION_LT(8400)
     VLOG(3) << "where is not supported when TensorRT < 8.4";
     return false;
-#endif
-
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
-
-class EqualOpPattern : public pir::OpRewritePattern<paddle::dialect::EqualOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::EqualOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::EqualOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-#if IS_TRT_VERSION_LT(8600)
-    pir::Value x = op.operand_source(0);
-    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
-    auto x_shape = x_type.dims();
-    int dims = x_shape.size();
-    if (dims < 1) {
-      VLOG(3)
-          << "pd_op.equal op does not support 0 dim input when TensorRT < 8.6.";
-      return false;
-    }
-#endif
-
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
-
-class NotEqualOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::NotEqualOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::NotEqualOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::NotEqualOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-#if IS_TRT_VERSION_LT(8600)
-    pir::Value x = op.operand_source(0);
-    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
-    auto x_shape = x_type.dims();
-    int dims = x_shape.size();
-    if (dims < 1) {
-      VLOG(3) << "pd_op.not_equal op does not support 0 dim input when "
-                 "TensorRT < 8.6.";
-      return false;
-    }
 #endif
 
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
@@ -2094,7 +2045,9 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<SetValueWithTensor_OpPattern>(context));
     ps.Add(std::make_unique<SoftplusOpPatten>(context));
     ps.Add(std::make_unique<EqualOpPattern>(context));
+    ps.Add(std::make_unique<Equal_OpPattern>(context));
     ps.Add(std::make_unique<NotEqualOpPattern>(context));
+    ps.Add(std::make_unique<NotEqual_OpPattern>(context));
     return ps;
   }
 };
