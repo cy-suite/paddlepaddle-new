@@ -26,24 +26,27 @@ function make_ubuntu_trt7_dockerfile_temp_ues(){
 
 function make_cpu_dockerfile(){
   dockerfile_name="Dockerfile.cuda9_cudnn7_gcc48_py35_centos6"
-  sed "s#<baseimg>#ubuntu:20.04#g" ./Dockerfile.ubuntu20 >${dockerfile_name}
+  # sed "s#<baseimg>#ubuntu:24.04#g" ./Dockerfile.ubuntu24 >${dockerfile_name}
+  sed "s#<baseimg>#registry.baidubce.com/tianshuo/paddle-ci:ubuntu24.04#g" ./Dockerfile.ubuntu24 >${dockerfile_name}
   sed -i "s#<setcuda>##g" ${dockerfile_name}
   sed -i "s#WITH_GPU:-ON#WITH_GPU:-OFF#g" ${dockerfile_name}
-  sed -i "s#RUN apt-key del 7fa2af80##g" ${dockerfile_name}
-  sed -i 's#RUN rm /etc/apt/sources.list.d/\*##g' ${dockerfile_name}
-  sed -i "s#RUN apt-key adv --fetch-keys https://developer.download.nvidia.cn/compute/cuda/repos/ubuntu2004/x86_64/3bf863cc.pub##g" ${dockerfile_name}
-  dockerfile_line=$(wc -l ${dockerfile_name}|awk '{print $1}')
+  sed -i 's#RUN mv /etc/apt/sources.list.d/cuda.list /etc/apt/sources.list.d/cuda.list.bak##g' ${dockerfile_name}
+  sed -i 's#RUN curl .*3bf863cc.pub | gpg --dearmor | tee /usr/share/keyrings/cuda-archive-keyring.gpg##g' ${dockerfile_name}
+  sed -i 's#RUN mv /etc/apt/sources.list.d/cuda.list.bak /etc/apt/sources.list.d/cuda.list##g' ${dockerfile_name}
+  sed -i 's#RUN sed -i .*signed-by=/usr/share/keyrings/cuda-archive-keyring.gpg.*cuda.list##g' ${dockerfile_name}
+  sed -i 's#<install_cpu_package>#RUN apt-get install -y gcc g++ make#g' ${dockerfile_name}
   sed -i 's#RUN bash /build_scripts/install_trt.sh##g' ${dockerfile_name}
+  sed -i 's#ENV CUDNN_VERSION=9.5.0##g' ${dockerfile_name}
+  dockerfile_line=$(wc -l ${dockerfile_name}|awk '{print $1}')
   sed -i "${dockerfile_line}i RUN wget --no-check-certificate -q https://paddle-edl.bj.bcebos.com/hadoop-2.7.7.tar.gz \&\& \
      tar -xzf     hadoop-2.7.7.tar.gz && mv hadoop-2.7.7 /usr/local/" ${dockerfile_name}
   sed -i "${dockerfile_line}i RUN apt remove git -y \&\& apt update \&\& apt install -y libsndfile1 zstd pigz ninja-build" ${dockerfile_name}
   sed -i "${dockerfile_line}i RUN pip install wheel PyGithub distro" ${dockerfile_name}
-  sed -i "${dockerfile_line}i RUN apt remove git -y \&\& apt update \&\& apt install -y libcurl4-openssl-dev gettext pigz \&\& wget -q https://paddle-ci.gz.bcebos.com/git-2.17.1.tar.gz \&\& \
+  sed -i "${dockerfile_line}i RUN apt install -y libcurl4-openssl-dev gettext pigz \&\& wget -q https://paddle-ci.gz.bcebos.com/git-2.17.1.tar.gz \&\& \
     tar -xvf git-2.17.1.tar.gz \&\& \
     cd git-2.17.1 \&\& \
     ./configure --with-openssl --with-curl --prefix=/usr/local \&\& \
     make -j8 \&\& make install " ${dockerfile_name}
-  sed -i 's#<install_cpu_package>#RUN apt-get install -y gcc g++ make#g' ${dockerfile_name}
 }
 
 
