@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import operator
+import sys
 import types
 from functools import cached_property, reduce
 from typing import TYPE_CHECKING, Any
@@ -42,9 +43,11 @@ from ....utils import (
     log,
     printable,
 )
+from ....utils.envs import ENV_SOT_BREAK_GRAPH_ON_GET_SYMBOLIC_VALUE
 from ....utils.exceptions import HasNoAttributeError, InnerError
 from ..dispatch_functions import tensor_numel
 from ..guard import (
+    FasterStringifiedExpression,
     StringifiedExpression,
     check_guard,
     object_equal_stringified_guard,
@@ -290,8 +293,9 @@ class TensorDtypeVariable(DataVariable):
                     )
                 ]
             return [
-                StringifiedExpression(
+                FasterStringifiedExpression(
                     f"{{}}.dtype == {dtype_str}",
+                    paddle.framework.core.DtypeMatchGuard(self.value),
                     [tensor_value_tracer],
                     union_free_vars(
                         tensor_value_tracer.free_vars,
@@ -705,15 +709,19 @@ def get_symbolic_from_meta(meta: MetaInfo) -> SymbolicValue:
         value = SymbolicBool()
     elif meta.dtype in [
         paddle.int8,
+        paddle.uint8,
         paddle.int16,
         paddle.int32,
         paddle.int64,
     ]:
         value = SymbolicInt()
     elif meta.dtype in [
+        paddle.bfloat16,
         paddle.float16,
         paddle.float32,
         paddle.float64,
+        paddle.float8_e4m3fn,
+        paddle.float8_e5m2,
     ]:
         value = SymbolicFloat()
     else:
@@ -785,6 +793,8 @@ class SymbolicVariable(VariableBase):
         )
 
     def get_py_value(self, allow_tensor: bool = False) -> bool | int | float:
+        if ENV_SOT_BREAK_GRAPH_ON_GET_SYMBOLIC_VALUE.get():
+            raise BreakGraphError("get_py_value from SymbolicVariable")
         self.need_guard_value = True
         if isinstance(self.value, SymbolicValue):
             assert isinstance(
@@ -855,11 +865,12 @@ class SymbolicVariable(VariableBase):
         if self.need_guard_value:
             return super().make_stringified_guard()
         return [
-            StringifiedExpression(
+            FasterStringifiedExpression(
                 f"id(type({{}})) == {id(self.get_py_type())}",
+                paddle.core.TypeMatchGuard(self.get_py_type()),
                 [frame_value_tracer],
                 union_free_vars(frame_value_tracer.free_vars),
-            )
+            ),
         ]
 
     @staticmethod
@@ -1199,6 +1210,9 @@ class NullVariable(VariableBase):
         return func(*args[1:], **kwargs)
 
     def reconstruct(self, codegen: PyCodeGen):
+        if sys.version_info >= (3, 13):
+            codegen.gen_push_null()
+            return
         codegen.gen_load_null_variable()
 
 

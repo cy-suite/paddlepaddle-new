@@ -71,14 +71,14 @@ void BindGuard(pybind11::module *m) {
       .def(py::init<const py::function &>(), py::arg("guard_check_fn"));
   py::class_<GuardGroup, GuardBase, std::shared_ptr<GuardGroup>>(
       *m, "GuardGroup", R"DOC(GuardGroup Class.)DOC")
-      .def(py::init<std::vector<std::shared_ptr<GuardBase>>>(),
+      .def(py::init<const std::vector<std::shared_ptr<GuardBase>> &>(),
            py::arg("guards"));
   py::class_<TypeMatchGuard, GuardBase, std::shared_ptr<TypeMatchGuard>>(
       *m, "TypeMatchGuard", R"DOC(TypeMatchGuard Class.)DOC")
       .def(py::init<const py::type &>(), py::arg("py_type"));
   py::class_<LengthMatchGuard, GuardBase, std::shared_ptr<LengthMatchGuard>>(
       *m, "LengthMatchGuard", R"DOC(LengthMatchGuard Class.)DOC")
-      .def(py::init<Py_ssize_t>(), py::arg("length"));
+      .def(py::init<const Py_ssize_t &>(), py::arg("length"));
   py::class_<ValueMatchGuard, GuardBase, std::shared_ptr<ValueMatchGuard>>(
       *m, "ValueMatchGuard", R"DOC(ValueMatchGuard Class.)DOC")
       .def(py::init<const py::object &>(), py::arg("py_value"));
@@ -87,9 +87,22 @@ void BindGuard(pybind11::module *m) {
       .def(py::init<const paddle::framework::proto::VarType &>(),
            py::arg("dtype"))
       .def(py::init<const phi::DataType &>(), py::arg("dtype"));
+  py::class_<AttributeMatchGuard,
+             GuardBase,
+             std::shared_ptr<AttributeMatchGuard>>(
+      *m, "AttributeMatchGuard", R"DOC(AttributeMatchGuard Class.)DOC")
+      .def(py::init<const py::object &, const std::string &>(),
+           py::arg("obj"),
+           py::arg("attr_name"));
+  py::class_<ShapeMatchGuard, GuardBase, std::shared_ptr<ShapeMatchGuard>>(
+      *m, "ShapeMatchGuard", R"DOC(ShapeMatchGuard Class.)DOC")
+      .def(py::init<const std::vector<py::object> &>(), py::arg("shape"));
   py::class_<LayerMatchGuard, GuardBase, std::shared_ptr<LayerMatchGuard>>(
       *m, "LayerMatchGuard", R"DOC(LayerMatchGuard Class.)DOC")
       .def(py::init<const py::object &>(), py::arg("layer_obj"));
+  py::class_<RangeMatchGuard, GuardBase, std::shared_ptr<RangeMatchGuard>>(
+      *m, "RangeMatchGuard", R"DOC(RangeMatchGuard Class.)DOC")
+      .def(py::init<const py::object &>(), py::arg("range_obj"));
 
   m->def(
       "merge_guard",

@@ -93,6 +93,7 @@ BINARY_PRIM_VJP_OPS = [
     'fmax_grad',
     'fmin_grad',
     'dot_grad',
+    'kron_grad',
 ]
 
 OTHER_PRIM_VJP_OPS = [
@@ -123,6 +124,7 @@ OTHER_PRIM_VJP_OPS = [
     'scatter_nd_add_grad',
     'slice_grad',
     'squeeze_grad',
+    'take_along_axis_grad',
     'tile_grad',
     'topk_grad',
     'unsqueeze_grad',
