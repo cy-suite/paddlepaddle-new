@@ -3502,11 +3502,16 @@ int FillWalkBuf(const std::vector<uint64_t> &h_device_keys_len,
   thrust::random::default_random_engine engine(*shuffle_seed_ptr);
   const auto &exec_policy = thrust::cuda::par(allocator).on(stream);
   thrust::counting_iterator<int> cnt_iter(0);
+#if defined(PADDLE_WITH_CUDA)
+  phi::funcs::shuffle_copy_fixed(
+      thrust::detail::derived_cast(thrust::detail::strip_const(exec_policy)),
+#else
   thrust::shuffle_copy(exec_policy,
-                       cnt_iter,
-                       cnt_iter + *total_row_ptr,
-                       thrust::device_pointer_cast(d_random_row),
-                       engine);
+#endif
+      cnt_iter,
+      cnt_iter + *total_row_ptr,
+      thrust::device_pointer_cast(d_random_row),
+      engine);
 
   thrust::transform(exec_policy,
                     cnt_iter,
@@ -3795,11 +3800,16 @@ int FillWalkBufMultiPath(
   thrust::random::default_random_engine engine(*shuffle_seed_ptr);
   const auto &exec_policy = thrust::cuda::par(allocator).on(stream);
   thrust::counting_iterator<int> cnt_iter(0);
+#if defined(PADDLE_WITH_CUDA)
+  phi::funcs::shuffle_copy_fixed(
+      thrust::detail::derived_cast(thrust::detail::strip_const(exec_policy)),
+#else
   thrust::shuffle_copy(exec_policy,
-                       cnt_iter,
-                       cnt_iter + *total_row_ptr,
-                       thrust::device_pointer_cast(d_random_row),
-                       engine);
+#endif
+      cnt_iter,
+      cnt_iter + *total_row_ptr,
+      thrust::device_pointer_cast(d_random_row),
+      engine);
 
   thrust::transform(exec_policy,
                     cnt_iter,
