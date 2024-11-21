@@ -237,29 +237,15 @@ std::shared_ptr<OpStrategy> StrategyForReduce(
                         *ret = CINNValuePack{res};
                       },
                       [&](common::HygonDCUArchHIP) {
-<<<<<<< HEAD
                         std::vector<CINNValue> res{
                             CINNValue(ir_sch.GetModule().GetExprs().at(0))};
                         *ret = CINNValuePack{res};
-=======
-                        if (!FLAGS_cinn_new_group_scheduler) {
-                          ReduceSchedule();
-                        } else {
-                          std::vector<CINNValue> res{
-                              CINNValue(ir_sch.GetModule().GetExprs().at(0))};
-                          *ret = CINNValuePack{res};
-                        }
                       },
                       [&](common::HygonDCUArchSYCL) {
-                        if (!FLAGS_cinn_new_group_scheduler) {
-                          ReduceSchedule();
-                        } else {
-                          std::vector<CINNValue> res{
-                              CINNValue(ir_sch.GetModule().GetExprs().at(0))};
-                          *ret = CINNValuePack{res};
-                        }
->>>>>>> b0c04ca95d... add HygonDCUArchSYCL bakcend/common/hlir
-                      });
+                        std::vector<CINNValue> res{
+                            CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+                        *ret = CINNValuePack{res};
+                      }); 
   });
 
   auto strategy = std::make_shared<framework::OpStrategy>();

@@ -151,7 +151,8 @@ void CudaTransBufferWithDynamicShape(ir::Expr* e) {
                 "than the max shared memory per block"));
       },
       [&](common::HygonDCUArchSYCL) {
-        
+        PADDLE_THROW(phi::errors::Unimplemented(
+            "CINN todo: new hardware HygonDCUArchSYCL"));
       });
 }
 }  // namespace cinn::optim
