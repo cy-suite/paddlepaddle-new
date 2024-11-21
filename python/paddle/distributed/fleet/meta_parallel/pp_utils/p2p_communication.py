@@ -808,6 +808,7 @@ class P2pHelper:
         recv_prev,
         recv_next,
         batch_p2p_comm=True,
+        skip_check_meta=False,
     ):
         # always have to send dtype info to downstream
         global _timers
@@ -815,7 +816,7 @@ class P2pHelper:
             _timers("send_forward_backward_recv_forward_backward").start()
 
         if output_tensor is not None:
-            self._send_meta(output_tensor)
+            self._send_meta(output_tensor, skip_check_meta=skip_check_meta)
         if recv_prev:
             self._recv_meta()
 
@@ -838,6 +839,7 @@ class P2pHelper:
         recv_prev,
         batch_p2p_comm=True,
         overlap_p2p_comm=False,
+        skip_check_meta=False,
     ):
         # always have to send dtype info to downstream
         global _timers
@@ -845,7 +847,7 @@ class P2pHelper:
             _timers("send_forward_recv_forward").start()
 
         if output_tensor is not None:
-            self._send_meta(output_tensor)
+            self._send_meta(output_tensor, skip_check_meta=skip_check_meta)
 
         if recv_prev:
             self._recv_meta()

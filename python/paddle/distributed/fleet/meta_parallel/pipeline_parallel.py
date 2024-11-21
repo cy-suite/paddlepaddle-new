@@ -1545,6 +1545,7 @@ class PipelineParallelWithInterleave(PipelineParallel):
                         recv_prev=recv_prev,
                         recv_next=recv_next,
                         batch_p2p_comm=self._use_batch_p2p_comm,
+                        skip_check_meta=not self.training,
                     )
                     # output_tensor_grad is not none if recv_next
                     # append output_tensor_grad no matter none or not
@@ -1556,6 +1557,7 @@ class PipelineParallelWithInterleave(PipelineParallel):
                         output_tensor,
                         recv_prev=recv_prev,
                         batch_p2p_comm=self._use_batch_p2p_comm,
+                        skip_check_meta=not self.training,
                     )
                 # append input_tensor no matter none or not
                 self.input_tensors[next_virtual_pp_rank].append(input_tensor)
@@ -1568,6 +1570,7 @@ class PipelineParallelWithInterleave(PipelineParallel):
                     recv_prev=recv_prev,
                     batch_p2p_comm=self._use_batch_p2p_comm,
                     overlap_p2p_comm=True,
+                    skip_check_meta=not self.training,
                 )
                 if (
                     micro_step == (startup_steps - 1)
@@ -1678,6 +1681,7 @@ class PipelineParallelWithInterleave(PipelineParallel):
                     recv_prev=recv_prev,
                     batch_p2p_comm=self._use_batch_p2p_comm,
                     overlap_p2p_comm=True,
+                    skip_check_meta=not self.training,
                 )
 
                 if bwd_wait_handles is not None:
@@ -1858,6 +1862,7 @@ class PipelineParallelWithInterleave(PipelineParallel):
                     recv_prev=recv_prev,
                     recv_next=recv_next,
                     batch_p2p_comm=self._use_batch_p2p_comm,
+                    skip_check_meta=not self.training,
                 )
             # append input_tensor no matter none or not
             self.input_tensors[next_forward_virtual_pp_rank].append(
@@ -2260,6 +2265,7 @@ class PipelineParallelWithInterleaveFthenB(PipelineParallelWithInterleave):
                 output_tensor,
                 recv_prev=recv_prev,
                 batch_p2p_comm=self._use_batch_p2p_comm,
+                skip_check_meta=not self.training,
             )
             self.input_tensors[next_virtual_pp_rank].append(input_tensor)
 
