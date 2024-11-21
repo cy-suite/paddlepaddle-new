@@ -100,6 +100,7 @@ if TYPE_CHECKING:
         skip_forward: NotRequired[bool]
         input_names_after_prune: NotRequired[list[str]]
         skip_prune_program: NotRequired[bool]
+        separate_parameters: NotRequired[bool]
 
     class _LoadOptions(TypedDict):
         model_filename: NotRequired[str]
@@ -291,9 +292,9 @@ def to_static(
             flag = ENV_ENABLE_SOT.get()
             full_graph = not flag
 
-        if sys.version_info >= (3, 13) and not full_graph:
+        if sys.version_info >= (3, 14) and not full_graph:
             warnings.warn(
-                "full_graph=False is not supported in Python 3.13+. Set full_graph=True automatically"
+                "full_graph=False is not supported in Python 3.14+. Set full_graph=True automatically"
             )
             full_graph = True
 
@@ -436,6 +437,9 @@ class _SaveLoadConfig:
         # in the scene of llm-inference, pruning program can cause unexpectable result, an option to skip prune is necessary
         self.skip_prune_program = False
 
+        # if True, the params will be saved separately in multiple files.
+        self.separate_parameters = False
+
     @property
     def output_spec(self):
         return self._output_spec
@@ -511,6 +515,7 @@ def _parse_save_configs(configs: _SaveOptions) -> _SaveLoadConfig:
         "skip_forward",
         "input_names_after_prune",
         "skip_prune_program",
+        "separate_parameters",
     ]
 
     # input check
@@ -531,6 +536,7 @@ def _parse_save_configs(configs: _SaveOptions) -> _SaveLoadConfig:
         "input_names_after_prune", None
     )
     inner_config.skip_prune_program = configs.get("skip_prune_program", False)
+    inner_config.separate_parameters = configs.get("separate_parameters", False)
 
     return inner_config
 
@@ -1422,6 +1428,7 @@ def save(
                 program=clone_program,
                 clip_extra=configs.clip_extra,
                 skip_prune_program=configs.skip_prune_program,
+                separate_parameters=configs.separate_parameters,
             )
 
         if combine_params:
@@ -1529,7 +1536,7 @@ def load(
     .. note::
         If you load model saved by ``paddle.static.save_inference_model`` ,
         there will be the following limitations when using it in fine-tuning:
-        1. Imperative mode do not support LoDTensor. All original model's feed targets or parameters that depend on LoD are temporarily unavailable.
+        1. Imperative mode do not support DenseTensor. All original model's feed targets or parameters that depend on LoD are temporarily unavailable.
         2. All saved model's feed targets need to be passed into TranslatedLayer's forward function.
         3. The variable's ``stop_gradient`` information is lost and can not be recovered.
         4. The parameter's ``trainable`` information is lost and can not be recovered.

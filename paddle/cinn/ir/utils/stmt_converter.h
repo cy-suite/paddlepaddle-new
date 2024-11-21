@@ -11,22 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "paddle/phi/kernels/tensor_slice_kernel.h"
-#include "paddle/phi/core/kernel_registry.h"
 
-namespace phi {
+#pragma once
 
-template <typename Context>
-void TensorSliceKernel(const Context& dev_ctx,
-                       const DenseTensor& input,
-                       int64_t begin_idx,
-                       int64_t end_idx,
-                       DenseTensor* out) {
-  *out = input.Slice(begin_idx, end_idx);
-}
+#include "paddle/cinn/ir/ir.h"
+#include "paddle/cinn/ir/stmt.h"
 
-}  // namespace phi
+namespace cinn {
+namespace ir {
 
-PD_REGISTER_KERNEL_FOR_ALL_BACKEND_DTYPE(tensor_slice,
-                                         ALL_LAYOUT,
-                                         phi::TensorSliceKernel) {}
+stmt::BlockRef ConvertExprBlockToStmtBlock(const Expr &expr_block);
+Expr ConvertStmtBlockToExprBlock(const stmt::BlockRef &stmt_block);
+
+}  // namespace ir
+}  // namespace cinn

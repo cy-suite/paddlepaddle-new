@@ -82,6 +82,8 @@ prim_white_list = [
     "bmm_double_grad",
     "index_put_double_grad",
     "gather_nd_double_grad",
+    "reshape_double_grad",
+    "take_along_axis_double_grad",
 ]
 
 # white ops list whose kernel can automatically do type promotion.
@@ -128,6 +130,48 @@ type_promote_inplace_white_list = {
     "logical_or_": ["x", "y"],
     "logical_xor_": ["x", "y"],
     "remainder_": ["x", "y"],
+}
+
+# ops support casting int tensor into float32 to do forward calculation
+type_autocast_op_list = {
+    "acos": ["x"],
+    "acosh": ["x"],
+    "asin": ["x"],
+    "asinh": ["x"],
+    "atan": ["x"],
+    "atanh": ["x"],
+    "ceil": ["x"],
+    "cos": ["x"],
+    "cosh": ["x"],
+    "digamma": ["x"],
+    "erf": ["x"],
+    "erfinv": ["x"],
+    "floor": ["x"],
+    "i0": ["x"],
+    "i0e": ["x"],
+    "i1": ["x"],
+    "i1e": ["x"],
+    "lgamma": ["x"],
+    "logcumsumexp": ["x"],
+    "logit": ["x"],
+    "logsumexp": ["x"],
+    "polygamma": ["x"],
+    "reciprocal": ["x"],
+    "rsqrt": ["x"],
+    "sigmoid": ["x"],
+    "sin": ["x"],
+    "sinh": ["x"],
+    "sqrt": ["x"],
+    "stanh": ["x"],
+    "tan": ["x"],
+    "tanh": ["x"],
+}
+
+# ops support casting int tensor into float32 to do forward calculation,
+# and it is valid to cast float32 gradient back to int tensor.
+type_autocast_valid_grad_op_list = {
+    "ceil",
+    "floor",
 }
 
 # dict of special api that forward api's output will affect backward api's output
@@ -284,6 +328,8 @@ paddle::small_vector<std::vector<paddle::Tensor>, egr::kSlotSmallVectorSize> {}:
 
   // Collect GradIn Tensors, Attrs and Recovered TensorWrappers
 {}
+  // Convert All Inputs to DistTensor if Necessary
+{}
   // Prepare Grad function call
 {}
   // Runtime check if we need next grad
@@ -326,6 +372,8 @@ TEST_API {} {}({}) {{
   // AMP Logic
 {}
   // Type promotion Logic
+{}
+  // Type autocast Logic
 {}
   // Layout autotune
 {}
@@ -403,6 +451,8 @@ TEST_API {} {}({}) {{
   // AMP Logic
 {}
   // Type promotion Logic
+{}
+  // Type autocast Logic
 {}
   // Layout autotune
 {}
@@ -617,6 +667,15 @@ TYPE_PROMOTION_LOGIC_TEMPLATE = """
   }}
 """
 
+TYPE_AUTOCAST_LOGIC_TEMPLATE = """
+    if (phi::NeedTypeAutoCast({op_func_name}, {x}.dtype())) {{
+    VLOG(5) << "math operation got integer input data type, run type autocast.";
+    LOG_FIRST_N(WARNING, 1) << "math operation got integer input data type, run type autocast, this may cause data type been changed.";
+    {op_name}
+    auto new_{x} = egr::PromoteCast("{x}", {x}, phi::DataType::FLOAT32, {trace_backward});
+    {return_value}
+  }}
+"""
 
 LAYOUT_LOGIC_TEMPLATE = """
   if (egr::Controller::Instance().UseLayoutAutoTune()) {{
@@ -649,9 +708,23 @@ CREATE_RECOVER_OPTIONAL_VECTOR_TENSOR_TEMPLATE = """
 """
 
 SET_GRAD_OUT_DIST_ATTR_TEMPLATE = """
-  if (IsRunAutoParallel()) {{
-    egr::EagerUtils::SetGradOutputDistAttr(out_metas, {}, {});
+  if (IsRunAutoParallel() || inputs_contain_dist_tensor) {{
+    egr::EagerUtils::SetGradOutputDistAttr(out_metas, {}, *mesh, {});
   }}
+"""
+
+CONVERT_INPUT_TENSORS_TO_DIST_TENSOR_TEMPLATE = """
+  const phi::distributed::ProcessMesh* mesh = nullptr;
+  bool inputs_contain_dist_tensor = egr::InputsContainDistTensor(&mesh{grad_inputs_names});
+  if (inputs_contain_dist_tensor) {{
+    egr::ConvertAllInputsToDistTensor(mesh{wrapper_inputs_names});
+  }}
+"""
+
+INPUT_CONTAIN_DIST_TENSOR_TEMPLATE = """
+  const phi::distributed::ProcessMesh* mesh = nullptr;
+  bool inputs_contain_dist_tensor = false;
+  egr::InputsContainDistTensor(&mesh{grad_inputs_names});
 """
 
 CHECK_BACKWARD_INPLACE_TEMPLATE = """
@@ -1562,6 +1635,7 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
 
         amp_inputs_call_list = ["" for i in range(num_inputs)]
         type_promote_inputs_call_list = ["" for i in range(num_inputs)]
+        type_autocast_inputs_call_list = ["" for i in range(num_inputs)]
         amp_tensors_vector_list = []
         amp_tensors_vector_optional_list = []
         amp_autocast_list = []
@@ -1590,6 +1664,11 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
                         type_promote_inputs_call_list[pos] = f"new_{name}"
                 else:
                     type_promote_inputs_call_list[pos] = f"{name}"
+            if forward_api_name in type_autocast_op_list:
+                if name in type_autocast_op_list[forward_api_name]:
+                    type_autocast_inputs_call_list[pos] = f"new_{name}"
+                else:
+                    type_autocast_inputs_call_list[pos] = f"{name}"
             if IsPlainTensorType(ttype):
                 if is_optional:
                     if (
@@ -1681,6 +1760,7 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
             inputs_call_list[pos] = name
             amp_inputs_call_list[pos] = name
             type_promote_inputs_call_list[pos] = name
+            type_autocast_inputs_call_list[pos] = name
             if default_val is not None:
                 inputs_args_declaration_list[pos] = (
                     f"{atype} {name} = {default_val}"
@@ -1970,6 +2050,31 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
             )
         else:
             type_promotion_logic_str = f'\n VLOG(5) << " No Type Promotion for {forward_ad_function_name} api. "; '
+
+        # Forward type autocast logic
+        if forward_api_name in type_autocast_op_list:
+            # only support one inputs
+            op_func_name = f'"{forward_api_name}"'
+            x = type_autocast_op_list[forward_api_name][0]
+            type_autocast_inputs_call_args_str = ", ".join(
+                type_autocast_inputs_call_list
+            )
+            trace_backward = (
+                forward_api_name in type_autocast_valid_grad_op_list
+            ) and (not self.is_forward_only)
+            trace_backward = str(trace_backward).lower()
+            type_autocast_call_list = f"return {forward_ad_function_name}({type_autocast_inputs_call_args_str});"
+
+            type_autocast_logic_str = TYPE_AUTOCAST_LOGIC_TEMPLATE.format(
+                op_func_name=op_func_name,
+                x=x,
+                op_name=kernel_trans2_op_name_str,
+                trace_backward=trace_backward,
+                return_value=type_autocast_call_list,
+            )
+        else:
+            type_autocast_logic_str = f'\n VLOG(5) << " No Type Autocast for {forward_ad_function_name} api. "; '
+
         # Forward layout autotune
         layout_autotune_list_str = "    ".join(
             layout_autotune_list
@@ -2019,6 +2124,7 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
                     dygraph_event_str,
                     amp_logic_str,
                     type_promotion_logic_str,
+                    type_autocast_logic_str,
                     layout_logic_str,
                     forward_api_name,
                     before_log_str,
@@ -2043,6 +2149,7 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
                 dygraph_event_str,
                 amp_logic_str,
                 type_promotion_logic_str,
+                type_autocast_logic_str,
                 layout_logic_str,
                 inputs_autograd_meta_str,
                 forward_api_name,
@@ -2251,8 +2358,8 @@ class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
   if (!paddle::prim::PrimCommonUtils::IsEagerPrimEnabled() || need_skip) {{
     if (trace_backward) {{
        PADDLE_THROW(common::errors::Unavailable(
-       \"The Op {self.backward_api_name} doesn't have any grad\"
-       \"op. If you don't intend calculating higher order\"
+       \"The Op {self.backward_api_name} doesn't have any grad \"
+       \"op. If you don't intend calculating higher order \"
        \"derivatives, please set `create_graph`to False.\"));
     }}
   }}
@@ -2271,8 +2378,8 @@ class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
         elif not is_invoke_forward_api and not is_composite_grad_api:
             next_grad_node_creation_str = f"""  if (trace_backward) {{
     PADDLE_THROW(common::errors::Unavailable(
-    \"The Op {self.backward_api_name} doesn't have any grad\"
-    \"op. If you don't intend calculating higher order\"
+    \"The Op {self.backward_api_name} doesn't have any grad \"
+    \"op. If you don't intend calculating higher order \"
     \"derivatives, please set `create_graph`to False.\"));
   }}"""
 
@@ -2407,6 +2514,8 @@ class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
         get_grad_in_args_list = []
         grad_api_out_args_list = []
         fwd_positions_list = []
+        grad_inputs_names = []
+        wrapper_inputs_names = []
 
         # Fill Grad Ins with Zero
         fill_zero_str = ""
@@ -2448,6 +2557,7 @@ class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
         ) in backward_forward_inputs_map.items():
             tensor_wrapper_name = GetSavedName(name)
             transformed_tensor_name = self.TransformToNextGradName(name)
+            wrapper_inputs_names.append(transformed_tensor_name)
 
             is_optional = name in self.optional_inputs
             tensor_wrapper_recover_str = f"{indent}auto {transformed_tensor_name} = egr::EagerUtils::RecoverTensorWrapper(&this->{tensor_wrapper_name});"
@@ -2521,6 +2631,7 @@ class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
             grad_api_position,
         ) in backward_grad_inputs_map.items():
             transformed_tensor_name = self.TransformToNextGradName(name)
+            grad_inputs_names.append(transformed_tensor_name)
 
             is_optional = name in self.optional_inputs
             if IsPlainTensorType(ttype):
@@ -2903,12 +3014,29 @@ if (paddle::prim::PrimCommonUtils::IsEagerPrimEnabled() && !need_skip) {{
 
         log_str = AFTER_LOG_PRINT_TEMPLATE.format(var_str)
 
+        if len(wrapper_inputs_names) > 0:
+            convert_input_to_dist_tensor_str = (
+                CONVERT_INPUT_TENSORS_TO_DIST_TENSOR_TEMPLATE.format(
+                    grad_inputs_names=", " + ", ".join(grad_inputs_names),
+                    wrapper_inputs_names=", " + ", ".join(wrapper_inputs_names),
+                )
+            )
+        elif not is_invoke_forward_api:
+            convert_input_to_dist_tensor_str = (
+                INPUT_CONTAIN_DIST_TENSOR_TEMPLATE.format(
+                    grad_inputs_names=", " + ", ".join(grad_inputs_names),
+                )
+            )
+        else:
+            convert_input_to_dist_tensor_str = ""
+
         self.node_definition_str = GRAD_FUNCTION_TEMPLATE.format(
             grad_node_name,
             self.backward_api_name,
             grad_node_name,
             fill_zero_str,
             get_grad_in_args_str,
+            convert_input_to_dist_tensor_str,
             grad_function_prepare_str,
             compute_require_next_grad_str,
             set_out_dist_attr_str,
