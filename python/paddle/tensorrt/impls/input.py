@@ -20,8 +20,10 @@ from paddle.tensorrt.register import converter_registry
 def embedding_converter(network, paddle_op, inputs):
     x_tensor, weight = inputs
     if type(weight) == trt.Weights:
-        weight_shape = weight.shape
-        weight_tensor = network.add_constant(weight_shape, weight)
+        weight_shape = weight.numpy().shape
+        weight_tensor = network.add_constant(
+            trt.Dims(weight_shape), weight
+        ).get_output(0)
     else:
         weight_tensor = weight
     layer = network.add_gather(weight_tensor, x_tensor, 0)
