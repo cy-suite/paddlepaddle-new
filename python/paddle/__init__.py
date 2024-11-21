@@ -778,7 +778,6 @@ inf = math.inf
 pi = math.pi
 
 __all__ = [
-    'pi',
     'block_diag',
     'iinfo',
     'finfo',
@@ -1213,4 +1212,5 @@ __all__ = [
     'to_dlpack',
     'inf',
     'newaxis',
+    'pi',
 ]
