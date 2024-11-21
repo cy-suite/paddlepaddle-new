@@ -17,6 +17,7 @@ arange = "arange"
 ot = 'ot'
 pash = 'pash'
 eles = 'eles'
+builer = 'builer'
 
 # These words need to be fixed
 ontext = 'ontext'
@@ -287,7 +288,6 @@ transfering = 'transfering'
 enfore = 'enfore'
 elments = 'elments'
 convience = 'convience'
-builer = 'builer'
 Splited = 'Splited'
 indiates = 'indiates'
 availiable = 'availiable'
