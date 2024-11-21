@@ -3242,8 +3242,8 @@ void take_along_axis_grad(const Tensor& arr,
 
     Tensor zero_tensor;
     if (has_dynamic_shape(arr_cast.shape())) {
-      zero_tensor =
-          backend::full_with_tensor<T>(shape<T>(arr_cast), 0, arr_cast.dtype());
+      zero_tensor = backend::full_with_tensor<T>(
+          shape64<T>(arr_cast), 0, arr_cast.dtype());
     } else {
       zero_tensor =
           full<T>(common::vectorize(arr_cast.dims()), 0, arr_cast.dtype());
