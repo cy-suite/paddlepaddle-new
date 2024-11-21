@@ -2006,7 +2006,9 @@ class TestAbs_ZeroDim(TestAbs):
 class TestCeil(TestActivation):
     def setUp(self):
         self.op_type = "ceil"
+        self.prim_op_type = "prim"
         self.python_api = paddle.ceil
+        self.public_python_api = paddle.ceil
         self.init_dtype()
         self.init_shape()
 
@@ -2031,6 +2033,20 @@ class TestCeil(TestActivation):
     # The same reason with TestFloor
     def test_check_grad(self):
         pass
+
+    def test_check_grad_for_prim(self):
+        # the gradient on floor, ceil, round is undefined.
+        # we return zero as gradient, but the numpy return nan.
+        # for prim, we compare result with eager python api,
+        # so, we use only_prim flag to express we only test prim.
+        if core.is_compiled_with_cuda():
+            self.check_grad_with_place(
+                paddle.CUDAPlace(0),
+                ['X'],
+                'Out',
+                check_pir=True,
+                check_prim_pir=True,
+            )
 
 
 class TestCeil_ZeroDim(TestCeil):
