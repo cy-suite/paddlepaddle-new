@@ -242,11 +242,15 @@ def isnan_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     equal_tensor = trt_equal(network, input_tensor, input_tensor)
     layer = network.add_unary(equal_tensor, trt.UnaryOperation.NOT)
-    return layer.get_output(0)
+    cast_layer = network.add_identity(layer.get_output(0))
+    cast_layer.set_output_type(0, trt.bool)
+    return cast_layer.get_output(0)
 
 
 @converter_registry.register("pd_op.isnan", trt_version="trt_version_ge=10.1")
 def isnan_trt_ten_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     layer = network.add_unary(input_tensor, trt.UnaryOperation.ISNAN)
-    return layer.get_output(0)
+    cast_layer = network.add_identity(layer.get_output(0))
+    cast_layer.set_output_type(0, trt.bool)
+    return cast_layer.get_output(0)

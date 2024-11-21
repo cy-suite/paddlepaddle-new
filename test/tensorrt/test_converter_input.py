@@ -20,37 +20,24 @@ from tensorrt_test_base import TensorRTBaseTest
 import paddle
 
 
-def embedding_warpper_func(x, dtype):
-    pre_dtype = paddle.get_default_dtype()
-    paddle.set_default_dtype(dtype)
+def embedding_warpper_func(x):
     layer = paddle.nn.Embedding(4, 3)
-    paddle.set_default_dtype(pre_dtype)
     return layer(x)
 
 
-class TestEmbeddingFloat1TRTPattern(TensorRTBaseTest):
+class TestEmbeddingCase1TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.nn.functional.embedding
         self.api_args = {
-            "x": np.random.randn(2, 3).astype("int64"),
-            "weight": np.random.randn(8, 10).astype("float32"),
+            "x": np.array([[3, 16, 24], [6, 4, 47]]).astype("int64"),
+            "weight": np.random.uniform(-1, 1, [64, 4]).astype('float32'),
         }
         self.program_config = {"feed_list": ["x", "weight"]}
-        self.min_shape = {"x": [1, 3], "weight": [6, 10]}
-        self.max_shape = {"x": [5, 3], "weight": [10, 10]}
-
-    def test_trt_result(self):
-        self.check_trt_result()
-
-
-class TestEmbeddingFloat2TRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = embedding_warpper_func
-        self.api_args = {
-            "x": np.random.randn(2, 3).astype("int64"),
-            "dtype": "float32",
+        self.dynamic_shape_data = {
+            "x": lambda shape: np.random.randint(1, 64, size=shape).astype(
+                np.int64
+            ),
         }
-        self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3]}
         self.max_shape = {"x": [5, 3]}
 
@@ -58,27 +45,11 @@ class TestEmbeddingFloat2TRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestEmbeddingInt1TRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = paddle.nn.functional.embedding
-        self.api_args = {
-            "x": np.random.randn(2, 3).astype("int64"),
-            "weight": np.random.randn(8, 10).astype("int64"),
-        }
-        self.program_config = {"feed_list": ["x", "weight"]}
-        self.min_shape = {"x": [1, 3], "weight": [6, 10]}
-        self.max_shape = {"x": [5, 3], "weight": [10, 10]}
-
-    def test_trt_result(self):
-        self.check_trt_result()
-
-
-class TestEmbeddingInt2TRTPattern(TensorRTBaseTest):
+class TestEmbeddingCase2TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = embedding_warpper_func
         self.api_args = {
             "x": np.random.randn(2, 3).astype("int64"),
-            "dtype": "int64",
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3]}
