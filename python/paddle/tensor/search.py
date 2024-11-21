@@ -833,14 +833,8 @@ def where_(
     Inplace version of ``where`` API, the output Tensor will be inplaced with input ``x``.
     Please refer to :ref:`api_paddle_where`.
     """
-    if np.isscalar(x):
-        x = paddle.full([1], x, np.array([x]).dtype.name)
-
-    if np.isscalar(y):
-        y = paddle.full([1], y, np.array([y]).dtype.name)
-
-    if x is None and y is None:
-        return nonzero(condition, as_tuple=True)
+    if np.isscalar(x) or np.isscalar(y):
+        raise ValueError("either both or neither of x and y should be given")
 
     if x is None or y is None:
         raise ValueError("either both or neither of x and y should be given")
