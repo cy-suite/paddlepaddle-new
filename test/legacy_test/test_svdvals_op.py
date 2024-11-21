@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import unittest
 
 import numpy as np
@@ -20,51 +19,42 @@ from op_test import OpTest, skip_check_grad_ci
 from utils import dygraph_guard, static_guard
 
 import paddle
-from paddle import base
 
 
 class TestSvdvalsOp(OpTest):
     def setUp(self):
-        self.python_api = paddle.linalg.svdvals
-        self.generate_input()
-        self.generate_output()
         self.op_type = "svdvals"
-        assert hasattr(self, "_output_data")
-        self.inputs = {"X": self._input_data}
-        self.outputs = {"S": self._output_data}
+        self.python_api = paddle.linalg.svdvals
+        self.init_data()
 
-    def generate_input(self):
-        """return a input_data and input_shape"""
+    def init_data(self):
+        """Generate input data and expected output."""
         self._input_shape = (100, 1)
         self._input_data = np.random.random(self._input_shape).astype("float64")
-
-    def generate_output(self):
-        assert hasattr(self, "_input_data")
         self._output_data = np.linalg.svdvals(self._input_data)
+        self.inputs = {"X": self._input_data}
+        self.outputs = {"S": self._output_data}
 
     def test_check_output(self):
         self.check_output(check_pir=True)
 
     def test_svdvals_forward(self):
         """Check singular values calculation."""
-        single_input = self._input_data.reshape(
-            [-1, self._input_shape[-2], self._input_shape[-1]]
-        )[0]
         with dygraph_guard():
-            dy_x = paddle.to_tensor(single_input)
+            dy_x = paddle.to_tensor(self._input_data)
             dy_s = paddle.linalg.svdvals(dy_x)
-            np_s = np.linalg.svd(single_input, compute_uv=False)
-            np.testing.assert_allclose(dy_s.numpy(), np_s, rtol=1e-6)
-
-    def check_S_grad(self):
-        self.check_grad(['X'], ['S'], numeric_grad_delta=0.001, check_pir=True)
+            np.testing.assert_allclose(
+                dy_s.numpy(), self._output_data, rtol=1e-6, atol=1e-8
+            )
 
     def test_check_grad(self):
-        self.check_S_grad()
+        self.check_grad(['X'], ['S'], numeric_grad_delta=0.001, check_pir=True)
 
 
-class TestSvdValsBatched(TestSvdvalsOp):
-    def generate_input(self):
+class TestSvdvalsBatched(TestSvdvalsOp):
+    """Test svdvals operation with batched input."""
+
+    def init_data(self):
         """Generate batched input matrix."""
         self._input_shape = (10, 6, 3)
         base_matrix = np.array(
@@ -77,66 +67,105 @@ class TestSvdValsBatched(TestSvdvalsOp):
                 [3.0, 1.0, 0.0],
             ]
         ).astype("float64")
-        self._input_data = np.stack([base_matrix] * 10, axis=0)
-
-    def test_svdvals_forward(self):
-        """Check singular values calculation for batched input."""
-        with dygraph_guard():
-            dy_x = paddle.to_tensor(self._input_data)
-            dy_s = paddle.linalg.svdvals(dy_x)
-            np_s = np.array(
-                [
-                    np.linalg.svd(matrix, compute_uv=False)
-                    for matrix in self._input_data
-                ]
-            )
-            np.testing.assert_allclose(dy_s.numpy(), np_s, rtol=1e-6)
+        self._input_data = np.stack(
+            [base_matrix] * self._input_shape[0], axis=0
+        )
+        self._output_data = np.array(
+            [
+                np.linalg.svd(matrix, compute_uv=False)
+                for matrix in self._input_data
+            ]
+        )
+        self.inputs = {"X": self._input_data}
+        self.outputs = {"S": self._output_data}
 
 
 @skip_check_grad_ci(
     reason="'check_grad' on singular values is not required for svdvals."
 )
-class TestSvdValsBigMatrix(TestSvdvalsOp):
-    def generate_input(self):
+class TestSvdvalsBigMatrix(TestSvdvalsOp):
+    def init_data(self):
         """Generate large input matrix."""
         self._input_shape = (200, 300)
         self._input_data = np.random.random(self._input_shape).astype("float64")
+        self._output_data = np.linalg.svdvals(self._input_data)
 
     def test_check_grad(self):
         pass
 
 
-class TestSvdValsAPI(unittest.TestCase):
-    def test_dygraph(self):
-        with dygraph_guard():
-            a = np.random.rand(5, 5)
-            x = paddle.to_tensor(a)
-            s = paddle.linalg.svdvals(x)
-            gt_s = np.linalg.svd(a, compute_uv=False)
-            np.testing.assert_allclose(s.numpy(), gt_s, rtol=1e-5)
+class TestSvdvalsAPI(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(1024)
+        self.x_np = np.random.uniform(-3, 3, [10, 12]).astype('float32')
+        self.place = (
+            paddle.CUDAPlace(0)
+            if paddle.is_compiled_with_cuda()
+            else paddle.CPUPlace()
+        )
 
-    def test_static(self):
-        places = []
-        if os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower() in [
-            '1',
-            'true',
-            'yes',
-        ]:
-            places = [paddle.CPUPlace(), paddle.CUDAPlace(0)]
-        else:
-            places = [paddle.CPUPlace()]
+    def test_dygraph_api(self):
+        with dygraph_guard():
+            x = paddle.to_tensor(self.x_np)
+            # Test dynamic graph for svdvals
+            s = paddle.linalg.svdvals(x)
+            np_s = np.linalg.svdvals(self.x_np)
+            self.assertTrue(np.allclose(np_s, s.numpy(), rtol=1e-6))
+
+            # Test with reshaped input
+            x_reshaped = x.reshape([-1, 12, 10])
+            s_reshaped = paddle.linalg.svdvals(x_reshaped)
+            np_s_reshaped = np.array(
+                [
+                    np.linalg.svdvals(matrix)
+                    for matrix in self.x_np.reshape([-1, 12, 10])
+                ]
+            )
+            self.assertTrue(
+                np.allclose(np_s_reshaped, s_reshaped.numpy(), rtol=1e-6)
+            )
+
+    def test_static_api(self):
         with static_guard():
-            for place in places:
-                with base.program_guard(base.Program(), base.Program()):
-                    x = paddle.static.data(
-                        name="x", shape=[5, 5], dtype="float64"
-                    )
-                    s = paddle.linalg.svdvals(x)
-                    exe = base.Executor(place)
-                    a = np.random.rand(5, 5).astype("float64")
-                    out = exe.run(feed={"x": a}, fetch_list=[s])[0]
-                    gt_s = np.linalg.svd(a, compute_uv=False)
-                    np.testing.assert_allclose(out, gt_s, rtol=1e-5)
+            with paddle.static.program_guard(paddle.static.Program()):
+                x = paddle.static.data('X', [10, 12], dtype='float32')
+                s = paddle.linalg.svdvals(x)
+                exe = paddle.static.Executor(self.place)
+                res = exe.run(feed={'X': self.x_np}, fetch_list=[s])
+
+        np_s = np.linalg.svdvals(self.x_np)
+        for r in res:
+            self.assertTrue(np.allclose(np_s, r, rtol=1e-6))
+
+    def test_error(self):
+        """Test invalid inputs for svdvals"""
+        with paddle.base.dygraph.guard():
+
+            def test_invalid_dtype():
+                """Test invalid dtype input"""
+                x_np_invalid_dtype = np.random.uniform(-3, 3, [10, 12]).astype(
+                    'int32'
+                )
+                x_invalid_dtype = paddle.to_tensor(x_np_invalid_dtype)
+                paddle.linalg.svdvals(x_invalid_dtype)
+
+            def test_invalid_shape():
+                """Test invalid shape input"""
+                x_np_invalid_shape = np.random.uniform(-3, 3, [10]).astype(
+                    'float32'
+                )
+                x_invalid_shape = paddle.to_tensor(x_np_invalid_shape)
+                paddle.linalg.svdvals(x_invalid_shape)
+
+            def test_empty_tensor():
+                """Test empty tensor"""
+                x_np_empty = np.empty([0, 10], dtype='float32')
+                x_empty = paddle.to_tensor(x_np_empty)
+                paddle.linalg.svdvals(x_empty)
+
+            self.assertRaises(TypeError, test_invalid_dtype)
+            self.assertRaises(ValueError, test_invalid_shape)
+            self.assertRaises(ValueError, test_empty_tensor)
 
 
 if __name__ == "__main__":
