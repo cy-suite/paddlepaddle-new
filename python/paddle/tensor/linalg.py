@@ -2976,7 +2976,7 @@ def svdvals(x: Tensor, name: str | None = None) -> Tensor:
             >>> s = paddle.linalg.svdvals(x)
             >>> print(s)
             Tensor(shape=[2], dtype=float32, place=Place(cpu), stop_gradient=True,
-            [8.1475, 0.7859])
+            [8.14753819, 0.78589684])
     """
     if in_dynamic_or_pir_mode():
         return _C_ops.svdvals(x)

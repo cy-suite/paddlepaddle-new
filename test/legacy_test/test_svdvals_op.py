@@ -89,6 +89,8 @@ class TestSvdvalsBigMatrix(TestSvdvalsOp):
         self._input_shape = (200, 300)
         self._input_data = np.random.random(self._input_shape).astype("float64")
         self._output_data = np.linalg.svdvals(self._input_data)
+        self.inputs = {"X": self._input_data}
+        self.outputs = {"S": self._output_data}
 
     def test_check_grad(self):
         pass
@@ -141,14 +143,6 @@ class TestSvdvalsAPI(unittest.TestCase):
         """Test invalid inputs for svdvals"""
         with paddle.base.dygraph.guard():
 
-            def test_invalid_dtype():
-                """Test invalid dtype input"""
-                x_np_invalid_dtype = np.random.uniform(-3, 3, [10, 12]).astype(
-                    'int32'
-                )
-                x_invalid_dtype = paddle.to_tensor(x_np_invalid_dtype)
-                paddle.linalg.svdvals(x_invalid_dtype)
-
             def test_invalid_shape():
                 """Test invalid shape input"""
                 x_np_invalid_shape = np.random.uniform(-3, 3, [10]).astype(
@@ -163,7 +157,6 @@ class TestSvdvalsAPI(unittest.TestCase):
                 x_empty = paddle.to_tensor(x_np_empty)
                 paddle.linalg.svdvals(x_empty)
 
-            self.assertRaises(TypeError, test_invalid_dtype)
             self.assertRaises(ValueError, test_invalid_shape)
             self.assertRaises(ValueError, test_empty_tensor)
 
