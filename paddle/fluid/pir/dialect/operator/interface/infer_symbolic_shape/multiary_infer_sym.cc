@@ -1676,14 +1676,14 @@ bool FusedAttentionOpInferSymbolicShape(
   symbol::DimExpr dim_head = 0;
   symbol::DimExpr hidden_size = 0;
   symbol::DimExpr nranks = 1;
-  bool transpose_qkv_wb =
+  const bool transpose_qkv_wb =
       op->attribute<pir::BoolAttribute>("transpose_qkv_wb").data();
-  int num_heads_ = op->attribute<pir::Int32Attribute>("num_heads").data();
+  const int num_heads_ = op->attribute<pir::Int32Attribute>("num_heads").data();
   symbol::DimExpr num_heads = symbol::DimExpr(num_heads_);
-  int ring_id = op->attribute<pir::Int32Attribute>("ring_id").data();
-  bool pre_layer_norm =
+  const int ring_id = op->attribute<pir::Int32Attribute>("ring_id").data();
+  const bool pre_layer_norm =
       op->attribute<pir::BoolAttribute>("pre_layer_norm").data();
-  bool is_test = op->attribute<pir::BoolAttribute>("is_test").data();
+  const bool is_test = op->attribute<pir::BoolAttribute>("is_test").data();
   if (transpose_qkv_wb) {
     PADDLE_ENFORCE_EQ(qkv_weight_shape.size(),
                       2,
@@ -1793,6 +1793,8 @@ bool FusedAttentionOpInferSymbolicShape(
                x_shape[1],
                symbol::DimExpr(3) * num_heads * dim_head})});
     } else {
+      // The following code used to set unoptional output value.
+      // Now it's result related to the infermeta.
       infer_context->SetSymbolForValueByStaticShape(op->result(4));
     }
   } else {
@@ -1815,6 +1817,8 @@ bool FusedAttentionOpInferSymbolicShape(
                                                  num_heads,
                                                  dim_head})});
     } else {
+      // The following code used to set unoptional output value.
+      // Now it's result related to the infermeta.
       infer_context->SetSymbolForValueByStaticShape(op->result(4));
     }
   }
@@ -3350,9 +3354,8 @@ bool LstmOpInferSymbolicShape(pir::Operation *op,
   const symbol::ShapeOrDataDimExprs &bias_shape_or_data =
       infer_context->GetShapeOrDataForValue(op->operand_source(4));
   const auto &bias_shape = bias_shape_or_data.shape();
-  bool use_peepholes =
+  const bool use_peepholes =
       op->attribute<pir::BoolAttribute>("use_peepholes").data();
-  bool is_test = op->attribute<pir::BoolAttribute>("is_test").data();
   PADDLE_ENFORCE_EQ(
       input_shape.size(),
       2,
@@ -3394,19 +3397,15 @@ bool LstmOpInferSymbolicShape(pir::Operation *op,
       symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs(out_shape)};
   infer_context->SetShapeOrDataForValue(op->result(0), out_shape_or_data);
   infer_context->SetShapeOrDataForValue(op->result(1), out_shape_or_data);
-  if (!is_test) {
-    infer_context->SetShapeOrDataForValue(
-        op->result(2),
-        symbol::ShapeOrDataDimExprs{
-            symbol::TensorShapeOrDataDimExprs(input_shape)});
-    infer_context->SetShapeOrDataForValue(op->result(3), out_shape_or_data);
-  } else {
-    infer_context->SetShapeOrDataForValue(
-        op->result(2),
-        symbol::ShapeOrDataDimExprs{
-            symbol::TensorShapeOrDataDimExprs(input_shape)});
-    infer_context->SetShapeOrDataForValue(op->result(3), out_shape_or_data);
-  }
+
+  // Based on the kernel and infermeta, the inferred results are the same
+  // regardless of whether is_test is true or false.
+  infer_context->SetShapeOrDataForValue(
+      op->result(2),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(input_shape)});
+  infer_context->SetShapeOrDataForValue(op->result(3), out_shape_or_data);
+
   return true;
 }
 
