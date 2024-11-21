@@ -542,10 +542,7 @@ class TestSetitemInDygraph(unittest.TestCase):
         value = paddle.to_tensor(value_np)
         tensor[mask] = value
         tensor_np[mask_np] = value_np
-
-        np.testing.assert_allclose(
-            tensor.numpy(), tensor_np, rtol=1e-4, atol=1e-4
-        )
+        np.testing.assert_allclose(tensor.numpy(), tensor_np)
 
     def test_boolean_mask_scalar(self):
         tensor_np = np.arange(2 * 3).reshape(2, 3)
@@ -1023,7 +1020,7 @@ class TestSetitemInStatic(unittest.TestCase):
             tensor[mask] = value
             res = self.exe.run(fetch_list=[tensor])[0]
         tensor_np[mask_np] = value_np
-        np.testing.assert_allclose(res, tensor_np, rtol=1e-4, atol=1e-4)
+        np.testing.assert_allclose(res, tensor_np)
 
 
 if __name__ == '__main__':
