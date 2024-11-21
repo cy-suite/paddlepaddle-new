@@ -260,7 +260,8 @@ class TestMathOpPatchesPir(unittest.TestCase):
             paddle.to_tensor(x_np), paddle.to_tensor(y_np)
         )
         res_np_d = x_np.__and__(y_np)
-        res_np_e = x_np.__rand__(y_np)
+        temp = 2
+        res_np_e = temp & y_np
         paddle.enable_static()
         with paddle.pir_utils.IrGuard():
             main_program, exe, program_guard = new_program()
@@ -270,11 +271,11 @@ class TestMathOpPatchesPir(unittest.TestCase):
                 b = x & y
                 c = x.bitwise_and(y)
                 d = x.__and__(y)
-                e = x.__rand__(y)
+                e = temp.__rand__(y)
                 (b_np, c_np, d_np, e_np) = exe.run(
                     main_program,
                     feed={"x": x_np, "y": y_np},
-                    fetch_list=[b, c, d, e ],
+                    fetch_list=[b, c, d, e],
                 )
                 np.testing.assert_array_equal(res_np_b, b_np)
                 np.testing.assert_array_equal(res_np_c, c_np)
