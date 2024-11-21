@@ -1461,9 +1461,14 @@ void BindValue(py::module *m) {
               return py::cast<py::none>(Py_None);
             }
           })
-      .def("_clone", [](Value self) {
+      .def("_clone",
+           [](Value self) {
+             // Return a new value owned by python side
+             return self;
+           })
+      .def("_equal", [](Value &self, Value &other) {
         // Return a new value owned by python side
-        return self;
+        return self == other;
       });
 }
 
