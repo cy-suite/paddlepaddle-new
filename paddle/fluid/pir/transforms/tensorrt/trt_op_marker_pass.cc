@@ -86,7 +86,6 @@ DEFINE_GENERAL_PATTERN(Swish, paddle::dialect::SwishOp)
 DEFINE_GENERAL_PATTERN(Log, paddle::dialect::LogOp)
 DEFINE_GENERAL_PATTERN(Floor, paddle::dialect::FloorOp)
 DEFINE_GENERAL_PATTERN(Roll, paddle::dialect::RollOp)
-DEFINE_GENERAL_PATTERN(Embedding, paddle::dialect::EmbeddingOp)
 DEFINE_GENERAL_PATTERN(Isnan, paddle::dialect::IsnanOp)
 
 #undef DEFINE_GENERAL_PATTERN
@@ -1989,6 +1988,26 @@ class SetValueWithTensor_OpPattern
   }
 };
 
+class EmbeddingOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::EmbeddingOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::EmbeddingOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::EmbeddingOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (pir::GetDefiningOpForInput(op, 1)->name() == "builtin.parameter") {
+      // trt.Weights don't have the shape info.
+      VLOG(3) << "Skip to convert into TRT while found alpha is a parameter.";
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class TrtOpMarkerPass : public pir::PatternRewritePass {
  public:
   TrtOpMarkerPass() : pir::PatternRewritePass("trt_op_marker_pass", 2) {}
@@ -2033,7 +2052,6 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Log)
     ADD_PATTERN(Floor)
     ADD_PATTERN(Roll)
-    ADD_PATTERN(Embedding)
     ADD_PATTERN(Isnan)
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
@@ -2099,6 +2117,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<SoftplusOpPatten>(context));
     ps.Add(std::make_unique<EqualOpPattern>(context));
     ps.Add(std::make_unique<NotEqualOpPattern>(context));
+    ps.Add(std::make_unique<EmbeddingOpPattern>(context));
     return ps;
   }
 };
