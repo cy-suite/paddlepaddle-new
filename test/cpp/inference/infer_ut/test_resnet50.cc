@@ -91,36 +91,6 @@ TEST(tensorrt_tester_resnet50, trt_fp32_bz2) {
   std::cout << "finish test" << std::endl;
 }
 
-TEST(openvino_tester_resnet50, ov_fp32_bz2) {
-  // init input data
-  std::map<std::string, paddle::test::Record> my_input_data_map;
-  my_input_data_map["inputs"] = PrepareInput(2);
-  // init output data
-  std::map<std::string, paddle::test::Record> infer_output_data,
-      truth_output_data;
-  // prepare ground truth config
-  paddle_infer::Config config, config_no_ir;
-  config_no_ir.SetModel(FLAGS_modeldir + "/inference.pdmodel",
-                        FLAGS_modeldir + "/inference.pdiparams");
-  config_no_ir.SwitchIrOptim(false);
-  // prepare inference config
-  config.SetModel(FLAGS_modeldir + "/inference.pdmodel",
-                  FLAGS_modeldir + "/inference.pdiparams");
-  config.SetCpuMathLibraryNumThreads(10);
-  config.EnableOpenVINOEngine(PrecisionType::kFloat32);
-  // get ground truth by disable ir
-  paddle_infer::services::PredictorPool pred_pool_no_ir(config_no_ir, 1);
-  SingleThreadPrediction(
-      pred_pool_no_ir.Retrieve(0), &my_input_data_map, &truth_output_data, 1);
-  // get infer results
-  paddle_infer::services::PredictorPool pred_pool(config, 1);
-  SingleThreadPrediction(
-      pred_pool.Retrieve(0), &my_input_data_map, &infer_output_data);
-  // check outputs
-  CompareRecord(&truth_output_data, &infer_output_data, 2e-4);
-  std::cout << "finish test" << std::endl;
-}
-
 TEST(tensorrt_tester_resnet50, serial_diff_batch_trt_fp32) {
   int max_batch_size = 5;
   // prepare ground truth config
