@@ -104,8 +104,8 @@ from .linalg import (  # noqa: F401
     transpose_,
 )
 from .logic import (  # noqa: F401
-    allclose,
     __rand__,
+    allclose,
     bitwise_and,
     bitwise_and_,
     bitwise_invert,
