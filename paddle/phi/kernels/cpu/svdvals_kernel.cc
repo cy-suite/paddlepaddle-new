@@ -91,8 +91,6 @@ void SvdvalsKernel(const Context& dev_ctx,
   auto x_dims = X.dims();
   int rows = static_cast<int>(x_dims[x_dims.size() - 2]);
   int cols = static_cast<int>(x_dims[x_dims.size() - 1]);
-  int batches = static_cast<int>(X.numel() / (rows * cols));
-
   // Validate dimensions
   PADDLE_ENFORCE_GT(
       rows,
@@ -102,6 +100,8 @@ void SvdvalsKernel(const Context& dev_ctx,
       cols,
       0,
       phi::errors::InvalidArgument("The column of Input(X) must be > 0."));
+
+  int batches = static_cast<int>(X.numel() / (rows * cols));
 
   // Allocate memory for output
   auto* S_out = dev_ctx.template Alloc<phi::dtype::Real<T>>(S);
