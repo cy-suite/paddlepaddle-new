@@ -1702,6 +1702,54 @@ class NotEqualOpPattern
   }
 };
 
+class BitwiseOrOpPattern : public pir::OpRewritePattern<paddle::dialect::BitwiseOrOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::BitwiseOrOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::BitwiseOrOp op,
+                       pir::PatternRewriter &rewriter) const override {
+#if IS_TRT_VERSION_LT(8400)
+    VLOG(3) << "bitwise_or is not supported when TensorRT < 8.4";
+    return false;
+#else
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+#endif
+  }
+};
+
+class BitwiseAndOpPattern : public pir::OpRewritePattern<paddle::dialect::BitwiseAndOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::BitwiseAndOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::BitwiseAndOp op,
+                       pir::PatternRewriter &rewriter) const override {
+#if IS_TRT_VERSION_LT(8400)
+    VLOG(3) << "bitwise_and is not supported when TensorRT < 8.4";
+    return false;
+#else
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+#endif
+  }
+};
+
+class BitwiseNotOpPattern : public pir::OpRewritePattern<paddle::dialect::BitwiseNotOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::BitwiseNotOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::BitwiseNotOp op,
+                       pir::PatternRewriter &rewriter) const override {
+#if IS_TRT_VERSION_LT(8400)
+    VLOG(3) << "bitwise_not is not supported when TensorRT < 8.4";
+    return false;
+#else
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+#endif
+  }
+};
+
 class FullLikeOpPattern
     : public pir::OpRewritePattern<paddle::dialect::FullLikeOp> {
  public:
@@ -2042,6 +2090,9 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<ArangeOpPattern>(context));
     ps.Add(std::make_unique<SignOpPattern>(context));
     ps.Add(std::make_unique<LogicalNotOpPattern>(context));
+    ps.Add(std::make_unique<BitwiseAndOpPattern>(context));
+    ps.Add(std::make_unique<BitwiseOrOpPattern>(context));
+    ps.Add(std::make_unique<BitwiseNotOpPattern>(context));
     ps.Add(std::make_unique<GroupNormOpPattern>(context));
     ps.Add(std::make_unique<TransposeOpPattern>(context));
     ps.Add(std::make_unique<GatherOpPattern>(context));

@@ -140,5 +140,49 @@ class TestNotEqualIntTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestAndRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.bitwise_and
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("bool"),
+            "y": np.random.randn(3).astype("bool"),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3], "y": [3]}
+        self.max_shape = {"x": [5, 3], "y": [3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestOrRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.bitwise_or
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("bool"),
+            "y": np.random.randn(3).astype("bool"),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3], "y": [3]}
+        self.max_shape = {"x": [5, 3], "y": [3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestNotRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.bitwise_not
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("bool"),
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3]}
+        self.max_shape = {"x": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
 if __name__ == '__main__':
     unittest.main()
