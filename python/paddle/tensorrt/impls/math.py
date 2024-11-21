@@ -42,6 +42,13 @@ def add_converter(network, paddle_op, inputs):
     )
 
 
+@converter_registry.register("pd_op.elementwise_pow", trt_version="8.x")
+def add_converter(network, paddle_op, inputs):
+    return add_elementwise_layer(
+        network, paddle_op, inputs, trt.ElementWiseOperation.POW
+    )
+
+
 @converter_registry.register("pd_op.scale", trt_version="8.x")
 def scale_converter(network, paddle_op, inputs):
     scale = paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
