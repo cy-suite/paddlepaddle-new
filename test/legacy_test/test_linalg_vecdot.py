@@ -120,13 +120,20 @@ class VecDotTestCaseError(unittest.TestCase):
             y = paddle.rand([3, 5], dtype="float32")
             paddle.vecdot(x, y, axis=-1)
 
+    @unittest.skipIf(
+        core.is_compiled_with_xpu(),
+        "Skip XPU for not support uniform(dtype=int)",
+    )
     def test_dtype_mismatch(self):
         with self.assertRaises(TypeError):
             x = paddle.rand([3, 4], dtype="float32")
             y = paddle.rand([3, 4], dtype="int32")
             paddle.vecdot(x, y, axis=-1)
 
-
+@unittest.skipIf(
+    core.is_compiled_with_xpu(),
+    "Skip XPU for not support uniform(dtype=int)",
+)
 class VecDotTestCaseComplex(unittest.TestCase):
     def run_test_dynamic(self):
         paddle.disable_static()
@@ -176,7 +183,10 @@ class VecDotTestCaseComplex(unittest.TestCase):
         self.run_test_dynamic()
         self.run_test_static()
 
-
+@unittest.skipIf(
+    core.is_compiled_with_xpu(),
+    "Skip XPU for not support uniform(dtype=int)",
+)
 class VecDotTestCaseTypePromotion1(unittest.TestCase):
     def test_float32_float64_promotion(self):
         paddle.disable_static()
