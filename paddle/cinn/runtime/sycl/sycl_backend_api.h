@@ -85,7 +85,7 @@ class SYCLBackendAPI final : public BackendAPI {
    * \param arch
    * \return return device0's_arch : arch if arch is Unk.
    */
-  Arch Init(Arch arch);
+  void Init(Arch arch);
   void set_device(int device_id) final;
   int get_device() final;
   int get_device_property(

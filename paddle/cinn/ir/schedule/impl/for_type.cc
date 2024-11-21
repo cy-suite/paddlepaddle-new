@@ -216,8 +216,15 @@ void DyScheduleImpl::Bind(const Expr& loop, const std::string& thread_axis) {
 #endif
       },
       [&](common::HygonDCUArchSYCL) {
-        PADDLE_THROW(phi::errors::Unimplemented(
-            "CINN todo: new hardware HygonDCUArchSYCL"));
+#ifdef CINN_WITH_SYCL
+        using cinn::runtime::BackendAPI;
+        auto SyclBackendAPI = BackendAPI::get_backend(common::HygonDCUArchSYCL{});
+        const std::array<int, 3> kMaxGridDims =
+            SyclBackendAPI->get_max_grid_dims();
+        const std::array<int, 3> kMaxBlockDims =
+            SyclBackendAPI->get_max_block_dims();
+        bindNvHygon(kMaxBlockDims, kMaxGridDims);
+#endif
       });
 }
 }  // namespace ir
