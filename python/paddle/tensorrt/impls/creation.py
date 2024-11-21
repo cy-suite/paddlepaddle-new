@@ -43,8 +43,13 @@ def full_int_array_converter(network, paddle_op, inputs):
 def full_converter(network, paddle_op, inputs):
     shape = paddle_op.attrs()["shape"]
     value = paddle_op.attrs().get("value", 1.0)
+    dtype = paddle_op.attrs().get("dtype")
+    if dtype == paddle.int32 or dtype == paddle.int64:
+        out_dtype = np.int32
+    else:
+        out_dtype = np.float32
     full_layer = network.add_constant(
-        shape, np.full(shape, value, dtype=np.float32)
+        shape, np.full(shape, value, dtype=out_dtype)
     )
     return full_layer.get_output(0)
 
