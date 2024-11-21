@@ -325,7 +325,6 @@ def convert(function=None, input_spec=None, config=None, **kwargs):
         ...             paddle.disable_static()
         ...             x = paddle.to_tensor(min_data)
         ...             net = CumsumModel(input_dim=min_data.shape[-1])
-        ...             out=net(x)
         ...             input_spec = [InputSpec(shape=min_data.shape, dtype='float32')]
         ...             program_with_trt ,scope= convert(
         ...                 net,
@@ -333,13 +332,14 @@ def convert(function=None, input_spec=None, config=None, **kwargs):
         ...                 config=trt_config,
         ...                 full_graph=True,
         ...             )
-        ...             output_var = program_with_trt.list_vars()[-1]
-        ...             with paddle.pir_utils.IrGuard():
-        ...                with paddle.static.scope_guard(scope):
-        ...                  place=paddle.CUDAPlace(0)
-        ...                  executor=paddle.static.Executor(place)
-        ...                  output=executor.run(program_with_trt, feed={"x": min_data}, fetch_list=[output_var],scope=scope)
-
+        ...             config = paddle_infer.Config(
+        ...                 trt_config.save_model_dir + '.json',
+        ...                 trt_config.save_model_dir + '.params',
+        ...             )
+        ...             config.enable_use_gpu(100, 0)
+        ...             predictor = paddle_infer.create_predictor(config)
+        ...             output_converted = predictor.run([x])
+        ...
         >>> test_run()
 
     """
