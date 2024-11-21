@@ -130,6 +130,7 @@ class VecDotTestCaseError(unittest.TestCase):
             y = paddle.rand([3, 4], dtype="int32")
             paddle.vecdot(x, y, axis=-1)
 
+
 @unittest.skipIf(
     core.is_compiled_with_xpu(),
     "Skip XPU for not support uniform(dtype=int)",
@@ -182,6 +183,7 @@ class VecDotTestCaseComplex(unittest.TestCase):
     def test_complex_conjugate(self):
         self.run_test_dynamic()
         self.run_test_static()
+
 
 @unittest.skipIf(
     core.is_compiled_with_xpu(),
