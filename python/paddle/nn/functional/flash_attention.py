@@ -22,6 +22,7 @@ from paddle import _C_ops, in_dynamic_mode
 from paddle.base.framework import in_dynamic_or_pir_mode
 from paddle.base.layer_helper import LayerHelper
 from paddle.base.wrapped_decorator import signature_safe_contextmanager
+from paddle.device.cuda import get_device_capability
 
 g_enable_math = None
 g_enable_flash = None
@@ -31,6 +32,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
     from paddle import Tensor
+
 
 def _get_arch_info():
     # Get SMVersion from device.
@@ -45,6 +47,7 @@ def _get_arch_info():
         raise ValueError(
             "Paddle is not compiled with CUDA, we cannot get SMVersion from device, please try to compile Paddle with CUDA"
         )
+
 
 @signature_safe_contextmanager
 def sdp_kernel(
@@ -173,7 +176,7 @@ def _select_sdp_cuda(head_dim: int) -> str:
         return "mem_efficient"
 
 
-def _select_sdp(head_dim: int, dtype: str="fp16") -> str:
+def _select_sdp(head_dim: int, dtype, place) -> str:
     r"""
     There are currently three different implementation options available for
     scaled dot product attention, and the chosen approach depends on whether it
@@ -181,27 +184,39 @@ def _select_sdp(head_dim: int, dtype: str="fp16") -> str:
     """
     place = paddle.get_device()
 
-    if "xpu" in place:
+    if place.is_xpu_place():
         return "flash_attn"
 
     # not use sdp_kernel
     if g_enable_flash is None:
         arch = _get_arch_info()
-        if "gpu" not in place:
+        if place.is_cpu_place():
             return "math"
-        # handle fp32 case
-        elif dtype is "fp32":
-            if arch >= 70:
-                return "mem_efficient"
+
+        # handle bfloat16/fp16 case
+        elif place.is_gpu_place():
+            if dtype == paddle.bfloat16 or dtype == paddle.float16:
+                if arch >= 80:
+                    return _select_sdp_cuda(head_dim)
+                elif arch < 80 and arch >= 70:
+                    return "mem_efficient"
+                else:
+                    return "math"
+            # handle fp32 case
+            elif dtype == paddle.float32:
+                if arch >= 70:
+                    return "mem_efficient"
+                else:
+                    return "math"
+            # handle other
             else:
-                return "math"
+                raise NotImplementedError(
+                    f"paddle sdpa not support {dtype} dtype, please use fp32 or bf/fp16."
+                )
         else:
-            if arch >= 80:
-                return _select_sdp_cuda(head_dim)
-            elif arch < 80 and arch >= 70:
-                return "mem_efficient"
-            else:
-                return "math"
+            raise NotImplementedError(
+                f"paddle sdpa not support device {place}, please use xpu/cpu/gpu."
+            )
 
     if (
         g_enable_math is False
@@ -599,6 +614,7 @@ def flash_attn_qkvpacked(
             from paddle.incubate.nn.memory_efficient_attention import (
                 memory_efficient_attention,
             )
+
             output = memory_efficient_attention(
                 query,
                 key,
@@ -1068,10 +1084,7 @@ def scaled_dot_product_attention(
     """
 
     head_dim = query.shape[3]
-    if query.dtype == paddle.float32:
-        sdp_func_name = _select_sdp(head_dim, query, "float32")
-    else:
-        sdp_func_name = _select_sdp(head_dim, query)
+    sdp_func_name = _select_sdp(head_dim, query.dtype, query.device)
 
     if attn_mask is None:
         # downgraded to ordinary flash attention implementation
@@ -1138,8 +1151,10 @@ def scaled_dot_product_attention(
             )
 
             seq_lens = paddle.to_tensor(
-                [query.shape[1], ] * query.shape[0], dtype='int32'
+                [query.shape[1]] * query.shape[0], dtype='int32'
             )
+
+            scale = 1.0 / paddle.sqrt(query.shape[-1])
 
             output = variable_length_memory_efficient_attention(
                 query,
@@ -1148,6 +1163,7 @@ def scaled_dot_product_attention(
                 seq_lens,
                 seq_lens,
                 attn_mask,
+                scale,
                 causal=is_causal,
             )
 

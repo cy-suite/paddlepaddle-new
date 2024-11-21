@@ -181,7 +181,7 @@ class TestFlashAttentionAPI(unittest.TestCase):
             )
 
             cu_q = paddle.arange(0, (bs + 1) * ms, ms, dtype='int32')
-            qs = paddle.reshape(qs, [bs * ms, nh, hd])
+            qs = paddle.reshape(qs, [bs * ms, nh, hd]).clone()
 
             outs, softmax = flash_attn_unpadded(
                 qs,
@@ -476,6 +476,41 @@ class TestSDPAttentionAPITest(TestFlashAttentionAPI):
 
 
 class TestFlashAttentionWithMaskAPITest(TestFlashAttentionWithMaskAPI):
+    def setUp(self):
+        self.place = paddle.CUDAPlace(0)
+        self.shape = (8, 1024, 16, 128)
+        self.dtype = 'float16'
+        self.dropout = 0.0
+        self.causal = False
+
+
+# cpu case
+class TestSDPAttentionWithMaskAPITest(TestFlashAttentionWithMaskAPI):
+    def setUp(self):
+        self.place = paddle.CPUPlace()
+        self.shape = (8, 1024, 16, 128)
+        self.dtype = 'float32'
+        self.dropout = 0.0
+        self.causal = False
+
+
+# fp32 case
+class TestSDPAttentionWithMaskAPITest2(TestFlashAttentionWithMaskAPI):
+    def setUp(self):
+        self.place = paddle.CUDAPlace(0)
+        self.shape = (8, 1024, 16, 128)
+        self.dtype = 'float32'
+        self.dropout = 0.0
+        self.causal = False
+
+
+# low sm case
+@unittest.skipIf(
+    is_sm_supported,
+    "core is not compiled with CUDA and cuda version need larger than or equal to 11.4"
+    "and device's compute capability must be 7.5 or 8.x",
+)
+class TestSDPAttentionWithMaskAPITest3(TestFlashAttentionWithMaskAPI):
     def setUp(self):
         self.place = paddle.CUDAPlace(0)
         self.shape = (8, 1024, 16, 128)
