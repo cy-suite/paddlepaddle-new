@@ -3217,7 +3217,7 @@ bool SliceOpInferSymbolicShape(pir::Operation *op,
   const std::vector<int64_t> decrease_axis =
       details::GetVectorAttr(op, "decrease_axis");
 
-  auto GetExprVec = [&](std::vector<symbol::DimExpr> &expr_vec,
+  auto GetExprVec = [&](std::vector<symbol::DimExpr> *expr_vec,
                         const int &operand_idx,
                         const std::string &attr_name) -> bool {
     if (op->operand_source(operand_idx)) {
@@ -3241,7 +3241,7 @@ bool SliceOpInferSymbolicShape(pir::Operation *op,
         const std::vector<int64_t> se_raw =
             paddle::dialect::details::GetVectorAttr(op, attr_name);
         for (const int64_t &se : se_raw) {
-          expr_vec.push_back(symbol::DimExpr{se});
+          expr_vec->push_back(symbol::DimExpr{se});
         }
         return true;
       }
@@ -3254,13 +3254,9 @@ bool SliceOpInferSymbolicShape(pir::Operation *op,
   if (!GetExprVec(starts, 1, "starts") || !GetExprVec(ends, 2, "ends")) {
     const auto &in_shapeordata =
         infer_context->GetShapeOrDataForValue(op->operand_source(0));
-    PADDLE_ENFORCE_EQ(
-        in_shapeordata.data().has_value(),
-        false,
-        common::errors::InvalidArgument(
-            "Currently for pd_op.slice op, the situation where the data area "
-            "of operand 0 has data but the data area of start or data has no "
-            "data is not supported."));
+    // NOTE(gongshaotian): When there is no data value in the starts and ends
+    // parameters, only the shape value is processed regardless of whether the
+    // input has a data value, and the  data value is no longer processed.
     std::vector<symbol::DimExpr> out_shape = in_shapeordata.shape();
     for (size_t i = 0; i < axes_vec.size(); i++) {
       int64_t axis = axes_vec[i];

@@ -364,7 +364,7 @@ bool CauseNewSymbolicShape(const ::pir::Operation& op) {
            ends_shape_data.data().has_value();
   };
 
-  if (op.name() == "pd_op.slice" && !is_processable_slice()) {
+  if (op.isa<paddle::dialect::SliceOp>() && !is_processable_slice()) {
     return true;
   }
 

@@ -152,7 +152,10 @@ bool MinimumOpInferSymbolicShape(
   return InferSymbolicShapeElementWiseBinary(
       op,
       infer_context,
-      [](const symbol::DimExpr &x, const symbol::DimExpr &y) { return x; });
+      [](const symbol::DimExpr &x, const symbol::DimExpr &y) {
+        symbol::DimExprBuilder builder;
+        return builder.Min(x, y);
+      });
 }
 
 OP_ELEMENT_WISE_BINARY(Add_)
