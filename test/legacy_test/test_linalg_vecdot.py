@@ -21,7 +21,6 @@ import numpy as np
 import paddle
 from paddle.base import core
 
-
 if sys.platform == 'win32':
     RTOL = {'float32': 1e-02, 'float64': 1e-04}
     ATOL = {'float32': 1e-02, 'float64': 1e-04}
