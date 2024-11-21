@@ -62,8 +62,8 @@ cc_test(
   DEPS phi common)
 
 cc_test(
-  densetensor_printer_test
-  SRCS densetensor_printer_test.cc
+  lodtensor_printer_test
+  SRCS lodtensor_printer_test.cc
   DEPS densetensor_printer)
 
 cc_test(
