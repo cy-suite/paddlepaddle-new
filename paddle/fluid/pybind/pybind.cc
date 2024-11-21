@@ -848,25 +848,6 @@ static std::vector<std::vector<pir::Value>> GenerateBackwardBlockForPyLayerOp(
   return res;
 }
 
-namespace {
-std::unordered_set<std::string> StringSplit(const std::string &str) {
-  std::istringstream iss(str);
-  std::unordered_set<std::string> tokens;
-  std::string token;
-  while (std::getline(iss, token, ';')) {
-    size_t startpos = token.find_first_not_of(' ');
-    size_t endpos = token.find_last_not_of(' ');
-    if ((startpos != std::string::npos) && (endpos != std::string::npos)) {
-      token = token.substr(startpos, endpos - startpos + 1);
-    } else if (startpos != std::string::npos) {
-      token = token.substr(startpos);
-    }
-    tokens.insert(token);
-  }
-  return tokens;
-}
-}  // namespace
-
 void BindVjp(pybind11::module *m) {
   m->def(
       "call_vjp",
@@ -898,10 +879,6 @@ void BindVjp(pybind11::module *m) {
                          common::errors::InvalidArgument(
                              "The vjp function is not registered in %s op ",
                              fwd_op.name()));
-          const std::unordered_set<std::string> backward_blacklist_ops =
-              StringSplit(FLAGS_prim_backward_blacklist);
-          paddle::prim::PrimCommonUtils::SetPrimBackwardBlacklist(
-              backward_blacklist_ops);
           vjp_res = vjp_interface.Vjp(
               &fwd_op, inputs, outputs, out_grads, stop_gradients);
         }
@@ -2489,7 +2466,7 @@ All parameter, weight, gradient are variables in Paddle.
            const std::string &var_name,
            size_t index) -> py::object {
           auto &var = framework::GetFetchVariable(scope, var_name, index);
-          if (data_is_lod_tensor(var)) {  // NOLINT
+          if (data_is_dense_tensor(var)) {  // NOLINT
             return py::cast(PADDLE_GET(phi::DenseTensor, var));
           } else {
             return py::cast(PADDLE_GET(phi::TensorArray, var));
@@ -2605,7 +2582,7 @@ All parameter, weight, gradient are variables in Paddle.
           [](FetchList &self) -> py::list {
             py::list res(self.size());
             for (size_t i = 0; i < self.size(); ++i) {
-              if (data_is_lod_tensor(self[i])) {
+              if (data_is_dense_tensor(self[i])) {
                 auto &data = PADDLE_GET(phi::DenseTensor, self[i]);
                 res[i] = py::cast(std::move(data));
               } else if (data_is_sparse_coo_tensor(self[i])) {
@@ -2657,7 +2634,7 @@ All parameter, weight, gradient are variables in Paddle.
             for (size_t i = 0; i < self.size(); ++i) {
               py::list tmp(self[i].size());
               for (size_t j = 0; j < self[i].size(); ++j) {
-                if (data_is_lod_tensor(self[i][j])) {
+                if (data_is_dense_tensor(self[i][j])) {
                   auto &var = PADDLE_GET(phi::DenseTensor, self[i][j]);
                   tmp[j] = py::cast(std::move(var));
                 } else {
