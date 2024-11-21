@@ -417,6 +417,27 @@ void* GetCublasLtDsoHandle() {
         "temporarily no longer supports");
     return nullptr;
   }
+#elif defined(_WIN32) && defined(PADDLE_WITH_CUDA)
+  if (CUDA_VERSION >= 11000 && CUDA_VERSION < 12000) {
+#ifdef PADDLE_WITH_PIP_CUDA_LIBRARIES
+    return GetDsoHandleFromSearchPath(FLAGS_cuda_dir, "cublasLt64_11.dll");
+#else
+    return GetDsoHandleFromSearchPath(
+        FLAGS_cuda_dir, win_cublas_lib, true, {cuda_lib_path});
+#endif
+  } else if (CUDA_VERSION >= 12000 && CUDA_VERSION < 13000) {
+#ifdef PADDLE_WITH_PIP_CUDA_LIBRARIES
+    return GetDsoHandleFromSearchPath(FLAGS_cuda_dir, "cublasLt64_12.dll");
+#else
+    return GetDsoHandleFromSearchPath(
+        FLAGS_cuda_dir, win_cublas_lib, true, {cuda_lib_path});
+#endif
+  } else {
+    std::string warning_msg(
+        "Your CUDA_VERSION is less than 11 or greater than 12, paddle "
+        "temporarily no longer supports");
+    return nullptr;
+  }
 #elif !defined(__linux__) && defined(PADDLE_WITH_CUDA) && CUDA_VERSION >= 10010
   return GetDsoHandleFromSearchPath(FLAGS_cuda_dir, "libcublasLt.so");
 #elif defined(PADDLE_WITH_HIP)
@@ -695,6 +716,20 @@ void* GetFlashAttnDsoHandle() {
   return GetDsoHandleFromSearchPath(flashattn_dir, "flashattn.dll");
 #else
   return GetDsoHandleFromSearchPath(flashattn_dir, "libflashattn.so");
+#endif
+}
+
+void* GetFlashAttnV3DsoHandle() {
+  std::string flashattn_dir = "";
+  if (!s_py_site_pkg_path.path.empty()) {
+    flashattn_dir = s_py_site_pkg_path.path;
+  }
+#if defined(__APPLE__) || defined(__OSX__)
+  return GetDsoHandleFromSearchPath(flashattn_dir, "libflashattnv3.dylib");
+#elif defined(_WIN32)
+  return GetDsoHandleFromSearchPath(flashattn_dir, "flashattnv3.dll");
+#else
+  return GetDsoHandleFromSearchPath(flashattn_dir, "libflashattnv3.so");
 #endif
 }
 

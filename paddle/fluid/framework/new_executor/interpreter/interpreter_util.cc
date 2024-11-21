@@ -244,9 +244,9 @@ bool var_can_be_deleted(const std::string& name, const BlockDesc& block) {
 
   auto type = var_desc->Proto()->type().type();
 
-  return type == proto::VarType::LOD_TENSOR ||
+  return type == proto::VarType::DENSE_TENSOR ||
          type == proto::VarType::SELECTED_ROWS ||
-         type == proto::VarType::LOD_TENSOR_ARRAY ||
+         type == proto::VarType::DENSE_TENSOR_ARRAY ||
          type == proto::VarType::SPARSE_COO ||
          type == proto::VarType::SPARSE_CSR;
 }

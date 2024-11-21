@@ -671,7 +671,7 @@ static void PurifyForwardOpProto(const proto::OpProto& op_proto,
     }
   }
 
-  /* ------ Maping forward slot name to fwd position ------ */
+  /* ------ Mapping forward slot name to fwd position ------ */
   size_t in_pos = 0;
   for (const auto& var : *in_vars) {
     VLOG(6) << "Mapping input tensor: " << var.name()
@@ -1877,7 +1877,7 @@ static std::pair<std::string, std::string> GenerateForwardFunctionContents(
   trace_op_body_str += trace_op_str;
   trace_op_body_str += "\n";
 
-  // [Generation] Log memory infomation
+  // [Generation] Log memory information
   const char* LOG_MEMORY_INFO_TEMPLATE =
       " // Log memory information\n"
       "  "
@@ -3419,7 +3419,6 @@ std::map<std::string, std::set<std::string>> op_passing_outs_map = {
     {"assign_value", {"Out"}},
     {"split", {"Out"}},
     {"concat", {"Out"}},
-    {"fused_multi_transformer", {"CacheKVOut"}},
     {"fused_multi_transformer_int8", {"CacheKVOut"}},
     {"group_norm", {"Mean", "Variance"}},
     {"resnet_basic_block",
@@ -3458,14 +3457,6 @@ std::map<std::string, std::set<std::string>> op_ins_map = {
       "GateBias",
       "OutLinearWeight",
       "OutLinearBias"}},
-    {"fused_multi_transformer",
-     {"X",          "LnScale",       "LnBias",
-      "QKVW",       "QKVBias",       "CacheKV",
-      "PreCaches",  "RotaryPosEmb",  "BeamCacheOffset",
-      "TimeStep",   "SeqLengths",    "SrcMask",
-      "OutLinearW", "OutLinearBias", "FFNLnScale",
-      "FFNLnBias",  "FFN1Weight",    "FFN1Bias",
-      "FFN2Weight", "FFN2Bias"}},
     {"fused_multi_transformer_int8",
      {"X",           "LnScale",           "LnBias",       "QKVW",
       "QKVBias",     "CacheKV",           "TimeStep",     "SrcMask",
@@ -3767,7 +3758,6 @@ std::map<std::string, std::set<std::string>> op_outs_map = {
       "Beta1PowOut",
       "Beta2PowOut",
       "MasterParamOut"}},
-    {"fused_multi_transformer", {"CacheKVOut", "Out"}},
     {"fused_multi_transformer_int8", {"CacheKVOut", "Out"}},
     {"resnet_basic_block",
      {"Y",         "Conv1",     "SavedMean1", "SavedInvstd1", "Mean1Out",

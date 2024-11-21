@@ -151,7 +151,7 @@ void ProcessDistBlock(pir::Block* block) {
                      .chunk_id();
       op_item->erase_attribute(kAttrOpDistAttr);
     }
-    op_item->set_attribute("chunk_id", pir::Int64Attribute::get(ctx, chunk_id));
+    op_item->set_attribute("chunk_id", pir::Int32Attribute::get(ctx, chunk_id));
 
     // TODO(2024-Q2) Handle other special dist op in future.
   }
@@ -194,10 +194,6 @@ void VerifyDenseBlock(pir::Block* block) {
 }
 
 void DistToDensePass(pir::Program* prog) {
-  if (FLAGS_print_ir) {
-    VLOG(0) << "IR before DistToDense Pass = " << *prog;
-  }
-
   pir::IrContext* ctx = pir::IrContext::Instance();
   ctx->GetOrRegisterDialect<OperatorDialect>();
   ctx->GetOrRegisterDialect<DistDialect>();

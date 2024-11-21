@@ -60,6 +60,66 @@ void analysis::OpenVINOSubgraphPass::ApplyImpl(
             << graph->GetBlockId();
   }
 
+  std::unordered_set<const Node *> nodes2remove;
+  std::unordered_set<std::string> white_nodes;
+  std::vector<Node *> input_nodes;
+  std::vector<Node *> output_nodes;
+  for (auto *node : graph->Nodes()) {
+    if (!(node->IsOp())) {
+      continue;
+    }
+    if (node->Op()->Type() == "feed") {
+      for (auto *var : node->inputs) {
+        white_nodes.insert(var->Var()->Name());
+      }
+      for (auto *var : node->outputs) {
+        white_nodes.insert(var->Var()->Name());
+        input_nodes.push_back(var);
+      }
+    } else if (node->Op()->Type() == "fetch") {
+      for (auto *var : node->outputs) {
+        white_nodes.insert(var->Var()->Name());
+      }
+      for (auto *var : node->inputs) {
+        white_nodes.insert(var->Var()->Name());
+        output_nodes.push_back(var);
+      }
+    } else {
+      nodes2remove.insert(node);
+    }
+  }
+  for (auto *node : graph->Nodes()) {
+    if (!(node->IsVar())) {
+      continue;
+    }
+    if (white_nodes.count(node->Var()->Name())) {
+      continue;
+    }
+    nodes2remove.insert(node);
+  }
+
+  std::vector<std::string> repetitive_params =
+      ExtractParameters(graph->Nodes());
+  for (auto *node : graph->Nodes()) {
+    if (!(node->IsVar())) {
+      continue;
+    }
+    if (white_nodes.count(node->Var()->Name())) {
+      continue;
+    }
+    if (std::count(repetitive_params.begin(),
+                   repetitive_params.end(),
+                   node->Var()->Name())) {
+      continue;
+    }
+    nodes2remove.insert(node);
+  }
+  framework::ir::GraphSafeRemoveNodes(graph, nodes2remove);
+  auto *scope = param_scope();
+  for (auto &var_name : repetitive_params) {
+    scope->EraseVars({var_name});
+  }
+
   std::string model_program_path = Get<std::string>("model_program_path");
   std::string model_params_path = Get<std::string>("model_params_path");
   std::string model_opt_cache_dir = Get<std::string>("model_opt_cache_dir");
@@ -77,37 +137,6 @@ void analysis::OpenVINOSubgraphPass::ApplyImpl(
       inference::Singleton<inference::openvino::OVEngineManager>::Global()
           .Create(engine_key, params);
   ov_engine->BuildEngine();
-
-  std::unordered_set<const Node *> nodes2remove;
-  std::unordered_map<std::string, const Node *> white_nodes;
-  std::vector<Node *> input_nodes;
-  std::vector<Node *> output_nodes;
-  for (auto *node : graph->Nodes()) {
-    if (!(node->IsOp())) {
-      continue;
-    }
-    if (node->Op()->Type() != "feed" && node->Op()->Type() != "fetch") {
-      nodes2remove.insert(node);
-    }
-    if (node->Op()->Type() == "feed") {
-      for (auto *var : node->outputs) {
-        white_nodes.insert(std::make_pair(var->Var()->Name(), var));
-        input_nodes.push_back(var);
-      }
-    }
-    if (node->Op()->Type() == "fetch") {
-      for (auto *var : node->inputs) {
-        white_nodes.insert(std::make_pair(var->Var()->Name(), var));
-        output_nodes.push_back(var);
-      }
-    }
-  }
-  for (auto *node : graph->Nodes()) {
-    if (node->IsVar() && !white_nodes.count(node->Name())) {
-      nodes2remove.insert(node);
-    }
-  }
-  framework::ir::GraphSafeRemoveNodes(graph, nodes2remove);
 
   framework::OpDesc openvino_desc;
   openvino_desc.SetType("openvino_engine");

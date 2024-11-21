@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from typing_extensions import TypeGuard
 
     from paddle import Tensor
-    from paddle._typing import NestedNumbericSequence, TensorLike
+    from paddle._typing import NestedNumericSequence, TensorLike
 
 
 class Distribution:
@@ -149,7 +149,7 @@ class Distribution:
         )
 
     def _validate_args(
-        self, *args: TensorLike | NestedNumbericSequence
+        self, *args: TensorLike | NestedNumericSequence
     ) -> TypeGuard[Tensor]:
         """
         Argument validation for distribution args
@@ -174,7 +174,7 @@ class Distribution:
         return is_variable
 
     def _to_tensor(
-        self, *args: TensorLike | NestedNumbericSequence
+        self, *args: TensorLike | NestedNumericSequence
     ) -> tuple[Tensor, ...]:
         """
         Argument convert args to Tensor
@@ -306,3 +306,44 @@ class Distribution:
             if is_binary
             else paddle.nn.functional.softmax(logits, axis=-1)
         )
+
+    def _broadcast_all(
+        self, *args: TensorLike | NestedNumericSequence
+    ) -> tuple[Tensor, ...]:
+        r"""
+        Returns a list where each arg is broadcasted. Scalar args are upcast to tensors
+        having the same data type as the first Tensor passed to `args`.  If all the
+        args are scalars, then they are upcasted to Tensors with paddle default data type.
+
+        Args:
+            value (float, list, numpy.ndarray, Tensor)
+
+        Returns:
+            Broadcasted Tensor of args.
+        """
+        for arg in args:
+            if not isinstance(
+                arg,
+                (float, list, tuple, np.ndarray, Variable, paddle.pir.Value),
+            ):
+                raise TypeError(
+                    f"Type of input args must be float, list, tuple, numpy.ndarray or Tensor, but received type {type(arg)}"
+                )
+        if not all(
+            isinstance(arg, (Variable, paddle.pir.Value)) for arg in args
+        ):
+            dtype = paddle.get_default_dtype()
+            for arg in args:
+                if isinstance(arg, (Variable, paddle.pir.Value)):
+                    dtype = arg.dtype
+                    break
+            new_args = [
+                (
+                    arg
+                    if isinstance(arg, (Variable, paddle.pir.Value))
+                    else paddle.to_tensor(arg, dtype=dtype)
+                )
+                for arg in args
+            ]
+            return paddle.broadcast_tensors(new_args)
+        return paddle.broadcast_tensors(args)

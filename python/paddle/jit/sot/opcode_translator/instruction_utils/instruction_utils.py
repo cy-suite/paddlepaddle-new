@@ -84,11 +84,64 @@ def convert_instruction(instr: dis.Instruction) -> Instruction:
         instr.arg,
         instr.argval,
         instr.offset,
-        instr.starts_line,
+        instr.line_number if sys.version_info >= (3, 13) else instr.starts_line,
         instr.is_jump_target,
         jump_to=None,
         is_generated=False,
     )
+
+
+def expand_super_instrs(instructions: list[Instruction]) -> list[Instruction]:
+    expanded_instrs = []
+
+    def replace_jump_target(instrs, old_target, new_target):
+        for instr in instrs:
+            if instr.jump_to == old_target:
+                instr.jump_to = new_target
+
+    def copy_instruction(
+        instr, opname, argval, arg, is_jump_target, is_generated
+    ):
+        return Instruction(
+            opcode=dis.opmap[opname],
+            opname=opname,
+            arg=arg,
+            argval=argval,
+            is_jump_target=is_jump_target,
+            is_generated=is_generated,
+            jump_to=instr.jump_to,
+        )
+
+    FUSED_INSTS: dict[str, tuple[str, str]] = {
+        "LOAD_FAST_LOAD_FAST": ("LOAD_FAST", "LOAD_FAST"),
+        "STORE_FAST_STORE_FAST": ("STORE_FAST", "STORE_FAST"),
+        "STORE_FAST_LOAD_FAST": ("STORE_FAST", "LOAD_FAST"),
+    }
+
+    for instr in instructions:
+        if instr.opname in FUSED_INSTS:
+            instr1 = copy_instruction(
+                instr,
+                FUSED_INSTS[instr.opname][0],
+                instr.argval[0],
+                instr.arg >> 4,
+                instr.is_jump_target,
+                True,
+            )
+            instr2 = copy_instruction(
+                instr,
+                FUSED_INSTS[instr.opname][1],
+                instr.argval[1],
+                instr.arg & 15,
+                False,
+                False,
+            )
+            replace_jump_target(instructions, instr, instr1)
+            expanded_instrs.append(instr1)
+            expanded_instrs.append(instr2)
+        else:
+            expanded_instrs.append(instr)
+    return expanded_instrs
 
 
 def get_instructions(code: types.CodeType) -> list[Instruction]:
@@ -134,7 +187,7 @@ def get_instructions(code: types.CodeType) -> list[Instruction]:
     #         XX 388    <-  256 + 132
     # filter all EXTENDED_ARG here
     instrs = [x for x in instrs if x.opname != "EXTENDED_ARG"]
-    return instrs
+    return expand_super_instrs(instrs)
 
 
 def modify_instrs(instructions: list[Instruction]) -> None:

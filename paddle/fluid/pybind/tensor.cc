@@ -199,7 +199,7 @@ static void TensorCopyFrom(phi::DenseTensor *dst,
 void BindTensor(pybind11::module &m) {  // NOLINT
   using namespace paddle::framework;    // NOLINT
   py::class_<phi::DenseTensor> framework_tensor(
-      m, "Tensor", py::buffer_protocol());
+      m, "DenseTensor", py::buffer_protocol());
   g_framework_tensor_pytype =
       reinterpret_cast<PyTypeObject *>(framework_tensor.ptr());
   framework_tensor
@@ -390,7 +390,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
         Set the data of Tensor on place with given numpy array.
 
         Args:
-          lod (numpy.ndarray): The data to set.
+          array (numpy.ndarray): The shape where the DenseTensor is to be set.
           place (CPUPlace|CUDAPlace|XPUPlace|IPUPlace|CUDAPinnedPlace): The place where the
           Tensor is to be set.
           zero_copy (bool, optional): Whether to share memory with the input numpy array.
@@ -700,7 +700,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
              return dst;
            })
       .def("_copy", [](const phi::DenseTensor &self, const phi::Place &place) {
-        // follow fetch_op's inplementation
+        // follow fetch_op's implementation
         phi::DenseTensor dst;
         if (self.IsInitialized() && self.numel() > 0) {
           TensorCopySync(self, place, &dst);
@@ -759,7 +759,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
 
            Params:
                tensor: Shared Cuda IPC tensor.
-               tuple: contrains data size, data type,
+               tuple: contains data size, data type,
                       tensor dims, lod information, device index.
 
        )DOC")
@@ -812,7 +812,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
            Serialize GPU Tensor by cudaIpcMemHandle.
 
            Returns:
-               tuple: contrains handle, data size, data type,
+               tuple: contains handle, data size, data type,
                       tensor dims, lod information, device index.
 
            Examples:
@@ -858,7 +858,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
            Deserialize GPU lod tensor from cudaIpcMemHandle.
 
            Params:
-               tuple: contrains handle, data size, data type,
+               tuple: contains handle, data size, data type,
                       tensor dims, lod information, device index.
 
            Examples:
@@ -942,7 +942,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
            If the tensor is not in shared memory, we will copy it first.
 
            Returns:
-               tuple: contrains ipc name, data size, data type,
+               tuple: contains ipc name, data size, data type,
                       tensor dims and lod imformation.
 
            Examples:

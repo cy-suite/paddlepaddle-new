@@ -41,16 +41,19 @@ from .utils import (
 __all__ = []
 
 
-def to_static_variable(x):
+def to_static_variable(x, dtype=None):
     '''
     Translate a Python Tensor to PaddlePaddle static graph Tensor
     '''
     if isinstance(x, bool):
-        return paddle.full(shape=[], dtype='bool', fill_value=x)
+        dtype = 'bool' if dtype is None else dtype
+        return paddle.full(shape=[], dtype=dtype, fill_value=x)
     if isinstance(x, float):
-        return paddle.full(shape=[], dtype='float64', fill_value=x)
+        dtype = 'float64' if dtype is None else dtype
+        return paddle.full(shape=[], dtype=dtype, fill_value=x)
     if isinstance(x, int):
-        return paddle.full(shape=[], dtype='int64', fill_value=x)
+        dtype = 'int64' if dtype is None else dtype
+        return paddle.full(shape=[], dtype=dtype, fill_value=x)
     if not use_pir_api() and (isinstance(x, UndefinedVar) or x is None):
         """
         for early return case, we need a variable to represent None, current we use data_layer_not_check.
@@ -90,13 +93,14 @@ def convert_load(x):
 
         # get the new output of the var
         if isinstance(x, Value):
-            cur_block = default_main_program().current_block()
 
             from paddle.jit.pir_dy2static.parameter_recorder import (
                 _global_inplace_map,
             )
 
-            new_var = _global_inplace_map.get(cur_block.program, x)
+            new_var = _global_inplace_map.get(
+                paddle.static.default_main_program(), x
+            )
             if new_var is not None:
                 return new_var
 
@@ -611,20 +615,23 @@ def convert_len(var):
     if isinstance(var, Variable):
         assert var.ndim > 0, "len() of a 0-D tensor is wrong"
         if var.type in [
-            core.VarDesc.VarType.LOD_TENSOR,
+            core.VarDesc.VarType.DENSE_TENSOR,
             core.VarDesc.VarType.SELECTED_ROWS,
         ]:
             # Note: Length of var may be known ahead of time in dygraph,
             # but it probably represents batch size which can be variant.
             # so we return a variable dynamically inferred from var.shape.
-            if var.shape[0] > 0 and var.type == core.VarDesc.VarType.LOD_TENSOR:
+            if (
+                var.shape[0] > 0
+                and var.type == core.VarDesc.VarType.DENSE_TENSOR
+            ):
                 return var.shape[0]
             return paddle.shape(var)[0]
-        elif var.type == core.VarDesc.VarType.LOD_TENSOR_ARRAY:
+        elif var.type == core.VarDesc.VarType.DENSE_TENSOR_ARRAY:
             return paddle.tensor.array_length(var)
         else:
             raise TypeError(
-                f'len(var) only supports LoDTensor/LoDTensorArray/SelectedRows, but received {type(var)}.'
+                f'len(var) only supports LoDTensor/DenseTensorArray/SelectedRows, but received {type(var)}.'
             )
     elif isinstance(var, Value):
         if var.is_dense_tensor_type() or var.is_selected_row_type():
@@ -755,11 +762,13 @@ def convert_var_dtype(var, dtype):
             'bool',
             'int',
             'float',
+            'complex',
         ], f"The casted target dtype is {dtype}, which is not supported in type casting."
         cast_map = {
             'bool': 'bool',
             'int': 'int32',
             'float': 'float32',
+            'complex': 'complex64',
         }
         return paddle.cast(var, dtype=cast_map[dtype])
     else:
@@ -767,6 +776,7 @@ def convert_var_dtype(var, dtype):
             'bool',
             'int',
             'float',
+            'complex',
         ], f"The casted target dtype is {dtype}, which is not supported in type casting."
         return eval(dtype)(var)
 

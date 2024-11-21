@@ -32,19 +32,20 @@ include(GNUInstallDirs)
 set(LIBDIR "runtime/lib/intel64")
 set(TBBDIR "runtime/3rdparty/tbb/lib")
 
-set(OPENVINO_LIB_NAME
-    "libopenvino.so.2450"
-    CACHE PATH "libopenvino name." FORCE)
-set(OPENVINO_PADDLE_LIB_NAME
-    "libopenvino_paddle_frontend.so.2450"
-    CACHE PATH "libopenvino_paddle_frontend name." FORCE)
-set(OPENVINO_PLUGIN_LIB_NAME
-    "libopenvino_intel_cpu_plugin.so"
-    CACHE PATH "libopenvino_intel_cpu_plugin name." FORCE)
-set(TBB_LIB_NAME
-    "libtbb.so.12"
-    CACHE PATH "libtbb name." FORCE)
-
+if(Linux)
+  set(OPENVINO_LIB_NAME
+      "libopenvino.so.2450"
+      CACHE PATH "libopenvino name." FORCE)
+  set(OPENVINO_PADDLE_LIB_NAME
+      "libopenvino_paddle_frontend.so.2450"
+      CACHE PATH "libopenvino_paddle_frontend name." FORCE)
+  set(OPENVINO_CPU_PLUGIN_LIB_NAME
+      "libopenvino_intel_cpu_plugin.so"
+      CACHE PATH "libopenvino_intel_cpu_plugin name." FORCE)
+  set(TBB_LIB_NAME
+      "libtbb.so.12"
+      CACHE PATH "libtbb name." FORCE)
+endif()
 message(STATUS "Set ${OPENVINO_INSTALL_DIR}/${LIBDIR} to runtime path")
 message(STATUS "Set ${OPENVINO_INSTALL_DIR}/${TBBDIR} to runtime path")
 set(OPENVINO_LIB_DIR ${OPENVINO_INSTALL_DIR}/${LIBDIR})
@@ -67,8 +68,8 @@ if(LINUX)
   set(OPENVINO_PADDLE_LIB
       "${OPENVINO_INSTALL_DIR}/${LIBDIR}/${OPENVINO_PADDLE_LIB_NAME}"
       CACHE FILEPATH "OpenVINO paddle frontend library." FORCE)
-  set(OPENVINO_PLUGIN_LIB
-      "${OPENVINO_INSTALL_DIR}/${LIBDIR}/${OPENVINO_PLUGIN_LIB_NAME}"
+  set(OPENVINO_CPU_PLUGIN_LIB
+      "${OPENVINO_INSTALL_DIR}/${LIBDIR}/${OPENVINO_CPU_PLUGIN_LIB_NAME}"
       CACHE FILEPATH "OpenVINO cpu inference library." FORCE)
   set(TBB_LIB
       "${OPENVINO_INSTALL_DIR}/${TBBDIR}/${TBB_LIB_NAME}"
@@ -79,7 +80,7 @@ endif()
 
 if(LINUX)
   set(BUILD_BYPRODUCTS_ARGS ${OPENVINO_LIB} ${TBB_LIB} ${OPENVINO_PADDLE_LIB}
-                            ${OPENVINO_PLUGIN_LIB})
+                            ${OPENVINO_CPU_PLUGIN_LIB})
 else()
   set(BUILD_BYPRODUCTS_ARGS "")
 endif()
@@ -94,14 +95,11 @@ ExternalProject_Add(
   #BUILD_ALWAYS        1
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${OPENVINO_INSTALL_DIR}
              -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-             -DENABLE_INTEL_GPU=OFF
              -DTHREADING=TBB
              -DENABLE_INTEL_GPU=OFF
              -DENABLE_OV_JAX_FRONTEND=OFF
              -DENABLE_OV_ONNX_FRONTEND=OFF
              -DENABLE_OV_PYTORCH_FRONTEND=OFF
-             -DENABLE_OV_TF_FRONTEND=OFF
-             -DENABLE_OV_TF_LITE_FRONTEND=OFF
              -DENABLE_OV_TF_FRONTEND=OFF
              -DENABLE_OV_TF_LITE_FRONTEND=OFF
              -DENABLE_INTEL_CPU=ON
@@ -111,7 +109,7 @@ ExternalProject_Add(
 
 message(STATUS "OpenVINO library: ${OPENVINO_LIB}")
 message(STATUS "OpenVINO Paddle library: ${OPENVINO_PADDLE_LIB}")
-message(STATUS "OpenVINO CPU Inference library: ${OPENVINO_PLUGIN_LIB}")
+message(STATUS "OpenVINO CPU Inference library: ${OPENVINO_CPU_PLUGIN_LIB}")
 message(STATUS "OpenVINO TBB library: ${TBB_LIB}")
 add_definitions(-DPADDLE_WITH_OPENVINO)
 
@@ -123,7 +121,7 @@ set_property(TARGET openvino PROPERTY IMPORTED_LOCATION ${OPENVINO_LIB})
 set_property(TARGET openvino_paddle PROPERTY IMPORTED_LOCATION
                                              ${OPENVINO_PADDLE_LIB})
 set_property(TARGET openvino_cpu_plugin PROPERTY IMPORTED_LOCATION
-                                                 ${OPENVINO_PLUGIN_LIB})
+                                                 ${OPENVINO_CPU_PLUGIN_LIB})
 set_property(TARGET tbb PROPERTY IMPORTED_LOCATION ${TBB_LIB})
 add_dependencies(openvino ${OPENVINO_PROJECT})
 add_dependencies(openvino_paddle ${OPENVINO_PROJECT})

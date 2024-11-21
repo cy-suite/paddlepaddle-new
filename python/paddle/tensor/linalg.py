@@ -188,6 +188,34 @@ def transpose_(x, perm, name=None):
         return _C_ops.transpose_(x, perm)
 
 
+def matrix_transpose(
+    x: paddle.Tensor,
+    name: str | None = None,
+) -> paddle.Tensor:
+    """
+    Transpose the last two dimensions of the input tensor `x`.
+
+    Note:
+        If `n` is the number of dimensions of `x`, `paddle.matrix_transpose(x)` is equivalent to `x.transpose([0, 1, ..., n-2, n-1])`.
+
+    Args:
+        x (Tensor): The input tensor to be transposed. `x` must be an N-dimensional tensor (N >= 2) of any data type supported by Paddle.
+
+    Returns:
+        Tensor: A new tensor with the same shape as `x`, except that the last two dimensions are transposed.
+
+    Examples:
+        .. code-block:: python
+
+            >>> import paddle
+            >>> x = paddle.ones(shape=[2, 3, 5])
+            >>> x_transposed = paddle.matrix_transpose(x)
+            >>> print(x_transposed.shape)
+            [2, 5, 3]
+    """
+    return x.mT
+
+
 def matmul(
     x: Tensor,
     y: Tensor,
@@ -374,7 +402,7 @@ def fp8_fp8_half_gemm_fused(
                     dtype='bfloat16'
                 )
             else:
-                raise ValueError("The output_dtype must be float16 or bfloa16")
+                raise ValueError("The output_dtype must be float16 or bfloat16")
 
             helper.append_op(
                 type='fp8_fp8_half_gemm_fused',
@@ -408,7 +436,7 @@ def fp8_fp8_half_gemm_fused(
                     bias, 'bias', ['bfloat16'], 'fp8_fp8_half_gemm_fused'
                 )
             else:
-                raise ValueError("The output_dtype must be float16 or bfloa16")
+                raise ValueError("The output_dtype must be float16 or bfloat16")
 
             helper = LayerHelper('fp8_fp8_half_gemm_fused', **locals())
 
@@ -419,7 +447,7 @@ def fp8_fp8_half_gemm_fused(
                     dtype='bfloat16'
                 )
             else:
-                raise ValueError("The output_dtype must be float16 or bfloa16")
+                raise ValueError("The output_dtype must be float16 or bfloat16")
 
             helper.append_op(
                 type='fp8_fp8_half_gemm_fused',

@@ -29,6 +29,7 @@
 #include "paddle/cinn/ir/utils/ir_copy.h"
 #include "paddle/cinn/optim/eliminate_common_factor_of_local_index.h"
 #include "paddle/cinn/optim/ir_simplify.h"
+#include "paddle/cinn/optim/longlong2int.h"
 #include "paddle/cinn/optim/replace_var_with_expr.h"
 #include "paddle/cinn/optim/resize_buffer.h"
 #include "paddle/cinn/optim/update_buffer_axis_pass.h"
@@ -38,6 +39,7 @@
 #include "paddle/cinn/utils/string.h"
 #include "paddle/common/enforce.h"
 
+PD_DECLARE_bool(cinn_longlong2int_for_integer);
 namespace cinn {
 namespace optim {
 
@@ -56,9 +58,10 @@ namespace optim {
  *
  * @param expr The expression to mutate.
  */
-void RemoveGpuForloopsAxis(Expr *expr) {
+void RemoveGpuForloopsAxis(ir::LoweredFunc fn) {
   struct Mutator : public ir::IRMutator<Expr *> {
-    void operator()(Expr *expr) { ir::IRMutator<>::Visit(expr, expr); }
+    using ir::IRMutator<>::Visit;
+    void operator()(ir::LoweredFunc fn) { Visit(fn.As<ir::_LoweredFunc_>()); }
 
    private:
     void Visit(const ir::For *op, Expr *expr) override {
@@ -161,7 +164,7 @@ void RemoveGpuForloopsAxis(Expr *expr) {
   };
 
   Mutator mutator;
-  mutator(expr);
+  mutator(fn);
 }
 
 /**
@@ -169,9 +172,10 @@ void RemoveGpuForloopsAxis(Expr *expr) {
  * this is the problem of isl AST output, drop it to make it run in all the
  * threads.
  */
-void CudaSyncThreadsDropIfThenElse(Expr *expr) {
+void CudaSyncThreadsDropIfThenElse(ir::LoweredFunc fn) {
   struct Mutator : public ir::IRMutator<> {
-    void operator()(Expr *expr) { ir::IRMutator<>::Visit(expr, expr); }
+    using ir::IRMutator<>::Visit;
+    void operator()(ir::LoweredFunc fn) { Visit(fn.As<ir::_LoweredFunc_>()); }
 
     void Visit(const ir::IfThenElse *op, Expr *expr) override {
       blocked_statement_stack.push_back(expr);
@@ -196,7 +200,7 @@ void CudaSyncThreadsDropIfThenElse(Expr *expr) {
     std::vector<ir::Expr *> blocked_statement_stack;
   };
 
-  Mutator()(expr);
+  Mutator()(fn);
 }
 
 class RestructureVarNodes : public ir::IRMutator<> {
@@ -483,6 +487,10 @@ void OptimizeExprGPU(Expr *expr) {
 
   ReplaceVarToZero replace_var_to_zero;
   replace_var_to_zero(expr);
+
+  if (FLAGS_cinn_longlong2int_for_integer) {
+    TryCastLonglong2Int(expr);
+  }
 
   VLOG(4) << "After Optimize Expr: \n" << *expr;
 }

@@ -52,6 +52,7 @@ from .creation import (  # noqa: F401
     ones,
     ones_like,
     polar,
+    set_,
     to_tensor,
     tril,
     tril_,
@@ -106,6 +107,8 @@ from .logic import (  # noqa: F401
     allclose,
     bitwise_and,
     bitwise_and_,
+    bitwise_invert,
+    bitwise_invert_,
     bitwise_not,
     bitwise_not_,
     bitwise_or,
@@ -125,6 +128,8 @@ from .logic import (  # noqa: F401
     less_equal,
     less_equal_,
     less_than,
+    less_than as less,
+    less_than as less_,
     less_than_,
     logical_and,
     logical_and_,
@@ -136,6 +141,7 @@ from .logic import (  # noqa: F401
     logical_xor_,
     not_equal,
     not_equal_,
+    positive,
 )
 from .manipulation import (  # noqa: F401
     as_complex,
@@ -625,6 +631,8 @@ tensor_method_func = [
     'less_equal_',
     'less_than',
     'less_than_',
+    'less',
+    'less_',
     'logical_and',
     'logical_and_',
     'logical_not',
@@ -728,6 +736,8 @@ tensor_method_func = [
     'bitwise_xor_',
     'bitwise_not',
     'bitwise_not_',
+    'bitwise_invert',
+    'bitwise_invert_',
     'broadcast_tensors',
     'eig',
     'uniform_',
@@ -842,6 +852,7 @@ tensor_method_func = [
     "combinations",
     'signbit',
     'log_normal_',
+    'set_',
 ]
 
 # this list used in math_op_patch.py for magic_method bind
@@ -850,4 +861,5 @@ magic_method_func = [
     ('__or__', 'bitwise_or'),
     ('__xor__', 'bitwise_xor'),
     ('__invert__', 'bitwise_not'),
+    ('__pos__', 'positive'),
 ]

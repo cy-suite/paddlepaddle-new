@@ -50,3 +50,7 @@
 - tanh
 - sign
 - sigmoid
+- index_put
+- isnan
+- isfinite
+- take_along_axis

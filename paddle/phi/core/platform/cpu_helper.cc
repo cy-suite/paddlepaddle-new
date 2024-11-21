@@ -50,9 +50,6 @@ void SetNumThreads(int num_threads) {
 #elif defined(PADDLE_USE_ACCELERATE)
   // not sure about apple's blas
   return;
-#elif defined(PADDLE_WITH_OPENVINO)
-  // not sure about openvino
-  return;
 #else
   PADDLE_THROW(common::errors::Unimplemented(
       "This library (except OPENBLAS, MKLML) is not supported yet, so the"

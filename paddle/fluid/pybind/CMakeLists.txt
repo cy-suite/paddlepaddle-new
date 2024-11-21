@@ -141,6 +141,7 @@ set(PYBIND_SRCS
     sot/eval_frame_tools.cc
     sot/cpython_internals.c
     sot/eval_frame.c
+    sot/guards.cc
     op_callstack_utils.cc
     python_callable_registry.cc)
 
@@ -625,15 +626,14 @@ if(WITH_PYTHON)
         COMMAND ${CMAKE_COMMAND} -E copy ${OPENVINO_PADDLE_LIB}
                 ${CMAKE_CURRENT_BINARY_DIR}
         DEPENDS openvino)
-
-      add_custom_command(
-        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/OPENVINO_PLUGIN_LIB_NAME
-        COMMAND ${CMAKE_COMMAND} -E copy ${OPENVINO_PLUGIN_LIB}
-                ${CMAKE_CURRENT_BINARY_DIR}
-        DEPENDS openvino)
       add_custom_command(
         OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/TBB_LIB_NAME
         COMMAND ${CMAKE_COMMAND} -E copy ${TBB_LIB} ${CMAKE_CURRENT_BINARY_DIR}
+        DEPENDS openvino)
+      add_custom_command(
+        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/OPENVINO_CPU_PLUGIN_LIB_NAME
+        COMMAND ${CMAKE_COMMAND} -E copy ${OPENVINO_CPU_PLUGIN_LIB}
+                ${CMAKE_CURRENT_BINARY_DIR}
         DEPENDS openvino)
       list(APPEND OP_IMPL_DEPS ${CMAKE_CURRENT_BINARY_DIR}/OPENVINO_LIB_NAME)
       list(APPEND EAGER_OP_IMPL_DEPS
@@ -649,9 +649,9 @@ if(WITH_PYTHON)
            ${CMAKE_CURRENT_BINARY_DIR}/OPENVINO_PADDLE_LIB_NAME)
       # cpu inference
       list(APPEND OP_IMPL_DEPS
-           ${CMAKE_CURRENT_BINARY_DIR}/OPENVINO_PLUGIN_LIB_NAME)
+           ${CMAKE_CURRENT_BINARY_DIR}/OPENVINO_CPU_PLUGIN_LIB_NAME)
       list(APPEND EAGER_OP_IMPL_DEPS
-           ${CMAKE_CURRENT_BINARY_DIR}/OPENVINO_PLUGIN_LIB_NAME)
+           ${CMAKE_CURRENT_BINARY_DIR}/OPENVINO_CPU_PLUGIN_LIB_NAME)
     endif()
     if(NOT ((NOT WITH_PYTHON) AND ON_INFER))
       add_custom_command(

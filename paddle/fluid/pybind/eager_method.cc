@@ -72,6 +72,9 @@ typedef SSIZE_T ssize_t;
 COMMON_DECLARE_bool(set_to_1d);
 COMMON_DECLARE_bool(use_stride_kernel);
 
+using egr::ConvertAllInputsToDistTensor;
+using egr::InputsContainDistTensor;
+
 namespace paddle::pybind {
 
 extern void InitTensorWithNumpyValue(TensorObject* self,
@@ -716,7 +719,7 @@ PyDoc_STRVAR(tensor_method_clone__doc__,  // NOLINT
 
 Returns a new Tensor, which is clone of origin Tensor, and it remains in the current graph.
 It will always have a Tensor copy.
-Tn addition, the cloned Tensor provides gradient propagation.
+In addition, the cloned Tensor provides gradient propagation.
 
 Returns:
     Tensor, The cloned Tensor.
@@ -838,7 +841,7 @@ PyDoc_STRVAR(tensor_clear_gradient__doc__,  // NOLINT
 --
 
 Only for Tensor that has gradient, normally we use this for Parameters since
-other temporary Tensor doesen't has gradient.
+other temporary Tensor doesn't has gradient.
 
 The Gradient of current Tensor will be set to ``0`` elementwise or ``None``.
 
@@ -2127,7 +2130,7 @@ static PyObject* tensor__set_grad_type(TensorObject* self,
   auto var_type = pybind::CastPyArg2ProtoType(PyTuple_GET_ITEM(args, 0), 0);
   auto grad_tensor =
       egr::EagerUtils::autograd_meta(&self->tensor)->MutableGrad();
-  if (var_type == framework::proto::VarType::LOD_TENSOR) {
+  if (var_type == framework::proto::VarType::DENSE_TENSOR) {
     grad_tensor->set_impl(std::make_shared<phi::DenseTensor>());
   } else if (var_type == framework::proto::VarType::SELECTED_ROWS) {
     grad_tensor->set_impl(std::make_shared<phi::SelectedRows>());
@@ -2962,7 +2965,7 @@ static PyObject* tensor_method__share_memory(TensorObject* self,
                     true,
                     common::errors::InvalidArgument(
                         "Sharing memory only support CPU Tensor currently"));
-  // 1. get LoDTensor
+  // 1. get DenseTensor
   auto* t =
       std::dynamic_pointer_cast<phi::DenseTensor>(self->tensor.impl()).get();
   // 2. allocate shared memory
