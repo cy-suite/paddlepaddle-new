@@ -394,7 +394,9 @@ def auto_recompute(
         unclaimed_value_nodes,
     ) = classify_value_node(program, grad_outputs, fwd_op_end_idx)
 
-    if len(required_bw_value_nodes) == 0:
+    if len(required_bw_value_nodes) == 0 or backward_op_start_idx >= len(
+        program.global_block().ops
+    ):
         return program, fwd_op_end_idx
 
     all_ops = program.global_block().ops
