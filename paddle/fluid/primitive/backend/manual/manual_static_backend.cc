@@ -60,6 +60,37 @@ Tensor embedding_grad<LazyTensor>(const Tensor& x,
   return out;
 }
 
+template <>
+std::tuple<Tensor, Tensor, Tensor> fused_gemm_epilogue_grad<LazyTensor>(
+    const Tensor& x,
+    const Tensor& y,
+    const Tensor& reserve_space,
+    const Tensor& out_grad,
+    bool trans_x,
+    bool trans_y,
+    const std::string& activation) {
+  pir::Value x_res = std::static_pointer_cast<LazyTensor>(x.impl())->value();
+  pir::Value y_res = std::static_pointer_cast<LazyTensor>(y.impl())->value();
+  pir::Value reserve_space_res =
+      std::static_pointer_cast<LazyTensor>(reserve_space.impl())->value();
+  pir::Value out_grad_res =
+      std::static_pointer_cast<LazyTensor>(out_grad.impl())->value();
+  auto op_res = paddle::dialect::fused_gemm_epilogue_grad(x_res,
+                                                          y_res,
+                                                          reserve_space_res,
+                                                          out_grad_res,
+                                                          trans_x,
+                                                          trans_y,
+                                                          activation);
+  auto op_res_0 = std::get<0>(op_res);
+  Tensor x_grad(std::make_shared<LazyTensor>(op_res_0));
+  auto op_res_1 = std::get<0>(op_res);
+  Tensor y_grad(std::make_shared<LazyTensor>(op_res_1));
+  auto op_res_2 = std::get<0>(op_res);
+  Tensor bias_grad(std::make_shared<LazyTensor>(op_res_2));
+  return std::make_tuple(x_grad, y_grad, bias_grad);
+}
+
 }  // namespace backend
 }  // namespace primitive
 }  // namespace paddle
