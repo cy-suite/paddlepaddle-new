@@ -773,9 +773,11 @@ from .pir_utils import IrGuard
 ir_guard = IrGuard()
 ir_guard._switch_to_pir()
 
+
 # Constants
 newaxis: None = None
 inf = math.inf
+nan = math.nan
 
 __all__ = [
     'block_diag',
@@ -1213,4 +1215,5 @@ __all__ = [
     'inf',
     'newaxis',
     'vecdot',
+    'nan',
 ]
