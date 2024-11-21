@@ -38,6 +38,7 @@
 #include "paddle/cinn/optim/transform_gpu_forloop.h"
 #include "paddle/cinn/optim/transform_polyfor_to_for.h"
 #include "paddle/cinn/optim/unroll_loops.h"
+#include "paddle/cinn/optim/vectorize_for_trans.h"
 #include "paddle/cinn/optim/vectorize_loops.h"
 
 namespace cinn {
@@ -72,7 +73,7 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
 #ifdef CINN_WITH_CUDA
         ir::SetCudaAxisInfo(copied);
         if (remove_gpu_for_loops) {
-          RemoveGpuForloopsAxis(copied);
+          RemoveGpuForLoops(copied);
         }
         CudaSyncThreadsDropIfThenElse(copied);
     // CudaTransBufferWithDynamicShape(&copied);
@@ -82,7 +83,7 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
 #ifdef CINN_WITH_HIP
         ir::SetCudaAxisInfo(copied);
         if (remove_gpu_for_loops) {
-          RemoveGpuForloopsAxis(copied);
+          RemoveGpuForLoops(copied);
         }
         CudaSyncThreadsDropIfThenElse(copied);
     // CudaTransBufferWithDynamicShape(&copied);
@@ -103,6 +104,12 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
 
   IfFusion(&copied->body);
   VLOG(10) << "After Optimize IfFusion" << copied;
+
+  VectorizeForTrans(&copied->body);
+  VLOG(10) << "After Optimize vectorize" << copied;
+
+  Simplify(&copied->body);
+  VLOG(10) << "After Optimize Simplify" << copied;
 
   return copied;
 }
