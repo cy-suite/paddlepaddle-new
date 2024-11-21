@@ -115,7 +115,6 @@ class PipelineParallel(ParallelModel):
                 pipline_layer_mark[index] = 1
         # the inclusiveSum of pipline_layer_mark is the pipeline stage index
         pipline_stage_index = list(itertools.accumulate(pipline_layer_mark))
-        model.pipeline_stage_index = 0
         for index, (name, layer) in enumerate(model.named_sublayers()):
             layer.pipeline_stage_index = pipline_stage_index[index]
 

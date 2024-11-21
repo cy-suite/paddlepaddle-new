@@ -184,7 +184,8 @@ class ParallelModel:
                             )
                             setattr(layer, layer_attr, layer_tensor)
 
-        model.apply(shard_layer_param)
+        for name, layer in model.named_sublayers():
+            shard_layer_param(layer)
 
 
 def parallelize_model_and_optimizer(model, optimizer=None):
