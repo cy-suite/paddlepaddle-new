@@ -1702,7 +1702,8 @@ class NotEqualOpPattern
   }
 };
 
-class BitwiseOrOpPattern : public pir::OpRewritePattern<paddle::dialect::BitwiseOrOp> {
+class BitwiseOrOpPattern
+  :public pir::OpRewritePattern<paddle::dialect::BitwiseOrOp> {
  public:
   using pir::OpRewritePattern<paddle::dialect::BitwiseOrOp>::OpRewritePattern;
 
@@ -1718,7 +1719,8 @@ class BitwiseOrOpPattern : public pir::OpRewritePattern<paddle::dialect::Bitwise
   }
 };
 
-class BitwiseAndOpPattern : public pir::OpRewritePattern<paddle::dialect::BitwiseAndOp> {
+class BitwiseAndOpPattern
+  : public pir::OpRewritePattern<paddle::dialect::BitwiseAndOp> {
  public:
   using pir::OpRewritePattern<paddle::dialect::BitwiseAndOp>::OpRewritePattern;
 
@@ -1734,7 +1736,8 @@ class BitwiseAndOpPattern : public pir::OpRewritePattern<paddle::dialect::Bitwis
   }
 };
 
-class BitwiseNotOpPattern : public pir::OpRewritePattern<paddle::dialect::BitwiseNotOp> {
+class BitwiseNotOpPattern
+  : public pir::OpRewritePattern<paddle::dialect::BitwiseNotOp> {
  public:
   using pir::OpRewritePattern<paddle::dialect::BitwiseNotOp>::OpRewritePattern;
 

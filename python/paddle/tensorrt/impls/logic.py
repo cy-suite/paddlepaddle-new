@@ -50,7 +50,10 @@ def not_equal_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.bitwise_and", trt_version="8.x")
 def bitwise_and_converter(network, paddle_op, inputs):
     layer_output = add_elementwise_layer(
-        network, paddle_op, inputs, trt.ElementWiseOperation.AND,
+        network,
+        paddle_op,
+        inputs,
+        trt.ElementWiseOperation.AND,
     )
     return trt_cast(network, layer_output, inputs[0].dtype)
 
@@ -58,7 +61,10 @@ def bitwise_and_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.bitwise_or", trt_version="8.x")
 def bitwise_or_converter(network, paddle_op, inputs):
     layer_output = add_elementwise_layer(
-        network, paddle_op, inputs, trt.ElementWiseOperation.OR,
+        network,
+        paddle_op,
+        inputs,
+        trt.ElementWiseOperation.OR,
     )
     return trt_cast(network, layer_output, inputs[0].dtype)
 
@@ -66,8 +72,6 @@ def bitwise_or_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.bitwise_not", trt_version="8.x")
 def bitwise_not_converter(network, paddle_op, inputs):
     bool_input = trt_cast(network, inputs[0], trt.bool)
-    not_layer = network.add_unary(
-        bool_input, trt.UnaryOperation.NOT
-    )
+    not_layer = network.add_unary(bool_input, trt.UnaryOperation.NOT)
     layer_output = not_layer.get_output(0)
     return trt_cast(network, layer_output, inputs[0].dtype)
