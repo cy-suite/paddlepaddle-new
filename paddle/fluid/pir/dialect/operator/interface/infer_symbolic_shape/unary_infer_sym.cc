@@ -3225,7 +3225,7 @@ bool SliceOpInferSymbolicShape(pir::Operation *op,
           infer_context->GetShapeOrDataForValue(
               op->operand_source(operand_idx));
       if (se_shape_data.data().has_value()) {
-        expr_vec = se_shape_data.data().value();
+        *expr_vec = se_shape_data.data().value();
         return true;
       }
       PADDLE_ENFORCE_EQ(
@@ -3251,7 +3251,7 @@ bool SliceOpInferSymbolicShape(pir::Operation *op,
 
   std::vector<symbol::DimExpr> starts;
   std::vector<symbol::DimExpr> ends;
-  if (!GetExprVec(starts, 1, "starts") || !GetExprVec(ends, 2, "ends")) {
+  if (!GetExprVec(&starts, 1, "starts") || !GetExprVec(&ends, 2, "ends")) {
     const auto &in_shapeordata =
         infer_context->GetShapeOrDataForValue(op->operand_source(0));
     // NOTE(gongshaotian): When there is no data value in the starts and ends
