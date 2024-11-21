@@ -20,6 +20,7 @@ import numpy as np
 
 import paddle
 from paddle.base import core, dygraph
+from paddle.base.executor import scope_guard
 from paddle.base.framework import (
     Variable,
 )
@@ -35,7 +36,6 @@ from paddle.nn import Layer
 from paddle.tensorrt.converter import PaddleToTensorRTConverter
 from paddle.tensorrt.util import (
     forbid_op_lower_trt,
-    mark_buitlin_op,
     run_pir_pass,
     warmup_shape_infer,
 )
@@ -160,7 +160,7 @@ class TensorRTConfig:
             min_subgraph_size (int, optional):
                 The minimum number of operations in a subgraph for TensorRT to optimize (default is 3).
             save_model_dir (str, optional):
-                The directory where the optimized model will be saved (default is None).
+                The directory where the optimized model will be saved (default is not to save.).
             disable_ops : (str|list, optional):
                 A string representing the names of operations that should not be entering by TensorRT (default is None).
 
@@ -232,10 +232,8 @@ def convert_to_trt(program, trt_config, scope):
         if trt_config.disable_ops:
             forbid_op_lower_trt(program, trt_config.disable_ops)
 
-        # Adding marker labels to builtin ops facilitates convert processing, but they ultimately do not enter the TensorRT subgraph.
-        mark_buitlin_op(program)
-
         # run pir pass (including trt_sub_graph_extract_pass)
+
         program_with_pir = run_pir_pass(program, partition_mode=True)
 
         # Step4: run TRTConverter (would lower group_op into tensorrt_engine_op)
@@ -261,13 +259,14 @@ def convert_to_trt(program, trt_config, scope):
             place = paddle.CUDAPlace(0)
             exe = paddle.static.Executor(place)
 
-            paddle.static.save_inference_model(
-                trt_config.save_model_dir,
-                input_values,
-                trt_output_var,
-                exe,
-                program=program_with_pir,
-            )
+            with scope_guard(scope):
+                paddle.static.save_inference_model(
+                    trt_config.save_model_dir,
+                    input_values,
+                    trt_output_var,
+                    exe,
+                    program=program_with_pir,
+                )
         return program_with_pir
 
 
@@ -327,7 +326,7 @@ def convert(function=None, input_spec=None, config=None, **kwargs):
         ...             x = paddle.to_tensor(min_data)
         ...             net = CumsumModel(input_dim=min_data.shape[-1])
         ...             out=net(x)
-        ...            input_spec = [InputSpec(shape=min_data.shape, dtype='float32')]
+        ...             input_spec = [InputSpec(shape=min_data.shape, dtype='float32')]
         ...             program_with_trt ,scope= convert(
         ...                 net,
         ...                 input_spec=input_spec,
@@ -503,12 +502,19 @@ def convert(function=None, input_spec=None, config=None, **kwargs):
             for tensor, value in zip(*concrete_program.parameters):
                 if not value.persistable:
                     continue
+
                 param_or_buffer_tensor = scope.var(value.name).get_tensor()
 
                 src_tensor = state_var_dict[tensor.name].value().get_tensor()
                 param_or_buffer_tensor._share_data_with(src_tensor)
+
     with paddle.pir_utils.IrGuard():
         main_program = concrete_program.main_program
+        output_vars = concrete_program.outputs
+        paddle.base.executor._add_pir_fetch_ops(
+            program=main_program, fetch_list=output_vars, fetch_var_name="fetch"
+        )
+
         program_with_trt = convert_to_trt(main_program, config, scope)
         return program_with_trt, scope
 
@@ -649,13 +655,14 @@ def convert_loaded_model(model_dir, config):
                 )
             )
     else:
-        paddle.framework.set_flags({"FLAGS_enable_pir_in_executor": True})
-        [program, feed_target_names, fetch_targets] = (
-            paddle.static.io.load_inference_model(
-                model_dir,
-                executor=exe,
+        paddle.base.framework.global_var._use_pir_api_ = False
+        with paddle.pir_utils.OldIrGuard():
+            os.environ['FLAGS_enable_pir_in_executor'] = '1'
+            [program, feed_target_names, fetch_targets] = (
+                paddle.static.io.load_inference_model(
+                    model_dir,
+                    executor=exe,
+                )
             )
-        )
-        paddle.framework.set_flags({"FLAGS_enable_pir_in_executor": False})
 
     return convert_to_trt(program, config, scope)
