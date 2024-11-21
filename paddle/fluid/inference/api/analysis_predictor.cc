@@ -820,17 +820,9 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
       auto_mixed_precision_pass->Set(
           "enable_low_precision_io",
           new bool(config_.enable_low_precision_io_));
-      if (config_.cinn_enabled()) {
-        auto auto_mixed_black_list = config_.mixed_black_list_;
-        auto_mixed_black_list.insert("layer_norm");
-        auto_mixed_precision_pass->Set(
-            "mixed_black_list",
-            new std::unordered_set<std::string>(auto_mixed_black_list));
-      } else {
-        auto_mixed_precision_pass->Set(
-            "mixed_black_list",
-            new std::unordered_set<std::string>(config_.mixed_black_list_));
-      }
+      auto_mixed_precision_pass->Set(
+          "mixed_black_list",
+          new std::unordered_set<std::string>(config_.mixed_black_list_));
       auto_mixed_precision_pass->Set(
           "mixed_white_list",
           new std::unordered_set<std::string>(config_.mixed_white_list_));
