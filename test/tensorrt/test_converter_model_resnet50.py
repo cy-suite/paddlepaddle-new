@@ -52,6 +52,7 @@ class TestConverterResNet50(unittest.TestCase):
 
         # Create a TensorRTConfig with inputs as a required field.
         trt_config = TensorRTConfig(inputs=[input_config])
+        # trt_config.tensorrt_precision_mode ="FP16"
 
         output_var = program.list_vars()[-1]
 

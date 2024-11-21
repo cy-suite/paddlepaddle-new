@@ -150,6 +150,8 @@ class TensorRTConfig:
         min_subgraph_size: int | None = 3,
         save_model_dir: str | None = None,
         disable_ops: str | list | None = None,
+        tensorrt_precision_mode: str | None = "FP32",
+        tensorrt_ops_run_float: set | None = None,
     ) -> None:
         """
         A class for configuring TensorRT optimizations.
@@ -160,9 +162,17 @@ class TensorRTConfig:
             min_subgraph_size (int, optional):
                 The minimum number of operations in a subgraph for TensorRT to optimize (default is 3).
             save_model_dir (str, optional):
-                The directory where the optimized model will be saved (default is None).
+                The directory where the optimized model will be saved (default is not to save).
             disable_ops : (str|list, optional):
                 A string representing the names of operations that should not be entering by TensorRT (default is None).
+            tensorrt_precision_mode (str, optional):
+                Specifies the precision mode for TensorRT optimization. The options are:
+                - "FP32": 32-bit floating point precision (default).
+                - "FP16": 16-bit floating point precision.
+                - "INT8": 8-bit integer precision.
+                - "INT32": 32-bit integer precision.
+                - "BFP16": 16-bit Brain Floating Point precision. Only supported in TensorRT versions greater than 9.0.
+                - "INT64": 64-bit integer precision. Only supported in TensorRT versions greater than 10.0.
 
         Returns:
             None
@@ -188,6 +198,8 @@ class TensorRTConfig:
         self.inputs = inputs
         self.min_subgraph_size = min_subgraph_size
         self.save_model_dir = save_model_dir
+        self.tensorrt_precision_mode = tensorrt_precision_mode
+        self.tensorrt_ops_run_float = tensorrt_ops_run_float or set()
         self.disable_ops = disable_ops
         paddle.framework.set_flags(
             {'FLAGS_trt_min_group_size': min_subgraph_size}
@@ -238,8 +250,19 @@ def convert_to_trt(program, trt_config, scope):
         # run pir pass (including trt_sub_graph_extract_pass)
         program_with_pir = run_pir_pass(program, partition_mode=True)
 
+        print(
+            "trt_config.tensorrt_precision_mode",
+            trt_config.tensorrt_precision_mode,
+        )
+        print(
+            "trt_config.tensorrt_ops_run_float",
+            trt_config.tensorrt_ops_run_float,
+        )
+
         # Step4: run TRTConverter (would lower group_op into tensorrt_engine_op)
-        converter = PaddleToTensorRTConverter(program_with_pir, scope)
+        converter = PaddleToTensorRTConverter(
+            program_with_pir, scope, trt_config=trt_config
+        )
         converter.convert_program_to_trt()
         trt_output_var = []
 
