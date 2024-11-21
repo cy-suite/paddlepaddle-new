@@ -15,6 +15,7 @@
 import unittest
 
 import numpy as np
+from op_test import OpTest
 
 import paddle
 from paddle import base
@@ -236,6 +237,64 @@ class TestMaxMinAmaxAminAPI7(TestMaxMinAmaxAminAPI):
         _test_dygraph('amin')
         _test_dygraph('max')
         _test_dygraph('min')
+
+
+class TestAmaxOp(OpTest):
+    def setUp(self):
+        self.op_type = "amax"
+        self.python_api = paddle.amax
+        self.public_python_api = paddle.amax
+        self.prim_op_type = "comp"
+        self.init_kernel_type()
+        self.use_mkldnn = False
+        self.init_kernel_type()
+        x = np.random.random((3, 40)).astype(self.dtype)
+        out = np.amax(x)
+        self.inputs = {"X": x}
+        self.outputs = {'Out': out}
+
+    def init_kernel_type(self):
+        self.dtype = np.float64
+
+    def test_check_output(self):
+        self.check_output(check_pir=True)
+
+    def test_check_grad(self):
+        self.check_grad(
+            ['x'],
+            'Out',
+            check_pir=True,
+            check_prim_pir=True,
+        )
+
+
+class TestAminOp(OpTest):
+    def setUp(self):
+        self.op_type = "amin"
+        self.python_api = paddle.amin
+        self.public_python_api = paddle.amin
+        self.prim_op_type = "comp"
+        self.init_kernel_type()
+        self.use_mkldnn = False
+        self.init_kernel_type()
+        x = np.random.random((10, 20)).astype(self.dtype)
+        out = np.amin(x)
+        self.inputs = {"X": x}
+        self.outputs = {'Out': out}
+
+    def init_kernel_type(self):
+        self.dtype = np.float64
+
+    def test_check_output(self):
+        self.check_output(check_pir=True)
+
+    def test_check_grad(self):
+        self.check_grad(
+            ['x'],
+            'Out',
+            check_pir=True,
+            check_prim_pir=True,
+        )
 
 
 if __name__ == '__main__':
