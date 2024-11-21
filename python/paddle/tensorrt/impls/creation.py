@@ -74,16 +74,14 @@ def assign_value_converter(network, paddle_op, inputs):
         raise NotImplementedError(
             f"assign_value_ converter does not support dtype {dtype}"
         )
-
+    # Initialize a NumPy array with zeros
     np_values = np.zeros(shape, dtype=np_dtype)
 
+    # Flatten the NumPy array to a 1D array
     flat_np_values = np_values.flatten()
-    if len(values) <= flat_np_values.size:
-        flat_np_values[: len(values)] = values
-    else:
-        raise ValueError(
-            "Number of values exceeds number of elements in tensor"
-        )
+    # Assign values from the 'values' list to the flattened array
+    flat_np_values[: len(values)] = values
+    # Reshape the 1D array back to the original shape
     np_values = flat_np_values.reshape(shape)
 
     constant_layer = network.add_constant(shape=tuple(shape), weights=np_values)
