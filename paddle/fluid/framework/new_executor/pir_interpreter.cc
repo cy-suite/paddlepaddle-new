@@ -88,6 +88,7 @@ COMMON_DECLARE_bool(enable_pir_in_executor);
 COMMON_DECLARE_bool(enable_pir_in_executor_trace_run);
 COMMON_DECLARE_bool(enable_collect_shape);
 COMMON_DECLARE_int32(low_precision_op_list);
+COMMON_DECLARE_bool(pir_interpreter_record_stream_for_gc_cache);
 
 #define CREATE_INSTR(instr_name)                                   \
   vec_instruction_base_.emplace_back(std::make_unique<instr_name>( \
@@ -1149,7 +1150,8 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
   PADDLE_THROW(common::errors::Unimplemented(
       "RecordStreamForGC is only implemented when compiled with GPU."));
 #else
-  if (instr->GetNeedRecordStreamForGCState() > 1) {
+  if (FLAGS_pir_interpreter_record_stream_for_gc_cache &&
+      instr->GetNeedRecordStreamForGCState() > 1) {
     return;
   }
 
