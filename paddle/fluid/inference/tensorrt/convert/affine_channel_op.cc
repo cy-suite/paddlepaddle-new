@@ -15,9 +15,7 @@ limitations under the License. */
 #include "paddle/fluid/framework/data_layout.h"
 #include "paddle/fluid/inference/tensorrt/convert/op_converter.h"
 
-namespace paddle {
-namespace inference {
-namespace tensorrt {
+namespace paddle::inference::tensorrt {
 
 /*
  * Affine Channel Op
@@ -50,7 +48,7 @@ class AffineChannelOpConverter : public OpConverter {
 
     // tensorrt scalend layer only support spatial dims >= 2,
     // so nhwc is not available (spatial dims == 0)
-    const int channel_axis = engine_->with_dynamic_shape();
+    const int channel_axis = 1;
 
     TensorRTEngine::Weight scale_weights{
         nvinfer1::DataType::kFLOAT,
@@ -76,8 +74,6 @@ class AffineChannelOpConverter : public OpConverter {
   }
 };
 
-}  // namespace tensorrt
-}  // namespace inference
-}  // namespace paddle
+}  // namespace paddle::inference::tensorrt
 
 REGISTER_TRT_OP_CONVERTER(affine_channel, AffineChannelOpConverter);

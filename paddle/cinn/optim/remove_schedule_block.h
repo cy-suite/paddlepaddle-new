@@ -20,14 +20,14 @@
 
 #include "paddle/cinn/common/common.h"
 #include "paddle/cinn/ir/ir.h"
-
+#include "paddle/common/enforce.h"
 namespace cinn {
 namespace optim {
 
 /**
  * Remove schedule block.
  */
-void RemoveScheduleBlock(Expr* e);
+void RemoveScheduleBlock(ir::Module m);
 
 }  // namespace optim
 }  // namespace cinn

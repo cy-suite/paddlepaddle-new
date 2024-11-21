@@ -28,7 +28,7 @@
 #include "paddle/fluid/distributed/ps/table/accessor.h"
 #include "paddle/fluid/distributed/ps/table/graph/graph_node.h"
 #include "paddle/fluid/distributed/the_one_ps.pb.h"
-#include "paddle/fluid/platform/timer.h"
+#include "paddle/phi/core/platform/timer.h"
 
 namespace paddle {
 namespace distributed {
@@ -213,7 +213,7 @@ class PSClient {
                                               int64_t *total_send_data,
                                               void *done) = 0;
 
-  // recv table from server and save it in LodTensor
+  // recv table from server and save it in DenseTensor
   virtual int32_t RecvAndSaveTable(const uint64_t table_id,
                                    const std::string &path) = 0;
 

@@ -20,7 +20,7 @@
 #include "paddle/fluid/framework/new_executor/program_interpreter.h"
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 #include "paddle/fluid/pir/transforms/pd_op_to_kernel_pass.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 #include "paddle/fluid/ir_adaptor/translator/translate.h"
 #include "paddle/fluid/pir/transforms/general/inplace_pass.h"
@@ -33,7 +33,7 @@ COMMON_DECLARE_bool(enable_pir_api);
 COMMON_DECLARE_bool(pir_apply_inplace_pass);
 
 namespace paddle::framework {
-StandaloneExecutor::StandaloneExecutor(const platform::Place& place,
+StandaloneExecutor::StandaloneExecutor(const phi::Place& place,
                                        const interpreter::Plan& plan,
                                        Scope* scope)
     : place_(place),
@@ -73,12 +73,12 @@ StandaloneExecutor::StandaloneExecutor(const platform::Place& place,
     }
 
     int64_t micro_batch_id = job->MicroBatchId();
-    PADDLE_ENFORCE(
-        micro_batch_id >= 0 && micro_batch_id < micro_batch_num,
-        phi::errors::Unavailable("The micro batch id (%lld) out of bound, "
-                                 "which should be in the range of [0, %lld].",
-                                 micro_batch_id,
-                                 micro_batch_num));
+    PADDLE_ENFORCE(micro_batch_id >= 0 && micro_batch_id < micro_batch_num,
+                   common::errors::Unavailable(
+                       "The micro batch id (%lld) out of bound, "
+                       "which should be in the range of [0, %lld].",
+                       micro_batch_id,
+                       micro_batch_num));
 
     if (!FLAGS_enable_pir_api && !FLAGS_enable_pir_in_executor) {
       SetColAttrForFeedFetchOps(program, micro_batch_num, micro_batch_id);
@@ -87,6 +87,8 @@ StandaloneExecutor::StandaloneExecutor(const platform::Place& place,
     interpreter::ExecutionConfig execution_config;
     execution_config.create_local_scope = false;
     execution_config.skip_gc_vars = job->SkipGcVars();
+    execution_config.force_sync_ops =
+        interpreter::GetForceSyncOps(micro_batch_id, job_type);
 
     // TODO(phlrain) we only support cpu for now
     if (FLAGS_enable_pir_in_executor) {
@@ -154,7 +156,7 @@ StandaloneExecutor::StandaloneExecutor(const platform::Place& place,
                               interpretercores_.back()->Impl())
                               ->IsStaticBuild(),
                           true,
-                          phi::errors::InvalidArgument(
+                          common::errors::InvalidArgument(
                               "When using pipeline strategy in auto "
                               "prarallelism with new executor, "
                               "the backward subprogram must be builded in real "
@@ -169,8 +171,8 @@ StandaloneExecutor::StandaloneExecutor(const platform::Place& place,
 paddle::framework::FetchList StandaloneExecutor::Run(
     const std::vector<std::string>& feed_names,
     const bool enable_job_schedule_profiler) {
-  platform::RecordEvent record_event(
-      "StandaloneExecutor::run", platform::TracerEventType::UserDefined, 1);
+  phi::RecordEvent record_event(
+      "StandaloneExecutor::run", phi::TracerEventType::UserDefined, 1);
 
   const auto& jobs = plan_.JobList();
 
@@ -198,9 +200,9 @@ paddle::framework::FetchList StandaloneExecutor::Run(
   for (size_t job_idx = 0; job_idx < jobs.size(); ++job_idx) {
     const auto& job = jobs[job_idx];
     const std::string& job_type = job->Type();
-    platform::RecordEvent record_event(
+    phi::RecordEvent record_event(
         job_type + "-" + std::to_string(job->MicroBatchId()),
-        platform::TracerEventType::UserDefined,
+        phi::TracerEventType::UserDefined,
         1);
 
     VLOG(6) << "Run job (" << job_idx << "), type = " << job_type
@@ -282,9 +284,8 @@ paddle::framework::FetchList StandaloneExecutor::Run(
 
 std::shared_ptr<framework::ProgramDesc> StandaloneExecutor::RunProfile(
     const std::vector<std::string>& feed_names) {
-  platform::RecordEvent record_event("StandaloneExecutor::run_profile",
-                                     platform::TracerEventType::UserDefined,
-                                     1);
+  phi::RecordEvent record_event(
+      "StandaloneExecutor::run_profile", phi::TracerEventType::UserDefined, 1);
 
   // in profiling run, there can be one and only one job ("default")
   interpretercores_[0]->Run(feed_names,

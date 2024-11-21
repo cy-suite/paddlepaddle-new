@@ -33,6 +33,7 @@ from paddle.static.amp.fp16_utils import (
 )
 
 from .converter import Converter
+from .dist_attribute import TensorDistAttr
 from .process_group import get_world_process_group
 from .utils import get_logger, to_list
 
@@ -63,9 +64,16 @@ class ProxyLayer(Layer):
 
         # Consider ProxyLayer as not Paddle inner function because it contains
         # user-defined layer.
-        as_not_paddle_func(
-            inspect.getmodule(ProxyLayer).__name__ + ".ProxyLayer"
-        )
+        for fn_name in [
+            "_train",
+            "_eval",
+            "_predict",
+            "call_loss",
+            "call_metrics",
+        ]:
+            as_not_paddle_func(
+                f"{inspect.getmodule(ProxyLayer).__name__}.ProxyLayer.{fn_name}"
+            )
 
     @paddle.jit.not_to_static
     def append_loss_to_shadow_output(self, mode):
@@ -241,6 +249,7 @@ class ProgramHelper:
         self.build_info = BuildInfo()
         self._logger = get_logger(logging.INFO)
         self.lazy_init = False
+        self._all_params_dist_attr = {}
 
     def reset(self):
         """
@@ -258,12 +267,11 @@ class ProgramHelper:
         # skip if we has already built program.
         if self.build_info.has_cache(mode, True):
             self._logger.info(
-                "Already build program with mode = %s, use cached program."
-                % mode
+                f"Already build program with mode = {mode}, use cached program."
             )
             return
 
-        self._logger.info("start to build program for mode = %s." % mode)
+        self._logger.info(f"start to build program for mode = {mode}.")
         input_spec = [self.inputs_spec, self.labels_spec]
         static_func = to_static(
             self.static_func(), input_spec=input_spec, full_graph=True
@@ -332,14 +340,12 @@ class ProgramHelper:
         assert hasattr(
             optimizer, "minimize"
         ), "Optimizer must have minimize() method."
-        assert self.proxy_layer.mode == 'train', (
-            "Required mode == 'train', but received '%s'"
-            % self.proxy_layer.mode
-        )
-        assert len(self.loss_vars) == 1, (
-            "Required len(loss_vars) == 1, but received len(loss_vars) = %s"
-            % len(self.loss_vars)
-        )
+        assert (
+            self.proxy_layer.mode == 'train'
+        ), f"Required mode == 'train', but received '{self.proxy_layer.mode}'"
+        assert (
+            len(self.loss_vars) == 1
+        ), f"Required len(loss_vars) == 1, but received len(loss_vars) = {len(self.loss_vars)}"
 
     def to(self, mode):
         """
@@ -381,13 +387,33 @@ class ProgramHelper:
                     i
                 ].name
 
+        is_comm = False
         for param in dy_params:
+            if param.is_dist():
+                process_mesh, dims_mapping = self._all_params_dist_attr[
+                    param.name
+                ]
+                var_dist_attr = TensorDistAttr()
+                var_dist_attr.process_mesh = process_mesh
+                var_dist_attr.dims_mapping = dims_mapping
+                is_comm = True
+                with paddle.no_grad():
+                    tmp = paddle.base.core.reshard(param, var_dist_attr)
+                if tmp._is_initialized():
+                    param.get_tensor()._share_data_with(tmp.get_tensor())
+                else:
+                    # Only setting the "param" to "None" can't release the memory
+                    param.get_tensor()._clear()
+                    param = None
+
             # create var in scope and share parameters to scope
             if param is None:
                 continue
             if param.name not in dy_param_name_to_pir_param_name:
                 # Release the reduntant params
                 param.get_tensor()._clear()
+                continue
+            if not param._is_initialized():
                 continue
             if param.is_dense():
                 value_name = dy_param_name_to_pir_param_name[param.name]
@@ -418,6 +444,20 @@ class ProgramHelper:
                 pir_scope_param._share_data_with(
                     param.get_tensor().get_tensor()
                 )
+                param.get_tensor()._clear()
+
+        world_group = get_world_process_group()
+        if (
+            is_comm
+            and world_group.nranks > 1
+            and paddle.distributed.get_world_size() > 1
+        ):
+            paddle.disable_static()
+            barrier_tensor = paddle.full([1], 1, dtype="int32")
+            paddle._legacy_C_ops.barrier(
+                barrier_tensor, barrier_tensor, 'ring_id', 0
+            )
+            paddle.enable_static()
 
     def init(self, main_program, place, dist_context):
         if self.lazy_init:
@@ -455,6 +495,8 @@ class ProgramHelper:
             if param.name not in main_program.global_block().vars:
                 # Release the reduntant params
                 param.get_tensor()._clear()
+                continue
+            if not param._is_initialized():
                 continue
             if param.is_dense():
                 # get param_var's dist_attr
@@ -558,6 +600,17 @@ class ProgramHelper:
                 barrier_tensor, barrier_tensor, 'ring_id', 0
             )
             paddle.enable_static()
+
+    def cache_whole_graph_dist_attr(self, all_params):
+        for param_value in all_params:
+            dist_attr = param_value.dist_attr()
+            if dist_attr:
+                process_mesh = dist_attr.process_mesh
+                dims_mapping = dist_attr.dims_mapping
+                self._all_params_dist_attr[param_value.name] = [
+                    process_mesh,
+                    dims_mapping,
+                ]
 
     @property
     def concrete_program(self):

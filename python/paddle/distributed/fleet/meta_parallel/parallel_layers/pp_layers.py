@@ -45,6 +45,7 @@ import re
 from functools import partial
 
 import paddle
+import paddle.distributed as dist
 from paddle import framework, nn
 from paddle.device.cuda.cuda_graphed_layer import CUDAGraphedLayer
 from paddle.distributed.fleet.utils.log_util import layer_to_str, logger
@@ -553,20 +554,22 @@ class PipelineLayer(nn.Layer):
             if framework.in_dynamic_mode():
                 with paddle.framework.no_grad():
                     paddle.distributed.all_reduce(
-                        param.grad
-                        if not hasattr(param, "main_grad")
-                        else param.main_grad,
+                        (
+                            param.grad
+                            if not hasattr(param, "main_grad")
+                            else param.main_grad
+                        ),
                         group=comm['group'],
                     )
             else:
                 with paddle.framework.no_grad():
                     framework._dygraph_tracer().trace_op(
-                        type="c_allreduce_sum",
-                        inputs={'X': param._grad_ivar()},
-                        outputs={'Out': param._grad_ivar()},
+                        type="all_reduce",
+                        inputs={'x': param._grad_ivar()},
+                        outputs={'out': param._grad_ivar()},
                         attrs={
                             'ring_id': comm['group'].id,
-                            'use_calc_stream': True,
+                            'reduce_type': dist.ReduceOp.SUM,
                         },
                     )
 
@@ -631,7 +634,7 @@ class PipelineLayer(nn.Layer):
             )
 
             for index, layer in enumerate(self._layers_desc[start:end]):
-                logger.info(f"{index + start}: {str(layer)}")
+                logger.info(f"{index + start}: {layer}")
 
         if self._num_virtual_pipeline_stages > 1:
             for stage in range(self._num_stages):
@@ -734,9 +737,9 @@ class PipelineLayer(nn.Layer):
                 flush_into_run_function()
                 if layer.layer_name not in self.shared_layers:
                     self.shared_layers[layer.layer_name] = layer.build_layer()
-                    self.shared_weight_attrs[
-                        layer.layer_name
-                    ] = layer.shared_weight_attr
+                    self.shared_weight_attrs[layer.layer_name] = (
+                        layer.shared_weight_attr
+                    )
                     for param in self.shared_layers[
                         layer.layer_name
                     ].parameters():

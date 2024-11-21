@@ -27,10 +27,9 @@ namespace {
 struct LowerFunctionCallBindVarsMutator : public ir::IRMutator<> {
   LowerFunctionCallBindVarsMutator() = default;
 
-  void operator()(Expr* m) {
-    m_ = m->as_module();
-    Expr module(m->get());
-    ir::IRMutator<>::Visit(&module, &module);
+  void operator()(ir::Module m) {
+    m_ = m.As<ir::_Module_>();
+    ir::IRMutator<>::Visit(m_);
   }
 
  private:
@@ -39,15 +38,18 @@ struct LowerFunctionCallBindVarsMutator : public ir::IRMutator<> {
     if (op->is_cinn_call()) {
       const std::string& target = op->name;
       auto it = std::find_if(
-          m_->functions.begin(), m_->functions.end(), [&](const Expr& x) {
-            return x.as_lowered_func()->name == target;
-          });
-      CHECK(it != m_->functions.end())
-          << "The called function [" << target << "] is not exist";
+          m_->functions.begin(),
+          m_->functions.end(),
+          [&](const ir::LoweredFunc& x) { return x->name == target; });
+      PADDLE_ENFORCE_NE(
+          it,
+          m_->functions.end(),
+          ::common::errors::NotFound("The called function [%s] does not exist.",
+                                     target));
 
       std::vector<Expr> extra_var_args;
 
-      for (auto& arg : (*it).as_lowered_func()->args) {
+      for (auto& arg : (*it)->args) {
         if (arg.is_var()) {
           extra_var_args.push_back(arg.var_arg());
         }
@@ -69,8 +71,7 @@ struct LowerFunctionCallBindVarsMutator : public ir::IRMutator<> {
 
 }  // namespace
 
-void LowerFunctionCallBindVars(Expr* m) {
-  CHECK(m->as_module());
+void LowerFunctionCallBindVars(ir::Module m) {
   LowerFunctionCallBindVarsMutator()(m);
 }
 

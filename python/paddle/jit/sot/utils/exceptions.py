@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
 
 import traceback
 
@@ -52,13 +53,15 @@ def inner_error_default_handler(func, message_fn):
     def impl(*args, **kwargs):
         try:
             return func(*args, **kwargs)
+        except SotErrorBase as e:
+            raise e
         except Exception as e:
             message = message_fn(*args, **kwargs)
             origin_exception_message = "\n".join(
                 traceback.format_exception(type(e), e, e.__traceback__)
             )
             raise InnerError(
-                f"{message}.\nOrigin Exception is: \n {origin_exception_message}"
+                f"{message}\nOrigin Exception is: \n {origin_exception_message}"
             ) from e
 
     return impl

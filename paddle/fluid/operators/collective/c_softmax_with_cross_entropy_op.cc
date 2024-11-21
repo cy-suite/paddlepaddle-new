@@ -46,18 +46,19 @@ class CSoftmaxWithCrossEntropyOp : public framework::OperatorWithKernel {
         if (ctx->IsRuntime() || (logits_dims[i] > 0 && labels_dims[i] > 0)) {
           PADDLE_ENFORCE_EQ(logits_dims[i],
                             labels_dims[i],
-                            phi::errors::InvalidArgument(
+                            common::errors::InvalidArgument(
                                 "Input(Logits) and Input(Label) should in "
                                 "same shape in dimensions except axis."));
         }
       }
     }
 
-    PADDLE_ENFORCE_EQ(
+    PADDLE_ENFORCE_GE(
         labels_dims[logits_rank - 1],
         1UL,
-        phi::errors::InvalidArgument(
-            "the last dimension of Input(Label) should be 1."
+        common::errors::InvalidArgument(
+            "the last dimension of Input(Label) should be greater than or "
+            "equal to 1."
             "But received: the last dimension of Input(Label) is [%d],"
             "the last dimension is [%d]",
             labels_dims[logits_rank - 1],
@@ -130,22 +131,22 @@ class CSoftmaxWithCrossEntropyOpGrad : public framework::OperatorWithKernel {
   using framework::OperatorWithKernel::OperatorWithKernel;
 
   void InferShape(framework::InferShapeContext* ctx) const override {
-    PADDLE_ENFORCE_EQ(
-        ctx->HasInput(framework::GradVarName("Loss")),
-        true,
-        phi::errors::InvalidArgument("Input(Loss@Grad) should not be null."));
+    PADDLE_ENFORCE_EQ(ctx->HasInput(framework::GradVarName("Loss")),
+                      true,
+                      common::errors::InvalidArgument(
+                          "Input(Loss@Grad) should not be null."));
     PADDLE_ENFORCE_EQ(
         ctx->HasInput("Softmax"),
         true,
-        phi::errors::InvalidArgument("Input(Softmax) should be not null."));
+        common::errors::InvalidArgument("Input(Softmax) should be not null."));
     PADDLE_ENFORCE_EQ(
         ctx->HasInput("Label"),
         true,
-        phi::errors::InvalidArgument("Input(Label) should be not null."));
+        common::errors::InvalidArgument("Input(Label) should be not null."));
 
     PADDLE_ENFORCE_EQ(ctx->HasOutput(framework::GradVarName("Logits")),
                       true,
-                      phi::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "Output(Logits@Grad) should be not null."));
 
     ctx->SetOutputDim(framework::GradVarName("Logits"),

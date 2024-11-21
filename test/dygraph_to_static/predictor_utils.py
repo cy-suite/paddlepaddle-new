@@ -63,6 +63,8 @@ class PredictorTools:
         if use_pir_api():
             config.enable_new_ir()
             config.enable_new_executor()
+            if os.name == 'nt':
+                config.delete_pass("conv2d_bn_fuse_pass")
 
         return config
 
@@ -81,7 +83,7 @@ class PredictorTools:
             tensor = predictor.get_input_tensor(name)
             feed_data = self.feeds_var[i]
             tensor.copy_from_cpu(np.array(feed_data))
-            if type(feed_data) == base.LoDTensor:
+            if type(feed_data) == base.DenseTensor:
                 tensor.set_lod(feed_data.lod())
 
         # ensure no diff in multiple repeat times

@@ -14,6 +14,7 @@
 
 #include "paddle/fluid/pir/transforms/gpu/fused_gemm_epilogue_pass.h"
 
+#include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/infer_sym_utils.h"
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 #include "paddle/fluid/pir/drr/include/drr_pattern_base.h"
 #include "paddle/fluid/pir/utils/general_functions.h"
@@ -109,6 +110,108 @@ class FusedLinearGradPattern : public paddle::drr::DrrPatternBase {
                              {&res.Tensor("x_grad"),
                               &res.Tensor("w_grad"),
                               &res.Tensor("bias_grad")});
+  }
+};
+
+//  %1 = pd_op.sum( %0, %2)
+//  %3 = pd_op.assign( %0 )
+//  %4, %5 = pd_op.matmul_grad( %6, %7, %3)
+//  fused to
+//  %4, %5 = pd_op.fused_gemm_epilogue_grad( %6, %7, none, %0)
+class FusedLinearGradSinglePattern
+    : public pir::OpRewritePattern<paddle::dialect::MatmulGradOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::MatmulGradOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::MatmulGradOp matmul_grad,
+                       pir::PatternRewriter &rewriter) const override {
+    auto dout = matmul_grad->operand_source(2);
+
+    if (pir::GetShapeFromValue(matmul_grad->operand_source(1)).size() != 2) {
+      return false;
+    }
+
+    if (auto assign_op =
+            dout.defining_op()->dyn_cast<paddle::dialect::AssignOp>()) {
+      dout = assign_op->operand_source(0);
+    }
+
+    bool can_fuse_sum = false;
+    pir::Value sum_output;
+    pir::Value sum_input;
+    for (auto user_it = dout.use_begin(); user_it != dout.use_end();
+         ++user_it) {
+      if (!user_it->owner()) {
+        continue;
+      }
+      if (auto sum_op = user_it->owner()->dyn_cast<paddle::dialect::SumOp>()) {
+        sum_input = sum_op->operand_source(0);
+        int64_t input_rank = -1;
+        if (sum_input.type() &&
+            sum_input.type().isa<paddle::dialect::DenseTensorType>()) {
+          input_rank = sum_input.type()
+                           .dyn_cast<paddle::dialect::DenseTensorType>()
+                           .dims()
+                           .size();
+        }
+        if (input_rank == -1) {
+          break;
+        }
+
+        if (sum_op->operand_source(1)
+                .defining_op()
+                ->isa<paddle::dialect::FullIntArrayOp>()) {
+          auto axis_full_op = sum_op->operand_source(1)
+                                  .defining_op()
+                                  ->dyn_cast<paddle::dialect::FullIntArrayOp>();
+          const std::vector<int64_t> axis =
+              paddle::dialect::details::GetVectorAttr<int64_t>(axis_full_op,
+                                                               "value");
+
+          std::set<int64_t> reduce_set;
+          for (auto d : axis) {
+            if (d < 0) {
+              d += input_rank;
+            }
+            reduce_set.insert(d);
+          }
+          if ((reduce_set.size() == static_cast<size_t>(input_rank - 1)) &&
+              (!reduce_set.count(input_rank - 1))) {
+            can_fuse_sum = true;
+          }
+        }
+
+        sum_output = sum_op->result(0);
+        rewriter.SetInsertionPointAfter(sum_op);
+        break;
+      }
+    }
+
+    if (!can_fuse_sum) {
+      return false;
+    }
+
+    pir::AttributeMap attr_map;
+    attr_map.emplace("trans_x", matmul_grad.attribute("transpose_x"));
+    attr_map.emplace("trans_y", matmul_grad.attribute("transpose_y"));
+    attr_map.emplace(
+        "activation_grad",
+        pir::StrAttribute::get(pir::IrContext::Instance(), "none"));
+
+    auto fuse_gemm = rewriter.Build<paddle::dialect::FusedGemmEpilogueGradOp>(
+        matmul_grad->operand_source(0),
+        matmul_grad->operand_source(1),
+        pir::Value(),
+        sum_input,
+        attr_map);
+
+    rewriter.ReplaceAllUsesWith(matmul_grad.result(0), fuse_gemm.result(0));
+    rewriter.ReplaceAllUsesWith(matmul_grad.result(1), fuse_gemm.result(1));
+    rewriter.ReplaceAllUsesWith(sum_output, fuse_gemm.result(2));
+
+    rewriter.EraseOp(matmul_grad);
+
+    return true;
   }
 };
 
@@ -317,12 +420,13 @@ class FusedGemmEpiloguePass : public pir::PatternRewritePass {
 
   pir::RewritePatternSet InitializePatterns(pir::IrContext *context) override {
     pir::RewritePatternSet ps(context);
-    ps.Add(paddle::drr::Create<FusedLinearGradPattern>(context));
     ps.Add(paddle::drr::Create<FusedLinearPattern>(context));
+    ps.Add(paddle::drr::Create<FusedLinearGradPattern>(context));
     ps.Add(paddle::drr::Create<FusedLinearGeluPattern>(context));
     ps.Add(paddle::drr::Create<FusedLinearReluPattern>(context));
     ps.Add(paddle::drr::Create<FusedLinearGeluGradPattern>(context));
     ps.Add(paddle::drr::Create<FusedLinearReluGradPattern>(context));
+    ps.Add<FusedLinearGradSinglePattern>(context);
 
     return ps;
   }

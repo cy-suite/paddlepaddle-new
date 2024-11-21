@@ -140,7 +140,7 @@ ProgramDesc BuildProgramDesc(const std::vector<std::string>& transient_vars,
 
   auto add_var_to_prog = [&prog](const std::string& var_name) -> VarDesc* {
     auto var = prog.MutableBlock(0)->Var(var_name);
-    var->SetType(proto::VarType::LOD_TENSOR);
+    var->SetType(proto::VarType::DENSE_TENSOR);
     return var;
   };
 
@@ -178,7 +178,7 @@ bool RunPassAndAssert(Graph* graph,
 
 template <typename T>
 void InitLoDTensorHolder(const Scope& scope,
-                         const paddle::platform::Place& place,
+                         const phi::Place& place,
                          const std::string& var_name,
                          const std::vector<int64_t>& dims,
                          const T* data) {
@@ -195,17 +195,17 @@ void InitLoDTensorHolder(const Scope& scope,
 
 // Instantiate for below data types.
 template void InitLoDTensorHolder<float>(const Scope&,
-                                         const paddle::platform::Place&,
+                                         const phi::Place&,
                                          const std::string&,
                                          const std::vector<int64_t>&,
                                          const float*);
 template void InitLoDTensorHolder<int>(const Scope&,
-                                       const paddle::platform::Place&,
+                                       const phi::Place&,
                                        const std::string&,
                                        const std::vector<int64_t>&,
                                        const int*);
 template void InitLoDTensorHolder<double>(const Scope&,
-                                          const paddle::platform::Place&,
+                                          const phi::Place&,
                                           const std::string&,
                                           const std::vector<int64_t>&,
                                           const double*);

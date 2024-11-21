@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Literal
+
 import paddle
 from paddle import _C_ops, _legacy_C_ops
 from paddle.autograd import PyLayer
@@ -22,6 +26,10 @@ from paddle.nn import Layer
 from paddle.nn.utils import dygraph_utils
 
 from ....communication.reduce import ReduceOp, _get_reduce_op
+
+if TYPE_CHECKING:
+    from paddle import Tensor
+    from paddle._typing import ParamAttrLike, Size2
 
 
 class c_identity_eager(PyLayer):
@@ -314,7 +322,7 @@ def _mp_allreduce(
         check_variable_and_dtype(
             tensor,
             'tensor',
-            ['float16', 'float32', 'float64', 'int32', 'int64' 'uint16'],
+            ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
             op_type,
         )
 
@@ -421,8 +429,10 @@ def _c_softmax_with_cross_entropy(
         else group.nranks
     )
 
-    input_dims = len(list(logits.shape))
-    label_dims = len(list(label.shape))
+    input_shape = list(logits.shape)
+    label_shape = list(label.shape)
+    input_dims = len(input_shape)
+    label_dims = len(label_shape)
     if input_dims - 1 != label_dims and input_dims != label_dims:
         raise ValueError(
             f'Expected input_dims - 1 = label_dims or input_dims == label_dims\
@@ -430,6 +440,12 @@ def _c_softmax_with_cross_entropy(
         )
     if input_dims - 1 == label_dims:
         label = paddle.unsqueeze(label, axis=-1)
+        label_shape = list(label.shape)
+    if label_shape[-1] < 1 or label_shape[-1] > input_shape[-1] * nranks:
+        raise ValueError(
+            f'Expected label_shape[-1] >= 1 and label_shape[-1] <= input_shape[-1] * nranks\
+             (got label_shape[-1] = {label_shape[-1]}, input_shape[-1] = {input_shape[-1]})'
+        )
 
     if in_dynamic_mode():
         softmax, loss = _legacy_C_ops.c_softmax_with_cross_entropy(
@@ -696,16 +712,16 @@ def _parallel_embedding(
 
 
 def split(
-    x,
-    size,
-    operation,
-    axis=0,
-    num_partitions=1,
-    gather_out=True,
-    weight_attr=None,
-    bias_attr=None,
-    name=None,
-):
+    x: Tensor,
+    size: Size2,
+    operation: Literal['linear', 'embedding'],
+    axis: int = 0,
+    num_partitions: int = 1,
+    gather_out: bool = True,
+    weight_attr: ParamAttrLike | None = None,
+    bias_attr: ParamAttrLike | None = None,
+    name: str | None = None,
+) -> Tensor:
     """
 
     Split the weight of the specified operation into multiple devices
@@ -814,7 +830,7 @@ def split(
             >>> import paddle.distributed.fleet as fleet
 
             >>> paddle.enable_static()
-            >>> paddle.set_device('gpu:%d'%paddle.distributed.ParallelEnv().dev_id)
+            >>> paddle.set_device(f'gpu:{paddle.distributed.ParallelEnv().dev_id}')
             >>> fleet.init(is_collective=True)
             >>> data = paddle.randint(0, 8, shape=[10,4])
             >>> emb_out = paddle.distributed.split(

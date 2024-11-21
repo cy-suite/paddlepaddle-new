@@ -14,13 +14,22 @@ function(py_test_modules TARGET_NAME)
     cmake_parse_arguments(py_test_modules "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN})
 
+    string(REGEX MATCH "_deprecated\.py$" DEPRECATED_MODULES
+                 "${py_test_modules_MODULES}")
+    string(REGEX MATCH "_deprecated$" DEPRECATED_TARGET_NAME "${TARGET_NAME}")
+    set(FLAGS_PIR_MODE "")
+    if((NOT "${DEPRECATED_MODULES}" STREQUAL "")
+       OR (NOT "${DEPRECATED_TARGET_NAME}" STREQUAL ""))
+      set(FLAGS_PIR_MODE FLAGS_enable_pir_api=0)
+    endif()
+
     if(WITH_COVERAGE AND NOT (WITH_INCREMENTAL_COVERAGE
                               AND "$ENV{PADDLE_GIT_DIFF_PY_FILE}" STREQUAL ""))
       add_test(
         NAME ${TARGET_NAME}
         COMMAND
           ${CMAKE_COMMAND} -E env PYTHONPATH=${PADDLE_BINARY_DIR}/python
-          ${py_test_modules_ENVS}
+          ${py_test_modules_ENVS} ${FLAGS_PIR_MODE}
           COVERAGE_FILE=${PADDLE_BINARY_DIR}/python-coverage.data
           ${PYTHON_EXECUTABLE} -m coverage run --branch -p
           ${PADDLE_SOURCE_DIR}/tools/test_runner.py ${py_test_modules_MODULES}
@@ -30,7 +39,7 @@ function(py_test_modules TARGET_NAME)
         NAME ${TARGET_NAME}
         COMMAND
           ${CMAKE_COMMAND} -E env PYTHONPATH=${PADDLE_BINARY_DIR}/python
-          ${py_test_modules_ENVS} ${PYTHON_EXECUTABLE}
+          ${py_test_modules_ENVS} ${FLAGS_PIR_MODE} ${PYTHON_EXECUTABLE}
           ${PADDLE_SOURCE_DIR}/tools/test_runner.py ${py_test_modules_MODULES}
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
     endif()
@@ -130,7 +139,6 @@ endfunction()
 
 if(WITH_TESTING)
   if(WITH_CINN)
-    add_subdirectory(cpp/cinn)
     add_subdirectory(cinn)
   endif()
   # The following unittests only run in PR-CI-CINN
@@ -142,7 +150,6 @@ if(WITH_TESTING)
     message(STATUS "Skip tests unrelated to CUDA/TRT")
   else()
     add_subdirectory(amp)
-    add_subdirectory(asp)
     add_subdirectory(autograd)
     add_subdirectory(custom_kernel)
     add_subdirectory(custom_op)
@@ -171,6 +178,7 @@ if(WITH_TESTING)
   add_subdirectory(quantization)
   add_subdirectory(rnn)
   add_subdirectory(sequence)
+  add_subdirectory(tensorrt)
   # add_subdirectory(white_list)
 
   if(WITH_DISTRIBUTE)
@@ -191,6 +199,10 @@ if(WITH_TESTING)
   if(WITH_XPU)
     add_subdirectory(xpu)
   endif()
+
+  # add tests for scripts from `Paddle/tools`
+  add_subdirectory(tools)
+
 endif()
 
 if(WITH_CPP_DIST)
@@ -226,11 +238,7 @@ if(${len} GREATER_EQUAL 1)
       target_link_libraries(${test_name} paddle_gtest_main_new)
       target_link_libraries(${test_name} $<TARGET_LINKER_FILE:${paddle_lib}>)
       if(WITH_SHARED_PHI)
-        target_link_libraries(${test_name} $<TARGET_LINKER_FILE:phi>)
-        if(WITH_GPU OR WITH_ROCM)
-          target_link_libraries(${test_name}
-                                $<TARGET_LINKER_FILE:phi_kernel_gpu>)
-        endif()
+        target_link_libraries(${test_name} phi)
       endif()
       if(WITH_SHARED_IR)
         target_link_libraries(${test_name} $<TARGET_LINKER_FILE:pir>)
@@ -290,14 +298,6 @@ endif()
 
 if(TARGET layer_test)
   add_dependencies(layer_test jit_download_program)
-endif()
-
-if(TEST buddy_allocator_test)
-  if(NOT WIN32)
-    add_dependencies(buddy_allocator_test download_data)
-  endif()
-  set_tests_properties(buddy_allocator_test PROPERTIES LABELS
-                                                       "RUN_TYPE=EXCLUSIVE")
 endif()
 
 add_custom_target(build_tests)

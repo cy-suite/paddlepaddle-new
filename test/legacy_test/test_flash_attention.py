@@ -24,14 +24,14 @@ import paddle.nn.functional as F
 from paddle import base
 from paddle.base import core
 from paddle.nn.functional.flash_attention import (
+    calc_reduced_attention_scores,
     flash_attention,
-    flash_attention_with_sparse_mask,
     flash_attn_qkvpacked,
     flash_attn_unpadded,
     flash_attn_varlen_qkvpacked,
+    flashmask_attention,
     scaled_dot_product_attention,
 )
-from paddle.pir_utils import test_with_pir_api
 
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -74,6 +74,12 @@ def attention_naive_with_mask(q, k, v, attn_bias):
     o = paddle.matmul(p, vt)
     return paddle.transpose(o, [0, 2, 1, 3])
 
+
+is_sm80 = (
+    core.is_compiled_with_cuda()
+    and paddle.device.cuda.get_device_capability()[0] == 8
+    and paddle.device.cuda.get_device_capability()[1] == 0
+)
 
 is_sm8x = (
     core.is_compiled_with_cuda()
@@ -207,7 +213,6 @@ class TestFlashAttentionAPI(unittest.TestCase):
 
         paddle.disable_static()
 
-    @test_with_pir_api
     def test_all(self):
         print(
             f"Test case shape {self.shape} dtype {self.dtype} causal {self.causal}"
@@ -430,7 +435,9 @@ class TestFlashAttentionAPITest4(TestFlashAttentionAPI):
 class TestFlashAttentionAPITest5(TestFlashAttentionAPI):
     def setUp(self):
         self.place = paddle.CUDAPlace(0)
-        self.shape = (8, 1024, 16, 256)
+        self.shape = (
+            (8, 1024, 16, 256) if (is_sm80 or is_sm90) else (8, 1024, 16, 192)
+        )
         self.dtype = 'float16'
         self.dropout = 0.0
         self.causal = False
@@ -468,7 +475,7 @@ class TestSDPAttentionAPITest(TestFlashAttentionAPI):
         self.enable_mem_efficient = False
 
 
-class TestFlashAttenionWithMaskAPITest(TestFlashAttentionWithMaskAPI):
+class TestFlashAttentionWithMaskAPITest(TestFlashAttentionWithMaskAPI):
     def setUp(self):
         self.place = paddle.CUDAPlace(0)
         self.shape = (8, 1024, 16, 128)
@@ -566,10 +573,10 @@ class TestFlashAttentionGQA(unittest.TestCase):
             low=1, high=self.seq_len, size=[self.batch_size]
         )
         cu_seqlen_q = paddle.to_tensor(
-            [0] + np.cumsum(seq_len_q).tolist(), dtype=paddle.int32
+            [0, *np.cumsum(seq_len_q).tolist()], dtype=paddle.int32
         )
         cu_seqlen_k = paddle.to_tensor(
-            [0] + np.cumsum(seq_len_k).tolist(), dtype=paddle.int32
+            [0, *np.cumsum(seq_len_k).tolist()], dtype=paddle.int32
         )
 
         qs, ks, vs = [], [], []
@@ -771,7 +778,7 @@ class TestFlashAttentionGQA(unittest.TestCase):
 
             tmp_shape = tmp_xs[i].shape
             tmp_pad = paddle.zeros(
-                [max_seqlen - tmp_shape[0]] + list(tmp_shape[1:]), dtype=x.dtype
+                [max_seqlen - tmp_shape[0], *tmp_shape[1:]], dtype=x.dtype
             )
             tmp_x = paddle.concat([tmp_xs[i], tmp_pad]).unsqueeze(0)
             tmp_x_pads.append(tmp_x)
@@ -860,7 +867,6 @@ def generate_mask_matrix_from_mask_indices(start_rows):
             for j in range(seq_len):
                 start_row = start_rows[bz_idx, head_idx, j]
                 matrix[bz_idx, head_idx, start_row:, j] = -np.inf
-                matrix[bz_idx, head_idx, j, j] = 0.0
     return matrix
 
 
@@ -920,15 +926,15 @@ class TestFlashAttentionWithSparseMaskAPI(unittest.TestCase):
         attn_mask_start_row_indices = paddle.to_tensor(
             start_row_indices, dtype=paddle.int32
         )
+        startend_row_indices = paddle.unsqueeze(attn_mask_start_row_indices, -1)
 
-        out = flash_attention_with_sparse_mask(
+        out = flashmask_attention(
             q,
             k,
             v,
-            attn_mask_start_row_indices=attn_mask_start_row_indices,
-            attn_mask_start_row=attn_mask_start_row,
-            dropout_p=self.dropout,
-            is_causal=self.causal,
+            startend_row_indices=startend_row_indices,
+            dropout=self.dropout,
+            causal=self.causal,
         )
         out_ = attention_naive_with_mask(q_, k_, v_, m)
         out.backward()
@@ -936,7 +942,7 @@ class TestFlashAttentionWithSparseMaskAPI(unittest.TestCase):
         np.testing.assert_allclose(out.numpy(), out_, rtol=5e-03, atol=1e-03)
 
 
-class TestFlashAttenionWithSparseMaskAPITest(
+class TestFlashAttentionWithSparseMaskAPITest(
     TestFlashAttentionWithSparseMaskAPI
 ):
     def setUp(self):
@@ -947,7 +953,7 @@ class TestFlashAttenionWithSparseMaskAPITest(
         self.causal = True
 
 
-class TestFlashAttenionWithSparseMaskBF16APITest(
+class TestFlashAttentionWithSparseMaskBF16APITest(
     TestFlashAttentionWithSparseMaskAPI
 ):
     def setUp(self):
@@ -965,7 +971,7 @@ class TestFlashAttentionVarlenQKVPackedGQA(TestFlashAttentionGQA):
         )
         seq_len_k = seq_len_q
         cu_seqlen_q = paddle.to_tensor(
-            [0] + np.cumsum(seq_len_q).tolist(), dtype=paddle.int32
+            [0, *np.cumsum(seq_len_q).tolist()], dtype=paddle.int32
         )
         cu_seqlen_k = cu_seqlen_q
 
@@ -1371,6 +1377,174 @@ class TestFlashAttentionQKVPackedDeter(TestFlashAttentionQKVPackedGQADeter):
         self.num_head = 7
         self.seq_len = 563
         self.head_dim = 64
+        self.num_group = 1
+        self.dtype = 'bfloat16'
+
+
+@unittest.skipIf(
+    not is_flashattn_supported(),
+    "core is not compiled with CUDA and cuda version need larger than or equal to 11.4"
+    "and device's compute capability must be 8.x or 90",
+)
+class TestCalcReducedAttentionScores(unittest.TestCase):
+    def setUp(self):
+        self.place = paddle.CUDAPlace(0)
+        self.batch_size = 1
+        self.num_head = 8
+        self.seqlen_q = 1024
+        self.seqlen_k = 10240
+        self.head_dim = 128
+        self.num_group = 1
+        self.dtype = 'bfloat16'
+
+    def native_reduce(self, q, k):
+        q_ref = paddle.cast(paddle.transpose(q, [0, 2, 1, 3]), 'float32')
+        k_ref = paddle.cast(paddle.transpose(k, [0, 2, 1, 3]), 'float32')
+        if self.num_group != 1:
+            k_ref = paddle.stack([k_ref] * self.num_group, axis=2).reshape(
+                [self.batch_size, self.num_head, self.seqlen_k, self.head_dim]
+            )
+
+        scale = 1.0 / np.sqrt(q_ref.shape[-1])
+        product = paddle.matmul(x=q_ref, y=k_ref, transpose_y=True)
+        product = paddle.scale(product, scale)
+        product = product - paddle.max(product, axis=-1, keepdim=True)
+        product = F.softmax(product, dtype='float32')
+        product = paddle.sum(product, axis=-2, keepdim=True)
+        return product
+
+    def test_calc_reduced_attention_scores(self):
+        paddle.disable_static()
+
+        q_shape = [
+            self.batch_size,
+            self.seqlen_q,
+            self.num_head,
+            self.head_dim,
+        ]
+        k_shape = [
+            self.batch_size,
+            self.seqlen_k,
+            self.num_head // self.num_group,
+            self.head_dim,
+        ]
+
+        query = paddle.randn(q_shape)
+        key = paddle.randn(k_shape)
+
+        q = paddle.to_tensor(
+            query, place=self.place, dtype=self.dtype, stop_gradient=True
+        )
+        k = paddle.to_tensor(
+            key, place=self.place, dtype=self.dtype, stop_gradient=True
+        )
+
+        reduced_scores_ref = self.native_reduce(q, k)
+
+        (_, _, softmax_lse, _) = paddle._C_ops.flash_attn(
+            q,
+            k,
+            k,
+            (None,),  # fixed_seed_offset
+            None,  # attn_mask
+            0.0,  # dropout
+            False,  # causal
+            False,  # return_softmax
+            False,  # is_test
+            "",
+        )
+
+        reduced_scores = calc_reduced_attention_scores(q, k, softmax_lse)
+
+        np.testing.assert_allclose(
+            reduced_scores.numpy(),
+            reduced_scores_ref.numpy(),
+            rtol=1e-05,
+            atol=0,
+        )
+
+        if self.dtype == 'float16':
+            paddle.enable_static()
+
+            with paddle.static.program_guard(paddle.static.Program()):
+                qs = paddle.static.data(
+                    name="q", shape=q_shape, dtype=self.dtype
+                )
+                ks = paddle.static.data(
+                    name="k", shape=k_shape, dtype=self.dtype
+                )
+                softmax_lse_s = paddle.static.data(
+                    name="softmax_lse", shape=softmax_lse.shape, dtype='float32'
+                )
+
+                reduced_scores = calc_reduced_attention_scores(
+                    qs, ks, softmax_lse_s
+                )
+                exe = base.Executor(self.place)
+                fetches_result = exe.run(
+                    feed={
+                        "q": query.numpy().astype(self.dtype),
+                        "k": key.numpy().astype(self.dtype),
+                        "softmax_lse": softmax_lse.numpy(),
+                    },
+                    fetch_list=[reduced_scores],
+                )
+                np.testing.assert_allclose(
+                    fetches_result[0],
+                    reduced_scores_ref.numpy(),
+                    rtol=1e-05,
+                    atol=0,
+                )
+            paddle.disable_static()
+
+
+@unittest.skipIf(
+    not is_flashattn_supported(),
+    "core is not compiled with CUDA and cuda version need larger than or equal to 11.4"
+    "and device's compute capability must be 8.x or 90",
+)
+class TestCalcReducedAttentionScoresGQA(TestCalcReducedAttentionScores):
+    def setUp(self):
+        self.place = paddle.CUDAPlace(0)
+        self.batch_size = 1
+        self.num_head = 8
+        self.seqlen_q = 1024
+        self.seqlen_k = 10240
+        self.head_dim = 128
+        self.num_group = 2
+        self.dtype = 'bfloat16'
+
+
+@unittest.skipIf(
+    not is_flashattn_supported(),
+    "core is not compiled with CUDA and cuda version need larger than or equal to 11.4"
+    "and device's compute capability must be 8.x or 90",
+)
+class TestCalcReducedAttentionScoresFP16(TestCalcReducedAttentionScores):
+    def setUp(self):
+        self.place = paddle.CUDAPlace(0)
+        self.batch_size = 1
+        self.num_head = 8
+        self.seqlen_q = 1024
+        self.seqlen_k = 10240
+        self.head_dim = 128
+        self.num_group = 1
+        self.dtype = 'float16'
+
+
+@unittest.skipIf(
+    not is_flashattn_supported(),
+    "core is not compiled with CUDA and cuda version need larger than or equal to 11.4"
+    "and device's compute capability must be 8.x or 90",
+)
+class TestCalcReducedAttentionScoresNotEvenMN(TestCalcReducedAttentionScores):
+    def setUp(self):
+        self.place = paddle.CUDAPlace(0)
+        self.batch_size = 1
+        self.num_head = 8
+        self.seqlen_q = 1023
+        self.seqlen_k = 10241
+        self.head_dim = 128
         self.num_group = 1
         self.dtype = 'bfloat16'
 

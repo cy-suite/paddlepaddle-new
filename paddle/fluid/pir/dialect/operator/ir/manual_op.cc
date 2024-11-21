@@ -13,29 +13,31 @@
 // limitations under the License.
 #ifdef GET_OP_LIST
 #undef GET_OP_LIST
-paddle::dialect::AddNOp, paddle::dialect::AddN_Op, paddle::dialect::AddNArrayOp,
+paddle::dialect::AddN_Op, paddle::dialect::AddNArrayOp,
     paddle::dialect::FusedGemmEpilogueOp, paddle::dialect::AssignOut_Op,
     paddle::dialect::FusedGemmEpilogueGradOp, paddle::dialect::SplitGradOp,
     paddle::dialect::ExpandOp, paddle::dialect::CreateArrayOp,
     paddle::dialect::CreateArrayLikeOp, paddle::dialect::ArrayLengthOp,
     paddle::dialect::ArrayReadOp, paddle::dialect::ArrayWrite_Op,
-    paddle::dialect::SliceArrayOp, paddle::dialect::SliceArrayDenseOp,
-    paddle::dialect::AssignArrayOp, paddle::dialect::AssignArray_Op,
-    paddle::dialect::ArrayToTensorOp, paddle::dialect::TensorToArrayOp,
-    paddle::dialect::IncrementOp, paddle::dialect::Increment_Op,
-    paddle::dialect::ShapeBroadcastOp, paddle::dialect::MemcpyD2hMultiIoOp,
-    paddle::dialect::ArrayPopOp
+    paddle::dialect::FetchOp, paddle::dialect::SliceArrayOp,
+    paddle::dialect::SliceArrayDenseOp, paddle::dialect::AssignArrayOp,
+    paddle::dialect::AssignArray_Op, paddle::dialect::ArrayToTensorOp,
+    paddle::dialect::TensorToArrayOp, paddle::dialect::IncrementOp,
+    paddle::dialect::Increment_Op, paddle::dialect::ShapeBroadcastOp,
+    paddle::dialect::MemcpyD2hMultiIoOp, paddle::dialect::ArrayPopOp,
+    paddle::dialect::ShareVarOp
 #else
-
 #include "paddle/fluid/pir/dialect/operator/ir/manual_op.h"
 #include "paddle/fluid/pir/dialect/kernel/ir/kernel_type.h"
+#include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/infer_sym_utils.h"
+#include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/multiary_infer_sym.h"
 #include "paddle/fluid/pir/dialect/operator/ir/ir_meta_tensor.h"
 #include "paddle/fluid/pir/dialect/operator/ir/ir_selected_rows.h"
 #include "paddle/fluid/pir/dialect/operator/ir/ir_tensor.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_attribute.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_type.h"
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
-#include "paddle/fluid/primitive/rule/vjp/vjp.h"
+#include "paddle/fluid/primitive/vjp_interface/vjp.h"
 #include "paddle/phi/api/lib/data_type_set.h"
 #include "paddle/phi/api/lib/utils/allocator.h"
 #include "paddle/phi/core/dense_tensor.h"
@@ -57,179 +59,229 @@ paddle::dialect::AddNOp, paddle::dialect::AddN_Op, paddle::dialect::AddNArrayOp,
 #endif
 
 namespace paddle::dialect {
-
-OpInfoTuple AddNOp::GetOpInfo() {
-  std::vector<paddle::dialect::OpInputInfo> inputs = {
-      OpInputInfo("inputs",
-                  "pir::VectorType<paddle::dialect::DenseTensorType>",
-                  false,
-                  false,
-                  false,
-                  true)};
-  std::vector<paddle::dialect::OpAttributeInfo> attributes = {};
-  std::vector<paddle::dialect::OpOutputInfo> outputs = {
-      OpOutputInfo("out", "paddle::dialect::DenseTensorType", false, false)};
-  paddle::dialect::OpRunTimeInfo run_time_info = OpRunTimeInfo(
-      "AddNInferMeta", {"inputs"}, "add_n", {"inputs"}, {}, {}, {}, {});
-
-  return std::make_tuple(inputs, attributes, outputs, run_time_info, "add_n");
-}
-
-void AddNOp::VerifySig() {
-  VLOG(4) << "Start Verifying inputs, outputs and attributes for: AddNOp.";
-  VLOG(4) << "Verifying inputs:";
-  {
-    auto input_size = num_operands();
-    PADDLE_ENFORCE_EQ(
-        input_size,
-        1u,
-        phi::errors::PreconditionNotMet(
-            "The size %d of inputs must be equal to 1.", input_size));
-    if (auto vec_type =
-            (*this)->operand(0).type().dyn_cast<pir::VectorType>()) {
-      for (size_t i = 0; i < vec_type.size(); ++i) {
-        PADDLE_ENFORCE(vec_type[i].isa<paddle::dialect::DenseTensorType>() ||
-                           vec_type[i].isa<paddle::dialect::SelectedRowsType>(),
-                       phi::errors::PreconditionNotMet(
-                           "Type validation failed for the 0th input."));
-      }
-    } else {
-      PADDLE_ENFORCE(
-          (*this)->operand(0).type().isa<paddle::dialect::DenseTensorType>() ||
-              (*this)
-                  ->operand(0)
-                  .type()
-                  .isa<paddle::dialect::SelectedRowsType>(),
-          phi::errors::PreconditionNotMet(
-              "Type validation failed for the 0th input."));
-    }
-  }
-  VLOG(4) << "Verifying attributes:";
-  {
-    // Attributes num is 0, not need to check attributes type.
-  }
-  VLOG(4) << "Verifying outputs:";
-  {
-    auto output_size = num_results();
-    PADDLE_ENFORCE_EQ(
-        output_size,
-        1u,
-        phi::errors::PreconditionNotMet(
-            "The size %d of outputs must be equal to 1.", output_size));
-    PADDLE_ENFORCE(
-        (*this)->result(0).type().isa<paddle::dialect::DenseTensorType>() ||
-            (*this)->result(0).type().isa<paddle::dialect::SelectedRowsType>(),
-        phi::errors::PreconditionNotMet(
-            "Type validation failed for the 0th output."));
-  }
-  VLOG(4) << "End Verifying for: AddNOp.";
-}
-
-void AddNOp::Build(pir::Builder &builder,             // NOLINT
-                   pir::OperationArgument &argument,  // NOLINT
-                   pir::Value inputs) {
-  VLOG(4) << "Start build AddNOp";
-
-  VLOG(4) << "Builder construction inputs";
-  std::vector<pir::Value> argument_inputs = {inputs};
-  argument.AddInput(inputs);
-
-  VLOG(4) << "Builder construction attributes";
-  pir::AttributeMap argument_attributes = {};
-  std::vector<pir::Type> argument_outputs =
-      AddNOp::InferMeta(argument_inputs, &argument_attributes);
-
-  argument.AddOutputs(argument_outputs.begin(), argument_outputs.end());
-  argument.AddAttributes(argument_attributes);
-  ::pir::PassStopGradientsDefaultly(argument);
-}
-
-void AddNOp::InferMeta(phi::InferMetaContext *infer_meta) {
-  auto fn = PD_INFER_META(phi::AddNInferMeta);
+void FetchOp::InferMeta(phi::InferMetaContext *infer_meta) {
+  auto fn = PD_INFER_META(phi::UnchangedInferMetaIncludingTensorArray);
   fn(infer_meta);
 }
 
-std::vector<pir::Type> AddNOp::InferMeta(
+std::vector<pir::Type> FetchOp::InferMeta(
     const std::vector<pir::Value> &input_values,
     pir::AttributeMap *p_attributes) {
   PADDLE_ENFORCE_NOT_NULL(
       p_attributes,
       common::errors::Fatal(
           "AttrtibueMap pointer in InferMeta function is nullptr."));
-  VLOG(4) << "Start infermeta AddNOp";
-  PADDLE_ENFORCE_EQ(input_values.size(),
-                    1,
-                    phi::errors::InvalidArgument(
+  auto &attributes = *p_attributes;
+  (void)attributes;
+
+  PADDLE_ENFORCE_EQ(input_values.size() == 1,
+                    true,
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 1 but got %d.",
                         input_values.size()));
-  pir::Value inputs_ = input_values[0];
 
+  pir::Value x_ = input_values[0];
+  (void)x_;
   VLOG(4) << "Builder construction outputs";
-  pir::VectorType x = inputs_.type().dyn_cast<pir::VectorType>();
-
-  std::vector<paddle::dialect::IrTensor> vec_dense_x;
-  for (size_t i = 0; i < x.size(); i++) {
-    if (x[i].isa<paddle::dialect::DenseTensorType>()) {
-      vec_dense_x.push_back(paddle::dialect::IrTensor(
-          TransToPhiDataType(
-              x[i].dyn_cast<paddle::dialect::DenseTensorType>().dtype()),
-          x[i].dyn_cast<paddle::dialect::DenseTensorType>().dims(),
-          x[i].dyn_cast<paddle::dialect::DenseTensorType>().data_layout(),
-          x[i].dyn_cast<paddle::dialect::DenseTensorType>().lod(),
-          x[i].dyn_cast<paddle::dialect::DenseTensorType>().offset()));
-    } else {
-      PADDLE_THROW(phi::errors::Unimplemented(
-          "Only support paddle::dialect::DenseTensorType or "
-          "paddle::dialect::AllocatedDenseTensorType"));
-    }
-  }
-  std::vector<paddle::dialect::IrMetaTensor> vec_meta_x;
-  for (size_t i = 0; i < vec_dense_x.size(); i++) {
-    vec_meta_x.push_back(paddle::dialect::IrMetaTensor(&vec_dense_x[i]));
-  }
-
-  std::vector<const phi::MetaTensor *> meta_x;
-  for (size_t i = 0; i < static_cast<size_t>(vec_meta_x.size()); i++) {
-    meta_x.push_back(&vec_meta_x[i]);
-  }
-
-  paddle::dialect::IrTensor dense_out;
-  paddle::dialect::IrMetaTensor meta_out(&dense_out);
-
-  phi::AddNInferMeta(meta_x, &meta_out, phi::MetaConfig(false, false));
+  bool is_from_tensor = false;
+  (void)is_from_tensor;
 
   std::vector<pir::Type> argument_outputs;
-  pir::Type out_type = CvtToDenseTensorType(dense_out);
-#ifdef PADDLE_WITH_DISTRIBUTE
+  pir::Type out_type = x_.type();
+
   // Auto Parallel condition
-  if (AllInputAreDist(input_values)) {
-    ProcessMeshAttribute op_mesh =
-        x[0].dyn_cast<DistDenseTensorType>().process_mesh_attr();
+#ifdef PADDLE_WITH_DISTRIBUTE
+  ProcessMeshAttribute op_mesh;
+  if (HasDistInput(input_values, &op_mesh)) {
+    CvtAllInputsToDist(input_values, op_mesh);
     auto ctx = pir::IrContext::Instance();
     std::vector<pir::Attribute> dist_operand_attrs, dist_result_attrs;
-    auto dist_meta_x = CvtToDistMetaTensor(x);
+    auto dist_meta_x =
+        CvtToDistMetaTensor(x_.type().dyn_cast<DistDenseTensorType>());
     auto spmd_info =
         phi::distributed::VariadicReplicatedInferSpmdDynamic(dist_meta_x);
     PADDLE_ENFORCE_EQ(
         spmd_info.first.size(),
         1u,
         common::errors::Unavailable(
-            "Size of spmd_info.first for op[pd_op.add_n]is unexpected."));
+            "Size of spmd_info.first for op[FetchOp]is unexpected."));
     for (auto &arg_dist : spmd_info.first) {
       dist_operand_attrs.push_back(CvtToPirAttr(arg_dist));
     }
-    auto dist_attr_output = CreateReplicatedDistAttr(out_type, op_mesh);
 
-    dist_result_attrs.push_back(dist_attr_output);
-    argument_outputs.push_back(CvtToPirDistType(out_type, dist_attr_output));
+    auto dist_attr_out = CreateReplicatedDistAttr(out_type, op_mesh);
 
-    (*p_attributes)[kAttrOpDistAttr] = OperationDistAttribute::get(
+    dist_result_attrs.push_back(dist_attr_out);
+    argument_outputs.push_back(CvtToPirDistType(out_type, dist_attr_out));
+
+    attributes[kAttrOpDistAttr] = OperationDistAttribute::get(
         ctx, op_mesh, dist_operand_attrs, dist_result_attrs);
     return argument_outputs;
   }
 #endif
+
   argument_outputs.push_back(out_type);
+
   return argument_outputs;
+}
+
+const char *FetchOp::attributes_name[2] = {"name", "col"};
+
+OpInfoTuple FetchOp::GetOpInfo() {
+  std::vector<paddle::dialect::OpInputInfo> inputs = {
+      paddle::dialect::OpInputInfo(
+          "x", "paddle::dialect::DenseTensorType", false, false, false, false)};
+  std::vector<paddle::dialect::OpAttributeInfo> attributes = {
+      paddle::dialect::OpAttributeInfo("name", "pir::StrAttribute", ""),
+      paddle::dialect::OpAttributeInfo("col", "pir::Int32Attribute", "")};
+  std::vector<paddle::dialect::OpOutputInfo> outputs = {
+      paddle::dialect::OpOutputInfo(
+          "out", "paddle::dialect::DenseTensorType", false, false)};
+  paddle::dialect::OpRunTimeInfo run_time_info = paddle::dialect::OpRunTimeInfo(
+      "UnchangedInferMeta", {"x"}, "fetch", {"x"}, {}, {}, {}, {});
+  return std::make_tuple(inputs, attributes, outputs, run_time_info, "fetch");
+}
+
+void FetchOp::Build(pir::Builder &builder,
+                    pir::OperationArgument &argument,
+                    pir::Value x_,
+                    const std::string &name,
+                    int col) {
+  VLOG(4) << "Start build FetchOp";
+
+  VLOG(4) << "Builder construction inputs";
+  std::vector<pir::Value> argument_inputs = {x_};
+  argument.AddInputs(argument_inputs);
+
+  VLOG(4) << "Builder construction attributes";
+  pir::AttributeMap argument_attributes = {};
+  pir::Attribute attr_name =
+      pir::StrAttribute::get(pir::IrContext::Instance(), name);
+  argument_attributes.insert({"name", attr_name});
+  pir::Attribute attr_col =
+      pir::Int32Attribute::get(pir::IrContext::Instance(), col);
+  argument_attributes.insert({"col", attr_col});
+
+  std::vector<pir::Type> argument_outputs =
+      FetchOp::InferMeta(argument_inputs, &argument_attributes);
+  argument.AddAttributes(argument_attributes);
+  argument.AddOutputs(argument_outputs.begin(), argument_outputs.end());
+  ::pir::PassStopGradientsDefaultly(argument);
+}
+
+void FetchOp::Build(pir::Builder &builder,
+                    pir::OperationArgument &argument,
+                    pir::Value x_,
+                    pir::AttributeMap attributes) {
+  VLOG(4) << "Start build FetchOp";
+
+  PADDLE_ENFORCE_NE(attributes.find("name"),
+                    attributes.end(),
+                    common::errors::InvalidArgument(
+                        "'name' Attribute is expected for FetchOp. "));
+  std::string name =
+      attributes.at("name").dyn_cast<pir::StrAttribute>().AsString();
+
+  PADDLE_ENFORCE_NE(attributes.find("col"),
+                    attributes.end(),
+                    common::errors::InvalidArgument(
+                        "'col' Attribute is expected for FetchOp. "));
+  int col = attributes.at("col").dyn_cast<pir::Int32Attribute>().data();
+
+  VLOG(4) << "Builder construction inputs";
+  std::vector<pir::Value> argument_inputs = {x_};
+  argument.AddInputs(argument_inputs);
+
+  VLOG(4) << "Builder construction attributes";
+  pir::AttributeMap argument_attributes = {};
+  pir::Attribute attr_name =
+      pir::StrAttribute::get(pir::IrContext::Instance(), name);
+  argument_attributes.insert({"name", attr_name});
+  pir::Attribute attr_col =
+      pir::Int32Attribute::get(pir::IrContext::Instance(), col);
+  argument_attributes.insert({"col", attr_col});
+
+  std::vector<pir::Type> argument_outputs =
+      FetchOp::InferMeta(argument_inputs, &argument_attributes);
+  argument.AddAttributes(argument_attributes);
+  argument.AddOutputs(argument_outputs.begin(), argument_outputs.end());
+  ::pir::PassStopGradientsDefaultly(argument);
+}
+
+void FetchOp::VerifySig() {
+  VLOG(4) << "Start Verifying inputs, outputs and attributes for: FetchOp.";
+  VLOG(4) << "Verifying inputs:";
+  {
+    auto input_size = num_operands();
+    PADDLE_ENFORCE_EQ(input_size,
+                      1,
+                      common::errors::InvalidArgument(
+                          "The size of inputs must be equal to 1."));
+    PADDLE_ENFORCE_EQ((*this)->operand_source(0)
+                              .type()
+                              .isa<paddle::dialect::DenseTensorType>() ||
+                          (*this)
+                              ->operand_source(0)
+                              .type()
+                              .isa<paddle::dialect::DenseTensorArrayType>(),
+                      true,
+                      common::errors::InvalidArgument(
+                          "Type validation failed for the 0th input, got %s.",
+                          (*this)->operand_source(0).type()));
+  }
+  VLOG(4) << "Verifying attributes:";
+  {
+    auto &attributes = this->attributes();
+    PADDLE_ENFORCE_GT(attributes.count("name"),
+                      0,
+                      common::errors::InvalidArgument("name does not exist."));
+    PADDLE_ENFORCE_EQ(attributes.at("name").isa<pir::StrAttribute>(),
+                      true,
+                      common::errors::InvalidArgument(
+                          "Type of attribute: name is not pir::StrAttribute."));
+
+    PADDLE_ENFORCE_GT(attributes.count("col"),
+                      0,
+                      common::errors::InvalidArgument("col does not exist."));
+    PADDLE_ENFORCE_EQ(
+        attributes.at("col").isa<pir::Int32Attribute>(),
+        true,
+        common::errors::InvalidArgument(
+            "Type of attribute: col is not pir::Int32Attribute."));
+  }
+  VLOG(4) << "Verifying outputs:";
+  {
+    auto output_size = num_results();
+    PADDLE_ENFORCE_EQ(output_size,
+                      1,
+                      common::errors::InvalidArgument(
+                          "The size of outputs must be equal to 1."));
+    PADDLE_ENFORCE_EQ(
+        (*this)->result(0).type().isa<paddle::dialect::DenseTensorType>() ||
+            (*this)
+                ->result(0)
+                .type()
+                .isa<paddle::dialect::DenseTensorArrayType>(),
+        true,
+        common::errors::InvalidArgument(
+            "Type validation failed for the 0th output."));
+  }
+  VLOG(4) << "End Verifying for: FetchOp.";
+}
+
+phi::DataType FetchOp::GetKernelTypeForVar(
+    const std::string &var_name,
+    const phi::DataType &tensor_dtype,
+    const phi::DataType &expected_kernel_dtype) {
+  VLOG(4) << "Get KernelType for Var of op: FetchOp";
+
+  return expected_kernel_dtype;
+}
+
+bool FetchOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  VLOG(4) << "Infer symbolic shape for op: FetchOp";
+  return FetchOpInferSymbolicShape(this->operation(), infer_context);
 }
 
 OpInfoTuple AddN_Op::GetOpInfo() {
@@ -275,14 +327,14 @@ void AddN_Op::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         1u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of inputs must be equal to 1.", input_size));
     if (auto vec_type =
             (*this)->operand_source(0).type().dyn_cast<pir::VectorType>()) {
       for (size_t i = 0; i < vec_type.size(); ++i) {
         PADDLE_ENFORCE(vec_type[i].isa<paddle::dialect::DenseTensorType>() ||
                            vec_type[i].isa<paddle::dialect::SelectedRowsType>(),
-                       phi::errors::PreconditionNotMet(
+                       common::errors::PreconditionNotMet(
                            "Type validation failed for the 0th input."));
       }
     } else {
@@ -293,7 +345,7 @@ void AddN_Op::VerifySig() {
                              ->operand_source(0)
                              .type()
                              .isa<paddle::dialect::SelectedRowsType>(),
-                     phi::errors::PreconditionNotMet(
+                     common::errors::PreconditionNotMet(
                          "Type validation failed for the 0th input."));
     }
   }
@@ -307,12 +359,12 @@ void AddN_Op::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         1u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of outputs must be equal to 1.", output_size));
     PADDLE_ENFORCE(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorType>() ||
             (*this)->result(0).type().isa<paddle::dialect::SelectedRowsType>(),
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: AddN_Op.";
@@ -329,7 +381,7 @@ std::vector<pir::Type> AddN_Op::InferMeta(
   VLOG(4) << "Start infermeta AddN_Op";
   PADDLE_ENFORCE_EQ(input_values.size(),
                     1,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 1 but got %d.",
                         input_values.size()));
   pir::Value inputs_ = input_values[0];
@@ -347,7 +399,7 @@ std::vector<pir::Type> AddN_Op::InferMeta(
           inputs[i].dyn_cast<paddle::dialect::DenseTensorType>().lod(),
           inputs[i].dyn_cast<paddle::dialect::DenseTensorType>().offset()));
     } else {
-      PADDLE_THROW(phi::errors::Unimplemented(
+      PADDLE_THROW(common::errors::Unimplemented(
           "Only support paddle::dialect::DenseTensorType or "
           "paddle::dialect::AllocatedDenseTensorType"));
     }
@@ -378,6 +430,11 @@ std::vector<pir::Type> AddN_Op::InferMeta(
       dense_out.offset());
   argument_outputs.push_back(out_dense_tensor_type);
   return argument_outputs;
+}
+
+bool AddN_Op::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  return AddNOpInferSymbolicShape(this->operation(), infer_context);
 }
 
 OpInfoTuple AddNArrayOp::GetOpInfo() {
@@ -413,13 +470,13 @@ void AddNArrayOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         1u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of inputs must be equal to 1.", input_size));
     if (auto vec_type =
             (*this)->operand(0).type().dyn_cast<pir::VectorType>()) {
       for (size_t i = 0; i < vec_type.size(); ++i) {
         PADDLE_ENFORCE(vec_type[i].isa<paddle::dialect::DenseTensorArrayType>(),
-                       phi::errors::PreconditionNotMet(
+                       common::errors::PreconditionNotMet(
                            "Type validation failed for the 0th input."));
       }
     } else {
@@ -427,7 +484,7 @@ void AddNArrayOp::VerifySig() {
                          ->operand(0)
                          .type()
                          .isa<paddle::dialect::DenseTensorArrayType>(),
-                     phi::errors::PreconditionNotMet(
+                     common::errors::PreconditionNotMet(
                          "Type validation failed for the 0th input."));
     }
   }
@@ -441,11 +498,11 @@ void AddNArrayOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         1u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of outputs must be equal to 1.", output_size));
     PADDLE_ENFORCE(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorArrayType>(),
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: AddNArrayOp.";
@@ -481,7 +538,7 @@ std::vector<pir::Type> AddNArrayOp::InferMeta(
   VLOG(4) << "Start infermeta AddNArrayOp";
   PADDLE_ENFORCE_EQ(input_values.size(),
                     1,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 1 but got %d.",
                         input_values.size()));
   pir::Value inputs_ = input_values[0];
@@ -502,7 +559,7 @@ std::vector<pir::Type> AddNArrayOp::InferMeta(
               .data_layout(),
           {}));
     } else {
-      PADDLE_THROW(phi::errors::Unimplemented(
+      PADDLE_THROW(common::errors::Unimplemented(
           "Only support paddle::dialect::DenseTensorArrayType or "
           "paddle::dialect::AllocatedDenseTensorArrayType"));
     }
@@ -585,19 +642,19 @@ void FusedGemmEpilogueOp::Build(pir::Builder &builder,
 
   PADDLE_ENFORCE(
       attributes.find("trans_x") != attributes.end(),
-      phi::errors::NotFound(
+      common::errors::NotFound(
           "'trans_x' Attribute is expected for FusedGemmEpilogueOp"));
   bool trans_x = attributes.at("trans_x").dyn_cast<pir::BoolAttribute>().data();
 
   PADDLE_ENFORCE(
       attributes.find("trans_y") != attributes.end(),
-      phi::errors::NotFound(
+      common::errors::NotFound(
           "'trans_y' Attribute is expected for FusedGemmEpilogueOp"));
   bool trans_y = attributes.at("trans_y").dyn_cast<pir::BoolAttribute>().data();
 
   PADDLE_ENFORCE(
       attributes.find("activation") != attributes.end(),
-      phi::errors::NotFound(
+      common::errors::NotFound(
           "'activation' Attribute is expected for FusedGemmEpilogueOp"));
   std::string activation =
       attributes.at("activation").dyn_cast<pir::StrAttribute>().AsString();
@@ -635,25 +692,25 @@ void FusedGemmEpilogueOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         3u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of inputs must be equal to 3.", input_size));
     PADDLE_ENFORCE((*this)
                        ->operand_source(0)
                        .type()
                        .isa<paddle::dialect::DenseTensorType>(),
-                   phi::errors::PreconditionNotMet(
+                   common::errors::PreconditionNotMet(
                        "Type validation failed for the 0th input."));
     PADDLE_ENFORCE((*this)
                        ->operand_source(1)
                        .type()
                        .isa<paddle::dialect::DenseTensorType>(),
-                   phi::errors::PreconditionNotMet(
+                   common::errors::PreconditionNotMet(
                        "Type validation failed for the 1th input."));
     PADDLE_ENFORCE((*this)
                        ->operand_source(2)
                        .type()
                        .isa<paddle::dialect::DenseTensorType>(),
-                   phi::errors::PreconditionNotMet(
+                   common::errors::PreconditionNotMet(
                        "Type validation failed for the 2th input."));
   }
   VLOG(4) << "Verifying attributes:";
@@ -661,15 +718,15 @@ void FusedGemmEpilogueOp::VerifySig() {
     auto &attributes = this->attributes();
     PADDLE_ENFORCE(attributes.count("trans_x") > 0 &&
                        attributes.at("trans_x").isa<pir::BoolAttribute>(),
-                   phi::errors::PreconditionNotMet(
+                   common::errors::PreconditionNotMet(
                        "Type of attribute: trans_x is not right."));
     PADDLE_ENFORCE(attributes.count("trans_y") > 0 &&
                        attributes.at("trans_y").isa<pir::BoolAttribute>(),
-                   phi::errors::PreconditionNotMet(
+                   common::errors::PreconditionNotMet(
                        "Type of attribute: trans_y is not right."));
     PADDLE_ENFORCE(attributes.count("activation") > 0 &&
                        attributes.at("activation").isa<pir::StrAttribute>(),
-                   phi::errors::PreconditionNotMet(
+                   common::errors::PreconditionNotMet(
                        "Type of attribute: activation is not right."));
   }
   VLOG(4) << "Verifying outputs:";
@@ -678,15 +735,15 @@ void FusedGemmEpilogueOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         2u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of outputs must be equal to 2.", output_size));
     PADDLE_ENFORCE(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorType>(),
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "Type validation failed for the 0th output."));
     if (auto output_1_type = (*this)->result(1).type()) {
       PADDLE_ENFORCE(output_1_type.isa<paddle::dialect::DenseTensorType>(),
-                     phi::errors::PreconditionNotMet(
+                     common::errors::PreconditionNotMet(
                          "Type validation failed for the 1th output."));
     }
   }
@@ -709,7 +766,7 @@ std::vector<pir::Type> FusedGemmEpilogueOp::InferMeta(
   VLOG(4) << "Start infermeta FusedGemmEpilogueOp";
   PADDLE_ENFORCE_EQ(input_values.size(),
                     3,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 3 but got %d.",
                         input_values.size()));
   pir::Value x_ = input_values[0];
@@ -718,19 +775,19 @@ std::vector<pir::Type> FusedGemmEpilogueOp::InferMeta(
 
   PADDLE_ENFORCE(
       attributes.find("trans_x") != attributes.end(),
-      phi::errors::NotFound(
+      common::errors::NotFound(
           "'trans_x' Attribute is expected for FusedGemmEpilogueOp"));
   bool trans_x = attributes.at("trans_x").dyn_cast<pir::BoolAttribute>().data();
 
   PADDLE_ENFORCE(
       attributes.find("trans_y") != attributes.end(),
-      phi::errors::NotFound(
+      common::errors::NotFound(
           "'trans_y' Attribute is expected for FusedGemmEpilogueOp"));
   bool trans_y = attributes.at("trans_y").dyn_cast<pir::BoolAttribute>().data();
 
   PADDLE_ENFORCE(
       attributes.find("activation") != attributes.end(),
-      phi::errors::NotFound(
+      common::errors::NotFound(
           "'activation' Attribute is expected for FusedGemmEpilogueOp"));
   std::string activation =
       attributes.at("activation").dyn_cast<pir::StrAttribute>().AsString();
@@ -740,7 +797,7 @@ std::vector<pir::Type> FusedGemmEpilogueOp::InferMeta(
   if (x_.type().isa<paddle::dialect::DenseTensorType>()) {
     x = x_.type().dyn_cast<paddle::dialect::DenseTensorType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorType or "
         "paddle::dialect::AllocatedDenseTensorType"));
   }
@@ -749,7 +806,7 @@ std::vector<pir::Type> FusedGemmEpilogueOp::InferMeta(
   if (y_.type().isa<paddle::dialect::DenseTensorType>()) {
     y = y_.type().dyn_cast<paddle::dialect::DenseTensorType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorType or "
         "paddle::dialect::AllocatedDenseTensorType"));
   }
@@ -758,7 +815,7 @@ std::vector<pir::Type> FusedGemmEpilogueOp::InferMeta(
   if (bias_.type().isa<paddle::dialect::DenseTensorType>()) {
     bias = bias_.type().dyn_cast<paddle::dialect::DenseTensorType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorType or "
         "paddle::dialect::AllocatedDenseTensorType"));
   }
@@ -805,7 +862,8 @@ std::vector<pir::Type> FusedGemmEpilogueOp::InferMeta(
       trans_y,
       activation,
       &meta_out,
-      activation == "none" ? nullptr : &meta_reserve_space);
+      activation == "none" ? nullptr : &meta_reserve_space,
+      phi::MetaConfig(false, false));
 
   std::vector<pir::Type> argument_outputs;
   pir::Type out_dense_tensor_type = paddle::dialect::DenseTensorType::get(
@@ -829,6 +887,12 @@ std::vector<pir::Type> FusedGemmEpilogueOp::InferMeta(
                 dense_reserve_space.offset());
   argument_outputs.push_back(reserve_space_dense_tensor_type);
   return argument_outputs;
+}
+
+bool FusedGemmEpilogueOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  return FusedGemmEpilogueOpInferSymbolicShape(this->operation(),
+                                               infer_context);
 }
 
 const char *FusedGemmEpilogueGradOp::attributes_name[3] = {  // NOLINT
@@ -902,20 +966,20 @@ void FusedGemmEpilogueGradOp::Build(pir::Builder &builder,
 
   PADDLE_ENFORCE(
       attributes.find("trans_x") != attributes.end(),
-      phi::errors::NotFound(
+      common::errors::NotFound(
           "'trans_x' Attribute is expected for FusedGemmEpilogueGradOp"));
   bool trans_x = attributes.at("trans_x").dyn_cast<pir::BoolAttribute>().data();
 
   PADDLE_ENFORCE(
       attributes.find("trans_y") != attributes.end(),
-      phi::errors::NotFound(
+      common::errors::NotFound(
           "'trans_y' Attribute is expected for FusedGemmEpilogueGradOp"));
   bool trans_y = attributes.at("trans_y").dyn_cast<pir::BoolAttribute>().data();
 
   PADDLE_ENFORCE(
       attributes.find("activation_grad") != attributes.end(),
-      phi::errors::NotFound("'activation_grad' Attribute is expected for"
-                            "FusedGemmEpilogueGradOp"));
+      common::errors::NotFound("'activation_grad' Attribute is expected for"
+                               "FusedGemmEpilogueGradOp"));
   std::string activation_grad =
       attributes.at("activation_grad").dyn_cast<pir::StrAttribute>().AsString();
 
@@ -960,7 +1024,7 @@ std::vector<pir::Type> FusedGemmEpilogueGradOp::InferMeta(
   auto &attributes = *p_attributes;
   PADDLE_ENFORCE_EQ(input_values.size(),
                     4UL,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 4 but got %d.",
                         input_values.size()));
 
@@ -972,20 +1036,20 @@ std::vector<pir::Type> FusedGemmEpilogueGradOp::InferMeta(
 
   PADDLE_ENFORCE(
       attributes.find("trans_x") != attributes.end(),
-      phi::errors::NotFound(
+      common::errors::NotFound(
           "'trans_x' Attribute is expected for FusedGemmEpilogueGradOp"));
   bool trans_x = attributes.at("trans_x").dyn_cast<pir::BoolAttribute>().data();
 
   PADDLE_ENFORCE(
       attributes.find("trans_y") != attributes.end(),
-      phi::errors::NotFound(
+      common::errors::NotFound(
           "'trans_y' Attribute is expected for FusedGemmEpilogueGradOp"));
   bool trans_y = attributes.at("trans_y").dyn_cast<pir::BoolAttribute>().data();
 
   PADDLE_ENFORCE(
       attributes.find("activation_grad") != attributes.end(),
-      phi::errors::NotFound("'activation_grad' Attribute is expected for"
-                            "FusedGemmEpilogueGradOp"));
+      common::errors::NotFound("'activation_grad' Attribute is expected for"
+                               "FusedGemmEpilogueGradOp"));
   std::string activation_grad =
       attributes.at("activation_grad").dyn_cast<pir::StrAttribute>().AsString();
 
@@ -994,7 +1058,7 @@ std::vector<pir::Type> FusedGemmEpilogueGradOp::InferMeta(
   if (x_.type().isa<paddle::dialect::DenseTensorType>()) {
     x = x_.type().dyn_cast<paddle::dialect::DenseTensorType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorType or "
         "paddle::dialect::AllocatedDenseTensorType"));
   }
@@ -1003,7 +1067,7 @@ std::vector<pir::Type> FusedGemmEpilogueGradOp::InferMeta(
   if (y_.type().isa<paddle::dialect::DenseTensorType>()) {
     y = y_.type().dyn_cast<paddle::dialect::DenseTensorType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorType or "
         "paddle::dialect::AllocatedDenseTensorType"));
   }
@@ -1014,7 +1078,7 @@ std::vector<pir::Type> FusedGemmEpilogueGradOp::InferMeta(
       reserve_space =
           reserve_space_.type().dyn_cast<paddle::dialect::DenseTensorType>();
     } else {
-      PADDLE_THROW(phi::errors::Unimplemented(
+      PADDLE_THROW(common::errors::Unimplemented(
           "Only support paddle::dialect::DenseTensorType or "
           "paddle::dialect::AllocatedDenseTensorType"));
     }
@@ -1026,7 +1090,7 @@ std::vector<pir::Type> FusedGemmEpilogueGradOp::InferMeta(
   if (out_grad_.type().isa<paddle::dialect::DenseTensorType>()) {
     out_grad = out_grad_.type().dyn_cast<paddle::dialect::DenseTensorType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorType or "
         "paddle::dialect::AllocatedDenseTensorType"));
   }
@@ -1205,13 +1269,13 @@ void SplitGradOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         2u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of inputs must be equal to 2.", input_size));
     if (auto vec_type =
             (*this)->operand_source(0).type().dyn_cast<pir::VectorType>()) {
       for (size_t i = 0; i < vec_type.size(); ++i) {
         PADDLE_ENFORCE(vec_type[i].isa<paddle::dialect::DenseTensorType>(),
-                       phi::errors::PreconditionNotMet(
+                       common::errors::PreconditionNotMet(
                            "Type validation failed for the 0th input."));
       }
     } else {
@@ -1219,14 +1283,14 @@ void SplitGradOp::VerifySig() {
                          ->operand_source(0)
                          .type()
                          .isa<paddle::dialect::DenseTensorType>(),
-                     phi::errors::PreconditionNotMet(
+                     common::errors::PreconditionNotMet(
                          "Type validation failed for the 0th input."));
     }
     PADDLE_ENFORCE((*this)
                        ->operand_source(1)
                        .type()
                        .isa<paddle::dialect::DenseTensorType>(),
-                   phi::errors::PreconditionNotMet(
+                   common::errors::PreconditionNotMet(
                        "Type validation failed for the 1th input."));
   }
   VLOG(4) << "Verifying attributes:";
@@ -1239,11 +1303,11 @@ void SplitGradOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         1u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of outputs must be equal to 1.", output_size));
     PADDLE_ENFORCE(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorType>(),
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: SplitGradOp.";
@@ -1261,7 +1325,7 @@ std::vector<pir::Type> SplitGradOp::InferMeta(
 
   PADDLE_ENFORCE_EQ(input_values.size(),
                     2,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 2 but got %d.",
                         input_values.size()));
   pir::Value out_grad_ = input_values[0];
@@ -1366,7 +1430,7 @@ void CreateArrayOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         0u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of inputs must be equal to 1.", input_size));
   }
   VLOG(4) << "Verifying attributes:";
@@ -1380,11 +1444,11 @@ void CreateArrayOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         1u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of outputs must be equal to 1.", output_size));
     PADDLE_ENFORCE(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorArrayType>(),
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: CreateArrayOp.";
@@ -1405,9 +1469,9 @@ std::vector<pir::Type> CreateArrayOp::InferMeta(
   auto &attributes = *p_attributes;
   VLOG(4) << "Start infermeta CreateArrayOp";
 
-  PADDLE_ENFORCE(
-      attributes.find("dtype") != attributes.end(),
-      phi::errors::NotFound("'dtype' Attribute is expected for CreateArrayOp"));
+  PADDLE_ENFORCE(attributes.find("dtype") != attributes.end(),
+                 common::errors::NotFound(
+                     "'dtype' Attribute is expected for CreateArrayOp"));
   phi::DataType dtype = attributes.at("dtype")
                             .dyn_cast<paddle::dialect::DataTypeAttribute>()
                             .data();
@@ -1425,6 +1489,16 @@ std::vector<pir::Type> CreateArrayOp::InferMeta(
       dense_out.layout());
   argument_outputs.push_back(out_dense_tensor_type);
   return argument_outputs;
+}
+
+bool CreateArrayOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs{symbol::RankedTensorArrayShapeOrDataDimExprs(
+          std::vector<symbol::DimExpr>{})});
+
+  return true;
 }
 
 const char *CreateArrayLikeOp::attributes_name[1] = {"val"};  // NOLINT
@@ -1489,7 +1563,7 @@ void CreateArrayLikeOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         1u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of inputs must be equal to 1.", input_size));
   }
   VLOG(4) << "Verifying attributes:";
@@ -1503,11 +1577,11 @@ void CreateArrayLikeOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         1u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of outputs must be equal to 1.", output_size));
     PADDLE_ENFORCE(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorArrayType>(),
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: CreateArrayLikeOp.";
@@ -1524,7 +1598,7 @@ std::vector<pir::Type> CreateArrayLikeOp::InferMeta(
   VLOG(4) << "Start infermeta CreateArrayLikeOp";
   PADDLE_ENFORCE_EQ(input_values.size(),
                     1,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 1 but got %d.",
                         input_values.size()));
   pir::Value input_ = input_values[0];
@@ -1535,7 +1609,7 @@ std::vector<pir::Type> CreateArrayLikeOp::InferMeta(
     input_type =
         input_.type().dyn_cast<paddle::dialect::DenseTensorArrayType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorArrayType or "
         "paddle::dialect::AllocatedDenseTensorArrayType"));
   }
@@ -1564,6 +1638,15 @@ std::vector<pir::Type> CreateArrayLikeOp::InferMeta(
   return argument_outputs;
 }
 
+bool CreateArrayLikeOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &input_shape_or_data =
+      infer_context->GetShapeOrDataForValue(input())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  infer_context->SetShapeOrDataForValue(
+      out(), symbol::ShapeOrDataDimExprs{input_shape_or_data});
+  return true;
+}
 OpInfoTuple ArrayLengthOp::GetOpInfo() {
   std::vector<paddle::dialect::OpInputInfo> inputs = {
       OpInputInfo("x",
@@ -1609,14 +1692,14 @@ void ArrayLengthOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         1u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of inputs must be equal to 1.", input_size));
 
     PADDLE_ENFORCE((*this)
                        ->operand_source(0)
                        .type()
                        .isa<paddle::dialect::DenseTensorArrayType>(),
-                   phi::errors::PreconditionNotMet(
+                   common::errors::PreconditionNotMet(
                        "Type validation failed for the 0th input."));
   }
   VLOG(4) << "Verifying attributes:";
@@ -1626,11 +1709,11 @@ void ArrayLengthOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         1u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of outputs must be equal to 1.", output_size));
     PADDLE_ENFORCE(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorType>(),
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: ArrayLengthOp.";
@@ -1647,7 +1730,7 @@ std::vector<pir::Type> ArrayLengthOp::InferMeta(
   VLOG(4) << "Start infermeta ArrayLengthOp";
   PADDLE_ENFORCE_EQ(input_values.size(),
                     1,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 1 but got %d.",
                         input_values.size()));
   pir::Value x_ = input_values[0];
@@ -1656,7 +1739,7 @@ std::vector<pir::Type> ArrayLengthOp::InferMeta(
   if (x_.type().isa<paddle::dialect::DenseTensorArrayType>()) {
     x_type = x_.type().dyn_cast<paddle::dialect::DenseTensorArrayType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorArrayType or "
         "paddle::dialect::AllocatedDenseTensorArrayType"));
   }
@@ -1683,6 +1766,16 @@ std::vector<pir::Type> ArrayLengthOp::InferMeta(
       dense_out.offset());
   argument_outputs.push_back(out_dense_tensor_type);
   return argument_outputs;
+}
+
+bool ArrayLengthOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs({symbol::DimExpr{1}})});
+
+  return true;
 }
 
 OpInfoTuple ArrayReadOp::GetOpInfo() {
@@ -1761,20 +1854,20 @@ void ArrayReadOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         2u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of inputs must be equal to 3.", input_size));
 
     PADDLE_ENFORCE((*this)
                        ->operand_source(0)
                        .type()
                        .isa<paddle::dialect::DenseTensorArrayType>(),
-                   phi::errors::PreconditionNotMet(
+                   common::errors::PreconditionNotMet(
                        "Type validation failed for the 0th input."));
     PADDLE_ENFORCE((*this)
                        ->operand_source(1)
                        .type()
                        .isa<paddle::dialect::DenseTensorType>(),
-                   phi::errors::PreconditionNotMet(
+                   common::errors::PreconditionNotMet(
                        "Type validation failed for the 1th input."));
   }
   VLOG(4) << "Verifying attributes:";
@@ -1784,11 +1877,11 @@ void ArrayReadOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         1u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of outputs must be equal to 1.", output_size));
     PADDLE_ENFORCE(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorType>(),
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: ArrayReadOp.";
@@ -1805,7 +1898,7 @@ std::vector<pir::Type> ArrayReadOp::InferMeta(
   VLOG(4) << "Start infermeta ArrayLengthOp";
   PADDLE_ENFORCE_EQ(input_values.size(),
                     2,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 2 but got %d.",
                         input_values.size()));
   pir::Value array_ = input_values[0];
@@ -1817,7 +1910,7 @@ std::vector<pir::Type> ArrayReadOp::InferMeta(
     array_type =
         array_.type().dyn_cast<paddle::dialect::DenseTensorArrayType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorArrayType or "
         "paddle::dialect::AllocatedDenseTensorArrayType"));
   }
@@ -1857,6 +1950,22 @@ std::vector<pir::Type> ArrayReadOp::InferMeta(
       dense_out.lod());
   argument_outputs.push_back(out_type);
   return argument_outputs;
+}
+
+bool ArrayReadOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &array_shape =
+      infer_context->GetShapeOrDataForValue(array())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  auto output_shape = array_shape.GetShapeHint();
+  for (size_t i = 0; i < output_shape.size(); ++i) {
+    output_shape[i] = infer_context->GetNextSymName();
+  }
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(output_shape)});
+  return true;
 }
 
 OpInfoTuple ArrayWrite_Op::GetOpInfo() {
@@ -1925,26 +2034,26 @@ void ArrayWrite_Op::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         3u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of inputs must be equal to 3.", input_size));
 
     PADDLE_ENFORCE((*this)
                        ->operand_source(0)
                        .type()
                        .isa<paddle::dialect::DenseTensorArrayType>(),
-                   phi::errors::PreconditionNotMet(
+                   common::errors::PreconditionNotMet(
                        "Type validation failed for the 0th input."));
     PADDLE_ENFORCE((*this)
                        ->operand_source(1)
                        .type()
                        .isa<paddle::dialect::DenseTensorType>(),
-                   phi::errors::PreconditionNotMet(
+                   common::errors::PreconditionNotMet(
                        "Type validation failed for the 1th input."));
     PADDLE_ENFORCE((*this)
                        ->operand_source(2)
                        .type()
                        .isa<paddle::dialect::DenseTensorType>(),
-                   phi::errors::PreconditionNotMet(
+                   common::errors::PreconditionNotMet(
                        "Type validation failed for the 2th input."));
   }
   VLOG(4) << "Verifying attributes:";
@@ -1954,11 +2063,11 @@ void ArrayWrite_Op::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         1u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of outputs must be equal to 1.", output_size));
     PADDLE_ENFORCE(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorArrayType>(),
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: ArrayWrite_Op.";
@@ -1975,7 +2084,7 @@ std::vector<pir::Type> ArrayWrite_Op::InferMeta(
   VLOG(4) << "Start infermeta ArrayWrite_Op";
   PADDLE_ENFORCE_EQ(input_values.size(),
                     3,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 3 but got %d.",
                         input_values.size()));
   pir::Value array_ = input_values[0];
@@ -1987,7 +2096,7 @@ std::vector<pir::Type> ArrayWrite_Op::InferMeta(
     array_type =
         array_.type().dyn_cast<paddle::dialect::DenseTensorArrayType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorArrayType or "
         "paddle::dialect::AllocatedDenseTensorArrayType"));
   }
@@ -2004,7 +2113,7 @@ std::vector<pir::Type> ArrayWrite_Op::InferMeta(
   if (x_.type().isa<paddle::dialect::DenseTensorType>()) {
     x_type = x_.type().dyn_cast<paddle::dialect::DenseTensorType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorType or "
         "paddle::dialect::AllocatedDenseTensorType"));
   }
@@ -2016,8 +2125,8 @@ std::vector<pir::Type> ArrayWrite_Op::InferMeta(
       x_type.offset());
   paddle::dialect::IrMetaTensor meta_x(&dense_x);
 
-  paddle::dialect::IrTensor dense_out;
-  paddle::dialect::IrMetaTensor meta_out(&dense_out);
+  paddle::dialect::IrTensor dense_array_out;
+  paddle::dialect::IrMetaTensor meta_out(&dense_array_out);
 
   phi::ArrayWriteInferMeta(
       meta_array, meta_x, &meta_out, phi::MetaConfig(false, false));
@@ -2025,28 +2134,39 @@ std::vector<pir::Type> ArrayWrite_Op::InferMeta(
   std::vector<pir::Type> argument_outputs;
   pir::Type out_type = paddle::dialect::DenseTensorArrayType::get(
       pir::IrContext::Instance(),
-      paddle::dialect::TransToIrDataType(dense_array.dtype()),
+      paddle::dialect::TransToIrDataType(dense_array_out.dtype()),
       x_type.dims(),
-      dense_array.layout());
+      dense_array_out.layout());
   // update array's dims as x's dims.
   // TOOD(chenxi67) Do not change if dim is set by custom
   if (array_.type().isa<paddle::dialect::AllocatedDenseTensorArrayType>()) {
     array_.set_type(paddle::dialect::AllocatedDenseTensorArrayType::get(
         pir::IrContext::Instance(),
         place,
-        array_type.dtype(),
+        paddle::dialect::TransToIrDataType(dense_array_out.dtype()),
         x_type.dims(),
-        array_type.data_layout()));
+        dense_array_out.layout()));
   } else if (array_.type().isa<paddle::dialect::DenseTensorArrayType>()) {
-    array_.set_type(
-        paddle::dialect::DenseTensorArrayType::get(pir::IrContext::Instance(),
-                                                   array_type.dtype(),
-                                                   x_type.dims(),
-                                                   array_type.data_layout()));
+    array_.set_type(paddle::dialect::DenseTensorArrayType::get(
+        pir::IrContext::Instance(),
+        paddle::dialect::TransToIrDataType(dense_array_out.dtype()),
+        x_type.dims(),
+        dense_array_out.layout()));
   }
 
   argument_outputs.push_back(out_type);
   return argument_outputs;
+}
+
+bool ArrayWrite_Op::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape = infer_context->GetShapeOrDataForValue(x()).shape();
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::RankedTensorArrayShapeOrDataDimExprs(x_shape)});
+
+  return true;
 }
 
 const char *ArrayToTensorOp::attributes_name[2] = {"axis",
@@ -2120,14 +2240,14 @@ void ArrayToTensorOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         1u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of inputs must be equal to 1.", input_size));
 
     PADDLE_ENFORCE((*this)
                        ->operand_source(0)
                        .type()
                        .isa<paddle::dialect::DenseTensorArrayType>(),
-                   phi::errors::PreconditionNotMet(
+                   common::errors::PreconditionNotMet(
                        "Type validation failed for the 0th input."));
   }
 
@@ -2145,15 +2265,15 @@ void ArrayToTensorOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         2u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of outputs must be equal to 1.", output_size));
     PADDLE_ENFORCE(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorType>(),
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "Type validation failed for the 0th output."));
     PADDLE_ENFORCE(
         (*this)->result(1).type().isa<paddle::dialect::DenseTensorType>(),
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: ArrayToTensorOp.";
@@ -2175,20 +2295,20 @@ std::vector<pir::Type> ArrayToTensorOp::InferMeta(
   VLOG(4) << "Start infermeta ArrayToTensorOp";
   PADDLE_ENFORCE_EQ(input_values.size(),
                     1,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 1 but got %d.",
                         input_values.size()));
   pir::Value x_ = input_values[0];
 
   PADDLE_ENFORCE_NE(attributes.find("axis"),
                     attributes.end(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "'value' Attribute is expected for IncrementOp. "));
   int32_t axis = attributes.at("axis").dyn_cast<pir::Int32Attribute>().data();
 
   PADDLE_ENFORCE_NE(attributes.find("use_stack"),
                     attributes.end(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "'value' Attribute is expected for IncrementOp. "));
   bool use_stack =
       attributes.at("use_stack").dyn_cast<pir::BoolAttribute>().data();
@@ -2198,7 +2318,7 @@ std::vector<pir::Type> ArrayToTensorOp::InferMeta(
   if (x_.type().isa<paddle::dialect::DenseTensorArrayType>()) {
     x_type = x_.type().dyn_cast<paddle::dialect::DenseTensorArrayType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorArrayType or "
         "paddle::dialect::AllocatedDenseTensorArrayType"));
   }
@@ -2240,6 +2360,45 @@ std::vector<pir::Type> ArrayToTensorOp::InferMeta(
       dense_out_index.offset());
   argument_outputs.push_back(out_index_dense_tensor_type);
   return argument_outputs;
+}
+
+bool ArrayToTensorOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  int axis =
+      this->attributes().at("axis").dyn_cast<pir::Int32Attribute>().data();
+  bool use_stack =
+      this->attributes().at("use_stack").dyn_cast<pir::BoolAttribute>().data();
+  const auto &x_shape_data =
+      infer_context->GetShapeOrDataForValue(x())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+
+  const auto &UseStackInfer = [&]() {
+    std::vector<symbol::DimExpr> result_shape = x_shape_data.GetShapeHint();
+    result_shape.insert(result_shape.begin() + axis,
+                        symbol::DimExpr{infer_context->GetNextSymName()});
+    return symbol::ShapeOrDataDimExprs(
+        symbol::TensorShapeOrDataDimExprs(result_shape));
+  };
+
+  const auto &UseConcatInfer = [&]() {
+    std::vector<symbol::DimExpr> result_shape = x_shape_data.GetShapeHint();
+    result_shape[axis] = symbol::DimExpr{infer_context->GetNextSymName()};
+    return symbol::ShapeOrDataDimExprs(
+        symbol::TensorShapeOrDataDimExprs(result_shape));
+  };
+  if (use_stack) {
+    infer_context->SetShapeOrDataForValue(out(), UseStackInfer());
+  } else {
+    infer_context->SetShapeOrDataForValue(out(), UseConcatInfer());
+  }
+
+  std::vector<symbol::DimExpr> out_index_shape{
+      symbol::DimExpr{infer_context->GetNextSymName()}};
+  infer_context->SetShapeOrDataForValue(
+      out_index(),
+      symbol::ShapeOrDataDimExprs(
+          symbol::TensorShapeOrDataDimExprs(out_index_shape)));
+  return true;
 }
 
 const char *TensorToArrayOp::attributes_name[2] = {"axis",
@@ -2319,20 +2478,20 @@ void TensorToArrayOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         2u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of inputs must be equal to 2.", input_size));
 
     PADDLE_ENFORCE((*this)
                        ->operand_source(0)
                        .type()
                        .isa<paddle::dialect::DenseTensorArrayType>(),
-                   phi::errors::PreconditionNotMet(
+                   common::errors::PreconditionNotMet(
                        "Type validation failed for the 0th input."));
     PADDLE_ENFORCE((*this)
                        ->operand_source(1)
                        .type()
                        .isa<paddle::dialect::DenseTensorType>(),
-                   phi::errors::PreconditionNotMet(
+                   common::errors::PreconditionNotMet(
                        "Type validation failed for the 1th input."));
   }
 
@@ -2350,11 +2509,11 @@ void TensorToArrayOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         1u,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The size %d of outputs must be equal to 1.", output_size));
     PADDLE_ENFORCE(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorArrayType>(),
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: TensorToArrayOp.";
@@ -2376,7 +2535,7 @@ std::vector<pir::Type> TensorToArrayOp::InferMeta(
   VLOG(4) << "Start infermeta TensorToArrayOp";
   PADDLE_ENFORCE_EQ(input_values.size(),
                     2,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 2 but got %d.",
                         input_values.size()));
   pir::Value x_ = input_values[0];
@@ -2387,13 +2546,13 @@ std::vector<pir::Type> TensorToArrayOp::InferMeta(
 
   PADDLE_ENFORCE_NE(attributes.find("axis"),
                     attributes.end(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "'value' Attribute is expected for IncrementOp. "));
   int32_t axis = attributes.at("axis").dyn_cast<pir::Int32Attribute>().data();
 
   PADDLE_ENFORCE_NE(attributes.find("use_stack"),
                     attributes.end(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "'value' Attribute is expected for IncrementOp. "));
   bool use_stack =
       attributes.at("use_stack").dyn_cast<pir::BoolAttribute>().data();
@@ -2404,7 +2563,7 @@ std::vector<pir::Type> TensorToArrayOp::InferMeta(
   if (x_.type().isa<paddle::dialect::DenseTensorArrayType>()) {
     x = x_.type().dyn_cast<paddle::dialect::DenseTensorArrayType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorArrayType or "
         "paddle::dialect::AllocatedDenseTensorArrayType"));
   }
@@ -2419,7 +2578,7 @@ std::vector<pir::Type> TensorToArrayOp::InferMeta(
   if (out_grad_.type().isa<paddle::dialect::DenseTensorType>()) {
     out_grad = out_grad_.type().dyn_cast<paddle::dialect::DenseTensorType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorType or "
         "paddle::dialect::AllocatedDenseTensorType"));
   }
@@ -2498,14 +2657,14 @@ void SliceArrayOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         3u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of inputs must be equal to 3.", input_size));
     PADDLE_ENFORCE_EQ((*this)
                           ->operand_source(0)
                           .type()
                           .isa<paddle::dialect::DenseTensorArrayType>(),
                       true,
-                      phi::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "Type validation failed for the 0th input, got %s.",
                           (*this)->operand_source(0).type()));
     PADDLE_ENFORCE_EQ(
@@ -2515,7 +2674,7 @@ void SliceArrayOp::VerifySig() {
                 .type()
                 .isa<paddle::dialect::DenseTensorType>(),
         true,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Type validation failed for the 1st input, got %s.",
             (*this)->operand_source(1).type()));
     PADDLE_ENFORCE_EQ(
@@ -2525,7 +2684,7 @@ void SliceArrayOp::VerifySig() {
                 .type()
                 .isa<paddle::dialect::DenseTensorType>(),
         true,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Type validation failed for the 1st input, got %s.",
             (*this)->operand_source(2).type()));
   }
@@ -2535,12 +2694,12 @@ void SliceArrayOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         1u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of outputs must be equal to 1.", output_size));
     PADDLE_ENFORCE_EQ(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorArrayType>(),
         true,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: SliceArrayOp.";
@@ -2572,9 +2731,9 @@ phi::IntArray CalcSliceBoundsFromValue(pir::Value starts_or_ends) {
         phi::IntArray(std::vector<int64_t>(starts_or_ends_size, -1));
     starts_or_ends_list.SetFromTensor(true);
   } else {
-    PADDLE_THROW(
-        phi::errors::Unimplemented("Only support VectorType or DenseTensorType "
-                                   "or AllocatedDenseTensorType"));
+    PADDLE_THROW(common::errors::Unimplemented(
+        "Only support VectorType or DenseTensorType "
+        "or AllocatedDenseTensorType"));
   }
   return starts_or_ends_list;
 }
@@ -2608,7 +2767,7 @@ std::vector<pir::Type> SliceArrayOp::InferMeta(
   VLOG(4) << "Start infermeta SliceArrayOp";
   PADDLE_ENFORCE_EQ(input_values.size(),
                     3,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 3 but got %d.",
                         input_values.size()));
   pir::Value input = input_values[0];
@@ -2620,7 +2779,7 @@ std::vector<pir::Type> SliceArrayOp::InferMeta(
   if (input.type().isa<paddle::dialect::DenseTensorArrayType>()) {
     input_type = input.type().dyn_cast<paddle::dialect::DenseTensorArrayType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::AllocatedDenseTensorArrayType or "
         "paddle::dialect::AllocatedDenseTensorArrayType"));
   }
@@ -2662,6 +2821,22 @@ phi::DataType SliceArrayOp::GetKernelTypeForVar(
   VLOG(4) << "Get KernelType for Var of op: SliceArrayOp";
 
   return expected_kernel_dtype;
+}
+bool SliceArrayOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &input_shape_or_data =
+      infer_context->GetShapeOrDataForValue(input())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  std::vector<symbol::DimExpr> input_shape = input_shape_or_data.GetShapeHint();
+  std::vector<symbol::DimExpr> out_shape;
+  for (size_t i = 0; i < input_shape.size(); ++i) {
+    out_shape.push_back(infer_context->GetNextSymName());
+  }
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::RankedTensorArrayShapeOrDataDimExprs(out_shape)});
+  return true;
 }
 
 OpInfoTuple SliceArrayDenseOp::GetOpInfo() {
@@ -2706,14 +2881,14 @@ void SliceArrayDenseOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         2u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of inputs must be equal to 2.", input_size));
     PADDLE_ENFORCE_EQ((*this)
                           ->operand_source(0)
                           .type()
                           .isa<paddle::dialect::DenseTensorArrayType>(),
                       true,
-                      phi::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "Type validation failed for the 0th input, got %s.",
                           (*this)->operand_source(0).type()));
     PADDLE_ENFORCE_EQ(
@@ -2723,7 +2898,7 @@ void SliceArrayDenseOp::VerifySig() {
                 .type()
                 .isa<paddle::dialect::DenseTensorType>(),
         true,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Type validation failed for the 1st input, got %s.",
             (*this)->operand_source(1).type()));
   }
@@ -2733,12 +2908,12 @@ void SliceArrayDenseOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         1u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of outputs must be equal to 1.", output_size));
     PADDLE_ENFORCE_EQ(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorType>(),
         true,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: SliceArrayOp.";
@@ -2772,7 +2947,7 @@ std::vector<pir::Type> SliceArrayDenseOp::InferMeta(
   VLOG(4) << "Start infermeta SliceArrayDenseOp";
   PADDLE_ENFORCE_EQ(input_values.size(),
                     2,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 2 but got %d.",
                         input_values.size()));
   pir::Value input = input_values[0];
@@ -2783,7 +2958,7 @@ std::vector<pir::Type> SliceArrayDenseOp::InferMeta(
   if (input.type().isa<paddle::dialect::DenseTensorArrayType>()) {
     input_type = input.type().dyn_cast<paddle::dialect::DenseTensorArrayType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorArrayType or "
         "paddle::dialect::AllocatedDenseTensorArrayType"));
   }
@@ -2821,6 +2996,23 @@ phi::DataType SliceArrayDenseOp::GetKernelTypeForVar(
   VLOG(4) << "Get KernelType for Var of op: SliceArrayOp";
 
   return expected_kernel_dtype;
+}
+
+bool SliceArrayDenseOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &input_shape_or_data =
+      infer_context->GetShapeOrDataForValue(input())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  std::vector<symbol::DimExpr> input_shape = input_shape_or_data.GetShapeHint();
+  std::vector<symbol::DimExpr> out_shape;
+  for (size_t i = 0; i < input_shape.size(); ++i) {
+    out_shape.push_back(infer_context->GetNextSymName());
+  }
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(out_shape)});
+  return true;
 }
 
 OpInfoTuple AssignArrayOp::GetOpInfo() {
@@ -2869,14 +3061,14 @@ void AssignArrayOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         1u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of inputs must be equal to 1.", input_size));
     PADDLE_ENFORCE_EQ((*this)
                           ->operand_source(0)
                           .type()
                           .isa<paddle::dialect::DenseTensorArrayType>(),
                       true,
-                      phi::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "Type validation failed for the 0th input, got %s.",
                           (*this)->operand_source(0).type()));
   }
@@ -2890,12 +3082,12 @@ void AssignArrayOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         1u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of outputs must be equal to 1.", output_size));
     PADDLE_ENFORCE_EQ(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorArrayType>(),
         true,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: AssignArrayOp.";
@@ -2921,7 +3113,7 @@ std::vector<pir::Type> AssignArrayOp::InferMeta(
   VLOG(4) << "Start infermeta AssignArrayOp";
   PADDLE_ENFORCE_EQ(input_values.size(),
                     1,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 1 but got %d.",
                         input_values.size()));
   pir::Value x_ = input_values[0];
@@ -2931,7 +3123,7 @@ std::vector<pir::Type> AssignArrayOp::InferMeta(
   if (x_.type().isa<paddle::dialect::DenseTensorArrayType>()) {
     x_type = x_.type().dyn_cast<paddle::dialect::DenseTensorArrayType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorArrayType or "
         "paddle::dialect::AllocatedDenseTensorArrayType"));
   }
@@ -2982,6 +3174,15 @@ OpInfoTuple AssignArray_Op::GetOpInfo() {
   return std::make_tuple(
       inputs, attributes, outputs, run_time_info, "assign_array");
 }
+bool AssignArrayOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape_or_data =
+      infer_context->GetShapeOrDataForValue(x())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  infer_context->SetShapeOrDataForValue(
+      out(), symbol::ShapeOrDataDimExprs{x_shape_or_data});
+  return true;
+}
 
 void AssignArray_Op::VerifySig() {
   VLOG(4)
@@ -2992,7 +3193,7 @@ void AssignArray_Op::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         1u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of inputs must be equal to 1.", input_size));
     PADDLE_ENFORCE_EQ(
         (*this)
@@ -3000,7 +3201,7 @@ void AssignArray_Op::VerifySig() {
             .type()
             .isa<paddle::dialect::DenseTensorArrayType>(),
         true,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Type validation failed for the 0th input, but got %s.",
             (*this)->operand_source(0).type()));
   }
@@ -3011,12 +3212,12 @@ void AssignArray_Op::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         1u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of outputs must be equal to 1.", output_size));
     PADDLE_ENFORCE_EQ(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorArrayType>(),
         true,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: AssignArray_Op.";
@@ -3033,7 +3234,7 @@ std::vector<pir::Type> AssignArray_Op::InferMeta(
   VLOG(4) << "Start infermeta AssignArray_Op";
   PADDLE_ENFORCE_EQ(input_values.size(),
                     1,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 1 but got %d.",
                         input_values.size()));
   pir::Value x_ = input_values[0];
@@ -3043,7 +3244,7 @@ std::vector<pir::Type> AssignArray_Op::InferMeta(
   if (x_.type().isa<paddle::dialect::DenseTensorArrayType>()) {
     x_type = x_.type().dyn_cast<paddle::dialect::DenseTensorArrayType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorArrayType or "
         "paddle::dialect::AllocatedDenseTensorArrayType"));
   }
@@ -3078,6 +3279,16 @@ phi::DataType AssignArray_Op::GetKernelTypeForVar(
   VLOG(4) << "Get KernelType for Var of op: AssignArray_Op";
 
   return expected_kernel_dtype;
+}
+
+bool AssignArray_Op::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape_or_data =
+      infer_context->GetShapeOrDataForValue(x())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  infer_context->SetShapeOrDataForValue(
+      out(), symbol::ShapeOrDataDimExprs{x_shape_or_data});
+  return true;
 }
 
 OpInfoTuple ExpandOp::GetOpInfo() {
@@ -3139,7 +3350,7 @@ void ExpandOp::Build(pir::Builder &builder,
 
   PADDLE_ENFORCE_NE(attributes.find("shape"),
                     attributes.end(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "'shape' Attribute is expected for ExpandOp. "));
   std::vector<int64_t> shape =
       attributes.at("shape")
@@ -3192,54 +3403,36 @@ bool ExpandOp::InferSymbolicShape(
       infer_context->GetShapeOrDataForValue(shape());
 
   const std::vector<symbol::DimExpr> &x_dims = x_shape_or_data.shape();
+  const std::vector<symbol::DimExpr> expand_shape =
+      details::GetOrCreateExprVecFromData(expand_shape_shape_or_data,
+                                          infer_context);
 
-  const std::vector<symbol::DimExpr> &expand_shape = [&] {
-    std::vector<symbol::DimExpr> dims;
+  const auto &DealWithMinusOneAndSetOutput =
+      [&](const std::vector<symbol::DimExpr> &expand_shape) {
+        std::vector<symbol::DimExpr> result_shape(expand_shape);
+        for (size_t i = 0; i < expand_shape.size(); i++) {
+          if (expand_shape[i] == symbol::DimExpr{-1}) {  // copy the dim from x
+            // the shape is right aligned
+            int index = i - (expand_shape.size() - x_dims.size());
+            PADDLE_ENFORCE_GE(index,
+                              0,
+                              common::errors::InvalidArgument(
+                                  "in ExpandOpInferSymbolicShape, "
+                                  "the dim to copy must >= 0, "
+                                  "but got %d",
+                                  index));
 
-    if (expand_shape_shape_or_data
-            .isa<symbol::TensorListShapeOrDataDimExprs>()) {
-      const auto &dims_list =
-          expand_shape_shape_or_data
-              .dyn_cast<symbol::TensorListShapeOrDataDimExprs>();
-      for (const auto &shape_data : dims_list) {
-        const auto &dim_expr = shape_data.data().has_value()
-                                   ? shape_data.data().value()[0]
-                                   : shape_data.shape()[0];
-        dims.emplace_back(dim_expr);
-      }
-    } else {
-      dims = expand_shape_shape_or_data.data().has_value()
-                 ? expand_shape_shape_or_data.data().value()
-                 : expand_shape_shape_or_data.shape();
-    }
-    if (dims.empty()) {
-      dims = std::vector<symbol::DimExpr>(x_dims.size(), -1);
-    }
-    return dims;
-  }();
+            result_shape[i] = x_dims[index];
+          }
+        }
 
-  std::vector<symbol::DimExpr> out_shape = expand_shape;
-  for (size_t i = 0; i < expand_shape.size(); i++) {
-    if (expand_shape[i] == -1) {  // copy the dim from x
-      // the shape is right aligned
-      int index = i - (expand_shape.size() - x_dims.size());
-      PADDLE_ENFORCE_GE(
-          index,
-          0,
-          phi::errors::InvalidArgument(
-              "in ExpandOpInferSymbolicShape, the dim to copy must >= 0, "
-              "but got %d",
-              index));
+        infer_context->SetShapeOrDataForValue(
+            out(),
+            symbol::ShapeOrDataDimExprs{
+                symbol::TensorShapeOrDataDimExprs(result_shape)});
+      };
 
-      out_shape[i] = x_dims[index];
-    }
-  }
-
-  infer_context->SetShapeOrDataForValue(
-      out(),
-      symbol::ShapeOrDataDimExprs{
-          symbol::TensorShapeOrDataDimExprs(out_shape)});
-
+  DealWithMinusOneAndSetOutput(expand_shape);
   return true;
 }
 
@@ -3251,21 +3444,21 @@ void ExpandOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         2u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of inputs must be equal to 2.", input_size));
     PADDLE_ENFORCE_EQ((*this)
                           ->operand_source(0)
                           .type()
                           .isa<paddle::dialect::DenseTensorType>(),
                       true,
-                      phi::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "Type validation failed for the 0th input."));
     if (auto vec_type =
             (*this)->operand_source(1).type().dyn_cast<pir::VectorType>()) {
       for (size_t i = 0; i < vec_type.size(); ++i) {
         PADDLE_ENFORCE_EQ(vec_type[i].isa<paddle::dialect::DenseTensorType>(),
                           true,
-                          phi::errors::InvalidArgument(
+                          common::errors::InvalidArgument(
                               "Type validation failed for the 1th input."));
       }
     } else {
@@ -3274,7 +3467,7 @@ void ExpandOp::VerifySig() {
                             .type()
                             .isa<paddle::dialect::DenseTensorType>(),
                         true,
-                        phi::errors::InvalidArgument(
+                        common::errors::InvalidArgument(
                             "Type validation failed for the 1th input."));
     }
   }
@@ -3288,12 +3481,12 @@ void ExpandOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         1u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of outputs must be equal to 1.", output_size));
     PADDLE_ENFORCE_EQ(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorType>(),
         true,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: ExpandOp.";
@@ -3310,7 +3503,7 @@ std::vector<pir::Type> ExpandOp::InferMeta(
   VLOG(4) << "Start infermeta ExpandOp";
   PADDLE_ENFORCE_EQ(input_values.size(),
                     2,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 2 but got %d.",
                         input_values.size()));
   pir::Value x_ = input_values[0];
@@ -3322,7 +3515,7 @@ std::vector<pir::Type> ExpandOp::InferMeta(
   if (x_.type().isa<paddle::dialect::DenseTensorType>()) {
     x = x_.type().dyn_cast<paddle::dialect::DenseTensorType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorType or "
         "paddle::dialect::AllocatedDenseTensorType"));
   }
@@ -3342,8 +3535,9 @@ std::vector<pir::Type> ExpandOp::InferMeta(
       auto shape_item = shape.defining_op()
                             ->dyn_cast<paddle::dialect::FullOp>()
                             .attribute("value")
-                            .dyn_cast<pir::FloatAttribute>()
-                            .data();
+                            .dyn_cast<paddle::dialect::ScalarAttribute>()
+                            .data()
+                            .to<double>();
       vec_shape = {static_cast<int64_t>(shape_item)};
     } else if (shape.isa<pir::OpResult>() &&
                shape.defining_op()->isa<paddle::dialect::StackOp>()) {
@@ -3355,6 +3549,21 @@ std::vector<pir::Type> ExpandOp::InferMeta(
         auto tmp = ParseValueShape(item, is_from_tensor);
         vec_shape.insert(vec_shape.end(), tmp.begin(), tmp.end());
       }
+    } else if (shape.isa<pir::OpResult>() &&
+               shape.defining_op()->isa<paddle::dialect::ShapeOp>()) {
+      // tensor_shape may come from shape op
+      // x0.shape = [-1,3]
+      // tensor_shape = shape(x0)
+      // y = reshape(x, tensor_shape)
+      pir::Value inputs = shape.defining_op()->operand_source(0);
+      vec_shape = common::vectorize(
+          inputs.type().dyn_cast<paddle::dialect::DenseTensorType>().dims());
+      // change -1 to -2 which represents real dynamic shape
+      for (size_t i = 0; i < vec_shape.size(); ++i) {
+        if (vec_shape[i] == -1) {
+          vec_shape[i] = -2;
+        }
+      }
     } else if (shape.type().isa<pir::VectorType>()) {
       size_t shape_size = shape.type().dyn_cast<pir::VectorType>().size();
       vec_shape = std::vector<int64_t>(shape_size, -2);
@@ -3362,6 +3571,47 @@ std::vector<pir::Type> ExpandOp::InferMeta(
     } else if (shape.type().isa<paddle::dialect::DenseTensorType>()) {
       common::DDim shape_dim =
           shape.type().dyn_cast<paddle::dialect::DenseTensorType>().dims();
+
+      if (shape.isa<pir::OpResult>() &&
+          shape.defining_op()->isa<paddle::dialect::ConcatOp>()) {
+        // tensor_shape may come from concat
+        // tensor_shape = concat([full(1), full(2)])
+        // y = reshape(x, tensor_shape)
+        const std::vector<pir::Value> &inputs = shape.defining_op()
+                                                    ->operand_source(0)
+                                                    .defining_op()
+                                                    ->operands_source();
+
+        if (shape_dim.size() == 1 &&
+            shape_dim[0] == static_cast<int64_t>(inputs.size())) {
+          for (auto item : inputs) {
+            if (item.defining_op()->isa<paddle::dialect::ShapeOp>()) {
+              pir::Value shape_input = item.defining_op()->operand_source(0);
+              int64_t value = shape_input.type()
+                                  .dyn_cast<paddle::dialect::DenseTensorType>()
+                                  .dims()[0];
+              vec_shape.push_back(value);
+
+            } else if (shape.defining_op()->isa<paddle::dialect::FullOp>()) {
+              auto shape_item =
+                  shape.defining_op()
+                      ->dyn_cast<paddle::dialect::FullOp>()
+                      .attribute("value")
+                      .dyn_cast<paddle::dialect::ScalarAttribute>()
+                      .data()
+                      .to<double>();
+              vec_shape.push_back(static_cast<int64_t>(shape_item));
+
+            } else {
+              vec_shape.push_back(-1);
+            }
+            // From expand infermeta, -2 means this dim from tensor var.
+            std::replace(vec_shape.begin(), vec_shape.end(), -1, -2);
+          }
+          return vec_shape;
+        }
+      }
+
       size_t shape_size = common::product(shape_dim);
       if (common::contain_unknown_dim(shape_dim)) {
         shape_size = 1;
@@ -3369,7 +3619,7 @@ std::vector<pir::Type> ExpandOp::InferMeta(
       vec_shape = std::vector<int64_t>(shape_size, -2);
       *is_from_tensor = true;
     } else {
-      PADDLE_THROW(phi::errors::Unimplemented(
+      PADDLE_THROW(common::errors::Unimplemented(
           "Only support VectorType or DenseTensorType "
           "or AllocatedDenseTensorType"));
     }
@@ -3469,7 +3719,7 @@ void IncrementOp::Build(pir::Builder &builder,
 
   PADDLE_ENFORCE_NE(attributes.find("value"),
                     attributes.end(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "'value' Attribute is expected for IncrementOp. "));
   float value = attributes.at("value").dyn_cast<pir::FloatAttribute>().data();
 
@@ -3498,14 +3748,14 @@ void IncrementOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         1u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of inputs must be equal to 1.", input_size));
     PADDLE_ENFORCE_EQ((*this)
                           ->operand_source(0)
                           .type()
                           .isa<paddle::dialect::DenseTensorType>(),
                       true,
-                      phi::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "Type validation failed for the 0th input, got %s.",
                           (*this)->operand_source(0).type()));
   }
@@ -3514,11 +3764,11 @@ void IncrementOp::VerifySig() {
     auto &attributes = this->attributes();
     PADDLE_ENFORCE_GT(attributes.count("value"),
                       0,
-                      phi::errors::InvalidArgument("value does not exist."));
+                      common::errors::InvalidArgument("value does not exist."));
     PADDLE_ENFORCE_EQ(
         attributes.at("value").isa<pir::FloatAttribute>(),
         true,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Type of attribute: value is not pir::FloatAttribute."));
   }
   VLOG(4) << "Verifying outputs:";
@@ -3527,12 +3777,12 @@ void IncrementOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         1u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of outputs must be equal to 1.", output_size));
     PADDLE_ENFORCE_EQ(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorType>(),
         true,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: IncrementOp.";
@@ -3554,14 +3804,14 @@ std::vector<pir::Type> IncrementOp::InferMeta(
   VLOG(4) << "Start infermeta IncrementOp";
   PADDLE_ENFORCE_EQ(input_values.size(),
                     1,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 1 but got %d.",
                         input_values.size()));
   pir::Value x_ = input_values[0];
 
   PADDLE_ENFORCE_NE(attributes.find("value"),
                     attributes.end(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "'value' Attribute is expected for IncrementOp. "));
   float value = attributes.at("value").dyn_cast<pir::FloatAttribute>().data();
 
@@ -3570,7 +3820,7 @@ std::vector<pir::Type> IncrementOp::InferMeta(
   if (x_.type().isa<paddle::dialect::DenseTensorType>()) {
     x = x_.type().dyn_cast<paddle::dialect::DenseTensorType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorType or "
         "paddle::dialect::AllocatedDenseTensorType"));
   }
@@ -3614,7 +3864,8 @@ bool IncrementOp::InferSymbolicShape(
     pir::InferSymbolicShapeContext *infer_context) {
   const symbol::ShapeOrDataDimExprs &operand_shape_or_data =
       infer_context->GetShapeOrDataForValue(x());
-  infer_context->SetShapeOrDataForValue(out(), operand_shape_or_data);
+  infer_context->SetShapeOrDataForValue(
+      out(), symbol::TensorShapeOrDataDimExprs{operand_shape_or_data.shape()});
   return true;
 }
 
@@ -3673,7 +3924,7 @@ void Increment_Op::Build(pir::Builder &builder,
 
   PADDLE_ENFORCE_NE(attributes.find("value"),
                     attributes.end(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "'value' Attribute is expected for Increment_Op. "));
   float value = attributes.at("value").dyn_cast<pir::FloatAttribute>().data();
 
@@ -3703,14 +3954,14 @@ void Increment_Op::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         1u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of inputs must be equal to 1.", input_size));
     PADDLE_ENFORCE_EQ((*this)
                           ->operand_source(0)
                           .type()
                           .isa<paddle::dialect::DenseTensorType>(),
                       true,
-                      phi::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "Type validation failed for the 0th input, got %s.",
                           (*this)->operand_source(0).type()));
   }
@@ -3719,11 +3970,11 @@ void Increment_Op::VerifySig() {
     auto &attributes = this->attributes();
     PADDLE_ENFORCE_GT(attributes.count("value"),
                       0,
-                      phi::errors::InvalidArgument("value does not exist."));
+                      common::errors::InvalidArgument("value does not exist."));
     PADDLE_ENFORCE_EQ(
         attributes.at("value").isa<pir::FloatAttribute>(),
         true,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Type of attribute: value is not pir::FloatAttribute."));
   }
   VLOG(4) << "Verifying outputs:";
@@ -3732,12 +3983,12 @@ void Increment_Op::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         1u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of outputs must be equal to 1.", output_size));
     PADDLE_ENFORCE_EQ(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorType>(),
         true,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: Increment_Op.";
@@ -3759,14 +4010,14 @@ std::vector<pir::Type> Increment_Op::InferMeta(
   VLOG(4) << "Start infermeta Increment_Op";
   PADDLE_ENFORCE_EQ(input_values.size(),
                     1,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 1 but got %d.",
                         input_values.size()));
   pir::Value x_ = input_values[0];
 
   PADDLE_ENFORCE_NE(attributes.find("value"),
                     attributes.end(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "'value' Attribute is expected for Increment_Op. "));
   float value = attributes.at("value").dyn_cast<pir::FloatAttribute>().data();
 
@@ -3775,7 +4026,7 @@ std::vector<pir::Type> Increment_Op::InferMeta(
   if (x_.type().isa<paddle::dialect::DenseTensorType>()) {
     x = x_.type().dyn_cast<paddle::dialect::DenseTensorType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorType or "
         "paddle::dialect::AllocatedDenseTensorType"));
   }
@@ -3819,7 +4070,8 @@ bool Increment_Op::InferSymbolicShape(
     pir::InferSymbolicShapeContext *infer_context) {
   const symbol::ShapeOrDataDimExprs &operand_shape_or_data =
       infer_context->GetShapeOrDataForValue(x());
-  infer_context->SetShapeOrDataForValue(out(), operand_shape_or_data);
+  infer_context->SetShapeOrDataForValue(
+      out(), symbol::TensorShapeOrDataDimExprs{operand_shape_or_data.shape()});
   return true;
 }
 
@@ -3866,6 +4118,7 @@ void AssignOut_Op::Build(pir::Builder &builder,
   std::vector<pir::Type> argument_outputs =
       AssignOut_Op::InferMeta(argument_inputs, &argument_attributes);
   argument.AddOutputs(argument_outputs.begin(), argument_outputs.end());
+  argument.AddAttributes(argument_attributes);
   constexpr char kStopGradientAttrName[] = "stop_gradient";
   auto stop_gradient0 =
       argument.inputs[0].attribute<pir::BoolAttribute>(kStopGradientAttrName);
@@ -3882,14 +4135,14 @@ void AssignOut_Op::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         2u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of inputs must be equal to 2.", input_size));
     PADDLE_ENFORCE_EQ((*this)
                           ->operand_source(0)
                           .type()
                           .isa<paddle::dialect::DenseTensorType>(),
                       true,
-                      phi::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "Type validation failed for the 0th input, got %s.",
                           (*this)->operand_source(0).type()));
     PADDLE_ENFORCE_EQ((*this)
@@ -3897,7 +4150,7 @@ void AssignOut_Op::VerifySig() {
                           .type()
                           .isa<paddle::dialect::DenseTensorType>(),
                       true,
-                      phi::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "Type validation failed for the 1th input, got %s.",
                           (*this)->operand_source(1).type()));
   }
@@ -3911,12 +4164,12 @@ void AssignOut_Op::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         1u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of outputs must be equal to 1.", output_size));
     PADDLE_ENFORCE_EQ(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorType>(),
         true,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: AssignOut_Op.";
@@ -3932,7 +4185,7 @@ std::vector<pir::Type> AssignOut_Op::InferMeta(
     pir::AttributeMap *p_attributes) {
   PADDLE_ENFORCE_EQ(input_values.size(),
                     2,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 2 but got %d.",
                         input_values.size()));
 
@@ -3943,7 +4196,7 @@ std::vector<pir::Type> AssignOut_Op::InferMeta(
   if (x_.type().isa<paddle::dialect::DenseTensorType>()) {
     x = x_.type().dyn_cast<paddle::dialect::DenseTensorType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorType or "
         "paddle::dialect::AllocatedDenseTensorType"));
   }
@@ -3970,6 +4223,22 @@ std::vector<pir::Type> AssignOut_Op::InferMeta(
       dense_out.layout(),
       dense_out.lod(),
       dense_out.offset());
+#ifdef PADDLE_WITH_DISTRIBUTE
+  // Auto Parallel condition
+  if (auto dist_type = input_values[1].type().dyn_cast<DistTypeInterface>()) {
+    ProcessMeshAttribute op_mesh = dist_type.process_mesh_attr();
+    auto ctx = pir::IrContext::Instance();
+    std::vector<pir::Attribute> dist_operand_attrs{
+        dist_type.tensor_dist_attr(),
+        dist_type.tensor_dist_attr(),
+    },
+        dist_result_attrs{dist_type.tensor_dist_attr()};
+    argument_outputs.push_back(dist_type);
+    (*p_attributes)[kAttrOpDistAttr] = OperationDistAttribute::get(
+        ctx, op_mesh, dist_operand_attrs, dist_result_attrs);
+    return argument_outputs;
+  }
+#endif
   argument_outputs.push_back(out_dense_tensor_type);
 
   return argument_outputs;
@@ -3979,14 +4248,15 @@ bool AssignOut_Op::InferSymbolicShape(
     pir::InferSymbolicShapeContext *infer_context) {
   const auto &x_shape =
       infer_context->GetShapeOrDataForValue(operand_source(0));
-  const auto &inplace_output_shape =
-      infer_context->GetShapeOrDataForValue(operand_source(1));
+  // const auto &inplace_output_shape =
+  //     infer_context->GetShapeOrDataForValue(operand_source(1));
   infer_context->SetShapeOrDataForValue(result(0), x_shape);
-  CHECK(x_shape.shape().size() == inplace_output_shape.shape().size());
-  for (size_t i = 0; i < x_shape.shape().size(); ++i) {
-    infer_context->AddEqualCstr(x_shape.shape()[i],
-                                inplace_output_shape.shape()[i]);
-  }
+  // TODO(Hongqing-work): add this after fixing while op error
+  // CHECK(x_shape.shape().size() == inplace_output_shape.shape().size());
+  // for (size_t i = 0; i < x_shape.shape().size(); ++i) {
+  //   infer_context->AddEqualCstr(x_shape.shape()[i],
+  //                               inplace_output_shape.shape()[i]);
+  // }
   return true;
 }
 
@@ -4052,7 +4322,7 @@ std::vector<pir::Type> ShapeBroadcastOp::InferMeta(
   VLOG(4) << "Start infermeta ShapeBroadcastOp";
   PADDLE_ENFORCE_EQ(input_values.size(),
                     2,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 2 but got %d.",
                         input_values.size()));
   pir::Value x_ = input_values[0];
@@ -4063,7 +4333,7 @@ std::vector<pir::Type> ShapeBroadcastOp::InferMeta(
   if (x_.type().isa<paddle::dialect::DenseTensorType>()) {
     x = x_.type().dyn_cast<paddle::dialect::DenseTensorType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorType or "
         "paddle::dialect::AllocatedDenseTensorType"));
   }
@@ -4072,7 +4342,7 @@ std::vector<pir::Type> ShapeBroadcastOp::InferMeta(
   if (y_.type().isa<paddle::dialect::DenseTensorType>()) {
     y = y_.type().dyn_cast<paddle::dialect::DenseTensorType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorType or "
         "paddle::dialect::AllocatedDenseTensorType"));
   }
@@ -4127,7 +4397,7 @@ symbol::DimExpr GetBroadcastDimExpr(const symbol::DimExpr &lhs,
     return symbol::SimplifyDimExpr(symbol::Broadcast<symbol::DimExpr>{
         symbol::List<symbol::DimExpr>{lhs, rhs}});
   }
-  PADDLE_THROW(phi::errors::Fatal("Dead code"));
+  PADDLE_THROW(common::errors::Fatal("Dead code"));
 }
 
 }  // namespace
@@ -4138,7 +4408,7 @@ std::vector<symbol::DimExpr> ComputeBroadcastShape(
   PADDLE_ENFORCE_GE(
       large_shape.size(),
       small_shape.size(),
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "Size of large_shape is expected to be greater or equal size of "
           "small_shape, but got [%d] >= [%d].",
           large_shape.size(),
@@ -4164,11 +4434,11 @@ bool ShapeBroadcastOp::InferSymbolicShape(
   const auto &y_data_shape = infer_context->GetShapeOrDataForValue(y);
   PADDLE_ENFORCE_EQ(x_data_shape.data().has_value(),
                     true,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Value x comes from ShapeOp, it must have data"));
   PADDLE_ENFORCE_EQ(y_data_shape.data().has_value(),
                     true,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Value y comes from ShapeOp, it must have data"));
   const auto &x_data = x_data_shape.data().value();
   const auto &y_data = y_data_shape.data().value();
@@ -4224,14 +4494,14 @@ void MemcpyD2hMultiIoOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         1u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of inputs must be equal to 1.", input_size));
     PADDLE_ENFORCE_EQ((*this)
                           ->operand_source(0)
                           .type()
                           .isa<paddle::dialect::DenseTensorArrayType>(),
                       true,
-                      phi::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "Type validation failed for the 0th input, got %s.",
                           (*this)->operand_source(0).type()));
   }
@@ -4241,11 +4511,11 @@ void MemcpyD2hMultiIoOp::VerifySig() {
     PADDLE_ENFORCE_GT(
         attributes.count("dst_place_type"),
         0,
-        phi::errors::InvalidArgument("dst_place_type does not exist."));
+        common::errors::InvalidArgument("dst_place_type does not exist."));
     PADDLE_ENFORCE_EQ(
         attributes.at("dst_place_type").isa<pir::Int32Attribute>(),
         true,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Type of attribute: dst_place_type is not pir::Int32Attribute."));
   }
   VLOG(4) << "Verifying outputs:";
@@ -4254,14 +4524,14 @@ void MemcpyD2hMultiIoOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         1u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of outputs must be equal to 1.", output_size));
     auto output_0_type = (*this)->result(0).type();
 
     PADDLE_ENFORCE_EQ(
         output_0_type.isa<paddle::dialect::DenseTensorArrayType>(),
         true,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: MemcpyD2hMultiIoOp.";
@@ -4277,7 +4547,7 @@ std::vector<pir::Type> MemcpyD2hMultiIoOp::InferMeta(
     pir::AttributeMap *p_attributes) {
   PADDLE_ENFORCE_EQ(input_values.size(),
                     1,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 1 but got %d.",
                         input_values.size()));
 
@@ -4287,7 +4557,7 @@ std::vector<pir::Type> MemcpyD2hMultiIoOp::InferMeta(
   if (x_.type().isa<paddle::dialect::DenseTensorArrayType>()) {
     x_type = x_.type().dyn_cast<paddle::dialect::DenseTensorArrayType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorArrayType or "
         "paddle::dialect::AllocatedDenseTensorArrayType"));
   }
@@ -4365,14 +4635,14 @@ void ArrayPopOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         input_size,
         1u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of inputs must be equal to 1.", input_size));
     PADDLE_ENFORCE_EQ((*this)
                           ->operand_source(0)
                           .type()
                           .isa<paddle::dialect::DenseTensorArrayType>(),
                       true,
-                      phi::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "Type validation failed for the 0th input, got %s.",
                           (*this)->operand_source(0).type()));
   }
@@ -4381,11 +4651,11 @@ void ArrayPopOp::VerifySig() {
     auto &attributes = this->attributes();
     PADDLE_ENFORCE_GT(attributes.count("index"),
                       0,
-                      phi::errors::InvalidArgument("index does not exist."));
+                      common::errors::InvalidArgument("index does not exist."));
     PADDLE_ENFORCE_EQ(
         attributes.at("index").isa<pir::Int32Attribute>(),
         true,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Type of attribute: index is not pir::Int32Attribute."));
   }
   VLOG(4) << "Verifying outputs:";
@@ -4394,17 +4664,17 @@ void ArrayPopOp::VerifySig() {
     PADDLE_ENFORCE_EQ(
         output_size,
         2u,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The size %d of outputs must be equal to 2.", output_size));
     PADDLE_ENFORCE_EQ(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorArrayType>(),
         true,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Type validation failed for the 0th output."));
     PADDLE_ENFORCE_EQ(
         (*this)->result(1).type().isa<paddle::dialect::DenseTensorType>(),
         true,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Type validation failed for the 1st output."));
   }
   VLOG(4) << "End Verifying for: ArrayPopOp.";
@@ -4447,7 +4717,7 @@ std::vector<pir::Type> ArrayPopOp::InferMeta(
   VLOG(4) << "Start infermeta ArrayPopOp";
   PADDLE_ENFORCE_EQ(input_values.size(),
                     1,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Num of inputs is expected to be 1 but got %d.",
                         input_values.size()));
   pir::Value input = input_values[0];
@@ -4457,14 +4727,14 @@ std::vector<pir::Type> ArrayPopOp::InferMeta(
   if (input.type().isa<paddle::dialect::DenseTensorArrayType>()) {
     input_type = input.type().dyn_cast<paddle::dialect::DenseTensorArrayType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorArrayType or "
         "paddle::dialect::AllocatedDenseTensorArrayType"));
   }
 
   PADDLE_ENFORCE_NE(attributes.find("index"),
                     attributes.end(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "'index' Attribute is expected for ArrayPopOp. "));
   int index = attributes.at("index").dyn_cast<pir::Int32Attribute>().data();
 
@@ -4512,9 +4782,36 @@ phi::DataType ArrayPopOp::GetKernelTypeForVar(
   return expected_kernel_dtype;
 }
 
+bool ArrayPopOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &input_shape_or_data =
+      infer_context->GetShapeOrDataForValue(input())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  std::vector<symbol::DimExpr> input_shape = input_shape_or_data.GetShapeHint();
+  size_t input_rank = input_shape.size();
+  auto gen_shape_with_size = [&](size_t size) {
+    std::vector<symbol::DimExpr> shape;
+    for (size_t i = 0; i < size; ++i) {
+      shape.push_back(infer_context->GetNextSymName());
+    }
+    return shape;
+  };
+  std::vector<symbol::DimExpr> out_shape = gen_shape_with_size(input_rank);
+  std::vector<symbol::DimExpr> array_out_shape =
+      gen_shape_with_size(input_rank);
+  infer_context->SetShapeOrDataForValue(
+      array_out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::RankedTensorArrayShapeOrDataDimExprs(array_out_shape)});
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(out_shape)});
+  return true;
+}
+
 }  // namespace paddle::dialect
 
-IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::AddNOp)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::SplitGradOp)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::AddN_Op)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::AddNArrayOp)
@@ -4522,6 +4819,7 @@ IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::AssignOut_Op)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::FusedGemmEpilogueOp)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::FusedGemmEpilogueGradOp)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::CreateArrayOp)
+IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::FetchOp)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::CreateArrayLikeOp)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::ArrayLengthOp)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::ArrayReadOp)
@@ -4538,4 +4836,5 @@ IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::Increment_Op)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::MemcpyD2hMultiIoOp)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::ShapeBroadcastOp)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::ArrayPopOp)
+IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::ShareVarOp)
 #endif

@@ -83,7 +83,7 @@ void MultiEncoderXPUKernel(
   } else {
     PADDLE_ENFORCE(
         false,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "x.dims().size() MUST be 2 or 3, but get [%d].", x.dims().size()));
   }
   DDim out_dims;
@@ -141,8 +141,8 @@ void MultiEncoderXPUKernel(
       fc_weight_data_XPUTypeFP16.push_back(
           reinterpret_cast<const XPUTypeFP16*>(fc_weight[i]->data()));
     } else {
-      // Int8 weight also convert to int16_t* for temperary storage.
-      // The kenerl dytpe of int8 is choosen by quant_type in
+      // Int8 weight also convert to int16_t* for temporary storage.
+      // The kernel dtype of int8 is chosen by quant_type in
       // xpu::transformer_encoder
       fc_weight_data_int16_t.push_back(
           reinterpret_cast<const int16_t*>(fc_weight[i]->data()));
@@ -222,7 +222,7 @@ void MultiEncoderXPUKernel(
     if (!enable_int8 && local_quant) {
       TRANSFORMER_ENCODER_KERNEL_IMPL(XPUTypeFP16, XPUTypeFP16, float)
     } else {
-      // The kenerl dytpe of int8 is choosen by quant_type in
+      // The kernel dtype of int8 is chosen by quant_type in
       // xpu::transformer_encoder This template args, int16_t, is only for skip
       // quant fc
       TRANSFORMER_ENCODER_KERNEL_IMPL(XPUTypeFP16, int16_t, int16_t)

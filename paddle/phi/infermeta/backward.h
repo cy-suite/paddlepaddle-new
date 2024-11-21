@@ -352,9 +352,20 @@ void InverseGradInferMeta(const MetaTensor& out,
                           const MetaTensor& dout,
                           MetaTensor* dx);
 
-void KernelWithXShapeInferMeta(const MetaTensor& xshape,
+void KernelWithXShapeInferMeta(const MetaTensor& x,
                                const MetaTensor& out,
                                MetaTensor* dx);
+
+void GradSameWithXInferMeta(const MetaTensor& xshape,
+                            const MetaTensor& out,
+                            MetaTensor* dx);
+
+void LodResetGradInferMeta(const MetaTensor& x,
+                           const MetaTensor& out_grad,
+                           const std::vector<int>& target_lod,
+                           bool append,
+                           MetaTensor* x_grad,
+                           MetaConfig config = MetaConfig());
 
 void LUGradInferMeta(const MetaTensor& x,
                      const MetaTensor& out,
@@ -406,6 +417,7 @@ void MaxPoolWithIndexGradInferMeta(const MetaTensor& x,
                                    const std::vector<int>& paddings,
                                    bool global_pooling,
                                    bool adaptive,
+                                   bool ceil_mode,
                                    MetaTensor* dx);
 
 void MeshgridGradInferMeta(const std::vector<const MetaTensor*>& inputs,
@@ -512,6 +524,13 @@ void RealAndImagGradInferMeta(const MetaTensor& out_grad, MetaTensor* dx);
 void ReshapeDoubleGradInferMeta(const MetaTensor& out_grad,
                                 const MetaTensor& x_grad_grad,
                                 MetaTensor* out_grad_grad);
+
+void RmsNormGradInferMeta(const MetaTensor& x,
+                          const MetaTensor& norm_weight,
+                          const MetaTensor& norm_bias,
+                          MetaTensor* x_grad,
+                          MetaTensor* norm_weight_grad,
+                          MetaTensor* norm_bias_grad);
 
 void RnnGradInferMeta(const MetaTensor& x,
                       const std::vector<const MetaTensor*>& pre_state,

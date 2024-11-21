@@ -24,20 +24,40 @@ from paddle._typing import *  # noqa: F403
 
 # isort: on
 
+from collections.abc import Iterator
 from typing import Any, Literal, overload
 
 import numpy.typing as npt
-from typing_extensions import TypeAlias
 
 import paddle
-from paddle import _typing
+from paddle import (
+    ParamAttr,  # noqa: F401
+    _typing,
+)
+from paddle.base.dygraph.tensor_patch_methods import (
+    TensorHookRemoveHelper,  # noqa: F401
+)
+from paddle.tensor.linalg import _POrder  # noqa: F401
+from paddle.tensor.stat import _Interpolation  # noqa: F401
 
-# avoid same name: Tensor.slice
-_Slice: TypeAlias = slice
+# annotation: ${eager_param_base_begin}
+class AbstractEagerParamBase:
+    # annotation: ${eager_param_base_docstring}
 
-class Tensor:
-    # annotation: ${tensor_docstring}
+    # annotation: ${eager_param_base_attributes}
 
+    # annotation: ${eager_param_base_methods}
+    @property
+    def trainable(self) -> bool: ...
+    @trainable.setter
+    def trainable(self, trainable: bool) -> None: ...
+
+    # annotation: ${eager_param_base_alias}
+
+# annotation: ${eager_param_base_end}
+
+# annotation: ${tensor_begin}
+class AbstractTensor:
     # annotation: ${tensor_attributes}
 
     # If method defined below, we should make the method's signature complete,
@@ -89,7 +109,7 @@ class Tensor:
             dtype: paddle::framework::proto::VarType::Type,
             dims: vector<int>,
             name: std::string,
-            type: paddle::framework::proto::VarType::LodTensor,
+            type: paddle::framework::proto::VarType::DenseTensor,
             persistable: bool)
         3. (multi-place)
         (should have at least one parameter, one parameter equals to case 4, zero
@@ -155,9 +175,12 @@ class Tensor:
     def __radd__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
     def __rsub__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
     def __rmul__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
+    def __rmatmul__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
     def __rtruediv__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
+    def __rmod__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
     def __rpow__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
-    def __rdiv__(self, y: _typing.TensorLike) -> Tensor: ...
+    def __rdiv__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
+    def __rfloordiv__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
 
     # type cast
     def __bool__(self) -> bool: ...
@@ -165,29 +188,16 @@ class Tensor:
     def __int__(self) -> int: ...
     def __long__(self) -> float: ...
     def __nonzero__(self) -> bool: ...
+    def __complex__(self) -> complex: ...
 
     # emulating container types
     def __getitem__(
         self,
-        item: (
-            None
-            | bool
-            | int
-            | _Slice
-            | tuple[None | bool | int | _Slice, ...]
-            | list[Tensor | bool | int]
-        ),
+        item: _typing.TensorIndex,
     ) -> Tensor: ...
     def __setitem__(
         self,
-        item: (
-            None
-            | bool
-            | int
-            | _Slice
-            | tuple[None | bool | int | _Slice, ...]
-            | list[Tensor | bool | int]
-        ),
+        item: _typing.TensorIndex,
         value: Tensor | npt.NDArray[Any] | complex | bool,
     ) -> None: ...
     def __len__(self) -> int: ...
@@ -198,6 +208,7 @@ class Tensor:
     # unary arithmetic operations
     def __invert__(self) -> Tensor: ...
     def __neg__(self) -> Tensor: ...
+    def __pos__(self) -> Tensor: ...
 
     # basic
     def __hash__(self) -> int: ...
@@ -232,6 +243,7 @@ class Tensor:
     @property
     def grad_fn(self) -> Any: ...
     def is_contiguous(self) -> bool: ...
+    def is_coalesced(self) -> bool: ...
     def is_dense(self) -> bool: ...
     def is_dist(self) -> bool: ...
     @property
@@ -267,7 +279,7 @@ class Tensor:
     def process_mesh(self) -> paddle.distributed.ProcessMesh | None: ...
     def rows(self) -> list[int]: ...
     def set_string_list(self, value: str) -> None: ...
-    def set_vocab(self, value: dict) -> None: ...
+    def set_vocab(self, value: dict[str, int]) -> None: ...
     @property
     def shape(self) -> list[int]: ...
     @property
@@ -281,5 +293,17 @@ class Tensor:
     @property
     def type(self) -> Any: ...
 
+    # virtual methods
+    def __iter__(self) -> Iterator[Tensor]: ...  # For iterating over the tensor
+
+    # private methods
+    def _grad_ivar(self) -> Tensor | None: ...
+
     # annotation: ${tensor_alias}
+
+class Tensor(AbstractTensor, AbstractEagerParamBase):
+    # annotation: ${tensor_docstring}
+
     __qualname__: Literal["Tensor"]
+
+# annotation: ${tensor_end}

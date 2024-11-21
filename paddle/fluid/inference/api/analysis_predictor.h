@@ -28,9 +28,9 @@
 #include "paddle/fluid/inference/api/helper.h"
 #include "paddle/fluid/inference/api/paddle_inference_api.h"
 #include "paddle/fluid/inference/api/resource_manager.h"
-#include "paddle/fluid/platform/device/gpu/gpu_types.h"
-#include "paddle/fluid/platform/float16.h"
 #include "paddle/phi/common/bfloat16.h"
+#include "paddle/phi/common/float16.h"
+#include "paddle/phi/core/platform/device/gpu/gpu_types.h"
 #include "paddle/utils/string/printf.h"
 
 #if defined(PADDLE_WITH_DISTRIBUTE) && defined(PADDLE_WITH_PSCORE)
@@ -48,7 +48,7 @@
 #include "paddle/pir/include/core/program.h"
 
 namespace paddle_infer {
-using float16 = paddle::platform::float16;
+using float16 = phi::dtype::float16;
 using bfloat16 = phi::dtype::bfloat16;
 namespace experimental {
 class InternalUtils;
@@ -336,13 +336,6 @@ class AnalysisPredictor : public PaddlePredictor {
   ///
   bool MkldnnQuantize();
 
-  ///
-  /// \brief save program to model and save parameters to params
-  ///
-  /// \param[in] dir path to save the model
-  ///
-  void SaveOptimModel(const std::string &dir);
-
  protected:
   ///
   /// \brief Prepare predictor's required programs, including loading model
@@ -393,11 +386,11 @@ class AnalysisPredictor : public PaddlePredictor {
   bool LoadParameters();
 
   ///
-  /// \brief Load model parameters.
+  /// \brief Save or Load pir model parameters.
   ///
   /// \return Whether the function executed successfully
   ///
-  bool LoadPirParameters();
+  bool SaveOrLoadPirParameters(bool for_save);
 
   ///
   /// \brief Prepare input data, only used in Run()
@@ -574,7 +567,7 @@ class AnalysisPredictor : public PaddlePredictor {
   std::unique_ptr<Argument> argument_ = nullptr;
   Argument::fusion_statis_t fusion_statis_;
   std::unique_ptr<NaiveExecutor> executor_;
-  platform::Place place_;
+  phi::Place place_;
   std::shared_ptr<framework::Scope> scope_;
   framework::Scope *sub_scope_{nullptr};
   std::shared_ptr<framework::ProgramDesc> inference_program_;
@@ -585,23 +578,15 @@ class AnalysisPredictor : public PaddlePredictor {
   std::map<std::string, size_t> feed_names_;
   // Sorted according to the idx.
   std::map<size_t, std::string> idx2feeds_;
+  std::map<std::string, std::vector<int64_t>> feed_name2shapes_;
   std::vector<framework::OpDesc *> fetches_;
   std::vector<pir::Operation *> pir_fetches_;
   std::map<size_t, std::string> idx2fetches_;
+  std::map<std::string, std::vector<int64_t>> fetch_name2shapes_;
 
   phi::DataType model_precision_{phi::DataType::FLOAT32};
 
-#if PADDLE_WITH_DNNL
-  // Helper class to perform quantization
-  class MkldnnQuantizer;
-  MkldnnQuantizer *mkldnn_quantizer_{nullptr};
-
-#if PADDLE_WITH_TESTING
-  friend class MkldnnQuantizerTest;
-#endif
-#endif
-
-  // Memory buffer for feed inputs. The temporary LoDTensor will cause serious
+  // Memory buffer for feed inputs. The temporary DenseTensor will cause serious
   // concurrency problems, wrong results and memory leak, so cache them.
   std::vector<phi::DenseTensor> feed_tensors_;
   details::TensorArrayBatchCleaner tensor_array_batch_cleaner_;

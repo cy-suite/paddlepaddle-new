@@ -128,12 +128,11 @@ void SetOp(ProgramDesc* prog,
 }
 
 void InitTensorHolder(Scope* scope,
-                      const paddle::platform::Place& place,
+                      const phi::Place& place,
                       const char* var_name) {
   auto x = scope->Var(var_name);
   auto tensor = x->GetMutable<phi::DenseTensor>();
-  tensor->mutable_data(
-      place, framework::TransToPhiDataType(proto::VarType::FP32), 1);
+  tensor->mutable_data(place, phi::TransToPhiDataType(proto::VarType::FP32), 1);
 }
 
 void PreparePass(std::unique_ptr<ir::Graph>* graph,
@@ -568,13 +567,15 @@ const std::vector<std::string> immutables = {"reshape2",
 
 class TestImmutables : public testing::TestWithParam<std::string> {};
 
-TEST_P(TestImmutables, immutable_basic) { TestImmutableOp(GetParam()); }
+TEST_P(TestImmutables, immutable_basic) {  // NOLINT
+  TestImmutableOp(GetParam());
+}
 
-TEST_P(TestImmutables, immutable_between_non_quantized) {
+TEST_P(TestImmutables, immutable_between_non_quantized) {  // NOLINT
   TestImmutableOpBetweenNonQuantizedOp(GetParam());
 }
 
-TEST_P(TestImmutables, immutable_many_outputs) {
+TEST_P(TestImmutables, immutable_many_outputs) {  // NOLINT
   TestImmutableOpWithManyOutputs(GetParam());
 }
 
@@ -718,13 +719,15 @@ const std::vector<std::vector<std::string>> elementwises = {
 class TestElementwises
     : public testing::TestWithParam<std::vector<std::string>> {};
 
-TEST_P(TestElementwises, elementwise_basic) { TestElementwise(GetParam()); }
+TEST_P(TestElementwises, elementwise_basic) {  // NOLIN
+  TestElementwise(GetParam());
+}
 
-TEST_P(TestElementwises, elementwise_output_scale_missing) {
+TEST_P(TestElementwises, elementwise_output_scale_missing) {  // NOLINT
   TestElementwiseOutputScaleMissing(GetParam());
 }
 
-TEST_P(TestElementwises, elementwise_unsigned_and_signed_input) {
+TEST_P(TestElementwises, elementwise_unsigned_and_signed_input) {  // NOLINT
   TestElementwiseUnsignedAndSignedInput(GetParam());
 }
 

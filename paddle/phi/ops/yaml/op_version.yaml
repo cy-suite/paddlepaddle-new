@@ -89,6 +89,14 @@
         - add_input : ValueTensor
           comment : In order to support multi-tag task.
 
+- op : c_split
+  version :
+    - checkpoint : Upgrade c_split delete 1 attribute[use_calc_stream].
+      action :
+        - delete_attr : use_calc_stream
+          comment : eject CUDA operations to calculation stream.
+          default : false
+
 - op : clip
   version :
     - checkpoint :  Upgrade clip add a new input [Min]
@@ -115,6 +123,15 @@
             align_size
             of each place to be compatible with before.
           default : -1
+
+- op : collect_fpn_proposals
+  version :
+    - checkpoint : Upgrade collect_fpn_proposals add a new input [MultiLevelRoIsNum] and add a new output [RoisNum].
+      action :
+        - add_input : multi_level_rois_num
+          comment : The RoIs' number of each image on multiple levels. The number on each level has the shape of (N), N is the number of images.
+        - add_output : rois_num
+          comment : The number of RoIs in each image.
 
 - op : conv2d
   version :
@@ -302,6 +319,22 @@
           comment : If true, im_shape pixel offset is 1.
           default : "true"
 
+- op : global_gather
+  version :
+    - checkpoint : Upgrade global_gather delete 1 attribute[use_calc_stream].
+      action :
+        - delete_attr : use_calc_stream
+          comment : eject CUDA operations to calculation stream.
+          default : false
+
+- op : global_scatter
+  version :
+    - checkpoint : Upgrade global_scatter delete 1 attribute[use_calc_stream].
+      action :
+        - delete_attr : use_calc_stream
+          comment : eject CUDA operations to calculation stream.
+          default : false
+
 - op : greater_equal
   version :
     - checkpoint : Upgrade compare ops, add a new attribute [force_cpu]
@@ -325,6 +358,16 @@
         - add_attr : mode
           comment : In order to specify interpolation mode
           default : std::string("bilinear")
+
+- op : histogram
+  version :
+    - checkpoint : Upgrade histogram, add a new Input [Weight] and a new attribute [density]
+      action :
+        - add_input : Weight
+          comment : The weight of each value in the input tensor.
+        - add_attr : density
+          comment : If true, the histogram is normalized to form a probability density.
+          default : "false"
 
 - op : instance_norm
   version :
@@ -353,6 +396,17 @@
           comment : The Output beta1 power accumulator. 'Beta1PowOut' is dispensable.
         - add_output : Beta2PowOut
           comment : The Output beta2 power accumulator. 'Beta2PowOut' is dispensable.
+
+- op : legacy_generate_proposals
+  version :
+    - checkpoint : Incompatible upgrade of output [RpnRoisLod].
+      action :
+        - delete_output : RpnRoisLod
+          comment : Delete RpnRoisLod due to incorrect output name and it is not used in object detection models yet.
+    - checkpoint : Upgrade generate_proposals add a new output [RpnRoisNum]
+      action :
+        - add_output : rpn_rois_num
+          comment : The number of Rpn RoIs in each image. RpnRoisNum is dispensable.
 
 - op : less_equal
   version :
@@ -392,6 +446,22 @@
         - add_output : RoisNum
           comment : The number of RoIs in each image.
 
+- op : max_pool2d_with_index
+  version :
+    - checkpoint : Upgrade max_pool2d_with_index, add a new attribute [ceil_mode].
+      action :
+        - add_attr : ceil_mode
+          comment : When true, will use ceil instead of floor to compute the output shape.
+          default : "false"
+
+- op : max_pool3d_with_index
+  version :
+    - checkpoint : Upgrade max_pool3d_with_index, add a new attribute [ceil_mode].
+      action :
+        - add_attr : ceil_mode
+          comment : When true, will use ceil instead of floor to compute the output shape.
+          default : "false"
+
 - op : momentum
   version :
     - checkpoint : Upgrade momentum add 4 attributes [regularization_method, regularization_coeff, multi_precision, rescale_grad].
@@ -428,6 +498,22 @@
         - add_attr : asvector
           comment : Compute as vector when axis is None and input is matrix.
           default : "false"
+
+- op : partial_allgather
+  version :
+    - checkpoint : Upgrade partial_allgather delete 1 attribute[use_calc_stream].
+      action :
+        - delete_attr : use_calc_stream
+          comment : eject CUDA operations to calculation stream.
+          default : false
+
+- op : partial_send
+  version :
+    - checkpoint : Upgrade partial_send delete 1 attribute[use_calc_stream].
+      action :
+        - delete_attr : use_calc_stream
+          comment : eject CUDA operations to calculation stream.
+          default : false
 
 - op : pixel_shuffle
   version :
@@ -477,6 +563,14 @@
       action :
         - add_input : ShiftsTensor
           comment : The number of places by which the elements of the tensor are shifted.
+
+- op : round
+  version :
+    - checkpoint : Add a new attribute [deciamls] to round
+      action :
+        - add_attr : decimals
+          comment : The number of decimal places rounded
+          default : 0.0
 
 - op : softmax_with_cross_entropy
   version :

@@ -15,13 +15,13 @@
 #pragma once
 
 #include "paddle/phi/common/reduce_type.h"
+#include "paddle/phi/core/distributed/auto_parallel/placement_types.h"
 #include "paddle/phi/core/distributed/auto_parallel/process_mesh.h"
 #include "paddle/pir/include/core/attribute.h"
 #include "paddle/pir/include/core/builtin_attribute.h"
 #include "paddle/pir/include/core/builtin_attribute_storage.h"
 #include "paddle/pir/include/core/utils.h"
 #include "paddle/utils/flat_hash_map.h"
-
 namespace paddle {
 namespace dialect {
 class ProcessMeshAttrStorage;
@@ -61,6 +61,8 @@ class ProcessMeshAttribute : public pir::AttrBase<ProcessMeshAttribute,
                                   const std::vector<int64_t>& shape,
                                   const std::vector<int64_t>& process_ids,
                                   const std::vector<std::string>& dim_names);
+
+  static std::string name() { return "a_process_mesh"; }
 };
 
 class TensorDistAttribute : public pir::AttrBase<TensorDistAttribute,
@@ -75,6 +77,8 @@ class TensorDistAttribute : public pir::AttrBase<TensorDistAttribute,
   std::set<int64_t> partial_dims() const;
 
   const flat_hash_map<int64_t, phi::ReduceType>& partial_status() const;
+
+  phi::distributed::Placements placements() const;
 
   // construct a new attribute with new mesh attribute.
   TensorDistAttribute CopyWithNewMesh(ProcessMeshAttribute mesh) const {
@@ -96,6 +100,8 @@ class TensorDistAttribute : public pir::AttrBase<TensorDistAttribute,
                dims_mapping,
                partial_status);
   }
+
+  static std::string name() { return "a_tensor_dist"; }
 };
 
 class OperationDistAttribute : public pir::AttrBase<OperationDistAttribute,
@@ -115,17 +121,24 @@ class OperationDistAttribute : public pir::AttrBase<OperationDistAttribute,
 
   uint32_t num_results() const;
 
+  int64_t chunk_id() const;
+
   static OperationDistAttribute get(pir::IrContext* ctx,
                                     ProcessMeshAttribute mesh,
                                     const std::vector<Attribute>& operands,
-                                    const std::vector<Attribute>& results);
+                                    const std::vector<Attribute>& results,
+                                    const int64_t& chunk_id = -1);
 
   static OperationDistAttribute get(pir::IrContext* ctx,
                                     const phi::distributed::ProcessMesh& mesh,
                                     const std::vector<Attribute>& operands,
-                                    const std::vector<Attribute>& results) {
-    return get(ctx, ProcessMeshAttribute::get(ctx, mesh), operands, results);
+                                    const std::vector<Attribute>& results,
+                                    const int64_t& chunk_id = -1) {
+    return get(
+        ctx, ProcessMeshAttribute::get(ctx, mesh), operands, results, chunk_id);
   }
+
+  static std::string name() { return "a_op_dist"; }
 };
 
 }  // namespace dialect

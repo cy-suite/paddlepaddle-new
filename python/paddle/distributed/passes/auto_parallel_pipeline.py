@@ -33,7 +33,7 @@ from .pass_utils import _create_program, _insert_sync_for_fthenb_1f1b
 __not_shape_var_type__ = [
     core.VarDesc.VarType.READER,
     core.VarDesc.VarType.STEP_SCOPES,
-    core.VarDesc.VarType.LOD_TENSOR_ARRAY,
+    core.VarDesc.VarType.DENSE_TENSOR_ARRAY,
     core.VarDesc.VarType.FEED_MINIBATCH,
     core.VarDesc.VarType.FETCH_LIST,
 ]
@@ -369,7 +369,7 @@ class PipelinePass(PassBase):
 
                     if not is_after_send_op or not is_after_recv_op:
                         if self._cur_pp_stage == self._pp_stages - 1:
-                            # NOTE: the c_sync_calc_stream about c_allgather cannot be removed
+                            # NOTE: the c_sync_calc_stream about all_gather cannot be removed
                             if (
                                 op.type == "c_sync_calc_stream"
                                 and src_block.ops[i + 1].type == "send_v2"
@@ -380,7 +380,11 @@ class PipelinePass(PassBase):
                             # HACKCODE: the varname of send_v2 op, cast op should be recorded for brpc comm
                             if (
                                 op.type
-                                not in ["recv_2", "assign", "c_allgather"]
+                                not in [
+                                    "recv_2",
+                                    "assign",
+                                    "all_gather",
+                                ]
                                 and op.has_attr('op_namescope')
                                 and "/auto_parallel/reshard"
                                 in op.attr('op_namescope')

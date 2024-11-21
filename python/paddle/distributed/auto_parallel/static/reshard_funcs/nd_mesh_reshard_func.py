@@ -15,13 +15,17 @@
 
 import paddle
 import paddle.distributed as dist
+from paddle.distributed.auto_parallel.static.utils import split_mesh
 
+from ..process_group import new_process_group
 from .base_reshard_func import (
     ReshardFunction,
     copy_dist_attr_with_new_member,
     is_partial,
 )
 from .p_to_r_reshard_func import PToRReshardFunction
+from .p_to_s_reshard_func import PToSReshardFunction
+from .r_to_p_reshard_func import RToPReshardFunction
 from .r_to_s_reshard_func import RToSReshardFunction
 from .s_to_r_reshard_func import SToRReshardFunction
 from .same_status_reshard_func import SameStatusReshardFunction
@@ -86,6 +90,7 @@ class NdMeshReshardFunction(ReshardFunction):
             return False
         if out_mesh.ndim <= 1:
             return False
+
         # check dims_mapping and partial_status
         if src_dist_attr == dst_dist_attr:
             return False
@@ -113,59 +118,8 @@ class NdMeshReshardFunction(ReshardFunction):
         process_mesh = dst_dist_attr.process_mesh
 
         # Step2. Convert the non-replicated dimensions to replicated.
-        # Step2.1. convert partial status to replicated
-        if is_partial(src_dist_attr):
-            in_partial_status = src_dist_attr.partial_status
-            out_partial_status = dst_dist_attr.partial_status  # read-only
-            # convert each partial dim to replicated with corresponding
-            # 1-D mesh function
-            for partial_dim, partial_type in in_partial_status.items():
-                if partial_dim in out_partial_status:
-                    continue
 
-                # get the partial status after converting
-                tmp_partial_status = src_dist_attr.partial_status
-                tmp_partial_status.pop(partial_dim)
-                tmp_dst_dist_attr = copy_dist_attr_with_new_member(
-                    src_dist_attr,
-                    new_partial_status=tmp_partial_status,
-                )
-                tmp_dst_type = paddle.base.libpaddle.pir.cvt_to_dist_type(
-                    src_value.type(), tmp_dst_dist_attr
-                )
-
-                # get the process_mesh on specific axis
-                sub_mesh = get_1D_sub_process_mesh(process_mesh, partial_dim)
-
-                # calculate corresponding 1-D dist_attr of src_dst_attr
-                in_one_dim_partial_status = {0: partial_type}
-                in_one_dim_dist_attr = (
-                    paddle.base.libpaddle.pir.create_tensor_dist_attribute(
-                        sub_mesh,
-                        [-1] * tensor_ndim,
-                        in_one_dim_partial_status,
-                    )
-                )
-
-                # calculate corresponding 1-D dist_attr of dst_dst_attr
-                out_one_dim_dist_attr = (
-                    paddle.base.libpaddle.pir.create_tensor_dist_attribute(
-                        sub_mesh,
-                        [-1] * tensor_ndim,
-                        {},
-                    )
-                )
-
-                one_dim_func = PToRReshardFunction()
-                src_value = one_dim_func.reshard(
-                    in_one_dim_dist_attr,
-                    out_one_dim_dist_attr,
-                    src_value,
-                    tmp_dst_type,
-                )
-                src_dist_attr = tmp_dst_dist_attr
-
-        # Step2.2 convert shard status to replicated
+        # Step2.1 convert shard status to replicated
         for i in range(first_diff_axis, -1, -1):
             in_mesh_axis = src_dist_attr.dims_mapping[i]
             out_mesh_axis = dst_dist_attr.dims_mapping[i]
@@ -181,7 +135,9 @@ class NdMeshReshardFunction(ReshardFunction):
             tmp_dst_type = paddle.base.libpaddle.pir.cvt_to_dist_type(
                 src_value.type(), tmp_dst_dist_attr
             )
-
+            sub_mesh_list = split_mesh(process_mesh, in_mesh_axis)
+            for sub_mesh in sub_mesh_list:
+                new_process_group(sorted(sub_mesh.process_ids))
             # get the process_mesh on specific axis
             sub_mesh = get_1D_sub_process_mesh(process_mesh, in_mesh_axis)
 
@@ -211,6 +167,77 @@ class NdMeshReshardFunction(ReshardFunction):
             )
             src_dist_attr = tmp_dst_dist_attr
 
+        # Step2.2. convert partial status to replicated
+        if is_partial(src_dist_attr):
+            in_partial_status = src_dist_attr.partial_status
+            out_partial_status = dst_dist_attr.partial_status  # read-only
+            # convert each partial dim to replicated with corresponding
+            # 1-D mesh function
+            for partial_dim, partial_type in in_partial_status.items():
+                if partial_dim in out_partial_status:
+                    if out_partial_status[partial_dim] != partial_type:
+                        raise NotImplementedError(
+                            f"Reshard tensor from one partial type {partial_type} to another parital type {out_partial_status[partial_dim]} is not supported yet."
+                        )
+                    continue
+
+                p_to_s = False
+                if partial_dim in dst_dist_attr.dims_mapping:
+                    p_to_s = True
+                    shard_index = dst_dist_attr.dims_mapping.index(partial_dim)
+                # get the partial status after converting
+                tmp_partial_status = src_dist_attr.partial_status
+                tmp_partial_status.pop(partial_dim)
+
+                tmp_dims_mapping = src_dist_attr.dims_mapping
+                if p_to_s:
+                    tmp_dims_mapping[shard_index] = partial_dim
+
+                tmp_dst_dist_attr = copy_dist_attr_with_new_member(
+                    src_dist_attr,
+                    new_dims_mapping=tmp_dims_mapping,
+                    new_partial_status=tmp_partial_status,
+                )
+                tmp_dst_type = paddle.base.libpaddle.pir.cvt_to_dist_type(
+                    src_value.type(), tmp_dst_dist_attr
+                )
+                sub_mesh_list = split_mesh(process_mesh, partial_dim)
+                for sub_mesh in sub_mesh_list:
+                    new_process_group(sorted(sub_mesh.process_ids))
+                # get the process_mesh on specific axis
+                sub_mesh = get_1D_sub_process_mesh(process_mesh, partial_dim)
+
+                # calculate corresponding 1-D dist_attr of src_dst_attr
+                in_one_dim_partial_status = {0: partial_type}
+                in_one_dim_dist_attr = (
+                    paddle.base.libpaddle.pir.create_tensor_dist_attribute(
+                        sub_mesh,
+                        [-1] * tensor_ndim,
+                        in_one_dim_partial_status,
+                    )
+                )
+                out_one_dim_dims_mapping = [-1] * tensor_ndim
+                one_dim_func = PToRReshardFunction()
+                if p_to_s:
+                    out_one_dim_dims_mapping[shard_index] = 0
+                    one_dim_func = PToSReshardFunction()
+
+                # calculate corresponding 1-D dist_attr of dst_dst_attr
+                out_one_dim_dist_attr = (
+                    paddle.base.libpaddle.pir.create_tensor_dist_attribute(
+                        sub_mesh,
+                        out_one_dim_dims_mapping,
+                        {},
+                    )
+                )
+
+                src_value = one_dim_func.reshard(
+                    in_one_dim_dist_attr,
+                    out_one_dim_dist_attr,
+                    src_value,
+                    tmp_dst_type,
+                )
+                src_dist_attr = tmp_dst_dist_attr
         # Step3. Convert the replicated status to the status in dst_dist_attr
         # Step3.1 convert replicated to partial
         if is_partial(dst_dist_attr):
@@ -219,9 +246,37 @@ class NdMeshReshardFunction(ReshardFunction):
             for partial_dim, partial_type in out_partial_status.items():
                 if partial_dim in in_partial_status:
                     continue
-                raise NotImplementedError(
-                    "RToPReshardFunction is not implemented"
+
+                sub_mesh = get_1D_sub_process_mesh(process_mesh, partial_dim)
+
+                in_one_dim_dist_attr = (
+                    paddle.base.libpaddle.pir.create_tensor_dist_attribute(
+                        sub_mesh,
+                        [-1] * tensor_ndim,
+                        {},
+                    )
                 )
+                out_one_dim_dist_attr = (
+                    paddle.base.libpaddle.pir.create_tensor_dist_attribute(
+                        sub_mesh, [-1] * tensor_ndim, {0: partial_type}
+                    )
+                )
+
+                tmp_dst_dist_attr = copy_dist_attr_with_new_member(
+                    dst_dist_attr,
+                    new_partial_status=src_dist_attr.partial_status,
+                )
+                tmp_dst_type = paddle.base.libpaddle.pir.cvt_to_dist_type(
+                    src_value.type(), tmp_dst_dist_attr
+                )
+
+                src_value = RToPReshardFunction().reshard(
+                    in_one_dim_dist_attr,
+                    out_one_dim_dist_attr,
+                    src_value,
+                    tmp_dst_type,
+                )
+                src_dist_attr = tmp_dst_dist_attr
 
         # Step3.2 convert replicated to shard
         for i in range(first_diff_axis, -1, -1):

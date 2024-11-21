@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import unittest
 
 import numpy as np
@@ -20,7 +21,6 @@ import paddle
 import paddle.nn.functional as F
 from paddle import base
 from paddle.base import core
-from paddle.pir_utils import test_with_pir_api
 
 
 def adaptive_start_index(index, input_size, output_size):
@@ -174,11 +174,16 @@ def lp_pool1D_forward_naive(
 class TestPool1D_API(unittest.TestCase):
     def setUp(self):
         np.random.seed(123)
-        self.places = [base.CPUPlace()]
+        self.places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not core.is_compiled_with_cuda()
+        ):
+            self.places.append(base.CPUPlace())
         if core.is_compiled_with_cuda():
             self.places.append(base.CUDAPlace(0))
 
-    @test_with_pir_api
     def check_avg_static_results(self, place):
         with paddle.static.program_guard(paddle.static.Program()):
             input = paddle.static.data(
@@ -198,7 +203,6 @@ class TestPool1D_API(unittest.TestCase):
             )
             np.testing.assert_allclose(fetches[0], result_np, rtol=1e-05)
 
-    @test_with_pir_api
     def check_avg_static_results_fp16(self, place):
         if core.is_compiled_with_cuda():
             with paddle.static.program_guard(paddle.static.Program()):
@@ -263,7 +267,6 @@ class TestPool1D_API(unittest.TestCase):
             result = avg_pool1d_dg(input)
             np.testing.assert_allclose(result.numpy(), result_np, rtol=1e-05)
 
-    @test_with_pir_api
     def check_max_static_results(self, place):
         paddle.enable_static()
         with paddle.static.program_guard(
@@ -352,7 +355,28 @@ class TestPool1D_API(unittest.TestCase):
 
             np.testing.assert_allclose(result.numpy(), result_np, rtol=1e-05)
 
-    @test_with_pir_api
+    def check_max_pool_return_mask_ceil(self, place):
+        with base.dygraph.guard(place):
+            input_np = np.random.random([1, 3, 6]).astype("float32")
+            input = paddle.to_tensor(input_np)
+            result, _ = F.max_pool1d(
+                input,
+                kernel_size=5,
+                stride=5,
+                padding=0,
+                ceil_mode=True,
+                return_mask=True,
+            )
+            result_np = max_pool1D_forward_naive(
+                input_np,
+                ksize=[5],
+                strides=[5],
+                paddings=[0],
+                ceil_mode=True,
+            )
+            np.testing.assert_allclose(result.numpy(), result_np, rtol=1e-05)
+            self.assertEqual(result.shape, list(result_np.shape))
+
     def check_lp_static_results(self, place):
         with paddle.static.program_guard(paddle.static.Program()):
             input = paddle.static.data(
@@ -379,7 +403,6 @@ class TestPool1D_API(unittest.TestCase):
             )
             np.testing.assert_allclose(fetches[0], result_np, rtol=1e-05)
 
-    @test_with_pir_api
     def check_lp_static_results_fp16(self, place):
         if core.is_compiled_with_cuda():
             with paddle.static.program_guard(paddle.static.Program()):
@@ -410,7 +433,6 @@ class TestPool1D_API(unittest.TestCase):
                     fetches[0], result_np.astype(np.float16), rtol=1e-05
                 )
 
-    @test_with_pir_api
     def check_lp_static_results_fp64(self, place):
         if core.is_compiled_with_cuda():
             with paddle.static.program_guard(paddle.static.Program()):
@@ -626,6 +648,7 @@ class TestPool1D_API(unittest.TestCase):
             self.check_avg_dygraph_padding_same(place)
             self.check_max_dygraph_return_index_results(place)
             self.check_avg_static_results_fp16(place)
+            self.check_max_pool_return_mask_ceil(place)
             self.check_lp_static_results(place)
             self.check_lp_dygraph_results(place)
             self.check_lp_static_results_fp16(place)

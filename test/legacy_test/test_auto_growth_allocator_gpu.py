@@ -25,6 +25,8 @@ if base.is_compiled_with_cuda():
         {
             'FLAGS_allocator_strategy': 'auto_growth',
             'FLAGS_auto_growth_chunk_size_in_mb': 10,
+            # Async allocator does not support auto growth allocator.
+            'FLAGS_use_cuda_malloc_async_allocator': 0,
         }
     )
 
@@ -42,14 +44,14 @@ class TestMemoryLimit(unittest.TestCase):
         other_dim = int(1024 * 1024 / 4)
 
         place = base.CUDAPlace(0)
-        t = base.LoDTensor()
+        t = base.DenseTensor()
         t.set(
             np.ndarray([int(self._limit / 2), other_dim], dtype='float32'),
             place,
         )
         del t
 
-        t = base.LoDTensor()
+        t = base.DenseTensor()
         large_np = np.ndarray([2 * self._limit, other_dim], dtype='float32')
 
         try:

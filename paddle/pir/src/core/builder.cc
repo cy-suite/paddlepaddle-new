@@ -23,7 +23,16 @@
 namespace pir {
 /// Create an operation given the fields represented as an OperationState.
 Operation *Builder::Build(OperationArgument &&argument) {
-  return Insert(Operation::Create(std::move(argument)));
+  Operation *op = Insert(Operation::Create(std::move(argument)));
+  // TODO(ljz): Generalize here to be a hook function in the future.
+  // we add op_role attribute only when it is not equal to -1.
+  if (op_role_ != -1) {
+    op->set_attribute("op_role", Int32Attribute::get(context_, op_role_));
+  }
+  if (chunk_id_ != -1) {
+    op->set_attribute("chunk_id", Int32Attribute::get(context_, chunk_id_));
+  }
+  return op;
 }
 
 /// Creates an operation with the given fields.
@@ -59,6 +68,12 @@ IndexType Builder::index_type() { return IndexType::get(context_); }
 Complex64Type Builder::complex64_type() { return Complex64Type::get(context_); }
 Complex128Type Builder::complex128_type() {
   return Complex128Type::get(context_);
+}
+Float8E4M3FNType Builder::float8e4m3fn_type() {
+  return Float8E4M3FNType::get(context_);
+}
+Float8E5M2Type Builder::float8e5m2_type() {
+  return Float8E5M2Type::get(context_);
 }
 StrAttribute Builder::str_attr(const std::string &value) {
   return StrAttribute::get(context_, value);

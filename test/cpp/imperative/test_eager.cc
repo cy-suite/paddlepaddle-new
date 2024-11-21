@@ -25,8 +25,8 @@
 #include "paddle/fluid/imperative/tracer.h"
 #include "paddle/fluid/imperative/type_defs.h"
 #include "paddle/fluid/imperative/var_helper.h"
-#include "paddle/fluid/memory/memcpy.h"
-#include "paddle/fluid/platform/device_context.h"
+#include "paddle/phi/core/memory/memcpy.h"
+#include "paddle/phi/core/platform/device_context.h"
 
 namespace paddle {
 namespace imperative {
@@ -40,7 +40,7 @@ extern std::shared_ptr<GradOpNode> CreateGradOpNode(
     const NameTensorMap& outs,
     const framework::AttributeMap& attrs,
     const framework::AttributeMap& default_attrs,
-    const platform::Place& place,
+    const phi::Place& place,
     const std::map<std::string, std::string>& inplace_map);
 
 TEST(test_eager, eager_debug) {
@@ -64,7 +64,7 @@ TEST(test_create_node, eager_node) {
                    outs,
                    framework::AttributeMap{},
                    framework::AttributeMap{},
-                   platform::CPUPlace(),
+                   phi::CPUPlace(),
                    {});
 }
 TEST(test_var_helper, eager_var_helper) {
@@ -73,7 +73,7 @@ TEST(test_var_helper, eager_var_helper) {
   InitializeVariable(&var1, paddle::framework::proto::VarType::STEP_SCOPES);
   InitializeVariable(&var2, paddle::framework::proto::VarType::LOD_RANK_TABLE);
   InitializeVariable(&var3,
-                     paddle::framework::proto::VarType::LOD_TENSOR_ARRAY);
+                     paddle::framework::proto::VarType::DENSE_TENSOR_ARRAY);
   InitializeVariable(&var4, paddle::framework::proto::VarType::STRINGS);
   InitializeVariable(&var5, paddle::framework::proto::VarType::VOCAB);
   InitializeVariable(&var6, paddle::framework::proto::VarType::READER);
@@ -86,10 +86,10 @@ TEST(test_var_helper, eager_var_helper) {
   egr_tensor->MutableVar()
       ->GetMutable<phi::SelectedRows>()
       ->mutable_value()
-      ->mutable_data<float>(platform::CPUPlace());
+      ->mutable_data<float>(phi::CPUPlace());
   egr_tensor2->MutableVar()->GetMutable<framework::LoDRankTable>();
   VLOG(6) << "egr_tensor create with ";
-  ASSERT_TRUE(platform::is_cpu_place(GetPlace<egr::EagerVariable>(egr_tensor)));
+  ASSERT_TRUE(phi::is_cpu_place(GetPlace<egr::EagerVariable>(egr_tensor)));
   ASSERT_TRUE(GetDataType<egr::EagerVariable>(egr_tensor) ==
               framework::proto::VarType::FP32);
   GetCachedValue<egr::EagerVariable>(egr_tensor,
@@ -103,7 +103,7 @@ TEST(test_var_helper, eager_var_helper) {
                                      egr_tensor2);
   ASSERT_ANY_THROW(GetPlace<egr::EagerVariable>(egr_tensor2));
   ASSERT_ANY_THROW(SetType<egr::EagerVariable>(
-      egr_tensor, paddle::framework::proto::VarType::LOD_TENSOR_ARRAY));
+      egr_tensor, paddle::framework::proto::VarType::DENSE_TENSOR_ARRAY));
 }
 }  // namespace imperative
 }  // namespace paddle

@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/pir/include/pass/pass.h"
+#include <glog/logging.h>
+
 #include "paddle/pir/include/core/ir_context.h"
 #include "paddle/pir/include/core/operation.h"
 #include "paddle/pir/include/core/program.h"
 #include "paddle/pir/include/core/region.h"
 #include "paddle/pir/include/core/verify.h"
+#include "paddle/pir/include/pass/pass.h"
 #include "paddle/pir/include/pass/pass_instrumentation.h"
 #include "paddle/pir/include/pass/pass_manager.h"
 #include "paddle/pir/include/pattern_rewrite/pattern_match.h"
@@ -49,14 +51,14 @@ std::optional<detail::PassExecutionState>& Pass::pass_state() {
 void Pass::SignalPassFailure() {
   PADDLE_ENFORCE_EQ(pass_state_.has_value(),
                     true,
-                    phi::errors::InvalidArgument("pass state has no value"));
+                    common::errors::InvalidArgument("pass state has no value"));
   pass_state_->pass_failed = true;
 }
 
 AnalysisManager Pass::analysis_manager() {
   PADDLE_ENFORCE_EQ(pass_state_.has_value(),
                     true,
-                    phi::errors::InvalidArgument("pass state has no value"));
+                    common::errors::InvalidArgument("pass state has no value"));
   return pass_state_->am;
 }
 //===----------------------------------------------------------------------===//
@@ -67,7 +69,7 @@ bool PatternRewritePass::Initialize(IrContext* context) {
   PADDLE_ENFORCE_EQ(
       ps.Empty(),
       false,
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "Pass creation failed."
           "When using PatternRewritePass to create a Pass, the number of "
           "customized Patterns is required to be greater than zero."
@@ -86,6 +88,7 @@ GreedyRewriteConfig PatternRewritePass::InitializeConfig() {
 }
 
 void PatternRewritePass::Run(Operation* op) {
+  VLOG(4) << "Run PatternRewritePass: " << name();
   auto [_, num_rewrites] =
       ApplyPatternsGreedily(op, patterns_, InitializeConfig());
   AddStatistics(num_rewrites);
@@ -164,7 +167,6 @@ bool detail::PassAdaptor::RunPass(Pass* pass,
     pass->Run(op);
     if (instrumentor) instrumentor->RunAfterPass(pass, op);
   }
-
   bool pass_failed = pass->pass_state()->pass_failed;
 
   if (!pass_failed && verify) {

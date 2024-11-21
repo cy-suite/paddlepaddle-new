@@ -903,7 +903,7 @@ struct Layers {
                       bool is_persistable = false,
                       proto::VarType::Type data_type = proto::VarType::FP32) {
     auto* var = program_.MutableBlock(0)->Var(name);
-    var->SetType(proto::VarType::LOD_TENSOR);
+    var->SetType(proto::VarType::DENSE_TENSOR);
     var->SetDataType(data_type);
     var->SetShape(shape);
     var->SetPersistable(is_persistable);
@@ -1125,7 +1125,7 @@ static int GetNumOpNodes(const std::unique_ptr<Graph>& graph,
 static void RegisterOpKernel(std::vector<std::string>&& op_types) {
   auto& all_kernels = OperatorWithKernel::AllOpKernels();
 
-  platform::CPUPlace place = platform::CPUPlace();
+  phi::CPUPlace place = phi::CPUPlace();
   OpKernelType mkldnn_kernel_type = OpKernelType(proto::VarType::FP32,
                                                  place,
                                                  DataLayout::kAnyLayout,

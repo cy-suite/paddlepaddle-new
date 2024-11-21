@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "paddle/common/ddim.h"
-#include "paddle/fluid/operators/reader/py_reader.h"
 #include "paddle/fluid/operators/reader/reader_op_registry.h"
+#include "paddle/phi/core/operators/reader/py_reader.h"
 
 namespace paddle {
 namespace operators {
@@ -35,7 +35,7 @@ class CreatePyReaderOp : public framework::OperatorBase {
     auto* queue_holder_var = scope.FindVar(queue_name);
     PADDLE_ENFORCE_NOT_NULL(
         queue_holder_var,
-        phi::errors::NotFound(
+        common::errors::NotFound(
             "No LoDTensorBlockingQueueHolder variable with name %s found. This "
             "may be because the DataLoader is defined in another Scope, "
             "which is different from the Scope when calling Executor.run.",
