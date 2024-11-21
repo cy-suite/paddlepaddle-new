@@ -231,9 +231,12 @@ class HybridCommunicateGroup:
             self._sep_group, self._sep_comm_group = self._set_comm_group("sep")
 
         # create global group for check inf_nan / clip global norm
-        self._check_group, self._check_comm_group = self._set_check_group(
-            "data"
-        )
+        if self._dp_degree > 1 and self._sharding_degree == 1:
+            self._check_group, self._check_comm_group = self._set_check_group(
+                "data"
+            )
+        else:
+            self._check_group, self._check_comm_group = None, None
 
         if self._sharding_degree > 1:
             (
