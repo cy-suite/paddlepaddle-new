@@ -271,7 +271,7 @@ class TestMathOpPatchesPir(unittest.TestCase):
                 b = x & y
                 c = x.bitwise_and(y)
                 d = x.__and__(y)
-                e = temp.__rand__(y)
+                e = temp & y
                 (b_np, c_np, d_np, e_np) = exe.run(
                     main_program,
                     feed={"x": x_np, "y": y_np},
