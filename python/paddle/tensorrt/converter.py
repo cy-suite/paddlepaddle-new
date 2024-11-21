@@ -80,9 +80,10 @@ def remove_duplicate_value(value_list):
 
 
 class PaddleToTensorRTConverter:
-    def __init__(self, paddle_program, scope):
+    def __init__(self, paddle_program, scope, trt_config=None):
         self.scope = scope
         self.program = paddle_program
+        self.trt_config = trt_config
         params = paddle_program.global_block().all_parameters()
         param_dict = {}
         # save parameters
@@ -376,7 +377,42 @@ class PaddleToTensorRTConverter:
         ):  # trt version >= 8.6
             config.builder_optimization_level = 5
         config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)
-        trt_engine = builder.build_engine(network, config)
+        if self.trt_config and self.trt_config.tensorrt_precision_mode:
+            if self.trt_config.tensorrt_precision_mode == "FP16":
+                if builder.platform_has_fast_fp16:
+                    config.set_flag(trt.BuilderFlag.FP16)
+                    _logger.info("Run Paddle-TRT FP16 mode")
+                else:
+                    _logger.warning(
+                        "Hardware does not support FP16. Continuing in FP32 mode."
+                    )
+            elif self.trt_config.tensorrt_precision_mode == "BF16":
+                if version_list[0] >= 9:
+                    if builder.plateform_has_fast_bfp16 and hasattr(
+                        builder, 'plateform_has_fast_bf16'
+                    ):
+                        config.set_flag(trt.BuilderFlag.BF16)
+                        _logger.info("Run Paddle-TRT BF16 mode")
+                    else:
+                        _logger.warning(
+                            "Hardware does not support BF16. Continuing in FP32 mode."
+                        )
+                else:
+                    if builder.platform_has_fast_fp16:
+                        config.set_flag(trt.BuilderFlag.FP16)
+                        _logger.warning(
+                            "Because the version of TensorRT is less than 9.0, run  Paddle-TRT FP16 mode"
+                        )
+                    else:
+                        _logger.warning(
+                            "Hardware does not support FP16. Continuing in FP32 mode."
+                        )
+            else:
+                _logger.info(
+                    f"Default tensorrt_precision mode {self.trt_config.tensorrt_precision_mode}"
+                )
+
+        trt_engine = builder.build_serialized_network(network, config)
         trt_params = paddle.base.libpaddle.TRTEngineParams()
         trt_params.min_input_shape = min_shape_map
         trt_params.max_input_shape = max_shape_map
@@ -392,7 +428,7 @@ class PaddleToTensorRTConverter:
         CACHE_ROOT = get_cache_path()
         CACHE_FILE = f"{CACHE_ROOT}/engine_{engine_name}.trt"
         with open(CACHE_FILE, "wb") as f:
-            f.write(trt_engine.serialize())
+            f.write(trt_engine)
         PIR_DUMP_FILE = f"{CACHE_ROOT}/engine_{engine_name}.pir"
         with open(PIR_DUMP_FILE, "w") as f:
             f.write(group_str)

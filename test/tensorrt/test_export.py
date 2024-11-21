@@ -135,6 +135,7 @@ class TestConvertLoadedModel(unittest.TestCase):
                 paddle.static.save_inference_model(
                     self.save_path, [x], [out], exe
                 )
+                print("main_prog", main_prog)
 
                 config = paddle_infer.Config(
                     self.save_path + '.json', self.save_path + '.pdiparams'
@@ -170,7 +171,6 @@ class TestConvertLoadedModel(unittest.TestCase):
             else:
                 config.disable_gpu()
             predictor = paddle_infer.create_predictor(config)
-            input_names = predictor.get_input_names()
 
         paddle.disable_static()
         for i, input_instrance in enumerate(trt_config.inputs):
@@ -185,7 +185,7 @@ class TestConvert(unittest.TestCase):
             input_config = Input(
                 min_input_shape=(9, 10, 11),
                 optim_input_shape=(9, 10, 11),
-                max_input_shape=(9, 10, 11),
+                max_input_shape=(10, 10, 11),
             )
             trt_config = TensorRTConfig(inputs=[input_config])
             for i, input_instrance in enumerate(trt_config.inputs):
@@ -195,20 +195,25 @@ class TestConvert(unittest.TestCase):
                 net = CumsumModel(input_dim=min_data.shape[-1])
                 out = net(x)
 
-                input_spec = [InputSpec(shape=min_data.shape, dtype='float32')]
+                input_spec = [
+                    InputSpec(shape=[None, 10, 11], dtype='float32', name='x')
+                ]
                 program_with_trt, scope = convert(
                     net,
                     input_spec=input_spec,
                     config=trt_config,
-                    full_graph=True,
                 )
+
                 output_var = program_with_trt.list_vars()[-1]
+                print("output_var", output_var)
+
                 output_converted = predict_program(
                     program_with_trt,
                     {"x": min_data},
                     [output_var],
                     scope=scope,
                 )
+
                 output_expected = out.numpy()
                 output_converted_np = output_converted[0]
 
@@ -223,6 +228,15 @@ class TestConvert(unittest.TestCase):
 
 
 class TestConvertMultipleInputs(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.save_path = os.path.join(self.temp_dir.name, 'tensor_axis_cumsum')
+        self.place = (
+            paddle.CUDAPlace(0)
+            if paddle.is_compiled_with_cuda()
+            else paddle.CPUPlace()
+        )
+
     def test_run(self):
         with paddle.pir_utils.IrGuard():
             input_config = Input(
@@ -236,6 +250,7 @@ class TestConvertMultipleInputs(unittest.TestCase):
                 max_input_shape=(1, 1, 28, 28),
             )
             trt_config = TensorRTConfig(inputs=[input_config, input_config2])
+            trt_config.save_model_dir = os.path.join(self.temp_dir.name, 'trt')
 
             min_data_list = []
             max_data_list = []
@@ -265,18 +280,22 @@ class TestConvertMultipleInputs(unittest.TestCase):
                 config=trt_config,
                 full_graph=True,
             )
-            output_var = program_with_trt.list_vars()[-1]
 
-            output_converted = predict_program(
-                program_with_trt,
-                {"input1": min_data_list[0], "input2": min_data_list[1]},
-                [output_var],
-                scope=scope,
+            config = paddle_infer.Config(
+                trt_config.save_model_dir + '.json',
+                trt_config.save_model_dir + '.pdiparams',
             )
-            output_expected = out.numpy()
-            output_converted_np = output_converted[0]
 
-            # Check that the results are close to each other within a tolerance of 1e-2
+            if paddle.is_compiled_with_cuda():
+                config.enable_use_gpu(100, 0)
+            else:
+                config.disable_gpu()
+
+            predictor = paddle_infer.create_predictor(config)
+            output_converted = predictor.run(x)
+            output_converted_np = output_converted[0]
+            output_expected = out.numpy()
+
             np.testing.assert_allclose(
                 output_expected,
                 output_converted_np,
@@ -284,6 +303,61 @@ class TestConvertMultipleInputs(unittest.TestCase):
                 atol=1e-2,
                 err_msg="Outputs are not within the 1e-2 tolerance",
             )
+
+
+class TestConvertPredictor(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.save_path = os.path.join(self.temp_dir.name, 'tensor_axis_cumsum')
+        self.place = (
+            paddle.CUDAPlace(0)
+            if paddle.is_compiled_with_cuda()
+            else paddle.CPUPlace()
+        )
+
+    def test_run(self):
+        input_config = Input(
+            min_input_shape=(9, 10, 11),
+            optim_input_shape=(9, 10, 11),
+            max_input_shape=(10, 10, 11),
+        )
+        trt_config = TensorRTConfig(inputs=[input_config])
+        trt_config.save_model_dir = os.path.join(self.temp_dir.name, 'trt')
+
+        min_data, _, max_data = input_config.generate_input_data()
+        net = CumsumModel(input_dim=min_data.shape[-1])
+        x = paddle.to_tensor(min_data)
+        out = net(x).numpy()
+
+        input_spec = [
+            InputSpec(shape=[None, 10, 11], dtype='float32', name='x')
+        ]
+        program_with_trt, scope = convert(
+            net,
+            input_spec=input_spec,
+            config=trt_config,
+        )
+
+        config = paddle_infer.Config(
+            trt_config.save_model_dir + '.json',
+            trt_config.save_model_dir + '.pdiparams',
+        )
+
+        if paddle.is_compiled_with_cuda():
+            config.enable_use_gpu(100, 0)
+        else:
+            config.disable_gpu()
+        predictor = paddle_infer.create_predictor(config)
+
+        output_converted = predictor.run([x])
+        output_converted_np = output_converted[0]
+        np.testing.assert_allclose(
+            out,
+            output_converted_np,
+            rtol=1e-2,
+            atol=1e-2,
+            err_msg="Outputs are not within the 1e-2 tolerance",
+        )
 
 
 if __name__ == "__main__":
