@@ -2897,7 +2897,7 @@ struct ElementwiseTranscriber : public OpTranscriber {
               << y_tensor_type.dims() << " to "
               << common::make_ddim(y_new_shape);
     } else {
-      auto shape_op = builder.Build<dialect::ShapeOp>(y_value);
+      auto shape_op = builder.Build<dialect::Shape64Op>(y_value);
       auto append_shape_op = builder.Build<dialect::FullIntArrayOp>(
           std::vector<int64_t>(append_size, 1),
           phi::DataType::INT64,

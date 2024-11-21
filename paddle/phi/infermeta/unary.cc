@@ -4054,9 +4054,15 @@ void SetValueInferMeta(const MetaTensor& x, MetaTensor* out) {
   out->set_dtype(x.dtype());
 }
 
-void ShapeInferMeta(const MetaTensor& input,
-                    MetaTensor* out,
-                    MetaConfig config) {
+void ShapeInferMeta(const MetaTensor& input, MetaTensor* out) {
+  auto in_dim = input.dims();
+  out->set_dims(common::make_ddim({in_dim.size()}));
+  out->set_dtype(DataType::INT32);
+}
+
+void Shape64InferMeta(const MetaTensor& input,
+                      MetaTensor* out,
+                      MetaConfig config) {
   auto in_dim = input.dims();
   out->set_dims(common::make_ddim({in_dim.size()}));
   if (config.is_run_mkldnn_kernel) {

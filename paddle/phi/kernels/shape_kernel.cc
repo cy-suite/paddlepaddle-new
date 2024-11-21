@@ -25,6 +25,18 @@ void ShapeKernel(const Context& ctx,
                  DenseTensor* out) {
   auto& in_dims = input.dims();
   out->Resize({in_dims.size()});
+  auto out_data = ctx.template HostAlloc<int32_t>(out);
+  for (int i = 0; i < in_dims.size(); ++i) {
+    out_data[i] = in_dims[i];
+  }
+}
+
+template <typename T, typename Context>
+void Shape64Kernel(const Context& ctx,
+                   const DenseTensor& input,
+                   DenseTensor* out) {
+  auto& in_dims = input.dims();
+  out->Resize({in_dims.size()});
   auto out_data = ctx.template HostAlloc<int64_t>(out);
   for (int i = 0; i < in_dims.size(); ++i) {
     out_data[i] = in_dims[i];
@@ -48,7 +60,7 @@ PD_REGISTER_KERNEL(shape,
                    phi::dtype::complex<double>) {
   kernel->InputAt(0).SetBackend(phi::Backend::ALL_BACKEND);
   kernel->OutputAt(0).SetBackend(phi::Backend::CPU);
-  kernel->OutputAt(0).SetDataType(phi::DataType::INT64);
+  kernel->OutputAt(0).SetDataType(phi::DataType::INT32);
 }
 
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
@@ -69,7 +81,7 @@ PD_REGISTER_KERNEL(shape,
                    phi::dtype::bfloat16) {
   kernel->InputAt(0).SetBackend(phi::Backend::ALL_BACKEND);
   kernel->OutputAt(0).SetBackend(phi::Backend::CPU);
-  kernel->OutputAt(0).SetDataType(phi::DataType::INT64);
+  kernel->OutputAt(0).SetDataType(phi::DataType::INT32);
 }
 #endif
 
@@ -87,7 +99,7 @@ PD_REGISTER_KERNEL(shape,
                    phi::dtype::bfloat16) {
   kernel->InputAt(0).SetBackend(phi::Backend::ALL_BACKEND);
   kernel->OutputAt(0).SetBackend(phi::Backend::CPU);
-  kernel->OutputAt(0).SetDataType(phi::DataType::INT64);
+  kernel->OutputAt(0).SetDataType(phi::DataType::INT32);
 }
 #endif
 
@@ -96,6 +108,86 @@ PD_REGISTER_KERNEL(shape,
                    Custom,
                    ALL_LAYOUT,
                    phi::ShapeKernel,
+                   bool,
+                   int,
+                   int8_t,
+                   uint8_t,
+                   int64_t,
+                   float,
+                   double,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>,
+                   phi::dtype::float16,
+                   phi::dtype::bfloat16) {
+  kernel->InputAt(0).SetBackend(phi::Backend::ALL_BACKEND);
+  kernel->OutputAt(0).SetBackend(phi::Backend::CPU);
+  kernel->OutputAt(0).SetDataType(phi::DataType::INT32);
+}
+#endif
+
+PD_REGISTER_KERNEL(shape64,
+                   CPU,
+                   ALL_LAYOUT,
+                   phi::Shape64Kernel,
+                   bool,
+                   int,
+                   int8_t,
+                   uint8_t,
+                   int64_t,
+                   float,
+                   double,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>) {
+  kernel->InputAt(0).SetBackend(phi::Backend::ALL_BACKEND);
+  kernel->OutputAt(0).SetBackend(phi::Backend::CPU);
+  kernel->OutputAt(0).SetDataType(phi::DataType::INT64);
+}
+
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
+PD_REGISTER_KERNEL(shape64,
+                   GPU,
+                   ALL_LAYOUT,
+                   phi::Shape64Kernel,
+                   bool,
+                   int,
+                   int8_t,
+                   uint8_t,
+                   int64_t,
+                   float,
+                   double,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>,
+                   phi::dtype::float16,
+                   phi::dtype::bfloat16) {
+  kernel->InputAt(0).SetBackend(phi::Backend::ALL_BACKEND);
+  kernel->OutputAt(0).SetBackend(phi::Backend::CPU);
+  kernel->OutputAt(0).SetDataType(phi::DataType::INT64);
+}
+#endif
+
+#if defined(PADDLE_WITH_XPU)
+PD_REGISTER_KERNEL(shape64,
+                   XPU,
+                   ALL_LAYOUT,
+                   phi::Shape64Kernel,
+                   bool,
+                   int,
+                   int64_t,
+                   float,
+                   double,
+                   phi::dtype::float16,
+                   phi::dtype::bfloat16) {
+  kernel->InputAt(0).SetBackend(phi::Backend::ALL_BACKEND);
+  kernel->OutputAt(0).SetBackend(phi::Backend::CPU);
+  kernel->OutputAt(0).SetDataType(phi::DataType::INT64);
+}
+#endif
+
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+PD_REGISTER_KERNEL(shape64,
+                   Custom,
+                   ALL_LAYOUT,
+                   phi::Shape64Kernel,
                    bool,
                    int,
                    int8_t,
