@@ -10,6 +10,7 @@ grad = "grad"
 arange = "arange"
 ot = 'ot'
 pash = 'pash'
+astroid = 'astroid'
 eles = 'eles'
 
 # These words need to be fixed
@@ -714,7 +715,6 @@ learing = 'learing'
 noraml = 'noraml'
 padd = 'padd'
 Requred = 'Requred'
-astroid = 'astroid'
 Fidn = 'Fidn'
 mak = 'mak'
 temporaly = 'temporaly'
