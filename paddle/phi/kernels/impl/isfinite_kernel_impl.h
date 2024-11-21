@@ -22,7 +22,6 @@
 #include "paddle/phi/common/place.h"
 #include "paddle/phi/core/dense_tensor.h"
 
-// TODO(xiongkun): remove the header when decouple the memcpy function in phi.
 #include "paddle/phi/kernels/funcs/isfinite_functor.h"
 #include "paddle/phi/kernels/isfinite_kernel.h"
 
