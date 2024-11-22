@@ -1151,23 +1151,24 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
       "RecordStreamForGC is only implemented when compiled with GPU."));
 #else
   if (FLAGS_pir_interpreter_record_stream_for_gc_cache &&
-      instr->GetNeedRecordStreamForGCState() > 1) {
+      !instr->GetNeedRecordStreamForGCState()) {
     return;
   }
 
   if (!IsInterpretercoreFastGCEnabled() ||
       instr->KernelType() != OpFuncType::kGpuAsync) {
-    instr->SetNeedRecordStreamForGCState(2);
+    instr->SetNeedRecordStreamForGCState(false);
     return;
   }
   if (instr->DeviceContext().GetPlace().GetType() ==
       phi::AllocationType::CUSTOM) {
-    instr->SetNeedRecordStreamForGCState(2);
+    instr->SetNeedRecordStreamForGCState(false);
     return;
   }
   phi::RecordEvent record(
       "RecordStreamForGC", phi::TracerEventType::UserDefined, 10);
 
+  bool skip_record_stream = true;
   gpuStream_t stream =
       reinterpret_cast<const phi::GPUContext&>(instr->DeviceContext()).stream();
 // TODO(lizhiyu): Only analyse the 'send_v2' for GPT pp strategy right now.
@@ -1202,7 +1203,7 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
     const phi::Place& place = allocation->place();
     if (phi::is_gpu_place(place)) {
       if (memory::RecordStream(allocation, stream)) {
-        instr->SetNeedRecordStreamForGCState(1);
+        skip_record_stream = false;
       }
     } else if (phi::is_cuda_pinned_place(place)) {
       // TODO(Ruibiao): Here should do something to make sure that the tensor
@@ -1290,8 +1291,8 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
     }
   }
 
-  if (instr->GetNeedRecordStreamForGCState() == 0) {
-    instr->SetNeedRecordStreamForGCState(2);
+  if (skip_record_stream) {
+    instr->SetNeedRecordStreamForGCState(false);
   }
 #endif
 }
