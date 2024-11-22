@@ -37,7 +37,7 @@ function make_cpu_dockerfile(){
   sed -i "${dockerfile_line}i RUN wget --no-check-certificate -q https://paddle-edl.bj.bcebos.com/hadoop-2.7.7.tar.gz \&\& \
      tar -xzf     hadoop-2.7.7.tar.gz && mv hadoop-2.7.7 /usr/local/" ${dockerfile_name}
   sed -i "${dockerfile_line}i RUN apt remove git -y \&\& apt update \&\& apt install -y libsndfile1 zstd pigz ninja-build" ${dockerfile_name}
-  sed -i "${dockerfile_line}i RUN pip install wheel PyGithub distro" ${dockerfile_name}
+  sed -i "${dockerfile_line}i RUN pip install wheel  PyGithub distro" ${dockerfile_name}
   sed -i "${dockerfile_line}i RUN apt remove git -y \&\& apt update \&\& apt install -y libcurl4-openssl-dev gettext pigz \&\& wget -q https://paddle-ci.gz.bcebos.com/git-2.17.1.tar.gz \&\& \
     tar -xvf git-2.17.1.tar.gz \&\& \
     cd git-2.17.1 \&\& \
