@@ -21,6 +21,6 @@ namespace phi {
 template <typename T, typename Context>
 void SvdvalsGradKernel(const Context& dev_ctx,
                        const DenseTensor& x,
-                       const paddle::optional<DenseTensor>& s_grad,
+                       const DenseTensor& s_grad,
                        DenseTensor* x_grad);
 }  // namespace phi
