@@ -50,7 +50,10 @@ def not_equal_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.bitwise_and", trt_version="8.x")
 def bitwise_and_converter(network, paddle_op, inputs):
     bitwise_and_layer = add_elementwise_layer(
-        network, paddle_op, inputs, trt.ElementWiseOperation.AND,
+        network,
+        paddle_op,
+        inputs,
+        trt.ElementWiseOperation.AND,
     )
     return bitwise_and_layer
 
@@ -58,7 +61,10 @@ def bitwise_and_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.bitwise_or", trt_version="8.x")
 def bitwise_or_converter(network, paddle_op, inputs):
     bitwise_or_layer = add_elementwise_layer(
-        network, paddle_op, inputs, trt.ElementWiseOperation.OR,
+        network,
+        paddle_op,
+        inputs,
+        trt.ElementWiseOperation.OR,
     )
     return bitwise_or_layer
 

@@ -1751,8 +1751,8 @@ class BitwiseOrOpPattern
 };
 
 class BitwiseNotOpPattern
-  : public pir::OpRewritePattern<paddle::dialect::BitwiseNotOp> {
-public:
+    : public pir::OpRewritePattern<paddle::dialect::BitwiseNotOp> {
+ public:
   using pir::OpRewritePattern<paddle::dialect::BitwiseNotOp>::OpRewritePattern;
 
   bool MatchAndRewrite(paddle::dialect::BitwiseNotOp op,
@@ -1772,12 +1772,13 @@ public:
       VLOG(3) << "The bitwise_not only supports input of BOOL type.";
       return false;
     }
-    #if !IS_TRT_VERSION_GE(8600)
-    if (input_operand.getType().isDynamicShape() && input_operand.getType().getRank() == 0) {
+#if !IS_TRT_VERSION_GE(8600)
+    if (input_operand.getType().isDynamicShape() &&
+        input_operand.getType().getRank() == 0) {
       VLOG(3) << "BOOL type does not support 0-dim input when TensorRT < 8.6.";
       return false;
     }
-    #endif
+#endif
 #endif
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
