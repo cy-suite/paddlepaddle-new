@@ -56,8 +56,6 @@ class TestAllcloseOp(OpTest):
                 )
             )
         }
-        print(f"types:{self.rtol}")
-        print(f"outputs:{self.outputs}")
 
     def test_check_output(self):
         self.check_output(check_pir=True, check_prim_pir=True)
