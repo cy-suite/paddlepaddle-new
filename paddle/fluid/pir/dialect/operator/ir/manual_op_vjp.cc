@@ -308,28 +308,38 @@ std::vector<std::vector<pir::Value>> FusedGemmEpilogueOp::Vjp(
     const std::vector<std::vector<bool>>& stop_gradients) {
   PADDLE_ENFORCE_EQ(
       inputs_.size(),
-      4,
+      3,
       common::errors::InvalidArgument(
-          "fused_gemm_epilogue op's inputs size should be 4, but now is %d.",
+          "fused_gemm_epilogue op's inputs size should be 3, but now is %d.",
           inputs_.size()));
   PADDLE_ENFORCE_EQ(
       outputs.size(),
-      3,
+      2,
       common::errors::InvalidArgument(
-          "fused_gemm_epilogue op's outputs size should be 3, but now is %d.",
+          "fused_gemm_epilogue op's outputs size should be 2, but now is %d.",
           outputs.size()));
 
   VLOG(6) << "Prepare inputs of fused_gemm_epilogue_grad";
 
   Tensor x(std::make_shared<primitive::LazyTensor>(inputs_[0][0]));
   Tensor y(std::make_shared<primitive::LazyTensor>(inputs_[1][0]));
-  Tensor reserve_space(std::make_shared<primitive::LazyTensor>(inputs_[2][0]));
-  Tensor out_grad(std::make_shared<primitive::LazyTensor>(inputs_[3][0]));
+  paddle::optional<Tensor> reserve_space;
+  if (!IsEmptyValue(outputs[1][0])) {
+    reserve_space = paddle::make_optional<Tensor>(
+        Tensor(std::make_shared<primitive::LazyTensor>(outputs[1][0])));
+  }
+  Tensor out_grad(std::make_shared<primitive::LazyTensor>(out_grads[0][0]));
+
+  pir::Value reserve_space_value = outputs[1][0];
+
+  PADDLE_ENFORCE_EQ(
+      !reserve_space_value.type(),
+      true,
+      common::errors::InvalidArgument(
+          "fused_gemm_epilogue op could not run backward with activation"));
 
   VLOG(6) << "Vjp prepare Prepare attributes of fused_gemm_epilogue_grad";
 
-  std::string data_format =
-      op->attribute("data_format").dyn_cast<pir::StrAttribute>().AsString();
   bool trans_x = op->attribute("trans_x").dyn_cast<pir::BoolAttribute>().data();
   bool trans_y = op->attribute("trans_y").dyn_cast<pir::BoolAttribute>().data();
   std::string activation =

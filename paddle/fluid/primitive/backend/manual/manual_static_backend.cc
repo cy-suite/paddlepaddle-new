@@ -64,15 +64,22 @@ template <>
 std::tuple<Tensor, Tensor, Tensor> fused_gemm_epilogue_grad<LazyTensor>(
     const Tensor& x,
     const Tensor& y,
-    const Tensor& reserve_space,
+    const paddle::optional<Tensor>& reserve_space,
     const Tensor& out_grad,
     bool trans_x,
     bool trans_y,
     const std::string& activation) {
   pir::Value x_res = std::static_pointer_cast<LazyTensor>(x.impl())->value();
   pir::Value y_res = std::static_pointer_cast<LazyTensor>(y.impl())->value();
-  pir::Value reserve_space_res =
-      std::static_pointer_cast<LazyTensor>(reserve_space.impl())->value();
+  paddle::optional<pir::Value> reserve_space_res;
+  if (reserve_space) {
+    pir::Value reserve_space_res_inner;
+    reserve_space_res_inner =
+        std::static_pointer_cast<LazyTensor>(reserve_space.get().impl())
+            ->value();
+    reserve_space_res =
+        paddle::make_optional<pir::Value>(reserve_space_res_inner);
+  }
   pir::Value out_grad_res =
       std::static_pointer_cast<LazyTensor>(out_grad.impl())->value();
   auto op_res = paddle::dialect::fused_gemm_epilogue_grad(x_res,

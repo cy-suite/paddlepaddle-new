@@ -334,26 +334,30 @@ std::tuple<pir::Value, pir::Value> fused_gemm_epilogue(pir::Value x,
 std::tuple<pir::Value, pir::Value, pir::Value> fused_gemm_epilogue_grad(
     pir::Value x,
     pir::Value y,
-    pir::Value bias,
+    paddle::optional<pir::Value> reserve_space,
     pir::Value out_grad,
     bool trans_x,
     bool trans_y,
-    std::string activation) {
+    std::string activation_grad) {
   // AMP Logic
   if (egr::Controller::Instance().GetCurrentAmpAttrs()->GetAmpLevel() !=
       paddle::imperative::AmpLevel::O0) {
     VLOG(5) << "Check and Prepare For AMP: fused_gemm_epilogue_grad";
     auto op_name = phi::TransToFluidOpName("fused_gemm_epilogue_grad");
     paddle::small_vector<std::vector<pir::Value>, egr::kSlotSmallVectorSize>
-        amp_values_vector = {{x}, {y}, {bias}};
+        amp_values_vector = {{x}, {y}};
+    if (reserve_space) {
+      amp_values_vector.push_back({*reserve_space});
+    }
+
     auto amp_dst_dtype =
         paddle::imperative::GetAmpDestDtype(op_name, amp_values_vector);
     auto new_x =
         paddle::imperative::AmpAutoCast("x", x, amp_dst_dtype, op_name);
     auto new_y =
         paddle::imperative::AmpAutoCast("y", y, amp_dst_dtype, op_name);
-    auto new_bias =
-        paddle::imperative::AmpAutoCast("bias", bias, amp_dst_dtype, op_name);
+    auto new_reserve_space = paddle::imperative::AmpAutoCast(
+        "reserve_space", reserve_space, amp_dst_dtype, op_name);
     auto new_out_grad = paddle::imperative::AmpAutoCast(
         "out_grad", out_grad, amp_dst_dtype, op_name);
 
@@ -361,8 +365,13 @@ std::tuple<pir::Value, pir::Value, pir::Value> fused_gemm_epilogue_grad(
       paddle::imperative::AutoCastGuard guard(
           egr::Controller::Instance().GetCurrentAmpAttrs(),
           paddle::imperative::AmpLevel::O0);
-      return paddle::dialect::fused_gemm_epilogue_grad(
-          new_x, new_y, new_bias, new_out_grad, trans_x, trans_y, activation);
+      return paddle::dialect::fused_gemm_epilogue_grad(new_x,
+                                                       new_y,
+                                                       new_reserve_space,
+                                                       new_out_grad,
+                                                       trans_x,
+                                                       trans_y,
+                                                       activation_grad);
     }
   }
 
@@ -372,12 +381,18 @@ std::tuple<pir::Value, pir::Value, pir::Value> fused_gemm_epilogue_grad(
   pir::AttributeMap attribute_map = {
       {"trans_x", pir::BoolAttribute::get(ctx, trans_x)},
       {"trans_y", pir::BoolAttribute::get(ctx, trans_y)},
-      {"activation", pir::StrAttribute::get(ctx, activation)}};
+      {"activation_grad", pir::StrAttribute::get(ctx, activation_grad)}};
+  paddle::optional<pir::Value> optional_reserve_space;
+  if (!reserve_space) {
+    optional_reserve_space = paddle::make_optional<pir::Value>(pir::Value());
+  } else {
+    optional_reserve_space = reserve_space;
+  }
   auto fused_gemm_epilogue_grad_op =
       ApiBuilder::Instance()
           .GetBuilder()
           ->Build<paddle::dialect::FusedGemmEpilogueGradOp>(
-              x, y, bias, out_grad, attribute_map);
+              x, y, optional_reserve_space.get(), out_grad, attribute_map);
   if (!egr::Controller::Instance().HasGrad()) {
     SetStopGradient(fused_gemm_epilogue_grad_op.result(0),
                     fused_gemm_epilogue_grad_op.result(1),
