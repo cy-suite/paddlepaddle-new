@@ -1232,13 +1232,13 @@ def bitwise_and(
 
 
 def __rand__(x: Tensor, y: int | bool):
-    if not isinstance(y, (int, bool)):
+    if isinstance(y, (int, bool)):
+        y_tensor = paddle.to_tensor(y, dtype=x.dtype)
+        return bitwise_and(y_tensor, x, None, None)
+    else:
         raise TypeError(
             f"unsupported operand type(s) for |: '{type(y).__name__}' and 'Tensor'"
         )
-    else:
-        y_tensor = paddle.to_tensor(y, dtype=x.dtype)
-        return bitwise_and(y_tensor, x, None, None)
 
 
 @inplace_apis_in_dygraph_only
