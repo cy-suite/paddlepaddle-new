@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "paddle/phi/kernels/svdvals_kernel.h"
+#include "glog/logging.h"
 #include "paddle/phi/backends/cpu/cpu_context.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/funcs/complex_functors.h"
@@ -100,18 +101,27 @@ void SvdvalsKernel(const Context& dev_ctx,
       cols,
       0,
       phi::errors::InvalidArgument("The column of Input(X) must be > 0."));
-
+  int k = std::min(rows, cols);
   int batches = static_cast<int>(X.numel() / (rows * cols));
-
+  DDim s_dims = {batches, k};
+  S->Resize(s_dims);
   // Allocate memory for output
   auto* S_out = dev_ctx.template Alloc<phi::dtype::Real<T>>(S);
 
   // Transpose the last two dimensions for LAPACK compatibility
   DenseTensor trans_x = ::phi::TransposeLast2Dim<T>(dev_ctx, X);
   auto* x_data = trans_x.data<T>();
-
+  VLOG(3) << "X shape: " << X.dims();
+  VLOG(3) << "trans_x shape: " << trans_x.dims();
+  VLOG(3) << "S shape: " << S->dims();
   // Perform batch SVD computation for singular values
   BatchSvdvals<T>(x_data, S_out, rows, cols, batches);
+  VLOG(3) << "S values (first batch): ";
+  for (int i = 0; i < k; ++i) {
+    VLOG(3) << S_out[i] << " ";
+  }
+  VLOG(3) << "S shape in backward: "
+          << S.dims();  // Assuming S is passed to the backward kernel
 }
 
 }  // namespace phi
