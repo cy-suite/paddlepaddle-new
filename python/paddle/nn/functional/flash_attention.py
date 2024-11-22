@@ -182,7 +182,13 @@ def _select_sdp(head_dim: int, dtype, place) -> str:
     scaled dot product attention, and the chosen approach depends on whether it
     is determined by the sdp_kernel configuration or specified through input values.
     """
-    place = paddle.get_device()
+
+    if place == "XPU":
+        place = paddle.XPUPlace()
+    elif place == "CPU":
+        place = paddle.CPUPlace()
+    elif place == "GPU":
+        place = paddle.CUDAPlace(0)
 
     if place.is_xpu_place():
         return "flash_attn"
