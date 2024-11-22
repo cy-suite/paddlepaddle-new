@@ -1151,18 +1151,18 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
       "RecordStreamForGC is only implemented when compiled with GPU."));
 #else
   if (FLAGS_pir_interpreter_record_stream_for_gc_cache &&
-      !instr->GetNeedRecordStreamForGCState()) {
+      instr->SikpRecordStreamForGCState()) {
     return;
   }
 
   if (!IsInterpretercoreFastGCEnabled() ||
       instr->KernelType() != OpFuncType::kGpuAsync) {
-    instr->SetNeedRecordStreamForGCState(false);
+    instr->SetSikpRecordStreamForGCState(true);
     return;
   }
   if (instr->DeviceContext().GetPlace().GetType() ==
       phi::AllocationType::CUSTOM) {
-    instr->SetNeedRecordStreamForGCState(false);
+    instr->SetSikpRecordStreamForGCState(true);
     return;
   }
   phi::RecordEvent record(
@@ -1194,7 +1194,8 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
     }
   }
 #endif
-  auto TensorRecordStream = [&stream, &instr](phi::DenseTensor& tensor) {
+  auto TensorRecordStream = [&stream, &instr, &skip_record_stream](
+                                phi::DenseTensor& tensor) {
     auto allocation = tensor.Holder();
     if (allocation == nullptr) {
       return;
@@ -1292,7 +1293,7 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
   }
 
   if (skip_record_stream) {
-    instr->SetNeedRecordStreamForGCState(false);
+    instr->SetSikpRecordStreamForGCState(true);
   }
 #endif
 }
