@@ -336,7 +336,7 @@ class TestDLPackDevice(unittest.TestCase):
             tensor_cpu = paddle.to_tensor([1, 2, 3], place=base.CPUPlace())
             device_type, device_id = tensor_cpu.__dlpack_device__()
             self.assertEqual(device_type, DLDeviceType.kDLCPU)
-            self.assertEqual(device_id, 0)
+            self.assertEqual(device_id, None)
 
             if paddle.is_compiled_with_cuda():
                 tensor_cuda = paddle.to_tensor(
@@ -366,7 +366,7 @@ class TestDLPackDevice(unittest.TestCase):
             tensor = paddle.to_tensor(5.0, place=base.CPUPlace())
             device_type, device_id = tensor.__dlpack_device__()
             self.assertEqual(device_type, DLDeviceType.kDLCPU)
-            self.assertEqual(device_id, 0)
+            self.assertEqual(device_id, None)
 
             if paddle.is_compiled_with_cuda():
                 tensor_cuda = paddle.to_tensor(5.0, place=base.CUDAPlace(0))
@@ -387,7 +387,7 @@ class TestDLPackDevice(unittest.TestCase):
             )
             device_type, device_id = tensor.__dlpack_device__()
             self.assertEqual(device_type, DLDeviceType.kDLCPU)
-            self.assertEqual(device_id, 0)
+            self.assertEqual(device_id, None)
 
             if paddle.is_compiled_with_cuda():
                 tensor_cuda = paddle.to_tensor(

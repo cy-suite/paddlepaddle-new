@@ -1272,7 +1272,7 @@ def monkey_patch_tensor():
 
         place = self.place
         if place.is_cpu_place():
-            return DLDeviceType.kDLCPU, 0
+            return DLDeviceType.kDLCPU, None
         elif place.is_cuda_pinned_place():
             return DLDeviceType.kDLCUDAHost, 0
         elif place.is_gpu_place():
