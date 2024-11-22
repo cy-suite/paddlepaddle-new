@@ -1702,23 +1702,6 @@ class NotEqualOpPattern
   }
 };
 
-class BitwiseOrOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::BitwiseOrOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::BitwiseOrOp>::OpRewritePattern;
-
-  bool MatchAndRewrite(paddle::dialect::BitwiseOrOp op,
-                       pir::PatternRewriter &rewriter) const override {
-#if IS_TRT_VERSION_LT(8400)
-    VLOG(3) << "bitwise_or is not supported when TensorRT < 8.4";
-    return false;
-#else
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-#endif
-  }
-};
-
 class BitwiseAndOpPattern
     : public pir::OpRewritePattern<paddle::dialect::BitwiseAndOp> {
  public:
@@ -1726,13 +1709,44 @@ class BitwiseAndOpPattern
 
   bool MatchAndRewrite(paddle::dialect::BitwiseAndOp op,
                        pir::PatternRewriter &rewriter) const override {
-#if IS_TRT_VERSION_LT(8400)
-    VLOG(3) << "bitwise_and is not supported when TensorRT < 8.4";
-    return false;
-#else
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+#if IS_TRT_VERSION_GE(8400)
+    pir::Value input_operand = op.operand_source(0);
+    auto input_type = pir::GetDataTypeFromValue(input_operand);
+    if (!input_type.isa<pir::BoolType>()) {
+      VLOG(3) << "the bitwise_and only support input of BOOL.";
+      return false;
+    }
+#endif
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
+  }
+};
+
+class BitwiseOrOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::BitwiseOrOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::BitwiseOrOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::BitwiseOrOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+#if IS_TRT_VERSION_GE(8400)
+    pir::Value input_operand = op.operand_source(0);
+    auto input_type = pir::GetDataTypeFromValue(input_operand);
+    if (!input_type.isa<pir::BoolType>()) {
+      VLOG(3) << "the bitwise_or only support input of BOOL.";
+      return false;
+    }
 #endif
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
   }
 };
 
@@ -1743,13 +1757,20 @@ class BitwiseNotOpPattern
 
   bool MatchAndRewrite(paddle::dialect::BitwiseNotOp op,
                        pir::PatternRewriter &rewriter) const override {
-#if IS_TRT_VERSION_LT(8400)
-    VLOG(3) << "bitwise_not is not supported when TensorRT < 8.4";
-    return false;
-#else
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+#if IS_TRT_VERSION_GE(8400)
+    pir::Value input_operand = op.operand_source(0);
+    auto input_type = pir::GetDataTypeFromValue(input_operand);
+    if (!input_type.isa<pir::BoolType>()) {
+      VLOG(3) << "the bitwise_not only support input of BOOL.";
+      return false;
+    }
+#endif
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
-#endif
   }
 };
 
