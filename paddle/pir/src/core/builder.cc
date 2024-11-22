@@ -106,7 +106,7 @@ TensorNameAttribute Builder::tensor_name_attr(const std::string &value) {
   return TensorNameAttribute::get(context_, value);
 }
 
-BuilderAttrGuard::BuilderAttrGuard(std::shared_ptr<pir::Builder> builder,
+BuilderAttrGuard::BuilderAttrGuard(std::shared_ptr<Builder> builder,
                                    int op_role,
                                    int chunk_id)
     : builder_(builder),

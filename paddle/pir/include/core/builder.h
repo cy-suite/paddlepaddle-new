@@ -195,9 +195,7 @@ OpTy Builder::Build(Args &&...args) {
 
 class BuilderAttrGuard {
  public:
-  BuilderAttrGuard(std::shared_ptr<pir::Builder> builder,
-                   int op_role,
-                   int chunk_id);
+  BuilderAttrGuard(std::shared_ptr<Builder> builder, int op_role, int chunk_id);
 
   ~BuilderAttrGuard();
 
@@ -206,7 +204,7 @@ class BuilderAttrGuard {
   BuilderAttrGuard &operator=(const BuilderAttrGuard &guard) = delete;
 
  private:
-  std::shared_ptr<pir::Builder> builder_;
+  std::shared_ptr<Builder> builder_;
   int pre_op_role_ = -1;
   int pre_chunk_id_ = -1;
 };
