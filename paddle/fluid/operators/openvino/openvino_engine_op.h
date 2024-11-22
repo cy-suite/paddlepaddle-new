@@ -121,11 +121,17 @@ class OpenVINOEngineOp : public framework::OperatorBase {
                 "This tensor must have one element, but got %ld.", t.numel()));
         t_shape.push_back(1);
       }
-      if (t.dtype() == phi::DataType::FLOAT32) {
+      if (t.dtype() == phi::DataType::BOOL) {
         engine->BindingInput(x,
                              inference::openvino::PhiType2OVType(t.dtype()),
                              t_shape,
-                             t.data<float>(),
+                             t.data<bool>(),
+                             t.numel());
+      } else if (t.dtype() == phi::DataType::INT16) {
+        engine->BindingInput(x,
+                             inference::openvino::PhiType2OVType(t.dtype()),
+                             t_shape,
+                             t.data<int16_t>(),
                              t.numel());
       } else if (t.dtype() == phi::DataType::INT32) {
         engine->BindingInput(x,
@@ -133,22 +139,53 @@ class OpenVINOEngineOp : public framework::OperatorBase {
                              t_shape,
                              t.data<int32_t>(),
                              t.numel());
+      } else if (t.dtype() == phi::DataType::INT64) {
+        engine->BindingInput(x,
+                             inference::openvino::PhiType2OVType(t.dtype()),
+                             t_shape,
+                             t.data<int64_t>(),
+                             t.numel());
+      } else if (t.dtype() == phi::DataType::FLOAT16) {
+        engine->BindingInput(x,
+                             inference::openvino::PhiType2OVType(t.dtype()),
+                             t_shape,
+                             t.data<phi::dtype::float16>(),
+                             t.numel());
+      } else if (t.dtype() == phi::DataType::FLOAT32) {
+        engine->BindingInput(x,
+                             inference::openvino::PhiType2OVType(t.dtype()),
+                             t_shape,
+                             t.data<float>(),
+                             t.numel());
       } else if (t.dtype() == phi::DataType::FLOAT64) {
         engine->BindingInput(x,
                              inference::openvino::PhiType2OVType(t.dtype()),
                              t_shape,
                              t.data<double>(),
                              t.numel());
-      } else if (t.dtype() == phi::DataType::BOOL) {
+      } else if (t.dtype() == phi::DataType::UINT8) {
         engine->BindingInput(x,
                              inference::openvino::PhiType2OVType(t.dtype()),
                              t_shape,
-                             t.data<bool>(),
+                             t.data<uint8_t>(),
+                             t.numel());
+      } else if (t.dtype() == phi::DataType::INT8) {
+        engine->BindingInput(x,
+                             inference::openvino::PhiType2OVType(t.dtype()),
+                             t_shape,
+                             t.data<int8_t>(),
+                             t.numel());
+      } else if (t.dtype() == phi::DataType::BFLOAT16) {
+        engine->BindingInput(x,
+                             inference::openvino::PhiType2OVType(t.dtype()),
+                             t_shape,
+                             t.data<bfloat16>(),
                              t.numel());
       } else {
         PADDLE_THROW(
             common::errors::Fatal("The OV Engine OP only support "
-                                  "float/int32_t/float64/bool input."));
+                                  "bool/int16/int32/int64/float16/float32/"
+                                  "float64/uint8/int8/bfloat16 input."));
       }
     }
     VLOG(1) << "start openvino execute ";

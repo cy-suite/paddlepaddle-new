@@ -194,3 +194,4 @@ class OVEngineManager {
 }  // namespace openvino
 }  // namespace inference
 }  // namespace paddle
+#include "paddle/fluid/inference/openvino/engine_impl.h"
