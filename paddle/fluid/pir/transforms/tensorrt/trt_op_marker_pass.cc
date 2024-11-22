@@ -1751,8 +1751,8 @@ class BitwiseOrOpPattern
 };
 
 class BitwiseNotOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::BitwiseNotOp> {
- public:
+  : public pir::OpRewritePattern<paddle::dialect::BitwiseNotOp> {
+public:
   using pir::OpRewritePattern<paddle::dialect::BitwiseNotOp>::OpRewritePattern;
 
   bool MatchAndRewrite(paddle::dialect::BitwiseNotOp op,
@@ -1761,13 +1761,23 @@ class BitwiseNotOpPattern
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-#if IS_TRT_VERSION_GE(8400)
     pir::Value input_operand = op.operand_source(0);
     auto input_type = pir::GetDataTypeFromValue(input_operand);
-    if (!input_type.isa<pir::BoolType>()) {
-      VLOG(3) << "the bitwise_not only support input of BOOL.";
+    if (input_type.isa<pir::Int8Type>() || input_type.isa<pir::UInt8Type>()) {
+      VLOG(3) << "INT8 / UINT8 type convert to TRT is not supported.";
       return false;
     }
+#if IS_TRT_VERSION_GE(8400)
+    if (!input_type.isa<pir::BoolType>()) {
+      VLOG(3) << "The bitwise_not only supports input of BOOL type.";
+      return false;
+    }
+    #if !IS_TRT_VERSION_GE(8600)
+    if (input_operand.getType().isDynamicShape() && input_operand.getType().getRank() == 0) {
+      VLOG(3) << "BOOL type does not support 0-dim input when TensorRT < 8.6.";
+      return false;
+    }
+    #endif
 #endif
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
