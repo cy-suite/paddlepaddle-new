@@ -594,15 +594,9 @@ def _load_state_dict(
     metadata_list,
     process_group=None,
     coordinator_rank=0,
-    offload=False,
+    offload=True,
 ) -> None:
     with paddle.base.dygraph.guard():
-
-        state_dict_in_cpu = {}
-        for k, v in target_state_dict.items():
-            if v.place.is_cpu_place():
-                state_dict_in_cpu[k] = v
-                target_state_dict[k] = v.cuda()
 
         use_dist = True if paddle.distributed.get_world_size() > 1 else False
 
@@ -616,7 +610,22 @@ def _load_state_dict(
         read_items = get_read_items(
             metadata_list, target_state_dict, process_group, use_dist
         )
+
+        # state_dict_in_cpu = {}
+        # for k, v in target_state_dict.items():
+        #     if v.place.is_cpu_place():
+        #         state_dict_in_cpu[k] = v
+        #         target_state_dict[k] = v.cuda()
         for item in read_items:
+            flag = False
+            k_new = item.local_tensor_index.tensor_key
+            if k_new in target_state_dict:
+                v_new = target_state_dict[k_new]
+                if v_new.place.is_cpu_place():
+                    print("lzx debug k_new to gpu",k_new)
+                    flag = True
+                    target_state_dict[k_new] = v_new.cuda()
+
             assert (
                 item.local_tensor_index in load_infos
             ), f"read item:{item}, load_infos:{load_infos}"
@@ -635,6 +644,7 @@ def _load_state_dict(
                 ]
 
                 if offload:
+                    print("lzx debug to_tensor:",_current_expected_place())
                     storage_local_tensor = paddle.to_tensor(
                         storage_local_tensor, place=_current_expected_place()
                     )
@@ -716,11 +726,19 @@ def _load_state_dict(
                         tmp_tensor, src=src_rank, group=process_group
                     )
                     paddle.assign(tmp_tensor, cur_chunk_tensor)
+            if flag:
+                print("lzx dbeug to cpu",k_new)
+                # value = target_state_dict[k_new]
+                # del v_new
+                v_new.cpu()
+                # target_state_dict.pop(k_new)
 
-        for k, v in target_state_dict.items():
-            if k in state_dict_in_cpu:
-                value = state_dict_in_cpu[k]
-                paddle.assign(v.cpu(), value)
+                # paddle.assign(v_new.cpu(), value)
+
+        # for k, v in target_state_dict.items():
+        #     if k in state_dict_in_cpu:
+        #         value = state_dict_in_cpu[k]
+        #         paddle.assign(v.cpu(), value)
 
         if use_dist:
             paddle.distributed.barrier(process_group)
