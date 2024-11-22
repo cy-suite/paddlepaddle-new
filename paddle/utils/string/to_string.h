@@ -56,10 +56,10 @@ inline std::string to_string(const char* v) {
   return std::string(v);
 }
 
-inline std::ostream& operator<<(std::ostream& os,
-                                const std::vector<std::vector<size_t>>& lod) {
+inline std::ostream& operator<<(
+    std::ostream& os, const std::vector<std::vector<size_t>>& legacy_lod) {
   os << "{";
-  for (auto& v : lod) {
+  for (auto& v : legacy_lod) {
     os << "{";
     bool is_first = true;
     for (auto& i : v) {
