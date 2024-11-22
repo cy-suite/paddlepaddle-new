@@ -627,7 +627,7 @@ class GroupNormDecompHelper {
     if (can_use_vector_int_as_output_shape_) {
       return reshape<T>(s, split_out_shape_);
     } else {
-      return reshape<T>(s, concat<T>(split_shape_tensor_, 0));
+      return backend::reshape<T>(s, concat<T>(split_shape_tensor_, 0));
     }
   }
 
@@ -635,7 +635,7 @@ class GroupNormDecompHelper {
     if (can_use_vector_int_as_output_shape_) {
       return reshape<T>(x, merge_out_shape_);
     } else {
-      return reshape<T>(x, concat<T>(merge_shape_tensor_, 0));
+      return backend::reshape<T>(x, concat<T>(merge_shape_tensor_, 0));
     }
   }
 
