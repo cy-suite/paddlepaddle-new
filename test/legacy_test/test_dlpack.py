@@ -326,6 +326,74 @@ class TestDLPack(unittest.TestCase):
                     np.testing.assert_array_equal(x.numpy(), y2.numpy())
 
 
+class TestDLPackDevice(unittest.TestCase):
+    def test_dlpack_device(self):
+        with dygraph_guard():
+            tensor_cpu = paddle.to_tensor([1, 2, 3], place=base.CPUPlace())
+            device_type, device_id = tensor_cpu.__dlpack_device__()
+            self.assertEqual(device_type, 1)
+            self.assertEqual(device_id, 0)
+            if paddle.is_compiled_with_cuda():
+                tensor_cuda = paddle.to_tensor(
+                    [1, 2, 3], place=base.CUDAPlace(0)
+                )
+                device_type, device_id = tensor_cuda.__dlpack_device__()
+                self.assertEqual(device_type, 2)
+                self.assertEqual(device_id, 0)
+            if paddle.is_compiled_with_cuda():
+                tensor_pinned = paddle.to_tensor(
+                    [1, 2, 3], place=base.CUDAPinnedPlace()
+                )
+                device_type, device_id = tensor_pinned.__dlpack_device__()
+                self.assertEqual(device_type, 1)
+                self.assertEqual(device_id, 0)
+            if paddle.is_compiled_with_xpu():
+                tensor_xpu = paddle.to_tensor([1, 2, 3], place=base.XPUPlace(0))
+                device_type, device_id = tensor_xpu.__dlpack_device__()
+                self.assertEqual(device_type, 14)
+                self.assertEqual(device_id, 0)
+
+    def test_dlpack_device_zero_dim(self):
+        with dygraph_guard():
+            tensor = paddle.to_tensor(5.0, place=base.CPUPlace())
+            device_type, device_id = tensor.__dlpack_device__()
+            self.assertEqual(device_type, 1)
+            self.assertEqual(device_id, 0)
+            if paddle.is_compiled_with_cuda():
+                tensor_cuda = paddle.to_tensor(5.0, place=base.CUDAPlace(0))
+                device_type, device_id = tensor_cuda.__dlpack_device__()
+                self.assertEqual(device_type, 2)
+                self.assertEqual(device_id, 0)
+            if paddle.is_compiled_with_xpu():
+                tensor_xpu = paddle.to_tensor(5.0, place=base.XPUPlace(0))
+                device_type, device_id = tensor_xpu.__dlpack_device__()
+                self.assertEqual(device_type, 14)
+                self.assertEqual(device_id, 0)
+
+    def test_dlpack_device_zero_size(self):
+        with dygraph_guard():
+            tensor = paddle.to_tensor(
+                paddle.zeros([0, 10]), place=base.CPUPlace()
+            )
+            device_type, device_id = tensor.__dlpack_device__()
+            self.assertEqual(device_type, 1)
+            self.assertEqual(device_id, 0)
+            if paddle.is_compiled_with_cuda():
+                tensor_cuda = paddle.to_tensor(
+                    paddle.zeros([0, 10]), place=base.CUDAPlace(0)
+                )
+                device_type, device_id = tensor_cuda.__dlpack_device__()
+                self.assertEqual(device_type, 2)
+                self.assertEqual(device_id, 0)
+            if paddle.is_compiled_with_xpu():
+                tensor_xpu = paddle.to_tensor(
+                    paddle.zeros([0, 10]), place=base.XPUPlace(0)
+                )
+                device_type, device_id = tensor_xpu.__dlpack_device__()
+                self.assertEqual(device_type, 14)
+                self.assertEqual(device_id, 0)
+
+
 class TestRaiseError(unittest.TestCase):
     def test_to_dlpack_raise_type_error(self):
         self.assertRaises(TypeError, paddle.utils.dlpack.to_dlpack, np.zeros(5))
