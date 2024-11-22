@@ -47,7 +47,7 @@ void SvdvalsGradKernel(const Context& dev_ctx,
   DenseTensor U, VH, S_recomputed;
   DDim u_dims = {rows, k};
   DDim s_dims = {k, k};
-  DDim vh_dims = {k, col};
+  DDim vh_dims = {k, cols};
   U.Resize(u_dims);
   VH.Resize(vh_dims);
   S_recomputed.Resize(s_dims);
