@@ -2534,7 +2534,7 @@ bool PixelShuffleOpInferSymbolicShape(
 
   const bool channel_last = (data_format == "NHWC");
 
-  // the number of channles shoule be able to be divided by the upscale_factor
+  // the number of channels shoule be able to be divided by the upscale_factor
   // ^ 2.
   // TODO(Lans1ot, Buaa): add constrain for the channel number and
   // upscale_factor
@@ -4454,8 +4454,9 @@ bool WeightQuantizeOpInferSymbolicShape(
                                         x_shape_1));
   }
 
-  int group_size = op->attribute<pir::Int32Attribute>("group_size").data();
-  std::string algo = op->attribute<pir::StrAttribute>("algo").AsString();
+  const int group_size =
+      op->attribute<pir::Int32Attribute>("group_size").data();
+  const std::string algo = op->attribute<pir::StrAttribute>("algo").AsString();
   PADDLE_ENFORCE_EQ(
       ((group_size == -1) || (group_size == 64) || (group_size == 128)),
       true,

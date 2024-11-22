@@ -34,6 +34,10 @@ class TestConstant(unittest.TestCase):
     def test_pi(self):
         np.testing.assert_equal(paddle.pi, math.pi)
 
+    def test_nan(self):
+        x = np.array([paddle.nan])
+        np.testing.assert_equal(repr(x), 'array([nan])')
+
 
 if __name__ == '__main__':
     unittest.main()
