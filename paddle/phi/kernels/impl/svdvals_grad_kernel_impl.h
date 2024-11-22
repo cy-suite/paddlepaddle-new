@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "glog/logging.h"
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/kernels/activation_kernel.h"
 #include "paddle/phi/kernels/diag_kernel.h"
@@ -30,7 +31,7 @@ namespace phi {
 template <typename T, typename Context>
 void SvdvalsGradKernel(const Context& dev_ctx,
                        const DenseTensor& x,
-                       const paddle::optional<DenseTensor>& s_grad,
+                       const DenseTensor& s_grad,
                        DenseTensor* x_grad) {
   if (!s_grad.get_ptr() || s_grad.get_ptr()->numel() == 0) {
     funcs::SetConstant<Context, T>()(dev_ctx, x_grad, T(0.0));
@@ -40,6 +41,7 @@ void SvdvalsGradKernel(const Context& dev_ctx,
 
   const DenseTensor& dS = *(s_grad.get_ptr());
   DenseTensor dX_term = Diag<T, Context>(dev_ctx, dS, 0, 0);
+  VLOG(1) << "dX_term shape: " << dX_term.dims();
   int rows = x.dims()[x.dims().size() - 2];
   int cols = x.dims()[x.dims().size() - 1];
   int k = std::min(rows, cols);
@@ -57,7 +59,7 @@ void SvdvalsGradKernel(const Context& dev_ctx,
                              &U,
                              &S_recomputed,
                              &VH);  // Crucial: recomputing SVD
-
+  VLOG(1) << "S_grad shape: " << s_grad.dims();
   *x_grad =
       Matmul<T, Context>(dev_ctx, Matmul<T, Context>(dev_ctx, U, dX_term), VH);
 }

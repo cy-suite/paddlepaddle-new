@@ -111,16 +111,16 @@ void SvdvalsKernel(const Context& dev_ctx,
   // Transpose the last two dimensions for LAPACK compatibility
   DenseTensor trans_x = ::phi::TransposeLast2Dim<T>(dev_ctx, X);
   auto* x_data = trans_x.data<T>();
-  VLOG(3) << "X shape: " << X.dims();
-  VLOG(3) << "trans_x shape: " << trans_x.dims();
-  VLOG(3) << "S shape: " << S->dims();
+  VLOG(1) << "X shape: " << X.dims();
+  VLOG(1) << "trans_x shape: " << trans_x.dims();
+  VLOG(1) << "S shape: " << S->dims();
   // Perform batch SVD computation for singular values
   BatchSvdvals<T>(x_data, S_out, rows, cols, batches);
-  VLOG(3) << "S values (first batch): ";
+  VLOG(1) << "S values (first batch): ";
   for (int i = 0; i < k; ++i) {
-    VLOG(3) << S_out[i] << " ";
+    VLOG(1) << S_out[i] << " ";
   }
-  VLOG(3) << "S shape in backward: "
+  VLOG(1) << "S shape in backward: "
           << S->dims();  // Assuming S is passed to the backward kernel
 }
 
