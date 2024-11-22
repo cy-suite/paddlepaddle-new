@@ -240,6 +240,26 @@ __global__ void IsfiniteCUDAKernel(const T* in_data, int num, bool* out_data) {
 }
 
 template <>
+__global__ void IsfiniteCUDAKernel(const int8_t* in_data,
+                                   int num,
+                                   bool* out_data) {
+  unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
+  for (int i = idx; i < num; i += blockDim.x * gridDim.x) {
+    out_data[i] = true;
+  }
+}
+
+template <>
+__global__ void IsfiniteCUDAKernel(const int16_t* in_data,
+                                   int num,
+                                   bool* out_data) {
+  unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
+  for (int i = idx; i < num; i += blockDim.x * gridDim.x) {
+    out_data[i] = true;
+  }
+}
+
+template <>
 __global__ void IsfiniteCUDAKernel(const int32_t* in_data,
                                    int num,
                                    bool* out_data) {
@@ -269,6 +289,26 @@ __global__ void IsnanCUDAKernel(const T* in_data, int num, bool* out_data) {
 }
 
 template <>
+__global__ void IsnanCUDAKernel(const int8_t* in_data,
+                                int num,
+                                bool* out_data) {
+  unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
+  for (int i = idx; i < num; i += blockDim.x * gridDim.x) {
+    out_data[i] = false;
+  }
+}
+
+template <>
+__global__ void IsnanCUDAKernel(const int16_t* in_data,
+                                int num,
+                                bool* out_data) {
+  unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
+  for (int i = idx; i < num; i += blockDim.x * gridDim.x) {
+    out_data[i] = false;
+  }
+}
+
+template <>
 __global__ void IsnanCUDAKernel(const int32_t* in_data,
                                 int num,
                                 bool* out_data) {
@@ -294,6 +334,26 @@ __global__ void IsinfCUDAKernel(const T* in_data, int num, bool* out_data) {
   for (int i = idx; i < num; i += blockDim.x * gridDim.x) {
     const T& a = static_cast<T>(in_data[i]);
     out_data[i] = isinf(a);
+  }
+}
+
+template <>
+__global__ void IsinfCUDAKernel(const int8_t* in_data,
+                                int num,
+                                bool* out_data) {
+  unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
+  for (int i = idx; i < num; i += blockDim.x * gridDim.x) {
+    out_data[i] = false;
+  }
+}
+
+template <>
+__global__ void IsinfCUDAKernel(const int16_t* in_data,
+                                int num,
+                                bool* out_data) {
+  unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
+  for (int i = idx; i < num; i += blockDim.x * gridDim.x) {
+    out_data[i] = false;
   }
 }
 
