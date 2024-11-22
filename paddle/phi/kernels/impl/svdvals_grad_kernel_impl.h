@@ -30,7 +30,6 @@ namespace phi {
 template <typename T, typename Context>
 void SvdvalsGradKernel(const Context& dev_ctx,
                        const DenseTensor& x,
-                       const DenseTensor& s,
                        const paddle::optional<DenseTensor>& s_grad,
                        DenseTensor* x_grad) {
   if (!s_grad.get_ptr() || s_grad.get_ptr()->numel() == 0) {

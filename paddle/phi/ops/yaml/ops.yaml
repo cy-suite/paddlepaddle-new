@@ -4833,7 +4833,6 @@
   kernel :
     func : svdvals
   backward : svdvals_grad
-  # interfaces :
 
 - op : swiglu
   args : (Tensor x, Tensor y)

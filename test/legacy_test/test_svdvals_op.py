@@ -34,8 +34,8 @@ class TestSvdvalsOp(OpTest):
         self._output_data = np.linalg.svd(
             self._input_data, compute_uv=False, hermitian=False
         )
-        self.inputs = {"X": self._input_data}
-        self.outputs = {"S": self._output_data}
+        self.inputs = {'x': self._input_data}
+        self.outputs = {'s': self._output_data}
 
     def test_check_output(self):
         self.check_output(check_pir=True)
@@ -50,7 +50,7 @@ class TestSvdvalsOp(OpTest):
             )
 
     def test_check_grad(self):
-        self.check_grad(['X'], ['S'], numeric_grad_delta=0.001, check_pir=True)
+        self.check_grad(['x'], ['s'], numeric_grad_delta=0.001, check_pir=True)
 
 
 class TestSvdvalsBatched(TestSvdvalsOp):
@@ -78,8 +78,8 @@ class TestSvdvalsBatched(TestSvdvalsOp):
                 for matrix in self._input_data
             ]
         )
-        self.inputs = {"X": self._input_data}
-        self.outputs = {"S": self._output_data}
+        self.inputs = {'x': self._input_data}
+        self.outputs = {"s": self._output_data}
 
 
 @skip_check_grad_ci(
@@ -93,8 +93,8 @@ class TestSvdvalsBigMatrix(TestSvdvalsOp):
         self._output_data = np.linalg.svd(
             self._input_data, compute_uv=False, hermitian=False
         )
-        self.inputs = {"X": self._input_data}
-        self.outputs = {"S": self._output_data}
+        self.inputs = {'x': self._input_data}
+        self.outputs = {'s': self._output_data}
 
     def test_check_grad(self):
         pass
@@ -134,10 +134,10 @@ class TestSvdvalsAPI(unittest.TestCase):
     def test_static_api(self):
         with static_guard():
             with paddle.static.program_guard(paddle.static.Program()):
-                x = paddle.static.data('X', [10, 12], dtype='float32')
+                x = paddle.static.data('x', [10, 12], dtype='float32')
                 s = paddle.linalg.svdvals(x)
                 exe = paddle.static.Executor(self.place)
-                res = exe.run(feed={'X': self.x_np}, fetch_list=[s])
+                res = exe.run(feed={'x': self.x_np}, fetch_list=[s])
 
         np_s = np.linalg.svd(self.x_np, compute_uv=False, hermitian=False)
         for r in res:
