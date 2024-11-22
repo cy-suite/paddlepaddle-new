@@ -13,14 +13,15 @@
 // limitations under the License.
 
 #pragma once
-#include "paddle/cinn/ir/ir.h"
+#include "paddle/cinn/optim/pass.h"
 
 namespace cinn {
 namespace optim {
+class IfFusionPass : public BlockPass {
+ public:
+  IfFusionPass() : BlockPass("if_fusion") {}
+  bool RunOnBlock(ir::stmt::BlockRef block) override;
+};
 
-/*
- * Do fusion with the adjaccnt if-block.
- */
-void IfFusion(Expr *expr);
 }  // namespace optim
 }  // namespace cinn
