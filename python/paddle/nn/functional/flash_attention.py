@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, overload
 
+import numpy as np
+
 import paddle
 import paddle.nn.functional as F
 from paddle import _C_ops, in_dynamic_mode
@@ -1160,18 +1162,17 @@ def scaled_dot_product_attention(
                 [query.shape[1]] * query.shape[0], dtype='int32'
             )
 
-            scale = 1.0 / paddle.sqrt(query.shape[-1])
+            scale = 1.0 / np.sqrt(query.shape[-1])
+
+            query = query.transpose([0, 2, 1, 3])
+            key = key.transpose([0, 2, 1, 3])
+            value = value.transpose([0, 2, 1, 3])
 
             output = variable_length_memory_efficient_attention(
-                query,
-                key,
-                value,
-                seq_lens,
-                seq_lens,
-                attn_mask,
-                scale,
-                causal=is_causal,
+                query, key, value, seq_lens, seq_lens, attn_mask, scale
             )
+
+            output = output.transpose([0, 2, 1, 3])
 
             return output
         elif sdp_func_name == "math":
