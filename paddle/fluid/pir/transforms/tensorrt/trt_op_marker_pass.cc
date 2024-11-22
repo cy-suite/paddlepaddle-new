@@ -86,6 +86,7 @@ DEFINE_GENERAL_PATTERN(Swish, paddle::dialect::SwishOp)
 DEFINE_GENERAL_PATTERN(Log, paddle::dialect::LogOp)
 DEFINE_GENERAL_PATTERN(Floor, paddle::dialect::FloorOp)
 DEFINE_GENERAL_PATTERN(Roll, paddle::dialect::RollOp)
+DEFINE_GENERAL_PATTERN(Stanh, paddle::dialect::StanhOp)
 
 #undef DEFINE_GENERAL_PATTERN
 
@@ -1623,7 +1624,6 @@ class ActOpPattern : public pir::OpRewritePattern<OpType> {
 };
 using TanhOpPattern = ActOpPattern<paddle::dialect::TanhOp>;
 using SoftplusOpPatten = ActOpPattern<paddle::dialect::SoftplusOp>;
-using StanhOpPattern = ActOpPattern<paddle::dialect::StanhOp>;
 
 class WherePattern : public pir::OpRewritePattern<paddle::dialect::WhereOp> {
  public:
@@ -2032,6 +2032,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Log)
     ADD_PATTERN(Floor)
     ADD_PATTERN(Roll)
+    ADD_PATTERN(Stanh)
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
 #endif
@@ -2094,7 +2095,6 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<SetValueWithTensorOpPattern>(context));
     ps.Add(std::make_unique<SetValueWithTensor_OpPattern>(context));
     ps.Add(std::make_unique<SoftplusOpPatten>(context));
-    ps.Add(std::make_unique<StanhOpPattern>(context));
     ps.Add(std::make_unique<EqualOpPattern>(context));
     ps.Add(std::make_unique<NotEqualOpPattern>(context));
     return ps;

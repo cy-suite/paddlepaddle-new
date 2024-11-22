@@ -128,7 +128,7 @@ class TestSwishFloatTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestStanhTRTPattern(TensorRTBaseTest):
+class TestStanhFloatTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.stanh
         self.api_args = {
