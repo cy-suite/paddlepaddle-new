@@ -121,7 +121,7 @@ void SvdvalsKernel(const Context& dev_ctx,
     VLOG(3) << S_out[i] << " ";
   }
   VLOG(3) << "S shape in backward: "
-          << S.dims();  // Assuming S is passed to the backward kernel
+          << S->dims();  // Assuming S is passed to the backward kernel
 }
 
 }  // namespace phi
