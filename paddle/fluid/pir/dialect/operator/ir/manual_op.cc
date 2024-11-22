@@ -1952,6 +1952,22 @@ std::vector<pir::Type> ArrayReadOp::InferMeta(
   return argument_outputs;
 }
 
+bool ArrayReadOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &array_shape =
+      infer_context->GetShapeOrDataForValue(array())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  auto output_shape = array_shape.GetShapeHint();
+  for (size_t i = 0; i < output_shape.size(); ++i) {
+    output_shape[i] = infer_context->GetNextSymName();
+  }
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(output_shape)});
+  return true;
+}
+
 OpInfoTuple ArrayWrite_Op::GetOpInfo() {
   std::vector<paddle::dialect::OpInputInfo> inputs = {
       OpInputInfo("array",
@@ -2806,6 +2822,22 @@ phi::DataType SliceArrayOp::GetKernelTypeForVar(
 
   return expected_kernel_dtype;
 }
+bool SliceArrayOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &input_shape_or_data =
+      infer_context->GetShapeOrDataForValue(input())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  std::vector<symbol::DimExpr> input_shape = input_shape_or_data.GetShapeHint();
+  std::vector<symbol::DimExpr> out_shape;
+  for (size_t i = 0; i < input_shape.size(); ++i) {
+    out_shape.push_back(infer_context->GetNextSymName());
+  }
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::RankedTensorArrayShapeOrDataDimExprs(out_shape)});
+  return true;
+}
 
 OpInfoTuple SliceArrayDenseOp::GetOpInfo() {
   std::vector<paddle::dialect::OpInputInfo> inputs = {
@@ -2964,6 +2996,23 @@ phi::DataType SliceArrayDenseOp::GetKernelTypeForVar(
   VLOG(4) << "Get KernelType for Var of op: SliceArrayOp";
 
   return expected_kernel_dtype;
+}
+
+bool SliceArrayDenseOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &input_shape_or_data =
+      infer_context->GetShapeOrDataForValue(input())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  std::vector<symbol::DimExpr> input_shape = input_shape_or_data.GetShapeHint();
+  std::vector<symbol::DimExpr> out_shape;
+  for (size_t i = 0; i < input_shape.size(); ++i) {
+    out_shape.push_back(infer_context->GetNextSymName());
+  }
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(out_shape)});
+  return true;
 }
 
 OpInfoTuple AssignArrayOp::GetOpInfo() {
@@ -3509,6 +3558,12 @@ std::vector<pir::Type> ExpandOp::InferMeta(
       pir::Value inputs = shape.defining_op()->operand_source(0);
       vec_shape = common::vectorize(
           inputs.type().dyn_cast<paddle::dialect::DenseTensorType>().dims());
+      // change -1 to -2 which represents real dynamic shape
+      for (size_t i = 0; i < vec_shape.size(); ++i) {
+        if (vec_shape[i] == -1) {
+          vec_shape[i] = -2;
+        }
+      }
     } else if (shape.type().isa<pir::VectorType>()) {
       size_t shape_size = shape.type().dyn_cast<pir::VectorType>().size();
       vec_shape = std::vector<int64_t>(shape_size, -2);
