@@ -40,8 +40,17 @@ void SvdvalsGradKernel(const Context& dev_ctx,
 
   const DenseTensor& dS = *(s_grad.get_ptr());
   DenseTensor dX_term = Diag<T, Context>(dev_ctx, dS, 0, 0);
+  int rows = x.dims()[x.dims().size() - 2];
+  int cols = x.dims()[x.dims().size() - 1];
+  int k = std::min(rows, cols);
 
   DenseTensor U, VH, S_recomputed;
+  DDim u_dims = {rows, k};
+  DDim s_dims = {k, k};
+  DDim vh_dims = {k, col};
+  U.Resize(u_dims);
+  VH.Resize(vh_dims);
+  S_recomputed.Resize(s_dims);
   phi::SvdKernel<T, Context>(dev_ctx,
                              x,
                              true,
