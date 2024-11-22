@@ -44,7 +44,7 @@ void SvdvalsGradKernel(const Context& dev_ctx,
   DenseTensor U, VH, S_recomputed;
   phi::SvdKernel<T, Context>(dev_ctx,
                              x,
-                             false,
+                             true,
                              &U,
                              &S_recomputed,
                              &VH);  // Crucial: recomputing SVD
