@@ -84,7 +84,7 @@ const std::set<std::string>& GetPrimitiveOpNames() {
       "pd_op.sign",
       "pd_op.slice",
       "pd_op.uniform",
-      "pd_op.shape",
+      "pd_op.shape64",
       "pd_op.full",
       "pd_op.full_int_array",
       "pd_op.full_with_tensor",

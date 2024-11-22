@@ -311,13 +311,20 @@ class TestTensorShapeBasic(Dy2StTestBase):
         slice_op_num = 0
 
         for block in program.blocks:
-            shape_op_num += len([op for op in block.ops if op.type == "shape"])
+            shape_op_num += len(
+                [
+                    op
+                    for op in block.ops
+                    if (op.type == "shape" or op.type == "shape64")
+                ]
+            )
             slice_op_num += len([op for op in block.ops if op.type == "slice"])
         return op_num, shape_op_num, slice_op_num
 
     def _compute_pir_op_num(self, program):
         op_num = program.global_block().num_ops()
         shape_op_num = get_op_num_in_program(program, "pd_op.shape")
+        shape_op_num += get_op_num_in_program(program, "pd_op.shape64")
         slice_op_num = get_op_num_in_program(program, "pd_op.slice")
         return op_num, shape_op_num, slice_op_num
 
@@ -650,7 +657,11 @@ class TestOpNumBasicWithTensorShape(Dy2StTestBase):
 
         for block in program.blocks:
             self.shape_op_num += len(
-                [op for op in block.ops if op.type == "shape"]
+                [
+                    op
+                    for op in block.ops
+                    if (op.type == "shape" or op.type == "shape64")
+                ]
             )
             self.slice_op_num += len(
                 [op for op in block.ops if op.type == "slice"]
@@ -659,6 +670,7 @@ class TestOpNumBasicWithTensorShape(Dy2StTestBase):
     def _compute_pir_op_num(self, program):
         op_num = program.global_block().num_ops()
         shape_op_num = get_op_num_in_program(program, "pd_op.shape")
+        shape_op_num += get_op_num_in_program(program, "pd_op.shape64")
         slice_op_num = get_op_num_in_program(program, "pd_op.slice")
         return op_num, shape_op_num, slice_op_num
 
@@ -719,7 +731,7 @@ class TestOpNumWithTensorShapeInIf1(TestOpNumBasicWithTensorShape):
         self.dygraph_func = dyfunc_with_if_1
 
     def _set_expected_op_num(self):
-        self.expected_op_num = 33
+        self.expected_op_num = 31
         self.expected_shape_op_num = 4
         self.expected_slice_op_num = 4
 
@@ -734,7 +746,7 @@ class TestOpNumWithTensorShapeInFor1(TestOpNumBasicWithTensorShape):
         self.dygraph_func = dyfunc_with_for_1
 
     def _set_expected_op_num(self):
-        self.expected_op_num = 23
+        self.expected_op_num = 26
         self.expected_shape_op_num = 2
         self.expected_slice_op_num = 3
 
@@ -749,7 +761,7 @@ class TestOpNumWithTensorShapeInWhile1(TestOpNumBasicWithTensorShape):
         self.dygraph_func = dyfunc_with_while_1
 
     def _set_expected_op_num(self):
-        self.expected_op_num = 18
+        self.expected_op_num = 20
         self.expected_shape_op_num = 3
         self.expected_slice_op_num = 3
 
