@@ -1380,30 +1380,59 @@ class OpcodeExecutorBase:
         related_list = [fn_name, codeobj]
 
         # the function has no default values in 3.13
-        if self._instructions[
-            self._lasti
-        ].opname != 'SET_FUNCTION_ATTRIBUTE' and sys.version_info >= (3, 13):
-            self.push_new_fn_on_stack(
-                codeobj, global_dict, fn_name, (), (), related_list
-            )
-            return
-        # the function has default values in 3.13
-        elif self._instructions[
-            self._lasti
-        ].opname == 'SET_FUNCTION_ATTRIBUTE' and sys.version_info >= (3, 13):
+        if sys.version_info >= (3, 13):
             flag = 0
-            start_idx = self._lasti
-            while (
-                start_idx < len(self._instructions)
-                and self._instructions[start_idx].opname
-                == 'SET_FUNCTION_ATTRIBUTE'
-            ):
-                flag += self._instructions[start_idx].arg
-                start_idx += 1
         else:
             flag = instr.arg
-        kw_defaults = None
 
+        closure, related_list, kw_defaults, default_args = (
+            self.attach_new_attribute(flag, related_list)
+        )
+
+        self.push_new_fn_on_stack(
+            codeobj.get_py_value(),
+            global_dict,
+            fn_name.get_py_value(),
+            default_args,
+            closure,
+            related_list,
+            kw_defaults,
+        )
+
+    def SET_FUNCTION_ATTRIBUTE(self, instr: Instruction):
+        # in python3.13, SET_FUNCTION_ATTRIBUTE must follow a MAKE_FUNCTION
+        # The flags appear in descending order.
+        start_idx = self._lasti - 1
+        while self._instructions[start_idx].opname == 'SET_FUNCTION_ATTRIBUTE':
+            start_idx -= 1
+        assert (
+            self._instructions[start_idx].opname == 'MAKE_FUNCTION'
+        ), "There's no MAKE_FUNCTION before SET_FUNCTION_ATTRIBUTE, the bytecode is illegal!"
+        origin_func = self.stack.pop()
+        origin_func_val = origin_func.get_py_value()
+        flag = instr.arg
+        related_list = [origin_func]
+        closure, related_list, kw_defaults, default_args = (
+            self.attach_new_attribute(flag, related_list)
+        )
+        new_closure = closure if closure else origin_func_val.__closure__
+        new_kw_defaults = (
+            kw_defaults if kw_defaults else origin_func_val.__kwdefaults__
+        )
+        new_default_args = (
+            default_args if default_args else origin_func_val.__defaults__
+        )
+        self.push_new_fn_on_stack(
+            origin_func_val.__code__,
+            origin_func_val.__globals__,
+            origin_func_val.__name__,
+            new_default_args,
+            new_closure,
+            related_list,
+            new_kw_defaults,
+        )
+
+    def attach_new_attribute(self, flag, related_list):
         if flag & MF.MF_HAS_CLOSURE:
             # closure should be a tuple of Variables
             closure_variable = self.stack.pop()
@@ -1422,6 +1451,7 @@ class OpcodeExecutorBase:
 
         # although types.FunctionType doesn't support dictionary parameters, we can still bind the dictionary with the function
         # dynamically after creating the function object.
+        kw_defaults = ()
         if flag & MF.MF_HAS_KWDEFAULTS:
             kw_default_args_variable = self.stack.pop()
             assert isinstance(kw_default_args_variable, DictVariable)
@@ -1443,25 +1473,7 @@ class OpcodeExecutorBase:
         else:
             default_args = ()
 
-        self.push_new_fn_on_stack(
-            codeobj,
-            global_dict,
-            fn_name,
-            default_args,
-            closure,
-            related_list,
-            kw_defaults,
-        )
-
-    def SET_FUNCTION_ATTRIBUTE(self, instr: Instruction):
-        # in python3.13, SET_FUNCTION_ATTRIBUTE must fllow a MAKE_FUNCTION
-        # The flags appear in descending order.
-        start_idx = self._lasti - 1
-        while self._instructions[start_idx].opname == 'SET_FUNCTION_ATTRIBUTE':
-            start_idx -= 1
-        assert (
-            self._instructions[start_idx].opname == 'MAKE_FUNCTION'
-        ), "There's no MAKE_FUNCTION before SET_FUNCTION_ATTRIBUTE, the bytecode is illegal!"
+        return closure, related_list, kw_defaults, default_args
 
     def push_new_fn_on_stack(
         self,
@@ -1471,17 +1483,17 @@ class OpcodeExecutorBase:
         default_args,
         closure,
         related_list,
-        kw_defaults=None,
+        kw_defaults,
     ):
         new_fn = types.FunctionType(
-            codeobj.get_py_value(),
+            codeobj,
             global_dict,
-            fn_name.get_py_value(),
+            fn_name,
             default_args,
             closure,
         )
 
-        if kw_defaults is not None:
+        if kw_defaults:
             new_fn.__kwdefaults__ = kw_defaults
 
         # new_fn is created for which is binded with Variables
