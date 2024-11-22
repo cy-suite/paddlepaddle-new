@@ -1292,7 +1292,7 @@ def bitwise_or(
 
 def __ror__(
     x: Tensor,
-    y: Tensor | int | bool,
+    y: int | bool,
     out: Tensor | None = None,
     name: str | None = None,
 ) -> Tensor:
