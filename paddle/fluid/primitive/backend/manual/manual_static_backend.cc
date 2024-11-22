@@ -91,9 +91,9 @@ std::tuple<Tensor, Tensor, Tensor> fused_gemm_epilogue_grad<LazyTensor>(
                                                           activation);
   auto op_res_0 = std::get<0>(op_res);
   Tensor x_grad(std::make_shared<LazyTensor>(op_res_0));
-  auto op_res_1 = std::get<0>(op_res);
+  auto op_res_1 = std::get<1>(op_res);
   Tensor y_grad(std::make_shared<LazyTensor>(op_res_1));
-  auto op_res_2 = std::get<0>(op_res);
+  auto op_res_2 = std::get<2>(op_res);
   Tensor bias_grad(std::make_shared<LazyTensor>(op_res_2));
   return std::make_tuple(x_grad, y_grad, bias_grad);
 }
