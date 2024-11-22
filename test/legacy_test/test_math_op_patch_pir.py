@@ -230,7 +230,6 @@ class TestMathOpPatchesPir(unittest.TestCase):
             paddle.to_tensor(x_np), paddle.to_tensor(y_np)
         )
         res_np_d = x_np.__or__(y_np)
-        res_np_e = y_np.__ror__(x_np)
         paddle.enable_static()
         with paddle.pir_utils.IrGuard():
             main_program, exe, program_guard = new_program()
@@ -240,16 +239,14 @@ class TestMathOpPatchesPir(unittest.TestCase):
                 b = x | y
                 c = x.bitwise_or(y)
                 d = x.__or__(y)
-                e = y.__ror__(x)
-                (b_np, c_np, d_np, e_np) = exe.run(
+                (b_np, c_np, d_np) = exe.run(
                     main_program,
                     feed={"x": x_np, "y": y_np},
-                    fetch_list=[b, c, d, e],
+                    fetch_list=[b, c, d],
                 )
                 np.testing.assert_array_equal(res_np_b, b_np)
                 np.testing.assert_array_equal(res_np_c, c_np)
                 np.testing.assert_array_equal(res_np_d, d_np)
-                np.testing.assert_array_equal(res_np_e, e_np)
 
     def test_dygraph_ror(self):
         paddle.disable_static()
