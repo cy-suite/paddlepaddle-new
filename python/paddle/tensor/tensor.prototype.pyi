@@ -109,7 +109,7 @@ class AbstractTensor:
             dtype: paddle::framework::proto::VarType::Type,
             dims: vector<int>,
             name: std::string,
-            type: paddle::framework::proto::VarType::LodTensor,
+            type: paddle::framework::proto::VarType::DenseTensor,
             persistable: bool)
         3. (multi-place)
         (should have at least one parameter, one parameter equals to case 4, zero
@@ -181,6 +181,7 @@ class AbstractTensor:
     def __rpow__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
     def __rdiv__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
     def __rfloordiv__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
+    def __rand__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
 
     # type cast
     def __bool__(self) -> bool: ...

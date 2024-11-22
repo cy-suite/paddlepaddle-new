@@ -37,6 +37,7 @@ limitations under the License. */
 #include "paddle/fluid/framework/custom_operator.h"
 #include "paddle/fluid/framework/data_layout.h"
 #include "paddle/fluid/framework/data_type_transform.h"
+#include "paddle/fluid/framework/dense_tensor_array.h"
 #include "paddle/fluid/framework/executor.h"
 #include "paddle/fluid/framework/executor_cache.h"
 #include "paddle/fluid/framework/executor_gc_helper.h"
@@ -49,7 +50,6 @@ limitations under the License. */
 #include "paddle/fluid/framework/ir/generate_pass.h"
 #include "paddle/fluid/framework/ir/pass_builder.h"
 #include "paddle/fluid/framework/lod_rank_table.h"
-#include "paddle/fluid/framework/lod_tensor_array.h"
 #include "paddle/fluid/framework/new_executor/executor_statistics.h"
 #include "paddle/fluid/framework/new_executor/standalone_executor.h"
 #include "paddle/fluid/framework/op_info.h"
@@ -632,6 +632,32 @@ void BindTensor(pybind11::module &m) {  // NOLINT
                     >>> t.set_lod([[0, 2, 5]])
                     >>> print(t.lod())
                     [[0, 2, 5]]
+           )DOC")
+      // Set above comments of set_lod.
+      .def(
+          "recursive_sequence_lengths",
+          [](phi::DenseTensor &self) -> std::vector<std::vector<size_t>> {
+            // output the length-based lod info
+            LoD lod = phi::ConvertToLengthBasedLoD(self.lod());
+            std::vector<std::vector<size_t>> new_lod;
+            new_lod.reserve(lod.size());
+            std::copy(lod.begin(), lod.end(), std::back_inserter(new_lod));
+            return new_lod;
+          },
+          R"DOC(
+           Return the recursive sequence lengths corresponding to of the LodD
+           of the Tensor.
+           Returns:
+                list[list[int]]: The recursive sequence lengths.
+           Examples:
+                .. code-block:: python
+                    >>> import paddle
+                    >>> import numpy as np
+                    >>> t = paddle.framework.core.Tensor()
+                    >>> t.set(np.ndarray([5, 30]), paddle.CPUPlace())
+                    >>> t.set_recursive_sequence_lengths([[2, 3]])
+                    >>> print(t.recursive_sequence_lengths())
+                    [[2, 3]]
            )DOC")
       .def("_as_type",
            [](const phi::DenseTensor &self,

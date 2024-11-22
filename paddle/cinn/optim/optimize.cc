@@ -73,7 +73,7 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
 #ifdef CINN_WITH_CUDA
         ir::SetCudaAxisInfo(copied);
         if (remove_gpu_for_loops) {
-          RemoveGpuForloopsAxis(copied);
+          RemoveGpuForLoops(copied);
         }
         CudaSyncThreadsDropIfThenElse(copied);
     // CudaTransBufferWithDynamicShape(&copied);
@@ -83,7 +83,7 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
 #ifdef CINN_WITH_HIP
         ir::SetCudaAxisInfo(copied);
         if (remove_gpu_for_loops) {
-          RemoveGpuForloopsAxis(copied);
+          RemoveGpuForLoops(copied);
         }
         CudaSyncThreadsDropIfThenElse(copied);
     // CudaTransBufferWithDynamicShape(&copied);
@@ -102,8 +102,9 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
   Simplify(&copied->body);
   VLOG(10) << "After Optimize Simplify:" << copied;
 
-  IfFusion(&copied->body);
-  VLOG(10) << "After Optimize IfFusion" << copied;
+  // TODO(liangshuhao): this pass may unexpectedly remove schedule blocks, and
+  // it actually doesn't contribute to performance, so temporarily disabled.
+  // IfFusion(&copied->body);
 
   VectorizeForTrans(&copied->body);
   VLOG(10) << "After Optimize vectorize" << copied;
