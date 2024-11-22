@@ -1417,9 +1417,8 @@ Tensor allclose_decomp(const Tensor& x,
   Tensor atol_tensor = full_scalar<T>(atol, atol.dtype());
   Tensor right = atol_tensor + rtol_tensor * abs<T>(y);
   Tensor diff = abs<T>(left - right);
-  Tensor res1 = less_equal<T>(left, right);
-  Tensor res2 = less_equal<T>(diff, min_diff_tensor);
-  Tensor res = backend::logical_or<T>(res1, res2);
+  Tensor res = backend::logical_or<T>(less_equal<T>(left, right),
+                                      less_equal<T>(diff, min_diff_tensor));
   if (equal_nan) {
     Tensor x_nan = isnan<T>(x);
     Tensor y_nan = isnan<T>(y);
