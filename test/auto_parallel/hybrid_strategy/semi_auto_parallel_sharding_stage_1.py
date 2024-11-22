@@ -36,10 +36,10 @@ class TestSemiAutoParallelShardingStage1:
 
     def shard_layer_fn(self, layer_name, layer, process_mesh):
         layer.weight = dist.shard_tensor(
-            layer.weight, process_mesh, [dist.Shard(1)]
+            layer.weight, process_mesh, [dist.Replicate(), dist.Shard(1)]
         )
         layer.bias = dist.shard_tensor(
-            layer.bias, process_mesh, [dist.Shard(0)]
+            layer.bias, process_mesh, [dist.Replicate(), dist.Shard(0)]
         )
 
     def get_single_card_rst(self):
