@@ -1075,7 +1075,7 @@ class _ShardOptimizer(Optimizer):
                 "The global mesh or shard_fn mesh should be set for the sharding strategy."
             )
 
-        # Note(luchang): Now we only support sharding on one axis
+        # Note(luchang): Now we suggest using 0 axis as sharding axis.
         self._sharding_axis = 0
 
         # check the placement on sharding axis is Replicate
@@ -1085,6 +1085,12 @@ class _ShardOptimizer(Optimizer):
                 continue
             mesh = param.process_mesh
             placements = param.placements
+
+            if not isinstance(placements[self._sharding_axis], dist.Replicate):
+                # try to infer the sharding axis
+                for dim, placement in enumerate(placements):
+                    if isinstance(placement, dist.Replicate):
+                        self._sharding_axis = dim
 
             # check the placement on sharding axis is Replicate
             assert isinstance(
