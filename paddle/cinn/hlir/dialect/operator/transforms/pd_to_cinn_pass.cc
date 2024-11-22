@@ -285,18 +285,6 @@ class ReshapeOpPattern
                            .dims());
 
     std::vector<int64_t> output_shape;
-    std::cerr << "input shape \n";
-    for (auto d : in_shape) {
-      std::cerr << d << ", ";
-    }
-    std::cerr << "\n";
-
-    std::cerr << "attr output shape \n";
-    for (auto d : attr_out_shape) {
-      std::cerr << d << ", ";
-    }
-    std::cerr << "\n";
-
     for (size_t i = 0; i < attr_out_shape.size(); ++i) {
       if (attr_out_shape[i] == 0) {
         output_shape.push_back(in_shape[i]);
@@ -304,12 +292,6 @@ class ReshapeOpPattern
         output_shape.push_back(attr_out_shape[i]);
       }
     }
-
-    std::cerr << "real output shape \n";
-    for (auto d : output_shape) {
-      std::cerr << d << ", ";
-    }
-    std::cerr << "\n";
 
     return output_shape;
   }
