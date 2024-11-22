@@ -229,8 +229,16 @@ void DyScheduleImpl::SimpleComputeAt(const Expr& block, const Expr& loop) {
       new_loop.As<ir::For>()->body.As<ir::Block>()->stmts.insert(pos, result);
     }
   } else {
-    new_loop.As<ir::For>()->body =
-        ir::Block::Make({result, new_loop.As<ir::For>()->body});
+    std::vector<ir::Expr> new_body{result};
+    PADDLE_ENFORCE_NOT_NULL(
+        new_loop.As<ir::For>()->body.As<ir::Block>(),
+        ::common::errors::InvalidArgument(
+            "Expr new_loop's body should be a Block node!\n"));
+    for (const auto& stmt :
+         new_loop.As<ir::For>()->body.As<ir::Block>()->stmts) {
+      new_body.push_back(stmt);
+    }
+    new_loop.As<ir::For>()->body = ir::Block::Make(new_body);
   }
 
   Expr source_expr{nullptr};
