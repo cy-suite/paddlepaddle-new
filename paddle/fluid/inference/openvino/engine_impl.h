@@ -29,16 +29,20 @@ void OpenVINOEngine::BindingInput(const std::string& input_name,
   PADDLE_ENFORCE_EQ(model_input.get_element_type() == ov_type,
                     true,
                     common::errors::PreconditionNotMet(
-                        "runtime input element type is not same with model"));
+                        "Model input_name[%s] requires input type [%s],but "
+                        "receives type [%s]",
+                        input_name,
+                        OVType2PhiType(model_input.get_element_type()),
+                        OVType2PhiType(ov_type)));
 
   if (IsModelStatic()) {
-    PADDLE_ENFORCE_EQ(
-        model_input.get_partial_shape().compatible(
-            ov::PartialShape(data_shape)),
-        true,
-        common::errors::PreconditionNotMet(
-            "model is static but runtime input shape is not same with "
-            "model!"));
+    PADDLE_ENFORCE_EQ(model_input.get_partial_shape().compatible(
+                          ov::PartialShape(data_shape)),
+                      true,
+                      common::errors::PreconditionNotMet(
+                          "Model input_name[%s] requires input_shape is [%s]!",
+                          input_name,
+                          model_input.get_partial_shape().to_string()));
   }
 
   try {
