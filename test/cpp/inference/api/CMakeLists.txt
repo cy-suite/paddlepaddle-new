@@ -956,6 +956,16 @@ if(WITH_TESTING AND WITH_INFERENCE_API_TEST)
       test_analyzer_resnet50 ${IMG_CLASS_TEST_APP} ${RESNET50_MODEL_DIR} true)
     set_tests_properties(test_analyzer_resnet50 PROPERTIES TIMEOUT 120)
   endif()
+  if(WITH_OPENVINO AND Linux)
+    set(OPENVINO_TEST_APP "analyzer_openvino")
+    set(OPENVINO_TEST_APP_SRC "analyzer_openvino_tester.cc")
+    inference_analysis_api_test_with_fake_data_build(${OPENVINO_TEST_APP}
+                                                     ${OPENVINO_TEST_APP_SRC})
+    inference_analysis_api_test_with_fake_data_run(
+      test_analyzer_openvino_resnet50 ${IMG_CLASS_TEST_APP}
+      ${RESNET50_MODEL_DIR})
+    set_tests_properties(test_analyzer_openvino_resnet50 PROPERTIES TIMEOUT 120)
+  endif()
 
   inference_analysis_test(
     test_analyzer_capi_exp

@@ -12,6 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+if(NOT LINUX)
+  message(STATUS "OpenVINO only support Linux.")
+  return()
+endif()
+
 include(ExternalProject)
 
 set(OPENVINO_PROJECT "extern_openvino")
@@ -32,20 +37,19 @@ include(GNUInstallDirs)
 set(LIBDIR "runtime/lib/intel64")
 set(TBBDIR "runtime/3rdparty/tbb/lib")
 
-if(Linux)
-  set(OPENVINO_LIB_NAME
-      "libopenvino.so.2450"
-      CACHE PATH "libopenvino name." FORCE)
-  set(OPENVINO_PADDLE_LIB_NAME
-      "libopenvino_paddle_frontend.so.2450"
-      CACHE PATH "libopenvino_paddle_frontend name." FORCE)
-  set(OPENVINO_CPU_PLUGIN_LIB_NAME
-      "libopenvino_intel_cpu_plugin.so"
-      CACHE PATH "libopenvino_intel_cpu_plugin name." FORCE)
-  set(TBB_LIB_NAME
-      "libtbb.so.12"
-      CACHE PATH "libtbb name." FORCE)
-endif()
+set(OPENVINO_LIB_NAME
+    "libopenvino.so.2450"
+    CACHE PATH "libopenvino name." FORCE)
+set(OPENVINO_PADDLE_LIB_NAME
+    "libopenvino_paddle_frontend.so.2450"
+    CACHE PATH "libopenvino_paddle_frontend name." FORCE)
+set(OPENVINO_CPU_PLUGIN_LIB_NAME
+    "libopenvino_intel_cpu_plugin.so"
+    CACHE PATH "libopenvino_intel_cpu_plugin name." FORCE)
+set(TBB_LIB_NAME
+    "libtbb.so.12"
+    CACHE PATH "libtbb name." FORCE)
+
 message(STATUS "Set ${OPENVINO_INSTALL_DIR}/${LIBDIR} to runtime path")
 message(STATUS "Set ${OPENVINO_INSTALL_DIR}/${TBBDIR} to runtime path")
 set(OPENVINO_LIB_DIR ${OPENVINO_INSTALL_DIR}/${LIBDIR})

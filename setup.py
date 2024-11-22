@@ -1466,20 +1466,17 @@ def get_package_data_and_package_dir():
         shutil.copy(env_dict.get("OPENVINO_LIB"), libs_path)
         shutil.copy(env_dict.get("TBB_LIB"), libs_path)
         shutil.copy(env_dict.get("OPENVINO_PADDLE_LIB"), libs_path)
-        shutil.copy(env_dict.get("OPENVINO_PLUGIN_LIB"), libs_path)
         if os.name != 'nt':
             package_data['paddle.libs'] += [
                 'libopenvino.so.2450',
                 'libtbb.so.12',
                 'libopenvino_paddle_frontend.so.2450',
-                'libopenvino_intel_cpu_plugin.so',
             ]
         else:
             package_data['paddle.libs'] += [
                 'openvino.dll',
                 'tbb.dll',
                 'openvino_paddle_frontend.dll',
-                'openvino_intel_cpu_plugin.dll',
             ]
 
     if env_dict.get("WITH_XPU") == 'ON':

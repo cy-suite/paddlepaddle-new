@@ -4654,6 +4654,7 @@ function main() {
       cpu_cicheck_coverage)
         check_diff_file_for_coverage
         export ON_INFER=ON PADDLE_CUDA_INSTALL_REQUIREMENTS=ON
+        export WITH_OPENVINO=ON
         run_setup ${PYTHON_ABI:-""} bdist_wheel ${parallel_number}
         enable_unused_var_check
         check_coverage_added_ut
