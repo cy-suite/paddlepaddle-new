@@ -1897,14 +1897,14 @@ def vecdot(
             >>> result = paddle.linalg.vecdot(x, y)
             >>> print(result)
             Tensor(shape=[], dtype=float32, place=Place(cpu), stop_gradient=True,
-               [32.0])
+            [32.0])
 
             >>> x2 = paddle.to_tensor([[1, 2, 3], [4, 5, 6]], dtype='float32')
             >>> y2 = paddle.to_tensor([[1, 2, 3], [4, 5, 6]], dtype='float32')
             >>> result2 = paddle.linalg.vecdot(x2, y2, axis=1)
             >>> print(result2)
             Tensor(shape=[2], dtype=float32, place=Place(cpu), stop_gradient=True,
-               [14.0, 77.0])
+            [14.0, 77.0])
     """
     out = (x.conj() * y).sum(axis=axis)
     return out
