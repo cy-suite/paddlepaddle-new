@@ -203,6 +203,10 @@ class VecDotTestCaseTypePromotion1(unittest.TestCase):
         )
 
 
+@unittest.skipIf(
+    core.is_compiled_with_xpu(),
+    "Skip XPU for not support uniform(dtype=int)",
+)
 class VecDotTestCaseTypePromotion2(unittest.TestCase):
     def test_float64_complex64_promotion(self):
         paddle.disable_static()
