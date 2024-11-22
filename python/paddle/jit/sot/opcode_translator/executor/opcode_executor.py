@@ -1400,15 +1400,12 @@ class OpcodeExecutorBase:
         )
 
     def SET_FUNCTION_ATTRIBUTE(self, instr: Instruction):
-        # in python3.13, SET_FUNCTION_ATTRIBUTE must follow a MAKE_FUNCTION
-        # The flags appear in descending order.
-        start_idx = self._lasti - 1
-        while self._instructions[start_idx].opname == 'SET_FUNCTION_ATTRIBUTE':
-            start_idx -= 1
-        assert (
-            self._instructions[start_idx].opname == 'MAKE_FUNCTION'
-        ), "There's no MAKE_FUNCTION before SET_FUNCTION_ATTRIBUTE, the bytecode is illegal!"
         origin_func = self.stack.pop()
+        # The object we manipulate must be a functionVariable
+        assert isinstance(
+            origin_func,
+            (UserDefinedGeneratorFunctionVariable, UserDefinedFunctionVariable),
+        ), f"The object we manipulate must be a function object. But now got {type(origin_func)}"
         origin_func_val = origin_func.get_py_value()
         flag = instr.arg
         related_list = [origin_func]
