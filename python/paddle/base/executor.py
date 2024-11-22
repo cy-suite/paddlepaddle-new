@@ -1152,6 +1152,20 @@ class _ExecutorCache:
         place = cached_data.place
         scope = cached_data.scope
 
+        def cinn_process(program):
+            from paddle.decomposition import decomp
+
+            if core._enable_dist_prim_all():
+                with decomp.prim_guard():
+                    decomp.decompose_dist_program(program)
+
+            if core._enable_auto_recompute():
+                logging.info("apply auto_recompute in executor")
+                program = decomp.auto_recompute_pir_program(program, None)
+
+            apply_cinn_pass(program)
+            return program
+
         if cached_data.plan is None:
             value_map = pir.IrMapping()
             _, is_startup_program = has_fetch_operations_and_is_startup_program(
@@ -1174,6 +1188,11 @@ class _ExecutorCache:
                 fetch_var_name=fetch_var_name,
             )
             default_job = core.Job("default")
+
+            if not is_startup_program:
+                if in_cinn_mode():
+                    program = cinn_process(program)
+
             type_to_program = {"default": program}
             plan = core.Plan([default_job], type_to_program)
         else:
