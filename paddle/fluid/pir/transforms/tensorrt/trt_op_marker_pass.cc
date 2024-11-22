@@ -2017,6 +2017,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Nonzero)
     ADD_PATTERN(Gelu)
     ADD_PATTERN(Shape)
+    ADD_PATTERN(Shape64)
     ADD_PATTERN(Expand)
     ADD_PATTERN(ExpandAs)
     ADD_PATTERN(Sigmoid)
