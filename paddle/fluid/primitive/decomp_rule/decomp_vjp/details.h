@@ -3253,6 +3253,21 @@ void take_along_axis_grad(const Tensor& arr,
   }
 }
 
+template <typename T>
+void take_along_axis_double_grad(const Tensor& indices,
+                                 const Tensor& grad_arr_grad,
+                                 int axis,
+                                 Tensor* grad_out_grad) {
+  if (grad_out_grad) {
+    if (axis < 0) {
+      axis += grad_arr_grad.dims().size();
+    }
+    // ddout = take_along_axis(ddx, index)
+    auto grad_out_grad_tmp = take_along_axis<T>(grad_arr_grad, indices, axis);
+    set_output<T>(grad_out_grad_tmp, grad_out_grad);
+  }
+}
+
 }  // namespace details
 }  // namespace primitive
 }  // namespace paddle
