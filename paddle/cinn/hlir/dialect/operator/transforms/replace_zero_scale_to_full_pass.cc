@@ -16,17 +16,8 @@
 
 #include "paddle/cinn/hlir/dialect/operator/ir/cinn_op.h"
 #include "paddle/cinn/hlir/dialect/operator/ir/manual_op.h"
-#include "paddle/cinn/hlir/dialect/operator/transforms/group_merge/op_with_group_merge_util.h"
-#include "paddle/cinn/hlir/dialect/operator/transforms/refresh_combine_pattern.h"
-#include "paddle/cinn/hlir/framework/pir/utils.h"
-#include "paddle/common/ddim.h"
-#include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/infer_sym_utils.h"
-#include "paddle/fluid/pir/dialect/operator/ir/control_flow_op.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_attribute.h"
-#include "paddle/fluid/pir/dialect/operator/ir/op_type.h"
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
-#include "paddle/fluid/pir/drr/include/drr_match_context.h"
-#include "paddle/pir/include/core/builtin_dialect.h"
 #include "paddle/pir/include/pass/pass.h"
 #include "paddle/pir/include/pass/pass_registry.h"
 #include "paddle/pir/include/pattern_rewrite/pattern_applicator.h"
@@ -36,7 +27,6 @@
 namespace cinn {
 namespace dialect {
 namespace ir {
-using paddle::dialect::details::GetExprVecFromShape;
 
 bool IsGeneByFullOp(pir::Operation* op, int32_t input_idx) {
   return input_idx < op->num_operands() && op->operand_source(input_idx) &&
