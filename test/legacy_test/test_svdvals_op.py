@@ -31,7 +31,9 @@ class TestSvdvalsOp(OpTest):
         """Generate input data and expected output."""
         self._input_shape = (100, 1)
         self._input_data = np.random.random(self._input_shape).astype("float64")
-        self._output_data = np.linalg.svdvals(self._input_data)
+        self._output_data = np.linalg.svd(
+            self._input_data, compute_uv=False, hermitian=False
+        )
         self.inputs = {"X": self._input_data}
         self.outputs = {"S": self._output_data}
 
@@ -88,7 +90,9 @@ class TestSvdvalsBigMatrix(TestSvdvalsOp):
         """Generate large input matrix."""
         self._input_shape = (200, 300)
         self._input_data = np.random.random(self._input_shape).astype("float64")
-        self._output_data = np.linalg.svdvals(self._input_data)
+        self._output_data = np.linalg.svd(
+            self._input_data, compute_uv=False, hermitian=False
+        )
         self.inputs = {"X": self._input_data}
         self.outputs = {"S": self._output_data}
 
@@ -111,7 +115,7 @@ class TestSvdvalsAPI(unittest.TestCase):
             x = paddle.to_tensor(self.x_np)
             # Test dynamic graph for svdvals
             s = paddle.linalg.svdvals(x)
-            np_s = np.linalg.svdvals(self.x_np)
+            np_s = np.linalg.svd(self.x_np, compute_uv=False, hermitian=False)
             self.assertTrue(np.allclose(np_s, s.numpy(), rtol=1e-6))
 
             # Test with reshaped input
@@ -119,7 +123,7 @@ class TestSvdvalsAPI(unittest.TestCase):
             s_reshaped = paddle.linalg.svdvals(x_reshaped)
             np_s_reshaped = np.array(
                 [
-                    np.linalg.svdvals(matrix)
+                    np.linalg.svd(matrix, compute_uv=False, hermitian=False)
                     for matrix in self.x_np.reshape([-1, 12, 10])
                 ]
             )
@@ -135,7 +139,7 @@ class TestSvdvalsAPI(unittest.TestCase):
                 exe = paddle.static.Executor(self.place)
                 res = exe.run(feed={'X': self.x_np}, fetch_list=[s])
 
-        np_s = np.linalg.svdvals(self.x_np)
+        np_s = np.linalg.svd(self.x_np, compute_uv=False, hermitian=False)
         for r in res:
             self.assertTrue(np.allclose(np_s, r, rtol=1e-6))
 
