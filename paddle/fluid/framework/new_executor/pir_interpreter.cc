@@ -1151,18 +1151,18 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
       "RecordStreamForGC is only implemented when compiled with GPU."));
 #else
   if (FLAGS_pir_interpreter_record_stream_for_gc_cache &&
-      instr->SikpRecordStreamForGCState()) {
+      instr->SikpRecordStreamForGC()) {
     return;
   }
 
   if (!IsInterpretercoreFastGCEnabled() ||
       instr->KernelType() != OpFuncType::kGpuAsync) {
-    instr->SetSikpRecordStreamForGCState(true);
+    instr->SetSikpRecordStreamForGC(true);
     return;
   }
   if (instr->DeviceContext().GetPlace().GetType() ==
       phi::AllocationType::CUSTOM) {
-    instr->SetSikpRecordStreamForGCState(true);
+    instr->SetSikpRecordStreamForGC(true);
     return;
   }
   phi::RecordEvent record(
@@ -1293,7 +1293,7 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
   }
 
   if (skip_record_stream) {
-    instr->SetSikpRecordStreamForGCState(true);
+    instr->SetSikpRecordStreamForGC(true);
   }
 #endif
 }
