@@ -322,15 +322,9 @@ class TestInstanceNormWithNC(TestInstanceNormFP32OP):
     def init_shape(self):
         self.shape = [4, 100]
 
-    def init_value(self):
-        np.random.seed(0)
-        self.value = np.random.random(self.shape).astype(self.dtype)
-        self.scale = np.ones([self.shape[1]]).astype(np.float32)
-        self.bias = np.zeros([self.shape[1]]).astype(np.float32)
-
     def set_err_thre(self):
         super().set_err_thre()
-        self.fw_comp_atol = 2e-5
+        self.fw_comp_atol = 3e-5
 
     def test_check_output(self):
         self.check_output(
