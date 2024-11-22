@@ -98,6 +98,12 @@ class DygraphShardingOptimizer:
         self.comm_buffer_size_MB = sharding_configs.comm_buffer_size_MB
         self.fuse_optimizer = sharding_configs.fuse_optimizer
         self.use_reduce_avg = sharding_configs.use_reduce_avg
+        self.enable_fuse_optimizer_states = (
+            sharding_configs.enable_fuse_optimizer_states
+        )
+        assert (
+            not self.enable_fuse_optimizer_states
+        ), "enable_fuse_optimizer_states is not supported on sharding optimizer V1 now."
 
         if self.use_reduce_avg and (not is_avg_reduce_op_supported()):
             self.use_reduce_avg = False
@@ -657,6 +663,9 @@ class DygraphShardingOptimizerV2:
                 "nccl reduce_avg requires paddle compiled with cuda and nccl>=2.10.0, please check compilation setups."
             )
 
+        self.enable_fuse_optimizer_states = (
+            sharding_config.enable_fuse_optimizer_states
+        )
         self._build_comm_buffers(
             acc_steps, comm_buffer_size_MB * 1024 * 1024, free_grads_in_comm
         )
@@ -703,6 +712,8 @@ class DygraphShardingOptimizerV2:
 
         self._all_gather_overlap_forward = False
         self._forward_pre_hook_remove_helper = []
+
+        self.load_from_state_dict = False
 
     def _set_all_gather_overlap_forward(
         self, all_gather_overlap_forward, layers
@@ -764,20 +775,9 @@ class DygraphShardingOptimizerV2:
                     release_grads=self.sd_release_grads,
                     use_reduce_avg=self.use_reduce_avg,
                     free_grads_in_comm=free_grads_in_comm,
+                    init_slice_param=self.enable_fuse_optimizer_states,
+                    slice_params=self._slice_params,
                 )
-                for param in buffer.params:
-                    if (
-                        buffer._sharding_param_grad_view[
-                            param.name
-                        ]._param_begin
-                        < buffer._sharding_param_grad_view[
-                            param.name
-                        ]._param_end
-                    ):
-                        print(f"processing sharding_grad_view:{param.name}")
-                        buffer._sharding_param_grad_view[
-                            param.name
-                        ].fill_slice_param(self._slice_params[param.name])
                 group_idx += 1
                 self._comm_buffer_list.append(buffer)
 
@@ -962,7 +962,6 @@ class DygraphShardingOptimizerV2:
                 if self.sd_release_grads and hasattr(slice_param, "main_grad"):
                     assert not slice_param.main_grad._is_initialized()
                     del slice_param.main_grad
-                # print(f"check {comm_buffer._id} buffer: {param.name}; start: {comm_buffer._sharding_param_grad_view[param.name]._param_begin}, end: {comm_buffer._sharding_param_grad_view[param.name]._param_end}")
                 comm_buffer.assign_slice_grad(param, slice_param)
 
         assert param_num == len(self._parameter_list)
@@ -977,17 +976,8 @@ class DygraphShardingOptimizerV2:
                 hook_remove.remove()
             self._forward_pre_hook_remove_helper = []
 
-        print(
-            f"check param before _collect_comm_buffers: {self._inner_opt._parameter_list[0].name}; {self._inner_opt._parameter_list[0].shape}"
-        )
         self._collect_comm_buffers()
-        print(
-            f"check param after _collect_comm_buffers: {self._inner_opt._parameter_list[0].name}; {self._inner_opt._parameter_list[0].shape}"
-        )
         self._assign_slice_grad()
-        print(
-            f"check param after _assign_slice_grad: {self._inner_opt._parameter_list[0].name}; {self._inner_opt._parameter_list[0].shape}"
-        )
 
         if not isinstance(self._parameter_list[0], dict):
             params_grads = []
@@ -1012,9 +1002,7 @@ class DygraphShardingOptimizerV2:
 
             if self._enable_timer:
                 self.timers("apply-optimize").start()
-            print(
-                f"check param before _apply_optimize: {self._inner_opt._parameter_list[0].name}; {self._inner_opt._parameter_list[0].shape}"
-            )
+
             self._apply_optimize(
                 loss=None,
                 startup_program=None,
@@ -1049,6 +1037,13 @@ class DygraphShardingOptimizerV2:
                     inner_state[k] = v
 
         self._inner_opt.set_state_dict(inner_state)
+        self.load_from_state_dict = True
+
+    def fuse_optimizer_states(self):
+        assert (
+            self.load_from_state_dict
+        ), "Currently only support fuse_optimizer_states after loading from state_dict"
+        self._inner_opt.fuse_optimizer_states_impl()
 
     def _set_inner_opt_attr(self, attr_name, value):
         inner_opt = self._inner_opt

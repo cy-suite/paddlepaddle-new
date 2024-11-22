@@ -18,7 +18,6 @@ import paddle
 import paddle.autograd as imperative_base
 from paddle.framework import (
     _current_expected_place_,
-    core,
 )
 
 alignment = {
@@ -91,29 +90,8 @@ class FusionStorage:
         self.buffer = None
         self.buffer_ipc_meta = None
         self.offset = 0
-        self.tensor2align = {}
-        current_device = _current_expected_place_()
-        device_id = current_device.get_device_id()
-        current_memory_allocated = core.device_memory_stat_current_value(
-            "Allocated", device_id
-        )
-        print(
-            f"check memory allocated before build_buffer: {current_memory_allocated}"
-        )
         self.build_buffer()
-        current_memory_allocated = core.device_memory_stat_current_value(
-            "Allocated", device_id
-        )
-        print(
-            f"check memory allocated after build_buffer: {current_memory_allocated}"
-        )
         self.mapping_tensor()
-        current_memory_allocated = core.device_memory_stat_current_value(
-            "Allocated", device_id
-        )
-        print(
-            f"check memory allocated after mapping_tensor: {current_memory_allocated}"
-        )
 
     @imperative_base.no_grad()
     def build_buffer(self):
@@ -158,7 +136,6 @@ class FusionStorage:
 
         self.buffer = paddle.zeros((self.offset,), dtype=self.dtype)
         self.buffer_ipc_meta = self.buffer.value().get_tensor()._share_cuda()
-        print(f"check buffer_ipc_meta: {self.buffer_ipc_meta}")
 
     @imperative_base.no_grad()
     def mapping_tensor(self):

@@ -335,7 +335,7 @@ class Optimizer:
         return self._auxiliary_vars.get(key, None)
 
     @imperative_base.no_grad()
-    def fuse_optimizer_states(self):
+    def fuse_optimizer_states_impl(self):
         # only support dygraph mode
         if not framework.in_dygraph_mode():
             return
@@ -846,9 +846,6 @@ class Optimizer:
             return self._global_learning_rate()
 
     def _create_master_weight(self, param):
-        assert (
-            param.name in self._master_weights
-        ), f"param {param.name} is not in master weights: {self._master_weights.keys()}"
         if param.name in self._master_weights:
             var = self._master_weights[param.name]
         else:
@@ -857,9 +854,6 @@ class Optimizer:
                 raise Exception(
                     "Fused buffer mode is enabled, cannot create master weight after training is started"
                 )
-            print(
-                f"check param after before _create_master_weight: {param.name} {param.shape}"
-            )
             var_name = self._gen_master_weight_var_name(param)
             if in_pir_mode():
                 startup_program = paddle.static.default_startup_program()
@@ -1595,11 +1589,6 @@ class Optimizer:
         if framework.in_dygraph_mode() and g_shard_bypass_dygraph_optimizer:
             return
 
-        check_param = params_grads[0][0]
-        print(
-            f"check param inside _apply_optimize: {check_param.name} {check_param.shape}"
-        )
-
         if in_dynamic_or_pir_mode():
             with paddle.static.program_guard(
                 paddle.static.default_main_program(),
@@ -1608,16 +1597,8 @@ class Optimizer:
                 if isinstance(params_grads, list):
                     if self._grad_clip is not None:
                         params_grads = self._grad_clip(params_grads)
-                    check_param = params_grads[0][0]
-                    print(
-                        f"check param after grad_clip: {check_param.name} {check_param.shape}"
-                    )
                     params_grads = self.append_regularization_ops(
                         params_grads, self.regularization
-                    )
-                    check_param = params_grads[0][0]
-                    print(
-                        f"check param after append_regularization_ops: {check_param.name} {check_param.shape}"
                     )
                 else:
                     grad_clip = params_grads['grad_clip']
@@ -1636,10 +1617,6 @@ class Optimizer:
                 else:
                     optimize_ops = self._create_optimization_pass(
                         params_grads, param_group_idx=param_group_idx
-                    )
-                    check_param = params_grads[0][0]
-                    print(
-                        f"check param after _create_optimization_pass: {check_param.name} {check_param.shape}"
                     )
         else:
             assert param_group_idx == 0
@@ -2081,3 +2058,27 @@ class Optimizer:
             return (
                 dtype == core.DataType.FLOAT16 or dtype == core.DataType.UINT16
             )
+
+    @property
+    def fused_states_buffer(self):
+        if self.fusion_storage is None:
+            return None
+        return self.fusion_storage.buffer
+
+    @property
+    def fused_states_buffer_ipc_meta(self):
+        if self.fusion_storage is None:
+            return None
+        return self.fusion_storage.buffer_ipc_meta
+
+    @property
+    def fused_states_accumulators_meta(self):
+        if self.fusion_storage is None:
+            return None
+        return self.fusion_storage.accumulators_meta
+
+    @property
+    def fused_states_master_weights_meta(self):
+        if self.fusion_storage is None:
+            return None
+        return self.fusion_storage.master_weights_meta
