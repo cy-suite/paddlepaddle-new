@@ -346,7 +346,7 @@ class TestMathOpPatches(unittest.TestCase):
         z = x_int | y
         exe = paddle.static.Executor(place)
         out = exe.run(
-            feed={'x': x_int, 'y': y_np},
+            feed={'y': y_np},
             fetch_list=[z],
         )
         out_ref = x_int | y_np
@@ -354,7 +354,7 @@ class TestMathOpPatches(unittest.TestCase):
         x_bool = True
         res_ror_bool = x_bool | y
         out_bool = exe.run(
-            feed={'x': x_bool, 'y': y_np},
+            feed={'y': y_np},
             fetch_list=[res_ror_bool],
         )
         res_py_bool = x_bool | y_np
