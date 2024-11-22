@@ -33,14 +33,12 @@ void SvdvalsGradKernel(const Context& dev_ctx,
                        const DenseTensor& x,
                        const DenseTensor& s_grad,
                        DenseTensor* x_grad) {
-  if (!s_grad.get_ptr() || s_grad.get_ptr()->numel() == 0) {
+  if (s_grad.numel() == 0) {
     funcs::SetConstant<Context, T>()(dev_ctx, x_grad, T(0.0));
     x_grad->Resize(x.dims());
     return;
   }
-
-  const DenseTensor& dS = *(s_grad.get_ptr());
-  DenseTensor dX_term = Diag<T, Context>(dev_ctx, dS, 0, 0);
+  DenseTensor dX_term = Diag<T, Context>(dev_ctx, s_grad, 0, 0);
   VLOG(1) << "dX_term shape: " << dX_term.dims();
   int rows = x.dims()[x.dims().size() - 2];
   int cols = x.dims()[x.dims().size() - 1];
