@@ -80,9 +80,11 @@ def remove_duplicate_value(value_list):
 
 
 class PaddleToTensorRTConverter:
-    def __init__(self, paddle_program, scope):
+    def __init__(self, paddle_program, scope, trt_config):
         self.scope = scope
         self.program = paddle_program
+        self.trt_config = trt_config
+        print(f"trt_config: {trt_config}")
         params = paddle_program.global_block().all_parameters()
         param_dict = {}
         # save parameters
@@ -370,6 +372,14 @@ class PaddleToTensorRTConverter:
             }
 
         config = builder.create_builder_config()
+        if self.trt_config.enable_fp16:
+            if builder.platform_has_fast_fp16:
+                config.set_flag(trt.BuilderFlag.FP16)
+                _logger.info("Run Paddle-TRT FP16 mode")
+            else:
+                _logger.warning(
+                    "Hardware does not support FP16. Continuing in FP32 mode."
+                )
         config.add_optimization_profile(profile)
         if version_list[0] > 8 or (
             version_list[0] == 8 and version_list[1] >= 6

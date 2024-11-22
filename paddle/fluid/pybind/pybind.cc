@@ -73,6 +73,7 @@ limitations under the License. */
 #include "paddle/fluid/framework/version.h"
 #include "paddle/fluid/imperative/amp_auto_cast.h"
 #include "paddle/fluid/imperative/layer.h"
+#include "paddle/fluid/pir/transforms/tensorrt/auto_mix_precision.h"
 #include "paddle/fluid/prim/utils/utils.h"
 #include "paddle/phi/common/bfloat16.h"
 #include "paddle/phi/common/float16.h"
@@ -3282,9 +3283,31 @@ All parameter, weight, gradient are variables in Paddle.
           }
           return res;
         });
+
   m.def("clear_shape_info", []() {
     paddle::framework::CollectShapeManager::Instance().ClearShapeInfo();
   });
+
+  m.def(
+      "op_support_precision",
+      [](const std::string &kernel_fn_str,
+         phi::Place &place,
+         phi::DataType precision,
+         const std::unordered_set<std::string> &blacklist,
+         const std::unordered_set<std::string> &whitelist) {
+        return paddle::framework::OpSupportPrecision(
+            kernel_fn_str,
+            paddle::framework::ConvertPlaceToBackend(place),
+            precision,
+            blacklist,
+            whitelist);
+      },
+      py::arg("op_type"),
+      py::arg("backend"),
+      py::arg("precision"),
+      py::arg("black_list") = std::unordered_set<std::string>(),
+      py::arg("white_list") = std::unordered_set<std::string>(),
+      "Check if the operation supports the given precision.");
 
 #if defined(PADDLE_WITH_PSLIB) && !defined(PADDLE_WITH_HETERPS)
   BindHeterWrapper(&m);
