@@ -3241,30 +3241,17 @@ void take_along_axis_grad(const Tensor& arr,
 
     Tensor zero_tensor;
     if (has_dynamic_shape(arr_cast.shape())) {
-      zero_tensor =
-          backend::full_with_tensor<T>(shape<T>(arr_cast), 0, arr_cast.dtype());
+      zero_tensor = backend::full_with_tensor<T>(
+          shape<T>(arr_cast), 0, arr_cast.dtype(), arr_cast.place());
     } else {
-      zero_tensor =
-          full<T>(common::vectorize(arr_cast.dims()), 0, arr_cast.dtype());
+      zero_tensor = full<T>(common::vectorize(arr_cast.dims()),
+                            0,
+                            arr_cast.dtype(),
+                            arr_cast.place());
     }
     auto arr_grad_tmp =
         put_along_axis<T>(zero_tensor, indices, out_grad_cast, axis);
     set_output<T>(ConverToOrig<T>(arr_grad_tmp, arr.dtype()), arr_grad);
-  }
-}
-
-template <typename T>
-void take_along_axis_double_grad(const Tensor& indices,
-                                 const Tensor& grad_arr_grad,
-                                 int axis,
-                                 Tensor* grad_out_grad) {
-  if (grad_out_grad) {
-    if (axis < 0) {
-      axis += grad_arr_grad.dims().size();
-    }
-    // ddout = take_along_axis(ddx, index)
-    auto grad_out_grad_tmp = take_along_axis<T>(grad_arr_grad, indices, axis);
-    set_output<T>(grad_out_grad_tmp, grad_out_grad);
   }
 }
 
