@@ -134,6 +134,8 @@ def swish_silu_converter(network, paddle_op, inputs):
 def thresholded_relu_converter(network, paddle_op, inputs):
     x = inputs[0]
     threshold = paddle_op.attrs()["threshold"]
-    thresholded_relu_layer = network.add_activation(x, trt.ActivationType.THRESHOLDED_RELU)
+    thresholded_relu_layer = network.add_activation(
+        x, trt.ActivationType.THRESHOLDED_RELU
+    )
     thresholded_relu_layer.alpha = threshold
     return thresholded_relu_layer.get_output(0)
