@@ -111,6 +111,9 @@ bool IfFusionPass::RunOnBlock(BlockRef block) {
       res.emplace_back(FuseIfStmt(if_stmts_to_be_fused));
       remain_stmt_idx = group.end_if_idx + 1;
     }
+    for (; remain_stmt_idx < stmts.size(); ++remain_stmt_idx) {
+      res.emplace_back(stmts[remain_stmt_idx]);
+    }
     return res;
   }();
 
