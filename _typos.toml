@@ -9,19 +9,19 @@ extend-exclude = [
 
 [default.extend-words]
 # PaddlePaddle specific words
-lod = "lod"
-dout = "dout"
-unpacket = "unpacket"
-Nd = "Nd"
-UE = "UE"
-Nce = "Nce"
-grad = "grad"
+anc = 'anc'
 arange = "arange"
+astroid = 'astroid'
+dout = "dout"
+eles = 'eles'
+grad = "grad"
+lod = "lod"
+Nce = "Nce"
+Nd = "Nd"
 ot = 'ot'
 pash = 'pash'
-astroid = 'astroid'
-eles = 'eles'
-anc = 'anc'
+UE = "UE"
+unpacket = "unpacket"
 
 # These words need to be fixed
 Acceses = 'Acceses'
