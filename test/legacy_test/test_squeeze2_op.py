@@ -179,7 +179,7 @@ class TestSqueezeOp3(TestSqueezeOp):
 class TestSqueezeOp4(TestSqueezeOp):
     def init_test_case(self):
         self.ori_shape = (3, 1, 5, 2)
-        self.axes = 2
+        self.axes = (2, 3)
         self.new_shape = (3, 1, 5, 2)
 
 
