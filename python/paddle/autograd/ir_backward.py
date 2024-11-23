@@ -1042,7 +1042,7 @@ def _complete_grad_op_chunk_id(block, state):
             op_chunk_id = -1
         return op_chunk_id
 
-    # TODO(Ruibiao): Reorganize these unclear codes about chunk_id  
+    # TODO(Ruibiao): Reorganize these unclear codes about chunk_id
     def get_op_chunk_id(op):
         if op.dist_attr is None:
             op_chunk_id = -1
@@ -1080,13 +1080,19 @@ def _complete_grad_op_chunk_id(block, state):
             if bwd_op.name() in ["pd_op.add_", "pd_op.add_n_"]:
                 bwd_op_chunk_id = -1
                 for operand_idx in range(bwd_op.num_operands()):
-                    prev_op_chunk_id = get_op_chunk_id(bwd_op.operand_source(operand_idx).get_defining_op())
+                    prev_op_chunk_id = get_op_chunk_id(
+                        bwd_op.operand_source(operand_idx).get_defining_op()
+                    )
                     if bwd_op_chunk_id == -1:
                         bwd_op_chunk_id = prev_op_chunk_id
                     else:
-                        assert bwd_op_chunk_id == prev_op_chunk_id, f"incosistent prev_op chunk id with {bwd_op_chunk_id} != {prev_op_chunk_id}\n {bwd_op.operand_source(operand_idx-1).get_defining_op()}\n {bwd_op.operand_source(operand_idx).get_defining_op()}"
+                        assert bwd_op_chunk_id == prev_op_chunk_id, (
+                            f"Inconsistent prev_op chunk id with {bwd_op_chunk_id} != {prev_op_chunk_id}\n"
+                            "{bwd_op.operand_source(operand_idx-1).get_defining_op()}\n"
+                            "{bwd_op.operand_source(operand_idx).get_defining_op()}"
+                        )
             else:
-                bwd_op_chunk_id = fwd_op_chunk_id                         
+                bwd_op_chunk_id = fwd_op_chunk_id
 
             bwd_op.dist_attr = (
                 paddle.base.libpaddle.pir.create_op_dist_attribute(
