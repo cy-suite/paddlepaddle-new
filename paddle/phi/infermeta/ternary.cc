@@ -1042,7 +1042,25 @@ void GroupNormInferMeta(const MetaTensor& x,
             channel_num,
             data_layout_str));
   }
-  y->set_dims(x_dim);
+  DDim output_dims = x_dim;
+  int64_t weight_channel = data_layout == DataLayout::kNCHW
+                               ? output_dims[1]
+                               : output_dims[x_dim.size() - 1];
+  bool need_update = weight_channel < 0;
+  if (weight_channel < 0 && scale) {
+    weight_channel = scale.dims()[0];
+  } else if (weight_channel < 0 && bias) {
+    weight_channel = bias.dims()[0];
+  }
+  if (need_update && weight_channel > 0) {
+    if (data_layout == DataLayout::kNCHW) {
+      output_dims[1] = weight_channel;
+    } else {
+      output_dims[x_dim.size() - 1] = weight_channel;
+    }
+  }
+
+  y->set_dims(output_dims);
   y->set_dtype(x.dtype());
   y->share_lod(x);
 
@@ -1701,15 +1719,15 @@ void RoiPoolInferMeta(const MetaTensor& x,
       boxes_dims.size(),
       2,
       common::errors::InvalidArgument(
-          "boxes should be a 2-D LoDTensor with shape (num_boxes, 4)"
+          "boxes should be a 2-D DenseTensor with shape (num_boxes, 4)"
           "given as [[x1, y1, x2, y2], ...], but received boxes is "
-          "%d-dimensional LoDTensor",
+          "%d-dimensional DenseTensor",
           boxes_dims.size()));
   PADDLE_ENFORCE_EQ(
       boxes_dims[1],
       4,
       common::errors::InvalidArgument(
-          "boxes should be a 2-D LoDTensor with shape (num_boxes, 4)"
+          "boxes should be a 2-D DenseTensor with shape (num_boxes, 4)"
           "given as [[x1, y1, x2, y2], ...]. But the second dimension of  "
           "the received data is %d",
           boxes_dims[1]));

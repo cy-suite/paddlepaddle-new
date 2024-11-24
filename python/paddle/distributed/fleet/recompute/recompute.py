@@ -49,7 +49,11 @@ __all__ = []
 def _varbase_help(param):
     state = copy.deepcopy(param.__dict__)
     new_param = EagerParamBase(
-        shape=param.shape, dtype=param.dtype, name=param.name, **state
+        shape=param.shape,
+        dtype=param.dtype,
+        trainable=param.trainable,
+        name=param.name,
+        **state,
     )
     param._share_buffer_to(new_param)
     return new_param
@@ -391,7 +395,7 @@ def _recompute_without_reentrant(
                             inner_x.dtype,
                             inner_x.shape,
                             inner_x.name + "cpy",
-                            core.VarDesc.VarType.LOD_TENSOR,
+                            core.VarDesc.VarType.DENSE_TENSOR,
                             inner_x.persistable,
                             inner_x.process_mesh,
                             inner_x.placements,
@@ -401,7 +405,7 @@ def _recompute_without_reentrant(
                             inner_x.dtype,
                             inner_x.shape,
                             inner_x.name + "cpy",
-                            core.VarDesc.VarType.LOD_TENSOR,
+                            core.VarDesc.VarType.DENSE_TENSOR,
                             inner_x.persistable,
                         )
                     inner_x._unsafe_share_buffer_to(tmp_tensor)

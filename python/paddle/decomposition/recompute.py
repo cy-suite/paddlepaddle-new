@@ -145,7 +145,7 @@ COMPUTE_INTENSIVE_OPS: list[str] = [
     "pd_op.layer_norm",
     "pd_op.batchnorm",
     "pd_op.softmax",
-    "pd_op.c_allreduce_sum_",
+    "pd_op.all_reduce_",
     "pd_op.c_broadcast_",
     "pd_op.reduce_",
 ]
@@ -394,7 +394,9 @@ def auto_recompute(
         unclaimed_value_nodes,
     ) = classify_value_node(program, grad_outputs, fwd_op_end_idx)
 
-    if len(required_bw_value_nodes) == 0:
+    if len(required_bw_value_nodes) == 0 or backward_op_start_idx >= len(
+        program.global_block().ops
+    ):
         return program, fwd_op_end_idx
 
     all_ops = program.global_block().ops
@@ -722,7 +724,7 @@ def replace_mid_values_with_forward_subgraph(
             new_chain = list(chain)
             new_chain.append(recompute_value)
             define_op = recompute_value.get_defining_op()
-            if define_op in marked_recompute_ops:
+            if define_op in marked_recompute_ops or define_op is None:
                 return
             op_inputs = define_op.operands_source()
             if len(op_inputs) == 0 and define_op.name() not in [
@@ -799,7 +801,11 @@ def replace_mid_values_with_forward_subgraph(
     origin_subgraph_inputs = recompute_forward_subgraph["inputs"]
     origin_subgraph_outputs = recompute_forward_subgraph["outputs"]
     cloned_ops, value_map = clone_graph(
-        program, origin_ops, origin_subgraph_inputs, first_backward_op
+        program,
+        origin_ops,
+        origin_subgraph_inputs,
+        first_backward_op,
+        backward_ops,
     )
 
     for origin_op in origin_ops:
@@ -1028,7 +1034,15 @@ def analyze_mid_hold_values(
     return mid_hold_values
 
 
-def clone_graph(program, origin_ops, graph_inputs, clone_insertion_op):
+def get_first_backward_use_op(fwd_op, backward_ops):
+    for user_op in fwd_op.results()[0].all_used_ops():
+        if user_op in backward_ops:
+            return user_op
+
+
+def clone_graph(
+    program, origin_ops, graph_inputs, clone_insertion_op, backward_ops
+):
     pir.set_insertion_point(clone_insertion_op)
     all_ops = program.global_block().ops
     value_map = paddle.pir.IrMapping()
@@ -1038,9 +1052,18 @@ def clone_graph(program, origin_ops, graph_inputs, clone_insertion_op):
         value_map.add(input_value, input_value)
     for op in all_ops:
         if op in origin_ops:
-            cloned_ops.append(
-                op.clone(value_map, paddle.pir.CloneOptions(False, True, True))
+            new_op = op.clone(
+                value_map, paddle.pir.CloneOptions(False, True, True)
             )
+            first_backward_use_op = get_first_backward_use_op(op, backward_ops)
+            if (
+                first_backward_use_op is not None
+                and first_backward_use_op.has_attr('op_role')
+                and first_backward_use_op.has_attr('chunk_id')
+            ):
+                new_op.set_int_attr("op_role", first_backward_use_op.op_role)
+                new_op.set_int_attr("chunk_id", first_backward_use_op.chunk_id)
+            cloned_ops.append(new_op)
     pir.set_insertion_point_to_block_end(program.global_block())
     return cloned_ops, value_map
 

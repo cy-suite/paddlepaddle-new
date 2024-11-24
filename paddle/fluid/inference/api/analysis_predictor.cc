@@ -123,6 +123,7 @@
 #include "paddle/fluid/pir/transforms/general/params_sync_among_devices_pass.h"
 #include "paddle/fluid/pir/transforms/general/remove_shadow_feed_pass.h"
 #include "paddle/fluid/pir/transforms/general/replace_fetch_with_shadow_output_pass.h"
+#include "paddle/fluid/pir/transforms/general/transfer_layout_pass.h"
 #include "paddle/fluid/pir/transforms/passes.h"
 #include "paddle/fluid/pir/transforms/pd_op_to_kernel_pass.h"
 #include "paddle/fluid/pir/utils/general_functions.h"
@@ -135,7 +136,6 @@
 #include "paddle/pir/include/pass/pass_registry.h"
 
 COMMON_DECLARE_bool(pir_apply_inplace_pass);
-COMMON_DECLARE_bool(enable_pir_api);
 
 namespace paddle {
 namespace {
@@ -279,8 +279,8 @@ bool PaddleTensorToDenseTensor(const PaddleTensor &pt,
   if (!has_zero_dim) {
     PADDLE_ENFORCE_NOT_NULL(
         input_ptr,
-        common::errors::Fatal(
-            "Cannot convert to LoDTensor because LoDTensor creation failed."));
+        common::errors::Fatal("Cannot convert to DenseTensor because "
+                              "DenseTensor creation failed."));
     PADDLE_ENFORCE_NOT_NULL(
         pt.data.data(),
         common::errors::InvalidArgument(
@@ -293,7 +293,7 @@ bool PaddleTensorToDenseTensor(const PaddleTensor &pt,
   }
 
   if (phi::is_cpu_place(place)) {
-    // TODO(panyx0718): Init LoDTensor from existing memcpy to save a copy.
+    // TODO(panyx0718): Init DenseTensor from existing memcpy to save a copy.
     if (input_ptr != nullptr) {
       std::memcpy(
           static_cast<void *>(input_ptr), pt.data.data(), pt.data.length());
@@ -807,6 +807,30 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
                      pass->name()) != this->config_.ir_debug_passes_.end();
   };
 
+  auto AddAutoMixedPrecisionPass = [&](pir::PassManager &pass_manager) {
+    auto auto_mixed_precision_pass = ::pir::CreateAutoMixedPrecisionPass();
+    if (std::find(config_.deleted_passes_.begin(),
+                  config_.deleted_passes_.end(),
+                  auto_mixed_precision_pass->name()) ==
+        config_.deleted_passes_.end()) {
+      auto_mixed_precision_pass->SetNotOwned(pir::Pass::kPlaceAttr, &place_);
+      auto_mixed_precision_pass->Set("mixed_precision_mode",
+                                     new phi::DataType(paddle::ConvertPrecision(
+                                         config_.mixed_precision_mode_)));
+      auto_mixed_precision_pass->Set(
+          "enable_low_precision_io",
+          new bool(config_.enable_low_precision_io_));
+      auto_mixed_precision_pass->Set(
+          "mixed_black_list",
+          new std::unordered_set<std::string>(config_.mixed_black_list_));
+      auto_mixed_precision_pass->Set(
+          "mixed_white_list",
+          new std::unordered_set<std::string>(config_.mixed_white_list_));
+
+      pass_manager.AddPass(std::move(auto_mixed_precision_pass));
+    }
+  };
+
   if (!config_.use_optimized_model_) {
 #ifdef PADDLE_WITH_CINN
     auto CreatePassMgr = [&] {
@@ -833,11 +857,14 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
         const std::vector<std::string> FusedOpPasses{// Operator fusion pass
                                                      "conv2d_bn_fuse_pass",
                                                      "conv2d_add_act_fuse_pass",
-                                                     "conv2d_add_fuse_pass",
-                                                     "transfer_layout_pass"};
+                                                     "conv2d_add_fuse_pass"};
 
         for (const auto &fused_op : FusedOpPasses) {
           fused_op_pm.AddPass(pir::PassRegistry::Instance().Get(fused_op));
+        }
+
+        if (config_.enable_gpu_mixed_) {
+          AddAutoMixedPrecisionPass(fused_op_pm);
         }
 
         fused_op_pm.Run(pir_program_.get());
@@ -874,10 +901,6 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
           if (std::find(config_.deleted_passes_.begin(),
                         config_.deleted_passes_.end(),
                         gpu_pass) == config_.deleted_passes_.end()) {
-            if (!config_.enable_gpu_mixed_ &&
-                gpu_pass == "auto_mixed_precision_pass") {
-              continue;
-            }
             pass_pm.AddPass(pir::PassRegistry::Instance().Get(gpu_pass));
           }
         }
@@ -937,22 +960,11 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
     for (const auto &pass : pass_pm.passes()) {
       pass->SetNotOwned(pir::Pass::kParamScopeAttr, sub_scope_);
       pass->SetNotOwned(pir::Pass::kPlaceAttr, &place_);
+      pass->Set("enable_gpu_mixed", new bool(config_.enable_gpu_mixed_));
       if (pass->name() == "matmul_add_act_fuse_pass" ||
           pass->name() == "conv2d_add_act_fuse_pass" ||
           pass->name() == "conv2d_add_fuse_pass") {
         pass->Set("use_cutlass", new bool(config_.use_cutlass_));
-      } else if (pass->name() == "auto_mixed_precision_pass") {
-        pass->Set("mixed_precision_mode",
-                  new phi::DataType(
-                      paddle::ConvertPrecision(config_.mixed_precision_mode_)));
-        pass->Set("enable_low_precision_io",
-                  new bool(config_.enable_low_precision_io_));
-        pass->Set(
-            "mixed_black_list",
-            new std::unordered_set<std::string>(config_.mixed_black_list_));
-        pass->Set(
-            "mixed_white_list",
-            new std::unordered_set<std::string>(config_.mixed_white_list_));
       }
     }
 
@@ -979,6 +991,19 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
   // Apply some basic passes required by the framework
   ::pir::PassManager basic_pass_pm(::pir::IrContext::Instance(),
                                    config_.pm_opt_level_);
+  if (config_.enable_gpu_mixed_) {
+    if (!config_.cinn_enabled()) {
+      AddAutoMixedPrecisionPass(basic_pass_pm);
+    }
+
+    auto transfer_layout_pass = ::pir::CreateTransferLayoutPass();
+    if (std::find(config_.deleted_passes_.begin(),
+                  config_.deleted_passes_.end(),
+                  transfer_layout_pass->name()) ==
+        config_.deleted_passes_.end()) {
+      basic_pass_pm.AddPass(std::move(transfer_layout_pass));
+    }
+  }
   auto common_subexpression_elimination_pass =
       ::pir::CreateCommonSubexpressionEliminationPass();
   if (std::find(config_.deleted_passes_.begin(),
@@ -1114,7 +1139,7 @@ bool AnalysisPredictor::SaveOrLoadPirParameters(bool for_save) {
               return a.first < b.first;
             });
 
-  std::vector<std::string> param_names;
+  std::vector<std::string> param_names, filter_param_names;
   std::vector<pir::Value> vars;
   for (const auto &pair : param_name_var_pairs) {
     param_names.emplace_back(pair.first);
@@ -1143,8 +1168,17 @@ bool AnalysisPredictor::SaveOrLoadPirParameters(bool for_save) {
             "Only support parameter data of type DenseTensor."));
       }
     }
+    // we only load params which are persistable(means TRUE parameters))
     auto *tensor_temp = var->GetMutable<phi::DenseTensor>();
-    tensor_out.push_back(tensor_temp);
+    if (value.attribute("persistable")
+            .dyn_cast<::pir::BoolAttribute>()
+            .data()) {
+      tensor_out.push_back(tensor_temp);
+      filter_param_names.emplace_back(param_names[i]);
+    } else {
+      VLOG(3) << param_names[i]
+              << " persistable is false, will ignore it when load variables.";
+    }
   }
 
   if (for_save) {
@@ -1157,7 +1191,7 @@ bool AnalysisPredictor::SaveOrLoadPirParameters(bool for_save) {
     LOG(INFO) << "Optimized params saved to " << optimized_params;
   } else {
     pir::LoadCombineFunction(
-        config_.params_file(), param_names, &tensor_out, false, place_);
+        config_.params_file(), filter_param_names, &tensor_out, false, place_);
   }
   return true;
 }

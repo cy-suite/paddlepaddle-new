@@ -42,6 +42,12 @@ def matmul_converter(network, paddle_op, inputs):
         weight_tensor = network.add_constant(
             weight_shape, inputs[1]
         ).get_output(0)
+
+    if len(weight_shape) == 1:
+        layer = network.add_shuffle(weight_tensor)
+        layer.reshape_dims = (*tuple(weight_shape), 1)
+        weight_tensor = layer.get_output(0)
+
     lhs_val, rhs_val = broadcast(
         network, inputs[0], weight_tensor, inputs[0].name, weight_tensor.name
     )
@@ -57,3 +63,11 @@ def transpose_converter(network, paddle_op, inputs):
     transposed_tensor = network.add_shuffle(inputs[0])
     transposed_tensor.second_transpose = perm
     return transposed_tensor.get_output(0)
+
+
+@converter_registry.register("pd_op.bmm", trt_version="8.x")
+def bmm_converter(network, paddle_op, inputs):
+    out = network.add_matrix_multiply(
+        inputs[0], trt.MatrixOperation.NONE, inputs[1], trt.MatrixOperation.NONE
+    )
+    return out.get_output(0)

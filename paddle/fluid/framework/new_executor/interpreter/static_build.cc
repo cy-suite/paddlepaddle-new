@@ -46,6 +46,7 @@ std::set<std::string> OpsCanSkipedFakeAllocInStaticBuild = {
     "c_gen_nccl_id",
     "sync_calc_stream",
     "c_sync_calc_stream",
+    "sync_comm_stream",
     "c_sync_comm_stream",
     "c_wait_comm",
     "c_wait_compute",
@@ -535,7 +536,7 @@ void RunWhileBlockPreStaticBuild(const framework::Scope& scope,
               << "input not found:" << in_name;
     }
 
-    if (var->Type() == framework::proto::VarType::LOD_TENSOR) {
+    if (var->Type() == framework::proto::VarType::DENSE_TENSOR) {
       input_var_original_places[in_name] =
           (var->Get<phi::DenseTensor>()).place();
     } else {

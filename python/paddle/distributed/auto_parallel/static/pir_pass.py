@@ -18,9 +18,10 @@ import re
 from dataclasses import dataclass
 
 import paddle
+import paddle.distributed as dist
 from paddle import pir
 from paddle.autograd.backward_utils import ValueDict
-from paddle.base.framework import pir_op_role_guard
+from paddle.base.framework import EagerParamBase, pir_op_role_guard
 from paddle.base.log_helper import get_logger
 from paddle.distributed.fleet.meta_optimizers.common import OpRole
 from paddle.distributed.passes.pass_base import PassContext, new_pass
@@ -36,10 +37,12 @@ from .reshard_funcs.base_reshard_func import (
 )
 from .reshard_funcs.reshard_func_register import register_reshard_funcs
 from .utils import (
+    _complete_op_dist_attr,
     fuse_param_func,
     get_pp_stage_by_pp_degree,
     get_pp_stage_by_process_mesh,
     get_sub_process_mesh_by_program,
+    partition_skip_op_list,
 )
 
 _logger = get_logger(
@@ -48,15 +51,6 @@ _logger = get_logger(
 
 register_reshard_funcs()
 
-partition_skip_op_list = [
-    "builtin.combine",
-    "builtin.split",
-    "pd_op.pylayer",
-    "cf.yield",
-    "cf.tuple_push",
-    "cf.tuple_pop",
-    "cf.stack_create",
-]
 amp_ops = ["pd_op.check_finite_and_unscale_", "pd_op.update_loss_scaling_"]
 
 
@@ -85,7 +79,7 @@ def reshard_combine_value(program, op, operand, attr):
 
     assert (
         prev_var.get_defining_op().name() == 'builtin.combine'
-    ), "TensorList must be defined by builtin.combine op."
+    ), f"TensorList must be defined by builtin.combine op, but is {prev_var.get_defining_op().name()}."
 
     combine_op = prev_var.get_defining_op()
     array_attr = attr.as_array_attr()
@@ -106,8 +100,15 @@ def reshard_combine_value(program, op, operand, attr):
     return combine_value
 
 
-def apply_partition_pass(program):
-    for op in program.global_block().ops:
+def apply_partition_pass(program, block=None):
+    if block is None:
+        block = program.global_block()
+    for op in block.ops:
+        for sub_block in op.blocks():
+            apply_partition_pass(program, block=sub_block)
+
+        if op.dist_attr is None:
+            continue
         if op.name() in partition_skip_op_list:
             continue
 
@@ -181,6 +182,8 @@ def apply_partition_pass(program):
             reshard_var_2.get_defining_op().operand(0).set_source(result)
 
         for operand, attr in zip(op.operands(), op.dist_attr.operands()):
+            if not attr:
+                continue
             prev_var = operand.source()
             if prev_var.is_combine():
                 operand.set_source(
@@ -195,7 +198,12 @@ def apply_partition_pass(program):
                 prev_op.erase()
 
         for var, attr in zip(op.results(), op.dist_attr.results()):
-            if var.initialized() and var.is_dist() and var.dist_attr() != attr:
+            if (
+                attr
+                and var.initialized()
+                and var.is_dist()
+                and var.dist_attr() != attr
+            ):
                 paddle.pir.set_insertion_point_after(op)
                 old_dist_attr = var.dist_attr()
                 var.update_dist_attr(attr.as_tensor_dist_attr())
@@ -286,8 +294,12 @@ class ReshardPasses:
             op.erase()
 
     @staticmethod
-    def reshard_op_pass(dist_program, params_grads=[]):
-        for op in dist_program.global_block().ops:
+    def reshard_op_pass(dist_program, block=None):
+        if block is None:
+            block = dist_program.global_block()
+        for op in block.ops:
+            for sub_block in op.blocks():
+                ReshardPasses.reshard_op_pass(dist_program, block=sub_block)
             if op.name() == 'dist_op.reshard':
                 var = op.operand_source(0)
 
@@ -327,10 +339,10 @@ class ReshardPasses:
                     op.erase()
 
     @staticmethod
-    def apply_reshard_pass(dist_program, params_grads=[]):
+    def apply_reshard_pass(dist_program):
         ReshardPasses.decompose_reshard_pass(dist_program)
         ReshardPasses.fold_reshard_pass(dist_program)
-        ReshardPasses.reshard_op_pass(dist_program, params_grads)
+        ReshardPasses.reshard_op_pass(dist_program)
 
 
 # Replace the specific MoE-related dist op with the
@@ -384,7 +396,20 @@ class RemovePasses:
         cur_rank = paddle.distributed.get_rank()
 
         for op in dist_program.global_block().ops[::-1]:
-            if op.name() in partition_skip_op_list:
+            if op.name() == "dist_op.moe_sub_mesh_tensors":
+                replace_moe_sub_mesh_tensors(op)
+                continue
+            elif op.name() == "dist_op.moe_global_mesh_tensor":
+                replace_moe_global_mesh_tensor(op)
+                continue
+            elif op.name() == "cf.tuple_push":
+                stack_create_op = op.operand_source(0).get_defining_op()
+                if stack_create_op.result(2).use_empty():
+                    op.erase()
+                continue
+            elif op.name() == "cf.yield":
+                continue
+            elif op.name() in partition_skip_op_list:
                 can_delete = True
                 for val in op.results():
                     if not val.use_empty():
@@ -392,12 +417,7 @@ class RemovePasses:
                 if can_delete:
                     op.erase()
                 continue
-            if op.name() == "dist_op.moe_sub_mesh_tensors":
-                replace_moe_sub_mesh_tensors(op)
-                continue
-            if op.name() == "dist_op.moe_global_mesh_tensor":
-                replace_moe_global_mesh_tensor(op)
-                continue
+
             if cur_rank not in op.dist_attr.process_mesh.process_ids:
                 op.erase()
             elif op.name() == "dist_op.reshard":
@@ -434,11 +454,16 @@ class RemovePasses:
                 lr = op.result(0)
                 lr.replace_all_uses_with(lr_value)
                 op.erase()
+        for keyword, argument in dist_program.global_block().kwargs().items():
+            if argument.use_empty():
+                dist_program.global_block().erase_kwarg(keyword)
 
     @staticmethod
     def remove_no_need_in_startup(startup_program, main_program):
         # 1. vars used in main_program
         main_program_var_names = []
+        for key in main_program.global_block().kwargs():
+            main_program_var_names.append(key)
         for op in main_program.global_block().ops:
             for var in op.operands_source():
                 if var.has_name:
@@ -451,9 +476,15 @@ class RemovePasses:
             for var in op.operands_source():
                 if var.has_name and var.name not in main_program_var_names:
                     op.erase()
+
         # 3. dead code elimination
         pm = pir.PassManager()
         pm.add_pass('dead_code_elimination_pass', {})
+        pm.run(startup_program)
+        for op in startup_program.global_block().ops:
+            if op.name() == "pd_op.coalesce_tensor_":
+                if op.result(0).use_empty() and op.result(1).use_empty():
+                    op.erase()
         pm.run(startup_program)
 
     @staticmethod
@@ -523,6 +554,7 @@ class RemovePasses:
         RemovePasses.remove_other_rank_params_grads_pass(
             dist_main_program, dist_params_grads
         )
+        _complete_op_dist_attr(dist_main_program)
         RemovePasses.remove_other_rank_op_pass(dist_main_program)
         RemovePasses.remove_no_need_in_startup(
             dist_startup_program, dist_main_program
@@ -569,16 +601,18 @@ def replace_moe_global_mesh_tensor(op):
 
 # Note: this is the pass in the dense program
 comm_ops = [
-    "pd_op.c_allreduce_sum",
     "pd_op.all_gather",
-    "pd_op.c_allreduce_max",
     "pd_op.reduce_scatter",
 ]
 
 
 def remove_unuseful_comm_op_pass(program):
     for op in program.global_block().ops:
-        if op.name() in comm_ops:
+        if op.name() in comm_ops or (
+            op.name() == "pd_op.all_reduce"
+            and op.int_attr("reduce_type")
+            in [dist.ReduceOp.SUM, dist.ReduceOp.MAX]
+        ):
             ring_id = op.int_attr("ring_id")
             process_group = get_process_group(ring_id)
             if process_group.nranks == 1:
@@ -1038,6 +1072,8 @@ def complete_chunk_id(dist_program, startup_program, pipeline_strategy):
             if param.dist_attr():
                 startup_param.update_dist_attr(param.dist_attr())
 
+    ReshardPasses.fold_reshard_pass(dist_program)
+
 
 def check_chunk_id(dist_program):
     all_ops = dist_program.global_block().ops
@@ -1189,6 +1225,8 @@ def fuse_attention_ffn_qkv_pass(
                     i = i + 12
                     continue
 
+    name2pir_param_map = {}
+
     # 2. Replace all ffn and qkv patterns with fusion patterns, and record the weights after replacement.
     for pat in fused_pattern_map['ffn']:
         if len(pat) == 5:
@@ -1229,6 +1267,7 @@ def fuse_attention_ffn_qkv_pass(
                 ],
                 initializer=paddle.nn.initializer.Constant(value=0),
             )
+            name2pir_param_map[fusion_w_name] = fused_w
         if add_gate is not None and add_up is not None:
             fusion_bias_name = f"fused_{add_gate.operand_source(1).name}_{add_up.operand_source(1).name}"
             fusion_map["ffn"].append(
@@ -1261,6 +1300,7 @@ def fuse_attention_ffn_qkv_pass(
                     ],
                     initializer=paddle.nn.initializer.Constant(value=0),
                 )
+                name2pir_param_map[fusion_bias_name] = fused_bias
 
         # Insert dst pattern
         paddle.pir.set_insertion_point_after(pat[-1])
@@ -1349,6 +1389,7 @@ def fuse_attention_ffn_qkv_pass(
                 ],
                 initializer=paddle.nn.initializer.Constant(value=0),
             )
+            name2pir_param_map[fusion_w_name] = fused_w
         if add_q is not None and add_k is not None and add_v is not None:
             fusion_bias_name = f"fused_{add_q.operand_source(1).name}_{add_k.operand_source(1).name}_{add_v.operand_source(1).name}"
             fusion_map["qkv"].append(
@@ -1395,6 +1436,7 @@ def fuse_attention_ffn_qkv_pass(
                     ],
                     initializer=paddle.nn.initializer.Constant(value=0),
                 )
+                name2pir_param_map[fusion_bias_name] = fused_bias
         # insert dst pattern
         paddle.pir.set_insertion_point_after(pat[-1])
         fused_o = paddle.matmul(
@@ -1424,6 +1466,12 @@ def fuse_attention_ffn_qkv_pass(
             ],
         )
         out.get_defining_op().copy_attrs_from(reshape_q)
+        reshape_op = out.get_defining_op()
+        if reshape_op.has_attr("struct_name"):
+            full_int_array_op = reshape_op.operand_source(1).get_defining_op()
+            full_int_array_op.set_str_attr(
+                "struct_name", reshape_op.attrs()["struct_name"]
+            )
         out_q, out_k, out_v = paddle.split(
             out,
             num_or_sections=[
@@ -1439,6 +1487,23 @@ def fuse_attention_ffn_qkv_pass(
             ],
             axis=-1,
         )
+        if reshape_op.has_attr("struct_name"):
+            builtin_split_op = out_q.get_defining_op()
+            split_op = builtin_split_op.operand_source(0).get_defining_op()
+            builtin_split_op.set_str_attr(
+                "struct_name", reshape_op.attrs()["struct_name"]
+            )
+            split_op.set_str_attr(
+                "struct_name", reshape_op.attrs()["struct_name"]
+            )
+            full_int_array_op = split_op.operand_source(1).get_defining_op()
+            full_int_array_op.set_str_attr(
+                "struct_name", reshape_op.attrs()["struct_name"]
+            )
+            full_op = split_op.operand_source(2).get_defining_op()
+            full_op.set_str_attr(
+                "struct_name", reshape_op.attrs()["struct_name"]
+            )
         if reshape_q.result(0).shape[-2] != reshape_k.result(0).shape[-2]:
             out_q = paddle.reshape(
                 out_q,
@@ -1449,6 +1514,17 @@ def fuse_attention_ffn_qkv_pass(
                     reshape_q.result(0).shape[-1],
                 ],
             )
+            if builtin_split_op.has_attr("struct_name"):
+                reshape_op = out_q.get_defining_op()
+                reshape_op.set_str_attr(
+                    "struct_name", builtin_split_op.attrs()["struct_name"]
+                )
+                full_int_array_op = reshape_op.operand_source(
+                    1
+                ).get_defining_op()
+                full_int_array_op.set_str_attr(
+                    "struct_name", builtin_split_op.attrs()["struct_name"]
+                )
 
         reshape_q.result(0).replace_all_uses_with(out_q)
         reshape_k.result(0).replace_all_uses_with(out_k)
@@ -1505,9 +1581,28 @@ def fuse_attention_ffn_qkv_pass(
                         dy_param_init = False
                         break
 
-                if dy_param_init:
-                    # Fuse params and init pir program fusion params.
-                    with paddle.base.dygraph.guard():
+                # Fuse params and init pir program fusion params.
+                with paddle.base.dygraph.guard():
+
+                    dyparam_dtype = concated_dy_param_list[0].dtype
+                    for param in concated_dy_param_list:
+                        assert (
+                            dyparam_dtype == param.dtype
+                        ), "The dtypes of dy parameters to be fused are not the same."
+
+                    dtensor = paddle.zeros(
+                        shape=name2pir_param_map[pir_param].shape,
+                        dtype=dyparam_dtype,
+                    )
+                    fused_dy_param = EagerParamBase.from_tensor(dtensor)
+                    fused_dy_param = dist.shard_tensor(
+                        fused_dy_param,
+                        concated_dy_param_list[0].process_mesh,
+                        concated_dy_param_list[0].placements,
+                    )
+                    fused_dy_param.name = pir_param
+
+                    if dy_param_init:
                         if len(dy_param_list) == 3:
                             is_qkv = True
                             num_heads = dy_param_list[0].local_num_head
@@ -1527,16 +1622,20 @@ def fuse_attention_ffn_qkv_pass(
                             num_heads=num_heads,
                             num_key_value_heads=num_key_value_heads,
                         )
+                        paddle.assign(
+                            concated_param, fused_dy_param._local_value()
+                        )
+                        concated_param._clear()
 
-                    pir_scope_param = (
-                        paddle.static.global_scope().var(pir_param).get_tensor()
-                    )
-                    pir_scope_param._share_data_with(
-                        concated_param.get_tensor()
-                    )
                     # Pop and relase original params from concrete_program
                     for param in concated_dy_param_list:
                         param.get_tensor()._clear()
+
+                concrete_program.parameters[0].append(fused_dy_param)
+                concrete_program.parameters[1].append(
+                    name2pir_param_map[pir_param]
+                )
+
     concated_dy_param_index.sort(reverse=True)
     for index in concated_dy_param_index:
         concrete_program.parameters[0].pop(index)

@@ -239,6 +239,16 @@
     {start : Start, end : End, step : Step}
   outputs :
     out : Out
+  scalar:
+    start:
+      data_type : double
+      support_tensor : true
+    end:
+      data_type : double
+      support_tensor : true
+    step:
+      data_type : double
+      support_tensor : true
 
 - op : argmax(arg_max)
   inputs :
@@ -4160,12 +4170,6 @@
   outputs :
     out: Out
 
-- op: c_sync_comm_stream
-  inputs :
-    x : X
-  outputs :
-    out : Out
-
 - op: channel_shuffle
   inputs:
     {x: X}
@@ -4680,7 +4684,7 @@
   outputs :
     out : Out
 
-- op: sync_comm_stream
+- op: sync_comm_stream(c_sync_comm_stream)
   inputs :
     x : X
   outputs :
