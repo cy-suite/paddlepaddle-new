@@ -248,7 +248,8 @@ class RunnableProgram:
         assert (
             self.has_splited is False
         ), "Please ensure only split once! don't call split_forward_backward manually."
-        paddle.base.libpaddle.pir.reduce_as_sum_pass(self.program)
+        if cinn_is_enabled(self._build_strategy, self._backend):
+            paddle.base.libpaddle.pir.reduce_as_sum_pass(self.program)
         self.has_splited = True
         [
             fwd_prog,

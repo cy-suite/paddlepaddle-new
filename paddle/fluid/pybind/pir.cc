@@ -2421,6 +2421,7 @@ std::shared_ptr<Program> ApplyCommonSubexpressionEliminationPass(
 
 std::shared_ptr<Program> ApplyReduceAsToSumPass(
     std::shared_ptr<Program> program) {
+#ifdef PADDLE_WITH_CINN
   pir::PassManager pm(pir::IrContext::Instance(), 2);
   pm.AddPass(cinn::dialect::ir::CreateReduceAsToSumPass());
   pm.AddPass(pir::CreateDeadCodeEliminationPass());
@@ -2430,6 +2431,12 @@ std::shared_ptr<Program> ApplyReduceAsToSumPass(
     std::cout << *program << std::endl;
   }
   return program;
+#else
+  PADDLE_THROW(common::errors::Unimplemented(
+      "Currently we only support ReduceAsToSumPass Pass for Pir under "
+      "@to_static, please "
+      "compile PaddlePaddle with CINN"));
+#endif
 }
 
 std::shared_ptr<Program> ApplyFusedBnAddActPass(
