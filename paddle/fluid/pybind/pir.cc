@@ -1475,6 +1475,9 @@ void BindValue(py::module *m) {
                std::vector<Value> sources = operation->operands_source();
                Value non_zero_indices = sources[1];
                return phi::vectorize(GetValueDims(non_zero_indices))[0];
+             } else if (self.type().isa<SparseCsrTensorType>()) {
+               PADDLE_THROW(common::errors::InvalidType(
+                   "SparseCsrTensor is unsupported in pir mode."));
              } else {
                return 0;
              }
@@ -1488,6 +1491,9 @@ void BindValue(py::module *m) {
           Value non_zero_indices = sources[1];
           int32_t dims = phi::vectorize(GetValueDims(self)).size();
           return dims - phi::vectorize(GetValueDims(non_zero_indices))[0];
+        } else if (self.type().isa<SparseCsrTensorType>()) {
+          PADDLE_THROW(common::errors::InvalidType(
+              "SparseCsrTensor is unsupported in pir mode."));
         } else {
           return phi::vectorize(GetValueDims(self)).size();
         }
