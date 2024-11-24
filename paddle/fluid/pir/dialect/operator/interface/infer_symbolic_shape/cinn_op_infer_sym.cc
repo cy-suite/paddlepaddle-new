@@ -250,14 +250,16 @@ bool SliceOpInferSymbolicShape(pir::Operation *op,
 
   const ExprVec starts = paddle::dialect::details::VecInt642Expr(starts_raw);
   const ExprVec ends = paddle::dialect::details::VecInt642Expr(ends_raw);
+  const ExprVec strides = std::vector<symbol::DimExpr>(starts.size(), 1);
 
   infer_context->SetShapeOrDataForValue(
       op->result(0),
-      paddle::dialect::slice_utils::SliceRawInferSymbolicShape(
+      paddle::dialect::slice_utils::StridedSliceRawInferSymbolicShape(
           op->operand_source(0),
           op->result(0),
           starts,
           ends,
+          strides,
           axes_raw,
           infer_flags_raw,
           decrease_axis_raw,

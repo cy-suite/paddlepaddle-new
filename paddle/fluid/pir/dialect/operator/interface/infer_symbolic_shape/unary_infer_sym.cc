@@ -3152,6 +3152,7 @@ bool SliceOpInferSymbolicShape(pir::Operation *op,
 
   ExprVec starts = slice_utils::GetExprVecFromData(starts_shape_data);
   ExprVec ends = slice_utils::GetExprVecFromData(ends_shape_data);
+  ExprVec strides = std::vector<symbol::DimExpr>(starts.size(), 1);
 
   std::vector<int64_t> infer_flags = details::GetVectorAttr(op, "infer_flags");
   const std::vector<int64_t> decrease_axis =
@@ -3159,14 +3160,15 @@ bool SliceOpInferSymbolicShape(pir::Operation *op,
 
   infer_context->SetShapeOrDataForValue(
       res,
-      slice_utils::SliceRawInferSymbolicShape(operand_source,
-                                              res,
-                                              starts,
-                                              ends,
-                                              axes_vec,
-                                              infer_flags,
-                                              decrease_axis,
-                                              infer_context));
+      slice_utils::StridedSliceRawInferSymbolicShape(operand_source,
+                                                     res,
+                                                     starts,
+                                                     ends,
+                                                     strides,
+                                                     axes_vec,
+                                                     infer_flags,
+                                                     decrease_axis,
+                                                     infer_context));
 
   return true;
 }
