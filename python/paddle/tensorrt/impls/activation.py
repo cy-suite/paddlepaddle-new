@@ -128,3 +128,14 @@ def swish_silu_converter(network, paddle_op, inputs):
         inputs[0], activation_type_map[paddle_op.name()]
     ).get_output(0)
     return trt_prod(network, inputs[0], layer_output)
+
+
+@converter_registry.register("pd_op.selu", trt_version="8.x")
+def selu_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    alpha = paddle_op.attrs()["alpha"]
+    scale = paddle_op.attrs()["scale"]
+    selu_layer = network.add_activation(x, trt.ActivationType.SELU)
+    selu_layer.alpha = alpha
+    selu_layer.beta = scale
+    return selu_layer.get_output(0)
