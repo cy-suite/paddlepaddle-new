@@ -209,8 +209,6 @@ OP_DECLARE_INFER_SYMBOLIC_SHAPE(StandardGamma)
 }  // namespace paddle::dialect
 
 namespace cinn::dialect {
-using paddle::dialect::Ceil_OpInferSymbolicShape;
-using paddle::dialect::CeilOpInferSymbolicShape;
 using paddle::dialect::ReverseOpInferSymbolicShape;
 using paddle::dialect::ScaleOpInferSymbolicShape;
 using paddle::dialect::SelectOpInferSymbolicShape;
