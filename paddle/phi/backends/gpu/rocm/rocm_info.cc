@@ -241,21 +241,20 @@ const gpuDeviceProp &GetDeviceProperties(int id) {
 }
 
 void SetDeviceId(int id) {
-  static int last_id = -1;
-  if (last_id == id) {
-    return;
-  }
+  int prev_id;
+  hipGetDevice(&prev_id);
+  if (prev_id != id) {
+    PADDLE_ENFORCE_LT(id,
+                      GetGPUDeviceCount(),
+                      common::errors::InvalidArgument(
+                          "Device id must be less than GPU count, "
+                          "but received id is: %d. GPU count is: %d.",
+                          id,
+                          GetGPUDeviceCount()));
 
-  // TODO(qijun): find a better way to cache the cuda device count
-  PADDLE_ENFORCE_LT(id,
-                    GetGPUDeviceCount(),
-                    common::errors::InvalidArgument(
-                        "Device id must be less than GPU count, "
-                        "but received id is: %d. GPU count is: %d.",
-                        id,
-                        GetGPUDeviceCount()));
-  PADDLE_RETRY_CUDA_SUCCESS(hipSetDevice(id));
-  last_id = id;
+    PADDLE_RETRY_CUDA_SUCCESS(hipSetDevice(id));
+    VLOG(4) << "SetDeviceId " << id;
+  }
 }
 
 void GpuMemcpyAsync(void *dst,
