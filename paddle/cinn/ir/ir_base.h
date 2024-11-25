@@ -169,6 +169,9 @@ const std::vector<std::string> kIrNodeTyReprs(
 #undef __m
 // @}
 
+const std::vector<std::string> kIndexExprList(
+    {"Add", "Sub", "Mul", "Div", "Mod", "Cast", "Load"});
+
 std::ostream& operator<<(std::ostream& os, IrNodeTy type);
 std::ostream& operator<<(std::ostream& os, StmtNodeTy type);
 
@@ -208,8 +211,12 @@ class IrNode : public cinn::common::Object {
   //! Verify the current IR node's correctness.
   virtual void Verify() const { CINN_NOT_IMPLEMENTED }
 
+  bool get_index() const;
+  void set_index(bool flag);
+
  protected:
   static constexpr char* __type_info__ = "IRNode";
+  bool is_index_ = false;
   Type type_;
 };
 
@@ -285,7 +292,10 @@ struct ExprNode : public IrNode {
 struct IntImm : public ExprNode<IntImm> {
   int64_t value;
 
-  IntImm(Type t, int64_t v) : ExprNode<IntImm>(t), value(v) { Verify(); }
+  IntImm(Type t, int64_t v) : ExprNode<IntImm>(t), value(v) {
+    if (t.bits() == 32 || t.bits() == 64) set_index(true);
+    Verify();
+  }
 
   void Verify() const override {
     PADDLE_ENFORCE_EQ(
@@ -313,7 +323,10 @@ struct IntImm : public ExprNode<IntImm> {
 struct UIntImm : public ExprNode<UIntImm> {
   uint64_t value;
 
-  UIntImm(Type t, uint64_t v) : ExprNode<UIntImm>(t), value(v) { Verify(); }
+  UIntImm(Type t, uint64_t v) : ExprNode<UIntImm>(t), value(v) {
+    if (t.bits() == 32 || t.bits() == 64) set_index(true);
+    Verify();
+  }
 
   void Verify() const override {
     PADDLE_ENFORCE_EQ(type().is_uint(),
@@ -378,6 +391,7 @@ struct Expr : public IrNodeRef {
   Expr() = default;
   Expr(const Expr& other) : IrNodeRef(other.ptr()) {}
   Expr(IrNode* p) : IrNodeRef(p) {}  // NOLINT
+  Expr(const IndexExpr& e);          // NOLINT
   explicit Expr(const Var& var);
 
   //! Helper function to construct numeric constants of various types.
@@ -405,6 +419,8 @@ struct Expr : public IrNodeRef {
   // @}
 
   Expr& operator=(const Expr& other);
+  Expr& operator=(const IndexExpr& other);
+  Expr& operator=(const Var& other);
 
   // primitive types
   // @{
@@ -452,6 +468,8 @@ struct Expr : public IrNodeRef {
 
   IndexExpr as_index();
   const IndexExpr as_index() const;
+
+  Expr& set_index(bool flag);
 
   operator Var();
 
@@ -606,14 +624,3 @@ void TryElevateInt32ToInt64(const std::vector<Expr>& expr_vec);
 
 }  // namespace ir
 }  // namespace cinn
-
-namespace std {
-
-template <>
-struct hash<cinn::ir::Expr> {
-  size_t operator()(const cinn::ir::Expr& x) const {
-    return reinterpret_cast<size_t>(x.get());
-  }
-};
-
-}  // namespace std

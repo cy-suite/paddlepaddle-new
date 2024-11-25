@@ -86,6 +86,7 @@ struct Add : public BinaryOpNode<Add> {
   Add(Expr a, Expr b);
 
   static Expr Make(Expr a, Expr b);
+  static IndexExpr Make(IndexExpr a, IndexExpr b);
 
   void Verify() const override;
 
@@ -99,6 +100,7 @@ struct Sub : public BinaryOpNode<Sub> {
   Sub(Expr a, Expr b) : BinaryOpNode<Sub>(a.type(), a, b) {}
 
   static Expr Make(Expr a, Expr b);
+  static IndexExpr Make(IndexExpr a, IndexExpr b);
 
   void Verify() const override;
 
@@ -112,6 +114,7 @@ struct Mul : public BinaryOpNode<Mul> {
   Mul(Expr a, Expr b) : BinaryOpNode<Mul>(a.type(), a, b) {}
 
   static Expr Make(Expr a, Expr b);
+  static IndexExpr Make(IndexExpr a, IndexExpr b);
 
   void Verify() const override;
 
@@ -125,6 +128,7 @@ struct Div : public BinaryOpNode<Div> {
   Div(Expr a, Expr b) : BinaryOpNode<Div>(a.type(), a, b) {}
 
   static Expr Make(Expr a, Expr b);
+  static IndexExpr Make(IndexExpr a, IndexExpr b);
   void Verify() const override;
 
   static const IrNodeTy _node_type_ = IrNodeTy::Div;
@@ -137,6 +141,7 @@ struct Mod : public BinaryOpNode<Mod> {
   Mod(Expr a, Expr b) : BinaryOpNode<Mod>(a.type(), a, b) {}
 
   static Expr Make(Expr a, Expr b);
+  static IndexExpr Make(IndexExpr a, IndexExpr b);
   void Verify() const override;
   static const IrNodeTy _node_type_ = IrNodeTy::Mod;
 };
@@ -148,6 +153,9 @@ struct Min : public BinaryOpNode<Min> {
   Min(Expr a, Expr b) : BinaryOpNode<Min>(a.type(), a, b) {}
 
   static Expr Make(Expr a, Expr b);
+  // TODO(liiujinnan): simplify Min and Max.
+  static IndexExpr Make(IndexExpr a, IndexExpr b);
+
   void Verify() const override;
   static const IrNodeTy _node_type_ = IrNodeTy::Min;
 };
@@ -159,6 +167,8 @@ struct Max : public BinaryOpNode<Max> {
   Max(Expr a, Expr b) : BinaryOpNode<Max>(a.type(), a, b) {}
 
   static Expr Make(Expr a, Expr b);
+  // TODO(liiujinnan): simplify Min and Max.
+  static IndexExpr Make(IndexExpr a, IndexExpr b);
 
   void Verify() const override;
 
@@ -459,6 +469,14 @@ struct Var : public IrNodeRef {
 
   Var& operator=(_Var_* x);
   Var& operator=(const _Var_* x);
+
+  bool is_index() const { return get()->get_index(); }
+  Var& set_index(bool flag) {
+    get()->set_index(flag);
+    return *this;
+  }
+  IndexExpr as_index();
+  const IndexExpr as_index() const;
 
   const _Var_* operator->() const { return get(); }
   _Var_* operator->() { return get(); }
@@ -1015,15 +1033,33 @@ struct Block : public ExprNode<Block> {
   static const IrNodeTy _node_type_ = IrNodeTy::Block;
 };
 
-struct IndexExpr : public Expr {
+struct IndexExpr : public IrNodeRef {
  public:
   IndexExpr() = default;
-  IndexExpr(const IndexExpr& other) : Expr(other.ptr()) {}
-  IndexExpr(IrNode* p) : Expr(p) {}            // NOLINT
-  IndexExpr(const Expr& expr) : Expr(expr) {}  // NOLINT
+  IndexExpr(const IndexExpr& other) : IrNodeRef(other.ptr()) {}
+  IndexExpr(IrNode* p) : IrNodeRef(p) {}  // NOLINT
+  IndexExpr(const Expr& e);               // NOLINT
 
-  explicit IndexExpr(int32_t x) : Expr(x) {}
-  explicit IndexExpr(int64_t x) : Expr(x) {}
+  explicit IndexExpr(int32_t x) : IrNodeRef(new IntImm(Int(32), x)) {}
+  explicit IndexExpr(int64_t x) : IrNodeRef(new IntImm(Int(64), x)) {}
+
+  // operator Expr() { return Expr(get()).set_index(1); }
+  // operator Expr() const {
+  //   IndexExpr e = *this;
+  //   return Expr(e);
+  // }
+
+  bool is_var() const { return As<_Var_>(); }
+  _Var_* as_var() { return As<_Var_>(); }
+  const _Var_* as_var() const { return As<_Var_>(); }
+  Var as_var_ref() const { return Var(&Reference(as_var())); }
+
+  int32_t as_int32() const;
+  int64_t as_int64() const;
+
+  bool is_constant() const;
+
+  Type type() const { return p_->type(); }
 
   int64_t GetLargestMutiplyPart() const;
 
@@ -1038,21 +1074,8 @@ struct IndexExpr : public Expr {
   int32_t length() const;
 
   IndexExpr& operator=(const IndexExpr& other);
-
-  IndexExpr operator-() const;
-
-#define DEFINE_OPERATOR(op)               \
-  IndexExpr operator op(int64_t v) const; \
-  IndexExpr operator op(int32_t v) const; \
-  IndexExpr operator op(const IndexExpr& other) const;
-
-  DEFINE_OPERATOR(+)
-  DEFINE_OPERATOR(-)
-  DEFINE_OPERATOR(*)
-  DEFINE_OPERATOR(/)
-  DEFINE_OPERATOR(%)
-
-#undef DEFINE_OPERATOR
+  IndexExpr& operator=(const Expr& other);
+  IndexExpr& operator=(const Var& other);
 };
 
 // TODO(liujinnan): Essentially IterExpr is not IndexExpr, so it does not
@@ -1071,10 +1094,10 @@ struct IterMark : public ExprNode<IterMark> {
   }
   IterMark& operator=(const IterMark& other);
 
-  static IndexExpr Make(const IndexExpr& source, const IndexExpr& extent);
+  static Expr Make(const Expr& source, const Expr& extent);
   Type type() const { return source.type(); }
-  IndexExpr source;
-  IndexExpr extent;
+  Expr source;
+  Expr extent;
   static const IrNodeTy _node_type_ = IrNodeTy::IterMark;
 };
 
@@ -1095,18 +1118,18 @@ struct IterSplit : public ExprNode<IterSplit> {
 
   IterSplit& operator=(const IterSplit& other);
 
-  static IndexExpr Make(const IndexExpr& source,
-                        const IndexExpr& lower_factor,
-                        const IndexExpr& extent,
-                        const IndexExpr& scale);
-  static IndexExpr Make(const IndexExpr& source, const IndexExpr& scale);
-  static IndexExpr Make(const IndexExpr& source);
+  static Expr Make(const Expr& source,
+                   const Expr& lower_factor,
+                   const Expr& extent,
+                   const Expr& scale);
+  static Expr Make(const Expr& source, const Expr& scale);
+  static Expr Make(const Expr& source);
 
   Type type() const { return source.type(); }
-  IndexExpr source;
-  IndexExpr lower_factor;
-  IndexExpr extent;
-  IndexExpr scale;
+  Expr source;
+  Expr lower_factor;
+  Expr extent;
+  Expr scale;
   static const IrNodeTy _node_type_ = IrNodeTy::IterSplit;
 };
 
@@ -1117,11 +1140,10 @@ struct IterSplit : public ExprNode<IterSplit> {
 struct IterSum : public ExprNode<IterSum> {
  public:
   IterSum() = default;
-  static IndexExpr Make(const std::vector<IndexExpr>& args,
-                        const IndexExpr& base);
+  static Expr Make(const std::vector<Expr>& args, const Expr& base);
   Type type() const { return base.type(); }
-  std::vector<IndexExpr> args;
-  IndexExpr base;
+  std::vector<Expr> args;
+  Expr base;
   static const IrNodeTy _node_type_ = IrNodeTy::IterSum;
 };
 
@@ -1255,33 +1277,6 @@ struct hash<cinn::ir::IndexExpr> {
         return std::hash<std::string>()(x.as_var()->name);
       case cinn::ir::IrNodeTy::IntImm:
         return std::hash<int>()(x.as_int64());
-      case cinn::ir::IrNodeTy::IterMark: {
-        auto iter_mark = x.As<cinn::ir::IterMark>();
-        auto hash_source = std::hash<cinn::ir::IndexExpr>()(iter_mark->source);
-        auto hash_extent = std::hash<cinn::ir::IndexExpr>()(iter_mark->extent);
-        return cinn::adt::hash_combine(hash_source, hash_extent);
-      }
-      case cinn::ir::IrNodeTy::IterSplit: {
-        auto iter_split = x.As<cinn::ir::IterSplit>();
-        auto hash_source = std::hash<cinn::ir::IndexExpr>()(iter_split->source);
-        auto hash_lower_facort =
-            std::hash<cinn::ir::IndexExpr>()(iter_split->lower_factor);
-        auto hash_extent = std::hash<cinn::ir::IndexExpr>()(iter_split->extent);
-        auto hash_scale = std::hash<cinn::ir::IndexExpr>()(iter_split->scale);
-        auto hash_res = cinn::adt::hash_combine(hash_source, hash_lower_facort);
-        hash_res = cinn::adt::hash_combine(hash_res, hash_extent);
-        hash_res = cinn::adt::hash_combine(hash_res, hash_scale);
-        return hash_res;
-      }
-      case cinn::ir::IrNodeTy::IterSum: {
-        auto iter_sum = x.As<cinn::ir::IterSum>();
-        auto hash_res = std::hash<cinn::ir::IndexExpr>()(iter_sum->base);
-        for (auto&& iter_mark : iter_sum->args) {
-          hash_res = cinn::adt::hash_combine(
-              hash_res, std::hash<cinn::ir::IndexExpr>()(iter_mark));
-        }
-        return hash_res;
-      }
       case cinn::ir::IrNodeTy::Add:
         [[fallthrough]];
       case cinn::ir::IrNodeTy::Sub:
@@ -1301,4 +1296,49 @@ struct hash<cinn::ir::IndexExpr> {
     ::common::errors::InvalidArgument("Unsupported index expr type.");
   }
 };
+
+template <>
+struct hash<cinn::ir::Expr> {
+  size_t operator()(const cinn::ir::Expr& x) const {
+    if (x.is_index()) {
+      return std::hash<cinn::ir::IndexExpr>()(x.as_index());
+    }
+    switch (x.node_type()) {
+      case cinn::ir::IrNodeTy::_Var_:
+        return std::hash<std::string>()(x.as_var()->name);
+      case cinn::ir::IrNodeTy::IntImm:
+        return std::hash<int>()(x.as_int64());
+      case cinn::ir::IrNodeTy::IterMark: {
+        auto iter_mark = x.As<cinn::ir::IterMark>();
+        auto hash_source = std::hash<cinn::ir::Expr>()(iter_mark->source);
+        auto hash_extent = std::hash<cinn::ir::Expr>()(iter_mark->extent);
+        return cinn::adt::hash_combine(hash_source, hash_extent);
+      }
+      case cinn::ir::IrNodeTy::IterSplit: {
+        auto iter_split = x.As<cinn::ir::IterSplit>();
+        auto hash_source = std::hash<cinn::ir::Expr>()(iter_split->source);
+        auto hash_lower_facort =
+            std::hash<cinn::ir::Expr>()(iter_split->lower_factor);
+        auto hash_extent = std::hash<cinn::ir::Expr>()(iter_split->extent);
+        auto hash_scale = std::hash<cinn::ir::Expr>()(iter_split->scale);
+        auto hash_res = cinn::adt::hash_combine(hash_source, hash_lower_facort);
+        hash_res = cinn::adt::hash_combine(hash_res, hash_extent);
+        hash_res = cinn::adt::hash_combine(hash_res, hash_scale);
+        return hash_res;
+      }
+      case cinn::ir::IrNodeTy::IterSum: {
+        auto iter_sum = x.As<cinn::ir::IterSum>();
+        auto hash_res = std::hash<cinn::ir::Expr>()(iter_sum->base);
+        for (auto&& iter_mark : iter_sum->args) {
+          hash_res = cinn::adt::hash_combine(
+              hash_res, std::hash<cinn::ir::Expr>()(iter_mark));
+        }
+        return hash_res;
+      }
+      default:
+        return reinterpret_cast<size_t>(x.get());
+    }
+  }
+};
+
 }  // namespace std

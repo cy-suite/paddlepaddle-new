@@ -176,7 +176,7 @@ Expr RampRelatedMul(Expr a, Expr b) {
 }  // namespace
 
 static void MergeMulModInsertElements(
-    const std::vector<ir::IndexExpr> &eles,
+    const std::vector<ir::IndexExpr> &elems,
     std::list<ir::IndexExpr> *mult_exprs,
     std::list<std::pair<ir::IndexExpr, ir::IndexExpr>> *mod_exprs,
     ir::IndexExpr *no_opt_sum,
@@ -184,14 +184,13 @@ static void MergeMulModInsertElements(
     bool *has_mod) {
   *has_mult = false;
   *has_mod = false;
-  for (const ir::IndexExpr ele : eles) {
+  for (const ir::IndexExpr ele : elems) {
     auto mod_ptr = ele.As<ir::Mod>();
     auto mult_ptr = ele.As<ir::Mul>();
     if (mod_ptr) {
       *has_mod = true;
       mod_exprs->emplace_back(
-          std::make_pair(std::move(mod_ptr->a().as_index()),
-                         std::move(mod_ptr->b().as_index())));
+          std::make_pair(std::move(mod_ptr->a()), std::move(mod_ptr->b())));
     } else if (mult_ptr) {
       *has_mult = true;
       mult_exprs->emplace_back(ele);
@@ -209,13 +208,13 @@ static std::optional<ir::IndexExpr> MergeMulModInner(
   const ir::Mul *mult_ptr = mult_expr.As<ir::Mul>();
   if (!mult_ptr) return std::nullopt;
   ir::IndexExpr mult_outer = mult_ptr->b();
-  ir::IndexExpr inner = mult_ptr->a().as_index();
+  ir::IndexExpr inner = mult_ptr->a();
 
   while (true) {
     mult_ptr = inner.As<ir::Mul>();
     if (mult_ptr) {
-      inner = mult_ptr->a().as_index();
-      mult_outer = mult_ptr->b().as_index() * mult_outer.as_index();
+      inner = mult_ptr->a();
+      mult_outer = mult_ptr->b() * mult_outer;
     } else {
       break;
     }
@@ -234,28 +233,24 @@ static std::optional<ir::IndexExpr> MergeMulModInner(
     } else if (inner_div_ptr) {
       ir::IndexExpr overall_mult =
           mult_inner.get() ? mult_inner * mult_outer : mult_outer;
-      if (overall_mult == inner_div_ptr->b().as_index() &&
-          overall_mult == mod_r_expr &&
-          ProveDivisible(inner_div_ptr->a().as_index() - mod_l_expr,
-                         mod_r_expr)) {
+      if (overall_mult == inner_div_ptr->b() && overall_mult == mod_r_expr &&
+          ProveDivisible(inner_div_ptr->a() - mod_l_expr, mod_r_expr)) {
         // Found!
-        return no_opt_sum.get()
-                   ? no_opt_sum * mult_outer + inner_div_ptr->a().as_index()
-                   : inner_div_ptr->a().as_index();
+        return no_opt_sum.get() ? no_opt_sum * mult_outer + inner_div_ptr->a()
+                                : inner_div_ptr->a();
       } else {
         return std::nullopt;
       }
     } else if (inner_mult_ptr) {
-      mult_inner = mult_inner.get()
-                       ? inner_mult_ptr->b().as_index() * mult_inner
-                       : inner_mult_ptr->b().as_index();
-      search_ptr = inner_mult_ptr->a().as_index();
+      mult_inner = mult_inner.get() ? inner_mult_ptr->b() * mult_inner
+                                    : inner_mult_ptr->b();
+      search_ptr = inner_mult_ptr->a();
     } else if (inner_add_ptr) {
       if (mult_inner.get()) {
         return std::nullopt;
       }
-      auto lhs = inner_add_ptr->a().as_index();
-      auto rhs = inner_add_ptr->b().as_index();
+      auto lhs = inner_add_ptr->a();
+      auto rhs = inner_add_ptr->b();
       if (inner_add_ptr->b().as_index().is_constant()) {
         std::swap(lhs, rhs);
       } else if (inner_add_ptr->b().as_index().length() < mod_r_expr.length()) {
@@ -272,15 +267,15 @@ static std::optional<ir::IndexExpr> MergeMulModInner(
 
 ir::IndexExpr MergeMulMod(SymbolicExprAnalyzer *analyzer,
                           const ir::IndexExpr &base) {
-  ir::IndexExpr simplified_base = base.as_index().Normalize();
-  std::vector<ir::IndexExpr> eles = GetFlattenExprs<ir::Add>(simplified_base);
+  ir::IndexExpr simplified_base = base.Normalize();
+  std::vector<ir::IndexExpr> elems = GetFlattenExprs<ir::Add>(simplified_base);
   std::list<ir::IndexExpr> mult_exprs;
   std::list<std::pair<ir::IndexExpr, ir::IndexExpr>> mod_exprs;
   ir::IndexExpr no_opt_sum;
   bool has_mult;
   bool has_mod;
   MergeMulModInsertElements(
-      eles, &mult_exprs, &mod_exprs, &no_opt_sum, &has_mult, &has_mod);
+      elems, &mult_exprs, &mod_exprs, &no_opt_sum, &has_mult, &has_mod);
   bool find_opt = false;
   std::list<std::pair<ir::IndexExpr, ir::IndexExpr>>::iterator search_mod_it =
       mod_exprs.begin();
@@ -297,9 +292,9 @@ ir::IndexExpr MergeMulMod(SymbolicExprAnalyzer *analyzer,
         ++search_mod_it;
         mod_exprs.erase(temp_mod_it);
         mult_exprs.erase(mult_it);
-        std::vector<ir::IndexExpr> ret_eles =
+        std::vector<ir::IndexExpr> ret_elems =
             GetFlattenExprs<ir::Add>(ret.value());
-        MergeMulModInsertElements(ret_eles,
+        MergeMulModInsertElements(ret_elems,
                                   &mult_exprs,
                                   &mod_exprs,
                                   &no_opt_sum,
@@ -375,7 +370,7 @@ Expr IndiceToAbsOffset(const std::vector<Expr> &shape,
     }
     if (i > 0) {
       if (res.is_index()) {
-        res = MergeMulMod(&analyzer, res.as_index()).as_index().Normalize();
+        res = MergeMulMod(&analyzer, res).Normalize();
       }
     }
   }
@@ -668,21 +663,25 @@ bool IsSumPartialBySymbol(const ir::IndexExpr &expr,
     case ir::IrNodeTy::_Var_:
       return expr == symbol;
     case ir::IrNodeTy::Add:
-      return IsSumPartialBySymbol(expr->operand(0).as_index(), symbol) ||
-             IsSumPartialBySymbol(expr->operand(1).as_index(), symbol);
+      return IsSumPartialBySymbol(expr->operand(0), symbol) ||
+             IsSumPartialBySymbol(expr->operand(1), symbol);
     case ir::IrNodeTy::Mul: {
       if (expr->operand(1).is_constant() &&
           expr->operand(1).get_constant() == -1)
-        return IsSumPartialBySymbol(expr->operand(0).as_index(), symbol);
+        return IsSumPartialBySymbol(expr->operand(0), symbol);
       else
-        return expr->operand(0).as_index() == symbol ||
-               expr->operand(1).as_index() == symbol;
+        return expr->operand(0) == symbol || expr->operand(1) == symbol;
     }
 
     case ir::IrNodeTy::Div: {
-      return IsSumPartialBySymbol(expr->operand(0).as_index(), symbol);
+      return IsSumPartialBySymbol(expr->operand(0), symbol);
     }
     case ir::IrNodeTy::Mod:
+      return false;
+    case ir::IrNodeTy::Min:
+    case ir::IrNodeTy::Max:
+    case ir::IrNodeTy::Load:
+      // TODO(liujinnan) simplify later.
       return false;
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(
@@ -703,23 +702,25 @@ bool IsDivisiblieBySymbol(const ir::IndexExpr &expr,
     case ir::IrNodeTy::_Var_:
       return expr == symbol;
     case ir::IrNodeTy::Add:
-      return IsDivisiblieBySymbol(expr->operand(0).as_index(), symbol, ty) &&
-             IsDivisiblieBySymbol(expr->operand(1).as_index(), symbol, ty);
+      return IsDivisiblieBySymbol(expr->operand(0), symbol, ty) &&
+             IsDivisiblieBySymbol(expr->operand(1), symbol, ty);
     case ir::IrNodeTy::Mul:
-      return IsDivisiblieBySymbol(expr->operand(0).as_index(), symbol, ty) ||
-             IsDivisiblieBySymbol(expr->operand(1).as_index(), symbol, ty);
+      return IsDivisiblieBySymbol(expr->operand(0), symbol, ty) ||
+             IsDivisiblieBySymbol(expr->operand(1), symbol, ty);
     case ir::IrNodeTy::Mod:
       // Because S0 % 3 + S0 % 5 is not divisiblie by S0, so we push
       // `expr.node_type()` into third parameter.
-      return IsDivisiblieBySymbol(
-                 expr->operand(0).as_index(), symbol, expr.node_type()) &&
-             IsDivisiblieBySymbol(
-                 expr->operand(1).as_index(), symbol, expr.node_type());
+      return IsDivisiblieBySymbol(expr->operand(0), symbol, expr.node_type()) &&
+             IsDivisiblieBySymbol(expr->operand(1), symbol, expr.node_type());
     case ir::IrNodeTy::Div: {
       if (ty != expr.node_type()) return false;
-      return IsDivisiblieBySymbol(
-          expr->operand(0).as_index(), symbol, expr.node_type());
+      return IsDivisiblieBySymbol(expr->operand(0), symbol, expr.node_type());
     }
+    case ir::IrNodeTy::Min:
+    case ir::IrNodeTy::Max:
+    case ir::IrNodeTy::Load:
+      // TODO(liujinnan) simplify later.
+      return false;
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(
           "Unsupported type of expr in IsDivisiblieBySymbol which is: %s",

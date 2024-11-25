@@ -126,6 +126,11 @@ Expr One(const Type &type) {
 Expr::Expr(const Var &var) {
   *static_cast<IrNodeRef *>(this) = *static_cast<const IrNodeRef *>(&var);
 }
+
+Expr::Expr(const IndexExpr &e) {
+  *static_cast<IrNodeRef *>(this) = *static_cast<const IrNodeRef *>(&e);
+}
+
 bool Expr::as_bool() const {
   PADDLE_ENFORCE_EQ(
       type().is_uint(1),
@@ -237,6 +242,16 @@ Expr &Expr::operator=(const Expr &other) {
   return *this;
 }
 
+Expr &Expr::operator=(const IndexExpr &other) {
+  *static_cast<IrNodeRef *>(this) = *static_cast<const IrNodeRef *>(&other);
+  return *this;
+}
+
+Expr &Expr::operator=(const Var &other) {
+  *static_cast<IrNodeRef *>(this) = *static_cast<const IrNodeRef *>(&other);
+  return *this;
+}
+
 Expr::operator Var() {
   auto *x = As<ir::_Var_>();
   PADDLE_ENFORCE_NOT_NULL(
@@ -262,39 +277,27 @@ double Expr::get_constant() const {
 
 bool Expr::is_var() const { return As<_Var_>(); }
 
-bool Expr::is_index() const {
-  switch (node_type()) {
-    case ir::IrNodeTy::_Var_:
-      [[fallthrough]];
-    case ir::IrNodeTy::IntImm: {
-      if (type().is_index_type()) return true;
-    }
-    case ir::IrNodeTy::Add:
-      [[fallthrough]];
-    case ir::IrNodeTy::Sub:
-      [[fallthrough]];
-    case ir::IrNodeTy::Mul:
-      [[fallthrough]];
-    case ir::IrNodeTy::Div:
-      [[fallthrough]];
-    case ir::IrNodeTy::Mod:
-      return p_->operand(0).is_index() && p_->operand(1).is_index();
-  }
-  return false;
+bool Expr::is_index() const { return get()->get_index(); }
+
+Expr &Expr::set_index(bool flag) {
+  get()->set_index(flag);
+  return *this;
 }
 
 const IndexExpr Expr::as_index() const {
   if (is_index()) {
     return IndexExpr(*this);
   }
-  PADDLE_THROW(::common::errors::InvalidType("Expr is not IndexExpr!"));
+  PADDLE_THROW(
+      ::common::errors::InvalidType("Expr: %s is not IndexExpr!", *this));
 }
 
 IndexExpr Expr::as_index() {
   if (is_index()) {
     return IndexExpr(*this);
   }
-  PADDLE_THROW(::common::errors::InvalidType("Expr is not IndexExpr!"));
+  PADDLE_THROW(
+      ::common::errors::InvalidType("Expr: %s is not IndexExpr!", *this));
 }
 
 _Buffer_ *Expr::as_buffer() { return As<_Buffer_>(); }
@@ -342,6 +345,16 @@ void IrNode::replace(Expr old_op, Expr new_op) {
      << new_op.node_type() << ") but not Implemented";
 
   PADDLE_THROW(::common::errors::Unimplemented(ss.str()));
+}
+
+bool IrNode::get_index() const { return is_index_; }
+void IrNode::set_index(bool flag) {
+  is_index_ = flag;
+  if (flag) {
+    for (Expr &operand : operands) {
+      operand->set_index(flag);
+    }
+  }
 }
 
 void IrNode::convert_int32_to_int64() {
