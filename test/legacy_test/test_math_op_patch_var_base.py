@@ -522,6 +522,14 @@ class TestMathOpPatchesVarBase(unittest.TestCase):
         self.assertTrue(int(a) == 999424)
         self.assertTrue(int(a) == 999424)
 
+    def test_complex(self):
+        with base.dygraph.guard():
+            a = paddle.to_tensor(np.array([100.1 + 99.9j]))
+            self.assertTrue(complex(a) == (100.1 + 99.9j))
+
+        a = paddle.to_tensor(1000000.0, dtype='bfloat16')
+        self.assertTrue(complex(a) == (999424 + 0j))
+
     def test_len(self):
         a_np = np.random.uniform(-1, 1, self.shape).astype(self.dtype)
         with base.dygraph.guard():
@@ -588,9 +596,14 @@ class TestMathOpPatchesVarBase(unittest.TestCase):
             res1 = a.astype(np.float16)
             res2 = a.astype('float16')
             res3 = a.astype(paddle.float16)
+            res4 = a.astype(a.dtype)
 
             self.assertEqual(res1.dtype, res2.dtype)
             self.assertEqual(res1.dtype, res3.dtype)
+            self.assertEqual(res4.dtype, a.dtype)
+            self.assertEqual(
+                a.data_ptr(), res4.data_ptr()
+            )  # zero-copy if same dtype
 
             np.testing.assert_array_equal(res1.numpy(), res2.numpy())
             np.testing.assert_array_equal(res1.numpy(), res3.numpy())

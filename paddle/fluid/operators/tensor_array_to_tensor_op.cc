@@ -15,7 +15,7 @@ limitations under the License. */
 #include <string>
 #include <vector>
 
-#include "paddle/fluid/framework/lod_tensor_array.h"
+#include "paddle/fluid/framework/dense_tensor_array.h"
 #include "paddle/fluid/framework/op_registry.h"
 #include "paddle/fluid/framework/variable.h"
 
@@ -207,7 +207,7 @@ class LoDTensorArray2TensorGradInferVarType
  public:
   void operator()(framework::InferVarTypeContext *ctx) const override {
     ctx->SetOutputType(framework::GradVarName("X"),
-                       framework::proto::VarType::LOD_TENSOR_ARRAY,
+                       framework::proto::VarType::DENSE_TENSOR_ARRAY,
                        framework::ALL_ELEMENTS);
   }
 };
