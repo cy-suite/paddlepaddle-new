@@ -615,8 +615,11 @@ def normalize_extension_kwargs(kwargs, use_cuda=False):
             sms = []
             for s in arch_list:
                 sm = [int(ss) for ss in s.split(".") if ss]
-                assert len(sm) == 2, f"invalid sm format: {s}"
-                sm = sm[0] * 10 + sm[1]
+                assert len(sm) in [1, 2], f"invalid sm format: {s}"
+                if len(sm) == 2:
+                    sm = sm[0] * 10 + sm[1]
+                else:
+                    sm = sm[0]
                 sms.append(sm)
 
             sms = sorted(set(sms))
