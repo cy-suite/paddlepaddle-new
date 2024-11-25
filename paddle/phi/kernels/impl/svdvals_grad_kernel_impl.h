@@ -16,6 +16,7 @@
 
 #include "glog/logging.h"
 #include "paddle/phi/core/dense_tensor.h"
+#include "paddle/phi/infermeta/unary.h"
 #include "paddle/phi/kernels/activation_kernel.h"
 #include "paddle/phi/kernels/diag_kernel.h"
 #include "paddle/phi/kernels/elementwise_multiply_kernel.h"
@@ -39,25 +40,18 @@ void SvdvalsGradKernel(const Context& dev_ctx,
     return;
   }
   DenseTensor dX_term = Diag<T, Context>(dev_ctx, s_grad, 0, 0);
-  VLOG(1) << "dX_term shape: " << dX_term.dims();
-  int rows = x.dims()[x.dims().size() - 2];
-  int cols = x.dims()[x.dims().size() - 1];
-  int k = std::min(rows, cols);
+  VLOG(1) << "dX_term shape: " << dX_term.dims()
+          << "s_grad shape: " << s_grad.dims();
 
   DenseTensor U, VH, S_recomputed;
-  DDim u_dims = {rows, k};
-  DDim s_dims = {k};
-  DDim vh_dims = {k, cols};
-  U.Resize(u_dims);
-  VH.Resize(vh_dims);
-  S_recomputed.Resize(s_dims);
+  MetaTensor meta_u(&U), meta_s(&S_recomputed), meta_vh(&VH);
+  SvdInferMeta(x, true, &meta_u, &meta_s, &meta_vh);
   phi::SvdKernel<T, Context>(dev_ctx,
                              x,
                              true,
                              &U,
                              &S_recomputed,
                              &VH);  // Crucial: recomputing SVD
-  VLOG(1) << "S_grad shape: " << s_grad.dims();
   *x_grad =
       Matmul<T, Context>(dev_ctx, Matmul<T, Context>(dev_ctx, U, dX_term), VH);
 }
