@@ -38,6 +38,9 @@ class TestConstant(unittest.TestCase):
     def test_pi(self):
         np.testing.assert_equal(paddle.pi, math.pi)
 
+    def test_e(self):
+        np.testing.assert_equal(paddle.e, math.e)
+
 
 if __name__ == '__main__':
     unittest.main()
