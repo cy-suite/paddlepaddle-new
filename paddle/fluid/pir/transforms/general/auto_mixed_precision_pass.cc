@@ -795,6 +795,14 @@ class AutoMixedPrecisionPass : public pir::Pass {
             {"pd_op.layer_norm", {{1, "mean"}, {2, "variance"}}},
             {"pd_op.instance_norm", {{1, "mean"}, {2, "variance"}}}};
 
+    if (op->name() == "pd_op.clip") {
+      pir::Value input_value = op->operand_source(0);
+      pir::Type input_dtype = pir::GetDataTypeFromValue(input_value);
+      if (!input_dtype.isa<pir::Float32Type>()) {
+        return true;
+      }
+    }
+
     auto it = op_output_indices.find(op->name());
     if (it != op_output_indices.end()) {
       const auto& index_pairs = it->second;
