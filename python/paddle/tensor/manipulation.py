@@ -6331,6 +6331,7 @@ def masked_fill_(
         value = paddle.full([], value, x.dtype)
 
     mask = paddle.logical_not(mask)
+    mask.stop_gradient = True
     out = paddle.where_(mask, x, value)
     return out
 
