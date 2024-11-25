@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # The `Tensor` template `tensor.prototype.pyi` for `tools/gen_tensor_stub.py` to generate the stub file `tensor.pyi`.
-# Add docstring, attributes, methods and alias with type annotaions for `Tensor` in `tensor.prototype.pyi`
+# Add docstring, attributes, methods and alias with type annotations for `Tensor` in `tensor.prototype.pyi`
 # if not conveniently coding in original place (like c++ source file).
 
 # Import common typings for generated methods
@@ -109,7 +109,7 @@ class AbstractTensor:
             dtype: paddle::framework::proto::VarType::Type,
             dims: vector<int>,
             name: std::string,
-            type: paddle::framework::proto::VarType::LodTensor,
+            type: paddle::framework::proto::VarType::DenseTensor,
             persistable: bool)
         3. (multi-place)
         (should have at least one parameter, one parameter equals to case 4, zero
@@ -181,6 +181,7 @@ class AbstractTensor:
     def __rpow__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
     def __rdiv__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
     def __rfloordiv__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
+    def __rand__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
 
     # type cast
     def __bool__(self) -> bool: ...
