@@ -204,7 +204,7 @@ class PaddleToTensorRTConverter:
 
         for op in operations:
             # Adding marker labels to builtin ops facilitates convert processing, but they ultimately do not enter the TensorRT subgraph.
-            if op.name() == "builtin.split":
+            if op.name() == "builtin.split" or op.name() == "builtin.combine":
                 continue
             operands = []
             for operand in op.operands():
