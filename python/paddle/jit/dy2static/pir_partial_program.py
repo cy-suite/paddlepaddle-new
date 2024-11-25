@@ -248,8 +248,6 @@ class RunnableProgram:
         assert (
             self.has_splited is False
         ), "Please ensure only split once! don't call split_forward_backward manually."
-        if cinn_is_enabled(self._build_strategy, self._backend):
-            paddle.base.libpaddle.pir.reduce_as_sum_pass(self.program)
         self.has_splited = True
         [
             fwd_prog,
@@ -1051,6 +1049,10 @@ class PartialProgramLayer:
             [forward_end_idx, backward_start_op_index, backward_end_op_index],
             fused_bn_add_act_pass,
         )
+
+        if cinn_is_enabled(self._build_strategy, self._backend):
+            paddle.base.libpaddle.pir.reduce_as_sum_pass(self.program)
+
         program = forward_index_pass(program)
         (
             inputs,
