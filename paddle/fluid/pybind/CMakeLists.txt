@@ -44,7 +44,6 @@ set(PYBIND_DEPS
     fluid_jit
     prim_utils
     detail_op_handle
-    static_tensor_operants
     type_info
     auto_parallel)
 
@@ -142,6 +141,7 @@ set(PYBIND_SRCS
     sot/eval_frame_tools.cc
     sot/cpython_internals.c
     sot/eval_frame.c
+    sot/guards.cc
     op_callstack_utils.cc
     python_callable_registry.cc)
 

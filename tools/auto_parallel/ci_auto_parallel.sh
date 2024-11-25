@@ -32,7 +32,7 @@ install_paddle(){
 install_external_ops(){
     echo -e "\033[31m ---- Install extern_ops  \033"
     export PYTHONPATH=/workspace/PaddleNLP:$PYTHONPATH
-    cd /workspace/PaddleNLP/legacy/model_zoo/gpt-3/external_ops
+    cd /workspace/PaddleNLP/slm/model_zoo/gpt-3/external_ops
     python setup.py install
     python -c "import fused_ln;";
 }
@@ -57,47 +57,11 @@ for element in "${target_lists_for_dygraph_ci[@]}";do
   fi
   count=$((count+1))
 done
-for file_name in `git diff --numstat upstream/${AGILE_COMPILE_BRANCH} |awk '{print $NF}'`;do
-    arr_file_name=(${file_name//// })
-    dir1=${arr_file_name[0]}
-    dir2=${arr_file_name[1]}
-    dir3=${arr_file_name[2]}
-    dir4=${arr_file_name[3]}
-    dir5=${arr_file_name[4]}
-    dir6=${arr_file_name[5]}
-    file_item=$dir1/$dir2/$dir3/$dir4/$dir5/$dir6
-    echo "file_name:"${file_name}, "path:"${file_item}
-    if [ ! -f ${file_name} ];then # deleting files for PR
-        continue
-    elif [[ ${file_name##*.} == "md" ]] || [[ ${file_name##*.} == "rst" ]] || [[ ${dir1} == "docs" ]];then
-        continue
-    else
-        # The most auto unittests have been monitored in PR-CI-Distribute-stable,
-        # while the other tests of llama model will be executed in PR-CI-Auto-Parallel.
-        for ((i=0; i<${#target_lists_for_semi_auto_ci[@]}; i++)); do
-            if [[ $i != ${test_auto_num} ]] && [[ ${file_item} == *${target_lists_for_semi_auto_ci[i]}* ]];then
-                case_list[${#case_list[*]}]=llama_auto
-                case_list[${#case_list[*]}]="llama_auto_unit_test"
-                break
-            elif [[ $i == ${test_auto_num} ]] && [[ ${file_item} == *${target_lists_for_semi_auto_ci[i]}* ]];then
-                case_list[${#case_list[*]}]="llama_auto_unit_test"
-                break
-            else
-                continue
-            fi
-        done
-        # The dynamic unittests have been monitored in PR-CI-Distribute-stable
-        # and will be no longer redundantly executed in PR-CI-Auto-Parallel.
-        for ((i=0; i<${#target_lists_for_dygraph_ci[@]}; i++)); do
-            if [[ $i != ${test_dygraph_num} ]] && [[ ${file_item} == *${target_lists_for_dygraph_ci[i]}* ]];then
-                case_list[${#case_list[*]}]=gpt-3_dygraph
-                break
-            else
-                continue
-            fi
-        done
-    fi
-done
+
+case_list[${#case_list[*]}]=llama_auto
+case_list[${#case_list[*]}]=gpt-3_auto
+case_list[${#case_list[*]}]="llama_auto_unit_test"
+case_list[${#case_list[*]}]=gpt-3_dygraph
 }
 
 print_info(){
@@ -146,6 +110,10 @@ if [[ ${#case_list[*]} -ne 0 ]];then
         elif [[ ${case} == "auto_unit_test" ]];then
             bash /workspace/Paddle/tools/auto_parallel/ci_case_unit.sh auto_unit_test
             print_info $? `ls -lt ${log_path} | grep "test" | head -n 1 | awk '{print $9}'` ${case}
+            let case_num++
+        elif [[ ${case} == "gpt-3_auto" ]];then
+            bash /workspace/PaddleNLP/scripts/distribute/ci_case_auto.sh llm_gpt_case_list_auto $FLAGS_install_deps $FLAGS_download_data
+            print_info $? `ls -lt ${log_path} | grep "llm_gpt_dygraph_auto_" | head -n 1 | awk '{print $9}'` ${case}
             let case_num++
         elif [[ ${case} == "gpt-3_dygraph" ]];then
             bash /workspace/PaddleNLP/scripts/distribute/ci_case_dy.sh llm_gpt_case_list_dygraph $FLAGS_install_deps $FLAGS_download_data

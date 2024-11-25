@@ -78,8 +78,6 @@ class LoweredFunc : public IrNodeRef {
   LoweredFunc() = default;
   explicit LoweredFunc(IrNode* n) : IrNodeRef(n) {}
 
-  operator Expr() const { return Expr(ptr()); }
-
   const _LoweredFunc_* operator->() const;
   _LoweredFunc_* operator->();
 };
@@ -142,7 +140,7 @@ struct TempSpaceInfo {
  *
  * both the input and output arguments, the output arguments are in the tail.
  */
-struct _LoweredFunc_ : ExprNode<_LoweredFunc_> {
+struct _LoweredFunc_ : public IrNode {
   //! The name of this function.
   std::string name;
 
@@ -203,11 +201,16 @@ struct _LoweredFunc_ : ExprNode<_LoweredFunc_> {
 
   void Verify() const override {}
 
+  IrNodeTy node_type() const override { return _node_type_; }
+
   std::vector<Expr*> expr_fields() override;
   std::vector<const Expr*> expr_fields() const override;
 
-  static const IrNodeTy _node_type_ = IrNodeTy::_LoweredFunc_;
+  static const IrNodeTy _node_type_ = IrNodeTy::LoweredFunc;
 
+  //! Prepare the assumptions that a gpu axis should be less than its
+  //! corresponding dim size, e.g. threadIdx.x < blockDim.x.
+  std::vector<Expr> PrepareAxisRangeAssumptions() const;
   std::vector<Expr> PrepareCreateTempBufferExprs() const;
   //! Prepare the expressions for `alloc_tmp_buffer_exprs`.
   std::vector<Expr> PrepareAllocTempBufferExprs() const;

@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import operator
+import sys
 import types
 from functools import cached_property, reduce
 from typing import TYPE_CHECKING, Any
@@ -42,9 +43,11 @@ from ....utils import (
     log,
     printable,
 )
+from ....utils.envs import ENV_SOT_BREAK_GRAPH_ON_GET_SYMBOLIC_VALUE
 from ....utils.exceptions import HasNoAttributeError, InnerError
 from ..dispatch_functions import tensor_numel
 from ..guard import (
+    FasterStringifiedExpression,
     StringifiedExpression,
     check_guard,
     object_equal_stringified_guard,
@@ -290,8 +293,9 @@ class TensorDtypeVariable(DataVariable):
                     )
                 ]
             return [
-                StringifiedExpression(
+                FasterStringifiedExpression(
                     f"{{}}.dtype == {dtype_str}",
+                    paddle.framework.core.DtypeMatchGuard(self.value),
                     [tensor_value_tracer],
                     union_free_vars(
                         tensor_value_tracer.free_vars,
@@ -528,7 +532,24 @@ class TensorVariable(VariableBase):
 
         perm = list(range(len(self.meta.shape) - 1, -1, -1))
         perm_var = ListVariable(perm, self.graph, tracker=ConstTracker(perm))
-        assert perm_var is not None
+        out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
+        return out
+
+    @tensor_property
+    def mT(self):
+        """
+        Return a new TensorVariable object that wraps the result of calling the mT method on the wrapped value of this TensorVariable.
+        """
+        from .container import ListVariable
+
+        if len(self.meta.shape) < 2:
+            raise ValueError(
+                f"Variable.ndim({self.ndim}) is required to be greater than or equal to 2."
+            )
+
+        perm = list(range(len(self.meta.shape)))
+        perm[-1], perm[-2] = perm[-2], perm[-1]
+        perm_var = ListVariable(perm, self.graph, tracker=DummyTracker([self]))
         out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
         return out
 
@@ -688,15 +709,19 @@ def get_symbolic_from_meta(meta: MetaInfo) -> SymbolicValue:
         value = SymbolicBool()
     elif meta.dtype in [
         paddle.int8,
+        paddle.uint8,
         paddle.int16,
         paddle.int32,
         paddle.int64,
     ]:
         value = SymbolicInt()
     elif meta.dtype in [
+        paddle.bfloat16,
         paddle.float16,
         paddle.float32,
         paddle.float64,
+        paddle.float8_e4m3fn,
+        paddle.float8_e5m2,
     ]:
         value = SymbolicFloat()
     else:
@@ -768,6 +793,8 @@ class SymbolicVariable(VariableBase):
         )
 
     def get_py_value(self, allow_tensor: bool = False) -> bool | int | float:
+        if ENV_SOT_BREAK_GRAPH_ON_GET_SYMBOLIC_VALUE.get():
+            raise BreakGraphError("get_py_value from SymbolicVariable")
         self.need_guard_value = True
         if isinstance(self.value, SymbolicValue):
             assert isinstance(
@@ -808,6 +835,12 @@ class SymbolicVariable(VariableBase):
     def float(self):
         return ConstantVariable(float(self), self.graph, DummyTracker([self]))
 
+    def __complex__(self) -> complex:
+        return complex(self.get_py_value())
+
+    def complex(self):
+        return ConstantVariable(complex(self), self.graph, DummyTracker([self]))
+
     @property
     def out_var_name(self):
         return f"{self.graph.OUT_VAR_PREFIX}{self.var_name}"
@@ -832,11 +865,12 @@ class SymbolicVariable(VariableBase):
         if self.need_guard_value:
             return super().make_stringified_guard()
         return [
-            StringifiedExpression(
+            FasterStringifiedExpression(
                 f"id(type({{}})) == {id(self.get_py_type())}",
+                paddle.core.TypeMatchGuard(self.get_py_type()),
                 [frame_value_tracer],
                 union_free_vars(frame_value_tracer.free_vars),
-            )
+            ),
         ]
 
     @staticmethod
@@ -1176,6 +1210,9 @@ class NullVariable(VariableBase):
         return func(*args[1:], **kwargs)
 
     def reconstruct(self, codegen: PyCodeGen):
+        if sys.version_info >= (3, 13):
+            codegen.gen_push_null()
+            return
         codegen.gen_load_null_variable()
 
 

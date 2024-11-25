@@ -29,6 +29,9 @@ Operation *Builder::Build(OperationArgument &&argument) {
   if (op_role_ != -1) {
     op->set_attribute("op_role", Int32Attribute::get(context_, op_role_));
   }
+  if (chunk_id_ != -1) {
+    op->set_attribute("chunk_id", Int32Attribute::get(context_, chunk_id_));
+  }
   return op;
 }
 
@@ -101,6 +104,25 @@ PointerAttribute Builder::pointer_attr(void *value) {
 }
 TensorNameAttribute Builder::tensor_name_attr(const std::string &value) {
   return TensorNameAttribute::get(context_, value);
+}
+
+BuilderAttrGuard::BuilderAttrGuard(std::shared_ptr<Builder> builder,
+                                   int op_role,
+                                   int chunk_id)
+    : builder_(builder),
+      pre_op_role_(builder_->op_role()),
+      pre_chunk_id_(builder_->chunk_id()) {
+  if (pre_op_role_ != op_role) {
+    builder_->set_op_role(op_role);
+  }
+  if (pre_chunk_id_ != chunk_id) {
+    builder_->set_chunk_id(chunk_id);
+  }
+}
+
+BuilderAttrGuard::~BuilderAttrGuard() {  // NOLINT
+  builder_->set_op_role(pre_op_role_);
+  builder_->set_chunk_id(pre_chunk_id_);
 }
 
 }  // namespace pir

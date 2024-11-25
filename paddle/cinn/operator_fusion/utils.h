@@ -185,6 +185,34 @@ std::unordered_set<T> ToUnorderedSet(const std::vector<T>& input) {
   return result;
 }
 
+template <typename T>
+std::vector<T> SetToVector(const std::set<T>& input) {
+  std::vector<T> result(input.begin(), input.end());
+  return result;
+}
+template <typename T>
+std::vector<T> SetToVector(const std::unordered_set<T>& input) {
+  std::vector<T> result(input.begin(), input.end());
+  return result;
+}
+
+template <typename T1, typename T2>
+std::vector<T1> MapKeyToVector(const std::map<T1, T2>& input) {
+  std::vector<T1> result;
+  for (const auto& pair : input) {
+    result.push_back(pair.first);
+  }
+  return result;
+}
+template <typename T1, typename T2>
+std::vector<T1> MapKeyToVector(const std::unordered_map<T1, T2>& input) {
+  std::vector<T1> result;
+  for (const auto& pair : input) {
+    result.push_back(pair.first);
+  }
+  return result;
+}
+
 template <typename Set>
 Set SetUnion(const Set& A, const Set& B) {
   Set result;
@@ -613,5 +641,16 @@ std::vector<Int> ArangeVector(Int start, Int end, Int step = 1) {
   }
   return res;
 }
+
+bool ShapeProductEqual(const std::vector<symbol::DimExpr>& in_shape,
+                       const std::vector<symbol::DimExpr>& out_shape,
+                       int in_start,
+                       int in_end,
+                       int out_start,
+                       int out_end);
+
+std::vector<std::pair<int, int>> PartionReshapeAxes(
+    const std::vector<symbol::DimExpr>& in_shape,
+    const std::vector<symbol::DimExpr>& out_shape);
 
 }  // namespace cinn::fusion

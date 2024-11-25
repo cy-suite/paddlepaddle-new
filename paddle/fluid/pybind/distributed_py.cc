@@ -701,8 +701,8 @@ void BindDistributed(py::module *m) {
           .def(
               "alltoall",
               [](distributed::ProcessGroup &self,
-                 py::handle py_in_tensor,
-                 py::handle py_out_tensor) {
+                 py::handle py_out_tensor,
+                 py::handle py_in_tensor) {
                 auto in_tensor = CastPyArg2Tensor(py_in_tensor.ptr(), 0);
                 auto out_tensor = CastPyArg2Tensor(py_out_tensor.ptr(), 0);
                 auto in_dense = std::dynamic_pointer_cast<phi::DenseTensor>(
@@ -725,8 +725,8 @@ void BindDistributed(py::module *m) {
           .def(
               "alltoall_single",
               [](distributed::ProcessGroup &self,
-                 py::handle py_in_tensor,
                  py::handle py_out_tensor,
+                 py::handle py_in_tensor,
                  const std::vector<int64_t> in_sizes,
                  const std::vector<int64_t> out_sizes) {
                 auto out_tensor = CastPyArg2Tensor(py_out_tensor.ptr(), 0);
@@ -1263,11 +1263,11 @@ void BindDistributed(py::module *m) {
   py::class_<distributed::AsyncLoad::Task,
              std::shared_ptr<distributed::AsyncLoad::Task>>(*m, "AsyncLoadTask")
       .def("is_completed", &distributed::AsyncLoad::Task::IsCompleted)
-      .def("wait",
-           &distributed::AsyncLoad::Task::Synchronize,
+      .def("cuda_wait",
+           &distributed::AsyncLoad::Task::CudaSynchronize,
            py::call_guard<py::gil_scoped_release>())
-      .def("synchronize",
-           &distributed::AsyncLoad::Task::Synchronize,
+      .def("cpu_wait",
+           &distributed::AsyncLoad::Task::CpuSynchronize,
            py::call_guard<py::gil_scoped_release>());
 
   auto AsyncLoad =

@@ -6,7 +6,7 @@ cc_library(
   var_helper
   SRCS var_helper.cc type_defs.cc
   DEPS tensor phi common)
-if(WITH_XPU)
+if(WITH_XPU_BKCL)
   cc_library(
     prepared_operator
     SRCS prepared_operator.cc
@@ -20,7 +20,24 @@ if(WITH_XPU)
          data_transform
          phi
          common
-         var_helper)
+         var_helper
+         process_group_bkcl)
+elseif(WITH_NCCL OR WITH_RCCL)
+  cc_library(
+    prepared_operator
+    SRCS prepared_operator.cc
+    DEPS proto_desc
+         operator
+         device_context
+         lod_tensor
+         selected_rows_utils
+         var_type_traits
+         op_kernel_type
+         data_transform
+         phi
+         common
+         var_helper
+         process_group_nccl)
 else()
   cc_library(
     prepared_operator

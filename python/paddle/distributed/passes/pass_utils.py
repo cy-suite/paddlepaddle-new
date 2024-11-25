@@ -23,16 +23,15 @@ from paddle.base.framework import Parameter, Program
 from paddle.distributed.auto_parallel.static.dist_attribute import (
     OperatorDistAttr,
 )
-from paddle.distributed.auto_parallel.static.mix_to_dist_pass import (
-    dist_skip_op_list,
-)
 from paddle.distributed.auto_parallel.static.utils import (
     get_logger,
     is_backward_op,
     is_forward_op,
     is_optimize_op,
     naive_set_dist_op_attr_for_program_by_mesh_and_mapping,
-    use_new_executor,
+)
+from paddle.framework import (
+    _current_expected_place_ as _get_device,
 )
 
 from ..auto_parallel.static.utils import OpRole
@@ -40,7 +39,7 @@ from ..auto_parallel.static.utils import OpRole
 __not_shape_var_type__ = [
     core.VarDesc.VarType.READER,
     core.VarDesc.VarType.STEP_SCOPES,
-    core.VarDesc.VarType.LOD_TENSOR_ARRAY,
+    core.VarDesc.VarType.DENSE_TENSOR_ARRAY,
     core.VarDesc.VarType.FEED_MINIBATCH,
     core.VarDesc.VarType.FETCH_LIST,
 ]
@@ -317,6 +316,12 @@ def set_pir_skip_gc_vars(num_micro_batches, job_types, sub_programs, jobs):
             assert (
                 len(type_to_var_names[job_type]) == 0
             ), f"The {job_type} sub_program can't have skip_gc_vars. But it is {type_to_var_names[job_type]}."
+
+    no_need_buffer_vars = core.get_no_need_buffer_values(type_to_program)
+
+    for job_type, var_set in no_need_buffer_vars.items():
+        if len(var_set) > 0:
+            type_to_var_names[job_type] = type_to_var_names[job_type] - var_set
 
     for job in jobs:
         job_type = job.type()
@@ -597,15 +602,6 @@ def _insert_sync_for_fthenb_1f1b(program, dist_context=None):
                 var = block.var(var_name)
                 block._remove_op(index + offset, sync=False)
                 offset -= 1
-                if not use_new_executor():
-                    # NOTE: new executor will make sure gc are right without using nop op.
-                    block._insert_op_without_sync(
-                        index=backward_recv_index,
-                        type="nop",
-                        inputs={'X': [var]},
-                        outputs={'Out': [var]},
-                        attrs={'op_role': OpRole.Backward},
-                    )
         block._sync_with_cpp()
 
 
@@ -813,16 +809,24 @@ def infer_chunk_id(op_idx, ops, with_dist=True):
 
 
 def find_var_used_op_chunk_id(var):
-    all_used_ops = var.all_used_ops()
-    for used_op in all_used_ops:
-        if used_op.name() in dist_skip_op_list:
-            for output_var in used_op.results():
-                chunk_id = find_var_used_op_chunk_id(output_var)
-                if chunk_id != -1:
-                    return chunk_id
-        elif used_op.dist_attr and used_op.dist_attr.chunk_id != -1:
-            return used_op.dist_attr.chunk_id
-    return -1
+    visited = set()
+
+    def dfs(var):
+        all_used_ops = var.all_used_ops()
+        for used_op in all_used_ops:
+            if used_op in visited:
+                return -1
+            visited.add(used_op)
+            if used_op.dist_attr and used_op.dist_attr.chunk_id != -1:
+                return used_op.dist_attr.chunk_id
+            else:
+                for output_var in used_op.results():
+                    chunk_id = dfs(output_var)
+                    if chunk_id != -1:
+                        return chunk_id
+        return -1
+
+    return dfs(var)
 
 
 def _split_program_into_forward_backward_optimize(
@@ -841,6 +845,14 @@ def _split_program_into_forward_backward_optimize(
     opt_ops = opt_program.global_block().ops
     opt_block = opt_program.global_block()
     bwd_block = bwd_program.global_block()
+
+    place = _get_device()
+    if isinstance(place, paddle.framework.CUDAPlace):
+        place = paddle.framework.CUDAPlace(
+            paddle.distributed.ParallelEnv().dev_id
+        )
+    cur_place = paddle.base.libpaddle.Place()
+    cur_place.set_place(place)
 
     region = "opt"
     for op_idx in range(len(complete_ops) - 1, -1, -1):
@@ -873,6 +885,7 @@ def _split_program_into_forward_backward_optimize(
                     new_result_var_in_opt = opt_block.add_kwarg(
                         name, result_in_opt.type()
                     )
+                    new_result_var_in_opt.place_attr = cur_place
                     new_result_var_in_opt.persistable = (
                         result_in_opt.persistable
                     )
@@ -923,6 +936,7 @@ def _split_program_into_forward_backward_optimize(
                     new_result_var_in_opt = opt_block.add_kwarg(
                         name, result_in_opt.type()
                     )
+                    new_result_var_in_opt.place_attr = cur_place
                     new_result_var_in_opt.persistable = (
                         result_in_opt.persistable
                     )
@@ -933,6 +947,7 @@ def _split_program_into_forward_backward_optimize(
                     new_result_var_in_bwd = bwd_block.add_kwarg(
                         name, result_in_bwd.type()
                     )
+                    new_result_var_in_bwd.place_attr = cur_place
                     new_result_var_in_bwd.persistable = (
                         result_in_bwd.persistable
                     )
@@ -967,7 +982,7 @@ def _pir_get_backward_op_type(all_ops, op_idx):
             return False
 
         for i in range(8):
-            if all_ops[op_idx - i].name() != ops_pattern[i]:
+            if all_ops[op_idx - i].name() != ops_pattern[7 - i]:
                 return False
         return True
 
@@ -998,6 +1013,14 @@ def _pir_get_backward_op_type(all_ops, op_idx):
 def _split_program_for_vpp(
     program, num_model_chunks, oprole_names, split_bw=False
 ):
+    place = _get_device()
+    if isinstance(place, paddle.framework.CUDAPlace):
+        place = paddle.framework.CUDAPlace(
+            paddle.distributed.ParallelEnv().dev_id
+        )
+    cur_place = paddle.base.libpaddle.Place()
+    cur_place.set_place(place)
+
     def get_var_name(op_idx, result_idx):
         result_value = all_ops[op_idx].result(result_idx)
         all_used_ops = result_value.all_used_ops()
@@ -1042,11 +1065,13 @@ def _split_program_for_vpp(
                                 type_to_ops[program_type][op_idx].result(idx),
                                 var_name,
                             )
+                            # type_to_ops[program_type][op_idx].result(idx).persistable = True
 
                 program_block = type_to_program[type].global_block()
                 new_result_var = program_block.add_kwarg(
                     var_name, op_result.type()
                 )
+                new_result_var.place_attr = cur_place
                 new_result_var.persistable = op_result.persistable
                 type_to_ops[type][op_idx].result(idx).replace_all_uses_with(
                     new_result_var
@@ -1085,7 +1110,7 @@ def _split_program_for_vpp(
     for idx in range(len(all_ops) - 1, -1, -1):
         op = all_ops[idx]
         op_role = op.op_role
-        op_chunk_id = op.attrs()["chunk_id"]
+        op_chunk_id = op.chunk_id
         # Step2.1: infer chunk_id for ops that don't have chunk_id
         if op_role != int(OpRole.Optimize) and op_chunk_id == -1:
             op_chunk_id = infer_chunk_id(idx, all_ops, False)

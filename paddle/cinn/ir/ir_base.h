@@ -100,8 +100,6 @@ class Dim;
   macro__(Free)                             \
   macro__(_Buffer_)                         \
   macro__(_Tensor_)                         \
-  macro__(_LoweredFunc_)                    \
-  macro__(_Module_)                         \
   macro__(Let)                              \
   macro__(Reduce)                           \
   macro__(Ramp)                             \
@@ -118,6 +116,7 @@ class Dim;
 #define NODETY_CONTROL_OP_FOR_INTRINSIC(macro__) \
   macro__(IntrinsicOp)                      \
 
+// TODO(Hongqing-work): change NODETY_FORALL to NODETY_FORALL_EXPR
 #define NODETY_FORALL(__m)              \
   NODETY_PRIMITIVE_TYPE_FOR_EACH(__m)   \
   NODETY_OP_FOR_EACH(__m)               \
@@ -128,6 +127,16 @@ class Dim;
   NODETY_PRIMITIVE_TYPE_FOR_EACH(__m)                    \
   NODETY_OP_FOR_EACH(__m)                                \
   NODETY_CONTROL_OP_FOR_EACH(__m)
+
+#define NODETY_FORALL_STMT(macro__) \
+  macro__(Let)                      \
+  macro__(Store)                    \
+  macro__(Alloc)                    \
+  macro__(Free)                     \
+  macro__(IfThenElse)               \
+  macro__(For)                      \
+  macro__(Schedule)                 \
+  macro__(Evaluate)
 // clang-format on
 
 //! Define IrNodeTy
@@ -135,11 +144,20 @@ class Dim;
 #define __m(x__) x__,
 enum class IrNodeTy {
   kUnk = -1,
+  Module,
+  LoweredFunc,
   IterMark,
   IterSum,
   IterSplit,
   NODETY_FORALL(__m)
 };
+#undef __m
+// @}
+
+//! Define StmtNodeTy
+// @{
+#define __m(x__) x__,
+enum class StmtNodeTy { kUnk = -1, NODETY_FORALL_STMT(__m) };
 #undef __m
 // @}
 
@@ -152,6 +170,7 @@ const std::vector<std::string> kIrNodeTyReprs(
 // @}
 
 std::ostream& operator<<(std::ostream& os, IrNodeTy type);
+std::ostream& operator<<(std::ostream& os, StmtNodeTy type);
 
 struct Expr;
 
@@ -172,6 +191,9 @@ class IrNode : public cinn::common::Object {
   void set_type(Type type);
   //! Elevate int32 to int64 if needed
   virtual void convert_int32_to_int64();
+
+  //! Elevate int64 to int32 if needed
+  virtual void convert_int64_to_int32();
 
   virtual void replace(Expr old_op, Expr new_op);
   //! Get i-th operand
@@ -412,14 +434,6 @@ struct Expr : public IrNodeRef {
   _Buffer_* as_buffer();
   const _Buffer_* as_buffer() const;
   Buffer as_buffer_ref() const;
-
-  _LoweredFunc_* as_lowered_func();
-  const _LoweredFunc_* as_lowered_func() const;
-  LoweredFunc as_lowered_func_ref() const;
-
-  _Module_* as_module();
-  const _Module_* as_module() const;
-  ir::Module as_module_ref() const;
 
   _Tensor_* as_tensor();
   const _Tensor_* as_tensor() const;

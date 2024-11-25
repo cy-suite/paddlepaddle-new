@@ -145,9 +145,9 @@ COMPUTE_INTENSIVE_OPS: list[str] = [
     "pd_op.layer_norm",
     "pd_op.batchnorm",
     "pd_op.softmax",
-    "pd_op.c_allreduce_sum_",
+    "pd_op.all_reduce_",
     "pd_op.c_broadcast_",
-    "pd_op.c_reduce_sum_",
+    "pd_op.reduce_",
 ]
 
 AGGRESSIVE_RECOMPUTATION = False
@@ -394,7 +394,9 @@ def auto_recompute(
         unclaimed_value_nodes,
     ) = classify_value_node(program, grad_outputs, fwd_op_end_idx)
 
-    if len(required_bw_value_nodes) == 0:
+    if len(required_bw_value_nodes) == 0 or backward_op_start_idx >= len(
+        program.global_block().ops
+    ):
         return program, fwd_op_end_idx
 
     all_ops = program.global_block().ops
@@ -554,13 +556,9 @@ def auto_recompute(
             )
             value_id_dict[value_node.id] = value_node
 
-        # todo(wanghao107) hack for dynamic shape
-        if is_dynamic_value_node(value_node):
-            weight = 1
-        else:
-            weight = _get_node_weight(
-                value_node, placeholder_value_nodes=inputs | outputs
-            )
+        weight = _get_node_weight(
+            value_node, placeholder_value_nodes=inputs | outputs
+        )
 
         # Creates the weights on the "node" edge
         nx_graph.add_edge(
@@ -726,7 +724,7 @@ def replace_mid_values_with_forward_subgraph(
             new_chain = list(chain)
             new_chain.append(recompute_value)
             define_op = recompute_value.get_defining_op()
-            if define_op in marked_recompute_ops:
+            if define_op in marked_recompute_ops or define_op is None:
                 return
             op_inputs = define_op.operands_source()
             if len(op_inputs) == 0 and define_op.name() not in [
@@ -803,8 +801,17 @@ def replace_mid_values_with_forward_subgraph(
     origin_subgraph_inputs = recompute_forward_subgraph["inputs"]
     origin_subgraph_outputs = recompute_forward_subgraph["outputs"]
     cloned_ops, value_map = clone_graph(
-        program, origin_ops, origin_subgraph_inputs, first_backward_op
+        program,
+        origin_ops,
+        origin_subgraph_inputs,
+        first_backward_op,
+        backward_ops,
     )
+
+    for origin_op in origin_ops:
+        origin_op.set_bool_attr("is_recompute_op", True)
+    for cloned_op in cloned_ops:
+        cloned_op.set_bool_attr("is_recompute_bw_op", True)
 
     # 3. replace mid values that backward need to hold with recompute subgraph's outputs
     cloned_subgraph_outputs = backward_utils.ValueSet()
@@ -844,7 +851,9 @@ def classify_value_node(program, grad_outputs, fwd_op_end_idx):
         required_bw_ops = required_bw_ops | find_child_ops(grad_output)
         required_bw_ops.add(grad_output.get_defining_op())
     for required_bw_op in required_bw_ops:
-        bw_op_outputs = required_bw_op.results()
+        bw_op_outputs = (
+            required_bw_op.results() if required_bw_op is not None else []
+        )
         required_bw_value_nodes = (
             required_bw_value_nodes | backward_utils.ValueSet(bw_op_outputs)
         )
@@ -935,14 +944,32 @@ def is_dynamic_value_node(value_node):
         raise ValueError(f"value node not found in program: {value_node} ")
 
 
-def cal_value_node_size(value_node):
-    # todo(wanghao107) hack for dynamic shape
+def is_vector_value_node(value_node):
+    try:
+        return value_node.type().as_vec_type() is not None
+    except:
+        raise ValueError(f"value node illegal: {value_node} ")
+
+
+def cal_value_node_size_impl(value_node):
     if is_dynamic_value_node(value_node):
-        return 1
+        value_node_shape = [i for i in value_node.shape if i != -1]
+    else:
+        value_node_shape = value_node.shape
     return (
-        functools.reduce(lambda x, y: x * y, value_node.shape, 1)
+        functools.reduce(lambda x, y: x * y, value_node_shape, 1)
         * _PADDLE_DTYPE_2_NBYTES[value_node.dtype]
     )
+
+
+def cal_value_node_size(value_node):
+    if is_vector_value_node(value_node):
+        value_vec = value_node.type().as_vec_type().as_list()
+        sum_res = 0
+        for child_node in value_vec:
+            sum_res += cal_value_node_size_impl(child_node)
+        return sum_res
+    return cal_value_node_size_impl(value_node)
 
 
 def cal_value_nodes_dist_to_backward(all_ops, required_fw_value_nodes):
@@ -1007,7 +1034,15 @@ def analyze_mid_hold_values(
     return mid_hold_values
 
 
-def clone_graph(program, origin_ops, graph_inputs, clone_insertion_op):
+def get_first_backward_use_op(fwd_op, backward_ops):
+    for user_op in fwd_op.results()[0].all_used_ops():
+        if user_op in backward_ops:
+            return user_op
+
+
+def clone_graph(
+    program, origin_ops, graph_inputs, clone_insertion_op, backward_ops
+):
     pir.set_insertion_point(clone_insertion_op)
     all_ops = program.global_block().ops
     value_map = paddle.pir.IrMapping()
@@ -1017,9 +1052,18 @@ def clone_graph(program, origin_ops, graph_inputs, clone_insertion_op):
         value_map.add(input_value, input_value)
     for op in all_ops:
         if op in origin_ops:
-            cloned_ops.append(
-                op.clone(value_map, paddle.pir.CloneOptions(False, True, True))
+            new_op = op.clone(
+                value_map, paddle.pir.CloneOptions(False, True, True)
             )
+            first_backward_use_op = get_first_backward_use_op(op, backward_ops)
+            if (
+                first_backward_use_op is not None
+                and first_backward_use_op.has_attr('op_role')
+                and first_backward_use_op.has_attr('chunk_id')
+            ):
+                new_op.set_int_attr("op_role", first_backward_use_op.op_role)
+                new_op.set_int_attr("chunk_id", first_backward_use_op.chunk_id)
+            cloned_ops.append(new_op)
     pir.set_insertion_point_to_block_end(program.global_block())
     return cloned_ops, value_map
 

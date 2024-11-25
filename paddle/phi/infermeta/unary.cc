@@ -785,10 +785,6 @@ void CropInferMeta(const MetaTensor& x,
   for (int i = 0; i < static_cast<int>(shape_dims.size()); ++i) {
     if (shape_dims[i] > 0) {
       out_dims[i] = static_cast<int64_t>(shape_dims[i]);
-    } else {
-      if (shape_dims[i] == -1 && offsets_vec[i] != -1 && x_dim[i] != -1) {
-        out_dims[i] = x_dim[i] - static_cast<int64_t>(offsets_vec[i]);
-      }
     }
   }
   out->set_dims(common::make_ddim(out_dims));
@@ -3136,8 +3132,6 @@ void Pad3dInferMeta(const MetaTensor& x,
 void PartialAllgatherInferMeta(const MetaTensor& x,
                                int nranks,
                                int rank,
-                               int ring_id,
-                               bool use_calc_stream,
                                MetaTensor* out) {
   PADDLE_ENFORCE_GE(
       nranks,
@@ -3156,23 +3150,12 @@ void PartialAllgatherInferMeta(const MetaTensor& x,
   out->set_dtype(x.dtype());
 }
 
-void PartialSendInferMeta(const MetaTensor& x,
-                          int ring_id,
-                          int peer,
-                          bool use_calc_stream,
-                          int num,
-                          int id) {
+void PartialSendInferMeta(const MetaTensor& x, int peer, int num, int id) {
   PADDLE_ENFORCE_GE(
       peer,
       0,
       common::errors::InvalidArgument(
           "The peer (%d) for partial_send op must be non-negative.", peer));
-  PADDLE_ENFORCE_GE(
-      ring_id,
-      0,
-      common::errors::InvalidArgument(
-          "The ring_id (%d) for partial_send op must be non-negative.",
-          ring_id));
   PADDLE_ENFORCE_GE(num,
                     1,
                     common::errors::InvalidArgument(
@@ -3445,6 +3428,15 @@ void PSendArrayInferMeta(const MetaTensor& x, int peer) {
       0,
       errors::InvalidArgument(
           "The peer (%d) for p_send op must be non-negative.", peer));
+}
+
+void SetInferMeta(const MetaTensor& x,
+                  const std::vector<int64_t>& shape,
+                  const std::vector<int64_t>& stride,
+                  MetaTensor* out) {
+  out->set_dtype(x.dtype());
+  out->set_dims(common::make_ddim(shape));
+  out->set_strides(common::make_ddim(stride));
 }
 
 void SendV2InferMeta(const int peer, const int ring_id) {
@@ -3881,6 +3873,12 @@ void ReshapeInferMeta(const MetaTensor& x,
   InferMetaFromVecValue(x, shape_data, out);
 }
 
+void ViewShapeInferMeta(const MetaTensor& input,
+                        const std::vector<int64_t>& shape,
+                        MetaTensor* out) {
+  InferMetaFromVecValue(input, shape, out);
+}
+
 void ReshapeWithXShapeInferMeta(const MetaTensor& x,
                                 const IntArray& shape,
                                 MetaTensor* out,
@@ -4195,6 +4193,37 @@ void SliceRawInferMeta(const MetaTensor& input,
   if (!new_axes.empty() && new_axes[0] != 0) {
     out->share_lod(input);
   }
+  out->set_dtype(input.dtype());
+}
+
+void ViewSliceInferMeta(const MetaTensor& input,
+                        int64_t begin_idx,
+                        int64_t end_idx,
+                        MetaTensor* out) {
+  const auto& in_dims = input.dims();
+  PADDLE_ENFORCE_GE(
+      begin_idx,
+      0,
+      common::errors::OutOfRange("The start row index must be greater than 0."
+                                 "But received the start index is d%.",
+                                 begin_idx));
+  PADDLE_ENFORCE_LE(
+      end_idx,
+      in_dims[0],
+      common::errors::OutOfRange("The end row index is out of bound."));
+
+  PADDLE_ENFORCE_LT(
+      begin_idx,
+      end_idx,
+      common::errors::InvalidArgument(
+          "The start row index must be less than the end row index."
+          "But received the start index = %d, the end index = %d.",
+          begin_idx,
+          end_idx));
+
+  DDim out_dims(in_dims);
+  out_dims[0] = end_idx - begin_idx;
+  out->set_dims(out_dims);
   out->set_dtype(input.dtype());
 }
 
@@ -5360,8 +5389,7 @@ void UnchangedArrayInferMeta(const MetaTensor& x, MetaTensor* out) {
 void UnchangedVectorInferMeta(const std::vector<const MetaTensor*>& xs,
                               std::vector<MetaTensor*> outs) {
   for (size_t i = 0; i < xs.size(); ++i) {
-    outs[i]->set_dtype(xs[i]->dtype());
-    outs[i]->set_layout(xs[i]->layout());
+    outs[i]->share_meta(*xs[i]);
   }
 }
 
@@ -5933,10 +5961,10 @@ void WeightQuantizeInferMeta(const MetaTensor& x,
   } else if (algo == "weight_only_int4") {
     dim_out = std::vector<int64_t>({x_dims[1] / 2, x_dims[0]});
   } else {
-    common::errors::InvalidArgument(
+    PADDLE_THROW(common::errors::InvalidArgument(
         "The algo must be in ['weight_only_int8', 'weight_only_int4', "
         "'llm.int8'], but got[%s]",
-        algo);
+        algo));
   }
   out->set_dims(common::make_ddim(dim_out));
 

@@ -113,6 +113,22 @@ struct MergeReduceTreeAndTrivialOperation {
     merged_node->set_fusion_iters(
         graph->iters_fusion_policy()->SingleDownstreamItersFusion(node,
                                                                   downstream));
+    // TODO(huangjiyi): Support relationship analysis for defferent iters, for
+    // example the input iters and output iters of reshape op.
+    auto sig = merged_node->fusion_iters();
+    const auto upstream_iters = node->fusion_iters();
+    const auto reduce_iters = SliceVector(upstream_iters.loop_iters,
+                                          -upstream_iters.reduce_iter_nums,
+                                          upstream_iters.loop_iters.size());
+    auto trivial_iters = downstream->fusion_iters().loop_iters;
+    if (!fake_reduce_iter_idx.empty()) {
+      trivial_iters = GatherVector(
+          trivial_iters,
+          ExcludeIndex(trivial_iters.size(), fake_reduce_iter_idx));
+    }
+    sig.loop_iters = ConcatVector(trivial_iters, reduce_iters);
+    merged_node->set_fusion_iters(sig);
+
     graph->RemoveNode(downstream);
     graph->RemoveNode(node);
     VLOG(4) << "MergeReduceTreeAndTrivialOperation: \nupstream "
@@ -284,6 +300,51 @@ struct HorizontalFusionOperation {
     graph->RemoveNode(j);
     merged_node->UpdateTracker();
     return merged_node;
+  }
+};
+
+struct ReshapeAlignInputOperation {
+  void operator()(PatternGraph* graph, PatternNodePtr node) {
+    VLOG(4) << "Start ReshapeAlignInputOperation";
+    const auto ops = std::get<TrivialPattern>(node->stmt_pattern()).ops();
+    PADDLE_ENFORCE(
+        GetPatternName(node->stmt_pattern()) == TrivialPattern::name() &&
+            std::get<TrivialPattern>(node->stmt_pattern()).ops().size() == 1 &&
+            node->sink_op()->name() == "cinn_op.reshape",
+        ::common::errors::InvalidArgument(
+            "The pattern node should only contain a reshape op."));
+    const auto upstream = node->upstream()[0];
+    const auto input_iters =
+        graph->iters_fusion_policy()->iters_manager()->GetValueIters(
+            *(node->fusion_iters().input_values.begin()));
+    const auto output_iters = node->fusion_iters().loop_iters;
+
+    // Sink reshape
+    MergeTrivialPatternOperation()(graph, node);
+
+    // Align merged pattern to input shape
+    const auto sinked_node = upstream->downstream()[0];
+    auto aligned_fusion_iters = sinked_node->fusion_iters();
+    aligned_fusion_iters.loop_iters = input_iters;
+
+    const auto origin_id = sinked_node->id();
+    sinked_node->set_stmt_pattern(ItersPermutationPattern(
+        GetOpsInPattern(sinked_node->stmt_pattern()),
+        std::make_shared<FusionTracker>(
+            GetFusionTracker(sinked_node->stmt_pattern())),
+        graph->iters_fusion_policy()->GetLoopDims(aligned_fusion_iters)));
+    sinked_node->set_fusion_iters(aligned_fusion_iters);
+
+    const auto input_shape =
+        graph->iters_fusion_policy()->iters_manager()->GetIterSymbols(
+            input_iters);
+    const auto output_shape =
+        graph->iters_fusion_policy()->iters_manager()->GetIterSymbols(
+            output_iters);
+    FusionInstrPtr instr = std::make_shared<ReshapeAlignInstr>(
+        origin_id, output_shape, input_shape, sinked_node->id());
+    sinked_node->AppendInstr(instr);
+    VLOG(4) << instr->DebugStr();
   }
 };
 

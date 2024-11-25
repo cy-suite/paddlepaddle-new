@@ -35,6 +35,7 @@ from paddle.nn import Layer
 from paddle.tensorrt.converter import PaddleToTensorRTConverter
 from paddle.tensorrt.util import (
     forbid_op_lower_trt,
+    mark_buitlin_op,
     run_pir_pass,
     warmup_shape_infer,
 )
@@ -159,10 +160,9 @@ class TensorRTConfig:
             min_subgraph_size (int, optional):
                 The minimum number of operations in a subgraph for TensorRT to optimize (default is 3).
             save_model_dir (str, optional):
-                The directory where the optimized model will be saved (default is None).
+                 The directory where the optimized model will be saved (default is None).
             disable_ops : (str|list, optional):
                 A string representing the names of operations that should not be entering by TensorRT (default is None).
-
         Returns:
             None
 
@@ -230,6 +230,9 @@ def convert_to_trt(program, trt_config, scope):
         # specify certain operators to be excluded from entering TensorRT
         if trt_config.disable_ops:
             forbid_op_lower_trt(program, trt_config.disable_ops)
+
+        # Adding marker labels to builtin ops facilitates convert processing, but they ultimately do not enter the TensorRT subgraph.
+        mark_buitlin_op(program)
 
         # run pir pass (including trt_sub_graph_extract_pass)
         program_with_pir = run_pir_pass(program, partition_mode=True)
@@ -480,9 +483,9 @@ def convert(function=None, input_spec=None, config=None, **kwargs):
         if isinstance(inner_layer, Layer):
             dygraph_state_dict = inner_layer.to_static_state_dict()
         elif isinstance(attr_func, StaticFunction):
-            if static_func._class_instance:
+            if static_func.class_instance:
                 dygraph_state_dict = (
-                    static_func._class_instance.to_static_state_dict()
+                    static_func.class_instance.to_static_state_dict()
                 )
         if dygraph_state_dict:
             #  we maintain the mapping of variable name to

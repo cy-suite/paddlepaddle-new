@@ -191,6 +191,8 @@ extern ExprSetFinder ChildTensorStores;
 
 extern ExprSetFinder ChildFors;
 
+extern ExprSetFinder ChildIfThenElses;
+
 ExprSetFinder IsForIterVar(const ir::Var& var);
 
 ExprSetFinder FilterLoadByTensor(const ir::Tensor& tensor);
@@ -294,6 +296,10 @@ std::vector<ir::Var> GetNonReduceLoopVars(const ir::Expr& root);
 std::vector<ir::Var> GetAllLoopVars(const ir::Expr& root);
 
 ir::Expr GetBodyBlock(const ir::Expr& root);
+
+ir::Expr ReshapeLoop(const ir::Expr& root,
+                     const std::vector<symbol::DimExpr>& in_shape,
+                     const std::vector<symbol::DimExpr>& out_shape);
 
 }  // namespace trivial_fusion_detail
 }  // namespace pir

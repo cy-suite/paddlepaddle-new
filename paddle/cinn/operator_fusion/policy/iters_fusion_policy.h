@@ -34,6 +34,8 @@ struct ItersFusionPolicy final : public PolicyBase {
 
   bool CanFuseSource2Target(const PatternNodePtr& source,
                             const PatternNodePtr& target);
+  bool CheckItersRelation(const PatternNodePtr& source,
+                          const PatternNodePtr& target);
   std::optional<ItersTransformRoute> GetItersTransformRoute(
       const PatternNodePtr& source, const PatternNodePtr& target);
   FusionItersSignature SingleDownstreamItersFusion(
@@ -45,6 +47,17 @@ struct ItersFusionPolicy final : public PolicyBase {
 
   std::pair<std::vector<symbol::DimExpr>, std::vector<bool>> GetLoopDims(
       const FusionItersSignature& sig);
+
+  ItersFusionPolicy* DisableStrategy(ItersTransformType type) {
+    transform_strategy_[type] = false;
+    return this;
+  }
+  ItersFusionPolicy* EnableAllStrategies() {
+    for (auto& kv : transform_strategy_) {
+      kv.second = true;
+    }
+    return this;
+  }
 
  private:
   std::optional<ItersTransform> GetReuseItersTransform(
@@ -59,6 +72,13 @@ struct ItersFusionPolicy final : public PolicyBase {
   using NodeRouteMap = std::unordered_map<PatternNodePtr, ItersTransformRoute>;
   std::unordered_map<PatternNodePtr, NodeRouteMap> routes_;
   std::shared_ptr<FusionItersManager> iters_manager_;
+
+  std::unordered_map<ItersTransformType, bool> transform_strategy_ = {
+      {ItersTransformType::Identity, true},
+      {ItersTransformType::TransposeIters, true},
+      {ItersTransformType::ReuseIters, true},
+      {ItersTransformType::AppendIters, true},
+  };
 };
 
 std::string DebugStrItersTransformRoute(const ItersTransformRoute& route);

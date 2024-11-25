@@ -115,20 +115,14 @@ class TestAnchorFusion(unittest.TestCase):
         self.check_accuracy_and_kernel_num(init, func)
 
     def test_append_iters_fusion(self):
-        #       T
+        #       R
         #     /   \
         #    S     B
-        #   / \   / \
-        #  S   B S   T
         def func(x):
-            x = x * 2
-            a = x[0, :]  # shape=[64, 128]
-            b = paddle.expand(x, [16, 32, 64, 128])
-            c = a[:, 0]  # shape=[64]
-            d = paddle.expand(a, [8, 16, 32, 64, 128])
-            e = b[0, :, 0, :]  # shape=[32,128]
-            f = paddle.exp(b)
-            return c, d, e, f
+            x = paddle.sum(x, axis=0)
+            a = x[0, :]  # shape=[128]
+            b = paddle.expand(x, [32, 64, 128])
+            return a, b
 
         def init():
             x = paddle.rand((32, 64, 128))
@@ -253,6 +247,43 @@ class TestAnchorFusion(unittest.TestCase):
 
         def init():
             x = paddle.rand((128, 2048, 7, 7))
+            return (x,)
+
+        self.check_accuracy_and_kernel_num(init, func, kernel_num=1)
+
+    def test_split_fusion(self):
+        def func(x):
+            x = x * 2
+            a, b = paddle.split(x, num_or_sections=[2, 1], axis=1)
+            return a, b
+
+        def init():
+            x = paddle.rand((1, 3, 192, 288))
+            return (x,)
+
+        self.check_accuracy_and_kernel_num(init, func)
+
+    def test_reduce_cant_anchor_fusion(self):
+        def func(x):
+            a = x * 2
+            b = paddle.max(a, axis=2, keepdim=True)
+            c = paddle.max(a, axis=3, keepdim=True)
+            return a, b, c
+
+        def init():
+            x = paddle.rand((4, 256, 16, 16), dtype="float16")
+            return (x,)
+
+        self.check_accuracy_and_kernel_num(init, func, kernel_num=2)
+
+    def test_align_leaf_reshape_to_input(self):
+        def func(x):
+            x = x * 2
+            a = paddle.reshape(x + 2, [1, 6, 1, 8, 1, 4, 1, 8, 1])
+            return x, a
+
+        def init():
+            x = paddle.rand((1, 3, 1, 16, 1, 32, 1))
             return (x,)
 
         self.check_accuracy_and_kernel_num(init, func, kernel_num=1)

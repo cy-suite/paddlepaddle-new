@@ -180,6 +180,7 @@
   output : Tensor(out)
   infer_meta :
     func : CompareInferMeta
+    spmd_rule : ElementwiseBinaryInferSpmd
   kernel :
     func : greater_equal
   inplace: (x -> out)
@@ -211,6 +212,7 @@
   output : Tensor(out)
   infer_meta :
     func : CompareInferMeta
+    spmd_rule : ElementwiseBinaryInferSpmd
   kernel :
     func : less_equal
   inplace: (x -> out)
@@ -293,10 +295,11 @@
   output : Tensor (out)
   infer_meta :
     func : ElementwiseInferMeta
+    param: [x, y]
   kernel :
     func : remainder
   inplace : (x -> out)
-  traits : paddle::dialect::ForwardOnlyTrait
+  backward: remainder_grad
 
 - op : set_value
   args : (Tensor x, IntArray starts, IntArray ends, IntArray steps, int64_t[] axes, int64_t[] decrease_axes, int64_t[] none_axes, int64_t[] shape, Scalar[] values)
@@ -341,6 +344,17 @@
     func : sync_comm_stream
     data_type : DataType::FLOAT32
   traits : paddle::dialect::ForwardOnlyTrait
+
+- op : tensor_unfold
+  args : (Tensor input, int64_t axis, int64_t size, int64_t step)
+  output : Tensor
+  infer_meta :
+    func : StridedUnChangedInferMeta
+    param : [input]
+  kernel :
+    func : tensor_unfold
+  backward : tensor_unfold_grad
+  no_need_buffer : input
 
 - op : tile
   args : (Tensor x, IntArray repeat_times = {})

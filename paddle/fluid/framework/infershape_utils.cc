@@ -77,7 +77,7 @@ class InferShapeArgumentMappingContext : public phi::ArgumentMappingContext {
 
   bool IsDenseTensorInput(const std::string& name) const override {
     auto var_type = ctx_.GetInputVarType(name);
-    return var_type == proto::VarType::LOD_TENSOR;
+    return var_type == proto::VarType::DENSE_TENSOR;
   }
 
   bool IsDenseTensorInputs(const std::string& name) const override {
@@ -85,7 +85,7 @@ class InferShapeArgumentMappingContext : public phi::ArgumentMappingContext {
     return std::all_of(var_types.begin(),
                        var_types.end(),
                        [](const proto::VarType::Type& type) {
-                         return type == proto::VarType::LOD_TENSOR;
+                         return type == proto::VarType::DENSE_TENSOR;
                        });
   }
 
@@ -108,7 +108,7 @@ class InferShapeArgumentMappingContext : public phi::ArgumentMappingContext {
     return std::all_of(var_types.begin(),
                        var_types.end(),
                        [](const proto::VarType::Type& type) {
-                         return type == proto::VarType::LOD_TENSOR_ARRAY;
+                         return type == proto::VarType::DENSE_TENSOR_ARRAY;
                        });
   }
 
@@ -136,7 +136,16 @@ class InferShapeArgumentMappingContext : public phi::ArgumentMappingContext {
     return std::all_of(var_types.begin(),
                        var_types.end(),
                        [](const proto::VarType::Type& type) {
-                         return type == proto::VarType::LOD_TENSOR;
+                         return type == proto::VarType::DENSE_TENSOR;
+                       });
+  }
+
+  bool IsVocabOutput(const std::string& name) const override {
+    auto var_types = ctx_.GetOutputsVarType(name);
+    return std::all_of(var_types.begin(),
+                       var_types.end(),
+                       [](const proto::VarType::Type& type) {
+                         return type == proto::VarType::VOCAB;
                        });
   }
 
@@ -191,7 +200,7 @@ bool CompatMetaTensor::is_dense() const {
     return var->IsType<phi::DenseTensor>();
   } else {
     auto* var = PADDLE_GET_CONST(VarDesc*, var_);
-    return var->GetType() == proto::VarType::LOD_TENSOR;
+    return var->GetType() == proto::VarType::DENSE_TENSOR;
   }
 }
 
@@ -201,7 +210,7 @@ bool CompatMetaTensor::is_tensor_array() const {
     return var->IsType<phi::TensorArray>();
   } else {
     auto* var = PADDLE_GET_CONST(VarDesc*, var_);
-    return var->GetType() == proto::VarType::LOD_TENSOR_ARRAY;
+    return var->GetType() == proto::VarType::DENSE_TENSOR_ARRAY;
   }
 }
 
@@ -253,7 +262,7 @@ phi::DataType CompatMetaTensor::dtype() const {
     }
   } else {
     auto* var = PADDLE_GET_CONST(VarDesc*, var_);
-    return paddle::framework::TransToPhiDataType(var->GetDataType());
+    return phi::TransToPhiDataType(var->GetDataType());
   }
 }
 
@@ -306,7 +315,7 @@ void CompatMetaTensor::set_dims(const DDim& dims) {
       PADDLE_ENFORCE_EQ(dims.size(),
                         1UL,
                         common::errors::InvalidArgument(
-                            "LoDTensorArray can only have one dimension."));
+                            "DenseTensorArray can only have one dimension."));
       // only set the array size for phi::TensorArray input
       tensor_array->resize(dims[0]);
     } else {
@@ -399,11 +408,11 @@ void CompatMetaTensor::share_lod(const MetaTensor& meta_tensor) {
     // NOTE(lizhiyu): If var is select_rows and meta_tensor is dense,
     // 'var->SetLodLevel' will fail. This case will happen when execute
     // 'test_hsigmoid_op.py'. So it is needed to assert 'var' type.
-    if ((var && (var->GetType() != proto::VarType::LOD_TENSOR &&
-                 var->GetType() != proto::VarType::LOD_TENSOR_ARRAY)) ||
+    if ((var && (var->GetType() != proto::VarType::DENSE_TENSOR &&
+                 var->GetType() != proto::VarType::DENSE_TENSOR_ARRAY)) ||
         (!meta_tensor.is_dense() && !meta_tensor.is_tensor_array())) {
       VLOG(3) << "this tensor or input metatensor is not phi::DenseTensor or "
-                 "LoDTensorArray.";
+                 "DenseTensorArray.";
       return;
     }
     if (var) {
@@ -804,7 +813,7 @@ CompatInferMetaContext BuildInferMetaContext(InferShapeContext* ctx,
                   PADDLE_GET_CONST(std::vector<int>, attr));
               break;
             case phi::AttributeType::DATA_TYPE: {
-              auto data_type = paddle::framework::TransToPhiDataType(
+              auto data_type = phi::TransToPhiDataType(
                   static_cast<framework::proto::VarType::Type>(
                       PADDLE_GET_CONST(int, attr)));
               infer_meta_context.EmplaceBackAttr(data_type);

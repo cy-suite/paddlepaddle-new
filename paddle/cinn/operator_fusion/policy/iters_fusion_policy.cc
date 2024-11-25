@@ -21,6 +21,30 @@ COMMON_DECLARE_bool(enable_transpose_iters_in_fusion);
 
 namespace cinn::fusion {
 
+bool ItersFusionPolicy::CheckItersRelation(const PatternNodePtr& source,
+                                           const PatternNodePtr& target) {
+  const auto source_iters = source->fusion_iters().loop_iters;
+  const auto target_iters = target->fusion_iters().loop_iters;
+  auto related_iters = MapKeyToVector(iters_manager_->related_iters_map());
+  const auto [source_related_iters, _UNUESD] =
+      SplitFirstWhetherInSecond(source_iters, related_iters);
+  const auto target_unique_iters =
+      GatherFirstNotInSecond(target_iters, source_iters);
+  if (source_related_iters.empty() || target_unique_iters.empty()) {
+    return true;
+  } else {
+    for (const auto& related_iter : source_related_iters) {
+      if (iters_manager_->CanFindRelatedIters(related_iter,
+                                              target_unique_iters)) {
+        VLOG(4) << "Can not fuse from " << source->fusion_iters().DebugStr()
+                << " to " << target->fusion_iters().DebugStr();
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
 bool ItersFusionPolicy::CanFuseSource2Target(const PatternNodePtr& source,
                                              const PatternNodePtr& target) {
   VLOG(4) << "Search iters transform route from "
@@ -95,9 +119,10 @@ std::optional<ItersTransform> ItersFusionPolicy::GetReuseItersTransform(
       GatherFirstNotInSecond(target_iters, shared_iters);
 
   if (!source_unique_iters.empty() && !target_unique_iters.empty()) {
-    if (!FLAGS_enable_reuse_iters_in_fusion) {
-      VLOG(4) << "Can not reuse iters in fusion, because of FLAGS_enable_"
-                 "reuse_iters_in_fusion is false.";
+    if (!transform_strategy_[ItersTransformType::ReuseIters] ||
+        !FLAGS_enable_reuse_iters_in_fusion) {
+      VLOG(4) << "Can not reuse iters in fusion, because of ReuseIters "
+                 "transform is disabled.";
       return std::nullopt;
     }
     std::unordered_map<std::string, std::string> reuse_target_to_source;
@@ -140,6 +165,13 @@ ItersFusionPolicy::SearchTransformRouteFromReduce2Reduce(
     auto [source_flatten_iters, source_reduce_iters] = SplitReduceIters(source);
     auto [target_flatten_iters, target_reduce_iters] = SplitReduceIters(target);
 
+    if (AnyFirstInSecond(source_reduce_iters, target_flatten_iters) ||
+        AnyFirstInSecond(target_reduce_iters, source_flatten_iters)) {
+      VLOG(4) << "Exist reduce iters in one ReduceOp found in the flatten "
+                 "iters in another ReduceOp.";
+      return std::nullopt;
+    }
+
     ItersTransformRoute route;
     // 1. Apply ReuseItersTransform
     const auto flatten_reuse_iters_transform =
@@ -158,9 +190,10 @@ ItersFusionPolicy::SearchTransformRouteFromReduce2Reduce(
     if (source_flatten_iters == target_flatten_iters &&
         source_reduce_iters == target_reduce_iters) {
       return route;
-    } else if (!FLAGS_enable_transpose_iters_in_fusion) {
-      VLOG(4) << "Can not transpose iters in fusion, because of FLAGS_"
-                 "enable_transpose_iters_in_fusion is false.";
+    } else if (!transform_strategy_[ItersTransformType::TransposeIters] ||
+               !FLAGS_enable_transpose_iters_in_fusion) {
+      VLOG(4) << "Can not transpose iters in fusion, because of TransposeIters "
+                 "transform is disabled.";
       return std::nullopt;
     } else if (source_flatten_iters != target_flatten_iters &&
                source_reduce_iters == target_reduce_iters) {
@@ -285,9 +318,10 @@ std::optional<ItersTransformRoute> ItersFusionPolicy::SearchItersTransformRoute(
   // if exist iters in target can not find in source
   FusionIters appended_source_iters = reused_source_iters;
   if (!reused_target_unique_iters.empty()) {
-    if (!FLAGS_enable_append_iters_in_fusion) {
-      VLOG(4) << "Can not append iters in fusion, because of FLAGS_enable_"
-                 "append_iters_in_fusion is false.";
+    if (!transform_strategy_[ItersTransformType::AppendIters] ||
+        !FLAGS_enable_append_iters_in_fusion) {
+      VLOG(4) << "Can not append iters in fusion, because of AppendIters "
+                 "tranform is disabled.";
       return std::nullopt;
     }
     std::vector<int32_t> append_axis;
@@ -318,9 +352,10 @@ std::optional<ItersTransformRoute> ItersFusionPolicy::SearchItersTransformRoute(
   // 4. Apply TransposeItersTransform
   // if source iters after reuse and append are not equal to target
   if (appended_source_iters != target_iters) {
-    if (!FLAGS_enable_transpose_iters_in_fusion) {
-      VLOG(4) << "Can not transpose iters in fusion, because of FLAGS_enable_"
-                 "transpose_iters_in_fusion is false.";
+    if (!transform_strategy_[ItersTransformType::TransposeIters] ||
+        !FLAGS_enable_transpose_iters_in_fusion) {
+      VLOG(4) << "Can not transpose iters in fusion, because of "
+                 "TransposeIters tranform is disabled";
       return std::nullopt;
     }
     const auto perm =

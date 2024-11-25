@@ -33,6 +33,9 @@ limitations under the License. */
 #include "paddle/phi/core/memory/allocation/allocator.h"
 #include "paddle/phi/core/memory/memcpy.h"
 
+using egr::ConvertAllInputsToDistTensor;
+using egr::InputsContainDistTensor;
+
 #pragma GCC diagnostic ignored "-Wwrite-strings"
 
 COMMON_DECLARE_bool(enable_pir_api);
@@ -92,7 +95,7 @@ Examples:
 
         >>> x = paddle.to_tensor(1.)
         >>> print(x.type)
-        VarType.LOD_TENSOR
+        VarType.DENSE_TENSOR
 )DOC");
 
 PyObject* tensor_properties_get_type(TensorObject* self, void* closure) {
@@ -100,7 +103,7 @@ PyObject* tensor_properties_get_type(TensorObject* self, void* closure) {
   if (!self->tensor.defined() || self->tensor.is_dense_tensor() ||
       self->tensor.is_dist_tensor()) {
     // be same to old dygraph
-    return ToPyObject(paddle::framework::proto::VarType::LOD_TENSOR);
+    return ToPyObject(paddle::framework::proto::VarType::DENSE_TENSOR);
   }
   if (self->tensor.is_selected_rows()) {
     return ToPyObject(paddle::framework::proto::VarType::SELECTED_ROWS);
