@@ -734,15 +734,19 @@ void pow_grad(const Tensor& x,
               const Scalar& y,
               Tensor* x_grad) {
   if (x_grad) {
-    if (has_dynamic_shape(x.shape())) {
-      Tensor y_tensor =
-          backend::full_with_tensor<T>(shape<T>(x), y, x.dtype(), x.place());
-      Tensor one_tensor = full_scalar<T>(1.0, x.dtype());
-      auto dx_res = y_tensor * elementwise_pow<T>(x, y - one_tensor) * out_grad;
-      set_output<T>(dx_res, x_grad);
+    if (!y.FromTensor()) {
+      float pow_val = y.to<float>();
+
+      if (pow_val == 1.0f) {
+        set_output<T>(out_grad, x_grad);
+      } else {
+        auto dx_res =
+            x.pow(pow_val - 1) * full_scalar<T>(pow_val, x.dtype()) * out_grad;
+        set_output<T>(dx_res, x_grad);
+      }
     } else {
-      auto y_value = y.to<float>();
-      auto dx_res = y_value * x.pow(y_value - 1) * out_grad;
+      Tensor one_tensor = full_scalar<T>(1.0, x.dtype());
+      auto dx_res = y * elementwise_pow<T>(x, y - one_tensor) * out_grad;
       set_output<T>(dx_res, x_grad);
     }
   }
@@ -1074,7 +1078,9 @@ void squeeze_grad(const Tensor& x,
                   const IntArray& axis,
                   Tensor* x_grad) {
   if (x_grad) {
-    auto x_grad_out = unsqueeze<T>(out_grad, axis);
+    auto x_grad_out = out_grad.dims().size() == x.dims().size()
+                          ? out_grad
+                          : unsqueeze<T>(out_grad, axis);
     set_output<T>(x_grad_out, x_grad);
   }
 }
@@ -1406,19 +1412,23 @@ void instance_norm_grad(const Tensor& x,
   // x_grad = scale * inv_var * (y_grad - y_grad.mean(2,3) - x_hat * (y_grad *
   // x_hat).mean((h,w)))
   if (x_grad) {
+    bool is_reduce_empty = reduce_axes.empty();
     Tensor scale_data_tensor =
         scale.get_ptr() ? scale.get()
                         : full<T>(IntArray({c}), 1., x.dtype(), x.place());
     auto unsqueeze_shape = get_unsqueeze_dims(scale_data_tensor, n_reduce_axes);
     auto scale_data = reshape<T>(scale_data_tensor, unsqueeze_shape);
     auto promoted_scale = ConverToMT<T>(scale_data);
-    auto result =
-        (promoted_scale * std_inv) *
-        (promoted_y_grad -
-         promoted_y_grad.sum(reduce_axes, promoted_y_grad.dtype(), true) / hw -
-         (x_hat * ((promoted_y_grad * x_hat)
-                       .sum(reduce_axes, promoted_y_grad.dtype(), true) /
-                   hw)));
+    auto tmp1 =
+        is_reduce_empty
+            ? promoted_y_grad
+            : promoted_y_grad.sum(reduce_axes, promoted_y_grad.dtype(), true);
+    auto tmp2 = is_reduce_empty
+                    ? (promoted_y_grad * x_hat)
+                    : (promoted_y_grad * x_hat)
+                          .sum(reduce_axes, promoted_y_grad.dtype(), true);
+    auto result = (promoted_scale * std_inv) *
+                  (promoted_y_grad - tmp1 / hw - (x_hat * tmp2 / hw));
     set_output<T>(ConverToOrig<T>(result, x.dtype()), x_grad);
   }
   // scale_grad = x_hat * y_grad.sum(n, h, w)
@@ -3212,6 +3222,40 @@ void kron_grad(const Tensor& x,
           reshape<T>(ConverToOrig<T>(y_grad_tmp, y.dtype()), y.shape());
     }
     set_output<T>(y_grad_tmp, y_grad);
+  }
+}
+
+template <typename T>
+void take_along_axis_grad(const Tensor& arr,
+                          const Tensor& indices,
+                          const Tensor& out_grad,
+                          int axis,
+                          Tensor* arr_grad) {
+  if (arr_grad) {
+    auto arr_cast = ConverToMT<T>(arr);
+    auto out_grad_cast = ConverToMT<T>(out_grad);
+    // put_along_axis doesn't support zero dim
+    if (arr_cast.dims().size() == 0) {
+      by_pass<T>(ConverToOrig<T>(out_grad_cast, out_grad.dtype()), arr_grad);
+      return;
+    }
+
+    // function `put_along_axis` requires a non-negative axis
+    if (axis < 0) {
+      axis += arr_cast.dims().size();
+    }
+
+    Tensor zero_tensor;
+    if (has_dynamic_shape(arr_cast.shape())) {
+      zero_tensor =
+          backend::full_with_tensor<T>(shape<T>(arr_cast), 0, arr_cast.dtype());
+    } else {
+      zero_tensor =
+          full<T>(common::vectorize(arr_cast.dims()), 0, arr_cast.dtype());
+    }
+    auto arr_grad_tmp =
+        put_along_axis<T>(zero_tensor, indices, out_grad_cast, axis);
+    set_output<T>(ConverToOrig<T>(arr_grad_tmp, arr.dtype()), arr_grad);
   }
 }
 
