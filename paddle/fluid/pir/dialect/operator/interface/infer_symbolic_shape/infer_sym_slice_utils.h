@@ -14,7 +14,6 @@
 
 #pragma once
 
-#include <cmath>
 #include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/infer_sym_utils.h"
 
 namespace paddle::dialect::slice_utils {
