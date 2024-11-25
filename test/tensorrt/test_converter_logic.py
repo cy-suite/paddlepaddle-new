@@ -155,7 +155,6 @@ class TestNotEqualFloatTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-
 class TestNotEqualIntTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.not_equal
@@ -184,6 +183,7 @@ class TestNotEqualIntTRTPattern(TensorRTBaseTest):
 class TestEqual_FloatTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.equal_
+
     def test_trt_result(self):
         self.api_args = {
             "x": np.random.randn(3).astype("float32"),
@@ -233,7 +233,7 @@ class TestEqual_IntTRTPattern(TensorRTBaseTest):
 class TestNotEqual_FloatTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.not_equal_
-        
+
     def test_trt_result(self):
         self.api_args = {
             "x": np.random.randn(3).astype("float32"),
