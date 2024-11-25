@@ -56,9 +56,11 @@ class TestAllcloseOp(OpTest):
                 )
             )
         }
+        print(f"out:{self.outputs}")
 
     def test_check_output(self):
         self.check_output(check_pir=True, check_prim_pir=True)
+        print(f"out:{self.outputs}")
 
 
 class TestAllcloseOpException(TestAllcloseOp):

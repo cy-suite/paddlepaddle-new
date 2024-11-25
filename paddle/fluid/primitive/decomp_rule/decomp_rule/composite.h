@@ -1411,14 +1411,17 @@ Tensor allclose_decomp(const Tensor& x,
                        const paddle::Scalar& rtol,
                        const paddle::Scalar& atol,
                        const bool equal_nan) {
-  Tensor left = abs<T>(x - y);
-  Tensor min_diff_tensor = full<T>(x.shape(), 1e-15, x.dtype());
-  Tensor rtol_tensor = full_scalar<T>(rtol, rtol.dtype());
-  Tensor atol_tensor = full_scalar<T>(atol, atol.dtype());
-  Tensor right = atol_tensor + rtol_tensor * abs<T>(y);
-  Tensor diff = abs<T>(left - right);
+  // Tensor left = abs<T>(x - y);
+  Tensor left = x - y;
+  Tensor min_diff_tensor = full<T>(y.shape(), 1e-15, y.dtype());
+  Tensor rtol_tensor = full_scalar<T>(rtol.to<double>(), y.dtype());
+  Tensor atol_tensor = full_scalar<T>(atol.to<double>(), y.dtype());
+  Tensor right = atol_tensor + rtol_tensor * y;
+  // Tensor diff = abs<T>(right - left);
+  Tensor diff = right - left;
   Tensor res = backend::logical_or<T>(less_equal<T>(left, right),
                                       less_equal<T>(diff, min_diff_tensor));
+  // Tensor res = backend::logical_or<T>(equal<T>(x, y), res_tmp);
   if (equal_nan) {
     Tensor x_nan = isnan<T>(x);
     Tensor y_nan = isnan<T>(y);
