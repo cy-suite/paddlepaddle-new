@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <cmath>
 #include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/infer_sym_utils.h"
 
 namespace paddle::dialect::slice_utils {
@@ -60,8 +61,6 @@ inline ExprVec GetStridesSliceDims(
 
   for (size_t i = 0; i < axes.size(); ++i) {
     int64_t axis = axes.at(i);
-    int64_t stride_i =
-        strides.at(i).isa<int64_t>() ? strides.at(i).Get<int64_t>() : 1;
     int64_t start_i = 0;
 
     if (starts.at(i).isa<int64_t>()) {
@@ -100,8 +99,6 @@ inline ExprVec GetStridesSliceDims(
     bool start_negative_end_positive = start_i <= 0 && end_i >= 0;
     bool start_positive_end_negative = start_i >= 0 && end_i <= 0;
 
-    ends.at(i) = ends.at(i) + (stride_i > 0 ? -1 : 1);
-
     if (both_negative_or_positive) {
       continue;
     } else if (start_negative_end_positive) {
@@ -122,7 +119,7 @@ inline ExprVec GetStridesSliceDims(
           "The size of axes must equal size of starts, ends, and strides."));
 
   for (size_t i = 0; i < axes.size(); ++i) {
-    auto out_dim = (ends[i] - starts[i] + strides[i]) / strides[i];
+    auto out_dim = symbol::DimExpr({-1}) * ((starts[i] - ends[i]) / strides[i]);
     int64_t axis = axes[i];
 
     // If in_dims[axis] or ends[i] have symbol, nedd get Min(in_dims[axis] -
@@ -130,7 +127,8 @@ inline ExprVec GetStridesSliceDims(
     if (!out_dim.isa<int64_t>() &&
         (!in_dims[axis].isa<int64_t>() || !ends[i].isa<int64_t>())) {
       symbol::List<symbol::DimExpr> min_lists{
-          (in_dims[axis] - starts[i] + strides[i]) / strides[i], out_dim};
+          symbol::DimExpr({-1}) * ((starts[i] - in_dims[axis]) / strides[i]),
+          out_dim};
 
       slice_dims[axis] =
           symbol::DimExpr({symbol::Min<symbol::DimExpr>({min_lists})});
