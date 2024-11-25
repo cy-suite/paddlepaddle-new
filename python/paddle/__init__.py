@@ -772,9 +772,12 @@ from .pir_utils import IrGuard
 ir_guard = IrGuard()
 ir_guard._switch_to_pir()
 
+
 # Constants
 newaxis: None = None
 inf = math.inf
+nan = math.nan
+pi = math.pi
 
 __all__ = [
     'block_diag',
@@ -1211,4 +1214,6 @@ __all__ = [
     'to_dlpack',
     'inf',
     'newaxis',
+    'nan',
+    'pi',
 ]
