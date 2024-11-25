@@ -29,8 +29,10 @@ from paddle.base.data_feeder import (
     _PADDLE_DTYPE_2_NUMPY_DTYPE,
     convert_uint16_to_float,
 )
+from paddle.base.libpaddle import Place
 from paddle.profiler.utils import in_profiler_mode
 from paddle.utils import deprecated
+from paddle.utils.dlpack import DLDeviceType
 
 from .. import core, framework, unique_name
 from ..framework import (
@@ -1268,10 +1270,19 @@ def monkey_patch_tensor():
                 - device_type (DLDeviceType): The type of device (e.g., kDLCPU, kDLCUDA, etc.).
                 - device_id (int): The device ID.
         """
-        from paddle.utils.dlpack import DLDeviceType
-
         place = self.place
-        if place.is_cpu_place():
+        if isinstance(place, Place):
+            if place.is_gpu_place():
+                return DLDeviceType.kDLCUDA, place.gpu_device_id()
+            elif place.is_cpu_place():
+                return DLDeviceType.kDLCPU, None
+            elif place.is_cuda_pinned_place():
+                return DLDeviceType.kDLCUDAHost, 0
+            elif place.is_xpu_place():
+                return DLDeviceType.kDLOneAPI, place.xpu_device_id()
+            else:
+                raise RuntimeError(f"Unsupported Paddle device type {place}")
+        elif place.is_cpu_place():
             return DLDeviceType.kDLCPU, None
         elif place.is_cuda_pinned_place():
             return DLDeviceType.kDLCUDAHost, 0

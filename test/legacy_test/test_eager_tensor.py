@@ -1296,13 +1296,13 @@ class TestEagerTensor(unittest.TestCase):
     def test_dlpack_device(self):
         """test Tensor.__dlpack_device__"""
         with dygraph_guard():
-            # 测试 CPU
+            # test CPU
             tensor_cpu = paddle.to_tensor([1, 2, 3], place=base.CPUPlace())
             device_type, device_id = tensor_cpu.__dlpack_device__()
             self.assertEqual(device_type, DLDeviceType.kDLCPU)
             self.assertEqual(device_id, None)
 
-            # 测试 CUDA
+            # test CUDA
             if paddle.is_compiled_with_cuda():
                 tensor_cuda = paddle.to_tensor(
                     [1, 2, 3], place=base.CUDAPlace(0)
@@ -1311,7 +1311,7 @@ class TestEagerTensor(unittest.TestCase):
                 self.assertEqual(device_type, DLDeviceType.kDLCUDA)
                 self.assertEqual(device_id, 0)
 
-            # 测试 CUDA Pinned
+            # test CUDA Pinned
             if paddle.is_compiled_with_cuda():
                 tensor_pinned = paddle.to_tensor(
                     [1, 2, 3], place=base.CUDAPinnedPlace()
@@ -1320,7 +1320,7 @@ class TestEagerTensor(unittest.TestCase):
                 self.assertEqual(device_type, DLDeviceType.kDLCPU)
                 self.assertEqual(device_id, 0)
 
-            # 测试 XPU
+            # test XPU
             if paddle.is_compiled_with_xpu():
                 tensor_xpu = paddle.to_tensor([1, 2, 3], place=base.XPUPlace(0))
                 device_type, device_id = tensor_xpu.__dlpack_device__()
@@ -1328,20 +1328,20 @@ class TestEagerTensor(unittest.TestCase):
                 self.assertEqual(device_id, 0)
 
             # zero_dim
-            # 测试 CPU
+            # test CPU
             tensor = paddle.to_tensor(5.0, place=base.CPUPlace())
             device_type, device_id = tensor.__dlpack_device__()
             self.assertEqual(device_type, DLDeviceType.kDLCPU)
             self.assertEqual(device_id, None)
 
-            # 测试 CUDA
+            # test CUDA
             if paddle.is_compiled_with_cuda():
                 tensor_cuda = paddle.to_tensor(5.0, place=base.CUDAPlace(0))
                 device_type, device_id = tensor_cuda.__dlpack_device__()
                 self.assertEqual(device_type, DLDeviceType.kDLCUDA)
                 self.assertEqual(device_id, 0)
 
-            # 测试 XPU
+            # test XPU
             if paddle.is_compiled_with_xpu():
                 tensor_xpu = paddle.to_tensor(5.0, place=base.XPUPlace(0))
                 device_type, device_id = tensor_xpu.__dlpack_device__()
@@ -1349,7 +1349,7 @@ class TestEagerTensor(unittest.TestCase):
                 self.assertEqual(device_id, 0)
 
             # zero_size
-            # 测试 CPU
+            # test CPU
             tensor = paddle.to_tensor(
                 paddle.zeros([0, 10]), place=base.CPUPlace()
             )
@@ -1357,7 +1357,7 @@ class TestEagerTensor(unittest.TestCase):
             self.assertEqual(device_type, DLDeviceType.kDLCPU)
             self.assertEqual(device_id, None)
 
-            # 测试 CUDA
+            # test CUDA
             if paddle.is_compiled_with_cuda():
                 tensor_cuda = paddle.to_tensor(
                     paddle.zeros([0, 10]), place=base.CUDAPlace(0)
@@ -1366,7 +1366,7 @@ class TestEagerTensor(unittest.TestCase):
                 self.assertEqual(device_type, DLDeviceType.kDLCUDA)
                 self.assertEqual(device_id, 0)
 
-            # 测试 XPU
+            # test XPU
             if paddle.is_compiled_with_xpu():
                 tensor_xpu = paddle.to_tensor(
                     paddle.zeros([0, 10]), place=base.XPUPlace(0)
