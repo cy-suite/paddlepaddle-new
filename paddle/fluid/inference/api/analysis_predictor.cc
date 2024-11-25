@@ -865,6 +865,8 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
 
         if (config_.enable_gpu_mixed_) {
           AddAutoMixedPrecisionPass(fused_op_pm);
+          fused_op_pm.AddPass(
+              pir::PassRegistry::Instance().Get("transfer_layout_pass"));
         }
 
         fused_op_pm.Run(pir_program_.get());
@@ -994,14 +996,14 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
   if (config_.enable_gpu_mixed_) {
     if (!config_.cinn_enabled()) {
       AddAutoMixedPrecisionPass(basic_pass_pm);
-    }
 
-    auto transfer_layout_pass = ::pir::CreateTransferLayoutPass();
-    if (std::find(config_.deleted_passes_.begin(),
-                  config_.deleted_passes_.end(),
-                  transfer_layout_pass->name()) ==
-        config_.deleted_passes_.end()) {
-      basic_pass_pm.AddPass(std::move(transfer_layout_pass));
+      auto transfer_layout_pass = ::pir::CreateTransferLayoutPass();
+      if (std::find(config_.deleted_passes_.begin(),
+                    config_.deleted_passes_.end(),
+                    transfer_layout_pass->name()) ==
+          config_.deleted_passes_.end()) {
+        basic_pass_pm.AddPass(std::move(transfer_layout_pass));
+      }
     }
   }
   auto common_subexpression_elimination_pass =
@@ -1052,11 +1054,11 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
   if (!config_.glog_info_disabled()) {
     basic_pass_pm.EnablePrintStatistics();
   }
-  if (config_.ir_debug_) {
-    basic_pass_pm.EnableIRPrinting(
-        std::make_unique<pir::PassManager::IRPrinterOption>(
-            ir_printing_conditions, ir_printing_conditions));
-  }
+  // if (config_.ir_debug_) {
+  basic_pass_pm.EnableIRPrinting(
+      std::make_unique<pir::PassManager::IRPrinterOption>(
+          ir_printing_conditions, ir_printing_conditions));
+  // }
   basic_pass_pm.Run(pir_program_.get());
   //----------------------------------------------------------------------------------------------//
 
