@@ -86,6 +86,10 @@ DEFINE_GENERAL_PATTERN(Swish, paddle::dialect::SwishOp)
 DEFINE_GENERAL_PATTERN(Log, paddle::dialect::LogOp)
 DEFINE_GENERAL_PATTERN(Floor, paddle::dialect::FloorOp)
 DEFINE_GENERAL_PATTERN(Roll, paddle::dialect::RollOp)
+DEFINE_GENERAL_PATTERN(Equal, paddle::dialect::EqualOp)
+DEFINE_GENERAL_PATTERN(Equal_, paddle::dialect::Equal_Op)
+DEFINE_GENERAL_PATTERN(NotEqual, paddle::dialect::NotEqualOp)
+DEFINE_GENERAL_PATTERN(NotEqual_, paddle::dialect::NotEqual_Op)
 
 #undef DEFINE_GENERAL_PATTERN
 
@@ -1623,10 +1627,6 @@ class ActOpPattern : public pir::OpRewritePattern<OpType> {
 };
 using TanhOpPattern = ActOpPattern<paddle::dialect::TanhOp>;
 using SoftplusOpPatten = ActOpPattern<paddle::dialect::SoftplusOp>;
-using EqualOpPattern = ActOpPattern<paddle::dialect::EqualOp>;
-using Equal_OpPattern = ActOpPattern<paddle::dialect::Equal_Op>;
-using NotEqualOpPattern = ActOpPattern<paddle::dialect::NotEqualOp>;
-using NotEqual_OpPattern = ActOpPattern<paddle::dialect::NotEqual_Op>;
 
 class WherePattern : public pir::OpRewritePattern<paddle::dialect::WhereOp> {
  public:
@@ -1982,6 +1982,10 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Log)
     ADD_PATTERN(Floor)
     ADD_PATTERN(Roll)
+    ADD_PATTERN(Equal)
+    ADD_PATTERN(Equal_)
+    ADD_PATTERN(NotEqual)
+    ADD_PATTERN(NotEqual_)
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
 #endif
@@ -2044,10 +2048,6 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<SetValueWithTensorOpPattern>(context));
     ps.Add(std::make_unique<SetValueWithTensor_OpPattern>(context));
     ps.Add(std::make_unique<SoftplusOpPatten>(context));
-    ps.Add(std::make_unique<EqualOpPattern>(context));
-    ps.Add(std::make_unique<Equal_OpPattern>(context));
-    ps.Add(std::make_unique<NotEqualOpPattern>(context));
-    ps.Add(std::make_unique<NotEqual_OpPattern>(context));
     return ps;
   }
 };

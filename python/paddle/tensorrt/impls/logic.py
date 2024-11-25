@@ -23,13 +23,11 @@ from paddle.tensorrt.register import converter_registry
 logic_type_map = {
     "pd_op.greater_than": trt.ElementWiseOperation.GREATER,
     "pd_op.less_than": trt.ElementWiseOperation.LESS,
-    "pd_op.equal": trt.ElementWiseOperation.EQUAL,
 }
 
 
 @converter_registry.register("pd_op.greater_than", trt_version="8.x")
 @converter_registry.register("pd_op.less_than", trt_version="8.x")
-@converter_registry.register("pd_op.equal", trt_version="8.x")
 def logic_converter(network, paddle_op, inputs):
     layer_output = add_elementwise_layer(
         network, paddle_op, inputs, logic_type_map[paddle_op.name()]
@@ -37,31 +35,21 @@ def logic_converter(network, paddle_op, inputs):
     return trt_cast(network, layer_output, inputs[0].dtype)
 
 
+@converter_registry.register("pd_op.equal", trt_version="8.x")
 @converter_registry.register("pd_op.equal_", trt_version="8.x")
-def equal__converter(network, paddle_op, inputs):
+def equal_converter(network, paddle_op, inputs):
     layer_output = add_elementwise_layer(
-        network, paddle_op, inputs, logic_type_map[paddle_op.name()]
+        network, paddle_op, inputs, trt.ElementWiseOperation.EQUAL
     )
-    layer_output.name = inputs[0].name
-    return trt_cast(network, layer_output, inputs[0].dtype)
+    return layer_output
 
 
 @converter_registry.register("pd_op.not_equal", trt_version="8.x")
+@converter_registry.register("pd_op.not_equal_", trt_version="8.x")
 def not_equal_converter(network, paddle_op, inputs):
     layer_output = add_elementwise_layer(
         network, paddle_op, inputs, trt.ElementWiseOperation.EQUAL
     )
     not_layer = network.add_unary(layer_output, trt.UnaryOperation.NOT)
     layer_output = not_layer.get_output(0)
-    return trt_cast(network, layer_output, inputs[0].dtype)
-
-
-@converter_registry.register("pd_op.not_equal_", trt_version="8.x")
-def not_equal__converter(network, paddle_op, inputs):
-    layer_output = add_elementwise_layer(
-        network, paddle_op, inputs, trt.ElementWiseOperation.EQUAL
-    )
-    not_layer = network.add_unary(layer_output, trt.UnaryOperation.NOT)
-    layer_output = not_layer.get_output(0)
-    layer_output.name = inputs[0].name
-    return trt_cast(network, layer_output, inputs[0].dtype)
+    return layer_output

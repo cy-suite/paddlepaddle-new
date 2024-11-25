@@ -83,6 +83,8 @@ class TestLessThanInt32TRTPattern(TensorRTBaseTest):
 class TestEqualFloatTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.equal
+
+    def test_trt_result(self):
         self.api_args = {
             "x": np.random.randn(3).astype("float32"),
             "y": np.random.randn(3).astype("float32"),
@@ -90,14 +92,24 @@ class TestEqualFloatTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
         self.max_shape = {"x": [5], "y": [5]}
+        self.check_trt_result()
 
-    def test_trt_result(self):
+    def test_trt_result_diff_shapes(self):
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("float32"),
+            "y": np.random.randn(3).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3], "y": [3]}
+        self.max_shape = {"x": [4, 3], "y": [3]}
         self.check_trt_result()
 
 
 class TestEqualIntTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.equal
+
+    def test_trt_result(self):
         self.api_args = {
             "x": np.random.randn(3).astype("int64"),
             "y": np.random.randn(3).astype("int64"),
@@ -105,14 +117,24 @@ class TestEqualIntTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
         self.max_shape = {"x": [5], "y": [5]}
+        self.check_trt_result()
 
-    def test_trt_result(self):
+    def test_trt_result_diff_shapes(self):
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("int64"),
+            "y": np.random.randn(3).astype("int64"),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3], "y": [3]}
+        self.max_shape = {"x": [4, 3], "y": [3]}
         self.check_trt_result()
 
 
 class TestNotEqualFloatTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.not_equal
+
+    def test_trt_result(self):
         self.api_args = {
             "x": np.random.randn(3).astype("float32"),
             "y": np.random.randn(3).astype("float32"),
@@ -120,14 +142,25 @@ class TestNotEqualFloatTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
         self.max_shape = {"x": [5], "y": [5]}
-
-    def test_trt_result(self):
         self.check_trt_result()
+
+    def test_trt_result_diff_shapes(self):
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("float32"),
+            "y": np.random.randn(3).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3], "y": [3]}
+        self.max_shape = {"x": [4, 3], "y": [3]}
+        self.check_trt_result()
+
 
 
 class TestNotEqualIntTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.not_equal
+
+    def test_trt_result(self):
         self.api_args = {
             "x": np.random.randn(3).astype("int64"),
             "y": np.random.randn(3).astype("int64"),
@@ -135,14 +168,23 @@ class TestNotEqualIntTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
         self.max_shape = {"x": [5], "y": [5]}
+        self.check_trt_result()
 
-    def test_trt_result(self):
+    def test_trt_result_diff_shapes(self):
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("int64"),
+            "y": np.random.randn(3).astype("int64"),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3], "y": [3]}
+        self.max_shape = {"x": [4, 3], "y": [3]}
         self.check_trt_result()
 
 
 class TestEqual_FloatTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.equal_
+    def test_trt_result(self):
         self.api_args = {
             "x": np.random.randn(3).astype("float32"),
             "y": np.random.randn(3).astype("float32"),
@@ -150,14 +192,24 @@ class TestEqual_FloatTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
         self.max_shape = {"x": [5], "y": [5]}
+        self.check_trt_result()
 
-    def test_trt_result(self):
+    def test_trt_result_diff_shapes(self):
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("float32"),
+            "y": np.random.randn(3).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3], "y": [3]}
+        self.max_shape = {"x": [4, 3], "y": [3]}
         self.check_trt_result()
 
 
 class TestEqual_IntTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.equal_
+
+    def test_trt_result(self):
         self.api_args = {
             "x": np.random.randn(3).astype("int64"),
             "y": np.random.randn(3).astype("int64"),
@@ -165,14 +217,24 @@ class TestEqual_IntTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
         self.max_shape = {"x": [5], "y": [5]}
+        self.check_trt_result()
 
-    def test_trt_result(self):
+    def test_trt_result_diff_shapes(self):
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("int64"),
+            "y": np.random.randn(3).astype("int64"),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3], "y": [3]}
+        self.max_shape = {"x": [4, 3], "y": [3]}
         self.check_trt_result()
 
 
 class TestNotEqual_FloatTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.not_equal_
+        
+    def test_trt_result(self):
         self.api_args = {
             "x": np.random.randn(3).astype("float32"),
             "y": np.random.randn(3).astype("float32"),
@@ -180,14 +242,24 @@ class TestNotEqual_FloatTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
         self.max_shape = {"x": [5], "y": [5]}
+        self.check_trt_result()
 
-    def test_trt_result(self):
+    def test_trt_result_diff_shapes(self):
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("float32"),
+            "y": np.random.randn(3).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3], "y": [3]}
+        self.max_shape = {"x": [4, 3], "y": [3]}
         self.check_trt_result()
 
 
 class TestNotEqual_IntTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.not_equal_
+
+    def test_trt_result(self):
         self.api_args = {
             "x": np.random.randn(3).astype("int64"),
             "y": np.random.randn(3).astype("int64"),
@@ -195,8 +267,16 @@ class TestNotEqual_IntTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
         self.max_shape = {"x": [5], "y": [5]}
+        self.check_trt_result()
 
-    def test_trt_result(self):
+    def test_trt_result_diff_shapes(self):
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("int64"),
+            "y": np.random.randn(3).astype("int64"),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3], "y": [3]}
+        self.max_shape = {"x": [4, 3], "y": [3]}
         self.check_trt_result()
 
 
