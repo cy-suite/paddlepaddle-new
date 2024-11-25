@@ -805,6 +805,54 @@ class Engine:
         # re-run apply_mix2dist_pass to dist accumulator.
         apply_mix2dist_pass(dist_program)
 
+        def find_checkpoint(dist_program):
+            point = []
+            idx = [1, 3]
+            num = 0
+            for block in dist_program.blocks:
+                for op in block.ops:
+                    if op.name() == "pd_op.matmul":
+                        num += 1
+                        if num in idx:
+                            point.append(op.id())
+                            # val = op.operand_source(0)
+                            # point.append(val)
+                            # print("xxx --- var.name: ", val.name)
+            return point
+
+        self._strategy.recompute.enable = True
+        checkpoints = find_checkpoint(dist_program)
+        print("---checkpoints  : ", checkpoints)
+        self._strategy.recompute_configs = {"checkpoints": checkpoints}
+        print("---1  ")
+        if mode == "train" and self._strategy.recompute.enable:
+            print("---2  ")
+            loss = dist_program.get_output_value_by_name(self._loss_names[0])
+            print(loss)
+            if loss.initialized():
+                print("---3  ")
+                config = {}
+                # config = copy.deepcopy(self._strategy.recompute_configs)
+                config["checkpoints"] = checkpoints
+                # TODO: 通过 pass 参数进去，而非 config
+                config["dist_context"] = self._dist_contexts.get(mode, None)
+                # no_grad_set (set, optional): Set of ``Tensor``  or ``Tensor.name`` that don't need to be updated.
+                # The default value is None. `stop_gradient=True
+                # 暂时先在 pass 里面获取
+                # config["no_grad_set"] = copy.deepcopy(no_grad_set)
+                config["loss"] = loss
+                auto_parallel_recompute_pir_pass = new_pass(
+                    "auto_parallel_recompute_pir", config
+                )
+                print("---4  ")
+                auto_parallel_recompute_pir_pass.apply(
+                    [dist_program], [startup_program]
+                )
+            else:
+                self._logger.info(
+                    "loss value is not found, skip recompute pass."
+                )
+
         # Part 2: Parallelism search (for full auto-parallel)
         # NOTE make all parallelis search logic work as Pass,
         # and all the Pass in this Part should be optional to allow consistence in dynamic and static mode.

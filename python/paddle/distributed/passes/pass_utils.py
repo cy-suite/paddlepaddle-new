@@ -18,6 +18,7 @@ from enum import Enum
 from functools import reduce
 
 import paddle
+from paddle.autograd.backward_utils import ValueDict
 from paddle.base import core
 from paddle.base.framework import Parameter, Program
 from paddle.distributed.auto_parallel.static.dist_attribute import (
@@ -45,6 +46,7 @@ __not_shape_var_type__ = [
 ]
 
 logger = get_logger(logging.INFO)
+_logger = logging.getLogger(__name__)
 
 
 # NOTE: Here stream is just a presentation with different name,
@@ -2213,3 +2215,183 @@ class PipelineMemoryEstimator:
             return False
 
         return var_info[var_name]["persistable"]
+
+
+def _some_in_set(cands, s):
+    """
+    Test if some elements of 'cands' are in set 's'
+    """
+    if len(cands) == 0:
+        return False
+    if len(s) == 0:
+        return False
+    for c in cands:
+        for d in s:
+            if c.is_same(d):
+                return True
+    return False
+
+
+def _find_op_path(
+    block,
+    target_values,
+    input_values,
+    no_grad_values,
+    op_path_dict=None,
+    is_while=False,
+):
+    # 假设 block 只有一个 block
+    # TODO: 获取子 block 或者 父 block 的 output_values
+    print(block.ops)
+    output_values = target_values
+    relevant_op_flags = [True] * len(block.ops)
+    if input_values:
+        for i, op in enumerate(block.ops):
+            # 不来自 input values 的op 标记 false
+            if _some_in_set(op.operands_source(), input_values):
+                for value in op.results():
+                    if value not in no_grad_values:
+                        input_values.append(value)
+            else:
+                relevant_op_flags[i] = False
+
+    for i, op in reversed(list(enumerate(block.ops))):
+        # TODO: 暂时不支持 sub_block 循环
+        # 不产生 output values 的 op 标记 false
+
+        if _some_in_set(op.results(), output_values):
+            for value in op.operands_source():
+                if not _some_in_set([value], no_grad_values):
+                    output_values.append(value)
+        else:
+            relevant_op_flags[i] = False
+        # print(op)
+        # print(output_values)
+        # print(op)
+        # print(relevant_op_flags)
+
+    # TODO: 暂时不支持 while block 循环
+    op_path = [op for i, op in enumerate(block.ops) if relevant_op_flags[i]]
+
+    if input_values:
+        for op in op_path:
+            for value in op.operands_source():
+                if value not in input_values and value.stop_gradient:
+                    no_grad_values.append(value)
+
+    return op_path
+
+
+class ProgramStats:
+    def __init__(self, block, ops):
+        self.block = block
+        self.ops = ops
+        self.op_deps = ValueDict()  # op-> in_ops, out_ops
+        self.value_op_deps = (
+            ValueDict()
+        )  # value as input op, value as output op
+
+    def is_subgraph(self, value_group1, value_group2):
+        # should traverse from value_group1 to value_group2
+        # max op idx in value_group2
+        # min op idx in value_group1
+        min_op_idx = len(self.ops)
+        max_op_idx = -1
+        print("xxx value_group1: ", value_group1)
+        print("xxx value_group2: ", value_group2)
+        for value in value_group1:
+            if value not in self.value_op_deps:
+                return False, min_op_idx, max_op_idx
+        for value in value_group2:
+            if value not in self.value_op_deps:
+                return False, min_op_idx, max_op_idx
+        for value in value_group1:
+            op_idx = self.value_op_deps[value]["var_as_input_ops"]
+            for idx in op_idx:
+                min_op_idx = min(min_op_idx, idx)
+        for value in value_group2:
+            op_idx = self.value_op_deps[value]["var_as_output_ops"]
+            for idx in op_idx:
+                max_op_idx = max(max_op_idx, idx)
+        if min_op_idx >= max_op_idx:
+            return False, min_op_idx, max_op_idx
+
+        return True, min_op_idx, max_op_idx
+
+    def _update_segment_start(self, min_idx, pre_segment_end_idx):
+        """
+        persist values of amp-related cast should be included in recompute segment
+        """
+
+        def is_amp_cast(op):
+            return op.name() == 'cast' and op.operand_source(0).persistable
+
+        idx_ = min_idx - 1
+        updated_min_idx = min_idx
+        while idx_ > pre_segment_end_idx:
+            if is_amp_cast(self.ops[idx_]):
+                _logger.info(
+                    f"found amp-cast op: {self.ops[idx_].name()}, : {self.ops[idx_].operand_source(0)}"
+                )
+                updated_min_idx = idx_
+                idx_ -= 1
+            else:
+                break
+
+        return updated_min_idx
+
+    def sort_checkpoints(self, checkpoints_value):
+        sorted_checkpoints = []
+        for value in checkpoints_value:
+            if value not in self.value_op_deps:
+                print("xxx value: ", value)
+                print(self.value_op_deps)
+                _logger.info(
+                    f"Recompute Optimizer: deleted {value} from checkpoints, because it is not used in paddle program."
+                )
+            elif self.value_op_deps[value]["var_as_output_ops"] == []:
+                # input nodes
+                sorted_checkpoints.append((value, -1))
+            else:
+                sorted_checkpoints.append(
+                    (value, max(self.value_op_deps[value]["var_as_output_ops"]))
+                )
+        sorted_checkpoints = sorted(sorted_checkpoints, key=lambda x: x[1])
+        return [x[0] for x in sorted_checkpoints]
+
+    def get_out_of_subgraph_vars(self, begin_op_idx, end_op_idx):
+        values = []
+        for i in range(begin_op_idx, end_op_idx, 1):
+            for value in self.ops[i].results():
+                if value in self.value_op_deps:
+                    for idx in self.value_op_deps[value]["var_as_input_ops"]:
+                        if idx >= end_op_idx:
+                            values.append(value)
+            for value in self.ops[i].operands_source():
+                if value in self.value_op_deps:
+                    for idx in self.value_op_deps[value]["var_as_output_ops"]:
+                        if idx < begin_op_idx:
+                            values.append(value)
+        return values
+
+    def get_reserved_vars(self):
+        values = []
+        for op in self.ops:
+            if op.name() == "seed":
+                values.extend(op.results())
+        return values
+
+    def get_input_nodes(self):
+        values = []
+        for value in self.value_op_deps:
+            if (
+                len(self.value_op_deps[value]["var_as_output_ops"]) == 0
+                and len(self.value_op_deps[value]["var_as_input_ops"]) > 0
+            ):
+                if value.persistable:
+                    continue
+                values.append(value)
+        for op in self.ops:
+            if op.name() == "read":  #  现在 仍然 存在 read 算子吗？？？？
+                values.extend(op.results())
+        return values
