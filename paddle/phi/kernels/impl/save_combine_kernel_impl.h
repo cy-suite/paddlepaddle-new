@@ -125,7 +125,12 @@ void SaveCombineTensorKernel(const Context& dev_ctx,
     SerializeCombineTensor<T>(dev_ctx, x, save_as_fp16, ss);
     SaveToMemory(file_path, ss, save_to_memory, y);
   } else {
+    MkDirRecursively(DirName(file_path).c_str());
     std::ofstream fout(file_path, std::ios::binary);
+    PADDLE_ENFORCE_EQ(static_cast<bool>(fout),
+                      true,
+                      common::errors::Unavailable(
+                          "Cannot open %s to save variables.", file_path));
     SerializeCombineTensor<T>(dev_ctx, x, save_as_fp16, fout);
     fout.close();
   }
