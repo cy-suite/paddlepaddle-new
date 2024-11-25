@@ -39,9 +39,6 @@ class TestConstant(unittest.TestCase):
         np.testing.assert_equal(paddle.pi, math.pi)
 
     def test_e(self):
-        np.testing.assert_equal(paddle.e, math.e)
-
-    def test_e(self):
         np.testing.assert_almost_equal(paddle.e, 2.718281828459045, decimal=15)
 
 
