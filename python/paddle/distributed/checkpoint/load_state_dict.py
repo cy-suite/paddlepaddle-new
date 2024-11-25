@@ -610,22 +610,17 @@ def _load_state_dict(
         read_items = get_read_items(
             metadata_list, target_state_dict, process_group, use_dist
         )
-
-        # state_dict_in_cpu = {}
-        # for k, v in target_state_dict.items():
-        #     if v.place.is_cpu_place():
-        #         state_dict_in_cpu[k] = v
-        #         target_state_dict[k] = v.cuda()
         for item in read_items:
             flag = False
             k_new = item.local_tensor_index.tensor_key
             if k_new in target_state_dict:
                 v_new = target_state_dict[k_new]
                 if v_new.place.is_cpu_place():
-                    print("lzx debug k_new to gpu",k_new)
+                    print("lzx debug k_new to gpu:",k_new)
                     flag = True
                     target_state_dict[k_new] = v_new.cuda()
-
+            else:
+                print("lzx debug k_new no in target_state_dict:",k_new)
             assert (
                 item.local_tensor_index in load_infos
             ), f"read item:{item}, load_infos:{load_infos}"
@@ -644,7 +639,6 @@ def _load_state_dict(
                 ]
 
                 if offload:
-                    print("lzx debug to_tensor:",_current_expected_place())
                     storage_local_tensor = paddle.to_tensor(
                         storage_local_tensor, place=_current_expected_place()
                     )
@@ -726,19 +720,10 @@ def _load_state_dict(
                         tmp_tensor, src=src_rank, group=process_group
                     )
                     paddle.assign(tmp_tensor, cur_chunk_tensor)
+            print("target_state_dict:",item.local_tensor_index.tensor_key,", md5:", hashlib.md5(cur_chunk_tensor.numpy().tobytes()).hexdigest())
             if flag:
-                print("lzx dbeug to cpu",k_new)
-                # value = target_state_dict[k_new]
-                # del v_new
-                v_new.cpu()
-                # target_state_dict.pop(k_new)
-
-                # paddle.assign(v_new.cpu(), value)
-
-        # for k, v in target_state_dict.items():
-        #     if k in state_dict_in_cpu:
-        #         value = state_dict_in_cpu[k]
-        #         paddle.assign(v.cpu(), value)
+                print("lzx debug k_new to cpu:",k_new)
+                target_state_dict[k_new]=v_new.cpu()
 
         if use_dist:
             paddle.distributed.barrier(process_group)
