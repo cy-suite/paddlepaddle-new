@@ -600,10 +600,7 @@ bool AddNArrayOp::InferSymbolicShape(
   // We use the combine op's inputs to infer the output shape.
   if (inputs_shape_or_data.isa<symbol::NullShapeOrDataDimExpr>()) {
     auto out_shape_or_data = infer_context->GetShapeOrDataForValue(
-        inputs()
-            .defining_op()
-            .dyn_cast<paddle::dialect::CombineOp>()
-            .operand_source(0));
+        inputs().defining_op()->dyn_cast<pir::CombineOp>().operand_source(0));
     infer_context->SetShapeOrDataForValue(out(), out_shape_or_data);
     return true;
   } else {
