@@ -2595,26 +2595,7 @@ bool TensorToArrayOp::InferSymbolicShape(
   const auto &x_shape_or_data =
       infer_context->GetShapeOrDataForValue(x())
           .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
-
-  const auto &UseStackInfer = [&]() {
-    std::vector<symbol::DimExpr> result_shape = x_shape_or_data.GetShapeHint();
-    result_shape.erase(result_shape.begin() + axis);
-    return symbol::ShapeOrDataDimExprs(
-        symbol::TensorShapeOrDataDimExprs(result_shape));
-  };
-
-  const auto &UseConcatInfer = [&]() {
-    std::vector<symbol::DimExpr> result_shape = x_shape_or_data.GetShapeHint();
-    result_shape[axis] = symbol::DimExpr{infer_context->GetNextSymName()};
-    return symbol::ShapeOrDataDimExprs(
-        symbol::TensorShapeOrDataDimExprs(result_shape));
-  };
-
-  if (use_stack) {
-    infer_context->SetShapeOrDataForValue(x_grad(), UseStackInfer());
-  } else {
-    infer_context->SetShapeOrDataForValue(x_grad(), UseConcatInfer());
-  }
+  infer_context->SetShapeOrDataForValue(x_grad(), x_shape_or_data);
 
   return true;
 }
