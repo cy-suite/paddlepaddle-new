@@ -760,69 +760,62 @@ def strided_slice_converter(network, paddle_op, inputs):
     input_shape = paddle_op.operands()[0].source().shape
     nchw_input_dims = len(input_shape)
 
-    trt_start_tensors = [None] * nchw_input_dims
-    trt_end_tensors = [None] * nchw_input_dims
-    trt_stride_tensors = [None] * nchw_input_dims
-
-    shape_tensor = network.add_shape(input_tensor).get_output(0)
+    trt_start_dims = [0] * nchw_input_dims
+    trt_size_dims = [input_shape[i] for i in range(nchw_input_dims)]
+    trt_step_dims = [1] * nchw_input_dims
 
     has_neg_indices = False
+    trt_start_tensors = []
+    trt_end_tensors = []
+    trt_stride_tensors = []
 
-    zero_tensor = add_1D_constant_layer(network, [0])
-    one_tensor = add_1D_constant_layer(network, [1])
-
-    for i in range(nchw_input_dims):
-        if i in axes:
-            idx = axes.index(i)
-            if isinstance(starts, trt.ITensor):
-                start_tensor = get_shape_tensor_element(network, starts, idx)
-            else:
-                start_tensor = add_1D_constant_layer(network, [starts[idx]])
-
-            if isinstance(ends, trt.ITensor):
-                end_tensor = get_shape_tensor_element(network, ends, idx)
-            else:
-                end_tensor = add_1D_constant_layer(network, [ends[idx]])
-
-            if isinstance(strides, trt.ITensor):
-                stride_tensor = get_shape_tensor_element(network, strides, idx)
-            else:
-                stride_tensor = add_1D_constant_layer(network, [strides[idx]])
-
-            if isinstance(starts, trt.ITensor) or isinstance(ends, trt.ITensor):
-                is_start_neg = trt_less(network, start_tensor, zero_tensor)
-                is_end_neg = trt_less(network, end_tensor, zero_tensor)
-                temp_has_neg = network.add_elementwise(
-                    is_start_neg, is_end_neg, trt.ElementWiseOperation.OR
-                ).get_output(0)
-                if not has_neg_indices:
-                    has_neg_indices = temp_has_neg
-                else:
-                    has_neg_indices = network.add_elementwise(
-                        has_neg_indices,
-                        temp_has_neg,
-                        trt.ElementWiseOperation.OR,
-                    ).get_output(0)
-            else:
-                if starts[idx] < 0 or ends[idx] < 0:
-                    has_neg_indices = True
-
-            trt_start_tensors[i] = start_tensor
-            trt_end_tensors[i] = end_tensor
-            trt_stride_tensors[i] = stride_tensor
+    for i, axis in enumerate(axes):
+        if isinstance(starts, trt.ITensor):
+            start_tensor = get_shape_tensor_element(network, starts, i)
         else:
-            trt_start_tensors[i] = zero_tensor
-            dim_size_tensor = get_shape_tensor_element(network, shape_tensor, i)
-            trt_end_tensors[i] = dim_size_tensor
-            trt_stride_tensors[i] = one_tensor
+            start_tensor = add_1D_constant_layer(network, [starts[i]])
 
+        if isinstance(ends, trt.ITensor):
+            end_tensor = get_shape_tensor_element(network, ends, i)
+        else:
+            end_tensor = add_1D_constant_layer(network, [ends[i]])
+
+        if isinstance(strides, trt.ITensor):
+            stride_tensor = get_shape_tensor_element(network, strides, i)
+        else:
+            stride_tensor = add_1D_constant_layer(network, [strides[i]])
+
+        zero_tensor = add_1D_constant_layer(network, [0])
+
+        if isinstance(starts, trt.ITensor) or isinstance(ends, trt.ITensor):
+            is_start_neg = trt_less(network, start_tensor, zero_tensor)
+            is_end_neg = trt_less(network, end_tensor, zero_tensor)
+            temp_has_neg = network.add_elementwise(
+                is_start_neg, is_end_neg, trt.ElementWiseOperation.OR
+            ).get_output(0)
+            if not has_neg_indices:
+                has_neg_indices = temp_has_neg
+            else:
+                has_neg_indices = network.add_elementwise(
+                    has_neg_indices, temp_has_neg, trt.ElementWiseOperation.OR
+                ).get_output(0)
+        else:
+            if starts[i] < 0 or ends[i] < 0:
+                has_neg_indices = True
+
+        trt_start_tensors.append(start_tensor)
+        trt_end_tensors.append(end_tensor)
+        trt_stride_tensors.append(stride_tensor)
+
+    # Concatenate the tensors for start, end, and strides
     start_tensor = network.add_concatenation(trt_start_tensors).get_output(0)
     end_tensor = network.add_concatenation(trt_end_tensors).get_output(0)
     step_tensor = network.add_concatenation(trt_stride_tensors).get_output(0)
 
+    shape_tensor = network.add_shape(input_tensor).get_output(0)
+
     if has_neg_indices is True:
         start_tensor = fix_negative_indices(network, shape_tensor, start_tensor)
-        end_tensor = fix_negative_indices(network, shape_tensor, end_tensor)
     elif isinstance(has_neg_indices, trt.ITensor):
         fixed_start_tensor = fix_negative_indices(
             network, shape_tensor, start_tensor
@@ -832,6 +825,11 @@ def strided_slice_converter(network, paddle_op, inputs):
             then_input=fixed_start_tensor,
             else_input=start_tensor,
         ).get_output(0)
+
+    # Process end_tensor similarly to handle negative indices
+    if has_neg_indices is True:
+        end_tensor = fix_negative_indices(network, shape_tensor, end_tensor)
+    elif isinstance(has_neg_indices, trt.ITensor):
         fixed_end_tensor = fix_negative_indices(
             network, shape_tensor, end_tensor
         )
@@ -841,16 +839,16 @@ def strided_slice_converter(network, paddle_op, inputs):
             else_input=end_tensor,
         ).get_output(0)
 
+    # Compute min_tensor
     min_tensor = trt_min(network, end_tensor, shape_tensor)
-    size_tensor = trt_sub(network, min_tensor, start_tensor)
+    # Correct size_tensor calculation
+    size_tensor = trt_sub(network, start_tensor, min_tensor)
 
+    # floor_div_tensor computation
     floor_div_tensor = trt_floor_div(network, size_tensor, step_tensor)
-    size_tensor = floor_div_tensor
+    size_tensor = trt_sub(network, zero_tensor, floor_div_tensor)
 
-    trt_start_dims = [0] * nchw_input_dims
-    trt_size_dims = [input_shape[i] for i in range(nchw_input_dims)]
-    trt_step_dims = [1] * nchw_input_dims
-
+    # Create the slice layer
     layer = network.add_slice(
         input_tensor, trt_start_dims, trt_size_dims, trt_step_dims
     )
