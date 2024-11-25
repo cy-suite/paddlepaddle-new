@@ -43,22 +43,19 @@ namespace phi {
 namespace fusion {
 
 template <typename T, typename Context>
-void FusedMoeKernel(const Context& ctx,
+void MoeFFNKernel(const Context& ctx,
                     const DenseTensor& X,
-                    const DenseTensor& gate_weight,
+                    const DenseTensor& rows_per_expert,
                     const DenseTensor& ffn1_weight,
                     const paddle::optional<DenseTensor>& ffn1_scale,
                     const paddle::optional<DenseTensor>& ffn1_bias,
                     const DenseTensor& ffn2_weight,
                     const paddle::optional<DenseTensor>& ffn2_scale,
-                    const paddle::optional<DenseTensor>& ffn2_bias,
                     const std::string& quant_method,
-                    const int moe_topk,
-                    const bool group_moe,
-                    const bool norm_topk_prob,
-                    DenseTensor* out) {
-  out->Resize(X.dims());
-  auto* output_data = ctx.template Alloc<T>(out);
+                    DenseTensor* ffn_out) {
+  ffn_out->Resize(X.dims());
+  auto* ffn_out_data = ctx.template Alloc<T>(ffn_out);
+  auto permuted_data_ = X.data<T>();
 
   auto fp16_moe_gemm_runner =
       MoeGemmRunner<typename phi::PDDataTypeTraits<T>::DataType,
@@ -68,43 +65,80 @@ void FusedMoeKernel(const Context& ctx,
   auto int4_moe_gemm_runner =
       MoeGemmRunner<typename phi::PDDataTypeTraits<T>::DataType,
                     cutlass::uint4b_t>();
+    
 
-  auto moe_compute = MoeHelper<T>(ctx,
-                                  quant_method,
-                                  &fp16_moe_gemm_runner,
-                                  &int8_moe_gemm_runner,
-                                  &int4_moe_gemm_runner);
+    const int64_t expanded_active_expert_rows = X.dims()[0];
+    const int num_experts = ffn1_weight.dims()[0];
+    const int hidden_size = ffn1_weight.dims()[1];
+    const int inter_size = ffn1_weight.dims()[2];
+    DenseTensor fc1_out_tensor = Empty<T>(ctx, {expanded_active_expert_rows, inter_size});
+    T *fc1_out = fc1_out_tensor.data<T>();
+    using NvType = typename phi::PDDataTypeTraits<T>::DataType;
 
-  moe_compute.ComputeFFN(&X,
-                         &gate_weight,
-                         &ffn1_weight,
-                         ffn1_scale ? ffn1_scale.get_ptr() : nullptr,
-                         ffn1_bias ? ffn1_bias.get_ptr() : nullptr,
-                         &ffn2_weight,
-                         ffn2_scale ? ffn2_scale.get_ptr() : nullptr,
-                         ffn2_bias ? ffn2_bias.get_ptr() : nullptr,
-                         nullptr,
-                         moe_topk,
-                         group_moe,
-                         norm_topk_prob,
-                         "ffn",
-                         out);
+    const T *fc1_expert_biases = ffn1_bias ? ffn1_bias->data<T>() : nullptr;
+
+    if (quant_method == "weight_only_int8") {
+    } else if (quant_method == "weight_only_int4") {
+    } else {
+      fp16_moe_gemm_runner.moe_gemm_bias_act(
+          reinterpret_cast<const NvType *>(permuted_data_),
+          reinterpret_cast<const NvType *>(ffn1_weight.data<T>()),
+          nullptr,
+          reinterpret_cast<const NvType *>(fc1_expert_biases),
+          reinterpret_cast<NvType *>(fc1_out),
+          (int64_t*)rows_per_expert.data<int64_t>(),
+          expanded_active_expert_rows,
+          inter_size,
+          hidden_size,
+          num_experts,
+          "none",
+          ctx.stream());
+    }
+    
+    const int num_rows = expanded_active_expert_rows;
+    
+      DenseTensor act_out_tensor =
+          Empty<T>(ctx, {num_rows, inter_size / 2});
+      T *act_out = act_out_tensor.data<T>();
+
+      const std::string act_type = "swiglu";
+      auto bias_act_helper =
+          BiasActHelper<T>(ctx, act_type, num_rows, inter_size);
+
+      bias_act_helper.Compute(&fc1_out_tensor, nullptr, &act_out_tensor);
+
+      if (quant_method == "weight_only_int8") {
+      } else if (quant_method == "weight_only_int4") {
+      } else {
+        fp16_moe_gemm_runner.moe_gemm(
+            reinterpret_cast<NvType *>(act_out),
+            reinterpret_cast<const NvType *>(ffn2_weight.data<T>()),
+            nullptr,
+            reinterpret_cast<NvType *>(ffn_out_data),
+            (int64_t*)rows_per_expert.data<int64_t>(),
+            expanded_active_expert_rows,
+            hidden_size,
+            inter_size / 2,
+            num_experts,
+            ctx.stream());
+      }
+
 }
 
 }  // namespace fusion
 }  // namespace phi
 
 #ifdef PADDLE_CUDA_BF16
-PD_REGISTER_KERNEL(fused_moe,
+PD_REGISTER_KERNEL(moe_ffn,
                    GPU,
                    ALL_LAYOUT,
-                   phi::fusion::FusedMoeKernel,
+                   phi::fusion::MoeFFNKernel,
                    phi::dtype::float16,
                    phi::dtype::bfloat16) {}
 #else
-PD_REGISTER_KERNEL(fused_moe,
+PD_REGISTER_KERNEL(moe_ffn,
                    GPU,
                    ALL_LAYOUT,
-                   phi::fusion::FusedMoeKernel,
+                   phi::fusion::MoeFFNKernel,
                    phi::dtype::float16) {}
 #endif

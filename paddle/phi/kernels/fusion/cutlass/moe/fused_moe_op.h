@@ -56,6 +56,97 @@ namespace phi {
 // We have our own implementation of softmax here so we can support transposing
 // the output in the softmax kernel when we extend this module to support
 // expert-choice routing.
+template<typename T, int TPB>
+__launch_bounds__(TPB) __global__ void moe_group_softmax(const T* input, const bool* finished, T* output, const int num_cols, const int num_groups, const int group_size) {
+  using BlockReduce = cub::BlockReduce<float, TPB>;
+  __shared__ typename BlockReduce::TempStorage tmpStorage;
+
+  extern __shared__ float shared_mem[];
+  float* probs = shared_mem;
+
+  __shared__ float normalizing_factor;
+  __shared__ float float_max;
+
+  const int thread_row_offset = blockIdx.x * num_cols;
+
+  // Don't process finished rows.
+  if ((finished != nullptr) && finished[blockIdx.x]) {
+    return;
+  }
+
+  for (int group_idx = 0; group_idx < num_groups; ++group_idx) {
+    // compute max
+    float threadData = -FLT_MAX;
+
+    if (threadIdx.x < group_size) {
+      int idx = thread_row_offset + group_idx * group_size + threadIdx.x;
+      threadData = static_cast<float>(input[idx]);
+    } else {
+      threadData = -FLT_MAX;
+    }
+
+    float maxElem = BlockReduce(tmpStorage).Reduce(threadData, cub::Max());
+    __syncthreads();
+
+    // braodcast
+    if (threadIdx.x == 0) {
+      float_max = maxElem;
+    }
+    __syncthreads();
+
+    // compute exp
+    if (threadIdx.x < group_size) {
+      int idx = thread_row_offset + group_idx * group_size + threadIdx.x;
+      float val = exp(static_cast<float>(input[idx]) - float_max);
+      threadData = val;
+    } else {
+      threadData = 0.0f;
+    }
+
+    float sumExp = BlockReduce(tmpStorage).Reduce(threadData, cub::Sum());
+    __syncthreads();
+
+    // broadcast 
+    if (threadIdx.x == 0) {
+      normalizing_factor = 1.f / sumExp;
+    }
+    __syncthreads();
+
+    // Step 3: Compute softmax probabilities and store in probs
+    if (threadIdx.x < group_size) {
+      int idx = thread_row_offset + group_idx * group_size + threadIdx.x;
+      float val = exp(static_cast<float>(input[idx]) - float_max) * normalizing_factor;
+      probs[threadIdx.x] = val;
+    }
+    __syncthreads();
+
+    // find the max in group
+    if (threadIdx.x < group_size) {
+      threadData = probs[threadIdx.x];
+    } else {
+      threadData = -FLT_MAX;
+    }
+
+    float maxProb = BlockReduce(tmpStorage).Reduce(threadData, cub::Max());
+    __syncthreads();
+
+    // broadcast 
+    if (threadIdx.x == 0) {
+      float_max = maxProb; // Reuse float_max variable
+    }
+    __syncthreads();
+
+    // Step 5: divide maxProb
+    if (threadIdx.x < group_size) {
+      int idx = thread_row_offset + group_idx * group_size + threadIdx.x;
+      float val = probs[threadIdx.x] / float_max;
+      output[idx] = T(val);
+    }
+    __syncthreads();
+  }
+}
+
+
 template <typename T, int TPB>
 __launch_bounds__(TPB) __global__ void moe_softmax(const T* input,
                                                    const bool* finished,
@@ -457,84 +548,21 @@ void topk_gating_softmax_kernelLauncher(const T* input,
                                         const int num_rows,
                                         const int num_experts,
                                         const int k,
+                                        const bool group_moe,
                                         cudaStream_t stream) {
   static constexpr int WARPS_PER_TB = 4;
-
-  switch (num_experts) {
-    case 2: {
-      topk_gating_softmax_launcher_helper<T, 2, WARPS_PER_TB>(input,
-                                                              finished,
-                                                              output,
-                                                              indices,
-                                                              source_row,
-                                                              num_rows,
-                                                              num_experts,
-                                                              k,
-                                                              stream);
-      break;
-    }
-    case 4: {
-      topk_gating_softmax_launcher_helper<T, 4, WARPS_PER_TB>(input,
-                                                              finished,
-                                                              output,
-                                                              indices,
-                                                              source_row,
-                                                              num_rows,
-                                                              num_experts,
-                                                              k,
-                                                              stream);
-      break;
-    }
-    case 8: {
-      topk_gating_softmax_launcher_helper<T, 8, WARPS_PER_TB>(input,
-                                                              finished,
-                                                              output,
-                                                              indices,
-                                                              source_row,
-                                                              num_rows,
-                                                              num_experts,
-                                                              k,
-                                                              stream);
-      break;
-    }
-    case 16: {
-      topk_gating_softmax_launcher_helper<T, 16, WARPS_PER_TB>(input,
-                                                               finished,
-                                                               output,
-                                                               indices,
-                                                               source_row,
-                                                               num_rows,
-                                                               num_experts,
-                                                               k,
-                                                               stream);
-      break;
-    }
-    case 32: {
-      topk_gating_softmax_launcher_helper<T, 32, WARPS_PER_TB>(input,
-                                                               finished,
-                                                               output,
-                                                               indices,
-                                                               source_row,
-                                                               num_rows,
-                                                               num_experts,
-                                                               k,
-                                                               stream);
-      break;
-    }
-    case 64: {
-      topk_gating_softmax_launcher_helper<T, 64, WARPS_PER_TB>(input,
-                                                               finished,
-                                                               output,
-                                                               indices,
-                                                               source_row,
-                                                               num_rows,
-                                                               num_experts,
-                                                               k,
-                                                               stream);
-      break;
-    }
-    case 128: {
-      topk_gating_softmax_launcher_helper<T, 128, WARPS_PER_TB>(input,
+  static constexpr int TPB = 256;
+  if (group_moe) {
+    const int group_size = num_experts / k;
+    const int softmax_num_rows = num_rows * k;
+    size_t shared_mem_size = group_size * sizeof(T); 
+    moe_group_softmax<T, TPB><<<softmax_num_rows, TPB, shared_mem_size, stream>>>(input, finished, softmax, num_experts, k, group_size);
+    moe_top_k<T, TPB><<<num_rows, TPB, 0, stream>>>(
+            softmax, finished, output, indices, source_row, num_experts, k);
+  } else {
+    switch (num_experts) {
+      case 2: {
+        topk_gating_softmax_launcher_helper<T, 2, WARPS_PER_TB>(input,
                                                                 finished,
                                                                 output,
                                                                 indices,
@@ -543,10 +571,10 @@ void topk_gating_softmax_kernelLauncher(const T* input,
                                                                 num_experts,
                                                                 k,
                                                                 stream);
-      break;
-    }
-    case 256: {
-      topk_gating_softmax_launcher_helper<T, 256, WARPS_PER_TB>(input,
+        break;
+      }
+      case 4: {
+        topk_gating_softmax_launcher_helper<T, 4, WARPS_PER_TB>(input,
                                                                 finished,
                                                                 output,
                                                                 indices,
@@ -555,16 +583,96 @@ void topk_gating_softmax_kernelLauncher(const T* input,
                                                                 num_experts,
                                                                 k,
                                                                 stream);
-      break;
-    }
-    default: {
-      static constexpr int TPB = 256;
-      moe_softmax<T, TPB>
-          <<<num_rows, TPB, 0, stream>>>(input, finished, softmax, num_experts);
-      moe_top_k<T, TPB><<<num_rows, TPB, 0, stream>>>(
-          softmax, finished, output, indices, source_row, num_experts, k);
+        break;
+      }
+      case 8: {
+        topk_gating_softmax_launcher_helper<T, 8, WARPS_PER_TB>(input,
+                                                                finished,
+                                                                output,
+                                                                indices,
+                                                                source_row,
+                                                                num_rows,
+                                                                num_experts,
+                                                                k,
+                                                                stream);
+        break;
+      }
+      case 16: {
+        topk_gating_softmax_launcher_helper<T, 16, WARPS_PER_TB>(input,
+                                                                finished,
+                                                                output,
+                                                                indices,
+                                                                source_row,
+                                                                num_rows,
+                                                                num_experts,
+                                                                k,
+                                                                stream);
+        break;
+      }
+      case 32: {
+        topk_gating_softmax_launcher_helper<T, 32, WARPS_PER_TB>(input,
+                                                                finished,
+                                                                output,
+                                                                indices,
+                                                                source_row,
+                                                                num_rows,
+                                                                num_experts,
+                                                                k,
+                                                                stream);
+        break;
+      }
+      case 64: {
+        topk_gating_softmax_launcher_helper<T, 64, WARPS_PER_TB>(input,
+                                                                finished,
+                                                                output,
+                                                                indices,
+                                                                source_row,
+                                                                num_rows,
+                                                                num_experts,
+                                                                k,
+                                                                stream);
+        break;
+      }
+      case 128: {
+        topk_gating_softmax_launcher_helper<T, 128, WARPS_PER_TB>(input,
+                                                                  finished,
+                                                                  output,
+                                                                  indices,
+                                                                  source_row,
+                                                                  num_rows,
+                                                                  num_experts,
+                                                                  k,
+                                                                  stream);
+        break;
+      }
+      case 256: {
+        topk_gating_softmax_launcher_helper<T, 256, WARPS_PER_TB>(input,
+                                                                  finished,
+                                                                  output,
+                                                                  indices,
+                                                                  source_row,
+                                                                  num_rows,
+                                                                  num_experts,
+                                                                  k,
+                                                                  stream);
+        break;
+      }
+      default: {
+        // if (split) {
+        //   // 拆分算子，softmax在外面进行计算
+          moe_top_k<T, TPB><<<num_rows, TPB, 0, stream>>>(
+            input, finished, output, indices, source_row, num_experts, k);
+        // } else {
+          // moe_softmax<T, TPB>
+          //   <<<num_rows, TPB, 0, stream>>>(input, finished, softmax, num_experts);
+          // moe_top_k<T, TPB><<<num_rows, TPB, 0, stream>>>(
+          //   softmax, finished, output, indices, source_row, num_experts, k);
+        // }
+          
+      }
     }
   }
+
 }
 
 // ========================== Permutation things
@@ -777,18 +885,17 @@ void finalize_moe_routing_kernelLauncher(
     cudaStream_t stream) {
   const int blocks = num_rows;
   const int threads = std::min(cols, 1024);
-
-  finalize_moe_routing_kernel<T, 1>
-      <<<blocks, threads, 0, stream>>>(expanded_permuted_rows,
-                                       reduced_unpermuted_output,
-                                       bias,
-                                       scales,
-                                       expanded_source_row_to_expanded_dest_row,
-                                       expert_for_source_row,
-                                       cols,
-                                       k,
-                                       compute_bias,
-                                       norm_topk_prob);
+    finalize_moe_routing_kernel<T, 1>
+    <<<blocks, threads, 0, stream>>>(expanded_permuted_rows,
+                                      reduced_unpermuted_output,
+                                      bias,
+                                      scales,
+                                      expanded_source_row_to_expanded_dest_row,
+                                      expert_for_source_row,
+                                      cols,
+                                      k,
+                                      compute_bias,
+                                      norm_topk_prob);
 }
 
 // ========================= TopK Softmax specializations
@@ -802,7 +909,9 @@ template void topk_gating_softmax_kernelLauncher(const float*,
                                                  const int,
                                                  const int,
                                                  const int,
+                                                 const bool,
                                                  cudaStream_t);
+
 template void topk_gating_softmax_kernelLauncher(const half*,
                                                  const bool*,
                                                  half*,
@@ -812,6 +921,7 @@ template void topk_gating_softmax_kernelLauncher(const half*,
                                                  const int,
                                                  const int,
                                                  const int,
+                                                 const bool,
                                                  cudaStream_t);
 #ifdef PADDLE_CUDA_BF16
 template void topk_gating_softmax_kernelLauncher(const __nv_bfloat16*,
@@ -823,6 +933,7 @@ template void topk_gating_softmax_kernelLauncher(const __nv_bfloat16*,
                                                  const int,
                                                  const int,
                                                  const int,
+                                                 const bool,
                                                  cudaStream_t);
 #endif
 // ===================== Specializations for init routing

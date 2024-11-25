@@ -132,6 +132,7 @@ class MoeHelper {
                   const DenseTensor *ffn2_bias,
                   const DenseTensor *moe_token_type_ids,
                   const int moe_topk,
+                  const bool group_moe,
                   const bool norm_topk_prob,
                   const std::string moe_type,
                   DenseTensor *output) {
@@ -232,7 +233,7 @@ class MoeHelper {
     DenseTensor fc1_out_tensor = Empty<T>(ctx, {num_rows * k, inter_size});
     T *fc1_out = fc1_out_tensor.data<T>();
 
-    VLOG(4) << " gemm_method_ :" << gemm_method_;
+    VLOG(4) << " gemm method is :" << gemm_method_<< ". group_moe is :"<< group_moe;
 
     DenseTensor mixgemm_workspace;
     auto gate_compute = GEMMHelper<float>(
@@ -269,6 +270,7 @@ class MoeHelper {
                                               num_rows,
                                               num_experts,
                                               k,
+                                              group_moe,
                                               ctx.stream());
 
     const int sorter_ws_size_bytes =
@@ -418,7 +420,7 @@ class MoeHelper {
           hidden_size,
           k,
           static_cast<int>(1),
-          norm_topk_prob,
+          norm_topk_prob,          
           ctx.stream());
     } else {
       finalize_moe_routing_kernelLauncher(
