@@ -925,3 +925,18 @@ def roll_converter(network, paddle_op, inputs):
             )
 
     return layer.get_output(0)
+
+
+@converter_registry.register("pd_op.pad", trt_version="8.x")
+def pad_converter(network, paddle_op, inputs):
+    input_tensor = inputs[0]
+    paddings = paddle_op.attrs()["paddings"]
+    pad_size = len(paddings)
+    pre_pad = [paddings[pad_size - 4], paddings[pad_size - 2]]
+    post_pad = [paddings[pad_size - 3], paddings[pad_size - 1]]
+    pre_pad_dims = trt.DimsHW(*pre_pad)
+    post_pad_dims = trt.DimsHW(*post_pad)
+    layer = network.add_padding_nd(input_tensor, pre_pad_dims, post_pad_dims)
+    if not layer:
+        raise RuntimeError("Failed to add padding layer to TensorRT network.")
+    return layer.get_output(0)
