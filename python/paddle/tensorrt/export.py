@@ -659,7 +659,6 @@ def convert_loaded_model(model_dir, config):
                 )
             )
     else:
-        paddle.base.framework.global_var._use_pir_api_ = False
         with paddle.pir_utils.OldIrGuard():
             os.environ['FLAGS_enable_pir_in_executor'] = '1'
             [program, feed_target_names, fetch_targets] = (
@@ -668,5 +667,6 @@ def convert_loaded_model(model_dir, config):
                     executor=exe,
                 )
             )
+            os.environ['FLAGS_enable_pir_in_executor'] = '0'
 
     return convert_to_trt(program, config, scope)
