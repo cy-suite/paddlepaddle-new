@@ -69,6 +69,9 @@ struct CombineOpInferSymbolicShapeInterfaceModel
       infer_context->SetShapeOrDataForValue(op->result(0), shape_data);
       return true;
     } else if (op->operand(0).type().dyn_cast<DenseTensorArrayType>()) {
+      // Note: Return NullShapeOrDataDimExpr for CombineOp with all
+      // DenseTensorArrayType. The logic is designed for add_n_array op.
+      // Actually RankedTensorArrayListShapeOrDataDimExprs is better.
       for (size_t i = 0; i < op->num_operands(); ++i) {
         PADDLE_ENFORCE_NOT_NULL(
             op->operand(i).type().dyn_cast<DenseTensorArrayType>(),

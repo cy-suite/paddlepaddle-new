@@ -596,6 +596,8 @@ bool AddNArrayOp::InferSymbolicShape(
     pir::InferSymbolicShapeContext *infer_context) {
   const auto &inputs_shape_or_data =
       infer_context->GetShapeOrDataForValue(inputs());
+  // The inputs for add_n_array op is defined by builtin.combine.
+  // We use the combine op's inputs to infer the output shape.
   if (inputs_shape_or_data.isa<symbol::NullShapeOrDataDimExpr>()) {
     auto out_shape_or_data = infer_context->GetShapeOrDataForValue(
         inputs()
@@ -604,8 +606,10 @@ bool AddNArrayOp::InferSymbolicShape(
             .operand_source(0));
     infer_context->SetShapeOrDataForValue(out(), out_shape_or_data);
     return true;
+  } else {
+    PADDLE_THROW(common::errors::InvalidArgument(
+        "The inputs for add_n_array op only defined by builtin.combine"));
   }
-  return false;
 }
 
 const char *FusedGemmEpilogueOp::attributes_name[3] = {  // NOLINT
