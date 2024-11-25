@@ -325,6 +325,62 @@ class TestDLPack(unittest.TestCase):
                     np.testing.assert_array_equal(x.numpy(), y1.numpy())
                     np.testing.assert_array_equal(x.numpy(), y2.numpy())
 
+    def test__dlpack_basic(self):
+        with dygraph_guard():
+            tensor = paddle.to_tensor(np.array([1, 2, 3, 4]).astype("int"))
+            dlpack_from_method = tensor.__dlpack__()
+            out_from_dlpack = paddle.utils.dlpack.from_dlpack(dlpack_from_method)
+
+            self.assertTrue(isinstance(out_from_dlpack, paddle.base.core.eager.Tensor))
+            self.assertEqual(str(tensor.place), str(out_from_dlpack.place))
+            np.testing.assert_array_equal(
+                out_from_dlpack.numpy(), np.array([1, 2, 3, 4]).astype("int")
+            )
+
+    def test__dlpack_consistency_with_to_dlpack(self):
+        with dygraph_guard():
+            tensor = paddle.to_tensor(np.random.rand(4, 5).astype("float32"))
+            dlpack_via_method = tensor.__dlpack__()
+            dlpack_via_func = paddle.to_dlpack(tensor)
+
+            self.assertEqual(dlpack_via_method.__dlpack_device__, dlpack_via_func.__dlpack_device__)
+            self.assertEqual(dlpack_via_method.__dlpack_dtype__, dlpack_via_func.__dlpack_dtype__)
+
+            out_from_method = paddle.from_dlpack(dlpack_via_method)
+            out_from_func = paddle.from_dlpack(dlpack_via_func)
+
+            np.testing.assert_allclose(out_from_method.numpy(), out_from_func.numpy(), rtol=1e-05)
+
+    def test__dlpack_on_special_cases(self):
+        with dygraph_guard():
+            zero_dim_tensor = paddle.to_tensor(1.0)
+            dlpack = zero_dim_tensor.__dlpack__()
+            out_from_dlpack = paddle.from_dlpack(dlpack)
+            self.assertEqual(out_from_dlpack.shape, [])
+            np.testing.assert_array_equal(zero_dim_tensor.numpy(), out_from_dlpack.numpy())
+
+            empty_tensor = paddle.zeros([0, 10])
+            dlpack = empty_tensor.__dlpack__()
+            out_from_dlpack = paddle.from_dlpack(dlpack)
+            self.assertEqual(out_from_dlpack.shape, [0, 10])
+            np.testing.assert_array_equal(empty_tensor.numpy(), out_from_dlpack.numpy())
+
+    def test__dlpack_on_different_devices_and_dtypes(self):
+        with dygraph_guard():
+            dtypes = ["float32", "int32", "bool"]
+            places = [base.CPUPlace()]
+            if paddle.is_compiled_with_cuda():
+                places.append(base.CUDAPlace(0))
+
+            for dtype in dtypes:
+                for place in places:
+                    tensor = paddle.ones([3, 4], dtype=dtype)
+                    dlpack = tensor.__dlpack__()
+                    out = paddle.from_dlpack(dlpack)
+                    self.assertEqual(str(tensor.place), str(out.place))
+                    self.assertEqual(tensor.dtype, out.dtype)
+                    np.testing.assert_array_equal(tensor.numpy(), out.numpy())
+
 
 class TestRaiseError(unittest.TestCase):
     def test_to_dlpack_raise_type_error(self):

@@ -446,6 +446,28 @@ void BindTensor(pybind11::module &m) {  // NOLINT
                 });
             return capsule;
           })
+      .def(
+          "__dlpack__",
+          [](phi::DenseTensor &self) {
+              DLManagedTensor *dlMTensor = framework::toDLPack(self);
+              return pybind11::capsule(
+                  dlMTensor,
+                  "dltensor",
+                  [](PyObject *capsule) {
+                      DLManagedTensor *managedTensor =
+                          reinterpret_cast<DLManagedTensor *>(
+                              PyCapsule_GetPointer(capsule, "dltensor"));
+                      if (managedTensor && managedTensor->deleter) {
+                          managedTensor->deleter(managedTensor);
+                      }
+                  });
+          },
+          R"DOC(
+          Encode the tensor to a DLPack capsule.
+
+          Returns:
+              PyCapsule: The DLPack representation of the tensor.
+          )DOC")
       .def("_set_float_element", TensorSetElement<float>)
       .def("_get_float_element", TensorGetElement<float>)
       .def("_set_double_element", TensorSetElement<double>)

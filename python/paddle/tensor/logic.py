@@ -1275,10 +1275,6 @@ def bitwise_and(
 
 
 def __rand__(x: Tensor, y: int | bool):
-<<<<<<< HEAD
-    y_tensor = paddle.to_tensor(y, dtype=x.dtype)
-    return bitwise_and(y_tensor, x, None, None)
-=======
     if isinstance(y, (int, bool)):
         y_tensor = paddle.to_tensor(y, dtype=x.dtype)
         return bitwise_and(y_tensor, x, None, None)
@@ -1286,7 +1282,6 @@ def __rand__(x: Tensor, y: int | bool):
         raise TypeError(
             f"unsupported operand type(s) for |: '{type(y).__name__}' and 'Tensor'"
         )
->>>>>>> ceccbf37b1a1119e8d3f699c94a4e503f3bac16d
 
 
 @inplace_apis_in_dygraph_only

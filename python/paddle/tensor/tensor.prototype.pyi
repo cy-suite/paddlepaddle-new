@@ -302,6 +302,17 @@ class AbstractTensor:
 
     # annotation: ${tensor_alias}
 
+class AbstractTensor:
+    # Existing methods...
+
+    # DLPack method
+    def __dlpack__(self) -> Any: ...
+
+    # Example of other methods for context
+    def numpy(self) -> npt.NDArray[Any]: ...
+    @property
+    def place(self) -> paddle.core.Place: ...
+
 class Tensor(AbstractTensor, AbstractEagerParamBase):
     # annotation: ${tensor_docstring}
 
