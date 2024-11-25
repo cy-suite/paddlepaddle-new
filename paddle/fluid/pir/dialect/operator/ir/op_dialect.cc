@@ -49,25 +49,43 @@ struct CombineOpInferSymbolicShapeInterfaceModel
     : public InferSymbolicShapeInterface::Concept {
   static inline bool InferSymbolicShape(
       pir::Operation* op, pir::InferSymbolicShapeContext* infer_context) {
-    const auto shape_data_list = [&] {
-      symbol::TensorListShapeOrDataDimExprs shape_data_list;
+    if (op->operand(0).type().dyn_cast<DenseTensorType>()) {
+      const auto shape_data_list = [&] {
+        symbol::TensorListShapeOrDataDimExprs shape_data_list;
+        for (size_t i = 0; i < op->num_operands(); ++i) {
+          PADDLE_ENFORCE_NOT_NULL(
+              op->operand(i).type().dyn_cast<DenseTensorType>(),
+              common::errors::InvalidArgument(
+                  "Currently InferSymbolicShape of CombineOp only support "
+                  "DenseTensorType or DenseTensorArrayType."));
+
+          shape_data_list.emplace_back(
+              infer_context->GetShapeOrDataForValue(op->operand_source(i))
+                  .dyn_cast<symbol::TensorShapeOrDataDimExprs>());
+        }
+        return shape_data_list;
+      }();
+      symbol::ShapeOrDataDimExprs shape_data{shape_data_list};
+      infer_context->SetShapeOrDataForValue(op->result(0), shape_data);
+      return true;
+    } else if (op->operand(0).type().dyn_cast<DenseTensorArrayType>()) {
       for (size_t i = 0; i < op->num_operands(); ++i) {
         PADDLE_ENFORCE_NOT_NULL(
-            op->operand(i).type().dyn_cast<DenseTensorType>(),
+            op->operand(i).type().dyn_cast<DenseTensorArrayType>(),
             common::errors::InvalidArgument(
                 "Currently InferSymbolicShape of CombineOp only support "
-                "DenseTensorType."));
-
-        shape_data_list.emplace_back(
-            infer_context->GetShapeOrDataForValue(op->operand_source(i))
-                .dyn_cast<symbol::TensorShapeOrDataDimExprs>());
+                "DenseTensorType or DenseTensorArrayType."));
       }
-      return shape_data_list;
-    }();
 
-    symbol::ShapeOrDataDimExprs shape_data{shape_data_list};
-    infer_context->SetShapeOrDataForValue(op->result(0), shape_data);
-    return true;
+      infer_context->SetShapeOrDataForValue(
+          op->result(0),
+          symbol::ShapeOrDataDimExprs{symbol::NullShapeOrDataDimExpr()});
+      return true;
+    } else {
+      PADDLE_THROW(common::errors::InvalidArgument(
+          "Currently InferSymbolicShape of CombineOp only support "
+          "DenseTensorType or DenseTensorArrayType."));
+    }
   }
 
   CombineOpInferSymbolicShapeInterfaceModel()

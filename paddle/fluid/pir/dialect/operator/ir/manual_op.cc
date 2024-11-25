@@ -592,6 +592,22 @@ std::vector<pir::Type> AddNArrayOp::InferMeta(
   return argument_outputs;
 }
 
+bool AddNArrayOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &inputs_shape_or_data =
+      infer_context->GetShapeOrDataForValue(inputs());
+  if (inputs_shape_or_data.isa<symbol::NullShapeOrDataDimExpr>()) {
+    auto out_shape_or_data = infer_context->GetShapeOrDataForValue(
+        inputs()
+            .defining_op()
+            .dyn_cast<paddle::dialect::CombineOp>()
+            .operand_source(0));
+    infer_context->SetShapeOrDataForValue(out(), out_shape_or_data);
+    return true;
+  }
+  return false;
+}
+
 const char *FusedGemmEpilogueOp::attributes_name[3] = {  // NOLINT
     "trans_x",
     "trans_y",
