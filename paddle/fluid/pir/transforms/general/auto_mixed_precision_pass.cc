@@ -793,8 +793,7 @@ class AutoMixedPrecisionPass : public pir::Pass {
               {3, "saved_mean"},
               {4, "saved_variance"}}},
             {"pd_op.layer_norm", {{1, "mean"}, {2, "variance"}}},
-            {"pd_op.instance_norm", {{1, "mean"}, {2, "variance"}}},
-            {"pd_op.clip", {{0, "out"}}}};
+            {"pd_op.instance_norm", {{1, "mean"}, {2, "variance"}}}};
 
     auto it = op_output_indices.find(op->name());
     if (it != op_output_indices.end()) {
