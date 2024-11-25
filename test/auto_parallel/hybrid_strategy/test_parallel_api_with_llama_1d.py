@@ -33,13 +33,13 @@ class TestShardingParallelAPI(test_base.CommunicationTestDistBase):
             "backend": ["gpu"],
             "amp": ["true"],
             "amp_level": ["O2"],
-            "amp_dtype": [
-                "bfloat16",
+            "amp_dtype": ["bfloat16"],
+            "amp_master_grad": ["False"],
+            "sharding_stage": ["0", "1"],
+            "test_share_embedding": [
+                "1",
             ],
-            "amp_master_grad": [
-                "False",
-            ],
-            "sharding_stage": [
+            "test_position_embedding": [
                 "1",
             ],
         }
@@ -73,11 +73,14 @@ class TestPipelineParallelAPI(test_base.CommunicationTestDistBase):
             "backend": ["gpu"],
             "amp": ["true"],
             "amp_level": ["O2"],
-            "amp_dtype": [
-                "bfloat16",
+            "amp_dtype": ["bfloat16"],
+            "amp_master_grad": ["False"],
+            "num_hidden_layers": ["2", "4"],
+            "test_share_embedding": [
+                "0",
             ],
-            "amp_master_grad": [
-                "False",
+            "test_position_embedding": [
+                "1",
             ],
         }
 
@@ -115,6 +118,12 @@ class TestTensorParallelAPI(test_base.CommunicationTestDistBase):
             "use_lazy_init": ["true", "false"],
             "sequence_parallel": ["true", "false"],
             "prepare_input_output": ["true", "false"],
+            "test_share_embedding": [
+                "0",
+            ],
+            "test_position_embedding": [
+                "1",
+            ],
         }
 
     def test_simple_net_mp2(self):

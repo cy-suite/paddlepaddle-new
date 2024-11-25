@@ -299,21 +299,23 @@ class TestMathOpPatches(unittest.TestCase):
         np.testing.assert_allclose(a_np.astype('float32'), b_np, rtol=1e-05)
 
     def test_bitwise_and(self):
+        temp = 2
         x_np = np.random.randint(-100, 100, [2, 3, 5]).astype("int32")
         y_np = np.random.randint(-100, 100, [2, 3, 5]).astype("int32")
         out_np = x_np & y_np
-
+        e_np = temp & x_np
         x = paddle.static.data(name="x", shape=[2, 3, 5], dtype="int32")
         y = paddle.static.data(name="y", shape=[2, 3, 5], dtype="int32")
         z = x & y
-
+        e = temp & x
         exe = base.Executor()
-        out = exe.run(
+        (out, e_out) = exe.run(
             base.default_main_program(),
             feed={"x": x_np, "y": y_np},
-            fetch_list=[z],
+            fetch_list=[z, e],
         )
-        np.testing.assert_array_equal(out[0], out_np)
+        np.testing.assert_array_equal(out, out_np)
+        np.testing.assert_array_equal(e_out, e_np)
 
     @prog_scope()
     def test_bitwise_or(self):
@@ -427,6 +429,22 @@ class TestMathOpPatches(unittest.TestCase):
         a = paddle.static.data(name='a', shape=[2, 3], dtype='float32')
         b = paddle.static.data(name='b', shape=[3, 5], dtype='float32')
         c = a @ b  # __matmul__
+        a_np = np.random.uniform(-1, 1, size=[2, 3]).astype('float32')
+        b_np = np.random.uniform(-1, 1, size=[3, 5]).astype('float32')
+        place = paddle.CPUPlace()
+        exe = paddle.static.Executor(place)
+        (c_np,) = exe.run(
+            paddle.static.default_main_program(),
+            feed={"a": a_np, "b": b_np},
+            fetch_list=[c],
+        )
+        np.testing.assert_allclose(a_np @ b_np, c_np, rtol=1e-05)
+
+    @prog_scope()
+    def test_rmatmul(self):
+        a = paddle.static.data(name='a', shape=[2, 3], dtype='float32')
+        b = paddle.static.data(name='b', shape=[3, 5], dtype='float32')
+        c = b.__rmatmul__(a)
         a_np = np.random.uniform(-1, 1, size=[2, 3]).astype('float32')
         b_np = np.random.uniform(-1, 1, size=[3, 5]).astype('float32')
         place = paddle.CPUPlace()
@@ -570,6 +588,16 @@ class TestDygraphMathOpPatches(unittest.TestCase):
         expect_out = self.np_a == self.np_b
         actual_out = self.tensor_a == self.np_b
         np.testing.assert_equal(actual_out, expect_out)
+        paddle.enable_static()
+
+    def test_dygraph_rmatmul(self):
+        paddle.disable_static()
+        a_np = np.random.random((2, 3)).astype(np.float32) * 100
+        b_np = np.random.random((3, 5)).astype(np.float32) * 100
+        a = paddle.to_tensor(a_np)
+        b = paddle.to_tensor(b_np)
+        c = b.__rmatmul__(a)
+        np.testing.assert_allclose(a @ b, c.numpy(), rtol=1e-5, atol=1e-5)
         paddle.enable_static()
 
 

@@ -1588,6 +1588,11 @@ PHI_DEFINE_EXPORTED_bool(logging_pir_py_code_dump_symbolic_dims,
                          false,
                          "whether dump symbolic dims into pir py code.");
 
+PHI_DEFINE_EXPORTED_bool(
+    pir_interpreter_record_stream_for_gc_cache,
+    false,
+    "whether PirInterpreter::RecordStreamForGC use cache strategy.");
+
 /**
  * Using PIR API in Python
  * Name: enable_pir_api
@@ -1682,14 +1687,6 @@ PHI_DEFINE_EXPORTED_bool(prim_check_ops,
 // `relu` and `mean` two ops in decompsition.
 PHI_DEFINE_EXPORTED_string(
     prim_forward_blacklist,
-    "",
-    "It controls the forward blacklist ops not to be decomposed.");
-
-// PIR and prim related FLAG
-// Example: If prim_backward_blacklist="relu_grad;mean_grad",
-// it will block the decompsitions of `relu` and `mean` backward grads.
-PHI_DEFINE_EXPORTED_string(
-    prim_backward_blacklist,
     "",
     "It controls the forward blacklist ops not to be decomposed.");
 
