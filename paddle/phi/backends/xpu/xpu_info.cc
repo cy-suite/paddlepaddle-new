@@ -101,11 +101,16 @@ int GetXPUCurrentDeviceId() {
 }
 
 void SetXPUDeviceId(int id) {
+  static int last_id = -1;
+  if (last_id == id) {
+    return;
+  }
   PADDLE_ENFORCE_LT(
       id,
       GetXPUDeviceCount(),
       common::errors::InvalidArgument("id must less than XPU count"));
   PADDLE_ENFORCE_XPU_SUCCESS(xpu_set_device(id));
+  last_id = id;
 }
 
 static inline std::vector<std::string> Split(std::string const& original,

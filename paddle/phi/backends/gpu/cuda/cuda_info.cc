@@ -245,6 +245,11 @@ const gpuDeviceProp &GetDeviceProperties(int id) {
 }
 
 void SetDeviceId(int id) {
+  static int last_id = -1;
+  if (last_id == id) {
+    return;
+  }
+
   // TODO(qijun): find a better way to cache the cuda device count
   PADDLE_ENFORCE_LT(id,
                     GetGPUDeviceCount(),
@@ -254,6 +259,7 @@ void SetDeviceId(int id) {
                         id,
                         GetGPUDeviceCount()));
   PADDLE_RETRY_CUDA_SUCCESS(cudaSetDevice(id));
+  last_id = id;
   VLOG(4) << "SetDeviceId " << id;
 }
 
