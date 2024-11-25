@@ -936,58 +936,57 @@ class CastOpPattern : public pir::OpRewritePattern<paddle::dialect::CastOp> {
   }
 };
 
-class PadOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::PadOp> {
+class PadOpPattern : public pir::OpRewritePattern<paddle::dialect::PadOp> {
  public:
-    using pir::OpRewritePattern<paddle::dialect::PadOp>::OpRewritePattern;
+  using pir::OpRewritePattern<paddle::dialect::PadOp>::OpRewritePattern;
 
-    bool MatchAndRewrite(paddle::dialect::PadOp op,
-                          pir::PatternRewriter &rewriter) const override {
-        if (op->HasAttribute(kCanRunTrtAttr) &&
-            op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-            return false;
-        }
-
-        // Check for the existence of the attributes pad_value and paddings
-        if (!op->HasAttribute("pad_value") || !op->HasAttribute("paddings")) {
-            VLOG(3) << "PadOp does not have necessary attributes 'pad_value' or 'paddings'.";
-            return false;
-        }
-
-        // Get pad_value and check if it is 0
-        auto pad_value = op->attribute<pir::FloatAttribute>("pad_value").data();
-        if (pad_value != 0.0f) {
-            VLOG(3) << "The pad layer of TRT only supports zero padding.";
-            return false;
-        }
-
-        // Get paddings and validate their size and contents
-        auto paddings = op->attribute<pir::ArrayAttribute>("paddings").AsVector();
-        if (paddings.empty()) {
-            VLOG(3) << "The paddings attribute is empty.";
-            return false;
-        }
-        int pad_size = paddings.size();
-        auto input_shape = op.operand_source(0)
-                               .type()
-                               .dyn_cast<paddle::dialect::DenseTensorType>()
-                               .dims();
-        int nbDims = input_shape.size();
-
-        // Checking the dimensions and content of paddings for compliance
-        if (nbDims < 2 || nbDims * 2 != pad_size) {
-            VLOG(3) << "The paddings size is invalid for the input dimensions.";
-            return false;
-        }
-        for (int i = 0; i < pad_size - 4; ++i) {
-            if (paddings[i].dyn_cast<pir::Int64Attribute>().data() != 0) {
-                VLOG(3) << "Only the last two dimensions can have non-zero paddings.";
-                return false;
-            }
-        }
-        op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-        return true;
+  bool MatchAndRewrite(paddle::dialect::PadOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
     }
+
+    // Check for the existence of the attributes pad_value and paddings
+    if (!op->HasAttribute("pad_value") || !op->HasAttribute("paddings")) {
+        VLOG(3) << "PadOp does not have necessary attributes 'pad_value' or 'paddings'.";
+      return false;
+    }
+
+    // Get pad_value and check if it is 0
+    auto pad_value = op->attribute<pir::FloatAttribute>("pad_value").data();
+    if (pad_value != 0.0f) {
+        VLOG(3) << "The pad layer of TRT only supports zero padding.";
+      return false;
+    }
+
+    // Get paddings and validate their size and contents
+    auto paddings = op->attribute<pir::ArrayAttribute>("paddings").AsVector();
+    if (paddings.empty()) {
+        VLOG(3) << "The paddings attribute is empty.";
+      return false;
+    }
+    int pad_size = paddings.size();
+    auto input_shape = op.operand_source(0)
+                           .type()
+                           .dyn_cast<paddle::dialect::DenseTensorType>()
+                           .dims();
+    int nbDims = input_shape.size();
+
+    // Checking the dimensions and content of paddings for compliance
+    if (nbDims < 2 || nbDims * 2 != pad_size) {
+        VLOG(3) << "The paddings size is invalid for the input dimensions.";
+      return false;
+    }
+    for (int i = 0; i < pad_size - 4; ++i) {
+      if (paddings[i].dyn_cast<pir::Int64Attribute>().data() != 0) {
+        VLOG(3) << "Only the last two dimensions can have non-zero paddings.";
+        return false;
+      }
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
 };
 
 class SplitOpPattern : public pir::OpRewritePattern<paddle::dialect::SplitOp> {
