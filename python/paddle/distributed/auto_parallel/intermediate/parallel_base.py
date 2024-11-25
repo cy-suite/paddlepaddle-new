@@ -69,6 +69,7 @@ class ParallelOptimizer:
         assert self.optimizer is not None
         if self.is_initialized:
             return self.optimizer
+
         # 1.replace optimizer parameters
         self.optimizer._parameter_list = parallelized_parameters
         if isinstance(parallelized_parameters[0], dict):
@@ -77,19 +78,20 @@ class ParallelOptimizer:
                 self.optimizer._add_param_group(param_group.copy())
         else:
             self.optimizer._param_groups = self.optimizer._parameter_list
+
         # 2.wrap with shard_optimizer
         mesh = fleet.auto.get_mesh()
         if self.level == "1":
             self.optimizer = dist.shard_optimizer(
-                self.optimizer, dist.ShardingStage1(mesh)
+                self.optimizer, dist.ShardingStage1("dp", mesh)
             )
         elif self.level == "2":
             self.optimizer = dist.shard_optimizer(
-                self.optimizer, dist.ShardingStage2(mesh)
+                self.optimizer, dist.ShardingStage2("dp", mesh)
             )
         elif self.level == "3":
             self.optimizer = dist.shard_optimizer(
-                self.optimizer, dist.ShardingStage3(mesh)
+                self.optimizer, dist.ShardingStage3("dp", mesh)
             )
         else:
             self.optimizer = dist.shard_optimizer(self.optimizer)
@@ -139,10 +141,53 @@ class ParallelModel:
         if self.sharding_parallelizer is not None:
             assert callable(self.sharding_parallelizer)
             self.model = self.sharding_parallelizer(self.model)
-
+        self._shard_all_param(self.model)
         self.is_parallelized = True
 
         return self.model
+
+    def _shard_all_param(self, model):
+        param_name_to_shard_param = {}
+
+        def shard_layer_param(layer):
+            if self.pp_parallelizer is not None:
+                assert hasattr(layer, "pipeline_stage_index")
+            layer_attrs = dir(layer)
+            for layer_attr in layer_attrs:
+                if getattr(layer, layer_attr) is not None and is_tensor(
+                    getattr(layer, layer_attr)
+                ):
+                    layer_tensor = getattr(layer, layer_attr)
+                    if not layer_tensor.is_dist():
+                        tensor_name = layer_tensor.name
+                        if tensor_name in param_name_to_shard_param:
+                            setattr(
+                                layer,
+                                layer_attr,
+                                param_name_to_shard_param[tensor_name],
+                            )
+                        else:
+                            ipp = (
+                                layer.pipeline_stage_index
+                                if hasattr(layer, "pipeline_stage_index")
+                                else 0
+                            )
+                            mesh = self.get_mesh(ipp)
+                            layer_tensor = dist.shard_tensor(
+                                layer_tensor,
+                                mesh,
+                                [
+                                    dist.Replicate()
+                                    for _ in range(len(mesh._shape))
+                                ],
+                            )
+                            param_name_to_shard_param[tensor_name] = (
+                                layer_tensor
+                            )
+                            setattr(layer, layer_attr, layer_tensor)
+
+        for name, layer in model.named_sublayers():
+            shard_layer_param(layer)
 
 
 def parallelize_model_and_optimizer(model, optimizer=None):
