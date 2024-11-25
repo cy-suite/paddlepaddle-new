@@ -22,7 +22,6 @@ ot = 'ot'
 pash = 'pash'
 UE = "UE"
 unpacket = "unpacket"
-clos = 'clos'
 
 # These words need to be fixed
 Acceses = 'Acceses'
@@ -85,7 +84,6 @@ Chunck = 'Chunck'
 clen = 'clen'
 Clas = 'Clas'
 clas = 'clas'
-#cliping = 'cliping'
 compability = 'compability'
 compatiblity = 'compatiblity'
 Compitable = 'Compitable'
