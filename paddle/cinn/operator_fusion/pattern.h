@@ -32,7 +32,7 @@ enum class PatternType {
   ReduceTreePlusTrivial,
   ItersPermutation,
   Horizontal,
-  Unsupport,
+  Unsupport = -1,
 };
 
 struct PatternContent {
@@ -54,12 +54,9 @@ struct TrivialPattern {
   pir::Operation* sink_op() const { return sink_op_; }
 
   static PatternType type() { return PatternType::Trivial; }
-  static std::string name() { return "Trivial"; }
-
   static std::string UniqueId() {
     static std::atomic<int64_t> counter = 0;
-    counter += 1;
-    return name() + "_" + std::to_string(counter);
+    return "Trivial_" + std::to_string(++counter);
   }
   std::string id() const { return id_; }
   std::string id_;
@@ -79,12 +76,9 @@ struct ReducePattern {
   pir::Operation* GetReduceOp() const { return ops_.back(); }
 
   static PatternType type() { return PatternType::Reduce; }
-  static std::string name() { return "Reduce"; }
-
   static std::string UniqueId() {
     static std::atomic<int64_t> counter = 0;
-    counter += 1;
-    return name() + "_" + std::to_string(counter);
+    return "Reduce_" + std::to_string(++counter);
   }
   std::string id() const { return id_; }
   std::string id_;
@@ -121,12 +115,9 @@ struct ReduceTreePattern {
   }
 
   static PatternType type() { return PatternType::ReduceTree; }
-  static std::string name() { return "ReduceTree"; }
-
   static std::string UniqueId() {
     static std::atomic<int64_t> counter = 0;
-    counter += 1;
-    return name() + "_" + std::to_string(counter);
+    return "ReduceTree_" + std::to_string(++counter);
   }
   std::string id() const { return id_; }
   std::string id_;
@@ -188,12 +179,9 @@ struct ReduceTreePlusTrivialPattern {
   std::vector<size_t> fake_reduce_iter_idx;
 
   static PatternType type() { return PatternType::ReduceTreePlusTrivial; }
-  static std::string name() { return "ReduceTreePlusTrivial"; }
-
   static std::string UniqueId() {
     static std::atomic<int64_t> counter = 0;
-    counter += 1;
-    return name() + "_" + std::to_string(counter);
+    return "ReduceTreePlusTrivial_" + std::to_string(++counter);
   }
   std::string id() const { return id_; }
   std::string id_;
@@ -234,11 +222,9 @@ struct ItersPermutationPattern {
   std::vector<pir::Operation*> ops() const { return ops_; }
 
   static PatternType type() { return PatternType::ItersPermutation; }
-  static std::string name() { return "ItersPermutation"; }
   static std::string UniqueId() {
     static std::atomic<int64_t> counter = 0;
-    counter += 1;
-    return name() + "_" + std::to_string(counter);
+    return "ItersPermutation_" + std::to_string(++counter);
   }
   std::string id() const { return id_; }
   std::string id_;
@@ -262,12 +248,9 @@ struct HorizontalFusionPattern {
   inline std::vector<pir::Operation*> ops() const;
 
   static PatternType type() { return PatternType::Horizontal; }
-  static std::string name() { return "Horizontal"; }
-
   static std::string UniqueId() {
     static std::atomic<int64_t> counter = 0;
-    counter += 1;
-    return name() + "_" + std::to_string(counter);
+    return "Horizontal_" + std::to_string(++counter);
   }
   std::string id() const { return id_; }
   std::string id_;
@@ -285,12 +268,9 @@ struct UnsupportPattern {
   std::vector<pir::Operation*> ops() const { return ops_; }
 
   static PatternType type() { return PatternType::Unsupport; }
-  static std::string name() { return "Unsupport"; }
-
   static std::string UniqueId() {
     static std::atomic<int64_t> counter = 0;
-    counter += 1;
-    return name() + "_" + std::to_string(counter);
+    return "Unsupport_" + std::to_string(counter);
   }
   std::string id() const { return id_; }
   std::string id_;
@@ -351,10 +331,6 @@ static std::string StmtPatternDebugStr(const StmtPattern& stmt) {
 
 static PatternType GetPatternType(const StmtPattern& s) {
   return std::visit([](const auto& impl) { return impl.type(); }, s);
-}
-
-static std::string GetPatternName(const StmtPattern& s) {
-  return std::visit([](const auto& impl) { return impl.name(); }, s);
 }
 
 static std::string GetPatternId(const StmtPattern& s) {
