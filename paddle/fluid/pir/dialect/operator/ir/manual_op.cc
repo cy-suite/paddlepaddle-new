@@ -600,15 +600,15 @@ const char *FusedGemmEpilogueOp::attributes_name[3] = {  // NOLINT
 OpInfoTuple FusedGemmEpilogueOp::GetOpInfo() {
   std::vector<paddle::dialect::OpInputInfo> inputs = {
       paddle::dialect::OpInputInfo(
-          "x", "paddle::dialect::DenseTensorType", false, false, false, false),
+          "x", "paddle::dialect::DenseTensorType", false, false, false, true),
       paddle::dialect::OpInputInfo(
-          "y", "paddle::dialect::DenseTensorType", false, false, false, false),
+          "y", "paddle::dialect::DenseTensorType", false, false, false, true),
       paddle::dialect::OpInputInfo("bias",
                                    "paddle::dialect::DenseTensorType",
                                    false,
                                    false,
                                    false,
-                                   false)};
+                                   true)};
   std::vector<paddle::dialect::OpAttributeInfo> attributes = {
       paddle::dialect::OpAttributeInfo("trans_x", "pir::BoolAttribute", ""),
       paddle::dialect::OpAttributeInfo("trans_y", "pir::BoolAttribute", ""),
@@ -681,6 +681,7 @@ void FusedGemmEpilogueOp::Build(pir::Builder &builder,
       FusedGemmEpilogueOp::InferMeta(argument_inputs, &argument_attributes);
 
   argument.AddOutputs(argument_outputs.begin(), argument_outputs.end());
+  ::pir::PassStopGradientsDefaultly(argument);
 }
 
 void FusedGemmEpilogueOp::VerifySig() {
@@ -1005,6 +1006,7 @@ void FusedGemmEpilogueGradOp::Build(pir::Builder &builder,
       FusedGemmEpilogueGradOp::InferMeta(argument_inputs, &argument_attributes);
 
   argument.AddOutputs(argument_outputs.begin(), argument_outputs.end());
+  ::pir::PassStopGradientsDefaultly(argument);
 }
 
 void FusedGemmEpilogueGradOp::VerifySig() {}
@@ -3558,6 +3560,12 @@ std::vector<pir::Type> ExpandOp::InferMeta(
       pir::Value inputs = shape.defining_op()->operand_source(0);
       vec_shape = common::vectorize(
           inputs.type().dyn_cast<paddle::dialect::DenseTensorType>().dims());
+      // change -1 to -2 which represents real dynamic shape
+      for (size_t i = 0; i < vec_shape.size(); ++i) {
+        if (vec_shape[i] == -1) {
+          vec_shape[i] = -2;
+        }
+      }
     } else if (shape.type().isa<pir::VectorType>()) {
       size_t shape_size = shape.type().dyn_cast<pir::VectorType>().size();
       vec_shape = std::vector<int64_t>(shape_size, -2);

@@ -164,7 +164,6 @@ class TensorRTConfig:
                 The directory where the optimized model will be saved (default is not to save.).
             disable_ops : (str|list, optional):
                 A string representing the names of operations that should not be entering by TensorRT (default is None).
-
         Returns:
             None
 
