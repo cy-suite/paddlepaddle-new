@@ -133,8 +133,6 @@ class TestSELUFloatTRTPattern(TensorRTBaseTest):
         self.python_api = paddle.nn.functional.selu
         self.api_args = {
             "x": np.random.randn(2, 3).astype("float32"),
-            "scale": 1.0507009873554804934193349852946,
-            "alpha": 1.6732632423543772848170429916717,
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3]}
@@ -149,8 +147,6 @@ class TestSELUIntTRTPattern(TensorRTBaseTest):
         self.python_api = paddle.nn.functional.selu
         self.api_args = {
             "x": np.random.randn(2, 3).astype("int64"),
-            "scale": 1.0507009873554804934193349852946,
-            "alpha": 1.6732632423543772848170429916717,
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3]}
