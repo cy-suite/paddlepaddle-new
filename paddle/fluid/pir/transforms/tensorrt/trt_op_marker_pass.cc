@@ -949,21 +949,22 @@ class PadOpPattern : public pir::OpRewritePattern<paddle::dialect::PadOp> {
 
     // Check for the existence of the attributes pad_value and paddings
     if (!op->HasAttribute("pad_value") || !op->HasAttribute("paddings")) {
-        VLOG(3) << "PadOp does not have necessary attributes 'pad_value' or 'paddings'.";
+      VLOG(3) << "PadOp does not have necessary attributes 'pad_value' or "
+                 "'paddings'.";
       return false;
     }
 
     // Get pad_value and check if it is 0
     auto pad_value = op->attribute<pir::FloatAttribute>("pad_value").data();
     if (pad_value != 0.0f) {
-        VLOG(3) << "The pad layer of TRT only supports zero padding.";
+      VLOG(3) << "The pad layer of TRT only supports zero padding.";
       return false;
     }
 
     // Get paddings and validate their size and contents
     auto paddings = op->attribute<pir::ArrayAttribute>("paddings").AsVector();
     if (paddings.empty()) {
-        VLOG(3) << "The paddings attribute is empty.";
+      VLOG(3) << "The paddings attribute is empty.";
       return false;
     }
     int pad_size = paddings.size();
@@ -975,7 +976,7 @@ class PadOpPattern : public pir::OpRewritePattern<paddle::dialect::PadOp> {
 
     // Checking the dimensions and content of paddings for compliance
     if (nbDims < 2 || nbDims * 2 != pad_size) {
-        VLOG(3) << "The paddings size is invalid for the input dimensions.";
+      VLOG(3) << "The paddings size is invalid for the input dimensions.";
       return false;
     }
     for (int i = 0; i < pad_size - 4; ++i) {
