@@ -35,7 +35,7 @@ HIPModule::HIPModule(const std::string& data) : data_(data) {
 
   int current_device_id;
   hipGetDevice(&current_device_id);
-  hipSetDevice(current_device_id);
+  phi::backends::gpu::SetDeviceId(current_device_id);
   hipDeviceGet(&device_, current_device_id);
   hipCtxGetCurrent(&context_);
   hipDevicePrimaryCtxRetain(&context_, device_);
@@ -98,7 +98,7 @@ HIPModule::~HIPModule() {
   for (int i = 0; i < module_per_card_.size(); i++) {
     auto* module = module_per_card_[i];
     if (module) {
-      HIP_CHECK(hipSetDevice(i));
+      phi::backends::gpu::SetDeviceId(i);
       HIP_DRIVER_CHECK(hipModuleUnload(module));
     }
   }

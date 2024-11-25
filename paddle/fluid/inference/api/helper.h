@@ -453,7 +453,7 @@ static inline void DisplayMemoryInfo(phi::Place place,
                                      const std::string &hint) {
 #ifdef PADDLE_WITH_CUDA
   // size_t free, total;
-  // cudaSetDevice(place.GetDeviceId());
+  // phi::backends::gpu::SetDeviceId(place.GetDeviceId());
   // cudaMemGetInfo(&free, &total);
   // VLOG(1) << "[" << ToMegaBytes(total - free) << "MB/" << ToMegaBytes(total)
   // << "MB]";

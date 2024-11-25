@@ -22,6 +22,7 @@
 #include "paddle/cinn/common/target.h"
 #include "paddle/cinn/runtime/backend_api.h"
 #include "paddle/common/enforce.h"
+#include "paddle/phi/backends/gpu/gpu_info.h"
 
 namespace cinn::runtime {
 
@@ -62,7 +63,7 @@ void SetArchDevice(const common::Target& target,
                           ::common::errors::InvalidArgument(
                               "Required device_id should have value, but "
                               "received std::nullopt."));
-        cudaSetDevice(device_id.value());
+        phi::backends::gpu::SetDeviceId(device_id.value());
 #endif
       },
       [&](common::HygonDCUArchHIP) -> void {

@@ -26,6 +26,7 @@
 #include "paddle/cinn/backends/cuda_util.h"
 #endif
 #include <chrono>
+#include "paddle/phi/backends/gpu/gpu_info.h"
 
 PD_DECLARE_int32(cinn_profiler_state);
 
@@ -95,10 +96,10 @@ void SynchronizeAllDevice() {
   int count;
   CUDA_CALL(cudaGetDeviceCount(&count));
   for (int i = 0; i < count; i++) {
-    CUDA_CALL(cudaSetDevice(i));
+    phi::backends::gpu::SetDeviceId(i);
     CUDA_CALL(cudaDeviceSynchronize());
   }
-  CUDA_CALL(cudaSetDevice(current_device_id));
+  phi::backends::gpu::SetDeviceId(current_device_id);
 #endif
 }
 

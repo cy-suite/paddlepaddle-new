@@ -26,7 +26,7 @@ HIPBackendAPI* HIPBackendAPI::Global() {
 }
 
 void HIPBackendAPI::set_device(int device_id) {
-  HIP_CHECK(hipSetDevice(device_id));
+  phi::backends::gpu::SetDeviceId(device_id);
 }
 
 int HIPBackendAPI::get_device() {

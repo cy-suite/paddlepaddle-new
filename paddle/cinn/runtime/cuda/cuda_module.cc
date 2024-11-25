@@ -28,6 +28,7 @@
 #include "paddle/cinn/runtime/flags.h"
 #include "paddle/cinn/utils/profiler.h"
 #include "paddle/common/enforce.h"
+#include "paddle/phi/backends/gpu/gpu_info.h"
 
 namespace cinn {
 namespace runtime {
@@ -48,7 +49,7 @@ CUDAModule::CUDAModule(const std::string& data, Kind kind)
   // TODO(Superjomn) Determine whether to initialize all the devices.
   int current_device_id;
   cudaGetDevice(&current_device_id);
-  cudaSetDevice(current_device_id);
+  phi::backends::gpu::SetDeviceId(current_device_id);
   cuDeviceGet(&device_, current_device_id);
   cuCtxGetCurrent(&context_);
   cuDevicePrimaryCtxRetain(&context_, device_);
@@ -172,7 +173,7 @@ CUDAModule::~CUDAModule() {
   for (int i = 0; i < module_per_card_.size(); i++) {
     auto* module = module_per_card_[i];
     if (module) {
-      CUDA_CALL(cudaSetDevice(i));
+      phi::backends::gpu::SetDeviceId(i);
       CUDA_DRIVER_CALL(cuModuleUnload(module));
     }
   }

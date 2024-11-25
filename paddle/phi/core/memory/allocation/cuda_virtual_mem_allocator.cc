@@ -115,7 +115,7 @@ void CUDAVirtualMemAllocator::FreeImpl(phi::Allocation* allocation) {
   int prev_id;
   cudaGetDevice(&prev_id);
   if (prev_id != place_.device) {
-    cudaSetDevice(place_.device);
+    phi::backends::gpu::SetDeviceId(place_.device);
   }
 
   auto result = phi::dynload::cuMemUnmap(iter->first, iter->second.second);
@@ -129,7 +129,7 @@ void CUDAVirtualMemAllocator::FreeImpl(phi::Allocation* allocation) {
   }
 
   if (prev_id != place_.device) {
-    cudaSetDevice(prev_id);
+    phi::backends::gpu::SetDeviceId(prev_id);
   }
 
   virtual_2_physical_map_.erase(iter);

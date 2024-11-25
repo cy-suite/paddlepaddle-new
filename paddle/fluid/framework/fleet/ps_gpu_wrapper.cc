@@ -2266,7 +2266,7 @@ void PSGPUWrapper::HbmToSparseTable() {
                                    int i, size_t once_gpu_copy) {
     platform::Timer tm;
     tm.Start();
-    PADDLE_ENFORCE_GPU_SUCCESS(cudaSetDevice(this->resource_->dev_id(i)));
+    phi::backends::gpu::SetDeviceId(this->resource_->dev_id(i));
     auto stream = this->resource_->local_stream(i, 0);
 
     size_t total_len = 0;

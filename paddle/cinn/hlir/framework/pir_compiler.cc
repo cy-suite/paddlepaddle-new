@@ -22,6 +22,7 @@
 #include "paddle/cinn/utils/multi_threading.h"
 #include "paddle/common/enforce.h"
 #include "paddle/common/flags.h"
+#include "paddle/phi/backends/gpu/gpu_info.h"
 
 PD_DECLARE_bool(enable_cinn_compile_cache);
 PD_DECLARE_int64(cinn_compile_thread_num);

@@ -24,6 +24,7 @@
 #include "paddle/common/enforce.h"
 #include "paddle/common/flags.h"
 #include "paddle/fluid/platform/enforce.h"
+#include "paddle/phi/backends/gpu/gpu_info.h"
 
 COMMON_DECLARE_bool(gpugraph_debug_gpu_memory);
 
@@ -82,7 +83,7 @@ inline std::vector<int> shuffle_int_vector(int n) {
 class CudaDeviceRestorer {
  public:
   CudaDeviceRestorer() { cudaGetDevice(&dev_); }
-  ~CudaDeviceRestorer() { cudaSetDevice(dev_); }
+  ~CudaDeviceRestorer() { phi::backends::gpu::SetDeviceId(dev_); }
 
  private:
   int dev_;
@@ -96,7 +97,7 @@ inline void debug_gpu_memory_info(int gpu_id, const char* desc) {
 
   size_t avail{0};
   size_t total{0};
-  cudaSetDevice(gpu_id);
+  phi::backends::gpu::SetDeviceId(gpu_id);
   auto err = cudaMemGetInfo(&avail, &total);
   PADDLE_ENFORCE_EQ(err,
                     cudaSuccess,
@@ -125,7 +126,7 @@ inline void debug_gpu_memory_info(const char* desc) {
   size_t avail{0};
   size_t total{0};
   for (int i = 0; i < device_num; ++i) {
-    cudaSetDevice(i);
+    phi::backends::gpu::SetDeviceId(i);
     auto err = cudaMemGetInfo(&avail, &total);
     PADDLE_ENFORCE_EQ(
         err,
@@ -153,7 +154,7 @@ inline void show_gpu_mem(const char* desc) {
   size_t avail{0};
   size_t total{0};
   for (int i = 0; i < device_num; ++i) {
-    cudaSetDevice(i);
+    phi::backends::gpu::SetDeviceId(i);
     auto err = cudaMemGetInfo(&avail, &total);
     PADDLE_ENFORCE_EQ(
         err,
