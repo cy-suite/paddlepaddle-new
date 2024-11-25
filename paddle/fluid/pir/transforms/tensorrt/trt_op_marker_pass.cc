@@ -1761,6 +1761,7 @@ class BitwiseNotOpPattern
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
+
     pir::Value input_operand = op.operand_source(0);
     auto input_type = pir::GetDataTypeFromValue(input_operand);
     if (input_type.isa<pir::Int8Type>() || input_type.isa<pir::UInt8Type>()) {
@@ -1773,8 +1774,8 @@ class BitwiseNotOpPattern
       return false;
     }
 #if !IS_TRT_VERSION_GE(8600)
-    if (input_operand.getType().isDynamicShape() &&
-        input_operand.getType().getRank() == 0) {
+    if (input_operand.type().isDynamicShape() &&
+        input_operand.type().getRank() == 0) {
       VLOG(3) << "BOOL type does not support 0-dim input when TensorRT < 8.6.";
       return false;
     }
