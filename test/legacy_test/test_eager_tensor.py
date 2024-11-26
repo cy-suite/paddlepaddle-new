@@ -1318,7 +1318,7 @@ class TestEagerTensor(unittest.TestCase):
                 )
                 device_type, device_id = tensor_pinned.__dlpack_device__()
                 self.assertEqual(device_type, DLDeviceType.kDLCUDAHost)
-                self.assertEqual(device_id, 0)
+                self.assertEqual(device_id, None)
 
             # test XPU
             if paddle.is_compiled_with_xpu():

@@ -352,7 +352,7 @@ class TestDLPackDevice(unittest.TestCase):
                 )
                 device_type, device_id = tensor_pinned.__dlpack_device__()
                 self.assertEqual(device_type, DLDeviceType.kDLCUDAHost)
-                self.assertEqual(device_id, 0)
+                self.assertEqual(device_id, None)
 
             if paddle.is_compiled_with_xpu():
                 tensor_xpu = paddle.to_tensor([1, 2, 3], place=base.XPUPlace(0))

@@ -1277,7 +1277,7 @@ def monkey_patch_tensor():
             elif place.is_cpu_place():
                 return DLDeviceType.kDLCPU, None
             elif place.is_cuda_pinned_place():
-                return DLDeviceType.kDLCUDAHost, 0
+                return DLDeviceType.kDLCUDAHost, None
             elif place.is_xpu_place():
                 return DLDeviceType.kDLOneAPI, place.xpu_device_id()
             else:
@@ -1285,7 +1285,7 @@ def monkey_patch_tensor():
         elif place.is_cpu_place():
             return DLDeviceType.kDLCPU, None
         elif place.is_cuda_pinned_place():
-            return DLDeviceType.kDLCUDAHost, 0
+            return DLDeviceType.kDLCUDAHost, None
         elif place.is_gpu_place():
             return DLDeviceType.kDLCUDA, place.get_device_id()
         elif place.is_xpu_place():
