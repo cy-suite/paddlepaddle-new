@@ -22,6 +22,7 @@
 #include "paddle/phi/kernels/elementwise_multiply_kernel.h"
 #include "paddle/phi/kernels/funcs/lapack/lapack_function.h"
 #include "paddle/phi/kernels/funcs/math_function.h"
+#include "paddle/phi/kernels/impl/diag_embed_impl.h"
 #include "paddle/phi/kernels/matmul_kernel.h"
 #include "paddle/phi/kernels/slice_kernel.h"
 #include "paddle/phi/kernels/svd_kernel.h"
@@ -39,16 +40,28 @@ void SvdvalsGradKernel(const Context& dev_ctx,
     x_grad->Resize(x.dims());
     return;
   }
-  DenseTensor dX_term = Diag<T, Context>(dev_ctx, s_grad, 0, 0);
+  auto x_dims = x.dims();
+  int rows = static_cast<int>(x_dims[x_dims.size() - 2]);
+  int cols = static_cast<int>(x_dims[x_dims.size() - 1]);
+  int batches = static_cast<int>(x.numel() / (rows * cols));
+  DenseTensor dX_term;
+  if (batches == 1) {
+    dX_term = Diag<T, Context>(dev_ctx, s_grad, 0, 0);
+  } else {
+    MetaTenosr meta_dx(&dX_term);
+    DiagEmbedInferMeta(s_grad, 0, -1, -2, &meta_dx);
+    DiagEmbedKernel<T, Context>(dev_ctx, s_grad, 0, -1, -2, &dX_term);
+  }
+
   VLOG(1) << "dX_term shape: " << dX_term.dims()
           << "s_grad shape: " << s_grad.dims();
 
   DenseTensor U, VH, S_recomputed;
   MetaTensor meta_u(&U), meta_s(&S_recomputed), meta_vh(&VH);
-  SvdInferMeta(x, true, &meta_u, &meta_s, &meta_vh);
+  SvdInferMeta(x, false, &meta_u, &meta_s, &meta_vh);
   phi::SvdKernel<T, Context>(dev_ctx,
                              x,
-                             true,
+                             false,
                              &U,
                              &S_recomputed,
                              &VH);  // Crucial: recomputing SVD

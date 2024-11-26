@@ -103,7 +103,12 @@ void SvdvalsKernel(const Context& dev_ctx,
       phi::errors::InvalidArgument("The column of Input(X) must be > 0."));
   int k = std::min(rows, cols);
   int batches = static_cast<int>(X.numel() / (rows * cols));
-  DDim s_dims = {batches, k};
+  DDim s_dims;
+  if (batches == 1) {
+    s_dims = {k};
+  } else {
+    s_dims = {batches, k};
+  }
   S->Resize(s_dims);
   // Allocate memory for output
   auto* S_out = dev_ctx.template Alloc<phi::dtype::Real<T>>(S);
@@ -111,17 +116,10 @@ void SvdvalsKernel(const Context& dev_ctx,
   // Transpose the last two dimensions for LAPACK compatibility
   DenseTensor trans_x = ::phi::TransposeLast2Dim<T>(dev_ctx, X);
   auto* x_data = trans_x.data<T>();
-  VLOG(1) << "X shape: " << X.dims();
   VLOG(1) << "trans_x shape: " << trans_x.dims();
   VLOG(1) << "S shape: " << S->dims();
   // Perform batch SVD computation for singular values
   BatchSvdvals<T>(x_data, S_out, rows, cols, batches);
-  VLOG(1) << "S values (first batch): ";
-  for (int i = 0; i < k; ++i) {
-    VLOG(1) << S_out[i] << " ";
-  }
-  VLOG(1) << "S shape in backward: "
-          << S->dims();  // Assuming S is passed to the backward kernel
 }
 
 }  // namespace phi

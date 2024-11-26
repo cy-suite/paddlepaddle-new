@@ -58,26 +58,13 @@ class TestSvdvalsBatched(TestSvdvalsOp):
 
     def init_data(self):
         """Generate batched input matrix."""
-        self._input_shape = (10, 6, 3)
-        base_matrix = np.array(
-            [
-                [1.0, 2.0, 3.0],
-                [0.0, 1.0, 5.0],
-                [0.0, 0.0, 6.0],
-                [2.0, 4.0, 9.0],
-                [3.0, 6.0, 8.0],
-                [3.0, 1.0, 0.0],
-            ]
-        ).astype("float64")
-        self._input_data = np.stack(
-            [base_matrix] * self._input_shape[0], axis=0
+        self._input_shape = (10, 3, 6)
+        self._input_data = np.random.random(self._input_shape).astype("float64")
+
+        self._output_data = np.linalg.svd(
+            self._input_data, compute_uv=False, hermitian=False
         )
-        self._output_data = np.array(
-            [
-                np.linalg.svd(matrix, compute_uv=False)
-                for matrix in self._input_data
-            ]
-        )
+
         self.inputs = {'x': self._input_data}
         self.outputs = {"s": self._output_data}
 
