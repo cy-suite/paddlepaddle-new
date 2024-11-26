@@ -806,45 +806,72 @@ class Engine:
         apply_mix2dist_pass(dist_program)
 
         def find_checkpoint(dist_program):
+            # recompute on attention layer
+            # find  attention layer begin op id and end op id
             point = []
-            idx = [1, 3]
-            num = 0
+            end = 0
+            beg = 0
             for block in dist_program.blocks:
-                for op in block.ops:
-                    if op.name() == "pd_op.matmul":
-                        num += 1
-                        if num in idx:
-                            point.append(op.id())
-                            # val = op.operand_source(0)
-                            # point.append(val)
-                            # print("xxx --- var.name: ", val.name)
+                while beg < len(block.ops):
+                    if not block.ops[beg].has_attr("struct_name"):
+                        beg += 1
+                        continue
+                    if (
+                        "LlamaAttentionAuto"
+                        not in block.ops[beg].attrs()["struct_name"]
+                    ):
+                        beg += 1
+                        continue
+                    end = beg + 1
+                    while end < len(block.ops):
+                        if block.ops[end].name() == "builtin.combine":
+                            end += 1
+                        if (
+                            "LlamaAttentionAuto"
+                            in block.ops[end].attrs()["struct_name"]
+                        ):
+                            end += 1
+                        else:
+                            break
+                    point.append(beg)
+                    point.append(end)
+                    # print("xxx beg op : ", block.ops[beg])
+                    # print("xxx end op : ", block.ops[end])
+                    beg = end + 1
+
+            print("xxx --- checkpoint: ", point)
             return point
 
+        # def find_checkpoint(dist_program):
+        #     point = []
+        #     idx = [1,3]
+        #     num = 0
+        #     for block in dist_program.blocks:
+        #         for i, op in enumerate(block.ops):
+        #             if op.name() == "pd_op.matmul":
+        #                 num += 1
+        #                 if num in idx:
+        #                     point.append(i)
+        #                     # val = op.operand_source(0)
+        #     return point
+
+        # print(dist_program)
         self._strategy.recompute.enable = True
         checkpoints = find_checkpoint(dist_program)
         print("---checkpoints  : ", checkpoints)
         self._strategy.recompute_configs = {"checkpoints": checkpoints}
-        print("---1  ")
         if mode == "train" and self._strategy.recompute.enable:
-            print("---2  ")
             loss = dist_program.get_output_value_by_name(self._loss_names[0])
             print(loss)
             if loss.initialized():
-                print("---3  ")
                 config = {}
                 # config = copy.deepcopy(self._strategy.recompute_configs)
                 config["checkpoints"] = checkpoints
-                # TODO: 通过 pass 参数进去，而非 config
                 config["dist_context"] = self._dist_contexts.get(mode, None)
-                # no_grad_set (set, optional): Set of ``Tensor``  or ``Tensor.name`` that don't need to be updated.
-                # The default value is None. `stop_gradient=True
-                # 暂时先在 pass 里面获取
-                # config["no_grad_set"] = copy.deepcopy(no_grad_set)
                 config["loss"] = loss
                 auto_parallel_recompute_pir_pass = new_pass(
                     "auto_parallel_recompute_pir", config
                 )
-                print("---4  ")
                 auto_parallel_recompute_pir_pass.apply(
                     [dist_program], [startup_program]
                 )
