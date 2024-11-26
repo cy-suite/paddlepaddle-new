@@ -200,6 +200,7 @@ def matrix_transpose(
 
     Args:
         x (Tensor): The input tensor to be transposed. `x` must be an N-dimensional tensor (N >= 2) of any data type supported by Paddle.
+        name (str|None, optional): The name of this layer. For more information, please refer to :ref:`api_guide_Name`. Default is None.
 
     Returns:
         Tensor: A new tensor with the same shape as `x`, except that the last two dimensions are transposed.
@@ -2493,7 +2494,7 @@ def histogram(
     If min and max are both zero, the minimum and maximum values of the data are used.
 
     Args:
-        input (Tensor): A Tensor(or LoDTensor) with shape :math:`[N_1, N_2,..., N_k]` . The data type of the input Tensor
+        input (Tensor): A Tensor with shape :math:`[N_1, N_2,..., N_k]` . The data type of the input Tensor
             should be float32, float64, int32, int64.
         bins (int, optional): number of histogram bins. Default: 100.
         min (int, optional): lower end of the range (inclusive). Default: 0.
