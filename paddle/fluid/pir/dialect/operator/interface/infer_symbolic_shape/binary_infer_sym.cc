@@ -313,13 +313,6 @@ bool BmmOpInferSymbolicShape(pir::Operation *op,
   return true;
 }
 
-// bool CholeskySolveOpInferSymbolicShape(pir::Operation *op,
-//                                        pir::InferSymbolicShapeContext
-//                                        *infer_context) {
-//   // pass
-//   return true;
-// }
-
 bool CtcAlignOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
   const auto &input_shape =
@@ -2290,6 +2283,38 @@ bool TriangularSolveOpInferSymbolicShape(
   return true;
 }
 
+bool CholeskySolveOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  const auto &b_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0));
+  const auto &a_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(1));
+
+  const std::vector<symbol::DimExpr> &a_shape = a_shape_or_data.shape();
+  const std::vector<symbol::DimExpr> &b_shape = b_shape_or_data.shape();
+  const auto &a_rank = a_shape.size();
+  const auto &b_rank = b_shape.size();
+
+  infer_context->AddEqualCstr(a_shape[a_rank - 2], a_shape[a_rank - 1]);
+
+  std::vector<symbol::DimExpr> a_shape_cut(a_shape.begin(), a_shape.end() - 2);
+  std::vector<symbol::DimExpr> b_shape_cut(b_shape.begin(), b_shape.end() - 2);
+
+  std::vector<symbol::DimExpr> expand_batch_portion =
+      MatrixGetBroadcastBatchPortion(a_shape_cut, b_shape_cut, infer_context);
+
+  std::vector<symbol::DimExpr> output_shape({expand_batch_portion});
+  output_shape.insert(output_shape.end(),
+                      {b_shape[b_rank - 2], b_shape[b_rank - 1]});
+
+  infer_context->SetShapeOrDataForValue(
+      op->result(0),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(output_shape)});
+
+  return true;
+}
+
 bool SolveOpInferSymbolicShape(pir::Operation *op,
                                pir::InferSymbolicShapeContext *infer_context) {
   return TriangularSolveOpInferSymbolicShape(op, infer_context);
@@ -2385,8 +2410,9 @@ bool WeightDequantizeOpInferSymbolicShape(
                     common::errors::InvalidArgument(
                         "The x tensor of dequantize op must be 2D, but got[%d]",
                         x_shape.size()));
-  int group_size = op->attribute<pir::Int32Attribute>("group_size").data();
-  std::string algo = op->attribute<pir::StrAttribute>("algo").AsString();
+  const int group_size =
+      op->attribute<pir::Int32Attribute>("group_size").data();
+  const std::string algo = op->attribute<pir::StrAttribute>("algo").AsString();
   PADDLE_ENFORCE_EQ(
       (group_size == -1 || group_size == 64 || group_size == 128),
       true,
