@@ -2588,10 +2588,6 @@ std::vector<pir::Type> TensorToArrayOp::InferMeta(
 
 bool TensorToArrayOp::InferSymbolicShape(
     pir::InferSymbolicShapeContext *infer_context) {
-  int axis =
-      this->attributes().at("axis").dyn_cast<pir::Int32Attribute>().data();
-  bool use_stack =
-      this->attributes().at("use_stack").dyn_cast<pir::BoolAttribute>().data();
   const auto &x_shape_or_data =
       infer_context->GetShapeOrDataForValue(x())
           .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
