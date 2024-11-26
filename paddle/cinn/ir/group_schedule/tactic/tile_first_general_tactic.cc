@@ -151,16 +151,6 @@ void TileFirstGeneralTactic::Apply(ir::IRSchedule* sch,
   SetDiscreteReduceType(sch, block_id);
 }
 
-void PrintVarIntervals(const cinn::common::cas_intervals_t& var_intervals) {
-  std::cout << "cas_intervals_t test" << std::endl;
-  for (const auto& pair : var_intervals) {
-    const std::string& var_name = pair.first;
-    const cinn::common::CasInterval& interval = pair.second;
-    std::cout << "Variable: " << var_name << ", Interval: " << interval
-              << std::endl;
-  }
-}
-
 void TileFirstGeneralTactic::ApplyContinuousDataTile(
     ir::IRSchedule* sch, const std::string& block_id) {
   const auto sp_thread = context_->config.tile_config.warp_num * 32 /

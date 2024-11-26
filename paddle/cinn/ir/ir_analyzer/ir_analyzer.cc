@@ -734,8 +734,6 @@ class TensorVectorizeTeller : public ir::IRMutator<const Expr*> {
     }
 
     // the iter val must appear in the last index
-    std::cout << "indices.back():" << indices.back() << std::endl;
-
     if (indices.empty() ||
         ir::ir_utils::CollectIRNodes(indices.back(), find_matched_var_fn)
             .empty()) {
