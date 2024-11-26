@@ -2534,7 +2534,7 @@ bool PixelShuffleOpInferSymbolicShape(
 
   const bool channel_last = (data_format == "NHWC");
 
-  // the number of channles shoule be able to be divided by the upscale_factor
+  // the number of channels shoule be able to be divided by the upscale_factor
   // ^ 2.
   // TODO(Lans1ot, Buaa): add constrain for the channel number and
   // upscale_factor
@@ -3256,8 +3256,8 @@ bool SlogdetOpInferSymbolicShape(
   infer_context->AddEqualCstr(x_shape[x_shape_size - 1],
                               x_shape[x_shape_size - 2]);
   std::vector<symbol::DimExpr> out_shape = {2};
-  size_t addtional_dims = x_shape.size() - 2;
-  for (size_t i = 0; i < addtional_dims; i++) {
+  size_t additional_dims = x_shape.size() - 2;
+  for (size_t i = 0; i < additional_dims; i++) {
     out_shape.push_back(x_shape[i]);
   }
   infer_context->SetShapeOrDataForValue(
@@ -3879,19 +3879,9 @@ bool SqueezeOpInferSymbolicShape(
   auto axes_shape_or_data =
       infer_context->GetShapeOrDataForValue(op->operand_source(1));
 
-  std::vector<symbol::DimExpr> in_dims_sym;
-  if (x_shape_or_data.data().has_value()) {
-    in_dims_sym = x_shape_or_data.data().value();
-  } else {
-    in_dims_sym = x_shape_or_data.shape();
-  }
-
-  std::vector<symbol::DimExpr> squeeze_dims_sym;
-  if (axes_shape_or_data.data().has_value()) {
-    squeeze_dims_sym = axes_shape_or_data.data().value();
-  } else {
-    squeeze_dims_sym = axes_shape_or_data.shape();
-  }
+  const auto &in_dims_sym = x_shape_or_data.shape();
+  const std::vector<symbol::DimExpr> &squeeze_dims_sym =
+      details::GetExprVecFromData(axes_shape_or_data);
 
   std::vector<int> squeeze_dims;
   for (auto squeeze_dim : squeeze_dims_sym) {
@@ -3929,13 +3919,15 @@ bool SqueezeOpInferSymbolicShape(
 
       if (!should_squeeze.at(current)) {
         // At compile time, dim of SYMBOL is allowed to squeeze?
-        if (in_dims_sym.at(current) == 1) {
-          should_squeeze.at(current) = true;
-        } else if (!in_dims_sym.at(current).Has<std::int64_t>()) {
-          should_squeeze.at(current) = true;
-        } else {
-          should_squeeze.at(current) = true;
+        if (!in_dims_sym.at(current).Has<std::int64_t>()) {
+          should_squeeze[current] = true;
+          continue;
         }
+        if (in_dims_sym.at(current) == 1) {
+          should_squeeze[current] = true;
+          continue;
+        }
+        should_squeeze[current] = false;
       }
     }
   }
@@ -4219,12 +4211,7 @@ bool UnsqueezeOpInferSymbolicShape(
   auto axis_shape_or_data =
       infer_context->GetShapeOrDataForValue(op->operand_source(1));
 
-  std::vector<symbol::DimExpr> x_sym_shape;
-  if (x_shape_or_data.data().has_value()) {
-    x_sym_shape = x_shape_or_data.data().value();
-  } else {
-    x_sym_shape = x_shape_or_data.shape();
-  }
+  const auto &x_sym_shape = x_shape_or_data.shape();
   int x_dims_size = x_sym_shape.size();
 
   std::vector<symbol::DimExpr> axis_sym;
@@ -4426,10 +4413,71 @@ bool UnstackOpInferSymbolicShape(
   return true;
 }
 
-// bool WeightQuantizeOpInferSymbolicShape(
-//     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
-//   // pass
-//   return true;
-// }
+bool WeightQuantizeOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0)).shape();
+  PADDLE_ENFORCE_EQ(
+      x_shape.size(),
+      2UL,
+      common::errors::InvalidArgument(
+          "The x tensor of quant op must be 2D, but got[%d]", x_shape.size()));
+  if (x_shape[0].isa<int64_t>()) {
+    int64_t x_shape_0 = x_shape[0].dyn_cast<int64_t>();
+    PADDLE_ENFORCE_EQ(
+        x_shape_0 % 64,
+        0,
+        common::errors::InvalidArgument(
+            "The first dimension of input must be divisible by 64, but got[%d]",
+            x_shape_0));
+  }
+  if (x_shape[1].isa<int64_t>()) {
+    int64_t x_shape_1 = x_shape[1].dyn_cast<int64_t>();
+    PADDLE_ENFORCE_EQ(
+        x_shape_1 % 16,
+        0,
+        common::errors::InvalidArgument("The second dimension of input must be "
+                                        "divisible by 16, but got[%d]",
+                                        x_shape_1));
+  }
+
+  const int group_size =
+      op->attribute<pir::Int32Attribute>("group_size").data();
+  const std::string algo = op->attribute<pir::StrAttribute>("algo").AsString();
+  PADDLE_ENFORCE_EQ(
+      ((group_size == -1) || (group_size == 64) || (group_size == 128)),
+      true,
+      common::errors::InvalidArgument(
+          "Currently, group_size only support -1, 64 or 128."));
+  std::vector<symbol::DimExpr> scale_shape;
+  std::vector<symbol::DimExpr> out_shape;
+  if (group_size != -1) {
+    symbol::DimExpr scale_shape_0 =
+        (x_shape[0] + (group_size - 1)) / group_size;
+    scale_shape = {scale_shape_0, x_shape[1]};
+  } else {
+    scale_shape = {x_shape[1]};
+  }
+  if (algo == "weight_only_int8" || algo == "llm.int8") {
+    out_shape = {x_shape[1], x_shape[0]};
+  } else if (algo == "weight_only_int4") {
+    out_shape = {x_shape[1] / 2, x_shape[0]};
+  } else {
+    PADDLE_THROW(common::errors::InvalidArgument(
+        "The algo must be in ['weight_only_int8', 'weight_only_int4', "
+        "'llm.int8'], but got[%s]",
+        algo));
+  }
+  infer_context->SetShapeOrDataForValue(
+      op->result(0),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(out_shape)});
+
+  infer_context->SetShapeOrDataForValue(
+      op->result(1),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(scale_shape)});
+  return true;
+}
 
 }  // namespace paddle::dialect

@@ -275,7 +275,14 @@ try:
         )
 
     # assign tensor alias
-    libpaddle.LoDTensor = libpaddle.Tensor
+    libpaddle.LoDTensor = libpaddle.DenseTensor
+    libpaddle.Tensor = libpaddle.DenseTensor
+    libpaddle.VarDesc.VarType.LOD_TENSOR = (
+        libpaddle.VarDesc.VarType.DENSE_TENSOR
+    )
+    libpaddle.VarDesc.VarType.LOD_TENSOR_ARRAY = (
+        libpaddle.VarDesc.VarType.DENSE_TENSOR_ARRAY
+    )
 
     from .libpaddle import *  # noqa: F403
     from .libpaddle import (  # noqa: F401
@@ -449,7 +456,7 @@ def _prim_return_log():
 # # # _set_prim_all_enabled > FLAGS_prim_all > check_and_set_prim_all_enabled == _set_prim_backward_enabled == _set_prim_backward_enabled > FLAGS_prim_forward == FLAGS_prim_backward
 # else:
 # # # _set_prim_all_enabled > FLAGS_prim_all == check_and_set_prim_all_enabled == _set_prim_backward_enabled == _set_prim_backward_enabled > FLAGS_prim_forward == FLAGS_prim_backward
-def __sync_stat_with_flag(flag):
+def __sync_stat_with_flag(flag, print_flag=True):
     if flag == "FLAGS_prim_forward":
         flag_value = os.getenv("FLAGS_prim_forward")
         assert flag_value is not None
@@ -460,7 +467,8 @@ def __sync_stat_with_flag(flag):
             __set_fwd_prim_enabled(True)
         else:
             raise TypeError(f"flag {flag} should be true or false.")
-        print("forward prim enabled: ", bool(_is_fwd_prim_enabled()))
+        if print_flag:
+            print("forward prim enabled: ", bool(_is_fwd_prim_enabled()))
     elif flag == "FLAGS_prim_backward":
         flag_value = os.getenv("FLAGS_prim_backward")
         assert flag_value is not None
@@ -471,7 +479,8 @@ def __sync_stat_with_flag(flag):
             __set_bwd_prim_enabled(True)
         else:
             raise TypeError(f"flag {flag} should be true or false.")
-        print("backward prim enabled: ", bool(_is_bwd_prim_enabled()))
+        if print_flag:
+            print("backward prim enabled: ", bool(_is_bwd_prim_enabled()))
     elif flag == "FLAGS_prim_all":
         flag_value = os.getenv("FLAGS_prim_all")
         assert flag_value is not None
@@ -482,10 +491,11 @@ def __sync_stat_with_flag(flag):
             __set_all_prim_enabled(True)
         else:
             raise TypeError(f"flag {flag} should be true or false.")
-        print(
-            "all prim enabled: ",
-            bool(_is_fwd_prim_enabled() and _is_bwd_prim_enabled()),
-        )
+        if print_flag:
+            print(
+                "all prim enabled: ",
+                bool(_is_fwd_prim_enabled() and _is_bwd_prim_enabled()),
+            )
     else:
         raise TypeError(
             f"We only support FLAGS_prim_forward/FLAGS_prim_backward/FLAGS_prim_all but we got {flag}."
@@ -567,6 +577,15 @@ def _enable_dist_prim_all():
 
 def _enable_auto_recompute():
     flag = os.getenv("FLAGS_enable_auto_recompute")
+
+    # NOTE(chenxi67): open recompute when cinn is enabled
+    from paddle.base.framework import in_cinn_mode
+
+    if in_cinn_mode():
+        if flag and flag.lower() in ("0", "false"):
+            return False
+        else:
+            return True
     if flag and flag.lower() in ("1", "true"):
         return True
     else:
@@ -581,17 +600,23 @@ def _set_prim_forward_blacklist(*args):
             prim_config["forward_blacklist"].add(item)
 
 
-def _reset_prim_forward_blacklist():
-    prim_config["forward_blacklist"] = set()
+# Currently, this function is not utilized anywhere in the codebase.
+# It may be intended for future use or could be removed if unnecessary.
+# def _reset_prim_forward_blacklist():
+#     prim_config["forward_blacklist"] = set()
 
 
 def _set_prim_backward_blacklist(*args):
     ops = set(args)
+    new_ops = set()
     for item in ops:
-        prim_config["backward_blacklist"].add(item)
         if not isinstance(item, str):
-            raise TypeError("all items in set must belong to string")
-    _set_bwd_prim_blacklist(ops)
+            raise TypeError("All items in set must be strings.")
+        if item.startswith("pd_op."):
+            item = item[6:]
+        prim_config["backward_blacklist"].add(item)
+        new_ops.add(item)
+    _set_bwd_prim_blacklist(new_ops)
 
 
 def _set_prim_backward_enabled(value):
@@ -639,16 +664,16 @@ def __sync_prim_forward_status():
         __sync_stat_with_flag("FLAGS_prim_forward")
 
 
-def check_and_set_prim_all_enabled():
+def check_and_set_prim_all_enabled(print_flag=False):
     flag_value = os.getenv("FLAGS_prim_all")
     if flag_value is None:
         __sync_prim_backward_status()
         __sync_prim_forward_status()
     else:
-        __sync_stat_with_flag("FLAGS_prim_all")
+        __sync_stat_with_flag("FLAGS_prim_all", print_flag)
 
 
-check_and_set_prim_all_enabled()
+check_and_set_prim_all_enabled(True)
 
 
 SKIPPED_PRIM_VJP_DEFAULT_OPS = ["matmul_grad"]

@@ -83,6 +83,7 @@ EXPRESSION_MAP = {
     "__mod__": "A % B",
     "__rmod__": "A %= B",
     "__matmul__": "A @ B",
+    "__rmatmul__": "A @= B",
     "__eq__": "A == B",
     "__ne__": "A != B",
     "__lt__": "A < B",
@@ -320,7 +321,8 @@ def monkey_patch_variable():
         **Notes**:
             **The variable must be a** :ref:`api_paddle_Tensor`
 
-        Cast a variable to a specified data type.
+        Cast a variable to a specified data type if it differs from the current dtype;
+        otherwise, return the original variable.
 
         Args:
 
@@ -366,6 +368,9 @@ def monkey_patch_variable():
                 original var's dtype is: paddle.float32, numpy dtype is float32
                 new var's dtype is: paddle.int64, numpy dtype is int64
         """
+        if self.dtype == dtype:
+            return self
+
         block = current_block(self)
         out = create_new_tmp_var(block, dtype)
         block.append_op(
@@ -749,6 +754,13 @@ def monkey_patch_variable():
             "2. If you want to run it in full graph mode, you need use Variable directly, and do not use float(Variable)."
         )
 
+    def _complex_(self):
+        raise TypeError(
+            "complex(Variable) is not supported in static graph mode. If you are using @to_static, you can try this:\n"
+            "1. If you want to get the value of Variable, you can switch to non-fullgraph mode by setting @to_static(full_graph=True).\n"
+            "2. If you want to run it in full graph mode, you need use Variable directly, and do not use complex(Variable)."
+        )
+
     def values(var):
         block = current_block(var)
         out = create_new_tmp_var(block, var.dtype)
@@ -880,6 +892,10 @@ def monkey_patch_variable():
             '__matmul__',
             _binary_creator_('__matmul__', "matmul_v2", False, None),
         ),
+        (
+            '__rmatmul__',
+            _binary_creator_('__rmatmul', "matmul_v2", True, None),
+        ),
         #  for logical compare
         ('__eq__', _binary_creator_('__eq__', 'equal', False, None)),
         ('__ne__', _binary_creator_('__ne__', 'not_equal', False, None)),
@@ -889,6 +905,7 @@ def monkey_patch_variable():
         ('__ge__', _binary_creator_('__ge__', 'greater_equal', False, None)),
         ('__float__', _float_),
         ('__int__', _int_),
+        ('__complex__', _complex_),
         ('values', values),
         ('indices', indices),
         ('to_dense', to_dense),

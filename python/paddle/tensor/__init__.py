@@ -104,6 +104,8 @@ from .linalg import (  # noqa: F401
     transpose_,
 )
 from .logic import (  # noqa: F401
+    __rand__,
+    __ror__,
     allclose,
     bitwise_and,
     bitwise_and_,
@@ -125,11 +127,11 @@ from .logic import (  # noqa: F401
     is_empty,
     is_tensor,
     isclose,
+    less,
+    less_,
     less_equal,
     less_equal_,
     less_than,
-    less_than as less,
-    less_than as less_,
     less_than_,
     logical_and,
     logical_and_,
@@ -141,7 +143,6 @@ from .logic import (  # noqa: F401
     logical_xor_,
     not_equal,
     not_equal_,
-    positive,
 )
 from .manipulation import (  # noqa: F401
     as_complex,
@@ -221,6 +222,10 @@ from .manipulation import (  # noqa: F401
     vstack,
 )
 from .math import (  # noqa: F401
+    __lshift__,
+    __rlshift__,
+    __rrshift__,
+    __rshift__,
     abs,
     abs_,
     acos,
@@ -366,6 +371,7 @@ from .math import (  # noqa: F401
     outer,
     polygamma,
     polygamma_,
+    positive,
     pow,
     pow_,
     prod,
@@ -397,6 +403,7 @@ from .math import (  # noqa: F401
     sqrt,
     sqrt_,
     square,
+    square_,
     stanh,
     subtract,
     subtract_,
@@ -548,6 +555,7 @@ tensor_method_func = [
     'sqrt',
     'sqrt_',
     'square',
+    'square_',
     'stanh',
     'sum',
     'reduce_as',
@@ -858,8 +866,14 @@ tensor_method_func = [
 # this list used in math_op_patch.py for magic_method bind
 magic_method_func = [
     ('__and__', 'bitwise_and'),
+    ('__rand__', '__rand__'),
     ('__or__', 'bitwise_or'),
+    ('__ror__', '__ror__'),
     ('__xor__', 'bitwise_xor'),
     ('__invert__', 'bitwise_not'),
     ('__pos__', 'positive'),
+    ('__lshift__', '__lshift__'),
+    ('__rshift__', '__rshift__'),
+    ('__rlshift__', '__rlshift__'),
+    ('__rrshift__', '__rrshift__'),
 ]

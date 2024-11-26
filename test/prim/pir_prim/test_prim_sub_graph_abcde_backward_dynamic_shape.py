@@ -31,6 +31,14 @@ def add_net(x, y):
     return x + y
 
 
+def argsort_net1(x):
+    return paddle.argsort(x, axis=-1)
+
+
+def argsort_net2(x):
+    return paddle.argsort(x, axis=1, descending=True)
+
+
 def batch_norm_net1(x, y, z):
     var = paddle.ones([40], dtype="float32")
     mean = paddle.zeros([40], dtype='float32')
@@ -59,6 +67,18 @@ def batch_norm_net4(x, y, z):
     return paddle.nn.functional.batch_norm(
         x, mean, var, y, z, use_global_stats=True, data_format='NHWC'
     )
+
+
+def batch_norm_net5(x, y, z):
+    var = paddle.ones([40], dtype="float32")
+    mean = paddle.zeros([40], dtype='float32')
+    return paddle.nn.functional.batch_norm(
+        x, mean, var, y, z, use_global_stats=False, training=True
+    )
+
+
+def ceil_net(x):
+    return paddle.ceil(x)
 
 
 def concat_net1(x):
@@ -277,6 +297,32 @@ class TestPrimAddWithGrad10(TestPrimTwoWithGrad):
         self.tol = 1e-6
 
 
+class TestPrimArgsortWithGrad1(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.argsort_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, 40]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = argsort_net1
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimArgsortWithGrad2(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.argsort_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = argsort_net2
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
 class TestPrimBatchNormWithGrad1(TestPrimThreeWithGrad):
     def setUp(self):
         np.random.seed(2023)
@@ -484,6 +530,38 @@ class TestPrimBatchNormWithGrad11(TestPrimThreeWithGrad):
         self.net = batch_norm_net4
         self.enable_cinn = False
         self.tol = 1e-5
+
+
+class TestPrimBatchNormWithGrad12(TestPrimThreeWithGrad):
+    def setUp(self):
+        np.random.seed(2023)
+        self.op_name = "pd_op.batch_norm_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 40]
+        self.init_x_shape = [None, None]
+        self.y_shape = [40]
+        self.init_y_shape = [None]
+        self.z_shape = [40]
+        self.init_z_shape = [None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.y = np.random.random(self.y_shape).astype(self.dtype)
+        self.z = np.random.random(self.z_shape).astype(self.dtype)
+        self.net = batch_norm_net5
+        self.enable_cinn = False
+        self.tol = 1e-5
+
+
+class TestPrimCeilWithGrad(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.ceil_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = ceil_net
+        self.enable_cinn = False
+        self.tol = 1e-6
 
 
 class TestPrimConcatWithGrad1(TestPrimBaseWithGrad):
