@@ -37,6 +37,7 @@ limitations under the License. */
 #include "paddle/fluid/framework/custom_operator.h"
 #include "paddle/fluid/framework/data_layout.h"
 #include "paddle/fluid/framework/data_type_transform.h"
+#include "paddle/fluid/framework/dense_tensor_array.h"
 #include "paddle/fluid/framework/executor.h"
 #include "paddle/fluid/framework/executor_cache.h"
 #include "paddle/fluid/framework/executor_gc_helper.h"
@@ -49,7 +50,6 @@ limitations under the License. */
 #include "paddle/fluid/framework/ir/generate_pass.h"
 #include "paddle/fluid/framework/ir/pass_builder.h"
 #include "paddle/fluid/framework/lod_rank_table.h"
-#include "paddle/fluid/framework/lod_tensor_array.h"
 #include "paddle/fluid/framework/new_executor/executor_statistics.h"
 #include "paddle/fluid/framework/new_executor/standalone_executor.h"
 #include "paddle/fluid/framework/op_info.h"
@@ -647,48 +647,17 @@ void BindTensor(pybind11::module &m) {  // NOLINT
           R"DOC(
            Return the recursive sequence lengths corresponding to of the LodD
            of the Tensor.
-
            Returns:
                 list[list[int]]: The recursive sequence lengths.
-
            Examples:
                 .. code-block:: python
-
                     >>> import paddle
                     >>> import numpy as np
-
                     >>> t = paddle.framework.core.Tensor()
                     >>> t.set(np.ndarray([5, 30]), paddle.CPUPlace())
                     >>> t.set_recursive_sequence_lengths([[2, 3]])
                     >>> print(t.recursive_sequence_lengths())
                     [[2, 3]]
-           )DOC")
-      .def(
-          "has_valid_recursive_sequence_lengths",
-          [](phi::DenseTensor &self) -> bool {
-            // Check that the lod info is valid and match the outermost
-            // dimension of the Tensor data
-            return CheckLoD(
-                self.lod(),
-                static_cast<int>(common::vectorize(self.dims()).front()));
-          },
-          R"DOC(
-           Check whether the LoD of the Tensor is valid.
-
-           Returns:
-               bool: Whether the LoD is valid.
-
-           Examples:
-                .. code-block:: python
-
-                    >>> import paddle
-                    >>> import numpy as np
-
-                    >>> t = paddle.framework.core.Tensor()
-                    >>> t.set(np.ndarray([5, 30]), paddle.CPUPlace())
-                    >>> t.set_recursive_sequence_lengths([[2, 3]])
-                    >>> print(t.has_valid_recursive_sequence_lengths())
-                    True
            )DOC")
       .def("_as_type",
            [](const phi::DenseTensor &self,
