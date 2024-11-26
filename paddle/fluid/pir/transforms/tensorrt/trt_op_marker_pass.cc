@@ -87,6 +87,8 @@ DEFINE_GENERAL_PATTERN(Floor, paddle::dialect::FloorOp)
 DEFINE_GENERAL_PATTERN(Roll, paddle::dialect::RollOp)
 DEFINE_GENERAL_PATTERN(Selu, paddle::dialect::SeluOp)
 DEFINE_GENERAL_PATTERN(Pool3d, paddle::dialect::Pool3dOp)
+DEFINE_GENERAL_PATTERN(ThresholdedRelu, paddle::dialect::ThresholdedReluOp)
+
 
 #undef DEFINE_GENERAL_PATTERN
 
@@ -1802,6 +1804,16 @@ class StridedSliceOpPattern
       VLOG(3) << "pd_op.strided_slice must has starts,ends and strides input";
       return false;
     }
+    if (!pir::GetDefiningOpForInput(op, 1)
+             ->isa<paddle::dialect::FullIntArrayOp>() ||
+        !pir::GetDefiningOpForInput(op, 2)
+             ->isa<paddle::dialect::FullIntArrayOp>() ||
+        !pir::GetDefiningOpForInput(op, 3)
+             ->isa<paddle::dialect::FullIntArrayOp>()) {
+      VLOG(3) << "pd_op.strided_slice's starts/ends/strides input must be "
+                 "constant value";
+      return false;
+    }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
@@ -2129,6 +2141,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Roll)
     ADD_PATTERN(Selu)
     ADD_PATTERN(Pool3d)
+    ADD_PATTERN(ThresholdedRelu)
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
 #endif
