@@ -131,6 +131,36 @@ class TestAsyncWrite(unittest.TestCase):
         self.func_test_async_write_success()
 
 
+class TestAsyncWrite2(unittest.TestCase):
+    def func_setUp(self):
+        self.src = paddle.rand(shape=[100, 50, 50, 5], dtype="float32")
+        self.dst = paddle.empty(
+            shape=[200, 50, 50, 5], dtype="float32"
+        ).pin_memory()
+        self.stream = cuda.Stream()
+
+    def func_test_async_write_success(self):
+        offset = paddle.to_tensor(
+            np.array([0, 60], dtype="int64"), place=paddle.CPUPlace()
+        )
+        count = paddle.to_tensor(
+            np.array([40, 60], dtype="int64"), place=paddle.CPUPlace()
+        )
+        with cuda.stream_guard(self.stream):
+            core.eager.async_write2(self.src, self.dst, offset, count)
+
+        offset_a = paddle.gather(self.dst, paddle.to_tensor(np.arange(0, 40)))
+        offset_b = paddle.gather(self.dst, paddle.to_tensor(np.arange(60, 120)))
+        offset_array = paddle.concat([offset_a, offset_b], axis=0)
+        np.testing.assert_allclose(
+            self.src.numpy(), offset_array.numpy(), rtol=1e-05
+        )
+
+    def test_async_write_success(self):
+        self.func_setUp()
+        self.func_test_async_write_success()
+
+
 if __name__ == "__main__":
     if core.is_compiled_with_cuda():
         unittest.main()

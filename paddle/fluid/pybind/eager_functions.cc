@@ -1290,6 +1290,9 @@ static PyObject* eager_api_async_write2(PyObject* self,
   }
   {
     eager_gil_scoped_release guard;
+    EagerSetDeviceId();
+    auto expected_place = egr::Controller::Instance().GetExpectedPlace();
+    PADDLE_RETRY_CUDA_SUCCESS(cudaSetDevice(expected_place.device));
     PADDLE_ENFORCE_EQ(
         src.is_gpu(),
         true,
@@ -1567,6 +1570,10 @@ PyMethodDef variable_functions[] = {  // NOLINT
      nullptr},
     {"async_write",
      (PyCFunction)(void (*)())eager_api_async_write,
+     METH_VARARGS | METH_KEYWORDS,
+     nullptr},
+    {"async_write2",
+     (PyCFunction)(void (*)())eager_api_async_write2,
      METH_VARARGS | METH_KEYWORDS,
      nullptr},
     {"to_uva_tensor",
