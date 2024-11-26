@@ -3268,7 +3268,7 @@ void ceil_grad(const Tensor& out_grad, Tensor* x_grad) {
     Tensor zero_tensor;
     if (has_dynamic_shape(out_grad.shape())) {
       zero_tensor = backend::full_with_tensor<T>(
-          shape<T>(out_grad), 0.0, out_grad.dtype());
+          shape64<T>(out_grad), 0.0, out_grad.dtype());
     } else {
       zero_tensor =
           full<T>(common::vectorize(out_grad.dims()), 0.0, out_grad.dtype());
