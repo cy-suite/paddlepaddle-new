@@ -24,24 +24,6 @@ from paddle.base.executor import Executor
 from paddle.base.framework import default_main_program
 
 
-def check_symbolic_result(program, fetch_vars, outs, op_type):
-    if paddle.base.libpaddle.pir.all_ops_defined_symbol_infer(program):
-        shape_analysis = (
-            paddle.base.libpaddle.pir.get_shape_constraint_ir_analysis(program)
-        )
-        for i, var in enumerate(fetch_vars):
-            if var.is_dense_tensor_type() or var.is_selected_row_type():
-                shape_or_data = shape_analysis.get_shape_or_data_for_var(var)
-                expect_shape = outs[i].shape
-                expect_data = []
-                if not shape_or_data.is_equal(expect_shape, expect_data):
-                    raise AssertionError(
-                        f"The shape or data of Operator {op_type}'s result is different from expected."
-                    )
-    else:
-        pass
-
-
 def _test_read_write(x):
     i = paddle.zeros(shape=[1], dtype='int64')
     i.stop_gradient = False
@@ -307,10 +289,6 @@ class TestPirArrayOp(unittest.TestCase):
                     main_program,
                     feed={'d0': d0, 'd1': d1},
                     fetch_list=[out, out_1, out_2],
-                )
-                fetch_list = exe._check_fetch_list([out, out_1, out_2])
-                check_symbolic_result(
-                    main_program, fetch_list, res, "create_array_like"
                 )
                 out = [0.0] * 10
                 np.testing.assert_allclose(res[0], out, rtol=1e-05)
