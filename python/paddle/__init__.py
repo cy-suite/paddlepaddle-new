@@ -1212,7 +1212,6 @@ __all__ = [
     'positive',
     'from_dlpack',
     'to_dlpack',
-    '__dlpack__',
     'inf',
     'newaxis',
     'nan',

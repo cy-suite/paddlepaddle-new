@@ -326,20 +326,18 @@ class TestDLPack(unittest.TestCase):
                     np.testing.assert_array_equal(x.numpy(), y2.numpy())
 
     def test_dlpack_basic(self):
-        tensor = paddle.to_tensor([1.0, 2.0, 3.0])
+        """Test __dlpack__ and from_dlpack interoperability"""
+        tensor = paddle.to_tensor([1.0, 2.0, 3.0]).cuda()
         dlpack_capsule = tensor.__dlpack__()
         self.assertIsNotNone(dlpack_capsule)
 
-    def test_dlpack_consistency(self):
-        tensor = paddle.to_tensor([1.0, 2.0, 3.0])
-        dlpack_from_method = tensor.__dlpack__()
-        dlpack_from_func = paddle.utils.dlpack.to_dlpack(tensor)
-        self.assertEqual(dlpack_from_method, dlpack_from_func)
+        converted_tensor = paddle.from_dlpack(dlpack_capsule)
+        self.assertTrue(paddle.equal_all(tensor, converted_tensor))
+        self.assertEqual(tensor.data_ptr(), converted_tensor.data_ptr())
 
-    def test_dlpack_stream(self):
-        tensor = paddle.to_tensor([1.0, 2.0, 3.0])
-        dlpack_capsule = tensor.__dlpack__(stream=1)
-        self.assertIsNotNone(dlpack_capsule)
+        if paddle.device.is_compiled_with_cuda():
+            stream = paddle.device.cuda.default_stream().id()
+            tensor.__dlpack__(stream)
 
 
 class TestRaiseError(unittest.TestCase):

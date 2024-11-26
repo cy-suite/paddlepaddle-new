@@ -33,7 +33,6 @@ if TYPE_CHECKING:
 __all__ = [
     'to_dlpack',
     'from_dlpack',
-    '__dlpack__'
 ]
 
 _T_contra = TypeVar("_T_contra", contravariant=True)
@@ -222,11 +221,3 @@ def from_dlpack(
         out: Tensor = paddle.Tensor(out, place=out._place())
 
     return out
-
-
-def enable_dlpack():
-    from ..base import Tensor
-    def __dlpack__(self, *, stream=None):
-        return to_dlpack(self, stream=stream)
-
-    Tensor.__dlpack__ = __dlpack__

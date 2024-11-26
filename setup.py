@@ -37,7 +37,6 @@ from setuptools.command.egg_info import egg_info
 from setuptools.command.install import install as InstallCommandBase
 from setuptools.command.install_lib import install_lib
 from setuptools.dist import Distribution
-from paddle.utils.dlpack import enable_dlpack
 
 python_version = platform.python_version()
 version_detail = sys.version_info
@@ -2375,7 +2374,6 @@ def main():
             'Typing :: Typed',
         ],
     )
-    enable_dlpack()
 
 
 if __name__ == '__main__':
