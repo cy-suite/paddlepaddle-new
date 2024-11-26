@@ -26,7 +26,7 @@ namespace phi {
 // It is Recommended to set the level explicitly.
 static constexpr uint32_t kDefaultTraceLevel = 4;
 
-// Host event tracing. A trace starts when an object of this clas is created and
+// Host event tracing. A trace starts when an object of this class is created and
 // stops when the object is destroyed.
 // Chrome Trace Viewer Format: Duration Event/Complete Event
 class TEST_API RecordEvent {

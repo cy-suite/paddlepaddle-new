@@ -22,6 +22,8 @@ ot = 'ot'
 pash = 'pash'
 UE = "UE"
 unpacket = "unpacket"
+clen = 'clen'
+Clas = 'Clas'
 
 # These words need to be fixed
 Acceses = 'Acceses'
@@ -80,10 +82,6 @@ cann = 'cann'
 vart = 'vart'
 checkings = 'checkings'
 childs = 'childs'
-Chunck = 'Chunck'
-clen = 'clen'
-Clas = 'Clas'
-clas = 'clas'
 compability = 'compability'
 compatiblity = 'compatiblity'
 Compitable = 'Compitable'
