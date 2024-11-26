@@ -197,12 +197,12 @@ def _select_sdp(head_dim: int, dtype, place) -> str:
 
     # not use sdp_kernel
     if g_enable_flash is None:
-        arch = _get_arch_info()
         if place.is_cpu_place():
             return "math"
 
         # handle bfloat16/fp16 case
         elif place.is_gpu_place():
+            arch = _get_arch_info()
             if dtype == paddle.bfloat16 or dtype == paddle.float16:
                 if arch >= 80:
                     return _select_sdp_cuda(head_dim)
