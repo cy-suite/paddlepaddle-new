@@ -1893,12 +1893,12 @@ def vecdot(
         .. code-block:: python
 
             >>> import paddle
-            >>> x = paddle.to_tensor([1, 2, 3], dtype='float32')
-            >>> y = paddle.to_tensor([4, 5, 6], dtype='float32')
-            >>> result = paddle.linalg.vecdot(x, y)
+            >>> x = paddle.to_tensor([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype='float32')
+            >>> y = paddle.to_tensor([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype='float32')
+            >>> result = paddle.linalg.vecdot(x, y, axis=2)
             >>> print(result)
-            Tensor(shape=[], dtype=float32, place=Place(cpu), stop_gradient=True,
-            32.)
+            Tensor(shape=[2, 2], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [[ 5.0, 25.0], [61.0, 113.0]])
 
             >>> x2 = paddle.to_tensor([[1, 2, 3], [4, 5, 6]], dtype='float32')
             >>> y2 = paddle.to_tensor([[1, 2, 3], [4, 5, 6]], dtype='float32')
