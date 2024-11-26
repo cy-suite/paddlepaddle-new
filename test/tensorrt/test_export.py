@@ -228,7 +228,9 @@ class TestConvert_(unittest.TestCase):
 class TestConvertMultipleInputs(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.save_path = os.path.join(self.temp_dir.name, 'tensor_axis_cumsum')
+        self.save_path = os.path.join(
+            self.temp_dir.name, 'tensor_axis_cumsum_multiple'
+        )
         self.place = (
             paddle.CUDAPlace(0)
             if paddle.is_compiled_with_cuda()
@@ -306,7 +308,9 @@ class TestConvertMultipleInputs(unittest.TestCase):
 class TestConvertPredictor(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.save_path = os.path.join(self.temp_dir.name, 'tensor_axis_cumsum')
+        self.save_path = os.path.join(
+            self.temp_dir.name, 'tensor_axis_cumsum_predictor'
+        )
         self.place = (
             paddle.CUDAPlace(0)
             if paddle.is_compiled_with_cuda()
