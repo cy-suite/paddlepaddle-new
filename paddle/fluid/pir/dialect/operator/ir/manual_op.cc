@@ -2591,7 +2591,8 @@ bool TensorToArrayOp::InferSymbolicShape(
   const auto &x_shape_or_data =
       infer_context->GetShapeOrDataForValue(x())
           .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
-  infer_context->SetShapeOrDataForValue(x_grad(), x_shape_or_data);
+  infer_context->SetShapeOrDataForValue(
+      x_grad(), symbol::ShapeOrDataDimExprs{x_shape_or_data});
 
   return true;
 }
