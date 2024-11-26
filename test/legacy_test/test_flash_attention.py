@@ -181,7 +181,7 @@ class TestFlashAttentionAPI(unittest.TestCase):
             )
 
             cu_q = paddle.arange(0, (bs + 1) * ms, ms, dtype='int32')
-            qs = paddle.reshape(qs, [bs * ms, nh, hd]).clone()
+            qs = paddle.reshape(qs, [bs * ms, nh, hd])
 
             outs, softmax = flash_attn_unpadded(
                 qs,
@@ -833,6 +833,9 @@ class TestFlashAttentionGQA(unittest.TestCase):
         return unpad_x
 
     def test_main(self):
+        # test dynamic
+        paddle.disable_static()
+
         for causal in [False, True]:
             for use_unpadded in [False, True]:
                 (

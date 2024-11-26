@@ -51,6 +51,97 @@ def _get_arch_info():
         )
 
 
+def check_flash_head_dim_constraints(query, dropout_p=0.0):
+    arch = _get_arch_info()
+    is_sm86_to_sm89 = 86 <= arch <= 89
+
+    if not is_sm86_to_sm89:
+        return True
+
+    head_dim = query.shape[-1]
+    requires_grad = not query.stop_gradient
+
+    if not requires_grad:
+        return True
+
+    is_head_dim_gt192 = head_dim > 192
+    is_head_dim_lte224 = head_dim <= 224
+    is_dropout = dropout_p > 0.0
+
+    cond1 = is_head_dim_gt192 and is_head_dim_lte224
+    cond2 = head_dim > 224 and is_dropout
+
+    if cond1 or cond2:
+        return False
+    return True
+
+
+def check_flash_causal_non_square_seqlens(query, key, is_causal=False):
+    if not is_causal:
+        return True
+
+    seqlen_q = query.shape[-3]
+    seqlen_k = key.shape[-3]
+
+    if seqlen_q != seqlen_k:
+        return False
+    return True
+
+
+def check_dtypes_low_precision(query, debug=False):
+    arch = _get_arch_info()
+    dtype = query.dtype
+
+    if arch >= 80:
+        supported_dtypes = [paddle.float16, paddle.bfloat16]
+    else:
+        supported_dtypes = [paddle.float16]
+
+    return dtype in supported_dtypes
+
+
+def can_use_flash_attn(query, key, attn_mask, dropout, is_causal) -> bool:
+    # step1 check tensor place on cuda
+    # step2 check tensor shape, flash attn only support shape == 4
+    # step3 check attn_mask, some diff with torch version
+    # step4 check head_dim <= 256
+    # step5 check arch_info > sm80
+    # step5 check specify sm head dim constraint
+    # step6 check causal qk
+    # step7 check sm dtype support
+    if "gpu" not in paddle.get_device():
+        return False
+    if query.ndim != 4:
+        return False
+    if attn_mask is not None and attn_mask.dtype not in [
+        paddle.bool,
+        paddle.float32,
+    ]:
+        return False
+    if query.shape[-1] >= 256:
+        return False
+    if _get_arch_info() < 80:
+        return False
+    if not check_flash_head_dim_constraints(query, dropout):
+        return False
+    if not check_flash_causal_non_square_seqlens(query, key, is_causal):
+        return False
+    if not check_dtypes_low_precision(query):
+        return False
+
+
+def can_use_efficient(query) -> bool:
+    # step1 check tensor place on cuda
+    # step2 check arch_info in [sm50, sm90]
+    # step3 check tensor shape, mem efficient only support shape == 4
+    if "gpu" not in paddle.get_device():
+        return False
+    if _get_arch_info() < 50 and _get_arch_info() > 90:
+        return False
+    if query.ndim != 4:
+        return False
+
+
 @signature_safe_contextmanager
 def sdp_kernel(
     enable_math: bool = False,
@@ -178,53 +269,23 @@ def _select_sdp_cuda(head_dim: int) -> str:
         return "mem_efficient"
 
 
-def _select_sdp(head_dim: int, dtype, place) -> str:
+def _select_sdp(head_dim: int) -> str:
     r"""
     There are currently three different implementation options available for
     scaled dot product attention, and the chosen approach depends on whether it
     is determined by the sdp_kernel configuration or specified through input values.
     """
+    place = paddle.get_device()
 
-    if place == "XPU":
-        place = paddle.XPUPlace()
-    elif place == "CPU":
-        place = paddle.CPUPlace()
-    elif place == "GPU":
-        place = paddle.CUDAPlace(0)
-
-    if place.is_xpu_place():
+    if "xpu" in place:
         return "flash_attn"
 
     # not use sdp_kernel
     if g_enable_flash is None:
-        arch = _get_arch_info()
-        if place.is_cpu_place():
+        if "gpu" not in place:
             return "math"
-
-        # handle bfloat16/fp16 case
-        elif place.is_gpu_place():
-            if dtype == paddle.bfloat16 or dtype == paddle.float16:
-                if arch >= 80:
-                    return _select_sdp_cuda(head_dim)
-                elif arch < 80 and arch >= 70:
-                    return "mem_efficient"
-                else:
-                    return "math"
-            # handle fp32 case
-            elif dtype == paddle.float32:
-                if arch >= 70:
-                    return "mem_efficient"
-                else:
-                    return "math"
-            # handle other
-            else:
-                raise NotImplementedError(
-                    f"paddle sdpa not support {dtype} dtype, please use fp32 or bf/fp16."
-                )
         else:
-            raise NotImplementedError(
-                f"paddle sdpa not support device {place}, please use xpu/cpu/gpu."
-            )
+            return _select_sdp_cuda(head_dim)
 
     if (
         g_enable_math is False
@@ -242,6 +303,54 @@ def _select_sdp(head_dim: int, dtype, place) -> str:
             return "math"
     if g_enable_flash is True and g_enable_mem_efficient is True:
         return _select_sdp_cuda(head_dim)
+    if g_enable_flash is True:
+        return "flash_attn"
+    return "mem_efficient"
+
+
+def _select_sdp_for_sdpa(query, key, attn_mask, dropout, is_causal) -> str:
+    r"""
+    this select sdpa is alignment for torch version
+    """
+    place = paddle.get_device()
+    if "xpu" in place:
+        return "flash_attn"
+
+    # not use sdp_kernel
+    if (
+        g_enable_flash is None
+        and g_enable_math is None
+        and g_enable_mem_efficient is None
+    ):
+        # test flash attn usage
+        use_flash = can_use_flash_attn(
+            query, key, attn_mask, dropout, is_causal
+        )
+        use_efficient = can_use_efficient(query)
+        use_math = True
+        if use_flash:
+            return "flash_attn"
+        elif use_efficient:
+            return "mem_efficient"
+        elif use_math:
+            return "math"
+
+    if (
+        g_enable_math is False
+        and g_enable_flash is False
+        and g_enable_mem_efficient is False
+    ):
+        raise AssertionError(
+            "No available backend for scaled_dot_product_attention was found."
+        )
+
+    if g_enable_math is True:
+        if g_enable_flash is False and g_enable_mem_efficient is False:
+            return "math"
+        if "gpu" not in place:
+            return "math"
+    if g_enable_flash is True and g_enable_mem_efficient is True:
+        return _select_sdp_cuda(query.shape[-1])
     if g_enable_flash is True:
         return "flash_attn"
     return "mem_efficient"
@@ -374,7 +483,7 @@ def flash_attention(
 
     """
     head_dim = query.shape[3]
-    sdp_func_name = _select_sdp(head_dim, query.dtype, query.place)
+    sdp_func_name = _select_sdp(head_dim)
 
     if sdp_func_name == "flash_attn":
         if in_dynamic_or_pir_mode():
@@ -563,7 +672,7 @@ def flash_attn_qkvpacked(
 
     """
     head_dim = qkv.shape[-1]
-    sdp_func_name = _select_sdp(head_dim, qkv.dtype, qkv.place)
+    sdp_func_name = _select_sdp(head_dim)
 
     if sdp_func_name == "flash_attn":
         if in_dynamic_or_pir_mode():
@@ -1092,7 +1201,9 @@ def scaled_dot_product_attention(
     """
 
     head_dim = query.shape[3]
-    sdp_func_name = _select_sdp(head_dim, query.dtype, query.place)
+    sdp_func_name = _select_sdp_for_sdpa(
+        query, key, attn_mask, dropout_p, is_causal
+    )
 
     if attn_mask is None:
         # downgraded to ordinary flash attention implementation
