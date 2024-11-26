@@ -28,3 +28,10 @@ cc_library(
   gpu_resource_pool
   SRCS gpu_resource_pool.cc
   DEPS gpu_info)
+
+if(WITH_GPU)
+  nv_library(
+    gpu_event_timer
+    SRCS gpu_event_timer.cc
+    DEPS phi_core glog)
+endif()

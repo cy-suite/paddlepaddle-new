@@ -156,6 +156,9 @@ limitations under the License. */
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
 #include "paddle/fluid/operators/nccl/nccl_gpu_common.h"
 #endif
+#ifdef PADDLE_WITH_CUDA
+#include "paddle/fluid/platform/device/gpu/gpu_event_timer.h"
+#endif
 #ifndef PADDLE_WITH_HIP
 #include "paddle/fluid/platform/device/gpu/cuda/cuda_profiler.h"
 #endif
@@ -2322,6 +2325,26 @@ All parameter, weight, gradient are variables in Paddle.
       .def("set_ir_program", &framework::interpreter::Plan::SetIrProgram)
       .def("ir_program", &framework::interpreter::Plan::IrProgram)
       .def("program", &framework::interpreter::Plan::Program);
+
+#ifdef PADDLE_WITH_CUDA
+  py::class_<platform::GPUEventTimer>(m, "GPUEventTimer")
+      .def(py::init<phi::GPUPlace>(), py::arg("place"))
+      .def(
+          "start",
+          [](platform::GPUEventTimer &timer) { timer.Start(); },
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "stop",
+          [](platform::GPUEventTimer &timer) { timer.Stop(); },
+          py::call_guard<py::gil_scoped_release>())
+      .def("reset",
+           &platform::GPUEventTimer::Reset,
+           py::call_guard<py::gil_scoped_release>())
+      .def("elapsed",
+           &platform::GPUEventTimer::Elapsed,
+           py::arg("reset") = true,
+           py::call_guard<py::gil_scoped_release>());
+#endif
 
   m.def("init_gflags", framework::InitGflags);
   m.def("init_glog", framework::InitGLOG);
