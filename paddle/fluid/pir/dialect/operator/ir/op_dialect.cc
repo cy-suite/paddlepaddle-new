@@ -78,6 +78,12 @@ struct CombineOpInferSymbolicShapeInterfaceModel
             common::errors::InvalidArgument(
                 "Currently InferSymbolicShape of CombineOp only support "
                 "DenseTensorType or DenseTensorArrayType."));
+        // if (!infer_context->HasShapeOrDataForValue(op->operand_source(i))) {
+        //   // Note: Now pd_op.create_array_like don't implement
+        //   // InferSymbolicShape.
+        //   PADDLE_THROW(common::errors::InvalidArgument(
+        //       "The operand %d of CombineOp should have shape or data.", i));
+        // }
       }
 
       infer_context->SetShapeOrDataForValue(

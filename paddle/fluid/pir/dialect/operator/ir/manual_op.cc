@@ -599,10 +599,20 @@ bool AddNArrayOp::InferSymbolicShape(
   // The inputs for add_n_array op is defined by builtin.combine.
   // We use the combine op's inputs to infer the output shape.
   if (inputs_shape_or_data.isa<symbol::NullShapeOrDataDimExpr>()) {
-    auto out_shape_or_data = infer_context->GetShapeOrDataForValue(
-        inputs().defining_op()->dyn_cast<pir::CombineOp>().operand_source(0));
-    infer_context->SetShapeOrDataForValue(out(), out_shape_or_data);
-    return true;
+    pir::CombineOp combine_op =
+        inputs().defining_op()->dyn_cast<pir::CombineOp>();
+    // Try to get the infer result as much as possible.
+    for (int i = 0; i < combine_op.num_operands(); i++) {
+      if (infer_context->HasShapeOrDataForValue(combine_op.operand_source(i))) {
+        auto out_shape_or_data =
+            infer_context->GetShapeOrDataForValue(combine_op.operand_source(i));
+        infer_context->SetShapeOrDataForValue(out(), out_shape_or_data);
+        return true;
+      }
+    }
+    PADDLE_THROW(common::errors::InvalidArgument(
+        "At least one operand of CombineOp should have shape or data."));
+
   } else {
     PADDLE_THROW(common::errors::InvalidArgument(
         "The inputs for add_n_array op only defined by builtin.combine"));
