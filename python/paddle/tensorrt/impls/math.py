@@ -241,8 +241,6 @@ def minimum_converter(network, paddle_op, inputs):
     x = inputs[0]
     y = inputs[1]
     x, y = broadcast(network, x, y, a_name="x", b_name="y")
-    min_layer = network.add_elementwise(
-        x, y, trt.ElementWiseOperation.MIN
-    )
+    min_layer = network.add_elementwise(x, y, trt.ElementWiseOperation.MIN)
     min_layer.name = f"{x.name}_minimum_{y.name}"
     return min_layer.get_output(0)

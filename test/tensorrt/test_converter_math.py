@@ -427,12 +427,20 @@ class TestMinimumIntTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.minimum
         self.api_args = {
-            "x": np.random.randint(low=1, high=100, size=(2, 3, 4), dtype="int64"),
-            "y": np.random.randint(low=1, high=100, size=(2, 3, 4), dtype="int64"),
+            "x": np.random.randint(
+                low=1, high=100, size=(2, 3, 4), dtype="int64"
+            ),
+            "y": np.random.randint(
+                low=1, high=100, size=(2, 3, 4), dtype="int64"
+            ),
         }
         self.dynamic_shape_data = {
-            "x": lambda shape: np.random.randint(1, 100, size=shape, dtype="int64"),
-            "y": lambda shape: np.random.randint(1, 100, size=shape, dtype="int64"),
+            "x": lambda shape: np.random.randint(
+                1, 100, size=shape, dtype="int64"
+            ),
+            "y": lambda shape: np.random.randint(
+                1, 100, size=shape, dtype="int64"
+            ),
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1, 3, 4], "y": [1, 3, 4]}
