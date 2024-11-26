@@ -567,6 +567,18 @@ class TestDygraphInplaceRsqrt(TestDygraphInplaceSqrt):
         return var.rsqrt_()
 
 
+class TestDygraphInplaceSquare(TestDygraphInplace):
+    def init_data(self):
+        self.input_var_numpy = np.random.uniform(0, 5, [10, 20, 1])
+        self.dtype = "float32"
+
+    def non_inplace_api_processing(self, var):
+        return var.square()
+
+    def inplace_api_processing(self, var):
+        return var.square_()
+
+
 class TestDygraphInplaceClip(TestDygraphInplace):
     def non_inplace_api_processing(self, var):
         return var.clip(0.6, 1.5)
@@ -1428,6 +1440,14 @@ class TestDygraphInplaceLessThan(TestDygraphInplaceLogicAnd):
 
     def non_inplace_api_processing(self, var):
         return paddle.less_than(var, self.y)
+
+
+class TestDygraphInplaceLess(TestDygraphInplaceLogicAnd):
+    def inplace_api_processing(self, var):
+        return paddle.less_(var, self.y)
+
+    def non_inplace_api_processing(self, var):
+        return paddle.less(var, self.y)
 
 
 class TestDygraphInplaceLessEqual(TestDygraphInplaceLogicAnd):

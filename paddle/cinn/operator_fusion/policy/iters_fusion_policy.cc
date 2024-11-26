@@ -36,7 +36,8 @@ bool ItersFusionPolicy::CheckItersRelation(const PatternNodePtr& source,
     for (const auto& related_iter : source_related_iters) {
       if (iters_manager_->CanFindRelatedIters(related_iter,
                                               target_unique_iters)) {
-        VLOG(4) << "Can not fuse because find related iters";
+        VLOG(4) << "Can not fuse from " << source->fusion_iters().DebugStr()
+                << " to " << target->fusion_iters().DebugStr();
         return false;
       }
     }
@@ -163,6 +164,13 @@ ItersFusionPolicy::SearchTransformRouteFromReduce2Reduce(
     // TODO(huangjiyi): Analysis fusion with different non reduce axis
     auto [source_flatten_iters, source_reduce_iters] = SplitReduceIters(source);
     auto [target_flatten_iters, target_reduce_iters] = SplitReduceIters(target);
+
+    if (AnyFirstInSecond(source_reduce_iters, target_flatten_iters) ||
+        AnyFirstInSecond(target_reduce_iters, source_flatten_iters)) {
+      VLOG(4) << "Exist reduce iters in one ReduceOp found in the flatten "
+                 "iters in another ReduceOp.";
+      return std::nullopt;
+    }
 
     ItersTransformRoute route;
     // 1. Apply ReuseItersTransform
