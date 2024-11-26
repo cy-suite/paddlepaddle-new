@@ -3249,14 +3249,31 @@ void take_along_axis_grad(const Tensor& arr,
     Tensor zero_tensor;
     if (has_dynamic_shape(arr_cast.shape())) {
       zero_tensor = backend::full_with_tensor<T>(
-          shape64<T>(arr_cast), 0, arr_cast.dtype());
+          shape64<T>(arr_cast), 0, arr_cast.dtype(), arr_cast.place());
     } else {
-      zero_tensor =
-          full<T>(common::vectorize(arr_cast.dims()), 0, arr_cast.dtype());
+      zero_tensor = full<T>(common::vectorize(arr_cast.dims()),
+                            0,
+                            arr_cast.dtype(),
+                            arr_cast.place());
     }
     auto arr_grad_tmp =
         put_along_axis<T>(zero_tensor, indices, out_grad_cast, axis);
     set_output<T>(ConverToOrig<T>(arr_grad_tmp, arr.dtype()), arr_grad);
+  }
+}
+
+template <typename T>
+void ceil_grad(const Tensor& out_grad, Tensor* x_grad) {
+  if (x_grad) {
+    Tensor zero_tensor;
+    if (has_dynamic_shape(out_grad.shape())) {
+      zero_tensor = backend::full_with_tensor<T>(
+          shape<T>(out_grad), 0.0, out_grad.dtype());
+    } else {
+      zero_tensor =
+          full<T>(common::vectorize(out_grad.dims()), 0.0, out_grad.dtype());
+    }
+    set_output<T>(zero_tensor, x_grad);
   }
 }
 
