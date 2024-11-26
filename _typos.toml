@@ -12,6 +12,8 @@ extend-exclude = [
 anc = 'anc'
 arange = "arange"
 astroid = 'astroid'
+Clas = 'Clas'
+clen = 'clen'
 dout = "dout"
 eles = 'eles'
 grad = "grad"
@@ -22,8 +24,6 @@ ot = 'ot'
 pash = 'pash'
 UE = "UE"
 unpacket = "unpacket"
-clen = 'clen'
-Clas = 'Clas'
 
 # These words need to be fixed
 Acceses = 'Acceses'
