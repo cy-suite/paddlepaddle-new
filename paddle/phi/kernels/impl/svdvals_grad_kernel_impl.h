@@ -48,9 +48,9 @@ void SvdvalsGradKernel(const Context& dev_ctx,
   if (batches == 1) {
     dX_term = Diag<T, Context>(dev_ctx, s_grad, 0, 0);
   } else {
-    MetaTenosr meta_dx(&dX_term);
-    DiagEmbedInferMeta(s_grad, 0, -1, -2, &meta_dx);
-    DiagEmbedKernel<T, Context>(dev_ctx, s_grad, 0, -1, -2, &dX_term);
+    MetaTensor meta_dx(&dX_term);
+    DiagEmbedInferMeta(s_grad, 0, -1, -2, &meta_dX);
+    phi::DiagEmbedKernel<T, Context>(dev_ctx, s_grad, 0, -1, -2, &dX_term);
   }
 
   VLOG(1) << "dX_term shape: " << dX_term.dims()
