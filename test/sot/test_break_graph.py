@@ -121,10 +121,6 @@ def numpy_break_graph():
     return b
 
 
-def unary_not_break_graph(x):
-    return not x
-
-
 class TestBreakGraphInCallMethod(TestCaseBase):
     def test_simple(self):
         x = paddle.to_tensor([1.0])
@@ -137,10 +133,6 @@ class TestBreakGraphInCallMethod(TestCaseBase):
 
     def test_numpy(self):
         self.assert_results(numpy_break_graph)
-
-    def test_unary_not_break_graph(self):
-        x = paddle.to_tensor(0)
-        self.assert_results(unary_not_break_graph, x)
 
 
 def test_break_graph_repeat(x):
@@ -206,6 +198,16 @@ class TestBreakGraphCallGeneratorFunction(TestCaseBase):
         x = paddle.rand([1], dtype=paddle.float32)
         y = paddle.rand([1], dtype=paddle.float32)
         self.assert_results(break_graph_call_generator_function, [x, y])
+
+
+def unary_not_break_graph(x):
+    return not x
+
+
+class TestUnaryNot(TestCaseBase):
+    def test_unary_not_break_graph(self):
+        x = paddle.to_tensor(0)
+        self.assert_results(unary_not_break_graph, x)
 
 
 if __name__ == "__main__":
