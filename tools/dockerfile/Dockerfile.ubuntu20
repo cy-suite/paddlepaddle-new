@@ -119,8 +119,7 @@ RUN localedef -i en_US -f UTF-8 en_US.UTF-8
 RUN rm -f /usr/local/bin/pip && ln -s /usr/local/bin/pip3.9 /usr/local/bin/pip && \
     rm -f /usr/local/bin/pip3 && ln -s /usr/local/bin/pip3.9 /usr/local/bin/pip3
 
-RUN mkdir /root/.pip && echo [global] >/root/.pip/pip.conf && echo 'index-url = https://pypi.tuna.tsinghua.edu.cn/simple' >>/root/.pip/pip.conf
-RUN cat /root/.pip/pip.conf
+# RUN mkdir /root/.pip && echo [global] >/root/.pip/pip.conf && echo 'index-url = https://pypi.tuna.tsinghua.edu.cn/simple' >>/root/.pip/pip.conf
 
 RUN pip3.9 --no-cache-dir install ipython==5.3.0 && \
     pip3.9 --no-cache-dir install ipykernel==4.6.0 wheel && \
