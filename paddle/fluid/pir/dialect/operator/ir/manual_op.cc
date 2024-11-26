@@ -594,15 +594,13 @@ std::vector<pir::Type> AddNArrayOp::InferMeta(
 
 bool AddNArrayOp::InferSymbolicShape(
     pir::InferSymbolicShapeContext *infer_context) {
-  const auto &inputs_shape_or_data =
-      infer_context->GetShapeOrDataForValue(inputs());
-  // The inputs for add_n_array op is defined by builtin.combine.
-  // We use the combine op's inputs to infer the output shape.
-  if (inputs_shape_or_data.isa<symbol::NullShapeOrDataDimExpr>()) {
+  if (infer_context->HasShapeOrDataForValue(inputs())) {
+    // The inputs for add_n_array op is defined by builtin.combine.
+    // We use the combine op's inputs to infer the output shape.
     pir::CombineOp combine_op =
         inputs().defining_op()->dyn_cast<pir::CombineOp>();
     // Try to get the infer result as much as possible.
-    for (int i = 0; i < combine_op.num_operands(); i++) {
+    for (size_t i = 0; i < combine_op.num_operands(); i++) {
       if (infer_context->HasShapeOrDataForValue(combine_op.operand_source(i))) {
         auto out_shape_or_data =
             infer_context->GetShapeOrDataForValue(combine_op.operand_source(i));
@@ -615,7 +613,7 @@ bool AddNArrayOp::InferSymbolicShape(
 
   } else {
     PADDLE_THROW(common::errors::InvalidArgument(
-        "The inputs for add_n_array op only defined by builtin.combine"));
+        "Fail to GetShapeOrDataForValue on pd_op.add_n_array's inputs"));
   }
 }
 
