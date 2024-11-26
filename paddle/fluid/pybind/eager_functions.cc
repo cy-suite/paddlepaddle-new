@@ -1217,116 +1217,6 @@ static PyObject* eager_api_async_write(PyObject* self,
     auto& offset_tensor = offset;
     auto& count_tensor = count;
     const auto& deviceId = paddle::platform::GetCurrentDeviceId();
-    std::cout << "wanghuan test eager_api_async_write deviceId = " << deviceId
-              << std::endl;
-
-    PADDLE_ENFORCE_EQ(offset_tensor.dims().size(),
-                      1,
-                      common::errors::InvalidArgument(
-                          "`offset` tensor should be one-dimensional."));
-    PADDLE_ENFORCE_EQ(count_tensor.dims().size(),
-                      1,
-                      common::errors::InvalidArgument(
-                          "`count` tensor should be one-dimensional."));
-    PADDLE_ENFORCE_EQ(offset_tensor.numel(),
-                      count_tensor.numel(),
-                      common::errors::InvalidArgument(
-                          "`offset` and `count` tensor size mismatch."));
-    PADDLE_ENFORCE_EQ(src_tensor.dims().size(),
-                      dst_tensor->dims().size(),
-                      common::errors::InvalidArgument(
-                          "`src` and `dst` should have the same tensor shape, "
-                          "except for the first dimension."));
-    for (int i = 1; i < src_tensor.dims().size(); i++) {
-      PADDLE_ENFORCE_EQ(
-          src_tensor.dims()[i],
-          dst_tensor->dims()[i],
-          common::errors::InvalidArgument(
-              "`src` and `dst` should have the same tensor shape, "
-              "except for the first dimension."));
-    }
-
-    auto stream = paddle::platform::get_current_stream(deviceId)->raw_stream();
-
-    int64_t size = src_tensor.numel() / src_tensor.dims()[0];
-    auto* src_data = src_tensor.data<float>();
-    auto* dst_data = dst_tensor->data<float>();
-    const int64_t* offset_data = offset_tensor.data<int64_t>();
-    const int64_t* count_data = count_tensor.data<int64_t>();
-    int64_t src_offset = 0, dst_offset, c;
-    for (int64_t i = 0; i < offset_tensor.numel(); i++) {
-      dst_offset = offset_data[i], c = count_data[i];
-      PADDLE_ENFORCE_LE(
-          src_offset + c,
-          src_tensor.dims()[0],
-          common::errors::InvalidArgument("Invalid offset or count index"));
-      PADDLE_ENFORCE_LE(
-          dst_offset + c,
-          dst_tensor->dims()[0],
-          common::errors::InvalidArgument("Invalid offset or count index"));
-      cudaMemcpyAsync(dst_data + (dst_offset * size),
-                      src_data + (src_offset * size),
-                      c * size * sizeof(float),
-                      cudaMemcpyDeviceToHost,
-                      stream);
-      src_offset += c;
-    }
-  }
-  RETURN_PY_NONE
-  EAGER_CATCH_AND_THROW_RETURN_NULL
-}
-
-static PyObject* eager_api_async_write2(PyObject* self,
-                                        PyObject* args,
-                                        PyObject* kwargs) {
-  EAGER_TRY
-  auto& src = GetTensorFromArgs("async_write", "src", args, 0, false);
-  auto& dst = GetTensorFromArgs("async_write", "dst", args, 1, false);
-  auto& offset = GetTensorFromArgs("async_write", "offset", args, 2, false);
-  auto& count = GetTensorFromArgs("async_write", "count", args, 3, false);
-  const phi::distributed::ProcessMesh* mesh = nullptr;
-  if (InputsContainDistTensor(&mesh, src, dst, offset, count)) {
-    ConvertAllInputsToDistTensor(mesh, src, dst, offset, count);
-  }
-  {
-    eager_gil_scoped_release guard;
-    EagerSetDeviceId();
-    auto expected_place = egr::Controller::Instance().GetExpectedPlace();
-    PADDLE_RETRY_CUDA_SUCCESS(cudaSetDevice(expected_place.device));
-    PADDLE_ENFORCE_EQ(
-        src.is_gpu(),
-        true,
-        common::errors::InvalidArgument(
-            "Required `src` device should be CUDAPlace, but received %d. ",
-            src.place()));
-    PADDLE_ENFORCE_EQ(dst.is_gpu_pinned(),
-                      true,
-                      common::errors::InvalidArgument(
-                          "Required `dst` device should be CUDAPinnedPlace, "
-                          "but received %d. ",
-                          dst.place()));
-    PADDLE_ENFORCE_EQ(
-        offset.is_cpu(),
-        true,
-        common::errors::InvalidArgument("Required `offset` device should "
-                                        "be CPUPlace, but received %d. ",
-                                        offset.place()));
-    PADDLE_ENFORCE_EQ(
-        count.is_cpu(),
-        true,
-        common::errors::InvalidArgument(
-            "Required `count` device should be CPUPlace, but received %d. ",
-            count.place()));
-
-    // TODO(daisiming): In future, add index as arguments following
-    // async_read.
-    auto& src_tensor = src;
-    auto* dst_tensor = &dst;
-    auto& offset_tensor = offset;
-    auto& count_tensor = count;
-    const auto& deviceId = paddle::platform::GetCurrentDeviceId();
-    std::cout << "wanghuan test eager_api_async_write deviceId = " << deviceId
-              << std::endl;
 
     PADDLE_ENFORCE_EQ(offset_tensor.dims().size(),
                       1,
@@ -1570,10 +1460,6 @@ PyMethodDef variable_functions[] = {  // NOLINT
      nullptr},
     {"async_write",
      (PyCFunction)(void (*)())eager_api_async_write,
-     METH_VARARGS | METH_KEYWORDS,
-     nullptr},
-    {"async_write2",
-     (PyCFunction)(void (*)())eager_api_async_write2,
      METH_VARARGS | METH_KEYWORDS,
      nullptr},
     {"to_uva_tensor",
