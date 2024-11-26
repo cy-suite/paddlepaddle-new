@@ -1317,7 +1317,7 @@ class TestEagerTensor(unittest.TestCase):
                     [1, 2, 3], place=base.CUDAPinnedPlace()
                 )
                 device_type, device_id = tensor_pinned.__dlpack_device__()
-                self.assertEqual(device_type, DLDeviceType.kDLCPU)
+                self.assertEqual(device_type, DLDeviceType.kDLCUDAHost)
                 self.assertEqual(device_id, 0)
 
             # test XPU
