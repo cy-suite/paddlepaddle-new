@@ -1464,7 +1464,7 @@ void BindValue(py::module *m) {
       .def("_clone", [](Value self) {
         // Return a new value owned by python side
         return self;
-      })
+      });
 }
 
 void BindOpOperand(py::module *m) {
