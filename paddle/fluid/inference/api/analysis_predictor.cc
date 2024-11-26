@@ -879,8 +879,12 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
 
         if (config_.enable_gpu_mixed_) {
           AddAutoMixedPrecisionPass(fused_op_pm);
-          fused_op_pm.AddPass(
-              pir::PassRegistry::Instance().Get("transfer_layout_pass"));
+          if (FLAGS_enable_auto_layout_pass) {
+            AddAutoLayoutPasses(fused_op_pm);
+          } else {
+            fused_op_pm.AddPass(
+                pir::PassRegistry::Instance().Get("transfer_layout_pass"));
+          }
         }
         fused_op_pm.Run(pir_program_.get());
       }
@@ -1009,12 +1013,16 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
     if (!config_.cinn_enabled()) {
       AddAutoMixedPrecisionPass(basic_pass_pm);
 
-      auto transfer_layout_pass = ::pir::CreateTransferLayoutPass();
-      if (std::find(config_.deleted_passes_.begin(),
-                    config_.deleted_passes_.end(),
-                    transfer_layout_pass->name()) ==
-          config_.deleted_passes_.end()) {
-        basic_pass_pm.AddPass(std::move(transfer_layout_pass));
+      if (FLAGS_enable_auto_layout_pass) {
+        AddAutoLayoutPasses(basic_pass_pm);
+      } else {
+        auto transfer_layout_pass = ::pir::CreateTransferLayoutPass();
+        if (std::find(config_.deleted_passes_.begin(),
+                      config_.deleted_passes_.end(),
+                      transfer_layout_pass->name()) ==
+            config_.deleted_passes_.end()) {
+          basic_pass_pm.AddPass(std::move(transfer_layout_pass));
+        }
       }
     }
   }
