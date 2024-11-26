@@ -301,7 +301,6 @@ class AbstractTensor:
     def _grad_ivar(self) -> Tensor | None: ...
 
     # annotation: ${tensor_alias}
-    def __dlpack__(self) -> Any: ...
 
 class Tensor(AbstractTensor, AbstractEagerParamBase):
     # annotation: ${tensor_docstring}
