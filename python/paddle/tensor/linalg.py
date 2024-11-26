@@ -1898,7 +1898,7 @@ def vecdot(
             >>> result = paddle.linalg.vecdot(x, y)
             >>> print(result)
             Tensor(shape=[], dtype=float32, place=Place(cpu), stop_gradient=True,
-            32)
+            32.)
 
             >>> x2 = paddle.to_tensor([[1, 2, 3], [4, 5, 6]], dtype='float32')
             >>> y2 = paddle.to_tensor([[1, 2, 3], [4, 5, 6]], dtype='float32')
