@@ -715,12 +715,8 @@ def _load_state_dict(
                         tmp_tensor, src=src_rank, group=process_group
                     )
                     paddle.assign(tmp_tensor, cur_chunk_tensor)
-            if (
-                k_new in target_state_dict
-                and target_state_dict[k_new].place.is_cpu_place()
-                and (i + 1 < len(read_items) and read_items[i + 1].local_tensor_index.tensor_key != k_new)
-            ):
-                target_state_dict[k_new] = target_state_dict[k_new].cpu()
+            if k_new in target_state_dict and i+1<len(read_items) and read_items[i+1].local_tensor_index.tensor_key!=k_new:
+                target_state_dict[k_new]=target_state_dict[k_new].cpu()
 
         if use_dist:
             paddle.distributed.barrier(process_group)
