@@ -1705,21 +1705,20 @@ void tile_grad(const Tensor& x,
                Tensor* x_grad) {
   if (x_grad) {
     std::vector<int64_t> repeat_times_data = repeat_times.GetData();
-    Tensor out_grad_cast = ConverToMT<T>(out_grad);
     Tensor out_grad_tmp = out_grad;
     Tensor x_grad_tmp;
 
-    if (has_dynamic_shape(x.shape())) {
+    if (has_dynamic_shape(x.shape()) || has_dynamic_shape(out_grad.shape())) {
       std::vector<Tensor> out_grad_shape_vec;
       for (int64_t i = 0; i < out_grad.dims().size(); ++i) {
-        auto out_grad_shape_slice = get_slice<T>(shape<T>(out_grad_cast), i);
+        auto out_grad_shape_slice = get_slice<T>(shape<T>(out_grad_tmp), i);
         out_grad_shape_vec.push_back(out_grad_shape_slice);
       }
       if (repeat_times_data.size() != 0) {
         while (true) {
           std::vector<Tensor> expand_shape_vec;
-          for (int64_t i = 0; i < out_grad_cast.dims().size(); ++i) {
-            auto expand_shape = get_slice<T>(shape<T>(out_grad_cast), i);
+          for (int64_t i = 0; i < out_grad_tmp.dims().size(); ++i) {
+            auto expand_shape = get_slice<T>(shape<T>(out_grad_tmp), i);
             expand_shape_vec.push_back(expand_shape);
           }
           int num_reduce = 0;
@@ -1745,18 +1744,17 @@ void tile_grad(const Tensor& x,
             reduce_axes_vec.push_back(full<T>({1}, axis, DataType::INT32));
             axis += 2;
           }
-          out_grad_cast =
-              backend::reshape<T>(out_grad_cast, concat<T>(expand_shape_vec));
-          out_grad_cast =
-              backend::sum<T>(out_grad_cast, concat<T>(reduce_axes_vec));
+          out_grad_tmp =
+              backend::reshape<T>(out_grad_tmp, concat<T>(expand_shape_vec));
+          out_grad_tmp =
+              backend::sum<T>(out_grad_tmp, concat<T>(reduce_axes_vec));
 
           if (repeat_times_data.size() == 0) {
             break;
           }
         }
       }
-      x_grad_tmp = backend::reshape<T>(
-          ConverToOrig<T>(out_grad_cast, out_grad.dtype()), shape<T>(x));
+      x_grad_tmp = backend::reshape<T>(out_grad_tmp, shape<T>(x));
     } else {
       std::vector<int64_t> out_grad_shape(out_grad.shape());
 
