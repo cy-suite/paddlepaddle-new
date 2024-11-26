@@ -65,7 +65,6 @@ DEFINE_GENERAL_PATTERN(Fused_gemm_epilogue,
                        paddle::dialect::FusedGemmEpilogueOp)
 DEFINE_GENERAL_PATTERN(Layer_norm, paddle::dialect::LayerNormOp)
 DEFINE_GENERAL_PATTERN(Add, paddle::dialect::AddOp)
-DEFINE_GENERAL_PATTERN(Pow, paddle::dialect::PowOp)
 DEFINE_GENERAL_PATTERN(Full, paddle::dialect::FullOp)
 DEFINE_GENERAL_PATTERN(Silu, paddle::dialect::SiluOp)
 DEFINE_GENERAL_PATTERN(Conv2d, paddle::dialect::Conv2dOp)
@@ -222,6 +221,7 @@ using MultiplyOpPattern =
 using SubtractOpPattern =
     ElementwiseCommonOpPattern<paddle::dialect::SubtractOp>;
 using DivideOpPattern = ElementwiseCommonOpPattern<paddle::dialect::DivideOp>;
+using PowOpPattern = ElementwiseCommonOpPattern<paddle::dialect::PowOp>;
 using ElementwisePowOpPattern =
     ElementwiseCommonOpPattern<paddle::dialect::ElementwisePowOp>;
 using MinimumOpPattern = ElementwiseCommonOpPattern<paddle::dialect::MinimumOp>;
@@ -2010,7 +2010,6 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Full)
     ADD_PATTERN(Fused_gemm_epilogue)
     ADD_PATTERN(Add)
-    ADD_PATTERN(Pow)
     ADD_PATTERN(Silu)
     ADD_PATTERN(Conv2d)
     ADD_PATTERN(FusedConv2dAddAct)
@@ -2068,6 +2067,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<MinimumOpPattern>(context));
     ps.Add(std::make_unique<MaximumOpPattern>(context));
     ps.Add(std::make_unique<FloorDivideOpPattern>(context));
+    ps.Add(std::make_unique<PowOpPattern>(context));
     ps.Add(std::make_unique<MeanOpPattern>(context));
     ps.Add(std::make_unique<RemainderOpPattern>(context));
     ps.Add(std::make_unique<MulticlassNms3OpPattern>(context));
