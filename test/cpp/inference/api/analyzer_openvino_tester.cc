@@ -38,7 +38,7 @@ void SetInput(std::vector<std::vector<PaddleTensor>> *inputs) {
 }
 
 #ifdef PADDLE_WITH_OPENVINO
-TEST(Analyzer_resnet50, compare_determine) {
+TEST(test_analyzer_openvino_resnet50, compare_determine) {
   AnalysisConfig cfg;
   SetConfig(&cfg);
   std::vector<std::vector<PaddleTensor>> input_slots_all;
