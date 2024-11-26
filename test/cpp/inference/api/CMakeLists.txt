@@ -957,6 +957,7 @@ if(WITH_TESTING AND WITH_INFERENCE_API_TEST)
     set_tests_properties(test_analyzer_resnet50 PROPERTIES TIMEOUT 120)
   endif()
   if(WITH_OPENVINO AND Linux)
+    message(STATUS "test_analyzer_openvino_resnet50")
     set(OPENVINO_TEST_APP "analyzer_openvino")
     set(OPENVINO_TEST_APP_SRC "analyzer_openvino_tester.cc")
     inference_analysis_api_test_with_fake_data_build(${OPENVINO_TEST_APP}
