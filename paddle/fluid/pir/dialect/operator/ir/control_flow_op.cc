@@ -1293,46 +1293,6 @@ void SelectOutputOp::VerifySig() {
   VLOG(4) << "End Verifying for: AssignArray_Op.";
 }
 
-bool SelectOutputOp::InferSymbolicShape(
-    pir::InferSymbolicShapeContext *infer_context) {
-  const auto &x_shape_or_data =
-      infer_context->GetShapeOrDataForValue(operand_source(1));
-  std::vector<symbol::DimExpr> x_shape = x_shape_or_data.shape();
-  const auto &out1_shape_or_data =
-      infer_context->GetShapeOrDataForValue(result(0));
-  const auto &out2_shape_or_data =
-      infer_context->GetShapeOrDataForValue(result(1));
-  std::vector<symbol::DimExpr> out1_shape = out1_shape_or_data.shape();
-  std::vector<symbol::DimExpr> out2_shape = out2_shape_or_data.shape();
-  if (x_shape.size() == out1_shape.size()) {
-    if (out1_shape.size() != 0) {
-      for (size_t i = 0; i < x_shape.size(); i++) {
-        if (x_shape[i] != out1_shape[i]) {
-          out1_shape[i] = symbol::DimExpr{infer_context->GetNextSymName()};
-        }
-      }
-    }
-  }
-  if (x_shape.size() == out2_shape.size()) {
-    if (out2_shape.size() != 0) {
-      for (size_t i = 0; i < x_shape.size(); i++) {
-        if (x_shape[i] != out2_shape[i]) {
-          out2_shape[i] = symbol::DimExpr{infer_context->GetNextSymName()};
-        }
-      }
-    }
-  }
-  infer_context->SetShapeOrDataForValue(
-      result(0),
-      symbol::ShapeOrDataDimExprs{
-          symbol::TensorShapeOrDataDimExprs(out1_shape)});
-  infer_context->SetShapeOrDataForValue(
-      result(1),
-      symbol::ShapeOrDataDimExprs{
-          symbol::TensorShapeOrDataDimExprs(out2_shape)});
-
-  return true;
-}
 }  // namespace paddle::dialect
 
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::IfOp)
