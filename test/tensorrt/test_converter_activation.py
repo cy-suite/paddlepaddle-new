@@ -135,8 +135,12 @@ class TestStanhFloatTRTPattern(TensorRTBaseTest):
             "x": np.random.randn(2, 3).astype("float32"),
             "scale_a": 0.67,
             "scale_b": 1.7159,
+        }
 
-          
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
 class TestThresholdedReluTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.nn.functional.thresholded_relu

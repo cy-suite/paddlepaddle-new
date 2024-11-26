@@ -140,7 +140,7 @@ def stanh_converter(network, paddle_op, inputs):
     stanh_layer.beta = scale_a
     return stanh_layer.get_output(0)
 
-  
+
 @converter_registry.register("pd_op.thresholded_relu", trt_version="8.x")
 def thresholded_relu_converter(network, paddle_op, inputs):
     x = inputs[0]
@@ -150,4 +150,3 @@ def thresholded_relu_converter(network, paddle_op, inputs):
     )
     thresholded_relu_layer.alpha = threshold
     return thresholded_relu_layer.get_output(0)
-  
