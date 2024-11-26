@@ -25,8 +25,8 @@ from paddle.static import InputSpec
 from paddle.tensorrt.export import (
     Input,
     TensorRTConfig,
+    _convert_,
     convert,
-    convert_loaded_model,
 )
 from paddle.tensorrt.util import (
     predict_program,
@@ -99,7 +99,7 @@ class CumsumModel(nn.Layer):
         return out
 
 
-class TestConvertLoadedModel(unittest.TestCase):
+class TestConvert(unittest.TestCase):
     def setUp(self):
         paddle.seed(2024)
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -157,7 +157,7 @@ class TestConvertLoadedModel(unittest.TestCase):
 
             model_dir = self.save_path
             # Obtain tensorrt_engine_op by passing the model path and trt_config.(converted_program)
-            program_with_trt = convert_loaded_model(model_dir, trt_config)
+            program_with_trt = convert(model_dir, trt_config)
 
             # Create a config for inference.
             config = paddle_infer.Config(
@@ -178,7 +178,7 @@ class TestConvertLoadedModel(unittest.TestCase):
             output_converted = predictor.run([model_inputs])
 
 
-class TestConvert(unittest.TestCase):
+class TestConvert_(unittest.TestCase):
     def test_run(self):
         with paddle.pir_utils.IrGuard():
             input_config = Input(
@@ -197,7 +197,7 @@ class TestConvert(unittest.TestCase):
                 input_spec = [
                     InputSpec(shape=[None, 10, 11], dtype='float32', name='x')
                 ]
-                program_with_trt, scope = convert(
+                program_with_trt, scope = _convert_(
                     net,
                     input_spec=input_spec,
                     config=trt_config,
@@ -272,7 +272,7 @@ class TestConvertMultipleInputs(unittest.TestCase):
                 ),
             ]
 
-            program_with_trt, scope = convert(
+            program_with_trt, scope = _convert_(
                 net,
                 input_spec=input_spec,
                 config=trt_config,
@@ -330,7 +330,7 @@ class TestConvertPredictor(unittest.TestCase):
         input_spec = [
             InputSpec(shape=[None, 10, 11], dtype='float32', name='x')
         ]
-        program_with_trt, scope = convert(
+        program_with_trt, scope = _convert_(
             net,
             input_spec=input_spec,
             config=trt_config,
