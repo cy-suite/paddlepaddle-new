@@ -16,9 +16,9 @@
 #include <glog/logging.h>
 #include <glog/raw_logging.h>
 
+#include "paddle/cinn/runtime/cinn_runtime.h"
 #include "paddle/cinn/runtime/sycl/sycl_backend_api.h"
 #include "paddle/cinn/runtime/sycl/sycl_module.h"
-#include "paddle/cinn/runtime/cinn_runtime.h"
 #include "paddle/cinn/utils/profiler.h"
 
 namespace cinn {

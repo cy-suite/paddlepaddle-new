@@ -18,7 +18,6 @@
 #include "paddle/cinn/common/bfloat16.h"
 #include "paddle/cinn/common/cas.h"
 #include "paddle/cinn/common/float16.h"
-//#include "paddle/cinn/runtime/custom_function.h"
 
 CINN_REGISTER_HELPER(sycl_intrinsics_reduce) {
   auto target = cinn::common::DefaultHygonDcuSyclTarget();

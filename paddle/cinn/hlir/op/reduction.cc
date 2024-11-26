@@ -245,7 +245,7 @@ std::shared_ptr<OpStrategy> StrategyForReduce(
                         std::vector<CINNValue> res{
                             CINNValue(ir_sch.GetModule().GetExprs().at(0))};
                         *ret = CINNValuePack{res};
-                      }); 
+                      });
   });
 
   auto strategy = std::make_shared<framework::OpStrategy>();

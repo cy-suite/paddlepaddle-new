@@ -143,7 +143,8 @@ class Compiler final {
 
   void CompileHipModule(const ir::Module& module, const std::string& code = "");
 
-  void CompileSyclModule(const ir::Module& module, const std::string& code = "");
+  void CompileSyclModule(const ir::Module& module,
+                         const std::string& code = "");
 
   void CompileX86Module(const ir::Module& module);
 

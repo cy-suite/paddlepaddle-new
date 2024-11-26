@@ -80,7 +80,7 @@ void SetArchDevice(const common::Target& target,
             ->set_device(device_id.value());
       },
       [&](common::HygonDCUArchSYCL) -> void {
-      PADDLE_ENFORCE_EQ(device_id.has_value(),
+        PADDLE_ENFORCE_EQ(device_id.has_value(),
                           true,
                           ::common::errors::InvalidArgument(
                               "Required device_id should have value, but "

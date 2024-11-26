@@ -218,7 +218,8 @@ void DyScheduleImpl::Bind(const Expr& loop, const std::string& thread_axis) {
       [&](common::HygonDCUArchSYCL) {
 #ifdef CINN_WITH_SYCL
         using cinn::runtime::BackendAPI;
-        auto SyclBackendAPI = BackendAPI::get_backend(common::HygonDCUArchSYCL{});
+        auto SyclBackendAPI =
+            BackendAPI::get_backend(common::HygonDCUArchSYCL{});
         const std::array<int, 3> kMaxGridDims =
             SyclBackendAPI->get_max_grid_dims();
         const std::array<int, 3> kMaxBlockDims =

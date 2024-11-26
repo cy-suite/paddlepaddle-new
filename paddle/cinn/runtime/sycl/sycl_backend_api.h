@@ -38,7 +38,7 @@ inline const char* SYCLGetErrorString(std::error_code error_code) {
     case ::sycl::errc::event:
       return "EVENT ERROR";
     case ::sycl::errc::kernel_argument:
-      return "KERNEL ARGUMNET ERROR";
+      return "KERNEL ARGUMENT ERROR";
     case ::sycl::errc::build:
       return "BUILD ERROR";
     case ::sycl::errc::invalid:
@@ -64,15 +64,14 @@ inline const char* SYCLGetErrorString(std::error_code error_code) {
  * \brief Protected SYCL call
  * \param func Expression to call.
  */
-#define SYCL_CALL(func)                                     \
-  {                                                         \
-    try {                                                   \
-      func;                                                 \
-    } catch (const ::sycl::exception& e) {                    \
-      LOG(FATAL)  << "SYCL Error, error code"               \
-                  << " = " << e.get_cl_code()               \
-                  << ", message:" << e.what();              \
-    }                                                       \
+#define SYCL_CALL(func)                                                   \
+  {                                                                       \
+    try {                                                                 \
+      func;                                                               \
+    } catch (const ::sycl::exception& e) {                                \
+      LOG(FATAL) << "SYCL Error, error code"                              \
+                 << " = " << e.get_cl_code() << ", message:" << e.what(); \
+    }                                                                     \
   }
 
 class SYCLBackendAPI final : public BackendAPI {
@@ -88,9 +87,8 @@ class SYCLBackendAPI final : public BackendAPI {
   void Init(Arch arch);
   void set_device(int device_id) final;
   int get_device() final;
-  int get_device_property(
-      DeviceProperty device_property,
-      std::optional<int> device_id = std::nullopt) final;
+  int get_device_property(DeviceProperty device_property,
+                          std::optional<int> device_id = std::nullopt) final;
   void* malloc(size_t numBytes) final;
   // void set_active_devices(std::vector<int> device_ids) final;
   void free(void* data) final;

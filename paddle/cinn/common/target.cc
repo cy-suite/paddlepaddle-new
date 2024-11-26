@@ -24,8 +24,8 @@
 
 #include "paddle/cinn/backends/cuda_util.h"
 #include "paddle/cinn/common/arch_util.h"
-#include "paddle/cinn/common/target.h"
 #include "paddle/cinn/common/macros.h"
+#include "paddle/cinn/common/target.h"
 #include "paddle/cinn/runtime/backend_api.h"
 #include "paddle/cinn/runtime/cinn_runtime.h"
 #include "paddle/common/enforce.h"
@@ -61,8 +61,7 @@ Target::Target(OS o,
                PADDLE_THROW(::common::errors::Unimplemented(
                    "Please recompile with flag CINN_WITH_SYCL and WITH_CINN."));
 #endif
-             }
-             );
+             });
 }
 
 bool Target::operator==(const Target &other) const {

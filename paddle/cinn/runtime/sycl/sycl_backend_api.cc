@@ -24,7 +24,7 @@ SYCLBackendAPI* SYCLBackendAPI::Global() {
 }
 
 void SYCLBackendAPI::Init(Arch arch) {
-  if (initialized_) return ;
+  if (initialized_) return;
   auto devices = ::sycl::device::get_devices(::sycl::info::device_type::gpu);
   if (devices.size() == 0) {
     std::cerr << "No valid gpu device found!";
@@ -32,24 +32,18 @@ void SYCLBackendAPI::Init(Arch arch) {
   // Target::Arch -> sycl::backend
   ::sycl::backend backend;
   arch.Match(
-      [&](common::UnknownArch){
-          SYCL_CALL(backend =
-                   ::sycl::device::get_devices(::sycl::info::device_type::gpu)[0]
-                       .get_backend()); 
+      [&](common::UnknownArch) {
+        SYCL_CALL(backend = ::sycl::device::get_devices(
+                                ::sycl::info::device_type::gpu)[0]
+                                .get_backend());
       },
-      [&](common::X86Arch) { 
-        LOG(FATAL) << "SYCL Not supported this arch \n";
-      },
-      [&](common::ARMArch) { 
-        LOG(FATAL) << "SYCL Not supported this arch \n";
-      },
-      [&](common::NVGPUArch) { 
-        backend = ::sycl::backend::ext_oneapi_cuda;
-      },
-      [&](common::HygonDCUArchHIP) { 
+      [&](common::X86Arch) { LOG(FATAL) << "SYCL Not supported this arch \n"; },
+      [&](common::ARMArch) { LOG(FATAL) << "SYCL Not supported this arch \n"; },
+      [&](common::NVGPUArch) { backend = ::sycl::backend::ext_oneapi_cuda; },
+      [&](common::HygonDCUArchHIP) {
         backend = ::sycl::backend::ext_oneapi_hip;
       },
-      [&](common::HygonDCUArchSYCL){
+      [&](common::HygonDCUArchSYCL) {
         backend = ::sycl::backend::ext_oneapi_hip;
       });
   // look for matched devices
@@ -106,26 +100,29 @@ void SYCLBackendAPI::set_device(int device_id) {
 
 int SYCLBackendAPI::get_device() { return this->now_device_id; }
 
-int SYCLBackendAPI::get_device_property(
-    DeviceProperty device_property, std::optional<int> device_id) {
+int SYCLBackendAPI::get_device_property(DeviceProperty device_property,
+                                        std::optional<int> device_id) {
   int index = device_id.value_or(this->now_device_id);
   int rv = -1;
 
   switch (device_property) {
     case DeviceProperty::MaxBlockDimX: {
-      ::sycl::_V1::id<3> max_work_item_sizes = this->devices[index]
+      ::sycl::_V1::id<3> max_work_item_sizes =
+          this->devices[index]
               .get_info<::sycl::_V1::info::device::max_work_item_sizes<3>>();
       rv = max_work_item_sizes[0];
       break;
     }
     case DeviceProperty::MaxBlockDimY: {
-      ::sycl::_V1::id<3> max_work_item_sizes = this->devices[index]
+      ::sycl::_V1::id<3> max_work_item_sizes =
+          this->devices[index]
               .get_info<::sycl::_V1::info::device::max_work_item_sizes<3>>();
       rv = max_work_item_sizes[1];
       break;
     }
     case DeviceProperty::MaxBlockDimZ: {
-      ::sycl::_V1::id<3> max_work_item_sizes = this->devices[index]
+      ::sycl::_V1::id<3> max_work_item_sizes =
+          this->devices[index]
               .get_info<::sycl::_V1::info::device::max_work_item_sizes<3>>();
       rv = max_work_item_sizes[2];
       break;
@@ -143,7 +140,8 @@ int SYCLBackendAPI::get_device_property(
       break;
     }
     case DeviceProperty::MaxSharedMemoryPerBlock: {
-      rv = this->devices[index].get_info<::sycl::info::device::local_mem_size>();
+      rv =
+          this->devices[index].get_info<::sycl::info::device::local_mem_size>();
       break;
     }
     case DeviceProperty::MaxThreadsPerBlock: {
@@ -167,7 +165,8 @@ int SYCLBackendAPI::get_device_property(
     }
     case DeviceProperty::WarpSize: {
       std::vector<size_t> sub_group_sizes =
-          this->devices[index].get_info<::sycl::info::device::sub_group_sizes>();
+          this->devices[index]
+              .get_info<::sycl::info::device::sub_group_sizes>();
       size_t max_sub_group_size =
           *max_element(std::begin(sub_group_sizes), std::end(sub_group_sizes));
       rv = static_cast<int>(max_sub_group_size);
@@ -182,8 +181,8 @@ void* SYCLBackendAPI::malloc(size_t numBytes) {
   VLOG(3) << "sycl malloc";
   void* dev_mem = nullptr;
   SYCL_CALL(dev_mem = ::sycl::malloc_device(numBytes,
-                                          this->devices[now_device_id],
-                                          *this->contexts[now_device_id]));
+                                            this->devices[now_device_id],
+                                            *this->contexts[now_device_id]));
   if (dev_mem == nullptr)
     LOG(ERROR) << "allocate sycl device memory failure!" << std::endl;
   return dev_mem;
@@ -247,7 +246,8 @@ std::string SYCLBackendAPI::GetGpuVersion() {
   ::sycl::backend backend = device.get_backend();
   switch (backend) {
     case ::sycl::backend::ext_oneapi_hip: {
-      std::string gpu_version = device.get_info<::sycl::info::device::version>();
+      std::string gpu_version =
+          device.get_info<::sycl::info::device::version>();
       size_t pos = gpu_version.find(":");
       if (pos != std::string::npos) gpu_version = gpu_version.substr(0, pos);
       return gpu_version;
@@ -261,18 +261,18 @@ std::array<int, 3> SYCLBackendAPI::get_max_block_dims(
     std::optional<int> device_id) {
   std::array<int, 3> kMaxBlockDims;
   int index = device_id.value_or(this->now_device_id);
-  ::sycl::_V1::id<3> max_work_item_sizes = this->devices[index]
-              .get_info<::sycl::_V1::info::device::max_work_item_sizes<3>>();
-  kMaxBlockDims = std::array<int, 3>{max_work_item_sizes[2],
-                              max_work_item_sizes[1],
-                              max_work_item_sizes[0]};
+  ::sycl::_V1::id<3> max_work_item_sizes =
+      this->devices[index]
+          .get_info<::sycl::_V1::info::device::max_work_item_sizes<3>>();
+  kMaxBlockDims = std::array<int, 3>{
+      max_work_item_sizes[2], max_work_item_sizes[1], max_work_item_sizes[0]};
   return kMaxBlockDims;
 }
 
 std::array<int, 3> SYCLBackendAPI::get_max_grid_dims(
     std::optional<int> device_id) {
-    std::array<int, 3> kMaxGridDims;
-    kMaxGridDims = std::array<int, 3>{2097151, 2097151, 2097151};
+  std::array<int, 3> kMaxGridDims;
+  kMaxGridDims = std::array<int, 3>{2097151, 2097151, 2097151};
   return kMaxGridDims;
 }
 

@@ -141,7 +141,7 @@ struct CollectHostFunctionVisitor : public ir::IRMutator<> {
         },
         [&](common::HygonDCUArchSYCL) {
           PADDLE_THROW(phi::errors::Unimplemented(
-            "CINN todo: new hardware HygonDCUArchSYCL"));
+              "CINN todo: new hardware HygonDCUArchSYCL"));
         });
 
     VLOG(6) << "Add a call node for func->name " << func->name << "\n"

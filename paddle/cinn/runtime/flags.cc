@@ -418,7 +418,6 @@ void CheckCompileOptionImpl(cinn::common::HygonDCUArchSYCL) {
 #endif
 }
 
-
 void CheckCompileOption(cinn::common::Arch arch) {
   return std::visit([](const auto& impl) { CheckCompileOptionImpl(impl); },
                     arch.variant());

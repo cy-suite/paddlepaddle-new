@@ -132,7 +132,6 @@ std::string GetExternFuncNameArchPrefixImpl(common::HygonDCUArchSYCL,
   return "sycl_";
 }
 
-
 std::string GetExternFuncNameArchPrefix(common::Arch arch,
                                         const std::string& func_name) {
   return std::visit(

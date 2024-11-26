@@ -16,7 +16,6 @@
 #include "paddle/cinn/backends/extern_func_jit_register.h"
 #include "paddle/cinn/backends/function_prototype.h"
 #include "paddle/cinn/common/cas.h"
-//#include "paddle/cinn/runtime/custom_function.h"
 #include "paddle/cinn/runtime/sycl/use_extern_funcs.h"
 
 #include "paddle/cinn/runtime/sycl/sycl_util.h"
@@ -660,7 +659,7 @@ CINN_REGISTER_HELPER(cinn_sycl_host_api) {
       .AddInputType<int>()     // oh
       .AddInputType<int>()     // ow
       .End();
-#endif // CINN_WITH_CNNL
+#endif  // CINN_WITH_CNNL
 
   GlobalSymbolRegistry::Global().RegisterFn(
       "backend_api.sycl", reinterpret_cast<void *>(SYCLBackendAPI::Global()));

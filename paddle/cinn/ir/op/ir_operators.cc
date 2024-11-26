@@ -337,7 +337,9 @@ Expr BitwiseNotCallImpl(common::HygonDCUArchHIP, const Target& target, Expr a) {
   return lang::CallExtern(func_name, {a}, {{"vectorizable", false}});
 }
 
-Expr BitwiseNotCallImpl(common::HygonDCUArchSYCL, const Target& target, Expr a) {
+Expr BitwiseNotCallImpl(common::HygonDCUArchSYCL,
+                        const Target& target,
+                        Expr a) {
   auto func_name = hlir::GetExternFuncName(target, a->type(), "bitwise_not");
   return lang::CallExtern(func_name, {a}, {{"vectorizable", false}});
 }
