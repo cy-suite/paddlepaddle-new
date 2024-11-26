@@ -95,7 +95,11 @@ def flip_converter(network, paddle_op, inputs):
         dim_tensor = get_shape_tensor_element(network, input_shape, i)
         if i in axis:
             # start = dim - 1, stride = -1, size = dim
-            start_tensors.append(trt_sub(network, dim_tensor, add_1D_constant_layer(network, [1])))
+            start_tensors.append(
+                trt_sub(
+                    network, dim_tensor, add_1D_constant_layer(network, [1])
+                )
+            )
             stride_tensors.append(add_1D_constant_layer(network, [-1]))
             size_tensors.append(dim_tensor)
         else:

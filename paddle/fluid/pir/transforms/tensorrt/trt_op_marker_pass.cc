@@ -2093,7 +2093,6 @@ class AssignValueOpPattern
   }
 };
 
-
 class FlipOpPattern : public pir::OpRewritePattern<paddle::dialect::FlipOp> {
  public:
   using pir::OpRewritePattern<paddle::dialect::FlipOp>::OpRewritePattern;
@@ -2102,12 +2101,12 @@ class FlipOpPattern : public pir::OpRewritePattern<paddle::dialect::FlipOp> {
                        pir::PatternRewriter &rewriter) const override {
     if (op->HasAttribute(kCanRunTrtAttr) &&
         op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-          return false;
-      }
+      return false;
+    }
     if (!op->HasAttribute("axis")) {
       VLOG(3) << "pd_op.argsort axis attribute does not exist";
       return false;
-      }
+    }
 #if !IS_TRT_VERSION_GE(7220)
     VLOG(3) << "flip is not supported when TensorRT below 7.2.2";
     return false;
@@ -2116,7 +2115,6 @@ class FlipOpPattern : public pir::OpRewritePattern<paddle::dialect::FlipOp> {
     return true;
   }
 };
-
 
 class TrtOpMarkerPass : public pir::PatternRewritePass {
  public:
