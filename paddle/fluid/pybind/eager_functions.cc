@@ -1182,6 +1182,7 @@ static PyObject* eager_api_async_write(PyObject* self,
   if (InputsContainDistTensor(&mesh, src, dst, offset, count)) {
     ConvertAllInputsToDistTensor(mesh, src, dst, offset, count);
   }
+  std::cout << "wanghuan dbg eager_api_async_write 1" << std::endl;
   {
     eager_gil_scoped_release guard;
     EagerSetDeviceId();
@@ -1217,6 +1218,8 @@ static PyObject* eager_api_async_write(PyObject* self,
     auto& offset_tensor = offset;
     auto& count_tensor = count;
     const auto& deviceId = paddle::platform::GetCurrentDeviceId();
+    std::cout << "wanghuan dbg eager_api_async_write 2 deviceId = " << deviceId
+              << std::endl;
 
     PADDLE_ENFORCE_EQ(offset_tensor.dims().size(),
                       1,

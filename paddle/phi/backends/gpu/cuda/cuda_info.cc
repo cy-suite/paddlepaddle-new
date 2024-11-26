@@ -245,6 +245,7 @@ const gpuDeviceProp &GetDeviceProperties(int id) {
 }
 
 void SetDeviceId(int id) {
+  std::cout << "wanghuan dbg SetDeviceId = " << id << std::endl;
   PADDLE_RETRY_CUDA_SUCCESS(cudaSetDevice(id));
   VLOG(4) << "SetDeviceId " << id;
 }
