@@ -86,6 +86,7 @@ DEFINE_GENERAL_PATTERN(Log, paddle::dialect::LogOp)
 DEFINE_GENERAL_PATTERN(Floor, paddle::dialect::FloorOp)
 DEFINE_GENERAL_PATTERN(Roll, paddle::dialect::RollOp)
 DEFINE_GENERAL_PATTERN(Selu, paddle::dialect::SeluOp)
+DEFINE_GENERAL_PATTERN(Pool3d, paddle::dialect::Pool3dOp)
 
 #undef DEFINE_GENERAL_PATTERN
 
@@ -2127,6 +2128,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Floor)
     ADD_PATTERN(Roll)
     ADD_PATTERN(Selu)
+    ADD_PATTERN(Pool3d)
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
 #endif
