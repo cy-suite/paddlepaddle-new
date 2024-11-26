@@ -292,7 +292,7 @@ class Adam(Optimizer):
                 else self._beta1
             ),
             shape=[1],
-            type=core.VarDesc.VarType.LOD_TENSOR,
+            type=core.VarDesc.VarType.DENSE_TENSOR,
             device='cpu',
         )
         self._add_accumulator(
@@ -305,7 +305,7 @@ class Adam(Optimizer):
                 else self._beta2
             ),
             shape=[1],
-            type=core.VarDesc.VarType.LOD_TENSOR,
+            type=core.VarDesc.VarType.DENSE_TENSOR,
             device='cpu',
         )
 
@@ -621,7 +621,7 @@ class Adam(Optimizer):
                     self._master_weight_dict['FP16_LODTensor'] = None
             else:
                 raise ValueError(
-                    "Now multi_tensor_momentum only support fp32, fp16 or bf16 parameters and grad is LOD_TENSOR."
+                    "Now multi_tensor_momentum only support fp32, fp16 or bf16 parameters and grad is DENSE_TENSOR."
                 )
 
     def _append_optimize_multi_tensor_op(
@@ -689,7 +689,7 @@ class Adam(Optimizer):
                         if (
                             param_and_grad[0].dtype == paddle.float32
                             and param_and_grad[1].type
-                            == core.VarDesc.VarType.LOD_TENSOR
+                            == core.VarDesc.VarType.DENSE_TENSOR
                         ):
                             grad_dict['FP32_LODTensor'].append(
                                 param_and_grad[1]
@@ -699,7 +699,7 @@ class Adam(Optimizer):
                         elif (
                             self._is_dtype_fp16_or_bf16(param_and_grad[0].dtype)
                             and param_and_grad[1].type
-                            == core.VarDesc.VarType.LOD_TENSOR
+                            == core.VarDesc.VarType.DENSE_TENSOR
                         ):
                             grad_dict['FP16_LODTensor'].append(
                                 param_and_grad[1]
@@ -744,7 +744,7 @@ class Adam(Optimizer):
                         if (
                             param_and_grad[0].dtype == paddle.float32
                             and param_and_grad[1].type
-                            == core.VarDesc.VarType.LOD_TENSOR
+                            == core.VarDesc.VarType.DENSE_TENSOR
                         ):
                             grad_dict['FP32_LODTensor'].append(
                                 param_and_grad[1]
@@ -754,7 +754,7 @@ class Adam(Optimizer):
                         elif (
                             self._is_dtype_fp16_or_bf16(param_and_grad[0].dtype)
                             and param_and_grad[1].type
-                            == core.VarDesc.VarType.LOD_TENSOR
+                            == core.VarDesc.VarType.DENSE_TENSOR
                         ):
                             grad_dict['FP16_LODTensor'].append(
                                 param_and_grad[1]
