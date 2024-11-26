@@ -234,3 +234,15 @@ def sqrt_converter(network, paddle_op, inputs):
     input_tensor = trt_cast(network, inputs[0], trt.float32)
     layer = network.add_unary(input_tensor, trt.UnaryOperation.LOG)
     return layer.get_output(0)
+
+
+@converter_registry.register("pd_op.minimum", trt_version="8.x")
+def minimum_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    y = inputs[1]
+    x, y = broadcast(network, x, y, a_name="x", b_name="y")
+    min_layer = network.add_elementwise(
+        x, y, trt.ElementWiseOperation.MIN
+    )
+    min_layer.name = f"{x.name}_minimum_{y.name}"
+    return min_layer.get_output(0)
