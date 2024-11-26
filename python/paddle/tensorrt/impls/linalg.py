@@ -71,3 +71,48 @@ def bmm_converter(network, paddle_op, inputs):
         inputs[0], trt.MatrixOperation.NONE, inputs[1], trt.MatrixOperation.NONE
     )
     return out.get_output(0)
+
+
+@converter_registry.register("pd_op.flip", trt_version="8.x")
+def flip_converter(network, paddle_op, inputs):
+    input_tensor = inputs[0]
+    input_shape_layer = network.add_shape(input_tensor)
+    input_shape_layer.name = f"{input_tensor.name}_shape"
+
+    input_shape = input_shape_layer.get_output(0)
+    rank = len(input_tensor.shape)
+
+    axis = paddle_op.attrs()["axis"]
+    if isinstance(axis, int):
+        axis = [axis]
+    axis = [get_positive_dim(a, rank) for a in axis]
+
+    start_tensors = []
+    stride_tensors = []
+    size_tensors = []
+
+    for i in range(rank):
+        dim_tensor = get_shape_tensor_element(network, input_shape, i)
+        if i in axis:
+            # start = dim - 1, stride = -1, size = dim
+            start_tensors.append(trt_sub(network, dim_tensor, add_1D_constant_layer(network, [1])))
+            stride_tensors.append(add_1D_constant_layer(network, [-1]))
+            size_tensors.append(dim_tensor)
+        else:
+            # start = 0, stride = 1, size = dim
+            start_tensors.append(add_1D_constant_layer(network, [0]))
+            stride_tensors.append(add_1D_constant_layer(network, [1]))
+            size_tensors.append(dim_tensor)
+
+    start_tensor = trt_concat(network, start_tensors)
+    stride_tensor = trt_concat(network, stride_tensors)
+    size_tensor = trt_concat(network, size_tensors)
+
+    slice_layer = network.add_slice(
+        input_tensor, start=(0,) * rank, shape=(1,) * rank, stride=(1,) * rank
+    )
+    slice_layer.set_input(1, start_tensor)
+    slice_layer.set_input(2, size_tensor)
+    slice_layer.set_input(3, stride_tensor)
+    slice_layer.name = f"{input_tensor.name}_flip"
+    return slice_layer.get_output(0)
