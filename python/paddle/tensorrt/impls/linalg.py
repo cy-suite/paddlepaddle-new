@@ -14,9 +14,30 @@
 
 
 import tensorrt as trt
+import numpy as np
 
 from paddle.tensorrt.converter_utils import (
+    add_1D_constant_layer,
     broadcast,
+    build_size_tensor,
+    build_start_tensor,
+    cast_tensor,
+    fix_negative_indices,
+    get_axes_for_reduce_op,
+    get_positive_dim,
+    get_shape_tensor_element,
+    has_dynamic_shape,
+    trt_concat,
+    trt_expand,
+    trt_floor_div,
+    trt_less,
+    trt_max,
+    trt_min,
+    trt_prod,
+    trt_reshape,
+    trt_shape,
+    trt_sub,
+    trt_sum,
 )
 from paddle.tensorrt.register import converter_registry
 
