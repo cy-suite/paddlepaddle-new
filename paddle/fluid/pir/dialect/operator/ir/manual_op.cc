@@ -603,8 +603,10 @@ bool AddNArrayOp::InferSymbolicShape(
     for (size_t i = 0; i < combine_op.num_operands(); i++) {
       if (infer_context->HasShapeOrDataForValue(combine_op.operand_source(i))) {
         auto out_shape_or_data =
-            infer_context->GetShapeOrDataForValue(combine_op.operand_source(i));
-        infer_context->SetShapeOrDataForValue(out(), out_shape_or_data);
+            infer_context->GetShapeOrDataForValue(combine_op.operand_source(i))
+                .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+        infer_context->SetShapeOrDataForValue(
+            out(), symbol::ShapeOrDataDimExprs{out_shape_or_data});
         return true;
       }
     }
@@ -2190,6 +2192,12 @@ bool ArrayWrite_Op::InferSymbolicShape(
   const auto &x_shape = infer_context->GetShapeOrDataForValue(x()).shape();
   infer_context->SetShapeOrDataForValue(
       out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::RankedTensorArrayShapeOrDataDimExprs(x_shape)});
+  // update array's shape as x's shape.
+  // TOOD(ooooo) Do not change if shape is set by custom, similar to infer_meta
+  infer_context->SetShapeOrDataForValue(
+      array(),
       symbol::ShapeOrDataDimExprs{
           symbol::RankedTensorArrayShapeOrDataDimExprs(x_shape)});
 
