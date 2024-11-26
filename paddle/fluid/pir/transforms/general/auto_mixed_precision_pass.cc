@@ -408,21 +408,7 @@ class AutoMixedPrecisionPass : public pir::Pass {
     auto type = result.type();
     if (type.isa<paddle::dialect::DenseTensorType>()) {
       auto dense_type = type.dyn_cast<paddle::dialect::DenseTensorType>();
-      auto new_type = paddle::dialect::DenseTensorType::get(
-          context,
-          paddle::dialect::TransToIrDataType(precision, context),
-          dense_type.dims(),
-          dense_type.data_layout(),
-          dense_type.lod(),
-          dense_type.offset());
-      result.set_type(new_type);
-    } else if (type.isa<pir::VectorType>()) {
-      auto vec_type = type.dyn_cast<pir::VectorType>();
-      auto output_num = vec_type.size();
-      std::vector<pir::Type> results_type(output_num);
-      for (size_t idx = 0; idx < output_num; ++idx) {
-        auto dense_type =
-            vec_type[idx].dyn_cast<paddle::dialect::DenseTensorType>();
+      if (IsDenseTensorTypeFloat(dense_type)) {
         auto new_type = paddle::dialect::DenseTensorType::get(
             context,
             paddle::dialect::TransToIrDataType(precision, context),
@@ -430,7 +416,27 @@ class AutoMixedPrecisionPass : public pir::Pass {
             dense_type.data_layout(),
             dense_type.lod(),
             dense_type.offset());
-        results_type[idx] = new_type;
+        result.set_type(new_type);
+      }
+    } else if (type.isa<pir::VectorType>()) {
+      auto vec_type = type.dyn_cast<pir::VectorType>();
+      auto output_num = vec_type.size();
+      std::vector<pir::Type> results_type(output_num);
+      for (size_t idx = 0; idx < output_num; ++idx) {
+        auto dense_type =
+            vec_type[idx].dyn_cast<paddle::dialect::DenseTensorType>();
+        if (IsDenseTensorTypeFloat(dense_type)) {
+          auto new_type = paddle::dialect::DenseTensorType::get(
+              context,
+              paddle::dialect::TransToIrDataType(precision, context),
+              dense_type.dims(),
+              dense_type.data_layout(),
+              dense_type.lod(),
+              dense_type.offset());
+          results_type[idx] = new_type;
+        } else {
+          results_type[idx] = dense_type;
+        }
       }
       auto new_vec_type = pir::VectorType::get(context, results_type);
       result.set_type(new_vec_type);
@@ -794,14 +800,6 @@ class AutoMixedPrecisionPass : public pir::Pass {
               {4, "saved_variance"}}},
             {"pd_op.layer_norm", {{1, "mean"}, {2, "variance"}}},
             {"pd_op.instance_norm", {{1, "mean"}, {2, "variance"}}}};
-
-    if (op->name() == "pd_op.clip") {
-      pir::Value input_value = op->operand_source(0);
-      pir::Type input_dtype = pir::GetDataTypeFromValue(input_value);
-      if (!input_dtype.isa<pir::Float32Type>()) {
-        return true;
-      }
-    }
 
     auto it = op_output_indices.find(op->name());
     if (it != op_output_indices.end()) {
