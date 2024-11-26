@@ -597,7 +597,6 @@ def _load_state_dict(
     offload=True,
 ) -> None:
     with paddle.base.dygraph.guard():
-
         use_dist = True if paddle.distributed.get_world_size() > 1 else False
 
         local_load_files = list(source_state_dict.keys())
@@ -610,17 +609,13 @@ def _load_state_dict(
         read_items = get_read_items(
             metadata_list, target_state_dict, process_group, use_dist
         )
-        for item in read_items:
-            flag = False
+
+        for i in range(len(read_items) - 1):
+            item = read_items[i]
             k_new = item.local_tensor_index.tensor_key
             if k_new in target_state_dict:
-                v_new = target_state_dict[k_new]
-                if v_new.place.is_cpu_place():
-                    print("lzx debug k_new to gpu:",k_new)
-                    flag = True
-                    target_state_dict[k_new] = v_new.cuda()
-            else:
-                print("lzx debug k_new no in target_state_dict:",k_new)
+                if target_state_dict[k_new].place.is_cpu_place():
+                    target_state_dict[k_new] = target_state_dict[k_new].cuda()
             assert (
                 item.local_tensor_index in load_infos
             ), f"read item:{item}, load_infos:{load_infos}"
@@ -720,10 +715,12 @@ def _load_state_dict(
                         tmp_tensor, src=src_rank, group=process_group
                     )
                     paddle.assign(tmp_tensor, cur_chunk_tensor)
-            print("target_state_dict:",item.local_tensor_index.tensor_key,", md5:", hashlib.md5(cur_chunk_tensor.numpy().tobytes()).hexdigest())
-            if flag:
-                print("lzx debug k_new to cpu:",k_new)
-                target_state_dict[k_new]=v_new.cpu()
+            if (
+                k_new in target_state_dict
+                and target_state_dict[k_new].place.is_cpu_place()
+                and (i + 1 < len(read_items) and read_items[i + 1].local_tensor_index.tensor_key != k_new)
+            ):
+                target_state_dict[k_new] = target_state_dict[k_new].cpu()
 
         if use_dist:
             paddle.distributed.barrier(process_group)
