@@ -510,14 +510,6 @@ def allclose(
             ['bool', 'int32', 'int64', 'float16', 'float32', 'float64'],
             'allclose',
         )
-        if not isinstance(rtol, (float, paddle.pir.Value)):
-            raise TypeError(
-                f"Type of input rtol must be float, but received type {type(rtol)}"
-            )
-        if not isinstance(atol, (float, paddle.pir.Value)):
-            raise TypeError(
-                f"Type of input atol must be float, but received type {type(atol)}"
-            )
         check_type(equal_nan, 'equal_nan', bool, 'allclose')
         return _C_ops.allclose(x, y, rtol, atol, equal_nan)
     else:

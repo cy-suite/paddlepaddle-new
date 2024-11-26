@@ -172,11 +172,13 @@
     out : Out
   scalar :
     rtol :
-      data_type : std::string
+      data_type : double
       tensor_name : Rtol
+      support_tensor : true
     atol :
-      data_type : std::string
+      data_type : double
       tensor_name : Atol
+      support_tensor : true
 
 - op : amax (reduce_amax)
   backward : amax_grad (reduce_amax_grad)
@@ -2061,11 +2063,13 @@
     out : Out
   scalar :
     rtol :
-      data_type : std::string
+      data_type : double
       tensor_name : Rtol
+      support_tensor : true
     atol :
-      data_type : std::string
+      data_type : double
       tensor_name : Atol
+      support_tensor : true
 
 - op : isfinite (isfinite_v2)
   inputs :
