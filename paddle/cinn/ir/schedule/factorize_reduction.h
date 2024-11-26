@@ -139,9 +139,10 @@ class ReduceBlockCreater {
       bool is_rf_loop = rf_loop_.As<For>()->loop_var->name ==
                         original_loops_[i].As<For>()->loop_var->name;
       // Skip non rf reduction loops of write back block.
-      if (!is_rf_block_ && !is_spatial_loop && !is_rf_loop) {
-        continue;
-      }
+      // Author(liujinnan): Temporarily skip inspection.
+      // if (!is_rf_block_ && !is_spatial_loop && !is_rf_loop) {
+      //   continue;
+      // }
       // Add reduce init block.
       if (!has_add_init_block && is_spatial_loop && with_init) {
         body = Block::Make({new_init_block_realize_, body});
