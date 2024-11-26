@@ -591,7 +591,6 @@ from .tensor.to_string import set_printoptions
 from .utils.dlpack import (
     from_dlpack,
     to_dlpack,
-    __dlpack__,
 )
 
 # CINN has to set a flag to include a lib

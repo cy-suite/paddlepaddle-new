@@ -466,7 +466,6 @@ from .stat import (  # noqa: F401
     var,
 )
 from .to_string import set_printoptions  # noqa: F401
-from paddle.utils.dlpack import __dlpack__
 
 # this list used in math_op_patch.py for _binary_creator_
 tensor_method_func = [

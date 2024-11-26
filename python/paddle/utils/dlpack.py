@@ -224,40 +224,9 @@ def from_dlpack(
     return out
 
 
-def __dlpack__(tensor: paddle.Tensor, stream: int | None = None):
-    """
-    Export a Paddle Tensor to a DLPack capsule for data interchange.
+def enable_dlpack():
+    from ..base import Tensor
+    def __dlpack__(self, *, stream=None):
+        return to_dlpack(self, stream=stream)
 
-    Args:
-        tensor (paddle.Tensor): The input tensor.
-        stream (int | None): An optional stream for synchronization. 
-
-    Returns:
-        CapsuleType: A PyCapsule object representing the tensor in DLPack format.
-    """
-    if not isinstance(tensor, paddle.Tensor):
-        raise TypeError(f"Expected a paddle.Tensor, but got {type(tensor)}.")
-    
-    if tensor.stop_gradient is False:
-        raise RuntimeError(
-            "Tensors that require gradients cannot be exported. "
-            "Call `detach()` before exporting."
-        )
-    if tensor.layout != paddle.strided:
-        raise RuntimeError(
-            "Only strided tensors can be exported to DLPack."
-        )
-    
-    if stream is not None:
-        if not isinstance(stream, int):
-            raise TypeError("The `stream` argument must be an int or None.")
-        if tensor.place.is_gpu_place():
-            current_stream = paddle.device.cuda.current_stream()
-            if stream != 1 and stream != current_stream.cuda_stream:
-                event = paddle.device.cuda.Event()
-                event.record(current_stream)
-                sync_stream = paddle.device.cuda.ExternalStream(stream)
-                sync_stream.wait_event(event)
-    
-    return paddle.utils.dlpack.to_dlpack(tensor)
-
+    Tensor.__dlpack__ = __dlpack__
