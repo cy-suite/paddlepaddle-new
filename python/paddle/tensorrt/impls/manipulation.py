@@ -70,6 +70,15 @@ def reshape_converter(network, paddle_op, inputs):
     return shuffle_layer.get_output(0)
 
 
+@converter_registry.register("pd_op.gather", trt_version="8.x")
+def gather_converter(network, paddle_op, inputs):
+    input_tensor, index_tensor = inputs
+    gather_layer = network.add_gather_v2(
+        input_tensor, index_tensor, trt.GatherMode.DEFAULT
+    )
+    return gather_layer.get_output(0)
+
+
 @converter_registry.register("pd_op.gather_nd", trt_version="8.x")
 def gather_nd_converter(network, paddle_op, inputs):
     input_tensor, indices_tensor = inputs
