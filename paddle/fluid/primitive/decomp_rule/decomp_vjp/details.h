@@ -3290,10 +3290,41 @@ void p_norm_grad(const Tensor& x,
       Tensor expand_out_grad = out_grad;
       // firstly expand output_grad to same ndim with x for convenience
       if (!keepdim) {
-        auto expand_shape = common::vectorize(out_grad.dims());
-        expand_shape.insert(expand_shape.begin() + axis, 1);
-        expand_out_grad = reshape<T>(out_grad, expand_shape);
-        expand_out = reshape<T>(out, expand_shape);
+        if (has_dynamic_shape(x.shape())) {
+          Tensor expand_shape;
+          if (asvector) {
+            // reduce all dimensions in forward
+            expand_shape = full<T>(std::vector<int64_t>(x.dims().size(), 1),
+                                   1,
+                                   DataType::INT64,
+                                   out_grad.place());
+          } else {
+            // only reduce one dimension in forward
+            expand_shape = shape<T>(out_grad);
+            std::vector<Tensor> expand_shape_vec;
+            for (int i = 0; i < expand_shape.dims().size(); ++i) {
+              expand_shape_vec.push_back(get_slice<T>(expand_shape, i));
+            }
+            expand_shape_vec.insert(
+                expand_shape_vec.begin() + axis,
+                full<T>({1}, 1, expand_shape.dtype(), expand_shape.place()));
+            expand_shape = concat<T>(expand_shape_vec);
+          }
+          expand_out_grad = reshape<T>(out_grad, expand_shape);
+          expand_out = reshape<T>(out, expand_shape);
+        } else {
+          std::vector<int64_t> expand_shape =
+              common::vectorize(out_grad.dims());
+          if (asvector) {
+            // reduce all dimensions in forward
+            expand_shape = std::vector<int64_t>(x.dims().size(), 1);
+          } else {
+            // only reduce one dimension in forward
+            expand_shape.insert(expand_shape.begin() + axis, 1);
+          }
+          expand_out_grad = reshape<T>(out_grad, expand_shape);
+          expand_out = reshape<T>(out, expand_shape);
+        }
       }
 
       if (porder == 1.0) {
