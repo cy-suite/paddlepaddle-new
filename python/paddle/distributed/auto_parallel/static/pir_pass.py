@@ -324,7 +324,7 @@ class ReshardPasses:
                     op.result(0).replace_all_uses_with(var)
                     if global_params_grads is not None:
                         for idx, (p, g) in enumerate(global_params_grads):
-                            if g is not None and g._equal(op.result(0)):
+                            if g is not None and g.is_same(op.result(0)):
                                 global_params_grads[idx] = (p, var)
                     op.erase()
                     continue
@@ -351,7 +351,7 @@ class ReshardPasses:
                 if op.result(0).use_empty():
                     if global_params_grads is not None:
                         for idx, (p, g) in enumerate(global_params_grads):
-                            if g is not None and g._equal(op.result(0)):
+                            if g is not None and g.is_same(op.result(0)):
                                 global_params_grads[idx] = (
                                     (p, out_value)
                                     if out_value is not None
