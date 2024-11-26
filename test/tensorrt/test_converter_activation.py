@@ -135,6 +135,14 @@ class TestStanhFloatTRTPattern(TensorRTBaseTest):
             "x": np.random.randn(2, 3).astype("float32"),
             "scale_a": 0.67,
             "scale_b": 1.7159,
+
+          
+class TestThresholdedReluTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.nn.functional.thresholded_relu
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("float32"),
+            "threshold": 1.0,
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3]}
