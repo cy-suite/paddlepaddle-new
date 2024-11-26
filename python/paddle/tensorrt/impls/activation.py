@@ -17,7 +17,7 @@ import tensorrt as trt
 
 from paddle.tensorrt.converter_utils import (
     get_trt_plugin,
-    trt_mul,
+    trt_prod,
 )
 from paddle.tensorrt.register import converter_registry
 
@@ -127,4 +127,15 @@ def swish_silu_converter(network, paddle_op, inputs):
     layer_output = network.add_activation(
         inputs[0], activation_type_map[paddle_op.name()]
     ).get_output(0)
-    return trt_mul(network, inputs[0], layer_output)
+    return trt_prod(network, inputs[0], layer_output)
+
+
+@converter_registry.register("pd_op.thresholded_relu", trt_version="8.x")
+def thresholded_relu_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    threshold = paddle_op.attrs()["threshold"]
+    thresholded_relu_layer = network.add_activation(
+        x, trt.ActivationType.THRESHOLDED_RELU
+    )
+    thresholded_relu_layer.alpha = threshold
+    return thresholded_relu_layer.get_output(0)
