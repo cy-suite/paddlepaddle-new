@@ -246,7 +246,7 @@ const gpuDeviceProp &GetDeviceProperties(int id) {
 
 void SetDeviceId(int id) {
   int prev_id;
-  cudaGetDevice(&prev_id);
+  PADDLE_ENFORCE_GPU_SUCCESS(cudaGetDevice(&prev_id));
   if (prev_id != id) {
     PADDLE_ENFORCE_LT(id,
                       GetGPUDeviceCount(),
@@ -258,7 +258,9 @@ void SetDeviceId(int id) {
 
     PADDLE_RETRY_CUDA_SUCCESS(cudaSetDevice(id));
     VLOG(4) << "SetDeviceId " << id;
+    std::cout << "wanghuan test SetDeviceId = " << id << std::endl;
   }
+  std::cout << "wanghuan test SetDeviceId skip = " << id << std::endl;
 }
 
 void GpuMemcpyAsync(void *dst,

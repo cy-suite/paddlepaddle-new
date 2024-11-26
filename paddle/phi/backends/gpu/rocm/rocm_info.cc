@@ -242,7 +242,7 @@ const gpuDeviceProp &GetDeviceProperties(int id) {
 
 void SetDeviceId(int id) {
   int prev_id;
-  hipGetDevice(&prev_id);
+  PADDLE_ENFORCE_GPU_SUCCESS(hipGetDevice(&prev_id));
   if (prev_id != id) {
     PADDLE_ENFORCE_LT(id,
                       GetGPUDeviceCount(),
