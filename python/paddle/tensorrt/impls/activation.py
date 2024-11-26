@@ -138,3 +138,15 @@ def tanh_shrinkl_converter(network, paddle_op, inputs):
         x, tanh_layer.get_output(0), trt.ElementWiseOperation.SUB
     )
     return subtract_layer.get_output(0)
+
+  
+@converter_registry.register("pd_op.thresholded_relu", trt_version="8.x")
+def thresholded_relu_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    threshold = paddle_op.attrs()["threshold"]
+    thresholded_relu_layer = network.add_activation(
+        x, trt.ActivationType.THRESHOLDED_RELU
+    )
+    thresholded_relu_layer.alpha = threshold
+    return thresholded_relu_layer.get_output(0)
+
