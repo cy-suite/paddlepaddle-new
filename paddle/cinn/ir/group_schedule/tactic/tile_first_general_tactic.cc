@@ -25,6 +25,14 @@ namespace ir {
 
 using cinn::ir::analyzer::IsReductionSBlock;
 
+bool IsSpatialRegion(const ScheduleConfig& config) {
+  if (config.base_info->iter_space_type.size() == 1 &&
+      config.base_info->iter_space_type.back().first == "S") {
+    return true;
+  }
+  return false;
+}
+
 bool UseContinuousDataTile(const ScheduleConfig& config) {
   // use continuous data tile for [S] and [...R]
   if (config.base_info->iter_space_type.size() == 1 &&
@@ -44,6 +52,7 @@ class TileFirstGeneralTactic final : public ScheduleTactic {
   void Apply(ir::IRSchedule* sch, const std::string& block_id) override;
   void ApplyContinuousDataTile(ir::IRSchedule* sch,
                                const std::string& block_id);
+  void ApplyVectorize(ir::IRSchedule* sch, const std::string& block_id);
 
   std::string TacticName() const override { return "TileFirstGeneralTactic"; }
 
@@ -111,6 +120,14 @@ void TileFirstGeneralTactic::Init(ScheduleContext* context) {
 void TileFirstGeneralTactic::Apply(ir::IRSchedule* sch,
                                    const std::string& block_id) {
   if (ir::IsReduceInitTensorName(block_id)) return;
+
+  // loops tiling with vectorize
+  if (!ir::IsSplitTransformTensorName(block_id) &&
+      context_->config.base_info->enable_vectorize &&
+      UseContinuousDataTile(context_->config)) {
+    ApplyVectorize(sch, block_id);
+    return;
+  }
 
   AlignToReduceInput(sch, block_id);
   VLOG(6) << "After AlignToReduceInput on block: [" << block_id
@@ -486,6 +503,88 @@ void TileFirstGeneralTactic::BindCudaInfo(ir::IRSchedule* sch,
   if (map_global_rf_block_.count(block_id) > 0) {
     DoBind(sch->GetLoops(map_global_rf_block_[block_id]));
   }
+}
+
+void TileFirstGeneralTactic::ApplyVectorize(ir::IRSchedule* sch,
+                                            const std::string& block_id) {
+  const auto sp_thread = context_->config.tile_config.warp_num * 32 /
+                         context_->config.tile_config.tree_reduce_num;
+  const auto sp_loop = context_->config.tile_config.spatial_inner_num;
+  const auto vectorize_factor = context_->config.tile_config.vectorize_factor;
+  const auto rd_thread = context_->config.tile_config.tree_reduce_num;
+  const auto rd_block = context_->config.tile_config.grid_reduce_num;
+  // Merge reduce axes
+  MergeReduceAxis(sch, block_id);
+  VLOG(4) << "After MergeReduceAxis on block: [" << block_id
+          << "], loop nest:\n"
+          << sch->GetModule().GetExprs().front();
+
+  // Merge spatial axes
+  MergeFlattenAxis(sch, block_id);
+  VLOG(4) << "After MergeFlattenAxis on block: [" << block_id
+          << "], loop nest:\n"
+          << sch->GetModule().GetExprs().front();
+
+  // Spatial situation
+  // deal with spation block
+  if (IsSpatialRegion(context_->config)) {
+    auto loops = sch->GetLoops(block_id);
+    if (sp_loop > 1) {
+      sch->Split(loops[1],
+                 std::vector<int>{-1, sp_loop, sp_thread, vectorize_factor});
+    } else {
+      sch->Split(loops[1], std::vector<int>{-1, sp_thread, vectorize_factor});
+    }
+
+    // set vectorize schedule primitives
+    loops = sch->GetLoops(block_id);
+    auto vectorize_axis = loops.size() - 1;
+    sch->Vectorize(loops[vectorize_axis], vectorize_factor);
+
+    const auto DoBind = [&](const std::vector<ir::Expr>& loops) {
+      sch->Bind(loops[0], "blockIdx.x");
+      if (sp_loop > 1) {
+        sch->Bind(loops[1], "threadIdx.x");
+      } else {
+        sch->Bind(loops[2], "threadIdx.x");
+      }
+    };
+
+    loops = sch->GetLoops(block_id);
+    DoBind(loops);
+    return;
+  }
+
+  // Reduce situation
+  // only deal with spatial block
+  if (!IsReductionSBlock(sch->GetBlock(block_id))) {
+    auto loops = sch->GetLoops(block_id);
+    // rd_block support blockIdx.y
+    if (rd_block > 1) {
+      sch->Split(loops[1], {-1, rd_block, rd_thread, vectorize_factor});
+    } else {
+      sch->Split(loops[1], {-1, rd_thread, vectorize_factor});
+    }
+
+    // set vectorize schedule primitives
+    loops = sch->GetLoops(block_id);
+    auto vectorize_axis = loops.size() - 1;
+    sch->Vectorize(loops[vectorize_axis], vectorize_factor);
+    const auto DoBind = [&](const std::vector<ir::Expr>& loops) {
+      sch->Bind(loops[0], "blockIdx.x");
+      auto threadsIdx_x_axis = vectorize_axis - 1;
+      if (rd_block > 1) {
+        sch->Bind(loops[1], "blockIdx.y");
+        sch->Bind(loops[threadsIdx_x_axis], "threadIdx.x");
+      } else {
+        sch->Bind(loops[threadsIdx_x_axis], "threadIdx.x");
+      }
+    };
+    loops = sch->GetLoops(block_id);
+    DoBind(loops);
+    return;
+  }
+  return;
 }
 
 std::unique_ptr<ScheduleTactic> CreateTileFirstGeneralTactic() {
