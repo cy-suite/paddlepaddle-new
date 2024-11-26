@@ -46,6 +46,7 @@ from ..util import get_trt_version_list
 @converter_registry.register("pd_op.reshape", trt_version="8.x")
 def reshape_converter(network, paddle_op, inputs):
     x = inputs[0]
+    input_shape = paddle_op.operands()[0].source().shape
     is_constant_shape = False
     shape_defining_op = paddle_op.operands()[1].source().get_defining_op()
     if shape_defining_op.name() == "pd_op.full_int_array":
@@ -58,7 +59,8 @@ def reshape_converter(network, paddle_op, inputs):
     else:
         # shape tensor is a value
         shape_tensor = inputs[1]
-
+    if type(x) == trt.Weights:
+        x = network.add_constant(input_shape, x).get_output(0)
     layer = network.add_shuffle(x)
     if is_constant_shape:
         layer.reshape_dims = reshape_dim
