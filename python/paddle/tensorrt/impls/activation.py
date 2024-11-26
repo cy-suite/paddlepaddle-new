@@ -133,11 +133,13 @@ def swish_silu_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.mish", trt_version="8.x")
 def mish_converter(network, paddle_op, inputs):
     x = inputs[0]
-    
+
     softplus_layer = network.add_activation(x, trt.ActivationType.SOFTPLUS)
     softplus_output = softplus_layer.get_output(0)
 
-    tanh_layer = network.add_activation(softplus_output, trt.ActivationType.TANH)
+    tanh_layer = network.add_activation(
+        softplus_output, trt.ActivationType.TANH
+    )
     tanh_output = tanh_layer.get_output(0)
-    
+
     return trt_prod(network, x, tanh_output)
