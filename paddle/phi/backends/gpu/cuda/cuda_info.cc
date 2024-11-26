@@ -246,8 +246,40 @@ const gpuDeviceProp &GetDeviceProperties(int id) {
 
 void SetDeviceId(int id) {
   std::cout << "wanghuan dbg SetDeviceId = " << id << std::endl;
-  PADDLE_RETRY_CUDA_SUCCESS(cudaSetDevice(id));
-  VLOG(4) << "SetDeviceId " << id;
+  static bool first_call = true;
+  if (first_call) {
+    PADDLE_ENFORCE_LT(id,
+                      GetGPUDeviceCount(),
+                      common::errors::InvalidArgument(
+                          "Device id must be less than GPU count, "
+                          "but received id is: %d. GPU count is: %d.",
+                          id,
+                          GetGPUDeviceCount()));
+
+    PADDLE_RETRY_CUDA_SUCCESS(cudaSetDevice(id));
+    std::cout << "wanghuan dbg SetDeviceId first call = " << id << std::endl;
+    VLOG(4) << "SetDeviceId " << id;
+    first_call = false;
+    return;
+  }
+
+  int prev_id;
+  PADDLE_ENFORCE_GPU_SUCCESS(cudaGetDevice(&prev_id));
+  if (prev_id != id) {
+    std::cout << "wanghuan dbg SetDeviceId diff = " << id << std::endl;
+    PADDLE_ENFORCE_LT(id,
+                      GetGPUDeviceCount(),
+                      common::errors::InvalidArgument(
+                          "Device id must be less than GPU count, "
+                          "but received id is: %d. GPU count is: %d.",
+                          id,
+                          GetGPUDeviceCount()));
+
+    PADDLE_RETRY_CUDA_SUCCESS(cudaSetDevice(id));
+    VLOG(4) << "SetDeviceId " << id;
+  } else {
+    std::cout << "wanghuan dbg SetDeviceId skip = " << id << std::endl;
+  }
 }
 
 void GpuMemcpyAsync(void *dst,
