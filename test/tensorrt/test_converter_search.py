@@ -302,9 +302,9 @@ class TestIndexSelectCase1TRTPattern(TensorRTBaseTest):
             "index": np.array([0, 2], dtype="int64"),
             "axis": 0,
         }
-        self.program_config = {"feed_list": ["x", "index"]}
-        self.min_shape = {"x": [1, 3], "index": [1]}
-        self.max_shape = {"x": [5, 3], "index": [5]}
+        self.program_config = {"feed_list": ["x", "index", "axis"]}
+        self.min_shape = {"x": [1, 3]}
+        self.max_shape = {"x": [5, 3]}
 
     def test_trt_result(self):
         self.check_trt_result()
@@ -318,9 +318,9 @@ class TestIndexSelectCase2TRTPattern(TensorRTBaseTest):
             "index": np.array([0, 2], dtype="int64"),
             "axis": 0,
         }
-        self.program_config = {"feed_list": ["x", "index"]}
-        self.min_shape = {"x": [1, 3], "index": [1]}
-        self.max_shape = {"x": [5, 3], "index": [5]}
+        self.program_config = {"feed_list": ["x", "index", "axis"]}
+        self.min_shape = {"x": [1, 3]}
+        self.max_shape = {"x": [5, 3]}
 
     def test_trt_result(self):
         self.check_trt_result()
