@@ -772,11 +772,11 @@ def where(
 
     # NOTE: We might need to adapt the broadcast_shape and broadcast_to for dynamic shape
     # so dynamic and pir branch can be merged into one code block
-    if in_dynamic_mode():
-        condition_shape = list(condition.shape)
-        x_shape = list(x.shape)
-        y_shape = list(y.shape)
+    condition_shape = list(condition.shape)
+    x_shape = list(x.shape)
+    y_shape = list(y.shape)
 
+    if in_dynamic_mode():
         broadcast_shape = paddle.broadcast_shape(x_shape, y_shape)
         broadcast_shape = paddle.broadcast_shape(
             broadcast_shape, condition_shape
@@ -797,11 +797,8 @@ def where(
 
         return _C_ops.where(broadcast_condition, broadcast_x, broadcast_y)
 
-    elif in_pir_mode():
-        condition_shape = list(condition.shape)
-        x_shape = list(x.shape)
-        y_shape = list(y.shape)
-
+    else:
+        # for PIR and old IR
         if x_shape == y_shape and condition_shape == x_shape:
             broadcast_condition = condition
             broadcast_x = x
@@ -820,35 +817,36 @@ def where(
             broadcast_condition = paddle.add(cast_cond, broadcast_zeros)
             broadcast_condition = paddle.cast(broadcast_condition, 'bool')
 
-        return _C_ops.where(broadcast_condition, broadcast_x, broadcast_y)
-    else:
-        check_variable_and_dtype(condition, 'condition', ['bool'], 'where')
-        check_variable_and_dtype(
-            x,
-            'x',
-            ['uint16', 'float16', 'float32', 'float64', 'int32', 'int64'],
-            'where',
-        )
-        check_variable_and_dtype(
-            y,
-            'y',
-            ['uint16', 'float16', 'float32', 'float64', 'int32', 'int64'],
-            'where',
-        )
-        helper = LayerHelper("where", **locals())
-        out = helper.create_variable_for_type_inference(dtype=x.dtype)
+        if in_pir_mode():
+            return _C_ops.where(broadcast_condition, broadcast_x, broadcast_y)
+        else:
+            check_variable_and_dtype(condition, 'condition', ['bool'], 'where')
+            check_variable_and_dtype(
+                x,
+                'x',
+                ['uint16', 'float16', 'float32', 'float64', 'int32', 'int64'],
+                'where',
+            )
+            check_variable_and_dtype(
+                y,
+                'y',
+                ['uint16', 'float16', 'float32', 'float64', 'int32', 'int64'],
+                'where',
+            )
+            helper = LayerHelper("where", **locals())
+            out = helper.create_variable_for_type_inference(dtype=x.dtype)
 
-        helper.append_op(
-            type='where',
-            inputs={
-                'Condition': broadcast_condition,
-                'X': broadcast_x,
-                'Y': broadcast_y,
-            },
-            outputs={'Out': [out]},
-        )
+            helper.append_op(
+                type='where',
+                inputs={
+                    'Condition': broadcast_condition,
+                    'X': broadcast_x,
+                    'Y': broadcast_y,
+                },
+                outputs={'Out': [out]},
+            )
 
-        return out
+            return out
 
 
 @inplace_apis_in_dygraph_only
