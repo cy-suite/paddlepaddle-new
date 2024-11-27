@@ -86,6 +86,7 @@ DEFINE_GENERAL_PATTERN(Log, paddle::dialect::LogOp)
 DEFINE_GENERAL_PATTERN(Floor, paddle::dialect::FloorOp)
 DEFINE_GENERAL_PATTERN(Roll, paddle::dialect::RollOp)
 DEFINE_GENERAL_PATTERN(ThresholdedRelu, paddle::dialect::ThresholdedReluOp)
+DEFINE_GENERAL_PATTERN(Conv3d, paddle::dialect::Conv3dOp)
 
 #undef DEFINE_GENERAL_PATTERN
 
@@ -365,6 +366,42 @@ class DepthwiseConv2dTransposeOpPattern
             << "In depthwise_conv2d_transpose, Dilations must be (1, 1) for "
                "tensorRT, but given ("
             << dilations[0] << ", " << dilations[1] << ")";
+        return false;
+      }
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class Conv3dTransposeOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::Conv3dTransposeOp> {
+ public:
+  using pir::OpRewritePattern<
+      paddle::dialect::Conv3dTransposeOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::Conv3dTransposeOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+
+    if (!op->HasAttribute("dilations")) {
+      VLOG(3) << "In conv3d_transpose, dilations attribute does not exist";
+      return false;
+    } else {
+      auto dilation_attr = op->attribute<pir::ArrayAttribute>("dilations");
+      std::vector<int32_t> dilations;
+      for (const auto &attr : dilation_attr.AsVector()) {
+        dilations.push_back(attr.dyn_cast<pir::Int32Attribute>().data());
+      }
+      if (dilations[0] != 1 || dilations[1] != 1 || dilations[2] != 1) {
+        VLOG(3) << "In conv3d_transpose, Dilations must be (1, 1, 1) for "
+                   "tensorRT, but given ("
+                << dilations[0] << ", " << dilations[1] << ", " << dilations[2]
+                << ")";
         return false;
       }
     }
@@ -2204,6 +2241,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<OneHotOpPattern>(context));
     ps.Add(std::make_unique<AssignValueOpPattern>(context));
     ps.Add(std::make_unique<AssignValue_OpPattern>(context));
+    ps.Add(std::make_unique<Conv3dTransposeOpPattern>(context));
     return ps;
   }
 };

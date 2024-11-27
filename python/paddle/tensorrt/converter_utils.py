@@ -510,6 +510,111 @@ def convert_conv2d(network, paddle_op, inputs):
     return layer.get_output(0)
 
 
+def convert_conv3d(network, paddle_op, inputs):
+    if paddle_op.name() == "pd_op.conv3d":
+        input_tensor, filter = inputs
+    elif paddle_op.name() == "pd_op.conv3d_transpose":
+        if len(inputs) == 3:
+            input_tensor, filter, output_size = inputs
+        elif len(inputs) == 2:
+            input_tensor, filter = inputs
+            output_size = None
+        else:
+            raise ValueError("Invalid number of inputs for conv3d_transpose")
+
+    input_shape = paddle_op.operands()[0].source().shape
+    filter_shape = paddle_op.operands()[1].source().shape
+
+    if len(filter_shape) != 5:
+        raise ValueError(
+            f"filter's dims size should be 5, but got {len(filter_shape)}"
+        )
+
+    n_output = filter_shape[0]
+    n_input = filter_shape[1]
+    filter_d = filter_shape[2]
+    filter_h = filter_shape[3]
+    filter_w = filter_shape[4]
+
+    paddings = paddle_op.attrs().get("paddings", [0, 0, 0])
+    stride = paddle_op.attrs().get("strides", [1, 1, 1])
+    dilation = paddle_op.attrs().get("dilations", [1, 1, 1])
+    groups = paddle_op.attrs().get("groups", 1)
+
+    if has_dynamic_shape(input_shape):
+        assert (
+            input_shape[1] != -1
+        ), "Channel dim can't be dynamic for transpose convolution."
+
+    output_padding = paddle_op.attrs().get("output_padding", [0, 0, 0])
+    padding_algorithm = paddle_op.attrs().get("padding_algorithm", "EXPLICIT")
+    if padding_algorithm == "VALID":
+        paddings = [0] * len(paddings)
+
+    nv_ksize = trt.Dims3(filter_d, filter_h, filter_w)
+    nv_dilations = trt.Dims3(dilation[0], dilation[1], dilation[2])
+    nv_strides = trt.Dims3(stride[0], stride[1], stride[2])
+
+    pre_paddings = [0, 0, 0]
+    post_paddings = [0, 0, 0]
+
+    if len(paddings) == 3:
+        pre_paddings[0] = paddings[0]
+        pre_paddings[1] = paddings[1]
+        pre_paddings[2] = paddings[2]
+        post_paddings[0] = paddings[0]
+        post_paddings[1] = paddings[1]
+        post_paddings[2] = paddings[2]
+    elif len(paddings) == 6:
+        pre_paddings[0] = paddings[0]
+        pre_paddings[1] = paddings[2]
+        pre_paddings[2] = paddings[4]
+        post_paddings[0] = paddings[1]
+        post_paddings[1] = paddings[3]
+        post_paddings[2] = paddings[5]
+    else:
+        raise ValueError(f"Unsupported paddings size: {len(paddings)}")
+
+    if paddle_op.name() == "pd_op.conv3d":
+        layer = network.add_convolution_nd(
+            input=input_tensor,
+            num_output_maps=n_output,
+            kernel_shape=nv_ksize,
+            kernel=filter,
+            bias=None,
+        )
+    elif paddle_op.name() == "pd_op.conv3d_transpose":
+        layer = network.add_deconvolution_nd(
+            input=input_tensor,
+            num_output_maps=n_input * groups,
+            kernel_shape=nv_ksize,
+            kernel=filter,
+            bias=None,
+        )
+
+    layer.stride_nd = nv_strides
+    layer.pre_padding = pre_paddings
+
+    if output_padding:
+        post_paddings[0] -= output_padding[0]
+        post_paddings[1] -= output_padding[1]
+        post_paddings[2] -= output_padding[2]
+
+    if post_paddings[0] < 0 or post_paddings[1] < 0 or post_paddings[2] < 0:
+        raise ValueError("The value PostPadding should be >= 0.")
+
+    layer.post_padding = post_paddings
+    layer.num_groups = groups
+
+    if padding_algorithm == "SAME":
+        layer.padding_mode = trt.PaddingMode.SAME_UPPER
+        nv_dilations = trt.Dims3(1, 1, 1)
+
+    layer.dilation_nd = nv_dilations
+
+    return layer.get_output(0)
+
+
 def add_reduce_layer(network, paddle_op, inputs, op_type):
     input_tensor = inputs[0]
     axis = paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
