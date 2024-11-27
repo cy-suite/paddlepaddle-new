@@ -1262,7 +1262,7 @@ def dispatch_min_star_args(*args: VariableBase):
     res = args[0]
     graph = res.graph
     for arg in args:
-        lt = BuiltinVariable(operator.gt, graph, DanglingTracker())(arg, res)
+        lt = BuiltinVariable(operator.lt, graph, DanglingTracker())(arg, res)
         if lt.get_py_value() is True:
             res = arg
     return res
