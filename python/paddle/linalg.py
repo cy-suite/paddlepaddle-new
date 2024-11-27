@@ -20,6 +20,7 @@ from .tensor.linalg import (
     cond,
     corrcoef,
     cov,
+    cross,
     det,
     eig,
     eigh,
@@ -46,6 +47,7 @@ from .tensor.linalg import (
     svd,
     svd_lowrank,
     triangular_solve,
+    vecdot,
     vector_norm,
 )
 
@@ -54,10 +56,12 @@ __all__ = [
     'cholesky_inverse',
     'norm',
     'matrix_norm',
+    'vecdot',
     'vector_norm',
     'cond',
     'cov',
     'corrcoef',
+    'cross',
     'inv',
     'eig',
     'eigvals',
