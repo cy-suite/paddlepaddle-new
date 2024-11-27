@@ -181,8 +181,13 @@ class TestAdamW(OpTest):
 
 class TestAdamWAMSGrad(TestAdamW):
     def set_amsgrad(self):
-        self.amsgrad = True
-        self.no_check_set = None
+        # xpu not support `amsgrad`
+        if core.is_compiled_with_xpu():
+            self.amsgrad = False
+            self.no_check_set = ['Moment2MaxOut']
+        else:
+            self.amsgrad = True
+            self.no_check_set = None
 
 
 @unittest.skipIf(
@@ -448,7 +453,13 @@ class TestAdamWOp(unittest.TestCase):
 
 class TestAdamWOpAMSGrad(TestAdamWOp):
     def setUp(self):
-        self.amsgrad = True
+        # xpu not support `amsgrad`
+        if core.is_compiled_with_xpu():
+            self.amsgrad = False
+            self.no_check_set = ['Moment2MaxOut']
+        else:
+            self.amsgrad = True
+            self.no_check_set = None
 
 
 class TestAdamWOpGroup(TestAdamWOp):
@@ -504,7 +515,13 @@ class TestAdamWOpGroup(TestAdamWOp):
 
 class TestAdamWOpGroupAMSGrad(TestAdamWOpGroup):
     def setUp(self):
-        self.amsgrad = True
+        # xpu not support `amsgrad`
+        if core.is_compiled_with_xpu():
+            self.amsgrad = False
+            self.no_check_set = ['Moment2MaxOut']
+        else:
+            self.amsgrad = True
+            self.no_check_set = None
 
 
 class TestAdamWOpMultiPrecisionWithMainGrad(unittest.TestCase):
@@ -680,7 +697,13 @@ class TestAdamWOpMultiPrecisionWithMainGradAMSGrad(
     TestAdamWOpMultiPrecisionWithMainGrad
 ):
     def setUp(self):
-        self.amsgrad = True
+        # xpu not support `amsgrad`
+        if core.is_compiled_with_xpu():
+            self.amsgrad = False
+            self.no_check_set = ['Moment2MaxOut']
+        else:
+            self.amsgrad = True
+            self.no_check_set = None
 
 
 class TestAdamWOpMultiPrecision(unittest.TestCase):
@@ -752,7 +775,13 @@ class TestAdamWOpMultiPrecision(unittest.TestCase):
 
 class TestAdamWOpMultiPrecisionAMSGrad(TestAdamWOpMultiPrecision):
     def setUp(self):
-        self.amsgrad = True
+        # xpu not support `amsgrad`
+        if core.is_compiled_with_xpu():
+            self.amsgrad = False
+            self.no_check_set = ['Moment2MaxOut']
+        else:
+            self.amsgrad = True
+            self.no_check_set = None
 
 
 class TestAdamWOpError(unittest.TestCase):
@@ -823,7 +852,13 @@ class TestAdamWOpError(unittest.TestCase):
 
 class TestAdamWOpErrorAMSGrad(TestAdamWOpError):
     def setUp(self):
-        self.amsgrad = True
+        # xpu not support `amsgrad`
+        if core.is_compiled_with_xpu():
+            self.amsgrad = False
+            self.no_check_set = ['Moment2MaxOut']
+        else:
+            self.amsgrad = True
+            self.no_check_set = None
 
 
 class TestAdamWOpGroupWithLR(TestAdamWOp):
@@ -862,7 +897,13 @@ class TestAdamWOpGroupWithLR(TestAdamWOp):
 
 class TestAdamWOpGroupWithLRAMSGrad(TestAdamWOpGroupWithLR):
     def setUp(self):
-        self.amsgrad = True
+        # xpu not support `amsgrad`
+        if core.is_compiled_with_xpu():
+            self.amsgrad = False
+            self.no_check_set = ['Moment2MaxOut']
+        else:
+            self.amsgrad = True
+            self.no_check_set = None
 
 
 def simple_lr_setting(param, decay_rate, n_layers):
@@ -1671,7 +1712,14 @@ class TestAdamWOpLayerwiseLRAMSGrad(TestAdamWOpLayerwiseLR):
         random.seed(2022)
         np.random.seed(2022)
         paddle.seed(2022)
-        self.amsgrad = True
+
+        # xpu not support `amsgrad`
+        if core.is_compiled_with_xpu():
+            self.amsgrad = False
+            self.no_check_set = ['Moment2MaxOut']
+        else:
+            self.amsgrad = True
+            self.no_check_set = None
 
 
 if __name__ == "__main__":

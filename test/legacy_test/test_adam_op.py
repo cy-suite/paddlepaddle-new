@@ -126,8 +126,13 @@ class TestAdamOp1(OpTest):
 
 class TestAdamOp1AMSGrad(TestAdamOp1):
     def set_amsgrad(self):
-        self.amsgrad = True
-        self.no_check_set = None
+        # xpu not support `amsgrad`
+        if core.is_compiled_with_xpu():
+            self.amsgrad = False
+            self.no_check_set = ['Moment2MaxOut']
+        else:
+            self.amsgrad = True
+            self.no_check_set = None
 
 
 class TestAdamOp2(OpTest):
@@ -201,8 +206,13 @@ class TestAdamOnlyTailOp(TestAdamOp2):
 
 class TestAdamOp2AMSGrad(TestAdamOp2):
     def set_amsgrad(self):
-        self.amsgrad = True
-        self.no_check_set = None
+        # xpu not support `amsgrad`
+        if core.is_compiled_with_xpu():
+            self.amsgrad = False
+            self.no_check_set = ['Moment2MaxOut']
+        else:
+            self.amsgrad = True
+            self.no_check_set = None
 
 
 class TestAdamOpMultipleSteps(OpTest):
@@ -288,8 +298,13 @@ class TestAdamOpMultipleSteps(OpTest):
 
 class TestAdamOpMultipleStepsAMSGrad(TestAdamOpMultipleSteps):
     def set_amsgrad(self):
-        self.amsgrad = True
-        self.no_check_set = None
+        # xpu not support `amsgrad`
+        if core.is_compiled_with_xpu():
+            self.amsgrad = False
+            self.no_check_set = ['Moment2MaxOut']
+        else:
+            self.amsgrad = True
+            self.no_check_set = None
 
 
 def adam_step(inputs, attributes):
@@ -578,8 +593,13 @@ class TestSparseAdamOp(unittest.TestCase):
 
 class TestSparseAdamOpAMSGrad(TestSparseAdamOp):
     def set_amsgrad(self):
-        self.amsgrad = True
-        self.no_check_set = None
+        # xpu not support `amsgrad`
+        if core.is_compiled_with_xpu():
+            self.amsgrad = False
+            self.no_check_set = ['Moment2MaxOut']
+        else:
+            self.amsgrad = True
+            self.no_check_set = None
 
 
 class TestAdamOpBetaVariable(OpTest):
@@ -642,8 +662,13 @@ class TestAdamOpBetaVariable(OpTest):
 
 class TestAdamOpBetaVariableAMSGrad(TestAdamOpBetaVariable):
     def set_amsgrad(self):
-        self.amsgrad = True
-        self.no_check_set = None
+        # xpu not support `amsgrad`
+        if core.is_compiled_with_xpu():
+            self.amsgrad = False
+            self.no_check_set = ['Moment2MaxOut']
+        else:
+            self.amsgrad = True
+            self.no_check_set = None
 
 
 class TestAdamOpBetaEpsilonVariable(OpTest):
@@ -707,8 +732,13 @@ class TestAdamOpBetaEpsilonVariable(OpTest):
 
 class TestAdamOpBetaEpsilonVariableAMSGrad(TestAdamOpBetaEpsilonVariable):
     def set_amsgrad(self):
-        self.amsgrad = True
-        self.no_check_set = None
+        # xpu not support `amsgrad`
+        if core.is_compiled_with_xpu():
+            self.amsgrad = False
+            self.no_check_set = ['Moment2MaxOut']
+        else:
+            self.amsgrad = True
+            self.no_check_set = None
 
 
 class TestAdamOpWithGlobalBetaPow(OpTest):
@@ -777,8 +807,13 @@ class TestAdamOpWithGlobalBetaPow(OpTest):
 
 class TestAdamOpWithGlobalBetaPowAMSGrad(TestAdamOpWithGlobalBetaPow):
     def set_amsgrad(self):
-        self.amsgrad = True
-        self.no_check_set = None
+        # xpu not support `amsgrad`
+        if core.is_compiled_with_xpu():
+            self.amsgrad = False
+            self.no_check_set = ['Moment2MaxOut']
+        else:
+            self.amsgrad = True
+            self.no_check_set = None
 
 
 class TestAdamOpWithSkipUpdate(OpTest):
@@ -844,8 +879,13 @@ class TestAdamOpWithSkipUpdate(OpTest):
 
 class TestAdamOpWithSkipUpdateAMSGrad(TestAdamOpWithSkipUpdate):
     def set_amsgrad(self):
-        self.amsgrad = True
-        self.no_check_set = None
+        # xpu not support `amsgrad`
+        if core.is_compiled_with_xpu():
+            self.amsgrad = False
+            self.no_check_set = ['Moment2MaxOut']
+        else:
+            self.amsgrad = True
+            self.no_check_set = None
 
 
 class TestAdamOpV2(unittest.TestCase):
@@ -1061,7 +1101,13 @@ class TestAdamOpV2(unittest.TestCase):
 
 class TestAdamOpV2AMSGrad(TestAdamOpV2):
     def setUp(self):
-        self.amsgrad = True
+        # xpu not support `amsgrad`
+        if core.is_compiled_with_xpu():
+            self.amsgrad = False
+            self.no_check_set = ['Moment2MaxOut']
+        else:
+            self.amsgrad = True
+            self.no_check_set = None
 
 
 class TestAdamOpV2WeightDecay(unittest.TestCase):
@@ -1111,7 +1157,13 @@ class TestAdamOpV2Group(TestAdamOpV2):
 
 class TestAdamOpV2GroupAMSGrad(TestAdamOpV2Group):
     def setUp(self):
-        self.amsgrad = True
+        # xpu not support `amsgrad`
+        if core.is_compiled_with_xpu():
+            self.amsgrad = False
+            self.no_check_set = ['Moment2MaxOut']
+        else:
+            self.amsgrad = True
+            self.no_check_set = None
 
 
 class TestMultiTensorAdam(unittest.TestCase):
@@ -1343,7 +1395,13 @@ class TestMultiTensorAdam(unittest.TestCase):
 
 class TestMultiTensorAdamAMSGrad(TestMultiTensorAdam):
     def setUp(self):
-        self.amsgrad = True
+        # xpu not support `amsgrad`
+        if core.is_compiled_with_xpu():
+            self.amsgrad = False
+            self.no_check_set = ['Moment2MaxOut']
+        else:
+            self.amsgrad = True
+            self.no_check_set = None
 
 
 if __name__ == "__main__":
