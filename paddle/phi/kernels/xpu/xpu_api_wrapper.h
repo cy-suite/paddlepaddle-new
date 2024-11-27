@@ -360,7 +360,7 @@ static void xblas_fc_wrapper(xpu::Context* ctx,
   } else {
 #ifdef PADDLE_WITH_XPU_XRE5
     bool is_xte = false;
-    if constexpr (std::is_same<XPUTypeBF16, XPUType>::value) {
+    if constexpr (std::is_same<XPUTypeBF16, TA>::value) {
       if (std::getenv("XPU_PADDLE_FC_BFLOAT16_XTE") != nullptr) {
         is_xte = true;
 
@@ -422,6 +422,10 @@ static void xblas_fc_wrapper(xpu::Context* ctx,
             w_columns,
             w_trans,
         };
+        xblas::FcFusionDesc<XPUTypeFP16, TGEMM_O, TINTER_RES> desc{
+            alpha,
+            beta,
+        };
         xblas::FcFusionEpilogue<TBIAS, TSCALE> epilogue_fp16{
             act,
             bias,
@@ -432,18 +436,25 @@ static void xblas_fc_wrapper(xpu::Context* ctx,
             y_maxptr,
         };
 
-        r = xblas::
-            fc_fusion<TA, TB, TC, TD, TGEMM, TGEMM_O, TINTER_RES, TBIAS, TSCALE>(
-                ctx, t_x_fp16, t_w_fp16, t_input, t_y, desc, epilogue_fp16);
+        r = xblas::fc_fusion<XPUTypeFP16,
+                             XPUTypeFP16,
+                             TC,
+                             TD,
+                             XPUTypeFP16,
+                             TGEMM_O,
+                             TINTER_RES,
+                             TBIAS,
+                             TSCALE>(
+            ctx, t_x_fp16, t_w_fp16, t_input, t_y, desc, epilogue_fp16);
         PADDLE_ENFORCE_XDNN_SUCCESS(r, "xblas_fc_fusion");
       }
     }
 
     if (!is_xte) {
-        r = xblas::
-            fc_fusion<TA, TB, TC, TD, TGEMM, TGEMM_O, TINTER_RES, TBIAS, TSCALE>(
-                ctx, t_x, t_w, t_input, t_y, desc, epilogue);
-        PADDLE_ENFORCE_XDNN_SUCCESS(r, "xblas_fc_fusion");
+      r = xblas::
+          fc_fusion<TA, TB, TC, TD, TGEMM, TGEMM_O, TINTER_RES, TBIAS, TSCALE>(
+              ctx, t_x, t_w, t_input, t_y, desc, epilogue);
+      PADDLE_ENFORCE_XDNN_SUCCESS(r, "xblas_fc_fusion");
     }
 #else
     if (input != nullptr) {
@@ -472,6 +483,7 @@ static void xblas_fc_wrapper(xpu::Context* ctx,
                                           act);
     PADDLE_ENFORCE_XDNN_SUCCESS(r, "xpu_fc_fusion");
 #endif
+  }
 }
 
 #define DECLARE_UNSUPPORTED_XBLAS_FC_WRAPPER(XPUType, XPUInOutType, FCT) \
@@ -564,25 +576,25 @@ static void xblas_fc_batch_wrapper(xpu::Context* xpu_ctx,
       w_maxptr);
   PADDLE_ENFORCE_XDNN_SUCCESS(r, "xblas_fc_batched");
 #else
-    int r = xpu::fc_batched<XPUType, XPUType, XPUType, FCT>(
-        xpu_ctx,
-        bs,
-        trans_x,
-        trans_w,
-        m,
-        n,
-        k,
-        alpha,
-        reinterpret_cast<const XPUType*>(x),
-        stride_x,
-        reinterpret_cast<const XPUType*>(w),
-        stride_w,
-        beta,
-        reinterpret_cast<XPUType*>(y),
-        stride_y,
-        x_maxptr,
-        w_maxptr);
-    PADDLE_ENFORCE_XDNN_SUCCESS(r, "xdnn_fc_batched");
+  int r = xpu::fc_batched<XPUType, XPUType, XPUType, FCT>(
+      xpu_ctx,
+      bs,
+      trans_x,
+      trans_w,
+      m,
+      n,
+      k,
+      alpha,
+      reinterpret_cast<const XPUType*>(x),
+      stride_x,
+      reinterpret_cast<const XPUType*>(w),
+      stride_w,
+      beta,
+      reinterpret_cast<XPUType*>(y),
+      stride_y,
+      x_maxptr,
+      w_maxptr);
+  PADDLE_ENFORCE_XDNN_SUCCESS(r, "xdnn_fc_batched");
 #endif
 }
 
