@@ -294,5 +294,37 @@ class TestTopkCase4TRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestIndexSelectCase1TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.index_select
+        self.api_args = {
+            "x": np.random.randn(3, 3).astype("float32"),
+            "index": np.array([0, 2], dtype="int64"),
+            "axis": 0,
+        }
+        self.program_config = {"feed_list": ["x", "index"]}
+        self.min_shape = {"x": [1, 3], "index": [1]}
+        self.max_shape = {"x": [5, 3], "index": [5]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestIndexSelectCase2TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.index_select
+        self.api_args = {
+            "x": np.random.randn(3, 3).astype("int64"),
+            "index": np.array([0, 2], dtype="int64"),
+            "axis": 0,
+        }
+        self.program_config = {"feed_list": ["x", "index"]}
+        self.min_shape = {"x": [1, 3], "index": [1]}
+        self.max_shape = {"x": [5, 3], "index": [5]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
 if __name__ == '__main__':
     unittest.main()

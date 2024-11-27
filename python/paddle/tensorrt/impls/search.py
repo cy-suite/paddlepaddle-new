@@ -186,3 +186,31 @@ def topk_converter(network, paddle_op, inputs):
         values = trt_cast(network, values, trt.DataType.INT32)
 
     return values, indices
+
+
+@converter_registry.register("pd_op.index_select", trt_version="8.x")
+def index_select_converter(network, paddle_op, inputs):
+    input_name = paddle_op.Input("X")[0]
+    index_name = paddle_op.Input("Index")[0]
+    output_name = paddle_op.Output("Out")[0]
+
+    input_tensor = network.get_tensor(input_name)
+    index_tensor = network.get_tensor(index_name)
+
+    axis = 0
+    if paddle_op.HasAttr("dim"):
+        axis = paddle_op.GetAttr("dim")
+
+    reshape_layer = network.add_shuffle(index_tensor)
+
+    index_shape = trt.Dims(1)
+    index_shape.d[0] = -1
+    reshape_layer.set_reshape_dimensions(index_shape)
+    reshape_layer.name = f"Index select: Shuffle: (Output: {output_name})"
+
+    gather_layer = network.add_gather(
+        input_tensor, reshape_layer.get_output(0), axis
+    )
+    gather_layer.num_elementwise_dims = 0
+
+    return gather_layer.get_output(0)
