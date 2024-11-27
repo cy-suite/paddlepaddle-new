@@ -71,8 +71,11 @@ void Cast::Verify() const {
 }
 
 Expr Add::Make(Expr a, Expr b) {
-  if (a.is_index() && b.is_index()) return a.as_index() + b.as_index();
   auto node = make_shared<Add>(a, b);
+  // For performance reasons, do not perform frequent simplifications. Just set
+  // the is_index() flag to true. For extreme optimization,
+  // `node->set_index(true)` can be replaced by `a.as_index() + b.as_index()`
+  if (a.is_index() && b.is_index()) node->set_index(true);
   return Expr(node);
 }
 
@@ -109,8 +112,8 @@ void BinaryNodeVerify(const Expr &a, const Expr &b, absl::string_view ir_name) {
 void Add::Verify() const { BinaryNodeVerify(a(), b(), "Add"); }
 
 Expr Sub::Make(Expr a, Expr b) {
-  if (a.is_index() && b.is_index()) return a.as_index() - b.as_index();
   auto node = make_shared<Sub>(a, b);
+  if (a.is_index() && b.is_index()) node->set_index(true);
   return Expr(node);
 }
 
@@ -123,8 +126,8 @@ IndexExpr Sub::Make(IndexExpr a, IndexExpr b) {
 void Sub::Verify() const { BinaryNodeVerify(a(), b(), "Sub"); }
 
 Expr Mul::Make(Expr a, Expr b) {
-  if (a.is_index() && b.is_index()) return a.as_index() * b.as_index();
   auto node = make_shared<Mul>(a, b);
+  if (a.is_index() && b.is_index()) node->set_index(true);
   return Expr(node);
 }
 
@@ -137,8 +140,8 @@ IndexExpr Mul::Make(IndexExpr a, IndexExpr b) {
 void Mul::Verify() const { BinaryNodeVerify(a(), b(), "Mul"); }
 
 Expr Div::Make(Expr a, Expr b) {
-  if (a.is_index() && b.is_index()) return a.as_index() / b.as_index();
   auto node = make_shared<Div>(a, b);
+  if (a.is_index() && b.is_index()) node->set_index(true);
   return Expr(node);
 }
 
@@ -151,8 +154,8 @@ IndexExpr Div::Make(IndexExpr a, IndexExpr b) {
 void Div::Verify() const { BinaryNodeVerify(a(), b(), "Div"); }
 
 Expr Mod::Make(Expr a, Expr b) {
-  if (a.is_index() && b.is_index()) return a.as_index() % b.as_index();
   auto node = make_shared<Mod>(a, b);
+  if (a.is_index() && b.is_index()) node->set_index(true);
   return Expr(node);
 }
 
@@ -165,8 +168,8 @@ IndexExpr Mod::Make(IndexExpr a, IndexExpr b) {
 void Mod::Verify() const { BinaryNodeVerify(a(), b(), "Mod"); }
 
 Expr Min::Make(Expr a, Expr b) {
-  if (a.is_index() && b.is_index()) return Make(a.as_index(), b.as_index());
   auto node = make_shared<Min>(a, b);
+  if (a.is_index() && b.is_index()) node->set_index(true);
   return Expr(node);
 }
 
@@ -179,13 +182,13 @@ IndexExpr Min::Make(IndexExpr a, IndexExpr b) {
 void Min::Verify() const { BinaryNodeVerify(a(), b(), "Min"); }
 
 Expr Max::Make(Expr a, Expr b) {
-  if (a.is_index() && b.is_index()) return Make(a.as_index(), b.as_index());
   auto node = make_shared<Max>(a, b);
+  if (a.is_index() && b.is_index()) node->set_index(true);
   return Expr(node);
 }
 
 IndexExpr Max::Make(IndexExpr a, IndexExpr b) {
-  auto node = make_shared<Min>(a, b);
+  auto node = make_shared<Max>(a, b);
   node->set_index(true);
   return IndexExpr(node);
 }

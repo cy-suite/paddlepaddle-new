@@ -142,20 +142,34 @@ Expr operator==(POD a, Expr b) {
   return EQ::Make(Expr(a), Expr(b));
 }
 
+// Author(liujinnan): Real-time simplification can be set for extreme
+// optimization as follow:
+// #define DEFINE_EXPR_OPERATOR(OP, FUNC)                           \
+//   inline Expr operator OP(const Expr& a, const Expr& b) {        \
+//     return (a.is_index() && b.is_index())                        \
+//                ? Expr(a.as_index() OP b.as_index()).set_index(1) \
+//                : FUNC::Make(a, b);                               \
+//   }                                                              \
+//   inline Expr operator OP(const Expr& a, const IndexExpr& b) {   \
+//     return a.is_index() ? Expr(a.as_index() OP b).set_index(1)   \
+//                         : FUNC::Make(a, Expr(b));                \
+//   }                                                              \
+//   inline Expr operator OP(const IndexExpr& a, const Expr& b) {   \
+//     return b.is_index() ? Expr(a OP b.as_index()).set_index(1)   \
+//                         : FUNC::Make(Expr(a), b);                \
+//   }
+// #undef DEFINE_EXPR_OPERATOR
+
 //--
-#define DEFINE_EXPR_OPERATOR(OP, FUNC)                           \
-  inline Expr operator OP(const Expr& a, const Expr& b) {        \
-    return (a.is_index() && b.is_index())                        \
-               ? Expr(a.as_index() OP b.as_index()).set_index(1) \
-               : FUNC::Make(a, b);                               \
-  }                                                              \
-  inline Expr operator OP(const Expr& a, const IndexExpr& b) {   \
-    return a.is_index() ? Expr(a.as_index() OP b).set_index(1)   \
-                        : FUNC::Make(a, Expr(b));                \
-  }                                                              \
-  inline Expr operator OP(const IndexExpr& a, const Expr& b) {   \
-    return b.is_index() ? Expr(a OP b.as_index()).set_index(1)   \
-                        : FUNC::Make(Expr(a), b);                \
+#define DEFINE_EXPR_OPERATOR(OP, FUNC)                         \
+  inline Expr operator OP(const Expr& a, const Expr& b) {      \
+    return FUNC::Make(a, b);                                   \
+  }                                                            \
+  inline Expr operator OP(const Expr& a, const IndexExpr& b) { \
+    return FUNC::Make(a, Expr(b));                             \
+  }                                                            \
+  inline Expr operator OP(const IndexExpr& a, const Expr& b) { \
+    return FUNC::Make(Expr(a), b);                             \
   }
 
 DEFINE_EXPR_OPERATOR(+, Add)

@@ -323,10 +323,7 @@ struct IntImm : public ExprNode<IntImm> {
 struct UIntImm : public ExprNode<UIntImm> {
   uint64_t value;
 
-  UIntImm(Type t, uint64_t v) : ExprNode<UIntImm>(t), value(v) {
-    if (t.bits() == 32 || t.bits() == 64) set_index(true);
-    Verify();
-  }
+  UIntImm(Type t, uint64_t v) : ExprNode<UIntImm>(t), value(v) { Verify(); }
 
   void Verify() const override {
     PADDLE_ENFORCE_EQ(type().is_uint(),
