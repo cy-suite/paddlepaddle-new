@@ -23,6 +23,7 @@ import paddle
 import paddle.nn.functional as F
 from paddle import base
 from paddle.base import core
+from paddle.nn.functional import sdp_kernel
 from paddle.nn.functional.flash_attention import (
     calc_reduced_attention_scores,
     flash_attention,
@@ -1585,6 +1586,467 @@ class TestCalcReducedAttentionScoresNotEvenMN(TestCalcReducedAttentionScores):
         self.head_dim = 128
         self.num_group = 1
         self.dtype = 'bfloat16'
+
+
+@unittest.skipIf(
+    not is_flashattn_supported(),
+    "core is not compiled with CUDA and cuda version need larger than or equal to 11.4"
+    "and device's compute capability must be 7.5 or 8.x",
+)
+class TestFlashAttentionAlignment(unittest.TestCase):
+    def setUp(self):
+        paddle.disable_static()
+        self.bs = 1
+        self.seq_len = 8
+        self.num_head = 1
+        self.head_dim = 8
+        self.dtype = 'float16'
+        self.query = np.array(
+            [  # batch_size = 1
+                [[0.3, -0.7, 0.2, 0.5, -0.4, 0.8, -0.2, 0.1]],  # seq position 0
+                [
+                    [-0.5, 0.4, 0.7, -0.3, 0.6, -0.8, 0.3, -0.1]
+                ],  # seq position 1
+                [[0.2, 0.8, -0.4, 0.1, -0.6, 0.3, 0.7, -0.5]],  # seq position 2
+                [[-0.8, 0.1, 0.6, 0.4, -0.2, -0.7, 0.5, 0.3]],  # seq position 3
+                [[0.7, -0.3, -0.5, 0.8, 0.2, 0.4, -0.6, 0.1]],  # seq position 4
+                [[-0.2, 0.5, 0.3, -0.7, 0.8, 0.1, -0.4, 0.6]],  # seq position 5
+                [[0.4, -0.6, 0.8, -0.1, 0.3, 0.5, -0.8, 0.2]],  # seq position 6
+                [[-0.4, 0.2, -0.8, 0.6, 0.1, -0.3, 0.7, 0.5]],  # seq position 7
+            ],
+            dtype=np.float16,
+        ).reshape(1, 8, 1, 8)
+        self.key = np.array(
+            [  # batch_size = 1
+                [[0.6, -0.2, 0.8, -0.4, 0.3, 0.1, -0.7, 0.5]],  # seq position 0
+                [[-0.3, 0.7, 0.1, 0.5, -0.8, 0.4, -0.2, 0.6]],  # seq position 1
+                [[0.8, -0.5, 0.3, -0.1, 0.6, 0.2, -0.4, 0.7]],  # seq position 2
+                [[-0.6, 0.4, -0.2, 0.7, 0.1, -0.8, 0.3, 0.5]],  # seq position 3
+                [[0.2, 0.8, -0.6, 0.3, 0.5, -0.1, 0.7, -0.4]],  # seq position 4
+                [[-0.7, 0.3, 0.5, 0.1, -0.4, 0.8, -0.2, 0.6]],  # seq position 5
+                [[0.5, -0.8, 0.2, 0.6, -0.3, 0.7, 0.1, -0.5]],  # seq position 6
+                [[-0.1, 0.6, 0.4, -0.7, 0.2, 0.5, -0.8, 0.3]],  # seq position 7
+            ],
+            dtype=np.float16,
+        ).reshape(1, 8, 1, 8)
+        self.value = np.array(
+            [  # batch_size = 1
+                [[-0.4, 0.8, -0.1, 0.3, 0.6, -0.5, 0.2, 0.7]],  # seq position 0
+                [[0.5, -0.3, 0.7, 0.2, -0.6, 0.4, -0.8, 0.1]],  # seq position 1
+                [[-0.2, 0.6, 0.4, -0.7, 0.3, 0.8, -0.1, 0.5]],  # seq position 2
+                [[0.7, -0.4, 0.1, 0.5, -0.8, 0.2, 0.6, -0.3]],  # seq position 3
+                [[-0.5, 0.3, 0.8, -0.2, 0.4, 0.1, -0.7, 0.6]],  # seq position 4
+                [[0.2, -0.6, 0.3, 0.7, -0.1, 0.5, -0.4, 0.8]],  # seq position 5
+                [[-0.8, 0.1, 0.5, -0.3, 0.7, 0.4, -0.2, 0.6]],  # seq position 6
+                [[0.3, -0.7, 0.2, 0.6, -0.4, 0.8, -0.5, 0.1]],  # seq position 7
+            ],
+            dtype=np.float16,
+        ).reshape(1, 8, 1, 8)
+        self.mask = paddle.zeros(
+            [1, 1, self.seq_len, self.seq_len], dtype='float16'
+        )
+        for i in range(self.bs):
+            seq_len = self.seq_len
+            mask = (
+                paddle.tril(
+                    paddle.ones(shape=(seq_len, seq_len), dtype=self.dtype)
+                )
+                - 1
+            )
+            self.mask[i, 0, :seq_len, :seq_len] = mask * 1e4
+        self.rtol = 1e-3
+        self.atol = 1e-3
+
+        self.flash_expected_output = np.array(
+            [
+                [
+                    [
+                        [
+                            -3.9990e-01,
+                            7.9980e-01,
+                            -9.9976e-02,
+                            3.0005e-01,
+                            6.0010e-01,
+                            -5.0000e-01,
+                            1.9995e-01,
+                            7.0020e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            -6.1798e-03,
+                            3.1860e-01,
+                            2.5000e-01,
+                            2.5610e-01,
+                            7.5012e-02,
+                            -1.0626e-01,
+                            -2.3743e-01,
+                            4.3750e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            1.0028e-01,
+                            1.9958e-01,
+                            4.2505e-01,
+                            5.3787e-04,
+                            -7.5317e-02,
+                            2.7441e-01,
+                            -3.7524e-01,
+                            3.4985e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            2.9224e-01,
+                            1.6373e-02,
+                            2.7368e-01,
+                            1.8188e-01,
+                            -3.0298e-01,
+                            2.2412e-01,
+                            3.4210e-02,
+                            1.2610e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            -1.6998e-02,
+                            2.5220e-01,
+                            3.7939e-01,
+                            -3.7048e-02,
+                            3.0151e-02,
+                            2.3108e-01,
+                            -1.6772e-01,
+                            3.5327e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            1.1948e-02,
+                            1.2378e-01,
+                            3.2935e-01,
+                            1.2390e-01,
+                            2.6123e-02,
+                            2.3279e-01,
+                            -1.6919e-01,
+                            4.4019e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            -1.6162e-01,
+                            1.9812e-01,
+                            3.2544e-01,
+                            1.8021e-02,
+                            2.0081e-01,
+                            2.5586e-01,
+                            -1.5466e-01,
+                            5.0635e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            5.0873e-02,
+                            -7.4219e-02,
+                            3.9502e-01,
+                            1.5466e-01,
+                            -8.6182e-02,
+                            3.1958e-01,
+                            -2.1179e-01,
+                            3.1714e-01,
+                        ]
+                    ],
+                ]
+            ],
+            dtype=np.float16,
+        )
+        self.math_expected_output = np.array(
+            [
+                [
+                    [
+                        [
+                            -3.9990e-01,
+                            7.9980e-01,
+                            -9.9976e-02,
+                            3.0005e-01,
+                            6.0010e-01,
+                            -5.0000e-01,
+                            1.9995e-01,
+                            7.0020e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            -6.1951e-03,
+                            3.1860e-01,
+                            2.5000e-01,
+                            2.5635e-01,
+                            7.5012e-02,
+                            -1.0632e-01,
+                            -2.3743e-01,
+                            4.3750e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            1.0028e-01,
+                            1.9958e-01,
+                            4.2505e-01,
+                            5.3740e-04,
+                            -7.5317e-02,
+                            2.7441e-01,
+                            -3.7524e-01,
+                            3.4985e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            2.9224e-01,
+                            1.6357e-02,
+                            2.7368e-01,
+                            1.8188e-01,
+                            -3.0298e-01,
+                            2.2412e-01,
+                            3.4302e-02,
+                            1.2610e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            -1.7014e-02,
+                            2.5195e-01,
+                            3.7939e-01,
+                            -3.7018e-02,
+                            3.0151e-02,
+                            2.3108e-01,
+                            -1.6772e-01,
+                            3.5327e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            1.2039e-02,
+                            1.2378e-01,
+                            3.2935e-01,
+                            1.2396e-01,
+                            2.6047e-02,
+                            2.3279e-01,
+                            -1.6919e-01,
+                            4.4019e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            -1.6174e-01,
+                            1.9812e-01,
+                            3.2544e-01,
+                            1.7990e-02,
+                            2.0093e-01,
+                            2.5586e-01,
+                            -1.5466e-01,
+                            5.0635e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            5.0873e-02,
+                            -7.4219e-02,
+                            3.9502e-01,
+                            1.5466e-01,
+                            -8.6243e-02,
+                            3.1982e-01,
+                            -2.1179e-01,
+                            3.1714e-01,
+                        ]
+                    ],
+                ]
+            ],
+            dtype=np.float16,
+        )
+        self.mem_efficient_expected_output = np.array(
+            [
+                [
+                    [
+                        [
+                            -3.9990e-01,
+                            7.9980e-01,
+                            -9.9976e-02,
+                            3.0005e-01,
+                            6.0010e-01,
+                            -5.0000e-01,
+                            1.9995e-01,
+                            7.0020e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            -6.1798e-03,
+                            3.1860e-01,
+                            2.5000e-01,
+                            2.5610e-01,
+                            7.5012e-02,
+                            -1.0626e-01,
+                            -2.3743e-01,
+                            4.3750e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            1.0028e-01,
+                            1.9958e-01,
+                            4.2505e-01,
+                            5.3787e-04,
+                            -7.5317e-02,
+                            2.7441e-01,
+                            -3.7524e-01,
+                            3.4985e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            2.9224e-01,
+                            1.6373e-02,
+                            2.7368e-01,
+                            1.8188e-01,
+                            -3.0298e-01,
+                            2.2412e-01,
+                            3.4210e-02,
+                            1.2610e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            -1.6998e-02,
+                            2.5220e-01,
+                            3.7939e-01,
+                            -3.7048e-02,
+                            3.0151e-02,
+                            2.3108e-01,
+                            -1.6772e-01,
+                            3.5327e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            1.1948e-02,
+                            1.2378e-01,
+                            3.2935e-01,
+                            1.2390e-01,
+                            2.6123e-02,
+                            2.3279e-01,
+                            -1.6919e-01,
+                            4.4019e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            -1.6162e-01,
+                            1.9812e-01,
+                            3.2544e-01,
+                            1.8021e-02,
+                            2.0081e-01,
+                            2.5586e-01,
+                            -1.5466e-01,
+                            5.0635e-01,
+                        ]
+                    ],
+                    [
+                        [
+                            5.0873e-02,
+                            -7.4219e-02,
+                            3.9502e-01,
+                            1.5466e-01,
+                            -8.6182e-02,
+                            3.1958e-01,
+                            -2.1179e-01,
+                            3.1714e-01,
+                        ]
+                    ],
+                ]
+            ],
+            dtype=np.float16,
+        )
+
+    def test_flash_attention(self):
+        paddle.disable_static()
+        query = paddle.to_tensor(self.query)
+        key = paddle.to_tensor(self.key)
+        value = paddle.to_tensor(self.value)
+        mask = paddle.to_tensor(self.mask)
+
+        with sdp_kernel(
+            enable_flash=True, enable_math=False, enable_mem_efficient=False
+        ):
+            output = paddle.nn.functional.scaled_dot_product_attention(
+                query,
+                key,
+                value,
+                attn_mask=mask,
+                dropout_p=0.0,
+                is_causal=False,
+            )
+
+        np.testing.assert_allclose(
+            output.numpy(),
+            self.flash_expected_output,
+            rtol=self.rtol,
+            atol=self.atol,
+            err_msg='Flash attention output does not match expected values',
+        )
+
+    def test_math_attention(self):
+        paddle.disable_static()
+        query = paddle.to_tensor(self.query)
+        key = paddle.to_tensor(self.key)
+        value = paddle.to_tensor(self.value)
+        mask = paddle.to_tensor(self.mask)
+
+        with sdp_kernel(
+            enable_flash=False, enable_math=True, enable_mem_efficient=False
+        ):
+            output = paddle.nn.functional.scaled_dot_product_attention(
+                query,
+                key,
+                value,
+                attn_mask=mask,
+                dropout_p=0.0,
+                is_causal=False,
+            )
+
+        np.testing.assert_allclose(
+            output.numpy(),
+            self.math_expected_output,
+            rtol=self.rtol,
+            atol=self.atol,
+            err_msg='Math attention output does not match expected values',
+        )
+
+    def test_mem_efficient_attention(self):
+        paddle.disable_static()
+        query = paddle.to_tensor(self.query)
+        key = paddle.to_tensor(self.key)
+        value = paddle.to_tensor(self.value)
+        mask = paddle.to_tensor(self.mask)
+
+        with sdp_kernel(
+            enable_flash=False, enable_math=False, enable_mem_efficient=True
+        ):
+            output = paddle.nn.functional.scaled_dot_product_attention(
+                query,
+                key,
+                value,
+                attn_mask=mask,
+                dropout_p=0.0,
+                is_causal=False,
+            )
+
+        np.testing.assert_allclose(
+            output.numpy(),
+            self.mem_efficient_expected_output,
+            rtol=self.rtol,
+            atol=self.atol,
+            err_msg='Memory efficient attention output does not match expected values',
+        )
 
 
 if __name__ == '__main__':
