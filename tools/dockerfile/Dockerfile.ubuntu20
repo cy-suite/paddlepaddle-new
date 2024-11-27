@@ -72,17 +72,18 @@ RUN rm /usr/bin/python && ln -s /usr/bin/python3.9 /usr/bin/python && \
 WORKDIR /home
 RUN wget -q https://files.pythonhosted.org/packages/a7/e0/30642b9c2df516506d40b563b0cbd080c49c6b3f11a70b4c7a670f13a78b/setuptools-50.3.2.zip && unzip setuptools-50.3.2.zip
 WORKDIR /home/setuptools-50.3.2
-RUN python3.9 setup.py build && python3.9 setup.py install && \
-  python3.8 setup.py build && python3.8 setup.py install
+
+RUN python3.8 setup.py build && python3.8 setup.py install && \
+    python3.9 setup.py build && python3.9 setup.py install
 
 WORKDIR /home
 RUN wget https://files.pythonhosted.org/packages/d6/4f/b10f707e14ef7de524fe1f8988a294fb262a29c9b5b12275c7e188864aed/setuptools-69.5.1.tar.gz && tar xf setuptools-69.5.1.tar.gz
 WORKDIR /home/setuptools-69.5.1
 RUN python3.10 setup.py build && python3.10 setup.py install && \
-  python3.11 setup.py build && python3.11 setup.py install && \
-  python3.12 setup.py build && python3.12 setup.py install && \
-  python3.13 setup.py build && python3.13 setup.py install && \
-  python3.13t setup.py build && python3.13t setup.py install
+    python3.11 setup.py build && python3.11 setup.py install && \
+    python3.12 setup.py build && python3.12 setup.py install && \
+    python3.13 setup.py build && python3.13 setup.py install && \
+    python3.13t setup.py build && python3.13t setup.py install
 
 WORKDIR /home
 RUN wget -q https://bootstrap.pypa.io/get-pip.py
@@ -90,7 +91,9 @@ RUN python3.8 get-pip.py && \
   python3.9 get-pip.py && \
   python3.10 get-pip.py && \
   python3.11 get-pip.py && \
-  python3.12 get-pip.py
+  python3.12 get-pip.py && \
+  python3.13 get-pip.py && \
+  python3.13t get-pip.py
 
 WORKDIR /home
 RUN rm setuptools-50.3.2.zip setuptools-69.5.1.tar.gz && \
@@ -162,7 +165,8 @@ RUN pip3.8 --no-cache-dir install pre-commit==2.17.0 && \
 COPY ./python/requirements.txt /root/
 COPY ./python/unittest_py/requirements.txt /home/
 
-RUN pip3.9 --no-cache-dir install -r  /root/requirements.txt && \
+RUN pip3.8 --no-cache-dir install -r /root/requirements.txt && \
+    pip3.9 --no-cache-dir install -r  /root/requirements.txt && \
     pip3.9 --no-cache-dir install -r  /home/requirements.txt && \
     pip3.10 --no-cache-dir install -r /root/requirements.txt && \
     pip3.10 --no-cache-dir install -r /home/requirements.txt && \
