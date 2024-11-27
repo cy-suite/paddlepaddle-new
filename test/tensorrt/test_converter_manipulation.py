@@ -381,6 +381,64 @@ class TestStackCase2TRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestUnbindCase0TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.unbind
+        self.api_args = {
+            "x": np.random.random([2, 4, 10]).astype("float32"),
+            "axis": 0,
+        }
+        self.program_config = {"feed_list": ["x", "axis"]}
+        self.min_shape = {"x": [1, 4, 10]}
+        self.max_shape = {"x": [3, 4, 10]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestUnbindCase1TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.stack
+        self.api_args = {
+            "x": np.random.random([2, 4, 10]).astype("int32"),
+            "axis": -1,
+        }
+        self.program_config = {"feed_list": ["x", "axis"]}
+        self.min_shape = {"x": [1, 4, 10]}
+        self.max_shape = {"x": [3, 4, 10]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestUnbindCase0Marker(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.unbind
+        self.api_args = {
+            "x": np.random.random([3, 4, 10]).astype("float32"),
+            "axis": 4,
+        }
+        self.program_config = {"feed_list": ["x", "axis"]}
+        self.target_marker_op = "pd_op.unbind"
+
+    def test_trt_result(self):
+        self.check_marker(expected_result=False)
+
+
+class TestUnbindCase1Marker(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.unbind
+        self.api_args = {
+            "x": np.random.random([3, 4, 10]).astype("float32"),
+            "axis": 2,
+        }
+        self.program_config = {"feed_list": ["x", "axis"]}
+        self.target_marker_op = "pd_op.unbind"
+
+    def test_trt_result(self):
+        self.check_marker(expected_result=True)
+
+
 class TestTileTRTPatternCase0(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.tile

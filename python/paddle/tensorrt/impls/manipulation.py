@@ -874,3 +874,65 @@ def roll_converter(network, paddle_op, inputs):
             )
 
     return layer.get_output(0)
+
+
+@converter_registry.register("pd_op.unbind", trt_version="8.x")
+def unbind_converter(network, paddle_op, inputs):
+    # Step 1: Get input tensor and operation attributes
+    input_tensor = inputs[0]
+    input_rank = len(input_tensor.shape)
+    axis = paddle_op.attrs().get("axis", 0)
+    if axis < 0:
+        axis += input_rank
+
+    # Step 2: Get the shape tensor of the input tensor
+    # Add a shape layer to get the dynamic shape of the input tensor
+    shape_tensor = trt_shape(network, input_tensor)
+    shape_tensor_vec = []
+    for i in range(input_rank):
+        # Get each element of the shape tensor
+        # Parameters: network (the current TensorRT network), shape_tensor (the tensor representing the shape), i (the index of the element to extract)
+        shape_tensor_vec.append(
+            get_shape_tensor_element(network, shape_tensor, i)
+        )
+
+    # Step 3: Create new dimensions tensor excluding the axis dimension
+    # Exclude the axis dimension to prepare for reshaping sliced tensors
+    new_dims_vec = [
+        get_shape_tensor_element(network, shape_tensor, i)
+        for i in range(input_rank)
+        if i != axis
+    ]
+    new_dims_tensor = network.add_concatenation(new_dims_vec).get_output(0)
+
+    # Step 4: Slice the input tensor along the specified axis
+    output_tensors = []
+    for i in range(input_tensor.shape[axis]):
+        # Set up start, size, and stride tensors for slicing
+        # Parameters: network (the current TensorRT network), value (the constant value to create)
+        start_tensors = [
+            add_1D_constant_layer(network, 0) for _ in range(input_rank)
+        ]
+        size_tensors = shape_tensor_vec[:]
+        stride = [1] * input_rank
+
+        # Modify the start and size tensors for the axis dimension
+        start_tensors[axis] = add_1D_constant_layer(network, i)
+        size_tensors[axis] = add_1D_constant_layer(network, 1)
+
+        # Step 5: Slice the input tensor
+        slice_layer = network.add_slice(
+            input_tensor, start=start_tensors, size=size_tensors, stride=stride
+        )
+        sliced_tensor = slice_layer.get_output(0)
+
+        # Step 6: Reshape the sliced tensor to remove the axis dimension
+        shuffle_layer = network.add_shuffle(sliced_tensor)
+        shuffle_layer.set_input(1, new_dims_tensor)
+        reshaped_tensor = shuffle_layer.get_output(0)
+
+        # Step 7: Append the reshaped tensor to the output list
+        output_tensors.append(reshaped_tensor)
+
+    # Step 8: Return the list of output tensors
+    return output_tensors
