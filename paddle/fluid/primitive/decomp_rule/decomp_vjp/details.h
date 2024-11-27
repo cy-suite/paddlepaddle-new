@@ -3340,7 +3340,7 @@ void amax_grad(const Tensor& x,
   if (x_grad) {
     Tensor x_grad_tmp;
     if (has_dynamic_shape(x.shape())) {
-      const Tensor x_shape = shape<T>(x);
+      const Tensor x_shape = shape64<T>(x);
       const Tensor zero_tensor =
           backend::full_with_tensor<T>(x_shape, 0.0, x.dtype());
       const int64_t axis_size = axis.size();
@@ -3359,7 +3359,7 @@ void amax_grad(const Tensor& x,
         auto grad_tmp = out_grad_tmp / mask_sum;
         x_grad_tmp = where<T>(mask, grad_tmp, zero_tensor);
       } else {
-        const Tensor out_grad_shape = shape<T>(out_grad);
+        const Tensor out_grad_shape = shape64<T>(out_grad);
         auto axis_ = std::vector<int64_t>();
 
         if (reduce_all) {
