@@ -2343,7 +2343,37 @@ All parameter, weight, gradient are variables in Paddle.
       .def("elapsed",
            &platform::GPUEventTimer::Elapsed,
            py::arg("reset") = true,
+           py::call_guard<py::gil_scoped_release>())
+      .def(
+          "elapsed_list",
+          [](platform::GPUEventTimer &timer, bool reset) {
+            std::vector<double> values;
+            {
+              py::gil_scoped_release release;
+              values = timer.ElapsedList(reset);
+            }
+            size_t n = values.size();
+            py::array_t<double, py::array::c_style | py::array::forcecast>
+                array(n);
+            auto buffer = array.request();
+            std::memcpy(buffer.ptr, values.data(), sizeof(values[0]) * n);
+            return array;
+          },
+          py::arg("reset") = true)
+      .def("pre_alloc",
+           &platform::GPUEventTimer::PreAlloc,
+           py::arg("n"),
+           py::call_guard<py::gil_scoped_release>())
+      .def("shrink_to_fit",
+           &platform::GPUEventTimer::ShrinkToFit,
+           py::call_guard<py::gil_scoped_release>())
+      .def("size",
+           &platform::GPUEventTimer::Size,
+           py::call_guard<py::gil_scoped_release>())
+      .def("capacity",
+           &platform::GPUEventTimer::Capacity,
            py::call_guard<py::gil_scoped_release>());
+
 #endif
 
   m.def("init_gflags", framework::InitGflags);

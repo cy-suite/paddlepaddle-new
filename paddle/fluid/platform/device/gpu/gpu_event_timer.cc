@@ -99,22 +99,49 @@ void GPUEventTimer::Start() { Start(default_stream_); }
 void GPUEventTimer::Stop() { Stop(default_stream_); }
 
 void GPUEventTimer::Reset() {
-  for (auto &pair : events_) {
-    pair->Reset();
+  for (size_t i = 0; i < length_; ++i) {
+    events_[i]->Reset();
   }
   length_ = 0;
 }
 
 double GPUEventTimer::Elapsed(bool reset) {
   double ret = 0;
-  for (auto &pair : events_) {
-    ret += pair->Elapsed();
+  for (size_t i = 0; i < length_; ++i) {
+    ret += events_[i]->Elapsed();
   }
   if (reset) {
     Reset();
   }
   return ret;
 }
+
+std::vector<double> GPUEventTimer::ElapsedList(bool reset) {
+  std::vector<double> values(length_);
+  for (size_t i = 0; i < length_; ++i) {
+    values[i] = events_[i]->Elapsed();
+  }
+  if (reset) {
+    Reset();
+  }
+  return values;
+}
+
+void GPUEventTimer::PreAlloc(size_t n) {
+  if (events_.size() >= n) return;
+  events_.resize(n);
+  for (auto &pair : events_) {
+    if (pair == nullptr) {
+      pair.reset(new EventPair());
+    }
+  }
+}
+
+void GPUEventTimer::ShrinkToFit() { events_.resize(length_); }
+
+size_t GPUEventTimer::Size() const { return length_; }
+
+size_t GPUEventTimer::Capacity() const { return events_.size(); }
 
 }  // namespace platform
 }  // namespace paddle

@@ -25,6 +25,8 @@ namespace paddle {
 namespace platform {
 
 class EventPair {
+  DISABLE_COPY_AND_ASSIGN(EventPair);
+
  public:
   EventPair();
 
@@ -45,6 +47,8 @@ class EventPair {
 };
 
 class GPUEventTimer {
+  DISABLE_COPY_AND_ASSIGN(GPUEventTimer);
+
  public:
   explicit GPUEventTimer(phi::GPUPlace place);
 
@@ -59,6 +63,16 @@ class GPUEventTimer {
   void Reset();
 
   double Elapsed(bool reset);
+
+  std::vector<double> ElapsedList(bool reset);
+
+  void PreAlloc(size_t n);
+
+  void ShrinkToFit();
+
+  size_t Size() const;
+
+  size_t Capacity() const;
 
  private:
   EventPair *GetLatest();
