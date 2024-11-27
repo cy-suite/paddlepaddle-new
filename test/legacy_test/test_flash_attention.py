@@ -1657,213 +1657,7 @@ class TestFlashAttentionAlignment(unittest.TestCase):
         self.rtol = 1e-3
         self.atol = 1e-3
 
-        self.flash_expected_output = np.array(
-            [
-                [
-                    [
-                        [
-                            -3.9990e-01,
-                            7.9980e-01,
-                            -9.9976e-02,
-                            3.0005e-01,
-                            6.0010e-01,
-                            -5.0000e-01,
-                            1.9995e-01,
-                            7.0020e-01,
-                        ]
-                    ],
-                    [
-                        [
-                            -6.1798e-03,
-                            3.1860e-01,
-                            2.5000e-01,
-                            2.5610e-01,
-                            7.5012e-02,
-                            -1.0626e-01,
-                            -2.3743e-01,
-                            4.3750e-01,
-                        ]
-                    ],
-                    [
-                        [
-                            1.0028e-01,
-                            1.9958e-01,
-                            4.2505e-01,
-                            5.3787e-04,
-                            -7.5317e-02,
-                            2.7441e-01,
-                            -3.7524e-01,
-                            3.4985e-01,
-                        ]
-                    ],
-                    [
-                        [
-                            2.9224e-01,
-                            1.6373e-02,
-                            2.7368e-01,
-                            1.8188e-01,
-                            -3.0298e-01,
-                            2.2412e-01,
-                            3.4210e-02,
-                            1.2610e-01,
-                        ]
-                    ],
-                    [
-                        [
-                            -1.6998e-02,
-                            2.5220e-01,
-                            3.7939e-01,
-                            -3.7048e-02,
-                            3.0151e-02,
-                            2.3108e-01,
-                            -1.6772e-01,
-                            3.5327e-01,
-                        ]
-                    ],
-                    [
-                        [
-                            1.1948e-02,
-                            1.2378e-01,
-                            3.2935e-01,
-                            1.2390e-01,
-                            2.6123e-02,
-                            2.3279e-01,
-                            -1.6919e-01,
-                            4.4019e-01,
-                        ]
-                    ],
-                    [
-                        [
-                            -1.6162e-01,
-                            1.9812e-01,
-                            3.2544e-01,
-                            1.8021e-02,
-                            2.0081e-01,
-                            2.5586e-01,
-                            -1.5466e-01,
-                            5.0635e-01,
-                        ]
-                    ],
-                    [
-                        [
-                            5.0873e-02,
-                            -7.4219e-02,
-                            3.9502e-01,
-                            1.5466e-01,
-                            -8.6182e-02,
-                            3.1958e-01,
-                            -2.1179e-01,
-                            3.1714e-01,
-                        ]
-                    ],
-                ]
-            ],
-            dtype=np.float16,
-        )
-        self.math_expected_output = np.array(
-            [
-                [
-                    [
-                        [
-                            -3.9990e-01,
-                            7.9980e-01,
-                            -9.9976e-02,
-                            3.0005e-01,
-                            6.0010e-01,
-                            -5.0000e-01,
-                            1.9995e-01,
-                            7.0020e-01,
-                        ]
-                    ],
-                    [
-                        [
-                            -6.1951e-03,
-                            3.1860e-01,
-                            2.5000e-01,
-                            2.5635e-01,
-                            7.5012e-02,
-                            -1.0632e-01,
-                            -2.3743e-01,
-                            4.3750e-01,
-                        ]
-                    ],
-                    [
-                        [
-                            1.0028e-01,
-                            1.9958e-01,
-                            4.2505e-01,
-                            5.3740e-04,
-                            -7.5317e-02,
-                            2.7441e-01,
-                            -3.7524e-01,
-                            3.4985e-01,
-                        ]
-                    ],
-                    [
-                        [
-                            2.9224e-01,
-                            1.6357e-02,
-                            2.7368e-01,
-                            1.8188e-01,
-                            -3.0298e-01,
-                            2.2412e-01,
-                            3.4302e-02,
-                            1.2610e-01,
-                        ]
-                    ],
-                    [
-                        [
-                            -1.7014e-02,
-                            2.5195e-01,
-                            3.7939e-01,
-                            -3.7018e-02,
-                            3.0151e-02,
-                            2.3108e-01,
-                            -1.6772e-01,
-                            3.5327e-01,
-                        ]
-                    ],
-                    [
-                        [
-                            1.2039e-02,
-                            1.2378e-01,
-                            3.2935e-01,
-                            1.2396e-01,
-                            2.6047e-02,
-                            2.3279e-01,
-                            -1.6919e-01,
-                            4.4019e-01,
-                        ]
-                    ],
-                    [
-                        [
-                            -1.6174e-01,
-                            1.9812e-01,
-                            3.2544e-01,
-                            1.7990e-02,
-                            2.0093e-01,
-                            2.5586e-01,
-                            -1.5466e-01,
-                            5.0635e-01,
-                        ]
-                    ],
-                    [
-                        [
-                            5.0873e-02,
-                            -7.4219e-02,
-                            3.9502e-01,
-                            1.5466e-01,
-                            -8.6243e-02,
-                            3.1982e-01,
-                            -2.1179e-01,
-                            3.1714e-01,
-                        ]
-                    ],
-                ]
-            ],
-            dtype=np.float16,
-        )
-        self.mem_efficient_expected_output = np.array(
+        self.expected_output = np.array(
             [
                 [
                     [
@@ -1988,7 +1782,7 @@ class TestFlashAttentionAlignment(unittest.TestCase):
 
         np.testing.assert_allclose(
             output.numpy(),
-            self.flash_expected_output,
+            self.expected_output,
             rtol=self.rtol,
             atol=self.atol,
             err_msg='Flash attention output does not match expected values',
@@ -2015,7 +1809,7 @@ class TestFlashAttentionAlignment(unittest.TestCase):
 
         np.testing.assert_allclose(
             output.numpy(),
-            self.math_expected_output,
+            self.expected_output,
             rtol=self.rtol,
             atol=self.atol,
             err_msg='Math attention output does not match expected values',
@@ -2042,7 +1836,7 @@ class TestFlashAttentionAlignment(unittest.TestCase):
 
         np.testing.assert_allclose(
             output.numpy(),
-            self.mem_efficient_expected_output,
+            self.expected_output,
             rtol=self.rtol,
             atol=self.atol,
             err_msg='Memory efficient attention output does not match expected values',
