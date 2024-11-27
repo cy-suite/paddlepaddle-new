@@ -1149,8 +1149,7 @@ class LessThanOpPattern
 class LessEqualOpPattern
     : public pir::OpRewritePattern<paddle::dialect::LessEqualOp> {
  public:
-  using pir::OpRewritePattern<
-      paddle::dialect::LessEqualOp>::OpRewritePattern;
+  using pir::OpRewritePattern<paddle::dialect::LessEqualOp>::OpRewritePattern;
   bool MatchAndRewrite(paddle::dialect::LessEqualOp op,
                        pir::PatternRewriter &rewriter) const override {
     if (op->HasAttribute(kCanRunTrtAttr) &&
@@ -1178,8 +1177,7 @@ class LessEqualOpPattern
 class LessEqual_OpPattern
     : public pir::OpRewritePattern<paddle::dialect::LessEqual_Op> {
  public:
-  using pir::OpRewritePattern<
-      paddle::dialect::LessEqual_Op>::OpRewritePattern;
+  using pir::OpRewritePattern<paddle::dialect::LessEqual_Op>::OpRewritePattern;
   bool MatchAndRewrite(paddle::dialect::LessEqual_Op op,
                        pir::PatternRewriter &rewriter) const override {
     if (op->HasAttribute(kCanRunTrtAttr) &&
