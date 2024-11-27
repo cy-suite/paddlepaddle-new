@@ -105,6 +105,7 @@ def hardswish_converter(network, paddle_op, inputs):
 
 
 @converter_registry.register("pd_op.elu", trt_version="8.x")
+@converter_registry.register("pd_op.elu_", trt_version="8.x")
 def elu_converter(network, paddle_op, inputs):
     x = inputs[0]
     alpha = paddle_op.attrs()["alpha"]
