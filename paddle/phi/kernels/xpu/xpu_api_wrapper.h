@@ -87,6 +87,7 @@ struct XpuFcInfo {
   const float* scale_y;
   int scale_x_mode;
   int scale_y_mode;
+  int* flag;
 
   XpuFcInfo()
       : bs(0),
@@ -108,7 +109,8 @@ struct XpuFcInfo {
         scale_x(nullptr),
         scale_y(nullptr),
         scale_x_mode(0),
-        scale_y_mode(0) {}
+        scale_y_mode(0),
+        flag(nullptr) {}
   void InitFcInfo(int bs,
                   int m,
                   int n,
@@ -118,7 +120,8 @@ struct XpuFcInfo {
                   float* max_x,
                   float* max_y,
                   float* max_input,
-                  float* max_out) {
+                  float* max_out,
+                  int* flag = nullptr) {
     this->bs = bs;
     this->m = m;
     this->n = n;
@@ -129,6 +132,7 @@ struct XpuFcInfo {
     this->max_y = max_y;
     this->max_input = max_input;
     this->max_out = max_out;
+    this->flag = flag;
 
     if (this->bs <= 1) {
       this->stride_x = trans_x ? m : k;
@@ -244,7 +248,8 @@ static void xblas_fc_wrapper(xpu::Context* ctx,
                              const TSCALE* scale_x,
                              const TSCALE* scale_w,
                              int scale_x_mode,
-                             int scale_w_mode) {
+                             int scale_w_mode,
+                             int* flag = nullptr) {
   int r = 0;
   xpu::ctx_guard RAII_GUARD(ctx);
 
@@ -294,6 +299,7 @@ static void xblas_fc_wrapper(xpu::Context* ctx,
   xblas::FcFusionDesc<TGEMM, TGEMM_O, TINTER_RES> desc{
       alpha,
       beta,
+      flag,
   };
   xblas::FcFusionEpilogue<TBIAS, TSCALE> epilogue{
       act,
@@ -422,9 +428,10 @@ static void xblas_fc_wrapper(xpu::Context* ctx,
             w_columns,
             w_trans,
         };
-        xblas::FcFusionDesc<XPUTypeFP16, TGEMM_O, TINTER_RES> desc{
+        xblas::FcFusionDesc<XPUTypeFP16, TGEMM_O, TINTER_RES> desc_fp16{
             alpha,
             beta,
+            flag,
         };
         xblas::FcFusionEpilogue<TBIAS, TSCALE> epilogue_fp16{
             act,
@@ -445,7 +452,7 @@ static void xblas_fc_wrapper(xpu::Context* ctx,
                              TINTER_RES,
                              TBIAS,
                              TSCALE>(
-            ctx, t_x_fp16, t_w_fp16, t_input, t_y, desc, epilogue_fp16);
+            ctx, t_x_fp16, t_w_fp16, t_input, t_y, desc_fp16, epilogue_fp16);
         PADDLE_ENFORCE_XDNN_SUCCESS(r, "xblas_fc_fusion");
       }
     }
@@ -520,7 +527,8 @@ static void xblas_fc_wrapper(xpu::Context* ctx,
                                const float* scale_x,                     \
                                const float* scale_w,                     \
                                int scale_x_mode,                         \
-                               int scale_w_mode) {                       \
+                               int scale_w_mode,                         \
+                               int* flag) {                              \
     int r = xpu::Error_t::INVALID_PARAM;                                 \
     PADDLE_ENFORCE_XDNN_SUCCESS(r, "xblas_fc_wrapper");                  \
   }
@@ -823,6 +831,7 @@ static void MatMulXPUFunction(
   const float* scale_y = fcinfo.scale_y;
   int scale_x_mode = fcinfo.scale_x_mode;
   int scale_y_mode = fcinfo.scale_y_mode;
+  int* flag = fcinfo.flag;
 
   xpu::ctx_guard RAII_GUARD(xpu_ctx);
   if (batch_size <= 1) {
@@ -850,7 +859,8 @@ static void MatMulXPUFunction(
                  scale_x,
                  scale_y,
                  scale_x_mode,
-                 scale_y_mode);
+                 scale_y_mode,
+                 flag);
   } else {
     const XPU_TA* x_data = reinterpret_cast<const XPU_TA*>(x);
     if (is_x_need_broadcast) {
