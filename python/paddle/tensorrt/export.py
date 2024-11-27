@@ -173,7 +173,8 @@ class TensorRTConfig:
                 - "INT32": 32-bit integer precision.
                 - "BFP16": 16-bit Brain Floating Point precision. Only supported in TensorRT versions greater than 9.0.
                 - "INT64": 64-bit integer precision. Only supported in TensorRT versions greater than 10.0.
-
+            tensorrt_ops_run_float (set, optional):
+                A set of operation names that should be executed using FP32 precision regardless of the `tensorrt_precision_mode` setting.
         Returns:
             None
 
@@ -194,6 +195,8 @@ class TensorRTConfig:
 
             >>> trt_config = TensorRTConfig(inputs=[input])
             >>> trt_config.disable_ops = "pd_op.dropout"
+            >>> trt_config.tensorrt_precision_mode = "FP16"
+            >>> trt_config.tensorrt_ops_run_float = ['pd_op.conv2d']
         """
         self.inputs = inputs
         self.min_subgraph_size = min_subgraph_size

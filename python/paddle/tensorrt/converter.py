@@ -79,6 +79,8 @@ def remove_duplicate_value(value_list):
     return ret_list
 
 
+# In TensorRT FP16 inference, this function sets the precision of specific
+# operators to FP32, ensuring numerical accuracy for these operations.
 def support_fp32_mix_precision(op_type, layer):
     if op_type in force_fp32_ops:
         layer.reset_precision()
@@ -411,7 +413,7 @@ class PaddleToTensorRTConverter:
             and self.trt_config.tensorrt_precision_mode == "BF16"
         ):
             if version_list[0] >= 9:
-                if builder.plateform_has_fast_bfp16 and hasattr(
+                if builder.platform_has_fast_bfp16 and hasattr(
                     builder, 'plateform_has_fast_bf16'
                 ):
                     config.set_flag(trt.BuilderFlag.BF16)
@@ -447,7 +449,7 @@ class PaddleToTensorRTConverter:
             ):
                 config.set_flag(trt.BuilderFlag.PREFER_PRECISION_CONSTRAINTS)
 
-        trt_engine = builder.build_engine(network, config)
+        trt_engine = builder.build_serialized_network(network, config)
         trt_params = paddle.base.libpaddle.TRTEngineParams()
         trt_params.min_input_shape = min_shape_map
         trt_params.max_input_shape = max_shape_map
@@ -463,7 +465,7 @@ class PaddleToTensorRTConverter:
         CACHE_ROOT = get_cache_path()
         CACHE_FILE = f"{CACHE_ROOT}/engine_{engine_name}.trt"
         with open(CACHE_FILE, "wb") as f:
-            f.write(trt_engine.serialize())
+            f.write(trt_engine)
         PIR_DUMP_FILE = f"{CACHE_ROOT}/engine_{engine_name}.pir"
         with open(PIR_DUMP_FILE, "w") as f:
             f.write(group_str)
