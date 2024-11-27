@@ -338,7 +338,7 @@ PyObject* eager_api_cuda_pinned_tensors_move_to_excepted_place(
         if (tensor.is_dense_tensor() &&
             egr::EagerUtils::autograd_meta(&tensor)->StopGradient() &&
             phi::is_cuda_pinned_place(tensor.place())) {
-          auto cp_tensor = tensor.copy_to(place, false);
+          auto cp_tensor = tensor.copy_to(place, true);
           auto src_tensor =
               static_cast<phi::DenseTensor*>(cp_tensor.impl().get());
           auto dst_tensor = static_cast<phi::DenseTensor*>(tensor.impl().get());
