@@ -4169,6 +4169,11 @@ def scatter(
     **Scatter Layer**
     Output is obtained by updating the input on selected indices based on updates.
 
+    In the following figure, when overwrite is True, update the output of the same index using the overlay mode, in turn updating ``x[index[i]]`` to ``update[i]``; When overwrite is False, the output of the same index is updated using the summative mode, which first updates ``x[index[i]]`` to a Tensor of the same size as the row with values of 0. Add ``update[i]`` to ``x[index[i]]`` in turn to produce output.
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/scatter.png
+        :alt: Legend - scatter behavior display
+
     .. code-block:: python
         :name: scatter-example-1
 
