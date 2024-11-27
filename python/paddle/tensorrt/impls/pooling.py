@@ -102,13 +102,14 @@ def pool3d_converter(network, paddle_op, inputs):
     input_shape = input_tensor.shape
 
     if not paddle_op.attrs().get("kernel_size") and len(inputs) == 2:
-        kernel_size_tensor = inputs[1]
+        # the size of pool3d inputs is 2, means kernel size is the second input.
+        # kernel_size_tensor = inputs[1]
         full_int_op = paddle_op.operands()[1].source().get_defining_op()
         if full_int_op.name() == "pd_op.full_int_array":
             kernel_size = full_int_op.attrs().get("value")
         else:
             raise Exception(
-                "The defining op of kernel size must be pd_op.full_int_array."
+                "The defining op of kernel size must be pd_op.full_int_array"
             )
     else:
         kernel_size = paddle_op.attrs().get("kernel_size")
@@ -137,6 +138,8 @@ def pool3d_converter(network, paddle_op, inputs):
         pool_layer.stride_nd = stride
         if pooling_type == "max":
             pool_layer.padding_nd = padding
+        if padding_algorithm == "SAME":
+            pool_layer.padding_mode = trt.PaddingMode.SAME_UPPER
     else:
         pool_layer = network.add_pooling_nd(
             input_tensor, pooling_type, window_size=kernel_size
@@ -147,7 +150,9 @@ def pool3d_converter(network, paddle_op, inputs):
             pool_layer.average_count_excludes_padding = True
         else:
             pool_layer.average_count_excludes_padding = False
-        if ceil_mode:
+        if padding_algorithm == "SAME":
+            pool_layer.padding_mode = trt.PaddingMode.SAME_UPPER
+        elif ceil_mode:
             pool_layer.padding_mode = trt.PaddingMode.EXPLICIT_ROUND_UP
 
     return pool_layer.get_output(0)
