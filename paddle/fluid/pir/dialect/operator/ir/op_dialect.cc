@@ -56,9 +56,11 @@ struct CombineOpInferSymbolicShapeInterfaceModel
           PADDLE_ENFORCE_NOT_NULL(
               op->operand(i).type().dyn_cast<DenseTensorType>(),
               common::errors::InvalidArgument(
-                  "Currently InferSymbolicShape of CombineOp only support "
-                  "DenseTensorType or DenseTensorArrayType."));
-
+                  "The operand at index %d must be a DenseTensorArray. "
+                  "Currently InferSymbolicShape of CombineOp only accepts "
+                  "inputs that are either all DenseTensors or all "
+                  "DenseTensorArrays.",
+                  i));
           shape_data_list.emplace_back(
               infer_context->GetShapeOrDataForValue(op->operand_source(i))
                   .dyn_cast<symbol::TensorShapeOrDataDimExprs>());
@@ -71,13 +73,16 @@ struct CombineOpInferSymbolicShapeInterfaceModel
     } else if (op->operand(0).type().dyn_cast<DenseTensorArrayType>()) {
       // Note: Return NullShapeOrDataDimExpr for CombineOp with all
       // DenseTensorArrayType. The logic is designed for add_n_array op.
-      // Actually RankedTensorArrayListShapeOrDataDimExprs is better.
+      // TODO(ooooo): Actually RankedTensorArrayListShapeOrDataDimExprs is
+      // better.
       for (size_t i = 0; i < op->num_operands(); ++i) {
         PADDLE_ENFORCE_NOT_NULL(
             op->operand(i).type().dyn_cast<DenseTensorArrayType>(),
             common::errors::InvalidArgument(
-                "Currently InferSymbolicShape of CombineOp only support "
-                "DenseTensorType or DenseTensorArrayType."));
+                "The operand at index %d must be a DenseTensorArray. Currently "
+                "InferSymbolicShape of CombineOp only accepts inputs that are "
+                "either all DenseTensors or all DenseTensorArrays.",
+                i));
       }
 
       infer_context->SetShapeOrDataForValue(
@@ -86,8 +91,8 @@ struct CombineOpInferSymbolicShapeInterfaceModel
       return true;
     } else {
       PADDLE_THROW(common::errors::InvalidArgument(
-          "Currently InferSymbolicShape of CombineOp only support "
-          "DenseTensorType or DenseTensorArrayType."));
+          "Currently InferSymbolicShape of CombineOp only accepts "
+          "inputs that are either all DenseTensors or all DenseTensorArrays."));
     }
   }
 
@@ -717,41 +722,37 @@ struct CustomOpVjpInterfaceModel : public VjpInterface::Concept {
     std::vector<paddle::any> custom_attrs;
     auto GetInputLocation =
         [&](const std::string& grad_op_input_name) -> std::pair<int, int> {
-      auto fwd_inputs_name_iter = std::find(
-          fwd_inputs_name.begin(), fwd_inputs_name.end(), grad_op_input_name);
-      auto fwd_outputs_name_iter = std::find(
-          fwd_outputs_name.begin(), fwd_outputs_name.end(), grad_op_input_name);
-      bool is_grad_var = paddle::framework::detail::IsGradVar(
+      /*
+        This function is used to get the index of input that need calculate
+        gradient in forward op. For example: forward inputs : TensorA, TensorB,
+        TensorC, TensorD backward outputs: TensorC@Grad, TensorA@Grad So, we
+        only need to calculate gradient of TensorA and TensorC and store them in
+        res; In this example, the res size is 2, and the first element of res
+        should store TensorA@Grad, and the second element of res should store
+        TensorC@Grad.
+
+        So, This function will return 1 if we pass TensorC@Grad and return 0 if
+        we pass TensorA@Grad.
+      */
+      size_t gradient_vec_index = 0;
+      const auto& fwd_input = paddle::framework::detail::NoGrad(
           grad_op_input_name, is_double_grad_op);
-      if (fwd_inputs_name_iter != fwd_inputs_name.end()) {
-        int index =
-            std::distance(fwd_inputs_name.begin(), fwd_inputs_name_iter);
-        return std::make_pair(0, index);
-      } else if (fwd_outputs_name_iter != fwd_outputs_name.end()) {
-        int index =
-            std::distance(fwd_outputs_name.begin(), fwd_outputs_name_iter);
-        return std::make_pair(1, index);
-      } else if (is_grad_var) {
-        auto fwd_output_name = paddle::framework::detail::NoGrad(
-            grad_op_input_name, is_double_grad_op);
-        fwd_outputs_name_iter = std::find(
-            fwd_outputs_name.begin(), fwd_outputs_name.end(), fwd_output_name);
-        if (fwd_outputs_name_iter != fwd_outputs_name.end()) {
-          int index =
-              std::distance(fwd_outputs_name.begin(), fwd_outputs_name_iter);
-          return std::make_pair(2, index);
-        } else {
-          PADDLE_THROW(common::errors::NotFound(
-              "Can't find the grad op input:%s, please check your register "
-              "grad op whether has correct input name",
-              grad_op_input_name));
+      auto fwd_inputs_name_iter =
+          std::find(fwd_inputs_name.begin(), fwd_inputs_name.end(), fwd_input);
+      size_t input_index =
+          std::distance(fwd_inputs_name.begin(), fwd_inputs_name_iter);
+      for (size_t i = 0; i < input_index; ++i) {
+        for (const auto& bwd_output_name : bwd_outputs_name) {
+          const auto& fwd_input_name_tmp = paddle::framework::detail::NoGrad(
+              bwd_output_name, is_double_grad_op);
+          if (fwd_input_name_tmp == fwd_inputs_name[i]) {
+            // find forward input that need calculate gradient
+            gradient_vec_index++;
+            break;
+          }
         }
-      } else {
-        PADDLE_THROW(common::errors::NotFound(
-            "Can't find the grad op input:%s, please check your register grad "
-            "op whether has correct input name",
-            grad_op_input_name));
       }
+      return std::make_pair(0, input_index);
     };
     // Construct custom grad op inputs
     int input_index = 0;
@@ -1106,6 +1107,7 @@ void CustomOpDialect::RegisterCustomOp(const paddle::OpMetaInfo& op_meta) {
   std::vector<pir::TypeId> traits;
 
   auto& inplace_map = OpMetaInfoHelper::GetInplaceMap(op_meta);
+
   if (!inplace_map.empty()) {
     op_name += "_";
     traits.push_back(pir::TypeId::get<paddle::dialect::InplaceTrait>());
