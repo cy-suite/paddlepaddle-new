@@ -1051,7 +1051,7 @@ class PartialProgramLayer:
         )
 
         if cinn_is_enabled(self._build_strategy, self._backend):
-            paddle.base.libpaddle.pir.reduce_as_sum_pass(self.program)
+            paddle.base.libpaddle.pir.reduce_as_sum_pass(program)
 
         program = forward_index_pass(program)
         (
