@@ -35,11 +35,6 @@ void SvdvalsGradKernel(const Context& dev_ctx,
                        const DenseTensor& x,
                        const DenseTensor& s_grad,
                        DenseTensor* x_grad) {
-  if (s_grad.numel() == 0) {
-    funcs::SetConstant<Context, T>()(dev_ctx, x_grad, T(0.0));
-    x_grad->Resize(x.dims());
-    return;
-  }
   auto x_dims = x.dims();
   int rows = static_cast<int>(x_dims[x_dims.size() - 2]);
   int cols = static_cast<int>(x_dims[x_dims.size() - 1]);
@@ -53,7 +48,7 @@ void SvdvalsGradKernel(const Context& dev_ctx,
     phi::DiagEmbedKernel<T, Context>(dev_ctx, s_grad, 0, -1, -2, &dX_term);
   }
 
-  VLOG(1) << "dX_term shape: " << dX_term.dims()
+  VLOG(4) << "dX_term shape: " << dX_term.dims()
           << "s_grad shape: " << s_grad.dims();
 
   DenseTensor U, VH, S_recomputed;
