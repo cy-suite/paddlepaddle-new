@@ -74,13 +74,6 @@ class TestConverterResNet50(unittest.TestCase):
         output_expected = standardize(output_expected[0])
         output_trt = standardize(output_converted[0])
 
-        max_abs_diff = np.max(np.abs(output_expected - output_trt))
-        epsilon = 1e-8  # Small constant to avoid division by zero
-        max_rel_diff = np.max(
-            np.abs(output_expected - output_trt)
-            / (np.abs(output_expected) + epsilon)
-        )
-
         # Check that the results are close to each other within a tolerance of 1e-3
         np.testing.assert_allclose(
             output_expected,

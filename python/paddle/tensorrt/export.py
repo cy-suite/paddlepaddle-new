@@ -253,15 +253,6 @@ def convert_to_trt(program, trt_config, scope):
         # run pir pass (including trt_sub_graph_extract_pass)
         program_with_pir = run_pir_pass(program, partition_mode=True)
 
-        print(
-            "trt_config.tensorrt_precision_mode",
-            trt_config.tensorrt_precision_mode,
-        )
-        print(
-            "trt_config.tensorrt_ops_run_float",
-            trt_config.tensorrt_ops_run_float,
-        )
-
         # Step4: run TRTConverter (would lower group_op into tensorrt_engine_op)
         converter = PaddleToTensorRTConverter(
             program_with_pir, scope, trt_config=trt_config
