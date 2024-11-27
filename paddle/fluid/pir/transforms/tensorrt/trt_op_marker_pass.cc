@@ -1175,6 +1175,35 @@ class LessEqualOpPattern
   }
 };
 
+class LessEqual_OpPattern
+    : public pir::OpRewritePattern<paddle::dialect::LessEqual_Op> {
+ public:
+  using pir::OpRewritePattern<
+      paddle::dialect::LessEqual_Op>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::LessEqual_Op op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+#if IS_TRT_VERSION_LT(8400)
+    VLOG(3) << "LessEqual_Op is not supported when TensorRT < 8.4";
+    return false;
+#else
+    pir::Value x = op.operand_source(0);
+    pir::Value y = op.operand_source(1);
+    auto x_dtype = pir::GetDataTypeFromValue(x);
+    auto y_dtype = pir::GetDataTypeFromValue(y);
+    if (x_dtype.isa<pir::BoolType>() || y_dtype.isa<pir::BoolType>()) {
+      VLOG(3) << "Less_equal_ op do not support bool datatype";
+      return false;
+    }
+#endif
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class MulticlassNms3OpPattern
     : public pir::OpRewritePattern<paddle::dialect::MulticlassNms3Op> {
  public:

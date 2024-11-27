@@ -48,6 +48,7 @@ def not_equal_converter(network, paddle_op, inputs):
 
 
 @converter_registry.register("pd_op.less_equal", trt_version="8.x")
+@converter_registry.register("pd_op.less_equal_", trt_version="8.x")
 def less_equal_converter(network, paddle_op, inputs):
     less_layer_output = add_elementwise_layer(
         network, paddle_op, inputs, trt.ElementWiseOperation.LESS

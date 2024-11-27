@@ -95,6 +95,21 @@ class TestLessEqualRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestLessEqual_RTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.less_equal_
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("float32"),
+            "y": np.random.randn(2, 3).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3], "y": [1, 3]}
+        self.max_shape = {"x": [5, 3], "y": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
 class TestEqualFloatTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.equal
