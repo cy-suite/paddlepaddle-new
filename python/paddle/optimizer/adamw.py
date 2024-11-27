@@ -305,7 +305,11 @@ class AdamW(Optimizer):
         self._already_create_accumulator = set()
 
         self._create_master_grad_states()
+
+        self._use_fusion_storage = False
+        self._need_refuse = True
         self.fusion_storage = None
+        self._fuse_buffer_version = 0
 
     def _set_auxiliary_var(self, key, val):
         self._auxiliary_vars[key] = val

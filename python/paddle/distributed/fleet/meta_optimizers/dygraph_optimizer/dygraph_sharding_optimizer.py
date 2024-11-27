@@ -669,6 +669,8 @@ class DygraphShardingOptimizerV2:
         self._build_comm_buffers(
             acc_steps, comm_buffer_size_MB * 1024 * 1024, free_grads_in_comm
         )
+        if self.enable_fuse_optimizer_states:
+            self._inner_opt.use_fusion_storage()
         # NOTE(shenliang03): Sort the comm_buffers by dst rank,
         # it will improve the performance in reduce communicate. Default
         # g_shard_sort_reduce_root is True.
@@ -712,8 +714,6 @@ class DygraphShardingOptimizerV2:
 
         self._all_gather_overlap_forward = False
         self._forward_pre_hook_remove_helper = []
-
-        self.load_from_state_dict = False
 
     def _set_all_gather_overlap_forward(
         self, all_gather_overlap_forward, layers
@@ -1037,13 +1037,6 @@ class DygraphShardingOptimizerV2:
                     inner_state[k] = v
 
         self._inner_opt.set_state_dict(inner_state)
-        self.load_from_state_dict = True
-
-    def fuse_optimizer_states(self):
-        assert (
-            self.load_from_state_dict
-        ), "Currently only support fuse_optimizer_states after loading from state_dict"
-        self._inner_opt.fuse_optimizer_states_impl()
 
     def _set_inner_opt_attr(self, attr_name, value):
         inner_opt = self._inner_opt

@@ -47,6 +47,16 @@ class TestHybridParallel(TestMultipleAccelerators):
         os.environ["FLAGS_shard_split_param"] = "0"
         self.run_mnist_2accelerators('hybrid_parallel_sharding_state_dict.py')
 
+    def test_hybrid_parallel_sharding_state_dict_with_fuse_optimizer_states(
+        self,
+    ):
+        # test shard v2
+        os.environ["FLAGS_shard_split_param"] = "1"
+        os.environ["FLAGS_shard_param_with_fuse_optimizer_states"] = "1"
+        self.run_mnist_2accelerators('hybrid_parallel_sharding_state_dict.py')
+        # reset
+        os.environ["FLAGS_shard_param_with_fuse_optimizer_states"] = "0"
+
     def test_group_param_tensor_fusion(self):
         self.run_mnist_2accelerators(
             'hybrid_parallel_tensor_fusion_with_group.py'
@@ -60,11 +70,11 @@ class TestHybridParallel(TestMultipleAccelerators):
         # reset
         os.environ["FLAGS_shard_param_with_color"] = "0"
 
-    def test_group_shard_with_fuse_optimizer_states(self):
+    def test_hybrid_parallel_sharding_with_fuse_optimizer_states(self):
         # test shard v2
         os.environ["FLAGS_shard_split_param"] = "1"
         os.environ["FLAGS_shard_param_with_fuse_optimizer_states"] = "1"
-        self.run_mnist_2accelerators('hybrid_parallel_sharding_state_dict.py')
+        self.run_mnist_2accelerators('hybrid_parallel_sharding_model.py')
         # reset
         os.environ["FLAGS_shard_param_with_fuse_optimizer_states"] = "0"
 
