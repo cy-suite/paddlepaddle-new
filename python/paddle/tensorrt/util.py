@@ -132,3 +132,21 @@ def mark_buitlin_op(program):
                     and defining_op.attrs()["__l_trt__"]
                 ):
                     enforce_op_lower_trt(program, op.name())
+
+
+def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
+    # the following op needn't cast trt.Weight to ITensor, because the layer need weight as input
+    forbid_cast_op = [
+        "pd_op.depthwise_conv2d",
+        "pd_op.conv2d",
+        "pd_op.conv2d_transpose",
+        "pd_op.batch_norm",
+        "pd_op.batch_norm_",
+        "pd_op.layer_norm",
+    ]
+    if use_op_name in forbid_cast_op:
+        return trt_tensor
+    input_shape = paddle_value.shape
+    if type(trt_tensor) == trt.Weights:
+        return network.add_constant(input_shape, trt_tensor).get_output(0)
+    return trt_tensor

@@ -47,7 +47,7 @@ from .impls.search import *  # noqa: F403
 from .impls.stat import *  # noqa: F403
 from .impls.vision import *  # noqa: F403
 from .register import converter_registry
-from .util import get_trt_version_list, map_dtype
+from .util import get_trt_version_list, map_dtype, weight_to_tensor
 
 version_list = get_trt_version_list()
 
@@ -220,9 +220,13 @@ class PaddleToTensorRTConverter:
                         combined_source = combined_operand.source()
                         combined_source_id = combined_source.id
                         if combined_source_id in value_to_trt_tensor:
-                            operand_list.append(
-                                value_to_trt_tensor[combined_source_id]
+                            trt_input_tensor = weight_to_tensor(
+                                network,
+                                combined_source,
+                                value_to_trt_tensor[combined_source_id],
+                                op.name(),
                             )
+                            operand_list.append(trt_input_tensor)
                         else:
                             raise RuntimeError(
                                 f'{combined_source_id} not found in value_to_trt_tensor'
@@ -231,7 +235,13 @@ class PaddleToTensorRTConverter:
                 else:
                     source_id = source.id
                     if source_id in value_to_trt_tensor:
-                        operands.append(value_to_trt_tensor[source_id])
+                        trt_input_tensor = weight_to_tensor(
+                            network,
+                            source,
+                            value_to_trt_tensor[source_id],
+                            op.name(),
+                        )
+                        operands.append(trt_input_tensor)
                     else:
                         raise RuntimeError(
                             f'{source_id} not found in value_to_trt_tensor'
