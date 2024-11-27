@@ -1379,25 +1379,12 @@ class OpcodeExecutorBase:
                 codeobj.value.co_qualname, self._graph, DummyTracker([codeobj])
             )
 
-            global_dict = self._globals.get_value()
+        global_dict = self._globals.get_value()
 
-            related_list = [fn_name, codeobj]
+        related_list = [fn_name, codeobj]
 
-        if sys.version_info < (3, 13):
-            flag = instr.arg
-            closure, related_list, kw_defaults, default_args = (
-                self.attach_new_attribute(flag, related_list)
-            )
-            self.push_new_fn_on_stack(
-                codeobj.get_py_value(),
-                global_dict,
-                fn_name.get_py_value(),
-                default_args,
-                closure,
-                related_list,
-                kw_defaults,
-            )
-        else:  # the function has no default values in 3.13
+        # the function has no default values in 3.13
+        if sys.version_info >= (3, 13):
             if len(codeobj.get_py_value().co_freevars) > 0:
                 self.stack.push(
                     UserCodeVariable(
@@ -1407,13 +1394,28 @@ class OpcodeExecutorBase:
             else:
                 self.push_new_fn_on_stack(
                     codeobj.get_py_value(),
-                    self._globals.get_value(),
+                    global_dict,
                     fn_name.get_py_value(),
                     (),
                     (),
                     related_list,
                     (),
                 )
+            return
+
+        flag = instr.arg
+        closure, related_list, kw_defaults, default_args = (
+            self.attach_new_attribute(flag, related_list)
+        )
+        self.push_new_fn_on_stack(
+            codeobj.get_py_value(),
+            global_dict,
+            fn_name.get_py_value(),
+            default_args,
+            closure,
+            related_list,
+            kw_defaults,
+        )
 
     def SET_FUNCTION_ATTRIBUTE(self, instr: Instruction):
         origin_func = self.stack.pop()
