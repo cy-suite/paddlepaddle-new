@@ -349,11 +349,29 @@ bool CauseNewSymbolicShape(const ::pir::Operation& op) {
   if (FLAGS_disable_dyshape_in_train) {
     return false;
   }
+
+  auto& shape_analysis = ::pir::ShapeAnalysisManager::Instance().Get(
+      const_cast<::pir::Operation&>(op).GetParentProgram());
+
+  const auto& isProcessableSlice = [&]() -> bool {
+    const ::pir::Value& starts_value = op.operand_source(1);
+    const ::pir::Value& ends_value = op.operand_source(2);
+    const symbol::ShapeOrDataDimExprs& starts_shape_data =
+        shape_analysis.GetShapeOrDataForValue(starts_value);
+    const symbol::ShapeOrDataDimExprs& ends_shape_data =
+        shape_analysis.GetShapeOrDataForValue(ends_value);
+    return starts_shape_data.data().has_value() &&
+           ends_shape_data.data().has_value();
+  };
+
+  if (op.isa<paddle::dialect::SliceOp>() && !isProcessableSlice()) {
+    return true;
+  }
+
   if (!HaveUnkDim(op)) {
     return false;
   }
-  auto& shape_analysis = ::pir::ShapeAnalysisManager::Instance().Get(
-      const_cast<::pir::Operation&>(op).GetParentProgram());
+
   std::unordered_set<std::string> input_exprs = [&]() {
     std::unordered_set<std::string> res;
     for (const auto& input_value : op.operands_source()) {
@@ -424,14 +442,52 @@ bool IsSupportInCinn(const ::pir::Operation& op) {
 }
 }  // namespace
 
+bool IsComplex(const ::pir::Operation& op) {
+  const auto& IsComplexType = [&](const ::pir::Value& value) -> bool {
+    if (!value) {
+      return false;
+    }
+    auto type = value.type();
+    if (!type) {
+      return false;
+    }
+    if (type.isa<paddle::dialect::DenseTensorType>()) {
+      auto dtype = type.dyn_cast<paddle::dialect::DenseTensorType>().dtype();
+      if (dtype && (dtype.isa<::pir::Complex64Type>() ||
+                    dtype.isa<::pir::Complex128Type>())) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  for (size_t i = 0; i < op.num_operands(); ++i) {
+    if (IsComplexType(op.operand_source(i))) {
+      return true;
+    }
+  }
+
+  for (size_t i = 0; i < op.num_results(); ++i) {
+    if (IsComplexType(op.result(i))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 bool CompatibleInfo::IsDeniedForCinn(const ::pir::Operation& op) {
-  bool flag = IsDeniedInCinn(op) || CauseNewSymbolicShape(op);
+  bool flag = IsDeniedInCinn(op) || CauseNewSymbolicShape(op) || IsComplex(op);
   VLOG(4) << "CompatibleInfo::IsDeniedForCinn of " << op.name()
           << " is: " << flag;
   return flag;
 }
 
 bool CompatibleInfo::IsSupportForCinn(const ::pir::Operation& op) {
+  // check input or output
+  if (IsComplex(op)) {
+    return false;
+  }
   const bool not_builtin_op = op.dialect()->name() != "builtin";
   const bool flag = IsSupportInCinn(op) && not_builtin_op;
 

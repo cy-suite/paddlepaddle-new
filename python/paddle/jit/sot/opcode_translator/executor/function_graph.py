@@ -363,7 +363,7 @@ class FunctionGraph:
 
         self.pycode_gen.gen_enable_eval_frame()
 
-        name_gen = NameGenerator("___compile_fn_saved_orig_")
+        name_gen = NameGenerator("___graph_fn_saved_orig_")
 
         # here is not update changed values, it just give names to stack vars
         # and want keep same interface as _build_compile_fn_with_name_store
@@ -394,7 +394,7 @@ class FunctionGraph:
             filter(lambda x: not isinstance(x, NullVariable), to_store_vars)
         )
         self.compile_function(compile_graph_result, to_store_vars)
-        name_gen = NameGenerator("___compile_fn_saved_")
+        name_gen = NameGenerator("___graph_fn_saved_")
 
         for var in to_store_vars[::-1]:
             if not store_var_info[var.id]:
@@ -503,7 +503,7 @@ class FunctionGraph:
         log(3, f"call paddle.api : {func.__name__}", "\n")
 
         def message_handler(*args, **kwargs):
-            return f"Call paddle_api error: {func.__name__}, may be not a operator api ?"
+            return f"Call paddle_api error: {func.__name__}, may be not a operator api?"
 
         return inner_error_default_handler(self.symbolic_call, message_handler)(
             InferMetaCache(),
@@ -525,7 +525,7 @@ class FunctionGraph:
         """
 
         def message_handler(*args, **kwargs):
-            return f"Call tensor_method error: Tensor.{method_name}, may be not a valid operator api ?"
+            return f"Call tensor_method error: Tensor.{method_name}, may be not a valid operator api?"
 
         return inner_error_default_handler(self.symbolic_call, message_handler)(
             InferMetaCache(),
@@ -547,7 +547,7 @@ class FunctionGraph:
         """
 
         def message_handler(*args, **kwargs):
-            return f"Call symbolic_method error: Symbolic.{method_name}, may be not a valid operator api ?"
+            return f"Call symbolic_method error: Symbolic.{method_name}, may be not a valid operator api?"
 
         return inner_error_default_handler(self.symbolic_call, message_handler)(
             InferMetaCache(),
@@ -585,7 +585,7 @@ class FunctionGraph:
             )
 
         def message_handler(*args, **kwargs):
-            return f"Call paddle layer error: {layer}, may be not a valid paddle layer ?"
+            return f"Call paddle layer error: {layer}, may be not a valid paddle layer?"
 
         return inner_error_default_handler(self.symbolic_call, message_handler)(
             infer_meta_fn, compute_fn, layer, False, *args, **kwargs

@@ -37,10 +37,12 @@ from .reshard_funcs.base_reshard_func import (
 )
 from .reshard_funcs.reshard_func_register import register_reshard_funcs
 from .utils import (
+    _complete_op_dist_attr,
     fuse_param_func,
     get_pp_stage_by_pp_degree,
     get_pp_stage_by_process_mesh,
     get_sub_process_mesh_by_program,
+    partition_skip_op_list,
 )
 
 _logger = get_logger(
@@ -49,15 +51,6 @@ _logger = get_logger(
 
 register_reshard_funcs()
 
-partition_skip_op_list = [
-    "builtin.combine",
-    "builtin.split",
-    "pd_op.pylayer",
-    "cf.yield",
-    "cf.tuple_push",
-    "cf.tuple_pop",
-    "cf.stack_create",
-]
 amp_ops = ["pd_op.check_finite_and_unscale_", "pd_op.update_loss_scaling_"]
 
 
@@ -86,7 +79,7 @@ def reshard_combine_value(program, op, operand, attr):
 
     assert (
         prev_var.get_defining_op().name() == 'builtin.combine'
-    ), "TensorList must be defined by builtin.combine op."
+    ), f"TensorList must be defined by builtin.combine op, but is {prev_var.get_defining_op().name()}."
 
     combine_op = prev_var.get_defining_op()
     array_attr = attr.as_array_attr()
@@ -107,8 +100,15 @@ def reshard_combine_value(program, op, operand, attr):
     return combine_value
 
 
-def apply_partition_pass(program):
-    for op in program.global_block().ops:
+def apply_partition_pass(program, block=None):
+    if block is None:
+        block = program.global_block()
+    for op in block.ops:
+        for sub_block in op.blocks():
+            apply_partition_pass(program, block=sub_block)
+
+        if op.dist_attr is None:
+            continue
         if op.name() in partition_skip_op_list:
             continue
 
@@ -182,6 +182,8 @@ def apply_partition_pass(program):
             reshard_var_2.get_defining_op().operand(0).set_source(result)
 
         for operand, attr in zip(op.operands(), op.dist_attr.operands()):
+            if not attr:
+                continue
             prev_var = operand.source()
             if prev_var.is_combine():
                 operand.set_source(
@@ -196,7 +198,12 @@ def apply_partition_pass(program):
                 prev_op.erase()
 
         for var, attr in zip(op.results(), op.dist_attr.results()):
-            if var.initialized() and var.is_dist() and var.dist_attr() != attr:
+            if (
+                attr
+                and var.initialized()
+                and var.is_dist()
+                and var.dist_attr() != attr
+            ):
                 paddle.pir.set_insertion_point_after(op)
                 old_dist_attr = var.dist_attr()
                 var.update_dist_attr(attr.as_tensor_dist_attr())
@@ -287,8 +294,12 @@ class ReshardPasses:
             op.erase()
 
     @staticmethod
-    def reshard_op_pass(dist_program, params_grads=[]):
-        for op in dist_program.global_block().ops:
+    def reshard_op_pass(dist_program, global_params_grads=None, block=None):
+        if block is None:
+            block = dist_program.global_block()
+        for op in block.ops:
+            for sub_block in op.blocks():
+                ReshardPasses.reshard_op_pass(dist_program, block=sub_block)
             if op.name() == 'dist_op.reshard':
                 var = op.operand_source(0)
 
@@ -302,6 +313,10 @@ class ReshardPasses:
 
                 if src_dist_attr == dst_dist_attr:
                     op.result(0).replace_all_uses_with(var)
+                    if global_params_grads is not None:
+                        for idx, (p, g) in enumerate(global_params_grads):
+                            if g is not None and g.is_same(op.result(0)):
+                                global_params_grads[idx] = (p, var)
                     op.erase()
                     continue
 
@@ -325,13 +340,21 @@ class ReshardPasses:
                     op.result(0).replace_all_uses_with(out_value)
 
                 if op.result(0).use_empty():
+                    if global_params_grads is not None:
+                        for idx, (p, g) in enumerate(global_params_grads):
+                            if g is not None and g.is_same(op.result(0)):
+                                global_params_grads[idx] = (
+                                    (p, out_value)
+                                    if out_value is not None
+                                    else (p, var)
+                                )
                     op.erase()
 
     @staticmethod
-    def apply_reshard_pass(dist_program, params_grads=[]):
+    def apply_reshard_pass(dist_program, global_params_grads=None):
         ReshardPasses.decompose_reshard_pass(dist_program)
         ReshardPasses.fold_reshard_pass(dist_program)
-        ReshardPasses.reshard_op_pass(dist_program, params_grads)
+        ReshardPasses.reshard_op_pass(dist_program, global_params_grads)
 
 
 # Replace the specific MoE-related dist op with the
@@ -385,7 +408,20 @@ class RemovePasses:
         cur_rank = paddle.distributed.get_rank()
 
         for op in dist_program.global_block().ops[::-1]:
-            if op.name() in partition_skip_op_list:
+            if op.name() == "dist_op.moe_sub_mesh_tensors":
+                replace_moe_sub_mesh_tensors(op)
+                continue
+            elif op.name() == "dist_op.moe_global_mesh_tensor":
+                replace_moe_global_mesh_tensor(op)
+                continue
+            elif op.name() == "cf.tuple_push":
+                stack_create_op = op.operand_source(0).get_defining_op()
+                if stack_create_op.result(2).use_empty():
+                    op.erase()
+                continue
+            elif op.name() == "cf.yield":
+                continue
+            elif op.name() in partition_skip_op_list:
                 can_delete = True
                 for val in op.results():
                     if not val.use_empty():
@@ -393,12 +429,7 @@ class RemovePasses:
                 if can_delete:
                     op.erase()
                 continue
-            if op.name() == "dist_op.moe_sub_mesh_tensors":
-                replace_moe_sub_mesh_tensors(op)
-                continue
-            if op.name() == "dist_op.moe_global_mesh_tensor":
-                replace_moe_global_mesh_tensor(op)
-                continue
+
             if cur_rank not in op.dist_attr.process_mesh.process_ids:
                 op.erase()
             elif op.name() == "dist_op.reshard":
@@ -535,6 +566,7 @@ class RemovePasses:
         RemovePasses.remove_other_rank_params_grads_pass(
             dist_main_program, dist_params_grads
         )
+        _complete_op_dist_attr(dist_main_program)
         RemovePasses.remove_other_rank_op_pass(dist_main_program)
         RemovePasses.remove_no_need_in_startup(
             dist_startup_program, dist_main_program

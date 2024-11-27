@@ -43,12 +43,12 @@ from ..instruction_utils import (
     apply_instr_pass,
     calc_stack_effect,
     gen_instr,
+    get_instruction_size,
     instrs_info,
     modify_instrs,
     modify_vars,
 )
 from ..instruction_utils.opcode_info import (
-    PYOPCODE_CACHE_SIZE,
     UNCONDITIONAL_JUMP,
     JumpDirection,
     PopJumpCond,
@@ -215,13 +215,6 @@ def to_byte(num):
     if num < 0:
         num += 256
     return num
-
-
-def get_instruction_size(instr: Instruction) -> int:
-    cache_size = 0
-    if sys.version_info >= (3, 11):
-        cache_size = PYOPCODE_CACHE_SIZE.get(instr.opname, 0)
-    return 2 * (cache_size + 1)
 
 
 def create_linetable_calculator(firstlineno: int):
@@ -681,6 +674,11 @@ class PyCodeGen:
         null_var = self.global_null_variable
         return self.gen_load_object(null_var, "___null_var", push_null=False)
 
+    def gen_push_null(self):
+        if sys.version_info < (3, 11):
+            raise InnerError("gen_push_null is only supported in Python 3.11+")
+        return self.add_instr("PUSH_NULL")
+
     def gen_load_fast(self, name):
         """
         Generate the bytecode for loading a local variable.
@@ -821,8 +819,10 @@ class PyCodeGen:
     def gen_kw_names(self, kw_names: tuple[str, ...] | None):
         if kw_names is None:
             return
-        if sys.version_info < (3, 11):
-            raise InnerError("gen_kw_names is not supported before python3.11")
+        if sys.version_info < (3, 11) or sys.version_info >= (3, 13):
+            raise InnerError(
+                "gen_kw_names is only supported in Python 3.11 and 3.12"
+            )
         if kw_names not in self._code_options["co_consts"]:
             self._code_options["co_consts"].append(kw_names)
         idx = self._code_options["co_consts"].index(kw_names)
@@ -926,6 +926,11 @@ class PyCodeGen:
         direction: JumpDirection = JumpDirection.FORWARD,
         suffix: PopJumpCond = PopJumpCond.NONE,
     ) -> Instruction:
+        if sys.version_info >= (3, 13) and suffix in [
+            PopJumpCond.TRUE,
+            PopJumpCond.FALSE,
+        ]:
+            self.add_instr("TO_BOOL")
         if sys.version_info >= (3, 11) and sys.version_info < (3, 12):
             return self.add_instr(
                 f"POP_JUMP_{direction.value}_IF_{suffix.value}", jump_to=jump_to
@@ -1004,12 +1009,23 @@ class ResumeFunctionCreator:
         self.codegen = PyCodeGen(frame, disable_eval_frame)
         self.name = ResumeFnNameFactory().next()
 
-    def set_inputs(self, inputs: list[str], stack_size: int):
+    def set_inputs(
+        self, inputs: list[str], stack_size: int, null_indices: list[int] = []
+    ):
         stack_arg_str = self.name + '_stack_{}'
+        assert all(
+            idx < stack_size for idx in null_indices
+        ), "null index out of range"
 
-        self.codegen._code_options['co_argcount'] = len(inputs) + stack_size
+        self.codegen._code_options['co_argcount'] = (
+            len(inputs) + stack_size - len(null_indices)
+        )
         self.codegen._code_options['co_varnames'] = list(
-            [stack_arg_str.format(i) for i in range(stack_size)]
+            [
+                stack_arg_str.format(i)
+                for i in range(stack_size)
+                if i not in null_indices
+            ]
             + inputs
             + [
                 var_name
@@ -1020,7 +1036,11 @@ class ResumeFunctionCreator:
 
         self.codegen._instructions.extend(
             [
-                gen_instr('LOAD_FAST', argval=stack_arg_str.format(i))
+                (
+                    gen_instr("PUSH_NULL")
+                    if i in null_indices
+                    else gen_instr('LOAD_FAST', argval=stack_arg_str.format(i))
+                )
                 for i in range(stack_size)
             ]
         )

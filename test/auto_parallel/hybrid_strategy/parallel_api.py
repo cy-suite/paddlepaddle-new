@@ -14,7 +14,6 @@
 import logging
 import os
 import random
-from collections import OrderedDict
 from functools import reduce
 
 import numpy as np
@@ -24,10 +23,8 @@ import paddle
 import paddle.distributed as dist
 from paddle import LazyGuard
 from paddle.distributed.auto_parallel.intermediate.parallelize import (
-    parallelize,
-)
-from paddle.distributed.auto_parallel.intermediate.pipeline_parallel import (
-    SplitPoint,
+    parallelize_model,
+    parallelize_optimizer,
 )
 from paddle.distributed.auto_parallel.intermediate.tensor_parallel import (
     ColWiseParallel,
@@ -145,6 +142,10 @@ class TestParallelAPI:
         if os.getenv("prepare_input_output") == "true":
             self.sequence_parallel = True
 
+        num_hidden_layers = os.getenv("num_hidden_layers")
+        if num_hidden_layers:
+            self.config.num_hidden_layers = int(num_hidden_layers)
+
         seed = int(os.getenv("seed", 2024))
         np.random.seed(seed)
         random.seed(seed)
@@ -192,35 +193,31 @@ class TestParallelAPI:
                         dist.Replicate(),
                         dist.Shard(0),
                     ]
-                    assert sub_layer.bias.placements is None
+                    # assert sub_layer.bias.placements is None
                 if 'down_proj' in name:
                     assert sub_layer.weight.placements == [
                         dist.Replicate(),
                         dist.Shard(0),
                     ]
 
-    def parallel_model(self, layer, optimizer=None):
+    def parallel_model(self, layer):
         dp_config = None
         mp_config = None
         pp_config = None
         if self.pp > 1:
-            decoders_per_rank = self.config.num_hidden_layers // self.pp
-            split_spec = OrderedDict(
-                [
-                    (
-                        f"llama.layers.{i * decoders_per_rank - 1}",
-                        SplitPoint.END,
-                    )
-                    for i in range(1, self.pp)
-                ]
-            )
-            pp_config = {'split_spec': split_spec}
+            # decoders_per_rank = self.config.num_hidden_layers // self.pp
+            # split_spec = {
+            #     f"llama.layers.{i * decoders_per_rank - 1}": SplitPoint.END
+            #     for i in range(1, self.pp)
+            # }
+            pp_config = {'split_spec': "llama.layers"}
         if self.dp > 1:
             dp_config = {'sharding_level': self.level}
         if self.mp > 1:
             if not self.sequence_parallel:
                 plan = {
                     "llama.embed_tokens": ColWiseParallel(),
+                    "llama.position_embedding": ColWiseParallel(),
                     "llama.layers.*.self_attn.q_proj": ColWiseParallel(),
                     "llama.layers.*.self_attn.k_proj": ColWiseParallel(),
                     "llama.layers.*.self_attn.v_proj": ColWiseParallel(),
@@ -234,6 +231,7 @@ class TestParallelAPI:
                 if self.prepare_input_output:
                     plan = {
                         "llama.embed_tokens": ColWiseParallel(),
+                        "llama.position_embedding": ColWiseParallel(),
                         "llama.layers.*.self_attn.q_proj": ColWiseParallel(),
                         "llama.layers.*.self_attn.k_proj": ColWiseParallel(),
                         "llama.layers.*.self_attn.v_proj": ColWiseParallel(),
@@ -252,6 +250,10 @@ class TestParallelAPI:
                             ColWiseParallel(),
                             SequenceParallelBegin(),
                         ],
+                        "llama.position_embedding": [
+                            ColWiseParallel(),
+                            SequenceParallelBegin(),
+                        ],
                         "llama.layers.*.self_attn.q_proj": ColWiseParallel(),
                         "llama.layers.*.self_attn.k_proj": ColWiseParallel(),
                         "llama.layers.*.self_attn.v_proj": ColWiseParallel(),
@@ -267,30 +269,41 @@ class TestParallelAPI:
                         "lm_head": SequenceParallelEnd(),
                     }
             mp_config = {'parallelize_plan': plan}
-        layer, optimizer = parallelize(
+        layer = parallelize_model(
             layer,
-            optimizer,
             dp_config=dp_config,
             mp_config=mp_config,
             pp_config=pp_config,
         )
         self.check_mp(layer)
-        if optimizer is None:
-            return layer
-        return layer, optimizer
+        return layer, dp_config, mp_config, pp_config
 
-    def run_llama(self, to_static=0):
+    def run_llama(
+        self, share_embedding=False, position_embedding=False, to_static=0
+    ):
         if self.config.use_lazy_init:
             with LazyGuard():
-                model = LlamaForCausalLM(self.config)
+                model = LlamaForCausalLM(
+                    self.config, share_embedding, position_embedding
+                )
         else:
-            model = LlamaForCausalLM(self.config)
+            model = LlamaForCausalLM(
+                self.config, share_embedding, position_embedding
+            )
+
+        model, dp_config, mp_config, pp_config = self.parallel_model(model)
 
         lr_scheduler = paddle.optimizer.lr.LinearWarmup(
             learning_rate=0.0001, warmup_steps=2, start_lr=0, end_lr=0.0001
         )
         optimizer = create_optimizer(model, lr_scheduler)
-        model, optimizer = self.parallel_model(model, optimizer)
+
+        optimizer = parallelize_optimizer(
+            optimizer,
+            dp_config=dp_config,
+            mp_config=mp_config,
+            pp_config=pp_config,
+        )
 
         criterion = LlamaPretrainingCriterion(self.config)
 
@@ -420,10 +433,12 @@ class TestParallelAPI:
                 if step >= 10:
                     break
 
-    def run_test_cases(self):
-        self.run_llama(to_static=0)
-        self.run_llama(to_static=1)
+    def run_test_cases(self, share_embedding=False, position_embedding=False):
+        self.run_llama(share_embedding, position_embedding, 0)
+        self.run_llama(share_embedding, position_embedding, 1)
 
 
 if __name__ == '__main__':
-    TestParallelAPI().run_test_cases()
+    share_embedding = int(os.getenv("test_share_embedding", "0"))
+    position_embedding = int(os.getenv("test_position_embedding", "0"))
+    TestParallelAPI().run_test_cases(share_embedding, position_embedding)

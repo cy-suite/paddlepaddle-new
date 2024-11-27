@@ -238,8 +238,26 @@ class ScaleOpPattern : public pir::OpRewritePattern<paddle::dialect::ScaleOp> {
         mul_in = add_op.result(0);
       }
 
-      auto mul_op = rewriter.Build<paddle::dialect::MultiplyOp>(
-          mul_in, op->operand_source(1));
+      pir::Value rhs_value = [&] {
+        const auto &lhs_dtype =
+            mul_in.type().dyn_cast<paddle::dialect::DenseTensorType>().dtype();
+        const auto &rhs_dtype =
+            op->operand_source(1)
+                .type()
+                .dyn_cast<paddle::dialect::DenseTensorType>()
+                .dtype();
+        if (lhs_dtype != rhs_dtype) {
+          return rewriter
+              .Build<paddle::dialect::CastOp>(
+                  op->operand_source(1),
+                  paddle::dialect::TransToPhiDataType(lhs_dtype))
+              .out();
+        }
+        return op->operand_source(1);
+      }();
+
+      auto mul_op =
+          rewriter.Build<paddle::dialect::MultiplyOp>(mul_in, rhs_value);
 
       rewriter.ReplaceAllUsesWith(op.result(0), mul_op.result(0));
       rewriter.EraseOp(op);
@@ -254,30 +272,59 @@ class ReshapeOpPattern
 
   bool Match(paddle::dialect::ReshapeOp op) const override {
     const bool is_denied = CompatibleInfo::IsDeniedForCinn(*op.operation());
-    return !is_denied && IsDefinedBy<FullIntArrayOp>(op, 1);
+    return !is_denied && IsDefinedBy<FullIntArrayOp>(op, 1) &&
+           CanUseStaticOutputShape(op);
   }
 
   void Rewrite(paddle::dialect::ReshapeOp op,
                pir::PatternRewriter &rewriter) const override {
+    std::vector<int64_t> vec_out_shape = GetOutputShape(op);
+    std::vector<int32_t> vec_int32_shape(vec_out_shape.begin(),
+                                         vec_out_shape.end());
+
+    ReplaceWithCinnReshapeOp(op, rewriter, vec_int32_shape);
+    rewriter.EraseOp(op);
+  }
+
+ private:
+  std::vector<int64_t> GetOutputShape(paddle::dialect::ReshapeOp op) const {
     const FullIntArrayOp scale_full_op = CastDefinedTo<FullIntArrayOp>(op, 1);
 
     auto out_shape_attr = scale_full_op.attribute("value")
                               .dyn_cast<pir::ArrayAttribute>()
                               .AsVector();
+    std::vector<int64_t> attr_out_shape =
+        cinn::dialect::ir::GetVectorAttr(scale_full_op, "value");
 
-    std::vector<int> vec_out_shape;
-    if (out_shape_attr.size() > 0) {
-      PADDLE_ENFORCE_EQ(out_shape_attr[0].isa<::pir::Int64Attribute>(),
-                        true,
-                        ::common::errors::Unimplemented(
-                            "the 0th elementwise MUST be ir::Int64Attribute"));
-      for (size_t i = 0; i < out_shape_attr.size(); ++i) {
-        vec_out_shape.push_back(
-            out_shape_attr[i].dyn_cast<::pir::Int64Attribute>().data());
+    std::vector<int64_t> in_shape =
+        phi::vectorize(op.operand_source(0)
+                           .type()
+                           .dyn_cast<paddle::dialect::DenseTensorType>()
+                           .dims());
+
+    std::vector<int64_t> output_shape;
+    for (size_t i = 0; i < attr_out_shape.size(); ++i) {
+      if (attr_out_shape[i] == 0) {
+        output_shape.push_back(in_shape[i]);
+      } else {
+        output_shape.push_back(attr_out_shape[i]);
       }
     }
-    ReplaceWithCinnReshapeOp(op, rewriter, vec_out_shape);
-    rewriter.EraseOp(op);
+
+    return output_shape;
+  }
+
+  bool CanUseStaticOutputShape(paddle::dialect::ReshapeOp op) const {
+    std::vector<int64_t> output_shape = GetOutputShape(op);
+
+    int negtive_count = 0;
+    for (auto &d : output_shape) {
+      if (d < 0) {
+        negtive_count++;
+      }
+    }
+
+    return negtive_count <= 1;
   }
 };
 
@@ -1213,6 +1260,39 @@ class GatherOpPattern
   }
 };
 
+class Atan2OpPattern : public pir::OpRewritePattern<paddle::dialect::Atan2Op> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::Atan2Op>::OpRewritePattern;
+
+  bool Match(paddle::dialect::Atan2Op op) const override {
+    const bool is_denied = CompatibleInfo::IsDeniedForCinn(*op.operation());
+    return !is_denied;
+  }
+
+  void Rewrite(paddle::dialect::Atan2Op op,
+               pir::PatternRewriter &rewriter) const override {
+    auto x_dtype = op.operand_source(0)
+                       .type()
+                       .dyn_cast<paddle::dialect::DenseTensorType>()
+                       .dtype();
+    if (x_dtype.isa<pir::Int32Type>() || x_dtype.isa<pir::Int64Type>()) {
+      auto cast_op = rewriter.Build<paddle::dialect::CastOp>(
+          op.operand_source(0), phi::DataType::FLOAT64);
+      op->operand(0).set_source(cast_op.result(0));
+    }
+
+    auto y_dtype = op.operand_source(1)
+                       .type()
+                       .dyn_cast<paddle::dialect::DenseTensorType>()
+                       .dtype();
+    if (y_dtype.isa<pir::Int32Type>() || y_dtype.isa<pir::Int64Type>()) {
+      auto cast_op = rewriter.Build<paddle::dialect::CastOp>(
+          op.operand_source(1), phi::DataType::FLOAT64);
+      op->operand(1).set_source(cast_op.result(0));
+    }
+  }
+};
+
 PdOpToCinnOpPass::PdOpToCinnOpPass()
     : pir::PatternRewritePass("pd_to_cinn_pass", 1) {}
 
@@ -1245,6 +1325,7 @@ pir::RewritePatternSet PdOpToCinnOpPass::InitializePatterns(
   ps.Add<SigmoidOpPattern>(context);
   ps.Add<GatherOpPattern>(context);
   ps.Add<FlattenOpPattern>(context);
+  ps.Add<Atan2OpPattern>(context);
 
   return ps;
 }
