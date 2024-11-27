@@ -80,8 +80,7 @@ def remove_duplicate_value(value_list):
 
 
 def support_fp32_mix_precision(op_type, layer):
-    if op_type in self.force_fp32_ops:
-        _logger.info(f"{op_type} is forced to run in FP32 precision.")
+    if op_type in force_fp32_ops:
         layer.reset_precision()
         layer.precision = trt.DataType.FLOAT
 
@@ -100,12 +99,15 @@ class PaddleToTensorRTConverter:
             # weights = trt.Weights(weight_array)
             param_dict.update({name: weight_array})
         self.param_dict = param_dict
-        # global force_fp32_ops
-        # if self.trt_config.tensorrt_ops_run_float:
-        #     force_fp32_ops=self.trt_config.tensorrt_ops_run_float
-        # else:
-        #     print("没设置tensorrt_ops_run_float，默认不强制FP32 ")
-        #     force_fp32_ops=set()
+        global force_fp32_ops
+        if (
+            self.trt_config is not None
+            and self.trt_config.tensorrt_ops_run_float
+        ):
+            force_fp32_ops = self.trt_config.tensorrt_ops_run_float
+            _logger.info(f"Force FP32 Ops: {force_fp32_ops}")
+        else:
+            force_fp32_ops = set()
 
         self.input_info = {}
         self.trt_output_value_map = {}
@@ -254,7 +256,7 @@ class PaddleToTensorRTConverter:
                     value_to_trt_tensor[result.id] = None
 
         # Set TRT min/opt/max input shape and the value of shape tensor
-        for value in origin_input_value:
+        for i, value in enumerate(origin_input_value):
             trt_input = value_to_trt_tensor[value.id]
             if isinstance(trt_input, trt.Weights):
                 continue
@@ -296,6 +298,7 @@ class PaddleToTensorRTConverter:
                     max_shape = get_value_shape_range_info(
                         value, False, paddle.base.core.ShapeMode.kMAX
                     )
+
                     if trt_input.is_shape_tensor:
                         min_value = get_value_shape_range_info(
                             value, True, paddle.base.core.ShapeMode.kMIN
@@ -391,11 +394,11 @@ class PaddleToTensorRTConverter:
         ):  # trt version >= 8.6
             config.builder_optimization_level = 5
         config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)
-        print(
-            "trt_config.tensorrt_precision_mode",
-            self.trt_config.tensorrt_precision_mode,
-        )
-        if self.trt_config.tensorrt_precision_mode == "FP16":
+
+        if (
+            self.trt_config is not None
+            and self.trt_config.tensorrt_precision_mode == "FP16"
+        ):
             if builder.platform_has_fast_fp16:
                 config.set_flag(trt.BuilderFlag.FP16)
                 _logger.info("Run Paddle-TRT FP16 mode")
@@ -403,7 +406,10 @@ class PaddleToTensorRTConverter:
                 _logger.warning(
                     "Hardware does not support FP16. Continuing in FP32 mode."
                 )
-        elif self.trt_config.tensorrt_precision_mode == "BF16":
+        elif (
+            self.trt_config is not None
+            and self.trt_config.tensorrt_precision_mode == "BF16"
+        ):
             if version_list[0] >= 9:
                 if builder.plateform_has_fast_bfp16 and hasattr(
                     builder, 'plateform_has_fast_bf16'
@@ -424,10 +430,22 @@ class PaddleToTensorRTConverter:
                     _logger.warning(
                         "Hardware does not support FP16. Continuing in FP32 mode."
                     )
-        else:
+        elif self.trt_config is not None:
             _logger.info(
                 f"Default tensorrt_precision mode {self.trt_config.tensorrt_precision_mode}"
             )
+
+        if (
+            version_list[0] > 8
+            or version_list[0] == 8
+            and version_list[1] >= 2
+            and version_list[2] >= 1
+        ):
+            if (
+                self.trt_config is not None
+                and self.trt_config.tensorrt_ops_run_float
+            ):
+                config.set_flag(trt.BuilderFlag.PREFER_PRECISION_CONSTRAINTS)
 
         trt_engine = builder.build_engine(network, config)
         trt_params = paddle.base.libpaddle.TRTEngineParams()

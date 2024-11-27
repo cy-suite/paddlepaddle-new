@@ -23,6 +23,7 @@ from paddle.tensorrt.register import converter_registry
 
 @converter_registry.register("pd_op.matmul", trt_version="8.x")
 def matmul_converter(network, paddle_op, inputs):
+
     weight_shape = paddle_op.operands()[1].source().shape
     transpose_x = paddle_op.attrs()["transpose_x"]
     transpose_y = paddle_op.attrs()["transpose_y"]

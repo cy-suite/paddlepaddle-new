@@ -75,7 +75,6 @@ def gather_nd_converter(network, paddle_op, inputs):
     input_tensor, indices_tensor = inputs
     shuffle_layer = network.add_shuffle(indices_tensor)
     shuffle_layer.first_transpose = trt.Permutation([1, 0])
-    # import pdb;pdb.set_trace()
     non_zero_layer = network.add_gather_v2(
         input_tensor, shuffle_layer.get_output(0), trt.GatherMode.ND
     )
@@ -84,6 +83,8 @@ def gather_nd_converter(network, paddle_op, inputs):
 
 @converter_registry.register("pd_op.flatten", trt_version="8.x")
 def flatten_converter(network, paddle_op, inputs):
+    from paddle.tensorrt.converter import support_fp32_mix_precision
+
     input_val = inputs[0]
     input_val_shape = input_val.shape
     dims = len(input_val_shape)
@@ -163,6 +164,7 @@ def flatten_converter(network, paddle_op, inputs):
         final_shape_layer.name = f"{input_val.name}_final_shape"
         flatten_layer.set_input(1, final_shape_layer.get_output(0))
 
+    support_fp32_mix_precision(paddle_op.name(), layer=flatten_layer)
     return flatten_layer.get_output(0)
 
 
