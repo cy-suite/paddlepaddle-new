@@ -44,6 +44,7 @@ from ....utils import (
 from ....utils.exceptions import (
     BreakGraphError,
     FallbackError,
+    InnerError,
     SotErrorBase,
 )
 from ..dispatcher import Dispatcher
@@ -246,6 +247,9 @@ class UserCodeVariable(FunctionVariable):
     ):
         super().__init__(codeobj, graph, tracker)
         self.codeobj = codeobj
+
+    def call_function(self, /, *args, **kwargs):
+        raise InnerError("UserCodeVariable call_function is not implemented.")
 
 
 class PaddleApiVariable(FunctionVariable):
