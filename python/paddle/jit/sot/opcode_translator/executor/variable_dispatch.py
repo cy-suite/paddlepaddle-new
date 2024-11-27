@@ -1245,7 +1245,7 @@ Dispatcher.register(
 @Dispatcher.register_decorator(max)
 def dispatch_max_star_args(*args: VariableBase):
     if not args:
-        raise TypeError("max expected 1 arguments, got 0")
+        raise TypeError("max expected at least 1 arguments, got 0")
     res = args[0]
     graph = res.graph
     for arg in args:
@@ -1258,7 +1258,7 @@ def dispatch_max_star_args(*args: VariableBase):
 @Dispatcher.register_decorator(min)
 def dispatch_min_star_args(*args: VariableBase):
     if not args:
-        raise TypeError("min expected 1 arguments, got 0")
+        raise TypeError("min expected at least 1 arguments, got 0")
     res = args[0]
     graph = res.graph
     for arg in args:
