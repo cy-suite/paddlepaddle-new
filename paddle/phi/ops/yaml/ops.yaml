@@ -939,6 +939,7 @@
   kernel :
     func : cholesky_solve
   backward : cholesky_solve_grad
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : class_center_sample
   args : (Tensor label, int num_classes, int num_samples, int ring_id = 0, int rank = 0, int nranks = 1, bool fix_seed = false, int seed = 0)
@@ -4475,6 +4476,19 @@
   interfaces : paddle::dialect::InferSymbolicShapeInterface
   traits : paddle::dialect::ForwardOnlyTrait
 
+- op : shape64
+  args : (Tensor input)
+  output : Tensor(out)
+  infer_meta :
+    func : Shape64InferMeta
+  kernel :
+    func : shape64 {dense -> dense},
+           shape64_sr {selected_rows -> dense}
+  data_transform :
+    skip_transform : input
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits : paddle::dialect::ForwardOnlyTrait
+
 - op : shard_index
   args : (Tensor input, int index_num, int nshards, int shard_id, int ignore_value=-1)
   output : Tensor(out)
@@ -4937,7 +4951,7 @@
   traits : paddle::dialect::ForwardOnlyTrait
 
 - op : tdm_sampler
-  args: (Tensor x, Tensor travel, Tensor layer, bool output_positive=true, int[] neg_samples_num_list={}, int[] layer_offset_lod={}, int seed = 0, int dtype=2)
+  args: (Tensor x, Tensor travel, Tensor layer, bool output_positive=true, int[] neg_samples_num_list={}, int[] layer_offset={}, int seed = 0, int dtype=2)
   output: Tensor(out), Tensor(labels), Tensor(mask)
   infer_meta:
     func : TdmSamplerInferMeta

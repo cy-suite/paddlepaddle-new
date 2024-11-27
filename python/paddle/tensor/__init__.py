@@ -103,8 +103,11 @@ from .linalg import (  # noqa: F401
     t_,
     transpose,
     transpose_,
+    vecdot,
 )
 from .logic import (  # noqa: F401
+    __rand__,
+    __ror__,
     allclose,
     bitwise_and,
     bitwise_and_,
@@ -865,7 +868,9 @@ tensor_method_func = [
 # this list used in math_op_patch.py for magic_method bind
 magic_method_func = [
     ('__and__', 'bitwise_and'),
+    ('__rand__', '__rand__'),
     ('__or__', 'bitwise_or'),
+    ('__ror__', '__ror__'),
     ('__xor__', 'bitwise_xor'),
     ('__invert__', 'bitwise_not'),
     ('__pos__', 'positive'),
