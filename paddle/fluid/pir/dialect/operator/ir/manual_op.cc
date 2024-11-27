@@ -1495,10 +1495,30 @@ std::vector<pir::Type> CreateArrayOp::InferMeta(
 
 bool CreateArrayOp::InferSymbolicShape(
     pir::InferSymbolicShapeContext *infer_context) {
-  infer_context->SetShapeOrDataForValue(
-      out(),
-      symbol::ShapeOrDataDimExprs{symbol::RankedTensorArrayShapeOrDataDimExprs(
-          std::vector<symbol::DimExpr>{})});
+  common::DDim out_dims =
+      out().type().dyn_cast<paddle::dialect::DenseTensorArrayType>().dims();
+  if (out_dims.size() == 0 && out_dims[0] == 0) {
+    infer_context->SetShapeOrDataForValue(
+        out(),
+        symbol::ShapeOrDataDimExprs{
+            symbol::RankedTensorArrayShapeOrDataDimExprs(
+                std::vector<symbol::DimExpr>{})});
+  } else {
+    // If empty array(Value)'s dims is changed by array_write_, we can use it.
+    std::vector<symbol::DimExpr> shape_hints;
+    for (size_t i = 0; i < out_dims.size(); ++i) {
+      int dim = out_dims[i];
+      if (dim > 0) {
+        shape_hints.push_back(dim);
+      } else {
+        shape_hints.push_back(infer_context->GetNextSymName());
+      }
+    }
+    infer_context->SetShapeOrDataForValue(
+        out(),
+        symbol::ShapeOrDataDimExprs{
+            symbol::RankedTensorArrayShapeOrDataDimExprs(shape_hints)});
+  }
 
   return true;
 }
@@ -2167,7 +2187,12 @@ bool ArrayWrite_Op::InferSymbolicShape(
       out(),
       symbol::ShapeOrDataDimExprs{
           symbol::RankedTensorArrayShapeOrDataDimExprs(x_shape)});
-
+  // update array's shape as x's shape.
+  // TOOD(ooooo) Do not change if shape is set by custom, similar to infer_meta
+  infer_context->SetShapeOrDataForValue(
+      array(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::RankedTensorArrayShapeOrDataDimExprs(x_shape)});
   return true;
 }
 
