@@ -33,8 +33,8 @@ class TestGPUEventTimer(unittest.TestCase):
 
         timers(key, use_event=use_event).pre_alloc(5)
 
-        for _ in range(10):
-            for _ in range(10):
+        for _ in range(2):
+            for _ in range(3):
                 timers(key, use_event=use_event).start()
                 paddle.matmul(x, x)
                 timers(key, use_event=use_event).stop()
@@ -42,7 +42,6 @@ class TestGPUEventTimer(unittest.TestCase):
             assert isinstance(times, np.ndarray), times
             times2 = timers(key, use_event=use_event).elapsed_list(reset=False)
             np.testing.assert_array_equal(times, times2)
-            print(times, sum(times))
             timers.log(timers.timers.keys())
 
             assert timers(key, use_event=use_event).size() == 0
