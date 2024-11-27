@@ -46,12 +46,12 @@ float GetFullValue(paddle::dialect::FullOp full_op) {
 bool ReplaceWithFullOp(pir::Operation* op,
                        pir::PatternRewriter* rewriter,
                        int32_t align_input_idx) {
-  auto in_type = op->operand_source(align_input_idx).type();
-  if (!in_type.isa<paddle::dialect::DenseTensorType>()) {
+  auto out_type = op->result(0).type();
+  if (!out_type.isa<paddle::dialect::DenseTensorType>()) {
     return false;
   }
-  auto tensor_type = in_type.dyn_cast<paddle::dialect::DenseTensorType>();
-  if (!(in_type.dyn_cast<pir::ShapedTypeInterface>().IsDynamicShape())) {
+  auto tensor_type = out_type.dyn_cast<paddle::dialect::DenseTensorType>();
+  if (!(out_type.dyn_cast<pir::ShapedTypeInterface>().IsDynamicShape())) {
     auto phi_dtype = paddle::dialect::TransToPhiDataType(tensor_type.dtype());
     auto full_op = rewriter->Build<paddle::dialect::FullOp>(
         phi::vectorize(tensor_type.dims()), 0.0, phi_dtype);
