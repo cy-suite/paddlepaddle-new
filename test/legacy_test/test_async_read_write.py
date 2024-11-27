@@ -125,6 +125,7 @@ class TestAsyncWrite(unittest.TestCase):
         np.testing.assert_allclose(
             self.src.numpy(), offset_array.numpy(), rtol=1e-05
         )
+        raise ValueError("lala")
 
     def test_async_write_success(self):
         self.func_setUp()
