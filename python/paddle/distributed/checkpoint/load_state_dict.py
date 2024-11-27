@@ -594,7 +594,7 @@ def _load_state_dict(
     metadata_list,
     process_group=None,
     coordinator_rank=0,
-    offload=True,
+    offload=False,
 ) -> None:
     with paddle.base.dygraph.guard():
         use_dist = True if paddle.distributed.get_world_size() > 1 else False
@@ -609,13 +609,14 @@ def _load_state_dict(
         read_items = get_read_items(
             metadata_list, target_state_dict, process_group, use_dist
         )
-
-        for i in range(len(read_items) - 1):
-            item = read_items[i]
-            k_new = item.local_tensor_index.tensor_key
-            if k_new in target_state_dict:
-                if target_state_dict[k_new].place.is_cpu_place():
-                    target_state_dict[k_new] = target_state_dict[k_new].cuda()
+        state_dict_in_cpu = []
+        for idx in range(len(read_items) - 1):
+            item = read_items[idx]
+            key = item.local_tensor_index.tensor_key
+            if key in target_state_dict:
+                if target_state_dict[key].place.is_cpu_place():
+                    state_dict_in_cpu.append(key)
+                    target_state_dict[key] = target_state_dict[key].cuda()
             assert (
                 item.local_tensor_index in load_infos
             ), f"read item:{item}, load_infos:{load_infos}"
@@ -715,8 +716,13 @@ def _load_state_dict(
                         tmp_tensor, src=src_rank, group=process_group
                     )
                     paddle.assign(tmp_tensor, cur_chunk_tensor)
-            if k_new in target_state_dict and i+1<len(read_items) and read_items[i+1].local_tensor_index.tensor_key!=k_new:
-                target_state_dict[k_new]=target_state_dict[k_new].cpu()
+
+            if (
+                key in state_dict_in_cpu
+                and idx + 1 < len(read_items)
+                and read_items[idx + 1].local_tensor_index.tensor_key != key
+            ):
+                target_state_dict[key] = target_state_dict[key].cpu()
 
         if use_dist:
             paddle.distributed.barrier(process_group)
