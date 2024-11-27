@@ -48,6 +48,7 @@ def get_paddle_api():
         paddle.fft,
         paddle.vision.ops,
         paddle.metric,
+        paddle.geometric,
     ]
     special_paddle_apis = [paddle.tensor.fill_constant]
     non_operator_related_apis = [
@@ -115,7 +116,7 @@ break_graph_tensor_method = {
     # TODO: Browse all possible functions and make prior judgments.
 }
 
-not_supported_paddle_layer = {paddle.nn.RNN}
+not_supported_paddle_layer = {paddle.nn.RNN, paddle.nn.Softmax}
 
 
 def is_not_supported_paddle_layer(layer_class):
