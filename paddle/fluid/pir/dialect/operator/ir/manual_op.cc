@@ -1506,7 +1506,7 @@ bool CreateArrayOp::InferSymbolicShape(
   } else {
     // If empty array(Value)'s dims is changed by array_write_, we can use it.
     std::vector<symbol::DimExpr> shape_hints;
-    for (size_t i = 0; i < out_dims.size(); ++i) {
+    for (int i = 0; i < out_dims.size(); ++i) {
       int dim = out_dims[i];
       if (dim > 0) {
         shape_hints.push_back(dim);
