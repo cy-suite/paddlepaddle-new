@@ -246,7 +246,7 @@ const gpuDeviceProp &GetDeviceProperties(int id) {
 
 void SetDeviceId(int id) {
   std::cout << "wanghuan dbg SetDeviceId = " << id << std::endl;
-  static bool first_call = true;
+  static thread_local bool first_call = true;
   if (first_call) {
     PADDLE_ENFORCE_LT(id,
                       GetGPUDeviceCount(),
