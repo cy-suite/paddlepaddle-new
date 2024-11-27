@@ -63,7 +63,6 @@ from .utils import (
     NO_SHAPE_VAR_TYPE,
     ast_to_func,
     backend_guard,
-    cuda_pinned_tensors_move_to_excepted_place,
     func_to_source_code,
     input_specs_compatible,
     is_paddle_func,
@@ -783,7 +782,9 @@ class SymbolicStaticFunction(StaticFunction):
         from ..sot import symbolic_translate
 
         args, kwargs = self._function_spec.unified_args_and_kwargs(args, kwargs)
-        cuda_pinned_tensors_move_to_excepted_place(args)
+        if isinstance(args, dict):
+            args = flatten(args)
+        core.eager.cuda_pinned_tensors_move_to_excepted_place(args)
 
         (
             input_args_with_spec,

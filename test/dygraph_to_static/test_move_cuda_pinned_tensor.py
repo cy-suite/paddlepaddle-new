@@ -15,9 +15,6 @@
 import unittest
 
 import paddle
-from paddle.jit.dy2static.utils import (
-    cuda_pinned_tensors_move_to_excepted_place,
-)
 
 
 class TestCopyCudaPinnedTensors(unittest.TestCase):
@@ -33,7 +30,7 @@ class TestCopyCudaPinnedTensors(unittest.TestCase):
                 [1, 2, 3], place=paddle.CUDAPinnedPlace(), stop_gradient=True
             )
 
-            cuda_pinned_tensors_move_to_excepted_place(x)
+            paddle.base.core.eager.cuda_pinned_tensors_move_to_excepted_place(x)
             assert not x.place._equals(cuda_pinned_place)
 
             y = {
@@ -51,7 +48,9 @@ class TestCopyCudaPinnedTensors(unittest.TestCase):
                     )
                 },
             }
-            cuda_pinned_tensors_move_to_excepted_place(y)
+            paddle.base.core.eager.cuda_pinned_tensors_move_to_excepted_place(
+                paddle.utils.flatten(y)
+            )
             for var in paddle.utils.flatten(y):
                 if isinstance(var, paddle.Tensor):
                     assert not var.place._equals(cuda_pinned_place)

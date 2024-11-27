@@ -36,9 +36,8 @@ from paddle.base import backward, core, framework, unique_name
 from paddle.base.data_feeder import convert_dtype
 from paddle.base.layer_helper import LayerHelper
 from paddle.base.wrapped_decorator import signature_safe_contextmanager
-from paddle.framework import CUDAPinnedPlace
 from paddle.jit.utils import OrderedSet
-from paddle.utils import flatten, gast
+from paddle.utils import gast
 
 from .ast_utils import ast_to_source_code
 
@@ -770,19 +769,3 @@ def tensor_name_guard(tensors, names):
     finally:
         for t, name in zip(tensors, origin_names):
             t.name = name
-
-
-def cuda_pinned_tensors_move_to_excepted_place(inputs):
-    if paddle.is_compiled_with_cuda():
-        expected_place = framework._current_expected_place()
-        cuda_pinned_place = CUDAPinnedPlace()
-
-        for value in flatten(inputs):
-            if (
-                isinstance(value, core.eager.Tensor)
-                and value.stop_gradient
-                and value.place._equals(cuda_pinned_place)
-            ):
-                var = value._copy_to(expected_place, False)
-                var.stop_gradient = True
-                var._share_buffer_to(value)

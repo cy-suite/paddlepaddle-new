@@ -322,6 +322,63 @@ PyObject* eager_api_get_grads_types(PyObject* self,
   EAGER_CATCH_AND_THROW_RETURN_NULL
 }
 
+PyObject* eager_api_cuda_pinned_tensors_move_to_excepted_place(
+    PyObject* self, PyObject* args, PyObject* kwargs) {
+  EAGER_TRY
+  auto obj = PyTuple_GET_ITEM(args, 0);
+  auto place = egr::Controller::Instance().GetExpectedPlace();
+
+  if (PyList_Check(obj)) {
+    Py_ssize_t len = PyList_Size(obj);
+    PyObject* item = nullptr;
+    for (Py_ssize_t i = 0; i < len; i++) {
+      item = PyList_GetItem(obj, i);
+      if (PyObject_TypeCheck(item, p_tensor_type)) {
+        paddle::Tensor& tensor = reinterpret_cast<TensorObject*>(item)->tensor;
+        if (tensor.is_dense_tensor() &&
+            egr::EagerUtils::autograd_meta(&tensor)->StopGradient() &&
+            phi::is_cuda_pinned_place(tensor.place())) {
+          auto cp_tensor = tensor.copy_to(place, false);
+          auto src_tensor =
+              static_cast<phi::DenseTensor*>(cp_tensor.impl().get());
+          auto dst_tensor = static_cast<phi::DenseTensor*>(tensor.impl().get());
+          dst_tensor->ShareDataWith(*src_tensor);
+        }
+      }
+    }
+  } else if (PyTuple_Check(obj)) {
+    Py_ssize_t len = PyTuple_Size(obj);
+    PyObject* item = nullptr;
+    for (Py_ssize_t i = 0; i < len; i++) {
+      item = PyTuple_GetItem(obj, i);
+      if (PyObject_TypeCheck(item, p_tensor_type)) {
+        paddle::Tensor& tensor = reinterpret_cast<TensorObject*>(item)->tensor;
+        if (tensor.is_dense_tensor() &&
+            egr::EagerUtils::autograd_meta(&tensor)->StopGradient() &&
+            phi::is_cuda_pinned_place(tensor.place())) {
+          auto cp_tensor = tensor.copy_to(place, false);
+          auto src_tensor =
+              static_cast<phi::DenseTensor*>(cp_tensor.impl().get());
+          auto dst_tensor = static_cast<phi::DenseTensor*>(tensor.impl().get());
+          dst_tensor->ShareDataWith(*src_tensor);
+        }
+      }
+    }
+  } else if (PyObject_TypeCheck(obj, p_tensor_type)) {
+    paddle::Tensor& tensor = reinterpret_cast<TensorObject*>(obj)->tensor;
+    if (tensor.is_dense_tensor() &&
+        egr::EagerUtils::autograd_meta(&tensor)->StopGradient() &&
+        phi::is_cuda_pinned_place(tensor.place())) {
+      auto cp_tensor = tensor.copy_to(place, false);
+      auto src_tensor = static_cast<phi::DenseTensor*>(cp_tensor.impl().get());
+      auto dst_tensor = static_cast<phi::DenseTensor*>(tensor.impl().get());
+      dst_tensor->ShareDataWith(*src_tensor);
+    }
+  }
+  RETURN_PY_NONE
+  EAGER_CATCH_AND_THROW_RETURN_NULL
+}
+
 static PyObject* eager_api_read_next_tensor_list(PyObject* self,
                                                  PyObject* args,
                                                  PyObject* kwargs) {
@@ -1416,6 +1473,11 @@ PyMethodDef variable_functions[] = {  // NOLINT
      nullptr},
     {"get_grads_types",
      (PyCFunction)(void (*)())eager_api_get_grads_types,
+     METH_VARARGS | METH_KEYWORDS,
+     nullptr},
+    {"cuda_pinned_tensors_move_to_excepted_place",
+     (PyCFunction)(void (*)())
+         eager_api_cuda_pinned_tensors_move_to_excepted_place,
      METH_VARARGS | METH_KEYWORDS,
      nullptr},
     {"read_next_tensor_list",
