@@ -136,7 +136,7 @@ class TestStanhFloatTRTPattern(TensorRTBaseTest):
             "scale_a": 0.67,
             "scale_b": 1.7159,
         }
-        
+
     def test_trt_result(self):
         self.check_trt_result()
 
