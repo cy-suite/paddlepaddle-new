@@ -1773,7 +1773,7 @@ void tile_grad(const Tensor& x,
             int64_t orig_size = out_grad_shape.back() / repeat;
             size_t out_grad_last_index = out_grad_shape.size() - 1;
 
-            // reshape the corresponding dimension to be `repeat` multiplied by
+            // Reshape the corresponding dimension to be `repeat` multiplied by
             // `orig_size`.
             expand_shape[out_grad_last_index] = repeat;
             expand_shape.insert(
