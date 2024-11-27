@@ -16,7 +16,6 @@
 
 #include <limits>
 #include <sycl/sycl.hpp>
-// using sycl::ext::oneapi::bfloat16;
 
 // #define CINN_SYCL_FP16
 // #define CINN_SYCL_BF16
@@ -240,7 +239,7 @@ inline bfloat16 FN_BF16(ceil)(bfloat16 x) {
 inline bfloat16 FN_BF16(floor)(bfloat16 x) {
   return sycl::ext::oneapi::experimental::floor(x);
 }
-// inline bfloat16 FN_BF16(round)(bfloat16 x) { return sycl::round(x); }
+
 inline bfloat16 FN_BF16(trunc)(bfloat16 x) {
   return sycl::ext::oneapi::experimental::trunc(x);
 }
@@ -272,8 +271,6 @@ inline bfloat16 FN_BF16(rsqrt)(bfloat16 x) {
   return sycl::ext::oneapi::experimental::rsqrt(x);
 }
 
-// inline bfloat16 FN_BF16(cbrt)(bfloat16 x) { return sycl::cbrt(x); }
-
 inline bfloat16 FN_BF16(abs)(bfloat16 x) {
   return sycl::ext::oneapi::experimental::fabs(x);
 }
@@ -281,32 +278,12 @@ inline bfloat16 FN_BF16(abs)(bfloat16 x) {
 inline bool FN_BF16(isnan)(bfloat16 x) {
   return sycl::ext::oneapi::experimental::isnan(x);
 }
-// inline bool FN_BF16(isinf)(bfloat16 x) { return sycl::isinf(x); }
-// inline bool FN_BF16(isfinite)(bfloat16 x) { return sycl::isfinite(x); }
-
-// inline bfloat16 FN_BF16(erf)(bfloat16 x) { return sycl::erf(x); }
-
-// inline bfloat16 FN_BF16(tan)(bfloat16 x) { return sycl::tan(x); }
-// inline bfloat16 FN_BF16(sinh)(bfloat16 x) { return sycl::sinh(x); }
-// inline bfloat16 FN_BF16(cosh)(bfloat16 x) { return sycl::cosh(x); }
-// inline bfloat16 FN_BF16(tanh)(bfloat16 x) { return sycl::tanh(x); }
-// inline bfloat16 FN_BF16(asin)(bfloat16 x) { return sycl::asin(x); }
-// inline bfloat16 FN_BF16(acos)(bfloat16 x) { return sycl::acos(x); }
-// inline bfloat16 FN_BF16(atan)(bfloat16 x) { return sycl::atan(x); }
-// inline bfloat16 FN_BF16(asinh)(bfloat16 x) { return sycl::asinh(x); }
-// inline bfloat16 FN_BF16(acosh)(bfloat16 x) { return sycl::acosh(x); }
-// inline bfloat16 FN_BF16(atanh)(bfloat16 x) { return sycl::atanh(x); }
 
 inline bfloat16 FN_BF16(sigmoid)(bfloat16 x) {
   return bfloat16(1.0f) /
          (bfloat16(1.0f) + sycl::ext::oneapi::experimental::exp(-x));
 }
-/*
-inline bfloat16 FN_BF16(mod)(bfloat16 a, bfloat16 b) {
-  bfloat16 res = sycl::fmod(a, b);
-  if ((res != 0.0) && ((res < 0.0) != (b < 0.0))) res += b;
-  return res;
-}*/
+
 inline bfloat16 FN_BF16(pow)(bfloat16 a, bfloat16 b) {
   return sycl::ext::oneapi::experimental::pow(a, b);
 }
