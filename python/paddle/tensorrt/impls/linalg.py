@@ -81,47 +81,33 @@ def bmm_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.flip", trt_version="8.x")
 def flip_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
-    input_shape_layer = network.add_shape(input_tensor)
-    input_shape_layer.name = f"{input_tensor.name}_shape"
-
-    input_shape = input_shape_layer.get_output(0)
-    rank = len(input_tensor.shape)
-
+    input_dims = input_tensor.shape
+    rank = len(input_dims)
     axis = paddle_op.attrs()["axis"]
-    if isinstance(axis, int):
-        axis = [axis]
-    axis = [get_positive_dim(a, rank) for a in axis]
+    axis = [a + rank if a < 0 else a for a in axis]
+    shape_tensor = network.add_shape(input_tensor).get_output(0)
 
-    start_tensors = []
-    stride_tensors = []
-    size_tensors = []
-
-    for i in range(rank):
-        dim_tensor = get_shape_tensor_element(network, input_shape, i)
-        if i in axis:
-            # start = dim - 1, stride = -1, size = dim
-            start_tensors.append(
-                trt_sub(
-                    network, dim_tensor, add_1D_constant_layer(network, [1])
-                )
-            )
-            stride_tensors.append(add_1D_constant_layer(network, [-1]))
-            size_tensors.append(dim_tensor)
+    def get_axis_length(axis_idx):
+        dim_val = input_dims[axis_idx]
+        if dim_val >= 0:
+            return add_1D_constant_layer(network, [dim_val], is_scalar=True)
         else:
-            # start = 0, stride = 1, size = dim
-            start_tensors.append(add_1D_constant_layer(network, [0]))
-            stride_tensors.append(add_1D_constant_layer(network, [1]))
-            size_tensors.append(dim_tensor)
+            return get_shape_tensor_element(network, shape_tensor, axis_idx, is_scalar=True)
 
-    start_tensor = trt_concat(network, start_tensors)
-    stride_tensor = trt_concat(network, stride_tensors)
-    size_tensor = trt_concat(network, size_tensors)
+    for axis_idx in axis:
+        loop_layer = network.add_loop()
+        trip_limit = get_axis_length(axis_idx)
+        loop_layer.add_trip_limit(trip_limit, trt.TripLimit.COUNT)
+        iterator = loop_layer.add_iterator(input_tensor, axis_idx, reverse=True)
+        zero_tensor = add_1D_constant_layer(network, [0])
+        one_tensor = add_1D_constant_layer(network, [1])
+        iRec_layer = loop_layer.add_recurrence(zero_tensor)
+        iCur = iRec_layer.get_output(0)
+        iNext_layer = network.add_elementwise(iCur, one_tensor, trt.ElementWiseOperation.SUM)
+        iRec_layer.set_input(1, iNext_layer.get_output(0))
+        loop_out_layer = loop_layer.add_loop_output(iterator.get_output(0), trt.LoopOutput.CONCATENATE, axis_idx)
+        loop_out_layer.set_input(1, trip_limit)
+        input_tensor = loop_out_layer.get_output(0)
 
-    slice_layer = network.add_slice(
-        input_tensor, start=(0,) * rank, shape=(1,) * rank, stride=(1,) * rank
-    )
-    slice_layer.set_input(1, start_tensor)
-    slice_layer.set_input(2, size_tensor)
-    slice_layer.set_input(3, stride_tensor)
-    slice_layer.name = f"{input_tensor.name}_flip"
-    return slice_layer.get_output(0)
+    identity_layer = network.add_identity(input_tensor)
+    return identity_layer.get_output(0)

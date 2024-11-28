@@ -86,6 +86,7 @@ DEFINE_GENERAL_PATTERN(Log, paddle::dialect::LogOp)
 DEFINE_GENERAL_PATTERN(Floor, paddle::dialect::FloorOp)
 DEFINE_GENERAL_PATTERN(Roll, paddle::dialect::RollOp)
 DEFINE_GENERAL_PATTERN(ThresholdedRelu, paddle::dialect::ThresholdedReluOp)
+DEFINE_GENERAL_PATTERN(Flip, paddle::dialect::FlipOp)
 
 #undef DEFINE_GENERAL_PATTERN
 
@@ -2093,29 +2094,6 @@ class AssignValueOpPattern
   }
 };
 
-class FlipOpPattern : public pir::OpRewritePattern<paddle::dialect::FlipOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::FlipOp>::OpRewritePattern;
-
-  bool MatchAndRewrite(paddle::dialect::FlipOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-    if (!op->HasAttribute("axis")) {
-      VLOG(3) << "pd_op.argsort axis attribute does not exist";
-      return false;
-    }
-#if !IS_TRT_VERSION_GE(7220)
-    VLOG(3) << "flip is not supported when TensorRT below 7.2.2";
-    return false;
-#endif
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
-
 class TrtOpMarkerPass : public pir::PatternRewritePass {
  public:
   TrtOpMarkerPass() : pir::PatternRewritePass("trt_op_marker_pass", 2) {}
@@ -2160,6 +2138,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Floor)
     ADD_PATTERN(Roll)
     ADD_PATTERN(ThresholdedRelu)
+    ADD_PATTERN(Flip)
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
 #endif
@@ -2227,7 +2206,6 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<OneHotOpPattern>(context));
     ps.Add(std::make_unique<AssignValueOpPattern>(context));
     ps.Add(std::make_unique<AssignValue_OpPattern>(context));
-    ps.Add(std::make_unique<FlipOpPattern>(context));
     return ps;
   }
 };

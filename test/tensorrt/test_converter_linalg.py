@@ -82,5 +82,20 @@ class TestFlipTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestFlipNegAxisTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.flip
+        self.api_args = {
+            "x": np.random.randn(2, 3, 4).astype("float32"),
+            "axis": [-1, -3],
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3, 4]}
+        self.max_shape = {"x": [5, 3, 4]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
 if __name__ == '__main__':
     unittest.main()
