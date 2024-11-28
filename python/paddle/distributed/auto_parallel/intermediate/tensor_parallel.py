@@ -20,7 +20,7 @@ import paddle.distributed as dist
 from .parallel_base import ParallelModel, ParallelOptimizer, is_tensor
 
 
-def split(x, process_mesh, need_transpose):
+def c_split(x, process_mesh, need_transpose):
     index = process_mesh.dim_names.index('mp')  # get the axis for the split
     if isinstance(x, tuple):
         target_x = x[0]
@@ -45,7 +45,7 @@ def split(x, process_mesh, need_transpose):
     return x
 
 
-def allgather(x, process_mesh, need_transpose):
+def c_concat(x, process_mesh, need_transpose):
     index = process_mesh.dim_names.index('mp')  # get the axis for the split
     if isinstance(x, tuple):
         target_x = x[0]
@@ -97,7 +97,7 @@ class ColWiseParallel(PlanBase):
     def gather_output_hook(self, process_mesh):
         def gather_hook(layer, input, output):
             assert output is not None
-            return allgather(output, process_mesh, False)
+            return c_concat(output, process_mesh, False)
 
         return gather_hook
 
@@ -159,7 +159,7 @@ class RowWiseParallel(PlanBase):
 
     def split_input_hook(self, process_mesh):
         def split_hook(layer, input, output):
-            return split(input, process_mesh, False)
+            return c_split(input, process_mesh, False)
 
         return split_hook
 
@@ -244,7 +244,7 @@ class SequenceParallelBegin(PlanBase):
     def sequence_parallel_begin(self, process_mesh):
         def begin(layer, input, output):
             assert output is not None
-            return split(output, process_mesh, self.need_transpose)
+            return c_split(output, process_mesh, self.need_transpose)
 
         return begin
 
@@ -270,7 +270,7 @@ class SequenceParallelEnd(PlanBase):
     def sequence_parallel_end(self, process_mesh):
         def end(layer, input, output=None):
             assert input is not None
-            return allgather(input, process_mesh, self.need_transpose)
+            return c_concat(input, process_mesh, self.need_transpose)
 
         return end
 
@@ -291,14 +291,14 @@ class SequenceParallelEnable(PlanBase):
     def sequence_parallel_begin(self, process_mesh):
         def begin(layer, input, output=None):
             assert input is not None
-            return split(input, process_mesh, True)
+            return c_split(input, process_mesh, True)
 
         return begin
 
     def sequence_parallel_end(self, process_mesh):
         def end(layer, input, output):
             assert output is not None
-            return allgather(output, process_mesh, True)
+            return c_concat(output, process_mesh, True)
 
         return end
 
@@ -332,13 +332,13 @@ class SequenceParallelDisable(PlanBase):
 
     def sequence_parallel_begin(self, process_mesh):
         def begin(layer, input, output=None):
-            return split(output, process_mesh, self.need_transpose)
+            return c_split(output, process_mesh, self.need_transpose)
 
         return begin
 
     def sequence_parallel_end(self, process_mesh):
         def end(layer, input, output=None):
-            return allgather(input, process_mesh, self.need_transpose)
+            return c_concat(input, process_mesh, self.need_transpose)
 
         return end
 
