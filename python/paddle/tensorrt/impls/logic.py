@@ -68,12 +68,12 @@ def bitwise_not_converter(network, paddle_op, inputs):
             network,
             paddle_op,
             [input_tensor, neg_one_tensor],
-            trt.ElementWiseOperation.PROD
+            trt.ElementWiseOperation.PROD,
         )
         layer_output = add_elementwise_layer(
             network,
             paddle_op,
             [negated, neg_one_tensor],
-            trt.ElementWiseOperation.SUM
+            trt.ElementWiseOperation.SUM,
         )
     return layer_output
