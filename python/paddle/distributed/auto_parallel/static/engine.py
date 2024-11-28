@@ -805,80 +805,15 @@ class Engine:
         # re-run apply_mix2dist_pass to dist accumulator.
         apply_mix2dist_pass(dist_program)
 
-        def find_checkpoint(dist_program):
-            # recompute on attention layer
-            # find  attention layer begin op id and end op id
-            point = []
-            end = 0
-            beg = 0
-            for block in dist_program.blocks:
-                while beg < len(block.ops):
-                    if not block.ops[beg].has_attr("struct_name"):
-                        beg += 1
-                        continue
-                    if (
-                        "LlamaAttentionAuto"
-                        not in block.ops[beg].attrs()["struct_name"]
-                    ):
-                        beg += 1
-                        continue
-                    end = beg + 1
-                    while end < len(block.ops):
-                        if block.ops[end].name() == "builtin.combine":
-                            end += 1
-                        if (
-                            "LlamaAttentionAuto"
-                            in block.ops[end].attrs()["struct_name"]
-                        ):
-                            end += 1
-                        else:
-                            break
-                    point.append(beg)
-                    point.append(end)
-                    # print("xxx beg op : ", block.ops[beg])
-                    # print("xxx end op : ", block.ops[end])
-                    beg = end + 1
-
-            print("xxx --- checkpoint: ", point)
-            return point
-
-        # def find_checkpoint(dist_program):
-        #     point = []
-        #     idx = [1,3]
-        #     num = 0
-        #     for block in dist_program.blocks:
-        #         for i, op in enumerate(block.ops):
-        #             if op.name() == "pd_op.matmul":
-        #                 num += 1
-        #                 if num in idx:
-        #                     point.append(i)
-        #                     # val = op.operand_source(0)
-        #     return point
-
         # print(dist_program)
-        self._strategy.recompute.enable = True
-        checkpoints = find_checkpoint(dist_program)
-        print("---checkpoints  : ", checkpoints)
-        self._strategy.recompute_configs = {"checkpoints": checkpoints}
+        # self._strategy.recompute.enable = True
         if mode == "train" and self._strategy.recompute.enable:
-            loss = dist_program.get_output_value_by_name(self._loss_names[0])
-            print(loss)
-            if loss.initialized():
-                config = {}
-                # config = copy.deepcopy(self._strategy.recompute_configs)
-                config["checkpoints"] = checkpoints
-                config["dist_context"] = self._dist_contexts.get(mode, None)
-                config["loss"] = loss
-                auto_parallel_recompute_pir_pass = new_pass(
-                    "auto_parallel_recompute_pir", config
-                )
-                auto_parallel_recompute_pir_pass.apply(
-                    [dist_program], [startup_program]
-                )
-            else:
-                self._logger.info(
-                    "loss value is not found, skip recompute pass."
-                )
+            auto_parallel_recompute_pir_pass = new_pass(
+                "auto_parallel_recompute_pir", {}
+            )
+            auto_parallel_recompute_pir_pass.apply(
+                [dist_program], [startup_program]
+            )
 
         # Part 2: Parallelism search (for full auto-parallel)
         # NOTE make all parallelis search logic work as Pass,
