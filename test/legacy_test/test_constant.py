@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
 import unittest
 
 import numpy as np
@@ -33,6 +34,12 @@ class TestConstant(unittest.TestCase):
     def test_nan(self):
         x = np.array([paddle.nan])
         np.testing.assert_equal(repr(x), 'array([nan])')
+
+    def test_pi(self):
+        np.testing.assert_equal(paddle.pi, math.pi)
+
+    def test_e(self):
+        np.testing.assert_almost_equal(paddle.e, 2.718281828459045, decimal=15)
 
 
 if __name__ == '__main__':
