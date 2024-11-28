@@ -342,7 +342,7 @@ class TestPrimAmaxWithGrad1(TestPrimBaseWithGrad):
         np.random.seed(2024)
         self.op_name = "pd_op.amax_grad"
         self.dtype = "float32"
-        self.x_shape = [30, 200, 40]
+        self.x_shape = [10, 10, 10]
         self.init_x_shape = [None, None, None]
         self.x = np.random.random(self.x_shape).astype(self.dtype)
         self.net = amax_net1
@@ -368,7 +368,7 @@ class TestPrimAmaxWithGrad3(TestPrimBaseWithGrad):
         np.random.seed(2024)
         self.op_name = "pd_op.amax_grad"
         self.dtype = "float32"
-        self.x_shape = [30, 200, 40]
+        self.x_shape = [10, 10, 10]
         self.init_x_shape = [None, None, None]
         self.x = np.random.random(self.x_shape).astype(self.dtype)
         self.net = amax_net2
@@ -381,7 +381,7 @@ class TestPrimAmaxWithGrad4(TestPrimBaseWithGrad):
         np.random.seed(2024)
         self.op_name = "pd_op.amax_grad"
         self.dtype = "float32"
-        self.x_shape = [30, 200, 40]
+        self.x_shape = [10, 10, 10]
         self.init_x_shape = [None, None, None]
         self.x = np.random.random(self.x_shape).astype(self.dtype)
         self.net = amax_net3
@@ -394,7 +394,7 @@ class TestPrimAmaxWithGrad5(TestPrimBaseWithGrad):
         np.random.seed(2024)
         self.op_name = "pd_op.amax_grad"
         self.dtype = "float32"
-        self.x_shape = [30, 200, 40]
+        self.x_shape = [10, 10, 10]
         self.init_x_shape = [None, None, None]
         self.x = np.random.random(self.x_shape).astype(self.dtype)
         self.net = amax_net4
@@ -407,9 +407,10 @@ class TestPrimAmaxWithGrad6(TestPrimBaseWithGrad):
         np.random.seed(2024)
         self.op_name = "pd_op.amax_grad"
         self.dtype = "float32"
-        self.x_shape = [30, 200, 40]
+        self.x_shape = [10, 10, 10]
         self.init_x_shape = [None, None, None]
         self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.x[3] = self.x[7]
         self.net = amax_net5
         self.enable_cinn = False
         self.tol = 1e-6
@@ -420,7 +421,7 @@ class TestPrimAminWithGrad1(TestPrimBaseWithGrad):
         np.random.seed(2024)
         self.op_name = "pd_op.amin_grad"
         self.dtype = "float32"
-        self.x_shape = [30, 200, 40]
+        self.x_shape = [10, 10, 10]
         self.init_x_shape = [None, None, None]
         self.x = np.random.random(self.x_shape).astype(self.dtype)
         self.net = amin_net1
@@ -446,9 +447,10 @@ class TestPrimAminWithGrad3(TestPrimBaseWithGrad):
         np.random.seed(2024)
         self.op_name = "pd_op.amin_grad"
         self.dtype = "float32"
-        self.x_shape = [30, 200, 40]
+        self.x_shape = [10, 10, 10]
         self.init_x_shape = [None, None, None]
         self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.x[4] = self.x[7]
         self.net = amin_net2
         self.enable_cinn = False
         self.tol = 1e-6
@@ -459,7 +461,7 @@ class TestPrimAminWithGrad4(TestPrimBaseWithGrad):
         np.random.seed(2024)
         self.op_name = "pd_op.amin_grad"
         self.dtype = "float32"
-        self.x_shape = [30, 200, 40]
+        self.x_shape = [10, 10, 10]
         self.init_x_shape = [None, None, None]
         self.x = np.random.random(self.x_shape).astype(self.dtype)
         self.net = amin_net3
@@ -472,7 +474,7 @@ class TestPrimAminWithGrad5(TestPrimBaseWithGrad):
         np.random.seed(2024)
         self.op_name = "pd_op.amin_grad"
         self.dtype = "float32"
-        self.x_shape = [30, 200, 40]
+        self.x_shape = [10, 10, 10]
         self.init_x_shape = [None, None, None]
         self.x = np.random.random(self.x_shape).astype(self.dtype)
         self.net = amin_net4
@@ -485,7 +487,7 @@ class TestPrimAminWithGrad6(TestPrimBaseWithGrad):
         np.random.seed(2024)
         self.op_name = "pd_op.amin_grad"
         self.dtype = "float32"
-        self.x_shape = [30, 200, 40]
+        self.x_shape = [10, 10, 10]
         self.init_x_shape = [None, None, None]
         self.x = np.random.random(self.x_shape).astype(self.dtype)
         self.net = amin_net5
