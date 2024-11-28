@@ -100,8 +100,8 @@ RUN python3.8 get-pip.py && \
   python3.13t get-pip.py
 
 WORKDIR /home
-RUN rm setuptools-50.3.2.zip setuptools-69.5.1.tar.gz && \
-    rm -r setuptools-50.3.2 setuptools-69.5.1
+RUN rm setuptools-50.3.2.zip setuptools-68.2.0.tar.gz setuptools-69.5.0.tar.gz && \
+    rm -r setuptools-50.3.2 setuptools-68.2.0 setuptools-69.5.0
 
 # remove them when apt-get support 2.27 and higher version
 RUN wget -q https://ftp.gnu.org/gnu/binutils/binutils-2.33.1.tar.gz && \
