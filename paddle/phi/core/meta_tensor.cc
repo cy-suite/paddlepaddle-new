@@ -212,7 +212,7 @@ void MetaTensor::share_lod(const MetaTensor& meta_tensor) {
   } else if (phi::SelectedRows::classof(tensor_)) {
     DenseTensorUtils::GetMutableMeta(
         static_cast<SelectedRows*>(tensor_)->mutable_value())
-        ->lod = meta_tensor.lod();
+        ->legacy_lod = meta_tensor.lod();
   } else {
     PADDLE_THROW(common::errors::Unimplemented(
         "Unsupported sharing lod inplace for `%s`.",
@@ -227,7 +227,7 @@ void MetaTensor::share_lod(const LoD& legacy_lod) {
       phi::distributed::DistTensor::classof(tensor_)) {
     return;
   }
-  if (lod.empty()) {
+  if (legacy_lod.empty()) {
     // no need share
     return;
   }
