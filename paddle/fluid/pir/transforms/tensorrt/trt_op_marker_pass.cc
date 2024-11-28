@@ -1726,7 +1726,8 @@ class BitwiseCommonOpPattern : public pir::OpRewritePattern<OpType> {
     if (!input_type.isa<pir::BoolType>()) {
       if constexpr (std::is_same_v<OpType, paddle::dialect::BitwiseAndOp>) {
         VLOG(3) << "the bitwise_and only supports input of BOOL.";
-      } else if constexpr (std::is_same_v<OpType, paddle::dialect::BitwiseOrOp>) {
+      } else if constexpr (std::is_same_v<OpType,
+                                          paddle::dialect::BitwiseOrOp>) {
         VLOG(3) << "the bitwise_or only supports input of BOOL.";
       }
       return false;
