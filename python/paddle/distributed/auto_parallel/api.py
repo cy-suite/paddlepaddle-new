@@ -376,6 +376,7 @@ class _moe_global_mesh_tensor(PyLayer):
     ):
         # NOTE: _local_value and Paddle.Tensor() is only supported in dynamic mode
         if paddle.in_dynamic_mode():
+            print("local_tensor_list: ", len(local_tensor_list))
             local_tensor = local_tensor_list[idx]
             if local_tensor.is_dist():
                 local_mesh = local_tensor.process_mesh
@@ -384,26 +385,26 @@ class _moe_global_mesh_tensor(PyLayer):
                 local_val = local_tensor
                 local_mesh = None
 
-                ctx.save_for_backward(
-                    copy.deepcopy(mesh),  #  global_mesh
-                    local_tensor.shape,  #  local_dims
-                    copy.deepcopy(local_mesh_list),  #  local_mesh_list
-                    copy.deepcopy(local_placements),  #  local_placements
-                )
+            ctx.save_for_backward(
+                copy.deepcopy(mesh),  #  global_mesh
+                local_tensor.shape,  #  local_dims
+                copy.deepcopy(local_mesh_list),  #  local_mesh_list
+                copy.deepcopy(local_placements),  #  local_placements
+            )
 
-                place = paddle.framework._current_expected_place()
-                place = paddle.framework._get_paddle_place(place)
+            place = paddle.framework._current_expected_place()
+            place = paddle.framework._get_paddle_place(place)
 
-                global_tensor = paddle.Tensor(
-                    local_val,
-                    dims=global_dims,
-                    process_mesh=mesh,
-                    placements=placements,
-                    place=place,
-                )
-                global_tensor.stop_gradient = local_tensor.stop_gradient
-                return global_tensor
-        elif paddle.framework.in_pir_mode():
+            global_tensor = paddle.Tensor(
+                local_val,
+                dims=global_dims,
+                process_mesh=mesh,
+                placements=placements,
+                place=place,
+            )
+            global_tensor.stop_gradient = local_tensor.stop_gradient
+            return global_tensor
+        else:
             ctx.save_for_backward(
                 copy.deepcopy(mesh),  #  global_mesh
                 copy.deepcopy(placements),  #  global_placements
@@ -446,7 +447,7 @@ class _moe_global_mesh_tensor(PyLayer):
                     )
                     out[-1].get_tensor()._unsafe_set_skip_check_mesh(True)
                 return out
-        elif paddle.framework.in_pir_mode():
+        else:
             (
                 global_mesh,
                 global_placements,
