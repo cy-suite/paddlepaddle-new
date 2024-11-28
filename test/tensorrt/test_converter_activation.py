@@ -138,6 +138,7 @@ class TestTanhShrinkOpFloatTRTPattern(TensorRTBaseTest):
     def test_trt_result(self):
         self.check_trt_result()
 
+
 class TestCeluTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.nn.functional.celu
