@@ -107,7 +107,7 @@ def _get_sys_unsupported_list(dtype):
         "while",
         "cast",
         "tensor_array_to_tensor",
-        "lod_array_length",
+        "dense_array_length",
         "write_to_array",
     }
     sys_unsupported_list -= supported_fp16_list

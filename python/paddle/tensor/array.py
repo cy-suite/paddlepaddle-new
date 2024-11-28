@@ -92,7 +92,7 @@ def array_length(array):
         tmp = helper.create_variable_for_type_inference(dtype='int64')
         tmp.stop_gradient = True
         helper.append_op(
-            type='lod_array_length',
+            type='dense_array_length',
             inputs={'X': [array]},
             outputs={'Out': [tmp]},
         )

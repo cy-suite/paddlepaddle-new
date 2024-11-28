@@ -83,7 +83,7 @@ class LoDArrayLengthInferShape : public framework::InferShapeBase {
 
 namespace ops = paddle::operators;
 REGISTER_OPERATOR(
-    lod_array_length,
+    dense_array_length,
     ops::LoDArrayLengthOp,
     ops::LoDArrayLengthInferShape,
     ops::LoDArrayLengthProtoMaker,

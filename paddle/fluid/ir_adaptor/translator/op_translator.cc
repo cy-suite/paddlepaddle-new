@@ -3416,7 +3416,7 @@ struct LodArrayLengthOpTranscriber : public OpTranscriber {
     const auto& op_info = ctx->GetRegisteredOpInfo(target_op_name);
     if (!op_info) {
       PADDLE_THROW(common::errors::InvalidArgument(
-          "Op lod_array_length should have corresponding OpInfo "
+          "Op dense_array_length should have corresponding OpInfo "
           "pd_op.array_length"));
     }
 
@@ -3439,7 +3439,7 @@ struct LodArrayLengthOpTranscriber : public OpTranscriber {
           op_desc.HasInput("X"),
           true,
           common::errors::InvalidArgument(
-              "Op lod_array_length should have input `X` but not found"));
+              "Op dense_array_length should have input `X` but not found"));
       const auto& vars = op_desc.Input("X");
       PADDLE_ENFORCE_EQ(
           vars.size(),
@@ -3987,7 +3987,7 @@ OpTranslator::OpTranslator() {
   special_handlers["box_coder"] = BoxCoderOpTranscriber();
 
   // To adapt DenseTensorArray
-  special_handlers["lod_array_length"] = LodArrayLengthOpTranscriber();
+  special_handlers["dense_array_length"] = LodArrayLengthOpTranscriber();
   special_handlers["write_to_array"] = WriteArrayOpTranscriber();
   special_handlers["read_from_array"] = ReadArrayOpTranscriber();
 

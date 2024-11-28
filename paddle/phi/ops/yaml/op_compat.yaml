@@ -4227,6 +4227,12 @@
   outputs:
     {param_out : ParamOut, moment_out : MomentOut}
 
+- op: dense_array_length
+  inputs :
+    {x: X}
+  outputs :
+    out : Out
+
 - op: depend
   inputs:
     {x : X, dep : Dep}
@@ -4418,12 +4424,6 @@
       tensor_name : Offsets
 
 - op: limit_by_capacity
-  outputs :
-    out : Out
-
-- op: lod_array_length
-  inputs :
-    {x: X}
   outputs :
     out : Out
 
