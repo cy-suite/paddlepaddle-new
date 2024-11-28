@@ -245,6 +245,12 @@ CC_OP_INFO_FILE_TEMPLATE_WIN_PART1 = """#ifdef GET_OP_LIST1
 #elif defined(GET_OP_LIST2)
 #undef GET_OP_LIST2
 {op_declare_second_part}
+#elif defined(GET_OP_LIST3)
+#undef GET_OP_LIST3
+{op_declare_third_part}
+#elif defined(GET_OP_LIST4)
+#undef GET_OP_LIST4
+{op_declare_fourth_part}
 """
 
 CC_OP_INFO_FILE_TEMPLATE_PART2 = """
