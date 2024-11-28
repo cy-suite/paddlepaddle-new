@@ -1413,6 +1413,25 @@ Tensor addmm_decomp(const Tensor& input,
          full_scalar<T>(beta, input.dtype()) * input;
 }
 
+template <typename T>
+Tensor eye_decomp(const paddle::Scalar& num_rows,
+                  const paddle::Scalar& num_columns,
+                  const DataType dtype,
+                  const Place& place) {
+  int32_t min_num = std::min(num_rows.to<int>(), num_columns.to<int>());
+  Tensor zero =
+      full<T>({num_rows.to<int>(), num_columns.to<int>()}, 0, dtype, place);
+  Tensor diag_one = unsqueeze<T>(full<T>({min_num}, 1, dtype, place), {1});
+
+  std::vector<Tensor> index_vec;
+  for (int i = 0; i < min_num; i++) {
+    Tensor index = full<T>({1}, i, DataType::INT32, place);
+    index_vec.push_back(index);
+  }
+  Tensor index = unsqueeze<T>(concat<T>(index_vec), {1});
+  Tensor res = put_along_axis<T>(zero, index, diag_one, 1);
+  return res;
+}
 }  // namespace details
 
 }  // namespace primitive
