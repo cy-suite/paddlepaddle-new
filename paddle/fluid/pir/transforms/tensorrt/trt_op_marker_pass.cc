@@ -1706,7 +1706,8 @@ class BitwiseCommonOpPattern : public pir::OpRewritePattern<OpType> {
  public:
   using pir::OpRewritePattern<OpType>::OpRewritePattern;
 
-  bool MatchAndRewrite(OpType op, pir::PatternRewriter &rewriter) const override {
+  bool MatchAndRewrite(OpType op,
+                       pir::PatternRewriter &rewriter) const override {
     if (op->HasAttribute(kCanRunTrtAttr) &&
         op->template attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
@@ -1715,7 +1716,8 @@ class BitwiseCommonOpPattern : public pir::OpRewritePattern<OpType> {
 #if IS_TRT_VERSION_LT(8400)
     if constexpr (std::is_same_v<OpType, paddle::dialect::BitwiseAndOp>) {
       VLOG(3) << "bitwise_and is not supported when TensorRT < 8.4";
-    } else if constexpr (std::is_same_v<OpType, paddle::dialect::BitwiseOrOp>) {
+    } else if constexpr (std::is_same_v<OpType,
+                                        paddle::dialect::BitwiseOrOp>) {
       VLOG(3) << "bitwise_or is not supported when TensorRT < 8.4";
     }
     return false;
@@ -1734,7 +1736,8 @@ class BitwiseCommonOpPattern : public pir::OpRewritePattern<OpType> {
     return true;
   }
 };
-using BitwiseAndOpPattern = BitwiseCommonOpPattern<paddle::dialect::BitwiseAndOp>;
+using BitwiseAndOpPattern =
+    BitwiseCommonOpPattern<paddle::dialect::BitwiseAndOp>;
 using BitwiseOrOpPattern = BitwiseCommonOpPattern<paddle::dialect::BitwiseOrOp>;
 
 class BitwiseNotOpPattern

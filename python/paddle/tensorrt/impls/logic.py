@@ -55,11 +55,25 @@ def not_equal_converter(network, paddle_op, inputs):
 def bitwise_not_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     if input_tensor.dtype == trt.bool:
-        bitwise_not_layer = network.add_unary(input_tensor, trt.UnaryOperation.NOT)
+        bitwise_not_layer = network.add_unary(
+            input_tensor, trt.UnaryOperation.NOT
+        )
         layer_output = bitwise_not_layer.get_output(0)
         _ = layer_output.dtype
     else:
-        neg_one_tensor = network.add_constant(input_tensor.shape, -1).get_output(0)
-        negated = add_elementwise_layer(network, paddle_op, [input_tensor, neg_one_tensor], trt.ElementWiseOperation.PROD)
-        layer_output = add_elementwise_layer(network, paddle_op, [negated, neg_one_tensor], trt.ElementWiseOperation.SUM)
+        neg_one_tensor = network.add_constant(
+            input_tensor.shape, -1
+        ).get_output(0)
+        negated = add_elementwise_layer(
+            network,
+            paddle_op,
+            [input_tensor, neg_one_tensor],
+            trt.ElementWiseOperation.PROD
+        )
+        layer_output = add_elementwise_layer(
+            network,
+            paddle_op,
+            [negated, neg_one_tensor],
+            trt.ElementWiseOperation.SUM
+        )
     return layer_output
