@@ -31,7 +31,7 @@ namespace proto = paddle::framework::proto;
 
 namespace phi {
 
-TEST_API std::string DataTypeToString(const proto::VarType::Type type);
+TEST_API std::string VarDataTypeToString(const proto::VarType::Type type);
 TEST_API extern size_t SizeOfType(proto::VarType::Type type);
 
 template <typename T>
