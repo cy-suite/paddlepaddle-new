@@ -33,6 +33,37 @@ void MultinomialKernel(const Context& dev_ctx,
   const int64_t num_distributions = dim_size > 1 ? in_dims[dim_size - 2] : 1;
   int64_t seed = dev_ctx.GetGenerator()->Random64();
 
+  // follow GPU kernel, check input
+  // If replacement is False, it's not a replaceable sample. Every category
+  // can be used only once.
+  if (!replacement) {
+    phi::DenseTensor cpu_tensor;
+    phi::Copy<Context>(dev_ctx, x, phi::CPUPlace(), false, &cpu_tensor);
+    T* cpu_in_data = cpu_tensor.data<T>();
+    for (int64_t i = 0; i < num_distributions; ++i) {
+      int zero_num = 0;
+      for (int64_t j = 0; j < num_categories; ++j) {
+        T weight = cpu_in_data[i * num_categories + j];
+        PADDLE_ENFORCE_GE(
+            static_cast<float>(weight),
+            0,
+            errors::InvalidArgument(
+                "Each element of multinomial'input must >= 0, but got %f.",
+                static_cast<float>(weight)));
+        if (weight == static_cast<T>(0)) {
+          zero_num++;
+        }
+      }
+      int valid_samples = num_categories - zero_num;
+      PADDLE_ENFORCE_LE(
+          int_num_samples,
+          valid_samples,
+          errors::InvalidArgument("When replacement=False, 'num_samples' "
+                                  "must less than or equal to the number of "
+                                  "positive item of input"));
+    }
+  }
+
   xpu::ctx_guard RAII_GUARD(dev_ctx.x_context());
   const float* in_data = nullptr;
   if (!std::is_same<T, float>::value) {
