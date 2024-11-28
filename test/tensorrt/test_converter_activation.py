@@ -173,7 +173,7 @@ class TestMishCase1TRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestMishFloatTCase2RTPattern(TensorRTBaseTest):
+class TestMishCase2TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.nn.functional.mish
         self.api_args = {
@@ -187,7 +187,7 @@ class TestMishFloatTCase2RTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestMishFloatTCase3RTPattern(TensorRTBaseTest):
+class TestMishCase3TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.nn.functional.mish
         self.api_args = {
@@ -201,7 +201,7 @@ class TestMishFloatTCase3RTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestMishFloatTCase4RTPattern(TensorRTBaseTest):
+class TestMishCase4TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.nn.functional.mish
         self.api_args = {
