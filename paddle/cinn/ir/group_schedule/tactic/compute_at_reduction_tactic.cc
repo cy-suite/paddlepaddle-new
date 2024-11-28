@@ -44,27 +44,47 @@ void ComputeAtReductionTactic::Init(ScheduleContext* context) {
   context_ = context;
 }
 
-bool ForExtentsEqual(const std::vector<ir::Expr>& first,
-                     const std::vector<ir::Expr>& second) {
-  if (first.size() != second.size()) {
-    return false;
+template <typename OpType>
+bool IfConditionEqual(const ir::Expr& first, const ir::Expr& second) {
+  if ((first.As<OpType>() && second.As<OpType>())) {
+    auto first_op = first.As<OpType>();
+    auto second_op = second.As<OpType>();
+    // Check if condition is an index expression.
+    if (!(first_op->a()).is_index() || !(first_op->b()).is_index() ||
+        !(second_op->a()).is_index() || !(second_op->b()).is_index()) {
+      return false;
+    }
+    return ir::ir_utils::IRCompare(first, second);
   }
-  for (size_t i = 0; i < first.size(); ++i) {
-    const ir::For* first_for = first[i].As<ir::For>();
-    const ir::For* second_for = second[i].As<ir::For>();
-    PADDLE_ENFORCE_NOT_NULL(
-        first_for,
-        ::common::errors::InvalidArgument("The input node should be a For!"));
-    PADDLE_ENFORCE_NOT_NULL(
-        second_for,
-        ::common::errors::InvalidArgument("The input node should be a For!"));
+  return false;
+}
 
-    if (!ir::ir_utils::IRCompare(first_for->extent, second_for->extent)) {
+bool ControlFlowAllEqual(const std::vector<ir::Expr>& first,
+                         const std::vector<ir::Expr>& second) {
+  const auto ControlFlowEqual = [&](const ir::Expr& first,
+                                    const ir::Expr& second) -> bool {
+    if (first.As<ir::For>() && second.As<ir::For>()) {
+      auto first_for = first.As<ir::For>();
+      auto second_for = second.As<ir::For>();
+      if (first_for->for_type() != second_for->for_type()) return false;
+      return ir::ir_utils::IRCompare(first_for->extent, second_for->extent);
+    } else if (first.As<ir::IfThenElse>() && second.As<ir::IfThenElse>()) {
+      auto first_cond = first.As<ir::IfThenElse>()->condition;
+      auto second_cond = second.As<ir::IfThenElse>()->condition;
+      if (IfConditionEqual<ir::LT>(first_cond, second_cond)) return true;
+      if (IfConditionEqual<ir::LE>(first_cond, second_cond)) return true;
+      return false;
+    } else {
+      VLOG(8) << "Is not for or if_then_else node, first: " << first
+              << " second: " << second;
       return false;
     }
-    if (first_for->for_type() != second_for->for_type()) {
-      return false;
-    }
+    return false;
+  };
+
+  if (first.size() != second.size()) return false;
+  for (size_t i = 0; i < first.size(); ++i) {
+    if (!ControlFlowEqual(first[i], second[i])) return false;
   }
   return true;
 }
@@ -87,12 +107,59 @@ std::string BlockToName(const ir::Expr& block) {
       ->name;
 }
 
+struct GetControlFlowFunctor {
+  explicit GetControlFlowFunctor(const Expr& block) : block_(block) {}
+
+  std::vector<Expr> operator()(const Expr& expr) {
+    PADDLE_ENFORCE_NOT_NULL(
+        block_.As<ir::ScheduleBlockRealize>(),
+        ::common::errors::NotFound("The expr should be ScheduleBlockRealize."));
+    end_ = false;
+    GetControlFlow(expr);
+    return result_;
+  }
+
+ private:
+  void GetControlFlow(const Expr& expr) {
+    if (end_) return;
+    if (expr.As<ir::For>()) {
+      control_flow_.emplace_back(expr);
+      GetControlFlow(expr.As<ir::For>()->body);
+      control_flow_.pop_back();
+    } else if (expr.As<ir::ScheduleBlockRealize>()) {
+      if (BlockToName(expr) == BlockToName(block_)) {
+        result_ = control_flow_;
+        end_ = true;
+        return;
+      } else {
+        GetControlFlow(expr.As<ir::ScheduleBlockRealize>()->schedule_block);
+      }
+    } else if (expr.As<ir::ScheduleBlock>()) {
+      GetControlFlow(expr.As<ir::ScheduleBlock>()->body);
+    } else if (expr.As<ir::Block>()) {
+      for (auto& stmt : expr.As<ir::Block>()->stmts) GetControlFlow(stmt);
+    } else if (expr.As<ir::IfThenElse>()) {
+      control_flow_.emplace_back(expr);
+      GetControlFlow(expr.As<ir::IfThenElse>()->true_case);
+      if (expr.As<ir::IfThenElse>()->false_case.defined())
+        GetControlFlow(expr.As<ir::IfThenElse>()->false_case);
+      control_flow_.pop_back();
+    }
+  }
+
+  std::vector<Expr> control_flow_{};
+  std::vector<Expr> result_{};
+  bool end_{false};
+  const Expr& block_;
+};
+
 void ComputeAtReductionTactic::Apply(ir::IRSchedule* sch,
                                      const std::string& block_id) {
   const auto ContainsConditionOrLet = [&](const ir::Expr& expr) -> bool {
     const auto condition_or_let = ir::ir_utils::CollectIRNodesWithoutTensor(
         expr, [&](const Expr* x) -> bool {
-          if (x->As<ir::IfThenElse>()) return true;
+          if (x->As<ir::IfThenElse>())  // Only handle index expression.
+            return x->As<ir::IfThenElse>()->false_case.defined();
           if (x->As<ir::Select>()) return true;
           if (x->As<ir::Let>()) return true;
           return false;
@@ -122,34 +189,37 @@ void ComputeAtReductionTactic::ComputeAtReduceInit(
     ir::IRSchedule* sch, const std::string& block_id) {
   if (!ir::IsReduceInitTensorName(block_id)) return;
 
-  const auto GetRootInitBlockId =
-      [&](const std::vector<ir::Expr>& blocks) -> std::optional<std::string> {
+  const auto GetRootInitBlockIds =
+      [&](const std::vector<ir::Expr>& blocks) -> std::vector<std::string> {
     for (const auto& block : blocks) {
       const std::string root_block_name = BlockToName(block);
       if (ir::IsReduceInitTensorName(root_block_name))
-        return std::optional<std::string>{root_block_name};
+        return std::vector<std::string>{root_block_name};
     }
-    return std::nullopt;
+    return std::vector<std::string>();
   };
 
   const std::vector<ir::Expr> blocks = sch->GetAllBlocks();
-  std::optional<std::string> root_init_block_id_value =
-      GetRootInitBlockId(blocks);
-  if (!root_init_block_id_value.has_value()) return;
-  const std::string root_init_block_id = root_init_block_id_value.value();
+  std::vector<std::string> root_init_block_ids = GetRootInitBlockIds(blocks);
+  if (root_init_block_ids.empty()) return;
+  // Should evaluate benefits later, temporarily select the first candidate.
+  const std::string root_init_block_id = root_init_block_ids[0];
   if (BlockWithSameLoop(sch->GetLoops(root_init_block_id),
                         sch->GetLoops(block_id)))
     return;
 
   const std::vector<ir::Expr> root_loops = sch->GetLoops(root_init_block_id);
   const std::vector<ir::Expr> cur_loops = sch->GetLoops(block_id);
-  if (!ForExtentsEqual(root_loops, cur_loops)) return;
+  if (!ControlFlowAllEqual(root_loops, cur_loops)) return;
 
-  sch->SimpleComputeAt(sch->GetBlock(block_id),
-                       sch->GetLoops(root_init_block_id).back());
+  auto block = sch->GetBlock(block_id);
+  auto loop = sch->GetLoops(root_init_block_id).back();
+  auto root = sch->GetRootBlock(block);
+  CheckComputeAtValidation(block, loop, root);
+  sch->SimpleComputeAt(block, loop);
 }
 
-std::optional<std::string> FindCandidateBlockId(
+std::vector<std::string> FindCandidateBlockIds(
     ir::IRSchedule* sch,
     const std::vector<ir::Expr>& blocks,
     const ir::Expr& cur_block) {
@@ -168,6 +238,58 @@ std::optional<std::string> FindCandidateBlockId(
     return ret;
   };
 
+  const auto ReplaceIterWithMap =
+      [&](const ir::Expr& expr,
+          const std::unordered_map<ir::Var, ir::Var>& for_var_map) -> ir::Expr {
+    ir::Expr map_expr = ir::ir_utils::IRCopy(expr);
+    for (const auto& [lhs_var, rhs_var] : for_var_map) {
+      auto tmp_var =
+          ir::_Var_::Make(rhs_var->lower_bound,
+                          rhs_var->upper_bound,
+                          lhs_var->name + "_compare_var_" + rhs_var->name,
+                          rhs_var->is_reduce_axis,
+                          rhs_var->is_symbolic_constant,
+                          rhs_var->is_keepdim);
+      map_expr =
+          ir::analyzer::ReplaceVarWithExpr(map_expr, {lhs_var}, {tmp_var});
+      map_expr =
+          ir::analyzer::ReplaceVarWithExpr(map_expr, {rhs_var}, {tmp_var});
+    }
+    return map_expr;
+  };
+
+  const auto ConditionWithIter =
+      [&](const ir::Expr& block,
+          const std::unordered_map<ir::Var, ir::Var>& for_var_map)
+      -> std::vector<ir::Expr> {
+    std::vector<ir::Expr> control_flows;
+    for (auto& cf : GetControlFlowFunctor(block)(sch->GetRootBlock(block))) {
+      auto tmp_cf = ir::ir_utils::IRCopy(cf);
+      if (tmp_cf.As<ir::IfThenElse>()) {
+        auto if_then_else = tmp_cf.As<ir::IfThenElse>();
+        if_then_else->condition =
+            ReplaceIterWithMap(if_then_else->condition, for_var_map);
+      }
+      control_flows.push_back(tmp_cf);
+    }
+    return control_flows;
+  };
+
+  const auto ControlFlowWithIterEqual =
+      [&](const ir::Expr& first_block,
+          const ir::Expr& second_block,
+          const std::unordered_map<ir::Var, ir::Var>& for_var_map) -> bool {
+    // Handle index expression.
+    if (ir::ir_utils::CollectIRNodesWithoutTensor(
+            sch->GetLoops(second_block).back(),
+            [](const Expr* x) { return x->As<ir::IfThenElse>(); })
+            .size() > 1) {
+      return false;
+    }
+    return ControlFlowAllEqual(ConditionWithIter(first_block, for_var_map),
+                               ConditionWithIter(second_block, for_var_map));
+  };
+
   const auto IndicesWithIterValues =
       [&](const std::vector<ir::Expr>& indices,
           const ir::ScheduleBlockRealize* sbr,
@@ -176,23 +298,7 @@ std::optional<std::string> FindCandidateBlockId(
     std::vector<ir::Expr> tensor_indices;
     std::vector<ir::Expr> map_iter_values;
     for (const auto& iter_value : sbr->iter_values) {
-      ir::Expr map_iter_value = ir::ir_utils::IRCopy(iter_value);
-      for (const auto& [lhs_var, rhs_var] : for_var_map) {
-        // cinn::optim::ReplaceVarWithExpr(
-        //     &map_iter_value, lhs_var, ir::ir_utils::IRCopy(rhs_var));
-        auto tmp_var =
-            ir::_Var_::Make(rhs_var->lower_bound,
-                            rhs_var->upper_bound,
-                            lhs_var->name + "_compare_var_" + rhs_var->name,
-                            rhs_var->is_reduce_axis,
-                            rhs_var->is_symbolic_constant,
-                            rhs_var->is_keepdim);
-        map_iter_value = ir::analyzer::ReplaceVarWithExpr(
-            map_iter_value, {lhs_var}, {tmp_var});
-        map_iter_value = ir::analyzer::ReplaceVarWithExpr(
-            map_iter_value, {rhs_var}, {tmp_var});
-      }
-      map_iter_values.push_back(map_iter_value);
+      map_iter_values.push_back(ReplaceIterWithMap(iter_value, for_var_map));
     }
     for (ir::Expr index : indices) {
       ir::Expr index_value = ir::analyzer::ReplaceVarWithExpr(
@@ -243,9 +349,11 @@ std::optional<std::string> FindCandidateBlockId(
     if (IndicesContainLoad(target_load)) return false;
     const std::vector<ir::Expr> first_loops = sch->GetLoops(first_block);
     const std::vector<ir::Expr> second_loops = sch->GetLoops(second_block);
-    if (!ForExtentsEqual(first_loops, second_loops)) return false;
+    if (first_loops.size() != second_loops.size()) return false;
     std::unordered_map<ir::Var, ir::Var> for_var_map =
         ConstructForVarMap(first_loops, second_loops);
+    if (!ControlFlowWithIterEqual(first_block, second_block, for_var_map))
+      return false;
 
     for (const auto& load_node : load_nodes) {
       const auto node = load_node.As<ir::Load>();
@@ -267,9 +375,9 @@ std::optional<std::string> FindCandidateBlockId(
     return false;
   };
 
-  const auto GetCandidateBlockId =
+  const auto GetCandidateBlockIds =
       [&](const std::vector<ir::Expr>& blocks,
-          const ir::Expr& cur_block) -> std::optional<std::string> {
+          const ir::Expr& cur_block) -> std::vector<std::string> {
     const auto load_nodes = ir::ir_utils::CollectIRNodesWithoutTensor(
         cur_block, [&](const Expr* x) -> bool {
           return x->As<ir::Load>() &&
@@ -286,13 +394,13 @@ std::optional<std::string> FindCandidateBlockId(
                        x->As<ir::Load>(), load_nodes, block, cur_block);
           });
       if (!common_loads.empty()) {
-        return std::optional<std::string>{BlockToName(block)};
+        return std::vector<std::string>{BlockToName(block)};
       }
     }
-    return std::nullopt;
+    return std::vector<std::string>();
   };
 
-  return GetCandidateBlockId(blocks, cur_block);
+  return GetCandidateBlockIds(blocks, cur_block);
 }
 
 bool IsSafeComputeAt(ir::IRSchedule* sch,
@@ -384,11 +492,13 @@ bool IsSafeComputeAt(ir::IRSchedule* sch,
 
 void ComputeAtReductionTactic::ComputeAtReduceLoad(
     ir::IRSchedule* sch, const std::string& block_id) {
+  if (!ir::analyzer::IsReductionSBlock(sch->GetBlock(block_id))) return;
   // 1. Find candidate block, load buffer with same indices.
-  std::optional<std::string> candidate_block_id_value =
-      FindCandidateBlockId(sch, sch->GetAllBlocks(), sch->GetBlock(block_id));
-  if (!candidate_block_id_value.has_value()) return;
-  const std::string candidate_block_id = candidate_block_id_value.value();
+  std::vector<std::string> candidate_block_ids =
+      FindCandidateBlockIds(sch, sch->GetAllBlocks(), sch->GetBlock(block_id));
+  if (candidate_block_ids.empty()) return;
+  // Should evaluate benefits later, temporarily select the first candidate.
+  const std::string candidate_block_id = candidate_block_ids[0];
   if (BlockWithSameLoop(sch->GetLoops(candidate_block_id),
                         sch->GetLoops(block_id)))
     return;
@@ -398,10 +508,12 @@ void ComputeAtReductionTactic::ComputeAtReduceLoad(
   if (!IsSafeComputeAt(sch, candidate_block_id, block_id)) return;
   VLOG(8) << "Compate at is safe: " << block_id;
 
-  // 3. Compute at schedule.
-  const std::vector<ir::Expr> candidate_block_loops =
-      sch->GetLoops(candidate_block_id);
-  sch->SimpleComputeAt(sch->GetBlock(block_id), candidate_block_loops.back());
+  // 3. Check and compute at schedule.
+  auto block = sch->GetBlock(block_id);
+  auto loop = sch->GetLoops(candidate_block_id).back();
+  auto root = sch->GetRootBlock(block);
+  CheckComputeAtValidation(block, loop, root);
+  sch->SimpleComputeAt(block, loop);
 }
 
 std::unique_ptr<ScheduleTactic> CreateComputeAtReductionTactic() {
