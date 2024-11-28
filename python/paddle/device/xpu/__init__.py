@@ -122,7 +122,7 @@ def empty_cache() -> None:
     Releases idle cached memory held by the allocator so that those can be used in other XPU
     application and visible in `xpu-smi`. In most cases you don't need to use this function,
     Paddle does not release the memory back to the OS when you remove Tensors on the XPU,
-    Because it keeps gpu memory in a pool so that next allocations can be done much faster.
+    Because it keeps xpu memory in a pool so that next allocations can be done much faster.
 
     Examples:
         .. code-block:: python
@@ -133,7 +133,7 @@ def empty_cache() -> None:
 
             >>> tensor = paddle.randn([512, 512, 512], "float64")
             >>> del tensor
-            >>> paddle.device.cuda.empty_cache()
+            >>> paddle.device.xpu.empty_cache()
     '''
 
     if core.is_compiled_with_xpu():
