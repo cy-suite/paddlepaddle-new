@@ -222,8 +222,6 @@ using SubtractOpPattern =
     ElementwiseCommonOpPattern<paddle::dialect::SubtractOp>;
 using DivideOpPattern = ElementwiseCommonOpPattern<paddle::dialect::DivideOp>;
 using PowOpPattern = ElementwiseCommonOpPattern<paddle::dialect::PowOp>;
-using ElementwisePowOpPattern =
-    ElementwiseCommonOpPattern<paddle::dialect::ElementwisePowOp>;
 using MinimumOpPattern = ElementwiseCommonOpPattern<paddle::dialect::MinimumOp>;
 using MaximumOpPattern = ElementwiseCommonOpPattern<paddle::dialect::MaximumOp>;
 using FloorDivideOpPattern =
@@ -2063,7 +2061,6 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<MultiplyOpPattern>(context));
     ps.Add(std::make_unique<SubtractOpPattern>(context));
     ps.Add(std::make_unique<DivideOpPattern>(context));
-    ps.Add(std::make_unique<ElementwisePowOpPattern>(context));
     ps.Add(std::make_unique<MinimumOpPattern>(context));
     ps.Add(std::make_unique<MaximumOpPattern>(context));
     ps.Add(std::make_unique<FloorDivideOpPattern>(context));
