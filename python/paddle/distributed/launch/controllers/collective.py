@@ -128,8 +128,7 @@ class CollectiveController(Controller):
                 "PADDLE_TRAINERS_NUM": f"{len(job_endpoints)}",
                 "PADDLE_RANK_IN_NODE": str(i),
             }
-            if len(",".join(job_endpoints)) < 120 * 1024:
-                e.update({"PADDLE_TRAINER_ENDPOINTS": ",".join(job_endpoints)})
+            e.update({"PADDLE_TRAINER_ENDPOINTS": ",".join(job_endpoints)})
 
             if self._tuner_run_mode is not None:
                 e.update(
@@ -230,8 +229,7 @@ class CollectiveController(Controller):
                 "PADDLE_TRAINERS_NUM": f"{global_size}",
                 "PADDLE_RANK_IN_NODE": str(i),
             }
-            if len(",".join(job_endpoints)) < 120 * 1024:
-                e.update({"PADDLE_TRAINER_ENDPOINTS": ",".join(job_endpoints)})
+            e.update({"PADDLE_TRAINER_ENDPOINTS": ",".join(job_endpoints)})
 
             if self._tuner_run_mode is not None:
                 e.update(
