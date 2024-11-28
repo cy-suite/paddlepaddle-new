@@ -101,10 +101,6 @@ function make_ubuntu20_cu12_dockerfile(){
     pip3.10 install -r csrc/requirements.txt \&\& \
     pip3.10 install pytest-timeout \&\& \
     cd /home \&\& rm -rf PaddleNLP" ${dockerfile_name}
-  sed -i 's#RUN bash /build_scripts/install_gcc.sh gcc121#RUN add-apt-repository ppa:ubuntu-toolchain-r/test \&\& apt-get update \&\& apt-get install -y gcc-13 g++-13#g' ${dockerfile_name}
-  sed -i 's#/usr/local/gcc-12.1/bin/gcc#/usr/bin/gcc-13#g' ${dockerfile_name}
-  sed -i 's#/usr/local/gcc-12.1/bin/g++#/usr/bin/g++-13#g' ${dockerfile_name}
-  sed -i 's#ENV PATH=/usr/local/gcc-12.1/bin:$PATH##g' ${dockerfile_name}
 }
 
 
