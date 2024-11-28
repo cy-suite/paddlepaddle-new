@@ -1341,21 +1341,16 @@ def monkey_patch_tensor():
                                 If None or -1, no synchronization is performed.
                                 If 0, the default stream is used.
         """
-        if "gpu" not in str(self.place):
-            raise AttributeError(
-                "Can't get __dlpack__ on non-CUDA tensor. "
-                "Use tensor.cuda() to move the tensor to device memory."
-            )
 
         if self.is_sparse():
             raise AttributeError(
-                "Can't get __dlpack__ on sparse tensor. "
-                "Use Tensor.to_dense() to convert to a dense tensor first."
+                "Can't get __dlpack__ from a Tensor that requires gradients, "
+                "use tensor.detach() if gradients are not required."
             )
 
         if not self.stop_gradient:
             raise RuntimeError(
-                "Can't get __dlpack__ on Tensor that requires gradients. "
+                "Can't get __dlpack__ from Tensor that requires gradients. "
                 "If gradients aren't required, use tensor.detach() to get a tensor without gradient."
             )
 
@@ -1364,7 +1359,9 @@ def monkey_patch_tensor():
 
         if stream is not None and stream != -1:
             if self.place.is_gpu_place():
-                if stream == 0:
+                if stream == 1 and not paddle.device.is_compiled_with_rocm():
+                    stream = paddle.device.cuda.default_stream()
+                elif stream == 0 and paddle.device.is_compiled_with_rocm():
                     stream = paddle.device.cuda.default_stream()
                 else:
                     stream = paddle.device.cuda.ExternalStream(stream)
@@ -1374,7 +1371,7 @@ def monkey_patch_tensor():
                     event.record(current_stream)
                     stream.wait_event(event)
 
-        return paddle.utils.dlpack.to_dlpack(self)
+        return paddle.to_dlpack(self)
 
     if not hasattr(core, "eager"):
         return

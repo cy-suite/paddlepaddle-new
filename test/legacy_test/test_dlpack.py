@@ -326,16 +326,20 @@ class TestDLPack(unittest.TestCase):
                     np.testing.assert_array_equal(x.numpy(), y2.numpy())
 
     def test_dlpack_basic(self):
-        tensor_cpu = paddle.to_tensor([1.0, 2.0, 3.0], place=paddle.CPUPlace())
+        self.places = []
+        if not paddle.device.is_compiled_with_cuda():
+            self.places.append(paddle.CPUPlace())
         if paddle.device.is_compiled_with_cuda():
-            tensor_gpu = paddle.to_tensor(
-                [1.0, 2.0, 3.0], place=paddle.CUDAPlace(0)
-            )
-            dlpack_capsule_gpu = tensor_gpu.__dlpack__()
-            self.assertIsNotNone(dlpack_capsule_gpu)
+            self.places.append(paddle.CUDAPlace(0))
 
-            converted_tensor_gpu = paddle.from_dlpack(dlpack_capsule_gpu)
-            self.assertTrue(paddle.equal_all(tensor_gpu, converted_tensor_gpu))
+        for place in self.places:
+            tensor = paddle.to_tensor([1.0, 2.0, 3.0], place=place)
+            if isinstance(place, paddle.CUDAPlace):
+                dlpack_capsule = tensor.__dlpack__()
+                self.assertIsNotNone(dlpack_capsule)
+
+                converted_tensor = paddle.utils.dlpack.from_dlpack(dlpack_capsule)
+                self.assertTrue(paddle.equal_all(tensor, converted_tensor))
 
 
 class TestRaiseError(unittest.TestCase):
