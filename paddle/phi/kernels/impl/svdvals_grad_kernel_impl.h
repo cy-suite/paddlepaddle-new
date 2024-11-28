@@ -48,9 +48,6 @@ void SvdvalsGradKernel(const Context& dev_ctx,
     phi::DiagEmbedKernel<T, Context>(dev_ctx, s_grad, 0, -1, -2, &dX_term);
   }
 
-  VLOG(4) << "dX_term shape: " << dX_term.dims()
-          << "s_grad shape: " << s_grad.dims();
-
   DenseTensor U, VH, S_recomputed;
   MetaTensor meta_u(&U), meta_s(&S_recomputed), meta_vh(&VH);
   SvdInferMeta(x, false, &meta_u, &meta_s, &meta_vh);

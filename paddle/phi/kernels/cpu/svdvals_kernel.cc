@@ -120,8 +120,6 @@ void SvdvalsKernel(const Context& dev_ctx,
   // Transpose the last two dimensions for LAPACK compatibility
   DenseTensor trans_x = ::phi::TransposeLast2Dim<T>(dev_ctx, X);
   auto* x_data = trans_x.data<T>();
-  VLOG(4) << "trans_x shape: " << trans_x.dims();
-  VLOG(4) << "S shape: " << S->dims();
   // Perform batch SVD computation for singular values
   BatchSvdvals<T>(x_data, S_out, rows, cols, batches);
 }
