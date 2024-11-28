@@ -620,5 +620,22 @@ class TestPadCase3TRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestPadCase4TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.nn.functional.pad
+        self.api_args = {
+            "x": np.random.randn(2, 3, 28, 28).astype("int64"),
+            "pad": [0, 0, 1, 1],
+            "mode": "reflect",
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [2, 3, 28, 28]}
+        self.opt_shape = {"x": [2, 3, 28, 28]}
+        self.max_shape = {"x": [2, 3, 28, 28]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
 if __name__ == '__main__':
     unittest.main()

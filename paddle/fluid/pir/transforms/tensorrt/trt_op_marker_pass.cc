@@ -949,8 +949,7 @@ class PadOpPattern : public pir::OpRewritePattern<paddle::dialect::PadOp> {
 
     // Check for the existence of the attributes pad_value and paddings
     if (!op->HasAttribute("pad_value") || !op->HasAttribute("paddings")) {
-      VLOG(3) << "PadOp does not have necessary attributes 'pad_value' or "
-                 "'paddings'.";
+      VLOG(3) << "PadOp must has 'pad_value' or 'paddings'.";
       return false;
     }
 
@@ -980,7 +979,7 @@ class PadOpPattern : public pir::OpRewritePattern<paddle::dialect::PadOp> {
       return false;
     }
     for (int i = 0; i < pad_size - 4; ++i) {
-      if (paddings[i].dyn_cast<pir::Int64Attribute>().data() != 0) {
+      if (paddings[i].dyn_cast<pir::Int32Attribute>().data() != 0) {
         VLOG(3) << "Only the last two dimensions can have non-zero paddings.";
         return false;
       }
