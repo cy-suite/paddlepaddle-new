@@ -143,7 +143,22 @@ class TestThresholdedReluTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestMishFloatTRTPattern(TensorRTBaseTest):
+
+class TestMishCase1TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.nn.functional.mish
+        self.api_args = {
+            "x": np.random.randn(2).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1]}
+        self.max_shape = {"x": [5]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestMishFloatTCase2RTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.nn.functional.mish
         self.api_args = {
@@ -152,6 +167,34 @@ class TestMishFloatTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3]}
         self.max_shape = {"x": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestMishFloatTCase3RTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.nn.functional.mish
+        self.api_args = {
+            "x": np.random.randn(2, 3, 4).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3, 4]}
+        self.max_shape = {"x": [5, 3, 4]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestMishFloatTCase4RTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.nn.functional.mish
+        self.api_args = {
+            "x": np.random.randn(2, 3, 4, 2).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3, 4, 2]}
+        self.max_shape = {"x": [5, 3, 4, 2]}
 
     def test_trt_result(self):
         self.check_trt_result()
