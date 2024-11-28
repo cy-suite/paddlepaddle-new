@@ -610,8 +610,8 @@ def _load_state_dict(
             metadata_list, target_state_dict, process_group, use_dist
         )
         state_dict_in_cpu = []
-        for idx in range(len(read_items) - 1):
-            item = read_items[idx]
+        idx = 0
+        for item in read_items:
             key = item.local_tensor_index.tensor_key
             if key in target_state_dict:
                 if target_state_dict[key].place.is_cpu_place():
@@ -716,13 +716,13 @@ def _load_state_dict(
                         tmp_tensor, src=src_rank, group=process_group
                     )
                     paddle.assign(tmp_tensor, cur_chunk_tensor)
-
             if (
                 key in state_dict_in_cpu
                 and idx + 1 < len(read_items)
                 and read_items[idx + 1].local_tensor_index.tensor_key != key
             ):
                 target_state_dict[key] = target_state_dict[key].cpu()
+            idx = idx + 1
 
         if use_dist:
             paddle.distributed.barrier(process_group)
