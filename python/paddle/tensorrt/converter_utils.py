@@ -511,17 +511,7 @@ def convert_conv2d(network, paddle_op, inputs):
 
 
 def convert_conv3d(network, paddle_op, inputs):
-    if paddle_op.name() == "pd_op.conv3d":
-        input_tensor, filter = inputs
-    elif paddle_op.name() == "pd_op.conv3d_transpose":
-        if len(inputs) == 3:
-            input_tensor, filter, output_size = inputs
-        elif len(inputs) == 2:
-            input_tensor, filter = inputs
-            output_size = None
-        else:
-            raise ValueError("Invalid number of inputs for conv3d_transpose")
-
+    input_tensor, filter = inputs
     input_shape = paddle_op.operands()[0].source().shape
     filter_shape = paddle_op.operands()[1].source().shape
 
@@ -575,22 +565,13 @@ def convert_conv3d(network, paddle_op, inputs):
     else:
         raise ValueError(f"Unsupported paddings size: {len(paddings)}")
 
-    if paddle_op.name() == "pd_op.conv3d":
-        layer = network.add_convolution_nd(
-            input=input_tensor,
-            num_output_maps=n_output,
-            kernel_shape=nv_ksize,
-            kernel=filter,
-            bias=None,
-        )
-    elif paddle_op.name() == "pd_op.conv3d_transpose":
-        layer = network.add_deconvolution_nd(
-            input=input_tensor,
-            num_output_maps=n_input * groups,
-            kernel_shape=nv_ksize,
-            kernel=filter,
-            bias=None,
-        )
+    layer = network.add_convolution_nd(
+        input=input_tensor,
+        num_output_maps=n_output,
+        kernel_shape=nv_ksize,
+        kernel=filter,
+        bias=None,
+    )
 
     layer.stride_nd = nv_strides
     layer.pre_padding = pre_paddings

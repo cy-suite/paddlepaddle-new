@@ -86,7 +86,6 @@ DEFINE_GENERAL_PATTERN(Log, paddle::dialect::LogOp)
 DEFINE_GENERAL_PATTERN(Floor, paddle::dialect::FloorOp)
 DEFINE_GENERAL_PATTERN(Roll, paddle::dialect::RollOp)
 DEFINE_GENERAL_PATTERN(ThresholdedRelu, paddle::dialect::ThresholdedReluOp)
-DEFINE_GENERAL_PATTERN(Conv3d, paddle::dialect::Conv3dOp)
 
 #undef DEFINE_GENERAL_PATTERN
 
@@ -375,35 +374,35 @@ class DepthwiseConv2dTransposeOpPattern
   }
 };
 
-class Conv3dTransposeOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::Conv3dTransposeOp> {
+class Conv3dOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::Conv3dOp> {
  public:
-  using pir::OpRewritePattern<
-      paddle::dialect::Conv3dTransposeOp>::OpRewritePattern;
+  using pir::OpRewritePattern<paddle::dialect::Conv3dOp>::OpRewritePattern;
 
-  bool MatchAndRewrite(paddle::dialect::Conv3dTransposeOp op,
+  bool MatchAndRewrite(paddle::dialect::Conv3dOp op,
                        pir::PatternRewriter &rewriter) const override {
     if (op->HasAttribute(kCanRunTrtAttr) &&
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
 
-    if (!op->HasAttribute("dilations")) {
-      VLOG(3) << "In conv3d_transpose, dilations attribute does not exist";
-      return false;
-    } else {
-      auto dilation_attr = op->attribute<pir::ArrayAttribute>("dilations");
-      std::vector<int32_t> dilations;
-      for (const auto &attr : dilation_attr.AsVector()) {
-        dilations.push_back(attr.dyn_cast<pir::Int32Attribute>().data());
-      }
-      if (dilations[0] != 1 || dilations[1] != 1 || dilations[2] != 1) {
-        VLOG(3) << "In conv3d_transpose, Dilations must be (1, 1, 1) for "
-                   "tensorRT, but given ("
-                << dilations[0] << ", " << dilations[1] << ", " << dilations[2]
-                << ")";
+    if (op->HasAttribute("padding_algorithm")) {
+      auto padding_algorithm =
+          op->attribute<pir::StrAttribute>("padding_algorithm").AsString();
+      if (padding_algorithm == "SAME") {
+        VLOG(3) << "TensorRT error is raised if conv3d and SAME padding";
         return false;
       }
+    }
+
+    auto paddings_attr = op->attribute<pir::ArrayAttribute>("paddings");
+    std::vector<int32_t> paddings;
+    for (const auto &attr : paddings_attr.AsVector()) {
+      paddings.push_back(attr.dyn_cast<pir::Int32Attribute>().data());
+    }
+    if (paddings.size() > 3) {
+      VLOG(3) << "In conv3d, paddings size must be less than or equal to 3";
+      return false;
     }
 
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
@@ -2241,7 +2240,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<OneHotOpPattern>(context));
     ps.Add(std::make_unique<AssignValueOpPattern>(context));
     ps.Add(std::make_unique<AssignValue_OpPattern>(context));
-    ps.Add(std::make_unique<Conv3dTransposeOpPattern>(context));
+    ps.Add(std::make_unique<Conv3dOpPattern>(context));
     return ps;
   }
 };
