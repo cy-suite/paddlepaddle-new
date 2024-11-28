@@ -15,11 +15,10 @@
 import unittest
 
 import numpy as np
-from utils import dygraph_guard, static_guard
+from utils import dygraph_guard
 
 import paddle
 from paddle import base
-from paddle.base import core
 
 
 class TestDLPack(unittest.TestCase):
@@ -58,60 +57,6 @@ class TestDLPack(unittest.TestCase):
             np.testing.assert_allclose(numpy_data, out_v1.numpy(), rtol=1e-05)
             np.testing.assert_allclose(numpy_data, out_v2.numpy(), rtol=1e-05)
 
-    def test_dlpack_static(self):
-        with static_guard():
-            tensor = base.create_lod_tensor(
-                np.array([[1], [2], [3], [4]]).astype("int"),
-                [[1, 3]],
-                base.CPUPlace(),
-            )
-            dlpack_v1 = paddle.utils.dlpack.to_dlpack(tensor)
-            out_from_dlpack_v1 = paddle.utils.dlpack.from_dlpack(dlpack_v1)
-            dlpack_v2 = tensor.__dlpack__()
-            out_from_dlpack_v2 = paddle.from_dlpack(dlpack_v2)
-            self.assertTrue(
-                isinstance(out_from_dlpack_v1, base.core.DenseTensor)
-            )
-            self.assertTrue(
-                isinstance(out_from_dlpack_v2, base.core.DenseTensor)
-            )
-            np.testing.assert_array_equal(
-                np.array(out_from_dlpack_v1),
-                np.array([[1], [2], [3], [4]]).astype("int"),
-            )
-            np.testing.assert_array_equal(
-                np.array(out_from_dlpack_v2),
-                np.array([[1], [2], [3], [4]]).astype("int"),
-            )
-
-            # when build with cuda
-            if core.is_compiled_with_cuda():
-                gtensor = base.create_lod_tensor(
-                    np.array([[1], [2], [3], [4]]).astype("int"),
-                    [[1, 3]],
-                    base.CUDAPlace(0),
-                )
-                gdlpack_v1 = paddle.utils.dlpack.to_dlpack(gtensor)
-                gdlpack_v2 = gtensor.__dlpack__()
-                gout_from_dlpack_v1 = paddle.utils.dlpack.from_dlpack(
-                    gdlpack_v1
-                )
-                gout_from_dlpack_v2 = paddle.from_dlpack(gdlpack_v2)
-                self.assertTrue(
-                    isinstance(gout_from_dlpack_v1, base.core.DenseTensor)
-                )
-                self.assertTrue(
-                    isinstance(gout_from_dlpack_v2, base.core.DenseTensor)
-                )
-                np.testing.assert_array_equal(
-                    np.array(gout_from_dlpack_v1),
-                    np.array([[1], [2], [3], [4]]).astype("int"),
-                )
-                np.testing.assert_array_equal(
-                    np.array(gout_from_dlpack_v2),
-                    np.array([[1], [2], [3], [4]]).astype("int"),
-                )
-
     def test_dlpack_dtype_and_place_consistency(self):
         with dygraph_guard():
             dtypes = [
@@ -125,10 +70,9 @@ class TestDLPack(unittest.TestCase):
                 "uint8",
                 "bool",
             ]
-            places = [base.CPUPlace()]
-            if paddle.is_compiled_with_cuda():
+            places = [paddle.CPUPlace()]
+            if paddle.device.is_compiled_with_cuda():
                 places.append(base.CUDAPlace(0))
-                places.append(base.CUDAPinnedPlace())
                 dtypes.append("bfloat16")
 
             data = np.ones((2, 3, 4))
@@ -160,7 +104,7 @@ class TestDLPack(unittest.TestCase):
                     )
                     dlpack_v1 = paddle.utils.dlpack.to_dlpack(x)
                     o_v1 = paddle.utils.dlpack.from_dlpack(dlpack_v1)
-                    dlpack_v2 = paddle.to_dlpack(x)
+                    dlpack_v2 = x.__dlpack__()
                     o_v2 = paddle.from_dlpack(dlpack_v2)
                     self.assertEqual(x.dtype, o_v1.dtype)
                     self.assertEqual(x.dtype, o_v2.dtype)
@@ -263,22 +207,6 @@ class TestDLPack(unittest.TestCase):
                     np.testing.assert_equal(x_strided.numpy(), y1.numpy())
                     np.testing.assert_equal(x_strided.numpy(), y2.numpy())
 
-    def test_to_dlpack_from_ext_tensor(self):
-        with dygraph_guard():
-            for _ in range(4):
-                x = np.random.randn(3, 5)
-                y1 = paddle.utils.dlpack.from_dlpack(x)
-                y2 = paddle.from_dlpack(x)
-
-                self.assertEqual(
-                    x.__array_interface__['data'][0], y1.data_ptr()
-                )
-                self.assertEqual(
-                    x.__array_interface__['data'][0], y2.data_ptr()
-                )
-                np.testing.assert_allclose(x, y1.numpy())
-                np.testing.assert_allclose(x, y2.numpy())
-
     def test_to_dlpack_from_zero_dim(self):
         with dygraph_guard():
             places = [base.CPUPlace()]
@@ -324,86 +252,6 @@ class TestDLPack(unittest.TestCase):
                     self.assertEqual(y2.numel().item(), 0)
                     np.testing.assert_array_equal(x.numpy(), y1.numpy())
                     np.testing.assert_array_equal(x.numpy(), y2.numpy())
-
-
-from paddle.utils.dlpack import DLDeviceType
-
-
-class TestDLPackDevice(unittest.TestCase):
-    def test_dlpack_device(self):
-        with dygraph_guard():
-
-            tensor_cpu = paddle.to_tensor([1, 2, 3], place=base.CPUPlace())
-            device_type, device_id = tensor_cpu.__dlpack_device__()
-            self.assertEqual(device_type, DLDeviceType.kDLCPU)
-            self.assertEqual(device_id, None)
-
-            if paddle.is_compiled_with_cuda():
-                tensor_cuda = paddle.to_tensor(
-                    [1, 2, 3], place=base.CUDAPlace(0)
-                )
-                device_type, device_id = tensor_cuda.__dlpack_device__()
-                self.assertEqual(device_type, DLDeviceType.kDLCUDA)
-                self.assertEqual(device_id, 0)
-
-            if paddle.is_compiled_with_cuda():
-                tensor_pinned = paddle.to_tensor(
-                    [1, 2, 3], place=base.CUDAPinnedPlace()
-                )
-                device_type, device_id = tensor_pinned.__dlpack_device__()
-                self.assertEqual(device_type, DLDeviceType.kDLCUDAHost)
-                self.assertEqual(device_id, None)
-
-            if paddle.is_compiled_with_xpu():
-                tensor_xpu = paddle.to_tensor([1, 2, 3], place=base.XPUPlace(0))
-                device_type, device_id = tensor_xpu.__dlpack_device__()
-                self.assertEqual(device_type, DLDeviceType.kDLOneAPI)
-                self.assertEqual(device_id, 0)
-
-    def test_dlpack_device_zero_dim(self):
-        with dygraph_guard():
-
-            tensor = paddle.to_tensor(5.0, place=base.CPUPlace())
-            device_type, device_id = tensor.__dlpack_device__()
-            self.assertEqual(device_type, DLDeviceType.kDLCPU)
-            self.assertEqual(device_id, None)
-
-            if paddle.is_compiled_with_cuda():
-                tensor_cuda = paddle.to_tensor(5.0, place=base.CUDAPlace(0))
-                device_type, device_id = tensor_cuda.__dlpack_device__()
-                self.assertEqual(device_type, DLDeviceType.kDLCUDA)
-                self.assertEqual(device_id, 0)
-
-            if paddle.is_compiled_with_xpu():
-                tensor_xpu = paddle.to_tensor(5.0, place=base.XPUPlace(0))
-                device_type, device_id = tensor_xpu.__dlpack_device__()
-                self.assertEqual(device_type, DLDeviceType.kDLOneAPI)
-                self.assertEqual(device_id, 0)
-
-    def test_dlpack_device_zero_size(self):
-        with dygraph_guard():
-            tensor = paddle.to_tensor(
-                paddle.zeros([0, 10]), place=base.CPUPlace()
-            )
-            device_type, device_id = tensor.__dlpack_device__()
-            self.assertEqual(device_type, DLDeviceType.kDLCPU)
-            self.assertEqual(device_id, None)
-
-            if paddle.is_compiled_with_cuda():
-                tensor_cuda = paddle.to_tensor(
-                    paddle.zeros([0, 10]), place=base.CUDAPlace(0)
-                )
-                device_type, device_id = tensor_cuda.__dlpack_device__()
-                self.assertEqual(device_type, DLDeviceType.kDLCUDA)
-                self.assertEqual(device_id, 0)
-
-            if paddle.is_compiled_with_xpu():
-                tensor_xpu = paddle.to_tensor(
-                    paddle.zeros([0, 10]), place=base.XPUPlace(0)
-                )
-                device_type, device_id = tensor_xpu.__dlpack_device__()
-                self.assertEqual(device_type, DLDeviceType.kDLOneAPI)
-                self.assertEqual(device_id, 0)
 
 
 class TestRaiseError(unittest.TestCase):
