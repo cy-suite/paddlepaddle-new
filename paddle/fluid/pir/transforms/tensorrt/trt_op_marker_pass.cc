@@ -1625,7 +1625,6 @@ class StackOpPattern : public pir::OpRewritePattern<paddle::dialect::StackOp> {
   }
 };
 
-
 template <typename OpType>
 class ActOpPattern : public pir::OpRewritePattern<OpType> {
  public:
