@@ -2168,7 +2168,6 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Roll)
     ADD_PATTERN(Softplus)
     ADD_PATTERN(ThresholdedRelu)
-    ADD_PATTERN(Yolo_Box_Head)
 
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
