@@ -1326,16 +1326,16 @@ bool AnalysisPredictor::PrepareExecutor() {
                           common::errors::PreconditionNotMet(
                               "The sub_scope should not be nullptr."));
 
-  if (config_.dist_config().use_dist_model()) {
-#if defined(PADDLE_WITH_DISTRIBUTE) && defined(PADDLE_WITH_PSCORE)
-    VLOG(3) << "use_dist_model is enabled, will init FleetExecutor.";
-    return PrepareFleetExecutor();
-#else
-    PADDLE_THROW(common::errors::PermissionDenied(
-        "Paddle can't use FleetExecutor since it's not compiled with PSCORE,"
-        "Please recompile or reinstall Paddle with PSCORE support."));
-#endif
-  }
+//   if (config_.dist_config().use_dist_model()) {
+// #if defined(PADDLE_WITH_DISTRIBUTE) && defined(PADDLE_WITH_PSCORE)
+//     VLOG(3) << "use_dist_model is enabled, will init FleetExecutor.";
+//     return PrepareFleetExecutor();
+// #else
+//     PADDLE_THROW(common::errors::PermissionDenied(
+//         "Paddle can't use FleetExecutor since it's not compiled with PSCORE,"
+//         "Please recompile or reinstall Paddle with PSCORE support."));
+// #endif
+//   }
 
   if (config_.new_ir_enabled()) {
     executor_->Prepare(sub_scope_);
@@ -1825,11 +1825,12 @@ bool AnalysisPredictor::Run(const std::vector<paddle::Tensor> &inputs,
   // set feed variable
   framework::Scope *scope{nullptr};
 #if defined(PADDLE_WITH_DISTRIBUTE) && defined(PADDLE_WITH_PSCORE)
-  if (config_.dist_config().use_dist_model()) {  // NOLINT
-    scope = scope_.get();
-  } else {
+//   if (config_.dist_config().use_dist_model()) {  // NOLINT
+//     scope = scope_.get();
+//   } else {
+//     scope = executor_->GetScope();
+//   }
     scope = executor_->GetScope();
-  }
 #else
   scope = executor_->GetScope();
 #endif
@@ -1881,10 +1882,17 @@ bool AnalysisPredictor::Run(const std::vector<paddle::Tensor> &inputs,
 #endif
 
 #if defined(PADDLE_WITH_DISTRIBUTE) && defined(PADDLE_WITH_PSCORE)
-  if (config_.dist_config().use_dist_model()) {  // NOLINT
-    VLOG(3) << "ZeroCopyRun will use the fleet executor.";
-    fleet_exe_->Run(config_.dist_config().carrier_id());
-  } else if (config_.new_executor_enabled()) {  // NOLINT
+  // if (config_.dist_config().use_dist_model()) {  // NOLINT
+  //   VLOG(3) << "ZeroCopyRun will use the fleet executor.";
+  //   fleet_exe_->Run(config_.dist_config().carrier_id());
+  // } else if (config_.new_executor_enabled()) {  // NOLINT
+  //   executor_->RunInterpreterCore();
+  // } else {
+  //   // Run the inference program
+  //   // if share variables, we need not create variables
+  //   executor_->Run();
+  // }
+  if (config_.new_executor_enabled()) {  // NOLINT
     executor_->RunInterpreterCore();
   } else {
     // Run the inference program
@@ -2690,11 +2698,12 @@ std::unique_ptr<ZeroCopyTensor> AnalysisPredictor::GetInputTensor(
     const std::string &name) {
   framework::Scope *scope = nullptr;
 #if defined(PADDLE_WITH_DISTRIBUTE) && defined(PADDLE_WITH_PSCORE)
-  if (config_.dist_config().use_dist_model()) {  // NOLINT
-    scope = scope_.get();
-  } else {
-    scope = executor_->GetScope();
-  }
+  // if (config_.dist_config().use_dist_model()) {  // NOLINT
+  //   scope = scope_.get();
+  // } else {
+  //   scope = executor_->GetScope();
+  // }
+  scope = executor_->GetScope();
 #else
   scope = executor_->GetScope();
 #endif
@@ -2732,11 +2741,12 @@ std::unique_ptr<ZeroCopyTensor> AnalysisPredictor::GetOutputTensor(
     const std::string &name) {
   framework::Scope *scope;  // NOLINT
 #if defined(PADDLE_WITH_DISTRIBUTE) && defined(PADDLE_WITH_PSCORE)
-  if (config_.dist_config().use_dist_model()) {  // NOLINT
-    scope = scope_.get();
-  } else {
-    scope = executor_->GetScope();
-  }
+  // if (config_.dist_config().use_dist_model()) {  // NOLINT
+  //   scope = scope_.get();
+  // } else {
+  //   scope = executor_->GetScope();
+  // }
+  scope = executor_->GetScope();
 #else
   scope = executor_->GetScope();
 #endif
@@ -2772,13 +2782,13 @@ std::unique_ptr<ZeroCopyTensor> AnalysisPredictor::GetOutputTensor(
 
 bool AnalysisPredictor::ZeroCopyRun(bool switch_stream) {
   inference::DisplayMemoryInfo(place_, "before run");
-#if defined(PADDLE_WITH_DISTRIBUTE) && defined(PADDLE_WITH_PSCORE)
-  if (config_.dist_config().use_dist_model()) {  // NOLINT
-    VLOG(3) << "ZeroCopyRun will use the fleet executor.";
-    fleet_exe_->Run(config_.dist_config().carrier_id());
-    return true;
-  }
-#endif
+// #if defined(PADDLE_WITH_DISTRIBUTE) && defined(PADDLE_WITH_PSCORE)
+//   if (config_.dist_config().use_dist_model()) {  // NOLINT
+//     VLOG(3) << "ZeroCopyRun will use the fleet executor.";
+//     fleet_exe_->Run(config_.dist_config().carrier_id());
+//     return true;
+//   }
+// #endif
   if (private_context_) {
     phi::DeviceContextPool::SetDeviceContexts(&device_contexts_);
     auto &pool = paddle::experimental::DeviceContextPool::Instance();
