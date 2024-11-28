@@ -47,7 +47,13 @@ from .impls.search import *  # noqa: F403
 from .impls.stat import *  # noqa: F403
 from .impls.vision import *  # noqa: F403
 from .register import converter_registry
-from .util import get_trt_version_list, map_dtype, weight_to_tensor
+from .util import (
+    get_trt_version_list,
+    map_dtype,
+    skip_set_shape,
+    weight_to_tensor,
+    zero_dims_to_one_dims,
+)
 
 version_list = get_trt_version_list()
 
@@ -226,6 +232,9 @@ class PaddleToTensorRTConverter:
                                 value_to_trt_tensor[combined_source_id],
                                 op.name(),
                             )
+                            trt_input_tensor = zero_dims_to_one_dims(
+                                network, trt_input_tensor
+                            )
                             operand_list.append(trt_input_tensor)
                         else:
                             raise RuntimeError(
@@ -240,6 +249,9 @@ class PaddleToTensorRTConverter:
                             source,
                             value_to_trt_tensor[source_id],
                             op.name(),
+                        )
+                        trt_input_tensor = zero_dims_to_one_dims(
+                            network, trt_input_tensor
                         )
                         operands.append(trt_input_tensor)
                     else:
@@ -268,6 +280,8 @@ class PaddleToTensorRTConverter:
 
         # Set TRT min/opt/max input shape and the value of shape tensor
         for value in origin_input_value:
+            if skip_set_shape(value.get_defining_op()):
+                continue
             trt_input = value_to_trt_tensor[value.id]
             if isinstance(trt_input, trt.Weights):
                 continue

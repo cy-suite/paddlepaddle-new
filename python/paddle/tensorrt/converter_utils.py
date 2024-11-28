@@ -384,7 +384,7 @@ def map_trt_dtype(trt_dtype):
         trt.DataType.HALF: np.float16,
         trt.DataType.INT32: np.int32,
         trt.DataType.INT8: np.int8,
-        trt.DataType.BOOL: np.bool,
+        trt.DataType.BOOL: bool,
     }
     if trt_dtype in dtype_map:
         return dtype_map[trt_dtype]

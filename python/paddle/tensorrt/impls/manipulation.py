@@ -59,8 +59,15 @@ def reshape_converter(network, paddle_op, inputs):
     else:
         # shape tensor is a value
         shape_tensor = inputs[1]
-    if type(x) == trt.Weights:
-        x = network.add_constant(input_shape, x).get_output(0)
+
+    if not is_constant_shape and len(shape_tensor.shape) > 1:
+        # shape_tensor need 1-dim in trt
+        shape_tensor_layer = network.add_shuffle(shape_tensor)
+        numel = 1
+        for ele in shape_tensor.shape:
+            numel *= ele
+        shape_tensor_layer.reshape_dims = [numel]
+        shape_tensor = shape_tensor_layer.get_output(0)
     layer = network.add_shuffle(x)
     if is_constant_shape:
         layer.reshape_dims = reshape_dim
@@ -78,12 +85,10 @@ def reshape_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.gather_nd", trt_version="8.x")
 def gather_nd_converter(network, paddle_op, inputs):
     input_tensor, indices_tensor = inputs
-    shuffle_layer = network.add_shuffle(indices_tensor)
-    shuffle_layer.first_transpose = trt.Permutation([1, 0])
-    # import pdb;pdb.set_trace()
     non_zero_layer = network.add_gather_v2(
-        input_tensor, shuffle_layer.get_output(0), trt.GatherMode.ND
+        input_tensor, indices_tensor, trt.GatherMode.ND
     )
+    non_zero_layer.num_elementwise_dims = 0
     return non_zero_layer.get_output(0)
 
 
@@ -190,20 +195,49 @@ def concat_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.unsqueeze", trt_version="8.x")
 @converter_registry.register("pd_op.unsqueeze_", trt_version="8.x")
 def unsqueeze_converter(network, paddle_op, inputs):
-    input_val = inputs[0]
-    input_shape = paddle_op.operands()[0].source().shape
-    input_shape_size = len(input_shape)
-
-    if type(input_val) == trt.Weights:
-        input_val = network.add_constant(input_shape, input_val).get_output(0)
-    axis = paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
-    axis = axis[0]
-
-    axis = get_positive_dim(axis, input_shape_size + 1)
-    layer = network.add_shuffle(input_val)
-    layer.reshape_dims = (
-        tuple(input_val.shape)[:axis] + (1,) + tuple(input_val.shape)[axis:]
+    x = inputs[0]
+    input_dims = x.shape
+    axes = paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
+    assert len(axes) > 0, (
+        "axes size should be > 0 in when convert unsqueeze op in TensorRT, but received len(axes) = %d."
+        % (len(axes))
     )
+
+    should_unsqueeze = [False] * (len(input_dims) + len(axes))
+    cur_out_rank = len(input_dims)
+    for i in range(len(axes)):
+        cur_out_rank += 1
+        if axes[i] < 0:
+            axes[i] += cur_out_rank
+
+        # axes[i] is relative to cur_out_rank
+        # we make [axes[i], cur_out_rank - 2] shift right
+        # and make (axes[i]) to true!
+        for j in range(cur_out_rank - 1, axes[i], -1):
+            should_unsqueeze[j] = should_unsqueeze[j - 1]
+        if axes[i] >= cur_out_rank:
+            should_unsqueeze[cur_out_rank - 1] = True
+        else:
+            should_unsqueeze[axes[i]] = True
+
+    gather_indices = []
+    in_rank_i = 0
+    for i in range(len(should_unsqueeze)):
+        if should_unsqueeze[i]:
+            gather_indices.append(len(input_dims))
+            continue
+        gather_indices.append(in_rank_i)
+        in_rank_i += 1
+
+    layer = network.add_shuffle(x)
+    shape_tensor = trt_shape(network, x)
+    all_one = [1] * len(axes)
+    all_one_tensor = add_1D_constant_layer(network, all_one)
+    concat_inputs = [shape_tensor, all_one_tensor]
+    real_shape_tensor = trt_gather(
+        network, trt_concat(network, concat_inputs), gather_indices
+    )
+    layer.set_input(1, real_shape_tensor)
     return layer.get_output(0)
 
 

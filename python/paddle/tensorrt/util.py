@@ -150,3 +150,22 @@ def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
     if type(trt_tensor) == trt.Weights:
         return network.add_constant(input_shape, trt_tensor).get_output(0)
     return trt_tensor
+
+
+def zero_dims_to_one_dims(network, trt_tensor):
+    if type(trt_tensor) == trt.Weights:
+        return trt_tensor
+    if len(trt_tensor.shape) != 0:
+        return trt_tensor
+    shuffle_layer = network.add_shuffle(trt_tensor)
+    shuffle_layer.reshape_dims = (1,)
+    return shuffle_layer.get_output(0)
+
+
+# some paddle op's input is not used by trt, we need skip it.
+def skip_set_shape(paddle_op):
+    op_name = paddle_op.name()
+    skip_list = ["pd_op.assign_value_"]
+    if op_name in skip_list:
+        return True
+    return False
