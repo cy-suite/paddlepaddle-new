@@ -12,11 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+# converter.py
+
 import math
 
 import tensorrt as trt
 
 from paddle.tensorrt.register import converter_registry
+
+# converter.py
 
 
 @converter_registry.register("pd_op.pool2d", trt_version="8.x")
@@ -95,6 +100,7 @@ def pool2d_converter(network, paddle_op, inputs):
     nv_strides = trt.DimsHW(strides[0], strides[1])
 
     layer = None
+
     pooling_layer = network.add_pooling_nd(
         input=input_tensor, type=nv_pool_type, window_size=nv_ksize
     )

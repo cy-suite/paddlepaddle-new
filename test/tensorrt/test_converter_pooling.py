@@ -146,7 +146,7 @@ class TestPoolingTRTCase4Pattern(TensorRTBaseTest):
             "exclusive": False,
             "data_format": "NCHW",
             "pooling_type": "avg",
-            "global_pooling": False,
+            "global_pooling": True,
             "adaptive": False,
             "padding_algorithm": "SAME",
         }
