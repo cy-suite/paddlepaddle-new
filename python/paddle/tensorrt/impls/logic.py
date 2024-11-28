@@ -24,12 +24,16 @@ logic_type_map = {
     "pd_op.greater_than": trt.ElementWiseOperation.GREATER,
     "pd_op.less_than": trt.ElementWiseOperation.LESS,
     "pd_op.equal": trt.ElementWiseOperation.EQUAL,
+    "pd_op.bitwise_and": trt.ElementWiseOperation.AND,
+    "pd_op.bitwise_or": trt.ElementWiseOperation.OR,
 }
 
 
 @converter_registry.register("pd_op.greater_than", trt_version="8.x")
 @converter_registry.register("pd_op.less_than", trt_version="8.x")
 @converter_registry.register("pd_op.equal", trt_version="8.x")
+@converter_registry.register("pd_op.bitwise_and", trt_version="8.x")
+@converter_registry.register("pd_op.bitwise_or", trt_version="8.x")
 def logic_converter(network, paddle_op, inputs):
     layer_output = add_elementwise_layer(
         network, paddle_op, inputs, logic_type_map[paddle_op.name()]
@@ -47,31 +51,15 @@ def not_equal_converter(network, paddle_op, inputs):
     return trt_cast(network, layer_output, inputs[0].dtype)
 
 
-@converter_registry.register("pd_op.bitwise_and", trt_version="8.x")
-def bitwise_and_converter(network, paddle_op, inputs):
-    bitwise_and_layer = add_elementwise_layer(
-        network,
-        paddle_op,
-        inputs,
-        trt.ElementWiseOperation.AND,
-    )
-    return bitwise_and_layer
-
-
-@converter_registry.register("pd_op.bitwise_or", trt_version="8.x")
-def bitwise_or_converter(network, paddle_op, inputs):
-    bitwise_or_layer = add_elementwise_layer(
-        network,
-        paddle_op,
-        inputs,
-        trt.ElementWiseOperation.OR,
-    )
-    return bitwise_or_layer
-
-
 @converter_registry.register("pd_op.bitwise_not", trt_version="8.x")
 def bitwise_not_converter(network, paddle_op, inputs):
-    bool_input = trt_cast(network, inputs[0], trt.bool)
-    not_layer = network.add_unary(bool_input, trt.UnaryOperation.NOT)
-    layer_output = not_layer.get_output(0)
-    return trt_cast(network, layer_output, inputs[0].dtype)
+    input_tensor = inputs[0]
+    if input_tensor.dtype == trt.bool:
+        bitwise_not_layer = network.add_unary(input_tensor, trt.UnaryOperation.NOT)
+        layer_output = bitwise_not_layer.get_output(0)
+        _ = layer_output.dtype
+    else:
+        neg_one_tensor = network.add_constant(input_tensor.shape, -1).get_output(0)
+        negated = add_elementwise_layer(network, paddle_op, [input_tensor, neg_one_tensor], trt.ElementWiseOperation.PROD)
+        layer_output = add_elementwise_layer(network, paddle_op, [negated, neg_one_tensor], trt.ElementWiseOperation.SUM)
+    return layer_output
