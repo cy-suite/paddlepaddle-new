@@ -1372,7 +1372,7 @@ void BindValue(py::module *m) {
                }
              }
              PADDLE_THROW(common::errors::InvalidArgument(
-                 "only support accesss index from op_result or positional "
+                 "only support accessing index from op_result or positional "
                  "block arg."));
            })
       .def("is_dense_tensor_type",
@@ -2191,8 +2191,8 @@ void BindUtils(pybind11::module *m) {
   m->def("reset_insertion_point_to_end",
          []() { ApiBuilder::Instance().ResetInsertionPointToEnd(); });
   m->def("set_chunk_id",
-         [](int chunk_id) { ApiBuilder::Instance().SetChunckId(chunk_id); });
-  m->def("get_chunk_id", []() { return ApiBuilder::Instance().GetChunckId(); });
+         [](int chunk_id) { ApiBuilder::Instance().SetChunkId(chunk_id); });
+  m->def("get_chunk_id", []() { return ApiBuilder::Instance().GetChunkId(); });
   m->def("set_op_role",
          [](int op_role) { ApiBuilder::Instance().SetOpRole(op_role); });
   m->def("get_op_role", []() { return ApiBuilder::Instance().GetOpRole(); });

@@ -162,6 +162,7 @@ class TensorRTConfig:
             min_subgraph_size (int, optional):
                 The minimum number of operations in a subgraph for TensorRT to optimize (default is 3).
             save_model_dir (str, optional):
+<<<<<<< HEAD
                 The directory where the optimized model will be saved (default is not to save).
             disable_ops : (str|list, optional):
                 A string representing the names of operations that should not be entering by TensorRT (default is None).
@@ -175,6 +176,11 @@ class TensorRTConfig:
                 - "INT64": 64-bit integer precision. Only supported in TensorRT versions greater than 10.0.
             tensorrt_ops_run_float (set, optional):
                 A set of operation names that should be executed using FP32 precision regardless of the `tensorrt_precision_mode` setting.
+=======
+                 The directory where the optimized model will be saved (default is None).
+            disable_ops : (str|list, optional):
+                A string representing the names of operations that should not be entering by TensorRT (default is None).
+>>>>>>> 5b091ce37001ef75968a2ef7af30a31e38215d39
         Returns:
             None
 
