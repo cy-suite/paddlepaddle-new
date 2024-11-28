@@ -18,10 +18,7 @@ import tensorrt as trt
 from paddle.tensorrt.converter_utils import (
     add_1D_constant_layer,
     broadcast,
-    get_positive_dim,
     get_shape_tensor_element,
-    trt_concat,
-    trt_sub,
 )
 from paddle.tensorrt.register import converter_registry
 
@@ -92,7 +89,9 @@ def flip_converter(network, paddle_op, inputs):
         if dim_val >= 0:
             return add_1D_constant_layer(network, [dim_val], is_scalar=True)
         else:
-            return get_shape_tensor_element(network, shape_tensor, axis_idx, is_scalar=True)
+            return get_shape_tensor_element(
+                network, shape_tensor, axis_idx, is_scalar=True
+            )
 
     for axis_idx in axis:
         loop_layer = network.add_loop()
@@ -103,9 +102,13 @@ def flip_converter(network, paddle_op, inputs):
         one_tensor = add_1D_constant_layer(network, [1])
         iRec_layer = loop_layer.add_recurrence(zero_tensor)
         iCur = iRec_layer.get_output(0)
-        iNext_layer = network.add_elementwise(iCur, one_tensor, trt.ElementWiseOperation.SUM)
+        iNext_layer = network.add_elementwise(
+            iCur, one_tensor, trt.ElementWiseOperation.SUM
+        )
         iRec_layer.set_input(1, iNext_layer.get_output(0))
-        loop_out_layer = loop_layer.add_loop_output(iterator.get_output(0), trt.LoopOutput.CONCATENATE, axis_idx)
+        loop_out_layer = loop_layer.add_loop_output(
+            iterator.get_output(0), trt.LoopOutput.CONCATENATE, axis_idx
+        )
         loop_out_layer.set_input(1, trip_limit)
         input_tensor = loop_out_layer.get_output(0)
 
