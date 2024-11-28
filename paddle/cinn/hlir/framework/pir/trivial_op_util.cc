@@ -1041,6 +1041,25 @@ ir::Expr ReshapeLoop(const ir::Expr& root,
   return copied;
 }
 
+bool CheckLoopAlignment(const std::vector<ir::Expr>& roots) {
+  if (roots.size() < 2) {
+    return true;
+  }
+  const auto base_loop_vars = GetAllLoopVars(roots[0]);
+  for (size_t i = 1; i < roots.size(); ++i) {
+    const auto loop_vars = GetAllLoopVars(roots[i]);
+    bool loop_equal = fusion::VectorEqual(
+        base_loop_vars, loop_vars, [](const ir::Var& lhs, const ir::Var& rhs) {
+          return lhs->upper_bound == rhs->upper_bound &&
+                 lhs->lower_bound == rhs->lower_bound;
+        });
+    if (!loop_equal) {
+      return false;
+    }
+  }
+  return true;
+}
+
 }  // namespace trivial_fusion_detail
 }  // namespace pir
 }  // namespace framework

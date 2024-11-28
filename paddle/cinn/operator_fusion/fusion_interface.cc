@@ -39,6 +39,13 @@ std::vector<ir::Expr> OperationFusion(
       FusionInterpreter(fusion_tracker_ptr, ops, initialized_lowered_op);
   auto output = interpreter.Run();
 
+  PADDLE_ENFORCE(
+      cinn::hlir::framework::pir::trivial_fusion_detail::CheckLoopAlignment(
+          output),
+      ::common::errors::InvalidArgument(
+          "CheckLoopAlignment Failed for fusion result: \n%s",
+          cinn::utils::Join(output, "\n")));
+
   VLOG(4) << "Fusion Result: output size is " << output.size();
   for (const auto& expr : output) {
     VLOG(4) << expr;
