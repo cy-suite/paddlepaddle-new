@@ -1838,7 +1838,8 @@ bool RepeatInterleaveWithTensorIndexOpInferSymbolicShape(
     repeat_times_shape.assign(repeats_shape_or_data.data()->begin(),
                               repeats_shape_or_data.data()->end());
   } else {
-    repeat_times_shape.emplace_back(infer_context->GetNextSymName());
+    symbol::DimExpr out_unknown = infer_context->GetNextSymName();
+    repeat_times_shape.push_back(out_unknown);
   }
 
   const auto &GetSum = [](const auto &dim_exprs) {
