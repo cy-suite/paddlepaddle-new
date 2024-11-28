@@ -66,7 +66,7 @@ class TestPoolingTRTCase1Pattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = pool2d_api
         self.api_args = {
-            "x": np.random.randn(1, 1, 2, 3).astype("float16"),
+            "x": np.random.randn(1, 1, 2, 3).astype("float32"),
             "ksize": [2, 3],
             "strides": [1, 2],
             "paddings": [0, 0],
