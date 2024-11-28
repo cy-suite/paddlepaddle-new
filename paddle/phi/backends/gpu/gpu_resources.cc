@@ -412,7 +412,7 @@ void InitSparseHandle(sparseHandle_t* handle, gpuStream_t stream) {
   phi::dynload::rocsparse_create_handle(handle);
   phi::dynload::rocsparse_set_stream(*handle, stream);
 #elif defined(PADDLE_WITH_MUSA)
-  phi::dynload::musparseCreateHandle(handle);
+  phi::dynload::musparseCreate(handle);
   phi::dynload::musparseSetStream(*handle, stream);  
 #endif
 }
@@ -432,7 +432,7 @@ void DestroySparseHandle(sparseHandle_t handle) {
   }
 #elif defined(PADDLE_WITH_MUSA)
   if (handle != nullptr) {
-    phi::dynload::musparseDestroyHandle(handle);
+    phi::dynload::musparseDestroy(handle);
     handle = nullptr;
   }
 #endif

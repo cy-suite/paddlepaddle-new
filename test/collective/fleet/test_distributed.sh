@@ -1,0 +1,7 @@
+python test_parallel_dygraph_tensor_parallel.py
+python test_parallel_dygraph_mp_layers.py
+python test_dygraph_sharding_stage2.py
+python test_dygraph_sharding_stage3_for_eager.py
+python test_parallel_dygraph_sharding_parallel.py
+python test_dygraph_recompute_for_eager.py
+python test_dygraph_recompute.py

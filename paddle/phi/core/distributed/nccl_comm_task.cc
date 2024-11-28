@@ -182,7 +182,7 @@ std::string GetNCCLErrorDetail(mcclResult_t result) {
       ", Last error: " + std::string(phi::dynload::ncclGetLastError(NULL));
 #endif
   switch (result) {
-    case mcclUnhandledCudaError:
+    case mcclUnhandledMusaError:
       detail = "ncclUnhandledCudaError: Call to CUDA function failed.";
       break;
     case mcclSystemError:
