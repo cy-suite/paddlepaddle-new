@@ -121,7 +121,7 @@ __global__ void UnStackCudaKernel(const T* __restrict__ input,
 
   IndexT offset = blockIdx.x * blockDim.x + threadIdx.x;
   if (each_dim_size == 1) {
-    for (; offset < numel; offset += blockDim.x * gridDim.x) {
+    for (; offset < numel && offset >= 0; offset += blockDim.x * gridDim.x) {
       auto col_divmod_rslt = col_divmoder.div_mod(offset);
 
       IndexT i = offset / split_dim_with_out_col;

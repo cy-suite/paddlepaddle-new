@@ -210,6 +210,11 @@ class HybridCommunicateGroup:
             group=self._pp_comm_group,
         )
 
+        env_name = "FLAGS_eager_communication_connection"
+        if paddle.get_flags(env_name)[env_name]:
+            if self._pp_comm_group.nranks > 1:
+                self._pp_comm_group.process_group.eager_connect_ring_exchange()
+
         # create comm group for data parallel
         self._dp_group, self._dp_comm_group = self._set_comm_group("data")
 
@@ -226,9 +231,12 @@ class HybridCommunicateGroup:
             self._sep_group, self._sep_comm_group = self._set_comm_group("sep")
 
         # create global group for check inf_nan / clip global norm
-        self._check_group, self._check_comm_group = self._set_check_group(
-            "data"
-        )
+        if self._dp_degree > 1 and self._sharding_degree == 1:
+            self._check_group, self._check_comm_group = self._set_check_group(
+                "data"
+            )
+        else:
+            self._check_group, self._check_comm_group = None, None
 
         if self._sharding_degree > 1:
             (
@@ -245,11 +253,6 @@ class HybridCommunicateGroup:
             self._pp_mp_group, self._pp_mp_comm_group = self.create_fuse_group(
                 ["pipe", "model"]
             )
-
-        (
-            self.sharding_check_group,
-            self.sharding_check_comm_group,
-        ) = self._set_check_group("sharding")
 
         # create p2p group
         self.is_first_stage = self.stage_id == 0

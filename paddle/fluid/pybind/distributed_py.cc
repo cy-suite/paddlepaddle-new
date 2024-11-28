@@ -135,6 +135,12 @@ void BindDistributed(py::module *m) {
                &distributed::ProcessGroup::EndCoalescing,
                py::arg("tasks") = std::nullopt,
                py::call_guard<py::gil_scoped_release>())
+          .def("eager_connect",
+               &distributed::ProcessGroup::EagerConnect,
+               py::call_guard<py::gil_scoped_release>())
+          .def("eager_connect_ring_exchange",
+               &distributed::ProcessGroup::EagerConnectRingExchange,
+               py::call_guard<py::gil_scoped_release>())
           .def(
               "all_reduce",
               [](distributed::ProcessGroup &self,
@@ -695,8 +701,8 @@ void BindDistributed(py::module *m) {
           .def(
               "alltoall",
               [](distributed::ProcessGroup &self,
-                 py::handle py_in_tensor,
-                 py::handle py_out_tensor) {
+                 py::handle py_out_tensor,
+                 py::handle py_in_tensor) {
                 auto in_tensor = CastPyArg2Tensor(py_in_tensor.ptr(), 0);
                 auto out_tensor = CastPyArg2Tensor(py_out_tensor.ptr(), 0);
                 auto in_dense = std::dynamic_pointer_cast<phi::DenseTensor>(
@@ -719,8 +725,8 @@ void BindDistributed(py::module *m) {
           .def(
               "alltoall_single",
               [](distributed::ProcessGroup &self,
-                 py::handle py_in_tensor,
                  py::handle py_out_tensor,
+                 py::handle py_in_tensor,
                  const std::vector<int64_t> in_sizes,
                  const std::vector<int64_t> out_sizes) {
                 auto out_tensor = CastPyArg2Tensor(py_out_tensor.ptr(), 0);
@@ -1257,11 +1263,11 @@ void BindDistributed(py::module *m) {
   py::class_<distributed::AsyncLoad::Task,
              std::shared_ptr<distributed::AsyncLoad::Task>>(*m, "AsyncLoadTask")
       .def("is_completed", &distributed::AsyncLoad::Task::IsCompleted)
-      .def("wait",
-           &distributed::AsyncLoad::Task::Synchronize,
+      .def("cuda_wait",
+           &distributed::AsyncLoad::Task::CudaSynchronize,
            py::call_guard<py::gil_scoped_release>())
-      .def("synchronize",
-           &distributed::AsyncLoad::Task::Synchronize,
+      .def("cpu_wait",
+           &distributed::AsyncLoad::Task::CpuSynchronize,
            py::call_guard<py::gil_scoped_release>());
 
   auto AsyncLoad =
@@ -1286,6 +1292,33 @@ void BindDistributed(py::module *m) {
               },
               py::arg("dst"),
               py::arg("src"),
+              py::call_guard<py::gil_scoped_release>())
+          .def(
+              "offload_with_offset",
+              [](distributed::AsyncLoad &self,
+                 py::handle py_dst_tensor,
+                 py::handle py_src_tensor,
+                 size_t dst_offset,
+                 size_t src_offset,
+                 size_t offload_size) {
+                auto dst_tensor = CastPyArg2Tensor(py_dst_tensor.ptr(), 0);
+                auto p_dst_tensor = std::dynamic_pointer_cast<phi::DenseTensor>(
+                    dst_tensor.impl());
+                auto *dst_dense = p_dst_tensor.get();
+
+                auto src_tensor = CastPyArg2Tensor(py_src_tensor.ptr(), 0);
+                auto p_src_tensor = std::dynamic_pointer_cast<phi::DenseTensor>(
+                    src_tensor.impl());
+                auto src_dense = *p_src_tensor;
+
+                return self.OffloadWithOffset(
+                    dst_dense, src_dense, dst_offset, src_offset, offload_size);
+              },
+              py::arg("dst"),
+              py::arg("src"),
+              py::arg("dst_offset"),
+              py::arg("src_offset"),
+              py::arg("offload_size"),
               py::call_guard<py::gil_scoped_release>())
           .def(
               "reload",

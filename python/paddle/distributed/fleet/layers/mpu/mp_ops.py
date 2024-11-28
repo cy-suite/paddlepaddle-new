@@ -20,6 +20,7 @@ from paddle.distributed import collective
 from paddle.framework import LayerHelper, _create_tensor, in_dynamic_mode
 from paddle.nn import Layer
 from paddle.nn.utils import dygraph_utils
+from paddle.utils.inplace_utils import inplace_apis_in_dygraph_only
 
 from ....communication.reduce import ReduceOp, _get_reduce_op
 
@@ -421,8 +422,10 @@ def _c_softmax_with_cross_entropy(
         else group.nranks
     )
 
-    input_dims = len(list(logits.shape))
-    label_dims = len(list(label.shape))
+    input_shape = list(logits.shape)
+    label_shape = list(label.shape)
+    input_dims = len(input_shape)
+    label_dims = len(label_shape)
     if input_dims - 1 != label_dims and input_dims != label_dims:
         raise ValueError(
             f'Expected input_dims - 1 = label_dims or input_dims == label_dims\
@@ -430,6 +433,12 @@ def _c_softmax_with_cross_entropy(
         )
     if input_dims - 1 == label_dims:
         label = paddle.unsqueeze(label, axis=-1)
+        label_shape = list(label.shape)
+    if label_shape[-1] < 1 or label_shape[-1] > input_shape[-1] * nranks:
+        raise ValueError(
+            f'Expected label_shape[-1] >= 1 and label_shape[-1] <= input_shape[-1] * nranks\
+             (got label_shape[-1] = {label_shape[-1]}, input_shape[-1] = {input_shape[-1]})'
+        )
 
     if in_dynamic_mode():
         softmax, loss = _legacy_C_ops.c_softmax_with_cross_entropy(
@@ -469,6 +478,52 @@ def _c_softmax_with_cross_entropy(
             return loss, softmax
 
         return loss
+
+
+@inplace_apis_in_dygraph_only
+def _c_softmax_with_cross_entropy_(
+    logits,
+    label,
+    group=None,
+    return_softmax=False,
+    ignore_index=-100,
+):
+    if group is not None and not group.is_member():
+        return
+
+    ring_id = 0 if group is None else group.id
+    global_rank = paddle.distributed.get_rank()
+    rank = global_rank if group is None else group.get_group_rank(global_rank)
+    nranks = (
+        paddle.distributed.get_world_size() if group is None else group.nranks
+    )
+
+    input_dims = len(logits.shape)
+    label_dims = len(label.shape)
+
+    if input_dims not in [label_dims, label_dims + 1]:
+        raise ValueError(
+            f"Expected input dimensions to be {label_dims} or {label_dims + 1} "
+            f"(got {input_dims} dimensions for input)"
+        )
+
+    if input_dims == label_dims + 1:
+        label = paddle.unsqueeze(label, axis=-1)
+
+    softmax, loss = _legacy_C_ops.c_softmax_with_cross_entropy_(
+        logits,
+        label,
+        'ring_id',
+        ring_id,
+        'rank',
+        rank,
+        'nranks',
+        nranks,
+        'ignore_index',
+        ignore_index,
+    )
+
+    return (loss, softmax) if return_softmax else loss
 
 
 def _linear(x, weight, bias=None, name=None):

@@ -65,7 +65,7 @@ class ProcessGroupNCCL final : public ProcessGroupWithStream {
 
    private:
     bool block_cpu_in_wait_{false};
-    platform::DeviceEvent comm_event_;  // event on comm stream
+    std::shared_ptr<platform::DeviceEvent> comm_event_;  // event on comm stream
     Place task_place_;
     int gid_;
   };
@@ -238,6 +238,10 @@ class ProcessGroupNCCL final : public ProcessGroupWithStream {
   virtual void EndCoalescing(
       std::optional<std::vector<std::shared_ptr<ProcessGroup::Task>>>
           tasks_opt = std::nullopt);
+
+  void EagerConnect();
+
+  void EagerConnectRingExchange();
 
  private:
   std::shared_ptr<phi::distributed::Store> store_;
