@@ -162,7 +162,7 @@ limitations under the License. */
 #include "paddle/fluid/operators/nccl/nccl_gpu_common.h"
 #endif
 #ifdef PADDLE_WITH_CUDA
-#include "paddle/fluid/platform/device/gpu/gpu_event_timer.h"
+#include "paddle/phi/backends/gpu/cuda/gpu_event_timer.h"
 #endif
 #ifndef PADDLE_WITH_HIP
 #include "paddle/phi/core/platform/device/gpu/cuda/cuda_profiler.h"
@@ -2479,7 +2479,6 @@ All parameter, weight, gradient are variables in Paddle.
       .def("capacity",
            &phi::GPUEventTimer::Capacity,
            py::call_guard<py::gil_scoped_release>());
-
 #endif
 
   m.def("init_gflags", framework::InitGflags);
