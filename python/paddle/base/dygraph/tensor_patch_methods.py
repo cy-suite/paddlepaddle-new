@@ -127,6 +127,7 @@ def monkey_patch_tensor():
             'strides',
             'offset',
             '__cuda_array_interface__',
+            '__dlpack__',
         ]
         param_keys = ['stop_gradient', 'trainable']
         if isinstance(self, EagerParamBase):
@@ -1330,6 +1331,51 @@ def monkey_patch_tensor():
             "version": 2,
         }
 
+    def __dlpack__(self, stream=None):
+        """
+        Creates a DLPack capsule of the current tensor to be exported to other libraries.
+        Args:
+            stream (int | None): An optional Python integer representing a pointer
+                                to a CUDA stream. Synchronizes the tensor with this
+                                stream before exporting.
+                                If None or -1, no synchronization is performed.
+                                If 0, the default stream is used.
+        """
+        if "gpu" not in str(self.place):
+            raise AttributeError(
+                "Can't get __dlpack__ on non-CUDA tensor. "
+                "Use tensor.cuda() to move the tensor to device memory."
+            )
+
+        if self.is_sparse():
+            raise AttributeError(
+                "Can't get __dlpack__ on sparse tensor. "
+                "Use Tensor.to_dense() to convert to a dense tensor first."
+            )
+
+        if not self.stop_gradient:
+            raise RuntimeError(
+                "Can't get __dlpack__ on Tensor that requires gradients. "
+                "If gradients aren't required, use tensor.detach() to get a tensor without gradient."
+            )
+
+        if stream is not None and not isinstance(stream, int):
+            raise TypeError("stream must be an integer or None")
+
+        if stream is not None and stream != -1:
+            if self.place.is_gpu_place():
+                if stream == 0:
+                    stream = paddle.device.cuda.default_stream()
+                else:
+                    stream = paddle.device.cuda.ExternalStream(stream)
+                current_stream = paddle.device.cuda.current_stream()
+                if stream != current_stream:
+                    event = paddle.device.cuda.Event()
+                    event.record(current_stream)
+                    stream.wait_event(event)
+
+        return paddle.utils.dlpack.to_dlpack(self)
+
     if not hasattr(core, "eager"):
         return
 
@@ -1374,6 +1420,7 @@ def monkey_patch_tensor():
         ("_use_gpudnn", _use_gpudnn),
         ("_md5sum", _md5sum),
         ("__cuda_array_interface__", __cuda_array_interface__),
+        ("__dlpack__", __dlpack__),
     ):
         setattr(core.eager.Tensor, method_name, method)
 
