@@ -12,16 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-# converter.py
-
 import math
 
 import tensorrt as trt
 
 from paddle.tensorrt.register import converter_registry
-
-# converter.py
 
 
 @converter_registry.register("pd_op.pool2d", trt_version="8.x")
