@@ -185,7 +185,7 @@ inline void VisitIntDataType(proto::VarType::Type type, Visitor visitor) {
   _ForEachIntDataType_(VisitIntDataTypeCallback);
 
   PADDLE_THROW(common::errors::Unimplemented(
-      "Expected integral data type, but got %s", DataTypeToString(type)));
+      "Expected integral data type, but got %s", VarDataTypeToString(type)));
 
 #undef VisitIntDataTypeCallback
 }
@@ -220,7 +220,7 @@ inline void VisitDataTypeForHIP(proto::VarType::Type type, Visitor visitor) {
 
 inline std::ostream& operator<<(std::ostream& out,
                                 const proto::VarType::Type& type) {
-  out << DataTypeToString(type);
+  out << VarDataTypeToString(type);
   return out;
 }
 
@@ -242,7 +242,7 @@ extern inline proto::VarType::Type ToComplexType(proto::VarType::Type t) {
       PADDLE_THROW(common::errors::Unimplemented(
           "Unknown real value data type (%s), now only support float32 and "
           "float64.",
-          DataTypeToString(t)));
+          VarDataTypeToString(t)));
   }
 }
 
@@ -257,7 +257,7 @@ extern inline proto::VarType::Type ToRealType(proto::VarType::Type t) {
           "Unknown complex value data type (%s), now only support complex64 "
           "and "
           "complex128.",
-          DataTypeToString(t)));
+          VarDataTypeToString(t)));
   }
 }
 
