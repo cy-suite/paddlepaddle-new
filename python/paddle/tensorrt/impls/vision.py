@@ -44,4 +44,3 @@ def grid_sample_converter(network, paddle_op, inputs):
     grid_sample_layer.align_corners = align_corners
     grid_sample_layer.sample_mode = sample_mode
     return grid_sample_layer.get_output(0)
-
