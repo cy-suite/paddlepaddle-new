@@ -207,8 +207,8 @@ void MetaTensor::share_lod(const MetaTensor& meta_tensor) {
     return;
   }
   if (phi::DenseTensor::classof(tensor_)) {
-    DenseTensorUtils::GetMutableMeta(static_cast<DenseTensor*>(tensor_))->lod =
-        meta_tensor.lod();
+    DenseTensorUtils::GetMutableMeta(static_cast<DenseTensor*>(tensor_))
+        ->legacy_lod = meta_tensor.lod();
   } else if (phi::SelectedRows::classof(tensor_)) {
     DenseTensorUtils::GetMutableMeta(
         static_cast<SelectedRows*>(tensor_)->mutable_value())
@@ -220,7 +220,7 @@ void MetaTensor::share_lod(const MetaTensor& meta_tensor) {
   }
 }
 
-void MetaTensor::share_lod(const LoD& lod) {
+void MetaTensor::share_lod(const LoD& legacy_lod) {
   ValidCheck(*this);
   if (phi::SparseCooTensor::classof(tensor_) ||
       phi::SparseCsrTensor::classof(tensor_) ||
@@ -232,12 +232,12 @@ void MetaTensor::share_lod(const LoD& lod) {
     return;
   }
   if (phi::DenseTensor::classof(tensor_)) {
-    DenseTensorUtils::GetMutableMeta(static_cast<DenseTensor*>(tensor_))->lod =
-        lod;
+    DenseTensorUtils::GetMutableMeta(static_cast<DenseTensor*>(tensor_))
+        ->legacy_lod = legacy_lod;
   } else if (phi::SelectedRows::classof(tensor_)) {
     DenseTensorUtils::GetMutableMeta(
         static_cast<SelectedRows*>(tensor_)->mutable_value())
-        ->lod = lod;
+        ->legacy_lod = legacy_lod;
   } else {
     PADDLE_THROW(common::errors::Unimplemented(
         "Unsupported sharing lod inplace for `%s`.",
