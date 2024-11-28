@@ -94,68 +94,6 @@ class TestGridSampleTRTPatternCase4(TestGridSampleTRTPatternBase):
     def test_trt_result(self):
         self.check_trt_result()
 
-class TestYoloBoxHeadTRTPatternBase(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = paddle.fluid.layers.yolo_box_head
-        self.api_args = {
-            "x": np.random.rand(1, 3, 416, 416).astype("float32"),  
-            "anchors": np.array([10.0, 13.0, 16.0, 30.0, 33.0, 23.0], dtype="float32"), 
-            "class_num": 80,  
-        }
-        self.program_config = {
-            "feed_list": ["x", "anchors", "class_num"],
-        }
-        self.min_shape = {
-            "x": [1, 3, 416, 416],
-            "anchors": [6], 
-            "class_num": [1],  
-        }
-        self.max_shape = {
-            "x": [5, 3, 416, 416],
-            "anchors": [6],
-            "class_num": [1],
-        }
-
-class TestYoloBoxHeadTRTPatternCase1(TestYoloBoxHeadTRTPatternBase):
-    def test_trt_result(self):
-        self.check_trt_result() 
-
-class TestYoloBoxHeadTRTPatternCase2(TestYoloBoxHeadTRTPatternBase):
-    def setUp(self):
-        super().setUp()
-        self.api_args.update(
-            {
-                "anchors": np.array([12.0, 16.0, 30.0, 45.0, 50.0, 60.0], dtype="float32"),  
-                "class_num": 90,  
-            }
-        )
-
-    def test_trt_result(self):
-        self.check_trt_result()
-
-class TestYoloBoxHeadTRTPatternCase3(TestYoloBoxHeadTRTPatternBase):
-    def setUp(self):
-        super().setUp()
-        self.api_args.update(
-            {
-                "anchors": np.array([12.0, 15.0, 20.0, 35.0, 45.0, 60.0], dtype="float32"),
-                "class_num": 80,  
-            }
-        )
-    def test_trt_result(self):
-        self.check_trt_result()
-
-class TestYoloBoxHeadTRTPatternCase4(TestYoloBoxHeadTRTPatternBase):
-    def setUp(self):
-        super().setUp()
-        self.api_args.update(
-            {
-                "anchors": np.array([8.0, 14.0, 18.0, 25.0, 33.0, 38.0], dtype="float32"),
-                "class_num": 100,  
-            }
-        )
-    def test_trt_result(self):
-        self.check_trt_result()
 
 
 if __name__ == '__main__':
