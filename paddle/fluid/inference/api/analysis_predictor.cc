@@ -1499,6 +1499,13 @@ void AnalysisPredictor::InsertCommOp(
     ss << ep << ", ";
   }
   VLOG(3) << ss.str();
+  // Q(chenhuan09): Is ‘endpoints_str’ necessary?
+  // For instance, if there are 2 ranks in the group:
+  // 127.0.0.1:6070/127.0.0.1:6071 ‘endpoints_str_rank1’ would be:
+  // “127.0.0.1:6070,127.0.0.1:6071” ‘endpoints_str_rank2’ would be:
+  // “127.0.0.1:6071,127.0.0.1:6070” And ‘endpoints_str’ is the hash_key in
+  // ‘CreateBKCLCommContext’/‘CreateXCCLCommContext’, which could lead to
+  // inconsistency in ‘unique_key’.
   std::string endpoints_str = config_.dist_config().current_endpoint();
   for (const auto &peer : peer_endpoints) {
     endpoints_str += "," + peer;
