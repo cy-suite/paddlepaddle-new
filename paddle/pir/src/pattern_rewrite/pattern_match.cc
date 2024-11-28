@@ -144,8 +144,10 @@ void RewriterBase::EraseOp(Operation* op) {
 
 // Find uses of `from` and replace it with `to`.
 void RewriterBase::ReplaceAllUsesWith(Value from, Value to) {
-  for (auto it = from.use_begin(); it != from.use_end();)
+  for (auto it = from.use_begin(); it != from.use_end();) {
     UpdateRootInplace(it.owner(), [&]() { (it++)->set_source(to); });
+  }
+  NotifyValueReplaced(from, to);
 }
 
 // Find uses of `from` and replace them with `to` if the `functor` returns true.
