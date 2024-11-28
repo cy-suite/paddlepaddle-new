@@ -86,7 +86,6 @@ DEFINE_GENERAL_PATTERN(Floor, paddle::dialect::FloorOp)
 DEFINE_GENERAL_PATTERN(Roll, paddle::dialect::RollOp)
 DEFINE_GENERAL_PATTERN(Softplus, paddle::dialect::SoftplusOp)
 DEFINE_GENERAL_PATTERN(ThresholdedRelu, paddle::dialect::ThresholdedReluOp)
-DEFINE_GENERAL_PATTERN(Yolo_Box_Head, paddle::dialect::YoloBoxHeadOp)
 
 #undef DEFINE_GENERAL_PATTERN
 
