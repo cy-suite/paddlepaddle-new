@@ -62,4 +62,4 @@ def less_equal_converter(network, paddle_op, inputs):
         [less_layer_output, equal_layer_output],
         trt.ElementWiseOperation.OR,
     )
-    return trt_cast(network, or_layer, inputs[0].dtype)
+    return or_layer

@@ -1146,54 +1146,26 @@ class LessThanOpPattern
   }
 };
 
-class LessEqualOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::LessEqualOp> {
+template <typename OpType>
+class LessEqualOpPattern : public pir::OpRewritePattern<OpType> {
  public:
-  using pir::OpRewritePattern<paddle::dialect::LessEqualOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::LessEqualOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-#if IS_TRT_VERSION_LT(8400)
-    VLOG(3) << "LessEqualOp is not supported when TensorRT < 8.4";
-    return false;
-#else
-    pir::Value x = op.operand_source(0);
-    pir::Value y = op.operand_source(1);
-    auto x_dtype = pir::GetDataTypeFromValue(x);
-    auto y_dtype = pir::GetDataTypeFromValue(y);
-    if (x_dtype.isa<pir::BoolType>() || y_dtype.isa<pir::BoolType>()) {
-      VLOG(3) << "Less_equal op do not support bool datatype";
-      return false;
-    }
-#endif
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
+  using pir::OpRewritePattern<OpType>::OpRewritePattern;
 
-class LessEqual_OpPattern
-    : public pir::OpRewritePattern<paddle::dialect::LessEqual_Op> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::LessEqual_Op>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::LessEqual_Op op,
-                       pir::PatternRewriter &rewriter) const override {
+  bool MatchAndRewrite(OpType op, pir::PatternRewriter &rewriter) const override {
     if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+        op->template attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
 #if IS_TRT_VERSION_LT(8400)
-    VLOG(3) << "LessEqual_Op is not supported when TensorRT < 8.4";
+    VLOG(3) << op->name() << " is not supported when TensorRT < 8.4";
     return false;
 #else
     pir::Value x = op.operand_source(0);
     pir::Value y = op.operand_source(1);
     auto x_dtype = pir::GetDataTypeFromValue(x);
     auto y_dtype = pir::GetDataTypeFromValue(y);
-    if (x_dtype.isa<pir::BoolType>() || y_dtype.isa<pir::BoolType>()) {
-      VLOG(3) << "Less_equal_ op do not support bool datatype";
+    if (x_dtype.template isa<pir::BoolType>() || y_dtype.template isa<pir::BoolType>()) {
+      VLOG(3) << op->name() << " does not support bool datatype";
       return false;
     }
 #endif
@@ -1201,6 +1173,8 @@ class LessEqual_OpPattern
     return true;
   }
 };
+using LessEqual1OpPattern = LessEqualOpPattern<paddle::dialect::LessEqualOp>;
+using LessEqual2OpPattern = LessEqualOpPattern<paddle::dialect::LessEqual_Op>;
 
 class MulticlassNms3OpPattern
     : public pir::OpRewritePattern<paddle::dialect::MulticlassNms3Op> {
@@ -2221,8 +2195,8 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<SplitWithNumOpPattern>(context));
     ps.Add(std::make_unique<GreaterEqualOpPattern>(context));
     ps.Add(std::make_unique<GreaterThanOpPattern>(context));
-    ps.Add(std::make_unique<LessEqualOpPattern>(context));
-    ps.Add(std::make_unique<LessEqual_OpPattern>(context));
+    ps.Add(std::make_unique<LessEqual1OpPattern>(context));
+    ps.Add(std::make_unique<LessEqual2OpPattern>(context));
     ps.Add(std::make_unique<LessThanOpPattern>(context));
     ps.Add(std::make_unique<MultiplyOpPattern>(context));
     ps.Add(std::make_unique<SubtractOpPattern>(context));
