@@ -786,3 +786,4 @@ def cuda_pinned_tensors_move_to_excepted_place(inputs):
                 var = value._copy_to(expected_place, True)
                 var.stop_gradient = True
                 var._share_buffer_to(value)
+                var.stop_gradient = False
