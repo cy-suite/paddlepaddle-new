@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
 import os
 import sys
 
@@ -138,14 +139,15 @@ class TestLlamaAuto:
         )
         model.train()
 
-        losses = []
+        md5_losses = []
         for step, inputs in enumerate(dist_loader()):
             if step >= self.run_step:
                 break
             input_ids, labels = inputs
             loss = model(input_ids, labels)
-            losses.append(np.array(loss))
-        return losses, model
+            array_bytes = np.array(loss).tobytes()
+            md5_losses.append(hashlib.md5(array_bytes).hexdigest())
+        return md5_losses, model
 
     def init_dist_env(self):
         order = ["dp", "pp", "mp"]
@@ -174,21 +176,22 @@ class TestLlamaAuto:
 
     def get_recompute_message(self, program):
         segment_num = 0
-        fwd_op_num = 0
-        bwd_op_num = 0
+        rc_op_num = 0
         for block in program.blocks:
             for op in block.ops:
                 if op.has_attr("fwd_recompute_id"):
                     idx = op.attrs()["fwd_recompute_id"]
                     segment_num = max(segment_num, idx)
-                if op.has_attr("bwd_recompute_id"):
+                    rc_op_num += 1
+                elif op.has_attr("bwd_recompute_id"):
                     idx = op.attrs()["bwd_recompute_id"]
                     segment_num = max(segment_num, idx)
-        assert fwd_op_num >= bwd_op_num
-        return segment_num, fwd_op_num
+                    rc_op_num += 1
+        return segment_num, rc_op_num
 
     def run_test_cases(self):
         self.strategy._recompute.enable = False
+        self.config.recompute = False
         base_losses, base_model = self.run_llama(self.config)
 
         self.strategy._recompute.enable = True
@@ -211,18 +214,25 @@ class TestLlamaAuto:
 
         # check program
         base_prog = base_model.dist_main_program()
-        prog_1 = losses_1.dist_main_program()
-        prog_2 = losses_2.dist_main_program()
-        prog_3 = losses_3.dist_main_program()
+        prog_1 = model_1.dist_main_program()
+        prog_2 = model_2.dist_main_program()
+        prog_3 = model_3.dist_main_program()
         base_segment_num, base_rc_op_num = self.get_recompute_message(base_prog)
         segment_num_1, rc_op_num_1 = self.get_recompute_message(prog_1)
         segment_num_2, rc_op_num_2 = self.get_recompute_message(prog_2)
         segment_num_3, rc_op_num_3 = self.get_recompute_message(prog_3)
 
         assert base_segment_num == 0 and base_rc_op_num == 0
-        assert base_segment_num < segment_num_1 and base_rc_op_num < rc_op_num_1
-        assert segment_num_1 < rc_op_num_2 and rc_op_num_1 < rc_op_num_2
-        assert segment_num_2 < rc_op_num_3 and rc_op_num_2 < rc_op_num_2
+        assert (
+            base_segment_num < segment_num_1
+            and segment_num_1 < segment_num_2
+            and segment_num_2 < segment_num_3
+        )
+        assert (
+            base_rc_op_num < rc_op_num_1
+            and rc_op_num_1 < rc_op_num_2
+            and rc_op_num_2 < rc_op_num_3
+        )
 
 
 if __name__ == '__main__':

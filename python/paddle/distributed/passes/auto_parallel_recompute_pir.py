@@ -41,9 +41,6 @@ class AutoParallelRecomputePIRPass(PassBase):
     def _check_conflict(self, other_pass):
         return True
 
-    def _check_user(self, value):
-        pass
-
     def get_fwd_bwd_ops(self, program):
         fwd_ops = []
         bwd_ops = []
@@ -52,10 +49,11 @@ class AutoParallelRecomputePIRPass(PassBase):
                 fwd_ops.append(op)
             elif op.op_role == int(OpRole.Backward):
                 bwd_ops.append(op)
+        assert len(fwd_ops) and len(bwd_ops)
         return fwd_ops, bwd_ops
 
     def get_first_bwd_used_op(self, fwd_op, bwd_ops):
-        has_user = False
+        # Find the first user op of the op result in backward op list.
         first_op = bwd_ops[-1]
         for res in fwd_op.results():
             for user_op in res.all_used_ops():
@@ -64,6 +62,7 @@ class AutoParallelRecomputePIRPass(PassBase):
         return first_op
 
     def is_seed_used_by_dropout(self, seed_op):
+        # Ensure that the random operator has the same output in backward recompute.
         if seed_op.name() != "seed":
             return False
         seed_value = seed_op.results()[0]
@@ -74,76 +73,47 @@ class AutoParallelRecomputePIRPass(PassBase):
             if used_op.name() in dropout_ops
         )
 
-    def get_checkpoints(self, program):
-        segment_beg = {}
-        segment_end = {}
-        max_op_id = len(program.global_block().ops)
+    def get_segments(self, program):
+        segments = {}
         for idx, op in enumerate(program.global_block().ops):
             if not op.has_attr("fwd_recompute_id"):
                 continue
             rc_id = op.attrs()["fwd_recompute_id"]
-            if rc_id not in segment_beg:
-                segment_beg[rc_id] = max_op_id
-                segment_end[rc_id] = 0
-            segment_beg[rc_id] = min(segment_beg[rc_id], idx)
-            segment_end[rc_id] = max(segment_end[rc_id], idx)
+            if rc_id not in segments:
+                segments[rc_id] = []
+            segments[rc_id].append(idx)
 
-        checkpoints = []
-        assert len(segment_beg.keys()) == len(segment_end.keys())
-        for segment_id, beg_id in segment_beg.items():
-            assert segment_id in segment_end.keys()
-            end_id = segment_end[segment_id]
-            assert beg_id <= end_id
-            checkpoints.append([beg_id, end_id])
-
-        checkpoints.sort()
-
-        # TODO: add check for checkpoints
-        # pre_seg_end_id < nxt_seg_beg_id
-
-        return checkpoints
+        return segments
 
     def _apply_single_impl(self, main_program, startup_program, context=None):
-        checkpoints = self.get_checkpoints(main_program)
-        print("xxx checkpoints: ", checkpoints)
-        if len(checkpoints) == 0:
-            logger.info("No recompute found.")
+        segments = self.get_segments(main_program)
+        if len(segments) == 0:
+            logger.info("No segments found in PIR recompite pass.")
             return
 
         fwd_ops, bwd_ops = self.get_fwd_bwd_ops(main_program)
-
-        segments = []
-        for segment in checkpoints:
-            assert len(segment) == 2
-            beg_op_idx = segment[0]
-            end_op_idx = segment[1]
-            beg_op = main_program.global_block().ops[beg_op_idx]
-            end_op = main_program.global_block().ops[end_op_idx]
-            if beg_op not in fwd_ops or end_op not in fwd_ops:
-                continue
-            segments.append(
-                main_program.global_block().ops[beg_op_idx:end_op_idx]
-            )
 
         input_value = main_program.list_vars()
         value_map = paddle.pir.IrMapping()
         for val in input_value:
             value_map.add(val, val)
 
-        segment_id = 0
-        for segment in segments:
-            has_bwd_uesd = False
+        for rc_id, segment in segments.items():
+            print(rc_id)
+            print(segment)
             first_bwd_used_op = bwd_ops[-1]
-            for op in segment:
+            for idx in segment:
+                op = main_program.global_block().ops[idx]
                 bwd_used_op = self.get_first_bwd_used_op(op, bwd_ops)
                 if first_bwd_used_op.id() > bwd_used_op.id():
                     first_bwd_used_op = bwd_used_op
 
             ori_segment_outputs = backward_utils.ValueSet()
             paddle.pir.set_insertion_point(first_bwd_used_op)
-            for op in segment:
+
+            for idx in segment:
+                op = main_program.global_block().ops[idx]
                 ori_segment_outputs.update(op.results())
-                op.set_int_attr("fwd_recompute_id", segment_id)
 
                 if self.is_seed_used_by_dropout(op):
                     continue
@@ -151,15 +121,13 @@ class AutoParallelRecomputePIRPass(PassBase):
                 rc_op = op.clone(
                     value_map, paddle.pir.CloneOptions(False, True, True)
                 )
-                rc_op.set_int_attr("bwd_recompute_id", segment_id)
+                rc_op.set_int_attr("bwd_recompute_id", rc_id)
 
                 if first_bwd_used_op.has_attr('op_role'):
                     rc_op.set_int_attr("op_role", first_bwd_used_op.op_role)
 
                 if first_bwd_used_op.has_attr('chunk_id'):
                     rc_op.set_int_attr("chunk_id", first_bwd_used_op.chunk_id)
-
-            segment_id += 1
 
             for ori_value in ori_segment_outputs:
                 rc_value = value_map.look_up(ori_value)

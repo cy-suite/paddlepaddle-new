@@ -43,4 +43,4 @@ class TestSemiAutoParallelLlamaACCTest(test_base.CommunicationTestDistBase):
 
 
 if __name__ == "__main__":
-    unittest.main()  # python run
+    unittest.main()
