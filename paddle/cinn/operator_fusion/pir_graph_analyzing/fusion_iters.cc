@@ -295,6 +295,11 @@ std::vector<symbol::DimExpr> FusionItersManager::GetIterSymbols(
   return result;
 }
 
+std::vector<symbol::DimExpr> FusionItersManager::GetValueSymbols(
+    const pir::Value& value) {
+  return GetIterSymbols(GetValueIters(value));
+}
+
 symbol::DimExpr FusionItersManager::GetReduceDimsProduct(
     const FusionItersSignature& sig) {
   symbol::DimExpr result = 1;

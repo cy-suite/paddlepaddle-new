@@ -55,7 +55,7 @@ class PatternGraph {
   }
   const std::vector<pir::Value>& outputs() const { return outputs_; }
   const PolicyManager& policy_manager() const { return policy_manager_; }
-  std::shared_ptr<ItersFusionPolicy> iters_fusion_policy() {
+  const std::shared_ptr<ItersFusionPolicy>& iters_fusion_policy() const {
     return policy_manager_.template GetPolicy<ItersFusionPolicy>();
   }
 

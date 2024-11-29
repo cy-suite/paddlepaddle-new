@@ -226,8 +226,20 @@ struct TransposeOpMatcher {
 
 struct ReshapeOpMatcher {
   bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
+    const auto check_shape_product_equal = [&]() -> bool {
+      auto iters_manager = graph.iters_fusion_policy()->iters_manager();
+      const auto in_shape =
+          iters_manager->GetValueSymbols(node->sink_op()->operand_source(0));
+      const auto out_shape =
+          iters_manager->GetValueSymbols(node->sink_op()->result(0));
+      const auto in_rank = in_shape.size();
+      const auto out_rank = out_shape.size();
+      return ShapeProductEqual(in_shape, out_shape, 0, in_rank, 0, out_rank);
+    };
+
     return node->ops().size() == 1 &&
-           node->sink_op()->name() == "cinn_op.reshape";
+           node->sink_op()->name() == "cinn_op.reshape" &&
+           check_shape_product_equal();
   }
 };
 
