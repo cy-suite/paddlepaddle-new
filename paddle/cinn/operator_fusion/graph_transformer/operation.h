@@ -319,23 +319,6 @@ struct ReshapeAlignInputOperation {
             *(node->fusion_iters().input_values.begin()));
     const auto output_iters = node->fusion_iters().loop_iters;
 
-    const auto input_shape =
-        graph->iters_fusion_policy()->iters_manager()->GetIterSymbols(
-            input_iters);
-    const auto output_shape =
-        graph->iters_fusion_policy()->iters_manager()->GetIterSymbols(
-            output_iters);
-
-    const auto in_rank = input_shape.size();
-    const auto out_rank = output_shape.size();
-    if (!ShapeProductEqual(
-            input_shape, output_shape, 0, in_rank, 0, out_rank)) {
-      VLOG(4) << "Skip ReshapeAlign because the shape product is not equal: "
-              << cinn::utils::Join(input_shape, ",") << " vs "
-              << cinn::utils::Join(output_shape, ",");
-      return;
-    }
-
     // Sink reshape
     MergeTrivialPatternOperation()(graph, node);
 
@@ -352,6 +335,12 @@ struct ReshapeAlignInputOperation {
         graph->iters_fusion_policy()->GetLoopDims(aligned_fusion_iters)));
     sinked_node->set_fusion_iters(aligned_fusion_iters);
 
+    const auto input_shape =
+        graph->iters_fusion_policy()->iters_manager()->GetIterSymbols(
+            input_iters);
+    const auto output_shape =
+        graph->iters_fusion_policy()->iters_manager()->GetIterSymbols(
+            output_iters);
     FusionInstrPtr instr = std::make_shared<ReshapeAlignInstr>(
         origin_id, output_shape, input_shape, sinked_node->id());
     sinked_node->AppendInstr(instr);
