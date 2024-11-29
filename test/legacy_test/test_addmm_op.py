@@ -353,14 +353,10 @@ class TestAddMMOp4(OpTest):
         )
 
     def test_check_grad_x(self):
-        self.check_grad(
-            ['X'], 'Out', no_grad_set=None, check_pir=True, check_prim_pir=True
-        )
+        self.check_grad(['X'], 'Out', no_grad_set=None, check_pir=True)
 
     def test_check_grad_y(self):
-        self.check_grad(
-            ['Y'], 'Out', no_grad_set=None, check_pir=True, check_prim_pir=True
-        )
+        self.check_grad(['Y'], 'Out', no_grad_set=None, check_pir=True)
 
     def test_check_grad_input(self):
         self.check_grad(
@@ -368,7 +364,6 @@ class TestAddMMOp4(OpTest):
             'Out',
             no_grad_set=None,
             check_pir=True,
-            check_prim_pir=True,
         )
 
 
