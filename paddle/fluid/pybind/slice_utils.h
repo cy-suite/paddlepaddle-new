@@ -146,7 +146,7 @@ static int _PySlice_GetIndices(PySliceObject* r,
     }
   }
   if (r->stop == Py_None) {
-    *stop = *step < 0 ? -1 : length;
+    *stop = *step < 0 ? -length - 1 : length;
   } else {
     if (PyCheckInteger(r->stop) || IsNumpyType(r->stop)) {
       *stop = PyLong_AsLong(r->stop);
