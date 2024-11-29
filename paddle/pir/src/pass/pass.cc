@@ -156,7 +156,9 @@ bool detail::PassAdaptor::RunPass(Pass* pass,
                                   uint8_t opt_level,
                                   bool verify) {
   if (opt_level < pass->pass_info().opt_level) return true;
-  cinn::common::RecordEvent record("ApplyCinnLowerPass");
+#ifdef PADDLE_WITH_CINN
+  cinn::common::RecordEvent record(pass->name());
+#endif
   pass->pass_state_ = PassExecutionState(op, am);
 
   PassInstrumentor* instrumentor = am.GetPassInstrumentor();
