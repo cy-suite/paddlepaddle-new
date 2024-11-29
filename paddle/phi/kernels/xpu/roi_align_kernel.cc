@@ -71,7 +71,7 @@ void RoiAlignKernel(const Context& dev_ctx,
                          xplace,
                          boxes_num->data<int64_t>(),
                          sizeof(int64_t) * rois_batch_size);
-      cpu_lod = new int64_t[rois_batch_size + 1];
+      cpu_lod = new int[rois_batch_size + 1];
       cpu_lod[0] = 0;
       for (int64_t i = 0; i < rois_batch_size; i++) {
         cpu_lod[i + 1] = cpu_lod[i] + rois_num_list[i];
