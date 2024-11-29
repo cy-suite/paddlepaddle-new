@@ -15,7 +15,7 @@
 import unittest
 
 import numpy as np
-from op_test import OpTest, skip_check_grad_ci
+from op_test import OpTest
 from utils import dygraph_guard, static_guard
 
 import paddle
@@ -69,13 +69,10 @@ class TestSvdvalsBatched(TestSvdvalsOp):
         self.outputs = {"s": self._output_data}
 
 
-@skip_check_grad_ci(
-    reason="'check_grad' on singular values is not required for svdvals."
-)
 class TestSvdvalsBigMatrix(TestSvdvalsOp):
     def init_data(self):
         """Generate large input matrix."""
-        self._input_shape = (200, 300)
+        self._input_shape = (40, 40)
         self._input_data = np.random.random(self._input_shape).astype("float64")
         self._output_data = np.linalg.svd(
             self._input_data, compute_uv=False, hermitian=False
@@ -84,7 +81,13 @@ class TestSvdvalsBigMatrix(TestSvdvalsOp):
         self.outputs = {'s': self._output_data}
 
     def test_check_grad(self):
-        pass
+        self.check_grad(
+            ['x'],
+            ['s'],
+            numeric_grad_delta=0.001,
+            max_relative_error=1e-5,
+            check_pir=True,
+        )
 
 
 class TestSvdvalsAPI(unittest.TestCase):

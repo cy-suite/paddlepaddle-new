@@ -241,16 +241,16 @@ CC_OP_INFO_FILE_TEMPLATE_PART1 = """#ifdef GET_OP_LIST
 
 CC_OP_INFO_FILE_TEMPLATE_WIN_PART1 = """#ifdef GET_OP_LIST1
 #undef GET_OP_LIST1
-{op_declare_first_part}
+{op_declare_part_1}
 #elif defined(GET_OP_LIST2)
 #undef GET_OP_LIST2
-{op_declare_second_part}
+{op_declare_part_2}
 #elif defined(GET_OP_LIST3)
 #undef GET_OP_LIST3
-{op_declare_third_part}
+{op_declare_part_3}
 #elif defined(GET_OP_LIST4)
 #undef GET_OP_LIST4
-{op_declare_fourth_part}
+{op_declare_part_4}
 """
 
 CC_OP_INFO_FILE_TEMPLATE_PART2 = """
@@ -2396,31 +2396,29 @@ def OpGenerator(
 
     if op_info_file is not None:
         if sys.platform == "win32":
-            n = len(op_list_strs) // 4
-            first_part_op_info = op_list_strs[:n]
-            second_part_op_info = op_list_strs[n : 2 * n]
-            third_part_op_info = op_list_strs[2 * n : 3 * n]
-            fourth_part_op_info = op_list_strs[3 * n :]
+            n_parts = 4
+            part_size = math.ceil(len(op_list_strs) / n_parts)
+            op_list_parts = [
+                ",".join(op_list_strs[offset : offset + part_size]).replace(
+                    "\n", ""
+                )
+                for offset in range(0, len(op_list_strs), part_size)
+            ]
+            template_params = {
+                f"op_declare_part_{i + 1}": part
+                for i, part in enumerate(op_list_parts)
+            }
+            template_params.update(
+                {
+                    "h_file": op_def_h_file[:-4],
+                    "other_info": other_info_str,
+                }
+            )
             CC_OP_INFO_FILE_TEMPLATE = (
                 CC_OP_INFO_FILE_TEMPLATE_WIN_PART1
                 + CC_OP_INFO_FILE_TEMPLATE_PART2
             )
-            op_info_str = CC_OP_INFO_FILE_TEMPLATE.format(
-                op_declare_first_part=",".join(first_part_op_info).replace(
-                    "\n", ""
-                ),
-                op_declare_second_part=",".join(second_part_op_info).replace(
-                    "\n", ""
-                ),
-                op_declare_third_part=",".join(third_part_op_info).replace(
-                    "\n", ""
-                ),
-                op_declare_fourth_part=",".join(fourth_part_op_info).replace(
-                    "\n", ""
-                ),
-                other_info=other_info_str,
-                h_file=op_def_h_file[:-4],
-            )
+            op_info_str = CC_OP_INFO_FILE_TEMPLATE.format(**template_params)
         else:
             CC_OP_INFO_FILE_TEMPLATE = (
                 CC_OP_INFO_FILE_TEMPLATE_PART1 + CC_OP_INFO_FILE_TEMPLATE_PART2
