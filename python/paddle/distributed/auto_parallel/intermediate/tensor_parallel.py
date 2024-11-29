@@ -46,7 +46,7 @@ def c_split(x, process_mesh, need_transpose):
 
 
 def c_concat(x, process_mesh, need_transpose):
-    index = process_mesh.dim_names.index('mp')  # get the axis for the split
+    index = process_mesh.dim_names.index('mp')  # get the axis for the concat
     if isinstance(x, tuple):
         target_x = x[0]
     else:
@@ -88,6 +88,9 @@ class ColWiseParallel(PlanBase):
 
     Note: `layer.weight` should have two dims.
     Note: `layer.bias` should have one dim.
+
+    Args:
+        gather_output: (bool) whether gather the output or not.
     """
 
     def __init__(self, gather_output=False):
@@ -151,6 +154,9 @@ class RowWiseParallel(PlanBase):
     If any other instance of paddle.nn.Layer is passed, this plan will try to split `layer.weight` if it has.
 
     Note: `layer.weight` should have two dims.
+
+    Args:
+        is_input_parallel: (bool) whether the input is parallelized or not.
     """
 
     def __init__(self, is_input_parallel=True):
@@ -202,6 +208,9 @@ class PrepareLayerInput(PlanBase):
     """
     Prepare the input of specific layer. User should provide one callable function.
     The function should take exactly one parameter named `process_mesh` and return the pre hook.
+
+    Args:
+        fn: (callable) the function to prepare the input.
     """
 
     def __init__(self, fn=None):
@@ -217,6 +226,9 @@ class PrepareLayerOutput(PlanBase):
     """
     Prepare the output of specific layer. User should provide one callable function.
     The function should take exactly one parameter named `process_mesh` and return the post hook.
+
+    Args:
+        fn: (callable) the function to prepare the output.
     """
 
     def __init__(self, fn=None):
@@ -230,11 +242,14 @@ class PrepareLayerOutput(PlanBase):
 
 class SequenceParallelBegin(PlanBase):
     """
-    With need_transpose=True, this plan will transpose and reshard the output from [b, s, h] to [s/mp, b, h].
-    With need_transpose=False, this plan will reshard the output from [s, b, h] to [s/mp, b, h].
+    With need_transpose=True, this plan will change the output from [b, s, h] to [s/mp, b, h].
+    With need_transpose=False, this plan will change the output from [s, b, h] to [s/mp, b, h].
 
     This plan marks the beginning of the sp and should be added to the LAST layer before the sp range.
     DON'T mark any layer in the sp range.
+
+    Args:
+        need_transpose: (bool) whether transpose the output or not.
     """
 
     def __init__(self, need_transpose=True):
@@ -256,11 +271,14 @@ class SequenceParallelBegin(PlanBase):
 
 class SequenceParallelEnd(PlanBase):
     """
-    With need_transpose=True, this plan will reshard and transpose the input from [s/mp, b, h] to [b, s, h].
-    With need_transpose=False, this plan will reshard the input from [s/mp, b, h] to [s, b, h].
+    With need_transpose=True, this plan will change the input from [s/mp, b, h] to [b, s, h].
+    With need_transpose=False, this plan will change the input from [s/mp, b, h] to [s, b, h].
 
     This plan marks the ending of the sp and should be added to the FIRST layer after the sp range.
     DON'T mark any layer in the sp range.
+
+    Args:
+        need_transpose: (bool) whether transpose the input or not.
     """
 
     def __init__(self, need_transpose=True):
@@ -324,6 +342,9 @@ class SequenceParallelDisable(PlanBase):
     If the need_transpose is False:
         - change the input from  [s/mp, b, h] to [s, b, h]
         - change the output from [s, b, h] to [s/mp, b, h]
+
+    Args:
+        need_transpose: (bool) whether transpose the input and output or not.
     """
 
     def __init__(self, need_transpose=True):
@@ -424,7 +445,7 @@ def tensor_parallel(model, optimizer=None, config=None):
         model (paddle.nn.Layer): the model to be shard into tensor parallel.
         optimizer (paddle.optimizer.Optimizer): the optimizer.
         config (dict): {
-            "parallelize_plan": dict, the plan to shard the layer.
+            "parallelize_plan": dict(), # plan to parallelize the model
         }
     Returns:
         model: model after tp

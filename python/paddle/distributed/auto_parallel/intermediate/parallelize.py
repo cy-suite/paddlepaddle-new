@@ -20,9 +20,51 @@ from .tensor_parallel import tensor_parallel
 
 
 def parallelize(
-    model, optimizer, mesh=None, dp_config=None, mp_config=None, pp_config=None
+    model, optimizer, dp_config=None, mp_config=None, pp_config=None
 ):
-    # TODO(yaliu): global mesh and split axis support
+    """
+    `parallelize` will parallelize both model and optimizer.
+
+    Args:
+        model (paddle.nn.Layer): The single card model to be parallelized
+        optimizer (paddle.optimizer.Optimizer): The optimizer to be parallelized
+        dp_config (dict): config for data/sharding parallel
+        {
+            "sharding_level": 0, # can be chosen from 0/1/2/3. 0 for data parallel. 1/2/3 for different shrading stage.
+            "offload": False,   # offload or not, not supported for now
+            "exclude_layer": None,  # layer not doing sharding, not supported for now
+        }
+        mp_config (dict): config for tensor parallel
+        {
+            "parallelize_plan": dict(), # plan to parallelize the model
+        }
+        An example for the parallelize_plan is:
+        ```
+        plan = {
+            "llama.embed_tokens": ColWiseParallel(gather_output=True),
+            "llama.layers.*.self_attn.q_proj": ColWiseParallel(),
+            "llama.layers.*.self_attn.k_proj": ColWiseParallel(),
+            "llama.layers.*.self_attn.v_proj": ColWiseParallel(),
+            "llama.layers.*.self_attn.o_proj": RowWiseParallel(),
+            "llama.layers.*.mlp.gate_proj": ColWiseParallel(),
+            "llama.layers.*.mlp.up_proj": ColWiseParallel(),
+            "llama.layers.*.mlp.down_proj": RowWiseParallel(),
+            "lm_head.weight": ColWiseParallel(),
+        }
+        ```
+        pp_config (dict): config for pipeline parallel
+        {
+            "split_spec": OrderedDict|dict|str|list(str), The pipeline parallel split point
+                if split_spec is a string or list, such as "llama.layer" or ["llama.layerA", "llama.layerB"], Then the layer with same prefix a will be divided equally according to the size of pipeline degree.
+                if split_spec is a OrderedDict|dict, key is the layer name, and the value is the split position that can be SplitPoint.BEGINNING or SplitPoint.END, the order of the keys is the order of the pipeline stage.
+                NOTE: dict is also ordered after python3.7, so use dict at this time
+            "global_spec": str|list(str), make the output tensor of specific layers on global mesh
+        }
+
+    Returns:
+        model: (paddle.nn.Layer) the model after parallelize.
+        optimizer: (paddle.optimizer.Optimizer) the optimizer after parallelize.
+    """
     if pp_config is not None:
         assert isinstance(pp_config, dict)
         model, optimizer = pipeline_parallel(
@@ -51,17 +93,15 @@ def parallelize(
 has_parallelized_model = False
 
 
-def parallelize_model(
-    model, mesh=None, dp_config=None, mp_config=None, pp_config=None
-):
+def parallelize_model(model, dp_config=None, mp_config=None, pp_config=None):
     global has_parallelized_model
     has_parallelized_model = True
-    model, _ = parallelize(model, None, mesh, dp_config, mp_config, pp_config)
+    model, _ = parallelize(model, None, dp_config, mp_config, pp_config)
     return model
 
 
 def parallelize_optimizer(
-    optimizer, mesh=None, dp_config=None, mp_config=None, pp_config=None
+    optimizer, dp_config=None, mp_config=None, pp_config=None
 ):
     global has_parallelized_model
     assert (

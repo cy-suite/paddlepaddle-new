@@ -205,11 +205,11 @@ def pipeline_parallel(model, optimizer=None, config=None):
         model (paddle.nn.Layer): A single card model to be distributed
         optimizer (paddle.optimizer.Optimizer): An optimizer to be distributed
         config (dict): {
-            "split_spec": OrderedDict|dict|str|list(str), The pipeline parallel split point.
+            "split_spec": OrderedDict|dict|str|list(str), The pipeline parallel split point
                 if split_spec is a string or list, such as "llama.layer" or ["llama.layerA", "llama.layerB"], Then the layer with same prefix a will be divided equally according to the size of pipeline degree.
                 if split_spec is a OrderedDict|dict, key is the layer name, and the value is the split position that can be SplitPoint.BEGINNING or SplitPoint.END, the order of the keys is the order of the pipeline stage.
-                NOTE: dict is also ordered after python3.7, so use dict at this time.
-            "global_spec": str|list(str), make the output tensor of specific layers on global mesh.
+                NOTE: dict is also ordered after python3.7, so use dict at this time
+            "global_spec": str|list(str), make the output tensor of specific layers on global mesh
         }
 
     Returns:
