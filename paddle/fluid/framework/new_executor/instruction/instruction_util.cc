@@ -29,6 +29,8 @@
 #include "paddle/pir/include/core/operation.h"
 #include "paddle/pir/include/core/value.h"
 #include "paddle/pir/include/dialect/control_flow/ir/cf_op.h"
+#include "paddle/fluid/distributed/collective/process_group.h"
+#include "paddle/fluid/distributed/collective/process_group_nccl.h"
 
 #include "paddle/fluid/framework/new_executor/interpreter/interpreter_util.h"
 #include "paddle/fluid/framework/new_executor/interpreter/stream_analyzer.h"
@@ -142,8 +144,25 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
           op_attributes.at("ring_id").dyn_cast<pir::Int32Attribute>().data();
       const auto& comm_context_manager =
           phi::distributed::CommContextManager::GetInstance();
-      if (comm_context_manager.Has(std::to_string(ring_id))) {
-        auto comm_context = comm_context_manager.Get(std::to_string(ring_id));
+
+      phi::distributed::CommContext* comm_context = nullptr;
+      if (comm_context_manager.Has(std::to_string(ring_id)))
+        comm_context = comm_context_manager.Get(std::to_string(ring_id));
+      else
+      {
+        VLOG(1) << "Comm_Context is null?" << (comm_context == nullptr);
+        if (!comm_context)
+        {
+          VLOG(1) << "Enter!";
+          auto map = distributed::ProcessGroupMapFromGid::getInstance();
+          distributed::ProcessGroup* pg = map->get(ring_id);
+          comm_context = static_cast<paddle::distributed::ProcessGroupNCCL*>(pg)->GetOrCreateCommContext(place);
+        }
+        VLOG(1) << "Comm_Context is still null?" << (comm_context == nullptr);
+      }
+
+      // if (comm_context_manager.Has(std::to_string(ring_id))) {
+      //   auto comm_context = comm_context_manager.Get(std::to_string(ring_id));
         dev_ctx = static_cast<platform::DeviceContext*>(
             static_cast<phi::distributed::NCCLCommContext*>(comm_context)
                 ->GetDevContext());
@@ -153,7 +172,8 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
             op_name.compare(paddle::dialect::AllReduce_Op::name()) == 0 ||
             op_name.compare(paddle::dialect::Broadcast_Op::name()) == 0 ||
             op_name.compare(paddle::dialect::BroadcastOp::name()) == 0 ||
-            op_name.compare(paddle::dialect::AllGatherOp::name()) == 0) {
+            op_name.compare(paddle::dialect::AllGatherOp::name()) == 0 ||
+            op_name.compare(paddle::dialect::CSoftmaxWithCrossEntropyOp::name()) == 0) {
           if (phi::is_gpu_place(place) && execution_stream == kDefaultStream) {
             if (origin_dev_ctx != nullptr) {
               // set stream
@@ -175,12 +195,13 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
                       << " origin_dev_ctx is nullptr";
             }
           }
+          VLOG(1) << "comm context get from dev_ctx is null?" << (dev_ctx->GetCommContext() == nullptr);
           return dev_ctx;
         }
-      } else {
-        VLOG(3) << "ring_id " << ring_id
-                << " not found in comm_context_manager for op " << op_name;
-      }
+      // } else {
+      //   VLOG(3) << "ring_id " << ring_id
+      //           << " not found in comm_context_manager for op " << op_name;
+      // }
     }
 #endif
   }
