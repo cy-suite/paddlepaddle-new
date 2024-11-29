@@ -1649,7 +1649,7 @@ class TestFlashAttentionAlignment(unittest.TestCase):
             seq_len = self.seq_len
             mask = (
                 paddle.tril(
-                    paddle.ones(shape=(seq_len, seq_len), dtype=self.dtype)
+                    paddle.ones(shape=(seq_len, seq_len), dtype=paddle.float32)
                 )
                 - 1
             )
