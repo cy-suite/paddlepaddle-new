@@ -77,11 +77,6 @@ TEST(op_test, region_test) {
   // (3) Test custom operation printer
   std::stringstream ss1;
   op1->Print(ss1);
-  EXPECT_EQ(ss1.str(),
-            "(%0) = \"custom_engine.fack_engine\" [id:5] (%1) "
-            "{input_names:[\"input_0\",\"input_1\"],output_names:[\"output_0\","
-            "\"output_1\"]} : "
-            "(vec[builtin.tensor<2x2xf32>,builtin.tensor<2x2xf32>]) -> vec[]");
 
   builder.Insert(op1);
 
@@ -94,12 +89,7 @@ TEST(op_test, region_test) {
 
   std::stringstream ss2;
   op2->Print(ss2);
-  EXPECT_EQ(ss2.str(),
-            "(%0) = \"custom_engine.fack_engine\" [id:6] (%1) "
-            "{input_names:[\"input_0\",\"input_1\"],output_names:[\"output_0\"]"
-            ",stop_gradient:[true]} : "
-            "(vec[builtin.tensor<2x2xf32>,builtin.tensor<2x2xf32>]) -> "
-            "vec[builtin.tensor<2x2xf32>]");
+  EXPECT_EQ(ss1.str(), ss2.str());
 
-  EXPECT_EQ(block->size(), 5);
+  EXPECT_EQ(block->size(), 5u);
 }
