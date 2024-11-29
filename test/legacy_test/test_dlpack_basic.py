@@ -255,9 +255,24 @@ class TestDLPack(unittest.TestCase):
 
 
 class TestRaiseError(unittest.TestCase):
-    def test_to_dlpack_raise_type_error(self):
-        self.assertRaises(TypeError, paddle.utils.dlpack.to_dlpack, np.zeros(5))
-        self.assertRaises(TypeError, paddle.to_dlpack, np.zeros(5))
+    def test_dlpack_invalid_sparse(self):
+        sparse_tensor = paddle.sparse.sparse_coo_tensor(
+            indices=[[0]], values=[1], shape=[3]
+        )
+        with self.assertRaises(AttributeError):
+            sparse_tensor.__dlpack__()
+
+    def test_dlpack_requires_grad(self):
+        tensor_with_grad = paddle.to_tensor(
+            [1.0, 2.0, 3.0], stop_gradient=False
+        )
+        with self.assertRaises(RuntimeError):
+            tensor_with_grad.__dlpack__()
+
+    def test_invalid_stream_type_error(self):
+        invalid_tensor = paddle.to_tensor(np.array([1, 2, 3, 4]).astype("int"))
+        with self.assertRaises(TypeError):
+            invalid_tensor.__dlpack__(stream="invalid_stream")
 
 
 if __name__ == "__main__":
