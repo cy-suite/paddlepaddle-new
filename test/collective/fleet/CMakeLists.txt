@@ -613,13 +613,19 @@ if((WITH_GPU OR WITH_ROCM) AND LOCAL_ALL_PLAT)
   set_tests_properties(test_imperative_auto_mixed_precision_for_eager
                        PROPERTIES TIMEOUT "300" LABELS "RUN_TYPE=DIST")
 endif()
-if((WITH_GPU OR WITH_ROCM) AND LOCAL_ALL_PLAT)
+if((WITH_GPU
+    OR WITH_ROCM
+    OR WITH_XPU)
+   AND LOCAL_ALL_PLAT)
   py_test_modules(
     test_dygraph_recompute_for_eager MODULES test_dygraph_recompute_for_eager
     ENVS
     "http_proxy=;https_proxy=;PYTHONPATH=../..:${PADDLE_BINARY_DIR}/python")
 endif()
-if((WITH_GPU OR WITH_ROCM) AND LOCAL_ALL_PLAT)
+if((WITH_GPU
+    OR WITH_ROCM
+    OR WITH_XPU)
+   AND LOCAL_ALL_PLAT)
   py_test_modules(
     test_dygraph_recompute MODULES test_dygraph_recompute ENVS
     "http_proxy=;https_proxy=;PYTHONPATH=../..:${PADDLE_BINARY_DIR}/python")
