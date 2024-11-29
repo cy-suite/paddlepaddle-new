@@ -2398,7 +2398,6 @@ void CheckInferSymbolicIfNeed(Program &program) {  // NOLINT
     }
     return pass_manager;
   };
-  cinn::dialect::ir::ApplyCinnPass(&program, CreatePassManager);
   cinn::dialect::ir::CheckInferSymbolicIfNeed(&program, CreatePassManager);
 #else
   // Do nothing.
