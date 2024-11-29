@@ -19,11 +19,15 @@ extern "C" {
 
 #include <Python.h>
 
+#include "internal/pycore_frame.h"
+#include "paddle/fluid/pybind/sot/cpython_internals.h"
 #include "paddle/fluid/pybind/sot/macros.h"
 
 #if SOT_IS_SUPPORTED
 
 #if PY_3_11_PLUS
+typedef _PyInterpreterFrame FrameObject;
+
 // clang-format off
 // Define a proxy PyObject to access _PyInterpreterFrame's properties.
 // It will be passed as an argument to the eval frame's callback.
@@ -35,6 +39,13 @@ typedef struct PyInterpreterFrameProxy {
   #endif
 } PyInterpreterFrameProxy;
 // clang-format on
+
+PyInterpreterFrameProxy *PyInterpreterFrameProxy_New(
+    _PyInterpreterFrame *frame);
+PyMODINIT_FUNC PyInit__frame_proxy();
+
+#else
+typedef PyFrameObject FrameObject;
 #endif
 
 #endif

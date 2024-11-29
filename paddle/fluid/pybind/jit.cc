@@ -119,6 +119,7 @@ void BindGuard(pybind11::module *m) {
 void BindSot(pybind11::module *m) {
 #if SOT_IS_SUPPORTED
   PyInit__eval_frame();
+  PyInit__frame_proxy();
   m->def(
       "set_eval_frame",
       [](const py::object &py_func) {
