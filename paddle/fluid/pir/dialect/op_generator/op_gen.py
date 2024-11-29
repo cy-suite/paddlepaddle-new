@@ -2399,18 +2399,18 @@ def OpGenerator(
             n_parts = 4
             part_size = math.ceil(len(op_list_strs) / n_parts)
             op_list_parts = [
-                ",".join(op_list_strs[offset : offset + part_size]).replace(
-                    "\n", ""
-                )
-                for offset in range(0, len(op_list_strs), part_size)
+                op_list_strs[i : i + part_size]
+                for i in range(0, len(op_list_strs), part_size)
             ]
             template_params = {
-                f"op_declare_part_{i + 1}": part
+                f"op_declare_part_{i + 1}": ",".join(part).replace("\n", "")
                 for i, part in enumerate(op_list_parts)
             }
             template_params.update(
                 {
-                    "h_file": op_def_h_file[:-4],
+                    "h_file": op_def_h_file[
+                        :-4
+                    ],  #  Consider using os.path.splitext for better handling.
                     "other_info": other_info_str,
                 }
             )
