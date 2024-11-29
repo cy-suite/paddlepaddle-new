@@ -385,7 +385,7 @@ def _pir_append_gradient_merge_backward_op(
 
         # NOTE(zhangweilong): grad may in different device in auto_parallel, so need consider all_gather op
         for used_grad_op in grad.all_used_ops():
-            _find_move2opt_ops(used_grad_op)
+            _find_move2opt_ops(used_grad_op, grad)
 
         opt_ops_use_grad = [
             op
