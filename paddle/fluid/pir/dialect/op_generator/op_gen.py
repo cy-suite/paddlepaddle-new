@@ -2408,9 +2408,7 @@ def OpGenerator(
             }
             template_params.update(
                 {
-                    "h_file": op_def_h_file[
-                        :-4
-                    ],  #  Consider using os.path.splitext for better handling.
+                    "h_file": op_def_h_file[:-4],
                     "other_info": other_info_str,
                 }
             )
