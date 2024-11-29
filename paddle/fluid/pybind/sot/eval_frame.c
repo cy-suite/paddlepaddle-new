@@ -18,6 +18,7 @@ limitations under the License. */
 
 #include "paddle/fluid/pybind/sot/cpython_internals.h"
 #include "paddle/fluid/pybind/sot/eval_frame_tools.h"
+#include "paddle/fluid/pybind/sot/frame.h"
 
 #include <Python.h>
 #include <frameobject.h>
@@ -40,18 +41,6 @@ limitations under the License. */
 // that we don't need any modification in eval_frame functions.
 typedef _PyInterpreterFrame FrameObject;
 #define CALL_STAT_INC(name) ((void)0)
-
-// clang-format off
-// Define a proxy PyObject to access _PyInterpreterFrame's properties.
-// It will be passed as an argument to the eval frame's callback.
-typedef struct PyInterpreterFrameProxy {
-  PyObject_HEAD
-  _PyInterpreterFrame *frame;
-  #if PY_3_13_PLUS
-  PyObject* locals;
-  #endif
-} PyInterpreterFrameProxy;
-// clang-format on
 
 #define DECLARE_PROXY_PROPERTY(name)                        \
   static PyObject *PyInterpreterFrameProxy_property_##name( \
