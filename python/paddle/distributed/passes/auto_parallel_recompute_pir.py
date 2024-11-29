@@ -55,10 +55,11 @@ class AutoParallelRecomputePIRPass(PassBase):
         return fwd_ops, bwd_ops
 
     def get_first_bwd_used_op(self, fwd_op, bwd_ops):
+        has_user = False
         first_op = bwd_ops[-1]
         for res in fwd_op.results():
             for user_op in res.all_used_ops():
-                if user_op in bwd_ops and first_op.id() > user_op.id():
+                if user_op in bwd_ops and first_op.id() >= user_op.id():
                     first_op = user_op
         return first_op
 
@@ -78,9 +79,9 @@ class AutoParallelRecomputePIRPass(PassBase):
         segment_end = {}
         max_op_id = len(program.global_block().ops)
         for idx, op in enumerate(program.global_block().ops):
-            if not op.has_attr("recompute_id"):
+            if not op.has_attr("fwd_recompute_id"):
                 continue
-            rc_id = op.attrs()["recompute_id"]
+            rc_id = op.attrs()["fwd_recompute_id"]
             if rc_id not in segment_beg:
                 segment_beg[rc_id] = max_op_id
                 segment_end[rc_id] = 0
@@ -129,8 +130,9 @@ class AutoParallelRecomputePIRPass(PassBase):
         for val in input_value:
             value_map.add(val, val)
 
-        segment_id = 1
+        segment_id = 0
         for segment in segments:
+            has_bwd_uesd = False
             first_bwd_used_op = bwd_ops[-1]
             for op in segment:
                 bwd_used_op = self.get_first_bwd_used_op(op, bwd_ops)
@@ -141,25 +143,24 @@ class AutoParallelRecomputePIRPass(PassBase):
             paddle.pir.set_insertion_point(first_bwd_used_op)
             for op in segment:
                 ori_segment_outputs.update(op.results())
-                op.set_int_attr("forward_recompute_segment_id", segment_id)
+                op.set_int_attr("fwd_recompute_id", segment_id)
+
                 if self.is_seed_used_by_dropout(op):
-                    print("xxx seed op: ", op)
                     continue
+
                 rc_op = op.clone(
                     value_map, paddle.pir.CloneOptions(False, True, True)
                 )
-                # rc_op.set_bool_attr("is_recompute_bw_op", True)
-                rc_op.set_int_attr("backward_recompute_segment_id", segment_id)
+                rc_op.set_int_attr("bwd_recompute_id", segment_id)
+
                 if first_bwd_used_op.has_attr('op_role'):
                     rc_op.set_int_attr("op_role", first_bwd_used_op.op_role)
 
                 if first_bwd_used_op.has_attr('chunk_id'):
                     rc_op.set_int_attr("chunk_id", first_bwd_used_op.chunk_id)
-                # print("xxx clone op: ", rc_op, "\n")
-                # TODO: whethere delete attrs about recompute
+
             segment_id += 1
 
             for ori_value in ori_segment_outputs:
                 rc_value = value_map.look_up(ori_value)
                 ori_value.replace_grad_users_with(rc_value, set(bwd_ops))
-        # print(main_program)
