@@ -2397,11 +2397,14 @@ def OpGenerator(
     if op_info_file is not None:
         if sys.platform == "win32":
             n_parts = 4
-            part_size = math.ceil(len(op_list_strs) / n_parts)
-            op_list_parts = [
-                op_list_strs[i : i + part_size]
-                for i in range(0, len(op_list_strs), part_size)
-            ]
+            part_size = len(op_list_strs) // n_parts
+            op_list_parts = []
+            start = 0
+            for i in range(n_parts):
+                end = min(start + part_size, len(op_list_strs))
+                op_list_parts.append(op_list_strs[start:end])
+                start = end
+
             template_params = {
                 f"op_declare_part_{i + 1}": ",".join(part).replace("\n", "")
                 for i, part in enumerate(op_list_parts)
