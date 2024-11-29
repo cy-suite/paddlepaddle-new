@@ -115,6 +115,7 @@ def can_use_flash_attn(query, key, attn_mask, dropout, is_causal) -> bool:
         return False
     if attn_mask is not None and attn_mask.dtype not in [
         paddle.bool,
+        paddle.float16,
         paddle.float32,
     ]:
         return False
