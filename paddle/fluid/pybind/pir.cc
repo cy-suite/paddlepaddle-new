@@ -1891,7 +1891,6 @@ SplitedResult SplitForwardBackward(
     const std::vector<pir::Value> &forward_outputs_grads,
     const std::pair<size_t, size_t> &forward_range,
     const std::pair<size_t, size_t> &backward_range) {
-  auto t0 = std::chrono::high_resolution_clock::now();
   std::vector<pir::Value> forward_in_out_values;
   for (auto &v :
        std::vector({&forward_inputs, &forward_outputs, &forward_params})) {
