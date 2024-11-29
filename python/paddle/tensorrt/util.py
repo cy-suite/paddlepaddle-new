@@ -124,7 +124,7 @@ def get_trt_version_list():
 # Adding marker labels to builtin ops facilitates convert processing, but they ultimately do not enter the TensorRT subgraph.
 def mark_buitlin_op(program):
     for op in program.global_block().ops:
-        if op.name() == "builtin.split":
+        if op.name() == "builtin.split" or op.name() == "builtin.combine":
             defining_op = op.operands()[0].source().get_defining_op()
             if defining_op is not None:
                 if (
@@ -132,3 +132,40 @@ def mark_buitlin_op(program):
                     and defining_op.attrs()["__l_trt__"]
                 ):
                     enforce_op_lower_trt(program, op.name())
+
+
+def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
+    # the following op needn't cast trt.Weight to ITensor, because the layer need weight as input
+    forbid_cast_op = [
+        "pd_op.depthwise_conv2d",
+        "pd_op.conv2d",
+        "pd_op.conv2d_transpose",
+        "pd_op.batch_norm",
+        "pd_op.batch_norm_",
+        "pd_op.layer_norm",
+    ]
+    if use_op_name in forbid_cast_op:
+        return trt_tensor
+    input_shape = paddle_value.shape
+    if type(trt_tensor) == trt.Weights:
+        return network.add_constant(input_shape, trt_tensor).get_output(0)
+    return trt_tensor
+
+
+def zero_dims_to_one_dims(network, trt_tensor):
+    if type(trt_tensor) == trt.Weights:
+        return trt_tensor
+    if len(trt_tensor.shape) != 0:
+        return trt_tensor
+    shuffle_layer = network.add_shuffle(trt_tensor)
+    shuffle_layer.reshape_dims = (1,)
+    return shuffle_layer.get_output(0)
+
+
+# some paddle op's input is not used by trt, we need skip it.
+def skip_set_shape(paddle_op):
+    op_name = paddle_op.name()
+    skip_list = ["pd_op.assign_value_"]
+    if op_name in skip_list:
+        return True
+    return False
