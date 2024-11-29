@@ -641,11 +641,18 @@ void AllGatherGemmKernel(const Context& dev_ctx,
     launcher(false);
   };
 
+  int64_t device_id = dev_ctx.GetPlace().GetDeviceId();
+  distributed::BarrierOptions opts{};
+  opts.device_id = device_id;
+  pg->Barrier(opts)->Wait();
+
+#if 0
   cudaEvent_t all_to_all_event;
   PADDLE_ENFORCE_GPU_SUCCESS(cudaEventCreateWithFlags(&all_to_all_event, cudaEventDisableTiming));
   PADDLE_ENFORCE_GPU_SUCCESS(cudaEventRecord(all_to_all_event, comm_ctx->stream()));
   PADDLE_ENFORCE_GPU_SUCCESS(cudaStreamWaitEvent(dev_ctx.stream(), all_to_all_event));
   cudaEventDestroy(all_to_all_event);
+#endif
 
   /// AG GEMM
   cudaStream_t current_stream = dev_ctx.stream();
