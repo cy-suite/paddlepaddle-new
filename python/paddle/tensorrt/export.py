@@ -151,8 +151,8 @@ class TensorRTConfig:
         min_subgraph_size: int | None = 3,
         save_model_dir: str | None = None,
         disable_ops: str | list | None = None,
-        tensorrt_precision_mode: str | None = "FP32",
-        tensorrt_ops_run_float: set | None = None,
+        precision_mode: str | None = "FP32",
+        tensorrt_ops_run_float: str | list | None = None,
     ) -> None:
         """
         A class for configuring TensorRT optimizations.
@@ -166,19 +166,15 @@ class TensorRTConfig:
                 The directory where the optimized model will be saved (default is not to save).
             disable_ops : (str|list, optional):
                 A string representing the names of operations that should not be entering by TensorRT (default is None).
-            tensorrt_precision_mode (str, optional):
+            precision_mode (str, optional):
                 Specifies the precision mode for TensorRT optimization. The options are:
                 - "FP32": 32-bit floating point precision (default).
                 - "FP16": 16-bit floating point precision.
                 - "INT8": 8-bit integer precision.
-                - "INT32": 32-bit integer precision.
                 - "BFP16": 16-bit Brain Floating Point precision. Only supported in TensorRT versions greater than 9.0.
-                - "INT64": 64-bit integer precision. Only supported in TensorRT versions greater than 10.0.
             tensorrt_ops_run_float (set, optional):
                 A set of operation names that should be executed using FP32 precision regardless of the `tensorrt_precision_mode` setting.
                  The directory where the optimized model will be saved (default is None).
-            disable_ops : (str|list, optional):
-                A string representing the names of operations that should not be entering by TensorRT (default is None).
         Returns:
             None
 
@@ -199,14 +195,14 @@ class TensorRTConfig:
 
             >>> trt_config = TensorRTConfig(inputs=[input])
             >>> trt_config.disable_ops = "pd_op.dropout"
-            >>> trt_config.tensorrt_precision_mode = "FP16"
-            >>> trt_config.tensorrt_ops_run_float = ['pd_op.conv2d']
+            >>> trt_config.precision_mode = "FP16"
+            >>> trt_config.tensorrt_ops_run_float = "pd_op.conv2d"
         """
         self.inputs = inputs
         self.min_subgraph_size = min_subgraph_size
         self.save_model_dir = save_model_dir
-        self.tensorrt_precision_mode = tensorrt_precision_mode
-        self.tensorrt_ops_run_float = tensorrt_ops_run_float or set()
+        self.precision_mode = precision_mode
+        self.tensorrt_ops_run_float = tensorrt_ops_run_float
         self.disable_ops = disable_ops
         paddle.framework.set_flags(
             {'FLAGS_trt_min_group_size': min_subgraph_size}

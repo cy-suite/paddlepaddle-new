@@ -16,6 +16,7 @@ import ctypes
 import hashlib
 import logging
 import os
+from enum import Enum
 
 import numpy as np
 import tensorrt as trt
@@ -80,9 +81,54 @@ def remove_duplicate_value(value_list):
     return ret_list
 
 
+class PrecisionMode(Enum):
+    FP32 = "FP32"
+    FP16 = "FP16"
+    BF16 = "BF16"
+    INT8 = "INT8"
+
+    @staticmethod
+    def from_string(mode_str):
+        mode_map = {
+            "FP32": PrecisionMode.FP32,
+            "FP16": PrecisionMode.FP16,
+            "BF16": PrecisionMode.BF16,
+            "INT8": PrecisionMode.INT8,
+        }
+        mode_upper = mode_str.upper()
+        return mode_map.get(mode_upper, PrecisionMode.FP32)
+
+
+class TensorRTConfigManager:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super().__new__(cls, *args, **kwargs)
+        return cls._instance
+
+    def _init(self):
+        self.force_fp32_ops = []
+
+    def set_force_fp32_ops(self, ops):
+        if ops is None:
+            self.force_fp32_ops = []
+        elif isinstance(ops, str):
+            self.force_fp32_ops = [ops]
+        elif isinstance(ops, list):
+            self.force_fp32_ops = ops
+        else:
+            raise ValueError("Ops should be a string, list, or None.")
+
+    def get_force_fp32_ops(self):
+        return self.force_fp32_ops
+
+
 # In TensorRT FP16 inference, this function sets the precision of specific
 # operators to FP32, ensuring numerical accuracy for these operations.
 def support_fp32_mix_precision(op_type, layer):
+    trt_manager = TensorRTConfigManager()
+    force_fp32_ops = trt_manager.get_force_fp32_ops()
     if op_type in force_fp32_ops:
         layer.reset_precision()
         layer.precision = trt.DataType.FLOAT
@@ -102,15 +148,16 @@ class PaddleToTensorRTConverter:
             # weights = trt.Weights(weight_array)
             param_dict.update({name: weight_array})
         self.param_dict = param_dict
-        global force_fp32_ops
+
+        trt_manager = TensorRTConfigManager()
         if (
             self.trt_config is not None
             and self.trt_config.tensorrt_ops_run_float
         ):
-            force_fp32_ops = self.trt_config.tensorrt_ops_run_float
-            _logger.info(f"Force FP32 Ops: {force_fp32_ops}")
-        else:
-            force_fp32_ops = set()
+            trt_manager.set_force_fp32_ops(
+                self.trt_config.tensorrt_ops_run_float
+            )
+            _logger.info(f"force_fp32_ops: {trt_manager.get_force_fp32_ops()}")
 
         self.input_info = {}
         self.trt_output_value_map = {}
@@ -398,10 +445,10 @@ class PaddleToTensorRTConverter:
             config.builder_optimization_level = 5
         config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)
 
-        if (
-            self.trt_config is not None
-            and self.trt_config.tensorrt_precision_mode == "FP16"
-        ):
+        precision_mode = PrecisionMode.from_string(
+            self.trt_config.tensorrt_precision_mode
+        )
+        if self.trt_config is not None and precision_mode == PrecisionMode.FP16:
             if builder.platform_has_fast_fp16:
                 config.set_flag(trt.BuilderFlag.FP16)
                 _logger.info("Run Paddle-TRT FP16 mode")
@@ -411,7 +458,7 @@ class PaddleToTensorRTConverter:
                 )
         elif (
             self.trt_config is not None
-            and self.trt_config.tensorrt_precision_mode == "BF16"
+            and precision_mode == PrecisionMode.BFP16
         ):
             if version_list[0] >= 9:
                 if builder.platform_has_fast_bfp16 and hasattr(
@@ -435,7 +482,7 @@ class PaddleToTensorRTConverter:
                     )
         elif self.trt_config is not None:
             _logger.info(
-                f"Default tensorrt_precision mode {self.trt_config.tensorrt_precision_mode}"
+                f"Default tensorrt_precision mode {self.precision_mode}"
             )
 
         if (
