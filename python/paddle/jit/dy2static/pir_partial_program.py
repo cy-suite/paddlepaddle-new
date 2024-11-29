@@ -523,9 +523,10 @@ class ValuePreservePass:
         return program
 
 
-class FusedBnAddActPass(ValuePreservePass):
+class FullGraphPreProcessPass(ValuePreservePass):
     def apply(self, program):
         program = paddle.base.libpaddle.pir.apply_bn_add_act_pass(program)
+        program = paddle.base.libpaddle.pir.reduce_as_sum_pass(program)
         return program
 
 
@@ -1042,16 +1043,13 @@ class PartialProgramLayer:
         )
 
         # construct a runnable program.
-        fused_bn_add_act_pass = FusedBnAddActPass(
+        fused_bn_add_act_pass = FullGraphPreProcessPass(
             [inputs, params, targets, x_grad_value, p_grad_value, o_grad_value]
         )
         forward_index_pass = IndicesPreservePass(
             [forward_end_idx, backward_start_op_index, backward_end_op_index],
             fused_bn_add_act_pass,
         )
-
-        if cinn_is_enabled(self._build_strategy, self._backend):
-            paddle.base.libpaddle.pir.reduce_as_sum_pass(program)
 
         program = forward_index_pass(program)
         (
