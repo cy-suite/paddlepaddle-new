@@ -128,6 +128,7 @@ def can_use_flash_attn(query, key, attn_mask, dropout, is_causal) -> bool:
         return False
     if not check_dtypes_low_precision(query):
         return False
+    return True
 
 
 def can_use_efficient(query) -> bool:
@@ -140,6 +141,7 @@ def can_use_efficient(query) -> bool:
         return False
     if query.ndim != 4:
         return False
+    return True
 
 
 @signature_safe_contextmanager
