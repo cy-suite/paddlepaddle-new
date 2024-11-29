@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <time.h>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -55,9 +56,9 @@ class IRPrinting : public PassInstrumentation {
       std::string header =
           "IRPrinting on " + op->name() + " before " + pass->name() + " pass";
       detail::PrintHeader(header, oss);
-      PrintIR(op, option_->print_module(), oss);
+      // PrintIR(op, option_->print_module(), oss);
       oss << "\n";
-      std::cout << oss.str() << std::endl;
+      // std::cout << oss.str() << std::endl;
     });
   }
 
@@ -70,9 +71,12 @@ class IRPrinting : public PassInstrumentation {
       std::ostringstream oss;
       std::string header =
           "IRPrinting on " + op->name() + " after " + pass->name() + " pass";
-      detail::PrintHeader(header, oss);
-      PrintIR(op, option_->print_module(), oss);
-      oss << "\n";
+      // detail::PrintHeader(header, oss);
+      // PrintIR(op, option_->print_module(), oss);
+      time_t rawtime;
+      time(&rawtime);
+
+      oss << pass->name() << "\t" << ctime(&rawtime) << "\n";
       std::cout << oss.str() << std::endl;
     });
   }
