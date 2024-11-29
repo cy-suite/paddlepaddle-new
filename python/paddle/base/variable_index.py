@@ -344,7 +344,7 @@ def parse_index(x, indices):
                 or isinstance(step, (paddle.base.Variable, paddle.pir.Value))
             ):
                 if x.shape[dim] != -1 and end >= x.shape[dim]:
-                    end = MAX_INTEGER if step > 0 else MIN_INTEGER
+                    end = MAX_INTEGER if step > 0 else x.shape[dim]
             estimated_dim += 1
             dim += 1
 
