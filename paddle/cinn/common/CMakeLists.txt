@@ -26,6 +26,7 @@ gather_srcs(
   dim_expr_converter.cc
   broadcast_tree.cc
   iter_simplify.cc
+  event_tracing.cc
   simplify_corner_case.cc)
 
 cinn_cc_test(test_equation_graph_topo_walker SRCS
