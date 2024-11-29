@@ -1197,91 +1197,90 @@ def save(
     concrete_program = None
     for attr_func in functions:
         if isinstance(layer, Layer):
-            static_func = get_ast_static_function(
+            with to_ast_static_function_guard(
                 getattr(inner_layer, attr_func, None)
-            )
-            if isinstance(static_func, StaticFunction):
-                if static_func.is_property:
-                    # property method to be exported
-                    immediate_val = static_func()
-                    property_vals.append(
-                        (
-                            immediate_val,
-                            layer.__class__.__name__ + '.' + attr_func,
+            ) as static_func:
+                if isinstance(static_func, StaticFunction):
+                    if static_func.is_property:
+                        # property method to be exported
+                        immediate_val = static_func()
+                        property_vals.append(
+                            (
+                                immediate_val,
+                                layer.__class__.__name__ + '.' + attr_func,
+                            )
+                        )
+                        continue
+
+                    concrete_program = (
+                        static_func.concrete_program_specify_input_spec(
+                            inner_input_spec,
+                            with_hook=with_hook,
+                            is_prim_infer=is_prim_infer,
                         )
                     )
+
+                elif 'forward' == attr_func:
+                    if configs.skip_forward:
+                        # do not jit.save forward function
+                        continue
+
+                    # transform in jit.save, if input_spec is incomplete, declarative will throw error
+                    # inner_input_spec is list[InputSpec], it should be packed with same structure
+                    # as original input_spec here.
+                    if inner_input_spec:
+                        inner_input_spec = paddle.utils.pack_sequence_as(
+                            input_spec, inner_input_spec
+                        )
+                    static_forward = to_static(
+                        inner_layer.forward,
+                        input_spec=inner_input_spec,
+                        full_graph=True,
+                    )
+
+                    concrete_program = (
+                        static_forward.concrete_program_specify_input_spec(
+                            with_hook=with_hook, is_prim_infer=is_prim_infer
+                        )
+                    )
+                    # the input_spec has been used in declarative, which is equal to
+                    # @to_static with input_spec and jit.save without input_spec,
+                    # avoid needless warning
+                    inner_input_spec = None
+                else:
                     continue
-
-                concrete_program = (
-                    static_func.concrete_program_specify_input_spec(
-                        inner_input_spec,
-                        with_hook=with_hook,
-                        is_prim_infer=is_prim_infer,
-                    )
-                )
-
-            elif 'forward' == attr_func:
-                if configs.skip_forward:
-                    # do not jit.save forward function
-                    continue
-
-                # transform in jit.save, if input_spec is incomplete, declarative will throw error
-                # inner_input_spec is list[InputSpec], it should be packed with same structure
-                # as original input_spec here.
-                if inner_input_spec:
-                    inner_input_spec = paddle.utils.pack_sequence_as(
-                        input_spec, inner_input_spec
-                    )
-                static_forward = to_static(
-                    inner_layer.forward,
-                    input_spec=inner_input_spec,
-                    full_graph=True,
-                )
-
-                concrete_program = (
-                    static_forward.concrete_program_specify_input_spec(
-                        with_hook=with_hook, is_prim_infer=is_prim_infer
-                    )
-                )
-                # the input_spec has been used in declarative, which is equal to
-                # @to_static with input_spec and jit.save without input_spec,
-                # avoid needless warning
-                inner_input_spec = None
-            else:
-                continue
         else:
             # When layer is a function
             if isinstance(attr_func, StaticFunction):
-                static_func = get_ast_static_function(attr_func)
+                with to_ast_static_function_guard(attr_func) as static_func:
+                    if static_func.is_property:
+                        # property method to be exported
+                        immediate_val = static_func()
+                        property_vals.append((immediate_val, static_func))
+                        continue
 
-                if static_func.is_property:
-                    # property method to be exported
-                    immediate_val = static_func()
-                    property_vals.append((immediate_val, static_func))
-                    continue
-
-                concrete_program = (
-                    static_func.concrete_program_specify_input_spec(
-                        inner_input_spec, is_prim_infer=is_prim_infer
+                    concrete_program = (
+                        static_func.concrete_program_specify_input_spec(
+                            inner_input_spec, is_prim_infer=is_prim_infer
+                        )
                     )
-                )
             else:
-                static_func = get_ast_static_function(attr_func)
-                if inner_input_spec:
-                    inner_input_spec = paddle.utils.pack_sequence_as(
-                        input_spec, inner_input_spec
+                with to_ast_static_function_guard(attr_func) as static_func:
+                    if inner_input_spec:
+                        inner_input_spec = paddle.utils.pack_sequence_as(
+                            input_spec, inner_input_spec
+                        )
+                    static_function = to_static(
+                        static_func,
+                        input_spec=inner_input_spec,
+                        full_graph=True,
                     )
-                static_function = to_static(
-                    static_func,
-                    input_spec=inner_input_spec,
-                    full_graph=True,
-                )
-                concrete_program = static_function.concrete_program
+                    concrete_program = static_function.concrete_program
 
-                if static_function.class_instance is None:
-                    warnings.warn(
-                        f'`jit.save` will only save the `Program`, not the parameters. If you have to save the parameters, please make sure that {layer} is a member function of `paddle.nn.Layer` and the saved parameters are in `state_dict`'
-                    )
+                    if static_function.class_instance is None:
+                        warnings.warn(
+                            f'`jit.save` will only save the `Program`, not the parameters. If you have to save the parameters, please make sure that {layer} is a member function of `paddle.nn.Layer` and the saved parameters are in `state_dict`'
+                        )
 
         # when save multi `StaticFunction`, all `StaticFunction` share params.
         dygraph_state_dict = None
@@ -1784,30 +1783,32 @@ def set_dynamic_shape(variable, shape_list):
         return
 
 
-def get_ast_static_function(function):
-    if isinstance(function, SymbolicStaticFunction):
-        if function.class_instance:
-            dygraph_function = types.MethodType(
-                function._dygraph_function, function.class_instance
-            )
-        else:
-            dygraph_function = function._dygraph_function
+@contextmanager
+def to_ast_static_function_guard(function):
+    if not isinstance(function, SymbolicStaticFunction):
+        yield function
+        return
+    if function.class_instance:
+        dygraph_function = types.MethodType(
+            function._dygraph_function, function.class_instance
+        )
+    else:
+        dygraph_function = function._dygraph_function
 
-        if function._function_spec._input_spec is None:
-            ast_static_function = ASTStaticFunction(
-                dygraph_function,
-                function.last_call_input_spec,
-                **function._kwargs,
-            )
-            return ast_static_function
-        else:
-            ast_static_function = ASTStaticFunction(
-                dygraph_function,
-                function._function_spec._input_spec,
-                **function._kwargs,
-            )
-            return ast_static_function
-    return function
+    if function._function_spec._input_spec is None:
+        ast_static_function = ASTStaticFunction(
+            dygraph_function,
+            function.last_call_input_spec,
+            **function._kwargs,
+        )
+    else:
+        ast_static_function = ASTStaticFunction(
+            dygraph_function,
+            function._function_spec._input_spec,
+            **function._kwargs,
+        )
+    yield ast_static_function
+    ast_static_function.rollback()
 
 
 def json_to_pdmodel(net, input_spec, load_path, save_path):
