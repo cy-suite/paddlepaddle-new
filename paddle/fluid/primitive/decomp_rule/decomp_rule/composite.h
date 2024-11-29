@@ -1419,18 +1419,23 @@ Tensor eye_decomp(const paddle::Scalar& num_rows,
                   const DataType dtype,
                   const Place& place) {
   int32_t min_num = std::min(num_rows.to<int>(), num_columns.to<int>());
-  Tensor zero =
+  Tensor zero_tensor =
       full<T>({num_rows.to<int>(), num_columns.to<int>()}, 0, dtype, place);
+  auto zero_tensor_cast = ConverToMT<T>(zero_tensor);
   Tensor diag_one = unsqueeze<T>(full<T>({min_num}, 1, dtype, place), {1});
+  auto diag_one_cast = ConverToMT<T>(diag_one);
 
-  std::vector<Tensor> index_vec;
-  for (int i = 0; i < min_num; i++) {
-    Tensor index = full<T>({1}, i, DataType::INT32, place);
-    index_vec.push_back(index);
-  }
-  Tensor index = unsqueeze<T>(concat<T>(index_vec), {1});
-  Tensor res = put_along_axis<T>(zero, index, diag_one, 1);
-  return res;
+  auto start = full<T>({1}, 0, dtype, place);
+  auto stop = full<T>({1}, min_num, dtype, place);
+  auto step = full<T>({1}, 1, dtype, place);
+  Tensor index = unsqueeze<T>(
+      backend::arange_with_tensor<T>(start, stop, step, DataType::INT32, place),
+      {1});
+
+  auto index_cast = ConverToMT<T>(index);
+  Tensor res = put_along_axis<T>(zero_tensor_cast, index, diag_one_cast, 1);
+
+  return ConverToOrig<T>(res, dtype);
 }
 }  // namespace details
 

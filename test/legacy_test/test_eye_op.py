@@ -60,8 +60,8 @@ class TestEyeOp(OpTest):
         self.dtype = np.int32
 
     def init_attrs(self):
-        self.num_rows = 3
-        self.num_columns = 3
+        self.num_rows = 319
+        self.num_columns = 319
 
 
 class TestEyeOp1(OpTest):
