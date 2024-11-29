@@ -16,7 +16,6 @@
 
 #include <Python.h>
 #include <algorithm>
-#include <chrono>
 #include <iterator>
 #include <memory>
 #include <sstream>
