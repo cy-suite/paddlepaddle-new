@@ -160,12 +160,3 @@ def zero_dims_to_one_dims(network, trt_tensor):
     shuffle_layer = network.add_shuffle(trt_tensor)
     shuffle_layer.reshape_dims = (1,)
     return shuffle_layer.get_output(0)
-
-
-# some paddle op's input is not used by trt, we need skip it.
-def skip_set_shape(paddle_op):
-    op_name = paddle_op.name()
-    skip_list = ["pd_op.assign_value_"]
-    if op_name in skip_list:
-        return True
-    return False

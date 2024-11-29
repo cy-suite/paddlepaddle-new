@@ -50,7 +50,6 @@ from .register import converter_registry
 from .util import (
     get_trt_version_list,
     map_dtype,
-    skip_set_shape,
     weight_to_tensor,
     zero_dims_to_one_dims,
 )
@@ -100,7 +99,8 @@ def is_shape_tensor(value):
         return False
     for dim in dims:
         total_elements *= abs(dim)  # add abs for dynamic shape -1
-    return total_elements <= 8 and total_elements >= 1
+    is_int_dtype = value.dtype == paddle.int32 or value.dtype == paddle.int64
+    return total_elements <= 8 and total_elements >= 1 and is_int_dtype
 
 
 class PaddleToTensorRTConverter:
@@ -203,6 +203,9 @@ class PaddleToTensorRTConverter:
                 shape = value.shape
                 dtype = map_dtype(value.dtype.name)
                 input_name = f"input_{value.id}"
+                # 0-dims -> 1-dims
+                if len(shape) == 0:
+                    shape = [1]
                 input_tensor = network.add_input(
                     name=input_name, dtype=dtype, shape=shape
                 )
@@ -280,8 +283,6 @@ class PaddleToTensorRTConverter:
 
         # Set TRT min/opt/max input shape and the value of shape tensor
         for value in origin_input_value:
-            if skip_set_shape(value.get_defining_op()):
-                continue
             trt_input = value_to_trt_tensor[value.id]
             if isinstance(trt_input, trt.Weights):
                 continue

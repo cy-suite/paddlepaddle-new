@@ -25,6 +25,7 @@ from paddle.tensorrt.converter_utils import (
     get_positive_dim,
     get_shape_tensor_element,
     has_dynamic_shape,
+    resize_to_1d,
     trt_concat,
     trt_expand,
     trt_floor_div,
@@ -60,14 +61,9 @@ def reshape_converter(network, paddle_op, inputs):
         # shape tensor is a value
         shape_tensor = inputs[1]
 
-    if not is_constant_shape and len(shape_tensor.shape) > 1:
-        # shape_tensor need 1-dim in trt
-        shape_tensor_layer = network.add_shuffle(shape_tensor)
-        numel = 1
-        for ele in shape_tensor.shape:
-            numel *= ele
-        shape_tensor_layer.reshape_dims = [numel]
-        shape_tensor = shape_tensor_layer.get_output(0)
+    if not is_constant_shape:
+        shape_tensor = resize_to_1d(network, shape_tensor)
+
     layer = network.add_shuffle(x)
     if is_constant_shape:
         layer.reshape_dims = reshape_dim
@@ -727,6 +723,7 @@ def tile_converter(network, paddle_op, inputs):
         repeat_rank = len(repeat_times)
     else:
         repeat_tensor = inputs[1]
+        repeat_tensor = resize_to_1d(network, repeat_tensor)
         repeat_shape = paddle_op.operands()[1].source().shape
         repeat_rank = repeat_shape[0]
 

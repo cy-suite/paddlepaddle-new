@@ -125,7 +125,7 @@ def arange_converter(network, paddle_op, inputs):
 
 @converter_registry.register("pd_op.full_like", trt_version="8.x")
 def full_like_converter(network, paddle_op, inputs):
-    shape = tuple(paddle_op.operands()[0].source().shape)
+    shape = inputs[0].shape
     ndims = len(shape)
 
     out_dtype = int(paddle_op.attrs().get("dtype", None))

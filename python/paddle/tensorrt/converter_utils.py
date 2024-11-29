@@ -633,3 +633,17 @@ def squeeze_trt(network, input_tensor, axes):
     reshape_layer = network.add_shuffle(input_tensor)
     reshape_layer.set_input(1, new_shape_tensor)
     return reshape_layer.get_output(0)
+
+
+# resize shape tensor's shape to 1dim
+def resize_to_1d(network, shape_tensor):
+    if len(shape_tensor.shape) > 1:
+        # shape_tensor need 1-dim in trt
+        shape_tensor_layer = network.add_shuffle(shape_tensor)
+        numel = 1
+        for ele in shape_tensor.shape:
+            numel *= ele
+        shape_tensor_layer.reshape_dims = [numel]
+        shape_tensor = shape_tensor_layer.get_output(0)
+    else:
+        return shape_tensor
