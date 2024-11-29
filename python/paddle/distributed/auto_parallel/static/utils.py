@@ -865,6 +865,7 @@ def get_dist_attr(program, dist_context=None):
                     "process_shape": process_mesh.shape,
                     "process_group": process_mesh.process_ids,
                     "dims_mapping": var_dist_attr.dims_mapping,
+                    "dim_names": process_mesh.dim_names,
                 }
     else:
         from .dist_context import get_default_distributed_context

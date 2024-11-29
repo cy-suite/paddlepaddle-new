@@ -11,7 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import copy
+import operator
 from collections import OrderedDict
+from functools import reduce
 from itertools import product
 
 import numpy as np
@@ -40,7 +43,35 @@ from paddle.framework import (
 )
 from paddle.optimizer import Optimizer
 
+from .moe_utils import _dtensor_from_local
 from .strategy import Strategy
+
+
+def get_placement_with_sharding(param, sharding_axis, param_placements=None):
+    shard_axis = -1
+    if param_placements is None:
+        param_placements = param.placements
+
+    for placement in param_placements:
+        if isinstance(placement, dist.Shard):
+            # the parameter can't be shard twice with sharding on different mesh now
+            # for example, [Shard(0), Shard(1)], assert here in case
+            assert (
+                shard_axis == -1
+            ), "The parameter can't be shard twice with sharding strategy even in different mesh now."
+            shard_axis = placement.get_dim()
+
+    placement_with_sharding = None
+    for dim in range(param.ndim):
+        if dim != shard_axis:
+            placement_with_sharding = dist.Shard(dim)
+            break
+
+    new_placements = copy.deepcopy(param_placements)
+    if placement_with_sharding is not None:
+        new_placements[sharding_axis] = placement_with_sharding
+
+    return new_placements
 
 
 def get_mesh_comm_list(mesh, axis_name):
@@ -78,6 +109,9 @@ class ShardingOptimizerStage1(Optimizer):
         self.__dict__["_inner_opt"] = optimizer
         self._shard_fn = shard_fn
         self._strategy = strategy or Strategy()
+        self._slice_param_group_info = []
+        self._dy_shard_group = None
+
         paddle.enable_static()
         if self._shard_fn._mesh is None:
             mesh = dist.auto_parallel.get_mesh()
@@ -220,6 +254,10 @@ class ShardingOptimizerStage1(Optimizer):
             group_indices = pir.assign_value_group_by_size(
                 parameters, [group_size, group_size]
             )
+
+            if dist.get_rank() in mesh.process_ids:
+                self._cache_slice_param_group_info(parameters, group_indices)
+
             all_gather_param_info_list = []
             for group_idx, indices in enumerate(group_indices):
                 group_param_list = []
@@ -237,6 +275,12 @@ class ShardingOptimizerStage1(Optimizer):
                 slice_param_dict, main_shard_fused_param, main_fused_param = (
                     self._fuse_group_param(group_param_list)
                 )
+
+                if dist.get_rank() in mesh.process_ids:
+                    self._cache_slice_param_start_end(
+                        group_idx, slice_param_dict
+                    )
+
                 dtype = group_grad_list[0].dtype
                 align_size = (
                     fleet.utils.tensor_fusion_helper.alignment[
@@ -422,6 +466,39 @@ class ShardingOptimizerStage1(Optimizer):
 
         start_index = target_block.ops.index(last_op) + 1
         return target_block.ops[start_index:]
+
+    def _cache_slice_param_group_info(self, parameters, group_indices):
+        self._slice_param_group_info = [{} for _ in range(len(group_indices))]
+        for group_idx, indices in enumerate(group_indices):
+            for index in indices:
+                param = parameters[index]
+                self._slice_param_group_info[group_idx][param.name] = {}
+                self._slice_param_group_info[group_idx][param.name][
+                    "shape"
+                ] = param.shape
+                self._slice_param_group_info[group_idx][param.name][
+                    "param_start"
+                ] = -1
+                self._slice_param_group_info[group_idx][param.name][
+                    "param_end"
+                ] = -1
+                self._slice_param_group_info[group_idx][param.name][
+                    "placements"
+                ] = param.placements
+                self._slice_param_group_info[group_idx][param.name][
+                    "process_mesh"
+                ] = param.process_mesh
+
+    def _cache_slice_param_start_end(self, group_idx, slice_param_dict):
+        for slice_param, param_info in slice_param_dict.items():
+            slice_param_name = slice_param.name.replace("slice@", "")
+            _, param_begin, param_end = param_info
+            self._slice_param_group_info[group_idx][slice_param_name][
+                "param_start"
+            ] = param_begin
+            self._slice_param_group_info[group_idx][slice_param_name][
+                "param_end"
+            ] = param_end
 
     def _reduce_scatter_overlap(self, group_grad_list, target_block):
         '''
@@ -620,3 +697,346 @@ class ShardingOptimizerStage1(Optimizer):
             msg = f'{type(self).__name__}._inner_opt is READ ONLY'
             raise AttributeError(msg)
         return setattr(self._inner_opt, item, value)
+
+    def convert_state_dict_without_tensor_fusion_param(self, state_dict):
+        master_opt_param_names = []
+        moment_opt_param_names = []
+        pow_acc_opt_param_names = []
+        slice_param_names = []
+
+        for name, tensor in state_dict.items():
+            if not tensor.is_dist():
+                continue
+            if "_moment" in name:
+                moment_opt_param_names.append(name)
+            elif "_pow_acc" in name:
+                pow_acc_opt_param_names.append(name)
+            elif "_master" in name:
+                master_opt_param_names.append(name)
+            elif "slice@" in name:
+                slice_param_names.append(name)
+
+        # slice@ parameters share the same memory with the original parameters
+        # when the model is saved, we no need to save the slice@ parameters
+        for name in slice_param_names:
+            del state_dict[name]
+
+        if self._dy_shard_group is not None:
+            shard_group = dist.new_group(self._sharding_group.ranks)
+            self._dy_shard_group = shard_group
+
+        for group_info in self._slice_param_group_info:
+            self._all_gather_master_opt_params(
+                state_dict, group_info, master_opt_param_names
+            )
+            self._all_gather_moment_opt_params(
+                state_dict, group_info, moment_opt_param_names
+            )
+            # The pow_acc parameter is a scalar and doesn't require
+            # sharding, so it is simply broadcast to all devices.
+            self._broadcast_pow_acc_opt_params(
+                state_dict, group_info, pow_acc_opt_param_names
+            )
+
+    def convert_state_dict_with_tensor_fusion_param(self, state_dict):
+        moment_suffixs = []
+        pow_acc_suffixs = []
+        master_suffixs = []
+
+        for name in state_dict.keys():
+            if "_moment" in name:
+                moment_suffixs.append(name.split(".dist")[-1])
+            elif "_pow_acc" in name:
+                pow_acc_suffixs.append(name.split(".dist")[-1])
+            elif "_master" in name:
+                master_suffixs.append(name.split(".dist")[-1])
+
+        moment_suffixs = list(set(moment_suffixs))
+        pow_acc_suffixs = list(set(pow_acc_suffixs))
+        master_suffixs = list(set(master_suffixs))
+
+        if self._dy_shard_group is not None:
+            shard_group = dist.new_group(self._sharding_group.ranks)
+            self._dy_shard_group = shard_group
+
+        for group_info in self._slice_param_group_info:
+            group_size = 0
+            for param_name, param_info in group_info.items():
+                group_size = max(group_size, param_info["param_end"])
+
+            bucket_info = self._bucket_tensors_with_group_size(
+                group_info, group_size
+            )
+
+            self._re_slicing_opt_param(
+                state_dict, group_info, bucket_info, moment_suffixs
+            )
+            self._re_slicing_opt_param(
+                state_dict, group_info, bucket_info, master_suffixs
+            )
+            self._remove_pow_acc_opt_params(
+                state_dict, group_info, bucket_info, pow_acc_suffixs
+            )
+
+    def _remove_pow_acc_opt_params(
+        self, state_dict, group_info, bucket_info, pow_acc_suffixs
+    ):
+        group_rank_mapping, size_mapping = bucket_info
+        cur_rank = dist.get_rank()
+
+        for idx, (param_name, param_info) in enumerate(group_info.items()):
+            for pow_acc_suffix in pow_acc_suffixs:
+                if cur_rank in group_rank_mapping[idx]:
+                    state_dict["slice@" + param_name + pow_acc_suffix] = (
+                        state_dict[param_name + pow_acc_suffix]
+                    )
+                del state_dict[param_name + pow_acc_suffix]
+
+    def _re_slicing_opt_param(
+        self, state_dict, group_info, bucket_info, param_suffixs
+    ):
+        group_rank_mapping, size_mapping = bucket_info
+        cur_rank = dist.get_rank()
+
+        for idx, (param_name, param_info) in enumerate(group_info.items()):
+            for param_suffix in param_suffixs:
+                opt_param_name = param_name + param_suffix
+                opt_param = state_dict[opt_param_name]
+                opt_param_list = []
+                dist.all_gather(
+                    opt_param_list,
+                    opt_param._local_value().contiguous(),
+                    group=self._dy_shard_group,
+                )
+                if cur_rank in group_rank_mapping[idx]:
+                    # param tensor may be sliced into multiple devices
+                    # we need calculate the start index of the current rank
+                    cur_rank_start_index = 0
+                    for i, rank_id in enumerate(group_rank_mapping[idx]):
+                        if rank_id == cur_rank:
+                            break
+                        cur_rank_start_index += size_mapping[idx][i]
+
+                    param_sharding_axis = opt_param.placements[
+                        self._sharding_axis
+                    ].get_dim()
+                    fused_opt_param = paddle.concat(
+                        opt_param_list, axis=param_sharding_axis
+                    )
+
+                    fused_opt_param = fused_opt_param.view([-1])
+                    shard_opt_param = fused_opt_param[
+                        cur_rank_start_index : cur_rank_start_index
+                        + param_info["param_end"]
+                        - param_info["param_start"]
+                    ]
+                    shard_opt_param_placements = [
+                        dist.Replicate()
+                        for _ in range(len(opt_param.process_mesh.shape))
+                    ]
+                    shard_opt_param = _dtensor_from_local(
+                        shard_opt_param,
+                        opt_param.process_mesh,
+                        shard_opt_param_placements,
+                    )
+                    state_dict["slice@" + param_name + param_suffix] = (
+                        shard_opt_param
+                    )
+                else:
+                    del opt_param_list
+
+                del state_dict[opt_param_name]
+
+    def _all_gather_opt_params(
+        self, state_dict, group_info, opt_param_names, opt_suffix
+    ):
+        # Retrieve the optimizer parameters for the current device.
+        opt_param_list = []
+        for param_name, param_info in group_info.items():
+            opt_param_name = "slice@" + param_name + opt_suffix
+            if opt_param_name not in state_dict:
+                continue
+            if opt_param_name not in opt_param_names:
+                continue
+            opt_param_list.append(state_dict[opt_param_name]._local_value())
+
+        if len(opt_param_list) == 0:
+            return
+
+        fused_opt_param = paddle.concat(opt_param_list, axis=0)
+        fused_opt_param_list = []
+        # All-gather the optimizer parameters across sharding groups
+        dist.all_gather(
+            fused_opt_param_list, fused_opt_param, group=self._dy_shard_group
+        )
+        fused_opt_param = paddle.concat(fused_opt_param_list, axis=0)
+
+        param_index = 0
+        for param_name, param_info in group_info.items():
+            opt_param_name = "slice@" + param_name + opt_suffix
+
+            global_shape = param_info["shape"]
+            global_size = reduce(operator.mul, global_shape, 1)
+            # retrieve the global parameters.
+            global_param = fused_opt_param[
+                param_index : param_index + global_size
+            ]
+
+            shard_opt_param = global_param.reshape(global_shape)
+
+            opt_param_mesh = param_info["process_mesh"]
+            opt_param_placements = get_placement_with_sharding(
+                shard_opt_param, self._sharding_axis, param_info["placements"]
+            )
+
+            # slice the global parameter into local parameter based on the sharding axis
+            shard_index = [slice(None)] * len(shard_opt_param.shape)
+            rank = self._sharding_group.ranks.index(dist.get_rank())
+            param_sharding_axis = opt_param_placements[
+                self._sharding_axis
+            ].get_dim()
+
+            shard_slice_start_idx = (
+                rank / self._sharding_degree
+            ) * shard_opt_param.shape[param_sharding_axis]
+            shard_slice_end_idx = (
+                shard_slice_start_idx
+                + shard_opt_param.shape[param_sharding_axis]
+                / self._sharding_degree
+            )
+
+            shard_slice = slice(
+                int(shard_slice_start_idx), int(shard_slice_end_idx)
+            )
+            shard_index[param_sharding_axis] = shard_slice
+            shard_opt_param = shard_opt_param[tuple(shard_index)]
+
+            shard_opt_param = _dtensor_from_local(
+                shard_opt_param,
+                opt_param_mesh,
+                opt_param_placements,
+                shard_opt_param.shape,
+            )
+
+            state_dict[param_name + opt_suffix] = shard_opt_param
+            # remove the slice@ parameter
+            if opt_param_name in state_dict:
+                del state_dict[opt_param_name]
+
+            param_index += global_size
+
+    def _all_gather_moment_opt_params(
+        self, state_dict, group_info, moment_opt_param_names
+    ):
+        if len(moment_opt_param_names) == 0:
+            return
+
+        moments = {}
+        for name in moment_opt_param_names:
+            moment_suffix = name.split(".dist")[-1]
+            if moment_suffix not in moments:
+                moments[moment_suffix] = []
+            moments[moment_suffix].append(name)
+
+        for moment_suffix, moment_names in moments.items():
+            self._all_gather_opt_params(
+                state_dict, group_info, moment_names, moment_suffix
+            )
+
+    def _all_gather_master_opt_params(
+        self, state_dict, group_info, master_opt_param_names
+    ):
+        if len(master_opt_param_names) == 0:
+            return
+
+        master_suffix = master_opt_param_names[0].split(".dist")[-1]
+        self._all_gather_opt_params(
+            state_dict,
+            group_info,
+            master_opt_param_names,
+            master_suffix,
+        )
+
+    def _broadcast_pow_acc_opt_params(
+        self, state_dict, group_info, pow_acc_opt_param_names
+    ):
+        if len(pow_acc_opt_param_names) == 0:
+            return
+
+        pow_acc_suffixs = []
+        for name in pow_acc_opt_param_names:
+            pow_acc_suffix = name.split(".dist")[-1]
+            pow_acc_suffixs.append(pow_acc_suffix)
+        pow_acc_suffixs = list(set(pow_acc_suffixs))
+
+        group_size = 0
+        for param_name, param_info in group_info.items():
+            group_size = max(group_size, param_info["param_end"])
+
+        # Bucket the parameters according to the group size, with the
+        # number of buckets equal to the size of the sharding group.
+        group_rank_mapping, _ = self._bucket_tensors_with_group_size(
+            group_info, group_size
+        )
+        cur_rank = dist.get_rank()
+
+        for idx, (param_name, param_info) in enumerate(group_info.items()):
+            root_rank = group_rank_mapping[idx][0]
+            for pow_acc_suffix in pow_acc_suffixs:
+                pow_acc_name = "slice@" + param_name + pow_acc_suffix
+                if cur_rank in group_rank_mapping[idx]:
+                    pow_acc_tensor = state_dict[pow_acc_name]
+                    pow_acc_local_tensor = pow_acc_tensor._local_value()
+                    dist.broadcast(
+                        pow_acc_local_tensor,
+                        src=root_rank,
+                        group=self._dy_shard_group,
+                    )
+                    state_dict[param_name + pow_acc_suffix] = pow_acc_tensor
+                    state_dict.pop(pow_acc_name)
+                else:
+                    tmp_mesh = param_info["process_mesh"]
+                    tmp_placements = [
+                        dist.Replicate() for _ in range(len(tmp_mesh.shape))
+                    ]
+                    tmp_data = paddle.zeros([1])
+
+                    dist.broadcast(
+                        tmp_data,
+                        src=root_rank,
+                        group=self._dy_shard_group,
+                    )
+                    pow_acc_tensor = _dtensor_from_local(
+                        tmp_data, tmp_mesh, tmp_placements
+                    )
+                    state_dict[param_name + pow_acc_suffix] = pow_acc_tensor
+
+    def _bucket_tensors_with_group_size(self, group_info, group_size):
+        group_mapping = [[] for _ in group_info]
+        size_mapping = [[] for _ in group_info]
+        current_size = 0
+        current_bucket_index = 0
+
+        for idx, param_info in enumerate(group_info.values()):
+            tensor_size = reduce(operator.mul, param_info["shape"], 1)
+
+            while tensor_size > 0:
+                available_space = group_size - current_size
+
+                if tensor_size <= available_space:
+                    group_mapping[idx].append(current_bucket_index)
+                    size_mapping[idx].append(tensor_size)
+                    current_size += tensor_size
+                    tensor_size = 0
+                else:
+                    # tensor will be split into two buckets
+                    if available_space > 0:
+                        group_mapping[idx].append(current_bucket_index)
+                        size_mapping[idx].append(available_space)
+                        tensor_size -= available_space
+                        current_size += available_space
+
+                    current_bucket_index += 1
+                    current_size = 0
+
+        return group_mapping, size_mapping
