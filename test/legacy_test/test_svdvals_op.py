@@ -1,4 +1,4 @@
-#   Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserved.
+#   Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -103,8 +103,7 @@ class TestSvdvalsAPI(unittest.TestCase):
             # Test dynamic graph for svdvals
             s = paddle.linalg.svdvals(x)
             np_s = np.linalg.svd(self.x_np, compute_uv=False, hermitian=False)
-            self.assertTrue(np.allclose(np_s, s.numpy(), rtol=1e-6))
-
+            np.testing.assert_allclose(np_s, s.numpy(), rtol=1e-6)
             # Test with reshaped input
             x_reshaped = x.reshape([-1, 12, 10])
             s_reshaped = paddle.linalg.svdvals(x_reshaped)
@@ -114,8 +113,8 @@ class TestSvdvalsAPI(unittest.TestCase):
                     for matrix in self.x_np.reshape([-1, 12, 10])
                 ]
             )
-            self.assertTrue(
-                np.allclose(np_s_reshaped, s_reshaped.numpy(), rtol=1e-6)
+            np.testing.assert_allclose(
+                np_s_reshaped, s_reshaped.numpy(), rtol=1e-6
             )
 
     def test_static_api(self):
@@ -130,7 +129,7 @@ class TestSvdvalsAPI(unittest.TestCase):
 
         np_s = np.linalg.svd(self.x_np, compute_uv=False, hermitian=False)
         for r in res:
-            self.assertTrue(np.allclose(np_s, r, rtol=1e-6))
+            np.testing.assert_allclose(np_s, r, rtol=1e-6)
 
     def test_error(self):
         """Test invalid inputs for svdvals"""
