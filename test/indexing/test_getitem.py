@@ -253,6 +253,68 @@ class TestGetitemInDygraph(unittest.TestCase):
 
         np.testing.assert_allclose(y.numpy(), np_res)
 
+    def test_indexing_with_all_possible_start_end_step_dygraph(self):
+        np_data = np.arange(3 * 4 * 5 * 6).reshape((3, 4, 5, 6))
+        dim_size = np_data.shape[3]
+        for st in range(-dim_size - 2, dim_size + 2):
+            for ed in range(-dim_size - 2, dim_size + 2):
+                for step in range(-dim_size - 2, dim_size + 2):
+                    try:
+                        np_res = np_data[:, :, st:ed:step, :]
+                    except Exception as e:
+                        # skip the invalid case use try-except strategy
+                        continue
+                    pd_data = paddle.to_tensor(np_data)
+                    pd_res_out = pd_data[:, :, st:ed:step, :]
+                    self.assertEqual(
+                        pd_res_out.shape,
+                        list(np_res.shape),
+                        f"Failed test in indexing with pd_data[{st}:{ed}:{step}]",
+                    )
+                    np.testing.assert_allclose(pd_res_out.numpy(), np_res)
+
+    def test_indexing_with_all_possible_start_end_step_dygraph_0_size(self):
+        np_data = np.arange(0 * 4 * 5 * 6).reshape((0, 4, 5, 6))
+        dim_size = np_data.shape[3]
+        for st in range(-dim_size - 2, dim_size + 2):
+            for ed in range(-dim_size - 2, dim_size + 2):
+                for step in range(-dim_size - 2, dim_size + 2):
+                    try:
+                        np_res = np_data[:, :, st:ed:step, :]
+                    except Exception as e:
+                        # skip the invalid case use try-except strategy
+                        continue
+                    pd_data = paddle.to_tensor(np_data)
+                    pd_res_out = pd_data[:, :, st:ed:step, :]
+                    self.assertEqual(
+                        pd_res_out.shape,
+                        list(np_res.shape),
+                        f"Failed test in indexing with pd_data[{st}:{ed}:{step}]",
+                    )
+                    np.testing.assert_allclose(pd_res_out.numpy(), np_res)
+
+    def test_indexing_with_all_possible_start_end_step_dygraph_0_size_self(
+        self,
+    ):
+        np_data = np.arange(3 * 4 * 0 * 6).reshape((3, 4, 0, 6))
+        dim_size = np_data.shape[3]
+        for st in range(-dim_size - 2, dim_size + 2):
+            for ed in range(-dim_size - 2, dim_size + 2):
+                for step in range(-dim_size - 2, dim_size + 2):
+                    try:
+                        np_res = np_data[:, :, st:ed:step, :]
+                    except Exception as e:
+                        # skip the invalid case use try-except strategy
+                        continue
+                    pd_data = paddle.to_tensor(np_data)
+                    pd_res_out = pd_data[:, :, st:ed:step, :]
+                    self.assertEqual(
+                        pd_res_out.shape,
+                        list(np_res.shape),
+                        f"Failed test in indexing with pd_data[{st}:{ed}:{step}]",
+                    )
+                    np.testing.assert_allclose(pd_res_out.numpy(), np_res)
+
     def test_index_has_range(self):
         np_data = (
             np.arange(3 * 4 * 5 * 6).reshape((3, 4, 5, 6)).astype(self.ndtype)
@@ -1027,6 +1089,90 @@ class TestGetitemInStatic(unittest.TestCase):
             res = self.exe.run(fetch_list=[y])
 
         np.testing.assert_allclose(res[0], np_res)
+
+    def test_indexing_with_all_possible_start_end_step(self):
+        np_data = np.arange(3 * 4 * 5 * 6).reshape((3, 4, 5, 6))
+        dim_size = np_data.shape[3]
+        for st in range(-dim_size - 2, dim_size + 2):
+            for ed in range(-dim_size - 2, dim_size + 2):
+                for step in [-1, 1]:
+                    try:
+                        np_res = np_data[:, :, st:ed:step, :]
+                    except Exception as e:
+                        # skip the invalid case use try-except strategy
+                        continue
+                    with paddle.static.program_guard(
+                        paddle.static.Program(), paddle.static.Program()
+                    ):
+                        pd_data = paddle.to_tensor(np_data)
+                        pd_res = _getitem_static(
+                            pd_data,
+                            (
+                                slice(None),
+                                slice(None),
+                                slice(st, ed, step),
+                                slice(None),
+                            ),
+                        )
+                        (pd_res_out,) = self.exe.run(fetch_list=[pd_res])
+
+                        np.testing.assert_allclose(pd_res_out, np_res)
+
+    def test_indexing_with_all_possible_start_end_step_0_size(self):
+        np_data = np.arange(0 * 4 * 5 * 6).reshape((0, 4, 5, 6))
+        dim_size = np_data.shape[3]
+        for st in range(-dim_size - 2, dim_size + 2):
+            for ed in range(-dim_size - 2, dim_size + 2):
+                for step in [-1, 1]:
+                    try:
+                        np_res = np_data[:, :, st:ed:step, :]
+                    except Exception as e:
+                        # skip the invalid case use try-except strategy
+                        continue
+                    with paddle.static.program_guard(
+                        paddle.static.Program(), paddle.static.Program()
+                    ):
+                        pd_data = paddle.to_tensor(np_data)
+                        pd_res = _getitem_static(
+                            pd_data,
+                            (
+                                slice(None),
+                                slice(None),
+                                slice(st, ed, step),
+                                slice(None),
+                            ),
+                        )
+                        (pd_res_out,) = self.exe.run(fetch_list=[pd_res])
+
+                        np.testing.assert_allclose(pd_res_out, np_res)
+
+    def test_indexing_with_all_possible_start_end_step_0_size_self(self):
+        np_data = np.arange(3 * 4 * 0 * 6).reshape((3, 4, 0, 6))
+        dim_size = np_data.shape[3]
+        for st in range(-dim_size - 2, dim_size + 2):
+            for ed in range(-dim_size - 2, dim_size + 2):
+                for step in [-1, 1]:
+                    try:
+                        np_res = np_data[:, :, st:ed:step, :]
+                    except Exception as e:
+                        # skip the invalid case use try-except strategy
+                        continue
+                    with paddle.static.program_guard(
+                        paddle.static.Program(), paddle.static.Program()
+                    ):
+                        pd_data = paddle.to_tensor(np_data)
+                        pd_res = _getitem_static(
+                            pd_data,
+                            (
+                                slice(None),
+                                slice(None),
+                                slice(st, ed, step),
+                                slice(None),
+                            ),
+                        )
+                        (pd_res_out,) = self.exe.run(fetch_list=[pd_res])
+
+                        np.testing.assert_allclose(pd_res_out, np_res)
 
     def test_index_has_range(self):
         # only one bool tensor with all False
