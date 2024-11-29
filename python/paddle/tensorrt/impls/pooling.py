@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import math
 
 import tensorrt as trt
 
@@ -61,33 +60,7 @@ def pool2d_converter(network, paddle_op, inputs):
     if padding_algorithm == "VALID":
         paddings = [0] * len(paddings)
 
-    nv_paddings = trt.DimsHW(0, 0)
-
-    if padding_algorithm == "SAME":
-        real_paddings = []
-        for i in range(2):
-            input_dim = input_shape[input_dims - 2 + i]
-            stride = strides[i]
-            kernel = kernel_size[i]
-            pad = max(
-                (math.ceil(float(input_dim) / stride) - 1) * stride
-                + kernel
-                - input_dim,
-                0,
-            )
-            pad_0 = int(pad // 2)
-            pad_1 = int(pad - pad_0)
-            real_paddings.extend([pad_0, pad_1])
-        paddings = real_paddings
-        nv_paddings = trt.DimsHW(paddings[0], paddings[2])
-    else:
-        real_paddings = []
-        for i in range(2):
-            pad = paddings[i]
-            real_paddings.extend([pad, pad])
-        paddings = real_paddings
-        nv_paddings = trt.DimsHW(paddings[0], paddings[2])
-
+    nv_paddings = trt.DimsHW(paddings[0], paddings[1])
     nv_ksize = trt.DimsHW(kernel_size[0], kernel_size[1])
     nv_strides = trt.DimsHW(strides[0], strides[1])
 
@@ -106,14 +79,45 @@ def pool2d_converter(network, paddle_op, inputs):
     ):
         g_post_pad.w = strides[1] - 1
 
+    real_paddings = paddings.copy()
+    for i in range(2):
+        copy_pad = paddings[i]
+        real_paddings.insert(2 * i + 1, copy_pad)
+
+    if padding_algorithm == "SAME":
+        for i in range(2):
+            copy_pad = paddings[2 * i]
+            paddings.insert(2 * i + 1, copy_pad)
+
+        for i in range(2):
+            out_size = (input_shape[2 + i] + strides[i] - 1) // strides[i]
+            pad_sum = max(
+                (out_size - 1) * strides[i]
+                + kernel_size[i]
+                - input_shape[2 + i]
+            )
+            pad_0 = pad_sum // 2
+            pad_1 = pad_sum - pad_0
+            paddings[2 * i] = pad_0
+            paddings[2 * i + 1] = pad_1
+        real_paddings = paddings.copy()
+
+    paddings = [paddings[i] for i in range(len(paddings)) if i % 2 == 0]
+
+    if padding_algorithm == "VALID":
+        read_paddings = [0] * len(real_paddings)
+
     if not adaptive and not global_pooling and not ceil_mode:
         if padding_algorithm != "SAME" and (
             (g_post_pad.h > 0 and input_shape[input_dims - 2] > 0)
             or (g_post_pad.w > 0 and input_shape[input_dims - 1] > 0)
         ):
-            raise NotImplementedError(
-                "The combination of attributes is not supported yet."
+            pad_layer = network.add_padding_nd(
+                input=input_tensor,
+                pre_padding=tuple(g_pre_pad),
+                post_padding=tuple(g_post_pad),
             )
+            input_tensor = pad_layer.get_output(0)
         pooling_layer = network.add_pooling_nd(
             input=input_tensor, type=nv_pool_type, window_size=nv_ksize
         )
@@ -122,8 +126,7 @@ def pool2d_converter(network, paddle_op, inputs):
         pooling_layer.average_count_excludes_padding = exclusive
         if padding_algorithm == "SAME":
             pooling_layer.padding_mode = trt.PaddingMode.SAME_UPPER
-        else:
-            pooling_layer.padding_mode = trt.PaddingMode.EXPLICIT_ROUND_UP
+
         layer = pooling_layer
     elif not adaptive and not global_pooling and ceil_mode:
         pooling_layer = network.add_pooling_nd(
