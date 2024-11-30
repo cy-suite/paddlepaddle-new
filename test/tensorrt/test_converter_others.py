@@ -401,7 +401,7 @@ class TestTemporalShiftTRTPatternBasic(TensorRTBaseTest):
             "x": np.random.random([4, 9, 7, 7]).astype(np.float32),
             "seg_num": 2,
             "shift_ratio": 0.2,
-            "data_format": "NCHW"
+            "data_format": "NCHW",
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [2, 9, 7, 7]}
@@ -418,7 +418,7 @@ class TestTemporalShiftTRTPatternDifferentSegNum(TensorRTBaseTest):
             "x": np.random.random([4, 9, 7, 7]).astype(np.float32),
             "seg_num": 4,
             "shift_ratio": 0.2,
-            "data_format": "NCHW"
+            "data_format": "NCHW",
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [4, 9, 7, 7]}
@@ -435,7 +435,7 @@ class TestTemporalShiftTRTPatternDifferentShiftRatio(TensorRTBaseTest):
             "x": np.random.random([4, 9, 7, 7]).astype(np.float32),
             "seg_num": 2,
             "shift_ratio": 0.4,
-            "data_format": "NCHW"
+            "data_format": "NCHW",
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [2, 9, 7, 7]}
@@ -452,7 +452,7 @@ class TestTemporalShiftTRTPatternDifferentDataFormat(TensorRTBaseTest):
             "x": np.random.random([4, 9, 7, 7]).astype(np.float32),
             "seg_num": 2,
             "shift_ratio": 0.2,
-            "data_format": "NHWC"
+            "data_format": "NHWC",
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [2, 9, 7, 7]}

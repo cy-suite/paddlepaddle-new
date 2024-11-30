@@ -345,7 +345,9 @@ def temporal_shift_converter(network, paddle_op, inputs):
     slice_layer.set_input(2, size)
 
     trt_version = trt.__version__.split('.')
-    if int(trt_version[0]) > 8 or (int(trt_version[0]) == 8 and int(trt_version[1]) >= 5):
+    if int(trt_version[0]) > 8 or (
+        int(trt_version[0]) == 8 and int(trt_version[1]) >= 5
+    ):
         slice_layer.mode = trt.SampleMode.FILL
     else:
         slice_layer.mode = trt.SliceMode.FILL
@@ -359,7 +361,9 @@ def temporal_shift_converter(network, paddle_op, inputs):
 
     slice_size_base = trt_shape(network, input_tensor)
     sub_size1 = add_1D_constant_layer(network, [0, 0, C - slice_c, 0, 0])
-    sub_size2 = add_1D_constant_layer(network, [0, 0, C + slice_c - slice_c2, 0, 0])
+    sub_size2 = add_1D_constant_layer(
+        network, [0, 0, C + slice_c - slice_c2, 0, 0]
+    )
     sub_size3 = add_1D_constant_layer(network, [0, 0, slice_c2, 0, 0])
 
     slice_size1 = network.add_elementwise(
@@ -372,13 +376,19 @@ def temporal_shift_converter(network, paddle_op, inputs):
         slice_size_base, sub_size3, trt.ElementWiseOperation.SUB
     ).get_output(0)
 
-    slice1_layer = network.add_slice(slice_layer.get_output(0), start=dummy, shape=dummy, stride=stride)
+    slice1_layer = network.add_slice(
+        slice_layer.get_output(0), start=dummy, shape=dummy, stride=stride
+    )
     slice1_layer.set_input(1, slice_start1)
     slice1_layer.set_input(2, slice_size1)
-    slice2_layer = network.add_slice(slice_layer.get_output(0), start=dummy, shape=dummy, stride=stride)
+    slice2_layer = network.add_slice(
+        slice_layer.get_output(0), start=dummy, shape=dummy, stride=stride
+    )
     slice2_layer.set_input(1, slice_start2)
     slice2_layer.set_input(2, slice_size2)
-    slice3_layer = network.add_slice(slice_layer.get_output(0), start=dummy, shape=dummy, stride=stride)
+    slice3_layer = network.add_slice(
+        slice_layer.get_output(0), start=dummy, shape=dummy, stride=stride
+    )
     slice3_layer.set_input(1, slice_start3)
     slice3_layer.set_input(2, slice_size3)
 
@@ -387,7 +397,11 @@ def temporal_shift_converter(network, paddle_op, inputs):
         concat_layer = network.add_concatenation(concat_inputs)
         concat_layer.axis = 2
     else:
-        concat_inputs = [slice1_layer.get_output(0), slice2_layer.get_output(0), slice3_layer.get_output(0)]
+        concat_inputs = [
+            slice1_layer.get_output(0),
+            slice2_layer.get_output(0),
+            slice3_layer.get_output(0),
+        ]
         concat_layer = network.add_concatenation(concat_inputs)
         concat_layer.axis = 2
 

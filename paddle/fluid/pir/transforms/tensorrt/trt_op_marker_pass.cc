@@ -2097,14 +2097,15 @@ class AssignValueOpPattern
 class TemporalShiftOpPattern
     : public pir::OpRewritePattern<paddle::dialect::TemporalShiftOp> {
  public:
-  using pir::OpRewritePattern<paddle::dialect::TemporalShiftOp>::OpRewritePattern;
+  using pir::OpRewritePattern<
+      paddle::dialect::TemporalShiftOp>::OpRewritePattern;
 
   bool MatchAndRewrite(paddle::dialect::TemporalShiftOp op,
                        pir::PatternRewriter &rewriter) const override {
     if (op->HasAttribute(kCanRunTrtAttr) &&
         op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-          return false;
-      }
+      return false;
+    }
 #if IS_TRT_VERSION_LT(8200)
     VLOG(3) << "temporal_shift is not supported when TensorRT < 8.2";
     return false;
