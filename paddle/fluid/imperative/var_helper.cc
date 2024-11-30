@@ -55,8 +55,6 @@ void InitializeVariable(paddle::framework::Variable *var,
     var->GetMutable<paddle::framework::FetchList>();
   } else if (var_type == paddle::framework::proto::VarType::STEP_SCOPES) {
     var->GetMutable<std::vector<paddle::framework::Scope *>>();
-  } else if (var_type == paddle::framework::proto::VarType::LOD_RANK_TABLE) {
-    var->GetMutable<paddle::framework::LoDRankTable>();
   } else if (var_type ==
              paddle::framework::proto::VarType::DENSE_TENSOR_ARRAY) {
     var->GetMutable<phi::TensorArray>();
