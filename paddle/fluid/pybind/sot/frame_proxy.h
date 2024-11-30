@@ -18,6 +18,7 @@ extern "C" {
 #endif
 
 #include <Python.h>
+#include <frameobject.h>
 #include "paddle/fluid/pybind/sot/cpython_internals.h"
 #include "paddle/fluid/pybind/sot/macros.h"
 
