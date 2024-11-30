@@ -110,13 +110,10 @@ PyInterpreterFrameProxy *PyInterpreterFrameProxy_New(
 }
 
 PyMODINIT_FUNC PyInit__frame_proxy() {
-#if PY_3_11_PLUS
   if (PyType_Ready(&PyInterpreterFrameProxyType) < 0) {
     // VLOG(7) << "PyInterpreterFrameProxyType has not been ready!";
   }
   Py_INCREF(&PyInterpreterFrameProxyType);
-#endif
-
   return NULL;
 }
 
