@@ -18,11 +18,14 @@ extern "C" {
 #endif
 
 #include <Python.h>
-#include <frameobject.h>
 #include "paddle/fluid/pybind/sot/cpython_internals.h"
 #include "paddle/fluid/pybind/sot/macros.h"
 
 #if SOT_IS_SUPPORTED
+
+#if !PY_3_11_PLUS
+#include <frameobject.h>
+#endif
 
 #if PY_3_11_PLUS
 

@@ -22,12 +22,12 @@ limitations under the License. */
 
 #include <Python.h>
 
-#if PY_3_8_PLUS && PY_VERSION_HEX < PY_3_9_0_HEX
+#if PY_3_8_PLUS && !PY_3_9_PLUS
 #define Py_BUILD_CORE  // internal/pycore_pymem.h need this macro
 #include <internal/pycore_pystate.h>
 #undef Py_BUILD_CORE
 #endif
-#if PY_VERSION_HEX < PY_3_11_0_HEX
+#if !PY_3_11_PLUS
 #include <code.h>
 #endif
 
