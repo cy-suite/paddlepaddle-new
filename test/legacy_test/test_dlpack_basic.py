@@ -22,6 +22,10 @@ from paddle import base
 
 
 class TestDLPack(unittest.TestCase):
+    @unittest.skipIf( 
+     paddle.core.is_compiled_with_xpu(), 
+     "xpu does not support dlpack", 
+    )
     def test_dlpack_dygraph(self):
         with dygraph_guard():
             tensor = paddle.to_tensor(np.array([1, 2, 3, 4]).astype("int"))
@@ -44,6 +48,10 @@ class TestDLPack(unittest.TestCase):
                 out_from_dlpack_v2.numpy(), np.array([1, 2, 3, 4]).astype("int")
             )
 
+    @unittest.skipIf( 
+     paddle.core.is_compiled_with_xpu(), 
+     "xpu does not support dlpack", 
+    )
     def test_dlpack_tensor_larger_than_2dim(self):
         with dygraph_guard():
             numpy_data = np.random.randn(4, 5, 6)
@@ -57,6 +65,10 @@ class TestDLPack(unittest.TestCase):
             np.testing.assert_allclose(numpy_data, out_v1.numpy(), rtol=1e-05)
             np.testing.assert_allclose(numpy_data, out_v2.numpy(), rtol=1e-05)
 
+    @unittest.skipIf( 
+     paddle.core.is_compiled_with_xpu(), 
+     "xpu does not support dlpack", 
+    )
     def test_dlpack_dtype_and_place_consistency(self):
         with dygraph_guard():
             dtypes = [
@@ -117,6 +129,10 @@ class TestDLPack(unittest.TestCase):
                     self.assertEqual(str(x.place), str(o_v1.place))
                     self.assertEqual(str(x.place), str(o_v2.place))
 
+    @unittest.skipIf( 
+     paddle.core.is_compiled_with_xpu(), 
+     "xpu does not support dlpack", 
+    )
     def test_dlpack_deletion(self):
         # See Paddle issue 47171
         with dygraph_guard():
@@ -135,6 +151,10 @@ class TestDLPack(unittest.TestCase):
                     self.assertEqual(str(a.place), str(b1.place))
                     self.assertEqual(str(a.place), str(b2.place))
 
+    @unittest.skipIf( 
+     paddle.core.is_compiled_with_xpu(), 
+     "xpu does not support dlpack", 
+    )
     def test_to_dlpack_for_loop(self):
         # See Paddle issue 50120
         with dygraph_guard():
@@ -147,6 +167,10 @@ class TestDLPack(unittest.TestCase):
                     dlpack_v1 = paddle.utils.dlpack.to_dlpack(x)
                     dlpack_v2 = x.__dlpack__()
 
+    @unittest.skipIf( 
+     paddle.core.is_compiled_with_xpu(), 
+     "xpu does not support dlpack", 
+    )
     def test_to_dlpack_modification(self):
         # See Paddle issue 50120
         with dygraph_guard():
@@ -167,6 +191,10 @@ class TestDLPack(unittest.TestCase):
                     self.assertEqual(str(x.place), str(y1.place))
                     self.assertEqual(str(x.place), str(y2.place))
 
+    @unittest.skipIf( 
+     paddle.core.is_compiled_with_xpu(), 
+     "xpu does not support dlpack", 
+    )
     def test_to_dlpack_data_ptr_consistency(self):
         # See Paddle issue 50120
         with dygraph_guard():
@@ -186,6 +214,10 @@ class TestDLPack(unittest.TestCase):
                     self.assertEqual(str(x.place), str(y1.place))
                     self.assertEqual(str(x.place), str(y2.place))
 
+    @unittest.skipIf( 
+     paddle.core.is_compiled_with_xpu(), 
+     "xpu does not support dlpack", 
+    )
     def test_to_dlpack_strides_consistency(self):
         with dygraph_guard():
             places = [base.CPUPlace()]
@@ -207,6 +239,10 @@ class TestDLPack(unittest.TestCase):
                     np.testing.assert_equal(x_strided.numpy(), y1.numpy())
                     np.testing.assert_equal(x_strided.numpy(), y2.numpy())
 
+    @unittest.skipIf( 
+     paddle.core.is_compiled_with_xpu(), 
+     "xpu does not support dlpack", 
+    )
     def test_to_dlpack_from_zero_dim(self):
         with dygraph_guard():
             places = [base.CPUPlace()]
@@ -230,6 +266,10 @@ class TestDLPack(unittest.TestCase):
                     np.testing.assert_array_equal(x.numpy(), y1.numpy())
                     np.testing.assert_array_equal(x.numpy(), y2.numpy())
 
+    @unittest.skipIf( 
+     paddle.core.is_compiled_with_xpu(), 
+     "xpu does not support dlpack", 
+    )
     def test_to_dlpack_from_zero_size(self):
         with dygraph_guard():
             places = [base.CPUPlace()]
@@ -255,6 +295,10 @@ class TestDLPack(unittest.TestCase):
 
 
 class TestRaiseError(unittest.TestCase):
+    @unittest.skipIf( 
+     paddle.core.is_compiled_with_xpu(), 
+     "xpu does not support dlpack", 
+    )
     def test_dlpack_invalid_sparse(self):
         sparse_tensor = paddle.sparse.sparse_coo_tensor(
             indices=[[0]], values=[1], shape=[3]
@@ -262,6 +306,10 @@ class TestRaiseError(unittest.TestCase):
         with self.assertRaises(AttributeError):
             sparse_tensor.__dlpack__()
 
+    @unittest.skipIf( 
+     paddle.core.is_compiled_with_xpu(), 
+     "xpu does not support dlpack", 
+    )
     def test_dlpack_requires_grad(self):
         tensor_with_grad = paddle.to_tensor(
             [1.0, 2.0, 3.0], stop_gradient=False
@@ -269,6 +317,10 @@ class TestRaiseError(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             tensor_with_grad.__dlpack__()
 
+    @unittest.skipIf( 
+     paddle.core.is_compiled_with_xpu(), 
+     "xpu does not support dlpack", 
+    )
     def test_invalid_stream_type_error(self):
         invalid_tensor = paddle.to_tensor(np.array([1, 2, 3, 4]).astype("int"))
         with self.assertRaises(TypeError):
