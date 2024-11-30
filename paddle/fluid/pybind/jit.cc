@@ -22,6 +22,7 @@ limitations under the License. */
 #include "paddle/fluid/jit/serializer.h"
 #include "paddle/fluid/pybind/sot/eval_frame.h"
 #include "paddle/fluid/pybind/sot/eval_frame_tools.h"
+#include "paddle/fluid/pybind/sot/frame_proxy.h"
 #include "paddle/fluid/pybind/sot/guards.h"
 #include "paddle/fluid/pybind/sot/macros.h"
 #include "paddle/phi/common/data_type.h"
