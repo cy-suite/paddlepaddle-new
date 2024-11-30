@@ -394,5 +394,90 @@ class TestShareDataTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestTemporalShiftTRTPatternBasic(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.nn.functional.temporal_shift
+        self.api_args = {
+            "x": np.random.random([4, 9, 7, 7]).astype(np.float32),
+            "seg_num": 2,
+            "shift_ratio": 0.2,
+            "data_format": "NCHW"
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [2, 9, 7, 7]}
+        self.max_shape = {"x": [8, 9, 7, 7]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestTemporalShiftTRTPatternDifferentSegNum(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.nn.functional.temporal_shift
+        self.api_args = {
+            "x": np.random.random([4, 9, 7, 7]).astype(np.float32),
+            "seg_num": 4,
+            "shift_ratio": 0.2,
+            "data_format": "NCHW"
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [4, 9, 7, 7]}
+        self.max_shape = {"x": [8, 9, 7, 7]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestTemporalShiftTRTPatternDifferentShiftRatio(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.nn.functional.temporal_shift
+        self.api_args = {
+            "x": np.random.random([4, 9, 7, 7]).astype(np.float32),
+            "seg_num": 2,
+            "shift_ratio": 0.4,
+            "data_format": "NCHW"
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [2, 9, 7, 7]}
+        self.max_shape = {"x": [8, 9, 7, 7]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestTemporalShiftTRTPatternDifferentDataFormat(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.nn.functional.temporal_shift
+        self.api_args = {
+            "x": np.random.random([4, 9, 7, 7]).astype(np.float32),
+            "seg_num": 2,
+            "shift_ratio": 0.2,
+            "data_format": "NHWC"
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [2, 9, 7, 7]}
+        self.max_shape = {"x": [8, 9, 7, 7]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestTemporalShiftTRTPatternMinMaxShape(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.nn.functional.temporal_shift
+        self.api_args = {
+            "x": np.random.random([4, 9, 7, 7]).astype(np.float32),
+            "seg_num": 2,
+            "shift_ratio": 0.2,
+            "data_format": "NCHW",
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [2, 9, 7, 7]}
+        self.max_shape = {"x": [10, 9, 7, 7]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
 if __name__ == '__main__':
     unittest.main()

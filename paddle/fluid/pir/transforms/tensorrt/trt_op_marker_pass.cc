@@ -2094,6 +2094,37 @@ class AssignValueOpPattern
   }
 };
 
+class TemporalShiftOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::TemporalShiftOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::TemporalShiftOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::TemporalShiftOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+          return false;
+      }
+#if IS_TRT_VERSION_LT(8200)
+    VLOG(3) << "temporal_shift is not supported when TensorRT < 8.2";
+    return false;
+#endif
+    if (!op->HasAttribute("shift_ratio") || !op->HasAttribute("seg_num")) {
+      VLOG(3) << "temporal shift need attributes : shift_ratio and seg_num";
+      return false;
+    }
+    auto x = op.operand_source(0);
+    auto x_shape = pir::GetShapeFromValue(x);
+    if (x_shape.size() != 4) {
+      VLOG(3) << "The input and grid tensors must be shape tensors of rank 4 "
+                 "when using TRT TemporalShift layer.";
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class TrtOpMarkerPass : public pir::PatternRewritePass {
  public:
   TrtOpMarkerPass() : pir::PatternRewritePass("trt_op_marker_pass", 2) {}
@@ -2207,6 +2238,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<OneHotOpPattern>(context));
     ps.Add(std::make_unique<AssignValueOpPattern>(context));
     ps.Add(std::make_unique<AssignValue_OpPattern>(context));
+    ps.Add(std::make_unique<TemporalShiftOpPattern>(context));
     return ps;
   }
 };
