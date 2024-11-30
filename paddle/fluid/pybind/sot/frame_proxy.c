@@ -17,6 +17,7 @@ limitations under the License. */
 
 #if SOT_IS_SUPPORTED
 #include <Python.h>
+#include <frameobject.h>
 
 #if PY_3_11_PLUS
 

@@ -21,7 +21,6 @@ limitations under the License. */
 #include "paddle/fluid/pybind/sot/frame_proxy.h"
 
 #include <Python.h>
-#include <frameobject.h>
 
 #if PY_3_8_PLUS && PY_VERSION_HEX < PY_3_9_0_HEX
 #define Py_BUILD_CORE  // internal/pycore_pymem.h need this macro
@@ -36,9 +35,6 @@ limitations under the License. */
 #include <pystate.h>
 
 #if PY_3_11_PLUS
-// To avoid the error: undefined symbol: _PyFrame_GetFrameObject, all we need is
-// to redefine this function based source code in python3.11. The advantage is
-// that we don't need any modification in eval_frame functions.
 #define CALL_STAT_INC(name) ((void)0)
 
 #endif
