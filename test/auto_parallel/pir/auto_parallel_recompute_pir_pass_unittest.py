@@ -175,7 +175,7 @@ class TestLlamaAuto:
             np.testing.assert_equal(losses_1[idx], losses_2[idx])
 
     def get_recompute_message(self, program):
-        segment_num = 0
+        segment_num = -1
         rc_op_num = 0
         for block in program.blocks:
             for op in block.ops:
@@ -187,7 +187,7 @@ class TestLlamaAuto:
                     idx = op.attrs()["bwd_recompute_id"]
                     segment_num = max(segment_num, idx)
                     rc_op_num += 1
-        return segment_num, rc_op_num
+        return segment_num + 1, rc_op_num
 
     def run_test_cases(self):
         self.strategy._recompute.enable = False
