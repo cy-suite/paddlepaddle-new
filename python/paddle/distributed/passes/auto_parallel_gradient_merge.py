@@ -269,7 +269,7 @@ def _append_gradient_merge_backward_op(
     return new_params_grads, grad_to_gradient_merge
 
 
-def _find_move2opt_ops(used_grad_op, grad):
+def _move_used_grad_op(used_grad_op, grad):
     move_to_opt_block_flag = True
     move_to_opt_ops = []
     cannot_move_op = ["pd_op.send_v2", "pd_op.send"]
@@ -383,9 +383,9 @@ def _pir_append_gradient_merge_backward_op(
         )
         new_gradient_merge_var_add_op.set_bool_attr("grad_merge_add", True)
 
-        # NOTE(zhangweilong): grad may in different device in auto_parallel, so need consider all_gather op
+        # NOTE(zhangweilong): grad may in different device in auto_parallel, so need consider all_gather/all_recdue/split/... op
         for used_grad_op in grad.all_used_ops():
-            _find_move2opt_ops(used_grad_op, grad)
+            _move_used_grad_op(used_grad_op, grad)
 
         opt_ops_use_grad = [
             op
