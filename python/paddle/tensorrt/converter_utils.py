@@ -170,6 +170,14 @@ def add_1D_constant_layer(network, data, dtype=np.int32, is_scalar=False):
     return constant_layer.get_output(0)
 
 
+# Create and add ND constant layer
+def add_constant_layer(network, data, shape, dtype=np.int32):
+    constant_data = np.array(data, dtype=dtype)
+    constant_data = np.resize(constant_data, shape)
+    constant_layer = network.add_constant(shape, constant_data)
+    return constant_layer.get_output(0)
+
+
 # Create an constant layer with shape_tensor and value
 def fill_constant_layer(network, shape_tensor, tensor_rank, data, trt_dtype):
     fill_layer = network.add_fill(
@@ -285,11 +293,6 @@ def trt_min(network, a, b):
     return layer.get_output(0)
 
 
-def trt_mul(network, a, b):
-    layer = network.add_elementwise(a, b, trt.ElementWiseOperation.PROD)
-    return layer.get_output(0)
-
-
 def trt_div(network, a, b):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.DIV)
     return layer.get_output(0)
@@ -302,6 +305,11 @@ def trt_floor_div(network, a, b):
 
 def trt_equal(network, a, b):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.EQUAL)
+    return layer.get_output(0)
+
+
+def trt_prod(network, a, b):
+    layer = network.add_elementwise(a, b, trt.ElementWiseOperation.PROD)
     return layer.get_output(0)
 
 
@@ -572,12 +580,12 @@ def fix_negative_indices(network, input_shape, indices):
 
     min_indices_zero = trt_min(network, indices, zero_tensor)
     sign = trt_max(network, min_indices_zero, minus_one_tensor)
-    sub = trt_mul(network, sign, input_shape)
+    sub = trt_prod(network, sign, input_shape)
     fixed_indices = trt_sub(network, indices, sub)
     return fixed_indices
 
 
-def unsqueeze_trt(network, input_tensor, axes):
+def trt_unsqueeze(network, input_tensor, axes):
     input_shape = network.add_shape(input_tensor).get_output(0)
 
     axis_set = set(axes)
