@@ -1263,6 +1263,65 @@ PYBIND11_MODULE(libpaddle, m) {
     return ptensor;
   });
 
+  m.def("tensor_from_cuda_array_interface", [](py::object data) {
+    try {
+      py::dict cuda_dict = data.attr("__cuda_array_interface__");
+
+      // Extract the `data.__cuda_array_interface__['shape']` attribute
+      std::vector<int64_t> shape;
+      {
+        py::object shape_obj = cuda_dict["shape"];
+        if (py::isinstance<py::tuple>(shape_obj) ||
+            py::isinstance<py::list>(shape_obj)) {
+          shape = shape_obj.cast<std::vector<int64_t>>();
+        } else {
+          throw py::value_error("Shape must be a tuple or list");
+        }
+      }
+      phi::IntArray shapeIntArray(shape);
+      // Extractt the `data.__cuda_array_interface__['typestr'] attribute
+      std::string typestr = cuda_dict["typestr"].cast<std::string>();
+      phi::DataType dtype = paddle::framework::ConvertToDataType(typestr);
+
+      // Extract the `data.__cuda_array_interface__['data']` attribute
+      py::tuple data_tuple = cuda_dict["data"].cast<py::tuple>();
+      void *data_ptr = data_tuple[0].cast<void *>();
+      if (data_tuple[1].cast<bool>()) {
+        throw py::value_error("Read-only array is not supported");
+      }
+
+      // Extract the `data.__cuda_array_interface__['strides']` attribute
+      std::vector<int64_t> strides;
+      if (cuda_dict.contains("strides") && !cuda_dict["strides"].is_none()) {
+        strides = cuda_dict["strides"].cast<std::vector<int64_t>>();
+        // __cuda_array_interface__ strides uses bytes
+        size_t element_size = phi::SizeOf(dtype);
+        for (auto &stride : strides) {
+          if (stride % element_size != 0) {
+            throw py::value_error(
+                "strides must be a multiple of the element size.");
+          }
+          stride /= element_size;
+        }
+      } else {
+        strides.resize(shape.size());
+        int64_t stride = 1;
+        for (size_t i = shape.size(); i > 0; i--) {
+          strides[i - 1] = stride;
+          stride *= shape[i - 1];
+        }
+      }
+      return paddle::from_blob(data, shape, )
+    } catch (const py::error_already_set &e) {
+      throw;
+    } catch (const std::exception &e) {
+      // capture other exception
+      std::string msg = "Error in tensor from cuda_array_interface";
+      msg += e.what();
+      throw py::value_error(msg);
+    }
+  });
+
   m.def("_create_loaded_parameter",
         [](const py::handle &vec_var_list,
            const Scope &scope,
