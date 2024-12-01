@@ -47,7 +47,6 @@ from ..util import get_trt_version_list
 @converter_registry.register("pd_op.reshape", trt_version="8.x")
 def reshape_converter(network, paddle_op, inputs):
     x = inputs[0]
-    input_shape = paddle_op.operands()[0].source().shape
     is_constant_shape = False
     shape_defining_op = paddle_op.operands()[1].source().get_defining_op()
     if shape_defining_op.name() == "pd_op.full_int_array":
@@ -91,7 +90,7 @@ def gather_nd_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.flatten", trt_version="8.x")
 def flatten_converter(network, paddle_op, inputs):
     input_val = inputs[0]
-    input_val_shape = input_val.shape
+    input_val_shape = paddle_op.operands()[0].source().shape
     dims = len(input_val_shape)
 
     start_axis = paddle_op.attrs().get("start_axis")
@@ -241,7 +240,7 @@ def unsqueeze_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.squeeze_", trt_version="8.x")
 def squeeze_converter(network, paddle_op, inputs):
     input_val = inputs[0]
-    input_shape = paddle_op.operands()[0].source().shape
+    input_shape = input_val.shape
     input_shape_size = len(input_shape)
 
     if type(input_val) == trt.Weights:
@@ -333,7 +332,6 @@ def cast_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.slice", trt_version="8.x")
 def slice_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
-    input_shape = paddle_op.operands()[0].source().shape
     axes = paddle_op.attrs()["axes"]
     decrease_axis = paddle_op.attrs().get("decrease_axis")
 
@@ -540,7 +538,7 @@ def split_with_num_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.split", trt_version="8.x")
 def split_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
-    input_shape = paddle_op.operands()[0].source().shape
+    input_shape = input_tensor.shape
     input_shape_size = len(input_shape)
 
     axis_op = paddle_op.operands()[2].source().get_defining_op()
@@ -712,7 +710,7 @@ def stack_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.tile", trt_version="8.x")
 def tile_converter(network, paddle_op, inputs):
     input = inputs[0]
-    input_shape = paddle_op.operands()[0].source().shape
+    input_shape = input.shape
     input_shape_tensor = network.add_shape(input).get_output(0)
     rank = len(input_shape)
 
@@ -783,7 +781,7 @@ def strided_slice_converter(network, paddle_op, inputs):
     if strides_op.name() == "pd_op.full_int_array":
         strides = strides_op.attrs()["value"]
 
-    input_shape = paddle_op.operands()[0].source().shape
+    input_shape = input_tensor.shape
     nchw_input_dims = len(input_shape)
 
     trt_start_dims = [0] * nchw_input_dims

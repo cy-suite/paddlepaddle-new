@@ -645,5 +645,4 @@ def resize_to_1d(network, shape_tensor):
             numel *= ele
         shape_tensor_layer.reshape_dims = [numel]
         shape_tensor = shape_tensor_layer.get_output(0)
-    else:
-        return shape_tensor
+    return shape_tensor
