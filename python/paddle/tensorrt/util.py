@@ -143,6 +143,7 @@ def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
         "pd_op.batch_norm",
         "pd_op.batch_norm_",
         "pd_op.layer_norm",
+        "pd_op.depthwise_conv2d_transpose",
     ]
     if use_op_name in forbid_cast_op:
         return trt_tensor
@@ -153,6 +154,8 @@ def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
 
 
 def zero_dims_to_one_dims(network, trt_tensor):
+    if trt_tensor is None:
+        return None
     if type(trt_tensor) == trt.Weights:
         return trt_tensor
     if len(trt_tensor.shape) != 0:
