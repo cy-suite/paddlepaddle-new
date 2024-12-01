@@ -124,14 +124,22 @@ def get_trt_version_list():
 # Adding marker labels to builtin ops facilitates convert processing, but they ultimately do not enter the TensorRT subgraph.
 def mark_buitlin_op(program):
     for op in program.global_block().ops:
-        if op.name() == "builtin.split" or op.name() == "builtin.combine":
+        if op.name() == "builtin.split":
             defining_op = op.operands()[0].source().get_defining_op()
             if defining_op is not None:
                 if (
                     defining_op.has_attr("__l_trt__")
                     and defining_op.attrs()["__l_trt__"]
                 ):
-                    enforce_op_lower_trt(program, op.name())
+                    op.set_bool_attr("__l_trt__", True)
+        if op.name() == "builtin.combine":
+            defining_op = op.results()[0].all_used_ops()[0]
+            if defining_op is not None:
+                if (
+                    defining_op.has_attr("__l_trt__")
+                    and defining_op.attrs()["__l_trt__"]
+                ):
+                    op.set_bool_attr("__l_trt__", True)
 
 
 def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
