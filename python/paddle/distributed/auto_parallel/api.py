@@ -548,7 +548,9 @@ def moe_global_mesh_tensor(
         global_dims = _cal_global_shape(
             local_tensor._local_shape, mesh, placements
         )
-        return _moe_global_mesh_tensor.apply(
+        return paddle.jit.dy2static.py_layer.StaticPyLayer(
+            _moe_global_mesh_tensor
+        ).apply(
             local_tensor_list,
             local_mesh_list,
             local_placements,
@@ -647,6 +649,8 @@ class _moe_sub_mesh_tensors(PyLayer):
             global_placements,
             global_shape,
         ) = ctx.saved_tensor()
+        place = paddle.framework._current_expected_place()
+        place = paddle.framework._get_paddle_place(place)
         mesh = global_mesh
         process_ids = np.array(mesh.process_ids).reshape(mesh.shape)
         local_coord = np.where(process_ids == dist.get_rank())
@@ -655,6 +659,14 @@ class _moe_sub_mesh_tensors(PyLayer):
         else:
             local_tensor_idx = local_coord[local_mesh_dim][0]
         local_grad = grad_tensor[local_tensor_idx]
+        global_tensor = paddle.Tensor(
+            local_grad._local_value(),
+            dims=ctx.global_shape,
+            process_mesh=mesh,
+            placements=ctx.global_placements,
+            place=place,
+        )
+        return global_tensor
 
         if paddle.in_dynamic_mode():
             place = paddle.framework._current_expected_place()
@@ -671,7 +683,8 @@ class _moe_sub_mesh_tensors(PyLayer):
             global_dims = _cal_global_shape(
                 local_grad._local_shape, mesh, global_placements
             )
-            paddle._C_ops.moe_global_mesh_tensor(
+
+            return paddle._C_ops.moe_global_mesh_tensor(
                 grad_tensor,
                 local_mesh_list,
                 local_placements,
@@ -693,6 +706,18 @@ def moe_sub_mesh_tensors(
 
     if paddle.framework.in_dynamic_or_pir_mode():
         return _moe_sub_mesh_tensors.apply(
+            dist_tensor,
+            local_mesh_list,
+            local_placements,
+            local_mesh_dim,
+            global_mesh,
+            global_placements,
+        )
+    elif paddle.framework.in_pir_mode():
+
+        return paddle.jit.dy2static.py_layer.StaticPyLayer(
+            _moe_sub_mesh_tensors
+        ).apply(
             dist_tensor,
             local_mesh_list,
             local_placements,
