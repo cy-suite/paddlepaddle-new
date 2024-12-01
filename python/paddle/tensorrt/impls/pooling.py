@@ -84,6 +84,5 @@ def pool2d_converter(network, paddle_op, inputs):
             pool_layer.average_count_excludes_padding = False
         if ceil_mode:
             pool_layer.padding_mode = trt.PaddingMode.EXPLICIT_ROUND_UP
-    if padding_algorithm == "SAME":
-        pool_layer.padding_mode = trt.PaddingMode.SAME_UPPER
+
     return pool_layer.get_output(0)
