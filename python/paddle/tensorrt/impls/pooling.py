@@ -94,7 +94,8 @@ def pool2d_converter(network, paddle_op, inputs):
             pad_sum = max(
                 (out_size - 1) * strides[i]
                 + kernel_size[i]
-                - input_shape[2 + i]
+                - input_shape[2 + i],
+                0,
             )
             pad_0 = pad_sum // 2
             pad_1 = pad_sum - pad_0
