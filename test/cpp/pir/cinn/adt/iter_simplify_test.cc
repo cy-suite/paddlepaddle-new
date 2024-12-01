@@ -31,11 +31,10 @@ namespace common {
 #define ITER_SUM(...) ir::IterSum::Make({__VA_ARGS__}, ir::IndexExpr(0))
 #define ITER_SUM_WITH_BASE(base, ...) ir::IterSum::Make({__VA_ARGS__}, base)
 
-#define TEST_EXPR(expr, expected, expr_norm)                \
-  rewriter.Rewrite(&expr);                                  \
-  std::cout << "after rewrite expr: " << expr << std::endl; \
-  EXPECT_EQ(expr, Expr(expected));                          \
-  normalizer.Convert(&expr);                                \
+#define TEST_EXPR(expr, expected, expr_norm) \
+  rewriter.Rewrite(&expr);                   \
+  EXPECT_EQ(expr, Expr(expected));           \
+  normalizer.Convert(&expr);                 \
   EXPECT_EQ(expr, expr_norm);
 
 class TestIterSimplify : public ::testing::Test {
