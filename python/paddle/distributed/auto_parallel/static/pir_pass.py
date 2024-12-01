@@ -972,11 +972,14 @@ def _set_process_mesh_and_chunk_id(op, chunk_process_mesh, chunk_id, set_mesh):
     # NOTE(zhangwl):dist_skip_op donnot have op_mesh
     op_mesh = None
     if op.name() in dist_skip_op_list:
+        input_var_process_mesh = None
         # NOTE(zhangwl):dist_skip_op output_process_mesh must equal to input_process_mesh
         for var in op_input_vars:
             input_var_process_mesh = get_var_process_mesh(var)
-            assert input_var_process_mesh is None
-            set_process_mesh(op_output_vars, None, input_var_process_mesh)
+            if input_var_process_mesh is not None:
+                break
+        assert input_var_process_mesh is None
+        set_process_mesh(op_output_vars, None, input_var_process_mesh)
         return
 
     op_dist_attr = op.dist_attr
