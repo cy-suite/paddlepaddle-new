@@ -168,10 +168,10 @@ class TensorRTConfig:
                 A string representing the names of operations that should not be entering by TensorRT (default is None).
             precision_mode (str, optional):
                 Specifies the precision mode for TensorRT optimization. The options are:
-                - "FP32": 32-bit floating point precision (default).
-                - "FP16": 16-bit floating point precision.
-                - "INT8": 8-bit integer precision.
-                - "BFP16": 16-bit Brain Floating Point precision. Only supported in TensorRT versions greater than 9.0.
+                - PrecisionMode.FP32: 32-bit floating point precision (default).
+                - PrecisionMode.FP16: 16-bit floating point precision.
+                - PrecisionMode.INT8: 8-bit integer precision.
+                - PrecisionMode.BFP16: 16-bit Brain Floating Point precision. Only supported in TensorRT versions greater than 9.0.
             tensorrt_ops_run_float (set, optional):
                 A set of operation names that should be executed using FP32 precision regardless of the `tensorrt_precision_mode` setting.
                  The directory where the optimized model will be saved (default is None).
@@ -195,7 +195,7 @@ class TensorRTConfig:
 
             >>> trt_config = TensorRTConfig(inputs=[input])
             >>> trt_config.disable_ops = "pd_op.dropout"
-            >>> trt_config.precision_mode = "FP16"
+            >>> trt_config.precision_mode = PrecisionMode.FP16
             >>> trt_config.tensorrt_ops_run_float = "pd_op.conv2d"
         """
         self.inputs = inputs
@@ -502,7 +502,6 @@ def convert(model_dir, config):
             ...      Input,
             ...      TensorRTConfig,
             ...      export,
-            ...      convert,
             ... )
             >>> import os
             >>> from paddle import nn
@@ -566,7 +565,7 @@ def convert(model_dir, config):
             ...    trt_save_path = os.path.join(temp_dir.name, 'trt')
             ...    trt_config.save_model_dir = trt_save_path
 
-            ...    program_with_trt = convert(save_path, trt_config)
+            ...    program_with_trt = paddle.tensorrt.convert(save_path, trt_config)
 
             ...    # Create a config for inference.
             ...    config = paddle_infer.Config(

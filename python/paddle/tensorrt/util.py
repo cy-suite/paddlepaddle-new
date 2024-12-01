@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+from enum import Enum
 
 import paddle
 
@@ -20,6 +22,11 @@ try:
 except Exception as e:
     pass
 from paddle import pir
+from paddle.base.log_helper import get_logger
+
+_logger = get_logger(
+    __name__, logging.INFO, fmt='%(asctime)s-%(levelname)s: %(message)s'
+)
 
 
 def map_dtype(pd_dtype):
@@ -132,3 +139,61 @@ def mark_buitlin_op(program):
                     and defining_op.attrs()["__l_trt__"]
                 ):
                     enforce_op_lower_trt(program, op.name())
+
+
+class PrecisionMode(Enum):
+    FP32 = "FP32"
+    FP16 = "FP16"
+    BF16 = "BF16"
+    INT8 = "INT8"
+
+    @staticmethod
+    def from_string(mode_str):
+        mode_map = {
+            "FP32": PrecisionMode.FP32,
+            "FP16": PrecisionMode.FP16,
+            "BF16": PrecisionMode.BF16,
+            "INT8": PrecisionMode.INT8,
+        }
+        mode_upper = mode_str.upper()
+        if mode_upper not in mode_map:
+            _logger.warning(
+                f"Unsupported precision mode: '{mode_str}'. Defaulting to FP32."
+            )
+        return mode_map.get(mode_upper, PrecisionMode.FP32)
+
+
+class TensorRTConfigManager:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super().__new__(cls, *args, **kwargs)
+            cls._instance._init()
+        return cls._instance
+
+    def _init(self):
+        self.force_fp32_ops = []
+
+    def set_force_fp32_ops(self, ops):
+        if ops is None:
+            self.force_fp32_ops = []
+        elif isinstance(ops, str):
+            self.force_fp32_ops = [ops]
+        elif isinstance(ops, list):
+            self.force_fp32_ops = ops
+        else:
+            raise ValueError("Ops should be a string, list, or None.")
+
+    def get_force_fp32_ops(self):
+        return self.force_fp32_ops
+
+
+# In TensorRT FP16 inference, this function sets the precision of specific
+# operators to FP32, ensuring numerical accuracy for these operations.
+def support_fp32_mix_precision(op_type, layer):
+    trt_manager = TensorRTConfigManager()
+    force_fp32_ops = trt_manager.get_force_fp32_ops()
+    if op_type in force_fp32_ops:
+        layer.reset_precision()
+        layer.precision = trt.DataType.FLOAT

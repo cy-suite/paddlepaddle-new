@@ -153,7 +153,7 @@ def clip_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.remainder", trt_version="8.x")
 @converter_registry.register("pd_op.remainder_", trt_version="8.x")
 def remainder_converter(network, paddle_op, inputs):
-    from paddle.tensorrt.converter import support_fp32_mix_precision
+    from paddle.tensorrt.util import support_fp32_mix_precision
 
     weight_shape = paddle_op.operands()[1].source().shape
     input_shape = paddle_op.operands()[0].source().shape

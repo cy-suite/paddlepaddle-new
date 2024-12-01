@@ -136,7 +136,7 @@ def get_positive_dim(dim, dim_size):
 
 
 def add_elementwise_layer(network, paddle_op, inputs, op_type):
-    from paddle.tensorrt.converter import support_fp32_mix_precision
+    from paddle.tensorrt.util import support_fp32_mix_precision
 
     weight_shape = paddle_op.operands()[1].source().shape
     input_shape = paddle_op.operands()[0].source().shape
@@ -411,7 +411,7 @@ def trt_reduce_to_scalar(network, tensor):
 
 
 def convert_conv2d(network, paddle_op, inputs):
-    from paddle.tensorrt.converter import support_fp32_mix_precision
+    from paddle.tensorrt.util import support_fp32_mix_precision
 
     if (
         paddle_op.name() == "pd_op.conv2d"

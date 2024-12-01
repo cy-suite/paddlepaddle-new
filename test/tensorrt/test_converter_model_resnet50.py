@@ -25,6 +25,7 @@ from paddle.tensorrt.export import (
     convert_to_trt,
 )
 from paddle.tensorrt.util import (
+    PrecisionMode,
     predict_program,
 )
 
@@ -52,7 +53,7 @@ class TestConverterResNet50(unittest.TestCase):
 
         # Create a TensorRTConfig with inputs as a required field.
         trt_config = TensorRTConfig(inputs=[input_config])
-        trt_config.tensorrt_precision_mode = "FP16"
+        trt_config.tensorrt_precision_mode = PrecisionMode.FP16
         trt_config.tensorrt_ops_run_float = "pd_op.conv2d"
 
         output_var = program.list_vars()[-1]

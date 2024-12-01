@@ -26,7 +26,6 @@ from paddle.tensorrt.export import (
     Input,
     TensorRTConfig,
     _convert_,
-    convert,
 )
 from paddle.tensorrt.util import (
     predict_program,
@@ -157,7 +156,7 @@ class TestConvert(unittest.TestCase):
 
             model_dir = self.save_path
             # Obtain tensorrt_engine_op by passing the model path and trt_config.(converted_program)
-            program_with_trt = convert(model_dir, trt_config)
+            program_with_trt = paddle.tensorrt.convert(model_dir, trt_config)
 
             # Create a config for inference.
             config = paddle_infer.Config(
