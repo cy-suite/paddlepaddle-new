@@ -233,15 +233,15 @@ static std::optional<ir::IndexExpr> MergeMulModInner(
     } else if (inner_div_ptr) {
       ir::IndexExpr overall_mult =
           mult_inner.get() ? mult_inner * mult_outer : mult_outer;
-      VLOG(5) << "inner_div_ptr_b: " << inner_div_ptr->b().as_index();
+      VLOG(5) << "inner_div_ptr_b: " << inner_div_ptr->b_as_index();
       VLOG(5) << "overall_mult: " << overall_mult;
       VLOG(5) << "mod_r_expr: " << mod_r_expr;
       VLOG(5) << "inner_div_ptr_a - mod_l_expr: "
-              << inner_div_ptr->a().as_index() - mod_l_expr;
+              << inner_div_ptr->a_as_index() - mod_l_expr;
       VLOG(5) << "ProveDivisible: "
-              << ProveDivisible(inner_div_ptr->a().as_index() - mod_l_expr,
+              << ProveDivisible(inner_div_ptr->a_as_index() - mod_l_expr,
                                 mod_r_expr);
-      if (overall_mult == inner_div_ptr->b().as_index() &&
+      if (overall_mult == inner_div_ptr->b_as_index() &&
           overall_mult == mod_r_expr &&
           ProveDivisible(inner_div_ptr->a_as_index() - mod_l_expr,
                          mod_r_expr)) {
