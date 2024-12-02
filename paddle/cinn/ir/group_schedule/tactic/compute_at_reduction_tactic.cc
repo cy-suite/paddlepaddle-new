@@ -96,6 +96,16 @@ bool IsForEqual(const std::vector<ir::Expr>& first,
   return ControlFlowAllEqual(first, second);
 }
 
+void CheckAndComputeAt(ir::IRSchedule* sch,
+                       const std::string& src_id,
+                       const std::string& dst_id) {
+  auto block = sch->GetBlock(src_id);
+  auto loop = sch->GetLoops(dst_id).back();
+  auto root = sch->GetRootBlock(block);
+  CheckComputeAtValidation(block, loop, root);
+  sch->SimpleComputeAt(block, loop);
+}
+
 bool BlockWithSameLoop(const std::vector<ir::Expr>& first,
                        const std::vector<ir::Expr>& second) {
   VLOG(8) << "First inner loop: " << first.back();
@@ -193,10 +203,15 @@ void ComputeAtReductionTactic::ComputeAtReduceInit(
 
   const auto GetRootInitBlockId =
       [&](const std::vector<ir::Expr>& blocks) -> std::optional<std::string> {
+    const std::vector<ir::Expr> cur_loops = sch->GetLoops(block_id);
     for (const auto& block : blocks) {
       const std::string root_block_name = BlockToName(block);
-      if (ir::IsReduceInitTensorName(root_block_name))
-        return std::optional<std::string>{root_block_name};
+      if (ir::IsReduceInitTensorName(root_block_name)) {
+        const std::vector<ir::Expr> root_loops = sch->GetLoops(root_block_name);
+        if (IsForEqual(root_loops, cur_loops)) {
+          return std::optional<std::string>{root_block_name};
+        }
+      }
     }
     return std::nullopt;
   };
@@ -210,15 +225,7 @@ void ComputeAtReductionTactic::ComputeAtReduceInit(
                         sch->GetLoops(block_id)))
     return;
 
-  const std::vector<ir::Expr> root_loops = sch->GetLoops(root_init_block_id);
-  const std::vector<ir::Expr> cur_loops = sch->GetLoops(block_id);
-  if (!IsForEqual(root_loops, cur_loops)) return;
-
-  auto block = sch->GetBlock(block_id);
-  auto loop = sch->GetLoops(root_init_block_id).back();
-  auto root = sch->GetRootBlock(block);
-  CheckComputeAtValidation(block, loop, root);
-  sch->SimpleComputeAt(block, loop);
+  CheckAndComputeAt(sch, block_id, root_init_block_id);
 }
 
 std::optional<std::string> FindCandidateBlockId(
@@ -510,11 +517,7 @@ void ComputeAtReductionTactic::ComputeAtReduceLoad(
   VLOG(8) << "Compate at is safe: " << block_id;
 
   // 3. Check and compute at schedule.
-  auto block = sch->GetBlock(block_id);
-  auto loop = sch->GetLoops(candidate_block_id).back();
-  auto root = sch->GetRootBlock(block);
-  CheckComputeAtValidation(block, loop, root);
-  sch->SimpleComputeAt(block, loop);
+  CheckAndComputeAt(sch, block_id, candidate_block_id);
 }
 
 std::unique_ptr<ScheduleTactic> CreateComputeAtReductionTactic() {
