@@ -180,9 +180,11 @@ class OpTestUtils:
         # then ,we will loop for the api_params, construct a result list:
         #    if the name in ['name', 'dtype', 'out', 'output'], we will use the default value
         #    else, we will consume a input_arguments. (because the name is not corresponding, so we only use the order)
-
+        print(f"api:{api}")
         api_params, api_defaults = parse_arg_and_kwargs(api)
+        print(f"api_params:{api_params} api_defaults: {api_defaults}")
         api_defaults = to_defaults_list(api_params, api_defaults)
+        print(f"api_defaults: {api_defaults}")
         api_defaults = [
             Empty() for i in range(len(api_params) - len(api_defaults))
         ] + api_defaults
@@ -234,10 +236,11 @@ class OpTestUtils:
                 else:
                     results.append(tmp)
         assert len(results) == len(api_params)
-
+        print(f"results111:{results}")
         results = paddle.utils.map_structure(
             partial(convert_dtype, target_dtype=target_dtype), results
         )
+        print(f"results222:{results}")
         return results
 
     @classmethod
@@ -491,6 +494,8 @@ class PrimForwardChecker:
                 attrs_outputs,
                 _,
             ) = self.get_eager_input_attr_and_inputdict(stop_gradient=True)
+            print(f"eager_tensor_inputs:{eager_tensor_inputs}")
+            print(f"attrs_outputs:{attrs_outputs}")
             args = OpTestUtils.prepare_python_api_arguments(
                 self.public_python_api,
                 eager_tensor_inputs,
@@ -498,12 +503,14 @@ class PrimForwardChecker:
                 self.kernel_sig,
                 target_dtype=paddle.core.VarDesc.VarType,
             )
+            print(f"args111:{args}")
             if "one_hot" in self.op_type:
                 args = patch_for_one_hot(self.inputs, self.attrs, args)
             inputs_sig, _, _ = self.kernel_sig
             args = OpTestUtils.assumption_assert_and_transform(
                 args, len(inputs_sig)
             )
+            print(f"args222:{args}")
             ret = flatten(_as_list(self.public_python_api(*args)))
             ret = paddle.utils.map_structure(lambda x: x.numpy(), ret)
             if OpTestUtils.is_bfloat16_type(self.dtype):
@@ -696,6 +703,10 @@ class PrimForwardChecker:
             )
             raise RuntimeError(msg)
         for i in range(len(ret)):
+            print(f"ret:{ret[i]}")
+            print(f"eager_desire:{self.eager_desire[i]}")
+            print(f"rtol:{self.fw_comp_rtol}")
+            print(f"atol:{self.fw_comp_atol}")
             np.testing.assert_allclose(
                 ret[i],
                 self.eager_desire[i],

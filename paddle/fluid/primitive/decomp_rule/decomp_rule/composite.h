@@ -1402,6 +1402,55 @@ Tensor swish_decomp(const Tensor& x) {
   return x * sigmoid<T>(x);
 }
 
+template <typename T>
+Tensor allclose_decomp(const Tensor& x,
+                       const Tensor& y,
+                       const paddle::Scalar& rtol,
+                       const paddle::Scalar& atol,
+                       const bool equal_nan) {
+  // Tensor left = abs<T>(x - y);
+  Tensor left = x - y;
+  Tensor min_diff_tensor = full<T>(y.shape(), 1e-15, y.dtype());
+  Tensor rtol_tensor = full_scalar<T>(rtol.to<double>(), y.dtype());
+  Tensor atol_tensor = full_scalar<T>(atol.to<double>(), y.dtype());
+  Tensor right = atol_tensor + rtol_tensor * y;
+  // Tensor diff = abs<T>(right - left);
+  Tensor diff = right - left;
+  Tensor res = backend::logical_or<T>(less_equal<T>(left, right),
+                                      less_equal<T>(diff, min_diff_tensor));
+  // Tensor res = backend::logical_or<T>(equal<T>(x, y), res_tmp);
+  if (equal_nan) {
+    Tensor x_nan = isnan<T>(x);
+    Tensor y_nan = isnan<T>(y);
+    res = backend::logical_or<T>(
+        res, backend::logical_or<T>(backend::logical_not<T>(x_nan), y_nan));
+  }
+  return backend::all<T>(res);
+}
+
+template <typename T>
+Tensor isclose_decomp(const Tensor& x,
+                      const Tensor& y,
+                      const paddle::Scalar& rtol,
+                      const paddle::Scalar& atol,
+                      const bool equal_nan) {
+  Tensor left = abs<T>(x - y);
+  Tensor min_diff_tensor = full<T>(x.shape(), 1e-15, x.dtype());
+  Tensor rtol_tensor = full_scalar<T>(rtol, rtol.dtype());
+  Tensor atol_tensor = full_scalar<T>(atol, atol.dtype());
+  Tensor right = atol_tensor + rtol_tensor * abs<T>(y);
+  Tensor diff = abs<T>(left - right);
+  Tensor res = backend::logical_or<T>(less_equal<T>(left, right),
+                                      less_equal<T>(diff, min_diff_tensor));
+  if (equal_nan) {
+    Tensor x_nan = isnan<T>(x);
+    Tensor y_nan = isnan<T>(y);
+    res = backend::logical_or<T>(
+        res, backend::logical_or<T>(backend::logical_not<T>(x_nan), y_nan));
+  }
+  return res;
+}
+
 }  // namespace details
 
 }  // namespace primitive

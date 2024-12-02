@@ -33,14 +33,18 @@ class TestAllcloseOp(OpTest):
     def setUp(self):
         self.set_args()
         self.op_type = "allclose"
+        self.prim_op_type = "comp"
         self.python_api = paddle.allclose
+        self.public_python_api = paddle.allclose
         self.inputs = {
             'Input': self.input,
             'Other': self.other,
+        }
+        self.attrs = {
+            'equal_nan': self.equal_nan,
             "Rtol": self.rtol,
             "Atol": self.atol,
         }
-        self.attrs = {'equal_nan': self.equal_nan}
         self.outputs = {
             'Out': np.array(
                 np.allclose(
@@ -52,9 +56,11 @@ class TestAllcloseOp(OpTest):
                 )
             )
         }
+        print(f"out:{self.outputs}")
 
     def test_check_output(self):
-        self.check_output(check_pir=True)
+        self.check_output(check_pir=True, check_prim_pir=True)
+        print(f"out:{self.outputs}")
 
 
 class TestAllcloseOpException(TestAllcloseOp):

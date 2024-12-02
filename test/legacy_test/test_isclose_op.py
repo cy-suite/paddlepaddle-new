@@ -34,14 +34,18 @@ class TestIscloseOp(OpTest):
         paddle.enable_static()
         self.set_args()
         self.op_type = "isclose"
+        self.prim_op_type = "comp"
         self.python_api = paddle.isclose
+        self.public_python_api = paddle.isclose
         self.inputs = {
             'Input': self.input,
             'Other': self.other,
+        }
+        self.attrs = {
+            'equal_nan': self.equal_nan,
             "Rtol": self.rtol,
             "Atol": self.atol,
         }
-        self.attrs = {'equal_nan': self.equal_nan}
         self.outputs = {
             'Out': np.isclose(
                 self.inputs['Input'],
@@ -53,7 +57,7 @@ class TestIscloseOp(OpTest):
         }
 
     def test_check_output(self):
-        self.check_output(check_pir=True)
+        self.check_output(check_pir=True, check_prim_pir=True)
 
 
 class TestIscloseOpException(TestIscloseOp):
@@ -61,28 +65,28 @@ class TestIscloseOpException(TestIscloseOp):
         def test_rtol_num():
             self.inputs['Rtol'] = np.array([1e-05, 1e-05]).astype("float64")
             self.inputs['Atol'] = np.array([1e-08]).astype("float64")
-            self.check_output()
+            self.check_output(check_pir=True)
 
         self.assertRaises(ValueError, test_rtol_num)
 
         def test_rtol_type():
             self.inputs['Rtol'] = np.array([5]).astype("int32")
             self.inputs['Atol'] = np.array([1e-08]).astype("float64")
-            self.check_output()
+            self.check_output(check_pir=True)
 
         self.assertRaises(ValueError, test_rtol_type)
 
         def test_atol_num():
             self.inputs['Rtol'] = np.array([1e-05]).astype("float64")
             self.inputs['Atol'] = np.array([1e-08, 1e-08]).astype("float64")
-            self.check_output()
+            self.check_output(check_pir=True)
 
         self.assertRaises(ValueError, test_atol_num)
 
         def test_atol_type():
             self.inputs['Rtol'] = np.array([1e-05]).astype("float64")
             self.inputs['Atol'] = np.array([8]).astype("int32")
-            self.check_output()
+            self.check_output(check_pir=True)
 
         self.assertRaises(ValueError, test_atol_type)
 
@@ -278,7 +282,7 @@ class TestIscloseOpFloat64(TestIscloseOp):
         self.equal_nan = False
 
     def test_check_output(self):
-        self.check_output(check_pir=True)
+        self.check_output(check_pir=True, check_prim_pir=True)
 
 
 class TestIscloseOpCp64(unittest.TestCase):
@@ -347,7 +351,7 @@ class TestIscloseOpComplex128(TestIscloseOp):
         self.equal_nan = False
 
     def test_check_output(self):
-        self.check_output(check_pir=True)
+        self.check_output(check_pir=True, check_prim_pir=True)
 
 
 class TestIscloseOpLargeDimInput(TestIscloseOp):
