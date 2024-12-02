@@ -880,10 +880,12 @@ def get_dist_attr(program, dist_context=None):
                 )
                 process_mesh = tensor_dist_attr.process_mesh
                 dims_mapping = tensor_dist_attr.dims_mapping
+                dim_names = tensor_dist_attr.process_mesh.dim_names
                 dist_attr[var.name] = {
                     "process_shape": process_mesh.shape,
                     "process_group": process_mesh.process_ids,
                     "dims_mapping": dims_mapping,
+                    "dim_names": dim_names,
                 }
     return dist_attr
 
