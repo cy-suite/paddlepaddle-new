@@ -84,7 +84,6 @@ DEFINE_GENERAL_PATTERN(Swish, paddle::dialect::SwishOp)
 DEFINE_GENERAL_PATTERN(Log, paddle::dialect::LogOp)
 DEFINE_GENERAL_PATTERN(Floor, paddle::dialect::FloorOp)
 DEFINE_GENERAL_PATTERN(Roll, paddle::dialect::RollOp)
-DEFINE_GENERAL_PATTERN(Mish, paddle::dialect::MishOp)
 DEFINE_GENERAL_PATTERN(Softplus, paddle::dialect::SoftplusOp)
 DEFINE_GENERAL_PATTERN(ThresholdedRelu, paddle::dialect::ThresholdedReluOp)
 
@@ -259,6 +258,36 @@ class ActOpPattern : public pir::OpRewritePattern<OpType> {
 };
 using TanhOpPattern = ActOpPattern<paddle::dialect::TanhOp>;
 using CeluOpPattern = ActOpPattern<paddle::dialect::CeluOp>;
+
+class MishOpPattern : public pir::OpRewritePattern<paddle::dialect::MishOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::MishOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::MishOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->template attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (!op->HasAttribute("lambda")) {
+      VLOG(3)
+          << "The necessary attribute of lambda are missing.";
+      return false;
+    }
+#if IS_TRT_VERSION_LT(8600)
+    pir::Value x = op.operand_source(0);
+    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto x_shape = x_type.dims();
+    int dims = x_shape.size();
+    if (dims < 1) {
+      VLOG(3) << op->name()
+              << " op does not support 0 dim input when TensorRT < 8.6.";
+      return false;
+    }
+#endif
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
 
 class Pool2dOpPattern
     : public pir::OpRewritePattern<paddle::dialect::Pool2dOp> {
@@ -2139,7 +2168,6 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Log)
     ADD_PATTERN(Floor)
     ADD_PATTERN(Roll)
-    ADD_PATTERN(Mish)
     ADD_PATTERN(Softplus)
     ADD_PATTERN(ThresholdedRelu)
 #if IS_TRT_VERSION_GE(8600)
@@ -2206,6 +2234,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<NotEqualOpPattern>(context));
     ps.Add(std::make_unique<TanhOpPattern>(context));
     ps.Add(std::make_unique<CeluOpPattern>(context));
+    ps.Add(std::make_unique<MishOpPattern>(context));
     ps.Add(std::make_unique<OneHotOpPattern>(context));
     ps.Add(std::make_unique<AssignValueOpPattern>(context));
     ps.Add(std::make_unique<AssignValue_OpPattern>(context));
