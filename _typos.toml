@@ -26,7 +26,6 @@ UE = "UE"
 unpacket = "unpacket"
 
 # These words need to be fixed
-assgin = 'assgin'
 axises = 'axises'
 Axises = 'Axises'
 aixs = 'aixs'
@@ -76,7 +75,6 @@ configurated = 'configurated'
 configed = 'configed'
 confict = 'confict'
 conjuction = 'conjuction'
-conect = 'conect'
 consequtive = 'consequtive'
 consistant = 'consistant'
 contraints = 'contraints'
@@ -86,7 +84,6 @@ comsume = 'comsume'
 Continer = 'Continer'
 contenst = 'contenst'
 conter = 'conter'
-ontext = 'ontext'
 Continous = 'Continous'
 contibute = 'contibute'
 controled = 'controled'
