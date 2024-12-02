@@ -525,34 +525,6 @@ class LogicalNotOpPattern
   }
 };
 
-class LogicalOrOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::LogicalOrOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::LogicalOrOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::LogicalOrOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-#if IS_TRT_VERSION_LT(8400)
-    VLOG(3) << "pd_op.logical_or op is not supported when TensorRT < 8.4";
-    return false;
-#else
-    pir::Value x = op.operand_source(0);
-    pir::Value y = op.operand_source(1);
-    auto x_dtype = pir::GetDataTypeFromValue(x);
-    auto y_dtype = pir::GetDataTypeFromValue(y);
-    if (!(x_dtype.isa<pir::BoolType>() && y_dtype.isa<pir::BoolType>())) {
-      VLOG(3) << "pd_op.logical_or op only supports bool datatype";
-      return false;
-    }
-#endif
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
-
 class GroupNormOpPattern
     : public pir::OpRewritePattern<paddle::dialect::GroupNormOp> {
  public:
@@ -2168,7 +2140,6 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Roll)
     ADD_PATTERN(Softplus)
     ADD_PATTERN(ThresholdedRelu)
-
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
 #endif
@@ -2180,7 +2151,6 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<ArangeOpPattern>(context));
     ps.Add(std::make_unique<SignOpPattern>(context));
     ps.Add(std::make_unique<LogicalNotOpPattern>(context));
-    ps.Add(std::make_unique<LogicalOrOpPattern>(context));
     ps.Add(std::make_unique<GroupNormOpPattern>(context));
     ps.Add(std::make_unique<TransposeOpPattern>(context));
     ps.Add(std::make_unique<GatherOpPattern>(context));
