@@ -19,7 +19,7 @@
 #include <unordered_set>
 
 #include "paddle/cinn/common/cas.h"
-#include "paddle/cinn/common/simplify_corner_case.h"
+#include "paddle/cinn/common/simplify_special_pattern.h"
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/op/ir_operators.h"
@@ -233,7 +233,15 @@ static std::optional<ir::IndexExpr> MergeMulModInner(
     } else if (inner_div_ptr) {
       ir::IndexExpr overall_mult =
           mult_inner.get() ? mult_inner * mult_outer : mult_outer;
-      if (overall_mult == inner_div_ptr->b_as_index() &&
+      VLOG(5) << "inner_div_ptr_b: " << inner_div_ptr->b().as_index();
+      VLOG(5) << "overall_mult: " << overall_mult;
+      VLOG(5) << "mod_r_expr: " << mod_r_expr;
+      VLOG(5) << "inner_div_ptr_a - mod_l_expr: "
+              << inner_div_ptr->a().as_index() - mod_l_expr;
+      VLOG(5) << "ProveDivisible: "
+              << ProveDivisible(inner_div_ptr->a().as_index() - mod_l_expr,
+                                mod_r_expr);
+      if (overall_mult == inner_div_ptr->b().as_index() &&
           overall_mult == mod_r_expr &&
           ProveDivisible(inner_div_ptr->a_as_index() - mod_l_expr,
                          mod_r_expr)) {
@@ -346,7 +354,7 @@ Expr IndiceToAbsOffset(const std::vector<Expr> &shape,
                     ::common::errors::InvalidArgument(
                         "The size of shape should be less than or "
                         "equal to the size of indices."));
-  Expr res;
+  Expr res(0);
   ir::TryElevateInt32ToInt64(shape);
   common::cas_intervals_t var_intervals =
       common::CollectVarIntervalsOfExprs(indices);
@@ -361,7 +369,8 @@ Expr IndiceToAbsOffset(const std::vector<Expr> &shape,
             "the current data type of shape[{}] is {}",
             i,
             shape[i].type()));
-    Expr indice_cast = indices[i];
+
+    ir::IndexExpr indice_cast = indices[i];
     optim::SimplifyCast(&indice_cast);
     if (res.defined()) {
       res = RampRelatedAdd(RampRelatedMul(res, shape[i]), indice_cast);
@@ -372,6 +381,7 @@ Expr IndiceToAbsOffset(const std::vector<Expr> &shape,
     } else {
       res = indice_cast;
     }
+
     if (i > 0) {
       if (res.is_index_tmp()) {
         res.set_index(true);
