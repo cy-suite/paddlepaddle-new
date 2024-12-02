@@ -148,14 +148,22 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
       phi::distributed::CommContext* comm_context = nullptr;
       if (comm_context_manager.Has(std::to_string(ring_id))) {
         comm_context = comm_context_manager.Get(std::to_string(ring_id));
-      } else {
+      } else if (op_name.compare(
+                     paddle::dialect::CSoftmaxWithCrossEntropyOp::name()) ==
+                 0) {
         VLOG(1) << "Comm_Context is null?" << (comm_context == nullptr);
         if (!comm_context) {
           VLOG(1) << "Enter!";
           auto map = distributed::ProcessGroupMapFromGid::getInstance();
           distributed::ProcessGroup* pg = map->get(ring_id);
+          VLOG(1) << "Pg is Null?" << (pg == nullptr);
           comm_context = static_cast<paddle::distributed::ProcessGroupNCCL*>(pg)
                              ->GetOrCreateCommContext(place);
+          // auto ptr_nccl =
+          // static_cast<paddle::distributed::ProcessGroupNCCL*>(pg); VLOG(1) <<
+          // "Ptr_Nccl's type is:" << typeid(ptr_nccl).name(); VLOG(1) <<
+          // "Ptr_NCCL is Null?" << (ptr_nccl == nullptr); VLOG(1) << "Ptr_NCCL
+          // has gid_?" << ptr_nccl->GetGid();
         }
         VLOG(1) << "Comm_Context is still null?" << (comm_context == nullptr);
       }
@@ -163,50 +171,54 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
       // if (comm_context_manager.Has(std::to_string(ring_id))) {
       //   auto comm_context =
       //   comm_context_manager.Get(std::to_string(ring_id));
-      dev_ctx = static_cast<platform::DeviceContext*>(
-          static_cast<phi::distributed::NCCLCommContext*>(comm_context)
-              ->GetDevContext());
-      dev_ctx->SetCommContext(comm_context);
-      if (op_name.compare(paddle::dialect::ReduceScatterOp::name()) == 0 ||
-          op_name.compare(paddle::dialect::AllReduceOp::name()) == 0 ||
-          op_name.compare(paddle::dialect::AllReduce_Op::name()) == 0 ||
-          op_name.compare(paddle::dialect::Broadcast_Op::name()) == 0 ||
-          op_name.compare(paddle::dialect::BroadcastOp::name()) == 0 ||
-          op_name.compare(paddle::dialect::AllGatherOp::name()) == 0 ||
-          op_name.compare(
-              paddle::dialect::CSoftmaxWithCrossEntropyOp::name()) == 0) {
-        if (phi::is_gpu_place(place) && execution_stream == kDefaultStream) {
-          if (origin_dev_ctx != nullptr) {
-            // set stream
-            auto default_stream =
-                static_cast<phi::GPUContext*>(origin_dev_ctx)->cuda_stream();
-            static_cast<phi::GPUContext*>(dev_ctx)->SetCUDAStream(
-                default_stream, false);
-            // set allocator
-            auto& instance =
-                paddle::memory::allocation::AllocatorFacade::Instance();
-            dev_ctx->SetAllocator(
-                instance
-                    .GetAllocator(
-                        place, static_cast<phi::GPUContext*>(dev_ctx)->stream())
-                    .get());
-          } else {
-            VLOG(3) << "op " << op_name << " ring_id " << ring_id
-                    << " origin_dev_ctx is nullptr";
+      if (comm_context) {
+        dev_ctx = static_cast<platform::DeviceContext*>(
+            static_cast<phi::distributed::NCCLCommContext*>(comm_context)
+                ->GetDevContext());
+        dev_ctx->SetCommContext(comm_context);
+        if (op_name.compare(paddle::dialect::ReduceScatterOp::name()) == 0 ||
+            op_name.compare(paddle::dialect::AllReduceOp::name()) == 0 ||
+            op_name.compare(paddle::dialect::AllReduce_Op::name()) == 0 ||
+            op_name.compare(paddle::dialect::Broadcast_Op::name()) == 0 ||
+            op_name.compare(paddle::dialect::BroadcastOp::name()) == 0 ||
+            op_name.compare(paddle::dialect::AllGatherOp::name()) == 0 ||
+            op_name.compare(
+                paddle::dialect::CSoftmaxWithCrossEntropyOp::name()) == 0) {
+          if (phi::is_gpu_place(place) && execution_stream == kDefaultStream) {
+            if (origin_dev_ctx != nullptr) {
+              // set stream
+              auto default_stream =
+                  static_cast<phi::GPUContext*>(origin_dev_ctx)->cuda_stream();
+              static_cast<phi::GPUContext*>(dev_ctx)->SetCUDAStream(
+                  default_stream, false);
+              // set allocator
+              auto& instance =
+                  paddle::memory::allocation::AllocatorFacade::Instance();
+              dev_ctx->SetAllocator(
+                  instance
+                      .GetAllocator(
+                          place,
+                          static_cast<phi::GPUContext*>(dev_ctx)->stream())
+                      .get());
+            } else {
+              VLOG(3) << "op " << op_name << " ring_id " << ring_id
+                      << " origin_dev_ctx is nullptr";
+            }
           }
+          VLOG(1) << "comm context get from dev_ctx is null?"
+                  << (dev_ctx->GetCommContext() == nullptr);
+          return dev_ctx;
         }
-        VLOG(1) << "comm context get from dev_ctx is null?"
-                << (dev_ctx->GetCommContext() == nullptr);
-        return dev_ctx;
+        // } else {
+        //   VLOG(3) << "ring_id " << ring_id
+        //           << " not found in comm_context_manager for op " << op_name;
+        // }
       }
-      // } else {
-      //   VLOG(3) << "ring_id " << ring_id
-      //           << " not found in comm_context_manager for op " << op_name;
-      // }
     }
 #endif
   }
 
+  VLOG(1) << "Return origin_dev_ctx";
   if (origin_dev_ctx != nullptr) {
     interpreter::SetDeviceCommContext(op, origin_dev_ctx);
   }
