@@ -376,7 +376,6 @@ class _moe_global_mesh_tensor(PyLayer):
     ):
         # NOTE: _local_value and Paddle.Tensor() is only supported in dynamic mode
         if paddle.in_dynamic_mode():
-            print("local_tensor_list: ", len(local_tensor_list))
             local_tensor = local_tensor_list[idx]
             if local_tensor.is_dist():
                 local_mesh = local_tensor.process_mesh
@@ -659,14 +658,6 @@ class _moe_sub_mesh_tensors(PyLayer):
         else:
             local_tensor_idx = local_coord[local_mesh_dim][0]
         local_grad = grad_tensor[local_tensor_idx]
-        global_tensor = paddle.Tensor(
-            local_grad._local_value(),
-            dims=ctx.global_shape,
-            process_mesh=mesh,
-            placements=ctx.global_placements,
-            place=place,
-        )
-        return global_tensor
 
         if paddle.in_dynamic_mode():
             place = paddle.framework._current_expected_place()
@@ -704,7 +695,7 @@ def moe_sub_mesh_tensors(
         global_mesh, global_placements, local_mesh_dim
     )
 
-    if paddle.framework.in_dynamic_or_pir_mode():
+    if paddle.framework.in_dynamic_mode():
         return _moe_sub_mesh_tensors.apply(
             dist_tensor,
             local_mesh_list,
