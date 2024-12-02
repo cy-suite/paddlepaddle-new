@@ -234,3 +234,10 @@ def sqrt_converter(network, paddle_op, inputs):
     input_tensor = trt_cast(network, inputs[0], trt.float32)
     layer = network.add_unary(input_tensor, trt.UnaryOperation.LOG)
     return layer.get_output(0)
+
+
+@converter_registry.register("pd_op.pow", trt_version="8.x")
+def pow_converter(network, paddle_op, inputs):
+    return add_elementwise_layer(
+        network, paddle_op, inputs, trt.ElementWiseOperation.POW
+    )
