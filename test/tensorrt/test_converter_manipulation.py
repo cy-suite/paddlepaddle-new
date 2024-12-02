@@ -573,15 +573,11 @@ class TestGatherTRTPattern(TensorRTBaseTest):
         self.api_args = {
             "x": np.random.random([3, 4, 10]).astype("float32"),
             "index": np.array([0, 2]).astype("int64"),
-            "axis": 1,
+            "axis": np.array([1]).astype("int32"),
         }
-        self.program_config = {"feed_list": ["x", "index"]}
-        self.min_shape = {"x": [1, 4, 10], "index": [1]}
-        self.max_shape = {"x": [5, 4, 10], "index": [5]}
-        self.dynamic_shape = {
-            "x": {"min": [1, 4, 10], "max": [5, 4, 10], "opt": [3, 4, 10]},
-            "index": {"min": [1], "max": [5], "opt": [2]},
-        }
+        self.program_config = {"feed_list": ["x", "index", "axis"]}
+        self.min_shape = {"x": [1, 4, 10], "index": [1], "axis": [1]}
+        self.max_shape = {"x": [5, 4, 10], "index": [5], "axis": [1]}
 
     def test_trt_result(self):
         self.check_trt_result()
@@ -593,15 +589,11 @@ class TestGatherCase1TRTPattern(TensorRTBaseTest):
         self.api_args = {
             "x": np.random.random([3, 4, 10]).astype("int64"),
             "index": np.array([0, 2]).astype("int64"),
-            "axis": 1,
+            "axis": np.array([1]).astype("int32"),
         }
-        self.program_config = {"feed_list": ["x", "index"]}
-        self.min_shape = {"x": [1, 4, 10], "index": [1]}
-        self.max_shape = {"x": [5, 4, 10], "index": [5]}
-        self.dynamic_shape = {
-            "x": {"min": [1, 4, 10], "max": [5, 4, 10], "opt": [3, 4, 10]},
-            "index": {"min": [1], "max": [5], "opt": [2]},
-        }
+        self.program_config = {"feed_list": ["x", "index", "axis"]}
+        self.min_shape = {"x": [1, 4, 10], "index": [1], "axis": [1]}
+        self.max_shape = {"x": [5, 4, 10], "index": [5], "axis": [1]}
 
     def test_trt_result(self):
         self.check_trt_result()
