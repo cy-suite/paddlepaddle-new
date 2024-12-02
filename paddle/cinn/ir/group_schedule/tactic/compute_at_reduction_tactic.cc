@@ -44,23 +44,25 @@ void ComputeAtReductionTactic::Init(ScheduleContext* context) {
   context_ = context;
 }
 
-template <typename OpType>
-bool IfConditionEqual(const ir::Expr& first, const ir::Expr& second) {
-  if ((first.As<OpType>() && second.As<OpType>())) {
-    auto first_op = first.As<OpType>();
-    auto second_op = second.As<OpType>();
-    // Check if condition is an index expression.
-    if (!(first_op->a()).is_index() || !(first_op->b()).is_index() ||
-        !(second_op->a()).is_index() || !(second_op->b()).is_index()) {
-      return false;
-    }
-    return ir::ir_utils::IRCompare(first, second);
-  }
-  return false;
-}
-
 bool ControlFlowAllEqual(const std::vector<ir::Expr>& first,
                          const std::vector<ir::Expr>& second) {
+  // Check if without false case and condition is an index expression, only
+  // ir::LT, ir::LE, now
+  const auto IsIndexCondWithoutFalseCase =
+      [&](const ir::IfThenElse* if_op) -> bool {
+    if (if_op->false_case.defined()) return false;
+    auto cond = if_op->condition;
+    if (cond.As<ir::LT>()) {
+      auto lt = cond.As<ir::LT>();
+      return lt->a().is_index() && lt->b().is_index();
+    }
+    if (cond.As<ir::LE>()) {
+      auto le = cond.As<ir::LE>();
+      return le->a().is_index() && le->b().is_index();
+    }
+    return false;
+  };
+
   const auto ControlFlowEqual = [&](const ir::Expr& first,
                                     const ir::Expr& second) -> bool {
     if (first.As<ir::For>() && second.As<ir::For>()) {
@@ -69,11 +71,11 @@ bool ControlFlowAllEqual(const std::vector<ir::Expr>& first,
       if (first_for->for_type() != second_for->for_type()) return false;
       return ir::ir_utils::IRCompare(first_for->extent, second_for->extent);
     } else if (first.As<ir::IfThenElse>() && second.As<ir::IfThenElse>()) {
-      auto first_cond = first.As<ir::IfThenElse>()->condition;
-      auto second_cond = second.As<ir::IfThenElse>()->condition;
-      if (IfConditionEqual<ir::LT>(first_cond, second_cond)) return true;
-      if (IfConditionEqual<ir::LE>(first_cond, second_cond)) return true;
-      return false;
+      auto first_if = first.As<ir::IfThenElse>();
+      auto second_if = second.As<ir::IfThenElse>();
+      if (!IsIndexCondWithoutFalseCase(first_if)) return false;
+      if (!IsIndexCondWithoutFalseCase(second_if)) return false;
+      return ir::ir_utils::IRCompare(first_if->condition, second_if->condition);
     } else {
       VLOG(8) << "Is not for or if_then_else node, first: " << first
               << " second: " << second;
@@ -87,6 +89,11 @@ bool ControlFlowAllEqual(const std::vector<ir::Expr>& first,
     if (!ControlFlowEqual(first[i], second[i])) return false;
   }
   return true;
+}
+
+bool IsForEqual(const std::vector<ir::Expr>& first,
+                const std::vector<ir::Expr>& second) {
+  return ControlFlowAllEqual(first, second);
 }
 
 bool BlockWithSameLoop(const std::vector<ir::Expr>& first,
@@ -155,19 +162,14 @@ struct GetControlFlowFunctor {
 
 void ComputeAtReductionTactic::Apply(ir::IRSchedule* sch,
                                      const std::string& block_id) {
-  const auto ContainsConditionOrLet = [&](const ir::Expr& expr) -> bool {
-    const auto condition_or_let = ir::ir_utils::CollectIRNodesWithoutTensor(
-        expr, [&](const Expr* x) -> bool {
-          if (x->As<ir::IfThenElse>())  // Only handle index expression.
-            return x->As<ir::IfThenElse>()->false_case.defined();
-          if (x->As<ir::Select>()) return true;
-          if (x->As<ir::Let>()) return true;
-          return false;
-        });
-    return !condition_or_let.empty();
+  const auto ContainsLet = [&](const ir::Expr& expr) -> bool {
+    const auto let_set = ir::ir_utils::CollectIRNodesWithoutTensor(
+        expr, [&](const Expr* x) -> bool { return x->As<ir::Let>(); });
+    return !let_set.empty();
   };
-  // Should analyze condition when dependency tools are done.
-  if (ContainsConditionOrLet(sch->GetModule().GetExprs().front())) return;
+
+  // Should analyze let when dependency tools are done.
+  if (ContainsLet(sch->GetModule().GetExprs().front())) return;
 
   if (!compute_at_reduce_init_done_) {
     for (const auto& block : sch->GetAllBlocks()) {
@@ -189,28 +191,28 @@ void ComputeAtReductionTactic::ComputeAtReduceInit(
     ir::IRSchedule* sch, const std::string& block_id) {
   if (!ir::IsReduceInitTensorName(block_id)) return;
 
-  const auto GetRootInitBlockIds =
-      [&](const std::vector<ir::Expr>& blocks) -> std::vector<std::string> {
+  const auto GetRootInitBlockId =
+      [&](const std::vector<ir::Expr>& blocks) -> std::optional<std::string> {
     for (const auto& block : blocks) {
       const std::string root_block_name = BlockToName(block);
       if (ir::IsReduceInitTensorName(root_block_name))
-        return std::vector<std::string>{root_block_name};
+        return std::optional<std::string>{root_block_name};
     }
-    return std::vector<std::string>();
+    return std::nullopt;
   };
 
   const std::vector<ir::Expr> blocks = sch->GetAllBlocks();
-  std::vector<std::string> root_init_block_ids = GetRootInitBlockIds(blocks);
-  if (root_init_block_ids.empty()) return;
-  // Should evaluate benefits later, temporarily select the first candidate.
-  const std::string root_init_block_id = root_init_block_ids[0];
+  std::optional<std::string> root_init_block_id_value =
+      GetRootInitBlockId(blocks);
+  if (!root_init_block_id_value.has_value()) return;
+  const std::string root_init_block_id = root_init_block_id_value.value();
   if (BlockWithSameLoop(sch->GetLoops(root_init_block_id),
                         sch->GetLoops(block_id)))
     return;
 
   const std::vector<ir::Expr> root_loops = sch->GetLoops(root_init_block_id);
   const std::vector<ir::Expr> cur_loops = sch->GetLoops(block_id);
-  if (!ControlFlowAllEqual(root_loops, cur_loops)) return;
+  if (!IsForEqual(root_loops, cur_loops)) return;
 
   auto block = sch->GetBlock(block_id);
   auto loop = sch->GetLoops(root_init_block_id).back();
@@ -219,7 +221,7 @@ void ComputeAtReductionTactic::ComputeAtReduceInit(
   sch->SimpleComputeAt(block, loop);
 }
 
-std::vector<std::string> FindCandidateBlockIds(
+std::optional<std::string> FindCandidateBlockId(
     ir::IRSchedule* sch,
     const std::vector<ir::Expr>& blocks,
     const ir::Expr& cur_block) {
@@ -375,9 +377,9 @@ std::vector<std::string> FindCandidateBlockIds(
     return false;
   };
 
-  const auto GetCandidateBlockIds =
+  const auto GetCandidateBlockId =
       [&](const std::vector<ir::Expr>& blocks,
-          const ir::Expr& cur_block) -> std::vector<std::string> {
+          const ir::Expr& cur_block) -> std::optional<std::string> {
     const auto load_nodes = ir::ir_utils::CollectIRNodesWithoutTensor(
         cur_block, [&](const Expr* x) -> bool {
           return x->As<ir::Load>() &&
@@ -394,13 +396,13 @@ std::vector<std::string> FindCandidateBlockIds(
                        x->As<ir::Load>(), load_nodes, block, cur_block);
           });
       if (!common_loads.empty()) {
-        return std::vector<std::string>{BlockToName(block)};
+        return std::optional<std::string>{BlockToName(block)};
       }
     }
-    return std::vector<std::string>();
+    return std::nullopt;
   };
 
-  return GetCandidateBlockIds(blocks, cur_block);
+  return GetCandidateBlockId(blocks, cur_block);
 }
 
 bool IsSafeComputeAt(ir::IRSchedule* sch,
@@ -494,11 +496,10 @@ void ComputeAtReductionTactic::ComputeAtReduceLoad(
     ir::IRSchedule* sch, const std::string& block_id) {
   if (!ir::analyzer::IsReductionSBlock(sch->GetBlock(block_id))) return;
   // 1. Find candidate block, load buffer with same indices.
-  std::vector<std::string> candidate_block_ids =
-      FindCandidateBlockIds(sch, sch->GetAllBlocks(), sch->GetBlock(block_id));
-  if (candidate_block_ids.empty()) return;
-  // Should evaluate benefits later, temporarily select the first candidate.
-  const std::string candidate_block_id = candidate_block_ids[0];
+  std::optional<std::string> candidate_block_id_value =
+      FindCandidateBlockId(sch, sch->GetAllBlocks(), sch->GetBlock(block_id));
+  if (!candidate_block_id_value.has_value()) return;
+  const std::string candidate_block_id = candidate_block_id_value.value();
   if (BlockWithSameLoop(sch->GetLoops(candidate_block_id),
                         sch->GetLoops(block_id)))
     return;
