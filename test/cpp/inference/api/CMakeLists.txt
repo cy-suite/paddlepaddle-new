@@ -958,7 +958,8 @@ if(WITH_TESTING AND WITH_INFERENCE_API_TEST)
   endif()
   if(WITH_OPENVINO
      AND NOT WIN32
-     AND NOT WITH_XPU)
+     AND NOT WITH_XPU
+     AND NOT WITH_ROCM)
     message(STATUS "test_analyzer_openvino_resnet50")
     set(OPENVINO_TEST_APP "analyzer_openvino")
     set(OPENVINO_TEST_APP_SRC "analyzer_openvino_tester.cc")
