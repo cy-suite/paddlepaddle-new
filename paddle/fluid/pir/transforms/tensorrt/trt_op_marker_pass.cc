@@ -258,36 +258,7 @@ class ActOpPattern : public pir::OpRewritePattern<OpType> {
 };
 using TanhOpPattern = ActOpPattern<paddle::dialect::TanhOp>;
 using CeluOpPattern = ActOpPattern<paddle::dialect::CeluOp>;
-
-class MishOpPattern : public pir::OpRewritePattern<paddle::dialect::MishOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::MishOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::MishOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->template attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-    if (!op->HasAttribute("lambda")) {
-      VLOG(3)
-          << "The necessary attribute of lambda are missing.";
-      return false;
-    }
-#if IS_TRT_VERSION_LT(8600)
-    pir::Value x = op.operand_source(0);
-    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
-    auto x_shape = x_type.dims();
-    int dims = x_shape.size();
-    if (dims < 1) {
-      VLOG(3) << op->name()
-              << " op does not support 0 dim input when TensorRT < 8.6.";
-      return false;
-    }
-#endif
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
+using MishOpPattern = ActOpPattern<paddle::dialect::MishOp>;
 
 class Pool2dOpPattern
     : public pir::OpRewritePattern<paddle::dialect::Pool2dOp> {

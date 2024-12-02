@@ -138,8 +138,6 @@ def swish_silu_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.mish", trt_version="8.x")
 def mish_converter(network, paddle_op, inputs):
     x = inputs[0]
-    threshold = paddle_op.attrs().get("threshold", 20.0)
-    lm = paddle_op.attrs().get("lambda", 20.0)
     softplus_layer = network.add_activation(x, trt.ActivationType.SOFTPLUS)
     softplus_output = softplus_layer.get_output(0)
 
@@ -150,7 +148,7 @@ def mish_converter(network, paddle_op, inputs):
 
     return trt_prod(network, x, tanh_output)
 
-    
+
 @converter_registry.register("pd_op.celu", trt_version="8.x")
 def celu_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
