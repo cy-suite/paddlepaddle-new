@@ -15,7 +15,6 @@
 import ctypes
 import hashlib
 import logging
-import os
 
 import numpy as np
 import tensorrt as trt
@@ -31,8 +30,14 @@ from paddle.base.log_helper import get_logger
 from paddle.tensorrt.util import (
     PrecisionMode,
     TensorRTConfigManager,
+    get_cache_path,
+    get_trt_version,
     get_trt_version_list,
+    is_shape_tensor,
     map_dtype,
+    remove_duplicate_value,
+    weight_to_tensor,
+    zero_dims_to_one_dims,
 )
 
 from .impls.activation import *  # noqa: F403
@@ -56,33 +61,9 @@ from .register import converter_registry
 
 version_list = get_trt_version_list()
 
-
-def get_cache_path():
-    home_path = os.path.expanduser("~")
-    cache_path = os.path.join(home_path, ".pp_trt_cache")
-
-    if not os.path.exists(cache_path):
-        os.makedirs(cache_path)
-    return cache_path
-
-
 _logger = get_logger(
     __name__, logging.INFO, fmt='%(asctime)s-%(levelname)s: %(message)s'
 )
-
-
-def get_trt_version():
-    return trt.__version__
-
-
-def remove_duplicate_value(value_list):
-    ret_list = []
-    ret_list_id = []
-    for value in value_list:
-        if value.id not in ret_list_id:
-            ret_list.append(value)
-            ret_list_id.append(value.id)
-    return ret_list
 
 
 class PaddleToTensorRTConverter:
@@ -197,6 +178,9 @@ class PaddleToTensorRTConverter:
                 shape = value.shape
                 dtype = map_dtype(value.dtype.name)
                 input_name = f"input_{value.id}"
+                # 0-dims -> 1-dims
+                if len(shape) == 0:
+                    shape = [1]
                 input_tensor = network.add_input(
                     name=input_name, dtype=dtype, shape=shape
                 )
@@ -205,7 +189,7 @@ class PaddleToTensorRTConverter:
 
         for op in operations:
             # Adding marker labels to builtin ops facilitates convert processing, but they ultimately do not enter the TensorRT subgraph.
-            if op.name() == "builtin.split":
+            if op.name() == "builtin.split" or op.name() == "builtin.combine":
                 continue
             operands = []
             for operand in op.operands():
@@ -220,9 +204,16 @@ class PaddleToTensorRTConverter:
                         combined_source = combined_operand.source()
                         combined_source_id = combined_source.id
                         if combined_source_id in value_to_trt_tensor:
-                            operand_list.append(
-                                value_to_trt_tensor[combined_source_id]
+                            trt_input_tensor = weight_to_tensor(
+                                network,
+                                combined_source,
+                                value_to_trt_tensor[combined_source_id],
+                                op.name(),
                             )
+                            trt_input_tensor = zero_dims_to_one_dims(
+                                network, trt_input_tensor
+                            )
+                            operand_list.append(trt_input_tensor)
                         else:
                             raise RuntimeError(
                                 f'{combined_source_id} not found in value_to_trt_tensor'
@@ -231,7 +222,16 @@ class PaddleToTensorRTConverter:
                 else:
                     source_id = source.id
                     if source_id in value_to_trt_tensor:
-                        operands.append(value_to_trt_tensor[source_id])
+                        trt_input_tensor = weight_to_tensor(
+                            network,
+                            source,
+                            value_to_trt_tensor[source_id],
+                            op.name(),
+                        )
+                        trt_input_tensor = zero_dims_to_one_dims(
+                            network, trt_input_tensor
+                        )
+                        operands.append(trt_input_tensor)
                     else:
                         raise RuntimeError(
                             f'{source_id} not found in value_to_trt_tensor'
@@ -368,7 +368,7 @@ class PaddleToTensorRTConverter:
             min_value = []
             opt_value = []
             max_value = []
-            if output_tensor.is_shape_tensor:
+            if is_shape_tensor(result_value):
                 min_value = get_value_shape_range_info(
                     result_value, True, paddle.base.core.ShapeMode.kMIN
                 )
@@ -397,9 +397,7 @@ class PaddleToTensorRTConverter:
         config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)
 
         if self.trt_config is not None:
-            precision_mode = PrecisionMode.from_string(
-                self.trt_config.precision_mode
-            )
+            precision_mode = self.trt_config.precision_mode
         if self.trt_config is not None and precision_mode == PrecisionMode.FP16:
             if builder.platform_has_fast_fp16:
                 config.set_flag(trt.BuilderFlag.FP16)
@@ -532,5 +530,5 @@ class PaddleToTensorRTConverter:
                     orin_out_values[o_i].replace_all_uses_with(new_out[o_i])
 
                 self.program.global_block().remove_op(op)
-        # # Call clear_shape_info to clear the previous shape information
+        # Call clear_shape_info to clear the previous shape information
         clear_shape_info()

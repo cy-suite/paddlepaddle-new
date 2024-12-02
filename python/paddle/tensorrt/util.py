@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import os
 from enum import Enum
 
 import paddle
@@ -221,3 +222,44 @@ def zero_dims_to_one_dims(network, trt_tensor):
     shuffle_layer = network.add_shuffle(trt_tensor)
     shuffle_layer.reshape_dims = (1,)
     return shuffle_layer.get_output(0)
+
+
+# We use a special rule to judge whether a paddle value is a shape tensor.
+# The rule is consistent with the rule in C++ source code(collect_shape_manager.cc).
+# We use the rule for getting min/max/opt value shape from collect_shape_manager.
+# We don't use trt_tensor.is_shape_tensor, because sometimes, the trt_tensor that corresponding to paddle value is not a shape tensor
+# when it is a output in this trt graph, but it is a shape tensor when it is a input in next trt graph.
+def is_shape_tensor(value):
+    dims = value.shape
+    total_elements = 1
+    if (
+        dims.count(-1) > 1
+    ):  # we can only deal with the situation that is has one dynamic dims
+        return False
+    for dim in dims:
+        total_elements *= abs(dim)  # add abs for dynamic shape -1
+    is_int_dtype = value.dtype == paddle.int32 or value.dtype == paddle.int64
+    return total_elements <= 8 and total_elements >= 1 and is_int_dtype
+
+
+def get_cache_path():
+    home_path = os.path.expanduser("~")
+    cache_path = os.path.join(home_path, ".pp_trt_cache")
+
+    if not os.path.exists(cache_path):
+        os.makedirs(cache_path)
+    return cache_path
+
+
+def remove_duplicate_value(value_list):
+    ret_list = []
+    ret_list_id = []
+    for value in value_list:
+        if value.id not in ret_list_id:
+            ret_list.append(value)
+            ret_list_id.append(value.id)
+    return ret_list
+
+
+def get_trt_version():
+    return trt.__version__
