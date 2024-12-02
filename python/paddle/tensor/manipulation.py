@@ -1550,6 +1550,7 @@ def broadcast_tensors(
        :width: 800
        :alt: Illustration of BroadCast
        :align: center
+
     Args:
         input (list|tuple): ``input`` is a Tensor list or Tensor tuple which is with data type bool,
             float16, float32, float64, int32, int64, complex64, complex128. All the Tensors in ``input`` must have same data type.
