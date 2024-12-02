@@ -210,6 +210,10 @@ def trunc_net(x):
     return paddle.trunc(x)
 
 
+def p_norm_net(x):
+    return paddle.linalg.norm(x, p=2, axis=-1)
+
+
 class TestPrimPadWithGrad(TestPrimBaseWithGrad):
     def setUp(self):
         np.random.seed(2023)
@@ -1296,6 +1300,19 @@ class TestPrimTruncWithGrad(TestPrimBaseWithGrad):
         self.init_x_shape = [None, None, None]
         self.x = np.random.random(self.x_shape).astype(self.dtype)
         self.net = trunc_net
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimPNormGrad1(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.p_norm"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = p_norm_net
         self.enable_cinn = False
         self.tol = 1e-6
 
