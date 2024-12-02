@@ -371,7 +371,8 @@ void InferSymExprForBlock(const Block& block,
       input_shape_or_data.emplace_back(
           infer_context->GetShapeOrDataForValue(input));
     }
-    InferSymbolicShapeCacheKey op_infer_cache_key(op, input_shape_or_data);
+    InferSymbolicShapeCacheKey op_infer_cache_key(
+        op.name(), input_shape_or_data, GetValidSortedAttributes(op));
     InferSymExprForOp(&op, infer_context, op_infer_cache_key);
     CacheForwardOpSymbolicShape(&op, infer_context, op_infer_cache_key);
     CacheBackwardOpSymbolicShape(&op, infer_context);

@@ -808,34 +808,6 @@ bool IsStaticShape(const Value& value) {
   return false;
 }
 
-static const char* kOpCallStack = "op_callstack";
-static const char* kSymShapeStr = "sym_shape_str";
-static const char* kResultName = "name";
-static const char* kStopGradient = "stop_gradient";
-
-InferSymbolicShapeCacheKey::InferSymbolicShapeCacheKey(
-    const Operation& op,
-    const std::vector<symbol::ShapeOrDataDimExprs>& input_shape_or_datas)
-    : InferSymbolicShapeCacheKey(
-          op.name(), input_shape_or_datas, op.attributes()) {}
-
-InferSymbolicShapeCacheKey::InferSymbolicShapeCacheKey(
-    const std::string& op_name,
-    const std::vector<symbol::ShapeOrDataDimExprs>& input_shape_or_datas,
-    const AttributeMap& attributes)
-    : op_name_(op_name), input_shape_or_datas_(input_shape_or_datas) {
-  // Keep attribute always in order.
-  std::map<std::string, ::pir::Attribute, std::less<>> order_attributes(
-      attributes.begin(), attributes.end());
-  attributes_.reserve(attributes.size());
-  for (const auto& [attr_name, attr_value] : order_attributes) {
-    if (!attr_value || attr_name == kOpCallStack || attr_name == kSymShapeStr ||
-        attr_name == kStopGradient || attr_name == kResultName)
-      continue;
-    attributes_.emplace_back(attr_name, attr_value);
-  }
-}
-
 std::size_t InferSymbolicShapeCacheKey::GetHashValue() const {
   const auto name_hash_func = std::hash<std::string>();
   const auto attr_hash_func = std::hash<pir::Attribute>();
@@ -900,4 +872,43 @@ void InferSymbolicShapeCacheKey::SetInputShapeOrDatas(
   this->input_shape_or_datas_ = input_shape_or_datas;
 }
 
+ValidAttrFilterForShapeCache& ValidAttrFilterForShapeCache::Instance() {
+  static ValidAttrFilterForShapeCache instance;
+  return instance;
+}
+
+std::vector<std::pair<std::string, ::pir::Attribute>> GetValidSortedAttributes(
+    std::string op_name,
+    const std::unordered_map<std::string, Attribute>& attributes) {
+  std::map<std::string, ::pir::Attribute, std::less<>> order_attributes(
+      attributes.begin(), attributes.end());
+  std::vector<std::pair<std::string, ::pir::Attribute>> res;
+
+  const auto& IsValidAttrName = [&](const std::string& op_name,
+                                    const std::string& attr_name) -> bool {
+    static const char* kOpCallStack = "op_callstack";
+    static const char* kSymShapeStr = "sym_shape_str";
+    static const char* kResultName = "name";
+    static const char* kStopGradient = "stop_gradient";
+    if (attr_name == kOpCallStack || attr_name == kSymShapeStr ||
+        attr_name == kStopGradient || attr_name == kResultName)
+      return false;
+    const auto& valid_attribute_map =
+        ValidAttrFilterForShapeCache::Instance().valid_attribute_map_;
+    if (valid_attribute_map.count(op_name) == 0) return true;
+    if (valid_attribute_map.at(op_name).count(attr_name) == 0) return false;
+    return true;
+  };
+
+  for (const auto& [attr_name, attr_value] : order_attributes) {
+    if (!attr_value || !IsValidAttrName(op_name, attr_name)) continue;
+    res.emplace_back(attr_name, attr_value);
+  }
+  return res;
+}
+
+std::vector<std::pair<std::string, ::pir::Attribute>> GetValidSortedAttributes(
+    const Operation& op) {
+  return GetValidSortedAttributes(op.name(), op.attributes());
+}
 }  // namespace pir

@@ -18,6 +18,8 @@
 
 namespace paddle {
 namespace dialect {
+std::unordered_map<std::string, std::unordered_set<std::string>>
+GetValidAttributeMapForShapeCache();
 
 const symbol::ShapeOrDataDimExprs& GetInputShape(
     const pir::InferSymbolicShapeContext* infer_context,

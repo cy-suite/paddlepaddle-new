@@ -36,12 +36,12 @@ using InferSymbolicShapeCacheValue = std::vector<symbol::ShapeOrDataDimExprs>;
 class IR_API InferSymbolicShapeCacheKey {
  public:
   InferSymbolicShapeCacheKey(
-      const Operation& op,
-      const std::vector<symbol::ShapeOrDataDimExprs>& input_shape_or_datas);
-  InferSymbolicShapeCacheKey(
       const std::string& op_name,
       const std::vector<symbol::ShapeOrDataDimExprs>& input_shape_or_datas,
-      const AttributeMap& attributes);
+      const std::vector<std::pair<std::string, ::pir::Attribute>>& attributes)
+      : op_name_(op_name),
+        input_shape_or_datas_(input_shape_or_datas),
+        attributes_(attributes) {}
   bool operator==(const InferSymbolicShapeCacheKey& other) const;
   std::size_t GetHashValue() const;
   friend std::ostream& operator<<(std::ostream& os,
@@ -55,6 +55,39 @@ class IR_API InferSymbolicShapeCacheKey {
   const std::vector<symbol::ShapeOrDataDimExprs>& GetInputShapeOrDatas() const;
   void SetInputShapeOrDatas(
       const std::vector<symbol::ShapeOrDataDimExprs>& input_shape_or_datas);
+};
+
+std::vector<std::pair<std::string, ::pir::Attribute>> GetValidSortedAttributes(
+    std::string op_name,
+    const std::unordered_map<std::string, Attribute>& attributes);
+std::vector<std::pair<std::string, ::pir::Attribute>> GetValidSortedAttributes(
+    const Operation& op);
+
+class ValidAttrFilterForShapeCache {
+ public:
+  static ValidAttrFilterForShapeCache& Instance();
+
+  ValidAttrFilterForShapeCache(const ValidAttrFilterForShapeCache&) = delete;
+  ValidAttrFilterForShapeCache(ValidAttrFilterForShapeCache&&) = delete;
+  ValidAttrFilterForShapeCache& operator=(const ValidAttrFilterForShapeCache&) =
+      delete;
+
+  void SetValidAttributeMap(
+      const std::unordered_map<std::string, std::unordered_set<std::string>>&
+          valid_attribute_map) {
+    valid_attribute_map_ = valid_attribute_map;
+  }
+
+ private:
+  ValidAttrFilterForShapeCache() {}
+  std::unordered_map<std::string, std::unordered_set<std::string>>
+      valid_attribute_map_;
+  friend std::vector<std::pair<std::string, ::pir::Attribute>>
+  GetValidSortedAttributes(
+      std::string op_name,
+      const std::unordered_map<std::string, Attribute>& attributes);
+  friend std::vector<std::pair<std::string, ::pir::Attribute>>
+  GetValidSortedAttributes(const Operation& op);
 };
 
 struct InputDynamicDimSpec {
