@@ -101,6 +101,7 @@ def check_dtypes_low_precision(query, debug=False):
 
 
 def can_use_flash_attn(query, key, attn_mask, dropout, is_causal) -> bool:
+    # sdpa flash check
     # step1 check tensor place on cuda
     # step2 check tensor shape, flash attn only support shape == 4
     # step3 check attn_mask, some diff with torch version
@@ -132,6 +133,7 @@ def can_use_flash_attn(query, key, attn_mask, dropout, is_causal) -> bool:
 
 
 def can_use_efficient(query) -> bool:
+    # sdpa efficient check
     # step1 check tensor place on cuda
     # step2 check arch_info in [sm50, sm90]
     # step3 check tensor shape, mem efficient only support shape == 4
