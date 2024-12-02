@@ -1521,8 +1521,8 @@ PHI_DEFINE_EXPORTED_bool(use_shm_cache,
  * Since Version: 2.6.2
  * Value Range: bool, default=false
  * Example:
- * Note: . If True, mmap_allocator will use file descripor to open shared memory
- * operation.
+ * Note: . If True, mmap_allocator will use file descriptor to open shared
+ * memory operation.
  */
 PHI_DEFINE_EXPORTED_bool(dataloader_use_file_descriptor,
                          false,
@@ -1691,7 +1691,7 @@ PHI_DEFINE_EXPORTED_string(
     "It controls the forward blacklist ops not to be decomposed.");
 
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || \
-    defined(PADDLE_WITH_XPU_BKCL)
+    defined(PADDLE_WITH_XPU_BKCL) || defined(PADDLE_WITH_CUSTOM_DEVICE)
 /**
  * Communication library related FLAG
  * Name: FLAGS_dynamic_static_unified_comm
