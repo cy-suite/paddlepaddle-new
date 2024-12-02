@@ -89,7 +89,7 @@
 - repeat_interleave
 - unbind
 - expand
-- shape
+- shape64
 - reshape
 - squeeze
 - unsqueeze
