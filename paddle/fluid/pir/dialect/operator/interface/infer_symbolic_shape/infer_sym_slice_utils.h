@@ -19,11 +19,11 @@
 namespace paddle::dialect::slice_utils {
 
 inline bool GetExprVecOfStartEnd(
-    const symbol::ShapeOrDataDimExprs &se_shape_data,
+    const symbol::ShapeOrDataDimExprs &shape_or_data,
     std::vector<symbol::DimExpr> *expr_vec) {
-  if (se_shape_data.isa<TensorListExprs>()) {
+  if (shape_or_data.isa<TensorListExprs>()) {
     TensorListExprs list =
-        se_shape_data.dyn_cast<symbol::TensorListShapeOrDataDimExprs>();
+        shape_or_data.dyn_cast<symbol::TensorListShapeOrDataDimExprs>();
     for (size_t i = 0; i < list.size(); i++) {
       PADDLE_ENFORCE_EQ(list.at(i).data().has_value(),
                         true,
@@ -34,12 +34,16 @@ inline bool GetExprVecOfStartEnd(
       }
     }
     return true;
-  } else {
-    if (se_shape_data.data().has_value()) {
-      *expr_vec = se_shape_data.data().value();
+  } else if (shape_or_data.isa<symbol::ShapeOrDataDimExprs>) {
+    if (shape_or_data.data().has_value()) {
+      *expr_vec = shape_or_data.data().value();
       return true;
     }
     return false;
+  } else {
+    PADDLE_THROW(::common::errors::InvalidArgument(
+        "The starts and ends parameters of pd_op.slice currently only support "
+        "two types: TensorListShapeOrDataDimExprs and ShapeOrDataDimExprs"));
   }
 }
 
