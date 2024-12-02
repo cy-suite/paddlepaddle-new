@@ -3467,8 +3467,8 @@ void p_norm_grad(const Tensor& x,
     if (porder == 0.0) {
       // dx = 0
       if (has_dynamic_shape(x.shape())) {
-        x_grad_tmp =
-            backend::full_with_tensor<T>(shape<T>(x), 0, x.dtype(), x.place());
+        x_grad_tmp = backend::full_with_tensor<T>(
+            shape64<T>(x), 0, x.dtype(), x.place());
       } else {
         x_grad_tmp =
             full<T>(common::vectorize(x.dims()), 0, x.dtype(), x.place());
@@ -3494,7 +3494,7 @@ void p_norm_grad(const Tensor& x,
                                    out_grad.place());
           } else {
             // only reduce one dimension in forward
-            expand_shape = shape<T>(out_grad);
+            expand_shape = shape64<T>(out_grad);
             std::vector<Tensor> expand_shape_vec;
             for (int i = 0; i < expand_shape.dims().size(); ++i) {
               expand_shape_vec.push_back(get_slice<T>(expand_shape, i));
@@ -3533,7 +3533,7 @@ void p_norm_grad(const Tensor& x,
         // full<T>(common::vectorize(x.dims()), 0.0, x.dtype(), x.place());
         if (has_dynamic_shape(x.shape())) {
           _zero_tensor = backend::full_with_tensor<T>(
-              shape<T>(x), 0, x.dtype(), x.place());
+              shape64<T>(x), 0, x.dtype(), x.place());
         } else {
           _zero_tensor =
               full<T>(common::vectorize(x.dims()), 0, x.dtype(), x.place());
