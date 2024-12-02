@@ -27,6 +27,7 @@ from paddle.tensorrt.converter_utils import (
     has_dynamic_shape,
     resize_to_1d,
     trt_cast,
+    resize_to_1d,
     trt_concat,
     trt_expand,
     trt_floor_div,
