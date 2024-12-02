@@ -352,8 +352,7 @@ bool CauseNewSymbolicShape(const ::pir::Operation& op) {
   if (!HaveUnkDim(op)) {
     return false;
   }
-  auto& shape_analysis = ::pir::ShapeAnalysisManager::Instance().Get(
-      const_cast<::pir::Operation&>(op).GetParentProgram());
+
   std::unordered_set<std::string> input_exprs = [&]() {
     std::unordered_set<std::string> res;
     for (const auto& input_value : op.operands_source()) {
