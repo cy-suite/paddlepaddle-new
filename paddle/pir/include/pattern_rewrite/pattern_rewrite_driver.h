@@ -19,6 +19,8 @@
 
 namespace pir {
 
+using VALUE_REPLACED_HOOK_FUNC = std::function<void(pir::Value, pir::Value)>;
+
 class FrozenRewritePatternSet;
 
 /// This enum will control which ops will be added to the worklist during the
@@ -58,7 +60,7 @@ class IR_API GreedyRewriteConfig {
   GreedyRewriteStrictness strict_mode = GreedyRewriteStrictness::AnyOp;
 
   // Hook function for replacing the value.
-  std::function<void(pir::Value, pir::Value)> value_replaced_hook = nullptr;
+  VALUE_REPLACED_HOOK_FUNC value_replaced_hook = nullptr;
 
   static constexpr int64_t kNoLimit = -1;
 };

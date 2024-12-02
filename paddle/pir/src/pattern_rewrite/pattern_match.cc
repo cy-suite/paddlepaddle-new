@@ -126,6 +126,9 @@ void RewriterBase::ReplaceOp(Operation* op,
       new_values.size(),
       common::errors::InvalidArgument("incorrect # of replacement values"));
   op->ReplaceAllUsesWith(new_values);
+  for (uint32_t i = 0; i < op->num_results(); ++i) {
+    NotifyValueReplaced(op->result(i), new_values[i]);
+  }
 
   NotifyOperationRemoved(op);
   op->Erase();
@@ -157,9 +160,15 @@ void RewriterBase::ReplaceUseIf(Value from,
   // Use post-increment operator for iterator since set_source() will change
   // `it`.
   // TODO(zhangbopd): Add unit test for this.
+  bool replaced = false;
   for (auto it = from.use_begin(); it != from.use_end();) {
-    if (functor(*it))
+    if (functor(*it)) {
       UpdateRootInplace(it.owner(), [&]() { (it++)->set_source(to); });
+      replaced = true;
+    }
+  }
+  if (replaced) {
+    NotifyValueReplaced(from, to);
   }
 }
 
