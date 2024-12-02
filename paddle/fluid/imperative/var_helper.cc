@@ -18,7 +18,6 @@
 #include "paddle/fluid/framework/convert_utils.h"
 #include "paddle/fluid/framework/dense_tensor_array.h"
 #include "paddle/fluid/framework/feed_fetch_type.h"
-#include "paddle/fluid/framework/lod_rank_table.h"
 #include "paddle/fluid/framework/lod_tensor.h"
 #include "paddle/fluid/framework/scope.h"
 #include "paddle/fluid/framework/tensor.h"

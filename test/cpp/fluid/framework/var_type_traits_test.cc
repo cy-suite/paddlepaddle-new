@@ -16,7 +16,6 @@
 
 #include <gtest/gtest.h>
 
-#include "paddle/fluid/framework/lod_rank_table.h"
 #include "paddle/fluid/framework/scope.h"
 #include "paddle/fluid/framework/selected_rows_utils.h"
 #include "paddle/phi/core/framework/reader.h"
