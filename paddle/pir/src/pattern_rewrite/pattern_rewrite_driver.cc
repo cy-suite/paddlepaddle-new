@@ -216,7 +216,7 @@ class GreedyPatternRewriteDriver : public pir::PatternRewriter {
   std::unordered_set<pir::Operation*> strict_mode_filtered_ops_;
   pir::Region& region_;
   pir::PatternApplicator matcher_;
-  VALUE_REPLACED_HOOK_FUNC value_replaced_hook_fn_ = nullptr;
+  pir::VALUE_REPLACED_HOOK_FUNC value_replaced_hook_fn_ = nullptr;
 };
 
 }  // namespace
