@@ -62,4 +62,4 @@ def greater_equal_converter(network, paddle_op, inputs):
         [greater_layer_output, equal_layer_output],
         trt.ElementWiseOperation.OR,
     )
-    return or_layer.get_output(0)
+    return or_layer
