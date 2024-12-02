@@ -84,7 +84,7 @@ class TEST_API RecordCount {
 
 struct MergedEvent {
   size_t count{0};
-  size_t used_time_second{0};
+  size_t used_time{0};
 };
 
 void DumpRecordEvent(std::string path);

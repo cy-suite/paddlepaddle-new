@@ -62,7 +62,7 @@ void DumpRecordEvent(std::string path) {
                << ", used(ms) = " << used << ", thread = " << e.thread_id
                << std::endl;
     merged_event[e.name].count++;
-    merged_event[e.name].used_time_second += used / 1000;
+    merged_event[e.name].used_time += used;
   }
 
   for (const auto& c : RecordCount::Counts()) {
@@ -72,7 +72,7 @@ void DumpRecordEvent(std::string path) {
 
   for (auto& me : merged_event) {
     merged_file << me.first << ", call times = " << me.second.count
-                << ", used(s) = " << me.second.used_time_second << std::endl;
+                << ", used(s) = " << me.second.used_time / 1000 << std::endl;
   }
 
   for (auto& mc : merged_count) {
@@ -84,6 +84,54 @@ void DumpRecordEvent(std::string path) {
   merged_file << "Group Count: "
               << merged_event["OpLowererImpl::BucketLower"].count << std::endl;
   merged_file << "BC Count: " << merged_count["BC"] << std::endl;
+  merged_file << "Kernel Count: " << merged_event["Compiler::Build"].count
+              << std::endl;
+
+  merged_file << "ApplyCinnPass use time: "
+              << merged_event["ApplyCinnPass"].used_time / 1000
+              << ", call count: " << merged_event["ApplyCinnPass"].count
+              << std::endl;
+  merged_file << "OpLowererImpl::LowerX86 use time: "
+              << merged_event["OpLowererImpl::LowerX86"].used_time / 1000
+              << ", call count: "
+              << merged_event["OpLowererImpl::LowerX86"].count << std::endl;
+  merged_file << "OpLowererImpl::LowerOps use time: "
+              << merged_event["OpLowererImpl::LowerOps"].used_time / 1000
+              << ", call count: "
+              << merged_event["OpLowererImpl::LowerOps"].count << std::endl;
+  merged_file << "OperationFusion use time: "
+              << merged_event["OperationFusion"].used_time / 1000
+              << ", call count: " << merged_event["OperationFusion"].count
+              << std::endl;
+  merged_file
+      << "DynamicShapeGroupScheduler::Schedule use time: "
+      << merged_event["DynamicShapeGroupScheduler::Schedule"].used_time / 1000
+      << ", call count: "
+      << merged_event["DynamicShapeGroupScheduler::Schedule"].count
+      << std::endl;
+  merged_file << "OpLowererImpl::PostProcess use time: "
+              << merged_event["OpLowererImpl::PostProcess"].used_time / 1000
+              << ", call count: "
+              << merged_event["OpLowererImpl::PostProcess"].count << std::endl;
+
+  merged_file << "Compiler::Build use time: "
+              << merged_event["Compiler::Build"].used_time / 1000
+              << ", call count: " << merged_event["Compiler::Build"].count
+              << std::endl;
+  merged_file << "Compiler::AppendCX86 use time: "
+              << merged_event["Compiler::AppendCX86"].used_time / 1000
+              << ", call count: " << merged_event["Compiler::AppendCX86"].count
+              << std::endl;
+  merged_file
+      << "Compiler::AppendBroadcastSwitchModule use time: "
+      << merged_event["Compiler::AppendBroadcastSwitchModule"].used_time / 1000
+      << ", call count: "
+      << merged_event["Compiler::AppendBroadcastSwitchModule"].count
+      << std::endl;
+  merged_file << "Compiler::EndCompile use time: "
+              << merged_event["Compiler::EndCompile"].used_time / 1000
+              << ", call count: " << merged_event["Compiler::EndCompile"].count
+              << std::endl;
 }
 
 }  // namespace common
