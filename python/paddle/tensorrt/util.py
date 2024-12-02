@@ -155,23 +155,6 @@ class PrecisionMode(Enum):
     BF16 = "BF16"
     INT8 = "INT8"
 
-    @staticmethod
-    def from_string(mode_str):
-        mode_map = {
-            "FP32": PrecisionMode.FP32,
-            "FP16": PrecisionMode.FP16,
-            "BF16": PrecisionMode.BF16,
-            "INT8": PrecisionMode.INT8,
-        }
-        mode_upper = mode_str.upper()
-        if mode_upper in mode_map:
-            return mode_map[mode_upper]
-        else:
-            _logger.warning(
-                f"Unsupported precision mode: '{mode_str}'. Defaulting to FP32."
-            )
-            return PrecisionMode.FP32
-
 
 class TensorRTConfigManager:
     _instance = None

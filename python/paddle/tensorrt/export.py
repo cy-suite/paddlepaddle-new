@@ -35,6 +35,7 @@ from paddle.jit.dy2static.program_translator import (
 from paddle.nn import Layer
 from paddle.tensorrt.converter import PaddleToTensorRTConverter
 from paddle.tensorrt.util import (
+    PrecisionMode,
     forbid_op_lower_trt,
     mark_buitlin_op,
     run_pir_pass,
@@ -151,7 +152,7 @@ class TensorRTConfig:
         min_subgraph_size: int | None = 3,
         save_model_dir: str | None = None,
         disable_ops: str | list | None = None,
-        precision_mode: str | None = "FP32",
+        precision_mode: PrecisionMode = PrecisionMode.FP32,
         tensorrt_ops_run_float: str | list | None = None,
     ) -> None:
         """
@@ -166,13 +167,13 @@ class TensorRTConfig:
                 The directory where the optimized model will be saved (default is not to save).
             disable_ops : (str|list, optional):
                 A string representing the names of operations that should not be entering by TensorRT (default is None).
-            precision_mode (str, optional):
+            precision_mode (PrecisionMode, optional):
                 Specifies the precision mode for TensorRT optimization. The options are:
                 - PrecisionMode.FP32: 32-bit floating point precision (default).
                 - PrecisionMode.FP16: 16-bit floating point precision.
                 - PrecisionMode.INT8: 8-bit integer precision.
                 - PrecisionMode.BFP16: 16-bit Brain Floating Point precision. Only supported in TensorRT versions greater than 9.0.
-            tensorrt_ops_run_float (set, optional):
+            tensorrt_ops_run_float (str|list, optional):
                 A set of operation names that should be executed using FP32 precision regardless of the `tensorrt_precision_mode` setting.
                  The directory where the optimized model will be saved (default is None).
         Returns:
