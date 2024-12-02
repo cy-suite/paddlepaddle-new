@@ -80,6 +80,23 @@ def remove_duplicate_value(value_list):
     return ret_list
 
 
+# We use a special rule to judge whether a paddle value is a shape tensor.
+# The rule is consistent with the rule in C++ source code(collect_shape_manager.cc).
+# We use the rule for getting min/max/opt value shape from collect_shape_manager.
+# We don't use trt_tensor.is_shape_tensor, because sometimes, the trt_tensor that corresponding to paddle value is not a shape tensor
+# when it is a output in this trt graph, but it is a shape tensor when it is a input in next trt graph.
+def is_shape_tensor(value):
+    dims = value.shape
+    total_elements = 1
+    if (
+        dims.count(-1) > 1
+    ):  # we can only deal with the situation that is has one dynamic dims
+        return False
+    for dim in dims:
+        total_elements *= abs(dim)  # add abs for dynamic shape -1
+    return total_elements <= 8 and total_elements >= 1
+
+
 class PaddleToTensorRTConverter:
     def __init__(self, paddle_program, scope):
         self.scope = scope
@@ -188,7 +205,7 @@ class PaddleToTensorRTConverter:
 
         for op in operations:
             # Adding marker labels to builtin ops facilitates convert processing, but they ultimately do not enter the TensorRT subgraph.
-            if op.name() == "builtin.split":
+            if op.name() == "builtin.split" or op.name() == "builtin.combine":
                 continue
             operands = []
             for operand in op.operands():
@@ -350,7 +367,7 @@ class PaddleToTensorRTConverter:
             min_value = []
             opt_value = []
             max_value = []
-            if output_tensor.is_shape_tensor:
+            if is_shape_tensor(result_value):
                 min_value = get_value_shape_range_info(
                     result_value, True, paddle.base.core.ShapeMode.kMIN
                 )

@@ -124,7 +124,7 @@ def get_trt_version_list():
 # Adding marker labels to builtin ops facilitates convert processing, but they ultimately do not enter the TensorRT subgraph.
 def mark_buitlin_op(program):
     for op in program.global_block().ops:
-        if op.name() == "builtin.split":
+        if op.name() == "builtin.split" or op.name() == "builtin.combine":
             defining_op = op.operands()[0].source().get_defining_op()
             if defining_op is not None:
                 if (

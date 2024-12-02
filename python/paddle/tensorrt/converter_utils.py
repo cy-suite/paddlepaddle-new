@@ -308,6 +308,12 @@ def trt_equal(network, a, b):
     return layer.get_output(0)
 
 
+def trt_gather(network, input, indices, axis=0):
+    indices_tensor = add_1D_constant_layer(network, indices)
+    result = network.add_gather(input, indices_tensor, axis).get_output(0)
+    return result
+
+
 def trt_prod(network, a, b):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.PROD)
     return layer.get_output(0)
