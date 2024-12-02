@@ -2612,9 +2612,16 @@ void BindShapeOrDataDimExprs(pybind11::module *m) {
 
              // compare shape
              const std::vector<symbol::DimExpr> &actual_shape = self.shape();
-
-             // TODO(gongshaotian): compare data
-             return compare_func(expect_shape, actual_shape);
+             const std::optional<std::vector<symbol::DimExpr>> &actual_data_ =
+                 self.data();
+             std::vector<symbol::DimExpr> actual_data;
+             if (actual_data_.has_value()) {
+               actual_data = actual_data_.value();
+             } else {
+               actual_data = {};
+             }
+             return compare_func(expect_shape, actual_shape) &&
+                    compare_func(expect_data, actual_data);
            });
 }
 
