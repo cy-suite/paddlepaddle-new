@@ -7016,7 +7016,13 @@ def as_strided(
         stride (list|tuple): Define the target stride. Each element of it should be integer.
         offset (int, optional): Define the target Tensor's offset from x's holder. Default: 0.
         name (str|None, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
+    
+    Using specific shape, stride, and offset, return a view Tensor of x.
+    Only available in dynamic graph mode, the returned Tensor shares memory with x.
+    The following image illustrates an example: transforming an input Tensor with shape [2,4,6] into a Tensor with shape [8,6] and stride [6,1].
 
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/as_strided.png
+    :alt: Legend
     Returns:
         Tensor, A as_strided Tensor with the same data type as ``x``.
 
