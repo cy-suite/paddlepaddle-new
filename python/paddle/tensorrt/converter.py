@@ -396,9 +396,10 @@ class PaddleToTensorRTConverter:
             config.builder_optimization_level = 5
         config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)
 
-        precision_mode = PrecisionMode.from_string(
-            self.trt_config.precision_mode
-        )
+        if self.trt_config is not None and self.trt_config.precision_mode:
+            precision_mode = PrecisionMode.from_string(
+                self.trt_config.precision_mode
+            )
         if self.trt_config is not None and precision_mode == PrecisionMode.FP16:
             if builder.platform_has_fast_fp16:
                 config.set_flag(trt.BuilderFlag.FP16)
