@@ -86,7 +86,20 @@ void Op::operator()(const Tensor& arg, const Tensor* out) const {
 
 void Op::operator()(const std::vector<const Tensor*>& args,
                     const std::vector<const Tensor*>& outputs) const {
-  pattern_graph_->AddOpCall(std::make_shared<OpCall>(this, args, outputs));
+  std::vector<const Tensor*> inputs_ptr;
+  std::vector<const Tensor*> outputs_ptr;
+  for (auto arg : args) {
+    const Tensor* lower_input_ptr =
+        (pattern_graph_->id2owned_tensor().at(arg->name())).get();
+    inputs_ptr.emplace_back(lower_input_ptr);
+  }
+  for (auto output : outputs) {
+    const Tensor* lower_output_ptr =
+        (pattern_graph_->id2owned_tensor().at(output->name())).get();
+    outputs_ptr.emplace_back(lower_output_ptr);
+  }
+  pattern_graph_->AddOpCall(
+      std::make_shared<OpCall>(this, inputs_ptr, outputs_ptr));
 }
 
 Tensor& Op::operator()(const Tensor& arg) const {

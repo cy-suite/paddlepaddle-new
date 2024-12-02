@@ -41,18 +41,22 @@ class ResultPatternGraph;
 
 class NormalAttribute {
  public:
+  NormalAttribute() = default;
+
   explicit NormalAttribute(const std::string& name) : attr_name_(name) {}
 
   const std::string& name() const { return attr_name_; }
 
  private:
-  std::string attr_name_;
+  std::string attr_name_{"default_name"};
 };
 
 using AttrComputeFunc = std::function<std::any(const MatchContext&)>;
 
 class ComputeAttribute {
  public:
+  ComputeAttribute() = default;
+
   explicit ComputeAttribute(const AttrComputeFunc& attr_compute_func)
       : attr_compute_func_(attr_compute_func) {}
 
@@ -61,7 +65,7 @@ class ComputeAttribute {
   }
 
  private:
-  AttrComputeFunc attr_compute_func_;
+  AttrComputeFunc attr_compute_func_{nullptr};
 };
 
 using ConstraintFunction = std::function<bool(const MatchContext&)>;
