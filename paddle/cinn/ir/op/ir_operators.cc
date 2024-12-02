@@ -327,86 +327,6 @@ Expr operator~(Expr a) {
   return BitwiseNotCall(target, a);
 }
 
-IndexExpr SimplifySymbolicAdd(
-    const IndexExpr &lhs,
-    const IndexExpr &sym,
-    const IndexExpr &outter_mul_factor = IndexExpr(1)) {
-  switch (lhs.node_type()) {
-    case ir::IrNodeTy::IntImm: {
-      auto imm = lhs.As<ir::IntImm>();
-      if (imm->value != 0)
-        PADDLE_THROW(::common::errors::Fatal("Error in SimplifySymbolicAdd!"));
-      return IndexExpr(0);
-    }
-    case ir::IrNodeTy::_Var_: {
-      return sym * (outter_mul_factor + IndexExpr(1));
-    }
-    case ir::IrNodeTy::Add: {
-      if (!common::IsSumPartialBySymbol(lhs->operand(0), sym))
-        return lhs->operand(0) +
-               SimplifySymbolicAdd(lhs->operand(1), sym, outter_mul_factor);
-      return SimplifySymbolicAdd(lhs->operand(0), sym, outter_mul_factor) +
-             lhs->operand(1);
-    }
-    case ir::IrNodeTy::Mul: {
-      if (lhs->operand(1).is_constant() &&
-          lhs->operand(1).get_constant() == -1) {
-        return SimplifySymbolicAdd(lhs->operand(0), sym, -outter_mul_factor) *
-               lhs->operand(1);
-      }
-      if (lhs->operand(0) == sym)
-        return lhs->operand(0) * (lhs->operand(1) + outter_mul_factor);
-      return (lhs->operand(0) + outter_mul_factor) * lhs->operand(1);
-    }
-    case ir::IrNodeTy::Mod:
-      PADDLE_THROW(::common::errors::Fatal("Error in SimplifySymbolicAdd!"));
-    case ir::IrNodeTy::Div: {
-      return SimplifySymbolicAdd(
-                 lhs->operand(0), sym, lhs->operand(1) * outter_mul_factor) /
-             lhs->operand(1);
-    }
-    default:
-      PADDLE_THROW(::common::errors::InvalidArgument(
-          "Unsupported type of lhs in SimplifySymbolicAdd which is: %s", lhs));
-  }
-}
-
-IndexExpr SimplifySymbolicDivide(const IndexExpr &lhs,
-                                 const IndexExpr &sym,
-                                 const IrNodeTy &ty) {
-  switch (lhs.node_type()) {
-    case ir::IrNodeTy::IntImm: {
-      auto imm = lhs.As<ir::IntImm>();
-      if (imm->value != 0)
-        PADDLE_THROW(
-            ::common::errors::Fatal("Error in SimplifySymbolicDivide!"));
-      return IndexExpr(0);
-    }
-    case ir::IrNodeTy::_Var_:
-      return IndexExpr(1);
-    case ir::IrNodeTy::Add:
-      return SimplifySymbolicDivide(lhs->operand(0), sym, ty) +
-             SimplifySymbolicDivide(lhs->operand(1), sym, ty);
-    case ir::IrNodeTy::Mul: {
-      if (!common::IsDivisiblieBySymbol(lhs->operand(0), sym, ty))
-        return lhs->operand(0) *
-               SimplifySymbolicDivide(lhs->operand(1), sym, ty);
-      return SimplifySymbolicDivide(lhs->operand(0), sym, ty) * lhs->operand(1);
-    }
-    case ir::IrNodeTy::Mod:
-      return SimplifySymbolicDivide(lhs->operand(0), sym, lhs.node_type()) %
-             SimplifySymbolicDivide(lhs->operand(1), sym, lhs.node_type());
-    case ir::IrNodeTy::Div: {
-      return SimplifySymbolicDivide(lhs->operand(0), sym, lhs.node_type()) /
-             lhs->operand(1);
-    }
-    default:
-      PADDLE_THROW(::common::errors::InvalidArgument(
-          "Unsupported type of lhs in SimplifySymbolicDivide which is: %s",
-          lhs));
-  }
-}
-
 static IndexExpr SimplifyAdd(const IndexExpr &lhs, const IndexExpr &rhs) {
   // 3 + 4 ===> 7.
   if (auto constRes = cinn::common::TryConstFold<ir::Add>(lhs, rhs))
@@ -422,15 +342,15 @@ static IndexExpr SimplifyAdd(const IndexExpr &lhs, const IndexExpr &rhs) {
   auto rhsConst = rhs.As<IntImm>();
   auto lhsAdd = lhs.As<Add>();
   if (lhsAdd && rhsConst) {
-    if (auto lrhs = lhsAdd->b().As<IntImm>()) {
-      return lhsAdd->a() + (lrhs->value + rhsConst->value);
+    if (auto lrhs = lhsAdd->b_as_index().As<IntImm>()) {
+      return lhsAdd->a_as_index() + (lrhs->value + rhsConst->value);
     }
   }
 
   // (d0 + 2) + d1 ===> d0 + d1 + 2.
   if (lhsAdd) {
-    if (auto lrhs = lhsAdd->b().As<IntImm>()) {
-      return lhsAdd->a() + rhs + lrhs->value;
+    if (auto lrhs = lhsAdd->b_as_index().As<IntImm>()) {
+      return lhsAdd->a_as_index() + rhs + lrhs->value;
     }
   }
   // expr * c1 + expr * c2 ===> expr * (c1 + c2)
@@ -441,16 +361,16 @@ static IndexExpr SimplifyAdd(const IndexExpr &lhs, const IndexExpr &rhs) {
   int64_t lconst = 1, rconst = 1;
 
   if (lhsMul) {
-    if (auto lrhs = lhsMul->b().As<IntImm>()) {
+    if (auto lrhs = lhsMul->b_as_index().As<IntImm>()) {
       lconst = lrhs->value;
-      first = lhsMul->a();
+      first = lhsMul->a_as_index();
     }
   }
 
   if (rhsMul) {
-    if (auto rrhs = rhsMul->b().As<IntImm>()) {
+    if (auto rrhs = rhsMul->b_as_index().As<IntImm>()) {
       rconst = rrhs->value;
-      second = rhsMul->a();
+      second = rhsMul->a_as_index();
     }
   }
 
@@ -470,19 +390,23 @@ static IndexExpr SimplifyAdd(const IndexExpr &lhs, const IndexExpr &rhs) {
 
   // (d0 + d1) + (d2 + d3) ===> ((d0 + d1) + d2) + d3.
   if (auto rhsAdd = rhs.As<Add>()) {
-    return lhs + rhsAdd->a() + rhsAdd->b();
+    return lhs + rhsAdd->a_as_index() + rhsAdd->b_as_index();
   }
 
-  // dynamic branch!
-  if (rhs.is_var() && common::IsSumPartialBySymbol(lhs, rhs))
-    return SimplifySymbolicAdd(lhs, rhs);
-  if (auto rhs_mul = rhs.As<ir::Mul>()) {
-    if (rhs_mul->a().is_var() && rhs_mul->b().is_constant()) {
-      if (common::IsSumPartialBySymbol(lhs, rhs_mul->a())) {
-        return SimplifySymbolicAdd(lhs, rhs_mul->a(), rhs_mul->b());
+  if (!rhs.As<IntImm>()) {
+    // dynamic branch!
+    if (common::IsSumPartialBySymbol(lhs, rhs))
+      return common::SimplifySymbolicAdd(lhs, rhs);
+    if (auto rhs_mul = rhs.As<ir::Mul>()) {
+      if (rhs_mul->b_as_index().is_constant()) {
+        if (common::IsSumPartialBySymbol(lhs, rhs_mul->a_as_index())) {
+          return common::SimplifySymbolicAdd(
+              lhs, rhs_mul->a_as_index(), rhs_mul->b_as_index());
+        }
       }
     }
   }
+
   return Add::Make(lhs, rhs);
 }
 
@@ -501,23 +425,23 @@ static IndexExpr SimplifyMul(const IndexExpr &lhs, const IndexExpr &rhs) {
   auto rhsConst = rhs.As<IntImm>();
   auto lhsMul = lhs.As<Mul>();
   if (lhsMul && rhsConst) {
-    if (auto lrhs = lhsMul->b().As<IntImm>()) {
-      return lhsMul->a() * (lrhs->value * rhsConst->value);
+    if (auto lrhs = lhsMul->b_as_index().As<IntImm>()) {
+      return lhsMul->a_as_index() * (lrhs->value * rhsConst->value);
     }
   }
 
   // (d0 + 3) * 5 ===> d0 * 5 + 15.
   auto lhsAdd = lhs.As<Add>();
   if (lhsAdd && rhsConst) {
-    if (auto lrhs = lhsAdd->b().As<IntImm>()) {
-      return lhsAdd->a() * rhs + (lrhs->value * rhsConst->value);
+    if (auto lrhs = lhsAdd->b_as_index().As<IntImm>()) {
+      return lhsAdd->a_as_index() * rhs + (lrhs->value * rhsConst->value);
     }
   }
 
   // (d0 * 2) * d1 ===> d0 * d1 * 2.
   if (lhsMul) {
-    if (auto lrhs = lhsMul->b().As<IntImm>()) {
-      return lhsMul->a() * rhs * lrhs->value;
+    if (auto lrhs = lhsMul->b_as_index().As<IntImm>()) {
+      return lhsMul->a_as_index() * rhs * lrhs->value;
     }
   }
 
@@ -528,7 +452,7 @@ static IndexExpr SimplifyMul(const IndexExpr &lhs, const IndexExpr &rhs) {
 
   // (d0 * d1) * (d2 * d3) ===> ((d0 * d1) * d2) * d3.
   if (auto rhsMul = rhs.As<Mul>()) {
-    return lhs * rhsMul->a() * rhsMul->b();
+    return lhs * rhsMul->a_as_index() * rhsMul->b_as_index();
   }
   return Mul::Make(lhs, rhs);
 }
@@ -551,41 +475,41 @@ static IndexExpr SimplifyDiv(const IndexExpr &lhs, const IndexExpr &rhs) {
 
     // (expr1 * c1 * c2 + expr2 * c1 * c3) / c1 ===> expr1 * c2 + expr2 * c3.
     if (lhsAdd) {
-      int64_t llhsFactor = lhsAdd->a().as_index().GetLargestMutiplyPart();
-      int64_t lrhsFactor = lhsAdd->b().as_index().GetLargestMutiplyPart();
+      int64_t llhsFactor = lhsAdd->a_as_index().GetLargestMutiplyPart();
+      int64_t lrhsFactor = lhsAdd->b_as_index().GetLargestMutiplyPart();
       if (llhsFactor % rhsConst->value == 0 &&
           lrhsFactor % rhsConst->value == 0) {
-        return lhsAdd->a() / rhsConst->value + lhsAdd->b() / rhsConst->value;
+        return lhsAdd->a_as_index() / rhsConst->value +
+               lhsAdd->b_as_index() / rhsConst->value;
       }
     }
 
     // expr1 * (c1 * c2) / c1 ===> expr1 * c2.
     if (lhsMul) {
-      if (auto lrhs = lhsMul->b().As<IntImm>()) {
+      if (auto lrhs = lhsMul->b_as_index().As<IntImm>()) {
         if (lrhs->value % rhsConst->value == 0) {
-          return lhsMul->a() * (lrhs->value / rhsConst->value);
+          return lhsMul->a_as_index() * (lrhs->value / rhsConst->value);
         }
       }
     }
 
     // S0 / 2 / 5 ===> S0 / 10.
     if (lhsDiv) {
-      if (auto lrhs = lhsDiv->b().As<IntImm>()) {
-        return lhsDiv->a() / (lrhs->value * rhsConst->value);
+      if (auto lrhs = lhsDiv->b_as_index().As<IntImm>()) {
+        return lhsDiv->a_as_index() / (lrhs->value * rhsConst->value);
       }
     }
-  }
+  } else {
+    // dynamic branch!
+    if (common::IsDivisiblieBySymbol(lhs, rhs, ir::IrNodeTy::Div)) {
+      return common::SimplifySymbolicDivide(lhs, rhs, ir::IrNodeTy::Div);
+    }
 
-  // dynamic branch!
-  if (rhs.is_var() &&
-      common::IsDivisiblieBySymbol(lhs, rhs, ir::IrNodeTy::Div)) {
-    return SimplifySymbolicDivide(lhs, rhs, ir::IrNodeTy::Div);
+    // TODO(liujinnan): Deal dynamic shape, e.g. S0 / S1 / S2 ===> S0 / (S1 *
+    // S2). if (auto lhsDiv = lhs.As<Div>()) {
+    //   return lhsDiv->a_as_index() / (lhsDiv->b_as_index() * rhs);
+    // }
   }
-
-  // TODO(liujinnan): Deal dynamic shape, e.g. S0 / S1 / S2 ===> S0 / (S1 * S2).
-  // if (auto lhsDiv = lhs.As<Div>()) {
-  //   return lhsDiv->a() / (lhsDiv->b() * rhs);
-  // }
 
   return Div::Make(lhs, rhs);
 }
@@ -607,12 +531,12 @@ static IndexExpr SimplifyMod(const IndexExpr &lhs, const IndexExpr &rhs) {
 
     // (expr1 * c1 * c2+ expr2 * c3) % c1 ===> expr2 * c3 % c1.
     if (lhsAdd) {
-      int64_t llhsFactor = lhsAdd->a().as_index().GetLargestMutiplyPart();
-      int64_t lrhsFactor = lhsAdd->b().as_index().GetLargestMutiplyPart();
+      int64_t llhsFactor = lhsAdd->a_as_index().GetLargestMutiplyPart();
+      int64_t lrhsFactor = lhsAdd->b_as_index().GetLargestMutiplyPart();
       if (llhsFactor % rhsConst->value == 0)
-        return lhsAdd->b() % rhsConst->value;
+        return lhsAdd->b_as_index() % rhsConst->value;
       if (lrhsFactor % rhsConst->value == 0)
-        return lhsAdd->a() % rhsConst->value;
+        return lhsAdd->a_as_index() % rhsConst->value;
     }
 
     // expr1 * (c1 * c2) % c1 ===> 0.
@@ -620,20 +544,27 @@ static IndexExpr SimplifyMod(const IndexExpr &lhs, const IndexExpr &rhs) {
 
     // expr1 % (c1 * c2) % c1 ===> expr1 % c1.
     if (lhsMod) {
-      int64_t llhsFactor = lhsMod->b().as_index().GetLargestMutiplyPart();
+      int64_t llhsFactor = lhsMod->b_as_index().GetLargestMutiplyPart();
       if (llhsFactor % rhsConst->value == 0)
-        return lhsMod->a() % rhsConst->value;
+        return lhsMod->a_as_index() % rhsConst->value;
     }
+  } else {
+    // dynamic branch!
+    if (common::IsDivisiblieBySymbol(lhs, rhs, ir::IrNodeTy::Mod))
+      return IndexExpr(0);
   }
-
-  // dynamic branch!
-  if (rhs.is_var() && common::IsDivisiblieBySymbol(lhs, rhs, ir::IrNodeTy::Mod))
-    return IndexExpr(0);
 
   return Mod::Make(lhs, rhs);
 }
 
-// Macro to define binary operators for both IndexExpr and int64_t
+IndexExpr operator-(const IndexExpr &a) { return a * (-1); }
+IndexExpr operator-(const IndexExpr &a, const IndexExpr &b) { return a + (-b); }
+IndexExpr operator-(int64_t a, const IndexExpr &b) { return a + (-b); }
+IndexExpr operator-(const IndexExpr &a, int64_t b) { return a + (-b); }
+IndexExpr operator-(int32_t a, const IndexExpr &b) { return a + (-b); }
+IndexExpr operator-(const IndexExpr &a, int32_t b) { return a + (-b); }
+
+// Macro to define binary operators
 #define DEFINE_BINARY_OPERATORS(OP, FUNC)                         \
   IndexExpr operator OP(const IndexExpr &a, const IndexExpr &b) { \
     return FUNC(a, b);                                            \
@@ -658,13 +589,6 @@ DEFINE_BINARY_OPERATORS(%, SimplifyMod)
 
 // Undefine the macro to prevent it from affecting other parts of the code
 #undef DEFINE_BINARY_OPERATORS
-
-IndexExpr operator-(const IndexExpr &a) { return a * (-1); }
-IndexExpr operator-(const IndexExpr &a, const IndexExpr &b) { return a + (-b); }
-IndexExpr operator-(const int64_t &a, const IndexExpr &b) { return a + (-b); }
-IndexExpr operator-(const IndexExpr &a, const int64_t &b) { return a + (-b); }
-IndexExpr operator-(const int32_t &a, const IndexExpr &b) { return a + (-b); }
-IndexExpr operator-(const IndexExpr &a, const int32_t &b) { return a + (-b); }
 
 }  // namespace ir
 }  // namespace cinn

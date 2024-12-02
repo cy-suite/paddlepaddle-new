@@ -394,11 +394,11 @@ TEST_F(TestIterSimplify, fuse_same_source) {
                                  ir::IndexExpr(1)));
   auto gt4 = ITER_SUM(ITER_SPLIT(ITER_MARK_VAR(i_j_k_fused),
                                  ir::IndexExpr(32),
-                                 ir::IndexExpr(1),
+                                 ir::IndexExpr(2),
                                  ir::IndexExpr(1)),
                       ITER_SPLIT(ITER_MARK_VAR(i_j_k_fused),
                                  ir::IndexExpr(32),
-                                 ir::IndexExpr(2),
+                                 ir::IndexExpr(1),
                                  ir::IndexExpr(1)));
 
   ir::Expr e1 = (i_j_k_fused / 16 / 2 * 32 + i_j_k_fused / 16 % 2 * 16 +

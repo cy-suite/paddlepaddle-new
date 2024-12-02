@@ -35,9 +35,9 @@ class IterMapToExprNormalizer : public ir::IRMutator<> {
  private:
   void Visit(const Expr* expr, Expr* op) override;
 
-  Expr ConvertIterSum(ir::IterSum* expr);
+  ir::IndexExpr ConvertIterSum(ir::IterSum* expr);
 
-  Expr ConvertIterSplit(ir::IterSplit* expr);
+  ir::IndexExpr ConvertIterSplit(ir::IterSplit* expr);
 
  private:
   common::SymbolicExprAnalyzer analyzer_;
@@ -54,7 +54,8 @@ class IterMapRewriter : public ir::IRMutator<> {
       //   var_map_[iter->name] = ir::IterSum::Make({}, iter->lower_bound);
       // }
       if (IsZero(iter->lower_bound)) {
-        auto tmp = ir::IterMark::Make(Expr(iter.ptr()), iter->upper_bound);
+        auto tmp =
+            ir::IterMark::Make(ir::IndexExpr(iter.ptr()), iter->upper_bound);
         auto mark = tmp.As<ir::IterMark>();
         var_map_[iter->name] = ir::IterSplit::Make(tmp);
         input_marks_.push_back(*mark);
@@ -91,13 +92,13 @@ class IterMapRewriter : public ir::IRMutator<> {
 
   static void AddToLhs(ir::IterSum* lhs, const ir::IterSum& rhs, int sign);
 
-  static void MulToLhs(ir::IterSum* lhs, const Expr& rhs);
+  static void MulToLhs(ir::IterSum* lhs, const ir::IndexExpr& rhs);
 
   Expr PreprocessDividend(const Expr& dividend);
 
-  Expr SplitDivConst(Expr lhs, Expr base, Expr rhs);
+  Expr SplitDivConst(Expr lhs, ir::IndexExpr base, ir::IndexExpr rhs);
 
-  Expr SplitModConst(Expr lhs, Expr base, Expr rhs);
+  Expr SplitModConst(Expr lhs, ir::IndexExpr base, ir::IndexExpr rhs);
 
   /*!
    * \brief This function will find the iter which has the expected scale.
@@ -120,7 +121,7 @@ class IterMapRewriter : public ir::IRMutator<> {
    */
   int32_t FindSplitWithExactScale(const ir::IterSum& expr,
                                   const std::vector<bool>& skip_flag,
-                                  const Expr& expected_scale,
+                                  const ir::IndexExpr& expected_scale,
                                   const Expr& match_source,
                                   int32_t rbegin = -1,
                                   int32_t first_possible_unit_extent_pos = 0);

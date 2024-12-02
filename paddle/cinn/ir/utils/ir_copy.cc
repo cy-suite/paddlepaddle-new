@@ -47,6 +47,12 @@ struct IRCopyVisitor : public ir::IRVisitorRequireReImpl<Expr> {
     return copy.set_index(is_index);
   }
 
+  Expr Visit(const IndexExpr* op) override {
+    Expr e = *op;
+    auto copy = Visit(&e);
+    return copy.set_index(true);
+  }
+
   Module Visit(const ir::_Module_* op) {
     std::vector<Expr> buffers;
     std::vector<LoweredFunc> functions;

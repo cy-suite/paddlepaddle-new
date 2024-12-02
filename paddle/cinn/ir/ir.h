@@ -1033,51 +1033,6 @@ struct Block : public ExprNode<Block> {
   static const IrNodeTy _node_type_ = IrNodeTy::Block;
 };
 
-struct IndexExpr : public IrNodeRef {
- public:
-  IndexExpr() = default;
-  IndexExpr(const IndexExpr& other) : IrNodeRef(other.ptr()) {}
-  IndexExpr(IrNode* p) : IrNodeRef(p) {}  // NOLINT
-  IndexExpr(const Expr& e);               // NOLINT
-
-  explicit IndexExpr(int32_t x) : IrNodeRef(new IntImm(Int(32), x)) {}
-  explicit IndexExpr(int64_t x) : IrNodeRef(new IntImm(Int(64), x)) {}
-
-  // operator Expr() { return Expr(get()).set_index(1); }
-  // operator Expr() const {
-  //   IndexExpr e = *this;
-  //   return Expr(e);
-  // }
-
-  bool is_var() const { return As<_Var_>(); }
-  _Var_* as_var() { return As<_Var_>(); }
-  const _Var_* as_var() const { return As<_Var_>(); }
-  Var as_var_ref() const { return Var(&Reference(as_var())); }
-
-  int32_t as_int32() const;
-  int64_t as_int64() const;
-
-  bool is_constant() const;
-
-  Type type() const { return p_->type(); }
-
-  int64_t GetLargestMutiplyPart() const;
-
-  IndexExpr Normalize() const;
-
-  bool IsDynamic() const;
-
-  // count the `IndeExpr` length, each node has weight 1, e.g.
-  // S0,          length = 1
-  // S0 + S1,     length = 3
-  // S0 + S1 * 2, length = 5
-  int32_t length() const;
-
-  IndexExpr& operator=(const IndexExpr& other);
-  IndexExpr& operator=(const Expr& other);
-  IndexExpr& operator=(const Var& other);
-};
-
 // TODO(liujinnan): Essentially IterExpr is not IndexExpr, so it does not
 // satisfy the `is_index` and `as_index` method. IterExpr is temporarily held by
 // IndexExpr, it will be separated later.
@@ -1094,10 +1049,10 @@ struct IterMark : public ExprNode<IterMark> {
   }
   IterMark& operator=(const IterMark& other);
 
-  static Expr Make(const Expr& source, const Expr& extent);
+  static Expr Make(const Expr& source, const IndexExpr& extent);
   Type type() const { return source.type(); }
   Expr source;
-  Expr extent;
+  IndexExpr extent;
   static const IrNodeTy _node_type_ = IrNodeTy::IterMark;
 };
 
@@ -1119,17 +1074,17 @@ struct IterSplit : public ExprNode<IterSplit> {
   IterSplit& operator=(const IterSplit& other);
 
   static Expr Make(const Expr& source,
-                   const Expr& lower_factor,
-                   const Expr& extent,
-                   const Expr& scale);
-  static Expr Make(const Expr& source, const Expr& scale);
+                   const IndexExpr& lower_factor,
+                   const IndexExpr& extent,
+                   const IndexExpr& scale);
+  static Expr Make(const Expr& source, const IndexExpr& scale);
   static Expr Make(const Expr& source);
 
   Type type() const { return source.type(); }
   Expr source;
-  Expr lower_factor;
-  Expr extent;
-  Expr scale;
+  IndexExpr lower_factor;
+  IndexExpr extent;
+  IndexExpr scale;
   static const IrNodeTy _node_type_ = IrNodeTy::IterSplit;
 };
 
@@ -1140,10 +1095,10 @@ struct IterSplit : public ExprNode<IterSplit> {
 struct IterSum : public ExprNode<IterSum> {
  public:
   IterSum() = default;
-  static Expr Make(const std::vector<Expr>& args, const Expr& base);
+  static Expr Make(const std::vector<Expr>& args, const IndexExpr& base);
   Type type() const { return base.type(); }
   std::vector<Expr> args;
-  Expr base;
+  IndexExpr base;
   static const IrNodeTy _node_type_ = IrNodeTy::IterSum;
 };
 

@@ -176,6 +176,7 @@ std::ostream& operator<<(std::ostream& os, IrNodeTy type);
 std::ostream& operator<<(std::ostream& os, StmtNodeTy type);
 
 struct Expr;
+struct IndexExpr;
 
 /**
  * The base of all the nodes in the IR.
@@ -201,6 +202,9 @@ class IrNode : public cinn::common::Object {
   virtual void replace(Expr old_op, Expr new_op);
   //! Get i-th operand
   const Expr& operand(int i);
+
+  const IndexExpr operand_as_index(int i) const;
+  IndexExpr operand_as_index(int i);
 
   //! Gather all the expression fields in this node for easier visit and mutate.
   virtual std::vector<Expr*> expr_fields() { return {}; }
@@ -463,6 +467,12 @@ struct Expr : public IrNodeRef {
 
   bool is_index() const;
 
+  //! `is_index_tmp` is used to judge whether the expr is a index temporary.
+  //! When the `is_index` flag is added to a specific IrNode (e.g.
+  //! For::extent,Tensor::shape), this method does not need to be used, use
+  //! is_index() instead.
+  bool is_index_tmp() const;
+
   IndexExpr as_index();
   const IndexExpr as_index() const;
 
@@ -471,6 +481,45 @@ struct Expr : public IrNodeRef {
   operator Var();
 
   Type type() const { return p_->type(); }
+};
+
+struct IndexExpr : public IrNodeRef {
+ public:
+  IndexExpr() = default;
+  IndexExpr(const IndexExpr& other) : IrNodeRef(other.ptr()) {}
+  IndexExpr(IrNode* p) : IrNodeRef(p) {}  // NOLINT
+  IndexExpr(const Expr& e);               // NOLINT
+
+  explicit IndexExpr(int32_t x) : IrNodeRef(new IntImm(Int(32), x)) {}
+  explicit IndexExpr(int64_t x) : IrNodeRef(new IntImm(Int(64), x)) {}
+
+  bool is_var() const;
+  _Var_* as_var();
+  const _Var_* as_var() const;
+  Var as_var_ref() const;
+
+  int32_t as_int32() const;
+  int64_t as_int64() const;
+
+  bool is_constant() const;
+
+  Type type() const { return p_->type(); }
+
+  int64_t GetLargestMutiplyPart() const;
+
+  IndexExpr Normalize() const;
+
+  bool IsDynamic() const;
+
+  // count the `IndeExpr` length, each node has weight 1, e.g.
+  // S0,          length = 1
+  // S0 + S1,     length = 3
+  // S0 + S1 * 2, length = 5
+  int32_t length() const;
+
+  IndexExpr& operator=(const IndexExpr& other);
+  IndexExpr& operator=(const Expr& other);
+  IndexExpr& operator=(const Var& other);
 };
 
 template <typename T>
@@ -533,6 +582,11 @@ struct BinaryOpNode : public ExprNode<T> {
   const Expr& a() const { return ExprNode<T>::operand(0); }
   const Expr& b() const { return ExprNode<T>::operand(1); }
 
+  IndexExpr a_as_index() { return IrNode::operand_as_index(0); }
+  IndexExpr b_as_index() { return IrNode::operand_as_index(1); }
+
+  const IndexExpr a_as_index() const { return IrNode::operand_as_index(0); }
+  const IndexExpr b_as_index() const { return IrNode::operand_as_index(1); }
   Type type() const override { return a().type(); }
 
   void replace(Expr old_op, Expr new_op) {

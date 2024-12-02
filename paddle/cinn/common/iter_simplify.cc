@@ -37,8 +37,8 @@ void IterMapToExprNormalizer::Visit(const Expr* expr, Expr* op) {
   }
 }
 
-Expr IterMapToExprNormalizer::ConvertIterSum(ir::IterSum* expr) {
-  Expr res(0);
+ir::IndexExpr IterMapToExprNormalizer::ConvertIterSum(ir::IterSum* expr) {
+  ir::IndexExpr res(0);
 
   for (auto&& arg : expr->args) {
     auto split = arg.As<ir::IterSplit>();
@@ -48,13 +48,12 @@ Expr IterMapToExprNormalizer::ConvertIterSum(ir::IterSum* expr) {
   return res;
 }
 
-Expr IterMapToExprNormalizer::ConvertIterSplit(ir::IterSplit* expr) {
-  Expr source;
+ir::IndexExpr IterMapToExprNormalizer::ConvertIterSplit(ir::IterSplit* expr) {
+  ir::IndexExpr source;
   ir::IterMark* mark = expr->source.As<ir::IterMark>();
   if (auto opt = mark->source.As<ir::_Var_>()) {
-    // For unit loop, we can't simplify loop_var to `0`.
-    if (IsOne(mark->extent)) return opt;
-    source = Expr(opt);
+    if (IsOne(mark->extent)) return ir::IndexExpr(0);
+    source = ir::IndexExpr(opt);
   } else if (auto opt = mark->source.As<ir::IterSum>()) {
     source = ConvertIterSum(opt);
   } else {
@@ -110,7 +109,7 @@ void IterMapRewriter::Visit(const ir::Add* op, Expr* expr) {
   } else if (auto b_split = b.As<ir::IterSplit>()) {
     AddToLhs(ret_sum, *b_split, 1);
   } else {
-    ret_sum->base = ret_sum->base + b;
+    ret_sum->base = ret_sum->base + b.as_index();
   }
   *expr = ret;
 }
@@ -136,7 +135,7 @@ void IterMapRewriter::Visit(const ir::Sub* op, Expr* expr) {
   } else if (auto* b_split = b.As<ir::IterSplit>()) {
     AddToLhs(ret_sum, *b_split, -1);
   } else {
-    ret_sum->base = ret_sum->base - b;
+    ret_sum->base = ret_sum->base - b.as_index();
   }
 
   *expr = ret;
@@ -173,7 +172,7 @@ void IterMapRewriter::Visit(const ir::Mul* op, Expr* expr) {
     MulToLhs(a_sum, b);
 
   } else if (auto a_split = ret.As<ir::IterSplit>()) {
-    a_split->scale = a_split->scale * b;
+    a_split->scale = a_split->scale * b.as_index();
   }
 
   *expr = ret;
@@ -260,7 +259,9 @@ Expr IterMapRewriter::PreprocessDividend(const Expr& dividend) {
   }
 }
 
-Expr IterMapRewriter::SplitDivConst(Expr lhs_expr, Expr base, Expr rhs) {
+Expr IterMapRewriter::SplitDivConst(Expr lhs_expr,
+                                    ir::IndexExpr base,
+                                    ir::IndexExpr rhs) {
   // (lhs_expr + base) // rhs
   if (IsOne(rhs)) {
     if (IsZero(base)) return lhs_expr;
@@ -293,7 +294,7 @@ Expr IterMapRewriter::SplitDivConst(Expr lhs_expr, Expr base, Expr rhs) {
   // TODO(liuruyan): Padding dividend to divisor later. assuming dividend canbe
   // divided by divisor now.
 
-  ir::Expr new_split;
+  Expr new_split;
   if (!ProveDivisible(base, rhs)) {
     // padding base to divisor later. Treat the whole expr as IterMark now.
     return ir::IterSum::Make(
@@ -325,7 +326,9 @@ Expr IterMapRewriter::SplitDivConst(Expr lhs_expr, Expr base, Expr rhs) {
                             : ir::IterSum::Make({new_split}, base / rhs);
 }
 
-Expr IterMapRewriter::SplitModConst(Expr lhs_expr, Expr base, Expr rhs) {
+Expr IterMapRewriter::SplitModConst(ir::Expr lhs_expr,
+                                    ir::IndexExpr base,
+                                    ir::IndexExpr rhs) {
   // (lhs_expr + base) % rhs
   if (IsOne(rhs)) {
     return ir::Zero(lhs_expr.type());
@@ -378,7 +381,7 @@ int32_t IterMapRewriter::FindFirstPossibleUnitExtentIndex(
 int32_t IterMapRewriter::FindSplitWithExactScale(
     const ir::IterSum& expr,
     const std::vector<bool>& skip_flag,
-    const Expr& expected_scale,
+    const ir::IndexExpr& expected_scale,
     const Expr& match_source,
     int32_t rbegin,
     int32_t first_possible_unit_extent_pos) {
@@ -391,7 +394,7 @@ int32_t IterMapRewriter::FindSplitWithExactScale(
     if (skip_flag[j]) continue;
     auto split = expr.args[j].As<ir::IterSplit>();
     if (match_source.defined() && match_source != split->source) continue;
-    const Expr& cur_scale = split->scale;
+    const ir::IndexExpr& cur_scale = split->scale;
     if (analyzer_.ProveEQ(cur_scale, expected_scale).value_or(false)) {
       if (IsOne(split->extent)) return j;
       // We prefer the unit extent Iter. just search when extent != 1.
@@ -446,7 +449,7 @@ int32_t IterMapRewriter::FindBaseSplit(const ir::IterSum& expr,
     auto split = expr.args[i].As<ir::IterSplit>();
     if (match_source.defined() && match_source != split->source) continue;
     int32_t reduce_size = 0;
-    auto fcollect = [&](const Expr&) { ++reduce_size; };
+    auto fcollect = [&](const ir::IndexExpr&) { ++reduce_size; };
     UnpackReduction<ir::Mul>(split->scale, fcollect);
     if (base_index == -1 || reduce_size < min_reduce_size) {
       min_reduce_size = reduce_size;
@@ -473,11 +476,12 @@ std::optional<Expr> IterMapRewriter::TryFuse(const Expr& expr) {
   std::vector<bool> visited(iter_sum->args.size(), false);
   int base_index = FindBaseSplit(*iter_sum, visited, Expr(), -1);
   if (base_index == -1) return std::nullopt;
-  Expr base_scale = iter_sum->args[base_index].As<ir::IterSplit>()->scale;
+  ir::IndexExpr base_scale =
+      iter_sum->args[base_index].As<ir::IterSplit>()->scale;
 
-  std::vector<ir::Expr> grouped_iters;
+  std::vector<Expr> grouped_iters;
 
-  Expr expected_scale = base_scale;
+  ir::IndexExpr expected_scale = base_scale;
   int first_possible_unit_extent_pos =
       FindFirstPossibleUnitExtentIndex(*iter_sum);
 
@@ -489,7 +493,7 @@ std::optional<Expr> IterMapRewriter::TryFuse(const Expr& expr) {
   // finally matched_pos = 0, expected_scale = 32 * 2 = 64. means match i.
   // if match failed, indicates that expr is illegal and cannot be merged.
   for (size_t i = 0; i < iter_sum->args.size(); ++i) {
-    Expr matched_scale{nullptr};
+    ir::IndexExpr matched_scale{nullptr};
     int matched_pos =
         i == 0 ? base_index
                : FindSplitWithExactScale(*iter_sum,
@@ -498,8 +502,14 @@ std::optional<Expr> IterMapRewriter::TryFuse(const Expr& expr) {
                                          Expr(),
                                          -1,
                                          first_possible_unit_extent_pos);
-    // If not found iter with expected scale, return nullopt.
-    if (matched_pos == -1) return std::nullopt;
+    // If not found iter with expected scale, search above case:
+    // D(i)=2, D(j)=8, Split loop from (j, 0, 8) to (-1, 32)
+    // (i * 8 + j) % 16 ==> (i * 8 + j0 * 32 + j1)
+    if (matched_pos == -1) {
+      matched_pos = FindBaseSplit(*iter_sum, visited, Expr(), -1);
+      // // If not found iter with expected scale again, return nullopt.
+      if (matched_pos == -1) return std::nullopt;
+    }
 
     matched_scale = expected_scale;
     visited[matched_pos] = true;
@@ -554,7 +564,7 @@ std::optional<Expr> IterMapRewriter::TryFuseSameSource(const Expr& expr) {
 
   std::vector<bool> visited(iter_sum->args.size(), false);
   // Only for IterSplit
-  std::vector<ir::Expr> reverse_flattened_iters;
+  std::vector<Expr> reverse_flattened_iters;
 
   int first_possible_unit_extent_pos =
       FindFirstPossibleUnitExtentIndex(*iter_sum);
@@ -582,7 +592,7 @@ std::optional<Expr> IterMapRewriter::TryFuseSameSource(const Expr& expr) {
     // 2. lhs->scale == rhs->extent * rhs->scale.
     // 3. lhs->lower_factor == rhs->lower_factor * rhs->extent.
     while (true) {
-      Expr lhs_scale = rhs_iter->extent * rhs_iter->scale;
+      ir::IndexExpr lhs_scale = rhs_iter->extent * rhs_iter->scale;
       matched_index = FindSplitWithExactScale(*iter_sum,
                                               visited,
                                               lhs_scale,
@@ -591,7 +601,8 @@ std::optional<Expr> IterMapRewriter::TryFuseSameSource(const Expr& expr) {
                                               first_possible_unit_extent_pos);
       if (matched_index == -1) break;
       auto lhs_iter = iter_sum->args[matched_index].As<ir::IterSplit>();
-      Expr lhs_lower_factor = rhs_iter->lower_factor * rhs_iter->extent;
+      ir::IndexExpr lhs_lower_factor =
+          rhs_iter->lower_factor * rhs_iter->extent;
       if (!analyzer_.ProveEQ(lhs_iter->lower_factor, lhs_lower_factor)
                .value_or(false))
         break;
@@ -657,7 +668,7 @@ void IterMapRewriter::AddToLhs(ir::IterSum* lhs,
   }
 }
 
-void IterMapRewriter::MulToLhs(ir::IterSum* lhs, const Expr& rhs) {
+void IterMapRewriter::MulToLhs(ir::IterSum* lhs, const ir::IndexExpr& rhs) {
   for (auto&& lvalue : lhs->args) {
     auto lsplit = lvalue.As<ir::IterSplit>();
     lsplit->scale = lsplit->scale * rhs;
@@ -671,8 +682,11 @@ void IterMapSimplify(std::vector<Expr>& indices,  // NOLINT
   IterMapRewriter rewriter(input_iters, analyzer);
   IterMapToExprNormalizer converter(analyzer);
   for (auto& value : indices) {
+    VLOG(5) << "before rewrite: " << value;
     rewriter.Rewrite(&value);
+    VLOG(5) << "after rewrite: " << value;
     converter.Convert(&value);
+    VLOG(5) << "after convert: " << value;
   }
 }
 
