@@ -27,7 +27,7 @@ def conv2d_converter(network, paddle_op, inputs):
     return convert_conv2d(network, paddle_op, inputs)
 
 
-@converter_registry.register("pd_op.conv3d", trt_version="8.x")
 @converter_registry.register("pd_op.conv3d_transpose", trt_version="8.x")
+@converter_registry.register("pd_op.conv3d", trt_version="8.x")
 def conv3d_converter(network, paddle_op, inputs):
     return convert_conv3d(network, paddle_op, inputs)

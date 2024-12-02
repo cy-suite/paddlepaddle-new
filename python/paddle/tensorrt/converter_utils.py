@@ -541,7 +541,6 @@ def convert_conv3d(network, paddle_op, inputs):
     dilation = paddle_op.attrs().get("dilations", [1, 1, 1])
     groups = paddle_op.attrs().get("groups", 1)
 
-
     output_padding = paddle_op.attrs().get("output_padding", [0, 0, 0])
     padding_algorithm = paddle_op.attrs().get("padding_algorithm", "EXPLICIT")
 
@@ -551,7 +550,6 @@ def convert_conv3d(network, paddle_op, inputs):
 
     pre_paddings = trt.Dims(paddings)
     post_paddings = [0, 0, 0]
-
 
     if paddle_op.name() == "pd_op.conv3d":
         layer = network.add_convolution_nd(
@@ -580,7 +578,6 @@ def convert_conv3d(network, paddle_op, inputs):
 
     if post_paddings[0] < 0 or post_paddings[1] < 0 or post_paddings[2] < 0:
         raise ValueError("The value PostPadding should be >= 0.")
-
     layer.post_padding = post_paddings
     layer.num_groups = groups
 
