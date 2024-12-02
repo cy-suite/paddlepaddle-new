@@ -901,7 +901,7 @@ def _set_process_mesh_and_chunk_id(op, chunk_process_mesh, chunk_id, set_mesh):
                     var_attr = copy_dist_attr_with_new_member(
                         var_dist_attr, new_process_mesh=process_mesh
                     )
-                return var_attr
+                    return var_attr
             else:
                 var_attr = copy_dist_attr_with_new_member(
                     var_dist_attr, new_process_mesh=process_mesh
