@@ -15,6 +15,7 @@
 #include "paddle/cinn/hlir/framework/pir_compiler.h"
 #include "paddle/cinn/ir/group_schedule/config/schedule_config_manager.h"
 
+#include "paddle/cinn/common/event_tracing.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/lowering_pass/utils.h"
 #include "paddle/cinn/hlir/framework/pir/broadcast_with_cf.h"
 #include "paddle/cinn/hlir/framework/pir/utils.h"
@@ -98,6 +99,7 @@ std::vector<pir::CINNKernelInfo> PirCompiler::Build(
 
 std::shared_ptr<pir::CompilationResult> PirCompiler::Compile(
     GroupCompilationContext* ctx) {
+  cinn::common::RecordEvent record("PirCompiler::Compile");
   std::shared_ptr<pir::CompilationResult> compile_result;
   CompilationTask task(ctx);
 

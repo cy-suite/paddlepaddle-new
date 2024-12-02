@@ -46,7 +46,7 @@ class TEST_API RecordEvent {
 
   ~RecordEvent() { End(); }
 
-  static std::vector<Event> Events() { return RecordEvent::g_events_; }
+  static std::vector<Event> Events() { return g_events_; }
 
  private:
   std::string name_;
@@ -54,6 +54,30 @@ class TEST_API RecordEvent {
   bool recorded_{false};
 
   static std::vector<Event> g_events_;
+  static paddle::memory::SpinLock g_spinlock_;
+};
+
+struct Count {
+  size_t count;
+  std::string name;
+};
+
+class TEST_API RecordCount {
+ public:
+  explicit RecordCount(const std::string& name, size_t count) {
+    Count c;
+    c.name = name;
+    c.count = count;
+    std::lock_guard<paddle::memory::SpinLock> guard(g_spinlock_);
+    g_counts_.emplace_back(c);
+  }
+
+  ~RecordCount() {}
+
+  static std::vector<Count> Counts() { return g_counts_; }
+
+ private:
+  static std::vector<Count> g_counts_;
   static paddle::memory::SpinLock g_spinlock_;
 };
 

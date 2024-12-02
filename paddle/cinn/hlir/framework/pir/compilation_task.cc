@@ -18,6 +18,7 @@
 
 #include "paddle/cinn/backends/codegen_device_util.h"
 #include "paddle/cinn/common/dim_expr_converter.h"
+#include "paddle/cinn/common/event_tracing.h"
 #include "paddle/cinn/common/target.h"
 #include "paddle/cinn/hlir/framework/op_lowering.h"
 #include "paddle/cinn/hlir/framework/pir/op_lowering_group.h"
@@ -153,6 +154,7 @@ std::shared_ptr<pir::CompilationResult> CompilationTask::operator()() {
 }
 
 void CompilationTask::Lowering() {
+  cinn::common::RecordEvent record("CompilationTask::Lowering");
   VLOG(5) << "Begin to lowering group: " << *context_->group_;
   auto op_lowerer = CreateOpLowerer<pir::OpLoweringGroupPtr>(context_->target_);
   context_->SetLoweredFuncs(op_lowerer.BucketLower(context_->group_));
@@ -202,6 +204,7 @@ void CompilationTask::Lowering() {
 }
 
 std::shared_ptr<pir::CompilationResult> CompilationTask::CodegenAndJit() {
+  cinn::common::RecordEvent record("CompilationTask::CodegenAndJit");
   context_->PrepareModuleBuilder();
   ir::Module ir_module = context_->module_builder_.Build();
   ir::Module ir_moduleCX86 = context_->CX86_module_builder_.Build();
@@ -210,6 +213,7 @@ std::shared_ptr<pir::CompilationResult> CompilationTask::CodegenAndJit() {
 
 std::shared_ptr<pir::CompilationResult> CompilationTask::BuildPirCINNKernelInfo(
     const ir::Module& module, const ir::Module& CX86module) {
+  cinn::common::RecordEvent record("CompilationTask::BuildPirCINNKernelInfo");
   auto compilation_result =
       std::make_shared<pir::CompilationResult>(context_->target_);
   auto backend_resource = std::make_shared<pir::BackendResource>(
@@ -231,6 +235,7 @@ std::shared_ptr<pir::CompilationResult>
 CompilationTask::CompileBroadcastModules(
     std::vector<GroupCompilationContext>* leaf_group_contexts,
     const std::unordered_map<int, ir::Var>& symbolic_shape_var_index) {
+  cinn::common::RecordEvent record("CompilationTask::CompileBroadcastModules");
   auto compilation_result =
       std::make_shared<pir::CompilationResult>(context_->target_);
   auto backend_resource = std::make_shared<pir::BackendResource>(

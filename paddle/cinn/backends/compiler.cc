@@ -36,6 +36,7 @@
 #include "paddle/cinn/runtime/hip/hip_module.h"
 #endif
 #include "paddle/cinn/adt/adt.h"
+#include "paddle/cinn/common/event_tracing.h"
 
 PD_DECLARE_string(cinn_source_code_save_path);
 PD_DECLARE_string(cinn_dump_group_lowered_func);
@@ -233,6 +234,7 @@ void SourceCodePrint::write(const std::string& source_code) {
 }
 
 void Compiler::Build(const Module& module, const std::string& code) {
+  cinn::common::RecordEvent record("Compiler::Build");
   target_.arch.Match(
       [&](common::UnknownArch) { CINN_NOT_IMPLEMENTED; },
       [&](common::X86Arch) { CompileX86Module(module); },
@@ -242,16 +244,19 @@ void Compiler::Build(const Module& module, const std::string& code) {
 }
 
 void Compiler::AppendCX86(const Module& module) {
+  cinn::common::RecordEvent record("Compiler::AppendCX86");
   VLOG(3) << "Start Compiler::BuildCX86" << module;
   CompileX86Module(module);
   VLOG(3) << "Over Compiler::BuildCX86";
 }
 
 void Compiler::AppendBroadcastSwitchModule(const ir::Module& module) {
+  cinn::common::RecordEvent record("Compiler::AppendBroadcastSwitchModule");
   engine_->Link<CodeGenSwitchHost>(module);
 }
 
 void Compiler::EndCompile() {
+  cinn::common::RecordEvent record("Compiler::EndCompile");
   RegisterDeviceModuleSymbol();
   engine_->AddSelfModule();
 }

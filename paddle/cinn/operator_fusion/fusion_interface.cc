@@ -15,16 +15,17 @@
 #pragma once
 
 #include "paddle/cinn/operator_fusion/fusion_interface.h"
+#include "paddle/cinn/common/event_tracing.h"
 #include "paddle/cinn/operator_fusion/fusion_tracker/expr_utils.h"
 #include "paddle/cinn/operator_fusion/fusion_tracker/interpreter.h"
 #include "paddle/cinn/operator_fusion/utils.h"
-
 namespace cinn::fusion {
 
 std::vector<ir::Expr> OperationFusion(
     const std::vector<::pir::Operation*>& ops,
     const std::vector<ir::Expr>& op_compute_bodies,
     FusionTrackerPtr fusion_tracker_ptr) {
+  cinn::common::RecordEvent record("OperationFusion");
   std::vector<FusibleOp> initialized_lowered_op;
   for (int i = 0; i < ops.size(); i++) {
     auto fusible_op =

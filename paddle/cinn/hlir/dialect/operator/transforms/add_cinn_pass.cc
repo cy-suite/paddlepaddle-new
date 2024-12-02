@@ -304,8 +304,13 @@ void ApplyCinnPass(::pir::Program* program,
             << ", after lowering it becomes: " << new_num_ops
             << ". (compression ratio: " << new_num_ops << "/" << origin_num_ops
             << " = " << static_cast<float>(new_num_ops) / origin_num_ops << ")";
-  record.End();
-  cinn::common::DumpRecordEvent("");
+
+  uint64_t bc_count = pir::ShapeAnalysisManager::Instance()
+                          .Get(program)
+                          .constraints_manager()
+                          .broadcastables()
+                          .size();
+  cinn::common::RecordCount record_count("BC", bc_count);
 }
 
 }  // namespace cinn::dialect::ir

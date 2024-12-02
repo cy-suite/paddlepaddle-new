@@ -157,7 +157,7 @@ bool detail::PassAdaptor::RunPass(Pass* pass,
                                   bool verify) {
   if (opt_level < pass->pass_info().opt_level) return true;
 #ifdef PADDLE_WITH_CINN
-  cinn::common::RecordEvent record(pass->name());
+  cinn::common::RecordEvent record("RunPass_" + pass->name());
 #endif
   pass->pass_state_ = PassExecutionState(op, am);
 

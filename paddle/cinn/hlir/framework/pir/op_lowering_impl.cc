@@ -20,6 +20,7 @@
 #include "paddle/cinn/ast_gen_ius/tensor_group.h"
 #include "paddle/cinn/backends/codegen_device_util.h"
 #include "paddle/cinn/common/dim_expr_converter.h"
+#include "paddle/cinn/common/event_tracing.h"
 #include "paddle/cinn/common/target.h"
 #include "paddle/cinn/hlir/dialect/operator/ir/manual_op.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/group_merge/op_with_group_merge_util.h"
@@ -92,6 +93,7 @@ OpLowererImpl::OpLowererImpl(const Target& target) : target_(target) {
 
 BucketLoweredFuncsWrapper OpLowererImpl::BucketLower(
     const OpLoweringGroupPtr& group) {
+  cinn::common::RecordEvent record("OpLowererImpl::BucketLower");
   VLOG(4) << "BucketLower Group : \n" << *group;
   // 1.Do compute, lower and schedule for each op.
   const auto& ops = group->ops();
@@ -249,6 +251,7 @@ std::vector<ir::LoweredFunc> OpLowererImpl::PostProcess(
     std::vector<ir::Tensor>* group_func_arg_tensors,
     std::vector<ir::Argument>* group_func_args,
     std::vector<ir::Tensor>* infer_shape_arg_tensor) {
+  cinn::common::RecordEvent record("OpLowererImpl::PostProcess");
   // 1.Prepare function args
   group->mut_input_names().clear();
   std::unordered_set<std::string> store_buffer_names =
@@ -412,6 +415,7 @@ std::vector<ir::Expr> OpLowererImpl::LowerOps(
     const std::vector<::pir::Operation*>& ops,
     std::vector<ir::Tensor>* group_func_arg_tensors,
     std::unordered_map<::pir::Value, ir::Tensor>* tensor_map) {
+  cinn::common::RecordEvent record("OpLowererImpl::LowerOps");
   auto& strategy = Operator::GetAttrs<StrategyFunction>("CINNStrategy");
   std::vector<Expr> func_bodies;
 
@@ -745,6 +749,7 @@ ir::LoweredFunc OpLowererImpl::GenerateInferShapeFunc(
 ir::Expr OpLowererImpl::LowerX86(const OpLoweringGroupPtr& group,
                                  const std::vector<::pir::Operation*>& ops,
                                  bool apply_op_schedule) {
+  cinn::common::RecordEvent record("OpLowererImpl::LowerX86");
   std::vector<ir::Tensor> group_func_arg_tensors;
   std::unordered_map<::pir::Value, ir::Tensor> tensor_map;
   // for some op, it will output more tmp value and regard as

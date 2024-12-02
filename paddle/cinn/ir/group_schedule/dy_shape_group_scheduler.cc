@@ -14,6 +14,7 @@
 
 #include "paddle/cinn/ir/group_schedule/dy_shape_group_scheduler.h"
 #include "paddle/cinn/common/cas.h"
+#include "paddle/cinn/common/event_tracing.h"
 #include "paddle/cinn/ir/group_schedule/config/schedule_config_manager.h"
 #include "paddle/cinn/ir/group_schedule/tactic/compute_at_reduction_tactic.h"
 #include "paddle/cinn/ir/group_schedule/tactic/compute_inline_tactic.h"
@@ -136,6 +137,7 @@ void DynamicShapeGroupScheduler::InitBuckets() {
 }
 
 void DynamicShapeGroupScheduler::Schedule() {
+  cinn::common::RecordEvent record("DynamicShapeGroupScheduler::Schedule");
   VLOG(4) << "bucket_context_.size() = " << bucket_contexts_.size();
   for (BucketContext& bucket_context : bucket_contexts_) {
     VLOG(4) << "===========================Apply tactics on Bucket ["

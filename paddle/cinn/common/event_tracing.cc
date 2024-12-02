@@ -22,6 +22,9 @@ namespace common {
 std::vector<Event> RecordEvent::g_events_;
 paddle::memory::SpinLock RecordEvent::g_spinlock_;
 
+std::vector<Count> RecordCount::g_counts_;
+paddle::memory::SpinLock RecordCount::g_spinlock_;
+
 void RecordEvent::End() {
   if (recorded_) {
     return;
@@ -37,10 +40,13 @@ void RecordEvent::End() {
 }
 
 void DumpRecordEvent(std::string path) {
-  std::unordered_map<std::string, MergedEvent> merged_info;
+  std::unordered_map<std::string, MergedEvent> merged_event;
+  std::unordered_map<std::string, uint64_t> merged_count;
   std::ofstream event_file(path + "/event.log");
-  std::ofstream merged_event_file(path + "/merged_event.log");
-  if (!event_file.is_open() || !merged_event_file.is_open()) {
+  std::ofstream count_file(path + "/count.log");
+  std::ofstream merged_file(path + "/merged.log");
+  if (!event_file.is_open() || !count_file.is_open() ||
+      !merged_file.is_open()) {
     PADDLE_THROW(
         phi::errors::InvalidArgument("Open file faild, path = %s", path));
   }
@@ -55,18 +61,29 @@ void DumpRecordEvent(std::string path) {
     event_file << e.name << ", start = " << start << ", end = " << end
                << ", used(ms) = " << used << ", thread = " << e.thread_id
                << std::endl;
-    merged_info[e.name].count++;
-    merged_info[e.name].used_time_second += used / 1000;
+    merged_event[e.name].count++;
+    merged_event[e.name].used_time_second += used / 1000;
   }
-  for (auto& me : merged_info) {
-    merged_event_file << me.first << ", call times = " << me.second.count
-                      << ", used(s) = " << me.second.used_time_second
-                      << std::endl;
+
+  for (const auto& c : RecordCount::Counts()) {
+    count_file << c.name << ", count = " << c.count << std::endl;
+    merged_count[c.name] += c.count;
   }
-  merged_event_file << "SubGraph Count: " << merged_info["ApplyCinnPass"].count
-                    << std::endl;
-  // merged_event_file << "Group Count: " << merged_info["ApplyCinnPass"].count
-  // << std::endl;
+
+  for (auto& me : merged_event) {
+    merged_file << me.first << ", call times = " << me.second.count
+                << ", used(s) = " << me.second.used_time_second << std::endl;
+  }
+
+  for (auto& mc : merged_count) {
+    merged_file << mc.first << ", count = " << mc.second << std::endl;
+  }
+
+  merged_file << "SubGraph Count: " << merged_event["ApplyCinnPass"].count
+              << std::endl;
+  merged_file << "Group Count: "
+              << merged_event["OpLowererImpl::BucketLower"].count << std::endl;
+  merged_file << "BC Count: " << merged_count["BC"] << std::endl;
 }
 
 }  // namespace common
