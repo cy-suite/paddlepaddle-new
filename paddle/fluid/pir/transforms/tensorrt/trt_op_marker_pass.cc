@@ -1185,10 +1185,6 @@ class LogicalOrOpPattern
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-#if IS_TRT_VERSION_LT(8400)
-    VLOG(3) << "pd_op.logical_or op is not supported when TensorRT < 8.4";
-    return false;
-#else
     pir::Value x = op.operand_source(0);
     pir::Value y = op.operand_source(1);
     auto x_dtype = pir::GetDataTypeFromValue(x);
@@ -1197,7 +1193,6 @@ class LogicalOrOpPattern
       VLOG(3) << "pd_op.logical_or op only supports bool datatype";
       return false;
     }
-#endif
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
@@ -1213,10 +1208,6 @@ class LogicalOr_OpPattern
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-#if IS_TRT_VERSION_LT(8400)
-    VLOG(3) << "pd_op.logical_or_ op is not supported when TensorRT < 8.4";
-    return false;
-#else
     pir::Value x = op.operand_source(0);
     pir::Value y = op.operand_source(1);
     auto x_dtype = pir::GetDataTypeFromValue(x);
@@ -1225,7 +1216,6 @@ class LogicalOr_OpPattern
       VLOG(3) << "pd_op.logical_or_ op only supports bool datatype";
       return false;
     }
-#endif
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
