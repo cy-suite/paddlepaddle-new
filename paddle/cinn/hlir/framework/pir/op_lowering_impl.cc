@@ -218,6 +218,9 @@ BucketLoweredFuncsWrapper OpLowererImpl::BucketLower(
   }
   // The last func is x86 kernel.
   for (size_t i = funcs.size() - 1; i < funcs.size(); ++i) {
+    if (funcs[i]->body == ir::Expr(-1)) {
+      continue;
+    }
     funcs[i]->name = funcs[i]->name + "_CX86";
     funcs_wrapper.predicate2funcsCX86.emplace_back(cond2func_bodies[i].first,
                                                    funcs[i]);
