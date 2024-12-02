@@ -7023,6 +7023,7 @@ def as_strided(
 
     .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/as_strided.png
     :alt: Legend
+    
     Returns:
         Tensor, A as_strided Tensor with the same data type as ``x``.
 
