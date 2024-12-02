@@ -27,7 +27,6 @@ from ..auto_parallel.static.utils import (
 from .pass_base import PassBase, register_pass
 
 logger = get_logger(logging.INFO)
-OP_ROLE_KEY = core.op_proto_and_checker_maker.kOpRoleAttrName()
 
 
 @register_pass("auto_parallel_recompute_pir")
