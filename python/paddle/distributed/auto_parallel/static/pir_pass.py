@@ -979,8 +979,8 @@ def _set_process_mesh_and_chunk_id(op, chunk_process_mesh, chunk_id, set_mesh):
             input_var_process_mesh = get_var_process_mesh(var)
             if input_var_process_mesh is not None:
                 break
-        assert input_var_process_mesh is None
-        set_process_mesh(op_output_vars, None, input_var_process_mesh)
+        if input_var_process_mesh is not None:
+            set_process_mesh(op_output_vars, None, input_var_process_mesh)
         return
 
     op_dist_attr = op.dist_attr
