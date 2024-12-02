@@ -370,7 +370,7 @@ Expr IndiceToAbsOffset(const std::vector<Expr> &shape,
             i,
             shape[i].type()));
 
-    ir::IndexExpr indice_cast = indices[i];
+    Expr indice_cast = indices[i];
     optim::SimplifyCast(&indice_cast);
     if (res.defined()) {
       res = RampRelatedAdd(RampRelatedMul(res, shape[i]), indice_cast);

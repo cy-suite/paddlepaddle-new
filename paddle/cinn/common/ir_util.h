@@ -262,11 +262,6 @@ bool ComparePriority(const ir::IndexExpr &lhs, const ir::IndexExpr &rhs);
 bool IsSumPartialBySymbol(const ir::IndexExpr &expr,
                           const ir::IndexExpr &symbol);
 
-ir::IndexExpr SimplifySymbolicAdd(
-    const ir::IndexExpr &lhs,
-    const ir::IndexExpr &sym,
-    const ir::IndexExpr &outter_mul_factor = ir::IndexExpr(1));
-
 /*!
  * \brief Simplify the `lhs` by symbol `sym`. Usually run after
  * `IsSumPartialBySymbol`
@@ -309,10 +304,6 @@ ir::IndexExpr SimplifySymbolicAdd(
 bool IsDivisiblieBySymbol(const ir::IndexExpr &expr,
                           const ir::IndexExpr &symbol,
                           const ir::IrNodeTy &ty);
-
-ir::IndexExpr SimplifySymbolicDivide(const ir::IndexExpr &lhs,
-                                     const ir::IndexExpr &sym,
-                                     const ir::IrNodeTy &ty);
 
 /*!
  * \brief Simplify the `lhs` by symbol `sym`. Usually run after
