@@ -56,8 +56,18 @@ TEST(op_test, region_test) {
   pir::OpInfo fake_engine_op_info =
       ctx->GetRegisteredOpInfo(paddle::dialect::FakeEngineOp::name());
 
-  std::vector<pir::Type> output_types;
-  output_types.push_back(pir::VectorType::get(ctx));
+  std::vector<pir::Type> out_types;
+  out_types.push_back(
+      pir::DenseTensorType::get(pir::IrContext::Instance(),
+                                pir::Float32Type::get(ctx),
+                                phi::DDim(std::vector<int64_t>{2, 2}.data(), 2),
+                                phi::DataLayout::kNCHW,
+                                phi::LoD(),
+                                0));
+  pir::Type out_vector_type =
+      pir::VectorType::get(pir::IrContext::Instance(), out_types);
+  std::vector<pir::Type> output_types = {out_vector_type};
+
   pir::AttributeMap attribute_map;
   std::vector<pir::Attribute> val;
   val.push_back(pir::StrAttribute::get(ctx, "input_0"));
