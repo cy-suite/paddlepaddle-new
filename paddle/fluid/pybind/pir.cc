@@ -85,6 +85,7 @@
 #include "paddle/cinn/hlir/dialect/operator/transforms/check_infer_symbolic_util.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/pir_to_py_code_converter.h"
 #include "paddle/cinn/hlir/framework/pir_compiler.h"
+#include "paddle/pir/include/dialect/shape/utils/shape_analysis.h"
 #endif
 
 using paddle::dialect::ApiBuilder;
@@ -1372,7 +1373,7 @@ void BindValue(py::module *m) {
                }
              }
              PADDLE_THROW(common::errors::InvalidArgument(
-                 "only support accesss index from op_result or positional "
+                 "only support accessing index from op_result or positional "
                  "block arg."));
            })
       .def("is_dense_tensor_type",
@@ -1461,9 +1462,42 @@ void BindValue(py::module *m) {
               return py::cast<py::none>(Py_None);
             }
           })
-      .def("_clone", [](Value self) {
-        // Return a new value owned by python side
-        return self;
+      .def("_clone",
+           [](Value self) {
+             // Return a new value owned by python side
+             return self;
+           })
+      .def("sparse_dim",
+           [](Value self) -> int32_t {
+             auto op_result = self.dyn_cast<OpResult>();
+             pir::Operation *operation = op_result.owner();
+             if (self.type().isa<SparseCooTensorType>() &&
+                 operation->name() == "pd_op.sparse_coo_tensor_sp") {
+               std::vector<Value> sources = operation->operands_source();
+               Value non_zero_indices = sources[1];
+               return phi::vectorize(GetValueDims(non_zero_indices))[0];
+             } else if (self.type().isa<SparseCsrTensorType>()) {
+               PADDLE_THROW(common::errors::InvalidType(
+                   "SparseCsrTensor is unsupported in pir mode."));
+             } else {
+               return 0;
+             }
+           })
+      .def("dense_dim", [](Value self) -> int32_t {
+        auto op_result = self.dyn_cast<OpResult>();
+        pir::Operation *operation = op_result.owner();
+        if (self.type().isa<SparseCooTensorType>() &&
+            operation->name() == "pd_op.sparse_coo_tensor_sp") {
+          std::vector<Value> sources = operation->operands_source();
+          Value non_zero_indices = sources[1];
+          int32_t dims = phi::vectorize(GetValueDims(self)).size();
+          return dims - phi::vectorize(GetValueDims(non_zero_indices))[0];
+        } else if (self.type().isa<SparseCsrTensorType>()) {
+          PADDLE_THROW(common::errors::InvalidType(
+              "SparseCsrTensor is unsupported in pir mode."));
+        } else {
+          return phi::vectorize(GetValueDims(self)).size();
+        }
       });
 }
 
@@ -2191,8 +2225,8 @@ void BindUtils(pybind11::module *m) {
   m->def("reset_insertion_point_to_end",
          []() { ApiBuilder::Instance().ResetInsertionPointToEnd(); });
   m->def("set_chunk_id",
-         [](int chunk_id) { ApiBuilder::Instance().SetChunckId(chunk_id); });
-  m->def("get_chunk_id", []() { return ApiBuilder::Instance().GetChunckId(); });
+         [](int chunk_id) { ApiBuilder::Instance().SetChunkId(chunk_id); });
+  m->def("get_chunk_id", []() { return ApiBuilder::Instance().GetChunkId(); });
   m->def("set_op_role",
          [](int op_role) { ApiBuilder::Instance().SetOpRole(op_role); });
   m->def("get_op_role", []() { return ApiBuilder::Instance().GetOpRole(); });
@@ -2359,22 +2393,23 @@ void BindUtils(pybind11::module *m) {
 
 namespace {
 
-#ifdef PADDLE_WITH_CINN
-std::shared_ptr<pir::PassManager> CreatePassManager() {
-  pir::IrContext *ctx = pir::IrContext::Instance();
-  ctx->GetOrRegisterDialect<paddle::dialect::OperatorDialect>();
-  ctx->GetOrRegisterDialect<cinn::dialect::OperatorDialect>();
-  ctx->GetOrRegisterDialect<pir::shape::ShapeDialect>();
-  auto pass_manager = std::make_shared<pir::PassManager>(ctx);
-  if (FLAGS_print_ir) {
-    pass_manager->EnableIRPrinting();
-  }
-  return pass_manager;
-}
-#endif
-
 void ApplyCinnPass(Program &program) {  // NOLINT
 #ifdef PADDLE_WITH_CINN
+  auto CreatePassManager = [&]() -> std::shared_ptr<pir::PassManager> {
+    pir::IrContext *ctx = pir::IrContext::Instance();
+    ctx->GetOrRegisterDialect<paddle::dialect::OperatorDialect>();
+    ctx->GetOrRegisterDialect<cinn::dialect::OperatorDialect>();
+    ctx->GetOrRegisterDialect<pir::shape::ShapeDialect>();
+    auto pass_manager = std::make_shared<pir::PassManager>(ctx);
+    if (FLAGS_print_ir) {
+      pass_manager->EnableIRPrinting();
+    }
+    auto &shape_analysis = pir::ShapeAnalysisManager::Instance().Get(&program);
+    pass_manager->SetValueReplacedHook([&](pir::Value from, pir::Value to) {
+      shape_analysis.ShareShapeOrData(from, to);
+    });
+    return pass_manager;
+  };
   cinn::dialect::ir::ApplyCinnPass(&program, CreatePassManager);
 #else
   PADDLE_THROW(common::errors::Unimplemented(
@@ -2385,6 +2420,17 @@ void ApplyCinnPass(Program &program) {  // NOLINT
 
 void CheckInferSymbolicIfNeed(Program &program) {  // NOLINT
 #ifdef PADDLE_WITH_CINN
+  auto CreatePassManager = [&]() -> std::shared_ptr<pir::PassManager> {
+    pir::IrContext *ctx = pir::IrContext::Instance();
+    ctx->GetOrRegisterDialect<paddle::dialect::OperatorDialect>();
+    ctx->GetOrRegisterDialect<cinn::dialect::OperatorDialect>();
+    ctx->GetOrRegisterDialect<pir::shape::ShapeDialect>();
+    auto pass_manager = std::make_shared<pir::PassManager>(ctx);
+    if (FLAGS_print_ir) {
+      pass_manager->EnableIRPrinting();
+    }
+    return pass_manager;
+  };
   cinn::dialect::ir::CheckInferSymbolicIfNeed(&program, CreatePassManager);
 #else
   // Do nothing.
