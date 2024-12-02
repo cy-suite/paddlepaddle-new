@@ -164,11 +164,13 @@ class PrecisionMode(Enum):
             "INT8": PrecisionMode.INT8,
         }
         mode_upper = mode_str.upper()
-        if mode_upper not in mode_map:
+        if mode_upper in mode_map:
+            return mode_map[mode_upper]
+        else:
             _logger.warning(
                 f"Unsupported precision mode: '{mode_str}'. Defaulting to FP32."
             )
-        return mode_map.get(mode_upper, PrecisionMode.FP32)
+            return PrecisionMode.FP32
 
 
 class TensorRTConfigManager:
