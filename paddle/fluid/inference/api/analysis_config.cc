@@ -738,9 +738,14 @@ void AnalysisConfig::EnableMkldnnInt8(
 }
 
 void AnalysisConfig::EnableOpenVINOEngine(Precision inference_precision) {
+#ifdef PADDLE_WITH_OPENVINO
   use_openvino_ = true;
   openvino_inference_precision_ = inference_precision;
   Update();
+#else
+  PADDLE_THROW(common::errors::PreconditionNotMet(
+      "To use Paddle-OpenVINO, please compile with OpenVINO first."));
+#endif
 }
 
 void AnalysisConfig::EnableTensorRtEngine(int64_t workspace_size,

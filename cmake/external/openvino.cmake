@@ -14,6 +14,7 @@
 
 if(NOT LINUX)
   message(STATUS "OpenVINO only support Linux.")
+  set(WITH_OPENVINO OFF)
   return()
 endif()
 

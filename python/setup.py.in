@@ -1015,10 +1015,11 @@ if '${WITH_OPENVINO}' == 'ON':
     shutil.copy('${OPENVINO_LIB}', libs_path)
     shutil.copy('${TBB_LIB}', libs_path)
     shutil.copy('${OPENVINO_PADDLE_LIB}', libs_path)
+    shutil.copy('${OPENVINO_CPU_PLUGIN_LIB}', libs_path)
     if os.name != 'nt':
-        package_data['paddle.libs'] += ['libopenvino.so.2450', 'libtbb.so.12', 'libopenvino_paddle_frontend.so.2450']
+        package_data['paddle.libs'] += ['libopenvino.so.2450', 'libtbb.so.12', 'libopenvino_paddle_frontend.so.2450', 'libopenvino_intel_cpu_plugin.so']
     else:
-        package_data['paddle.libs'] += ['openvino.dll', 'tbb.dll', 'openvino_paddle_frontend.dll']
+        package_data['paddle.libs'] += ['openvino.dll', 'tbb.dll', 'openvino_paddle_frontend.dll', 'openvino_intel_cpu_plugin.dll']
 
 if '${WITH_XPU}' == 'ON':
     shutil.copy('${XPU_API_LIB}', libs_path)
