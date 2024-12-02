@@ -156,7 +156,9 @@ class TestMatmulScaleFusePattern(PassTest):
                                     out = paddle.assign(out)
                                     self.pass_attr_list = [
                                         {
-                                            'py_matmul_scale_fuse_pass': matmul_scale_fuse_ctx
+                                            'py_matmul_scale_fuse_pass': [
+                                                matmul_scale_fuse_ctx
+                                            ]
                                         }
                                     ]
                                     self.feeds = {

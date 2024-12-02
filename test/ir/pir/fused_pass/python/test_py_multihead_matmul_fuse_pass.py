@@ -453,7 +453,9 @@ class TestVitAttentionPattern(PassTest):
                                 out = paddle.assign(reshape_out_2)
                                 self.pass_attr_list = [
                                     {
-                                        'py_multihead_matmul_fuse_pass': vit_attention_fuse_ctx
+                                        'py_multihead_matmul_fuse_pass': [
+                                            vit_attention_fuse_ctx
+                                        ]
                                     }
                                 ]
                                 self.feeds = {

@@ -132,7 +132,11 @@ class TestMatmulOutTransposeFusePattern(PassTest):
                 out = paddle.assign(out)
 
                 self.pass_attr_list = [
-                    {"py_matmul_transpose_fuse_pass": matmul_transpose_fuse_ctx}
+                    {
+                        "py_matmul_transpose_fuse_pass": [
+                            matmul_transpose_fuse_ctx
+                        ]
+                    }
                 ]
 
                 self.feeds = {

@@ -481,7 +481,9 @@ slice slice                    \                   squeeze       unsqueeze      
 
                                     self.pass_attr_list = [
                                         {
-                                            'py_fused_rotary_position_embedding_pass': rope_ctx
+                                            'py_fused_rotary_position_embedding_pass': [
+                                                rope_ctx
+                                            ]
                                         }
                                     ]
                                     self.feeds = {

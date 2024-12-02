@@ -165,7 +165,9 @@ class TestRmsNormFusePattern(PassTest):
                                 out = paddle.assign(out)
                                 self.pass_attr_list = [
                                     {
-                                        'py_add_norm_fuse_pass': fused_rms_norm_ctx
+                                        'py_add_norm_fuse_pass': [
+                                            fused_rms_norm_ctx
+                                        ]
                                     }
                                 ]
                                 self.feeds = {
