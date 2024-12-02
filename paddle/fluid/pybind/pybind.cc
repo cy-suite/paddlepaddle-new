@@ -1281,7 +1281,7 @@ PYBIND11_MODULE(libpaddle, m) {
       phi::IntArray shapeIntArray(shape);
       // Extractt the `data.__cuda_array_interface__['typestr'] attribute
       std::string typestr = cuda_dict["typestr"].cast<std::string>();
-      phi::DataType dtype = paddle::framework::ConvertToDataType(typestr);
+      phi::DataType dtype = paddle::framework::ConvertToPDDataType(typestr);
 
       // Extract the `data.__cuda_array_interface__['data']` attribute
       py::tuple data_tuple = cuda_dict["data"].cast<py::tuple>();
@@ -1312,12 +1312,12 @@ PYBIND11_MODULE(libpaddle, m) {
         }
       }
       phi::IntArray stridesIntArray(strides);
-      return paddle::from_blob(data, shapeIntArray, stridesIntArray, dtype);
+      return paddle::from_blob(data_ptr, shapeIntArray, stridesIntArray, dtype);
     } catch (const py::error_already_set &e) {
       throw;
     } catch (const std::exception &e) {
       // capture other exception
-      std::string msg = "Error in tensor from cuda_array_interface";
+      std::string msg = "Error in tensor from cuda_array_interface ";
       msg += e.what();
       throw py::value_error(msg);
     }

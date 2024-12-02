@@ -1020,8 +1020,6 @@ void TensorFromDLPack(const ::DLTensor& dl_tensor, phi::DenseTensor* dst) {
 #endif
 }
 
-phi::DenseTensor TensorFromCudaArray() {}
-
 template <typename T>
 std::string format_tensor(const phi::DenseTensor& tensor) {
   // TODO(zhiqiu): use the print option to format tensor.
