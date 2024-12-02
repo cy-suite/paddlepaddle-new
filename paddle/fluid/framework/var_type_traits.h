@@ -86,8 +86,8 @@ namespace operators {
 class CUDAGraphWithInOuts;
 
 namespace reader {
-class LoDTensorBlockingQueueHolder;
-class OrderedMultiDeviceLoDTensorBlockingQueueHolder;
+class DenseTensorBlockingQueueHolder;
+class OrderedMultiDeviceDenseTensorBlockingQueueHolder;
 }  // namespace reader
 }  // namespace operators
 
@@ -185,10 +185,10 @@ using VarTypeRegistry = detail::VarTypeRegistryImpl<
     ReaderHolder,
     String,
     Scope *,
-    operators::reader::LoDTensorBlockingQueueHolder,
+    operators::reader::DenseTensorBlockingQueueHolder,
     FetchList,
     FeedList,
-    operators::reader::OrderedMultiDeviceLoDTensorBlockingQueueHolder,
+    operators::reader::OrderedMultiDeviceDenseTensorBlockingQueueHolder,
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
     ncclUniqueId,
