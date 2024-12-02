@@ -22,6 +22,7 @@ limitations under the License. */
 #include "paddle/fluid/jit/serializer.h"
 #include "paddle/fluid/pybind/sot/eval_frame.h"
 #include "paddle/fluid/pybind/sot/eval_frame_tools.h"
+#include "paddle/fluid/pybind/sot/frame_proxy.h"
 #include "paddle/fluid/pybind/sot/guards.h"
 #include "paddle/fluid/pybind/sot/macros.h"
 #include "paddle/phi/common/data_type.h"
@@ -76,6 +77,9 @@ void BindGuard(pybind11::module *m) {
   py::class_<TypeMatchGuard, GuardBase, std::shared_ptr<TypeMatchGuard>>(
       *m, "TypeMatchGuard", R"DOC(TypeMatchGuard Class.)DOC")
       .def(py::init<const py::type &>(), py::arg("py_type"));
+  py::class_<IdMatchGuard, GuardBase, std::shared_ptr<IdMatchGuard>>(
+      *m, "IdMatchGuard", R"DOC(IdMatchGuard Class.)DOC")
+      .def(py::init<const py::object &>(), py::arg("py_obj"));
   py::class_<LengthMatchGuard, GuardBase, std::shared_ptr<LengthMatchGuard>>(
       *m, "LengthMatchGuard", R"DOC(LengthMatchGuard Class.)DOC")
       .def(py::init<const Py_ssize_t &>(), py::arg("length"));
@@ -116,6 +120,9 @@ void BindGuard(pybind11::module *m) {
 void BindSot(pybind11::module *m) {
 #if SOT_IS_SUPPORTED
   PyInit__eval_frame();
+#if PY_3_11_PLUS
+  PyInit__frame_proxy();
+#endif
   m->def(
       "set_eval_frame",
       [](const py::object &py_func) {
