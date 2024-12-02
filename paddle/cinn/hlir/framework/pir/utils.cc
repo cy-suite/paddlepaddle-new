@@ -363,12 +363,13 @@ bool CauseNewSymbolicShape(const ::pir::Operation& op) {
         has_data = has_data && item.data().has_value();
       }
       return has_data;
-    } else if (shape_or_data.isa<symbol::ShapeOrDataDimExprs>) {
+    } else if (shape_or_data.isa<symbol::TensorShapeOrDataDimExprs>()) {
       return shape_or_data.data().has_value();
     }
     PADDLE_THROW(::common::errors::InvalidArgument(
         "The starts and ends parameters of pd_op.slice currently only support "
-        "two types: TensorListShapeOrDataDimExprs and ShapeOrDataDimExprs"));
+        "two types: TensorListShapeOrDataDimExprs and "
+        "TensorShapeOrDataDimExprs"));
   };
 
   const auto& IsProcessableSlice = [&]() -> bool {

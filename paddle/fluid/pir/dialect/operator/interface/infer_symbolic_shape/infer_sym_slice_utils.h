@@ -34,7 +34,7 @@ inline bool GetExprVecOfStartEnd(
       }
     }
     return true;
-  } else if (shape_or_data.isa<symbol::ShapeOrDataDimExprs>) {
+  } else if (shape_or_data.isa<symbol::TensorShapeOrDataDimExprs>()) {
     if (shape_or_data.data().has_value()) {
       *expr_vec = shape_or_data.data().value();
       return true;
@@ -43,7 +43,8 @@ inline bool GetExprVecOfStartEnd(
   } else {
     PADDLE_THROW(::common::errors::InvalidArgument(
         "The starts and ends parameters of pd_op.slice currently only support "
-        "two types: TensorListShapeOrDataDimExprs and ShapeOrDataDimExprs"));
+        "two types: TensorListShapeOrDataDimExprs and "
+        "TensorShapeOrDataDimExprs"));
   }
 }
 
