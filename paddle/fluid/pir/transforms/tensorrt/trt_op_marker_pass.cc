@@ -1712,7 +1712,6 @@ class BitwiseCommonOpPattern : public pir::OpRewritePattern<OpType> {
         op->template attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-
 #if IS_TRT_VERSION_LT(8400)
     if constexpr (std::is_same_v<OpType, paddle::dialect::BitwiseAndOp>) {
       VLOG(3) << "bitwise_and is not supported when TensorRT < 8.4";
