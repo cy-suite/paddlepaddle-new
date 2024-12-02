@@ -600,15 +600,15 @@ const char *FusedGemmEpilogueOp::attributes_name[3] = {  // NOLINT
 OpInfoTuple FusedGemmEpilogueOp::GetOpInfo() {
   std::vector<paddle::dialect::OpInputInfo> inputs = {
       paddle::dialect::OpInputInfo(
-          "x", "paddle::dialect::DenseTensorType", false, false, false, false),
+          "x", "paddle::dialect::DenseTensorType", false, false, false, true),
       paddle::dialect::OpInputInfo(
-          "y", "paddle::dialect::DenseTensorType", false, false, false, false),
+          "y", "paddle::dialect::DenseTensorType", false, false, false, true),
       paddle::dialect::OpInputInfo("bias",
                                    "paddle::dialect::DenseTensorType",
                                    false,
                                    false,
                                    false,
-                                   false)};
+                                   true)};
   std::vector<paddle::dialect::OpAttributeInfo> attributes = {
       paddle::dialect::OpAttributeInfo("trans_x", "pir::BoolAttribute", ""),
       paddle::dialect::OpAttributeInfo("trans_y", "pir::BoolAttribute", ""),
@@ -681,6 +681,7 @@ void FusedGemmEpilogueOp::Build(pir::Builder &builder,
       FusedGemmEpilogueOp::InferMeta(argument_inputs, &argument_attributes);
 
   argument.AddOutputs(argument_outputs.begin(), argument_outputs.end());
+  ::pir::PassStopGradientsDefaultly(argument);
 }
 
 void FusedGemmEpilogueOp::VerifySig() {
@@ -1005,6 +1006,7 @@ void FusedGemmEpilogueGradOp::Build(pir::Builder &builder,
       FusedGemmEpilogueGradOp::InferMeta(argument_inputs, &argument_attributes);
 
   argument.AddOutputs(argument_outputs.begin(), argument_outputs.end());
+  ::pir::PassStopGradientsDefaultly(argument);
 }
 
 void FusedGemmEpilogueGradOp::VerifySig() {}
@@ -2611,6 +2613,17 @@ std::vector<pir::Type> TensorToArrayOp::InferMeta(
   return argument_outputs;
 }
 
+bool TensorToArrayOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape_or_data =
+      infer_context->GetShapeOrDataForValue(x())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  infer_context->SetShapeOrDataForValue(
+      x_grad(), symbol::ShapeOrDataDimExprs{x_shape_or_data});
+
+  return true;
+}
+
 OpInfoTuple SliceArrayOp::GetOpInfo() {
   std::vector<paddle::dialect::OpInputInfo> inputs = {
       paddle::dialect::OpInputInfo("input",
@@ -3550,7 +3563,8 @@ std::vector<pir::Type> ExpandOp::InferMeta(
         vec_shape.insert(vec_shape.end(), tmp.begin(), tmp.end());
       }
     } else if (shape.isa<pir::OpResult>() &&
-               shape.defining_op()->isa<paddle::dialect::ShapeOp>()) {
+               (shape.defining_op()->isa<paddle::dialect::ShapeOp>() ||
+                shape.defining_op()->isa<paddle::dialect::Shape64Op>())) {
       // tensor_shape may come from shape op
       // x0.shape = [-1,3]
       // tensor_shape = shape(x0)
@@ -3558,6 +3572,12 @@ std::vector<pir::Type> ExpandOp::InferMeta(
       pir::Value inputs = shape.defining_op()->operand_source(0);
       vec_shape = common::vectorize(
           inputs.type().dyn_cast<paddle::dialect::DenseTensorType>().dims());
+      // change -1 to -2 which represents real dynamic shape
+      for (size_t i = 0; i < vec_shape.size(); ++i) {
+        if (vec_shape[i] == -1) {
+          vec_shape[i] = -2;
+        }
+      }
     } else if (shape.type().isa<pir::VectorType>()) {
       size_t shape_size = shape.type().dyn_cast<pir::VectorType>().size();
       vec_shape = std::vector<int64_t>(shape_size, -2);
@@ -3579,7 +3599,8 @@ std::vector<pir::Type> ExpandOp::InferMeta(
         if (shape_dim.size() == 1 &&
             shape_dim[0] == static_cast<int64_t>(inputs.size())) {
           for (auto item : inputs) {
-            if (item.defining_op()->isa<paddle::dialect::ShapeOp>()) {
+            if (item.defining_op()->isa<paddle::dialect::ShapeOp>() ||
+                item.defining_op()->isa<paddle::dialect::Shape64Op>()) {
               pir::Value shape_input = item.defining_op()->operand_source(0);
               int64_t value = shape_input.type()
                                   .dyn_cast<paddle::dialect::DenseTensorType>()
@@ -4429,11 +4450,11 @@ bool ShapeBroadcastOp::InferSymbolicShape(
   PADDLE_ENFORCE_EQ(x_data_shape.data().has_value(),
                     true,
                     common::errors::InvalidArgument(
-                        "Value x comes from ShapeOp, it must have data"));
+                        "Value x comes from Shape64Op, it must have data"));
   PADDLE_ENFORCE_EQ(y_data_shape.data().has_value(),
                     true,
                     common::errors::InvalidArgument(
-                        "Value y comes from ShapeOp, it must have data"));
+                        "Value y comes from Shape64Op, it must have data"));
   const auto &x_data = x_data_shape.data().value();
   const auto &y_data = y_data_shape.data().value();
 

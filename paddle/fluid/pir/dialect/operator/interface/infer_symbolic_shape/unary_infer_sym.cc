@@ -2534,7 +2534,7 @@ bool PixelShuffleOpInferSymbolicShape(
 
   const bool channel_last = (data_format == "NHWC");
 
-  // the number of channles shoule be able to be divided by the upscale_factor
+  // the number of channels shoule be able to be divided by the upscale_factor
   // ^ 2.
   // TODO(Lans1ot, Buaa): add constrain for the channel number and
   // upscale_factor
@@ -3088,6 +3088,19 @@ bool ShapeOpInferSymbolicShape(pir::Operation *op,
   return true;
 }
 
+bool Shape64OpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  const symbol::ShapeOrDataDimExprs &operand_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0));
+  const auto &out_data = operand_shape_or_data.shape();
+  const std::vector<symbol::DimExpr> shape{std::int64_t(out_data.size())};
+  symbol::ShapeOrDataDimExprs shape_or_data{
+      symbol::TensorShapeOrDataDimExprs(shape, out_data)};
+
+  infer_context->SetShapeOrDataForValue(op->result(0), shape_or_data);
+  return true;
+}
+
 bool ShardIndexOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
   const auto &in_shape_or_data =
@@ -3182,6 +3195,10 @@ bool ShapeSrOpInferSymbolicShape(
   return ShapeOpInferSymbolicShape(op, infer_context);
 }
 
+bool Shape64SrOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  return Shape64OpInferSymbolicShape(op, infer_context);
+}
 // bool ShardIndexOpInferSymbolicShape(pir::Operation *op,
 //                                     pir::InferSymbolicShapeContext
 //                                     *infer_context) {
@@ -3879,19 +3896,9 @@ bool SqueezeOpInferSymbolicShape(
   auto axes_shape_or_data =
       infer_context->GetShapeOrDataForValue(op->operand_source(1));
 
-  std::vector<symbol::DimExpr> in_dims_sym;
-  if (x_shape_or_data.data().has_value()) {
-    in_dims_sym = x_shape_or_data.data().value();
-  } else {
-    in_dims_sym = x_shape_or_data.shape();
-  }
-
-  std::vector<symbol::DimExpr> squeeze_dims_sym;
-  if (axes_shape_or_data.data().has_value()) {
-    squeeze_dims_sym = axes_shape_or_data.data().value();
-  } else {
-    squeeze_dims_sym = axes_shape_or_data.shape();
-  }
+  const auto &in_dims_sym = x_shape_or_data.shape();
+  const std::vector<symbol::DimExpr> &squeeze_dims_sym =
+      details::GetExprVecFromData(axes_shape_or_data);
 
   std::vector<int> squeeze_dims;
   for (auto squeeze_dim : squeeze_dims_sym) {
@@ -3929,13 +3936,15 @@ bool SqueezeOpInferSymbolicShape(
 
       if (!should_squeeze.at(current)) {
         // At compile time, dim of SYMBOL is allowed to squeeze?
-        if (in_dims_sym.at(current) == 1) {
-          should_squeeze.at(current) = true;
-        } else if (!in_dims_sym.at(current).Has<std::int64_t>()) {
-          should_squeeze.at(current) = true;
-        } else {
-          should_squeeze.at(current) = true;
+        if (!in_dims_sym.at(current).Has<std::int64_t>()) {
+          should_squeeze[current] = true;
+          continue;
         }
+        if (in_dims_sym.at(current) == 1) {
+          should_squeeze[current] = true;
+          continue;
+        }
+        should_squeeze[current] = false;
       }
     }
   }
@@ -4219,12 +4228,7 @@ bool UnsqueezeOpInferSymbolicShape(
   auto axis_shape_or_data =
       infer_context->GetShapeOrDataForValue(op->operand_source(1));
 
-  std::vector<symbol::DimExpr> x_sym_shape;
-  if (x_shape_or_data.data().has_value()) {
-    x_sym_shape = x_shape_or_data.data().value();
-  } else {
-    x_sym_shape = x_shape_or_data.shape();
-  }
+  const auto &x_sym_shape = x_shape_or_data.shape();
   int x_dims_size = x_sym_shape.size();
 
   std::vector<symbol::DimExpr> axis_sym;
@@ -4454,8 +4458,9 @@ bool WeightQuantizeOpInferSymbolicShape(
                                         x_shape_1));
   }
 
-  int group_size = op->attribute<pir::Int32Attribute>("group_size").data();
-  std::string algo = op->attribute<pir::StrAttribute>("algo").AsString();
+  const int group_size =
+      op->attribute<pir::Int32Attribute>("group_size").data();
+  const std::string algo = op->attribute<pir::StrAttribute>("algo").AsString();
   PADDLE_ENFORCE_EQ(
       ((group_size == -1) || (group_size == 64) || (group_size == 128)),
       true,
