@@ -1285,7 +1285,12 @@ PYBIND11_MODULE(libpaddle, m) {
 
       // Extract the `data.__cuda_array_interface__['data']` attribute
       py::tuple data_tuple = cuda_dict["data"].cast<py::tuple>();
-      void *data_ptr = data_tuple[0].cast<void *>();
+      /*__cuda_array_interface__ 的 data 字段是一个元组 (ptr_as_int,
+      read_only_flag)。 ptr_as_int 表示数据指针，但在 Python
+      中它是一个整数，而不是真正的指针。 需要使用 reinterpret_cast 将其转换为
+      void*，但不能直接转换。 需要先将其转换为一个足够大的整数类型（例如
+      intptr_t 或 uintptr_t），然后再转换为 void*。*/
+      void *data_ptr = reinterpret_cast<void *>(data_tuple[0].cast<intptr_t>());
       if (data_tuple[1].cast<bool>()) {
         throw py::value_error("Read-only array is not supported");
       }
