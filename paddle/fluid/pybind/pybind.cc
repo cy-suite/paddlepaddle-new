@@ -1311,7 +1311,8 @@ PYBIND11_MODULE(libpaddle, m) {
           stride *= shape[i - 1];
         }
       }
-      return paddle::from_blob(data, shape, )
+      phi::IntArray stridesIntArray(strides);
+      return paddle::from_blob(data, shapeIntArray, stridesIntArray, dtype);
     } catch (const py::error_already_set &e) {
       throw;
     } catch (const std::exception &e) {
