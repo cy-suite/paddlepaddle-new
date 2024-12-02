@@ -2432,12 +2432,13 @@ std::shared_ptr<Program> ApplyFusedBnAddActPass(
 
 void BindIrPass(pybind11::module *m) {
   m->def("apply_cinn_pass", ApplyCinnPass);
-  m->def("dump_record_event", cinn::common::DumpRecordEvent);
   m->def("check_infer_symbolic_if_need", CheckInferSymbolicIfNeed);
   m->def("infer_symbolic_shape_pass", InferSymbolicShapePass);
   m->def("apply_cse_pass", ApplyCommonSubexpressionEliminationPass);
   m->def("apply_bn_add_act_pass", ApplyFusedBnAddActPass);
-
+#ifdef PADDLE_WITH_CINN
+  m->def("dump_record_event", cinn::common::DumpRecordEvent);
+#endif
   py::class_<Pass, std::shared_ptr<Pass>> pass(*m,
                                                "Pass",
                                                R"DOC(
