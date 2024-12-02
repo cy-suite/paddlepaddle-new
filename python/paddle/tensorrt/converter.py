@@ -27,18 +27,6 @@ import paddle
 from paddle import pir
 from paddle.base.core import clear_shape_info, get_value_shape_range_info
 from paddle.base.log_helper import get_logger
-from paddle.tensorrt.util import (
-    PrecisionMode,
-    TensorRTConfigManager,
-    get_cache_path,
-    get_trt_version,
-    get_trt_version_list,
-    is_shape_tensor,
-    map_dtype,
-    remove_duplicate_value,
-    weight_to_tensor,
-    zero_dims_to_one_dims,
-)
 
 from .impls.activation import *  # noqa: F403
 from .impls.attribute import *  # noqa: F403
@@ -58,6 +46,18 @@ from .impls.search import *  # noqa: F403
 from .impls.stat import *  # noqa: F403
 from .impls.vision import *  # noqa: F403
 from .register import converter_registry
+from .util import (
+    PrecisionMode,
+    TensorRTConfigManager,
+    get_cache_path,
+    get_trt_version,
+    get_trt_version_list,
+    is_shape_tensor,
+    map_dtype,
+    remove_duplicate_value,
+    weight_to_tensor,
+    zero_dims_to_one_dims,
+)
 
 version_list = get_trt_version_list()
 
