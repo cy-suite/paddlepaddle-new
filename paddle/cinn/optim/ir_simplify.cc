@@ -79,7 +79,11 @@ bool TryEraseVarIntervals(const For& op,
 //! them.
 void PartialSimplify(Expr* expr,
                      const cinn::common::cas_intervals_t& var_intervals = {}) {
-  *expr = cinn::common::AutoSimplify(*expr, var_intervals);
+  if (expr->is_index()) {
+    *expr = expr->as_index().Normalize();
+  } else {
+    *expr = cinn::common::AutoSimplify(*expr, var_intervals);
+  }
 }
 
 //! Simplify the expression but Load.
