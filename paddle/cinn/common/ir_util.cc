@@ -374,14 +374,14 @@ Expr IndiceToAbsOffset(const std::vector<Expr> &shape,
 
     ir::IndexExpr indice_cast = indices[i];
     optim::SimplifyCast(&indice_cast);
-    ir::IndexExpr stride(1);
-    for (int32_t j = i + 1; j < shape.size(); j++) {
-      stride = RampRelatedMul(stride, shape[j]);
+    if (res.defined()) {
+      res = RampRelatedAdd(RampRelatedMul(res, shape[i]), indice_cast);
+      if (res.is_index()) {
+        res = res.as_index().Normalize();
+      }
+    } else {
+      res = indice_cast;
     }
-
-    if (stride.is_index()) stride = stride.as_index().Normalize();
-    res = RampRelatedAdd(RampRelatedMul(indice_cast, stride), res);
-    if (res.is_index()) res = res.as_index().Normalize();
 
     if (i > 0) {
       if (res.is_index()) {

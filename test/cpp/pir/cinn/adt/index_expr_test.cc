@@ -147,6 +147,9 @@ TEST(IndexExpr, IndexExpr_3) {
   ir::Expr q14 = (S4 + S5) / (S6 * S7) * S6 * S7 + (S4 + S5) % (S6 * S7);
   ir::Expr q15 =
       (S4 * 256 + S5 + S6 * 1024) % 25088 / 512 * 512 + (S4 * 256 + S5) % 512;
+  ir::Expr q16 =
+      ((S4 * 256 + S5) / S6 / S7 * S7 + (S4 * 256 + S5) / S6 % S7) * S6 +
+      (S4 * 256 + S5) % S6;
 
   // `Div` corner cases
   ir::Expr q6 = (S4 % S5 - S4) / S5;
@@ -176,6 +179,7 @@ TEST(IndexExpr, IndexExpr_3) {
   EXPECT_EQ(q14.as_index().Normalize(), ir::IndexExpr(S4 + S5));
   EXPECT_EQ(q15.as_index().Normalize(),
             ir::IndexExpr((S4 * 256 + S5 + S6 * 1024)) % 25088);
+  EXPECT_EQ(q16.as_index().Normalize(), ir::IndexExpr(S4 * 256 + S5));
 }
 }  // namespace common
 }  // namespace cinn
