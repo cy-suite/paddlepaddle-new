@@ -1,4 +1,4 @@
-// Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
+// Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,17 +14,13 @@
 
 #pragma once
 
-#include "paddle/phi/core/dense_tensor.h"
-namespace phi {
+#include <memory>
+#include "paddle/pir/include/core/dll_decl.h"
 
-template <typename T, typename Context>
-void HistogramKernel(const Context& dev_ctx,
-                     const DenseTensor& input,
-                     const paddle::optional<DenseTensor>& weight,
-                     int64_t bins,
-                     float min,
-                     float max,
-                     bool density,
-                     DenseTensor* output);
+namespace pir {
 
-}  // namespace phi
+class Pass;
+
+IR_API std::unique_ptr<Pass> CreateRmsNormXpuFusePass();
+
+}  // namespace pir
