@@ -79,10 +79,6 @@ struct CombineOpInferSymbolicShapeInterfaceModel
                 "Currently InferSymbolicShape of CombineOp only support "
                 "DenseTensorType or DenseTensorArrayType."));
       }
-
-      infer_context->SetShapeOrDataForValue(
-          op->result(0),
-          symbol::ShapeOrDataDimExprs{symbol::NullShapeOrDataDimExpr()});
       return true;
     } else {
       PADDLE_THROW(common::errors::InvalidArgument(
