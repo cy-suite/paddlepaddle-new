@@ -349,6 +349,40 @@ bool CauseNewSymbolicShape(const ::pir::Operation& op) {
   if (FLAGS_disable_dyshape_in_train) {
     return false;
   }
+
+  auto& shape_analysis = ::pir::ShapeAnalysisManager::Instance().Get(
+      const_cast<::pir::Operation&>(op).GetParentProgram());
+
+  const auto& isProcessableSlice = [&]() -> bool {
+    const ::pir::Value& starts_value = op.operand_source(1);
+    const ::pir::Value& ends_value = op.operand_source(2);
+    const symbol::ShapeOrDataDimExprs& starts_shape_data =
+        shape_analysis.GetShapeOrDataForValue(starts_value);
+    const symbol::ShapeOrDataDimExprs& ends_shape_data =
+        shape_analysis.GetShapeOrDataForValue(ends_value);
+
+    const auto& HasData =
+        [&](const symbol::ShapeOrDataDimExprs& se_shape_data) -> bool {
+      if (se_shape_data.isa<symbol::TensorListShapeOrDataDimExprs>()) {
+        bool has_data = true;
+        const symbol::TensorListShapeOrDataDimExprs& list =
+            se_shape_data.dyn_cast<symbol::TensorListShapeOrDataDimExprs>();
+        for (const auto& item : list) {
+          has_data = has_data && item.data().has_value();
+        }
+        return has_data;
+      }
+
+      return se_shape_data.data().has_value();
+    };
+
+    return HasData(starts_shape_data) && HasData(ends_shape_data);
+  };
+
+  if (op.isa<paddle::dialect::SliceOp>() && !isProcessableSlice()) {
+    return true;
+  }
+
   if (!HaveUnkDim(op)) {
     return false;
   }
