@@ -587,6 +587,12 @@ def load_state_dict(
             offload,
         )
 
+        for flat_key, keys in mapping.items():
+            tmp = state_dict
+            for key in keys[:-1]:
+                tmp = tmp[key]
+            tmp[keys[-1]] = flat_state_dict[flat_key]
+
 
 def _load_state_dict(
     target_state_dict,
