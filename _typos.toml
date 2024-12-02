@@ -26,7 +26,6 @@ UE = "UE"
 unpacket = "unpacket"
 
 # These words need to be fixed
-assgin = 'assgin'
 beacuse = 'beacuse'
 becasue = 'becasue'
 Becasue = 'Becasue'
@@ -82,7 +81,6 @@ comsume = 'comsume'
 Continer = 'Continer'
 contenst = 'contenst'
 conter = 'conter'
-ontext = 'ontext'
 Continous = 'Continous'
 contibute = 'contibute'
 controled = 'controled'
