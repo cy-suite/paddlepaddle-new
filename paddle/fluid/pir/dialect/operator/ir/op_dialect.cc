@@ -56,9 +56,11 @@ struct CombineOpInferSymbolicShapeInterfaceModel
           PADDLE_ENFORCE_NOT_NULL(
               op->operand(i).type().dyn_cast<DenseTensorType>(),
               common::errors::InvalidArgument(
-                  "Currently InferSymbolicShape of CombineOp only support "
-                  "DenseTensorType or DenseTensorArrayType."));
-
+                  "The operand at index %d must be a DenseTensorArray. "
+                  "Currently InferSymbolicShape of CombineOp only accepts "
+                  "inputs that are either all DenseTensors or all "
+                  "DenseTensorArrays.",
+                  i));
           shape_data_list.emplace_back(
               infer_context->GetShapeOrDataForValue(op->operand_source(i))
                   .dyn_cast<symbol::TensorShapeOrDataDimExprs>());
@@ -71,19 +73,22 @@ struct CombineOpInferSymbolicShapeInterfaceModel
     } else if (op->operand(0).type().dyn_cast<DenseTensorArrayType>()) {
       // Note: Return NullShapeOrDataDimExpr for CombineOp with all
       // DenseTensorArrayType. The logic is designed for add_n_array op.
-      // Actually RankedTensorArrayListShapeOrDataDimExprs is better.
+      // TODO(ooooo): Actually RankedTensorArrayListShapeOrDataDimExprs is
+      // better.
       for (size_t i = 0; i < op->num_operands(); ++i) {
         PADDLE_ENFORCE_NOT_NULL(
             op->operand(i).type().dyn_cast<DenseTensorArrayType>(),
             common::errors::InvalidArgument(
-                "Currently InferSymbolicShape of CombineOp only support "
-                "DenseTensorType or DenseTensorArrayType."));
+                "The operand at index %d must be a DenseTensorArray. Currently "
+                "InferSymbolicShape of CombineOp only accepts inputs that are "
+                "either all DenseTensors or all DenseTensorArrays.",
+                i));
       }
       return true;
     } else {
       PADDLE_THROW(common::errors::InvalidArgument(
-          "Currently InferSymbolicShape of CombineOp only support "
-          "DenseTensorType or DenseTensorArrayType."));
+          "Currently InferSymbolicShape of CombineOp only accepts "
+          "inputs that are either all DenseTensors or all DenseTensorArrays."));
     }
   }
 

@@ -594,29 +594,23 @@ std::vector<pir::Type> AddNArrayOp::InferMeta(
 
 bool AddNArrayOp::InferSymbolicShape(
     pir::InferSymbolicShapeContext *infer_context) {
-  if (infer_context->HasShapeOrDataForValue(inputs())) {
-    // The inputs for add_n_array op is defined by builtin.combine.
-    // We use the combine op's inputs to infer the output shape.
-    pir::CombineOp combine_op =
-        inputs().defining_op()->dyn_cast<pir::CombineOp>();
-    // Try to get the infer result as much as possible.
-    for (size_t i = 0; i < combine_op.num_operands(); i++) {
-      if (infer_context->HasShapeOrDataForValue(combine_op.operand_source(i))) {
-        auto out_shape_or_data =
-            infer_context->GetShapeOrDataForValue(combine_op.operand_source(i))
-                .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
-        infer_context->SetShapeOrDataForValue(
-            out(), symbol::ShapeOrDataDimExprs{out_shape_or_data});
-        return true;
-      }
+  // The inputs for add_n_array op is defined by builtin.combine.
+  // We use the combine op's inputs to infer the output shape.
+  pir::CombineOp combine_op =
+      inputs().defining_op()->dyn_cast<pir::CombineOp>();
+  // Try to get the infer result as much as possible.
+  for (size_t i = 0; i < combine_op.num_operands(); i++) {
+    if (infer_context->HasShapeOrDataForValue(combine_op.operand_source(i))) {
+      auto out_shape_or_data =
+          infer_context->GetShapeOrDataForValue(combine_op.operand_source(i))
+              .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+      infer_context->SetShapeOrDataForValue(
+          out(), symbol::ShapeOrDataDimExprs{out_shape_or_data});
+      return true;
     }
-    PADDLE_THROW(common::errors::InvalidArgument(
-        "At least one operand of CombineOp should have shape or data."));
-
-  } else {
-    PADDLE_THROW(common::errors::InvalidArgument(
-        "Fail to GetShapeOrDataForValue on pd_op.add_n_array's inputs"));
   }
+  PADDLE_THROW(common::errors::InvalidArgument(
+      "At least one operand of CombineOp should have shape or data."));
 }
 
 const char *FusedGemmEpilogueOp::attributes_name[3] = {  // NOLINT
@@ -1522,6 +1516,7 @@ std::vector<pir::Type> CreateArrayOp::InferMeta(
 
 bool CreateArrayOp::InferSymbolicShape(
     pir::InferSymbolicShapeContext *infer_context) {
+  // TODO(ooooo): Try to use output type's dims to decide.
   infer_context->SetShapeOrDataForValue(
       out(),
       symbol::ShapeOrDataDimExprs{symbol::RankedTensorArrayShapeOrDataDimExprs(
@@ -2646,6 +2641,17 @@ std::vector<pir::Type> TensorToArrayOp::InferMeta(
   return argument_outputs;
 }
 
+bool TensorToArrayOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape_or_data =
+      infer_context->GetShapeOrDataForValue(x())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  infer_context->SetShapeOrDataForValue(
+      x_grad(), symbol::ShapeOrDataDimExprs{x_shape_or_data});
+
+  return true;
+}
+
 OpInfoTuple SliceArrayOp::GetOpInfo() {
   std::vector<paddle::dialect::OpInputInfo> inputs = {
       paddle::dialect::OpInputInfo("input",
@@ -3585,7 +3591,8 @@ std::vector<pir::Type> ExpandOp::InferMeta(
         vec_shape.insert(vec_shape.end(), tmp.begin(), tmp.end());
       }
     } else if (shape.isa<pir::OpResult>() &&
-               shape.defining_op()->isa<paddle::dialect::ShapeOp>()) {
+               (shape.defining_op()->isa<paddle::dialect::ShapeOp>() ||
+                shape.defining_op()->isa<paddle::dialect::Shape64Op>())) {
       // tensor_shape may come from shape op
       // x0.shape = [-1,3]
       // tensor_shape = shape(x0)
@@ -3620,7 +3627,8 @@ std::vector<pir::Type> ExpandOp::InferMeta(
         if (shape_dim.size() == 1 &&
             shape_dim[0] == static_cast<int64_t>(inputs.size())) {
           for (auto item : inputs) {
-            if (item.defining_op()->isa<paddle::dialect::ShapeOp>()) {
+            if (item.defining_op()->isa<paddle::dialect::ShapeOp>() ||
+                item.defining_op()->isa<paddle::dialect::Shape64Op>()) {
               pir::Value shape_input = item.defining_op()->operand_source(0);
               int64_t value = shape_input.type()
                                   .dyn_cast<paddle::dialect::DenseTensorType>()
@@ -4470,11 +4478,11 @@ bool ShapeBroadcastOp::InferSymbolicShape(
   PADDLE_ENFORCE_EQ(x_data_shape.data().has_value(),
                     true,
                     common::errors::InvalidArgument(
-                        "Value x comes from ShapeOp, it must have data"));
+                        "Value x comes from Shape64Op, it must have data"));
   PADDLE_ENFORCE_EQ(y_data_shape.data().has_value(),
                     true,
                     common::errors::InvalidArgument(
-                        "Value y comes from ShapeOp, it must have data"));
+                        "Value y comes from Shape64Op, it must have data"));
   const auto &x_data = x_data_shape.data().value();
   const auto &y_data = y_data_shape.data().value();
 
