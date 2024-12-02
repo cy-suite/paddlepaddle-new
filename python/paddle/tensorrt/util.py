@@ -138,7 +138,15 @@ def mark_buitlin_op(program):
                     defining_op.has_attr("__l_trt__")
                     and defining_op.attrs()["__l_trt__"]
                 ):
-                    enforce_op_lower_trt(program, op.name())
+                    op.set_bool_attr("__l_trt__", True)
+        if op.name() == "builtin.combine":
+            defining_op = op.results()[0].all_used_ops()[0]
+            if defining_op is not None:
+                if (
+                    defining_op.has_attr("__l_trt__")
+                    and defining_op.attrs()["__l_trt__"]
+                ):
+                    op.set_bool_attr("__l_trt__", True)
 
 
 class PrecisionMode(Enum):
@@ -197,15 +205,6 @@ def support_fp32_mix_precision(op_type, layer):
     if op_type in force_fp32_ops:
         layer.reset_precision()
         layer.precision = trt.DataType.FLOAT
-                    op.set_bool_attr("__l_trt__", True)
-        if op.name() == "builtin.combine":
-            defining_op = op.results()[0].all_used_ops()[0]
-            if defining_op is not None:
-                if (
-                    defining_op.has_attr("__l_trt__")
-                    and defining_op.attrs()["__l_trt__"]
-                ):
-                    op.set_bool_attr("__l_trt__", True)
 
 
 def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):

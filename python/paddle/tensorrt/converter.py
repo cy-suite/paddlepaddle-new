@@ -28,6 +28,7 @@ import paddle
 from paddle import pir
 from paddle.base.core import clear_shape_info, get_value_shape_range_info
 from paddle.base.log_helper import get_logger
+
 from .impls.activation import *  # noqa: F403
 from .impls.attribute import *  # noqa: F403
 from .impls.common import *  # noqa: F403
