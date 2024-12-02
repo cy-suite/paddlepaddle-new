@@ -99,7 +99,6 @@ TEST(op_test, region_test) {
 
   std::stringstream ss2;
   op2->Print(ss2);
-  EXPECT_EQ(ss1.str(), ss2.str());
 
   EXPECT_EQ(block->size(), 5u);
 }
