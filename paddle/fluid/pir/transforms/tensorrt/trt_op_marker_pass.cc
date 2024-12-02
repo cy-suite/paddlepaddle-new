@@ -1526,6 +1526,59 @@ class NearestInterV2Pattern
   }
 };
 
+class RoiAlignOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::RoiAlignOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::RoiAlignOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::RoiAlignOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+
+    const std::vector<std::string> required_attrs = {"pooled_height",
+                                                     "pooled_width",
+                                                     "spatial_scale",
+                                                     "sampling_ratio",
+                                                     "aligned"};
+    for (const auto &attr : required_attrs) {
+      if (!op->HasAttribute(attr)) {
+        VLOG(3) << "RoiAlign " << attr << " attribute does not exist";
+        return false;
+      }
+    }
+
+    auto pooled_height =
+        op->attribute<pir::Int32Attribute>("pooled_height").data();
+    if (pooled_height <= 0) {
+      VLOG(3) << "RoiAlign: pooled_height must > 0";
+      return false;
+    }
+    auto pooled_width =
+        op->attribute<pir::Int32Attribute>("pooled_width").data();
+    if (pooled_width <= 0) {
+      VLOG(3) << "RoiAlign: pooled_width must > 0";
+      return false;
+    }
+    auto spatial_scale =
+        op->attribute<pir::FloatAttribute>("spatial_scale").data();
+    if (spatial_scale <= 0.f) {
+      VLOG(3) << "RoiAlign: spatial_scale must > 0.f";
+      return false;
+    }
+
+    auto roisnum = op.operand_source(2);
+    if (!roisnum) {
+      VLOG(3) << "RoiAlign does not have roisnum";
+      return false;
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class ClipPattern : public pir::OpRewritePattern<paddle::dialect::ClipOp> {
  public:
   using pir::OpRewritePattern<paddle::dialect::ClipOp>::OpRewritePattern;
@@ -2207,6 +2260,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<OneHotOpPattern>(context));
     ps.Add(std::make_unique<AssignValueOpPattern>(context));
     ps.Add(std::make_unique<AssignValue_OpPattern>(context));
+    ps.Add(std::make_unique<RoiAlignOpPattern>(context));
     return ps;
   }
 };

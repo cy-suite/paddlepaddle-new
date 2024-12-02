@@ -17,6 +17,7 @@ import unittest
 import numpy as np
 from tensorrt_test_base import TensorRTBaseTest
 
+import paddle
 import paddle.nn.functional as F
 
 
@@ -90,6 +91,46 @@ class TestGridSampleTRTPatternCase4(TestGridSampleTRTPatternBase):
                 "align_corner": False,
             },
         )
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestRoiAlignTRTPatternCase1(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.vision.ops.roi_align
+        self.api_args = {
+            "x": np.random.randn(2, 1, 6, 6).astype("int32"),
+            "boxes": np.array(
+                [[1, 1, 4, 4], [2, 2, 5, 5], [1, 1, 4, 4], [2, 2, 5, 5]],
+                dtype="int32",
+            ),
+            "boxes_num": np.array([2, 2], dtype="int32"),
+            "output_size": 2,
+        }
+        self.program_config = {"feed_list": ["x", "boxes", "boxes_num"]}
+        self.min_shape = {"x": [2, 1, 6, 6]}
+        self.max_shape = {"x": [2, 1, 6, 6]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestRoiAlignTRTPatternCase2(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.vision.ops.roi_align
+        self.api_args = {
+            "x": np.random.randn(2, 1, 6, 6).astype("float64"),
+            "boxes": np.array(
+                [[1, 1, 4, 4], [2, 2, 5, 5], [1, 1, 4, 4], [2, 2, 5, 5]],
+                dtype="int32",
+            ),
+            "boxes_num": np.array([2, 2], dtype="int32"),
+            "output_size": 2,
+        }
+        self.program_config = {"feed_list": ["x", "boxes", "boxes_num"]}
+        self.min_shape = {"x": [2, 1, 6, 6]}
+        self.max_shape = {"x": [2, 1, 6, 6]}
 
     def test_trt_result(self):
         self.check_trt_result()

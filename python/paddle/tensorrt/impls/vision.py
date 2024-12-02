@@ -44,3 +44,31 @@ def grid_sample_converter(network, paddle_op, inputs):
     grid_sample_layer.align_corners = align_corners
     grid_sample_layer.sample_mode = sample_mode
     return grid_sample_layer.get_output(0)
+
+
+@converter_registry.register("pd_op.roi_align", trt_version="8.x")
+def roi_align_converter(network, paddle_op, inputs):
+    input_tensor = inputs[0]
+    rois_tensor = inputs[1]
+
+    pooled_height = paddle_op.attrs().get("pooled_height", 0)
+    pooled_width = paddle_op.attrs().get("pooled_width", 0)
+    spatial_scale = paddle_op.attrs().get("spatial_scale", 0.0)
+    sampling_ratio = paddle_op.attrs().get("sampling_ratio", -1)
+    aligned = paddle_op.attrs().get("aligned", True)
+
+    data_type = trt.DataType.FLOAT16
+
+    roi_align_plugin = trt.plugins.RoiAlignPluginDynamic(
+        data_type,
+        pooled_height,
+        pooled_width,
+        spatial_scale,
+        sampling_ratio,
+        aligned,
+    )
+
+    roi_align_layer = network.add_plugin_v2(
+        [input_tensor, rois_tensor], roi_align_plugin
+    )
+    return roi_align_layer.get_output(0)
