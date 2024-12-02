@@ -308,6 +308,12 @@ def trt_equal(network, a, b):
     return layer.get_output(0)
 
 
+def trt_gather(network, input, indices, axis=0):
+    indices_tensor = add_1D_constant_layer(network, indices)
+    result = network.add_gather(input, indices_tensor, axis).get_output(0)
+    return result
+
+
 def trt_prod(network, a, b):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.PROD)
     return layer.get_output(0)
@@ -386,7 +392,7 @@ def map_trt_dtype(trt_dtype):
         trt.DataType.HALF: np.float16,
         trt.DataType.INT32: np.int32,
         trt.DataType.INT8: np.int8,
-        trt.DataType.BOOL: np.bool,
+        trt.DataType.BOOL: bool,
     }
     if trt_dtype in dtype_map:
         return dtype_map[trt_dtype]
