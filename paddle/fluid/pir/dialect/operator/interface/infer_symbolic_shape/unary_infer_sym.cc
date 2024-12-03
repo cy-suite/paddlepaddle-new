@@ -3227,7 +3227,14 @@ bool ShuffleChannelOpInferSymbolicShape(
 bool SliceOpInferSymbolicShape(pir::Operation *op,
                                pir::InferSymbolicShapeContext *infer_context) {
   pir::Value operand_source = op->operand_source(0);
+  pir::Value operand_starts = op->operand_source(1);
+  pir::Value operand_ends = op->operand_source(2);
   pir::Value res = op->result(0);
+
+  const symbol::ShapeOrDataDimExprs &starts_shape_data =
+      infer_context->GetShapeOrDataForValue(operand_starts);
+  const symbol::ShapeOrDataDimExprs &ends_shape_data =
+      infer_context->GetShapeOrDataForValue(operand_ends);
 
   std::vector<int64_t> axes_vec = details::GetVectorAttr(op, "axes");
 
