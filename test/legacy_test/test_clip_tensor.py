@@ -116,6 +116,13 @@ class TestClipTensorAPI(unittest.TestCase):
         np_pd_equal([4, 5], [5], [4, 5], 'int64')
         paddle.enable_static()
 
+    def test_check_static_output(self):
+        paddle.enable_static()
+        np_pd_static_equal([5], [5], [1])
+        np_pd_static_equal([4, 5], [5], [1], 'int32')
+        np_pd_static_equal([4, 5], [5], [4, 5], 'int64')
+        paddle.disable_static()
+
 
 if __name__ == '__main__':
     paddle.enable_static()
