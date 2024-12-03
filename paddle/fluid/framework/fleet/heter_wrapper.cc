@@ -100,7 +100,7 @@ void HeterWrapper::SerializeToReq(const std::string& varname,
   }
   const phi::LoD lod = tensor->lod();
   if (lod.size() > 0) {
-    req_var->set_lod_level(lod.size());
+    req_var->set_legacy_lod_level(lod.size());
     for (auto& each : lod) {
       VariableMessage::LodData* lod_inner = req_var->add_lod();
       for (auto& d : each) {
@@ -157,7 +157,7 @@ void HeterWrapper::DeSerializeToTensor(Scope* scope,
   tensor->Resize(common::make_ddim(vec_dim));
 
   LoD lod;
-  for (int i = 0; i < req_var.lod_level(); ++i) {
+  for (int i = 0; i < req_var.legacy_lod_level(); ++i) {
     phi::Vector<size_t> v;
     for (int j = 0; j < req_var.lod(i).lod_data_size(); ++j) {
       v.push_back(req_var.lod(i).lod_data(j));
@@ -202,7 +202,7 @@ void HeterWrapper::DeSerializeToTensor(Scope* scope,
   tensor->Resize(common::make_ddim(vec_dim));
 
   LoD lod;
-  for (int i = 0; i < req_var.lod_level(); ++i) {
+  for (int i = 0; i < req_var.legacy_lod_level(); ++i) {
     phi::Vector<size_t> v;
     for (int j = 0; j < req_var.lod(i).lod_data_size(); ++j) {
       v.push_back(req_var.lod(i).lod_data(j));
