@@ -1429,8 +1429,7 @@ Tensor eye_decomp(const paddle::Scalar& num_rows,
   auto stop = full<T>({1}, min_num, dtype, place);
   auto step = full<T>({1}, 1, dtype, place);
   Tensor index = unsqueeze<T>(
-      backend::arange_with_tensor<T>(start, stop, step, DataType::INT32, place),
-      {1});
+      backend::arange<T>(start, stop, step, DataType::INT32, place), {1});
 
   auto index_cast = ConverToMT<T>(index);
   Tensor res = put_along_axis<T>(zero_tensor_cast, index, diag_one_cast, 1);
