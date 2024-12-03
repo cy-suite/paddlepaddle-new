@@ -18,12 +18,17 @@ import os
 import shutil
 import sys
 import zipfile
-from typing import Any, List, Literal
+from typing import TYPE_CHECKING, Literal
 
 from typing_extensions import TypeAlias
 
-import paddle
 from paddle.utils.download import get_path_from_url
+
+if TYPE_CHECKING:
+    import builtins
+    from typing import Any
+
+    import paddle
 
 __all__ = []
 
@@ -181,7 +186,7 @@ def list(
     repo_dir: str,
     source: _Source = 'github',
     force_reload: bool = False,
-) -> List[str]:  # noqa: UP006
+) -> builtins.list[str]:
     r"""
     List all entrypoints available in `github` hubconf.
 

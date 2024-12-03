@@ -15,15 +15,15 @@
 #include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/cinn_op_infer_sym.h"
 #include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/infer_sym_slice_utils.h"
 #include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/infer_sym_utils.h"
+#include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/unary_infer_sym.cc"
 
 namespace cinn::dialect {
 
 bool BroadcastOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
-  const std::vector<int64_t> &shape =
-      paddle::dialect::details::GetVectorAttr<int64_t>(op, "out_shape");
-
   const std::vector<symbol::DimExpr> &out_dims = [&] {
+    const std::vector<int64_t> &shape =
+        paddle::dialect::details::GetVectorAttr<int64_t>(op, "out_shape");
     std::vector<symbol::DimExpr> out_dims;
     for (int64_t dim : shape) {
       out_dims.emplace_back(dim);
@@ -31,9 +31,34 @@ bool BroadcastOpInferSymbolicShape(
     return out_dims;
   }();
 
-  symbol::ShapeOrDataDimExprs shape_data{
-      symbol::TensorShapeOrDataDimExprs(out_dims)};
-  infer_context->SetShapeOrDataForValue(op->result(0), shape_data);
+  const auto &DealWithMinusOneAndSetOutput =
+      [&](const std::vector<symbol::DimExpr> &expand_shape) {
+        std::vector<symbol::DimExpr> result_shape(expand_shape);
+        const auto &x_shape_or_data =
+            infer_context->GetShapeOrDataForValue(op->operand_source(0));
+        const std::vector<symbol::DimExpr> &x_dims = x_shape_or_data.shape();
+        for (size_t i = 0; i < expand_shape.size(); i++) {
+          if (expand_shape[i] == symbol::DimExpr{-1}) {  // copy the dim from x
+            // the shape is right aligned
+            int index = i - (expand_shape.size() - x_dims.size());
+            PADDLE_ENFORCE_GE(index,
+                              0,
+                              common::errors::InvalidArgument(
+                                  "in ExpandOpInferSymbolicShape, "
+                                  "the dim to copy must >= 0, "
+                                  "but got %d",
+                                  index));
+
+            result_shape[i] = x_dims[index];
+          }
+        }
+
+        infer_context->SetShapeOrDataForValue(
+            op->result(0),
+            symbol::ShapeOrDataDimExprs{
+                symbol::TensorShapeOrDataDimExprs(result_shape)});
+      };
+  DealWithMinusOneAndSetOutput(out_dims);
   return true;
 }
 
@@ -96,6 +121,114 @@ bool ConcatOpInferSymbolicShape(pir::Operation *op,
       symbol::TensorShapeOrDataDimExprs(GetOutDimExprs())};
 
   infer_context->SetShapeOrDataForValue(op->result(0), shape_data);
+  return true;
+}
+
+bool SplitOpInferSymbolicShape(pir::Operation *op,
+                               pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0));
+  PADDLE_ENFORCE_EQ(x_shape_or_data.data().has_value(),
+                    false,
+                    common::errors::InvalidArgument(
+                        "InferSymbolicShape of SplitOp only support input with "
+                        "value now."));
+  const auto &x_dims_sym = x_shape_or_data.shape();
+
+  // axis
+  int64_t axis = static_cast<int64_t>(
+      op->attribute("axis").dyn_cast<pir::Int32Attribute>().data());
+  size_t rank = x_dims_sym.size();
+  axis = axis >= 0 ? axis : std::max(int64_t(0), int64_t(axis + rank));
+
+  // sections
+  auto sections_array = op->attribute("num_or_sections")
+                            .dyn_cast<pir::ArrayAttribute>()
+                            .AsVector();
+  std::vector<symbol::DimExpr> sections_sym;
+  if (sections_array.size() > 0) {
+    PADDLE_ENFORCE_EQ(
+        sections_array[0].isa<pir::Int32Attribute>(),
+        true,
+        common::errors::PreconditionNotMet(
+            "Element in sections_array MUST be pir::Int64Attribute "));
+
+    for (size_t i = 0; i < sections_array.size(); ++i) {
+      sections_sym.push_back(
+          sections_array[i].dyn_cast<pir::Int32Attribute>().data());
+    }
+  }
+
+  // output
+  const symbol::TensorListShapeOrDataDimExprs &output_shape_data_list = [&] {
+    const auto &GetSum = [&](const auto &dim_exprs, const auto &Filter) {
+      symbol::DimExpr sum{0};
+      for (const auto &dim_expr : dim_exprs) {
+        if (Filter(dim_expr)) {
+          sum = sum + dim_expr;
+        }
+      }
+      return sum;
+    };
+    const auto &All = [&](const auto &dim_exprs, const auto &Cond) {
+      for (const auto &dim_expr : dim_exprs) {
+        if (!Cond(dim_expr)) {
+          return false;
+        }
+      }
+      return true;
+    };
+    const auto &IsNotMinusOne = [&](const symbol::DimExpr &dim_expr) {
+      if (dim_expr.isa<int64_t>()) {
+        return dim_expr.dyn_cast<int64_t>() != static_cast<int64_t>(-1);
+      }
+      return true;
+    };
+    const auto &sum_exclude_minus_one = GetSum(sections_sym, IsNotMinusOne);
+
+    const bool &all_sections_sym_not_minus_one =
+        All(sections_sym, IsNotMinusOne);
+    if (all_sections_sym_not_minus_one) {
+      infer_context->AddEqualCstr(x_dims_sym.at(axis), sum_exclude_minus_one);
+    }
+
+    symbol::TensorListShapeOrDataDimExprs shape_data_list;
+    std::vector<symbol::DimExpr> output_dims_sym = x_dims_sym;
+    if (!all_sections_sym_not_minus_one && sections_sym.size() == 1) {
+      VLOG(3) << "[SplitOp]-1 is the only split section. The output shape is "
+                 "identical to the input shape.";
+      shape_data_list.push_back(
+          symbol::TensorShapeOrDataDimExprs(output_dims_sym));
+      return shape_data_list;
+    }
+    for (uint32_t idx = 0; idx < sections_sym.size(); idx++) {
+      const auto &section_sym = sections_sym.at(idx);
+      output_dims_sym.at(axis) =
+          IsNotMinusOne(section_sym)
+              ? section_sym
+              : x_dims_sym.at(axis) - sum_exclude_minus_one;
+
+      shape_data_list.push_back(
+          symbol::TensorShapeOrDataDimExprs(output_dims_sym));
+    }
+    return shape_data_list;
+  }();
+
+  infer_context->SetShapeOrDataForValue(
+      op->result(0), symbol::ShapeOrDataDimExprs{output_shape_data_list});
+
+  return true;
+}
+
+bool Pool2dOpInferSymbolicShape(pir::Operation *op,
+                                pir::InferSymbolicShapeContext *infer_context) {
+  const auto &kernel_size_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(1));
+  const auto &kernel_size =
+      paddle::dialect::details::GetExprVecFromData(kernel_size_shape_or_data);
+  infer_context->SetShapeOrDataForValue(
+      op->result(0),
+      Pool2dRawInferSymbolicShape(op, kernel_size, infer_context));
   return true;
 }
 
@@ -217,16 +350,37 @@ bool SliceOpInferSymbolicShape(pir::Operation *op,
   infer_context->SetShapeOrDataForValue(
       op->result(0),
       paddle::dialect::slice_utils::SliceRawInferSymbolicShape(
-          infer_context->GetShapeOrDataForValue(op->operand_source(0)),
+          op->operand_source(0),
+          op->result(0),
           starts,
           ends,
           axes_raw,
           infer_flags_raw,
-          decrease_axis_raw));
+          decrease_axis_raw,
+          infer_context));
 
   return true;
 }
 
+bool UniformRandomOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  const std::vector<int64_t> shape =
+      paddle::dialect::details::GetVectorAttr<int64_t>(op, "shape");
+
+  const std::vector<symbol::DimExpr> out_dims = [&] {
+    std::vector<symbol::DimExpr> out_dims;
+    for (int64_t dim : shape) {
+      out_dims.emplace_back(symbol::DimExpr{dim});
+    }
+    return out_dims;
+  }();
+
+  infer_context->SetShapeOrDataForValue(
+      op->result(0),
+      symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs(out_dims)});
+
+  return true;
+}
 bool GatherOpInferSymbolicShape(pir::Operation *op,
                                 pir::InferSymbolicShapeContext *infer_context) {
   const auto &input_shape_or_data =

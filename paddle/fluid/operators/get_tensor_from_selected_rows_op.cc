@@ -30,15 +30,15 @@ class GetTensorFromSelectedRowsOp : public framework::OperatorWithKernel {
 
     PADDLE_ENFORCE_EQ(ctx->GetInputsVarType("X").front(),
                       framework::proto::VarType::SELECTED_ROWS,
-                      phi::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "The input X(%s)'s type should be SelectedRows, "
                           "but the received is %s",
                           ctx->Inputs("X").front(),
                           ctx->GetInputsVarType("X").front()));
     PADDLE_ENFORCE_EQ(
         ctx->GetOutputsVarType("Out").front(),
-        framework::proto::VarType::LOD_TENSOR,
-        phi::errors::InvalidArgument(
+        framework::proto::VarType::DENSE_TENSOR,
+        common::errors::InvalidArgument(
             "The output Out(%s)'s type should be phi::DenseTensor, "
             "but the received is %s",
             ctx->Outputs("Out").front(),
@@ -87,7 +87,7 @@ class GetTensorFromSelectedRowsOpVarTypeInference
     : public framework::VarTypeInference {
  public:
   void operator()(framework::InferVarTypeContext *ctx) const {  // NOLINT
-    ctx->SetOutputType("Out", framework::proto::VarType::LOD_TENSOR);
+    ctx->SetOutputType("Out", framework::proto::VarType::DENSE_TENSOR);
     ctx->SetOutputDataType("Out", ctx->GetInputDataType("X"));
   }
 };
@@ -100,23 +100,3 @@ REGISTER_OPERATOR(get_tensor_from_selected_rows,
                   ops::GetTensorFromSelectedRowsOp,
                   ops::GetTensorFromSelectedRowsOpProtoMaker,
                   ops::GetTensorFromSelectedRowsOpVarTypeInference);
-
-PD_REGISTER_STRUCT_KERNEL(get_tensor_from_selected_rows,
-                          CPU,
-                          ALL_LAYOUT,
-                          ops::GetTensorFromSelectedRowsKernel,
-                          float,
-                          double,
-                          int,
-                          int64_t) {}
-
-#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
-PD_REGISTER_STRUCT_KERNEL(get_tensor_from_selected_rows,
-                          GPU,
-                          ALL_LAYOUT,
-                          ops::GetTensorFromSelectedRowsKernel,
-                          float,
-                          double,
-                          int,
-                          int64_t) {}
-#endif

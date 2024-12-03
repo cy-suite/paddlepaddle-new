@@ -35,9 +35,9 @@ from paddle.distributed.auto_parallel.static.utils import (
 from paddle.static.io import deserialize_program
 
 _valid_types = [
-    core.VarDesc.VarType.LOD_TENSOR,
+    core.VarDesc.VarType.DENSE_TENSOR,
     core.VarDesc.VarType.SELECTED_ROWS,
-    core.VarDesc.VarType.LOD_TENSOR_ARRAY,
+    core.VarDesc.VarType.DENSE_TENSOR_ARRAY,
 ]
 
 paddle.enable_static()
@@ -100,7 +100,7 @@ class AutoAlignTool:
         elif level == 5:
             return self.get_backward_tmp_var()
         else:
-            raise ValueError()
+            raise ValueError
 
     def set_program(self, program: Program):
         assert isinstance(program, Program)

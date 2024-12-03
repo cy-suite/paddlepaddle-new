@@ -16,12 +16,11 @@ from __future__ import annotations
 
 import collections
 import copy
-from typing import TYPE_CHECKING, Literal, Sequence, overload
+from typing import TYPE_CHECKING, Literal, overload
 
 import numpy as np
 
 import paddle
-from paddle._typing import DTypeLike
 from paddle.base.data_feeder import convert_dtype
 
 from ... import tensor
@@ -33,7 +32,10 @@ from .layers import Layer
 from .norm import LayerNorm
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from paddle import Tensor
+    from paddle._typing import DTypeLike, ParamAttrLike
 
 __all__ = []
 
@@ -41,16 +43,14 @@ __all__ = []
 @overload
 def _convert_param_attr_to_list(
     param_attr: Sequence[Literal[False]] | Literal[False], n: int
-) -> list[bool]:
-    ...
+) -> list[bool]: ...
 
 
 @overload
 def _convert_param_attr_to_list(
-    param_attr: Sequence[ParamAttr] | ParamAttr | Sequence[bool] | bool | None,
+    param_attr: Sequence[ParamAttrLike] | ParamAttrLike | None,
     n: int,
-) -> list[ParamAttr]:
-    ...
+) -> list[ParamAttr]: ...
 
 
 def _convert_param_attr_to_list(param_attr, n):
@@ -192,8 +192,8 @@ class MultiHeadAttention(Layer):
         kdim: int | None = None,
         vdim: int | None = None,
         need_weights: bool = False,
-        weight_attr: ParamAttr | None = None,
-        bias_attr: ParamAttr | bool | None = None,
+        weight_attr: ParamAttrLike | None = None,
+        bias_attr: ParamAttrLike | None = None,
     ) -> None:
         super().__init__()
 
@@ -238,8 +238,7 @@ class MultiHeadAttention(Layer):
         key: Tensor,
         value: Tensor,
         cache: None = ...,
-    ) -> tuple[Tensor, Tensor, Tensor]:
-        ...
+    ) -> tuple[Tensor, Tensor, Tensor]: ...
 
     @overload
     def _prepare_qkv(
@@ -248,8 +247,7 @@ class MultiHeadAttention(Layer):
         key: Tensor,
         value: Tensor,
         cache: Cache | StaticCache = ...,
-    ) -> tuple[Tensor, Tensor, Tensor, Cache | StaticCache]:
-        ...
+    ) -> tuple[Tensor, Tensor, Tensor, Cache | StaticCache]: ...
 
     def _prepare_qkv(self, query, key, value, cache=None):
         r"""
@@ -341,8 +339,7 @@ class MultiHeadAttention(Layer):
     @overload
     def gen_cache(
         self, key: Tensor, value: Tensor | None = ..., type: type[Cache] = ...
-    ) -> Cache:
-        ...
+    ) -> Cache: ...
 
     @overload
     def gen_cache(
@@ -350,8 +347,7 @@ class MultiHeadAttention(Layer):
         key: Tensor,
         value: Tensor | None = ...,
         type: type[StaticCache] = ...,
-    ) -> StaticCache:
-        ...
+    ) -> StaticCache: ...
 
     def gen_cache(self, key, value=None, type=Cache):
         """
@@ -423,8 +419,7 @@ class MultiHeadAttention(Layer):
         value: Tensor | None = ...,
         attn_mask: None = ...,
         cache: None = ...,
-    ) -> Tensor:
-        ...
+    ) -> Tensor: ...
 
     @overload
     def forward(
@@ -434,8 +429,7 @@ class MultiHeadAttention(Layer):
         value: Tensor | None = ...,
         attn_mask: Tensor = ...,
         cache: None = ...,
-    ) -> tuple[Tensor, Tensor]:
-        ...
+    ) -> tuple[Tensor, Tensor]: ...
 
     @overload
     def forward(
@@ -445,8 +439,7 @@ class MultiHeadAttention(Layer):
         value: Tensor | None = ...,
         attn_mask: None = ...,
         cache: Cache = ...,
-    ) -> tuple[Tensor, Cache]:
-        ...
+    ) -> tuple[Tensor, Cache]: ...
 
     @overload
     def forward(
@@ -456,8 +449,7 @@ class MultiHeadAttention(Layer):
         value: Tensor | None = ...,
         attn_mask: None = ...,
         cache: StaticCache = ...,
-    ) -> tuple[Tensor, StaticCache]:
-        ...
+    ) -> tuple[Tensor, StaticCache]: ...
 
     @overload
     def forward(
@@ -467,8 +459,7 @@ class MultiHeadAttention(Layer):
         value: Tensor | None = ...,
         attn_mask: Tensor = ...,
         cache: Cache = ...,
-    ) -> tuple[Tensor, Tensor, Cache]:
-        ...
+    ) -> tuple[Tensor, Tensor, Cache]: ...
 
     @overload
     def forward(
@@ -478,8 +469,7 @@ class MultiHeadAttention(Layer):
         value: Tensor | None = ...,
         attn_mask: Tensor = ...,
         cache: StaticCache = ...,
-    ) -> tuple[Tensor, Tensor, StaticCache]:
-        ...
+    ) -> tuple[Tensor, Tensor, StaticCache]: ...
 
     def forward(self, query, key=None, value=None, attn_mask=None, cache=None):
         r"""
@@ -648,8 +638,8 @@ class TransformerEncoderLayer(Layer):
         attn_dropout: float | None = None,
         act_dropout: float | None = None,
         normalize_before: bool = False,
-        weight_attr: Sequence[ParamAttr] | ParamAttr | None = None,
-        bias_attr: ParamAttr | Sequence[ParamAttr] | bool | None = None,
+        weight_attr: ParamAttrLike | Sequence[ParamAttrLike] | None = None,
+        bias_attr: ParamAttrLike | Sequence[ParamAttrLike] | None = None,
         layer_norm_eps: float = 1e-5,
     ) -> None:
         self._config = locals()
@@ -702,8 +692,7 @@ class TransformerEncoderLayer(Layer):
         src: Tensor,
         src_mask: Tensor | None = ...,
         cache: None = ...,
-    ) -> Tensor:
-        ...
+    ) -> Tensor: ...
 
     @overload
     def forward(
@@ -711,8 +700,7 @@ class TransformerEncoderLayer(Layer):
         src: Tensor,
         src_mask: Tensor | None = ...,
         cache: MultiHeadAttention.Cache = ...,
-    ) -> tuple[Tensor, MultiHeadAttention.Cache]:
-        ...
+    ) -> tuple[Tensor, MultiHeadAttention.Cache]: ...
 
     def forward(self, src, src_mask=None, cache=None):
         r"""
@@ -854,8 +842,7 @@ class TransformerEncoder(Layer):
         src: Tensor,
         src_mask: Tensor | None = ...,
         cache: None = ...,
-    ) -> Tensor:
-        ...
+    ) -> Tensor: ...
 
     @overload
     def forward(
@@ -863,8 +850,7 @@ class TransformerEncoder(Layer):
         src: Tensor,
         src_mask: Tensor | None = None,
         cache: list[MultiHeadAttention.Cache] = ...,
-    ) -> tuple[Tensor, list[MultiHeadAttention.Cache]]:
-        ...
+    ) -> tuple[Tensor, list[MultiHeadAttention.Cache]]: ...
 
     def forward(self, src, src_mask=None, cache=None):
         r"""
@@ -1023,8 +1009,8 @@ class TransformerDecoderLayer(Layer):
         attn_dropout: float | None = None,
         act_dropout: float | None = None,
         normalize_before: bool = False,
-        weight_attr: ParamAttr | Sequence[ParamAttr] | None = None,
-        bias_attr: ParamAttr | Sequence[ParamAttr] | bool | None = None,
+        weight_attr: ParamAttrLike | Sequence[ParamAttrLike] | None = None,
+        bias_attr: ParamAttrLike | Sequence[ParamAttrLike] | None = None,
         layer_norm_eps: float = 1e-5,
     ) -> None:
         self._config = locals()
@@ -1088,8 +1074,7 @@ class TransformerDecoderLayer(Layer):
         tgt_mask: Tensor | None = ...,
         memory_mask: Tensor | None = ...,
         cache: None = ...,
-    ) -> Tensor:
-        ...
+    ) -> Tensor: ...
 
     @overload
     def forward(
@@ -1103,8 +1088,7 @@ class TransformerDecoderLayer(Layer):
         ] = ...,
     ) -> tuple[
         Tensor, tuple[MultiHeadAttention.Cache, MultiHeadAttention.StaticCache]
-    ]:
-        ...
+    ]: ...
 
     def forward(self, tgt, memory, tgt_mask=None, memory_mask=None, cache=None):
         r"""
@@ -1294,8 +1278,7 @@ class TransformerDecoder(Layer):
         tgt_mask: Tensor | None = ...,
         memory_mask: Tensor | None = ...,
         cache: None = ...,
-    ) -> Tensor:
-        ...
+    ) -> Tensor: ...
 
     @overload
     def forward(
@@ -1310,8 +1293,7 @@ class TransformerDecoder(Layer):
     ) -> tuple[
         Tensor,
         list[tuple[MultiHeadAttention.Cache, MultiHeadAttention.StaticCache]],
-    ]:
-        ...
+    ]: ...
 
     def forward(self, tgt, memory, tgt_mask=None, memory_mask=None, cache=None):
         r"""
@@ -1398,8 +1380,7 @@ class TransformerDecoder(Layer):
             tuple[MultiHeadAttention.Cache, ...]
             | tuple[MultiHeadAttention.StaticCache, ...]
         ]
-    ):
-        ...
+    ): ...
 
     @overload
     def gen_cache(
@@ -1407,8 +1388,7 @@ class TransformerDecoder(Layer):
     ) -> list[
         tuple[MultiHeadAttention.Cache, ...]
         | tuple[MultiHeadAttention.StaticCache, ...]
-    ]:
-        ...
+    ]: ...
 
     @overload
     def gen_cache(
@@ -1419,8 +1399,7 @@ class TransformerDecoder(Layer):
             tuple[MultiHeadAttention.Cache, ...]
             | tuple[MultiHeadAttention.StaticCache, ...]
         ]
-    ):
-        ...
+    ): ...
 
     def gen_cache(self, memory, do_zip=False):
         r"""
@@ -1563,8 +1542,8 @@ class Transformer(Layer):
         attn_dropout: float | None = None,
         act_dropout: float | None = None,
         normalize_before: bool = False,
-        weight_attr: ParamAttr | Sequence[ParamAttr] | None = None,
-        bias_attr: ParamAttr | Sequence[ParamAttr] | bool | None = None,
+        weight_attr: ParamAttrLike | Sequence[ParamAttrLike] | None = None,
+        bias_attr: ParamAttrLike | Sequence[ParamAttrLike] | None = None,
         custom_encoder: Layer | None = None,
         custom_decoder: Layer | None = None,
     ) -> None:

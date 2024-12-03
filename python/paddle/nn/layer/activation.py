@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO: define activation functions of neural network
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -25,8 +25,7 @@ from .layers import Layer
 
 if TYPE_CHECKING:
     from paddle import Tensor
-    from paddle._typing import DataLayoutND
-    from paddle.base import ParamAttr
+    from paddle._typing import DataLayoutND, ParamAttrLike
 __all__ = []
 
 
@@ -190,7 +189,7 @@ class GELU(Layer):
         GELU(x) = 0.5 * x * (1 + erf(\frac{x}{\sqrt{2}}))
 
     Parameters:
-        approximate (bool, optional): Wether to enable approximation. Default is False.
+        approximate (bool, optional): Whether to enable approximation. Default is False.
         name (str|None, optional): Name for the operation (optional, default is None).
             For more information, please refer to :ref:`api_guide_Name`.
 
@@ -489,7 +488,7 @@ class PReLU(Layer):
         self,
         num_parameters: int = 1,
         init: float = 0.25,
-        weight_attr: ParamAttr | None = None,
+        weight_attr: ParamAttrLike | None = None,
         data_format: DataLayoutND = "NCHW",
         name: str | None = None,
     ) -> None:
@@ -1191,7 +1190,7 @@ class ThresholdedReLU(Layer):
 
     Parameters:
         threshold (float, optional): The value of threshold for ThresholdedReLU. Default is 1.0
-        value (float, optinal): The value to replace with when x is less than threshold. Default is 0.0
+        value (float, optional): The value to replace with when x is less than threshold. Default is 0.0
         name (str|None, optional): Name for the operation (optional, default is None).
             For more information, please refer to :ref:`api_guide_Name`.
 

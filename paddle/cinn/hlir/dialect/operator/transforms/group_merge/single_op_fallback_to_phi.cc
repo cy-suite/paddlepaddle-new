@@ -35,22 +35,28 @@ class FusionOpPattern : public pir::OpRewritePattern<cinn::dialect::FusionOp> {
 
   bool MatchAndRewrite(cinn::dialect::FusionOp fusion_op,
                        pir::PatternRewriter& rewriter) const override {
-    // Fallback only when FusionOp has two operators inside: AnySingleOp +
-    // cf.yield
-    if (fusion_op.GetOperators().size() > 2) {
+    // Fallback only when FusionOp has two operators inside: AnySingleOp + yiled
+    // store cf.yield
+
+    if (fusion_op.GetOperators().size() != 3) {
       return false;
     }
+
+    if (!fusion_op.GetOperators()[1]->isa<cinn::dialect::YieldStoreOp>()) {
+      return false;
+    }
+
     PADDLE_ENFORCE_EQ(
         fusion_op.GetOperators().size(),
-        2,
-        phi::errors::InvalidArgument(
+        3,
+        ::common::errors::InvalidArgument(
             "fusion_op should have two operators inside, but got %d",
             fusion_op.GetOperators().size()));
     PADDLE_ENFORCE(
-        fusion_op.GetOperators()[1]->isa<::pir::YieldOp>(),
-        phi::errors::InvalidArgument(
+        fusion_op.GetOperators()[2]->isa<::pir::YieldOp>(),
+        ::common::errors::InvalidArgument(
             "The last operator of fusion_op must be YieldOp, but got %s",
-            fusion_op.GetOperators()[1]->name()));
+            fusion_op.GetOperators()[2]->name()));
 
     auto* program = fusion_op->GetParentProgram();
     auto& shape_analysis = pir::ShapeAnalysisManager::Instance().Get(
@@ -61,9 +67,15 @@ class FusionOpPattern : public pir::OpRewritePattern<cinn::dialect::FusionOp> {
       return false;
     }
 
+    // TODO(phlrain): support multi output
+    PADDLE_ENFORCE_EQ(
+        paddle_op.value()->num_results(),
+        1u,
+        ::common::errors::PreconditionNotMet("Only support ONE output op"));
+
     for (size_t i = 0; i < fusion_op.num_results(); ++i) {
       rewriter.ReplaceAllUsesWith(fusion_op.result(i),
-                                  paddle_op.value()->result(i));
+                                  paddle_op.value()->result(0));
     }
 
     rewriter.EraseOp(fusion_op);
@@ -78,7 +90,7 @@ class FusionOpPattern : public pir::OpRewritePattern<cinn::dialect::FusionOp> {
       pir::Operation* op,
       pir::PatternRewriter& rewriter) const {  // NOLINT
     PADDLE_ENFORCE(op->isa<cinn::dialect::ReshapeOp>(),
-                   phi::errors::InvalidArgument(
+                   ::common::errors::InvalidArgument(
                        "Input should be cinn::dialect::ReshapeOp, but got %s",
                        op->name()));
     auto reshape_op = op->dyn_cast<cinn::dialect::ReshapeOp>();
@@ -89,7 +101,7 @@ class FusionOpPattern : public pir::OpRewritePattern<cinn::dialect::FusionOp> {
                                 .AsVector();
       PADDLE_ENFORCE_GT(out_shape_attr.size(),
                         0,
-                        phi::errors::InvalidArgument(
+                        ::common::errors::InvalidArgument(
                             "The shape attribute should not be empty"));
 
       std::vector<int64_t> ret;
@@ -108,9 +120,41 @@ class FusionOpPattern : public pir::OpRewritePattern<cinn::dialect::FusionOp> {
     return paddle_reshape;
   }
 
+  pir::Operation* AssignOutOpPattern(
+      pir::Operation* op,
+      pir::PatternRewriter& rewriter) const {  // NOLINT
+    PADDLE_ENFORCE(
+        op->isa<paddle::dialect::AssignOut_Op>(),
+        ::common::errors::InvalidArgument(
+            "Input should be paddle::dialect::AssignOut_Op, but got %s",
+            op->name()));
+    auto assign_out_op = op->dyn_cast<paddle::dialect::AssignOut_Op>();
+
+    auto paddle_assign_out_ = rewriter.Build<paddle::dialect::AssignOut_Op>(
+        assign_out_op->operand_source(0), assign_out_op->operand_source(1));
+    return paddle_assign_out_;
+  }
+
+  pir::Operation* CastOpPattern(
+      pir::Operation* op,
+      pir::PatternRewriter& rewriter) const {  // NOLINT
+    PADDLE_ENFORCE(
+        op->isa<paddle::dialect::CastOp>(),
+        ::common::errors::InvalidArgument(
+            "Input should be paddle::dialect::CastOp, but got %s", op->name()));
+    auto cast_op = op->dyn_cast<paddle::dialect::CastOp>();
+
+    auto paddle_cast_op = rewriter.Build<paddle::dialect::CastOp>(
+        cast_op->operand_source(0), cast_op->attributes());
+    return paddle_cast_op;
+  }
+
   const std::unordered_map<std::string, CinnOpHandler>& op_handler_map() const {
     static std::unordered_map<std::string, CinnOpHandler> handler_map = {
         {cinn::dialect::ReshapeOp::name(), &FusionOpPattern::ReshapeOpPattern},
+        {paddle::dialect::AssignOut_Op::name(),
+         &FusionOpPattern::AssignOutOpPattern},
+        {paddle::dialect::CastOp::name(), &FusionOpPattern::CastOpPattern},
     };
     return handler_map;
   }
