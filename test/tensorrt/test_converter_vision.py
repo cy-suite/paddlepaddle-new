@@ -18,6 +18,8 @@ import numpy as np
 from tensorrt_test_base import TensorRTBaseTest
 
 import paddle.nn.functional as F
+from paddle import Tensor
+from collections.abc import Sequence
 
 
 class TestGridSampleTRTPatternBase(TensorRTBaseTest):
@@ -90,6 +92,73 @@ class TestGridSampleTRTPatternCase4(TestGridSampleTRTPatternBase):
                 "align_corner": False,
             },
         )
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+def anchor_generator(
+    x: Tensor,
+    anchor_sizes: Sequence[float],
+    aspect_ratios: Sequence[float],
+    stride: Sequence[float],
+    variances: Sequence[float],
+    offset: float = 0.5,
+) -> Tensor:
+    num_anchors = len(aspect_ratios) * len(anchor_sizes)
+    layer_h = x.shape[2]
+    layer_w = x.shape[3]
+    out_dim = (layer_h, layer_w, num_anchors, 4)
+    out_anchors = np.zeros(out_dim).astype('float32')
+
+    for h_idx in range(layer_h):
+        for w_idx in range(layer_w):
+            x_ctr = (w_idx * stride[0]) + offset * (stride[0] - 1)
+            y_ctr = (h_idx * stride[1]) + offset * (stride[1] - 1)
+            idx = 0
+            for r in range(len(aspect_ratios)):
+                ar = aspect_ratios[r]
+                for s in range(len(anchor_sizes)):
+                    anchor_size = anchor_sizes[s]
+                    area = stride[0] * stride[1]
+                    area_ratios = area / ar
+                    base_w = np.round(np.sqrt(area_ratios))
+                    base_h = np.round(base_w * ar)
+                    scale_w = anchor_size / stride[0]
+                    scale_h = anchor_size / stride[1]
+                    w = scale_w * base_w
+                    h = scale_h * base_h
+                    out_anchors[h_idx, w_idx, idx, :] = [
+                        (x_ctr - 0.5 * (w - 1)),
+                        (y_ctr - 0.5 * (h - 1)),
+                        (x_ctr + 0.5 * (w - 1)),
+                        (y_ctr + 0.5 * (h - 1)),
+                    ]
+                    idx += 1
+
+    # Set the variance
+    out_var = np.tile(variances, (layer_h, layer_w, num_anchors, 1))
+    out_anchors = out_anchors.astype('float32')
+    out_var = out_var.astype('float32')
+    out_anchors = paddle.to_tensor(out_anchors)
+    out_var = paddle.to_tensor(out_var)
+    return out_anchors, out_var
+
+
+class TestAnchorGeneratorTRTPatternBase(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = anchor_generator
+        self.api_args = {
+            "x": np.random.rand(1, 32, 16, 16).astype("float32"),
+            "anchor_sizes": [64, 128, 256, 512],
+            "aspect_ratios": [0.5, 1.0, 2.0],
+            "stride": [16.0, 16.0],
+            "variances": [0.1, 0.1, 0.2, 0.2],
+            "offset": 0.5,
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 32, 16, 16]}
+        self.max_shape = {"x": [4, 48, 16, 16]}
 
     def test_trt_result(self):
         self.check_trt_result()
