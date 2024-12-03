@@ -12,7 +12,6 @@ limitations under the License. */
 #include "paddle/phi/backends/dynload/hipblasLt.h"
 
 namespace phi::dynload {
-namespace  {
 std::once_flag hipblasLt_dso_flag;
 void *hipblasLt_dso_handle = nullptr;
 
