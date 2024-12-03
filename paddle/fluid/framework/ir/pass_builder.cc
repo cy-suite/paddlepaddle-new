@@ -34,7 +34,7 @@ void PassBuilder::RemovePass(size_t idx) {
   PADDLE_ENFORCE_GT(
       passes_.size(),
       idx,
-      platform::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "Passes size is %d, %d is not a valid index.", passes_.size(), idx));
   passes_.erase(passes_.begin() + idx);  // NOLINT
 }
@@ -44,7 +44,7 @@ std::shared_ptr<Pass> PassBuilder::InsertPass(size_t idx,
   PADDLE_ENFORCE_GE(
       passes_.size(),
       idx,
-      platform::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "Passes size is %d, %d is not a valid index.", passes_.size(), idx));
   std::shared_ptr<Pass> pass(
       ir::PassRegistry::Instance().Get(pass_type).release());

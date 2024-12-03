@@ -41,11 +41,11 @@ class WeightDecayRegularizer:
         self, param: paddle.Tensor, grad: paddle.Tensor, block: pir.Block
     ):
         """Add corresponding weight decay operations to the network"""
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def __str__(self):
         """Debug string"""
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 class L1Decay(WeightDecayRegularizer):
@@ -163,7 +163,7 @@ class L1Decay(WeightDecayRegularizer):
             return decay
 
     def __str__(self) -> str:
-        return "L1Decay, coeff=%f" % self._coeff
+        return f"L1Decay, coeff={self._coeff:f}"
 
 
 class L2Decay(WeightDecayRegularizer):
@@ -273,4 +273,4 @@ class L2Decay(WeightDecayRegularizer):
             return decay
 
     def __str__(self) -> str:
-        return "L2Decay, coeff=%f" % self._coeff
+        return f"L2Decay, coeff={self._coeff:f}"

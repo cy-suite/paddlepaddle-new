@@ -36,7 +36,8 @@ namespace dialect {
 using DenseTensorType = paddle::dialect::DenseTensorType;
 
 const char* GroupOp::attributes_name[GroupOp::attributes_num] = {"group_info"};
-const char* FusionOp::attributes_name[GroupOp::attributes_num] = {"group_info"};
+const char* FusionOp::attributes_name[FusionOp::attributes_num] = {
+    "group_info", "fusion_tracker"};
 const char* ConcatOp::attributes_name[ConcatOp::attributes_num] = {"axis"};
 const char* SplitOp::attributes_name[SplitOp::attributes_num] = {
     "num_or_sections", "axis"};
@@ -102,15 +103,15 @@ void GroupOp::VerifySig() {}
 void GroupOp::Print(pir::IrPrinter& printer) {
   auto& os = printer.os;
   auto op = operation();
-  printer.PrintOpResult(op);
+  printer.PrintOpResult(*op);
   os << " = \"" << name() << "\" [id:" << op->id() << "]";
-  printer.PrintOpOperands(op);
+  printer.PrintOpOperands(*op);
   os << " -> ";
-  printer.PrintOpReturnType(op);
+  printer.PrintOpReturnType(*op);
   os << " {\n";
   printer.AddIndentation();
   for (auto& sub_op : GetOperators()) {
-    printer.PrintOperation(sub_op);
+    printer.PrintOperation(*sub_op);
     os << "\n";
   }
   printer.DecreaseIndentation();
@@ -145,13 +146,17 @@ void FusionOp::Build(pir::Builder& builder,
 void FusionOp::Build(pir::Builder& builder,             // NOLINT
                      pir::OperationArgument& argument,  // NOLINT
                      const std::vector<pir::Type>& output_types,
-                     const cinn::dialect::GroupInfo& group_info) {
+                     const cinn::dialect::GroupInfo& group_info,
+                     const cinn::fusion::FusionTrackerPtr& tracker) {
   argument.AddRegion(nullptr);
   argument.output_types = output_types;
 
   argument.AddAttribute("group_info",
                         cinn::dialect::GroupInfoAttribute::get(
                             pir::IrContext::Instance(), group_info));
+  argument.AddAttribute("fusion_tracker",
+                        cinn::dialect::FusionTrackerPtrAttribute::get(
+                            pir::IrContext::Instance(), tracker));
 }
 
 pir::Block* FusionOp::block() {
@@ -182,15 +187,15 @@ void FusionOp::VerifySig() {}
 void FusionOp::Print(pir::IrPrinter& printer) {
   auto& os = printer.os;
   auto op = operation();
-  printer.PrintOpResult(op);
+  printer.PrintOpResult(*op);
   os << " = \"" << name() << "\" [id:" << op->id() << "]";
-  printer.PrintOpOperands(op);
+  printer.PrintOpOperands(*op);
   os << " -> ";
-  printer.PrintOpReturnType(op);
+  printer.PrintOpReturnType(*op);
   os << " {\n";
   printer.AddIndentation();
   for (auto& sub_op : GetOperators()) {
-    printer.PrintOperation(sub_op);
+    printer.PrintOperation(*sub_op);
     os << "\n";
   }
   printer.DecreaseIndentation();
@@ -244,7 +249,7 @@ void ConcatOp::Build(pir::Builder& builder,             // NOLINT
 
   PADDLE_ENFORCE_GT(inputs.size(),
                     0,
-                    phi::errors::InvalidArgument(
+                    ::common::errors::InvalidArgument(
                         "input size [%d] is less than 0", inputs.size()));
 
   const pir::Type out_type = [&]() {
@@ -319,6 +324,12 @@ void SplitOp::Build(pir::Builder& builder,             // NOLINT
 
   argument.AddAttribute(
       "axis", pir::Int32Attribute::get(pir::IrContext::Instance(), axis));
+}
+
+bool SplitOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext* infer_context) {
+  VLOG(4) << "Infer symbolic shape for cinn_op.split";
+  return SplitOpInferSymbolicShape(this->operation(), infer_context);
 }
 
 const char* GenerateShapeOp::attributes_name[attributes_num] = {
@@ -528,8 +539,14 @@ bool GenerateShapeOp::InferSymbolicShape(
     return dim_exprs;
   }();
 
-  std::vector<symbol::DimExpr> shape{
-      std::int64_t(substituted_dim_exprs.size())};
+  const auto& out_dims = this->out().type().dyn_cast<DenseTensorType>().dims();
+  const auto shape = [&] {
+    std::vector<symbol::DimExpr> result;
+    for (int i = 0; i < out_dims.size(); ++i) {
+      result.emplace_back(out_dims.at(i));
+    }
+    return result;
+  }();
   symbol::ShapeOrDataDimExprs shape_or_data_dim_exprs{
       symbol::TensorShapeOrDataDimExprs(shape, substituted_dim_exprs)};
 

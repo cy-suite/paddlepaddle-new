@@ -80,13 +80,12 @@ def prim_operator_data_parallel_functor(ctx, src_op):
         param = ctx.grads_params[var_name]
         startup_block = dist_op_context.startup_block
         new_op = startup_block.append_op(
-            type='c_broadcast',
-            inputs={'X': [param]},
-            outputs={'Out': [param]},
+            type='broadcast',
+            inputs={'x': [param]},
+            outputs={'out': [param]},
             attrs={
                 'ring_id': sync_group.id,
                 'root': 0,
-                'use_calc_stream': True,
                 OP_ROLE_KEY: OpRole.Forward,
             },
         )
@@ -122,7 +121,7 @@ class DistributedDefault(DistributedOperatorImplContainer):
         for i in range(num_inputs):
             assert not is_parameter_related(
                 input_arg_names[i], main_block
-            ), f"input {input_arg_names[i]} of op {str(dist_op.serial_op)} is parameter, op should not use default rule."
+            ), f"input {input_arg_names[i]} of op {dist_op.serial_op} is parameter, op should not use default rule."
             input_specs.append(
                 get_dist_tensor_spec(dist_op, input_arg_names[i])
             )
@@ -131,7 +130,7 @@ class DistributedDefault(DistributedOperatorImplContainer):
         for i in range(num_outputs):
             assert not is_parameter_related(
                 output_arg_names[i], main_block
-            ), f"output {output_arg_names[i]} of op {str(dist_op.serial_op)} is parameter, op should not use default rule."
+            ), f"output {output_arg_names[i]} of op {dist_op.serial_op} is parameter, op should not use default rule."
             output_specs.append(
                 get_dist_tensor_spec(dist_op, output_arg_names[i], False)
             )
@@ -610,13 +609,12 @@ class DistributedDefaultImpl0(DistributedOperatorImpl):
                         sync_group = new_process_group(group_ranks)
 
                         new_op = startup_block.append_op(
-                            type='c_broadcast',
-                            inputs={'X': param},
-                            outputs={'Out': param},
+                            type='broadcast',
+                            inputs={'x': param},
+                            outputs={'out': param},
                             attrs={
                                 'ring_id': sync_group.id,
                                 'root': 0,
-                                'use_calc_stream': True,
                                 OP_ROLE_KEY: OpRole.Forward,
                             },
                         )
@@ -636,7 +634,7 @@ class DistributedDefaultImpl0(DistributedOperatorImpl):
         dist_attr = ctx.get_op_dist_attr_for_program(backward_op)
         assert (
             dist_attr is not None
-        ), f"backward op [{str(backward_op)}] don't have dist attribute !"
+        ), f"backward op [{backward_op}] don't have dist attribute !"
         rank_id = dist_op_context.rank_id
 
         # check validation of inputs / outputs

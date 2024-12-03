@@ -19,8 +19,8 @@ limitations under the License. */
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/impl/matmul_kernel_impl.h"
 
-#ifdef PADDLE_WITH_CUDA
-#if CUDA_VERSION >= 12100 && defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 890
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
+#if CUDA_VERSION >= 12010 && defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 890
 PD_REGISTER_KERNEL(matmul,
                    GPU,
                    ALL_LAYOUT,
@@ -104,3 +104,16 @@ PD_REGISTER_KERNEL(matmul_with_flatten,
   }
 }
 #endif
+
+PD_REGISTER_KERNEL(legacy_matmul,
+                   GPU,
+                   ALL_LAYOUT,
+                   phi::LegacyMatmulKernel,
+                   float,
+                   double,
+                   phi::dtype::float16,
+                   int8_t) {
+  if (kernel_key.dtype() == phi::DataType::INT8) {
+    kernel->OutputAt(0).SetDataType(phi::DataType::INT32);
+  }
+}

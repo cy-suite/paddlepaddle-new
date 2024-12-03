@@ -14,15 +14,15 @@
 
 #include "paddle/cinn/operator_fusion/pattern_graph.h"
 #include <functional>
-#include "paddle/cinn/operator_fusion/backend/pattern.h"
-#include "paddle/cinn/operator_fusion/backend/pattern_fuser.h"
-#include "paddle/cinn/operator_fusion/frontend/pattern.h"
-#include "paddle/cinn/operator_fusion/frontend/pattern_fuser.h"
+#include "paddle/cinn/operator_fusion/graph_transformer/matcher.h"
+#include "paddle/cinn/operator_fusion/graph_transformer/operation.h"
+#include "paddle/cinn/operator_fusion/graph_transformer/search_algorithm.h"
+#include "paddle/cinn/operator_fusion/pattern.h"
+#include "paddle/cinn/operator_fusion/pattern_fuser.h"
 
 namespace cinn::fusion {
 
-template <typename T>
-std::vector<PatternNodePtr<T>> PatternGraph<T>::ClusterOps() {
+std::vector<PatternNodePtr> PatternGraph::ClusterOps() {
   VLOG(4) << "[Group Cluster] Initial Condition: " << GraphInfo();
 
   VLOG(4) << "[Group Cluster] Start SinkTrivialPattern";
@@ -44,20 +44,48 @@ std::vector<PatternNodePtr<T>> PatternGraph<T>::ClusterOps() {
   ReduceTree_Trivial_Fusion();
   VLOG(4) << "[Group Cluster] After ReduceTree_Trivial_Fusion: " << GraphInfo();
 
+  // All -> ItersPermutationPattern
+  VLOG(4) << "[Group Cluster] Start LiftToItersPermutationPattern";
+  LiftToItersPermutationPattern();
+  VLOG(4) << "[Group Cluster] After LiftToItersPermutationPattern: "
+          << GraphInfo();
+
+  // ItersPermutationPattern x ItersPermutationPattern Fusion
+  VLOG(4) << "[Group Cluster] Start IdentityAnchorFusion";
+  LimitedAnchorFusion();
+  VLOG(4) << "[Group Cluster] After IdentityAnchorFusion: " << GraphInfo();
+
+  // Sink single trivial op pattern
+  VLOG(4) << "[Group Cluster] Start SplitRecomputePattern";
+  SplitRecomputePattern();
+  VLOG(4) << "[Group Cluster] After SplitRecomputePattern: " << GraphInfo();
+
+  // ItersPermutationPattern x ItersPermutationPattern Fusion
+  VLOG(4) << "[Group Cluster] Start ItersPermutationFusion";
+  ItersPermutationFusion();
+  VLOG(4) << "[Group Cluster] After ItersPermutationFusion: " << GraphInfo();
+
   // Horizontal fusion.
   VLOG(4) << "[Group Cluster] Start HorizontalFusion";
   HorizontalFusion();
   VLOG(4) << "[Group Cluster] After HorizontalFusion: " << GraphInfo();
 
-  return SortByTopoOrder();
+  return ReturnFusionResults();
 }
 
-template <typename T>
-std::vector<PatternNodePtr<T>> PatternGraph<T>::SortByTopoOrder() {
+std::vector<PatternNodePtr> PatternGraph::ReturnFusionResults() {
+  auto sorted_nodes = SortByTopoOrder();
+  for (const auto& node : sorted_nodes) {
+    node->set_return();
+  }
+  return sorted_nodes;
+}
+
+std::vector<PatternNodePtr> PatternGraph::SortByTopoOrder() const {
   // sort all_pattern_nodes_ by topo order.
-  std::vector<PatternNodePtr<T>> res;
-  std::list<PatternNodePtr<T>> topo_queue;
-  std::map<PatternNodePtr<T>, int> degree;
+  std::vector<PatternNodePtr> res;
+  std::list<PatternNodePtr> topo_queue;
+  std::map<PatternNodePtr, int> degree;
   for (const auto& node : all_pattern_nodes_) {
     degree[node] = node->upstream().size();
     if (degree[node] == 0) {
@@ -65,7 +93,7 @@ std::vector<PatternNodePtr<T>> PatternGraph<T>::SortByTopoOrder() {
     }
   }
   while (!topo_queue.empty()) {
-    PatternNodePtr<T> node = topo_queue.front();
+    PatternNodePtr node = topo_queue.front();
     topo_queue.pop_front();
     res.push_back(node);
     for (const auto& downstream_op : node->downstream()) {
@@ -78,71 +106,148 @@ std::vector<PatternNodePtr<T>> PatternGraph<T>::SortByTopoOrder() {
   return res;
 }
 
-template <typename T>
-void PatternGraph<T>::SinkTrivialPattern() {
-  GraphTransformer<
-      NodePattern,
-      T,
-      And<And<NonSinkNodeMatcher, StmtPatternGraphMatcher<TrivialPattern<T>>>,
-          IsNotOutputNodeMatcher>,
-      MergeTrivialPatternOperation>(this);
+std::vector<PatternNodePtr> PatternGraph::SortByReverseTopoOrder() const {
+  // sort all_pattern_nodes_ by reverse topo order.
+  std::vector<PatternNodePtr> res;
+  std::list<PatternNodePtr> reverse_topo_queue;
+  std::map<PatternNodePtr, int> degree;
+
+  for (const auto& node : all_pattern_nodes_) {
+    degree[node] = node->downstream().size();
+    if (degree[node] == 0) {
+      reverse_topo_queue.push_back(node);
+    }
+  }
+
+  while (!reverse_topo_queue.empty()) {
+    PatternNodePtr node = reverse_topo_queue.front();
+    reverse_topo_queue.pop_front();
+    res.push_back(node);
+    for (const auto& upstream : node->upstream()) {
+      degree[upstream]--;
+      if (degree[upstream] == 0) {
+        reverse_topo_queue.push_back(upstream);
+      }
+    }
+  }
+  return res;
 }
 
-template <typename T>
-void PatternGraph<T>::ReduceLiftReduceTree() {
+void PatternGraph::SinkTrivialPattern() {
+  GraphTransformer<NodePattern,
+                   And<StmtPatternGraphMatcher<TrivialPattern>,
+                       OnlyOneDownstreamMatcher,
+                       Not<ReshapeConnectionMatcher>>,
+                   MergeTrivialPatternOperation>(this);
+
+  // TODO(huangjiyi): remove sink multi downstream transpose after
+  // supporting transpose plus reduce anchor fusion
   GraphTransformer<
       NodePattern,
-      T,
-      And<DownstreamSmallerThan<2>, StmtPatternGraphMatcher<ReducePattern<T>>>,
+      And<StmtPatternGraphMatcher<TrivialPattern>, TransposeOpMatcher>,
+      MergeTrivialPatternOperation>(this);
+
+  // Sink Trivial pattern whose downstream containing related iters.
+  // TODO(huangjiyi): Only sink to the related iters pattern.
+  GraphTransformer<NodePattern,
+                   And<StmtPatternGraphMatcher<TrivialPattern>,
+                       DownstreamHasItersRelationMatcher,
+                       Not<ReshapeConnectionMatcher>>,
+                   MergeTrivialPatternOperation>(this);
+
+  // Sink non-leaf reshape pattern.
+  GraphTransformer<
+      NodePattern,
+      And<StmtPatternGraphMatcher<TrivialPattern>,
+          Or<OnlyOneDownstreamMatcher, DownstreamHasItersRelationMatcher>,
+          Not<LeafReshapeConnectionMatcher>>,
+      MergeTrivialPatternOperation>(this);
+
+  // Align leaf reshape pattern to the input shape
+  GraphTransformer<NodePattern,
+                   And<StmtPatternGraphMatcher<TrivialPattern>,
+                       ReshapeOpMatcher,
+                       LeafReshapeConnectionMatcher>,
+                   ReshapeAlignInputOperation>(this);
+}
+
+void PatternGraph::ReduceLiftReduceTree() {
+  GraphTransformer<
+      NodePattern,
+      And<DownstreamSmallerThan<2>, StmtPatternGraphMatcher<ReducePattern>>,
       LiftReduceToReduceTreeOperation>(this);
 }
 
-template <typename T>
-void PatternGraph<T>::HorizontalFusion() {
+void PatternGraph::HorizontalFusion() {
   GraphTransformer<NodePattern,
-                   T,
-                   Or<StmtPatternGraphMatcher<TrivialPattern<T>>,
-                      StmtPatternGraphMatcher<ReduceTreePlusTrivialPattern<T>>,
-                      StmtPatternGraphMatcher<ReducePattern<T>>,
-                      StmtPatternGraphMatcher<ReduceTreePattern<T>>>,
+                   Or<StmtPatternGraphMatcher<TrivialPattern>,
+                      StmtPatternGraphMatcher<ReduceTreePlusTrivialPattern>,
+                      StmtPatternGraphMatcher<ReducePattern>,
+                      StmtPatternGraphMatcher<ReduceTreePattern>,
+                      StmtPatternGraphMatcher<ItersPermutationPattern>>,
                    LiftToHorizontalFusionPatternOperation>(this);
 
   GraphTransformer<NodePairPattern,
-                   T,
-                   And<HorizontalFusionConstrain<T>,
-                       InputOutputMaximumConstrain<T>,
-                       HorizontalCheckMiddleOutputVar<T>>,  // Avoid two many
-                                                            // inputs and
-                                                            // outputs.
+                   And<HorizontalFusionConstrain,
+                       InputOutputMaximumConstrain,
+                       HorizontalCheckMiddleOutputVar>,  // Avoid two many
+                                                         // inputs and
+                                                         // outputs.
                    HorizontalFusionOperation>(this);
 }
 
-template <typename T>
-void PatternGraph<T>::ReduceTreeGrown() {
+void PatternGraph::ReduceTreeGrown() {
   GraphTransformer<NodePattern,
-                   T,
-                   And<CanFuseReduceTreeMatcher, IsNotOutputNodeMatcher>,
+                   CanFuseReduceTreeMatcher,
                    MergeReduceTreeOperation>(this);
 }
 
-template <typename T>
-void PatternGraph<T>::ReduceTree_Trivial_Fusion() {
-  GraphTransformer<
-      NodePattern,
-      T,
-      And<CanFuseReduceTreeAndTrivialMatcher, IsNotOutputNodeMatcher>,
-      MergeReduceTreeAndTrivialOperation>(this);
+void PatternGraph::ReduceTree_Trivial_Fusion() {
+  GraphTransformer<NodePattern,
+                   CanFuseReduceTreeAndTrivialMatcher,
+                   MergeReduceTreeAndTrivialOperation>(this);
 }
 
-template <typename T>
-PatternGraph<T>::PatternGraph(const std::vector<PatternContent<T>>& contents,
-                              const std::vector<pir::Value>& outputs,
-                              const PolicyManager<T> policy_manager,
-                              const PolicyManager<T> topo_manager)
-    : policy_manager_(policy_manager),
-      topo_manager_(topo_manager),
-      outputs_(outputs) {
-  std::unordered_map<pir::Operation*, PatternNodePtr<T>> op_to_node_map;
+void PatternGraph::LiftToItersPermutationPattern() {
+  GraphTransformer<NodePattern,
+                   Or<StmtPatternGraphMatcher<TrivialPattern>,
+                      StmtPatternGraphMatcher<ReduceTreePlusTrivialPattern>,
+                      StmtPatternGraphMatcher<ReducePattern>,
+                      StmtPatternGraphMatcher<ReduceTreePattern>>,
+                   LiftToItersPermutationPatternOperation>(this);
+}
+
+void PatternGraph::LimitedAnchorFusion() {
+  iters_fusion_policy()
+      ->DisableStrategy(ItersTransformType::ReuseIters)
+      ->DisableStrategy(ItersTransformType::AppendIters);
+
+  GraphTransformer<ReverseTopoNodePairPattern,
+                   CanFuseItersPermutationMatcher,
+                   FuseItersPermutatioOperation>(this);
+}
+
+void PatternGraph::ItersPermutationFusion() {
+  iters_fusion_policy()->EnableAllStrategies();
+
+  GraphTransformer<ReverseTopoNodePairPattern,
+                   CanFuseItersPermutationMatcher,
+                   FuseItersPermutatioOperation>(this);
+}
+
+void PatternGraph::SplitRecomputePattern() {
+  GraphTransformer<NodePattern, RecomputeNodeMatcher, SplitRecomputeOperation>(
+      this);
+  GraphTransformer<NodePattern,
+                   StmtPatternGraphMatcher<TrivialPattern>,
+                   LiftToItersPermutationPatternOperation>(this);
+}
+
+PatternGraph::PatternGraph(const std::vector<PatternContent>& contents,
+                           const std::vector<pir::Value>& outputs,
+                           const PolicyManager policy_manager)
+    : policy_manager_(policy_manager), outputs_(outputs) {
+  std::unordered_map<pir::Operation*, PatternNodePtr> op_to_node_map;
 
   VLOG(4) << "len(outputs) = " << outputs_.size();
   for (const auto& v : outputs) {
@@ -150,19 +255,21 @@ PatternGraph<T>::PatternGraph(const std::vector<PatternContent<T>>& contents,
   }
 
   for (const auto& content : contents) {
-    PatternNodePtr<T> node = std::make_shared<PatternNode<T>>(content);
+    const auto& fusion_iters =
+        iters_fusion_policy()->iters_manager()->GetItersSignature(content.op);
+    PatternNodePtr node = std::make_shared<PatternNode>(content, fusion_iters);
     op_to_node_map[content.op] = node;
     all_pattern_nodes_.emplace(node);
   }
 
   for (const auto& content : contents) {
-    PatternNodePtr<T> cur_node = op_to_node_map[content.op];
+    PatternNodePtr cur_node = op_to_node_map[content.op];
 
     // add upstream nodes
     for (int i = 0; i < content.op->num_operands(); ++i) {
       ::pir::Operation* input_op = content.op->operand_source(i).defining_op();
       if (op_to_node_map.find(input_op) != op_to_node_map.end()) {
-        PatternNodePtr<T> upstream_node = op_to_node_map[input_op];
+        PatternNodePtr upstream_node = op_to_node_map[input_op];
         cur_node->AddNodeToUpstream(upstream_node);
       }
     }
@@ -175,7 +282,7 @@ PatternGraph<T>::PatternGraph(const std::vector<PatternContent<T>>& contents,
            ++consumer_it) {
         ::pir::Operation* output_op = consumer_it->owner();
         if (op_to_node_map.find(output_op) != op_to_node_map.end()) {
-          PatternNodePtr<T> downstream_node = op_to_node_map[output_op];
+          PatternNodePtr downstream_node = op_to_node_map[output_op];
           cur_node->AddNodeToDownstream(downstream_node);
         }
       }
@@ -191,48 +298,52 @@ PatternGraph<T>::PatternGraph(const std::vector<PatternContent<T>>& contents,
           << all_pattern_nodes_.size();
 }
 
-template <typename T>
-void PatternGraph<T>::RemoveNode(const PatternNodePtr<T>& node) {
-  VLOG(4) << "Start Remove: " << node;
-  if (all_pattern_nodes_.find(node) != all_pattern_nodes_.end()) {
-    VLOG(4) << "Removed! ";
-    all_pattern_nodes_.erase(node);
+void PatternGraph::RemoveNode(const PatternNodePtr& node) {
+  VLOG(4) << "Start Remove: " << node->id() << "(" << node << ")";
+  for (auto it = all_pattern_nodes_.begin(); it != all_pattern_nodes_.end();
+       ++it) {
+    // Here we use traversal instead of count() or find() builtin function
+    // because all_pattern_nodes_ is sorted by node id when initialization
+    // but node id may be changed in copy instruction that may destroy the
+    // order of set.
+    if ((*it)->id() == node->id()) {
+      VLOG(4) << "Removed " << (*it)->id();
+      all_pattern_nodes_.erase(it);
+      break;
+    }
   }
-
-  for (const PatternNodePtr<T>& upstream : node->upstream()) {
+  for (const PatternNodePtr& upstream : node->upstream()) {
     upstream->RemoveNodeFromDownstream(node);
   }
-
-  for (const PatternNodePtr<T>& downstream : node->downstream()) {
+  for (const PatternNodePtr& downstream : node->downstream()) {
     downstream->RemoveNodeFromUpstream(node);
   }
 }
 
-template <typename T>
-void PatternGraph<T>::AppendNode(const PatternNodePtr<T>& node) {
+void PatternGraph::AppendNode(const PatternNodePtr& node) {
   all_pattern_nodes_.emplace(node);
 }
 
-template <typename T>
-std::string PatternGraph<T>::GraphInfo() const {
+std::string PatternGraph::GraphInfo() const {
   std::stringstream ss;
   ss << "\n========= GraphInfo ===========";
   for (const auto& v : all_pattern_nodes_) {
+    ss << "\n##############################";
     ss << "\n" << v->DebugStr();
-    ss << "\n    IsOutput: " << IsOutputNodeMatcher()(*this, v);
-    ss << "\n    Loop Framework is: " << GetLoopFramework(v->stmt_pattern());
+    ss << "    IsOutput: " << IsOutputNodeMatcher()(*this, v);
+    ss << "\n    Loop Framework is: "
+       << GetLoopFramework(v->stmt_pattern()).loop;
+    ss << std::endl;
   }
   ss << "\n===============================";
   return ss.str();
 }
 
-template <typename T>
-PatternNodePtr<T> PatternGraph<T>::MergeNode(
-    const PatternNodePtr<T>& upstream,
-    const PatternNodePtr<T>& downstream,
-    MergePatternFn<T> merge_pattern_fn) {
-  PatternNodePtr<T> merged_node =
-      std::make_shared<PatternNode<T>>(upstream, downstream, merge_pattern_fn);
+PatternNodePtr PatternGraph::MergeNode(const PatternNodePtr& upstream,
+                                       const PatternNodePtr& downstream,
+                                       MergePatternFn merge_pattern_fn) {
+  PatternNodePtr merged_node =
+      std::make_shared<PatternNode>(upstream, downstream, merge_pattern_fn);
 
   // Update upstream and downstream nodes.
   for (const auto& upstream_node : merged_node->upstream()) {
@@ -246,7 +357,7 @@ PatternNodePtr<T> PatternGraph<T>::MergeNode(
     downstream_node->RemoveNodeFromDownstream(downstream);
   }
 
-  const auto vec_unique = [](const std::vector<PatternNodePtr<T>>& vec) {
+  const auto vec_unique = [](const std::vector<PatternNodePtr>& vec) {
     auto set = std::unordered_set(vec.begin(), vec.end());
     return set.size() == vec.size();
   };
@@ -254,20 +365,17 @@ PatternNodePtr<T> PatternGraph<T>::MergeNode(
   PADDLE_ENFORCE_EQ(
       vec_unique(merged_node->upstream()),
       true,
-      phi::errors::PreconditionNotMet(
+      ::common::errors::PreconditionNotMet(
           "The upstream nodes of the merged node are not unique."));
   PADDLE_ENFORCE_EQ(
       vec_unique(merged_node->downstream()),
       true,
-      phi::errors::PreconditionNotMet(
+      ::common::errors::PreconditionNotMet(
           "The downstream nodes of the merged node are not unique."));
 
   // deal with the graph storage.
   AppendNode(merged_node);
   return merged_node;
 }
-
-template class PatternGraph<FrontendStage>;
-template class PatternGraph<BackendStage>;
 
 }  // namespace cinn::fusion
