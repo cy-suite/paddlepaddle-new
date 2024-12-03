@@ -274,6 +274,7 @@ set(op_dialect_srcs
     ${CMAKE_CURRENT_SOURCE_DIR}/operator/ir/manual_op.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/operator/ir/op_attribute.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/operator/ir/op_type.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/operator/ir/tensorrt_op.cc
     ${op_info_file}
     ${split_op_source_files}
     ${split_bwd_op_source_files}
@@ -286,7 +287,9 @@ set(op_dialect_srcs
     ${bwd_sparse_op_source_file}
     ${api_source_file}
     ${api_source_file}
-    ${cache_grad_op_symbol_shape_file})
+    ${cache_grad_op_symbol_shape_file}
+    ${PADDLE_SOURCE_DIR}/paddle/fluid/prim/utils/static/static_tensor_operants.cc
+)
 
 if(WITH_ONEDNN)
   set(op_dialect_srcs
@@ -319,11 +322,11 @@ cc_library(
   DEPS ${op_dialect_deps})
 
 #Note(risemeup1):compile some *.cc files which depend on primitive_vjp_experimental into op_dialect_vjp.a/lib
-set(op_decomp_source_file ${PIR_DIALECT_BINARY_DIR}/op_decomp.cc)
+set(op_decomp_source_file ${PIR_DIALECT_BINARY_DIR}/op_decomp_rule.cc)
 set(op_decomp_vjp_source_file ${PIR_DIALECT_BINARY_DIR}/op_decomp_vjp.cc)
 
 set(op_dialect_vjp_srcs
-    ${CMAKE_CURRENT_SOURCE_DIR}/operator/ir/manual_op_decomp.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/operator/ir/manual_op_decomp_rule.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/operator/ir/manual_op_decomp_vjp.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/operator/ir/manual_op_vjp.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/operator/ir/op_dialect.cc

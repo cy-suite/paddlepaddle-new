@@ -153,6 +153,7 @@ def fc(
     Examples:
         .. code-block:: python
 
+            >>> # doctest: +SKIP("This has diff in xdoctest env")
             >>> import paddle
             >>> paddle.enable_static()
 
@@ -165,7 +166,7 @@ def fc(
             ...     weight_attr=paddle.ParamAttr(initializer=paddle.nn.initializer.Constant(value=0.5)),
             ...     bias_attr=paddle.ParamAttr(initializer=paddle.nn.initializer.Constant(value=1.0)))
             >>> print(out)
-            var fc_0.tmp_1 : LOD_TENSOR.shape(1, 2, 1).dtype(float32).stop_gradient(False)
+            var fc_0.tmp_1 : DENSE_TENSOR.shape(1, 2, 1).dtype(float32).stop_gradient(False)
 
             >>> # When input is multiple tensors
             >>> x0 = paddle.static.data(name="x0", shape=[1, 2, 2], dtype="float32")
@@ -177,7 +178,7 @@ def fc(
             ...     weight_attr=paddle.ParamAttr(initializer=paddle.nn.initializer.Constant(value=0.5)),
             ...     bias_attr=paddle.ParamAttr(initializer=paddle.nn.initializer.Constant(value=1.0)))
             >>> print(out)
-            var fc_1.tmp_3 : LOD_TENSOR.shape(1, 2).dtype(float32).stop_gradient(False)
+            var fc_1.tmp_3 : DENSE_TENSOR.shape(1, 2).dtype(float32).stop_gradient(False)
 
     """
 
@@ -212,17 +213,17 @@ def fc(
             if num_flatten_dims == -1:
                 num_flatten_dims = len(input_shape) - 1
             param_shape = [
-                reduce(lambda a, b: a * b, input_shape[num_flatten_dims:], 1)
-            ] + [size]
+                reduce(lambda a, b: a * b, input_shape[num_flatten_dims:], 1),
+                size,
+            ]
             w = helper.create_parameter(
                 attr=param_attr, shape=param_shape, dtype=dtype, is_bias=False
             )
             if in_pir_mode():
                 if len(input_var.shape) > 2:
-                    new_shape = (
-                        input_var.shape[0],
-                        np.prod(input_var.shape[1:]),
-                    )
+                    new_shape = input_var.shape[:num_flatten_dims] + [
+                        np.prod(input_var.shape[num_flatten_dims:])
+                    ]
                     input_var = paddle.reshape(input_var, new_shape)
                 tmp = paddle.matmul(input_var, w)
             else:
@@ -418,14 +419,14 @@ def continuous_value_model(input, cvm, use_cvm=True):
     If :attr:`use_cvm` is False, it will remove show and click from :attr:`input` , and output shape is :math:`[N, D - 2]` .
     :attr:`cvm` is show_click info, whose shape is :math:`[N, 2]` .
     Args:
-        input (Variable): The input variable. A 2-D LoDTensor with shape :math:`[N, D]` , where N is the batch size, D is `2 + the embedding dim` . `lod level = 1` .
+        input (Variable): The input variable. A 2-D DenseTensor with shape :math:`[N, D]` , where N is the batch size, D is `2 + the embedding dim` . `lod level = 1` .
         A Tensor with type float32, float64.
         cvm (Variable): Show and click variable. A 2-D Tensor with shape :math:`[N, 2]` , where N is the batch size, 2 is show and click.
         A Tensor with type float32, float64.
         use_cvm  (bool):  Use show_click or not. if use, the output dim is the same as input.
                           if not use, the output dim is `input dim - 2` (remove show and click)
     Returns:
-        Variable: A 2-D LodTensor with shape :math:`[N, M]` . if :attr:`use_cvm` = True, M is equal to input dim D. if False, M is equal to `D - 2`. \
+        Variable: A 2-D DenseTensor with shape :math:`[N, M]` . if :attr:`use_cvm` = True, M is equal to input dim D. if False, M is equal to `D - 2`. \
         A Tensor with same type as input.
     Examples:
         .. code-block:: python
@@ -1027,7 +1028,7 @@ def conv2d(
 
     padding = _update_padding(padding, data_format)
 
-    filter_shape = [num_filters, int(num_filter_channels)] + filter_size
+    filter_shape = [num_filters, int(num_filter_channels), *filter_size]
 
     def _get_default_param_initializer():
         filter_elem_num = filter_size[0] * filter_size[1] * num_channels
@@ -1322,7 +1323,7 @@ def conv3d(
     padding = _update_padding(padding, data_format)
 
     input_shape = input.shape
-    filter_shape = [num_filters, num_filter_channels] + filter_size
+    filter_shape = [num_filters, num_filter_channels, *filter_size]
 
     def _get_default_param_initializer():
         filter_elem_num = (
@@ -1718,7 +1719,7 @@ def conv2d_transpose(
             f"but received the groups of input is {groups}"
         )
 
-    filter_shape = [input_channel, num_filters // groups] + filter_size
+    filter_shape = [input_channel, num_filters // groups, *filter_size]
 
     img_filter = helper.create_parameter(
         dtype=input.dtype, shape=filter_shape, attr=helper.param_attr
@@ -2076,7 +2077,7 @@ def conv3d_transpose(
             f"Received: Attr(num_filters) is {num_filters}, the groups is {groups}"
         )
 
-    filter_shape = [input_channel, num_filters // groups] + filter_size
+    filter_shape = [input_channel, num_filters // groups, *filter_size]
     img_filter = helper.create_parameter(
         dtype=input.dtype, shape=filter_shape, attr=helper.param_attr
     )
@@ -2292,7 +2293,7 @@ def deformable_conv(
     dilation = paddle.utils.convert_to_list(dilation, 2, 'dilation')
 
     input_shape = input.shape
-    filter_shape = [num_filters, int(num_filter_channels)] + filter_size
+    filter_shape = [num_filters, int(num_filter_channels), *filter_size]
 
     def _get_default_param_initializer():
         filter_elem_num = filter_size[0] * filter_size[1] * num_channels
@@ -2815,8 +2816,7 @@ def batch_norm(
     if in_dygraph_mode():
         inputs_has_MomentumTensor = False
         attrs_has_momentum = False
-        tmp_tensor_type = core.eager.Tensor
-        if isinstance(momentum, tmp_tensor_type):
+        if isinstance(momentum, paddle.Tensor):
             inputs_has_MomentumTensor = True
         else:
             attrs_has_momentum = True
@@ -2951,7 +2951,7 @@ def prelu(x, mode, param_attr=None, data_format="NCHW", name=None):
         element: All elements do not share alpha. Each element has its own alpha.
 
     Parameters:
-        x (Tensor): The input Tensor or LoDTensor with data type float32.
+        x (Tensor): The input Tensor or DenseTensor with data type float32.
         mode (str): The mode for weight sharing.
         param_attr (ParamAttr|None, optional): The parameter attribute for the learnable \
             weight (alpha), it can be create by ParamAttr. None by default. \
@@ -2968,6 +2968,7 @@ def prelu(x, mode, param_attr=None, data_format="NCHW", name=None):
 
         .. code-block:: python
 
+            >>> # doctest: +SKIP("This has diff in xdoctest env")
             >>> import paddle
             >>> paddle.enable_static()
 
@@ -3096,14 +3097,14 @@ class PyFuncRegistry:
 
         ret = []
         for each_ret in func_ret:
-            if each_ret is None or isinstance(each_ret, core.LoDTensor):
+            if each_ret is None or isinstance(each_ret, core.DenseTensor):
                 ret.append(each_ret)
                 continue
 
             if not isinstance(each_ret, np.ndarray):
                 each_ret = np.array(each_ret)
 
-            tensor = core.LoDTensor()
+            tensor = core.DenseTensor()
             tensor.set(each_ret, core.CPUPlace())
             ret.append(tensor)
 
@@ -3383,7 +3384,8 @@ def row_conv(input, future_context_size, param_attr=None, act=None):
 
         .. code-block:: python
 
-            >>> # for LodTensor inputs
+            >>> # doctest: +SKIP("This has diff in xdoctest env")
+            >>> # for DenseTensor inputs
             >>> import paddle
             >>> paddle.enable_static()
             >>> x = paddle.static.data(name='x', shape=[9, 16],
@@ -3492,7 +3494,7 @@ def spectral_norm(weight, dim=0, power_iters=1, eps=1e-12, name=None):
 
     # create input and parameters
     input_shape = weight.shape
-    assert weight.numel() > 0, "Any dimension of input cannot be equal to 0."
+    assert 0 not in input_shape, "Any dimension of input cannot be equal to 0."
 
     if dim not in [0, 1]:
         raise ValueError(
@@ -3729,12 +3731,12 @@ def embedding(
 
         Case 2:
 
-        input is a LoDTensor with 1-level LoD. padding_idx = 0
+        input is a DenseTensor with 1-level LoD. padding_idx = 0
             input.lod = [[2, 3]]
             input.data = [[1], [3], [2], [4], [0]]
             input.shape = [5, 1]
         Given size = [128, 16]
-        output is a LoDTensor:
+        output is a DenseTensor:
             out.lod = [[2, 3]]
             out.shape = [5, 1, 16]
             out.data = [[[0.129435295, 0.244512452, ..., 0.436322452]],
@@ -3746,7 +3748,7 @@ def embedding(
 
 
     Args:
-        input(Tensor): A Tensor or LoDTensor with type int64, which contains the id information.
+        input(Tensor): A Tensor or DenseTensor with type int64, which contains the id information.
             The value of the input id should satisfy :math:`0<= id < size[0]` .
         size(tuple|list): The shape of lookup table parameter. It should have two elements which
             indicates the size of the dictionary of embeddings and the size of each embedding vector respectively.
@@ -3770,11 +3772,12 @@ def embedding(
             It must be float32 or float64. Default: float32.
 
     Returns:
-        Tensor: Embedding Tensor or LoDTensor mapped by input. The data type is the same as :attr:`dtype` .
+        Tensor: Embedding Tensor or DenseTensor mapped by input. The data type is the same as :attr:`dtype` .
 
     Static Examples:
         .. code-block:: python
 
+            >>> # doctest: +SKIP("This has diff in xdoctest env")
             >>> import paddle
             >>> import numpy as np
             >>> paddle.enable_static()
@@ -3787,7 +3790,7 @@ def embedding(
             >>> exe = paddle.static.Executor(place)
             >>> exe.run(paddle.static.default_startup_program())
 
-            >>> x = np.array([[7, 2, 4, 5],[4, 3, 2, 9]], dtype=np.int64)
+            >>> x = np.array([[7, 2, 4, 5],[4, 3, 2, 9]], dtype=np.int64) # type: ignore[var-annotated]
             >>> out, = exe.run(paddle.static.default_main_program(), feed={'x':x}, fetch_list=[output])
             >>> print(out)
             [[[1. 1. 1.]
@@ -3818,9 +3821,7 @@ def embedding(
     padding_idx = (
         -1
         if padding_idx is None
-        else padding_idx
-        if padding_idx >= 0
-        else (size[0] + padding_idx)
+        else padding_idx if padding_idx >= 0 else (size[0] + padding_idx)
     )
     helper.append_op(
         type='lookup_table_v2',
@@ -3886,12 +3887,12 @@ def sparse_embedding(
 
         Case 2:
 
-        input is a LoDTensor with 1-level LoD. padding_idx = 0
+        input is a DenseTensor with 1-level LoD. padding_idx = 0
             input.lod = [[2, 3]]
             input.data = [[1], [3], [2], [4], [0]]
             input.shape = [5, 1]
         Given size = [128, 16]
-        output is a LoDTensor:
+        output is a DenseTensor:
             out.lod = [[2, 3]]
             out.shape = [5, 1, 16]
             out.data = [[[0.129435295, 0.244512452, ..., 0.436322452]],
@@ -3902,7 +3903,7 @@ def sparse_embedding(
         It will pad all-zero data when ids is 0.
 
     Args:
-        input(Tensor): A Tensor or LoDTensor with type int64, which contains the id
+        input(Tensor): A Tensor or DenseTensor with type int64, which contains the id
             information. The value of the input id should satisfy :math:`0<= id < size[0]` .
         size(tuple|list): The shape of lookup table parameter (vocab_size, emb_size). It
             should have two elements which indicates the size of the dictionary of embeddings
@@ -3930,11 +3931,12 @@ def sparse_embedding(
             float64. Default: float32.
 
     Returns:
-        Tensor: Embedding Tensor or LoDTensor mapped by input. The data type is the same as :attr:`dtype` .
+        Tensor: Embedding Tensor or DenseTensor mapped by input. The data type is the same as :attr:`dtype` .
 
     Examples:
         .. code-block:: python
 
+            >>> # doctest: +SKIP("This has diff in xdoctest env")
             >>> import paddle
 
             >>> paddle.enable_static()
@@ -3985,9 +3987,7 @@ def sparse_embedding(
     padding_idx = (
         -1
         if padding_idx is None
-        else padding_idx
-        if padding_idx >= 0
-        else (size[0] + padding_idx)
+        else padding_idx if padding_idx >= 0 else (size[0] + padding_idx)
     )
 
     if table_class not in [

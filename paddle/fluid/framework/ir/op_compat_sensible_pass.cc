@@ -166,7 +166,7 @@ AttrCompat& OpCompat::AddAttr(const std::string& attr_name) {
   PADDLE_ENFORCE_EQ(
       attr_compats_.find(attr_name),
       attr_compats_.end(),
-      platform::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "The attribute compat with the same name has been added"));
   attr_compats_.emplace(attr_name, AttrCompat(attr_name, this));
   return attr_compats_.at(attr_name);
@@ -175,7 +175,7 @@ AttrCompat& OpCompat::AddAttr(const std::string& attr_name) {
 InputOrOutputCompat& OpCompat::AddInput(const std::string& name) {
   PADDLE_ENFORCE_EQ(input_compats_.find(name),
                     input_compats_.end(),
-                    platform::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "The input with the same name has been added"));
   input_compats_.emplace(name, InputOrOutputCompat(name, this));
   return input_compats_.at(name);
@@ -184,7 +184,7 @@ InputOrOutputCompat& OpCompat::AddInput(const std::string& name) {
 InputOrOutputCompat& OpCompat::AddOutput(const std::string& name) {
   PADDLE_ENFORCE_EQ(output_compats_.find(name),
                     output_compats_.end(),
-                    platform::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "The output with the same name has been added"));
   output_compats_.emplace(name, InputOrOutputCompat(name, this));
   return output_compats_.at(name);
@@ -220,7 +220,7 @@ bool OpCompat::Judge(const OpDesc& op_desc, const std::string& pass_name) {
         LOG(WARNING) << " Attribute(" << attr_compat.first << ") of Op("
                      << op_name_
                      << ") is not defined in opProto or is in extra set!"
-                     << "The compatable check for this attribute is not use."
+                     << "The compatible check for this attribute is not use."
                      << " Please remove it from the precondition of pass: "
                      << pass_name.c_str();
       }
@@ -298,12 +298,12 @@ OpCompat& OpCompatSensiblePass::AddOpCompat(OpCompat&& op_compat) {
   return *(op_compat_judgers_[name]);
 }
 
-//! Tell the Op compability of a subgraph.
+//! Tell the Op compatibility of a subgraph.
 bool OpCompatSensiblePass::IsCompat(
     const GraphPatternDetector::subgraph_t& subgraph, Graph*) const {
   PADDLE_ENFORCE_EQ(op_compat_judgers_.empty(),
                     false,
-                    platform::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "At least one OpCompat instance should be added"));
   // Check the all the ops in the subgraph are contained in the
   // op_compat.

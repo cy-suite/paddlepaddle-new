@@ -18,7 +18,6 @@ import numpy as np
 from op_test import OpTest
 
 import paddle
-from paddle.pir_utils import test_with_pir_api
 
 paddle.enable_static()
 
@@ -161,7 +160,11 @@ class TestUnsqueezeOp_AxesTensorList(OpTest):
         }
 
     def test_check_output(self):
-        self.check_output(no_check_set=["XShape"], check_pir=True)
+        self.check_output(
+            no_check_set=["XShape"],
+            check_pir=True,
+            check_symbol_infer=(self.attrs is None),
+        )
 
     def test_check_grad(self):
         self.check_grad(["X"], "Out", check_pir=True)
@@ -222,7 +225,11 @@ class TestUnsqueezeOp_AxesTensor(OpTest):
         }
 
     def test_check_output(self):
-        self.check_output(no_check_set=["XShape"], check_pir=True)
+        self.check_output(
+            no_check_set=["XShape"],
+            check_pir=True,
+            check_symbol_infer=(self.attrs is None),
+        )
 
     def test_check_grad(self):
         self.check_grad(["X"], "Out", check_pir=True)
@@ -272,7 +279,6 @@ class TestUnsqueezeAPI(unittest.TestCase):
     def executed_api(self):
         self.unsqueeze = paddle.unsqueeze
 
-    @test_with_pir_api
     def test_api(self):
         with paddle.static.program_guard(paddle.static.Program()):
             input = np.random.random([3, 2, 5]).astype("float64")
@@ -311,7 +317,6 @@ class TestUnsqueezeAPI(unittest.TestCase):
         np.testing.assert_array_equal(res_4, input.reshape([3, 2, 5, 1]))
         np.testing.assert_array_equal(res_5, input.reshape([3, 1, 1, 2, 5, 1]))
 
-    @test_with_pir_api
     def test_error(self):
         def test_axes_type():
             x2 = paddle.static.data(name="x2", shape=[2, 25], dtype="int32")

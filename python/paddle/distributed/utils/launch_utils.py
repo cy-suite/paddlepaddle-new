@@ -20,9 +20,9 @@ import subprocess
 import sys
 import time
 from contextlib import closing
-from distutils.util import strtobool
 
 from paddle.distributed.fleet.launch_utils import get_backend_by_compile_flag
+from paddle.utils import strtobool
 
 from ..utils.log_utils import get_logger
 
@@ -466,7 +466,7 @@ def start_local_trainers(
 
         logger.debug(f"trainer proc env:{current_env}")
 
-        cmd = [sys.executable, "-u", training_script] + training_script_args
+        cmd = [sys.executable, "-u", training_script, *training_script_args]
 
         logger.info(f"start trainer proc:{cmd} env:{proc_env}")
 

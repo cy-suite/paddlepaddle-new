@@ -23,10 +23,19 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 import paddle
 
 from ....profiler import event_register
-from ....utils import NameGenerator, get_unbound_method, log
+from ....utils import (
+    NameGenerator,
+    get_unbound_method,
+    log,
+)
 from ....utils.exceptions import FallbackError, HasNoAttributeError
 from ..dispatcher import Dispatcher
-from ..guard import StringifyExpression, check_guard, union_free_vars
+from ..guard import (
+    FasterStringifiedExpression,
+    StringifiedExpression,
+    check_guard,
+    union_free_vars,
+)
 from ..mutable_data import MutableDictLikeData
 from ..tracker import (
     DummyTracker,
@@ -90,7 +99,12 @@ def find_traceable_vars(
     return results
 
 
-def map_variables(map_func, variables: list[VariableBase]):
+def map_variables(
+    map_func,
+    variables: list[VariableBase],
+    *,
+    restore_variable=False,
+) -> list[VariableBase]:
     """
     This function maps the given map_func to the given list of variables in a recursive manner.
     Args:
@@ -100,23 +114,42 @@ def map_variables(map_func, variables: list[VariableBase]):
     Returns:
         tuple: The result of applying the map_func to the variables.
     """
+    from .basic import SliceVariable
+    from .container import ContainerVariable
+
+    def _map_container_variable(variable: VariableBase | object):
+        if not isinstance(variable, ContainerVariable):
+            return variable
+        new_container = paddle.utils.map_structure(
+            _map_variable, variable.get_wrapped_items()
+        )
+        if not restore_variable:
+            return new_container
+        return VariableFactory.from_value(
+            new_container,
+            variable.graph,
+            DummyTracker(paddle.utils.flatten(new_container)),
+        )
+
+    def _map_slice_variable(variable: VariableBase | object):
+        if not isinstance(variable, SliceVariable):
+            return variable
+        new_slice = slice(
+            map_func(variable.getattr("start")),
+            map_func(variable.getattr("stop")),
+            map_func(variable.getattr("step")),
+        )
+        if not restore_variable:
+            return new_slice
+        return VariableFactory.from_value(
+            new_slice,
+            variable.graph,
+            DummyTracker([new_slice.start, new_slice.stop, new_slice.step]),
+        )
 
     def _map_variable(variable: VariableBase | object):
-        from .basic import SliceVariable
-        from .container import ContainerVariable
-
-        if isinstance(variable, ContainerVariable):
-            return paddle.utils.map_structure(
-                _map_variable, variable.get_wrapped_items()
-            )
-
-        if isinstance(variable, SliceVariable):
-            return slice(
-                map_func(variable.getattr("start")),
-                map_func(variable.getattr("stop")),
-                map_func(variable.getattr("step")),
-            )
-
+        variable = _map_container_variable(variable)
+        variable = _map_slice_variable(variable)
         return map_func(variable)
 
     return paddle.utils.map_structure(_map_variable, variables)
@@ -330,35 +363,30 @@ class VariableBase:
         return hash(self.id)
 
     @check_guard
-    def make_stringify_guard(self) -> list[StringifyExpression]:
+    def make_stringified_guard(self) -> list[StringifiedExpression]:
         """
-        Create a StringifyExpression object that represents a guard expression for this variable.
+        Create a StringifiedExpression object that represents a guard expression for this variable.
 
         Returns:
-            StringifyExpression: An object that contains the guard expression and the free variables used in the expression.
+            StringifiedExpression: An object that contains the guard expression and the free variables used in the expression.
         """
 
         # Get a ValueTracer object from the Tracker object associated with the variable
         frame_value_tracer = self.tracker.trace_value_from_frame()
-
         return [
-            StringifyExpression(
-                f"id(type({{}})) == {id(self.get_py_type())}",
+            FasterStringifiedExpression(
+                f"id(type({{0}})) == {id(self.get_py_type())} and {{0}} == {self.get_py_value()!r}",
+                paddle.framework.core.ValueMatchGuard(self.get_py_value()),
                 [frame_value_tracer],
                 union_free_vars(frame_value_tracer.free_vars),
-            ),
-            StringifyExpression(
-                f"{{}} == {self.get_py_value()!r}",
-                [frame_value_tracer],
-                union_free_vars(frame_value_tracer.free_vars),
-            ),
+            )
         ]
 
     def get_py_value(self, allow_tensor=False) -> Any:
         """
         Abstract method to get the value of the variable
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def get_py_type(self):
         """
@@ -574,7 +602,7 @@ class VariableBase:
         assert class_var is not None
         # if __call__ is a method, we should add self to arguments.
         if inspect.ismethod(self.get_py_value().__call__):
-            args = (self,) + args
+            args = (self, *args)
         unbound_method = get_unbound_method(self.get_py_value(), '__call__')
         if hasattr(unbound_method, "__code__"):
             fn_var = UserDefinedFunctionVariable(

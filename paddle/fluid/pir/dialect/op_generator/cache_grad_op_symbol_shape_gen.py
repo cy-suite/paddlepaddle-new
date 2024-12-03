@@ -111,10 +111,13 @@ class CacheGradOpSymbolShapeCodeGen:
                 continue
             if op_info_item.backward_name not in self.op_info_maps:
                 continue
-            if op_info_item.kernel_map is None:
-                continue
-
             grad_op_item = self.op_info_maps[op_info_item.backward_name]
+
+            if (
+                op_info_item.kernel_map is None
+                or grad_op_item.kernel_map is None
+            ):
+                continue
 
             for op_phi_name in op_info_item.op_phi_name:
                 create_grad_op_shape_info_code = ""
@@ -268,7 +271,7 @@ class CacheGradOpSymbolShapeCodeGen:
 
 def ParseArguments():
     parser = argparse.ArgumentParser(
-        description='Generate Cache GradOp Symbol Shape Inferface Files By Yaml'
+        description='Generate Cache GradOp Symbol Shape Interface Files By Yaml'
     )
     parser.add_argument('--op_yaml_files', type=str)
     parser.add_argument('--op_compat_yaml_file', type=str)

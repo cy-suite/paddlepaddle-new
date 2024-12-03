@@ -40,7 +40,7 @@ void MaxPoolV2CUDNNKernel(const Context& ctx,
                           DenseTensor* saved_idx) {
   PADDLE_ENFORCE_GE(ctx.GetComputeCapability(),
                     80,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "This op only supports Ampere and later devices, "
                         "but got compute capability: %d.",
                         ctx.GetComputeCapability()));
@@ -49,8 +49,8 @@ void MaxPoolV2CUDNNKernel(const Context& ctx,
   bool deterministic = FLAGS_cudnn_deterministic;
   PADDLE_ENFORCE_EQ(exhaustive_search && deterministic,
                     false,
-                    phi::errors::InvalidArgument(
-                        "Cann't set exhaustive_search True and "
+                    common::errors::InvalidArgument(
+                        "Can't set exhaustive_search True and "
                         "FLAGS_cudnn_deterministic True at same time."));
   // Allocate output tensors
   ctx.template Alloc<T1>(out);

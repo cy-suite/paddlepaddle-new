@@ -246,10 +246,10 @@ void FFNGrad(const phi::XPUContext& dev_ctx,
   }
 
   phi::MatMulXPUFunction<XPUTypeT>(
-      xpu_ctx, a_1, b_1, c_1, info_d_dropout1, 1.0f, true);
+      xpu_ctx, a_1, b_1, c_1, info_d_dropout1, 1.0f, 0.f, true);
 
   phi::MatMulXPUFunction<XPUTypeT>(
-      xpu_ctx, a_2, b_2, c_2, info_dw2, 1.0f, true);
+      xpu_ctx, a_2, b_2, c_2, info_dw2, 1.0f, 0.f, true);
 
   // dropout_grad1
   DropoutGrad(xpu_ctx,
@@ -277,7 +277,7 @@ void FFNGrad(const phi::XPUContext& dev_ctx,
                        bsz_seq * dim_feedforward);
     PADDLE_ENFORCE_XDNN_SUCCESS(r, "relu_grad");
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Currently only supports gelu or relu activation functions!"));
   }
 
@@ -335,10 +335,11 @@ void FFNGrad(const phi::XPUContext& dev_ctx,
 
   std::tie(info_dx, info_dw1, a_1, b_1, a_2, b_2) = fc_info;
 
-  phi::MatMulXPUFunction<XPUTypeT>(xpu_ctx, a_1, b_1, c_1, info_dx, 1.0f, true);
+  phi::MatMulXPUFunction<XPUTypeT>(
+      xpu_ctx, a_1, b_1, c_1, info_dx, 1.0f, 0.f, true);
 
   phi::MatMulXPUFunction<XPUTypeT>(
-      xpu_ctx, a_2, b_2, c_2, info_dw1, 1.0f, true);
+      xpu_ctx, a_2, b_2, c_2, info_dw1, 1.0f, 0.f, true);
 
   if (pre_layer_norm) {
     r = xpu::layer_norm_grad(xpu_ctx,
