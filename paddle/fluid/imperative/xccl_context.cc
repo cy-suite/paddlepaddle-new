@@ -15,15 +15,15 @@
 #include "paddle/fluid/imperative/xccl_context.h"
 
 #if defined(PADDLE_WITH_CUSTOM_DEVICE)
-#include "paddle/fluid/platform/collective_helper.h"
-#include "paddle/fluid/platform/gen_comm_id_helper.h"
+#include "paddle/phi/core/platform/collective_helper.h"
+#include "paddle/phi/core/platform/gen_comm_id_helper.h"
 #endif
 
 #include "paddle/fluid/framework/convert_utils.h"
 #include "paddle/fluid/framework/scope.h"
 #include "paddle/fluid/framework/variable.h"
-#include "paddle/fluid/platform/device_context.h"
 #include "paddle/phi/common/place.h"
+#include "paddle/phi/core/platform/device_context.h"
 
 namespace paddle {
 namespace framework {
@@ -185,8 +185,8 @@ void XCCLParallelContext::AllReduceByStream(const framework::Variable &src,
     PADDLE_THROW(common::errors::InvalidArgument(
         "custom device unsupported variable type %s for imperative allreduce, "
         "only "
-        "LoDTensor are supported.",
-        platform::demangle(framework::ToTypeName(src.Type()))));
+        "DenseTensor are supported.",
+        common::demangle(framework::ToTypeName(src.Type()))));
   }
 }
 

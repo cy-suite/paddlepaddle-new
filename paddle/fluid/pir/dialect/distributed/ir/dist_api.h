@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "paddle/fluid/pir/dialect/distributed/ir/dist_attribute.h"
+#include "paddle/fluid/pir/dialect/distributed/ir/dist_op.h"
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/common/place.h"
 #include "paddle/phi/core/distributed/auto_parallel/process_mesh.h"
@@ -40,7 +41,7 @@ pir::Value reshard(
 pir::Value reshard(const pir::Value& x,
                    const TensorDistAttribute& tensor_dist_attr);
 
-std::vector<pir::Value> local_tensors_from_dist(
+std::vector<pir::Value> moe_sub_mesh_tensors(
     const pir::Value& input,
     const std::vector<phi::distributed::ProcessMesh>& local_mesh_list,
     const std::vector<int64_t>& local_dims_mapping,
@@ -49,7 +50,7 @@ std::vector<pir::Value> local_tensors_from_dist(
     const std::vector<int64_t>& global_dims_mapping,
     const flat_hash_map<int64_t, phi::ReduceType>& global_partial_status);
 
-pir::Value dist_tensor_from_locals(
+pir::Value moe_global_mesh_tensor(
     const std::vector<pir::Value>& inputs,
     const std::vector<phi::distributed::ProcessMesh>& local_mesh_list,
     const std::vector<int64_t>& local_dims_mapping,

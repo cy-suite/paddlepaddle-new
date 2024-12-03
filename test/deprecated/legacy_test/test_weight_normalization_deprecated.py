@@ -94,14 +94,18 @@ class TestWeightNormalization(unittest.TestCase):
                 lod_level_i = np.random.randint(
                     low=1,
                     high=5,
-                    size=self.batch_size
-                    if i == 0
-                    else sum(lod_level_i),  # noqa: F821
+                    size=(
+                        self.batch_size
+                        if i == 0
+                        else sum(lod_level_i)  # noqa: F821
+                    ),
                 ).tolist()
                 data_lod.append(lod_level_i)
             data_value = np.random.random(
-                size=[sum(data_lod[-1]) if data_lod else self.batch_size]
-                + data_shape
+                size=[
+                    sum(data_lod[-1]) if data_lod else self.batch_size,
+                    *data_shape,
+                ]
             ).astype('float32')
             self.data[data_name] = (data_value, data_lod)
 
@@ -110,8 +114,6 @@ class TestWeightNormalization(unittest.TestCase):
         for desc in self.data_desc:
             tensor = base.Tensor()
             tensor.set(self.data[desc[0]][0], place)
-            if self.data[desc[0]][1]:
-                tensor.set_recursive_sequence_lengths(self.data[desc[0]][1])
             self.inputs[desc[0]] = tensor
 
     def weight_normalize(self):

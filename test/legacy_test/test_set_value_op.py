@@ -22,7 +22,6 @@ from op_test import OpTest, convert_float_to_uint16
 
 import paddle
 from paddle.base import core
-from paddle.pir_utils import test_with_pir_api
 
 
 class TestSetValueBase(unittest.TestCase):
@@ -75,7 +74,6 @@ class TestSetValueApi(TestSetValueBase):
         paddle.enable_static()
         return out
 
-    @test_with_pir_api
     def test_api(self):
         static_out = self._run_static()
         dynamic_out = self._run_dynamic()
@@ -697,9 +695,9 @@ class TestSetValueItemBool5(TestSetValueApi):
         return x
 
     def _get_answer(self):
-        self.data[
-            np.array([[False, True, False], [True, True, False]])
-        ] = self.value
+        self.data[np.array([[False, True, False], [True, True, False]])] = (
+            self.value
+        )
 
 
 class TestSetValueItemBool6(TestSetValueApi):

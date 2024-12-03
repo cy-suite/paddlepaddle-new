@@ -37,9 +37,9 @@ limitations under the License. */
 #include "paddle/fluid/framework/scope.h"
 #include "paddle/fluid/framework/variable.h"
 #include "paddle/fluid/framework/variable_helper.h"
-#include "paddle/fluid/platform/device_context.h"
 #include "paddle/fluid/platform/enforce.h"
 #include "paddle/phi/common/place.h"
+#include "paddle/phi/core/platform/device_context.h"
 #include "paddle/phi/kernels/funcs/blas/blas.h"
 #include "paddle/phi/kernels/funcs/math_function.h"
 #include "paddle/phi/kernels/funcs/selected_rows_functor.h"
@@ -170,7 +170,7 @@ inline void MergeVars(const std::string &var_name,
 
   if (var0->IsType<phi::DenseTensor>()) {
     auto dims = var0->Get<phi::DenseTensor>().dims();
-    VLOG(3) << "merge " << var_name << " LoDTensor dims " << dims
+    VLOG(3) << "merge " << var_name << " DenseTensor dims " << dims
             << "; merge add: " << merge_add;
     // init output tensor
     auto *out_t = out_var->GetMutable<phi::DenseTensor>();

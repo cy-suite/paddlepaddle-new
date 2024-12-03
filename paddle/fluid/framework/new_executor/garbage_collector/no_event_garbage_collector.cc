@@ -52,10 +52,7 @@ void InterpreterCoreNoEventGarbageCollector::Add(
   } else if (
       var->IsType<
           operators::reader::
-              OrderedMultiDeviceLoDTensorBlockingQueueHolder>()) {  // NOLINT
-    // TODO(xiongkun03) in old executor, this type of variable is not support
-    // eager deletion. so we just leave it here ?
-  } else if (var->IsType<LoDRankTable>()) {
+              OrderedMultiDeviceDenseTensorBlockingQueueHolder>()) {  // NOLINT
     // TODO(xiongkun03) in old executor, this type of variable is not support
     // eager deletion. so we just leave it here ?
   } else if (var->IsType<phi::SelectedRows>()) {
@@ -91,8 +88,8 @@ void InterpreterCoreNoEventGarbageCollector::Add(
     var->GetMutable<phi::SparseCsrTensor>()->mutable_cols()->clear();
     var->GetMutable<phi::SparseCsrTensor>()->mutable_crows()->clear();
     var->GetMutable<phi::SparseCsrTensor>()->mutable_values()->clear();
-  } else if (var->IsType<LoDTensorArray>()) {
-    auto* tensor_arr = var->GetMutable<LoDTensorArray>();
+  } else if (var->IsType<phi::TensorArray>()) {
+    auto* tensor_arr = var->GetMutable<phi::TensorArray>();
     for (auto& t : *tensor_arr) {
       Add(t.MoveMemoryHolder(), ctx);
     }

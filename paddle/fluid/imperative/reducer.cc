@@ -362,7 +362,7 @@ void Reducer::InitializeDenseGroups(
     PADDLE_ENFORCE_EQ(is_sparse_gradient_[variable_index],
                       false,
                       common::errors::PreconditionNotMet(
-                          "Tensor %s's GRAD must be LoDTensor, but received "
+                          "Tensor %s's GRAD must be DenseTensor, but received "
                           "GRAD is SelectedRows",
                           var_name));
 
@@ -747,7 +747,7 @@ void Reducer::MarkVarReady(const size_t var_index, const bool is_used_var) {
       if (!group_tensor.IsInitialized()) {
         group_tensor.Resize({static_cast<int64_t>(length)});
         group_tensor.mutable_data(place_,
-                                  framework::TransToPhiDataType(group.dtype_));
+                                  phi::TransToPhiDataType(group.dtype_));
       }
 
 #ifdef PADDLE_WITH_XPU_BKCL
@@ -805,7 +805,7 @@ void Reducer::MarkVarReady(const size_t var_index, const bool is_used_var) {
             "The sparse parameter[%d][%s] must have a selectedrows gradient. "
             "Before forward pass, the parameter type is inferred to be "
             "SelectedRows, but after backward pass, its actual type becomes "
-            "LodTensor. It is currently not supported by DataParallel. "
+            "DenseTensor. It is currently not supported by DataParallel. "
             "For example, if sparse embedding is used, and the weight of "
             "embedding is shared with subsequent dense parameters, then "
             "the parameter gradient of the embedding will be converted "
@@ -849,7 +849,7 @@ void Reducer::MarkGroupReady(size_t group_index) {
 
     auto *tensor = group.dense_contents_.GetMutable<phi::DenseTensor>();
     tensor->Resize(common::make_ddim({group.all_length_}))
-        .mutable_data(place_, framework::TransToPhiDataType(group.dtype_));
+        .mutable_data(place_, phi::TransToPhiDataType(group.dtype_));
 
     // For CUDA or XPU, compute_stream --> comm_stream.
     // For CPU, do nothing.
@@ -998,7 +998,7 @@ bool Reducer::HasGrad(size_t var_index) {
     }
   } else {
     PADDLE_THROW(common::errors::PermissionDenied(
-        "Only support LoDTensor and SelectedRows for gradient var"));
+        "Only support DenseTensor and SelectedRows for gradient var"));
   }
   return false;
 }

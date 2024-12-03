@@ -27,8 +27,8 @@ limitations under the License. */
 #include "paddle/fluid/distributed/ps/service/heter_server.h"
 #include "paddle/fluid/framework/op_registry.h"
 #include "paddle/fluid/framework/op_version_registry.h"
-#include "paddle/fluid/memory/memcpy.h"
-#include "paddle/fluid/platform/device_context.h"
+#include "paddle/phi/core/memory/memcpy.h"
+#include "paddle/phi/core/platform/device_context.h"
 
 namespace framework = paddle::framework;
 namespace platform = paddle::platform;
@@ -65,7 +65,7 @@ framework::BlockDesc* AppendSendAndRecvBlock(framework::ProgramDesc* program) {
   op->SetOutput("Out", {"res"});
   op->SetAttr("scale", 0.5f);
   auto& out = *root_block->Var("res");
-  out.SetType(framework::proto::VarType::LOD_TENSOR);
+  out.SetType(framework::proto::VarType::DENSE_TENSOR);
   out.SetShape({1, 10});
   return block;
 }

@@ -64,7 +64,7 @@ void ComputeInterceptor::DecodeMsgVars(const InterceptorMessage& msg) {
     std::istringstream ss(var_iter.stensor());
     auto* var = scope->Var(name);
     auto* tensor = var->GetMutable<phi::DenseTensor>();
-    framework::DeserializeFromStream(ss, tensor, dev_ctx);
+    phi::DeserializeFromStream(ss, tensor, dev_ctx);
 
     VLOG(3) << "Set vars " << name << " with value in scope " << scope_id
             << " with dims " << tensor->dims() << " with dtype "
@@ -98,7 +98,7 @@ InterceptorMessage ComputeInterceptor::PrepareVarsMsg() {
         common::errors::NotFound(
             "Variable %s not exists in scope %ld", var_name, cur_scope_id_));
     const auto& tensor = var->Get<phi::DenseTensor>();
-    framework::SerializeToStream(ss, tensor, dev_ctx);
+    phi::SerializeToStream(ss, tensor, dev_ctx);
     vars->set_stensor(ss.str());
     VLOG(3) << "Prepare vars msg " << var_name << " with dimension "
             << tensor.dims() << " dtype " << tensor.dtype();
@@ -352,8 +352,8 @@ void ComputeInterceptor::Run() {
     for (auto var_name : vars_names) {
       if (var_name == "feed" || var_name == "fetch") continue;
       auto* var = microbatch_scopes_[cur_scope_id_]->Var(var_name);
-      if (var != nullptr && var->IsType<framework::LoDTensorArray>()) {
-        auto* lod_tensor_arr = var->GetMutable<framework::LoDTensorArray>();
+      if (var != nullptr && var->IsType<phi::TensorArray>()) {
+        auto* lod_tensor_arr = var->GetMutable<phi::TensorArray>();
         lod_tensor_arr->clear();
       }
     }

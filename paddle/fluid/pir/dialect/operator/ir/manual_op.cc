@@ -24,7 +24,8 @@ paddle::dialect::AddN_Op, paddle::dialect::AddNArrayOp,
     paddle::dialect::AssignArray_Op, paddle::dialect::ArrayToTensorOp,
     paddle::dialect::TensorToArrayOp, paddle::dialect::IncrementOp,
     paddle::dialect::Increment_Op, paddle::dialect::ShapeBroadcastOp,
-    paddle::dialect::MemcpyD2hMultiIoOp, paddle::dialect::ArrayPopOp
+    paddle::dialect::MemcpyD2hMultiIoOp, paddle::dialect::ArrayPopOp,
+    paddle::dialect::ShareVarOp
 #else
 #include "paddle/fluid/pir/dialect/operator/ir/manual_op.h"
 #include "paddle/fluid/pir/dialect/kernel/ir/kernel_type.h"
@@ -36,7 +37,7 @@ paddle::dialect::AddN_Op, paddle::dialect::AddNArrayOp,
 #include "paddle/fluid/pir/dialect/operator/ir/op_attribute.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_type.h"
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
-#include "paddle/fluid/primitive/rule/vjp/vjp.h"
+#include "paddle/fluid/primitive/vjp_interface/vjp.h"
 #include "paddle/phi/api/lib/data_type_set.h"
 #include "paddle/phi/api/lib/utils/allocator.h"
 #include "paddle/phi/core/dense_tensor.h"
@@ -591,6 +592,27 @@ std::vector<pir::Type> AddNArrayOp::InferMeta(
   return argument_outputs;
 }
 
+bool AddNArrayOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  // The inputs for add_n_array op is defined by builtin.combine.
+  // We use the combine op's inputs to infer the output shape.
+  pir::CombineOp combine_op =
+      inputs().defining_op()->dyn_cast<pir::CombineOp>();
+  // Try to get the infer result as much as possible.
+  for (size_t i = 0; i < combine_op.num_operands(); i++) {
+    if (infer_context->HasShapeOrDataForValue(combine_op.operand_source(i))) {
+      auto out_shape_or_data =
+          infer_context->GetShapeOrDataForValue(combine_op.operand_source(i))
+              .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+      infer_context->SetShapeOrDataForValue(
+          out(), symbol::ShapeOrDataDimExprs{out_shape_or_data});
+      return true;
+    }
+  }
+  PADDLE_THROW(common::errors::InvalidArgument(
+      "At least one operand of CombineOp should have shape or data."));
+}
+
 const char *FusedGemmEpilogueOp::attributes_name[3] = {  // NOLINT
     "trans_x",
     "trans_y",
@@ -599,15 +621,15 @@ const char *FusedGemmEpilogueOp::attributes_name[3] = {  // NOLINT
 OpInfoTuple FusedGemmEpilogueOp::GetOpInfo() {
   std::vector<paddle::dialect::OpInputInfo> inputs = {
       paddle::dialect::OpInputInfo(
-          "x", "paddle::dialect::DenseTensorType", false, false, false, false),
+          "x", "paddle::dialect::DenseTensorType", false, false, false, true),
       paddle::dialect::OpInputInfo(
-          "y", "paddle::dialect::DenseTensorType", false, false, false, false),
+          "y", "paddle::dialect::DenseTensorType", false, false, false, true),
       paddle::dialect::OpInputInfo("bias",
                                    "paddle::dialect::DenseTensorType",
                                    false,
                                    false,
                                    false,
-                                   false)};
+                                   true)};
   std::vector<paddle::dialect::OpAttributeInfo> attributes = {
       paddle::dialect::OpAttributeInfo("trans_x", "pir::BoolAttribute", ""),
       paddle::dialect::OpAttributeInfo("trans_y", "pir::BoolAttribute", ""),
@@ -680,6 +702,7 @@ void FusedGemmEpilogueOp::Build(pir::Builder &builder,
       FusedGemmEpilogueOp::InferMeta(argument_inputs, &argument_attributes);
 
   argument.AddOutputs(argument_outputs.begin(), argument_outputs.end());
+  ::pir::PassStopGradientsDefaultly(argument);
 }
 
 void FusedGemmEpilogueOp::VerifySig() {
@@ -861,7 +884,8 @@ std::vector<pir::Type> FusedGemmEpilogueOp::InferMeta(
       trans_y,
       activation,
       &meta_out,
-      activation == "none" ? nullptr : &meta_reserve_space);
+      activation == "none" ? nullptr : &meta_reserve_space,
+      phi::MetaConfig(false, false));
 
   std::vector<pir::Type> argument_outputs;
   pir::Type out_dense_tensor_type = paddle::dialect::DenseTensorType::get(
@@ -885,6 +909,12 @@ std::vector<pir::Type> FusedGemmEpilogueOp::InferMeta(
                 dense_reserve_space.offset());
   argument_outputs.push_back(reserve_space_dense_tensor_type);
   return argument_outputs;
+}
+
+bool FusedGemmEpilogueOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  return FusedGemmEpilogueOpInferSymbolicShape(this->operation(),
+                                               infer_context);
 }
 
 const char *FusedGemmEpilogueGradOp::attributes_name[3] = {  // NOLINT
@@ -997,6 +1027,7 @@ void FusedGemmEpilogueGradOp::Build(pir::Builder &builder,
       FusedGemmEpilogueGradOp::InferMeta(argument_inputs, &argument_attributes);
 
   argument.AddOutputs(argument_outputs.begin(), argument_outputs.end());
+  ::pir::PassStopGradientsDefaultly(argument);
 }
 
 void FusedGemmEpilogueGradOp::VerifySig() {}
@@ -1485,6 +1516,7 @@ std::vector<pir::Type> CreateArrayOp::InferMeta(
 
 bool CreateArrayOp::InferSymbolicShape(
     pir::InferSymbolicShapeContext *infer_context) {
+  // TODO(ooooo): Try to use output type's dims to decide.
   infer_context->SetShapeOrDataForValue(
       out(),
       symbol::ShapeOrDataDimExprs{symbol::RankedTensorArrayShapeOrDataDimExprs(
@@ -1630,6 +1662,15 @@ std::vector<pir::Type> CreateArrayLikeOp::InferMeta(
   return argument_outputs;
 }
 
+bool CreateArrayLikeOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &input_shape_or_data =
+      infer_context->GetShapeOrDataForValue(input())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  infer_context->SetShapeOrDataForValue(
+      out(), symbol::ShapeOrDataDimExprs{input_shape_or_data});
+  return true;
+}
 OpInfoTuple ArrayLengthOp::GetOpInfo() {
   std::vector<paddle::dialect::OpInputInfo> inputs = {
       OpInputInfo("x",
@@ -1935,6 +1976,22 @@ std::vector<pir::Type> ArrayReadOp::InferMeta(
   return argument_outputs;
 }
 
+bool ArrayReadOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &array_shape =
+      infer_context->GetShapeOrDataForValue(array())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  auto output_shape = array_shape.GetShapeHint();
+  for (size_t i = 0; i < output_shape.size(); ++i) {
+    output_shape[i] = infer_context->GetNextSymName();
+  }
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(output_shape)});
+  return true;
+}
+
 OpInfoTuple ArrayWrite_Op::GetOpInfo() {
   std::vector<paddle::dialect::OpInputInfo> inputs = {
       OpInputInfo("array",
@@ -2092,8 +2149,8 @@ std::vector<pir::Type> ArrayWrite_Op::InferMeta(
       x_type.offset());
   paddle::dialect::IrMetaTensor meta_x(&dense_x);
 
-  paddle::dialect::IrTensor dense_out;
-  paddle::dialect::IrMetaTensor meta_out(&dense_out);
+  paddle::dialect::IrTensor dense_array_out;
+  paddle::dialect::IrMetaTensor meta_out(&dense_array_out);
 
   phi::ArrayWriteInferMeta(
       meta_array, meta_x, &meta_out, phi::MetaConfig(false, false));
@@ -2101,24 +2158,24 @@ std::vector<pir::Type> ArrayWrite_Op::InferMeta(
   std::vector<pir::Type> argument_outputs;
   pir::Type out_type = paddle::dialect::DenseTensorArrayType::get(
       pir::IrContext::Instance(),
-      paddle::dialect::TransToIrDataType(dense_array.dtype()),
+      paddle::dialect::TransToIrDataType(dense_array_out.dtype()),
       x_type.dims(),
-      dense_array.layout());
+      dense_array_out.layout());
   // update array's dims as x's dims.
   // TOOD(chenxi67) Do not change if dim is set by custom
   if (array_.type().isa<paddle::dialect::AllocatedDenseTensorArrayType>()) {
     array_.set_type(paddle::dialect::AllocatedDenseTensorArrayType::get(
         pir::IrContext::Instance(),
         place,
-        array_type.dtype(),
+        paddle::dialect::TransToIrDataType(dense_array_out.dtype()),
         x_type.dims(),
-        array_type.data_layout()));
+        dense_array_out.layout()));
   } else if (array_.type().isa<paddle::dialect::DenseTensorArrayType>()) {
-    array_.set_type(
-        paddle::dialect::DenseTensorArrayType::get(pir::IrContext::Instance(),
-                                                   array_type.dtype(),
-                                                   x_type.dims(),
-                                                   array_type.data_layout()));
+    array_.set_type(paddle::dialect::DenseTensorArrayType::get(
+        pir::IrContext::Instance(),
+        paddle::dialect::TransToIrDataType(dense_array_out.dtype()),
+        x_type.dims(),
+        dense_array_out.layout()));
   }
 
   argument_outputs.push_back(out_type);
@@ -2130,6 +2187,12 @@ bool ArrayWrite_Op::InferSymbolicShape(
   const auto &x_shape = infer_context->GetShapeOrDataForValue(x()).shape();
   infer_context->SetShapeOrDataForValue(
       out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::RankedTensorArrayShapeOrDataDimExprs(x_shape)});
+  // update array's shape as x's shape.
+  // TOOD(ooooo) Do not change if shape is set by custom, similar to infer_meta
+  infer_context->SetShapeOrDataForValue(
+      array(),
       symbol::ShapeOrDataDimExprs{
           symbol::RankedTensorArrayShapeOrDataDimExprs(x_shape)});
 
@@ -2578,6 +2641,17 @@ std::vector<pir::Type> TensorToArrayOp::InferMeta(
   return argument_outputs;
 }
 
+bool TensorToArrayOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape_or_data =
+      infer_context->GetShapeOrDataForValue(x())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  infer_context->SetShapeOrDataForValue(
+      x_grad(), symbol::ShapeOrDataDimExprs{x_shape_or_data});
+
+  return true;
+}
+
 OpInfoTuple SliceArrayOp::GetOpInfo() {
   std::vector<paddle::dialect::OpInputInfo> inputs = {
       paddle::dialect::OpInputInfo("input",
@@ -2789,6 +2863,22 @@ phi::DataType SliceArrayOp::GetKernelTypeForVar(
 
   return expected_kernel_dtype;
 }
+bool SliceArrayOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &input_shape_or_data =
+      infer_context->GetShapeOrDataForValue(input())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  std::vector<symbol::DimExpr> input_shape = input_shape_or_data.GetShapeHint();
+  std::vector<symbol::DimExpr> out_shape;
+  for (size_t i = 0; i < input_shape.size(); ++i) {
+    out_shape.push_back(infer_context->GetNextSymName());
+  }
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::RankedTensorArrayShapeOrDataDimExprs(out_shape)});
+  return true;
+}
 
 OpInfoTuple SliceArrayDenseOp::GetOpInfo() {
   std::vector<paddle::dialect::OpInputInfo> inputs = {
@@ -2947,6 +3037,23 @@ phi::DataType SliceArrayDenseOp::GetKernelTypeForVar(
   VLOG(4) << "Get KernelType for Var of op: SliceArrayOp";
 
   return expected_kernel_dtype;
+}
+
+bool SliceArrayDenseOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &input_shape_or_data =
+      infer_context->GetShapeOrDataForValue(input())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  std::vector<symbol::DimExpr> input_shape = input_shape_or_data.GetShapeHint();
+  std::vector<symbol::DimExpr> out_shape;
+  for (size_t i = 0; i < input_shape.size(); ++i) {
+    out_shape.push_back(infer_context->GetNextSymName());
+  }
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(out_shape)});
+  return true;
 }
 
 OpInfoTuple AssignArrayOp::GetOpInfo() {
@@ -3108,6 +3215,15 @@ OpInfoTuple AssignArray_Op::GetOpInfo() {
   return std::make_tuple(
       inputs, attributes, outputs, run_time_info, "assign_array");
 }
+bool AssignArrayOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape_or_data =
+      infer_context->GetShapeOrDataForValue(x())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  infer_context->SetShapeOrDataForValue(
+      out(), symbol::ShapeOrDataDimExprs{x_shape_or_data});
+  return true;
+}
 
 void AssignArray_Op::VerifySig() {
   VLOG(4)
@@ -3204,6 +3320,16 @@ phi::DataType AssignArray_Op::GetKernelTypeForVar(
   VLOG(4) << "Get KernelType for Var of op: AssignArray_Op";
 
   return expected_kernel_dtype;
+}
+
+bool AssignArray_Op::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape_or_data =
+      infer_context->GetShapeOrDataForValue(x())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  infer_context->SetShapeOrDataForValue(
+      out(), symbol::ShapeOrDataDimExprs{x_shape_or_data});
+  return true;
 }
 
 OpInfoTuple ExpandOp::GetOpInfo() {
@@ -3465,7 +3591,8 @@ std::vector<pir::Type> ExpandOp::InferMeta(
         vec_shape.insert(vec_shape.end(), tmp.begin(), tmp.end());
       }
     } else if (shape.isa<pir::OpResult>() &&
-               shape.defining_op()->isa<paddle::dialect::ShapeOp>()) {
+               (shape.defining_op()->isa<paddle::dialect::ShapeOp>() ||
+                shape.defining_op()->isa<paddle::dialect::Shape64Op>())) {
       // tensor_shape may come from shape op
       // x0.shape = [-1,3]
       // tensor_shape = shape(x0)
@@ -3473,6 +3600,12 @@ std::vector<pir::Type> ExpandOp::InferMeta(
       pir::Value inputs = shape.defining_op()->operand_source(0);
       vec_shape = common::vectorize(
           inputs.type().dyn_cast<paddle::dialect::DenseTensorType>().dims());
+      // change -1 to -2 which represents real dynamic shape
+      for (size_t i = 0; i < vec_shape.size(); ++i) {
+        if (vec_shape[i] == -1) {
+          vec_shape[i] = -2;
+        }
+      }
     } else if (shape.type().isa<pir::VectorType>()) {
       size_t shape_size = shape.type().dyn_cast<pir::VectorType>().size();
       vec_shape = std::vector<int64_t>(shape_size, -2);
@@ -3494,7 +3627,8 @@ std::vector<pir::Type> ExpandOp::InferMeta(
         if (shape_dim.size() == 1 &&
             shape_dim[0] == static_cast<int64_t>(inputs.size())) {
           for (auto item : inputs) {
-            if (item.defining_op()->isa<paddle::dialect::ShapeOp>()) {
+            if (item.defining_op()->isa<paddle::dialect::ShapeOp>() ||
+                item.defining_op()->isa<paddle::dialect::Shape64Op>()) {
               pir::Value shape_input = item.defining_op()->operand_source(0);
               int64_t value = shape_input.type()
                                   .dyn_cast<paddle::dialect::DenseTensorType>()
@@ -3773,7 +3907,8 @@ bool IncrementOp::InferSymbolicShape(
     pir::InferSymbolicShapeContext *infer_context) {
   const symbol::ShapeOrDataDimExprs &operand_shape_or_data =
       infer_context->GetShapeOrDataForValue(x());
-  infer_context->SetShapeOrDataForValue(out(), operand_shape_or_data);
+  infer_context->SetShapeOrDataForValue(
+      out(), symbol::TensorShapeOrDataDimExprs{operand_shape_or_data.shape()});
   return true;
 }
 
@@ -3978,7 +4113,8 @@ bool Increment_Op::InferSymbolicShape(
     pir::InferSymbolicShapeContext *infer_context) {
   const symbol::ShapeOrDataDimExprs &operand_shape_or_data =
       infer_context->GetShapeOrDataForValue(x());
-  infer_context->SetShapeOrDataForValue(out(), operand_shape_or_data);
+  infer_context->SetShapeOrDataForValue(
+      out(), symbol::TensorShapeOrDataDimExprs{operand_shape_or_data.shape()});
   return true;
 }
 
@@ -4342,11 +4478,11 @@ bool ShapeBroadcastOp::InferSymbolicShape(
   PADDLE_ENFORCE_EQ(x_data_shape.data().has_value(),
                     true,
                     common::errors::InvalidArgument(
-                        "Value x comes from ShapeOp, it must have data"));
+                        "Value x comes from Shape64Op, it must have data"));
   PADDLE_ENFORCE_EQ(y_data_shape.data().has_value(),
                     true,
                     common::errors::InvalidArgument(
-                        "Value y comes from ShapeOp, it must have data"));
+                        "Value y comes from Shape64Op, it must have data"));
   const auto &x_data = x_data_shape.data().value();
   const auto &y_data = y_data_shape.data().value();
 
@@ -4689,6 +4825,34 @@ phi::DataType ArrayPopOp::GetKernelTypeForVar(
   return expected_kernel_dtype;
 }
 
+bool ArrayPopOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &input_shape_or_data =
+      infer_context->GetShapeOrDataForValue(input())
+          .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>();
+  std::vector<symbol::DimExpr> input_shape = input_shape_or_data.GetShapeHint();
+  size_t input_rank = input_shape.size();
+  auto gen_shape_with_size = [&](size_t size) {
+    std::vector<symbol::DimExpr> shape;
+    for (size_t i = 0; i < size; ++i) {
+      shape.push_back(infer_context->GetNextSymName());
+    }
+    return shape;
+  };
+  std::vector<symbol::DimExpr> out_shape = gen_shape_with_size(input_rank);
+  std::vector<symbol::DimExpr> array_out_shape =
+      gen_shape_with_size(input_rank);
+  infer_context->SetShapeOrDataForValue(
+      array_out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::RankedTensorArrayShapeOrDataDimExprs(array_out_shape)});
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(out_shape)});
+  return true;
+}
+
 }  // namespace paddle::dialect
 
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::SplitGradOp)
@@ -4715,4 +4879,5 @@ IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::Increment_Op)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::MemcpyD2hMultiIoOp)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::ShapeBroadcastOp)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::ArrayPopOp)
+IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::ShareVarOp)
 #endif

@@ -20,6 +20,7 @@
 #include "paddle/cinn/optim/call_arg_list_to_pod_value.h"
 #include "paddle/cinn/optim/cast_bool_to_int8.h"
 #include "paddle/cinn/optim/eliminate_broadcast_in_forloop.h"
+#include "paddle/cinn/optim/eliminate_invariant_loop.h"
 #include "paddle/cinn/optim/extern_call_process.h"
 #include "paddle/cinn/optim/fold_cinn_call_arguments.h"
 #include "paddle/cinn/optim/if_fusion.h"
@@ -31,105 +32,93 @@
 #include "paddle/cinn/optim/rearrange_load_instruction.h"
 #include "paddle/cinn/optim/remove_schedule_block.h"
 #include "paddle/cinn/optim/replace_const_param_to_integer.h"
+#include "paddle/cinn/optim/replace_cross_block_reduction.h"
 #include "paddle/cinn/optim/replace_cross_thread_reduction.h"
 #include "paddle/cinn/optim/trans_buffer_with_dynamic_shape.h"
 #include "paddle/cinn/optim/transform_gpu_forloop.h"
 #include "paddle/cinn/optim/transform_polyfor_to_for.h"
 #include "paddle/cinn/optim/unroll_loops.h"
+#include "paddle/cinn/optim/vectorize_for_trans.h"
 #include "paddle/cinn/optim/vectorize_loops.h"
 
 namespace cinn {
 namespace optim {
 
-Expr Optimize(Expr e,
-              Target target,
-              bool runtime_debug_info,
-              bool remove_gpu_for_loops) {
+ir::LoweredFunc Optimize(ir::LoweredFunc fn,
+                         Target target,
+                         bool runtime_debug_info,
+                         bool remove_gpu_for_loops) {
   PADDLE_ENFORCE_EQ(
-      e.defined(),
+      fn.defined(),
       true,
-      phi::errors::InvalidArgument(
-          "Expected expression 'e' to be defined, but it is undefined."));
+      ::common::errors::InvalidArgument(
+          "Expected expression 'fn' to be defined, but it is undefined."));
 
-  auto copied = ir::ir_utils::IRCopy(e);
+  auto copied = ir::ir_utils::IRCopy(fn);
 
-  FoldCINNCallArguments(&copied);
-  TransformPolyForToFor(&copied);
-  ReplaceConstParamToInteger(&copied);
+  ReplaceConstParamToInteger(&copied->body);
   // Simplify already contains CastSimplify
-  Simplify(&copied);
-  ReplaceCrossThreadReduction(&copied);
-  UnrollLoop(&copied);
-  VLOG(4) << "After Optimize UnrollLoop:" << copied;
+  Simplify(&copied->body);
+  EliminateInvariantLoop(&copied->body);
+  VLOG(4) << "After Optimize EliminateInvariantLoop:" << copied;
+  ReplaceCrossThreadReduction(copied);
+  VLOG(4) << "After Optimize ReplaceCrossThreadReduction:" << copied;
+  ReplaceCrossBlockReduction(copied);
+  VLOG(4) << "After Optimize ReplaceCrossBlockReduction:" << copied;
 
-  VectorizeLoops(&copied, target);
-  VLOG(4) << "After Optimize VectorizeLoops:" << copied;
   cinn::common::DefaultDeviceTarget().arch.Match(
       [&](std::variant<common::UnknownArch, common::X86Arch, common::ARMArch>) {
       },
       [&](common::NVGPUArch) {
 #ifdef CINN_WITH_CUDA
-        if (copied.as_lowered_func()) {
-          ir::SetCudaAxisInfo(&copied);
-        }
+        ir::SetCudaAxisInfo(copied);
         if (remove_gpu_for_loops) {
-          RemoveGpuForloopsAxis(&copied);
+          RemoveGpuForLoops(copied);
         }
-        CudaSyncThreadsDropIfThenElse(&copied);
+        CudaSyncThreadsDropIfThenElse(copied);
     // CudaTransBufferWithDynamicShape(&copied);
 #endif
       },
       [&](common::HygonDCUArchHIP) {
 #ifdef CINN_WITH_HIP
-        if (copied.as_lowered_func()) {
-          ir::SetCudaAxisInfo(&copied);
-        }
+        ir::SetCudaAxisInfo(copied);
         if (remove_gpu_for_loops) {
-          RemoveGpuForloopsAxis(&copied);
+          RemoveGpuForLoops(copied);
         }
-        CudaSyncThreadsDropIfThenElse(&copied);
+        CudaSyncThreadsDropIfThenElse(copied);
     // CudaTransBufferWithDynamicShape(&copied);
 #endif
       });
 
-  SimplifyBlocks(&copied);
+  SimplifyBlocks(&copied->body);
   VLOG(4) << "After SimplifyBlocks:" << copied;
 
-  MapExternCall(&copied, target);
+  MapExternCall(&copied->body, target);
   VLOG(10) << "After Optimize MapExternCall:" << copied;
 
-  ExternCallMultiOutputShallowStore(&copied);
+  ExternCallMultiOutputShallowStore(&copied->body);
   VLOG(10) << "After Optimize ExternCallMultiOutputShallowStore:" << copied;
   // Simplify already contains CastSimplify
-  Simplify(&copied);
+  Simplify(&copied->body);
   VLOG(10) << "After Optimize Simplify:" << copied;
 
-  IfFusion(&copied);
-  VLOG(10) << "After Optimize IfFusion" << copied;
+  // TODO(liangshuhao): this pass may unexpectedly remove schedule blocks, and
+  // it actually doesn't contribute to performance, so temporarily disabled.
+  // IfFusion(&copied->body);
 
-  if (runtime_debug_info) {
-    LOG(WARNING) << "Turn on runtime debug information output";
-    InsertDebugLogCallee(&copied);
-  }
+  VectorizeForTrans(&copied->body);
+  VLOG(10) << "After Optimize vectorize" << copied;
+
+  Simplify(&copied->body);
+  VLOG(10) << "After Optimize Simplify" << copied;
+
+  RemoveScheduleBlock(&copied->body);
+  VLOG(10) << "After RemoveScheduleBlock:" << copied;
+
+  LowerIntrin(&copied->body, target);
+  VLOG(10) << "After LowerIntrin:" << copied;
+
   return copied;
-}
-
-ir::Module Optimize(const ir::Module& module, const Target& target) {
-  auto copied = ir::ir_utils::IRCopy(Expr(module));
-  ReplaceCrossThreadReduction(&copied);
-  UnrollLoop(&copied);
-  VectorizeLoops(&copied, Target());
-  VLOG(10) << "After VectorizeLoops:" << copied.as_module_ref();
-  RemoveScheduleBlock(&copied);
-  VLOG(10) << "After RemoveScheduleBlock:" << copied.as_module_ref();
-  LowerFunctionCallBindVars(&copied);
-  VLOG(10) << "After LowerFunctionCallBindVars:" << copied.as_module_ref();
-  CallArgListToPodValue(&copied);
-  VLOG(10) << "After CallArgListToPodValue:" << copied.as_module_ref();
-  LowerIntrin(&copied, target);
-  VLOG(10) << "After LowerIntrin:" << copied.as_module_ref();
-
-  return copied.as_module_ref();
 }
 
 }  // namespace optim

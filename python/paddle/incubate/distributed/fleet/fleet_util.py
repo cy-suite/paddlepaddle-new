@@ -74,7 +74,7 @@ class FleetUtil:
             from paddle.distributed import fleet
         else:
             raise ValueError(
-                "Please choose one mode from [\"pslib\", \"transpiler\"]"
+                'Please choose one mode from ["pslib", "transpiler"]'
             )
 
     def rank0_print(self, s):
@@ -1699,7 +1699,7 @@ class FleetUtil:
         )
         self.rank0_print(
             f"{print_prefix} global AUC={auc:.6f} BUCKET_ERROR={bucket_error:.6f} MAE={mae:.6f} "
-            f"RMSE={rmse:.6f} Actural_CTR={actual_ctr:.6f} Predicted_CTR={predicted_ctr:.6f} "
+            f"RMSE={rmse:.6f} Actual_CTR={actual_ctr:.6f} Predicted_CTR={predicted_ctr:.6f} "
             f"COPC={copc:.6f} MEAN Q_VALUE={mean_predict_qvalue:.6f} Ins number={total_ins_num}"
         )
 
@@ -1796,8 +1796,8 @@ class GPUPSUtil(FleetUtil):
             >>> fleet_util.rank0_print("my log")
     """
 
-    def __init__(self, fs_client=None):
-        super().__init__("pslib")
+    def __init__(self, fs_client=None, mode="pslib"):
+        super().__init__(mode)
         self._afs = fs_client
         # self._afs = fs_client._fs
 

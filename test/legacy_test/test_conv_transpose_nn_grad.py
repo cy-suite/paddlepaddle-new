@@ -22,7 +22,6 @@ import paddle
 import paddle.nn.functional as F
 from paddle import base
 from paddle.base import core
-from paddle.pir_utils import test_with_pir_api
 
 
 class TestConvTransposeDoubleGradCheck(unittest.TestCase):
@@ -49,26 +48,25 @@ class TestConvTransposeDoubleGradCheck(unittest.TestCase):
         if core.is_compiled_with_rocm():
             # HIP will sometimes fail if no atol
             gradient_checker.double_grad_check(
-                [x] + w,
+                [x, *w],
                 y,
-                x_init=[x_arr] + w_arr,
+                x_init=[x_arr, *w_arr],
                 place=place,
                 eps=eps,
                 atol=1e-4,
             )
         else:
             gradient_checker.double_grad_check(
-                [x] + w, y, x_init=[x_arr] + w_arr, place=place, eps=eps
+                [x, *w], y, x_init=[x_arr, *w_arr], place=place, eps=eps
             )
         gradient_checker.double_grad_check_for_dygraph(
             self.conv_transpose_wrapper,
-            [x] + w,
+            [x, *w],
             y,
-            x_init=[x_arr] + w_arr,
+            x_init=[x_arr, *w_arr],
             place=place,
         )
 
-    @test_with_pir_api
     @prog_scope()
     def func_pir(self, place):
         x_shape = [2, 4, 3, 3]
@@ -150,26 +148,25 @@ class TestConvTranspose2DoubleGradCheck_AsyPadding(
         if core.is_compiled_with_rocm():
             # HIP will sometimes fail if no atol
             gradient_checker.double_grad_check(
-                [x] + w,
+                [x, *w],
                 y,
-                x_init=[x_arr] + w_arr,
+                x_init=[x_arr, *w_arr],
                 place=place,
                 eps=eps,
                 atol=1e-4,
             )
         else:
             gradient_checker.double_grad_check(
-                [x] + w, y, x_init=[x_arr] + w_arr, place=place, eps=eps
+                [x, *w], y, x_init=[x_arr, *w_arr], place=place, eps=eps
             )
         gradient_checker.double_grad_check_for_dygraph(
             self.conv_transpose_wrapper,
-            [x] + w,
+            [x, *w],
             y,
-            x_init=[x_arr] + w_arr,
+            x_init=[x_arr, *w_arr],
             place=place,
         )
 
-    @test_with_pir_api
     @prog_scope()
     def func_pir(self, place):
         x_shape = [2, 2, 3, 3]
@@ -240,26 +237,25 @@ class TestConvTranspose2DoubleGradCheck_PaddingSAME(
         if core.is_compiled_with_rocm():
             # HIP will sometimes fail if no atol
             gradient_checker.double_grad_check(
-                [x] + w,
+                [x, *w],
                 y,
-                x_init=[x_arr] + w_arr,
+                x_init=[x_arr, *w_arr],
                 place=place,
                 eps=eps,
                 atol=1e-4,
             )
         else:
             gradient_checker.double_grad_check(
-                [x] + w, y, x_init=[x_arr] + w_arr, place=place, eps=eps
+                [x, *w], y, x_init=[x_arr, *w_arr], place=place, eps=eps
             )
         gradient_checker.double_grad_check_for_dygraph(
             self.conv_transpose_wrapper,
-            [x] + w,
+            [x, *w],
             y,
-            x_init=[x_arr] + w_arr,
+            x_init=[x_arr, *w_arr],
             place=place,
         )
 
-    @test_with_pir_api
     @prog_scope()
     def func_pir(self, place):
         x_shape = [2, 2, 3, 3]
@@ -331,26 +327,25 @@ class TestConvTranspose2DoubleGradCheck_PaddingVALID(
         if core.is_compiled_with_rocm():
             # HIP will sometimes fail if no atol
             gradient_checker.double_grad_check(
-                [x] + w,
+                [x, *w],
                 y,
-                x_init=[x_arr] + w_arr,
+                x_init=[x_arr, *w_arr],
                 place=place,
                 eps=eps,
                 atol=1e-4,
             )
         else:
             gradient_checker.double_grad_check(
-                [x] + w, y, x_init=[x_arr] + w_arr, place=place, eps=eps
+                [x, *w], y, x_init=[x_arr, *w_arr], place=place, eps=eps
             )
         gradient_checker.double_grad_check_for_dygraph(
             self.conv_transpose_wrapper,
-            [x] + w,
+            [x, *w],
             y,
-            x_init=[x_arr] + w_arr,
+            x_init=[x_arr, *w_arr],
             place=place,
         )
 
-    @test_with_pir_api
     @prog_scope()
     def func_pir(self, place):
         x_shape = [2, 2, 3, 3]
@@ -424,26 +419,25 @@ class TestConvTranspose2DoubleGradCheck_ChannelLast(
         if core.is_compiled_with_rocm():
             # HIP will sometimes fail if no atol
             gradient_checker.double_grad_check(
-                [x] + w,
+                [x, *w],
                 y,
-                x_init=[x_arr] + w_arr,
+                x_init=[x_arr, *w_arr],
                 place=place,
                 eps=eps,
                 atol=1e-4,
             )
         else:
             gradient_checker.double_grad_check(
-                [x] + w, y, x_init=[x_arr] + w_arr, place=place, eps=eps
+                [x, *w], y, x_init=[x_arr, *w_arr], place=place, eps=eps
             )
         gradient_checker.double_grad_check_for_dygraph(
             self.conv_transpose_wrapper,
-            [x] + w,
+            [x, *w],
             y,
-            x_init=[x_arr] + w_arr,
+            x_init=[x_arr, *w_arr],
             place=place,
         )
 
-    @test_with_pir_api
     @prog_scope()
     def func_pir(self, place):
         x_shape = [2, 3, 3, 2]

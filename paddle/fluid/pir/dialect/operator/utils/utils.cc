@@ -36,11 +36,8 @@ namespace paddle {
 namespace dialect {
 
 const std::unordered_set<std::string> LegacyOpList = {
-    LoadCombineOp::name(),
-    CConcatOp::name(),
     CBroadcast_Op::name(),
-    CSyncCalcStream_Op::name(),
-    CSyncCommStream_Op::name(),
+    CBroadcastOp::name(),
     DistributedPushSparseOp::name(),
     SendV2Op::name(),
     RecvV2Op::name(),
@@ -61,8 +58,6 @@ const std::unordered_set<std::string> LegacyOpList = {
     PushDenseOp::name(),
     SoftReluOp::name(),
     SoftReluGradOp::name(),
-    MovingAverageAbsMaxScaleOp::name(),
-    MovingAverageAbsMaxScale_Op::name(),
     CReduceAvgOp::name(),
     CReduceAvg_Op::name(),
     CReduceMaxOp::name(),
@@ -72,8 +67,6 @@ const std::unordered_set<std::string> LegacyOpList = {
     PullBoxSparseOp::name(),
     PushBoxSparseOp::name(),
     PushSparseV2Op::name(),
-    PartialSendOp::name(),
-    PartialRecvOp::name(),
     SendAndRecvOp::name()};
 
 enum class AttrType {
@@ -453,7 +446,8 @@ std::vector<int64_t> ParseValueShape(const pir::Value& shape,
       vec_shape.insert(vec_shape.end(), tmp.begin(), tmp.end());
     }
   } else if (shape.isa<pir::OpResult>() &&
-             shape.defining_op()->isa<paddle::dialect::ShapeOp>() &&
+             (shape.defining_op()->isa<paddle::dialect::ShapeOp>() ||
+              shape.defining_op()->isa<paddle::dialect::Shape64Op>()) &&
              shape.type().isa<paddle::dialect::DenseTensorType>()) {
     // tensor_shape may come from shape op
     // x0.shape = [-1,3]
@@ -557,6 +551,48 @@ StringToDataLayoutMap() {
       {"PSTRING_UNION", phi::DataLayout::PSTRING_UNION},
       {"STRIDED", phi::DataLayout::STRIDED}};
   return data_layout_map;
+}
+
+void SetStopGradient() {}
+
+void SetStopGradient(pir::Value* value) {
+  value->set_attribute(
+      "stop_gradient",
+      pir::BoolAttribute::get(pir::IrContext::Instance(), true));
+}
+
+void SetStopGradient(std::vector<pir::Value>* values) {
+  for (auto& value : *values) {
+    SetStopGradient(&value);
+  }
+}
+
+void SetStopGradient(paddle::optional<pir::Value>* value) {
+  if (value->get_ptr() != nullptr) {
+    SetStopGradient(value->get_ptr());
+  }
+}
+
+void SetStopGradient(paddle::optional<std::vector<pir::Value>>* values) {
+  if (values->get_ptr() != nullptr) {
+    SetStopGradient(values->get_ptr());
+  }
+}
+
+void PushStopGradient(const pir::Value& value, std::vector<bool>* arr) {
+  if (!IsEmptyValue(value)) {
+    arr->push_back(false);
+  } else {
+    arr->push_back(true);
+  }
+}
+
+std::vector<std::vector<bool>> ConstructStopGradient(pir::Operation* op) {
+  std::vector<std::vector<bool>> stop_gradients(op->results().size());
+  for (size_t i = 0; i < op->results().size(); i++) {
+    PushStopGradient(op->result(i), &stop_gradients[i]);
+  }
+  return stop_gradients;
 }
 
 }  // namespace dialect

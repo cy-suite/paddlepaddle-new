@@ -37,7 +37,6 @@
 #include "paddle/cinn/ir/ir_visitor.h"
 #include "paddle/cinn/ir/op/ir_operators.h"
 #include "paddle/cinn/ir/schedule/impl/ir_schedule.h"
-#include "paddle/cinn/ir/schedule/ir_schedule_error.h"
 #include "paddle/cinn/ir/schedule/ir_schedule_util.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
 #include "paddle/cinn/lang/compute.h"
@@ -94,31 +93,13 @@ void BaseInliner::Visit(const ir::Block* expr, Expr* op) {
   IRMutator::Visit(expr, op);
 }
 
-bool BaseInliner::UpdateAndCheckIndexVars(const std::vector<Expr>& indices,
-                                          int expected_ndim) {
-  int n = indices.size();
-  if (n != expected_ndim) {
-    return false;
-  }
-  std::vector<Var> result;
-  result.reserve(n);
-  for (auto& i : indices) {
-    if (i.as_var()) {
-      result.push_back(i.as_var_ref());
-    } else {
-      return false;
-    }
-  }
-  int n_distinct = std::set<Var, CompVar>(result.begin(), result.end()).size();
-  if (n != n_distinct) {
-    return false;
-  }
-  if (idx_vars_.empty()) {
-    idx_vars_ = std::move(result);
+bool BaseInliner::UpdateAndCheckIndexVars(const std::vector<Expr>& indices) {
+  if (idx_expr_.empty()) {
+    idx_expr_ = std::move(indices);
   } else {
-    if (idx_vars_.size() != result.size()) return false;
-    for (int i = 0; i < result.size(); ++i) {
-      if (Expr(idx_vars_[i]) != Expr(result[i])) return false;
+    if (idx_expr_.size() != indices.size()) return false;
+    for (int i = 0; i < indices.size(); ++i) {
+      if (Expr(idx_expr_[i]) != Expr(indices[i])) return false;
     }
   }
   return true;
@@ -126,15 +107,17 @@ bool BaseInliner::UpdateAndCheckIndexVars(const std::vector<Expr>& indices,
 
 void BaseInliner::SetIndexSubstitution(const std::vector<Expr>& indices) {
   PADDLE_ENFORCE_EQ(indices.size(),
-                    idx_vars_.size(),
+                    idx_expr_.size(),
                     ::common::errors::InvalidArgument(
-                        "The size of indices should be equal to idx_vars_"));
-  int n = idx_vars_.size();
-  idx_sub_var_.reserve(n);
-  idx_sub_expr_.reserve(n);
+                        "The size of indices should be equal to idx_expr_"));
+  int n = indices.size();
+  idx_sub_var_.clear();
+  idx_sub_expr_.clear();
   for (int i = 0; i < n; ++i) {
-    idx_sub_var_.push_back(idx_vars_[i]);
-    idx_sub_expr_.push_back(indices[i]);
+    if (idx_expr_[i].is_var()) {
+      idx_sub_var_.push_back(idx_expr_[i].as_var_ref());
+      idx_sub_expr_.push_back(indices[i]);
+    }
   }
 }
 
@@ -144,20 +127,9 @@ bool ComputeInliner::BodyPatternAllowInline() {
   }
   PADDLE_ENFORCE_NOT_NULL(
       inlined_store_.As<Store>(),
-      phi::errors::NotFound(
+      ::common::errors::NotFound(
           "Param inlined store should be Store node! Please check."));
-  auto find_vars = ir::ir_utils::CollectIRNodesWithoutTensor(
-      inlined_store_, [&](const Expr* x) { return x->as_var(); });
-  std::set<Var, CompVar> vars_set;
-  for (auto& i : find_vars) {
-    if (i.as_var_ref()->name[0] == 'S') continue;
-    // if (i.as_var_ref()->name == "S0" || i.as_var_ref()->name == "S1")
-    // continue;
-    vars_set.insert(i.as_var_ref());
-  }
-
-  int n_vars = vars_set.size();
-  if (!UpdateAndCheckIndexVars(inlined_store_.As<Store>()->indices, n_vars)) {
+  if (!UpdateAndCheckIndexVars(inlined_store_.As<Store>()->indices)) {
     return false;
   }
   return true;
@@ -175,7 +147,7 @@ void ComputeInliner::Visit(const ir::Load* expr, Expr* op) {
 Expr ComputeInliner::ReplaceInlinedTensor(Expr* load) {
   PADDLE_ENFORCE_NOT_NULL(
       load->As<ir::Load>(),
-      phi::errors::NotFound(
+      ::common::errors::NotFound(
           "Param load should be ir::Load node! Please check."));
   SetIndexSubstitution(load->As<ir::Load>()->indices);
   Expr value_copy = ir::ir_utils::IRCopy(inlined_store_.As<Store>()->value);
@@ -208,22 +180,22 @@ bool ReverseComputeInliner::BodyPatternAllowInline() {
   }
   PADDLE_ENFORCE_NOT_NULL(
       inlined_store_.As<Store>(),
-      phi::errors::NotFound(
+      ::common::errors::NotFound(
           "Param inlined store should be Store node! Please check."));
   PADDLE_ENFORCE_NOT_NULL(
       inlined_load_.As<Load>(),
-      phi::errors::NotFound(
+      ::common::errors::NotFound(
           "Param inlined load should be Load node! Please check."));
   PADDLE_ENFORCE_NOT_NULL(
       target_store_.As<Store>(),
-      phi::errors::NotFound(
+      ::common::errors::NotFound(
           "Param target store should be Store node! Please check."));
   auto find_vars = ir::ir_utils::CollectIRNodesWithoutTensor(
       inlined_store_, [&](const Expr* x) { return x->as_var(); });
   std::set<Var, CompVar> vars_set;
   for (auto& i : find_vars) vars_set.insert(i.as_var_ref());
   int n_vars = vars_set.size();
-  if (!UpdateAndCheckIndexVars(inlined_store_.As<Store>()->indices, n_vars)) {
+  if (!UpdateAndCheckIndexVars(inlined_store_.As<Store>()->indices)) {
     return false;
   }
   return true;
@@ -249,7 +221,7 @@ void ReverseComputeInliner::Visit(const ir::Store* expr, Expr* op) {
 Expr ReverseComputeInliner::ReplaceInlinedTensor(Expr* load) {
   PADDLE_ENFORCE_NOT_NULL(
       load->As<ir::Load>(),
-      phi::errors::NotFound(
+      ::common::errors::NotFound(
           "Param load should be ir::Load node! Please check."));
   SetIndexSubstitution(load->As<ir::Load>()->indices);
   Expr value_copy = ir::ir_utils::IRCopy(inlined_store_.As<Store>()->value);
@@ -259,15 +231,17 @@ Expr ReverseComputeInliner::ReplaceInlinedTensor(Expr* load) {
 Expr ReverseComputeInliner::ReplaceTargetTensor(Expr* store) {
   auto indices = inlined_load_.As<ir::Load>()->indices;
   PADDLE_ENFORCE_EQ(indices.size(),
-                    idx_vars_.size(),
+                    idx_expr_.size(),
                     ::common::errors::InvalidArgument(
-                        "The size of indices should be equal to idx_vars_"));
-  size_t n = idx_vars_.size();
-  idx_sub_var_.reserve(n);
-  idx_sub_expr_.reserve(n);
+                        "The size of indices should be equal to idx_expr_"));
+  size_t n = idx_expr_.size();
+  idx_sub_var_.clear();
+  idx_sub_expr_.clear();
   for (int i = 0; i < n; ++i) {
-    idx_sub_var_.emplace_back(indices[i].as_var_ref());
-    idx_sub_expr_.emplace_back(idx_vars_[i]);
+    if (indices[i].is_var()) {
+      idx_sub_var_.emplace_back(indices[i].as_var_ref());
+      idx_sub_expr_.emplace_back(idx_expr_[i]);
+    }
   }
 
   Expr value_copy = ir::ir_utils::IRCopy(target_store_);

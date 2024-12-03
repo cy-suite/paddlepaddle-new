@@ -33,9 +33,6 @@ typedef SSIZE_T ssize_t;
 #include "paddle/fluid/eager/hooks.h"
 #include "paddle/fluid/eager/utils.h"
 #include "paddle/fluid/framework/convert_utils.h"
-#include "paddle/fluid/framework/string_array.h"
-#include "paddle/fluid/memory/allocation/allocator.h"
-#include "paddle/fluid/memory/memcpy.h"
 #include "paddle/fluid/platform/enforce.h"
 #include "paddle/fluid/pybind/eager.h"
 #include "paddle/fluid/pybind/eager_utils.h"
@@ -47,8 +44,11 @@ typedef SSIZE_T ssize_t;
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/core/compat/convert_utils.h"
 #include "paddle/phi/core/dense_tensor.h"
+#include "paddle/phi/core/memory/allocation/allocator.h"
+#include "paddle/phi/core/memory/memcpy.h"
 #include "paddle/phi/core/sparse_coo_tensor.h"
 #include "paddle/phi/core/sparse_csr_tensor.h"
+#include "paddle/phi/core/vocab/string_array.h"
 #include "pybind11/detail/internals.h"
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
@@ -59,18 +59,21 @@ typedef SSIZE_T ssize_t;
 #include "paddle/fluid/eager/api/generated/eager_generated/forwards/dygraph_functions.h"
 #include "paddle/fluid/framework/python_headers.h"
 #include "paddle/fluid/imperative/amp_utils.h"
-#include "paddle/fluid/memory/allocation/mmap_allocator.h"
 #include "paddle/fluid/pybind/tensor_py.h"
 #include "paddle/phi/core/distributed/auto_parallel/dist_tensor.h"
 #include "paddle/phi/core/distributed/auto_parallel/reshard/reshard_function.h"
 #include "paddle/phi/core/distributed/auto_parallel/reshard/reshard_function_registry.h"
 #include "paddle/phi/core/distributed/auto_parallel/reshard/reshard_utils.h"
+#include "paddle/phi/core/memory/allocation/mmap_allocator.h"
 #include "paddle/phi/core/tensor_utils.h"
 #include "paddle/phi/kernels/funcs/math_function.h"
 #include "paddle/utils/pybind.h"
 
 COMMON_DECLARE_bool(set_to_1d);
 COMMON_DECLARE_bool(use_stride_kernel);
+
+using egr::ConvertAllInputsToDistTensor;
+using egr::InputsContainDistTensor;
 
 namespace paddle::pybind {
 
@@ -141,11 +144,11 @@ Examples:
     .. code-block:: python
 
         >>> import paddle
-
-        >>> data = paddle.uniform([30, 10, 32], dtype="float32", min=-1, max=1)
-        >>> linear = paddle.nn.Linear(32, 64)
-        >>> data = paddle.to_tensor(data)
-        >>> x = linear(data)
+        >>> x = paddle.to_tensor([[1.0, 2.0, 3.0],
+        ...                       [4.0, 5.0, 6.0]])
+        >>> x.numpy()
+        array([[1., 2., 3.],
+               [4., 5., 6.]], dtype=float32)
 )DOC");
 
 static PyObject* tensor_method_numpy(TensorObject* self,
@@ -616,6 +619,9 @@ static PyObject* tensor_method__copy_to(TensorObject* self,
   paddle::Tensor cp_tensor;
   {
     eager_gil_scoped_release guard;
+
+    EagerSetDeviceId();
+
     cp_tensor = self->tensor.copy_to(place, blocking);
     if (!blocking) {
       IncreaseTensorReferenceCountUntilCopyComplete(self->tensor, place);
@@ -687,18 +693,24 @@ static PyObject* tensor_method_copy_(TensorObject* self,
           << self->tensor.name();
   if (!self->tensor.initialized()) {
     eager_gil_scoped_release guard;
+
+    EagerSetDeviceId();
+
     egr::EagerUtils::autograd_meta(&(self->tensor))
         ->SetStopGradient(
             egr::EagerUtils::autograd_meta(&(src_tensor))->StopGradient());
     egr::EagerUtils::autograd_meta(&(self->tensor))
         ->SetPersistable(
             egr::EagerUtils::autograd_meta(&(src_tensor))->Persistable());
-    if (src_tensor.initialized()) {
+    if (src_tensor.has_allocation()) {
       self->tensor.copy_(src_tensor, src_tensor.place(), blocking);
     }
   } else {
-    if (src_tensor.initialized()) {
+    if (src_tensor.has_allocation()) {
       eager_gil_scoped_release guard;
+
+      EagerSetDeviceId();
+
       self->tensor.copy_(src_tensor, self->tensor.place(), blocking);
     }
   }
@@ -716,7 +728,7 @@ PyDoc_STRVAR(tensor_method_clone__doc__,  // NOLINT
 
 Returns a new Tensor, which is clone of origin Tensor, and it remains in the current graph.
 It will always have a Tensor copy.
-Tn addition, the cloned Tensor provides gradient propagation.
+In addition, the cloned Tensor provides gradient propagation.
 
 Returns:
     Tensor, The cloned Tensor.
@@ -763,6 +775,9 @@ static PyObject* tensor_method_clone(TensorObject* self,
   paddle::Tensor out;
   {
     eager_gil_scoped_release guard;
+
+    EagerSetDeviceId();
+
     PADDLE_ENFORCE_EQ(
         self->tensor.initialized(),
         true,
@@ -838,7 +853,7 @@ PyDoc_STRVAR(tensor_clear_gradient__doc__,  // NOLINT
 --
 
 Only for Tensor that has gradient, normally we use this for Parameters since
-other temporary Tensor doesen't has gradient.
+other temporary Tensor doesn't has gradient.
 
 The Gradient of current Tensor will be set to ``0`` elementwise or ``None``.
 
@@ -919,6 +934,7 @@ static PyObject* tensor_clear_gradient(TensorObject* self,
                   ->unsafe_mutable_value();
         }
         if (set_to_zero) {
+          EagerSetDeviceId();
           auto* dev_ctx =
               phi::DeviceContextPool::Instance().Get(grad_t->place());
           phi::funcs::set_constant(*dev_ctx, grad_t, 0.0);
@@ -949,6 +965,7 @@ static PyObject* tensor__zero_grads(TensorObject* self,
 
   if (egr::EagerUtils::IsLeafTensor(self->tensor)) {
     eager_gil_scoped_release guard;
+    EagerSetDeviceId();
     // Add RetainGrad as PostHook to AccumulationNode
     paddle::Tensor* grad = egr::EagerUtils::mutable_grad(self->tensor);
     PADDLE_ENFORCE(
@@ -973,6 +990,7 @@ static PyObject* tensor__zero_grads(TensorObject* self,
     }
   } else {
     eager_gil_scoped_release guard;
+    EagerSetDeviceId();
     auto meta = egr::EagerUtils::unsafe_autograd_meta(self->tensor);
     if (meta->MutableGrad()->initialized()) {
       if (meta->MutableGrad()->is_dense_tensor() ||
@@ -1860,13 +1878,11 @@ static PyObject* tensor__setitem_dygraph(TensorObject* self,
         ConvertAllInputsToDistTensor(
             mesh, self->tensor, transed_sub_tensor, value_tensor);
       }
-
       if (transed_index.size() == 1 &&
           transed_index[0].dtype() == phi::DataType::BOOL &&
-          transed_index[0].shape().size() == self->tensor.shape().size()) {
-        if (value_tensor.shape() != self->tensor.shape()) {
-          value_tensor = expand_ad_func(value_tensor, self->tensor.shape());
-        }
+          transed_index[0].shape().size() == self->tensor.shape().size() &&
+          value_tensor.numel() == 1) {
+        value_tensor = expand_ad_func(value_tensor, self->tensor.shape());
         transed_sub_tensor =
             where__ad_func(logical_not_ad_func(transed_index[0]),
                            transed_sub_tensor,
@@ -1875,7 +1891,6 @@ static PyObject* tensor__setitem_dygraph(TensorObject* self,
         transed_sub_tensor =
             index_put__ad_func(transed_sub_tensor, transed_index, value_tensor);
       }
-
       if (out_is_view) {
         // NOTE(zoooo0820): if out_is_view is true, it is a case of
         // combined-indexing setitem, i.e. firstly we get a view of
@@ -1899,6 +1914,7 @@ static PyObject* tensor__setitem_dygraph(TensorObject* self,
         if (require_any_grad) {
           paddle::Tensor transback_sub_tensor =
               transpose_ad_func(transed_sub_tensor, trans_back_dim);
+
           const auto& values_tmp =
               (require_any_grad && transback_sub_tensor.is_dense_tensor() &&
                !std::dynamic_pointer_cast<phi::DenseTensor>(
@@ -1913,7 +1929,10 @@ static PyObject* tensor__setitem_dygraph(TensorObject* self,
                         transback_sub_tensor.mutable_autograd_meta(),
                         transback_sub_tensor.name())
                   : transback_sub_tensor;
-
+          if (!x_autograd_meta) {
+            VLOG(3) << "x_autograd_meta is null and requires_any_grad is true";
+            x_autograd_meta = egr::EagerUtils::autograd_meta(&self->tensor);
+          }
           grad_node = std::shared_ptr<SetValueWithTensorGradNode>(
               new SetValueWithTensorGradNode(1, 2));  // NOLINT
           grad_node->SetAttribute_starts(slice_starts);
@@ -1933,11 +1952,10 @@ static PyObject* tensor__setitem_dygraph(TensorObject* self,
           // SetGradOutMeta & SetEdges
           grad_node->SetGradOutMeta(self->tensor, 0);
           grad_node->SetGradOutMeta(transback_sub_tensor, 1);
-          if (x_autograd_meta) {
-            egr::EagerUtils::SetOutRankWithSlot(x_autograd_meta, 0);
-            egr::EagerUtils::SetHistory(x_autograd_meta, grad_node);
-          }
           grad_node->SetGradInMeta(self->tensor, 0);
+
+          egr::EagerUtils::SetOutRankWithSlot(x_autograd_meta, 0);
+          egr::EagerUtils::SetHistory(x_autograd_meta, grad_node);
         }
       } else {
         self->tensor.set_autograd_meta(
@@ -2124,7 +2142,7 @@ static PyObject* tensor__set_grad_type(TensorObject* self,
   auto var_type = pybind::CastPyArg2ProtoType(PyTuple_GET_ITEM(args, 0), 0);
   auto grad_tensor =
       egr::EagerUtils::autograd_meta(&self->tensor)->MutableGrad();
-  if (var_type == framework::proto::VarType::LOD_TENSOR) {
+  if (var_type == framework::proto::VarType::DENSE_TENSOR) {
     grad_tensor->set_impl(std::make_shared<phi::DenseTensor>());
   } else if (var_type == framework::proto::VarType::SELECTED_ROWS) {
     grad_tensor->set_impl(std::make_shared<phi::SelectedRows>());
@@ -2246,7 +2264,7 @@ static PyObject* tensor_method_set_vocab(TensorObject* self,
                                          PyObject* args,
                                          PyObject* kwargs) {
   EAGER_TRY
-  using Vocab = paddle::framework::Vocab;
+  using Vocab = phi::Vocab;
   auto vocab = CastPyArg2Vocab(PyTuple_GET_ITEM(args, 0), 0);
   auto var_tensor = std::make_shared<egr::VariableCompatTensor>();
   *var_tensor->GetMutable<Vocab>() = vocab;
@@ -2259,7 +2277,7 @@ static PyObject* tensor_method_set_string_list(TensorObject* self,
                                                PyObject* args,
                                                PyObject* kwargs) {
   EAGER_TRY
-  using Strings = paddle::framework::Strings;
+  using Strings = phi::Strings;
   auto strings = CastPyArg2VectorOfString(PyTuple_GET_ITEM(args, 0), 0);
   auto var_tensor = std::make_shared<egr::VariableCompatTensor>();
   *var_tensor->GetMutable<Strings>() = strings;
@@ -2277,7 +2295,7 @@ static PyObject* tensor_method_get_map_tensor(TensorObject* self,
       true,
       common::errors::Fatal(
           "this method is only effective for VariableCompatTensor"));
-  using Vocab = paddle::framework::Vocab;
+  using Vocab = phi::Vocab;
   auto* var_tensor =
       static_cast<const egr::VariableCompatTensor*>(self->tensor.impl().get());
   return ToPyObject(var_tensor->Get<Vocab>());
@@ -2735,6 +2753,61 @@ static PyObject* tensor_method_to_sparse_csr(TensorObject* self,
   EAGER_CATCH_AND_THROW_RETURN_NULL
 }
 
+PyDoc_STRVAR(tensor_is_coalesced__doc__,  // NOLINT
+             R"DOC(is_coalesced($self, /)
+--
+
+Check whether the Tensor is a coalesced SparseCooTensor. If not it will return False.
+Tensor types other than SparseCooTensor are not supported.
+
+Notes:
+    It will return always False for a newly created SparseCooTensor.
+
+Args:
+    x (Tensor): The input tensor. It can only be SparseCooTensor.
+
+Returns:
+    bool: True if the Tensor is a coalesced SparseCooTensor, and False otherwise.
+
+Examples:
+
+    .. code-block:: python
+
+        >>> import paddle
+
+        >>> indices = [[0, 0, 1], [1, 1, 2]]
+        >>> values = [1.0, 2.0, 3.0]
+        >>> x = paddle.sparse.sparse_coo_tensor(indices, values)
+
+        >>> x.is_coalesced()
+        False
+        >>> x = x.coalesce()
+        >>> x.is_coalesced()
+        True
+
+        >>> indices = [[0, 1, 1], [1, 0, 2]]
+        >>> values = [1.0, 2.0, 3.0]
+        >>> x = paddle.sparse.sparse_coo_tensor(indices, values)
+        >>> x.is_coalesced()
+        False
+
+)DOC");                                   // NOLINT
+
+static PyObject* tensor_method_is_coalesced(TensorObject* self,
+                                            PyObject* args,
+                                            PyObject* kwargs) {
+  EAGER_TRY
+  if (self->tensor.is_sparse_coo_tensor()) {
+    auto sparse_coo_tensor =
+        std::dynamic_pointer_cast<phi::SparseCooTensor>(self->tensor.impl());
+    return ToPyObject(sparse_coo_tensor->coalesced());
+  } else {
+    PADDLE_THROW(common::errors::InvalidType(
+        "Method is_coalesced only support sparse coo tensor."));
+  }
+  EAGER_CATCH_AND_THROW_RETURN_NULL
+}
+
 PyDoc_STRVAR(tensor_is_same_shape__doc__,  // NOLINT
              R"DOC(is_same_shape($self, y, /)
 --
@@ -2904,7 +2977,7 @@ static PyObject* tensor_method__share_memory(TensorObject* self,
                     true,
                     common::errors::InvalidArgument(
                         "Sharing memory only support CPU Tensor currently"));
-  // 1. get LoDTensor
+  // 1. get DenseTensor
   auto* t =
       std::dynamic_pointer_cast<phi::DenseTensor>(self->tensor.impl()).get();
   // 2. allocate shared memory
@@ -3192,6 +3265,7 @@ static PyObject* tensor_contiguous(TensorObject* self,
       return reinterpret_cast<PyObject*>(self);
     } else {
       eager_gil_scoped_release guard;
+      EagerSetDeviceId();
       *dense_tensor = paddle::experimental::Trans2Contiguous(*dense_tensor);
       Py_INCREF(self);
       return reinterpret_cast<PyObject*>(self);
@@ -3238,6 +3312,121 @@ static PyObject* tensor_is_contiguous(TensorObject* self,
     return ToPyObject(dense_tensor->meta().is_contiguous());
   } else {
     return ToPyObject(true);
+  }
+  EAGER_CATCH_AND_THROW_RETURN_NULL
+}
+
+PyDoc_STRVAR(tensor_method_sparse_dim__doc__,
+             R"DOC(sparse_dim($self, /)
+--
+
+Returns the number of sparse dimensions of sparse Tensor.
+
+Note:
+    **If self is not sparse Tensor, return 0.**
+
+Returns:
+    int, sparse dim of self Tensor
+
+Examples:
+
+    .. code-block:: python
+
+        >>> import paddle
+
+        >>> indices = [[0, 1, 2], [1, 2, 0]]
+        >>> values = [1.0, 2.0, 3.0]
+        >>> dense_shape = [3, 3]
+        >>> coo = paddle.sparse.sparse_coo_tensor(indices, values, dense_shape)
+        >>> coo.sparse_dim()
+        2
+
+        >>> crows = [0, 2, 3, 5]
+        >>> cols = [1, 3, 2, 0, 1]
+        >>> values = [1, 2, 3, 4, 5]
+        >>> dense_shape = [3, 4]
+        >>> csr = paddle.sparse.sparse_csr_tensor(crows, cols, values, dense_shape)
+        >>> csr.sparse_dim()
+        2
+
+        >>> dense = paddle.to_tensor([1, 2, 3])
+        >>> dense.sparse_dim()
+        0
+
+)DOC");  // NOLINT
+
+static PyObject* tensor_method_sparse_dim(TensorObject* self,
+                                          PyObject* args,
+                                          PyObject* kwargs) {
+  EAGER_TRY
+  if (self->tensor.is_sparse_coo_tensor()) {
+    auto sparse_coo_tensor =
+        std::dynamic_pointer_cast<phi::SparseCooTensor>(self->tensor.impl());
+    return ToPyObject(sparse_coo_tensor->sparse_dim());
+  } else if (self->tensor.is_sparse_csr_tensor()) {
+    auto sparse_csr_tensor =
+        std::dynamic_pointer_cast<phi::SparseCsrTensor>(self->tensor.impl());
+    return ToPyObject(sparse_csr_tensor->sparse_dim());
+  } else {
+    return ToPyObject(0);
+  }
+  EAGER_CATCH_AND_THROW_RETURN_NULL
+}
+
+PyDoc_STRVAR(tensor_method_dense_dim__doc__,
+             R"DOC(dense_dim($self, /)
+--
+
+Returns the number of dense dimensions of sparse Tensor.
+
+Note:
+    **If self is not sparse Tensor, return len(self.shape).**
+
+Returns:
+    int, dense dim of self Tensor
+
+Examples:
+
+    .. code-block:: python
+
+        >>> import paddle
+        >>> import numpy as np
+
+        >>> indices = [[0, 1, 1], [2, 0, 2]]
+        >>> values = np.array([[3, 4], [5, 6], [7, 8]])
+        >>> dense_shape = [2, 3, 2]
+        >>> coo = paddle.sparse.sparse_coo_tensor(indices, values, dense_shape)
+        >>> coo.dense_dim()
+        1
+
+        >>> crows = [0, 2, 3, 5]
+        >>> cols = [1, 3, 2, 0, 1]
+        >>> values = [1, 2, 3, 4, 5]
+        >>> dense_shape = [3, 4]
+        >>> csr = paddle.sparse.sparse_csr_tensor(crows, cols, values, dense_shape)
+        >>> csr.dense_dim()
+        0
+
+        >>> dense = paddle.to_tensor([[1, 2, 3]])
+        >>> dense.dense_dim()
+        >>> 2
+
+)DOC");  // NOLINT
+
+static PyObject* tensor_method_dense_dim(TensorObject* self,
+                                         PyObject* args,
+                                         PyObject* kwargs) {
+  EAGER_TRY
+  if (self->tensor.is_sparse_coo_tensor()) {
+    auto sparse_coo_tensor =
+        std::dynamic_pointer_cast<phi::SparseCooTensor>(self->tensor.impl());
+    return ToPyObject(sparse_coo_tensor->dense_dim());
+  } else if (self->tensor.is_sparse_csr_tensor()) {
+    auto sparse_csr_tensor =
+        std::dynamic_pointer_cast<phi::SparseCsrTensor>(self->tensor.impl());
+    return ToPyObject(sparse_csr_tensor->dense_dim());
+  } else {
+    return ToPyObject(self->tensor.shape().size());
   }
   EAGER_CATCH_AND_THROW_RETURN_NULL
 }
@@ -3503,6 +3692,18 @@ PyMethodDef variable_methods[] = {  // NOLINT
      (PyCFunction)(void (*)())tensor_method_to_sparse_csr,
      METH_VARARGS | METH_KEYWORDS,
      tensor_to_sparse_csr__doc__},
+    {"is_coalesced",
+     (PyCFunction)(void (*)())tensor_method_is_coalesced,
+     METH_VARARGS | METH_KEYWORDS,
+     tensor_is_coalesced__doc__},
+    {"sparse_dim",
+     (PyCFunction)(void (*)())tensor_method_sparse_dim,
+     METH_VARARGS | METH_KEYWORDS,
+     tensor_method_sparse_dim__doc__},
+    {"dense_dim",
+     (PyCFunction)(void (*)())tensor_method_dense_dim,
+     METH_VARARGS | METH_KEYWORDS,
+     tensor_method_dense_dim__doc__},
     /***the method of sparse tensor****/
     {"element_size",
      (PyCFunction)(void (*)())tensor_method_element_size,

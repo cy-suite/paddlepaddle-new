@@ -11,14 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
 
 import copy
 import logging
 from collections import OrderedDict
-from typing import List, Tuple
+from typing import TYPE_CHECKING
 
 import paddle
-from paddle.base import Variable
 from paddle.distributed.auto_parallel.static.utils import (
     is_backward_op,
     is_gradient_clip_op,
@@ -35,6 +35,9 @@ from paddle.static import program_guard
 
 from ..utils.log_utils import get_logger
 from .pass_base import PassBase, register_pass
+
+if TYPE_CHECKING:
+    from paddle.base import Variable
 
 _supported_optimizer_type = [
     "adam",
@@ -53,21 +56,11 @@ logger = get_logger(logging.INFO, "MasterGradPass")
 
 
 def _is_master_grad_cast_op(block, op):
-    in_pir_mode = paddle.base.framework.get_flags("FLAGS_enable_pir_api")[
-        "FLAGS_enable_pir_api"
-    ]
-    if in_pir_mode:
-        op_name = op.name()
-        if op_name != "pd_op.cast":
-            return False
-        input_names = op.get_input_names()
-        output_names = op.get_output_names()
-    else:
-        op_name = op.type
-        if op_name != "cast":
-            return False
-        input_names = op.input_arg_names
-        output_names = op.output_arg_names
+    op_name = op.type
+    if op_name != "cast":
+        return False
+    input_names = op.input_arg_names
+    output_names = op.output_arg_names
 
     assert len(input_names) == 1
     assert len(output_names) == 1
@@ -80,7 +73,7 @@ def _is_master_grad_cast_op(block, op):
     )
 
 
-def get_output_in_varlist(op, var_names) -> List[str]:
+def get_output_in_varlist(op, var_names) -> list[str]:
     grad_names = []
     for output_name in op.output_arg_names:
         if output_name in var_names:
@@ -115,7 +108,7 @@ class MasterGradPass(PassBase):
         )
         logger.debug(f"After main program: {main_program}")
 
-    def _add_cast_op(self, cur_block, grad_names: List[str], dist_context):
+    def _add_cast_op(self, cur_block, grad_names: list[str], dist_context):
         grad_first_ids = OrderedDict()
         for idx, op in enumerate(cur_block.ops):
             if is_optimize_op(op):
@@ -209,7 +202,7 @@ class MasterGradPass(PassBase):
         self,
         main_program,
         startup_program,
-        params_grads: List[Tuple[Variable, Variable]],
+        params_grads: list[tuple[Variable, Variable]],
         dist_context,
     ):
         grad_names = [g.name for _, g in params_grads]

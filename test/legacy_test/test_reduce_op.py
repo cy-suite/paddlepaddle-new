@@ -23,7 +23,6 @@ import paddle
 from paddle import base
 from paddle.base import core
 from paddle.base.framework import in_pir_mode
-from paddle.pir_utils import test_with_pir_api
 
 
 class TestSumOp(OpTest):
@@ -964,7 +963,7 @@ class TestAll8DOpWithKeepDim(OpTest):
 
 
 class TestAllOpError(unittest.TestCase):
-    @test_with_pir_api
+
     def test_errors(self):
         with paddle.static.program_guard(
             paddle.static.Program(), paddle.static.Program()
@@ -1125,7 +1124,7 @@ class TestAny8DOpWithKeepDim(OpTest):
 
 
 class TestAnyOpError(unittest.TestCase):
-    @test_with_pir_api
+
     def test_errors(self):
         with paddle.static.program_guard(
             paddle.static.Program(), paddle.static.Program()
@@ -1332,7 +1331,7 @@ class TestKeepDim8DReduce(Test1DReduce):
     reason="reduce_max is discontinuous non-derivable function,"
     " its gradient check is not supported by unittest framework."
 )
-class TestReduceMaxOpMultiAxises(OpTest):
+class TestReduceMaxOpMultiAxes(OpTest):
     """Remove Max with subgradient from gradient check to confirm the success of CI."""
 
     def setUp(self):
@@ -1364,7 +1363,7 @@ class TestReduceMaxOpMultiAxises(OpTest):
     reason="reduce_min is discontinuous non-derivable function,"
     " its gradient check is not supported by unittest framework."
 )
-class TestReduceMinOpMultiAxises(OpTest):
+class TestReduceMinOpMultiAxes(OpTest):
     """Remove Min with subgradient from gradient check to confirm the success of CI."""
 
     def setUp(self):
@@ -1380,7 +1379,7 @@ class TestReduceMinOpMultiAxises(OpTest):
         self.check_output()
 
 
-class TestKeepDimReduceSumMultiAxises(OpTest):
+class TestKeepDimReduceSumMultiAxes(OpTest):
     def setUp(self):
         self.op_type = "reduce_sum"
         self.python_api = paddle.sum
@@ -1405,7 +1404,7 @@ class TestKeepDimReduceSumMultiAxises(OpTest):
         self.check_grad(['X'], 'Out', check_prim=True)
 
 
-class TestKeepDimReduceSumMultiAxisesForEager(OpTest):
+class TestKeepDimReduceSumMultiAxesForEager(OpTest):
     def setUp(self):
         self.op_type = "reduce_sum"
         self.python_api = reduce_sum_wrapper2
@@ -1695,7 +1694,6 @@ class API_TestSumOp(unittest.TestCase):
                 rtol=1e-05,
             )
 
-    @test_with_pir_api
     def test_static(self):
         shape = [10, 10]
         axis = 1
@@ -1808,7 +1806,6 @@ class TestAllAPI(unittest.TestCase):
             )
             self.assertTrue((fetches[0] == np.all(input_np)).all())
 
-    @test_with_pir_api
     def test_static(self):
         for place in self.places:
             self.check_static_result(place=place)
@@ -1922,7 +1919,6 @@ class TestAnyAPI(unittest.TestCase):
             )
             self.assertTrue((fetches[0] == np.any(input_np)).all())
 
-    @test_with_pir_api
     def test_static(self):
         for place in self.places:
             self.check_static_result(place=place)

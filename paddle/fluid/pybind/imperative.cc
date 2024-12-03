@@ -53,7 +53,6 @@ limitations under the License. */
 #include "paddle/fluid/imperative/tracer.h"
 #include "paddle/fluid/imperative/type_defs.h"
 #include "paddle/fluid/imperative/xccl_context.h"
-#include "paddle/fluid/memory/allocation/mmap_allocator.h"
 #include "paddle/fluid/pybind/cuda_streams_py.h"
 #include "paddle/fluid/pybind/eager_utils.h"
 #include "paddle/fluid/pybind/pybind_variant_caster.h"
@@ -61,6 +60,7 @@ limitations under the License. */
 #include "paddle/fluid/pybind/tensor_py.h"
 #include "paddle/fluid/pybind/uva_utils.h"
 #include "paddle/phi/core/compat/arg_map_context.h"
+#include "paddle/phi/core/memory/allocation/mmap_allocator.h"
 #include "paddle/phi/core/tensor_utils.h"
 #include "paddle/phi/core/type_defs.h"
 
@@ -164,7 +164,7 @@ static void InitVarBaseOnly(imperative::VarBase *self,
     self->SetOverriddenStopGradient(stop_gradient);
   }
   self->SetPersistable(persistable);
-  self->SetType(framework::proto::VarType::LOD_TENSOR);
+  self->SetType(framework::proto::VarType::DENSE_TENSOR);
 }
 
 // initialize varbase and its tensor.
@@ -250,7 +250,7 @@ static void InitVarBaseFromNumpyWithArg(imperative::VarBase *self,
     self->SetOverriddenStopGradient(stop_gradient);
   }
   SetTensorFromPyArray<P>(tensor, array, place, zero_copy);
-  self->SetType(framework::proto::VarType::LOD_TENSOR);
+  self->SetType(framework::proto::VarType::DENSE_TENSOR);
   self->SetDataType(framework::TransToProtoVarType(tensor->dtype()));
 }
 
@@ -272,7 +272,7 @@ static void InitVarBaseFromTensorWithArgDefault(imperative::VarBase *self,
                    : name;
   new (self) imperative::VarBase(name_);
   self->SetPersistable(false);
-  self->SetType(framework::proto::VarType::LOD_TENSOR);
+  self->SetType(framework::proto::VarType::DENSE_TENSOR);
   self->SetDataType(framework::TransToProtoVarType(tensor.dtype()));
   auto *new_tensor = self->MutableVar()->GetMutable<phi::DenseTensor>();
   // Same place, share data directly
@@ -297,7 +297,7 @@ static void InitVarBaseFromTensorWithArg(imperative::VarBase *self,
                    : name;
   new (self) imperative::VarBase(name_);
   self->SetPersistable(false);
-  self->SetType(framework::proto::VarType::LOD_TENSOR);
+  self->SetType(framework::proto::VarType::DENSE_TENSOR);
   self->SetDataType(framework::TransToProtoVarType(tensor.dtype()));
   auto *new_tensor = self->MutableVar()->GetMutable<phi::DenseTensor>();
   // Same place, share data directly
@@ -526,7 +526,7 @@ void BindImperative(py::module *m_ptr) {
                   "lists with different lengths.\n  * Check the reader "
                   "function passed to 'set_(sample/sample_list/batch)"
                   "_generator' to locate the data causes this issue."));
-          // 2. construct LoDTensor
+          // 2. construct DenseTensor
           phi::DenseTensor t;
           SetTensorFromPyArray<phi::CPUPlace>(&t, array, phi::CPUPlace(), true);
           // 3. allocate shared memory
@@ -565,7 +565,7 @@ void BindImperative(py::module *m_ptr) {
                 "lists with different lengths.\n  * Check the reader "
                 "function passed to 'set_(sample/sample_list/batch)"
                 "_generator' to locate the data causes this issue."));
-        // 2. construct LoDTensor
+        // 2. construct DenseTensor
         phi::DenseTensor t;
         SetTensorFromPyArray<phi::CPUPlace>(&t, array, phi::CPUPlace(), true);
         // 3. allocate shared memory
@@ -596,7 +596,7 @@ void BindImperative(py::module *m_ptr) {
               t.Holder().get());
       PADDLE_ENFORCE_NOT_NULL(
           mmap_writer_allocation,
-          common::errors::NotFound("The shared memory of LoDTensor in "
+          common::errors::NotFound("The shared memory of DenseTensor in "
                                    "DataLoader's child process has been "
                                    "released."));
       memory::allocation::MemoryMapFdSet::Instance().Remove(
@@ -629,6 +629,10 @@ void BindImperative(py::module *m_ptr) {
           egr::Controller::Instance().SetCurrentTracer(tracer);
           imperative::SetCurrentTracer(tracer);
         });
+  m.def("_has_grad", []() { return egr::Controller::Instance().HasGrad(); });
+  m.def("_set_has_grad", [](bool has_grad) {
+    return egr::Controller::Instance().SetHasGrad(has_grad);
+  });
   m.def("_get_amp_attrs",
         []() { return egr::Controller::Instance().GetCurrentAmpAttrs(); });
   m.def("_set_amp_op_list",

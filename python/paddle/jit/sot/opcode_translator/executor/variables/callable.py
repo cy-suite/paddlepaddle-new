@@ -15,16 +15,22 @@
 from __future__ import annotations
 
 import inspect
+import itertools
 import operator
 import types
 from functools import reduce
-from typing import TYPE_CHECKING, Any, Callable
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+)
 
 import paddle
 
 from .... import psdb
 from ....profiler import EventGuard
 from ....utils import (
+    ENV_SOT_ALLOW_DYNAMIC_SHAPE,
     ENV_SOT_EXPORT,
     get_static_function,
     is_break_graph_api,
@@ -33,10 +39,17 @@ from ....utils import (
     is_not_supported_paddle_layer,
     is_paddle_api,
     magic_method_builtin_dispatch,
+    map_if,
 )
-from ....utils.exceptions import BreakGraphError, FallbackError, SotErrorBase
+from ....utils.exceptions import (
+    BreakGraphError,
+    FallbackError,
+    InnerError,
+    SotErrorBase,
+)
 from ..dispatcher import Dispatcher
 from ..guard import (
+    FasterStringifiedExpression,
     StringifiedExpression,
     check_guard,
     object_equal_stringified_guard,
@@ -53,7 +66,12 @@ from ..tracker import (
     Tracker,
 )
 from .base import VariableBase, VariableFactory
-from .basic import ConstantVariable, PrintStmtVariable, SliceVariable
+from .basic import (
+    ConstantVariable,
+    ObjectVariable,
+    PrintStmtVariable,
+    SliceVariable,
+)
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -107,8 +125,11 @@ class FunctionVariable(CallableVariable):
     def get_py_value(self, allow_tensor=False):
         return self.value
 
-    def get_code(self) -> types.CodeType:
-        return self.value.__code__
+    def get_code(self) -> VariableBase:
+        code_obj_var = VariableFactory.from_value(
+            self.value.__code__, self.graph, GetAttrTracker(self, "__code__")
+        )
+        return code_obj_var
 
     def bind(self, instance: VariableBase, name: str):
         method_var = MethodVariable(
@@ -216,6 +237,22 @@ class UserDefinedFunctionVariable(FunctionVariable):
         return {
             "name": self.value.__name__,
         }
+
+
+class UserCodeVariable(FunctionVariable):
+    """
+    UserCodeVariable is a subclass of Function
+    Variable used to wrap a make function variable.
+    """
+
+    def __init__(
+        self, codeobj: ObjectVariable, graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(codeobj, graph, tracker)
+        self.codeobj = codeobj
+
+    def call_function(self, /, *args, **kwargs):
+        raise InnerError("UserCodeVariable call_function is not implemented.")
 
 
 class PaddleApiVariable(FunctionVariable):
@@ -434,13 +471,9 @@ class LayerVariable(CallableVariable):
     def make_stringified_guard(self) -> list[StringifiedExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
         return [
-            StringifiedExpression(
-                f"id({{}}) == {id(self.get_py_value())}",
-                [frame_value_tracer],
-                union_free_vars(frame_value_tracer.free_vars),
-            ),
-            StringifiedExpression(
-                f"{{}}.training == {self.get_py_value().training}",
+            FasterStringifiedExpression(
+                f"id({{0}}) == {id(self.get_py_value())} and {{0}}.training == {self.get_py_value().training}",
+                paddle.framework.core.ValueMatchGuard(self.get_py_value()),
                 [frame_value_tracer],
                 union_free_vars(frame_value_tracer.free_vars),
             ),
@@ -492,13 +525,14 @@ class ContainerLayerVariable(LayerVariable):
         if isinstance(self.value, PD_SEQ_CONTAINERS):
             frame_value_tracer = self.tracker.trace_value_from_frame()
 
-            len_guard = StringifiedExpression(
+            len_guard = FasterStringifiedExpression(
                 f"len({{}}) == {len(self.value)}",
+                paddle.framework.core.LengthMatchGuard(len(self.value)),
                 [frame_value_tracer],
                 frame_value_tracer.free_vars,
             )
 
-            guards = [len_guard]
+            guards: list[StringifiedExpression] = [len_guard]
             for idx, layer in enumerate(self.value):
                 layer_variable = VariableFactory.from_value(
                     layer, self.graph, GetItemTracker(self, idx)
@@ -626,10 +660,44 @@ class BuiltinVariable(FunctionVariable):
         self.value = fn
 
     def call_function(self, /, *args, **kwargs):
+        from .basic import SymbolicVariable
+
         # Lookup the handler from dispatcher
         handler = Dispatcher.dispatch(self.value, *args, **kwargs)
+
         if handler is not None:
             return handler(*args, **kwargs)
+
+        if ENV_SOT_ALLOW_DYNAMIC_SHAPE.get() and any(
+            isinstance(var, SymbolicVariable)
+            for var in itertools.chain(args, kwargs.values())
+        ):
+            fake_args, fake_kwargs = map_if(
+                (args, kwargs),
+                pred=lambda x: isinstance(x, SymbolicVariable),
+                # this is a fake args, we don't need to care about the value of the args
+                true_fn=lambda x: ConstantVariable.wrap_literal(
+                    None, graph=self.graph
+                ),
+                false_fn=lambda x: x,
+            )
+            handler = Dispatcher.dispatch(self.value, *fake_args, **fake_kwargs)
+            if handler is not None:
+                from ..executor_cache import (
+                    OpcodeExecutorCache,
+                )
+
+                symbolic_inputs = OpcodeExecutorCache().get_symbolic_inputs(
+                    self.graph.pycode_gen._origin_code
+                )
+
+                args, kwargs = map_if(
+                    (args, kwargs),
+                    pred=lambda x: isinstance(x, SymbolicVariable),
+                    true_fn=lambda x: x.to_constant(),
+                    false_fn=lambda x: x,
+                )
+                return handler(*args, **kwargs)
 
         # Try to inline call the magic function
         magic_methods = magic_method_builtin_dispatch(self.value)
@@ -661,7 +729,7 @@ class BuiltinVariable(FunctionVariable):
                 return VariableFactory.from_value(
                     True,
                     self.graph,
-                    DummyTracker([self] + list(args) + list(kwargs.values())),
+                    DummyTracker([self, *list(args), *list(kwargs.values())]),
                 )
 
         # Break graph if neither of the above conditions is met
@@ -762,7 +830,7 @@ class ClassVariable(CallableVariable):
         new_object_variable = VariableFactory.from_value(
             new_object,
             self.graph,
-            DummyTracker([self] + list(args) + list(kwargs.values())),
+            DummyTracker([self, *list(args), *list(kwargs.values())]),
         )
         fn_var(new_object_variable, *args, **kwargs)
         return new_object_variable

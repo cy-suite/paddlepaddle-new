@@ -77,6 +77,8 @@ DYGRAPH_ONLY_TENSOR_ATTRS_ALLOW_LIST = OrderedSet(
         'tolist',
         'value',
         'zero_',
+        "__cuda_array_interface__",
+        "__dlpack_device__",
     ]
 )
 STATIC_ONLY_TENSOR_ATTRS_ALLOW_LIST = OrderedSet(
@@ -103,6 +105,7 @@ STATIC_ONLY_TENSOR_ATTRS_ALLOW_LIST = OrderedSet(
         'use_empty',
         'is_dist_dense_tensor_type',
         'dist_attr',
+        'place_attr',
         'update_dist_attr',
         'is_combine',
         'value_assign',

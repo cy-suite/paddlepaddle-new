@@ -34,7 +34,9 @@ struct CalcReducedAttnScoresParams : public FlashAttnParamsBase {
                               const int _head_size,
                               const float _scale,
                               const DataType q_dtype)
-      : FlashAttnParamsBase(_batch_size,
+      : FlashAttnParamsBase(/*version=*/2,
+                            /*is_fwd=*/true,
+                            _batch_size,
                             _max_seqlen_q,
                             _max_seqlen_k,
                             _num_heads,
@@ -42,7 +44,6 @@ struct CalcReducedAttnScoresParams : public FlashAttnParamsBase {
                             _head_size,
                             _scale,
                             /*_causal=*/false,
-                            /*_attn_mask_start_row=*/0,
                             q_dtype,
                             paddle::optional<DenseTensor>{},
                             paddle::optional<DenseTensor>{}) {}

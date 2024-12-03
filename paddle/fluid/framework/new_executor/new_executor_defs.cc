@@ -21,7 +21,7 @@
 
 #include "paddle/fluid/framework/infershape_utils.h"
 #include "paddle/fluid/framework/new_executor/garbage_collector/garbage_collector.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 namespace paddle::framework {
 
@@ -175,16 +175,13 @@ Instruction::Instruction(size_t id,
 }
 
 void Instruction::WaitEvent(const Place& place) const {
-  // If InterpreterCore in on CPUPlace, do nothing.
-  if (phi::is_cpu_place(place)) {
-    return;
-  }
-
-  VLOG(6) << "Deal StreamWaitEventOrSync for " << this->OpBase()->Type();
-
   for (const EventInter& event_iter : events_to_wait_) {
-    platform::RecordEvent record(
-        "WaitStreamEvent", platform::TracerEventType::UserDefined, 10);
+    // If InterpreterCore in on CPUPlace, do nothing.
+    if (phi::is_cpu_place(place)) {
+      continue;
+    }
+    phi::RecordEvent record(
+        "WaitStreamEvent", phi::TracerEventType::UserDefined, 10);
     VLOG(6) << "Wait instruction: " << event_iter.instr_id_
             << " 's event with waiter_type: " << event_iter.waiter_type_;
     event_iter.event_->Wait(event_iter.waiter_type_, &dev_ctx_);
@@ -192,9 +189,9 @@ void Instruction::WaitEvent(const Place& place) const {
 }
 
 void Instruction::RecordEvent(const Place& place) const {
-  platform::RecordEvent record(
-      "RecordStreamEvent", platform::TracerEventType::UserDefined, 10);
   if (event_to_record_) {
+    phi::RecordEvent record(
+        "RecordStreamEvent", phi::TracerEventType::UserDefined, 10);
     VLOG(6) << "Record event at instruction: " << id_;
     event_to_record_->event_->Record(&dev_ctx_);
   }

@@ -35,18 +35,18 @@ limitations under the License. */
 #include "paddle/fluid/framework/archive.h"
 #include "paddle/fluid/framework/blocking_queue.h"
 #include "paddle/fluid/framework/channel.h"
-#include "paddle/fluid/framework/data_feed.pb.h"
 #include "paddle/fluid/framework/fleet/fleet_wrapper.h"
 #include "paddle/fluid/framework/lod_tensor.h"
-#include "paddle/fluid/framework/reader.h"
 #include "paddle/fluid/framework/variable.h"
-#include "paddle/fluid/platform/timer.h"
+#include "paddle/phi/core/framework/data_feed.pb.h"
+#include "paddle/phi/core/framework/reader.h"
+#include "paddle/phi/core/platform/timer.h"
 #include "paddle/utils/string/string_helper.h"
 #if defined(PADDLE_WITH_CUDA)
 #include "paddle/fluid/framework/fleet/heter_ps/gpu_graph_utils.h"
-#include "paddle/fluid/platform/cuda_device_guard.h"
-#include "paddle/fluid/platform/device/gpu/gpu_info.h"
 #include "paddle/phi/core/cuda_stream.h"
+#include "paddle/phi/core/platform/cuda_device_guard.h"
+#include "paddle/phi/core/platform/device/gpu/gpu_info.h"
 #endif
 #include "paddle/common/flags.h"
 
@@ -235,7 +235,7 @@ class SlotObjAllocator {
     }
     PADDLE_ENFORCE_EQ(capacity_,
                       static_cast<size_t>(0),
-                      phi::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "There still are some nodes are not deleted"));
   }
   T* acquire(void) {
@@ -319,7 +319,7 @@ class SlotObjPool {
   void put(SlotRecord* input, size_t size) {
     PADDLE_ENFORCE_EQ(ins_chan_->WriteMove(size, input),
                       size,
-                      phi::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "Incompatible size of input with given size"));
   }
   void run(void) {
@@ -495,7 +495,7 @@ struct HostBuffer {
                              buf_size * sizeof(T),
                              cudaHostAllocDefault));
     PADDLE_ENFORCE_NOT_NULL(host_buffer,
-                            phi::errors::ResourceExhausted(
+                            common::errors::ResourceExhausted(
                                 "Alloc memory failed on CUDA, please Check"));
   }
   void free() {
@@ -1629,7 +1629,7 @@ class MultiSlotType {
       offset_.reserve(max_batch_size + 1);
     }
     offset_.resize(1);
-    // LoDTensor' lod is counted from 0, the size of lod
+    // DenseTensor' lod is counted from 0, the size of lod
     // is one size larger than the size of data.
     offset_[0] = 0;
   }

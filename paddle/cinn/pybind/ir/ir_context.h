@@ -67,7 +67,7 @@ class IRContext {
   const TIRContextNode* As() const {
     static_assert(std::is_base_of<IRContextNode, TIRContextNode>());
     PADDLE_ENFORCE_NOT_NULL(
-        data_.get(), phi::errors::InvalidArgument("IrContext holds null"));
+        data_.get(), ::common::errors::InvalidArgument("IrContext holds null"));
     auto* ctx_node = data_.get()->safe_as<TIRContextNode>();
     if (!ctx_node) {
       std::stringstream err_msg;
@@ -81,7 +81,7 @@ class IRContext {
   template <typename TIRContextNode>
   TIRContextNode* As() {
     PADDLE_ENFORCE_NOT_NULL(
-        data_.get(), phi::errors::InvalidArgument("IrContext holds null"));
+        data_.get(), ::common::errors::InvalidArgument("IrContext holds null"));
     auto* ctx_node = data_.get()->safe_as<TIRContextNode>();
     if (!ctx_node) {
       std::stringstream ss;
@@ -203,9 +203,9 @@ class ElseContextNode : public IRContextNode {
 class IRBuilderNode : public cinn::common::Object {
  public:
   std::vector<IRContext> contexts;
-  Expr result;
+  ir::LoweredFunc result;
   const char* type_info() const override { return __type_info__; }
-  Expr GetResult() const;
+  ir::LoweredFunc GetResult() const;
   void Reset();
 
   template <typename TIRContextNode>

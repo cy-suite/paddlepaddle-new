@@ -17,10 +17,11 @@ from __future__ import annotations
 import hashlib
 import inspect
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, overload
+from typing import TYPE_CHECKING, Any, Callable
 
 import numpy as np
 import numpy.typing as npt
+from typing_extensions import overload
 
 import paddle
 from paddle import _C_ops, profiler
@@ -28,8 +29,10 @@ from paddle.base.data_feeder import (
     _PADDLE_DTYPE_2_NUMPY_DTYPE,
     convert_uint16_to_float,
 )
+from paddle.base.libpaddle import Place
 from paddle.profiler.utils import in_profiler_mode
 from paddle.utils import deprecated
+from paddle.utils.dlpack import DLDeviceType
 
 from .. import core, framework, unique_name
 from ..framework import (
@@ -118,12 +121,15 @@ def monkey_patch_tensor():
         attr_not_need_keys = [
             'grad',
             'T',
+            'mT',
             'place',
             '_place_str',
             'data',
             'grad_',
             'strides',
             'offset',
+            '__cuda_array_interface__',
+            '__dlpack_device__',
         ]
         param_keys = ['stop_gradient', 'trainable']
         if isinstance(self, EagerParamBase):
@@ -200,6 +206,8 @@ def monkey_patch_tensor():
                 ...     linear.weight.set_value(custom_weight)  # change existing weight
                 ...     out = linear(t)  # call with different weight
         """
+        if id(self) == id(value):
+            return
         assert isinstance(
             value, (np.ndarray, paddle.Tensor, dict, str)
         ), "Variable set_value function, arguments type only support Variable, numpy, Tensor, dict, string."
@@ -622,7 +630,7 @@ def monkey_patch_tensor():
                 )
                 gpu_memory_available = core.gpu_memory_available()
                 if gpu_memory_available < waiting_alloc_memory:
-                    # Copy Tensor to cpu
+                    # Copy Tensor to cpu if needed
                     t_used = t._copy_to(paddle.CPUPlace(), blocking)
                     # Release memory of t
                     t._clear()
@@ -632,7 +640,7 @@ def monkey_patch_tensor():
             else:
                 t_used = t
 
-            # 2. cast Tensor to dtype
+            # 2. cast Tensor to dtype if needed
             if dtype is not None and dtype != t_used.dtype:
                 with paddle.base.framework._dygraph_place_guard(
                     place=t_used.place
@@ -641,18 +649,13 @@ def monkey_patch_tensor():
             else:
                 t_casted = t_used
 
-            # 3. Copy casted Tensor(in CPU or GPU) to device
+            # 3. Copy casted Tensor(in CPU or GPU) to device if needed
             if device is not None and not t_casted.place._equals(device):
                 new_t = t_casted._copy_to(device, blocking)
             else:
                 new_t = t_casted
 
-            # 4. Share Tensor to origin Tensor
-            dst_tensor = t.value().get_tensor()
-            src_tensor = new_t.value().get_tensor()
-            dst_tensor._share_data_with(src_tensor)
-
-            return t
+            return new_t
 
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=UserWarning)
@@ -664,18 +667,17 @@ def monkey_patch_tensor():
         device: PlaceLike,
         dtype: DTypeLike | None = ...,
         blocking: bool | None = ...,
-    ) -> Tensor:
-        ...
+    ) -> Tensor: ...
 
     @overload
     def to(
         self: Tensor, dtype: DTypeLike, blocking: bool | None = ...
-    ) -> Tensor:
-        ...
+    ) -> Tensor: ...
 
     @overload
-    def to(self: Tensor, other: Tensor, blocking: bool | None = ...) -> Tensor:
-        ...
+    def to(
+        self: Tensor, other: Tensor, blocking: bool | None = ...
+    ) -> Tensor: ...
 
     @framework.dygraph_only
     def to(self: Tensor, *args, **kwargs):
@@ -687,6 +689,11 @@ def monkey_patch_tensor():
             1. to(dtype, blocking=True)
             2. to(device, dtype=None, blocking=True)
             3. to(other, blocking=True)
+
+        **Notes**:
+            **If the self Tensor already has the correct dtype and device,
+            then self is returned. Otherwise, the returned tensor is a copy of self with
+            the desired dtype and device.**
 
         Returns:
             Tensor: self
@@ -762,7 +769,7 @@ def monkey_patch_tensor():
         if len(invalid_keys) != 0:
             raise TypeError(
                 "to() got an unexpected keyword argument "
-                + list(invalid_keys)[0]
+                + next(iter(invalid_keys))
             )
         if size_args > 0:
             if isinstance(args[0], paddle.Tensor):
@@ -856,6 +863,11 @@ def monkey_patch_tensor():
                 3.299999952316284
 
         """
+        # resolve the error issue in scenario of pipeline parallel
+        # where some devices do not have self data, return None does not affect
+        # the execution result in those devices, so currently we return None
+        if self.is_dist() and not self._is_initialized():
+            return None
         scalar = self._getitem_from_offset(*args)
         if scalar.dtype == np.uint16:
             return convert_uint16_to_float(scalar).item()
@@ -905,6 +917,12 @@ def monkey_patch_tensor():
 
         return tensor_to_string(self)
 
+    def __format__(self, format_spec: str) -> str:
+        if self.ndim == 0:
+            return self.item().__format__(format_spec)
+
+        return object.__format__(self, format_spec)
+
     def __deepcopy__(self, memo: dict[int, Tensor]) -> Tensor:
         """
         Deep copy Tensor, it will always performs Tensor copy.
@@ -941,6 +959,11 @@ def monkey_patch_tensor():
         assert (
             numel == 1
         ), "When Variable is used as the condition of if/while , Variable can only contain one element."
+        # resolve the error issue in scenario of pipeline parallel
+        # where some devices do not have this data, return True or False does not affect
+        # the execution result in those devices, so currently we return False
+        if self.is_dist() and not self._is_initialized():
+            return False
         assert self._is_initialized(), "tensor not initialized"
         return bool(np.array(self) > 0)
 
@@ -948,7 +971,9 @@ def monkey_patch_tensor():
         return self.__nonzero__()
 
     def __array__(
-        self: Tensor, dtype: npt.DTypeLike | None = None
+        self: Tensor,
+        dtype: npt.DTypeLike | None = None,
+        copy: bool | None = None,
     ) -> npt.NDArray[Any]:
         """
         Returns a numpy array shows the value of current Tensor.
@@ -1235,6 +1260,112 @@ def monkey_patch_tensor():
         """
         return _C_ops.sparse_coalesce(self)
 
+    @framework.dygraph_only
+    def __dlpack_device__(self):
+        """
+        Extract the DLPack device type and device ID for the current tensor.
+
+        Returns:
+            tuple: A tuple containing the DLPack device type and device ID.
+                - device_type (DLDeviceType): The type of device (e.g., kDLCPU, kDLCUDA, etc.).
+                - device_id (int): The device ID.
+        """
+        place = self.place
+        if isinstance(place, Place):
+            if place.is_gpu_place():
+                return DLDeviceType.kDLCUDA, place.gpu_device_id()
+            elif place.is_cpu_place():
+                return DLDeviceType.kDLCPU, None
+            elif place.is_cuda_pinned_place():
+                return DLDeviceType.kDLCUDAHost, None
+            elif place.is_xpu_place():
+                return DLDeviceType.kDLOneAPI, place.xpu_device_id()
+            else:
+                raise RuntimeError(f"Unsupported Paddle device type {place}")
+        elif place.is_cpu_place():
+            return DLDeviceType.kDLCPU, None
+        elif place.is_cuda_pinned_place():
+            return DLDeviceType.kDLCUDAHost, None
+        elif place.is_gpu_place():
+            return DLDeviceType.kDLCUDA, place.get_device_id()
+        elif place.is_xpu_place():
+            return DLDeviceType.kDLOneAPI, place.get_device_id()
+        else:
+            raise ValueError(f"Unsupported tensor place: {place}")
+
+    @property
+    def __cuda_array_interface__(self):
+        """Array view description for cuda tensors.
+
+        See:
+        CUDA Array Interface (Version 2)
+        https://numba.pydata.org/numba-doc/dev/cuda/cuda_array_interface.html
+        """
+
+        # raise AttributeError for unsupported tensors, so that
+        # hasattr(cpu_tensor, "__cuda_array_interface__") is False.
+        if not self.place.is_gpu_place():
+            raise AttributeError(
+                "Can't get __cuda_array_interface__ on non-CUDA tensor. "
+                "If CUDA data is required use tensor.cuda() to copy tensor to device memory."
+            )
+
+        if self.is_sparse():
+            raise AttributeError(
+                "Can't get __cuda_array_interface__ on sparse tensor. "
+                "Use Tensor.to_dense() to convert to a dense tensor first."
+            )
+
+        # RuntimeError, matching tensor.__array__() behavior.
+        if not self.stop_gradient:
+            raise RuntimeError(
+                "Can't get __cuda_array_interface__ on Tensor that requires grad. "
+                "If gradients aren't required, use var.detach() to get Tensor that doesn't require grad."
+            )
+
+        # CUDA devices are little-endian and tensors are stored in native byte
+        # order. 1-byte entries are endian-agnostic.
+        typestr = {
+            paddle.complex64: "<c8",
+            paddle.complex128: "<c16",
+            paddle.bfloat16: "<f2",
+            paddle.float16: "<f2",
+            paddle.float32: "<f4",
+            paddle.float64: "<f8",
+            paddle.uint8: "|u1",
+            paddle.int8: "|i1",
+            paddle.int16: "<i2",
+            paddle.int32: "<i4",
+            paddle.int64: "<i8",
+            paddle.bool: "|b1",
+            # NOTE: Paddle not support uint32, uint64, uint16 yet.
+            # paddle.uint16: "<u2",
+            # paddle.uint32: "<u4",
+            # paddle.uint64: "<u8",
+        }[self.dtype]
+
+        itemsize = self.element_size()
+
+        shape = tuple(self.shape)
+        if self.is_contiguous():
+            # __cuda_array_interface__ v2 requires the strides to be omitted
+            # (either not set or set to None) for C-contiguous arrays.
+            strides = None
+        else:
+            # the number of bytes to skip to access the next element at each dimension.
+            strides = tuple(s * itemsize for s in self.strides)
+
+        data_ptr = self.data_ptr() if self.numel().item() > 0 else 0
+        data = (data_ptr, False)  # read-only is false
+
+        return {
+            "typestr": typestr,
+            "shape": shape,
+            "strides": strides,
+            "data": data,
+            "version": 2,
+        }
+
     if not hasattr(core, "eager"):
         return
 
@@ -1253,6 +1384,7 @@ def monkey_patch_tensor():
         ("register_hook", register_hook),
         ("__str__", __str__),
         ("__repr__", __str__),
+        ("__format__", __format__),
         ("__deepcopy__", __deepcopy__),
         ("__module__", "paddle"),
         ("__array__", __array__),
@@ -1277,6 +1409,8 @@ def monkey_patch_tensor():
         ("__hash__", __hash__),
         ("_use_gpudnn", _use_gpudnn),
         ("_md5sum", _md5sum),
+        ("__cuda_array_interface__", __cuda_array_interface__),
+        ("__dlpack_device__", __dlpack_device__),
     ):
         setattr(core.eager.Tensor, method_name, method)
 
@@ -1295,7 +1429,7 @@ def monkey_patch_tensor():
                 prefix = 'paddle.'
                 return prefix + numpy_dtype
             else:
-                # for example, paddle.base.core.VarDesc.VarType.LOD_TENSOR
+                # for example, paddle.base.core.VarDesc.VarType.DENSE_TENSOR
                 return origin(dtype)
 
         core.VarDesc.VarType.__str__ = dtype_str

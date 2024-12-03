@@ -218,18 +218,30 @@ class XPUTestAdamwOp2(XPUOpTestWrapper):
                     )(data)
                     loss = paddle.mean(conv)
 
-                    beta1 = paddle.static.create_global_var(
-                        shape=[1],
-                        value=0.85,
-                        dtype=self.in_type_str,
-                        persistable=True,
-                    )
-                    beta2 = paddle.static.create_global_var(
-                        shape=[1],
-                        value=0.95,
-                        dtype=self.in_type_str,
-                        persistable=True,
-                    )
+                    if paddle.framework.in_pir_mode():
+                        beta1 = paddle.pir.core.create_persistable_value(
+                            shape=[1],
+                            dtype=self.in_type_str,
+                            initializer=paddle.nn.initializer.Constant(0.85),
+                        )
+                        beta2 = paddle.pir.core.create_persistable_value(
+                            shape=[1],
+                            dtype=self.in_type_str,
+                            initializer=paddle.nn.initializer.Constant(0.95),
+                        )
+                    else:
+                        beta1 = paddle.static.create_global_var(
+                            shape=[1],
+                            value=0.85,
+                            dtype=self.in_type_str,
+                            persistable=True,
+                        )
+                        beta2 = paddle.static.create_global_var(
+                            shape=[1],
+                            value=0.95,
+                            dtype=self.in_type_str,
+                            persistable=True,
+                        )
                     betas = [beta1, beta2]
                     opt = paddle.optimizer.AdamW(
                         learning_rate=1e-5,
@@ -536,7 +548,7 @@ class XPUTestAdamwOp2(XPUOpTestWrapper):
                         epsilon=epsilon,
                         lr_ratio=simple_lr_fun,
                     )
-                    opt.minimize(avg_cost)
+                    _, params_grads = opt.minimize(avg_cost)
 
             def get_numpy_output(param, grad, moment1, moment2, lr_ratio, t):
                 np_inputs = {
@@ -562,26 +574,44 @@ class XPUTestAdamwOp2(XPUOpTestWrapper):
                 )
                 return param_out, moment1_out, moment2_out
 
-            fetch_list1 = [
-                "linear_0.w_0",
-                "linear_0.b_0",
-                "linear_1.w_0",
-                "linear_1.b_0",
-            ]
-            fetch_list2 = [
-                "linear_0.w_0",
-                "linear_0.w_0@GRAD",
-                "linear_0.b_0",
-                "linear_0.b_0@GRAD",
-                "linear_1.w_0",
-                "linear_1.w_0@GRAD",
-                "linear_1.b_0",
-                "linear_1.b_0@GRAD",
-            ]
-
+            if paddle.framework.in_pir_mode():
+                fetch_list1 = [
+                    linear1.weight,
+                    linear1.bias,
+                    linear2.weight,
+                    linear2.bias,
+                ]
+                fetch_list2 = []
+                for param in fetch_list1:
+                    for item, vale in dict(params_grads).items():
+                        if param.is_same(item):
+                            fetch_list2.append(item)
+                            fetch_list2.append(vale)
+            else:
+                fetch_list1 = [
+                    "linear_0.w_0",
+                    "linear_0.b_0",
+                    "linear_1.w_0",
+                    "linear_1.b_0",
+                ]
+                fetch_list2 = [
+                    "linear_0.w_0",
+                    "linear_0.w_0@GRAD",
+                    "linear_0.b_0",
+                    "linear_0.b_0@GRAD",
+                    "linear_1.w_0",
+                    "linear_1.w_0@GRAD",
+                    "linear_1.b_0",
+                    "linear_1.b_0@GRAD",
+                ]
             exe = base.Executor(place)
             exe.run(startup)
-            test_prog = train_prog.clone(for_test=True)
+            if paddle.framework.in_pir_mode():
+                value_map = paddle.pir.IrMapping()
+                test_prog = train_prog.clone(value_map)
+                fetch_list1 = [value_map.look_up(v) for v in fetch_list1]
+            else:
+                test_prog = train_prog.clone(for_test=True)
 
             for i in range(5):
                 inputs = np.random.random(size=[8, 10]).astype('float32')
@@ -692,11 +722,15 @@ class TestAdamWOpMultiPrecisionWithMainGrad(unittest.TestCase):
         beta2_pow_acc = paddle.ones([1]).astype(paddle.float32)
         beta2_pow_acc[0] = _beta2**10
 
-        ref_param = param.astype(paddle.float32)
-        ref_beta1_pow_acc = beta1_pow_acc.astype(paddle.float32)
-        ref_beta2_pow_acc = beta2_pow_acc.astype(paddle.float32)
-        ref_moment_1 = moment1.astype(paddle.float32)
-        ref_moment_2 = moment2.astype(paddle.float32)
+        ref_param = param.astype(paddle.float32).clone().detach()
+        ref_beta1_pow_acc = (
+            beta1_pow_acc.astype(paddle.float32).clone().detach()
+        )
+        ref_beta2_pow_acc = (
+            beta2_pow_acc.astype(paddle.float32).clone().detach()
+        )
+        ref_moment_1 = moment1.astype(paddle.float32).clone().detach()
+        ref_moment_2 = moment2.astype(paddle.float32).clone().detach()
 
         # reference code
         _, _, _, _, _, _ = paddle._C_ops.adamw_(

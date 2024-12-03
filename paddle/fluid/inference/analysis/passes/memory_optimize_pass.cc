@@ -66,9 +66,8 @@ void MemoryOptimizePass::CollectLifeCycle(
     auto reads = op_node->inputs;
     auto writes = op_node->outputs;
 
-    std::vector<Node*>
-    requires(reads.begin(), reads.end());
-    requires.insert(requires.end(), writes.begin(), writes.end());
+    std::vector<Node*> req(reads.begin(), reads.end());
+    req.insert(req.end(), writes.begin(), writes.end());
 
     // Disable reuse of feed variables.
     if (op_node->Name() == "feed") {
@@ -79,7 +78,7 @@ void MemoryOptimizePass::CollectLifeCycle(
       }
     } else {
       // Normal operators.
-      for (const Node* node : requires) {
+      for (const Node* node : req) {
         if (!node->Var()) continue;
         if (node->Var()->Persistable()) {
           // "Getting 'tensor_desc' is not supported by the fetch type
@@ -94,7 +93,7 @@ void MemoryOptimizePass::CollectLifeCycle(
           for (auto i : in_shape) {
             PADDLE_ENFORCE_GE(i,
                               0,
-                              phi::errors::InvalidArgument(
+                              common::errors::InvalidArgument(
                                   "The shape of node shouldn't be negative. "));
           }
           auto var_bytes = std::accumulate(in_shape.begin(),
@@ -141,7 +140,11 @@ void MemoryOptimizePass::CollectVarMemorySize(
                                         "fetch",
                                         "share_data"};
     for (auto* tmp : node->inputs) {
-      CHECK(tmp->IsOp());
+      PADDLE_ENFORCE_EQ(tmp->IsOp(),
+                        true,
+                        common::errors::InvalidArgument(
+                            "Expected a node to be an operation, but the given "
+                            "node is not an operation."));
       std::string op_type = tmp->Op()->Type();
       if (std::find(invalid_op.begin(), invalid_op.end(), op_type) !=
           invalid_op.end()) {
@@ -149,7 +152,11 @@ void MemoryOptimizePass::CollectVarMemorySize(
       }
     }
     for (auto* tmp : node->outputs) {
-      CHECK(tmp->IsOp());
+      PADDLE_ENFORCE_EQ(tmp->IsOp(),
+                        true,
+                        common::errors::InvalidArgument(
+                            "Expected a node to be an operation, but the given "
+                            "node is not an operation."));
       std::string op_type = tmp->Op()->Type();
       if (std::find(invalid_op.begin(), invalid_op.end(), op_type) !=
           invalid_op.end()) {
@@ -166,7 +173,7 @@ void MemoryOptimizePass::CollectVarMemorySize(
   for (auto* node : graph->Nodes()) {
     if (node->IsVar() && node->Var() &&
         node->Var()->GetType() ==
-            framework::proto::VarType::Type::VarType_Type_LOD_TENSOR) {
+            framework::proto::VarType::Type::VarType_Type_DENSE_TENSOR) {
       if (!valid_var(node)) {
         black_list.emplace(node->Var()->Name());
       }
@@ -177,7 +184,7 @@ void MemoryOptimizePass::CollectVarMemorySize(
   for (auto* node : graph->Nodes()) {
     if (node->IsVar() && node->Var() &&
         node->Var()->GetType() ==
-            framework::proto::VarType::Type::VarType_Type_LOD_TENSOR &&
+            framework::proto::VarType::Type::VarType_Type_DENSE_TENSOR &&
         !black_list.count(node->Var()->Name())) {
       // Parameters will not be reused.
       if (node->Var()->Persistable()) continue;

@@ -13,9 +13,9 @@ See the License for the specific language governing permissions and
 limitations under the License. */
 
 #include "paddle/fluid/framework/op_registry.h"
-#include "paddle/fluid/memory/memcpy.h"
 #include "paddle/fluid/operators/assign_op.h"
 #include "paddle/fluid/operators/select_op_helper.h"
+#include "paddle/phi/core/memory/memcpy.h"
 
 namespace paddle {
 namespace operators {
@@ -61,7 +61,7 @@ class SelectInputOpProtoMaker : public framework::OpProtoAndCheckerMaker {
  public:
   void Make() override {
     AddInput("X",
-             "The input LoDTensors or LoDTensorArray or SelectedRows. All "
+             "The input DenseTensors or DenseTensorArray or SelectedRows. All "
              "inputs must have same variable type")
         .AsDuplicable();
     AddInput("Mask",

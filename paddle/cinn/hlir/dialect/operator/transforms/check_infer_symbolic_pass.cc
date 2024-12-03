@@ -36,6 +36,17 @@ namespace ir {
 
 namespace {
 
+std::unordered_set<std::string> SKIP_CHECK_OPS = {
+    "pd_op.add",           "pd_op.subtract",     "pd_op.multiply",
+    "pd_op.divide",        "pd_op.floor_divide", "pd_op.minimum",
+    "pd_op.maximum",       "pd_op.remainder",    "pd_op.elementwise_pow",
+    "pd_op.bitwise_and",   "pd_op.bitwise_or",   "pd_op.bitwise_xor",
+    "pd_op.fmax",          "pd_op.fmin",         "pd_op.heaviside",
+    "pd_op.less_than",     "pd_op.less_equal",   "pd_op.greater_than",
+    "pd_op.greater_equal", "pd_op.equal",        "pd_op.not_equal",
+    "pd_op.logical_and",   "pd_op.logical_or",   "pd_op.logical_xor",
+    "pd_op.shape"};
+
 class BlockDimExprsAsserter {
  public:
   BlockDimExprsAsserter(const DimExprs4ValueT& func,
@@ -100,6 +111,7 @@ class BlockDimExprsAsserter {
     }();
     // skip the ops which operand and result have same shape
     if (is_same_operand_result_op) return;
+    if (SKIP_CHECK_OPS.count(op->name())) return;
 
     auto OpDimExprs4Value = GetOpDimExprs4Value(op);
     const auto& inputs = [&] {
@@ -120,7 +132,7 @@ class BlockDimExprsAsserter {
     builder_.SetInsertionPointAfter(op);
     for (std::size_t i = 0; i < op->num_results(); ++i) {
       pir::Value output = op->result(i);
-      if (!output || !output.type()) continue;
+      if (!output || !output.type() || output.use_empty()) continue;
       const auto& shape_or_data_dim_expr = GraphDimExprs4Value(output);
       if (!shape_or_data_dim_expr.isa<symbol::TensorShapeOrDataDimExprs>())
         continue;
@@ -204,7 +216,7 @@ class BlockDimExprsAsserter {
   }
 
   pir::Value BuildShapeTensorFromInferMeta(pir::Value output) {
-    return builder_.Build<paddle::dialect::ShapeOp>(output).out();
+    return builder_.Build<paddle::dialect::Shape64Op>(output).out();
   }
 
   void TryAssertDimExprsForOutputData(const pir::Operation* op,

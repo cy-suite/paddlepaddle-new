@@ -25,7 +25,6 @@ from op_test import OpTest
 import paddle
 from paddle import base
 from paddle.base import core
-from paddle.pir_utils import test_with_pir_api
 
 
 def scipy_lu(A, pivot):
@@ -75,8 +74,8 @@ def Pmat_to_perm(Pmat_org, cut):
         permmat.append(permlst)
     Pivot = (
         np.array(permmat).reshape(
-            list(shape[:-2])
-            + [
+            [
+                *shape[:-2],
                 rows,
             ]
         )
@@ -101,7 +100,7 @@ def perm_to_Pmat(perm, dim):
         ones = paddle.eye(dim)
         nmat = paddle.scatter(ones, paddle.to_tensor(idlst), ones)
         oneslst.append(nmat)
-    return np.array(oneslst).reshape(list(pshape[:-1]) + [dim, dim])
+    return np.array(oneslst).reshape([*pshape[:-1], dim, dim])
 
 
 # m < n
@@ -139,7 +138,7 @@ class TestLUOp(OpTest):
         self.output = NLU
         self.Pivots = Pmat_to_perm(sP, min(ashape[-2], ashape[-1]))
         self.Infos = (
-            np.zeros(self.x_shape[:-2]) if len(X.shape) > 2 else np.array([0])
+            np.zeros(self.x_shape[:-2]) if len(X.shape) > 2 else np.array(0)
         )
 
     def setUp(self):
@@ -246,7 +245,6 @@ class TestLUAPI(unittest.TestCase):
         for tensor_shape, dtype in itertools.product(tensor_shapes, dtypes):
             run_lu_dygraph(tensor_shape, dtype)
 
-    @test_with_pir_api
     def test_static(self):
         paddle.enable_static()
 

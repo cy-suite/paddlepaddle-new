@@ -155,9 +155,9 @@ ir::Tensor Compute(const std::vector<Expr> &domain,
                    std::function<Expr(const std::vector<Expr> &)> fn,
                    const std::string &name,
                    const std::vector<Expr> &shape) {
-  auto axises = cinn::common::GenDefaultAxis(domain.size());
+  auto axes = cinn::common::GenDefaultAxis(domain.size());
   std::vector<Expr> _axis;
-  for (auto &x : axises) _axis.push_back(x);
+  for (auto &x : axes) _axis.push_back(x);
   Expr fn_body = fn(_axis);
 
   std::vector<Var> reduce_axis;
@@ -202,8 +202,8 @@ ir::Tensor Compute(const std::vector<Expr> &domain,
     PADDLE_ENFORCE_EQ(
         !cinn::common::IsAxisNameReserved(ra->name),
         true,
-        phi::errors::InvalidArgument("Reduce axis [%s]'s name is reserved.",
-                                     ra->name.c_str()));
+        ::common::errors::InvalidArgument(
+            "Reduce axis [%s]'s name is reserved.", ra->name.c_str()));
   }
 
   VLOG(3) << "tensor " << name
@@ -211,6 +211,7 @@ ir::Tensor Compute(const std::vector<Expr> &domain,
 
   auto op = ir::ComputeOp::Make(
       unique_name, fn, real_shape, domain_without_reduce_axis, reduce_axis);
+
   auto tensor = ir::Tensor(unique_name,
                            fn_body.type(),
                            real_shape,
@@ -259,7 +260,7 @@ Expr CallExtern(const std::string &func_name,
       backends::ExternFunctionProtoRegistry::Global().Lookup(func_name);
   PADDLE_ENFORCE_NOT_NULL(
       proto,
-      phi::errors::InvalidArgument(
+      ::common::errors::InvalidArgument(
           "No extern function prototype %s found\nExisting records are:\n%s",
           func_name,
           backends::ExternFunctionProtoRegistry::Global().debug_string()));

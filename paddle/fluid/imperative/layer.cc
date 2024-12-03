@@ -22,9 +22,9 @@
 #include "paddle/fluid/imperative/op_base.h"
 #include "paddle/fluid/imperative/prepared_operator.h"
 #include "paddle/fluid/imperative/var_helper.h"
-#include "paddle/fluid/platform/device_context.h"
 #include "paddle/fluid/platform/enforce.h"
-#include "paddle/fluid/platform/profiler.h"
+#include "paddle/phi/core/platform/device_context.h"
+#include "paddle/phi/core/platform/profiler.h"
 #include "paddle/phi/kernels/funcs/math_function.h"
 #ifdef PADDLE_WITH_DNNL
 #include "paddle/fluid/platform/onednn_helper.h"
@@ -99,7 +99,7 @@ static std::string DebugString(
       ss << "NOT_INITED_VAR";
     } else if (var.IsType<phi::DenseTensor>()) {
       auto& tensor = var.Get<phi::DenseTensor>();
-      ss << "LoDTensor<";
+      ss << "DenseTensor<";
       if (tensor.IsInitialized()) {
         ss << framework::DataTypeToString(
                   framework::TransToProtoVarType(tensor.dtype()))
@@ -234,8 +234,8 @@ void VarBase::ClearGradient(bool set_to_zero) {
         grad_t->mutable_value()->clear();
       }
     } else {
-      platform::RecordEvent record_event(
-          "ClearGradient", platform::TracerEventType::UserDefined, 2);
+      phi::RecordEvent record_event(
+          "ClearGradient", phi::TracerEventType::UserDefined, 2);
       auto* grad_t = grad_var_->MutableVar()->GetMutable<phi::DenseTensor>();
       if (grad_t->IsInitialized()) {
         if (set_to_zero) {
@@ -287,7 +287,7 @@ std::shared_ptr<VarBase> VarBase::NewVarBase(const phi::Place& dst_place,
       true,
       common::errors::InvalidArgument(
           "Variable is not initialized or Variable's type is not "
-          "LoDTensor or SelectedRows when getting numpy tensor"));
+          "DenseTensor or SelectedRows when getting numpy tensor"));
 
   if (Var().IsType<phi::DenseTensor>()) {
     auto& src_tensor = Var().Get<phi::DenseTensor>();
@@ -586,7 +586,7 @@ void ClearNoNeedBufferInputs(OpBase* op) {
       PADDLE_ENFORCE_EQ(var.IsType<phi::DenseTensor>(),
                         true,
                         common::errors::PermissionDenied(
-                            "NoNeedBufferVars only support LoDTensor"));
+                            "NoNeedBufferVars only support DenseTensor"));
       auto new_var = new VariableWrapper(each_var->Name());
       auto* new_tensor = new_var->MutableVar()->GetMutable<phi::DenseTensor>();
       auto& old_tensor = var.Get<phi::DenseTensor>();

@@ -64,7 +64,7 @@ def _build_program_by_desc(program_desc):
 
 # NOTE: Because RunProgramOp has a special output of type std::vector<Scope *>,
 # the OpTest cannot be used in RunProgramOp. The variable type cannot be specified
-# when creating output variables in OpTest, default type is LoDTensor
+# when creating output variables in OpTest, default type is DenseTensor
 # NOTE: the gradient test method in OpTest also cannot be used for RunProgramOp,
 # because it hold BlockDesc type attr, OperatorFactory can't parse this attr type
 # when create Operator, so here compare gradients with static graph
@@ -269,7 +269,7 @@ class RunProgramOpTest(unittest.TestCase):
                 outputs['Out'],
                 outputs['OutScope'],
                 None,
-                *self.attrs
+                *self.attrs,
             )
 
             return outputs['Out']
@@ -321,7 +321,7 @@ class RunProgramOpTest(unittest.TestCase):
                 outputs['Out'],
                 outputs['OutScope'],
                 None,
-                *self.attrs
+                *self.attrs,
             )
 
             for param in input_param_list:

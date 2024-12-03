@@ -49,7 +49,7 @@ static std::map<size_t, std::unordered_set<std::string>> VarsGroupByScopeIdx(
 
 // Check whether the variable is phi::DenseTensor based on static VarDesc info
 static bool IsLoDTensor(VarDesc *var) {
-  return var->Proto()->type().type() == proto::VarType::LOD_TENSOR;
+  return var->Proto()->type().type() == proto::VarType::DENSE_TENSOR;
 }
 
 // Get memory size of phi::DenseTensor
@@ -75,9 +75,9 @@ static int64_t GetMemorySize(
 }
 
 // Split all variables in the graph into phi::DenseTensor and
-// Non-phi::DenseTensor (e.g. SelectedRows, LoDTensorArray) Since partial GC is
-// based on static analysis of memory size of each variable So we should skip
-// SelectedRows and LoDTensorArray here
+// Non-phi::DenseTensor (e.g. SelectedRows, phi::TensorArray) Since partial GC
+// is based on static analysis of memory size of each variable So we should skip
+// SelectedRows and phi::TensorArray here
 static void SplitIntoLoDTensorAndNonLoDTensorVars(
     const OpToVarNameSetMap &m,
     const details::GraphVars &vars,
@@ -129,7 +129,7 @@ static OpToVarNameSetMap ShrinkGCVars(const OpToVarNameSetMap &m,
 
   /**
    * Step 1: Split all variables into phi::DenseTensor and Non-phi::DenseTensor.
-   * We can only calculate memory size of LoDTensors
+   * We can only calculate memory size of DenseTensors
    */
   OpToVarNameSetMap lod_tensors, other_vars;
   SplitIntoLoDTensorAndNonLoDTensorVars(m, vars, &lod_tensors, &other_vars);
@@ -186,7 +186,7 @@ static OpToVarNameSetMap ShrinkGCVars(const OpToVarNameSetMap &m,
   }
 
   /**
-   * Step 4: Combine other vars (SelectedRows, LoDTensorArray)
+   * Step 4: Combine other vars (SelectedRows, phi::TensorArray)
    */
   if (!delete_lod_tensor_only) {
     for (auto &op_vars_pair : other_vars) {

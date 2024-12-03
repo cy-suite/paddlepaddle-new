@@ -12,7 +12,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License. */
 
-#include "paddle/fluid/operators/collective/partial_send_op.h"
+#include "paddle/fluid/framework/data_type.h"
+#include "paddle/fluid/framework/lod_tensor.h"
+#include "paddle/fluid/framework/op_registry.h"
 
 namespace paddle::operators {
 
@@ -65,10 +67,6 @@ class PartialSendMaker : public framework::OpProtoAndCheckerMaker {
         .SetDefault(0);
     AddAttr<int>("peer", "(int default 0) rank id for receiver.").SetDefault(0);
 
-    AddAttr<bool>(
-        "use_calc_stream",
-        "(bool default false) eject CUDA operations to calculation stream.")
-        .SetDefault(false);
     AddAttr<int>("num", "(int default 1) The number of Input to be cut.")
         .SetDefault(1);
     AddAttr<int>("id",
@@ -90,13 +88,3 @@ namespace ops = paddle::operators;
 REGISTER_OP_WITHOUT_GRADIENT(partial_send,
                              ops::PartialSendOp,
                              ops::PartialSendMaker);
-
-PD_REGISTER_STRUCT_KERNEL(partial_send,
-                          CPU,
-                          ALL_LAYOUT,
-                          ops::PartialSendOpCPUKernel,
-                          float,
-                          double,
-                          int,
-                          int64_t,
-                          phi::dtype::float16) {}

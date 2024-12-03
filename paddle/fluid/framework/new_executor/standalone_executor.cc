@@ -20,7 +20,7 @@
 #include "paddle/fluid/framework/new_executor/program_interpreter.h"
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 #include "paddle/fluid/pir/transforms/pd_op_to_kernel_pass.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 #include "paddle/fluid/ir_adaptor/translator/translate.h"
 #include "paddle/fluid/pir/transforms/general/inplace_pass.h"
@@ -87,6 +87,8 @@ StandaloneExecutor::StandaloneExecutor(const phi::Place& place,
     interpreter::ExecutionConfig execution_config;
     execution_config.create_local_scope = false;
     execution_config.skip_gc_vars = job->SkipGcVars();
+    execution_config.force_sync_ops =
+        interpreter::GetForceSyncOps(micro_batch_id, job_type);
 
     // TODO(phlrain) we only support cpu for now
     if (FLAGS_enable_pir_in_executor) {
@@ -169,8 +171,8 @@ StandaloneExecutor::StandaloneExecutor(const phi::Place& place,
 paddle::framework::FetchList StandaloneExecutor::Run(
     const std::vector<std::string>& feed_names,
     const bool enable_job_schedule_profiler) {
-  platform::RecordEvent record_event(
-      "StandaloneExecutor::run", platform::TracerEventType::UserDefined, 1);
+  phi::RecordEvent record_event(
+      "StandaloneExecutor::run", phi::TracerEventType::UserDefined, 1);
 
   const auto& jobs = plan_.JobList();
 
@@ -198,9 +200,9 @@ paddle::framework::FetchList StandaloneExecutor::Run(
   for (size_t job_idx = 0; job_idx < jobs.size(); ++job_idx) {
     const auto& job = jobs[job_idx];
     const std::string& job_type = job->Type();
-    platform::RecordEvent record_event(
+    phi::RecordEvent record_event(
         job_type + "-" + std::to_string(job->MicroBatchId()),
-        platform::TracerEventType::UserDefined,
+        phi::TracerEventType::UserDefined,
         1);
 
     VLOG(6) << "Run job (" << job_idx << "), type = " << job_type
@@ -282,9 +284,8 @@ paddle::framework::FetchList StandaloneExecutor::Run(
 
 std::shared_ptr<framework::ProgramDesc> StandaloneExecutor::RunProfile(
     const std::vector<std::string>& feed_names) {
-  platform::RecordEvent record_event("StandaloneExecutor::run_profile",
-                                     platform::TracerEventType::UserDefined,
-                                     1);
+  phi::RecordEvent record_event(
+      "StandaloneExecutor::run_profile", phi::TracerEventType::UserDefined, 1);
 
   // in profiling run, there can be one and only one job ("default")
   interpretercores_[0]->Run(feed_names,

@@ -521,6 +521,9 @@ if(WITH_PSCORE)
 
   include(external/jemalloc) # download, build, install jemalloc
   list(APPEND third_party_deps extern_jemalloc)
+
+  include(external/afs_api)
+  list(APPEND third_party_deps extern_afs_api)
 endif()
 
 if(WITH_RPC
@@ -603,7 +606,22 @@ if(WITH_GPU
    AND NOT WITH_ARM
    AND NOT WIN32
    AND NOT APPLE)
-  if(${CMAKE_CUDA_COMPILER_VERSION} GREATER_EQUAL 11.4)
+  if(${CMAKE_CUDA_COMPILER_VERSION} GREATER_EQUAL 12.3)
+    foreach(arch ${NVCC_ARCH_BIN})
+      if(${arch} GREATER_EQUAL 90)
+        set(WITH_FLASHATTN_V3 ON)
+        break()
+      endif()
+    endforeach()
+    foreach(arch ${NVCC_ARCH_BIN})
+      if(${arch} GREATER_EQUAL 80)
+        include(external/flashattn)
+        list(APPEND third_party_deps extern_flashattn)
+        set(WITH_FLASHATTN ON)
+        break()
+      endif()
+    endforeach()
+  elseif(${CMAKE_CUDA_COMPILER_VERSION} GREATER_EQUAL 11.4)
     foreach(arch ${NVCC_ARCH_BIN})
       if(${arch} GREATER_EQUAL 80)
         include(external/flashattn)

@@ -27,7 +27,7 @@ void RepeatInterleaveKernel(const Context& ctx,
                             DenseTensor* out) {
   PADDLE_ENFORCE_GT(repeats,
                     0,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "repeats must grater than 0, but got %d", repeats));
   using XPUType = typename XPUTypeTrait<T>::Type;
 
@@ -50,15 +50,15 @@ void RepeatInterleaveKernel(const Context& ctx,
   out_shape[dim] = index_size;
   out->Resize(common::make_ddim(out_shape));
   ctx.template Alloc<T>(out);
-  int ret =
-      xpu::gather<XPUType, int>(ctx.x_context(),
-                                reinterpret_cast<const XPUType*>(x.data<T>()),
-                                index.data<int>(),
-                                reinterpret_cast<XPUType*>(out->data<T>()),
-                                xshape,
-                                index_size,
-                                dim);
-  PADDLE_ENFORCE_XDNN_SUCCESS(ret, "gather");
+  int ret = xpu::paddle_gather<XPUType, int>(
+      ctx.x_context(),
+      reinterpret_cast<const XPUType*>(x.data<T>()),
+      index.data<int>(),
+      reinterpret_cast<XPUType*>(out->data<T>()),
+      xshape,
+      index_size,
+      dim);
+  PADDLE_ENFORCE_XDNN_SUCCESS(ret, "paddle_gather");
 }
 
 template <typename T, typename Context>
@@ -75,7 +75,7 @@ void RepeatInterleaveWithTensorIndexKernel(const Context& ctx,
   DenseTensor index;
   PADDLE_ENFORCE_EQ(repeats_tensor.dims()[0] == x.dims()[dim],
                     true,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "The length of Input(RepeatsTensor) must be the "
                         "same as length of Input(X) in axis. "
                         "But received: [%s], required: [%d].",
@@ -87,7 +87,7 @@ void RepeatInterleaveWithTensorIndexKernel(const Context& ctx,
   PADDLE_ENFORCE_EQ(
       index_type_match,
       true,
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "Input(RepeatsTensor) holds the wrong type, it holds %s, but "
           "desires to be %s or %s",
           DataTypeToString(index_type),
@@ -101,7 +101,7 @@ void RepeatInterleaveWithTensorIndexKernel(const Context& ctx,
     out_shape[dim] = index.dims()[0];
     out->Resize(common::make_ddim(out_shape));
     ctx.template Alloc<T>(out);
-    int ret = xpu::gather<XPUType, int64_t>(
+    int ret = xpu::paddle_gather<XPUType, int64_t>(
         ctx.x_context(),
         reinterpret_cast<const XPUType*>(x.data<T>()),
         index.data<int64_t>(),
@@ -109,22 +109,22 @@ void RepeatInterleaveWithTensorIndexKernel(const Context& ctx,
         xshape,
         index.numel(),
         dim);
-    PADDLE_ENFORCE_XDNN_SUCCESS(ret, "gather");
+    PADDLE_ENFORCE_XDNN_SUCCESS(ret, "paddle_gather");
   } else {
     phi::funcs::RepeatsTensor2IndexTensor<Context, int>(
         ctx, repeats_tensor, &index);
     out_shape[dim] = index.dims()[0];
     out->Resize(common::make_ddim(out_shape));
     ctx.template Alloc<T>(out);
-    int ret =
-        xpu::gather<XPUType, int>(ctx.x_context(),
-                                  reinterpret_cast<const XPUType*>(x.data<T>()),
-                                  index.data<int>(),
-                                  reinterpret_cast<XPUType*>(out->data<T>()),
-                                  xshape,
-                                  index.numel(),
-                                  dim);
-    PADDLE_ENFORCE_XDNN_SUCCESS(ret, "gather");
+    int ret = xpu::paddle_gather<XPUType, int>(
+        ctx.x_context(),
+        reinterpret_cast<const XPUType*>(x.data<T>()),
+        index.data<int>(),
+        reinterpret_cast<XPUType*>(out->data<T>()),
+        xshape,
+        index.numel(),
+        dim);
+    PADDLE_ENFORCE_XDNN_SUCCESS(ret, "paddle_gather");
   }
 }
 }  // namespace phi

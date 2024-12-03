@@ -83,9 +83,9 @@ static bool VarCanBeDeleted(const std::string &name,
 
   auto type = var_desc->Proto()->type().type();
 
-  return type == proto::VarType::LOD_TENSOR ||
+  return type == proto::VarType::DENSE_TENSOR ||
          type == proto::VarType::SELECTED_ROWS ||
-         type == proto::VarType::LOD_TENSOR_ARRAY;
+         type == proto::VarType::DENSE_TENSOR_ARRAY;
 }
 
 std::unordered_map<const OperatorBase *, std::vector<std::string>>
@@ -193,14 +193,14 @@ void DeleteUnusedTensors(const Scope &scope,
       garbages.emplace_back(var->GetMutable<phi::SelectedRows>()
                                 ->mutable_value()
                                 ->MoveMemoryHolder());
-    } else if (var->IsType<LoDTensorArray>()) {
-      auto *lod_tensor_arr = var->GetMutable<LoDTensorArray>();
-      for (auto &t : *lod_tensor_arr) {
+    } else if (var->IsType<phi::TensorArray>()) {
+      auto *dense_tensor_arr = var->GetMutable<phi::TensorArray>();
+      for (auto &t : *dense_tensor_arr) {
         garbages.emplace_back(t.MoveMemoryHolder());
       }
-      // NOTE(wangxi): need clear the vector, otherwise lod_tensor_arr.size() is
-      // wrong, if size() decrease in next step, an error maybe occur.
-      lod_tensor_arr->clear();
+      // NOTE(wangxi): need clear the vector, otherwise dense_tensor_arr.size()
+      // is wrong, if size() decrease in next step, an error maybe occur.
+      dense_tensor_arr->clear();
     } else if (var->IsType<Strings>()) {
     } else {
       PADDLE_THROW(common::errors::Unimplemented(

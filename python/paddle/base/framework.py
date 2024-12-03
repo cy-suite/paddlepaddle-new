@@ -49,7 +49,7 @@ _InputT = ParamSpec("_InputT")
 _RetT = TypeVar("_RetT")
 
 if TYPE_CHECKING:
-    from typing import Generator, Sequence
+    from collections.abc import Generator, Sequence
 
     from paddle.static.amp.fp16_utils import AmpOptions
 
@@ -102,6 +102,27 @@ SUPPORT_PROMOTION_OPS_AND_INPUTNAME = {
     "atan2": ['X1', 'X2'],
     "atan2_grad": ['X1', 'X2'],
 }
+
+stride_ops = [
+    "pd_op.slice",
+    "pd_op.strided_slice",
+    "pd_op.index_select",
+    "pd_op.split",
+    "pd_op.unsqueeze",
+    "pd_op.unsqueeze2",
+    "pd_op.squeeze",
+    "pd_op.squeeze2",
+    "pd_op.transpose",
+    "pd_op.transpose2",
+    "pd_op.unbind",
+    "pd_op.diagonal",
+    "pd_op.flatten",
+    "pd_op.imag",
+    "pd_op.real",
+    "pd_op.reshape",
+    "pd_op.reshape2",
+    "pd_op.as_real",
+]
 
 
 def _global_flags():
@@ -188,8 +209,21 @@ class GlobalThreadLocal(threading.local):
         """
         global _dygraph_tracer_
         self._in_to_static_mode_ = False
+        self._in_sot_simulation_mode_ = False
         self._functional_dygraph_context_manager = None
         self._dygraph_tracer_ = _dygraph_tracer_
+        env_pir_enabled = os.environ.get("FLAGS_enable_pir_api")
+
+        if env_pir_enabled is not None:
+            pir_enabled = env_pir_enabled.lower() not in [
+                'n',
+                'no',
+                'f',
+                'false',
+                'off',
+                '0',
+            ]
+            set_flags({"FLAGS_enable_pir_api": pir_enabled})
         self._use_pir_api_ = get_flags("FLAGS_enable_pir_api")[
             "FLAGS_enable_pir_api"
         ]
@@ -197,6 +231,9 @@ class GlobalThreadLocal(threading.local):
     def __str__(self):
         strings = []
         strings.append("_in_to_static_mode_:" + str(self._in_to_static_mode_))
+        strings.append(
+            "_in_sot_simulation_mode_:" + str(self._in_sot_simulation_mode_)
+        )
         strings.append(
             "_functional_dygraph_context_manager:"
             + str(self._functional_dygraph_context_manager)
@@ -463,15 +500,13 @@ def ipu_shard_guard(
 @overload
 def set_ipu_shard(
     call_func: Callable[_InputT, _RetT], index: int = ..., stage: int = ...
-) -> Callable[_InputT, _RetT]:
-    ...
+) -> Callable[_InputT, _RetT]: ...
 
 
 @overload
 def set_ipu_shard(
     call_func: paddle.nn.Layer, index: int = ..., stage: int = ...
-) -> paddle.nn.Layer:
-    ...
+) -> paddle.nn.Layer: ...
 
 
 def set_ipu_shard(call_func, index=-1, stage=-1):
@@ -756,7 +791,9 @@ def _dygraph_tracer():
 
 def _current_expected_place_():
     global _global_expected_place_
-    if _global_expected_place_ is None:
+    if _global_expected_place_ is None or isinstance(
+        _global_expected_place_, core.Place
+    ):
         if core.is_compiled_with_cuda():
             try:
                 device_count = core.get_cuda_device_count()
@@ -1259,9 +1296,25 @@ def name_struct(prefix=None):
         assert prefix, "namescope prefix can not be empty."
         global _name_struct
         _name_struct = _name_struct.child(prefix)
+        if in_pir_mode():
+            op_num_before = len(
+                paddle.static.default_main_program().global_block().ops
+            )
         try:
             yield
         finally:
+            if in_pir_mode():
+                all_ops = (
+                    paddle.static.default_main_program().global_block().ops
+                )
+                op_num = len(all_ops)
+
+                for idx in reversed(range(op_num_before, op_num)):
+                    op = all_ops[idx]
+                    if op.has_attr("struct_name"):
+                        continue
+                    op.set_str_attr("struct_name", _full_name_struct())
+
             _name_struct = _name_struct.parent()
 
 
@@ -1299,7 +1352,9 @@ def grad_var_name(var_name):
     return var_name + GRAD_VAR_SUFFIX
 
 
-def convert_np_dtype_to_proto_type(np_dtype: np.dtype | str):
+def convert_np_dtype_to_proto_type(
+    np_dtype: np.dtype | str,
+) -> core.VarDesc.VarType:
     """
     Convert the data type in numpy to the data type in Paddle.
 
@@ -1356,7 +1411,9 @@ def convert_np_dtype_to_proto_type(np_dtype: np.dtype | str):
         raise ValueError(f"Not supported numpy dtype {dtype}")
 
 
-def convert_np_dtype_to_dtype_(np_dtype):
+def convert_np_dtype_to_dtype_(
+    np_dtype: np.dtype | str,
+) -> core.VarDesc.VarType | core.DataType:
     """
     Convert the data type in numpy to the data type in Paddle.
 
@@ -1435,7 +1492,7 @@ def _debug_string_(proto, throw_on_error=True):
 
 
 def _create_tensor(
-    type=core.VarDesc.VarType.LOD_TENSOR,
+    type=core.VarDesc.VarType.DENSE_TENSOR,
     name=None,
     shape=None,
     dtype=None,
@@ -1451,7 +1508,7 @@ def _create_tensor(
         dtype,
         list(shape) if shape else [],
         name,
-        type if type else core.VarDesc.VarType.LOD_TENSOR,
+        type if type else core.VarDesc.VarType.DENSE_TENSOR,
         True if persistable else False,
     )
     eager_tensor.retain_grads()
@@ -1636,7 +1693,7 @@ class Variable(metaclass=VariableMetaClass):
     def __init__(
         self,
         block,
-        type=core.VarDesc.VarType.LOD_TENSOR,
+        type=core.VarDesc.VarType.DENSE_TENSOR,
         name=None,
         shape=None,
         dtype=None,
@@ -1778,8 +1835,8 @@ class Variable(metaclass=VariableMetaClass):
 
         assert (
             self.type == core.VarDesc.VarType.SELECTED_ROWS
-            or self.type == core.VarDesc.VarType.LOD_TENSOR
-        ), "only support a variable with SELECTED_ROWS or LOD_TENSOR to be detached"
+            or self.type == core.VarDesc.VarType.DENSE_TENSOR
+        ), "only support a variable with SELECTED_ROWS or DENSE_TENSOR to be detached"
 
         with unique_name.guard(self.block.program._name_generator):
             output = self.block.create_var(
@@ -1889,7 +1946,7 @@ class Variable(metaclass=VariableMetaClass):
         Get the Gradient of Current Variable
 
         Returns:
-            ndarray or tuple of ndarray: if Variable's type is LoDTensor, return numpy value of the gradient of current Variable, if Variable's type is SelectedRows, return tuple of ndarray, first element of tuple is numpy value of the gradient of current Variable, second element of tuple is numpy value of the rows of current Variable.
+            ndarray or tuple of ndarray: if Variable's type is DenseTensor, return numpy value of the gradient of current Variable, if Variable's type is SelectedRows, return tuple of ndarray, first element of tuple is numpy value of the gradient of current Variable, second element of tuple is numpy value of the rows of current Variable.
 
         Examples:
             .. code-block:: python
@@ -2012,6 +2069,7 @@ class Variable(metaclass=VariableMetaClass):
         Examples:
             .. code-block:: python
 
+                >>> # doctest: +SKIP("This has diff in xdoctest env")
                 >>> import paddle
                 >>> import paddle.static as static
 
@@ -2023,13 +2081,13 @@ class Variable(metaclass=VariableMetaClass):
                 ...                                     shape=[-1, 23, 48],
                 ...                                     dtype='float32')
                 >>> print(new_variable._to_readable_code())
-                var X : LOD_TENSOR.shape(-1, 23, 48).dtype(float32).stop_gradient(False)
+                var X : DENSE_TENSOR.shape(-1, 23, 48).dtype(float32).stop_gradient(False)
         """
-        # VarType.LOD_TENSOR -> LOD_TENSOR
+        # VarType.DENSE_TENSOR -> DENSE_TENSOR
         type_str = str(self.type).split(".")[1]
         if (
             self.type == core.VarDesc.VarType.SELECTED_ROWS
-            or self.type == core.VarDesc.VarType.LOD_TENSOR
+            or self.type == core.VarDesc.VarType.DENSE_TENSOR
         ):
             dtype_str = str(self.dtype).split(".")[1]
             var_str = f"{self.name} : {type_str}.shape{self.shape}.dtype({dtype_str}).stop_gradient({self.stop_gradient})"
@@ -2076,6 +2134,7 @@ class Variable(metaclass=VariableMetaClass):
         Examples:
             .. code-block:: python
 
+                >>> # doctest: +SKIP("This has diff in xdoctest env")
                 >>> import paddle.base as base
                 >>> import paddle
 
@@ -2090,7 +2149,7 @@ class Variable(metaclass=VariableMetaClass):
                 >>> print(new_variable.to_string(True, True))
                 name: "X"
                 type {
-                  type: LOD_TENSOR
+                  type: DENSE_TENSOR
                   lod_tensor {
                     tensor {
                       data_type: FP32
@@ -2374,6 +2433,7 @@ class Variable(metaclass=VariableMetaClass):
         Examples:
             .. code-block:: python
 
+                >>> # doctest: +SKIP("This has diff in xdoctest env")
                 >>> import paddle.base as base
                 >>> cur_program = base.Program()
                 >>> cur_block = cur_program.current_block()
@@ -2381,7 +2441,7 @@ class Variable(metaclass=VariableMetaClass):
                 ...                                     shape=[-1, 23, 48],
                 ...                                     dtype='float32')
                 >>> print("Type of current Var is: {}".format(new_variable.type))
-                Type of current Var is: VarType.LOD_TENSOR
+                Type of current Var is: VarType.DENSE_TENSOR
         """
         return self.desc.type()
 
@@ -2429,7 +2489,7 @@ class Variable(metaclass=VariableMetaClass):
                     self.name + ".tmp"
                 ),
                 dtype=self.dtype,
-                type=core.VarDesc.VarType.LOD_TENSOR,
+                type=core.VarDesc.VarType.DENSE_TENSOR,
                 persistable=False,
                 stop_gradient=False,
             )
@@ -2816,7 +2876,7 @@ class Variable(metaclass=VariableMetaClass):
 
         if not (isinstance(value, np.ndarray) or hasattr(value, "__array__")):
             raise TypeError(
-                f"`value` should be `numpy.ndarray` or `LoDTensor`, but received {type(value)}."
+                f"`value` should be `numpy.ndarray` or `DenseTensor`, but received {type(value)}."
             )
 
         if scope is not None and not isinstance(scope, core._Scope):
@@ -2886,7 +2946,7 @@ class Variable(metaclass=VariableMetaClass):
                 >>> x = paddle.static.data(name='x', shape=[3, 2, 1])
 
                 >>> # get the number of elements of the Variable
-                >>> y = x.size() # type: ignore
+                >>> y = x.size
 
         """
 
@@ -3101,7 +3161,6 @@ class Operator:
     OP_WITHOUT_KERNEL_SET = {
         "feed",
         "fetch",
-        "recurrent",
         "go",
         "conditional_block",
         "pylayer",
@@ -3110,7 +3169,6 @@ class Operator:
         "recv",
         "listen_and_serv",
         "fl_listen_and_serv",
-        "ncclInit",
         "select",
         "checkpoint_notify",
         "gen_bkcl_id",
@@ -3120,9 +3178,6 @@ class Operator:
         "c_comm_init",
         "c_sync_calc_stream",
         "c_sync_comm_stream",
-        "queue_generator",
-        "dequeue",
-        "enqueue",
         "heter_listen_and_serv",
         "c_wait_comm",
         "c_wait_compute",
@@ -3173,9 +3228,9 @@ class Operator:
             op_maker = core.op_proto_and_checker_maker
 
             if op_maker.kOpRoleAttrName() not in op_attrs:
-                op_attrs[
-                    op_maker.kOpRoleAttrName()
-                ] = self.block.program._op_role
+                op_attrs[op_maker.kOpRoleAttrName()] = (
+                    self.block.program._op_role
+                )
 
             role_var_name = op_maker.kOpRoleVarAttrName()
             if (
@@ -3369,8 +3424,8 @@ class Operator:
                     if type in special_op_attrs:
                         attrs = special_op_attrs.get(type, [])
                         for attr in attrs:
-                            a_name = list(attr.keys())[0]
-                            default_value = list(attr.values())[0]
+                            a_name = next(iter(attr.keys()))
+                            default_value = next(iter(attr.values()))
                             if (
                                 a_name in op_attrs.keys()
                                 and default_value != op_attrs[a_name]
@@ -4535,12 +4590,12 @@ class Block:
                 init_ops = []
                 for op in block.ops:
                     if var.name in op.output_arg_names:
-                        # In startup_program, "c_broadcast" and "c_sync_comm_stream"
+                        # In startup_program, "broadcast" and "c_sync_comm_stream"
                         # are treated as initialization ops that cause error.
-                        # Think of "c_broadcast" and "c_sync_comm_stream" as a special case here.
+                        # Think of "broadcast" and "c_sync_comm_stream" as a special case here.
                         # NOTE: "coalesce_tensor" is a special case for rnn with cudnn support
                         if op.type in [
-                            "c_broadcast",
+                            "broadcast",
                             "c_sync_comm_stream",
                             "coalesce_tensor",
                         ]:
@@ -4634,8 +4689,6 @@ class Block:
                 "conditional_block_grad",
                 "pylayer",
                 "pylayer_grad",
-                "recurrent",
-                "recurrent_grad",
                 "while",
                 "while_grad",
             }
@@ -4883,7 +4936,7 @@ class Block:
                     type=v.type,
                     lod_level=(
                         v.lod_level
-                        if v.type == core.VarDesc.VarType.LOD_TENSOR
+                        if v.type == core.VarDesc.VarType.DENSE_TENSOR
                         else None
                     ),
                     stop_gradient=p.stop_gradient,
@@ -5983,26 +6036,26 @@ class Program:
                         new_var_desc,
                         "shape",
                         [
-                            core.VarDesc.VarType.LOD_TENSOR,
+                            core.VarDesc.VarType.DENSE_TENSOR,
                             core.VarDesc.VarType.SELECTED_ROWS,
-                            core.VarDesc.VarType.LOD_TENSOR_ARRAY,
+                            core.VarDesc.VarType.DENSE_TENSOR_ARRAY,
                         ],
                     ),
                     "dtype": get_var_desc_attr_or_none(
                         new_var_desc,
                         "dtype",
                         [
-                            core.VarDesc.VarType.LOD_TENSOR,
+                            core.VarDesc.VarType.DENSE_TENSOR,
                             core.VarDesc.VarType.SELECTED_ROWS,
-                            core.VarDesc.VarType.LOD_TENSOR_ARRAY,
+                            core.VarDesc.VarType.DENSE_TENSOR_ARRAY,
                         ],
                     ),
                     "lod_level": get_var_desc_attr_or_none(
                         new_var_desc,
                         "lod_level",
                         [
-                            core.VarDesc.VarType.LOD_TENSOR,
-                            core.VarDesc.VarType.LOD_TENSOR_ARRAY,
+                            core.VarDesc.VarType.DENSE_TENSOR,
+                            core.VarDesc.VarType.DENSE_TENSOR_ARRAY,
                         ],
                     ),
                     "error_clip": (
@@ -7266,6 +7319,7 @@ class Program:
         Examples:
             .. code-block:: python
 
+                >>> # doctest: +SKIP("This has diff in xdoctest env")
                 >>> import paddle
                 >>> import paddle.static as static
 
@@ -7277,8 +7331,8 @@ class Program:
                 >>> for var in prog.list_vars():
                 ...     print(var)
 
-                >>> # var img : LOD_TENSOR.shape(-1, 1, 28, 28).dtype(float32).stop_gradient(True)
-                >>> # var label : LOD_TENSOR.shape(-1, 1).dtype(int64).stop_gradient(True)
+                >>> # var img : DENSE_TENSOR.shape(-1, 1, 28, 28).dtype(float32).stop_gradient(True)
+                >>> # var label : DENSE_TENSOR.shape(-1, 1).dtype(int64).stop_gradient(True)
         """
         for each_block in self.blocks:
             yield from list(each_block.vars.values())
@@ -7293,6 +7347,7 @@ class Program:
         Examples:
             .. code-block:: python
 
+                >>> # doctest: +SKIP("This has diff in xdoctest env")
                 >>> import paddle
                 >>> import paddle.static as static
 
@@ -7310,8 +7365,8 @@ class Program:
                 >>> # Here will print all parameters in current program, in this example,
                 >>> # the result is like:
                 >>> #
-                >>> # persist trainable param fc_0.w_0 : LOD_TENSOR.shape(13, 10).dtype(float32).stop_gradient(False)
-                >>> # persist trainable param fc_0.b_0 : LOD_TENSOR.shape(10,).dtype(float32).stop_gradient(False)
+                >>> # persist trainable param fc_0.w_0 : DENSE_TENSOR.shape(13, 10).dtype(float32).stop_gradient(False)
+                >>> # persist trainable param fc_0.b_0 : DENSE_TENSOR.shape(10,).dtype(float32).stop_gradient(False)
                 >>> #
                 >>> # Here print(param) will print out all the properties of a parameter,
                 >>> # including name, type and persistable, you can access to specific
@@ -7522,7 +7577,7 @@ class Parameter(Variable, metaclass=ParameterMetaClass):
         block,
         shape,
         dtype,
-        type=core.VarDesc.VarType.LOD_TENSOR,
+        type=core.VarDesc.VarType.DENSE_TENSOR,
         **kwargs,
     ):
         if shape is None:
@@ -7659,7 +7714,7 @@ class EagerParamBase(core.eager.Tensor):
             dtype,
             list(shape) if shape else [],
             name,
-            core.VarDesc.VarType.LOD_TENSOR,
+            core.VarDesc.VarType.DENSE_TENSOR,
             True,
         )
         self.retain_grads()
@@ -8351,10 +8406,12 @@ def process_type_promotion(program):
                     all_input_name_need_cast.append(input_arg_name)
 
             # only support promote between float
-            if len(all_dtypes) == 2 and core.need_type_promotion(
+            if len(all_dtypes) == 2 and core.need_type_promotion_old_ir(
                 op.type, *all_dtypes
             ):
-                common_dtype = core.get_promote_dtype(op.type, *all_dtypes)
+                common_dtype = core.get_promote_dtype_old_ir(
+                    op.type, *all_dtypes
+                )
                 for input_name_need_cast in all_input_name_need_cast:
                     var_name = op.block._var_recursive(input_name_need_cast)
                     if var_name.dtype != common_dtype:
@@ -8369,3 +8426,81 @@ def process_type_promotion(program):
                         idx += 1
             idx += 1
     return program
+
+
+# complete the op_role of the new added ops
+@signature_safe_contextmanager
+def auto_complete_op_role(program, op_role):
+    def is_dist_block(block):
+        return any(op.dist_attr is not None for op in block.ops)
+
+    def validate_op_roles(block):
+        for op in block.ops:
+            if op.op_role == -1:
+                raise ValueError(
+                    f"All ops' op_role should be set before the completion. However, {op.name()}'s op_role is -1"
+                )
+
+    def set_op_roles(block, op_role, always_forward_ops):
+        for op in block.ops:
+            # TODO(luchang): Some ops are inserted during the optimization stage, and their op_role should be set to Forward.
+            # Ops like "pd_op.data" are inserted at the beginning of the block.
+            # Currently, we can't set the op_role of these ops during the optimization stage because the parallel graph cutting
+            # requires the op_role to be continuous. In the future, we should set the op_role of these ops during the
+            # optimization stage and eliminate the use of the whitelist.
+            set_op_role = (
+                op_role
+                if op.name() not in always_forward_ops
+                else int(core.op_proto_and_checker_maker.OpRole.Forward)
+            )
+            if op.op_role == -1:
+                op.op_role = set_op_role
+            for sub_block in op.blocks():
+                set_op_roles(sub_block, op_role, always_forward_ops)
+
+    block = program.global_block()
+
+    if paddle.framework.in_pir_mode() and is_dist_block(block):
+        assert op_role != -1, "Can't set op_role to -1 for new added ops"
+        validate_op_roles(block)
+
+    try:
+        yield
+    finally:
+        if paddle.framework.in_pir_mode() and is_dist_block(block):
+            always_forward_ops = [
+                "pd_op.data",
+                "builtin.parameter",
+                "cf.stack_create",
+                "cf.tuple_push",
+            ]
+            set_op_roles(block, op_role, always_forward_ops)
+
+
+# set op when op_role when it is add by apibuilder
+# pir_op_role_guard could not distinguish "always_forward_ops", therefore if
+# there would be always_forward_ops in your region, you should use "auto_complete_op_role"
+@signature_safe_contextmanager
+def pir_op_role_guard(op_role: int - 1) -> Generator[None, None, None]:
+
+    if paddle.framework.in_pir_mode():
+        original_op_rope = pir.get_op_role()
+        pir.set_op_role(op_role)
+    try:
+        yield
+    finally:
+        if paddle.framework.in_pir_mode():
+            pir.set_op_role(original_op_rope)
+
+
+@signature_safe_contextmanager
+def pir_chunk_id_guard(chunk_id: int - 1) -> Generator[None, None, None]:
+
+    if paddle.framework.in_pir_mode():
+        original_chunk_id = pir.get_chunk_id()
+        pir.set_chunk_id(chunk_id)
+    try:
+        yield
+    finally:
+        if paddle.framework.in_pir_mode():
+            pir.set_chunk_id(original_chunk_id)

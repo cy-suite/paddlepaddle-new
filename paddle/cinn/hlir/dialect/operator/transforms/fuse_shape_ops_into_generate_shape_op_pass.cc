@@ -123,7 +123,10 @@ bool MakeGenerateShapeOpAttribute(
   ExprVec data_vec =
       paddle::dialect::details::GetExprVecFromData(shape_or_data_dim_exprs);
   // CHECK(shape_or_data_dim_exprs.data().has_value());
-  CHECK(data_vec.size());
+  PADDLE_ENFORCE_GT(
+      data_vec.size(),
+      0,
+      ::common::errors::PreconditionNotMet("The data_vec must not be empty."));
   // const auto& out_dim_exprs = shape_or_data_dim_exprs.data().value();
   const auto& out_dim_exprs = data_vec;
   return MakeGenerateShapeOpAttribute(ir_context,
@@ -420,6 +423,7 @@ class FuseSingleElementShapeOpsIntoGenerateShapeOpPattern
       auto* user = iter->owner();
       if (IsSingleElementShapeOp(user, &shape_analysis)) return false;
       if (user->isa<cinn::dialect::GenerateShapeOp>()) return false;
+      if (user->isa<pir::ShadowOutputOp>()) return false;
     }
 
     return true;
@@ -484,6 +488,8 @@ class FuseShapeOpsIntoGenerateShapeOpPass : public pir::PatternRewritePass {
     ps.Add<FuseShapeOpsIntoGenerateShapeOpPattern<paddle::dialect::ExpandOp>>(
         context);
     ps.Add<FuseShapeOpsIntoGenerateShapeOpPattern<paddle::dialect::ReshapeOp>>(
+        context);
+    ps.Add<FuseShapeOpsIntoGenerateShapeOpPattern<paddle::dialect::Reshape_Op>>(
         context);
     ps.Add<FuseShapeOpsIntoGenerateShapeOpPattern<paddle::dialect::SliceOp>>(
         context);

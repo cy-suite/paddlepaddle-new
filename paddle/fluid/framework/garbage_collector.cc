@@ -14,11 +14,11 @@
 
 #include <functional>
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
-#include "paddle/fluid/platform/cuda_device_guard.h"
+#include "paddle/phi/core/platform/cuda_device_guard.h"
 #endif
 #include "paddle/common/flags.h"
 #include "paddle/fluid/framework/garbage_collector.h"
-#include "paddle/fluid/platform/device/device_wrapper.h"
+#include "paddle/phi/core/platform/device/device_wrapper.h"
 
 COMMON_DECLARE_double(eager_delete_tensor_gb);
 COMMON_DECLARE_double(memory_fraction_of_eager_deletion);

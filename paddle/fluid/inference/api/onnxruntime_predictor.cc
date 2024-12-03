@@ -32,11 +32,11 @@
 #include "paddle/fluid/inference/api/paddle_inference_api.h"
 #include "paddle/fluid/inference/api/paddle_inference_pass.h"
 #include "paddle/fluid/inference/utils/io_utils.h"
-#include "paddle/fluid/memory/memcpy.h"
-#include "paddle/fluid/platform/cpu_helper.h"
-#include "paddle/fluid/platform/device/gpu/gpu_info.h"
-#include "paddle/fluid/platform/profiler.h"
 #include "paddle/phi/common/place.h"
+#include "paddle/phi/core/memory/memcpy.h"
+#include "paddle/phi/core/platform/cpu_helper.h"
+#include "paddle/phi/core/platform/device/gpu/gpu_info.h"
+#include "paddle/phi/core/platform/profiler.h"
 
 namespace paddle {
 
@@ -103,7 +103,7 @@ bool ONNXRuntimePredictor::InitBinding() {
 
   size_t n_inputs = session_->GetInputCount();
   framework::proto::VarType::Type proto_type =
-      framework::proto::VarType::LOD_TENSOR;
+      framework::proto::VarType::DENSE_TENSOR;
   for (size_t i = 0; i < n_inputs; ++i) {
     auto input_name = session_->GetInputName(i, allocator);
     auto type_info = session_->GetInputTypeInfo(i);

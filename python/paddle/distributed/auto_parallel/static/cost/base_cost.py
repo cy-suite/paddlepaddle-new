@@ -27,12 +27,12 @@ from ..utils import _get_comm_group, _get_idx_in_axis
 COMM_OP_TYPE = [
     "send_v2",
     "recv_v2",
-    "c_broadcast",
+    "broadcast",
     "all_gather",
     "c_allreduce_sum",
     "c_identity",
 ]
-NON_COMP_TYPE = ["while"] + COMM_OP_TYPE
+NON_COMP_TYPE = ["while", *COMM_OP_TYPE]
 _g_op_cost_factory = {}
 
 
@@ -590,11 +590,7 @@ class CommContext:
                     backward_order_beta = self.cluster.get_beta(
                         ranks[j], ranks[i]
                     )
-                    beta = (
-                        forward_order_beta
-                        if forward_order_beta > backward_order_beta
-                        else backward_order_beta
-                    )
+                    beta = max(backward_order_beta, forward_order_beta)
                     if max_beta is None:
                         max_beta = beta
                     else:

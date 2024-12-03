@@ -32,7 +32,7 @@ std::vector<pir::Type> CreateDenseTensorTypes(const phi::DDim &dims) {
   pir::IrContext *ctx = ::pir::IrContext::Instance();
   pir::Type fp32_dtype = ::pir::Float32Type::get(ctx);
   phi::DataLayout data_layout = phi::DataLayout::NCHW;
-  phi::LoD lod = {};
+  phi::LegacyLoD lod = {};
   size_t offset = 0;
   std::vector<::pir::Type> op_output_types = {::pir::DenseTensorType::get(
       ctx, fp32_dtype, dims, data_layout, lod, offset)};
@@ -124,25 +124,25 @@ TEST(PatternRewrite, broadcast_elementwise) {
 
   PADDLE_ENFORCE_EQ(it->isa<paddle::dialect::FullOp>(),
                     true,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "Expected FullOp but found different operation type: " +
                         std::string(it->name())));
   it++;
   PADDLE_ENFORCE_EQ(it->isa<paddle::dialect::FullOp>(),
                     true,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "Expected FullOp but found different operation type: " +
                         std::string(it->name())));
   it++;
   PADDLE_ENFORCE_EQ(it->isa<paddle::dialect::FullOp>(),
                     true,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "Expected FullOp but found different operation type: " +
                         std::string(it->name())));
   it++;
   PADDLE_ENFORCE_EQ(it->isa<paddle::dialect::AddOp>(),
                     true,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "Expected AddOp but found different operation type: " +
                         std::string(it->name())));
 }
@@ -169,31 +169,31 @@ TEST(PatternRewrite, broadcast_elementwise_both) {
 
   PADDLE_ENFORCE_EQ(it->isa<paddle::dialect::FullOp>(),
                     true,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "Expected FullOp but found different operation type: " +
                         std::string(it->name())));
   it++;
   PADDLE_ENFORCE_EQ(it->isa<paddle::dialect::FullOp>(),
                     true,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "Expected FullOp but found different operation type: " +
                         std::string(it->name())));
   it++;
   PADDLE_ENFORCE_EQ(it->isa<paddle::dialect::FullOp>(),
                     true,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "Expected FullOp but found different operation type: " +
                         std::string(it->name())));
   it++;
   PADDLE_ENFORCE_EQ(it->isa<paddle::dialect::FullOp>(),
                     true,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "Expected FullOp but found different operation type: " +
                         std::string(it->name())));
   it++;
   PADDLE_ENFORCE_EQ(it->isa<paddle::dialect::AddOp>(),
                     true,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "Expected AddOp but found different operation type: " +
                         std::string(it->name())));
 }
@@ -220,32 +220,32 @@ TEST(PatternRewrite, broadcast_elementwise_sub_both) {
 
   PADDLE_ENFORCE_EQ(it->isa<paddle::dialect::FullOp>(),
                     true,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "Expected FullOp but found different operation type: " +
                         std::string(it->name())));
   it++;
   PADDLE_ENFORCE_EQ(it->isa<paddle::dialect::FullOp>(),
                     true,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "Expected FullOp but found different operation type: " +
                         std::string(it->name())));
   it++;
   PADDLE_ENFORCE_EQ(it->isa<paddle::dialect::FullOp>(),
                     true,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "Expected FullOp but found different operation type: " +
                         std::string(it->name())));
   it++;
   PADDLE_ENFORCE_EQ(it->isa<paddle::dialect::FullOp>(),
                     true,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "Expected FullOp but found different operation type: " +
                         std::string(it->name())));
   it++;
   PADDLE_ENFORCE_EQ(
       it->isa<paddle::dialect::SubtractOp>(),
       true,
-      phi::errors::PreconditionNotMet(
+      common::errors::PreconditionNotMet(
           "Expected SubtractOp but found different operation type: " +
           std::string(it->name())));
 }

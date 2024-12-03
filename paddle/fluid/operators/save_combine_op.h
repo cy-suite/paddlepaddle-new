@@ -27,11 +27,11 @@ limitations under the License. */
 #include "paddle/fluid/framework/data_type_transform.h"
 #include "paddle/fluid/framework/lod_tensor.h"
 #include "paddle/fluid/framework/op_registry.h"
-#include "paddle/fluid/framework/raw_tensor.h"
-#include "paddle/fluid/framework/string_array.h"
-#include "paddle/fluid/platform/device_context.h"
 #include "paddle/phi/common/port.h"
 #include "paddle/phi/core/dense_tensor.h"
+#include "paddle/phi/core/platform/device_context.h"
+#include "paddle/phi/core/raw_tensor.h"
+#include "paddle/phi/core/vocab/string_array.h"
 
 namespace paddle {
 namespace operators {
@@ -110,9 +110,9 @@ void SaveCombineTensorKernel(const Context& dev_ctx,
       framework::TransDataType(in_kernel_type, out_kernel_type, tensor, &out);
       // copy LoD info to the new tensor
       out.set_lod(tensor.lod());
-      framework::SerializeToStream(ss, out, dev_ctx);
+      phi::SerializeToStream(ss, out, dev_ctx);
     } else {
-      framework::SerializeToStream(ss, tensor, dev_ctx);
+      phi::SerializeToStream(ss, tensor, dev_ctx);
     }
   }
 

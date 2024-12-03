@@ -26,13 +26,13 @@
 #include "paddle/fluid/imperative/layout_autotune.h"
 #include "paddle/fluid/imperative/op_base.h"
 #include "paddle/fluid/operators/ops_extra_info.h"
-#include "paddle/fluid/platform/denormal.h"
-#include "paddle/fluid/platform/device/device_wrapper.h"
-#include "paddle/fluid/platform/profiler.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
 #include "paddle/phi/api/lib/api_gen_utils.h"
 #include "paddle/phi/common/place.h"
 #include "paddle/phi/core/dense_tensor.h"
+#include "paddle/phi/core/platform/denormal.h"
+#include "paddle/phi/core/platform/device/device_wrapper.h"
+#include "paddle/phi/core/platform/profiler.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 #include "paddle/utils/string/string_helper.h"
 
 COMMON_DECLARE_bool(use_mkldnn);
@@ -44,14 +44,14 @@ namespace paddle {
 namespace imperative {
 thread_local std::string Tracer::python_stack_ = "";
 
-thread_local bool Tracer::has_grad_ = true;
-
 thread_local bool Tracer::use_layout_autotune_ = false;
 
 static thread_local std::shared_ptr<Tracer> g_current_tracer(nullptr);
 
 static thread_local std::shared_ptr<AmpAttrs> g_current_amp_attrs =
     std::make_shared<AmpAttrs>();
+
+static thread_local bool g_has_grad = true;
 
 TEST_API void Tracer::DisableLayoutAutoTune() { use_layout_autotune_ = false; }
 TEST_API void Tracer::EnableLayoutAutoTune() {
@@ -236,8 +236,8 @@ void Tracer::TraceOpImpl(const std::string& type,
                          const std::map<std::string, std::string>& inplace_map,
                          paddle::framework::AttributeMap* passed_default_attrs_,
                          bool use_default_attr_map) {
-  platform::RecordEvent op_type_record_event(
-      type, platform::TracerEventType::Operator, 1);
+  phi::RecordEvent op_type_record_event(
+      type, phi::TracerEventType::Operator, 1);
   platform::ScopedFlushDenormal flush;
   VLOG(4) << "Trace Op: " << type;
   if (FLAGS_use_mkldnn) {
@@ -354,7 +354,7 @@ void Tracer::TraceOpImpl(const std::string& type,
         common::errors::Fatal("Operator %s raises an %s exception.\n"
                               "The exception content is\n:%s.",
                               type,
-                              platform::demangle(typeid(ex).name()),
+                              common::demangle(typeid(ex).name()),
                               ex.what()));
   } catch (...) {
     // NOTE: this branch represents a very serious bug with
@@ -365,8 +365,8 @@ void Tracer::TraceOpImpl(const std::string& type,
   }
 
   {
-    platform::RecordEvent node_creation_record_event(
-        "grad_node_creation", platform::TracerEventType::OperatorInner, 1);
+    phi::RecordEvent node_creation_record_event(
+        "grad_node_creation", phi::TracerEventType::OperatorInner, 1);
 
     if (ComputeRequiredGrad(new_ins, outs, trace_backward)) {
       PADDLE_ENFORCE_EQ(
@@ -417,7 +417,7 @@ void Tracer::TraceOp(const std::string& type,
                    outs,
                    std::move(attrs),
                    expected_place_,
-                   has_grad_,
+                   g_has_grad,
                    inplace_map);
 }
 
@@ -546,9 +546,9 @@ void Tracer::TraceOp(const std::string& type,
 TEST_API void Tracer::SetExpectedPlace(phi::Place place) {
   expected_place_ = place;
 }
-TEST_API bool Tracer::HasGrad() const { return has_grad_; }
+TEST_API bool Tracer::HasGrad() const { return g_has_grad; }
 
-TEST_API void Tracer::SetHasGrad(bool has_grad) { has_grad_ = has_grad; }
+TEST_API void Tracer::SetHasGrad(bool has_grad) { g_has_grad = has_grad; }
 
 TEST_API void Tracer::SetUsePromote(bool use_promote) {
   VLOG(4) << "set use_promote to " << use_promote;

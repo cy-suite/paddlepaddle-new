@@ -21,7 +21,6 @@ from op_test import OpTest, convert_float_to_uint16
 
 import paddle
 from paddle.framework import core
-from paddle.pir_utils import test_with_pir_api
 
 paddle.enable_static()
 
@@ -30,7 +29,9 @@ class TestTakeAlongAxisOp(OpTest):
     def setUp(self):
         self.init_data()
         self.op_type = "take_along_axis"
+        self.prim_op_type = "prim"
         self.python_api = paddle.tensor.take_along_axis
+        self.public_python_api = paddle.tensor.take_along_axis
         self.check_cinn = True
         self.xnp = np.random.random(self.x_shape).astype(self.x_type)
         self.target = np.take_along_axis(self.xnp, self.index, self.axis)
@@ -50,17 +51,22 @@ class TestTakeAlongAxisOp(OpTest):
 
     def test_check_grad(self):
         self.check_grad(
-            ['Input'], 'Result', check_cinn=self.check_cinn, check_pir=True
+            ['Input'],
+            'Result',
+            check_cinn=self.check_cinn,
+            check_pir=True,
+            check_prim_pir=True,
         )
 
     def init_data(self):
         self.x_type = "float64"
         self.x_shape = (5, 5, 5)
         self.index_type = "int32"
-        self.index = np.array([[[1]], [[1]], [[2]], [[4]], [[3]]]).astype(
-            self.index_type
-        )
         self.axis = 2
+        dim_size = self.x_shape[self.axis]
+        self.index = np.random.randint(
+            -dim_size, dim_size, size=(5, 1, 1)
+        ).astype(self.index_type)
         self.axis_type = "int64"
 
 
@@ -70,14 +76,15 @@ class TestTakeAlongAxisFP16Op(TestTakeAlongAxisOp):
         self.x_type = "float16"
         self.x_shape = (5, 5, 5)
         self.index_type = "int32"
-        self.index = np.array([[[1]], [[1]], [[2]], [[4]], [[3]]]).astype(
-            self.index_type
-        )
         self.axis = 2
+        dim_size = self.x_shape[self.axis]
+        self.index = np.random.randint(
+            -dim_size, dim_size, size=(5, 1, 1)
+        ).astype(self.index_type)
         self.axis_type = "int64"
 
 
-class TestTakeAlongAxisOp(OpTest):
+class TestTakeAlongAxisOp2(OpTest):
     def setUp(self):
         self.init_data()
         self.op_type = "take_along_axis"
@@ -100,8 +107,11 @@ class TestTakeAlongAxisOp(OpTest):
         self.x_type = "float64"
         self.x_shape = (10, 10, 10)
         self.index_type = "int64"
-        self.index = np.random.randint(0, 10, (2, 3, 4)).astype(self.index_type)
         self.axis = 2
+        dim_size = self.x_shape[self.axis]
+        self.index = np.random.randint(-dim_size, dim_size, (2, 3, 4)).astype(
+            self.index_type
+        )
         self.axis_type = "int64"
 
 
@@ -114,7 +124,9 @@ class TestTakeAlongAxisBF16Op(OpTest):
     def setUp(self):
         self.init_data()
         self.op_type = "take_along_axis"
+        self.prim_op_type = "prim"
         self.python_api = paddle.tensor.take_along_axis
+        self.public_python_api = paddle.tensor.take_along_axis
         self.check_cinn = True
         self.xnp = np.random.random(self.x_shape).astype(self.x_type)
         self.target = np.take_along_axis(self.xnp, self.index, self.axis)
@@ -145,6 +157,7 @@ class TestTakeAlongAxisBF16Op(OpTest):
             'Result',
             check_cinn=self.check_cinn,
             check_pir=True,
+            check_prim_pir=True,
         )
 
     def init_data(self):
@@ -152,10 +165,11 @@ class TestTakeAlongAxisBF16Op(OpTest):
         self.x_type = "float32"
         self.x_shape = (5, 5, 5)
         self.index_type = "int32"
-        self.index = np.array([[[1]], [[1]], [[2]], [[4]], [[3]]]).astype(
-            self.index_type
-        )
         self.axis = 2
+        dim_size = self.x_shape[self.axis]
+        self.index = np.random.randint(
+            -dim_size, dim_size, size=(5, 1, 1)
+        ).astype(self.index_type)
         self.axis_type = "int64"
 
 
@@ -164,8 +178,11 @@ class TestCase1(TestTakeAlongAxisOp):
         self.x_type = "float64"
         self.x_shape = (5, 5, 5)
         self.index_type = "int32"
-        self.index = np.array([[[0, 1, 2, 1, 4]]]).astype(self.index_type)
         self.axis = 0
+        dim_size = self.x_shape[self.axis]
+        self.index = np.random.randint(
+            -dim_size, dim_size, size=(1, 1, 5)
+        ).astype(self.index_type)
         self.axis_type = "int64"
 
 
@@ -174,10 +191,13 @@ class TestTakeAlongAxisAPI(unittest.TestCase):
         np.random.seed(0)
         self.shape = [3, 3]
         self.index_shape = [1, 3]
-        self.index_np = np.array([[0, 1, 2]]).astype('int64')
+        self.axis = 0
+        dim_size = self.shape[self.axis]
+        self.index_np = np.random.randint(
+            -dim_size, dim_size, size=([1, 3])
+        ).astype('int64')
         self.x_np = np.random.random(self.shape).astype(np.float32)
         self.place = []
-        self.axis = 0
         if (
             os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
             in ['1', 'true', 'on']
@@ -187,7 +207,6 @@ class TestTakeAlongAxisAPI(unittest.TestCase):
         if core.is_compiled_with_cuda():
             self.place.append(paddle.CUDAPlace(0))
 
-    @test_with_pir_api
     def test_api_static(self):
         paddle.enable_static()
         with paddle.static.program_guard(paddle.static.Program()):
@@ -235,12 +254,13 @@ class TestTakeAlongAxisAPICase1(TestTakeAlongAxisAPI):
         np.random.seed(0)
         self.shape = [2, 2]
         self.index_shape = [4, 2]
-        self.index_np = np.array([[0, 0], [1, 0], [0, 0], [1, 0]]).astype(
-            'int64'
-        )
+        self.axis = 0
+        dim_size = self.shape[self.axis]
+        self.index_np = np.random.randint(
+            -dim_size, dim_size, size=(4, 2)
+        ).astype('int64')
         self.x_np = np.random.random(self.shape).astype(np.float32)
         self.place = []
-        self.axis = 0
         if (
             os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
             in ['1', 'true', 'on']
@@ -256,10 +276,13 @@ class TestTakeAlongAxisAPICase2(unittest.TestCase):
         np.random.seed(0)
         self.shape = [3, 3]
         self.index_shape = [1, 3]
-        self.index_np = np.array([[0, 1, 2]]).astype('int64')
+        self.axis = 0
+        dim_size = self.shape[self.axis]
+        self.index_np = np.random.randint(
+            -dim_size, dim_size, size=(1, 3)
+        ).astype('int64')
         self.x_np = np.random.random(self.shape).astype(np.float32)
         self.place = []
-        self.axis = 0
         if (
             os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
             in ['1', 'true', 'on']
@@ -269,7 +292,6 @@ class TestTakeAlongAxisAPICase2(unittest.TestCase):
         if core.is_compiled_with_cuda():
             self.place.append(paddle.CUDAPlace(0))
 
-    @test_with_pir_api
     def test_api_static(self):
         paddle.enable_static()
         with paddle.static.program_guard(paddle.static.Program()):
@@ -307,9 +329,17 @@ class TestTakeAlongAxisAPICase2(unittest.TestCase):
         with self.assertRaises(ValueError):
             res = paddle.take_along_axis(tensorx, indices, 0, False)
         # the element of indices out of range
-        with self.assertRaises(RuntimeError):
+        # (only catch cpu assertion though gpu can raise exception)
+        with self.assertRaises(IndexError):
             indices = paddle.to_tensor([[100]]).astype("int32")
-            res = paddle.take_along_axis(tensorx, indices, 0, False)
+            res = paddle.take_along_axis(
+                tensorx.to("cpu"), indices.to("cpu"), 0, False
+            )
+        with self.assertRaises(IndexError):
+            indices = paddle.to_tensor([[-100]]).astype("int32")
+            res = paddle.take_along_axis(
+                tensorx.to("cpu"), indices.to("cpu"), 0, False
+            )
         # the shape of indices doesn't match
         with self.assertRaises(RuntimeError):
             indices = paddle.to_tensor(

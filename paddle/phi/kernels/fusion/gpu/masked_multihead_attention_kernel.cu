@@ -857,8 +857,8 @@ void fmha_impl(const phi::GPUContext &dev_ctx,
     FMHA_LAUNCH_KERNEL(128, 128, stream)
     FMHA_LAUNCH_KERNEL(192, 256, stream)
     default:
-      PADDLE_THROW(
-          phi::errors::Unimplemented("Dim_head = %d is unsupport!", dim_head));
+      PADDLE_THROW(common::errors::Unimplemented("Dim_head = %d is unsupport!",
+                                                 dim_head));
   }
 }
 
@@ -1038,7 +1038,7 @@ void DispatchWithDtype(const Context &dev_ctx,
       mask_broadcast_num_heads = false;
     } else {
       PADDLE_THROW(errors::InvalidArgument(
-          "Unknow dimension for attn_mask, the num_head(2nd) "
+          "Unknown dimension for attn_mask, the num_head(2nd) "
           "dimension is invalid, it should be 1 or num_head(%d), "
           "but got %d",
           num_head,
@@ -1059,7 +1059,7 @@ void DispatchWithDtype(const Context &dev_ctx,
   }
 
   if (cum_offsets) {
-    PADDLE_THROW(phi::errors::PermissionDenied(
+    PADDLE_THROW(common::errors::PermissionDenied(
         "Current mmha kernel does not support cum_offsets param."));
   }
 
@@ -1305,7 +1305,7 @@ void MMHAKernel(const Context &dev_ctx,
             typename DispatchDtypeTrait<float>::FuncVersion{});
         break;
       default:
-        PADDLE_THROW(phi::errors::InvalidArgument(
+        PADDLE_THROW(common::errors::InvalidArgument(
             "In the case of quantization enabled with Input(x) INT32, "
             "Attr(compute_dtype) must be set in (bf16, fp16, fp32), "
             "but get compute_dtype (%s)",

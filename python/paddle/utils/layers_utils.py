@@ -43,6 +43,12 @@ _T = TypeVar("_T")
 _U = TypeVar("_U")
 
 
+class NotSupportedTensorArgumentError(TypeError):
+    def __init__(self, msg, name: str):
+        super().__init__(msg)
+        self.name = name
+
+
 def convert_to_list(value, n, name, dtype=int):
     """
     Converts a single numerical type or iterable of numerical
@@ -64,9 +70,7 @@ def convert_to_list(value, n, name, dtype=int):
         passed.
     """
     if isinstance(value, dtype):
-        return [
-            value,
-        ] * n
+        return [value] * n
     else:
         try:
             value_list = list(value)
@@ -79,9 +83,11 @@ def convert_to_list(value, n, name, dtype=int):
                 f"The {name}'s length must be {n}. Received: {value}"
             )
         for single_value in value_list:
-            assert not isinstance(
-                single_value, (Variable, paddle.pir.Value)
-            ), f"Required numerical type with '{dtype}', but received Tensor."
+            if isinstance(single_value, (Variable, paddle.pir.Value)):
+                raise NotSupportedTensorArgumentError(
+                    f"`{name}` required numerical type with `{dtype}`, but received Tensor.",
+                    name,
+                )
             try:
                 dtype(single_value)
             except (ValueError, TypeError):
@@ -265,10 +271,12 @@ def copy_mutable_vars(structure):
     return pack_sequence_as(structure, flat_structure)
 
 
-def _recursive_assert_same_structure(nest1, nest2, check_types):
+def _recursive_assert_same_structure(nest1, nest2, check_types, skip_if):
     """
     Helper function for `assert_same_structure`.
     """
+    if skip_if is not None and (skip_if(nest1) or skip_if(nest2)):
+        return
     is_sequence_nest1 = is_sequence(nest1)
     if is_sequence_nest1 != is_sequence(nest2):
         raise ValueError(
@@ -295,8 +303,14 @@ def _recursive_assert_same_structure(nest1, nest2, check_types):
                 )
     nest1_as_sequence = list(_yield_value(nest1))
     nest2_as_sequence = list(_yield_value(nest2))
+    if len(nest1_as_sequence) != len(nest2_as_sequence):
+        raise ValueError(
+            "The two structures don't have the same number of elements.\n\n"
+            f"First structure ({len(nest1_as_sequence)} elements): {nest1}\n\n"
+            f"Second structure ({len(nest2_as_sequence)} elements): {nest2}"
+        )
     for n1, n2 in zip(nest1_as_sequence, nest2_as_sequence):
-        _recursive_assert_same_structure(n1, n2, check_types)
+        _recursive_assert_same_structure(n1, n2, check_types, skip_if)
 
 
 def padding_to_same_structure(nest1, nest2, obj=None):
@@ -319,19 +333,21 @@ def padding_to_same_structure(nest1, nest2, obj=None):
     return nest1, nest2
 
 
-def assert_same_structure(nest1, nest2, check_types=True):
+def assert_same_structure(nest1, nest2, check_types=True, skip_if=None):
     """
     Confirm two nested structures with the same structure.
     """
+    if skip_if is not None and (skip_if(nest1) or skip_if(nest2)):
+        return
     len_nest1 = len(flatten(nest1)) if is_sequence(nest1) else 1
     len_nest2 = len(flatten(nest2)) if is_sequence(nest2) else 1
-    if len_nest1 != len_nest2:
+    if len_nest1 != len_nest2 and skip_if is None:
         raise ValueError(
             "The two structures don't have the same number of "
             f"elements.\n\nFirst structure ({len_nest1} elements): {nest1}\n\n"
             f"Second structure ({len_nest2} elements): {nest2}"
         )
-    _recursive_assert_same_structure(nest1, nest2, check_types)
+    _recursive_assert_same_structure(nest1, nest2, check_types, skip_if)
 
 
 def _is_symmetric_padding(padding, data_dim):

@@ -172,6 +172,12 @@ std::set<Expr> CollectIRNodes(Expr expr,
   return exprs;
 }
 
+std::set<Expr> CollectIRNodes(ir::LoweredFunc f,
+                              std::function<bool(const Expr*)>&& teller,
+                              bool uniq_target) {
+  return CollectIRNodes(f->body, std::move(teller), uniq_target);
+}
+
 std::vector<Expr> CollectIRNodesInOrder(
     Expr expr, std::function<bool(const Expr*)>&& teller) {
   std::vector<Expr> exprs;
@@ -282,11 +288,11 @@ std::vector<std::string> CollectUndefinedVars(const Expr* e) {
     void CollectVarDef(const std::string& var) {
       PADDLE_ENFORCE_EQ(defined_vars.count(var),
                         false,
-                        phi::errors::InvalidArgument(
+                        ::common::errors::InvalidArgument(
                             "var %s has been defined, please check", var));
       PADDLE_ENFORCE_EQ(used_vars.count(var),
                         false,
-                        phi::errors::InvalidArgument(
+                        ::common::errors::InvalidArgument(
                             "var %s is wrongly used before definition", var));
       defined_vars.insert(var);
     }
@@ -308,7 +314,7 @@ std::vector<std::string> CollectUndefinedVars(const Expr* e) {
       auto var = symbol.as_var_ref();
       PADDLE_ENFORCE_EQ(var.defined(),
                         true,
-                        phi::errors::InvalidArgument(
+                        ::common::errors::InvalidArgument(
                             "var %s is not defined, please check.", var->name));
       CollectVarDef(var->name);
       auto* node = expr->As<ir::Let>();

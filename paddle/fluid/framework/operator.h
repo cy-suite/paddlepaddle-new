@@ -37,8 +37,9 @@ limitations under the License. */
 #include "paddle/fluid/framework/shape_inference.h"
 #include "paddle/fluid/framework/tensor.h"
 #include "paddle/fluid/framework/unused_var_check.h"
-#include "paddle/fluid/memory/malloc.h"
-#include "paddle/fluid/platform/device_context.h"
+#include "paddle/phi/core/memory/malloc.h"
+#include "paddle/phi/core/platform/device_context.h"
+#include "paddle/phi/core/vocab/string_array.h"
 
 #include "paddle/common/flags.h"
 #include "paddle/common/macros.h"
@@ -229,7 +230,7 @@ class RuntimeInferShapeContext : public InferShapeContext {
 
   void SetSkipLoD(bool skip);
 
-  std::vector<LoD> GetOutputsLod(const std::string& out) const;
+  std::vector<LegacyLoD> GetOutputsLod(const std::string& out) const;
 
   std::vector<DDim> GetOutputsDim(const std::string& name) const;
 
@@ -669,7 +670,7 @@ class ExecutionArgumentMappingContext : public phi::ArgumentMappingContext {
   bool IsDenseTensorVectorInput(const std::string& name) const override {
     auto vars = ctx_.MultiInputVar(name);
     return std::all_of(vars.begin(), vars.end(), [](const Variable* var) {
-      return var->IsType<framework::LoDTensorArray>();
+      return var->IsType<phi::TensorArray>();
     });
   }
 
@@ -694,6 +695,13 @@ class ExecutionArgumentMappingContext : public phi::ArgumentMappingContext {
     auto vars = ctx_.MultiOutputVar(name);
     return std::all_of(vars.begin(), vars.end(), [](const Variable* var) {
       return var->IsType<phi::DenseTensor>();
+    });
+  }
+
+  bool IsVocabOutput(const std::string& name) const override {
+    auto vars = ctx_.MultiOutputVar(name);
+    return std::all_of(vars.begin(), vars.end(), [](const Variable* var) {
+      return var->IsType<phi::Vocab>();
     });
   }
 

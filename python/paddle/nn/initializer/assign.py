@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any
 
 import paddle
 from paddle import _C_ops
@@ -29,6 +29,8 @@ from ...base.framework import (
 from .initializer import Initializer
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     import numpy.typing as npt
 
 __all__ = []
@@ -90,7 +92,7 @@ class NumpyArrayInitializer(Initializer):
                 ),
                 shape=var.shape,
                 dtype=out_dtype,
-                type=core.VarDesc.VarType.LOD_TENSOR,
+                type=core.VarDesc.VarType.DENSE_TENSOR,
                 persistable=False,
             )
         elif origin_dtype in [core.DataType.FLOAT16, core.DataType.BFLOAT16]:

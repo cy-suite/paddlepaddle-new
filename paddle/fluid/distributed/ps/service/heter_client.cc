@@ -15,7 +15,7 @@
 #include "paddle/fluid/distributed/ps/service/heter_client.h"
 
 #include "paddle/fluid/framework/convert_utils.h"
-#include "paddle/fluid/platform/profiler.h"
+#include "paddle/phi/core/platform/profiler.h"
 
 namespace paddle {
 namespace distributed {
@@ -31,7 +31,7 @@ int GetMicroId(const phi::DeviceContext& ctx, const framework::Scope* scope) {
   PADDLE_ENFORCE_EQ(var->IsType<phi::DenseTensor>(),
                     true,
                     common::errors::InvalidArgument(
-                        "the type of micro id should be LoDTensor."));
+                        "the type of micro id should be DenseTensor."));
   auto micro_id = -1;
   auto* tensor = var->GetMutable<phi::DenseTensor>();
   if (phi::is_cpu_place(tensor->place())) {
@@ -118,9 +118,8 @@ void HeterClient::SendAndRecvAsync(
     const std::vector<std::string>& send_var_name,
     const std::vector<std::string>& recv_var_name,
     const std::string& mode) {
-  platform::RecordEvent record_event("HeterClient->SendAndRecvAsync",
-                                     platform::TracerEventType::Communication,
-                                     1);
+  phi::RecordEvent record_event(
+      "HeterClient->SendAndRecvAsync", phi::TracerEventType::Communication, 1);
   const phi::DeviceContext* p_ctx = &ctx;
   const framework::Scope* p_scope = &scope;
   const std::vector<std::string> send_var_name_val = send_var_name;
@@ -251,7 +250,7 @@ int HeterClient::Send(const phi::DeviceContext& ctx,
     framework::Variable* var = p_scope->FindVar(send_var_name);
     butil::IOBuf temp_iobuf;
     if (var->IsType<phi::DenseTensor>()) {
-      SerializeLodTensor(var, ctx, send_var_msg, &temp_iobuf);
+      SerializeDenseTensor(var, ctx, send_var_msg, &temp_iobuf);
     } else if (var->IsType<phi::SelectedRows>()) {
       SerializeSelectedRows(var, ctx, send_var_msg, &temp_iobuf);
     }

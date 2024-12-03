@@ -16,7 +16,7 @@
 #include "paddle/fluid/eager/api/manual/eager_manual/dygraph_forward_api.h"
 #include "paddle/fluid/eager/api/manual/eager_manual/nodes/nodes.h"
 #include "paddle/fluid/eager/api/utils/global_utils.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 paddle::Tensor reshard_ad_function(
     const paddle::Tensor& input,
@@ -26,7 +26,7 @@ paddle::Tensor reshard_ad_function(
           << "reshard dygraph";
   // Dygraph Record Event
   phi::RecordEvent dygraph_entrance_record_event(
-      "reshard dygraph", paddle::platform::TracerEventType::Communication, 1);
+      "reshard dygraph", phi::TracerEventType::Communication, 1);
 
   // Get Input AutoGradMeta
   egr::AutogradMeta* input_autograd_meta =
@@ -41,9 +41,7 @@ paddle::Tensor reshard_ad_function(
   // Set grad_node before API Call
   if (require_any_grad) {
     phi::RecordEvent node_creation_record_event(
-        "reshard node_creation",
-        paddle::platform::TracerEventType::Communication,
-        1);
+        "reshard node_creation", phi::TracerEventType::Communication, 1);
 
     // Node Construction
     grad_node =

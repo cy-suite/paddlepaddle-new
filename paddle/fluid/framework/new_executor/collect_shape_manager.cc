@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License. */
 
 #include "paddle/fluid/framework/new_executor/collect_shape_manager.h"
-#include "paddle/fluid/platform/device_context.h"
+#include "paddle/phi/core/platform/device_context.h"
 #include "paddle/phi/kernels/funcs/data_type_transform.h"
 
 namespace paddle {
@@ -27,6 +27,7 @@ void CollectShapeManager::CollectShapeInfo(
     framework::InstructionBase *instr,
     framework::ValueExecutionInfo *value_exe_info,
     framework::Scope *scope) {
+  std::lock_guard<std::mutex> lock(info_mutex_);
   is_shape_range_info_ready_ = false;
   for (auto &input : instr->Inputs()) {
     auto var_name = value_exe_info->GetVarName(input.first);

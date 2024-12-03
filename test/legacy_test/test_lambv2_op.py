@@ -20,12 +20,11 @@ import paddle
 from paddle import base
 from paddle.base import core
 from paddle.base.dygraph.base import switch_to_static_graph
-from paddle.pir_utils import test_with_pir_api
 
 
 class LAMBOptimizer(paddle.optimizer.Lamb):
     def _append_optimize_op(self, block, param_and_grad):
-        assert isinstance(block, base.framework.Block)
+        assert isinstance(block, (base.framework.Block, paddle.pir.Block))
         block.program._use_lamb = True
 
         m = moment1 = self._get_accumulator(
@@ -114,7 +113,7 @@ class TestLambOpV2(unittest.TestCase):
 
 
 class TestLambOpWithCombinedOp(unittest.TestCase):
-    @test_with_pir_api
+
     def test_lamb_op_with_multi_steps(self):
         paddle.enable_static()
 

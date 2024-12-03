@@ -17,8 +17,8 @@
 #include "paddle/fluid/framework/new_executor/workqueue/event_count.h"
 #include "paddle/fluid/framework/new_executor/workqueue/run_queue.h"
 #include "paddle/fluid/framework/new_executor/workqueue/thread_environment.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
 #include "paddle/phi/core/os_info.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 namespace paddle {
 namespace framework {
@@ -421,8 +421,8 @@ class ThreadPoolTempl {
     }
 
     // Wait for work
-    platform::RecordEvent record(
-        "WaitForWork", platform::TracerEventType::UserDefined, 10);
+    phi::RecordEvent record(
+        "WaitForWork", phi::TracerEventType::UserDefined, 10);
     ec_.CommitWait(waiter);
     blocked_--;
     return true;

@@ -117,12 +117,14 @@ static std::vector<std::vector<phi::DDim>> RunDefaultGradInferShapeFunc(
       // Duplicable forward var must as backward input
       auto iter =
           std::find(grad_op_inputs.begin(), grad_op_inputs.end(), fwd_name);
-      PADDLE_ENFORCE_NE(iter,
-                        grad_op_inputs.end(),
-                        common::errors::NotFound(
-                            "Custom grad operator should have the forward "
-                            "input(%s) as backward input",
-                            fwd_name));
+      PADDLE_ENFORCE_NE(
+          iter,
+          grad_op_inputs.end(),
+          common::errors::NotFound(
+              "Custom grad operator should have the forward "
+              "input(%s) as backward input. Maybe this custom grad op need "
+              "set its own infershape func",
+              fwd_name));
       auto pair = ctx.InputRangeAt(iter - grad_op_inputs.begin());
       std::vector<phi::DDim> tmp;
       for (size_t i = pair.first; i < pair.second; ++i) {
@@ -138,9 +140,11 @@ static std::vector<std::vector<phi::DDim>> RunDefaultGradInferShapeFunc(
         PADDLE_ENFORCE_NE(
             iter,
             grad_op_inputs.end(),
-            common::errors::NotFound("Custom grad operator should have the "
-                                     "forward input(%s) as backward input",
-                                     fwd_name));
+            common::errors::NotFound(
+                "Custom grad operator should have the "
+                "forward input(%s) as backward input. Maybe this custom "
+                "grad op need set its own infershape func",
+                fwd_name));
         auto pair = ctx.InputRangeAt(iter - grad_op_inputs.begin());
         result.push_back({ctx.InputAt(pair.first).dims()});
       }
@@ -309,12 +313,14 @@ static std::vector<std::vector<phi::DataType>> RunDefaultGradInferDtypeFunc(
       // Duplicable forward var must as backward input
       auto iter =
           std::find(grad_op_inputs.begin(), grad_op_inputs.end(), fwd_name);
-      PADDLE_ENFORCE_NE(iter,
-                        grad_op_inputs.end(),
-                        common::errors::NotFound(
-                            "Custom grad operator should have the forward "
-                            "input(%s) as backward input",
-                            fwd_name));
+      PADDLE_ENFORCE_NE(
+          iter,
+          grad_op_inputs.end(),
+          common::errors::NotFound(
+              "Custom grad operator should have the forward "
+              "input(%s) as backward input. Maybe this custom grad op need "
+              "set its own inferdtype func",
+              fwd_name));
       auto pair = ctx.InputRangeAt(iter - grad_op_inputs.begin());
       std::vector<phi::DataType> tmp;
       for (size_t i = pair.first; i < pair.second; ++i) {
@@ -330,9 +336,11 @@ static std::vector<std::vector<phi::DataType>> RunDefaultGradInferDtypeFunc(
         PADDLE_ENFORCE_NE(
             iter,
             grad_op_inputs.end(),
-            common::errors::NotFound("Custom grad operator should have the "
-                                     "forward input(%s) as backward input",
-                                     fwd_name));
+            common::errors::NotFound(
+                "Custom grad operator should have the "
+                "forward input(%s) as backward input. Maybe this custom grad "
+                "op need set its own inferdtype func",
+                fwd_name));
         auto pair = ctx.InputRangeAt(iter - grad_op_inputs.begin());
         result.push_back({ctx.InputAt(pair.first).dtype()});
       }
@@ -430,7 +438,8 @@ static std::vector<std::vector<phi::DataType>> RunInferDtypeFunc(
 paddle::Tensor BuildEmptyDistPaddleTensor(
     const phi::distributed::ProcessMesh& process_mesh,
     const phi::DDim& dims,
-    phi::DataType dtype) {
+    phi::DataType dtype,
+    const std::vector<int64_t>& dims_mapping = {}) {
   paddle::Tensor empty_tensor;
   phi::DenseTensorMeta meta;
   meta.dims = dims;
@@ -438,6 +447,9 @@ paddle::Tensor BuildEmptyDistPaddleTensor(
 
   auto dist_attr = phi::distributed::TensorDistAttr(common::vectorize(dims));
   dist_attr.set_process_mesh(process_mesh);
+  if (!dims_mapping.empty()) {
+    dist_attr.set_dims_mapping(dims_mapping);
+  }
 
   auto dist_t = std::make_shared<phi::distributed::DistTensor>(
       std::make_shared<phi::DenseTensor>(
@@ -691,8 +703,14 @@ std::
       if (out_dim.size() == 1) {
         output_dims.emplace_back(out_dim[0]);
         if (!rank_is_in_current_mesh) {
+          std::vector<int64_t> dims_mapping = {};
+          if (!spmd_info.second.empty()) {
+            dims_mapping = PADDLE_GET_CONST(phi::distributed::TensorDistAttr,
+                                            spmd_info.second[i])
+                               .dims_mapping();
+          }
           *(ctx.MutableOutputAt(pair.first)) = BuildEmptyDistPaddleTensor(
-              current_process_mesh, out_dim[0], out_dtype[0]);
+              current_process_mesh, out_dim[0], out_dtype[0], dims_mapping);
         }
       } else {
         for (size_t j = pair.first; j < pair.second; j++) {

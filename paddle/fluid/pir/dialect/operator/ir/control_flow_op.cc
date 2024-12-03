@@ -19,6 +19,7 @@ paddle::dialect::IfOp, paddle::dialect::WhileOp, paddle::dialect::HasElementsOp,
 #else
 #include "paddle/fluid/pir/dialect/operator/ir/control_flow_op.h"
 
+#include "paddle/fluid/pir/dialect/distributed/ir/dist_tools.h"
 #include "paddle/fluid/pir/dialect/kernel/ir/kernel_type.h"
 #include "paddle/fluid/pir/dialect/operator/ir/api_builder.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_type.h"
@@ -40,6 +41,7 @@ paddle::dialect::IfOp, paddle::dialect::WhileOp, paddle::dialect::HasElementsOp,
 using pir::TuplePopOp;
 using pir::TuplePushOp;
 constexpr char kStopGradientAttrName[] = "stop_gradient";  // NOLINT
+
 namespace paddle::dialect {
 
 void IfOp::Build(pir::Builder &builder,             // NOLINT
@@ -60,6 +62,26 @@ void IfOp::Build(pir::Builder &builder,             // NOLINT
                  std::unique_ptr<pir::Block> &&true_block,
                  std::unique_ptr<pir::Block> &&false_block) {
   VLOG(4) << "Start build IfOp";
+#ifdef PADDLE_WITH_DISTRIBUTE
+  std::vector<pir::Value> values{cond};
+  if (true_block && !true_block->empty() &&
+      true_block->back().isa<pir::YieldOp>()) {
+    for (auto value : true_block->back().operands_source()) {
+      values.push_back(value);
+    }
+  }
+  if (false_block && !false_block->empty() &&
+      false_block->back().isa<pir::YieldOp>()) {
+    for (auto value : false_block->back().operands_source()) {
+      values.push_back(value);
+    }
+  }
+  ProcessMeshAttribute op_mesh;
+  if (HasDistInput(values, &op_mesh)) {
+    CvtAllInputsToDist(values, op_mesh);
+  }
+#endif
+
   if (true_block && !true_block->empty() &&
       true_block->back().isa<pir::YieldOp>()) {
     auto &op = true_block->back();
@@ -165,23 +187,28 @@ pir::Block &IfOp::false_block() {
 void IfOp::Print(pir::IrPrinter &printer) {
   auto &os = printer.os;
   auto op = operation();
-  printer.PrintOpResult(op);
+  printer.PrintOpResult(*op);
   os << " = \"" << name() << "\"";
-  printer.PrintOpOperands(op);
-  printer.PrintAttributeMap(op);
+
+  if (VLOG_IS_ON(1)) {
+    os << " [id:" << op->id() << "]";
+  }
+
+  printer.PrintOpOperands(*op);
+  printer.PrintAttributeMap(*op);
   os << " -> ";
-  printer.PrintOpReturnType(op);
+  printer.PrintOpReturnType(*op);
   os << " {\n";
   printer.AddIndentation();
   for (auto &item : true_block()) {
-    printer.PrintOperation(&item);
+    printer.PrintOperation(item);
     os << "\n";
   }
   printer.DecreaseIndentation();
   os << printer.indentation() << "} else {\n";
   printer.AddIndentation();
   for (auto &item : false_block()) {
-    printer.PrintOperation(&item);
+    printer.PrintOperation(item);
     os << "\n";
   }
   printer.DecreaseIndentation();
@@ -418,8 +445,12 @@ pir::Value WhileOp::cond() { return (*this)->operand_source(0); }
 void WhileOp::Print(pir::IrPrinter &printer) {
   auto &os = printer.os;
   auto op = operation();
-  printer.PrintOpResult(op);
-  os << " = \"" << name() << "\" (cond=";
+  printer.PrintOpResult(*op);
+  os << " = \"" << name() << "\"";
+  if (VLOG_IS_ON(1)) {
+    os << " [id:" << op->id() << "]";
+  }
+  os << " (cond=";
   printer.PrintValue(cond());
   os << ", inputs=";
   auto operands = (*this)->operands_source();
@@ -438,7 +469,7 @@ void WhileOp::Print(pir::IrPrinter &printer) {
   os << "\n";
   printer.AddIndentation();
   for (auto &item : body()) {
-    printer.PrintOperation(&item);
+    printer.PrintOperation(item);
     os << "\n";
   }
   printer.DecreaseIndentation();
@@ -488,23 +519,30 @@ void WhileOp::VerifySig() {
       pir::DenseTensorType output_tensor_type =
           output_type.dyn_cast<pir::DenseTensorType>();
 
-      const common::DDim &output_dims = output_tensor_type.dims();
-      common::DDim new_input_dims = input_tensor_type.dims();
-      for (int i = 0; i < new_input_dims.size(); i++) {
-        if (output_dims[i] == -1) {
-          new_input_dims[i] = -1;
+      auto GetCheckType = [&](const pir::DenseTensorType &type) {
+        const auto &input_dims = input_tensor_type.dims();
+        const auto &output_dims = output_tensor_type.dims();
+        auto result_dims = type.dims();
+        for (int i = 0; i < result_dims.size(); i++) {
+          if (input_dims[i] == -1 || output_dims[i] == -1) {
+            result_dims[i] = -1;
+          }
         }
-      }
-      pir::DenseTensorType new_input_tensor_type =
-          pir::DenseTensorType::get(pir::IrContext::Instance(),
-                                    input_tensor_type.dtype(),
-                                    new_input_dims,
-                                    input_tensor_type.data_layout(),
-                                    input_tensor_type.lod(),
-                                    input_tensor_type.offset());
+        return pir::DenseTensorType::get(pir::IrContext::Instance(),
+                                         type.dtype(),
+                                         result_dims,
+                                         type.data_layout(),
+                                         type.lod(),
+                                         type.offset());
+      };
+      pir::DenseTensorType check_input_tensor_type =
+          GetCheckType(input_tensor_type);
+      pir::DenseTensorType check_output_tensor_type =
+          GetCheckType(output_tensor_type);
+
       PADDLE_ENFORCE_EQ(
-          new_input_tensor_type,
-          output_tensor_type,
+          check_input_tensor_type,
+          check_output_tensor_type,
           common::errors::PreconditionNotMet(
               "The (%d) result and operand type is not equal.", index));
     } else {
@@ -701,8 +739,6 @@ void AddCstrForArgs(const pir::Value &origin_input,
   block_arg_shape_or_data.Match(
       [&](const symbol::TensorShapeOrDataDimExprs &impl) {
         const auto &block_arg_shape = impl.shape();
-        const auto &origin_input_shape =
-            infer_context->GetShapeOrDataForValue(origin_input).shape();
         const auto &yield_value_shape =
             infer_context->GetShapeOrDataForValue(yield_value).shape();
         PADDLE_ENFORCE_EQ(block_arg_shape.size(),
@@ -717,14 +753,16 @@ void AddCstrForArgs(const pir::Value &origin_input,
                               yield_value_shape.size()));
         const auto &original_input_shape =
             infer_context->GetShapeOrDataForValue(origin_input).shape();
+        if (original_input_shape.size() != block_arg_shape.size()) {
+          return;
+        }
         // GTOne
-        if (origin_input_shape.size() == block_arg_shape.size()) {
-          for (size_t j = 0; j < origin_input_shape.size(); ++j) {
-            if (infer_context->IsGreatThanOne(origin_input_shape[j])) {
-              infer_context->AddGreatThanOneCstr(block_arg_shape[j]);
-            }
+        for (size_t j = 0; j < original_input_shape.size(); ++j) {
+          if (infer_context->IsGreatThanOne(original_input_shape[j])) {
+            infer_context->AddGreatThanOneCstr(block_arg_shape[j]);
           }
         }
+
         // Equal
         for (size_t j = 0; j < block_arg_shape.size(); ++j) {
           if (block_arg_shape[j].isa<int64_t>()) {
@@ -912,6 +950,14 @@ void HasElementsOp::VerifySig() {
                         "The type of cf.has_elements' output is not correct."));
 }
 
+bool HasElementsOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs(
+          symbol::TensorShapeOrDataDimExprs({symbol::DimExpr(1)})));
+  return true;
+}
 const char *AssertOp::attributes_name[1] = {"summarize"};    // NOLINT
 const char AssertOp::ERROR_INFO_ATTR_NAME[] = "error_info";  // NOLINT
 

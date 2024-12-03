@@ -88,7 +88,7 @@ class BiasActHelper {
             dev_ctx_, bias_data, rows_, cols_, load_func, store_func);
       }
     } else {
-      PADDLE_THROW(phi::errors::Unimplemented(
+      PADDLE_THROW(common::errors::Unimplemented(
           "Currently Only Support GeGLU, SwiGLU, GeLU"));
     }
   }
@@ -141,7 +141,7 @@ class GEMMHelper {
                                                            compute_bias);
       ffn_linear_compute.ComputeForward(weight, input, bias, output, output);
     } else {
-      PADDLE_THROW(phi::errors::Unimplemented(
+      PADDLE_THROW(common::errors::Unimplemented(
           "Currently GemmHelper only support `None`. "));
     }
   }
@@ -183,7 +183,7 @@ class NormHelper {
 
   /*
   Note(Zhengzekang):
-  Since input `X` and `Residual` in FusedMT will be swaped by preallocated
+  Since input `X` and `Residual` in FusedMT will be swapped by preallocated
   buffer, I have no choice but to pass the data pointer instead of
   phi::DenseTensor.
   */
@@ -239,7 +239,7 @@ class NormHelper {
                                                          bias_residual_out_data,
                                                          output_data);
     } else {
-      PADDLE_THROW(phi::errors::Unimplemented(
+      PADDLE_THROW(common::errors::Unimplemented(
           "Currently NormHelper only support `layernorm` and `rmsnorm`. "));
     }
   }
@@ -281,7 +281,7 @@ class NormHelper {
                                               cols_,
                                               output_data);
     } else {
-      PADDLE_THROW(phi::errors::Unimplemented(
+      PADDLE_THROW(common::errors::Unimplemented(
           "Currently NormHelper only support `layernorm` and `rmsnorm`. "));
     }
   }

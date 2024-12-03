@@ -54,7 +54,7 @@ int32_t PsGraphClient::Initialize() {
     }
   }
   for (uint32_t k = 0; k < max_shard_num; ++k) {
-    _thread_pools.push_back(std::make_shared<paddle::framework::ThreadPool>(1));
+    _thread_pools.push_back(std::make_shared<phi::ThreadPool>(1));
   }
   _local_shard_keys.resize(max_shard_num);
   _shard_ars.resize(max_shard_num);
@@ -118,7 +118,7 @@ void PsGraphClient::FinalizeWorker() {
         VLOG(0) << "PullSparsePtr, miss key " << k << " rank=" << _rank_id;
         PADDLE_ENFORCE_NE(it,
                           keys2rank_vec[shard].end(),
-                          phi::errors::InvalidArgument(
+                          common::errors::InvalidArgument(
                               "The key was not found in the expected shard."));
       }
     } else {
@@ -217,7 +217,7 @@ void PsGraphClient::FinalizeWorker() {
         PADDLE_ENFORCE_NE(
             it,
             keys2rank_vec[shard].end(),
-            phi::errors::InvalidArgument(
+            common::errors::InvalidArgument(
                 "The key was not found in the expected shard.", k));
       }
     } else {

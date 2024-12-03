@@ -26,8 +26,9 @@ limitations under the License. */
 #include <sys/stat.h>
 #endif
 #include "io/fs.h"
-#include "paddle/fluid/platform/monitor.h"
-#include "paddle/fluid/platform/timer.h"
+#include "paddle/common/enforce.h"
+#include "paddle/phi/core/platform/monitor.h"
+#include "paddle/phi/core/platform/timer.h"
 
 USE_INT_STAT(STAT_total_feasign_num_in_mem);
 COMMON_DECLARE_bool(enable_ins_parser_file);
@@ -144,7 +145,11 @@ class BufferedLineFileReader {
 void RecordCandidateList::ReSize(size_t length) {
   mutex_.lock();
   capacity_ = length;
-  CHECK(capacity_ > 0);  // NOLINT
+  PADDLE_ENFORCE_EQ(
+      capacity_ > 0,
+      true,
+      common::errors::InvalidArgument(
+          "Capacity should be greater than 0, but received %d.", capacity_));
   candidate_list_.clear();
   candidate_list_.resize(capacity_);
   full_ = false;
@@ -171,7 +176,13 @@ void RecordCandidateList::AddAndGet(const Record& record,
     candidate_list_[cur_size_++] = record;
     full_ = (cur_size_ == capacity_);
   } else {
-    CHECK(cur_size_ == capacity_);
+    PADDLE_ENFORCE_EQ(
+        cur_size_ == capacity_,
+        true,
+        common::errors::InvalidArgument(
+            "Capacity should be equal to cur_size, but received %d and %d.",
+            capacity_,
+            cur_size_));
     index = fleet_ptr->LocalRandomEngine()() % total_size_;
     if (index < capacity_) {
       candidate_list_[index] = record;
@@ -405,8 +416,14 @@ int InMemoryDataFeed<T>::Next() {
 #ifdef _LINUX
   this->CheckStart();
   if (!enable_heterps_) {
-    CHECK(output_channel_ != nullptr);
-    CHECK(consume_channel_ != nullptr);
+    PADDLE_ENFORCE_EQ(output_channel_ != nullptr,
+                      true,
+                      common::errors::InvalidArgument(
+                          "Output channel should not be null, please check!"));
+    PADDLE_ENFORCE_EQ(consume_channel_ != nullptr,
+                      true,
+                      common::errors::InvalidArgument(
+                          "Consume channel should not be null, please check!"));
     VLOG(3) << "output_channel_ size=" << output_channel_->Size()
             << ", consume_channel_ size=" << consume_channel_->Size()
             << ", thread_id=" << thread_id_;
@@ -558,7 +575,10 @@ void InMemoryDataFeed<T>::LoadIntoMemory() {
 #ifdef PADDLE_WITH_BOX_PS
     }
 #endif
-    CHECK(this->fp_ != nullptr);
+    PADDLE_ENFORCE_EQ(this->fp_ != nullptr,
+                      true,
+                      common::errors::InvalidArgument(
+                          "This fp should not be null, please check!"));
     __fsetlocking(&*(this->fp_), FSETLOCKING_BYCALLER);
     paddle::framework::ChannelWriter<T> writer(input_channel_);
     T instance;
@@ -702,7 +722,10 @@ void MultiSlotDataFeed::ReadThread() {
   while (PickOneFile(&filename)) {
     int err_no = 0;
     fp_ = fs_open_read(filename, &err_no, pipe_command_, true);
-    CHECK(fp_ != nullptr);
+    PADDLE_ENFORCE_EQ(fp_ != nullptr,
+                      true,
+                      common::errors::InvalidArgument(
+                          "Fp should not be null, please check!"));
     __fsetlocking(&*fp_, FSETLOCKING_BYCALLER);
     std::vector<MultiSlotType> instance;
     int ins_num = 0;
@@ -1030,7 +1053,7 @@ void MultiSlotDataFeed::PutToFeedVec(
     }
 
     if (!use_slots_is_dense_[i]) {
-      LoD data_lod{offset};
+      LegacyLoD data_lod{offset};
       feed_vec_[i]->set_lod(data_lod);
     }
     if (use_slots_is_dense_[i]) {
@@ -1159,7 +1182,10 @@ bool MultiSlotInMemoryDataFeed::ParseOneInstanceFromPipe(Record* instance) {
     int pos = 0;
     if (parse_ins_id_) {
       int num = static_cast<int>(strtol(&str[pos], &endptr, 10));
-      CHECK(num == 1);  // NOLINT
+      PADDLE_ENFORCE_EQ(num == 1,
+                        true,
+                        common::errors::InvalidArgument(
+                            "Num should be equal to 1, but received %d.", num));
       pos = static_cast<int>(endptr - str + 1);
       size_t len = 0;
       while (str[pos + len] != ' ') {
@@ -1171,7 +1197,10 @@ bool MultiSlotInMemoryDataFeed::ParseOneInstanceFromPipe(Record* instance) {
     }
     if (parse_content_) {
       int num = static_cast<int>(strtol(&str[pos], &endptr, 10));
-      CHECK(num == 1);  // NOLINT
+      PADDLE_ENFORCE_EQ(num == 1,
+                        true,
+                        common::errors::InvalidArgument(
+                            "Num should be equal to 1, but received %d.", num));
       pos = static_cast<int>(endptr - str + 1);
       size_t len = 0;
       while (str[pos + len] != ' ') {
@@ -1183,7 +1212,10 @@ bool MultiSlotInMemoryDataFeed::ParseOneInstanceFromPipe(Record* instance) {
     }
     if (parse_logkey_) {
       int num = static_cast<int>(strtol(&str[pos], &endptr, 10));
-      CHECK(num == 1);  // NOLINT
+      PADDLE_ENFORCE_EQ(num == 1,
+                        true,
+                        common::errors::InvalidArgument(
+                            "Num should be equal to 1, but received %d.", num));
       pos = static_cast<int>(endptr - str + 1);
       size_t len = 0;
       while (str[pos + len] != ' ') {
@@ -1414,7 +1446,7 @@ void MultiSlotInMemoryDataFeed::PutToFeedVec(const Record* ins_vec, int num) {
     }
     auto& slot_offset = offset_[i];
     if (this->input_type_ == 0) {
-      LoD data_lod{slot_offset};
+      LegacyLoD data_lod{slot_offset};
       feed_vec_[i]->set_lod(data_lod);
     } else if (this->input_type_ == 1) {
       if (!use_slots_is_dense_[i]) {
@@ -1431,7 +1463,7 @@ void MultiSlotInMemoryDataFeed::PutToFeedVec(const Record* ins_vec, int num) {
           tmp_offset.emplace_back(k);
         }
         slot_offset = tmp_offset;
-        LoD data_lod{slot_offset};
+        LegacyLoD data_lod{slot_offset};
         feed_vec_[i]->set_lod(data_lod);
       }
     }
@@ -1513,7 +1545,7 @@ void MultiSlotInMemoryDataFeed::PutToFeedVec(
     auto& slot_offset = offset_[i];
     if (this->input_type_ == 0) {
       if (!use_slots_is_dense_[i]) {
-        LoD data_lod{slot_offset};
+        LegacyLoD data_lod{slot_offset};
         feed_vec_[i]->set_lod(data_lod);
       }
     } else if (this->input_type_ == 1) {
@@ -1531,7 +1563,7 @@ void MultiSlotInMemoryDataFeed::PutToFeedVec(
           tmp_offset.emplace_back(k);
         }
         slot_offset = tmp_offset;
-        LoD data_lod{slot_offset};
+        LegacyLoD data_lod{slot_offset};
         feed_vec_[i]->set_lod(data_lod);
       }
     }
@@ -1568,7 +1600,7 @@ void PrivateInstantDataFeed<T>::PutToFeedVec() {
           tensor_ptr, &feasign[0], total_instance * sizeof(int64_t));
     }
 
-    LoD data_lod{offset};
+    LegacyLoD data_lod{offset};
     feed_vec_[i]->set_lod(data_lod);
     if (use_slots_is_dense_[i]) {
       int64_t total_dims = 1;
@@ -1809,8 +1841,16 @@ int PaddleBoxDataFeed::Next() {
   this->CheckStart();
   if (enable_pv_merge_ && phase == 1) {
     // join phase : output_pv_channel to consume_pv_channel
-    CHECK(output_pv_channel_ != nullptr);
-    CHECK(consume_pv_channel_ != nullptr);
+    PADDLE_ENFORCE_EQ(
+        output_pv_channel_ != nullptr,
+        true,
+        common::errors::InvalidArgument(
+            "Output pv channel should not be null, please check!"));
+    PADDLE_ENFORCE_EQ(
+        consume_pv_channel_ != nullptr,
+        true,
+        common::errors::InvalidArgument(
+            "Consume pv channel should not be null, please check!"));
     VLOG(3) << "output_pv_channel_ size=" << output_pv_channel_->Size()
             << ", consume_pv_channel_ size=" << consume_pv_channel_->Size()
             << ", thread_id=" << thread_id_;
@@ -2008,7 +2048,7 @@ void PaddleBoxDataFeed::PutToFeedVec(const std::vector<Record*>& ins_vec) {
       CopyToFeedTensor(tensor_ptr, feasign, total_instance * sizeof(int64_t));
     }
     auto& slot_offset = offset_[i];
-    LoD data_lod{slot_offset};
+    LegacyLoD data_lod{slot_offset};
     feed_vec_[i]->set_lod(data_lod);
     if (use_slots_is_dense_[i]) {
       if (inductive_shape_index_[i] != -1) {
@@ -2190,7 +2230,10 @@ void SlotRecordInMemoryDataFeed::LoadIntoMemoryByFile() {
 #if (defined _LINUX) && (defined PADDLE_WITH_HETERPS)
   paddle::framework::CustomParser* parser =
       global_dlmanager_pool().Load(so_parser_name_, all_slots_info_);
-  CHECK(parser != nullptr);
+  PADDLE_ENFORCE_EQ(parser != nullptr,
+                    true,
+                    common::errors::InvalidArgument(
+                        "Parser should not be null, please check!"));
   // get slotrecord object
   auto pull_record_func = [this](std::vector<SlotRecord>& record_vec,
                                  int max_fetch_num,
@@ -2232,12 +2275,24 @@ void SlotRecordInMemoryDataFeed::LoadIntoMemoryByFile() {
             },
             pull_record_func,
             lines);
+#elif defined(PADDLE_WITH_HETERPS) && defined(PADDLE_WITH_PSCORE)
+        auto afs_reader = ps_gpu_ptr->OpenReader(filename);
+        is_ok = parser->ParseFileInstance(
+            [this, ps_gpu_ptr, afs_reader](char* buf, int len) {
+              return ps_gpu_ptr->AfsRead(afs_reader, buf, len);
+            },
+            pull_record_func,
+            lines);
+        ps_gpu_ptr->CloseReader(afs_reader);
 #endif
       } else {
         int err_no = 0;
         this->fp_ = fs_open_read(filename, &err_no, this->pipe_command_, true);
 
-        CHECK(this->fp_ != nullptr);
+        PADDLE_ENFORCE_EQ(this->fp_ != nullptr,
+                          true,
+                          common::errors::InvalidArgument(
+                              "This fp should not be null, please check!"));
         __fsetlocking(&*(this->fp_), FSETLOCKING_BYCALLER);
         is_ok = parser->ParseFileInstance(
             [this](char* buf, int len) {
@@ -2326,7 +2381,10 @@ void SlotRecordInMemoryDataFeed::LoadIntoMemoryByLine() {
     do {
       int err_no = 0;
       this->fp_ = fs_open_read(filename, &err_no, this->pipe_command_, true);
-      CHECK(this->fp_ != nullptr);
+      PADDLE_ENFORCE_EQ(this->fp_ != nullptr,
+                        true,
+                        common::errors::InvalidArgument(
+                            "This fp should not be null, please check!"));
       __fsetlocking(&*(this->fp_), FSETLOCKING_BYCALLER);
       lines = line_reader.read_file(this->fp_.get(), line_func, lines);
     } while (line_reader.is_error());
@@ -2375,7 +2433,10 @@ void SlotRecordInMemoryDataFeed::LoadIntoMemoryByCommand() {
     do {
       int err_no = 0;
       this->fp_ = fs_open_read(filename, &err_no, this->pipe_command_, true);
-      CHECK(this->fp_ != nullptr);
+      PADDLE_ENFORCE_EQ(this->fp_ != nullptr,
+                        true,
+                        common::errors::InvalidArgument(
+                            "This fp should not be null, please check!"));
       __fsetlocking(&*(this->fp_), FSETLOCKING_BYCALLER);
 
       lines = line_reader.read_file(
@@ -2449,7 +2510,10 @@ bool SlotRecordInMemoryDataFeed::ParseOneInstance(const std::string& line,
 
   if (parse_ins_id_) {
     int num = static_cast<int>(strtol(&str[pos], &endptr, 10));
-    CHECK(num == 1);  // NOLINT
+    PADDLE_ENFORCE_EQ(num == 1,
+                      true,
+                      common::errors::InvalidArgument(
+                          "Num should be equal to 1, but received %d.", num));
     pos = static_cast<int>(endptr - str + 1);
     size_t len = 0;
     while (str[pos + len] != ' ') {
@@ -2460,7 +2524,10 @@ bool SlotRecordInMemoryDataFeed::ParseOneInstance(const std::string& line,
   }
   if (parse_logkey_) {
     int num = static_cast<int>(strtol(&str[pos], &endptr, 10));
-    CHECK(num == 1);  // NOLINT
+    PADDLE_ENFORCE_EQ(num == 1,
+                      true,
+                      common::errors::InvalidArgument(
+                          "Num should be equal to 1, but received %d.", num));
     pos = static_cast<int>(endptr - str + 1);
     size_t len = 0;
     while (str[pos + len] != ' ') {
@@ -2637,7 +2704,7 @@ void SlotRecordInMemoryDataFeed::PutToFeedVec(const SlotRecord* ins_vec,
       }
       feed->Resize(common::make_ddim(info.local_shape));
     } else {
-      LoD data_lod{slot_offset};
+      LegacyLoD data_lod{slot_offset};
       feed_vec_[j]->set_lod(data_lod);
     }
   }
@@ -2655,7 +2722,13 @@ void SlotRecordInMemoryDataFeed::ExpandSlotRecord(SlotRecord* rec) {
   }
   int float_slot_num =
       static_cast<int>(float_total_dims_without_inductives_.size());
-  CHECK(float_slot_num == float_use_slot_size_);
+  PADDLE_ENFORCE_EQ(
+      float_slot_num == float_use_slot_size_,
+      true,
+      common::errors::InvalidArgument("Float slot num should be equal to float "
+                                      "use slot size, but received %d and %d.",
+                                      float_slot_num,
+                                      float_use_slot_size_));
   std::vector<float> old_values;
   std::vector<uint32_t> old_offsets;
   old_values.swap(ins->slot_float_feasigns_.slot_values);
@@ -2701,7 +2774,13 @@ void SlotRecordInMemoryDataFeed::ExpandSlotRecord(SlotRecord* rec) {
     offset += dim;
   }
   slot_offsets[float_slot_num] = offset;
-  CHECK(float_total_dims_size_ == static_cast<size_t>(offset));
+  PADDLE_ENFORCE_EQ(
+      float_total_dims_size_ == static_cast<size_t>(offset),
+      true,
+      common::errors::InvalidArgument("Float total dims size should be equal "
+                                      "to offset, but received %d and %d.",
+                                      float_total_dims_size_,
+                                      static_cast<size_t>(offset)));
 }
 
 bool SlotRecordInMemoryDataFeed::Start() {
@@ -2720,7 +2799,10 @@ bool SlotRecordInMemoryDataFeed::Start() {
   }
   this->finish_start_ = true;
 #if defined(PADDLE_WITH_CUDA) && defined(PADDLE_WITH_HETERPS)
-  CHECK(phi::is_gpu_place(this->place_));
+  PADDLE_ENFORCE_EQ(phi::is_gpu_place(this->place_),
+                    true,
+                    common::errors::InvalidArgument(
+                        "Data should be place on gpu, please check!"));
   for (int i = 0; i < pack_thread_num_ + 1; i++) {
     auto pack = BatchGpuPackMgr().get(this->GetPlace(), used_slots_info_);
     pack_vec_.push_back(pack);
@@ -2912,8 +2994,11 @@ void SlotRecordInMemoryDataFeed::BuildSlotBatchGPU(const int ins_num,
     size_t* off_start_ptr = &offsets[j * offset_cols_size];
 
     int total_instance = static_cast<int>(off_start_ptr[offset_cols_size - 1]);
-    CHECK(total_instance >= 0)
-        << "slot idx:" << j << ", total instance:" << total_instance;
+    PADDLE_ENFORCE_EQ(
+        total_instance >= 0,
+        true,
+        common::errors::InvalidArgument(
+            "Slot idx:%d, total instance:%d.", j, total_instance));
     auto& info = used_slots_info_[j];
 
     // fill slot value with default value 0
@@ -2980,11 +3065,15 @@ void SlotRecordInMemoryDataFeed::PackToScope(MiniBatchGpuPack* pack,
 
   auto* feed_vec = &feed_vec_;
   if (scope) {
-    CHECK(scope_feed_vec_.count(scope) > 0) << "scope not found.";
+    PADDLE_ENFORCE_EQ(scope_feed_vec_.count(scope) > 0,
+                      true,
+                      common::errors::InvalidArgument("Scope not found."));
     feed_vec = &scope_feed_vec_[scope];
   }
 
-  CHECK(feed_vec != nullptr) << "feed_vec nullptr.";
+  PADDLE_ENFORCE_EQ(feed_vec != nullptr,
+                    true,
+                    common::errors::InvalidArgument("Feed_vec nullptr."));
 
   for (int j = 0; j < use_slot_size_; ++j) {
     auto& feed = (*feed_vec)[j];
@@ -3028,7 +3117,7 @@ void SlotRecordInMemoryDataFeed::PackToScope(MiniBatchGpuPack* pack,
       }
       feed->Resize(common::make_ddim(info.local_shape));
     } else {
-      LoD& lod = (*feed->mutable_lod());
+      LegacyLoD& lod = (*feed->mutable_lod());
       lod.resize(1);
       lod[0].resize(offset_cols_size);
       phi::MixVector<size_t> mixv_lod(&lod[0]);
@@ -3163,10 +3252,14 @@ void MiniBatchGpuPack::pack_all_data(const SlotRecord* ins_vec, int num) {
            sizeof(int) * float_cols);
   }
 
-  CHECK(uint64_total_num == static_cast<int>(buf_.h_uint64_lens.back()))
-      << "uint64 value length error";
-  CHECK(float_total_num == static_cast<int>(buf_.h_float_lens.back()))
-      << "float value length error";
+  PADDLE_ENFORCE_EQ(
+      uint64_total_num == static_cast<int>(buf_.h_uint64_lens.back()),
+      true,
+      common::errors::InvalidArgument("Uint64 value length error."));
+  PADDLE_ENFORCE_EQ(
+      float_total_num == static_cast<int>(buf_.h_float_lens.back()),
+      true,
+      common::errors::InvalidArgument("Float value length error."));
 }
 void MiniBatchGpuPack::pack_uint64_data(const SlotRecord* ins_vec, int num) {
   int uint64_total_num = 0;
@@ -3205,8 +3298,10 @@ void MiniBatchGpuPack::pack_uint64_data(const SlotRecord* ins_vec, int num) {
            uint64_feasigns.slot_offsets.data(),
            sizeof(int) * uint64_cols);
   }
-  CHECK(uint64_total_num == static_cast<int>(buf_.h_uint64_lens.back()))
-      << "uint64 value length error";
+  PADDLE_ENFORCE_EQ(
+      uint64_total_num == static_cast<int>(buf_.h_uint64_lens.back()),
+      true,
+      common::errors::InvalidArgument("Uint64 value length error."));
 }
 void MiniBatchGpuPack::pack_float_data(const SlotRecord* ins_vec, int num) {
   int float_total_num = 0;
@@ -3244,14 +3339,20 @@ void MiniBatchGpuPack::pack_float_data(const SlotRecord* ins_vec, int num) {
            float_feasigns.slot_offsets.data(),
            sizeof(int) * float_cols);
   }
-  CHECK(float_total_num == static_cast<int>(buf_.h_float_lens.back()))
-      << "float value length error";
+  PADDLE_ENFORCE_EQ(
+      float_total_num == static_cast<int>(buf_.h_float_lens.back()),
+      true,
+      common::errors::InvalidArgument("Float value length error."));
 }
 
 void MiniBatchGpuPack::pack_instance(const SlotRecord* ins_vec, int num) {
   ins_num_ = num;
   batch_ins_ = ins_vec;
-  CHECK(used_uint64_num_ > 0 || used_float_num_ > 0);
+  PADDLE_ENFORCE_EQ(
+      used_uint64_num_ > 0 || used_float_num_ > 0,
+      true,
+      common::errors::InvalidArgument(
+          "Used uint64 num or used float num should be greater than 0."));
   // uint64 and float
   if (used_uint64_num_ > 0 && used_float_num_ > 0) {
     pack_all_data(ins_vec, num);

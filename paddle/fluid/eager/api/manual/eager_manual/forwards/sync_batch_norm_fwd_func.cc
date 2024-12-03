@@ -18,8 +18,8 @@
 #include "paddle/fluid/eager/api/utils/global_utils.h"
 #include "paddle/fluid/eager/eager_layout_auto_tune.h"
 #include "paddle/fluid/eager/nan_inf_utils.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
 #include "paddle/phi/api/include/sparse_api.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 #pragma GCC diagnostic ignored "-Wunused-variable"
 COMMON_DECLARE_bool(check_nan_inf);
@@ -47,9 +47,7 @@ sync_batch_norm__ad_func(const paddle::Tensor& x,
           << "sync_batch_norm_";
   // Dygraph Record Event
   phi::RecordEvent dygraph_entrance_record_event(
-      "sync_batch_norm_ dygraph",
-      paddle::platform::TracerEventType::Operator,
-      1);
+      "sync_batch_norm_ dygraph", phi::TracerEventType::Operator, 1);
 
   // AMP Logic
 
@@ -211,7 +209,7 @@ sync_batch_norm__ad_func(const paddle::Tensor& x,
   if (require_any_grad) {
     phi::RecordEvent node_creation_record_event(
         "sync_batch_norm_ node_creation",
-        paddle::platform::TracerEventType::OperatorInner,
+        phi::TracerEventType::OperatorInner,
         1);
 
     egr::EagerUtils::PassStopGradient(false,
@@ -389,9 +387,7 @@ sync_batch_norm__ad_func(const paddle::Tensor& x,
           << "sync_batch_norm_";
   // Dygraph Record Event
   phi::RecordEvent dygraph_entrance_record_event(
-      "sync_batch_norm_ dygraph",
-      paddle::platform::TracerEventType::Operator,
-      1);
+      "sync_batch_norm_ dygraph", phi::TracerEventType::Operator, 1);
 
   // AMP Logic
 
@@ -553,7 +549,7 @@ sync_batch_norm__ad_func(const paddle::Tensor& x,
   if (require_any_grad) {
     phi::RecordEvent node_creation_record_event(
         "sync_batch_norm_ node_creation",
-        paddle::platform::TracerEventType::OperatorInner,
+        phi::TracerEventType::OperatorInner,
         1);
 
     egr::EagerUtils::PassStopGradient(false,

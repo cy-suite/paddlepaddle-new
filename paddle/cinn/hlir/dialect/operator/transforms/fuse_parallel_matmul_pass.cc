@@ -44,6 +44,7 @@ class MergeParallelMatmulPattern
       if (!op->dyn_cast<paddle::dialect::MatmulOp>()) {
         return false;
       }
+
       bool trans_x =
           op->attribute("transpose_x").dyn_cast<pir::BoolAttribute>().data();
       bool trans_y =
@@ -53,6 +54,10 @@ class MergeParallelMatmulPattern
     if (!ValidMatmulTranspose(matmul_op)) {
       return false;
     }
+
+    auto IsFirstInput = [&](pir::Operation* op, pir::Value in_x) -> bool {
+      return in_x == op->operand_source(0);
+    };
 
     auto VectorPrefixEqual = [](const std::vector<std::int64_t>& a,
                                 const std::vector<std::int64_t>& b) {
@@ -72,6 +77,10 @@ class MergeParallelMatmulPattern
       std::vector<std::int64_t> cur_dim;
       for (auto it = input_x.use_begin(); it != input_x.use_end(); ++it) {
         if (!ValidMatmulTranspose(it->owner())) {
+          continue;
+        }
+
+        if (!IsFirstInput(it->owner(), input_x)) {
           continue;
         }
         if (!pre_dim.has_value()) {
@@ -149,11 +158,17 @@ class MergeParallelMatmulPattern
         rewriter.Build<paddle::dialect::MatmulOp>(input_x, concat_out)
             .result(0);
 
+    const auto& matmul_out_rank =
+        matmul_out.type()
+            .dyn_cast<paddle::dialect::DenseTensorType>()
+            .dims()
+            .size();
+
     for (size_t i = 0; i < merge_ops.size(); ++i) {
       auto split_out = rewriter
                            .Build<paddle::dialect::SliceOp>(
                                matmul_out,
-                               std::vector<std::int64_t>{-1},
+                               std::vector<std::int64_t>{matmul_out_rank - 1},
                                std::vector<std::int64_t>{combine_shapes[i]},
                                std::vector<int64_t>{combine_shapes[i + 1]},
                                std::vector<std::int64_t>{},

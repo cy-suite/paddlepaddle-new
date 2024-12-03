@@ -19,7 +19,6 @@ import numpy as np
 import paddle
 from paddle import base
 from paddle.base import Program, core, program_guard
-from paddle.pir_utils import test_with_pir_api
 from paddle.tensor.manipulation import tensor_array_to_tensor
 
 paddle.enable_static()
@@ -43,7 +42,7 @@ class TestTensorArrayToTensorError(unittest.TestCase):
             self.assertRaises(TypeError, test_list_Variable)
 
 
-class TestLoDTensorArrayStack(unittest.TestCase):
+class TestDenseTensorArrayStack(unittest.TestCase):
     """Test case for stack mode of tensor_array_to_tensor."""
 
     def setUp(self):
@@ -87,7 +86,7 @@ class TestLoDTensorArrayStack(unittest.TestCase):
         if not paddle.framework.use_pir_api():
             tensor_array_grad = scope.var(
                 self.array.name
-            ).get_lod_tensor_array()
+            ).get_dense_tensor_array()
             for i, input_grad in enumerate(self.input_grads):
                 np.allclose(np.array(tensor_array_grad[i]), input_grad, atol=0)
 
@@ -142,7 +141,6 @@ class TestTensorArrayToTensorAPI(unittest.TestCase):
         for s, d in zip(outs_static, outs_dynamic):
             np.testing.assert_array_equal(s, d.numpy())
 
-    @test_with_pir_api
     def test_while_loop_case(self):
         with base.dygraph.guard():
             zero = paddle.tensor.fill_constant(
@@ -214,7 +212,6 @@ class TestPirArrayOp(unittest.TestCase):
             fetched_out1, np.array([3, 3], dtype="int32")
         )
 
-    @test_with_pir_api
     def test_array_concat_backward(self):
         paddle.enable_static()
         main_program = paddle.static.Program()
@@ -263,7 +260,6 @@ class TestPirArrayOp(unittest.TestCase):
             np.array([[0.125, 0.125, 0.125, 0.125]], dtype="float32"),
         )
 
-    @test_with_pir_api
     def test_array_stack_backward(self):
         paddle.enable_static()
         main_program = paddle.static.Program()

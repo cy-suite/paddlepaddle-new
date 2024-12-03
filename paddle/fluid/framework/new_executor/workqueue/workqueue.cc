@@ -9,7 +9,7 @@
 #include "paddle/fluid/framework/new_executor/workqueue/nonblocking_threadpool.h"
 #include "paddle/fluid/framework/new_executor/workqueue/workqueue_utils.h"
 #include "paddle/fluid/platform/enforce.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 namespace paddle {
 namespace framework {
@@ -65,9 +65,8 @@ class WorkQueueImpl : public WorkQueue {
   }
 
   void AddTask(std::function<void()> fn) override {
-    platform::RecordEvent record("WorkQueue::AddTask",
-                                 platform::TracerEventType::UserDefined,
-                                 10 /*level*/);
+    phi::RecordEvent record(
+        "WorkQueue::AddTask", phi::TracerEventType::UserDefined, 10 /*level*/);
     if (tracker_ != nullptr) {
       fn = [task = std::move(fn),
             raii = CounterGuard<TaskTracker>(tracker_)]() mutable { task(); };
@@ -164,9 +163,8 @@ WorkQueueGroupImpl::~WorkQueueGroupImpl() {
 }
 
 void WorkQueueGroupImpl::AddTask(size_t queue_idx, std::function<void()> fn) {
-  platform::RecordEvent record("WorkQueue::AddTask",
-                               platform::TracerEventType::UserDefined,
-                               10 /*level*/);
+  phi::RecordEvent record(
+      "WorkQueue::AddTask", phi::TracerEventType::UserDefined, 10 /*level*/);
   assert(queue_idx < queues_.size());
   PADDLE_ENFORCE_NOT_NULL(
       queues_.at(queue_idx),

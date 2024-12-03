@@ -23,9 +23,10 @@ limitations under the License. */
 #include "paddle/fluid/framework/new_executor/interpreter/dependency_builder.h"
 #include "paddle/fluid/operators/controlflow/conditional_block_op_helper.h"
 #include "paddle/fluid/operators/isfinite_op.h"
-#include "paddle/fluid/platform/cpu_helper.h"
-#include "paddle/fluid/platform/lodtensor_printer.h"
+#include "paddle/fluid/platform/densetensor_printer.h"
+#include "paddle/phi/common/reduce_type.h"
 #include "paddle/phi/core/distributed/comm_context_manager.h"
+#include "paddle/phi/core/platform/cpu_helper.h"
 #include "paddle/phi/kernels/funcs/math_function.h"
 
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
@@ -786,8 +787,10 @@ void HogwildWorker::CreateThreadOperators(const ProgramDesc &program) {
     op_names_.push_back(op_name);
     ops_.emplace_back(OpRegistry::CreateOp(*op_desc));
     // change to device stream
-    if (op_name == "c_broadcast" || op_name == "c_reduce_sum" ||
-        op_name == "c_allreduce_sum") {
+    if (op_name == "c_broadcast" || op_name == "c_allreduce_sum" ||
+        (op_name == "reduce" &&
+         op_desc->GetAttrIfExists<int>("reduce_type") ==
+             static_cast<int>(phi::ReduceType::kRedSum))) {
       ops_[op_index]->SetAttr("use_calc_stream", true);
     }
     op_index++;
@@ -991,7 +994,10 @@ void HogwildWorker::CreateThreadScope(const ProgramDesc &program) {
       ++persist_total;
       if (stat_var_name_map_.find(name) != stat_var_name_map_.end()) {
         Variable *root_var = root_scope_->FindVar(name);
-        CHECK(root_var != nullptr);
+        PADDLE_ENFORCE_NOT_NULL(
+            root_var,
+            common::errors::NotFound("Root scope should contain variable."));
+
         auto root_tensor = root_var->Get<phi::DenseTensor>();
         if (root_tensor.place() == place_) {
           continue;
@@ -1060,12 +1066,18 @@ void HogwildWorker::CreateThreadScope(const ProgramDesc &program) {
                            holder->ptr(),
                            holder->size(),
                            stream);
-              CHECK(phi::is_gpu_place(root_tensor->place()));
+              PADDLE_ENFORCE_EQ(phi::is_gpu_place(root_tensor->place()),
+                                true,
+                                common::errors::InvalidArgument(
+                                    "The place of root tensor should be GPU."));
               ++persist_reset;
             }
           } else {
             auto *ptr = thread_scope_->Var(name);
-            CHECK(proto::VarType::LOD_TENSOR == var->GetType());
+            PADDLE_ENFORCE_EQ(proto::VarType::DENSE_TENSOR,
+                              var->GetType(),
+                              common::errors::InvalidArgument(
+                                  "The type of var should be DENSE_TENSOR."));
             InitializeVariable(ptr, var->GetType());
             phi::DenseTensor *thread_tensor =
                 ptr->GetMutable<phi::DenseTensor>();

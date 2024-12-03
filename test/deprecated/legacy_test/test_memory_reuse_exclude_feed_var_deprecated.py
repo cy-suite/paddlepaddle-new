@@ -29,7 +29,7 @@ class TestMemoryReuseExcludeFeedVar(unittest.TestCase):
 
     def main_impl(self, place):
         image = paddle.static.data(
-            name='image', shape=[-1] + self.image_shape, dtype='float32'
+            name='image', shape=[-1, *self.image_shape], dtype='float32'
         )
         relu_image = F.relu(image)
         loss = paddle.mean(relu_image)
@@ -45,7 +45,7 @@ class TestMemoryReuseExcludeFeedVar(unittest.TestCase):
             base.default_main_program(), build_strategy=build_strategy
         )
 
-        image_tensor = base.LoDTensor()
+        image_tensor = base.DenseTensor()
         np_image = np.random.uniform(
             low=-10, high=10, size=self.image_shape
         ).astype('float32')

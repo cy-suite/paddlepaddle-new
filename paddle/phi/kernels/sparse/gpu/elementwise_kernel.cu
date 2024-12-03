@@ -37,7 +37,7 @@ void ElementWiseAddCooGPUKernel(const GPUContext& dev_ctx,
   PADDLE_ENFORCE_EQ(
       x_indices.numel(),
       y_indices.numel(),
-      phi::errors::PreconditionNotMet(
+      common::errors::PreconditionNotMet(
           "The numel of x.indices() and y.indices() should be equal"));
   const IntT* x_indices_ptr = x_indices.data<IntT>();
   const IntT* y_indices_ptr = y_indices.data<IntT>();
@@ -53,7 +53,7 @@ void ElementWiseAddCooGPUKernel(const GPUContext& dev_ctx,
     PADDLE_ENFORCE_EQ(
         is_same,
         true,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "Currently, ElementWiseAddCooKernel only supports the case "
             "where x and y have the same indices"));
   }
@@ -87,7 +87,9 @@ PD_REGISTER_KERNEL(add_coo_coo,
                    int16_t,
                    int,
                    int64_t,
-                   phi::dtype::float16) {
+                   phi::dtype::float16,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>) {
   kernel->InputAt(0).SetDataLayout(phi::DataLayout::SPARSE_COO);
   kernel->InputAt(1).SetDataLayout(phi::DataLayout::SPARSE_COO);
 }
@@ -100,6 +102,8 @@ PD_REGISTER_KERNEL(add_coo_dense,
                    double,
                    int,
                    int64_t,
-                   phi::dtype::float16) {
+                   phi::dtype::float16,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>) {
   kernel->InputAt(0).SetDataLayout(phi::DataLayout::SPARSE_COO);
 }

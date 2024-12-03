@@ -30,7 +30,7 @@ pir::Value GetOutputValueByName(const pir::Program &program,
       if (op.attribute("output_name") == name_attr) {
         if (value) {
           PADDLE_THROW(common::errors::PreconditionNotMet(
-              "More than one shadow ouput named with %s found.", name));
+              "More than one shadow output named with %s found.", name));
         }
         value = op.operand_source(0);
       }
@@ -59,6 +59,20 @@ pir::Value GetParameterValueByName(const pir::Program &program,
   return value;
 }
 
+std::unordered_map<std::string, pir::Value> GetAllParameterValues(
+    const pir::Program &program) {
+  auto &block = *program.block();
+  std::unordered_map<std::string, pir::Value> values;
+  for (auto &op : block) {
+    if (op.isa<pir::ParameterOp>()) {
+      values[op.attribute("parameter_name")
+                 .dyn_cast<pir::StrAttribute>()
+                 .AsString()] = op.result(0);
+    }
+  }
+  return values;
+}
+
 void SetValueName(pir::Value value, const std::string name) {
   pir::Operation *define_op = value.defining_op();
   if (define_op->isa<pir::ParameterOp>()) {
@@ -69,8 +83,8 @@ void SetValueName(pir::Value value, const std::string name) {
     define_op->set_attribute(
         "name", pir::StrAttribute::get(pir::IrContext::Instance(), name));
   } else if (auto block_arg = value.dyn_cast<pir::BlockArgument>()) {
-    PADDLE_THROW(
-        phi::errors::InvalidArgument("Can Not set name for BlockArgument! "));
+    PADDLE_THROW(common::errors::InvalidArgument(
+        "Can Not set name for BlockArgument! "));
   } else if (value.first_use()) {
     auto nextOp = value.first_use().owner();
     if (nextOp->isa<::pir::ShadowOutputOp>()) {
@@ -78,12 +92,12 @@ void SetValueName(pir::Value value, const std::string name) {
           "output_name",
           pir::StrAttribute::get(pir::IrContext::Instance(), name));
     } else {
-      PADDLE_THROW(phi::errors::InvalidArgument(
+      PADDLE_THROW(common::errors::InvalidArgument(
           "Currently, we can only set name of Value which is "
           "shadowoutput "));
     }
   } else {
-    PADDLE_THROW(phi::errors::InvalidArgument(
+    PADDLE_THROW(common::errors::InvalidArgument(
         "Currently, we can only set name of Value that "
         "is persistable"));
   }
@@ -93,7 +107,7 @@ std::map<std::string, std::string> RenameValue(Value value,
                                                const std::string &new_name,
                                                Block *block) {
   std::map<std::string, std::string> rename_mapping;
-  VLOG(5) << "Strating to rename value to " << new_name;
+  VLOG(5) << "Starting to rename value to " << new_name;
   // Handle kwarg
   for (auto [name, kwarg] : block->kwargs()) {
     if (kwarg == value) {
@@ -256,7 +270,7 @@ std::string GetValueFirstName(pir::Value value) {
   auto name = TryGetValueFirstName(value);
 
   PADDLE_ENFORCE(name.has_value(),
-                 phi::errors::InvalidArgument(
+                 common::errors::InvalidArgument(
                      "Currently, we can only get name of Value from "
                      "DataOp/ParameterOp/BlockArgument/ConstantTensorOp/"
                      "SetParameterOp and ShadowOutputOp."));

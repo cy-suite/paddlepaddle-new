@@ -23,8 +23,8 @@ from op_test import OpTest, convert_float_to_uint16, skip_check_grad_ci
 import paddle
 import paddle.distributed as dist
 from paddle import base
-from paddle.base import Program, core, program_guard
-from paddle.pir_utils import IrGuard, test_with_pir_api
+from paddle.base import core
+from paddle.pir_utils import IrGuard
 
 
 class TestConcatOp(OpTest):
@@ -40,7 +40,7 @@ class TestConcatOp(OpTest):
         self.attrs = {'axis': self.axis}
         if self.axis < 0:
             self.actual_axis = self.axis + len(self.x0.shape)
-            self.actual_axis = self.actual_axis if self.actual_axis > 0 else 0
+            self.actual_axis = max(0, self.actual_axis)
         else:
             self.actual_axis = self.axis
 
@@ -192,7 +192,7 @@ class TestConcatOp6(TestConcatOp):
         self.attrs = {'axis': self.axis}
         if self.axis < 0:
             self.actual_axis = self.axis + len(self.x0.shape)
-            self.actual_axis = self.actual_axis if self.actual_axis > 0 else 0
+            self.actual_axis = max(0, self.actual_axis)
         else:
             self.actual_axis = self.axis
         out = np.concatenate((self.x0, self.x1, self.x2), axis=self.actual_axis)
@@ -229,7 +229,7 @@ class TestConcatOp7(TestConcatOp):
         self.attrs = {'axis': self.axis}
         if self.axis < 0:
             self.actual_axis = self.axis + len(self.x0.shape)
-            self.actual_axis = self.actual_axis if self.actual_axis > 0 else 0
+            self.actual_axis = max(0, self.actual_axis)
         else:
             self.actual_axis = self.axis
 
@@ -302,9 +302,7 @@ def create_test_AxisTensor(parent):
 
             if self.axis < 0:
                 self.actual_axis = self.axis + len(self.x0.shape)
-                self.actual_axis = (
-                    self.actual_axis if self.actual_axis > 0 else 0
-                )
+                self.actual_axis = max(0, self.actual_axis)
             else:
                 self.actual_axis = self.axis
 
@@ -370,9 +368,7 @@ def create_test_fp16(parent):
             self.attrs = {'axis': self.axis}
             if self.axis < 0:
                 self.actual_axis = self.axis + len(self.x0.shape)
-                self.actual_axis = (
-                    self.actual_axis if self.actual_axis > 0 else 0
-                )
+                self.actual_axis = max(0, self.actual_axis)
             else:
                 self.actual_axis = self.axis
 
@@ -475,9 +471,7 @@ def create_test_bf16(parent):
             self.attrs = {'axis': self.axis}
             if self.axis < 0:
                 self.actual_axis = self.axis + len(self.x0.shape)
-                self.actual_axis = (
-                    self.actual_axis if self.actual_axis > 0 else 0
-                )
+                self.actual_axis = max(0, self.actual_axis)
             else:
                 self.actual_axis = self.axis
 
@@ -565,7 +559,9 @@ create_test_bf16(TestConcatOp4)
 class TestConcatOpError(unittest.TestCase):
     def test_errors(self):
         paddle.enable_static()
-        with program_guard(Program(), Program()):
+        with paddle.base.program_guard(
+            paddle.base.Program(), paddle.base.Program()
+        ):
             # The input type of concat_op should be list.
 
             x1 = paddle.static.data(shape=[-1, 4], dtype='int32', name='x1')
@@ -603,10 +599,10 @@ class TestConcatOpError(unittest.TestCase):
 
 
 class TestConcatAPI(unittest.TestCase):
-    @test_with_pir_api
+
     def test_base_api(self):
         paddle.enable_static()
-        with paddle.static.program_guard(paddle.static.Program()):
+        with paddle.base.program_guard(paddle.base.Program()):
             x_1 = paddle.static.data(
                 shape=[None, 1, 4, 5], dtype='int32', name='x_1'
             )
@@ -642,10 +638,9 @@ class TestConcatAPI(unittest.TestCase):
                 res_3, np.concatenate((input_2, input_3), axis=1)
             )
 
-    @test_with_pir_api
     def test_api(self):
         paddle.enable_static()
-        with paddle.static.program_guard(paddle.static.Program()):
+        with paddle.base.program_guard(paddle.base.Program()):
             x_1 = paddle.static.data(
                 shape=[None, 1, 4, 5], dtype='int32', name='x_1'
             )
@@ -703,7 +698,9 @@ class TestConcatAPI(unittest.TestCase):
         self.assertEqual((out2.numpy() == np_out2).all(), True)
 
     def test_errors(self):
-        with program_guard(Program(), Program()):
+        with paddle.base.program_guard(
+            paddle.base.Program(), paddle.base.Program()
+        ):
             # The item in input must be Variable.
             x2 = base.create_lod_tensor(
                 np.array([[-1]]), [[1]], base.CPUPlace()
@@ -733,9 +730,9 @@ class TestConcatAPI(unittest.TestCase):
             self.assertRaises(TypeError, test_input_same_dtype)
 
 
-class TestConcatAPIWithLoDTensorArray(unittest.TestCase):
+class TestConcatAPIWithDenseTensorArray(unittest.TestCase):
     """
-    Test concat api when the input(x) is a LoDTensorArray.
+    Test concat api when the input(x) is a DenseTensorArray.
     """
 
     def setUp(self):
@@ -753,8 +750,8 @@ class TestConcatAPIWithLoDTensorArray(unittest.TestCase):
     def set_program(self, use_base_api):
         paddle.enable_static()
         if use_base_api:
-            self.program = paddle.static.Program()
-            with paddle.static.program_guard(self.program):
+            self.program = paddle.base.Program()
+            with paddle.base.program_guard(self.program):
                 input = paddle.assign(self.x)
                 tensor_array = paddle.tensor.create_array(dtype='float32')
                 zero = paddle.tensor.fill_constant(
@@ -766,8 +763,8 @@ class TestConcatAPIWithLoDTensorArray(unittest.TestCase):
 
                 self.out_var = paddle.concat(tensor_array, axis=self.axis)
         else:
-            self.program = paddle.static.Program()
-            with paddle.static.program_guard(self.program):
+            self.program = paddle.base.Program()
+            with paddle.base.program_guard(self.program):
                 input = paddle.assign(self.x)
                 tensor_array = paddle.tensor.create_array(
                     dtype='float32'
@@ -800,7 +797,6 @@ class TestConcatDoubleGradCheck(unittest.TestCase):
     def concat_wrapper(self, x):
         return paddle.concat(x)
 
-    @test_with_pir_api
     @prog_scope()
     def func(self, place):
         # the shape of input variable should be clearly specified, not include -1.
@@ -850,7 +846,6 @@ class TestConcatTripleGradCheck(unittest.TestCase):
     def concat_wrapper(self, x):
         return paddle.concat(x, 1)
 
-    @test_with_pir_api
     @prog_scope()
     def func(self, place):
         # the shape of input variable should be clearly specified, not include -1.
@@ -909,7 +904,7 @@ class TestConcatOpAutoParallel(OpTest):
         self.attrs = {'axis': self.axis}
         if self.axis < 0:
             self.actual_axis = self.axis + len(self.x0.shape)
-            self.actual_axis = self.actual_axis if self.actual_axis > 0 else 0
+            self.actual_axis = max(0, self.actual_axis)
         else:
             self.actual_axis = self.axis
 
@@ -963,11 +958,11 @@ class TestConcatOpAutoParallel(OpTest):
 
 
 class TestConcatOpErrorWithPir(unittest.TestCase):
-    @test_with_pir_api
+
     def test_errors_with_pir(self):
         paddle.enable_static()
-        with paddle.static.program_guard(
-            paddle.static.Program(), paddle.static.Program()
+        with paddle.base.program_guard(
+            paddle.base.Program(), paddle.base.Program()
         ):
             # The type of axis in concat_op should be int or Variable.
             x6 = paddle.static.data(shape=[-1, 4], dtype='float32', name='x6')
@@ -991,8 +986,8 @@ class TestConcatOpErrorWithPir(unittest.TestCase):
             paddle.concat([])
 
     def test_empty_inputs_static(self):
-        with IrGuard(), paddle.static.program_guard(
-            paddle.static.Program(), paddle.static.Program()
+        with IrGuard(), paddle.base.program_guard(
+            paddle.base.Program(), paddle.base.Program()
         ):
             with self.assertRaisesRegex(ValueError, "but got empty list"):
                 paddle.concat([], axis=0)

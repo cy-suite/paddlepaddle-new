@@ -25,13 +25,13 @@ limitations under the License. */
 #include "paddle/fluid/eager/autograd_meta.h"
 #include "paddle/fluid/eager/utils.h"
 #include "paddle/fluid/framework/convert_utils.h"
-#include "paddle/fluid/memory/allocation/allocator.h"
-#include "paddle/fluid/memory/memcpy.h"
 #include "paddle/fluid/platform/enforce.h"
 #include "paddle/fluid/pybind/eager_utils.h"
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/core/compat/convert_utils.h"
 #include "paddle/phi/core/dense_tensor.h"
+#include "paddle/phi/core/memory/allocation/allocator.h"
+#include "paddle/phi/core/memory/memcpy.h"
 #include "pybind11/detail/internals.h"
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
@@ -83,7 +83,7 @@ void EmptyTensorInitializer(TensorObject* self,
                             paddle::DataType dtype = paddle::DataType::FLOAT32,
                             const std::vector<int>& dims = {0},
                             framework::proto::VarType::Type var_type =
-                                paddle::framework::proto::VarType::LOD_TENSOR,
+                                paddle::framework::proto::VarType::DENSE_TENSOR,
                             ProcessMesh* process_mesh = nullptr,
                             Placements* placements = nullptr) {
   auto ddims = common::make_ddim(dims);
@@ -106,7 +106,7 @@ void EmptyTensorInitializer(TensorObject* self,
 #endif
   } else {
     VLOG(6) << "in EmptyTensorInitializer, create DenseTensor";
-    if (var_type == paddle::framework::proto::VarType::LOD_TENSOR) {
+    if (var_type == paddle::framework::proto::VarType::DENSE_TENSOR) {
       // TODO(jiabin): Maybe support LOD later
       std::shared_ptr<phi::DenseTensor> dense_tensor = nullptr;
       if (dims.size() == 1 && dims[0] == 0) {
@@ -764,7 +764,7 @@ PyDoc_STRVAR(  // NOLINT
 
 Tensor is the basic data structure in PaddlePaddle. There are some ways to create a Tensor:
 
-- Use the exsiting ``data`` to create a Tensor, please refer to :ref:`api_paddle_to_tensor`.
+- Use the existing ``data`` to create a Tensor, please refer to :ref:`api_paddle_to_tensor`.
 - Create a Tensor with a specified ``shape``, please refer to :ref:`api_paddle_ones`,
   :ref:`api_paddle_zeros`, :ref:`api_paddle_full`.
 - Create a Tensor with the same ``shape`` and ``dtype`` as other Tensor, please refer to
@@ -781,7 +781,7 @@ Tensor is the basic data structure in PaddlePaddle. There are some ways to creat
  * ** dtype: paddle::DataType,
  * ** dims: vector<int>,
  * ** name: std::string,
- * ** type: paddle::framework::proto::VarType::LodTensor,
+ * ** type: paddle::framework::proto::VarType::DENSE_TENSOR,
  * ** persistable: bool,
  * ** process_mesh: phi::distributed::ProcessMesh,
  * ** placements: std::vector<Placement>)
