@@ -123,28 +123,20 @@ void BasicIrPrinter::PrintAttribute(Attribute attr) {
       os << "false";
     }
   } else if (auto f = attr.dyn_cast<FloatAttribute>()) {
-    // os << "(Float)" << f.data();
     os << f.data();
   } else if (auto d = attr.dyn_cast<DoubleAttribute>()) {
-    // os << "(Double)" << d.data();
     os << d.data();
   } else if (auto i = attr.dyn_cast<Int32Attribute>()) {
-    // os << "(Int32)" << i.data();
     os << i.data();
   } else if (auto i = attr.dyn_cast<Int64Attribute>()) {
-    // os << "(Int64)" << i.data();
     os << i.data();
   } else if (auto i = attr.dyn_cast<IndexAttribute>()) {
-    // os << "(Index)" << i.data();
     os << i.data();
   } else if (auto p = attr.dyn_cast<PointerAttribute>()) {
-    // os << "(Pointer)" << p.data();
     os << p.data();
   } else if (auto p = attr.dyn_cast<Complex64Attribute>()) {
-    // os << "(Complex64)" << p.data();
     os << p.data();
   } else if (auto p = attr.dyn_cast<Complex128Attribute>()) {
-    // os << "(Complex128)" << p.data();
     os << p.data();
   } else if (auto arr = attr.dyn_cast<ArrayAttribute>()) {
     const auto& vec = arr.AsVector();

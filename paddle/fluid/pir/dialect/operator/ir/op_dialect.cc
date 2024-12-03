@@ -302,6 +302,8 @@ void PrintTypeImpl(pir::Type type, std::ostream& os) {
   }
 }
 void PrintAttributeImpl(pir::Attribute attr, std::ostream& os) {
+  os << "(" << attr.dialect().name();
+  os << '.';
   if (auto int_array_attr = attr.dyn_cast<IntArrayAttribute>()) {
     phi::IntArray data = int_array_attr.data();
     os << "[";
