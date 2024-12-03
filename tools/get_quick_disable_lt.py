@@ -43,7 +43,14 @@ def download_file():
         url = "https://sys-p0.bj.bcebos.com/prec/{}".format('disable_ut')
 
     if paddle.is_compiled_with_rocm():
-        url = "https://sys-p0.bj.bcebos.com/prec/{}".format('disable_ut_rocm')
+        if paddle.device.cuda.get_device_name() == 'K100_AI':
+            url = "https://sys-p0.bj.bcebos.com/prec/{}".format(
+                'disable_ut_rocm_K100'
+            )
+        else:
+            url = "https://sys-p0.bj.bcebos.com/prec/{}".format(
+                'disable_ut_rocm'
+            )
 
     disabled_ut_list = get_disable_ut_by_url(url)
 
