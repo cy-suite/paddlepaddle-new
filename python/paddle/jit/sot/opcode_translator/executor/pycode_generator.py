@@ -176,6 +176,8 @@ def assemble(
     """
     code = []
     linetable = []
+    # # xym debug
+    # breakpoint()
 
     calc_linetable, update_cursor = create_linetable_calculator(firstlineno)
 

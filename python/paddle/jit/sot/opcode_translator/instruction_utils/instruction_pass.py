@@ -36,6 +36,9 @@ def apply_instr_pass(instrs: list[Instruction], code_options):
         check_precall_followed_by_call,
     ]
 
+    if sys.version_info >= (3, 11):
+        supported_passes.append(fuse_double_load_fast)
+
     if sys.version_info >= (3, 12):
         supported_passes.append(check_for_iter_jump_to)
 
@@ -264,7 +267,7 @@ def remove_load_store_pass(instrs: list[Instruction], code_options):
                 and opcode2 not in jump_target
                 and opcode1.opname == "STORE_FAST"
                 and opcode2.opname == "LOAD_FAST"
-                and opcode2.opname == "LOAD_FAST_CHECK"
+                or opcode2.opname == "LOAD_FAST_CHECK"
                 and opcode1.argval == opcode2.argval
                 and opcode1.argval in loaded_once
             ):
@@ -303,3 +306,69 @@ def check_for_iter_jump_to(instrs: list[Instruction], code_options):
             assert instr.jump_to is not None
             if instr.jump_to.opname != "END_FOR":
                 raise InnerError("FOR_ITER jump_to is not END_FOR")
+
+
+def fuse_double_load_fast(instrs: list[Instruction], code_options):
+    """
+    Some variables are loaded in order, the corresponding LOAD_FAST instructions can be merged into a single LOAD_FAST_LOAD_FAST.
+    """
+    non_local_LOAD = (
+        "LOAD_GLOBAL",
+        "LOAD_CONST",
+    )
+    first_op_index: int = -1
+    to_remove = []
+
+    def able_to_merge(idx: int, instr: Instruction):
+        return (
+            idx > 0
+            and instr.opname == "LOAD_FAST"
+            and instrs[idx - 1].opname == "LOAD_FAST"
+        )
+
+    def merge_two_LOAD_FAST(prev_instr: Instruction, instr: Instruction):
+        prev_instr.opname = "LOAD_FAST_LOAD_FAST"
+        prev_instr.opcode = 88
+        prev_instr.is_generated = True
+        prev_instr.argval = (prev_instr.argval, instr.argval)
+        prev_instr.arg = (prev_instr.arg << 4) + instr.arg
+        to_remove.append(instr)
+
+    def check_first_op(now_idx: int):
+        nonlocal first_op_index
+        if (
+            instrs[now_idx - 1].opname in non_local_LOAD
+            and instrs[now_idx - 2].opname == "LOAD_FAST"
+        ):
+            first_op_index = now_idx
+
+    idx = 0
+    while idx < len(instrs):
+        instr = instrs[idx]
+
+        if able_to_merge(idx, instr):
+            merge_two_LOAD_FAST(instrs[idx - 1], instr)
+            idx += 1
+            continue
+
+        if first_op_index == -1 and instr.opname == "BINARY_OP":
+            check_first_op(idx)
+
+        if (
+            first_op_index != -1
+            and instr.opname == "BINARY_OP"
+            and instrs[idx - 1].opname == "LOAD_FAST"
+        ):
+            instrs[idx - 1], instrs[first_op_index - 1] = (
+                instrs[first_op_index - 1],
+                instrs[idx - 1],
+            )
+            merge_two_LOAD_FAST(
+                instrs[first_op_index - 2], instrs[first_op_index - 1]
+            )
+            first_op_index = -1
+
+        idx += 1
+
+    for instr in to_remove:
+        instrs.remove(instr)

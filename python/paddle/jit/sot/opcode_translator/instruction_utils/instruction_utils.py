@@ -461,6 +461,7 @@ def instrs_info(instrs, mark=None, range=None, want_str=True):
                 ),
                 opname=instr.opname,
                 arg=str(instr.arg) if instr.arg is not None else "",
+                # xym debug important
                 argval=f"({instr.argval})" if instr.argval else "",
                 mark="",
             )
