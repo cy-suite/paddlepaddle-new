@@ -742,6 +742,9 @@ from .pir_utils import IrGuard
 ir_guard = IrGuard()
 ir_guard._switch_to_pir()
 
+# call init_reduction after core is inited
+incubate.multiprocessing.init_reductions()
+
 __all__ = [
     'block_diag',
     'iinfo',

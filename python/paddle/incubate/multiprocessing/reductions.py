@@ -14,6 +14,7 @@
 
 import copy
 import multiprocessing
+import os
 
 # TODO: check the hooks of tensor
 # TODO: check serializing named tensor
@@ -25,6 +26,7 @@ from multiprocessing.reduction import ForkingPickler
 from multiprocessing.util import register_after_fork
 
 import paddle
+from paddle.base import core
 
 
 def _supported_check():
@@ -225,6 +227,18 @@ def _reduce_lodtensor(lodtensor):
         lodtensor._shared_incref()
         # TODO, maintain reference for lodtensor
     elif lodtensor._place().is_gpu_place():
+        print(
+            f"get_cuda_current_device_id before set device: {core.get_cuda_current_device_id()}"
+        )
+        print(
+            f"inside _reduce_lodtensor: check pid: {os.getpid()}; check tid: {threading.get_ident()}"
+        )
+        paddle.set_device(f"gpu:{lodtensor._place().gpu_device_id()}")
+        tmp = paddle.to_tensor([1])
+        del tmp
+        print(
+            f"get_cuda_current_device_id after set device: {core.get_cuda_current_device_id()}"
+        )
         metadata = lodtensor._share_cuda()
         rebuild = _rebuild_cuda_tensor
     else:
@@ -237,9 +251,20 @@ def init_reductions():
     if not _supported_check():
         return
 
+    print(
+        f"get_cuda_current_device_id before init_reductions: {core.get_cuda_current_device_id()}"
+    )
+    tmp = paddle.to_tensor([1])
+    print(
+        f"get_cuda_current_device_id after call api: {core.get_cuda_current_device_id()}"
+    )
+    del tmp
     ForkingPickler.register(paddle.Tensor, _reduce_tensor)
     ForkingPickler.register(paddle.base.core.eager.Tensor, _reduce_tensor)
     ForkingPickler.register(
         paddle.base.framework.EagerParamBase, _reduce_tensor
     )
     ForkingPickler.register(paddle.base.core.LoDTensor, _reduce_lodtensor)
+    print(
+        f"get_cuda_current_device_id after init_reductions: {core.get_cuda_current_device_id()}"
+    )
