@@ -116,6 +116,14 @@ inline phi::DenseTensor TensorFromDLPack(const DLManagedTensor* src) {
   return TensorFromDLPack(const_cast<DLManagedTensor*>(src));
 }
 
+phi::DenseTensor from_blob(void* data,
+                           DLManagedTensor* src,
+                           const phi::DDim& shape,
+                           const phi::DDim& strides,
+                           phi::DataType dtype,
+                           const phi::Place& place,
+                           const Deleter& deleter);
+
 phi::DenseTensor TensorFromDLPack(DLManagedTensor* src,
                                   std::function<void(void*)> deleter);
 //

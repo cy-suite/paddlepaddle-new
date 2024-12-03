@@ -1326,7 +1326,7 @@ PYBIND11_MODULE(libpaddle, m) {
 
         // __cuda_array_interface__ strides uses bytes
         size_t element_size = phi::SizeOf(dtype);
-        for (auto &stride : strides) {
+        for (auto &stride : strides_vec) {
           if (stride % element_size != 0) {
             throw py::value_error(
                 "strides must be a multiple of the element size.");
@@ -1335,8 +1335,7 @@ PYBIND11_MODULE(libpaddle, m) {
         }
         ddim_strides = common::make_ddim(strides_vec);
       } else {
-        ddim_strides =
-            phi::DenseTensorMeta::calc_strides(common::make_ddim(shape));
+        ddim_strides = phi::DenseTensorMeta::calc_strides(ddim_shape);
       }
       DLManagedTensor *dlMTensor = reinterpret_cast<DLManagedTensor *>(
           PyCapsule_GetPointer(obj.ptr(), "dltensor"));
