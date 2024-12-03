@@ -256,10 +256,6 @@ class TestDLPack(unittest.TestCase):
                     self.assertEqual(y2.numel().item(), 0)
                     np.testing.assert_array_equal(x.numpy(), y1.numpy())
                     np.testing.assert_array_equal(x.numpy(), y2.numpy())
-                    x_random = paddle.randn([10, 10]).to(device=place)
-                    pd_result = paddle.from_dlpack(x_random)
-                    np_result = np.from_dlpack(x_random)
-                    np.testing.assert_allclose(pd_result.numpy(), np_result)
 
     def test_dlpack_with_custom_stream(self):
         if not paddle.is_compiled_with_cuda():

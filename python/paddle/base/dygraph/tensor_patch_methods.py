@@ -129,8 +129,6 @@ def monkey_patch_tensor():
             'strides',
             'offset',
             '__cuda_array_interface__',
-            '__dlpack__',
-            '__dlpack_device__',
         ]
         param_keys = ['stop_gradient', 'trainable']
         if isinstance(self, EagerParamBase):
@@ -1453,6 +1451,7 @@ def monkey_patch_tensor():
         ("_use_gpudnn", _use_gpudnn),
         ("_md5sum", _md5sum),
         ("__cuda_array_interface__", __cuda_array_interface__),
+        ("__dlpack__", __dlpack__),
         ("__dlpack_device__", __dlpack_device__),
     ):
         setattr(core.eager.Tensor, method_name, method)
