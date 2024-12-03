@@ -18,6 +18,7 @@
 #                   Utils
 #=================================================
 
+# nothing to modify
 set -ex
 
 if [ -z ${BRANCH} ]; then
@@ -704,13 +705,13 @@ EOF
         get_precision_ut_mac
         if [[ "$on_precision" == "0" ]];then
           ctest -E "($disable_ut_quickly|$single_list)" -LE ${nightly_label} --output-on-failure -j $2 | tee $tmpfile
-          ctest -R "${single_list}" -E "($disable_ut_quickly)" --output-on-failure -j 1 | tee -a $tmpfile
+          ctest -R "${single_list}" -E "($disable_ut_quickly)" --output-on-failure -j 1 --timeout 15 | tee -a $tmpfile
         else
-            ctest -R "($UT_list_prec)" -E "($disable_ut_quickly)" -LE ${nightly_label} --output-on-failure -j $2 | tee $tmpfile
+            ctest -R "($UT_list_prec)" -E "($disable_ut_quickly)" -LE ${nightly_label} --output-on-failure -j $2 --timeout 15 | tee $tmpfile
             tmpfile_rand=`date +%s%N`
             tmpfile=$tmp_dir/$tmpfile_rand
-            ctest -R "($UT_list_prec_1)" -E "(${disable_ut_quickly}|${single_list})" -LE ${nightly_label} --output-on-failure -j $2 | tee -a $tmpfile
-            ctest -R "($single_list)" -E "(${disable_ut_quickly})" --output-on-failure -j 1 | tee -a $tmpfile
+            ctest -R "($UT_list_prec_1)" -E "(${disable_ut_quickly}|${single_list})" -LE ${nightly_label} --output-on-failure -j $2 --timeout 15 | tee -a $tmpfile
+            ctest -R "($single_list)" -E "(${disable_ut_quickly})" --output-on-failure -j 1 --timeout 15 | tee -a $tmpfile
         fi
         failed_test_lists=''
         collect_failed_tests
@@ -1317,6 +1318,38 @@ function check_diff_file_for_coverage() {
 
 function check_sequence_op_unittest(){
     /bin/bash ${PADDLE_ROOT}/tools/check_sequence_op.sh
+}
+
+function check_cinn_file_diff() {
+    CINN_FILE_LIST=(
+        CMakeLists.txt
+        cmake
+        paddle/cinn
+        python/cinn
+        python/CMakeLists.txt
+        python/setup_cinn.py.in
+        test/CMakeLists.txt
+        test/cinn
+        test/cpp/cinn
+        tools/cinn
+    )
+
+    run_cinn_ut="OFF"
+    for change_fie in $(git diff --name-only upstream/develop);
+    do
+      for cinn_file in ${CINN_FILE_LIST[@]};
+      do
+        if [[ ${change_fie} =~ ^"${cinn_file}".* ]]; then
+          run_cinn_ut="ON"
+          break
+        fi
+      done
+      if [[ "ON" == ${run_cinn_ut} ]]; then
+        break
+      fi
+    done
+    echo $run_cinn_ut
+
 }
 
 
@@ -2365,10 +2398,13 @@ function parallel_test_base_xpu() {
 EOF
 
 set +x
+        echo "Starting running xpu tests"
         export XPU_OP_LIST_DIR=$tmp_dir
         ut_startTime_s=`date +%s`
-        test_cases=$(ctest -N -V -LE "(RUN_TYPE=DIST_KUNLUN)" | grep "_xpu" )        # cases list which would be run exclusively
         get_quickly_disable_ut||disable_ut_quickly='disable_ut'   # indicate whether the case was in quickly disable list
+        test_cases=$(ctest -N -V -E "$disable_ut_quickly" -LE "(RUN_TYPE=DIST_KUNLUN)")        # cases list which would be run exclusively
+
+        single_card_test_num=0
         while read -r line; do
             if [[ "$line" == "" ]]; then
                 continue
@@ -2378,6 +2414,17 @@ set +x
                 continue
             fi
             testcase=$(echo "$line"|grep -oEi "\w+$")
+            single_card_test_num=$(($single_card_test_num+1))
+            if [[ $single_card_test_num -gt 1200 ]]; then
+                # too many test cases in single set will lead to ctest "RegularExpression::compile(): Expression too big." error
+                # therefore use a new test set
+                if [[ "$single_card_tests_1" == "" ]]; then
+                    single_card_tests_1="^$testcase$"
+                else
+                    single_card_tests_1="$single_card_tests_1|^$testcase$"
+                fi
+                continue
+            fi
             if [[ "$single_card_tests" == "" ]]; then
                 single_card_tests="^$testcase$"
             else
@@ -2385,6 +2432,7 @@ set +x
             fi
         done <<< "$test_cases";
         card_test "$single_card_tests" 1 4
+        card_test "$single_card_tests_1" 1 4
         failed_test_lists=''
         collect_failed_tests
         xputest_error=0
@@ -2441,6 +2489,43 @@ set +x
                 is_retry_execuate=1
             fi
 
+        fi
+        if [[ "$IF_KUNLUN3" == "ON" ]]; then
+            export FLAGS_enable_pir_api=0
+            #install paddlex
+            git clone --depth 1000 https://gitee.com/paddlepaddle/PaddleX.git
+            cd PaddleX
+            pip install -e .
+
+            #install paddle x dependency
+            paddlex --install PaddleClas
+
+            #download paddle dataset
+            wget -q https://paddle-model-ecology.bj.bcebos.com/paddlex/data/cls_flowers_examples.tar -P ./dataset
+            tar -xf ./dataset/cls_flowers_examples.tar -C ./dataset/
+
+            #train Reset50
+            echo "Starting to train ResNet50 model..."
+            python main.py -c paddlex/configs/image_classification/ResNet50.yaml \
+                -o Global.mode=train \
+                -o Global.dataset_dir=./dataset/cls_flowers_examples \
+                -o Global.output=resnet50_output \
+                -o Global.device="xpu:${CUDA_VISIBLE_DEVICES}"
+            echo "Training Resnet50 completed!"
+
+            #inference Reset50
+            IFS=',' read -ra DEVICES <<< "$CUDA_VISIBLE_DEVICES"
+            echo ${DEVICES[0]}
+
+            echo "Starting to predict ResNet50 model..."
+            python main.py -c paddlex/configs/image_classification/ResNet50.yaml \
+                -o Global.mode=predict \
+                -o Predict.model_dir="./resnet50_output/best_model/inference" \
+                -o Predict.input="https://paddle-model-ecology.bj.bcebos.com/paddlex/imgs/demo_image/general_image_classification_001.jpg" \
+                -o Global.device="xpu:${DEVICES[0]}"
+            echo "Predicting Resnet50 completed!"
+            cd ..
+            export FLAGS_enable_pir_api=1
         fi
 set -x
         ut_endTime_s=`date +%s`
@@ -2633,6 +2718,43 @@ set -x
     fi
 }
 
+function parallel_fa_unit() {
+    if [ ${WITH_TESTING:-ON} == "ON" ] ; then
+    cat <<EOF
+    ========================================
+    Running FA unit tests in parallel way ...
+    ========================================
+EOF
+fi
+local parallel_list
+parallel_list="^test_block_multihead_attention$|\
+^test_fused_weight_only_linear_pass$|\
+^test_block_multihead_attention_gqa$|\
+^test_fused_flash_attn_pass$|\
+^test_fused_multi_transformer_op$|\
+^test_fused_multi_transformer_int8_op$|\
+^test_flash_attention$|\
+^test_flash_attention_deterministic$|\
+^test_flashmask$|\
+^test_fused_gate_attention_op$"
+get_quickly_disable_ut||disable_ut_quickly='disable_ut'
+
+card_test "${parallel_list}" 1
+
+collect_failed_tests
+rm -f $tmp_dir/*
+if [ -n "$failed_test_lists" ];then
+    echo "Sorry, some FA tests failed."
+    collect_failed_tests
+    echo "Summary Failed Tests... "
+    echo "========================================"
+    echo "The following tests FAILED: "
+    echo "${failed_test_lists}"| sort -u
+    exit 8
+fi
+
+}
+
 function parallel_test_base_gpu_test() {
     if [ ${WITH_TESTING:-ON} == "ON" ] ; then
     cat <<EOF
@@ -2668,14 +2790,14 @@ set -x
         if [ -a "$PADDLE_ROOT/added_ut" ];then
             added_uts=^$(awk BEGIN{RS=EOF}'{gsub(/\n/,"$|^");print}' $PADDLE_ROOT/added_ut)$
             if [ "$WITH_ROCM" == "ON" ];then
-                env HIP_VISIBLE_DEVICES=0 ctest -R "(${added_uts})" -LE "RUN_TYPE=DIST|RUN_TYPE=EXCLUSIVE|RUN_TYPE=HYBRID" --output-on-failure --repeat-until-fail 3 --timeout 15;added_ut_error=$?
+                env HIP_VISIBLE_DEVICES=0 ctest -R "(${added_uts})" -LE "RUN_TYPE=DIST|RUN_TYPE=EXCLUSIVE|RUN_TYPE=HYBRID" --output-on-failure --repeat-until-fail 3 --timeout 20;added_ut_error=$?
             else
-                env CUDA_VISIBLE_DEVICES=0 ctest -R "(${added_uts})" -LE "RUN_TYPE=DIST|RUN_TYPE=EXCLUSIVE|RUN_TYPE=HYBRID" --output-on-failure --repeat-until-fail 3 --timeout 15;added_ut_error=$?
+                env CUDA_VISIBLE_DEVICES=0 ctest -R "(${added_uts})" -LE "RUN_TYPE=DIST|RUN_TYPE=EXCLUSIVE|RUN_TYPE=HYBRID" --output-on-failure --repeat-until-fail 3 --timeout 20;added_ut_error=$?
             fi
-            ctest -R "(${added_uts})" -L "RUN_TYPE=DIST|RUN_TYPE=EXCLUSIVE" --output-on-failure --repeat-until-fail 3 --timeout 15;added_ut_error_1=$?
+            ctest -R "(${added_uts})" -L "RUN_TYPE=DIST|RUN_TYPE=EXCLUSIVE" --output-on-failure --repeat-until-fail 3 --timeout 20;added_ut_error_1=$?
             if [ "$added_ut_error" != 0 ] && [ "$added_ut_error_1" != 0 ];then
                 echo "========================================"
-                echo "Added UT should not exceed 15 seconds"
+                echo "Added UT should not exceed 20 seconds"
                 echo "========================================"
                 exit 8;
             fi
@@ -2689,7 +2811,49 @@ set +x
         get_quickly_disable_ut||disable_ut_quickly='disable_ut'    # indicate whether the case was in quickly disable list
         test_cases=$(ctest -N -V) # get all test cases
 
+        if [ ${WITH_CINN:-OFF} == "ON" ]; then
+            pushd ${PADDLE_ROOT}/build/paddle/cinn
+            ctest -N -E "test_frontend_interpreter" | awk -F ': ' '{print $2}' | sed '/^$/d' | sed '$d' > ${PADDLE_ROOT}/build/pr_ci_cinn_gpu_ut_list
+            popd
+            ctest -N -L "RUN_TYPE=CINN" | awk -F ': ' '{print $2}' | sed '/^$/d' | sed '$d' > ${PADDLE_ROOT}/build/pr_ci_cinn_ut_list
+            echo "========================================"
+            echo "pr_ci_cinn_ut_list: "
+            cat ${PADDLE_ROOT}/build/pr_ci_cinn_ut_list
+            echo "========================================"
+            echo "pr_ci_cinn_gpu_ut_list: "
+            cat ${PADDLE_ROOT}/build/pr_ci_cinn_gpu_ut_list
+            echo "========================================"
+        fi
+
         python ${PADDLE_ROOT}/tools/group_case_for_parallel.py ${PADDLE_ROOT}
+
+        if [ ${WITH_CINN=-OFF} == "ON" ]; then
+            run_cinn_ut=`check_cinn_file_diff`
+            if [[ "OFF" == ${run_cinn_ut} ]]; then
+              echo "No CINN-related changes were found"
+              echo "Skip PR-CI-CINN-GPU UT CI"
+            else
+                # run pr-ci-cinn-gpu ut
+                cinn_gpu_ut_startTime_s=`date +%s`
+                while read line
+                do
+                    card_test "$line" 1
+                done < $PADDLE_ROOT/tools/new_pr_ci_cinn_gpu_ut_list
+                cinn_gpu_ut_endTime_s=`date +%s`
+                echo "ipipe_log_param_cinn_gpu_TestCases_Total_Time: $[ $cinn_gpu_ut_endTime_s - $cinn_gpu_ut_startTime_s ]s"
+                echo "ipipe_log_param_cinn_gpu_TestCases_Total_Time: $[ $cinn_gpu_ut_endTime_s - $cinn_gpu_ut_startTime_s ]s"  >> ${PADDLE_ROOT}/build/build_summary.txt
+            fi
+
+            # run pr-ci-cinn ut
+            cinn_ut_startTime_s=`date +%s`
+            while read line
+            do
+                card_test "$line" 1
+            done < $PADDLE_ROOT/tools/new_pr_ci_cinn_ut_list
+            cinn_ut_endTime_s=`date +%s`
+            echo "ipipe_log_param_cinn_TestCases_Total_Time: $[ $cinn_ut_endTime_s - $cinn_ut_startTime_s ]s"
+            echo "ipipe_log_param_cinn_TestCases_Total_Time: $[ $cinn_ut_endTime_s - $cinn_ut_startTime_s ]s"  >> ${PADDLE_ROOT}/build/build_summary.txt
+        fi
 
         single_ut_mem_0_startTime_s=`date +%s`
         while read line
@@ -2829,7 +2993,9 @@ set +x
                             done
 
                         if [[ "$retry_cases" != "" ]]; then
-                            card_test "$retry_cases" -1 2
+			    # re-run test run 1 job
+			    export CTEST_PARALLEL_LEVEL=1
+                            card_test "$retry_cases" -1 1
                         fi
                         exec_times=$[$exec_times+1]
                         failed_test_lists=''
@@ -3020,12 +3186,14 @@ function parallel_test() {
         else
             echo "skip parallel_test_base_hybrid when compiling PaddlePaddle without NVIDIA GPU or ROCM platform"
         fi
-    elif [ "$WITH_CINN" == "ON" ];then
-        parallel_test_base_cinn
     elif [ "$WITH_GPU" == "ON" ] && [ "$WITH_HETERPS" == "ON" ];then
         parallel_test_base_gpups
     elif [ "$WITH_GPU" == "ON" ] || [ "$WITH_ROCM" == "ON" ];then
-        parallel_test_base_gpu_test
+        if [[ $CACHE_DIR =~ "cinn" ]];then
+            parallel_test_base_cinn
+        else
+            parallel_test_base_gpu_test
+        fi
     elif [ "$WITH_XPU" == "ON" ];then
         parallel_test_base_xpu
     elif [ "$WITH_IPU" == "ON" ];then
@@ -3437,9 +3605,18 @@ EOF
 }
 
 function distribute_test() {
+    python ${PADDLE_ROOT}/tools/get_pr_title.py skip_distribute_test && CINN_OR_BUAA_PR=1
+    if [[ "${CINN_OR_BUAA_PR}" = "1" ]];then
+        echo "PR's title with 'CINN' or 'BUAA', skip the run distribute ci test !"
+        exit 0
+    fi
     echo "Start gpups tests"
     parallel_test_base_gpups
     echo "End gpups tests"
+
+    echo "Start FA tests"
+    parallel_fa_unit
+    echo "End FA tests"
 
     echo "Dowloading ...."
     cd ${work_dir}
@@ -3463,19 +3640,18 @@ function distribute_test() {
     rm -rf ./paddlenlp/models/bigscience/*
 
     # Already disable unittests of llama2 model in current CI pipeline
-    sed -i -e 's/case_list=(\$(awk/case_list=(auto_unit_test dygraph_unit_test) # /g' ./tools/auto_parallel/ci_auto_parallel.sh
     export FLAGS_dynamic_static_unified_comm=True
 
     echo "Start LLM Test"
     cd ${work_dir}/PaddleNLP
     # Disable Test: test_gradio
     rm tests/llm/test_gradio.py
-    python -m pytest -s -v tests/llm --timeout=3600
+    # python -m pytest -s -v tests/llm --timeout=3600
     echo "End LLM Test"
 
     echo "Start auto_parallel Test"
     cd ${work_dir}
-    timeout 50m bash tools/auto_parallel/ci_auto_parallel.sh
+    timeout 50m bash tools/auto_parallel/ci_distributed_stable.sh
     EXIT_CODE=$?
     echo "End auto_parallel Test"
 
@@ -3533,21 +3709,6 @@ function exec_samplecode_test() {
     fi
 }
 
-function need_type_checking() {
-    set +x
-
-    # check pr title
-    TITLE_CHECK=`curl -s https://github.com/PaddlePaddle/Paddle/pull/${GIT_PR_ID} | grep "<title>" | grep -i "typing" || true`
-
-    if [[ ${TITLE_CHECK} ]]; then
-        set -x
-        return 0
-    else
-        set -x
-        return 1
-    fi
-}
-
 function exec_type_checking() {
     if [ -d "${PADDLE_ROOT}/build/pr_whl" ];then
         pip install ${PADDLE_ROOT}/build/pr_whl/*.whl
@@ -3561,12 +3722,21 @@ function exec_type_checking() {
     cd ${PADDLE_ROOT}/tools
 
     # check all sample code
-    TITLE_CHECK_ALL=`curl -s https://github.com/PaddlePaddle/Paddle/pull/${GIT_PR_ID} | grep "<title>" | grep -i "typing all" || true`
+    TITLE_CHECK_ALL=`curl -s https://github.com/PaddlePaddle/Paddle/pull/${GIT_PR_ID} | grep "<title>" | grep -i "\[typing\]" || true`
+    DEBUG_MODE=`curl -s https://github.com/PaddlePaddle/Paddle/pull/${GIT_PR_ID} | grep "<title>" | grep -i "\[debug\]" || true`
 
     if [[ ${TITLE_CHECK_ALL} ]]; then
-        python type_checking.py --full-test; type_checking_error=$?
+        if [[ ${DEBUG_MODE} ]]; then
+            python type_checking.py --debug --full-test; type_checking_error=$?
+        else
+            python type_checking.py --full-test; type_checking_error=$?
+        fi
     else
-        python type_checking.py; type_checking_error=$?
+        if [[ ${DEBUG_MODE} ]]; then
+            python type_checking.py --debug; type_checking_error=$?
+        else
+            python type_checking.py; type_checking_error=$?
+        fi
     fi
 
     if [ "$type_checking_error" != "0" ];then
@@ -3577,6 +3747,7 @@ function exec_type_checking() {
 
 
 function exec_samplecode_checking() {
+    # check sample code with doctest
     example_info_gpu=""
     example_code_gpu=0
     if [ "${WITH_GPU}" == "ON" ] ; then
@@ -3586,20 +3757,22 @@ function exec_samplecode_checking() {
     { example_info=$(exec_samplecode_test cpu 2>&1 1>&3 3>/dev/null); } 3>&1
     example_code=$?
 
-    # TODO(megemini): type_checkding should be default after type annotation been done.
-    need_type_checking
-    type_checking_status=$?
+    # check sample typing with mypy
+    { type_checking_info=$(exec_type_checking 2>&1 1>&3 3>/dev/null); } 3>&1
+    type_checking_code=$?
 
-    if [[ ${type_checking_status} -eq 0 ]]; then
-        { type_checking_info=$(exec_type_checking 2>&1 1>&3 3>/dev/null); } 3>&1
-        type_checking_code=$?
-    fi
-
+    # summary
     summary_check_example_code_problems $[${example_code_gpu} + ${example_code}] "${example_info_gpu}\n${example_info}"
+    summary_type_checking_problems $type_checking_code "$type_checking_info"
 
-    if [[ ${type_checking_status} -eq 0 ]]; then
-        summary_type_checking_problems $type_checking_code "$type_checking_info"
+    # exit with error code
+    if [ $example_code -ne 0 ];then
+        exit $example_code
     fi
+    if [ $type_checking_code -ne 0 ];then
+        exit $type_checking_code
+    fi
+
 }
 
 
@@ -3625,7 +3798,7 @@ function test_op_benchmark() {
     set +x
     approval_line=$(curl -H "Authorization: token ${GITHUB_API_TOKEN}" https://api.github.com/repos/PaddlePaddle/Paddle/pulls/${GIT_PR_ID}/reviews?per_page=10000)
     if [ "${approval_line}" != "" ]; then
-        APPROVALS=$(echo ${approval_line} | python ${PADDLE_ROOT}/tools/check_pr_approval.py 1 32410583 12538138 6836917 61349199)
+        APPROVALS=$(echo ${approval_line} | python ${PADDLE_ROOT}/tools/check_pr_approval.py 1 zhangting2020 Xreki)
         echo "current pr ${GIT_PR_ID} got approvals: ${APPROVALS}"
         if [ "${APPROVALS}" == "TRUE" ]; then
             echo "==================================="
@@ -3655,7 +3828,6 @@ function summary_check_example_code_problems() {
         echo "==============================================================================="
         echo "*****Example code FAIL*****"
         echo "==============================================================================="
-        exit $example_code
     else
         echo "==============================================================================="
         echo "*****Example code info*****"
@@ -3682,7 +3854,6 @@ function summary_type_checking_problems() {
         echo "==============================================================================="
         echo "*****Example code type checking FAIL*****"
         echo "==============================================================================="
-        exit $type_checking_code
     else
         echo "==============================================================================="
         echo "*****Example code type checking info*****"

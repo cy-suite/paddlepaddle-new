@@ -69,10 +69,11 @@ void AppendOpVariantByOpName(const std::vector<framework::OpDesc *> &op_descs,
                              std::vector<OpVariant> *result_ops) {
   PADDLE_ENFORCE_NOT_NULL(
       result_ops,
-      phi::errors::Unavailable("result_ops should not be a null_ptr."));
+      common::errors::Unavailable("result_ops should not be a null_ptr."));
   for (auto *op_desc : op_descs) {
     PADDLE_ENFORCE_NOT_NULL(
-        op_desc, phi::errors::Unavailable("op_desc should not be a null_ptr."));
+        op_desc,
+        common::errors::Unavailable("op_desc should not be a null_ptr."));
     if (op_desc->Type() == candidate_op_name) {
       result_ops->emplace_back(op_desc);
     }
@@ -85,10 +86,11 @@ void AppendOpVariantByOpName(
     std::unordered_set<OpVariant, OpVariant::Hasher> *result_ops) {
   PADDLE_ENFORCE_NOT_NULL(
       result_ops,
-      phi::errors::Unavailable("result_ops should not be a null_ptr."));
+      common::errors::Unavailable("result_ops should not be a null_ptr."));
   for (auto *op_desc : op_descs) {
     PADDLE_ENFORCE_NOT_NULL(
-        op_desc, phi::errors::Unavailable("op_desc should not be a null_ptr."));
+        op_desc,
+        common::errors::Unavailable("op_desc should not be a null_ptr."));
     if (op_desc->Type() == candidate_op_name) {
       result_ops->emplace(op_desc);
     }

@@ -14,24 +14,34 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING
 
-from paddle import _C_ops
+from paddle import _C_ops, pir
 
 from ..base import core, framework
 from ..base.dygraph import no_grad
 from ..base.framework import name_scope
-from .adam import _AdamParameterConfig
 from .optimizer import Optimizer
 
-__all__ = []
-
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from typing_extensions import NotRequired
+
     from paddle import Tensor
     from paddle.nn.clip import GradientClipBase
     from paddle.regularizer import WeightDecayRegularizer
 
     from .lr import LRScheduler
+    from .optimizer import _ParameterConfig
+
+    class _AdamaxParameterConfig(_ParameterConfig):
+        beta1: NotRequired[float | Tensor]
+        beta2: NotRequired[float | Tensor]
+        epsilon: NotRequired[float | Tensor]
+
+
+__all__ = []
 
 
 class Adamax(Optimizer):
@@ -69,7 +79,7 @@ class Adamax(Optimizer):
         beta2 (float|Tensor, optional): The exponential decay rate for the 2nd moment estimates.
             It should be a float number or a 0-D Tensor with shape [] and data type as float32.
             The default value is 0.999.
-        epsilon (float, optional): A small float value for numerical stability.
+        epsilon (float|Tensor, optional): A small float value for numerical stability.
             The default value is 1e-08.
         parameters (list|tuple|None, optional): List/Tuple of ``Tensor`` to update to minimize ``loss``.
             This parameter is required in dygraph mode. And you can specify different options for
@@ -77,8 +87,8 @@ class Adamax(Optimizer):
             then the parameters are list of dict. Note that the learning_rate in parameter groups
             represents the scale of base learning_rate.
             The default value is None in static graph mode, at this time all parameters will be updated.
-        weight_decay (float|WeightDecayRegularizer|None, optional): The strategy of regularization.
-            It can be a float value as coeff of L2 regularization or
+        weight_decay (int|float|WeightDecayRegularizer|None, optional): The strategy of regularization.
+            It can be a int or float value as coeff of L2 regularization or
             :ref:`api_paddle_regularizer_L1Decay`, :ref:`api_paddle_regularizer_L2Decay`.
             If a parameter has set regularizer using :ref:`api_paddle_ParamAttr` already,
             the regularization setting here in optimizer will be ignored for this parameter.
@@ -109,15 +119,16 @@ class Adamax(Optimizer):
             >>> beta1 = paddle.to_tensor([0.9], dtype="float32")
             >>> beta2 = paddle.to_tensor([0.99], dtype="float32")
 
-            >>> adam = paddle.optimizer.Adamax(learning_rate=0.1,
-            ...         parameters=linear.parameters(),
-            ...         beta1=beta1,
-            ...         beta2=beta2,
-            ...         weight_decay=0.01
+            >>> adamax = paddle.optimizer.Adamax(
+            ...     learning_rate=0.1,
+            ...     parameters=linear.parameters(),
+            ...     beta1=beta1,
+            ...     beta2=beta2,
+            ...     weight_decay=0.01
             ... )
             >>> out.backward()
-            >>> adam.step()
-            >>> adam.clear_grad()
+            >>> adamax.step()
+            >>> adamax.clear_grad()
 
 
             >>> # Note that the learning_rate of linear_2 is 0.01.
@@ -127,7 +138,7 @@ class Adamax(Optimizer):
             >>> out = linear_1(inp)
             >>> out = linear_2(out)
             >>> loss = paddle.mean(out)
-            >>> adam = paddle.optimizer.Adamax(
+            >>> adamax = paddle.optimizer.Adamax(
             ...     learning_rate=0.1,
             ...     parameters=[{  # type: ignore
             ...         'params': linear_1.parameters()
@@ -141,9 +152,10 @@ class Adamax(Optimizer):
             ...     beta1=0.9
             ... )
             >>> out.backward()
-            >>> adam.step()
-            >>> adam.clear_grad()
+            >>> adamax.step()
+            >>> adamax.clear_grad()
     """
+
     type: str
     _moment_acc_str = "moment"
     _inf_norm_acc_str = "inf_norm"
@@ -154,10 +166,10 @@ class Adamax(Optimizer):
         learning_rate: float | LRScheduler = 0.001,
         beta1: float | Tensor = 0.9,
         beta2: float | Tensor = 0.999,
-        epsilon: float = 1e-8,
-        parameters: Sequence[Tensor]
-        | Sequence[_AdamParameterConfig]
-        | None = None,
+        epsilon: float | Tensor = 1e-8,
+        parameters: (
+            Sequence[Tensor] | Sequence[_AdamaxParameterConfig] | None
+        ) = None,
         weight_decay: float | WeightDecayRegularizer | None = None,
         grad_clip: GradientClipBase | None = None,
         name: str | None = None,
@@ -231,7 +243,7 @@ class Adamax(Optimizer):
             self._already_create_accumulator.add(p.name)
 
     def _append_optimize_op(self, block, param_and_grad):
-        assert isinstance(block, framework.Block)
+        assert isinstance(block, (framework.Block, pir.Block))
         if isinstance(param_and_grad, dict):
             param_and_grad = self._update_param_group(param_and_grad)
 
@@ -254,7 +266,7 @@ class Adamax(Optimizer):
         beta1_pow_acc = self._get_accumulator_master(
             self._beta1_pow_acc_str, param_and_grad[0]
         )
-        if framework.in_dygraph_mode():
+        if framework.in_dynamic_or_pir_mode():
             _C_ops.adamax_(
                 param_and_grad[0],
                 param_and_grad[1],
@@ -305,7 +317,7 @@ class Adamax(Optimizer):
 
     def _finish_update(self, block, parameters_and_grads):
         """Update Beta1 Power accumulator"""
-        assert isinstance(block, framework.Block)
+        assert isinstance(block, (framework.Block, pir.Block))
         if isinstance(parameters_and_grads, list):
             for param, grad in parameters_and_grads:
                 if grad is None or param.stop_gradient is True:
@@ -319,6 +331,12 @@ class Adamax(Optimizer):
                             beta1_pow_acc, self._beta1, 0.0, True
                         )
                         beta1_pow_acc.copy_(tmp, False)
+                elif framework.in_pir_mode():
+                    with param.block.program._optimized_guard([param, grad]):
+                        beta1_pow_acc = self._get_accumulator_master(
+                            self._beta1_pow_acc_str, param
+                        )
+                        _C_ops.scale_(beta1_pow_acc, self._beta1, 0.0, True)
                 else:
                     with param.block.program._optimized_guard(
                         [param, grad]

@@ -14,15 +14,18 @@
 
 #include "paddle/cinn/ir/group_schedule/config/file_database.h"
 
-#include <sys/stat.h>
-
 #include <google/protobuf/text_format.h>
 #include <google/protobuf/util/json_util.h>
+#include <sys/stat.h>
+#include <cstdlib>
 #include <fstream>
 
 #include "paddle/cinn/utils/multi_threading.h"
+#include "paddle/common/enforce.h"
 
 PD_DECLARE_string(cinn_tile_config_filename_label);
+
+const int priority_of_best_config = 0;
 
 #define MKDIR(path) mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
 static bool PathExists(const std::string& path) {
@@ -89,7 +92,8 @@ std::string IterSpaceTypeToDir(const common::Target target,
     filename += i.first + i.second;
     filename += "_";
   }
-  dirname = dirname.substr(0, dirname.size() - 1);
+  const std::string kDirSuffix = "_EREBE/";
+  dirname = dirname.substr(0, dirname.size() - 1) + kDirSuffix;
   filename = filename.substr(0, filename.size() - 1);
 
   auto checkexist = [](std::string test_path) {
@@ -102,13 +106,24 @@ std::string IterSpaceTypeToDir(const common::Target target,
                             test_path));
     }
   };
+  const char* envValue = getenv("CINN_CONFIG_PATH");
+  std::string config_file_addr;
+  if (envValue == nullptr)
+    config_file_addr = "";
+  else
+    config_file_addr = envValue;
   std::string root_path = FLAGS_cinn_tile_config_filename_label;
+  if (root_path == "") {
+    root_path = config_file_addr + "/tile_config/";
+  }
+  std::string target_str = target.arch_str() + "_" + target.device_name_str();
   checkexist(root_path);
-  checkexist(root_path + target.arch_str());
-  checkexist(root_path + target.arch_str() + "/" + dirname);
-  VLOG(3) << "Dump_path is " << root_path + dirname + "/" + filename + ".json";
-  return root_path + target.arch_str() + "/" + dirname + "/" + filename +
-         ".json";
+  checkexist(root_path + target_str);
+  checkexist(root_path + target_str + "/" + dirname);
+  VLOG(3) << "Dump_path is "
+          << root_path + target_str + "/" + dirname + filename + ".json";
+
+  return root_path + target_str + "/" + dirname + filename + ".json";
 }
 
 bool FileTileConfigDatabase::ToFile(const common::Target& target,
@@ -153,19 +168,18 @@ bool FileTileConfigDatabase::ToFile(const common::Target& target,
 
 std::vector<std::string> ReadLinesFromFile(const std::string& file_path) {
   std::ifstream is(file_path);
+  std::vector<std::string> json_strs;
   if (is.good()) {
-    std::vector<std::string> json_strs;
     for (std::string str; std::getline(is, str);) {
       if (str != "") {
         json_strs.push_back(str);
       }
     }
     VLOG(3) << "The size of json_lines is: " << json_strs.size();
-    return json_strs;
   } else {
-    PADDLE_THROW(
-        ::common::errors::InvalidArgument("File doesn't exist: %s", file_path));
+    VLOG(3) << "File doesn't exist: " << file_path;
   }
+  return json_strs;
 }
 
 void JsonStringToMessageOfTileConfig(
@@ -176,7 +190,12 @@ void JsonStringToMessageOfTileConfig(
     group_schedule::config::proto::TileData tile_data;
     auto status = google::protobuf::util::JsonStringToMessage(json_lines[index],
                                                               &tile_data);
-    CHECK(status.ok()) << "Failed to parse JSON: " << json_lines[index];
+    PADDLE_ENFORCE_EQ(
+        status.ok(),
+        true,
+        ::common::errors::InvalidArgument(
+            "Failed to parse JSON: %s. Please check the JSON content.",
+            json_lines[index]));
     (*tile_database)[index] = tile_data;
   };
   utils::parallel_run(
@@ -186,7 +205,7 @@ void JsonStringToMessageOfTileConfig(
 
 bool comparepriority(group_schedule::config::proto::TileData tile_data1,
                      group_schedule::config::proto::TileData tile_data2) {
-  return tile_data1.priority() >= tile_data2.priority();
+  return tile_data1.priority() > tile_data2.priority();
 }
 
 TileConfigMap FileTileConfigDatabase::GetConfigs(
@@ -218,6 +237,7 @@ TileConfigMap FileTileConfigDatabase::GetConfigs(
       vector_dim_info[i].is_dynamic = its.dimension(i).is_dynamic();
     }
     auto bucket_info = BucketInfo(vector_dim_info);
+    bucket_info.bucket_priority = priority_of_best_config;
     //  Step 2.2: Convert proto tile_config to source tile_config
     ScheduleConfig::TileConfig tconfig;
     tconfig.tree_reduce_num = piece_tileconfig.tile_config().tree_reduce_num();

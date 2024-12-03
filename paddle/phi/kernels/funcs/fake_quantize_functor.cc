@@ -28,7 +28,7 @@ template <typename Context, typename T>
 void ClipAndFakeQuantFunctor<Context, T>::operator()(const Context &ctx,
                                                      const DenseTensor &in,
                                                      const DenseTensor &scale,
-                                                     const int bin_cnt,
+                                                     const int qmax,
                                                      const int round_type,
                                                      DenseTensor *out) {
   T s = scale.data<T>()[0];
@@ -39,7 +39,7 @@ void ClipAndFakeQuantFunctor<Context, T>::operator()(const Context &ctx,
           in.data<T>(),
           in.data<T>() + in.numel(),
           ctx.template Alloc<T>(out),
-          QuantTensorFunctor<T>(static_cast<T>(bin_cnt), inv_s));
+          QuantTensorFunctor<T>(static_cast<T>(qmax), inv_s));
   } else {
     trans(ctx,
           in.data<T>(),
@@ -47,7 +47,7 @@ void ClipAndFakeQuantFunctor<Context, T>::operator()(const Context &ctx,
           ctx.template Alloc<T>(out),
           phi::ClipFunctor<T>(-s, s));
     auto out_e = EigenVector<T>::Flatten(*out);
-    out_e.device(*ctx.eigen_device()) = (bin_cnt * inv_s * out_e).round();
+    out_e.device(*ctx.eigen_device()) = (qmax * inv_s * out_e).round();
   }
 }
 
@@ -89,9 +89,9 @@ void FindChannelAbsMaxFunctor<Context, T>::operator()(
   PADDLE_ENFORCE_EQ(
       quant_axis == 0 || quant_axis == 1,
       true,
-      phi::errors::InvalidArgument("'quant_axis' should be 0 or 1, but "
-                                   "the received is %d",
-                                   quant_axis));
+      common::errors::InvalidArgument("'quant_axis' should be 0 or 1, but "
+                                      "the received is %d",
+                                      quant_axis));
   auto *in_data = in_tensor.data<T>();
   auto in_dims = in_tensor.dims();
   const int64_t channel = in_dims[quant_axis];
@@ -124,7 +124,7 @@ void ChannelClipAndFakeQuantFunctor<Context, T>::operator()(
     const Context &ctx,
     const DenseTensor &in,
     const DenseTensor &scale,
-    const int bin_cnt,
+    const int qmax,
     const int round_type,
     const int quant_axis,
     DenseTensor *out) {
@@ -133,9 +133,9 @@ void ChannelClipAndFakeQuantFunctor<Context, T>::operator()(
   PADDLE_ENFORCE_EQ(
       quant_axis == 0 || quant_axis == 1,
       true,
-      phi::errors::InvalidArgument("'quant_axis' should be 0 or 1, but "
-                                   "the received is %d",
-                                   quant_axis));
+      common::errors::InvalidArgument("'quant_axis' should be 0 or 1, but "
+                                      "the received is %d",
+                                      quant_axis));
   auto *scale_data = scale.data<T>();
   auto *in_data = in.data<T>();
   auto *out_data = ctx.template Alloc<T>(out);
@@ -154,7 +154,7 @@ void ChannelClipAndFakeQuantFunctor<Context, T>::operator()(
               start,
               end,
               out_data + i * channel_size,
-              QuantTensorFunctor<T>(static_cast<T>(bin_cnt), inv_s));
+              QuantTensorFunctor<T>(static_cast<T>(qmax), inv_s));
       } else {
         trans(ctx,
               start,
@@ -169,7 +169,7 @@ void ChannelClipAndFakeQuantFunctor<Context, T>::operator()(
         T inv_s = inverse(s);
         DenseTensor one_channel_out = out->Slice(i, i + 1);
         auto out_e = EigenVector<T>::Flatten(one_channel_out);
-        out_e.device(*ctx.eigen_device()) = (bin_cnt * inv_s * out_e).round();
+        out_e.device(*ctx.eigen_device()) = (qmax * inv_s * out_e).round();
       }
     }
   } else if (quant_axis == 1) {
@@ -187,11 +187,11 @@ void ChannelClipAndFakeQuantFunctor<Context, T>::operator()(
                 start,
                 end,
                 cur_out_data,
-                QuantTensorFunctor<T>(static_cast<T>(bin_cnt), inv_s));
+                QuantTensorFunctor<T>(static_cast<T>(qmax), inv_s));
         } else {
           trans(ctx, start, end, cur_out_data, ClipFunctor<T>(-s, s));
           for (int k = 0; k < step_j; k++) {
-            cur_out_data[k] = std::round(bin_cnt * inv_s * cur_out_data[k]);
+            cur_out_data[k] = std::round(qmax * inv_s * cur_out_data[k]);
           }
         }
       }
@@ -211,9 +211,9 @@ void ChannelClipFakeQuantDequantFunctor<Context, T>::operator()(
   PADDLE_ENFORCE_EQ(
       quant_axis == 0 || quant_axis == 1,
       true,
-      phi::errors::InvalidArgument("'quant_axis' should be 0 or 1, but "
-                                   "the received is %d",
-                                   quant_axis));
+      common::errors::InvalidArgument("'quant_axis' should be 0 or 1, but "
+                                      "the received is %d",
+                                      quant_axis));
 
   auto *scale_data = scale.data<T>();
   auto *in_data = in.data<T>();

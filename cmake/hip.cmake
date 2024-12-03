@@ -75,6 +75,7 @@ endmacro()
 
 find_package_and_include(miopen)
 find_package_and_include(rocblas)
+find_package_and_include(hipblaslt)
 find_package_and_include(hiprand)
 find_package_and_include(rocrand)
 find_package_and_include(rccl)
@@ -85,11 +86,16 @@ find_package_and_include(hipsparse)
 find_package_and_include(rocsparse)
 find_package_and_include(rocfft)
 
+if(CCACHE_PATH)
+  set(HIP_HIPCC_EXECUTABLE ${CCACHE_PATH} ${HIP_HIPCC_EXECUTABLE})
+endif()
+
 # set CXX flags for HIP
 set(CMAKE_C_FLAGS
-    "${CMAKE_C_FLAGS} -D__HIP_PLATFORM_HCC__ -DROCM_NO_WRAPPER_HEADER_WARNING")
+    "${CMAKE_C_FLAGS} -D__HIP_PLATFORM_HCC__ -D__HIP_PLATFORM_AMD__ -DROCM_NO_WRAPPER_HEADER_WARNING"
+)
 set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} -D__HIP_PLATFORM_HCC__ -DROCM_NO_WRAPPER_HEADER_WARNING"
+    "${CMAKE_CXX_FLAGS} -D__HIP_PLATFORM_HCC__ -D__HIP_PLATFORM_AMD__ -DROCM_NO_WRAPPER_HEADER_WARNING"
 )
 set(CMAKE_CXX_FLAGS
     "${CMAKE_CXX_FLAGS} -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_HIP")
@@ -98,6 +104,7 @@ set(THRUST_DEVICE_SYSTEM THRUST_DEVICE_SYSTEM_HIP)
 # define HIP_CXX_FLAGS
 list(APPEND HIP_CXX_FLAGS -fPIC)
 list(APPEND HIP_CXX_FLAGS -D__HIP_PLATFORM_HCC__=1)
+list(APPEND HIP_CXX_FLAGS -D__HIP_PLATFORM_AMD__=1)
 # Note(qili93): HIP has compile conflicts of float16.h as platform::float16 overload std::is_floating_point and std::is_integer
 list(APPEND HIP_CXX_FLAGS -D__HIP_NO_HALF_CONVERSIONS__=1)
 list(APPEND HIP_CXX_FLAGS -DROCM_NO_WRAPPER_HEADER_WARNING)
@@ -135,7 +142,8 @@ list(APPEND HIP_CXX_FLAGS -Wno-deprecated-copy-with-user-provided-copy)
 list(APPEND HIP_CXX_FLAGS -Wno-unused-local-typedef)
 list(APPEND HIP_CXX_FLAGS -Wno-missing-braces)
 list(APPEND HIP_CXX_FLAGS -Wno-sometimes-uninitialized)
-
+list(APPEND HIP_CXX_FLAGS -Wno-deprecated-copy)
+list(APPEND HIP_CXX_FLAGS -Wno-pessimizing-move)
 list(APPEND HIP_CXX_FLAGS -std=c++17)
 list(APPEND HIP_CXX_FLAGS --gpu-max-threads-per-block=1024)
 
@@ -152,9 +160,11 @@ set(HIP_CLANG_FLAGS ${HIP_CXX_FLAGS})
 list(APPEND HIP_HCC_FLAGS -fno-gpu-rdc)
 list(APPEND HIP_HCC_FLAGS --offload-arch=gfx906) # Z100 (ZIFANG)
 list(APPEND HIP_HCC_FLAGS --offload-arch=gfx926) # K100 (KONGING)
+list(APPEND HIP_HCC_FLAGS --offload-arch=gfx928) # K100_AI (KONGING_AI)
 list(APPEND HIP_CLANG_FLAGS -fno-gpu-rdc)
 list(APPEND HIP_CLANG_FLAGS --offload-arch=gfx906) # Z100 (ZIFANG)
 list(APPEND HIP_CLANG_FLAGS --offload-arch=gfx926) # K100 (KONGING)
+list(APPEND HIP_CLANG_FLAGS --offload-arch=gfx928) # K100_AI (KONGING_AI)
 
 if(HIP_COMPILER STREQUAL clang)
   set(hip_library_name amdhip64)

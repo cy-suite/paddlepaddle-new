@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING
 
 from paddle import _C_ops, pir
 
@@ -25,12 +25,15 @@ from ..base.framework import in_dynamic_or_pir_mode
 from .optimizer import Optimizer
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from paddle import Tensor
     from paddle.nn.clip import GradientClipBase
     from paddle.regularizer import WeightDecayRegularizer
 
     from .lr import LRScheduler
     from .optimizer import _ParameterConfig
+
 __all__ = []
 
 
@@ -48,8 +51,8 @@ class SGD(Optimizer):
         parameters (list|tuple|None, optional): List/Tuple of ``Tensor`` to update to minimize ``loss``. \
             This parameter is required in dygraph mode. \
             The default value is None in static graph mode, at this time all parameters will be updated.
-        weight_decay (float|WeightDecayRegularizer|None, optional): The strategy of regularization. \
-            It can be a float value as coeff of L2 regularization or \
+        weight_decay (int|float|WeightDecayRegularizer|None, optional): The strategy of regularization. \
+            It can be a int or float value as coeff of L2 regularization or \
             :ref:`api_paddle_regularizer_L1Decay`, :ref:`api_paddle_regularizer_L2Decay`.
             If a parameter has set regularizer using :ref:`api_paddle_ParamAttr` already, \
             the regularization setting here in optimizer will be ignored for this parameter. \
@@ -74,7 +77,11 @@ class SGD(Optimizer):
             >>> inp = paddle.to_tensor(inp)
             >>> out = linear(inp)
             >>> loss = paddle.mean(out)
-            >>> sgd = paddle.optimizer.SGD(learning_rate=0.1, parameters=linear.parameters(), weight_decay=0.01)
+            >>> sgd = paddle.optimizer.SGD(
+            ...     learning_rate=0.1,
+            ...     parameters=linear.parameters(),
+            ...     weight_decay=0.01
+            ... )
             >>> out.backward()
             >>> sgd.step()
             >>> sgd.clear_grad()

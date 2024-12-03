@@ -47,7 +47,7 @@ void DistributedFusedLambInitOpKernel(
     std::vector<DenseTensor*> grad_out,
     DenseTensor* global_scale,
     DenseTensor* step) {
-  PADDLE_THROW(phi::errors::Unavailable(
+  PADDLE_THROW(common::errors::Unavailable(
       "Do not support expert count op for cpu kernel now."));
 }
 }  // namespace phi::fusion

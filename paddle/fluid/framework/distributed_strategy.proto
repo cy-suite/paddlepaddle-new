@@ -75,6 +75,7 @@ message MpConfig {
     optional bool need_broadcast_data = 8 [default = true];
     // Recompute AllGather in forward of ColumnSequenceParallelLinear to reduce the memory usage.
     optional bool recompute_allgather = 9 [default = false];
+    optional bool sp_async_reduce_scatter = 10 [default = false];
 }
 
 message PpConfig {
@@ -87,6 +88,7 @@ message PpConfig {
     optional bool overlap_p2p_comm = 7 [default = false];
     optional bool clear_every_step_cache = 8 [default = false];
     optional bool use_batch_p2p_comm = 9 [default = true];
+    optional bool best_unbalanced_scheduler = 10 [ default = false ];
 }
 
 message DygraphShardingConfig {
@@ -96,6 +98,9 @@ message DygraphShardingConfig {
   optional bool split_param = 4 [ default = false ];
   optional bool fuse_optimizer = 5 [ default = true ];
   optional bool use_reduce_avg = 6 [ default = true ];
+  optional int32 comm_buffer_size_MB = 7 [ default = 256 ];
+  optional bool release_gradients = 8 [ default = false ];
+  optional bool free_grads_in_comm = 9 [ default = false ];
 }
 
 message HybridConfig {
@@ -107,6 +112,7 @@ message HybridConfig {
   optional MpConfig mp_configs = 6;
   optional PpConfig pp_configs = 7;
   optional DygraphShardingConfig sharding_configs = 8;
+  optional bool enable_optimizer_timer = 9 [ default = false ];
 }
 
 message AMPConfig {
@@ -160,7 +166,6 @@ message LambConfig {
 }
 
 message BuildStrategy {
-  optional bool enable_sequential_execution = 1 [ default = false ];
   optional bool fuse_elewise_add_act_ops = 2 [ default = false ];
   optional bool fuse_bn_act_ops = 3 [ default = false ];
   optional bool fuse_relu_depthwise_conv = 4 [ default = false ];
@@ -172,7 +177,6 @@ message BuildStrategy {
   optional bool fuse_bn_add_act_ops = 10 [ default = true ];
   optional bool enable_auto_fusion = 11 [ default = false ];
   optional bool enable_addto = 12 [ default = false ];
-  optional bool fix_op_run_order = 13 [ default = false ];
   optional bool allow_cuda_graph_capture = 14 [ default = false ];
   optional int32 reduce_strategy = 15 [ default = 0 ];
   optional bool fuse_gemm_epilogue = 16 [ default = false ];
@@ -181,13 +185,6 @@ message BuildStrategy {
   optional bool fused_feedforward = 19 [ default = false];
   optional bool fuse_dot_product_attention = 20 [ default = false ];
   optional bool fuse_resunit = 21 [ default = false ];
-}
-
-message ExecutionStrategy {
-  optional int32 num_threads = 1 [ default = 1 ];
-  optional int32 num_iteration_per_drop_scope = 2 [ default = 10 ];
-  optional int32 num_iteration_per_run = 3 [ default = 1 ];
-  optional bool use_thread_barrier = 4 [ default = false ];
 }
 
 message GradientScaleConfig {
@@ -428,7 +425,6 @@ message DistributedStrategy {
   optional QatConfig qat_configs = 117;
 
   optional BuildStrategy build_strategy = 201;
-  optional ExecutionStrategy execution_strategy = 202;
   optional GradientScaleConfig gradient_scale_configs = 203;
 }
 

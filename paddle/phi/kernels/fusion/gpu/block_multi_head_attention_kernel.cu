@@ -22,8 +22,15 @@
 #include "paddle/phi/kernels/gpu/flash_attn_utils.h"
 #include "paddle/utils/none.h"
 
+inline int getSMVersion() {
+  const int device = phi::backends::gpu::GetCurrentDeviceId();
+  const phi::gpuDeviceProp prop =
+      phi::backends::gpu::GetDeviceProperties(device);
+  return prop.major * 10 + prop.minor;
+}
+
 #if defined(__CUDACC__) && CUDA_VERSION >= 11000
-#define CUDA_BFLOAT16_AVALIABLE
+#define CUDA_BFLOAT16_AVAILABLE
 #include <cuda_bf16.h>
 #endif
 
@@ -71,7 +78,7 @@ __forceinline__ __device__ half add_mul<half>(half a, half b, half c) {
   return __hmul(__hadd(a, b), c);
 }
 
-#ifdef CUDA_BFLOAT16_AVALIABLE
+#ifdef CUDA_BFLOAT16_AVAILABLE
 template <>
 __forceinline__ __device__ __nv_bfloat16
 add_mul<__nv_bfloat16>(__nv_bfloat16 a, __nv_bfloat16 b, __nv_bfloat16 c) {
@@ -121,6 +128,19 @@ __forceinline__ __device__ int8_t quant_helper(const data_t input,
 }
 
 template <typename data_t>
+__forceinline__ __device__ phi::dtype::float8_e4m3fn fp8_quant_helper(
+    const data_t input,
+    const float scale,
+    const int round_type,
+    const float max_bound,
+    const float min_bound) {
+  float quant_value = max_bound * scale * static_cast<float>(input);
+  quant_value = quant_value > max_bound ? max_bound : quant_value;
+  quant_value = quant_value < min_bound ? min_bound : quant_value;
+  return static_cast<phi::dtype::float8_e4m3fn>(quant_value);
+}
+
+template <typename data_t>
 __global__ void QuantKernel(const data_t* input,
                             char4* output,
                             const float scale,
@@ -145,6 +165,34 @@ __global__ void QuantKernel(const data_t* input,
         input[m_id * n + n_id + 3], scale, round_type, max_bound, min_bound);
 
     output[(m_id * n + n_id) >> 2] = tmp;
+  }
+}
+
+template <typename data_t>
+__global__ void FP8QuantKernel(const data_t* input,
+                               phi::dtype::float8_e4m3fn* output,
+                               const float scale,
+                               const int m,
+                               const int n,
+                               const int round_type,
+                               const float max_bound,
+                               const float min_bound) {
+  int n_id = (blockIdx.x * blockDim.x + threadIdx.x) << 2;
+  int m_id = blockIdx.y * blockDim.y + threadIdx.y;
+  bool check = ((m_id < m) && (n_id < n));
+
+  if (check) {
+#pragma unroll
+    for (int i = 0; i < 4; ++i) {
+      output[m_id * n + n_id] = fp8_quant_helper(
+          input[m_id * n + n_id], scale, round_type, max_bound, min_bound);
+      output[m_id * n + n_id + 1] = fp8_quant_helper(
+          input[m_id * n + n_id + 1], scale, round_type, max_bound, min_bound);
+      output[m_id * n + n_id + 2] = fp8_quant_helper(
+          input[m_id * n + n_id + 2], scale, round_type, max_bound, min_bound);
+      output[m_id * n + n_id + 3] = fp8_quant_helper(
+          input[m_id * n + n_id + 3], scale, round_type, max_bound, min_bound);
+    }
   }
 }
 
@@ -265,6 +313,7 @@ void DispatchWithDtype(
     const float quant_min_bound,
     const float out_scale,
     const std::string& compute_dtype,
+    const float rope_theta,
     DenseTensor* fmha_out,
     DenseTensor* qkv_out,
     DenseTensor* key_cache_out,
@@ -273,16 +322,19 @@ void DispatchWithDtype(
   phi::DenseTensor fmha_buf;
 
   VLOG(1) << "fmha_out " << fmha_out->dims();
-  if (out_scale <= 0) {
-    dev_ctx.template Alloc<T>(fmha_out);
-    fmha_buf = *fmha_out;
-  } else {
+  if (fmha_out->dtype() == phi::DataType::INT8) {
     fmha_buf.Resize(fmha_out->dims());
     dev_ctx.template Alloc<T>(&fmha_buf);
     dev_ctx.template Alloc<int8_t>(fmha_out);
+  } else if (fmha_out->dtype() == phi::DataType::FLOAT8_E4M3FN) {
+    fmha_buf.Resize(fmha_out->dims());
+    dev_ctx.template Alloc<T>(&fmha_buf);
+    dev_ctx.template Alloc<phi::dtype::float8_e4m3fn>(fmha_out);
+  } else {
+    dev_ctx.template Alloc<T>(fmha_out);
+    fmha_buf = *fmha_out;
   }
 
-  InitValue(dev_ctx, fmha_buf.data<T>(), fmha_buf.numel(), static_cast<T>(0.));
   const auto& input_dims = qkv.dims();
   const auto& key_cache_dims = key_cache.dims();
   const int token_num = input_dims[0];
@@ -362,8 +414,9 @@ void DispatchWithDtype(
   phi::DenseTensor unpadding_q, unpadding_k, unpadding_v;
   phi::DenseTensor softmax_out, softmax_lse, seed_offset;
   phi::DenseTensor q_trans, k_trans, v_trans, qktv_out;
+  int sm = getSMVersion();
   if (max_enc_len_this_time_data > 0) {
-    if (!use_pre_cache) {
+    if (!use_pre_cache && sm >= 80) {
       unpadding_q.Resize({{token_num, q_num_head, dim_head}});
       unpadding_k.Resize({{token_num, kv_num_head, dim_head}});
       unpadding_v.Resize({{token_num, kv_num_head, dim_head}});
@@ -426,6 +479,9 @@ void DispatchWithDtype(
 
   if (max_enc_len_this_time_data > 0) {
     const int* sequence_lengths_data = seq_lens_encoder.data<int>();
+    // VLOGMatrix(
+    //     qkv_buf.data<T>(), qkv_buf.numel(), "qkv_buf before",
+    //     qkv_buf.numel());
     if (rope_emb) {
       if (q_num_head == kv_num_head) {
         rotary_qk_variable(dev_ctx,
@@ -438,7 +494,8 @@ void DispatchWithDtype(
                            q_num_head,
                            max_seq_len,
                            rope_emb.get().dims()[2],
-                           dim_head);
+                           dim_head,
+                           use_neox_style);
       } else {
         gqa_rotary_qk_variable(dev_ctx,
                                qkv_buf.data<T>(),
@@ -451,12 +508,16 @@ void DispatchWithDtype(
                                kv_num_head,
                                max_seq_len,
                                rope_emb.get().dims()[2],
-                               dim_head);
+                               dim_head,
+                               use_neox_style);
       }
     }
+    // VLOGMatrix(
+    //     qkv_buf.data<T>(), qkv_buf.numel(), "qkv_buf after",
+    //     qkv_buf.numel());
     VLOG(3) << "rope end";
     VLOG(3) << "causual: " << causual;
-    if (!use_pre_cache) {
+    if (!use_pre_cache && sm >= 80) {
       qkv_transpose_split<T>(dev_ctx,
                              unpadding_q.data<T>(),
                              unpadding_k.data<T>(),
@@ -471,7 +532,19 @@ void DispatchWithDtype(
                              max_seq_len,
                              dim_head);
       VLOG(3) << "qkv split end";
-      // Reshape fmha_buf to 3-D because FlashAttnUnpaddedKernel requries
+      // VLOGMatrix(unpadding_q.data<T>(),
+      //            unpadding_q.numel(),
+      //            "unpadding_q",
+      //            unpadding_q.numel());
+      // VLOGMatrix(unpadding_k.data<T>(),
+      //            unpadding_k.numel(),
+      //            "unpadding_k",
+      //            unpadding_k.numel());
+      // VLOGMatrix(unpadding_v.data<T>(),
+      //            unpadding_v.numel(),
+      //            "unpadding_v",
+      //            unpadding_v.numel());
+      // Reshape fmha_buf to 3-D because FlashAttnUnpaddedKernel requires
       // q,k,v,out all in 3-D [token_num, q_num_head, dim_head].
       auto fmha_shape = fmha_buf.dims();
       fmha_buf.Resize({token_num, q_num_head, dim_head});
@@ -498,24 +571,45 @@ void DispatchWithDtype(
       // Reshape fmha_buf back (to 2-D), to not affect following codes.
       fmha_buf.Resize(fmha_shape);
     } else {
-      // NOTE: not support gqa
-      qkv_transpose_split<T>(
-          dev_ctx,
-          q_trans.data<T>(),
-          k_trans.data<T>(),
-          v_trans.data<T>(),
-          qkv.data<T>(),
-          pre_key_cache ? pre_key_cache.get().data<T>() : nullptr,
-          pre_value_cache ? pre_value_cache.get().data<T>() : nullptr,
-          padding_offsets.data<int>(),
-          sequence_lengths_data,
-          token_num,
-          bsz,
-          q_num_head,
-          max_enc_len_this_time_data,
-          max_seq_len,
-          pre_cache_length,
-          dim_head);
+      if (sm < 80 && !use_pre_cache) {
+        qkv_transpose_split<T>(
+            dev_ctx,
+            q_trans.data<T>(),
+            k_trans.data<T>(),
+            v_trans.data<T>(),
+            qkv_buf.data<T>(),
+            pre_key_cache ? pre_key_cache.get().data<T>() : nullptr,
+            pre_value_cache ? pre_value_cache.get().data<T>() : nullptr,
+            padding_offsets.data<int>(),
+            sequence_lengths_data,
+            token_num,
+            bsz,
+            q_num_head,
+            kv_num_head,
+            max_enc_len_this_time_data,
+            max_seq_len,
+            pre_cache_length,
+            dim_head);
+      } else {
+        qkv_transpose_split<T>(
+            dev_ctx,
+            q_trans.data<T>(),
+            k_trans.data<T>(),
+            v_trans.data<T>(),
+            qkv.data<T>(),
+            pre_key_cache ? pre_key_cache.get().data<T>() : nullptr,
+            pre_value_cache ? pre_value_cache.get().data<T>() : nullptr,
+            padding_offsets.data<int>(),
+            sequence_lengths_data,
+            token_num,
+            bsz,
+            q_num_head,
+            kv_num_head,
+            max_enc_len_this_time_data,
+            max_seq_len,
+            pre_cache_length,
+            dim_head);
+      }
 #ifdef PADDLE_WITH_MEMORY_EFFICIENT_ATTENTION
       phi::fusion::MultiHeadAttentionVariableForwardKernel<T, phi::GPUContext>(
           dev_ctx,
@@ -524,13 +618,31 @@ void DispatchWithDtype(
           v_trans,
           seq_lens_encoder,
           seq_lens_encoder,
-          mask,
+          (sm < 80 && !use_pre_cache) ? paddle::none : mask,
           1.0f / sqrt(static_cast<float>(dim_head)),
-          /*causual*/ false,
+          (sm < 80 && !use_pre_cache) ? causual : false,
           pre_cache_length,
           &qktv_out);
+#elif defined(PADDLE_WITH_HIP)
+      const bool is_precache_infer = true;
+      phi::FlashAttnKernel<T>(
+          dev_ctx,
+          q_trans,
+          k_trans,
+          v_trans,
+          paddle::none /*fixed_seed_offset*/,
+          paddle::none /*mask*/,
+          0.0,
+          is_precache_infer ? true : causual /*precache_infer_casual*/,
+          false,
+          is_precache_infer /*is_test*/,
+          "" /*rng_name*/,
+          &qktv_out,
+          &softmax_out,
+          &softmax_lse,
+          &seed_offset);
 #else
-      PADDLE_THROW(phi::errors::Unimplemented(
+      PADDLE_THROW(common::errors::Unimplemented(
           "Not supports MultiHeadAttentionVariableForwardKernel."));
 #endif
       InvokeTransposeRemovePadding<T>(dev_ctx,
@@ -592,7 +704,6 @@ void DispatchWithDtype(
     }
     VLOG(3) << "cache end";
   }
-  // VLOGMatrix(qkv_buf.data<T>(), qkv_buf.numel(), "qkv_buf", qkv_buf.numel());
   VLOG(3) << "encoder done";
   VLOG(3) << "max_dec_len_this_time: " << max_dec_len_this_time_data;
   if (max_dec_len_this_time_data > 0) {
@@ -644,6 +755,7 @@ void DispatchWithDtype(
             max_dec_len_this_time_data,
             rope_emb ? 1 : 0,
             1. / sqrt(dim_head),
+            rope_theta,
             /*compute_bias*/ false,
             use_neox_style,
             quant_round_type,
@@ -665,8 +777,13 @@ void DispatchWithDtype(
   if (out_scale > 0) {
     int m = fmha_out->dims()[0];
     int n = fmha_out->dims()[1];
+#ifdef PADDLE_WITH_HIP
+    dim3 grid(((n >> 2) + 63) / 64, (m + 7) / 8);
+    dim3 block(64, 8);
+#else
     dim3 grid((n >> 2 + 31) / 32, (m + 31) / 32);
     dim3 block(32, 32);
+#endif
     if (out_shift && out_smooth) {
       QuantKernel<T><<<grid, block, 0, dev_ctx.stream()>>>(
           fmha_buf.data<T>(),
@@ -680,15 +797,27 @@ void DispatchWithDtype(
           quant_max_bound,
           quant_min_bound);
     } else {
-      QuantKernel<T><<<grid, block, 0, dev_ctx.stream()>>>(
-          fmha_buf.data<T>(),
-          reinterpret_cast<char4*>(fmha_out->data<int8_t>()),
-          out_scale,
-          m,
-          n,
-          quant_round_type,
-          quant_max_bound,
-          quant_min_bound);
+      if (fmha_out->dtype() == phi::DataType::FLOAT8_E4M3FN) {
+        FP8QuantKernel<T><<<grid, block, 0, dev_ctx.stream()>>>(
+            fmha_buf.data<T>(),
+            fmha_out->data<phi::dtype::float8_e4m3fn>(),
+            out_scale,
+            m,
+            n,
+            quant_round_type,
+            quant_max_bound,
+            quant_min_bound);
+      } else {
+        QuantKernel<T><<<grid, block, 0, dev_ctx.stream()>>>(
+            fmha_buf.data<T>(),
+            reinterpret_cast<char4*>(fmha_out->data<int8_t>()),
+            out_scale,
+            m,
+            n,
+            quant_round_type,
+            quant_max_bound,
+            quant_min_bound);
+      }
     }
     VLOG(3) << "decoder done";
   }
@@ -732,6 +861,7 @@ void BlockMultiheadAttentionKernel(
     const float quant_min_bound,
     const float out_scale,
     const std::string& compute_dtype,
+    const float rope_theta,
     DenseTensor* fmha_out,
     DenseTensor* qkv_out,
     DenseTensor* key_cache_out,
@@ -776,12 +906,13 @@ void BlockMultiheadAttentionKernel(
                                                       quant_min_bound,
                                                       out_scale,
                                                       compute_dtype,
+                                                      rope_theta,
                                                       fmha_out,
                                                       qkv_out,
                                                       key_cache_out,
                                                       value_cache_out);
     } else if (compute_dtype == "bf16") {
-#ifdef CUDA_BFLOAT16_AVALIABLE
+#ifdef CUDA_BFLOAT16_AVAILABLE
       DispatchWithDtype<phi::dtype::bfloat16, Context>(dev_ctx,
                                                        qkv,
                                                        key_cache,
@@ -818,6 +949,7 @@ void BlockMultiheadAttentionKernel(
                                                        quant_min_bound,
                                                        out_scale,
                                                        compute_dtype,
+                                                       rope_theta,
                                                        fmha_out,
                                                        qkv_out,
                                                        key_cache_out,
@@ -863,12 +995,13 @@ void BlockMultiheadAttentionKernel(
                                                       quant_min_bound,
                                                       out_scale,
                                                       compute_dtype,
+                                                      rope_theta,
                                                       fmha_out,
                                                       qkv_out,
                                                       key_cache_out,
                                                       value_cache_out);
     } else if (std::is_same<T, phi::dtype::bfloat16>::value) {
-#ifdef CUDA_BFLOAT16_AVALIABLE
+#ifdef CUDA_BFLOAT16_AVAILABLE
       DispatchWithDtype<phi::dtype::bfloat16, Context>(dev_ctx,
                                                        qkv,
                                                        key_cache,
@@ -905,6 +1038,7 @@ void BlockMultiheadAttentionKernel(
                                                        quant_min_bound,
                                                        out_scale,
                                                        compute_dtype,
+                                                       rope_theta,
                                                        fmha_out,
                                                        qkv_out,
                                                        key_cache_out,
@@ -917,7 +1051,7 @@ void BlockMultiheadAttentionKernel(
 }  // namespace fusion
 }  // namespace phi
 
-#ifdef CUDA_BFLOAT16_AVALIABLE
+#ifdef CUDA_BFLOAT16_AVAILABLE
 PD_REGISTER_KERNEL(block_multihead_attention,
                    GPU,
                    ALL_LAYOUT,

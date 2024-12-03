@@ -16,7 +16,7 @@ from __future__ import annotations
 import warnings
 from collections import defaultdict
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING
 
 import paddle
 from paddle import pir
@@ -37,6 +37,8 @@ from .lr import LRScheduler
 from .optimizer import Optimizer
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from paddle import Tensor
 
     from .adam import _AdamParameterConfig
@@ -73,7 +75,7 @@ class AdamW(Optimizer):
         beta2 (float|Tensor, optional): The exponential decay rate for the 2nd moment estimates.
             It should be a float number or a 0-D Tensor with shape [] and data type as float32.
             The default value is 0.999.
-        epsilon (float, optional): A small float value for numerical stability.
+        epsilon (float|Tensor, optional): A small float value for numerical stability.
             The default value is 1e-08.
         parameters (list|tuple|None, optional): List/Tuple of ``Tensor`` names to update to minimize ``loss``.
             This parameter is required in dygraph mode. And you can specify different options for
@@ -81,7 +83,7 @@ class AdamW(Optimizer):
             then the parameters are list of dict. Note that the learning_rate in parameter groups
             represents the scale of base learning_rate.
             The default value is None in static graph mode, at this time all parameters will be updated.
-        weight_decay (float|Tensor, optional): The weight decay coefficient, it can be float or Tensor. The default value is 0.01.
+        weight_decay (int|float|Tensor, optional): The weight decay coefficient, it can be int, float or Tensor. The default value is 0.01.
         lr_ratio (Callable|None, optional): If it is not None,
             the learning rate will be updated with layer-wise learning rate ratio.
             Otherwise, the learning rate is the original.
@@ -121,11 +123,12 @@ class AdamW(Optimizer):
             >>> beta1 = paddle.to_tensor([0.9], dtype="float32")
             >>> beta2 = paddle.to_tensor([0.99], dtype="float32")
 
-            >>> opt = paddle.optimizer.AdamW(learning_rate=0.1,
-            ...         parameters=linear.parameters(),
-            ...         beta1=beta1,
-            ...         beta2=beta2,
-            ...         weight_decay=0.01
+            >>> opt = paddle.optimizer.AdamW(
+            ...     learning_rate=0.1,
+            ...     parameters=linear.parameters(),
+            ...     beta1=beta1,
+            ...     beta2=beta2,
+            ...     weight_decay=0.01
             ... )
             >>> loss.backward()
             >>> opt.step()
@@ -170,10 +173,10 @@ class AdamW(Optimizer):
         learning_rate: float | LRScheduler = 0.001,
         beta1: float | Tensor = 0.9,
         beta2: float | Tensor = 0.999,
-        epsilon: float = 1e-8,
-        parameters: Sequence[Tensor]
-        | Sequence[_AdamParameterConfig]
-        | None = None,
+        epsilon: float | Tensor = 1e-8,
+        parameters: (
+            Sequence[Tensor] | Sequence[_AdamParameterConfig] | None
+        ) = None,
         weight_decay: float | Tensor = 0.01,
         lr_ratio: Callable[[Tensor], float] | None = None,
         apply_decay_param_fun: Callable[[str], bool] | None = None,
@@ -192,10 +195,10 @@ class AdamW(Optimizer):
             raise ValueError("Invalid value of beta2, expect beta2 in [0,1).")
         if not isinstance(epsilon, Value) and not 0 <= epsilon:
             raise ValueError("Invalid value of epsilon, expect epsilon >= 0.")
-        if not isinstance(weight_decay, float) and not isinstance(
+        if not isinstance(weight_decay, (int, float)) and not isinstance(
             weight_decay, (framework.Variable, Value)
         ):
-            raise TypeError("weight_decay should be float or Tensor.")
+            raise TypeError("weight_decay should be int, float or Tensor.")
         if lr_ratio is not None:
             assert isinstance(lr_ratio, Callable)
             if (
@@ -210,7 +213,7 @@ class AdamW(Optimizer):
             # paddle.Tensor is also iterable, so here we don't check whether
             # the input is iterable, if the input is paddle.Tensor, the
             # list(paddle.Tensor) will be a error value
-            if isinstance(parameters, (paddle.Tensor, core.eager.Tensor)):
+            if isinstance(parameters, paddle.Tensor):
                 raise TypeError(
                     "`parameters` argument given to the optimizer should be "
                     f"an iterable of paddle Tensors, but got argument type is `{type(parameters)}`."
@@ -234,8 +237,7 @@ class AdamW(Optimizer):
 
         if not isinstance(learning_rate, (float, LRScheduler)):
             raise TypeError(
-                "learning rate should be float or LRScheduler, got %s here"
-                % type(learning_rate)
+                f"learning rate should be float or LRScheduler, got {type(learning_rate)} here"
             )
         if grad_clip is not None:
             if not isinstance(grad_clip, GradientClipBase):
@@ -273,7 +275,7 @@ class AdamW(Optimizer):
         self._learning_rate = learning_rate
         self._params_name = set()
         self._apply_decay_param_fun = apply_decay_param_fun
-        self._weight_decay = weight_decay
+        self._weight_decay = float(weight_decay)
         self._grad_clip = grad_clip
         self._lr_ratio = lr_ratio
         self._beta1 = beta1
@@ -284,7 +286,7 @@ class AdamW(Optimizer):
         self._master_weights = {}
 
         self._default_dict = {
-            'weight_decay': weight_decay,
+            'weight_decay': float(weight_decay),
             'beta1': beta1,
             'beta2': beta2,
             'epsilon': epsilon,
@@ -383,22 +385,26 @@ class AdamW(Optimizer):
             name=self._beta1_pow_acc_str,
             param=p,
             dtype=acc_dtype,
-            fill_value=0.9
-            if isinstance(self._beta1, (Variable, Value))
-            else self._beta1,
+            fill_value=(
+                0.9
+                if isinstance(self._beta1, (Variable, Value))
+                else self._beta1
+            ),
             shape=[1],
-            type=core.VarDesc.VarType.LOD_TENSOR,
+            type=core.VarDesc.VarType.DENSE_TENSOR,
             device='cpu',
         )
         self._add_accumulator(
             name=self._beta2_pow_acc_str,
             param=p,
             dtype=acc_dtype,
-            fill_value=0.999
-            if isinstance(self._beta2, (Variable, Value))
-            else self._beta2,
+            fill_value=(
+                0.999
+                if isinstance(self._beta2, (Variable, Value))
+                else self._beta2
+            ),
             shape=[1],
-            type=core.VarDesc.VarType.LOD_TENSOR,
+            type=core.VarDesc.VarType.DENSE_TENSOR,
             device='cpu',
         )
 
@@ -538,9 +544,11 @@ class AdamW(Optimizer):
                 "multi_precision": find_master,
                 "with_decay": with_decay,
                 "coeff": self._weight_decay,
-                "lr_ratio": 1.0
-                if self._lr_ratio is None
-                else self._lr_ratio(param_and_grad[0]),
+                "lr_ratio": (
+                    1.0
+                    if self._lr_ratio is None
+                    else self._lr_ratio(param_and_grad[0])
+                ),
             }
 
             if isinstance(self._beta1, Variable):

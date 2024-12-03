@@ -12,15 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+# type: ignore
+# Avoid mypy internal error
+
 from __future__ import annotations
 
 import logging
 import os
 from collections import defaultdict
-from typing import TYPE_CHECKING, Callable, Sequence
+from typing import TYPE_CHECKING
 
 import numpy as np
-from typing_extensions import NotRequired, TypedDict
 
 import paddle
 import paddle.autograd as imperative_base
@@ -50,18 +53,20 @@ from ..base.framework import Parameter
 from ..base.layer_helper import LayerHelper, LayerHelperBase
 from .lr import LRScheduler
 
-
-class _ParameterConfig(TypedDict):
-    params: Sequence[Tensor]
-    weight_decay: NotRequired[float | WeightDecayRegularizer | None]
-    learning_rate: NotRequired[float | Tensor | LRScheduler | None]
-
-
 if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
+    from typing_extensions import NotRequired, TypedDict
+
     from paddle import Tensor
     from paddle.nn.clip import GradientClipBase
 
     from ..base.framework import Operator, Program
+
+    class _ParameterConfig(TypedDict):
+        params: Sequence[Tensor]
+        weight_decay: NotRequired[float | WeightDecayRegularizer | None]
+        learning_rate: NotRequired[float | Tensor | LRScheduler | None]
 
 
 __all__ = []
@@ -132,18 +137,18 @@ class Optimizer:
         parameters (list|tuple|None, optional): List/Tuple of ``Tensor`` names to update to minimize ``loss``. \
             This parameter is required in dygraph mode. And you can specify different options for \
             different parameter groups such as the learning rate, weight decay, etc, \
-            then the parameters are list of dict. Note that the learning_rate in paramter groups \
+            then the parameters are list of dict. Note that the learning_rate in parameter groups \
             represents the scale of base learning_rate. \
             The default value is None in static graph mode, at this time all parameters will be updated.
-        weight_decay (float|WeightDecayRegularizer|None, optional): The strategy of regularization. \
-            It canbe a float value as coeff of L2 regularization or \
+        weight_decay (int|float|WeightDecayRegularizer|None, optional): The strategy of regularization. \
+            It can be a int or float value as coeff of L2 regularization or \
             :ref:`api_paddle_regularizer_L1Decay`, :ref:`api_paddle_regularizer_L2Decay`.
             If a parameter has set regularizer using :ref:`api_paddle_ParamAttr` already, \
             the regularization setting here in optimizer will be ignored for this parameter. \
             Otherwise, the regularization setting here in optimizer will take effect. \
             Default None, meaning there is no regularization.
-        grad_clip (GradientClipBase|None, optional): Gradient cliping strategy, it's an instance of \
-            some derived class of ``GradientClipBase`` . There are three cliping strategies \
+        grad_clip (GradientClipBase|None, optional): Gradient clipping strategy, it's an instance of \
+            some derived class of ``GradientClipBase`` . There are three clipping strategies \
             ( :ref:`api_paddle_nn_ClipGradByGlobalNorm` , :ref:`api_paddle_nn_ClipGradByNorm` , \
             :ref:`api_paddle_nn_ClipGradByValue` ). Default None, meaning there is no gradient clipping.
         name (str|None, optional): Normally there is no need for user to set this property.
@@ -162,8 +167,10 @@ class Optimizer:
             >>> inp = paddle.uniform(shape=[10, 10], min=-0.1, max=0.1)
             >>> out = linear(inp)
             >>> loss = paddle.mean(out)
-            >>> adam = paddle.optimizer.Adam(learning_rate=0.1,
-            ...         parameters=linear.parameters())
+            >>> adam = paddle.optimizer.Adam(
+            ...     learning_rate=0.1,
+            ...     parameters=linear.parameters()
+            ... )
             >>> loss.backward()
             >>> adam.step()
             >>> adam.clear_grad()
@@ -182,7 +189,7 @@ class Optimizer:
             ...     parameters=[{
             ...         'params': linear_1.parameters()
             ...     }, {
-            ...         'params': linear_2.parameters(),  # type: ignore
+            ...         'params': linear_2.parameters(),
             ...         'weight_decay': 0.001,
             ...         'learning_rate': 0.1
             ...     }],
@@ -210,7 +217,7 @@ class Optimizer:
             # paddle.Tensor is also iterable, so here we don't check whether
             # the input is iterable, if the input is paddle.Tensor, the
             # list(paddle.Tensor) will be a error value
-            if isinstance(parameters, (paddle.Tensor, core.eager.Tensor)):
+            if isinstance(parameters, paddle.Tensor):
                 raise TypeError(
                     "`parameters` argument given to the optimizer should be "
                     f"an iterable of paddle Tensors, but got argument type is `{type(parameters)}`."
@@ -240,15 +247,13 @@ class Optimizer:
                         ):
                             logging.info(
                                 "If regularizer of a Parameter has been set by 'paddle.ParamAttr' or 'static.WeightNormParamAttr' already. "
-                                "The weight_decay[%s] in Optimizer will not take effect, and it will only be applied to other Parameters!"
-                                % weight_decay.__str__()
+                                f"The weight_decay[{weight_decay}] in Optimizer will not take effect, and it will only be applied to other Parameters!"
                             )
                             break
 
         if not isinstance(learning_rate, (float, LRScheduler)):
             raise TypeError(
-                "learning rate should be float or LRScheduler, got %s here"
-                % type(learning_rate)
+                f"learning rate should be float or LRScheduler, got {type(learning_rate)} here"
             )
         if grad_clip is not None:
             if not isinstance(grad_clip, paddle.nn.clip.GradientClipBase):
@@ -257,6 +262,8 @@ class Optimizer:
                 )
         if isinstance(weight_decay, float):
             self.regularization = L2Decay(weight_decay)
+        elif isinstance(weight_decay, int):
+            self.regularization = L2Decay(float(weight_decay))
         else:
             self.regularization = weight_decay
         self._grad_clip = grad_clip
@@ -362,9 +369,13 @@ class Optimizer:
                     state_dict[var_tmp.name] = var_tmp
                     # save scale value for xpu
                     if core.is_compiled_with_xpu():
-                        state_dict[
-                            var_tmp.name + ".SCALE_VALUE"
-                        ] = var_tmp.get_tensor().get_xpu_scale_value()
+                        xpu_adamw_moment_dtype = os.getenv(
+                            "xpu_adamw_moment_dtype", default="fp32"
+                        )
+                        if xpu_adamw_moment_dtype == "fp16":
+                            state_dict[var_tmp.name + ".SCALE_VALUE"] = (
+                                var_tmp.get_tensor().get_xpu_scale_value()
+                            )
         # if has master weight and then save master weight
         if hasattr(self, "_master_weights"):
             if len(self._master_weights) != 0:
@@ -430,9 +441,13 @@ class Optimizer:
                 tensor = var.get_tensor()
                 # load scale value for xpu
                 if core.is_compiled_with_xpu():
-                    tensor.set_xpu_scale_value(
-                        state_dict.get(var_tmp.name + ".SCALE_VALUE", -1.0)
+                    xpu_adamw_moment_dtype = os.getenv(
+                        "xpu_adamw_moment_dtype", default="fp32"
                     )
+                    if xpu_adamw_moment_dtype == "fp16":
+                        tensor.set_xpu_scale_value(
+                            state_dict.get(var_tmp.name + ".SCALE_VALUE", -1.0)
+                        )
                 var.set_value(state_dict[var_tmp.name])
 
     def get_opti_var_name_list(self) -> list[str]:
@@ -606,8 +621,7 @@ class Optimizer:
         """
         if not isinstance(value, (int, float)):
             raise TypeError(
-                "The type of 'value' in optimizer.set_lr must be float, but received %s."
-                % (type(value))
+                f"The type of 'value' in optimizer.set_lr must be float, but received {type(value)}."
             )
         if isinstance(self._learning_rate, LRScheduler):
             raise RuntimeError(
@@ -679,8 +693,7 @@ class Optimizer:
 
         if not isinstance(scheduler, LRScheduler):
             raise TypeError(
-                "The type of 'scheduler' in optimizer.set_lr_schduler must be LRScheduler, but received %s."
-                % (type(scheduler))
+                f"The type of 'scheduler' in optimizer.set_lr_schduler must be LRScheduler, but received {type(scheduler)}."
             )
         self._learning_rate = scheduler
 
@@ -790,13 +803,17 @@ class Optimizer:
     def _append_optimize_op(self, block, param_and_grad):
         """append optimize operator to block and return all the added optimize_op"""
         raise NotImplementedError(
-            "Class \"Optimizer\" connot be used directly as an optimizer, please use its subclasses such as \"Adam\""
+            'Class "Optimizer" connot be used directly as an optimizer, please use its subclasses such as "Adam"'
         )
 
     def _create_param_lr(self, param_and_grad):
         # create learning rate tensor for every parameter
         param = param_and_grad[0]
-        if hasattr(param, 'optimize_attr') and param.optimize_attr is not None:
+        if (
+            hasattr(param, 'optimize_attr')
+            and param.optimize_attr is not None
+            and 'learning_rate' in param.optimize_attr
+        ):
             param_lr = param.optimize_attr['learning_rate']
             if isinstance(param_lr, (Variable, paddle.pir.Value)):
                 return param_lr
@@ -893,6 +910,7 @@ class Optimizer:
                 var = self._master_grads[grad]
             else:
                 var = paddle.cast(grad, 'float32')
+                var.get_defining_op().set_bool_attr('master_grad_cast', True)
                 self._master_grads[grad] = var
         else:
             if grad.name in self._master_grads:
@@ -975,21 +993,34 @@ class Optimizer:
             device = self._get_device_for_param(param.name)
 
         if in_pir_mode():
-            var = paddle.pir.core.create_persistable_value(
-                dtype or param.dtype,
-                shape,
-                var_name,
-                initializer=paddle.nn.initializer.Constant(
-                    value=float(fill_value)
-                ),
-            )
+            if 'beta' not in var_name:
+                var = paddle.pir.core.create_persistable_value(
+                    dtype or param.dtype,
+                    shape,
+                    var_name,
+                    initializer=paddle.nn.initializer.Constant(
+                        value=float(fill_value)
+                    ),
+                    dist_attr=param.dist_attr(),
+                )
+            else:
+                var = paddle.pir.core.create_persistable_value(
+                    dtype or param.dtype,
+                    shape,
+                    var_name,
+                    initializer=paddle.nn.initializer.Constant(
+                        value=float(fill_value)
+                    ),
+                )
         else:
+            if self.helper is None:
+                self.helper = LayerHelper(self.__class__.__name__)
             assert isinstance(self.helper, LayerHelper)
             var = self.helper.create_global_variable(
                 name=var_name,
                 persistable=True,
                 dtype=dtype or param.dtype,
-                type=core.VarDesc.VarType.LOD_TENSOR,
+                type=core.VarDesc.VarType.DENSE_TENSOR,
                 shape=shape,
                 belong_to_optimizer=True,
             )
@@ -1022,11 +1053,15 @@ class Optimizer:
 
                     # load scale value for xpu
                     if core.is_compiled_with_xpu():
-                        var.get_tensor().set_xpu_scale_value(
-                            self._accumulators_holder.get(
-                                var_name + ".SCALE_VALUE", -1.0
-                            )
+                        xpu_adamw_moment_dtype = os.getenv(
+                            "xpu_adamw_moment_dtype", default="fp32"
                         )
+                        if xpu_adamw_moment_dtype == "fp16":
+                            var.get_tensor().set_xpu_scale_value(
+                                self._accumulators_holder.get(
+                                    var_name + ".SCALE_VALUE", -1.0
+                                )
+                            )
 
         self._accumulators[name][param.name] = var
         return var
@@ -1122,7 +1157,7 @@ class Optimizer:
         # _create_accumulators method if it needs to create accumulators
         # for parameters and extend _finish_update method to add custom ops.
 
-        # Allways called under program_guard use global block as loss block
+        # Always called under program_guard use global block as loss block
         # But if current block is in control flow, append optimize op in the
         # grad block of current block
 
@@ -1317,19 +1352,19 @@ class Optimizer:
             their internal state.
         """
 
-        global_block = framework.default_main_program().global_block()
+        global_block = paddle.static.default_main_program().global_block()
         target_block = global_block
 
-        start = len(target_block.ops)
+        last_op = target_block.ops[-1]
 
         self._create_global_learning_rate()
 
-        params_grads_device_map = (
-            parameters_and_grads['params']
-            if isinstance(parameters_and_grads, dict)
-            else parameters_and_grads
-        )
-        self._update_param_device_map(params_grads_device_map, target_block)
+        # params_grads_device_map = (
+        #     parameters_and_grads['params']
+        #     if isinstance(parameters_and_grads, dict)
+        #     else parameters_and_grads
+        # )
+        # self._update_param_device_map(params_grads_device_map, target_block)
 
         if isinstance(parameters_and_grads, list):
             self._create_accumulators(
@@ -1372,8 +1407,8 @@ class Optimizer:
         self._finish_update(target_block, parameters_and_grads)
         paddle.base.core._set_warmup(False)
 
-        end = len(target_block.ops)
-        return target_block._slice_ops(start, end)
+        start_index = target_block.ops.index(last_op) + 1
+        return target_block.ops[start_index:]
 
     def backward(
         self,
@@ -1510,6 +1545,7 @@ class Optimizer:
                 >>> optimizer.apply_gradients(params_grads)
 
         """
+
         # NOTE(zhaoyinglia): AutoParallel set '_sorted' attribute to skip the 'sorted' operator.
         if not hasattr(self, "_sorted"):
             params_grads = sorted(params_grads, key=lambda x: x[0].name)
@@ -1525,7 +1561,10 @@ class Optimizer:
             params_grads, self.regularization
         )
 
-        optimize_ops = self._create_optimization_pass(params_grads)
+        if in_pir_mode():
+            optimize_ops = self._pir_create_optimization_pass(params_grads)
+        else:
+            optimize_ops = self._create_optimization_pass(params_grads)
         return optimize_ops
 
     def _apply_optimize(
@@ -1636,7 +1675,7 @@ class Optimizer:
                     dtype=param.dtype,
                     shape=param.shape,
                     lod_level=param.lod_level,
-                    type=core.VarDesc.VarType.LOD_TENSOR,
+                    type=core.VarDesc.VarType.DENSE_TENSOR,
                 )
 
             inputs = {"X": [grad, regularization_term]}
@@ -1689,8 +1728,7 @@ class Optimizer:
                         repeate_regularizer = True
                         logging.info(
                             "If regularizer of a Parameter has been set by 'base.ParamAttr' or 'base.WeightNormParamAttr' already. "
-                            "The Regularization[%s] in Optimizer will not take effect, and it will only be applied to other Parameters!"
-                            % regularization.__str__()
+                            f"The Regularization[{regularization}] in Optimizer will not take effect, and it will only be applied to other Parameters!"
                         )
                     with param.block.program._optimized_guard([param, grad]):
                         new_grad = self._create_regularization_of_grad(
@@ -2013,5 +2051,6 @@ class Optimizer:
             )
         else:
             return (
-                dtype == core.DataType.FLOAT16 or dtype == core.DataType.UINT16
+                dtype == core.DataType.FLOAT16
+                or dtype == core.DataType.BFLOAT16
             )
