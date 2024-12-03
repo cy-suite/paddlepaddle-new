@@ -3492,11 +3492,8 @@ bool StridedSliceOpInferSymbolicShape(
   ExprVec ends = slice_utils::GetExprVecFromData(ends_shape_data);
   ExprVec strides = slice_utils::GetExprVecFromData(strides_shape_data);
 
-  std::vector<int64_t> axes_vec = details::GetVectorAttr(op, "axes");
-
-  std::vector<int64_t> infer_flags = details::GetVectorAttr(op, "infer_flags");
-  const std::vector<int64_t> decrease_axis =
-      details::GetVectorAttr(op, "decrease_axis");
+  std::vector<int32_t> axes_vec = details::GetVectorAttr<int32_t>(op, "axes");
+  std::vector<int64_t> axes_vec_64(axes_vec.begin(), axes_vec.end());
 
   infer_context->SetShapeOrDataForValue(
       res,
@@ -3505,9 +3502,9 @@ bool StridedSliceOpInferSymbolicShape(
                                                      starts,
                                                      ends,
                                                      strides,
-                                                     axes_vec,
-                                                     infer_flags,
-                                                     decrease_axis,
+                                                     axes_vec_64,
+                                                     std::vector<int64_t>{},
+                                                     std::vector<int64_t>{},
                                                      infer_context));
 
   return true;

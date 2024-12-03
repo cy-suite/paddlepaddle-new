@@ -390,6 +390,7 @@ static paddle::Tensor getTensorWithBasicIndexing(
     } else {
       eager_gil_scoped_release guard;
       std::vector<int> slice_axes_int32(slice_axes->begin(), slice_axes->end());
+
       out = strided_slice_ad_func(
           tensor, slice_axes_int32, *slice_starts, *slice_ends, *slice_strides);
       if (!decrease_axis->empty()) {
