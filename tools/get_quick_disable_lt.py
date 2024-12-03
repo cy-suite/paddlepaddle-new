@@ -19,6 +19,7 @@ import httpx
 
 import paddle
 from paddle.base import core
+from paddle.device import cuda
 
 
 def get_disable_ut_by_url(url):
@@ -43,9 +44,9 @@ def download_file():
         url = "https://sys-p0.bj.bcebos.com/prec/{}".format('disable_ut')
 
     if paddle.is_compiled_with_rocm():
-        if paddle.device.cuda.get_device_name() == 'K100_AI':
+        if cuda.get_device_name() == 'K100_AI':
             url = "https://sys-p0.bj.bcebos.com/prec/{}".format(
-                'disable_ut_rocm_K100'
+                'disable_ut_rocm_k100'
             )
         else:
             url = "https://sys-p0.bj.bcebos.com/prec/{}".format(
