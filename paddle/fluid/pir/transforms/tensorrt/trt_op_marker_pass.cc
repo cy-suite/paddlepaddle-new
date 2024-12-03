@@ -458,6 +458,46 @@ class ArangeOpPattern
   }
 };
 
+class RnnOpPattern : public pir::OpRewritePattern<paddle::dialect::RnnOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::RnnOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::RnnOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+
+    if (!op->HasAttribute("with_dynamic_shape")) {
+      return false;
+    }
+    bool with_dynamic_shape =
+        op->attribute<pir::BoolAttribute>("with_dynamic_shape").data();
+    if (!with_dynamic_shape) {
+      return false;
+    }
+
+    if (op->HasAttribute("mode")) {
+      std::string mode = op->attribute<pir::StrAttribute>("mode").AsString();
+      if (mode != "LSTM") {
+        return false;
+      }
+    }
+
+    if (op->HasAttribute("dropout_prob")) {
+      float dropout_prob =
+          op->attribute<pir::FloatAttribute>("dropout_prob").data();
+      if (dropout_prob > 1e-5) {
+        return false;
+      }
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class SignOpPattern : public pir::OpRewritePattern<paddle::dialect::SignOp> {
  public:
   using pir::OpRewritePattern<paddle::dialect::SignOp>::OpRewritePattern;
@@ -2204,6 +2244,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<OneHotOpPattern>(context));
     ps.Add(std::make_unique<AssignValueOpPattern>(context));
     ps.Add(std::make_unique<AssignValue_OpPattern>(context));
+    ps.Add(std::make_unique<RnnOpPattern>(context));
     return ps;
   }
 };
