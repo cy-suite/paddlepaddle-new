@@ -125,7 +125,6 @@ def start_local_trainers(
             "PADDLE_CURRENT_ENDPOINT": f"{t.endpoint}",
             "PADDLE_TRAINERS_NUM": "%d" % cluster.trainers_nranks(),
             "PADDLE_TRAINER_ENDPOINTS": ",".join(cluster.trainers_endpoints()),
-            "FLAGS_dynamic_static_unified_comm": "0",
         }
 
         proc_env["FLAGS_allocator_strategy"] = allocator_strategy
@@ -165,7 +164,7 @@ class TestMultipleAccelerators(unittest.TestCase):
         target_file_name,
         allocator_strategy="auto_growth",
         need_envs={},
-        accelerator_type="gpu",
+        accelerator_type="xpu" if base.core.is_compiled_with_xpu() else "gpu",
     ):
         if accelerator_type == "gpu":
             if (
@@ -199,6 +198,7 @@ class TestMultipleAccelerators(unittest.TestCase):
             training_script=target_file_name,
             training_script_args=[],
             need_envs=need_envs,
+            accelerator_type=accelerator_type,
         )
 
         while True:

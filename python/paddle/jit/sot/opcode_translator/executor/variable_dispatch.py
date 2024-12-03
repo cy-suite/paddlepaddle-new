@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import inspect
 import math
 import operator
 from functools import partial, reduce
@@ -27,6 +28,7 @@ from ...utils.magic_methods import (
     UNARY_OPS,
     magic_method_builtin_dispatch,
 )
+from ...utils.paddle_api_config import get_tensor_methods
 from .dispatch_functions import (
     operator_in,
     operator_is_none,
@@ -179,6 +181,15 @@ Dispatcher.register(
 )
 
 
+# type
+Dispatcher.register(
+    type,
+    ("ConstantVariable | SymbolicVariable",),
+    lambda var: VariableFactory.from_value(
+        var.get_py_type(), graph=var.graph, tracker=DummyTracker([var])
+    ),
+)
+
 # dict
 Dispatcher.register(
     dict,
@@ -195,6 +206,15 @@ Dispatcher.register(
     ("DictVariable",),
     lambda var: var.copy(),
 )
+
+
+@Dispatcher.register_decorator(dict)
+def dispatch_dict_kwargs(**kwargs: VariableBase):
+    res_dict = {}
+    graph = Dispatcher.graph
+    for key, value in kwargs.items():
+        res_dict[key] = value
+    return DictVariable(res_dict, graph, DummyTracker(list(kwargs.values())))
 
 
 @Dispatcher.register_decorator(dict)
@@ -325,6 +345,38 @@ Dispatcher.register(
     ("TupleVariable", "VariableBase"),
     lambda var, value: var.index(value),
 )
+Dispatcher.register(
+    operator.add,
+    ("TupleVariable", "TupleVariable"),
+    lambda var, other: var.concat(other),
+)
+Dispatcher.register(
+    operator.iadd,
+    ("TupleVariable", "TupleVariable"),
+    lambda var, other: var.concat(other),
+)
+
+
+@Dispatcher.register_decorator(operator.eq)
+def dispatch_tuple_eq(lhs: TupleVariable, rhs: TupleVariable):
+    if len(lhs) != len(rhs):
+        return ConstantVariable(False, lhs.graph, DummyTracker([lhs, rhs]))
+    size = len(lhs)
+
+    return ConstantVariable(
+        all(
+            Dispatcher.call(operator.eq, lhs[i], rhs[i]).get_py_value()
+            for i in range(size)
+        ),
+        lhs.graph,
+        DummyTracker([lhs, rhs]),
+    )
+
+
+@Dispatcher.register_decorator(operator.ne)
+def dispatch_tuple_ne(lhs: TupleVariable, rhs: TupleVariable):
+    return Dispatcher.call(operator.eq, lhs, rhs).bool_not()
+
 
 # list
 Dispatcher.register(
@@ -358,7 +410,10 @@ Dispatcher.register(
 )
 Dispatcher.register(
     list.extend,
-    ("ListVariable", "ListVariable | TupleVariable"),
+    (
+        "ListVariable",
+        "ListVariable | TupleVariable | DictVariable | RangeVariable",
+    ),
     lambda var, other: var.extend(other),
 )
 Dispatcher.register(
@@ -417,15 +472,37 @@ Dispatcher.register(
     lambda var, other: var.concat(other),
 )
 Dispatcher.register(
-    operator.add,
-    ("TupleVariable", "TupleVariable"),
-    lambda var, other: var.concat(other),
+    operator.iadd,
+    ("ListVariable", "ListVariable"),
+    lambda var, other: var.inplace_concat(other),
 )
 Dispatcher.register(
     operator.mul,
     ("ListVariable | TupleVariable", "ConstantVariable"),
     lambda var, other: var.repeat(other),
 )
+
+
+@Dispatcher.register_decorator(operator.eq)
+def dispatch_list_eq(lhs: ListVariable, rhs: ListVariable):
+    if len(lhs) != len(rhs):
+        return ConstantVariable(False, lhs.graph, DummyTracker([lhs, rhs]))
+    size = len(lhs)
+
+    return ConstantVariable(
+        all(
+            Dispatcher.call(operator.eq, lhs[i], rhs[i]).get_py_value()
+            for i in range(size)
+        ),
+        lhs.graph,
+        DummyTracker([lhs, rhs]),
+    )
+
+
+@Dispatcher.register_decorator(operator.ne)
+def dispatch_list_ne(lhs: ListVariable, rhs: ListVariable):
+    return Dispatcher.call(operator.eq, lhs, rhs).bool_not()
+
 
 # getattr
 Dispatcher.register(
@@ -576,13 +653,14 @@ Dispatcher.register(
 # bool
 Dispatcher.register(
     bool,
-    ("ContainerVariable | SymbolicVariable",),
+    ("ContainerVariable",),
     lambda var: var.bool(),
 )
+
 Dispatcher.register(
     operator.truth,
-    ("ConstantVariable | SymbolicVariable",),
-    lambda var: var.bool(),
+    ("ConstantVariable",),
+    lambda var: Dispatcher.call(bool, var),
 )
 
 # str
@@ -872,7 +950,7 @@ for binary_fn in BINARY_OPS:
                 binary_fn,
             ),
         )
-# Tensor
+# Tensor and Symbolic
 fallback_tensor_unary_method = {
     int,
     bool,
@@ -886,7 +964,7 @@ for unary_fn in UNARY_OPS:
     if unary_fn in fallback_tensor_unary_method:
         Dispatcher.register(
             unary_fn,
-            ("TensorVariable | SymbolicVariable",),
+            ("TensorVariable",),
             raise_break_graph_fn,
         )
         continue
@@ -970,9 +1048,11 @@ for binary_fn in BINARY_OPS:
                         magic_method.name,
                     ),
                 )
-# Symbolic
+
 for binary_fn in BINARY_OPS:
     for magic_method in magic_method_builtin_dispatch(binary_fn):
+        if magic_method.name not in get_tensor_methods():
+            continue
         # skip all inplace magic method name, we will dispatch it to non-inplace
         # magic methods
         if magic_method.is_inplace:
@@ -997,8 +1077,8 @@ for binary_fn in BINARY_OPS:
                 binary_fn,
                 ("ConstantVariable", "SymbolicVariable"),
                 partial(
-                    lambda magic_name, var, other: var.graph.call_symbolic_method(
-                        magic_name, var, other
+                    lambda reverse_magic_name, var, other: var.graph.call_symbolic_method(
+                        reverse_magic_name, other, var
                     ),
                     magic_method.name,
                 ),
@@ -1161,11 +1241,70 @@ Dispatcher.register(
     lambda var: var.min(),
 )
 
+
+@Dispatcher.register_decorator(max)
+def dispatch_max_star_args(*args: VariableBase):
+    if not args:
+        raise TypeError("max expected at least 1 arguments, got 0")
+    res = args[0]
+    graph = res.graph
+    for arg in args:
+        gt = BuiltinVariable(operator.gt, graph, DanglingTracker())(arg, res)
+        if gt.get_py_value() is True:
+            res = arg
+    return res
+
+
+@Dispatcher.register_decorator(min)
+def dispatch_min_star_args(*args: VariableBase):
+    if not args:
+        raise TypeError("min expected at least 1 arguments, got 0")
+    res = args[0]
+    graph = res.graph
+    for arg in args:
+        lt = BuiltinVariable(operator.lt, graph, DanglingTracker())(arg, res)
+        if lt.get_py_value() is True:
+            res = arg
+    return res
+
+
+# math functions, e.g. math.log, math.sqrt, math.sin, etc.
+def get_math_unary_functions():
+    unary_fns = []
+    for name, fn in inspect.getmembers(math, inspect.isbuiltin):
+        try:
+            signature = inspect.signature(fn)
+        except ValueError:
+            continue
+        if len(signature.parameters.keys()) != 1:
+            continue
+        param = next(iter(signature.parameters.values()))
+        if param.kind in (
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.POSITIONAL_ONLY,
+        ):
+            unary_fns.append(fn)
+    return unary_fns
+
+
+for fn in get_math_unary_functions():
+    Dispatcher.register(
+        fn,
+        ("ConstantVariable",),
+        partial(
+            lambda fn, var: ConstantVariable(
+                fn(var.get_py_value()),
+                var.graph,
+                tracker=DummyTracker([var]),
+            ),
+            fn,
+        ),
+    )
 Dispatcher.register(
-    math.sqrt,
+    math.log,
     ("ConstantVariable",),
     lambda var: ConstantVariable(
-        math.sqrt(var.get_py_value()),
+        math.log(var.get_py_value()),
         var.graph,
         tracker=DummyTracker([var]),
     ),

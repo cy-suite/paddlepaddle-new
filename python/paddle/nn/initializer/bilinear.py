@@ -138,7 +138,7 @@ class Bilinear(Initializer):
                 ),
                 shape=var.shape,
                 dtype=out_dtype,
-                type=core.VarDesc.VarType.LOD_TENSOR,
+                type=core.VarDesc.VarType.DENSE_TENSOR,
                 persistable=False,
             )
         elif var.dtype in [
@@ -156,7 +156,7 @@ class Bilinear(Initializer):
             value_name = "values"
             values = [float(v) for v in weight.flat]
         else:
-            raise TypeError("Unsupported dtype %s", var.dtype)
+            raise TypeError(f"Unsupported dtype {var.dtype}")
 
         if np.prod(shape) > 1024 * 1024:
             raise ValueError("The size of input is too big. ")

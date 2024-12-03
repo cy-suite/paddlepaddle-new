@@ -21,8 +21,10 @@
 namespace cinn {
 
 namespace hlir::framework::pir {
-struct GroupInfo;
+struct FusionGroupInfo;
 }  // namespace hlir::framework::pir
+
+using hlir::framework::pir::FusionGroupInfo;
 
 namespace ir {
 
@@ -31,25 +33,20 @@ using IterSpaceType = std::vector<std::pair<std::string, std::string>>;
 struct ScheduleConfig {
   struct BaseInfo {
     std::vector<int64_t> reduce_axis;
-    std::vector<int64_t> raw_reduce_axis;
+    std::vector<int64_t> loop_strides;
     int64_t data_rank;
-    int64_t raw_data_rank;
     int64_t reduce_numel;
     int64_t spatial_numel;
     bool has_dynamic_spatial{false};
     bool has_dynamic_reduce{false};
-    bool is_reduce_all{false};
+    bool can_apply_grid_reduce{false};
     IterSpaceType iter_space_type;
-
-    std::set<std::string> reduce_tensor_names;
-    std::set<std::string> temp_var_names;
-    std::set<std::string> shared_var_names;
-    std::set<std::string> direct_output_var_names;
   };
 
   struct TileConfig {
     int64_t warp_num{1};
     int64_t tree_reduce_num{1};
+    int64_t grid_reduce_num{1};
     int64_t spatial_inner_num{1};
     ReduceMethod reduce_method{NoneReduceMethod()};
   };
@@ -64,7 +61,6 @@ struct BucketInfo {
     int upper_bound;
     std::string iter_type;
     bool is_dynamic;
-    std::vector<double> weights;
     Dimension()
         : lower_bound(0),
           upper_bound(INT_MAX),
@@ -75,18 +71,9 @@ struct BucketInfo {
           upper_bound(upper),
           iter_type(iter_type),
           is_dynamic(is_dynamic) {}
-    Dimension(int low,
-              int upper,
-              std::string iter_type,
-              bool is_dynamic,
-              std::vector<double> weights)
-        : lower_bound(low),
-          upper_bound(upper),
-          iter_type(iter_type),
-          is_dynamic(is_dynamic),
-          weights(weights) {}
   };
   std::vector<Dimension> space;
+  int bucket_priority = 100;
 
   std::string ToString() const;
   BucketInfo() = default;
@@ -97,6 +84,7 @@ struct BucketInfo {
              bool sp_is_dynamic,
              bool rb_is_dynamic);
   explicit BucketInfo(size_t size) : space(std::vector<Dimension>(size)) {}
+  explicit BucketInfo(const std::vector<Dimension>& dims);
   bool operator==(const BucketInfo& other) const;
 };
 
@@ -127,7 +115,7 @@ struct BucketInfoHash {
 };
 
 std::shared_ptr<ScheduleConfig::BaseInfo> InitBasicInfo(
-    const std::shared_ptr<hlir::framework::pir::GroupInfo>& group_info);
+    const std::shared_ptr<FusionGroupInfo>& group_info);
 
 std::unordered_map<BucketInfo, ScheduleConfig, BucketInfoHash>
 CombineBaseInfoAndConfig(
@@ -137,9 +125,8 @@ CombineBaseInfoAndConfig(
     const std::shared_ptr<ScheduleConfig::BaseInfo>& base_info);
 
 std::unordered_map<BucketInfo, ScheduleConfig, BucketInfoHash>
-BuildScheduleConfig(
-    const std::shared_ptr<hlir::framework::pir::GroupInfo>& group_info,
-    const common::Target& target);
+BuildScheduleConfig(const std::shared_ptr<FusionGroupInfo>& group_info,
+                    const common::Target& target);
 
 }  // namespace ir
 }  // namespace cinn

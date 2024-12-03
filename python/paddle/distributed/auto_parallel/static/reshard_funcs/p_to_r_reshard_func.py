@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import paddle
-from paddle.distributed.communication.reduce import ReduceOp
 
 from ..process_group import new_process_group
 from .base_reshard_func import ReshardFunction, is_partial, is_replicated
@@ -42,21 +41,27 @@ class PToRReshardFunction(ReshardFunction):
     def reshard(self, src_dist_attr, dst_dist_attr, src_value, dst_type):
         src_mesh = src_dist_attr.process_mesh
         src_reduce_type = src_dist_attr.partial_status[0]
-        reduce_mean = False
-        if src_reduce_type == ReduceOp.AVG:
-            src_reduce_type = ReduceOp.SUM
-            reduce_mean = True
+        # reduce_mean = False
+        # if src_reduce_type == paddle.base.core.ReduceType.kRedAvg:
+        #     src_reduce_type = paddle.base.core.ReduceType.kRedSum
+        #     reduce_mean = True
 
         group = new_process_group(sorted(src_mesh.process_ids))
-        reduced_value = paddle._C_ops.c_allreduce_sum(
-            src_value, group.id, True, False
+        reduced_value = paddle._C_ops.all_reduce(
+            src_value, group.id, int(src_reduce_type)
         )
-
         # set dist type and dist attr
         reduced_value.set_type(dst_type)
+        chunk_id = -1
+        if src_value.get_defining_op().dist_attr:
+            chunk_id = src_value.get_defining_op().dist_attr.chunk_id
+
         reduced_value.get_defining_op().dist_attr = (
             paddle.base.libpaddle.pir.create_op_dist_attribute(
-                src_mesh, [src_dist_attr], [dst_dist_attr]
+                src_mesh,
+                [src_dist_attr],
+                [dst_dist_attr],
+                chunk_id,
             )
         )
         return reduced_value

@@ -113,8 +113,7 @@ def _reduce_tensor(tensor):
         return (_rebuild_tensor, (type(tensor), lodtensor, metadata))
     else:
         raise ValueError(
-            "Only support tensors of CPU/CUDA/CUDAPinned Place, Not support %s for now!"
-            % tensor.place
+            f"Only support tensors of CPU/CUDA/CUDAPinned Place, Not support {tensor.place} for now!"
         )
 
 
@@ -184,7 +183,7 @@ def _rebuild_cuda_tensor(
         # you should manually maintain the lifecycle of ipc tensor
         shared_cache[(handle, offset_bytes)] = lodtensor
     else:
-        lodtensor = paddle.base.core.LoDTensor()
+        lodtensor = paddle.base.core.DenseTensor()
         lodtensor._share_buffer_with(
             cache_tensor, (size, type_idx, dims, lod, device_idx)
         )
@@ -230,10 +229,10 @@ def _reduce_lodtensor(lodtensor):
     else:
         raise RuntimeError("We only support pass cpu/gpu lodtensor for now!")
 
-    return (rebuild, (type(lodtensor),) + metadata)
+    return (rebuild, (type(lodtensor), *metadata))
 
 
-def init_reductions():
+def init_reductions() -> None:
     if not _supported_check():
         return
 
@@ -242,4 +241,4 @@ def init_reductions():
     ForkingPickler.register(
         paddle.base.framework.EagerParamBase, _reduce_tensor
     )
-    ForkingPickler.register(paddle.base.core.LoDTensor, _reduce_lodtensor)
+    ForkingPickler.register(paddle.base.core.DenseTensor, _reduce_lodtensor)

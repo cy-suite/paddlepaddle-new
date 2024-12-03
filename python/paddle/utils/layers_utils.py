@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import copy
 import typing
 from collections import defaultdict
 from collections.abc import Sequence
-from typing import Any, Dict, TypeVar, Union
+from typing import Any, Callable, TypeVar
 from uuid import uuid4
 from weakref import WeakKeyDictionary
 
@@ -34,11 +36,17 @@ from ..base.framework import (
 )
 from ..pir import Value
 
-_T = TypeVar("_T")
+if typing.TYPE_CHECKING:
+    from paddle._typing import NestedStructure, ShapeLike
 
-Structure = Union[
-    _T, Dict[str, "Structure[_T]"], typing.Sequence["Structure[_T]"]
-]
+_T = TypeVar("_T")
+_U = TypeVar("_U")
+
+
+class NotSupportedTensorArgumentError(TypeError):
+    def __init__(self, msg, name: str):
+        super().__init__(msg)
+        self.name = name
 
 
 def convert_to_list(value, n, name, dtype=int):
@@ -62,56 +70,35 @@ def convert_to_list(value, n, name, dtype=int):
         passed.
     """
     if isinstance(value, dtype):
-        return [
-            value,
-        ] * n
+        return [value] * n
     else:
         try:
             value_list = list(value)
         except TypeError:
             raise ValueError(
-                "The "
-                + name
-                + "'s type must be list or tuple. Received: "
-                + str(value)
+                f"The {name}'s type must be list or tuple. Received: {value}"
             )
         if len(value_list) != n:
             raise ValueError(
-                "The "
-                + name
-                + "'s length must be "
-                + str(n)
-                + ". Received: "
-                + str(value)
+                f"The {name}'s length must be {n}. Received: {value}"
             )
         for single_value in value_list:
-            assert not isinstance(single_value, (Variable, paddle.pir.Value)), (
-                "Required numerical type with '%s', but received Tensor."
-                % dtype
-            )
+            if isinstance(single_value, (Variable, paddle.pir.Value)):
+                raise NotSupportedTensorArgumentError(
+                    f"`{name}` required numerical type with `{dtype}`, but received Tensor.",
+                    name,
+                )
             try:
                 dtype(single_value)
             except (ValueError, TypeError):
                 raise ValueError(
-                    "The "
-                    + name
-                    + "'s type must be a list or tuple of "
-                    + str(n)
-                    + " "
-                    + str(dtype)
-                    + " . Received: "
-                    + str(value)
-                    + " "
-                    "including element "
-                    + str(single_value)
-                    + " of type"
-                    + " "
-                    + str(type(single_value))
+                    f"The {name}'s type must be a list or tuple of {n} {dtype}. "
+                    + f"Received: {value} including element {single_value} of type {type(single_value)}"
                 )
         return value_list
 
 
-def is_sequence(seq: Any) -> TypeGuard[typing.Sequence[Any]]:
+def is_sequence(seq: Any) -> TypeGuard[typing.Sequence[Any] | dict[str, Any]]:
     """
     Whether `seq` is an entry or nested structure
     """
@@ -149,10 +136,19 @@ def _hash_with_id(*args):
     return hash(info)
 
 
+def _sorted(dict_):
+    """
+    Returns a sorted list of the dict keys, with error if keys not sortable.
+    """
+    try:
+        return sorted(dict_.keys())
+    except TypeError:
+        raise TypeError("nest only supports dicts with sortable keys.")
+
+
 def _yield_value(iterable):
     if isinstance(iterable, dict):
-        # NOTE: Keep order unchanged as python dict is ordered since python3.6
-        for key in iterable:
+        for key in _sorted(iterable):
             yield iterable[key]
     else:
         yield from iterable
@@ -173,7 +169,7 @@ def to_sequence(nest):
         return [nest]
 
 
-def flatten(nest: Structure[_T]) -> typing.Sequence[_T]:
+def flatten(nest: NestedStructure[_T]) -> typing.Sequence[_T]:
     """
         :alias_main: paddle.flatten
         :alias: paddle.flatten,paddle.tensor.flatten,paddle.tensor.manipulation.flatten
@@ -192,7 +188,7 @@ def _sequence_like(instance, args):
     Convert the sequence `args` to the same type as `instance`.
     """
     if isinstance(instance, dict):
-        result = dict(zip(instance, args))
+        result = dict(zip(_sorted(instance), args))
         return type(instance)((key, result[key]) for key in instance.keys())
     elif (
         isinstance(instance, tuple)
@@ -239,20 +235,16 @@ def pack_sequence_as(structure, flat_sequence):
     flat_structure = flatten(structure)
     if len(flat_structure) != len(flat_sequence):
         raise ValueError(
-            "Could not pack sequence. Structure had %d elements, but flat_sequence "
-            "had %d elements.  Structure: %s, flat_sequence: %s."
-            % (
-                len(flat_structure),
-                len(flat_sequence),
-                structure,
-                flat_sequence,
-            )
+            f"Could not pack sequence. Structure had {len(flat_structure)} elements, but flat_sequence "
+            f"had {len(flat_sequence)} elements. Structure: {structure}, flat_sequence: {flat_sequence}."
         )
     _, packed = _packed_nest_with_indices(structure, flat_sequence, 0)
     return _sequence_like(structure, packed)
 
 
-def map_structure(func, *structure):
+def map_structure(
+    func: Callable[[_T], _U], *structure: NestedStructure[_T]
+) -> NestedStructure[_U]:
     """
     Apply `func` to each entry in `structure` and return a new structure.
     """
@@ -279,10 +271,12 @@ def copy_mutable_vars(structure):
     return pack_sequence_as(structure, flat_structure)
 
 
-def _recursive_assert_same_structure(nest1, nest2, check_types):
+def _recursive_assert_same_structure(nest1, nest2, check_types, skip_if):
     """
     Helper function for `assert_same_structure`.
     """
+    if skip_if is not None and (skip_if(nest1) or skip_if(nest2)):
+        return
     is_sequence_nest1 = is_sequence(nest1)
     if is_sequence_nest1 != is_sequence(nest2):
         raise ValueError(
@@ -309,8 +303,14 @@ def _recursive_assert_same_structure(nest1, nest2, check_types):
                 )
     nest1_as_sequence = list(_yield_value(nest1))
     nest2_as_sequence = list(_yield_value(nest2))
+    if len(nest1_as_sequence) != len(nest2_as_sequence):
+        raise ValueError(
+            "The two structures don't have the same number of elements.\n\n"
+            f"First structure ({len(nest1_as_sequence)} elements): {nest1}\n\n"
+            f"Second structure ({len(nest2_as_sequence)} elements): {nest2}"
+        )
     for n1, n2 in zip(nest1_as_sequence, nest2_as_sequence):
-        _recursive_assert_same_structure(n1, n2, check_types)
+        _recursive_assert_same_structure(n1, n2, check_types, skip_if)
 
 
 def padding_to_same_structure(nest1, nest2, obj=None):
@@ -333,20 +333,21 @@ def padding_to_same_structure(nest1, nest2, obj=None):
     return nest1, nest2
 
 
-def assert_same_structure(nest1, nest2, check_types=True):
+def assert_same_structure(nest1, nest2, check_types=True, skip_if=None):
     """
     Confirm two nested structures with the same structure.
     """
+    if skip_if is not None and (skip_if(nest1) or skip_if(nest2)):
+        return
     len_nest1 = len(flatten(nest1)) if is_sequence(nest1) else 1
     len_nest2 = len(flatten(nest2)) if is_sequence(nest2) else 1
-    if len_nest1 != len_nest2:
+    if len_nest1 != len_nest2 and skip_if is None:
         raise ValueError(
             "The two structures don't have the same number of "
-            "elements.\n\nFirst structure (%i elements): %s\n\n"
-            "Second structure (%i elements): %s"
-            % (len_nest1, nest1, len_nest2, nest2)
+            f"elements.\n\nFirst structure ({len_nest1} elements): {nest1}\n\n"
+            f"Second structure ({len_nest2} elements): {nest2}"
         )
-    _recursive_assert_same_structure(nest1, nest2, check_types)
+    _recursive_assert_same_structure(nest1, nest2, check_types, skip_if)
 
 
 def _is_symmetric_padding(padding, data_dim):
@@ -415,7 +416,7 @@ def get_shape_tensor_inputs(inputs, attrs, shape, op_type):
                     'shape[' + str(idx) + ']',
                     ['int32', 'int64'],
                     op_type,
-                    '(When type of shape in' + op_type + 'is list or tuple.)',
+                    f'(When type of shape in {op_type} is list or tuple.)',
                 )
                 if convert_dtype(dim.dtype) == 'int64':
                     dim = paddle.cast(x=dim, dtype='int32')
@@ -432,7 +433,7 @@ def get_shape_tensor_inputs(inputs, attrs, shape, op_type):
             'shape',
             ['int32', 'int64'],
             'fill_constant',
-            '(When type of shape in' + op_type + ' is Variable.)',
+            f'(When type of shape in {op_type} is Variable.)',
         )
         if convert_dtype(shape.dtype) == 'int64':
             shape = paddle.cast(shape, 'int32')
@@ -450,6 +451,11 @@ def _convert_to_tensor_list(old_list, dtype="int32"):
     Converts all elements of a list to Variable / Value.
     """
     from paddle.tensor import fill_constant
+
+    if _contain_var(old_list):
+        for ele in old_list:
+            if isinstance(ele, paddle.pir.Value):
+                dtype = ele.dtype
 
     new_list_tensor = []
     for ele in old_list:
@@ -499,29 +505,6 @@ def check_shape(shape):
                     ['int32', 'int64'],
                     'fill_constant',
                 )
-
-
-def try_set_static_shape_tensor(tensor, shape):
-    """Try to set static shape of tensor from a shape tensor.
-
-    For example,
-
-    import paddle
-    paddle.enable_static()
-    data = paddle.static.data(name="x", shape=[-1, 2], dtype='float32')
-    shape = paddle.shape(data)  # shape should be [-1, 2] instead of [-1, -1]
-    x = paddle.uniform(shape)
-    print(x.shape)
-    # (-1, 2)
-
-    """
-    if not in_dygraph_mode():
-        # static graph mode, and shape is not all inferred (contains -1)
-        if -1 in tensor.shape:
-            if isinstance(shape, Variable):
-                shape = try_get_constant_shape_from_tensor(shape)
-                if shape:
-                    tensor.desc.set_shape(shape)
 
 
 def try_get_constant_shape_from_tensor(shape_tensor):
@@ -581,3 +564,28 @@ def get_inputs_outputs_in_block(block):
                     inner_outputs.add(out_var_name)
 
     return inner_inputs, inner_outputs
+
+
+def is_same_shape(shape1: ShapeLike, shape2: ShapeLike) -> bool:
+    """
+    Check whether two shapes are the same. Deal with the dynamic shape.
+    """
+    if paddle.in_dynamic_mode():
+        return shape1 == shape2
+
+    def is_tensor(x):
+        return isinstance(x, (paddle.static.Variable, paddle.pir.Value))
+
+    def is_dynamic_axis(axis):
+        return is_tensor(axis) or axis == -1
+
+    if is_tensor(shape1) or is_tensor(shape2):
+        return True
+    if len(shape1) != len(shape2):
+        return False
+    for s1, s2 in zip(shape1, shape2):
+        if is_dynamic_axis(s1) or is_dynamic_axis(s2):
+            continue
+        if s1 != s2:
+            return False
+    return True

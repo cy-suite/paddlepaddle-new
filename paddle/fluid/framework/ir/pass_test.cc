@@ -63,7 +63,7 @@ TEST(PassTest, TestPassAttrCheck) {
   } catch (paddle::platform::EnforceNotMet& e) {
     exception = std::string(e.what());
   }
-  ASSERT_TRUE(exception.find("Required atrribute test_pass_attr for pass < "
+  ASSERT_TRUE(exception.find("Required attribute test_pass_attr for pass < "
                              "test_pass > is not set") != exception.npos);
 
   int val = 1;
@@ -83,7 +83,7 @@ TEST(PassTest, TestPassAttrCheck) {
       exception = std::string(e.what());
     }
     std::string msg =
-        "Invalid type for attritube test_pass_attr, expected: " + try_type +
+        "Invalid type for attribute test_pass_attr, expected: " + try_type +
         ", actual: int";
     ASSERT_TRUE(exception.find(msg) != exception.npos);
   }
@@ -94,7 +94,7 @@ TEST(PassTest, TestPassAttrCheck) {
     exception = std::string(e.what());
   }
   ASSERT_TRUE(exception.find(
-                  "Required atrribute test_graph_attr for graph is not set") !=
+                  "Required attribute test_graph_attr for graph is not set") !=
               exception.npos);
 
   graph = std::make_unique<Graph>(prog);
@@ -148,7 +148,7 @@ TEST(PassTest, TestPassAttrCheckConvertAllBlocks) {
   } catch (paddle::platform::EnforceNotMet& e) {
     exception = std::string(e.what());
   }
-  ASSERT_TRUE(exception.find("Required atrribute test_pass_attr for pass < "
+  ASSERT_TRUE(exception.find("Required attribute test_pass_attr for pass < "
                              "test_pass > is not set") != exception.npos);
 
   int val = 1;
@@ -168,7 +168,7 @@ TEST(PassTest, TestPassAttrCheckConvertAllBlocks) {
       exception = std::string(e.what());
     }
     std::string msg =
-        "Invalid type for attritube test_pass_attr, expected: " + try_type +
+        "Invalid type for attribute test_pass_attr, expected: " + try_type +
         ", actual: int";
     ASSERT_TRUE(exception.find(msg) != exception.npos);
   }
@@ -179,7 +179,7 @@ TEST(PassTest, TestPassAttrCheckConvertAllBlocks) {
     exception = std::string(e.what());
   }
   ASSERT_TRUE(exception.find(
-                  "Required atrribute test_graph_attr for graph is not set") !=
+                  "Required attribute test_graph_attr for graph is not set") !=
               exception.npos);
 
   graph = std::make_unique<Graph>(prog);

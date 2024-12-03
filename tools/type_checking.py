@@ -70,10 +70,16 @@ class TestResult:
 
 class MypyChecker(TypeChecker):
     def __init__(
-        self, config_file: str, cache_dir: str, *args: Any, **kwargs: Any
+        self,
+        config_file: str,
+        cache_dir: str,
+        debug: bool = False,
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
         self.config_file = config_file
         self.cache_dir = cache_dir
+        self.debug = debug
         super().__init__(*args, **kwargs)
 
     def run(self, api_name: str, codeblock: str) -> TestResult:
@@ -99,7 +105,8 @@ class MypyChecker(TypeChecker):
         )
 
         normal_report, error_report, exit_status = mypy_api.run(
-            [
+            (["--show-traceback"] if self.debug else [])
+            + [
                 f'--config-file={self.config_file}',
                 f'--cache-dir={self.cache_dir}',
                 '-c',
@@ -184,6 +191,9 @@ class MypyChecker(TypeChecker):
             logger.error(
                 "> python tools/type_checking.py "
                 + " ".join(sorted(failed_apis))
+            )
+            logger.error(
+                ">>> For more information: https://www.paddlepaddle.org.cn/documentation/docs/zh/develop/dev_guides/style_guide_and_references/type_annotations_specification_cn.html"
             )
             logger.error("----------------End of the Check--------------------")
 
@@ -313,5 +323,6 @@ if __name__ == '__main__':
         cache_dir=(
             args.cache_dir if args.cache_dir else (base_path / '.mypy_cache')
         ),
+        debug=args.debug,
     )
     run_type_checker(args, mypy_checker)

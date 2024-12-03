@@ -26,7 +26,7 @@ void MvCooGradKernel(const Context& dev_ctx UNUSED,
                      const DenseTensor& dout UNUSED,
                      SparseCooTensor* dx UNUSED,
                      DenseTensor* dvec UNUSED) {
-  PADDLE_THROW(phi::errors::Unimplemented(
+  PADDLE_THROW(common::errors::Unimplemented(
       "Not support CPU backward kernel of 'sparse.mv' now."));
 }
 
@@ -37,7 +37,7 @@ void MvCsrGradKernel(const Context& dev_ctx UNUSED,
                      const DenseTensor& dout UNUSED,
                      SparseCsrTensor* dx UNUSED,
                      DenseTensor* dvec UNUSED) {
-  PADDLE_THROW(phi::errors::Unimplemented(
+  PADDLE_THROW(common::errors::Unimplemented(
       "Not support CPU backward kernel of 'sparse.mv' now."));
 }
 

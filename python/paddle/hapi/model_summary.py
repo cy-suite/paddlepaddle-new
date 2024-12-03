@@ -16,15 +16,19 @@ from __future__ import annotations
 
 import numbers
 import warnings
-from typing import OrderedDict, Sequence
+from collections import OrderedDict
+from typing import TYPE_CHECKING
 
 import numpy as np
 from typing_extensions import TypedDict
 
 import paddle
-from paddle import nn
+from paddle import Tensor, nn
 from paddle.autograd import no_grad
 from paddle.static import InputSpec
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 __all__ = []
 
@@ -35,17 +39,16 @@ class ModelSummary(TypedDict):
 
 
 def summary(
-    net: paddle.nn.Layer,
-    input_size: int
-    | tuple[int, ...]
-    | InputSpec
-    | list[tuple[int, ...] | InputSpec]
-    | None = None,
+    net: nn.Layer,
+    input_size: (
+        int
+        | tuple[int, ...]
+        | InputSpec
+        | list[tuple[int, ...] | InputSpec]
+        | None
+    ) = None,
     dtypes: str | Sequence[str] | None = None,
-    input: paddle.Tensor
-    | Sequence[paddle.Tensor]
-    | dict[str, paddle.Tensor]
-    | None = None,
+    input: Tensor | Sequence[Tensor] | dict[str, Tensor] | None = None,
 ) -> ModelSummary:
     """Prints a string summary of the network.
 
@@ -655,12 +658,12 @@ def summary_string(model, input_size=None, dtypes=None, input=None):
         f"Non-trainable params: {total_params - trainable_params:,}" + "\n"
     )
     summary_str += "-" * table_width['table_width'] + "\n"
-    summary_str += "Input size (MB): %0.2f" % total_input_size + "\n"
+    summary_str += f"Input size (MB): {total_input_size:0.2f}" + "\n"
     summary_str += (
-        "Forward/backward pass size (MB): %0.2f" % total_output_size + "\n"
+        f"Forward/backward pass size (MB): {total_output_size:0.2f}" + "\n"
     )
-    summary_str += "Params size (MB): %0.2f" % total_params_size + "\n"
-    summary_str += "Estimated Total Size (MB): %0.2f" % total_size + "\n"
+    summary_str += f"Params size (MB): {total_params_size:0.2f}" + "\n"
+    summary_str += f"Estimated Total Size (MB): {total_size:0.2f}" + "\n"
     summary_str += "-" * table_width['table_width'] + "\n"
 
     # return summary

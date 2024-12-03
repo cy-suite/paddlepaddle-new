@@ -16,6 +16,8 @@
 
 #include <vector>
 
+#include "paddle/fluid/pir/dialect/operator/ir/ir_tensor.h"
+#include "paddle/fluid/platform/tensorrt/engine_params.h"
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/common/place.h"
 #include "paddle/pir/include/core/value.h"
@@ -24,6 +26,7 @@ namespace paddle {
 namespace dialect {
 
 pir::Value builtin_combine(const std::vector<pir::Value>& x);
+std::vector<pir::Value> builtin_split(const pir::Value& x);
 
 std::vector<pir::Value> add_n_grad(const std::vector<pir::Value>& inputs,
                                    const pir::Value& out_grad);
@@ -72,6 +75,8 @@ pir::Value array_length(pir::Value x);
 
 pir::Value array_read(pir::Value array, pir::Value i);
 
+pir::Value fetch(pir::Value value, std::string name, int col);
+
 pir::Value array_write_(pir::Value array, pir::Value x, pir::Value i);
 
 std::tuple<pir::Value, pir::Value> array_to_tensor(pir::Value x,
@@ -97,7 +102,27 @@ std::tuple<pir::Value, pir::Value> fused_gemm_epilogue(pir::Value x,
                                                        bool trans_x,
                                                        bool trans_y,
                                                        std::string activation);
+
+std::tuple<pir::Value, pir::Value, pir::Value> fused_gemm_epilogue_grad(
+    pir::Value x,
+    pir::Value y,
+    paddle::optional<pir::Value> reserve_space,
+    pir::Value out_grad,
+    bool trans_x,
+    bool trans_y,
+    std::string activation_grad);
+
 pir::Value array_pop(pir::Value input, int index);
 
+std::vector<pir::Value> tensorrt_engine(
+    const std::vector<pir::Value>& inputs,
+    paddle::platform::EngineParams trt_params,
+    std::vector<std::string> input_names,
+    std::vector<std::string> output_names,
+    std::vector<std::vector<int64_t>> outputs_shape,
+    std::vector<phi::DataType> outputs_dtype,
+    const std::string& converter_debug_info);
+
+pir::Operation* share_var(const std::vector<pir::Value>& x);
 }  // namespace dialect
 }  // namespace paddle

@@ -268,7 +268,7 @@ void BlockDesc::SetForwardBlockID(int32_t forward_block_id) {
   PADDLE_ENFORCE_EQ(
       desc_->has_forward_block_idx(),
       false,
-      platform::errors::PreconditionNotMet(
+      common::errors::PreconditionNotMet(
           "Block %d's parent block ID has been set to %d, cannot be set to %d.",
           desc_->idx(),
           desc_->forward_block_idx(),
@@ -282,7 +282,7 @@ BlockDesc *BlockDesc::ForwardBlock() const {
 
 void BlockDesc::MoveFrom(BlockDesc *block) {
   PADDLE_ENFORCE_NOT_NULL(
-      block, platform::errors::InvalidArgument("Block must be provided."));
+      block, common::errors::InvalidArgument("Block must be provided."));
   if (this == block) {
     return;
   }

@@ -23,7 +23,6 @@ import paddle
 import paddle.nn.functional as F
 from paddle.base import core
 from paddle.framework import in_pir_mode
-from paddle.pir_utils import test_with_pir_api
 
 
 def _unpool_output_size(x, kernel_size, stride, padding, output_size):
@@ -446,7 +445,7 @@ class TestUnpoolOpAPI_dy4(unittest.TestCase):
 
 
 class TestUnpoolOpAPI_st(unittest.TestCase):
-    @test_with_pir_api
+
     def test_case(self):
         import paddle
         import paddle.nn.functional as F
@@ -491,7 +490,6 @@ class TestOutputSizeTensor(UnittestBase):
         self.shapes = [[1, 3, 6, 6]]
         self.save_path = os.path.join(self.temp_dir.name, self.path_prefix())
 
-    @test_with_pir_api
     def test_static(self):
         paddle.enable_static()
         main_prog = paddle.static.Program()
@@ -514,13 +512,11 @@ class TestOutputSizeTensor(UnittestBase):
             exe.run(startup_prog)
             res = exe.run(fetch_list=[out])
             np.testing.assert_array_equal(res[0].shape, [1, 3, 7, 7])
-            if not in_pir_mode():
-                paddle.static.save_inference_model(
-                    self.save_path, [x], [out], exe
-                )
-                # Test for Inference Predictor
-                infer_outs = self.infer_prog()
-                np.testing.assert_array_equal(res[0].shape, [1, 3, 7, 7])
+
+            paddle.static.save_inference_model(self.save_path, [x], [out], exe)
+            # Test for Inference Predictor
+            infer_outs = self.infer_prog()
+            np.testing.assert_array_equal(res[0].shape, [1, 3, 7, 7])
 
     def path_prefix(self):
         return 'unpool_var'

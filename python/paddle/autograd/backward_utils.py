@@ -27,101 +27,81 @@ from paddle.base.libpaddle.pir import (
 )
 from paddle.base.wrapped_decorator import signature_safe_contextmanager
 
-# TODO: Consider a better way to mark these ops has no grad op.
-# Such as use a new trait to mark these ops.
-# Please keep them as alphabetical order.
-ALLOW_NO_GRAD_OPS = [
-    # Compare ops
-    "pd_op.equal",
-    "pd_op.equal_",
-    "pd_op.greater_than",
-    "pd_op.greater_than_",
-    "pd_op.greater_equal",
-    "pd_op.greater_equal_",
-    "pd_op.less_than",
-    "pd_op.less_than_",
-    "pd_op.less_equal",
-    "pd_op.less_equal_",
-    "pd_op.not_equal",
-    "pd_op.not_equal_",
-    # Logical ops
-    "pd_op.logical_and",
-    "pd_op.logical_and_",
-    "pd_op.logical_not",
-    "pd_op.logical_not_",
-    "pd_op.logical_or",
-    "pd_op.logical_or_",
-    "pd_op.logical_xor",
-    "pd_op.logical_xor_",
-    # Bitwise ops
-    "pd_op.bitwise_and",
-    "pd_op.bitwise_and_",
-    "pd_op.bitwise_left_shift",
-    "pd_op.bitwise_left_shift_",
-    "pd_op.bitwise_not",
-    "pd_op.bitwise_not_",
-    "pd_op.bitwise_or",
-    "pd_op.bitwise_or_",
-    "pd_op.bitwise_right_shift",
-    "pd_op.bitwise_right_shift_",
-    "pd_op.bitwise_xor",
-    "pd_op.bitwise_xor_",
-    # Array ops
-    "pd_op.assign_array",
-    "pd_op.assign_array_",
-    "pd_op.array_length",
-    "pd_op.array_pop",
-    "pd_op.array_read",
-    "pd_op.array_write_",
-    "pd_op.create_array",
-    "pd_op.create_array_like",
-    "pd_op.slice_array",
-    "pd_op.slice_array_dense",
-    # Others
-    "pd_op.accuracy",
-    "pd_op.all",
-    "pd_op.any",
-    "pd_op.argmax",
-    "pd_op.assign_value_",
-    "pd_op.bernoulli",
-    "pd_op.distribute_fpn_proposals",
-    "pd_op.floor_divide",
-    "pd_op.full_like",
-    "pd_op.full_with_tensor",
-    "pd_op.gaussian",
-    "pd_op.isnan",
-    "pd_op.isinf",
-    "pd_op.nextafter",
-    "pd_op.nonzero",
-    "pd_op.one_hot",
-    "pd_op.print",
-    "pd_op.prior_box",
-    "pd_op.randint",
-    "pd_op.remainder",
-    "pd_op.shape",
-    "pd_op.share_data_",
-    "pd_op.uniform",
-]
-
-
 # TODO(CZ): to be removed when we support dynamic shape by default.
 ALLOW_DYNAMIC_SHAPE_VJP_OPS = [
     "pd_op.abs",
+    "pd_op.add",
+    "pd_op.amax",
+    "pd_op.amin",
+    "pd_op.argsort",
     "pd_op.assign",
-    "pd_op.sin",
-    "pd_op.cos",
-    "pd_op.tanh",
+    "pd_op.batch_norm_",
     "pd_op.cast",
-    "pd_op.log",
+    "pd_op.ceil",
+    "pd_op.concat",
+    "pd_op.cos",
+    "pd_op.cumprod",
+    "pd_op.cumsum",
+    "pd_op.divide",
+    "pd_op.dot",
+    "pd_op.dropout",
+    "pd_op.elementwise_pow",
+    "pd_op.erf",
     "pd_op.exp",
-    "pd_op.sqrt",
+    "pd_op.expand",
+    "pd_op.floor",
+    "pd_op.fmax",
+    "pd_op.fmin",
+    "pd_op.gather",
+    "pd_op.gather_nd",
+    "pd_op.gelu",
+    "pd_op.hardswish",
+    "pd_op.kron",
+    "pd_op.kthvalue",
+    "pd_op.layer_norm",
+    "pd_op.leaky_relu",
+    "pd_op.log",
+    "pd_op.logcumsumexp",
+    "pd_op.logsumexp",
+    "pd_op.matmul",
+    "pd_op.max",
+    "pd_op.maximum",
+    "pd_op.mean",
+    "pd_op.minimum",
+    "pd_op.multiply",
+    "pd_op.pad",
+    "pd_op.pow",
+    "pd_op.prod",
+    "pd_op.reduce_as",
+    "pd_op.relu",
+    "pd_op.reshape",
+    "pd_op.roll",
     "pd_op.rsqrt",
+    "pd_op.scale",
+    "pd_op.scatter",
+    "pd_op.scatter_nd_add",
     "pd_op.sigmoid",
     "pd_op.silu",
-    "pd_op.sum",
-    "pd_op.mean",
-    "pd_op.add",
+    "pd_op.sin",
+    "pd_op.softmax",
+    "pd_op.softsign",
+    "pd_op.split",
+    "pd_op.sqrt",
+    "pd_op.square",
+    "pd_op.squeeze",
+    "pd_op.stack",
     "pd_op.subtract",
+    "pd_op.sum",
+    "pd_op.swiglu",
+    "pd_op.swish",
+    "pd_op.take_along_axis",
+    "pd_op.tanh",
+    "pd_op.tile",
+    "pd_op.topk",
+    "pd_op.transpose",
+    "pd_op.trunc",
+    "pd_op.unsqueeze",
+    "pd_op.where",
 ]
 
 
@@ -130,7 +110,10 @@ class ValueWrapper:
         if isinstance(value, ValueWrapper):
             assert isinstance(value._value, (type(None), pir.Value))
         else:
-            assert isinstance(value, (type(None), pir.Value))
+            if not isinstance(value, (type(None), pir.Value)):
+                raise TypeError(
+                    "Value Wrapper is onlys support None and pir.Value"
+                )
         self._value = value._value if isinstance(value, ValueWrapper) else value
 
     def __hash__(self) -> int:
@@ -346,9 +329,6 @@ def _check_vjp_dynamic_shape(op, inputs):
     for items in inputs:
         for item in items:
             if item.initialized() and -1 in item.shape:
-                warnings.warn(
-                    f"[Prim] Decomp op does not support dynamic shape -1, but got shape {item.shape} in inputs of op {op.name()} . Prim will skip its vjp op."
-                )
                 return True
 
 
@@ -424,7 +404,20 @@ def get_real_op_inputs(op):
         return op.operands_source()
 
 
-def inverse_sort_op(ops):
+def get_real_op_outputs(op):
+    outputs = op.results()
+    if op.name() == "pd_op.array_write_":
+        for x in op.operands():
+            outputs.append(x.source())
+    if op.name() == "pd_op.while":
+        for internal_op in op.as_while_op().body().ops:
+            if internal_op.name() == "pd_op.array_write_":
+                for x in internal_op.operands():
+                    outputs.append(x.source())
+    return outputs
+
+
+def inverse_sort_op(old_ops):
     '''
     if topo graph is op1 -> op2 -> op3
     return [op3, op2, op1]
@@ -435,6 +428,8 @@ def inverse_sort_op(ops):
     # pending edges for its grad_op
 
     pending_count = collections.defaultdict(int)
+    ops = []
+    [ops.append(x) for x in old_ops if x not in ops]
     ops_set = set(ops)
     sorted_list = []
     for op in ops:
@@ -521,7 +516,7 @@ def remove_op(block, op, state):
 
             if value in state.sumvaluegrad_to_value:
                 raise ValueError(
-                    'input_grad in [%s] is value which need to sum ', op.name()
+                    f'input_grad in [%s] is value which need to sum {op.name()}'
                 )
     # NOTE(SigureMo): Ensure access to the op's results before removing it.
     # Otherwise, the op will be deconstructed and access the num_results
@@ -657,6 +652,8 @@ def get_grad_semantic_info(op):
         "pd_op.while",
         "pd_op.pylayer",
         "cf.tuple_push",
+        "dist_op.moe_global_mesh_tensor",
+        "dist_op.moe_sub_mesh_tensors",
     ]:
         grad_semantic_info = [True for _ in range(len(get_real_op_inputs(op)))]
         if op.name() == "pd_op.if":
