@@ -132,7 +132,7 @@ class ShardingOptimizer(MetaOptimizerBase):
             self._forward_remain_anchors = []
         else:
             raise NotImplementedError(
-                f"the sharding segment strategy [{str(segment_strategy)}] is not implemented"
+                f"the sharding segment strategy [{segment_strategy}] is not implemented"
             )
         self._sharding_segment_strategy = segment_strategy
 
@@ -2204,4 +2204,4 @@ class ThreadShardingOptimizer(ShardingOptimizer):
                 },
             )
         else:
-            block.append_op(type='c_comm_init_all', attrs={'ring_id': ring_id})
+            block.append_op(type='comm_init_all', attrs={'ring_id': ring_id})

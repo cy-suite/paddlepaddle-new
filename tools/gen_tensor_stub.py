@@ -20,12 +20,15 @@ import inspect
 import logging
 import re
 import sys
-import types
+import traceback
 from dataclasses import dataclass
 from functools import cached_property, lru_cache
-from typing import Any, Callable, Literal, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Literal, Protocol
 
-from typing_extensions import TypeAlias
+from typing_extensions import TypeAlias, get_overloads
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 logging.basicConfig(style="{", format="{message}", level=logging.INFO)
 logger = logging.getLogger("Generating stub file for paddle.Tensor")
@@ -50,8 +53,7 @@ class AnnoConverter(Protocol):
     "Literal[('raise', 'wrap', 'clip')]" -> "Literal['raise', 'wrap', 'clip']"
     """
 
-    def convert(self, input: str) -> str:
-        ...
+    def convert(self, input: str) -> str: ...
 
 
 class LiteralConverter(AnnoConverter):
@@ -219,7 +221,9 @@ class TensorGen:
                 method_code += f"@{decorator}\n"
 
             method_code += f"def {func.signature}:\n"
-            if func.doc:
+            # do NOT insert docs from overload methods,
+            # because we always add a plain method
+            if func.doc and func.decorators != ["overload"]:
                 method_code += f'{INDENT}r"""\n'
                 method_code += with_indent(func.doc, 1)
                 method_code += "\n"
@@ -403,14 +407,21 @@ def func_doc_to_method_doc(func_doc: str) -> str:
     return method_doc
 
 
-def try_import_paddle() -> types.ModuleType | None:
+def try_import_paddle() -> ModuleType | None:
     try:
         return importlib.import_module('paddle')
     except ModuleNotFoundError:
+        traceback.print_exc(file=sys.stderr)
         sys.stderr.write(
-            '''ERROR: Can NOT import paddle.
-            We could import paddle without installation, with all libs (.dll or .so) copied into dir `paddle/libs`,
-            or path already been set for the system.
+            '''
+ERROR: Can NOT import paddle from `tools/gen_tensor_stub.py` before installation.
+    So the stub file `python/paddle/tensor/tensor.pyi` of `paddle.Tensor` may be lost.
+    We COULD import paddle without installation with all libs (.dll or .so) copied into dir `paddle/libs`,
+    or path already been set for the system. Try the following steps to locate the problem.
+
+    1. Build with `SKIP_STUB_GEN=ON make -j$(nproc)`.
+    2. Install the wheel from `build/python/dist`.
+    3. Try to `import paddle` and check the problems.
             '''
         )
     return None
@@ -497,11 +508,34 @@ def get_tensor_members(module: str = 'paddle.Tensor') -> dict[int, Member]:
                 member_signature,
                 member_doc_cleaned,
             )
-        elif (
-            inspect.isfunction(member)
-            or inspect.ismethod(member)
-            or inspect.ismethoddescriptor(member)
-        ):
+        elif inspect.isfunction(member) or inspect.ismethod(member):
+            # `all_signatures`： list[[member id, decorators, signature]]
+            # with atleast an original method
+            all_signatures = [[member_id, [], member_signature]]
+
+            # try to get overloads
+            _overloads = get_overloads(member)
+            for f in _overloads:
+                _sig = inspect.signature(f)
+                all_signatures.append(
+                    [
+                        id(f),
+                        ["overload"],
+                        f"{name}{_sig}".replace("Ellipsis", "..."),
+                    ]
+                )
+
+            for _member_id, _decorators, _sig in all_signatures:
+                members[_member_id] = Member(
+                    _member_id,
+                    name,
+                    "method",
+                    [],
+                    _decorators,
+                    func_sig_to_method_sig(_sig),
+                    member_doc_cleaned,
+                )
+        elif inspect.ismethoddescriptor(member):
             members[member_id] = Member(
                 member_id,
                 name,
@@ -513,6 +547,7 @@ def get_tensor_members(module: str = 'paddle.Tensor') -> dict[int, Member]:
             )
         else:
             logging.debug(f"Skip unknown type of member: {name}, {member}")
+
     return members
 
 

@@ -196,11 +196,14 @@ struct SimplifyRampMutator : public ir::IRMutator<Expr*> {
   void Visit(const Ramp* op, Expr* expr) override {
     auto* node = expr->As<ir::Ramp>();
 
-    CHECK(cinn::common::IsPureMath(node->base))
-        << node->base << "is not a pure math!";
-    CHECK(cinn::common::IsPureMath(node->stride))
-        << node->stride << "is not a pure math!";
-
+    PADDLE_ENFORCE_EQ(
+        cinn::common::IsPureMath(node->base),
+        true,
+        ::common::errors::InvalidArgument("node->base is not a pure math!"));
+    PADDLE_ENFORCE_EQ(
+        cinn::common::IsPureMath(node->stride),
+        true,
+        ::common::errors::InvalidArgument("node->stride is not a pure math!"));
     PartialSimplify(&node->base);
     PartialSimplify(&node->stride);
   }
@@ -232,28 +235,25 @@ struct SimplifyIfThenElseMutator : public ir::IRMutator<> {
 
     auto* condition_int = node->condition.As<ir::IntImm>();
     auto* condition_uint = node->condition.As<ir::UIntImm>();
-    int64_t value;
-    if (condition_int || condition_uint) {
-      if (condition_int) {
-        value = condition_int->value;
-      } else {
-        value = condition_uint->value;
-      }
-      if (value) {
-        *expr = op->true_case;
-      } else {
-        if (op->false_case.defined()) {
-          *expr = op->false_case;
-        } else {
-          // null condition
-          *expr = ir::Block::Make({});
-        }
-      }
-    }
-    if (expr->As<ir::IfThenElse>()) {
-      if (node->true_case.defined()) Visit(&node->true_case, &node->true_case);
-      if (node->false_case.defined())
+
+    // not deterministic
+    if (!condition_int && !condition_uint) {
+      Visit(&node->true_case, &node->true_case);
+      if (node->false_case.defined()) {
         Visit(&node->false_case, &node->false_case);
+      }
+      return;
+    }
+
+    bool value = condition_int ? condition_int->value : condition_uint->value;
+    if (value) {
+      *expr = op->true_case;
+      Visit(expr, expr);
+    } else if (op->false_case.defined()) {
+      *expr = op->false_case;
+      Visit(expr, expr);
+    } else {
+      *expr = ir::Block::Make({});
     }
   }
 };
@@ -307,7 +307,9 @@ struct SimplifyBlocksMutator : public ir::IRMutator<> {
 
   void Visit(const ScheduleBlock* op, Expr* expr) override {
     auto* node = expr->As<ScheduleBlock>();
-    CHECK(node);
+    PADDLE_ENFORCE_NOT_NULL(node,
+                            ::common::errors::InvalidArgument(
+                                "The node expr->As<ScheduleBlock>() is null"));
     for (auto& var : node->iter_vars) {
       if (var->lower_bound.defined()) {
         Visit(&var->lower_bound, &var->lower_bound);
@@ -334,7 +336,7 @@ struct SimplifyBlocksMutator : public ir::IRMutator<> {
 };
 
 struct SimplifyForLoopsMutator : public ir::IRMutator<> {
-  absl::flat_hash_map<std::string, cinn::common::CasInterval> var_intervals;
+  absl::flat_hash_map<std::string, Expr> var_mins;
   SimplifyForLoopsMutator() {}
 
   void operator()(Expr* x) { ir::IRMutator<ir::Expr*>::Visit(x, x); }
@@ -350,14 +352,12 @@ struct SimplifyForLoopsMutator : public ir::IRMutator<> {
     if (min_i && extent_i && extent_i->value - min_i->value == 1) {
       VLOG(6) << "Simplify current For Loop";
       std::string var_name = node->loop_var->name;
-      var_intervals.emplace(
-          var_name,
-          cinn::common::CasInterval{min_i->value, extent_i->value - 1});
+      var_mins.emplace(var_name, node->min);
 
       *expr = node->body;
 
       Visit(expr, expr);
-      var_intervals.erase(var_name);
+      var_mins.erase(var_name);
     } else {
       Visit(&node->body, &node->body);
     }
@@ -366,9 +366,8 @@ struct SimplifyForLoopsMutator : public ir::IRMutator<> {
   void Visit(const _Var_* op, Expr* expr) override {
     auto* node = expr->As<ir::_Var_>();
 
-    if (var_intervals.count(node->name)) {
-      auto loop_range = var_intervals.at(node->name);
-      *expr = Expr(loop_range.l);
+    if (var_mins.count(node->name)) {
+      *expr = var_mins.at(node->name);
     }
   }
 };
@@ -381,6 +380,9 @@ CastType NormCastValue(T value) {
   }
 
   if (std::isinf(value)) {
+    if (CastType(value) == -std::numeric_limits<CastType>::infinity()) {
+      return -std::numeric_limits<CastType>::infinity();
+    }
     return std::numeric_limits<CastType>::infinity();
   } else if (std::isnan(value)) {
     return std::numeric_limits<CastType>::signaling_NaN();
@@ -472,6 +474,7 @@ void Simplify(Expr* expr) {
   mutator(expr);
 
   ReplaceFracWithDivMutator()(expr);
+  VLOG(3) << "End Simplify " << *expr;
 }
 
 void SimplifyCast(Expr* expr) { SimplifyCastMutator()(expr); }

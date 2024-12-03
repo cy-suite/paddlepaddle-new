@@ -82,7 +82,7 @@ class IR_API ShapedTypeInterface
   int64_t GetRank() const {
     PADDLE_ENFORCE_EQ((*this).HasRank(),
                       true,
-                      phi::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "Cannot query rank of unranked shaped type."));
     return (*this).GetShape().size();
   }
@@ -119,7 +119,7 @@ class IR_API ShapedTypeInterface
     PADDLE_ENFORCE_LT(
         idx,
         GetRank(),
-        phi::errors::InvalidArgument("Invalid index for shaped type."));
+        common::errors::InvalidArgument("Invalid index for shaped type."));
     return ShapedTypeInterface::IsDynamic((*this).GetShape()[idx]);
   }
 
@@ -141,7 +141,7 @@ class IR_API ShapedTypeInterface
     PADDLE_ENFORCE_LT(
         idx,
         GetRank(),
-        phi::errors::InvalidArgument("Invalid index for shaped type."));
+        common::errors::InvalidArgument("Invalid index for shaped type."));
     return (*this).GetShape()[idx];
   }
 

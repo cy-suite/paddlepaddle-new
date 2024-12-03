@@ -23,16 +23,11 @@
 
 namespace phi {
 
-template <typename T, typename Context>
-void UnpoolKernel(const Context& dev_ctx,
-                  const DenseTensor& x,
-                  const DenseTensor& indices,
-                  const std::vector<int>& ksize UNUSED,
-                  const std::vector<int>& strides UNUSED,
-                  const std::vector<int>& paddings UNUSED,
-                  const IntArray& output_size UNUSED,
-                  const std::string& data_format UNUSED,
-                  DenseTensor* out) {
+template <typename T, typename IndT, typename Context>
+void Unpool(const Context& dev_ctx,
+            const DenseTensor& x,
+            const DenseTensor& indices,
+            DenseTensor* out) {
   T* output_data = dev_ctx.template Alloc<T>(out);
   if (output_data) {
     phi::funcs::SetConstant<Context, T> set_zero;
@@ -47,15 +42,15 @@ void UnpoolKernel(const Context& dev_ctx,
   int input_feasize = input_height * input_width;
   int output_feasize = output_height * output_width;
   const T* input_data = x.data<T>();
-  const int* indices_data = indices.data<int>();
+  const IndT* indices_data = indices.data<IndT>();
   for (int b = 0; b < batch_size; ++b) {
     for (int c = 0; c < output_channels; ++c) {
       for (int i = 0; i < input_feasize; ++i) {
-        int index = indices_data[i];
+        IndT index = indices_data[i];
         PADDLE_ENFORCE_LT(
             index,
             output_feasize,
-            phi::errors::InvalidArgument(
+            common::errors::InvalidArgument(
                 "index should less than output tensor height * output tensor "
                 "width. Expected %ld < %ld, but got "
                 "%ld >= %ld. Please check input value.",
@@ -75,15 +70,28 @@ void UnpoolKernel(const Context& dev_ctx,
 }
 
 template <typename T, typename Context>
-void Unpool3dKernel(const Context& dev_ctx,
-                    const DenseTensor& x,
-                    const DenseTensor& indices,
-                    const std::vector<int>& ksize UNUSED,
-                    const std::vector<int>& strides UNUSED,
-                    const std::vector<int>& paddings UNUSED,
-                    const std::vector<int>& output_size UNUSED,
-                    const std::string& data_format UNUSED,
-                    DenseTensor* out) {
+void UnpoolKernel(const Context& dev_ctx,
+                  const DenseTensor& x,
+                  const DenseTensor& indices,
+                  const std::vector<int>& ksize UNUSED,
+                  const std::vector<int>& strides UNUSED,
+                  const std::vector<int>& paddings UNUSED,
+                  const IntArray& output_size UNUSED,
+                  const std::string& data_format UNUSED,
+                  DenseTensor* out) {
+  const auto& indices_type = indices.dtype();
+  if (indices_type == phi::DataType::INT32) {
+    Unpool<T, int, Context>(dev_ctx, x, indices, out);
+  } else {
+    Unpool<T, int64_t, Context>(dev_ctx, x, indices, out);
+  }
+}
+
+template <typename T, typename IndT, typename Context>
+void Unpool3d(const Context& dev_ctx,
+              const DenseTensor& x,
+              const DenseTensor& indices,
+              DenseTensor* out) {
   T* output_data = dev_ctx.template Alloc<T>(out);
   if (output_data) {
     phi::funcs::SetConstant<Context, T> set_zero;
@@ -100,15 +108,15 @@ void Unpool3dKernel(const Context& dev_ctx,
   int input_feasize = input_depth * input_height * input_width;
   int output_feasize = output_depth * output_height * output_width;
   const T* input_data = x.data<T>();
-  const int* indices_data = indices.data<int>();
+  const IndT* indices_data = indices.data<IndT>();
   for (int b = 0; b < batch_size; ++b) {
     for (int c = 0; c < output_channels; ++c) {
       for (int i = 0; i < input_feasize; ++i) {
-        int index = indices_data[i];
+        IndT index = indices_data[i];
         PADDLE_ENFORCE_LT(
             index,
             output_feasize,
-            phi::errors::InvalidArgument(
+            common::errors::InvalidArgument(
                 "index should less than output tensor depth * output tensor "
                 "height "
                 "* output tensor width. Expected %ld < %ld, but got "
@@ -117,14 +125,30 @@ void Unpool3dKernel(const Context& dev_ctx,
                 output_feasize,
                 index,
                 output_feasize));
-        if (output_data != nullptr) {
-          output_data[index] = input_data[i];
-        }
+        output_data[index] = input_data[i];
       }
       input_data += input_feasize;
       indices_data += input_feasize;
       output_data += output_feasize;
     }
+  }
+}
+
+template <typename T, typename Context>
+void Unpool3dKernel(const Context& dev_ctx,
+                    const DenseTensor& x,
+                    const DenseTensor& indices,
+                    const std::vector<int>& ksize UNUSED,
+                    const std::vector<int>& strides UNUSED,
+                    const std::vector<int>& paddings UNUSED,
+                    const std::vector<int>& output_size UNUSED,
+                    const std::string& data_format UNUSED,
+                    DenseTensor* out) {
+  const auto& indices_type = indices.dtype();
+  if (indices_type == phi::DataType::INT32) {
+    Unpool3d<T, int, Context>(dev_ctx, x, indices, out);
+  } else {
+    Unpool3d<T, int64_t, Context>(dev_ctx, x, indices, out);
   }
 }
 

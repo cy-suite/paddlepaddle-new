@@ -212,8 +212,7 @@ cc_test(
 cc_test(
   op_kernel_type_test
   SRCS op_kernel_type_test.cc
-  DEPS place device_context framework_proto op_kernel_type)
-cc_test(cow_ptr_tests SRCS details/cow_ptr_test.cc)
+  DEPS phi common device_context framework_proto op_kernel_type)
 
 cc_test(tuple_test SRCS tuple_test.cc)
 
@@ -232,7 +231,7 @@ cc_test(
 cc_test(
   infershape_utils_test
   SRCS infershape_utils_test.cc
-  DEPS infershape_utils phi common)
+  DEPS operator phi)
 
 if(WITH_TESTING AND TEST selected_rows_utils_test)
   set_tests_properties(selected_rows_utils_test PROPERTIES TIMEOUT 120)
@@ -271,5 +270,3 @@ cc_test(
   workqueue_test
   SRCS new_executor/workqueue_test.cc
   DEPS standalone_executor)
-
-add_subdirectory(ir)

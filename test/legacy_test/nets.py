@@ -238,22 +238,21 @@ def img_conv_group(
     conv_batchnorm_drop_rate = __extend_list__(conv_batchnorm_drop_rate)
 
     for i in range(len(conv_num_filter)):
-        local_conv_act = conv_act
-        if conv_with_batchnorm[i]:
-            local_conv_act = None
-
-        tmp = paddle.static.nn.conv2d(
-            input=tmp,
-            num_filters=conv_num_filter[i],
-            filter_size=conv_filter_size[i],
+        conv_layer = paddle.nn.Conv2D(
+            in_channels=tmp.shape[1],
+            out_channels=conv_num_filter[i],
+            kernel_size=conv_filter_size[i],
             padding=conv_padding[i],
-            param_attr=param_attr[i],
-            act=local_conv_act,
-            use_cudnn=use_cudnn,
+            weight_attr=param_attr[i],
         )
+        tmp = conv_layer(tmp)
 
         if conv_with_batchnorm[i]:
-            tmp = paddle.static.nn.batch_norm(input=tmp, act=conv_act)
+            bn_layer = paddle.nn.BatchNorm(
+                num_channels=conv_num_filter[i], act=conv_act
+            )
+            tmp = bn_layer(tmp)
+
             drop_rate = conv_batchnorm_drop_rate[i]
             if abs(drop_rate) > 1e-5:
                 tmp = paddle.nn.functional.dropout(x=tmp, p=drop_rate)
@@ -285,14 +284,14 @@ def sequence_conv_pool(
     """
         :api_attr: Static Graph
 
-    **This api takes input as an LoDTensor. If input is a Tensor, please use**
+    **This api takes input as an DenseTensor. If input is a Tensor, please use**
     :ref:`api_base_nets_simple_img_conv_pool` **instead**
 
     The sequence_conv_pool is composed of :ref:`api_base_layers_sequence_conv`
     and :ref:`api_base_layers_sequence_pool` .
 
     Args:
-        input (Tensor): 2-D LoDTensor, the input of sequence_conv,
+        input (Tensor): 2-D DenseTensor, the input of sequence_conv,
             which supports variable-time length input sequence.
             The underlying of input is a matrix with shape
             (T, N), where T is the total time steps in this mini-batch and N is
@@ -371,7 +370,7 @@ def glu(input, dim=-1):
     <https://arxiv.org/pdf/1612.08083.pdf>`_.
 
     Args:
-        input (Variable): The input variable which is a Tensor or LoDTensor.
+        input (Variable): The input variable which is a Tensor.
                           The supported data types include float32, float64
                           and float16 (only for GPU).
         dim (int, optional): The dimension along which to split. If :math:`dim < 0`, the
@@ -578,7 +577,7 @@ def scaled_dot_product_attention(
         # [batch_size, max_sequence_length, num_heads, hidden_size_per_head].
         reshaped = paddle.reshape(
             x=x,
-            shape=list(x.shape[:-1]) + [num_heads, hidden_size // num_heads],
+            shape=[*x.shape[:-1], num_heads, hidden_size // num_heads],
         )
 
         # permute the dimensions into:
