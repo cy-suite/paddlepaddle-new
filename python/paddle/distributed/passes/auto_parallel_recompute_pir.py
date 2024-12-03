@@ -119,8 +119,6 @@ class AutoParallelRecomputePIRPass(PassBase):
             value_map.add(val, val)
 
         for rc_id, segment in segments.items():
-            print(rc_id)
-            print(segment)
             first_bwd_used_op = bwd_ops[-1]
             for idx in segment:
                 op = main_program.global_block().ops[idx]
