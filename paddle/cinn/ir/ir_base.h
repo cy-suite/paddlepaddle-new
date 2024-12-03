@@ -204,7 +204,6 @@ class IrNode : public cinn::common::Object {
   const Expr& operand(int i);
 
   const IndexExpr operand_as_index(int i) const;
-  IndexExpr operand_as_index(int i);
 
   //! Gather all the expression fields in this node for easier visit and mutate.
   virtual std::vector<Expr*> expr_fields() { return {}; }
@@ -581,10 +580,6 @@ struct BinaryOpNode : public ExprNode<T> {
   Expr& b() { return ExprNode<T>::operand(1); }
   const Expr& a() const { return ExprNode<T>::operand(0); }
   const Expr& b() const { return ExprNode<T>::operand(1); }
-
-  IndexExpr a_as_index() { return IrNode::operand_as_index(0); }
-  IndexExpr b_as_index() { return IrNode::operand_as_index(1); }
-
   const IndexExpr a_as_index() const { return IrNode::operand_as_index(0); }
   const IndexExpr b_as_index() const { return IrNode::operand_as_index(1); }
   Type type() const override { return a().type(); }

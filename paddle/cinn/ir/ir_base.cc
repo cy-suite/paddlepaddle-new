@@ -591,14 +591,6 @@ const IndexExpr IrNode::operand_as_index(int i) const {
   return operands[i].as_index();
 }
 
-IndexExpr IrNode::operand_as_index(int i) {
-  PADDLE_ENFORCE_LT(
-      i,
-      operands.size(),
-      ::common::errors::InvalidArgument("The index %d is out of range", i));
-  return operands[i].as_index();
-}
-
 void IrNode::set_type(Type type) { type_ = type; }
 
 void IrNode::replace(Expr old_op, Expr new_op) {
