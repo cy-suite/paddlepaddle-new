@@ -68,65 +68,103 @@ def anchor_generator_converter(network, paddle_op, inputs):
         plugin_name = "AnchorGeneratorPluginDynamic"
         fields = [
             trt.PluginField(
-                "data_type", np.array(data_type, dtype=np.int32), trt.PluginFieldType.INT32
-                ),
+                "data_type",
+                np.array(data_type, dtype=np.int32),
+                trt.PluginFieldType.INT32,
+            ),
             trt.PluginField(
-                "anchor_sizes", np.array(anchor_sizes, dtype=np.int32), trt.PluginFieldType.INT32
-                ),
+                "anchor_sizes",
+                np.array(anchor_sizes, dtype=np.int32),
+                trt.PluginFieldType.INT32,
+            ),
             trt.PluginField(
-                "aspect_ratios", np.array(aspect_ratios, dtype=np.float32), trt.PluginFieldType.FLOAT32
-                ),
+                "aspect_ratios",
+                np.array(aspect_ratios, dtype=np.float32),
+                trt.PluginFieldType.FLOAT32,
+            ),
             trt.PluginField(
-                "stride", np.array(stride, dtype=np.float32), trt.PluginFieldType.FLOAT32
-                ),
+                "stride",
+                np.array(stride, dtype=np.float32),
+                trt.PluginFieldType.FLOAT32,
+            ),
             trt.PluginField(
-                "variances", np.array(variances, dtype=np.float32), trt.PluginFieldType.FLOAT32
-                ),
+                "variances",
+                np.array(variances, dtype=np.float32),
+                trt.PluginFieldType.FLOAT32,
+            ),
             trt.PluginField(
-                "offset", np.array([offset], dtype=np.float32), trt.PluginFieldType.FLOAT32
-                ),
+                "offset",
+                np.array([offset], dtype=np.float32),
+                trt.PluginFieldType.FLOAT32,
+            ),
             trt.PluginField(
-                "num_anchors", np.array(num_anchors, dtype=np.int32), trt.PluginFieldType.INT32
-                )
+                "num_anchors",
+                np.array(num_anchors, dtype=np.int32),
+                trt.PluginFieldType.INT32,
+            )
         ]
     else:
         plugin_name = "AnchorGeneratorPlugin"
         fields = [
             trt.PluginField(
-                "data_type", np.array(data_type, dtype=np.int32), trt.PluginFieldType.INT32
-                ),
+                "data_type",
+                np.array(data_type, dtype=np.int32),
+                trt.PluginFieldType.INT32,
+            ),
             trt.PluginField(
-                "anchor_sizes", np.array(anchor_sizes, dtype=np.int32), trt.PluginFieldType.INT32
-                ),
+                "anchor_sizes",
+                np.array(anchor_sizes, dtype=np.int32),
+                trt.PluginFieldType.INT32,
+            ),
             trt.PluginField(
-                "aspect_ratios", np.array(aspect_ratios, dtype=np.float32), trt.PluginFieldType.FLOAT32
-                ),
+                "aspect_ratios",
+                np.array(aspect_ratios, dtype=np.float32),
+                trt.PluginFieldType.FLOAT32,
+            ),
             trt.PluginField(
-                "stride", np.array(stride, dtype=np.float32), trt.PluginFieldType.FLOAT32
-                ),
+                "stride",
+                np.array(stride, dtype=np.float32),
+                trt.PluginFieldType.FLOAT32,
+            ),
             trt.PluginField(
-                "variances", np.array(variances, dtype=np.float32), trt.PluginFieldType.FLOAT32
-                ),
+                "variances",
+                np.array(variances, dtype=np.float32),
+                trt.PluginFieldType.FLOAT32,
+            ),
             trt.PluginField(
-                "offset", np.array([offset], dtype=np.float32), trt.PluginFieldType.FLOAT32
-                ),
+                "offset",
+                np.array([offset], dtype=np.float32),
+                trt.PluginFieldType.FLOAT32,
+            ),
             trt.PluginField(
-                "num_anchors", np.array(num_anchors, dtype=np.int32), trt.PluginFieldType.INT32
-                ),
+                "num_anchors",
+                np.array(num_anchors, dtype=np.int32),
+                trt.PluginFieldType.INT32,
+            ),
             trt.PluginField(
-                "height", np.array(height, dtype=np.int32), trt.PluginFieldType.INT32
-                ),
+                "height",
+                np.array(height, dtype=np.int32),
+                trt.PluginFieldType.INT32,
+            ),
             trt.PluginField(
-                "width", np.array(width, dtype=np.int32), trt.PluginFieldType.INT32
-                ),
+                "width",
+                np.array(width, dtype=np.int32),
+                trt.PluginFieldType.INT32,
+            ),
             trt.PluginField(
-                "box_num", np.array(box_num, dtype=np.int32), trt.PluginFieldType.INT32
-                )
+                "box_num",
+                np.array(box_num, dtype=np.int32),
+                trt.PluginFieldType.INT32,
+            )
         ]
     field_collection = trt.PluginFieldCollection(fields)
     plugin_version = "1"
-    anchor_generator_plugin = get_trt_plugin(plugin_name, field_collection, plugin_version)
+    anchor_generator_plugin = get_trt_plugin(
+        plugin_name, field_collection, plugin_version
+    )
     anchor_generator_layer = network.add_plugin_v2(
         [input_tensor], anchor_generator_plugin
     )
-    return anchor_generator_layer.get_output(0), anchor_generator_layer.get_output(1)
+    return anchor_generator_layer.get_output(
+        0
+    ), anchor_generator_layer.get_output(1)

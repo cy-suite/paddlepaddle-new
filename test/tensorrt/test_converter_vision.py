@@ -13,13 +13,13 @@
 # limitations under the License.
 
 import unittest
+from collections.abc import Sequence
 
 import numpy as np
 from tensorrt_test_base import TensorRTBaseTest
 
 import paddle.nn.functional as F
 from paddle import Tensor
-from collections.abc import Sequence
 
 
 class TestGridSampleTRTPatternBase(TensorRTBaseTest):
