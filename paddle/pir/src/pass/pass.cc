@@ -14,7 +14,9 @@
 
 #include <glog/logging.h>
 
+#ifdef PADDLE_WITH_CINN
 #include "paddle/cinn/common/event_tracing.h"
+#endif
 #include "paddle/pir/include/core/ir_context.h"
 #include "paddle/pir/include/core/operation.h"
 #include "paddle/pir/include/core/program.h"
