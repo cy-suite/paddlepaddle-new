@@ -4060,6 +4060,18 @@ void ShapeInferMeta(const MetaTensor& input, MetaTensor* out) {
   out->set_dtype(DataType::INT32);
 }
 
+void Shape64InferMeta(const MetaTensor& input,
+                      MetaTensor* out,
+                      MetaConfig config) {
+  auto in_dim = input.dims();
+  out->set_dims(common::make_ddim({in_dim.size()}));
+  if (config.is_run_mkldnn_kernel) {
+    out->set_dtype(DataType::INT32);
+  } else {
+    out->set_dtype(DataType::INT64);
+  }
+}
+
 void ShareDataInferMeta(const MetaTensor& x, MetaTensor* out) {
   out->set_dims(x.dims());
   out->set_dtype(x.dtype());
@@ -4196,10 +4208,10 @@ void SliceRawInferMeta(const MetaTensor& input,
   out->set_dtype(input.dtype());
 }
 
-void TensorSliceInferMeta(const MetaTensor& input,
-                          int64_t begin_idx,
-                          int64_t end_idx,
-                          MetaTensor* out) {
+void ViewSliceInferMeta(const MetaTensor& input,
+                        int64_t begin_idx,
+                        int64_t end_idx,
+                        MetaTensor* out) {
   const auto& in_dims = input.dims();
   PADDLE_ENFORCE_GE(
       begin_idx,
@@ -4900,6 +4912,31 @@ void PartialConcatInferMeta(const std::vector<const MetaTensor*>& xs,
   DDim out_dim = common::make_ddim(out_dims);
   out->set_dims(out_dim);
   out->set_dtype(xs[0]->dtype());
+}
+
+void SvdvalsInferMeta(const MetaTensor& x, MetaTensor* s) {
+  auto SDDim = [](const DDim& x_dim, int k) {
+    auto x_vec = common::vectorize(x_dim);
+    x_vec.erase(x_vec.end() - 2, x_vec.end());
+    x_vec.push_back(k);
+    return common::make_ddim(x_vec);
+  };
+
+  auto in_dims = x.dims();
+  int64_t x_rank = in_dims.size();
+
+  PADDLE_ENFORCE_GE(
+      x_rank,
+      2,
+      common::errors::InvalidArgument("The rank of input tensor must be >= 2"));
+
+  int64_t m = in_dims[x_rank - 2];
+  int64_t n = in_dims[x_rank - 1];
+
+  int64_t k = std::min(m, n);
+  s->set_dims(SDDim(in_dims, k));
+  s->share_lod(x);
+  s->set_dtype(x.dtype());
 }
 
 void SvdInferMeta(const MetaTensor& x,
@@ -5961,10 +5998,10 @@ void WeightQuantizeInferMeta(const MetaTensor& x,
   } else if (algo == "weight_only_int4") {
     dim_out = std::vector<int64_t>({x_dims[1] / 2, x_dims[0]});
   } else {
-    common::errors::InvalidArgument(
+    PADDLE_THROW(common::errors::InvalidArgument(
         "The algo must be in ['weight_only_int8', 'weight_only_int4', "
         "'llm.int8'], but got[%s]",
-        algo);
+        algo));
   }
   out->set_dims(common::make_ddim(dim_out));
 

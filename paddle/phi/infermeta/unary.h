@@ -679,6 +679,10 @@ void ShareDataInferMeta(const MetaTensor& x, MetaTensor* out);
 
 void ShapeInferMeta(const MetaTensor& input, MetaTensor* out);
 
+void Shape64InferMeta(const MetaTensor& input,
+                      MetaTensor* out,
+                      MetaConfig config = MetaConfig());
+
 void ShardIndexInferMeta(const MetaTensor& in,
                          int index_num,
                          int nshards,
@@ -711,10 +715,10 @@ void SliceRawInferMeta(const MetaTensor& input,
                        MetaTensor* out,
                        MetaConfig config = MetaConfig());
 
-void TensorSliceInferMeta(const MetaTensor& input,
-                          int64_t begin_idx,
-                          int64_t end_idx,
-                          MetaTensor* out);
+void ViewSliceInferMeta(const MetaTensor& input,
+                        int64_t begin_idx,
+                        int64_t end_idx,
+                        MetaTensor* out);
 
 void SoftmaxInferMeta(const MetaTensor& x, int axis, MetaTensor* out);
 
@@ -809,6 +813,8 @@ void PartialSumInferMeta(const std::vector<const MetaTensor*>& xs,
                          int length,
                          MetaTensor* out,
                          MetaConfig config = MetaConfig());
+
+void SvdvalsInferMeta(const MetaTensor& x, MetaTensor* s);
 
 void SvdInferMeta(const MetaTensor& x,
                   bool full_matrices,

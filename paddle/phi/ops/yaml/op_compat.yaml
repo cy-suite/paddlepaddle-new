@@ -239,6 +239,16 @@
     {start : Start, end : End, step : Step}
   outputs :
     out : Out
+  scalar:
+    start:
+      data_type : double
+      support_tensor : true
+    end:
+      data_type : double
+      support_tensor : true
+    step:
+      data_type : double
+      support_tensor : true
 
 - op : argmax(arg_max)
   inputs :
@@ -1754,15 +1764,6 @@
     context_length : contextLength
     context_start : contextStart
     context_stride : contextStride
-
-- op : fusion_seqexpand_concat_fc
-  inputs :
-    x : X
-    fc_weight : FCWeight
-    fc_bias : FCBias
-  outputs :
-    out : Out
-    fc_out : FCOut
 
 - op : fusion_seqpool_concat
   inputs:
@@ -4222,13 +4223,6 @@
     {x : X, dep : Dep}
   outputs:
     out : Out
-
-- op: detection_map
-  backward: detection_map_grad
-  inputs:
-    {detect_res : DetectRes, label : Label, has_state : HasState, pos_count : PosCount, true_pos : TruePos, false_pos : FalsePos}
-  outputs:
-    {accum_pos_count : AccumPosCount, accum_true_pos : AccumTruePos, accum_false_pos : AccumFalsePos, m_ap : MAP}
 
 - op: dgc
   inputs:
