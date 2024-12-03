@@ -38,16 +38,14 @@ def parallelize(model, optimizer=None, mesh=None, config=None):
         config (dict, optional): a dict contains the parallel config.
             The keys of the dict can be chosen from `dp_config`, `mp_config` and `pp_config` which will be used to
             determine the parallel method for data parallel, tensor parallel and pipeline parallel separately.
-            A valid config can be like this: ```{
-                "dp_config": for more information refer the `dp_config` section of this doc,
-                "mp_config": for more information refer the `mp_config` section of this doc,
-                "pp_config": for more information refer the `pp_config` section of this doc,
-            }```.
+            A valid config can be like this: {"dp_config": for more information refer the `dp_config` section of
+            this doc, "mp_config": for more information refer the `mp_config` section of this doc, "pp_config":
+            for more information refer the `pp_config` section of this doc}.
 
             dp_config (dict): a dict specifying the data parallel config. The keys of `dp_config` is `sharding_level`.
                 The value of `sharding_level` can be chosen from 0/1/2/3, which means pure data parallel, sharding
-                parallel stage 1, sharding parallel stage 2 and sharding parallel stage 3  separately.
-                A valid dp_config can be like this: {"sharding_level": 2}.
+                parallel stage 1, sharding parallel stage 2 and sharding parallel stage 3  separately. A valid
+                dp_config can be like this: {"sharding_level": 2}.
 
             mp_config (dict): a dict specifying the tensor parallel config. The keys of `mp_config` is
                 `parallelize_plan`. The value of `parallelize_plan` is another dict, mapping a layer name or a param
@@ -55,8 +53,7 @@ def parallelize(model, optimizer=None, mesh=None, config=None):
                 mapping a param name to a specific plan, the name of the param must be ended with `weight` or `bias`.
                 And all valid parallel plan is `ColWiseParallel`, `RowWiseParallel`, `SequenceParallelBegin,
                 `SequenceParallelDisable`, `SequenceParallelEnable`, `SequenceParallelEnd`, `PrepareLayerInput` and
-                `PrepareLayerOutput`.
-                A valid mp_config can be like this: {"llama.embed_tokens": dist.ColWiseParallel(),
+                `PrepareLayerOutput`. A valid mp_config can be like this: {"llama.embed_tokens": dist.ColWiseParallel(),
                 "llama.norm": dist.SequenceParallelEnable(), "lm_head.weight": dist.ColWiseParallel()}.
 
             pp_config (dict): a dict specifying the pipeline parallel config. The keys of `pp_config` is `split_spec`
@@ -65,9 +62,9 @@ def parallelize(model, optimizer=None, mesh=None, config=None):
                 pipeline parallel will exactly split the model at the point indicated by the map. If the `split_spec`
                 is a string, it contains the prefix of a set of layers. The pipeline parallel will automatically split
                 the model evenly at target layer. The `global_spec` is a string indicating a layer that contains global
-                tensors, which will be duplicated through all stages of the pipeline parallel.
-                Some valid pp_config can be list these:  {"split_spec": "llama.layers",
-                "global_spec": "llama.global_layer"} or {"split_spec": {"llama.layers.1": SplitPoint.END}}.
+                tensors, which will be duplicated through all stages of the pipeline parallel. Some valid pp_config
+                can be list these:  {"split_spec": "llama.layers", "global_spec": "llama.global_layer"}
+                or {"split_spec": {"llama.layers.1": SplitPoint.END}}.
 
             Note: if the mesh is `None` or neither of `dp_config`, `mp_config` and `pp_config` is in the config, this
             api will do nothing but return the model and optimizer passed in.
