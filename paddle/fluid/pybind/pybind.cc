@@ -1273,22 +1273,20 @@ PYBIND11_MODULE(libpaddle, m) {
 
       // Extract the `obj.__cuda_array_interface__['shape']` attribute
       phi::IntArray shapeIntArray;
-      {
-        std::vector<int64_t> shape;
-        if (!cuda_dict.contains("shape")) {
-          throw py::key_error(
-              "The 'shape' key is missing in the __cuda_array_interface__  "
-              "dict.");
-        }
-        py::object shape_obj = cuda_dict["shape"];
-        if (py::isinstance<py::tuple>(shape_obj) ||
-            py::isinstance<py::list>(shape_obj)) {
-          shape = shape_obj.cast<std::vector<int64_t>>();
-        } else {
-          throw py::value_error("Shape must be a tuple or list");
-        }
-        shapeIntArray = phi::IntArray(shape);
+      std::vector<int64_t> shapes;
+      if (!cuda_dict.contains("shape")) {
+        throw py::key_error(
+            "The 'shape' key is missing in the __cuda_array_interface__  "
+            "dict.");
       }
+      py::object shape_obj = cuda_dict["shape"];
+      if (py::isinstance<py::tuple>(shape_obj) ||
+          py::isinstance<py::list>(shape_obj)) {
+        shapes = shape_obj.cast<std::vector<int64_t>>();
+      } else {
+        throw py::value_error("Shape must be a tuple or list");
+      }
+      shapeIntArray = phi::IntArray(shapes);
 
       // Extract the `obj.__cuda_array_interface__['typestr'] attribute
       if (!cuda_dict.contains("typestr")) {
@@ -1335,8 +1333,8 @@ PYBIND11_MODULE(libpaddle, m) {
         }
         stridesIntArray = phi::IntArray(strides_vec);
       } else {
-        stridesIntArray = phi::IntArray(phi::DenseTensorMeta::calc_strides(
-            common::make_ddim(shapeIntArray)));
+        stridesIntArray = phi::IntArray(
+            phi::DenseTensorMeta::calc_strides(common::make_ddim(shapes)));
       }
       return paddle::from_blob(data_ptr,
                                shapeIntArray,

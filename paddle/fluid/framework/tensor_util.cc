@@ -883,7 +883,7 @@ phi::DataType ConvertToPDDataType(const std::string& typestr) {
   PADDLE_ENFORCE_NE(
       it,
       type_map.end(),
-      platform::errors::InvalidArgument("Unsupported typestr: " + typestr));
+      common::errors::InvalidArgument("Unsupported typestr: " + typestr));
   return it->second;
 }
 
