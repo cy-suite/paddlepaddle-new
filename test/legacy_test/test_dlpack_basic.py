@@ -21,6 +21,10 @@ import paddle
 from paddle import base
 
 
+@unittest.skipIf(
+    paddle.core.is_compiled_with_xpu(),
+    "xpu does not support dlpack",
+)
 class TestDLPack(unittest.TestCase):
     def test_dlpack_dygraph(self):
         with dygraph_guard():
@@ -276,6 +280,10 @@ class TestDLPack(unittest.TestCase):
             self.assertTrue(s2.query(), "Stream s2 did not complete all tasks.")
 
 
+@unittest.skipIf(
+    paddle.core.is_compiled_with_xpu(),
+    "xpu does not support dlpack",
+)
 class TestRaiseError(unittest.TestCase):
     def test_dlpack_invalid_sparse(self):
         sparse_tensor = paddle.sparse.sparse_coo_tensor(
