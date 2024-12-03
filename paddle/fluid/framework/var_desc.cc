@@ -243,9 +243,11 @@ void VarDesc::SetLoDLevels(const std::vector<int32_t> &multiple_lod_level) {
   SetLegacyLoDLevels(multiple_lod_level);
 }
 
-int32_t VarDesc::GetLoDLevel() const { return GetLegacyLevel(); }
+int32_t VarDesc::GetLoDLevel() const { return GetLegacyLoDLevel(); }
 
-std::vector<int32_t> VarDesc::GetLoDLevels() const { return GetLegacyLevels(); }
+std::vector<int32_t> VarDesc::GetLoDLevels() const {
+  return GetLegacyLoDLevels();
+}
 
 const proto::VarType::TensorDesc &VarDesc::tensor_desc() const {
   PADDLE_ENFORCE_EQ(
