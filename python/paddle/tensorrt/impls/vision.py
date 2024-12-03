@@ -101,7 +101,7 @@ def anchor_generator_converter(network, paddle_op, inputs):
                 "num_anchors",
                 np.array(num_anchors, dtype=np.int32),
                 trt.PluginFieldType.INT32,
-            )
+            ),
         ]
     else:
         plugin_name = "AnchorGeneratorPlugin"
@@ -155,7 +155,7 @@ def anchor_generator_converter(network, paddle_op, inputs):
                 "box_num",
                 np.array(box_num, dtype=np.int32),
                 trt.PluginFieldType.INT32,
-            )
+            ),
         ]
     field_collection = trt.PluginFieldCollection(fields)
     plugin_version = "1"
