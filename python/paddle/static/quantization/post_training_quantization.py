@@ -876,6 +876,8 @@ class PostTrainingQuantization:
 
         for var_name in self._quantized_act_var_name:
             var_tensor = utils.load_variable_data(self._scope, var_name)
+            if var_tensor.shape == ():
+                var_tensor = var_tensor.reshape(1)
             if var_tensor.size == 0:
                 self._zero_size_var_names.add(var_name)
                 continue
