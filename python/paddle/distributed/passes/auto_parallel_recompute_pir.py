@@ -73,15 +73,36 @@ class AutoParallelRecomputePIRPass(PassBase):
         )
 
     def get_segments(self, program):
-        segments = {}
+        # `fwd_recompute_id` indicates the ID assigned to the segment for
+        # which the OP requires recompute.
+        # A segment comprises all OPs within a program, ranging from the OP
+        # with the minimum index to the OP with the maximum index, and all
+        # these operations share the same `fwd_recompute_id`.
+        segment_beg = {}
+        segment_end = {}
+        max_op_id = len(program.global_block().ops)
         for idx, op in enumerate(program.global_block().ops):
             if not op.has_attr("fwd_recompute_id"):
                 continue
             rc_id = op.attrs()["fwd_recompute_id"]
-            if rc_id not in segments:
-                segments[rc_id] = []
-            segments[rc_id].append(idx)
+            if rc_id not in segment_beg:
+                segment_beg[rc_id] = max_op_id
+                segment_end[rc_id] = 0
+            segment_beg[rc_id] = min(segment_beg[rc_id], idx)
+            segment_end[rc_id] = max(segment_end[rc_id], idx)
 
+        segments = {}
+        idx = 0
+        assert len(segment_beg.keys()) == len(segment_end.keys())
+        for segment_id, beg_id in segment_beg.items():
+            assert segment_id in segment_end.keys()
+            end_id = segment_end[segment_id]
+            assert beg_id <= end_id
+            segment = []
+            for p_id in range(beg_id, end_id - 1):
+                segment.append(p_id)
+            segments[idx] = segment
+            idx += 1
         return segments
 
     def _apply_single_impl(self, main_program, startup_program, context=None):
