@@ -73,14 +73,20 @@ class LSQClipGradFunctor {
 template <typename T>
 class LSQScaleGradFunctor {
  public:
-  explicit LSQScaleGradFunctor(const int bin_cnt, const float lsq_factor, const T inv_s, const int round_type)
-      : bin_cnt_(bin_cnt), lsq_factor_(lsq_factor), inv_s_(inv_s), round_type_(round_type) {}
+  explicit LSQScaleGradFunctor(const int bin_cnt,
+                               const float lsq_factor,
+                               const T inv_s,
+                               const int round_type)
+      : bin_cnt_(bin_cnt),
+        lsq_factor_(lsq_factor),
+        inv_s_(inv_s),
+        round_type_(round_type) {}
   HOSTDEVICE T operator()(const T x) const {
     T x_quant_round = x;
     T x_quant = x * inv_s_;
     T min_bound_ = -bin_cnt_ - static_cast<T>(1);
     T max_bound_ = bin_cnt_;
-    
+
     if (round_type_ == 0) {
       T x_0 = roundWithTiesToEven(x_quant);
       x_0 = x_0 > max_bound_ ? max_bound_ : x_0;

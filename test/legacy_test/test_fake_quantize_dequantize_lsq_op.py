@@ -160,7 +160,7 @@ class TestFakeQuantizeDequantizeLsqOp(OpTest):
         # check backward stage
         out_grad = np.random.random(input_data.shape).astype(dtype)
         # get input gradient
-        test_gradients = self._cal_backward( 
+        test_gradients = self._cal_backward(
             out_grad,
             input_data,
             scale,
@@ -182,7 +182,7 @@ class TestFakeQuantizeDequantizeLsqOp(OpTest):
             name,
             'out',
             user_defined_grads=gradient,
-            user_defined_grad_outputs=out_grads
+            user_defined_grad_outputs=out_grads,
         )
 
     def test_fake_quantize_dequantize(self):
@@ -203,18 +203,14 @@ class TestFakeQuantizeDequantizeLsqOp(OpTest):
             round_type_options,
         ):
             with self.subTest(
-                dtype=dtype,
-                input_shape=input_shape,
-                round_type=round_type
+                dtype=dtype, input_shape=input_shape, round_type=round_type
             ):
                 self._fake_quantize_dequantize_lsq(
                     dtype, input_shape, distributions, round_type
                 )
 
 
-def ref_lsq(
-    x, scale, lsq_factor, bit_length, round_type, dtype
-):
+def ref_lsq(x, scale, lsq_factor, bit_length, round_type, dtype):
     Qp = 2 ** (bit_length - 1) - 1
     Qn = -(2 ** (bit_length - 1))
 
@@ -225,15 +221,11 @@ def ref_lsq(
     if round_type == 1:
         # clip then round
         # out = np.round(np.clip((x - beta)*inverse(alpha), Qn, Qp)) * alpha + beta
-        out = (
-            round_c(np.clip(x * inverse(scale), Qn, Qp)) * scale
-        )
+        out = round_c(np.clip(x * inverse(scale), Qn, Qp)) * scale
         # out = np.clip(round_c((x - beta)*inverse(alpha)), Qn, Qp) * alpha + beta
     else:
         # round then clip
-        out = (
-            np.clip(round_t(x * inverse(scale)), Qn, Qp) * scale
-        )
+        out = np.clip(round_t(x * inverse(scale)), Qn, Qp) * scale
 
     out = out.astype(dtype)
     return out
@@ -331,7 +323,7 @@ class TestLsq(unittest.TestCase):
             dtype = 'float32'
         else:
             raise ValueError("Unsupported data type")
-        
+
         if dygraph:
             out = self.run_dyamic(
                 input_data,

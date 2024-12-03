@@ -16,7 +16,6 @@
 #include "paddle/phi/kernels/fake_quantize_grad_kernel.h"
 #include "paddle/phi/kernels/impl/fake_quantize_grad_impl.h"
 
-
 PD_REGISTER_KERNEL(fake_quantize_dequantize_lsq_grad,
                    CPU,
                    ALL_LAYOUT,

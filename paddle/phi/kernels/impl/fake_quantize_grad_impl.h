@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#pragma once
+
 #include "paddle/phi/kernels/fake_quantize_grad_kernel.h"
 #include "paddle/phi/kernels/funcs/fake_quantize_grad_functor.h"
-
 
 namespace phi {
 
