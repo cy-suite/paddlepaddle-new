@@ -880,11 +880,11 @@ phi::DataType ConvertToPDDataType(const std::string& typestr) {
       {"|b1", phi::DataType::BOOL},
   };
   auto it = type_map.find(typestr);
-  if (it != type_map.end()) {
-    return it->second;
-  } else {
-    throw std::invalid_argument("Unsupported typestr: " + typestr);
-  }
+  PADDLE_ENFORCE_NE(
+      it,
+      type_map.end(),
+      platform::errors::InvalidArgument("Unsupported typestr: " + typestr));
+  return it->second;
 }
 
 phi::DenseTensor from_blob(void* data,

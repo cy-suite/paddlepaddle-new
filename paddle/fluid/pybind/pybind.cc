@@ -1263,42 +1263,67 @@ PYBIND11_MODULE(libpaddle, m) {
     return ptensor;
   });
 
-  m.def("tensor_from_cuda_array_interface", [](py::object data) {
+  m.def("tensor_from_cuda_array_interface", [](py::object obj) {
     try {
-      py::dict cuda_dict = data.attr("__cuda_array_interface__");
+      py::object cuda_array_interface = obj.attr("__cuda_array_interface__");
+      if (!PyDict_Check(cuda_array_interface)) {
+        throw py::type_error("`__cuda_array_interface` must be a dict");
+      }
+      py::dict cuda_dict = cuda_array_interface.cast<py::dict>();
 
-      // Extract the `data.__cuda_array_interface__['shape']` attribute
-      std::vector<int64_t> shape;
+      // Extract the `obj.__cuda_array_interface__['shape']` attribute
+      phi::DDim ddim_shape;
       {
-        py::object shape_obj = cuda_dict["shape"];
+        std::vector<int64_t> shape;
+        py::object shape_obj = cuda_dict.get("shape", py::none());
+        if (shape_obj.is_none()) {
+          throw py::key_error(
+              "The 'shape' key is missing in the __cuda_array_interface__  "
+              "dict.");
+        }
         if (py::isinstance<py::tuple>(shape_obj) ||
             py::isinstance<py::list>(shape_obj)) {
           shape = shape_obj.cast<std::vector<int64_t>>();
         } else {
           throw py::value_error("Shape must be a tuple or list");
         }
+        ddim_shape = common::make_ddim(shape);
       }
-      phi::IntArray shapeIntArray(shape);
-      // Extractt the `data.__cuda_array_interface__['typestr'] attribute
-      std::string typestr = cuda_dict["typestr"].cast<std::string>();
+
+      // Extract the `obj.__cuda_array_interface__['typestr'] attribute
+      py::object typestr_obj = cuda_dict.get("typestr", py::none());
+      if (typestr_obj.is_none()) {
+        throw py::key_error(
+            "The 'typestr' key is missing in the __cuda_array_interface__  "
+            "dict.");
+      }
+      std::string typestr = typestr_obj.cast<std::string>();
       phi::DataType dtype = paddle::framework::ConvertToPDDataType(typestr);
 
-      // Extract the `data.__cuda_array_interface__['data']` attribute
-      py::tuple data_tuple = cuda_dict["data"].cast<py::tuple>();
-      /*__cuda_array_interface__ 的 data 字段是一个元组 (ptr_as_int,
-      read_only_flag)。 ptr_as_int 表示数据指针，但在 Python
-      中它是一个整数，而不是真正的指针。 需要使用 reinterpret_cast 将其转换为
-      void*，但不能直接转换。 需要先将其转换为一个足够大的整数类型（例如
-      intptr_t 或 uintptr_t），然后再转换为 void*。*/
+      // Extract the `obj.__cuda_array_interface__['data']` attribute
+      py::object data_obj = cuda_dict.get("data", py::none());
+      if (data_obj.is_none()) {
+        throw py::key_error(
+            "The 'data' key is missing in the __cuda_array_interface__  "
+            "dict.");
+      }
+      py::tuple data_tuple = data_obj.cast<py::tuple>();
+
+      // Data tuple(ptr_as_int, read_only_flag).
+      // The ptr_as_int stands for data pointer but in  Python it is a integer.
+      // It need to be converted to a large enough integral type first
+      // and then convert to void*
       void *data_ptr = reinterpret_cast<void *>(data_tuple[0].cast<intptr_t>());
       if (data_tuple[1].cast<bool>()) {
         throw py::value_error("Read-only array is not supported");
       }
 
-      // Extract the `data.__cuda_array_interface__['strides']` attribute
-      std::vector<int64_t> strides;
+      // Extract the `obj.__cuda_array_interface__['strides']` attribute
+      phi::DDim ddim_strides;
       if (cuda_dict.contains("strides") && !cuda_dict["strides"].is_none()) {
-        strides = cuda_dict["strides"].cast<std::vector<int64_t>>();
+        std::vector<int64_t> strides_vec =
+            cuda_dict["strides"].cast<std::vector<int64_t>>();
+
         // __cuda_array_interface__ strides uses bytes
         size_t element_size = phi::SizeOf(dtype);
         for (auto &stride : strides) {
@@ -1308,23 +1333,31 @@ PYBIND11_MODULE(libpaddle, m) {
           }
           stride /= element_size;
         }
+        ddim_strides = common::make_ddim(strides_vec);
       } else {
-        strides.resize(shape.size());
-        int64_t stride = 1;
-        for (size_t i = shape.size(); i > 0; i--) {
-          strides[i - 1] = stride;
-          stride *= shape[i - 1];
-        }
+        ddim_strides =
+            phi::DenseTensorMeta::calc_strides(common::make_ddim(shape));
       }
-      phi::IntArray stridesIntArray(strides);
-      return paddle::from_blob(data_ptr, shapeIntArray, stridesIntArray, dtype);
+      DLManagedTensor *dlMTensor = reinterpret_cast<DLManagedTensor *>(
+          PyCapsule_GetPointer(obj.ptr(), "dltensor"));
+      PADDLE_ENFORCE_NOT_NULL(
+          dlMTensor,
+          common::errors::InvalidArgument(
+              "tensor_from_cuda_array_interface received an invalid capsule. "
+              "Note that DLTensor capsules can be consumed only once, "
+              "so you might have already constructed a tensor from it once."));
+      return paddle::framework::from_blob(data_ptr,
+                                          dlMTensor,
+                                          ddim_shape,
+                                          ddim_strides,
+                                          dtype,
+                                          phi::Place(),
+                                          [obj](void *data) {
+                                            py::gil_scoped_acquire gil;
+                                            Py_DECREF(obj);
+                                          });
     } catch (const py::error_already_set &e) {
       throw;
-    } catch (const std::exception &e) {
-      // capture other exception
-      std::string msg = "Error in tensor from cuda_array_interface ";
-      msg += e.what();
-      throw py::value_error(msg);
     }
   });
 
