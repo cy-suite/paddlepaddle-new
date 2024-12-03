@@ -165,9 +165,7 @@ class TestFused2EmbeddingEltwiseLayernormPattern(PassTest):
                 out = paddle.assign(out)
                 self.pass_attr_list = [
                     {
-                        'py_embedding_eltwise_layernorm_fuse_pass': [
-                            python_fused_embedding_ctx
-                        ]
+                        'py_embedding_eltwise_layernorm_fuse_pass': python_fused_embedding_ctx
                     }
                 ]
                 self.feeds = {
