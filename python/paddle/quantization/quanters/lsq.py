@@ -14,7 +14,7 @@
 
 import paddle
 from paddle import _C_ops
-from paddle.framework import LayerHelper
+from paddle.base.layer_helper import LayerHelper, in_dygraph_mode
 
 
 def fake_lsq_quant_dequant(
@@ -25,7 +25,7 @@ def fake_lsq_quant_dequant(
 
     __check_input(x, scale, lsq_factor, bit_length, round_type)
 
-    if paddle.in_dygraph_mode():
+    if in_dygraph_mode():
         return _C_ops.fake_quantize_dequantize_lsq(
             x, scale, lsq_factor, bit_length, round_type
         )
@@ -35,12 +35,13 @@ def fake_lsq_quant_dequant(
 
     helper.append_op(
         type='fake_quantize_dequantize_lsq',
-        inputs={'Input': [x, scale]},
+        inputs={'x': x,
+               'scale': scale},
         attrs={
             'lsq_factor': lsq_factor,
             'bit_length': bit_length,
             'round_type': round_type,
         },
-        outputs={'Out': [out]},
+        outputs={'out': [out]},
     )
     return out

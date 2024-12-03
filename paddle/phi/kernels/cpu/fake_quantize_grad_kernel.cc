@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #include "paddle/phi/core/kernel_registry.h"
 
 #include "paddle/phi/kernels/fake_quantize_grad_kernel.h"
@@ -19,9 +18,8 @@
 
 
 PD_REGISTER_KERNEL(fake_quantize_dequantize_lsq_grad,
-                   GPU,
+                   CPU,
                    ALL_LAYOUT,
                    phi::FakeQuantizeDequantizeLSQGradKernel,
                    float,
-                   phi::dtype::float16,
                    double) {}

@@ -72,6 +72,26 @@ class QuantTensorFunctor {
   T inv_s_;
 };
 
+template <typename T>
+class QuantLSQTensorFunctor {
+ public:
+  explicit QuantLSQTensorFunctor(const T bin_cnt, const T inv_s)
+      : bin_cnt_(bin_cnt), inv_s_(inv_s) {}
+  HOSTDEVICE T operator()(const T x) const {
+    T out = inv_s_ * x;
+    out = roundWithTiesToEven(out);
+    T max_bound = bin_cnt_;
+    T min_bound = -bin_cnt_ - static_cast<T>(1);
+    out = out > max_bound ? max_bound : out;
+    out = out < min_bound ? min_bound : out;
+    return out;
+  }
+
+ private:
+  T bin_cnt_;
+  T inv_s_;
+};
+
 template <typename Context, typename T>
 class FindAbsMaxFunctor {
  public:
