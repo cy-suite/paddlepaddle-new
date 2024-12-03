@@ -1175,14 +1175,14 @@ class LessThanOpPattern
   }
 };
 
-class LogicalOrOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::LogicalOrOp> {
+template <typename OpType>
+class LogicalCommonOpPattern : public pir::OpRewritePattern<OpType> {
  public:
-  using pir::OpRewritePattern<paddle::dialect::LogicalOrOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::LogicalOrOp op,
+  using pir::OpRewritePattern<OpType>::OpRewritePattern;
+  bool MatchAndRewrite(OpType op,
                        pir::PatternRewriter &rewriter) const override {
     if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+        op->template attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
     pir::Value x = op.operand_source(0);
@@ -1197,29 +1197,9 @@ class LogicalOrOpPattern
     return true;
   }
 };
-
-class LogicalOr_OpPattern
-    : public pir::OpRewritePattern<paddle::dialect::LogicalOr_Op> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::LogicalOr_Op>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::LogicalOr_Op op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-    pir::Value x = op.operand_source(0);
-    pir::Value y = op.operand_source(1);
-    auto x_dtype = pir::GetDataTypeFromValue(x);
-    auto y_dtype = pir::GetDataTypeFromValue(y);
-    if (!(x_dtype.isa<pir::BoolType>() && y_dtype.isa<pir::BoolType>())) {
-      VLOG(3) << "pd_op.logical_or_ op only supports bool datatype";
-      return false;
-    }
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
+using LogicalOrOpPattern = LogicalCommonOpPattern<paddle::dialect::LogicalOrOp>;
+using LogicalOr_OpPattern =
+    LogicalCommonOpPattern<paddle::dialect::LogicalOr_Op>;
 
 class MulticlassNms3OpPattern
     : public pir::OpRewritePattern<paddle::dialect::MulticlassNms3Op> {
