@@ -579,6 +579,8 @@ struct Load : public ExprNode<Load>, public LoadStoreAddrMnger {
 
   void convert_int32_to_int64() override;
 
+  void convert_int64_to_int32() override;
+
   static const IrNodeTy _node_type_ = IrNodeTy::Load;
 };
 
@@ -1027,6 +1029,8 @@ struct IndexExpr : public Expr {
 
   IndexExpr Normalize() const;
 
+  bool IsDynamic() const;
+
   // count the `IndeExpr` length, each node has weight 1, e.g.
   // S0,          length = 1
   // S0 + S1,     length = 3
@@ -1177,26 +1181,6 @@ struct ScheduleBlockRealize : public ExprNode<ScheduleBlockRealize> {
   std::vector<const Expr*> expr_fields() const override;
 
   static const IrNodeTy _node_type_ = IrNodeTy::ScheduleBlockRealize;
-};
-
-/**
- * Content of a module.
- */
-struct _Module_ : public ExprNode<_Module_> {
-  std::string name;
-  Target target;
-  std::vector<Expr> buffers;
-  std::vector<Expr> functions;
-  std::vector<Expr> submodules;
-  std::vector<Expr> predicates;
-  std::vector<int> priorities;
-  Expr infer_shape_func;
-
-  static ir::Module Make(const std::string& name, Target target);
-
-  void Verify() const override {}
-
-  static const IrNodeTy _node_type_ = IrNodeTy::_Module_;
 };
 
 /**

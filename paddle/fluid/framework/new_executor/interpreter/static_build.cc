@@ -46,6 +46,7 @@ std::set<std::string> OpsCanSkipedFakeAllocInStaticBuild = {
     "c_gen_nccl_id",
     "sync_calc_stream",
     "c_sync_calc_stream",
+    "sync_comm_stream",
     "c_sync_comm_stream",
     "c_wait_comm",
     "c_wait_compute",
@@ -535,7 +536,7 @@ void RunWhileBlockPreStaticBuild(const framework::Scope& scope,
               << "input not found:" << in_name;
     }
 
-    if (var->Type() == framework::proto::VarType::LOD_TENSOR) {
+    if (var->Type() == framework::proto::VarType::DENSE_TENSOR) {
       input_var_original_places[in_name] =
           (var->Get<phi::DenseTensor>()).place();
     } else {
@@ -619,7 +620,7 @@ void RunWhileBlockPreStaticBuild(const framework::Scope& scope,
       if (var->IsType<phi::DenseTensor>()) {
         // Clear all lod information for all lod_tensors.
         auto* t = var->GetMutable<phi::DenseTensor>();
-        phi::LoD empty_lod;
+        phi::LegacyLoD empty_lod;
         t->set_lod(empty_lod);
       } else if (var->IsType<phi::TensorArray>()) {
         // Clear elements of all tensor arrays.

@@ -19,18 +19,10 @@ extern "C" {
 #endif
 
 #include <Python.h>
-#include <frameobject.h>
-#include <string.h>
+#include "paddle/fluid/pybind/sot/frame_proxy.h"
 #include "paddle/fluid/pybind/sot/macros.h"
 
 #if SOT_IS_SUPPORTED
-
-#if PY_3_11_PLUS
-#include <internal/pycore_frame.h>
-typedef _PyInterpreterFrame FrameObject;
-#else
-typedef PyFrameObject FrameObject;
-#endif
 
 int need_skip(FrameObject* frame);
 int is_code_without_graph(PyCodeObject* code);

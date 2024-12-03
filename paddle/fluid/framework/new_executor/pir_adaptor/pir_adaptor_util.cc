@@ -36,6 +36,7 @@
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 #include "paddle/fluid/pir/dialect/operator/utils/op_yaml_info_parser.h"
 #include "paddle/fluid/pir/dialect/operator/utils/utils.h"
+#include "paddle/phi/common/memory_utils.h"
 #include "paddle/phi/core/enforce.h"
 #include "paddle/phi/core/kernel_context.h"
 #include "paddle/phi/core/meta_tensor.h"
@@ -238,6 +239,7 @@ const std::unordered_set<std::string> SpecialOps = {
     paddle::dialect::PyLayerOp::name(),
     paddle::dialect::WhileOp::name(),
     pir::StackCreateOp::name(),
+    paddle::dialect::ShareVarOp::name(),
 };
 
 Variable* CreateVar(pir::Value value,
@@ -313,6 +315,10 @@ void DeepCopyVariable(const Variable* src_var,
     // have holder. In this case we only do set_meta but not copy Tensor.
     if (src_tensor.numel() == 0) {
       tmp_dst_tensor->set_meta(src_tensor.meta());
+      if (src_tensor.IsInitialized()) {
+        tmp_dst_tensor->ResetHolder(
+            ::phi::memory_utils::AllocShared(src_tensor.place(), 0u));
+      }
       return;
     }
     if (!src_tensor.initialized()) {
@@ -685,6 +691,13 @@ void HandleForSpecialOp(pir::Operation* op,
     auto outlet_value = stack_create_op.outlet();
     value_exe_info->AddValue2VarName(inlet_value, stack_var_name);
     value_exe_info->AddValue2VarName(outlet_value, stack_var_name);
+  } else if (op_name == "pd_op.share_var") {
+    VLOG(6) << "Handle for pd_op.share_var";
+    auto first_name =
+        value_exe_info->GetValue2VarName().at(op->operand_source(0));
+    for (size_t idx = 1u; idx < op->num_operands(); ++idx) {
+      value_exe_info->UpdateValue2VarName(op->operand_source(idx), first_name);
+    }
   }
 }
 
@@ -692,7 +705,8 @@ bool IsNeedVarInplace(pir::Operation* op,
                       pir::Value value,
                       std::string op_name) {
   return (value.type().isa<paddle::dialect::DenseTensorArrayType>() ||
-          op_name == "pd_op.assign_value_" || op_name == "pd_op.assign_out_");
+          op_name == "pd_op.assign_value_" || op_name == "pd_op.assign_out_" ||
+          op_name == "pd_op.coalesce_tensor_");
 }
 
 // NOTE(chenxi67): Here, we only perform inplace processing for variables that

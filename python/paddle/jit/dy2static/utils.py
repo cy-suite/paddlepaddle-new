@@ -93,7 +93,7 @@ def data_layer_not_check(name, shape, dtype='float32', lod_level=0):
        dtype (np.dtype|VarType|str, optional): The type of the data. Supported
            dtype: bool, float16, float32, float64, int8, int16, int32, int64,
            uint8. Default: float32
-       lod_level (int, optional): The LoD level of the LoDTensor. Usually users
+       lod_level (int, optional): The LoD level of the DenseTensor. Usually users
            don't have to set this value. Default: 0
 
     Returns:
@@ -109,7 +109,7 @@ def data_layer_not_check(name, shape, dtype='float32', lod_level=0):
         name=name,
         shape=shape,
         dtype=dtype,
-        type=core.VarDesc.VarType.LOD_TENSOR,
+        type=core.VarDesc.VarType.DENSE_TENSOR,
         stop_gradient=True,
         lod_level=lod_level,
         is_data=True,
@@ -697,7 +697,7 @@ def cse_is_enabled():
 
 
 def prim_is_enabled():
-    core.check_and_set_prim_all_enabled()
+    core.check_and_set_prim_all_enabled(True)
     return core._is_bwd_prim_enabled() or core._is_fwd_prim_enabled()
 
 

@@ -1166,6 +1166,16 @@ void CoalesceTensorInferMeta(const std::vector<const MetaTensor*>& input,
   if (size_of_dtype == -1) {
     size_of_dtype = static_cast<int>(phi::SizeOf(dtype));
   }
+  PADDLE_ENFORCE_EQ(
+      input.size(),
+      output.size(),
+      common::errors::InvalidArgument(
+          "The size of output meta vector should be equal to input"));
+  for (size_t idx = 0; idx < input.size(); ++idx) {
+    output[idx]->set_dims(input[idx]->dims());
+    output[idx]->set_dtype(input[idx]->dtype());
+    output[idx]->set_layout(input[idx]->layout());
+  }
   if (config.is_runtime) {
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
     int64_t numel = 0;
@@ -2097,7 +2107,7 @@ void EditDistanceInferMeta(const MetaTensor& hyps,
         hyp_dims.size() == 2 && hyp_dims[1] == 1,
         true,
         errors::InvalidArgument(
-            "Input(Hyps) must be a 2-D LoDTensor with the 2nd dimension "
+            "Input(Hyps) must be a 2-D DenseTensor with the 2nd dimension "
             "equal to 1. But received: input rank %u, input shape [%s].",
             hyp_dims.size(),
             hyp_dims));
@@ -2105,7 +2115,7 @@ void EditDistanceInferMeta(const MetaTensor& hyps,
         ref_dims.size() == 2 && ref_dims[1] == 1,
         true,
         errors::InvalidArgument(
-            "Input(Refs) must be a 2-D LoDTensor with the 2nd dimension "
+            "Input(Refs) must be a 2-D DenseTensor with the 2nd dimension "
             "equal to 1. But received: input rank %u, input shape [%s].",
             ref_dims.size(),
             ref_dims));
@@ -4365,16 +4375,18 @@ void PsroiPoolInferMeta(const MetaTensor& x,
       input_dims.size(),
       4,
       errors::InvalidArgument("The format of input tensor is NCHW"));
-  PADDLE_ENFORCE_EQ(rois_dims.size(),
-                    2,
-                    errors::InvalidArgument(
-                        "ROIs should be a 2-D LoDTensor of shape (num_rois, 4) "
-                        "given as [(x1, y1, x2, y2), ...]"));
-  PADDLE_ENFORCE_EQ(rois_dims[1],
-                    4,
-                    errors::InvalidArgument(
-                        "ROIs should be a 2-D LoDTensor of shape (num_rois, 4) "
-                        "given as [(x1, y1, x2, y2), ...]"));
+  PADDLE_ENFORCE_EQ(
+      rois_dims.size(),
+      2,
+      errors::InvalidArgument(
+          "ROIs should be a 2-D DenseTensor of shape (num_rois, 4) "
+          "given as [(x1, y1, x2, y2), ...]"));
+  PADDLE_ENFORCE_EQ(
+      rois_dims[1],
+      4,
+      errors::InvalidArgument(
+          "ROIs should be a 2-D DenseTensor of shape (num_rois, 4) "
+          "given as [(x1, y1, x2, y2), ...]"));
   if (rois_num) {
     auto rois_num_dims = rois_num.dims();
     PADDLE_ENFORCE_EQ(

@@ -140,7 +140,9 @@ set(PYBIND_SRCS
     auto_parallel_py.cc
     sot/eval_frame_tools.cc
     sot/cpython_internals.c
+    sot/frame_proxy.c
     sot/eval_frame.c
+    sot/guards.cc
     op_callstack_utils.cc
     python_callable_registry.cc)
 

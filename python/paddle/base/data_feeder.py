@@ -60,6 +60,8 @@ _PADDLE_DTYPE_2_NUMPY_DTYPE = {
     core.VarDesc.VarType.UINT8: 'uint8',
     core.VarDesc.VarType.COMPLEX64: 'complex64',
     core.VarDesc.VarType.COMPLEX128: 'complex128',
+    core.VarDesc.VarType.STRING: 'pstring',
+    core.VarDesc.VarType.RAW: 'raw',
 }
 
 _NUMPY_DTYPE_2_PADDLE_DTYPE = {
@@ -315,7 +317,7 @@ class DataToLoDTensorConverter:
                     raise ValueError(
                         f"Reshape error. What is defined in data layer is {self.shape}, but receive {arr.shape}"
                     )
-        t = core.LoDTensor()
+        t = core.DenseTensor()
         t.set(arr, self.place)
         if self.lod_level > 0:
             t.set_recursive_sequence_lengths(self.lod)
