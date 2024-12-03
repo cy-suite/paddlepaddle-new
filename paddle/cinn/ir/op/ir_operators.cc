@@ -18,7 +18,7 @@
 #include <string>
 
 #include "paddle/cinn/common/const_fold.h"
-#include "paddle/cinn/common/simplify_corner_case.h"
+#include "paddle/cinn/common/simplify_special_pattern.h"
 #include "paddle/cinn/common/target.h"
 #include "paddle/cinn/common/type.h"
 #include "paddle/cinn/hlir/op/op_util.h"
