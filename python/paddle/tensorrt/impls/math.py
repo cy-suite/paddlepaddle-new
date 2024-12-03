@@ -176,20 +176,29 @@ def remainder_converter(network, paddle_op, inputs):
         input_tensor.name,
         weight_tensor.name,
     )
-    layer = network.add_elementwise(
-        lhs_val, rhs_val, trt.ElementWiseOperation.FLOOR_DIV
-    )
-    support_fp32_mix_precision(paddle_op.name(), layer)
+    is_floor_div = input_tensor.dtype != trt.DataType.INT32
+    if is_floor_div:
+        quotient_layer = network.add_elementwise(
+            lhs_val, rhs_val, trt.ElementWiseOperation.FLOOR_DIV
+        )
+    else:
+        quotient_layer = network.add_elementwise(
+            lhs_val, rhs_val, trt.ElementWiseOperation.DIV
+        )
+    quotient = quotient_layer.get_output(0)
+    support_fp32_mix_precision(paddle_op.name(), quotient_layer)
 
     # Multiply rhs by the quotient
-    product = network.add_elementwise(
-        rhs_val, lhs_val, trt.ElementWiseOperation.PROD
+    product_layer = network.add_elementwise(
+        rhs_val, quotient, trt.ElementWiseOperation.PROD
     )
-    support_fp32_mix_precision(paddle_op.name(), product)
-    remainder = network.add_elementwise(
+    product = product_layer.get_output(0)
+    support_fp32_mix_precision(paddle_op.name(), product_layer)
+    remainder_layer = network.add_elementwise(
         lhs_val, product, trt.ElementWiseOperation.SUB
     )
-    support_fp32_mix_precision(paddle_op.name(), remainder)
+    remainder = remainder_layer.get_output(0)
+    support_fp32_mix_precision(paddle_op.name(), remainder_layer)
 
     return remainder
 
