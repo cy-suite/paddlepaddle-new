@@ -252,6 +252,28 @@ class TestDLPack(unittest.TestCase):
                     self.assertEqual(y2.numel().item(), 0)
                     np.testing.assert_array_equal(x.numpy(), y1.numpy())
                     np.testing.assert_array_equal(x.numpy(), y2.numpy())
+                    x_random = paddle.randn([10, 10]).to(device=place)
+                    pd_result = paddle.from_dlpack(x_random)
+                    np_result = np.from_dlpack(x_random)
+                    np.testing.assert_allclose(pd_result.numpy(), np_result)
+
+    def test_dlpack_with_custom_stream(self):
+        if not paddle.is_compiled_with_cuda():
+            self.skipTest("Test requires CUDA support.")
+        with dygraph_guard():
+            paddle.set_device('gpu:0')
+            s1 = paddle.device.Stream()
+            s2 = paddle.device.Stream()
+            e = paddle.device.Event()
+            s1.record_event(e)
+            s2.wait_event(e)
+            x = paddle.to_tensor([1, 2, 3], dtype='float32')
+            s1.synchronize()
+            dlpack_capsule = x.__dlpack__()
+            y = paddle.from_dlpack(dlpack_capsule)
+            np.testing.assert_array_equal(x.numpy(), y.numpy())
+            self.assertTrue(s1.query(), "Stream s1 did not complete all tasks.")
+            self.assertTrue(s2.query(), "Stream s2 did not complete all tasks.")
 
 
 class TestRaiseError(unittest.TestCase):
