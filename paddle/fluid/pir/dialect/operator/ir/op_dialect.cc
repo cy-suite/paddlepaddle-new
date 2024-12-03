@@ -49,47 +49,25 @@ struct CombineOpInferSymbolicShapeInterfaceModel
     : public InferSymbolicShapeInterface::Concept {
   static inline bool InferSymbolicShape(
       pir::Operation* op, pir::InferSymbolicShapeContext* infer_context) {
-    if (op->operand(0).type().dyn_cast<DenseTensorType>()) {
-      const auto shape_data_list = [&] {
-        symbol::TensorListShapeOrDataDimExprs shape_data_list;
-        for (size_t i = 0; i < op->num_operands(); ++i) {
-          PADDLE_ENFORCE_NOT_NULL(
-              op->operand(i).type().dyn_cast<DenseTensorType>(),
-              common::errors::InvalidArgument(
-                  "The operand at index %d must be a DenseTensorArray. "
-                  "Currently InferSymbolicShape of CombineOp only accepts "
-                  "inputs that are either all DenseTensors or all "
-                  "DenseTensorArrays.",
-                  i));
-          shape_data_list.emplace_back(
-              infer_context->GetShapeOrDataForValue(op->operand_source(i))
-                  .dyn_cast<symbol::TensorShapeOrDataDimExprs>());
-        }
-        return shape_data_list;
-      }();
-      symbol::ShapeOrDataDimExprs shape_data{shape_data_list};
-      infer_context->SetShapeOrDataForValue(op->result(0), shape_data);
-      return true;
-    } else if (op->operand(0).type().dyn_cast<DenseTensorArrayType>()) {
-      // Note: Return NullShapeOrDataDimExpr for CombineOp with all
-      // DenseTensorArrayType. The logic is designed for add_n_array op.
-      // TODO(ooooo): Actually RankedTensorArrayListShapeOrDataDimExprs is
-      // better.
+    const auto shape_data_list = [&] {
+      symbol::TensorListShapeOrDataDimExprs shape_data_list;
       for (size_t i = 0; i < op->num_operands(); ++i) {
         PADDLE_ENFORCE_NOT_NULL(
-            op->operand(i).type().dyn_cast<DenseTensorArrayType>(),
+            op->operand(i).type().dyn_cast<DenseTensorType>(),
             common::errors::InvalidArgument(
-                "The operand at index %d must be a DenseTensorArray. Currently "
-                "InferSymbolicShape of CombineOp only accepts inputs that are "
-                "either all DenseTensors or all DenseTensorArrays.",
-                i));
+                "Currently InferSymbolicShape of CombineOp only support "
+                "DenseTensorType."));
+
+        shape_data_list.emplace_back(
+            infer_context->GetShapeOrDataForValue(op->operand_source(i))
+                .dyn_cast<symbol::TensorShapeOrDataDimExprs>());
       }
-      return true;
-    } else {
-      PADDLE_THROW(common::errors::InvalidArgument(
-          "Currently InferSymbolicShape of CombineOp only accepts "
-          "inputs that are either all DenseTensors or all DenseTensorArrays."));
-    }
+      return shape_data_list;
+    }();
+
+    symbol::ShapeOrDataDimExprs shape_data{shape_data_list};
+    infer_context->SetShapeOrDataForValue(op->result(0), shape_data);
+    return true;
   }
 
   CombineOpInferSymbolicShapeInterfaceModel()
