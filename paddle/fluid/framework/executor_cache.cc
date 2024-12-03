@@ -111,14 +111,14 @@ InterpreterCoreInfoCache &InterpreterCoreInfoCache::Instance() {
 
 std::shared_ptr<InterpreterCore> CreateProgramInterpreterCoreInfoToCache(
     const ProgramDesc &program_desc,
-    const platform::Place &place,
+    const phi::Place &place,
     bool is_grad,
     int64_t program_id,
     framework::Scope *scope,
     const int64_t &place_hash_key) {
   auto &cache = framework::InterpreterCoreInfoCache::Instance();
   if (cache.Size() > 256000u /* max_cached_size*/) {
-    PADDLE_THROW(platform::errors::Fatal(
+    PADDLE_THROW(common::errors::Fatal(
         "The cached info size has exceeded max_cached_size: 256000, "
         "which will cause error. "));
   }
@@ -139,20 +139,22 @@ std::shared_ptr<InterpreterCore> CreateProgramInterpreterCoreInfoToCache(
 
 std::shared_ptr<InterpreterCore> CreatePirInterpreterCoreInfoToCache(
     std::unique_ptr<::pir::Program> ir_program,
-    const platform::Place &place,
+    const phi::Place &place,
     bool is_grad,
     int64_t program_id,
     framework::Scope *scope,
-    const int64_t &place_hash_key) {
+    const int64_t &place_hash_key,
+    bool used_for_sot) {
   auto &cache = framework::InterpreterCoreInfoCache::Instance();
   if (cache.Size() > 256000u /* max_cached_size*/) {
-    PADDLE_THROW(platform::errors::Fatal(
+    PADDLE_THROW(common::errors::Fatal(
         "The cached info size has exceeded max_cached_size: 256000, "
         "which will cause error. "));
   }
   interpreter::ExecutionConfig execution_config;
   execution_config.create_local_scope = false;
   execution_config.used_for_jit = true;
+  execution_config.used_for_sot = used_for_sot;
 
   std::shared_ptr<InterpreterCore> core = nullptr;
 
@@ -170,13 +172,15 @@ bool TensorSortHelper(const paddle::Tensor &t1, const paddle::Tensor &t2) {
   return t1.name() < t2.name();
 }
 
-std::unique_ptr<::pir::Program> ApplyIrPass(::pir::Program *program,
-                                            phi::Place place) {
+std::unique_ptr<::pir::Program> ApplyIrPass(
+    ::pir::Program *program,
+    phi::Place place,
+    const std::set<std::string> &no_need_buffer_names) {
   auto ir_res = paddle::dialect::PdOpLowerToKernelPass(program, place);
 
   if (FLAGS_pir_apply_inplace_pass) {
     ::pir::PassManager pm(::pir::IrContext::Instance(), 3);
-    pm.AddPass(::pir::CreateInplacePass());
+    pm.AddPass(::pir::CreateInplacePass(no_need_buffer_names));
     pm.Run(ir_res.get());
 
     if (FLAGS_print_ir) {
@@ -247,6 +251,11 @@ std::unique_ptr<::pir::Program> ConstructForwardIrProgram(
     // TODO(phlrain) : using tensor dtype
     op_desc->SetAttr("dtype", 0);
     op_desc->SetAttr("place", static_cast<int>(p));
+    if (p == phi::AllocationType::CUSTOM) {
+      op_desc->SetAttr("place_device_id", in_t.place().GetDeviceId());
+      op_desc->SetAttr("place_device_type", in_t.place().GetDeviceType());
+    }
+
     op_desc->SetAttr("name", name);
     op_desc->SetOutput("out", {name});
   }
@@ -264,6 +273,10 @@ std::unique_ptr<::pir::Program> ConstructForwardIrProgram(
     // TODO(phlrain) : using tensor dtype
     op_desc->SetAttr("dtype", 0);
     op_desc->SetAttr("place", static_cast<int>(p));
+    if (p == phi::AllocationType::CUSTOM) {
+      op_desc->SetAttr("place_device_id", param.place().GetDeviceId());
+      op_desc->SetAttr("place_device_type", param.place().GetDeviceType());
+    }
     op_desc->SetAttr("name", name);
     op_desc->SetOutput("out", {name});
 
@@ -303,7 +316,7 @@ std::unique_ptr<::pir::Program> ConstructForwardIrProgram(
   }
   auto program = TranslateLegacyProgramToProgram(local_program);
 
-  return ApplyIrPass(program.get(), place);
+  return ApplyIrPass(program.get(), place, {});
 }
 
 std::unique_ptr<::pir::Program> ConstructBackwardIrProgram(
@@ -344,6 +357,11 @@ std::unique_ptr<::pir::Program> ConstructBackwardIrProgram(
       // TODO(phlrain) : using tensor dtype
       op_desc->SetAttr("dtype", 0);
       op_desc->SetAttr("place", static_cast<int>(p));
+      if (p == phi::AllocationType::CUSTOM) {
+        op_desc->SetAttr("place_device_id", tensor.place().GetDeviceId());
+        op_desc->SetAttr("place_device_type", tensor.place().GetDeviceType());
+      }
+
       op_desc->SetAttr("name", var_name);
       op_desc->SetOutput("out", {var_name});
     }

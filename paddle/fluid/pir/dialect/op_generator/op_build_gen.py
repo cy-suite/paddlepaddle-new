@@ -59,17 +59,20 @@ _INFERMETA_NEED_META_CONFIG = {
     'ConcatInferMeta',
     'DeformableConvInferMeta',
     'FusedBiasActInferMeta',
+    'FusedLayerNormInferMeta',
     'InterpolateInferMeta',
     'NceInferMeta',
     'SigmoidCrossEntropyWithLogitsInferMeta',
     'StackInferMeta',
     'FusedConvInferMeta',
     # nullary.h
+    'CreateInferMeta',
     'EyeInferMeta',
     # ternary.h
     'AccuracyInferMeta',
     'BoxCoderInferMeta',
     'InstanceNormInferMeta',
+    'GroupNormInferMeta',
     'LayerNormInferMeta',
     'MatchMatrixTensorInferMeta',
     'MultiClassNMSInferMeta',
@@ -85,6 +88,7 @@ _INFERMETA_NEED_META_CONFIG = {
     'CropInferMeta',
     'EigvalsInferMeta',
     'FractionalMaxPoolInferMeta',
+    'KthvalueInferMeta',
     'MaxPoolWithIndexInferMeta',
     'MaxPoolV2InferMeta',
     'MultinomialInferMeta',
@@ -118,10 +122,42 @@ _INFERMETA_NEED_META_CONFIG = {
     'UnsqueezeInferMeta',
     'UnsqueezeWithXShapeInferMeta',
     'ArrayPopInferMeta',
+    # backward.h
+    'CrossEntropyGradInferMeta',
+    'CrossEntropyGrad2InferMeta',
+    'CrossEntropyWithSoftmaxGradInferMeta',
+    'CSoftmaxWithCrossEntropyGradInferMeta',
+    'LSTMGradInferMeta',
+    'FFTC2RGradInferMeta',
+    'GruGradInferMeta',
+    'GruUnitGradInferMeta',
+    'NllLossGradInferMeta',
 }
 
 _PREPARE_DATA_WITH_VECTOR_INT64_MTTABLE_ATTRIBUTE = {'FrobeniusNormOp'}
 
+LOGIC_OP_LIST = {
+    'LogicalAndOp',
+    'LogicalAnd_Op',
+    'LogicalOrOp',
+    'LogicalOr_Op',
+    'LogicalNotOp',
+    'LogicalNot_Op',
+    'LogicalXorOp',
+    'GreaterEqualOp',
+    'GreaterEqual_Op',
+    'GreaterThanOp',
+    'GreaterThan_Op',
+    'LessEqualOp',
+    'LessEqual_Op',
+    'LessThanOp',
+    'LessThan_Op',
+    'EqualOp',
+    'Equal_Op',
+    'EqualAllOp',
+    'NotEqualOp',
+    'NotEqual_Op',
+}
 OP_BUILD_TEMPLATE = """
 void {op_name}::Build({build_args}) {{
 {build_info}
@@ -308,7 +344,9 @@ def GenBuildInputs(op_input_name_list, op_mutable_attribute_name_list):
 
 
 def GenBuildAttributes(
-    op_non_mutable_attribute_name_list, op_non_mutable_attribute_type_list
+    op_non_mutable_attribute_name_list,
+    op_non_mutable_attribute_type_list,
+    attr_args_is_map=False,
 ):
     INTARRAY_STR_TEMPLATE = """  pir::Attribute attr_{attr_name} = {op_attribute_type}::get(pir::IrContext::Instance(), phi::IntArray({attr}));
 """
@@ -389,6 +427,8 @@ def GenBuildAttributes(
             )
         attr_str += f"""  argument_attributes.insert({{"{op_non_mutable_attribute_name_list[idx]}", attr_{op_non_mutable_attribute_name_list[idx]}}});\n"""
 
+    if attr_args_is_map:
+        attr_str += """  for (auto it = attributes.begin(); it != attributes.end(); ++it) {\n    argument_attributes.insert({it->first, it->second});\n  }"""
     return attr_str
 
 
@@ -498,7 +538,7 @@ def GenBuildOutputs(
     {name} = phi::IntArray(std::vector<int64_t>({name}_size, -1));
     {name}.SetFromTensor(true);
   }} else {{
-    PADDLE_THROW(phi::errors::Unimplemented("Only support VectorType or DenseTensorType"));
+    PADDLE_THROW(common::errors::Unimplemented("Only support VectorType or DenseTensorType"));
   }}\n"""
 
     CREATE_VECTOR_INT_MUTABLE_ATTRIBUTE_WITH_UNKNOWN_DATA_TEMPLATE = """  std::vector<int64_t> {name};
@@ -518,7 +558,7 @@ def GenBuildOutputs(
     }}
     {name} = std::vector<int64_t>({name}_size, -1);
   }} else {{
-    PADDLE_THROW(phi::errors::Unimplemented("Only support VectorType or DenseTensorType"));
+    PADDLE_THROW(common::errors::Unimplemented("Only support VectorType or DenseTensorType"));
   }}\n"""
 
     CREATE_SCALAR_MUTABLE_ATTRIBUTE_WITH_UNKNOWN_DATA_TEMPLATE = """  phi::Scalar {name};
@@ -528,7 +568,7 @@ def GenBuildOutputs(
                                   .attribute("value")
                                   .dyn_cast<paddle::dialect::ScalarAttribute>()
                                   .data()
-                                  .to<int>());
+                                  .to<{dtype}>());
   }}
   else {{
     {name} = phi::Scalar(-1);
@@ -818,56 +858,64 @@ def gen_build_func_str(
     build_attributes_str = GenBuildAttributes(
         op_non_mutable_attribute_name_list,
         op_non_mutable_attribute_type_list,
+        attr_args_is_map,
     )
-    str_is_forward_only = "true" if op_info.is_forward_only else "false"
     build_outputs_str = f"""
   std::vector<pir::Type> argument_outputs = {op_info.class_name}::InferMeta(argument_inputs, &argument_attributes);
   argument.AddAttributes(argument_attributes);
-  argument.AddOutputs(argument_outputs.begin(), argument_outputs.end());
-  ::pir::PassStopGradientsDefaultly(argument, {str_is_forward_only});"""
+  argument.AddOutputs(argument_outputs.begin(), argument_outputs.end());\n"""
+    if op_info.class_name in LOGIC_OP_LIST:
+        build_outputs_str += "::pir::TrueStopGradientsDefaultly(argument);\n"
+    else:
+        build_outputs_str += "::pir::PassStopGradientsDefaultly(argument);" ""
 
     GET_ATTRIBUTES_FROM_MAP_TEMPLATE = """
   PADDLE_ENFORCE_NE(
       attributes.find("{attribute_name}"),
       attributes.end(),
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "'{attribute_name}' Attribute is expected for {op_name}. "));
   {attr_type} {attribute_name} = attributes.at("{attribute_name}").dyn_cast<{attr_ir_type}>().data();
+  attributes.erase("{attribute_name}");
 """
     GET_STR_ATTRIBUTES_FROM_MAP_TEMPLATE = """
   PADDLE_ENFORCE_NE(
       attributes.find("{attribute_name}"),
       attributes.end(),
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "'{attribute_name}' Attribute is expected for {op_name}. "));
   {attr_type} {attribute_name} = attributes.at("{attribute_name}").dyn_cast<pir::StrAttribute>().AsString();
+  attributes.erase("{attribute_name}");
 """
     GET_ARRAY_ATTRIBUTE_FROM_MAP_TEMPLATE = """
   PADDLE_ENFORCE_NE(
       attributes.find("{attribute_name}"),
       attributes.end(),
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "'{attribute_name}' Attribute is expected for {op_name}. "));
   {attr_type} {attribute_name};
   for (size_t i = 0; i < attributes.at("{attribute_name}").dyn_cast<pir::ArrayAttribute>().size(); i++) {{
     {attribute_name}.push_back(attributes.at("{attribute_name}").dyn_cast<pir::ArrayAttribute>().at(i).dyn_cast<{inner_type}>().{data_name}());
   }}
+  attributes.erase("{attribute_name}");
 """
     GET_INTARRAY_ATTRIBUTE_FROM_MAP_TEMPLATE = """
   PADDLE_ENFORCE_NE(
       attributes.find("{attribute_name}"),
       attributes.end(),
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "'{attribute_name}' Attribute is expected for {op_name}. "));
   {attr_type} {attribute_name} = attributes.at("{attribute_name}").dyn_cast<paddle::dialect::IntArrayAttribute>().data().GetData();
+  attributes.erase("{attribute_name}");
 """
     GET_SCALAR_ATTRIBUTE_FROM_MAP_TEMPLATE = """
   PADDLE_ENFORCE_NE(
       attributes.find("{attribute_name}"),
       attributes.end(),
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "'{attribute_name}' Attribute is expected for {op_name}. "));
   {attr_type} {attribute_name} = attributes.at("{attribute_name}").dyn_cast<paddle::dialect::ScalarAttribute>().data().to<{attr_type}>();
+  attributes.erase("{attribute_name}");
 """
 
     get_attributes_str = ""

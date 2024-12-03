@@ -22,10 +22,10 @@
 #include "paddle/fluid/pir/dialect/operator/interface/infermeta.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_dialect.h"
 #include "paddle/fluid/pir/dialect/operator/utils/op_yaml_info_parser.h"
-#include "paddle/fluid/platform/collective_helper.h"
-#include "paddle/fluid/platform/device_context.h"
 #include "paddle/phi/core/infermeta_utils.h"
 #include "paddle/phi/core/meta_tensor.h"
+#include "paddle/phi/core/platform/collective_helper.h"
+#include "paddle/phi/core/platform/device_context.h"
 #include "paddle/phi/core/type_defs.h"
 
 #include "paddle/pir/include/core/builtin_attribute.h"
@@ -45,23 +45,24 @@ namespace framework {
 
 PyLayerInstruction::PyLayerInstruction(
     size_t id,
-    const platform::Place& place,
+    const phi::Place& place,
     pir::Operation* op,
     ValueExecutionInfo* value_exec_info,
     interpreter::ExecutionConfig execution_config)
     : InstructionBase(id, place), output_vars_(), fwd_skip_gc_names_() {
   PADDLE_ENFORCE(op->isa<paddle::dialect::PyLayerOp>(),
-                 phi::errors::PreconditionNotMet(
+                 common::errors::PreconditionNotMet(
                      "Cond instruction only support pylayer op"));
   auto pylayer_op = op->dyn_cast<paddle::dialect::PyLayerOp>();
   op_ = op;
 
   SetKernelType(AnalyseOpFuncType(op, place));
   VLOG(6) << "finish process analyse kernel type";
-
   for (size_t i = 0; i < pylayer_op.num_results(); ++i) {
-    output_vars_.push_back(value_exec_info->GetScope()->GetVar(
-        value_exec_info->GetValue2VarName().at(pylayer_op.result(i))));
+    if (pylayer_op.result(i) && pylayer_op.result(i).type()) {
+      output_vars_.push_back(value_exec_info->GetScope()->GetVar(
+          value_exec_info->GetValue2VarName().at(pylayer_op.result(i))));
+    }
   }
   VLOG(6) << "finish process output_vars";
 
@@ -95,7 +96,7 @@ PyLayerInstruction::PyLayerInstruction(
       PADDLE_ENFORCE_EQ(
           value_exec_info->HasValue(value),
           true,
-          phi::errors::PreconditionNotMet(
+          common::errors::PreconditionNotMet(
               "output should in name map, [%d] 'th output of [%s] op",
               i,
               "pylayer op"));

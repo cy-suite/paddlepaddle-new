@@ -112,7 +112,7 @@ class _DataLoaderIterBase:
         else:
             self._collate_fn = loader.collate_fn or default_convert_fn
 
-        # LoDTensorBlockingQueue instance for create_py_reader and a thread
+        # DenseTensorBlockingQueue instance for create_py_reader and a thread
         # to put mini-batch data to self._blocking_queue, mini-batch data
         # will be get from:
         # 1. multi-process mode: get data from workers' result queue
@@ -133,6 +133,9 @@ class _DataLoaderIterBase:
 
     def __iter__(self):
         return self
+
+    def __next__(self):
+        raise NotImplementedError('Should implement `__next__` for a iterator')
 
     def __len__(self):
         return len(self._batch_sampler)
@@ -257,13 +260,13 @@ class _DataLoaderIterSingleProcess(_DataLoaderIterBase):
                 break
 
             try:
-                # pack as LoDTensorArray
-                array = core.LoDTensorArray()
+                # pack as DenseTensorArray
+                array = core.DenseTensorArray()
                 for slot in batch:
-                    if isinstance(slot, (paddle.Tensor, core.eager.Tensor)):
+                    if isinstance(slot, paddle.Tensor):
                         slot = slot.value().get_tensor()
-                    elif not isinstance(slot, core.LoDTensor):
-                        tmp = core.LoDTensor()
+                    elif not isinstance(slot, core.DenseTensor):
+                        tmp = core.DenseTensor()
                         tmp.set(slot, core.CPUPlace())
                         slot = tmp
 
@@ -623,21 +626,19 @@ class _DataLoaderIterMultiProcess(_DataLoaderIterBase):
                         self._resume_worker_cnt -= 1
                         continue
                     try:
-                        # pack as LoDTensorArray
-                        array = core.LoDTensorArray()
+                        # pack as DenseTensorArray
+                        array = core.DenseTensorArray()
                         if self._use_shared_memory:
                             for tensor in batch:
                                 array.append(tensor)
                         else:
-                            # LoDTensor not in shared memory is not
+                            # DenseTensor not in shared memory is not
                             # serializable, cannot be create in workers
                             for slot in batch:
-                                if isinstance(
-                                    slot, (paddle.Tensor, core.eager.Tensor)
-                                ):
+                                if isinstance(slot, paddle.Tensor):
                                     slot = slot.get_tensor()
-                                elif not isinstance(slot, core.LoDTensor):
-                                    tmp = core.LoDTensor()
+                                elif not isinstance(slot, core.DenseTensor):
+                                    tmp = core.DenseTensor()
                                     tmp.set(slot, core.CPUPlace())
                                     slot = tmp
                                 array.append(slot)

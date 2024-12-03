@@ -168,8 +168,8 @@ int SendAndRecvVariableHandler::SaveInSwitchWithScope(
     PsResponseMessage* response,
     brpc::Controller* cntl) {
   VLOG(4) << "entering SaveInSwitchWithScope";
-  platform::DeviceContextPool& pool = platform::DeviceContextPool::Instance();
-  platform::CPUPlace cpu_place;
+  phi::DeviceContextPool& pool = phi::DeviceContextPool::Instance();
+  phi::CPUPlace cpu_place;
   auto& cpu_dev_ctx = *pool.Get(cpu_place);
   auto message_name = request->message_name();
   VLOG(4) << "message_name in heter server: " << message_name;
@@ -210,8 +210,8 @@ int SendAndRecvVariableHandler::QueryInSwitchWithScope(
   if (!local_scope) {
     LOG(INFO) << "local_scope is null";
   }
-  platform::DeviceContextPool& pool = platform::DeviceContextPool::Instance();
-  platform::CPUPlace cpu_place;
+  phi::DeviceContextPool& pool = phi::DeviceContextPool::Instance();
+  phi::CPUPlace cpu_place;
   auto& cpu_dev_ctx = *pool.Get(cpu_place);
 
   // get req message_name & req_var_names
@@ -244,7 +244,7 @@ int SendAndRecvVariableHandler::QueryInSwitchWithScope(
     }
     butil::IOBuf temp_iobuf;
     if (var_ptr->IsType<phi::DenseTensor>()) {
-      SerializeLodTensor(var_ptr, cpu_dev_ctx, send_var_msg, &temp_iobuf);
+      SerializeDenseTensor(var_ptr, cpu_dev_ctx, send_var_msg, &temp_iobuf);
     } else if (var_ptr->IsType<phi::SelectedRows>()) {
       SerializeSelectedRows(var_ptr, cpu_dev_ctx, send_var_msg, &temp_iobuf);
     }

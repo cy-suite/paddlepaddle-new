@@ -14,9 +14,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
-
-from paddle.static import InputSpec
+from typing import TYPE_CHECKING, Any, Callable
 
 from ..utils import log
 from .compile_cache import CompileSIRCache
@@ -30,6 +28,9 @@ from .statement_ir import (
     StatementIRFactory,
     Symbol,
 )
+
+if TYPE_CHECKING:
+    from paddle.static import InputSpec
 
 
 class SymbolicTraceContext:
@@ -155,7 +156,9 @@ class SymbolicTraceContext:
 
         return DummyFunc()
 
-    def compile_fn(self, sir_name: str, input_spec: list[InputSpec], **kwargs):
+    def compile_fn(
+        self, sir_name: str, input_spec: tuple[InputSpec, ...], **kwargs
+    ):
         """
         start compile and return the python function, which must can be to_static without errors.
         """

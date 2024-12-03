@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import collections
 import inspect
+import os
 import threading
 import warnings
 import weakref
@@ -26,19 +27,17 @@ from typing_extensions import ParamSpec, Self
 import paddle
 import paddle.pir.core as ir_static
 from paddle import decomposition, get_flags
-from paddle._typing import NestedSequence
 from paddle.base import core, framework
 from paddle.base.data_feeder import check_type
 from paddle.base.dygraph.base import (
-    _to_static_mode_guard_,
     param_guard,
     switch_to_static_graph,
+    to_static_mode_guard,
 )
 from paddle.framework import in_dynamic_mode, use_pir_api
 from paddle.nn.layer import layers
 from paddle.pir import Value
 from paddle.pir.core import _convert_into_value, static_op_arg_cast_guard
-from paddle.static import InputSpec, Program
 from paddle.utils import flatten, gast
 
 from . import error, logging_utils
@@ -69,12 +68,13 @@ from .utils import (
     input_specs_compatible,
     is_paddle_func,
     make_hashable,
-    prim_is_enabled,
     prim_or_cinn_is_enabled,
     type_name,
 )
 
 if TYPE_CHECKING:
+    from paddle._typing import NestedSequence
+    from paddle.static import InputSpec, Program
     from paddle.static.amp.fp16_utils import AmpOptions
 
 _RetT = TypeVar("_RetT")
@@ -97,6 +97,74 @@ def synchronized(func):
             return func(*args, **kwargs)
 
     return lock_func
+
+
+def show_op_callstack(op):
+    op_callstack = op.callstack
+    target_lines = {
+        "outputs = static_func(*inputs)",
+        "outputs = static_func(*inputs, **_kwargs)",
+    }
+    op_callstack_message = ""
+    for index, line in enumerate(op_callstack):
+        if line.strip() in target_lines:
+            op_callstack_result = '\n'.join(op_callstack[index + 1 :])
+            op_callstack_message = (
+                f"In transformed code:\n\n{op_callstack_result}\n\n"
+            )
+    raise ValueError(
+        f"{op_callstack_message}Sorry about what's happened. In to_static mode, {op.name()}'s output variable is a viewed Tensor in dygraph. "
+        f"This will result in inconsistent calculation behavior between dynamic and static graphs. "
+        f"You must find the location of the strided ops be called, and call paddle.assign() before inplace input. "
+        f"If you certainly make sure it's safe, you can set env stride_in_no_check_dy2st_diff to 1."
+    )
+
+
+def check_view_api_used_by_inplace(program: paddle.pir.Program) -> None:
+    """
+    check viewed value used by inplace op in pir mode.
+
+    Two scenarios will raise ValueError:
+        # one
+        a = transpose(b)
+        a.add_(c)
+        # two
+        a = transpose(b)
+        b.add_(c)
+    """
+    # TODO(ooooo): Deal with these inplace ops
+    skipped_inplace_ops = [
+        "pd_op.set_value_",
+        "pd_op.set_value_with_tensor_",
+        # It willn't change tensor imdeiately,but it's ouput is dangerous.
+        "pd_op.share_data_",
+    ]
+
+    def val_is_used_by_stride_op(op, val):
+        return op.name() in framework.stride_ops and op.operand_source(
+            0
+        ).is_same(val)
+
+    def is_used_by_inplace_op(op, val, info):
+        return op.name().endswith("_") and any(
+            op.operand_source(index).is_same(val) for index in info.values()
+        )
+
+    all_vars_list = program.list_vars()
+    for value in all_vars_list:
+        uesd_by_stride_ops = []
+        for op in reversed(value.all_used_ops()):
+            inplace_info = paddle.core.pir.get_op_inplace_info(op)
+            if val_is_used_by_stride_op(op, value):
+                uesd_by_stride_ops.append(op)
+            if is_used_by_inplace_op(op, value, inplace_info):
+                if op.name() in skipped_inplace_ops:
+                    continue
+                if value.get_defining_op().name() in framework.stride_ops:
+                    show_op_callstack(op)
+                if len(uesd_by_stride_ops) == 0:
+                    continue
+                show_op_callstack(op)
 
 
 class FunctionCache:
@@ -316,7 +384,7 @@ def unwrap_decorators(func):
         if isinstance(cur, StaticFunction):
             decorators.append(cur)
             # Note: if `cur` is a method, keep it as bound method of class.
-            instance = cur._class_instance
+            instance = cur.class_instance
             if instance is not None:
                 cur = cur.dygraph_function.__get__(instance)
             else:
@@ -340,34 +408,19 @@ class StaticFunction(Generic[_InputT, _RetT]):
 
         if inspect.ismethod(function):
             self._dygraph_function = function.__func__
-            self._class_instance = function.__self__
+            self._class_instance = weakref.ref(function.__self__)
 
-            if not hasattr(self._class_instance, '_original_funcs'):
+            if not hasattr(self.class_instance, '_original_funcs'):
                 raise TypeError(
                     "When using 'to_static' to convert method of a class, "
                     "please ensure the class inherits from nn.Layer"
                 )
-            self._class_instance._original_funcs[
-                function.__name__
-            ] = self._dygraph_function
+            self.class_instance._original_funcs[function.__name__] = (
+                self._dygraph_function
+            )
         else:
             self._dygraph_function = function
             self._class_instance = None
-        # TODO(chenzhuo): Remove this after lowering prim into C++
-        if (
-            input_spec is not None
-            and prim_is_enabled()
-            and not core._enable_prim_dynamic_shape()
-        ):
-            from paddle.static import InputSpec
-
-            for spec in flatten(input_spec):
-                if isinstance(spec, InputSpec) and -1 in spec.shape:
-                    input_spec = None
-                    warnings.warn(
-                        'Now prim and cinn do not support -1 shape, but input_spec has -1 shape so we set it to None.'
-                    )
-                    break
 
         self._input_spec = input_spec
         self._function_spec = FunctionSpec(function, input_spec)
@@ -384,8 +437,8 @@ class StaticFunction(Generic[_InputT, _RetT]):
 
     def _get_debug_name(self) -> str:
         try:
-            if self._class_instance:
-                self._debug_name = self._class_instance.__class__.__name__
+            if self.class_instance:
+                self._debug_name = self.class_instance.__class__.__name__
             else:
                 self._debug_name = self._dygraph_function.__name__
         except Exception:
@@ -398,8 +451,8 @@ class StaticFunction(Generic[_InputT, _RetT]):
 
     def train(self) -> None:
         if (
-            isinstance(self._class_instance, layers.Layer)
-            and self._class_instance.training is False
+            isinstance(self.class_instance, layers.Layer)
+            and self.class_instance.training is False
         ):
             raise RuntimeError(
                 f"Failed to switch train mode. {self.dygraph_function} is a Layer's method, "
@@ -409,8 +462,8 @@ class StaticFunction(Generic[_InputT, _RetT]):
 
     def eval(self) -> None:
         if (
-            isinstance(self._class_instance, layers.Layer)
-            and self._class_instance.training is True
+            isinstance(self.class_instance, layers.Layer)
+            and self.class_instance.training is True
         ):
             raise RuntimeError(
                 f"Failed to switch eval mode. {self.dygraph_function} is a Layer's method, "
@@ -452,10 +505,10 @@ class StaticFunction(Generic[_InputT, _RetT]):
                 and self._dygraph_function.__name__
                 not in instance._original_funcs.keys()
             ):
-                instance._original_funcs[
-                    self._dygraph_function.__name__
-                ] = self._dygraph_function
-            new_static_layer._class_instance = instance
+                instance._original_funcs[self._dygraph_function.__name__] = (
+                    self._dygraph_function
+                )
+            new_static_layer._class_instance = weakref.ref(instance)
             self._descriptor_cache[instance] = new_static_layer
 
         return self._descriptor_cache[instance]
@@ -502,13 +555,13 @@ class StaticFunction(Generic[_InputT, _RetT]):
         return self._perform_call(*args, **kwargs)
 
     def _is_train_mode(self) -> bool:
-        if self._class_instance is not None:
-            if not hasattr(self._class_instance, 'training'):
+        if self.class_instance is not None:
+            if not hasattr(self.class_instance, 'training'):
                 raise TypeError(
                     "When using 'to_static' to convert method of a class, "
                     "please ensure the class inherits from nn.Layer"
                 )
-            return self._class_instance.training
+            return self.class_instance.training
         else:
             return self._training
 
@@ -538,7 +591,7 @@ class StaticFunction(Generic[_InputT, _RetT]):
 
     def get_concrete_program(
         self, *args: _InputT.args, **kwargs: _InputT.kwargs
-    ) -> tuple[ConcreteProgram, PartialProgramLayer | PirPartialProgramLayer]:
+    ) -> tuple[ConcreteProgram, PirPartialProgramLayer]:
         raise NotImplementedError("Not implemented yet.")
 
     def get_concrete_program_with_cache_key(self, cached_key):
@@ -552,12 +605,22 @@ class StaticFunction(Generic[_InputT, _RetT]):
         raise NotImplementedError("Not implemented yet.")
 
     @property
+    def class_instance(self):
+        if self._class_instance is None:
+            return None
+        if self._class_instance() is None:
+            raise RuntimeError(
+                "The instance of class has been deleted, please re-create the instance."
+            )
+        return self._class_instance()
+
+    @property
     def dygraph_function(self) -> Callable[_InputT, _RetT]:
         """
         Returns the original decorated function.
         """
-        if self._class_instance is not None:
-            return self._dygraph_function.__get__(self._class_instance)
+        if self.class_instance is not None:
+            return self._dygraph_function.__get__(self.class_instance)
         else:
             return self._dygraph_function
 
@@ -612,23 +675,23 @@ class StaticFunction(Generic[_InputT, _RetT]):
             for sublayer in class_instance.sublayers(include_self=False):
                 rollback_impl(sublayer)
 
-        if self._class_instance is None:
+        if self.class_instance is None:
             return self._dygraph_function
 
         # only rollback sub-functions on path of top _dygraph_function
         func_name = self._dygraph_function.__name__
         assert (
-            func_name in self._class_instance._original_funcs
-        ), f"Not Found function '{func_name}' in class '{self._class_instance.__class__}'."
-        func = self._class_instance._original_funcs[func_name]
+            func_name in self.class_instance._original_funcs
+        ), f"Not Found function '{func_name}' in class '{self.class_instance.__class__}'."
+        func = self.class_instance._original_funcs[func_name]
         setattr(
-            self._class_instance, func_name, func.__get__(self._class_instance)
+            self.class_instance, func_name, func.__get__(self.class_instance)
         )
 
-        for sublayer in self._class_instance.sublayers(include_self=False):
+        for sublayer in self.class_instance.sublayers(include_self=False):
             rollback_impl(sublayer)
 
-        return getattr(self._class_instance, func_name)
+        return getattr(self.class_instance, func_name)
 
     def __deepcopy__(self, memo):
         """
@@ -662,17 +725,15 @@ class StaticFunction(Generic[_InputT, _RetT]):
 
         Please attention that original 'net' will unwrap @to_static and rollback into simple Layer.
         """
-        if self._class_instance is not None:
-            net_name = type(self._class_instance).__name__
+        if self.class_instance is not None:
+            net_name = type(self.class_instance).__name__
             logging_utils.log(
                 level=-1,
                 msg=f"Not recommend to deepcopy '{net_name}' decorated with @to_static, it has side effect that will"
                 f" rollback into original state before @to_static. Please deepcopy '{net_name}' before applying @to_static.",
             )
             self.rollback()
-            return self._dygraph_function.__get__(
-                memo[id(self._class_instance)]
-            )
+            return self._dygraph_function.__get__(memo[id(self.class_instance)])
         else:
             return self._dygraph_function
 
@@ -738,8 +799,8 @@ class SymbolicStaticFunction(StaticFunction):
             training=self._is_train_mode(),
             backend=backend,
         )
-        if self._class_instance is not None:
-            args = (self._class_instance,) + args
+        if self.class_instance is not None:
+            args = (self.class_instance, *args)
         return traced_fun(*args, **kwargs)
 
     @property
@@ -798,8 +859,8 @@ class ASTStaticFunction(StaticFunction[_InputT, _RetT]):
                 *args, **kwargs, is_train=self._is_train_mode()
             )
             # 2. synchronize self.training attribute.
-            if isinstance(self._class_instance, layers.Layer):
-                partial_program_layer.training = self._class_instance.training
+            if isinstance(self.class_instance, layers.Layer):
+                partial_program_layer.training = self.class_instance.training
             else:
                 partial_program_layer.training = self._training
 
@@ -829,7 +890,7 @@ class ASTStaticFunction(StaticFunction[_InputT, _RetT]):
 
     def get_concrete_program(
         self, *args: _InputT.args, **kwargs: _InputT.kwargs
-    ) -> tuple[ConcreteProgram, PartialProgramLayer | PirPartialProgramLayer]:
+    ) -> tuple[ConcreteProgram, PirPartialProgramLayer]:
         """
         Returns traced concrete program and inner executable partial layer.
 
@@ -866,7 +927,7 @@ class ASTStaticFunction(StaticFunction[_InputT, _RetT]):
             self._function_spec,
             input_args_with_spec,
             input_kwargs_with_spec,
-            self._class_instance,
+            self.class_instance,
             **self._kwargs,
             with_hook=with_hook,
             is_train=is_train,
@@ -1119,7 +1180,7 @@ class HookHelper:
                     hook_result = (hook_result,)
                 inputs = hook_result
 
-        return [self.class_instance] + list(inputs)
+        return [self.class_instance, *list(inputs)]
 
     def apply_post_hooks(self, inputs, outputs):
         """
@@ -1207,7 +1268,7 @@ class ConcreteProgram:
         )
 
         with ir_static.program_guard(main_program, startup_program):
-            with _to_static_mode_guard_(
+            with to_static_mode_guard(
                 is_to_static=True
             ), static_op_arg_cast_guard(_convert_into_value):
                 # 1. Adds `paddle.static.data` layers for input if needed
@@ -1218,8 +1279,9 @@ class ConcreteProgram:
                     input_kwargs_spec, main_program
                 )
                 if class_instance:
-                    static_inputs = tuple(
-                        [class_instance] + list(static_inputs)
+                    static_inputs = (
+                        class_instance,
+                        *list(static_inputs),
                     )
 
                 # 2. Builds program only once and returns the output Variables.
@@ -1259,6 +1321,8 @@ class ConcreteProgram:
                         outputs = [outputs]
 
         main_program = update_op_callstack_with_origin_info(main_program)
+        if not os.environ.get("stride_in_no_check_dy2st_diff", "0") == "1":
+            check_view_api_used_by_inplace(main_program)
 
         return ConcreteProgram(
             inputs=static_inputs,
@@ -1309,7 +1373,7 @@ class ConcreteProgram:
         ProgramTranslator.get_instance()._amp_records.clear()
 
         with framework.program_guard(main_program, startup_program):
-            with _to_static_mode_guard_(is_to_static=True):
+            with to_static_mode_guard(is_to_static=True):
                 # 1. Adds `paddle.static.data` layers for input if needed
                 static_inputs = func_spec.to_static_inputs_with_spec(
                     input_spec, main_program
@@ -1318,8 +1382,9 @@ class ConcreteProgram:
                     input_kwargs_spec, main_program
                 )
                 if class_instance:
-                    static_inputs = tuple(
-                        [class_instance] + list(static_inputs)
+                    static_inputs = (
+                        class_instance,
+                        *list(static_inputs),
                     )
 
                 # 2. Builds program only once and returns the output Variables.
@@ -1580,15 +1645,16 @@ class ProgramCache:
             )
 
         backend = cache_key.kwargs['backend']
-        if (
-            prim_or_cinn_is_enabled(cache_key.kwargs['build_strategy'], backend)
-            and not use_pir_api()
-        ):
-            for var in concrete_program.main_program.list_vars():
-                if var.type not in NO_SHAPE_VAR_TYPE and -1 in var.shape:
-                    warnings.warn(
-                        f"Now prim and cinn do not support -1 shape, but the shape of var {var.name} is {var.shape}"
-                    )
+        if not use_pir_api():
+            # decrease prim_is_enable() call to decrease print log
+            if prim_or_cinn_is_enabled(
+                cache_key.kwargs['build_strategy'], backend
+            ):
+                for var in concrete_program.main_program.list_vars():
+                    if var.type not in NO_SHAPE_VAR_TYPE and -1 in var.shape:
+                        warnings.warn(
+                            f"Now prim and cinn do not support -1 shape, but the shape of var {var.name} is {var.shape}"
+                        )
 
         if use_pir_api():
             from .pir_partial_program import partial_program_from
