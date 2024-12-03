@@ -39,7 +39,7 @@ class TestEluTRTPatternCase2(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.nn.functional.elu
         self.api_args = {
-            "x": np.random.randn(3).astype("int64"),
+            "x": np.random.randn(3).astype("float16"),
             "alpha": 1.0,
         }
         self.program_config = {"feed_list": ["x"]}
