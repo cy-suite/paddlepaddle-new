@@ -107,7 +107,7 @@ inline ExprVec GetSliceDims(const ExprVec &in_dims,
       common::errors::InvalidArgument(
           "The size of axes must equal size of starts and ends."));
   for (size_t i = 0; i < axes.size(); ++i) {
-    auto out_dim = (ends[i] - starts[i] + strides[i]) / strides[i];
+    auto out_dim = ends[i] - starts[i];
     int64_t axis = axes[i];
 
     // If in_dims[axis] or ends[i] have symbol, nedd get Min(in_dims[axis] -
@@ -338,7 +338,6 @@ inline ExprVec GetStridesSliceDims(
   for (size_t i = 0; i < axes.size(); ++i) {
     auto out_dim = symbol::DimExpr({-1}) * ((starts[i] - ends[i]) / strides[i]);
     int64_t axis = axes[i];
-    auto out_dim = (ends[i] - starts[i] + strides[i]) / strides[i];
 
     if (!out_dim.isa<int64_t>() &&
         (!in_dims[axis].isa<int64_t>() || !ends[i].isa<int64_t>())) {
