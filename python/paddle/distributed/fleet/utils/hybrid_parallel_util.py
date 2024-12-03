@@ -181,7 +181,7 @@ def _process_element(hcg, place, element):
     elif isinstance(element, (dict, list, tuple)):
         return _broadcast_nested_data(hcg, place, element)
     else:
-        _broadcast_object_list_help(element, hcg)
+        _broadcast_object_list_help([element], hcg)
 
 
 def _broadcast_nested_data(hcg, place, data):
