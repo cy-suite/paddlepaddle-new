@@ -2116,11 +2116,11 @@ class PowOpPattern : public pir::OpRewritePattern<paddle::dialect::PowOp> {
   }
 };
 
-class IndexputOpPatternPattern
-    : public pir::OpRewritePattern<paddle::dialect::IndexputOp> {
+class IndexPutOpPatternPattern
+    : public pir::OpRewritePattern<paddle::dialect::IndexPutOp> {
  public:
-  using pir::OpRewritePattern<paddle::dialect::IndexputOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::IndexputOp op,
+  using pir::OpRewritePattern<paddle::dialect::IndexPutOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::IndexPutOp op,
                        pir::PatternRewriter &rewriter) const override {
 #if IS_TRT_VERSION_LT(8510)
     VLOG(3) << "index_put is not supported when TensorRT < 8.5.1";
@@ -2135,13 +2135,13 @@ class IndexputOpPatternPattern
     int value_num = std::accumulate(
         value_shape.begin(), value_shape.end(), 1, std::multiplies<int>());
     if (value_num != 1) {
-      VLOG(3) << op_type << " op only support value_num = 1 in tensorrt.";
+      VLOG(3) << " index_put op only support value_num = 1 in tensorrt.";
       return false;
     }
     pir::Value indices = op.operand_source(1);
     auto indices_dtype = pir::GetDataTypeFromValue(indices);
     if (!indices_dtype.isa<pir::BoolType>()) {
-      VLOG(3) << op_type << " op only support bool indices in tensorrt.";
+      VLOG(3) << " index_put op only support bool indices in tensorrt.";
       return false;
     }
 
@@ -2264,7 +2264,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<AssignValueOpPattern>(context));
     ps.Add(std::make_unique<AssignValue_OpPattern>(context));
     ps.Add(std::make_unique<PowOpPattern>(context));
-    ps.Add(std::make_unique<IndexputOpPattern>(context));
+    ps.Add(std::make_unique<IndexPutOpPattern>(context));
     return ps;
   }
 };

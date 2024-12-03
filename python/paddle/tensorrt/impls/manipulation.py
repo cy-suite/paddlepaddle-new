@@ -916,9 +916,9 @@ def index_put_converter(network, paddle_op, inputs):
     accumulate = paddle_op.attrs().get("accumulate")
 
     input_shape_tensor = trt_shape(input_tensor)
-    input_shape = paddle_op.operands()[0].source().shape
+    input_shape = input_tensor.shape
     rank = len(input_shape)
-    indices_shape = paddle_op.operands()[1].source().shape
+    indices_shape = indices_tensor.shape
     indices_dims = len(indices_shape)
 
     # indices
