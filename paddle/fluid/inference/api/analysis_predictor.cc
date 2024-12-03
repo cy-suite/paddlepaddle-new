@@ -102,6 +102,7 @@
 #include "paddle/cinn/hlir/dialect/operator/transforms/add_cinn_pass.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/check_infer_symbolic_util.h"
 #include "paddle/pir/include/dialect/shape/ir/shape_dialect.h"
+#include "paddle/pir/include/dialect/shape/utils/shape_analysis.h"
 #endif
 
 #include "paddle/common/flags.h"
@@ -353,7 +354,7 @@ bool PaddleTensorToDenseTensor(const PaddleTensor &pt,
         "now."));
   }
   // TODO(Superjomn) Low performance, need optimization for heavy LoD copy.
-  phi::LoD lod;
+  phi::LegacyLoD lod;
   for (auto &level : pt.lod) {
     lod.emplace_back(level);
   }
@@ -418,13 +419,15 @@ bool AnalysisPredictor::Init(
     const std::shared_ptr<framework::Scope> &parent_scope,
     const std::shared_ptr<framework::ProgramDesc> &program) {
   VLOG(3) << "Predictor::init()";
-#ifdef PADDLE_WITH_NVTX
+
   if (config_.with_profile_) {
     LOG(WARNING) << "Profiler is activated, which might affect the performance";
+#ifdef PADDLE_WITH_NVTX
     platform::CudaProfilerStart();
     platform::NvprofEnableRecordEvent();
-  }
 #endif
+    platform::EnableProfiler(platform::ProfilerState::kAll);
+  }
 
   if (!status_is_cloned_) {
     root_predictor_id_ = predictor_id_;
@@ -841,6 +844,11 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
             std::make_unique<pir::PassManager::IRPrinterOption>(
                 ir_printing_conditions, ir_printing_conditions));
       }
+      auto &shape_analysis =
+          pir::ShapeAnalysisManager::Instance().Get(pir_program_.get());
+      pass_manager->SetValueReplacedHook([&](pir::Value from, pir::Value to) {
+        shape_analysis.ShareShapeOrData(from, to);
+      });
       return pass_manager;
     };
 
@@ -2965,12 +2973,16 @@ AnalysisPredictor::~AnalysisPredictor() {  // NOLINT
     SaveTrtCalibToDisk();
   }
 #endif
-#ifdef PADDLE_WITH_NVTX
+
   if (config_.with_profile_) {
+#ifdef PADDLE_WITH_NVTX
     platform::NvprofDisableRecordEvent();
     platform::CudaProfilerStop();
-  }
 #endif
+    platform::DisableProfiler(platform::EventSortingKey::kTotal,
+                              "./profile.log");
+  }
+
   if (sub_scope_) {
     if (framework::global_transfer_scope_key().find(sub_scope_) !=
         framework::global_transfer_scope_key().end()) {

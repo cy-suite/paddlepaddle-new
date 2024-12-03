@@ -85,6 +85,7 @@
 #include "paddle/cinn/hlir/dialect/operator/transforms/check_infer_symbolic_util.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/pir_to_py_code_converter.h"
 #include "paddle/cinn/hlir/framework/pir_compiler.h"
+#include "paddle/pir/include/dialect/shape/utils/shape_analysis.h"
 #endif
 
 using paddle::dialect::ApiBuilder;
@@ -686,6 +687,23 @@ void BindBlock(py::module *m) {
       .def("add_arg", &Block::AddArg)
       .def("add_kwarg", &Block::AddKwarg)
       .def("erase_kwarg", &Block::EraseKwarg)
+      .def("get_value_from_op_idxs",
+           [](Block &self, const py::list &op_idxs) -> py::list {
+             py::list value_list;
+             auto it = self.begin();
+             std::set<int> idxs_set;
+             for (py::handle item : op_idxs) {
+               idxs_set.insert(item.cast<int>());
+             }
+             for (int i = 0; it != self.end(); ++i, ++it) {
+               if (idxs_set.find(i) != idxs_set.end()) {
+                 for (uint32_t j = 0; j < it->num_results(); ++j) {
+                   value_list.append(static_cast<pir::Value>(it->result(j)));
+                 }
+               }
+             }
+             return value_list;
+           })
       .def("remove_op",
            [](Block &self, const Operation &op) { self.erase(op); })
       .def(
@@ -1435,7 +1453,7 @@ void BindValue(py::module *m) {
       // The function will calculate the new local shape based on the global
       // shape and the dist_attr argument.
       .def("update_dist_attr",
-           [](Value &self, TensorDistAttribute dist_attr) {
+           [](Value &self, Attribute dist_attr) {
              self.set_type(dialect::CvtToPirDistType(self.type(), dist_attr));
            })
       .def("is_coalesced",
@@ -1689,30 +1707,27 @@ void BindInsertionPoint(pybind11::module *m) {
           return_value_policy::reference);
 }
 
-std::list<Operation *>::const_iterator list_offset(const Block *block,
-                                                   int start_idx) {
-  auto it = block->begin();
-  while (it != block->end() && start_idx--) ++it;
-  return it;
-}
-
 template <typename F, typename S>
 void range_block_do(const Block *block,
-                    std::vector<int> range,
+                    std::pair<size_t, size_t> range,
                     F fn,
                     S skip_fn) {
-  for (auto it = list_offset(block, range[0]);
-       it != list_offset(block, range[1]);
-       ++it) {
-    if (skip_fn(*it)) {
+  auto [start, end] = range;
+  if (start >= end) {
+    return;
+  }
+  auto it = block->begin();
+  std::advance(it, start);
+  for (size_t i = start; i < end && it != block->end(); ++i, ++it) {
+    if (skip_fn(it)) {
       continue;
     }
-    fn(*it);
+    fn(it);
   }
 }
 
 template <typename F>
-void range_block_do(const Block *block, std::vector<int> range, F fn) {
+void range_block_do(const Block *block, std::pair<size_t, size_t> range, F fn) {
   range_block_do(block, range, fn, [](Operation *op) { return false; });
 }
 
@@ -1753,8 +1768,8 @@ std::pair<std::vector<pir::Value>, std::unordered_set<pir::Value>>
 AnalysisMiddleVariable(const Program &program,
                        const std::vector<pir::Value> &forward_inputs,
                        const std::vector<pir::Value> &backward_outputs,
-                       const std::vector<int> &forward_range,
-                       const std::vector<int> &backward_range) {
+                       const std::pair<size_t, size_t> &forward_range,
+                       const std::pair<size_t, size_t> &backward_range) {
   std::vector<pir::Value> middle_values;
 
   std::unordered_set<pir::Value> backward_used_values;
@@ -1810,7 +1825,7 @@ using SplitedAttribute = std::map<std::string, std::vector<pir::Value>>;
 using SplitedResult = std::pair<SplitedProgram, SplitedAttribute>;
 
 static auto GetNoNeedBufferValue(const ::pir::Block *whole_block,
-                                 std::vector<int> range) {
+                                 std::pair<size_t, size_t> range) {
   // filter no need buffer values.
   std::unordered_set<::pir::Value> need_buffer_values;
   std::unordered_set<::pir::Value> no_need_buffer_values;
@@ -1925,8 +1940,8 @@ SplitedResult SplitForwardBackward(
     const std::vector<pir::Value> &forward_inputs_grads,
     const std::vector<pir::Value> &forward_params_grads,
     const std::vector<pir::Value> &forward_outputs_grads,
-    const std::vector<int> &forward_range,
-    const std::vector<int> &backward_range) {
+    const std::pair<size_t, size_t> &forward_range,
+    const std::pair<size_t, size_t> &backward_range) {
   std::vector<pir::Value> forward_in_out_values;
   for (auto &v :
        std::vector({&forward_inputs, &forward_outputs, &forward_params})) {
@@ -2392,22 +2407,23 @@ void BindUtils(pybind11::module *m) {
 
 namespace {
 
-#ifdef PADDLE_WITH_CINN
-std::shared_ptr<pir::PassManager> CreatePassManager() {
-  pir::IrContext *ctx = pir::IrContext::Instance();
-  ctx->GetOrRegisterDialect<paddle::dialect::OperatorDialect>();
-  ctx->GetOrRegisterDialect<cinn::dialect::OperatorDialect>();
-  ctx->GetOrRegisterDialect<pir::shape::ShapeDialect>();
-  auto pass_manager = std::make_shared<pir::PassManager>(ctx);
-  if (FLAGS_print_ir) {
-    pass_manager->EnableIRPrinting();
-  }
-  return pass_manager;
-}
-#endif
-
 void ApplyCinnPass(Program &program) {  // NOLINT
 #ifdef PADDLE_WITH_CINN
+  auto CreatePassManager = [&]() -> std::shared_ptr<pir::PassManager> {
+    pir::IrContext *ctx = pir::IrContext::Instance();
+    ctx->GetOrRegisterDialect<paddle::dialect::OperatorDialect>();
+    ctx->GetOrRegisterDialect<cinn::dialect::OperatorDialect>();
+    ctx->GetOrRegisterDialect<pir::shape::ShapeDialect>();
+    auto pass_manager = std::make_shared<pir::PassManager>(ctx);
+    if (FLAGS_print_ir) {
+      pass_manager->EnableIRPrinting();
+    }
+    auto &shape_analysis = pir::ShapeAnalysisManager::Instance().Get(&program);
+    pass_manager->SetValueReplacedHook([&](pir::Value from, pir::Value to) {
+      shape_analysis.ShareShapeOrData(from, to);
+    });
+    return pass_manager;
+  };
   cinn::dialect::ir::ApplyCinnPass(&program, CreatePassManager);
 #else
   PADDLE_THROW(common::errors::Unimplemented(
@@ -2418,6 +2434,17 @@ void ApplyCinnPass(Program &program) {  // NOLINT
 
 void CheckInferSymbolicIfNeed(Program &program) {  // NOLINT
 #ifdef PADDLE_WITH_CINN
+  auto CreatePassManager = [&]() -> std::shared_ptr<pir::PassManager> {
+    pir::IrContext *ctx = pir::IrContext::Instance();
+    ctx->GetOrRegisterDialect<paddle::dialect::OperatorDialect>();
+    ctx->GetOrRegisterDialect<cinn::dialect::OperatorDialect>();
+    ctx->GetOrRegisterDialect<pir::shape::ShapeDialect>();
+    auto pass_manager = std::make_shared<pir::PassManager>(ctx);
+    if (FLAGS_print_ir) {
+      pass_manager->EnableIRPrinting();
+    }
+    return pass_manager;
+  };
   cinn::dialect::ir::CheckInferSymbolicIfNeed(&program, CreatePassManager);
 #else
   // Do nothing.
