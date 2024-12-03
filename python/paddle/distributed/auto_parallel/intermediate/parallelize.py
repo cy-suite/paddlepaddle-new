@@ -47,7 +47,7 @@ def parallelize(model, optimizer=None, mesh=None, config=None):
             dp_config (dict): a dict specifying the data parallel config. The keys of `dp_config` is `sharding_level`.
                 The value of `sharding_level` can be chosen from 0/1/2/3, which means pure data parallel, sharding
                 parallel stage 1, sharding parallel stage 2 and sharding parallel stage 3  separately.
-                A valid dp_config can be like this: ```{"sharding_level": 2}```.
+                A valid dp_config can be like this: {"sharding_level": 2}.
 
             mp_config (dict): a dict specifying the tensor parallel config. The keys of `mp_config` is
                 `parallelize_plan`. The value of `parallelize_plan` is another dict, mapping a layer name or a param
@@ -56,11 +56,8 @@ def parallelize(model, optimizer=None, mesh=None, config=None):
                 And all valid parallel plan is `ColWiseParallel`, `RowWiseParallel`, `SequenceParallelBegin,
                 `SequenceParallelDisable`, `SequenceParallelEnable`, `SequenceParallelEnd`, `PrepareLayerInput` and
                 `PrepareLayerOutput`.
-                A valid mp_config can be like this: ```{
-                    "llama.embed_tokens": dist.ColWiseParallel(),
-                    "llama.norm": dist.SequenceParallelEnable(),
-                    "lm_head.weight": dist.ColWiseParallel(),
-                }```.
+                A valid mp_config can be like this: {"llama.embed_tokens": dist.ColWiseParallel(),
+                "llama.norm": dist.SequenceParallelEnable(), "lm_head.weight": dist.ColWiseParallel()}.
 
             pp_config (dict): a dict specifying the pipeline parallel config. The keys of `pp_config` is `split_spec`
                 and `global_spec`. The `split_spec` can be a dict or a string. If the `split_spec` is a dict, it maps
@@ -69,18 +66,8 @@ def parallelize(model, optimizer=None, mesh=None, config=None):
                 is a string, it contains the prefix of a set of layers. The pipeline parallel will automatically split
                 the model evenly at target layer. The `global_spec` is a string indicating a layer that contains global
                 tensors, which will be duplicated through all stages of the pipeline parallel.
-                Some valid pp_config can be list these:
-                ```{
-                    'split_spec': "llama.layers",
-                    "global_spec": "llama.global_layer",
-                }```
-                or
-                ```{
-                    'split_spec': {
-                        f"llama.layers.{i * decoders_per_rank - 1}": SplitPoint.END
-                        for i in range(1, self.pp)
-                    }
-                }```.
+                Some valid pp_config can be list these:  {"split_spec": "llama.layers",
+                "global_spec": "llama.global_layer"} or {"split_spec": {"llama.layers.1": SplitPoint.END}}.
 
             Note: if the mesh is `None` or neither of `dp_config`, `mp_config` and `pp_config` is in the config, this
             api will do nothing but return the model and optimizer passed in.
