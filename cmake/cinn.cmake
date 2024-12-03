@@ -104,6 +104,11 @@ if(WITH_GPU)
                                              /usr/lib /usr/lib64 REQUIRED)
 endif()
 
+if(WITH_ROCM)
+  message(STATUS "CINN Compile with ROCM support")
+  add_definitions(-DCINN_WITH_HIP)
+endif()
+
 set(cinnapi_src CACHE INTERNAL "" FORCE)
 set(core_src CACHE INTERNAL "" FORCE)
 set(core_includes CACHE INTERNAL "" FORCE)
@@ -155,6 +160,7 @@ cinn_cc_library(
   ${cinnapi_src}
   DEPS
   glog
+  python
   ${llvm_libs}
   param_proto
   auto_schedule_proto
@@ -172,12 +178,6 @@ target_link_libraries(cinnapi op_dialect pir phi)
 add_dependencies(cinnapi op_dialect pir phi)
 
 add_dependencies(cinnapi python)
-if(LINUX)
-  target_link_libraries(cinnapi "-Wl,--unresolved-symbols=ignore-all")
-elseif(APPLE)
-  target_link_libraries(cinnapi "-Wl,-undefined,dynamic_lookup")
-endif()
-
 if(WITH_MKL)
   target_link_libraries(cinnapi cinn_mklml)
   add_dependencies(cinnapi cinn_mklml)
@@ -279,6 +279,8 @@ if(PUBLISH_LIBS)
   set(core_includes
       "${core_includes};paddle/cinn/runtime/cuda/cinn_cuda_runtime_source.cuh")
   set(core_includes
+      "${core_includes};paddle/cinn/runtime/hip/cinn_hip_runtime_source.h")
+  set(core_includes
       "${core_includes};paddle/common/flags.h;paddle/utils/test_macros.h")
   foreach(header ${core_includes})
     get_filename_component(prefix ${header} DIRECTORY)
@@ -307,13 +309,6 @@ if(PUBLISH_LIBS)
   add_custom_command(
     TARGET cinncore_static
     POST_BUILD
-    COMMAND
-      cmake -E copy ${PROJECT_SOURCE_DIR}/tools/cinn/tutorials_demo/demo.cc
-      ${CMAKE_BINARY_DIR}/dist/demo.cc
-    COMMAND
-      cmake -E copy
-      ${PROJECT_SOURCE_DIR}/tools/cinn/tutorials_demo/build_demo.sh
-      ${CMAKE_BINARY_DIR}/dist/build_demo.sh
     COMMAND cmake -E copy ${CMAKE_BINARY_DIR}/libcinncore_static.a
             ${CMAKE_BINARY_DIR}/dist/cinn/lib/libcinncore_static.a
     COMMAND

@@ -14,17 +14,21 @@ if(NOT WITH_ONEDNN)
     ${CMAKE_CURRENT_SOURCE_DIR}/instruction/onednn/onednn_mixed_instruction.cc)
 endif()
 
+if(NOT TENSORRT_FOUND OR NOT WITH_TENSORRT)
+  list(REMOVE_ITEM standalone_executor_srcs
+       ${CMAKE_CURRENT_SOURCE_DIR}/instruction/tensorrt_engine_instruction.cc)
+endif()
+
 set(standalone_executor_deps
     pir
     program_translator
     op_dialect_vjp
     global_utils
-    buffered_reader
     framework_io
     garbage_collector
     executor_gc_helper
-    device_event_base
-    framework_proto)
+    phi
+    common)
 
 if(WITH_CINN)
   set(standalone_executor_deps
@@ -38,13 +42,8 @@ if(WITH_CINN)
       ${DEVICE_EVENT_LIBS})
 endif()
 
-if(WITH_CUSTOM_DEVICE)
-  set(standalone_executor_deps ${standalone_executor_deps}
-                               device_event_custom_device)
-endif()
-
-if(WITH_GPU)
-  set(standalone_executor_deps ${standalone_executor_deps} device_event_gpu)
+if(TENSORRT_FOUND AND WITH_TENSORRT)
+  set(standalone_executor_deps ${standalone_executor_deps} trt_engine)
 endif()
 
 cc_library(
@@ -52,7 +51,7 @@ cc_library(
   SRCS ${standalone_executor_srcs}
   DEPS ${standalone_executor_deps})
 
-add_dependencies(standalone_executor xxhash framework_proto)
+add_dependencies(standalone_executor xxhash)
 
 if(WITH_ONEDNN)
   add_dependencies(standalone_executor onednn)

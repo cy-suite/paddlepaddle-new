@@ -87,7 +87,7 @@ void _LoweredFunc_::CheckValid() const {
   PADDLE_ENFORCE_GT(
       out_count,
       0,
-      phi::errors::InvalidArgument(
+      ::common::errors::InvalidArgument(
           "At least one output argument is needed for a function."));
 }
 
@@ -125,14 +125,18 @@ void _LoweredFunc_::PrepareCudaAxisInfoFromBody() {
 }
 
 void _LoweredFunc_::PrepareAllocOutputBufferExprs() {
-  CHECK(alloc_output_buffer_exprs.empty())
-      << "duplicate prepare the allocate buffer for outputs";
-
+  PADDLE_ENFORCE_EQ(alloc_output_buffer_exprs.empty(),
+                    true,
+                    ::common::errors::InvalidArgument(
+                        "Duplicate prepare the allocate buffer for outputs."));
   std::set<std::string> buffer_names;
   for (auto& arg : args) {
     if (arg.is_output()) {
-      CHECK(arg.type().valid())
-          << "argument [" << arg.name() << "]'s type should be set";
+      PADDLE_ENFORCE_EQ(
+          arg.type().valid(),
+          true,
+          ::common::errors::InvalidArgument(
+              "Argument ['%s']'s type should be set.", arg.name()));
       if (arg.is_buffer() &&
           !buffer_names.count(arg.name())) {  // only buffer need allocation.
         buffer_names.insert(arg.name());      // Avoid duplicate
@@ -145,6 +149,35 @@ void _LoweredFunc_::PrepareAllocOutputBufferExprs() {
       }
     }
   }
+}
+
+std::vector<Expr> _LoweredFunc_::PrepareAxisRangeAssumptions() const {
+  std::vector<Expr> assumption_exprs;
+
+  const auto AssumeAxisLT = [&](std::string axis, const Expr& dim_size) {
+    if (!dim_size.defined()) {
+      return;
+    }
+    if (dim_size == common::make_const(1)) {
+      return;
+    }
+    Expr expr_lt = LT::Make(Var(axis), dim_size);
+    Expr call_lt = Call::Make(Void(),
+                              runtime::intrinsic::cuda_builtin_assume,
+                              {expr_lt},
+                              {},
+                              CallType::Intrinsic);
+    assumption_exprs.push_back(call_lt);
+  };
+
+  AssumeAxisLT("blockIdx.x", cuda_axis_info.grid_dim(0));
+  AssumeAxisLT("blockIdx.y", cuda_axis_info.grid_dim(1));
+  AssumeAxisLT("blockIdx.z", cuda_axis_info.grid_dim(2));
+  AssumeAxisLT("threadIdx.x", cuda_axis_info.block_dim(0));
+  AssumeAxisLT("threadIdx.y", cuda_axis_info.block_dim(1));
+  AssumeAxisLT("threadIdx.z", cuda_axis_info.block_dim(2));
+
+  return assumption_exprs;
 }
 
 std::vector<Expr> _LoweredFunc_::PrepareAllocTempBufferExprs() const {
@@ -200,14 +233,19 @@ std::vector<Expr> _LoweredFunc_::CudaPrepareAllocTempBufferExprs() const {
 }
 
 void _LoweredFunc_::PrepareDeallocOutputBufferExprs() {
-  CHECK(dealloc_output_buffer_exprs.empty())
-      << "duplicate prepare the allocate buffer for outputs";
+  PADDLE_ENFORCE_EQ(dealloc_output_buffer_exprs.empty(),
+                    true,
+                    ::common::errors::InvalidArgument(
+                        "Duplicate prepare the allocate buffer for outputs."));
 
   std::set<std::string> buffer_names;
   for (auto& arg : args) {
     if (arg.is_output()) {
-      CHECK(arg.type().valid())
-          << "argument [" << arg.name() << "]'s type should be set";
+      PADDLE_ENFORCE_EQ(
+          arg.type().valid(),
+          true,
+          ::common::errors::InvalidArgument(
+              "Argument ['%s']'s type should be set.", arg.name()));
       if (arg.is_buffer() &&
           !buffer_names.count(arg.name())) {  // only buffer need allocation.
         buffer_names.insert(arg.name());      // Avoid duplicate
@@ -232,7 +270,11 @@ void _LoweredFunc_::PrepareBufferCastExprs(bool with_expr_gen_tensor) {
   VLOG(3) << "Function used " << tensors.size() << " buffers";
   for (auto& tensor : tensors) {
     auto* node = tensor.As<ir::_Tensor_>();
-    CHECK(node);
+    PADDLE_ENFORCE_NOT_NULL(
+        node,
+        ::common::errors::InvalidArgument(
+            "Failed to convert tensor to ir::_Tensor_. The tensor might be "
+            "invalid or of an incorrect type."));
     if (!tensor->buffer.defined()) continue;
 
     Type value_type = tensor->type().ElementOf();
@@ -271,7 +313,11 @@ std::vector<Expr> _LoweredFunc_::CudaAliasVarExprs() const {
 
   for (auto& tensor : tensors) {
     auto* node = tensor.As<ir::_Tensor_>();
-    CHECK(node);
+    PADDLE_ENFORCE_NOT_NULL(
+        node,
+        ::common::errors::InvalidArgument(
+            "Failed to convert tensor to ir::_Tensor_. The tensor might be "
+            "invalid or of an incorrect type."));
     if (!tensor->buffer.defined()) {
       continue;
     }
@@ -309,8 +355,10 @@ void _LoweredFunc_::PrepareArgumentExprs() {
           .set_cpp_handle();
   // type of `const cinn_buffer_t*`
   auto const_buffer_ptr_type = buffer_ptr_type.with_cpp_const();
-  CHECK(!buffer_ptr_type.is_cpp_const());
-
+  PADDLE_ENFORCE_NE(buffer_ptr_type.is_cpp_const(),
+                    true,
+                    ::common::errors::InvalidArgument(
+                        "The buffer pointer type should not be const."));
   Var args_passed_in("_args", type_of<void*>());
   auto pod_value_ptr =
       cinn::common::CastIfNeeded(args_passed_in, type_of<cinn_pod_value_t*>());
@@ -341,7 +389,7 @@ void _LoweredFunc_::PrepareArgumentExprs() {
         pod_value_ptr, {cinn::common::make_const(static_cast<int32_t>(i))});
     PADDLE_ENFORCE_EQ(load_expr.type(),
                       type_of<cinn_pod_value_t>(),
-                      phi::errors::InvalidArgument(
+                      ::common::errors::InvalidArgument(
                           "The type of load_expr should be cinn_pod_value_t"));
     load_expr = ir::intrinsics::GetAddr::Make(load_expr);
 
@@ -357,7 +405,10 @@ void _LoweredFunc_::PrepareArgumentExprs() {
       CINN_NOT_IMPLEMENTED
     }
 
-    CHECK(_arg->type().valid());
+    PADDLE_ENFORCE_EQ(
+        _arg->type().valid(),
+        true,
+        ::common::errors::InvalidArgument("Argument's type should be set."));
 
     Expr pod_cast_expr;
 
@@ -425,7 +476,10 @@ void _LoweredFunc_::PrepareArgumentExprs() {
 
     VLOG(6) << "args " << i << "convert";
     Expr let_expr = Let::Make(_arg, pod_cast_expr);
-    CHECK(let_expr.type().valid());
+    PADDLE_ENFORCE_EQ(let_expr.type().valid(),
+                      true,
+                      ::common::errors::InvalidArgument(
+                          "The let expression's type should be set."));
     argument_prepare_exprs.push_back(let_expr);
   }
 }
@@ -456,22 +510,36 @@ std::vector<Tensor> _LoweredFunc_::CollectAllTensorReference(
 }
 
 ir::Buffer Argument::buffer_arg() const {
-  CHECK(is_buffer());
+  PADDLE_ENFORCE_EQ(
+      is_buffer(),
+      true,
+      ::common::errors::InvalidArgument(
+          "The argument is not a buffer. Unable to return buffer_arg_."));
   return buffer_arg_;
 }
 
 ir::Var Argument::var_arg() const {
-  CHECK(is_var());
+  PADDLE_ENFORCE_EQ(
+      is_var(),
+      true,
+      ::common::errors::InvalidArgument(
+          "The argument is not a variable. Unable to return var_arg_."));
   return var_arg_;
 }
 
 void Argument::set_buffer(const ir::Buffer& x) {
-  CHECK(!is_var()) << "the buffer is already a var";
+  PADDLE_ENFORCE_EQ(
+      !is_var(),
+      true,
+      ::common::errors::InvalidArgument("The buffer is already a variable."));
   buffer_arg_ = x;
 }
 
 void Argument::set_var(const ir::Var& x) {
-  CHECK(!is_buffer()) << "the buffer is already a buffer";
+  PADDLE_ENFORCE_EQ(
+      !is_buffer(),
+      true,
+      ::common::errors::InvalidArgument("The buffer is already a buffer."));
   var_arg_ = x;
 }
 
@@ -525,7 +593,7 @@ void CudaAxisInfo::set_grid_dim(int offset, int64_t x) {
   PADDLE_ENFORCE_LT(
       offset,
       3,
-      phi::errors::InvalidArgument("The offset should be less than 3."));
+      ::common::errors::InvalidArgument("The offset should be less than 3."));
   grid_dims_[offset] = ir::Expr(x);
 }
 
@@ -534,7 +602,7 @@ void CudaAxisInfo::set_block_dim(int offset, int64_t x) {
   PADDLE_ENFORCE_LT(
       offset,
       3,
-      phi::errors::InvalidArgument("The offset should be less than 3."));
+      ::common::errors::InvalidArgument("The offset should be less than 3."));
   block_dims_[offset] = ir::Expr(x);
 }
 
@@ -543,7 +611,7 @@ void CudaAxisInfo::set_grid_dim(int offset, ir::Expr x) {
   PADDLE_ENFORCE_LT(
       offset,
       3,
-      phi::errors::InvalidArgument("The offset should be less than 3."));
+      ::common::errors::InvalidArgument("The offset should be less than 3."));
   grid_dims_[offset] = x;
 }
 
@@ -552,25 +620,33 @@ void CudaAxisInfo::set_block_dim(int offset, ir::Expr x) {
   PADDLE_ENFORCE_LT(
       offset,
       3,
-      phi::errors::InvalidArgument("The offset should be less than 3."));
+      ::common::errors::InvalidArgument("The offset should be less than 3."));
   block_dims_[offset] = x;
 }
 
 ir::Expr CudaAxisInfo::grid_dim(int offset) const {
-  CHECK(valid_);
+  PADDLE_ENFORCE_EQ(
+      valid_,
+      true,
+      ::common::errors::InvalidArgument("CudaAxisInfo is not valid. This check "
+                                        "failed in grid_dim() method."));
   PADDLE_ENFORCE_LT(
       offset,
       3,
-      phi::errors::InvalidArgument("The offset should be less than 3."));
+      ::common::errors::InvalidArgument("The offset should be less than 3."));
   return grid_dims_[offset];
 }
 
 ir::Expr CudaAxisInfo::block_dim(int offset) const {
-  CHECK(valid_);
+  PADDLE_ENFORCE_EQ(
+      valid_,
+      true,
+      ::common::errors::InvalidArgument("CudaAxisInfo is not valid. This check "
+                                        "failed in block_dim() method."));
   PADDLE_ENFORCE_LT(
       offset,
       3,
-      phi::errors::InvalidArgument("The offset should be less than 3."));
+      ::common::errors::InvalidArgument("The offset should be less than 3."));
   return block_dims_[offset];
 }
 

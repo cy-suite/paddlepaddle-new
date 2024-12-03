@@ -57,19 +57,19 @@ void VarDesc::SetShape(const std::vector<int64_t> &dims) {
 void VarDesc::SetTensorDescNum(size_t num) {
   switch (desc_.type().type()) {
     case proto::VarType::READER: {
-      auto *lod_tensors_ptr =
-          desc_.mutable_type()->mutable_reader()->mutable_lod_tensor();
-      lod_tensors_ptr->Clear();
+      auto *dense_tensors_ptr =
+          desc_.mutable_type()->mutable_reader()->mutable_dense_tensor();
+      dense_tensors_ptr->Clear();
       for (size_t i = 0; i < num; ++i) {
-        lod_tensors_ptr->Add();
+        dense_tensors_ptr->Add();
       }
       return;
     } break;
     default:
       PADDLE_THROW(
-          platform::errors::Unavailable("Setting 'sub_tensor_number' is not "
-                                        "supported by the %s type variable.",
-                                        this->Name()));
+          common::errors::Unavailable("Setting 'sub_tensor_number' is not "
+                                      "supported by the %s type variable.",
+                                      this->Name()));
   }
   need_updated_ = true;
 }
@@ -77,13 +77,13 @@ void VarDesc::SetTensorDescNum(size_t num) {
 size_t VarDesc::GetTensorDescNum() const {
   switch (desc_.type().type()) {
     case proto::VarType::READER:
-      return desc_.type().reader().lod_tensor_size();
+      return desc_.type().reader().dense_tensor_size();
       break;
     default:
       PADDLE_THROW(
-          platform::errors::Unavailable("Getting 'sub_tensor_number' is not "
-                                        "supported by the %s type variable.",
-                                        this->Name()));
+          common::errors::Unavailable("Getting 'sub_tensor_number' is not "
+                                      "supported by the %s type variable.",
+                                      this->Name()));
   }
 }
 
@@ -160,14 +160,14 @@ std::vector<proto::VarType::Type> VarDesc::GetDataTypes() const {
 
 void VarDesc::SetLoDLevel(int32_t lod_level) {
   switch (desc_.type().type()) {
-    case proto::VarType::LOD_TENSOR:
-      desc_.mutable_type()->mutable_lod_tensor()->set_lod_level(lod_level);
+    case proto::VarType::DENSE_TENSOR:
+      desc_.mutable_type()->mutable_dense_tensor()->set_lod_level(lod_level);
       break;
-    case proto::VarType::LOD_TENSOR_ARRAY:
+    case proto::VarType::DENSE_TENSOR_ARRAY:
       desc_.mutable_type()->mutable_tensor_array()->set_lod_level(lod_level);
       break;
     default:
-      PADDLE_THROW(platform::errors::Unavailable(
+      PADDLE_THROW(common::errors::Unavailable(
           "Setting 'lod_level' is not supported by the %s type variable.",
           this->Name()));
   }
@@ -186,13 +186,13 @@ void VarDesc::SetLoDLevels(const std::vector<int32_t> &multiple_lod_level) {
   switch (desc_.type().type()) {
     case proto::VarType::READER: {
       size_t i = 0;
-      for (auto &lod_tensor :
-           *desc_.mutable_type()->mutable_reader()->mutable_lod_tensor()) {
-        lod_tensor.set_lod_level(multiple_lod_level[i++]);
+      for (auto &dense_tensor :
+           *desc_.mutable_type()->mutable_reader()->mutable_dense_tensor()) {
+        dense_tensor.set_lod_level(multiple_lod_level[i++]);
       }
     } break;
     default:
-      PADDLE_THROW(platform::errors::Unavailable(
+      PADDLE_THROW(common::errors::Unavailable(
           "Setting 'lod_levels' is not supported by the %s type variable",
           this->Name()));
   }
@@ -201,12 +201,12 @@ void VarDesc::SetLoDLevels(const std::vector<int32_t> &multiple_lod_level) {
 
 int32_t VarDesc::GetLoDLevel() const {
   switch (desc_.type().type()) {
-    case proto::VarType::LOD_TENSOR:
-      return desc_.type().lod_tensor().lod_level();
-    case proto::VarType::LOD_TENSOR_ARRAY:
+    case proto::VarType::DENSE_TENSOR:
+      return desc_.type().dense_tensor().lod_level();
+    case proto::VarType::DENSE_TENSOR_ARRAY:
       return desc_.type().tensor_array().lod_level();
     default:
-      PADDLE_THROW(platform::errors::Unavailable(
+      PADDLE_THROW(common::errors::Unavailable(
           "Getting 'lod_level' is not supported by the %s type variable.",
           this->Name()));
   }
@@ -216,14 +216,14 @@ std::vector<int32_t> VarDesc::GetLoDLevels() const {
   std::vector<int32_t> res;
   switch (desc_.type().type()) {
     case proto::VarType::READER:
-      res.reserve(desc_.type().reader().lod_tensor_size());
-      for (auto &lod_tensor : desc_.type().reader().lod_tensor()) {
-        res.push_back(lod_tensor.lod_level());
+      res.reserve(desc_.type().reader().dense_tensor_size());
+      for (auto &dense_tensor : desc_.type().reader().dense_tensor()) {
+        res.push_back(dense_tensor.lod_level());
       }
       return res;
       break;
     default:
-      PADDLE_THROW(platform::errors::Unavailable(
+      PADDLE_THROW(common::errors::Unavailable(
           "Getting 'lod_levels' is not supported by the %s type variable.",
           this->Name()));
   }
@@ -233,17 +233,17 @@ const proto::VarType::TensorDesc &VarDesc::tensor_desc() const {
   PADDLE_ENFORCE_EQ(
       desc_.has_type(),
       true,
-      platform::errors::NotFound("The variable's type was not set."));
+      common::errors::NotFound("The variable's type was not set."));
   PADDLE_ENFORCE_EQ(
       desc_.type().has_type(),
       true,
-      platform::errors::NotFound("The variable's type was not set."));
+      common::errors::NotFound("The variable's type was not set."));
   switch (desc_.type().type()) {
     case proto::VarType::SELECTED_ROWS:
       return desc_.type().selected_rows();
-    case proto::VarType::LOD_TENSOR:
-      return desc_.type().lod_tensor().tensor();
-    case proto::VarType::LOD_TENSOR_ARRAY:
+    case proto::VarType::DENSE_TENSOR:
+      return desc_.type().dense_tensor().tensor();
+    case proto::VarType::DENSE_TENSOR_ARRAY:
       return desc_.type().tensor_array().tensor();
     case proto::VarType::STRINGS:
       return desc_.type().strings();
@@ -252,7 +252,7 @@ const proto::VarType::TensorDesc &VarDesc::tensor_desc() const {
     case proto::VarType::SPARSE_COO:
       return desc_.type().sparse_coo();
     default:
-      PADDLE_THROW(platform::errors::Unavailable(
+      PADDLE_THROW(common::errors::Unavailable(
           "Getting 'tensor_desc' is not supported by the %s type variable.",
           this->Name()));
   }
@@ -262,17 +262,17 @@ std::vector<proto::VarType::TensorDesc> VarDesc::tensor_descs() const {
   PADDLE_ENFORCE_EQ(
       desc_.has_type(),
       true,
-      platform::errors::NotFound("The variable's type was not be set."));
+      common::errors::NotFound("The variable's type was not be set."));
   std::vector<proto::VarType::TensorDesc> res;
   res.reserve(GetTensorDescNum());
   switch (desc_.type().type()) {
     case proto::VarType::READER:
-      for (const auto &lod_tensor : desc_.type().reader().lod_tensor()) {
-        res.push_back(lod_tensor.tensor());
+      for (const auto &dense_tensor : desc_.type().reader().dense_tensor()) {
+        res.push_back(dense_tensor.tensor());
       }
       return res;
     default:
-      PADDLE_THROW(platform::errors::Unavailable(
+      PADDLE_THROW(common::errors::Unavailable(
           "Getting 'tensor_descs' is not supported by the %s type variable.",
           this->Name()));
   }
@@ -282,17 +282,17 @@ proto::VarType::TensorDesc *VarDesc::mutable_tensor_desc() {
   PADDLE_ENFORCE_EQ(
       desc_.has_type(),
       true,
-      platform::errors::NotFound("The variable's type was not be set."));
+      common::errors::NotFound("The variable's type was not be set."));
   PADDLE_ENFORCE_EQ(
       desc_.type().has_type(),
       true,
-      platform::errors::NotFound("The variable's type was not be set."));
+      common::errors::NotFound("The variable's type was not be set."));
   switch (desc_.type().type()) {
     case proto::VarType::SELECTED_ROWS:
       return desc_.mutable_type()->mutable_selected_rows();
-    case proto::VarType::LOD_TENSOR:
-      return desc_.mutable_type()->mutable_lod_tensor()->mutable_tensor();
-    case proto::VarType::LOD_TENSOR_ARRAY:
+    case proto::VarType::DENSE_TENSOR:
+      return desc_.mutable_type()->mutable_dense_tensor()->mutable_tensor();
+    case proto::VarType::DENSE_TENSOR_ARRAY:
       return desc_.mutable_type()->mutable_tensor_array()->mutable_tensor();
     case proto::VarType::STRINGS:
       return desc_.mutable_type()->mutable_strings();
@@ -302,9 +302,9 @@ proto::VarType::TensorDesc *VarDesc::mutable_tensor_desc() {
       return desc_.mutable_type()->mutable_sparse_coo();
     default:
       PADDLE_THROW(
-          platform::errors::Unavailable("Getting 'mutable_tensor_desc' is not "
-                                        "supported by the %s type variable.",
-                                        this->Name()));
+          common::errors::Unavailable("Getting 'mutable_tensor_desc' is not "
+                                      "supported by the %s type variable.",
+                                      this->Name()));
   }
   need_updated_ = true;
 }
@@ -313,22 +313,22 @@ std::vector<proto::VarType::TensorDesc *> VarDesc::mutable_tensor_descs() {
   PADDLE_ENFORCE_EQ(
       desc_.has_type(),
       true,
-      platform::errors::NotFound("The variable's type was not be set."));
+      common::errors::NotFound("The variable's type was not be set."));
   PADDLE_ENFORCE_EQ(
       desc_.type().has_type(),
       true,
-      platform::errors::NotFound("The variable's type was not be set."));
+      common::errors::NotFound("The variable's type was not be set."));
   std::vector<proto::VarType::TensorDesc *> res;
   res.reserve(GetTensorDescNum());
   switch (desc_.type().type()) {
     case proto::VarType::READER:
-      for (auto &lod_tensor :
-           *desc_.mutable_type()->mutable_reader()->mutable_lod_tensor()) {
-        res.push_back(lod_tensor.mutable_tensor());
+      for (auto &dense_tensor :
+           *desc_.mutable_type()->mutable_reader()->mutable_dense_tensor()) {
+        res.push_back(dense_tensor.mutable_tensor());
       }
       return res;
     default:
-      PADDLE_THROW(platform::errors::Unavailable(
+      PADDLE_THROW(common::errors::Unavailable(
           "Getting 'tensor_descs' is not supported by the %s type variable.",
           this->Name()));
   }
@@ -362,7 +362,7 @@ void VarDesc::SetAttr(const std::string &name, const Attribute &v) {
                attr_type == proto::AttrType::INTS;
   PADDLE_ENFORCE_EQ(valid,
                     true,
-                    platform::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "The value for attr (%s) must be "
                         "one of int, string, list of int for now.",
                         name));
@@ -376,7 +376,7 @@ Attribute VarDesc::GetAttr(const std::string &name) const {
   PADDLE_ENFORCE_NE(
       it,
       attrs_.end(),
-      platform::errors::NotFound("Attribute %s is not found.", name));
+      common::errors::NotFound("Attribute %s is not found.", name));
   return it->second;
 }
 
@@ -391,7 +391,7 @@ struct SetVarAttrDescVisitor {
         std::is_same<U, std::vector<int>>::value) {
       set_attr_value(v);
     } else {
-      PADDLE_THROW(platform::errors::Unavailable(
+      PADDLE_THROW(common::errors::Unavailable(
           "Unsupported calling method of SetAttrDescVisitor object."));
     }
   }

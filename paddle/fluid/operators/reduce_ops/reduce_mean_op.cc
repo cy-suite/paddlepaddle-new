@@ -36,7 +36,7 @@ class ReduceBaseOp : public framework::OperatorWithKernel {
     auto dims = ctx->Attrs().Get<std::vector<int>>("dim");
     PADDLE_ENFORCE_GT(dims.size(),
                       0,
-                      phi::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "The input dim dimensions of ReduceBaseOp "
                           "should be greater than 0. But received the dim "
                           "dimensions of Reduce = %d.",
@@ -46,7 +46,7 @@ class ReduceBaseOp : public framework::OperatorWithKernel {
       PADDLE_ENFORCE_LT(
           dims[i],
           x_rank,
-          phi::errors::InvalidArgument(
+          common::errors::InvalidArgument(
               "The reduce dim index %d should be in the "
               "range [-dimension(X), dimension(X)] "
               "which dimension = %d. But received dim index = %d.",
@@ -56,7 +56,7 @@ class ReduceBaseOp : public framework::OperatorWithKernel {
       PADDLE_ENFORCE_GE(
           dims[i],
           -x_rank,
-          phi::errors::InvalidArgument(
+          common::errors::InvalidArgument(
               "The reduce dim index %d should be in the "
               "range [-dimension(X), dimension(X)] "
               "which dimension = %d. But received dim index = %d.",
@@ -154,7 +154,7 @@ class ReduceBaseOp : public framework::OperatorWithKernel {
               ctx.GetPlace().GetType() == phi::AllocationType::XPU ||
               ctx.GetPlace().GetType() == phi::AllocationType::CUSTOM,
           true,
-          phi::errors::InvalidArgument(
+          common::errors::InvalidArgument(
               "float16 can only be used on GPU or XPU place"));
     }
     return phi::KernelKey(input_data_type, ctx.GetPlace());
@@ -182,7 +182,7 @@ class ReduceGradOp : public framework::OperatorWithKernel {
         PADDLE_ENFORCE_LT(
             dims[i],
             x_rank,
-            phi::errors::InvalidArgument(
+            common::errors::InvalidArgument(
                 "The reduce dim index %d should be in the "
                 "range [-dimension(X), dimension(X)], "
                 "which dimension = %d. But received dim index = %d.",

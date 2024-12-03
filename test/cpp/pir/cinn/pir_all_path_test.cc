@@ -47,7 +47,7 @@ std::vector<::pir::Type> CreateDenseTensorTypes(const phi::DDim& dims) {
   ::pir::IrContext* ctx = ::pir::IrContext::Instance();
   ::pir::Type fp32_dtype = ::pir::Float32Type::get(ctx);
   phi::DataLayout data_layout = phi::DataLayout::NCHW;
-  phi::LoD lod = {};
+  phi::LegacyLoD lod = {};
   size_t offset = 0;
   std::vector<::pir::Type> op_output_types = {::pir::DenseTensorType::get(
       ctx, fp32_dtype, dims, data_layout, lod, offset)};
@@ -70,7 +70,10 @@ static void RunAndCheckResult(::pir::Program* program,
   stage_1_pm.AddPass(pir::CreateBuildCinnPass());
   stage_1_pm.AddPass(cinn::dialect::ir::CreateAddBroadcastToElementwisePass());
 
-  CHECK_EQ(stage_1_pm.Run(program), true);
+  PADDLE_ENFORCE_EQ(
+      stage_1_pm.Run(program),
+      true,
+      common::errors::Unavailable("stage_1_pm fail to run program"));
 
   pir::PassManager stage_2_pm(ctx);
   stage_2_pm.AddPass(cinn::dialect::ir::CreateAddStoreInGroupOpPass());
@@ -78,9 +81,12 @@ static void RunAndCheckResult(::pir::Program* program,
   stage_2_pm.AddPass(pir::CreateDeadCodeEliminationPass());
   stage_2_pm.AddPass(cinn::dialect::ir::CreateLowerCinnFusionOpPass());
 
-  CHECK_EQ(stage_2_pm.Run(program), true);
+  PADDLE_ENFORCE_EQ(
+      stage_2_pm.Run(program),
+      true,
+      common::errors::Unavailable("stage_2_pm fail to run program"));
 
-  paddle::platform::Place place = paddle::platform::CUDAPlace(0);
+  phi::Place place = phi::GPUPlace(0);
 
   auto kernel_program = paddle::dialect::PdOpLowerToKernelPass(program, place);
 
@@ -95,7 +101,6 @@ static void RunAndCheckResult(::pir::Program* program,
       executor.local_scope()->FindVar("out@fetch")->Get<phi::DenseTensor>();
 
   if (check_result) {
-    std::cerr << "res  " << out_tensor.data<float>()[0] << std::endl;
     bool res0 = simple_cmp(out_tensor.data<float>()[0], gt_val);
     EXPECT_EQ(res0, true);
   }

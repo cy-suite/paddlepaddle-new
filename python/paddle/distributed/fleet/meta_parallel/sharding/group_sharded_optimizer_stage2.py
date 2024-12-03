@@ -74,10 +74,10 @@ class GroupShardedOptimizerStage2(Optimizer):
         optim,
         group=None,
         offload=False,
-        device="gpu",
+        device="xpu" if core.is_compiled_with_xpu() else "gpu",
         pretrain_sync_models=True,
         dp_group=None,
-        **kw
+        **kw,
     ):
         super().__init__(learning_rate=optim._learning_rate, parameters=params)
         assert (
@@ -224,7 +224,7 @@ class GroupShardedOptimizerStage2(Optimizer):
         if offload:
             assert (
                 self._pfp16
-            ), "Only support offload strategy while using \'Adam\', \'AdamW\' and \'Momentum\' optimizer with AMP/Pure FP16"
+            ), "Only support offload strategy while using 'Adam', 'AdamW' and 'Momentum' optimizer with AMP/Pure FP16"
 
         self.offload = offload  # Using for offload
         self.offload_device = "cpu"
@@ -588,6 +588,12 @@ class GroupShardedOptimizerStage2(Optimizer):
                                 ),
                                 True,
                             )
+                            .cast(dtype=param.dtype)
+                        )
+                    elif self._default_device == "xpu":
+                        param.set_value(
+                            self._master_params[param.name]
+                            .to("xpu:" + str(self.dev_id))
                             .cast(dtype=param.dtype)
                         )
                     else:

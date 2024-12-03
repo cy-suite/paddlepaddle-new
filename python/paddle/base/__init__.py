@@ -66,9 +66,9 @@ from .core import (  # noqa: F401
     CUDAPinnedPlace,
     CUDAPlace,
     CustomPlace,
+    DenseTensor,
+    DenseTensorArray,
     IPUPlace,
-    LoDTensor,
-    LoDTensorArray,
     Scope,
     XPUPlace,
     _cuda_synchronize,
@@ -130,7 +130,7 @@ from .trainer_desc import (  # noqa: F401
     TrainerDesc,
 )
 
-Tensor = LoDTensor
+Tensor = DenseTensor
 enable_imperative = enable_dygraph
 disable_imperative = disable_dygraph
 
@@ -177,9 +177,6 @@ def __bootstrap__():
     sysstr = platform.system()
     if 'Darwin' in sysstr:
         remove_flag_if_exists('use_pinned_memory')
-
-    if os.name == 'nt':
-        remove_flag_if_exists('cpu_deterministic')
 
     if core.is_compiled_with_ipu():
         # Currently we request all ipu available for training and testing
