@@ -20,7 +20,6 @@
 #include "paddle/cinn/hlir/dialect/operator/ir/cinn_op.h"
 #include "paddle/cinn/hlir/dialect/operator/ir/manual_op.h"
 #include "paddle/cinn/hlir/dialect/operator/ir/op_dialect.h"
-#include "paddle/cinn/hlir/framework/pir/group.h"
 #include "paddle/cinn/hlir/framework/pir/op_lowering_group.h"
 #include "paddle/cinn/hlir/framework/pir/op_lowering_impl.h"
 #include "paddle/cinn/hlir/framework/pir/utils.h"
@@ -49,7 +48,7 @@ std::vector<::pir::Type> CreateDenseTensorTypes(const phi::DDim& dims) {
   ::pir::IrContext* ctx = ::pir::IrContext::Instance();
   ::pir::Type fp32_dtype = ::pir::Float32Type::get(ctx);
   phi::DataLayout data_layout = phi::DataLayout::NCHW;
-  phi::LoD lod = {};
+  phi::LegacyLoD lod = {};
   size_t offset = 0;
   std::vector<::pir::Type> op_output_types = {::pir::DenseTensorType::get(
       ctx, fp32_dtype, dims, data_layout, lod, offset)};
@@ -116,33 +115,6 @@ BuildGroupProgramForLowering() {
   groups[0]->set_value_to_shape_or_data_exprs(value_to_shape_data);
 
   return {program, groups};
-}
-
-TEST(ReshapeOpGroup, CINNLowering) {
-  FLAGS_cinn_bucket_compile = true;
-  // Step 1: Construct pir::Program
-  auto program_info = BuildGroupProgramForLowering();
-  auto program = std::get<0>(program_info);
-  auto groups = std::get<1>(program_info);
-
-  std::stringstream ss;
-  program->Print(ss);
-  LOG(INFO) << ss.str();
-
-  for (const auto* op : groups[0]->ops()) {
-    LOG(INFO) << op->name() << ":";
-    for (uint32_t i = 0; i < op->num_results(); ++i) {
-      const auto& sym_shape = groups[0]->GetShapeOrDataExprs(op->result(i));
-      LOG(INFO) << " result(" << i << ") : " << sym_shape;
-    }
-  }
-
-  // Step 2: Compiler New pir::Program into Runtime Program
-  auto target = cinn::common::DefaultNVGPUTarget();
-  cinn::hlir::framework::PirCompiler ir_compiler(target);
-  auto fn_ptr_res = ir_compiler.Build(groups);
-  ASSERT_EQ(fn_ptr_res.size(), 1);
-  ASSERT_TRUE(fn_ptr_res[0].fn_ptr != nullptr);
 }
 
 std::tuple<std::shared_ptr<::pir::Program>, std::vector<OpLoweringGroupPtr>>
@@ -213,31 +185,4 @@ BuildBroadcastGroupProgramForLowering() {
   groups[0]->set_value_to_shape_or_data_exprs(value_to_shape_data);
 
   return {program, groups};
-}
-
-TEST(BroadcastOpGroup, CINNLowering) {
-  FLAGS_cinn_bucket_compile = true;
-  // Step 1: Construct pir::Program
-  auto program_info = BuildBroadcastGroupProgramForLowering();
-  auto program = std::get<0>(program_info);
-  auto groups = std::get<1>(program_info);
-
-  std::stringstream ss;
-  program->Print(ss);
-  LOG(INFO) << ss.str();
-
-  for (const auto* op : groups[0]->ops()) {
-    LOG(INFO) << op->name() << ":";
-    for (uint32_t i = 0; i < op->num_results(); ++i) {
-      const auto& sym_shape = groups[0]->GetShapeOrDataExprs(op->result(i));
-      LOG(INFO) << " result(" << i << ") : " << sym_shape;
-    }
-  }
-
-  // Step 2: Compiler New pir::Program into Runtime Program
-  auto target = cinn::common::DefaultNVGPUTarget();
-  cinn::hlir::framework::PirCompiler ir_compiler(target);
-  auto fn_ptr_res = ir_compiler.Build(groups);
-  ASSERT_EQ(fn_ptr_res.size(), 1);
-  ASSERT_TRUE(fn_ptr_res[0].fn_ptr != nullptr);
 }

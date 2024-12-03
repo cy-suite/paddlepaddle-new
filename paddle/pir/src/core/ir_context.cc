@@ -153,6 +153,7 @@ class IrContextImpl {
   // TypeStorage uniquer and cache instances.
   StorageManager registed_type_storage_manager_;
   // Cache some built-in type objects.
+  UndefinedType undefined_type;
   BFloat16Type bfp16_type;
   Float16Type fp16_type;
   Float32Type fp32_type;
@@ -166,6 +167,8 @@ class IrContextImpl {
   BoolType bool_type;
   Complex64Type complex64_type;
   Complex128Type complex128_type;
+  Float8E4M3FNType float8e4m3fn_type;
+  Float8E5M2Type float8e5m2_type;
 
   // Cached AbstractAttribute instances.
   std::unordered_map<TypeId, AbstractAttribute *> registed_abstract_attributes_;
@@ -196,6 +199,7 @@ IrContext::IrContext() : impl_(new IrContextImpl()) {
   GetOrRegisterDialect<BuiltinDialect>();
   VLOG(10) << "==============================================";
 
+  impl_->undefined_type = TypeManager::get<UndefinedType>(this);
   impl_->bfp16_type = TypeManager::get<BFloat16Type>(this);
   impl_->fp16_type = TypeManager::get<Float16Type>(this);
   impl_->fp32_type = TypeManager::get<Float32Type>(this);
@@ -209,6 +213,8 @@ IrContext::IrContext() : impl_(new IrContextImpl()) {
   impl_->bool_type = TypeManager::get<BoolType>(this);
   impl_->complex64_type = TypeManager::get<Complex64Type>(this);
   impl_->complex128_type = TypeManager::get<Complex128Type>(this);
+  impl_->float8e4m3fn_type = TypeManager::get<Float8E4M3FNType>(this);
+  impl_->float8e5m2_type = TypeManager::get<Float8E5M2Type>(this);
 }
 
 StorageManager &IrContext::type_storage_manager() {
@@ -323,7 +329,7 @@ const AbstractType &AbstractType::lookup(TypeId type_id, IrContext *ctx) {
   AbstractType *abstract_type = ctx->impl().GetAbstractType(type_id);
   PADDLE_ENFORCE_NOT_NULL(
       abstract_type,
-      phi::errors::InvalidArgument("Abstract type not found in IrContext."));
+      common::errors::InvalidArgument("Abstract type not found in IrContext."));
   return *abstract_type;
 }
 
@@ -332,9 +338,13 @@ const AbstractAttribute &AbstractAttribute::lookup(TypeId type_id,
   AbstractAttribute *abstract_attribute =
       ctx->impl().GetAbstractAttribute(type_id);
   PADDLE_ENFORCE_NOT_NULL(abstract_attribute,
-                          phi::errors::InvalidArgument(
+                          common::errors::InvalidArgument(
                               "Abstract attribute not found in IrContext."));
   return *abstract_attribute;
+}
+
+UndefinedType UndefinedType::get(IrContext *ctx) {
+  return ctx->impl().undefined_type;
 }
 
 BFloat16Type BFloat16Type::get(IrContext *ctx) {
@@ -367,6 +377,14 @@ Complex64Type Complex64Type::get(IrContext *ctx) {
 
 Complex128Type Complex128Type::get(IrContext *ctx) {
   return ctx->impl().complex128_type;
+}
+
+Float8E4M3FNType Float8E4M3FNType::get(IrContext *ctx) {
+  return ctx->impl().float8e4m3fn_type;
+}
+
+Float8E5M2Type Float8E5M2Type::get(IrContext *ctx) {
+  return ctx->impl().float8e5m2_type;
 }
 
 }  // namespace pir

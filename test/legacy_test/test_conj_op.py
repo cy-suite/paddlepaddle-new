@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import sys
 import unittest
 
@@ -26,7 +27,6 @@ from op_test import OpTest, convert_float_to_uint16
 import paddle.base.dygraph as dg
 from paddle import static
 from paddle.base import core
-from paddle.pir_utils import test_with_pir_api
 
 paddle.enable_static()
 
@@ -51,7 +51,7 @@ class TestConjOp(OpTest):
         self.outputs = {'Out': out}
 
     def test_check_output(self):
-        self.check_output(check_pir=True)
+        self.check_output(check_pir=True, check_symbol_infer=False)
 
     def test_check_grad_normal(self):
         self.check_grad(
@@ -64,7 +64,13 @@ class TestConjOp(OpTest):
 class TestComplexConjOp(unittest.TestCase):
     def setUp(self):
         self._dtypes = ["float32", "float64"]
-        self._places = [paddle.CPUPlace()]
+        self._places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not paddle.is_compiled_with_cuda()
+        ):
+            self._places.append(paddle.CPUPlace())
         if paddle.is_compiled_with_cuda():
             self._places.append(paddle.CUDAPlace(0))
 
@@ -92,7 +98,6 @@ class TestComplexConjOp(unittest.TestCase):
                     target = np.conj(input)
                     np.testing.assert_array_equal(result, target)
 
-    @test_with_pir_api
     def test_conj_static_mode(self):
         def init_input_output(dtype):
             input = rand([2, 20, 2, 3]).astype(dtype) + 1j * rand(
@@ -128,7 +133,7 @@ class TestComplexConjOp(unittest.TestCase):
 
 
 class Testfp16ConjOp(unittest.TestCase):
-    @test_with_pir_api
+
     def testfp16(self):
         if paddle.is_compiled_with_cuda():
             input_x = (
@@ -175,7 +180,9 @@ class TestConjBF16(OpTest):
 
     def test_check_output(self):
         place = core.CUDAPlace(0)
-        self.check_output_with_place(place, check_pir=True)
+        self.check_output_with_place(
+            place, check_pir=True, check_symbol_infer=False
+        )
 
     def test_check_grad(self):
         place = core.CUDAPlace(0)

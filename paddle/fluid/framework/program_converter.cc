@@ -156,8 +156,7 @@ void ConvertAssignValueOp(OpDesc* op) {
 
 void ConvertProgram(ProgramDesc* program) {
   PADDLE_ENFORCE_NOT_NULL(
-      program,
-      paddle::platform::errors::InvalidArgument("program should not be null"));
+      program, common::errors::InvalidArgument("program should not be null"));
 
   VLOG(3) << "Setting Program Version and OpVersionMap to Legacy "
              "settings(a.k.a 2.4.2)";
@@ -285,8 +284,7 @@ void ConvertAssignValueOp(OpDesc* op) {
 
 void ConvertProgram(ProgramDesc* program) {
   PADDLE_ENFORCE_NOT_NULL(
-      program,
-      paddle::platform::errors::InvalidArgument("program should not be null"));
+      program, common::errors::InvalidArgument("program should not be null"));
 
   auto legacy_op_results = DetectLegacyOps(program);
   bool is_legacy_program = legacy_op_results.first;

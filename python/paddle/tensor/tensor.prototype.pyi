@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # The `Tensor` template `tensor.prototype.pyi` for `tools/gen_tensor_stub.py` to generate the stub file `tensor.pyi`.
-# Add docstring, attributes, methods and alias with type annotaions for `Tensor` in `tensor.prototype.pyi`
+# Add docstring, attributes, methods and alias with type annotations for `Tensor` in `tensor.prototype.pyi`
 # if not conveniently coding in original place (like c++ source file).
 
 # Import common typings for generated methods
@@ -24,7 +24,8 @@ from paddle._typing import *  # noqa: F403
 
 # isort: on
 
-from typing import Any, Iterator, Literal, Protocol, overload
+from collections.abc import Iterator
+from typing import Any, Literal, overload
 
 import numpy.typing as npt
 
@@ -36,9 +37,11 @@ from paddle import (
 from paddle.base.dygraph.tensor_patch_methods import (
     TensorHookRemoveHelper,  # noqa: F401
 )
+from paddle.tensor.linalg import _POrder  # noqa: F401
+from paddle.tensor.stat import _Interpolation  # noqa: F401
 
 # annotation: ${eager_param_base_begin}
-class AbstractEagerParamBase(Protocol):
+class AbstractEagerParamBase:
     # annotation: ${eager_param_base_docstring}
 
     # annotation: ${eager_param_base_attributes}
@@ -54,9 +57,7 @@ class AbstractEagerParamBase(Protocol):
 # annotation: ${eager_param_base_end}
 
 # annotation: ${tensor_begin}
-class AbstractTensor(Protocol):
-    # annotation: ${tensor_docstring}
-
+class AbstractTensor:
     # annotation: ${tensor_attributes}
 
     # If method defined below, we should make the method's signature complete,
@@ -108,7 +109,7 @@ class AbstractTensor(Protocol):
             dtype: paddle::framework::proto::VarType::Type,
             dims: vector<int>,
             name: std::string,
-            type: paddle::framework::proto::VarType::LodTensor,
+            type: paddle::framework::proto::VarType::DenseTensor,
             persistable: bool)
         3. (multi-place)
         (should have at least one parameter, one parameter equals to case 4, zero
@@ -170,13 +171,19 @@ class AbstractTensor(Protocol):
     def __mod__(self, y: _typing.TensorLike) -> Tensor: ...
     def __pow__(self, y: _typing.TensorLike) -> Tensor: ...
     def __and__(self, y: _typing.TensorLike) -> Tensor: ...
+    def __ror__(self, y: _typing.TensorLike) -> Tensor: ...
+    def __rxor__(self, y: _typing.TensorLike) -> Tensor: ...
     def __div__(self, y: _typing.TensorLike) -> Tensor: ...
     def __radd__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
     def __rsub__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
     def __rmul__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
+    def __rmatmul__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
     def __rtruediv__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
+    def __rmod__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
     def __rpow__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
-    def __rdiv__(self, y: _typing.TensorLike) -> Tensor: ...
+    def __rdiv__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
+    def __rfloordiv__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
+    def __rand__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
 
     # type cast
     def __bool__(self) -> bool: ...
@@ -184,6 +191,7 @@ class AbstractTensor(Protocol):
     def __int__(self) -> int: ...
     def __long__(self) -> float: ...
     def __nonzero__(self) -> bool: ...
+    def __complex__(self) -> complex: ...
 
     # emulating container types
     def __getitem__(
@@ -203,6 +211,7 @@ class AbstractTensor(Protocol):
     # unary arithmetic operations
     def __invert__(self) -> Tensor: ...
     def __neg__(self) -> Tensor: ...
+    def __pos__(self) -> Tensor: ...
 
     # basic
     def __hash__(self) -> int: ...
@@ -217,6 +226,7 @@ class AbstractTensor(Protocol):
     @data.setter
     def data(self, value: Tensor) -> None: ...
     def data_ptr(self) -> int: ...
+    def dense_dim(self) -> int: ...
     def detach(self) -> Tensor: ...
     def detach_(self) -> Tensor: ...
     @property
@@ -237,6 +247,7 @@ class AbstractTensor(Protocol):
     @property
     def grad_fn(self) -> Any: ...
     def is_contiguous(self) -> bool: ...
+    def is_coalesced(self) -> bool: ...
     def is_dense(self) -> bool: ...
     def is_dist(self) -> bool: ...
     @property
@@ -272,11 +283,12 @@ class AbstractTensor(Protocol):
     def process_mesh(self) -> paddle.distributed.ProcessMesh | None: ...
     def rows(self) -> list[int]: ...
     def set_string_list(self, value: str) -> None: ...
-    def set_vocab(self, value: dict) -> None: ...
+    def set_vocab(self, value: dict[str, int]) -> None: ...
     @property
     def shape(self) -> list[int]: ...
     @property
     def size(self) -> int: ...
+    def sparse_dim(self) -> int: ...
     @property
     def stop_gradient(self) -> bool: ...
     @stop_gradient.setter
@@ -294,7 +306,9 @@ class AbstractTensor(Protocol):
 
     # annotation: ${tensor_alias}
 
-# annotation: ${tensor_end}
-
 class Tensor(AbstractTensor, AbstractEagerParamBase):
+    # annotation: ${tensor_docstring}
+
     __qualname__: Literal["Tensor"]
+
+# annotation: ${tensor_end}

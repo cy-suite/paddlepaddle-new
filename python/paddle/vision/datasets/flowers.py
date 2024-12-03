@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, Tuple
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -51,7 +51,7 @@ SETID_MD5 = 'a5357ecc9cb78c4bef273ce3793fc85c'
 MODE_FLAG_MAP = {'train': 'tstid', 'test': 'trnid', 'valid': 'valid'}
 
 
-class Flowers(Dataset):
+class Flowers(Dataset[Tuple["_ImageDataType", "npt.NDArray[np.int64]"]]):
     """
     Implementation of `Flowers102 <https://www.robots.ox.ac.uk/~vgg/data/flowers/>`_
     dataset.
@@ -181,7 +181,9 @@ class Flowers(Dataset):
         self.data_path = data_file.replace(".tgz", "/")
         if not os.path.exists(self.data_path):
             os.mkdir(self.data_path)
-        data_tar.extractall(self.data_path)
+        jpg_path = os.path.join(self.data_path, "jpg")
+        if not os.path.exists(jpg_path):
+            data_tar.extractall(self.data_path)
 
         scio = try_import('scipy.io')
         self.labels = scio.loadmat(label_file)['labels'][0]

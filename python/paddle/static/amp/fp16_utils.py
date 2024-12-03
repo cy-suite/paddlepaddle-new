@@ -21,6 +21,7 @@ import numpy as np
 
 import paddle
 from paddle.base import core, framework, global_scope
+from paddle.base.framework import in_pir_mode
 from paddle.base.log_helper import get_logger
 from paddle.base.wrapped_decorator import signature_safe_contextmanager
 
@@ -35,9 +36,9 @@ _logger = get_logger(
 )
 
 _valid_types = [
-    core.VarDesc.VarType.LOD_TENSOR,
+    core.VarDesc.VarType.DENSE_TENSOR,
     core.VarDesc.VarType.SELECTED_ROWS,
-    core.VarDesc.VarType.LOD_TENSOR_ARRAY,
+    core.VarDesc.VarType.DENSE_TENSOR_ARRAY,
 ]
 
 _fp16_guard_pattern = "__use_fp16__"
@@ -706,7 +707,7 @@ def cast_model_to_fp16(
                 return True
             if (
                 op.block._var_recursive(name).type
-                != core.VarDesc.VarType.LOD_TENSOR
+                != core.VarDesc.VarType.DENSE_TENSOR
             ):
                 return False
             return op.block._var_recursive(name).dtype in SUPPORT_FLOAT_TYPES
@@ -867,6 +868,8 @@ def _convert_to_float(place, org_array):
     framework._set_expected_place(place)
     org_tensor = paddle.to_tensor(org_array)
     fp32_array = paddle.cast(org_tensor, paddle.float32).numpy()
+    if in_pir_mode():
+        fp32_array.get_defining_op().set_bool_attr("master_grad_cast", True)
     paddle.enable_static()
     return fp32_array
 
