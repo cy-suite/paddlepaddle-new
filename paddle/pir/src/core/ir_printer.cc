@@ -29,6 +29,8 @@
 #include "paddle/pir/include/core/utils.h"
 #include "paddle/pir/include/core/value.h"
 
+COMMON_DECLARE_bool(print_ir);
+
 namespace pir {
 
 namespace {
@@ -324,7 +326,7 @@ void IrPrinter::PrintOpName(const Operation& op) {
   os << "\"" << op.name() << "\"";
 }
 void IrPrinter::PrintOpId(const Operation& op) {
-  if (VLOG_IS_ON(1)) {
+  if (VLOG_IS_ON(1) || FLAGS_print_ir) {
     os << " [id:" << op.id() << "]";
   }
 }
