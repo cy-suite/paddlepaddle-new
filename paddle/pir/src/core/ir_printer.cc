@@ -156,7 +156,6 @@ void BasicIrPrinter::PrintAttribute(Attribute attr) {
         [this]() { this->os << ","; });
     os << "]";
   } else if (auto type = attr.dyn_cast<TypeAttribute>()) {
-    std::cout << "----type.data():" << type.data() << std::endl;
     os << type.data();
   } else {
     auto& dialect = attr.dialect();
