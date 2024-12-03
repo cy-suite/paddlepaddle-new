@@ -633,8 +633,6 @@ void CheckInferSymbolicIfNeed(pir::Program* program,
   std::shared_ptr<pir::PassManager> pass_manager = CreatePassManager();
   pass_manager->AddPass(CreateCheckInferSymbolicPass(GraphDimExprs4Value));
   pass_manager->AddPass(CreateSplitGenerateShapeIntoShapeOpsPass());
-  pass_manager->AddPass(
-      cinn::dialect::ir::CreateFuseShapeOpsIntoGenerateShapeOpPass());
 
   pass_manager->Run(program);
 }
