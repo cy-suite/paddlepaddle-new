@@ -31,7 +31,7 @@ void ClipTensorKernel(const Context& dev_ctx,
   auto* non_const_x = &x;
   auto* non_const_min = &min;
   auto* non_const_max = &max;
-  
+
   funcs::BinaryOneDNNHandler<T> MAXhandler(dnnl::algorithm::binary_max,
                                         -1,
                                         onednn_engine,

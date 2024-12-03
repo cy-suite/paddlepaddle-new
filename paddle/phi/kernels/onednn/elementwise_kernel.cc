@@ -16,8 +16,6 @@
 #include "paddle/phi/kernels/elementwise_divide_kernel.h"
 #include "paddle/phi/kernels/elementwise_multiply_kernel.h"
 #include "paddle/phi/kernels/elementwise_subtract_kernel.h"
-#include "paddle/phi/kernels/elementwise_kernel.h"
-#include "paddle/phi/kernels/compare_kernel.h"
 
 #include "paddle/phi/backends/onednn/onednn_reuse.h"
 #include "paddle/phi/core/kernel_registry.h"
@@ -172,6 +170,7 @@ DEFINE_ONEDNN_ELEMENTWISE_KERNEL(Add, dnnl::algorithm::binary_add)
 DEFINE_ONEDNN_ELEMENTWISE_KERNEL(Subtract, dnnl::algorithm::binary_sub)
 DEFINE_ONEDNN_ELEMENTWISE_KERNEL(Multiply, dnnl::algorithm::binary_mul)
 DEFINE_ONEDNN_ELEMENTWISE_KERNEL(Divide, dnnl::algorithm::binary_div)
+
 }  // namespace phi
 
 PD_REGISTER_KERNEL(add_raw,

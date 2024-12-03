@@ -3713,10 +3713,14 @@ def log10_(x: Tensor, name: str | None = None) -> Tensor:
     if in_dynamic_mode():
         return _C_ops.log10_(x)
 
+
 def check_set_clip_var(value, x, fill_value, name):
     value = fill_value if value is None else value
     if paddle.is_tensor(value):
-        if (len(value.shape) == 1 and value.shape[-1] == 0) or (not(len(value.shape) == 1 and value.shape[-1] == 1) and value.shape != x.shape[-len(value.shape) :]):
+        if (len(value.shape) == 1 and value.shape[-1] == 0) or (
+            not (len(value.shape) == 1 and value.shape[-1] == 1)
+            and value.shape != x.shape[-len(value.shape) :]
+        ):
             raise ValueError(
                 f"The {name} dimension should be equal to the inner dimension of the x, but the {name} dimension is {value.shape}"
             )
@@ -3728,11 +3732,13 @@ def check_set_clip_var(value, x, fill_value, name):
         value = paddle.full_like(x, value)
     return value
 
+
 def is_clip_tensor(value):
     if paddle.is_tensor(value):
         if not (len(value.shape) == 1 and value.shape[-1] == 1):
             return True
     return False
+
 
 def clip(
     x: Tensor,
