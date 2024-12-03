@@ -1275,12 +1275,12 @@ PYBIND11_MODULE(libpaddle, m) {
       phi::DDim ddim_shape;
       {
         std::vector<int64_t> shape;
-        py::object shape_obj = cuda_dict.get("shape", py::none());
-        if (shape_obj.is_none()) {
+        if (!cuda_dict.contains("shape")) {
           throw py::key_error(
               "The 'shape' key is missing in the __cuda_array_interface__  "
               "dict.");
         }
+        py::object shape_obj = cuda_dict["shape"];
         if (py::isinstance<py::tuple>(shape_obj) ||
             py::isinstance<py::list>(shape_obj)) {
           shape = shape_obj.cast<std::vector<int64_t>>();
@@ -1291,22 +1291,22 @@ PYBIND11_MODULE(libpaddle, m) {
       }
 
       // Extract the `obj.__cuda_array_interface__['typestr'] attribute
-      py::object typestr_obj = cuda_dict.get("typestr", py::none());
-      if (typestr_obj.is_none()) {
+      if (!cuda_dict.contains("typestr")) {
         throw py::key_error(
             "The 'typestr' key is missing in the __cuda_array_interface__  "
             "dict.");
       }
+      py::object typestr_obj = cuda_dict["typestr"];
       std::string typestr = typestr_obj.cast<std::string>();
       phi::DataType dtype = paddle::framework::ConvertToPDDataType(typestr);
 
       // Extract the `obj.__cuda_array_interface__['data']` attribute
-      py::object data_obj = cuda_dict.get("data", py::none());
-      if (data_obj.is_none()) {
+      if (!cuda_dict.contains("data")) {
         throw py::key_error(
             "The 'data' key is missing in the __cuda_array_interface__  "
             "dict.");
       }
+      py::object data_obj = cuda_dict["data"];
       py::tuple data_tuple = data_obj.cast<py::tuple>();
 
       // Data tuple(ptr_as_int, read_only_flag).
