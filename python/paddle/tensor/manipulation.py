@@ -7060,13 +7060,6 @@ def view(
         shape_or_dtype (list|tuple|np.dtype|str|VarType): Define the target shape or dtype. If list or tuple, shape_or_dtype represents shape, each element of it should be integer. If np.dtype or str or VarType, shape_or_dtype represents dtype, it can be bool, float16, float32, float64, int8, int32, int64, uint8.
         name (str, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
     
-    Using specific shape, stride, and offset, return a view Tensor of x.
-    Only available in dynamic graph mode, the returned Tensor shares memory with x.
-    The following image illustrates an example: transforming an input Tensor with shape [2,4,6] into a Tensor with shape [8,6] and stride [6,1].
-
-    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/as_strided.png
-    :alt: Legend
-    
     Returns:
         Tensor, A viewed Tensor with the same data as ``x``.
 
