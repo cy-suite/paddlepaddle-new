@@ -239,6 +239,16 @@
     {start : Start, end : End, step : Step}
   outputs :
     out : Out
+  scalar:
+    start:
+      data_type : double
+      support_tensor : true
+    end:
+      data_type : double
+      support_tensor : true
+    step:
+      data_type : double
+      support_tensor : true
 
 - op : argmax(arg_max)
   inputs :
@@ -486,6 +496,7 @@
     {out : Out}
 
 - op : bmm
+  backward : bmm_grad, bmm_double_grad
   inputs :
     {x : X, y : Y}
   outputs :
@@ -1664,16 +1675,6 @@
   outputs :
     {x_grad : DX, y_grad : DY, bias_grad : DBias}
 
-- op : fused_multi_transformer
-  inputs:
-    {x : X, ln_scales : LnScale, ln_biases : LnBias, qkv_weights : QKVW, qkv_biases : QKVBias, cache_kvs : CacheKV,
-    pre_caches : PreCaches, rotary_tensor : RotaryPosEmb, beam_offset : BeamCacheOffset, time_step : TimeStep,
-    seq_lengths : SeqLengths, src_mask : SrcMask, out_linear_weights : OutLinearW, out_linear_biases : OutLinearBias,
-    ffn_ln_scales : FFNLnScale, ffn_ln_biases : FFNLnBias, ffn1_weights : FFN1Weight, ffn1_biases : FFN1Bias,
-    ffn2_weights : FFN2Weight, ffn2_biases : FFN2Bias}
-  outputs:
-    {cache_kv_outs : CacheKVOut, out : Out}
-
 - op : fused_multi_transformer_int8
   inputs:
     {x : X, ln_scale : LnScale, ln_bias : LnBias, qkv_w : QKVW, qkv_bias : QKVBias, cache_kv : CacheKV,
@@ -1763,15 +1764,6 @@
     context_length : contextLength
     context_start : contextStart
     context_stride : contextStride
-
-- op : fusion_seqexpand_concat_fc
-  inputs :
-    x : X
-    fc_weight : FCWeight
-    fc_bias : FCBias
-  outputs :
-    out : Out
-    fc_out : FCOut
 
 - op : fusion_seqpool_concat
   inputs:
@@ -4169,12 +4161,6 @@
   outputs :
     out: Out
 
-- op: c_sync_comm_stream
-  inputs :
-    x : X
-  outputs :
-    out : Out
-
 - op: channel_shuffle
   inputs:
     {x: X}
@@ -4187,7 +4173,7 @@
   outputs:
     {precision : Precision, recall : Recall, f1_score : F1-Score, num_infer_chunks : NumInferChunks, num_label_chunks : NumLabelChunks, num_correct_chunks : NumCorrectChunks}
 
-- op: comm_init_all(c_comm_init_all)
+- op: comm_init_all
 
 - op: crf_decoding
   inputs:
@@ -4237,13 +4223,6 @@
     {x : X, dep : Dep}
   outputs:
     out : Out
-
-- op: detection_map
-  backward: detection_map_grad
-  inputs:
-    {detect_res : DetectRes, label : Label, has_state : HasState, pos_count : PosCount, true_pos : TruePos, false_pos : FalsePos}
-  outputs:
-    {accum_pos_count : AccumPosCount, accum_true_pos : AccumTruePos, accum_false_pos : AccumFalsePos, m_ap : MAP}
 
 - op: dgc
   inputs:
@@ -4481,6 +4460,12 @@
   outputs :
     out : Out
 
+- op: mp_allreduce_sum
+  inputs :
+    x : X
+  outputs :
+    out: Out
+
 - op: nce
   backward: nce_grad
   inputs:
@@ -4683,7 +4668,7 @@
   outputs :
     out : Out
 
-- op: sync_comm_stream
+- op: sync_comm_stream(c_sync_comm_stream)
   inputs :
     x : X
   outputs :

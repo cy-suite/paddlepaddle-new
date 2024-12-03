@@ -97,7 +97,7 @@ phi::KernelKey TransOpKernelTypeToPhiKernelKey(
   }
   return phi::KernelKey(backend,
                         kernel_type.data_layout_,
-                        framework::TransToPhiDataType(kernel_type.data_type_));
+                        phi::TransToPhiDataType(kernel_type.data_type_));
 }
 
 phi::KernelKey FallBackToCpu(const phi::KernelKey& kernel_key,
@@ -341,8 +341,8 @@ phi::IntArray MakePhiIntArrayFromVarList(
         }
       } else {
         PADDLE_THROW(common::errors::InvalidArgument(
-            "Data type error. When cast a LoDTensor to VectorTensor, "
-            "the data type of LoDTensor must be int32 or int64, "
+            "Data type error. When cast a DenseTensor to VectorTensor, "
+            "the data type of DenseTensor must be int32 or int64, "
             "but now data type is %s.",
             data_type));
       }

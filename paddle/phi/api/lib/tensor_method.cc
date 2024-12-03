@@ -87,8 +87,13 @@ Tensor::copy_to<phi::dtype::float16>(const Place &target_place) const;
 void Tensor::copy_(const Tensor &src,
                    const phi::Place &target_place,
                    bool blocking) {
-  if (!src.initialized()) {
+  if (!src.has_allocation()) {
     VLOG(8) << "Src is empty, skip copy";
+    return;
+  }
+
+  if (src.place().GetType() == AllocationType::UNDEFINED) {
+    VLOG(8) << "Src place is UNDEFINED, skip copy";
     return;
   }
 

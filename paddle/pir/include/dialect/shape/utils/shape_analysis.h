@@ -101,7 +101,16 @@ class IR_API InferSymbolicShapeContext {
 
   void AddEqualCstr(const symbol::DimExpr& lhs, const symbol::DimExpr& rhs);
 
+  // Add equal constraints for each dim in lhs and rhs.
+  void AddEqualCstr(const std::vector<symbol::DimExpr>& lhs,
+                    const std::vector<symbol::DimExpr>& rhs);
+
   bool IsEqual(const symbol::DimExpr& lhs, const symbol::DimExpr& rhs) const;
+
+  // Returns true if:
+  //    lhs[i] == rhs[i] for all i
+  bool IsEqual(const std::vector<symbol::DimExpr>& lhs,
+               const std::vector<symbol::DimExpr>& rhs) const;
 
   void AddGreatThanOneCstr(const symbol::DimExpr& dim_expr);
 
@@ -186,6 +195,9 @@ class IR_API ShapeConstraintIRAnalysis final
 
   void SetShapeOrDataForValue(Value val,
                               const symbol::ShapeOrDataDimExprs& shape_or_data);
+
+  // Set ShapeOrData of `to` value by ShapeOrData of `from` value.
+  void ShareShapeOrData(Value from, Value to);
 
   bool IsEqual(const symbol::DimExpr& lhs, const symbol::DimExpr& rhs) const;
 

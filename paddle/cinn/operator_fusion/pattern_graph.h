@@ -20,8 +20,6 @@
 
 namespace cinn::fusion {
 
-using PatternNodePtrSet = std::unordered_set<PatternNodePtr>;
-
 using MergePatternFn =
     std::function<StmtPattern(const StmtPattern&, const StmtPattern&)>;
 class PatternGraph {
@@ -38,6 +36,7 @@ class PatternGraph {
   void ReduceTreeGrown();
   void ReduceTree_Trivial_Fusion();
   void LiftToItersPermutationPattern();
+  void LimitedAnchorFusion();
   void ItersPermutationFusion();
   void SplitRecomputePattern();
   std::vector<PatternNodePtr> ReturnFusionResults();

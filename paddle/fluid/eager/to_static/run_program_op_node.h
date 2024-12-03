@@ -40,7 +40,6 @@
 
 COMMON_DECLARE_bool(enable_pir_with_pt_in_dy2st);
 COMMON_DECLARE_bool(enable_pir_in_executor);
-COMMON_DECLARE_bool(print_ir);
 COMMON_DECLARE_bool(use_mkldnn);
 
 namespace details {
@@ -424,19 +423,6 @@ inline void PirRunProgramAPI(
   std::shared_ptr<::pir::Program> backward_program = PADDLE_GET_CONST(
       std::shared_ptr<::pir::Program>, attrs.at("backward_program"));
 
-  if (FLAGS_print_ir) {
-    std::ostringstream print_stream;
-    print_stream << "ForwardProgram is :\n";
-    forward_program->Print(print_stream);
-    if (!is_test) {
-      print_stream << "BackwardProgram is:\n";
-      backward_program->Print(print_stream);
-    } else {
-      print_stream << "BackwardProgram is empty in test mode.\n";
-    }
-    std::cout << "Program (fwd | bwd): \n" << print_stream.str() << std::endl;
-  }
-
   VLOG(10) << is_test << program_id;
 
   auto &cache = paddle::framework::InterpreterCoreInfoCache::Instance();
@@ -452,19 +438,21 @@ inline void PirRunProgramAPI(
     VLOG(2) << "No interpretercore cache, so create a new interpretercore "
                "for program: "
             << program_id;
-    // Step 1. share input_vars & parameters into scope
+
+    // Step 1. Get no need buffer vars for inplace pass and gc
+    auto no_need_buffer_values = PADDLE_GET_CONST(std::vector<::pir::Value>,
+                                                  attrs.at("no_need_buffers"));
+    const auto no_need_buffer_names =
+        details::GetNameFromValue(no_need_buffer_values);
+    const auto no_need_buffer_name_set = std::set<std::string>(
+        no_need_buffer_names.begin(), no_need_buffer_names.end());
+    // Step 2. share input_vars & parameters into scope
     details::ShareTensorsIntoScopeByValue(x, input_values, global_inner_scope);
     details::ShareTensorsIntoScopeByValue(
         params, param_values, global_inner_scope);
-    // Step 2. create new interpretercore
-    auto passed_kernel_program =
-        paddle::framework::ApplyIrPass(forward_program.get(), place);
-    if (FLAGS_print_ir) {
-      std::ostringstream print_stream;
-      print_stream << "LoweredProgram( AfterPass ) is :\n";
-      passed_kernel_program->Print(print_stream);
-      std::cout << print_stream.str() << std::endl;
-    }
+    // Step 3. create new interpretercore
+    auto passed_kernel_program = paddle::framework::ApplyIrPass(
+        forward_program.get(), place, no_need_buffer_name_set);
     interpreter_core = paddle::framework::CreatePirInterpreterCoreInfoToCache(
         std::move(passed_kernel_program),
         place,
@@ -473,7 +461,7 @@ inline void PirRunProgramAPI(
         global_inner_scope,
         place_hash_key,
         in_sot_mode);
-    // Step 3. get all eager gc vars (skip_names = backward_inputs -
+    // Step 4. get all eager gc vars (skip_names = backward_inputs -
     // no_need_buffers + outputs)
     std::vector<std::string> skip_names;
     // update interpretercore skip_gc_var
@@ -482,10 +470,6 @@ inline void PirRunProgramAPI(
     }
     auto skip_names_set =
         std::set<std::string>(skip_names.begin(), skip_names.end());
-    auto no_need_buffer_values = PADDLE_GET_CONST(std::vector<::pir::Value>,
-                                                  attrs.at("no_need_buffers"));
-    auto no_need_buffer_names =
-        details::GetNameFromValue(no_need_buffer_values);
     for (auto &name : no_need_buffer_names) {
       VLOG(4) << "Find no need buffer vars with name:" << name;
       skip_names_set.erase(name);
@@ -1010,18 +994,12 @@ inline void PirRunProgramGradAPI(
     VLOG(2) << "No interpretercore cache, so create a new interpretercore";
     // Step 1. share input_vars & parameters into scope
     auto passed_kernel_program =
-        paddle::framework::ApplyIrPass(backward_program.get(), place);
+        paddle::framework::ApplyIrPass(backward_program.get(), place, {});
 
     const auto &new_block = passed_kernel_program->block();
     passed_kernel_program = paddle::framework::ApplyRemoveShadowFeedPass(
         std::move(passed_kernel_program), new_block, place, global_inner_scope);
 
-    if (FLAGS_print_ir) {
-      std::ostringstream print_stream;
-      print_stream << "LoweredProgram( AfterPass | Backward ) is :\n";
-      passed_kernel_program->Print(print_stream);
-      std::cout << print_stream.str() << std::endl;
-    }
     interpreter_core = paddle::framework::CreatePirInterpreterCoreInfoToCache(
         std::move(passed_kernel_program),
         place,

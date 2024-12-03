@@ -14,6 +14,7 @@
 
 #include "paddle/cinn/hlir/framework/pir/trivial_op_util.h"
 
+#include "paddle/cinn/common/dim_expr_converter.h"
 #include "paddle/cinn/hlir/dialect/operator/ir/manual_op.h"
 #include "paddle/cinn/hlir/framework/compile_error.h"
 #include "paddle/cinn/hlir/framework/pir/op_lowering_util.h"
@@ -386,6 +387,10 @@ ExprSetFinder FilterLoadByTensor(const ir::Tensor& tensor) {
 ExprSetFinder ChildFors =
     Collector([](const ir::Expr* e) { return e->As<ir::For>(); }, "ChildFors");
 
+ExprSetFinder ChildIfThenElses =
+    Collector([](const ir::Expr* e) { return e->As<ir::IfThenElse>(); },
+              "ChildIfThenElses");
+
 ExprSetFinder FindFather(const ir::Expr& root) {
   const auto& f = [root](const auto& child) -> ExprSet {
     ExprSetFinder find_child =
@@ -543,9 +548,6 @@ ExprTransformer RemoveVarInScheduleBlockRealize(const ir::Var& target_vars,
    * remove it in axes.bind()
    */
   const auto& f = [=](const ir::Expr& e) -> ir::Expr {
-    VLOG(4) << "Start RemoveVarInScheduleBlockRealize(" << target_vars << ", "
-            << replaced_expr << ")";
-    VLOG(4) << "      Input is " << e;
     PADDLE_ENFORCE_NE(
         e.As<ir::ScheduleBlockRealize>(),
         nullptr,
@@ -558,22 +560,11 @@ ExprTransformer RemoveVarInScheduleBlockRealize(const ir::Var& target_vars,
     auto block_bound_vars = copied_ir.As<ir::ScheduleBlockRealize>()
                                 ->schedule_block.As<ir::ScheduleBlock>()
                                 ->iter_vars;
-    for (const auto& i_var : schedule_block_iter_vars) {
-      PADDLE_ENFORCE_EQ(
-          i_var.is_var(),
-          true,
-          ::common::errors::InvalidArgument("RemoveVarInScheduleBlockRealize: "
-                                            "axes.bind rhs is is not a Var."));
-    }
     // find replace idx
     int target_idx = -1;
     for (int i = 0; i < schedule_block_iter_vars.size(); ++i) {
-      VLOG(4) << "RemoveVarInScheduleBlockRealize: compare with "
-              << schedule_block_iter_vars[i] << " vs " << target_vars
-              << ", and equality is: "
-              << (schedule_block_iter_vars[i].as_var()->name ==
-                  target_vars->name);
-      if (schedule_block_iter_vars[i].as_var()->name == target_vars->name) {
+      if (schedule_block_iter_vars[i].is_var() &&
+          schedule_block_iter_vars[i].as_var()->name == target_vars->name) {
         target_idx = i;
       }
     }
@@ -684,8 +675,6 @@ ExprTransformer RemoveOneTransformer(int one) {
                                      .GetSingle(copied);
     const ir::Expr& target_block =
         ExprSetFinderUtils::DirectlyFather(copied).GetSingle(target_for);
-    VLOG(4) << "RemoveOneTransformer: directly target_block of for is "
-            << target_block;
     if (target_block.As<ir::ScheduleBlockRealize>() != nullptr) {
       VLOG(4) << "RemoveOneTransformer: father block is root realize";
       ir::Expr shedule_block =
@@ -704,7 +693,6 @@ ExprTransformer RemoveOneTransformer(int one) {
         shedule_block.As<ir::ScheduleBlock>()->body = for_body;
       }
     } else if (target_block.As<ir::Block>() != nullptr) {
-      VLOG(4) << "RemoveOneTransformer: father block is Block";
       std::vector<ir::Expr> new_bodies;
       for (const auto& expr : target_block.As<ir::Block>()->stmts) {
         if (expr != target_for) {
@@ -724,7 +712,6 @@ ExprTransformer RemoveOneTransformer(int one) {
           "RemoveOneTransformer: target for father should be a ir::Block or "
           "ir::ScheduleBlockRealize."));
     }
-    VLOG(4) << "Remove Var to 0 in ScheduleBlockRealizer: " << copied;
     // Remove var to 0 in ScheduleBlockRealizer
     InplaceMutateSingleExpr(
         &copied,
@@ -807,13 +794,34 @@ ExprTransformer InsertForsTransformer(const std::vector<int32_t>& axis,
 ExprTransformer InsertIfForAppendVarsTransformer() {
   const auto& f = [=](const ir::Expr& root) -> ir::Expr {
     const auto vars = GetNonReduceLoopVars(root);
-    std::vector<ir::Expr> conditions;
+    std::vector<std::vector<ir::Var>> neighbor_append_vars;
+    bool last_var_is_append = false;
     for (const auto& var : vars) {
-      if (var->name.find("append") == std::string::npos) {
-        continue;
+      if (var->name.find("append") != std::string::npos &&
+          !(var->upper_bound.is_constant() &&
+            var->upper_bound.as_int64() == 1)) {
+        if (last_var_is_append) {
+          neighbor_append_vars.back().push_back(var);
+        } else {
+          neighbor_append_vars.push_back({var});
+          last_var_is_append = true;
+        }
+      } else {
+        last_var_is_append = false;
       }
-      VLOG(4) << "Insert If for append loop: " << var;
-      conditions.push_back(ir::EQ::Make(var, var->lower_bound));
+    }
+    // Merge if for neighbor append vars
+    std::vector<ir::Expr> conditions;
+    for (const auto& vars : neighbor_append_vars) {
+      ir::Expr lhs = Expr(0);
+      ir::Expr rhs = Expr(1);
+      ir::Expr offset = Expr(1);
+      for (int i = vars.size() - 1; i >= 0; --i) {
+        lhs = lhs + vars[i] * offset;
+        rhs = rhs * vars[i]->lower_bound;
+        offset = offset * (vars[i]->upper_bound - vars[i]->lower_bound);
+      }
+      conditions.push_back(ir::EQ::Make(lhs, rhs));
     }
     std::reverse(conditions.begin(), conditions.end());
 
@@ -945,6 +953,10 @@ std::vector<ir::Var> GetAllLoopVars(const ir::Expr& root) {
 
 ir::Expr GetBodyBlock(const ir::Expr& root) {
   const auto& iters = GetNonReduceLoopVars(root);
+  if (iters.empty()) {
+    return ir::Block::Make(
+        {ExprSetFinderUtils::ChildScheduleBlockRealizes.GetSingle(root)});
+  }
   const size_t reduce_size =
       std::count_if(iters.begin(), iters.end(), [](const ir::Var& v) {
         return v->is_reduce_axis;
@@ -959,6 +971,74 @@ ir::Expr GetBodyBlock(const ir::Expr& root) {
       .GetSingle(root)
       .As<ir::For>()
       ->body;
+}
+
+ir::Expr ReshapeLoop(const ir::Expr& root,
+                     const std::vector<symbol::DimExpr>& in_shape,
+                     const std::vector<symbol::DimExpr>& out_shape) {
+  auto copied = ir::ir_utils::IRCopy(root);
+
+  ir::ModuleExpr mod_expr({copied});
+  ir::IRSchedule ir_sch(
+      mod_expr, -1, false, cinn::utils::ErrorMessageLevel::kGeneral, true);
+
+  const auto block_realize =
+      (ExprSetFinderUtils::ChildScheduleBlockRealizes).GetSingle(copied);
+  const auto block_name = block_realize.As<ir::ScheduleBlockRealize>()
+                              ->schedule_block.As<ir::ScheduleBlock>()
+                              ->name;
+  const auto shape_partion = fusion::PartionReshapeAxes(in_shape, out_shape);
+
+  for (int idx = shape_partion.size() - 1; idx > 0; --idx) {
+    const auto& in_s = shape_partion[idx - 1].first;
+    const auto& in_e = shape_partion[idx].first;
+    const auto& out_s = shape_partion[idx - 1].second;
+    const auto& out_e = shape_partion[idx].second;
+
+    std::vector<int> fuse_indices;
+    for (int i = in_e - 1; i >= in_s; --i) {
+      if (in_shape[i] != symbol::DimExpr(1)) {
+        fuse_indices.insert(fuse_indices.begin(), i);
+      } else {
+        VLOG(4) << "Remove index[" << i << "]: " << in_shape[i]
+                << " for expr: \n"
+                << copied;
+        copied = ExprTransformerUtils::RemoveOneTransformer(i)(copied);
+        ir_sch.SetExprs({copied});
+        for (auto& index : fuse_indices) {
+          index--;
+        }
+      }
+    }
+    if (fuse_indices.size() > 1) {
+      VLOG(4) << "fuse_indices: " << cinn::utils::Join(fuse_indices, ",");
+      ir_sch.Fuse(block_name, fuse_indices);
+    }
+
+    std::vector<ir::Expr> split_shapes;
+    for (int i = out_s; i < out_e; ++i) {
+      if (out_shape[i] != symbol::DimExpr(1)) {
+        split_shapes.push_back(
+            cinn::common::DimExprConverter().ConvertToIrExpr(out_shape[i]));
+      }
+    }
+    if (split_shapes.size() > 1) {
+      ir_sch.Split(ir_sch.GetLoops(block_name)[in_s], split_shapes)[0];
+    }
+  }
+
+  std::vector<int> insert_axis;
+  std::vector<ir::Var> ones_var;
+  for (int i = 0; i < out_shape.size(); ++i) {
+    if (out_shape[i] == symbol::DimExpr(1)) {
+      insert_axis.push_back(i);
+      ones_var.push_back(ir::Var(1, "one_" + std::to_string(ones_var.size())));
+    }
+  }
+  copied = ExprTransformerUtils::InsertForsTransformer(insert_axis,
+                                                       ones_var)(copied);
+
+  return copied;
 }
 
 }  // namespace trivial_fusion_detail

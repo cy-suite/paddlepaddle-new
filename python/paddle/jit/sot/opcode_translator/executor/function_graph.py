@@ -68,7 +68,6 @@ from .side_effects import (
 )
 from .tracker import BuiltinTracker, DummyTracker, SymbolicOperationTracker
 from .variables import (
-    ConstantVariable,
     DictVariable,
     GlobalVariable,
     ListVariable,
@@ -184,7 +183,9 @@ class VariableLoader:
         elif isinstance(var, NullVariable):
             var.reconstruct(self._pycode_gen)
         else:
-            self._pycode_gen.gen_load(self._store_var_info[var.id])
+            # NOTE: One variable may have multiple names, we can
+            # use any name to load it.
+            self._pycode_gen.gen_load(self._store_var_info[var.id][0])
 
 
 class FunctionGraph:
@@ -362,18 +363,23 @@ class FunctionGraph:
 
         self.pycode_gen.gen_enable_eval_frame()
 
-        name_gen = NameGenerator("___compile_fn_saved_orig_")
+        name_gen = NameGenerator("___graph_fn_saved_orig_")
 
         # here is not update changed values, it just give names to stack vars
         # and want keep same interface as _build_compile_fn_with_name_store
         for var in stack_vars[::-1]:
-            if store_var_info[var.id] is None:
-                store_var_info[var.id] = name_gen.next()
-                self.pycode_gen.gen_store_fast(store_var_info[var.id])
+            if not store_var_info[var.id]:
+                name = name_gen.next()
+                store_var_info[var.id].append(name)
+                self.pycode_gen.gen_store_fast(name)
             else:
-                self.pycode_gen.gen_store(
-                    store_var_info[var.id], self.pycode_gen._origin_code
-                )
+                all_names = store_var_info[var.id]
+                for _ in range(len(all_names) - 1):
+                    self.pycode_gen.gen_dup_top()
+                for name in all_names:
+                    self.pycode_gen.gen_store(
+                        name, self.pycode_gen._origin_code
+                    )
 
         return VariableLoader(store_var_info, self.pycode_gen)
 
@@ -388,16 +394,21 @@ class FunctionGraph:
             filter(lambda x: not isinstance(x, NullVariable), to_store_vars)
         )
         self.compile_function(compile_graph_result, to_store_vars)
-        name_gen = NameGenerator("___compile_fn_saved_")
+        name_gen = NameGenerator("___graph_fn_saved_")
 
         for var in to_store_vars[::-1]:
-            if store_var_info[var.id] is None:
-                store_var_info[var.id] = name_gen.next()
-                self.pycode_gen.gen_store_fast(store_var_info[var.id])
+            if not store_var_info[var.id]:
+                name = name_gen.next()
+                store_var_info[var.id].append(name)
+                self.pycode_gen.gen_store_fast(name)
             else:
-                self.pycode_gen.gen_store(
-                    store_var_info[var.id], self.pycode_gen._origin_code
-                )
+                all_names = store_var_info[var.id]
+                for _ in range(len(all_names) - 1):
+                    self.pycode_gen.gen_dup_top()
+                for name in all_names:
+                    self.pycode_gen.gen_store(
+                        name, self.pycode_gen._origin_code
+                    )
 
         return VariableLoader(store_var_info, self.pycode_gen)
 
@@ -422,7 +433,7 @@ class FunctionGraph:
         symbolic_inputs = self._find_tensor_inputs(input_names)
         compiled_fn = self.sir_ctx.compile_fn(
             statement_ir.name,
-            [var.meta.to_input_spec() for var in symbolic_inputs],
+            tuple(var.meta.to_input_spec() for var in symbolic_inputs),
             **self._kwargs,
         )
         return compiled_fn, (statement_ir, symbolic_inputs, symbolic_outputs)
@@ -492,7 +503,7 @@ class FunctionGraph:
         log(3, f"call paddle.api : {func.__name__}", "\n")
 
         def message_handler(*args, **kwargs):
-            return f"Call paddle_api error: {func.__name__}, may be not a operator api ?"
+            return f"Call paddle_api error: {func.__name__}, may be not a operator api?"
 
         return inner_error_default_handler(self.symbolic_call, message_handler)(
             InferMetaCache(),
@@ -514,7 +525,7 @@ class FunctionGraph:
         """
 
         def message_handler(*args, **kwargs):
-            return f"Call tensor_method error: Tensor.{method_name}, may be not a valid operator api ?"
+            return f"Call tensor_method error: Tensor.{method_name}, may be not a valid operator api?"
 
         return inner_error_default_handler(self.symbolic_call, message_handler)(
             InferMetaCache(),
@@ -536,7 +547,7 @@ class FunctionGraph:
         """
 
         def message_handler(*args, **kwargs):
-            return f"Call symbolic_method error: Symbolic.{method_name}, may be not a valid operator api ?"
+            return f"Call symbolic_method error: Symbolic.{method_name}, may be not a valid operator api?"
 
         return inner_error_default_handler(self.symbolic_call, message_handler)(
             InferMetaCache(),
@@ -574,7 +585,7 @@ class FunctionGraph:
             )
 
         def message_handler(*args, **kwargs):
-            return f"Call paddle layer error: {layer}, may be not a valid paddle layer ?"
+            return f"Call paddle layer error: {layer}, may be not a valid paddle layer?"
 
         return inner_error_default_handler(self.symbolic_call, message_handler)(
             infer_meta_fn, compute_fn, layer, False, *args, **kwargs
@@ -729,36 +740,34 @@ class FunctionGraph:
                 FunctionGraph.get_opcode_executor_stack()
             ),
         )
-        if outputs is not None:
-            if is_inplace_api(func):
-                # if we want to use a non-inplace api (static api) to replace an inplace behavior (in simulation)
-                # just set it back in SIR, and return outputs to replace tensor meta (it might changes?)
-                # in this case, the output will not exactly be used
-                compute_fn(
-                    func,
-                    inputs_symbols,
-                    convert_to_symbol(args[0]),
-                    stmt_stacks,
-                )
-            else:
-                compute_fn(
-                    func,
-                    inputs_symbols,
-                    convert_to_symbol(outputs),
-                    stmt_stacks,
-                )  # symbolic only contain symbols.
-                self._put_inner(outputs)
-            if is_symbolic_var:
-                # compute_fn should be call_method
-                tracker = SymbolicOperationTracker(
-                    list(args) + list(kwargs.values()), func
-                )
-            else:
-                tracker = DummyTracker(list(args) + list(kwargs.values()))
 
-            return VariableFactory.from_value(outputs, self, tracker)
+        if is_inplace_api(func):
+            # if we want to use a non-inplace api (static api) to replace an inplace behavior (in simulation)
+            # just set it back in SIR, and return outputs to replace tensor meta (it might changes?)
+            # in this case, the output will not exactly be used
+            compute_fn(
+                func,
+                inputs_symbols,
+                convert_to_symbol(args[0]),
+                stmt_stacks,
+            )
         else:
-            return ConstantVariable.wrap_literal(None, self)
+            compute_fn(
+                func,
+                inputs_symbols,
+                convert_to_symbol(outputs),
+                stmt_stacks,
+            )  # symbolic only contain symbols.
+            self._put_inner(outputs)
+        if is_symbolic_var:
+            # compute_fn should be call_method
+            tracker = SymbolicOperationTracker(
+                list(args) + list(kwargs.values()), func
+            )
+        else:
+            tracker = DummyTracker(list(args) + list(kwargs.values()))
+
+        return VariableFactory.from_value(outputs, self, tracker)
 
     @staticmethod
     def get_opcode_executor_stack():

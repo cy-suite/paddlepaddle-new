@@ -66,7 +66,7 @@ class GeneralGrad {
 
         PADDLE_ENFORCE_NOT_NULL(
             target_node,
-            common::errors::Fatal("There is no grad op for %s:[%d] or it's"
+            common::errors::Fatal("There is no grad op for %s:[%d] or it's "
                                   "stop_gradient=True.",
                                   msg,
                                   i));
@@ -592,7 +592,7 @@ class GeneralGrad {
     // Purify potentialstartup_ops, remove those nodes that are the same as
     // input_target_nodes
     PurifyPotentialStartUpNodes();
-    // Get Graph Info Betweent input target gradnode and outputs
+    // Get Graph Info Between input target gradnode and outputs
     // Record the depending_nodes_ and potential_startup_nodes_
     GetGraphInfoBetweenTargets(*queue);
     // Update Graph Info, remove some nodes in

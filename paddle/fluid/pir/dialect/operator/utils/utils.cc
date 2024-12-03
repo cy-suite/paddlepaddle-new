@@ -36,8 +36,6 @@ namespace paddle {
 namespace dialect {
 
 const std::unordered_set<std::string> LegacyOpList = {
-    LoadCombineOp::name(),
-    CConcatOp::name(),
     CBroadcast_Op::name(),
     CBroadcastOp::name(),
     DistributedPushSparseOp::name(),
@@ -448,7 +446,8 @@ std::vector<int64_t> ParseValueShape(const pir::Value& shape,
       vec_shape.insert(vec_shape.end(), tmp.begin(), tmp.end());
     }
   } else if (shape.isa<pir::OpResult>() &&
-             shape.defining_op()->isa<paddle::dialect::ShapeOp>() &&
+             (shape.defining_op()->isa<paddle::dialect::ShapeOp>() ||
+              shape.defining_op()->isa<paddle::dialect::Shape64Op>()) &&
              shape.type().isa<paddle::dialect::DenseTensorType>()) {
     // tensor_shape may come from shape op
     // x0.shape = [-1,3]

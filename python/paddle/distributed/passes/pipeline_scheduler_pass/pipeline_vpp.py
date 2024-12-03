@@ -14,6 +14,7 @@
 
 import logging
 
+import paddle.distributed as dist
 from paddle.base import core
 from paddle.distributed.auto_parallel.static.operators.common import (
     is_data_parallel_reduce_op,
@@ -63,15 +64,21 @@ class PipelineVirtualPipelinePass(PipelinePassBase):
         num_stages = self.get_attr("pp_degree")
         num_model_chunks = self.get_attr("vpp_degree")
         split_backward = self.get_attr("split_backward", False)
+        remainder = accumulate_steps % num_stages
         for i in range(num_model_chunks):
             self._forward_micro_step_counter[i] = 0
             self._backward_micro_step_counter[i] = 0
 
-        assert accumulate_steps % num_stages == 0
+        assert accumulate_steps >= num_stages
 
         def _get_virtual_pp_rank(micro_step, forward):
             virtual_pp_stage = micro_step % (num_stages * num_model_chunks)
-            virtual_pp_stage = virtual_pp_stage // num_stages
+            if micro_step <= (accumulate_steps // num_stages) * (
+                num_stages * num_model_chunks
+            ):
+                virtual_pp_stage = virtual_pp_stage // num_stages
+            else:
+                virtual_pp_stage = virtual_pp_stage // remainder
             if not forward:
                 virtual_pp_stage = num_model_chunks - virtual_pp_stage - 1
             return virtual_pp_stage
@@ -210,7 +217,10 @@ class PipelineVirtualPipelinePass(PipelinePassBase):
                     global_grad_to_comm_op[op_input_names[0]] = [op]
                     remove_op_ids.append(idx)
 
-                if op.type in ["c_allreduce_sum", "c_reduce_sum"]:
+                if op.type == "c_allreduce_sum" or (
+                    op.type == "reduce"
+                    and op.desc.attr('reduce_type') == dist.ReduceOp.SUM
+                ):
                     scale_index = idx + 1
                     if scale_index < len(len(ops)):
                         if is_data_parallel_scale_op(ops[scale_index]):

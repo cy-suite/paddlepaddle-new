@@ -23,8 +23,8 @@ typedef SSIZE_T ssize_t;
 
 #include "paddle/fluid/eager/grad_node_info.h"
 #include "paddle/fluid/eager/hooks.h"
+#include "paddle/fluid/framework/dense_tensor_array.h"
 #include "paddle/fluid/framework/lod_tensor.h"
-#include "paddle/fluid/framework/lod_tensor_array.h"
 #include "paddle/fluid/framework/tensor.h"
 #include "paddle/fluid/jit/function.h"
 #include "paddle/phi/api/lib/kernel_dispatch.h"
@@ -76,6 +76,7 @@ int CastPyArg2AttrInt(PyObject* obj, ssize_t arg_pos);
 int64_t CastPyArg2AttrLong(PyObject* obj, ssize_t arg_pos);
 size_t CastPyArg2AttrSize_t(PyObject* obj, ssize_t arg_pos);
 float CastPyArg2AttrFloat(PyObject* obj, ssize_t arg_pos);
+double CastPyArg2AttrDouble(PyObject* obj, ssize_t arg_pos);
 std::string CastPyArg2AttrString(PyObject* obj, ssize_t arg_pos);
 std::shared_ptr<imperative::VarBase> CastPyArg2VarBase(PyObject* obj,
                                                        ssize_t arg_pos);
@@ -162,6 +163,7 @@ PyObject* ToPyObject(const phi::Vocab& value);
 
 PyObject* ToPyObject(std::shared_ptr<egr::GradNodeBase> grad_node);
 PyObject* ToPyObject(const pir::Value& value);
+PyObject* ToPyObject(pir::Operation* op);
 PyObject* ToPyObject(const std::vector<pir::Value>& value);
 
 class PyTensorHook : public egr::TensorHook {
@@ -441,76 +443,13 @@ PyObject* SetStaticOpArgPreCastHook(PyObject* callback);
 PyMODINIT_FUNC PyInit__static_op_arg_pre_cast_hook();
 
 /* ------------------ for auto parallel ----------------------- */
-using paddle::experimental::detail::ArgsIterator;
-
-struct DistTensorTypeParser : ArgsIterator<DistTensorTypeParser> {
-  bool result = false;
-  const phi::distributed::ProcessMesh** mesh = nullptr;
-
-  explicit DistTensorTypeParser(const phi::distributed::ProcessMesh** m)
-      : mesh(m) {}
-
-  bool short_circuit() { return result; }
-
-  void operator()(const Tensor& x);
-  void operator()(const paddle::optional<Tensor>& x);
-  void operator()(const std::vector<Tensor>& x);
-  void operator()(const paddle::optional<std::vector<Tensor>>& x);
-
-  // skip other type args, these args don't used in kernel selection
-  template <typename T>
-  void operator()(const T& x) {
-    // do nothing
-  }
-};
-
-struct DistTensorConverter : ArgsIterator<DistTensorConverter> {
-  const phi::distributed::ProcessMesh* mesh = nullptr;
-
-  explicit DistTensorConverter(const phi::distributed::ProcessMesh* m) {
-    PADDLE_ENFORCE_NE(
-        m,
-        nullptr,
-        common::errors::InvalidArgument(
-            "Input mesh of DistTensorConverter() shouldn't be nullptr."));
-    mesh = m;
-  }
-
-  void convert(Tensor* x);
-  void operator()(Tensor* x);
-  void operator()(paddle::optional<Tensor>* x);
-  void operator()(std::vector<Tensor>* x);
-  void operator()(paddle::optional<std::vector<Tensor>>* x);
-
-  // skip other type args, these args don't used in kernel selection
-  template <typename T>
-  void operator()(const T& x) {
-    // do nothing
-  }
-};
-
-template <typename... Args>
-bool InputsContainDistTensor(const phi::distributed::ProcessMesh** mesh,
-                             const Args&... args) {
-  return DistTensorTypeParser(mesh).apply(args...).result;
-}
-
-template <typename... Args>
-void ConvertAllInputsToDistTensor(const phi::distributed::ProcessMesh* mesh,
-                                  Args&... args) {
-  PADDLE_ENFORCE_NE(
-      mesh,
-      nullptr,
-      common::errors::InvalidArgument("Input mesh should not be nullptr."));
-  DistTensorConverter(mesh).apply(&args...);
-}
-
-void ConvertToDistTensor(Tensor* x, const phi::distributed::ProcessMesh* mesh);
 void BindEagerUtils(PyObject* module);
 
 std::tuple<std::vector<int64_t>,
            paddle::flat_hash_map<int64_t, phi::ReduceType>>
 CvtPlacements(phi::distributed::Placements placements, int ndim);
+
+void EagerSetDeviceId();
 
 }  // namespace pybind
 }  // namespace paddle

@@ -14,8 +14,10 @@
 from __future__ import annotations
 
 import functools
+import logging
 import math
 import os
+import time
 from collections import deque
 from typing import TYPE_CHECKING
 
@@ -61,29 +63,23 @@ DEFAULT_RECOMPUTABLE_OPS: list[str] = [
     "pd_op.expand",
     "pd_op.scale",
     "pd_op.exp",
-    "pd_op.equal",
-    "pd_op.where",
     "pd_op.sin",
     "pd_op.cos",
     "pd_op.add_n",
     "pd_op.any",
-    "pd_op.bitwise_and",
     "pd_op.cast",
     "pd_op.concat",
     "pd_op.full_with_tensor",
     "pd_op.gather_nd",
-    "pd_op.greater_than",
-    "pd_op.less_than",
     "pd_op.logical_and",
     "pd_op.logical_not",
-    "pd_op.not_equal",
+    "pd_op.where",
     "pd_op.pow",
     "pd_op.shape",
     "pd_op.slice",
     "pd_op.squeeze",
     "pd_op.unsqueeze",
     "pd_op.transpose",
-    "pd_op.where",
     "pd_op.prod",
     "pd_op.log",
     "pd_op.log1p",
@@ -112,7 +108,6 @@ DEFAULT_RECOMPUTABLE_OPS: list[str] = [
     "pd_op.frac",
     "pd_op.round",
     "pd_op.trunc",
-    "pd_op.equal",
     "pd_op.angle",
     "pd_op.as_complex",
     "pd_op.as_real",
@@ -120,15 +115,16 @@ DEFAULT_RECOMPUTABLE_OPS: list[str] = [
     "pd_op.real",
     "pd_op.imag",
     "pd_op.conj",
-    "pd_op.not_equal",
     "pd_op.greater_equal",
     "pd_op.greater_than",
+    "pd_op.not_equal",
+    "pd_op.equal",
     "pd_op.less_equal",
     "pd_op.less_than",
     "pd_op.bitwise_and",
-    "pd_op.bitwise_not",
     "pd_op.bitwise_or",
     "pd_op.bitwise_xor",
+    "pd_op.bitwise_not",
     "pd_op.isinf",
     "pd_op.isnan",
     # "pd_op.gather",
@@ -145,9 +141,9 @@ COMPUTE_INTENSIVE_OPS: list[str] = [
     "pd_op.layer_norm",
     "pd_op.batchnorm",
     "pd_op.softmax",
-    "pd_op.c_allreduce_sum_",
+    "pd_op.all_reduce_",
     "pd_op.c_broadcast_",
-    "pd_op.c_reduce_sum_",
+    "pd_op.reduce_",
 ]
 
 AGGRESSIVE_RECOMPUTATION = False
@@ -167,7 +163,9 @@ class JudgeFusionLoop:
         self.operand_value_set = set()
         self.result_value_set = set()
         self.unrecomputable_ops = unrecomputable_ops
-        self.has_unfusible_on_path_map = self._set_has_unfusible_on_path_map()
+        self.downstream_unrecomputable_ops_map = {op: set() for op in self.ops}
+        self.upstream_unrecomputable_ops_map = {op: set() for op in self.ops}
+        self._set_has_unfusible_on_path_map()
 
     def _set_has_unfusible_on_path_map(self):
         def _get_used_external_value(op):
@@ -227,56 +225,51 @@ class JudgeFusionLoop:
         def _get_producer_ops_recursivly(root):
             visited = set()
             queue = deque()
-            result = set()
             queue.append(root)
             visited.add(root)
             while queue:
                 cur = queue.popleft()
-                result.add(cur)
+                self.downstream_unrecomputable_ops_map[cur].add(root)
                 for new_op in _get_producer_ops(cur):
                     if new_op in visited:
                         continue
                     visited.add(new_op)
                     queue.append(new_op)
-            return result
 
         def _get_consumer_ops_recursivly(root):
             visited = set()
             queue = deque()
-            result = set()
             queue.append(root)
             visited.add(root)
             while queue:
                 cur = queue.popleft()
-                result.add(cur)
+                self.upstream_unrecomputable_ops_map[cur].add(root)
                 for new_op in _get_consumer_ops(cur):
                     if new_op in visited:
                         continue
                     visited.add(new_op)
                     queue.append(new_op)
-            return result
 
-        has_unfusible_on_path_map = {
-            op1: {op2: False for op2 in self.ops} for op1 in self.ops
-        }
         for op in self.ops:
             if op.name() in self.unrecomputable_ops:
-                upstream_set = _get_producer_ops_recursivly(op)
-                downstream_set = _get_consumer_ops_recursivly(op)
-
-                for upstream_op in upstream_set:
-                    for downstream_op in downstream_set:
-                        has_unfusible_on_path_map[upstream_op][
-                            downstream_op
-                        ] = True
-                        has_unfusible_on_path_map[downstream_op][
-                            upstream_op
-                        ] = True
-        return has_unfusible_on_path_map
+                _get_producer_ops_recursivly(op)
+                _get_consumer_ops_recursivly(op)
 
     def _has_unfusible_op_on_any_path(self, op1, op2):
+        no_unfusible_op_on_path = (
+            len(
+                self.downstream_unrecomputable_ops_map[op1]
+                & self.upstream_unrecomputable_ops_map[op2]
+            )
+            == 0
+            and len(
+                self.downstream_unrecomputable_ops_map[op2]
+                & self.upstream_unrecomputable_ops_map[op1]
+            )
+            == 0
+        )
         return (
-            self.has_unfusible_on_path_map[op1][op2]
+            not no_unfusible_op_on_path
             if op1 is not None and op2 is not None
             else False
         )
@@ -387,6 +380,8 @@ def auto_recompute(
     # 1.1 classify value nodes
     import networkx as nx
 
+    start_time = time.time()
+
     # model value as graph's node, op as graph's edge
     (
         required_fw_value_nodes,
@@ -394,7 +389,9 @@ def auto_recompute(
         unclaimed_value_nodes,
     ) = classify_value_node(program, grad_outputs, fwd_op_end_idx)
 
-    if len(required_bw_value_nodes) == 0:
+    if len(required_bw_value_nodes) == 0 or backward_op_start_idx >= len(
+        program.global_block().ops
+    ):
         return program, fwd_op_end_idx
 
     all_ops = program.global_block().ops
@@ -554,13 +551,9 @@ def auto_recompute(
             )
             value_id_dict[value_node.id] = value_node
 
-        # todo(wanghao107) hack for dynamic shape
-        if is_dynamic_value_node(value_node):
-            weight = 1
-        else:
-            weight = _get_node_weight(
-                value_node, placeholder_value_nodes=inputs | outputs
-            )
+        weight = _get_node_weight(
+            value_node, placeholder_value_nodes=inputs | outputs
+        )
 
         # Creates the weights on the "node" edge
         nx_graph.add_edge(
@@ -640,6 +633,10 @@ def auto_recompute(
         backward_op_start_idx,
     )
     DebugPrint("program after recompute:", program_after_recompute)
+    end_time = time.time()
+    logging.info(
+        f"Time of auto recompute program: ***** [ {end_time - start_time} ] ***** seconds."
+    )
     return program_after_recompute, fwd_op_end_idx_after_recompute
 
 
@@ -726,7 +723,7 @@ def replace_mid_values_with_forward_subgraph(
             new_chain = list(chain)
             new_chain.append(recompute_value)
             define_op = recompute_value.get_defining_op()
-            if define_op in marked_recompute_ops:
+            if define_op in marked_recompute_ops or define_op is None:
                 return
             op_inputs = define_op.operands_source()
             if len(op_inputs) == 0 and define_op.name() not in [
@@ -803,8 +800,17 @@ def replace_mid_values_with_forward_subgraph(
     origin_subgraph_inputs = recompute_forward_subgraph["inputs"]
     origin_subgraph_outputs = recompute_forward_subgraph["outputs"]
     cloned_ops, value_map = clone_graph(
-        program, origin_ops, origin_subgraph_inputs, first_backward_op
+        program,
+        origin_ops,
+        origin_subgraph_inputs,
+        first_backward_op,
+        backward_ops,
     )
+
+    for origin_op in origin_ops:
+        origin_op.set_bool_attr("is_recompute_op", True)
+    for cloned_op in cloned_ops:
+        cloned_op.set_bool_attr("is_recompute_bw_op", True)
 
     # 3. replace mid values that backward need to hold with recompute subgraph's outputs
     cloned_subgraph_outputs = backward_utils.ValueSet()
@@ -825,40 +831,45 @@ def replace_mid_values_with_forward_subgraph(
                     if cloned_op in parent_ops and cloned_op not in reseted_ops:
                         cloned_op.move_before(op)
                         reseted_ops.add(cloned_op)
-    DebugPrint("recompute program", program)
     return program, fwd_op_end_idx
 
 
 def classify_value_node(program, grad_outputs, fwd_op_end_idx):
     all_ops = program.global_block().ops
-    required_fw_value_nodes = backward_utils.ValueSet()
     required_fw_ops = set(all_ops[: fwd_op_end_idx + 1])
-    for required_fw_op in required_fw_ops:
-        fw_op_outputs = required_fw_op.results()
-        required_fw_value_nodes = (
-            required_fw_value_nodes | backward_utils.ValueSet(fw_op_outputs)
-        )
-    required_bw_value_nodes = backward_utils.ValueSet()
+
+    required_fw_op_idxs = list(range(0, fwd_op_end_idx + 1))
+    required_fw_value_nodes = backward_utils.ValueSet(
+        program.global_block().get_value_from_op_idxs(required_fw_op_idxs)
+    )
+
     required_bw_ops = set()
     for grad_output in grad_outputs:
         required_bw_ops = required_bw_ops | find_child_ops(grad_output)
         required_bw_ops.add(grad_output.get_defining_op())
-    for required_bw_op in required_bw_ops:
-        bw_op_outputs = required_bw_op.results()
-        required_bw_value_nodes = (
-            required_bw_value_nodes | backward_utils.ValueSet(bw_op_outputs)
-        )
-    unclaimed_value_nodes = backward_utils.ValueSet()
+
+    required_bw_op_idxs = []
+    for idx, op in enumerate(all_ops):
+        if op in required_bw_ops:
+            required_bw_op_idxs.append(idx)
+    required_bw_value_nodes = backward_utils.ValueSet(
+        program.global_block().get_value_from_op_idxs(required_bw_op_idxs)
+    )
+
     unclaimed_ops = {
         op
         for op in all_ops
         if op not in required_fw_ops and op not in required_bw_ops
     }
-    for unclaimed_op in unclaimed_ops:
-        unclaimed_op_outputs = unclaimed_op.results()
-        unclaimed_value_nodes = unclaimed_value_nodes | backward_utils.ValueSet(
-            unclaimed_op_outputs
-        )
+
+    unclaimed_op_idxs = []
+    for idx, op in enumerate(all_ops):
+        if op in unclaimed_ops:
+            unclaimed_op_idxs.append(idx)
+    unclaimed_value_nodes = backward_utils.ValueSet(
+        program.global_block().get_value_from_op_idxs(unclaimed_op_idxs)
+    )
+
     return (
         required_fw_value_nodes,
         required_bw_value_nodes | unclaimed_value_nodes,
@@ -935,14 +946,32 @@ def is_dynamic_value_node(value_node):
         raise ValueError(f"value node not found in program: {value_node} ")
 
 
-def cal_value_node_size(value_node):
-    # todo(wanghao107) hack for dynamic shape
+def is_vector_value_node(value_node):
+    try:
+        return value_node.type().as_vec_type() is not None
+    except:
+        raise ValueError(f"value node illegal: {value_node} ")
+
+
+def cal_value_node_size_impl(value_node):
     if is_dynamic_value_node(value_node):
-        return 1
+        value_node_shape = [i for i in value_node.shape if i != -1]
+    else:
+        value_node_shape = value_node.shape
     return (
-        functools.reduce(lambda x, y: x * y, value_node.shape, 1)
+        functools.reduce(lambda x, y: x * y, value_node_shape, 1)
         * _PADDLE_DTYPE_2_NBYTES[value_node.dtype]
     )
+
+
+def cal_value_node_size(value_node):
+    if is_vector_value_node(value_node):
+        value_vec = value_node.type().as_vec_type().as_list()
+        sum_res = 0
+        for child_node in value_vec:
+            sum_res += cal_value_node_size_impl(child_node)
+        return sum_res
+    return cal_value_node_size_impl(value_node)
 
 
 def cal_value_nodes_dist_to_backward(all_ops, required_fw_value_nodes):
@@ -1007,7 +1036,15 @@ def analyze_mid_hold_values(
     return mid_hold_values
 
 
-def clone_graph(program, origin_ops, graph_inputs, clone_insertion_op):
+def get_first_backward_use_op(fwd_op, backward_ops):
+    for user_op in fwd_op.results()[0].all_used_ops():
+        if user_op in backward_ops:
+            return user_op
+
+
+def clone_graph(
+    program, origin_ops, graph_inputs, clone_insertion_op, backward_ops
+):
     pir.set_insertion_point(clone_insertion_op)
     all_ops = program.global_block().ops
     value_map = paddle.pir.IrMapping()
@@ -1017,9 +1054,18 @@ def clone_graph(program, origin_ops, graph_inputs, clone_insertion_op):
         value_map.add(input_value, input_value)
     for op in all_ops:
         if op in origin_ops:
-            cloned_ops.append(
-                op.clone(value_map, paddle.pir.CloneOptions(False, True, True))
+            new_op = op.clone(
+                value_map, paddle.pir.CloneOptions(False, True, True)
             )
+            first_backward_use_op = get_first_backward_use_op(op, backward_ops)
+            if (
+                first_backward_use_op is not None
+                and first_backward_use_op.has_attr('op_role')
+                and first_backward_use_op.has_attr('chunk_id')
+            ):
+                new_op.set_int_attr("op_role", first_backward_use_op.op_role)
+                new_op.set_int_attr("chunk_id", first_backward_use_op.chunk_id)
+            cloned_ops.append(new_op)
     pir.set_insertion_point_to_block_end(program.global_block())
     return cloned_ops, value_map
 
