@@ -27,7 +27,7 @@ gather_srcs(
   broadcast_tree.cc
   iter_simplify.cc
   event_tracing.cc
-  simplify_corner_case.cc)
+  simplify_special_pattern.cc)
 
 cinn_cc_test(test_equation_graph_topo_walker SRCS
              equation_graph_topo_walker_test.cc DEPS gtest glog)
