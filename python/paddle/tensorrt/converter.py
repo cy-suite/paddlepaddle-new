@@ -28,6 +28,7 @@ from paddle import pir
 from paddle.base.core import clear_shape_info, get_value_shape_range_info
 from paddle.base.log_helper import get_logger
 
+from .export import PrecisionMode
 from .impls.activation import *  # noqa: F403
 from .impls.attribute import *  # noqa: F403
 from .impls.common import *  # noqa: F403
@@ -47,7 +48,6 @@ from .impls.stat import *  # noqa: F403
 from .impls.vision import *  # noqa: F403
 from .register import converter_registry
 from .util import (
-    PrecisionMode,
     TensorRTConfigManager,
     get_cache_path,
     get_trt_version,

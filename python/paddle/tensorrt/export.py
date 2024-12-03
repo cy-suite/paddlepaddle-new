@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import os
+from enum import Enum
 
 import numpy as np
 
@@ -35,7 +36,6 @@ from paddle.jit.dy2static.program_translator import (
 from paddle.nn import Layer
 from paddle.tensorrt.converter import PaddleToTensorRTConverter
 from paddle.tensorrt.util import (
-    PrecisionMode,
     forbid_op_lower_trt,
     mark_buitlin_op,
     run_pir_pass,
@@ -145,6 +145,23 @@ class Input:
         return self.input_min_data, self.input_optim_data, self.input_max_data
 
 
+class PrecisionMode(Enum):
+    FP32 = "FP32"
+    FP16 = "FP16"
+    BF16 = "BF16"
+    INT8 = "INT8"
+
+    """
+    This class defines different precision modes that can be used to configure
+    TensorRT optimization. The modes include FP32, FP16, BF16, and INT8.
+    Specifies the precision mode for TensorRT optimization. The options are:
+    - PrecisionMode.FP32: 32-bit floating point precision (default).
+    - PrecisionMode.FP16: 16-bit floating point precision.
+    - PrecisionMode.INT8: 8-bit integer precision.
+    - PrecisionMode.BFP16: 16-bit Brain Floating Point precision. Only supported in TensorRT versions greater than 9.0.
+    """
+
+
 class TensorRTConfig:
     def __init__(
         self,
@@ -185,6 +202,7 @@ class TensorRTConfig:
             >>> from paddle.tensorrt.export import (
             ...    Input,
             ...    TensorRTConfig,
+            ...    PrecisionMode,
             ... )
             >>> input = Input(
             ...    min_input_shape=(1,100),

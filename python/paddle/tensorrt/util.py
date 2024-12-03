@@ -14,7 +14,6 @@
 
 import logging
 import os
-from enum import Enum
 
 import paddle
 
@@ -148,13 +147,6 @@ def mark_buitlin_op(program):
                     and defining_op.attrs()["__l_trt__"]
                 ):
                     op.set_bool_attr("__l_trt__", True)
-
-
-class PrecisionMode(Enum):
-    FP32 = "FP32"
-    FP16 = "FP16"
-    BF16 = "BF16"
-    INT8 = "INT8"
 
 
 class TensorRTConfigManager:
