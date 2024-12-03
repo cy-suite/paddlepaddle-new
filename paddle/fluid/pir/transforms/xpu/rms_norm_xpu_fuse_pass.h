@@ -1,4 +1,4 @@
-// Copyright (c) 2023 PaddlePaddle Authors. All Rights Reserved.
+// Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,26 +14,13 @@
 
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <memory>
+#include "paddle/pir/include/core/dll_decl.h"
 
-#include <Python.h>
-#include "paddle/fluid/pybind/sot/frame_proxy.h"
-#include "paddle/fluid/pybind/sot/macros.h"
+namespace pir {
 
-#if SOT_IS_SUPPORTED
+class Pass;
 
-int need_skip(FrameObject* frame);
-int is_code_without_graph(PyCodeObject* code);
+IR_API std::unique_ptr<Pass> CreateRmsNormXpuFusePass();
 
-PyObject* set_with_graph(PyObject* code);
-PyObject* setup_codes_with_graph(PyObject* code_tuple);
-PyObject* no_skip_codes(PyObject* code_tuple);
-PyObject* skip_file_prefix(PyObject* filepath_tuple);
-
-#endif
-
-#ifdef __cplusplus
-}
-#endif
+}  // namespace pir
