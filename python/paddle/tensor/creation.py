@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import math
 import re
-from typing import TYPE_CHECKING, Any, Sequence, overload
+from typing import TYPE_CHECKING, Any, overload
 
 import numpy as np
 import numpy.typing as npt
@@ -48,10 +48,12 @@ from ..framework import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from paddle._typing import (
         DTypeLike,
-        NestedNumbericSequence,
-        Numberic,
+        NestedNumericSequence,
+        Numeric,
         ParamAttrLike,
         PlaceLike,
         ShapeLike,
@@ -67,9 +69,9 @@ def _complex_to_real_dtype(dtype: DTypeLike) -> DTypeLike:
     elif dtype == core.VarDesc.VarType.COMPLEX128:
         return core.VarDesc.VarType.FP64
     elif dtype == paddle.pir.core.DataType.COMPLEX64:
-        return paddle.pir.core.DataType.FP32
+        return paddle.pir.core.DataType.FLOAT32
     elif dtype == paddle.pir.core.DataType.COMPLEX128:
-        return paddle.pir.core.DataType.FP64
+        return paddle.pir.core.DataType.FLOAT64
     else:
         return dtype
 
@@ -79,9 +81,9 @@ def _real_to_complex_dtype(dtype: DTypeLike) -> DTypeLike:
         return core.VarDesc.VarType.COMPLEX64
     elif dtype == core.VarDesc.VarType.FP64:
         return core.VarDesc.VarType.COMPLEX128
-    elif dtype == paddle.pir.core.DataType.FP32:
+    elif dtype == paddle.pir.core.DataType.FLOAT32:
         return paddle.pir.core.DataType.COMPLEX64
-    elif dtype == paddle.pir.core.DataType.FP64:
+    elif dtype == paddle.pir.core.DataType.FLOAT64:
         return paddle.pir.core.DataType.COMPLEX128
     else:
         return dtype
@@ -360,7 +362,61 @@ def linspace(
     if not isinstance(num, (Variable, paddle.pir.Value)):
         with device_guard("cpu"):
             tensor_num = fill_constant([1], 'int32', num, force_cpu=True)
-    if in_dynamic_or_pir_mode():
+    if in_dynamic_mode():
+        return _C_ops.linspace(
+            tensor_start,
+            tensor_stop,
+            tensor_num,
+            dtype,
+            _current_expected_place(),
+        )
+    elif in_pir_mode():
+        helper = LayerHelper("linspace", **locals())
+
+        start_dtype = convert_dtype(tensor_start.dtype)
+        stop_dtype = convert_dtype(tensor_stop.dtype)
+        out_dtype = convert_dtype(dtype)
+        if isinstance(start, paddle.pir.Value):
+            check_dtype(
+                start.dtype,
+                'start',
+                ['float16', 'uint16', 'float32', 'float64', 'int32', 'int64'],
+                'linspace',
+            )
+        else:
+            check_type(start, 'start', (int, float), 'linspace')
+
+        if isinstance(stop, paddle.pir.Value):
+            check_dtype(
+                stop.dtype,
+                'stop',
+                ['float16', 'uint16', 'float32', 'float64', 'int32', 'int64'],
+                'linspace',
+            )
+        else:
+            check_type(stop, 'stop', (int, float), 'linspace')
+        if isinstance(num, paddle.pir.Value):
+            check_dtype(num.dtype, 'num', ['int32', 'int64'], 'linspace')
+        check_dtype(
+            dtype,
+            'dtype',
+            ['float16', 'uint16', 'float32', 'float64', 'int32', 'int64'],
+            'linspace',
+        )
+        if (
+            (stop_dtype == "float64" or start_dtype == "float64")
+            and out_dtype in ["float32", "int32"]
+        ) or (
+            (stop_dtype == "int64" or start_dtype == "int64")
+            and out_dtype == "int32"
+        ):
+            raise ValueError(
+                f"The dtype of start/stop is {start_dtype}/{stop_dtype} but the attr(dtype) of linspace is {dtype}, "
+                "which may cause data type overflows. Please reset attr(dtype) of linspace."
+            )
+        if isinstance(dtype, paddle.base.core.VarDesc.VarType):
+            dtype = paddle.pir.core.vartype_to_datatype[dtype]
+
         return _C_ops.linspace(
             tensor_start,
             tensor_stop,
@@ -500,7 +556,42 @@ def logspace(
     if not isinstance(base, (Variable, paddle.pir.Value)):
         with device_guard("cpu"):
             tensor_base = fill_constant([1], dtype, base)
-    if in_dynamic_or_pir_mode():
+    if in_dynamic_mode():
+        return _C_ops.logspace(
+            tensor_start,
+            tensor_stop,
+            tensor_num,
+            tensor_base,
+            dtype,
+            _current_expected_place(),
+        )
+    elif in_pir_mode():
+        start_dtype = convert_dtype(tensor_start.dtype)
+        stop_dtype = convert_dtype(tensor_stop.dtype)
+        base_dtype = convert_dtype(tensor_base.dtype)
+        out_dtype = convert_dtype(dtype)
+        if (
+            (
+                stop_dtype == "float64"
+                or start_dtype == "float64"
+                or base_dtype == "float64"
+            )
+            and out_dtype in ["float32", "int32"]
+        ) or (
+            (
+                stop_dtype == "int64"
+                or start_dtype == "int64"
+                or base_dtype == "int64"
+            )
+            and out_dtype == "int32"
+        ):
+            raise ValueError(
+                f"The dtype of start/stop/base is {start_dtype}/{stop_dtype}/{base_dtype} but the attr(dtype) of logspace is {dtype}, "
+                "which may cause data type overflows. Please reset attr(dtype) of logspace."
+            )
+        if isinstance(num, paddle.pir.Value):
+            check_dtype(num.dtype, 'num', ['int32'], 'logspace')
+
         return _C_ops.logspace(
             tensor_start,
             tensor_stop,
@@ -630,26 +721,16 @@ def _to_tensor_non_static(
                     "\n\tFailed to convert input data to a regular ndarray :\n\t - Usually "
                     "this means the input data contains nested lists with different lengths. "
                 )
-        elif isinstance(data, paddle.Tensor) and not in_dynamic_mode():
+        elif isinstance(data, paddle.Tensor):
             data = data._copy_to(place, False)
             data = _handle_tensor_dtype(data, dtype)
             data.stop_gradient = stop_gradient
             return data
-        elif isinstance(data, core.eager.Tensor) and in_dynamic_mode():
-            data = data._copy_to(place, False)
-            data = _handle_tensor_dtype(data, dtype)
-            data.stop_gradient = stop_gradient
-            return data
-        elif isinstance(data, (core.LoDTensor, core.Tensor)):
+        elif isinstance(data, core.DenseTensor):
             # should't expose it to users, just for internal use.
-            # convert core.Tensor/core.LoDTensor to Tensor first
+            # convert core.DenseTensor to Tensor first
             # Currently, there is no copy when places are same
-            if in_dynamic_mode():
-                data = core.eager.Tensor(data)
-            else:
-                data = paddle.Tensor(data)
-            if not data.place._equals(place):
-                data = data._copy_to(place, False)
+            data = paddle.Tensor(data, place=place)
             data = _handle_tensor_dtype(data, dtype)
             data.stop_gradient = stop_gradient
             return data
@@ -725,11 +806,13 @@ def _to_tensor_static(
 
                     Thus, process nested structure in except block
                     '''
-                    data = np.array(data)
+                    array_data = np.array(data)
 
                     # for numpy version <= 1.23.5
-                    if data.dtype == 'object':
+                    if array_data.dtype == 'object':
                         raise RuntimeError("Numpy get dtype `object`.")
+
+                    data = array_data
 
                 except:
                     to_stack_list = [None] * len(data)
@@ -771,7 +854,7 @@ def _to_tensor_static(
 
 
 def to_tensor(
-    data: TensorLike | NestedNumbericSequence,
+    data: TensorLike | NestedNumericSequence,
     dtype: DTypeLike | None = None,
     place: PlaceLike | None = None,
     stop_gradient: bool = True,
@@ -852,7 +935,7 @@ def to_tensor(
 
     # call assign for static graph
     else:
-        re_exp = re.compile(r'[(](.+?)[)]', re.S)
+        re_exp = re.compile(r'[(](.+?)[)]', re.DOTALL)
         place_str = re.findall(re_exp, str(place))[0]
         with paddle.static.device_guard(place_str):
             return _to_tensor_static(data, dtype, stop_gradient)
@@ -954,6 +1037,7 @@ def fill_constant(
     out: paddle.Tensor | None = None,
     name: str | None = None,
 ) -> paddle.Tensor:
+    shape = [shape] if isinstance(shape, int) else shape
     if in_dynamic_or_pir_mode():
         place = _current_expected_place()
         if force_cpu:
@@ -983,7 +1067,12 @@ def fill_constant(
             out = _C_ops.full(shape, value, dtype, place)
             out.stop_gradient = True
             return out
-        _C_ops.full_(out, shape, value, dtype, place)
+
+        if out.dtype != dtype:
+            raise TypeError(
+                "Required out.dtype == dtype if specifying out, but recevied f{out.dtype} != f{dtype}"
+            )
+        out = _C_ops.full_(out, shape, value, dtype, place)
         out.stop_gradient = True
         return out
 
@@ -1251,7 +1340,7 @@ def eye(
         name(str|None, optional): For details, please refer to :ref:`api_guide_Name`. Generally, no setting is required. Default: None.
 
     Returns:
-        Tensor: An identity Tensor or LoDTensor of shape [num_rows, num_columns].
+        Tensor: An identity Tensor or DenseTensor of shape [num_rows, num_columns].
 
     Examples:
         .. code-block:: python
@@ -1271,8 +1360,10 @@ def eye(
 
     def _check_attr(attr, message):
         if isinstance(attr, ((Variable, core.eager.Tensor, paddle.pir.Value))):
-            assert len(attr.shape) == 1 and attr.shape[0] in [1, -1]
-        elif not isinstance(attr, int) or attr < 0:
+            assert len(attr.shape) == 0 or (
+                len(attr.shape) == 1 and attr.shape[0] in [1, -1]
+            )
+        elif not isinstance(attr, (int, np.integer)) or attr < 0:
             raise TypeError(f"{message} should be a non-negative int.")
 
     _check_attr(num_rows, "num_rows")
@@ -1303,7 +1394,7 @@ def eye(
                 'int32',
                 'int64',
                 'complex64',
-                'comple128',
+                'complex128',
             ],
             'eye',
         )
@@ -1639,7 +1730,31 @@ def tril(
              [5 , 0 , 0 , 0 ],
              [9 , 10, 0 , 0 ]])
     """
-    if in_dynamic_or_pir_mode():
+    if in_dynamic_mode():
+        return _C_ops.tril(x, diagonal)
+    elif in_pir_mode():
+        op_type = 'tril'
+        assert x is not None, f'x cannot be None in {op_type}'
+        check_variable_and_dtype(
+            x,
+            'x',
+            [
+                'float16',
+                'uint16',
+                'float32',
+                'float64',
+                'int32',
+                'int64',
+                'bool',
+                'complex64',
+                'complex128',
+            ],
+            op_type,
+        )
+        if len(x.shape) < 2:
+            raise ValueError(f"x shape in {op_type} must be at least 2-D")
+        if not isinstance(diagonal, (int,)):
+            raise TypeError(f"diagonal in {op_type} must be a python Int")
         return _C_ops.tril(x, diagonal)
     else:
         return _tril_triu_op(LayerHelper('tril', **locals()))
@@ -1720,7 +1835,31 @@ def triu(
              [0 , 10, 11, 12]])
 
     """
-    if in_dynamic_or_pir_mode():
+    if in_dynamic_mode():
+        return _C_ops.triu(x, diagonal)
+    elif in_pir_mode():
+        op_type = 'triu'
+        assert x is not None, f'x cannot be None in {op_type}'
+        check_variable_and_dtype(
+            x,
+            'x',
+            [
+                'float16',
+                'uint16',
+                'float32',
+                'float64',
+                'int32',
+                'int64',
+                'bool',
+                'complex64',
+                'complex128',
+            ],
+            op_type,
+        )
+        if len(x.shape) < 2:
+            raise ValueError(f"x shape in {op_type} must be at least 2-D")
+        if not isinstance(diagonal, (int,)):
+            raise TypeError(f"diagonal in {op_type} must be a python Int")
         return _C_ops.triu(x, diagonal)
     else:
         return _tril_triu_op(LayerHelper('triu', **locals()))
@@ -1742,15 +1881,13 @@ def triu_(
 @overload
 def meshgrid(
     args: Sequence[paddle.Tensor], name: str | None = None
-) -> list[paddle.Tensor]:
-    ...
+) -> list[paddle.Tensor]: ...
 
 
 @overload
 def meshgrid(
     *args: paddle.Tensor, name: str | None = None
-) -> list[paddle.Tensor]:
-    ...
+) -> list[paddle.Tensor]: ...
 
 
 def meshgrid(*args, **kwargs):
@@ -2313,6 +2450,7 @@ def empty(
                 'float16',
                 'float32',
                 'float64',
+                'uint16',
                 'int8',
                 'int16',
                 'int32',
@@ -2483,7 +2621,7 @@ def assign(x: TensorLike, output: paddle.Tensor | None = None) -> paddle.Tensor:
              [2.5 2.5]]
             >>> array = np.array([[1, 1], [3, 4], [1, 3]]).astype(
             ...     np.int64
-            ... )  # type: ignore
+            ... )  # type: ignore[var-annotated]
             >>> result1 = paddle.zeros(shape=[3, 3], dtype='float32')
             >>> paddle.assign(array, result1)
             >>> print(result1.numpy())
@@ -2527,18 +2665,13 @@ def assign(x: TensorLike, output: paddle.Tensor | None = None) -> paddle.Tensor:
         input = np.array([input])
     elif isinstance(input, (list, tuple)):
         input = np.array(input)
-    # NOTE(Aurelius84): Why we judge core.Tensor?
+    # NOTE(Aurelius84): Why we judge core.DenseTensor?
     # In case of @to_static, a Tensor can be as input of `assign`,
     # but in_dynamic_mode()==False under @to_static, which means
     # isinstance(Tensor, Variable) == False. It will cause return None
     # after this api.
     if isinstance(input, (Variable, core.eager.Tensor, paddle.pir.Value)):
-        if in_dynamic_mode():
-            if output is None:
-                output = _C_ops.assign(input)
-            else:
-                _C_ops.assign_out_(input, output)
-        elif in_pir_mode():
+        if in_dynamic_or_pir_mode():
             if output is None:
                 output = _C_ops.assign(input)
             else:
@@ -2552,6 +2685,7 @@ def assign(x: TensorLike, output: paddle.Tensor | None = None) -> paddle.Tensor:
                     'uint16',
                     'float32',
                     'float64',
+                    'int16',
                     'int32',
                     'int64',
                     'uint8',
@@ -2747,6 +2881,8 @@ def _memcpy(input, place=None, output=None) -> paddle.Tensor:
             dst_place_type = 2
         elif p.is_xpu_place():
             dst_place_type = 3
+        elif p.is_custom_place():
+            dst_place_type = 4
 
     if in_pir_mode():
         return _C_ops.memcpy(input, dst_place_type)
@@ -3049,8 +3185,8 @@ def polar(
 @dygraph_only
 def cauchy_(
     x: paddle.Tensor,
-    loc: Numberic = 0,
-    scale: Numberic = 1,
+    loc: Numeric = 0,
+    scale: Numeric = 1,
     name: str | None = None,
 ) -> paddle.Tensor:
     """Fills the tensor with numbers drawn from the Cauchy distribution.
@@ -3121,3 +3257,125 @@ def geometric_(
     x.uniform_(min=float(tiny), max=float(1))
     x.log_().divide_(paddle.log1p(-(probs)))
     return x
+
+
+@inplace_apis_in_dygraph_only
+def set_(
+    x: paddle.Tensor,
+    source: paddle.Tensor | None = None,
+    shape: Sequence[int] | None = None,
+    stride: Sequence[int] | None = None,
+    offset: int = 0,
+    name: str | None = None,
+) -> paddle.Tensor:
+    """
+    set x with specified source Tensor's underlying storage, shape, stride and offset.
+
+    Note that the ``x`` will share the same data with ``source`` Tensor.
+
+    Args:
+        x (Tensor): An arbitrary Tensor. The data type supports ``bfloat16``, ``float16``, ``float32``, ``float64``,
+            ``bool``, ``int8``, ``int16``, ``int32``, ``int64``, ``uint8``, ``complex64`` or ``complex128``.
+        source (Tensor|None, optional): Define the target Tensor to use. The data type supports `bfloat16`, ``float16``,
+            ``float32``, ``float64``, ``bool``, ``int8``, ``int16``, ``int32``, ``int64``, ``uint8``, ``complex64`` or
+            ``complex128``. Default: None, which means to set ``x`` with an empty source tensor.
+        shape (list|tuple|None, optional): Define the target shape. Each element of it should be integer. Default: None,
+            which means it will use the specified ``source``'s shape as default value.
+        stride (list|tuple|None, optional): Define the target stride. Each element of it should be integer. Default: None,
+            and when ``shape`` is also None, it will use the specified ``source``'s stride as default value; when ``shape``
+            is specified, it will use the default stride corresponding to the specified ``shape``.
+        offset (int, optional): Define the target offset from x's holder. Default: 0.
+        name (str|None, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
+
+    Returns:
+        Tensor, the Tensor with the same data type as ``x``.
+
+    Examples:
+        .. code-block:: python
+
+            >>> import paddle
+
+            >>> src = paddle.to_tensor([[11., 22., 33.]])
+            >>> src2 = paddle.to_tensor([11., 22., 33., 44., 55., 66.])
+
+            >>> x = paddle.to_tensor([1., 2., 3., 4., 5.])
+            >>> x.set_()
+            >>> print(x)
+            Tensor(shape=[0], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [])
+
+            >>> x = paddle.to_tensor([1., 2., 3., 4., 5.])
+            >>> x.set_(src)
+            >>> print(x)
+            Tensor(shape=[1, 3], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [[11., 22., 33.]])
+
+            >>> print(x._is_shared_buffer_with(src))
+            True
+
+            >>> x = paddle.to_tensor([1., 2., 3., 4., 5.])
+            >>> x.set_(src, shape=[2, 1])
+            >>> print(x)
+            Tensor(shape=[2, 1], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [[11.],
+             [22.]])
+
+            >>> x = paddle.to_tensor([1., 2., 3., 4., 5.])
+            >>> x.set_(src2, shape=[3], stride=[2])
+            >>> print(x)
+            Tensor(shape=[3], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [11., 33., 55.])
+
+            >>> x = paddle.to_tensor([1., 2., 3., 4., 5.])
+            >>> x.set_(src2, shape=[5], offset=4)
+            >>> print(x)
+            Tensor(shape=[5], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [22., 33., 44., 55., 66.])
+
+    """
+    if in_dynamic_mode():
+        # set_ doesn't have backward op so EagerUtils::CheckInplace will not be
+        # called in eager_generator.cc. Here to keep consistent with other inplace
+        # op, manually check whether x is leaf node and doesn't stop gradient.
+        if x.is_leaf and not x.stop_gradient:
+            raise ValueError(
+                f"(InvalidArgument) Leaf Tensor {x.name} that doesn't stop gradient can't use "
+                "inplace strategy."
+            )
+        if source is None:
+            source = paddle.empty([0], dtype=x.dtype)
+            shape = [0]
+            stride = [0]
+        else:
+            if not isinstance(source, (Variable, core.eager.Tensor)):
+                raise ValueError(
+                    f"Input (source) should be paddle.Tensor but received {type(source)}"
+                )
+            check_dtype(
+                source.dtype,
+                'source',
+                [
+                    'bool',
+                    'float16',
+                    'uint16',
+                    'float32',
+                    'float64',
+                    'int8',
+                    'int16',
+                    'int32',
+                    'int64',
+                    'uint8',
+                    'complex64',
+                    'complex128',
+                ],
+                'set',
+            )
+        if stride is None:
+            if shape is None:
+                stride = source.strides
+            else:
+                stride = paddle.empty(shape).strides
+        if shape is None:
+            shape = source.shape
+
+        return _C_ops.set_(x, source, shape, stride, offset)

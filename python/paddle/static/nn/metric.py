@@ -250,6 +250,11 @@ def auc(
             ins_tag_weight = paddle.full(
                 shape=[1, 1], dtype="float32", fill_value=1.0
             )
+        check_variable_and_dtype(input, 'input', ['float32', 'float64'], 'auc')
+        check_variable_and_dtype(label, 'label', ['int32', 'int64'], 'auc')
+        check_variable_and_dtype(
+            ins_tag_weight, 'ins_tag_weight', ['float32', 'float64'], 'auc'
+        )
         stat_pos = paddle.zeros(shape=[1, num_thresholds + 1], dtype="int64")
         stat_neg = paddle.zeros(shape=[1, num_thresholds + 1], dtype="int64")
         auc_out, batch_stat_pos, batch_stat_neg = _C_ops.auc(
@@ -260,7 +265,7 @@ def auc(
             ins_tag_weight,
             curve,
             num_thresholds,
-            slide_steps,
+            0,
         )
         return (
             auc_out,
@@ -385,7 +390,7 @@ def ctr_metric_bundle(input, label, ins_tag_weight=None):
                          data. The height is batch size and width is always 1.
         ins_tag_weight(Tensor): A 2D int Tensor indicating the ins_tag_weight of the training
                          data. 1 means real data, 0 means fake data.
-                         A LoDTensor or Tensor with type float32,float64.
+                         A DenseTensor or Tensor with type float32,float64.
 
     Returns:
         local_sqrerr(Tensor): Local sum of squared error
@@ -399,6 +404,7 @@ def ctr_metric_bundle(input, label, ins_tag_weight=None):
         .. code-block:: python
             :name: example-1
 
+            >>> # doctest: +SKIP("This has diff in xdoctest env")
             >>> import paddle
             >>> paddle.enable_static()
             >>> data = paddle.static.data(name="data", shape=[-1, 32], dtype="float32")
@@ -409,6 +415,7 @@ def ctr_metric_bundle(input, label, ins_tag_weight=None):
         .. code-block:: python
             :name: example-2
 
+            >>> # doctest: +SKIP("This has diff in xdoctest env")
             >>> import paddle
             >>> paddle.enable_static()
             >>> data = paddle.static.data(name="data", shape=[-1, 32], dtype="float32")

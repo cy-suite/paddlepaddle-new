@@ -25,7 +25,7 @@ inline bool FoundOneDNNKernelWithCorrectDataType(
   auto it = all_kernels.find(op_type);
   if (it != all_kernels.end()) {
     for (auto& kernel_pair : it->second) {
-      if (platform::is_cpu_place(kernel_pair.first.place_) &&
+      if (phi::is_cpu_place(kernel_pair.first.place_) &&
           (kernel_pair.first.library_type_ ==
            framework::LibraryType::kMKLDNN)) {
         if (!op->inputs.empty()) {
@@ -54,8 +54,7 @@ inline bool FoundPhiOneDNNKernelWithCorrectDataType(
       if (!op->inputs.empty()) {
         if (op->inputs[0]->IsVar() && op->inputs[0]->Var()->Name() != "feed" &&
             kernel_pair.first.dtype() ==
-                framework::TransToPhiDataType(
-                    op->inputs[0]->Var()->GetDataType()))
+                phi::TransToPhiDataType(op->inputs[0]->Var()->GetDataType()))
           return true;
       } else {
         return true;

@@ -27,6 +27,7 @@ from paddle import pir
 from paddle.autograd.backward_utils import (
     ValueSet,
     get_real_op_inputs,
+    get_real_op_outputs,
     some_in_set,
 )
 from paddle.base import (
@@ -67,7 +68,10 @@ def get_pir_parameters(program):
     params = []
     opts = []
     for var in program.list_vars():
-        if var.is_parameter:
+        if (
+            var.is_parameter
+            or var.get_defining_op().name() == "builtin.parameter"
+        ):
             params.append(var)
         elif var.persistable and var.get_defining_op().name() == "pd_op.data":
             opts.append(var)
@@ -168,11 +172,15 @@ def pir_prune_with_input(program, feed_vars, target_vars):
 
     total_ops = program.global_block().ops
     intersection_op_flags = [True] * len(total_ops)
+    skip_prune_ops = ["builtin.parameter"]
 
     # from output to input
     target_vars_ = ValueSet(target_vars)
     for i, op in reversed(list(enumerate(total_ops))):
-        if some_in_set(op.results(), target_vars_):
+        if (
+            some_in_set(get_real_op_outputs(op), target_vars_)
+            or op.name() in skip_prune_ops
+        ):
             for operand in get_real_op_inputs(op):
                 target_vars_.add(operand)
         else:
@@ -180,7 +188,7 @@ def pir_prune_with_input(program, feed_vars, target_vars):
 
     for i, op in reversed(list(enumerate(total_ops))):
         if not intersection_op_flags[i]:
-            if some_in_set(op.results(), ValueSet(feed_vars)):
+            if some_in_set(get_real_op_outputs(op), ValueSet(feed_vars)):
                 raise ValueError(
                     f"The feed_var create by: '{op.name()}' is not involved in the target_vars calculation"
                     f"Please remove it from feed_vars ."
@@ -276,6 +284,11 @@ def normalize_pir_program(program, feed_vars, fetch_vars, **kwargs):
     if not all(isinstance(v, pir.Value) for v in fetch_vars):
         raise TypeError("fetch_vars type must be a Value or a list of Value.")
 
+    if len(program.global_block().ops) == 0:
+        raise ValueError(
+            "program must not be empty. at least one operator is required!"
+        )
+
     # remind users to set auc_states to 0 if auc op were found.
     for op in program.global_block().ops:
         if op.name() == 'pd_op.auc':
@@ -283,18 +296,6 @@ def normalize_pir_program(program, feed_vars, fetch_vars, **kwargs):
                 "Be sure that you have set auc states to 0 before saving inference model."
             )
             break
-
-    # fix the bug that the activation op's output as target will be pruned.
-    # will affect the inference performance.
-    # TODO(Superjomn) add an IR pass to remove 1-scale op.
-
-    with paddle.static.program_guard(program):
-        uniq_fetch_vars = []
-        for var in fetch_vars:
-            if var.dtype != paddle.bool:
-                var_ = paddle.scale(var, 1.0)
-                uniq_fetch_vars.append(var_)
-            fetch_vars = uniq_fetch_vars
 
     # serialize program
     value_map = paddle.pir.IrMapping()
@@ -309,17 +310,20 @@ def normalize_pir_program(program, feed_vars, fetch_vars, **kwargs):
             global_block.remove_op(op)
 
     skip_prune_program = kwargs.get('skip_prune_program', False)
-    # if feed var is not conect with target_vars, it will be delete.
+    # if feed var is not connect with target_vars, it will be delete.
     if not skip_prune_program:
         pir_prune_with_input(copy_program, clone_feed_vars, clone_fetch_vars)
     _inference_optimize(copy_program, prune_read_op=True)
 
     fetch_vars_tuple = []
     for i, var in enumerate(clone_fetch_vars):
-        if "name" in var.get_defining_op().attrs():
-            fetch_vars_tuple.append(
-                (var, var.get_defining_op().attrs()['name'])
-            )
+        scale_op = var.get_defining_op()
+        if scale_op.name() == "pd_op.scale":
+            orig_var = scale_op.operand_source(0)
+        else:
+            orig_var = var
+        if orig_var.has_name:
+            fetch_vars_tuple.append((orig_var, orig_var.name))
         else:
             fetch_vars_tuple.append((var, "fetch_name_" + str(i)))
     with paddle.static.program_guard(copy_program):

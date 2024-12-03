@@ -15,6 +15,9 @@
 #include "paddle/fluid/distributed/collective/async_load.h"
 #include "paddle/phi/common/memory_utils.h"
 
+COMMON_DECLARE_bool(use_stream_safe_cuda_allocator);
+COMMON_DECLARE_bool(use_cuda_malloc_async_allocator);
+
 namespace paddle {
 namespace distributed {
 
@@ -26,10 +29,15 @@ AsyncLoad::Task::~Task() {}
 
 bool AsyncLoad::Task::IsCompleted() { return load_event_.Query(); }
 
-void AsyncLoad::Task::Synchronize() {
+void AsyncLoad::Task::CudaSynchronize() {
   const auto* calc_ctx =
       platform::DeviceContextPool::Instance().Get(task_place_);
   load_event_.Wait(platform::Place2DeviceType(task_place_), calc_ctx);
+}
+
+void AsyncLoad::Task::CpuSynchronize() {
+  // cudaEventSynchronize
+  load_event_.Finish();
 }
 
 void AsyncLoad::Task::UpdateWaitChain(const phi::DeviceContext& ctx) {
@@ -44,7 +52,7 @@ void AsyncLoad::SyncCalcuStream(const Place& place,
                                 phi::GPUContext* ctx,
                                 platform::DeviceEvent& calc_event) {  // NOLINT
   const auto* calc_ctx = static_cast<phi::GPUContext*>(
-      platform::DeviceContextPool::Instance().Get(place));
+      phi::DeviceContextPool::Instance().Get(place));
   calc_event.Record(calc_ctx);
   calc_event.Wait(platform::Place2DeviceType(place), ctx);
 }
@@ -55,15 +63,15 @@ std::shared_ptr<AsyncLoad::Task> AsyncLoad::Offload(
   const auto& place = src.place();
 
   PADDLE_ENFORCE_EQ(
-      platform::is_gpu_place(place),
+      phi::is_gpu_place(place),
       true,
-      platform::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "AsyncLoad::Offload only support GPU -> GPUPinned now."));
 
   dst->Resize(src.dims());
   auto size = src.numel() * phi::SizeOf(src.dtype());
   auto* dev_ctx = static_cast<phi::GPUContext*>(
-      platform::DeviceContextPool::Instance().Get(place));
+      phi::DeviceContextPool::Instance().Get(place));
   auto* dst_ptr = dev_ctx->Alloc(dst, src.dtype(), size, true);
   auto* src_ptr = src.data();
 
@@ -75,7 +83,7 @@ std::shared_ptr<AsyncLoad::Task> AsyncLoad::Offload(
     gpu_place_ = place;
     place_to_calc_event_.emplace(
         key, platform::DeviceEvent(place, platform::GenerateDeviceEventFlag()));
-    load_ctx_ = std::move(std::make_unique<phi::GPUContext>(place));
+    load_ctx_ = std::make_unique<phi::GPUContext>(place);
   }
   SyncCalcuStream(gpu_place_, load_ctx_.get(), place_to_calc_event_.at(key));
 
@@ -83,6 +91,11 @@ std::shared_ptr<AsyncLoad::Task> AsyncLoad::Offload(
   auto stream = load_ctx_->stream();
   phi::memory_utils::Copy(
       dst->place(), dst_ptr, src.place(), src_ptr, size, stream);
+
+  if (FLAGS_use_stream_safe_cuda_allocator ||
+      FLAGS_use_cuda_malloc_async_allocator) {
+    memory::RecordStream(src.Holder(), stream);
+  }
 
   // 3. record event on offload stream
   auto task = CreateTask(place);
@@ -95,18 +108,18 @@ std::shared_ptr<AsyncLoad::Task> AsyncLoad::Reload(
   // GPUPinned -> GPU
   const auto& place = src.place();
   PADDLE_ENFORCE_EQ(
-      platform::is_cuda_pinned_place(place),
+      phi::is_cuda_pinned_place(place),
       true,
-      platform::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "AsyncLoad::Reload only support GPUPinned -> GPU now."));
 
   PADDLE_ENFORCE_EQ(is_initialized_,
                     true,
-                    platform::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "You should call Offload before Reload."));
 
   auto* dev_ctx = static_cast<phi::GPUContext*>(
-      platform::DeviceContextPool::Instance().Get(gpu_place_));
+      phi::DeviceContextPool::Instance().Get(gpu_place_));
 
   dst->Resize(src.dims());
   auto size = src.numel() * phi::SizeOf(src.dtype());

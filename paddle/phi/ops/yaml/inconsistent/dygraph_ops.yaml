@@ -31,12 +31,14 @@
     backend : place
   data_transform :
     support_trans_dtype : start, end, step
+  traits : paddle::dialect::ForwardOnlyTrait
 
 - op : assign
   args : (Tensor x)
   output : Tensor
   infer_meta :
     func : UnchangedInferMeta
+    spmd_rule : AssignInferSpmd
   kernel :
     func : assign
   backward : assign_grad
@@ -131,6 +133,7 @@
   kernel :
     func : embedding_grad
     data_type : weight
+  traits : paddle::dialect::ForwardOnlyTrait
 
 - op : equal
   args : (Tensor x, Tensor y)
@@ -163,6 +166,7 @@
     data_type : params
   optional : skip_update, master_params
   inplace : (params -> params_out), (moments1 -> moments1_out), (moments2 -> moments2_out), (beta1_pows -> beta1_pows_out), (beta2_pows -> beta2_pows_out), (master_params -> master_params_out)
+  traits : paddle::dialect::ForwardOnlyTrait
 
 - op : fused_gemm_epilogue
   args : (Tensor x, Tensor y, Tensor bias, bool trans_x, bool trans_y, str activation)
@@ -176,6 +180,7 @@
   output : Tensor(out)
   infer_meta :
     func : CompareInferMeta
+    spmd_rule : ElementwiseBinaryInferSpmd
   kernel :
     func : greater_equal
   inplace: (x -> out)
@@ -186,6 +191,7 @@
   output : Tensor(out)
   infer_meta :
     func : CompareInferMeta
+    spmd_rule : ElementwiseBinaryInferSpmd
   kernel :
     func : greater_than
   inplace: (x -> out)
@@ -206,6 +212,7 @@
   output : Tensor(out)
   infer_meta :
     func : CompareInferMeta
+    spmd_rule : ElementwiseBinaryInferSpmd
   kernel :
     func : less_equal
   inplace: (x -> out)
@@ -216,6 +223,7 @@
   output : Tensor(out)
   infer_meta :
     func : CompareInferMeta
+    spmd_rule : ElementwiseBinaryInferSpmd
   kernel :
     func : less_than
   inplace: (x -> out)
@@ -287,25 +295,11 @@
   output : Tensor (out)
   infer_meta :
     func : ElementwiseInferMeta
+    param: [x, y]
   kernel :
     func : remainder
   inplace : (x -> out)
-  traits : paddle::dialect::ForwardOnlyTrait
-
-- op : reshape
-  args : (Tensor x, IntArray shape)
-  output : Tensor(out), Tensor(xshape)
-  infer_meta :
-    func : ReshapeWithXShapeInferMeta
-    spmd_rule : ReshapeInferSpmdDynamic
-    local_shape: shape
-    global_shape: out
-  kernel :
-    func : reshape
-  inplace : (x -> out)
-  view: (x -> out)
-  intermediate : xshape
-  backward: reshape_grad
+  backward: remainder_grad
 
 - op : set_value
   args : (Tensor x, IntArray starts, IntArray ends, IntArray steps, int64_t[] axes, int64_t[] decrease_axes, int64_t[] none_axes, int64_t[] shape, Scalar[] values)
@@ -340,6 +334,28 @@
   inplace : (x -> out)
   backward : subtract_grad
 
+- op : sync_comm_stream
+  args : (Tensor[] x, int ring_id = 0)
+  output : Tensor[](out){x.size()}
+  infer_meta :
+    func : UnchangedVectorInferMeta
+    param : [x]
+  kernel :
+    func : sync_comm_stream
+    data_type : DataType::FLOAT32
+  traits : paddle::dialect::ForwardOnlyTrait
+
+- op : tensor_unfold
+  args : (Tensor input, int64_t axis, int64_t size, int64_t step)
+  output : Tensor
+  infer_meta :
+    func : StridedUnChangedInferMeta
+    param : [input]
+  kernel :
+    func : tensor_unfold
+  backward : tensor_unfold_grad
+  no_need_buffer : input
+
 - op : tile
   args : (Tensor x, IntArray repeat_times = {})
   output : Tensor(out)
@@ -360,3 +376,4 @@
     func : unique
     data_type : x
   optional : indices, inverse, counts
+  traits : paddle::dialect::ForwardOnlyTrait

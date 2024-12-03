@@ -26,7 +26,6 @@ import paddle
 from paddle import base
 from paddle.base import core, framework
 from paddle.framework import in_pir_mode
-from paddle.pir_utils import test_with_pir_api
 
 
 class TestEyeOp(OpTest):
@@ -92,8 +91,24 @@ class TestEyeOp2(OpTest):
         self.check_output(check_pir=True)
 
 
+class TestEyeOp3(OpTest):
+    def setUp(self):
+        '''
+        Test eye op with np.int32 scalar
+        '''
+        self.python_api = paddle.eye
+        self.op_type = "eye"
+
+        self.inputs = {}
+        self.attrs = {'num_rows': np.int32(99), 'num_columns': np.int32(1)}
+        self.outputs = {'Out': np.eye(99, 1, dtype=float)}
+
+    def test_check_output(self):
+        self.check_output(check_pir=True)
+
+
 class API_TestTensorEye(unittest.TestCase):
-    @test_with_pir_api
+
     def test_static_out(self):
         with paddle.static.program_guard(paddle.static.Program()):
             data = paddle.eye(10)
@@ -126,7 +141,6 @@ class API_TestTensorEye(unittest.TestCase):
         paddle.enable_static()
         self.assertEqual((out.numpy() == expected_result).all(), True)
 
-    @test_with_pir_api
     def test_errors(self):
         with paddle.static.program_guard(paddle.static.Program()):
 
@@ -151,7 +165,6 @@ class TestEyeRowsCol(UnittestBase):
         self.shapes = [[2, 3, 4]]
         self.save_path = os.path.join(self.temp_dir.name, self.path_prefix())
 
-    @test_with_pir_api
     def test_static(self):
         main_prog = paddle.static.Program()
         startup_prog = paddle.static.Program()

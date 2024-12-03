@@ -115,8 +115,23 @@ def test_ord(x: str):
 
 
 @check_no_breakgraph
+def test_min():
+    return min(9, 8, 2, 4, 1, 7, 3, 5, 6)
+
+
+@check_no_breakgraph
+def test_max():
+    return max(9, 8, 2, 4, 1, 7, 3, 5, 6)
+
+
+@check_no_breakgraph
 def test_sqrt(x: int):
     return math.sqrt(x)
+
+
+@check_no_breakgraph
+def test_log(x: int):
+    return math.log(x)
 
 
 class TestBuiltinDispatch(TestCaseBase):
@@ -251,6 +266,15 @@ class TestBuiltinDispatch(TestCaseBase):
     def test_dispatch_sqrt(self):
         self.assert_results(test_sqrt, 9)
 
+    def test_dispatch_log(self):
+        self.assert_results(test_log, math.e)
+
+    def test_dispatch_min(self):
+        self.assert_results(test_min)
+
+    def test_dispatch_max(self):
+        self.assert_results(test_max)
+
 
 def run_getattr(x: paddle.Tensor):
     attr = 'dtype'
@@ -311,8 +335,7 @@ class TestHasattr(TestCaseBase):
         self.assert_results(layer_hasattr, x)
 
 
-class WeakrefableObject:
-    ...
+class WeakrefableObject: ...
 
 
 def weakref_breakgraph(obj):
