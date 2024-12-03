@@ -38,10 +38,8 @@ void* BackendResource::GetInferFuncPtr() const {
 }
 
 void* BackendResource::GetCX86HostFuncPtr() const {
-  std::cerr << "get x86 host kernel\n";
   VLOG(4) << "Lookup kernel name: " << host_fn_name_ + "_CX86";
   void* ptr = backend_compiler_->Lookup(host_fn_name_ + "_CX86");
-  std::cerr << "finish get x86 host kernel\n";
   PADDLE_ENFORCE_NOT_NULL(
       ptr,
       ::common::errors::InvalidArgument("Can't find kernel function %s",
