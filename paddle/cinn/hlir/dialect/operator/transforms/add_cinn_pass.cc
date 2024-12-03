@@ -232,6 +232,8 @@ void ApplyCinnLowerPass(
   }
   pass_manager->AddPass(
       cinn::dialect::ir::CreateSplitGenerateShapeIntoShapeOpsPass());
+  pass_manager->AddPass(
+      cinn::dialect::ir::CreateFuseShapeOpsIntoGenerateShapeOpPass());
 
   pass_manager->Run(program);
 }

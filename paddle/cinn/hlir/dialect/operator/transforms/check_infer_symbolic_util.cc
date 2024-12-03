@@ -20,6 +20,7 @@
 #include <memory>
 #include <optional>
 #include "paddle/cinn/hlir/dialect/operator/transforms/check_infer_symbolic_pass.h"
+#include "paddle/cinn/hlir/dialect/operator/transforms/fuse_shape_ops_into_generate_shape_op_pass.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/local_infer_symbolic_util.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/split_generate_shape_into_shape_ops_pass.h"
 #include "paddle/common/flags.h"
@@ -632,6 +633,9 @@ void CheckInferSymbolicIfNeed(pir::Program* program,
   std::shared_ptr<pir::PassManager> pass_manager = CreatePassManager();
   pass_manager->AddPass(CreateCheckInferSymbolicPass(GraphDimExprs4Value));
   pass_manager->AddPass(CreateSplitGenerateShapeIntoShapeOpsPass());
+  pass_manager->AddPass(
+      cinn::dialect::ir::CreateFuseShapeOpsIntoGenerateShapeOpPass());
+
   pass_manager->Run(program);
 }
 
