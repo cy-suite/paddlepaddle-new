@@ -21,6 +21,12 @@ mkdir -p /workspace/case_logs
 export log_path=/workspace/case_logs
 export case_list=()
 
+global_total_count=0
+global_success_count=0
+global_exit_250_arr=()
+global_runtime_fail_arr=()
+global_verification_fail_arr=()
+
 install_paddle(){
     echo -e "\033[31m ---- Install paddlepaddle-gpu  \033"
     if [ -n "$paddle" ];then
@@ -89,34 +95,55 @@ else
 fi
 }
 
-function track_case_status() {
-    local case_name="$1"
-    local prefix="$2"
-    local original_path
-
-    original_path=$(pwd)
+function execute_func_list(){
     cd ${log_path} || { echo "Failed to enter log_path: $log_path"; return 1; }
-
-    total_count=$(ls -1 "$prefix"* 2>/dev/null | wc -l)
-    run_fail_count=$(ls -1 "$prefix"*_FAIL* 2>/dev/null | wc -l)
-    loss_fail_count=$(grep 'check failed! ' result.log | awk -v prefix="$prefix" '{if ($2 ~ "^" prefix) print $2}'| wc -l)
-
-    echo -e "\033[31m ---- $case_name total tests :  $total_count \033"
-    if [ $run_fail_count -eq 0 ] && [ $loss_fail_count  -eq 0 ]; then
-        echo -e "\033[32m ---- all cases Success  \033"
-    else
-        if [[ $run_fail_count -ne 0 ]] ; then
-            echo -e "\033[31m ---- $case_name runtime failed test  :  $run_fail_count \033"
-            ls -1 "$prefix"*_FAIL* 2>/dev/null | awk -v OFS="\t" '{print "\t" $0 "(failed)"}'
-        fi
-        if [[ $loss_fail_count -ne 0 ]] ; then
-            echo -e "\033[31m ---- $case_name verification failed test  :  $loss_fail_count \033"
-            grep 'check failed! ' result.log | awk -v prefix="$prefix" 'BEGIN {OFS="\t"} {if ($2 ~ "^" prefix) print "\t" $2 "(failed)"}'
-        fi
-        return 2
-    fi
-    cd "$original_path" || { echo "Failed to return to original path: $original_path"; return 1; }
-    return 0
+    total_count=0
+    success_count=0
+    runtime_fail_count=0
+    verification_fail_count=0
+    exit_250_count=0
+    while IFS= read -r func_name; do
+        let total_count++
+        let global_total_count++
+        execute_num=1
+        while true; do
+            bash $1 exec_case $func_name $FLAGS_install_deps $FLAGS_download_data
+            result=$?
+            if [ $result -eq 0 ]; then
+                echo -e "\033[32m test success!"
+                let success_count++
+                let global_success_count++
+            elif [ $result -eq 2 ]; then
+                echo -e "\033[31m verification failed!"
+                let verification_fail_count++
+                global_verification_fail_arr+=("$func_name")
+            elif [ $result -eq 250 ]; then
+                if [ $execute_num -eq 1 ]; then
+                    echo -e "\033[31m fist time execute failed, try again!"
+                    let execute_num++
+                    continue
+                else
+                    echo -e "\033[31m second time execute failed, exit!"
+                    let exit_250_count++
+                    global_exit_250_arr+=("$func_name")
+                fi
+            else
+                echo "test failed!"
+                mv ${log_path}/$func_name ${log_path}/${func_name}_FAIL.log
+                echo -e "\033[31m ${log_path}/$func_name_FAIL \033"
+                tail -15 ${log_path}/${func_name}_FAIL.log
+                let runtime_fail_count++
+                global_runtime_fail_arr+=("$func_name")
+            fi
+            break
+        done
+    done < functions.txt
+    echo -e "\033[31m $2 test case has complicated \033"
+    echo -e "\033[31m $(printf '\t')  total tests :  $total_count \033"
+    echo -e "\033[31m $(printf '\t')  success tests :  $success_count \033"
+    echo -e "\033[31m $(printf '\t')  runtime fail tests :  $runtime_fail_count \033"
+    echo -e "\033[31m $(printf '\t')  verification fail tests :  $verification_fail_count \033"
+    echo -e "\033[31m $(printf '\t')  exit 250 tests(intermittent issue) :  $exit_250_count \033"
 }
 
 # Get the list of pending cases
@@ -139,23 +166,9 @@ if [[ ${#case_list[*]} -ne 0 ]];then
     export FLAGS_install_deps=0
     for case in ${case_list[*]};do
         echo -e "\033[31m ---- running case $case_num/${#case_list[*]}: ${case} \033"
-        if [[ ${case} == "llama_auto" ]];then
-            bash /workspace/PaddleNLP/scripts/distribute/ci_case_auto.sh llama_case_list_auto $FLAGS_install_deps $FLAGS_download_data
-            print_info $? `ls -lt ${log_path} | grep "llama" | head -n 1 | awk '{print $9}'` ${case}
-            export FLAGS_install_deps=1
-            export FLAGS_download_data="llama ""$FLAGS_download_data"
-            let case_num++
-        elif [[ ${case} == "auto_unit_test" ]];then
+        if [[ ${case} == "auto_unit_test" ]];then
             bash /workspace/Paddle/tools/auto_parallel/ci_case_unit.sh auto_unit_test
             print_info $? `ls -lt ${log_path} | grep "test" | head -n 1 | awk '{print $9}'` ${case}
-            let case_num++
-        elif [[ ${case} == "gpt-3_auto" ]];then
-            bash /workspace/PaddleNLP/scripts/distribute/ci_case_auto.sh llm_gpt_case_list_auto $FLAGS_install_deps $FLAGS_download_data
-            print_info $? `ls -lt ${log_path} | grep "llm_gpt_dygraph_auto_" | head -n 1 | awk '{print $9}'` ${case}
-            let case_num++
-        elif [[ ${case} == "gpt-3_dygraph" ]];then
-            bash /workspace/PaddleNLP/scripts/distribute/ci_case_dy.sh llm_gpt_case_list_dygraph $FLAGS_install_deps $FLAGS_download_data
-            print_info $? `ls -lt ${log_path} | grep "llm_gpt" | head -n 1 | awk '{print $9}'` ${case}
             let case_num++
         elif [[ ${case} == "dygraph_unit_test" ]];then
             bash /workspace/Paddle/tools/auto_parallel/ci_case_unit.sh dygraph_unit_test
@@ -165,6 +178,23 @@ if [[ ${#case_list[*]} -ne 0 ]];then
             bash /workspace/Paddle/tools/auto_parallel/ci_case_unit.sh llama_auto_unit_test
             print_info $? `ls -lt ${log_path} | grep "test" | head -n 1 | awk '{print $9}'` ${case}
             let case_num++
+        elif [[ ${case} == "llama_auto" ]];then
+            cmd=/workspace/PaddleNLP/scripts/distribute/ci_case_auto.sh
+            bash $cmd prepare_case llama_case_list_auto $FLAGS_install_deps $FLAGS_download_data
+            execute_func_list $cmd llama_auto
+            export FLAGS_install_deps=1
+            export FLAGS_download_data="llama ""$FLAGS_download_data"
+            let case_num++
+        elif [[ ${case} == "gpt-3_auto" ]];then
+            cmd=/workspace/PaddleNLP/scripts/distribute/ci_case_auto.sh
+            bash $cmd prepare_case llm_gpt_case_list_auto $FLAGS_install_deps $FLAGS_download_data
+            execute_func_list $cmd gpt-3_auto
+            let case_num++
+        elif [[ ${case} == "gpt-3_dygraph" ]];then
+            cmd=/workspace/PaddleNLP/scripts/distribute/ci_case_dy.sh
+            bash $cmd prepare_case llm_gpt_case_list_dygraph $FLAGS_install_deps $FLAGS_download_data
+            execute_func_list $cmd gpt-3_dygraph
+            let case_num++
         else
             echo -e "\033[31m ---- no ${case} \033"
             let case_num++
@@ -172,8 +202,28 @@ if [[ ${#case_list[*]} -ne 0 ]];then
     done
     echo -e "\033[31m ---- end run case  \033"
 
-    track_case_status  $FUNCNAME ""
-    EXCODE=$?
+    echo -e "\033[31m ---- total tests :  $global_total_count \033"
+    if [ ${#global_exit_250_arr[@]} -ne 0 ]; then
+        echo -e "\033[32m ---- exit 250 test  :  ${#global_exit_250_arr[@]} \033"
+        for case in "${global_exit_250_arr[@]}"; do
+            echo -e "\t$case(exit 250)"
+        done
+    fi
+
+    if [ ${#global_runtime_fail_arr[@]} -eq 0 ] && [ ${#global_verification_fail_arr[@]} -eq 0 ]; then
+        echo -e "\033[32m ---- all cases Success  \033"
+        EXCODE=0
+    else
+        echo -e "\033[32m ---- runtime failed test  :  ${#global_runtime_fail_arr[@]} \033"
+        for case in "${global_runtime_fail_arr[@]}"; do
+            echo -e "\t$case(failed)"
+        done
+        echo -e "\033[32m ---- verification failed test  :  ${#global_verification_fail_arr[@]} \033"
+        for case in "${global_verification_fail_arr[@]}"; do
+            echo -e "\t$case(failed)"
+        done
+        EXCODE=1
+    fi
 else
     echo -e "\033[32m Changed Not CI case, Skips \033"
     EXCODE=0
