@@ -143,15 +143,6 @@ Tensor& Op::operator()() const {
 thread_local int64_t Op::count = 0;
 const char* Op::prefix = "@drr_temp@_";
 
-TEST_API const char Tensor::SOURCE_INPUT_NONE_TENSOR_NAME[] =  // NOLINT
-    "__@source_input_none_tensor@__";
-TEST_API const char Tensor::SOURCE_OUTPUT_NONE_TENSOR_NAME[] =  // NOLINT
-    "__@source_output_none_tensor@__";
-TEST_API const char Tensor::RESULT_INPUT_NONE_TENSOR_NAME[] =  // NOLINT
-    "__@result_input_none_tensor@__";
-TEST_API const char Tensor::RESULT_OUTPUT_NONE_TENSOR_NAME[] =  // NOLINT
-    "__@result_output_none_tensor@__";
-
 void Tensor::Assign(const Tensor& other) {
   dynamic_cast<ResultPatternGraph*>(pattern_graph_)->AssignTensor(*this, other);
 }

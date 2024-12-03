@@ -181,10 +181,14 @@ class Op {
 
 class TEST_API Tensor {
  public:
-  static const char RESULT_INPUT_NONE_TENSOR_NAME[];
-  static const char RESULT_OUTPUT_NONE_TENSOR_NAME[];
-  static const char SOURCE_INPUT_NONE_TENSOR_NAME[];
-  static const char SOURCE_OUTPUT_NONE_TENSOR_NAME[];
+  static constexpr const char* RESULT_INPUT_NONE_TENSOR_NAME =
+      "__@result_input_none_tensor@__";
+  static constexpr const char* RESULT_OUTPUT_NONE_TENSOR_NAME =
+      "__@result_output_none_tensor@__";
+  static constexpr const char* SOURCE_INPUT_NONE_TENSOR_NAME =
+      "__@source_input_none_tensor@__";
+  static constexpr const char* SOURCE_OUTPUT_NONE_TENSOR_NAME =
+      "__@source_output_none_tensor@__";
 
   bool is_none() const {
     return name_ == RESULT_INPUT_NONE_TENSOR_NAME ||
