@@ -157,9 +157,6 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
                            ->GetOrCreateCommContext(place);
       }
 
-      // if (comm_context_manager.Has(std::to_string(ring_id))) {
-      //   auto comm_context =
-      //   comm_context_manager.Get(std::to_string(ring_id));
       if (comm_context) {
         dev_ctx = static_cast<platform::DeviceContext*>(
             static_cast<phi::distributed::NCCLCommContext*>(comm_context)
