@@ -2566,7 +2566,8 @@ void BindShapeOrDataDimExprs(pybind11::module *m) {
 
              const auto &compare_func =
                  [&](const std::vector<int64_t> &expect,
-                     const std::vector<symbol::DimExpr> &actual) -> bool {
+                     const std::vector<symbol::DimExpr> &actual,
+                     bool is_data = false) -> bool {
                const auto print_expect_and_actual = [&]() {
                  std::ostringstream sout;
                  sout << "expect: [";
@@ -2578,6 +2579,11 @@ void BindShapeOrDataDimExprs(pybind11::module *m) {
                  sout << "actual:" << actual << std::endl;
                  LOG(ERROR) << sout.str();
                };
+
+               if (is_data && actual.empty()) {
+                 // skip to check data if it haven't been set.
+                 return true;
+               }
 
                if (actual.size() != expect.size()) {
                  LOG(ERROR) << "expect size " << expect.size()
@@ -2612,6 +2618,7 @@ void BindShapeOrDataDimExprs(pybind11::module *m) {
 
              // compare shape
              const std::vector<symbol::DimExpr> &actual_shape = self.shape();
+             // compare data
              const std::optional<std::vector<symbol::DimExpr>> &actual_data_ =
                  self.data();
              std::vector<symbol::DimExpr> actual_data;
@@ -2621,7 +2628,7 @@ void BindShapeOrDataDimExprs(pybind11::module *m) {
                actual_data = {};
              }
              return compare_func(expect_shape, actual_shape) &&
-                    compare_func(expect_data, actual_data);
+                    compare_func(expect_data, actual_data, true);
            });
 }
 
