@@ -328,7 +328,8 @@ bool CanRunOnCpuKernel(const std::vector<::pir::Value>& vec_inputs,
 
     if (out.type().isa<DenseTensorType>()) {
       auto type = out.type().dyn_cast<DenseTensorType>();
-      if (phi::product(type.dims()) > 4) {
+      if (::common::contain_unknown_dim(type.dims()) ||
+          phi::product(type.dims()) > 4) {
         can_run_cpu = false;
         break;
       }
@@ -1523,8 +1524,12 @@ void HandleForPyLayerOp(
   auto old_pylayerop = op_item->dyn_cast<PyLayerOp>();
   std::vector<pir::Type> new_pylayerop_outputs;
   for (size_t i = 0; i < old_pylayerop.num_results(); ++i) {
-    new_pylayerop_outputs.push_back(
-        ConvertOpTypeToKernelType(ctx, old_pylayerop.result(i).type(), place));
+    if (!static_cast<bool>(old_pylayerop.result(i).type())) {
+      new_pylayerop_outputs.push_back(old_pylayerop.result(i).type());
+    } else {
+      new_pylayerop_outputs.push_back(ConvertOpTypeToKernelType(
+          ctx, old_pylayerop.result(i).type(), place));
+    }
   }
 
   // Create PyLayerOp and insert to kernel dialect program
@@ -2265,7 +2270,7 @@ void PushBackOutputTypes(pir::IrContext* ctx,
           data_layout = phi::DataLayout::ONEDNN;
         }
 #endif
-        phi::LoD lod = {{}};
+        phi::LegacyLoD lod = {{}};
         size_t offset = 0;
         auto dense_tensor_dtype = DenseTensorType::get(
             ctx, fp32_dtype, dims, data_layout, lod, offset);

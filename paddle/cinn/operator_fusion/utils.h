@@ -61,9 +61,9 @@ static size_t GetRank(pir::Value value) {
   return value.type().dyn_cast<pir::DenseTensorType>().dims().size();
 }
 
-// FIXME(Aurelius84): 0D Tensor is not compitable with other rank.
+// FIXME(Aurelius84): 0D Tensor is not compatible with other rank.
 // So we need to add a special case for 0D Tensor.
-static size_t GetCompitableRank(pir::Value value) {
+static size_t GetCompatibleRank(pir::Value value) {
   size_t rank = GetRank(value);
   return rank == 0 ? 1 : rank;
 }
@@ -404,7 +404,7 @@ struct ValueDim {
 
 static std::vector<ValueDim> GetAllValueDimFromValue(const pir::Value& v) {
   std::vector<ValueDim> value_dims;
-  size_t rank = GetCompitableRank(v);
+  size_t rank = GetCompatibleRank(v);
   for (size_t i = 0; i < rank; ++i) {
     value_dims.emplace_back(v, i);
   }
@@ -641,5 +641,16 @@ std::vector<Int> ArangeVector(Int start, Int end, Int step = 1) {
   }
   return res;
 }
+
+bool ShapeProductEqual(const std::vector<symbol::DimExpr>& in_shape,
+                       const std::vector<symbol::DimExpr>& out_shape,
+                       int in_start,
+                       int in_end,
+                       int out_start,
+                       int out_end);
+
+std::vector<std::pair<int, int>> PartionReshapeAxes(
+    const std::vector<symbol::DimExpr>& in_shape,
+    const std::vector<symbol::DimExpr>& out_shape);
 
 }  // namespace cinn::fusion

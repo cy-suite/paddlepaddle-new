@@ -559,13 +559,17 @@ void ShapeConstraintIRAnalysis::InferShapeOrDataForValue(Value val) {
         op->dyn_cast<pir::InferSymbolicShapeInterface>();
     if (infer_symbolic_shape_interface) {
       infer_symbolic_shape_interface.InferSymbolicShape(&context_);
+      int index = -1;
       for (auto& result_value : op->results()) {
+        index++;
         if (!result_value || !result_value.type()) {
           continue;
         }
         if (!context_.HasShapeOrDataForValue(result_value)) {
           PADDLE_THROW(common::errors::Fatal(
-              op->name() + " HAS ERROR on InferSymbolicShape!"));
+              op->name() +
+              " HAS ERROR on InferSymbolicShape! The result value with index " +
+              std::to_string(index) + " don't has shape or data."));
         }
       }
     } else {
@@ -607,6 +611,12 @@ ShapeConstraintIRAnalysis::GetShapeOrDataForValue(Value val) {
 void ShapeConstraintIRAnalysis::SetShapeOrDataForValue(
     Value val, const symbol::ShapeOrDataDimExprs& shape_or_data) {
   context_.SetShapeOrDataForValue(val, shape_or_data);
+}
+
+void ShapeConstraintIRAnalysis::ShareShapeOrData(Value from, Value to) {
+  if (context_.HasShapeOrDataForValue(from)) {
+    context_.SetShapeOrDataForValue(to, context_.GetShapeOrDataForValue(from));
+  }
 }
 
 bool ShapeConstraintIRAnalysis::IsEqual(const symbol::DimExpr& lhs,
