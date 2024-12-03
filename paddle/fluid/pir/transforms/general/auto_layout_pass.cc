@@ -153,6 +153,37 @@ class AutoLayoutPass : public pir::Pass {
     return is_insert_transpose;
   }
 
+  // Convert NCHW permutation to NHWC permutation
+  std::vector<pir::Attribute> ConvertNCHWToNHWC(
+      const std::vector<pir::Attribute>& nchw_perm) {
+    std::vector<pir::Attribute> nhwc_perm(4);
+    for (int i = 0; i < 4; ++i) {
+      int32_t nchw_perm_value =
+          nchw_perm[i].dyn_cast<pir::Int32Attribute>().data();
+      int32_t new_value =
+          nchw_perm_value == 0
+              ? 0
+              : (nchw_perm_value == 1 ? 3 : nchw_perm_value - 1);
+      nhwc_perm[i] = pir::Int32Attribute::get(ctx_, new_value);
+    }
+    return nhwc_perm;
+  }
+
+  void TransformTransposePerm(pir::Operation* op) {
+    if (op->isa<paddle::dialect::TransposeOp>()) {
+      std::vector<pir::Attribute> perm_values =
+          op->attribute<pir::ArrayAttribute>("perm").AsVector();
+
+      if (perm_values.size() == 4) {
+        std::vector<pir::Attribute> new_perm_values =
+            ConvertNCHWToNHWC(perm_values);
+
+        op->set_attribute("perm",
+                          pir::ArrayAttribute::get(ctx_, new_perm_values));
+      }
+    }
+  }
+
   void TransferLayout(pir::Builder builder, pir::Block* block) {
     for (auto&& op_item : *block) {
       auto op = &op_item;
@@ -184,6 +215,10 @@ class AutoLayoutPass : public pir::Pass {
                  IsInsertTransposeOpBefore(op)) {
         VLOG(4) << "enter NCHW op: " << op_name;
         DoTransposeOpOperand(op, builder);
+        if (op->isa<paddle::dialect::TransposeOp>()) {
+          TransformTransposePerm(op);
+          continue;
+        }
         RewriteLayout(op, op->operands_source());
         DoTransposeOpResult(op, builder);
       }
