@@ -142,7 +142,6 @@ class TestEinsumWithUnary1(TestEinsumBinary):
         self.types = [np.float64, np.float64]
         self.equation = "imjl,jklm->imk"
 
-
 class TestEinsumWithBroadcast1(TestEinsumBinary):
     def set_mandatory(self):
         self.shapes = [(5, 10, 3, 3)]
@@ -234,6 +233,12 @@ class TestEinsumWithDiagonal8(TestEinsumBinary):
         self.equation = "ijki,jkjk->"
 
 
+@unittest.skipIf(
+    not core.is_compiled_with_cuda()
+    or core.is_compiled_with_musa()
+    or not core.is_bfloat16_supported(core.CUDAPlace(0)),
+    "core is not compiled with CUDA or not support bfloat16",
+)
 class TestEinsumFP16Op(TestEinsumBinary):
     def init_dtype(self):
         self.dtype = np.float16
