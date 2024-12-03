@@ -878,6 +878,10 @@ phi::DataType ConvertToPDDataType(const std::string& typestr) {
       {"<i4", phi::DataType::INT32},
       {"<i8", phi::DataType::INT64},
       {"|b1", phi::DataType::BOOL},
+      // NOTE: Paddle not support uint32, uint64, uint16 yet.
+      // {"<u2", phi::DataType::UINT16},
+      // {"<u4", phi::DataType::UINT32},
+      // {"<u8", phi::DataType::UINT64},
   };
   auto it = type_map.find(typestr);
   PADDLE_ENFORCE_NE(
