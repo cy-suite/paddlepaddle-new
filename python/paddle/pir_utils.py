@@ -233,3 +233,49 @@ def append_activation_in_pir(input, act=None, use_cudnn=None):
     if act == 'softmax':
         return act_op(input, -1)
     return act_op(input, *attrs)
+
+
+def get_value_from_op_id(program: paddle.pir.Program, *op_ids):
+    """
+    Get value from the given op_ids in the PaddlePaddle PIR program.
+
+    Args:
+        program (paddle.pir.Program): The PaddlePaddle PIR program.
+        op_ids (int or list of int): The op_ids to retrieve values from.
+
+    Returns:
+        list: A list of values corresponding to the op_ids.
+
+    Raises:
+        ValueError: If the op_ids format is invalid or no corresponding opresult is found.
+
+    Example:
+        >>> program = ...
+        >>> value_list = get_value_from_op_id(program, 123)
+        >>> value_list = get_value_from_op_id(program, [123,124,125])
+    """
+
+    if len(op_ids) == 1 and isinstance(op_ids[0], list):
+        op_ids = op_ids[0]
+    elif len(op_ids) == 1 and isinstance(op_ids[0], int):
+        op_ids = [op_ids[0]]
+    else:
+        raise ValueError(
+            "Invalid op_ids format. Please provide either a single integer or a list of integers."
+        )
+
+    if not all(isinstance(op_id, int) for op_id in op_ids):
+        raise ValueError("All op_ids must be integers")
+
+    value_list = []
+    for op in program.global_block().get_recursive_ops():
+        if op.id() in op_ids:
+            for result in op.results():
+                value_list.append(result)
+
+    if not value_list:
+        raise ValueError(
+            f"Can't find the corresponding opresult from the op ids {op_ids!r}"
+        )
+
+    return value_list

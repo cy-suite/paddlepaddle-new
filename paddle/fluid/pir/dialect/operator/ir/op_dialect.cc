@@ -302,12 +302,13 @@ void PrintTypeImpl(pir::Type type, std::ostream& os) {
   }
 }
 void PrintAttributeImpl(pir::Attribute attr, std::ostream& os) {
-  os << "(" << attr.dialect().name();
-  os << '.';
+  // os << "(" << attr.dialect().name();
+  // os << '.';
   if (auto int_array_attr = attr.dyn_cast<IntArrayAttribute>()) {
     phi::IntArray data = int_array_attr.data();
-    os << "IntArray)"
-       << "[";
+    // os << "IntArray)"
+    //    << "[";
+    os << "[";
     const auto& inner_data = data.GetData();
     pir::detail::PrintInterleave(
         inner_data.begin(),
@@ -316,11 +317,14 @@ void PrintAttributeImpl(pir::Attribute attr, std::ostream& os) {
         [&os]() { os << ","; });
     os << "]";
   } else if (auto data_type_attr = attr.dyn_cast<DataTypeAttribute>()) {
-    os << "DataType)" << data_type_attr.data();
+    // os << "DataType)" << data_type_attr.data();
+    os << data_type_attr.data();
   } else if (auto place_type_attr = attr.dyn_cast<PlaceAttribute>()) {
-    os << "Place)" << place_type_attr.data();
+    // os << "Place)" << place_type_attr.data();
+    os << place_type_attr.data();
   } else if (auto data_layout_attr = attr.dyn_cast<DataLayoutAttribute>()) {
-    os << "DataLayout)" << data_layout_attr.data();
+    // os << "DataLayout)" << data_layout_attr.data();
+    os << data_layout_attr.data();
   } else {
     os << "<#AttrNotImplemented>";
   }

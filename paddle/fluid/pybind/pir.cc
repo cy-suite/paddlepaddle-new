@@ -667,6 +667,9 @@ void BindBlock(py::module *m) {
                                }
                                return op_list;
                              })
+      .def_property_readonly(
+          "get_recursive_ops",
+          [](Block &self) { return self.get_recursive_ops(); })
       .def("num_ops", [](Block &self) { return self.num_ops(); })
       .def(
           "__enter__",

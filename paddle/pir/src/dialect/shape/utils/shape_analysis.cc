@@ -789,7 +789,7 @@ pir::PrintHooks ShapeConstraintIRAnalysis::PrintHook() {
       }
     }
     printer.os << " }";
-    printer.os << "\t(op_" << op.id() << ")";
+    // printer.os << "\t(op_" << op.id() << ")";
   };
   return print_hook;
 }
