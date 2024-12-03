@@ -56,4 +56,4 @@ class FakeEngineOp
 }  // namespace dialect
 }  // namespace paddle
 
-IR_EXPORT_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::FakeEngineOp)
+IR_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::FakeEngineOp)
