@@ -7314,6 +7314,12 @@ def diagonal_scatter(
     Note:
         ``y`` should have the same shape as :ref:`paddle.diagonal <api_paddle_diagonal>`.
 
+    The image below demonstrates the Case 1: A 2-dimensional tensor with shape [2, 3] is diagonal_scattered to its main diagonal (offset=0) with a 1-dimensional tensor.
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/diagonal_scatter.png
+       :width: 500
+       :alt: legend of diagonal_scatter API
+
     Args:
         x (Tensor): ``x`` is the original Tensor. Must be at least 2-dimensional.
         y (Tensor): ``y`` is the Tensor to embed into ``x``
