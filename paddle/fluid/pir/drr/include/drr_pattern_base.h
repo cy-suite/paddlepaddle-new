@@ -78,22 +78,19 @@ template <typename AutoDrrPattern>
 class AutoDrrPass : public pir::PatternRewritePass {
  public:
   const std::string& name_;
-  const std::vector<DrrPatternContext>& pattern_contexts_;
+  const DrrPatternContext& pattern_context_;
 
-  AutoDrrPass(const std::string& name,
-              const std::vector<DrrPatternContext>& pattern_contexts)
+  AutoDrrPass(const std::string& name, const DrrPatternContext& pattern_context)
       : pir::PatternRewritePass(name, 2),
         name_(name),
-        pattern_contexts_(pattern_contexts) {}
+        pattern_context_(pattern_context) {}
 
   pir::RewritePatternSet InitializePatterns(pir::IrContext* context) override {
     pir::RewritePatternSet ps(context);
-    for (const auto& pattern_context : pattern_contexts_) {
-      ps.Add(paddle::drr::Create<AutoDrrPattern,
-                                 const std::string&,
-                                 const DrrPatternContext&>(
-          context, name_, pattern_context));
-    }
+    ps.Add(paddle::drr::Create<AutoDrrPattern,
+                               const std::string&,
+                               const DrrPatternContext&>(
+        context, name_, pattern_context_));
     return ps;
   }
 };

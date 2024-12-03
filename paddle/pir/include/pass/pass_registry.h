@@ -74,11 +74,12 @@ class IR_API PassRegistrar {
         pass_type, []() { return std::make_unique<PassType>(); });
   }
 
+  // make a new registrar to satisfy python pass
   explicit PassRegistrar(
       const char *pass_type,
-      const std::vector<paddle::drr::DrrPatternContext> &pattern_contexts) {
-    PassRegistry::Instance().Insert(pass_type, [pattern_contexts, pass_type]() {
-      return std::make_unique<PassType>(pass_type, pattern_contexts);
+      const paddle::drr::DrrPatternContext &pattern_context) {
+    PassRegistry::Instance().Insert(pass_type, [&pattern_context, pass_type]() {
+      return std::make_unique<PassType>(pass_type, pattern_context);
     });
   }
 };

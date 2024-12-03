@@ -181,10 +181,10 @@ class Op {
 
 class TEST_API Tensor {
  public:
-  static const char RESULT_INPUT_NONE_TENSOR_NAME[];
-  static const char RESULT_OUTPUT_NONE_TENSOR_NAME[];
-  static const char SOURCE_INPUT_NONE_TENSOR_NAME[];
-  static const char SOURCE_OUTPUT_NONE_TENSOR_NAME[];
+  static TEST_API const char RESULT_INPUT_NONE_TENSOR_NAME[];
+  static TEST_API const char RESULT_OUTPUT_NONE_TENSOR_NAME[];
+  static TEST_API const char SOURCE_INPUT_NONE_TENSOR_NAME[];
+  static TEST_API const char SOURCE_OUTPUT_NONE_TENSOR_NAME[];
 
   bool is_none() const {
     return name_ == RESULT_INPUT_NONE_TENSOR_NAME ||

@@ -2579,21 +2579,15 @@ void BindPassManager(pybind11::module *m) {
       .def("register_pass",
            [](PassManager &self,
               const std::string &pass_name,
-              const std::vector<std::shared_ptr<paddle::drr::DrrPatternContext>>
-                  &pattern_ctxs) {
+              std::shared_ptr<paddle::drr::DrrPatternContext> pattern_ctx) {
              using AutoFinalPass =
                  paddle::drr::AutoDrrPass<paddle::drr::AutoDrrPattern>;
-
-             std::vector<paddle::drr::DrrPatternContext> contexts;
-             contexts.reserve(pattern_ctxs.size());
-             for (const auto &ctx : pattern_ctxs) {
-               contexts.push_back(*ctx);
-             }
-
+             // == REGISTER_IR_PASS(pass_name, AutoDrrPass);
              static ::pir::PassRegistrar<AutoFinalPass> auto_register_pass(
-                 pass_name.data(), contexts);
+                 pass_name.data(), *pattern_ctx);
              auto_register_pass.Touch();
-
+             // keep reference
+             // add pass to pass manager
              auto pass_creator = pir::PassRegistry::Instance().Get(pass_name);
              self.AddPass(std::move(pass_creator));
            })
