@@ -89,7 +89,7 @@ namespace paddle::framework::ir {
 int TransLayernormFusePass::ApplyConvTransLayernormPattern(
     ir::Graph *graph) const {
   PADDLE_ENFORCE_NOT_NULL(
-      graph, platform::errors::PreconditionNotMet("graph should not be null."));
+      graph, common::errors::PreconditionNotMet("graph should not be null."));
   FusePassBase::Init("trans_layernorm_fuse", graph);
   int found_subgraph_count = 0;
   GraphPatternDetector gpd;

@@ -16,7 +16,6 @@
 #include "paddle/cinn/ir/group_schedule/config/file_database.h"
 
 PD_DECLARE_string(tile_config_policy);
-PD_DECLARE_bool(cinn_enable_config_search);
 
 namespace cinn {
 namespace ir {
@@ -34,7 +33,7 @@ void ScheduleConfigManager::AddConfigDatabase(
 
 ScheduleConfigMap ScheduleConfigManager::ExtractConfigs(
     const common::Target& target,
-    const std::shared_ptr<hlir::framework::pir::GroupInfo>& group_info) const {
+    const std::shared_ptr<FusionGroupInfo>& group_info) const {
   auto ReadConfigs = [&](std::string policy) -> ScheduleConfigMap {
     std::shared_ptr<ScheduleConfig::BaseInfo> base_info =
         InitBasicInfo(group_info);
@@ -63,11 +62,7 @@ void ScheduleConfigManager::SetPolicy(const std::string& policy) {
 void InitScheduleConfig() {
   auto& schedule_config_manager = cinn::ir::ScheduleConfigManager::Instance();
   std::string policy;
-  if (FLAGS_cinn_enable_config_search == true) {
-    policy = "search";
-  } else {
-    policy = FLAGS_tile_config_policy;
-  }
+  policy = FLAGS_tile_config_policy;
   schedule_config_manager.SetPolicy(policy);
   if (policy == "optimal" || policy == "hybrid") {
     std::shared_ptr<cinn::ir::TileConfigDatabase> tile_config_database =

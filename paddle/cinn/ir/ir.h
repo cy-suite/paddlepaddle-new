@@ -26,6 +26,7 @@
 #include <vector>
 #include "paddle/common/enforce.h"
 
+#include "paddle/cinn/adt/adt.h"
 #include "paddle/cinn/common/shared.h"
 #include "paddle/cinn/common/type.h"
 #include "paddle/cinn/ir/function_base.h"
@@ -247,8 +248,14 @@ struct GE : public BinaryOpNode<GE> {
  */
 struct And : public BinaryOpNode<And> {
   And(Expr a, Expr b) : BinaryOpNode<And>(a.type(), a, b) {
-    CHECK(a->type().is_bool());
-    CHECK(b->type().is_bool());
+    PADDLE_ENFORCE_EQ(
+        a->type().is_bool(),
+        true,
+        ::common::errors::PreconditionNotMet("The type of 'a' must be bool."));
+    PADDLE_ENFORCE_EQ(
+        b->type().is_bool(),
+        true,
+        ::common::errors::PreconditionNotMet("The type of 'b' must be bool."));
   }
 
   Type type() const { return Bool(a()->type().lanes()); }
@@ -274,8 +281,14 @@ struct Minus : public UnaryOpNode<Minus> {
  */
 struct Or : public BinaryOpNode<Or> {
   Or(Expr a, Expr b) : BinaryOpNode<Or>(Bool(), a, b) {
-    CHECK(a->type().is_bool());
-    CHECK(b->type().is_bool());
+    PADDLE_ENFORCE_EQ(
+        a->type().is_bool(),
+        true,
+        ::common::errors::PreconditionNotMet("The type of 'a' must be bool."));
+    PADDLE_ENFORCE_EQ(
+        b->type().is_bool(),
+        true,
+        ::common::errors::PreconditionNotMet("The type of 'b' must be bool."));
   }
 
   static Expr Make(Expr a, Expr b);
@@ -508,9 +521,12 @@ struct Select : public ExprNode<Select> {
     PADDLE_ENFORCE_EQ(
         true_value.type(),
         false_value.type(),
-        phi::errors::InvalidArgument(
+        ::common::errors::InvalidArgument(
             "The type of true_value and false_value should be the same."));
-    CHECK(condition.type().is_bool());
+    PADDLE_ENFORCE_EQ(condition.type().is_bool(),
+                      true,
+                      ::common::errors::PreconditionNotMet(
+                          "The condition must be of boolean type."));
     type_ = true_value.type();
   }
 
@@ -562,6 +578,8 @@ struct Load : public ExprNode<Load>, public LoadStoreAddrMnger {
   Type type() const override;
 
   void convert_int32_to_int64() override;
+
+  void convert_int64_to_int32() override;
 
   static const IrNodeTy _node_type_ = IrNodeTy::Load;
 };
@@ -650,12 +668,18 @@ struct IfThenElse : public ExprNode<IfThenElse> {
   static Expr Make(Expr condition, Expr true_case, Expr false_case = Expr());
 
   void Verify() const override {
-    CHECK(condition.defined());
-    CHECK(true_case.defined());
+    PADDLE_ENFORCE_EQ(
+        condition.defined(),
+        true,
+        ::common::errors::PreconditionNotMet("The condition must be defined."));
+    PADDLE_ENFORCE_EQ(
+        true_case.defined(),
+        true,
+        ::common::errors::PreconditionNotMet("The true_case must be defined."));
     PADDLE_ENFORCE_EQ(
         condition.type(),
         type_of<bool>(),
-        phi::errors::InvalidArgument("condition should be a bool"));
+        ::common::errors::InvalidArgument("condition should be a bool"));
   }
 
   std::vector<Expr*> expr_fields() override;
@@ -712,7 +736,10 @@ struct BindInfo {
   }
 
   friend std::ostream& operator<<(std::ostream& os, const BindInfo& bind_info) {
-    CHECK(bind_info.valid()) << "Make invalid BindInfo to stream";
+    PADDLE_ENFORCE_EQ(bind_info.valid(),
+                      true,
+                      ::common::errors::PreconditionNotMet(
+                          "Make invalid BindInfo to stream"));
     char axis_name = 'x' + bind_info.offset;
     std::string prefix =
         bind_info.for_type == ForType::GPUBlock ? "blockIdx." : "threadIdx.";
@@ -931,10 +958,13 @@ struct FracOp : public BinaryOpNode<FracOp> {
   bool is_constant() const { return a().is_constant() && b().is_constant(); }
 
   double get_constant() const {
-    CHECK(is_constant());
+    PADDLE_ENFORCE_EQ(is_constant(),
+                      true,
+                      ::common::errors::PreconditionNotMet(
+                          "The expression must be constant."));
     PADDLE_ENFORCE_NE(b().get_constant(),
                       0.f,
-                      phi::errors::InvalidArgument(
+                      ::common::errors::InvalidArgument(
                           "The denominator of FracOp should not be 0"));
     return a().get_constant() / b().get_constant();
   }
@@ -983,6 +1013,116 @@ struct Block : public ExprNode<Block> {
   std::vector<const Expr*> expr_fields() const override;
 
   static const IrNodeTy _node_type_ = IrNodeTy::Block;
+};
+
+struct IndexExpr : public Expr {
+ public:
+  IndexExpr() = default;
+  IndexExpr(const IndexExpr& other) : Expr(other.ptr()) {}
+  IndexExpr(IrNode* p) : Expr(p) {}            // NOLINT
+  IndexExpr(const Expr& expr) : Expr(expr) {}  // NOLINT
+
+  explicit IndexExpr(int32_t x) : Expr(x) {}
+  explicit IndexExpr(int64_t x) : Expr(x) {}
+
+  int64_t GetLargestMutiplyPart() const;
+
+  IndexExpr Normalize() const;
+
+  bool IsDynamic() const;
+
+  // count the `IndeExpr` length, each node has weight 1, e.g.
+  // S0,          length = 1
+  // S0 + S1,     length = 3
+  // S0 + S1 * 2, length = 5
+  int32_t length() const;
+
+  IndexExpr& operator=(const IndexExpr& other);
+
+  IndexExpr operator-() const;
+
+#define DEFINE_OPERATOR(op)               \
+  IndexExpr operator op(int64_t v) const; \
+  IndexExpr operator op(int32_t v) const; \
+  IndexExpr operator op(const IndexExpr& other) const;
+
+  DEFINE_OPERATOR(+)
+  DEFINE_OPERATOR(-)
+  DEFINE_OPERATOR(*)
+  DEFINE_OPERATOR(/)
+  DEFINE_OPERATOR(%)
+
+#undef DEFINE_OPERATOR
+};
+
+// TODO(liujinnan): Essentially IterExpr is not IndexExpr, so it does not
+// satisfy the `is_index` and `as_index` method. IterExpr is temporarily held by
+// IndexExpr, it will be separated later.
+
+/**
+ * \brief IterMark is a special ExprNode, which can be used to mark ther entire
+ * ierator. source is a IterSum or iterator. extent is the extent of the
+ * iterator or IterSum.
+ */
+struct IterMark : public ExprNode<IterMark> {
+  IterMark() = default;
+  IterMark(const IterMark& other) : source(other.source), extent(other.extent) {
+    this->set_type(other.type());
+  }
+  IterMark& operator=(const IterMark& other);
+
+  static IndexExpr Make(const IndexExpr& source, const IndexExpr& extent);
+  Type type() const { return source.type(); }
+  IndexExpr source;
+  IndexExpr extent;
+  static const IrNodeTy _node_type_ = IrNodeTy::IterMark;
+};
+
+/**
+ * \brief Split of an iterator.
+ * result = source / lower_factor % extent * scale
+ */
+struct IterSplit : public ExprNode<IterSplit> {
+ public:
+  IterSplit() = default;
+  IterSplit(const IterSplit& other)
+      : source(other.source),
+        lower_factor(other.lower_factor),
+        extent(other.extent),
+        scale(other.scale) {
+    this->set_type(other.type());
+  }
+
+  IterSplit& operator=(const IterSplit& other);
+
+  static IndexExpr Make(const IndexExpr& source,
+                        const IndexExpr& lower_factor,
+                        const IndexExpr& extent,
+                        const IndexExpr& scale);
+  static IndexExpr Make(const IndexExpr& source, const IndexExpr& scale);
+  static IndexExpr Make(const IndexExpr& source);
+
+  Type type() const { return source.type(); }
+  IndexExpr source;
+  IndexExpr lower_factor;
+  IndexExpr extent;
+  IndexExpr scale;
+  static const IrNodeTy _node_type_ = IrNodeTy::IterSplit;
+};
+
+/**
+ * \brief sum of IterSplit.
+ * result = sum(args) + base
+ */
+struct IterSum : public ExprNode<IterSum> {
+ public:
+  IterSum() = default;
+  static IndexExpr Make(const std::vector<IndexExpr>& args,
+                        const IndexExpr& base);
+  Type type() const { return base.type(); }
+  std::vector<IndexExpr> args;
+  IndexExpr base;
+  static const IrNodeTy _node_type_ = IrNodeTy::IterSum;
 };
 
 struct NoneReduceMethod {};
@@ -1044,26 +1184,6 @@ struct ScheduleBlockRealize : public ExprNode<ScheduleBlockRealize> {
 };
 
 /**
- * Content of a module.
- */
-struct _Module_ : public ExprNode<_Module_> {
-  std::string name;
-  Target target;
-  std::vector<Expr> buffers;
-  std::vector<Expr> functions;
-  std::vector<Expr> submodules;
-  std::vector<Expr> predicates;
-  std::vector<int> priorities;
-  Expr infer_shape_func;
-
-  static ir::Module Make(const std::string& name, Target target);
-
-  void Verify() const override {}
-
-  static const IrNodeTy _node_type_ = IrNodeTy::_Module_;
-};
-
-/**
  * \brief PrimitiveNode holds the concept of Primitive in CINN.
  * A Primitive is a basic Call to some Expr function, it is introduced to create
  * several level of coarsed-grained IR nodes for better IR optimization and
@@ -1119,6 +1239,66 @@ template <>
 struct hash<cinn::ir::Var> {
   std::size_t operator()(const cinn::ir::Var& var) const {
     return std::hash<std::string>()(var->name);
+  }
+};
+
+// Author(liujinnan):
+// Because IRCopy will create a new copy, cannot simply use
+// IRNode* here, otherwise it will cause the following error:
+// hash(a) != hash(b) s.t. a = IRCopy(b)
+// IterExpr is temporarily held by IndexExpr.
+template <>
+struct hash<cinn::ir::IndexExpr> {
+  size_t operator()(const cinn::ir::IndexExpr& x) const {
+    switch (x.node_type()) {
+      case cinn::ir::IrNodeTy::_Var_:
+        return std::hash<std::string>()(x.as_var()->name);
+      case cinn::ir::IrNodeTy::IntImm:
+        return std::hash<int>()(x.as_int64());
+      case cinn::ir::IrNodeTy::IterMark: {
+        auto iter_mark = x.As<cinn::ir::IterMark>();
+        auto hash_source = std::hash<cinn::ir::IndexExpr>()(iter_mark->source);
+        auto hash_extent = std::hash<cinn::ir::IndexExpr>()(iter_mark->extent);
+        return cinn::adt::hash_combine(hash_source, hash_extent);
+      }
+      case cinn::ir::IrNodeTy::IterSplit: {
+        auto iter_split = x.As<cinn::ir::IterSplit>();
+        auto hash_source = std::hash<cinn::ir::IndexExpr>()(iter_split->source);
+        auto hash_lower_facort =
+            std::hash<cinn::ir::IndexExpr>()(iter_split->lower_factor);
+        auto hash_extent = std::hash<cinn::ir::IndexExpr>()(iter_split->extent);
+        auto hash_scale = std::hash<cinn::ir::IndexExpr>()(iter_split->scale);
+        auto hash_res = cinn::adt::hash_combine(hash_source, hash_lower_facort);
+        hash_res = cinn::adt::hash_combine(hash_res, hash_extent);
+        hash_res = cinn::adt::hash_combine(hash_res, hash_scale);
+        return hash_res;
+      }
+      case cinn::ir::IrNodeTy::IterSum: {
+        auto iter_sum = x.As<cinn::ir::IterSum>();
+        auto hash_res = std::hash<cinn::ir::IndexExpr>()(iter_sum->base);
+        for (auto&& iter_mark : iter_sum->args) {
+          hash_res = cinn::adt::hash_combine(
+              hash_res, std::hash<cinn::ir::IndexExpr>()(iter_mark));
+        }
+        return hash_res;
+      }
+      case cinn::ir::IrNodeTy::Add:
+        [[fallthrough]];
+      case cinn::ir::IrNodeTy::Sub:
+        [[fallthrough]];
+      case cinn::ir::IrNodeTy::Mul:
+        [[fallthrough]];
+      case cinn::ir::IrNodeTy::Div:
+        [[fallthrough]];
+      case cinn::ir::IrNodeTy::Mod: {
+        auto hash_lhs =
+            std::hash<cinn::ir::IndexExpr>()(x.get()->operand(0).as_index());
+        auto hash_rhs =
+            std::hash<cinn::ir::IndexExpr>()(x.get()->operand(1).as_index());
+        return cinn::adt::hash_combine(hash_lhs, hash_rhs);
+      }
+    }
+    ::common::errors::InvalidArgument("Unsupported index expr type.");
   }
 };
 }  // namespace std

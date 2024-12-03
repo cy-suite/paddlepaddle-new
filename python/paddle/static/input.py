@@ -22,7 +22,6 @@ import numpy.typing as npt
 from typing_extensions import Self
 
 import paddle
-from paddle._typing import DTypeLike, ShapeLike, Size1
 from paddle.base import Variable, core
 from paddle.base.data_feeder import check_type
 from paddle.base.framework import (
@@ -41,6 +40,13 @@ from ..base.variable_index import _setitem_static
 
 if TYPE_CHECKING:
     from paddle import Tensor
+    from paddle._typing import (
+        DTypeLike,
+        ShapeLike,
+        Size1,
+        TensorIndex,
+        TensorLike,
+    )
 
 __all__ = []
 
@@ -74,7 +80,7 @@ def data(
             dtype: bool, float16, float32, float64, int8, int16, int32, int64,
             uint8. Default: None. When `dtype` is not set, the dtype will get
             from the global dtype by `paddle.get_default_dtype()`.
-        lod_level (int, optional): The LoD level of the LoDTensor. Usually users
+        lod_level (int, optional): The LoD level of the DenseTensor. Usually users
             don't have to set this value. Default: 0.
 
     Returns:
@@ -83,6 +89,7 @@ def data(
     Examples:
         .. code-block:: python
 
+            >>> # doctest: +SKIP("This has diff in xdoctest env")
             >>> import numpy as np
             >>> import paddle
             >>> paddle.enable_static()
@@ -103,7 +110,7 @@ def data(
 
             # In this example, we will feed x and y with np-ndarray "1"
             # and fetch z, like implementing "1 + 1 = 2" in PaddlePaddle
-            >>> feed_data = np.ones(shape=[3, 2, 1], dtype=np.float32)
+            >>> feed_data = np.ones(shape=[3, 2, 1], dtype=np.float32) # type: ignore[var-annotated]
 
             >>> exe = paddle.static.Executor(paddle.framework.CPUPlace())
             >>> out = exe.run(paddle.static.default_main_program(),
@@ -142,6 +149,10 @@ def data(
     for i in range(len(shape)):
         if shape[i] is None:
             shape[i] = -1
+        if isinstance(shape[i], int) and shape[i] < 0 and shape[i] != -1:
+            raise ValueError(
+                f"Only -1 can be used in shape to indicate unknown dimension, but received {shape[i]}"
+            )
 
     if dtype is None:
         dtype = paddle.get_default_dtype()
@@ -160,7 +171,7 @@ def data(
         name=name,
         shape=shape,
         dtype=dtype,
-        type=core.VarDesc.VarType.LOD_TENSOR,
+        type=core.VarDesc.VarType.DENSE_TENSOR,
         stop_gradient=True,
         lod_level=lod_level,
         is_data=True,
@@ -297,7 +308,7 @@ class InputSpec:
                 >>> import numpy as np
                 >>> from paddle.static import InputSpec
 
-                >>> x = np.ones([2, 2], np.float32)
+                >>> x = np.ones([2, 2], np.float32) # type: ignore[var-annotated]
                 >>> x_spec = InputSpec.from_numpy(x, name='x')
                 >>> print(x_spec)
                 InputSpec(shape=(2, 2), dtype=paddle.float32, name=x, stop_gradient=False)
@@ -337,7 +348,7 @@ class InputSpec:
                 f"type(batch_size) shall be `int`, but received {type(batch_size).__name__}."
             )
 
-        new_shape = [batch_size] + list(self.shape)
+        new_shape = [batch_size, *list(self.shape)]
         self.shape = tuple(new_shape)
 
         return self
@@ -415,7 +426,11 @@ class InputSpec:
         return not self == other
 
 
-def setitem(x, index, value):
+def setitem(
+    x: Tensor,
+    index: TensorIndex,
+    value: TensorLike,
+) -> Tensor:
     """
     x(Tensor): input Tensor.
     index(Scalar|Tuple|List|Tensor): Where should be set value.

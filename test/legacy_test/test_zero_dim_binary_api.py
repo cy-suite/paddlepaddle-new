@@ -23,7 +23,6 @@ import numpy as np
 
 import paddle
 from paddle.framework import use_pir_api
-from paddle.pir_utils import test_with_pir_api
 
 binary_api_list = [
     {'func': paddle.add, 'cls_method': '__add__'},
@@ -168,7 +167,7 @@ class TestBinaryAPI(unittest.TestCase):
             # 1) x is 0D, y is 0D
             x_np = np.random.randint(-10, 10, [])
             y_np = np.random.randint(-10, 10, [])
-            out_np = eval('np.%s(x_np, y_np)' % api.__name__)
+            out_np = eval(f'np.{api.__name__}(x_np, y_np)')
 
             x = paddle.to_tensor(x_np)
             y = paddle.to_tensor(y_np)
@@ -180,7 +179,7 @@ class TestBinaryAPI(unittest.TestCase):
             # 2) x is ND, y is 0D
             x_np = np.random.randint(-10, 10, [3, 5])
             y_np = np.random.randint(-10, 10, [])
-            out_np = eval('np.%s(x_np, y_np)' % api.__name__)
+            out_np = eval(f'np.{api.__name__}(x_np, y_np)')
 
             x = paddle.to_tensor(x_np)
             y = paddle.to_tensor(y_np)
@@ -192,7 +191,7 @@ class TestBinaryAPI(unittest.TestCase):
             # 3) x is 0D , y is ND
             x_np = np.random.randint(-10, 10, [])
             y_np = np.random.randint(-10, 10, [3, 5])
-            out_np = eval('np.%s(x_np, y_np)' % api.__name__)
+            out_np = eval(f'np.{api.__name__}(x_np, y_np)')
 
             x = paddle.to_tensor(x_np)
             y = paddle.to_tensor(y_np)
@@ -224,7 +223,6 @@ class TestBinaryAPI(unittest.TestCase):
             out_shape = out.shape
         self.assertEqual(out_shape, target_tuple)
 
-    @test_with_pir_api
     def test_static_binary_0D_0D(self):
         paddle.enable_static()
         for api in binary_api_list:
@@ -240,9 +238,11 @@ class TestBinaryAPI(unittest.TestCase):
                 if isinstance(api, dict):
                     out = api['func'](x, y)
                     out_cls = getattr(
-                        paddle.pir.Value
-                        if use_pir_api()
-                        else paddle.static.Variable,
+                        (
+                            paddle.pir.Value
+                            if use_pir_api()
+                            else paddle.static.Variable
+                        ),
                         api['cls_method'],
                     )(x, y)
                     self.assertEqual(out.shape, out_cls.shape)
@@ -266,7 +266,6 @@ class TestBinaryAPI(unittest.TestCase):
 
         paddle.disable_static()
 
-    @test_with_pir_api
     def test_static_binary_0D_ND(self):
         paddle.enable_static()
         for api in binary_api_list:
@@ -282,9 +281,11 @@ class TestBinaryAPI(unittest.TestCase):
                 if isinstance(api, dict):
                     out = api['func'](x, y)
                     out_cls = getattr(
-                        paddle.pir.Value
-                        if use_pir_api()
-                        else paddle.static.Variable,
+                        (
+                            paddle.pir.Value
+                            if use_pir_api()
+                            else paddle.static.Variable
+                        ),
                         api['cls_method'],
                     )(x, y)
                     self.assertEqual(out.shape, out_cls.shape)
@@ -307,7 +308,6 @@ class TestBinaryAPI(unittest.TestCase):
                     self.assertShapeEqual(grad_list[2][1], [2, 3, 4])
         paddle.disable_static()
 
-    @test_with_pir_api
     def test_static_binary_ND_0D(self):
         paddle.enable_static()
         for api in binary_api_list:
@@ -323,9 +323,11 @@ class TestBinaryAPI(unittest.TestCase):
                 if isinstance(api, dict):
                     out = api['func'](x, y)
                     out_cls = getattr(
-                        paddle.pir.Value
-                        if use_pir_api()
-                        else paddle.static.Variable,
+                        (
+                            paddle.pir.Value
+                            if use_pir_api()
+                            else paddle.static.Variable
+                        ),
                         api['cls_method'],
                     )(x, y)
                     self.assertEqual(out.shape, out_cls.shape)
@@ -348,7 +350,6 @@ class TestBinaryAPI(unittest.TestCase):
                     self.assertShapeEqual(grad_list[2][1], [2, 3, 4])
         paddle.disable_static()
 
-    @test_with_pir_api
     def test_static_binary_0D_scalar(self):
         paddle.enable_static()
         for api in binary_api_list:
@@ -362,9 +363,11 @@ class TestBinaryAPI(unittest.TestCase):
                 y = 0.5
                 if isinstance(api, dict):
                     out = getattr(
-                        paddle.pir.Value
-                        if use_pir_api()
-                        else paddle.static.Variable,
+                        (
+                            paddle.pir.Value
+                            if use_pir_api()
+                            else paddle.static.Variable
+                        ),
                         api['cls_method'],
                     )(x, y)
                     grad_list = paddle.static.append_backward(
@@ -380,7 +383,6 @@ class TestBinaryAPI(unittest.TestCase):
                         self.assertShapeEqual(grad_list[1][1], [])
         paddle.disable_static()
 
-    @test_with_pir_api
     def test_static_binary_int_api(self):
         paddle.enable_static()
         for api in binary_int_api_list:

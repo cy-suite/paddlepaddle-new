@@ -33,13 +33,15 @@ class TEST_API SelectedRowsType
  public:
   using Base::Base;
 
+  static std::string name() { return "t_selected_rows"; }
+
   const pir::Type &dtype() const;
 
   const phi::DDim &dims() const;
 
   const phi::DataLayout &data_layout() const;
 
-  const phi::LoD &lod() const;
+  const phi::LegacyLoD &lod() const;
 
   const size_t &offset() const;
 
@@ -50,6 +52,15 @@ class TEST_API SelectedRowsType
   static bool classof(Type type);
 
   static SelectedRowsType dyn_cast_impl(Type type);
+
+  static SelectedRowsType get(pir::IrContext *ctx,
+                              Type dtype,
+                              const phi::DDim &dims,
+                              DataLayout layout = DataLayout::kNCHW,
+                              const phi::LegacyLoD &lod = {},
+                              size_t offset = 0u) {
+    return Base::get(ctx, dtype, dims, layout, lod, offset);
+  }
 };
 
 class DenseTensorArrayType
@@ -58,6 +69,8 @@ class DenseTensorArrayType
                                  DenseTensorArrayTypeStorage> {
  public:
   using Base::Base;
+
+  static std::string name() { return "t_dense_tensor_array"; }
 
   const pir::Type &dtype() const;
 
@@ -72,6 +85,13 @@ class DenseTensorArrayType
   static bool classof(Type type);
 
   static DenseTensorArrayType dyn_cast_impl(Type type);
+
+  static DenseTensorArrayType get(pir::IrContext *ctx,
+                                  Type dtype,
+                                  const phi::DDim &dims,
+                                  DataLayout layout = DataLayout::kNCHW) {
+    return Base::get(ctx, dtype, dims, layout);
+  }
 };
 
 class IR_API SparseCooTensorType
@@ -81,6 +101,8 @@ class IR_API SparseCooTensorType
                                  pir::ShapedTypeInterface> {
  public:
   using Base::Base;
+
+  static std::string name() { return "t_sparse_coo_tensor"; }
 
   pir::Type dtype() const;
   const common::DDim &dims() const;
@@ -124,6 +146,8 @@ class IR_API SparseCsrTensorType
                                  pir::ShapedTypeInterface> {
  public:
   using Base::Base;
+
+  static std::string name() { return "t_sparse_csr_tensor"; }
 
   pir::Type dtype() const;
   const common::DDim &dims() const;

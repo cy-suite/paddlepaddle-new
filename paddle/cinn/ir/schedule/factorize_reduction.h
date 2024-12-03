@@ -33,7 +33,7 @@ namespace ir {
 Tensor CreateRFTensor(const Tensor& original_tensor,
                       const Expr& rf_loop,
                       int rf_axis) {
-  std::string name = original_tensor->name + "_rf";
+  std::string name = common::UniqName(original_tensor->name + "_rf");
   std::vector<Expr> new_shape = original_tensor->shape;
   new_shape.insert(new_shape.begin() + rf_axis, rf_loop.As<For>()->extent);
   Tensor rf_tensor = _Tensor_::Make(name,
@@ -65,7 +65,7 @@ class ReduceBlockCreater {
     const ScheduleBlockRealize* block_real =
         original_block_.As<ir::ScheduleBlockRealize>();
     PADDLE_ENFORCE_NOT_NULL(block_real,
-                            phi::errors::InvalidArgument(
+                            ::common::errors::InvalidArgument(
                                 "The block is not a ScheduleBlockRealize"));
     num_block_iters_ = block_real->iter_values.size();
   }
@@ -132,14 +132,20 @@ class ReduceBlockCreater {
     std::vector<Expr> new_loops(num_loops);
     Expr body = new_update_block_realize_;
     bool has_add_init_block = false;
+    // `is_inside_rf_loop` is used to skip loop inside rf_loop.
+    bool is_inside_rf_loop = true;
     for (int i = num_loops - 1; i >= 0; --i) {
       bool is_spatial_loop =
           new_spatial_loop_var_names_.count(
               original_loops_[i].As<For>()->loop_var->name) > 0;
       bool is_rf_loop = rf_loop_.As<For>()->loop_var->name ==
                         original_loops_[i].As<For>()->loop_var->name;
+      // Outter loop should not skip.
+      if (is_rf_loop) {
+        is_inside_rf_loop = false;
+      }
       // Skip non rf reduction loops of write back block.
-      if (!is_rf_block_ && !is_spatial_loop && !is_rf_loop) {
+      if (!is_rf_block_ && is_inside_rf_loop && !is_spatial_loop) {
         continue;
       }
       // Add reduce init block.
@@ -262,7 +268,7 @@ class RFBlockCreater : public ReduceBlockCreater {
  private:
   void CreateRFIter() override {
     std::string loop_var_name = rf_loop_.As<ir::For>()->loop_var->name;
-    std::string rf_var_name = "v" + loop_var_name;
+    std::string rf_var_name = common::UniqName("v" + loop_var_name);
     rf_var_ = Var(rf_loop_.As<ir::For>()->min,
                   rf_loop_.As<ir::For>()->extent,
                   rf_var_name,
@@ -310,7 +316,11 @@ class RFBlockCreater : public ReduceBlockCreater {
       new_iter_values_.push_back(original_iter_value);
       return;
     }
-    CHECK(original_iter_var->is_reduce_axis);
+    PADDLE_ENFORCE_EQ(
+        original_iter_var->is_reduce_axis,
+        true,
+        ::common::errors::InvalidArgument(
+            "The original_iter_var is expected to be a reduce axis."));
 
     // This iter is a reduction iter and touches the rfactor loop. So we try to
     // create a new iter for each loop var that appear in the original iter
@@ -331,7 +341,7 @@ class RFBlockCreater : public ReduceBlockCreater {
       if (loop_var2block_iters_.count(loop_var) == 0) {
         Var new_iter_var(loop.As<ir::For>()->min,
                          loop.As<ir::For>()->extent,
-                         "v" + loop_var->name,
+                         common::UniqName("v" + loop_var->name),
                          /* is_reduce = */ true);
         new_iter_vars_.push_back(new_iter_var);
         new_iter_values_.emplace_back(loop_var);
@@ -402,7 +412,7 @@ class RBBlockCreater : public ReduceBlockCreater {
  private:
   void CreateRFIter() override {
     std::string loop_var_name = rf_loop_.As<ir::For>()->loop_var->name;
-    std::string rf_var_name = "v" + loop_var_name;
+    std::string rf_var_name = common::UniqName("v" + loop_var_name);
     rf_var_ = Var(rf_loop_.As<ir::For>()->min,
                   rf_loop_.As<ir::For>()->extent,
                   rf_var_name,
@@ -444,12 +454,15 @@ class RBBlockCreater : public ReduceBlockCreater {
     std::string original_store_name =
         original_update_stmt_.As<ir::Store>()->tensor.as_tensor()->name;
 
-#define REPLACE_RF_TENSOR(Op)                                    \
-  if (new_store_body.As<Op>()) {                                 \
-    auto* node = new_store_body.As<Op>();                        \
-    CHECK(node);                                                 \
-    auto& operand = node->b();                                   \
-    operand = Load::Make(rf_tensor_, rf_tensor_access_indices_); \
+#define REPLACE_RF_TENSOR(Op)                                          \
+  if (new_store_body.As<Op>()) {                                       \
+    auto* node = new_store_body.As<Op>();                              \
+    PADDLE_ENFORCE_NOT_NULL(node,                                      \
+                            ::common::errors::InvalidArgument(         \
+                                "The conversion of new_store_body to " \
+                                "Op* failed, node is nullptr."));      \
+    auto& operand = node->b();                                         \
+    operand = Load::Make(rf_tensor_, rf_tensor_access_indices_);       \
   }
 
     REPLACE_RF_TENSOR(Add)

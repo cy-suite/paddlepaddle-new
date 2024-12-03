@@ -57,6 +57,7 @@ from .layer.common import (
     Dropout2D,
     Dropout3D,
     Embedding,
+    FeatureAlphaDropout,
     Flatten,
     Fold,
     Identity,
@@ -76,7 +77,13 @@ from .layer.common import (
 
 # TODO: import all neural network related api under this directory,
 # including layers, linear, conv, rnn etc.
-from .layer.container import LayerDict, LayerList, ParameterList, Sequential
+from .layer.container import (
+    LayerDict,
+    LayerList,
+    ParameterDict,
+    ParameterList,
+    Sequential,
+)
 from .layer.conv import (
     Conv1D,
     Conv1DTranspose,
@@ -196,6 +203,7 @@ __all__ = [
     'Dropout3D',
     'Bilinear',
     'AlphaDropout',
+    'FeatureAlphaDropout',
     'Unfold',
     'Fold',
     'RNNCellBase',
@@ -241,6 +249,7 @@ __all__ = [
     'TransformerEncoder',
     'Softmax',
     'Softmax2D',
+    'ParameterDict',
     'ParameterList',
     'Conv2D',
     'Softshrink',

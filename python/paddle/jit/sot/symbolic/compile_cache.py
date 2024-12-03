@@ -21,7 +21,6 @@ import paddle
 from paddle.amp.auto_cast import amp_state
 from paddle.base.data_feeder import convert_dtype
 from paddle.framework import _dygraph_tracer, use_pir_api
-from paddle.static import InputSpec
 
 from ..infer_meta import convert_meta_to_input_spec
 from ..profiler import EventGuard
@@ -39,6 +38,8 @@ from .export import export
 from .interpreter import compile_sir
 
 if TYPE_CHECKING:
+    from paddle.static import InputSpec
+
     from .symbolic_context import SymbolicTraceContext
 
 
@@ -53,6 +54,15 @@ def trace_back_frames():
 def clear_eager_tensor_name(output_tensors):
     for output_tensor in output_tensors:
         output_tensor.name = ""
+
+
+def _is_builtin_op(op):
+    dialect_name, opname = op.name().split(".")
+    return dialect_name == "builtin"
+
+
+def _is_computation_op(op):
+    return not _is_builtin_op(op) and op.name() not in ["pd_op.data"]
 
 
 class FallbackWrapper:
@@ -94,7 +104,10 @@ class FallbackWrapper:
     def graph_size(self):
         if self.partial_program is None:
             input_spec = convert_meta_to_input_spec(
-                [self.SIR.symbol_meta_map[symbol] for symbol in self.SIR.inputs]
+                tuple(
+                    self.SIR.symbol_meta_map[symbol]
+                    for symbol in self.SIR.inputs
+                )
             )
             (
                 self.concrete_program,
@@ -102,7 +115,11 @@ class FallbackWrapper:
             ) = self.compiled_fn.get_concrete_program(input_spec)
             self.partial_program.training = self.is_training
         if use_pir_api():
-            return len(self.partial_program.program.program.global_block().ops)
+            global_block_ops = (
+                self.concrete_program.main_program.global_block().ops
+            )
+            non_builtin_ops = list(filter(_is_computation_op, global_block_ops))
+            return len(non_builtin_ops)
         else:
             if self.partial_program.program.num_blocks > 1:
                 return -1
@@ -167,7 +184,7 @@ class CompileSIRCache(Cache, metaclass=Singleton):
         self,
         context: SymbolicTraceContext,
         sir_name: str,
-        input_spec: list[InputSpec],
+        input_spec: tuple[InputSpec, ...],
         **kwargs,
     ):
         """
@@ -190,7 +207,7 @@ class CompileSIRCache(Cache, metaclass=Singleton):
         self,
         context: SymbolicTraceContext,
         sir_name: str,
-        input_spec: list[InputSpec],
+        input_spec: tuple[InputSpec, ...],
         **kwargs,
     ):
         """
