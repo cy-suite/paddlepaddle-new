@@ -28,12 +28,14 @@ class ModuleExpr;
 namespace ir_utils {
 
 //! Shallow copy an expression.
-Expr IRCopy(Expr x, bool copy_buffer_node = true);
+Expr IRCopy(const Expr& x, bool copy_buffer_node = true);
 
 std::vector<Expr> IRCopy(const std::vector<Expr>& x,
                          bool copy_buffer_node = true);
 
 ir::ModuleExpr IRCopy(const ir::ModuleExpr& x, bool copy_buffer_node = true);
+
+ir::Module IRCopy(const Module& m, bool copy_buffer_node = true);
 
 ir::LoweredFunc IRCopy(const ir::LoweredFunc& x, bool copy_buffer_node = true);
 

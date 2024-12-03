@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import warnings
 from collections import defaultdict
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING
 
 import paddle
 from paddle import _C_ops, pir
@@ -34,6 +34,8 @@ from ..base.framework import (
 from .optimizer import Optimizer
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from typing_extensions import NotRequired
 
     from paddle import Tensor
@@ -95,8 +97,8 @@ class Adam(Optimizer):
             then the parameters are list of dict. Note that the learning_rate in parameter groups
             represents the scale of base learning_rate.
             The default value is None in static graph mode, at this time all parameters will be updated.
-        weight_decay (float|WeightDecayRegularizer|None, optional): The strategy of regularization.
-            It canbe a float value as coeff of L2 regularization or
+        weight_decay (int|float|WeightDecayRegularizer|None, optional): The strategy of regularization.
+            It canbe a int or float value as coeff of L2 regularization or
             :ref:`api_paddle_regularizer_L1Decay`, :ref:`api_paddle_regularizer_L2Decay`.
             If a parameter has set regularizer using :ref:`api_paddle_ParamAttr` already,
             the regularization setting here in optimizer will be ignored for this parameter.
@@ -277,7 +279,7 @@ class Adam(Optimizer):
                 else self._beta1
             ),
             shape=[1],
-            type=core.VarDesc.VarType.LOD_TENSOR,
+            type=core.VarDesc.VarType.DENSE_TENSOR,
             device='cpu',
         )
         self._add_accumulator(
@@ -290,7 +292,7 @@ class Adam(Optimizer):
                 else self._beta2
             ),
             shape=[1],
-            type=core.VarDesc.VarType.LOD_TENSOR,
+            type=core.VarDesc.VarType.DENSE_TENSOR,
             device='cpu',
         )
 
@@ -579,7 +581,7 @@ class Adam(Optimizer):
                     self._master_weight_dict['FP16_LODTensor'] = None
             else:
                 raise ValueError(
-                    "Now multi_tensor_momentum only support fp32, fp16 or bf16 parameters and grad is LOD_TENSOR."
+                    "Now multi_tensor_momentum only support fp32, fp16 or bf16 parameters and grad is DENSE_TENSOR."
                 )
 
     def _append_optimize_multi_tensor_op(
@@ -647,7 +649,7 @@ class Adam(Optimizer):
                         if (
                             param_and_grad[0].dtype == paddle.float32
                             and param_and_grad[1].type
-                            == core.VarDesc.VarType.LOD_TENSOR
+                            == core.VarDesc.VarType.DENSE_TENSOR
                         ):
                             grad_dict['FP32_LODTensor'].append(
                                 param_and_grad[1]
@@ -657,7 +659,7 @@ class Adam(Optimizer):
                         elif (
                             self._is_dtype_fp16_or_bf16(param_and_grad[0].dtype)
                             and param_and_grad[1].type
-                            == core.VarDesc.VarType.LOD_TENSOR
+                            == core.VarDesc.VarType.DENSE_TENSOR
                         ):
                             grad_dict['FP16_LODTensor'].append(
                                 param_and_grad[1]
@@ -702,7 +704,7 @@ class Adam(Optimizer):
                         if (
                             param_and_grad[0].dtype == paddle.float32
                             and param_and_grad[1].type
-                            == core.VarDesc.VarType.LOD_TENSOR
+                            == core.VarDesc.VarType.DENSE_TENSOR
                         ):
                             grad_dict['FP32_LODTensor'].append(
                                 param_and_grad[1]
@@ -712,7 +714,7 @@ class Adam(Optimizer):
                         elif (
                             self._is_dtype_fp16_or_bf16(param_and_grad[0].dtype)
                             and param_and_grad[1].type
-                            == core.VarDesc.VarType.LOD_TENSOR
+                            == core.VarDesc.VarType.DENSE_TENSOR
                         ):
                             grad_dict['FP16_LODTensor'].append(
                                 param_and_grad[1]
@@ -736,7 +738,7 @@ class Adam(Optimizer):
                     else self._beta2.item(0)
                 )
 
-                if in_dynamic_or_pir_mode():
+                if in_dygraph_mode():
                     master_weight = self._master_weight_dict[key]
                     master_weight = (
                         master_weight[param_group_idx]
@@ -769,6 +771,28 @@ class Adam(Optimizer):
                             find_master,
                             False,
                         )
+                elif in_pir_mode():
+                    master_weight = self._master_weight_dict[key]
+                    master_weight = (
+                        master_weight[param_group_idx]
+                        if master_weight is not None
+                        else None
+                    )
+                    _, _, _, _, _, _ = _C_ops.merged_adam_(
+                        self._param_dict[key][param_group_idx],
+                        grad_dict[key],
+                        lr_dict[key],
+                        self._moment1_dict[key][param_group_idx],
+                        self._moment2_dict[key][param_group_idx],
+                        self._beta1_pow_acc_dict[key][param_group_idx],
+                        self._beta2_pow_acc_dict[key][param_group_idx],
+                        master_weight,
+                        _beta1,
+                        _beta2,
+                        self._epsilon,
+                        find_master,
+                        False,
+                    )
                 else:
                     inputs = {
                         "Param": self._param_dict[key][param_group_idx],

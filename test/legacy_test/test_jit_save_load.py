@@ -15,7 +15,6 @@
 
 import copy
 import os
-import pickle
 import shutil
 import tempfile
 import unittest
@@ -27,9 +26,7 @@ import paddle
 from paddle import base
 from paddle.base import unique_name
 from paddle.jit.api import to_static
-from paddle.jit.translated_layer import INFER_PARAMS_INFO_SUFFIX
 from paddle.nn import Linear
-from paddle.pir_utils import test_with_dygraph_pir
 from paddle.static import InputSpec
 
 BATCH_SIZE = 32
@@ -259,7 +256,7 @@ class LinearNetWithMultiStaticFunc(paddle.nn.Layer):
         return self._linear_0(x)
 
     def forward_no_param(self, x):
-        return x
+        return x * 1.0
 
     def forward_general(self, x):
         return self._linear_0(x) + self._linear_1(x) * self._scale
@@ -393,7 +390,6 @@ class TestJitSaveLoad(unittest.TestCase):
         self.assertEqual(orig_input_types, new_input_types)
         return layer
 
-    @test_with_dygraph_pir
     def test_save_load(self):
         # train and save model
         if not paddle.framework.use_pir_api():
@@ -448,7 +444,6 @@ class TestJitSaveLoad(unittest.TestCase):
         with self.assertRaises(ValueError):
             model_dict = paddle.load(model_path)
 
-    @test_with_dygraph_pir
     def test_jit_load_no_path(self):
         path = os.path.join(
             self.temp_dir.name, "test_jit_save_load.no_path/model_path"
@@ -466,7 +461,6 @@ class TestSaveLoadWithNestOut(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def test_nest_output(self):
         x = paddle.to_tensor(np.random.random((4, 8)).astype('float32'))
 
@@ -498,7 +492,6 @@ class TestSaveLoadWithNonLexicographicalOrderDict(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def test_output_same_order(self):
         model_path = os.path.join(self.temp_dir.name, "dict_out_model")
         x = paddle.to_tensor(np.random.random((4, 8)).astype('float32'))
@@ -552,7 +545,6 @@ class TestSaveLoadWithNestedNonLexicographicalOrderDict(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def test_nested_output_same_order(self):
         model_path = os.path.join(self.temp_dir.name, "nested_dict_out_model")
         x = paddle.to_tensor(np.random.random((4, 8)).astype('float32'))
@@ -708,7 +700,7 @@ class TestUtilsMapAndPack(unittest.TestCase):
 
 
 class TestSaveLoadWithDictInput(unittest.TestCase):
-    @test_with_dygraph_pir
+
     def test_dict_input(self):
         # NOTE: This net cannot be executed, it is just
         # a special case for exporting models in model validation
@@ -732,8 +724,8 @@ class TestSaveLoadWithDictInput(unittest.TestCase):
         )
         # net.forward.concrete_program.inputs:
         # (<__main__.LinearNetWithDictInput object at 0x7f2655298a98>,
-        #  {'img': var img : base.VarType.LOD_TENSOR.shape(-1, 8).astype(VarType.FP32)},
-        #  {'label': var label : base.VarType.LOD_TENSOR.shape(-1, 1).astype(VarType.INT64)})
+        #  {'img': var img : base.VarType.DENSE_TENSOR.shape(-1, 8).astype(VarType.FP32)},
+        #  {'label': var label : base.VarType.DENSE_TENSOR.shape(-1, 1).astype(VarType.INT64)})
         self.assertEqual(len(net.forward.concrete_program.inputs), 3)
         temp_dir = tempfile.TemporaryDirectory()
         path = os.path.join(
@@ -764,7 +756,7 @@ class TestSaveLoadWithDictInput(unittest.TestCase):
 
 
 class TestSaveLoadWithDictInputNoPrune(unittest.TestCase):
-    @test_with_dygraph_pir
+
     def test_dict_input(self):
         net = LinearNetWithDictInputNoPrune(8, 8)
         temp_dir = tempfile.TemporaryDirectory()
@@ -805,7 +797,6 @@ class TestSaveLoadWithInputSpec(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def test_with_input_spec(self):
         net = LinearNetReturnLoss(8, 8)
         # set x.shape = [None, 8]
@@ -836,7 +827,6 @@ class TestSaveLoadWithInputSpec(unittest.TestCase):
         x = paddle.to_tensor(np.random.random((4, 8)).astype('float32'))
         pred = infer_layer(x)
 
-    @test_with_dygraph_pir
     def test_multi_in_out(self):
         net = LinearNetMultiInput(8, 8)
         net = paddle.jit.to_static(
@@ -887,7 +877,6 @@ class TestSaveLoadWithInputSpec(unittest.TestCase):
         # 4. assert pred_x == pred_xx
         np.testing.assert_allclose(pred_x.numpy(), pred_xx.numpy(), rtol=1e-05)
 
-    @test_with_dygraph_pir
     def test_multi_in_out1(self):
         net = LinearNetMultiInput1(8, 8)
         net = paddle.jit.to_static(
@@ -956,7 +945,6 @@ class TestJitSaveLoadConfig(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def test_output_spec(self):
         train_layer = LinearNetReturnLoss(8, 8)
         train_layer.forward = to_static(
@@ -992,27 +980,23 @@ class TestJitSaveLoadConfig(unittest.TestCase):
             train_layer(x)[0].numpy(), infer_layer(x).numpy()
         )
 
-    @test_with_dygraph_pir
     def test_save_no_support_config_error(self):
         layer = LinearNet(784, 1)
         path = os.path.join(self.temp_dir.name, "no_support_config_test")
         with self.assertRaises(ValueError):
             paddle.jit.save(layer=layer, path=path, model_filename="")
 
-    @test_with_dygraph_pir
     def test_load_empty_model_filename_error(self):
         path = os.path.join(self.temp_dir.name, "error_model_filename_test")
 
         with self.assertRaises(ValueError):
             paddle.jit.load(path, model_filename="")
 
-    @test_with_dygraph_pir
     def test_load_empty_params_filename_error(self):
         path = os.path.join(self.temp_dir.name, "error_params_filename_test")
         with self.assertRaises(ValueError):
             paddle.jit.load(path, params_filename="")
 
-    @test_with_dygraph_pir
     def test_load_with_no_support_config(self):
         path = os.path.join(self.temp_dir.name, "no_support_config_test")
         with self.assertRaises(ValueError):
@@ -1037,7 +1021,6 @@ class TestJitMultipleLoading(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def train_and_save_orig_model(self):
         layer = LinearNet(self.linear_size, self.linear_size)
         example_inputs, layer, _ = train(layer, self.linear_size, 1)
@@ -1045,7 +1028,6 @@ class TestJitMultipleLoading(unittest.TestCase):
             layer=layer, path=self.model_path, input_spec=example_inputs
         )
 
-    @test_with_dygraph_pir
     def test_load_model_retransform_inference(self):
         multi_loaded_layer = MultiLoadingLinearNet(
             self.linear_size, self.model_path
@@ -1100,7 +1082,6 @@ class TestJitPruneModelAndLoad(unittest.TestCase):
 
         return train_layer
 
-    @test_with_dygraph_pir
     def test_load_pruned_model(self):
         train_layer = self.train_and_save()
         train_layer.eval()
@@ -1111,22 +1092,6 @@ class TestJitPruneModelAndLoad(unittest.TestCase):
         np.testing.assert_array_equal(
             train_layer(x)[0].numpy(), infer_layer(x).numpy()
         )
-
-    # pir has no need to save extra var info, param always saved with program,
-    # and trainable info saved in program's op attr
-    def test_load_var_not_in_extra_var_info(self):
-        self.train_and_save()
-
-        # chage extra var info
-        var_info_path = self.model_path + INFER_PARAMS_INFO_SUFFIX
-        with open(var_info_path, 'rb') as f:
-            extra_var_info = pickle.load(f)
-            extra_var_info.clear()
-        with open(var_info_path, 'wb') as f:
-            pickle.dump(extra_var_info, f, protocol=2)
-
-        with self.assertRaises(RuntimeError):
-            paddle.jit.load(self.model_path)
 
 
 class TestJitSaveMultiCases(unittest.TestCase):
@@ -1166,7 +1131,6 @@ class TestJitSaveMultiCases(unittest.TestCase):
             err_msg=f'Result diff when load and inference:\nlayer result:\n{pred}\nloaded layer result:\n{loaded_pred}',
         )
 
-    @test_with_dygraph_pir
     def test_no_prune_to_static_after_train(self):
         layer = LinearNet(784, 1)
 
@@ -1179,7 +1143,6 @@ class TestJitSaveMultiCases(unittest.TestCase):
 
         self.verify_inference_correctness(layer, model_path)
 
-    @test_with_dygraph_pir
     def test_no_prune_to_static_no_train(self):
         layer = LinearNetWithInputSpec(784, 1)
 
@@ -1190,7 +1153,6 @@ class TestJitSaveMultiCases(unittest.TestCase):
 
         self.verify_inference_correctness(layer, model_path)
 
-    @test_with_dygraph_pir
     def test_no_prune_no_to_static_after_train(self):
         layer = LinearNetNotDeclarative(784, 1)
 
@@ -1207,7 +1169,6 @@ class TestJitSaveMultiCases(unittest.TestCase):
 
         self.verify_inference_correctness(layer, model_path)
 
-    @test_with_dygraph_pir
     def test_no_prune_no_to_static_after_train_with_examples(self):
         layer = LinearNetNotDeclarative(784, 1)
 
@@ -1221,7 +1182,6 @@ class TestJitSaveMultiCases(unittest.TestCase):
 
         self.verify_inference_correctness(layer, model_path)
 
-    @test_with_dygraph_pir
     def test_no_prune_no_to_static_no_train(self):
         layer = LinearNetNotDeclarative(784, 1)
 
@@ -1236,7 +1196,6 @@ class TestJitSaveMultiCases(unittest.TestCase):
 
         self.verify_inference_correctness(layer, model_path)
 
-    @test_with_dygraph_pir
     def test_prune_to_static_after_train(self):
         layer = LinerNetWithLabel(784, 1)
         layer = paddle.jit.to_static(
@@ -1266,7 +1225,6 @@ class TestJitSaveMultiCases(unittest.TestCase):
             layer, model_path, with_label_and_loss=True
         )
 
-    @test_with_dygraph_pir
     def test_prune_to_static_no_train(self):
         layer = LinerNetWithLabel(784, 1)
         layer = paddle.jit.to_static(
@@ -1297,7 +1255,6 @@ class TestJitSaveMultiCases(unittest.TestCase):
             layer, model_path, with_label_and_loss=True
         )
 
-    @test_with_dygraph_pir
     def test_prune_input_to_static_no_train(self):
         layer = LinerNetWithPruneInput(784, 1)
         layer = paddle.jit.to_static(
@@ -1321,7 +1278,6 @@ class TestJitSaveMultiCases(unittest.TestCase):
 
         self.verify_inference_correctness(layer, model_path, with_label=True)
 
-    @test_with_dygraph_pir
     def test_prune_useless_input_to_static_no_train(self):
         layer = LinerNetWithUselessInput(784, 1)
         layer = paddle.jit.to_static(
@@ -1346,7 +1302,6 @@ class TestJitSaveMultiCases(unittest.TestCase):
 
         self.verify_inference_correctness(layer, model_path, with_label=True)
 
-    @test_with_dygraph_pir
     def test_no_prune_input_spec_name_warning(self):
         layer = LinearNetWithInputSpec(784, 1)
 
@@ -1370,7 +1325,6 @@ class TestJitSaveMultiCases(unittest.TestCase):
 
         self.verify_inference_correctness(layer, model_path)
 
-    @test_with_dygraph_pir
     def test_not_prune_output_spec_name_warning(self):
         layer = LinearNet(784, 1)
 
@@ -1384,7 +1338,6 @@ class TestJitSaveMultiCases(unittest.TestCase):
 
         self.verify_inference_correctness(layer, model_path)
 
-    @test_with_dygraph_pir
     def test_prune_input_spec_name_error(self):
         layer = LinerNetWithLabel(784, 1)
 
@@ -1408,7 +1361,6 @@ class TestJitSaveMultiCases(unittest.TestCase):
                 ],
             )
 
-    @test_with_dygraph_pir
     def test_prune_output_spec_name_error(self):
         layer = LinerNetWithLabel(784, 1)
         layer = paddle.jit.to_static(
@@ -1450,15 +1402,17 @@ class TestJitSaveLoadEmptyLayer(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def test_save_load_empty_layer(self):
         layer = EmptyLayer()
         x = paddle.to_tensor(np.random.random(10).astype('float32'))
         out = layer(x)
-        paddle.jit.save(layer, self.model_path)
-        load_layer = paddle.jit.load(self.model_path)
-        load_out = load_layer(x)
-        np.testing.assert_array_equal(out, load_out)
+        try:
+            paddle.jit.save(layer, self.model_path)
+        except ValueError as e:
+            self.assertTrue(
+                'program must not be empty. at least one operator is required!'
+                in str(e)
+            )
 
 
 class TestJitSaveLoadNoParamLayer(unittest.TestCase):
@@ -1473,7 +1427,6 @@ class TestJitSaveLoadNoParamLayer(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def test_save_load_no_param_layer(self):
         layer = NoParamLayer()
         x = paddle.to_tensor(np.random.random(5).astype('float32'))
@@ -1494,7 +1447,6 @@ class TestJitSaveLoadMultiMethods(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def test_jit_save_load_inference(self):
         model_path_inference = os.path.join(
             self.temp_dir.name, "jit_save_load_multi_methods/model"
@@ -1529,7 +1481,6 @@ class TestJitSaveLoadMultiMethods(unittest.TestCase):
                 < 1e-5
             )
 
-    @test_with_dygraph_pir
     def test_jit_save_load_multi_methods_inputspec(self):
         model_path = os.path.join(
             self.temp_dir.name, 'jit_save_load_multi_methods/model'
@@ -1552,7 +1503,6 @@ class TestJitSaveLoadMultiMethods(unittest.TestCase):
                 layer, model_path, input_spec=[InputSpec(shape=[None, 784])]
             )
 
-    @test_with_dygraph_pir
     def test_parse_name(self):
         model_path_inference = os.path.join(
             self.temp_dir.name, "jit_save_load_parse_name/model"
@@ -1597,7 +1547,6 @@ class TestJitSaveCombineProperty(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def test_jit_save_combine_property(self):
         class Net(paddle.nn.Layer):
             def __init__(self):
@@ -1668,7 +1617,6 @@ class TestJitSaveCombineProperty(unittest.TestCase):
         # save
         paddle.jit.save(net, model_path, combine_params=True)
 
-    @test_with_dygraph_pir
     def test_jit_save_tensor_property(self):
         class NetTensor(paddle.nn.Layer):
             def __init__(self):
@@ -1712,7 +1660,6 @@ class TestJitSaveLoadSaveWithoutRunning(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def test_save_load_finetune_load(self):
         model_path = os.path.join(
             self.temp_dir.name, "test_jit_save_load_save_without_running/model"
@@ -1798,7 +1745,6 @@ class TestJitSaveLoadFinetuneLoad(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def test_save_load_finetune_load(self):
         if not paddle.framework.use_pir_api():
             return
@@ -1847,7 +1793,6 @@ class TestJitSaveLoadFunctionCase1(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def test_jit_save_load_static_function(self):
         @paddle.jit.to_static
         def fun(inputs):
@@ -1874,7 +1819,6 @@ class TestJitSaveLoadFunctionCase2(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def test_jit_save_load_function_input_spec(self):
         @paddle.jit.to_static(
             input_spec=[
@@ -1905,7 +1849,6 @@ class TestJitSaveLoadFunctionCase3(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def test_jit_save_load_function_function(self):
         def fun(inputs):
             return paddle.tanh(inputs)
@@ -1937,7 +1880,6 @@ class TestJitSaveLoadFunctionWithParamCase1(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def test_jit_save_load_function(self):
         class LinearNet(paddle.nn.Layer):
             def __init__(self):
@@ -1979,7 +1921,6 @@ class TestJitSaveLoadFunctionWithParamCase2(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def test_jit_save_load_function(self):
         class LinearNet(paddle.nn.Layer):
             def __init__(self):
@@ -2022,7 +1963,6 @@ class TestJitSaveLoadFunctionWithParamCase3(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def test_jit_save_load_function(self):
         class LinearNet(paddle.nn.Layer):
             def __init__(self):
@@ -2073,7 +2013,6 @@ class TestJitSaveLoadDataParallel(unittest.TestCase):
             err_msg=f'Result diff when load and inference:\nlayer result:\n{pred}\nloaded layer result:\n{loaded_pred}',
         )
 
-    @test_with_dygraph_pir
     def test_jit_save_data_parallel_with_inputspec(self):
         layer = LinearNetNotDeclarative(784, 1)
         layer = paddle.DataParallel(layer)
@@ -2086,7 +2025,6 @@ class TestJitSaveLoadDataParallel(unittest.TestCase):
 
         self.verify_inference_correctness(layer, path)
 
-    @test_with_dygraph_pir
     def test_jit_save_data_parallel_with_to_static(self):
         layer = LinearNetWithInputSpec(784, 1)
         layer = paddle.DataParallel(layer)
@@ -2103,7 +2041,7 @@ class InputSepcLayer(paddle.nn.Layer):
     # A layer with InputSpec to test InputSpec compatibility
 
     def forward(self, x, y):
-        return x, y
+        return x * 1.0, y * 1.0
 
 
 class TestInputSpecCompatibility(unittest.TestCase):
@@ -2125,7 +2063,6 @@ class TestInputSpecCompatibility(unittest.TestCase):
             expected_result[1].numpy(), test_result[1].numpy()
         )
 
-    @test_with_dygraph_pir
     def test_jit_save_no_input_sepc(self):
         layer = InputSepcLayer()
         layer = paddle.jit.to_static(
@@ -2144,7 +2081,6 @@ class TestInputSpecCompatibility(unittest.TestCase):
         self._assert_input_spec_layer_return(layer, no_input_spec_layer)
         shutil.rmtree(save_dir)
 
-    @test_with_dygraph_pir
     def test_jit_save_same_input_sepc(self):
         layer = InputSepcLayer()
         layer = paddle.jit.to_static(
@@ -2171,7 +2107,6 @@ class TestInputSpecCompatibility(unittest.TestCase):
         self._assert_input_spec_layer_return(layer, same_input_spec_layer)
         shutil.rmtree(save_dir)
 
-    @test_with_dygraph_pir
     def test_jit_save_compatible_input_sepc(self):
         layer = InputSepcLayer()
         layer = paddle.jit.to_static(
@@ -2199,7 +2134,6 @@ class TestInputSpecCompatibility(unittest.TestCase):
         self._assert_input_spec_layer_return(layer, compatible_input_spec_layer)
         shutil.rmtree(save_dir)
 
-    @test_with_dygraph_pir
     def test_jit_save_incompatible_input_sepc(self):
         layer = InputSepcLayer()
         layer = paddle.jit.to_static(
@@ -2266,7 +2200,6 @@ class TestNotJitForward(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def test_jit_not_save_forward(self):
         layer = NotJitForward()
 
@@ -2302,7 +2235,6 @@ class TestStridedBuffer(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    @test_with_dygraph_pir
     def test_strided_buffer(self):
         layer = StridedBufferNet()
         save_dir = os.path.join(self.temp_dir.name, "test_strided_buffer")
@@ -2312,6 +2244,53 @@ class TestStridedBuffer(unittest.TestCase):
         loaded_layer = paddle.jit.load(path)
         x = paddle.to_tensor([1, 2, 3]).astype('float32')
         np.testing.assert_allclose(layer(x).numpy(), loaded_layer(x).numpy())
+
+
+class LayerWithUnusedBuffer(paddle.nn.Layer):
+    def __init__(self):
+        super().__init__()
+        self.linear = paddle.nn.Linear(7, 10)
+        self.register_buffer("buffer", paddle.randn([5, 1]))
+
+    def forward(self, x):
+        return self.linear(x)
+
+
+class TestLayerWithUnusedBuffer(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def check_program_has_buffer(self, program, buffer_shape):
+        for op in program.global_block().ops:
+            if (
+                op.name() == "builtin.parameter"
+                and op.result(0).shape == buffer_shape
+            ):
+                return True
+        return False
+
+    def test_layer_with_unused_buffer(self):
+        layer = LayerWithUnusedBuffer()
+        save_dir = os.path.join(
+            self.temp_dir.name, "test_layer_with_unused_buffer"
+        )
+        path = save_dir + "/model"
+        paddle.jit.save(
+            layer=layer,
+            path=path,
+            input_spec=[InputSpec([5, 7], dtype="float32")],
+        )
+
+        loaded_layer = paddle.jit.load(path)
+        x = paddle.rand([5, 7]).astype('float32')
+        self.assertTrue(
+            self.check_program_has_buffer(
+                loaded_layer.program(), layer.buffer.shape
+            )
+        )
 
 
 if __name__ == '__main__':

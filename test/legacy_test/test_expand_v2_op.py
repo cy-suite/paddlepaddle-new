@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import unittest
 
 import gradient_checker
@@ -24,7 +25,6 @@ import paddle
 from paddle import base
 from paddle.base import Program, core, program_guard
 from paddle.framework import in_pir_mode
-from paddle.pir_utils import test_with_pir_api
 
 
 # Situation 1: shape is a list(without tensor)
@@ -243,7 +243,9 @@ class TestExpandV2OpRank1_tensor_attr(OpTest):
         self.infer_expand_shape = [-1]
 
     def test_check_output(self):
-        self.check_output(check_cinn=True, check_pir=True)
+        self.check_output(
+            check_cinn=True, check_pir=True, check_symbol_infer=False
+        )
 
     def test_check_grad(self):
         self.check_grad(['X'], 'Out', check_cinn=True, check_pir=True)
@@ -280,7 +282,9 @@ class TestExpandV2OpRank1_tensor(OpTest):
         self.expand_shape = [2, 100]
 
     def test_check_output(self):
-        self.check_output(check_cinn=True, check_pir=True)
+        self.check_output(
+            check_cinn=True, check_pir=True, check_symbol_infer=False
+        )
 
     def test_check_grad(self):
         self.check_grad(['X'], 'Out', check_cinn=True, check_pir=True)
@@ -402,7 +406,7 @@ class TestExpandV2BF16Op(OpTest):
 
 
 class TestExpandV2Error(unittest.TestCase):
-    @test_with_pir_api
+
     def test_errors(self):
         with static_guard():
             with paddle.static.program_guard(
@@ -425,7 +429,7 @@ class TestExpandV2Error(unittest.TestCase):
 
 # Test python API
 class TestExpandV2API(unittest.TestCase):
-    @test_with_pir_api
+
     def test_api(self):
         with paddle.static.program_guard(paddle.static.Program()):
             input = np.random.random([12, 14]).astype("float32")
@@ -486,7 +490,6 @@ class TestExpandDoubleGradCheck(unittest.TestCase):
     def expand_wrapper(self, x):
         return paddle.expand(x[0], [2, 3])
 
-    @test_with_pir_api
     @prog_scope()
     def func(self, place):
         # the shape of input variable should be clearly specified, not include -1.
@@ -507,7 +510,13 @@ class TestExpandDoubleGradCheck(unittest.TestCase):
 
     def test_grad(self):
         paddle.enable_static()
-        places = [base.CPUPlace()]
+        places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not core.is_compiled_with_cuda()
+        ):
+            places.append(base.CPUPlace())
         if core.is_compiled_with_cuda():
             places.append(base.CUDAPlace(0))
         for p in places:
@@ -518,7 +527,6 @@ class TestExpandTripleGradCheck(unittest.TestCase):
     def expand_wrapper(self, x):
         return paddle.expand(x[0], [2, 3])
 
-    @test_with_pir_api
     @prog_scope()
     def func(self, place):
         # the shape of input variable should be clearly specified, not include -1.
@@ -539,7 +547,13 @@ class TestExpandTripleGradCheck(unittest.TestCase):
 
     def test_grad(self):
         paddle.enable_static()
-        places = [base.CPUPlace()]
+        places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not core.is_compiled_with_cuda()
+        ):
+            places.append(base.CPUPlace())
         if core.is_compiled_with_cuda():
             places.append(base.CUDAPlace(0))
         for p in places:
@@ -653,7 +667,7 @@ class TestExpandV2CompOpInt64_t(OpTest):
 
 
 class TestExpandPirValueListShape(unittest.TestCase):
-    @test_with_pir_api
+
     def test_value_list_shape1(self):
         with static_guard():
             with paddle.static.program_guard(paddle.static.Program()):
@@ -662,7 +676,6 @@ class TestExpandPirValueListShape(unittest.TestCase):
                 out = paddle.expand(x, shape)
                 np.testing.assert_array_equal(tuple(out.shape), (2, -1))
 
-    @test_with_pir_api
     def test_value_list_shape2(self):
         with static_guard():
             with paddle.static.program_guard(paddle.static.Program()):

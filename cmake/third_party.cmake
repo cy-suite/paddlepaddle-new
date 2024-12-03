@@ -55,8 +55,35 @@ if(NOT WITH_SETUP_INSTALL)
     WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}
     RESULT_VARIABLE result_var)
   if(NOT result_var EQUAL 0)
-    message(
-      FATAL_ERROR "Failed to update submodule, please check your network !")
+    if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+      set(THIRD_PARTY_TAR_URL
+          https://xly-devops.bj.bcebos.com/PR/build_whl/0/third_party.tar.gz
+          CACHE STRING "third_party.tar.gz url")
+      execute_process(
+        COMMAND wget -q ${THIRD_PARTY_TAR_URL}
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        RESULT_VARIABLE wget_result)
+      if(NOT wget_result EQUAL 0)
+        message(
+          FATAL_ERROR
+            "Failed to download third_party.tar.gz, please check your network !"
+        )
+      else()
+        execute_process(
+          COMMAND tar -xzf third_party.tar.gz -C ${CMAKE_SOURCE_DIR}/
+          WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+          RESULT_VARIABLE tar_result)
+        if(NOT tar_result EQUAL 0)
+          message(
+            FATAL_ERROR
+              "Failed to extract third_party.tar.gz, please make sure tar.gz file is not corrupted !"
+          )
+        endif()
+      endif()
+    else()
+      message(
+        FATAL_ERROR "Failed to update submodule, please check your network !")
+    endif()
   endif()
 
 endif()
@@ -377,6 +404,11 @@ if(TARGET extern_json)
   list(APPEND third_party_deps extern_json)
 endif()
 
+include(external/yaml) # find first, then build yaml
+if(TARGET extern_yaml)
+  list(APPEND third_party_deps extern_yaml)
+endif()
+
 if(NOT ((NOT WITH_PYTHON) AND ON_INFER))
   include(external/python) # find python and python_module
   include(external/pybind11) # prepare submodule pybind11
@@ -489,6 +521,9 @@ if(WITH_PSCORE)
 
   include(external/jemalloc) # download, build, install jemalloc
   list(APPEND third_party_deps extern_jemalloc)
+
+  include(external/afs_api)
+  list(APPEND third_party_deps extern_afs_api)
 endif()
 
 if(WITH_RPC
@@ -561,11 +596,32 @@ if(WITH_CUSPARSELT)
   list(APPEND third_party_deps extern_cusparselt)
 endif()
 
+if(WITH_ROCM)
+  include(external/flashattn)
+  list(APPEND third_party_deps extern_flashattn)
+  set(WITH_FLASHATTN ON)
+endif()
+
 if(WITH_GPU
    AND NOT WITH_ARM
    AND NOT WIN32
    AND NOT APPLE)
-  if(${CMAKE_CUDA_COMPILER_VERSION} GREATER_EQUAL 11.4)
+  if(${CMAKE_CUDA_COMPILER_VERSION} GREATER_EQUAL 12.3)
+    foreach(arch ${NVCC_ARCH_BIN})
+      if(${arch} GREATER_EQUAL 90)
+        set(WITH_FLASHATTN_V3 ON)
+        break()
+      endif()
+    endforeach()
+    foreach(arch ${NVCC_ARCH_BIN})
+      if(${arch} GREATER_EQUAL 80)
+        include(external/flashattn)
+        list(APPEND third_party_deps extern_flashattn)
+        set(WITH_FLASHATTN ON)
+        break()
+      endif()
+    endforeach()
+  elseif(${CMAKE_CUDA_COMPILER_VERSION} GREATER_EQUAL 11.4)
     foreach(arch ${NVCC_ARCH_BIN})
       if(${arch} GREATER_EQUAL 80)
         include(external/flashattn)

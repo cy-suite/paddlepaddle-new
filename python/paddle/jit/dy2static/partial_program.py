@@ -23,7 +23,7 @@ from paddle.base import backward, core, framework, program_guard
 from paddle.base.compiler import BuildStrategy
 from paddle.base.data_feeder import check_type, convert_dtype
 from paddle.base.dygraph.base import switch_to_static_graph
-from paddle.base.framework import _apply_pass, get_flags
+from paddle.base.framework import get_flags
 from paddle.optimizer.lr import LRScheduler
 
 from . import logging_utils
@@ -136,14 +136,11 @@ class ProgramInfo:
 
 
 class PartialProgramLayerHook:
-    def before_append_backward(self, forward_program):
-        ...
+    def before_append_backward(self, forward_program): ...
 
-    def after_append_backward(self, whole_program, backward_start_idx):
-        ...
+    def after_append_backward(self, whole_program, backward_start_idx): ...
 
-    def after_infer(self, infer_program):
-        ...
+    def after_infer(self, infer_program): ...
 
 
 class PartialProgramLayer:
@@ -155,7 +152,7 @@ class PartialProgramLayer:
         **1. This is a very low level API. Users should not use this API
              directly. Please use `partial_program_from(concrete_program)`
              to create it.
-        **2. LoDTensorArray is not currently supported in the output.
+        **2. DenseTensorArray is not currently supported in the output.
 
     Args:
         main_program(Program): The main program that contains ops need to be executed.
@@ -594,7 +591,7 @@ class PartialProgramLayer:
             if exist a op whose inputs is var, then return True
             """
             if not isinstance(var, framework.Variable) or var.type not in [
-                core.VarDesc.VarType.LOD_TENSOR,
+                core.VarDesc.VarType.DENSE_TENSOR,
                 core.VarDesc.VarType.SELECTED_ROWS,
             ]:
                 return False
@@ -896,28 +893,28 @@ class PartialProgramLayer:
                 "mem_opt_skip_vars": forward_mem_opt_skip_vars,
                 "for_partial_block": True,
             }
-            if not (self._in_pir_pt_mode or self._enable_pir_in_executor):
-                _apply_pass(
-                    forward_program,
-                    empty_startup_program,
-                    "buffer_shared_inplace_pass",
-                    attrs,
-                    attr_types,
-                )
+            # if not (self._in_pir_pt_mode or self._enable_pir_in_executor):
+            #     _apply_pass(
+            #         forward_program,
+            #         empty_startup_program,
+            #         "buffer_shared_inplace_pass",
+            #         attrs,
+            #         attr_types,
+            #     )
         if backward_program:
             attrs = {
                 "use_cuda": use_cuda,
                 "mem_opt_skip_vars": backward_mem_opt_skip_vars,
                 "for_partial_block": True,
             }
-            if not (self._in_pir_pt_mode or self._enable_pir_in_executor):
-                _apply_pass(
-                    backward_program,
-                    empty_startup_program,
-                    "buffer_shared_inplace_pass",
-                    attrs,
-                    attr_types,
-                )
+            # if not (self._in_pir_pt_mode or self._enable_pir_in_executor):
+            #     _apply_pass(
+            #         backward_program,
+            #         empty_startup_program,
+            #         "buffer_shared_inplace_pass",
+            #         attrs,
+            #         attr_types,
+            #     )
 
     @LazyInitialized
     def _inout_var_names(self):
@@ -1077,10 +1074,10 @@ class PartialProgramLayer:
 
     def _set_grad_type(self, params, train_program):
         # NOTE: if user set sparse gradient mode, the param's gradient
-        # will be SelectedRows, not LoDTensor. But tracer will just
-        # set param grad Tensor by forward Tensor(LoDTensor)
+        # will be SelectedRows, not DenseTensor. But tracer will just
+        # set param grad Tensor by forward Tensor(DenseTensor)
         # If we don't change grad_var type here, RunProgramOp need
-        # transform SelectedRows to LoDTensor forcibly, it may not
+        # transform SelectedRows to DenseTensor forcibly, it may not
         # be user wanted result.
         for param in params:
             grad_name = param.name + core.grad_var_suffix()
