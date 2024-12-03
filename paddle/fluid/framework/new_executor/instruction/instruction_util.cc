@@ -151,21 +151,10 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
       } else if (op_name.compare(
                      paddle::dialect::CSoftmaxWithCrossEntropyOp::name()) ==
                  0) {
-        VLOG(1) << "Comm_Context is null?" << (comm_context == nullptr);
-        if (!comm_context) {
-          VLOG(1) << "Enter!";
-          auto map = distributed::ProcessGroupMapFromGid::getInstance();
-          distributed::ProcessGroup* pg = map->get(ring_id);
-          VLOG(1) << "Pg is Null?" << (pg == nullptr);
-          comm_context = static_cast<paddle::distributed::ProcessGroupNCCL*>(pg)
-                             ->GetOrCreateCommContext(place);
-          // auto ptr_nccl =
-          // static_cast<paddle::distributed::ProcessGroupNCCL*>(pg); VLOG(1) <<
-          // "Ptr_Nccl's type is:" << typeid(ptr_nccl).name(); VLOG(1) <<
-          // "Ptr_NCCL is Null?" << (ptr_nccl == nullptr); VLOG(1) << "Ptr_NCCL
-          // has gid_?" << ptr_nccl->GetGid();
-        }
-        VLOG(1) << "Comm_Context is still null?" << (comm_context == nullptr);
+        auto map = distributed::ProcessGroupMapFromGid::getInstance();
+        distributed::ProcessGroup* pg = map->get(ring_id);
+        comm_context = static_cast<paddle::distributed::ProcessGroupNCCL*>(pg)
+                           ->GetOrCreateCommContext(place);
       }
 
       // if (comm_context_manager.Has(std::to_string(ring_id))) {
@@ -205,20 +194,16 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
                       << " origin_dev_ctx is nullptr";
             }
           }
-          VLOG(1) << "comm context get from dev_ctx is null?"
-                  << (dev_ctx->GetCommContext() == nullptr);
           return dev_ctx;
+        } else {
+          VLOG(3) << "ring_id " << ring_id
+                  << " not found in comm_context_manager for op " << op_name;
         }
-        // } else {
-        //   VLOG(3) << "ring_id " << ring_id
-        //           << " not found in comm_context_manager for op " << op_name;
-        // }
       }
     }
 #endif
   }
 
-  VLOG(1) << "Return origin_dev_ctx";
   if (origin_dev_ctx != nullptr) {
     interpreter::SetDeviceCommContext(op, origin_dev_ctx);
   }
