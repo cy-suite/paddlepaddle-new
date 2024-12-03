@@ -19,7 +19,7 @@ import numpy as np
 from tensorrt_test_base import TensorRTBaseTest
 
 import paddle.nn.functional as F
-from paddle import Tensor
+from paddle import Tensor, to_tensor
 
 
 class TestGridSampleTRTPatternBase(TensorRTBaseTest):
