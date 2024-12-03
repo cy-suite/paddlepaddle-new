@@ -74,15 +74,6 @@
     data_type : dtype
   traits : paddle::dialect::ForwardOnlyTrait
 
-- op : beam_search_decode
-  args: (Tensor ids, Tensor scores, int beam_size, int end_id)
-  output: Tensor (sentence_ids), Tensor (sentence_scores)
-  infer_meta:
-    func: BeamSearchDecodeInferMeta
-  kernel:
-    func: beam_search_decode
-  traits : paddle::dialect::ForwardOnlyTrait
-
 - op : comm_init_all
   args : (int[] devices={}, int ring_id=0)
   output :

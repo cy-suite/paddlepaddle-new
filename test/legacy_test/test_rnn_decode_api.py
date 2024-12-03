@@ -19,12 +19,11 @@ import unittest
 import numpy as np
 
 import paddle
-from paddle import Model, base, nn, set_device
+from paddle import Model, base, set_device
 from paddle.base import layers
 from paddle.base.data_feeder import convert_dtype
 from paddle.nn import (
     RNN,
-    BeamSearchDecoder,
     Embedding,
     Layer,
     Linear,
@@ -341,70 +340,6 @@ class ModuleApiTest(unittest.TestCase):
         for device in devices:
             place = set_device(device)
             self.check_output_with_place(place)
-
-
-class TestBeamSearch(ModuleApiTest):
-    def setUp(self):
-        paddle.set_default_dtype("float64")
-        shape = (8, 32)
-        self.inputs = [
-            np.random.random(shape).astype("float64"),
-            np.random.random(shape).astype("float64"),
-        ]
-        self.outputs = None
-        self.attrs = {
-            "vocab_size": 100,
-            "embed_dim": 32,
-            "hidden_size": 32,
-        }
-        self.param_states = {}
-
-    @staticmethod
-    def model_init(
-        self,
-        vocab_size,
-        embed_dim,
-        hidden_size,
-        bos_id=0,
-        eos_id=1,
-        beam_size=4,
-        max_step_num=20,
-    ):
-        self.embedder = Embedding(vocab_size, embed_dim)
-        self.output_layer = nn.Linear(hidden_size, vocab_size)
-        self.cell = nn.LSTMCell(embed_dim, hidden_size)
-
-        self.max_step_num = max_step_num
-        self.beam_search_decoder = BeamSearchDecoder(
-            self.cell,
-            start_token=bos_id,
-            end_token=eos_id,
-            beam_size=beam_size,
-            embedding_fn=self.embedder,
-            output_fn=self.output_layer,
-        )
-
-    @staticmethod
-    def model_forward(model, init_hidden, init_cell):
-        return dynamic_decode(
-            model.beam_search_decoder,
-            [init_hidden, init_cell],
-            max_step_num=model.max_step_num,
-            impute_finished=True,
-            is_test=True,
-        )[0]
-
-    def make_inputs(self):
-        inputs = [
-            Input([None, self.inputs[0].shape[-1]], "float64", "init_hidden"),
-            Input([None, self.inputs[1].shape[-1]], "float64", "init_cell"),
-        ]
-        return inputs
-
-    def test_check_output(self):
-        self.setUp()
-        self.make_inputs()
-        self.check_output()
 
 
 class EncoderCell(SimpleRNNCell):
