@@ -16,23 +16,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
-if TYPE_CHECKING:
-    from paddle import Tensor
-    from paddle.distributed.communication.group import Group
-
 import numpy
 
 import paddle
 from paddle import _C_ops, pir
-from paddle._typing import (
-    DataLayout2D,
-    DataLayout3D,
-    DataLayoutND,
-    IntSequence,
-    ShapeLike,
-    Size2,
-    Size4,
-)
 from paddle.base.layer_helper import LayerHelper
 from paddle.common_ops_import import Variable, default_main_program
 from paddle.framework import (
@@ -42,6 +29,7 @@ from paddle.framework import (
     in_pir_mode,
 )
 from paddle.tensor.creation import full
+from paddle.utils import deprecated
 
 from ...base.data_feeder import (
     check_dtype,
@@ -54,6 +42,34 @@ from ...tensor.creation import zeros
 # TODO: define the common functions to build a neural network
 from ...tensor.manipulation import squeeze, unsqueeze
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from typing_extensions import TypeAlias
+
+    from paddle import Tensor
+    from paddle._typing import (
+        DataLayout1DVariant,
+        DataLayout2D,
+        DataLayout3D,
+        DataLayoutND,
+        ShapeLike,
+        Size2,
+        Size4,
+    )
+    from paddle.distributed.communication.group import Group
+
+    _InterpolateMode: TypeAlias = Literal[
+        'linear', 'area', 'nearest', 'bilinear', 'bicubic', 'trilinear'
+    ]
+    _DropoutMode: TypeAlias = Literal['upscale_in_train', 'downscale_in_infer']
+    _PaddingTensorMode: TypeAlias = Literal[
+        "zeros", "constant", "reflect", "replicate", "circular"
+    ]
+    _PaddingSizeMode: TypeAlias = Literal[  # noqa: PYI047
+        'valid', 'same', 'VALID', 'SAME'
+    ]
+
 __all__ = []
 
 
@@ -61,7 +77,7 @@ def unfold(
     x: Tensor,
     kernel_sizes: Size2,
     strides: Size2 = 1,
-    paddings: Size4 = 0,
+    paddings: Size2 | Size4 = 0,
     dilations: Size2 = 1,
     name: str | None = None,
 ) -> Tensor:
@@ -202,14 +218,12 @@ def unfold(
 def interpolate(
     x: Tensor,
     size: ShapeLike | None = None,
-    scale_factor: ShapeLike | None = None,
-    mode: Literal[
-        'linear', 'area', 'nearest', 'bilinear', 'bicubic', 'trilinear'
-    ] = 'nearest',
+    scale_factor: ShapeLike | float | None = None,
+    mode: _InterpolateMode = 'nearest',
     align_corners: bool = False,
     align_mode: int = 0,
     data_format: (
-        Literal["NCW", "NWC", "NCHW", "NHWC", "NCDHW", "NDHWC"] | None
+        DataLayout1DVariant | DataLayout2D | DataLayout3D | None
     ) = None,
     name: str | None = None,
 ) -> Tensor:
@@ -762,12 +776,12 @@ def upsample(
     x: Tensor,
     size: ShapeLike | None = None,
     scale_factor: ShapeLike | None = None,
-    mode: Literal[
-        'linear', 'nearest', 'bilinear', 'bicubic', 'trilinear'
-    ] = 'nearest',
+    mode: _InterpolateMode = 'nearest',
     align_corners: bool = False,
     align_mode: int = 0,
-    data_format: Literal["NCW", "NWC", "NCHW", "NHWC", "NCDHW", "NDHWC"] = None,
+    data_format: (
+        DataLayout1DVariant | DataLayout2D | DataLayout3D | None
+    ) = None,
     name: str | None = None,
 ) -> Tensor:
     """
@@ -788,6 +802,7 @@ def upsample(
     - 'trilinear' : Trilinear interpolation
     - 'nearest' : Nearest neighbor interpolation
     - 'bicubic' : Bicubic interpolation
+    - 'area': Area interpolation
 
     Linear interpolation is the method of using a line connecting two known quantities
     to determine the value of an unknown quantity between the two known quantities.
@@ -920,7 +935,7 @@ def upsample(
              And :attr:`size` has a higher priority than :attr:`scale_factor`.Has to match input size if
              it is either a list or a tuple or a Tensor. If a list/tuple, each element can be an integer or a Tensor of shape: [1] or [].
              Default: None.
-        mode (str, optional): The resample method. It supports 'linear', 'nearest', 'bilinear',
+        mode (str, optional): The resample method. It supports 'linear', 'nearest', 'bilinear', 'area',
                        'bicubic' and 'trilinear' currently. Default: 'nearest'
         align_corners(bool, optional) :  An optional bool, If True, the centers of the 4 corner pixels of the
                                input and output tensors are aligned, preserving the values at the
@@ -1026,11 +1041,9 @@ def bilinear(
 def dropout(
     x: Tensor,
     p: float = 0.5,
-    axis: int | IntSequence | None = None,
+    axis: int | Sequence[int] | None = None,
     training: bool = True,
-    mode: Literal[
-        'upscale_in_train', 'downscale_in_infer'
-    ] = "upscale_in_train",
+    mode: _DropoutMode = "upscale_in_train",
     name: str | None = None,
 ) -> Tensor:
     r"""
@@ -1261,7 +1274,9 @@ def dropout(
         dtype = x.dtype
         keep_prob = 1 - p
         if training:
-            if in_dynamic_or_pir_mode() and p == 1.0:
+            if in_dynamic_mode() and p == 1.0:
+                return paddle.scale(x, scale=0.0)
+            elif in_pir_mode() and isinstance(p, (float, int)) and p == 1.0:
                 return paddle.scale(x, scale=0.0)
 
             scale_input = (
@@ -1450,7 +1465,7 @@ def dropout2d(
     if data_format not in ["NCHW", "NHWC"]:
         raise ValueError(
             "Attr(data_format) should be 'NCHW' or 'NHWC'. Received "
-            "Attr(data_format): %s." % str(data_format)
+            f"Attr(data_format): {data_format}."
         )
 
     return dropout(
@@ -1512,7 +1527,7 @@ def dropout3d(
     if data_format not in ["NCDHW", "NDHWC"]:
         raise ValueError(
             "Attr(data_format) should be 'NCDHW' or 'NDHWC'. Received "
-            "Attr(data_format): %s." % str(data_format)
+            f"Attr(data_format): {data_format}."
         )
 
     return dropout(
@@ -1525,41 +1540,13 @@ def dropout3d(
     )
 
 
-def alpha_dropout(
-    x: Tensor, p: float = 0.5, training: bool = True, name: str | None = None
+def _feature_alpha_dropout_impl(
+    x: Tensor,
+    feature_dropout: bool,
+    p: float,
+    training: bool = True,
+    name: str | None = None,
 ) -> Tensor:
-    """
-    Alpha Dropout is a type of Dropout that maintains the self-normalizing property.
-    For an input with zero mean and unit standard deviation, the output of Alpha Dropout
-    maintains the original mean and standard deviation of the input.
-    Alpha Dropout fits well to SELU activate function by randomly setting activations to the negative saturation value.
-
-    Args:
-        x (Tensor): The input tensor. The data type is float16, float32 or float64.
-        p (float | int): Probability of setting units to zero. Default 0.5.
-        training (bool): A flag indicating whether it is in train phrase or not. Default True.
-        name (str, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
-
-    Returns:
-        A Tensor representing the dropout, has same shape and data type as `x`.
-
-    Examples:
-        .. code-block:: python
-
-            >>> import paddle
-            >>> paddle.seed(1)
-            >>> x = paddle.to_tensor([[-1, 1], [-1, 1]]).astype(paddle.float32)
-            >>> y_train = paddle.nn.functional.alpha_dropout(x, 0.5)
-            >>> y_test = paddle.nn.functional.alpha_dropout(x, 0.5, training=False)
-            >>> print(y_train)
-            Tensor(shape=[2, 2], dtype=float32, place=Place(cpu), stop_gradient=True,
-            [[-0.77919382,  1.66559887],
-            [-0.10721093, -0.77919382]])
-            >>> print(y_test)
-            Tensor(shape=[2, 2], dtype=float32, place=Place(cpu), stop_gradient=True,
-            [[-1.,  1.],
-            [-1.,  1.]])
-    """
     if not isinstance(p, (float, int)):
         raise TypeError("p argument should be a float or int")
     if p < 0 or p > 1:
@@ -1581,7 +1568,14 @@ def alpha_dropout(
         b = -a * alpha_p * p
 
         dtype = x.dtype
-        input_shape = x.shape
+        if not feature_dropout:
+            input_shape = x.shape
+        else:
+            if x.ndim < 2:
+                raise ValueError(
+                    'Feature alpha dropout needs at least 2D input.'
+                )
+            input_shape = list(x.shape[:2]) + [1] * len(x.shape[2:])
 
         # get mask
         random_tensor = paddle.uniform(
@@ -1606,31 +1600,131 @@ def alpha_dropout(
         return x
 
 
+def alpha_dropout(
+    x: Tensor,
+    p: float = 0.5,
+    training: bool = True,
+    name: str | None = None,
+) -> Tensor:
+    """
+    Alpha Dropout is a type of Dropout that maintains the self-normalizing property.
+    For an input with zero mean and unit standard deviation, the output of Alpha Dropout
+    maintains the original mean and standard deviation of the input.
+    Alpha Dropout fits well to SELU activate function by randomly setting activations to the negative saturation value.
+
+    Args:
+        x (Tensor): The input tensor. The data type is bfloat16, float16, float32 or float64.
+        p (float | int, optional): Probability of setting units to zero. Default 0.5.
+        training (bool, optional): A flag indicating whether it is in train phrase or not. Default True.
+        name (str | None, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
+
+    Returns:
+        Tensor: A Tensor representing the dropout, has same shape and data type as `x`.
+
+    Examples:
+        .. code-block:: python
+
+            >>> import paddle
+            >>> paddle.seed(1)
+            >>> x = paddle.to_tensor([[-1, 1], [-1, 1]]).astype(paddle.float32)
+            >>> y_train = paddle.nn.functional.alpha_dropout(x, 0.5)
+            >>> y_test = paddle.nn.functional.alpha_dropout(x, 0.5, training=False)
+            >>> print(y_train)
+            Tensor(shape=[2, 2], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [[-0.77919382,  1.66559887],
+            [-0.10721093, -0.77919382]])
+            >>> print(y_test)
+            Tensor(shape=[2, 2], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [[-1.,  1.],
+            [-1.,  1.]])
+    """
+    return _feature_alpha_dropout_impl(
+        x, feature_dropout=False, p=p, training=training, name=name
+    )
+
+
+def feature_alpha_dropout(
+    x: Tensor,
+    p: float = 0.5,
+    training: bool = True,
+    name: str | None = None,
+) -> Tensor:
+    """
+    A channel is a feature map, Feature Alpha Dropout randomly masks out entire channels.
+    Alpha Dropout is a type of Dropout that maintains the self-normalizing property.
+    For an input with zero mean and unit standard deviation, the output of Alpha Dropout
+    maintains the original mean and standard deviation of the input.
+    Alpha Dropout fits well to SELU activate function by randomly setting activations to the negative saturation value.
+
+    Args:
+        x (Tensor): The input tensor. The data type is bfloat16, float16, float32 or float64.
+        p (float | int, optional): Probability of setting units to zero. Default 0.5.
+        training (bool, optional): A flag indicating whether it is in train phrase or not. Default True.
+        name (str | None, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
+
+    Returns:
+        Tensor: A Tensor representing the dropout, has same shape and data type as `x`.
+
+    Examples:
+        .. code-block:: python
+
+            >>> import paddle
+            >>> paddle.seed(1)
+            >>> x = paddle.to_tensor([[-1, 1], [-1, 1]]).astype(paddle.float32)
+            >>> y_train = paddle.nn.functional.feature_alpha_dropout(x, 0.5)
+            >>> y_test = paddle.nn.functional.feature_alpha_dropout(x, 0.5, training=False)
+            >>> print(y_train)
+            Tensor(shape=[2, 2], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [[-0.77919382,  1.66559887],
+            [-0.10721093, -0.77919382]])
+            >>> print(y_test)
+            Tensor(shape=[2, 2], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [[-1.,  1.],
+            [-1.,  1.]])
+    """
+    return _feature_alpha_dropout_impl(
+        x, feature_dropout=True, p=p, training=training, name=name
+    )
+
+
 def pad(
     x: Tensor,
     pad: ShapeLike,
-    mode: Literal["constant", "reflect", "replicate", "circular"] = 'constant',
+    mode: _PaddingTensorMode = 'constant',
     value: float = 0.0,
-    data_format: DataLayoutND = "NCHW",
+    data_format: DataLayoutND | None = None,
+    pad_from_left_axis: bool = True,
     name: str | None = None,
 ) -> Tensor:
     """
     Pad tensor according to ``'pad'`` and ``'mode'``.
-    If mode is ``'constant'`` and length of pad is twice as length of x dimension,
-    then the padding will be started from the first dimension and moved back onto x
-    according to ``'pad'`` and ``'value'``.
-    If mode is ``'reflect'``, pad[0] and pad[1] must be no greater
-    than width-1. The height and depth dimension has the same condition.
 
-    Parameters:
-        x (Tensor): The input tensor with data type float32/double/int32/int64_t/complex64/complex128.
-        pad (Tensor|list[int]|tuple[int]): The padding size with data type int.
-            If mode is ``'constant'`` and length of pad is twice as length of x dimension, then x will
-            be padded from the first  dimension to the last dimension.
-            Else: 1. If input dimension is 3, then the pad has the form (pad_left,
-            pad_right). 2. If the input dimension is 4, then the pad has the form (pad_left, pad_right,
-            pad_top, pad_bottom). 3. If the input dimension is 5, then the pad has the form
-            (pad_left, pad_right, pad_top, pad_bottom, pad_front, pad_back).
+    Note:
+        1. Denote ``'x'``'s dimension as N (same in the following). If mode is ``'constant'``, the length
+        of ``'pad'`` can be any even number less than or equal to 2*N.
+
+        2. When mode is ``'constant'``, and ``'pad'`` is a list or tuple, and the length of ``'pad'`` is not
+        equal to 2*(N - 2):
+        2.1. If the length of ``'pad'`` is 2*N, the order of padding can be customized by ``'pad_from_left_axis'``.
+        if ``'pad_from_left_axis'`` is True, then the padding order will be started from the first dimension of
+        ``'x'`` and moving backward according to ``'pad'``; else if ``'pad_from_left_axis'`` is False, then the
+        padding order will be started from the last dimension of ``'x'`` and moving forward according to ``'pad'``.
+        2.2. Otherwise, the padding will be started from the last dimension.
+
+        3. When mode is any of ``'reflect'``, ``'replicate'``, ``'circular'``, or ``'pad'`` is a tensor, or the
+        length of ``'pad'`` is 2*(N - 2), and the dimension of ``'x'`` only supports 3-D, 4-D and 5-D.
+        In these cases, input ``'x'`` will be padded on [D, H, W] axes according to ``'data_format'``. It will pad
+        from the last dimension to the first dimension of [D, H, W] axes.
+        Specifically, if N = 3, then the pad has the form (pad_left, pad_right); if N = 4, then the pad has the form
+        (pad_left, pad_right, pad_top, pad_bottom); if N = 5, then the pad has the form (pad_left, pad_right,
+        pad_top, pad_bottom, pad_front, pad_back).
+
+        4. If mode is ``'reflect'``, pad[0] and pad[1] must be no greater than width-1. The height and depth
+        dimension has the same condition.
+
+    Args:
+        x (Tensor): The input tensor with data type float32, float64, int32, int64, complex64 or complex128.
+        pad (Tensor|list[int]|tuple[int]): The padding size with data type int. Refer to Note for details.
         mode (str, optional): Four modes: ``'constant'`` (default), ``'reflect'``, ``'replicate'``, ``'circular'``. Default is ``'constant'``.
 
            - 'constant' mode, uses a constant value to pad the input tensor.
@@ -1640,8 +1734,14 @@ def pad(
 
         value (float, optional): The value to fill the padded areas in 'constant' mode . Default is :math:`0.0`.
         data_format (str, optional): An string from: ``'NCL'``, ``'NLC'``, ``'NHWC'``, ``'NCHW'``, ``'NCDHW'``, ``'NDHWC'``. Specify the data format of
-           the input data. Default: ``'NCHW'``.
-        name (str, optional): For details, please refer to :ref:`api_guide_Name`. Generally, no setting is required. Default: ``'None'``.
+           the input data when: 1. mode is any of ``'reflect'``, ``'replicate'`` or ``'circular'``; or 2. the input ``'pad'`` is a tensor;
+           or 3. the length of ``'pad'`` is ``2*(x.ndim - 2)``. The default value is None, which means it will be automatically inferred from the
+           input dimension of ``'x'``. When ``'x'`` is a 3-D Tensor, data_format will be set to ``'NCL'``; When ``'x'`` is a 4-D Tensor,
+           data_format will be set to ``'NCHW'``; When ``'x'`` is a 5-D Tensor, data_format will be set to ``'NCDHW'``.
+        pad_from_left_axis (bool, optional): The parameter is only valid when mode is ``'constant'`` and the input ``'pad'`` is
+           length of ``'pad'`` is ``2*x.ndim``, the order of padding can be customized. If True, the padding will be started from
+           the first axis of ``'x'``; if False, it will be started from the last axis of ``'x'``. Default: True.
+        name (str|None, optional): For details, please refer to :ref:`api_guide_Name`. Generally, no setting is required. Default: ``'None'``.
 
     Returns:
         Tensor, a Tensor padded according to pad and mode and data type is same as input.
@@ -1657,12 +1757,36 @@ def pad(
                 pad = [0, 0, 0, 0, 0, 0, 1, 1, 0, 0],
                 mode = 'constant'
                 value = 0
+                pad_from_left_axis = True
                 Out = [[[[[0., 0., 0.],
                           [1., 2., 3.],
                           [4., 5., 6.],
                           [0., 0., 0.]]]]]
+                Out.shape = [1, 1, 1, 4, 3]
 
             Case 1:
+                pad = [0, 0, 0, 0, 0, 0, 1, 1, 0, 0],
+                mode = 'constant'
+                value = 0
+                pad_from_left_axis = False
+                Out = [[[[[0., 0., 0.],
+                          [0., 0., 0.]]],
+                        [[[1., 2., 3.],
+                          [4., 5., 6.]]],
+                        [[[0., 0., 0.],
+                          [0., 0., 0.]]]]]
+                Out.shape = [1, 3, 1, 2, 3]
+
+            Case 3:
+                pad = [1, 0, 0, 1],
+                mode = 'constant'
+                value = 0
+                Out = [[[[[0., 1., 2., 3.],
+                          [0., 4., 5., 6.],
+                          [0., 0., 0., 0.]]]]]
+                Out.shape = [1, 1, 1, 3, 4]
+
+            Case 4:
                 pad = [2, 2, 1, 1, 0, 0],
                 mode = 'constant'
                 value = 0
@@ -1670,30 +1794,34 @@ def pad(
                           [0. 0. 1. 2. 3. 0. 0.]
                           [0. 0. 4. 5. 6. 0. 0.]
                           [0. 0. 0. 0. 0. 0. 0.]]]]]
+                Out.shape = [1, 1, 1, 4, 7]
 
-            Case 2:
+            Case 5:
                 pad = [2, 2, 1, 1, 0, 0],
                 mode = 'reflect'
                 Out = [[[[[6. 5. 4. 5. 6. 5. 4.]
                           [3. 2. 1. 2. 3. 2. 1.]
                           [6. 5. 4. 5. 6. 5. 4.]
                           [3. 2. 1. 2. 3. 2. 1.]]]]]
+                Out.shape = [1, 1, 1, 4, 7]
 
-            Case 3:
+            Case 6:
                 pad = [2, 2, 1, 1, 0, 0],
                 mode = 'replicate'
                 Out = [[[[[1. 1. 1. 2. 3. 3. 3.]
                           [1. 1. 1. 2. 3. 3. 3.]
                           [4. 4. 4. 5. 6. 6. 6.]
                           [4. 4. 4. 5. 6. 6. 6.]]]]]
+                Out.shape = [1, 1, 1, 4, 7]
 
-            Case 4:
+            Case 7:
                 pad = [2, 2, 1, 1, 0, 0],
                 mode = 'circular'
                 Out = [[[[[5. 6. 4. 5. 6. 4. 5.]
                           [2. 3. 1. 2. 3. 1. 2.]
                           [5. 6. 4. 5. 6. 4. 5.]
                           [2. 3. 1. 2. 3. 1. 2.]]]]]
+                Out.shape = [1, 1, 1, 4, 7]
 
     Examples:
         .. code-block:: python
@@ -1727,6 +1855,35 @@ def pad(
                [3., 1., 2., 3., 1., 2.],
                [6., 4., 5., 6., 4., 5.],
                [3., 1., 2., 3., 1., 2.]]]])
+
+            >>> # example 4
+            >>> x_shape = (1, 1, 3)
+            >>> x = paddle.arange(paddle.prod(paddle.to_tensor(x_shape)), dtype="float32").reshape(x_shape) + 1
+            >>> y = F.pad(x, [1, 0, 0, 1, 0, 0], value=0, mode='constant', pad_from_left_axis=True)
+            >>> print(y)
+            Tensor(shape=[2, 2, 3], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [[[0., 0., 0.],
+              [0., 0., 0.]],
+             [[1., 2., 3.],
+              [0., 0., 0.]]])
+
+            >>> # example 5
+            >>> x_shape = (1, 1, 3)
+            >>> x = paddle.arange(paddle.prod(paddle.to_tensor(x_shape)), dtype="float32").reshape(x_shape) + 1
+            >>> y = F.pad(x, [1, 0, 0, 1, 0, 0], value=0, mode='constant', pad_from_left_axis=False)
+            >>> print(y)
+            Tensor(shape=[1, 2, 4], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [[[0., 1., 2., 3.],
+              [0., 0., 0., 0.]]])
+
+            >>> # example 6
+            >>> x_shape = (1, 1, 3)
+            >>> x = paddle.arange(paddle.prod(paddle.to_tensor(x_shape)), dtype="float32").reshape(x_shape) + 1
+            >>> y = F.pad(x, [1, 0, 0, 1], value=0, mode='constant')
+            >>> print(y)
+            Tensor(shape=[1, 2, 4], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [[[0., 1., 2., 3.],
+              [0., 0., 0., 0.]]])
     """
     assert mode in [
         'reflect',
@@ -1735,21 +1892,30 @@ def pad(
         'circular',
     ], f"mode should be one of constant, reflect, replicate, circular, but got {mode}."
 
-    data_format = data_format.upper()
-    assert data_format in ["NCL", "NCHW", "NCDHW", "NLC", "NHWC", "NDHWC"], (
-        "data_format should be in one of [NCL, NCHW, NCDHW, NLC, NHWC, NDHWC], "
-        f"but got {data_format}"
-    )
-
     x_dim = len(x.shape)
 
     if (
         mode == "constant"
         and isinstance(pad, (list, tuple))
-        and len(pad) == x_dim * 2
+        and len(pad) != (x_dim - 2) * 2
     ):
         paddings = pad
         pad_value = value
+
+        padding_len = len(paddings)
+        # pad the length of paddings to 2*x_dim
+        if padding_len < 2 * x_dim:
+            pad_len_for_paddings = 2 * x_dim - padding_len
+            paddings = paddings + ([0] if isinstance(pad, list) else (0,)) * (
+                pad_len_for_paddings
+            )
+
+        # since the kernel pad from left axis, if we want to pad from right axis, we need to reverse the paddings
+        if not (len(pad) == x_dim * 2 and pad_from_left_axis):
+            paddings = [
+                paddings[i - 1] if i % 2 == 1 else paddings[i + 1]
+                for i in range(2 * x_dim - 1, -1, -1)
+            ]
 
         if in_dynamic_mode():
             out = _C_ops.pad(x, paddings, float(pad_value))
@@ -1798,6 +1964,19 @@ def pad(
         5,
     ], f"input tensor dimension must be in [3, 4, 5] but got {x_dim}"
 
+    if data_format is None:
+        if x_dim == 3:
+            data_format = "NCL"
+        elif x_dim == 4:
+            data_format = "NCHW"
+        elif x_dim == 5:
+            data_format = "NCDHW"
+
+    data_format = data_format.upper()
+    assert data_format in ["NCL", "NCHW", "NCDHW", "NLC", "NHWC", "NDHWC"], (
+        "data_format should be in one of [NCL, NCHW, NCDHW, NLC, NHWC, NDHWC], "
+        f"but got {data_format}"
+    )
     supported_format_map = {
         3: ["NCL", "NLC"],
         4: ["NCHW", "NHWC"],
@@ -1835,21 +2014,21 @@ def pad(
         if data_format in ["NCL", "NCHW", "NCDHW"]:
             data_format = "NCDHW"
             if x_dim == 3:
-                pad = [0, 0, 0, 0] + pad
+                pad = [0, 0, 0, 0, *pad]
                 unsqueezed_dim = [3, 4]
                 x = unsqueeze(x, axis=unsqueezed_dim)
             elif x_dim == 4:
-                pad = pad + [0, 0]
+                pad = [*pad, 0, 0]
                 unsqueezed_dim = [2]
                 x = unsqueeze(x, axis=unsqueezed_dim)
         elif data_format in ["NLC", "NHWC", "NDHWC"]:
             data_format = "NDHWC"
             if x_dim == 3:
-                pad = [0, 0, 0, 0] + pad
+                pad = [0, 0, 0, 0, *pad]
                 unsqueezed_dim = [2, 3]
                 x = unsqueeze(x, axis=unsqueezed_dim)
             elif x_dim == 4:
-                pad = pad + [0, 0]
+                pad = [*pad, 0, 0]
                 unsqueezed_dim = [1]
                 x = unsqueeze(x, axis=unsqueezed_dim)
 
@@ -1880,6 +2059,12 @@ def pad(
     return out
 
 
+@deprecated(
+    since="3.0.0",
+    update_to="paddle.nn.ZeroPad2D",
+    level=1,
+    reason="Please use class ZeroPad2D",
+)
 def zeropad2d(
     x: Tensor,
     padding: ShapeLike,
@@ -2264,7 +2449,7 @@ def class_center_sample(
         >>> # num_classes of each GPU can be different, e.g num_classes_list = [10, 8]
         >>> num_classes_list = [10, 10]
         >>> num_classes = paddle.sum(paddle.to_tensor(num_classes_list))
-        >>> label = paddle.randint(low=0, high=num_classes.item(), shape=[batch_size], dtype='int64')
+        >>> label = paddle.randint(low=0, high=num_classes.item(), shape=[batch_size], dtype='int64') # type: ignore
         >>> label_list = [] # type: ignore
         >>> dist.all_gather(label_list, label)
         >>> label = paddle.concat(label_list, axis=0)

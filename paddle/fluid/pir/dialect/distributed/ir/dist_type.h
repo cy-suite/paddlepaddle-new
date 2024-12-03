@@ -34,7 +34,9 @@ class DistDenseTensorType
                                  DistTypeInterface> {
  public:
   using Base::Base;
-  using LoD = pir::DenseTensorTypeStorage::LoD;
+  using LegacyLoD = pir::DenseTensorTypeStorage::LegacyLoD;
+
+  static std::string name() { return "t_dist_dtensor"; }
 
   pir::DenseTensorType dense_tensor_type() const;
   TensorDistAttribute tensor_dist_attr() const;
@@ -42,7 +44,7 @@ class DistDenseTensorType
   const common::DDim& local_ddim() const;
   Type dtype() const { return dense_tensor_type().dtype(); }
   DataLayout data_layout() const { return dense_tensor_type().data_layout(); }
-  const LoD& lod() const { return dense_tensor_type().lod(); }
+  const LegacyLoD& lod() const { return dense_tensor_type().lod(); }
   size_t offset() const { return dense_tensor_type().offset(); }
 
   pir::DenseTensorType prim_type() { return dense_tensor_type(); }

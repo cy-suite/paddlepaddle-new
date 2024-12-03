@@ -19,16 +19,16 @@
 #include "paddle/fluid/inference/capi_exp/utils_internal.h"
 #include "paddle/fluid/platform/enforce.h"
 
-#define CHECK_NULL_POINTER_PARM(param)                                   \
-  PADDLE_ENFORCE_NOT_NULL(                                               \
-      param,                                                             \
-      paddle::platform::errors::InvalidArgument("The pointer of " #param \
-                                                " shouldn't be nullptr"))
+#define CHECK_NULL_POINTER_PARM(param)                         \
+  PADDLE_ENFORCE_NOT_NULL(                                     \
+      param,                                                   \
+      common::errors::InvalidArgument("The pointer of " #param \
+                                      " shouldn't be nullptr"))
 
 #define CHECK_AND_CONVERT_PD_CONFIG                              \
   PADDLE_ENFORCE_NOT_NULL(                                       \
       pd_config,                                                 \
-      paddle::platform::errors::InvalidArgument(                 \
+      common::errors::InvalidArgument(                           \
           "The pointer of paddle config shouldn't be nullptr")); \
   Config* config = reinterpret_cast<Config*>(pd_config)
 
@@ -43,7 +43,7 @@ static Config::Precision ConvertToCxxPrecisionType(PD_PrecisionType precision) {
     case PD_PRECISION_HALF:
       return Config::Precision::kHalf;
     default:
-      PADDLE_THROW(paddle::platform::errors::InvalidArgument(
+      PADDLE_THROW(common::errors::InvalidArgument(
           "Unsupport paddle precision type %d.", precision));
       return Config::Precision::kFloat32;
   }
@@ -396,10 +396,7 @@ void PD_ConfigSetMkldnnOp(__pd_keep PD_Config* pd_config,
   }
   config->SetMKLDNNOp(std::move(op_names));
 }
-void PD_ConfigEnableMkldnnQuantizer(__pd_keep PD_Config* pd_config) {
-  CHECK_AND_CONVERT_PD_CONFIG;
-  config->EnableMkldnnQuantizer();
-}
+
 void PD_ConfigEnableMkldnnBfloat16(__pd_keep PD_Config* pd_config) {
   CHECK_AND_CONVERT_PD_CONFIG;
   config->EnableMkldnnBfloat16();
@@ -430,10 +427,7 @@ PD_Bool PD_ConfigThreadLocalStreamEnabled(__pd_keep PD_Config* pd_config) {
   CHECK_AND_CONVERT_PD_CONFIG;
   return config->thread_local_stream_enabled();  // NOLINT
 }
-PD_Bool PD_ConfigMkldnnQuantizerEnabled(__pd_keep PD_Config* pd_config) {
-  CHECK_AND_CONVERT_PD_CONFIG;
-  return config->mkldnn_quantizer_enabled();  // NOLINT
-}
+
 void PD_ConfigSetModelBuffer(__pd_keep PD_Config* pd_config,
                              const char* prog_buffer,
                              size_t prog_buffer_size,
@@ -487,10 +481,7 @@ void PD_ConfigSetExecStream(__pd_keep PD_Config* pd_config, void* stream) {
   CHECK_AND_CONVERT_PD_CONFIG;
   return config->SetExecStream(stream);
 }
-void PD_ConfigPartiallyRelease(__pd_keep PD_Config* pd_config) {
-  CHECK_AND_CONVERT_PD_CONFIG;
-  config->PartiallyRelease();
-}
+
 void PD_ConfigDeletePass(__pd_keep PD_Config* pd_config, const char* pass) {
   CHECK_AND_CONVERT_PD_CONFIG;
   config->pass_builder()->DeletePass(pass);

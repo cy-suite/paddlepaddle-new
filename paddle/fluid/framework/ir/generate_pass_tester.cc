@@ -121,17 +121,17 @@ TEST(GeneratePass, generate_fc_fuse) {
 
   PADDLE_ENFORCE_EQ(num_nodes_before,
                     num_nodes_after + 6,
-                    platform::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "num_nodes_before=%d, num_nodes_after=%d.",
                         num_nodes_before,
                         num_nodes_after));
   PADDLE_ENFORCE_EQ(num_fc_nodes_after,
                     2,
-                    platform::errors::InvalidArgument("num_fc_nodes_after=%d.",
-                                                      num_fc_nodes_after));
+                    common::errors::InvalidArgument("num_fc_nodes_after=%d.",
+                                                    num_fc_nodes_after));
   PADDLE_ENFORCE_EQ(num_mul_nodes_before,
                     num_fc_nodes_after,
-                    platform::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "num_mul_nodes_before=%d, num_fc_nodes_after=%d.",
                         num_mul_nodes_before,
                         num_fc_nodes_after));
@@ -162,17 +162,17 @@ TEST(GeneratePass, generate_multi_add_to_addn) {
 
   PADDLE_ENFORCE_EQ(num_nodes_before,
                     num_nodes_after + 2,
-                    platform::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "num_nodes_before=%d, num_nodes_after=%d.",
                         num_nodes_before,
                         num_nodes_after));
   PADDLE_ENFORCE_EQ(num_addn_nodes_after,
                     1,
-                    platform::errors::InvalidArgument(
-                        "num_addn_nodes_after=%d.", num_addn_nodes_after));
+                    common::errors::InvalidArgument("num_addn_nodes_after=%d.",
+                                                    num_addn_nodes_after));
   PADDLE_ENFORCE_EQ(num_add_nodes_before,
                     num_addn_nodes_after + 1,
-                    platform::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "num_add_nodes_before=%d, num_addn_nodes_after=%d.",
                         num_add_nodes_before,
                         num_addn_nodes_after));
@@ -203,18 +203,18 @@ TEST(GeneratePass, generate_combine_matmul) {
 
   PADDLE_ENFORCE_EQ(num_nodes_before,
                     num_nodes_after - 4,
-                    platform::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "num_nodes_before=%d, num_nodes_after=%d.",
                         num_nodes_before,
                         num_nodes_after));
   PADDLE_ENFORCE_EQ(num_matmul_nodes_after,
                     1,
-                    platform::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "num_matmul_nodes_after=%d.", num_matmul_nodes_after));
   PADDLE_ENFORCE_EQ(
       num_matmul_nodes_before,
       num_matmul_nodes_after + 1,
-      platform::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "num_matmul_nodes_before=%d, num_matmul_nodes_after=%d.",
           num_matmul_nodes_before,
           num_matmul_nodes_after));

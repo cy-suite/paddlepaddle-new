@@ -46,12 +46,18 @@ USE_PIR_PASS(delete_weight_dequant_linear_op_pass);
 USE_PIR_PASS(delete_quant_dequant_linear_op_pass);
 USE_PIR_PASS(transfer_layout_pass);
 USE_PIR_PASS(fused_rotary_position_embedding_pass);
+USE_PIR_PASS(auto_mixed_precision_pass);
+USE_PIR_PASS(horizontal_fuse_pass);
+USE_PIR_PASS(auto_layout_simplify_pass);
+USE_PIR_PASS(auto_layout_pass);
+USE_PIR_PASS(common_subexpression_elimination_pass);
+USE_PIR_PASS(add_shadow_output_after_dead_parameter_pass);
 
 #ifdef PADDLE_WITH_DNNL
 USE_PIR_PASS(depthwise_conv_onednn_pass);
 USE_PIR_PASS(squeeze_transpose_onednn_fuse_pass);
-USE_PIR_PASS(batch_norm_act_fuse_pass);
 USE_PIR_PASS(conv2d_bn_onednn_fuse_pass);
+USE_PIR_PASS(conv2d_bias_bn_onednn_fuse_pass);
 USE_PIR_PASS(conv2d_bias_fuse_pass);
 USE_PIR_PASS(conv2d_transpose_bias_fuse_pass);
 USE_PIR_PASS(conv3d_bias_fuse_pass);
@@ -67,22 +73,38 @@ USE_PIR_PASS(self_attention_fuse_pass);
 #endif
 USE_PIR_PASS(softplus_activation_fuse_pass);
 USE_PIR_PASS(shuffle_channel_detect_pass);
-USE_PIR_PASS(operator_reshape_onednn_fuse_pass);
+USE_PIR_PASS(batch_norm_act_fuse_pass);
 USE_PIR_PASS(conv_elementwise_add_onednn_fuse_pass);
 USE_PIR_PASS(conv_activation_onednn_fuse_pass);
 USE_PIR_PASS(conv_concat_activation_onednn_fuse_pass);
 USE_PIR_PASS(elementwise_act_onednn_fuse_pass);
-USE_PIR_PASS(operator_unsqueeze_onednn_fuse_pass);
 USE_PIR_PASS(operator_scale_onednn_fuse_pass);
+USE_PIR_PASS(operator_unsqueeze_onednn_fuse_pass);
+USE_PIR_PASS(operator_reshape_onednn_fuse_pass);
 USE_PIR_PASS(onednn_placement_pass);
+USE_PIR_PASS(conv2d_transpose_bn_fuse_pass);
+USE_PIR_PASS(conv2d_transpose_bias_bn_fuse_pass);
+USE_PIR_PASS(matmul_reshape_add_fuse_pass);
+USE_PIR_PASS(cpu_bfloat16_placement_pass);
+USE_PIR_PASS(cpu_bfloat16_type_placement_pass);
+USE_PIR_PASS(cpu_bfloat16_pass);
+USE_PIR_PASS(cpu_bf16_quantize_squash_pass);
 #endif
 
 #ifdef PADDLE_WITH_XPU
+USE_PIR_PASS(add_activation_xpu_fuse_pass);
 USE_PIR_PASS(add_layernorm_xpu_fuse_pass);
+USE_PIR_PASS(rms_norm_xpu_fuse_pass);
 USE_PIR_PASS(conv2d_bn_xpu_fuse_pass);
+USE_PIR_PASS(conv2d_add_xpu_fuse_pass);
 USE_PIR_PASS(fc_xpu_fuse_pass);
 #endif
 
 #ifdef PADDLE_WITH_CINN
 USE_PIR_PASS(convert_MEA_to_FA);
+#endif
+
+#ifdef PADDLE_WITH_TENSORRT
+USE_PIR_PASS(trt_op_marker_pass);
+USE_PIR_PASS(trt_sub_graph_extract_pass);
 #endif

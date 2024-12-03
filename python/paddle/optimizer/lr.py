@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import math
 import warnings
-from typing import Any, Callable, Literal, Sequence, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict
 
 import numpy
 import numpy.typing as npt
@@ -32,6 +32,9 @@ from paddle.base.framework import (
     in_dygraph_mode,
 )
 from paddle.base.layer_helper import LayerHelper
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 __all__ = [
     'LRScheduler',
@@ -1192,8 +1195,7 @@ class MultiStepDecay(LRScheduler):
     ):
         if not isinstance(milestones, (tuple, list)):
             raise TypeError(
-                "The type of 'milestones' in 'MultiStepDecay' must be 'tuple, list', but received %s."
-                % type(milestones)
+                f"The type of 'milestones' in 'MultiStepDecay' must be 'tuple, list', but received {type(milestones)}."
             )
 
         if not all(
@@ -1314,8 +1316,7 @@ class StepDecay(LRScheduler):
     ) -> None:
         if not isinstance(step_size, int):
             raise TypeError(
-                "The type of 'step_size' must be 'int', but received %s."
-                % type(step_size)
+                f"The type of 'step_size' must be 'int', but received {type(step_size)}."
             )
         if gamma >= 1.0:
             raise ValueError('gamma should be < 1.0.')
@@ -1425,8 +1426,7 @@ class LambdaDecay(LRScheduler):
     ):
         if not callable(lr_lambda):
             raise TypeError(
-                "The type of 'lr_lambda' in 'LambdaDecay' must be 'function', but received %s."
-                % type(lr_lambda)
+                f"The type of 'lr_lambda' in 'LambdaDecay' must be 'function', but received {type(lr_lambda)}."
             )
 
         self.lr_lambda = lr_lambda
@@ -1571,8 +1571,7 @@ class ReduceOnPlateau(LRScheduler):
         self.threshold_mode = threshold_mode
         if not isinstance(learning_rate, (float, int)):
             raise TypeError(
-                "The type of 'learning_rate' in 'ReduceOnPlateau' must be 'float', but received %s."
-                % type(learning_rate)
+                f"The type of 'learning_rate' in 'ReduceOnPlateau' must be 'float', but received {type(learning_rate)}."
             )
 
         self.patience = patience
@@ -1779,13 +1778,11 @@ class CosineAnnealingDecay(LRScheduler):
     ) -> None:
         if not isinstance(T_max, int):
             raise TypeError(
-                "The type of 'T_max' in 'CosineAnnealingDecay' must be 'int', but received %s."
-                % type(T_max)
+                f"The type of 'T_max' in 'CosineAnnealingDecay' must be 'int', but received {type(T_max)}."
             )
         if not isinstance(eta_min, (float, int)):
             raise TypeError(
-                "The type of 'eta_min' in 'CosineAnnealingDecay' must be 'float, int', but received %s."
-                % type(eta_min)
+                f"The type of 'eta_min' in 'CosineAnnealingDecay' must be 'float, int', but received {type(eta_min)}."
             )
         assert T_max > 0 and isinstance(
             T_max, int
@@ -1876,8 +1873,7 @@ class MultiplicativeDecay(LRScheduler):
     ) -> None:
         if not callable(lr_lambda):
             raise TypeError(
-                "The type of 'lr_lambda' in 'MultiplicativeDecay' must be 'function', but received %s."
-                % type(lr_lambda)
+                f"The type of 'lr_lambda' in 'MultiplicativeDecay' must be 'function', but received {type(lr_lambda)}."
             )
 
         self.lr_lambda = lr_lambda

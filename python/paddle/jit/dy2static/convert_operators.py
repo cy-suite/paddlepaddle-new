@@ -41,16 +41,19 @@ from .utils import (
 __all__ = []
 
 
-def to_static_variable(x):
+def to_static_variable(x, dtype=None):
     '''
     Translate a Python Tensor to PaddlePaddle static graph Tensor
     '''
     if isinstance(x, bool):
-        return paddle.full(shape=[], dtype='bool', fill_value=x)
+        dtype = 'bool' if dtype is None else dtype
+        return paddle.full(shape=[], dtype=dtype, fill_value=x)
     if isinstance(x, float):
-        return paddle.full(shape=[], dtype='float64', fill_value=x)
+        dtype = 'float64' if dtype is None else dtype
+        return paddle.full(shape=[], dtype=dtype, fill_value=x)
     if isinstance(x, int):
-        return paddle.full(shape=[], dtype='int64', fill_value=x)
+        dtype = 'int64' if dtype is None else dtype
+        return paddle.full(shape=[], dtype=dtype, fill_value=x)
     if not use_pir_api() and (isinstance(x, UndefinedVar) or x is None):
         """
         for early return case, we need a variable to represent None, current we use data_layer_not_check.
@@ -90,13 +93,14 @@ def convert_load(x):
 
         # get the new output of the var
         if isinstance(x, Value):
-            cur_block = default_main_program().current_block()
 
             from paddle.jit.pir_dy2static.parameter_recorder import (
                 _global_inplace_map,
             )
 
-            new_var = _global_inplace_map.get(cur_block.program, x)
+            new_var = _global_inplace_map.get(
+                paddle.static.default_main_program(), x
+            )
             if new_var is not None:
                 return new_var
 
@@ -189,14 +193,19 @@ def convert_while_loop(
         _run_py_while(cond, body, getter, setter)
 
 
-def _convert_tensor_arrray_if_necessary(setterhelper, push_pop_names):
+def _convert_tensor_array_if_necessary(setterhelper, push_pop_names):
     push_pop_vars = setterhelper.get(push_pop_names)
     if push_pop_vars is None:
         return
 
     def maybe_to_tensor_array(v):
         if isinstance(v, list):
-            return paddle.tensor.create_array("float32", initialized_list=v)
+            dtype = (
+                paddle.base.libpaddle.DataType.UNDEFINED
+                if use_pir_api()
+                else "float32"
+            )
+            return paddle.tensor.create_array(dtype, initialized_list=v)
         else:
             return v
 
@@ -210,7 +219,7 @@ def _run_paddle_while(
 ):
     # NOTE: loop_vars of Paddle op `control_flow.while_loop` must be Paddle Tensors.
     helper = GetterSetterHelper(getter, setter, return_name_ids, push_pop_names)
-    _convert_tensor_arrray_if_necessary(helper, push_pop_names)
+    _convert_tensor_array_if_necessary(helper, push_pop_names)
 
     union_name = (
         OrderedSet(return_name_ids) if return_name_ids else OrderedSet()
@@ -438,12 +447,16 @@ def _run_paddle_cond(
     helper = GetterSetterHelper(
         get_args, set_args, return_name_ids, push_pop_names
     )
-    _convert_tensor_arrray_if_necessary(helper, push_pop_names)
+    _convert_tensor_array_if_necessary(helper, push_pop_names)
     pred = cast_bool_if_necessary(pred)
     init_args = helper.get(return_name_ids)
     from paddle.jit.dy2static.program_translator import ProgramTranslator
+    from paddle.jit.pir_dy2static.parameter_recorder import _global_inplace_map
 
-    inplace_map = ProgramTranslator.get_instance()._inplace_map
+    if use_pir_api():
+        inplace_map = _global_inplace_map
+    else:
+        inplace_map = ProgramTranslator.get_instance()._inplace_map
     union_name = None
     # TODO(@xiongkun) lambda can have push_pop_names, which will cause error.
     if return_name_ids is None and push_pop_names is None:
@@ -493,11 +506,11 @@ def _run_paddle_cond(
             "Unsupported return type of true_fn and false_fn in cond", str(e)
         ):
             raise Dygraph2StaticException(
-                f"Your if/else have different return type. TODO: add link to modifty. {str(e)}"
+                f"Your if/else have different return type. TODO: add link to modifty. {e}"
             )
         if re.search("Incompatible return values of", str(e)):
             raise Dygraph2StaticException(
-                f"Your if/else have different number of return value. TODO: add link to modifty. {str(e)}"
+                f"Your if/else have different number of return value. TODO: add link to modifty. {e}"
             )
         raise e
     get_args = lambda: helper.get(union_name)
@@ -602,20 +615,23 @@ def convert_len(var):
     if isinstance(var, Variable):
         assert var.ndim > 0, "len() of a 0-D tensor is wrong"
         if var.type in [
-            core.VarDesc.VarType.LOD_TENSOR,
+            core.VarDesc.VarType.DENSE_TENSOR,
             core.VarDesc.VarType.SELECTED_ROWS,
         ]:
             # Note: Length of var may be known ahead of time in dygraph,
             # but it probably represents batch size which can be variant.
             # so we return a variable dynamically inferred from var.shape.
-            if var.shape[0] > 0 and var.type == core.VarDesc.VarType.LOD_TENSOR:
+            if (
+                var.shape[0] > 0
+                and var.type == core.VarDesc.VarType.DENSE_TENSOR
+            ):
                 return var.shape[0]
             return paddle.shape(var)[0]
-        elif var.type == core.VarDesc.VarType.LOD_TENSOR_ARRAY:
+        elif var.type == core.VarDesc.VarType.DENSE_TENSOR_ARRAY:
             return paddle.tensor.array_length(var)
         else:
             raise TypeError(
-                f'len(var) only supports LoDTensor/LoDTensorArray/SelectedRows, but received {type(var)}.'
+                f'len(var) only supports DenseTensor/DenseTensorArray/SelectedRows, but received {type(var)}.'
             )
     elif isinstance(var, Value):
         if var.is_dense_tensor_type() or var.is_selected_row_type():
@@ -644,9 +660,15 @@ def convert_zip(*args):
         if isinstance(arg, (Variable, Value)) and arg.shape[0] == -1:
             raise RuntimeError(
                 "Not support zip(tensor, ...) when tensor.shape[0] == -1, "
-                f"but found args[{str(i)}].shape[0] == -1 in 'zip'"
+                f"but found args[{i}].shape[0] == -1 in 'zip'"
             )
     return zip(*args)
+
+
+def convert_super(super_fn):
+    if super_fn is super:
+        return super_fn
+    return lambda cls, instance: super_fn()
 
 
 # TODO(xiongkun): delete when list<variable> is ready.
@@ -740,11 +762,13 @@ def convert_var_dtype(var, dtype):
             'bool',
             'int',
             'float',
+            'complex',
         ], f"The casted target dtype is {dtype}, which is not supported in type casting."
         cast_map = {
             'bool': 'bool',
             'int': 'int32',
             'float': 'float32',
+            'complex': 'complex64',
         }
         return paddle.cast(var, dtype=cast_map[dtype])
     else:
@@ -752,6 +776,7 @@ def convert_var_dtype(var, dtype):
             'bool',
             'int',
             'float',
+            'complex',
         ], f"The casted target dtype is {dtype}, which is not supported in type casting."
         return eval(dtype)(var)
 

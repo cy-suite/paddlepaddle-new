@@ -23,8 +23,6 @@ limitations under the License. */
 #include "paddle/fluid/eager/autograd_meta.h"
 #include "paddle/fluid/eager/utils.h"
 #include "paddle/fluid/imperative/op_base.h"
-#include "paddle/fluid/memory/allocation/allocator.h"
-#include "paddle/fluid/memory/memcpy.h"
 #include "paddle/fluid/platform/enforce.h"
 #include "paddle/fluid/pybind/eager.h"
 #include "paddle/fluid/pybind/eager_utils.h"
@@ -32,6 +30,11 @@ limitations under the License. */
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/core/compat/convert_utils.h"
 #include "paddle/phi/core/dense_tensor.h"
+#include "paddle/phi/core/memory/allocation/allocator.h"
+#include "paddle/phi/core/memory/memcpy.h"
+
+using egr::ConvertAllInputsToDistTensor;
+using egr::InputsContainDistTensor;
 
 #pragma GCC diagnostic ignored "-Wwrite-strings"
 
@@ -91,7 +94,7 @@ Examples:
 
         >>> x = paddle.to_tensor(1.)
         >>> print(x.type)
-        VarType.LOD_TENSOR
+        VarType.DENSE_TENSOR
 )DOC");
 
 PyObject* tensor_properties_get_type(TensorObject* self, void* closure) {
@@ -99,7 +102,7 @@ PyObject* tensor_properties_get_type(TensorObject* self, void* closure) {
   if (!self->tensor.defined() || self->tensor.is_dense_tensor() ||
       self->tensor.is_dist_tensor()) {
     // be same to old dygraph
-    return ToPyObject(paddle::framework::proto::VarType::LOD_TENSOR);
+    return ToPyObject(paddle::framework::proto::VarType::DENSE_TENSOR);
   }
   if (self->tensor.is_selected_rows()) {
     return ToPyObject(paddle::framework::proto::VarType::SELECTED_ROWS);
@@ -305,16 +308,15 @@ int tensor_properties_set_grad(TensorObject* self,
                                void* closure) {
   EAGER_TRY
   auto& src = CastPyArg2Tensor(value, 0);
-  PADDLE_ENFORCE(
-      egr::EagerUtils::IsLeafTensor(self->tensor),
-      paddle::platform::errors::Fatal("Only leaf Tensor can be set grad."));
+  PADDLE_ENFORCE(egr::EagerUtils::IsLeafTensor(self->tensor),
+                 common::errors::Fatal("Only leaf Tensor can be set grad."));
 
   paddle::Tensor* grad = egr::EagerUtils::mutable_grad(self->tensor);
-  PADDLE_ENFORCE(grad != nullptr,
-                 paddle::platform::errors::Fatal(
-                     "Detected NULL grad"
-                     "Please check if you have manually cleared"
-                     "the grad inside autograd_meta"));
+  PADDLE_ENFORCE(
+      grad != nullptr,
+      common::errors::Fatal("Detected NULL grad"
+                            "Please check if you have manually cleared"
+                            "the grad inside autograd_meta"));
   const phi::distributed::ProcessMesh* mesh = nullptr;
   if (InputsContainDistTensor(&mesh, src, self->tensor, *grad)) {
     ConvertAllInputsToDistTensor(mesh, src, self->tensor, *grad);
@@ -329,16 +331,15 @@ int tensor_properties_set_grad_(TensorObject* self,
                                 void* closure) {
   EAGER_TRY
   auto src = CastPyArg2Tensor(value, 0);
-  PADDLE_ENFORCE(
-      egr::EagerUtils::IsLeafTensor(self->tensor),
-      paddle::platform::errors::Fatal("Only leaf Tensor can be set grad."));
+  PADDLE_ENFORCE(egr::EagerUtils::IsLeafTensor(self->tensor),
+                 common::errors::Fatal("Only leaf Tensor can be set grad."));
 
   paddle::Tensor* grad = egr::EagerUtils::mutable_grad(self->tensor);
-  PADDLE_ENFORCE(grad != nullptr,
-                 paddle::platform::errors::Fatal(
-                     "Detected NULL grad"
-                     "Please check if you have manually cleared"
-                     "the grad inside autograd_meta"));
+  PADDLE_ENFORCE(
+      grad != nullptr,
+      common::errors::Fatal("Detected NULL grad"
+                            "Please check if you have manually cleared"
+                            "the grad inside autograd_meta"));
   *grad = src;
   return 0;
   EAGER_CATCH_AND_THROW_RETURN_NEG
@@ -410,12 +411,13 @@ Examples:
         >>> # doctest: +REQUIRES(env:DISTRIBUTED)
         >>> import paddle
         >>> import paddle.distributed as dist
+        >>> from paddle.base import core
 
         >>> mesh = dist.ProcessMesh([[2, 4, 5], [0, 1, 3]], dim_names=["x", "y"])
 
         >>> a = paddle.to_tensor([[1,2,3],
         ...                       [5,6,7]])
-        >>> d_tensor = dist.shard_tensor(a, [core.Shard(0), core.Shard(1)])
+        >>> d_tensor = dist.shard_tensor(a, mesh, [core.Shard(0), core.Shard(1)])
 
         >>> print(d_tensor.process_mesh)
 
@@ -430,7 +432,7 @@ PyObject* tensor_properties_get_process_mesh(TensorObject* self,
         static_cast<phi::distributed::DistTensor*>(self->tensor.impl().get());
     return ToPyObject(&dist_tensor->process_mesh());
 #else
-    PADDLE_THROW(platform::errors::Unavailable(
+    PADDLE_THROW(common::errors::Unavailable(
         "The `process_mesh` property of (Dist)Tensor is not supported in the "
         "current PaddlePaddle, please recompile and install PaddlePaddle with "
         "the "
@@ -462,7 +464,7 @@ Examples:
 
         >>> a = paddle.to_tensor([[1,2,3],
         ...                       [5,6,7]])
-        >>> d_tensor = dist.shard_tensor(a, [core.Shard(0), core.Shard(1)])
+        >>> d_tensor = dist.shard_tensor(a, mesh, [core.Shard(0), core.Shard(1)])
 
         >>> print(d_tensor.placements)
 
@@ -476,7 +478,7 @@ PyObject* tensor_properties_get_placements(TensorObject* self, void* closure) {
         static_cast<phi::distributed::DistTensor*>(self->tensor.impl().get());
     return ToPyObject(dist_tensor->placements());
 #else
-    PADDLE_THROW(platform::errors::Unavailable(
+    PADDLE_THROW(common::errors::Unavailable(
         "The `placements()` property of (Dist)Tensor is not supported in the "
         "current PaddlePaddle, please recompile and installPaddlePaddle with "
         "the "
@@ -522,7 +524,7 @@ PyObject* tensor_properties_get_num_shard(TensorObject* self, void* closure) {
         static_cast<phi::distributed::DistTensor*>(self->tensor.impl().get());
     return ToPyObject(dist_tensor->num_shard());
 #else
-    PADDLE_THROW(platform::errors::Unavailable(
+    PADDLE_THROW(common::errors::Unavailable(
         "The `num_shard` property of (Dist)Tensor is not supported in the "
         "current PaddlePaddle, please recompile and install PaddlePaddle with "
         "the "
@@ -542,7 +544,7 @@ PyObject* tensor_properties_get_local_shape(TensorObject* self, void* closure) {
         static_cast<phi::distributed::DistTensor*>(self->tensor.impl().get());
     return ToPyObject(common::vectorize<int64_t>(dist_tensor->local_dims()));
 #else
-    PADDLE_THROW(platform::errors::Unavailable(
+    PADDLE_THROW(common::errors::Unavailable(
         "The `_local_shape` property of (Dist)Tensor is not supported "
         "in the current PaddlePaddle, please recompile and install "
         "PaddlePaddle "
@@ -581,14 +583,14 @@ PyObject* tensor_properties_get_shape(TensorObject* self, void* closure) {
   if (egr::IsVariableCompatTensor(self->tensor)) {
     auto* var_tensor = static_cast<const egr::VariableCompatTensor*>(
         self->tensor.impl().get());
-    if (var_tensor->IsType<paddle::framework::Vocab>()) {
-      value.emplace_back(static_cast<int64_t>(
-          var_tensor->Get<paddle::framework::Vocab>().size()));
-    } else if (var_tensor->IsType<paddle::framework::Strings>()) {
-      value.emplace_back(static_cast<int64_t>(
-          var_tensor->Get<paddle::framework::Strings>().size()));
+    if (var_tensor->IsType<phi::Vocab>()) {
+      value.emplace_back(
+          static_cast<int64_t>(var_tensor->Get<phi::Vocab>().size()));
+    } else if (var_tensor->IsType<phi::Strings>()) {
+      value.emplace_back(
+          static_cast<int64_t>(var_tensor->Get<phi::Strings>().size()));
     } else {
-      PADDLE_THROW(paddle::platform::errors::Unavailable(
+      PADDLE_THROW(common::errors::Unavailable(
           "VariableCompatTensor only support get shape from Vocab or "
           "Strings."));
     }
@@ -817,7 +819,7 @@ PyObject* tensor_properties_get_placements_str(TensorObject* self,
     ostr << "]";
     return ToPyObject(ostr.str());
 #else
-    PADDLE_THROW(platform::errors::Unavailable(
+    PADDLE_THROW(common::errors::Unavailable(
         "The `placements()` property of (Dist)Tensor is not supported in the "
         "current PaddlePaddle, please recompile and installPaddlePaddle with "
         "the "
@@ -856,12 +858,12 @@ PyObject* tensor_properties_get_dtype(TensorObject* self, void* closure) {
     if (egr::IsVariableCompatTensor(self->tensor)) {
       auto* var_tensor = static_cast<const egr::VariableCompatTensor*>(
           self->tensor.impl().get());
-      if (var_tensor->IsType<paddle::framework::Vocab>()) {
+      if (var_tensor->IsType<phi::Vocab>()) {
         return ToPyObject(phi::DataType::UNDEFINED);
-      } else if (var_tensor->IsType<paddle::framework::Strings>()) {
+      } else if (var_tensor->IsType<phi::Strings>()) {
         return ToPyObject(phi::DataType::PSTRING);
       } else {
-        PADDLE_THROW(paddle::platform::errors::Unavailable(
+        PADDLE_THROW(common::errors::Unavailable(
             "VariableCompatTensor only support get shape from Vocab or "
             "Strings."));
       }
@@ -876,12 +878,12 @@ PyObject* tensor_properties_get_dtype(TensorObject* self, void* closure) {
     if (egr::IsVariableCompatTensor(self->tensor)) {
       auto* var_tensor = static_cast<const egr::VariableCompatTensor*>(
           self->tensor.impl().get());
-      if (var_tensor->IsType<paddle::framework::Vocab>()) {
+      if (var_tensor->IsType<phi::Vocab>()) {
         return ToPyObject(framework::proto::VarType::RAW);
-      } else if (var_tensor->IsType<paddle::framework::Strings>()) {
+      } else if (var_tensor->IsType<phi::Strings>()) {
         return ToPyObject(framework::proto::VarType::STRING);
       } else {
-        PADDLE_THROW(paddle::platform::errors::Unavailable(
+        PADDLE_THROW(common::errors::Unavailable(
             "VariableCompatTensor only support get shape from Vocab or "
             "Strings."));
       }

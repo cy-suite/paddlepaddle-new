@@ -31,14 +31,14 @@ SpmdInfo TileInferSpmd(const DistMetaTensor& x,
   PADDLE_ENFORCE_EQ(
       x_ndim,
       x_dims_mapping.size(),
-      phi::errors::InvalidArgument("The Tensor x's rank [%d] and Input's "
-                                   "dims_mapping size [%d] are not matched.",
-                                   x_ndim,
-                                   x_dims_mapping.size()));
+      common::errors::InvalidArgument("The Tensor x's rank [%d] and Input's "
+                                      "dims_mapping size [%d] are not matched.",
+                                      x_ndim,
+                                      x_dims_mapping.size()));
 
   PADDLE_ENFORCE_LE(x_ndim,
                     repeat_times.size(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "The Tensor x's rank [%d] and repeat_times's "
                         "size [%d] are not matched.",
                         x_ndim,
@@ -95,14 +95,14 @@ SpmdInfo TileInferSpmdReverse(const DistMetaTensor& x,
   PADDLE_ENFORCE_EQ(
       x_ndim,
       x_dims_mapping.size(),
-      phi::errors::InvalidArgument("The Tensor x's rank [%d] and Input's "
-                                   "dims_mapping size [%d] are not matched.",
-                                   x_ndim,
-                                   x_dims_mapping.size()));
+      common::errors::InvalidArgument("The Tensor x's rank [%d] and Input's "
+                                      "dims_mapping size [%d] are not matched.",
+                                      x_ndim,
+                                      x_dims_mapping.size()));
 
   PADDLE_ENFORCE_LE(x_ndim,
                     repeat_times.size(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "The Tensor x's rank [%d] and repeat_times's "
                         "size [%d] are not matched.",
                         x_ndim,
@@ -116,14 +116,14 @@ SpmdInfo TileInferSpmdReverse(const DistMetaTensor& x,
   PADDLE_ENFORCE_EQ(
       out_ndim,
       out_dims_mapping.size(),
-      phi::errors::InvalidArgument("The Tensor out's rank [%d] and Input's "
-                                   "dims_mapping size [%d] are not matched.",
-                                   out_ndim,
-                                   out_dims_mapping.size()));
+      common::errors::InvalidArgument("The Tensor out's rank [%d] and Input's "
+                                      "dims_mapping size [%d] are not matched.",
+                                      out_ndim,
+                                      out_dims_mapping.size()));
 
   PADDLE_ENFORCE_EQ(out_ndim,
                     repeat_times.size(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "The Tensor out's rank [%d] and repeat_times's "
                         "size [%d] are not matched.",
                         out_ndim,
@@ -176,14 +176,14 @@ SpmdInfo TileGradInferSpmd(const DistMetaTensor& x,
   PADDLE_ENFORCE_EQ(
       x_ndim,
       x_dims_mapping.size(),
-      phi::errors::InvalidArgument("The Tensor x's rank [%d] and Input's "
-                                   "dims_mapping size [%d] are not matched.",
-                                   x_ndim,
-                                   x_dims_mapping.size()));
+      common::errors::InvalidArgument("The Tensor x's rank [%d] and Input's "
+                                      "dims_mapping size [%d] are not matched.",
+                                      x_ndim,
+                                      x_dims_mapping.size()));
 
   PADDLE_ENFORCE_LE(x_ndim,
                     repeat_times.size(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "The Tensor x's rank [%d] and repeat_times's "
                         "size [%d] are not matched.",
                         x_ndim,
@@ -196,7 +196,7 @@ SpmdInfo TileGradInferSpmd(const DistMetaTensor& x,
       out_grad_dist_attr_src.dims_mapping();
   PADDLE_ENFORCE_EQ(out_grad_ndim,
                     out_grad_dims_mapping.size(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "The Tensor out_grad's rank [%d] and Input's "
                         "dims_mapping size [%d] are not matched.",
                         out_grad_ndim,
@@ -204,7 +204,7 @@ SpmdInfo TileGradInferSpmd(const DistMetaTensor& x,
 
   PADDLE_ENFORCE_EQ(out_grad_ndim,
                     repeat_times.size(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "The Tensor out_grad's rank [%d] and repeat_times's "
                         "size [%d] are not matched.",
                         out_grad_ndim,

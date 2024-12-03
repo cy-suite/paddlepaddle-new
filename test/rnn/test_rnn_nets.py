@@ -23,8 +23,6 @@ import unittest
 import numpy as np
 from convert import convert_params_for_net
 
-from paddle.pir_utils import test_with_dygraph_pir
-
 sys.path.append("../../rnn")
 from rnn_numpy import GRU, LSTM, SimpleRNN
 
@@ -262,7 +260,6 @@ class TestLSTMWithProjSize(TestLSTM):
         self.proj_size = 8
 
 
-@test_with_dygraph_pir
 def predict_test_util(place, mode, stop_gradient=True):
     place = paddle.set_device(place)
     paddle.seed(123)
@@ -306,7 +303,7 @@ def predict_test_util(place, mode, stop_gradient=True):
         full_graph=True,
     )
     temp_dir = tempfile.TemporaryDirectory()
-    save_dirname = os.path.join(temp_dir.name, "./inference/%s_infer" % mode)
+    save_dirname = os.path.join(temp_dir.name, f"./inference/{mode}_infer")
 
     paddle.jit.save(rnn, save_dirname)
 
