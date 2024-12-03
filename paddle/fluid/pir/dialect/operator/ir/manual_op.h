@@ -61,11 +61,9 @@ class TEST_API AddN_Op
   bool InferSymbolicShape(pir::InferSymbolicShapeContext *infer_context);
 };
 
-class AddNArrayOp
-    : public pir::Op<AddNArrayOp,
-                     paddle::dialect::OpYamlInfoInterface,
-                     paddle::dialect::InferMetaInterface,
-                     paddle::dialect::InferSymbolicShapeInterface> {
+class AddNArrayOp : public pir::Op<AddNArrayOp,
+                                   paddle::dialect::OpYamlInfoInterface,
+                                   paddle::dialect::InferMetaInterface> {
  public:
   using Op::Op;
   static const char *name() { return "pd_op.add_n_array"; }
@@ -84,7 +82,6 @@ class AddNArrayOp
   static std::vector<pir::Type> InferMeta(
       const std::vector<pir::Value> &input_values,
       pir::AttributeMap *p_attributes);
-  bool InferSymbolicShape(pir::InferSymbolicShapeContext *infer_context);
 };
 
 class FusedGemmEpilogueOp : public pir::Op<FusedGemmEpilogueOp,
