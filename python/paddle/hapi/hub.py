@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import errno
 import os
 import shutil
@@ -31,8 +32,6 @@ from paddle.utils.download import _download, get_path_from_url
 if TYPE_CHECKING:
     import builtins
     from typing import Any
-
-    # import paddle
 
 __all__ = []
 
@@ -375,7 +374,6 @@ def load_state_dict_from_url(
         else:
             # Unexpected OSError, re-raise.
             raise
-
     parts = urlparse(url)
     filename = os.path.basename(parts.path)
     if file_name is not None:
@@ -388,9 +386,19 @@ def load_state_dict_from_url(
             hash_prefix = check_hash  # It is None or the value of md5sum for the incoming download file
         _download(url, model_dir, hash_prefix)
 
-    if _is_legacy_zip_format(cached_file):
-        return _legacy_zip_load(cached_file, model_dir)
-    return paddle.load(cached_file)
+    if map_location:
+        assert map_location in ["cpu", "gpu", "xpu", "npu", "numpy", "np"]
+        if _is_legacy_zip_format(cached_file):
+            return _legacy_zip_load(cached_file, model_dir, map_location)
+        if map_location in ["numpy", "np"]:
+            return paddle.load(cached_file, return_numpy=True)
+        else:
+            with device_guard(map_location):
+                return paddle.load(cached_file)
+    else:
+        if _is_legacy_zip_format(cached_file):
+            return _legacy_zip_load(cached_file, model_dir, map_location)
+        return paddle.load(cached_file)
 
 
 def _is_legacy_zip_format(filename):
@@ -401,7 +409,7 @@ def _is_legacy_zip_format(filename):
     return False
 
 
-def _legacy_zip_load(filename, model_dir):
+def _legacy_zip_load(filename, model_dir, map_location):
     # Unzip the ZIP file and load the file with the load function
     with zipfile.ZipFile(filename) as f:
         members = f.infolist()
@@ -410,9 +418,13 @@ def _legacy_zip_load(filename, model_dir):
                 'Only one file(not dir) is allowed in the zipfile'
             )
         f.extractall(model_dir)
-        extraced_name = members[0].filename
-        extracted_file = os.path.join(model_dir, extraced_name)
-    return paddle.load(extracted_file)
+        extracted_name = members[0].filename
+        extracted_file = os.path.join(model_dir, extracted_name)
+    if map_location in ["numpy", "np"]:
+        return paddle.load(extracted_file, return_numpy=True)
+    else:
+        with device_guard(map_location):
+            return paddle.load(extracted_file)
 
 
 def get_dir():
@@ -433,3 +445,16 @@ def _get_paddle_home():
         )
     )
     return paddle_home
+
+
+@contextlib.contextmanager
+def device_guard(device="cpu", dev_id=0):
+    origin_device = paddle.device.get_device()
+    if device == "cpu":
+        paddle.set_device(device)
+    elif device in ["gpu", "xpu", "npu"]:
+        paddle.set_device(f"{device}:{dev_id}")
+    try:
+        yield
+    finally:
+        paddle.set_device(origin_device)

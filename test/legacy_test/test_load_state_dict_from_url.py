@@ -26,6 +26,7 @@ class TestLoadStateDictFromUrl(unittest.TestCase):
         weight1 = paddle.hub.load_state_dict_from_url(
             url='https://paddle-hapi.bj.bcebos.com/models/resnet18.pdparams',
             model_dir="./test/test1",
+            map_location="cpu",
         )
         model1 = self.model
         model1.set_state_dict(weight1)
@@ -54,6 +55,23 @@ class TestLoadStateDictFromUrl(unittest.TestCase):
         are_parameters_equal = True
         for (name1, param1), (name2, param2) in zip(
             model1.named_parameters(), model3.named_parameters()
+        ):
+            if name1 != name2 or not paddle.allclose(param1, param2):
+                are_parameters_equal = False
+                break
+        assert are_parameters_equal
+
+        weight4 = paddle.hub.load_state_dict_from_url(
+            url='https://paddle-hapi.bj.bcebos.com/models/resnet18.pdparams',
+            file_name="resnet18.pdparams",
+            check_hash="cf548f46534aa3560945be4b95cd11c4",
+            map_location="numpy",
+        )
+        model4 = self.model
+        model4.set_state_dict(weight4)
+        are_parameters_equal = True
+        for (name1, param1), (name2, param2) in zip(
+            model1.named_parameters(), model4.named_parameters()
         ):
             if name1 != name2 or not paddle.allclose(param1, param2):
                 are_parameters_equal = False
