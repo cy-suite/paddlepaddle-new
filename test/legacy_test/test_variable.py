@@ -351,7 +351,7 @@ class TestVariable(unittest.TestCase):
         )
 
         def _test():
-            var.lod_level()
+            var.legacy_lod_level()
 
         self.assertRaises(Exception, _test)
 
