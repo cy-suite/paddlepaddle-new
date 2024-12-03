@@ -1266,13 +1266,13 @@ PYBIND11_MODULE(libpaddle, m) {
   m.def("tensor_from_cuda_array_interface", [](py::object obj) {
     try {
       py::object cuda_array_interface = obj.attr("__cuda_array_interface__");
-      if (!PyDict_Check(cuda_array_interface)) {
+      if (!py::isinstance<py::dict>(cuda_array_interface)) {
         throw py::type_error("`__cuda_array_interface` must be a dict");
       }
       py::dict cuda_dict = cuda_array_interface.cast<py::dict>();
 
       // Extract the `obj.__cuda_array_interface__['shape']` attribute
-      phi::DDim ddim_shape;
+      phi::IntArray shapeIntArray;
       {
         std::vector<int64_t> shape;
         if (!cuda_dict.contains("shape")) {
@@ -1287,7 +1287,7 @@ PYBIND11_MODULE(libpaddle, m) {
         } else {
           throw py::value_error("Shape must be a tuple or list");
         }
-        ddim_shape = common::make_ddim(shape);
+        shapeIntArray = phi::IntArray(shape);
       }
 
       // Extract the `obj.__cuda_array_interface__['typestr'] attribute
@@ -1319,7 +1319,7 @@ PYBIND11_MODULE(libpaddle, m) {
       }
 
       // Extract the `obj.__cuda_array_interface__['strides']` attribute
-      phi::DDim ddim_strides;
+      phi::IntArray stridesIntArray;
       if (cuda_dict.contains("strides") && !cuda_dict["strides"].is_none()) {
         std::vector<int64_t> strides_vec =
             cuda_dict["strides"].cast<std::vector<int64_t>>();
@@ -1333,28 +1333,21 @@ PYBIND11_MODULE(libpaddle, m) {
           }
           stride /= element_size;
         }
-        ddim_strides = common::make_ddim(strides_vec);
+        stridesIntArray = phi::IntArray(strides_vec);
       } else {
-        ddim_strides = phi::DenseTensorMeta::calc_strides(ddim_shape);
+        stridesIntArray = phi::IntArray(phi::DenseTensorMeta::calc_strides(
+            common::make_ddim(shapeIntArray)));
       }
-      DLManagedTensor *dlMTensor = reinterpret_cast<DLManagedTensor *>(
-          PyCapsule_GetPointer(obj.ptr(), "dltensor"));
-      PADDLE_ENFORCE_NOT_NULL(
-          dlMTensor,
-          common::errors::InvalidArgument(
-              "tensor_from_cuda_array_interface received an invalid capsule. "
-              "Note that DLTensor capsules can be consumed only once, "
-              "so you might have already constructed a tensor from it once."));
-      return paddle::framework::from_blob(data_ptr,
-                                          dlMTensor,
-                                          ddim_shape,
-                                          ddim_strides,
-                                          dtype,
-                                          phi::Place(),
-                                          [obj](void *data) {
-                                            py::gil_scoped_acquire gil;
-                                            Py_DECREF(obj);
-                                          });
+      return paddle::from_blob(data_ptr,
+                               shapeIntArray,
+                               stridesIntArray,
+                               dtype,
+                               phi::DataLayout::NCHW,
+                               phi::GPUPlace(),
+                               [obj](void *data) {
+                                 py::gil_scoped_acquire gil;
+                                 obj.dec_ref();
+                               });
     } catch (const py::error_already_set &e) {
       throw;
     }

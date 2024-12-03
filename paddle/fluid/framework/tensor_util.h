@@ -122,7 +122,7 @@ phi::DenseTensor from_blob(void* data,
                            const phi::DDim& strides,
                            phi::DataType dtype,
                            const phi::Place& place,
-                           const Deleter& deleter);
+                           const std::function<void(void*)>& deleter);
 
 phi::DenseTensor TensorFromDLPack(DLManagedTensor* src,
                                   std::function<void(void*)> deleter);
