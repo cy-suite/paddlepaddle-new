@@ -120,11 +120,9 @@ void PyLayerOp::Print(pir::IrPrinter &printer) {
   auto &os = printer.os;
   auto op = operation();
   printer.PrintOpResult(*op);
-  os << " = pd_op.pylayer";
+  os << " = " PrintOpName(*op);
 
-  if (VLOG_IS_ON(1)) {
-    os << " [id:" << op->id() << "]";
-  }
+  PrintOpId(*op);
 
   printer.PrintOpOperands(*op);
   printer.PrintAttributeMap(*op);

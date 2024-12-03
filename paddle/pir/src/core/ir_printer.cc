@@ -186,13 +186,10 @@ void IrPrinter::PrintOperation(const Operation& op) {
 void IrPrinter::PrintOperationWithNoRegion(const Operation& op) {
   // TODO(lyk): add API to get opresults directly
   PrintOpResult(op);
-  os << " =";
+  os << " = ";
+  PrintOpName(op);
 
-  os << " \"" << op.name() << "\"";
-
-  if (VLOG_IS_ON(1)) {
-    os << " [id:" << op.id() << "]";
-  }
+  PrintOpId(op);
 
   // TODO(lyk): add API to get operands directly
   PrintOpOperands(op);
@@ -321,6 +318,15 @@ void IrPrinter::PrintAttributeMap(const Operation& op) {
       [this]() { this->os << ","; });
 
   os << "}";
+}
+
+void IrPrinter::PrintOpName(const Operation& op) {
+  os << "\"" << op.name() << "\"";
+}
+void IrPrinter::PrintOpId(const Operation& op) {
+  if (VLOG_IS_ON(1)) {
+    os << " [id:" << op.id() << "]";
+  }
 }
 
 void IrPrinter::PrintOpOperands(const Operation& op) {
