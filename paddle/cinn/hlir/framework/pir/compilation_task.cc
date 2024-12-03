@@ -216,9 +216,9 @@ std::shared_ptr<pir::CompilationResult> CompilationTask::CodegenAndJit() {
 std::shared_ptr<pir::CompilationResult> CompilationTask::BuildPirCINNKernelInfo(
     const ir::Module& module,
     const ir::Module& CX86module,
-    bool NeedX86Kernel) {
+    bool need_x86_kernel) {
   auto compilation_result = std::make_shared<pir::CompilationResult>(
-      context_->target_, NeedX86Kernel);
+      context_->target_, need_x86_kernel);
   auto backend_resource = std::make_shared<pir::BackendResource>(
       context_->target_,
       context_->group_->FuncName(),

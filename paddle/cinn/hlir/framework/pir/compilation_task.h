@@ -59,7 +59,7 @@ class GroupCompilationContext {
   ir::LoweredFunc infer_shape_lowered_func_;
   ir::Module::Builder module_builder_;
   ir::Module::Builder CX86_module_builder_;
-  bool need_x86_kernel_{true};
+  bool need_x86_kernel_{false};
 };
 
 class CompilationTask {
@@ -78,7 +78,7 @@ class CompilationTask {
   std::shared_ptr<pir::CompilationResult> BuildPirCINNKernelInfo(
       const ir::Module& module,
       const ir::Module& CX86module,
-      bool NeedX86Kernel = false);
+      bool need_x86_kernel = false);
 
   GroupCompilationContext* context_;
 };

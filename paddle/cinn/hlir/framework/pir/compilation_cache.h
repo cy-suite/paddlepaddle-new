@@ -55,7 +55,7 @@ class BackendResource final {
   const std::shared_ptr<backends::Compiler>& GetBackendCompiler() const {
     return backend_compiler_;
   }
-  pir::CINNKernelInfo GenerateKernelInfo(bool need_x86_kernel = true) const;
+  pir::CINNKernelInfo GenerateKernelInfo(bool need_x86_kernel = false) const;
   const std::string& GetHostFuncName() const { return host_fn_name_; }
 
  private:
@@ -69,7 +69,7 @@ class BackendResource final {
 
 class CompilationResult final {
  public:
-  explicit CompilationResult(const Target& target, bool need_x86_kernel = true)
+  explicit CompilationResult(const Target& target, bool need_x86_kernel = false)
       : target_(target), have_cx86_kernel_(need_x86_kernel) {}
   const std::shared_ptr<BackendResource>& GetBackendResource() const {
     return backend_resource_;
