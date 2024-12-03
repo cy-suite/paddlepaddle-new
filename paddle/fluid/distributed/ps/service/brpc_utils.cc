@@ -93,7 +93,7 @@ void SerializeDenseTensor(framework::Variable* var,
   var_msg->set_type(::paddle::distributed::DENSE_TENSOR);
   const phi::LegacyLoD lod = tensor->lod();
   if (!lod.empty()) {
-    var_msg->set_legacy_lod_level(lod.size());
+    var_msg->set_lod_level(lod.size());
     for (auto& each : lod) {
       VarMsg::LodData* lod_inner = var_msg->add_lod();
       for (auto& d : each) {
