@@ -195,10 +195,10 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
             }
           }
           return dev_ctx;
-        } else {
-          VLOG(3) << "ring_id " << ring_id
-                  << " not found in comm_context_manager for op " << op_name;
         }
+      } else {
+        VLOG(3) << "ring_id " << ring_id
+                << " not found in comm_context_manager for op " << op_name;
       }
     }
 #endif
