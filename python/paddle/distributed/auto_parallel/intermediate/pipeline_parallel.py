@@ -51,8 +51,8 @@ class SplitPoint(Enum):
             >>> # doctest: +REQUIRES(env:DISTRIBUTED)
             >>> layer = MLP()
             >>> pp_config = {
-            >>>     'fc1': dist.SplitPoint.END
-            >>> }
+            ...     'fc1': dist.SplitPoint.END
+            ... }
     """
 
     BEGINNING = 0

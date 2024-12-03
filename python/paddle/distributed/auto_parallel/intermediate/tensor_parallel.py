@@ -91,10 +91,9 @@ class ColWiseParallel(PlanBase):
         2. `layer.bias` should have one dim.
 
     Args:
-        gather_output (bool):
+        gather_output (bool): the default value is `False`, which means keeping the output as a local tensor.
             Whether gather the output to change it from a local tensor to a global tensor.
             If gather the local tensor to global, an extra communication will be called.
-            The default value is `False`, which means keeping the output as a local tensor.
 
     Examples:
         .. code-block:: python
@@ -183,10 +182,9 @@ class RowWiseParallel(PlanBase):
         `layer.weight` should have two dims.
 
     Args:
-        is_input_parallel (bool):
+        is_input_parallel (bool): the default value is `True`， which means the input is a local tensor.
             Whether the input is a local tensor or a global tensor.
             If the input is a global tensor, an extra split will be called.
-            The default value is `True`， which means the input is a local tensor.
 
     Examples:
         .. code-block:: python
@@ -352,10 +350,9 @@ class SequenceParallelBegin(PlanBase):
         DON'T mark any layer in the sp range.
 
     Args:
-        need_transpose (bool):
-            With need_transpose=True, this plan will transfer the output from [b, s, h] to [s/mp, b, h].
-            With need_transpose=False, this plan will transfer the output from [s, b, h] to [s/mp, b, h].
-            The default value is `True`.
+        need_transpose (bool): the default value is `True`.
+            With `need_transpose=True`, this plan will transfer the output from [b, s, h] to [s/mp, b, h].
+            With `need_transpose=False`, this plan will transfer the output from [s, b, h] to [s/mp, b, h].
 
     Examples:
         .. code-block:: python
@@ -405,10 +402,9 @@ class SequenceParallelEnd(PlanBase):
         DON'T mark any layer in the sp range.
 
     Args:
-        need_transpose (bool):
-            With need_transpose=True, this plan will transfer the input from [s/mp, b, h] to [b, s, h].
-            With need_transpose=False, this plan will transfer the input from [s/mp, b, h] to [s, b, h].
-            The default value is `True`.
+        need_transpose (bool): the default value is `True`.
+            With `need_transpose=True`, this plan will transfer the input from [s/mp, b, h] to [b, s, h].
+            With `need_transpose=False`, this plan will transfer the input from [s/mp, b, h] to [s, b, h].
 
     Examples:
         .. code-block:: python
@@ -512,14 +508,13 @@ class SequenceParallelDisable(PlanBase):
     Disable sequence parallel on the layer.
 
     Args:
-        need_transpose (bool):
-            If the need_transpose is true:
+        need_transpose (bool): the default value is `True`.
+            If the need_transpose is `True`:
                 - transfer the input from  [s/mp, b, h] to [b, s, h].
                 - transfer the output from [b, s, h] to [s/mp, b, h].
-            If the need_transpose is False:
+            If the need_transpose is `False`:
                 - transfer the input from  [s/mp, b, h] to [s, b, h].
                 - transfer the output from [s, b, h] to [s/mp, b, h].
-            The default value is `True`.
 
     Examples:
         .. code-block:: python
