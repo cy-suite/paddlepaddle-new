@@ -840,7 +840,7 @@ def classify_value_node(program, grad_outputs, fwd_op_end_idx):
 
     required_fw_op_idxs = list(range(0, fwd_op_end_idx + 1))
     required_fw_value_nodes = backward_utils.ValueSet(
-        program.global_block().get_value_from_op_idxs(required_fw_op_idxs)
+        program.global_block().get_values_by_op_idx(required_fw_op_idxs)
     )
 
     required_bw_ops = set()
@@ -853,7 +853,7 @@ def classify_value_node(program, grad_outputs, fwd_op_end_idx):
         if op in required_bw_ops:
             required_bw_op_idxs.append(idx)
     required_bw_value_nodes = backward_utils.ValueSet(
-        program.global_block().get_value_from_op_idxs(required_bw_op_idxs)
+        program.global_block().get_values_by_op_idx(required_bw_op_idxs)
     )
 
     unclaimed_ops = {
@@ -867,7 +867,7 @@ def classify_value_node(program, grad_outputs, fwd_op_end_idx):
         if op in unclaimed_ops:
             unclaimed_op_idxs.append(idx)
     unclaimed_value_nodes = backward_utils.ValueSet(
-        program.global_block().get_value_from_op_idxs(unclaimed_op_idxs)
+        program.global_block().get_values_by_op_idx(unclaimed_op_idxs)
     )
 
     return (
