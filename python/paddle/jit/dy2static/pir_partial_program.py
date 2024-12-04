@@ -771,7 +771,7 @@ class PartialProgramLayer:
                         elif kw_name in forward_name_value_map:
                             return forward_name_value_map[kw_name]
                         else:
-                            return None
+                            raise Exception(f"kw_args: {kw_name} not found")
 
                     for [kw_name, kw_value] in (
                         backward_program.global_block().kwargs().items()
