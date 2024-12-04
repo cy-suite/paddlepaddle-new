@@ -2310,7 +2310,7 @@ class TestDygraphInplaceResize(unittest.TestCase):
 
     def non_inplace_api_processing(self, x, shape, fill_zero=False):
         x = x.numpy().copy()
-        x.resize(shape)
+        x.resize(shape, refcheck=False)
         return paddle.to_tensor(x)
 
     def inplace_api_processing(self, x, shape, fill_zero=False):
