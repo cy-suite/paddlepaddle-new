@@ -16,6 +16,8 @@ from __future__ import annotations
 import warnings
 from typing import TYPE_CHECKING, TypedDict
 
+from typing_extensions import NotRequired
+
 from paddle.distributed import fleet
 from paddle.framework import core
 
@@ -38,12 +40,12 @@ if TYPE_CHECKING:
 
     class _PPConfig(TypedDict):
         split_spec: str | dict[str, SplitPoint]
-        global_spec: str
+        global_spec: NotRequired[str]
 
     class _ParallelizeConfig(TypedDict):
-        dp_config: _DPConfig
-        mp_config: _MPConfig
-        pp_config: _PPConfig
+        dp_config: NotRequired[_DPConfig]
+        mp_config: NotRequired[_MPConfig]
+        pp_config: NotRequired[_PPConfig]
 
 
 def parallelize(
@@ -240,7 +242,7 @@ def parallelize(
             >>> # doctest: +REQUIRES(env:DISTRIBUTED)
             >>> model = LlamaForCausalLM()
             >>> optimizer = paddle.optimizer.AdamW(parameters=model.parameters())
-            >>> dist_model, dist_optimizer = dist.parallelize(model, optimizer, config=parallel_config)
+            >>> dist_model, dist_optimizer = dist.parallelize(model, optimizer, config=parallel_config) # type: ignore[arg-type]
             >>> # This case need to be executed in multi-card environment
             >>> # python -m paddle.distributed.launch --gpus=0,1,2,3,4,5,6,7 {test_case}.py
 
