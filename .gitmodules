@@ -127,5 +127,5 @@
 	url = https://github.com/jbeder/yaml-cpp
 [submodule "third_party/openvino"]
 	path = third_party/openvino
-	url = https://github.com/ckl117/openvino.git
+	url = https://github.com/openvinotoolkit/openvino.git
 	ignore = dirty
