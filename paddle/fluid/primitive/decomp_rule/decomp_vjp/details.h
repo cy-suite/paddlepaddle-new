@@ -287,21 +287,23 @@ void mean_grad(const Tensor& x,
         axis_data.push_back(i);
       }
     }
+
+    for (int64_t& idx : axis_data) {
+      if (idx < 0) {
+        idx += x_dim.size();
+      }
+    }
+
     if (has_dynamic_shape(x_dim, axis_data)) {
       auto x_shape = shape64<T>(x);
-      factor_tensor =
-          slice<T>(x_shape, {0}, {axis_data[0]}, {axis_data[0] + 1}, {1}, {0});
-      for (size_t i = 1; i < axis_data.size(); ++i) {
-        factor_tensor =
-            factor_tensor *
-            slice<T>(
-                x_shape, {0}, {axis_data[i]}, {axis_data[i] + 1}, {1}, {0});
+      factor_tensor = full<T>({1}, 1.0, x_shape.dtype(), x_shape.place());
+      for (int64_t idx : axis_data) {
+        factor_tensor = factor_tensor * get_slice<T>(x_shape, idx);
       }
       factor_tensor = cast<T>(factor_tensor, x.dtype());
     } else {
       int64_t factor = 1;
       for (int64_t idx : axis_data) {
-        if (idx < 0) idx += x_dim.size();
         factor *= x_dim[idx];
       }
       factor_tensor =
@@ -1254,7 +1256,7 @@ void masked_select_grad(const Tensor& x,
     auto end = full<T>({1}, x_num, x.dtype(), x.place());
     auto start = full<T>({1}, 0, x.dtype(), x.place());
     auto step = full<T>({1}, 1, x.dtype(), x.place());
-    auto x_arange = backend::arange_with_tensor<T>(
+    auto x_arange = backend::arange<T>(
         start, end, step, promoted_x.dtype(), promoted_x.place());
 
     auto x_arange_reshape = reshape<T>(x_arange, promoted_x.shape());
