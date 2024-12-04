@@ -1275,12 +1275,47 @@ class _ShardOptimizer(Optimizer):
             placements = param_and_grad[1].placements
             meshs = param_and_grad[1].process_mesh
             grad = param_and_grad[1]
+            grad_mesh = grad.process_mesh
+
+            def get_mesh(pp_idx=0):
+                """
+                获得pp_idx的mesh
+                """
+                mesh = fleet.auto.get_mesh()
+                if "pp" in mesh.dim_names:
+                    mesh = mesh.get_mesh_with_dim("pp", pp_idx)
+                return mesh
+
+            # reshard moe_gate.weight.grad, its mesh is flatten mesh
+            # (process_id = [0,1,2,3], dim_names = [d0] not process_id = [[0,1],[2,3]], dim_names = [dp,mp])
+            # so moe_gate.weight.grad need to change mesh use api _dist_reshape to control allreduce axis order
+            change_mesh = False
+            if any(
+                isinstance(placement, dist.Partial) for placement in placements
+            ) and (meshs.dim_names != get_mesh(0).dim_names):
+                change_mesh = True
+
+            if change_mesh:
+                grad = dist.auto_parallel.moe_utils._dist_reshape(
+                    grad,
+                    grad.shape,
+                    get_mesh(0),
+                    [
+                        dist.Partial(dist.ReduceType.kRedSum),
+                        dist.Partial(dist.ReduceType.kRedSum),
+                    ],
+                )
+                placements = grad.placements
 
             for i in range(len(placements) - 1, -1, -1):
                 if isinstance(placements[i], dist.Partial):
                     placements[i] = dist.Replicate()
-                    grad = dist.reshard(grad, meshs, placements)
+                    grad = dist.reshard(grad, grad.process_mesh, placements)
             grad /= self.gradient_accumulation_steps
+            if change_mesh:
+                grad = dist.auto_parallel.moe_utils._dist_reshape(
+                    grad, grad.shape, grad_mesh, [dist.Replicate()]
+                )
             param_and_grad = (param_and_grad[0], grad)
         return self._inner_opt._append_optimize_op(block, param_and_grad)
 
