@@ -30,18 +30,5 @@ endfunction()
 
 detection_library(anchor_generator_op SRCS anchor_generator_op.cc)
 
-if(WITH_GPU OR WITH_ROCM)
-  if(WITH_GPU)
-    if(${CMAKE_CUDA_COMPILER_VERSION} LESS 11.0)
-      set(TMPDEPS cub)
-    endif()
-  endif()
-  detection_library(distribute_fpn_proposals_op SRCS
-                    distribute_fpn_proposals_op.cc DEPS ${TMPDEPS})
-else()
-  detection_library(distribute_fpn_proposals_op SRCS
-                    distribute_fpn_proposals_op.cc)
-endif()
-
 #Export local libraries to parent
 # set(DETECTION_LIBRARY ${LOCAL_DETECTION_LIBS} PARENT_SCOPE)

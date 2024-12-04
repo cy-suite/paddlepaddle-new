@@ -201,18 +201,6 @@
   inplace : (scale -> out_scale, in_accum -> out_accum, in_state -> out_state)
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
-- op : distribute_fpn_proposals
-  args : (Tensor fpn_rois, Tensor rois_num, int min_level, int max_level, int refer_level, int refer_scale, bool pixel_offset)
-  output : Tensor[](multi_fpn_rois){max_level - min_level + 1}, Tensor[](multi_level_rois_num){max_level - min_level + 1}, Tensor(restore_index)
-  infer_meta :
-    func : DistributeFpnProposalsInferMeta
-  kernel :
-    func : distribute_fpn_proposals
-    data_type : fpn_rois
-  optional : rois_num, multi_level_rois_num
-  interfaces : paddle::dialect::InferSymbolicShapeInterface
-  traits : paddle::dialect::ForwardOnlyTrait
-
 - op : distributed_lookup_table
   args : (Tensor[] ids, Tensor w, int table_id = 0, bool is_distributed = false, str lookup_table_version = "lookup_table", int64_t padding_idx = -1, DataType dtype = DataType::FLOAT32, bool is_test = false)
   output : Tensor[](outputs){ids.size()}
