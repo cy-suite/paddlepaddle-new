@@ -90,7 +90,7 @@ class AutoDrrPass : public pir::PatternRewritePass {
     ps.Add(paddle::drr::Create<AutoDrrPattern,
                                const std::string&,
                                const DrrPatternContext>(
-        context, name_, pattern_context_));
+        context, name_, std::move(pattern_context_)));
     return ps;
   }
 };
