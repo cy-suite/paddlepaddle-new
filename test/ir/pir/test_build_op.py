@@ -199,7 +199,6 @@ class TestGetValueByOpId(unittest.TestCase):
             pred = paddle.less_than(y, x)
             out = paddle.static.nn.cond(pred, true_func, false_func)
             value1 = main_program.get_value_by_op_id(65)
-            print(main_program)
             self.assertEqual(
                 out.get_defining_op().id(),
                 value1[0].get_defining_op().id(),
