@@ -123,7 +123,6 @@ def fused_layer_norm(
             quant_max_bound,
             quant_min_bound,
         )
-
     helper = LayerHelper('fused_layernorm', **locals())
     out = None
     if quant_scale <= 0:
