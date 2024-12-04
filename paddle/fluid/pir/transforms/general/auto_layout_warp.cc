@@ -72,7 +72,6 @@ class AutoLayoutPassWarp : public pir::Pass {
     }
   }
   bool IsNeedInsertTranspose(pir::Operation* op) {
-    std::cout << "test program: " << op << " " << *op << std::endl;
     VLOG(4) << "enter IsNeedInsertTranspose";
     for (size_t i = 0; i < op->num_regions(); ++i) {
       auto& region = op->region(i);
