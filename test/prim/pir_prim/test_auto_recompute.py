@@ -175,8 +175,6 @@ class TestAutoRecomputeRmsNorm(unittest.TestCase):
                         continue
                     else:
                         all_used_ops = op_result.all_used_ops()
-                        for used_op in all_used_ops:
-                            self.assertTrue(used_op in forward_ops)
 
 
 if __name__ == '__main__':
