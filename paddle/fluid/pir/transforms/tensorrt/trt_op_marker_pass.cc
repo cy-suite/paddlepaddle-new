@@ -87,6 +87,7 @@ DEFINE_GENERAL_PATTERN(Roll, paddle::dialect::RollOp)
 DEFINE_GENERAL_PATTERN(Softplus, paddle::dialect::SoftplusOp)
 DEFINE_GENERAL_PATTERN(ThresholdedRelu, paddle::dialect::ThresholdedReluOp)
 DEFINE_GENERAL_PATTERN(Flip, paddle::dialect::FlipOp)
+DEFINE_GENERAL_PATTERN(PNorm, paddle::dialect::PNormOp)
 
 #undef DEFINE_GENERAL_PATTERN
 
@@ -2095,6 +2096,35 @@ class AssignValueOpPattern
   }
 };
 
+class PNormOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::PNormOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::PNormOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::PNormOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (!op->HasAttribute("asvector") || !op->HasAttribute("axis") ||
+        !op->HasAttribute("porder") || !op->HasAttribute("keepdim")) {
+      VLOG(3) << "p_norm op needs attributes: asvector, porder, axis, keepdim.";
+      return false;
+    }
+    bool asvector = op->attribute<pir::BoolAttribute>("asvector").data();
+    int axis = op->attribute<pir::IntAttribute>("axis").data();
+    float porder = op->attribute<pir::FloatAttribute>("porder").data();
+
+    if (asvector || porder != 2.0f || axis != -1) {
+      VLOG(3) << "p_norm op only supports asvector=False, porder=2, axis=-1.";
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class TrtOpMarkerPass : public pir::PatternRewritePass {
  public:
   TrtOpMarkerPass() : pir::PatternRewritePass("trt_op_marker_pass", 2) {}
@@ -2142,6 +2172,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Softplus)
     ADD_PATTERN(ThresholdedRelu)
     ADD_PATTERN(Flip)
+    ADD_PATTERN(PNorm)
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
 #endif
@@ -2209,6 +2240,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<OneHotOpPattern>(context));
     ps.Add(std::make_unique<AssignValueOpPattern>(context));
     ps.Add(std::make_unique<AssignValue_OpPattern>(context));
+    ps.Add(std::make_unique<PNormOpPattern>(context));
     return ps;
   }
 };

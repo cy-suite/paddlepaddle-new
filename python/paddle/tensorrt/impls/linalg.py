@@ -114,3 +114,29 @@ def flip_converter(network, paddle_op, inputs):
 
     identity_layer = network.add_identity(input_tensor)
     return identity_layer.get_output(0)
+
+
+@converter_registry.register("pd_op.p_norm", trt_version="8.x")
+def p_norm_converter(network, paddle_op, inputs):
+    input_tensor = inputs[0]
+    input_dims = input_tensor.shape
+    rank = len(input_dims)
+
+    axis = paddle_op.attrs().get("axis", -1)
+    keepdim = paddle_op.attrs().get("keepdim", False)
+    axis = axis if axis >= 0 else axis + rank
+
+    axis_mask = 1 << axis
+
+    square_layer = network.add_elementwise(
+        input_tensor, input_tensor, trt.ElementWiseOperation.PROD
+    )
+    squared_tensor = square_layer.get_output(0)
+    reduce_layer = network.add_reduce(
+        squared_tensor, trt.ReduceOperation.SUM, axis_mask, keepdim
+    )
+    reduced_tensor = reduce_layer.get_output(0)
+    sqrt_layer = network.add_unary(reduced_tensor, trt.UnaryOperation.SQRT)
+    output_tensor = sqrt_layer.get_output(0)
+
+    return output_tensor
