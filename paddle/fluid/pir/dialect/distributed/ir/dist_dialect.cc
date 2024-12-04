@@ -22,8 +22,7 @@
 #include "paddle/phi/core/distributed/auto_parallel/utils.h"
 
 REGISTER_FILE_SYMBOLS(dist_dialect);
-namespace paddle {
-namespace dialect {
+namespace paddle::dialect {
 
 DistDialect::DistDialect(pir::IrContext *context)
     : pir::Dialect(name(), context, pir::TypeId::get<DistDialect>()) {
@@ -35,7 +34,10 @@ void DistDialect::initialize() {
                      TensorDistAttribute,
                      OperationDistAttribute>();
   RegisterTypes<DistDenseTensorType>();
-  RegisterOps<ShardTensorOp, ReshardOp>();
+  RegisterOps<ShardTensorOp,
+              ReshardOp,
+              MoESubMeshTensorsOp,
+              MoEGlobalMeshTensorOp>();
 }
 
 void DistDialect::PrintType(pir::Type type, std::ostream &os) const {
@@ -110,17 +112,17 @@ void DistDialect::PrintAttribute(pir::Attribute attr, std::ostream &os) const {
       os << ",result(" + std::to_string(i) + "):{" << op_dist_attr.result(i)
          << "}";
     }
+    os << ",chunk_id:" << op_dist_attr.chunk_id();
     os << "}";
   } else {
     os << "error_attribute_type";
   }
 }
 
-pir::OpPrintFn DistDialect::PrintOperation(pir::Operation *op) const {
+pir::OpPrintFn DistDialect::PrintOperation(const pir::Operation &op) const {
   return nullptr;
 }
 
-}  // namespace dialect
-}  // namespace paddle
+}  // namespace paddle::dialect
 
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::DistDialect)

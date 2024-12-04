@@ -40,6 +40,8 @@ def bind_vartype():
     global complex64
     global complex128
     global bool
+    global pstring
+    global raw
 
     dtype = VarDesc.VarType
     dtype.__qualname__ = "dtype"
@@ -62,6 +64,8 @@ def bind_vartype():
     complex128 = VarDesc.VarType.COMPLEX128
 
     bool = VarDesc.VarType.BOOL
+    pstring = VarDesc.VarType.STRING
+    raw = VarDesc.VarType.RAW
 
     paddle.dtype = dtype
     paddle.uint8 = uint8
@@ -80,6 +84,8 @@ def bind_vartype():
     paddle.complex64 = complex64
     paddle.complex128 = complex128
     paddle.bool = bool
+    paddle.pstring = pstring
+    paddle.raw = raw
 
 
 def bind_datatype():
@@ -98,6 +104,8 @@ def bind_datatype():
     global complex64
     global complex128
     global bool
+    global pstring
+    global raw
 
     dtype = DataType
     dtype.__qualname__ = "dtype"
@@ -120,6 +128,8 @@ def bind_datatype():
     complex128 = DataType.COMPLEX128
 
     bool = DataType.BOOL
+    pstring = DataType.PSTRING
+    raw = DataType.ALL_DTYPE  # refer to TransToPhiDataType
 
     paddle.dtype = dtype
     paddle.uint8 = uint8
@@ -138,6 +148,8 @@ def bind_datatype():
     paddle.complex64 = complex64
     paddle.complex128 = complex128
     paddle.bool = bool
+    paddle.pstring = pstring
+    paddle.raw = raw
 
 
 enable_pir_api = framework.get_flags("FLAGS_enable_pir_api")[
@@ -186,7 +198,9 @@ def iinfo(dtype):
             uint8
 
     """
-    if dtype in _NUMPY_DTYPE_2_PADDLE_DTYPE:
+    if isinstance(dtype, paddle.pir.core.DataType):
+        dtype = paddle.base.framework.paddle_type_to_proto_type[dtype]
+    elif dtype in _NUMPY_DTYPE_2_PADDLE_DTYPE:
         dtype = _NUMPY_DTYPE_2_PADDLE_DTYPE[dtype]
     return core_iinfo(dtype)
 

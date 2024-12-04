@@ -18,10 +18,7 @@
 
 #include "paddle/fluid/framework/op_version_registry.h"
 
-namespace paddle {
-namespace framework {
-namespace ir {
-namespace patterns {
+namespace paddle::framework::ir::patterns {
 void EmbEltwiseLayernorm::operator()() {
   // Create nodes for fused_embedding_eltwise_layernorm or
   // prompt_tuning_emb_eltwise_layernorm.
@@ -169,7 +166,8 @@ void ElementWise::operator()() {
   elementwise_op->LinksFrom({elementwise_input, elementwise_weight})
       .LinksTo({elementwise_out});
 }
-}  // namespace patterns
+}  // namespace paddle::framework::ir::patterns
+namespace paddle::framework::ir {
 
 void RemovePaddingRecoverPaddingPass::ApplyImpl(ir::Graph* graph) const {
   bool use_varseqlen = Get<bool>("use_varseqlen");
@@ -187,7 +185,7 @@ void RemovePaddingRecoverPaddingPass::ApplyImpl(ir::Graph* graph) const {
   }
 
   PADDLE_ENFORCE_NOT_NULL(
-      graph, platform::errors::PreconditionNotMet("graph should not be null."));
+      graph, common::errors::PreconditionNotMet("graph should not be null."));
   FusePassBase::Init(name_scope_, graph);
   auto* scope = param_scope();
   int found_subgraph_count = 0;
@@ -248,7 +246,7 @@ void RemovePaddingRecoverPaddingPass::ApplyImpl(ir::Graph* graph) const {
     scope->Var(remove_padding_out_name);
     auto* remove_padding_out_tensor =
         scope->FindVar(remove_padding_out_name)->GetMutable<phi::DenseTensor>();
-    remove_padding_out_tensor->mutable_data<float>(platform::CUDAPlace());
+    remove_padding_out_tensor->mutable_data<float>(phi::GPUPlace());
 
     // rename
     op_node->Op()->RenameInput(input_node->Name(),
@@ -319,7 +317,7 @@ void RemovePaddingRecoverPaddingPass::ApplyImpl(ir::Graph* graph) const {
     auto* recover_padding_input_tensor =
         scope->FindVar(recover_padding_input_name)
             ->GetMutable<phi::DenseTensor>();
-    recover_padding_input_tensor->mutable_data<float>(platform::CUDAPlace());
+    recover_padding_input_tensor->mutable_data<float>(phi::GPUPlace());
 
     // rename
     op_node->Op()->RenameOutput(out_node->Name(), recover_padding_input_name);
@@ -708,9 +706,7 @@ void RemovePaddingRecoverPaddingPass::ApplyImpl(ir::Graph* graph) const {
   AddStatis(found_subgraph_count);
 }
 
-}  // namespace ir
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework::ir
 
 REGISTER_PASS(remove_padding_recover_padding_pass,
               paddle::framework::ir::RemovePaddingRecoverPaddingPass);

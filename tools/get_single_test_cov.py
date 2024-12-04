@@ -37,7 +37,7 @@ def getFNDAFile(rootPath, test):
     os.system(f'touch {fn_filename}')
     try:
         f = open(filename)
-        print(f"oepn {filename} successfully")
+        print(f"open {filename} successfully")
     except FileNotFoundError:
         print(f"{filename} is not found.")
         return
@@ -56,7 +56,9 @@ def getFNDAFile(rootPath, test):
                     symbol = tmp_data[1]
                     if symbol in fnda_base_dict:
                         if (hit - fnda_base_dict[symbol]) > 0:
-                            fnda_str = f'FNDA:{str(hit - fnda_base_dict[symbol])},{symbol}'
+                            fnda_str = (
+                                f'FNDA:{hit - fnda_base_dict[symbol]},{symbol}'
+                            )
                             os.system(f'echo {fnda_str} >> {fn_filename}')
                     else:
                         os.system(f'echo {message} >> {fn_filename}')
@@ -106,7 +108,7 @@ def analysisFNDAFile(rootPath, test):
                 matchObj = re.match(
                     r'(.*)Maker(.*)|(.*)Touch(.*)Regist(.*)|(.*)Touch(.*)JitKernel(.*)|(.*)converterC2Ev(.*)',
                     fn,
-                    re.I,
+                    re.IGNORECASE,
                 )
                 if matchObj is None:
                     OP_REGIST = False

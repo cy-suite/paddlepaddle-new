@@ -24,8 +24,7 @@
 #include "paddle/phi/kernels/assign_kernel.h"
 #include "paddle/phi/kernels/full_kernel.h"
 
-namespace phi {
-namespace distributed {
+namespace phi::distributed {
 
 bool RToPReshardFunction::IsSuitable(const DistTensor& in,
                                      const TensorDistAttr& out_dist_attr) {
@@ -110,7 +109,7 @@ void RToPReshardFunctionCrossMesh::Eval(phi::DeviceContext* dev_ctx,
     RToPReshardFunction r_to_p_func;
     PADDLE_ENFORCE(
         r_to_p_func.IsSuitable(tmp_result, out_dist_attr),
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Invoke the r to p reshard function is not valid from %s to %s.",
             tmp_result.dist_attr(),
             out_dist_attr));
@@ -121,5 +120,4 @@ void RToPReshardFunctionCrossMesh::Eval(phi::DeviceContext* dev_ctx,
   }
 }
 
-}  // namespace distributed
-}  // namespace phi
+}  // namespace phi::distributed

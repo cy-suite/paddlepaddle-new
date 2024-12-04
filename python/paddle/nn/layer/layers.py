@@ -20,7 +20,7 @@ import typing
 import warnings
 import weakref
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Sequence, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Union
 
 import numpy as np
 from typing_extensions import Self
@@ -34,6 +34,7 @@ from paddle.base.dygraph import no_grad
 from paddle.base.dygraph.base import (
     _convert_into_variable,
     in_declarative_mode,  # noqa: F401
+    in_sot_simulation_mode,
     in_to_static_mode,
 )
 from paddle.base.dygraph_utils import _append_activation_in_dygraph
@@ -55,6 +56,8 @@ from paddle.profiler.utils import in_profiler_mode
 from paddle.utils import deprecated
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+
     from paddle._typing import DTypeLike, ParamAttrLike, PlaceLike, ShapeLike
     from paddle.nn.initializer import Initializer
 
@@ -279,9 +282,7 @@ class LayerObjectHelper(LayerHelperBase):
         if isinstance(act, str):
             act = {'type': act}
         else:
-            raise TypeError(
-                str(act) + " should be unicode or str in %s ", self.name
-            )
+            raise TypeError(f"{act} should be unicode or str in {self.name}")
 
         if (use_cudnn is not None) and use_cudnn:
             act['use_cudnn'] = use_cudnn
@@ -431,19 +432,19 @@ class Layer:
         self._op_recorder = LayerOpsRecorder(ops=[], hooks=[])
         self._customized_attrs = {}
 
-        self._forward_pre_hooks: typing.OrderedDict[
-            int, _ForwardPreHook
-        ] = OrderedDict()
-        self._forward_post_hooks: typing.OrderedDict[
-            int, _ForwardPostHook
-        ] = OrderedDict()
+        self._forward_pre_hooks: typing.OrderedDict[int, _ForwardPreHook] = (
+            OrderedDict()
+        )
+        self._forward_post_hooks: typing.OrderedDict[int, _ForwardPostHook] = (
+            OrderedDict()
+        )
 
         # only used in AMP Training
         self._cast_to_low_precision = True
 
-        self._state_dict_hooks: typing.OrderedDict[
-            int, _StateDictHook
-        ] = OrderedDict()
+        self._state_dict_hooks: typing.OrderedDict[int, _StateDictHook] = (
+            OrderedDict()
+        )
         # Records original functions after @to_static to support to rollback
         self._original_funcs = OrderedDict()
 
@@ -869,7 +870,7 @@ class Layer:
             name=var_name,
             persistable=persistable,
             dtype=dtype,
-            type=core.VarDesc.VarType.LOD_TENSOR,
+            type=core.VarDesc.VarType.DENSE_TENSOR,
         )
 
     # TODO: Add more parameter list when we need them
@@ -926,7 +927,7 @@ class Layer:
             name=var_name,
             persistable=persistable,
             dtype=dtype,
-            type=core.VarDesc.VarType.LOD_TENSOR,
+            type=core.VarDesc.VarType.DENSE_TENSOR,
         )
 
     def parameters(self, include_sublayers: bool = True) -> list[Tensor]:
@@ -1139,6 +1140,7 @@ class Layer:
         self,
         prefix: str = '',
         include_sublayers: bool = True,
+        remove_duplicate: bool = True,
     ) -> Iterable[tuple[str, Tensor]]:
         """
         Returns an iterator over all parameters in the Layer, yielding tuple of name and parameter.
@@ -1147,6 +1149,8 @@ class Layer:
             prefix(str, optional): Prefix to prepend to all parameter names. Default: ''.
             include_sublayers(bool, optional): Whether include the parameters of sublayers.
                 If True, also include the named parameters from sublayers. Default: True.
+            remove_duplicate(bool, optional): Whether to remove duplicated parameters in the result.
+                Default: True.
 
         Yields:
             (string, Parameter): Tuple of name and Parameter
@@ -1190,7 +1194,11 @@ class Layer:
             ValueSet() if in_pir_mode() and not in_to_static_mode() else set()
         )
         named_sublayers = (
-            self.named_sublayers(prefix=prefix, include_self=True)
+            self.named_sublayers(
+                prefix=prefix,
+                include_self=True,
+                remove_duplicate=remove_duplicate,
+            )
             if include_sublayers
             else zip([prefix], [self])
         )
@@ -1199,7 +1207,8 @@ class Layer:
             for key, param in params:
                 if param is None or param in params_set:
                     continue
-                params_set.add(param)
+                if remove_duplicate:
+                    params_set.add(param)
                 name = layer_prefix + ('.' if layer_prefix else '') + key
                 yield name, param
 
@@ -1208,6 +1217,7 @@ class Layer:
         prefix: str = '',
         include_self: bool = False,
         layers_set: set[Layer] | None = None,
+        remove_duplicate: bool = True,
     ) -> Iterable[tuple[str, Layer]]:
         """
         Returns an iterator over all sublayers in the Layer, yielding tuple of name and sublayer.
@@ -1217,6 +1227,8 @@ class Layer:
             prefix(str, optional): Prefix to prepend to all parameter names. Default: ''.
             include_self(bool, optional): Whether include the Layer itself. Default: False.
             layers_set(set, optional): The set to record duplicate sublayers. Default: None.
+            remove_duplicate(bool, optional): Whether to remove duplicated sublayers in the result.
+                Default: True.
 
         Yields:
             (string, Layer): Tuple of name and Layer
@@ -1233,18 +1245,44 @@ class Layer:
                 ...     print(prefix, layer)
                 0 Linear(in_features=10, out_features=3, dtype=float32)
                 1 Linear(in_features=3, out_features=10, dtype=float32)
+
+                >>> l = paddle.nn.Linear(10, 3)
+                >>> model = paddle.nn.Sequential(l, l)
+                >>> for prefix, layer in model.named_sublayers(include_self=True, remove_duplicate=True):
+                ...     print(prefix, layer)
+                 Sequential(
+                  (0): Linear(in_features=10, out_features=3, dtype=float32)
+                  (1): Linear(in_features=10, out_features=3, dtype=float32)
+                )
+                0 Linear(in_features=10, out_features=3, dtype=float32)
+
+                >>> l = paddle.nn.Linear(10, 3)
+                >>> model = paddle.nn.Sequential(l, l)
+                >>> for prefix, layer in model.named_sublayers(include_self=True, remove_duplicate=False):
+                ...     print(prefix, layer)
+                 Sequential(
+                  (0): Linear(in_features=10, out_features=3, dtype=float32)
+                  (1): Linear(in_features=10, out_features=3, dtype=float32)
+                )
+                0 Linear(in_features=10, out_features=3, dtype=float32)
+                1 Linear(in_features=10, out_features=3, dtype=float32)
+
         """
         if layers_set is None:
             layers_set = set()
         if include_self and self not in layers_set:
-            layers_set.add(self)
+            if remove_duplicate:
+                layers_set.add(self)
             yield prefix, self
         for key, layer in self._sub_layers.items():
             if layer is None:
                 continue
             layer_prefix = prefix + ('.' if prefix else '') + key
             yield from layer.named_sublayers(
-                prefix=layer_prefix, include_self=True, layers_set=layers_set
+                prefix=layer_prefix,
+                include_self=True,
+                layers_set=layers_set,
+                remove_duplicate=remove_duplicate,
             )
 
     def register_buffer(
@@ -1352,7 +1390,10 @@ class Layer:
         return ret
 
     def named_buffers(
-        self, prefix: str = '', include_sublayers: bool = True
+        self,
+        prefix: str = '',
+        include_sublayers: bool = True,
+        remove_duplicate: bool = True,
     ) -> Iterable[tuple[str, Tensor]]:
         """
         Returns an iterator over all buffers in the Layer, yielding tuple of name and Tensor.
@@ -1361,6 +1402,8 @@ class Layer:
             prefix(str, optional): Prefix to prepend to all buffer names. Default: ''.
             include_sublayers(bool, optional): Whether include the buffers of sublayers.
                 If True, also include the named buffers from sublayers. Default: True.
+            remove_duplicate(bool, optional): Whether to remove duplicated buffers in the result.
+                Default: True.
 
         Yields:
             (string, Tensor): Tuple of name and tensor
@@ -1394,7 +1437,11 @@ class Layer:
         """
         buffers_set = set()
         named_sublayers = (
-            self.named_sublayers(prefix=prefix, include_self=True)
+            self.named_sublayers(
+                prefix=prefix,
+                include_self=True,
+                remove_duplicate=remove_duplicate,
+            )
             if include_sublayers
             else zip([prefix], [self])
         )
@@ -1403,7 +1450,8 @@ class Layer:
             for key, buffer in buffers:
                 if buffer is None or buffer in buffers_set:
                     continue
-                buffers_set.add(buffer)
+                if remove_duplicate:
+                    buffers_set.add(buffer)
                 name = layer_prefix + ('.' if layer_prefix else '') + key
                 yield name, buffer
 
@@ -1476,11 +1524,10 @@ class Layer:
             (not in_to_static_mode())
             and (not self._forward_pre_hooks)
             and (not self._forward_post_hooks)
-            and (not self._built)
+            and (self.__class__._build_once is Layer._build_once or self._built)
             and in_dygraph_mode()
-            and (not in_profiler_mode())
+            and (not in_profiler_mode() or in_sot_simulation_mode())
         ):
-            self._build_once(*inputs, **kwargs)
             return self.forward(*inputs, **kwargs)
         else:
             return self._dygraph_call_func(*inputs, **kwargs)
@@ -1711,6 +1758,12 @@ class Layer:
                 if name in d:
                     del d[name]
 
+        if isinstance(
+            value, paddle.jit.dy2static.program_translator.StaticFunction
+        ):
+            object.__setattr__(self, name, value)
+            value._patched_name = name
+            return
         if isinstance(getattr(type(self), name, None), property):
             object.__setattr__(self, name, value)
         params = self.__dict__.get('_parameters', None)
@@ -1800,7 +1853,7 @@ class Layer:
                             assign(value, getattr(self, name))
                     elif value is not None:
                         raise TypeError(
-                            f"assignment to buffers '{name}' should be of type core.Tensor or None, but got '{type(value).__name__}'"
+                            f"assignment to buffers '{name}' should be of type core.DenseTensor or None, but got '{type(value).__name__}'"
                         )
                     else:
                         # Assigning None will remove the buffer, but if re-assign a new varBase to it,
@@ -2177,16 +2230,30 @@ class Layer:
                 t.set(ndarray, place)
 
             try:
-                executor = Executor(_get_device())._default_executor
                 # restore parameter states
-                core._create_loaded_parameter(
-                    [param for param, state in matched_param_state],
-                    global_scope(),
-                    executor,
-                )
+                if in_pir_mode():
+                    executor = Executor(
+                        paddle.base.framework._current_expected_place_()
+                    )._default_executor
+                    paddle.base.libpaddle.pir.create_loaded_parameter(
+                        [param for param, state in matched_param_state],
+                        global_scope(),
+                        executor,
+                    )
+                else:
+                    executor = Executor(_get_device())._default_executor
+                    core._create_loaded_parameter(
+                        [param for param, state in matched_param_state],
+                        global_scope(),
+                        executor,
+                    )
                 for param, state in matched_param_state:
                     _set_var(param, state)
             except ValueError as e:
+                raise ValueError(
+                    "This error might happens in dy2static, while calling 'set_state_dict' dynamically in 'forward', which is not supported. If you only need call 'set_state_dict' once, move it to '__init__'."
+                )
+            except TypeError as e:
                 raise ValueError(
                     "This error might happens in dy2static, while calling 'set_state_dict' dynamically in 'forward', which is not supported. If you only need call 'set_state_dict' once, move it to '__init__'."
                 )
@@ -2437,11 +2504,15 @@ class Layer:
 
         NOTE(dev): This is a very low level API and only for inner developer.
         """
-        startup_program = Program()
-        for param in self.parameters():
-            param._create_init_op(startup_program.global_block())
-
-        return startup_program
+        startup_program = paddle.base.Program()
+        main_program = paddle.base.Program()
+        with paddle.base.program_guard(main_program, startup_program):
+            for param in self.parameters():
+                param._create_init_op(startup_program.global_block())
+        if paddle.framework.use_pir_api():
+            return main_program
+        else:
+            return startup_program
 
     # [aliases] Compatible with old method names
     set_dict = set_state_dict
@@ -2491,8 +2562,7 @@ class Layer:
             excluded_layers = list(excluded_layers)
         else:
             raise TypeError(
-                "excluded_layers should be type nn.Layer or list, but got %s.",
-                type(excluded_layers).__name__,
+                f"excluded_layers should be type nn.Layer or list, but got {type(excluded_layers).__name__}.",
             )
 
         def layer_trans(layer):
@@ -2558,8 +2628,7 @@ class Layer:
             excluded_layers = list(excluded_layers)
         else:
             raise TypeError(
-                "excluded_layers should be type nn.Layer or list, but got %s.",
-                type(excluded_layers).__name__,
+                f"excluded_layers should be type nn.Layer or list, but got {type(excluded_layers).__name__}.",
             )
 
         def layer_trans(layer):
@@ -2626,8 +2695,7 @@ class Layer:
             excluded_layers = list(excluded_layers)
         else:
             raise TypeError(
-                "excluded_layers should be type nn.Layer or list, but got %s.",
-                type(excluded_layers).__name__,
+                f"excluded_layers should be type nn.Layer or list, but got {type(excluded_layers).__name__}.",
             )
 
         def layer_trans(layer):

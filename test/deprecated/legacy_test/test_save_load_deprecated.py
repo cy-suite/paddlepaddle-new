@@ -142,7 +142,7 @@ class TestJitPruneModelAndLoad(unittest.TestCase):
     def test_load_var_not_in_extra_var_info(self):
         self.train_and_save()
 
-        # chage extra var info
+        # change extra var info
         var_info_path = self.model_path + INFER_PARAMS_INFO_SUFFIX
         with open(var_info_path, 'rb') as f:
             extra_var_info = pickle.load(f)
@@ -892,7 +892,7 @@ class TestLoadFromOldInterfaceSingleFile(unittest.TestCase):
                     main_program,
                     file_model_path,
                     exe,
-                    all_var_list + [temp_var],
+                    [*all_var_list, temp_var],
                 )
         temp_dir.cleanup()
 

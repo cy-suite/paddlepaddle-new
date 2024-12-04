@@ -17,6 +17,7 @@ import logging
 import warnings
 
 import paddle
+import paddle.distributed as dist
 from paddle.base.log_helper import get_logger
 from paddle.distributed.fleet.meta_optimizers.common import OP_ROLE_KEY, OpRole
 
@@ -669,14 +670,16 @@ def is_data_parallel_scale_op(op):
 
 
 def is_data_parallel_reduce_op(op):
+    is_allreduce_op = op.type in [
+        "c_allreduce_sum",
+        "c_allreduce_avg",
+    ]
+    is_reduce_op = op.type == "reduce" and op.desc.attr("reduce_type") in [
+        dist.ReduceOp.SUM,
+        dist.ReduceOp.AVG,
+    ]
     return (
-        op.type
-        in [
-            "c_allreduce_sum",
-            "c_allreduce_avg",
-            "c_reduce_sum",
-            "c_reduce_avg",
-        ]
+        (is_allreduce_op or is_reduce_op)
         and op.desc.has_attr("op_namescope")
         and ParallelMode.DataParallel in op.desc.attr("op_namescope")
     )
@@ -749,11 +752,11 @@ def update_op_dims_mapping(
     changed = False
     if len(input_arg_names) != len(infered_input_dims_mappings):
         warnings.warn(
-            f"dims mapping is NOT Match, infered [{len(infered_input_dims_mappings)}], original: [{len(input_arg_names)}]; dist op: [{str(dist_op)}]"
+            f"dims mapping is NOT Match, infered [{len(infered_input_dims_mappings)}], original: [{len(input_arg_names)}]; dist op: [{dist_op}]"
         )
     if len(output_arg_names) != len(infered_output_dims_mappings):
         warnings.warn(
-            f"dims mapping is NOT Match, infered [{len(infered_output_dims_mappings)}], original: [{len(output_arg_names)}]; dist op: [{str(dist_op)}]"
+            f"dims mapping is NOT Match, infered [{len(infered_output_dims_mappings)}], original: [{len(output_arg_names)}]; dist op: [{dist_op}]"
         )
 
     for i in range(len(input_arg_names)):

@@ -25,32 +25,44 @@
 #include "paddle/pir/include/pass/pass_registry.h"
 
 namespace {
-std::set<std::string> act_ops = {{paddle::dialect::AbsOp::name()},
-                                 {paddle::dialect::GeluOp::name()},
-                                 {paddle::dialect::HardsigmoidOp::name()},
-                                 {paddle::dialect::HardswishOp::name()},
-                                 {paddle::dialect::LeakyReluOp::name()},
-                                 {paddle::dialect::MishOp::name()},
-                                 {paddle::dialect::ReluOp::name()},
-                                 {paddle::dialect::Relu6Op::name()},
-                                 {paddle::dialect::SigmoidOp::name()},
-                                 {paddle::dialect::SqrtOp::name()},
-                                 {paddle::dialect::SwishOp::name()},
-                                 {paddle::dialect::TanhOp::name()}};
+std::set<std::string> act_ops = {paddle::dialect::AbsOp::name(),          //
+                                 paddle::dialect::Abs_Op::name(),         //
+                                 paddle::dialect::GeluOp::name(),         //
+                                 paddle::dialect::HardsigmoidOp::name(),  //
+                                 paddle::dialect::HardswishOp::name(),    //
+                                 paddle::dialect::LeakyReluOp::name(),    //
+                                 paddle::dialect::LeakyRelu_Op::name(),   //
+                                 paddle::dialect::MishOp::name(),         //
+                                 paddle::dialect::ReluOp::name(),         //
+                                 paddle::dialect::Relu_Op::name(),        //
+                                 paddle::dialect::Relu6Op::name(),        //
+                                 paddle::dialect::SigmoidOp::name(),      //
+                                 paddle::dialect::Sigmoid_Op::name(),     //
+                                 paddle::dialect::SqrtOp::name(),         //
+                                 paddle::dialect::Sqrt_Op::name(),        //
+                                 paddle::dialect::SwishOp::name(),        //
+                                 paddle::dialect::TanhOp::name(),         //
+                                 paddle::dialect::Tanh_Op::name()};
 
 std::unordered_map<std::string, std::string> activation_type = {
     {paddle::dialect::AbsOp::name(), "abs"},
+    {paddle::dialect::Abs_Op::name(), "abs"},
     {paddle::dialect::GeluOp::name(), "gelu"},
     {paddle::dialect::HardsigmoidOp::name(), "hard_sigmoid"},
     {paddle::dialect::HardswishOp::name(), "hard_swish"},
     {paddle::dialect::LeakyReluOp::name(), "leaky_relu"},
+    {paddle::dialect::LeakyRelu_Op::name(), "leaky_relu"},
     {paddle::dialect::MishOp::name(), "mish"},
     {paddle::dialect::ReluOp::name(), "relu"},
+    {paddle::dialect::Relu_Op::name(), "relu"},
     {paddle::dialect::Relu6Op::name(), "relu6"},
     {paddle::dialect::SigmoidOp::name(), "sigmoid"},
+    {paddle::dialect::Sigmoid_Op::name(), "sigmoid"},
     {paddle::dialect::SqrtOp::name(), "sqrt"},
+    {paddle::dialect::Sqrt_Op::name(), "sqrt"},
     {paddle::dialect::SwishOp::name(), "swish"},
-    {paddle::dialect::TanhOp::name(), "tanh"}};
+    {paddle::dialect::TanhOp::name(), "tanh"},
+    {paddle::dialect::Tanh_Op::name(), "tanh"}};
 
 class SoftplusActivationFusePattern : public paddle::drr::DrrPatternBase {
  private:
@@ -84,7 +96,8 @@ class SoftplusActivationFusePattern : public paddle::drr::DrrPatternBase {
     if (act_type_ == paddle::dialect::HardsigmoidOp::name()) {
       act_attrs.emplace("slope", pat.Attr("fuse_alpha"));
       act_attrs.emplace("offset", pat.Attr("fuse_beta"));
-    } else if (act_type_ == paddle::dialect::LeakyReluOp::name()) {
+    } else if (act_type_ == paddle::dialect::LeakyRelu_Op::name() ||
+               act_type_ == paddle::dialect::LeakyReluOp::name()) {
       act_attrs.emplace("negative_slope", pat.Attr("fuse_alpha"));
     } else if (act_type_ == paddle::dialect::GeluOp::name()) {
       act_attrs.emplace("approximate", pat.Attr("approximate"));
@@ -114,7 +127,8 @@ class SoftplusActivationFusePattern : public paddle::drr::DrrPatternBase {
     } else if (act_type_ == paddle::dialect::HardsigmoidOp::name()) {
       fused_attrs.emplace("fuse_alpha", pat.Attr("fuse_alpha"));
       fused_attrs.emplace("fuse_beta", pat.Attr("fuse_beta"));
-    } else if (act_type_ == paddle::dialect::LeakyReluOp::name()) {
+    } else if (act_type_ == paddle::dialect::LeakyRelu_Op::name() ||
+               act_type_ == paddle::dialect::LeakyReluOp::name()) {
       fused_attrs.emplace("fuse_alpha", pat.Attr("fuse_alpha"));
     } else if (act_type_ == paddle::dialect::SwishOp::name()) {
       fused_attrs.emplace("fuse_alpha", res.Float32Attr(1.0f));
@@ -190,14 +204,26 @@ class SoftplusClipFusePattern : public paddle::drr::DrrPatternBase {
   std::string softplus_name_;
   std::string fused_softplus_name_;
   uint32_t benefit_;
+  bool inplace_;
 
  public:
+<<<<<<< HEAD
   SoftplusClipFusePattern(std::string softplus_name,
                           std::string fused_softplus_name,
                           uint32_t benefit)
       : softplus_name_(std::move(softplus_name)),
         fused_softplus_name_(std::move(fused_softplus_name)),
         benefit_(benefit) {}
+=======
+  SoftplusClipFusePattern(const std::string &softplus_name,
+                          const std::string &fused_softplus_name,
+                          uint32_t benefit,
+                          bool inplace)
+      : softplus_name_(softplus_name),
+        fused_softplus_name_(fused_softplus_name),
+        benefit_(benefit),
+        inplace_(inplace) {}
+>>>>>>> 337f0d225e59843df33c4ca189ae312b8c36a4f3
 
   std::string name() const override { return "SoftplusActivationFusePattern"; }
 
@@ -219,7 +245,8 @@ class SoftplusClipFusePattern : public paddle::drr::DrrPatternBase {
     pat.Tensor("min") = full1();
     pat.Tensor("max") = full2();
 
-    const auto &act = pat.Op(paddle::dialect::ClipOp::name());
+    const auto &act = inplace_ ? pat.Op(paddle::dialect::Clip_Op::name())
+                               : pat.Op(paddle::dialect::ClipOp::name());
     softplus({&pat.Tensor("x")}, {&pat.Tensor("Out")});
 
     pat.Tensor("act_out") =
@@ -227,12 +254,21 @@ class SoftplusClipFusePattern : public paddle::drr::DrrPatternBase {
 
     paddle::drr::ResultPattern res = pat.ResultPattern();
 
+    const auto &fuse_alpha = res.ComputeAttr(
+        [](const paddle::drr::MatchContext &match_ctx) -> float {
+          return match_ctx.Attr<double>("value1");
+        });
+    const auto &fuse_beta = res.ComputeAttr(
+        [](const paddle::drr::MatchContext &match_ctx) -> float {
+          return match_ctx.Attr<double>("value2");
+        });
+
     std::unordered_map<std::string, paddle::drr::Attribute> fused_attrs{
         {"beta", pat.Attr("beta")},
         {"threshold", pat.Attr("threshold")},
         {"fuse_activation", res.StrAttr("clip")},
-        {"fuse_alpha", pat.Attr("value1")},
-        {"fuse_beta", pat.Attr("value2")}};
+        {"fuse_alpha", fuse_alpha},
+        {"fuse_beta", fuse_beta}};
 
     const auto &fused_softplus = res.Op(fused_softplus_name_, fused_attrs);
 
@@ -243,7 +279,7 @@ class SoftplusClipFusePattern : public paddle::drr::DrrPatternBase {
 class SoftplusActivationFusePass : public pir::PatternRewritePass {
  public:
   SoftplusActivationFusePass()
-      : pir::PatternRewritePass("softplus_activation_fuse_pass", 3) {}
+      : pir::PatternRewritePass("softplus_activation_fuse_pass", 2) {}
 
   pir::RewritePatternSet InitializePatterns(pir::IrContext *context) override {
     pir::RewritePatternSet ps(context);
@@ -269,7 +305,14 @@ class SoftplusActivationFusePass : public pir::PatternRewritePass {
         context,
         paddle::dialect::SoftplusOp::name(),
         paddle::onednn::dialect::FusedSoftplusOp::name(),
-        benefit_idx++));
+        benefit_idx++,
+        0));
+    ps.Add(paddle::drr::Create<SoftplusClipFusePattern>(
+        context,
+        paddle::dialect::SoftplusOp::name(),
+        paddle::onednn::dialect::FusedSoftplusOp::name(),
+        benefit_idx++,
+        1));
     return ps;
   }
 };

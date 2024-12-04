@@ -62,7 +62,7 @@ class MatmulTransposeReshapeFusePattern : public paddle::drr::DrrPatternBase {
 
     const auto &reshape = pat.Op(paddle::dialect::ReshapeOp::name());
     reshape({&pat.Tensor("transpose_out"), &pat.Tensor("shape")},
-            {&pat.Tensor("reshape_out"), &pat.Tensor("Xshape")});
+            {&pat.Tensor("reshape_out")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       auto shape = match_ctx.Attr<std::vector<int64_t>>("int_array");
@@ -174,7 +174,7 @@ class FusedMatmulTransposeReshapeFusePattern
 
     const auto &reshape = pat.Op(paddle::dialect::ReshapeOp::name());
     reshape({&pat.Tensor("transpose_out"), &pat.Tensor("shape")},
-            {&pat.Tensor("reshape_out"), &pat.Tensor("Xshape")});
+            {&pat.Tensor("reshape_out")});
 
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       auto shape = match_ctx.Attr<std::vector<int64_t>>("int_array");
@@ -237,7 +237,7 @@ class FusedMatmulTransposeReshapeFusePattern
 class MatmulTransposeReshapeFusePass : public pir::PatternRewritePass {
  public:
   MatmulTransposeReshapeFusePass()
-      : pir::PatternRewritePass("matmul_transpose_reshape_fuse_pass", 3) {}
+      : pir::PatternRewritePass("matmul_transpose_reshape_fuse_pass", 2) {}
 
   pir::RewritePatternSet InitializePatterns(pir::IrContext *context) override {
     pir::RewritePatternSet ps(context);

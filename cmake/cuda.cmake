@@ -244,6 +244,11 @@ function(select_nvcc_arch_flags out_variable out_arch_bin)
   string(REPLACE ";" " " nvcc_archs_readable "${nvcc_archs_readable}")
   string(REGEX MATCHALL "[0-9()]+" nvcc_archs_bin_list "${nvcc_archs_bin_list}")
   string(JOIN "," nvcc_real_archs ${nvcc_archs_bin_list})
+
+  set(COMPILED_CUDA_ARCHS
+      "${nvcc_real_archs}"
+      CACHE STRING "Specify compiled cuda archs.")
+
   set(${out_variable}
       ${nvcc_flags}
       PARENT_SCOPE)
@@ -282,7 +287,7 @@ elseif(${CMAKE_CUDA_COMPILER_VERSION} LESS 13.0) # CUDA 12.0+
 endif()
 
 if(NOT ${CMAKE_CUDA_COMPILER_VERSION} LESS 10.0)
-  add_definitions("-DTRT_PLUGIN_FP16_AVALIABLE")
+  add_definitions("-DTRT_PLUGIN_FP16_AVAILABLE")
 endif()
 
 add_definitions("-DCUDA_VERSION_MAJOR=\"${CUDA_VERSION_MAJOR}\"")

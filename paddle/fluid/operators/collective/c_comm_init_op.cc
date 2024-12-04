@@ -26,7 +26,7 @@ limitations under the License. */
 
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || \
     defined(PADDLE_WITH_XPU_BKCL) || defined(PADDLE_WITH_CUSTOM_DEVICE)
-#include "paddle/fluid/platform/collective_helper.h"
+#include "paddle/phi/core/platform/collective_helper.h"
 #endif
 
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
@@ -34,6 +34,9 @@ limitations under the License. */
 COMMON_DECLARE_bool(dynamic_static_unified_comm);
 #elif defined(PADDLE_WITH_XPU_BKCL)
 #include "paddle/phi/core/distributed/bkcl_comm_context.h"
+COMMON_DECLARE_bool(dynamic_static_unified_comm);
+#endif
+#if defined(PADDLE_WITH_CUSTOM_DEVICE)
 COMMON_DECLARE_bool(dynamic_static_unified_comm);
 #endif
 
@@ -62,7 +65,7 @@ class CCommInitOp : public framework::OperatorBase {
 #if defined(PADDLE_WITH_CUSTOM_DEVICE)
       auto var = scope.FindVar(Input("X"));
       PADDLE_ENFORCE_NOT_NULL(
-          var, phi::errors::InvalidArgument("Input con not be empty."));
+          var, common::errors::InvalidArgument("Input con not be empty."));
 
       int nranks = Attr<int>("nranks");
       int rid = Attr<int>("ring_id");
@@ -72,19 +75,31 @@ class CCommInitOp : public framework::OperatorBase {
         device_id = Attr<int>("device_id");
       }
       int rank_id = Attr<int>("rank");
-      auto store = phi::distributed::CreateOrGetGlobalTCPStore();
-      if (!phi::distributed::CommContextManager::GetInstance().Has(
-              std::to_string(rid))) {
-        phi::distributed::CommContextManager::CreateXCCLCommContext(
-            store,
-            std::to_string(rid),
-            phi::CustomPlace(place.GetDeviceType(), device_id),
-            rank_id,
-            nranks,
-            "c_comm_init_op");
+      if (FLAGS_dynamic_static_unified_comm) {
+        VLOG(3) << "#### use new comm lab ####";
+        auto store = phi::distributed::CreateOrGetGlobalTCPStore();
+        if (!phi::distributed::CommContextManager::GetInstance().Has(
+                std::to_string(rid))) {
+          phi::distributed::CommContextManager::CreateXCCLCommContext(
+              store,
+              std::to_string(rid),
+              phi::CustomPlace(place.GetDeviceType(), device_id),
+              rank_id,
+              nranks,
+              "c_comm_init_op");
+        }
+        return;
       }
+
+      using UniqueId = phi::ccl::CCLRootId;
+      using CommContext = platform::XCCLCommContext;
+
+      VLOG(3) << "#### use old comm lab ####";
+      UniqueId* comm_id = var->GetMutable<UniqueId>();
+      CommContext::Instance(place.GetDeviceType())
+          .CreateComm(comm_id, nranks, rank_id, device_id, rid);
 #else
-      PADDLE_THROW(phi::errors::PreconditionNotMet(
+      PADDLE_THROW(common::errors::PreconditionNotMet(
           "PaddlePaddle should compile with custom device."));
 #endif
     } else {
@@ -96,21 +111,21 @@ class CCommInitOp : public framework::OperatorBase {
       using UniqueId = BKCLUniqueId;
       using CommContext = platform::BKCLCommContext;
 #else
-      PADDLE_THROW(phi::errors::PreconditionNotMet(
+      PADDLE_THROW(common::errors::PreconditionNotMet(
           "PaddlePaddle should be compiled with GPU or XPU."));
 #endif
 
       PADDLE_ENFORCE_EQ(place.GetType() == phi::AllocationType::GPU ||
                             place.GetType() == phi::AllocationType::XPU,
                         true,
-                        phi::errors::PreconditionNotMet(
+                        common::errors::PreconditionNotMet(
                             "CCommInitOp can run on gpu or xpu place only."));
 
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || \
     defined(PADDLE_WITH_XPU_BKCL)
       auto var = scope.FindVar(Input("X"));
       PADDLE_ENFORCE_NOT_NULL(
-          var, phi::errors::InvalidArgument("Input con not be empty."));
+          var, common::errors::InvalidArgument("Input con not be empty."));
 
       int nranks = Attr<int>("nranks");
       int rid = Attr<int>("ring_id");

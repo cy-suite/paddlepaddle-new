@@ -14,20 +14,14 @@ limitations under the License. */
 #include <vector>
 
 #include "paddle/common/ddim.h"
+#include "paddle/fluid/framework/infershape_utils.h"
 #include "paddle/fluid/framework/op_registry.h"
 #include "paddle/fluid/framework/op_version_registry.h"
-#include "paddle/phi/common/transform.h"
-#include "paddle/phi/kernels/funcs/blas/blas.h"
-#include "paddle/phi/kernels/funcs/eigen/common.h"
-#include "paddle/phi/kernels/impl/clip_kernel_impl.h"
-
-#include "paddle/fluid/framework/infershape_utils.h"
 #include "paddle/phi/core/infermeta_utils.h"
 #include "paddle/phi/infermeta/binary.h"
 #include "paddle/phi/infermeta/multiary.h"
 
-namespace paddle {
-namespace operators {
+namespace paddle::operators {
 class QuantizeLinearOp : public framework::OperatorWithKernel {
  public:
   using framework::OperatorWithKernel::OperatorWithKernel;
@@ -92,6 +86,8 @@ class QuantizeLinearOpMaker : public framework::OpProtoAndCheckerMaker {
                  "and mul, the quant_axis is equal to the cout axis.")
         .SetDefault(0);
     AddAttr<int>("bit_length", "(int, default 8)").SetDefault(8);
+    AddAttr<int>("qmin", "(int, default -128)").SetDefault(-128);
+    AddAttr<int>("qmax", "(int, default 127)").SetDefault(127);
     AddAttr<int>(
         "round_type",
         "(int, default 0) The round type of fp32 to int."
@@ -121,8 +117,7 @@ $$0 \leq c \lt \ the\ channel\ number\ of\ X$$
 )DOC");
   }
 };
-}  // namespace operators
-}  // namespace paddle
+}  // namespace paddle::operators
 
 namespace ops = paddle::operators;
 

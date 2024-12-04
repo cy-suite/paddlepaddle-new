@@ -26,7 +26,6 @@ import paddle
 # from op import Operator
 # from op_test_xpu import XPUOpTest
 from paddle import _C_ops, _legacy_C_ops
-from paddle.base.framework import in_dygraph_mode
 
 
 def run_adam_op(
@@ -35,6 +34,7 @@ def run_adam_op(
     lrs,
     moment1s,
     moment2s,
+    moment2s_max,
     beta1_pows,
     beta2_pows,
     master_params,
@@ -44,6 +44,7 @@ def run_adam_op(
     place,
     multi_precision=False,
     use_merged=False,
+    amsgrad=False,
 ):
     assert len(params) == len(grads)
     assert len(params) == len(lrs)
@@ -60,24 +61,27 @@ def run_adam_op(
     lr_vars = [paddle.to_tensor(l) for l in lrs]
     moment1_vars = [paddle.to_tensor(m) for m in moment1s]
     moment2_vars = [paddle.to_tensor(m) for m in moment2s]
+    moment2_max_vars = [paddle.to_tensor(m) for m in moment2s_max]
     beta1_pow_vars = [paddle.to_tensor(b) for b in beta1_pows]
     beta2_pow_vars = [paddle.to_tensor(b) for b in beta2_pows]
     master_param_vars = [paddle.to_tensor(m_p) for m_p in master_params]
 
     if not use_merged:
         for i in range(len(param_vars)):
-            _, _, _, _, _, _ = _legacy_C_ops.adam(
+            _, _, _, _, _, _, _ = _legacy_C_ops.adam(
                 param_vars[i],
                 grad_vars[i],
                 lr_vars[i],
                 moment1_vars[i],
                 moment2_vars[i],
+                moment2_max_vars[i],
                 beta1_pow_vars[i],
                 beta2_pow_vars[i],
                 master_param_vars[i],
                 param_vars[i],
                 moment1_vars[i],
                 moment2_vars[i],
+                moment2_max_vars[i],
                 beta1_pow_vars[i],
                 beta2_pow_vars[i],
                 master_param_vars[i],
@@ -89,54 +93,33 @@ def run_adam_op(
                 beta2,
                 'multi_precision',
                 False,
+                'amsgrad',
+                amsgrad,
             )
     else:
-        if in_dygraph_mode():
-            _, _, _, _, _, _ = _C_ops.merged_adam_(
-                param_vars,
-                grad_vars,
-                lr_vars,
-                moment1_vars,
-                moment2_vars,
-                beta1_pow_vars,
-                beta2_pow_vars,
-                master_param_vars,
-                beta1,
-                beta2,
-                epsilon,
-                False,
-                False,
-            )
-        else:
-            _, _, _, _, _, _ = _legacy_C_ops.merged_adam(
-                param_vars,
-                grad_vars,
-                lr_vars,
-                moment1_vars,
-                moment2_vars,
-                beta1_pow_vars,
-                beta2_pow_vars,
-                master_param_vars,
-                param_vars,
-                moment1_vars,
-                moment2_vars,
-                beta1_pow_vars,
-                beta2_pow_vars,
-                master_param_vars,
-                'epsilon',
-                epsilon,
-                'beta1',
-                beta1,
-                'beta2',
-                beta2,
-                'multi_precision',
-                multi_precision,
-            )
+        _, _, _, _, _, _, _ = _C_ops.merged_adam_(
+            param_vars,
+            grad_vars,
+            lr_vars,
+            moment1_vars,
+            moment2_vars,
+            moment2_max_vars,
+            beta1_pow_vars,
+            beta2_pow_vars,
+            master_param_vars,
+            beta1,
+            beta2,
+            epsilon,
+            False,
+            False,
+            amsgrad,
+        )
 
     outputs = {
         'ParamOut': param_vars,
         'Moment1Out': moment1_vars,
         'Moment2Out': moment2_vars,
+        'Moment2MaxOut': moment2_max_vars,
         'Beta1PowOut': beta1_pow_vars,
         'Beta2PowOut': beta2_pow_vars,
         'MasterParamOut': master_param_vars,
@@ -158,6 +141,9 @@ class XPUTestMergedAdamWrapper(XPUOpTestWrapper):
         def gen_rand_data(self, shapes, dtype):
             return [np.random.random(s).astype(dtype) for s in shapes]
 
+        def gen_zero_data(self, shapes, dtype):
+            return [np.zeros(s).astype(dtype) for s in shapes]
+
         def prepare_data(self, shapes, seed):
             np.random.seed(seed)
             mp_dtype = np.float32
@@ -168,6 +154,7 @@ class XPUTestMergedAdamWrapper(XPUOpTestWrapper):
             lrs = [learning_rate.copy() for _ in shapes]
             moment1s = self.gen_rand_data(shapes, mp_dtype)
             moment2s = self.gen_rand_data(shapes, mp_dtype)
+            moment2s_max = self.gen_zero_data(shapes, mp_dtype)
             beta1_pow = self.gen_rand_data([[1]], mp_dtype)
             beta2_pow = self.gen_rand_data([[1]], mp_dtype)
             beta1_pows = [beta1_pow.copy() for _ in shapes]
@@ -179,6 +166,7 @@ class XPUTestMergedAdamWrapper(XPUOpTestWrapper):
                 lrs,
                 moment1s,
                 moment2s,
+                moment2s_max,
                 beta1_pows,
                 beta2_pows,
                 master_params,
@@ -191,6 +179,7 @@ class XPUTestMergedAdamWrapper(XPUOpTestWrapper):
                 lrs,
                 moment1s,
                 moment2s,
+                moment2s_max,
                 beta1_pows,
                 beta2_pows,
                 master_params,
@@ -203,6 +192,7 @@ class XPUTestMergedAdamWrapper(XPUOpTestWrapper):
                     lrs=lrs,
                     moment1s=moment1s,
                     moment2s=moment2s,
+                    moment2s_max=moment2s_max,
                     beta1_pows=beta1_pows,
                     beta2_pows=beta2_pows,
                     master_params=master_params,
@@ -212,6 +202,7 @@ class XPUTestMergedAdamWrapper(XPUOpTestWrapper):
                     place=place,
                     multi_precision=False,
                     use_merged=use_merged,
+                    amsgrad=False,  # Currently, xpu NOT support amsgrad.
                 )
 
             outs1 = run_op(True, "xpu")
@@ -224,6 +215,9 @@ class XPUTestMergedAdamWrapper(XPUOpTestWrapper):
             self.assertEqual(len(outs1), len(outs4))
 
             for key in outs1.keys():
+                if key in ['Moment2MaxOut']:
+                    continue
+
                 value1 = outs1[key]
                 value2 = outs2[key]
                 value3 = outs3[key]

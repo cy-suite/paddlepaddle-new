@@ -46,8 +46,7 @@ using paddle::distributed::GraphPyServer;
 using paddle::distributed::GraphPyService;
 using paddle::distributed::HeterClient;
 
-namespace paddle {
-namespace pybind {
+namespace paddle::pybind {
 void BindDistFleetWrapper(py::module* m) {
   py::class_<FleetWrapper, std::shared_ptr<FleetWrapper>>(*m,
                                                           "DistFleetWrapper")
@@ -170,8 +169,8 @@ void BindDistCommunicator(py::module* m) {
           Communicator::InitInstance<FLCommunicator>(
               send_ctx, recv_ctx, dist_desc, host_sign_list, param_scope, envs);
         } else {
-          PADDLE_THROW(platform::errors::InvalidArgument(
-              "unsupported communicator MODE"));
+          PADDLE_THROW(
+              common::errors::InvalidArgument("unsupported communicator MODE"));
         }
         return Communicator::GetInstancePtr();
       }))
@@ -446,7 +445,7 @@ void BindIndexSampler(py::module* m) {
         if (mode == "by_layerwise") {
           return IndexSampler::Init<LayerWiseSampler>(name);
         } else {
-          PADDLE_THROW(platform::errors::InvalidArgument(
+          PADDLE_THROW(common::errors::InvalidArgument(
               "Unsupported IndexSampler Type!"));
         }
       }))
@@ -454,5 +453,4 @@ void BindIndexSampler(py::module* m) {
       .def("init_beamsearch_conf", &IndexSampler::init_beamsearch_conf)
       .def("sample", &IndexSampler::sample);
 }
-}  // end namespace pybind
-}  // namespace paddle
+}  // namespace paddle::pybind

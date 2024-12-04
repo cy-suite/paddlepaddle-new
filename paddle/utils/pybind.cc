@@ -18,8 +18,7 @@
 #include "paddle/phi/core/enforce.h"
 
 COMMON_DECLARE_string(tensor_operants_mode);
-namespace paddle {
-namespace pybind {
+namespace paddle::pybind {
 
 PyTypeObject* p_tensor_type = nullptr;
 PyTypeObject* p_string_tensor_type = nullptr;
@@ -39,8 +38,8 @@ void ShareTensor(PyObject* src, PyObject* dst) {
     const auto& dst_tensor = reinterpret_cast<TensorObject*>(dst)->tensor;
     src_tensor = dst_tensor;
   } else {
-    PADDLE_THROW(
-        phi::errors::InvalidArgument("Share tensor only support DenseTensor."));
+    PADDLE_THROW(common::errors::InvalidArgument(
+        "Share tensor only support DenseTensor."));
   }
 }
 
@@ -49,7 +48,7 @@ paddle::Tensor& CastPyArg2Tensor(PyObject* obj, Py_ssize_t arg_pos) {
       PyObject_TypeCheck(obj, p_string_tensor_type)) {
     return reinterpret_cast<TensorObject*>(obj)->tensor;
   } else {
-    PADDLE_THROW(phi::errors::InvalidArgument(
+    PADDLE_THROW(common::errors::InvalidArgument(
         "argument (position %d) must be "
         "Tensor, but got %s",
         arg_pos + 1,
@@ -76,12 +75,11 @@ PyObject* ToPyObject(const paddle::Tensor& value,
     v->tensor = value;
   } else {
     PADDLE_THROW(
-        phi::errors::Fatal("tp_alloc return null, can not new a PyObject."));
+        common::errors::Fatal("tp_alloc return null, can not new a PyObject."));
   }
   return obj;
 }
 
 void EnableTensorOperantsToPhiMode() { FLAGS_tensor_operants_mode = "phi"; }
 
-}  // namespace pybind
-}  // namespace paddle
+}  // namespace paddle::pybind
