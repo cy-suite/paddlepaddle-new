@@ -2056,7 +2056,7 @@ class Optimizer:
         self._need_refuse = False
 
     @property
-    def fuse_buffer_version(self):
+    def fused_buffer_version(self):
         return self._fuse_buffer_version
 
     @property

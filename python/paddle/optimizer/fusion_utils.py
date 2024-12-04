@@ -19,6 +19,10 @@ import paddle.autograd as imperative_base
 from paddle.framework import (
     _current_expected_place_,
 )
+from paddle.incubate.tensor.manipulation import (
+    async_offload_with_offset,
+    create_async_load,
+)
 
 alignment = {
     "gpu": 256,
@@ -172,3 +176,112 @@ class FusionStorage:
         src.get_tensor()._set_dims(tensor_shape)
         src.stop_gradient = stop_gradient
         self.buffer._slice(start, end)._share_buffer_to(src)
+
+
+class FusionStorageHelper:
+    def __init__(
+        self,
+        accumulators_meta,
+        master_weights_meta,
+        merged_model_params_meta,
+        buffer_ipc_meta,
+    ):
+        self.async_loader = create_async_load()
+        self.accumulators_meta = None
+        self.master_weights_meta = None
+        self.merged_model_params_meta = None
+        self.buffer_ipc_meta = None
+        self.buffer = None
+        self.cpu_buffer = None
+        self.buffer_length = None
+        self.tasks = []
+        self.reset_meta(
+            accumulators_meta,
+            master_weights_meta,
+            merged_model_params_meta,
+            buffer_ipc_meta,
+        )
+
+    @imperative_base.no_grad()
+    def reset_meta(
+        self,
+        accumulators_meta,
+        master_weights_meta,
+        merged_model_params_meta,
+        buffer_ipc_meta,
+    ):
+        assert isinstance(
+            accumulators_meta, dict
+        ), "accumulators_meta must be a dict"
+        self.accumulators_meta = accumulators_meta
+        assert isinstance(
+            master_weights_meta, dict
+        ), "master_weights_meta must be a dict"
+        self.master_weights_meta = master_weights_meta
+        assert (
+            isinstance(merged_model_params_meta, dict)
+            or merged_model_params_meta is None
+        ), "merged_model_params_meta must be a dict or None"
+        self.merged_model_params_meta = merged_model_params_meta
+        assert (
+            isinstance(buffer_ipc_meta, tuple) and len(buffer_ipc_meta) == 7
+        ), "buffer_ipc_meta must be a tuple with length 7"
+        self.buffer_ipc_meta = buffer_ipc_meta
+
+        self.buffer = paddle.to_tensor(
+            paddle.base.core.LoDTensor._new_shared_cuda(self.buffer_ipc_meta)
+        )
+        self.cpu_buffer = self.buffer.pin_memory()
+        self.buffer_length = self.buffer._numel()
+
+    def sync_param(self):
+        self.sync_partial_param(0, self.buffer_length - 1)
+
+    @imperative_base.no_grad()
+    def sync_partial_param(self, start, end):
+        assert isinstance(start, int), "start must be an integer"
+        assert isinstance(end, int), "end must be an integer"
+        assert start >= 0, "start must be non-negative"
+        assert (
+            end < self.buffer_length
+        ), "end must be less than or equal to the total buffer length"
+        task = async_offload_with_offset(
+            src_tensor=self.buffer,
+            dst_tensor=self.cpu_buffer,
+            src_offset=start,
+            dst_offset=start,
+            offload_size=(end - start),
+            async_loader=self.async_loader,
+        )
+        self.tasks.append(task)
+
+    def wait_all(self):
+        if len(self.tasks) == 0:
+            return
+        last_task = self.tasks.pop(-1)
+        while len(self.tasks) > 0:
+            task = self.tasks.pop(0)
+            task.cuda_wait()
+        last_task.cpu_wait()
+
+    def state_dict(self):
+        state_dict = {"master_weights": {}}
+        for k, v in self.accumulators_meta.items():
+            for para_name, tensor_meta in v.items():
+                var_tmp = self.restore_tensor_from_meta(tensor_meta)
+                state_dict[var_tmp.name] = var_tmp
+        for k, v in self.master_weights_meta.items():
+            var_tmp = self.restore_tensor_from_meta(v)
+            state_dict["master_weights"][k] = var_tmp
+        return state_dict
+
+    @imperative_base.no_grad()
+    def restore_tensor_from_meta(self, tensor_meta):
+        shape = tensor_meta["shape"]
+        name = tensor_meta["name"]
+        start = tensor_meta["start"]
+        end = tensor_meta["end"]
+        tensor = self.cpu_buffer._slice(start, end)
+        tensor.get_tensor()._set_dims(shape)
+        tensor.name = name
+        return tensor
