@@ -131,6 +131,12 @@ DEFAULT_RECOMPUTABLE_OPS: list[str] = [
     "pd_op.sigmoid",
 ]
 
+# define the ops that are tending to recompute.These ops are more likely to save memory and get fused.
+TENDING_TO_RECOMPUTE_OPS: list[str] = [
+    "pd_op.full_int_array",
+    "pd_op.full",
+]
+
 VIEW_OPS: list[str] = []
 
 RANDOM_OPS: list[str] = ["pd_op.randint", "pd_op.uniform", "pd_op.dropout"]
@@ -148,7 +154,7 @@ COMPUTE_INTENSIVE_OPS: list[str] = [
 
 AGGRESSIVE_RECOMPUTATION = False
 # Restricts the amount of computation recompute can do.
-MAX_DIST_FROM_BW = 3
+MAX_DIST_FROM_BW = 5
 
 
 def DebugPrint(*args):
@@ -414,6 +420,7 @@ def auto_recompute(
 
     random_ops = RANDOM_OPS
     compute_intensive_ops = COMPUTE_INTENSIVE_OPS
+    tending_to_recompute_ops = TENDING_TO_RECOMPUTE_OPS
 
     unrecomputable_ops = random_ops + compute_intensive_ops
 
@@ -466,6 +473,9 @@ def auto_recompute(
         if AGGRESSIVE_RECOMPUTATION:
             return value_node.get_defining_op().name() in unrecomputable_ops
         else:
+            if value_node.get_defining_op().name() in tending_to_recompute_ops:
+                return False
+
             if value_node.get_defining_op().name() not in recomputable_ops:
                 return True
 
