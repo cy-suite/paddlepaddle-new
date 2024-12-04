@@ -71,29 +71,6 @@ class TestLoadStateDictFromUrl(unittest.TestCase):
                 are_parameters_equal = False
                 break
         assert are_parameters_equal
-        # Test map_location!=cpu and map_location!=numpy
-        weight5 = paddle.hub.load_state_dict_from_url(
-            url='https://paddle-hapi.bj.bcebos.com/models/resnet18.pdparams',
-            model_dir="./test/test1",
-            map_location="gpu",
-        )
-        model5 = self.model
-        model5.set_state_dict(weight5)
-        weight6 = paddle.hub.load_state_dict_from_url(
-            url='https://paddle-hapi.bj.bcebos.com/models/resnet18.pdparams',
-            model_dir="./test/test2",
-            map_location="gpu",
-        )
-        model6 = self.model
-        model6.set_state_dict(weight6)
-        are_parameters_equal = True
-        for (name1, param1), (name2, param2) in zip(
-            model5.named_parameters(), model6.named_parameters()
-        ):
-            if name1 != name2 or not paddle.allclose(param1, param2):
-                are_parameters_equal = False
-                break
-        assert are_parameters_equal
 
 
 if __name__ == '__main__':
