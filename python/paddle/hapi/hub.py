@@ -358,8 +358,8 @@ def load_state_dict_from_url(
         .. code-block:: python
 
             >>> import paddle
-            >>> paddle.hub.load_state_dict_from_url(url='https://paddle-hapi.bj.bcebos.com/models/resnet18.pdparams', model_dir="/paddle/test_load_from_url")
-            >>> paddle.hub.load_state_dict_from_url(url='http://127.0.0.1:9100/download/resnet18.zip', model_dir="/paddle/test_file_is_zip")
+            >>> paddle.hub.load_state_dict_from_url(url='https://paddle-hapi.bj.bcebos.com/models/resnet18.pdparams', model_dir="./paddle/test_load_from_url")
+            >>> paddle.hub.load_state_dict_from_url(url='https://x2paddle.bj.bcebos.com/resnet18.zip', model_dir="./paddle/test_file_is_zip")
     """
     if model_dir is None:
         hub_dir = get_dir()

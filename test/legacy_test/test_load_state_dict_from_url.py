@@ -46,15 +46,15 @@ class TestLoadStateDictFromUrl(unittest.TestCase):
                 break
         assert are_parameters_equal
 
-        # Test whether the model loads properly when the model_dir is empty
+        # Test whether the model loads properly when the model_dir is empty and Test check_hash and map_location
         weight3 = paddle.hub.load_state_dict_from_url(
             url='https://x2paddle.bj.bcebos.com/resnet18.zip',
+            model_dir="./test/test2",
             file_name="resnet18.pdparams",
             map_location="numpy",
         )
         model3 = self.model
         model3.set_state_dict(weight3)
-        # Test check_hash and map_location
         weight4 = paddle.hub.load_state_dict_from_url(
             url='https://paddle-hapi.bj.bcebos.com/models/resnet18.pdparams',
             file_name="resnet18.pdparams",
