@@ -469,22 +469,20 @@ std::vector<Tensor> meshgrid_decomp(const std::vector<Tensor>& x) {
   int64_t rank = x.size();
   std::vector<Tensor> res;
   std::vector<int64_t> tar_shape(rank, 1);
-  std::cout << "tar_shape = ";
   for (int64_t i = 0; i < rank; i++) {
     if (x[i].shape().size() != 0) {
       tar_shape[i] = x[i].shape()[0];
     }
-    std::cout << tar_shape[i] << " ";
   }
-  std::cout << std::endl;
+
   if (has_dynamic_shape(tar_shape)) {
     std::vector<Tensor> tmp_shape;
     for (int64_t i = 0; i < rank; i++) {
-      if (tar_shape[i] <= 1) {
+      if (tar_shape[i] < 1) {
         tmp_shape.push_back(shape64<T>(x[i]));
       } else {
         tmp_shape.push_back(
-            full<T>({1}, tar_shape[i], DataType::INT64, x[0].place()));
+            full<T>({1}, tar_shape[i], DataType::INT64, x[i].place()));
       }
     }
     auto tar_tensor_shape = concat<T>(tmp_shape);
