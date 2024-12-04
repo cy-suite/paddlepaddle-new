@@ -45,6 +45,7 @@ from .auto_parallel.api import (
     to_static,
     unshard_dtensor,
 )
+from .auto_parallel.high_level_api import to_distributed
 from .auto_parallel.placement_type import (
     Partial,
     Replicate,
@@ -177,4 +178,5 @@ __all__ = [
     "Strategy",
     "DistModel",
     "unshard_dtensor",
+    "to_distributed",
 ]

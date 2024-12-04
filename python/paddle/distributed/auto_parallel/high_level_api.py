@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
 
 import logging
 import math
@@ -73,7 +74,7 @@ def cost_model(matched_programs, device_num, node_num):
                 f"device_num must be an even number to be able to use at least 2 parallel strategies, but got: {device_num}"
             )
     else:
-        logger.w0arning(
+        logger.debug(
             f'device_num must be an even number to be able to use at least 2 parallel strategies, but got: {device_num}, only use data parallel.'
         )
         return dist.ProcessMesh(list(range(device_num)), dim_names=["dp"])
@@ -249,8 +250,220 @@ def get_layer_pp_info(mesh, num_hidden_layers, layer_index):
         return None
 
 
-# mesh, config: input_spec
-def to_distributed(model, optimizer, dataloader, device_num, node_num, config):
+def to_distributed(
+    model: paddle.nn.Layer,
+    optimizer: paddle.optimizer.Optimizer,
+    dataloader: paddle.io.DataLoader,
+    device_num: int,
+    node_num: int | None = 1,
+    config: ToDistributedConfig | None = None,
+) -> tuple[paddle.nn.Layer, paddle.optimizer.Optimizer, paddle.io.DataLoader]:
+    """
+    `to_distributed` can automatically convert neural networks, optimizer, and dataloader
+    that do not contain any distributed code into neural networks, optimizers, and dataloader
+    that are suitable for distributed training and ensure their correctness.
+    At the same time, during the transformation process, the optimal distributed strategy
+    will be automatically selected based on `node_num` and `device_num` to maximize performance.
+
+    Args:
+        model(paddle.nn.Layer): The model in dygraph mode, whose parameters
+            are ordinary tensors, do not contain any distributed code.
+            If one device has sufficient memory, it can train directly.
+        optimizer(paddle.optimizer.Optimizer): The optimizer for training.
+            one instance of a regular optimizer, e.g. `paddle.optimizer.Adam` etc.
+        dataloader(paddle.io.DataLoader): The dataloader used in dygraph mode,
+            It is instantiated through regular `paddle.io.Dataset` and `paddle.io.Sampler`,
+            not `paddle.io.DistributedBatchSampler`.
+        device_num(int): the number of devices on each node or machine.
+        node_num(int|None, optional): the number of nodes or machines.
+        config(ToDistributedConfig| None = None): Configs for input_spec and sequence_parallel.
+            The custom input specs specify the shape, dtype, and name information
+            of each model inputs. If it is not None, the input specs and
+            will be inferred from the custom input specs. The custom
+            input specs should be a list of `paddle.static.InputSpec`. Default: None.
+            sequence_parallel indicates whether to use sequence parallel. Default: False.
+
+    Returns:
+        model: The model in dygraph mode but contain distributed attributes.
+        optimizer: The optimizer for training and may be sharded states.
+        dataloader: The dataloader can be used in distributed training.
+
+    Examples:
+        .. code-block:: python
+            >>> import numpy as np
+            >>> import paddle
+            >>> import paddle.distributed as dist
+            >>> from paddle import nn
+
+            >>> EPOCHES = 1
+            >>> VOCAB_SIZE = 8000
+            >>> BATCH_NUM = 2
+            >>> BATCH_SIZE = 4
+            >>> HIDDEN_SIZE = 2048
+            >>> INTERMEDIATE_SIZE = 4096
+            >>> SEQ_LENGTH = 1024
+            >>> NUM_HIDDEN_LAYERS = 4
+            >>> class RandomDataset(paddle.io.Dataset): # type: ignore[type-arg]
+            ...     def __init__(self, inputs, labels, num_samples):
+            ...         self.inputs = inputs
+            ...         self.labels = labels
+            ...         self.num_samples = num_samples
+            ...     def __getitem__(self, idx):
+            ...         return self.inputs[idx], self.labels[idx]
+            ...     def __len__(self):
+            ...         return self.num_samples
+
+            >>> class Mlp(nn.Layer):
+            ...     def __init__(
+            ...         self,
+            ...         hidden_size=HIDDEN_SIZE,
+            ...         intermediate_size=INTERMEDIATE_SIZE,
+            ...     ):
+            ...         super().__init__()
+            ...         self.hidden_size = hidden_size
+            ...         self.intermediate_size = intermediate_size
+            ...         self.gate_proj = nn.Linear(
+            ...             hidden_size, intermediate_size, bias_attr=False
+            ...         )
+            ...         self.up_proj = nn.Linear(
+            ...             hidden_size, intermediate_size, bias_attr=False
+            ...         )
+            ...         self.down_proj = nn.Linear(
+            ...             intermediate_size, hidden_size, bias_attr=False
+            ...         )
+
+            ...     def forward(self, x):
+            ...         x = paddle.incubate.nn.functional.swiglu(
+            ...             self.gate_proj(x), self.up_proj(x)
+            ...         )
+            ...         out = self.down_proj(x)
+            ...         return out
+
+            >>> class DecoderLayer(nn.Layer):
+            ...     def __init__(
+            ...         self,
+            ...         hidden_size=HIDDEN_SIZE,
+            ...         intermediate_size=INTERMEDIATE_SIZE,
+            ...     ):
+            ...         super().__init__()
+            ...         self.hidden_size = hidden_size
+            ...         self.intermediate_size = intermediate_size
+            ...         self.mlp = Mlp()
+
+            ...     def forward(
+            ...         self,
+            ...         hidden_states,
+            ...     ):
+            ...         residual = hidden_states
+            ...         hidden_states = self.mlp(hidden_states)
+            ...         hidden_states = residual + hidden_states
+            ...         return hidden_states
+
+            >>> class DemoNet(nn.Layer):
+            ...     def __init__(
+            ...         self,
+            ...         vocab_size=VOCAB_SIZE,
+            ...         hidden_size=HIDDEN_SIZE,
+            ...         intermediate_size=INTERMEDIATE_SIZE,
+            ...         labels=None,
+            ...     ):
+            ...         super().__init__()
+            ...         self.embed_tokens = nn.Embedding(
+            ...             vocab_size,
+            ...             hidden_size,
+            ...         )
+            ...         self.layers = nn.LayerList(
+            ...             [
+            ...                 DecoderLayer()
+            ...                 for i in range(NUM_HIDDEN_LAYERS)
+            ...             ]
+            ...         )
+            ...         self.weight = self.create_parameter(
+            ...             shape=[hidden_size, vocab_size],
+            ...             dtype=paddle.get_default_dtype(),
+            ...         )
+            ...         self.ignore_index = -100
+            ...         self.loss_func = paddle.nn.CrossEntropyLoss(
+            ...             reduction="none", ignore_index=self.ignore_index
+            ...         )
+
+            ...     def forward(
+            ...         self,
+            ...         input_ids=None,
+            ...         labels=None,
+            ...     ):
+            ...         batch_size, seq_length = input_ids.shape
+            ...         hidden_states = self.embed_tokens(input_ids)
+            ...         for idx, (decoder_layer) in enumerate(self.layers):
+            ...             layer_outputs = decoder_layer(
+            ...                 hidden_states,
+            ...             )
+            ...             hidden_states = layer_outputs
+            ...         logits = paddle.matmul(hidden_states, self.weight)
+            ...         loss = None
+            ...         if labels is not None:
+            ...             masked_lm_loss = self.loss_func(
+            ...                 logits.astype("float32"),
+            ...                 labels.unsqueeze(2),
+            ...             )
+            ...             binary_sequence = paddle.where(
+            ...                 masked_lm_loss > 0,
+            ...                 paddle.ones_like(masked_lm_loss),
+            ...                 paddle.zeros_like(masked_lm_loss),
+            ...             )
+            ...             count = paddle.sum(binary_sequence)
+            ...             if count == 0:
+            ...                 loss = paddle.sum(masked_lm_loss * binary_sequence)
+            ...             else:
+            ...                 loss = paddle.sum(masked_lm_loss * binary_sequence) / count
+            ...         return (loss, logits)
+            >>> model = DemoNet()
+            >>> input_seqs = np.random.randint(
+            ...     low=0, high=1024, size=(BATCH_SIZE * BATCH_NUM, SEQ_LENGTH)
+            ... ).astype("int64")
+            >>> labels = np.random.randint(
+            ...     low=0, high=1024, size=(BATCH_SIZE * BATCH_NUM, SEQ_LENGTH)
+            ... ).astype("int64")
+            >>> dataset = RandomDataset(
+            ...     input_seqs, labels, BATCH_SIZE * BATCH_NUM
+            ... )
+            >>> sampler = paddle.io.BatchSampler(
+            ...     dataset, batch_size=BATCH_SIZE, shuffle=False, drop_last=True
+            ... )
+            >>> loader = paddle.io.DataLoader(
+            ...     dataset, batch_sampler=sampler
+            ... )
+            >>> opt = paddle.optimizer.SGD(
+            ...     learning_rate=0.1, parameters=model.parameters()
+            ... )
+            >>> input_seq_spec = paddle.static.InputSpec(
+            ...     [BATCH_SIZE, SEQ_LENGTH], 'float32', 'input_seq', True
+            ... )
+            >>> dist_config = ToDistributedConfig()
+            >>> dist_config.input_spec = [input_seq_spec]
+            >>> dist_config.sequence_parallel = True
+
+            >>> # # wrap model by using **to_distributed**
+            >>> dist_model, dist_opt, dist_loader = to_distributed(
+            ...     model,
+            ...     opt,
+            ...     loader,
+            ...     device_num,
+            ...     node_num,
+            ...     dist_config,
+            ... )
+
+            >>> for epoch in range(EPOCHES):
+            ...     dist_model.train()
+            ...     for i, data in enumerate(dist_loader()):
+            ...         inputs, labels = data
+            ...         loss, _ = dist_model(inputs, labels=labels)
+            ...         print(f"epoch {epoch}, step {i}: loss {loss}")
+            ...         loss.backward()
+            ...         dist_opt.step()
+            ...         dist_opt.clear_grad()
+
+    """
     logger.debug(f'input model: {model}')
     # paddle.distributed.init_parallel_env()
 
@@ -326,11 +539,7 @@ def to_distributed(model, optimizer, dataloader, device_num, node_num, config):
 
     # step 2: calculate the optimal parallel strategies based on the network structure
     mesh = cost_model(matched_programs, device_num, node_num)
-    logger.warning(f'mesh: {mesh}')
-    # logger.warning(f'dp0: {mesh.get_mesh_with_dim("dp", 0)}')
-    # logger.warning(f'dp1: {mesh.get_mesh_with_dim("dp", 1)}')
-    # logger.warning(f'mp0: {mesh.get_mesh_with_dim("mp", 0)}')
-    # logger.warning(f'mp1: {mesh.get_mesh_with_dim("mp", 1)}')
+    logger.debug(f'mesh: {mesh}')
 
     with_pp = True if "pp" in mesh.dim_names else False
     with_mp = True if "mp" in mesh.dim_names else False

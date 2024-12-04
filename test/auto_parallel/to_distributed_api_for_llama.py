@@ -409,8 +409,6 @@ class LlamaModel(nn.Layer):
     ):
         batch_size, seq_length = input_ids.shape
 
-        print("in LlamaModel, input_ids:")
-        print(input_ids)
         inputs_embeds = self.embed_tokens(input_ids)
 
         # embed positions
@@ -482,8 +480,6 @@ class LlamaPretrainingCriterion(paddle.nn.Layer):
                 loss = paddle.sum(masked_lm_loss * binary_sequence)
             else:
                 loss = paddle.sum(masked_lm_loss * binary_sequence) / count
-            print("in LlamaPretrainingCriterion, loss:")
-            print(loss)
 
         return loss
 
@@ -642,7 +638,6 @@ class TestLlamaDecoderForSemiAutoParallel:
             for i, data in enumerate(dist_loader()):
                 inputs, labels = data
                 loss, _ = dist_model(inputs, labels=labels)
-                print(f"epoch {epoch}, step {i}: loss {loss}")
                 loss.backward()
                 dist_opt.step()
                 dist_opt.clear_grad()
