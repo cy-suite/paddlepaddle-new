@@ -328,7 +328,8 @@ void PrintAttributeImpl(pir::Attribute attr, std::ostream& os) {
   os << '.';
   if (auto int_array_attr = attr.dyn_cast<IntArrayAttribute>()) {
     phi::IntArray data = int_array_attr.data();
-    os << "[";
+    os << "IntArray)"
+       << "[";
     const auto& inner_data = data.GetData();
     pir::detail::PrintInterleave(
         inner_data.begin(),
@@ -337,11 +338,11 @@ void PrintAttributeImpl(pir::Attribute attr, std::ostream& os) {
         [&os]() { os << ","; });
     os << "]";
   } else if (auto data_type_attr = attr.dyn_cast<DataTypeAttribute>()) {
-    os << data_type_attr.data();
+    os << "DataType)" << data_type_attr.data();
   } else if (auto place_type_attr = attr.dyn_cast<PlaceAttribute>()) {
-    os << place_type_attr.data();
+    os << "Place)" << place_type_attr.data();
   } else if (auto data_layout_attr = attr.dyn_cast<DataLayoutAttribute>()) {
-    os << data_layout_attr.data();
+    os << "DataLayout)" << data_layout_attr.data();
   } else {
     os << "<#AttrNotImplemented>";
   }

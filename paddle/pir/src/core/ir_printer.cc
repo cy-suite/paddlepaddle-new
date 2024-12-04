@@ -29,7 +29,6 @@
 #include "paddle/pir/include/core/utils.h"
 #include "paddle/pir/include/core/value.h"
 
-COMMON_DECLARE_bool(print_ir);
 namespace pir {
 
 namespace {
@@ -123,21 +122,21 @@ void BasicIrPrinter::PrintAttribute(Attribute attr) {
       os << "false";
     }
   } else if (auto f = attr.dyn_cast<FloatAttribute>()) {
-    os << f.data();
+    os << "(Float)" << f.data();
   } else if (auto d = attr.dyn_cast<DoubleAttribute>()) {
-    os << d.data();
+    os << "(Double)" << d.data();
   } else if (auto i = attr.dyn_cast<Int32Attribute>()) {
-    os << i.data();
+    os << "(Int32)" << i.data();
   } else if (auto i = attr.dyn_cast<Int64Attribute>()) {
-    os << i.data();
+    os << "(Int64)" << i.data();
   } else if (auto i = attr.dyn_cast<IndexAttribute>()) {
-    os << i.data();
+    os << "(Index)" << i.data();
   } else if (auto p = attr.dyn_cast<PointerAttribute>()) {
-    os << p.data();
+    os << "(Pointer)" << p.data();
   } else if (auto p = attr.dyn_cast<Complex64Attribute>()) {
-    os << p.data();
+    os << "(Complex64)" << p.data();
   } else if (auto p = attr.dyn_cast<Complex128Attribute>()) {
-    os << p.data();
+    os << "(Complex128)" << p.data();
   } else if (auto arr = attr.dyn_cast<ArrayAttribute>()) {
     const auto& vec = arr.AsVector();
     os << "[";
@@ -191,7 +190,7 @@ void IrPrinter::PrintOperationWithNoRegion(const Operation& op) {
 
   os << " \"" << op.name() << "\"";
 
-  if (VLOG_IS_ON(1) || FLAGS_print_ir) {
+  if (VLOG_IS_ON(1)) {
     os << " [id:" << op.id() << "]";
   }
 
