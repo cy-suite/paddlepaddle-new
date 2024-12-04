@@ -72,7 +72,7 @@ bool StringTensor::IsSharedWith(const StringTensor& b) const {
 const Place& StringTensor::place() const {
   PADDLE_ENFORCE_NOT_NULL(
       holder_,
-      phi::errors::PreconditionNotMet(
+      common::errors::PreconditionNotMet(
           "Tensor not initialized yet when DenseTensor::place() is called."));
   return holder_->place();
 }
@@ -80,7 +80,7 @@ const Place& StringTensor::place() const {
 const dtype::pstring* StringTensor::data() const {
   PADDLE_ENFORCE_NOT_NULL(
       holder_,
-      phi::errors::PreconditionNotMet(
+      common::errors::PreconditionNotMet(
           "The storage must be valid when call the mutable data function."));
   uintptr_t ptr = reinterpret_cast<uintptr_t>(holder_->ptr()) + meta_.offset;
   return reinterpret_cast<const dtype::pstring*>(ptr);
@@ -89,7 +89,7 @@ const dtype::pstring* StringTensor::data() const {
 dtype::pstring* StringTensor::data() {
   PADDLE_ENFORCE_NOT_NULL(
       holder_,
-      phi::errors::PreconditionNotMet(
+      common::errors::PreconditionNotMet(
           "The storage must be valid when call the mutable data function."));
   uintptr_t ptr = reinterpret_cast<uintptr_t>(holder_->ptr()) + meta_.offset;
   return reinterpret_cast<dtype::pstring*>(ptr);
@@ -99,7 +99,7 @@ void StringTensor::set_meta(const StringTensorMeta& meta) {
   PADDLE_ENFORCE_EQ(
       meta.valid(),
       true,
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "Input meta is invalid, please check the meta attribute."));
   meta_.dims = meta.dims;
   meta_.is_scalar = meta.is_scalar;
@@ -130,7 +130,7 @@ void StringTensor::init_holder() {
     // TODO(zhoushunjie): Need to support more places
     PADDLE_THROW(
         errors::Unimplemented("StringTensor can only be created in CPU or GPU "
-                              "place. But now attemps to "
+                              "place. But now attempts to "
                               "create StringTensor on %s",
                               place.DebugString()));
   }
@@ -185,7 +185,7 @@ dtype::pstring* StringTensor::mutable_data(const phi::Place& place,
   PADDLE_ENFORCE_GE(
       numel(),
       0,
-      phi::errors::PreconditionNotMet(
+      common::errors::PreconditionNotMet(
           "The Tensor's element number must be equal or greater than zero. "
           "The Tensor's shape is [",
           dims(),

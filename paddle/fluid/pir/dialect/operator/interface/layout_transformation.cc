@@ -80,7 +80,7 @@ template <>
 common::DataLayout PreferLayoutImpl<Conv2dOp>(pir::Operation* op) {
   auto data_format_attr = op->attribute<pir::StrAttribute>("data_format");
   if (!data_format_attr) {
-    PADDLE_THROW(phi::errors::InvalidArgument(
+    PADDLE_THROW(common::errors::InvalidArgument(
         "op (%s) should have attribute `data_format`, but got %s",
         op,
         data_format_attr));
@@ -88,6 +88,32 @@ common::DataLayout PreferLayoutImpl<Conv2dOp>(pir::Operation* op) {
 
   auto concrete_op = op->dyn_cast<Conv2dOp>();
   if (auto in = concrete_op.input()) {
+    if (auto in_type = in.type()) {
+      if (in_type.isa<DenseTensorType>()) {
+        if (auto tensor_type = in_type.dyn_cast<DenseTensorType>()) {
+          if (tensor_type.dtype().isa<pir::Float16Type>()) {
+            return common::DataLayout::NHWC;
+          }
+        }
+      }
+    }
+  }
+
+  return common::StringToDataLayout(data_format_attr.AsString());
+}
+
+template <>
+common::DataLayout PreferLayoutImpl<Conv2dTransposeOp>(pir::Operation* op) {
+  auto data_format_attr = op->attribute<pir::StrAttribute>("data_format");
+  if (!data_format_attr) {
+    PADDLE_THROW(common::errors::InvalidArgument(
+        "op (%s) should have attribute `data_format`, but got %s",
+        op,
+        data_format_attr));
+  }
+
+  auto concrete_op = op->dyn_cast<Conv2dTransposeOp>();
+  if (auto in = concrete_op.x()) {
     if (auto in_type = in.type()) {
       if (in_type.isa<DenseTensorType>()) {
         if (auto tensor_type = in_type.dyn_cast<DenseTensorType>()) {
@@ -121,7 +147,7 @@ template <>
 common::DataLayout PreferLayoutImpl<FusedConv2dAddActOp>(pir::Operation* op) {
   auto data_format_attr = op->attribute<pir::StrAttribute>("data_format");
   if (!data_format_attr) {
-    PADDLE_THROW(phi::errors::InvalidArgument(
+    PADDLE_THROW(common::errors::InvalidArgument(
         "op (%s) should have attribute `data_format`, but got %s",
         op,
         data_format_attr));
@@ -188,7 +214,7 @@ template <>
 bool CanBeModifiedImpl<FusedConv2dAddActOp>(pir::Operation* op) {
   auto data_format_attr = op->attribute<pir::StrAttribute>("data_format");
   if (!data_format_attr) {
-    PADDLE_THROW(phi::errors::InvalidArgument(
+    PADDLE_THROW(common::errors::InvalidArgument(
         "op (%s) should have attribute `data_format`, but got %s",
         op,
         data_format_attr));
@@ -325,7 +351,7 @@ void RewriteByLayoutImpl<ConcatOp>(pir::Operation* op,
   auto axis = concrete_op.axis();
   if (!axis || !(axis.defining_op()->isa<FullOp>())) {
     PADDLE_THROW(common::errors::InvalidArgument(
-        "Concat's axis must be processed when rewirte by layout."));
+        "Concat's axis must be processed when rewrite by layout."));
   }
 
   // TODO(lyk): we must assert this full int array op has one user which is
@@ -350,6 +376,33 @@ void RewriteByLayoutImpl<ConcatOp>(pir::Operation* op,
 
   // infer new meta for concat
   RewriteByInfermeta<ConcatOp>(op, new_layout);
+}
+
+template <>
+void RewriteByLayoutImpl<ArgmaxOp>(pir::Operation* op,
+                                   common::DataLayout new_layout) {
+  auto concrete_op = op->dyn_cast<ArgmaxOp>();
+  auto axis = concrete_op.axis();
+  if (!axis || !(axis.defining_op()->isa<FullOp>())) {
+    PADDLE_THROW(common::errors::InvalidArgument(
+        "Argmax's axis must be processed when rewrite by layout."));
+  }
+
+  auto axis_op = axis.defining_op()->dyn_cast<FullOp>();
+  int axis_value =
+      axis_op.attribute("value").dyn_cast<ScalarAttribute>().data().to<int>();
+
+  PADDLE_ENFORCE_EQ(
+      axis_value,
+      1,
+      common::errors::InvalidArgument(
+          "Argmax's axis was expected as 1, but got %d", axis_value));
+  axis.defining_op()->set_attribute(
+      "value",
+      ScalarAttribute::get(pir::IrContext::Instance(), phi::Scalar(3)));
+
+  // infer new meta for argmax
+  RewriteByInfermeta<ArgmaxOp>(op, new_layout);
 }
 
 template <>

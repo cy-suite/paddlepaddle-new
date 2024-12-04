@@ -130,6 +130,10 @@ class DistTensor final
   /// \return The DenseTensor value's const reference
   const DenseTensor& value() const { return *value_; }
 
+  /// \brief Returns the shared_ptr of dense tensor value's in dist tensor.
+  /// \return The shared_ptr of dense tensor value
+  std::shared_ptr<DenseTensor> shared_value() { return value_; }
+
   /// \brief Returns the mutable dense tensor value in dist tensor.
   /// \note If DenseTensor value is modified externally, the corresponding
   /// relationship between it and the current tensor's global dims and
@@ -142,6 +146,10 @@ class DistTensor final
   /// \brief Returns the global dims of the dist tensor.
   /// \return The global dims of the dist tensor.
   const DDim& local_dims() const;
+
+  /// \brief Test whether the holder is created.
+  /// \return Whether the holder is created.
+  bool has_allocation() const override;
 
   /// \brief Returns the global number of elements contained in tensor.
   /// \return The number of elements contained in tensor.

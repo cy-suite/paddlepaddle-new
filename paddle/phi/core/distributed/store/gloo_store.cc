@@ -14,10 +14,14 @@
 
 #include "paddle/phi/core/distributed/store/gloo_store.h"
 
+<<<<<<< HEAD
 #include <utility>
 
 namespace phi {
 namespace distributed {
+=======
+namespace phi::distributed {
+>>>>>>> 337f0d225e59843df33c4ca189ae312b8c36a4f3
 
 GlooStore::GlooStore(std::shared_ptr<phi::distributed::Store>  store)
     : store_(std::move(store)) {}
@@ -45,5 +49,4 @@ void GlooStore::wait(const std::vector<std::string>& keys,
   }
 }
 
-}  // namespace distributed
-}  // namespace phi
+}  // namespace phi::distributed

@@ -41,7 +41,7 @@ class TEST_API SelectedRowsType
 
   const phi::DataLayout &data_layout() const;
 
-  const phi::LoD &lod() const;
+  const phi::LegacyLoD &lod() const;
 
   const size_t &offset() const;
 
@@ -52,6 +52,15 @@ class TEST_API SelectedRowsType
   static bool classof(Type type);
 
   static SelectedRowsType dyn_cast_impl(Type type);
+
+  static SelectedRowsType get(pir::IrContext *ctx,
+                              Type dtype,
+                              const phi::DDim &dims,
+                              DataLayout layout = DataLayout::kNCHW,
+                              const phi::LegacyLoD &lod = {},
+                              size_t offset = 0u) {
+    return Base::get(ctx, dtype, dims, layout, lod, offset);
+  }
 };
 
 class DenseTensorArrayType
@@ -76,6 +85,13 @@ class DenseTensorArrayType
   static bool classof(Type type);
 
   static DenseTensorArrayType dyn_cast_impl(Type type);
+
+  static DenseTensorArrayType get(pir::IrContext *ctx,
+                                  Type dtype,
+                                  const phi::DDim &dims,
+                                  DataLayout layout = DataLayout::kNCHW) {
+    return Base::get(ctx, dtype, dims, layout);
+  }
 };
 
 class IR_API SparseCooTensorType

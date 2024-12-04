@@ -78,15 +78,14 @@ UNARY_OPS_TO_MAGIC_NAMES: dict[UnaryOp, str] = {
     operator.abs: "__abs__",
     operator.index: "__index__",
     operator.inv: "__inv__",
-    operator.invert: "__invert__",
     operator.not_: "__not__",
-    operator.pos: "__pos__",
     operator.truth: "__bool__",
     bool: "__bool__",
     abs: "__abs__",
     float: "__float__",
     len: "__len__",
     int: "__int__",
+    complex: "__complex__",
 }
 # TODO(SigureMo): support any, all, sum
 
@@ -112,8 +111,9 @@ def magic_method_builtin_dispatch(fn: BinaryOp | UnaryOp) -> list[MagicMethod]:
             fn
         ]
         return [
-            MagicMethod(inplace_magic_name, is_inplace=True)
-        ] + magic_method_builtin_dispatch(non_inplace_op)
+            MagicMethod(inplace_magic_name, is_inplace=True),
+            *magic_method_builtin_dispatch(non_inplace_op),
+        ]
     elif fn in NON_INPLACE_BINARY_OPS:
         magic_name, reverse_magic_name = NON_INPLACE_BINARY_OPS_TO_MAGIC_NAMES[
             fn

@@ -18,8 +18,7 @@
 #include "paddle/fluid/framework/op_registry.h"
 #include "paddle/fluid/framework/operator.h"
 
-namespace paddle {
-namespace distributed {
+namespace paddle::distributed {
 namespace {
 using OperatorBase = TaskNode::OperatorBase;
 }
@@ -155,7 +154,7 @@ std::string TaskNode::DebugString() const {
 void TaskNode::SetRunPerSteps(int64_t value) {
   PADDLE_ENFORCE_GE(value,
                     1,
-                    platform::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "run_per_steps must >= 1, but received %ld", value));
   run_per_steps_ = value;
 }
@@ -163,7 +162,7 @@ void TaskNode::SetRunPerSteps(int64_t value) {
 void TaskNode::SetRunAtOffset(int64_t value) {
   PADDLE_ENFORCE_GE(value,
                     0,
-                    platform::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "run_at_offset must >= 0, but received %ld", value));
   run_at_offset_ = value;
 }
@@ -172,7 +171,7 @@ void TaskNode::SetReplyUpPerSteps(int64_t value) {
   PADDLE_ENFORCE_GE(
       value,
       1,
-      platform::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "reply_up_per_steps must >= 1, but received %ld", value));
   reply_up_per_steps_ = value;
 }
@@ -181,10 +180,9 @@ void TaskNode::SetSendDownPerSteps(int64_t value) {
   PADDLE_ENFORCE_GE(
       value,
       1,
-      platform::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "send_down_per_steps must >= 1, but received %ld", value));
   send_down_per_steps_ = value;
 }
 
-}  // namespace distributed
-}  // namespace paddle
+}  // namespace paddle::distributed

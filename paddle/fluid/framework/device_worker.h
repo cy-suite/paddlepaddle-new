@@ -38,13 +38,13 @@ limitations under the License. */
 #include "paddle/fluid/framework/lod_tensor.h"
 #include "paddle/fluid/framework/op_registry.h"
 #include "paddle/fluid/framework/program_desc.h"
-#include "paddle/fluid/framework/reader.h"
-#include "paddle/fluid/framework/trainer_desc.pb.h"
 #include "paddle/fluid/framework/variable_helper.h"
-#include "paddle/fluid/operators/reader/blocking_queue.h"
-#include "paddle/fluid/platform/place.h"
-#include "paddle/fluid/platform/timer.h"
+#include "paddle/phi/common/place.h"
 #include "paddle/phi/common/port.h"
+#include "paddle/phi/core/framework/reader.h"
+#include "paddle/phi/core/framework/trainer_desc.pb.h"
+#include "paddle/phi/core/operators/reader/blocking_queue.h"
+#include "paddle/phi/core/platform/timer.h"
 
 namespace paddle {
 namespace framework {
@@ -60,18 +60,18 @@ class Scope;
 namespace paddle {
 namespace framework {
 
-TEST_API std::string PrintLodTensor(phi::DenseTensor* tensor,
-                                    int64_t start,
-                                    int64_t end,
-                                    char separator = ',',
-                                    bool need_leading_separator = false);
-TEST_API void PrintLodTensor(phi::DenseTensor* tensor,
-                             int64_t start,
-                             int64_t end,
-                             std::string& output_str,  // NOLINT
-                             char separator = ',',
-                             bool need_leading_separator = false,
-                             int num_decimals = 9);
+TEST_API std::string PrintDenseTensor(phi::DenseTensor* tensor,
+                                      int64_t start,
+                                      int64_t end,
+                                      char separator = ',',
+                                      bool need_leading_separator = false);
+TEST_API void PrintDenseTensor(phi::DenseTensor* tensor,
+                               int64_t start,
+                               int64_t end,
+                               std::string& output_str,  // NOLINT
+                               char separator = ',',
+                               bool need_leading_separator = false,
+                               int num_decimals = 9);
 TEST_API std::pair<int64_t, int64_t> GetTensorBound(phi::DenseTensor* tensor,
                                                     int index);
 TEST_API bool CheckValidOutput(phi::DenseTensor* tensor, size_t batch_size);
@@ -208,11 +208,11 @@ class DeviceWorker {
   virtual void SetReaderPlace(const phi::Place& place) {
     device_reader_->SetPlace(place);
   }
-  virtual void SetDeviceContext(platform::DeviceContext* dev_ctx) {
+  virtual void SetDeviceContext(phi::DeviceContext* dev_ctx) {
     dev_ctx_ = dev_ctx;
   }
 
-  virtual platform::DeviceContext* GetDeviceContext() { return dev_ctx_; }
+  virtual phi::DeviceContext* GetDeviceContext() { return dev_ctx_; }
 
   virtual void SetThreadNum(int thread_num) { thread_num_ = thread_num; }
 
@@ -247,7 +247,7 @@ class DeviceWorker {
   int dump_num_decimals_ = 9;
   ChannelWriter<std::string> writer_;
   const size_t tensor_iterator_thread_num = 16;
-  platform::DeviceContext* dev_ctx_ = nullptr;
+  phi::DeviceContext* dev_ctx_ = nullptr;
   int thread_num_;
 };
 
@@ -789,7 +789,7 @@ class SectionWorker : public DeviceWorker {
       unused_vars_;
   static uint64_t batch_id_;
 
-  platform::DeviceContext* dev_ctx_ = nullptr;
+  phi::DeviceContext* dev_ctx_ = nullptr;
 };
 #endif
 
@@ -873,7 +873,7 @@ class HeterSectionWorker : public DeviceWorker {
       thread_queue_;
   static uint64_t batch_id_;
   uint64_t total_ins_num_ = 0;
-  platform::DeviceContext* dev_ctx_ = nullptr;
+  phi::DeviceContext* dev_ctx_ = nullptr;
   bool debug_ = false;
   std::vector<double> op_total_time_;
   std::vector<std::string> op_name_;

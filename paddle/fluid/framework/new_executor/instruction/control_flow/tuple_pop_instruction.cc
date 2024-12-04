@@ -79,7 +79,9 @@ void ShareVarData(const Variable* src_var, Variable* dst_var) {
     auto* tmp_dst_tensor = dst_var->GetMutable<phi::DenseTensor>();
     if (src_tensor.numel() == 0) {
       tmp_dst_tensor->set_meta(src_tensor.meta());
-      return;
+      if (!src_tensor.IsInitialized()) {
+        return;
+      }
     }
     tmp_dst_tensor->ShareDataWith(src_tensor);
   } else if (src_var->IsType<phi::SelectedRows>()) {
@@ -113,7 +115,7 @@ void ShareVarData(const Variable* src_var, Variable* dst_var) {
       ShareVarData(src_var_array.at(i), copy_var);
     }
   } else {
-    PADDLE_THROW(phi::errors::PreconditionNotMet(
+    PADDLE_THROW(common::errors::PreconditionNotMet(
         "Output only support DenseTensorType "
         "or SelectedRowsType or TensorArrayType"));
   }

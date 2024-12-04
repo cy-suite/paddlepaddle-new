@@ -513,7 +513,7 @@ class SingleProcessMultiThread(GradAllReduce):
 
     def _transpile_startup_program(self):
         block = self.startup_program.global_block()
-        block.append_op(type='c_comm_init_all', attrs={'ring_id': 0})
+        block.append_op(type='comm_init_all', attrs={'ring_id': 0})
 
 
 class MultiThread(GradAllReduce):
@@ -553,7 +553,7 @@ class MultiThread(GradAllReduce):
                 )
                 block = self.startup_program.global_block()
                 block.append_op(
-                    type='c_comm_init_all',
+                    type='comm_init_all',
                     attrs={
                         'devices': list(
                             map(
@@ -566,7 +566,7 @@ class MultiThread(GradAllReduce):
             else:
                 print("begin to _transpile_startup_program for single-node")
                 block = self.startup_program.global_block()
-                block.append_op(type='c_comm_init_all', attrs={'ring_id': 0})
+                block.append_op(type='comm_init_all', attrs={'ring_id': 0})
 
     def _transpile_main_program(self):
         self._insert_scale_loss_grad_ops()
@@ -611,7 +611,7 @@ class MultiThread(GradAllReduce):
                     param = block.vars[op_role_var[i]]
                     new_grad_var = block.create_var(
                         name=op_role_var[i] + "_allgather",
-                        shape=[self.allgather_ranks] + list(param.shape),
+                        shape=[self.allgather_ranks, *list(param.shape)],
                         persistable=False,
                         dtype=core.VarDesc.VarType.FP32,
                         stop_gradient=True,

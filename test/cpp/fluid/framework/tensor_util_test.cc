@@ -381,8 +381,8 @@ TEST(TensorContainsNAN, CPU) {
 
   {
     phi::DenseTensor src;
-    paddle::platform::float16* buf =
-        src.mutable_data<paddle::platform::float16>({3}, phi::CPUPlace());
+    phi::dtype::float16* buf =
+        src.mutable_data<phi::dtype::float16>({3}, phi::CPUPlace());
     buf[0] = 0.0;
     buf[1].x = 0x7fff;
     buf[2] = 0.0;
@@ -406,8 +406,8 @@ TEST(TensorContainsInf, CPU) {
 
   {
     phi::DenseTensor src;
-    paddle::platform::float16* buf =
-        src.mutable_data<paddle::platform::float16>({3}, phi::CPUPlace());
+    phi::dtype::float16* buf =
+        src.mutable_data<phi::dtype::float16>({3}, phi::CPUPlace());
     buf[0] = 1.0;
     buf[1].x = 0x7c00;
     buf[2] = 0.0;
@@ -446,8 +446,8 @@ TEST(TensorIsfinite, CPU) {
 
   {
     phi::DenseTensor src, out;
-    paddle::platform::float16* buf =
-        src.mutable_data<paddle::platform::float16>({3}, phi::CPUPlace());
+    phi::dtype::float16* buf =
+        src.mutable_data<phi::dtype::float16>({3}, phi::CPUPlace());
     buf[0] = 1.0;
     buf[1].x = 0x7c00;
     buf[2] = 0.0;
@@ -475,10 +475,10 @@ TEST(Tensor, FromAndToStream) {
     auto place = new phi::CPUPlace();
     phi::CPUContext cpu_ctx(*place);
     std::ostringstream oss;
-    TensorToStream(oss, src_tensor, cpu_ctx);
+    phi::TensorToStream(oss, src_tensor, cpu_ctx);
 
     std::istringstream iss(oss.str());
-    TensorFromStream(iss, &dst_tensor, cpu_ctx);
+    phi::TensorFromStream(iss, &dst_tensor, cpu_ctx);
     int* dst_ptr = dst_tensor.mutable_data<int>(phi::CPUPlace());
     for (int i = 0; i < 5; ++i) {
       EXPECT_EQ(dst_ptr[i], array[i]);
@@ -502,12 +502,13 @@ TEST(Tensor, FromAndToStream) {
     TensorCopy(src_tensor, *gpu_place, gpu_ctx, &gpu_tensor);
 
     std::ostringstream oss;
-    TensorToStream(oss, gpu_tensor, gpu_ctx);
+    phi::TensorToStream(oss, gpu_tensor, gpu_ctx);
 
     std::istringstream iss(oss.str());
-    TensorFromStream(iss,
-                     &dst_tensor,
-                     *phi::DeviceContextPool::Instance().Get(phi::CPUPlace()));
+    phi::TensorFromStream(
+        iss,
+        &dst_tensor,
+        *phi::DeviceContextPool::Instance().Get(phi::CPUPlace()));
 
     int* dst_ptr = dst_tensor.mutable_data<int>(phi::CPUPlace());
     for (int i = 0; i < 6; ++i) {

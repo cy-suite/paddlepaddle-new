@@ -120,7 +120,7 @@ DDim DenseTensorMeta::calc_strides(const DDim& dims) {
       p_strides[0] = p_strides[1] * p_dims[1];
       return strides;
     default:
-      PADDLE_THROW(phi::errors::InvalidArgument(
+      PADDLE_THROW(common::errors::InvalidArgument(
           "The rank of input should be less than 9, but received %d.",
           dims.size()));
   }
@@ -153,9 +153,19 @@ DenseTensorMeta::DenseTensorMeta(DataType dtype,
 DenseTensorMeta::DenseTensorMeta(DataType dtype,
                                  const DDim& dims,
                                  DataLayout layout,
+<<<<<<< HEAD
                                  LoD  lod,
                                  size_t offset)
     : dims(dims), dtype(dtype), layout(layout), lod(std::move(lod)), offset(offset) {
+=======
+                                 const LegacyLoD& legacy_lod,
+                                 size_t offset)
+    : dims(dims),
+      dtype(dtype),
+      layout(layout),
+      legacy_lod(legacy_lod),
+      offset(offset) {
+>>>>>>> 337f0d225e59843df33c4ca189ae312b8c36a4f3
   strides = calc_strides(dims);
   use_gpudnn = true;
 }
@@ -166,7 +176,7 @@ DenseTensorMeta::DenseTensorMeta(const DenseTensorMeta& other) {
   dims = other.dims;
   dtype = other.dtype;
   layout = other.layout;
-  lod = other.lod;
+  legacy_lod = other.legacy_lod;
   offset = other.offset;
   if (other.strides.size() == -1) {
     strides = calc_strides(dims);
@@ -181,7 +191,7 @@ DenseTensorMeta& DenseTensorMeta::operator=(const DenseTensorMeta& other) {
   dims = other.dims;
   dtype = other.dtype;
   layout = other.layout;
-  lod = other.lod;
+  legacy_lod = other.legacy_lod;
   offset = other.offset;
   if (other.strides.size() == -1) {
     strides = calc_strides(dims);
@@ -198,7 +208,7 @@ DenseTensorMeta& DenseTensorMeta::operator=(  // NOLINT
   dims = other.dims;
   dtype = other.dtype;
   layout = other.layout;
-  lod = std::move(other.lod);
+  legacy_lod = std::move(other.legacy_lod);
   offset = other.offset;
   if (other.strides.size() == -1) {
     strides = calc_strides(dims);
@@ -219,9 +229,9 @@ bool DenseTensorMeta::valid() const noexcept {
 bool DenseTensorMeta::is_contiguous() const {
   bool is_contiguous = (strides == calc_strides(dims));
   if (!is_contiguous && !FLAGS_use_stride_kernel) {
-    PADDLE_THROW(
-        phi::errors::Fatal("FLAGS_use_stride_kernel is closed. Not contiguous "
-                           "Tensor found, something wrong has happened!"));
+    PADDLE_THROW(common::errors::Fatal(
+        "FLAGS_use_stride_kernel is closed. Not contiguous "
+        "Tensor found, something wrong has happened!"));
   }
   return is_contiguous;
 }

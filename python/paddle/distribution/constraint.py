@@ -27,6 +27,9 @@ class Constraint:
     def __call__(self, value: Tensor) -> Tensor:
         raise NotImplementedError
 
+    def check(self, value: Tensor) -> Tensor:
+        return self(value)
+
 
 class Real(Constraint):
     def __call__(self, value: Tensor) -> Tensor:
@@ -34,7 +37,7 @@ class Real(Constraint):
 
 
 class Range(Constraint):
-    def __init__(self, lower: Tensor, upper: Tensor) -> None:
+    def __init__(self, lower: float | Tensor, upper: float | Tensor) -> None:
         self._lower = lower
         self._upper = upper
         super().__init__()

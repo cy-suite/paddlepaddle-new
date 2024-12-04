@@ -20,9 +20,7 @@
 #include "paddle/fluid/framework/operator.h"
 #include "paddle/fluid/platform/enforce.h"
 
-namespace paddle {
-namespace framework {
-namespace ir {
+namespace paddle::framework::ir {
 
 static void GetTransposeAttrsFromOp(const OpDesc &op,
                                     bool *trans_x,
@@ -48,7 +46,7 @@ void FuseGemmEpiloguePass::ApplyImpl(ir::Graph *graph) const {
 ir::Graph *FuseGemmEpiloguePass::FuseLinearFwd(ir::Graph *graph,
                                                bool is_training) const {
   PADDLE_ENFORCE_NOT_NULL(
-      graph, platform::errors::InvalidArgument("Graph cannot be nullptr."));
+      graph, common::errors::InvalidArgument("Graph cannot be nullptr."));
   const std::string scope_name("gemm_epilogue");
   FusePassBase::Init(scope_name, graph);
 
@@ -128,7 +126,7 @@ ir::Graph *FuseGemmEpiloguePass::FuseLinearActFwd(
     bool is_act_grad_x_from_act,
     EpiloguePassActivationCache *cache) const {
   PADDLE_ENFORCE_NOT_NULL(
-      graph, platform::errors::InvalidArgument("Graph cannot be nullptr."));
+      graph, common::errors::InvalidArgument("Graph cannot be nullptr."));
 
   const std::string scope_name("gemm_epilogue");
   FusePassBase::Init(scope_name, graph);
@@ -237,7 +235,7 @@ ir::Graph *FuseGemmEpiloguePass::FuseLinearActFwd(
 ir::Graph *FuseGemmEpiloguePass::FuseLinearBwd(ir::Graph *graph,
                                                bool without_x_gradient) const {
   PADDLE_ENFORCE_NOT_NULL(
-      graph, platform::errors::InvalidArgument("Graph cannot be nullptr."));
+      graph, common::errors::InvalidArgument("Graph cannot be nullptr."));
   const std::string scope_name("gemm_epilogue");
   FusePassBase::Init(scope_name, graph);
 
@@ -369,7 +367,7 @@ ir::Graph *FuseGemmEpiloguePass::FuseLinearActBwd(
     bool is_act_grad_x_from_act,
     EpiloguePassActivationCache *cache) const {
   PADDLE_ENFORCE_NOT_NULL(
-      graph, platform::errors::InvalidArgument("Graph cannot be nullptr."));
+      graph, common::errors::InvalidArgument("Graph cannot be nullptr."));
   const std::string scope_name("gemm_epilogue");
   FusePassBase::Init(scope_name, graph);
 
@@ -511,9 +509,7 @@ bool FuseGemmEpiloguePass::IsGemmFromLinear_(
   return (w_shape.size() == 2 && x_shape.size() >= 2);
 }
 
-}  // namespace ir
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework::ir
 
 REGISTER_PASS(fuse_gemm_epilogue_pass,
               paddle::framework::ir::FuseGemmEpiloguePass);
