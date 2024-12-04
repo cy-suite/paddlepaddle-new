@@ -104,6 +104,7 @@ from .linalg import (  # noqa: F401
     transpose,
     transpose_,
     vecdot,
+    diagonal,
 )
 from .logic import (  # noqa: F401
     __rand__,
@@ -281,7 +282,6 @@ from .math import (  # noqa: F401
     cumsum_,
     cumulative_trapezoid,
     deg2rad,
-    diagonal,
     diff,
     digamma,
     digamma_,

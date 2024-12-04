@@ -242,6 +242,7 @@ from .tensor.linalg import (  # noqa: F401
     transpose,
     transpose_,
     vecdot,
+    diagonal,
 )
 from .tensor.logic import (
     allclose,
@@ -410,7 +411,6 @@ from .tensor.math import (  # noqa: F401
     cumsum_,
     cumulative_trapezoid,
     deg2rad,
-    diagonal,
     diff,
     digamma,
     digamma_,

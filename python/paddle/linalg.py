@@ -50,6 +50,7 @@ from .tensor.linalg import (
     triangular_solve,
     vecdot,
     vector_norm,
+    diagonal,
 )
 
 __all__ = [
@@ -90,4 +91,5 @@ __all__ = [
     'lstsq',
     'ormqr',
     'fp8_fp8_half_gemm_fused',
+    'diagonal',
 ]
