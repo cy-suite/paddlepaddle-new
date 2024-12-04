@@ -1342,9 +1342,10 @@ PYBIND11_MODULE(libpaddle, m) {
       }
       stridesIntArray = phi::IntArray(strides_vec);
     } else {
-      DDim temp = phi::DenseTensorMeta::calc_strides(common::make_ddim(shapes));
-      int rank = temp.size();
-      const int64_t *ddim_data = temp.Get();
+      DDim ddim_strides =
+          phi::DenseTensorMeta::calc_strides(common::make_ddim(shapes));
+      int rank = ddim_strides.size();
+      const int64_t *ddim_data = ddim_strides.Get();
       std::vector<int64_t> strides_vec(ddim_data, ddim_data + rank);
       stridesIntArray = phi::IntArray(strides_vec);
     }
@@ -1353,7 +1354,7 @@ PYBIND11_MODULE(libpaddle, m) {
                              stridesIntArray,
                              dtype,
                              phi::DataLayout::NCHW,
-                             phi::GPUPlace(),
+                             phi::Place(),
                              [obj](void *data) {
                                py::gil_scoped_acquire gil;
                                obj.dec_ref();
