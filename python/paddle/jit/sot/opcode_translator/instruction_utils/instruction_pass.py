@@ -36,7 +36,7 @@ def apply_instr_pass(instrs: list[Instruction], code_options):
         check_precall_followed_by_call,
     ]
 
-    if sys.version_info >= (3, 11):
+    if sys.version_info >= (3, 13):
         supported_passes.append(fuse_double_load_fast)
 
     if sys.version_info >= (3, 12):
