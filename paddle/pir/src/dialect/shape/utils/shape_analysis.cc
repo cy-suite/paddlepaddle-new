@@ -16,7 +16,6 @@
 #include <string>
 #include "paddle/common/bfs_walker.h"
 #include "paddle/common/topo_walker.h"
-#include "paddle/fluid/pir/dialect/operator/ir/op_type.h"
 #include "paddle/pir/include/core/builtin_type.h"
 #include "paddle/pir/include/dialect/shape/interface/infer_symbolic_shape/infer_symbolic_shape.h"
 #include "paddle/pir/include/dialect/shape/utils/dim_expr_util.h"
@@ -552,12 +551,6 @@ void ShapeConstraintIRAnalysis::InferShapeOrDataForValue(Value val) {
           }
         }
       };
-  const auto& IsCombineOpWithTensorArray = [](Operation* op) -> bool {
-    return op->isa<pir::CombineOp>() &&
-           op->operand_source(0)
-               .type()
-               .isa<paddle::dialect::DenseTensorArrayType>();
-  };
   ::common::TopoWalker<Operation*> topo_infer_walker(VisitSubgraphInputOp,
                                                      VisitSubgraphOutputOp);
 
@@ -566,13 +559,13 @@ void ShapeConstraintIRAnalysis::InferShapeOrDataForValue(Value val) {
         op->dyn_cast<pir::InferSymbolicShapeInterface>();
     if (infer_symbolic_shape_interface) {
       infer_symbolic_shape_interface.InferSymbolicShape(&context_);
+      // Note(ooooo): Temporarily skip check for CombineOp because TensorArray
+      // inputs.
+      if (op->isa<pir::CombineOp>()) {
+        return;
+      }
       int index = -1;
       for (auto& result_value : op->results()) {
-        // Note(ooooo): Temporarily skip check for CombineOp with TensorArray
-        // inputs.
-        if (IsCombineOpWithTensorArray(op)) {
-          break;
-        }
         index++;
         if (!result_value || !result_value.type()) {
           continue;
