@@ -86,7 +86,7 @@ class TensorWrapper {
             dist_tensor->value().meta());
         intermidiate_tensor_.set_impl(no_buffer_dist_tensor);
       } else {
-        PADDLE_THROW(phi::errors::Fatal(
+        PADDLE_THROW(common::errors::Fatal(
             "Unrecognized tensor type for no_need_buffer feature"));
       }
     } else {
@@ -164,24 +164,24 @@ class TensorWrapper {
                                ->unsafe_mutable_value();
       } else {
         PADDLE_THROW(
-            phi::errors::Fatal("Unrecognized tensor_unpacked type "
-                               "for egr::TensorWrapper::recover"));
+            common::errors::Fatal("Unrecognized tensor_unpacked type "
+                                  "for egr::TensorWrapper::recover"));
       }
 
       if (intermidiate_tensor_.is_dense_tensor()) {
         VLOG(6) << "intermidiate_tensor_ is DenseTensor";
         static_cast<phi::DenseTensor*>(intermidiate_tensor_.impl().get())
-            ->ResetHolder(src_dense_tensor->MoveMemoryHolder());
+            ->ResetHolder(src_dense_tensor->Holder());
       } else if (intermidiate_tensor_.is_dist_tensor()) {
         VLOG(6) << "intermidiate_tensor_ is DistTensor";
         static_cast<phi::distributed::DistTensor*>(
             intermidiate_tensor_.impl().get())
             ->unsafe_mutable_value()
-            ->ResetHolder(src_dense_tensor->MoveMemoryHolder());
+            ->ResetHolder(src_dense_tensor->Holder());
       } else {
         PADDLE_THROW(
-            phi::errors::Fatal("Unrecognized intermidiate_tensor_ type for "
-                               "egr::TensorWrapper::recover"));
+            common::errors::Fatal("Unrecognized intermidiate_tensor_ type for "
+                                  "egr::TensorWrapper::recover"));
       }
     } else {
 #endif
@@ -246,7 +246,7 @@ class TensorWrapper {
       PADDLE_ENFORCE_EQ(
           tensor_version,
           wrapper_version_snapshot,
-          phi::errors::PermissionDenied(
+          common::errors::PermissionDenied(
               "Tensor '%s' used in gradient computation has been "
               "modified by an inplace operation. "
               "Its version is %d but the expected version is %d. "

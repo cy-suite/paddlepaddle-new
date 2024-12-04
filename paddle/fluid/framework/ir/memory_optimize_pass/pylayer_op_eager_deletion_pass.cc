@@ -17,9 +17,7 @@
 #include "paddle/fluid/framework/ir/pass.h"
 #include "paddle/fluid/operators/controlflow/op_variant.h"
 #include "paddle/fluid/operators/controlflow/pylayer_op_helper.h"
-namespace paddle {
-namespace framework {
-namespace ir {
+namespace paddle::framework::ir {
 using OpVariant = operators::OpVariant;
 class PyLayerOpEagerDeletionPass : public Pass {
  protected:
@@ -50,7 +48,7 @@ class PyLayerOpEagerDeletionPass : public Pass {
     if (graph->IsConstructedByPartialProgram()) {
       PADDLE_ENFORCE_LE(target_ops.size(),
                         1,
-                        platform::errors::InvalidArgument(
+                        common::errors::InvalidArgument(
                             "Unsupported multi devices if graph is constructed "
                             "with partial program."));
       size_t scope_idx = 0;
@@ -94,9 +92,7 @@ class PyLayerOpEagerDeletionPass : public Pass {
   }
 };
 
-}  // namespace ir
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework::ir
 
 REGISTER_PASS(pylayer_op_eager_deletion_pass,
               paddle::framework::ir::PyLayerOpEagerDeletionPass);

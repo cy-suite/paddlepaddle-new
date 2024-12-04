@@ -23,13 +23,12 @@ limitations under the License. */
 
 #include "paddle/fluid/framework/fleet/gloo_wrapper.h"
 #include "paddle/fluid/framework/scope.h"
-#include "paddle/fluid/platform/place.h"
 #include "paddle/fluid/pybind/gloo_wrapper_py.h"
+#include "paddle/phi/common/place.h"
 
 namespace py = pybind11;
 
-namespace paddle {
-namespace pybind {
+namespace paddle::pybind {
 void BindGlooWrapper(py::module* m) {
 #if defined(PADDLE_WITH_HETERPS) && defined(PADDLE_WITH_PSCORE)
   py::class_<framework::GlooWrapper, std::shared_ptr<framework::GlooWrapper>>(
@@ -59,5 +58,4 @@ void BindGlooWrapper(py::module* m) {
       .def("all_gather", &framework::GlooWrapper::AllGather<float>)
       .def("all_gather", &framework::GlooWrapper::AllGather<double>);
 }  // end BindGlooWrapper
-}  // end namespace pybind
-}  // end namespace paddle
+}  // namespace paddle::pybind

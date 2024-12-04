@@ -24,15 +24,12 @@
 
 static const int max_port = 65535;
 
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 class Scope;
 class Variable;
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework
 
-namespace paddle {
-namespace distributed {
+namespace paddle::distributed {
 
 PD_DEFINE_int32(pserver_push_dense_merge_limit,
                 12,
@@ -1461,8 +1458,8 @@ int32_t BrpcPsClient::RecvAndSaveTable(const uint64_t table_id,
   PADDLE_ENFORCE_NE(
       var_name,
       "",
-      phi::errors::InvalidArgument("Cannot find table id %d to save variables.",
-                                   table_id));
+      common::errors::InvalidArgument(
+          "Cannot find table id %d to save variables.", table_id));
 
   std::string var_store = string::Sprintf("%s", path);
   MkDirRecursively(var_store.c_str());
@@ -1515,12 +1512,12 @@ int32_t BrpcPsClient::RecvAndSaveTable(const uint64_t table_id,
 
   std::string file_name = string::Sprintf("%s/%s", var_store, var_name);
   std::ofstream fout(file_name, std::ios::binary);
-  PADDLE_ENFORCE_EQ(
-      static_cast<bool>(fout),
-      true,
-      phi::errors::Unavailable("Cannot open %s to save variables.", file_name));
+  PADDLE_ENFORCE_EQ(static_cast<bool>(fout),
+                    true,
+                    common::errors::Unavailable(
+                        "Cannot open %s to save variables.", file_name));
 
-  framework::SerializeToStream(fout, *var_tensor, dev_ctx);
+  phi::SerializeToStream(fout, *var_tensor, dev_ctx);
   fout.close();
 
   return 0;
@@ -1915,9 +1912,17 @@ std::future<int32_t> BrpcPsClient::PushDense(const Region *regions,
   uint32_t pos = 0;
   for (size_t i = 0; i < region_num; ++i) {
     uint32_t data_num = regions[i].size / sizeof(float);
-    CHECK(pos + data_num <= data_size)
-        << "invalid dense size, cur pos[" << pos << "]"
-        << " data_num[" << data_num << "] size[" << data_size << "]";
+    PADDLE_ENFORCE_LE((pos + data_num),
+                      data_size,
+                      common::errors::InvalidArgument(
+                          "Invalid dense size."
+                          "Expect the sum of current position and data number "
+                          "to be equal to or smaller than the size."
+                          "But recieved current position = %lu, data number = "
+                          "%lu, size = %lu.",
+                          pos,
+                          data_num,
+                          data_size));
     const float *region_data = (const float *)(regions[i].data);
     memcpy(data + pos, region_data, regions[i].size);
     pos += data_num;
@@ -2066,5 +2071,4 @@ void BrpcPsClient::PushDenseRawGradient(std::shared_ptr<DenseAsyncTask> &task,
   }
 }
 
-}  // namespace distributed
-}  // namespace paddle
+}  // namespace paddle::distributed

@@ -15,8 +15,6 @@
 #include "paddle/fluid/distributed/collective/process_group_nccl.h"
 #include "paddle/common/flags.h"
 #include "paddle/fluid/distributed/collective/common.h"
-#include "paddle/fluid/platform/cuda_device_guard.h"
-#include "paddle/fluid/platform/device/gpu/nccl_helper.h"
 #include "paddle/phi/api/lib/utils/allocator.h"
 #include "paddle/phi/backends/gpu/gpu_info.h"
 #include "paddle/phi/common/memory_utils.h"
@@ -28,6 +26,8 @@
 #include "paddle/phi/core/distributed/nccl_tools.h"
 #include "paddle/phi/core/distributed/utils.h"
 #include "paddle/phi/core/enforce.h"
+#include "paddle/phi/core/platform/cuda_device_guard.h"
+#include "paddle/phi/core/platform/device/gpu/nccl_helper.h"
 #include "paddle/phi/core/utils/data_type.h"
 
 COMMON_DECLARE_bool(benchmark);
@@ -36,6 +36,7 @@ COMMON_DECLARE_bool(nccl_blocking_wait);
 COMMON_DECLARE_bool(use_stream_safe_cuda_allocator);
 COMMON_DECLARE_bool(use_cuda_malloc_async_allocator);
 COMMON_DECLARE_bool(enable_async_trace);
+COMMON_DECLARE_bool(eager_communication_connection);
 
 // set this flag to `true` and recompile to enable dynamic checks
 constexpr bool FLAGS_enable_nccl_dynamic_check = false;
@@ -59,17 +60,29 @@ ProcessGroupNCCL::NCCLTask::NCCLTask(const Place& place,
                                      bool use_calc_stream,
                                      int gid)
     : TaskStream(rank, comm_type, sync_op, use_calc_stream),
-      comm_event_(place, platform::GenerateDeviceEventFlag()),
       task_place_(place),
-      gid_(gid) {}
+      gid_(gid) {
+  if (!use_calc_stream) {
+    comm_event_ = std::make_shared<platform::DeviceEvent>(
+        place, platform::GenerateDeviceEventFlag());
+  }
+}
 
 ProcessGroupNCCL::NCCLTask::~NCCLTask() = default;
 
-bool ProcessGroupNCCL::NCCLTask::IsCompleted() { return comm_event_.Query(); }
+bool ProcessGroupNCCL::NCCLTask::IsCompleted() {
+  if (comm_event_) {
+    return comm_event_->Query();
+  } else {
+    return true;
+  }
+}
 
 void ProcessGroupNCCL::NCCLTask::UpdateWaitChain(
     const phi::DeviceContext& ctx) {
-  comm_event_.Record(&ctx);
+  if (comm_event_) {
+    comm_event_->Record(&ctx);
+  }
 }
 
 void ProcessGroupNCCL::NCCLTask::RemoveHolderStreamInGroup() {
@@ -90,8 +103,11 @@ bool ProcessGroupNCCL::NCCLTask::Wait(std::chrono::milliseconds timeout) {
     return true;
   }
 
-  const auto* calc_ctx = phi::DeviceContextPool::Instance().Get(task_place_);
-  comm_event_.Wait(platform::Place2DeviceType(task_place_), calc_ctx);
+  const auto* calc_ctx =
+      platform::DeviceContextPool::Instance().Get(task_place_);
+  if (comm_event_) {
+    comm_event_->Wait(platform::Place2DeviceType(task_place_), calc_ctx);
+  }
 
   if (FLAGS_nccl_blocking_wait) {
     // NOTE(shenliang03): It will block host for sync
@@ -135,6 +151,9 @@ ProcessGroupNCCL::ProcessGroupNCCL(
   LOG(INFO) << "ProcessGroupNCCL pg_timeout_ " << pg_timeout_;
   LOG(INFO) << "ProcessGroupNCCL nccl_comm_init_option_ "
             << nccl_comm_init_option_;
+  if (FLAGS_eager_communication_connection) {
+    EagerConnect();
+  }
 }
 ProcessGroupNCCL::~ProcessGroupNCCL() {
   LOG(INFO) << "ProcessGroupNCCL destruct ";
@@ -181,7 +200,7 @@ phi::DeviceContext* ProcessGroupNCCL::GetDeviceContext(
     PADDLE_ENFORCE_NE(
         iter,
         place_to_comm_ctx_.end(),
-        phi::errors::NotFound(
+        common::errors::NotFound(
             "Cannot find the device context in this process group."));
     return iter->second.get();
   }
@@ -193,9 +212,20 @@ ncclComm_t ProcessGroupNCCL::NCCLComm(const Place& place) const {
   PADDLE_ENFORCE_NE(
       iter,
       place_to_comm_ctx_.end(),
-      phi::errors::NotFound(
+      common::errors::NotFound(
           "Cannot find the NCCL communicator in this process group."));
   return iter->second->nccl_comm();
+}
+
+phi::distributed::NCCLCommContext* ProcessGroupNCCL::GetOrCreateCommContext(
+    const Place& place, CommType comm_type) {
+  const auto& key = GetKeyFromPlace(place);
+  std::string store_key;
+  GetStoreKey(key, comm_type, &store_key);
+  if (place_to_comm_ctx_.find(key) == place_to_comm_ctx_.end()) {
+    CreateNCCLEnvCache(place, key, store_key, comm_type);
+  }
+  return GetCommContext(&store_key);
 }
 
 std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::AllGather(
@@ -282,17 +312,6 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::AllToAll(
   CheckSizeOnEachRank(out_dim, out_size_each_rank, size_);
   CheckSizeOnEachRank(in_dim, in_size_each_rank, size_);
 
-  // NOTE: Since `all_to_all` needs other processes' participation, it cannot
-  // simply be covered by static checks. Factors are set to 0 here to skip the
-  // shape check. Its shape check will be done by dynamic checks with
-  // FLAGS_enable_nccl_dynamic_check.
-  phi::distributed::CommStaticCheck::CheckShape(*out_tensor,
-                                                in_tensor,
-                                                /*dst_rank*/ rank_,
-                                                /*cur_rank*/ rank_,
-                                                size_,
-                                                /*out_size_factor*/ 0,
-                                                /*in_size_factor*/ 0);
   return Collective(
       [&](phi::distributed::NCCLCommContext* comm_context, gpuStream_t stream) {
         if (FLAGS_enable_nccl_dynamic_check) {
@@ -304,8 +323,11 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::AllToAll(
               size_,
               comm_context->GetNcclComm());
         }
-        int64_t in_row_size = in_tensor.numel() / in_dim[0],
-                out_row_size = out_tensor->numel() / out_dim[0];
+
+        int64_t in_row_size =
+            in_dim[0] == 0 ? 0 : in_tensor.numel() / in_dim[0];
+        int64_t out_row_size =
+            out_dim[0] == 0 ? 0 : out_tensor->numel() / out_dim[0];
         int64_t in_offset = 0, in_numel = 0, out_offset = 0, out_numel = 0;
         phi::DenseTensor input_partial, output_partial;
 
@@ -327,13 +349,18 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::AllToAll(
         GroupStart();
         for (auto i = 0; i < size_; i++) {
           in_numel = in_size_each_rank[i] * in_row_size;
-          input_partial = GetPartialTensor(in_tensor, in_offset, in_numel);
-          comm_context->Send(input_partial, in_numel, i, stream);
-          in_offset += in_numel;
 
+          if (in_numel > 0) {
+            input_partial = GetPartialTensor(in_tensor, in_offset, in_numel);
+            comm_context->Send(input_partial, in_numel, i, stream);
+          }
+          in_offset += in_numel;
           out_numel = out_size_each_rank[i] * out_row_size;
-          output_partial = GetPartialTensor(*out_tensor, out_offset, out_numel);
-          comm_context->Recv(&output_partial, out_numel, i, stream);
+          if (out_numel > 0) {
+            output_partial =
+                GetPartialTensor(*out_tensor, out_offset, out_numel);
+            comm_context->Recv(&output_partial, out_numel, i, stream);
+          }
           out_offset += out_numel;
         }
         GroupEnd();
@@ -348,7 +375,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::Barrier(
     const BarrierOptions& opts) {
   PADDLE_ENFORCE_GE(opts.device_id,
                     0,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "The barrier device id must greater or equal than 0."));
   phi::GPUPlace place(opts.device_id);
   auto allocator = std::unique_ptr<phi::Allocator>(
@@ -564,7 +591,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::Gather(
   auto& gather_tensors = *gather_tensors_ptr;
   PADDLE_ENFORCE_GT(size_,
                     opts.root_rank,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "root world size [%d]  is less than root rank [%d]",
                         size_,
                         opts.root_rank));
@@ -816,6 +843,59 @@ void ProcessGroupNCCL::SyncCalcStream(const Place& place,
   calc_event.Wait(platform::Place2DeviceType(place), comm_ctx);
 }
 
+void ProcessGroupNCCL::EagerConnect() {
+  const auto deviceId = phi::backends::gpu::GetCurrentDeviceId();
+  const auto& place = phi::GPUPlace(deviceId);
+  const auto key = GetKeyFromPlace(place);
+
+  platform::CUDADeviceGuard cuda_guard(place);
+  std::string store_key;
+  GetStoreKey(key, CommType::ALLREDUCE, &store_key);
+
+  auto it = place_to_comm_ctx_.find(key);
+  if (it == place_to_comm_ctx_.end()) {
+    CreateNCCLEnvCache(place, key, store_key, CommType::ALLREDUCE);
+  }
+}
+
+void ProcessGroupNCCL::EagerConnectRingExchange() {
+  std::vector<std::pair<int, int>> peers;
+  const auto& place = phi::GPUPlace(phi::backends::gpu::GetCurrentDeviceId());
+
+  for (int rank = 0; rank < size_; rank++) {
+    auto peer_rank = rank + 1 >= size_ ? 0 : rank + 1;
+    peers.push_back(std::make_pair(rank, peer_rank));
+  }
+
+  for (auto& peer : peers) {
+    int f_rank = peer.first;
+    int s_rank = peer.second;
+
+    int peer_rank = 0;
+    int cur_rank = rank_;
+    if (rank_ == f_rank) {
+      peer_rank = s_rank;
+    } else if (rank_ == s_rank) {
+      peer_rank = f_rank;
+    } else {
+      continue;
+    }
+
+    int low_rank = cur_rank < peer_rank ? cur_rank : peer_rank;
+    int high_rank = cur_rank < peer_rank ? peer_rank : cur_rank;
+    std::string key =
+        std::to_string(low_rank) + "->" + std::to_string(high_rank);
+
+    auto p2p_rank = rank_ < peer_rank ? 0 : 1;
+    platform::CUDADeviceGuard cuda_guard(place);
+    std::string store_key;
+    GetStoreKey(key, CommType::SEND, &store_key);
+    if (place_to_comm_ctx_.find(key) == place_to_comm_ctx_.end()) {
+      CreateNCCLEnvCache(place, key, store_key, CommType::SEND, p2p_rank);
+    }
+  }
+}
+
 std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::Collective(
     std::function<void(phi::distributed::NCCLCommContext*, gpuStream_t)> fn,
     const phi::DenseTensor& tensor,
@@ -1060,14 +1140,14 @@ phi::distributed::NCCLCommContext* ProcessGroupNCCL::GetCommContext(
       comm_context_manager.Get(store_key));
   PADDLE_ENFORCE_NE(comm_context,
                     nullptr,
-                    phi::errors::Unavailable("NCCLCommContext is nullptr"));
+                    common::errors::Unavailable("NCCLCommContext is nullptr"));
   return comm_context;
 }
 
 void ProcessGroupNCCL::StartCoalescing() {
   PADDLE_ENFORCE_EQ(is_coalescing_,
                     false,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "Coalescing is on, please call EndCoalesce."));
   is_coalescing_ = true;
   GroupStart();
@@ -1089,7 +1169,7 @@ void ProcessGroupNCCL::EndCoalescing(
   PADDLE_ENFORCE_EQ(
       tasks.size(),
       colaescing_tensors_.size(),
-      phi::errors::PreconditionNotMet(
+      common::errors::PreconditionNotMet(
           "Number of tasks[%d] do not match number of collectives[%d].",
           tasks.size(),
           colaescing_tensors_.size()));

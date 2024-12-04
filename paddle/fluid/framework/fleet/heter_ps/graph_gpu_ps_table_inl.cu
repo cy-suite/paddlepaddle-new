@@ -987,7 +987,7 @@ int GpuPsGraphTable::init_cpu_table(
  gpu i triggers a neighbor_sample task,
  when this task is done,
  this function is called to move the sample result on other gpu back
- to gup i and aggragate the result.
+ to gup i and aggregate the result.
  the sample_result is saved on src_sample_res and the actual sample size for
  each node is saved on actual_sample_size.
  the number of actual sample_result for
@@ -1888,7 +1888,7 @@ void GpuPsGraphTable::build_graph_on_single_gpu(const GpuPsCommGraph& g,
     }
     PADDLE_ENFORCE_EQ(cudaStatus,
                       cudaSuccess,
-                      platform::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "failed to allocate memory for graph on gpu %d",
                           resource_->dev_id(gpu_id)));
     VLOG(0) << "successfully allocate " << g.neighbor_size * sizeof(uint64_t)
@@ -1907,7 +1907,7 @@ void GpuPsGraphTable::build_graph_on_single_gpu(const GpuPsCommGraph& g,
       PADDLE_ENFORCE_EQ(
           cudaStatus,
           cudaSuccess,
-          platform::errors::InvalidArgument(
+          common::errors::InvalidArgument(
               "failed to allocate memory for graph edge weight on gpu %d",
               resource_->dev_id(gpu_id)));
       VLOG(0) << "successfully allocate " << g.neighbor_size * sizeof(float)
@@ -1938,8 +1938,8 @@ void GpuPsGraphTable::build_graph_from_cpu(
   PADDLE_ENFORCE_EQ(
       cpu_graph_list.size(),
       resource_->total_device(),
-      platform::errors::InvalidArgument("the cpu node list size doesn't match "
-                                        "the number of gpu on your machine."));
+      common::errors::InvalidArgument("the cpu node list size doesn't match "
+                                      "the number of gpu on your machine."));
   clear_graph_info(edge_idx);
   for (int i = 0; i < cpu_graph_list.size(); i++) {
     int table_offset =
@@ -2367,7 +2367,7 @@ NeighborSampleResult GpuPsGraphTable::graph_neighbor_sample_v2(
 
       PADDLE_ENFORCE_GT(sample_size,
                         0,
-                        platform::errors::InvalidArgument(
+                        common::errors::InvalidArgument(
                             "sample_size should be greater than 0."));
       weighted_sample(graph,
                       node_info_list,
@@ -2933,7 +2933,7 @@ NeighborSampleResultV2 GpuPsGraphTable::graph_neighbor_sample_all_edge_type(
     uint64_t random_seed = distrib(gen);
     PADDLE_ENFORCE_GT(sample_size,
                       0,
-                      platform::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "sample_size should be greater than 0."));
 
     if (!weighted) {

@@ -39,12 +39,18 @@ class EnvironmentVariable(Generic[T]):
     def __init__(self, name: str, default: T):
         self.name = name
         self.default = default
+        self._cached_value: T | None = None
+
+    def get_with_cache(self) -> T:
+        if self._cached_value is None:
+            self._cached_value = self.get()
+        return self._cached_value
 
     def get(self) -> T:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def set(self, value: T) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def delete(self) -> None:
         del os.environ[self.name]
@@ -79,6 +85,12 @@ class BooleanEnvironmentVariable(EnvironmentVariable[bool]):
     def set(self, value: bool) -> None:
         assert isinstance(value, bool), "value must be a boolean"
         os.environ[self.name] = str(value).lower()
+
+    def __bool__(self) -> bool:
+        raise ValueError(
+            "BooleanEnvironmentVariable does not support bool(), "
+            "please use get() instead."
+        )
 
 
 class IntegerEnvironmentVariable(EnvironmentVariable[int]):

@@ -15,11 +15,11 @@ limitations under the License. */
 #include "paddle/fluid/operators/collective/c_softmax_with_cross_entropy_op.h"
 #include "paddle/phi/core/distributed/comm_context_manager.h"
 
-#include "paddle/fluid/platform/collective_helper.h"
 #include "paddle/fluid/platform/device/xpu/bkcl_helper.h"
 #include "paddle/phi/backends/xpu/xpu_context.h"
 #include "paddle/phi/common/memory_utils.h"
 #include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/core/platform/collective_helper.h"
 #include "paddle/phi/kernels/funcs/axis_utils.h"
 #include "paddle/phi/kernels/funcs/cross_entropy.h"
 #include "paddle/phi/kernels/funcs/eigen/common.h"
@@ -152,18 +152,13 @@ struct CSoftmaxWithCrossEntropyProcessGroupFunctor<phi::XPUContext, T> {
     dev_ctx.template Alloc(loss, logits->dtype());
 
     const auto& logits_dims = logits->dims();
-
     const int axis = logits_dims.size() - 1;
     const int64_t N = phi::funcs::SizeToAxis(axis, logits_dims);
     const int64_t D = phi::funcs::SizeFromAxis(axis, logits_dims);
 
     phi::DenseTensor logits_2d, softmax_2d;
-    framework::TensorCopy(
-        *logits, ctx.GetPlace(), ctx.device_context(), &logits_2d);
-    framework::TensorCopy(
-        *softmax, ctx.GetPlace(), ctx.device_context(), &softmax_2d);
-    logits_2d.Resize({N, D});
-    softmax_2d.Resize({N, D});
+    logits_2d.ShareDataWith(*logits).Resize({N, D});
+    softmax_2d.ShareDataWith(*softmax).Resize({N, D});
 
     int ret = -1;
     // step 1, obtain logit_max
@@ -324,12 +319,6 @@ struct CSoftmaxWithCrossEntropyProcessGroupFunctor<phi::XPUContext, T> {
     // 将label和ignore_index相同的那些loss，置为0
     FixLossAccordingToIgnoreIndex<T>(
         ctx, labels, &predicted_logits, loss, N, ignore_index);
-
-    phi::memory_utils::Copy(ctx.GetPlace(),
-                            softmax->data(),
-                            ctx.GetPlace(),
-                            softmax_2d.data(),
-                            N * D * sizeof(T));
   }
 };
 
@@ -359,7 +348,7 @@ struct CSoftmaxWithCrossEntropyFunctor<phi::XPUContext, T> {
     if (FLAGS_dynamic_static_unified_comm) {
       PADDLE_ENFORCE_EQ(comm_context_manager.Has(std::to_string(rid)),
                         true,
-                        phi::errors::InvalidArgument(
+                        common::errors::InvalidArgument(
                             "You choose to use new communication library by "
                             "setting environment "
                             "variable FLAGS_dynamic_static_unified_comm True. "
@@ -370,7 +359,7 @@ struct CSoftmaxWithCrossEntropyFunctor<phi::XPUContext, T> {
           comm_context_manager.Get(std::to_string(rid)));
       PADDLE_ENFORCE_NE(comm_ctx,
                         nullptr,
-                        phi::errors::Unavailable(
+                        common::errors::Unavailable(
                             "BKCLCommContext is nullptr, collective op should "
                             "has ring_id attr."));
 
@@ -398,12 +387,8 @@ struct CSoftmaxWithCrossEntropyFunctor<phi::XPUContext, T> {
     const int64_t D = phi::funcs::SizeFromAxis(axis, logits_dims);
 
     phi::DenseTensor logits_2d, softmax_2d;
-    framework::TensorCopy(
-        *logits, ctx.GetPlace(), ctx.device_context(), &logits_2d);
-    framework::TensorCopy(
-        *softmax, ctx.GetPlace(), ctx.device_context(), &softmax_2d);
-    logits_2d.Resize({N, D});
-    softmax_2d.Resize({N, D});
+    logits_2d.ShareDataWith(*logits).Resize({N, D});
+    softmax_2d.ShareDataWith(*softmax).Resize({N, D});
 
     int ret = -1;
     // step 1, obtain logit_max
@@ -436,15 +421,14 @@ struct CSoftmaxWithCrossEntropyFunctor<phi::XPUContext, T> {
       comm_ctx->AllReduce(&logits_max, logits_max, BKCL_ADD, stream);
     } else {
       void* logits_max_buff = logits_max.data<T>();
-      PADDLE_ENFORCE_XPU_SUCCESS(bkcl_all_reduce(
-          comm->comm(),
-          logits_max_buff,
-          logits_max_buff,
-          logits_max.numel(),
-          platform::ToBKCLDataType(
-              framework::TransToProtoVarType(logits_max.dtype())),
-          BKCL_MAX,
-          stream));
+      PADDLE_ENFORCE_XPU_SUCCESS(
+          bkcl_all_reduce(comm->comm(),
+                          logits_max_buff,
+                          logits_max_buff,
+                          logits_max.numel(),
+                          phi::ToBKCLDataType(logits_max.dtype()),
+                          BKCL_MAX,
+                          stream));
     }
 
     // step 2, obtain logit - logit_max
@@ -506,15 +490,14 @@ struct CSoftmaxWithCrossEntropyFunctor<phi::XPUContext, T> {
           &predicted_logits, predicted_logits, BKCL_ADD, stream);
     } else {
       void* predict_logits_buff = predicted_logits.data<T>();
-      PADDLE_ENFORCE_XPU_SUCCESS(bkcl_all_reduce(
-          comm->comm(),
-          predict_logits_buff,
-          predict_logits_buff,
-          predicted_logits.numel(),
-          platform::ToBKCLDataType(
-              framework::TransToProtoVarType(predicted_logits.dtype())),
-          BKCL_ADD,
-          stream));
+      PADDLE_ENFORCE_XPU_SUCCESS(
+          bkcl_all_reduce(comm->comm(),
+                          predict_logits_buff,
+                          predict_logits_buff,
+                          predicted_logits.numel(),
+                          phi::ToBKCLDataType(predicted_logits.dtype()),
+                          BKCL_ADD,
+                          stream));
     }
 
     // step 4, obtain exp(logit)
@@ -556,15 +539,14 @@ struct CSoftmaxWithCrossEntropyFunctor<phi::XPUContext, T> {
       comm_ctx->AllReduce(&sum_exp_logits, sum_exp_logits, BKCL_ADD, stream);
     } else {
       void* sum_exp_logits_buff = sum_exp_logits.data<T>();
-      PADDLE_ENFORCE_XPU_SUCCESS(bkcl_all_reduce(
-          comm->comm(),
-          sum_exp_logits_buff,
-          sum_exp_logits_buff,
-          sum_exp_logits.numel(),
-          platform::ToBKCLDataType(
-              framework::TransToProtoVarType(sum_exp_logits.dtype())),
-          BKCL_ADD,
-          stream));
+      PADDLE_ENFORCE_XPU_SUCCESS(
+          bkcl_all_reduce(comm->comm(),
+                          sum_exp_logits_buff,
+                          sum_exp_logits_buff,
+                          sum_exp_logits.numel(),
+                          phi::ToBKCLDataType(sum_exp_logits.dtype()),
+                          BKCL_ADD,
+                          stream));
     }
 
     {
@@ -596,12 +578,6 @@ struct CSoftmaxWithCrossEntropyFunctor<phi::XPUContext, T> {
     // 将label和ignore_index相同的那些loss，置为0
     FixLossAccordingToIgnoreIndex<T>(
         ctx, labels, &predicted_logits, loss, N, ignore_index);
-
-    phi::memory_utils::Copy(ctx.GetPlace(),
-                            softmax->data(),
-                            ctx.GetPlace(),
-                            softmax_2d.data(),
-                            N * D * sizeof(T));
   }
 };
 

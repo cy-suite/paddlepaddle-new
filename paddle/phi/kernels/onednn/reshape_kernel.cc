@@ -150,32 +150,40 @@ void ExecuteReshape(const Context& dev_ctx,
 }
 
 template <typename T, typename Context>
+<<<<<<< HEAD
 void ReshapeInferKernel(const Context& dev_ctx,
                         const DenseTensor& x,
                         const IntArray& shape,
                         DenseTensor* out) {
   const auto& x_dims = x.dims();
+=======
+void ReshapeKernel(const Context& dev_ctx,
+                   const DenseTensor& x,
+                   const IntArray& shape,
+                   DenseTensor* out) {
+  auto x_dims = x.dims();
+>>>>>>> 4c9bc9e3cd7680200be9f244f9a5d374345a6741
   ExecuteReshape<T, Context>(dev_ctx, x, shape, x_dims, out);
 }
 
 template <typename T, typename Context>
-void ReshapeKernel(const Context& dev_ctx,
-                   const DenseTensor& x,
-                   const IntArray& shape,
-                   DenseTensor* out,
-                   DenseTensor* xshape) {
+void ReshapeWithXShapeKernel(const Context& dev_ctx,
+                             const DenseTensor& x,
+                             const IntArray& shape,
+                             DenseTensor* out,
+                             DenseTensor* xshape) {
   auto x_dims = slice_ddim(xshape->dims(), 1, xshape->dims().size());
   ExecuteReshape<T, Context>(dev_ctx, x, shape, x_dims, out);
 }
 
 }  // namespace phi
 
-PD_REGISTER_KERNEL(reshape_infer,
-                   OneDNN,
-                   ONEDNN,
-                   phi::ReshapeInferKernel,
-                   float,
-                   phi::dtype::bfloat16) {}
-
 PD_REGISTER_KERNEL(
     reshape, OneDNN, ONEDNN, phi::ReshapeKernel, float, phi::dtype::bfloat16) {}
+
+PD_REGISTER_KERNEL(reshape_with_xshape,
+                   OneDNN,
+                   ONEDNN,
+                   phi::ReshapeWithXShapeKernel,
+                   float,
+                   phi::dtype::bfloat16) {}

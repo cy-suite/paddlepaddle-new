@@ -13,10 +13,10 @@
 # limitations under the License.
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, Sequence, overload
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
-from typing_extensions import TypeAlias
+from typing_extensions import TypeAlias, overload
 
 import paddle
 from paddle import _C_ops
@@ -42,6 +42,8 @@ from .manipulation import cast
 from .math import _get_reduce_axis
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from paddle import Tensor
 
     _POrder: TypeAlias = Literal['fro', 'nuc']
@@ -184,6 +186,35 @@ def transpose_(x, perm, name=None):
     """
     if in_dynamic_mode():
         return _C_ops.transpose_(x, perm)
+
+
+def matrix_transpose(
+    x: paddle.Tensor,
+    name: str | None = None,
+) -> paddle.Tensor:
+    """
+    Transpose the last two dimensions of the input tensor `x`.
+
+    Note:
+        If `n` is the number of dimensions of `x`, `paddle.matrix_transpose(x)` is equivalent to `x.transpose([0, 1, ..., n-2, n-1])`.
+
+    Args:
+        x (Tensor): The input tensor to be transposed. `x` must be an N-dimensional tensor (N >= 2) of any data type supported by Paddle.
+        name (str|None, optional): The name of this layer. For more information, please refer to :ref:`api_guide_Name`. Default is None.
+
+    Returns:
+        Tensor: A new tensor with the same shape as `x`, except that the last two dimensions are transposed.
+
+    Examples:
+        .. code-block:: python
+
+            >>> import paddle
+            >>> x = paddle.ones(shape=[2, 3, 5])
+            >>> x_transposed = paddle.matrix_transpose(x)
+            >>> print(x_transposed.shape)
+            [2, 5, 3]
+    """
+    return x.mT
 
 
 def matmul(
@@ -372,7 +403,7 @@ def fp8_fp8_half_gemm_fused(
                     dtype='bfloat16'
                 )
             else:
-                raise ValueError("The output_dtype must be float16 or bfloa16")
+                raise ValueError("The output_dtype must be float16 or bfloat16")
 
             helper.append_op(
                 type='fp8_fp8_half_gemm_fused',
@@ -406,7 +437,7 @@ def fp8_fp8_half_gemm_fused(
                     bias, 'bias', ['bfloat16'], 'fp8_fp8_half_gemm_fused'
                 )
             else:
-                raise ValueError("The output_dtype must be float16 or bfloa16")
+                raise ValueError("The output_dtype must be float16 or bfloat16")
 
             helper = LayerHelper('fp8_fp8_half_gemm_fused', **locals())
 
@@ -417,7 +448,7 @@ def fp8_fp8_half_gemm_fused(
                     dtype='bfloat16'
                 )
             else:
-                raise ValueError("The output_dtype must be float16 or bfloa16")
+                raise ValueError("The output_dtype must be float16 or bfloat16")
 
             helper.append_op(
                 type='fp8_fp8_half_gemm_fused',
@@ -495,7 +526,7 @@ def vector_norm(
     def inf_norm(
         input, porder=None, axis=axis, keepdim=False, asvector=False, name=None
     ):
-        if in_dynamic_mode():
+        if in_dynamic_or_pir_mode():
             out = _C_ops.abs(input)
             if porder == np.float64('inf'):
                 return _C_ops.max(out, axis, keepdim)
@@ -1837,6 +1868,42 @@ def dot(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         return out
 
 
+def vecdot(
+    x: Tensor,
+    y: Tensor,
+    axis: int = -1,
+    name: str | None = None,
+) -> Tensor:
+    """
+    Computes the dot product of two tensors along a specified axis.
+
+    This function multiplies two tensors element-wise and sums them along a specified axis to compute their dot product. It supports tensors of any dimensionality, including 0-D tensors, as long as the shapes of `x` and `y` are broadcastable along the specified axis.
+
+    Args:
+        x (Tensor): The first input tensor. It should be a tensor with dtype of float32, float64, int32, int64, complex64, or complex128.
+        y (Tensor): The second input tensor. Its shape must be broadcastable with `x` along the specified `axis`, and it must have the same dtype as `x`.
+        axis (int, optional): The axis along which to compute the dot product. Default is -1, which indicates the last axis.
+        name (str|None, optional): Name of the output. Default is None. It's used to print debug info for developers. Details: :ref:`api_guide_Name`
+
+    Returns:
+        Tensor: A tensor containing the dot product of `x` and `y` along the specified axis.
+
+    Examples:
+
+        .. code-block:: python
+
+            >>> import paddle
+            >>> x = paddle.to_tensor([[1, 2, 3], [4, 5, 6]], dtype='float32')
+            >>> y = paddle.to_tensor([[1, 2, 3], [4, 5, 6]], dtype='float32')
+            >>> result = paddle.linalg.vecdot(x, y, axis=1)
+            >>> print(result)
+            Tensor(shape=[2], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [14.0, 77.0])
+    """
+    out = (x.conj() * y).sum(axis=axis)
+    return out
+
+
 def cov(
     x: Tensor,
     rowvar: bool = True,
@@ -2229,23 +2296,38 @@ def matrix_rank(
     x: Tensor,
     tol: float | Tensor | None = None,
     hermitian: bool = False,
+    atol: float | Tensor | None = None,
+    rtol: float | Tensor | None = None,
     name: str | None = None,
 ) -> Tensor:
     r"""
     Computes the rank of a matrix.
 
-    The rank of a matrix is the number of singular values that are greater than the specified `tol` threshold when hermitian=False,
-    or the number of eigenvalues in absolute value that are greater than the specified `tol` threshold when hermitian=True.
+    Notes:
+        1. Support the use of attribute `tol` alone or the use of attributes `atol` and `rtol` together without `tol`.
+
+        2. When `tol` is used alone, it will return the rank of a matrix is the number of singular values that are greater than the specified `tol`
+        threshold when hermitian=False, or the number of eigenvalues in absolute value that are greater than the specified `tol` threshold
+        when hermitian=True. It is compatible with numpy API.
+
+        3. When `atol` and `rtol` are used, the tolerance value is computed as `max(atol, sigma_1 * rtol)`, where sigma_1 is largest
+        singular value (or eigenvalues in absolute value).
+
+        4. When `atol` and `rtol` are used: If `rtol` is not specified, then it is set to be `max(m,n) * eps`, where `x` has dimension(m, n) and
+        `eps` is the epsilon value for the dtype of `x`; If `rtol` is not specified and `atol` is specified to be greater than 0, then it
+        is set to be 0.
 
     Args:
         x (Tensor): The input tensor. Its shape should be `[..., m, n]`, where `...` is zero or more batch dimensions. If `x` is a batch
             of matrices then the output has the same batch dimensions. The data type of `x` should be float32 or float64.
-        tol (float|Tensor, optional): the tolerance value. If `tol` is not specified, and `sigma` is the largest singular value
+        tol (float|Tensor, optional): The tolerance value. If `tol` is not specified, and `sigma` is the largest singular value
             (or eigenvalues in absolute value), and `eps` is the epsilon value for the dtype of `x`, then `tol` is computed with formula
             `tol=sigma * max(m,n) * eps`. Note that if `x` is a batch of matrices, `tol` is computed this way for every batch. Default: None.
-        hermitian (bool, optional): indicates whether `x` is Hermitian. Default: False. When hermitian=True, `x` is assumed to be Hermitian,
+        hermitian (bool, optional): Indicates whether `x` is Hermitian. Default: False. When hermitian=True, `x` is assumed to be Hermitian,
             enabling a more efficient method for finding eigenvalues, but `x` is not checked inside the function. Instead, We just use
             the lower triangular of the matrix to compute. Default: False.
+        atol (float|Tensor, optional): The absolute tolerance value. When None it is considered to be 0. Default: None.
+        rtol (float|Tensor, optional): The relative tolerance value. See above Notes for the value it takes when None. Default: None.
         name (str|None, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
 
     Returns:
@@ -2271,50 +2353,103 @@ def matrix_rank(
              [1, 1, 1, 1]])
 
     """
-    if in_dynamic_or_pir_mode():
-        if isinstance(tol, (Variable, paddle.pir.Value)):
-            if tol.dtype != x.dtype:
-                tol_tensor = cast(tol, x.dtype)
-            else:
-                tol_tensor = tol
-            use_default_tol = False
-            return _C_ops.matrix_rank_tol(
-                x, tol_tensor, use_default_tol, hermitian
+    use_atol_rtol = False
+    if (atol is not None) or (rtol is not None):
+        if tol is not None:
+            raise ValueError(
+                "Only support to use tol alone or use atol and rtol without tol."
             )
+        use_atol_rtol = True
 
-        if tol is None:
-            tol_attr = 0.0
-            use_default_tol = True
+    if use_atol_rtol:
+        if atol is None:
+            atol = full([], 0.0, x.dtype)
+        if isinstance(atol, (float, int)):
+            atol = full([], atol, x.dtype)
+        if atol.dtype != x.dtype:
+            atol = cast(atol, x.dtype)
+
+        if rtol is not None:
+            if isinstance(rtol, (float, int)):
+                rtol = full([], rtol, x.dtype)
+            if rtol.dtype != x.dtype:
+                rtol = cast(rtol, x.dtype)
+
+            atol, rtol = paddle.broadcast_tensors([atol, rtol])
+
+        if in_dynamic_or_pir_mode():
+            return _C_ops.matrix_rank_atol_rtol(x, atol, rtol, hermitian)
         else:
-            tol_attr = float(tol)
-            use_default_tol = False
-        return _C_ops.matrix_rank(x, tol_attr, use_default_tol, hermitian)
+            inputs = {}
+            attrs = {}
+            check_variable_and_dtype(
+                x, 'x', ['float32', 'float64'], 'matrix_rank_atol_rtol'
+            )
+            inputs['x'] = x
+            inputs['atol'] = atol
+            inputs['rtol'] = rtol
+            check_type(hermitian, 'hermitian', bool, 'matrix_rank_atol_rtol')
+            attrs['hermitian'] = hermitian
+
+            helper = LayerHelper('matrix_rank_atol_rtol', **locals())
+            out = helper.create_variable_for_type_inference(dtype='int32')
+            helper.append_op(
+                type='matrix_rank_atol_rtol',
+                inputs=inputs,
+                outputs={'out': out},
+                attrs=attrs,
+            )
+            return out
     else:
-        inputs = {}
-        attrs = {}
-        check_variable_and_dtype(x, 'x', ['float32', 'float64'], 'matrix_rank')
-        inputs['X'] = x
-        if tol is None:
-            attrs['use_default_tol'] = True
-        elif isinstance(tol, Variable):
-            attrs['use_default_tol'] = False
-            if tol.dtype != x.dtype:
-                inputs['TolTensor'] = cast(tol, x.dtype)
-            else:
-                inputs['TolTensor'] = tol
-        else:
-            check_type(tol, 'tol', float, 'matrix_rank')
-            attrs['use_default_tol'] = False
-            attrs['tol'] = tol
-        check_type(hermitian, 'hermitian', bool, 'matrix_rank')
-        attrs['hermitian'] = hermitian
+        if in_dynamic_or_pir_mode():
+            if isinstance(tol, (Variable, paddle.pir.Value)):
+                if tol.dtype != x.dtype:
+                    tol_tensor = cast(tol, x.dtype)
+                else:
+                    tol_tensor = tol
+                use_default_tol = False
+                return _C_ops.matrix_rank_tol(
+                    x, tol_tensor, use_default_tol, hermitian
+                )
 
-        helper = LayerHelper('matrix_rank', **locals())
-        out = helper.create_variable_for_type_inference(dtype='int32')
-        helper.append_op(
-            type='matrix_rank', inputs=inputs, outputs={'Out': out}, attrs=attrs
-        )
-        return out
+            if tol is None:
+                tol_attr = 0.0
+                use_default_tol = True
+            else:
+                tol_attr = float(tol)
+                use_default_tol = False
+            return _C_ops.matrix_rank(x, tol_attr, use_default_tol, hermitian)
+        else:
+            inputs = {}
+            attrs = {}
+            check_variable_and_dtype(
+                x, 'x', ['float32', 'float64'], 'matrix_rank'
+            )
+            inputs['X'] = x
+            if tol is None:
+                attrs['use_default_tol'] = True
+            elif isinstance(tol, Variable):
+                attrs['use_default_tol'] = False
+                if tol.dtype != x.dtype:
+                    inputs['TolTensor'] = cast(tol, x.dtype)
+                else:
+                    inputs['TolTensor'] = tol
+            else:
+                check_type(tol, 'tol', float, 'matrix_rank')
+                attrs['use_default_tol'] = False
+                attrs['tol'] = tol
+            check_type(hermitian, 'hermitian', bool, 'matrix_rank')
+            attrs['hermitian'] = hermitian
+
+            helper = LayerHelper('matrix_rank', **locals())
+            out = helper.create_variable_for_type_inference(dtype='int32')
+            helper.append_op(
+                type='matrix_rank',
+                inputs=inputs,
+                outputs={'Out': out},
+                attrs=attrs,
+            )
+            return out
 
 
 def bmm(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
@@ -2384,8 +2519,8 @@ def bmm(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 def histogram(
     input: Tensor,
     bins: int = 100,
-    min: int = 0,
-    max: int = 0,
+    min: float = 0.0,
+    max: float = 0.0,
     weight: Tensor | None = None,
     density: bool = False,
     name: str | None = None,
@@ -2395,11 +2530,11 @@ def histogram(
     If min and max are both zero, the minimum and maximum values of the data are used.
 
     Args:
-        input (Tensor): A Tensor(or LoDTensor) with shape :math:`[N_1, N_2,..., N_k]` . The data type of the input Tensor
+        input (Tensor): A Tensor with shape :math:`[N_1, N_2,..., N_k]` . The data type of the input Tensor
             should be float32, float64, int32, int64.
         bins (int, optional): number of histogram bins. Default: 100.
-        min (int, optional): lower end of the range (inclusive). Default: 0.
-        max (int, optional): upper end of the range (inclusive). Default: 0.
+        min (float, optional): lower end of the range (inclusive). Default: 0.0.
+        max (float, optional): upper end of the range (inclusive). Default: 0.0.
         weight (Tensor, optional): If provided, it must have the same shape as input. Each value in input contributes its associated
             weight towards the bin count (instead of 1). Default: None.
         density (bool, optional): If False, the result will contain the count (or total weight) in each bin. If True, the result is the
@@ -2420,6 +2555,11 @@ def histogram(
             Tensor(shape=[4], dtype=int64, place=Place(cpu), stop_gradient=True,
             [0, 2, 1, 0])
     """
+    if isinstance(min, int):
+        min = float(min)
+    if isinstance(max, int):
+        max = float(max)
+
     if in_dynamic_or_pir_mode():
         return _C_ops.histogram(input, weight, bins, min, max, density)
     else:
@@ -2461,8 +2601,8 @@ def histogram(
 def histogram_bin_edges(
     input: Tensor,
     bins: int = 100,
-    min: int = 0,
-    max: int = 0,
+    min: float = 0.0,
+    max: float = 0.0,
     name: str | None = None,
 ) -> Tensor:
     """
@@ -2472,12 +2612,12 @@ def histogram_bin_edges(
     Args:
         input (Tensor): The data type of the input Tensor should be float32, float64, int32, int64.
         bins (int, optional): number of histogram bins.
-        min (int, optional): lower end of the range (inclusive). Default: 0.
-        max (int, optional): upper end of the range (inclusive). Default: 0.
+        min (float, optional): lower end of the range (inclusive). Default: 0.0.
+        max (float, optional): upper end of the range (inclusive). Default: 0.0.
         name (str|None, optional): For details, please refer to :ref:`api_guide_Name`. Generally, no setting is required. Default: None.
 
     Returns:
-        Tensor, the values of the histogram and the bin edges. The output data type will be float32.
+        Tensor, the values of the bin edges. The output data type will be float32.
 
     Examples:
         .. code-block:: python
@@ -2490,6 +2630,11 @@ def histogram_bin_edges(
             Tensor(shape=[5], dtype=float32, place=Place(cpu), stop_gradient=True,
             [0.        , 0.75000000, 1.50000000, 2.25000000, 3.        ])
     """
+    if isinstance(min, int):
+        min = float(min)
+    if isinstance(max, int):
+        max = float(max)
+
     check_type(input, 'input', (Variable), 'histogram_bin_edges')
     check_dtype(
         input.dtype,
@@ -2498,13 +2643,13 @@ def histogram_bin_edges(
         'histogram_bin_edges',
     )
     check_type(bins, 'bins', int, 'histogram_bin_edges')
-    if max == 0 and min == 0:
+    if max == 0.0 and min == 0.0:
         min = paddle.min(input)
         max = paddle.max(input)
     else:
         if max < min:
             raise ValueError("max must be larger than min in range parameter")
-    if (min - max) == 0:
+    if (min - max) == 0.0:
         max = max + 0.5
         min = min - 0.5
     return paddle.linspace(min, max, bins + 1, name=name)
@@ -2672,7 +2817,12 @@ def det(x: Tensor, name: str | None = None) -> Tensor:
     if in_dynamic_or_pir_mode():
         return _C_ops.det(x)
     else:
-        check_dtype(x.dtype, 'Input', ['float16', 'float32', 'float64'], 'det')
+        check_dtype(
+            x.dtype,
+            'Input',
+            ['float16', 'float32', 'float64', 'complex64', 'complex128'],
+            'det',
+        )
 
         input_shape = list(x.shape)
         assert len(input_shape) >= 2, (
@@ -2699,9 +2849,13 @@ def slogdet(x: Tensor, name: str | None = None) -> Tensor:
     Calculates the sign and natural logarithm of the absolute value of a square matrix's or batches square matrices' determinant.
     The determinant can be computed with ``sign * exp`` (logabsdet).
 
-    Supports input of float, double.
+    Supports input of float, double, complex64, complex128.
 
-    Note that for matrices that have zero determinant, this returns ``(0, -inf)``.
+    Notes:
+        1. For matrices that have zero determinant, this returns ``(0, -inf)``.
+
+        2. For matrices with complex value, the :math:`abs(det)` is the modulus of the determinant,
+        and therefore :math:`sign = det / abs(det)`.
 
     Args:
         x (Tensor): the batch of matrices of size :math:`(*, n, n)`
@@ -2711,7 +2865,8 @@ def slogdet(x: Tensor, name: str | None = None) -> Tensor:
 
     Returns:
         y (Tensor), A tensor containing the sign of the determinant and the natural logarithm
-        of the absolute value of determinant, respectively.
+        of the absolute value of determinant, respectively. The output shape is :math:`(2, *)`,
+        where math:`*` is one or more batch dimensions of the input `x`.
 
     Examples:
         .. code-block:: python
@@ -2729,7 +2884,12 @@ def slogdet(x: Tensor, name: str | None = None) -> Tensor:
     if in_dynamic_or_pir_mode():
         return _C_ops.slogdet(x)
     else:
-        check_dtype(x.dtype, 'Input', ['float32', 'float64'], 'slogdet')
+        check_dtype(
+            x.dtype,
+            'Input',
+            ['float32', 'float64', 'complex64', 'complex128'],
+            'slogdet',
+        )
 
         input_shape = list(x.shape)
         assert len(input_shape) >= 2, (
@@ -2830,6 +2990,42 @@ def svd(
             attrs=attrs,
         )
         return u, s, vh
+
+
+def svdvals(x: Tensor, name: str | None = None) -> Tensor:
+    r"""
+    Computes the singular values of one matrix or a batch of matrices.
+
+    Let :math:`X` be the input matrix or a batch of input matrices,
+    the output singular values :math:`S` are the diagonal elements of the matrix
+    produced by singular value decomposition:
+
+    .. math::
+        X = U * diag(S) * VH
+
+    Args:
+        x (Tensor): The input tensor. Its shape should be `[..., M, N]`, where
+            `...` is zero or more batch dimensions. The data type of x should
+            be float32 or float64.
+        name (str|None, optional): Name for the operation. For more
+            information, please refer to :ref:`api_guide_Name`.
+            Default: None.
+
+    Returns:
+        Tensor: Singular values of x. The shape is `[..., K]`, where `K = min(M, N)`.
+
+    Examples:
+        .. code-block:: python
+
+            >>> import paddle
+
+            >>> x = paddle.to_tensor([[1.0, 2.0], [1.0, 3.0], [4.0, 6.0]])
+            >>> s = paddle.linalg.svdvals(x)
+            >>> print(s)
+            Tensor(shape=[2], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [8.14753819, 0.78589684])
+    """
+    return _C_ops.svdvals(x)
 
 
 def _conjugate(x):
@@ -3160,8 +3356,7 @@ def qr(
     x: Tensor,
     mode: Literal['reduced', 'complete'] = ...,
     name: str | None = ...,
-) -> tuple[Tensor, Tensor]:
-    ...
+) -> tuple[Tensor, Tensor]: ...
 
 
 @overload
@@ -3169,8 +3364,7 @@ def qr(
     x: Tensor,
     mode: Literal['r'] = ...,
     name: str | None = ...,
-) -> Tensor:
-    ...
+) -> Tensor: ...
 
 
 def qr(
@@ -3248,8 +3442,7 @@ def lu(
     pivot: bool = ...,
     get_infos: Literal[False] = ...,
     name: str | None = ...,
-) -> tuple[Tensor, Tensor]:
-    ...
+) -> tuple[Tensor, Tensor]: ...
 
 
 @overload
@@ -3258,15 +3451,13 @@ def lu(
     pivot: bool = ...,
     get_infos: Literal[True] = ...,
     name: str | None = ...,
-) -> tuple[Tensor, Tensor, Tensor]:
-    ...
+) -> tuple[Tensor, Tensor, Tensor]: ...
 
 
 @overload
 def lu(
     x: Tensor, pivot: bool = ..., get_infos: bool = ..., name: str | None = ...
-) -> tuple[Tensor, Tensor] | tuple[Tensor, Tensor, Tensor]:
-    ...
+) -> tuple[Tensor, Tensor] | tuple[Tensor, Tensor, Tensor]: ...
 
 
 def lu(
@@ -3328,8 +3519,8 @@ def lu(
             Tensor(shape=[2], dtype=int32, place=Place(cpu), stop_gradient=True,
             [3, 3])
             >>> print(info)
-            Tensor(shape=[1], dtype=int32, place=Place(cpu), stop_gradient=True,
-            [0])
+            Tensor(shape=[], dtype=int32, place=Place(cpu), stop_gradient=True,
+            0)
 
             >>> P,L,U = paddle.linalg.lu_unpack(lu,p)
 
@@ -4022,15 +4213,49 @@ def pinv(
             return out_2
 
 
-def solve(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
+def _check_right_solve_shape(x, y):
+    """check the input shape of x and y for solve when left is False"""
+    x_shape = x.shape[-2:]
+    if len(y.shape) == 1:
+        raise ValueError(
+            "Incompatible shapes of X and Y for the equation Out * X = Y, "
+            f"where input X's matrix shape is {x_shape} and"
+            f"input Y's matrix shape is {list(y.shape).append(1)}"
+        )
+    else:
+        y_shape = y.shape[-2:]
+        if x_shape[0] != y_shape[1]:
+            raise ValueError(
+                "Incompatible shapes of X and Y for the equation Out * X = Y, "
+                f"where input X's matrix shape is {x_shape} and"
+                f"input Y's matrix shape is {y_shape}"
+            )
+
+
+def _transpose_last_2dim(x):
+    """transpose the last 2 dimension of a tensor"""
+    x_new_dims = list(range(len(x.shape)))
+    x_new_dims[-1], x_new_dims[-2] = x_new_dims[-2], x_new_dims[-1]
+    x = transpose(x, x_new_dims)
+    return x
+
+
+def solve(
+    x: Tensor, y: Tensor, left: bool = True, name: str | None = None
+) -> Tensor:
     r"""
 
     Computes the solution of a square system of linear equations with a unique solution for input 'X' and 'Y'.
     Let :math:`X` be a square matrix or a batch of square matrices, :math:`Y` be
-    a vector/matrix or a batch of vectors/matrices, the equation should be:
+    a vector/matrix or a batch of vectors/matrices. When `left` is True, the equation should be:
 
     .. math::
         Out = X^-1 * Y
+
+    When `left` is False, the equation should be:
+
+    .. math::
+        Out = Y * X^-1
 
     Specifically, this system of linear equations has one solution if and only if input 'X' is invertible.
 
@@ -4039,6 +4264,7 @@ def solve(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
             more batch dimensions. Its data type should be float32 or float64.
         y (Tensor): A vector/matrix or a batch of vectors/matrices. Its shape should be ``[*, M, K]``, where ``*`` is zero or
             more batch dimensions. Its data type should be float32 or float64.
+        left (bool, optional): Whether to solve the system :math:`X * Out = Y` or :math:`Out * X = Y`. Default: True.
         name (str|None, optional): Name for the operation (optional, default is None).
             For more information, please refer to :ref:`api_guide_Name`.
 
@@ -4051,7 +4277,7 @@ def solve(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         .. code-block:: python
 
             >>> # a square system of linear equations:
-            >>> # 2*X0 + X1 = 9
+            >>> # 3*X0 + X1 = 9
             >>> # X0 + 2*X1 = 8
 
             >>> import paddle
@@ -4064,8 +4290,13 @@ def solve(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
             Tensor(shape=[2], dtype=float64, place=Place(cpu), stop_gradient=True,
             [2., 3.])
     """
+    if not left:
+        _check_right_solve_shape(x, y)
+        x = _transpose_last_2dim(x)
+        y = _transpose_last_2dim(y)
+
     if in_dynamic_or_pir_mode():
-        return _C_ops.solve(x, y)
+        out = _C_ops.solve(x, y)
     else:
         inputs = {"X": [x], "Y": [y]}
         helper = LayerHelper("solve", **locals())
@@ -4076,7 +4307,10 @@ def solve(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         helper.append_op(
             type="solve", inputs={"X": x, "Y": y}, outputs={"Out": out}
         )
-        return out
+
+    if not left:
+        out = _transpose_last_2dim(out)
+    return out
 
 
 def triangular_solve(
@@ -5187,7 +5421,7 @@ def matrix_exp(x: Tensor, name: str | None = None) -> Tensor:
         return paddle.static.nn.cond(
             is_finite,
             lambda: paddle.less_than(i, max_squaring),
-            lambda: paddle.full((), False),
+            lambda: paddle.full((), False, dtype=paddle.bool),
         )
 
     def body(i, result):

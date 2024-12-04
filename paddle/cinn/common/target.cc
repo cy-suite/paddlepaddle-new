@@ -38,7 +38,24 @@ Target::Target(OS o,
                Bit b,
                const std::vector<Feature> &features,
                const std::vector<Lib> &libs)
-    : os(o), arch(a), bits(b), features(features), libs(libs) {}
+    : os(o), arch(a), bits(b), features(features), libs(libs) {
+  // check compile option
+  arch.Match([&](UnknownArch) {},
+             [&](X86Arch) {},
+             [&](ARMArch) {},
+             [&](NVGPUArch) {
+#ifndef CINN_WITH_CUDA
+               PADDLE_THROW(::common::errors::Unimplemented(
+                   "Please recompile with flag WITH_GPU and WITH_CINN."));
+#endif
+             },
+             [&](HygonDCUArchHIP) {
+#ifndef CINN_WITH_HIP
+               PADDLE_THROW(::common::errors::Unimplemented(
+                   "Please recompile with flag WITH_ROCM and WITH_CINN."));
+#endif
+             });
+}
 
 bool Target::operator==(const Target &other) const {
   return os == other.os &&      //
@@ -54,11 +71,11 @@ int GetRuntimeArchImpl(X86Arch) { return cinn_x86_device; }
 int GetRuntimeArchImpl(ARMArch) { return cinn_arm_device; }
 
 int GetRuntimeArchImpl(NVGPUArch) {
-  PADDLE_THROW(phi::errors::InvalidArgument("Not supported arch"));
+  PADDLE_THROW(::common::errors::InvalidArgument("Not supported arch"));
 }
 
 int GetRuntimeArchImpl(HygonDCUArchHIP) {
-  PADDLE_THROW(phi::errors::InvalidArgument(
+  PADDLE_THROW(::common::errors::InvalidArgument(
       "HygonDCUArchHIP not supported GetRuntimeArch!"));
 }
 
@@ -213,7 +230,7 @@ int Target::get_target_bits() const {
     case Bit::Unk:
       return 0;
     default:
-      PADDLE_THROW(phi::errors::InvalidArgument("Not supported Bit"));
+      PADDLE_THROW(::common::errors::InvalidArgument("Not supported Bit"));
   }
   return -1;
 }
@@ -225,6 +242,7 @@ std::string Target::arch_str() const {
 }
 
 std::string Target::device_name_str() const {
+#ifdef CINN_WITH_CUDA
   int device_idx = 0;
   cudaError_t result = cudaGetDevice(&device_idx);
   if (result != cudaSuccess) {
@@ -248,6 +266,9 @@ std::string Target::device_name_str() const {
   std::string device_name = properties.name;
   device_name = std::regex_replace(device_name, std::regex(" "), "_");
   return std::regex_replace(device_name, std::regex("-"), "_");
+#else
+  CINN_NOT_IMPLEMENTED
+#endif
 }
 
 std::ostream &operator<<(std::ostream &os, const Target &target) {

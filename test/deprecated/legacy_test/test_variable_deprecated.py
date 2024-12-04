@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import unittest
 
 import numpy as np
@@ -32,7 +33,7 @@ class TestVariable(unittest.TestCase):
 
     def _test_slice(self, place):
         b = default_main_program().current_block()
-        w = b.create_var(dtype="float64", shape=[784, 100, 100], lod_level=0)
+        w = b.create_var(dtype="float64", shape=[784, 100, 100])
 
         for i in range(3):
             nw = w[i]
@@ -150,7 +151,13 @@ class TestVariable(unittest.TestCase):
             )
 
     def test_slice(self):
-        places = [base.CPUPlace()]
+        places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not core.is_compiled_with_cuda()
+        ):
+            places.append(base.CPUPlace())
         if core.is_compiled_with_cuda():
             places.append(core.CUDAPlace(0))
 

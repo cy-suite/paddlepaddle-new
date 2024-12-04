@@ -15,8 +15,7 @@
 #include "paddle/fluid/pir/dialect/distributed/ir/dist_attribute.h"
 #include "paddle/fluid/pir/dialect/distributed/ir/attribute_storage.h"
 #include "paddle/phi/core/enforce.h"
-namespace paddle {
-namespace dialect {
+namespace paddle::dialect {
 ///
 /// \brief ProcessMeshAttribute interface.
 ///
@@ -77,13 +76,13 @@ phi::distributed::Placements TensorDistAttribute::placements() const {
     if (mesh_id >= 0) {
       auto& p = placements[mesh_id];
       if (p->is_shard()) {
-        PADDLE_THROW(phi::errors::PreconditionNotMet(
+        PADDLE_THROW(common::errors::PreconditionNotMet(
             "ProcessMesh dimension cann't be mapped to two  dimension of the "
             "same tensor: {%d} and {%d}",
             i,
             dynamic_cast<phi::distributed::Shard&>(*p).get_dim()));
       } else if (p->is_partial()) {
-        PADDLE_THROW(phi::errors::PreconditionNotMet(
+        PADDLE_THROW(common::errors::PreconditionNotMet(
             "ProcessMesh dimension {%d} cannot be both shard and partial!",
             mesh_id));
       }
@@ -126,15 +125,19 @@ uint32_t OperationDistAttribute::num_results() const {
   return results().size();
 }
 
+int64_t OperationDistAttribute::chunk_id() const { return storage()->chunk_id; }
+
 OperationDistAttribute OperationDistAttribute::get(
     pir::IrContext* ctx,
     ProcessMeshAttribute mesh,
     const std::vector<pir::Attribute>& operands,
-    const std::vector<pir::Attribute>& results) {
+    const std::vector<pir::Attribute>& results,
+    const int64_t& chunk_id) {
   auto check_dist_attr = [=](pir::Attribute attr) {
     auto dist_attr = attr.dyn_cast<TensorDistAttribute>();
     auto ids = mesh.process_ids();
-    for (const auto& id : dist_attr.process_mesh_attr().process_ids()) {
+    const ProcessMeshAttribute& dist_mesh = dist_attr.process_mesh_attr();
+    for (const auto& id : dist_mesh.process_ids()) {
       PADDLE_ENFORCE_EQ(std::find(ids.begin(), ids.end(), id) != ids.end(),
                         true,
                         common::errors::PreconditionNotMet(
@@ -156,11 +159,10 @@ OperationDistAttribute OperationDistAttribute::get(
       check_dist_attr(attr);
     }
   }
-  return Base::get(ctx, mesh, operands, results);
+  return Base::get(ctx, mesh, operands, results, chunk_id);
 }
 
-}  // namespace dialect
-}  // namespace paddle
+}  // namespace paddle::dialect
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::ProcessMeshAttribute)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::TensorDistAttribute)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::OperationDistAttribute)

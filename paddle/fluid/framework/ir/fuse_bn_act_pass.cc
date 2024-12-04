@@ -19,19 +19,13 @@
 #include "paddle/fluid/framework/operator.h"
 #include "paddle/fluid/platform/enforce.h"
 
-namespace paddle {
-namespace framework {
-namespace ir {
+namespace paddle::framework::ir {
 class Node;
-}  // namespace ir
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework::ir
 
-#include "paddle/fluid/platform/device/gpu/gpu_dnn.h"
+#include "paddle/phi/core/platform/device/gpu/gpu_dnn.h"
 
-namespace paddle {
-namespace framework {
-namespace ir {
+namespace paddle::framework::ir {
 
 void FuseBatchNormActPass::ApplyImpl(ir::Graph *graph) const {
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
@@ -51,7 +45,7 @@ ir::Graph *FuseBatchNormActPass::FuseBatchNormAct(
     ir::Graph *graph, const std::unordered_set<std::string> &act_types) const {
   PADDLE_ENFORCE_NOT_NULL(
       graph,
-      platform::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "The input graph of FuseBatchNormAct should not be nullptr."));
   FusePassBase::Init("bn_act", graph);
 
@@ -191,7 +185,7 @@ ir::Graph *FuseBatchNormActPass::FuseBatchNormActGrad(
     const std::unordered_set<std::string> &act_grad_types) const {
   PADDLE_ENFORCE_NOT_NULL(
       graph,
-      platform::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "The input graph of FuseBatchNormActGrad should not be nullptr."));
   FusePassBase::Init("bn_act_grad", graph);
 
@@ -346,13 +340,11 @@ std::vector<Node *> FuseBatchNormActPass::ReplaceNode(
       });
   PADDLE_ENFORCE_EQ(has_replaced,
                     true,
-                    platform::errors::NotFound("Not found %s in the node list.",
-                                               cur_node->Name()));
+                    common::errors::NotFound("Not found %s in the node list.",
+                                             cur_node->Name()));
   return new_list;
 }
 
-}  // namespace ir
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework::ir
 
 REGISTER_PASS(fuse_bn_act_pass, paddle::framework::ir::FuseBatchNormActPass);
