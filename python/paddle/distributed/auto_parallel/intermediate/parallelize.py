@@ -66,8 +66,9 @@ def parallelize(model, optimizer=None, mesh=None, config=None):
                 can be list these:  {"split_spec": "llama.layers", "global_spec": "llama.global_layer"}
                 or {"split_spec": {"llama.layers.1": SplitPoint.END}}.
 
-            Note: if the mesh is `None` or neither of `dp_config`, `mp_config` and `pp_config` is in the config, this
-            api will do nothing but return the model and optimizer passed in.
+    Note:
+        if the mesh is `None` or neither of `dp_config`, `mp_config` and `pp_config` is in the config, this 
+        api will do nothing but return the model and optimizer passed in.
 
     Returns:
         model, optimizer: the model and the optimizer after parallelize
