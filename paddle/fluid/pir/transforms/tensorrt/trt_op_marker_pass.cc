@@ -87,7 +87,6 @@ DEFINE_GENERAL_PATTERN(Roll, paddle::dialect::RollOp)
 DEFINE_GENERAL_PATTERN(Softplus, paddle::dialect::SoftplusOp)
 DEFINE_GENERAL_PATTERN(ThresholdedRelu, paddle::dialect::ThresholdedReluOp)
 DEFINE_GENERAL_PATTERN(Flip, paddle::dialect::FlipOp)
-DEFINE_GENERAL_PATTERN(PNorm, paddle::dialect::PNormOp)
 
 #undef DEFINE_GENERAL_PATTERN
 
@@ -2096,8 +2095,7 @@ class AssignValueOpPattern
   }
 };
 
-class PNormOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::PNormOp> {
+class PNormOpPattern : public pir::OpRewritePattern<paddle::dialect::PNormOp> {
  public:
   using pir::OpRewritePattern<paddle::dialect::PNormOp>::OpRewritePattern;
 
@@ -2113,7 +2111,7 @@ class PNormOpPattern
       return false;
     }
     bool asvector = op->attribute<pir::BoolAttribute>("asvector").data();
-    int axis = op->attribute<pir::IntAttribute>("axis").data();
+    int axis = op->attribute<pir::Int64Attribute>("axis").data();
     float porder = op->attribute<pir::FloatAttribute>("porder").data();
 
     if (asvector || porder != 2.0f || axis != -1) {

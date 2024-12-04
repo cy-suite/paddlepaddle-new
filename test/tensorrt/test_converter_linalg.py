@@ -129,7 +129,7 @@ class TestFlipIntNegAxisTRTPattern(TensorRTBaseTest):
 
 class TestPNormTRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = paddle.norm
+        self.python_api = paddle.p_norm
         self.api_args = {
             "x": np.random.randn(2, 3, 4).astype("float32"),
             "p": 2,
@@ -146,7 +146,7 @@ class TestPNormTRTPattern(TensorRTBaseTest):
 
 class TestPNormKeepDimTRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = paddle.norm
+        self.python_api = paddle.p_norm
         self.api_args = {
             "x": np.random.randn(2, 3, 4).astype("float32"),
             "p": 2,
@@ -163,7 +163,7 @@ class TestPNormKeepDimTRTPattern(TensorRTBaseTest):
 
 class TestPNormNegAxisTRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = paddle.norm
+        self.python_api = paddle.p_norm
         self.api_args = {
             "x": np.random.randn(2, 3, 4).astype("float32"),
             "p": 2,
@@ -180,7 +180,7 @@ class TestPNormNegAxisTRTPattern(TensorRTBaseTest):
 
 class TestPNormHigherDimTRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = paddle.norm
+        self.python_api = paddle.p_norm
         self.api_args = {
             "x": np.random.randn(2, 3, 4, 5).astype("float32"),
             "p": 2,
@@ -193,6 +193,7 @@ class TestPNormHigherDimTRTPattern(TensorRTBaseTest):
 
     def test_trt_result(self):
         self.check_trt_result()
+
 
 if __name__ == '__main__':
     unittest.main()
