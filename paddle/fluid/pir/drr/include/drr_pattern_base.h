@@ -59,7 +59,7 @@ auto Create(pir::IrContext* ir_context, Args&&... args) {
 class AutoDrrPattern : public DrrPatternBase {
  private:
   const std::string name_;
-  const DrrPatternContext& pattern_context_;
+  const DrrPatternContext pattern_context_;
 
  public:
   AutoDrrPattern(const std::string& name,
@@ -78,7 +78,7 @@ template <typename AutoDrrPattern>
 class AutoDrrPass : public pir::PatternRewritePass {
  public:
   const std::string& name_;
-  const DrrPatternContext& pattern_context_;
+  const DrrPatternContext pattern_context_;
 
   AutoDrrPass(const std::string& name, const DrrPatternContext& pattern_context)
       : pir::PatternRewritePass(name, 2),
@@ -89,7 +89,7 @@ class AutoDrrPass : public pir::PatternRewritePass {
     pir::RewritePatternSet ps(context);
     ps.Add(paddle::drr::Create<AutoDrrPattern,
                                const std::string&,
-                               const DrrPatternContext&>(
+                               const DrrPatternContext>(
         context, name_, pattern_context_));
     return ps;
   }

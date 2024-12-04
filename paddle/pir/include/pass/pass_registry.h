@@ -78,7 +78,7 @@ class IR_API PassRegistrar {
   explicit PassRegistrar(
       const char *pass_type,
       const paddle::drr::DrrPatternContext &pattern_context) {
-    PassRegistry::Instance().Insert(pass_type, [&pattern_context, pass_type]() {
+    PassRegistry::Instance().Insert(pass_type, [pattern_context, pass_type]() {
       return std::make_unique<PassType>(pass_type, pattern_context);
     });
   }
