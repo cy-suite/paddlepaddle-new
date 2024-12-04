@@ -33,6 +33,7 @@ class TestLoadStateDictFromUrl(unittest.TestCase):
         weight2 = paddle.hub.load_state_dict_from_url(
             url='https://x2paddle.bj.bcebos.com/resnet18.zip',
             model_dir="./test/test2",
+            map_location="cpu",
         )
         model2 = self.model
         model2.set_state_dict(weight2)
@@ -47,20 +48,13 @@ class TestLoadStateDictFromUrl(unittest.TestCase):
 
         # Test whether the model loads properly when the model_dir is empty
         weight3 = paddle.hub.load_state_dict_from_url(
-            url='https://paddle-hapi.bj.bcebos.com/models/resnet18.pdparams',
+            url='https://x2paddle.bj.bcebos.com/resnet18.zip',
             file_name="resnet18.pdparams",
+            map_location="numpy",
         )
         model3 = self.model
         model3.set_state_dict(weight3)
-        are_parameters_equal = True
-        for (name1, param1), (name2, param2) in zip(
-            model1.named_parameters(), model3.named_parameters()
-        ):
-            if name1 != name2 or not paddle.allclose(param1, param2):
-                are_parameters_equal = False
-                break
-        assert are_parameters_equal
-
+        # Test check_hash and map_location
         weight4 = paddle.hub.load_state_dict_from_url(
             url='https://paddle-hapi.bj.bcebos.com/models/resnet18.pdparams',
             file_name="resnet18.pdparams",
@@ -71,7 +65,30 @@ class TestLoadStateDictFromUrl(unittest.TestCase):
         model4.set_state_dict(weight4)
         are_parameters_equal = True
         for (name1, param1), (name2, param2) in zip(
-            model1.named_parameters(), model4.named_parameters()
+            model3.named_parameters(), model4.named_parameters()
+        ):
+            if name1 != name2 or not paddle.allclose(param1, param2):
+                are_parameters_equal = False
+                break
+        assert are_parameters_equal
+        # Test map_location!=cpu and map_location!=numpy
+        weight5 = paddle.hub.load_state_dict_from_url(
+            url='https://paddle-hapi.bj.bcebos.com/models/resnet18.pdparams',
+            model_dir="./test/test1",
+            map_location="gpu",
+        )
+        model5 = self.model
+        model5.set_state_dict(weight5)
+        weight6 = paddle.hub.load_state_dict_from_url(
+            url='https://paddle-hapi.bj.bcebos.com/models/resnet18.pdparams',
+            model_dir="./test/test2",
+            map_location="gpu",
+        )
+        model6 = self.model
+        model6.set_state_dict(weight6)
+        are_parameters_equal = True
+        for (name1, param1), (name2, param2) in zip(
+            model5.named_parameters(), model6.named_parameters()
         ):
             if name1 != name2 or not paddle.allclose(param1, param2):
                 are_parameters_equal = False

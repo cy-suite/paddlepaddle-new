@@ -369,10 +369,8 @@ def load_state_dict_from_url(
         os.makedirs(model_dir)
     except OSError as e:
         if e.errno == errno.EEXIST:
-            # Directory already exists, ignore.
             pass
         else:
-            # Unexpected OSError, re-raise.
             raise
     parts = urlparse(url)
     filename = os.path.basename(parts.path)
@@ -383,7 +381,7 @@ def load_state_dict_from_url(
         sys.stderr.write(f'Downloading: "{url}" to {cached_file}\n')
         hash_prefix = None
         if check_hash:
-            hash_prefix = check_hash  # It is None or the value of md5sum for the incoming download file
+            hash_prefix = check_hash
         _download(url, model_dir, hash_prefix)
 
     if map_location:
@@ -397,20 +395,18 @@ def load_state_dict_from_url(
                 return paddle.load(cached_file)
     else:
         if _is_legacy_zip_format(cached_file):
-            return _legacy_zip_load(cached_file, model_dir, map_location)
+            return _legacy_zip_load(cached_file, model_dir)
         return paddle.load(cached_file)
 
 
 def _is_legacy_zip_format(filename):
-    # This function determines whether it is a ZIP file
     if zipfile.is_zipfile(filename):
         infolist = zipfile.ZipFile(filename).infolist()
         return len(infolist) == 1 and not infolist[0].is_dir()
     return False
 
 
-def _legacy_zip_load(filename, model_dir, map_location):
-    # Unzip the ZIP file and load the file with the load function
+def _legacy_zip_load(filename, model_dir, map_location=None):
     with zipfile.ZipFile(filename) as f:
         members = f.infolist()
         if len(members) != 1:
@@ -420,15 +416,17 @@ def _legacy_zip_load(filename, model_dir, map_location):
         f.extractall(model_dir)
         extracted_name = members[0].filename
         extracted_file = os.path.join(model_dir, extracted_name)
-    if map_location in ["numpy", "np"]:
-        return paddle.load(extracted_file, return_numpy=True)
+    if map_location:
+        if map_location in ["numpy", "np"]:
+            return paddle.load(extracted_file, return_numpy=True)
+        else:
+            with device_guard(map_location):
+                return paddle.load(extracted_file)
     else:
-        with device_guard(map_location):
-            return paddle.load(extracted_file)
+        return paddle.load(extracted_file)
 
 
 def get_dir():
-    # Get the path to the 'Paddle Hub' cache directory
     if os.getenv('PADDLE_HUB'):
         warnings.warn(
             'PADDLE_HUB is deprecated, please use env PADDLE_HOME instead'
@@ -437,7 +435,6 @@ def get_dir():
 
 
 def _get_paddle_home():
-    # Get the Paddle home directory from the environment variable or default to a standard location
     paddle_home = os.path.expanduser(
         os.getenv(
             'PADDLE_HOME',
