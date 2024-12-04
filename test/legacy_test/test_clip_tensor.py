@@ -15,10 +15,60 @@
 import unittest
 
 import numpy as np
+from op_test import OpTest, convert_float_to_uint16
 
 import paddle
 from paddle import base
 from paddle.base import core
+
+
+class TestClipTensorOp(OpTest):
+    def setUp(self):
+        self.max_relative_error = 0.006
+        self.python_api = paddle.clip
+
+        self.initTestCase()
+
+        x = np.random.random(size=self.shape).astype(self.dtype)
+        min = np.random.random(size=self.shape).astype(self.dtype)
+        max = np.random.random(size=self.shape).astype(self.dtype)
+
+        self.inputs = {'X': x, 'Min': min, 'Max': max}
+        self.outputs = {'Out': np.clip(x, min, max)}
+
+        self.op_type = "clip"
+    
+    def test_check_output(self):
+        paddle.enable_static()
+        self.check_output(check_cinn=True)
+        paddle.disable_static()
+
+    def test_check_grad_normal(self):
+        paddle.enable_static()
+        self.check_grad(['X', 'Min', 'Max'], 'Out')
+        paddle.disable_static()
+    
+    def initTestCase(self):
+        self.dtype = 'float32'
+        self.shape = (10, 10)
+
+
+class TestCase1(TestClipTensorOp):
+    def initTestCase(self):
+        self.dtype = np.int32
+        self.shape = (8, 16, 8)
+
+
+class TestCase2(TestClipTensorOp):
+    def initTestCase(self):
+        self.dtype = np.float64
+        self.shape = (8, 16)
+
+
+class TestCase3(TestClipTensorOp):
+    def initTestCase(self):
+        self.dtype = np.float32
+        self.shape = (8, 16, 11)
 
 
 def np_pd_equal(x_shape, min_shape=None, max_shape=None, dtype='float32'):
