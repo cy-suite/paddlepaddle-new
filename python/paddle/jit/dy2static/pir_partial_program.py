@@ -784,6 +784,15 @@ class PartialProgramLayer:
                                 forward_matched_value, kw_value
                             )
 
+                for op in forward_program.global_block().ops:
+                    if (
+                        op.name() == "builtin.shadow_output"
+                        and op.attrs()["output_name"]
+                        in program_name_attr["no_need_buffers"]
+                    ):
+                        op.set_bool_attr("no_need_buffer", True)
+
+                print("forward program", forward_program)
                 if cse_is_enabled():
                     paddle.base.libpaddle.pir.apply_cse_pass(forward_program)
                     paddle.base.libpaddle.pir.apply_cse_pass(backward_program)
