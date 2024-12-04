@@ -41,6 +41,7 @@ limitations under the License. */
 #include "paddle/fluid/framework/custom_operator.h"
 #include "paddle/fluid/framework/data_layout.h"
 #include "paddle/fluid/framework/data_type_transform.h"
+#include "paddle/fluid/framework/dense_tensor_array.h"
 #include "paddle/fluid/framework/details/nan_inf_utils_detail.h"
 #include "paddle/fluid/framework/executor.h"
 #include "paddle/fluid/framework/executor_cache.h"
@@ -53,8 +54,6 @@ limitations under the License. */
 #include "paddle/fluid/framework/ir/cost_model.h"
 #include "paddle/fluid/framework/ir/generate_pass.h"
 #include "paddle/fluid/framework/ir/pass_builder.h"
-#include "paddle/fluid/framework/lod_rank_table.h"
-#include "paddle/fluid/framework/lod_tensor_array.h"
 #include "paddle/fluid/framework/new_executor/collect_shape_manager.h"
 #include "paddle/fluid/framework/new_executor/executor_statistics.h"
 #include "paddle/fluid/framework/new_executor/interpreter/job.h"
@@ -756,10 +755,11 @@ static std::vector<std::vector<pir::Value>> GenerateBackwardBlockForPyLayerOp(
   // 1. construct pylayer grad op
   VLOG(6) << "Prepare Outputs for pylayer_grad";
   std::vector<pir::Type> output_types;
+  // NOTE: the last input of pylayer op is create_stack when called
+  // save_for_backward, whose stop_gradient is always True
   for (size_t i = 0; i < inputs_.size(); ++i) {
-    if (!stop_gradients[i][0]) {
-      output_types.push_back(inputs_[i][0].type());
-    }
+    if (inputs_[i][0].type().isa<pir::InletType>()) break;
+    output_types.push_back(inputs_[i][0].type());
   }
 
   VLOG(6) << "Prepare Inputs for pylayer_grad";
@@ -838,12 +838,9 @@ static std::vector<std::vector<pir::Value>> GenerateBackwardBlockForPyLayerOp(
   VLOG(6) << "Update pylayer_grad op finished";
 
   std::vector<std::vector<pir::Value>> res{inputs_.size()};
-  int grad_op_result_index = 0;
   for (size_t i = 0; i < res.size(); ++i) {
     res[i].resize(1);
-    res[i][0] = !stop_gradients[i][0]
-                    ? pylayer_grad->result(grad_op_result_index++)
-                    : pir::Value();
+    res[i][0] = !stop_gradients[i][0] ? pylayer_grad->result(i) : pir::Value();
   }
   return res;
 }
@@ -1512,17 +1509,13 @@ All parameter, weight, gradient are variables in Paddle.
           [](Variable &self) { return self.GetMutable<Vocab>(); },
           py::return_value_policy::reference)
       .def(
-          "get_lod_rank_table",
-          [](Variable &self) { return self.GetMutable<LoDRankTable>(); },
-          py::return_value_policy::reference)
-      .def(
           "get_selected_rows",
           [](Variable &self) -> phi::SelectedRows * {
             return self.GetMutable<phi::SelectedRows>();
           },
           py::return_value_policy::reference)
       .def(
-          "get_lod_tensor_array",
+          "get_dense_tensor_array",
           [](Variable &self) { return self.GetMutable<phi::TensorArray>(); },
           py::return_value_policy::reference)
       .def(
@@ -2476,7 +2469,7 @@ All parameter, weight, gradient are variables in Paddle.
 
   m.def("_is_program_version_supported", IsProgramVersionSupported);
 #if defined(PADDLE_WITH_CUDA)
-  m.def("alloctor_dump", [](const phi::GPUPlace &place) {
+  m.def("allocator_dump", [](const phi::GPUPlace &place) {
     auto allocator = std::dynamic_pointer_cast<
         paddle::memory::allocation::AutoGrowthBestFitAllocator>(
         paddle::memory::allocation::AllocatorFacade::Instance()
@@ -2496,15 +2489,6 @@ All parameter, weight, gradient are variables in Paddle.
   BindCommContextManager(&m);
   BindAutoParallel(&m);
   BindJitProperty(&m);
-
-  py::class_<framework::LoDRankTable>(m, "LodRankTable")
-      .def("items", [](framework::LoDRankTable &table) {
-        std::vector<std::pair<size_t, size_t>> res;
-        for (auto &item : table.items()) {
-          res.push_back({item.index, item.length});
-        }
-        return res;
-      });
 
   py::class_<phi::TensorArray> pydensetensorarray(m, "DenseTensorArray", R"DOC(
     DenseTensorArray is array of DenseTensor, it supports operator[], len() and for-loop iteration.
