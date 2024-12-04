@@ -279,7 +279,12 @@ double Expr::get_constant() const {
 
 bool Expr::is_var() const { return As<_Var_>(); }
 
-bool Expr::is_index() const { return get()->get_index(); }
+bool Expr::is_index() const {
+  // Temporarily use `is_index_tmp`. because `get_index` depends on marking
+  // `indexExpr` in For::make and sch
+  return is_index_tmp();
+  // return get()->get_index();
+}
 
 bool Expr::is_index_tmp() const {
   switch (node_type()) {
@@ -287,6 +292,7 @@ bool Expr::is_index_tmp() const {
       [[fallthrough]];
     case ir::IrNodeTy::IntImm: {
       if (type().is_index_type()) return true;
+      return false;
     }
     case ir::IrNodeTy::Add:
       [[fallthrough]];

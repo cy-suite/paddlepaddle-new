@@ -428,73 +428,71 @@ TEST_F(TestIterSimplify, fuse_same_source) {
   TEST_EXPR(e6, gt3, i_j_k_fused % 8);
 }
 
-// Temporarily disable this unit test because it depends on marking `indexExpr`
-// in For::make and sch
-// TEST_F(TestIterSimplify, SimplifyBindings) {
-//   std::vector<ir::Var> block_vars;
-//   std::vector<ir::Expr> iter_values;
-//   std::vector<ir::Expr> shape = {Expr(2), Expr(4), Expr(8)};
-//   std::vector<Var> axis_vars = cinn::common::GenDefaultAxis(3);
+TEST_F(TestIterSimplify, SimplifyBindings) {
+  std::vector<ir::Var> block_vars;
+  std::vector<ir::Expr> iter_values;
+  std::vector<ir::Expr> shape = {Expr(2), Expr(4), Expr(8)};
+  std::vector<Var> axis_vars = cinn::common::GenDefaultAxis(3);
 
-//   // Create block vars and axis vars
-//   for (int i = 0; i < shape.size(); ++i) {
-//     block_vars.push_back(ir::Var(Expr(0),
-//                                  shape[i],
-//                                  cinn::UniqName("b" + std::to_string(i)),
-//                                  false,
-//                                  false)
-//                              .set_index(1));
-//     axis_vars[i]->is_reduce_axis = false;
-//     iter_values.push_back(axis_vars[i]);
-//   }
+  // Create block vars and axis vars
+  for (int i = 0; i < shape.size(); ++i) {
+    block_vars.push_back(ir::Var(Expr(0),
+                                 shape[i],
+                                 cinn::UniqName("b" + std::to_string(i)),
+                                 false,
+                                 false)
+                             .set_index(1));
+    axis_vars[i]->is_reduce_axis = false;
+    iter_values.push_back(axis_vars[i]);
+  }
 
-//   // Create ScheduleBlock body
-//   ir::Expr body_ = ir::ScheduleBlockRealize::Make(
-//       iter_values,
-//       ir::ScheduleBlock::Make(block_vars, {}, {}, "Test", Expr(0)));
+  // Create ScheduleBlock body
+  ir::Expr body_ = ir::ScheduleBlockRealize::Make(
+      iter_values,
+      ir::ScheduleBlock::Make(block_vars, {}, {}, "Test", Expr(0)));
 
-//   // Create For loops
-//   auto body = body_;
-//   for (int i = shape.size() - 1; i >= 0; --i) {
-//     ir::Var loop_var = axis_vars[i];
-//     ir::Expr loop_extent = shape[i];
-//     body = ir::For::Make(loop_var,
-//                          Expr(0),
-//                          loop_extent,
-//                          ir::ForType::Serial,
-//                          ir::DeviceAPI::Host,
-//                          ir::Block::Make({body}));
-//   }
+  // Create For loops
+  auto body = body_;
+  for (int i = shape.size() - 1; i >= 0; --i) {
+    ir::Var loop_var = axis_vars[i];
+    ir::Expr loop_extent = shape[i];
+    body = ir::For::Make(loop_var,
+                         Expr(0),
+                         loop_extent,
+                         ir::ForType::Serial,
+                         ir::DeviceAPI::Host,
+                         ir::Block::Make({body}));
+  }
 
-//   // Create outter ScheduleBlockRealize
-//   ir::Expr body_outter = ir::ScheduleBlockRealize::Make(
-//       {}, ir::ScheduleBlock::Make({}, {}, {}, "test1", body));
+  // Create outter ScheduleBlockRealize
+  ir::Expr body_outter = ir::ScheduleBlockRealize::Make(
+      {}, ir::ScheduleBlock::Make({}, {}, {}, "test1", body));
 
-//   // Create ir schedule
-//   ir::ModuleExpr mod_expr({ir::Block::Make({body_outter})});
-//   ir::IRSchedule ir_sch(mod_expr);
-//   std::vector<ir::Expr> loops = ir_sch.GetLoops(body_);
+  // Create ir schedule
+  ir::ModuleExpr mod_expr({ir::Block::Make({body_outter})});
+  ir::IRSchedule ir_sch(mod_expr);
+  std::vector<ir::Expr> loops = ir_sch.GetLoops(body_);
 
-//   // Apply Fuse and Split
-//   ir::Expr loop_fuse = ir_sch.Fuse(loops);
-//   std::vector<ir::Expr> loops_split = ir_sch.Split(loop_fuse, {2, 2, 16});
-//   ir::Expr loop_fuse_2 = ir_sch.Fuse(loops_split);
+  // Apply Fuse and Split
+  ir::Expr loop_fuse = ir_sch.Fuse(loops);
+  std::vector<ir::Expr> loops_split = ir_sch.Split(loop_fuse, {2, 2, 16});
+  ir::Expr loop_fuse_2 = ir_sch.Fuse(loops_split);
 
-//   // Apply SimplifyBindings
-//   SimplifyBlockBinding::SimplifyBindings(loop_fuse_2, {}, analyzer);
+  // Apply SimplifyBindings
+  SimplifyBlockBinding::SimplifyBindings(loop_fuse_2, {}, analyzer);
 
-//   // Check result
-//   auto for_op = loop_fuse_2.As<ir::For>();
-//   auto simplified_values = for_op->body.As<ir::Block>()
-//                                ->stmts[0]
-//                                .As<ir::ScheduleBlockRealize>()
-//                                ->iter_values;
-//   auto f = for_op->loop_var;
+  // Check result
+  auto for_op = loop_fuse_2.As<ir::For>();
+  auto simplified_values = for_op->body.As<ir::Block>()
+                               ->stmts[0]
+                               .As<ir::ScheduleBlockRealize>()
+                               ->iter_values;
+  auto f = for_op->loop_var;
 
-//   EXPECT_EQ(simplified_values[0], f / 32);
-//   EXPECT_EQ(simplified_values[1], f % 32 / 8);
-//   EXPECT_EQ(simplified_values[2], f % 8);
-// }
+  EXPECT_EQ(simplified_values[0], f / 32);
+  EXPECT_EQ(simplified_values[1], f % 32 / 8);
+  EXPECT_EQ(simplified_values[2], f % 8);
+}
 
 TEST_F(TestIterSimplify, MergeMulMod) {
   auto S0 = ir::Var(ir::Expr(0), ir::Expr(4), "S0").set_index(1);
