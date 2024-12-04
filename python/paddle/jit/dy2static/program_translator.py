@@ -410,14 +410,11 @@ class StaticFunction(Generic[_InputT, _RetT]):
             self._dygraph_function = function.__func__
             self._class_instance = weakref.ref(function.__self__)
 
-            if not hasattr(self.class_instance, '_original_funcs'):
+            if not isinstance(self.class_instance, layers.Layer):
                 raise TypeError(
                     "When using 'to_static' to convert method of a class, "
                     "please ensure the class inherits from nn.Layer"
                 )
-            self.class_instance._original_funcs[function.__name__] = (
-                self._dygraph_function
-            )
         else:
             self._dygraph_function = function
             self._class_instance = None
@@ -433,6 +430,8 @@ class StaticFunction(Generic[_InputT, _RetT]):
         self._cuda_graph_capture_mode = ""
         self._cuda_graph_pool_id = 0
         self._property = kwargs.get("property", False)
+        # Note: Record the patched method name for rollback.
+        self._patched_name = None
         self._get_debug_name()
 
     def _get_debug_name(self) -> str:
@@ -503,11 +502,21 @@ class StaticFunction(Generic[_InputT, _RetT]):
             if (
                 isinstance(instance, layers.Layer)
                 and self._dygraph_function.__name__
-                not in instance._original_funcs.keys()
+                not in instance._patch_restorers
             ):
-                instance._original_funcs[self._dygraph_function.__name__] = (
-                    self._dygraph_function
+                # Patch the method to instance to override the original static
+                # method.
+                def restore_method(instance):
+                    object.__setattr__(
+                        instance,
+                        self._dygraph_function.__name__,
+                        self._dygraph_function.__get__(instance),
+                    )
+
+                instance._patch_restorers[self._dygraph_function.__name__] = (
+                    restore_method
                 )
+                self._patched_name = self._dygraph_function.__name__
             new_static_layer._class_instance = weakref.ref(instance)
             self._descriptor_cache[instance] = new_static_layer
 
@@ -669,8 +678,7 @@ class StaticFunction(Generic[_InputT, _RetT]):
         """
 
         def rollback_impl(class_instance):
-            for name, func in class_instance._original_funcs.items():
-                setattr(class_instance, name, func.__get__(class_instance))
+            class_instance._restore_all_patched_methods()
 
             for sublayer in class_instance.sublayers(include_self=False):
                 rollback_impl(sublayer)
@@ -679,19 +687,17 @@ class StaticFunction(Generic[_InputT, _RetT]):
             return self._dygraph_function
 
         # only rollback sub-functions on path of top _dygraph_function
-        func_name = self._dygraph_function.__name__
-        assert (
-            func_name in self.class_instance._original_funcs
-        ), f"Not Found function '{func_name}' in class '{self.class_instance.__class__}'."
-        func = self.class_instance._original_funcs[func_name]
-        setattr(
-            self.class_instance, func_name, func.__get__(self.class_instance)
+        fn_name = (
+            self._patched_name
+            if self._patched_name is not None
+            else self._dygraph_function.__name__
         )
+        self.class_instance._restore_patched_method(fn_name)
 
         for sublayer in self.class_instance.sublayers(include_self=False):
             rollback_impl(sublayer)
 
-        return getattr(self.class_instance, func_name)
+        return getattr(self.class_instance, fn_name, None)
 
     def __deepcopy__(self, memo):
         """

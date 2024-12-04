@@ -351,6 +351,47 @@ class HookRemoveHelper:
             del hooks[self._hook_id]
 
 
+def patch_method(instance: object, name: str, new_method: Callable[..., Any]):
+    def get_original_method(instance: object, name: str):
+        """
+        There are two case we don't need to restore the method:
+
+        1. If the attribute is not existed
+        2. If the obj.attr.__func__ is obj.__class__.attr
+
+        If the method need restore, return the original method.
+        Otherwise, return None, indicating that the method can be simply deleted.
+        """
+        if not hasattr(instance, name):
+            return None
+
+        original_method = getattr(instance, name)
+        if not inspect.ismethod(original_method):
+            # obj.attr is a function or other object (not a bound method)
+            return original_method
+
+        if not hasattr(instance.__class__, name):
+            # obj.__class__ has not the same unbound method
+            return original_method
+
+        if original_method.__func__ is not getattr(instance.__class__, name):
+            # obj.attr is a bound method, but it's unbound method is
+            # different from obj.__class__.attr
+            return original_method
+        return None
+
+    original_method = get_original_method(instance, name)
+    object.__setattr__(instance, name, new_method)
+
+    def restorer(instance):
+        if original_method is None:
+            object.__delattr__(instance, name)
+        else:
+            object.__setattr__(instance, name, original_method)
+
+    return restorer
+
+
 class Layer:
     """
     Dynamic graph Layer based on OOD, includes the parameters of the layer, the structure of the forward graph and so on.
@@ -446,7 +487,7 @@ class Layer:
             OrderedDict()
         )
         # Records original functions after @to_static to support to rollback
-        self._original_funcs = OrderedDict()
+        self._patch_restorers = OrderedDict()
 
     def train(self) -> None:
         """
@@ -1759,6 +1800,12 @@ class Layer:
                 if name in d:
                     del d[name]
 
+        if isinstance(
+            value, paddle.jit.dy2static.program_translator.StaticFunction
+        ):
+            self._patch_method(name, value)
+            value._patched_name = name
+            return
         if isinstance(getattr(type(self), name, None), property):
             object.__setattr__(self, name, value)
         params = self.__dict__.get('_parameters', None)
@@ -2697,3 +2744,16 @@ class Layer:
             _layer_trans_dtype(layer, paddle.bfloat16, excluded_layers)
 
         return self.apply(layer_trans)
+
+    def _patch_method(self, method_name, method):
+        restorer = patch_method(self, method_name, method)
+        self._patch_restorers[method_name] = restorer
+
+    def _restore_patched_method(self, method_name):
+        restorer = self._patch_restorers.pop(method_name, None)
+        if restorer is not None:
+            restorer(self)
+
+    def _restore_all_patched_methods(self):
+        for method_name in list(self._patch_restorers.keys()):
+            self._restore_patched_method(method_name)
