@@ -737,8 +737,6 @@ def replace_mid_values_with_forward_subgraph(
             if len(op_inputs) == 0 and define_op.name() not in [
                 "pd_op.full",
                 "pd_op.full_int_array",
-                "builtin.parameter",
-                "pd_op.data",
             ]:
 
                 def getIdx(program, op):
