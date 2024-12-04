@@ -14,7 +14,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 from paddle.distributed import fleet
 from paddle.framework import core
@@ -27,13 +27,34 @@ from .tensor_parallel import tensor_parallel
 if TYPE_CHECKING:
     import paddle
 
+    from .pipeline_parallel import SplitPoint
+    from .tensor_parallel import PlanBase
+
+    class _DPConfig(TypedDict):
+        sharding_level: str | int
+
+    class _ParallelizePlan(TypedDict):
+        str: PlanBase | list[PlanBase]
+
+    class _MPConfig(TypedDict):
+        parallelize_plan: _ParallelizePlan
+
+    class _PPConfig(TypedDict):
+        split_spec: str | dict[str, SplitPoint]
+        global_spec: str
+
+    class _ParallelizeConfig(TypedDict):
+        dp_config: _DPConfig
+        mp_config: _MPConfig
+        pp_config: _PPConfig
+
 
 def parallelize(
     model: paddle.nn.Layer,
     optimizer: paddle.optimizer.Optimizer | None = None,
     mesh: paddle.distributed.ProcessMesh | None = None,
-    config: dict | None = None,
-) -> (paddle.nn.Layer, paddle.optimizer.Optimizer):
+    config: _ParallelizeConfig | None = None,
+) -> tuple[paddle.nn.Layer, paddle.optimizer.Optimizer]:
     """
 
     Parallelize the model and optimizer from a single card version to a distributed version.
