@@ -259,7 +259,6 @@ class ActOpPattern : public pir::OpRewritePattern<OpType> {
 };
 using TanhOpPattern = ActOpPattern<paddle::dialect::TanhOp>;
 using CeluOpPattern = ActOpPattern<paddle::dialect::CeluOp>;
-using MishOpPattern = ActOpPattern<paddle::dialect::MishOp>;
 
 class Pool2dOpPattern
     : public pir::OpRewritePattern<paddle::dialect::Pool2dOp> {
@@ -278,6 +277,13 @@ class Pool2dOpPattern
       VLOG(3) << "Cannot find FullIntArrayOp";
       return false;
     }
+    auto attr_value =
+        full_int_array_op->attribute<pir::ArrayAttribute>("value");
+    std::vector<int64_t> kernel_size;
+    for (const auto &attr : attr_value.AsVector()) {
+      kernel_size.push_back(attr.dyn_cast<pir::Int64Attribute>().data());
+    }
+
     auto padding_attr = op->attribute<pir::ArrayAttribute>("paddings");
     std::vector<int32_t> paddings;
     for (const auto &attr : padding_attr.AsVector()) {
@@ -298,33 +304,25 @@ class Pool2dOpPattern
     if (!op->HasAttribute("pooling_type")) {
       VLOG(3) << "The pooling_type attribute does not exist";
       return false;
-    } else {
-      std::string pool_type =
-          op->attribute<pir::StrAttribute>("pooling_type").AsString();
-      if (pool_type != "max" && pool_type != "avg") {
-        VLOG(3) << "Wrong pool op type, the trt do not support the "
-                << pool_type << " pool type.";
-        return false;
-      }
-      if (pool_type == "avg") {
-        if (op->HasAttribute("global_pooling")) {
-          if (!op->attribute<pir::BoolAttribute>("global_pooling").data()) {
-            if (op->HasAttribute("exclusive")) {
-              if (op->attribute<pir::BoolAttribute>("exclusive").data()) {
-                auto attr_value =
-                    full_int_array_op->attribute<pir::ArrayAttribute>("value");
-                std::vector<int64_t> kernel_size;
-                for (const auto &attr : attr_value.AsVector()) {
-                  kernel_size.push_back(
-                      attr.dyn_cast<pir::Int64Attribute>().data());
-                }
-                for (size_t i = 0; i < kernel_size.size(); ++i) {
-                  if (kernel_size[i] <= paddings[i]) {
-                    VLOG(3) << "the padding size should be less than the "
-                               "filter size "
-                               "for exclusive-counting pooling.";
-                    return false;
-                  }
+    }
+    std::string pool_type =
+        op->attribute<pir::StrAttribute>("pooling_type").AsString();
+    if (pool_type != "max" && pool_type != "avg") {
+      VLOG(3) << "Wrong pool op type, the trt do not support the " << pool_type
+              << " pool type.";
+      return false;
+    }
+    if (pool_type == "avg") {
+      if (op->HasAttribute("global_pooling")) {
+        if (!op->attribute<pir::BoolAttribute>("global_pooling").data()) {
+          if (op->HasAttribute("exclusive")) {
+            if (op->attribute<pir::BoolAttribute>("exclusive").data()) {
+              for (size_t i = 0; i < kernel_size.size(); ++i) {
+                if (kernel_size[i] <= paddings[i]) {
+                  VLOG(3) << "the padding size should be less than the "
+                             "filter size "
+                             "for exclusive-counting pooling.";
+                  return false;
                 }
               }
             }
@@ -338,13 +336,28 @@ class Pool2dOpPattern
         op->attribute<pir::BoolAttribute>("global_pooling").data();
     std::string padding_algorithm =
         op->attribute<pir::StrAttribute>("padding_algorithm").AsString();
-    // TODO(Lizexu): The general plugin approach for entering TensorRT has not
-    // been supported yet.
+
     auto adaptive = op->attribute<pir::BoolAttribute>("adaptive").data();
-    if (adaptive) {
-      VLOG(3)
-          << "The adaptive is true pd_op.pool2d is not supported by trt now";
-      return false;
+    if (adaptive && pool_type == "avg") {
+      pir::Value input = op.operand_source(0);
+      auto input_shape = pir::GetShapeFromValue(input);
+      int input_dims = input_shape.size();
+      int input_h = input_shape[input_dims - 2];
+      int input_w = input_shape[input_dims - 1];
+      if (input_h <= 0 || input_w <= 0) {
+        VLOG(3) << "Adaptive average pooling with dynamic input shapes is not "
+                   "supported without a plugin.Because window_size can only "
+                   "support dims>=1";
+        return false;
+      } else {
+        int output_h = kernel_size[0];
+        int output_w = kernel_size[1];
+        if (input_h % output_h != 0 || input_w % output_w != 0) {
+          VLOG(3) << "For AdaptiveAvgPool,input dim has to be integer multiple "
+                     "of output dim.";
+          return false;
+        }
+      }
     }
     // TODO(Lizexu): This piece of code exists in the old IR-TRT implementation
     // but is not covered by unit tests, raising suspicions about its
@@ -352,13 +365,6 @@ class Pool2dOpPattern
     // causes precision issues. For now, we will exclude it from entering
     // TensorRT.
     pir::Value input = op.operand_source(0);
-    auto kernel_size_attr =
-        full_int_array_op->attribute<pir::ArrayAttribute>("value");
-    std::vector<int64_t> kernel_size;
-    for (const auto &attr : kernel_size_attr.AsVector()) {
-      kernel_size.push_back(attr.dyn_cast<pir::Int64Attribute>().data());
-    }
-
     auto input_type = input.type().dyn_cast<paddle::dialect::DenseTensorType>();
     auto input_dims = input_type.dims();
     int g_post_pad_h = 0;
@@ -2261,7 +2267,6 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<NotEqualOpPattern>(context));
     ps.Add(std::make_unique<TanhOpPattern>(context));
     ps.Add(std::make_unique<CeluOpPattern>(context));
-    ps.Add(std::make_unique<MishOpPattern>(context));
     ps.Add(std::make_unique<OneHotOpPattern>(context));
     ps.Add(std::make_unique<AssignValueOpPattern>(context));
     ps.Add(std::make_unique<AssignValue_OpPattern>(context));
