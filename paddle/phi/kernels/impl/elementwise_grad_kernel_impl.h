@@ -327,12 +327,8 @@ struct CudaIntArray {
         a7(a7_) {}
 
   __device__ __host__ int operator[](const int64_t& idx) const {
-#ifdef __CUDA_ARCH__
+#if defined(__CUDA_ARCH__) || defined(__HIPCC__)
     assert(0 <= idx && idx < MAX_SIZE);
-#else
-    if (idx < 0 || idx >= MAX_SIZE) {
-      throw std::out_of_range("Index out of bounds");
-    }
 #endif
 
     switch (idx) {
