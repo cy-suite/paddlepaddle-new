@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import math
 import warnings
+
+import numpy as np
 
 import paddle
 import paddle.distributed as dist
@@ -30,11 +33,50 @@ from paddle.distributed.auto_parallel.static.tuner.to_distributed_api_patterns i
     register_used_patterns,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class ToDistributedConfig:
     def __init__(self):
         self.input_spec = None
         self.sequence_parallel = False
+
+
+def cost_model(matched_programs, device_num, node_num):
+    # TODO(jeff41404): multi-node will be supported later
+    assert (
+        node_num == 1
+    ), "we only support single node now, multi-node will be supported later"
+
+    # TODO(jeff41404): will evaluate the best combination of parallel strategies
+    # based on cost_model and return global_mesh, currently using pre-defined parallel strategy
+    if device_num % 2 == 0:
+        if device_num == 8:
+            return dist.ProcessMesh(
+                np.arange(device_num).reshape(2, 2, 2).tolist(),
+                dim_names=["pp", "dp", "mp"],
+            )
+        elif device_num == 6:
+            return dist.ProcessMesh(
+                np.arange(device_num).reshape(3, 2).tolist(),
+                dim_names=["dp", "mp"],
+            )
+        elif device_num == 4:
+            return dist.ProcessMesh(
+                np.arange(device_num).reshape(2, 2).tolist(),
+                dim_names=["dp", "mp"],
+            )
+        elif device_num == 2:
+            return dist.ProcessMesh(list(range(device_num)), dim_names=["dp"])
+        else:
+            raise ValueError(
+                f"device_num must be an even number to be able to use at least 2 parallel strategies, but got: {device_num}"
+            )
+    else:
+        logger.w0arning(
+            f'device_num must be an even number to be able to use at least 2 parallel strategies, but got: {device_num}, only use data parallel.'
+        )
+        return dist.ProcessMesh(list(range(device_num)), dim_names=["dp"])
 
 
 def record_program_ops_pre_hook(layer, inputs):
@@ -208,31 +250,12 @@ def get_layer_pp_info(mesh, num_hidden_layers, layer_index):
 
 
 # mesh, config: input_spec
-def to_distributed(model, dataloader, optimizer, mesh, config):
-    paddle.distributed.init_parallel_env()
+def to_distributed(model, optimizer, dataloader, device_num, node_num, config):
+    logger.debug(f'input model: {model}')
+    # paddle.distributed.init_parallel_env()
 
-    with_pp = True if "pp" in mesh.dim_names else False
-    with_sp = True if config.sequence_parallel else False
-
-    # # Data Parallel
-    # # step_0: shard dataloader
-    if with_pp:
-        first_stage_mesh = mesh.get_mesh_with_dim("pp", 0)
-        last_stage_mesh = mesh.get_mesh_with_dim("pp", 1)
-        loader = dist.shard_dataloader(
-            dataloader,
-            meshes=[first_stage_mesh, last_stage_mesh],
-            shard_dims="dp",
-        )
-    else:
-        loader = dist.shard_dataloader(
-            dataloader, meshes=[mesh], shard_dims="dp"
-        )
-
-    # Sharding Parallel
-    # # step_1: shard optimizer
-
-    # # step_2: register pre-hooks and post-hooks, thus recording corresponding static ops in following paddle.jit.to_static
+    # step 1: identifying network structure and pattern recogincation
+    # step 1.1: register pre-hooks and post-hooks, thus recording corresponding static ops in following paddle.jit.to_static
     for layer in model.sublayers():
         pre_hook_helper = layer.register_forward_pre_hook(
             record_program_ops_pre_hook
@@ -243,15 +266,19 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
         layer._op_recorder.hooks.append(pre_hook_helper)
         layer._op_recorder.hooks.append(post_hook_helper)
 
-    # # step_3: call @to_static, get program, and corresponding static ops of each layer
-    # (1) with FLAGS_enable_pir_api=False, get program based on var and op, default to False
-    # (2) with FLAGS_enable_pir_api=True, get pir program
+    # step 1.2: call @to_static, get program, and corresponding static ops of each layer
     static_func = paddle.jit.to_static(
         model.forward, input_spec=config.input_spec, full_graph=True
     )
     program = static_func.concrete_program.main_program
+    # currently, paddle.jit.to_static has side effects that will affect model.
+    # After fixing it, one line of code below can be dropped
+    static_func.rollback()
+    logger.debug(
+        f'Converted model to pir program: {program}, for pattern matching'
+    )
 
-    # # step_4: get the mapping [dynamic-layers : static ops]
+    # step 1.3: get the mapping [dynamic-layers : static ops]
     op_to_id = {}
     for idx, op in enumerate(program.global_block().ops):
         op_to_id[op] = idx
@@ -268,10 +295,11 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
             ops_id.append(op_id)
         ops_id_to_layer[tuple(ops_id)] = layer
 
-    # # step_5: pattern recogincation
+    # step 1.4: pattern recogincation
     DECODER_LAYER_NAME = 'decoder_layer'
     register_used_patterns(DECODER_LAYER_NAME)
     results = match_all_patterns(program)
+    logger.debug(f'Matched decoder layer patterns are: {results}')
 
     matched_programs = {}
     for pattern_name, matched_patterns in results.items():
@@ -289,15 +317,25 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
                 for pattern_op_id in pattern_ops_id:
                     assert (
                         pattern_op_id in matched_pattern.keys()
-                    ), "pattern not matched"
+                    ), f"please check ops_dist_infos of {pattern_name}, {pattern_op_id} not in matched_pattern: {matched_pattern.keys()}"
                     program_op_id = matched_pattern[pattern_op_id]
                     program_ops_id.append(program_op_id)
                 program_ops_dist_infos[tuple(program_ops_id)] = op_dist_info
             processed_patterns.append(program_ops_dist_infos)
         matched_programs[pattern_name] = processed_patterns
 
-    # Tensor Parallel
-    # # step_6: shard weight tensors in decoder blocks
+    # step 2: calculate the optimal parallel strategies based on the network structure
+    mesh = cost_model(matched_programs, device_num, node_num)
+    logger.warning(f'mesh: {mesh}')
+    # logger.warning(f'dp0: {mesh.get_mesh_with_dim("dp", 0)}')
+    # logger.warning(f'dp1: {mesh.get_mesh_with_dim("dp", 1)}')
+    # logger.warning(f'mp0: {mesh.get_mesh_with_dim("mp", 0)}')
+    # logger.warning(f'mp1: {mesh.get_mesh_with_dim("mp", 1)}')
+
+    with_pp = True if "pp" in mesh.dim_names else False
+    with_sp = True if config.sequence_parallel else False
+
+    # step 3: processing tensor parallel if necessary, according to the optimal parallel strategies shard weight tensors in decoder blocks
     num_hidden_layers = len(matched_programs[DECODER_LAYER_NAME])
     for pattern_name, processed_patterns in matched_programs.items():
         assert (
@@ -323,8 +361,9 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
                     dynamic_layer.bias = dist.shard_tensor(
                         dynamic_layer.bias, local_mesh, sharding_info[1]
                     )
-    # Pipeline Parallel
-    # # step_7: reshard inputs of decoder blocks to next pp mesh b when switching from pp stage a to pp stage b
+    logger.debug(f'after tensor parallel, model: {model}')
+
+    # step 4: processing pipeline parallel if necessary, reshard inputs of decoder blocks to next pp mesh b when switching from pp stage a to pp stage b
     if with_pp:
         decoder_layers = []
         for pattern_name, matched_all_patterns in results.items():
@@ -342,7 +381,7 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
             num_decoder_blocks = len(decoder_layers)
             assert (
                 num_decoder_blocks == num_hidden_layers
-            ), "decoder pattern layers matched are incomplete"
+            ), f"decoder pattern layers matched are incomplete, num_decoder_blocks: {num_decoder_blocks} should be equal to num_hidden_layers: {num_hidden_layers}"
 
             pp_degree = mesh.get_dim_size("pp")
             num_blocks_per_stage = num_decoder_blocks // pp_degree
@@ -354,9 +393,9 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
                 pre_hook_helper = decoder_layer.register_forward_pre_hook(
                     reshard_all_inputs
                 )
+    logger.debug(f'after pipeline parallel, model: {model}')
 
-    # Sequence Parallel
-    # # step_8: reshard or transpose sequence dims for inputs of attention/mlp inputs
+    # step 5: processing sequence parallel if necessary, reshard or transpose sequence dims for inputs of attention/mlp inputs
     if with_sp:
         clear_used_patterns()
         EMBEDDING_LAYER_NAME = "embedding"
@@ -389,6 +428,7 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
                                 ops_id_to_layer[tuple(sorted(program_ops_id))]
                             ]
 
+        logger.debug(f'Matched attention/mlp layers are: {matched_layers}')
         # init mesh
         GLOBAL_MESH = []
         if with_pp:
@@ -457,7 +497,22 @@ def to_distributed(model, dataloader, optimizer, mesh, config):
                 reshard_transpose_rms_norm_layer_output
             )
 
-    # # step_9: clean layer_op recorder hooks
+    # step 6: processing data parallel if necessary, shard dataloader
+    # TODO(jeff41404): shard optimizer
+    if with_pp:
+        first_stage_mesh = mesh.get_mesh_with_dim("pp", 0)
+        last_stage_mesh = mesh.get_mesh_with_dim("pp", 1)
+        loader = dist.shard_dataloader(
+            dataloader,
+            meshes=[first_stage_mesh, last_stage_mesh],
+            shard_dims="dp",
+        )
+    else:
+        loader = dist.shard_dataloader(
+            dataloader, meshes=[mesh], shard_dims="dp"
+        )
+
+    # step 7: clean layer_op recorder hooks
     for layer in model.sublayers():
         for hook_helper in layer._op_recorder.hooks:
             hook_helper.remove()

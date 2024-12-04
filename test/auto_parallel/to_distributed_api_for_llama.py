@@ -18,7 +18,6 @@ import os
 import numpy as np
 
 import paddle
-import paddle.distributed as dist
 import paddle.nn.functional as F
 from paddle import nn
 from paddle.distributed.auto_parallel.high_level_api import (
@@ -26,8 +25,9 @@ from paddle.distributed.auto_parallel.high_level_api import (
     to_distributed,
 )
 
+EPOCHES = 1
 VOCAB_SIZE = 8000
-BATCH_NUM = 3
+BATCH_NUM = 2
 BATCH_SIZE = 4
 HIDDEN_SIZE = 2048
 INTERMEDIATE_SIZE = 4096
@@ -408,6 +408,8 @@ class LlamaModel(nn.Layer):
     ):
         batch_size, seq_length = input_ids.shape
 
+        print("in LlamaModel, input_ids:")
+        print(input_ids)
         inputs_embeds = self.embed_tokens(input_ids)
 
         # embed positions
@@ -479,6 +481,8 @@ class LlamaPretrainingCriterion(paddle.nn.Layer):
                 loss = paddle.sum(masked_lm_loss * binary_sequence)
             else:
                 loss = paddle.sum(masked_lm_loss * binary_sequence) / count
+            print("in LlamaPretrainingCriterion, loss:")
+            print(loss)
 
         return loss
 
@@ -555,13 +559,13 @@ class LlamaForCausalLM(paddle.nn.Layer):
 
 
 class RandomDataset(paddle.io.Dataset):
-    def __init__(self, images, labels, num_samples):
-        self.images = images
+    def __init__(self, inputs, labels, num_samples):
+        self.inputs = inputs
         self.labels = labels
         self.num_samples = num_samples
 
     def __getitem__(self, idx):
-        return self.images[idx], self.labels[idx]
+        return self.inputs[idx], self.labels[idx]
 
     def __len__(self):
         return self.num_samples
@@ -573,9 +577,8 @@ class TestLlamaDecoderForSemiAutoParallel:
         self._backend = os.getenv("backend", "gpu")
         self._seed = eval(os.getenv("seed", "2023"))
 
-        self._mesh = mesh = dist.ProcessMesh(
-            [[[0, 1], [2, 3]], [[4, 5], [6, 7]]], dim_names=["pp", "dp", "mp"]
-        )
+        self._device_num = 8
+        self._node_num = 1
         self._model = LlamaForCausalLM("demo_llama")
 
         self._input_seqs = np.random.randint(
@@ -587,8 +590,11 @@ class TestLlamaDecoderForSemiAutoParallel:
         self._dataset = RandomDataset(
             self._input_seqs, self._labels, BATCH_SIZE * BATCH_NUM
         )
+        self._sampler = paddle.io.BatchSampler(
+            self._dataset, batch_size=BATCH_SIZE, shuffle=False, drop_last=True
+        )
         self._loader = paddle.io.DataLoader(
-            self._dataset, batch_size=BATCH_SIZE
+            self._dataset, batch_sampler=self._sampler
         )
         self._opt = paddle.optimizer.SGD(
             learning_rate=0.1, parameters=self._model.parameters()
@@ -607,8 +613,23 @@ class TestLlamaDecoderForSemiAutoParallel:
 
         # # wrap model by using **to_distributed**
         dist_model, dist_loader, dist_opt = to_distributed(
-            self._model, self._loader, self._opt, self._mesh, dist_config
+            self._model,
+            self._opt,
+            self._loader,
+            self._device_num,
+            self._node_num,
+            dist_config,
         )
+
+        for epoch in range(EPOCHES):
+            dist_model.train()
+            for i, data in enumerate(dist_loader()):
+                inputs, labels = data
+                loss, _ = dist_model(inputs, labels=labels)
+                print(f"epoch {epoch}, step {i}: loss {loss}")
+                loss.backward()
+                dist_opt.step()
+                dist_opt.clear_grad()
 
     def run_test_case(self):
         if self._backend == "gpu":
