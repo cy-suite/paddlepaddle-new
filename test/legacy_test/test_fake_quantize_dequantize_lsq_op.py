@@ -19,7 +19,9 @@ import unittest
 import numpy as np
 from op_test import OpTest
 
+import paddle
 from paddle import _C_ops
+from paddle.quantization.quanters.lsq import fake_lsq_quant_dequant
 
 
 # rounding to nearest ties away from zero
@@ -218,15 +220,157 @@ def ref_lsq(x, scale, lsq_factor, bit_length, round_type, dtype):
 
     if round_type == 1:
         # clip then round
-        # out = np.round(np.clip((x - beta)*inverse(alpha), Qn, Qp)) * alpha + beta
         out = round_c(np.clip(x * inverse(scale), Qn, Qp)) * scale
-        # out = np.clip(round_c((x - beta)*inverse(alpha)), Qn, Qp) * alpha + beta
     else:
         # round then clip
         out = np.clip(round_t(x * inverse(scale)), Qn, Qp) * scale
 
     out = out.astype(dtype)
     return out
+
+
+class TestLsq(unittest.TestCase):
+    def setUp(self):
+        self.bit_width = 8
+
+    def run_dyamic(
+        self,
+        input_data,
+        scale,
+        lsq_factor,
+        bit_width,
+        round_type,
+        place='cpu',
+    ):
+        input_data = paddle.to_tensor(input_data)
+        input_data = input_data.to(place)
+        scale = paddle.to_tensor(scale)
+        scale = scale.to(place)
+        lsq_factor = paddle.to_tensor(lsq_factor)
+        lsq_factor = lsq_factor.to(place)
+        out = fake_lsq_quant_dequant(
+            input_data, scale, lsq_factor, bit_width, round_type
+        )
+        return out.numpy()
+
+    def run_static(
+        self,
+        input_data,
+        scale_v,
+        lsq_factor_v,
+        bit_width,
+        round_type,
+        dtype,
+        place='cpu',
+    ):
+        paddle.enable_static()
+        x = paddle.static.data(name='x', shape=input_data.shape, dtype=dtype)
+        x.stop_gradient = False
+        scale = paddle.static.data(name='scale', shape=[1], dtype=dtype)
+        scale.stop_gradient = False
+
+        if place == 'cpu':
+            place = paddle.CPUPlace()
+        elif place == 'gpu':
+            place = paddle.CUDAPlace(0)
+        else:
+            raise ValueError("Unsupported place")
+
+        exe = paddle.static.Executor(place)
+        out = fake_lsq_quant_dequant(
+            x, scale, lsq_factor_v, bit_width, round_type
+        )
+        exe.run(paddle.static.default_startup_program())
+        out_result = exe.run(
+            paddle.static.default_main_program(),
+            feed={
+                'x': input_data,
+                'scale': scale_v,
+            },
+            fetch_list=[out],
+        )
+        paddle.disable_static()
+        return out_result
+
+    def run_fake_quant(
+        self,
+        dtype,
+        input_shape,
+        distributions,
+        round_type='TiesAwayFromZero',
+        dygraph=True,
+        place='cpu',
+    ):
+        input_data = distributions[0](input_shape).astype(dtype)
+        scale = distributions[1]([1]).astype(dtype)
+        lsq_factor = distributions[2]([1]).astype(dtype)
+
+        round_type = 0 if round_type == 'TiesToEven' else 1
+        ref_out = ref_lsq(
+            input_data,
+            scale,
+            lsq_factor,
+            self.bit_width,
+            round_type,
+            dtype,
+        )
+        if dtype == np.float16:
+            dtype = 'float16'
+        elif dtype == np.float32:
+            dtype = 'float32'
+        else:
+            raise ValueError("Unsupported data type")
+
+        if dygraph:
+            out = self.run_dyamic(
+                input_data,
+                scale,
+                lsq_factor,
+                self.bit_width,
+                round_type,
+                place=place,
+            )
+        else:
+            out = self.run_static(
+                input_data,
+                scale,
+                lsq_factor,
+                self.bit_width,
+                round_type,
+                dtype=dtype,
+                place=place,
+            )
+        self.assertEqual(np.allclose(out, ref_out), True, "output not equal")
+
+    def test_fake_quantize_dequantize_dygraph(self):
+        distributions = [
+            np.random.random,
+            np.random.random,
+            np.random.random,
+        ]
+
+        self.run_fake_quant(
+            np.float32,
+            (128, 128),
+            distributions,
+            round_type='TiesToEven',
+            dygraph=True,
+        )
+
+    def test_fake_quantize_dequantize_static(self):
+        distributions = [
+            np.random.random,
+            np.random.random,
+            np.random.random,
+        ]
+
+        self.run_fake_quant(
+            np.float32,
+            (128, 128),
+            distributions,
+            round_type='TiesToEven',
+            dygraph=False,
+        )
 
 
 if __name__ == '__main__':
