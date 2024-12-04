@@ -18,6 +18,7 @@ import os
 import numpy as np
 
 import paddle
+import paddle.distributed as dist
 import paddle.nn.functional as F
 from paddle import nn
 from paddle.distributed.auto_parallel.high_level_api import (
@@ -577,10 +578,25 @@ class TestLlamaDecoderForSemiAutoParallel:
         self._backend = os.getenv("backend", "gpu")
         self._seed = eval(os.getenv("seed", "2023"))
 
-        self._device_num = 8
+        self._device_num = os.getenv("num_of_devices", 8)
         self._node_num = 1
+
+        np.random.seed(self._seed)
+        paddle.seed(self._seed)
         self._model = LlamaForCausalLM("demo_llama")
 
+        # ensure that input data between dp is different and data within dp is the same
+        self._mesh = dist.ProcessMesh(
+            [[[0, 1], [2, 3]], [[4, 5], [6, 7]]], dim_names=["pp", "dp", "mp"]
+        )
+        if "dp" in self._mesh.dim_names:
+            dp_seed = self._mesh.get_rank_by_dim_and_process_id(
+                "dp", dist.get_rank()
+            )
+        else:
+            dp_seed = 0
+        np.random.seed(self._seed + dp_seed)
+        paddle.seed(self._seed + dp_seed)
         self._input_seqs = np.random.randint(
             low=0, high=1024, size=(BATCH_SIZE * BATCH_NUM, SEQ_LENGTH)
         ).astype("int64")
@@ -612,7 +628,7 @@ class TestLlamaDecoderForSemiAutoParallel:
         dist_config.sequence_parallel = True
 
         # # wrap model by using **to_distributed**
-        dist_model, dist_loader, dist_opt = to_distributed(
+        dist_model, dist_opt, dist_loader = to_distributed(
             self._model,
             self._opt,
             self._loader,

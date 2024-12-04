@@ -333,34 +333,39 @@ def to_distributed(model, optimizer, dataloader, device_num, node_num, config):
     # logger.warning(f'mp1: {mesh.get_mesh_with_dim("mp", 1)}')
 
     with_pp = True if "pp" in mesh.dim_names else False
+    with_mp = True if "mp" in mesh.dim_names else False
+    with_dp = True if "dp" in mesh.dim_names else False
     with_sp = True if config.sequence_parallel else False
 
     # step 3: processing tensor parallel if necessary, according to the optimal parallel strategies shard weight tensors in decoder blocks
-    num_hidden_layers = len(matched_programs[DECODER_LAYER_NAME])
-    for pattern_name, processed_patterns in matched_programs.items():
-        assert (
-            len(processed_patterns) == num_hidden_layers
-        ), "transformer patterns matched are incomplete"
-        for idx, processed_pattern in enumerate(processed_patterns):
-            local_mesh = mesh
-            if with_pp:
-                pp_stage_id = get_layer_pp_info(mesh, num_hidden_layers, idx)
-                local_mesh = mesh.get_mesh_with_dim("pp", pp_stage_id)
-
-            for program_ops_id, dist_infos in processed_pattern.items():
-                assert (
-                    program_ops_id in ops_id_to_layer.keys()
-                ), f"program_ops: {program_ops_id} is not corresponding to a dynamic layer"
-                dynamic_layer = ops_id_to_layer[program_ops_id]
-                mesh_num_dims = len(local_mesh.shape)
-                sharding_info = dist_infos.get_dist_info(mesh_num_dims)
-                dynamic_layer.weight = dist.shard_tensor(
-                    dynamic_layer.weight, local_mesh, sharding_info[0]
-                )
-                if dynamic_layer.bias is not None:
-                    dynamic_layer.bias = dist.shard_tensor(
-                        dynamic_layer.bias, local_mesh, sharding_info[1]
+    if with_mp:
+        num_hidden_layers = len(matched_programs[DECODER_LAYER_NAME])
+        for pattern_name, processed_patterns in matched_programs.items():
+            assert (
+                len(processed_patterns) == num_hidden_layers
+            ), "transformer patterns matched are incomplete"
+            for idx, processed_pattern in enumerate(processed_patterns):
+                local_mesh = mesh
+                if with_pp:
+                    pp_stage_id = get_layer_pp_info(
+                        mesh, num_hidden_layers, idx
                     )
+                    local_mesh = mesh.get_mesh_with_dim("pp", pp_stage_id)
+
+                for program_ops_id, dist_infos in processed_pattern.items():
+                    assert (
+                        program_ops_id in ops_id_to_layer.keys()
+                    ), f"program_ops: {program_ops_id} is not corresponding to a dynamic layer"
+                    dynamic_layer = ops_id_to_layer[program_ops_id]
+                    mesh_num_dims = len(local_mesh.shape)
+                    sharding_info = dist_infos.get_dist_info(mesh_num_dims)
+                    dynamic_layer.weight = dist.shard_tensor(
+                        dynamic_layer.weight, local_mesh, sharding_info[0]
+                    )
+                    if dynamic_layer.bias is not None:
+                        dynamic_layer.bias = dist.shard_tensor(
+                            dynamic_layer.bias, local_mesh, sharding_info[1]
+                        )
     logger.debug(f'after tensor parallel, model: {model}')
 
     # step 4: processing pipeline parallel if necessary, reshard inputs of decoder blocks to next pp mesh b when switching from pp stage a to pp stage b
@@ -499,17 +504,22 @@ def to_distributed(model, optimizer, dataloader, device_num, node_num, config):
 
     # step 6: processing data parallel if necessary, shard dataloader
     # TODO(jeff41404): shard optimizer
-    if with_pp:
-        first_stage_mesh = mesh.get_mesh_with_dim("pp", 0)
-        last_stage_mesh = mesh.get_mesh_with_dim("pp", 1)
-        loader = dist.shard_dataloader(
-            dataloader,
-            meshes=[first_stage_mesh, last_stage_mesh],
-            shard_dims="dp",
-        )
+    if with_dp:
+        if with_pp:
+            first_stage_mesh = mesh.get_mesh_with_dim("pp", 0)
+            last_stage_mesh = mesh.get_mesh_with_dim("pp", 1)
+            loader = dist.shard_dataloader(
+                dataloader,
+                meshes=[first_stage_mesh, last_stage_mesh],
+                shard_dims="dp",
+            )
+        else:
+            loader = dist.shard_dataloader(
+                dataloader, meshes=[mesh], shard_dims="dp"
+            )
     else:
         loader = dist.shard_dataloader(
-            dataloader, meshes=[mesh], shard_dims="dp"
+            dataloader, meshes=[mesh], shard_dims=None
         )
 
     # step 7: clean layer_op recorder hooks
@@ -517,4 +527,4 @@ def to_distributed(model, optimizer, dataloader, device_num, node_num, config):
         for hook_helper in layer._op_recorder.hooks:
             hook_helper.remove()
 
-    return model, loader, optimizer
+    return model, optimizer, loader
