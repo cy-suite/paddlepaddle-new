@@ -358,9 +358,13 @@ CudaIntArray initCudaIntArray(const int* vec, const int& size) {
   PADDLE_ENFORCE_LE(
       size,
       MAX_SIZE,
-      "Given size to init CudaIntArray must be less than" XSTR(MAX_SIZE));
+      common::errors::OutOfRange(
+          "Given size to init CudaIntArray must be less than" XSTR(MAX_SIZE)));
   PADDLE_ENFORCE_GT(
-      size, 0, "Given size to init CudaIntArray must be greater than 0");
+      size,
+      0,
+      common::errors::OutOfRange(
+          "Given size to init CudaIntArray must be greater than 0"));
   return CudaIntArray(size > 0 ? vec[0] : 0,
                       size > 1 ? vec[1] : 0,
                       size > 2 ? vec[2] : 0,
