@@ -504,19 +504,19 @@ class StaticFunction(Generic[_InputT, _RetT]):
                 and self._dygraph_function.__name__
                 not in instance._patch_restorers
             ):
+                fn_name = self._dygraph_function.__name__
+
                 # Patch the method to instance to override the original static
                 # method.
                 def restore_method(instance):
                     object.__setattr__(
                         instance,
-                        self._dygraph_function.__name__,
+                        fn_name,
                         self._dygraph_function.__get__(instance),
                     )
 
-                instance._patch_restorers[self._dygraph_function.__name__] = (
-                    restore_method
-                )
-                self._patched_name = self._dygraph_function.__name__
+                instance._patch_restorers[fn_name] = restore_method
+                self._patched_name = fn_name
             new_static_layer._class_instance = weakref.ref(instance)
             self._descriptor_cache[instance] = new_static_layer
 
