@@ -3241,8 +3241,7 @@ bool SliceOpInferSymbolicShape(pir::Operation *op,
       const symbol::ShapeOrDataDimExprs &se_shape_data =
           infer_context->GetShapeOrDataForValue(
               op->operand_source(operand_idx));
-      if (se_shape_data.data().has_value()) {
-        *expr_vec = se_shape_data.data().value();
+      if (slice_utils::GetExprVecOfStartEnd(se_shape_data, expr_vec)) {
         return true;
       }
       PADDLE_ENFORCE_EQ(
