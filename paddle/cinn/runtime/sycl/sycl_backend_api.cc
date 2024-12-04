@@ -40,10 +40,7 @@ void SYCLBackendAPI::Init(Arch arch) {
       [&](common::X86Arch) { LOG(FATAL) << "SYCL Not supported this arch \n"; },
       [&](common::ARMArch) { LOG(FATAL) << "SYCL Not supported this arch \n"; },
       [&](common::NVGPUArch) { backend = ::sycl::backend::ext_oneapi_cuda; },
-      [&](common::HygonDCUArchHIP) {
-        backend = ::sycl::backend::ext_oneapi_hip;
-      },
-      [&](common::HygonDCUArchSYCL) {
+      [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
         backend = ::sycl::backend::ext_oneapi_hip;
       });
   // look for matched devices
@@ -53,18 +50,10 @@ void SYCLBackendAPI::Init(Arch arch) {
     }
   }
   if (this->devices.size() == 0) {
-    std::cerr << "No valid gpu device matched given arch:";
+    std::cerr << "No valid gpu device matched given arch \n";
   }
   this->contexts.resize(this->devices.size(), nullptr);
   this->queues.resize(this->devices.size());
-  // sycl::backend -> Target::Arch
-  switch (backend) {
-    case ::sycl::backend::ext_oneapi_hip:
-      this->arch = common::HygonDCUArchSYCL{};
-      break;
-    default:
-      LOG(FATAL) << "SYCL Not supported this backend \n";
-  }
   initialized_ = true;
 }
 
@@ -170,6 +159,7 @@ int SYCLBackendAPI::get_device_property(DeviceProperty device_property,
       size_t max_sub_group_size =
           *max_element(std::begin(sub_group_sizes), std::end(sub_group_sizes));
       rv = static_cast<int>(max_sub_group_size);
+      break;
     }
     default:
       LOG(FATAL) << "Not supported device property!";

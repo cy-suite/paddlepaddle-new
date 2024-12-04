@@ -169,13 +169,7 @@ void OptimizeReductionTactic::Apply(ir::IRSchedule* sch,
       },
       [&](std::variant<common::UnknownArch, common::X86Arch, common::ARMArch>) {
       },
-      [&](common::HygonDCUArchHIP) {
-        rb_loops = sch->GetLoops(block_id);
-        rf_block = sch->GetBlock(rf_block_id);
-        sch->Bind(rb_loops.back(), "threadIdx.x");
-        sch->SetBuffer(rf_block, "local");
-      },
-      [&](common::HygonDCUArchSYCL) {
+      [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
         rb_loops = sch->GetLoops(block_id);
         rf_block = sch->GetBlock(rf_block_id);
         sch->Bind(rb_loops.back(), "threadIdx.x");

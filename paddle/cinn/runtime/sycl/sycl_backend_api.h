@@ -107,7 +107,6 @@ class SYCLBackendAPI final : public BackendAPI {
       std::optional<int> device_id = std::nullopt) final;
 
  private:
-  Arch arch;
   // all devices
   std::vector<::sycl::device> devices;
   // all contexts

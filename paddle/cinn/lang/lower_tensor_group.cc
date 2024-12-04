@@ -241,14 +241,7 @@ std::vector<ir::Expr> LowerTensorGroup::GenerateFunctionBody(
               bodies.clear();
             }
           },
-          [&](common::HygonDCUArchHIP) {
-            if (!gpu_local) {
-              result.push_back(bodies.size() == 1 ? bodies[0]
-                                                  : ir::Block::Make(bodies));
-              bodies.clear();
-            }
-          },
-          [&](common::HygonDCUArchSYCL) {
+          [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
             if (!gpu_local) {
               result.push_back(bodies.size() == 1 ? bodies[0]
                                                   : ir::Block::Make(bodies));

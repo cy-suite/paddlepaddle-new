@@ -1751,8 +1751,9 @@ ir::Tensor ScatterAdd(const ir::Tensor& input,
             "HygonDCU now ! Please Check.\n"));
       },
       [&](common::NVGPUArch) { return ScatterAddNvHygon(); },
-      [&](common::HygonDCUArchHIP) { return ScatterAddNvHygon(); },
-      [&](common::HygonDCUArchSYCL) { return ScatterAddNvHygon(); });
+      [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
+        return ScatterAddNvHygon();
+      });
 }
 
 }  // namespace pe

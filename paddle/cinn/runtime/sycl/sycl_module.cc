@@ -32,12 +32,7 @@ SYCLModule::SYCLModule(const std::string& source_code,
   CHECK(!shared_library.empty());
 }
 
-SYCLModule::~SYCLModule() {
-  VLOG(3) << "destructor for SYCLModule";
-  if (so_handler_ != nullptr) {
-    // dlclose(so_handler_);
-  }
-}
+SYCLModule::~SYCLModule() { VLOG(3) << "destructor for SYCLModule"; }
 
 void* SYCLModule::GetFunction(const std::string& func_name) {
   if (so_handler_ == nullptr) {

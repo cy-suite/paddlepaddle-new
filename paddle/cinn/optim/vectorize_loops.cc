@@ -800,16 +800,7 @@ struct VectorizeLoops_ : public IRMutator<Expr *> {
                          "factor";
             }
           },
-          [&](common::HygonDCUArchHIP) {
-            if (!forloop->extent.As<IntImm>() ||
-                forloop->extent.as_int32() % forloop->vectorize_info().factor !=
-                    0) {
-              vectorizable_ = false;
-              VLOG(5) << "DCU vectorize only support extent is a multiple of "
-                         "factor";
-            }
-          },
-          [&](common::HygonDCUArchSYCL) {
+          [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
             if (!forloop->extent.As<IntImm>() ||
                 forloop->extent.as_int32() % forloop->vectorize_info().factor !=
                     0) {
@@ -888,16 +879,17 @@ struct VectorizeLoops_ : public IRMutator<Expr *> {
         body_stmts.insert(
             body_stmts.end(), store_exprs.begin(), store_exprs.end());
       };
-      target.arch.Match([&](common::NVGPUArch) { setNvHygon(); },
-                        [&](std::variant<common::UnknownArch,
-                                         common::X86Arch,
-                                         common::ARMArch>) {
-                          Vectorizer(
-                              new_forloop->loop_var, extent, var_intervals)
-                              .Visit(&new_forloop->body);
-                        },
-                        [&](common::HygonDCUArchHIP) { setNvHygon(); },
-                        [&](common::HygonDCUArchSYCL) { setNvHygon(); });
+      target.arch.Match(
+          [&](common::NVGPUArch) { setNvHygon(); },
+          [&](std::variant<common::UnknownArch,
+                           common::X86Arch,
+                           common::ARMArch>) {
+            Vectorizer(new_forloop->loop_var, extent, var_intervals)
+                .Visit(&new_forloop->body);
+          },
+          [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
+            setNvHygon();
+          });
 
       VLOG(2) << "after vectorize body:\n" << node->body;
 
