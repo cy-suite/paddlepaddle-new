@@ -150,10 +150,39 @@ def pool2d_converter(network, paddle_op, inputs):
             keep_dims=True,
         )
         layer = reduce_layer
-    else:
-        raise NotImplementedError(
-            "The combination of attributes is not supported yet."
+    elif adaptive and pool_type == "avg":
+        input_h = input_tensor.shape[input_dims - 2]
+        input_w = input_tensor.shape[input_dims - 1]
+        output_h = kernel_size[0]
+        output_w = kernel_size[1]
+
+        if input_h <= 0 or input_w <= 0:
+            raise NotImplementedError(
+                "Adaptive average pooling with dynamic input shapes is not supported without a plugin."
+            )
+        if input_h % output_h != 0 or input_w % output_w != 0:
+            raise ValueError(
+                f"Input shape {input_h} x {input_w} cannot be divided into {output_h} x {output_w}"
+            )
+        stride_h = input_h // output_h
+        stride_w = input_w // output_w
+        kernel_h = input_h - (output_h - 1) * stride_h
+        kernel_w = input_w - (output_w - 1) * stride_w
+
+        nv_ksize = trt.DimsHW(kernel_h, kernel_w)
+        nv_strides = trt.DimsHW(stride_h, stride_w)
+        nv_paddings = trt.DimsHW(0, 0)
+        pooling_layer = network.add_pooling_nd(
+            input=input_tensor,
+            type=nv_pool_type,
+            window_size=nv_ksize,
         )
+        pooling_layer.stride_nd = nv_strides
+        pooling_layer.padding_nd = nv_paddings
+        pooling_layer.average_count_excludes_padding = exclusive
+        layer = pooling_layer
+    elif adaptive and pool_type == "max":
+        raise NotImplementedError("Adaptive max pooling is not implemented")
 
     output_tensor = layer.get_output(0)
     return output_tensor
