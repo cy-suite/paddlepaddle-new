@@ -87,7 +87,7 @@ else()
   set(FLASHATTN_INSTALL_DIR ${THIRD_PARTY_PATH}/install/flashattn)
   set(SOURCE_DIR ${PADDLE_SOURCE_DIR}/third_party/flashattn)
 
-  # 获取 git commit 哈希值
+  # get FA git commit
   execute_process(
     COMMAND git rev-parse HEAD
     WORKING_DIRECTORY ${SOURCE_DIR}
@@ -196,34 +196,27 @@ else()
     if(DOWNLOAD_RESULT EQUAL 0)
       message(STATUS "Download Successful")
 
-      # 确保目标解压目录存在
       file(MAKE_DIRECTORY ${FA_BUILD_DIR})
 
-      # 解压文件
       execute_process(
         COMMAND ${CMAKE_COMMAND} -E tar xf ${CACHE_TAR_PATH}
         WORKING_DIRECTORY ${FA_BUILD_DIR}
         RESULT_VARIABLE TAR_RESULT)
 
-      # 检查是否成功解压
       if(NOT TAR_RESULT EQUAL 0)
         message(FATAL_ERROR "Failed to extract ${CACHE_TAR_PATH}")
       endif()
 
-      # 读取 MD5.txt 的第一行
       file(STRINGS ${CACHE_TAR_DIR}/MD5.txt FILE_MD5)
 
       # Strip any leading or trailing whitespace
       string(STRIP ${FILE_MD5} FILE_MD5)
 
-      # 计算下载文件的 MD5
       file(MD5 ${CACHE_TAR_DIR}/fa_libs.tar FILE_MD5_ACTUAL)
 
-      # 输出两个 MD5 值
       message(STATUS "Expected MD5: ${FILE_MD5}")
       message(STATUS "Actual MD5:   ${FILE_MD5_ACTUAL}")
 
-      # 比较两个 MD5 值
       if(NOT "${FILE_MD5}" STREQUAL "${FILE_MD5_ACTUAL}")
         message(
           FATAL_ERROR "MD5 checksum mismatch! The download may be corrupted.")
@@ -231,13 +224,11 @@ else()
         message(STATUS "MD5 checksum verified successfully.")
       endif()
 
-      # 解压文件
       execute_process(
         COMMAND ${CMAKE_COMMAND} -E tar xf ${CACHE_TAR_DIR}/fa_libs.tar
         WORKING_DIRECTORY ${CACHE_TAR_DIR}
         RESULT_VARIABLE TAR_RESULT)
 
-      # 检查是否成功解压
       if(NOT TAR_RESULT EQUAL 0)
         message(FATAL_ERROR "Failed to extract ${CACHE_TAR_PATH}/fa_libs.tar")
       endif()
@@ -250,7 +241,6 @@ else()
         file(COPY "${so_file}" DESTINATION "${FLASHATTN_LIB_DIR}")
       endforeach()
 
-      # 删除临时目录
       file(REMOVE_RECURSE ${CACHE_TAR_DIR})
       message(STATUS "Extraction completed in ${FA_BUILD_DIR}")
 
@@ -276,9 +266,6 @@ else()
       message(STATUS "An error occurred. Error code: ${DOWNLOAD_RESULT}")
     endif()
   endif()
-
-  #message(FATAL_ERROR ${FA_BUILD_WITH_CACHE} ${TAR_FILE_URL} ${CACHE_TAR_PATH})
-  #message(FATAL_ERROR ${FLASHATTN_PREFIX_DIR}/src/extern_flashattn-build)
 
   ExternalProject_Add(
     extern_flashattn
