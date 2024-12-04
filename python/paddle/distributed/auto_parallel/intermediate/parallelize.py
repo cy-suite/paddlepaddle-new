@@ -11,7 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
+
 import warnings
+from typing import TYPE_CHECKING
 
 from paddle.distributed import fleet
 from paddle.framework import core
@@ -21,8 +24,16 @@ from .pipeline_parallel import pipeline_parallel
 from .sharded_data_parallel import sharded_data_parallel
 from .tensor_parallel import tensor_parallel
 
+if TYPE_CHECKING:
+    import paddle
 
-def parallelize(model, optimizer=None, mesh=None, config=None):
+
+def parallelize(
+    model: paddle.nn.Layer,
+    optimizer: paddle.optimizer.Optimizer | None = None,
+    mesh: paddle.distributed.ProcessMesh | None = None,
+    config: dict | None = None,
+) -> (paddle.nn.Layer, paddle.optimizer.Optimizer):
     """
 
     Parallelize the model and optimizer from a single card version to a distributed version.
@@ -67,7 +78,7 @@ def parallelize(model, optimizer=None, mesh=None, config=None):
                 or {"split_spec": {"llama.layers.1": SplitPoint.END}}.
 
     Note:
-        if the mesh is `None` or neither of `dp_config`, `mp_config` and `pp_config` is in the config, this 
+        If the mesh is `None` or neither of `dp_config`, `mp_config` and `pp_config` is in the config, this
         api will do nothing but return the model and optimizer passed in.
 
     Returns:

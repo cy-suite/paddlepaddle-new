@@ -11,13 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
+
 import logging
 import re
+from typing import TYPE_CHECKING
 
 import paddle
 import paddle.distributed as dist
 
 from .parallel_base import ParallelModel, ParallelOptimizer, is_tensor
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from paddle import Tensor
+    from paddle.distributed import ProcessMesh
+    from paddle.nn import Layer
 
 
 def c_split(x, process_mesh, need_transpose):
@@ -118,7 +128,7 @@ class ColWiseParallel(PlanBase):
 
     """
 
-    def __init__(self, gather_output=False):
+    def __init__(self, gather_output: bool = False) -> None:
         super().__init__()
         self.gather_output = gather_output
 
@@ -208,7 +218,7 @@ class RowWiseParallel(PlanBase):
             ... }
     """
 
-    def __init__(self, is_input_parallel=True):
+    def __init__(self, is_input_parallel: bool = True) -> None:
         super().__init__()
         self.is_input_parallel = is_input_parallel
 
@@ -288,7 +298,18 @@ class PrepareLayerInput(PlanBase):
             ... }
     """
 
-    def __init__(self, fn=None):
+    def __init__(
+        self,
+        fn: (
+            Callable[
+                [ProcessMesh],
+                Callable[
+                    [Layer, tuple[Tensor], tuple[Tensor]], [tuple[Tensor]]
+                ],
+            ]
+            | None
+        ) = None,
+    ) -> None:
         super().__init__()
         assert callable(fn)
         self.fn = fn
@@ -332,7 +353,18 @@ class PrepareLayerOutput(PlanBase):
             ... }
     """
 
-    def __init__(self, fn=None):
+    def __init__(
+        self,
+        fn: (
+            Callable[
+                [ProcessMesh],
+                Callable[
+                    [Layer, tuple[Tensor], tuple[Tensor]], [tuple[Tensor]]
+                ],
+            ]
+            | None
+        ) = None,
+    ) -> None:
         super().__init__()
         assert callable(fn)
         self.fn = fn
@@ -376,7 +408,7 @@ class SequenceParallelBegin(PlanBase):
             ... }
     """
 
-    def __init__(self, need_transpose=True):
+    def __init__(self, need_transpose: bool = True) -> None:
         super().__init__()
         self.need_transpose = need_transpose
 
@@ -428,7 +460,7 @@ class SequenceParallelEnd(PlanBase):
             ... }
     """
 
-    def __init__(self, need_transpose=True):
+    def __init__(self, need_transpose: bool = True) -> None:
         super().__init__()
         self.need_transpose = need_transpose
 
@@ -472,7 +504,7 @@ class SequenceParallelEnable(PlanBase):
             ... }
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
     def sequence_parallel_begin(self, process_mesh):
@@ -535,7 +567,7 @@ class SequenceParallelDisable(PlanBase):
             ... }
     """
 
-    def __init__(self, need_transpose=True):
+    def __init__(self, need_transpose: bool = True) -> None:
         super().__init__()
         self.need_transpose = need_transpose
 
