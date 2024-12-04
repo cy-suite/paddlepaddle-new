@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from typing_extensions import TypeGuard
 
     from paddle import Tensor
-    from paddle._typing import NestedNumbericSequence, TensorLike
+    from paddle._typing import NestedNumericSequence, TensorLike
 
 
 class Distribution:
@@ -95,11 +95,11 @@ class Distribution:
         """Variance of distribution"""
         raise NotImplementedError
 
-    def sample(self, shape: Sequence[int] = ()) -> Tensor:
+    def sample(self, shape: Sequence[int] = []) -> Tensor:
         """Sampling from the distribution."""
         raise NotImplementedError
 
-    def rsample(self, shape: Sequence[int] = ()) -> Tensor:
+    def rsample(self, shape: Sequence[int] = []) -> Tensor:
         """reparameterized sample"""
         raise NotImplementedError
 
@@ -149,7 +149,7 @@ class Distribution:
         )
 
     def _validate_args(
-        self, *args: TensorLike | NestedNumbericSequence
+        self, *args: TensorLike | NestedNumericSequence
     ) -> TypeGuard[Tensor]:
         """
         Argument validation for distribution args
@@ -174,7 +174,7 @@ class Distribution:
         return is_variable
 
     def _to_tensor(
-        self, *args: TensorLike | NestedNumbericSequence
+        self, *args: TensorLike | NestedNumericSequence
     ) -> tuple[Tensor, ...]:
         """
         Argument convert args to Tensor
@@ -308,7 +308,7 @@ class Distribution:
         )
 
     def _broadcast_all(
-        self, *args: TensorLike | NestedNumbericSequence
+        self, *args: TensorLike | NestedNumericSequence
     ) -> tuple[Tensor, ...]:
         r"""
         Returns a list where each arg is broadcasted. Scalar args are upcast to tensors

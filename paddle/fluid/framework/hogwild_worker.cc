@@ -23,7 +23,7 @@ limitations under the License. */
 #include "paddle/fluid/framework/new_executor/interpreter/dependency_builder.h"
 #include "paddle/fluid/operators/controlflow/conditional_block_op_helper.h"
 #include "paddle/fluid/operators/isfinite_op.h"
-#include "paddle/fluid/platform/lodtensor_printer.h"
+#include "paddle/fluid/platform/densetensor_printer.h"
 #include "paddle/phi/common/reduce_type.h"
 #include "paddle/phi/core/distributed/comm_context_manager.h"
 #include "paddle/phi/core/platform/cpu_helper.h"
@@ -73,8 +73,7 @@ PHI_DEFINE_EXPORTED_bool(gpugraph_enable_print_op_debug,
                          false,
                          "enable print op debug ,default false");
 
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 
 std::atomic<bool> HogwildWorker::quit_flag_(false);
 Barrier g_barrier;
@@ -1074,10 +1073,10 @@ void HogwildWorker::CreateThreadScope(const ProgramDesc &program) {
             }
           } else {
             auto *ptr = thread_scope_->Var(name);
-            PADDLE_ENFORCE_EQ(proto::VarType::LOD_TENSOR,
+            PADDLE_ENFORCE_EQ(proto::VarType::DENSE_TENSOR,
                               var->GetType(),
                               common::errors::InvalidArgument(
-                                  "The type of var should be LOD_TENSOR."));
+                                  "The type of var should be DENSE_TENSOR."));
             InitializeVariable(ptr, var->GetType());
             phi::DenseTensor *thread_tensor =
                 ptr->GetMutable<phi::DenseTensor>();
@@ -1776,5 +1775,4 @@ void HogwildWorker::PrintFetchVars() {
   }
 }
 
-}  // end namespace framework
-}  // end namespace paddle
+}  // namespace paddle::framework

@@ -55,8 +55,7 @@ limitations under the License. */
 
 #include "paddle/phi/kernels/sync_batch_norm_kernel.h"
 
-namespace paddle {
-namespace pybind {
+namespace paddle::pybind {
 
 using Tensor = paddle::Tensor;
 
@@ -1263,11 +1262,11 @@ void BindDistributed(py::module *m) {
   py::class_<distributed::AsyncLoad::Task,
              std::shared_ptr<distributed::AsyncLoad::Task>>(*m, "AsyncLoadTask")
       .def("is_completed", &distributed::AsyncLoad::Task::IsCompleted)
-      .def("wait",
-           &distributed::AsyncLoad::Task::Synchronize,
+      .def("cuda_wait",
+           &distributed::AsyncLoad::Task::CudaSynchronize,
            py::call_guard<py::gil_scoped_release>())
-      .def("synchronize",
-           &distributed::AsyncLoad::Task::Synchronize,
+      .def("cpu_wait",
+           &distributed::AsyncLoad::Task::CpuSynchronize,
            py::call_guard<py::gil_scoped_release>());
 
   auto AsyncLoad =
@@ -1434,5 +1433,4 @@ void BindDistributed(py::module *m) {
                   py::call_guard<py::gil_scoped_release>());
 }
 
-}  // end namespace pybind
-}  // namespace paddle
+}  // namespace paddle::pybind

@@ -328,7 +328,8 @@ bool CanRunOnCpuKernel(const std::vector<::pir::Value>& vec_inputs,
 
     if (out.type().isa<DenseTensorType>()) {
       auto type = out.type().dyn_cast<DenseTensorType>();
-      if (phi::product(type.dims()) > 4) {
+      if (::common::contain_unknown_dim(type.dims()) ||
+          phi::product(type.dims()) > 4) {
         can_run_cpu = false;
         break;
       }
@@ -1523,8 +1524,12 @@ void HandleForPyLayerOp(
   auto old_pylayerop = op_item->dyn_cast<PyLayerOp>();
   std::vector<pir::Type> new_pylayerop_outputs;
   for (size_t i = 0; i < old_pylayerop.num_results(); ++i) {
-    new_pylayerop_outputs.push_back(
-        ConvertOpTypeToKernelType(ctx, old_pylayerop.result(i).type(), place));
+    if (!static_cast<bool>(old_pylayerop.result(i).type())) {
+      new_pylayerop_outputs.push_back(old_pylayerop.result(i).type());
+    } else {
+      new_pylayerop_outputs.push_back(ConvertOpTypeToKernelType(
+          ctx, old_pylayerop.result(i).type(), place));
+    }
   }
 
   // Create PyLayerOp and insert to kernel dialect program
@@ -2265,7 +2270,7 @@ void PushBackOutputTypes(pir::IrContext* ctx,
           data_layout = phi::DataLayout::ONEDNN;
         }
 #endif
-        phi::LoD lod = {{}};
+        phi::LegacyLoD lod = {{}};
         size_t offset = 0;
         auto dense_tensor_dtype = DenseTensorType::get(
             ctx, fp32_dtype, dims, data_layout, lod, offset);
@@ -3086,9 +3091,12 @@ void RemoveRedundantMemcpyAfterShadowFeed(pir::Block* block,
             all_use_is_scalar = false;
             break;
           }
-
-          auto op_info = ctx->GetRegisteredOpInfo(
-              use_op->dyn_cast<PhiKernelOp>().op_name());
+          auto op_name = use_op->dyn_cast<PhiKernelOp>().op_name();
+          if (op_name == "pd_op.share_var") {
+            all_use_is_scalar = false;
+            break;
+          }
+          auto op_info = ctx->GetRegisteredOpInfo(op_name);
 
           if (!op_info) {
             all_use_is_scalar = false;
@@ -3322,18 +3330,23 @@ void ProcessBlock(
   auto inputs_by_data_op = GetInputsByDataOp(block);
   for (auto& [keyword, arg] : block->kwargs()) {
     auto new_arg = new_block->AddKwarg(keyword, arg.type());
-    for (auto& [name, attr] : arg.dyn_cast<pir::BlockArgument>().attributes()) {
+    const pir::BlockArgument& block_arg = arg.dyn_cast<pir::BlockArgument>();
+    for (auto& [name, attr] : block_arg.attributes()) {
       new_arg.set_attribute(name, attr);
     }
     if (auto dense_tensor_type = arg.type().dyn_cast<DenseTensorType>()) {
+      auto place_attr = arg.attribute<PlaceAttribute>("palce");
+      auto var_place = place_attr ? place_attr.data() : phi::Place();
       new_arg.set_type(
-          AllocatedDenseTensorType::get(ctx, phi::Place(), dense_tensor_type));
+          AllocatedDenseTensorType::get(ctx, var_place, dense_tensor_type));
     }
     (*map_value_pair)[arg] = new_arg;
   }
   if (phi::is_accelerat_place(place)) {
     for (auto& [keyword, arg] : block->kwargs()) {
       if (auto dense_tensor_type = arg.type().dyn_cast<DenseTensorType>()) {
+        auto place_attr = arg.attribute<PlaceAttribute>("palce");
+        if (place_attr && place_attr.data() == place) continue;
         auto dtype = dense_tensor_type.dtype();
         phi::KernelKey shadow_key{paddle::experimental::get_accelerat_backend(),
                                   phi::DataLayout::ANY,
@@ -3531,10 +3544,6 @@ void ProcessBlock(
 
 std::unique_ptr<pir::Program> PdOpLowerToKernelPass(pir::Program* prog,
                                                     phi::Place place) {
-  if (FLAGS_print_ir) {
-    std::cout << "IR before lowering = " << *prog << std::endl;
-  }
-
   auto program = std::make_unique<pir::Program>(pir::IrContext::Instance());
 
   auto block = prog->block();

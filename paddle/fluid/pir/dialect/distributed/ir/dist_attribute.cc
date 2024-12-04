@@ -15,8 +15,7 @@
 #include "paddle/fluid/pir/dialect/distributed/ir/dist_attribute.h"
 #include "paddle/fluid/pir/dialect/distributed/ir/attribute_storage.h"
 #include "paddle/phi/core/enforce.h"
-namespace paddle {
-namespace dialect {
+namespace paddle::dialect {
 ///
 /// \brief ProcessMeshAttribute interface.
 ///
@@ -137,7 +136,8 @@ OperationDistAttribute OperationDistAttribute::get(
   auto check_dist_attr = [=](pir::Attribute attr) {
     auto dist_attr = attr.dyn_cast<TensorDistAttribute>();
     auto ids = mesh.process_ids();
-    for (const auto& id : dist_attr.process_mesh_attr().process_ids()) {
+    const ProcessMeshAttribute& dist_mesh = dist_attr.process_mesh_attr();
+    for (const auto& id : dist_mesh.process_ids()) {
       PADDLE_ENFORCE_EQ(std::find(ids.begin(), ids.end(), id) != ids.end(),
                         true,
                         common::errors::PreconditionNotMet(
@@ -162,8 +162,7 @@ OperationDistAttribute OperationDistAttribute::get(
   return Base::get(ctx, mesh, operands, results, chunk_id);
 }
 
-}  // namespace dialect
-}  // namespace paddle
+}  // namespace paddle::dialect
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::ProcessMeshAttribute)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::TensorDistAttribute)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::OperationDistAttribute)

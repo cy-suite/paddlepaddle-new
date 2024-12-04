@@ -134,6 +134,30 @@ bool SubtractOpInferSymbolicShape(
       [](const symbol::DimExpr &x, const symbol::DimExpr &y) { return x - y; });
 }
 
+bool FloorDivideOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  return InferSymbolicShapeElementWiseBinary(
+      op,
+      infer_context,
+      [&](const symbol::DimExpr &x, const symbol::DimExpr &y) {
+        // Note: The floor_divide operation in Paddle rounds the quotients
+        // towards negative infinity. This is different from the standard
+        // division in C++, so rounding errors may occur.
+        return x / y;
+      });
+}
+
+bool MinimumOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  return InferSymbolicShapeElementWiseBinary(
+      op,
+      infer_context,
+      [](const symbol::DimExpr &x, const symbol::DimExpr &y) {
+        symbol::DimExprBuilder builder;
+        return builder.Min(x, y);
+      });
+}
+
 OP_ELEMENT_WISE_BINARY(Add_)
 OP_ELEMENT_WISE_BINARY(BitwiseAnd)
 OP_ELEMENT_WISE_BINARY(BitwiseAnd_)
@@ -152,7 +176,7 @@ OP_ELEMENT_WISE_BINARY(Divide_)
 OP_ELEMENT_WISE_BINARY(ElementwisePow)
 OP_ELEMENT_WISE_BINARY(Equal)
 OP_ELEMENT_WISE_BINARY(Equal_)
-OP_ELEMENT_WISE_BINARY(FloorDivide)
+OP_ELEMENT_WISE_BINARY(FloorDivide_)
 OP_ELEMENT_WISE_BINARY(Fmax)
 OP_ELEMENT_WISE_BINARY(Fmin)
 OP_ELEMENT_WISE_BINARY(Gammaincc)
@@ -173,7 +197,6 @@ OP_ELEMENT_WISE_BINARY(LogicalOr_)
 OP_ELEMENT_WISE_BINARY(LogicalXor)
 OP_ELEMENT_WISE_BINARY(LogicalXor_)
 OP_ELEMENT_WISE_BINARY(Maximum)
-OP_ELEMENT_WISE_BINARY(Minimum)
 OP_ELEMENT_WISE_BINARY(MultiplySr)
 OP_ELEMENT_WISE_BINARY(MultiplySr_)
 OP_ELEMENT_WISE_BINARY(Multiply_)
