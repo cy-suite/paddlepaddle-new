@@ -25,11 +25,14 @@ namespace optim {
 
 enum PassKind { PK_FUNC, PK_BLOCK, PK_STMT, PK_EXPR };
 
+template <typename IRScopeRefT>
 class Pass {
  public:
   explicit Pass(PassKind kind, const std::string& name)
       : kind_(kind), name_(name) {}
   virtual ~Pass() {}
+
+  virtual bool Run(IRScopeRefT scope) = 0;
 
   PassKind kind() const { return kind_; }
   const std::string& name() const { return name_; }
@@ -39,32 +42,30 @@ class Pass {
   std::string name_;
 };
 
-class FunctionPass : public Pass {
+class FuncPass : public Pass<ir::LoweredFunc> {
  public:
-  explicit FunctionPass(const std::string& name) : Pass(PK_FUNC, name) {}
+  explicit FuncPass(const std::string& name) : Pass(PK_FUNC, name) {}
 
-  virtual bool RunOnFunction(ir::LoweredFunc f) = 0;
+  virtual bool Run(ir::LoweredFunc f) = 0;
 };
 
-class BlockPass : public Pass {
+class BlockPass : public Pass<ir::stmt::BlockRef> {
  public:
   explicit BlockPass(const std::string& name) : Pass(PK_BLOCK, name) {}
-  virtual bool RunOnBlock(ir::stmt::BlockRef block) = 0;
+  virtual bool Run(ir::stmt::BlockRef block) = 0;
 };
 
-class StatementPass : public Pass {
+class StmtPass : public Pass<ir::stmt::StmtRef> {
  public:
-  explicit StatementPass(const std::string& name) : Pass(PK_STMT, name) {}
-  virtual bool RunOnStmt(ir::stmt::StmtRef stmt) = 0;
+  explicit StmtPass(const std::string& name) : Pass(PK_STMT, name) {}
+  virtual bool Run(ir::stmt::StmtRef stmt) = 0;
 };
 
-bool ApplyFunctionPass(FunctionPass* pass, ir::LoweredFunc f);
-// post order traverse apply block pass on function body
-bool ApplyBlockPass(BlockPass* pass, ir::stmt::BlockRef func_body);
-// post order traverse apply statement pass on function body
-bool ApplyStatementPass(StatementPass* pass, ir::stmt::BlockRef func_body);
-
-// TODO(hongqing-work): add manager for pass
+class ExprPass : public Pass<ir::Expr> {
+ public:
+  explicit ExprPass(const std::string& name) : Pass(PK_STMT, name) {}
+  virtual bool Run(ir::Expr expr) = 0;
+};
 
 }  // namespace optim
 }  // namespace cinn
