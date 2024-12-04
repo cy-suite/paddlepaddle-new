@@ -413,6 +413,16 @@ def modify_vars(instructions: list[Instruction], code_options):
                     instrs.argval in namemap
                 ), f"`{instrs.argval}` not in {namemap}"
                 instrs.arg = namemap.index(instrs.argval)
+        elif instrs.opname == "LOAD_FAST_LOAD_FAST":
+            assert (
+                instrs.argval[0] in co_varnames
+            ), f"`{instrs.argval[0]}` not in {co_varnames}"
+            assert (
+                instrs.argval[1] in co_varnames
+            ), f"`{instrs.argval[1]}` not in {co_varnames}"
+            instrs.arg = (
+                co_varnames.index(instrs.argval[0]) << 4
+            ) + co_varnames.index(instrs.argval[1])
 
 
 def calc_offset_from_bytecode_offset(
@@ -461,7 +471,6 @@ def instrs_info(instrs, mark=None, range=None, want_str=True):
                 ),
                 opname=instr.opname,
                 arg=str(instr.arg) if instr.arg is not None else "",
-                # xym debug important
                 argval=f"({instr.argval})" if instr.argval else "",
                 mark="",
             )

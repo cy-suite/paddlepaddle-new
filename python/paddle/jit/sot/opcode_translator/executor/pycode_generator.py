@@ -142,6 +142,7 @@ def gen_new_opcode(
         types.CodeType: The new code object.
     """
     bytecode, linetable = assemble(instrs, code_options["co_firstlineno"])
+
     if sys.version_info >= (3, 10):
         # Python deprecated co_lnotab in 3.10, use co_linetable instead
         # https://peps.python.org/pep-0626/
@@ -176,8 +177,6 @@ def assemble(
     """
     code = []
     linetable = []
-    # # xym debug
-    # breakpoint()
 
     calc_linetable, update_cursor = create_linetable_calculator(firstlineno)
 

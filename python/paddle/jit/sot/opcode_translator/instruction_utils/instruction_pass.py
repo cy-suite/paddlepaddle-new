@@ -332,7 +332,7 @@ def fuse_double_load_fast(instrs: list[Instruction], code_options):
         prev_instr.is_generated = True
         prev_instr.argval = (prev_instr.argval, instr.argval)
         prev_instr.arg = (prev_instr.arg << 4) + instr.arg
-        to_remove.append(instr)
+        instrs.remove(instr)
 
     def check_first_op(now_idx: int):
         nonlocal first_op_index
@@ -343,32 +343,30 @@ def fuse_double_load_fast(instrs: list[Instruction], code_options):
             first_op_index = now_idx
 
     idx = 0
+    # We must manually control the indices, so we cannot use a for loop.
     while idx < len(instrs):
         instr = instrs[idx]
 
         if able_to_merge(idx, instr):
             merge_two_LOAD_FAST(instrs[idx - 1], instr)
-            idx += 1
             continue
 
-        if first_op_index == -1 and instr.opname == "BINARY_OP":
-            check_first_op(idx)
+        # adjust the order of arithmetic operations to produce new LOAD_FAST_LOAD_FAST, still in progress.
+        # if first_op_index == -1 and instr.opname == "BINARY_OP":
+        #     check_first_op(idx)
 
-        if (
-            first_op_index != -1
-            and instr.opname == "BINARY_OP"
-            and instrs[idx - 1].opname == "LOAD_FAST"
-        ):
-            instrs[idx - 1], instrs[first_op_index - 1] = (
-                instrs[first_op_index - 1],
-                instrs[idx - 1],
-            )
-            merge_two_LOAD_FAST(
-                instrs[first_op_index - 2], instrs[first_op_index - 1]
-            )
-            first_op_index = -1
+        # if (
+        #     first_op_index != -1
+        #     and instr.opname == "BINARY_OP"
+        #     and instrs[idx - 1].opname == "LOAD_FAST"
+        # ):
+        #     instrs[idx - 1], instrs[first_op_index - 1] = (
+        #         instrs[first_op_index - 1],
+        #         instrs[idx - 1],
+        #     )
+        #     merge_two_LOAD_FAST(
+        #         instrs[first_op_index - 2], instrs[first_op_index - 1]
+        #     )
+        #     first_op_index = -1
 
         idx += 1
-
-    for instr in to_remove:
-        instrs.remove(instr)
