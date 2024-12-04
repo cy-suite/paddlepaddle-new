@@ -349,9 +349,6 @@ bool CauseNewSymbolicShape(const ::pir::Operation& op) {
   if (FLAGS_disable_dyshape_in_train) {
     return false;
   }
-  if (!HaveUnkDim(op)) {
-    return false;
-  }
   auto& shape_analysis = ::pir::ShapeAnalysisManager::Instance().Get(
       const_cast<::pir::Operation&>(op).GetParentProgram());
   std::unordered_set<std::string> input_exprs = [&]() {
