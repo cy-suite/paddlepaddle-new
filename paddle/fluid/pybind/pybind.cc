@@ -54,7 +54,6 @@ limitations under the License. */
 #include "paddle/fluid/framework/ir/cost_model.h"
 #include "paddle/fluid/framework/ir/generate_pass.h"
 #include "paddle/fluid/framework/ir/pass_builder.h"
-#include "paddle/fluid/framework/lod_rank_table.h"
 #include "paddle/fluid/framework/new_executor/collect_shape_manager.h"
 #include "paddle/fluid/framework/new_executor/executor_statistics.h"
 #include "paddle/fluid/framework/new_executor/interpreter/job.h"
@@ -756,10 +755,11 @@ static std::vector<std::vector<pir::Value>> GenerateBackwardBlockForPyLayerOp(
   // 1. construct pylayer grad op
   VLOG(6) << "Prepare Outputs for pylayer_grad";
   std::vector<pir::Type> output_types;
+  // NOTE: the last input of pylayer op is create_stack when called
+  // save_for_backward, whose stop_gradient is always True
   for (size_t i = 0; i < inputs_.size(); ++i) {
-    if (!stop_gradients[i][0]) {
-      output_types.push_back(inputs_[i][0].type());
-    }
+    if (inputs_[i][0].type().isa<pir::InletType>()) break;
+    output_types.push_back(inputs_[i][0].type());
   }
 
   VLOG(6) << "Prepare Inputs for pylayer_grad";
@@ -838,12 +838,9 @@ static std::vector<std::vector<pir::Value>> GenerateBackwardBlockForPyLayerOp(
   VLOG(6) << "Update pylayer_grad op finished";
 
   std::vector<std::vector<pir::Value>> res{inputs_.size()};
-  int grad_op_result_index = 0;
   for (size_t i = 0; i < res.size(); ++i) {
     res[i].resize(1);
-    res[i][0] = !stop_gradients[i][0]
-                    ? pylayer_grad->result(grad_op_result_index++)
-                    : pir::Value();
+    res[i][0] = !stop_gradients[i][0] ? pylayer_grad->result(i) : pir::Value();
   }
   return res;
 }
@@ -1510,10 +1507,6 @@ All parameter, weight, gradient are variables in Paddle.
       .def(
           "get_map_tensor",
           [](Variable &self) { return self.GetMutable<Vocab>(); },
-          py::return_value_policy::reference)
-      .def(
-          "get_lod_rank_table",
-          [](Variable &self) { return self.GetMutable<LoDRankTable>(); },
           py::return_value_policy::reference)
       .def(
           "get_selected_rows",
@@ -2496,15 +2489,6 @@ All parameter, weight, gradient are variables in Paddle.
   BindCommContextManager(&m);
   BindAutoParallel(&m);
   BindJitProperty(&m);
-
-  py::class_<framework::LoDRankTable>(m, "LodRankTable")
-      .def("items", [](framework::LoDRankTable &table) {
-        std::vector<std::pair<size_t, size_t>> res;
-        for (auto &item : table.items()) {
-          res.push_back({item.index, item.length});
-        }
-        return res;
-      });
 
   py::class_<phi::TensorArray> pydensetensorarray(m, "DenseTensorArray", R"DOC(
     DenseTensorArray is array of DenseTensor, it supports operator[], len() and for-loop iteration.

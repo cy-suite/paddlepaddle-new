@@ -260,8 +260,8 @@ class RunnableProgram:
             self.x_grad_values,
             self.param_grad_values,
             self.out_grad_values,
-            list(self.forward_range),
-            list(self.backward_range),
+            self.forward_range,
+            self.backward_range,
         )
         return [fwd_prog, bwd_prog], prog_attr
 
@@ -772,7 +772,7 @@ class PartialProgramLayer:
                         elif kw_name in forward_name_value_map:
                             return forward_name_value_map[kw_name]
                         else:
-                            raise Exception(f"kw_args: {kw_name} not found")
+                            return None
 
                     for [kw_name, kw_value] in (
                         backward_program.global_block().kwargs().items()
@@ -780,9 +780,10 @@ class PartialProgramLayer:
                         forward_matched_value = (
                             get_kwargs_forward_matched_value(kw_name, kw_value)
                         )
-                        share_symbol_shape_from_forward_to_backward(
-                            forward_matched_value, kw_value
-                        )
+                        if forward_matched_value is not None:
+                            share_symbol_shape_from_forward_to_backward(
+                                forward_matched_value, kw_value
+                            )
 
                 if cse_is_enabled():
                     paddle.base.libpaddle.pir.apply_cse_pass(forward_program)
