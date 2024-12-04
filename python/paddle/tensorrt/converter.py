@@ -47,7 +47,6 @@ from .impls.stat import *  # noqa: F403
 from .impls.vision import *  # noqa: F403
 from .register import converter_registry
 from .util import (
-    PrecisionMode,
     TensorRTConfigManager,
     get_cache_path,
     get_trt_version,
@@ -132,6 +131,8 @@ class PaddleToTensorRTConverter:
         return input_values, graph_output_values
 
     def convert_subgraph_to_trt(self, program, group_op):
+        from .export import PrecisionMode
+
         _logger.info(f"start process {group_op}")
 
         operations = next(iter(group_op.blocks())).ops

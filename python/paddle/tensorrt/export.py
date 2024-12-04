@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import os
+from enum import Enum
 
 import numpy as np
 
@@ -35,7 +36,6 @@ from paddle.jit.dy2static.program_translator import (
 from paddle.nn import Layer
 from paddle.tensorrt.converter import PaddleToTensorRTConverter
 from paddle.tensorrt.util import (
-    PrecisionMode,
     forbid_op_lower_trt,
     mark_buitlin_op,
     run_pir_pass,
@@ -145,6 +145,23 @@ class Input:
         return self.input_min_data, self.input_optim_data, self.input_max_data
 
 
+class PrecisionMode(Enum):
+    FP32 = "FP32"
+    FP16 = "FP16"
+    BF16 = "BF16"
+    INT8 = "INT8"
+
+    """
+    This class defines different precision modes that can be used to configure
+    TensorRT optimization. The modes include FP32, FP16, BF16, and INT8.
+    Specifies the precision mode for TensorRT optimization. The options are:
+    - PrecisionMode.FP32: 32-bit floating point precision (default).
+    - PrecisionMode.FP16: 16-bit floating point precision.
+    - PrecisionMode.INT8: 8-bit integer precision.
+    - PrecisionMode.BFP16: 16-bit Brain Floating Point precision. Only supported in TensorRT versions greater than 9.0.
+    """
+
+
 class TensorRTConfig:
     def __init__(
         self,
@@ -185,6 +202,7 @@ class TensorRTConfig:
             >>> from paddle.tensorrt.export import (
             ...    Input,
             ...    TensorRTConfig,
+            ...    PrecisionMode,
             ... )
             >>> input = Input(
             ...    min_input_shape=(1,100),
@@ -482,12 +500,14 @@ def _convert_(function=None, input_spec=None, config=None, **kwargs):
 
 
 # Obtain a program with tensorrt_op by directly loading the model.
-def convert(model_dir, config):
+def convert(model_path, config):
     """
     Loading a PaddlePaddle Model and Exporting the TensorRT-Optimized Program.
 
     Args:
-       model_dir(str):The directory path where the PaddlePaddle model is located.
+       model_path(str):The directory path where the PaddlePaddle model is located.
+       The model path can either include the model directory and prefix (e.g., 'model_dir/inference'),
+       or it can be the full path to the model (e.g., 'model_dir/inference.json').
        config(TensorRTConfig):The configuration of TensorRTConfig.
 
     Returns:
@@ -588,9 +608,9 @@ def convert(model_dir, config):
             ...        output_converted = predictor.run([model_inputs])
 
     """
-    if os.path.abspath(config.save_model_dir) == os.path.abspath(model_dir):
+    if os.path.abspath(config.save_model_dir) == os.path.abspath(model_path):
         raise ValueError(
-            "The `config.save_model_dir` and `model_dir` cannot be the same. Please specify a different directory for saving the model."
+            "The `config.save_model_dir` and `model_path` cannot be the same. Please specify a different directory for saving the model."
         )
 
     scope = paddle.static.global_scope()
@@ -598,20 +618,35 @@ def convert(model_dir, config):
     exe = paddle.static.Executor(place)
 
     is_json = True
-    if os.path.exists(model_dir + '.json'):
-        is_json = True
-    elif os.path.exists(model_dir + '.pdmodel'):
-        is_json = False
+
+    if os.path.isfile(model_path):
+        model_path = model_path
+        model_dir, model_file = os.path.split(model_path)
+        model_prefix, ext = os.path.splitext(model_file)
+        if ext == '.json':
+            is_json = True
+        elif ext == '.pdmodel':
+            is_json = False
+        else:
+            raise ValueError(
+                f"Unsupported extension {ext}. Only support json/pdmodel"
+            )
     else:
-        raise ValueError(
-            f"No valid model file found in the directory '{model_dir}'. Expected either 'json' or 'pdmodel'. Please ensure that the directory contains one of these files."
-        )
+        model_prefix = model_path
+        if os.path.exists(model_prefix + '.json'):
+            is_json = True
+        elif os.path.exists(model_prefix + '.pdmodel'):
+            is_json = False
+        else:
+            raise ValueError(
+                f"No valid model file found in the directory '{model_path}'. Expected either 'json' or 'pdmodel'. Please ensure that the directory contains one of these files."
+            )
 
     if is_json:
         with paddle.pir_utils.IrGuard():
             [program, feed_target_names, fetch_targets] = (
                 paddle.static.io.load_inference_model(
-                    model_dir,
+                    model_path,
                     executor=exe,
                 )
             )
@@ -620,7 +655,7 @@ def convert(model_dir, config):
             os.environ['FLAGS_enable_pir_in_executor'] = '1'
             [program, feed_target_names, fetch_targets] = (
                 paddle.static.io.load_inference_model(
-                    model_dir,
+                    model_path,
                     executor=exe,
                 )
             )
