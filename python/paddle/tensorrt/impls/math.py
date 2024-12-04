@@ -242,3 +242,11 @@ def minimum_converter(network, paddle_op, inputs):
         network, paddle_op, inputs, trt.ElementWiseOperation.MIN
     )
     return min_layer
+
+
+@converter_registry.register("pd_op.maximum", trt_version="8.x")
+def maximum_converter(network, paddle_op, inputs):
+    max_layer = add_elementwise_layer(
+        network, paddle_op, inputs, trt.ElementWiseOperation.MAX
+    )
+    return max_layer

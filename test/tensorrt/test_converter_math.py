@@ -393,9 +393,9 @@ class TestClipTRTPatternCase4(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestMinimumTRTPattern(TensorRTBaseTest):
+class TestMaximumTRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = paddle.minimum
+        self.python_api = paddle.maximum
         self.api_args = {
             "x": np.random.randn(2, 3, 4).astype("float32"),
             "y": np.random.randn(2, 3, 4).astype("float32"),
@@ -411,6 +411,7 @@ class TestMinimumTRTPattern(TensorRTBaseTest):
 class TestMinimumBroadcastTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.minimum
+        self.python_api = paddle.maximum
         self.api_args = {
             "x": np.random.randn(2, 3, 4).astype("float32"),
             "y": np.random.randn(4).astype("float32"),
@@ -426,6 +427,7 @@ class TestMinimumBroadcastTRTPattern(TensorRTBaseTest):
 class TestMinimumIntTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.minimum
+        self.python_api = paddle.maximum
         self.api_args = {
             "x": np.random.randint(
                 low=1, high=100, size=(2, 3, 4), dtype="int64"
