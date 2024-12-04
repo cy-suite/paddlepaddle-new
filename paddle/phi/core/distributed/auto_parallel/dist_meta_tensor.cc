@@ -50,4 +50,4 @@ bool DistMetaTensor::initialized() const {
   return tensor_ != nullptr || dist_attr_ != TensorDistAttr();
 }
 
-}  // namespace distributed::phi
+}  // namespace phi::distributed
