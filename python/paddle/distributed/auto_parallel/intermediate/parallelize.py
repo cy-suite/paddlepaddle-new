@@ -240,7 +240,7 @@ def parallelize(
             >>> # doctest: +REQUIRES(env:DISTRIBUTED)
             >>> model = LlamaForCausalLM()
             >>> optimizer = paddle.optimizer.AdamW(parameters=model.parameters())
-            >>> dist_model, dist_optimizer = dist.parallelize(model, optimizer, parallel_config)
+            >>> dist_model, dist_optimizer = dist.parallelize(model, optimizer, config=parallel_config)
             >>> # This case need to be executed in multi-card environment
             >>> # python -m paddle.distributed.launch --gpus=0,1,2,3,4,5,6,7 {test_case}.py
 
