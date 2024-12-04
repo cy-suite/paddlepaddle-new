@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 from paddle import _C_ops
 from paddle.base.layer_helper import LayerHelper
 from paddle.framework import (
