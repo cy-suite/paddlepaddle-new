@@ -179,6 +179,17 @@ bool is_custom_place(const Place &p) {
   return p.GetType() == phi::AllocationType::CUSTOM;
 }
 
+bool is_accelerat_place(const Place &p) {
+  return is_gpu_place(p) || is_xpu_place(p) || is_ipu_place(p) ||
+         is_custom_place(p);
+}
+
+bool is_accelerat_allocation_type(AllocationType type) {
+  return type == phi::AllocationType::GPU || type == phi::AllocationType::XPU ||
+         type == phi::AllocationType::IPU ||
+         type == phi::AllocationType::CUSTOM;
+}
+
 bool places_are_same_class(const Place &p1, const Place &p2) {
 #ifdef PADDLE_WITH_CUSTOM_DEVICE
   if (is_custom_place(p1) && is_custom_place(p2)) {
@@ -211,7 +222,7 @@ std::string PlaceHelper::GetDeviceType(const Place &place) {
   } else if (is_custom_place(place)) {
     return place.GetDeviceType();
   } else {
-    PADDLE_THROW(phi::errors::Fatal(
+    PADDLE_THROW(common::errors::Fatal(
         "Unknown device type. Please check available devices by "
         "paddle.device.get_available_device()"));
   }

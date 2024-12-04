@@ -58,8 +58,7 @@
 
 namespace py = pybind11;  // NOLINT
 
-namespace paddle {
-namespace pybind {
+namespace paddle::pybind {
 
 static bool PyCheckInteger(PyObject *obj) {
 #if PY_VERSION_HEX < 0x03000000
@@ -435,6 +434,17 @@ void BindAutoParallel(py::module *m) {
           .def("is_partial", &phi::distributed::Placement::is_partial)
           .def("__hash__", &phi::distributed::Placement::hash)
           .def("__str__", &phi::distributed::Placement::to_string)
+          .def("__repr__", &phi::distributed::Placement::to_string)
+          .def("__copy__",
+               [](const phi::distributed::Placement &self) {
+                 return phi::distributed::Placement(self);
+               })
+          .def(
+              "__deepcopy__",
+              [](const phi::distributed::Placement &self, py::dict) {
+                return phi::distributed::Placement(self);
+              },
+              py::arg("memo"))
           .def(py::self == py::self)   // NOLINT
           .def(py::self != py::self);  // NOLINT
 
@@ -464,12 +474,24 @@ void BindAutoParallel(py::module *m) {
                    .def("get_dim", &phi::distributed::Shard::get_dim)
                    .def("__hash__", &phi::distributed::Shard::hash)
                    .def("__str__", &phi::distributed::Shard::to_string)
+                   .def("__repr__", &phi::distributed::Shard::to_string)
+                   .def("__copy__",
+                        [](const phi::distributed::Shard &self) {
+                          return phi::distributed::Shard(self);
+                        })
+                   .def(
+                       "__deepcopy__",
+                       [](const phi::distributed::Shard &self, py::dict) {
+                         return phi::distributed::Shard(self);
+                       },
+                       py::arg("memo"))
                    .def(py::self == py::self)   // NOLINT
                    .def(py::self != py::self);  // NOLINT
 
-  auto Replicate = py::class_<phi::distributed::Replicate,
-                              std::shared_ptr<phi::distributed::Replicate>>(
-                       *m, "Replicate", Placement, R"DOC(
+  auto Replicate =
+      py::class_<phi::distributed::Replicate,
+                 std::shared_ptr<phi::distributed::Replicate>>(
+          *m, "Replicate", Placement, R"DOC(
                    The `Replicate` describes the tensor placed repeatedly on ProcessMesh.
 
                    Examples:
@@ -484,11 +506,22 @@ void BindAutoParallel(py::module *m) {
                            >>> d_tensor = dist.shard_tensor(a, mesh, [dist.Replicate()])
 
                    )DOC")
-                       .def(py::init<>())
-                       .def("__hash__", &phi::distributed::Replicate::hash)
-                       .def("__str__", &phi::distributed::Replicate::to_string)
-                       .def(py::self == py::self)   // NOLINT
-                       .def(py::self != py::self);  // NOLINT
+          .def(py::init<>())
+          .def("__hash__", &phi::distributed::Replicate::hash)
+          .def("__str__", &phi::distributed::Replicate::to_string)
+          .def("__repr__", &phi::distributed::Replicate::to_string)
+          .def("__copy__",
+               [](const phi::distributed::Replicate &self) {
+                 return phi::distributed::Replicate(self);
+               })
+          .def(
+              "__deepcopy__",
+              [](const phi::distributed::Replicate &self, py::dict) {
+                return phi::distributed::Replicate(self);
+              },
+              py::arg("memo"))
+          .def(py::self == py::self)   // NOLINT
+          .def(py::self != py::self);  // NOLINT
 
   auto Partial =
       py::class_<phi::distributed::Partial,
@@ -516,6 +549,17 @@ void BindAutoParallel(py::module *m) {
           .def("reduce_type", &phi::distributed::Partial::get_reduce_type)
           .def("__hash__", &phi::distributed::Partial::hash)
           .def("__str__", &phi::distributed::Partial::to_string)
+          .def("__repr__", &phi::distributed::Partial::to_string)
+          .def("__copy__",
+               [](const phi::distributed::Partial &self) {
+                 return phi::distributed::Partial(self);
+               })
+          .def(
+              "__deepcopy__",
+              [](const phi::distributed::Partial &self, py::dict) {
+                return phi::distributed::Partial(self);
+              },
+              py::arg("memo"))
           .def(py::self == py::self)   // NOLINT
           .def(py::self != py::self);  // NOLINT
 
@@ -817,7 +861,7 @@ static void parse_attrs(PyObject *obj,
         CastPyArg2Floats(obj, infer_spmd_string, static_cast<ssize_t>(arg_pos));
     ctx->EmplaceBackAttr(attrs);
   } else {
-    PADDLE_THROW(platform::errors::InvalidArgument(
+    PADDLE_THROW(common::errors::InvalidArgument(
         "%s(): argument (position %d) must be "
         "list of int, float, bool or Tensor, but got %s",
         infer_spmd_string,
@@ -847,7 +891,7 @@ static void parse_attr(PyObject *obj,
         CastPyArg2Float(obj, infer_spmd_string, static_cast<ssize_t>(arg_pos));
     ctx->EmplaceBackAttr(attr);
   } else {  // TODO(ljz) support other types
-    PADDLE_THROW(platform::errors::InvalidArgument(
+    PADDLE_THROW(common::errors::InvalidArgument(
         "%s(): argument (position %d) must be "
         "int, float, bool or Tensor, but got %s",
         infer_spmd_string,
@@ -900,5 +944,4 @@ infer_backward(const phi::distributed::SpmdRule &self, const py::args &args) {
   return self.InferBackward(ctx);
 }
 
-}  // namespace pybind
-}  // namespace paddle
+}  // namespace paddle::pybind

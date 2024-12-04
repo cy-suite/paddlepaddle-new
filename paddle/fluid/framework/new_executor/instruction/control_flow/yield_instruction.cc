@@ -38,23 +38,28 @@ YieldInstruction::YieldInstruction(size_t id,
       continue;
     }
     auto in = op->operand_source(i);
-    inputs.emplace(in, GetValueIds(in, *value_exe_info));
-    input_vars_.push_back(value_exe_info->GetVarByValue(in));
+    if (in && in.type()) {
+      inputs.emplace(in, GetValueIds(in, *value_exe_info));
+      input_vars_.push_back(value_exe_info->GetVarByValue(in));
+    }
   }
   SetInputs(inputs);
 
   for (size_t i = 0; i < parent_op->num_results(); ++i) {
-    output_vars_.push_back(value_exe_info->GetVarByValue(parent_op->result(i)));
+    if (parent_op->result(i) && parent_op->result(i).type()) {
+      output_vars_.push_back(
+          value_exe_info->GetVarByValue(parent_op->result(i)));
+    }
   }
 
   PADDLE_ENFORCE_EQ(
       input_vars_.size(),
       output_vars_.size(),
-      phi::errors::InvalidArgument("The number of inputs in YieldOp and "
-                                   "outputs of parent op must be equal."
-                                   "But received %d and %d.",
-                                   input_vars_.size(),
-                                   output_vars_.size()));
+      common::errors::InvalidArgument("The number of inputs in YieldOp and "
+                                      "outputs of parent op must be equal."
+                                      "But received %d and %d.",
+                                      input_vars_.size(),
+                                      output_vars_.size()));
 }
 
 void YieldInstruction::Run() {
@@ -67,8 +72,8 @@ void YieldInstruction::Run() {
       auto *output_array = output_vars_[i]->GetMutable<phi::TensorArray>();
       *output_array = inner_array;
     } else {
-      PADDLE_THROW(phi::errors::Unimplemented("unsupported type %d",
-                                              input_vars_[i]->Type()));
+      PADDLE_THROW(common::errors::Unimplemented("unsupported type %d",
+                                                 input_vars_[i]->Type()));
     }
   }
 }

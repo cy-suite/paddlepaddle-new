@@ -37,7 +37,7 @@ namespace {  // NOLINT
 template <typename K, typename V>
 using KeyValuePair = cub::KeyValuePair<K, V>;
 
-}  // end namespace
+}  // namespace
 
 #define FIXED_BLOCK_DIM_CASE_BASE(log2_block_dim, ...)  \
   case (1 << (log2_block_dim)): {                       \
@@ -214,7 +214,7 @@ void ArgMinMaxOpCUDAKernel(const Context& dev_ctx,
   PADDLE_ENFORCE_GT(
       x.numel(),
       0,
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "argmin/argmax input numel must > 0, bug got %d", x.numel()));
   if (dtype == DataType::UNDEFINED) {
     phi::VisitDataTypeTiny(

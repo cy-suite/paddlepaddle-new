@@ -76,27 +76,27 @@ void FusedMultiTransformerInt8XpuKernel(
 
   PADDLE_ENFORCE_EQ(pre_layer_norm,
                     true,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "Only support pre_layer_norm = true at now."));
   PADDLE_ENFORCE_EQ(
       seq_lengths.get_ptr(),
       nullptr,
-      phi::errors::PreconditionNotMet("seq_lengths not support at now."));
+      common::errors::PreconditionNotMet("seq_lengths not support at now."));
   PADDLE_ENFORCE_EQ(
       rotary_pos_emb.get_ptr(),
       nullptr,
-      phi::errors::PreconditionNotMet("rotary_pos_emb not support at now."));
+      common::errors::PreconditionNotMet("rotary_pos_emb not support at now."));
   PADDLE_ENFORCE_EQ(
       pre_caches.get_ptr(),
       nullptr,
-      phi::errors::PreconditionNotMet("pre_caches not support at now."));
+      common::errors::PreconditionNotMet("pre_caches not support at now."));
   PADDLE_ENFORCE_NE(
       src_mask.get_ptr(),
       nullptr,
-      phi::errors::PreconditionNotMet("src_mask should not be nullptr."));
+      common::errors::PreconditionNotMet("src_mask should not be nullptr."));
   PADDLE_ENFORCE_EQ(trans_qkvw,
                     true,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "Only support trans_qkvw == true at now."));
 
   void* bkcl_context = nullptr;
@@ -131,19 +131,19 @@ void FusedMultiTransformerInt8XpuKernel(
   if (time_step) {
     PADDLE_ENFORCE_EQ(time_step.get_ptr()->place(),
                       phi::CPUPlace(),
-                      phi::errors::PreconditionNotMet(
+                      common::errors::PreconditionNotMet(
                           "The place of input(time_step) must be CPUPlace."));
     // cache_seq_len
     time_step_value = time_step.get_ptr()->data<int>()[0];
     PADDLE_ENFORCE_GT(
         time_step_value,
         0,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "The value of time_step must > 0, but now is %d", time_step_value));
     PADDLE_ENFORCE_EQ(
         seq_len,
         1,
-        phi::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "In decode stage, the seq_len of input must be 1, but now is %d",
             seq_len));
   }
@@ -334,7 +334,7 @@ void FusedMultiTransformerInt8XpuKernel(
           PADDLE_ENFORCE_XDNN_SUCCESS(r, "xpu::gather_part");
         } else {
           if (index_type == DataType::INT32) {
-            r = xpu::gather<XPUTypeT, int32_t>(
+            r = xpu::paddle_gather<XPUTypeT, int32_t>(
                 ctx.x_context(),
                 cache_kv_data,
                 gather_index_t->data<int32_t>(),
@@ -344,7 +344,7 @@ void FusedMultiTransformerInt8XpuKernel(
                                                    : gather_index_t->dims()[0],
                 gather_axis);
           } else {
-            r = xpu::gather<XPUTypeT, int64_t>(
+            r = xpu::paddle_gather<XPUTypeT, int64_t>(
                 ctx.x_context(),
                 cache_kv_data,
                 gather_index_t->data<int64_t>(),
@@ -354,7 +354,7 @@ void FusedMultiTransformerInt8XpuKernel(
                                                    : gather_index_t->dims()[0],
                 gather_axis);
           }
-          PADDLE_ENFORCE_XDNN_SUCCESS(r, "xpu::gather");
+          PADDLE_ENFORCE_XDNN_SUCCESS(r, "xpu::paddle_gather");
           r = xpu::copy<XPUTypeT>(
               ctx.x_context(),
               reinterpret_cast<XPUTypeT*>(cache_kv_gather_tensor.data<T>()),
@@ -466,8 +466,8 @@ void FusedMultiTransformerInt8XpuKernel(
   PADDLE_ENFORCE_XDNN_SUCCESS(r, "xft::fused_multi_transformer_gpt_int8");
 #else
   PADDLE_THROW(
-      phi::errors::Fatal("fused_multi_transformer_gpt_int8 is not supported "
-                         "since it's not compiled with XPU_XFT"));
+      common::errors::Fatal("fused_multi_transformer_gpt_int8 is not supported "
+                            "since it's not compiled with XPU_XFT"));
 #endif
 }
 

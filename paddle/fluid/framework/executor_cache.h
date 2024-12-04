@@ -23,10 +23,10 @@
 #include <utility>
 #include <vector>
 
+#include "paddle/common/macros.h"
 #include "paddle/fluid/framework/op_proto_maker.h"
 #include "paddle/fluid/framework/program_desc.h"
 #include "paddle/fluid/framework/scope.h"
-#include "paddle/fluid/platform/macros.h"
 #include "paddle/utils/string/string_helper.h"
 
 #include "paddle/fluid/ir_adaptor/translator/program_translator.h"
@@ -159,10 +159,13 @@ std::shared_ptr<InterpreterCore> CreatePirInterpreterCoreInfoToCache(
     bool is_grad,
     int64_t program_id,
     framework::Scope* scope,
-    const int64_t& place_hash_key);
+    const int64_t& place_hash_key,
+    bool used_for_sot);
 
-std::unique_ptr<::pir::Program> ApplyIrPass(::pir::Program* program,
-                                            phi::Place place);
+std::unique_ptr<::pir::Program> ApplyIrPass(
+    ::pir::Program* program,
+    phi::Place place,
+    const std::set<std::string>& no_need_buffer_names);
 
 std::unique_ptr<::pir::Program> ApplyRemoveShadowFeedPass(
     const std::unique_ptr<::pir::Program> program,

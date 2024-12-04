@@ -42,7 +42,7 @@ from .program_translator import (
     convert_to_static,
     unwrap_decorators,
 )
-from .utils import is_builtin, is_paddle_func
+from .utils import WeakMethod, is_builtin, is_paddle_func
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -116,7 +116,7 @@ def add_ignore_module(modules: list[ModuleType]):
 
 
 @functools.lru_cache
-def get_module_functions(module) -> list[Callable[..., Any]]:
+def get_module_functions(module: ModuleType) -> list[Callable[..., Any]]:
     visited = set()
 
     def _try_get_members(module) -> list[tuple[str, Any]]:
@@ -140,10 +140,41 @@ def get_module_functions(module) -> list[Callable[..., Any]]:
     return _get_module_functions(module)
 
 
+@functools.lru_cache
+def get_module_defining_path(module: ModuleType) -> str | None:
+    def _remove_module_init_suffix(file_path: str) -> str:
+        # TODO(SigureMo): use removesuffix after Python 3.9
+        return re.sub(r"__init__.py$", "", file_path)
+
+    if not hasattr(module, "__file__") or module.__file__ is None:
+        return None
+    return _remove_module_init_suffix(module.__file__)
+
+
 def is_unsupported(func):
     """
     Checks whether the func is supported by dygraph to static graph.
     """
+
+    builtin_module_paths = [
+        module_path
+        for module in BUILTIN_LIKELY_MODULES
+        if (module_path := get_module_defining_path(module)) is not None
+    ]
+
+    # Skip module function by function defining path (For Python functions)
+    if hasattr(func, "__code__") and func.__code__.co_filename:
+        func_path = func.__code__.co_filename
+        if any(
+            func_path.startswith(module_path)
+            for module_path in builtin_module_paths
+        ):
+            translator_logger.log(
+                2,
+                "Whitelist: %s is part of built-in module and does not have to be transformed.",
+                func,
+            )
+            return True
 
     builtin_functions = [
         func
@@ -151,22 +182,15 @@ def is_unsupported(func):
         for func in get_module_functions(module)
     ]
 
+    # Skip module function by module members (For C/C++ binding functions)
     for builtin_fn in builtin_functions:
         if func is builtin_fn:
             translator_logger.log(
                 2,
-                f"Whitelist: {func} is part of built-in module and does not have to be transformed.",
+                "Whitelist: %s is part of built-in module and does not have to be transformed.",
+                func,
             )
             return True
-
-    # NOTE: should be placed before `is_paddle_func`
-    # The api(s) should be considered as plain function and convert
-    # them into static layer code.
-    from paddle.nn import Sequential
-
-    PADDLE_NEED_CONVERT_APIS = [Sequential]
-    if type(func) in PADDLE_NEED_CONVERT_APIS:
-        return False
 
     if is_paddle_func(func):
         translator_logger.log(
@@ -334,11 +358,11 @@ def convert_call(func):
             try:
                 _, forward_func = unwrap_decorators(func.forward)
                 func._original_funcs['forward'] = forward_func.__func__
-                forward_func = convert_to_static(forward_func)
+                forward_func = convert_to_static(forward_func.__func__)
                 # Bound method will be convert into plain function after `convert_to_static`.
                 # So descriptor mechanism is used to bound `self` instance on function to
                 # keep it as bound method.
-                func.forward = forward_func.__get__(func)
+                func.forward = WeakMethod(forward_func, func)
             except (OSError, TypeError):
                 # NOTE: func.forward may have been decorated.
                 func_self = None if func_self else func_self

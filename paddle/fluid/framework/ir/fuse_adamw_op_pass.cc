@@ -18,9 +18,7 @@
 #include "paddle/fluid/framework/operator.h"
 #include "paddle/fluid/platform/enforce.h"
 
-namespace paddle {
-namespace framework {
-namespace ir {
+namespace paddle::framework::ir {
 
 std::vector<std::string> GetNodeNames(const std::vector<Node *> &node_vector) {
   std::vector<std::string> out_vector;
@@ -42,7 +40,7 @@ Node *GetInputNode(const Node *op, const std::string &name) {
   }
 
   PADDLE_ENFORCE_NOT_NULL(
-      out, platform::errors::InvalidArgument("Input's name cannot be found."));
+      out, common::errors::InvalidArgument("Input's name cannot be found."));
 
   return out;
 }
@@ -58,7 +56,7 @@ Node *GetOutputNode(const Node *op, const std::string &name) {
   }
 
   PADDLE_ENFORCE_NOT_NULL(
-      out, platform::errors::InvalidArgument("Output's name cannot be found."));
+      out, common::errors::InvalidArgument("Output's name cannot be found."));
 
   return out;
 }
@@ -254,7 +252,7 @@ ir::Graph *FuseAdamWPass::FuseAdamWFun(ir::Graph *graph,
                                        const bool with_decay,
                                        const bool multi_precision) const {
   PADDLE_ENFORCE_NOT_NULL(
-      graph, platform::errors::InvalidArgument("Graph cannot be nullptr."));
+      graph, common::errors::InvalidArgument("Graph cannot be nullptr."));
 
   VLOG(4) << "handle fuse AdadW";
 
@@ -312,8 +310,6 @@ ir::Graph *FuseAdamWPass::FuseAdamWFun(ir::Graph *graph,
   return graph;
 }
 
-}  // namespace ir
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework::ir
 
 REGISTER_PASS(fuse_adamw_op_pass, paddle::framework::ir::FuseAdamWPass);

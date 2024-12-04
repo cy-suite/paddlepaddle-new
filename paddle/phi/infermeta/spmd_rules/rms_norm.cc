@@ -22,8 +22,7 @@ limitations under the License. */
 #include "paddle/phi/infermeta/spmd_rules/spmd_rule_macro_define.h"
 #include "paddle/phi/infermeta/spmd_rules/utils.h"
 
-namespace phi {
-namespace distributed {
+namespace phi::distributed {
 
 using phi::distributed::auto_parallel::str_join;
 
@@ -152,10 +151,10 @@ SpmdInfo RmsNormGradInferSpmd(const DistMetaTensor& x,
   PADDLE_ENFORCE_EQ(
       x_shape.size(),
       out_grad_shape.size(),
-      phi::errors::InvalidArgument("The Tensor x's rank [%d] and Tensor "
-                                   "out_grad's rank [%d] are not matched.",
-                                   x_shape.size(),
-                                   out_grad_shape.size()));
+      common::errors::InvalidArgument("The Tensor x's rank [%d] and Tensor "
+                                      "out_grad's rank [%d] are not matched.",
+                                      x_shape.size(),
+                                      out_grad_shape.size()));
 
   // 2、align sharding
   std::vector<TensorDistAttr> dist_attrs;
@@ -203,5 +202,4 @@ SpmdInfo RmsNormGradInferSpmd(const DistMetaTensor& x,
                   {x_grad, scale_grad});
 }
 
-}  // namespace distributed
-}  // namespace phi
+}  // namespace phi::distributed

@@ -23,20 +23,27 @@
 #include "paddle/phi/common/scalar.h"
 #include "paddle/utils/small_vector.h"
 #ifdef PADDLE_WITH_XPU
-#include "paddle/fluid/platform/device/xpu/xpu_op_list.h"
+#include "paddle/phi/core/platform/device/xpu/xpu_op_list.h"
 #endif
 #ifdef PADDLE_WITH_DNNL
-#include "paddle/fluid/platform/onednn_op_list.h"
+#include "paddle/phi/core/platform/onednn_op_list.h"
+#endif
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
+#include "paddle/fluid/distributed/collective/process_group.h"
+#include "paddle/fluid/distributed/collective/process_group_nccl.h"
+#elif defined(PADDLE_WITH_XPU_BKCL)
+#include "paddle/fluid/distributed/collective/process_group.h"
+#include "paddle/fluid/distributed/collective/process_group_bkcl.h"
 #endif
 #include "paddle/common/flags.h"
 #include "paddle/fluid/framework/library_type.h"
-#include "paddle/fluid/platform/device/gpu/gpu_info.h"
-#include "paddle/fluid/platform/place.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
 #include "paddle/fluid/platform/profiler/supplement_tracing.h"
+#include "paddle/phi/common/place.h"
+#include "paddle/phi/core/platform/device/gpu/gpu_info.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 COMMON_DECLARE_bool(check_nan_inf);
-PD_DECLARE_bool(benchmark);
+COMMON_DECLARE_bool(benchmark);
 COMMON_DECLARE_bool(run_kp_kernel);
 
 namespace paddle::imperative {
@@ -121,7 +128,7 @@ PreparedOp::PreparedOp(const framework::OperatorBase& op,
                        const framework::OperatorWithKernel::OpKernelFunc& func,
                        const phi::ArgumentMappingFn* arg_map_fn,
                        const phi::KernelSignature* default_kernel_signature,
-                       platform::DeviceContext* dev_ctx)
+                       phi::DeviceContext* dev_ctx)
     : op_(op),
       ctx_(ctx),
       kernel_key_(kernel_key),
@@ -138,7 +145,7 @@ PreparedOp::PreparedOp(const framework::OperatorBase& op,
                        const phi::KernelSignature* default_kernel_signature,
                        phi::KernelSignature&& kernel_signature,
                        const phi::Kernel& phi_kernel,
-                       platform::DeviceContext* dev_ctx)
+                       phi::DeviceContext* dev_ctx)
     : op_(op),
       ctx_(ctx),
       kernel_key_(kernel_key),
@@ -197,7 +204,7 @@ PreparedOp PrepareImpl(
 // 2. Whether this op has specific implementation;
 // 3. Whether onednn kernel can be used.
 #ifdef PADDLE_WITH_DNNL
-  if (!op.DnnFallback() && !paddle::platform::in_mkldnn_white_list(op.Type()) &&
+  if (!op.DnnFallback() && !paddle::platform::in_onednn_white_list(op.Type()) &&
       op.CanMKLDNNBeUsed(dygraph_exe_ctx, expected_kernel_key.dtype())) {
     expected_kernel_key.set_backend(phi::Backend::ONEDNN);
     expected_kernel_key.set_layout(phi::DataLayout::ONEDNN);
@@ -296,6 +303,80 @@ PreparedOp PrepareImpl(
               phi::TransToPhiBackend(dev_ctx->GetPlace()))) {
         dev_ctx = pool.Get(phi::TransToPhiPlace(expected_kernel_key.backend()));
       }
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
+      if (attrs.find("ring_id") != attrs.end()) {
+        auto ring_id_attr = attrs.at("ring_id");
+        int ring_id = PADDLE_GET(int, ring_id_attr);
+        auto map = distributed::ProcessGroupMapFromGid::getInstance();
+        if (map->has(ring_id)) {
+          distributed::ProcessGroup* pg = map->get(ring_id);
+          auto comm_context =
+              static_cast<paddle::distributed::ProcessGroupNCCL*>(pg)
+                  ->GetOrCreateCommContext(place);
+          auto original_stream =
+              static_cast<phi::GPUContext*>(dev_ctx)->cuda_stream();
+          dev_ctx =
+              static_cast<phi::distributed::NCCLCommContext*>(comm_context)
+                  ->GetDevContext();
+          dev_ctx->SetCommContext(comm_context);
+          // Note(lizhenxing): In dynamic mode, c_softmax_with_cross_entropy
+          // need use global calculate stream (original_stream). Using the
+          // comm_ctx's stream will lead to synchronization issues, causing
+          // accuracy diff in test_parallel_dygraph_mp_layers.
+          if (phi::is_gpu_place(place) &&
+              ((attrs.find("use_calc_stream") != attrs.end() &&
+                PADDLE_GET_CONST(bool, attrs.at("use_calc_stream"))) ||
+               phi_kernel_name == "c_softmax_with_cross_entropy")) {
+            static_cast<phi::GPUContext*>(dev_ctx)->SetCUDAStream(
+                original_stream, false);
+            auto& instance =
+                paddle::memory::allocation::AllocatorFacade::Instance();
+            dev_ctx->SetAllocator(
+                instance
+                    .GetAllocator(
+                        place, static_cast<phi::GPUContext*>(dev_ctx)->stream())
+                    .get());
+          }
+        }
+      }
+#endif
+#if defined(PADDLE_WITH_XPU_BKCL)
+      if (attrs.find("ring_id") != attrs.end()) {
+        auto ring_id_attr = attrs.at("ring_id");
+        int ring_id = PADDLE_GET(int, ring_id_attr);
+        auto map = distributed::ProcessGroupMapFromGid::getInstance();
+        if (map->has(ring_id)) {
+          distributed::ProcessGroup* pg = map->get(ring_id);
+          auto comm_context =
+              static_cast<paddle::distributed::ProcessGroupBKCL*>(pg)
+                  ->GetOrCreateCommContext(place);
+          auto original_stream =
+              static_cast<phi::XPUContext*>(dev_ctx)->stream();
+          dev_ctx =
+              static_cast<phi::distributed::BKCLCommContext*>(comm_context)
+                  ->GetDevContext();
+          dev_ctx->SetCommContext(comm_context);
+          // Note(lizhenxing): In dynamic mode, c_softmax_with_cross_entropy
+          // need use global calculate stream (original_stream). Using the
+          // comm_ctx's stream will lead to synchronization issues, causing
+          // accuracy diff in test_parallel_dygraph_mp_layers.
+          if (phi::is_xpu_place(place) &&
+              ((attrs.find("use_calc_stream") != attrs.end() &&
+                PADDLE_GET_CONST(bool, attrs.at("use_calc_stream"))) ||
+               phi_kernel_name == "c_softmax_with_cross_entropy")) {
+            static_cast<phi::XPUContext*>(dev_ctx)->SetStream(original_stream,
+                                                              false);
+            auto& instance =
+                paddle::memory::allocation::AllocatorFacade::Instance();
+            dev_ctx->SetAllocator(
+                instance
+                    .GetAllocator(
+                        place, static_cast<phi::XPUContext*>(dev_ctx)->stream())
+                    .get());
+          }
+        }
+      }
+#endif
       return PreparedOp(op,
                         empty_ctx,
                         expected_kernel_key,
@@ -368,7 +449,7 @@ PreparedOp PrepareImpl(
   PADDLE_ENFORCE_NE(
       kernels_iter,
       all_op_kernels.end(),
-      platform::errors::NotFound(
+      common::errors::NotFound(
           "There are no kernels which are registered in the %s operator.",
           op.Type()));
 
@@ -435,9 +516,9 @@ PreparedOp PrepareImpl(
   PADDLE_ENFORCE_NE(
       kernel_iter,
       kernels.end(),
-      platform::errors::NotFound("Operator %s does not have kernel for %s.",
-                                 op.Type(),
-                                 KernelTypeToString(fluid_kernel_type)));
+      common::errors::NotFound("Operator %s does not have kernel for %s.",
+                               op.Type(),
+                               KernelTypeToString(fluid_kernel_type)));
 
   if (!phi::places_are_same_class(fluid_kernel_type.place_,
                                   dev_ctx->GetPlace())) {
@@ -511,7 +592,7 @@ static void PreparedOpRunImpl(
     const framework::OperatorWithKernel::OpKernelFunc& func,
     const phi::ArgumentMappingFn* arg_map_fn,
     const phi::KernelSignature* default_kernel_signature,
-    platform::DeviceContext* dev_ctx,
+    phi::DeviceContext* dev_ctx,
     const NameVarMap<VarType>& ins,
     const NameVarMap<VarType>& outs,
     const framework::AttributeMap& attrs,
@@ -519,10 +600,10 @@ static void PreparedOpRunImpl(
   // TODO(zjl): remove scope in dygraph
 
   {
-    platform::RecordEvent record_event("infer_shape",
-                                       platform::TracerEventType::OperatorInner,
-                                       1,
-                                       platform::EventRole::kInnerOp);
+    phi::RecordEvent record_event("infer_shape",
+                                  phi::TracerEventType::OperatorInner,
+                                  1,
+                                  phi::EventRole::kInnerOp);
     DygraphInferShapeContext<VarType> infer_shape_ctx(&ins,
                                                       &outs,
                                                       &attrs,
@@ -538,10 +619,10 @@ static void PreparedOpRunImpl(
   }
 
   {
-    platform::RecordEvent record_event("compute",
-                                       platform::TracerEventType::OperatorInner,
-                                       1,
-                                       platform::EventRole::kInnerOp);
+    phi::RecordEvent record_event("compute",
+                                  phi::TracerEventType::OperatorInner,
+                                  1,
+                                  phi::EventRole::kInnerOp);
 
     func(DygraphExecutionContext<VarType>(
         op, empty_scope, *dev_ctx, ctx, ins, outs, attrs, default_attrs));
@@ -586,16 +667,16 @@ static void PreparedOpRunPtImpl(
     const phi::KernelSignature& kernel_signature,
     const phi::Kernel& phi_kernel,
     const framework::RuntimeContext& ctx,
-    platform::DeviceContext* dev_ctx,
+    phi::DeviceContext* dev_ctx,
     const NameVarMap<VarType>& ins,
     const NameVarMap<VarType>& outs,
     const framework::AttributeMap& attrs,
     const framework::AttributeMap& default_attrs) {
   {
-    platform::RecordEvent record_event("infer_shape",
-                                       platform::TracerEventType::OperatorInner,
-                                       1,
-                                       platform::EventRole::kInnerOp);
+    phi::RecordEvent record_event("infer_shape",
+                                  phi::TracerEventType::OperatorInner,
+                                  1,
+                                  phi::EventRole::kInnerOp);
     DygraphInferShapeContext<VarType> infer_shape_ctx(&ins,
                                                       &outs,
                                                       &attrs,
@@ -611,10 +692,10 @@ static void PreparedOpRunPtImpl(
   }
 
   {
-    platform::RecordEvent record_event("compute",
-                                       platform::TracerEventType::OperatorInner,
-                                       1,
-                                       platform::EventRole::kInnerOp);
+    phi::RecordEvent record_event("compute",
+                                  phi::TracerEventType::OperatorInner,
+                                  1,
+                                  phi::EventRole::kInnerOp);
 
     if (phi_kernel.GetKernelRegisteredType() ==
         phi::KernelRegisteredType::FUNCTION) {

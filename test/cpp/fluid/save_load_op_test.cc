@@ -14,7 +14,7 @@ limitations under the License. */
 
 #include "gtest/gtest.h"
 #include "paddle/fluid/framework/op_registry.h"
-#include "paddle/fluid/platform/float16.h"
+#include "paddle/phi/common/float16.h"
 #include "paddle/phi/core/kernel_registry.h"
 
 PD_DECLARE_KERNEL(save_sr, CPU, ALL_LAYOUT);
@@ -28,7 +28,7 @@ TEST(SaveLoadOp, CPU) {
   auto var = scope.Var("test_var");
   auto tensor = var->GetMutable<phi::DenseTensor>();
   tensor->Resize({3, 10});
-  paddle::framework::LoD expect_lod;
+  phi::LegacyLoD expect_lod;
   expect_lod.resize(1);
   expect_lod[0].push_back(0);
   expect_lod[0].push_back(1);
@@ -109,7 +109,7 @@ TEST(SaveFP16Op, CPU) {
   auto var = scope.Var("test_var");
   auto tensor = var->GetMutable<phi::DenseTensor>();
   tensor->Resize({3, 10});
-  paddle::framework::LoD expect_lod;
+  phi::LegacyLoD expect_lod;
   expect_lod.resize(1);
   expect_lod[0].push_back(0);
   expect_lod[0].push_back(1);
@@ -119,7 +119,7 @@ TEST(SaveFP16Op, CPU) {
   tensor->set_lod(expect_lod);
   float* expect = tensor->mutable_data<float>(place);
   for (int64_t i = 0; i < tensor->numel(); ++i) {
-    expect[i] = static_cast<float>(paddle::platform::float16(i));
+    expect[i] = static_cast<float>(phi::dtype::float16(i));
   }
 
   paddle::framework::AttributeMap attrs;
@@ -135,7 +135,7 @@ TEST(SaveFP16Op, CPU) {
   auto load_op = paddle::framework::OpRegistry::CreateOp(
       "load", {}, {{"Out", {"out_var"}}}, attrs);
   load_op->Run(scope, place);
-  paddle::platform::float16* actual = target->data<paddle::platform::float16>();
+  phi::dtype::float16* actual = target->data<phi::dtype::float16>();
   for (int64_t i = 0; i < tensor->numel(); ++i) {
     EXPECT_EQ(expect[i], static_cast<float>(actual[i]));
   }
@@ -156,7 +156,7 @@ TEST(LoadFP16Op, CPU) {
   auto tensor = var->GetMutable<phi::DenseTensor>();
   tensor->Resize({3, 10});
 
-  paddle::framework::LoD expect_lod;
+  phi::LegacyLoD expect_lod;
   expect_lod.resize(1);
   expect_lod[0].push_back(0);
   expect_lod[0].push_back(1);
@@ -166,7 +166,7 @@ TEST(LoadFP16Op, CPU) {
   tensor->set_lod(expect_lod);
   float* expect = tensor->mutable_data<float>(place);
   for (int64_t i = 0; i < tensor->numel(); ++i) {
-    expect[i] = static_cast<float>(paddle::platform::float16(i));
+    expect[i] = static_cast<float>(phi::dtype::float16(i));
   }
 
   paddle::framework::AttributeMap attrs;
@@ -184,7 +184,7 @@ TEST(LoadFP16Op, CPU) {
   load_op->Run(scope, place);
 
   auto target = load_var->Get<phi::DenseTensor>();
-  paddle::platform::float16* actual = target.data<paddle::platform::float16>();
+  phi::dtype::float16* actual = target.data<phi::dtype::float16>();
   for (int64_t i = 0; i < tensor->numel(); ++i) {
     EXPECT_EQ(expect[i], static_cast<float>(actual[i]));
   }

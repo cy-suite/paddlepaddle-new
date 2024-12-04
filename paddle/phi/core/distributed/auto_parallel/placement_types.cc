@@ -14,8 +14,7 @@
 
 #include "paddle/phi/core/distributed/auto_parallel/placement_types.h"
 
-namespace phi {
-namespace distributed {
+namespace phi::distributed {
 
 int64_t DistTensorMeta::num_shard() const {
   int64_t num_shard = 1;
@@ -38,7 +37,7 @@ std::vector<int64_t> DistTensorMeta::dim_mapping() const {
       PADDLE_ENFORCE_EQ(
           dim_map[shard_dim],
           -1,
-          phi::errors::InvalidArgument(
+          common::errors::InvalidArgument(
               "Tensor dim %lld is already sharded on mesh dim %lld,"
               " DistTensor operator implementation does not support things "
               "like hybrid"
@@ -57,5 +56,4 @@ bool DistTensorMeta::is_replicated() const {
                      [](const auto& p) { return p->is_replicated(); });
 }
 
-}  // namespace distributed
-}  // namespace phi
+}  // namespace phi::distributed

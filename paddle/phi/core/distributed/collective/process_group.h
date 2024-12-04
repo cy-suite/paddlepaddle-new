@@ -104,14 +104,14 @@ class ProcessGroup {
 
   virtual phi::DeviceContext* GetDeviceContext(
       const Place& place UNUSED) const {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "ProcessGroup%s does not support get device_context.",
         GetBackendName()));
   }
 
   virtual phi::DeviceContext* GetDeviceContext(
       const Place& place UNUSED, bool use_calc_stream UNUSED) const {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "ProcessGroup%s does not support get device_context.",
         GetBackendName()));
   }
@@ -122,12 +122,16 @@ class ProcessGroup {
       std::optional<std::vector<std::shared_ptr<ProcessGroup::Task>>>
           tasks_opt = std::nullopt) {}
 
+  virtual void EagerConnect() {}
+
+  virtual void EagerConnectRingExchange() {}
+
   // without stream APIs
   virtual std::shared_ptr<ProcessGroup::Task> AllGather(
       phi::DenseTensor* out_tensor UNUSED,
       const phi::DenseTensor& in_tensor UNUSED,
       bool sync_op UNUSED) {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "ProcessGroup%s does not support all_gather with sync_op flag.",
         GetBackendName()));
   }
@@ -138,7 +142,7 @@ class ProcessGroup {
       int64_t offset UNUSED,
       int64_t numel UNUSED,
       bool sync_op UNUSED) {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "ProcessGroup%s does not support all_gather with sync_op flag.",
         GetBackendName()));
   }
@@ -148,7 +152,7 @@ class ProcessGroup {
       const phi::DenseTensor& in_tensor UNUSED,
       const AllreduceOptions& opts UNUSED,
       bool sync_op UNUSED) {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "ProcessGroup%s does not support all_reduce with sync_op flag.",
         GetBackendName()));
   }
@@ -159,14 +163,14 @@ class ProcessGroup {
       const std::vector<int64_t>& out_size_each_rank UNUSED,
       const std::vector<int64_t>& in_size_each_rank UNUSED,
       bool sync_op UNUSED) {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "ProcessGroup%s does not support all_to_all with sync_op flag.",
         GetBackendName()));
   }
 
   virtual std::shared_ptr<ProcessGroup::Task> Barrier(
       const BarrierOptions& UNUSED = BarrierOptions()) {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "ProcessGroup%s does not support barrier.", GetBackendName()));
   }
 
@@ -175,7 +179,7 @@ class ProcessGroup {
       const phi::DenseTensor& in_tensor UNUSED,
       const BroadcastOptions& opts UNUSED,
       bool sync_op UNUSED) {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "ProcessGroup%s does not support broadcast with sync_op flag",
         GetBackendName()));
   }
@@ -185,7 +189,7 @@ class ProcessGroup {
       const phi::DenseTensor& in_tensor UNUSED,
       const ReduceOptions& opts UNUSED,
       bool sync_op UNUSED) {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "ProcessGroup%s does not support reduce with sync_op flag.",
         GetBackendName()));
   }
@@ -195,7 +199,7 @@ class ProcessGroup {
       const phi::DenseTensor& in_tensor UNUSED,
       const ReduceScatterOptions& opts UNUSED,
       bool sync_op UNUSED) {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "ProcessGroup%s does not support reduce_scatter with sync_op flag.",
         GetBackendName()));
   }
@@ -205,7 +209,7 @@ class ProcessGroup {
       const phi::DenseTensor& in_tensor UNUSED,
       const ScatterOptions& opts UNUSED,
       bool sync_op UNUSED) {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "ProcessGroup%s does not support scatter with sync_op flag.",
         GetBackendName()));
   }
@@ -214,7 +218,7 @@ class ProcessGroup {
                                                        UNUSED,
                                                    int src_rank UNUSED,
                                                    bool sync_op UNUSED) {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "ProcessGroup%s does not support recv with sync_op flag.",
         GetBackendName()));
   }
@@ -225,7 +229,7 @@ class ProcessGroup {
                                                    int64_t offset UNUSED,
                                                    int64_t numel UNUSED,
                                                    bool sync_op UNUSED) {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "ProcessGroup%s does not support recv with sync_op flag.",
         GetBackendName()));
   }
@@ -234,7 +238,7 @@ class ProcessGroup {
       const phi::DenseTensor& tensor UNUSED,
       int dst_rank UNUSED,
       bool sync_op UNUSED) {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "ProcessGroup%s does not support send with sync_op flag.",
         GetBackendName()));
   }
@@ -245,7 +249,7 @@ class ProcessGroup {
       int64_t offset UNUSED,
       int64_t numel UNUSED,
       bool sync_op UNUSED) {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "ProcessGroup%s does not support send with sync_op flag.",
         GetBackendName()));
   }
@@ -256,10 +260,10 @@ class ProcessGroup {
       const phi::DenseTensor& in_tensor UNUSED,
       bool sync_op UNUSED,
       bool use_calc_stream UNUSED) {
-    PADDLE_THROW(
-        phi::errors::Unimplemented("ProcessGroup%s does not support all_gather "
-                                   "with sync_op and use_calc_stream flag.",
-                                   GetBackendName()));
+    PADDLE_THROW(common::errors::Unimplemented(
+        "ProcessGroup%s does not support all_gather "
+        "with sync_op and use_calc_stream flag.",
+        GetBackendName()));
   }
 
   virtual std::shared_ptr<ProcessGroup::Task> AllGather(
@@ -269,10 +273,10 @@ class ProcessGroup {
       int64_t numel UNUSED,
       bool sync_op UNUSED,
       bool use_calc_stream UNUSED) {
-    PADDLE_THROW(
-        phi::errors::Unimplemented("ProcessGroup%s does not support all_gather "
-                                   "with sync_op and use_calc_stream flag.",
-                                   GetBackendName()));
+    PADDLE_THROW(common::errors::Unimplemented(
+        "ProcessGroup%s does not support all_gather "
+        "with sync_op and use_calc_stream flag.",
+        GetBackendName()));
   }
 
   virtual std::shared_ptr<ProcessGroup::Task> AllReduce(
@@ -281,10 +285,10 @@ class ProcessGroup {
       const AllreduceOptions& opts UNUSED,
       bool sync_op UNUSED,
       bool use_calc_stream UNUSED) {
-    PADDLE_THROW(
-        phi::errors::Unimplemented("ProcessGroup%s does not support all_reduce "
-                                   "with sync_op and use_calc_stream flag.",
-                                   GetBackendName()));
+    PADDLE_THROW(common::errors::Unimplemented(
+        "ProcessGroup%s does not support all_reduce "
+        "with sync_op and use_calc_stream flag.",
+        GetBackendName()));
   }
 
   virtual std::shared_ptr<ProcessGroup::Task> AllToAll(
@@ -294,10 +298,10 @@ class ProcessGroup {
       const std::vector<int64_t>& in_size_each_rank UNUSED,
       bool sync_op UNUSED,
       bool use_calc_stream UNUSED) {
-    PADDLE_THROW(
-        phi::errors::Unimplemented("ProcessGroup%s does not support all_to_all "
-                                   "with sync_op and use_calc_stream flag.",
-                                   GetBackendName()));
+    PADDLE_THROW(common::errors::Unimplemented(
+        "ProcessGroup%s does not support all_to_all "
+        "with sync_op and use_calc_stream flag.",
+        GetBackendName()));
   }
 
   virtual std::shared_ptr<ProcessGroup::Task> Broadcast(
@@ -306,10 +310,10 @@ class ProcessGroup {
       const BroadcastOptions& opts UNUSED,
       bool sync_op UNUSED,
       bool use_calc_stream) {
-    PADDLE_THROW(
-        phi::errors::Unimplemented("ProcessGroup%s does not support broadcast "
-                                   "with sync_op and use_calc_stream flag.",
-                                   GetBackendName()));
+    PADDLE_THROW(common::errors::Unimplemented(
+        "ProcessGroup%s does not support broadcast "
+        "with sync_op and use_calc_stream flag.",
+        GetBackendName()));
   }
 
   virtual std::shared_ptr<ProcessGroup::Task> Reduce(
@@ -319,9 +323,9 @@ class ProcessGroup {
       bool sync_op UNUSED,
       bool use_calc_stream UNUSED) {
     PADDLE_THROW(
-        phi::errors::Unimplemented("ProcessGroup%s does not support reduce "
-                                   "with sync_op and use_calc_stream flag.",
-                                   GetBackendName()));
+        common::errors::Unimplemented("ProcessGroup%s does not support reduce "
+                                      "with sync_op and use_calc_stream flag.",
+                                      GetBackendName()));
   }
 
   virtual std::shared_ptr<ProcessGroup::Task> ReduceScatter(
@@ -330,7 +334,7 @@ class ProcessGroup {
       const ReduceScatterOptions& opts UNUSED,
       bool sync_op UNUSED,
       bool use_calc_stream UNUSED) {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "ProcessGroup%s does not support reduce_scatter "
         "with sync_op and use_calc_stream flag.",
         GetBackendName()));
@@ -343,9 +347,9 @@ class ProcessGroup {
       bool sync_op UNUSED,
       bool use_calc_stream UNUSED) {
     PADDLE_THROW(
-        phi::errors::Unimplemented("ProcessGroup%s does not support scatter "
-                                   "with sync_op and use_calc_stream flag.",
-                                   GetBackendName()));
+        common::errors::Unimplemented("ProcessGroup%s does not support scatter "
+                                      "with sync_op and use_calc_stream flag.",
+                                      GetBackendName()));
   }
 
   virtual std::shared_ptr<ProcessGroup::Task> Gather(
@@ -355,9 +359,9 @@ class ProcessGroup {
       bool sync_op UNUSED,
       bool use_calc_stream UNUSED) {
     PADDLE_THROW(
-        phi::errors::Unimplemented("ProcessGroup%s does not support gather "
-                                   "with sync_op and use_calc_stream flag.",
-                                   GetBackendName()));
+        common::errors::Unimplemented("ProcessGroup%s does not support gather "
+                                      "with sync_op and use_calc_stream flag.",
+                                      GetBackendName()));
   }
 
   virtual std::shared_ptr<ProcessGroup::Task> Gather(
@@ -367,9 +371,9 @@ class ProcessGroup {
       bool sync_op UNUSED,
       bool use_calc_stream UNUSED) {
     PADDLE_THROW(
-        phi::errors::Unimplemented("ProcessGroup%s does not support gather "
-                                   "with sync_op and use_calc_stream flag.",
-                                   GetBackendName()));
+        common::errors::Unimplemented("ProcessGroup%s does not support gather "
+                                      "with sync_op and use_calc_stream flag.",
+                                      GetBackendName()));
   }
 
   virtual std::shared_ptr<ProcessGroup::Task> Recv(
@@ -377,10 +381,10 @@ class ProcessGroup {
       int src_rank UNUSED,
       bool sync_op UNUSED,
       bool use_calc_stream UNUSED) {
-    PADDLE_THROW(
-        phi::errors::Unimplemented("ProcessGroup%s does not support recv with "
-                                   "sync_op and use_calc_stream flag.",
-                                   GetBackendName()));
+    PADDLE_THROW(common::errors::Unimplemented(
+        "ProcessGroup%s does not support recv with "
+        "sync_op and use_calc_stream flag.",
+        GetBackendName()));
   }
 
   virtual std::shared_ptr<ProcessGroup::Task> Recv(
@@ -391,9 +395,9 @@ class ProcessGroup {
       bool sync_op UNUSED,
       bool use_calc_stream UNUSED) {
     PADDLE_THROW(
-        phi::errors::Unimplemented("ProcessGroup%s does not support recv "
-                                   "with sync_op and use_calc_stream flag.",
-                                   GetBackendName()));
+        common::errors::Unimplemented("ProcessGroup%s does not support recv "
+                                      "with sync_op and use_calc_stream flag.",
+                                      GetBackendName()));
   }
 
   virtual std::shared_ptr<ProcessGroup::Task> Send(
@@ -402,9 +406,9 @@ class ProcessGroup {
       bool sync_op UNUSED,
       bool use_calc_stream UNUSED) {
     PADDLE_THROW(
-        phi::errors::Unimplemented("ProcessGroup%s does not support send "
-                                   "with sync_op and use_calc_stream flag.",
-                                   GetBackendName()));
+        common::errors::Unimplemented("ProcessGroup%s does not support send "
+                                      "with sync_op and use_calc_stream flag.",
+                                      GetBackendName()));
   }
 
   virtual std::shared_ptr<ProcessGroup::Task> Send(
@@ -415,9 +419,9 @@ class ProcessGroup {
       bool sync_op UNUSED,
       bool use_calc_stream UNUSED) {
     PADDLE_THROW(
-        phi::errors::Unimplemented("ProcessGroup%s does not support send "
-                                   "with sync_op and use_calc_stream flag.",
-                                   GetBackendName()));
+        common::errors::Unimplemented("ProcessGroup%s does not support send "
+                                      "with sync_op and use_calc_stream flag.",
+                                      GetBackendName()));
   }
 
   // legacy APIs
@@ -479,7 +483,7 @@ class ProcessGroup {
   virtual std::shared_ptr<ProcessGroup::Task> AllToAll(
       std::vector<phi::DenseTensor>&,    // NOLINT
       std::vector<phi::DenseTensor>&) {  // NOLINT
-    PADDLE_THROW(phi::errors::InvalidArgument(
+    PADDLE_THROW(common::errors::InvalidArgument(
         "ProcessGroup%s does not support AllToAll", GetBackendName()));
   }
 
@@ -540,7 +544,8 @@ class ProcessGroupMapFromGid {
 
 static void CheckTensorContiguous(const phi::DenseTensor& tensor) {
   if (!tensor.meta().is_contiguous()) {
-    PADDLE_THROW(phi::errors::InvalidArgument("The tensor must be contiguous"));
+    PADDLE_THROW(
+        common::errors::InvalidArgument("The tensor must be contiguous"));
   }
 }
 
@@ -548,7 +553,7 @@ static void CheckTensorContiguous(const std::vector<phi::DenseTensor>& inputs) {
   for (const auto& tensor : inputs) {
     if (!tensor.meta().is_contiguous()) {
       PADDLE_THROW(
-          phi::errors::InvalidArgument("The tensor must be contiguous"));
+          common::errors::InvalidArgument("The tensor must be contiguous"));
     }
   }
 }

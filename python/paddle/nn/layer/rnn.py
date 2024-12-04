@@ -169,7 +169,7 @@ def _maybe_copy(state: Tensor, new_state: Tensor, step_mask: Tensor) -> Tensor:
 
 
 def _transpose_batch_time(x: Tensor) -> Tensor:
-    perm = [1, 0] + list(range(2, len(x.shape)))
+    perm = [1, 0, *list(range(2, len(x.shape)))]
     return paddle.transpose(x, perm)
 
 
@@ -286,6 +286,7 @@ def _rnn_static_graph(
         inputs = paddle.utils.map_structure(_transpose_batch_time, inputs)
 
     max_seq_len = paddle.shape(paddle.utils.flatten(inputs)[0])[0]
+    max_seq_len = paddle.cast(max_seq_len, paddle.int32)
     if sequence_length is not None:
         mask = paddle.static.nn.sequence_lod.sequence_mask(
             sequence_length,
@@ -650,7 +651,7 @@ class RNNCellBase(Layer):
         class Shape:
             def __init__(self, shape):
                 self.shape = (
-                    list(shape) if shape[0] == -1 else ([-1] + list(shape))
+                    list(shape) if shape[0] == -1 else ([-1, *list(shape)])
                 )
 
         # nested structure of shapes
