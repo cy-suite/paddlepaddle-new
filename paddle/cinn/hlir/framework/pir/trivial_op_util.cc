@@ -951,6 +951,22 @@ std::vector<ir::Var> GetAllLoopVars(const ir::Expr& root) {
   return AppendBound(loop_vars, root);
 }
 
+std::vector<ir::Var> GetReduceLoopVars(const ir::Expr& root) {
+  auto reduce_init = (ExprSetFinderUtils::ChildScheduleBlockRealizes *
+                      ExprSetFinderUtils::ScheduleBlockRealizeIsInit)(root);
+  if (!reduce_init.empty()) {
+    auto father_block = ExprSetFinderUtils::DirectlyFather(root)
+                            .GetSingle((reduce_init[0]))
+                            .As<ir::Block>();
+    PADDLE_ENFORCE(father_block && father_block->stmts.size() == 2,
+                   ::common::errors::InvalidArgument(
+                       "Father block size of reduce init should be 2."));
+    auto reduce_body = father_block->stmts[1];
+    return GetAllLoopVars(reduce_body);
+  }
+  return {};
+}
+
 ir::Expr GetBodyBlock(const ir::Expr& root) {
   const auto& iters = GetNonReduceLoopVars(root);
   if (iters.empty()) {
@@ -1041,23 +1057,48 @@ ir::Expr ReshapeLoop(const ir::Expr& root,
   return copied;
 }
 
-bool CheckLoopAlignment(const std::vector<ir::Expr>& roots) {
-  if (roots.size() < 2) {
-    return true;
-  }
-  const auto base_loop_vars = GetAllLoopVars(roots[0]);
-  for (size_t i = 1; i < roots.size(); ++i) {
+void CheckLoopAlignment(const std::vector<ir::Expr>& roots) {
+  if (roots.size() < 2) return;
+
+  auto var_equal = [](const ir::Var& lhs, const ir::Var& rhs) {
+    return lhs->upper_bound == rhs->upper_bound &&
+           lhs->lower_bound == rhs->lower_bound;
+  };
+
+  int base_loop_idx = -1;
+  int base_reduce_idx = -1;
+  std::vector<ir::Var> base_loop_vars;
+  std::vector<ir::Var> base_reduce_vars;
+  for (size_t i = 0; i < roots.size(); ++i) {
     const auto loop_vars = GetAllLoopVars(roots[i]);
-    bool loop_equal = fusion::VectorEqual(
-        base_loop_vars, loop_vars, [](const ir::Var& lhs, const ir::Var& rhs) {
-          return lhs->upper_bound == rhs->upper_bound &&
-                 lhs->lower_bound == rhs->lower_bound;
-        });
-    if (!loop_equal) {
-      return false;
+    if (base_loop_idx < 0) {
+      base_loop_vars = loop_vars;
+      base_loop_idx = i;
+      continue;
+    }
+    PADDLE_ENFORCE(fusion::VectorEqual(base_loop_vars, loop_vars, var_equal),
+                   ::common::errors::PreconditionNotMet(
+                       "CheckLoopAlignment Failed, The loop vars are not euqal "
+                       "between FusionOps: \n%s\n%s",
+                       roots[base_loop_idx],
+                       roots[i]));
+
+    const auto reduce_vars = GetReduceLoopVars(roots[i]);
+    if (!reduce_vars.empty()) {
+      if (base_reduce_idx < 0) {
+        base_reduce_vars = reduce_vars;
+        base_reduce_idx = i;
+        continue;
+      }
+      PADDLE_ENFORCE(
+          fusion::VectorEqual(base_reduce_vars, reduce_vars, var_equal),
+          ::common::errors::PreconditionNotMet(
+              "CheckLoopAlignment Failed, The reduce vars are not euqal "
+              "between FusionOps: \n%s\n%s",
+              roots[base_reduce_idx],
+              roots[i]));
     }
   }
-  return true;
 }
 
 }  // namespace trivial_fusion_detail

@@ -301,7 +301,7 @@ ir::Expr ReshapeLoop(const ir::Expr& root,
                      const std::vector<symbol::DimExpr>& in_shape,
                      const std::vector<symbol::DimExpr>& out_shape);
 
-bool CheckLoopAlignment(const std::vector<ir::Expr>& roots);
+void CheckLoopAlignment(const std::vector<ir::Expr>& roots);
 
 }  // namespace trivial_fusion_detail
 }  // namespace pir
