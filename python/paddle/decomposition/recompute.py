@@ -154,7 +154,7 @@ COMPUTE_INTENSIVE_OPS: list[str] = [
 
 AGGRESSIVE_RECOMPUTATION = False
 # Restricts the amount of computation recompute can do.
-MAX_DIST_FROM_BW = 5
+MAX_DIST_FROM_BW = 3
 
 
 def DebugPrint(*args):
