@@ -33,11 +33,8 @@ if TYPE_CHECKING:
     class _DPConfig(TypedDict):
         sharding_level: str | int
 
-    class _ParallelizePlan(TypedDict):
-        str: PlanBase | list[PlanBase]
-
     class _MPConfig(TypedDict):
-        parallelize_plan: _ParallelizePlan
+        parallelize_plan: dict[str, PlanBase | list[PlanBase]]
 
     class _PPConfig(TypedDict):
         split_spec: str | dict[str, SplitPoint]
