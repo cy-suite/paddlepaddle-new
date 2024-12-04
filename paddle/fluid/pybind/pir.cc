@@ -80,6 +80,7 @@
 #include "pybind11/stl.h"
 
 #ifdef PADDLE_WITH_CINN
+#include "paddle/cinn/common/event_tracing.h"
 #include "paddle/cinn/hlir/dialect/operator/ir/op_dialect.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/add_cinn_pass.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/check_infer_symbolic_util.h"
@@ -2495,7 +2496,9 @@ void BindIrPass(pybind11::module *m) {
   m->def("infer_symbolic_shape_pass", InferSymbolicShapePass);
   m->def("apply_cse_pass", ApplyCommonSubexpressionEliminationPass);
   m->def("apply_bn_add_act_pass", ApplyFusedBnAddActPass);
-
+#ifdef PADDLE_WITH_CINN
+  m->def("dump_record_event", cinn::common::DumpRecordEvent);
+#endif
   py::class_<Pass, std::shared_ptr<Pass>> pass(*m,
                                                "Pass",
                                                R"DOC(

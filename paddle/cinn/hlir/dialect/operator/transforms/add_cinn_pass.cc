@@ -25,6 +25,7 @@
 #include "paddle/pir/include/dialect/shape/transforms/shape_optimization_pass.h"
 #include "paddle/pir/include/pass/pass_manager.h"
 
+#include "paddle/cinn/common/event_tracing.h"
 #include "paddle/cinn/hlir/dialect/operator/ir/manual_op.h"
 #include "paddle/cinn/hlir/dialect/operator/ir/op_dialect.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/accuracy_check_pass.h"
@@ -98,6 +99,7 @@ void ApplyShapeOptimizationPass(
     ::pir::Program* program,
     const std::function<std::shared_ptr<::pir::PassManager>()>&
         CreatePassManager) {
+  cinn::common::RecordEvent record("ApplyShapeOptimizationPass");
   std::shared_ptr<pir::PassManager> pass_manager = CreatePassManager();
   bool has_dynamic_shape = HasDynamicShape(*program);
   if (has_dynamic_shape) {
@@ -120,6 +122,7 @@ void ApplyPdToCinnPass(
     ::pir::Program* program,
     const std::function<std::shared_ptr<::pir::PassManager>()>&
         CreatePassManager) {
+  cinn::common::RecordEvent record("ApplyPdToCinnPass");
   std::shared_ptr<pir::PassManager> pass_manager = CreatePassManager();
   pass_manager->AddPass(cinn::dialect::ir::CreateReduceAsToSumPass());
   pass_manager->AddPass(pir::CreateFusedGemmEpiloguePass());
@@ -142,6 +145,7 @@ void ApplyCinnPreprocessPass(
     ::pir::Program* program,
     const std::function<std::shared_ptr<::pir::PassManager>()>&
         CreatePassManager) {
+  cinn::common::RecordEvent record("ApplyCinnPreprocessPass");
   std::shared_ptr<pir::PassManager> pass_manager = CreatePassManager();
   bool has_dynamic_shape = HasDynamicShape(*program);
 
@@ -158,6 +162,7 @@ void ApplyBuildGroupOpPass(
     ::pir::Program* program,
     const std::function<std::shared_ptr<pir::PassManager>()>&
         CreatePassManager) {
+  cinn::common::RecordEvent record("ApplyBuildGroupOpPass");
   std::shared_ptr<pir::PassManager> pass_manager = CreatePassManager();
   pass_manager->AddPass(cinn::dialect::ir::CreateFoldManipulationOpsPass());
 
@@ -203,6 +208,7 @@ void ApplyCinnLowerPass(
     ::pir::Program* program,
     const std::function<std::shared_ptr<pir::PassManager>()>&
         CreatePassManager) {
+  cinn::common::RecordEvent record("ApplyCinnLowerPass");
   std::shared_ptr<pir::PassManager> pass_manager = CreatePassManager();
 
   bool has_dynamic_shape = HasDynamicShape(*program);
@@ -258,6 +264,7 @@ int64_t GetOpCount(const ::pir::Operation* op) {
 void ApplyCinnPass(::pir::Program* program,
                    const std::function<std::shared_ptr<pir::PassManager>()>&
                        CreatePassManager) {
+  cinn::common::RecordEvent record("ApplyCinnPass");
   const uint32_t origin_num_ops = program->num_ops();
   PirToPyCodeConverter(program)
       .file_name("original_programs.py")
@@ -297,6 +304,13 @@ void ApplyCinnPass(::pir::Program* program,
             << ", after lowering it becomes: " << new_num_ops
             << ". (compression ratio: " << new_num_ops << "/" << origin_num_ops
             << " = " << static_cast<float>(new_num_ops) / origin_num_ops << ")";
+
+  uint64_t bc_count = pir::ShapeAnalysisManager::Instance()
+                          .Get(program)
+                          .constraints_manager()
+                          .broadcastables()
+                          .size();
+  cinn::common::RecordCount record_count("BC", bc_count);
 }
 
 }  // namespace cinn::dialect::ir

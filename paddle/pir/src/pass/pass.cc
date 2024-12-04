@@ -14,6 +14,9 @@
 
 #include <glog/logging.h>
 
+#ifdef PADDLE_WITH_CINN
+#include "paddle/cinn/common/event_tracing.h"
+#endif
 #include "paddle/pir/include/core/ir_context.h"
 #include "paddle/pir/include/core/operation.h"
 #include "paddle/pir/include/core/program.h"
@@ -159,7 +162,9 @@ bool detail::PassAdaptor::RunPass(Pass* pass,
                                   uint8_t opt_level,
                                   bool verify) {
   if (opt_level < pass->pass_info().opt_level) return true;
-
+#ifdef PADDLE_WITH_CINN
+  cinn::common::RecordEvent record("RunPass_" + pass->name());
+#endif
   pass->pass_state_ = PassExecutionState(op, am);
 
   PassInstrumentor* instrumentor = am.GetPassInstrumentor();
