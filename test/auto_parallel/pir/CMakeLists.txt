@@ -33,8 +33,7 @@ if(WITH_DISTRIBUTE AND WITH_GPU)
     FLAGS_enable_pir_api=1 FLAGS_dist_prim_all=1)
   py_test_modules(
     test_auto_parallel_recompute_pir_pass MODULES
-    test_auto_parallel_recompute_pir_pass ENVS FLAGS_enable_pir_api=1
-    FLAGS_dist_prim_all=1)
+    test_auto_parallel_recompute_pir_pass ENVS FLAGS_enable_pir_api=1)
   py_test_modules(test_reshard MODULES test_reshard ENVS FLAGS_enable_pir_api=1)
   py_test_modules(test_learning_rate MODULES test_learning_rate ENVS
                   FLAGS_enable_pir_api=1)
