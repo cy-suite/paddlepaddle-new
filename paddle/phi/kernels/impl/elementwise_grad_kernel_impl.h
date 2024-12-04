@@ -419,9 +419,9 @@ __global__ void ComputeDDoutWithBroadcastGPUKernel(
     const T* out_data,
     T* ddout_data,
     int numel,
-    const CudaIntArray* x_dims_array,
-    const CudaIntArray* y_dims_array,
-    const CudaIntArray* out_dims_array,
+    const CudaIntArray x_dims_array,
+    const CudaIntArray y_dims_array,
+    const CudaIntArray out_dims_array,
     const int max_dim,
     DDout_OP dout_op) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -430,15 +430,15 @@ __global__ void ComputeDDoutWithBroadcastGPUKernel(
       out_index = tid, dim_index;
   for (int64_t i = max_dim - 1; i >= 0; i--) {
     if (out_index == 0) break;
-    dim_index = out_index % (*out_dims_array)[i];
-    out_index = out_index / (*out_dims_array)[i];
-    if ((*x_dims_array)[i] > 1) {
+    dim_index = out_index % out_dims_array[i];
+    out_index = out_index / out_dims_array[i];
+    if (x_dims_array[i] > 1) {
       x_index += dim_index * x_index_prod;
-      x_index_prod *= (*x_dims_array)[i];
+      x_index_prod *= x_dims_array[i];
     }
-    if ((*y_dims_array)[i] > 1) {
+    if (y_dims_array[i] > 1) {
       y_index += dim_index * y_index_prod;
-      y_index_prod *= (*y_dims_array)[i];
+      y_index_prod *= y_dims_array[i];
     }
   }
   ddout_data[tid] = dout_op(
@@ -481,9 +481,9 @@ void ComputeDDoutWithBroadcast(const GPUContext& dev_ctx UNUSED,
                                    out_data,
                                    ddout_data,
                                    out_numel,
-                                   &x_dims_array_gpu_data,
-                                   &y_dims_array_gpu_data,
-                                   &out_dims_array_gpu_data,
+                                   x_dims_array_gpu_data,
+                                   y_dims_array_gpu_data,
+                                   out_dims_array_gpu_data,
                                    max_dim,
                                    dout_op);
 }
