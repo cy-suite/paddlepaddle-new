@@ -175,19 +175,15 @@ class TestLlamaAuto:
             np.testing.assert_equal(losses_1[idx], losses_2[idx])
 
     def get_recompute_message(self, program):
-        segment_num = -1
-        rc_op_num = 0
+        segment_num = set()
+        fwd_rc_op_num = 0
         for block in program.blocks:
             for op in block.ops:
                 if op.has_attr("fwd_recompute_id"):
                     idx = op.attrs()["fwd_recompute_id"]
-                    segment_num = max(segment_num, idx)
-                    rc_op_num += 1
-                elif op.has_attr("bwd_recompute_id"):
-                    idx = op.attrs()["bwd_recompute_id"]
-                    segment_num = max(segment_num, idx)
-                    rc_op_num += 1
-        return segment_num + 1, rc_op_num
+                    segment_num.add(idx)
+                    fwd_rc_op_num += 1
+        return len(segment_num), fwd_rc_op_num
 
     def run_test_cases(self):
         self.strategy._recompute.enable = False
@@ -218,21 +214,19 @@ class TestLlamaAuto:
         prog_2 = model_2.dist_main_program()
         prog_3 = model_3.dist_main_program()
         base_segment_num, base_rc_op_num = self.get_recompute_message(base_prog)
-        segment_num_1, rc_op_num_1 = self.get_recompute_message(prog_1)
-        segment_num_2, rc_op_num_2 = self.get_recompute_message(prog_2)
-        segment_num_3, rc_op_num_3 = self.get_recompute_message(prog_3)
+        segment_num_1, fwd_rc_op_num_1 = self.get_recompute_message(prog_1)
+        segment_num_2, fwd_rc_op_num_2 = self.get_recompute_message(prog_2)
+        segment_num_3, fwd_rc_op_num_3 = self.get_recompute_message(prog_3)
 
-        assert base_segment_num == 0 and base_rc_op_num == 0
-        assert (
-            base_segment_num < segment_num_1
-            and segment_num_1 < segment_num_2
-            and segment_num_2 < segment_num_3
-        )
-        assert (
-            base_rc_op_num < rc_op_num_1
-            and rc_op_num_1 < rc_op_num_2
-            and rc_op_num_2 < rc_op_num_3
-        )
+        assert base_segment_num == 0
+        assert segment_num_1 == 2
+        assert segment_num_2 == 2
+        assert segment_num_3 == 2
+
+        assert base_rc_op_num == 0
+        assert fwd_rc_op_num_1 == 60
+        assert fwd_rc_op_num_2 == 204
+        assert fwd_rc_op_num_3 == 288
 
 
 if __name__ == '__main__':
