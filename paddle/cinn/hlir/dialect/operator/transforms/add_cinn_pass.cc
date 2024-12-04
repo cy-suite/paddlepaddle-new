@@ -101,8 +101,8 @@ void ApplyShapeOptimizationPass(
     const std::function<std::shared_ptr<::pir::PassManager>()>&
         CreatePassManager) {
   std::shared_ptr<pir::PassManager> pass_manager = CreatePassManager();
-  pir::ValidAttrFilterForShapeCache::Instance().SetValidAttributeMap(
-      paddle::dialect::GetValidAttributeMapForShapeCache());
+  pir::OriginalAttributesFilter::Instance().SetOriginalAttributesMap(
+      paddle::dialect::GetAllOpOriginalAttributes());
   bool has_dynamic_shape = HasDynamicShape(*program);
   if (has_dynamic_shape) {
     if (FLAGS_cinn_specify_input_dynamic_dim) {

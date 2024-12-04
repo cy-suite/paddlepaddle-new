@@ -38,7 +38,7 @@ namespace dialect {{
 """
 
 GET_VALID_ATTR_MAP_FUNC_CODE_TEMPLATE = """
-std::unordered_map<std::string, std::unordered_set<std::string>> GetValidAttributeMapForShapeCache() {{
+std::unordered_map<std::string, std::set<std::string>> GetAllOpOriginalAttributes() {{
   return {{{valid_attr_map_items}
   }};
 }}
@@ -53,7 +53,7 @@ void {op_name}Op::CacheGradOpSymbolicShape(pir::InferSymbolicShapeContext* infer
   pir::InferSymbolicShapeCacheKey op_shape_info(
       "{grad_op_name}",
       {{{input_shape_list}}},
-      pir::GetValidSortedAttributes("{grad_op_name}", this->operation()->attributes()));
+      pir::GetOrderedOriginalAttributes("{grad_op_name}", this->operation()->attributes()));
 {create_grad_op_output_shape_code}
   std::vector<symbol::ShapeOrDataDimExprs> output_shape_or_data{{{output_shape_list}}};
 
