@@ -2116,7 +2116,7 @@ class PowOpPattern : public pir::OpRewritePattern<paddle::dialect::PowOp> {
   }
 };
 
-class IndexPutOpPatternPattern
+class IndexPutOpPattern
     : public pir::OpRewritePattern<paddle::dialect::IndexPutOp> {
  public:
   using pir::OpRewritePattern<paddle::dialect::IndexPutOp>::OpRewritePattern;
