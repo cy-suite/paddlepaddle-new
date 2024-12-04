@@ -265,11 +265,10 @@ class TestDLPack(unittest.TestCase):
             s1 = paddle.device.Stream()
             s2 = paddle.device.Stream()
             e = paddle.device.Event()
-            s1.record_event(e)
             s2.wait_event(e)
             x = paddle.to_tensor([1, 2, 3], dtype='float32')
             s1.synchronize()
-            dlpack_capsule = x.__dlpack__()
+            dlpack_capsule = x.__dlpack__(s1)
             y = paddle.from_dlpack(dlpack_capsule)
             np.testing.assert_array_equal(x.numpy(), y.numpy())
             self.assertTrue(s1.query(), "Stream s1 did not complete all tasks.")
@@ -294,11 +293,6 @@ class TestRaiseError(unittest.TestCase):
         )
         with self.assertRaises(RuntimeError):
             tensor_with_grad.__dlpack__()
-
-    def test_invalid_stream_type_error(self):
-        invalid_tensor = paddle.to_tensor(np.array([1, 2, 3, 4]).astype("int"))
-        with self.assertRaises(TypeError):
-            invalid_tensor.__dlpack__(stream="invalid_stream")
 
 
 if __name__ == "__main__":

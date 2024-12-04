@@ -1388,22 +1388,13 @@ def monkey_patch_tensor():
                 "If gradients aren't required, use tensor.detach() to get a tensor without gradient."
             )
 
-        if stream is not None and not isinstance(stream, int):
-            raise TypeError("stream must be an integer or None")
-
-        if stream is not None and stream != -1:
+        if stream is not None:
             if self.place.is_gpu_place():
-                if stream == 1 and not paddle.device.is_compiled_with_rocm():
-                    stream = paddle.device.cuda.default_stream()
-                elif stream == 0 and paddle.device.is_compiled_with_rocm():
-                    stream = paddle.device.cuda.default_stream()
-                else:
-                    stream = paddle.device.cuda.ExternalStream(stream)
                 current_stream = paddle.device.cuda.current_stream()
                 if stream != current_stream:
                     event = paddle.device.cuda.Event()
                     event.record(current_stream)
-                    stream.wait_event(event)
+                    current_stream.synchronize()
 
         return paddle.to_dlpack(self)
 
