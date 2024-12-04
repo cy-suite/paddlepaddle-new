@@ -259,7 +259,6 @@ class AutoLayoutPass : public pir::Pass {
   const std::vector<int32_t> NCHW2NHWC_ = {0, 2, 3, 1};
   const std::vector<int32_t> NHWC2NCHW_ = {0, 3, 1, 2};
 };
-
 const std::set<std::string> op_in_NCHW = {"pd_op.max_pool2d_with_index",
                                           "pd_op.fractional_max_pool2d",
                                           "pd_op.unpool3d",

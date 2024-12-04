@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
 import typing
 
 __is_metainfo_generated = False
@@ -240,6 +241,7 @@ from .tensor.linalg import (  # noqa: F401
     t_,
     transpose,
     transpose_,
+    vecdot,
 )
 from .tensor.logic import (
     allclose,
@@ -771,6 +773,14 @@ from .pir_utils import IrGuard
 ir_guard = IrGuard()
 ir_guard._switch_to_pir()
 
+
+# Constants
+newaxis: None = None
+inf = math.inf
+nan = math.nan
+pi = math.pi
+e = math.e
+
 __all__ = [
     'block_diag',
     'iinfo',
@@ -1204,4 +1214,10 @@ __all__ = [
     'positive',
     'from_dlpack',
     'to_dlpack',
+    'inf',
+    'newaxis',
+    'vecdot',
+    'nan',
+    'pi',
+    'e',
 ]
