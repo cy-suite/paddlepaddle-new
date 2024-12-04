@@ -28,7 +28,6 @@ from paddle import pir
 from paddle.base.core import clear_shape_info, get_value_shape_range_info
 from paddle.base.log_helper import get_logger
 
-from .export import PrecisionMode
 from .impls.activation import *  # noqa: F403
 from .impls.attribute import *  # noqa: F403
 from .impls.common import *  # noqa: F403
@@ -132,6 +131,8 @@ class PaddleToTensorRTConverter:
         return input_values, graph_output_values
 
     def convert_subgraph_to_trt(self, program, group_op):
+        from .export import PrecisionMode
+
         _logger.info(f"start process {group_op}")
 
         operations = next(iter(group_op.blocks())).ops
