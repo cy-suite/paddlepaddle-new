@@ -294,8 +294,6 @@ static void xblas_fc_wrapper(xpu::Context* ctx,
       inout_columns,
       false,
   };
-  // if XPUInOutType is bfloat16, another FcFusionDesc with TINTER_RES being set
-  // to float will be constructed below to achieve higher accuracy
   xblas::FcFusionDesc<TGEMM, TGEMM_O, TINTER_RES> desc{
       alpha,
       beta,
@@ -687,7 +685,7 @@ static void MatMulXPUFunction(
   using XPU_TA = typename XPUTypeTrait<TA>::Type;
   using XPU_TB = typename XPUTypeTrait<TB>::Type;
   using XPU_TC = typename XPUTypeTrait<
-      typename std::conditional<std::is_void<TC>::value, TA, TC>::type>::Type;
+      typename std::conditional<std::is_void<TC>::value, TD, TC>::type>::Type;
   using XPU_TD = typename XPUTypeTrait<TD>::Type;
   using XPU_TGEMM = typename XPUTypeTrait<TGEMM>::Type;
   using XPU_TGEMM_O = typename XPUTypeTrait<TGEMM_O>::Type;
