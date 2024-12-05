@@ -13,10 +13,11 @@
 # limitations under the License.
 
 import paddle
+from paddle.distributed.auto_parallel.process_mesh import merge_process_meshes
 from paddle.distributed.passes.pass_utils import find_var_used_op_chunk_id
 
 from ..process_group import new_process_group
-from .base_reshard_func import ReshardFunction
+from .base_reshard_func import ReshardFunction, copy_dist_attr_with_new_member
 
 
 class SameStatusReshardFunction(ReshardFunction):
@@ -39,20 +40,17 @@ class SameStatusReshardFunction(ReshardFunction):
         src_mesh = src_dist_attr.process_mesh
         dst_mesh = dst_dist_attr.process_mesh
 
-        all_process_ids = list(
-            set(src_mesh.process_ids) | set(dst_mesh.process_ids)
-        )
-        all_process_ids = sorted(all_process_ids)
-
         cur_global_rank = paddle.distributed.get_rank()
 
         for src, dst in zip(src_mesh.process_ids, dst_mesh.process_ids):
             if src != dst:
-                new_process_group([src, dst], group_type="p2p")
-                new_process_group([dst, src], group_type="p2p")
+                new_process_group([src, dst])
+                new_process_group([dst, src])
 
         is_send = True
         for src, dst in zip(src_mesh.process_ids, dst_mesh.process_ids):
+            if cur_global_rank != src and cur_global_rank != dst:
+                continue
             if src == cur_global_rank:
                 chunk_id = -1
                 if (
@@ -96,26 +94,21 @@ class SameStatusReshardFunction(ReshardFunction):
                             src_value.get_defining_op().dist_attr.chunk_id
                         )
 
-                comm_group = new_process_group([src, dst], group_type="p2p")
-                paddle._C_ops.send_v2(
-                    src_value,
-                    comm_group.id,
-                    comm_group.ranks.index(dst),
-                    True,
-                    False,
+                # the root rank will broadcast the src_value to the dst rank
+                tmp_value = paddle._C_ops.share_data_(src_value)
+                value_type = paddle.base.libpaddle.pir.cvt_to_dist_type(
+                    src_value.type(), src_value.dist_attr()
                 )
-                point = paddle.base.libpaddle.pir.get_current_insertion_point()
-                point.prev()
-                new_op = point.get_operation()
-                assert new_op.name() == "pd_op.send_v2"
-                new_op.dist_attr = (
+                tmp_value.set_type(value_type)
+                op = tmp_value.get_defining_op()
+                op.dist_attr = (
                     paddle.base.libpaddle.pir.create_op_dist_attribute(
-                        src_mesh, [src_dist_attr], [], chunk_id
+                        src_mesh, [src_dist_attr], [src_dist_attr], chunk_id
                     )
                 )
-                break
 
             elif dst == cur_global_rank:
+                is_send = False
                 all_used_ops = src_value.all_used_ops()
                 chunk_id = -1
                 for used_op in all_used_ops:
@@ -127,32 +120,37 @@ class SameStatusReshardFunction(ReshardFunction):
                     -1 not in dst_type.shape
                 ), "dynamic shape is not supported by pir-auto parallel yet."
 
-                comm_group = new_process_group([src, dst], group_type="p2p")
-                recv_value = paddle._C_ops.recv_v2(
-                    dst_type._local_shape,
-                    dst_type.dtype,
-                    comm_group.ranks.index(src),
-                    comm_group.id,
-                    True,
-                    False,
+                # create the buffer on other ranks for receving the data
+                value_dist_attr = copy_dist_attr_with_new_member(
+                    dst_dist_attr, new_process_mesh=dst_mesh
                 )
-                new_op = recv_value.get_defining_op()
-                new_op.dist_attr = (
+                tmp_value = paddle.zeros(dst_type._local_shape, dst_type.dtype)
+                tmp_value.set_type(dst_type)
+                op = tmp_value.get_defining_op()
+                op.dist_attr = (
                     paddle.base.libpaddle.pir.create_op_dist_attribute(
-                        dst_mesh,
-                        [],
-                        [dst_dist_attr],
-                        chunk_id,
+                        dst_mesh, [], [value_dist_attr]
                     )
                 )
-                recv_value.set_type(dst_type)
-                is_send = False
-                break
 
+            comm_group = new_process_group([src, dst])
+            broadcast_value = paddle._C_ops.broadcast(
+                tmp_value,
+                comm_group.id,
+                comm_group.ranks.index(src),
+            )
+            broadcast_value.set_type(dst_type)
+            broadcast_op = broadcast_value.get_defining_op()
+            bcast_mesh = merge_process_meshes([src_mesh, dst_mesh])
+            broadcast_op.dist_attr = (
+                paddle.base.libpaddle.pir.create_op_dist_attribute(
+                    bcast_mesh, [src_dist_attr], [dst_dist_attr]
+                )
+            )
         if is_send:
             # fake var will be removed in remove_other_rank_op_pass.
             fake_var = paddle._C_ops.reshard_v2(src_value, dst_dist_attr)
             fake_var.set_type(dst_type)
             return fake_var
         else:
-            return recv_value
+            return broadcast_value
