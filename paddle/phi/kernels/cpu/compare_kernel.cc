@@ -137,6 +137,3 @@ PD_REGISTER_COMPARE_KERNEL(greater_than, GreaterThan)
 PD_REGISTER_COMPARE_KERNEL(greater_equal, GreaterEqual)
 PD_REGISTER_COMPARE_KERNEL(equal, Equal)
 PD_REGISTER_COMPARE_KERNEL(not_equal, NotEqual)
-
-PD_REGISTER_COMPLEX_COMPARE_KERNEL(complex_not_equal, ComplexNotEqual)
-PD_REGISTER_COMPLEX_COMPARE_KERNEL(complex_equal, ComplexEqual)

@@ -35,32 +35,29 @@ COMPARE_FUNCTOR(GreaterEqualFunctor, >=)
 template <typename InT, typename OutT = bool>
 struct EqualFunctor {
   HOSTDEVICE OutT operator()(const InT a, const InT b) const {
-    if (std::is_floating_point<InT>::value) {
-      if (isinf(static_cast<float>(a)) || isinf(static_cast<float>(b)))
-        return static_cast<OutT>(a == b);
-      if (isnan(static_cast<float>(a)) || isnan(static_cast<float>(b)))
-        return static_cast<OutT>(false);
-      return static_cast<OutT>(fabs(static_cast<double>(a - b)) < 1e-8);
+    if constexpr (std::is_same_v<InT, phi::dtype::complex<float>> ||
+                  std::is_same_v<InT, phi::dtype::complex<double>>) {
+      if (isinf(a.real) || isinf(a.imag) || isinf(b.real) || isinf(b.imag)) {
+        return a == b;
+      }
+      if (isnan(a.real) || isnan(a.imag) || isnan(b.real) || isnan(b.imag)) {
+        return false;
+      }
+
+      float epsilon = 1e-8f;
+      return std::abs(a.real - b.real) < epsilon &&
+             std::abs(a.imag - b.imag) < epsilon;
     } else {
-      return static_cast<OutT>(a == b);
+      if (std::is_floating_point<InT>::value) {
+        if (isinf(static_cast<float>(a)) || isinf(static_cast<float>(b)))
+          return static_cast<OutT>(a == b);
+        if (isnan(static_cast<float>(a)) || isnan(static_cast<float>(b)))
+          return static_cast<OutT>(false);
+        return static_cast<OutT>(fabs(static_cast<double>(a - b)) < 1e-8);
+      } else {
+        return static_cast<OutT>(a == b);
+      }
     }
-  }
-};
-
-template <typename ComplexInT, typename ComplexOutT = bool>
-struct ComplexEqualFunctor {
-  HOSTDEVICE ComplexOutT operator()(const ComplexInT a,
-                                    const ComplexInT b) const {
-    if (isinf(a.real) || isinf(a.imag) || isinf(b.real) || isinf(b.imag)) {
-      return a == b;
-    }
-    if (isnan(a.real) || isnan(a.imag) || isnan(b.real) || isnan(b.imag)) {
-      return false;
-    }
-
-    float epsilon = 1e-8f;
-    return std::abs(a.real - b.real) < epsilon &&
-           std::abs(a.imag - b.imag) < epsilon;
   }
 };
 
@@ -68,14 +65,6 @@ template <typename InT, typename OutT = bool>
 struct NotEqualFunctor {
   HOSTDEVICE bool operator()(const InT a, const InT b) const {
     return !EqualFunctor<InT, OutT>()(a, b);
-  }
-};
-
-template <typename ComplexInT, typename ComplexOutT = bool>
-struct ComplexNotEqualFunctor {
-  HOSTDEVICE ComplexOutT operator()(const ComplexInT a,
-                                    const ComplexInT b) const {
-    return !NotEqualFunctor<ComplexInT, ComplexOutT>()(a, b);
   }
 };
 
