@@ -331,7 +331,12 @@ def fuse_double_load_fast(instrs: list[Instruction], code_options):
         prev_instr.opcode = 88
         prev_instr.is_generated = True
         prev_instr.argval = (prev_instr.argval, instr.argval)
-        prev_instr.arg = (prev_instr.arg << 4) + instr.arg
+        prev_instr.arg = (
+            (prev_instr.arg if prev_instr.arg is not None else 0 << 4)
+            + instr.arg
+            if instr.arg is not None
+            else 0
+        )
         instrs.remove(instr)
 
     def check_first_op(now_idx: int):
