@@ -36,11 +36,11 @@ def apply_instr_pass(instrs: list[Instruction], code_options):
         check_precall_followed_by_call,
     ]
 
-    if sys.version_info >= (3, 13):
-        supported_passes.append(fuse_double_load_fast)
-
     if sys.version_info >= (3, 12):
         supported_passes.append(check_for_iter_jump_to)
+
+    if sys.version_info >= (3, 13):
+        supported_passes.append(fuse_double_load_fast)
 
     for instr_pass in supported_passes:
         instr_pass(instrs, code_options)
@@ -290,13 +290,14 @@ def fuse_double_load_fast(instrs: list[Instruction], code_options):
         "LOAD_CONST",
     )
     first_op_index: int = -1
-    to_remove = []
 
     def able_to_merge(idx: int, instr: Instruction):
         return (
             idx > 0
             and instr.opname == "LOAD_FAST"
             and instrs[idx - 1].opname == "LOAD_FAST"
+            and not instr.is_jump_target
+            and not instrs[idx - 1].is_jump_target
         )
 
     def merge_two_LOAD_FAST(prev_instr: Instruction, instr: Instruction):
@@ -305,11 +306,8 @@ def fuse_double_load_fast(instrs: list[Instruction], code_options):
         prev_instr.is_generated = True
         prev_instr.argval = (prev_instr.argval, instr.argval)
         prev_instr.arg = (
-            (prev_instr.arg if prev_instr.arg is not None else 0 << 4)
-            + instr.arg
-            if instr.arg is not None
-            else 0
-        )
+            (prev_instr.arg if prev_instr.arg is not None else 0) << 4
+        ) + (instr.arg if instr.arg is not None else 0)
         instrs.remove(instr)
 
     def check_first_op(now_idx: int):
