@@ -543,7 +543,12 @@ DECLARE_UNSUPPORTED_XBLAS_FC_WRAPPER(XPUTypeFP16, XPUTypeFP16, tfloat32)
 DECLARE_UNSUPPORTED_XBLAS_FC_WRAPPER(float, float, XPUTypeFP16)
 #endif
 
-template <typename TX, typename TY, typename FCT, typename TGEMM_OUT>
+template <typename TA,
+          typename TB,
+          typename TD,
+          typename TGEMM,
+          typename TGEMM_OUT,
+          int MAX_PTR_TYPE = 0>
 static void xblas_fc_batch_wrapper(xpu::Context* xpu_ctx,
                                    int bs,
                                    bool trans_x,
@@ -552,17 +557,17 @@ static void xblas_fc_batch_wrapper(xpu::Context* xpu_ctx,
                                    int n,
                                    int k,
                                    float alpha,
-                                   const TX* x,
+                                   const TA* x,
                                    int stride_x,
-                                   const TX* w,
+                                   const TB* w,
                                    int stride_w,
                                    float beta,
-                                   TY* y,
+                                   TD* y,
                                    int stride_y,
                                    const float* x_maxptr,
                                    const float* w_maxptr) {
 #ifdef PADDLE_WITH_XPU_XRE5
-  int r = xblas::fc_batched<TX, TX, TY, FCT, TGEMM_OUT, 0>(
+  int r = xblas::fc_batched<TA, TB, TD, TGEMM, TGEMM_OUT, MAX_PTR_TYPE>(
       xpu_ctx,
       bs,
       trans_x,
@@ -571,41 +576,41 @@ static void xblas_fc_batch_wrapper(xpu::Context* xpu_ctx,
       n,
       k,
       alpha,
-      reinterpret_cast<const TX*>(x),
+      reinterpret_cast<const TA*>(x),
       stride_x,
-      reinterpret_cast<const TX*>(w),
+      reinterpret_cast<const TB*>(w),
       stride_w,
       beta,
-      reinterpret_cast<TY*>(y),
+      reinterpret_cast<TD*>(y),
       stride_y,
       x_maxptr,
       w_maxptr);
   PADDLE_ENFORCE_XDNN_SUCCESS(r, "xblas_fc_batched");
 #else
-  int r = xpu::fc_batched<TX, TX, TX, FCT>(xpu_ctx,
-                                           bs,
-                                           trans_x,
-                                           trans_w,
-                                           m,
-                                           n,
-                                           k,
-                                           alpha,
-                                           reinterpret_cast<const TX*>(x),
-                                           stride_x,
-                                           reinterpret_cast<const TX*>(w),
-                                           stride_w,
-                                           beta,
-                                           reinterpret_cast<TY*>(y),
-                                           stride_y,
-                                           x_maxptr,
-                                           w_maxptr);
+  int r = xpu::fc_batched<TA, TB, TTD, TGEMM>(xpu_ctx,
+                                              bs,
+                                              trans_x,
+                                              trans_w,
+                                              m,
+                                              n,
+                                              k,
+                                              alpha,
+                                              reinterpret_cast<const TA*>(x),
+                                              stride_x,
+                                              reinterpret_cast<const TB*>(w),
+                                              stride_w,
+                                              beta,
+                                              reinterpret_cast<TD*>(y),
+                                              stride_y,
+                                              x_maxptr,
+                                              w_maxptr);
   PADDLE_ENFORCE_XDNN_SUCCESS(r, "xdnn_fc_batched");
 #endif
 }
 
 #define DECLARE_UNSUPPORTED_XBLAS_FC_BATCH_WRAPPER(XPUType, FCT, TGEMM_OUT) \
   template <>                                                               \
-  void xblas_fc_batch_wrapper<XPUType, XPUType, FCT, TGEMM_OUT>(            \
+  void xblas_fc_batch_wrapper<XPUType, XPUType, XPUType, FCT, TGEMM_OUT>(   \
       xpu::Context * xpu_ctx,                                               \
       int bs,                                                               \
       bool trans_x,                                                         \
@@ -658,8 +663,10 @@ DECLARE_UNSUPPORTED_XBLAS_FC_BATCH_WRAPPER(XPUTypeFP16,
 #endif
 
 /*
+    if matrix C does not exist, TC is recommended to set to be 'void' type,
+    and it will be set to be consistent with TD automatically;
     if TGEMM is not specified, an appropriate TGEMM will be selected
-   automatically; otherwise the given TGEMM will be used
+    automatically, otherwise the given TGEMM will be used;
 */
 template <typename TA,
           typename TB,
@@ -768,8 +775,8 @@ static void MatMulXPUFunction(
                         XPU_TSCALE>,
   };
 
-  // if TGEMM is not given, select TGEMM automatically; otherwise, use the given
-  // TGEMM
+  // if TGEMM is not specified, an appropriate TGEMM will be selected
+  // automatically, otherwise the given TGEMM will be used;
   if (std::is_void<TGEMM>::value) {
     xblas_fc_api = xblas_fc_api_list[fc_calc_type];
   } else {
@@ -785,14 +792,14 @@ static void MatMulXPUFunction(
         XPU_TSCALE>;
   }
 
-  decltype(&xblas_fc_batch_wrapper<XPU_TA, XPU_TD, int16_t, float>)
+  decltype(&xblas_fc_batch_wrapper<XPU_TA, XPU_TB, XPU_TD, int16_t, float>)
       xblas_fc_batch_api_list[6] = {
-          &xblas_fc_batch_wrapper<XPU_TA, XPU_TD, int16_t, float>,
-          &xblas_fc_batch_wrapper<XPU_TA, XPU_TD, int32_t, float>,
-          &xblas_fc_batch_wrapper<XPU_TA, XPU_TD, float, float>,
-          &xblas_fc_batch_wrapper<XPU_TA, XPU_TD, int_with_ll_t, float>,
-          &xblas_fc_batch_wrapper<XPU_TA, XPU_TD, tfloat32, float>,
-          &xblas_fc_batch_wrapper<XPU_TA, XPU_TD, XPUTypeFP16, float>,
+          &xblas_fc_batch_wrapper<XPU_TA, XPU_TB, XPU_TD, int16_t, float>,
+          &xblas_fc_batch_wrapper<XPU_TA, XPU_TB, XPU_TD, int32_t, float>,
+          &xblas_fc_batch_wrapper<XPU_TA, XPU_TB, XPU_TD, float, float>,
+          &xblas_fc_batch_wrapper<XPU_TA, XPU_TB, XPU_TD, int_with_ll_t, float>,
+          &xblas_fc_batch_wrapper<XPU_TA, XPU_TB, XPU_TD, tfloat32, float>,
+          &xblas_fc_batch_wrapper<XPU_TA, XPU_TB, XPU_TD, XPUTypeFP16, float>,
       };
 
   if (std::getenv("XPU_PADDLE_FC_GRAD_LOCAL") != nullptr) {
@@ -805,8 +812,11 @@ static void MatMulXPUFunction(
 
   if (fc_calc_type == XPUFCCalcType::FC_FLOAT16 &&
       std::getenv("XPU_PADDLE_FC_FLOAT16") != nullptr) {
-    xblas_fc_batch_api =
-        &xblas_fc_batch_wrapper<XPU_TA, XPU_TD, XPUTypeFP16, XPUTypeFP16>;
+    xblas_fc_batch_api = &xblas_fc_batch_wrapper<XPU_TA,
+                                                 XPU_TB,
+                                                 XPU_TD,
+                                                 XPUTypeFP16,
+                                                 XPUTypeFP16>;
   }
   int m = fcinfo.m;
   int n = fcinfo.n;
@@ -871,14 +881,14 @@ static void MatMulXPUFunction(
       PADDLE_ENFORCE_XDNN_SUCCESS(r, "broadcast");
       x_data = x_broadcast_data;
     }
-    const XPU_TA* y_data = reinterpret_cast<const XPU_TA*>(y);
+    const XPU_TB* y_data = reinterpret_cast<const XPU_TB*>(y);
     if (is_y_need_broadcast) {
-      XPU_TA* y_broadcast_data = nullptr;
-      y_broadcast_data = RAII_GUARD.alloc_l3_or_gm<XPU_TA>(batch_size * k * n);
+      XPU_TB* y_broadcast_data = nullptr;
+      y_broadcast_data = RAII_GUARD.alloc_l3_or_gm<XPU_TB>(batch_size * k * n);
       PADDLE_ENFORCE_XDNN_NOT_NULL(y_broadcast_data);
       std::vector<int> y_shape = {1, k, n};
       std::vector<int> new_y_shape = {batch_size, k, n};
-      int r = xpu::broadcast<XPU_TA>(
+      int r = xpu::broadcast<XPU_TB>(
           xpu_ctx, y_data, y_broadcast_data, y_shape, new_y_shape);
       PADDLE_ENFORCE_XDNN_SUCCESS(r, "broadcast");
       y_data = y_broadcast_data;
