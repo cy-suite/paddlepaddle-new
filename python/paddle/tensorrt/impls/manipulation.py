@@ -38,8 +38,10 @@ from paddle.tensorrt.converter_utils import (
     trt_shape,
     trt_sub,
     trt_sum,
+    squeeze_trt
 )
 from paddle.tensorrt.register import converter_registry
+import numpy as np
 
 from ..util import get_trt_version_list
 
@@ -909,54 +911,33 @@ def roll_converter(network, paddle_op, inputs):
 
 @converter_registry.register("pd_op.unbind", trt_version="8.x")
 def unbind_converter(network, paddle_op, inputs):
-    # Step 1: Get input tensor and operation attributes
     input_tensor = inputs[0]
     input_rank = len(input_tensor.shape)
     axis = paddle_op.attrs().get("axis", 0)
     if axis < 0:
         axis += input_rank
-
     axis_tensor = add_1D_constant_layer(network, axis)
-    shape_tensor = trt_shape(network, input_tensor)
-    
-    new_shape = input_tensor.shape[:]
-    new_shape[axis] = 1
 
-    new_shape_list = [get_shape_tensor_element(network, shape_tensor, i) if i != axis else add_1D_constant_layer(network, 1) for i in range(input_rank)]
-    new_shape_tensor = network.add_concatenation(new_shape_list).get_output(0)
-
-    stride = [1] * input_rank
-    stride_tensors = [add_1D_constant_layer(network, 1) for _ in range(input_rank)]
-
-    start_tensors = [add_1D_constant_layer(network, 0) for _ in range(input_rank)]
-    size_tensors = shape_tensor_vec[:]
-    stride = [1] * input_rank  # Set stride for each dimension to 1
-
-    for i in range(input_rank):
-        if axis == i:
-            size_tensors[i] = add_1D_constant_layer(network, 1)
-        start_tensors[i] = add_1D_constant_layer(network, 0)
-
-    # Step 5: Slice the input tensor along the axis and reshape
     output_tensors = []
-    for i in range(input_tensor.shape[axis]):
-        start_tensors[axis] = add_1D_constant_layer(network, i)
-        # 1. Slice the input tensor along the axis
-        start = [0] * input_rank
-        start[axis] = i
-        size = input_tensor.shape[:]
-        size[axis] = 1
-        stride = [1] * input_rank
-        slice_layer = network.add_slice(input_tensor, start=start_tensors, size=size_tensors, stride=stride)
+    for i in range(input_tensor.shape[axis]): 
+        start_tensor = add_1D_constant_layer(network, [i if j == axis else 0 for j in range(input_rank)]) 
+
+        size_tensor = build_size_tensor(
+            network,
+            input_rank,
+            axis_tensor,
+            add_1D_constant_layer(network, 1),
+            trt_shape(network, input_tensor),
+        )
+        slice_layer = network.add_slice(input_tensor, 
+                                        (0,) * input_rank, 
+                                        (0,) * input_rank, 
+                                        (1,) * input_rank)
+        slice_layer.set_input(1, start_tensor)
+        slice_layer.set_input(2, size_tensor)
         sliced_tensor = slice_layer.get_output(0)
         
-        # 2. Reshape the sliced tensor
-        shuffle_layer = network.add_shuffle(sliced_tensor)
-        shuffle_layer.set_input(1, new_dims_tensor)
-        reshaped_tensor = shuffle_layer.get_output(0)
-
-        # Step 6: Append reshaped tensor to the output list
-        output_tensors.append(reshaped_tensor)
-
-    # Step 7: Return the list of output tensors
+        sliced_tensor = squeeze_trt(network, sliced_tensor, [axis])
+        output_tensors.append(sliced_tensor)
+    
     return output_tensors
