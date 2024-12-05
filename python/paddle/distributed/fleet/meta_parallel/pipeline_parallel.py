@@ -2463,6 +2463,7 @@ class VPPFhenBInBalancedMemory(PipelineParallelWithInterleaveFthenB):
                 == num_steps - startup_steps - 1
             ), forward_send_recv_buffer_queue.qsize()
 
+        input_tensor_grad = None
         for micro_step in range(steady_1f1b_steps):
             last_iter = micro_step == (steady_1f1b_steps - 1)
             forward_micro_step_id = micro_step + startup_steps
@@ -2501,16 +2502,7 @@ class VPPFhenBInBalancedMemory(PipelineParallelWithInterleaveFthenB):
             if self.is_pipeline_first_stage(ignore_virtual=True):
                 backward_send_recv_buffer_queue.put(input_tensor_grad)
 
-            if last_iter:
-                # no more fwd, but we need to send the input_tensor_grad.
-                if self.is_pipeline_first_stage(ignore_virtual=True):
-                    input_tensor_grad = backward_send_recv_buffer_queue.get()
-                self._p2p_helper.send_backward(
-                    input_tensor_grad,
-                    pp_first_stage=False,
-                    batch_p2p_comm=self._use_batch_p2p_comm,
-                )
-            else:
+            if not last_iter:
                 input_tensor = self._p2p_helper.send_backward_recv_forward(
                     input_tensor_grad,
                     self.is_pipeline_first_stage(ignore_virtual=True),
@@ -2532,10 +2524,14 @@ class VPPFhenBInBalancedMemory(PipelineParallelWithInterleaveFthenB):
         next_backward_virtual_pp_rank = self._get_virtual_pp_rank(
             steady_1f1b_steps, forward=False
         )
+
+        # no more fwd, but we need to send the input_tensor_grad.
+        if self.is_pipeline_first_stage(ignore_virtual=True):
+            input_tensor_grad = backward_send_recv_buffer_queue.get()
         self.output_tensor_grads[next_backward_virtual_pp_rank].append(
-            self._p2p_helper.recv_backward(
-                pp_last_stage=False,
-                sync_recv=False,
+            self._p2p_helper.send_backward_recv_backward(
+                input_tensor_grad,
+                recv_next=True,
                 batch_p2p_comm=self._use_batch_p2p_comm,
             )
         )
