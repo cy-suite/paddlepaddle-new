@@ -229,7 +229,6 @@ class TestNestedListWithTensor(Dy2StTestBase):
 
 
 class TestCudaArrayInterface(unittest.TestCase):
-
     def test_tensor2tensor_warning(self):
         with warnings.catch_warnings(record=True) as w:
             x = paddle.to_tensor([1, 2, 3])
@@ -243,7 +242,6 @@ class TestCudaArrayInterface(unittest.TestCase):
                 ):
                     flag = True
                     break
-
             self.assertTrue(flag)
 
 
