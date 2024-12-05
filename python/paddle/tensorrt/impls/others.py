@@ -26,6 +26,7 @@ from paddle.tensorrt.converter_utils import (
     trt_concat,
     trt_prod,
     trt_shape,
+    trt_sub,
     trt_sum,
 )
 from paddle.tensorrt.register import converter_registry
@@ -327,16 +328,10 @@ def temporal_shift_converter(network, paddle_op, inputs):
     post_pad = add_1D_constant_layer(network, [0, 1, 0, 0, 0])
     dims = 5
     zeros = add_1D_constant_layer(network, [0] * dims)
-    start = network.add_elementwise(
-        zeros, pre_pad, trt.ElementWiseOperation.SUB
-    ).get_output(0)
-    total_padding = network.add_elementwise(
-        pre_pad, post_pad, trt.ElementWiseOperation.SUM
-    ).get_output(0)
+    start = trt_sum(network, zeros, pre_pad)
+    total_padding = trt_sum(network, pre_pad, post_pad)
     input_shape = trt_shape(network, input_tensor)
-    size = network.add_elementwise(
-        input_shape, total_padding, trt.ElementWiseOperation.SUM
-    ).get_output(0)
+    size = trt_sum(network, input_shape, total_padding)
     stride = [1] * dims
     dummy = stride
 
@@ -366,15 +361,9 @@ def temporal_shift_converter(network, paddle_op, inputs):
     )
     sub_size3 = add_1D_constant_layer(network, [0, 0, slice_c2, 0, 0])
 
-    slice_size1 = network.add_elementwise(
-        slice_size_base, sub_size1, trt.ElementWiseOperation.SUB
-    ).get_output(0)
-    slice_size2 = network.add_elementwise(
-        slice_size_base, sub_size2, trt.ElementWiseOperation.SUB
-    ).get_output(0)
-    slice_size3 = network.add_elementwise(
-        slice_size_base, sub_size3, trt.ElementWiseOperation.SUB
-    ).get_output(0)
+    slice_size1 = trt_sub(network, slice_size_base, sub_size1)
+    slice_size2 = trt_sub(network, slice_size_base, sub_size2)
+    slice_size3 = trt_sub(network, slice_size_base, sub_size3)
 
     slice1_layer = network.add_slice(
         slice_layer.get_output(0), start=dummy, shape=dummy, stride=stride
