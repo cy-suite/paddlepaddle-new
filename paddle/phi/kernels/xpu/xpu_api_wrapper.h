@@ -691,7 +691,7 @@ static void MatMulXPUFunction(
   using XPU_TA = typename XPUTypeTrait<TA>::Type;
   using XPU_TB = typename XPUTypeTrait<TB>::Type;
   using XPU_TC = typename XPUTypeTrait<
-      typename std::conditional<std::is_void<TC>::value, TD, TC>::type>::Type;
+      std::conditional_t<std::is_void<TC>::value, TD, TC>>::Type;
   using XPU_TD = typename XPUTypeTrait<TD>::Type;
   using XPU_TGEMM = typename XPUTypeTrait<TGEMM>::Type;
   using XPU_TGEMM_O = typename XPUTypeTrait<TGEMM_O>::Type;
@@ -785,7 +785,7 @@ static void MatMulXPUFunction(
         XPU_TB,
         XPU_TC,
         XPU_TD,
-        std::conditional<std::is_void<TGEMM>::value, float, XPU_TGEMM>,
+        std::conditional_t<std::is_void<TGEMM>::value, float, XPU_TGEMM>,
         XPU_TGEMM_O,
         XPU_TINTER_RES,
         XPU_TBIAS,
