@@ -46,8 +46,7 @@ PHI_DECLARE_bool(enable_host_event_recorder_hook);
 PD_DECLARE_bool(log_memory_stats);
 COMMON_DECLARE_string(static_runtime_data_save_path);
 COMMON_DECLARE_bool(save_static_runtime_data);
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 
 ProgramInterpreter::ProgramInterpreter(const phi::Place& place,
                                        const BlockDesc& block,
@@ -1472,7 +1471,7 @@ void ProgramInterpreter::RecordStreamForGC(const Instruction& instr) {
     } else if (
         var->IsType<
             operators::reader::
-                OrderedMultiDeviceLoDTensorBlockingQueueHolder>()) {  // NOLINT
+                OrderedMultiDeviceDenseTensorBlockingQueueHolder>()) {  // NOLINT
       // do nothing
     } else if (var->IsType<phi::SelectedRows>()) {
       TensorRecordStream(
@@ -1762,5 +1761,4 @@ Variable* ProgramInterpreter::DebugVar(const std::string& name) const {
   PADDLE_THROW(common::errors::Unimplemented(
       "DebugVar is not implemented in ProgramInterpreter."));
 }
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework

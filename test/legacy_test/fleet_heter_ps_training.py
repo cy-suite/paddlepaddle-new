@@ -45,19 +45,16 @@ def net(batch_size=4, lr=0.01):
             name="dnn_data",
             shape=[-1, 1],
             dtype="int64",
-            lod_level=1,
         )
         lr_data = paddle.static.data(
             name="lr_data",
             shape=[-1, 1],
             dtype="int64",
-            lod_level=1,
         )
         label = paddle.static.data(
             name="click",
             shape=[-1, 1],
             dtype="float32",
-            lod_level=0,
         )
 
         datas = [dnn_data, lr_data, label]
