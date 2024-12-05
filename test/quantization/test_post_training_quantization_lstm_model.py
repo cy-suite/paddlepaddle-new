@@ -380,5 +380,50 @@ class TestPostTrainingAvgForLSTMONNXFormat(TestPostTrainingQuantization):
         )
 
 
+class TestPostTrainingCsmscForPwgan(TestPostTrainingQuantization):
+    def test_post_training_csmsc_pwgan(self):
+        model_name = "pwg_baker_static_0.4"
+        model_url = "https://paddlespeech.bj.bcebos.com/Parakeet/released_models/pwgan/pwg_baker_static_0.4.zip"
+        model_md5 = "e3504aed9c5a290be12d1347836d2742"
+        data_name = "BZNSYP"
+        data_urls = ['https://paddlespeech.bj.bcebos.com/datasets/BZNSYP.rar']
+        data_md5s = ['c4350563bf7dc298f7dd364b2607be83']
+        quantizable_op_type = [
+            "conv2d",
+            "depthwise_conv2d",
+            "mul",
+            "conv2d_transpose",
+            "matmul",
+            "matmul_v2",
+        ]
+        algo = "avg"
+        round_type = "round"
+        is_full_quantize = False
+        is_use_cache_file = False
+        is_optimize_model = False
+        diff_threshold = 0.05
+        infer_iterations = 100
+        quant_iterations = 10
+        self.run_test(
+            model_name,
+            'model.pdmodel',
+            'model.pdiparams',
+            model_url,
+            model_md5,
+            data_name,
+            data_urls,
+            data_md5s,
+            algo,
+            round_type,
+            quantizable_op_type,
+            is_full_quantize,
+            is_use_cache_file,
+            is_optimize_model,
+            diff_threshold,
+            infer_iterations,
+            quant_iterations,
+        )
+
+
 if __name__ == '__main__':
     unittest.main()

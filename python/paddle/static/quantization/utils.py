@@ -118,8 +118,9 @@ def load_variable_data(scope, var_name):
     assert var_node is not None, "Cannot find " + var_name + " in scope."
     result = np.array(var_node.get_tensor())
     if result.shape == ():
-        result = result.reshape(1)
-    return result
+        return result.reshape(1)
+    else:
+        return result
 
 
 def set_variable_data(scope, place, var_name, np_value):
