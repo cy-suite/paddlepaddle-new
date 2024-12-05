@@ -590,9 +590,6 @@ def equal(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         y = full(shape=[], dtype=x.dtype, fill_value=y)
 
     if in_dynamic_or_pir_mode():
-        # 如果x是complex64或者complex128
-        if x.dtype in ["complex64", "complex128"]:
-            return _C_ops.complex_equal(x, y)
         return _C_ops.equal(x, y)
     else:
         check_variable_and_dtype(
@@ -1090,8 +1087,6 @@ def not_equal(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
             [False, True , True ])
     """
     if in_dynamic_or_pir_mode():
-        if x.dtype in ["complex64", "complex128"]:
-            return _C_ops.complex_not_equal(x, y)
         return _C_ops.not_equal(x, y)
     else:
         check_variable_and_dtype(
