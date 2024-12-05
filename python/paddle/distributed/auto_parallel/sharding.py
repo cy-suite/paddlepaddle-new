@@ -35,12 +35,8 @@ from paddle.distributed.fleet.utils.tensor_fusion_helper import (
     align,
     get_current_device_type,
 )
-from paddle.distributed.passes.pass_utils import (
-    AutoParallelStreamType,
-)
-from paddle.framework import (
-    _current_expected_place_ as _get_device,
-)
+from paddle.distributed.passes.pass_utils import AutoParallelStreamType
+from paddle.framework import _current_expected_place_ as _get_device
 from paddle.optimizer import Optimizer
 
 from .moe_utils import _dtensor_from_local
@@ -272,13 +268,16 @@ class ShardingOptimizerStage1(Optimizer):
                 if self._strategy.sharding.enable_overlap:
                     self._reduce_scatter_overlap(group_grad_list, target_block)
 
-                slice_param_dict, main_shard_fused_param, main_fused_param = (
-                    self._fuse_group_param(group_param_list)
-                )
+                (
+                    slice_param_dict,
+                    padded_size_dict,
+                    main_shard_fused_param,
+                    main_fused_param,
+                ) = self._fuse_group_param(group_idx, group_param_list)
 
                 if dist.get_rank() in mesh.process_ids:
-                    self._cache_slice_param_start_end(
-                        group_idx, slice_param_dict
+                    self._cache_slice_param_range_and_size(
+                        group_idx, slice_param_dict, padded_size_dict
                     )
 
                 dtype = group_grad_list[0].dtype
@@ -489,7 +488,9 @@ class ShardingOptimizerStage1(Optimizer):
                     "process_mesh"
                 ] = param.process_mesh
 
-    def _cache_slice_param_start_end(self, group_idx, slice_param_dict):
+    def _cache_slice_param_range_and_size(
+        self, group_idx, slice_param_dict, padded_size_dict
+    ):
         for slice_param, param_info in slice_param_dict.items():
             slice_param_name = slice_param.name.replace("slice@", "")
             _, param_begin, param_end = param_info
@@ -499,6 +500,11 @@ class ShardingOptimizerStage1(Optimizer):
             self._slice_param_group_info[group_idx][slice_param_name][
                 "param_end"
             ] = param_end
+
+        for name, padded_size in padded_size_dict.items():
+            self._slice_param_group_info[group_idx][name][
+                "padded_size"
+            ] = padded_size
 
     def _reduce_scatter_overlap(self, group_grad_list, target_block):
         '''
@@ -547,7 +553,7 @@ class ShardingOptimizerStage1(Optimizer):
         if insertion_info["op"] is not None:
             pir.set_insertion_point_after(insertion_info["op"])
 
-    def _fuse_group_param(self, group_param_list):
+    def _fuse_group_param(self, group_index, group_param_list):
         startup_program = paddle.static.default_startup_program()
         main_program = paddle.static.default_main_program()
         with paddle.static.program_guard(startup_program):
@@ -620,7 +626,6 @@ class ShardingOptimizerStage1(Optimizer):
             shard_size = group_size // self._sharding_degree
             rank = self._sharding_group.ranks.index(dist.get_rank())
             rank_begin = rank * shard_size
-            rank_end = rank_begin + shard_size
             shard_fused_param = paddle._C_ops.view_slice(
                 fused_param, rank_begin, rank_begin + shard_size
             )
@@ -635,6 +640,7 @@ class ShardingOptimizerStage1(Optimizer):
             main_shard_fused_param.persistable = True
             total_buffer_size = 0
             slice_param_dict = {}
+            padded_size_dict = {}
 
             for index, param in enumerate(group_param_list):
                 size = np.prod(param._local_shape) * core.size_of_dtype(dtype)
@@ -643,6 +649,8 @@ class ShardingOptimizerStage1(Optimizer):
                     * align_size
                     // core.size_of_dtype(dtype)
                 )
+                padded_size_dict[param.name] = padded_size
+
                 param_begin = max(total_buffer_size - rank_begin, 0)
                 total_buffer_size += padded_size
                 param_end = min(total_buffer_size - rank_begin, shard_size)
@@ -677,7 +685,12 @@ class ShardingOptimizerStage1(Optimizer):
                         param_begin,
                         param_end,
                     )
-        return slice_param_dict, main_shard_fused_param, main_fused_param
+        return (
+            slice_param_dict,
+            padded_size_dict,
+            main_shard_fused_param,
+            main_fused_param,
+        )
 
     def _apply_optimize(
         self, loss, startup_program, params_grads, param_group_idx=0
@@ -707,13 +720,16 @@ class ShardingOptimizerStage1(Optimizer):
         for name, tensor in state_dict.items():
             if not tensor.is_dist():
                 continue
+            if "slice@" not in name:
+                continue
+
             if "_moment" in name:
                 moment_opt_param_names.append(name)
             elif "_pow_acc" in name:
                 pow_acc_opt_param_names.append(name)
             elif "_master" in name:
                 master_opt_param_names.append(name)
-            elif "slice@" in name:
+            else:
                 slice_param_names.append(name)
 
         # slice@ parameters share the same memory with the original parameters
@@ -721,9 +737,8 @@ class ShardingOptimizerStage1(Optimizer):
         for name in slice_param_names:
             del state_dict[name]
 
-        if self._dy_shard_group is not None:
-            shard_group = dist.new_group(self._sharding_group.ranks)
-            self._dy_shard_group = shard_group
+        if self._dy_shard_group is None:
+            self._create_dy_sharding_group()
 
         for group_info in self._slice_param_group_info:
             self._all_gather_master_opt_params(
@@ -737,6 +752,17 @@ class ShardingOptimizerStage1(Optimizer):
             self._broadcast_pow_acc_opt_params(
                 state_dict, group_info, pow_acc_opt_param_names
             )
+
+    def _create_dy_sharding_group(self):
+        mesh = self._shard_fn._mesh
+        if mesh is None:
+            mesh = dist.auto_parallel.get_mesh()
+
+        shard_groups = get_mesh_comm_list(mesh, "dp")
+        for group in shard_groups:
+            comm_group = dist.new_group(sorted(group))
+            if dist.get_rank() in group:
+                self._dy_shard_group = comm_group
 
     def convert_state_dict_with_tensor_fusion_param(self, state_dict):
         moment_suffixs = []
@@ -755,9 +781,8 @@ class ShardingOptimizerStage1(Optimizer):
         pow_acc_suffixs = list(set(pow_acc_suffixs))
         master_suffixs = list(set(master_suffixs))
 
-        if self._dy_shard_group is not None:
-            shard_group = dist.new_group(self._sharding_group.ranks)
-            self._dy_shard_group = shard_group
+        if self._dy_shard_group is None:
+            self._create_dy_sharding_group()
 
         for group_info in self._slice_param_group_info:
             group_size = 0
@@ -782,7 +807,7 @@ class ShardingOptimizerStage1(Optimizer):
         self, state_dict, group_info, bucket_info, pow_acc_suffixs
     ):
         group_rank_mapping, size_mapping = bucket_info
-        cur_rank = dist.get_rank()
+        cur_rank = self._sharding_group.ranks.index(dist.get_rank())
 
         for idx, (param_name, param_info) in enumerate(group_info.items()):
             for pow_acc_suffix in pow_acc_suffixs:
@@ -796,35 +821,64 @@ class ShardingOptimizerStage1(Optimizer):
         self, state_dict, group_info, bucket_info, param_suffixs
     ):
         group_rank_mapping, size_mapping = bucket_info
-        cur_rank = dist.get_rank()
+        cur_rank = self._sharding_group.ranks.index(dist.get_rank())
 
-        for idx, (param_name, param_info) in enumerate(group_info.items()):
-            for param_suffix in param_suffixs:
-                opt_param_name = param_name + param_suffix
-                opt_param = state_dict[opt_param_name]
-                opt_param_list = []
+        for param_suffix in param_suffixs:
+            # Step1: Gather the optimizer parameters across sharding groups
+            opt_param_list = []
+            for idx, (param_name, param_info) in enumerate(group_info.items()):
+                opt_param = state_dict[param_name + param_suffix]
+                param_list = []
                 dist.all_gather(
-                    opt_param_list,
+                    param_list,
                     opt_param._local_value().contiguous(),
                     group=self._dy_shard_group,
                 )
+                param_sharding_axis = opt_param.placements[
+                    self._sharding_axis
+                ].get_dim()
+                global_opt_param = paddle.concat(
+                    param_list, axis=param_sharding_axis
+                )
+                global_opt_param = global_opt_param.view([-1])
+                opt_param_list.append(global_opt_param)
+
+            # Step2: Fuse the optimizer parameters using coalesce_tensor
+            dtype = opt_param_list[0].dtype
+            align_size = (
+                fleet.utils.tensor_fusion_helper.alignment[
+                    get_current_device_type()
+                ]
+                // align[dtype]
+            )
+            align_size = align_size * self._sharding_degree
+
+            _, fused_opt_param = paddle._C_ops.coalesce_tensor(
+                opt_param_list,
+                dtype,
+                True,
+                False,
+                False,
+                0.0,
+                True,
+                align_size,
+                -1,
+                [],
+                [],
+            )
+
+            # Step3: Slice the current rank's optimizer parameters
+            param_index = 0
+            for idx, (param_name, param_info) in enumerate(group_info.items()):
                 if cur_rank in group_rank_mapping[idx]:
                     # param tensor may be sliced into multiple devices
                     # we need calculate the start index of the current rank
-                    cur_rank_start_index = 0
+                    cur_rank_start_index = param_index
                     for i, rank_id in enumerate(group_rank_mapping[idx]):
                         if rank_id == cur_rank:
                             break
                         cur_rank_start_index += size_mapping[idx][i]
 
-                    param_sharding_axis = opt_param.placements[
-                        self._sharding_axis
-                    ].get_dim()
-                    fused_opt_param = paddle.concat(
-                        opt_param_list, axis=param_sharding_axis
-                    )
-
-                    fused_opt_param = fused_opt_param.view([-1])
                     shard_opt_param = fused_opt_param[
                         cur_rank_start_index : cur_rank_start_index
                         + param_info["param_end"]
@@ -842,10 +896,13 @@ class ShardingOptimizerStage1(Optimizer):
                     state_dict["slice@" + param_name + param_suffix] = (
                         shard_opt_param
                     )
-                else:
-                    del opt_param_list
 
-                del state_dict[opt_param_name]
+                param_index += param_info["padded_size"]
+                del state_dict[param_name + param_suffix]
+
+            # release memory
+            del opt_param_list
+            del fused_opt_param
 
     def _all_gather_opt_params(
         self, state_dict, group_info, opt_param_names, opt_suffix
@@ -869,8 +926,8 @@ class ShardingOptimizerStage1(Optimizer):
         dist.all_gather(
             fused_opt_param_list, fused_opt_param, group=self._dy_shard_group
         )
-        fused_opt_param = paddle.concat(fused_opt_param_list, axis=0)
 
+        fused_opt_param = paddle.concat(fused_opt_param_list, axis=0)
         param_index = 0
         for param_name, param_info in group_info.items():
             opt_param_name = "slice@" + param_name + opt_suffix
@@ -923,7 +980,8 @@ class ShardingOptimizerStage1(Optimizer):
             if opt_param_name in state_dict:
                 del state_dict[opt_param_name]
 
-            param_index += global_size
+            padded_size = param_info["padded_size"]
+            param_index += padded_size
 
     def _all_gather_moment_opt_params(
         self, state_dict, group_info, moment_opt_param_names
@@ -978,18 +1036,18 @@ class ShardingOptimizerStage1(Optimizer):
         group_rank_mapping, _ = self._bucket_tensors_with_group_size(
             group_info, group_size
         )
-        cur_rank = dist.get_rank()
+        cur_rank = self._sharding_group.ranks.index(dist.get_rank())
 
         for idx, (param_name, param_info) in enumerate(group_info.items()):
             root_rank = group_rank_mapping[idx][0]
             for pow_acc_suffix in pow_acc_suffixs:
                 pow_acc_name = "slice@" + param_name + pow_acc_suffix
-                if cur_rank in group_rank_mapping[idx]:
+                if cur_rank == root_rank:
                     pow_acc_tensor = state_dict[pow_acc_name]
                     pow_acc_local_tensor = pow_acc_tensor._local_value()
                     dist.broadcast(
                         pow_acc_local_tensor,
-                        src=root_rank,
+                        src=self._sharding_group.ranks[root_rank],
                         group=self._dy_shard_group,
                     )
                     state_dict[param_name + pow_acc_suffix] = pow_acc_tensor
@@ -1003,7 +1061,7 @@ class ShardingOptimizerStage1(Optimizer):
 
                     dist.broadcast(
                         tmp_data,
-                        src=root_rank,
+                        src=self._sharding_group.ranks[root_rank],
                         group=self._dy_shard_group,
                     )
                     pow_acc_tensor = _dtensor_from_local(
@@ -1018,7 +1076,7 @@ class ShardingOptimizerStage1(Optimizer):
         current_bucket_index = 0
 
         for idx, param_info in enumerate(group_info.values()):
-            tensor_size = reduce(operator.mul, param_info["shape"], 1)
+            tensor_size = param_info["padded_size"]
 
             while tensor_size > 0:
                 available_space = group_size - current_size
