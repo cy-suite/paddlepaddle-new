@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <set>
+#include <string>
 #include "paddle/pir/include/core/dll_decl.h"
 
 namespace pir {
