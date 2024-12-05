@@ -75,6 +75,15 @@ DEFINE_COMPARE_KERNEL(GreaterEqual,
                       funcs::LessEqualFunctor)
 DEFINE_COMPARE_KERNEL(Equal, funcs::EqualFunctor, funcs::EqualFunctor)
 DEFINE_COMPARE_KERNEL(NotEqual, funcs::NotEqualFunctor, funcs::NotEqualFunctor)
+
+// complex
+DEFINE_COMPARE_KERNEL(ComplexEqual,
+                      funcs::ComplexEqualFunctor,
+                      funcs::ComplexEqualFunctor)
+DEFINE_COMPARE_KERNEL(ComplexNotEqual,
+                      funcs::ComplexNotEqualFunctor,
+                      funcs::ComplexNotEqualFunctor)
+
 #undef DEFINE_COMPARE_KERNEL
 
 #define DEFINE_COMPARE_ALL_KERNEL(compare_all_kernel, functor)    \

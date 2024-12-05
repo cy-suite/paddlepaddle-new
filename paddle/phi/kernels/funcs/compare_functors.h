@@ -47,10 +47,37 @@ struct EqualFunctor {
   }
 };
 
+template <typename ComplexInT, typename ComplexOutT = bool>
+struct ComplexEqualFunctor {
+  HOSTDEVICE ComplexOutT operator()(const ComplexInT a,
+                                    const ComplexOutT b) const {
+    if (isinf(a.real()) || isinf(a.imag()) || isinf(b.real()) ||
+        isinf(b.imag())) {
+      return a == b;
+    }
+    if (isnan(a.real()) || isnan(a.imag()) || isnan(b.real()) ||
+        isnan(b.imag())) {
+      return false;
+    }
+
+    float epsilon = 1e-8f;
+    return std::abs(a.real() - b.real()) < epsilon &&
+           std::abs(a.imag() - b.imag()) < epsilon;
+  }
+};
+
 template <typename InT, typename OutT = bool>
 struct NotEqualFunctor {
   HOSTDEVICE bool operator()(const InT a, const InT b) const {
     return !EqualFunctor<InT, OutT>()(a, b);
+  }
+};
+
+template <typename ComplexInT, typename ComplexOutT = bool>
+struct ComplexNotEqualFunctor {
+  HOSTDEVICE ComplexOutT operator()(const ComplexInT a,
+                                    const ComplexOutT b) const {
+    return !NotEqualFunctor<ComplexInT, ComplexOutT>()(a, b);
   }
 };
 
