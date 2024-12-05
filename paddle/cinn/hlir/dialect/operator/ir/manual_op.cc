@@ -276,7 +276,7 @@ void ConcatOp::Build(pir::Builder& builder,             // NOLINT
                                 first_ele.dtype(),
                                 out_dims,
                                 first_ele.data_layout(),
-                                first_ele.lod(),
+                                first_ele.legacy_lod(),
                                 first_ele.offset());
   }();
   argument.output_types.emplace_back(out_type);
@@ -309,7 +309,7 @@ void SplitOp::Build(pir::Builder& builder,             // NOLINT
                                          input_ele.dtype(),
                                          out_dims,
                                          input_ele.data_layout(),
-                                         input_ele.lod(),
+                                         input_ele.legacy_lod(),
                                          input_ele.offset());
 
     argument.output_types.emplace_back(out_type);

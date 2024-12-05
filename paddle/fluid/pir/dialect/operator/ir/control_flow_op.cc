@@ -138,8 +138,8 @@ void IfOp::Build(pir::Builder &builder,             // NOLINT
                   l_type.data_layout(),
                   r_type.data_layout()));
         }
-        PADDLE_ENFORCE_EQ(l_type.lod(),
-                          r_type.lod(),
+        PADDLE_ENFORCE_EQ(l_type.legacy_lod(),
+                          r_type.legacy_lod(),
                           common::errors::PreconditionNotMet(
                               "The lod in output[%d] of true_block&false_block "
                               "must be equal.",
@@ -155,7 +155,7 @@ void IfOp::Build(pir::Builder &builder,             // NOLINT
                                              l_type.dtype(),
                                              dim,
                                              l_type.data_layout(),
-                                             l_type.lod(),
+                                             l_type.legacy_lod(),
                                              l_type.offset());
         argument.output_types[i] = new_type;
       }
@@ -530,7 +530,7 @@ void WhileOp::VerifySig() {
                                          type.dtype(),
                                          result_dims,
                                          type.data_layout(),
-                                         type.lod(),
+                                         type.legacy_lod(),
                                          type.offset());
       };
       pir::DenseTensorType check_input_tensor_type =
@@ -1103,12 +1103,12 @@ void SelectInputOp::VerifySig() {
               tensor1.data_layout(),
               tensor2.data_layout()));
       PADDLE_ENFORCE_EQ(
-          tensor1.lod(),
-          tensor2.lod(),
+          tensor1.legacy_lod(),
+          tensor2.legacy_lod(),
           common::errors::InvalidArgument(
               "The 1st input lod %s should be equal to 2ed input lod %s.",
-              tensor1.lod(),
-              tensor2.lod()));
+              tensor1.legacy_lod(),
+              tensor2.legacy_lod()));
       PADDLE_ENFORCE_EQ(
           tensor1.offset(),
           tensor2.offset(),
@@ -1138,12 +1138,12 @@ void SelectInputOp::VerifySig() {
               tensor1.data_layout(),
               tensor2.data_layout()));
       PADDLE_ENFORCE_EQ(
-          tensor1.lod(),
-          tensor2.lod(),
+          tensor1.legacy_lod(),
+          tensor2.legacy_lod(),
           common::errors::InvalidArgument(
               "The 1st input lod %s should be equal to 2ed input lod %s.",
-              tensor1.lod(),
-              tensor2.lod()));
+              tensor1.legacy_lod(),
+              tensor2.legacy_lod()));
       PADDLE_ENFORCE_EQ(
           tensor1.offset(),
           tensor2.offset(),
@@ -1254,12 +1254,12 @@ void SelectOutputOp::VerifySig() {
               tensor1.data_layout(),
               tensor2.data_layout()));
       PADDLE_ENFORCE_EQ(
-          tensor1.lod(),
-          tensor2.lod(),
+          tensor1.legacy_lod(),
+          tensor2.legacy_lod(),
           common::errors::InvalidArgument(
               "The 1st input lod %s should be equal to 2ed input lod %s.",
-              tensor1.lod(),
-              tensor2.lod()));
+              tensor1.legacy_lod(),
+              tensor2.legacy_lod()));
       PADDLE_ENFORCE_EQ(
           tensor1.offset(),
           tensor2.offset(),
@@ -1287,12 +1287,12 @@ void SelectOutputOp::VerifySig() {
               tensor1.data_layout(),
               tensor2.data_layout()));
       PADDLE_ENFORCE_EQ(
-          tensor1.lod(),
-          tensor2.lod(),
+          tensor1.legacy_lod(),
+          tensor2.legacy_lod(),
           common::errors::InvalidArgument(
               "The 1st input lod %s should be equal to 2ed input lod %s.",
-              tensor1.lod(),
-              tensor2.lod()));
+              tensor1.legacy_lod(),
+              tensor2.legacy_lod()));
       PADDLE_ENFORCE_EQ(
           tensor1.offset(),
           tensor2.offset(),

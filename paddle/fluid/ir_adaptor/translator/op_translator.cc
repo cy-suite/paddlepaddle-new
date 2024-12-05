@@ -2465,7 +2465,7 @@ struct SelectInputOpTranscriber : public OpTranscriber {
       auto tensor2 = input2.dyn_cast<paddle::dialect::DenseTensorType>();
       if (tensor1.dtype() != tensor2.dtype() ||
           tensor1.data_layout() != tensor2.data_layout() ||
-          tensor1.lod() != tensor2.lod() ||
+          tensor1.legacy_lod() != tensor2.legacy_lod() ||
           tensor1.offset() != tensor2.offset()) {
         const std::string undefined_prefix = "undefined_var_";
 
@@ -2489,8 +2489,8 @@ struct SelectInputOpTranscriber : public OpTranscriber {
               tensor2.dtype(),
               tensor1.data_layout(),
               tensor2.data_layout(),
-              tensor1.lod(),
-              tensor2.lod(),
+              tensor1.legacy_lod(),
+              tensor2.legacy_lod(),
               tensor1.offset(),
               tensor2.offset()));
         }
@@ -2543,7 +2543,7 @@ struct SelectInputOpTranscriber : public OpTranscriber {
                                                 tensor1.dtype(),
                                                 dim,
                                                 tensor1.data_layout(),
-                                                tensor1.lod(),
+                                                tensor1.legacy_lod(),
                                                 tensor1.offset()));
     } else {
       PADDLE_THROW(common::errors::InvalidArgument(

@@ -162,8 +162,10 @@ class PD_INFER_DECL Tensor {
   ///  https://www.paddlepaddle.org.cn/documentation/docs/zh/beginners_guide/basic_concept/lod_tensor.html#lodtensor
   /// \param x the lod info.
   void SetLoD(const std::vector<std::vector<size_t>>& x);
+  void SetLegacyLoD(const std::vector<std::vector<size_t>>& x);
   /// \brief Return the lod info of the tensor.
   std::vector<std::vector<size_t>> lod() const;
+  std::vector<std::vector<size_t>> legacy_lod() const;
   /// \brief Return the name of the tensor.
   const std::string& name() const;
 

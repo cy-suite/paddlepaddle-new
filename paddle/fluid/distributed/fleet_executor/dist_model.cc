@@ -128,7 +128,7 @@ bool LoadDataFromDistModelTensor(const DistModelTensor &input_data,
   for (auto &src_lod : input_data.lod) {
     dst_lod.emplace_back(src_lod);
   }
-  input_tensor->set_lod(dst_lod);
+  input_tensor->set_legacy_lod(dst_lod);
   return true;
 }
 
@@ -651,7 +651,7 @@ bool DistModel::FetchResult(const phi::DenseTensor &fetch,
   // The output of fetch op is always on the cpu, no need switch on place
   memcpy(output_data->data.data(), data, num_elems * sizeof(T));
   output_data->lod.clear();
-  for (auto &level : fetch.lod()) {
+  for (auto &level : fetch.legacy_lod()) {
     output_data->lod.emplace_back(level.begin(), level.end());
   }
   return true;

@@ -21,12 +21,12 @@ namespace paddle::dialect {
 IrSelectedRows::IrSelectedRows(phi::DataType dtype,
                                const phi::DDim& dims,
                                phi::DataLayout layout,
-                               LegacyLoD lod,
+                               LegacyLoD legacy_lod,
                                size_t offset)
     : dims_(dims),
       dtype_(dtype),
       layout_(layout),
-      lod_(std::move(lod)),
+      legacy_lod_(std::move(legacy_lod)),
       offset_(offset) {}
 
 IrSelectedRows::IrSelectedRows(const IrSelectedRows& other)
@@ -34,7 +34,7 @@ IrSelectedRows::IrSelectedRows(const IrSelectedRows& other)
   dims_ = other.dims();
   dtype_ = other.dtype();
   layout_ = other.layout();
-  lod_ = other.lod();
+  legacy_lod_ = other.legacy_lod();
   offset_ = other.offset();
 }
 
@@ -42,7 +42,7 @@ IrSelectedRows& IrSelectedRows::operator=(const IrSelectedRows& other) {
   dims_ = other.dims();
   dtype_ = other.dtype();
   layout_ = other.layout();
-  lod_ = other.lod();
+  legacy_lod_ = other.legacy_lod();
   offset_ = other.offset();
   return *this;
 }
@@ -51,7 +51,7 @@ IrSelectedRows& IrSelectedRows::operator=(IrSelectedRows&& other) noexcept {
   dims_ = other.dims();
   dtype_ = other.dtype();
   layout_ = other.layout();
-  lod_ = other.lod();
+  legacy_lod_ = other.legacy_lod();
   offset_ = other.offset();
   return *this;
 }

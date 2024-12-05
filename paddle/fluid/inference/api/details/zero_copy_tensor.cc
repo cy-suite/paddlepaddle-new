@@ -751,13 +751,31 @@ void Tensor::SetLoD(const std::vector<std::vector<size_t>> &x) {
   for (auto &level : x) {
     lod.emplace_back(level);
   }
-  tensor->set_lod(lod);
+  tensor->set_legacy_lod(lod);
 }
 
 std::vector<std::vector<size_t>> Tensor::lod() const {
   EAGER_GET_TENSOR(phi::DenseTensor);
   std::vector<std::vector<size_t>> res;
-  for (auto &level : tensor->lod()) {
+  for (auto &level : tensor->legacy_lod()) {
+    res.emplace_back(level);
+  }
+  return res;
+}
+
+void Tensor::SetLegacyLoD(const std::vector<std::vector<size_t>> &x) {
+  EAGER_GET_TENSOR(phi::DenseTensor);
+  phi::LegacyLoD lod;
+  for (auto &level : x) {
+    lod.emplace_back(level);
+  }
+  tensor->set_legacy_lod(lod);
+}
+
+std::vector<std::vector<size_t>> Tensor::legacy_lod() const {
+  EAGER_GET_TENSOR(phi::DenseTensor);
+  std::vector<std::vector<size_t>> res;
+  for (auto &level : tensor->legacy_lod()) {
     res.emplace_back(level);
   }
   return res;

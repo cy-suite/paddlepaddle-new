@@ -66,9 +66,13 @@ class IrSelectedRows
 
   void SetLayout(phi::DataLayout layout) { layout_ = layout; }
 
-  const LegacyLoD& lod() const noexcept { return lod_; }
+  const LegacyLoD& lod() const noexcept { return legacy_lod_; }
 
-  void SetLod(LegacyLoD lod) { lod_ = lod; }
+  const LegacyLoD& legacy_lod() const noexcept { return legacy_lod_; }
+
+  void SetLod(LegacyLoD lod) { legacy_lod_ = lod; }
+
+  void SetLegacyLod(LegacyLoD legacy_lod) { legacy_lod_ = legacy_lod; }
 
   size_t offset() const noexcept { return offset_; }
 
@@ -90,7 +94,7 @@ class IrSelectedRows
   phi::DDim dims_;
   phi::DataType dtype_{phi::DataType::FLOAT32};
   phi::DataLayout layout_{phi::DataLayout::ANY};
-  LegacyLoD lod_;
+  LegacyLoD legacy_lod_;
   size_t offset_{0};
 };
 
@@ -99,7 +103,7 @@ inline SelectedRowsType CvtToSelectedRowsType(const IrSelectedRows& ir_tensor) {
                                TransToIrDataType(ir_tensor.dtype()),
                                ir_tensor.dims(),
                                ir_tensor.layout(),
-                               ir_tensor.lod(),
+                               ir_tensor.legacy_lod(),
                                ir_tensor.offset());
 }
 

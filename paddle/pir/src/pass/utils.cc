@@ -31,7 +31,7 @@ void SetNewLayoutForValue(pir::Value value, common::DataLayout new_layout) {
                                                    tensor_type.dtype(),
                                                    tensor_type.dims(),
                                                    new_layout,
-                                                   tensor_type.lod(),
+                                                   tensor_type.legacy_lod(),
                                                    tensor_type.offset());
   value.set_type(new_tensor_type);
 }

@@ -43,6 +43,8 @@ class TEST_API SelectedRowsType
 
   const phi::LegacyLoD &lod() const;
 
+  const phi::LegacyLoD &legacy_lod() const;
+
   const size_t &offset() const;
 
   ///

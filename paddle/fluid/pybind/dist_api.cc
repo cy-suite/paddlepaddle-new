@@ -157,7 +157,7 @@ std::vector<std::vector<size_t>> AssignValueGroupBySize(
         dialect::TransToPhiDataType(x.dtype()),
         x.dims(),
         x.data_layout(),
-        x.lod(),
+        x.legacy_lod(),
         x.offset());
     tensors.emplace_back(ir_tensor);
   }

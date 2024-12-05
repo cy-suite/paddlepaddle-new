@@ -124,6 +124,10 @@ void set_lod(const LoD& lod);
 
 LegacyLoD* mutable_lod();
 
+void set_legacy_lod(const LegacyLoD& legacy_lod);
+
+LegacyLoD* mutable_legacy_lod();
+
 /*
  * Get the start offset and end offset of an  element from LoD.
  */

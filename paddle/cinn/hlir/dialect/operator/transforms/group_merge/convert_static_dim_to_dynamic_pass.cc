@@ -168,7 +168,7 @@ struct StaticDimToDynamicConverter {
                                     origin_type.dtype(),
                                     ::common::make_ddim(target_shape),
                                     origin_type.data_layout(),
-                                    origin_type.lod(),
+                                    origin_type.legacy_lod(),
                                     origin_type.offset());
       value.set_type(target_type);
     });

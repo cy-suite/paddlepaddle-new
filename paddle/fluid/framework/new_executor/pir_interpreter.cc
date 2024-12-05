@@ -1490,7 +1490,7 @@ paddle::framework::FetchList PirInterpreter::Run(
 
       auto feed_tensor = feed_var->GetMutable<phi::DenseTensor>();
       feed_tensor->ShareDataWith(feed_tensors[i]);
-      feed_tensor->set_lod(feed_tensors[i].lod());
+      feed_tensor->set_legacy_lod(feed_tensors[i].legacy_lod());
     }
   };
 

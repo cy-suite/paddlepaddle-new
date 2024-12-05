@@ -32,7 +32,7 @@ void SerializeToStream(std::ostream &os,
     // uint64_t lod_level_1 size in byte.
     // int*     lod_level_1 data
     // ...
-    auto lod = tensor.lod();
+    auto lod = tensor.legacy_lod();
     uint64_t size = lod.size();
     os.write(reinterpret_cast<const char *>(&size), sizeof(size));
 
@@ -84,7 +84,7 @@ void DeserializeFromStream(std::istream &is,
     // the 2st field, LoD information
     uint64_t lod_level = 0;
     is.read(reinterpret_cast<char *>(&lod_level), sizeof(lod_level));
-    auto &lod = *tensor->mutable_lod();
+    auto &lod = *tensor->mutable_legacy_lod();
     lod.resize(lod_level);
   }
   // the 3st filed, Tensor
@@ -112,7 +112,7 @@ void DeserializeFromStream(std::istream &is,
     // the 2st field, LoD information
     uint64_t lod_level = 0;
     is.read(reinterpret_cast<char *>(&lod_level), sizeof(lod_level));
-    auto &lod = *tensor->mutable_lod();
+    auto &lod = *tensor->mutable_legacy_lod();
     lod.resize(lod_level);
     for (uint64_t i = 0; i < lod_level; ++i) {
       uint64_t size = 0;

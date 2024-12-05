@@ -285,7 +285,7 @@ bool NativePaddlePredictor::SetFeed(const std::vector<PaddleTensor> &inputs,
     for (auto &level : inputs[i].lod) {
       lod.emplace_back(level);
     }
-    input.set_lod(lod);
+    input.set_legacy_lod(lod);
     int idx = -1;
     if (config_.specify_input_name) {  // NOLINT
       idx = static_cast<int>(feed_names_[inputs[i].name]);
@@ -311,7 +311,7 @@ void NativePaddlePredictor::GetFetchOne(const phi::DenseTensor &fetch,
   memcpy(output->data.data(), data, num_elems * sizeof(T));
   // set lod
   output->lod.clear();
-  for (auto &level : fetch.lod()) {
+  for (auto &level : fetch.legacy_lod()) {
     output->lod.emplace_back(level.begin(), level.end());
   }
 }

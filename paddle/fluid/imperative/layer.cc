@@ -296,7 +296,7 @@ std::shared_ptr<VarBase> VarBase::NewVarBase(const phi::Place& dst_place,
         true, Name() + std::to_string(copied_counter_++));
 
     auto* dst_tensor = new_var->MutableVar()->GetMutable<phi::DenseTensor>();
-    dst_tensor->set_lod(src_tensor.lod());
+    dst_tensor->set_legacy_lod(src_tensor.legacy_lod());
     new_var->SetPersistable(Persistable());
     new_var->SetDataType(DataType());
     new_var->SetType(Type());
@@ -377,8 +377,8 @@ void VarBase::CopyFrom(const VarBase& src, const bool blocking) {
                             "Tensor Copy cannot be performed!",
                             Name(),
                             src.Name()));
-      PADDLE_ENFORCE_EQ(dst_tensor->lod(),
-                        src_tensor.lod(),
+      PADDLE_ENFORCE_EQ(dst_tensor->legacy_lod(),
+                        src_tensor.legacy_lod(),
                         common::errors::PreconditionNotMet(
                             "Tensor %s has different dims with Tensor %s, "
                             "Tensor Copy cannot be performed!",
@@ -386,7 +386,7 @@ void VarBase::CopyFrom(const VarBase& src, const bool blocking) {
                             src.Name()));
       place = Place();
     } else {
-      dst_tensor->set_lod(src_tensor.lod());  // NOLINT
+      dst_tensor->set_legacy_lod(src_tensor.legacy_lod());  // NOLINT
       dst_tensor->Resize(src_tensor.dims());
     }
     framework::TensorCopy(src_tensor, place, dst_tensor);
@@ -591,7 +591,7 @@ void ClearNoNeedBufferInputs(OpBase* op) {
       auto* new_tensor = new_var->MutableVar()->GetMutable<phi::DenseTensor>();
       auto& old_tensor = var.Get<phi::DenseTensor>();
       new_tensor->Resize(old_tensor.dims());
-      new_tensor->set_lod(old_tensor.lod());
+      new_tensor->set_legacy_lod(old_tensor.legacy_lod());
       new_tensor->set_type(old_tensor.dtype());
       new_tensor->set_layout(old_tensor.layout());
       each_var.reset(new_var);

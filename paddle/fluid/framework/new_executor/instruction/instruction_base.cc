@@ -137,7 +137,7 @@ static LegacyLoD GetLoDDebug(const Scope& scope, const std::string& name) {
 
   if (var->IsType<phi::DenseTensor>()) {
     const phi::DenseTensor& tensor = var->Get<phi::DenseTensor>();
-    return tensor.lod();
+    return tensor.legacy_lod();
   } else {
     return default_lod;
   }

@@ -37,7 +37,7 @@ ParameterConvertInterface::ParameterToVariable(pir::Parameter *parameter) {
         dim,
 
         parameter->type().dyn_cast<DenseTensorType>().data_layout(),
-        parameter->type().dyn_cast<DenseTensorType>().lod(),
+        parameter->type().dyn_cast<DenseTensorType>().legacy_lod(),
         parameter->type().dyn_cast<DenseTensorType>().offset());
     tensor->set_meta(meta);
     phi::DeviceContext *dev_ctx =
@@ -66,7 +66,7 @@ std::unique_ptr<pir::Parameter> ParameterConvertInterface::VariableToParameter(
                                                        data_type,
                                                        tensor->dims(),
                                                        tensor->layout(),
-                                                       tensor->lod(),
+                                                       tensor->legacy_lod(),
                                                        tensor->meta().offset);
     return std::make_unique<pir::Parameter>(
         data,

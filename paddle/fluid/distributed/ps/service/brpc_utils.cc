@@ -91,7 +91,7 @@ void SerializeDenseTensor(framework::Variable* var,
                           butil::IOBuf* iobuf) {
   auto* tensor = var->GetMutable<phi::DenseTensor>();
   var_msg->set_type(::paddle::distributed::DENSE_TENSOR);
-  const phi::LegacyLoD lod = tensor->lod();
+  const phi::LegacyLoD lod = tensor->legacy_lod();
   if (!lod.empty()) {
     var_msg->set_lod_level(lod.size());
     for (auto& each : lod) {
@@ -239,7 +239,7 @@ void DeserializeDenseTensor(framework::Variable* var,
     }
     lod.push_back(v);
   }
-  tensor->set_lod(lod);
+  tensor->set_legacy_lod(lod);
 
   void* tensor_data = tensor->mutable_data(
       place, phi::TransToPhiDataType(VarMessageToVarType(msg.data_type())));

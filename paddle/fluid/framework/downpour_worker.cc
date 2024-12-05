@@ -168,9 +168,10 @@ void DownpourWorker::CollectLabelInfo(size_t table_idx) {
 
     int64_t* ids = tensor->data<int64_t>();
     size_t fea_idx = 0;
-    // tensor->lod()[0].size() == batch_size + 1
-    for (auto lod_idx = 1u; lod_idx < tensor->lod()[0].size(); ++lod_idx) {
-      for (; fea_idx < tensor->lod()[0][lod_idx]; ++fea_idx) {
+    // tensor->legacy_lod()[0].size() == batch_size + 1
+    for (auto lod_idx = 1u; lod_idx < tensor->legacy_lod()[0].size();
+         ++lod_idx) {
+      for (; fea_idx < tensor->legacy_lod()[0][lod_idx]; ++fea_idx) {
         // should be skipped feasign defined in protobuf
         if (ids[fea_idx] == 0u) {
           continue;
@@ -228,9 +229,9 @@ void DownpourWorker::FillSparseValue(size_t table_idx) {
     float* ptr = tensor_emb->mutable_data<float>({len, table.emb_dim()},
                                                  phi::CPUPlace());
     memset(ptr, 0, sizeof(float) * len * table.emb_dim());
-    auto& tensor_lod = tensor->lod()[0];
+    auto& tensor_lod = tensor->legacy_lod()[0];
     LegacyLoD data_lod{tensor_lod};
-    tensor_emb->set_lod(data_lod);
+    tensor_emb->set_legacy_lod(data_lod);
 
     bool is_nid = (adjust_ins_weight_config_.need_adjust() &&
                    adjust_ins_weight_config_.nid_slot() == emb_slot_name);
@@ -254,8 +255,8 @@ void DownpourWorker::FillSparseValue(size_t table_idx) {
         memcpy(ptr + table.emb_dim() * index,
                fea_value[fea_idx].data(),
                sizeof(float) * table.emb_dim());
-        if (is_nid &&
-            static_cast<size_t>(index) == tensor->lod()[0][nid_ins_index]) {
+        if (is_nid && static_cast<size_t>(index) ==
+                          tensor->legacy_lod()[0][nid_ins_index]) {
           nid_show_.push_back(fea_value[fea_idx][0]);
           ++nid_ins_index;
         }
@@ -274,8 +275,8 @@ void DownpourWorker::FillSparseValue(size_t table_idx) {
         memcpy(ptr + table.emb_dim() * index,
                fea_value[fea_idx].data() + 2,
                sizeof(float) * table.emb_dim());
-        if (is_nid &&
-            static_cast<size_t>(index) == tensor->lod()[0][nid_ins_index]) {
+        if (is_nid && static_cast<size_t>(index) ==
+                          tensor->legacy_lod()[0][nid_ins_index]) {
           nid_show_.push_back(fea_value[fea_idx][0]);
           ++nid_ins_index;
         }

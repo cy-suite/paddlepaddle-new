@@ -1298,7 +1298,7 @@ int GraphDataGenerator::GenerateBatch() {
     for (int tensor_pair_idx = 0; tensor_pair_idx < conf_.tensor_pair_num;
          ++tensor_pair_idx) {
       int feed_vec_idx = 2 + tensor_pair_idx * conf_.tensor_num_of_one_pair;
-      feed_vec_[feed_vec_idx++]->set_lod(lod);
+      feed_vec_[feed_vec_idx++]->set_legacy_lod(lod);
       if (conf_.enable_pair_label) {
         feed_vec_idx++;
       }
@@ -1306,25 +1306,25 @@ int GraphDataGenerator::GenerateBatch() {
       if (conf_.slot_num > 0) {
         for (int i = 0; i < conf_.slot_num; ++i) {
           if ((*feed_info_)[feed_vec_idx + 2 * i].type[0] == 'u') {
-            feed_vec_[feed_vec_idx + 2 * i]->set_lod(lod);
+            feed_vec_[feed_vec_idx + 2 * i]->set_legacy_lod(lod);
           }
         }
       }
     }
   } else {
-    feed_vec_[2]->set_lod(lod);   // id0
-    feed_vec_[5]->set_lod(lod2);  // id1
+    feed_vec_[2]->set_legacy_lod(lod);   // id0
+    feed_vec_[5]->set_legacy_lod(lod2);  // id1
     if (conf_.slot_num > 0) {
       int feed_vec_idx = 6;
       for (int i = 0; i < conf_.slot_num / 2; i++) {
         if ((*feed_info_)[feed_vec_idx + 2 * i].type[0] == 'u') {
-          feed_vec_[feed_vec_idx + 2 * i]->set_lod(lod);
+          feed_vec_[feed_vec_idx + 2 * i]->set_legacy_lod(lod);
         }
       }
       feed_vec_idx += conf_.slot_num;
       for (int i = 0; i < conf_.slot_num / 2; i++) {
         if ((*feed_info_)[feed_vec_idx + 2 * i].type[0] == 'u') {
-          feed_vec_[feed_vec_idx + 2 * i]->set_lod(lod2);
+          feed_vec_[feed_vec_idx + 2 * i]->set_legacy_lod(lod2);
         }
       }
     }

@@ -77,6 +77,9 @@ class TEST_API MetaTensor {
   virtual void share_lod(const MetaTensor& meta_tensor);
   void share_lod(const LegacyLoD& legacy_lod);
   void share_lod(const MetaTensor& meta_tensor, int64_t index);
+  virtual void share_legacy_lod(const MetaTensor& meta_tensor);
+  void share_legacy_lod(const LegacyLoD& legacy_lod);
+  void share_legacy_lod(const MetaTensor& meta_tensor, int64_t index);
   virtual void share_meta(const MetaTensor& meta_tensor);
   virtual void share_dims(const MetaTensor& meta_tensor);
   virtual void share_strides(const MetaTensor& meta_tensor);
@@ -107,6 +110,8 @@ class TEST_API MetaTensor {
   // so `LoD` cannot in public methods
   const LegacyLoD& lod() const;
   const LegacyLoD& lod(int64_t index) const;
+  const LegacyLoD& legacy_lod() const;
+  const LegacyLoD& legacy_lod(int64_t index) const;
   TensorBase* tensor() const;
 
   TensorBase* tensor_ = nullptr;

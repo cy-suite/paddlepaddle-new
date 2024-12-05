@@ -357,7 +357,7 @@ void FleetWrapper::PullSparseToTensorSync(
                 output_index,
                 outputs->size()));
         output = outputs->at(output_index);
-        output->set_lod(tensor->lod());
+        output->set_legacy_lod(tensor->legacy_lod());
         output_data = output->mutable_data<float>(place);
         output_len = 0;
         PADDLE_ENFORCE_EQ(output->numel() % fea_dim,
@@ -590,8 +590,9 @@ void FleetWrapper::PushSparseFromTensorAsync(
   int batch_size = -1;
   bool batch_size_consist = true;
   for (auto* input : *inputs) {
-    size_t cur_batch_size =
-        !input->lod().empty() ? input->lod()[0].size() - 1 : input->dims()[0];
+    size_t cur_batch_size = !input->legacy_lod().empty()
+                                ? input->legacy_lod()[0].size() - 1
+                                : input->dims()[0];
     if (batch_size == -1) {
       batch_size = static_cast<int>(cur_batch_size);
     } else if (batch_size != static_cast<int>(cur_batch_size)) {
@@ -605,8 +606,9 @@ void FleetWrapper::PushSparseFromTensorAsync(
                     common::errors::InvalidArgument(
                         "The batch size must be greater than 0."));
 
-  size_t show_size =
-      !shows->lod().empty() ? shows->lod()[0].size() - 1 : shows->dims()[0];
+  size_t show_size = !shows->legacy_lod().empty()
+                         ? shows->legacy_lod()[0].size() - 1
+                         : shows->dims()[0];
   if (show_size != size_t(batch_size))
     PADDLE_ENFORCE_EQ(show_size,
                       1,
@@ -615,8 +617,9 @@ void FleetWrapper::PushSparseFromTensorAsync(
                           "batch_size as size_t (%d) or equal to 1 (got %d).",
                           batch_size,
                           show_size));
-  size_t clk_size =
-      !clks->lod().empty() ? clks->lod()[0].size() - 1 : clks->dims()[0];
+  size_t clk_size = !clks->legacy_lod().empty()
+                        ? clks->legacy_lod()[0].size() - 1
+                        : clks->dims()[0];
   if (show_size != size_t(batch_size))
     PADDLE_ENFORCE_EQ(show_size,
                       1,
@@ -688,9 +691,10 @@ void FleetWrapper::PushSparseFromTensorAsync(
     size_t len = tensor->numel();
     output_len = 0;
 
-    if (!tensor->lod().empty()) {
-      for (size_t i = 0; i < tensor->lod()[0].size() - 1; ++i) {
-        for (size_t j = tensor->lod()[0][i]; j < tensor->lod()[0][i + 1];
+    if (!tensor->legacy_lod().empty()) {
+      for (size_t i = 0; i < tensor->legacy_lod()[0].size() - 1; ++i) {
+        for (size_t j = tensor->legacy_lod()[0][i];
+             j < tensor->legacy_lod()[0][i + 1];
              ++j, output_len += fea_dim) {
           uint64_t real_id = static_cast<uint64_t>(ids[j]);
           if (real_id == padding_id) {

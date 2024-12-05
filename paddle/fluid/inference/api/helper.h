@@ -384,7 +384,7 @@ static std::string DescribeZeroCopyTensor(const ZeroCopyTensor &tensor) {
 
   os << " - shape: " << to_string(tensor.shape()) << '\n';
   os << " - lod: ";
-  for (auto &l : tensor.lod()) {
+  for (auto &l : tensor.legacy_lod()) {
     os << to_string(l) << "; ";
   }
   os << "\n";

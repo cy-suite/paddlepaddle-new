@@ -45,12 +45,12 @@ struct DenseTensorTypeStorage : public pir::TypeStorage {
   DenseTensorTypeStorage(Type dtype,
                          const pir::DDim& dims,
                          DataLayout layout,
-                         const LegacyLoD& lod,
+                         const LegacyLoD& legacy_lod,
                          size_t offset)
       : dtype_(dtype),
         dims_(dims),
         layout_(layout),
-        lod_(lod),
+        legacy_lod_(legacy_lod),
         offset_(offset) {}
 
   ///
@@ -95,11 +95,11 @@ struct DenseTensorTypeStorage : public pir::TypeStorage {
   /// \brief Each derived TypeStorage needs to overload operator==.
   ///
   bool operator==(const ParamKey& key) const {
-    return ParamKey(dtype_, dims_, layout_, lod_, offset_) == key;
+    return ParamKey(dtype_, dims_, layout_, legacy_lod_, offset_) == key;
   }
 
   ParamKey GetAsKey() const {
-    return ParamKey(dtype_, dims_, layout_, lod_, offset_);
+    return ParamKey(dtype_, dims_, layout_, legacy_lod_, offset_);
   }
 
   ///
@@ -109,7 +109,7 @@ struct DenseTensorTypeStorage : public pir::TypeStorage {
   pir::Type dtype_;
   pir::DDim dims_;
   DataLayout layout_;
-  LegacyLoD lod_;
+  LegacyLoD legacy_lod_;
   size_t offset_;
 };
 

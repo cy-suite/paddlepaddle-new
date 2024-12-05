@@ -1639,7 +1639,7 @@ void BindType(py::module *m) {
                                       src_type.dtype(),
                                       phi::make_ddim(shape),
                                       src_type.data_layout(),
-                                      src_type.lod(),
+                                      src_type.legacy_lod(),
                                       src_type.offset());
              return dst_type;
            } else if (type.isa<SelectedRowsType>()) {
@@ -1649,7 +1649,7 @@ void BindType(py::module *m) {
                                        src_type.dtype(),
                                        phi::make_ddim(shape),
                                        src_type.data_layout(),
-                                       src_type.lod(),
+                                       src_type.legacy_lod(),
                                        src_type.offset());
              return dst_type;
            } else {
@@ -2189,7 +2189,7 @@ pir::Type CreateSelectedRowsTypeByDenseTensor(pir::Type dense_tensor_type) {
                                  type.dtype(),
                                  type.dims(),
                                  type.data_layout(),
-                                 type.lod(),
+                                 type.legacy_lod(),
                                  type.offset());
   } else {
     PADDLE_THROW(common::errors::InvalidArgument(

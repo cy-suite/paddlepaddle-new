@@ -1089,8 +1089,8 @@ TEST_API std::ostream& operator<<(std::ostream& os, const phi::DenseTensor& t) {
     return os;
   }
 
-  if (!t.lod().empty()) {
-    os << "  - lod: " << t.lod() << "\n";
+  if (!t.legacy_lod().empty()) {
+    os << "  - lod: " << t.legacy_lod() << "\n";
   }
   os << "  - shape: [" << t.dims() << "]\n";
   os << "  - layout: " << common::DataLayoutToString(t.layout()) << "\n";

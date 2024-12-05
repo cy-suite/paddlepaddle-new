@@ -347,7 +347,7 @@ template <class IrType>
 static phi::DenseTensorMeta parse_tensor_meta(IrType type) {
   auto dtype = TransToPhiDataType(type.dtype());
   return phi::DenseTensorMeta(
-      dtype, type.dims(), type.data_layout(), type.lod(), type.offset());
+      dtype, type.dims(), type.data_layout(), type.legacy_lod(), type.offset());
 }
 
 template <>
@@ -546,7 +546,7 @@ static pir::Value AddOneDNN2PaddleLayoutTransferOp(
                                                 in_alloc_type.dtype(),
                                                 in_alloc_type.dims(),
                                                 dst_layout,
-                                                in_alloc_type.lod(),
+                                                in_alloc_type.legacy_lod(),
                                                 in_alloc_type.offset());
 
   pir::OpInfo kernel_op_info = ctx->GetRegisteredOpInfo(PhiKernelOp::name());
@@ -641,7 +641,7 @@ static pir::Type create_type(pir::Type type,
                       out_dtype,
                       input_type.dims(),
                       input_type.data_layout(),
-                      input_type.lod(),
+                      input_type.legacy_lod(),
                       input_type.offset());
 }
 
@@ -722,7 +722,7 @@ static pir::Type create_type(pir::Type type,
                       out_dtype,
                       input_type.dims(),
                       layout,
-                      input_type.lod(),
+                      input_type.legacy_lod(),
                       input_type.offset());
 }
 
@@ -1953,7 +1953,7 @@ void HandleForSpecialOp(
                                               new_in_alloc_type.dtype(),
                                               new_in_alloc_type.dims(),
                                               new_in_alloc_type.data_layout(),
-                                              new_in_alloc_type.lod(),
+                                              new_in_alloc_type.legacy_lod(),
                                               new_in_alloc_type.offset());
             auto op_info_parser = GetOpYamlInfoParser(op_item);
             auto kernel_name = GetKernelName(op_info_parser.get(), op_item);
@@ -2320,7 +2320,7 @@ void HandleForCustomOp(
                                           new_in_alloc_type.dtype(),
                                           new_in_alloc_type.dims(),
                                           new_in_alloc_type.data_layout(),
-                                          new_in_alloc_type.lod(),
+                                          new_in_alloc_type.legacy_lod(),
                                           new_in_alloc_type.offset());
         new_in = AddPlaceTransferOp(
             new_in, out_type, in_place, out_place, kernel_key, block);
@@ -2673,7 +2673,7 @@ std::vector<pir::Value> BuildInputs(
                                             new_in_alloc_type.dtype(),
                                             new_in_alloc_type.dims(),
                                             new_in_alloc_type.data_layout(),
-                                            new_in_alloc_type.lod(),
+                                            new_in_alloc_type.legacy_lod(),
                                             new_in_alloc_type.offset());
           new_in = AddPlaceTransferOp(
               new_in, out_type, in_place, out_place, kernel_key, block);
@@ -2828,7 +2828,7 @@ std::vector<pir::Value> BuildInputs(
                                              new_in_alloc_type.dtype(),
                                              new_in_alloc_type.dims(),
                                              new_in_alloc_type.data_layout(),
-                                             new_in_alloc_type.lod(),
+                                             new_in_alloc_type.legacy_lod(),
                                              new_in_alloc_type.offset());
           new_in = AddPlaceTransferOp(
               new_in, out_type, in_place, out_place, kernel_key, block);

@@ -362,7 +362,7 @@ std::vector<Value> PyWhileOp::OptimizeUpdate() {
                                                 l_type.dtype(),
                                                 dim,
                                                 l_type.data_layout(),
-                                                l_type.lod(),
+                                                l_type.legacy_lod(),
                                                 l_type.offset());
       body_block.arg(arg_index).set_type(new_type);
       yield_op.operand_source(operand_index).set_type(new_type);

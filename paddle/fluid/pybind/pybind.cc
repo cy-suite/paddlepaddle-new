@@ -2515,14 +2515,14 @@ All parameter, weight, gradient are variables in Paddle.
                                    "The index to set is larger than the size "
                                    "of DenseTensorArray."));
              self[i].ShareDataWith(t);
-             self[i].set_lod(t.lod());
+             self[i].set_legacy_lod(t.legacy_lod());
            })
       .def(
           "append",
           [](phi::TensorArray &self, const phi::DenseTensor &t) {
             self.emplace_back();
             self.back().ShareDataWith(t);
-            self.back().set_lod(t.lod());
+            self.back().set_legacy_lod(t.legacy_lod());
           },
           py::arg("tensor"),
           R"DOC(
@@ -2591,7 +2591,7 @@ All parameter, weight, gradient are variables in Paddle.
             self.emplace_back();
             auto &lod_tensor = PADDLE_GET(phi::DenseTensor, self.back());
             lod_tensor.ShareDataWith(t);
-            lod_tensor.set_lod(t.lod());
+            lod_tensor.set_legacy_lod(t.legacy_lod());
           },
           py::arg("var"))
 
@@ -2602,7 +2602,7 @@ All parameter, weight, gradient are variables in Paddle.
             auto &lod_tensor_array = PADDLE_GET(phi::TensorArray, self.back());
             for (size_t i = 0; i < t.size(); ++i) {
               lod_tensor_array[i].ShareDataWith(t[i]);
-              lod_tensor_array[i].set_lod(t[i].lod());
+              lod_tensor_array[i].set_legacy_lod(t[i].legacy_lod());
             }
           },
           py::arg("var"));

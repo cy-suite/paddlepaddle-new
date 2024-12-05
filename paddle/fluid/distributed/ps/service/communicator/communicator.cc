@@ -625,7 +625,7 @@ void AsyncCommunicator::PullSparseToTensorSync(
                 outputs->size(),
                 output_index));  // NOLINT
         output = outputs->at(output_index);
-        output->set_lod(tensor->lod());
+        output->set_legacy_lod(tensor->legacy_lod());
         output_data = output->mutable_data<float>(place);
         output_len = 0;
         PADDLE_ENFORCE_EQ(output->numel() % fea_dim,
@@ -676,8 +676,9 @@ void AsyncCommunicator::PushSparseFromTensorAsync(
   int batch_size = -1;
   bool batch_size_consist = true;
   for (auto *input : *inputs) {
-    int cur_batch_size =
-        !input->lod().empty() ? input->lod()[0].size() - 1 : input->dims()[0];
+    int cur_batch_size = !input->legacy_lod().empty()
+                             ? input->legacy_lod()[0].size() - 1
+                             : input->dims()[0];
     if (batch_size == -1) {
       batch_size = cur_batch_size;
     } else if (batch_size != cur_batch_size) {
@@ -691,16 +692,17 @@ void AsyncCommunicator::PushSparseFromTensorAsync(
                         "The batch size should be greater than 0, but got %d.",
                         batch_size));  // NOLINT
 
-  int show_size =
-      !shows->lod().empty() ? shows->lod()[0].size() - 1 : shows->dims()[0];
+  int show_size = !shows->legacy_lod().empty()
+                      ? shows->legacy_lod()[0].size() - 1
+                      : shows->dims()[0];
   PADDLE_ENFORCE_EQ(
       show_size == batch_size || show_size == 1,
       true,
       common::errors::InvalidArgument("The show size should be equal to batch "
                                       "size or equal to 1, but got %d.",
                                       show_size));
-  int clk_size =
-      !clks->lod().empty() ? clks->lod()[0].size() - 1 : clks->dims()[0];
+  int clk_size = !clks->legacy_lod().empty() ? clks->legacy_lod()[0].size() - 1
+                                             : clks->dims()[0];
   PADDLE_ENFORCE_EQ(clk_size == batch_size || clk_size == 1,
                     true,
                     common::errors::InvalidArgument(
@@ -748,9 +750,10 @@ void AsyncCommunicator::PushSparseFromTensorAsync(
     size_t len = tensor->numel();
     output_len = 0;
 
-    if (!tensor->lod().empty()) {
-      for (size_t i = 0; i < tensor->lod()[0].size() - 1; ++i) {
-        for (size_t j = tensor->lod()[0][i]; j < tensor->lod()[0][i + 1];
+    if (!tensor->legacy_lod().empty()) {
+      for (size_t i = 0; i < tensor->legacy_lod()[0].size() - 1; ++i) {
+        for (size_t j = tensor->legacy_lod()[0][i];
+             j < tensor->legacy_lod()[0][i + 1];
              ++j, output_len += fea_dim) {
           uint64_t real_id = static_cast<uint64_t>(ids[j]);
           if (real_id == padding_id) {

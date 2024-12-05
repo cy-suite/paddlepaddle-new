@@ -40,7 +40,7 @@ void SetVariable(Scope* scope,
   target_var = scope->Var(var_name);
   auto tensor = target_var->GetMutable<phi::DenseTensor>();
   tensor->ShareDataWith(input);
-  tensor->set_lod(input.lod());
+  tensor->set_legacy_lod(input.legacy_lod());
 }
 
 void SetFeedVariable(Scope* scope,
@@ -60,7 +60,7 @@ void SetFeedVariable(Scope* scope,
     auto val = feed_ele->GetMutable<phi::DenseTensor>();
     val->ShareDataWith(input);
     // set lod
-    val->set_lod(input.lod());
+    val->set_legacy_lod(input.legacy_lod());
   } else {
     Variable* g_feed_value = scope->Var(var_name);
     auto& feed_inputs = *(g_feed_value->GetMutable<FeedList>());
@@ -71,7 +71,7 @@ void SetFeedVariable(Scope* scope,
     auto& val = feed_inputs[index];
     val.ShareDataWith(input);
     // set lod
-    val.set_lod(input.lod());
+    val.set_legacy_lod(input.legacy_lod());
   }
 }
 

@@ -44,7 +44,7 @@ class DistDenseTensorType
   const common::DDim& local_ddim() const;
   Type dtype() const { return dense_tensor_type().dtype(); }
   DataLayout data_layout() const { return dense_tensor_type().data_layout(); }
-  const LegacyLoD& lod() const { return dense_tensor_type().lod(); }
+  const LegacyLoD& lod() const { return dense_tensor_type().legacy_lod(); }
   size_t offset() const { return dense_tensor_type().offset(); }
 
   pir::DenseTensorType prim_type() { return dense_tensor_type(); }

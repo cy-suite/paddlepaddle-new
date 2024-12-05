@@ -66,6 +66,7 @@ class IR_API DenseTensorType : public Type::TypeBase<DenseTensorType,
   const Dim &dims() const;
   DataLayout data_layout() const;
   const LegacyLoD &lod() const;
+  const LegacyLoD &legacy_lod() const;
   size_t offset() const;
   static std::string name() { return "t_dtensor"; }
   ///

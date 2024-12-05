@@ -97,9 +97,9 @@ void HeterWrapper::SerializeToReq(const std::string& varname,
   for (auto& dim : common::vectorize(tensor->dims())) {
     req_var->add_dims(dim);
   }
-  const phi::LegacyLoD lod = tensor->lod();
+  const phi::LegacyLoD lod = tensor->legacy_lod();
   if (lod.size() > 0) {
-    req_var->set_lod_level(lod.size());
+    req_var->set_legacy_lod_level(lod.size());
     for (auto& each : lod) {
       VariableMessage::LodData* lod_inner = req_var->add_lod();
       for (auto& d : each) {
@@ -163,7 +163,7 @@ void HeterWrapper::DeSerializeToTensor(Scope* scope,
     }
     lod.push_back(v);
   }
-  tensor->set_lod(lod);
+  tensor->set_legacy_lod(lod);
 
   void* tensor_data = tensor->mutable_data(
       place, phi::TransToPhiDataType(ToVarType(req_var.data_type())));
@@ -208,7 +208,7 @@ void HeterWrapper::DeSerializeToTensor(Scope* scope,
     }
     lod.push_back(v);
   }
-  tensor->set_lod(lod);
+  tensor->set_legacy_lod(lod);
 
   void* tensor_data = tensor->mutable_data(
       place, phi::TransToPhiDataType(ToVarType(req_var.data_type())));

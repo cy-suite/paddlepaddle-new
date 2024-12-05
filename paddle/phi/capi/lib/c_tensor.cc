@@ -154,7 +154,7 @@ void PD_TensorGetLoD(const PD_Tensor* tensor,
     *status = C_SUCCESS;
   }
 
-  auto lod = cc_tensor->lod();
+  auto lod = cc_tensor->legacy_lod();
   offset->size = lod.size() + 1;
   auto offset_data = new size_t[offset->size];
   offset->data = offset_data;

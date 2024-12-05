@@ -22,19 +22,19 @@ namespace paddle::dialect {
 IrTensor::IrTensor(phi::DataType dtype,
                    const phi::DDim& dims,
                    phi::DataLayout layout,
-                   LegacyLoD lod,
+                   LegacyLoD legacy_lod,
                    size_t offset)
     : dims_(dims),
       dtype_(dtype),
       layout_(layout),
-      lod_(std::move(lod)),
+      legacy_lod_(std::move(legacy_lod)),
       offset_(offset) {}
 
 IrTensor::IrTensor(const IrTensor& other) : TensorBase(other) {
   dims_ = other.dims();
   dtype_ = other.dtype();
   layout_ = other.layout();
-  lod_ = other.lod();
+  legacy_lod_ = other.legacy_lod();
   offset_ = other.offset();
 }
 
@@ -42,7 +42,7 @@ IrTensor& IrTensor::operator=(const IrTensor& other) {
   dims_ = other.dims();
   dtype_ = other.dtype();
   layout_ = other.layout();
-  lod_ = other.lod();
+  legacy_lod_ = other.legacy_lod();
   offset_ = other.offset();
   return *this;
 }
@@ -51,7 +51,7 @@ IrTensor& IrTensor::operator=(IrTensor&& other) noexcept {  // NOLINT
   dims_ = other.dims();
   dtype_ = other.dtype();
   layout_ = other.layout();
-  lod_ = other.lod();
+  legacy_lod_ = other.legacy_lod();
   offset_ = other.offset();
   return *this;
 }

@@ -218,8 +218,8 @@ void PrintDenseTensor(phi::DenseTensor* tensor,
 std::pair<int64_t, int64_t> GetTensorBound(phi::DenseTensor* tensor,
                                            int index) {
   auto& dims = tensor->dims();
-  if (!tensor->lod().empty()) {
-    auto& lod = tensor->lod()[0];
+  if (!tensor->legacy_lod().empty()) {
+    auto& lod = tensor->legacy_lod()[0];
     return {lod[index] * dims[1], lod[index + 1] * dims[1]};
   } else {
     return {index * dims[1], (index + 1) * dims[1]};
@@ -229,8 +229,8 @@ std::pair<int64_t, int64_t> GetTensorBound(phi::DenseTensor* tensor,
 bool CheckValidOutput(phi::DenseTensor* tensor, size_t batch_size) {
   auto& dims = tensor->dims();
   if (dims.size() != 2) return false;
-  if (!tensor->lod().empty()) {
-    auto& lod = tensor->lod()[0];
+  if (!tensor->legacy_lod().empty()) {
+    auto& lod = tensor->legacy_lod()[0];
     if (lod.size() != batch_size + 1) {
       return false;
     }
@@ -376,7 +376,7 @@ void DeviceWorker::DumpField(const Scope& scope,
       phi::DenseTensor cpu_tensor;
       if (phi::is_gpu_place(tensor->place())) {
         TensorCopySync(*tensor, phi::CPUPlace(), &cpu_tensor);
-        cpu_tensor.set_lod(tensor->lod());
+        cpu_tensor.set_legacy_lod(tensor->legacy_lod());
         tensor = &cpu_tensor;
       }
       auto& dims = tensor->dims();
@@ -464,7 +464,7 @@ void DeviceWorker::DumpField(const Scope& scope,
     phi::DenseTensor cpu_tensor;
     if (phi::is_gpu_place(tensor->place())) {
       TensorCopySync(*tensor, phi::CPUPlace(), &cpu_tensor);
-      cpu_tensor.set_lod(tensor->lod());
+      cpu_tensor.set_legacy_lod(tensor->legacy_lod());
       tensor = &cpu_tensor;
     }
     if (!CheckValidOutput(tensor, batch_size)) {

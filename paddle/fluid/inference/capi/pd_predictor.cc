@@ -296,7 +296,7 @@ void PD_GetZeroCopyOutput(PD_Predictor* predictor, PD_ZeroCopyTensor* tensor) {
   }
   tensor->data.length = length;
 
-  auto lod = output->lod();
+  auto lod = output->legacy_lod();
   if (!lod.empty()) {
     tensor->lod.length = lod.front().size() * sizeof(size_t);
     if (tensor->lod.capacity < lod.front().size()) {

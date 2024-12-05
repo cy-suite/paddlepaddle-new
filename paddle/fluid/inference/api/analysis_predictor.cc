@@ -358,7 +358,7 @@ bool PaddleTensorToDenseTensor(const PaddleTensor &pt,
   for (auto &level : pt.lod) {
     lod.emplace_back(level);
   }
-  t->set_lod(lod);
+  t->set_legacy_lod(lod);
   return true;
 }
 }  // namespace
@@ -1669,7 +1669,7 @@ bool AnalysisPredictor::SetFeed(const std::vector<PaddleTensor> &inputs,
     }
     auto &t = framework::GetVariableTensor(*scope, idx2feeds_[idx]);
     t.ShareDataWith(*input);
-    t.set_lod(input->lod());
+    t.set_legacy_lod(input->legacy_lod());
   }
   return true;
 }
@@ -1712,16 +1712,17 @@ bool AnalysisPredictor::SetFeed(const std::vector<paddle::Tensor> &inputs,
       auto &t = framework::GetVariableTensor(*scope, input.name());
       t.ShareDataWith(
           *std::dynamic_pointer_cast<phi::DenseTensor>(input.impl()));
-      t.set_lod(
-          std::dynamic_pointer_cast<phi::DenseTensor>(input.impl())->lod());
+      t.set_legacy_lod(std::dynamic_pointer_cast<phi::DenseTensor>(input.impl())
+                           ->legacy_lod());
     }
   } else {
     for (size_t i = 0; i < inputs.size(); ++i) {
       auto &t = framework::GetVariableTensor(*scope, idx2feeds_[i]);
       t.ShareDataWith(
           *std::dynamic_pointer_cast<phi::DenseTensor>(inputs[i].impl()));
-      t.set_lod(
-          std::dynamic_pointer_cast<phi::DenseTensor>(inputs[i].impl())->lod());
+      t.set_legacy_lod(
+          std::dynamic_pointer_cast<phi::DenseTensor>(inputs[i].impl())
+              ->legacy_lod());
     }
   }
   return true;
@@ -1743,7 +1744,7 @@ void AnalysisPredictor::GetFetchOne(const phi::DenseTensor &fetch,
                        num_elems * sizeof(T));
   // set lod
   output->lod.clear();
-  for (auto &level : fetch.lod()) {
+  for (auto &level : fetch.legacy_lod()) {
     output->lod.emplace_back(level.begin(), level.end());
   }
 }

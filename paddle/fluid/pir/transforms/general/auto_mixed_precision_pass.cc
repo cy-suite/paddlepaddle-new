@@ -414,7 +414,7 @@ class AutoMixedPrecisionPass : public pir::Pass {
             paddle::dialect::TransToIrDataType(precision, context),
             dense_type.dims(),
             dense_type.data_layout(),
-            dense_type.lod(),
+            dense_type.legacy_lod(),
             dense_type.offset());
         result.set_type(new_type);
       }
@@ -431,7 +431,7 @@ class AutoMixedPrecisionPass : public pir::Pass {
               paddle::dialect::TransToIrDataType(precision, context),
               dense_type.dims(),
               dense_type.data_layout(),
-              dense_type.lod(),
+              dense_type.legacy_lod(),
               dense_type.offset());
           results_type[idx] = new_type;
         } else {

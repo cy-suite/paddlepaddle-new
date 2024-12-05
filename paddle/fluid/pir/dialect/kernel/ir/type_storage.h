@@ -68,7 +68,7 @@ struct AllocatedDenseTensorTypeStorage : public pir::TypeStorage {
                                           dense_tensor_type.dtype(),
                                           dense_tensor_type.dims(),
                                           dense_tensor_type.data_layout(),
-                                          dense_tensor_type.lod(),
+                                          dense_tensor_type.legacy_lod(),
                                           dense_tensor_type.offset())));
     return hash_value;
   }
@@ -132,7 +132,7 @@ struct AllocatedSelectedRowsTypeStorage : public pir::TypeStorage {
                                           selected_rows_type.dtype(),
                                           selected_rows_type.dims(),
                                           selected_rows_type.data_layout(),
-                                          selected_rows_type.lod(),
+                                          selected_rows_type.legacy_lod(),
                                           selected_rows_type.offset())));
     return hash_value;
   }

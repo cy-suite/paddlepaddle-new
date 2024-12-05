@@ -388,7 +388,7 @@ TEST_API void paddle::dialect::MoESubMeshTensorsOp::Build(
             input_dense_tensor_type.dtype(),
             local_tensor_dims,
             input_dense_tensor_type.data_layout(),
-            input_dense_tensor_type.lod(),
+            input_dense_tensor_type.legacy_lod(),
             input_dense_tensor_type.offset());
 
     pir::Type out_dist_tensor_type =
@@ -567,7 +567,7 @@ TEST_API void paddle::dialect::MoEGlobalMeshTensorOp::Build(
           input_dense_tensor_type.dtype(),
           global_dims,
           input_dense_tensor_type.data_layout(),
-          input_dense_tensor_type.lod(),
+          input_dense_tensor_type.legacy_lod(),
           input_dense_tensor_type.offset());
   pir::Type out_dist_tensor_type =
       paddle::dialect::DistDenseTensorType::get(pir::IrContext::Instance(),

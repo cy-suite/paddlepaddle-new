@@ -396,7 +396,7 @@ std::vector<pir::Type> AddN_Op::InferMeta(
               inputs[i].dyn_cast<paddle::dialect::DenseTensorType>().dtype()),
           inputs[i].dyn_cast<paddle::dialect::DenseTensorType>().dims(),
           inputs[i].dyn_cast<paddle::dialect::DenseTensorType>().data_layout(),
-          inputs[i].dyn_cast<paddle::dialect::DenseTensorType>().lod(),
+          inputs[i].dyn_cast<paddle::dialect::DenseTensorType>().legacy_lod(),
           inputs[i].dyn_cast<paddle::dialect::DenseTensorType>().offset()));
     } else {
       PADDLE_THROW(common::errors::Unimplemented(
@@ -426,7 +426,7 @@ std::vector<pir::Type> AddN_Op::InferMeta(
       paddle::dialect::TransToIrDataType(dense_out.dtype()),
       dense_out.dims(),
       dense_out.layout(),
-      dense_out.lod(),
+      dense_out.legacy_lod(),
       dense_out.offset());
   argument_outputs.push_back(out_dense_tensor_type);
   return argument_outputs;
@@ -847,7 +847,7 @@ std::vector<pir::Type> FusedGemmEpilogueOp::InferMeta(
       paddle::dialect::TransToPhiDataType(x.dtype()),
       x.dims(),
       x.data_layout(),
-      x.lod(),
+      x.legacy_lod(),
       x.offset());
   VLOG(4) << "Builder construction  meta_x";
   paddle::dialect::IrMetaTensor meta_x(&dense_x);
@@ -857,7 +857,7 @@ std::vector<pir::Type> FusedGemmEpilogueOp::InferMeta(
       paddle::dialect::TransToPhiDataType(y.dtype()),
       y.dims(),
       y.data_layout(),
-      y.lod(),
+      y.legacy_lod(),
       y.offset());
   VLOG(4) << "Builder construction  meta_y";
   paddle::dialect::IrMetaTensor meta_y(&dense_y);
@@ -867,7 +867,7 @@ std::vector<pir::Type> FusedGemmEpilogueOp::InferMeta(
       paddle::dialect::TransToPhiDataType(bias.dtype()),
       bias.dims(),
       bias.data_layout(),
-      bias.lod(),
+      bias.legacy_lod(),
       bias.offset());
   VLOG(4) << "Builder construction  meta_bias";
   paddle::dialect::IrMetaTensor meta_bias(&dense_bias);
@@ -893,7 +893,7 @@ std::vector<pir::Type> FusedGemmEpilogueOp::InferMeta(
       paddle::dialect::TransToIrDataType(dense_out.dtype()),
       dense_out.dims(),
       dense_out.layout(),
-      dense_out.lod(),
+      dense_out.legacy_lod(),
       dense_out.offset());
   argument_outputs.push_back(out_dense_tensor_type);
 
@@ -905,7 +905,7 @@ std::vector<pir::Type> FusedGemmEpilogueOp::InferMeta(
                 paddle::dialect::TransToIrDataType(dense_reserve_space.dtype()),
                 dense_reserve_space.dims(),
                 dense_reserve_space.layout(),
-                dense_reserve_space.lod(),
+                dense_reserve_space.legacy_lod(),
                 dense_reserve_space.offset());
   argument_outputs.push_back(reserve_space_dense_tensor_type);
   return argument_outputs;
@@ -1123,7 +1123,7 @@ std::vector<pir::Type> FusedGemmEpilogueGradOp::InferMeta(
       paddle::dialect::TransToPhiDataType(x.dtype()),
       x.dims(),
       x.data_layout(),
-      x.lod(),
+      x.legacy_lod(),
       x.offset());
   VLOG(4) << "Builder construction  meta_x";
   paddle::dialect::IrMetaTensor meta_x(&dense_x);
@@ -1133,7 +1133,7 @@ std::vector<pir::Type> FusedGemmEpilogueGradOp::InferMeta(
       paddle::dialect::TransToPhiDataType(y.dtype()),
       y.dims(),
       y.data_layout(),
-      y.lod(),
+      y.legacy_lod(),
       y.offset());
   VLOG(4) << "Builder construction  meta_y";
   paddle::dialect::IrMetaTensor meta_y(&dense_y);
@@ -1145,7 +1145,7 @@ std::vector<pir::Type> FusedGemmEpilogueGradOp::InferMeta(
                 paddle::dialect::TransToPhiDataType(reserve_space.dtype()),
                 reserve_space.dims(),
                 reserve_space.data_layout(),
-                reserve_space.lod(),
+                reserve_space.legacy_lod(),
                 reserve_space.offset())
           : nullptr;
   VLOG(4) << "Builder construction  meta_reserve_space";
@@ -1156,7 +1156,7 @@ std::vector<pir::Type> FusedGemmEpilogueGradOp::InferMeta(
       paddle::dialect::TransToPhiDataType(out_grad.dtype()),
       out_grad.dims(),
       out_grad.data_layout(),
-      out_grad.lod(),
+      out_grad.legacy_lod(),
       out_grad.offset());
   VLOG(4) << "Builder construction  meta_out_grad";
   paddle::dialect::IrMetaTensor meta_out_grad(&dense_out_grad);
@@ -1184,7 +1184,7 @@ std::vector<pir::Type> FusedGemmEpilogueGradOp::InferMeta(
       paddle::dialect::TransToIrDataType(dense_x_grad.dtype()),
       dense_x_grad.dims(),
       dense_x_grad.layout(),
-      dense_x_grad.lod(),
+      dense_x_grad.legacy_lod(),
       dense_x_grad.offset());
   argument_outputs.push_back(x_grad_dense_tensor_type);
 
@@ -1193,7 +1193,7 @@ std::vector<pir::Type> FusedGemmEpilogueGradOp::InferMeta(
       paddle::dialect::TransToIrDataType(dense_y_grad.dtype()),
       dense_y_grad.dims(),
       dense_y_grad.layout(),
-      dense_y_grad.lod(),
+      dense_y_grad.legacy_lod(),
       dense_y_grad.offset());
   argument_outputs.push_back(y_grad_dense_tensor_type);
 
@@ -1202,7 +1202,7 @@ std::vector<pir::Type> FusedGemmEpilogueGradOp::InferMeta(
       paddle::dialect::TransToIrDataType(dense_bias_grad.dtype()),
       dense_bias_grad.dims(),
       dense_bias_grad.layout(),
-      dense_bias_grad.lod(),
+      dense_bias_grad.legacy_lod(),
       dense_bias_grad.offset());
   argument_outputs.push_back(bias_grad_dense_tensor_type);
   return argument_outputs;
@@ -1369,7 +1369,7 @@ std::vector<pir::Type> SplitGradOp::InferMeta(
             out_grad[i].dyn_cast<paddle::dialect::DenseTensorType>().dtype()),
         out_grad[i].dyn_cast<paddle::dialect::DenseTensorType>().dims(),
         out_grad[i].dyn_cast<paddle::dialect::DenseTensorType>().data_layout(),
-        out_grad[i].dyn_cast<paddle::dialect::DenseTensorType>().lod(),
+        out_grad[i].dyn_cast<paddle::dialect::DenseTensorType>().legacy_lod(),
         out_grad[i].dyn_cast<paddle::dialect::DenseTensorType>().offset()));
   }
   std::vector<paddle::dialect::IrMetaTensor> vec_meta_out_grad;
@@ -1393,7 +1393,7 @@ std::vector<pir::Type> SplitGradOp::InferMeta(
       TransToIrDataType(dense_x_grad.dtype()),
       dense_x_grad.dims(),
       dense_x_grad.layout(),
-      dense_x_grad.lod(),
+      dense_x_grad.legacy_lod(),
       dense_x_grad.offset());
   argument_outputs.push_back(x_grad_dense_tensor_type);
   return argument_outputs;
@@ -1786,7 +1786,7 @@ std::vector<pir::Type> ArrayLengthOp::InferMeta(
       paddle::dialect::TransToIrDataType(dense_out.dtype()),
       dense_out.dims(),
       dense_out.layout(),
-      dense_out.lod(),
+      dense_out.legacy_lod(),
       dense_out.offset());
   argument_outputs.push_back(out_dense_tensor_type);
   return argument_outputs;
@@ -1971,7 +1971,7 @@ std::vector<pir::Type> ArrayReadOp::InferMeta(
       paddle::dialect::TransToIrDataType(dense_out.dtype()),
       dense_out.dims(),
       dense_out.layout(),
-      dense_out.lod());
+      dense_out.legacy_lod());
   argument_outputs.push_back(out_type);
   return argument_outputs;
 }
@@ -2145,7 +2145,7 @@ std::vector<pir::Type> ArrayWrite_Op::InferMeta(
       paddle::dialect::TransToPhiDataType(x_type.dtype()),
       x_type.dims(),
       x_type.data_layout(),
-      x_type.lod(),
+      x_type.legacy_lod(),
       x_type.offset());
   paddle::dialect::IrMetaTensor meta_x(&dense_x);
 
@@ -2378,7 +2378,7 @@ std::vector<pir::Type> ArrayToTensorOp::InferMeta(
       paddle::dialect::TransToIrDataType(dense_out.dtype()),
       dense_out.dims(),
       dense_out.layout(),
-      dense_out.lod(),
+      dense_out.legacy_lod(),
       dense_out.offset());
   argument_outputs.push_back(out_dense_tensor_type);
   pir::Type out_index_dense_tensor_type = paddle::dialect::DenseTensorType::get(
@@ -2386,7 +2386,7 @@ std::vector<pir::Type> ArrayToTensorOp::InferMeta(
       paddle::dialect::TransToIrDataType(dense_out_index.dtype()),
       dense_out_index.dims(),
       dense_out_index.layout(),
-      dense_out_index.lod(),
+      dense_out_index.legacy_lod(),
       dense_out_index.offset());
   argument_outputs.push_back(out_index_dense_tensor_type);
   return argument_outputs;
@@ -2617,7 +2617,7 @@ std::vector<pir::Type> TensorToArrayOp::InferMeta(
       paddle::dialect::TransToPhiDataType(out_grad.dtype()),
       out_grad.dims(),
       out_grad.data_layout(),
-      out_grad.lod(),
+      out_grad.legacy_lod(),
       out_grad.offset());
 
   VLOG(4) << "Builder construction  meta_x, meta_out_grad";
@@ -3024,7 +3024,7 @@ std::vector<pir::Type> SliceArrayDenseOp::InferMeta(
       paddle::dialect::TransToIrDataType(dense_out.dtype()),
       dense_out.dims(),
       dense_out.layout(),
-      dense_out.lod(),
+      dense_out.legacy_lod(),
       dense_out.offset());
   argument_outputs.push_back(out_dense_tensor_type);
   return argument_outputs;
@@ -3307,7 +3307,7 @@ std::vector<pir::Type> AssignArray_Op::InferMeta(
       paddle::dialect::TransToIrDataType(dense_out.dtype()),
       dense_out.dims(),
       dense_out.layout(),
-      dense_out.lod(),
+      dense_out.legacy_lod(),
       dense_out.offset());
   argument_outputs.push_back(out_dense_tensor_type);
   return argument_outputs;
@@ -3678,7 +3678,7 @@ std::vector<pir::Type> ExpandOp::InferMeta(
       paddle::dialect::TransToPhiDataType(x.dtype()),
       x.dims(),
       x.data_layout(),
-      x.lod(),
+      x.legacy_lod(),
       x.offset());
   VLOG(4) << "Builder construction  meta_x";
   paddle::dialect::IrMetaTensor meta_x(&ir_meta_tensor_x);
@@ -3693,7 +3693,7 @@ std::vector<pir::Type> ExpandOp::InferMeta(
       paddle::dialect::TransToIrDataType(dense_out.dtype()),
       dense_out.dims(),
       dense_out.layout(),
-      dense_out.lod(),
+      dense_out.legacy_lod(),
       dense_out.offset());
   argument_outputs.push_back(out_dense_tensor_type);
   return argument_outputs;
@@ -3873,7 +3873,7 @@ std::vector<pir::Type> IncrementOp::InferMeta(
       paddle::dialect::TransToPhiDataType(x.dtype()),
       x.dims(),
       x.data_layout(),
-      x.lod(),
+      x.legacy_lod(),
       x.offset());
   VLOG(4) << "Builder construction  meta_x";
   paddle::dialect::IrMetaTensor meta_x(&ir_tensor_x);
@@ -3888,7 +3888,7 @@ std::vector<pir::Type> IncrementOp::InferMeta(
       paddle::dialect::TransToIrDataType(dense_out.dtype()),
       dense_out.dims(),
       dense_out.layout(),
-      dense_out.lod(),
+      dense_out.legacy_lod(),
       dense_out.offset());
   argument_outputs.push_back(out_dense_tensor_type);
   return argument_outputs;
@@ -4079,7 +4079,7 @@ std::vector<pir::Type> Increment_Op::InferMeta(
       paddle::dialect::TransToPhiDataType(x.dtype()),
       x.dims(),
       x.data_layout(),
-      x.lod(),
+      x.legacy_lod(),
       x.offset());
   VLOG(4) << "Builder construction  meta_x";
   paddle::dialect::IrMetaTensor meta_x(&ir_tensor_x);
@@ -4094,7 +4094,7 @@ std::vector<pir::Type> Increment_Op::InferMeta(
       paddle::dialect::TransToIrDataType(dense_out.dtype()),
       dense_out.dims(),
       dense_out.layout(),
-      dense_out.lod(),
+      dense_out.legacy_lod(),
       dense_out.offset());
   argument_outputs.push_back(out_dense_tensor_type);
   return argument_outputs;
@@ -4249,7 +4249,7 @@ std::vector<pir::Type> AssignOut_Op::InferMeta(
       paddle::dialect::TransToPhiDataType(x.dtype()),
       x.dims(),
       x.data_layout(),
-      x.lod(),
+      x.legacy_lod(),
       x.offset());
   VLOG(4) << "Builder construction  meta_x";
   paddle::dialect::IrMetaTensor meta_x(&ir_tensor_x);
@@ -4264,7 +4264,7 @@ std::vector<pir::Type> AssignOut_Op::InferMeta(
       paddle::dialect::TransToIrDataType(dense_out.dtype()),
       dense_out.dims(),
       dense_out.layout(),
-      dense_out.lod(),
+      dense_out.legacy_lod(),
       dense_out.offset());
 #ifdef PADDLE_WITH_DISTRIBUTE
   // Auto Parallel condition
@@ -4395,7 +4395,7 @@ std::vector<pir::Type> ShapeBroadcastOp::InferMeta(
       paddle::dialect::TransToPhiDataType(x.dtype()),
       x.dims(),
       x.data_layout(),
-      x.lod(),
+      x.legacy_lod(),
       x.offset());
   VLOG(4) << "Builder construction  meta_x";
   paddle::dialect::IrMetaTensor meta_x(&ir_tensor_x);
@@ -4405,7 +4405,7 @@ std::vector<pir::Type> ShapeBroadcastOp::InferMeta(
       paddle::dialect::TransToPhiDataType(y.dtype()),
       y.dims(),
       y.data_layout(),
-      y.lod(),
+      y.legacy_lod(),
       y.offset());
   VLOG(4) << "Builder construction  meta_y";
   paddle::dialect::IrMetaTensor meta_y(&ir_tensor_y);
@@ -4420,7 +4420,7 @@ std::vector<pir::Type> ShapeBroadcastOp::InferMeta(
       paddle::dialect::TransToIrDataType(dense_out.dtype()),
       dense_out.dims(),
       dense_out.layout(),
-      dense_out.lod(),
+      dense_out.legacy_lod(),
       dense_out.offset());
   argument_outputs.push_back(out_dense_tensor_type);
   return argument_outputs;
@@ -4622,7 +4622,7 @@ std::vector<pir::Type> MemcpyD2hMultiIoOp::InferMeta(
       paddle::dialect::TransToIrDataType(dense_out.dtype()),
       dense_out.dims(),
       dense_out.layout(),
-      dense_out.lod(),
+      dense_out.legacy_lod(),
       dense_out.offset());
   argument_outputs.push_back(out_dense_tensor_type);
   return argument_outputs;
@@ -4809,7 +4809,7 @@ std::vector<pir::Type> ArrayPopOp::InferMeta(
       paddle::dialect::TransToIrDataType(dense_out.dtype()),
       dense_out.dims(),
       dense_out.layout(),
-      dense_out.lod(),
+      dense_out.legacy_lod(),
       dense_out.offset());
   argument_outputs.push_back(out_array_type);
   argument_outputs.push_back(out_dense_tensor_type);

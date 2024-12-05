@@ -47,7 +47,12 @@ phi::DataLayout IrMetaTensor::layout() const {
 
 const phi::LegacyLoD& IrMetaTensor::lod() const {
   ValidCheck(*this);
-  return static_cast<paddle::dialect::IrTensor*>(tensor_)->lod();
+  return static_cast<paddle::dialect::IrTensor*>(tensor_)->legacy_lod();
+}
+
+const phi::LegacyLoD& IrMetaTensor::legacy_lod() const {
+  ValidCheck(*this);
+  return static_cast<paddle::dialect::IrTensor*>(tensor_)->legacy_lod();
 }
 
 void IrMetaTensor::set_dims(const phi::DDim& dims) {
@@ -100,7 +105,13 @@ void IrMetaTensor::set_layout(phi::DataLayout layout) {
 void IrMetaTensor::share_lod(const MetaTensor& meta_tensor) {
   auto& ir_meta_tensor = static_cast<const IrMetaTensor&>(meta_tensor);
   static_cast<paddle::dialect::IrTensor*>(tensor_)->SetLod(
-      ir_meta_tensor.lod());
+      ir_meta_tensor.legacy_lod());
+}
+
+void IrMetaTensor::share_legacy_lod(const MetaTensor& meta_tensor) {
+  auto& ir_meta_tensor = static_cast<const IrMetaTensor&>(meta_tensor);
+  static_cast<paddle::dialect::IrTensor*>(tensor_)->SetLod(
+      ir_meta_tensor.legacy_lod());
 }
 
 void IrMetaTensor::share_dims(const MetaTensor& meta_tensor) {
@@ -113,7 +124,7 @@ void IrMetaTensor::share_meta(const MetaTensor& meta_tensor) {
   share_dims(ir_meta_tensor);
   set_dtype(ir_meta_tensor.dtype());
   set_layout(ir_meta_tensor.layout());
-  share_lod(ir_meta_tensor);
+  share_legacy_lod(ir_meta_tensor);
 }
 
 bool IrMetaTensor::initialized() const { return tensor_ != nullptr; }

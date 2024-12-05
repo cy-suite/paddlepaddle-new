@@ -440,7 +440,7 @@ Json serializeTypeToJsonIncludeWriteType(const T& type) {
 
   content.push_back(DataLayoutToString(type.data_layout()));
 
-  content.push_back(type.lod());
+  content.push_back(type.legacy_lod());
 
   content.push_back(type.offset());
   json_obj[DATA] = content;

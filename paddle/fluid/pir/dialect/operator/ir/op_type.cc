@@ -23,7 +23,13 @@ const phi::DataLayout& SelectedRowsType::data_layout() const {
   return storage()->layout_;
 }
 
-const phi::LegacyLoD& SelectedRowsType::lod() const { return storage()->lod_; }
+const phi::LegacyLoD& SelectedRowsType::lod() const {
+  return storage()->legacy_lod_;
+}
+
+const phi::LegacyLoD& SelectedRowsType::legacy_lod() const {
+  return storage()->legacy_lod_;
+}
 
 const size_t& SelectedRowsType::offset() const { return storage()->offset_; }
 

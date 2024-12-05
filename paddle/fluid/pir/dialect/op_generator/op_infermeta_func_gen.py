@@ -156,7 +156,7 @@ def GenBuildOutputsPart2(
   paddle::dialect::IrTensor ir_tensor_{name}(paddle::dialect::TransToPhiDataType({name}.dtype()),
                                                       {name}.dims(),
                                                       {name}.data_layout(),
-                                                      {name}.lod(),
+                                                      {name}.legacy_lod(),
                                                       {name}.offset());
   VLOG(4) << "Builder construction  meta_{name}";
   paddle::dialect::IrMetaTensor meta_{name}(&ir_tensor_{name});
@@ -200,7 +200,7 @@ def GenBuildOutputsPart2(
     ir_tensor_{name} = paddle::dialect::IrTensor(paddle::dialect::TransToPhiDataType({name}.dtype()),
                                                         {name}.dims(),
                                                         {name}.data_layout(),
-                                                        {name}.lod(),
+                                                        {name}.legacy_lod(),
                                                         {name}.offset());
     VLOG(4) << "Builder construction  meta_{name}";
     meta_{name} = paddle::dialect::IrMetaTensor(&ir_tensor_{name});
@@ -259,7 +259,7 @@ def GenBuildOutputsPart2(
         vec_ir_tensor_{name}.push_back(paddle::dialect::IrTensor(paddle::dialect::TransToPhiDataType({name}_type.dtype()),
                                                                     {name}_type.dims(),
                                                                     {name}_type.data_layout(),
-                                                                    {name}_type.lod(),
+                                                                    {name}_type.legacy_lod(),
                                                                     {name}_type.offset()));
     }} else {{
         PADDLE_THROW(common::errors::Unimplemented("Only support DenseTensorType or AllocatedDenseTensorType"));
@@ -286,7 +286,7 @@ def GenBuildOutputsPart2(
           vec_ir_tensor_{name}.push_back(paddle::dialect::IrTensor(paddle::dialect::TransToPhiDataType({name}_type.dtype()),
                                                                         {name}_type.dims(),
                                                                         {name}_type.data_layout(),
-                                                                        {name}_type.lod(),
+                                                                        {name}_type.legacy_lod(),
                                                                         {name}_type.offset()));
         }} else {{
             PADDLE_THROW(common::errors::Unimplemented("Only support DenseTensorType or AllocatedDenseTensorType"));

@@ -40,12 +40,12 @@ struct SelectedRowsTypeStorage : public pir::TypeStorage {
   SelectedRowsTypeStorage(const pir::Type& dtype,
                           const phi::DDim& dims,
                           const phi::DataLayout& layout,
-                          const phi::LegacyLoD& lod,
+                          const phi::LegacyLoD& legacy_lod,
                           size_t offset)
       : dtype_(dtype),
         dims_(dims),
         layout_(layout),
-        lod_(lod),
+        legacy_lod_(legacy_lod),
         offset_(offset) {}
 
   ///
@@ -90,11 +90,11 @@ struct SelectedRowsTypeStorage : public pir::TypeStorage {
   /// \brief Each derived TypeStorage needs to overload operator==.
   ///
   bool operator==(const ParamKey& key) const {
-    return ParamKey(dtype_, dims_, layout_, lod_, offset_) == key;
+    return ParamKey(dtype_, dims_, layout_, legacy_lod_, offset_) == key;
   }
 
   ParamKey GetAsKey() const {
-    return ParamKey(dtype_, dims_, layout_, lod_, offset_);
+    return ParamKey(dtype_, dims_, layout_, legacy_lod_, offset_);
   }
 
   ///
@@ -104,7 +104,7 @@ struct SelectedRowsTypeStorage : public pir::TypeStorage {
   pir::Type dtype_;
   phi::DDim dims_;
   phi::DataLayout layout_;
-  phi::LegacyLoD lod_;
+  phi::LegacyLoD legacy_lod_;
   size_t offset_;
 };
 
@@ -231,7 +231,7 @@ struct SparseCooTensorTypeStorage : public pir::TypeStorage {
     auto tuple1 = std::make_tuple(std::get<4>(key).dtype(),
                                   std::get<4>(key).dims(),
                                   std::get<4>(key).data_layout(),
-                                  std::get<4>(key).lod(),
+                                  std::get<4>(key).legacy_lod(),
                                   std::get<4>(key).offset());
     hash_value = pir::detail::hash_combine(
         hash_value, DenseTensorTypeStorage::HashValue(tuple1));
@@ -239,7 +239,7 @@ struct SparseCooTensorTypeStorage : public pir::TypeStorage {
     auto tuple2 = std::make_tuple(std::get<5>(key).dtype(),
                                   std::get<5>(key).dims(),
                                   std::get<5>(key).data_layout(),
-                                  std::get<5>(key).lod(),
+                                  std::get<5>(key).legacy_lod(),
                                   std::get<5>(key).offset());
     hash_value = pir::detail::hash_combine(
         hash_value, DenseTensorTypeStorage::HashValue(tuple2));
@@ -344,7 +344,7 @@ struct SparseCsrTensorTypeStorage : public pir::TypeStorage {
     auto tuple1 = std::make_tuple(std::get<3>(key).dtype(),
                                   std::get<3>(key).dims(),
                                   std::get<3>(key).data_layout(),
-                                  std::get<3>(key).lod(),
+                                  std::get<3>(key).legacy_lod(),
                                   std::get<3>(key).offset());
     hash_value = pir::detail::hash_combine(
         hash_value, DenseTensorTypeStorage::HashValue(tuple1));
@@ -352,7 +352,7 @@ struct SparseCsrTensorTypeStorage : public pir::TypeStorage {
     auto tuple2 = std::make_tuple(std::get<4>(key).dtype(),
                                   std::get<4>(key).dims(),
                                   std::get<4>(key).data_layout(),
-                                  std::get<4>(key).lod(),
+                                  std::get<4>(key).legacy_lod(),
                                   std::get<4>(key).offset());
     hash_value = pir::detail::hash_combine(
         hash_value, DenseTensorTypeStorage::HashValue(tuple2));
@@ -360,7 +360,7 @@ struct SparseCsrTensorTypeStorage : public pir::TypeStorage {
     auto tuple3 = std::make_tuple(std::get<5>(key).dtype(),
                                   std::get<5>(key).dims(),
                                   std::get<5>(key).data_layout(),
-                                  std::get<5>(key).lod(),
+                                  std::get<5>(key).legacy_lod(),
                                   std::get<5>(key).offset());
     hash_value = pir::detail::hash_combine(
         hash_value, DenseTensorTypeStorage::HashValue(tuple3));

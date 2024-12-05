@@ -115,7 +115,7 @@ void FetchTensors(const std::vector<std::string>& job_fetch_names,
           &(PADDLE_GET(phi::DenseTensor, fetch_list->at(micro_batch_id)[col]));
       if (src.IsInitialized()) {
         TensorCopy(src, phi::CPUPlace(), dst);
-        dst->set_lod(src.lod());
+        dst->set_legacy_lod(src.legacy_lod());
       } else {
         VLOG(6) << "Found " << var_name
                 << " is not initialized and skip TensorCopy.";
@@ -130,7 +130,7 @@ void FetchTensors(const std::vector<std::string>& job_fetch_names,
       dst->resize(src.size());
       for (size_t i = 0; i < src.size(); ++i) {
         TensorCopy(src[i], phi::CPUPlace(), &dst->at(i));
-        dst->at(i).set_lod(src[i].lod());
+        dst->at(i).set_legacy_lod(src[i].legacy_lod());
       }
     }
   }

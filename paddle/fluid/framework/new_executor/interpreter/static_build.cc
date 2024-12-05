@@ -574,7 +574,8 @@ void RunWhileBlockPreStaticBuild(const framework::Scope& scope,
                                               ->GetMutable<phi::DenseTensor>();
           framework::TensorCopy(
               input_var_tensor, dev_place, rename_input_var_tensor);
-          rename_input_var_tensor->set_lod(input_var_tensor.lod());
+          rename_input_var_tensor->set_legacy_lod(
+              input_var_tensor.legacy_lod());
         }
       }
     }
@@ -619,7 +620,7 @@ void RunWhileBlockPreStaticBuild(const framework::Scope& scope,
         // Clear all lod information for all lod_tensors.
         auto* t = var->GetMutable<phi::DenseTensor>();
         phi::LegacyLoD empty_lod;
-        t->set_lod(empty_lod);
+        t->set_legacy_lod(empty_lod);
       } else if (var->IsType<phi::TensorArray>()) {
         // Clear elements of all tensor arrays.
         auto* t = var->GetMutable<phi::TensorArray>();

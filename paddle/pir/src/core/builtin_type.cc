@@ -26,7 +26,11 @@ const DenseTensorType::Dim& DenseTensorType::dims() const {
 DataLayout DenseTensorType::data_layout() const { return storage()->layout_; }
 
 const DenseTensorType::LegacyLoD& DenseTensorType::lod() const {
-  return storage()->lod_;
+  return storage()->legacy_lod_;
+}
+
+const DenseTensorType::LegacyLoD& DenseTensorType::legacy_lod() const {
+  return storage()->legacy_lod_;
 }
 
 size_t DenseTensorType::offset() const { return storage()->offset_; }

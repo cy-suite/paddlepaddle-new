@@ -34,7 +34,7 @@ static pir::Type create_type(pir::Type type,
                       out_dtype,
                       input_type.dims(),
                       input_type.data_layout(),
-                      input_type.lod(),
+                      input_type.legacy_lod(),
                       input_type.offset());
 }
 

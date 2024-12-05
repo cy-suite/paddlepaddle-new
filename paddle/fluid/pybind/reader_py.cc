@@ -65,7 +65,7 @@ static paddle::optional<std::vector<int64_t>> DiffTensorShape(
                     common::errors::InvalidArgument(
                         "Tensor shape at dim 0 must not be less than 0"));
 
-  if (!tensor.lod().empty()) {
+  if (!tensor.legacy_lod().empty()) {
     tensor_shape[0] = -1;  // unknown shape
   } else {
     int64_t split_size =

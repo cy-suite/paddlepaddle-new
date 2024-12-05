@@ -1280,8 +1280,9 @@ void FleetWrapper::PushSparseFromTensorWithLabelAsync(
 
   int batch_size = -1;
   for (auto* input : *inputs) {
-    int cur_batch_size =
-        input->lod().size() ? input->lod()[0].size() - 1 : input->dims()[0];
+    int cur_batch_size = input->legacy_lod().size()
+                             ? input->legacy_lod()[0].size() - 1
+                             : input->dims()[0];
     if (batch_size == -1) {
       batch_size = cur_batch_size;
     } else {
@@ -1342,11 +1343,12 @@ void FleetWrapper::PushSparseFromTensorWithLabelAsync(
     for (auto* tensor : *inputs) {
       const int64_t* ids = tensor->data<int64_t>();
       size_t fea_idx = 0;
-      for (size_t lod_idx = 1; lod_idx < tensor->lod()[0].size(); ++lod_idx) {
-        size_t cur = GetAbsoluteSum(tensor->lod()[0][lod_idx - 1],
-                                    tensor->lod()[0][lod_idx],
+      for (size_t lod_idx = 1; lod_idx < tensor->legacy_lod()[0].size();
+           ++lod_idx) {
+        size_t cur = GetAbsoluteSum(tensor->legacy_lod()[0][lod_idx - 1],
+                                    tensor->legacy_lod()[0][lod_idx],
                                     0,
-                                    tensor->lod());
+                                    tensor->legacy_lod());
         for (size_t i = 0; i < cur; ++i, ++fea_idx) {
           if (static_cast<uint64_t>(ids[fea_idx]) == padding_id) {
             continue;

@@ -243,7 +243,7 @@ pir::Operation* ProgramTranslator::InsertInitOpOrCreateArrayToBlock(
                                       tensor_type.dtype(),
                                       common::make_ddim(shape),
                                       tensor_type.data_layout(),
-                                      tensor_type.lod(),
+                                      tensor_type.legacy_lod(),
                                       tensor_type.offset());
     VLOG(10) << "[translator][data insertion] after type: "
              << normalized_tensor_type;

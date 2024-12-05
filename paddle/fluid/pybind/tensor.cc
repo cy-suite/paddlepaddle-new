@@ -527,7 +527,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
                 common::errors::InvalidArgument(
                     "The provided LegacyLoD is invalid, the LegacyLoD is %s",
                     new_lod));
-            self.set_lod(new_lod);
+            self.set_legacy_lod(new_lod);
           },
           py::arg("lod"),
           R"DOC(
@@ -547,8 +547,46 @@ void BindTensor(pybind11::module &m) {  // NOLINT
 
                     >>> t = paddle.framework.core.Tensor()
                     >>> t.set(np.ndarray([5, 30]), paddle.CPUPlace())
-                    >>> t.set_lod([[0, 2, 5]])
-                    >>> print(t.lod())
+                    >>> t.set_legacy_lod([[0, 2, 5]])
+                    >>> print(t.legacy_lod())
+                    [[0, 2, 5]]
+           )DOC")
+      .def(
+          "set_legacy_lod",
+          [](phi::DenseTensor &self,
+             const std::vector<std::vector<size_t>> &lod) {
+            // the input lod is offset-based level-of-detail info
+            LegacyLoD new_lod;
+            new_lod.reserve(lod.size());
+            std::copy(lod.begin(), lod.end(), std::back_inserter(new_lod));
+            PADDLE_ENFORCE_EQ(
+                CheckLegacyLoD(new_lod, common::vectorize(self.dims()).front()),
+                true,
+                common::errors::InvalidArgument(
+                    "The provided LegacyLoD is invalid, the LegacyLoD is %s",
+                    new_lod));
+            self.set_legacy_lod(new_lod);
+          },
+          py::arg("lod"),
+          R"DOC(
+           Set LegacyLoD of the Tensor.
+
+           Args:
+               lod (list[list[int]]): The lod to set.
+
+           Returns:
+                None.
+
+           Examples:
+                .. code-block:: python
+
+                    >>> import paddle
+                    >>> import numpy as np
+
+                    >>> t = paddle.framework.core.Tensor()
+                    >>> t.set(np.ndarray([5, 30]), paddle.CPUPlace())
+                    >>> t.set_legacy_lod([[0, 2, 5]])
+                    >>> print(t.legacy_lod())
                     [[0, 2, 5]]
            )DOC")
       .def(
@@ -574,7 +612,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
                     "the LegacyLoD converted by recursive_sequence_lengths is "
                     "%s",
                     new_lod));
-            self.set_lod(new_offset_lod);
+            self.set_legacy_lod(new_offset_lod);
           },
           py::arg("recursive_sequence_lengths"),
           R"DOC(
@@ -601,14 +639,14 @@ void BindTensor(pybind11::module &m) {  // NOLINT
                     >>> t.set_recursive_sequence_lengths([[2, 3]])
                     >>> print(t.recursive_sequence_lengths())
                     [[2, 3]]
-                    >>> print(t.lod())
+                    >>> print(t.legacy_lod())
                     [[0, 2, 5]]
            )DOC")
       .def(
           "lod",
           [](phi::DenseTensor &self) -> std::vector<std::vector<size_t>> {
             // output the offset-based lod info
-            LegacyLoD lod = self.lod();
+            LegacyLoD lod = self.legacy_lod();
             std::vector<std::vector<size_t>> new_lod;
             new_lod.reserve(lod.size());
             std::copy(lod.begin(), lod.end(), std::back_inserter(new_lod));
@@ -628,8 +666,36 @@ void BindTensor(pybind11::module &m) {  // NOLINT
 
                     >>> t = paddle.framework.core.Tensor()
                     >>> t.set(np.ndarray([5, 30]), paddle.CPUPlace())
-                    >>> t.set_lod([[0, 2, 5]])
-                    >>> print(t.lod())
+                    >>> t.set_legacy_lod([[0, 2, 5]])
+                    >>> print(t.legacy_lod())
+                    [[0, 2, 5]]
+           )DOC")
+      .def(
+          "legacy_lod",
+          [](phi::DenseTensor &self) -> std::vector<std::vector<size_t>> {
+            // output the offset-based lod info
+            LegacyLoD lod = self.legacy_lod();
+            std::vector<std::vector<size_t>> new_lod;
+            new_lod.reserve(lod.size());
+            std::copy(lod.begin(), lod.end(), std::back_inserter(new_lod));
+            return new_lod;
+          },
+          R"DOC(
+           Return the LegacyLoD of the Tensor.
+
+           Returns:
+               list[list[int]]: The lod of the Tensor.
+
+           Examples:
+                .. code-block:: python
+
+                    >>> import paddle
+                    >>> import numpy as np
+
+                    >>> t = paddle.framework.core.Tensor()
+                    >>> t.set(np.ndarray([5, 30]), paddle.CPUPlace())
+                    >>> t.set_legacy_lod([[0, 2, 5]])
+                    >>> print(t.legacy_lod())
                     [[0, 2, 5]]
            )DOC")
       .def("_as_type",
@@ -651,7 +717,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
           dst.clear();
           dst.Resize({0});
         }
-        dst.set_lod(self.lod());
+        dst.set_legacy_lod(self.legacy_lod());
         return dst;
 #ifdef _WIN32
       });
@@ -692,7 +758,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
 
              self.ResetHolderWithType(shared_reader_holder, dtype);
              self.Resize(dims);
-             self.set_lod(lod_info);
+             self.set_legacy_lod(lod_info);
 
              VLOG(6) << "Reconstructed tensor with buffer shared!";
            },
@@ -747,7 +813,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
                                    data_size,
                                    type_idx,
                                    common::vectorize(self.dims()),
-                                   self.lod(),
+                                   self.legacy_lod(),
                                    device_id);
            },
            R"DOC(
@@ -792,7 +858,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
                  shared_reader_holder,
                  static_cast<phi::DataType>(t[3].cast<int>()));
              tensor.Resize(common::make_ddim(t[4].cast<std::vector<int>>()));
-             tensor.set_lod(t[5].cast<phi::LegacyLoD>());
+             tensor.set_legacy_lod(t[5].cast<phi::LegacyLoD>());
 
              return tensor;
            },
@@ -876,7 +942,8 @@ void BindTensor(pybind11::module &m) {  // NOLINT
              return py::make_tuple(mmap_allocation->ipc_name(),
                                    mmap_allocation->shared_fd(),
                                    mmap_allocation->size(), type_idx,
-                                   common::vectorize(self.dims()), self.lod(),
+                                   common::vectorize(self.dims()),
+                                   self.legacy_lod(),
                                    use_file_descriptor);
            },
            R"DOC(
@@ -927,7 +994,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
                  shared_holder,
                  static_cast<phi::DataType>(t[3].cast<int>()));
              tensor.Resize(common::make_ddim(t[4].cast<std::vector<int>>()));
-             tensor.set_lod(t[5].cast<phi::LegacyLoD>());
+             tensor.set_legacy_lod(t[5].cast<phi::LegacyLoD>());
 
              return tensor;
            },
@@ -990,7 +1057,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
 
             return py::make_tuple(mmap_writer_allocation->ipc_name(),
                                   mmap_writer_allocation->size(), type_idx,
-                                  common::vectorize(t.dims()), t.lod());
+                                  common::vectorize(t.dims()), t.legacy_lod());
           },
           [](py::tuple t) {  // __setstate__
             if (t.size() != 5)
@@ -1015,7 +1082,7 @@ void BindTensor(pybind11::module &m) {  // NOLINT
                 shared_reader_holder,
                 static_cast<phi::DataType>(t[2].cast<int>()));
             tensor.Resize(common::make_ddim(t[3].cast<std::vector<int>>()));
-            tensor.set_lod(t[4].cast<phi::LegacyLoD>());
+            tensor.set_legacy_lod(t[4].cast<phi::LegacyLoD>());
 
             return tensor;
           }));

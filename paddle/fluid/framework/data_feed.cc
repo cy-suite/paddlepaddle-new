@@ -1054,7 +1054,7 @@ void MultiSlotDataFeed::PutToFeedVec(
 
     if (!use_slots_is_dense_[i]) {
       LegacyLoD data_lod{offset};
-      feed_vec_[i]->set_lod(data_lod);
+      feed_vec_[i]->set_legacy_lod(data_lod);
     }
     if (use_slots_is_dense_[i]) {
       if (inductive_shape_index_[i] != -1) {
@@ -1447,7 +1447,7 @@ void MultiSlotInMemoryDataFeed::PutToFeedVec(const Record* ins_vec, int num) {
     auto& slot_offset = offset_[i];
     if (this->input_type_ == 0) {
       LegacyLoD data_lod{slot_offset};
-      feed_vec_[i]->set_lod(data_lod);
+      feed_vec_[i]->set_legacy_lod(data_lod);
     } else if (this->input_type_ == 1) {
       if (!use_slots_is_dense_[i]) {
         std::vector<size_t> tmp_offset;
@@ -1464,7 +1464,7 @@ void MultiSlotInMemoryDataFeed::PutToFeedVec(const Record* ins_vec, int num) {
         }
         slot_offset = tmp_offset;
         LegacyLoD data_lod{slot_offset};
-        feed_vec_[i]->set_lod(data_lod);
+        feed_vec_[i]->set_legacy_lod(data_lod);
       }
     }
     if (use_slots_is_dense_[i]) {
@@ -1546,7 +1546,7 @@ void MultiSlotInMemoryDataFeed::PutToFeedVec(
     if (this->input_type_ == 0) {
       if (!use_slots_is_dense_[i]) {
         LegacyLoD data_lod{slot_offset};
-        feed_vec_[i]->set_lod(data_lod);
+        feed_vec_[i]->set_legacy_lod(data_lod);
       }
     } else if (this->input_type_ == 1) {
       if (!use_slots_is_dense_[i]) {
@@ -1564,7 +1564,7 @@ void MultiSlotInMemoryDataFeed::PutToFeedVec(
         }
         slot_offset = tmp_offset;
         LegacyLoD data_lod{slot_offset};
-        feed_vec_[i]->set_lod(data_lod);
+        feed_vec_[i]->set_legacy_lod(data_lod);
       }
     }
     if (use_slots_is_dense_[i]) {
@@ -1601,7 +1601,7 @@ void PrivateInstantDataFeed<T>::PutToFeedVec() {
     }
 
     LegacyLoD data_lod{offset};
-    feed_vec_[i]->set_lod(data_lod);
+    feed_vec_[i]->set_legacy_lod(data_lod);
     if (use_slots_is_dense_[i]) {
       int64_t total_dims = 1;
       for (const auto e : use_slots_shape_[i]) {
@@ -2049,7 +2049,7 @@ void PaddleBoxDataFeed::PutToFeedVec(const std::vector<Record*>& ins_vec) {
     }
     auto& slot_offset = offset_[i];
     LegacyLoD data_lod{slot_offset};
-    feed_vec_[i]->set_lod(data_lod);
+    feed_vec_[i]->set_legacy_lod(data_lod);
     if (use_slots_is_dense_[i]) {
       if (inductive_shape_index_[i] != -1) {
         use_slots_shape_[i][inductive_shape_index_[i]] =
@@ -2705,7 +2705,7 @@ void SlotRecordInMemoryDataFeed::PutToFeedVec(const SlotRecord* ins_vec,
       feed->Resize(common::make_ddim(info.local_shape));
     } else {
       LegacyLoD data_lod{slot_offset};
-      feed_vec_[j]->set_lod(data_lod);
+      feed_vec_[j]->set_legacy_lod(data_lod);
     }
   }
 #endif
@@ -3117,7 +3117,7 @@ void SlotRecordInMemoryDataFeed::PackToScope(MiniBatchGpuPack* pack,
       }
       feed->Resize(common::make_ddim(info.local_shape));
     } else {
-      LegacyLoD& lod = (*feed->mutable_lod());
+      LegacyLoD& lod = (*feed->mutable_legacy_lod());
       lod.resize(1);
       lod[0].resize(offset_cols_size);
       phi::MixVector<size_t> mixv_lod(&lod[0]);

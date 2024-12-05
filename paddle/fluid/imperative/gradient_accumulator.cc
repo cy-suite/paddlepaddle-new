@@ -59,7 +59,7 @@ static void MoveOrCopyVar(framework::Variable* dst,
     }
     auto* dst_tensor = dst->GetMutable<phi::DenseTensor>();
     framework::TensorCopy(src_tensor, src_tensor.place(), dst_tensor);
-    dst_tensor->set_lod(src_tensor.lod());
+    dst_tensor->set_legacy_lod(src_tensor.legacy_lod());
   } else if (src->IsType<phi::SelectedRows>()) {
     auto& src_selected_rows = src->Get<phi::SelectedRows>();
     if (!dst->IsType<phi::SelectedRows>()) {

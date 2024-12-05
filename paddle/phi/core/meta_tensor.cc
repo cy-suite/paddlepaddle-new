@@ -259,6 +259,72 @@ void MetaTensor::share_lod(const MetaTensor& meta_tensor, int64_t index) {
   share_lod(meta_tensor.lod(index));
 }
 
+void MetaTensor::share_legacy_lod(const MetaTensor& meta_tensor) {
+  ValidCheck(*this);
+  ValidCheck(meta_tensor);
+  if (phi::SparseCooTensor::classof(tensor_) ||
+      phi::SparseCsrTensor::classof(tensor_) ||
+      phi::distributed::DistTensor::classof(tensor_)) {
+    return;
+  }
+  if (meta_tensor.legacy_lod().empty()) {
+    // no need share
+    return;
+  }
+  if (phi::DenseTensor::classof(tensor_)) {
+    DenseTensorUtils::GetMutableMeta(static_cast<DenseTensor*>(tensor_))
+        ->legacy_lod = meta_tensor.legacy_lod();
+  } else if (phi::SelectedRows::classof(tensor_)) {
+    DenseTensorUtils::GetMutableMeta(
+        static_cast<SelectedRows*>(tensor_)->mutable_value())
+        ->legacy_lod = meta_tensor.legacy_lod();
+  } else {
+    PADDLE_THROW(common::errors::Unimplemented(
+        "Unsupported sharing lod inplace for `%s`.",
+        tensor_->type_info().name()));
+  }
+}
+
+void MetaTensor::share_legacy_lod(const LegacyLoD& legacy_lod) {
+  ValidCheck(*this);
+  if (phi::SparseCooTensor::classof(tensor_) ||
+      phi::SparseCsrTensor::classof(tensor_) ||
+      phi::distributed::DistTensor::classof(tensor_)) {
+    return;
+  }
+  if (legacy_lod.empty()) {
+    // no need share
+    return;
+  }
+  if (phi::DenseTensor::classof(tensor_)) {
+    DenseTensorUtils::GetMutableMeta(static_cast<DenseTensor*>(tensor_))
+        ->legacy_lod = legacy_lod;
+  } else if (phi::SelectedRows::classof(tensor_)) {
+    DenseTensorUtils::GetMutableMeta(
+        static_cast<SelectedRows*>(tensor_)->mutable_value())
+        ->legacy_lod = legacy_lod;
+  } else {
+    PADDLE_THROW(common::errors::Unimplemented(
+        "Unsupported sharing lod inplace for `%s`.",
+        tensor_->type_info().name()));
+  }
+}
+
+void MetaTensor::share_legacy_lod(const MetaTensor& meta_tensor,
+                                  int64_t index) {
+  ValidCheck(meta_tensor);
+  PADDLE_ENFORCE_EQ(
+      meta_tensor.is_tensor_array(),
+      true,
+      common::errors::InvalidArgument(
+          "The current MetaTensor is not initialized by TensorArray."));
+  if (meta_tensor.legacy_lod(index).empty()) {
+    // no need share
+    return;
+  }
+  share_legacy_lod(meta_tensor.legacy_lod(index));
+}
+
 void MetaTensor::share_meta(const MetaTensor& meta_tensor) {
   ValidCheck(*this);
   if (phi::DenseTensor::classof(tensor_) ||
@@ -341,7 +407,7 @@ bool MetaTensor::initialized() const { return tensor_ != nullptr; }
 
 const LegacyLoD& MetaTensor::lod() const {
   if (phi::DenseTensor::classof(tensor_)) {
-    return static_cast<DenseTensor*>(tensor_)->lod();
+    return static_cast<DenseTensor*>(tensor_)->legacy_lod();
   } else if (phi::SelectedRows::classof(tensor_)) {
     return static_cast<SelectedRows*>(tensor_)->value().lod();
   } else if (phi::SparseCooTensor::classof(tensor_)) {
@@ -365,4 +431,33 @@ const LegacyLoD& MetaTensor::lod(int64_t index) const {
   return tensor_array->at(index).lod();
 }
 
+const LegacyLoD& MetaTensor::legacy_lod() const {
+  if (phi::DenseTensor::classof(tensor_)) {
+    return static_cast<DenseTensor*>(tensor_)->legacy_lod();
+  } else if (phi::SelectedRows::classof(tensor_)) {
+    return static_cast<SelectedRows*>(tensor_)->value().legacy_lod();
+  } else if (phi::SparseCooTensor::classof(tensor_)) {
+    return static_cast<SparseCooTensor*>(tensor_)
+        ->non_zero_elements()
+        .legacy_lod();
+  } else if (phi::SparseCsrTensor::classof(tensor_)) {
+    return static_cast<SparseCsrTensor*>(tensor_)
+        ->non_zero_elements()
+        .legacy_lod();
+  } else {
+    PADDLE_THROW(common::errors::Unimplemented(
+        "Unsupported getting lod of `%s`.", tensor_->type_info().name()));
+  }
+}
+
+const LegacyLoD& MetaTensor::legacy_lod(int64_t index) const {
+  ValidCheck(*this);
+  PADDLE_ENFORCE_EQ(
+      is_tensor_array(),
+      true,
+      common::errors::InvalidArgument(
+          "The current MetaTensor is not initialized by TensorArray."));
+  phi::TensorArray* tensor_array = static_cast<phi::TensorArray*>(tensor_);
+  return tensor_array->at(index).legacy_lod();
+}
 }  // namespace phi

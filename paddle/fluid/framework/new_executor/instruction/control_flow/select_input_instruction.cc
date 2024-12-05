@@ -115,7 +115,7 @@ class AssignFunctor {
     if (!dense_tensor.IsInitialized()) return;
     auto &out_tensor = *out;
     TensorCopy(dense_tensor, dense_tensor.place(), &out_tensor);
-    out_tensor.set_lod(dense_tensor.lod());
+    out_tensor.set_legacy_lod(dense_tensor.legacy_lod());
   }
 
   Variable *out_;

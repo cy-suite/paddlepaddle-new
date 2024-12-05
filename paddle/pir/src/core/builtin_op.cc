@@ -39,7 +39,7 @@ bool IsDynamicShapeTypeEqual(Type type1, Type type2) {
     }
     return static_cast<bool>(type_l.dtype() == type_r.dtype() &&
                              type_l.data_layout() == type_r.data_layout() &&
-                             type_l.lod() == type_r.lod() &&
+                             type_l.legacy_lod() == type_r.legacy_lod() &&
                              type_l.offset() == type_r.offset() && are_equal);
   }
   return are_equal;

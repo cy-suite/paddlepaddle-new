@@ -237,6 +237,12 @@ void DenseTensor::set_lod(const LegacyLoD& legacy_lod) {
 
 LoD* DenseTensor::mutable_lod() { return &meta_.legacy_lod; }
 
+void DenseTensor::set_legacy_lod(const LegacyLoD& legacy_lod) {
+  meta_.legacy_lod = legacy_lod;
+}
+
+LegacyLoD* DenseTensor::mutable_legacy_lod() { return &meta_.legacy_lod; }
+
 std::pair<size_t, size_t> DenseTensor::lod_element(size_t level,
                                                    size_t elem) const {
   PADDLE_ENFORCE_LT(

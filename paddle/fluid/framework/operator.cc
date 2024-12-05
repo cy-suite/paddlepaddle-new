@@ -202,7 +202,7 @@ static LegacyLoD GetLoDDebug(const Scope& scope, const std::string& name) {
 
   if (var->IsType<phi::DenseTensor>()) {
     const phi::DenseTensor& tensor = var->Get<phi::DenseTensor>();
-    return tensor.lod();
+    return tensor.legacy_lod();
   } else {
     return default_lod;
   }
@@ -437,7 +437,7 @@ void RuntimeInferShapeContext::ShareAllLoD(const std::string& in,
             out_var_names[i]));
     auto& in_tensor = in_var->Get<phi::DenseTensor>();
     auto* out_tensor = out_var->GetMutable<phi::DenseTensor>();
-    out_tensor->set_lod(in_tensor.lod());
+    out_tensor->set_legacy_lod(in_tensor.legacy_lod());
 #ifdef PADDLE_WITH_DNNL
     if (in_tensor.layout() != DataLayout::ONEDNN)
 #endif
@@ -485,7 +485,7 @@ void RuntimeInferShapeContext::ShareLoD(const std::string& in,
           "The %zu-th output of Output(%s) must be phi::DenseTensor.", j, out));
   auto& in_tensor = in_var->Get<phi::DenseTensor>();
   auto* out_tensor = out_var->GetMutable<phi::DenseTensor>();
-  out_tensor->set_lod(in_tensor.lod());
+  out_tensor->set_legacy_lod(in_tensor.legacy_lod());
 
 // TODO(dzhwinter) : reuse ShareLoD in most operators.
 // Need to call ShareLayout explicitly in sequence related ops.
@@ -652,7 +652,7 @@ std::vector<LegacyLoD> RuntimeInferShapeContext::GetOutputsLod(
   for (auto* out_var : out_var_list) {
     if (out_var != nullptr) {
       auto* out_tensor = out_var->GetMutable<phi::DenseTensor>();
-      ret.push_back(out_tensor->lod());
+      ret.push_back(out_tensor->legacy_lod());
     }
   }
   return ret;

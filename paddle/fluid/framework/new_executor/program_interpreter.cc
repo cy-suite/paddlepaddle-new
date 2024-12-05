@@ -905,7 +905,7 @@ void ProgramInterpreter::BuildSkipShareLoDInfo() {
     for (auto& input : vec_instruction_[i].InnerRuntimeContext()->inputs) {
       for (auto& var : input.second) {
         if (var->IsType<phi::DenseTensor>()) {
-          if (!var->Get<phi::DenseTensor>().lod().empty()) {
+          if (!var->Get<phi::DenseTensor>().legacy_lod().empty()) {
             can_skip_lod = false;
             break;
           }
@@ -1554,7 +1554,7 @@ void ProgramInterpreter::Prepare(
 
       auto feed_tensor = feed_var->GetMutable<phi::DenseTensor>();
       feed_tensor->ShareDataWith(feed_tensors[i]);
-      feed_tensor->set_lod(feed_tensors[i].lod());
+      feed_tensor->set_legacy_lod(feed_tensors[i].legacy_lod());
     }
   };
 

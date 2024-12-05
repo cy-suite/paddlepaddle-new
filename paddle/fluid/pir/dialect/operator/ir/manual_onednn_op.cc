@@ -319,7 +319,7 @@ std::vector<pir::Type> ExpandOp::InferMeta(
       paddle::dialect::TransToPhiDataType(x.dtype()),
       x.dims(),
       x.data_layout(),
-      x.lod(),
+      x.legacy_lod(),
       x.offset());
   VLOG(4) << "Builder construction  meta_x";
   paddle::dialect::IrMetaTensor meta_x(&ir_tensor_x);
@@ -334,7 +334,7 @@ std::vector<pir::Type> ExpandOp::InferMeta(
       paddle::dialect::TransToIrDataType(dense_out.dtype()),
       dense_out.dims(),
       dense_out.layout(),
-      dense_out.lod(),
+      dense_out.legacy_lod(),
       dense_out.offset());
   argument_outputs.push_back(out_dense_tensor_type);
 

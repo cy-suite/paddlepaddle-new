@@ -66,7 +66,7 @@ void CopyVariable(const Variable &src_var, Variable *dst_var) {
   if (src_var.IsType<phi::DenseTensor>()) {
     auto *tmp_grad_tensor = dst_var->GetMutable<phi::DenseTensor>();
     auto &src_tensor = src_var.Get<phi::DenseTensor>();
-    tmp_grad_tensor->set_lod(src_tensor.lod());
+    tmp_grad_tensor->set_legacy_lod(src_tensor.legacy_lod());
     framework::TensorCopy(src_tensor, cpu_place, tmp_grad_tensor);
   } else if (src_var.IsType<phi::SelectedRows>()) {
     auto &src_slr = src_var.Get<phi::SelectedRows>();

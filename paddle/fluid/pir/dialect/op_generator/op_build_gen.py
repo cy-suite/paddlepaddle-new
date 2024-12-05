@@ -453,7 +453,7 @@ def GenBuildOutputs(
   paddle::dialect::IrTensor ir_tensor_{name}(paddle::dialect::TransToPhiDataType({name}.dtype()),
                                                       {name}.dims(),
                                                       {name}.data_layout(),
-                                                      {name}.lod(),
+                                                      {name}.legacy_lod(),
                                                       {name}.offset());
   VLOG(4) << "Builder construction  meta_{name}";
   paddle::dialect::IrMetaTensor meta_{name}(&ir_tensor_{name});
@@ -468,7 +468,7 @@ def GenBuildOutputs(
     ir_tensor_{name} = paddle::dialect::IrTensor(paddle::dialect::TransToPhiDataType({name}.dtype()),
                                                         {name}.dims(),
                                                         {name}.data_layout(),
-                                                        {name}.lod(),
+                                                        {name}.legacy_lod(),
                                                         {name}.offset());
     VLOG(4) << "Builder construction  meta_{name}";
     meta_{name} = paddle::dialect::IrMetaTensor(&ir_tensor_{name});
@@ -481,7 +481,7 @@ def GenBuildOutputs(
     vec_ir_tensor_{name}.push_back(paddle::dialect::IrTensor(paddle::dialect::TransToPhiDataType({name}[i].dyn_cast<paddle::dialect::DenseTensorType>().dtype()),
                                                                      {name}[i].dyn_cast<paddle::dialect::DenseTensorType>().dims(),
                                                                      {name}[i].dyn_cast<paddle::dialect::DenseTensorType>().data_layout(),
-                                                                     {name}[i].dyn_cast<paddle::dialect::DenseTensorType>().lod(),
+                                                                     {name}[i].dyn_cast<paddle::dialect::DenseTensorType>().legacy_lod(),
                                                                      {name}[i].dyn_cast<paddle::dialect::DenseTensorType>().offset()));
   }}
   std::vector<paddle::dialect::IrMetaTensor> vec_meta_{name};
@@ -502,7 +502,7 @@ def GenBuildOutputs(
         vec_ir_tensor_{name}.push_back(paddle::dialect::IrTensor(paddle::dialect::TransToPhiDataType({name}[i].dyn_cast<paddle::dialect::DenseTensorType>().dtype()),
                                                                         {name}[i].dyn_cast<paddle::dialect::DenseTensorType>().dims(),
                                                                         {name}[i].dyn_cast<paddle::dialect::DenseTensorType>().data_layout(),
-                                                                        {name}[i].dyn_cast<paddle::dialect::DenseTensorType>().lod(),
+                                                                        {name}[i].dyn_cast<paddle::dialect::DenseTensorType>().legacy_lod(),
                                                                         {name}[i].dyn_cast<paddle::dialect::DenseTensorType>().offset()));
     }}
   }}
@@ -732,13 +732,13 @@ def GenBuildOutputs(
     build_output_str += "\n  std::vector<pir::Type> argument_outputs;"
 
     CREATE_OUTPUT_DENSE_TENSOR_TEMPLATE = """
-  pir::Type {name}_dense_tensor_type = {type}::get(pir::IrContext::Instance(), paddle::dialect::TransToIrDataType(dense_{name}.dtype()), dense_{name}.dims(), dense_{name}.layout(), dense_{name}.lod(), dense_{name}.offset());
+  pir::Type {name}_dense_tensor_type = {type}::get(pir::IrContext::Instance(), paddle::dialect::TransToIrDataType(dense_{name}.dtype()), dense_{name}.dims(), dense_{name}.layout(), dense_{name}.legacy_lod(), dense_{name}.offset());
   argument_outputs.push_back({name}_dense_tensor_type);
 """
 
     CREATE_OUTPUT_INPLACE_OPTIONAL_DENSE_TENSOR_TEMPLATE = """
   if ({input_name}_.impl() != nullptr) {{
-    pir::Type {output_name}_dense_tensor_type = {type}::get(pir::IrContext::Instance(), paddle::dialect::TransToIrDataType(dense_{output_name}.dtype()), dense_{output_name}.dims(), dense_{output_name}.layout(), dense_{output_name}.lod(), dense_{output_name}.offset());
+    pir::Type {output_name}_dense_tensor_type = {type}::get(pir::IrContext::Instance(), paddle::dialect::TransToIrDataType(dense_{output_name}.dtype()), dense_{output_name}.dims(), dense_{output_name}.layout(), dense_{output_name}.legacy_lod(), dense_{output_name}.offset());
     argument_outputs.push_back({output_name}_dense_tensor_type);
   }} else {{
     pir::Type {output_name}_type;
@@ -750,7 +750,7 @@ def GenBuildOutputs(
     CREATE_OUTPUT_VEC_DENSE_TENSOR_TEMPLATE = """
   std::vector<pir::Type> {name}_types;
   for (size_t i=0; i < static_cast<size_t>({output_size}); i++) {{
-    {name}_types.push_back(paddle::dialect::DenseTensorType::get(pir::IrContext::Instance(), paddle::dialect::TransToIrDataType(vec_dense_{name}[i].dtype()), vec_dense_{name}[i].dims(), vec_dense_{name}[i].layout(), vec_dense_{name}[i].lod(), vec_dense_{name}[i].offset()));
+    {name}_types.push_back(paddle::dialect::DenseTensorType::get(pir::IrContext::Instance(), paddle::dialect::TransToIrDataType(vec_dense_{name}[i].dtype()), vec_dense_{name}[i].dims(), vec_dense_{name}[i].layout(), vec_dense_{name}[i].legacy_lod(), vec_dense_{name}[i].offset()));
   }}
   pir::Type {name}_vector_type = pir::VectorType::get(pir::IrContext::Instance(), {name}_types);
   argument_outputs.push_back({name}_vector_type);

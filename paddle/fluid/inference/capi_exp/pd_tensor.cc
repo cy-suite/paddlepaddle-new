@@ -106,7 +106,7 @@ void PD_TensorSetLod(__pd_keep PD_Tensor* pd_tensor,
 }
 __pd_give PD_TwoDimArraySize* PD_TensorGetLod(__pd_keep PD_Tensor* pd_tensor) {
   CHECK_AND_CONVERT_PD_TENSOR;
-  return paddle_infer::CvtVecToTwoDimArraySize(tensor->lod());
+  return paddle_infer::CvtVecToTwoDimArraySize(tensor->legacy_lod());
 }
 const char* PD_TensorGetName(__pd_keep PD_Tensor* pd_tensor) {
   CHECK_AND_CONVERT_PD_TENSOR;

@@ -107,7 +107,7 @@ class CpuBfloat16TypePattern : public pir::RewritePattern {
                                                  rewriter.ir_context()),
               dense_type.dims(),
               dense_type.data_layout(),
-              dense_type.lod(),
+              dense_type.legacy_lod(),
               dense_type.offset());
           // set bf16 op tensor output type to bf16.
           op->result(i).set_type(new_type);
@@ -124,7 +124,7 @@ class CpuBfloat16TypePattern : public pir::RewritePattern {
                                                    rewriter.ir_context()),
                 dense_type.dims(),
                 dense_type.data_layout(),
-                dense_type.lod(),
+                dense_type.legacy_lod(),
                 dense_type.offset());
             results_type[idx] = new_type;
           }

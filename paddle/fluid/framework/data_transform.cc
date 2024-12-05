@@ -139,7 +139,7 @@ void SetTensorToVariable(const Variable &in_var,
   if (in_var.IsType<phi::DenseTensor>()) {
     auto &in_dense_tensor = in_var.Get<phi::DenseTensor>();
     auto *tran_dense_tensor = out_var->GetMutable<phi::DenseTensor>();
-    tran_dense_tensor->set_lod(in_dense_tensor.lod());
+    tran_dense_tensor->set_legacy_lod(in_dense_tensor.legacy_lod());
     tran_dense_tensor->set_layout(in_dense_tensor.layout());
 #ifdef PADDLE_WITH_DNNL
     tran_dense_tensor->set_mem_desc(in_dense_tensor.mem_desc());

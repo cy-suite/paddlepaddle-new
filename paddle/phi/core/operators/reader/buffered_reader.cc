@@ -172,7 +172,7 @@ void BufferedReader::ReadAsync(size_t i) {
                                     cpu[i].data(),
                                     size);
 
-            cuda[i].set_lod(cpu[i].lod());
+            cuda[i].set_legacy_lod(cpu[i].legacy_lod());
           } else {
             // Here the cpu[i]'s place may be CUDAPlace, CUDAPinnedPlace, or
             // others, we don't copy the memory of it to CUDAPinnedPlace, but
@@ -240,7 +240,7 @@ void BufferedReader::ReadAsync(size_t i) {
 
             phi::backends::gpu::GpuStreamSync(stream_.get());
           }
-          cuda[i].set_lod(cpu[i].lod());
+          cuda[i].set_legacy_lod(cpu[i].legacy_lod());
         }
         phi::backends::gpu::GpuStreamSync(stream_.get());
       }
@@ -299,7 +299,7 @@ void BufferedReader::ReadAsync(size_t i) {
         } else {
           phi::memory_utils::Copy(place_, xpu_ptr, cpu_place, cpu_ptr, size);
         }
-        xpu[i].set_lod(cpu[i].lod());
+        xpu[i].set_legacy_lod(cpu[i].legacy_lod());
       }
       platform::XPUStreamSync(stream_.get());
     }
@@ -355,7 +355,7 @@ void BufferedReader::ReadAsync(size_t i) {
           phi::memory_utils::Copy(
               place_, custom_device_ptr, cpu_place, cpu_ptr, size);
         }
-        custom_device[i].set_lod(cpu[i].lod());
+        custom_device[i].set_legacy_lod(cpu[i].legacy_lod());
       }
       custom_device_stream_->Synchronize();
     }
