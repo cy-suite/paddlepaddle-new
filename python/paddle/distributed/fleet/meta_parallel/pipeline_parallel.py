@@ -49,7 +49,7 @@ from paddle.distributed.fleet.utils.tensor_fusion_helper import (
 )
 
 from .pipeline_hooks import (
-    BubbleHook,
+    PipelineHook,
 )
 
 g_profile_pipeline_details_steps = int(
@@ -153,16 +153,6 @@ class FakeMicroDataset:
             "batch_size = %d, micro_batch_size = %d, accumulate_steps = %d."
             % (batch_size, self._micro_batch_size, self._acc_steps)
         )
-
-
-pipeline_bubble_hooks_ = BubbleHook()
-
-
-def register_bubble_pipeline_parallel_hook(location: int, hook: Callable):
-    """
-    Registering bubble hooks for pipeline parallelism.
-    """
-    pipeline_bubble_hooks_.register_hook(location, hook)
 
 
 class PipelineParallel(MetaParallelBase):
@@ -319,10 +309,6 @@ class PipelineParallel(MetaParallelBase):
 
         self._compute_loss = True
 
-        self.bubble_hooks = pipeline_bubble_hooks_
-
-        self.bubble_hooks.set_bubble_times(bubble_times=self.num_stages)
-
         logger.info(
             f"Pipeline Info -- num_stages: {self.num_stages}, stage_id: {self.stage_id}"
         )
@@ -349,6 +335,125 @@ class PipelineParallel(MetaParallelBase):
             )
 
         self.processed_steps = 0
+
+        self._init_user_hooks()
+        # only support user hooks during training
+        self.user_hooks_enabled = True
+
+    def _init_user_hooks(self):
+        # (TODO:gexiao) support bubble hooks if needed
+        self.bubble_hooks = None
+        # self.bubble_hooks = PipelineHook()
+        # self.bubble_hooks.set_hooks_capacity(2 * self.num_stages - 2)
+
+        # initialize forward hooks
+        self.forward_hooks = PipelineHook()
+        self.forward_hooks.set_hooks_capacity(
+            (
+                self._virtual_pp_world_size
+                if self._virtual_pp_world_size is not None
+                else 1
+            )
+            * self.accumulate_steps
+        )
+
+        # initialize backward hooks
+        self.backward_hooks = PipelineHook()
+        self.backward_hooks.set_hooks_capacity(
+            (
+                self._virtual_pp_world_size
+                if self._virtual_pp_world_size is not None
+                else 1
+            )
+            * self.accumulate_steps
+        )
+
+    def _reset_user_hooks_status(self):
+        if self.bubble_hooks:
+            self.bubble_hooks.reset_current_id()
+        if self.forward_hooks:
+            self.forward_hooks.reset_current_id()
+        if self.backward_hooks:
+            self.backward_hooks.reset_current_id()
+
+    def _check_user_hooks_status_at_step_end(self):
+        if not self.user_hooks_enabled:
+            return
+        expected_bubble_step = 2 * self.num_stages - 2
+        expected_forward_step = (
+            self._virtual_pp_world_size
+            if self._virtual_pp_world_size is not None
+            else 1
+        ) * self.accumulate_steps
+        expected_backward_step = (
+            self._virtual_pp_world_size
+            if self._virtual_pp_world_size is not None
+            else 1
+        ) * self.accumulate_steps
+
+        if self.bubble_hooks:
+            assert (
+                self.bubble_hooks.current_id
+            ) == expected_bubble_step, f"bubble hooks status is not correct, current id is {self.bubble_hooks.current_id}, expected id is {expected_bubble_step}"
+        if self.forward_hooks:
+            assert (
+                self.forward_hooks.current_id
+            ) == expected_forward_step, f"forward hooks status is not correct, current id is {self.forward_hooks.current_id}, expected id is {expected_forward_step}"
+        if self.backward_hooks:
+            assert (
+                self.backward_hooks.current_id
+            ) == expected_backward_step, f"backward hooks status is not correct, current id is {self.backward_hooks.current_id}, expected id is {expected_backward_step}"
+
+    def register_bubble_pipeline_parallel_hook(
+        self, location: int, hook: Callable
+    ):
+        """
+        Registering bubble hooks for pipeline parallelism.
+        """
+        if not self.bubble_hooks:
+            raise ValueError("Bubble hooks are not supported yet.")
+        self.bubble_hooks.register_hook(location, hook)
+
+    def register_forward_pipeline_parallel_hook(
+        self, location: int, hook: Callable
+    ):
+        """
+        Registering forward hooks for pipeline parallelism.
+        """
+        if not self.forward_hooks:
+            raise ValueError("Forward hooks are not supported yet.")
+        self.forward_hooks.register_hook(location, hook)
+
+    def register_backward_pipeline_parallel_hook(
+        self, location: int, hook: Callable
+    ):
+        """
+        Registering backward hooks for pipeline parallelism.
+        """
+        if not self.backward_hooks:
+            raise ValueError("Backward hooks are not supported yet.")
+        self.backward_hooks.register_hook(location, hook)
+
+    @property
+    def bubble_pipeline_parallel_hook_capacity(self):
+        capacity = 0
+        if self.bubble_hooks:
+            capacity = self.bubble_hooks.hooks_capacity
+        return capacity
+
+    @property
+    def forward_pipeline_parallel_hook_capacity(self):
+        capacity = 0
+        if self.forward_hooks:
+            capacity = self.forward_hooks.hooks_capacity
+        return capacity
+
+    @property
+    def backward_pipeline_parallel_hook_capacity(self):
+        capacity = 0
+        if self.backward_hooks:
+            capacity = self.backward_hooks.hooks_capacity
+        return capacity
 
     def is_pipeline_first_stage(self, ignore_virtual=False):
         if not ignore_virtual:
@@ -491,6 +596,10 @@ class PipelineParallel(MetaParallelBase):
         # use the 1f1b scheduling strategy.
         # this strategy is inspired by:
         # https://github.com/NVIDIA/Megatron-LM/blob/main/megatron/schedules.py
+
+        self._reset_user_hooks_status()
+        # no _forward_only mode
+        self.user_hooks_enabled = True
 
         if self.processed_steps < g_profile_pipeline_details_steps:
             sync_rotate_logger().info("start forward_backward_pipeline")
@@ -668,6 +777,7 @@ class PipelineParallel(MetaParallelBase):
         if self.processed_steps < g_profile_pipeline_details_steps:
             sync_rotate_logger().info("end forward_backward_pipeline")
         self.processed_steps += 1
+        self._check_user_hooks_status_at_step_end()
         return train_loss
 
     def register_sharding_comm_overlap_hook(self, optimizer):
@@ -755,6 +865,7 @@ class PipelineParallel(MetaParallelBase):
         return train_loss
 
     def eval_batch(self, data, compute_loss=False, loss_fn_idx=0):
+        self.user_hooks_enabled = False
         # reset the virtual pp rank for each run
         self.set_virtual_pipeline_rank(0)
 
@@ -830,6 +941,8 @@ class PipelineParallel(MetaParallelBase):
         return self.train_loss
 
     def _forward_step(self, input_tensor, micro_dataset, chunk_id=None):
+        if self.user_hooks_enabled:
+            self.forward_hooks.run_hook()
         if self.processed_steps < g_profile_pipeline_details_steps:
             sync_rotate_logger().info("Before forward_step")
         if self._enable_timer:
@@ -886,6 +999,8 @@ class PipelineParallel(MetaParallelBase):
         return output_tensor
 
     def _backward_step(self, input_tensor, output_tensor, output_tensor_grad):
+        if self.user_hooks_enabled:
+            self.backward_hooks.run_hook()
         if self._enable_timer:
             self.timers("backward_step").start()
         if self.processed_steps < g_profile_pipeline_details_steps:
@@ -1094,6 +1209,35 @@ class PipelineParallelWithInterleave(PipelineParallel):
             assert (
                 not self._comm_overlap
             ), "pp best unbalaced scheduler can not run together with dp/sharding overlap"
+        # reinit user hook since now we have virtual stages
+        self._init_user_hooks()
+
+    def _init_user_hooks(self):
+        # initialize bubble hooks
+        self.bubble_hooks = PipelineHook()
+        self.bubble_hooks.set_hooks_capacity(2 * self.num_stages - 2)
+
+        # initialize forward hooks
+        self.forward_hooks = PipelineHook()
+        self.forward_hooks.set_hooks_capacity(
+            (
+                self._virtual_pp_world_size
+                if self._virtual_pp_world_size is not None
+                else 1
+            )
+            * self.accumulate_steps
+        )
+
+        # initialize backward hooks
+        self.backward_hooks = PipelineHook()
+        self.backward_hooks.set_hooks_capacity(
+            (
+                self._virtual_pp_world_size
+                if self._virtual_pp_world_size is not None
+                else 1
+            )
+            * self.accumulate_steps
+        )
 
     def _check_sanity(self):
         assert (
@@ -1340,6 +1484,7 @@ class PipelineParallelWithInterleave(PipelineParallel):
         static_scheduler=False,
         return_micro_batch_loss=False,
     ):
+        self._reset_user_hooks_status()
         if self.processed_steps < g_profile_pipeline_details_steps:
             sync_rotate_logger().info("start forward_backward_pipeline")
         # use interleave scheduling strategy.
@@ -1375,6 +1520,7 @@ class PipelineParallelWithInterleave(PipelineParallel):
         self.total_loss = None
         self.micro_batch_id = 0
         self._forward_only = forward_only
+        self.user_hooks_enabled = not self._forward_only
 
         first_chunk_acc = (
             self.accumulate_steps % self.num_stages + self.num_stages
@@ -1475,10 +1621,9 @@ class PipelineParallelWithInterleave(PipelineParallel):
 
         steady_steps = num_steps - startup_steps
 
-        bubble_idx = -1
         for location in range(self.stage_id):
-            bubble_idx += 1
-            self.bubble_hooks.run_hook(bubble_idx)
+            if self.user_hooks_enabled:
+                self.bubble_hooks.run_hook()
 
         rest_bubble_times = self.num_stages - 1 - self.stage_id
 
@@ -1520,8 +1665,8 @@ class PipelineParallelWithInterleave(PipelineParallel):
             self._record_stamp("F", micro_step, '"E"', forward=True)
 
             if micro_step >= startup_steps - rest_bubble_times:
-                bubble_idx += 1
-                self.bubble_hooks.run_hook(bubble_idx)
+                if self.user_hooks_enabled:
+                    self.bubble_hooks.run_hook()
 
             # determine whether recv forward tensor or not
             next_virtual_pp_rank = self._get_virtual_pp_rank(
@@ -1960,9 +2105,8 @@ class PipelineParallelWithInterleave(PipelineParallel):
                 if (
                     micro_step
                     < steady_steps + self.num_stages - 1 - self.stage_id
-                ):
-                    bubble_idx += 1
-                    self.bubble_hooks.run_hook(bubble_idx)
+                ) and self.user_hooks_enabled:
+                    self.bubble_hooks.run_hook()
 
                 # cooldown loop
                 self._record_stamp("B", micro_step, '"B"', forward=False)
@@ -2045,13 +2189,7 @@ class PipelineParallelWithInterleave(PipelineParallel):
             self._sync_overlap_grads()
 
             for _ in range(self.stage_id):
-                bubble_idx += 1
-                self.bubble_hooks.run_hook(bubble_idx)
-
-            if not forward_only:
-                assert (bubble_idx + 1) == (
-                    2 * self.num_stages - 2
-                ), f"All bubbles number {bubble_idx + 1} should be equal to {(2 * self.num_stages - 2)}"
+                self.bubble_hooks.run_hook()
 
             if static_scheduler:
                 self._reset_counter()
@@ -2085,6 +2223,7 @@ class PipelineParallelWithInterleave(PipelineParallel):
         if self.processed_steps < g_profile_pipeline_details_steps:
             sync_rotate_logger().info("end forward_backward_pipeline")
         self.processed_steps += 1
+        self._check_user_hooks_status_at_step_end()
 
         return train_loss
 
@@ -2118,6 +2257,7 @@ class PipelineParallelWithInterleave(PipelineParallel):
         return train_loss
 
     def eval_batch(self, data, compute_loss=False, loss_fn_idx=0):
+        self.user_hooks_enabled = False
         # reset the virtual pp rank for each run
         self.set_virtual_pipeline_rank(0)
 
@@ -2142,6 +2282,34 @@ class PipelineParallelWithInterleave(PipelineParallel):
 class PipelineParallelWithInterleaveFthenB(PipelineParallelWithInterleave):
     def __init__(self, layers, hcg, strategy):
         super().__init__(layers=layers, hcg=hcg, strategy=strategy)
+
+    def _init_user_hooks(self):
+        # (TODO:gexiao) support bubble hooks if needed
+        self.bubble_hooks = None
+        # self.bubble_hooks = PipelineHook()
+        # self.bubble_hooks.set_hooks_capacity(2 * self.num_stages - 2)
+
+        # initialize forward hooks
+        self.forward_hooks = PipelineHook()
+        self.forward_hooks.set_hooks_capacity(
+            (
+                self._virtual_pp_world_size
+                if self._virtual_pp_world_size is not None
+                else 1
+            )
+            * self.accumulate_steps
+        )
+
+        # initialize backward hooks
+        self.backward_hooks = PipelineHook()
+        self.backward_hooks.set_hooks_capacity(
+            (
+                self._virtual_pp_world_size
+                if self._virtual_pp_world_size is not None
+                else 1
+            )
+            * self.accumulate_steps
+        )
 
     def _check_sanity(self):
         assert (
@@ -2207,6 +2375,7 @@ class PipelineParallelWithInterleaveFthenB(PipelineParallelWithInterleave):
         compute_loss=True,
         return_micro_batch_loss=False,
     ):
+        self._reset_user_hooks_status()
         if self.processed_steps < g_profile_pipeline_details_steps:
             sync_rotate_logger().info("start forward_backward_pipeline")
         if not compute_loss:
@@ -2224,6 +2393,7 @@ class PipelineParallelWithInterleaveFthenB(PipelineParallelWithInterleave):
         self.total_loss = None
         self.micro_batch_id = 0
         self._forward_only = forward_only
+        self.user_hooks_enabled = not self._forward_only
 
         assert (
             self.accumulate_steps == self.num_stages
@@ -2375,4 +2545,5 @@ class PipelineParallelWithInterleaveFthenB(PipelineParallelWithInterleave):
         if self.processed_steps < g_profile_pipeline_details_steps:
             sync_rotate_logger().info("end forward_backward_pipeline")
         self.processed_steps += 1
+        self._check_user_hooks_status_at_step_end()
         return train_loss
