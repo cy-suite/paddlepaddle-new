@@ -90,6 +90,13 @@ else()
   set(BUILD_BYPRODUCTS_ARGS "")
 endif()
 
+set(OPENVINO_TAG 2024.5.0)
+file(TO_NATIVE_PATH ${PADDLE_SOURCE_DIR}/patches/openvino/convert.patch
+     native_convert)
+
+set(OPENVINO_PATCH_COMMAND git checkout -- . && git checkout ${OPENVINO_TAG} &&
+                           patch -Np1 -d ${SOURCE_DIR} < ${native_convert})
+
 ExternalProject_Add(
   ${OPENVINO_PROJECT}
   ${EXTERNAL_PROJECT_LOG_ARGS}
@@ -98,6 +105,7 @@ ExternalProject_Add(
   PREFIX ${OPENVINO_PREFIX_DIR}
   UPDATE_COMMAND ""
   #BUILD_ALWAYS        1
+  PATCH_COMMAND ${OPENVINO_PATCH_COMMAND}
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${OPENVINO_INSTALL_DIR}
              -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
              -DTHREADING=TBB
