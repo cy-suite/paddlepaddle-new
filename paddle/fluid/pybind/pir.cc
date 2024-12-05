@@ -513,6 +513,40 @@ void BindProgram(py::module *m) {
             return op_list;
           },
           return_value_policy::reference)
+      .def(
+          "get_value_by_op_id",
+          [](Program &self, py::object op_ids) {
+            std::vector<int> op_ids_list;
+            if (py::isinstance<py::int_>(op_ids)) {
+              op_ids_list.push_back(op_ids.cast<int>());
+            } else if (py::isinstance<py::list>(op_ids)) {
+              for (auto item : op_ids) {
+                op_ids_list.push_back(item.cast<int>());
+              }
+            } else {
+              PADDLE_THROW(
+                  "Invalid op_ids format. Please provide either a single "
+                  "integer or a list of integers.");
+            }
+
+            std::list<Operation *> all_ops = self.block()->get_recursive_ops();
+            std::vector<pir::Value> value_list;
+
+            for (auto op : all_ops) {
+              if (std::find(op_ids_list.begin(), op_ids_list.end(), op->id()) !=
+                  op_ids_list.end()) {
+                for (auto value : op->results()) {
+                  value_list.push_back(value);
+                }
+              }
+            }
+
+            if (value_list.empty()) {
+              PADDLE_THROW(
+                  "Can't find the corresponding opresult from the op ids");
+            }
+            return value_list;
+          })
       .def("get_output_value_by_name",
            [](Program &self, const std::string &name) {
              return name_analysis::GetOutputValueByName(self, name);
@@ -687,6 +721,23 @@ void BindBlock(py::module *m) {
       .def("add_arg", &Block::AddArg)
       .def("add_kwarg", &Block::AddKwarg)
       .def("erase_kwarg", &Block::EraseKwarg)
+      .def("get_values_by_op_idx",
+           [](Block &self, const py::list &op_idxs) -> py::list {
+             py::list value_list;
+             auto it = self.begin();
+             std::set<int> idxs_set;
+             for (py::handle item : op_idxs) {
+               idxs_set.insert(item.cast<int>());
+             }
+             for (int i = 0; it != self.end(); ++i, ++it) {
+               if (idxs_set.find(i) != idxs_set.end()) {
+                 for (uint32_t j = 0; j < it->num_results(); ++j) {
+                   value_list.append(static_cast<pir::Value>(it->result(j)));
+                 }
+               }
+             }
+             return value_list;
+           })
       .def("remove_op",
            [](Block &self, const Operation &op) { self.erase(op); })
       .def(

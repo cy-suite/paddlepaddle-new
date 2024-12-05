@@ -559,6 +559,11 @@ void ShapeConstraintIRAnalysis::InferShapeOrDataForValue(Value val) {
         op->dyn_cast<pir::InferSymbolicShapeInterface>();
     if (infer_symbolic_shape_interface) {
       infer_symbolic_shape_interface.InferSymbolicShape(&context_);
+      // Note(ooooo): Temporarily skip check for CombineOp because TensorArray
+      // inputs.
+      if (op->isa<pir::CombineOp>()) {
+        return;
+      }
       int index = -1;
       for (auto& result_value : op->results()) {
         index++;
@@ -799,7 +804,6 @@ pir::PrintHooks ShapeConstraintIRAnalysis::PrintHook() {
       }
     }
     printer.os << " }";
-    printer.os << "\t(op_" << op.id() << ")";
   };
   return print_hook;
 }

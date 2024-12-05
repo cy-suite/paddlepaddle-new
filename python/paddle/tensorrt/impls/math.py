@@ -241,3 +241,11 @@ def pow_converter(network, paddle_op, inputs):
     return add_elementwise_layer(
         network, paddle_op, inputs, trt.ElementWiseOperation.POW
     )
+
+
+@converter_registry.register("pd_op.maximum", trt_version="8.x")
+def maximum_converter(network, paddle_op, inputs):
+    max_layer = add_elementwise_layer(
+        network, paddle_op, inputs, trt.ElementWiseOperation.MAX
+    )
+    return max_layer
