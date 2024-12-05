@@ -111,6 +111,12 @@ def get_rotate_file_logger(log_level, name='root'):
 g_sync_rotate_logger = None
 
 
+def get_sync_logger():
+    global logger
+    paddle.device.synchronize()
+    return logger
+
+
 def sync_rotate_logger():
     global g_sync_rotate_logger
     if g_sync_rotate_logger is None:
