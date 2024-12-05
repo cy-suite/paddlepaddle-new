@@ -14,7 +14,7 @@
 
 #pragma once
 #include <math.h>
-
+#include "paddle/phi/common/complex.h"
 namespace phi {
 namespace funcs {
 
@@ -35,29 +35,47 @@ COMPARE_FUNCTOR(GreaterEqualFunctor, >=)
 template <typename InT, typename OutT = bool>
 struct EqualFunctor {
   HOSTDEVICE OutT operator()(const InT a, const InT b) const {
-    if constexpr (std::is_same_v<InT, phi::dtype::complex<float>> ||
-                  std::is_same_v<InT, phi::dtype::complex<double>>) {
-      if (isinf(a.real) || isinf(a.imag) || isinf(b.real) || isinf(b.imag)) {
-        return a == b;
-      }
-      if (isnan(a.real) || isnan(a.imag) || isnan(b.real) || isnan(b.imag)) {
-        return false;
-      }
-
-      float epsilon = 1e-8f;
-      return std::abs(a.real - b.real) < epsilon &&
-             std::abs(a.imag - b.imag) < epsilon;
-    } else {
-      if (std::is_floating_point<InT>::value) {
-        if (isinf(static_cast<float>(a)) || isinf(static_cast<float>(b)))
-          return static_cast<OutT>(a == b);
-        if (isnan(static_cast<float>(a)) || isnan(static_cast<float>(b)))
-          return static_cast<OutT>(false);
-        return static_cast<OutT>(fabs(static_cast<double>(a - b)) < 1e-8);
-      } else {
+    if (std::is_floating_point<InT>::value) {
+      if (isinf(static_cast<float>(a)) || isinf(static_cast<float>(b)))
         return static_cast<OutT>(a == b);
-      }
+      if (isnan(static_cast<float>(a)) || isnan(static_cast<float>(b)))
+        return static_cast<OutT>(false);
+      return static_cast<OutT>(fabs(static_cast<double>(a - b)) < 1e-8);
+    } else {
+      return static_cast<OutT>(a == b);
     }
+  }
+};
+
+template <typename OutT>
+struct EqualFunctor<phi::dtype::complex<float>, OutT> {
+  HOSTDEVICE OutT operator()(const phi::dtype::complex<float>& a,
+                             const phi::dtype::complex<float>& b) const {
+    if (isinf(a.real) || isinf(a.imag) || isinf(b.real) || isinf(b.imag)) {
+      return a == b;
+    }
+    if (isnan(a.real) || isnan(a.imag) || isnan(b.real) || isnan(b.imag)) {
+      return false;
+    }
+    float epsilon = 1e-8f;
+    return std::abs(a.real - b.real) < epsilon &&
+           std::abs(a.imag - b.imag) < epsilon;
+  }
+};
+
+template <typename OutT>
+struct EqualFunctor<phi::dtype::complex<double>, OutT> {
+  HOSTDEVICE OutT operator()(const phi::dtype::complex<double>& a,
+                             const phi::dtype::complex<double>& b) const {
+    if (isinf(a.real) || isinf(a.imag) || isinf(b.real) || isinf(b.imag)) {
+      return a == b;
+    }
+    if (isnan(a.real) || isnan(a.imag) || isnan(b.real) || isnan(b.imag)) {
+      return false;
+    }
+    double epsilon = 1e-8;
+    return std::abs(a.real - b.real) < epsilon &&
+           std::abs(a.imag - b.imag) < epsilon;
   }
 };
 
