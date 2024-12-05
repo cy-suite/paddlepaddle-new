@@ -58,6 +58,10 @@ class StatRegistry {
     GetStat(stat_type, dev_id)->Update(increment);
   }
 
+  void ResetPeakValue(const std::string& stat_type, int dev_id) {
+    GetStat(stat_type, dev_id)->ResetPeakValue();
+  }
+
   void Register(const std::string& stat_type, int dev_id, StatBase* stat) {
     std::lock_guard<SpinLock> lock_guard(stat_map_lock_);
     stat_map_[GetStatKey(stat_type, dev_id)] = stat;
@@ -91,6 +95,10 @@ void DeviceMemoryStatUpdate(const std::string& stat_type,
                             int dev_id,
                             int64_t increment) {
   StatRegistry::GetInstance()->Update("Device" + stat_type, dev_id, increment);
+}
+
+void DeviceMemoryStatResetPeakValue(const std::string& stat_type,int dev_id) {
+  StatRegistry::GetInstance()->ResetPeakValue("Device" + stat_type, dev_id);
 }
 
 int64_t HostMemoryStatCurrentValue(const std::string& stat_type, int dev_id) {

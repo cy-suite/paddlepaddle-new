@@ -48,6 +48,7 @@ __all__ = [
     'get_device_properties',
     'get_device_name',
     'get_device_capability',
+    'reset_peak_memory_stats',
 ]
 
 
@@ -297,6 +298,17 @@ def max_memory_reserved(device: _CudaPlaceLike | None = None) -> int:
     device_id = extract_cuda_device_id(device, op_name=name)
     return core.device_memory_stat_peak_value("Reserved", device_id)
 
+def reset_peak_memory_stats(device: _CudaPlaceLike | None = None) -> None:
+
+    name = "paddle.device.cuda.reset_peak_memory_stats"
+    if not core.is_compiled_with_cuda():
+        raise ValueError(
+            f"The API {name} is not supported in CPU-only PaddlePaddle. Please reinstall PaddlePaddle with GPU support to call this API."
+        )
+    device_id = extract_cuda_device_id(device, op_name=name)
+    core.device_memory_stat_reset_peak_value("Allocated", device_id)
+    core.device_memory_stat_reset_peak_value("Reserved", device_id)
+    # return core.device_memory_stat_peak_value("Reserved", device_id)
 
 def memory_allocated(device: _CudaPlaceLike | None = None) -> int:
     '''
