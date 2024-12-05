@@ -14,8 +14,8 @@
 
 #include "paddle/phi/kernels/clip_grad_kernel.h"
 
-#include "paddle/phi/backends/xpu/xpu_context.h"
 #include "paddle/phi/backends/xpu/enforce_xpu.h"
+#include "paddle/phi/backends/xpu/xpu_context.h"
 #include "paddle/phi/backends/xpu/xpu_header.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/compare_kernel.h"
@@ -60,7 +60,11 @@ void ClipTensorGradKernel(const Context& dev_ctx,
   DenseTensor out(phi::DataType::BOOL);
   EqualKernel<T, Context>(dev_ctx, min_tensor, max_tensor, &out);
   DenseTensor zero_tensor(x_grad->dtype());
-  FullKernel<T, Context>(dev_ctx, common::vectorize(x_grad->dims()), 0.0f, zero_tensor.dtype(), &zero_tensor);
+  FullKernel<T, Context>(dev_ctx,
+                         common::vectorize(x_grad->dims()),
+                         0.0f,
+                         zero_tensor.dtype(),
+                         &zero_tensor);
   WhereKernel<T, Context>(dev_ctx, out, out_grad, zero_tensor, x_grad);
 }
 }  // namespace phi

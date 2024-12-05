@@ -412,7 +412,7 @@
   kernel :
     func : clip_tensor_grad
     data_type : x
-  
+
 - backward_op : clip_tensor_grad
   forward : clip_tensor (Tensor x, Tensor min, Tensor max) -> Tensor(out)
   args : (Tensor x, Tensor min, Tensor max, Tensor out_grad)

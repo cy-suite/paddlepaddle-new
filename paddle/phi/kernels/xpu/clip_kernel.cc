@@ -57,8 +57,7 @@ void ClipTensorKernel(const Context& dev_ctx,
                       const DenseTensor& max,
                       DenseTensor* out) {
   using XPUDataType = typename XPUTypeTrait<T>::Type;
-  const XPUDataType* x_data =
-      reinterpret_cast<const XPUDataType*>(x.data<T>());
+  const XPUDataType* x_data = reinterpret_cast<const XPUDataType*>(x.data<T>());
   const XPUDataType* min_data =
       reinterpret_cast<const XPUDataType*>(min.data<T>());
   const XPUDataType* max_data =
