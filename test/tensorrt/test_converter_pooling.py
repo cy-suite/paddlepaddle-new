@@ -20,116 +20,165 @@ from tensorrt_test_base import TensorRTBaseTest
 import paddle
 
 
-def Avgpool3d_wrapper(x):
-    pool = paddle.nn.AvgPool3D(kernel_size=2, stride=2, padding=0)
-    return pool(x)
+def pool2d_api(
+    x,
+    ksize=[],
+    strides=[],
+    paddings=[],
+    ceil_mode=False,
+    exclusive=True,
+    data_format="NCHW",
+    pooling_type="max",
+    global_pooling=False,
+    adaptive=False,
+    padding_algorithm="EXPLICIT",
+):
+    return paddle._C_ops.pool2d(
+        x,
+        ksize,
+        strides,
+        paddings,
+        ceil_mode,
+        exclusive,
+        data_format,
+        pooling_type,
+        global_pooling,
+        adaptive,
+        padding_algorithm,
+    )
 
 
-def Avgpool3d_python_api(x, padding="SAME", stride=(1, 1, 1)):
-    pool = paddle.nn.AvgPool3D(kernel_size=2, stride=stride, padding=padding)
-    return pool(x)
-
-
-def Maxpool3d_wrapper(x):
-    pool = paddle.nn.MaxPool3D(kernel_size=2, stride=2, padding=0)
-    return pool(x)
-
-
-def Maxpool3d_python_api(x, padding="SAME", stride=(1, 1, 1)):
-    pool = paddle.nn.MaxPool3D(kernel_size=2, stride=stride, padding=padding)
-    return pool(x)
-
-
-class TestAvgPool3dTRTPattern(TensorRTBaseTest):
+class TestPoolingTRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = Avgpool3d_wrapper
+        self.python_api = paddle.nn.AvgPool2D(kernel_size=2, stride=1)
         self.api_args = {
-            "x": np.random.random([2, 3, 8, 8, 8]).astype("float32"),
+            "x": np.random.randn(1, 1, 2, 3).astype("float32"),
         }
         self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [1, 3, 8, 8, 8]}
-        self.max_shape = {"x": [10, 3, 8, 8, 8]}
+        self.min_shape = {"x": [1, 1, 2, 3]}
+        self.max_shape = {"x": [5, 1, 2, 3]}
 
     def test_trt_result(self):
         self.check_trt_result()
 
 
-class TestMaxPool3dTRTPattern(TensorRTBaseTest):
+class TestPoolingTRTCase1Pattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = Maxpool3d_wrapper
+        self.python_api = pool2d_api
         self.api_args = {
-            "x": np.random.random([2, 3, 8, 8, 8]).astype("float32"),
+            "x": np.random.randn(1, 1, 2, 3).astype("float32"),
+            "ksize": [2, 3],
+            "strides": [1, 2],
+            "paddings": [0, 0],
+            "ceil_mode": False,
+            "exclusive": False,
+            "data_format": "NCHW",
+            "pooling_type": "avg",
+            "global_pooling": False,
+            "adaptive": False,
+            "padding_algorithm": "VALID",
         }
         self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [1, 3, 8, 8, 8]}
-        self.max_shape = {"x": [10, 3, 8, 8, 8]}
+        self.min_shape = {"x": [1, 1, 2, 3]}
+        self.max_shape = {"x": [5, 1, 2, 3]}
 
     def test_trt_result(self):
         self.check_trt_result()
 
 
-class TestAvgPool3dPaddingAlgorithmTRTPattern(TensorRTBaseTest):
+class TestPoolingTRTCase2Pattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = Avgpool3d_python_api
+        self.python_api = pool2d_api
         self.api_args = {
-            "x": np.random.random([2, 3, 8, 8, 8]).astype("float32"),
-            "padding": "VALID",
-            "stride": (1, 2, 2),
+            "x": np.random.randn(1, 1, 2, 3).astype("float32"),
+            "ksize": [2, 3],
+            "strides": [1, 2],
+            "paddings": [0, 0],
+            "ceil_mode": True,
+            "exclusive": True,
+            "data_format": "NCHW",
+            "pooling_type": "max",
+            "global_pooling": False,
+            "adaptive": False,
+            "padding_algorithm": "SAME",
         }
         self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [1, 3, 8, 8, 8]}
-        self.max_shape = {"x": [10, 3, 8, 8, 8]}
+        self.min_shape = {"x": [1, 1, 2, 3]}
+        self.max_shape = {"x": [5, 1, 2, 3]}
 
     def test_trt_result(self):
         self.check_trt_result()
 
 
-class TestMaxPool3dPaddingAlgorithmTRTPattern(TensorRTBaseTest):
+class TestPoolingTRTCase3Pattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = Maxpool3d_python_api
+        self.python_api = pool2d_api
         self.api_args = {
-            "x": np.random.random([2, 3, 8, 8, 8]).astype("float32"),
-            "padding": "VALID",
-            "stride": (1, 2, 2),
+            "x": np.random.randn(1, 1, 2, 3).astype("float32"),
+            "ksize": [2, 3],
+            "strides": [1, 2],
+            "paddings": [0, 0],
+            "ceil_mode": True,
+            "exclusive": True,
+            "data_format": "NCHW",
+            "pooling_type": "max",
+            "global_pooling": True,
+            "adaptive": False,
+            "padding_algorithm": "SAME",
         }
         self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [1, 3, 8, 8, 8]}
-        self.max_shape = {"x": [10, 3, 8, 8, 8]}
+        self.min_shape = {"x": [1, 1, 2, 3]}
+        self.max_shape = {"x": [5, 1, 2, 3]}
 
     def test_trt_result(self):
         self.check_trt_result()
 
 
-class TestAvgPool3dStrideTRTPattern(TensorRTBaseTest):
+class TestPoolingTRTCase4Pattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = Avgpool3d_python_api
+        self.python_api = pool2d_api
         self.api_args = {
-            "x": np.random.random([2, 3, 8, 8, 8]).astype("float32"),
-            "padding": "SAME",
-            "stride": (2, 2, 2),
+            "x": np.random.randn(1, 1, 5, 5).astype("float32"),
+            "ksize": [3, 3],
+            "strides": [1, 1],
+            "paddings": [0, 0],
+            "ceil_mode": False,
+            "exclusive": False,
+            "data_format": "NCHW",
+            "pooling_type": "avg",
+            "global_pooling": True,
+            "adaptive": False,
+            "padding_algorithm": "SAME",
         }
         self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [1, 3, 8, 8, 8]}
-        self.max_shape = {"x": [10, 3, 8, 8, 8]}
+        self.min_shape = {"x": [1, 1, 5, 5]}
+        self.max_shape = {"x": [5, 1, 5, 5]}
 
     def test_trt_result(self):
         self.check_trt_result()
 
 
-class TestMaxPool3dStrideTRTPattern(TensorRTBaseTest):
+class TestPoolingTRTMarker(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = Maxpool3d_python_api
+        self.python_api = pool2d_api
         self.api_args = {
-            "x": np.random.random([2, 3, 8, 8, 8]).astype("float32"),
-            "padding": "SAME",
-            "stride": (2, 2, 2),
+            "x": np.random.randn(1, 3, 5, 5).astype("float32"),
+            "ksize": [6, 6],
+            "strides": [2, 2],
+            "paddings": [0, 0],
+            "ceil_mode": False,
+            "exclusive": False,
+            "data_format": "NCHW",
+            "pooling_type": "avg",
+            "global_pooling": False,
+            "adaptive": False,
+            "padding_algorithm": "EXPLICIT",
         }
         self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [1, 3, 8, 8, 8]}
-        self.max_shape = {"x": [10, 3, 8, 8, 8]}
+        self.target_marker_op = "pd_op.pool2d"
 
     def test_trt_result(self):
-        self.check_trt_result()
+        self.check_marker(expected_result=False)
 
 
 if __name__ == '__main__':

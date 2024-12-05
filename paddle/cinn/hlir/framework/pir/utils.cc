@@ -353,18 +353,36 @@ bool CauseNewSymbolicShape(const ::pir::Operation& op) {
   auto& shape_analysis = ::pir::ShapeAnalysisManager::Instance().Get(
       const_cast<::pir::Operation&>(op).GetParentProgram());
 
-  const auto& isProcessableSlice = [&]() -> bool {
+  const auto& HasData =
+      [&](const symbol::ShapeOrDataDimExprs& shape_or_data) -> bool {
+    if (shape_or_data.isa<symbol::TensorListShapeOrDataDimExprs>()) {
+      bool has_data = true;
+      const symbol::TensorListShapeOrDataDimExprs& list =
+          shape_or_data.dyn_cast<symbol::TensorListShapeOrDataDimExprs>();
+      for (const auto& item : list) {
+        has_data = has_data && item.data().has_value();
+      }
+      return has_data;
+    } else if (shape_or_data.isa<symbol::TensorShapeOrDataDimExprs>()) {
+      return shape_or_data.data().has_value();
+    }
+    PADDLE_THROW(::common::errors::InvalidArgument(
+        "The starts and ends parameters of pd_op.slice currently only support "
+        "two types: TensorListShapeOrDataDimExprs and "
+        "TensorShapeOrDataDimExprs"));
+  };
+
+  const auto& IsProcessableSlice = [&]() -> bool {
     const ::pir::Value& starts_value = op.operand_source(1);
     const ::pir::Value& ends_value = op.operand_source(2);
     const symbol::ShapeOrDataDimExprs& starts_shape_data =
         shape_analysis.GetShapeOrDataForValue(starts_value);
     const symbol::ShapeOrDataDimExprs& ends_shape_data =
         shape_analysis.GetShapeOrDataForValue(ends_value);
-    return starts_shape_data.data().has_value() &&
-           ends_shape_data.data().has_value();
+    return HasData(starts_shape_data) && HasData(ends_shape_data);
   };
 
-  if (op.isa<paddle::dialect::SliceOp>() && !isProcessableSlice()) {
+  if (op.isa<paddle::dialect::SliceOp>() && !IsProcessableSlice()) {
     return true;
   }
 
