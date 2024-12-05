@@ -81,15 +81,9 @@ int GetRuntimeArchImpl(NVGPUArch) {
   PADDLE_THROW(::common::errors::InvalidArgument("Not supported arch"));
 }
 
-int GetRuntimeArchImpl(HygonDCUArchHIP) {
-  PADDLE_THROW(::common::errors::InvalidArgument(
-      "HygonDCUArchHIP not supported GetRuntimeArch!"));
-}
+int GetRuntimeArchImpl(HygonDCUArchHIP) { CINN_NOT_IMPLEMENTED }
 
-int GetRuntimeArchImpl(HygonDCUArchSYCL) {
-  PADDLE_THROW(::common::errors::InvalidArgument(
-      "HygonDCUArchSYCL not supported GetRuntimeArch!"));
-}
+int GetRuntimeArchImpl(HygonDCUArchSYCL) { CINN_NOT_IMPLEMENTED }
 
 int GetRuntimeArch(Arch arch) {
   return std::visit([](const auto &impl) { return GetRuntimeArchImpl(impl); },

@@ -1295,29 +1295,25 @@ std::shared_ptr<OpStrategy> StrategyForPool2d(
   auto strategy = std::make_shared<framework::OpStrategy>();
 
   bool use_warp_reduce = false;
-  target.arch.Match([&](common::UnknownArch) { CINN_NOT_IMPLEMENTED; },
-                    [&](common::X86Arch) { use_warp_reduce = false; },
-                    [&](common::ARMArch) { CINN_NOT_IMPLEMENTED; },
-                    [&](common::NVGPUArch) {
-                      if (global_pooling && data_format == "NCHW") {
-                        // TODO(hp03): 32 may not be the exact number, try
-                        // also 16 or 8 or other number
-                        //      we choose 32 to make sure all the threads in
-                        //      a warp has work to do,
-                        if ((A_tensor->shape[2].as_int32() *
-                             A_tensor->shape[3].as_int32()) >= 32) {
-                          use_warp_reduce = true;
-                        }
-                      }
-                    },
-                    [&](common::HygonDCUArchHIP) {
-                      PADDLE_THROW(::common::errors::Unimplemented(
-                          "CINN todo: new hardware HygonDCUArchHIP"));
-                    },
-                    [&](common::HygonDCUArchSYCL) {
-                      PADDLE_THROW(::common::errors::Unimplemented(
-                          "CINN todo: new hardware HygonDCUArchSYCL"));
-                    });
+  target.arch.Match(
+      [&](common::UnknownArch) { CINN_NOT_IMPLEMENTED; },
+      [&](common::X86Arch) { use_warp_reduce = false; },
+      [&](common::ARMArch) { CINN_NOT_IMPLEMENTED; },
+      [&](common::NVGPUArch) {
+        if (global_pooling && data_format == "NCHW") {
+          // TODO(hp03): 32 may not be the exact number, try
+          // also 16 or 8 or other number
+          //      we choose 32 to make sure all the threads in
+          //      a warp has work to do,
+          if ((A_tensor->shape[2].as_int32() * A_tensor->shape[3].as_int32()) >=
+              32) {
+            use_warp_reduce = true;
+          }
+        }
+      },
+      [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
+        CINN_NOT_IMPLEMENTED
+      });
   strategy->AddImpl(pool2d_compute, pool2d_schedule, "strategy.pool2d.x86", 1);
   if (use_warp_reduce) {
     strategy->AddImpl(global_pool2d_compute,

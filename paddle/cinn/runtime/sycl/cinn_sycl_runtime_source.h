@@ -27,7 +27,6 @@
 extern "C" {
 
 #define MAX_SUBGROUP_SIZE 32
-// item_ct1.get_sub_group().get_max_local_range()[0]
 #define MAX_THREADNUM_INGROUP 1024
 #define MAX_SUBGROUPNUM_INGROUP \
   ((MAX_THREADNUM_INGROUP - 1) / MAX_SUBGROUP_SIZE + 1)

@@ -79,8 +79,6 @@ void cinn_call_sycl_kernel(void *kernel_fn,
     ::sycl::queue *Queue = SYCLBackendAPI::Global()->get_now_queue();
     ::sycl::range<3> Grid(grid_z, grid_y, grid_x);
     ::sycl::range<3> Block(block_z, block_y, block_x);
-    // need malloc_shared
-    // LOG(INFO) << "kernel args :" << (float* )(*(void **)(kernel_args[0]))[0]
     SYCL_CALL(kernel_func(*Queue, Grid, Block, kernel_args.data()));
   }
 }
@@ -302,7 +300,6 @@ void cinn_call_cnnl_gaussian_random(
   CNRT_CALL(cnrtSetDevice(device));
   cnnlHandle_t handle = CnnlHandle::GetInstance().GetCnnlHandle();
 
-  // CNqueue queue = Queue->get_native<::sycl::backend::cnrt>();
   cnrtQueue_t queue;
   CNRT_CALL(cnrtQueueCreate(&queue));
   CNNL_CALL(cnnlSetQueue(handle, queue));

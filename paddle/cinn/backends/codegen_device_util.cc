@@ -222,7 +222,7 @@ void detail::CollectBucketStrategyHostFunctionVisitor::ProcessLoweredFunc(
       },
       [&](common::HygonDCUArchSYCL) {
 #ifdef CINN_WITH_SYCL
-        shared_mem_bytes = CalculateSharedMemory(func);
+        shared_mem_bytes = Expr(0);
 #endif
       });
 

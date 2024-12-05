@@ -288,10 +288,7 @@ std::string Compiler::GetSourceCode(const ir::Module& module) {
         CINN_NOT_IMPLEMENTED
 #endif
       },
-      [&](common::HygonDCUArchSYCL) -> std::string {
-        PADDLE_THROW(phi::errors::Unimplemented(
-            "CINN todo: new hardware HygonDCUArchSYCL"));
-      });
+      [&](common::HygonDCUArchSYCL) -> std::string { CINN_NOT_IMPLEMENTED });
 }
 
 void Compiler::BuildDefault(const Module& module) {
@@ -396,10 +393,7 @@ void Compiler::RegisterHipModuleSymbol() {
 #endif
 }
 
-void Compiler::RegisterSyclModuleSymbol() {
-  PADDLE_THROW(
-      phi::errors::Unimplemented("CINN todo: new hardware HygonDCUArchSYCL"));
-}
+void Compiler::RegisterSyclModuleSymbol() { CINN_NOT_IMPLEMENTED }
 
 void Compiler::CompileCudaModule(const Module& module,
                                  const std::string& code) {
@@ -480,8 +474,7 @@ void Compiler::CompileHipModule(const Module& module, const std::string& code) {
 
 void Compiler::CompileSyclModule(const Module& module,
                                  const std::string& code) {
-  PADDLE_THROW(
-      phi::errors::Unimplemented("CINN todo: new hardware HygonDCUArchSYCL"));
+  CINN_NOT_IMPLEMENTED
 }
 
 void Compiler::CompileX86Module(const Module& module) {

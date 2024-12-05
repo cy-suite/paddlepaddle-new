@@ -89,10 +89,7 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
     // CudaTransBufferWithDynamicShape(&copied);
 #endif
       },
-      [&](common::HygonDCUArchSYCL) {
-        PADDLE_THROW(phi::errors::Unimplemented(
-            "CINN todo: new hardware HygonDCUArchSYCL"));
-      });
+      [&](common::HygonDCUArchSYCL) { CINN_NOT_IMPLEMENTED });
 
   SimplifyBlocks(&copied->body);
   VLOG(4) << "After SimplifyBlocks:" << copied;

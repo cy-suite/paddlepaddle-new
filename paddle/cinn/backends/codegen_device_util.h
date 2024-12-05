@@ -139,10 +139,7 @@ struct CollectHostFunctionVisitor : public ir::IRMutator<> {
           shared_mem_bytes = codegen_dev.GetDynSharedMemOffset();
 #endif
         },
-        [&](common::HygonDCUArchSYCL) {
-          PADDLE_THROW(phi::errors::Unimplemented(
-              "CINN todo: new hardware HygonDCUArchSYCL"));
-        });
+        [&](common::HygonDCUArchSYCL) { CINN_NOT_IMPLEMENTED });
 
     VLOG(6) << "Add a call node for func->name " << func->name << "\n"
             << "grid_dim: (" << func->cuda_axis_info.grid_dim(0) << ", "
