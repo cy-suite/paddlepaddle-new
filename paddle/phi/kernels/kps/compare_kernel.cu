@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "paddle/phi/common/complex.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/funcs/broadcast_function.h"
 #include "paddle/phi/kernels/funcs/compare_functors.h"
-
 #ifdef PADDLE_WITH_XPU_KP
 #include "paddle/phi/backends/xpu/xpu_context.h"
 #else
@@ -144,6 +144,9 @@ PD_REGISTER_KERNEL(equal_all,
   kernel->OutputAt(0).SetDataType(phi::DataType::BOOL);
 }
 
+using complex64 = ::phi::dtype::complex<float>;
+using complex128 = ::phi::dtype::complex<double>;
+
 #define PD_REGISTER_COMPARE_KERNEL(name, func)            \
   PD_REGISTER_KERNEL(name,                                \
                      KPS,                                 \
@@ -155,6 +158,8 @@ PD_REGISTER_KERNEL(equal_all,
                      int8_t,                              \
                      int16_t,                             \
                      int64_t,                             \
+                     complex64,                           \
+                     complex128,                          \
                      float,                               \
                      double,                              \
                      phi::dtype::float16,                 \
