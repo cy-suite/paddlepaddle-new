@@ -38,9 +38,6 @@ g_shard_split_param = int(os.environ.get("FLAGS_shard_split_param", 0))
 g_shard_param_with_color = int(
     os.environ.get("FLAGS_shard_param_with_color", 0)
 )
-g_shard_enable_fuse_optimizer_states = int(
-    os.environ.get("FLAGS_shard_param_with_fuse_optimizer_states", 0)
-)
 
 vocab_size = 20
 hidden_size = 10
@@ -216,9 +213,6 @@ class TestDistMPTraining(unittest.TestCase):
         self.strategy.hybrid_configs[
             "sharding_configs"
         ].split_param = g_shard_split_param
-        self.strategy.hybrid_configs[
-            "sharding_configs"
-        ].enable_fuse_optimizer_states = g_shard_enable_fuse_optimizer_states
 
         fleet.init(is_collective=True, strategy=self.strategy)
         self.data = [
@@ -338,12 +332,6 @@ class TestDistMPTraining(unittest.TestCase):
             loss_a = self.train_batch(batch_sharding, model_a, optimizer_a)
             loss_b = self.train_batch(batch_sharding, model_b, optimizer_b)
 
-            # for j in range(len(model_a.parameters())):
-            #     np.testing.assert_allclose(
-            #         model_a.parameters()[j].numpy(),
-            #         model_b.parameters()[j].numpy(),
-            #         rtol=1e-6,
-            #     )
             for j in range(len(model_a.parameters())):
                 np.testing.assert_equal(
                     model_a.parameters()[j].numpy(),

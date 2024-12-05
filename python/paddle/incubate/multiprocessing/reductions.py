@@ -85,6 +85,7 @@ def _force_cuda_context_init():
         np.array([1]), _current_expected_place_(), False, False, "force_init"
     )
     del force_cuda_context_init_tensor
+    paddle.device.cuda.empty_cache()
 
 
 def _rebuild_tensor(cls, lodtensor, metadata):

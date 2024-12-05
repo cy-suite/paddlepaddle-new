@@ -950,6 +950,12 @@ set_tests_properties(test_eigvals_op PROPERTIES TIMEOUT 400)
 set_tests_properties(
   test_cuda_memory_reserved PROPERTIES ENVIRONMENT
                                        "FLAGS_allocator_strategy=auto_growth")
+set_tests_properties(
+  test_auto_growth_allocator_gpu
+  PROPERTIES
+    ENVIRONMENT
+    "FLAGS_allocator_strategy=auto_growth;FLAGS_auto_growth_chunk_size_in_mb=10"
+)
 if(WITH_GLOO)
   set_tests_properties(test_parallel_dygraph_dataparallel_cpuonly
                        PROPERTIES TIMEOUT 30)
