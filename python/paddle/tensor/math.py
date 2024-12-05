@@ -5634,6 +5634,35 @@ def positive(x: Tensor) -> Tensor:
     return x
 
 
+def negative(x: Tensor, name: str | None = None) -> Tensor:
+    """
+    This function computes the negative of the Tensor elementwisely.
+
+    Args:
+        x (Tensor): Input of neg operator, an N-D Tensor, with data type bfloat16, float16, float32, float64, int8, int16, int32,
+            int64, uint8, complex64, complex128.
+        name (str|None, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
+
+    Returns:
+        out (Tensor): The negative of input Tensor. The shape and data type are the same with input Tensor.
+
+    Examples:
+        .. code-block:: python
+
+            >>> import paddle
+
+            >>> x = paddle.to_tensor([-0.4, -0.2, 0.1, 0.3])
+            >>> out = paddle.negative(x)
+            >>> out
+            Tensor(shape=[4], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [ 0.40000001,  0.20000000, -0.10000000, -0.30000001])
+    """
+
+    return scale(
+        x, scale=-1.0, bias=0.0, bias_after_scale=True, act=None, name=name
+    )
+
+
 def atan2(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
     r"""
     Element-wise arctangent of x/y with consideration of the quadrant.
