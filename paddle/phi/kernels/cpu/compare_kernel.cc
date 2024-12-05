@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "paddle/phi/kernels/compare_kernel.h"
-
+#include "paddle/phi/common/complex.h"
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/funcs/elementwise_base.h"
@@ -104,6 +104,9 @@ PD_REGISTER_KERNEL(equal_all,
   kernel->OutputAt(0).SetDataType(phi::DataType::BOOL);
 }
 
+using complex64 = ::phi::dtype::complex<float>;
+using complex128 = ::phi::dtype::complex<double>;
+
 #define PD_REGISTER_COMPARE_KERNEL(name, func)            \
   PD_REGISTER_KERNEL(name,                                \
                      CPU,                                 \
@@ -115,6 +118,8 @@ PD_REGISTER_KERNEL(equal_all,
                      int8_t,                              \
                      int16_t,                             \
                      int64_t,                             \
+                     complex64,                           \
+                     complex128,                          \
                      float,                               \
                      double,                              \
                      phi::dtype::float16,                 \
