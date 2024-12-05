@@ -114,6 +114,12 @@ void PNormKernel(const Context& dev_ctx,
 #ifdef _WIN32
     phi::funcs::ReduceKernel<T, T, kps::AddFunctor, UnsignedPowFunctor<T>>(
         dev_ctx, *in_x, out_norm, UnsignedPowFunctor<T>(porder), reduce_axis);
+
+    const DenseTensor* tmp_norm = out_norm;
+    std::vector<const DenseTensor*> ins = {tmp_norm};
+    std::vector<DenseTensor*> outs = {out_norm};
+    phi::funcs::ElementwiseKernel<T>(
+        dev_ctx, ins, &outs, UnsignedPowFunctor<T>(1. / porder));
 #else
     if (porder == 1.0) {
       // fast 1-norm
