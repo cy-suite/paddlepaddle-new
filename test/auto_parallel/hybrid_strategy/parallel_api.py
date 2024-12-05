@@ -293,7 +293,8 @@ class TestParallelAPI:
             optimizer = create_optimizer(layer, lr_scheduler)
             model, optimizer = dist.parallelize(
                 layer,
-                optimizer,
+                mesh=dist.auto_parallel.get_mesh(),
+                optimizer=optimizer,
                 config=config,
             )
         else:

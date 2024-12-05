@@ -50,8 +50,8 @@ if TYPE_CHECKING:
 
 def parallelize(
     model: paddle.nn.Layer,
+    mesh: paddle.distributed.ProcessMesh,
     optimizer: paddle.optimizer.Optimizer | None = None,
-    mesh: paddle.distributed.ProcessMesh | None = None,
     config: _ParallelizeConfig | None = None,
 ) -> tuple[paddle.nn.Layer, paddle.optimizer.Optimizer]:
     """
@@ -60,9 +60,9 @@ def parallelize(
 
     Args:
         model (paddle.nn.Layer): the model to be parallelized.
+        mesh (paddle.distributed.ProcessMesh): the process mesh for parallelize the model and the optimizer.
         optimizer (paddle.optimizer.Optimizer, optional): the optimizer to be parallelized.
             Could be `None` if no optimizer to be parallelized.
-        mesh (paddle.distributed.ProcessMesh, optional): the process mesh for parallelize the model and the optimizer.
         config (dict, optional): a dict contains the parallel config.
             The keys of the dict can be chosen from `dp_config`, `mp_config` and `pp_config` which will be used to
             determine the parallel method for data parallel, tensor parallel and pipeline parallel separately.
@@ -208,7 +208,6 @@ def parallelize(
             ...         pass
 
             >>> mesh = dist.ProcessMesh([[[0, 1], [2, 3]], [[4, 5], [6, 7]]], dim_names=["dp", "mp", "pp"])
-            >>> dist.auto_parallel.set_mesh(mesh)
             >>> parallel_config = {
             ...     "dp_config": {'sharding_level': 1},
             ...     "mp_config": {
@@ -239,7 +238,7 @@ def parallelize(
             >>> # doctest: +REQUIRES(env:DISTRIBUTED)
             >>> model = LlamaForCausalLM()
             >>> optimizer = paddle.optimizer.AdamW(parameters=model.parameters())
-            >>> dist_model, dist_optimizer = dist.parallelize(model, optimizer, config=parallel_config) # type: ignore[arg-type]
+            >>> dist_model, dist_optimizer = dist.parallelize(model, mesh=mesh, optimizer=optimizer, config=parallel_config) # type: ignore[arg-type]
             >>> # This case need to be executed in multi-card environment
             >>> # python -m paddle.distributed.launch --gpus=0,1,2,3,4,5,6,7 {test_case}.py
 
@@ -250,17 +249,11 @@ def parallelize(
         )
         return model, optimizer
     assert isinstance(config, dict)
-    if mesh is not None:
-        assert isinstance(
-            mesh, core.ProcessMesh
-        ), "The mesh must be an instance of paddle.distributed.ProcessMesh."
-        g_mesh = fleet.auto.get_mesh()
-        if g_mesh is not None and g_mesh != mesh:
-            warnings.warn(
-                "The mesh set by `fleet.auto.set_mesh` is different with the mesh pass to "
-                "`parallelize`. Will overwrite the previous mesh"
-            )
-        fleet.auto.set_mesh(mesh)
+    assert mesh is not None
+    assert isinstance(
+        mesh, core.ProcessMesh
+    ), "The mesh must be an instance of paddle.distributed.ProcessMesh."
+    fleet.auto.set_mesh(mesh)
     pp_config = config.get('pp_config')
     mp_config = config.get('mp_config')
     dp_config = config.get('dp_config')
