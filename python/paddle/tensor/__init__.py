@@ -73,6 +73,7 @@ from .linalg import (  # noqa: F401
     corrcoef,
     cov,
     cross,
+    diagonal,
     dist,
     dot,
     eig,
@@ -104,7 +105,6 @@ from .linalg import (  # noqa: F401
     transpose,
     transpose_,
     vecdot,
-    diagonal,
 )
 from .logic import (  # noqa: F401
     __rand__,

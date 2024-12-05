@@ -22,6 +22,7 @@ from .tensor.linalg import (
     cov,
     cross,
     det,
+    diagonal,
     eig,
     eigh,
     eigvals,
@@ -50,7 +51,6 @@ from .tensor.linalg import (
     triangular_solve,
     vecdot,
     vector_norm,
-    diagonal,
 )
 
 __all__ = [

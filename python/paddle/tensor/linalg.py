@@ -5829,7 +5829,7 @@ def cholesky_inverse(
         A = x @ x.T
     return paddle.linalg.inv(A)
 
-    
+
 def diagonal(
     x: Tensor,
     offset: int = 0,
@@ -5956,4 +5956,5 @@ def diagonal(
             attrs={'offset': offset, 'axis1': axis1, 'axis2': axis2},
             outputs={'Out': [out]},
         )
+
         return out

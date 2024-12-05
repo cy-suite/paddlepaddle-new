@@ -227,6 +227,7 @@ from .tensor.linalg import (  # noqa: F401
     cdist,
     cholesky,
     cross,
+    diagonal,
     dist,
     dot,
     eigvalsh,
@@ -242,7 +243,6 @@ from .tensor.linalg import (  # noqa: F401
     transpose,
     transpose_,
     vecdot,
-    diagonal,
 )
 from .tensor.logic import (
     allclose,
