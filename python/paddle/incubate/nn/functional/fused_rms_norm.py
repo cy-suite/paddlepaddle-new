@@ -116,6 +116,7 @@ def fused_rms_norm(
             quant_max_bound,
             quant_min_bound,
         )
+    # static mode
     helper = LayerHelper('rms_norm', **locals())
     out = None
     if quant_scale <= 0:
