@@ -126,13 +126,11 @@ class TestDy2StaticAutoRecomputeRmsNorm(unittest.TestCase):
                     rtol=TOLERANCE[self.dtype]["rtol"],
                 )
             actual_program = res_actual[0]
-            print("actual program", actual_program)
             forward_ops = actual_program.global_block().ops[:14]
             mid_ops = actual_program.global_block().ops[14:17]
             backward_ops = actual_program.global_block().ops[17:]
             saved_values = forward_ops[9].results()[0]
             define_op = saved_values.get_defining_op()
-            print(define_op.name())
             self.assertTrue(define_op.name() == "pd_op.rsqrt")
             for op in forward_ops:
                 if op.name() == "pd_op.data":
