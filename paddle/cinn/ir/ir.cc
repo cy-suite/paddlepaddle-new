@@ -21,6 +21,7 @@
 #include "paddle/cinn/common/cinn_value.h"
 #include "paddle/cinn/common/const_fold.h"
 #include "paddle/cinn/common/ir_util.h"
+#include "paddle/cinn/common/simplify_corner_case.h"
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/ir_utils.h"
 #include "paddle/cinn/ir/ir_visitor.h"
@@ -53,6 +54,10 @@ Expr Cast::Make(Type t, Expr v) {
                         "The expression is not defined. "
                         "A defined expression is required for casting."));
 
+  if (v.node_type() != ir::IrNodeTy::_Var_ && v.is_index() && t == Int(64)) {
+    v->convert_int32_to_int64();
+    return v;
+  }
   auto node = make_shared<Cast>();
   node->v() = v;
   node->set_type(t);
@@ -925,7 +930,18 @@ Expr Load::Make(Expr tensor, const std::vector<Expr> &origin_indices) {
 
 void Load::convert_int32_to_int64() {
   IrNode::convert_int32_to_int64();
+  for (auto &indice : indices) {
+    indice->convert_int32_to_int64();
+  }
   tensor->convert_int32_to_int64();
+}
+
+void Load::convert_int64_to_int32() {
+  IrNode::convert_int64_to_int32();
+  for (auto &indice : indices) {
+    indice->convert_int64_to_int32();
+  }
+  tensor->convert_int64_to_int32();
 }
 
 Type Load::type() const {
@@ -1561,12 +1577,12 @@ int64_t IndexExpr::GetLargestMutiplyPart() const {
       ::common::errors::Unimplemented("Unsupported type of expr: %s", type()));
 }
 
-int32_t IndexExpr::length(int32_t count) const {
+int32_t IndexExpr::length() const {
   switch (node_type()) {
     case ir::IrNodeTy::_Var_:
       [[fallthrough]];
     case ir::IrNodeTy::IntImm:
-      return count + 1;
+      return 1;
     case ir::IrNodeTy::Add:
       [[fallthrough]];
     case ir::IrNodeTy::Mul:
@@ -1574,10 +1590,37 @@ int32_t IndexExpr::length(int32_t count) const {
     case ir::IrNodeTy::Div:
       [[fallthrough]];
     case ir::IrNodeTy::Mod: {
-      int lhs_count = ptr()->operand(0).as_index().length(count);
-      int rhs_count = ptr()->operand(1).as_index().length(count);
+      int lhs_count = ptr()->operand(0).as_index().length();
+      int rhs_count = ptr()->operand(1).as_index().length();
       return lhs_count + rhs_count + 1;
     }
+    default:
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Unsupported type in length, which is: %s", node_type()));
+  }
+}
+
+bool IndexExpr::IsDynamic() const {
+  switch (node_type()) {
+    case ir::IrNodeTy::_Var_:
+      return as_var()->name.at(0) == 'S';
+    case ir::IrNodeTy::IntImm: {
+      return false;
+    }
+    case ir::IrNodeTy::Add:
+      [[fallthrough]];
+    case ir::IrNodeTy::Mul:
+      [[fallthrough]];
+    case ir::IrNodeTy::Div:
+      [[fallthrough]];
+    case ir::IrNodeTy::Mod: {
+      auto lFlag = ptr()->operand(0).as_index().IsDynamic();
+      auto rFlag = ptr()->operand(1).as_index().IsDynamic();
+      return lFlag || rFlag;
+    }
+    default:
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Unsupported type in IsDynamic, which is: %s", node_type()));
   }
 }
 
@@ -1596,8 +1639,9 @@ IndexExpr ConstructIndexExprByNodeType(const IrNodeTy &ty,
     case IrNodeTy::Mod:
       return lhs % rhs;
     default:
-      PADDLE_THROW(
-          ::common::errors::InvalidArgument("Unsupported type of expr"));
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Unsupported type in ConstructIndexExprByNodeType, which is: %s",
+          ty));
   }
 }
 
@@ -1619,12 +1663,18 @@ IndexExpr SimplifySymbolicAdd(
       if (!common::IsSumPartialBySymbol(lhs->operand(0).as_index(), sym))
         return lhs->operand(0).as_index() +
                SimplifySymbolicAdd(
-                   lhs->operand(1).as_index(), sym, IndexExpr(1));
+                   lhs->operand(1).as_index(), sym, outter_mul_factor);
       return SimplifySymbolicAdd(
-                 lhs->operand(0).as_index(), sym, IndexExpr(1)) +
+                 lhs->operand(0).as_index(), sym, outter_mul_factor) +
              lhs->operand(1).as_index();
     }
     case ir::IrNodeTy::Mul: {
+      if (lhs->operand(1).is_constant() &&
+          lhs->operand(1).get_constant() == -1) {
+        return SimplifySymbolicAdd(
+                   lhs->operand(0).as_index(), sym, -outter_mul_factor) *
+               lhs->operand(1).as_index();
+      }
       if (lhs->operand(0).as_index() == sym)
         return lhs->operand(0).as_index() *
                (lhs->operand(1).as_index() + outter_mul_factor);
@@ -1640,6 +1690,9 @@ IndexExpr SimplifySymbolicAdd(
                  lhs->operand(1).as_index() * outter_mul_factor) /
              lhs->operand(1).as_index();
     }
+    default:
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Unsupported type of lhs in SimplifySymbolicAdd which is: %s", lhs));
   }
 }
 
@@ -1676,6 +1729,10 @@ IndexExpr SimplifySymbolicDivide(const IndexExpr &lhs,
                  lhs->operand(0).as_index(), sym, lhs.node_type()) /
              lhs->operand(1).as_index();
     }
+    default:
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Unsupported type of lhs in SimplifySymbolicDivide which is: %s",
+          lhs));
   }
 }
 
@@ -1697,6 +1754,8 @@ IndexExpr Simplify(const IndexExpr &expr) {
     }
     case ir::IrNodeTy::Add:
       [[fallthrough]];
+    case ir::IrNodeTy::Sub:
+      [[fallthrough]];
     case ir::IrNodeTy::Mul:
       [[fallthrough]];
     case ir::IrNodeTy::Div:
@@ -1706,6 +1765,9 @@ IndexExpr Simplify(const IndexExpr &expr) {
       auto rhs = Simplify(expr->operand(1).as_index());
       return ConstructIndexExprByNodeType(expr.node_type(), lhs, rhs);
     }
+    default:
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Unsupported type of expr in Simplify which is: %s", expr));
   }
 }
 
@@ -1719,11 +1781,6 @@ static IndexExpr SimplifyAdd(const IndexExpr &lhs, const IndexExpr &rhs) {
   // d0 + (d1 + d2) ===> (d1 + d2) + d0.
   if (!ComparePriority(lhs, rhs)) {
     return rhs + lhs;
-  }
-
-  // (d0 + d1) + (d2 + d3) ===> ((d0 + d1) + d2) + d3.
-  if (auto rhsAdd = rhs.As<Add>()) {
-    return lhs + rhsAdd->a().as_index() + rhsAdd->b().as_index();
   }
 
   // (d0 + 2) + 3 ===> d0 + 5.
@@ -1762,8 +1819,23 @@ static IndexExpr SimplifyAdd(const IndexExpr &lhs, const IndexExpr &rhs) {
     }
   }
 
-  if (lconst && rconst && first == second) {
+  if (first == second) {
     return first * (lconst + rconst);
+  }
+
+  if (lconst != 1 && rconst != 1) {
+    if (lconst == rconst) return (first + second) * lconst;
+    if (lconst == -rconst) return (first - second) * lconst;
+  }
+
+  // deal corner case!
+  if (auto cornerRes = SimplifyAddCornerCase(lhs, rhs)) {
+    return cornerRes.value().as_index();
+  }
+
+  // (d0 + d1) + (d2 + d3) ===> ((d0 + d1) + d2) + d3.
+  if (auto rhsAdd = rhs.As<Add>()) {
+    return lhs + rhsAdd->a().as_index() + rhsAdd->b().as_index();
   }
 
   // dynamic branch!
@@ -1792,11 +1864,6 @@ static IndexExpr SimplifyMul(const IndexExpr &lhs, const IndexExpr &rhs) {
     return rhs * lhs;
   }
 
-  // (d0 * d1) * (d2 * d3) ===> ((d0 * d1) * d2) * d3.
-  if (auto rhsMul = rhs.As<Mul>()) {
-    return lhs * rhsMul->a().as_index() * rhsMul->b().as_index();
-  }
-
   // (d0 * 2) * 3 ===> d0 * 6.
   auto rhsConst = rhs.As<IntImm>();
   auto lhsMul = lhs.As<Mul>();
@@ -1805,11 +1872,30 @@ static IndexExpr SimplifyMul(const IndexExpr &lhs, const IndexExpr &rhs) {
       return lhsMul->a().as_index() * (lrhs->value * rhsConst->value);
     }
   }
+
+  // (d0 + 3) * 5 ===> d0 * 5 + 15.
+  auto lhsAdd = lhs.As<Add>();
+  if (lhsAdd && rhsConst) {
+    if (auto lrhs = lhsAdd->b().As<IntImm>()) {
+      return lhsAdd->a().as_index() * rhs + (lrhs->value * rhsConst->value);
+    }
+  }
+
   // (d0 * 2) * d1 ===> d0 * d1 * 2.
   if (lhsMul) {
     if (auto lrhs = lhsMul->b().As<IntImm>()) {
       return lhsMul->a().as_index() * rhs * lrhs->value;
     }
+  }
+
+  // deal corner case!
+  if (auto cornerRes = SimplifyMulCornerCase(lhs, rhs)) {
+    return cornerRes.value().as_index();
+  }
+
+  // (d0 * d1) * (d2 * d3) ===> ((d0 * d1) * d2) * d3.
+  if (auto rhsMul = rhs.As<Mul>()) {
+    return lhs * rhsMul->a().as_index() * rhsMul->b().as_index();
   }
 
   return Mul::Make(lhs, rhs).as_index();
@@ -1820,13 +1906,19 @@ static IndexExpr SimplifyDiv(const IndexExpr &lhs, const IndexExpr &rhs) {
   if (auto constRes = cinn::common::TryConstFold<ir::Div>(lhs, rhs))
     return constRes.value().as_index();
 
+  // deal corner case!
+  if (auto cornerRes = SimplifyDivCornerCase(lhs, rhs)) {
+    return cornerRes.value().as_index();
+  }
+
   // static branch!
   if (auto rhsConst = rhs.As<IntImm>()) {
     auto lhsAdd = lhs.As<Add>();
     auto lhsMul = lhs.As<Mul>();
+    auto lhsDiv = lhs.As<Div>();
 
     // (expr1 * c1 * c2 + expr2 * c1 * c3) / c1 ===> expr1 * c2 + expr2 * c3.
-    if (lhsAdd && rhsConst) {
+    if (lhsAdd) {
       int64_t llhsFactor = lhsAdd->a().as_index().GetLargestMutiplyPart();
       int64_t lrhsFactor = lhsAdd->b().as_index().GetLargestMutiplyPart();
       if (llhsFactor % rhsConst->value == 0 &&
@@ -1837,19 +1929,32 @@ static IndexExpr SimplifyDiv(const IndexExpr &lhs, const IndexExpr &rhs) {
     }
 
     // expr1 * (c1 * c2) / c1 ===> expr1 * c2.
-    if (lhsMul && rhsConst) {
+    if (lhsMul) {
       if (auto lrhs = lhsMul->b().As<IntImm>()) {
         if (lrhs->value % rhsConst->value == 0) {
           return lhsMul->a().as_index() * (lrhs->value / rhsConst->value);
         }
       }
     }
+
+    // S0 / 2 / 5 ===> S0 / 10.
+    if (lhsDiv) {
+      if (auto lrhs = lhsDiv->b().As<IntImm>()) {
+        return lhsDiv->a().as_index() / (lrhs->value * rhsConst->value);
+      }
+    }
   }
+
   // dynamic branch!
   if (rhs.is_var() &&
       common::IsDivisiblieBySymbol(lhs, rhs, ir::IrNodeTy::Div)) {
     return SimplifySymbolicDivide(lhs, rhs, ir::IrNodeTy::Div);
   }
+
+  // TODO(liujinnan): Deal dynamic shape, e.g. S0 / S1 / S2 ===> S0 / (S1 * S2).
+  // if (auto lhsDiv = lhs.As<Div>()) {
+  //   return lhsDiv->a().as_index() / (lhsDiv->b().as_index() * rhs);
+  // }
 
   return Div::Make(lhs, rhs).as_index();
 }
@@ -1858,6 +1963,11 @@ static IndexExpr SimplifyMod(const IndexExpr &lhs, const IndexExpr &rhs) {
   // 15 % 4 ===> 3.
   if (auto constRes = cinn::common::TryConstFold<ir::Mod>(lhs, rhs))
     return constRes.value().as_index();
+
+  // deal corner case!
+  if (auto cornerRes = SimplifyModCornerCase(lhs, rhs)) {
+    return cornerRes.value().as_index();
+  }
 
   // static branch!
   if (auto rhsConst = rhs.As<IntImm>()) {

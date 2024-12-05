@@ -701,6 +701,19 @@ class TestPrimInstancenorm(TestPrimBase):
         self.tol = 5e-6
 
 
+class TestPrimInstancenormNC(TestPrimBase):
+    def setUp(self):
+        np.random.seed(2023)
+        self.shape_x = [2, 128]
+        self.dtype_x = "float32"
+        self.init_x_shape = [None, None]
+        self.x = np.random.random(self.shape_x).astype(self.dtype_x)
+        self.net = instance_norm_net
+        self.necessary_ops = "pd_op.instance_norm"
+        self.enable_cinn = False
+        self.tol = 2e-5
+
+
 class TestPrimGroupNorm1(TestPrimBase):
     def setUp(self):
         np.random.seed(2023)
@@ -1130,6 +1143,27 @@ class TestPrimBatchNorm8(TestPrimThree):
         self.tol = 1e-5
 
 
+class TestPrimBatchNormNC(TestPrimThree):
+    def setUp(self):
+        np.random.seed(2023)
+        self.shape_x = [30, 40]
+        self.shape_y = [40]
+        self.shape_z = [40]
+        self.dtype_x = "float32"
+        self.dtype_y = "float32"
+        self.dtype_z = "float32"
+        self.init_x_shape = [None, None]
+        self.init_y_shape = [None]
+        self.init_z_shape = [None]
+        self.x = np.random.random(self.shape_x).astype(self.dtype_x)
+        self.y = np.random.random(self.shape_y).astype(self.dtype_y)
+        self.z = np.random.random(self.shape_z).astype(self.dtype_z)
+        self.net = batch_norm_net2
+        self.necessary_ops = "pd_op.batch_norm_"
+        self.enable_cinn = False
+        self.tol = 1e-5
+
+
 class TestPrimLogLoss1(TestPrimTwo):
     def setUp(self):
         np.random.seed(2023)
@@ -1388,20 +1422,6 @@ class TestPrimMean(TestPrimBase):
         self.x = np.random.random(self.shape_x).astype(self.dtype_x)
         self.net = mean_net
         self.necessary_ops = "pd_op.mean"
-        self.enable_cinn = False
-        self.tol = 1e-6
-
-
-class TestPrimPow(TestPrimBase):
-    def setUp(self):
-        np.random.seed(2024)
-        paddle.seed(2024)
-        self.shape_x = [2, 300, 2048]
-        self.dtype_x = "float32"
-        self.init_x_shape = [None, None, None]
-        self.x = np.random.random(self.shape_x).astype(self.dtype_x)
-        self.net = pow_net
-        self.necessary_ops = "pd_op.pow"
         self.enable_cinn = False
         self.tol = 1e-6
 

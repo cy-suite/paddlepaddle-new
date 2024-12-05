@@ -13,6 +13,7 @@
 # limitations under the License.
 import logging
 import os
+import random
 from functools import reduce
 
 import numpy as np
@@ -21,6 +22,19 @@ from single_llama_model import LlamaForCausalLM, LlamaPretrainingCriterion
 import paddle
 import paddle.distributed as dist
 from paddle import LazyGuard
+from paddle.distributed.auto_parallel.intermediate.parallelize import (
+    parallelize,
+    parallelize_model,
+    parallelize_optimizer,
+)
+from paddle.distributed.auto_parallel.intermediate.tensor_parallel import (
+    ColWiseParallel,
+    RowWiseParallel,
+    SequenceParallelBegin,
+    SequenceParallelDisable,
+    SequenceParallelEnable,
+    SequenceParallelEnd,
+)
 from paddle.io import BatchSampler, DataLoader, Dataset
 
 
@@ -42,14 +56,13 @@ def get_mesh(pp_idx=None):
 
 
 class Config:
-    vocab_size = 32000
-    hidden_size = 4096
-    intermediate_size = 11008
-    seq_length = 2048
+    vocab_size = 8192
+    hidden_size = 512
+    intermediate_size = 2048
+    seq_length = 512
     num_hidden_layers = 2
-    num_attention_heads = 32
+    num_attention_heads = 8
     rms_norm_eps = 1e-6
-    sequence_parallel = False
     use_lazy_init = False
 
 
@@ -106,8 +119,6 @@ class TestParallelAPI:
         self.dp = int(os.getenv("dp"))
         self.mp = int(os.getenv("mp"))
         self.pp = int(os.getenv("pp"))
-        if os.getenv("use_sp") == "true":
-            self.config.sequence_parallel = True
         if os.getenv("use_lazy_init") == "true":
             self.config.use_lazy_init = True
         self.gradient_accumulation_steps = int(os.getenv("acc_step"))
@@ -124,13 +135,32 @@ class TestParallelAPI:
             self.amp_level = os.getenv("amp_level")
         if os.getenv("amp_master_grad") == "true":
             self.amp_master_grad = True
+        self.level = os.getenv("sharding_stage", "0")
+        self.sequence_parallel = False
+        if os.getenv("sequence_parallel") == "true":
+            self.sequence_parallel = True
+        self.prepare_input_output = False
+        if os.getenv("prepare_input_output") == "true":
+            self.sequence_parallel = True
 
+        num_hidden_layers = os.getenv("num_hidden_layers")
+        if num_hidden_layers:
+            self.config.num_hidden_layers = int(num_hidden_layers)
+
+        self.one_api = False
+        if os.getenv("one_api") == "true":
+            self.one_api = True
+
+        seed = int(os.getenv("seed", 2024))
+        np.random.seed(seed)
+        random.seed(seed)
+        paddle.seed(seed)
         self.init_dist_env()
 
     def init_dist_env(self):
-        mesh_dims = [("dp", self.dp), ("pp", self.mp), ("mp", self.pp)]
-        if not mesh_dims:
-            mesh_dims = [("dp", 1)]
+        mesh_dims = [("dp", self.dp), ("pp", self.pp), ("mp", self.mp)]
+        if self.pp * self.mp == 1:
+            mesh_dims = [("dp", self.dp)]
         dim_names = [mesh_dim[0] for mesh_dim in mesh_dims]
         mesh_shape = [mesh_dim[1] for mesh_dim in mesh_dims]
         mesh_arr = np.arange(
@@ -139,21 +169,175 @@ class TestParallelAPI:
         global_mesh = dist.ProcessMesh(mesh_arr, dim_names)
         dist.auto_parallel.set_mesh(global_mesh)
 
-    def parallel_model(self, layer, optimizer=None, only_build=False):
-        # call parallel api here
-        return layer
+    def check_mp(self, layer):
+        if self.mp == 1:
+            return
+        for name, sub_layer in layer.named_sublayers():
+            if len(sub_layer.sublayers()) == 0:
+                if 'q_proj' in name or 'k_proj' in name or 'v_proj' in name:
+                    assert sub_layer.weight.placements == [
+                        dist.Replicate(),
+                        dist.Shard(1),
+                    ]
+                    assert sub_layer.bias.placements == [
+                        dist.Replicate(),
+                        dist.Shard(0),
+                    ]
+                if (
+                    'gate_proj' in name
+                    or 'up_proj' in name
+                    or 'embed_tokens' in name
+                    or 'lm_head' in name
+                ):
+                    assert sub_layer.weight.placements == [
+                        dist.Replicate(),
+                        dist.Shard(1),
+                    ]
+                if 'o_proj' in name:
+                    assert sub_layer.weight.placements == [
+                        dist.Replicate(),
+                        dist.Shard(0),
+                    ]
+                    # assert sub_layer.bias.placements is None
+                if 'down_proj' in name:
+                    assert sub_layer.weight.placements == [
+                        dist.Replicate(),
+                        dist.Shard(0),
+                    ]
 
-    def run_llama(self, to_static=0, only_build=False):
-        if self.config.use_lazy_init:
-            with LazyGuard():
-                model = LlamaForCausalLM(self.config)
-        else:
-            model = LlamaForCausalLM(self.config)
+    def parallel_model(self, layer):
+        dp_config = None
+        mp_config = None
+        pp_config = None
+        if self.pp > 1:
+            # decoders_per_rank = self.config.num_hidden_layers // self.pp
+            # split_spec = {
+            #     f"llama.layers.{i * decoders_per_rank - 1}": SplitPoint.END
+            #     for i in range(1, self.pp)
+            # }
+            pp_config = {
+                'split_spec': "llama.layers",
+                "global_spec": "llama.global_layer",
+            }
+        if self.dp > 1:
+            dp_config = {'sharding_level': self.level}
+        if self.mp > 1:
+            if not self.sequence_parallel:
+                plan = {
+                    "llama.embed_tokens": ColWiseParallel(gather_output=True),
+                    "llama.position_embedding": ColWiseParallel(),
+                    "llama.layers.*.self_attn.q_proj": ColWiseParallel(
+                        gather_output=True
+                    ),
+                    "llama.layers.*.self_attn.k_proj": ColWiseParallel(
+                        gather_output=True
+                    ),
+                    "llama.layers.*.self_attn.v_proj": ColWiseParallel(
+                        gather_output=True
+                    ),
+                    "llama.layers.*.self_attn.o_proj": RowWiseParallel(
+                        is_input_parallel=False
+                    ),
+                    "llama.layers.*.mlp.gate_proj": ColWiseParallel(),
+                    "llama.layers.*.mlp.up_proj": ColWiseParallel(),
+                    "llama.layers.*.mlp.down_proj": RowWiseParallel(),
+                    "lm_head.weight": ColWiseParallel(),
+                }
+            else:
+                if self.prepare_input_output:
+                    plan = {
+                        "llama.embed_tokens": ColWiseParallel(),
+                        "llama.position_embedding": ColWiseParallel(),
+                        "llama.layers.*.self_attn.q_proj": ColWiseParallel(),
+                        "llama.layers.*.self_attn.k_proj": ColWiseParallel(),
+                        "llama.layers.*.self_attn.v_proj": ColWiseParallel(),
+                        "llama.layers.*.self_attn.o_proj": RowWiseParallel(),
+                        "llama.layers.*.mlp.gate_proj": ColWiseParallel(),
+                        "llama.layers.*.mlp.up_proj": ColWiseParallel(),
+                        "llama.layers.*.mlp.down_proj": RowWiseParallel(),
+                        "lm_head.weight": ColWiseParallel(),
+                        "llama.layers.*.input_layernorm": SequenceParallelEnable(),
+                        "llama.layers.*.post_attention_layernorm": SequenceParallelEnable(),
+                        "llama.norm": SequenceParallelEnable(),
+                    }
+                else:
+                    plan = {
+                        "llama.embed_tokens": [
+                            ColWiseParallel(),
+                            SequenceParallelBegin(),
+                        ],
+                        "llama.position_embedding": [
+                            ColWiseParallel(),
+                            SequenceParallelBegin(),
+                        ],
+                        "llama.layers.*.self_attn.q_proj": ColWiseParallel(),
+                        "llama.layers.*.self_attn.k_proj": ColWiseParallel(),
+                        "llama.layers.*.self_attn.v_proj": ColWiseParallel(),
+                        "llama.layers.*.self_attn.o_proj": RowWiseParallel(),
+                        "llama.layers.*.self_attn": SequenceParallelDisable(),
+                        "llama.layers.*.mlp.gate_proj": ColWiseParallel(),
+                        "llama.layers.*.mlp.up_proj": ColWiseParallel(),
+                        "llama.layers.*.mlp.down_proj": RowWiseParallel(),
+                        "llama.layers.*.mlp": SequenceParallelDisable(
+                            need_transpose=False
+                        ),
+                        "lm_head.weight": ColWiseParallel(),
+                        "lm_head": SequenceParallelEnd(),
+                    }
+            mp_config = {'parallelize_plan': plan}
 
         lr_scheduler = paddle.optimizer.lr.LinearWarmup(
             learning_rate=0.0001, warmup_steps=2, start_lr=0, end_lr=0.0001
         )
-        optimizer = create_optimizer(model, lr_scheduler)
+
+        if self.one_api:
+            optimizer = create_optimizer(layer, lr_scheduler)
+            model, optimizer = parallelize(
+                layer,
+                optimizer,
+                dp_config=dp_config,
+                mp_config=mp_config,
+                pp_config=pp_config,
+            )
+        else:
+            layer = parallelize_model(
+                layer,
+                dp_config=dp_config,
+                mp_config=mp_config,
+                pp_config=pp_config,
+            )
+            optimizer = create_optimizer(layer, lr_scheduler)
+            optimizer = parallelize_optimizer(
+                optimizer,
+                dp_config=dp_config,
+                mp_config=mp_config,
+                pp_config=pp_config,
+            )
+        self.check_mp(layer)
+        return layer, optimizer, lr_scheduler
+
+    def run_llama(
+        self, share_embedding=False, position_embedding=False, to_static=0
+    ):
+        if self.config.use_lazy_init:
+            with LazyGuard():
+                model = LlamaForCausalLM(
+                    self.config, share_embedding, position_embedding
+                )
+        else:
+            model = LlamaForCausalLM(
+                self.config, share_embedding, position_embedding
+            )
+
+        model, optimizer, lr_scheduler = self.parallel_model(model)
+
+        criterion = LlamaPretrainingCriterion(self.config)
+
+        if self.config.use_lazy_init:
+            for param in model.parameters():
+                assert not param._is_initialized()
+                param.initialize()
+
         if self.amp and not to_static:
             model, optimizer = paddle.amp.decorate(
                 models=model,
@@ -162,20 +346,6 @@ class TestParallelAPI:
                 dtype=self.amp_dtype,
                 master_grad=self.amp_master_grad,
             )
-        optimizer = dist.shard_optimizer(optimizer)
-        model = self.parallel_model(
-            model, optimizer=optimizer, only_build=only_build
-        )
-
-        criterion = LlamaPretrainingCriterion(self.config)
-        criterion = self.parallel_model(criterion)
-        if self.config.use_lazy_init:
-            for param in model.parameters():
-                assert not param._is_initialized()
-                param.initialize()
-
-        if only_build:
-            return
 
         train_dataset = RandomDataset(self.config.seq_length)
         train_sampler = BatchSampler(
@@ -213,52 +383,51 @@ class TestParallelAPI:
                 scaler = paddle.amp.GradScaler(init_loss_scaling=1024)
                 scaler = dist.shard_scaler(scaler)
 
-            for epoch_idx in range(1):
-                for step, inputs in enumerate(dist_loader()):
-                    input_ids, labels = inputs
-                    custom_black_list = [
-                        "reduce_sum",
-                        "c_softmax_with_cross_entropy",
-                    ]
-                    custom_white_list = []
-                    if self.amp_level == "O2":
-                        custom_white_list.extend(
-                            ["lookup_table", "lookup_table_v2"]
-                        )
-                    with paddle.amp.auto_cast(
-                        self.amp,
-                        custom_black_list=set(custom_black_list),
-                        custom_white_list=set(custom_white_list),
-                        level=self.amp_level,
-                        dtype=self.amp_dtype,
-                    ):
-                        logits = model(input_ids)
-                        tr_loss_step = criterion(logits, labels)
+            for step, inputs in enumerate(dist_loader()):
+                input_ids, labels = inputs
+                custom_black_list = [
+                    "reduce_sum",
+                    "c_softmax_with_cross_entropy",
+                ]
+                custom_white_list = []
+                if self.amp_level == "O2":
+                    custom_white_list.extend(
+                        ["lookup_table", "lookup_table_v2"]
+                    )
+                with paddle.amp.auto_cast(
+                    self.amp,
+                    custom_black_list=set(custom_black_list),
+                    custom_white_list=set(custom_white_list),
+                    level=self.amp_level,
+                    dtype=self.amp_dtype,
+                ):
+                    logits = model(input_ids)
+                    tr_loss_step = criterion(logits, labels)
 
-                    if self.gradient_accumulation_steps > 1:
-                        tr_loss_step /= self.gradient_accumulation_steps
+                if self.gradient_accumulation_steps > 1:
+                    tr_loss_step /= self.gradient_accumulation_steps
+                if scaler is not None:
+                    scaler.scale(tr_loss_step).backward()
+                else:
+                    tr_loss_step.backward()
+                tr_loss += tr_loss_step
+
+                if global_step % self.gradient_accumulation_steps == 0:
+                    logging.info(
+                        f"step: {global_step // self.gradient_accumulation_steps}  loss: {tr_loss.numpy()}"
+                    )
                     if scaler is not None:
-                        scaler.scale(tr_loss_step).backward()
+                        scaler.step(optimizer)
+                        scaler.update()
                     else:
-                        tr_loss_step.backward()
-                    tr_loss += tr_loss_step
+                        optimizer.step()
+                    optimizer.clear_grad()
+                    lr_scheduler.step()
+                    tr_loss = 0
 
-                    if global_step % self.gradient_accumulation_steps == 0:
-                        logging.info(
-                            f"step: {global_step // self.gradient_accumulation_steps}  loss: {tr_loss.numpy()}"
-                        )
-                        if scaler is not None:
-                            scaler.step(optimizer)
-                            scaler.update()
-                        else:
-                            optimizer.step()
-                        optimizer.clear_grad()
-                        lr_scheduler.step()
-                        tr_loss = 0
-
-                    global_step += 1
-                    if global_step // self.gradient_accumulation_steps >= 10:
-                        break
+                global_step += 1
+                if global_step // self.gradient_accumulation_steps >= 3:
+                    break
         else:
             strategy = dist.Strategy()
             if self.gradient_accumulation_steps > 1:
@@ -286,16 +455,16 @@ class TestParallelAPI:
             for step, inputs in enumerate(dist_loader()):
                 input_ids, labels = inputs
                 loss = dist_model(input_ids, labels)
-                logging.info(step, loss)
-
-                if step >= 10:
+                logging.info(f"step: {step}  loss: {loss}")
+                if step >= 3:
                     break
 
-    def run_test_cases(self):
-        self.run_llama(only_build=True)
-        # self.run_llama(to_static=0)
-        # self.run_llama(to_static=1)
+    def run_test_cases(self, share_embedding=False, position_embedding=False):
+        self.run_llama(share_embedding, position_embedding, 0)
+        self.run_llama(share_embedding, position_embedding, 1)
 
 
 if __name__ == '__main__':
-    TestParallelAPI().run_test_cases()
+    share_embedding = int(os.getenv("test_share_embedding", "0"))
+    position_embedding = int(os.getenv("test_position_embedding", "0"))
+    TestParallelAPI().run_test_cases(share_embedding, position_embedding)

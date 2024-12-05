@@ -27,7 +27,7 @@ namespace optim {
 /**
  * Remove schedule block.
  */
-void RemoveScheduleBlock(Expr* e);
+void RemoveScheduleBlock(ir::Expr *expr);
 
 }  // namespace optim
 }  // namespace cinn

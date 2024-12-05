@@ -52,7 +52,6 @@ decomp_interface_declare_gen_op_list = [
     "numel",
     "one_hot",
     "p_norm",
-    "pow",
     "reciprocal",
     "relu",
     "relu6",
@@ -71,7 +70,7 @@ decomp_interface_declare_gen_op_list = [
     "unstack",
 ]
 
-# come into effect in generated file op_decomp.cc
+# come into effect in generated file op_decomp_rule.cc
 # manual decomp interface implementation are located in manual_op_decomp.cc
 decomp_interface_implementation_gen_op_list = [
     "any",
@@ -103,7 +102,6 @@ decomp_interface_implementation_gen_op_list = [
     "meshgrid",
     "numel",
     "p_norm",
-    "pow",
     "reciprocal",
     "relu",
     "relu6",

@@ -22,6 +22,7 @@
 
 #include "paddle/cinn/common/bfloat16.h"
 #include "paddle/cinn/common/float16.h"
+#include "paddle/cinn/common/integer_set.h"
 #include "paddle/cinn/ir/ir.h"
 
 namespace cinn {
@@ -36,6 +37,9 @@ Expr PrecedingAxisToAbsOffset(const std::vector<Expr> &shape,
                               int preceding_n_axis);
 
 Expr CastIfNeeded(Expr body, Type type);
+
+ir::IndexExpr MergeMulMod(SymbolicExprAnalyzer *analyzer,
+                          const ir::IndexExpr &base);
 
 //! Substitute vars to other expressions.
 //! @param expr The expression to do modification.
@@ -80,11 +84,6 @@ inline Expr make_bool(bool x, int lanes) {
  * \brief Check all the tensors are unique in an expression.
  */
 void CheckTensorUniqueInExpr(Expr expr);
-
-/**
- * \brief Check all the buffers are unique in an expression.
- */
-void CheckBufferUniqueInExpr(Expr expr);
 
 std::vector<std::string> GatherItersToTensorProducer(
     const std::string &target_tensor_name, Expr *expr);
@@ -209,7 +208,7 @@ inline void UnpackReduction(const ir::IndexExpr &expr, FLeaf fleaf) {
  * than `rhs`.
  */
 template <typename T>
-inline std::vector<ir::IndexExpr> GetFlatternExprs(const ir::IndexExpr &expr) {
+inline std::vector<ir::IndexExpr> GetFlattenExprs(const ir::IndexExpr &expr) {
   std::vector<ir::IndexExpr> result;
   auto fcollect = [&](ir::IndexExpr val) { result.push_back(val); };
   UnpackReduction<T>(expr, fcollect);
@@ -298,6 +297,15 @@ bool IsDivisiblieBySymbol(const ir::IndexExpr &expr,
  * \return A boolean value indicating whether the `lhs` is divisible by `rhs`
  */
 bool ProveDivisible(const ir::IndexExpr &lhs, const ir::IndexExpr &rhs);
+
+/*!
+ * \brief Judge whether `candidate` is a negated index expression.
+ * \param lhs The expression to be checked.
+ * \param rhs The positive part
+ * \return A boolean value indicating whether `candidate` is negative.
+ */
+bool IsNegatedIndexExpr(const ir::IndexExpr &candidate,
+                        ir::IndexExpr &expr);  // NOLINT
 
 }  // namespace common
 }  // namespace cinn

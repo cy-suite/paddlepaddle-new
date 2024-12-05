@@ -110,14 +110,7 @@ int GetLoopExtent(const Expr& loop) {
   return static_cast<int>(loop.As<ir::For>()->extent.get_constant());
 }
 
-void SetCudaAxisInfo(Expr* lowered_func) {
-  if (!lowered_func->as_lowered_func()) {
-    LOG(ERROR) << "The input of SetCudaAxisInfo should be lowered_func!";
-    return;
-  }
-
-  auto func_body = lowered_func->as_lowered_func_ref()->body;
-  CudaAxisInfo info;
+void SetCudaAxisInfo(ir::LoweredFunc lowered_func) {
   auto CannotProveLT = [](const ir::Expr& lhs, const ir::Expr& rhs) -> bool {
     std::vector<ir::Expr> exprs{rhs, lhs};
     common::cas_intervals_t var_intervals =
@@ -126,6 +119,8 @@ void SetCudaAxisInfo(Expr* lowered_func) {
     std::optional<bool> proved_lt = analyzer.ProveLT(lhs, rhs);
     return !proved_lt.has_value() || !proved_lt.value();
   };
+  auto func_body = lowered_func->body;
+  CudaAxisInfo info;
   ir::ir_utils::CollectIRNodes(func_body, [&](const Expr* x) {
     if (x->As<ir::For>() && x->As<ir::For>()->bind_info().valid()) {
       PADDLE_ENFORCE_EQ(
@@ -154,7 +149,7 @@ void SetCudaAxisInfo(Expr* lowered_func) {
     }
     return (x->As<ir::For>() && x->As<ir::For>()->bind_info().valid());
   });
-  lowered_func->as_lowered_func_ref()->cuda_axis_info = info;
+  lowered_func->cuda_axis_info = info;
 }
 
 bool Contains(const Expr& container, const Expr& expr) {
@@ -1599,6 +1594,18 @@ std::vector<int> SampleTile(utils::LinearRandomEngine::StateType* rand_seed,
   }
   tile.push_back(extent);
   return tile;
+}
+
+bool ContainDynamicShape(const Expr& expr) {
+  auto loop_nodes = ir::ir_utils::CollectIRNodesWithoutTensor(
+      expr, [&](const Expr* x) { return x->As<ir::For>(); });
+  for (const auto& n : loop_nodes) {
+    auto for_node = n.As<ir::For>();
+    // we only deal static index shape now.
+    if (!for_node->extent.is_index()) return true;
+    if (for_node->extent.as_index().IsDynamic()) return true;
+  }
+  return false;
 }
 }  // namespace ir
 }  // namespace cinn

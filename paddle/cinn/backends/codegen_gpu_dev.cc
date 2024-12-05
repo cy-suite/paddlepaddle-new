@@ -41,7 +41,7 @@ std::string CodeGenGpuDev::Compile(const ir::Module &module, bool use_rtc) {
 }
 
 void CodeGenGpuDev::Compile(const ir::Module &module, const Outputs &outputs) {
-  ir::ir_utils::IrVerify(Expr(module));
+  ir::ir_utils::IrVerify(module.As<ir::_Module_>());
 
   CodeGenC::inline_builtin_codes_ = false;
   if (!outputs.c_header_name.empty()) {
@@ -73,7 +73,7 @@ void CodeGenGpuDev::Compile(const ir::Module &module, const Outputs &outputs) {
 
 void CodeGenGpuDev::Compile(const ir::LoweredFunc &func) {
   dyn_shared_mem_offset_ = Expr(-1);
-  IrPrinter::Visit(Expr(func));
+  Visit(func.As<ir::_LoweredFunc_>());
 }
 
 std::vector<Expr> CodeGenGpuDev::GenerateBufferAliasExprs(
@@ -148,17 +148,19 @@ void CodeGenGpuDev::Visit(const ir::_LoweredFunc_ *op) {
 
   std::vector<Expr> new_body;
 
+  auto axis_range_assumptions = op->PrepareAxisRangeAssumptions();
   auto alloca_temp_buffers = op->PrepareAllocTempBufferExprs();
   auto temp_buffer_alias = GenerateBufferAliasExprs(op, op->temp_bufs);
-  auto alis_var_exprs = op->CudaAliasVarExprs();
+  auto alias_var_exprs = op->CudaAliasVarExprs();
   auto dealloc_temp_buffers =
       FilterDeallocTempBuffers(op->PrepareDeallocTempBufferExprs());
 
 #define APPEND_TO_NEW_BODY(field__) \
   new_body.insert(std::end(new_body), std::begin(field__), std::end(field__));
+  APPEND_TO_NEW_BODY(axis_range_assumptions)
   APPEND_TO_NEW_BODY(alloca_temp_buffers)
   APPEND_TO_NEW_BODY(temp_buffer_alias)
-  APPEND_TO_NEW_BODY(alis_var_exprs)
+  APPEND_TO_NEW_BODY(alias_var_exprs)
 
   new_body.push_back(op->body);
   APPEND_TO_NEW_BODY(dealloc_temp_buffers);
@@ -522,10 +524,7 @@ ir::Expr CalculateSharedMemory(const ir::Buffer &buffer) {
   return buffer_size * Expr(type_bytes);
 }
 
-ir::Expr CalculateSharedMemory(const ir::Expr &func_expr) {
-  auto func = func_expr.as_lowered_func();
-  PADDLE_ENFORCE_NOT_NULL(
-      func, ::common::errors::InvalidType("expr is not a lowered_func"));
+ir::Expr CalculateSharedMemory(const ir::LoweredFunc &func) {
   auto alloc_temp_buffers = func->PrepareAllocTempBufferExprs();
   ir::Expr shm_size{0};
   for (const auto &alloc : alloc_temp_buffers) {
