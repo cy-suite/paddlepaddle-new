@@ -966,35 +966,21 @@ class FlattenOpPattern
       return false;
     }
     int start_axis = op->attribute<pir::Int32Attribute>("start_axis").data();
-    int stop_axis = op->attribute<pir::Int32Attribute>("stop_axis").data();
 
     pir::Value x = op.operand_source(0);
     auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
     auto x_shape = x_type.dims();
     int dims = x_shape.size();
-    if (dims == 0) {
-      VLOG(3) << "Flatten op does not support input's dim is 0 in tensorrt "
-                 "static shape mode.";
-    }
+
     if (start_axis < 0) {
       start_axis += dims;
     }
-
     if (start_axis == 0) {
-      VLOG(3) << "TRT flatten_contiguous_range not support the "
-                 "batch-dimension being changed";
+      VLOG(3)
+          << "TRT pd_op.flatten not support the batch-dimension being changed";
       return false;
     }
-    if (stop_axis < 0) {
-      stop_axis += dims;
-    }
-    for (int i = start_axis; i <= stop_axis; ++i) {
-      if (x_shape[i] < 0) {
-        VLOG(3) << "On TRT static shape,flatten_contiguous_range input dim "
-                   "should be > 0";
-        return false;
-      }
-    }
+
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
