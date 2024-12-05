@@ -19,110 +19,114 @@
 #include <functional>
 #include "paddle/cinn/ir/stmt_visitors.h"
 #include "paddle/cinn/ir/utils/stmt_converter.h"
-#include "paddle/cinn/pass/pass_manager.h"
+#include "paddle/cinn/pass/pass_adaptor.h"
 
 namespace cinn {
 namespace optim {
-
 namespace detail {
 
 #define MAX_REWRITE_LIMIT 10
 
 template <typename PassT>
-class PassAdaptor {
- public:
-  virtual void RunPipeline(ir::LoweredFunc func,
-                           std::vector<PassT*> passes,
-                           bool need_converge) {
-    const auto& RunUntilConverge = [&]() {
-      bool over_rewrite_limit = true;
-      for (int i = 0; i < MAX_REWRITE_LIMIT; ++i) {
-        bool changed = RunWithoutConverge(func, passes);
-        if (!changed) {
-          over_rewrite_limit = false;
-          break;
-        }
+void PassAdaptor<PassT>::RunPipeline(
+    ir::LoweredFunc func,
+    const std::vector<std::unique_ptr<PassT>>& passes,
+    bool need_converge) {
+  const auto& RunUntilConverge = [&]() {
+    bool over_rewrite_limit = true;
+    for (int i = 0; i < MAX_REWRITE_LIMIT; ++i) {
+      bool changed = RunWithoutConverge(func, passes);
+      if (!changed) {
+        over_rewrite_limit = false;
+        break;
       }
-      if (over_rewrite_limit) {
-        LOG(WARNING) << "Reach max rewrite limit, pass may not converge.";
-      }
-    };
-
-    // TODO(Hongqing-work): remove convert after update all the backend passes.
-    func->body_block = ir::ConvertExprBlockToStmtBlock(func->body);
-    if (need_converge) {
-      RunUntilConverge();
-    } else {
-      RunWithoutConverge(func, passes);
     }
-    func->body = ir::ConvertStmtBlockToExprBlock(func->body_block);
+    if (over_rewrite_limit) {
+      LOG(WARNING) << "Reach max rewrite limit, pass may not converge.";
+    }
+  };
+
+  // TODO(Hongqing-work): remove convert after update all the backend passes.
+  func->body_block = ir::ConvertExprBlockToStmtBlock(func->body);
+  if (need_converge) {
+    RunUntilConverge();
+  } else {
+    RunWithoutConverge(func, passes);
   }
+  func->body = ir::ConvertStmtBlockToExprBlock(func->body_block);
+}
 
- protected:
-  virtual bool RunWithoutConverge(ir::LoweredFunc func,
-                                  std::vector<PassT*> passes) = 0;
-};
+template void PassAdaptor<FuncPass>::RunPipeline(
+    ir::LoweredFunc, const std::vector<std::unique_ptr<FuncPass>>&, bool);
 
+template void PassAdaptor<BlockPass>::RunPipeline(
+    ir::LoweredFunc, const std::vector<std::unique_ptr<BlockPass>>&, bool);
+
+template void PassAdaptor<StmtPass>::RunPipeline(
+    ir::LoweredFunc, const std::vector<std::unique_ptr<StmtPass>>&, bool);
+
+template void PassAdaptor<ExprPass>::RunPipeline(
+    ir::LoweredFunc, const std::vector<std::unique_ptr<ExprPass>>&, bool);
+
+namespace {
 template <typename PassT, typename IRScopeRefT>
-void RunPasses(std::vector<PassT*> passed, IRScopeRefT scope, bool* changed) {
-  for (auto* pass : passed) {
+void RunPasses(const std::vector<std::unique_ptr<PassT>>& passes,
+               IRScopeRefT scope,
+               bool* changed) {
+  for (auto& pass : passes) {
     *changed = pass->Run(scope) || *changed;
   }
 }
+}  // namespace
 
-class FuncPassAdaptor : public PassAdaptor<FuncPass> {
- private:
-  bool RunWithoutConverge(ir::LoweredFunc func,
-                          std::vector<FuncPass*> passes) override {
-    bool changed = false;
-    RunPasses(passes, func, &changed);
-    return changed;
-  }
-};
+bool FuncPassAdaptor::RunWithoutConverge(
+    ir::LoweredFunc func,
+    const std::vector<std::unique_ptr<FuncPass>>& passes) {
+  bool changed = false;
+  RunPasses(passes, func, &changed);
+  return changed;
+}
 
-class FuncToBlockPassAdaptor : public PassAdaptor<BlockPass> {
- private:
-  bool RunPassesOnBlock(ir::stmt::BlockRef block,
-                        std::vector<BlockPass*> passes) {
-    bool changed = false;
-    std::vector<ir::stmt::StmtRef> new_stmts = block->stmts();
-    for (ir::stmt::StmtRef inner_stmt : new_stmts) {
-      std::vector<ir::stmt::BlockRef> inner_blocks = inner_stmt->block_fields();
-      for (ir::stmt::BlockRef inner_block : inner_blocks) {
-        for (auto* pass : passes) {
-          changed = RunPassesOnBlock(inner_block, passes) || changed;
-        }
-      }
-      inner_stmt->set_block_fields(inner_blocks);
+namespace {
+bool RunPassesOnBlock(ir::stmt::BlockRef block,
+                      const std::vector<std::unique_ptr<BlockPass>>& passes) {
+  bool changed = false;
+  std::vector<ir::stmt::StmtRef> new_stmts = block->stmts();
+  for (ir::stmt::StmtRef inner_stmt : new_stmts) {
+    std::vector<ir::stmt::BlockRef> inner_blocks = inner_stmt->block_fields();
+    for (ir::stmt::BlockRef inner_block : inner_blocks) {
+      changed = RunPassesOnBlock(inner_block, passes) || changed;
     }
-    block->set_stmts(new_stmts);
-    RunPasses(passes, block, &changed);
-    return changed;
+    inner_stmt->set_block_fields(inner_blocks);
   }
+  block->set_stmts(new_stmts);
+  RunPasses(passes, block, &changed);
+  return changed;
+}
+}  // namespace
 
-  bool RunWithoutConverge(ir::LoweredFunc func,
-                          std::vector<BlockPass*> passes) override {
-    ir::stmt::BlockRef func_block = func->body_block;
-    bool changed = RunPassesOnBlock(func_block, passes);
-    func->body_block = func_block;
-    return changed;
-  }
-};
+bool FuncToBlockPassAdaptor::RunWithoutConverge(
+    ir::LoweredFunc func,
+    const std::vector<std::unique_ptr<BlockPass>>& passes) {
+  ir::stmt::BlockRef func_block = func->body_block;
+  bool changed = RunPassesOnBlock(func_block, passes);
+  func->body_block = func_block;
+  return changed;
+}
 
-class FuncToStmtPassAdaptor : public PassAdaptor<StmtPass> {
- private:
-  bool RunWithoutConverge(ir::LoweredFunc func,
-                          std::vector<StmtPass*> passes) override {
-    ir::stmt::BlockRef func_block = func->body_block;
-    bool changed = false;
-    ir::stmt::Mutate(
-        func_block,
-        [&](ir::stmt::StmtRef stmt) {},
-        [&](ir::stmt::StmtRef stmt) { RunPasses(passes, stmt, &changed); });
-    return changed;
-  }
-};
+bool FuncToStmtPassAdaptor::RunWithoutConverge(
+    ir::LoweredFunc func,
+    const std::vector<std::unique_ptr<StmtPass>>& passes) {
+  ir::stmt::BlockRef func_block = func->body_block;
+  bool changed = false;
+  ir::stmt::Mutate(
+      func_block,
+      [&](ir::stmt::StmtRef stmt) {},
+      [&](ir::stmt::StmtRef stmt) { RunPasses(passes, stmt, &changed); });
+  return changed;
+}
 
+namespace {
 using ExprMutateFuncT = std::function<bool(ir::Expr expr)>;
 class StmtToExprPassAdaptor : public StmtPass {
  public:
@@ -150,26 +154,6 @@ class StmtToExprPassAdaptor : public StmtPass {
 #undef __
   };
   LocalExprMutator mutator_;
-};
-
-class FuncToExprPassAdaptor : public PassAdaptor<ExprPass> {
- private:
-  bool RunWithoutConverge(ir::LoweredFunc func,
-                          std::vector<ExprPass*> passes) override {
-    bool changed = false;
-    StmtToExprPassAdaptor stmt_to_expr_addaptor([&](ir::Expr expr) {
-      RunPasses(passes, expr, &changed);
-      return false;
-    });
-    ir::stmt::BlockRef func_block = func->body_block;
-    ir::stmt::Mutate(
-        func_block,
-        [&](ir::stmt::StmtRef stmt) {},
-        [&](ir::stmt::StmtRef stmt) { stmt_to_expr_addaptor.Run(stmt); });
-    // TODO(Hongqing-work): modify this after expr mutator can return change
-    // status.
-    return false;
-  }
 };
 
 void StmtToExprPassAdaptor::LocalExprMutator::VisitStmt(ir::stmt::Let stmt) {
@@ -274,8 +258,26 @@ void StmtToExprPassAdaptor::LocalExprMutator::VisitStmt(
   expr_mutator_(value);
   stmt->set_value(value);
 }
+}  // namespace
+
+bool FuncToExprPassAdaptor::RunWithoutConverge(
+    ir::LoweredFunc func,
+    const std::vector<std::unique_ptr<ExprPass>>& passes) {
+  bool changed = false;
+  StmtToExprPassAdaptor stmt_to_expr_addaptor([&](ir::Expr expr) {
+    RunPasses(passes, expr, &changed);
+    return false;
+  });
+  ir::stmt::BlockRef func_block = func->body_block;
+  ir::stmt::Mutate(
+      func_block,
+      [&](ir::stmt::StmtRef stmt) {},
+      [&](ir::stmt::StmtRef stmt) { stmt_to_expr_addaptor.Run(stmt); });
+  // TODO(Hongqing-work): modify this after expr mutator can return change
+  // status.
+  return false;
+}
 
 }  // namespace detail
-
 }  // namespace optim
 }  // namespace cinn

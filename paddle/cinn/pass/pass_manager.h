@@ -17,16 +17,10 @@
 #include <string>
 
 #include "paddle/cinn/pass/pass.h"
+#include "paddle/cinn/pass/pass_adaptor.h"
 
 namespace cinn {
 namespace optim {
-
-namespace detail {
-class FuncPassAdaptor;
-class FuncToBlockPassAdaptor;
-class FuncToStmtPassAdaptor;
-class FuncToExprPassAdaptor;
-}  // namespace detail
 
 template <typename PassT, typename PassAdaptorT>
 class PassManager {
@@ -36,10 +30,12 @@ class PassManager {
   virtual void Run(ir::LoweredFunc func) {
     adaptor_.RunPipeline(func, passes_, need_converge_);
   }
-  void AddPass(PassT* pass) { passes_.emplace_back(pass); }
+  void AddPass(std::unique_ptr<PassT> pass) {
+    passes_.emplace_back(std::move(pass));
+  }
 
  private:
-  std::vector<PassT*> passes_;
+  std::vector<std::unique_ptr<PassT>> passes_;
   PassAdaptorT adaptor_;
   bool need_converge_;
 };
