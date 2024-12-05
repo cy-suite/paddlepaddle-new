@@ -285,7 +285,7 @@ void CinnJitInstruction::Run() {
         static_cast<void*>(static_cast<phi::GPUContext*>(dev_ctx_)->stream());
   }
 
-  // 1. prepare kernel argmuments
+  // 1. prepare kernel arguments
   fn_ptr_impl_->InitFuncArgs(tensor_args_);
 
   if (need_update_shape) {

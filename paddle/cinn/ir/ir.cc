@@ -21,7 +21,7 @@
 #include "paddle/cinn/common/cinn_value.h"
 #include "paddle/cinn/common/const_fold.h"
 #include "paddle/cinn/common/ir_util.h"
-#include "paddle/cinn/common/simplify_corner_case.h"
+#include "paddle/cinn/common/simplify_special_pattern.h"
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/ir_utils.h"
 #include "paddle/cinn/ir/ir_visitor.h"
@@ -54,6 +54,10 @@ Expr Cast::Make(Type t, Expr v) {
                         "The expression is not defined. "
                         "A defined expression is required for casting."));
 
+  if (v.node_type() != ir::IrNodeTy::_Var_ && v.is_index() && t == Int(64)) {
+    v->convert_int32_to_int64();
+    return v;
+  }
   auto node = make_shared<Cast>();
   node->v() = v;
   node->set_type(t);
@@ -598,7 +602,7 @@ Expr Store::Make(Expr tensor, Expr value, const std::vector<Expr> &indices) {
   node->tensor = tensor;
   node->value = value;
   node->indices =
-      utils::GetCompitableStoreLoadIndices(tensor.as_tensor_ref(), indices);
+      utils::GetCompatibleStoreLoadIndices(tensor.as_tensor_ref(), indices);
 
   if (tensor->type() != Void()) {
     node->set_type(
@@ -900,7 +904,7 @@ Expr Load::Make(Expr tensor, const std::vector<Expr> &origin_indices) {
       true,
       ::common::errors::InvalidArgument("The tensor type is not valid. "
                                         "A valid tensor type is required."));
-  const auto indices = utils::GetCompitableStoreLoadIndices(
+  const auto indices = utils::GetCompatibleStoreLoadIndices(
       tensor.as_tensor_ref(), origin_indices);
   PADDLE_ENFORCE_EQ(
       !indices.empty(),
@@ -926,7 +930,18 @@ Expr Load::Make(Expr tensor, const std::vector<Expr> &origin_indices) {
 
 void Load::convert_int32_to_int64() {
   IrNode::convert_int32_to_int64();
+  for (auto &indice : indices) {
+    indice->convert_int32_to_int64();
+  }
   tensor->convert_int32_to_int64();
+}
+
+void Load::convert_int64_to_int32() {
+  IrNode::convert_int64_to_int32();
+  for (auto &indice : indices) {
+    indice->convert_int64_to_int32();
+  }
+  tensor->convert_int64_to_int32();
 }
 
 Type Load::type() const {
@@ -1579,6 +1594,33 @@ int32_t IndexExpr::length() const {
       int rhs_count = ptr()->operand(1).as_index().length();
       return lhs_count + rhs_count + 1;
     }
+    default:
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Unsupported type in length, which is: %s", node_type()));
+  }
+}
+
+bool IndexExpr::IsDynamic() const {
+  switch (node_type()) {
+    case ir::IrNodeTy::_Var_:
+      return as_var()->name.at(0) == 'S';
+    case ir::IrNodeTy::IntImm: {
+      return false;
+    }
+    case ir::IrNodeTy::Add:
+      [[fallthrough]];
+    case ir::IrNodeTy::Mul:
+      [[fallthrough]];
+    case ir::IrNodeTy::Div:
+      [[fallthrough]];
+    case ir::IrNodeTy::Mod: {
+      auto lFlag = ptr()->operand(0).as_index().IsDynamic();
+      auto rFlag = ptr()->operand(1).as_index().IsDynamic();
+      return lFlag || rFlag;
+    }
+    default:
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Unsupported type in IsDynamic, which is: %s", node_type()));
   }
 }
 
@@ -1597,92 +1639,9 @@ IndexExpr ConstructIndexExprByNodeType(const IrNodeTy &ty,
     case IrNodeTy::Mod:
       return lhs % rhs;
     default:
-      PADDLE_THROW(
-          ::common::errors::InvalidArgument("Unsupported type of expr"));
-  }
-}
-
-IndexExpr SimplifySymbolicAdd(
-    const IndexExpr &lhs,
-    const IndexExpr &sym,
-    const IndexExpr &outter_mul_factor = IndexExpr(1)) {
-  switch (lhs.node_type()) {
-    case ir::IrNodeTy::IntImm: {
-      auto imm = lhs.As<ir::IntImm>();
-      if (imm->value != 0)
-        PADDLE_THROW(::common::errors::Fatal("Error in SimplifySymbolicAdd!"));
-      return IndexExpr(0);
-    }
-    case ir::IrNodeTy::_Var_: {
-      return sym * (outter_mul_factor + IndexExpr(1));
-    }
-    case ir::IrNodeTy::Add: {
-      if (!common::IsSumPartialBySymbol(lhs->operand(0).as_index(), sym))
-        return lhs->operand(0).as_index() +
-               SimplifySymbolicAdd(
-                   lhs->operand(1).as_index(), sym, outter_mul_factor);
-      return SimplifySymbolicAdd(
-                 lhs->operand(0).as_index(), sym, outter_mul_factor) +
-             lhs->operand(1).as_index();
-    }
-    case ir::IrNodeTy::Mul: {
-      if (lhs->operand(1).is_constant() &&
-          lhs->operand(1).get_constant() == -1) {
-        return SimplifySymbolicAdd(
-                   lhs->operand(0).as_index(), sym, -outter_mul_factor) *
-               lhs->operand(1).as_index();
-      }
-      if (lhs->operand(0).as_index() == sym)
-        return lhs->operand(0).as_index() *
-               (lhs->operand(1).as_index() + outter_mul_factor);
-      return (lhs->operand(0).as_index() + outter_mul_factor) *
-             lhs->operand(1).as_index();
-    }
-    case ir::IrNodeTy::Mod:
-      PADDLE_THROW(::common::errors::Fatal("Error in SimplifySymbolicAdd!"));
-    case ir::IrNodeTy::Div: {
-      return SimplifySymbolicAdd(
-                 lhs->operand(0).as_index(),
-                 sym,
-                 lhs->operand(1).as_index() * outter_mul_factor) /
-             lhs->operand(1).as_index();
-    }
-  }
-}
-
-IndexExpr SimplifySymbolicDivide(const IndexExpr &lhs,
-                                 const IndexExpr &sym,
-                                 const IrNodeTy &ty) {
-  switch (lhs.node_type()) {
-    case ir::IrNodeTy::IntImm: {
-      auto imm = lhs.As<ir::IntImm>();
-      if (imm->value != 0)
-        PADDLE_THROW(
-            ::common::errors::Fatal("Error in SimplifySymbolicDivide!"));
-      return IndexExpr(0);
-    }
-    case ir::IrNodeTy::_Var_:
-      return IndexExpr(1);
-    case ir::IrNodeTy::Add:
-      return SimplifySymbolicDivide(lhs->operand(0).as_index(), sym, ty) +
-             SimplifySymbolicDivide(lhs->operand(1).as_index(), sym, ty);
-    case ir::IrNodeTy::Mul: {
-      if (!common::IsDivisiblieBySymbol(lhs->operand(0).as_index(), sym, ty))
-        return lhs->operand(0).as_index() *
-               SimplifySymbolicDivide(lhs->operand(1).as_index(), sym, ty);
-      return SimplifySymbolicDivide(lhs->operand(0).as_index(), sym, ty) *
-             lhs->operand(1).as_index();
-    }
-    case ir::IrNodeTy::Mod:
-      return SimplifySymbolicDivide(
-                 lhs->operand(0).as_index(), sym, lhs.node_type()) %
-             SimplifySymbolicDivide(
-                 lhs->operand(1).as_index(), sym, lhs.node_type());
-    case ir::IrNodeTy::Div: {
-      return SimplifySymbolicDivide(
-                 lhs->operand(0).as_index(), sym, lhs.node_type()) /
-             lhs->operand(1).as_index();
-    }
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Unsupported type in ConstructIndexExprByNodeType, which is: %s",
+          ty));
   }
 }
 
@@ -1715,6 +1674,9 @@ IndexExpr Simplify(const IndexExpr &expr) {
       auto rhs = Simplify(expr->operand(1).as_index());
       return ConstructIndexExprByNodeType(expr.node_type(), lhs, rhs);
     }
+    default:
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Unsupported type of expr in Simplify which is: %s", expr));
   }
 }
 
@@ -1786,17 +1748,18 @@ static IndexExpr SimplifyAdd(const IndexExpr &lhs, const IndexExpr &rhs) {
   }
 
   // dynamic branch!
-  if (rhs.is_var() && common::IsSumPartialBySymbol(lhs, rhs))
-    return SimplifySymbolicAdd(lhs, rhs);
-  if (auto rhs_mul = rhs.As<ir::Mul>()) {
-    if (rhs_mul->a().is_var() && rhs_mul->b().is_constant()) {
-      if (common::IsSumPartialBySymbol(lhs, rhs_mul->a().as_index())) {
-        return SimplifySymbolicAdd(
-            lhs, rhs_mul->a().as_index(), rhs_mul->b().as_index());
+  if (!rhs.As<IntImm>()) {
+    if (common::IsSumPartialBySymbol(lhs, rhs))
+      return cinn::common::SimplifySymbolicAdd(lhs, rhs);
+    if (auto rhs_mul = rhs.As<ir::Mul>()) {
+      if (rhs_mul->b().is_constant()) {
+        if (common::IsSumPartialBySymbol(lhs, rhs_mul->a().as_index())) {
+          return cinn::common::SimplifySymbolicAdd(
+              lhs, rhs_mul->a().as_index(), rhs_mul->b().as_index());
+        }
       }
     }
   }
-
   return Add::Make(lhs, rhs).as_index();
 }
 
@@ -1819,6 +1782,15 @@ static IndexExpr SimplifyMul(const IndexExpr &lhs, const IndexExpr &rhs) {
       return lhsMul->a().as_index() * (lrhs->value * rhsConst->value);
     }
   }
+
+  // (d0 + 3) * 5 ===> d0 * 5 + 15.
+  auto lhsAdd = lhs.As<Add>();
+  if (lhsAdd && rhsConst) {
+    if (auto lrhs = lhsAdd->b().As<IntImm>()) {
+      return lhsAdd->a().as_index() * rhs + (lrhs->value * rhsConst->value);
+    }
+  }
+
   // (d0 * 2) * d1 ===> d0 * d1 * 2.
   if (lhsMul) {
     if (auto lrhs = lhsMul->b().As<IntImm>()) {
@@ -1853,9 +1825,10 @@ static IndexExpr SimplifyDiv(const IndexExpr &lhs, const IndexExpr &rhs) {
   if (auto rhsConst = rhs.As<IntImm>()) {
     auto lhsAdd = lhs.As<Add>();
     auto lhsMul = lhs.As<Mul>();
+    auto lhsDiv = lhs.As<Div>();
 
     // (expr1 * c1 * c2 + expr2 * c1 * c3) / c1 ===> expr1 * c2 + expr2 * c3.
-    if (lhsAdd && rhsConst) {
+    if (lhsAdd) {
       int64_t llhsFactor = lhsAdd->a().as_index().GetLargestMutiplyPart();
       int64_t lrhsFactor = lhsAdd->b().as_index().GetLargestMutiplyPart();
       if (llhsFactor % rhsConst->value == 0 &&
@@ -1866,23 +1839,30 @@ static IndexExpr SimplifyDiv(const IndexExpr &lhs, const IndexExpr &rhs) {
     }
 
     // expr1 * (c1 * c2) / c1 ===> expr1 * c2.
-    if (lhsMul && rhsConst) {
+    if (lhsMul) {
       if (auto lrhs = lhsMul->b().As<IntImm>()) {
         if (lrhs->value % rhsConst->value == 0) {
           return lhsMul->a().as_index() * (lrhs->value / rhsConst->value);
         }
       }
     }
-  }
-  // dynamic branch!
-  if (rhs.is_var() &&
-      common::IsDivisiblieBySymbol(lhs, rhs, ir::IrNodeTy::Div)) {
-    return SimplifySymbolicDivide(lhs, rhs, ir::IrNodeTy::Div);
-  }
 
-  // S0 / S1 / S2 ===> S0 / (S1 * S2).
-  if (auto lhsDiv = lhs.As<Div>()) {
-    return lhsDiv->a().as_index() / (lhsDiv->b().as_index() * rhs);
+    // S0 / 2 / 5 ===> S0 / 10.
+    if (lhsDiv) {
+      if (auto lrhs = lhsDiv->b().As<IntImm>()) {
+        return lhsDiv->a().as_index() / (lrhs->value * rhsConst->value);
+      }
+    }
+  } else {
+    // dynamic branch!
+    if (common::IsDivisiblieBySymbol(lhs, rhs, ir::IrNodeTy::Div)) {
+      return cinn::common::SimplifySymbolicDivide(lhs, rhs, ir::IrNodeTy::Div);
+    }
+    // TODO(liujinnan): Deal dynamic shape, e.g. S0 / S1 / S2 ===> S0 / (S1 *
+    // S2).
+    // if (auto lhsDiv = lhs.As<Div>()) {
+    //   return lhsDiv->a().as_index() / (lhsDiv->b().as_index() * rhs);
+    // }
   }
 
   return Div::Make(lhs, rhs).as_index();
@@ -1922,12 +1902,11 @@ static IndexExpr SimplifyMod(const IndexExpr &lhs, const IndexExpr &rhs) {
       if (llhsFactor % rhsConst->value == 0)
         return lhsMod->a().as_index() % rhsConst->value;
     }
+  } else {
+    // dynamic branch!
+    if (common::IsDivisiblieBySymbol(lhs, rhs, ir::IrNodeTy::Mod))
+      return IndexExpr(0);
   }
-
-  // dynamic branch!
-  if (rhs.is_var() && common::IsDivisiblieBySymbol(lhs, rhs, ir::IrNodeTy::Mod))
-    return IndexExpr(0);
-
   return Mod::Make(lhs, rhs).as_index();
 }
 IndexExpr IndexExpr::operator-() const { return *this * IndexExpr(-1); }

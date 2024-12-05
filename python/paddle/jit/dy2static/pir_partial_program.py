@@ -94,21 +94,32 @@ class NestSequence:
             variable_list.append(value)
         return variable_map, variable_list
 
-    def restore(self, value_list):
+    def restore(self, tensor_result_list):
         """
-        Restores the nested sequence from value list.
+        Restores the nested sequence from tenosr list.
         """
-        assert len(self._var_list) == len(value_list)
+        assert len(self._var_list) == len(tensor_result_list)
 
-        def to_value(x):
+        def to_tensor_result(x):
             if isinstance(x, Value):
-                return value_list[self._var_map[x]]
+                return tensor_result_list[self._var_map[x]]
             return x
 
         return paddle.utils.pack_sequence_as(
             self._raw_input,
-            list(map(to_value, paddle.utils.flatten(self._raw_input))),
+            list(map(to_tensor_result, paddle.utils.flatten(self._raw_input))),
         )
+
+    @cached_property
+    def quick_index_map(self):
+        raw_inputs = self._raw_input
+        if len(raw_inputs) == 1:
+            raw_inputs = raw_inputs[0]
+        assert all(isinstance(v, Value) for v in raw_inputs)
+        return [self._var_map[v] for v in raw_inputs]
+
+    def quick_restore(self, tensor_list):
+        return [tensor_list[idx] for idx in self.quick_index_map]
 
     def __getitem__(self, item):
         return self._var_list[item]
@@ -249,8 +260,8 @@ class RunnableProgram:
             self.x_grad_values,
             self.param_grad_values,
             self.out_grad_values,
-            list(self.forward_range),
-            list(self.backward_range),
+            self.forward_range,
+            self.backward_range,
         )
         return [fwd_prog, bwd_prog], prog_attr
 
@@ -623,8 +634,7 @@ class PartialProgramLayer:
             self._cuda_graph_vec,
             *attrs,
         )
-        restored_nest_out = self._restore_out(out_vars)
-        return restored_nest_out
+        return self._outputs.quick_restore(out_vars)
 
     @cached_property
     def origin_runnable_program(self) -> RunnableProgram:
@@ -761,7 +771,7 @@ class PartialProgramLayer:
                         elif kw_name in forward_name_value_map:
                             return forward_name_value_map[kw_name]
                         else:
-                            raise Exception(f"kw_args: {kw_name} not found")
+                            return None
 
                     for [kw_name, kw_value] in (
                         backward_program.global_block().kwargs().items()
@@ -769,9 +779,10 @@ class PartialProgramLayer:
                         forward_matched_value = (
                             get_kwargs_forward_matched_value(kw_name, kw_value)
                         )
-                        share_symbol_shape_from_forward_to_backward(
-                            forward_matched_value, kw_value
-                        )
+                        if forward_matched_value is not None:
+                            share_symbol_shape_from_forward_to_backward(
+                                forward_matched_value, kw_value
+                            )
 
                 if cse_is_enabled():
                     paddle.base.libpaddle.pir.apply_cse_pass(forward_program)
@@ -858,7 +869,7 @@ class PartialProgramLayer:
             if exist a op whose inputs is var, then return True
             """
             if var.type not in [
-                core.VarDesc.VarType.LOD_TENSOR,
+                core.VarDesc.VarType.DENSE_TENSOR,
                 core.VarDesc.VarType.SELECTED_ROWS,
             ]:
                 return False
@@ -1205,10 +1216,10 @@ class PartialProgramLayer:
 
     def _set_grad_type(self, params, train_program: RunnableProgram):
         # NOTE: if user set sparse gradient mode, the param's gradient
-        # will be SelectedRows, not LoDTensor. But tracer will just
-        # set param grad Tensor by forward Tensor(LoDTensor)
+        # will be SelectedRows, not DenseTensor. But tracer will just
+        # set param grad Tensor by forward Tensor(DenseTensor)
         # If we don't change grad_var type here, RunProgramOp need
-        # transform SelectedRows to LoDTensor forcibly, it may not
+        # transform SelectedRows to DenseTensor forcibly, it may not
         # be user wanted result.
         forward_params_grads = train_program.param_grad_values
         train_program = train_program.program
@@ -1221,7 +1232,7 @@ class PartialProgramLayer:
                 )
             elif value.is_dense_tensor_type():
                 param._set_grad_type(
-                    paddle.base.core.VarDesc.VarType.LOD_TENSOR
+                    paddle.base.core.VarDesc.VarType.DENSE_TENSOR
                 )
             else:
                 raise NotImplementedError(

@@ -42,9 +42,16 @@ ENV_SOT_ENABLE_FASTER_GUARD = BooleanEnvironmentVariable(
     "SOT_ENABLE_FASTER_GUARD",
     False,
 )
+ENV_SOT_ENABLE_GUARD_TREE = BooleanEnvironmentVariable(
+    "SOT_ENABLE_GUARD_TREE",
+    False,
+)
 ENV_SOT_EVENT_LEVEL = IntegerEnvironmentVariable("SOT_EVENT_LEVEL", 0)
 ENV_ENABLE_SOT_STEP_PROFILER = BooleanEnvironmentVariable(
     "ENABLE_SOT_STEP_PROFILER", False
+)
+ENV_SOT_BREAK_GRAPH_ON_GET_SYMBOLIC_VALUE = BooleanEnvironmentVariable(
+    "SOT_BREAK_GRAPH_ON_GET_SYMBOLIC_VALUE", False
 )
 
 
@@ -87,6 +94,12 @@ def allow_dynamic_shape_guard(value: bool):
 @contextmanager
 def faster_guard_guard(value: bool):
     with EnvironmentVariableGuard(ENV_SOT_ENABLE_FASTER_GUARD, value):
+        yield
+
+
+@contextmanager
+def guard_tree_guard(value: bool):
+    with EnvironmentVariableGuard(ENV_SOT_ENABLE_GUARD_TREE, value):
         yield
 
 

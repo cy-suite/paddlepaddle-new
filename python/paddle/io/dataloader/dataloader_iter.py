@@ -112,7 +112,7 @@ class _DataLoaderIterBase:
         else:
             self._collate_fn = loader.collate_fn or default_convert_fn
 
-        # LoDTensorBlockingQueue instance for create_py_reader and a thread
+        # DenseTensorBlockingQueue instance for create_py_reader and a thread
         # to put mini-batch data to self._blocking_queue, mini-batch data
         # will be get from:
         # 1. multi-process mode: get data from workers' result queue
@@ -265,8 +265,8 @@ class _DataLoaderIterSingleProcess(_DataLoaderIterBase):
                 for slot in batch:
                     if isinstance(slot, paddle.Tensor):
                         slot = slot.value().get_tensor()
-                    elif not isinstance(slot, core.LoDTensor):
-                        tmp = core.LoDTensor()
+                    elif not isinstance(slot, core.DenseTensor):
+                        tmp = core.DenseTensor()
                         tmp.set(slot, core.CPUPlace())
                         slot = tmp
 
@@ -632,13 +632,13 @@ class _DataLoaderIterMultiProcess(_DataLoaderIterBase):
                             for tensor in batch:
                                 array.append(tensor)
                         else:
-                            # LoDTensor not in shared memory is not
+                            # DenseTensor not in shared memory is not
                             # serializable, cannot be create in workers
                             for slot in batch:
                                 if isinstance(slot, paddle.Tensor):
                                     slot = slot.get_tensor()
-                                elif not isinstance(slot, core.LoDTensor):
-                                    tmp = core.LoDTensor()
+                                elif not isinstance(slot, core.DenseTensor):
+                                    tmp = core.DenseTensor()
                                     tmp.set(slot, core.CPUPlace())
                                     slot = tmp
                                 array.append(slot)
