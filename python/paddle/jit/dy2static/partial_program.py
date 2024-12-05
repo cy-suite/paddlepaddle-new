@@ -852,9 +852,7 @@ class PartialProgramLayer:
             forward_skip_vars,
         )
 
-        self._apply_inplace_pass(
-            forward_built_program, backward_built_program
-        )
+        self._apply_inplace_pass(forward_built_program, backward_built_program)
 
         # NOTE(Aurelius84): Export forward/backward program for SubGraphChecker,
         # see export_subgraph for detail.
@@ -1159,9 +1157,7 @@ def add_build_strategy_for(
         ir_graph = framework.IrGraph(compiled_program._graph)
         built_program = ir_graph.to_program()
         if hasattr(compiled_program._program, 'lr_scheduler'):
-            built_program.lr_scheduler = (
-                compiled_program._program.lr_scheduler
-            )
+            built_program.lr_scheduler = compiled_program._program.lr_scheduler
     else:
         # can't just create a new program, we need copy the vardesc.
         built_program = paddle.static.Program()
