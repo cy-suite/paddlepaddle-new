@@ -30,8 +30,8 @@ logger = get_logger("INFO", __name__)
 class SplitPoint(Enum):
     """
     Marking the position of the split.
-    BEGINNING: will split the model before the specified layer.
-    END: will split the model after the specified layer.
+    SplitPoint.BEGINNING: will split the model before the specified layer.
+    SplitPoint.END: will split the model after the specified layer.
 
     Examples:
         .. code-block:: python
