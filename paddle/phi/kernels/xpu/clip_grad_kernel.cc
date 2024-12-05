@@ -46,11 +46,11 @@ void ClipGradKernel(const Context& ctx,
 
 template <typename T, typename Context>
 void ClipTensorGradKernel(const Context& dev_ctx,
-                    const DenseTensor& x,
-                    const DenseTensor& min,
-                    const DenseTensor& max,
-                    const DenseTensor& out_grad,
-                    DenseTensor* x_grad) {
+                          const DenseTensor& x,
+                          const DenseTensor& min,
+                          const DenseTensor& max,
+                          const DenseTensor& out_grad,
+                          DenseTensor* x_grad) {
   dev_ctx.template Alloc<T>(x_grad);
 
   DenseTensor min_tensor(phi::DataType::BOOL);

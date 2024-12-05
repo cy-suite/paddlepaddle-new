@@ -52,15 +52,19 @@ void ClipKernel(const Context& dev_ctx,
 
 template <typename T, typename Context>
 void ClipTensorKernel(const Context& dev_ctx,
-                 const DenseTensor& x,
-                 const DenseTensor& min,
-                 const DenseTensor& max,
-                 DenseTensor* out) {
+                      const DenseTensor& x,
+                      const DenseTensor& min,
+                      const DenseTensor& max,
+                      DenseTensor* out) {
   using XPUDataType = typename XPUTypeTrait<T>::Type;
-  const XPUDataType* x_data = reinterpret_cast<const XPUDataType*>(x.data<T>());
-  const XPUDataType* min_data = reinterpret_cast<const XPUDataType*>(min.data<T>());
-  const XPUDataType* max_data = reinterpret_cast<const XPUDataType*>(max.data<T>());
-  XPUDataType* out_data = reinterpret_cast<XPUDataType*>(dev_ctx.template Alloc<T>(out));
+  const XPUDataType* x_data =
+      reinterpret_cast<const XPUDataType*>(x.data<T>());
+  const XPUDataType* min_data =
+      reinterpret_cast<const XPUDataType*>(min.data<T>());
+  const XPUDataType* max_data =
+      reinterpret_cast<const XPUDataType*>(max.data<T>());
+  XPUDataType* out_data =
+      reinterpret_cast<XPUDataType*>(dev_ctx.template Alloc<T>(out));
 
   auto min_dims = common::vectorize<int>(min.dims());
   if (min_dims.size() == 0) {
@@ -80,8 +84,13 @@ void ClipTensorKernel(const Context& dev_ctx,
   }
 
   const bool* min_tensor_data = min_tensor.data<bool>();
-  int ret = xpu::select(
-      dev_ctx.x_context(), min_tensor_data, min_data, x_data, out_data, min_tensor_dims, min_dims);
+  int ret = xpu::select(dev_ctx.x_context(),
+                        min_tensor_data,
+                        min_data,
+                        x_data,
+                        out_data,
+                        min_tensor_dims,
+                        min_dims);
 
   PADDLE_ENFORCE_XDNN_SUCCESS(ret, "xpu::select");
 
@@ -94,10 +103,14 @@ void ClipTensorKernel(const Context& dev_ctx,
   }
 
   const bool* max_tensor_data = max_tensor.data<bool>();
-  int ret2 = xpu::select(
-      dev_ctx.x_context(), max_tensor_data, max_data, x_data, out_data, max_tensor_dims, max_dims);
+  int ret2 = xpu::select(dev_ctx.x_context(),
+                         max_tensor_data,
+                         max_data,
+                         x_data,
+                         out_data,
+                         max_tensor_dims,
+                         max_dims);
   PADDLE_ENFORCE_XDNN_SUCCESS(ret2, "xpu::select");
-
 }
 
 }  // namespace phi
