@@ -63,9 +63,6 @@ def parallelize(
         optimizer (paddle.optimizer.Optimizer, optional): the optimizer to be parallelized.
             Could be `None` if no optimizer to be parallelized.
         mesh (paddle.distributed.ProcessMesh, optional): the process mesh for parallelize the model and the optimizer.
-            Best practice: calling `dist.auto_parallel.set_mesh` to set the global mesh ahead of calling `parallelize`
-            and keep the `mesh` parameter as `None.
-            If the `mesh` is not None, the mesh passed to `parallelize` will overwrite the mesh set by `set_mesh`.
         config (dict, optional): a dict contains the parallel config.
             The keys of the dict can be chosen from `dp_config`, `mp_config` and `pp_config` which will be used to
             determine the parallel method for data parallel, tensor parallel and pipeline parallel separately.
