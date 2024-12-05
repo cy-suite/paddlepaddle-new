@@ -185,6 +185,8 @@ class ReduceAsOpPattern
     const auto &y_shape =
         shape_analysis.GetShapeOrDataForValue(op->operand_source(1)).shape();
 
+    std::cerr << "x shape " << x_shape << std::endl;
+    std::cerr << "y shape " << y_shape << std::endl;
     if (x_shape == y_shape) {
       *x_y_shape_equal = true;
       return true;
