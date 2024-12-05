@@ -99,6 +99,13 @@ if(((NOT WITH_ROCM) AND (NOT WITH_GPU)) OR WIN32)
   list(REMOVE_ITEM TEST_OPS test_async_offload_reload)
 endif()
 
+if(WITH_ROCM)
+  add_test(NAME test_hygon_llama_ops
+           COMMAND bash
+                   ${CMAKE_CURRENT_SOURCE_DIR}/hygon_dcu/test_hygon_llama_op.sh)
+  set_tests_properties(test_hygon_llama_ops PROPERTIES TIMEOUT 600)
+endif()
+
 if(NOT WITH_NCCL)
   list(REMOVE_ITEM TEST_OPS test_async_offload_reload)
 endif()
@@ -226,15 +233,8 @@ if(APPLE)
   endif()
   message(
     WARNING
-      "These tests has been disabled in OSX before being fixed: \n test_detection_map_op \n test_dist_se_resnext_*"
+      "These tests has been disabled in OSX before being fixed: \n test_dist_se_resnext_*"
   )
-  # this op is not support on mac
-  list(REMOVE_ITEM TEST_OPS test_fusion_seqexpand_concat_fc_op)
-  list(REMOVE_ITEM TEST_OPS test_detection_map_op)
-endif()
-if(NOT WITH_MKLML)
-  # this op is not support on openblas
-  list(REMOVE_ITEM TEST_OPS test_fusion_seqexpand_concat_fc_op)
 endif()
 
 if(NOT WITH_MKL OR NOT WITH_AVX)

@@ -50,14 +50,8 @@ pir::Type CastToLocalType(pir::Type type) {
       local_types.push_back(CastToLocalType(vec_type[i]));
     }
     return pir::VectorType::get(vec_type.ir_context(), local_types);
-  } else if (!type || type.isa<pir::StackType>() ||
-             type.isa<pir::InletType>() || type.isa<pir::OutletType>()) {
-    // skip if <<NULL TYPE>>
-    return type;
   } else {
-    // TODO(2024-Q2) not all value are dist type
-    PADDLE_THROW(common::errors::PreconditionNotMet(
-        "The type[%s] is not Dist type.", type));
+    return type;
   }
 }
 
@@ -65,20 +59,29 @@ inline bool IsDistType(pir::Type type) { return type.isa<DistTypeInterface>(); }
 
 void ProcessDistBlock(pir::Block* block) {
   auto ctx = pir::IrContext::Instance();
+
+  auto keyword_arguments = block->kwargs();
+  for (auto [_, arg] : keyword_arguments) {
+    if (IsDistType(arg.type())) {
+      arg.set_type(CastToLocalType(arg.type()));
+    }
+  }
+  for (auto arg : block->args()) {
+    if (IsDistType(arg.type())) {
+      arg.set_type(CastToLocalType(arg.type()));
+    }
+  }
   for (auto& val : *block) {
     pir::Operation* op_item = &val;
     VLOG(6) << "dist_to_dense main loop over op [" << op_item->name() << "].";
 
+    for (auto& sub_block : val.blocks()) {
+      ProcessDistBlock(&sub_block);
+    }
+
     for (size_t i = 0; i < op_item->num_results(); ++i) {
       auto result = op_item->result(i);
       result.set_type(CastToLocalType(result.type()));
-    }
-
-    for (size_t i = 0; i < op_item->num_operands(); ++i) {
-      auto input = op_item->operand_source(i);
-      if (IsDistType(input.type())) {
-        input.set_type(CastToLocalType(input.type()));
-      }
     }
 
     if (op_item->isa<DataOp>()) {
@@ -157,7 +160,7 @@ void ProcessDistBlock(pir::Block* block) {
                      .chunk_id();
       op_item->erase_attribute(kAttrOpDistAttr);
     }
-    op_item->set_attribute("chunk_id", pir::Int64Attribute::get(ctx, chunk_id));
+    op_item->set_attribute("chunk_id", pir::Int32Attribute::get(ctx, chunk_id));
 
     // TODO(2024-Q2) Handle other special dist op in future.
   }
@@ -169,8 +172,29 @@ void ProcessDistBlock(pir::Block* block) {
     3. no shard_tensor / reshard in block.
 */
 void VerifyDenseBlock(pir::Block* block) {
+  for (auto [key, arg] : block->kwargs()) {
+    PADDLE_ENFORCE_EQ(
+        IsDistType(arg.type()),
+        false,
+        common::errors::PreconditionNotMet(
+            "Block still contain keyword argument [%s]  dist type.", key));
+  }
+
+  for (auto arg : block->args()) {
+    PADDLE_ENFORCE_EQ(
+        IsDistType(arg.type()),
+        false,
+        common::errors::PreconditionNotMet(
+            "Block still contain position argument [%d]  dist type.",
+            arg.dyn_cast<pir::BlockArgument>().index()));
+  }
+
   for (auto& val : *block) {
     pir::Operation* op_item = &val;
+
+    for (auto& sub_block : val.blocks()) {
+      VerifyDenseBlock(&sub_block);
+    }
 
     for (size_t i = 0; i < op_item->num_results(); ++i) {
       auto result = op_item->result(i);
@@ -200,10 +224,6 @@ void VerifyDenseBlock(pir::Block* block) {
 }
 
 void DistToDensePass(pir::Program* prog) {
-  if (FLAGS_print_ir) {
-    VLOG(0) << "IR before DistToDense Pass = " << *prog;
-  }
-
   pir::IrContext* ctx = pir::IrContext::Instance();
   ctx->GetOrRegisterDialect<OperatorDialect>();
   ctx->GetOrRegisterDialect<DistDialect>();

@@ -185,7 +185,7 @@
   kernel :
     func : fc_xpu
     data_type : x
-  optional : bias, x_max, scale_max, out_max_in
+  optional : bias, x_max, w_max, scale_max, out_max_in
 
 - op : fp8_fp8_half_gemm_fused
   args : (Tensor x, Tensor y, Tensor bias, bool transpose_x = false, bool transpose_y = false, float scale = 1.0f, str output_dtype = "float16", str activation_type = "identity")
@@ -385,6 +385,21 @@
     func : fused_linear_param_grad_add
     data_type : dout
   support_dygraph_mode : true
+  traits : pir::SideEffectTrait
+
+- op : fused_multi_transformer_
+  args : (Tensor x, Tensor[] ln_scales, Tensor[] ln_biases, Tensor[] qkv_weights, Tensor[] qkv_biases, Tensor[] cache_kvs, Tensor[] pre_caches, Tensor rotary_tensor, Tensor beam_offset, Tensor time_step, Tensor seq_lengths, Tensor src_mask, Tensor[] out_linear_weights, Tensor[] out_linear_biases, Tensor[] ffn_ln_scales, Tensor[] ffn_ln_biases, Tensor[] ffn1_weights, Tensor[] ffn1_biases, Tensor[] ffn2_weights, Tensor[] ffn2_biases, bool pre_layer_norm = true, float epsilon = 1e-5, float residual_alpha = 1.0f, float dropout_rate = .5f, int rotary_emb_dims = 0, bool is_test = false, str dropout_implementation = "downgrade_in_infer", str act_method = "gelu", bool trans_qkvw = true, int ring_id = -1, str norm_type = "layernorm", bool use_neox_rotary_style=true, int gqa_group_size=-1)
+  output :  Tensor[](cache_kv_outs){out_linear_weights.size()}, Tensor(out)
+  infer_meta :
+    func : FusedMultiTransformerInferMeta
+  kernel :
+    func : fused_multi_transformer
+    data_type : x
+  optional : ln_biases, qkv_biases, cache_kvs, pre_caches, rotary_tensor, beam_offset, time_step, seq_lengths, src_mask, out_linear_biases, ffn_ln_biases, ffn1_biases, ffn2_biases, cache_kv_outs
+  inplace : (cache_kvs -> cache_kv_outs)
+  support_dygraph_mode : true
+  data_transform :
+    skip_transform : time_step
 
 - op : fused_multi_transformer_int8_xpu
   args : (Tensor x, Tensor[] ln_scale, Tensor[] ln_bias, Tensor[] qkv_in_max, Tensor[] qkvw, Tensor[] qkv_bias, Tensor[] qkv_scales, Tensor[] out_linear_in_max, Tensor[] out_linear_w, Tensor[] out_linear_bias, Tensor[] out_linear_scales, Tensor[] ffn_ln_scale, Tensor[] ffn_ln_bias, Tensor[] ffn1_in_max, Tensor[] ffn1_weight, Tensor[] ffn1_bias, Tensor[] ffn1_scales, Tensor[] ffn2_in_max, Tensor[] ffn2_weight, Tensor[] ffn2_bias, Tensor[] ffn2_scales, Tensor[] cache_kv, Tensor[] pre_caches, Tensor rotary_pos_emb, Tensor time_step, Tensor seq_lengths, Tensor src_mask, Tensor gather_index, Tensor max_buffer, bool pre_layer_norm, int rotary_emb_dims, float epsilon, float dropout_rate, bool is_test, str dropout_implementation, str act_method, bool trans_qkvw, int ring_id, int gather_axis)
@@ -512,17 +527,6 @@
     data_type : x
   intermediate : col_mat
 
-- op : fusion_seqexpand_concat_fc
-  args : (Tensor[] x, Tensor fc_weight, Tensor fc_bias, str fc_activation="identity")
-  output : Tensor(out), Tensor(fc_out)
-  infer_meta :
-    func : FusionSeqExpandConcatFCInferMeta
-  kernel :
-    func : fusion_seqexpand_concat_fc
-    data_type : x
-  optional : fc_bias
-  intermediate : fc_out
-
 - op : fusion_seqpool_concat
   args: (Tensor[] x, str pooltype = "SUM", int axis = 1)
   output: Tensor (out)
@@ -598,6 +602,16 @@
   kernel :
     func : layer_norm_act_xpu
     data_type : x
+
+- op : layer_norm_relu_xpu
+  args : (Tensor x, Tensor scale, Tensor bias, int begin_norm_axis, float epsilon = 1e-5)
+  output : Tensor(out)
+  infer_meta :
+    func : LayerNormalizeReluXPUInferMeta
+  kernel :
+    func : layer_norm_relu_xpu
+    data_type : x
+  optional : scale, bias
 
 - op : mask_adaptive_xpu
   args : (Tensor mask)

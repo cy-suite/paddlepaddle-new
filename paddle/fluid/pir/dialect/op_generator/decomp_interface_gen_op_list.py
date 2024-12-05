@@ -20,6 +20,7 @@
 # manual decomp interface declare are located in manual_op.h
 decomp_interface_declare_gen_op_list = [
     "add_n",
+    "addmm",
     "any",
     "batch_norm",
     "batch_norm_",
@@ -27,10 +28,10 @@ decomp_interface_declare_gen_op_list = [
     "bmm",
     "clip",
     "dropout",
+    "eye",
     "elu",
     "embedding",
     "flatten",
-    "floor_divide",
     "full_like",
     "gelu",
     "hardswish",
@@ -72,18 +73,19 @@ decomp_interface_declare_gen_op_list = [
     "unstack",
 ]
 
-# come into effect in generated file op_decomp.cc
+# come into effect in generated file op_decomp_rule.cc
 # manual decomp interface implementation are located in manual_op_decomp.cc
 decomp_interface_implementation_gen_op_list = [
     "any",
     "add_n",
+    "addmm",
     "bce_loss",
     "bmm",
     "dropout",
+    "eye",
     "elu",
     "embedding",
     "flatten",
-    "floor_divide",
     "full_like",
     "gelu",
     "hardswish",

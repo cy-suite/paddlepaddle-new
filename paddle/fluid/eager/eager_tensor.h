@@ -130,6 +130,8 @@ class VariableCompatTensor
 
   bool valid() const override { return IsInitialized(); }
 
+  bool has_allocation() const override { return IsInitialized(); }
+
   bool initialized() const override { return IsInitialized(); }
 
   void* AllocateFrom(phi::Allocator* allocator UNUSED,
@@ -212,12 +214,12 @@ class EagerVariable final {
         ConstructVariableFromTensor<phi::SelectedRows>(tensor);
       } else if (IsVariableCompatTensor(tensor) &&
                  static_cast<const VariableCompatTensor*>(tensor.impl().get())
-                     ->IsType<paddle::framework::Vocab>()) {
-        ConstructVariableFromCompatTensor<paddle::framework::Vocab>(tensor);
+                     ->IsType<phi::Vocab>()) {
+        ConstructVariableFromCompatTensor<phi::Vocab>(tensor);
       } else if (IsVariableCompatTensor(tensor) &&
                  static_cast<const VariableCompatTensor*>(tensor.impl().get())
-                     ->IsType<paddle::framework::Strings>()) {
-        ConstructVariableFromCompatTensor<paddle::framework::Strings>(tensor);
+                     ->IsType<phi::Strings>()) {
+        ConstructVariableFromCompatTensor<phi::Strings>(tensor);
       } else {
         PADDLE_THROW(common::errors::Fatal(
             "Unrecognized egr::EagerVariable type, only "
@@ -252,7 +254,7 @@ class EagerVariable final {
       } else {
         PADDLE_THROW(
             common::errors::Fatal("Unable to fetch underlying tensor "
-                                  "from EagerVariable, only LoDTensor and "
+                                  "from EagerVariable, only DenseTensor and "
                                   "Tensor are supported for now"));
       }
     } else {

@@ -49,7 +49,6 @@
 
 PD_DECLARE_bool(cinn_use_cuda_vectorize);
 PD_DECLARE_bool(cinn_bucket_compile);
-PD_DECLARE_bool(cinn_new_group_scheduler);
 PD_DECLARE_bool(cinn_check_tensor_buffer_map);
 const int default_priority = 100;
 
@@ -117,6 +116,12 @@ BucketLoweredFuncsWrapper OpLowererImpl::BucketLower(
   func_bodies = OperationFusion(ops, func_bodies, group->fusion_tracker_ptr);
   std::shared_ptr<FusionGroupInfo> fusion_group_info =
       GetFusionGroupInfo(func_bodies);
+  // TODO(liangshuhao): grid reduce is disabled for broadcast-leaf group now,
+  // because grid reduce introduces extra func args that currently cannot be
+  // unified with other broadcast-leaf groups.
+  if (group->IsBroadcastLeaf()) {
+    fusion_group_info->can_apply_grid_reduce = false;
+  }
 
   if (FLAGS_cinn_check_tensor_buffer_map) {
     optim::CheckTensorBufferMap(func_bodies, "BucketLower OpFusion");
@@ -192,7 +197,7 @@ BucketLoweredFuncsWrapper OpLowererImpl::BucketLower(
                                                    &infer_shape_tensor_args);
   if (FLAGS_cinn_check_tensor_buffer_map) {
     for (ir::LoweredFunc& func : funcs) {
-      optim::CheckTensorBufferMap(Expr(func), "BucketLower PostProcess");
+      optim::CheckTensorBufferMap(func->body, "BucketLower PostProcess");
     }
     VLOG(3) << "PostProcess tensor-buffer map check succeed";
   }
@@ -213,6 +218,9 @@ BucketLoweredFuncsWrapper OpLowererImpl::BucketLower(
   }
   // The last func is x86 kernel.
   for (size_t i = funcs.size() - 1; i < funcs.size(); ++i) {
+    if (funcs[i]->body == ir::Expr(-1)) {
+      continue;
+    }
     funcs[i]->name = funcs[i]->name + "_CX86";
     funcs_wrapper.predicate2funcsCX86.emplace_back(cond2func_bodies[i].first,
                                                    funcs[i]);
@@ -380,13 +388,23 @@ std::vector<ir::LoweredFunc> OpLowererImpl::PostProcess(
 
     // 4.Apply low level pass
     if (i != func_bodies.size() - 1) {
-      func = optim::Optimize(Expr(func), target_, false).as_lowered_func_ref();
-      optim::RearrangeLoadInstruction(&(func->body));
+      func = optim::Optimize(func, target_, false);
     } else {
-      func = optim::Optimize(Expr(func), common::DefaultHostTarget(), false)
-                 .as_lowered_func_ref();
+      func = optim::Optimize(func, common::DefaultHostTarget(), false);
     }
+    func->num_output_tensors = infer_shape_arg_tensor->size();
     lowered_funcs.push_back(std::move(func));
+  }
+
+  // collect temp space sizes
+  if (lowered_funcs.size() > 1) {
+    for (auto& temp_space : lowered_funcs[0]->temp_spaces) {
+      int64_t size = -1;
+      if (temp_space.size().is_constant()) {
+        size = temp_space.size().as_int64();
+      }
+      group->mut_temp_space_sizes().push_back(size);
+    }
   }
 
   return lowered_funcs;
@@ -735,44 +753,29 @@ ir::Expr OpLowererImpl::LowerX86(const OpLoweringGroupPtr& group,
   // for some op, it will output more tmp value and regard as
   // XX_0, XX_1, so we log them in tmp_tensor_info;
 
-  auto need_lower_x86 = [&]() -> bool {
-    for (auto* op : ops) {
-      for (size_t i = 0; i < op->num_operands(); ++i) {
-        auto in = op->operand_source(i);
-        if (!in || !in.type()) {
-          continue;
-        }
-        auto type_info = in.type().dyn_cast<paddle::dialect::DenseTensorType>();
-        auto dtype = type_info.dtype();
-        const auto& dims = type_info.dims();
-        std::vector<ir::Dim> sym_shape;
-        // 1. dynamic shape not need lower x86
-        if (::common::contain_unknown_dim(dims)) {
-          return false;
-        }
-        // 2. size < 4 not need lower x86
-        int64_t sym_shape_size = 1;
-        for (int i = 0; i < dims.size(); ++i) {
-          sym_shape_size *= dims[i];
-          if (sym_shape_size > 4) {
-            return false;
-          }
-        }
+  std::vector<::pir::Value> vec_inputs;
+  std::vector<::pir::Value> vec_outputs;
+  for (auto* op : ops) {
+    for (size_t i = 0; i < op->num_operands(); ++i) {
+      auto in = op->operand_source(i);
+      if (!in || !in.type()) {
+        continue;
       }
 
-      std::vector<Type> out_types;
-      std::vector<std::vector<ir::Dim>> out_shapes;
-      CollectOutputInfo(op, &out_types, &out_shapes, group);
-      for (const auto& tt : out_types) {
-        // 3. float16 not need lower x86
-        if (tt.is_float16()) {
-          return false;
-        }
-      }
+      vec_inputs.push_back(in);
     }
-    return true;
-  };
-  if (!need_lower_x86()) {
+
+    for (size_t i = 0; i < op->num_results(); ++i) {
+      auto out = op->result(i);
+      if (!out || !out.type()) {
+        continue;
+      }
+
+      vec_outputs.push_back(out);
+    }
+  }
+
+  if (!paddle::dialect::CanGroupOpRunCpuKernel(vec_inputs, vec_outputs)) {
     return ir::Expr(-1);
   }
 
@@ -781,7 +784,7 @@ ir::Expr OpLowererImpl::LowerX86(const OpLoweringGroupPtr& group,
 
   std::vector<ir::Expr> func_bodies =
       LowerOps(group, ops, &group_func_arg_tensors, &tensor_map);
-  this->target_ = common::DefaultNVGPUTarget();
+  this->target_ = common::DefaultDeviceTarget();
   cinn::runtime::CurrentTarget::SetCurrentTarget(this->target_);
   ir::ModuleExpr mod_expr(func_bodies);
   ir::IRSchedule ir_sch(

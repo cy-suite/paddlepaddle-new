@@ -37,9 +37,9 @@ limitations under the License. */
 #include "paddle/fluid/framework/channel.h"
 #include "paddle/fluid/framework/fleet/fleet_wrapper.h"
 #include "paddle/fluid/framework/lod_tensor.h"
-#include "paddle/fluid/framework/reader.h"
 #include "paddle/fluid/framework/variable.h"
 #include "paddle/phi/core/framework/data_feed.pb.h"
+#include "paddle/phi/core/framework/reader.h"
 #include "paddle/phi/core/platform/timer.h"
 #include "paddle/utils/string/string_helper.h"
 #if defined(PADDLE_WITH_CUDA)
@@ -1629,7 +1629,7 @@ class MultiSlotType {
       offset_.reserve(max_batch_size + 1);
     }
     offset_.resize(1);
-    // LoDTensor' lod is counted from 0, the size of lod
+    // DenseTensor' lod is counted from 0, the size of lod
     // is one size larger than the size of data.
     offset_[0] = 0;
   }

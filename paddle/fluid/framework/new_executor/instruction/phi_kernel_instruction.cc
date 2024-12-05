@@ -22,11 +22,11 @@
 #include "paddle/fluid/pir/dialect/operator/interface/op_yaml_info.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_dialect.h"
 #include "paddle/fluid/pir/dialect/operator/utils/op_yaml_info_parser.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
 #include "paddle/phi/core/infermeta_utils.h"
 #include "paddle/phi/core/meta_tensor.h"
 #include "paddle/phi/core/platform/collective_helper.h"
 #include "paddle/phi/core/platform/device_context.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 #include "paddle/phi/core/type_defs.h"
 #include "paddle/pir/include/core/builtin_attribute.h"
 #include "paddle/pir/include/core/operation.h"
@@ -38,8 +38,7 @@ PHI_DEFINE_EXPORTED_bool(print_kernel_run_info,
                          false,
                          "Whether print kernel run info.");
 
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 
 PhiKernelInstruction::PhiKernelInstruction(
     size_t id,
@@ -233,5 +232,4 @@ void PhiKernelInstruction::Run() {
   VLOG(6) << "End run op " << phi_op_name_ << " kernel.";
 }
 
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework

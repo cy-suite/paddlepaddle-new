@@ -67,8 +67,8 @@ class TEST_API VarDesc {
  public:
   explicit VarDesc(const std::string &name) {
     desc_.set_name(name);
-    // TODO(paddle-dev): Why default to lodtensor.
-    desc_.mutable_type()->set_type(proto::VarType::LOD_TENSOR);
+    // TODO(paddle-dev): Why default to DenseTensor.
+    desc_.mutable_type()->set_type(proto::VarType::DENSE_TENSOR);
     need_updated_ = true;
   }
 
@@ -134,6 +134,15 @@ class TEST_API VarDesc {
   int32_t GetLoDLevel() const;
 
   std::vector<int32_t> GetLoDLevels() const;
+
+  void SetLegacyLoDLevel(int32_t legacy_lod_level);
+
+  void SetLegacyLoDLevels(
+      const std::vector<int32_t> &multiple_legacy_lod_level);
+
+  int32_t GetLegacyLoDLevel() const;
+
+  std::vector<int32_t> GetLegacyLoDLevels() const;
 
   proto::VarType::Type GetType() const;
 

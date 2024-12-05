@@ -2401,9 +2401,10 @@ set +x
         echo "Starting running xpu tests"
         export XPU_OP_LIST_DIR=$tmp_dir
         ut_startTime_s=`date +%s`
-        test_cases=$(ctest -N -V -LE "(RUN_TYPE=DIST_KUNLUN)" | grep "_xpu" )        # cases list which would be run exclusively
         get_quickly_disable_ut||disable_ut_quickly='disable_ut'   # indicate whether the case was in quickly disable list
+        test_cases=$(ctest -N -V -E "$disable_ut_quickly" -LE "(RUN_TYPE=DIST_KUNLUN)")        # cases list which would be run exclusively
 
+        single_card_test_num=0
         while read -r line; do
             if [[ "$line" == "" ]]; then
                 continue
@@ -2413,6 +2414,17 @@ set +x
                 continue
             fi
             testcase=$(echo "$line"|grep -oEi "\w+$")
+            single_card_test_num=$(($single_card_test_num+1))
+            if [[ $single_card_test_num -gt 1200 ]]; then
+                # too many test cases in single set will lead to ctest "RegularExpression::compile(): Expression too big." error
+                # therefore use a new test set
+                if [[ "$single_card_tests_1" == "" ]]; then
+                    single_card_tests_1="^$testcase$"
+                else
+                    single_card_tests_1="$single_card_tests_1|^$testcase$"
+                fi
+                continue
+            fi
             if [[ "$single_card_tests" == "" ]]; then
                 single_card_tests="^$testcase$"
             else
@@ -2420,6 +2432,7 @@ set +x
             fi
         done <<< "$test_cases";
         card_test "$single_card_tests" 1 4
+        card_test "$single_card_tests_1" 1 4
         failed_test_lists=''
         collect_failed_tests
         xputest_error=0
@@ -2504,13 +2517,13 @@ set +x
             IFS=',' read -ra DEVICES <<< "$CUDA_VISIBLE_DEVICES"
             echo ${DEVICES[0]}
 
-            #echo "Starting to predict ResNet50 model..."
-            #python main.py -c paddlex/configs/image_classification/ResNet50.yaml \
-            #    -o Global.mode=predict \
-            #    -o Predict.model_dir="./resnet50_output/best_model" \
-            #    -o Predict.input_path="https://paddle-model-ecology.bj.bcebos.com/paddlex/imgs/demo_image/general_image_classification_001.jpg" \
-            #    -o Global.device="xpu:${DEVICES[0]}"
-            #echo "Predicting Resnet50 completed!"
+            echo "Starting to predict ResNet50 model..."
+            python main.py -c paddlex/configs/image_classification/ResNet50.yaml \
+                -o Global.mode=predict \
+                -o Predict.model_dir="./resnet50_output/best_model/inference" \
+                -o Predict.input="https://paddle-model-ecology.bj.bcebos.com/paddlex/imgs/demo_image/general_image_classification_001.jpg" \
+                -o Global.device="xpu:${DEVICES[0]}"
+            echo "Predicting Resnet50 completed!"
             cd ..
             export FLAGS_enable_pir_api=1
         fi
@@ -4742,7 +4755,7 @@ function main() {
       cicheck_sot)
         check_run_sot_ci
         export WITH_SHARED_PHI=ON
-        PYTHON_VERSIONS=(3.8 3.9 3.10 3.11 3.12)
+        PYTHON_VERSIONS=(3.13 3.8 3.9 3.10 3.11 3.12)
         for PY_VERSION in ${PYTHON_VERSIONS[@]}; do
             ln -sf $(which python${PY_VERSION}) /usr/local/bin/python
             ln -sf $(which pip${PY_VERSION}) /usr/local/bin/pip

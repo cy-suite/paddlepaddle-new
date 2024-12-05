@@ -54,8 +54,7 @@ limitations under the License. */
 COMMON_DECLARE_string(tensor_operants_mode);
 COMMON_DECLARE_bool(enable_pir_in_executor);
 
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 
 // custom op kernel call function define
 static void RunKernelFunc(
@@ -177,7 +176,7 @@ static void RunKernelFunc(
     } else {
       PADDLE_THROW(common::errors::Unimplemented(
           "Unsupported `%s` type value as custom attribute now. "
-          "Supported data types include `bool`, `int`, `float`, "
+          "Supported data types include `bool`, `int`, `float`, `double`, "
           "`int64_t`, `std::string`, `std::vector<int>`, "
           "`std::vector<float>`, `std::vector<int64_t>`, "
           "`std::vector<std::string>`, Please check whether "
@@ -685,8 +684,7 @@ static void RunInferDtypeFunc(
       if (ctx->HasInput(in_name)) {  // general inputs
         for (size_t i = 0; i < ctx->InputSize(in_name); ++i) {
           auto dtype = ctx->GetInputDataType(in_name, static_cast<int>(i));
-          vec_custom_dtype.emplace_back(
-              paddle::framework::TransToPhiDataType(dtype));
+          vec_custom_dtype.emplace_back(phi::TransToPhiDataType(dtype));
         }
       } else {  // optional inputs, `vec_custom_dtype` is empty
         PADDLE_ENFORCE(
@@ -701,7 +699,7 @@ static void RunInferDtypeFunc(
     } else {
       if (ctx->HasInput(in_name)) {  // general inputs
         auto dtype = ctx->GetInputDataType(in_name);
-        input_dtypes.emplace_back(paddle::framework::TransToPhiDataType(dtype));
+        input_dtypes.emplace_back(phi::TransToPhiDataType(dtype));
       } else {  // optional inputs
         PADDLE_ENFORCE(
             detail::IsOptionalVar(in_name),
@@ -1316,8 +1314,7 @@ LoadOpMetaInfoAndRegisterOp(const std::string& dso_name) {
   return op_meta_info_map.GetMap();
 }
 
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework
 
 #ifdef PADDLE_WITH_CUSTOM_DEVICE
 void PD_RegisterOperator(const char* kernel_name_cstr,
@@ -1369,6 +1366,8 @@ void PD_RegisterOperator(const char* kernel_name_cstr,
         op_attrs.push_back("Attr_" + std::to_string(i) + ":int");
       } else if (attr_type == PD_KernelArgumentType::PD_ARG_TYPE_FLOAT32) {
         op_attrs.push_back("Attr_" + std::to_string(i) + ":float");
+      } else if (attr_type == PD_KernelArgumentType::PD_ARG_TYPE_FLOAT64) {
+        op_attrs.push_back("Attr_" + std::to_string(i) + ":double");
       } else if (attr_type == PD_KernelArgumentType::PD_ARG_TYPE_INT64) {
         op_attrs.push_back("Attr_" + std::to_string(i) + ":int64_t");
       } else if (attr_type == PD_KernelArgumentType::PD_ARG_TYPE_STRING) {

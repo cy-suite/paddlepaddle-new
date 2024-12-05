@@ -20,7 +20,12 @@ import numpy as np
 import paddle
 from paddle.base import core
 from paddle.tensorrt.converter import PaddleToTensorRTConverter
+from paddle.tensorrt.export import (
+    Input,
+    TensorRTConfig,
+)
 from paddle.tensorrt.util import (
+    mark_buitlin_op,
     run_pir_pass,
     warmup_shape_infer,
 )
@@ -35,6 +40,8 @@ class TensorRTBaseTest(unittest.TestCase):
         self.min_shape = None
         self.max_shape = None
         self.target_marker_op = ""
+        self.dynamic_shape_data = {}
+        self.enable_fp16 = None
 
     def create_fake_program(self):
         if self.python_api is None:
@@ -51,7 +58,6 @@ class TensorRTBaseTest(unittest.TestCase):
                     for sub_arg_name, sub_arg_value in self.api_args[
                         feed_name
                     ].items():
-
                         if (
                             feed_name in self.min_shape.keys()
                             and feed_name in self.max_shape.keys()
@@ -164,7 +170,10 @@ class TensorRTBaseTest(unittest.TestCase):
             # init all parameter
             exe.run(startup_program)
             fetch_num = len(fetch_list)
-            fetch_index = [v.index() for v in fetch_list]
+            if isinstance(fetch_list[0], list):
+                fetch_index = [i for i, v in enumerate(fetch_list)]
+            else:
+                fetch_index = [v.index() for v in fetch_list]
             output_expected = self.run_program(main_program, fetch_list)
 
             min_shape_data = dict()  # noqa: C408
@@ -206,12 +215,20 @@ class TensorRTBaseTest(unittest.TestCase):
                         max_shape_data[feed_name] = self.api_args[feed_name]
                         continue
                     else:
-                        min_shape_data[feed_name] = np.random.randn(
-                            *self.min_shape[feed_name]
-                        ).astype(self.api_args[feed_name].dtype)
-                        max_shape_data[feed_name] = np.random.randn(
-                            *self.max_shape[feed_name]
-                        ).astype(self.api_args[feed_name].dtype)
+                        if self.dynamic_shape_data:
+                            min_shape_data[feed_name] = self.dynamic_shape_data[
+                                feed_name
+                            ](self.min_shape[feed_name])
+                            max_shape_data[feed_name] = self.dynamic_shape_data[
+                                feed_name
+                            ](self.max_shape[feed_name])
+                        else:
+                            min_shape_data[feed_name] = np.random.randn(
+                                *self.min_shape[feed_name]
+                            ).astype(self.api_args[feed_name].dtype)
+                            max_shape_data[feed_name] = np.random.randn(
+                                *self.max_shape[feed_name]
+                            ).astype(self.api_args[feed_name].dtype)
 
             scope = paddle.static.global_scope()
             main_program = warmup_shape_infer(
@@ -229,12 +246,26 @@ class TensorRTBaseTest(unittest.TestCase):
             # run pir pass(including some fusion pass and trt_op_marker_pass)
             main_program = run_pir_pass(main_program, partition_mode=False)
 
+            # Adding marker labels to builtin ops facilitates convert processing, but they ultimately do not enter the TensorRT subgraph.
+            mark_buitlin_op(main_program)
+
             # run trt_sub_graph_extract_pass()
             program_with_trt = run_pir_pass(main_program, partition_mode=True)
 
             # run TRTConverter(would lower group_op into tensorrt_engine_op)
+            trt_config = None
+            if self.enable_fp16:
+                input = Input(
+                    min_input_shape=self.min_shape,
+                    optim_input_shape=self.min_shape,
+                    max_input_shape=self.max_shape,
+                )
+                trt_config = TensorRTConfig(inputs=[input])
+                trt_config.tensorrt_precision_mode = "FP16"
 
-            converter = PaddleToTensorRTConverter(program_with_trt, scope)
+            converter = PaddleToTensorRTConverter(
+                program_with_trt, scope, trt_config
+            )
             converter.convert_program_to_trt()
 
             # check whether has trt op

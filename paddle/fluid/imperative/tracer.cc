@@ -26,13 +26,13 @@
 #include "paddle/fluid/imperative/layout_autotune.h"
 #include "paddle/fluid/imperative/op_base.h"
 #include "paddle/fluid/operators/ops_extra_info.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
 #include "paddle/phi/api/lib/api_gen_utils.h"
 #include "paddle/phi/common/place.h"
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/platform/denormal.h"
 #include "paddle/phi/core/platform/device/device_wrapper.h"
 #include "paddle/phi/core/platform/profiler.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 #include "paddle/utils/string/string_helper.h"
 
 COMMON_DECLARE_bool(use_mkldnn);
@@ -40,8 +40,7 @@ COMMON_DECLARE_string(tracer_onednn_ops_on);
 COMMON_DECLARE_string(tracer_onednn_ops_off);
 COMMON_DECLARE_bool(use_stride_kernel);
 
-namespace paddle {
-namespace imperative {
+namespace paddle::imperative {
 thread_local std::string Tracer::python_stack_ = "";
 
 thread_local bool Tracer::use_layout_autotune_ = false;
@@ -649,5 +648,4 @@ phi::KernelSignature Tracer::GetExpectedKernelSignature(
   }
 }
 
-}  // namespace imperative
-}  // namespace paddle
+}  // namespace paddle::imperative

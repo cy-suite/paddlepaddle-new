@@ -24,17 +24,16 @@ limitations under the License. */
 
 #include "paddle/fluid/framework/convert_utils.h"
 #include "paddle/fluid/framework/data_type.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
 #include "paddle/phi/api/lib/data_transform.h"
 #include "paddle/phi/common/complex.h"
 #include "paddle/phi/core/dense_tensor.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 #ifdef PADDLE_WITH_DNNL
 #include "dnnl_debug.h"  // NOLINT
 #endif
 
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 
 template <typename TENSOR>
 void TensorCopyImpl(const TENSOR& src,
@@ -1067,7 +1066,7 @@ std::ostream& print_tensor<phi::dtype::complex<double>>(
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const LoD& lod) {
+std::ostream& operator<<(std::ostream& os, const LegacyLoD& lod) {
   // NOTE(xiongkun):
   // https://stackoverflow.com/questions/5195512/namespaces-and-operator-resolution
   // if we don't redefine, the operator << of phi / framework LoD is not found.
@@ -1075,12 +1074,11 @@ std::ostream& operator<<(std::ostream& os, const LoD& lod) {
   return os;
 }
 
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework
 
 namespace phi {
 
-std::ostream& operator<<(std::ostream& os, const LoD& lod) {
+std::ostream& operator<<(std::ostream& os, const LegacyLoD& lod) {
   paddle::string::operator<<(os, lod);
   return os;
 }

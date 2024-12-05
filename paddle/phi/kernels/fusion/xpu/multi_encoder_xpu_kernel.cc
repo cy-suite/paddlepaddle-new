@@ -104,7 +104,7 @@ void MultiEncoderXPUKernel(
   if (x_dtype == phi::DataType::FLOAT32) {
     auto* x_fp16_data_t = reinterpret_cast<XPUTypeFP16*>(
         ctx.template Alloc<phi::dtype::float16>(x_fp16));
-    int r_cast_x = xpu::cast_v2<float, XPUTypeFP16>(
+    int r_cast_x = xpu::cast<float, XPUTypeFP16>(
         ctx.x_context(), x.data<float>(), x_fp16_data_t, x.numel());
     PADDLE_ENFORCE_XDNN_SUCCESS(r_cast_x,
                                 "multi_encoder_xpu(cast x from fp32 to fp16)");
@@ -141,8 +141,8 @@ void MultiEncoderXPUKernel(
       fc_weight_data_XPUTypeFP16.push_back(
           reinterpret_cast<const XPUTypeFP16*>(fc_weight[i]->data()));
     } else {
-      // Int8 weight also convert to int16_t* for temperary storage.
-      // The kenerl dytpe of int8 is choosen by quant_type in
+      // Int8 weight also convert to int16_t* for temporary storage.
+      // The kernel dtype of int8 is chosen by quant_type in
       // xpu::transformer_encoder
       fc_weight_data_int16_t.push_back(
           reinterpret_cast<const int16_t*>(fc_weight[i]->data()));
@@ -222,7 +222,7 @@ void MultiEncoderXPUKernel(
     if (!enable_int8 && local_quant) {
       TRANSFORMER_ENCODER_KERNEL_IMPL(XPUTypeFP16, XPUTypeFP16, float)
     } else {
-      // The kenerl dytpe of int8 is choosen by quant_type in
+      // The kernel dtype of int8 is chosen by quant_type in
       // xpu::transformer_encoder This template args, int16_t, is only for skip
       // quant fc
       TRANSFORMER_ENCODER_KERNEL_IMPL(XPUTypeFP16, int16_t, int16_t)
@@ -331,10 +331,10 @@ void MultiEncoderXPUKernel(
 
   if (x_dtype == phi::DataType::FLOAT32) {
     int r_cast_out =
-        xpu::cast_v2<XPUTypeFP16, float>(ctx.x_context(),
-                                         out_fp16_data,
-                                         ctx.template Alloc<float>(out),
-                                         out->numel());
+        xpu::cast<XPUTypeFP16, float>(ctx.x_context(),
+                                      out_fp16_data,
+                                      ctx.template Alloc<float>(out),
+                                      out->numel());
     PADDLE_ENFORCE_XDNN_SUCCESS(
         r_cast_out, "multi_encoder_xpu(cast out from fp16 to fp32)");
   }

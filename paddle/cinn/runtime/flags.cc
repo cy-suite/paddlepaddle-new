@@ -72,6 +72,10 @@ PD_DEFINE_bool(cinn_measure_kernel_time,
                BoolFromEnv("FLAGS_cinn_measure_kernel_time", false),
                "Whether to enable schedule config search mode.");
 
+PD_DEFINE_bool(cinn_enable_grid_reduce,
+               BoolFromEnv("FLAGS_cinn_enable_grid_reduce", true),
+               "Whether to enable the grid reduce method.");
+
 PD_DEFINE_bool(cinn_use_op_fusion,
                BoolFromEnv("FLAGS_cinn_use_op_fusion", true),
                "Whether to use op fusion pass.");
@@ -84,10 +88,6 @@ PD_DEFINE_bool(
     cinn_bc_branch_optimize,
     BoolFromEnv("FLAGS_cinn_bc_branch_optimize", true),
     "Whether to open the broadcast branch optimization in frontend.");
-
-PD_DEFINE_bool(cinn_new_group_scheduler,
-               BoolFromEnv("FLAGS_cinn_new_group_scheduler", true),
-               "Whether to use new group scheduler.");
 
 PD_DEFINE_bool(cinn_bucket_compile,
                BoolFromEnv("FLAGS_cinn_bucket_compile", true),
@@ -295,6 +295,10 @@ PD_DEFINE_string(cinn_convert_dynamic_dim_to_static_dim,
 PD_DEFINE_bool(cinn_check_tensor_buffer_map,
                BoolFromEnv("FLAGS_cinn_check_tensor_buffer_map", false),
                "Whether to check tensor buffer mapping in cinn ir.");
+
+PD_DEFINE_bool(cinn_longlong2int,
+               BoolFromEnv("FLAGS_cinn_longlong2int", true),
+               "Whether to cast long long to int for integer.");
 
 namespace cinn {
 namespace runtime {

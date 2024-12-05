@@ -2024,7 +2024,7 @@ void GatherInferMeta(const MetaTensor& x,
 
   auto input_dim = x.dims();
   auto axis_v = axis.to<int>();
-  if (axis_v < 0) axis_v += input_dim.size();
+  if (axis_v < 0) axis_v += static_cast<int>(input_dim.size());
 
   PADDLE_ENFORCE_GE(
       axis_v,
@@ -2257,8 +2257,8 @@ void HingeLossInferMeta(const MetaTensor& logits,
 void HistogramInferMeta(const MetaTensor& input,
                         const MetaTensor& weight,
                         int64_t bins,
-                        int min,
-                        int max,
+                        float min,
+                        float max,
                         bool density,
                         MetaTensor* out) {
   PADDLE_ENFORCE_GE(bins,
@@ -2271,7 +2271,7 @@ void HistogramInferMeta(const MetaTensor& input,
       max,
       min,
       common::errors::InvalidArgument("max must be larger or equal to min."
-                                      "But received max is %d, min is %d",
+                                      "But received max is %f, min is %f",
                                       max,
                                       min));
   if (weight) {

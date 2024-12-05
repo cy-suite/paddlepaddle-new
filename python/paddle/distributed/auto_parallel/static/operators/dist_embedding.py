@@ -143,7 +143,7 @@ def adopt_lookup_table_v1(ctx, main_block, src_op, Ids_var):
         ),
         dtype=Ids_var.dtype,
         shape=target_shape,
-        type=core.VarDesc.VarType.LOD_TENSOR,
+        type=core.VarDesc.VarType.DENSE_TENSOR,
         persistable=False,
         stop_gradient=True,
     )
@@ -155,7 +155,7 @@ def adopt_lookup_table_v1(ctx, main_block, src_op, Ids_var):
         ),
         dtype=Ids_var.dtype,
         shape=target_shape,
-        type=core.VarDesc.VarType.LOD_TENSOR,
+        type=core.VarDesc.VarType.DENSE_TENSOR,
         persistable=False,
         stop_gradient=True,
     )
@@ -556,14 +556,13 @@ class DistributedEmbeddingImpl(DistributedOperatorImpl):
                     )
                     sync_group = new_process_group(group_ranks)
 
-                    startup_block.append_op(
-                        type='c_broadcast',
-                        inputs={'X': param},
-                        outputs={'Out': param},
+                    broadcast_op = startup_block.append_op(
+                        type='broadcast',
+                        inputs={'x': param},
+                        outputs={'out': param},
                         attrs={
                             'ring_id': sync_group.id,
                             'root': 0,
-                            'use_calc_stream': True,
                             OP_ROLE_KEY: OpRole.Forward,
                         },
                     )

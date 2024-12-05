@@ -14,8 +14,7 @@ limitations under the License. */
 
 #include "paddle/fluid/operators/collective/c_softmax_with_cross_entropy_op.h"
 
-namespace paddle {
-namespace operators {
+namespace paddle::operators {
 
 class CSoftmaxWithCrossEntropyOp : public framework::OperatorWithKernel {
  public:
@@ -53,11 +52,12 @@ class CSoftmaxWithCrossEntropyOp : public framework::OperatorWithKernel {
       }
     }
 
-    PADDLE_ENFORCE_EQ(
+    PADDLE_ENFORCE_GE(
         labels_dims[logits_rank - 1],
         1UL,
         common::errors::InvalidArgument(
-            "the last dimension of Input(Label) should be 1."
+            "the last dimension of Input(Label) should be greater than or "
+            "equal to 1."
             "But received: the last dimension of Input(Label) is [%d],"
             "the last dimension is [%d]",
             labels_dims[logits_rank - 1],
@@ -185,8 +185,7 @@ DECLARE_INPLACE_OP_INFERER(CSoftmaxWithCrossEntropyInplaceInferer,
 DECLARE_INPLACE_OP_INFERER(CSoftmaxWithCrossEntropyGradInplaceInferer,
                            {"Softmax", framework::GradVarName("Logits")});
 
-}  // namespace operators
-}  // namespace paddle
+}  // namespace paddle::operators
 
 namespace ops = paddle::operators;
 

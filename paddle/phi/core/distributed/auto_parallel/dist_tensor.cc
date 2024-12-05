@@ -22,8 +22,7 @@
 #include "paddle/phi/core/distributed/auto_parallel/reshard/reshard_utils.h"
 #include "paddle/phi/core/distributed/store/store_utils.h"
 
-namespace phi {
-namespace distributed {
+namespace phi::distributed {
 
 inline void check_defined(const DistTensor& dist_tensor,
                           std::string method_hint) {
@@ -49,16 +48,23 @@ TensorDistAttr ToTensorDistAttr(const ProcessMesh& process_mesh,
     auto& placement = placements[i];
     if (placement->is_shard()) {
       auto shard_dim = dynamic_cast<const Shard&>(*placement).get_dim();
-      PADDLE_ENFORCE_EQ(
-          dim_map[shard_dim],
-          -1,
-          common::errors::InvalidArgument(
-              "Tensor dim %lld is already sharded on mesh dim %lld,"
-              " DistTensor operator implementation does not support things "
-              "like hybrid"
-              " sharding strategies yet (i.e. [Shard(0), Shard(0)])",
-              shard_dim,
-              dim_map[shard_dim]));
+      if (dim_map[shard_dim] != -1) {
+        LOG(WARNING) << "WARNING: Tensor dim " << shard_dim
+                     << " is already sharded on "
+                     << "mesh dim" << dim_map[shard_dim]
+                     << ". Sharding a tensor dim with "
+                     << "multiple mesh dim is not supported yet.";
+      }
+      // PADDLE_ENFORCE_EQ(
+      //     dim_map[shard_dim],
+      //     -1,
+      //     common::errors::InvalidArgument(
+      //         "Tensor dim %lld is already sharded on mesh dim %lld,"
+      //         " DistTensor operator implementation does not support things "
+      //         "like hybrid"
+      //         " sharding strategies yet (i.e. [Shard(0), Shard(0)])",
+      //         shard_dim,
+      //         dim_map[shard_dim]));
       dim_map[shard_dim] = i;
     }
   }
@@ -165,7 +171,7 @@ DistTensor::DistTensor(const std::shared_ptr<phi::DenseTensor>& local_value,
   } else {
     value_ = std::make_shared<DenseTensor>(
         std::make_shared<phi::Allocation>(nullptr, 0, local_value->place()),
-        phi::DenseTensorMeta(local_value->dtype(), global_dims_));
+        phi::DenseTensorMeta(local_value->dtype(), phi::make_ddim({0})));
   }
 }
 
@@ -190,6 +196,11 @@ DistTensor::DistTensor(const std::shared_ptr<phi::DenseTensor>& global_value,
     : global_dims_(global_value->dims()) {
   process_mesh_ = process_mesh;
   placements_ = placements;
+  // If the dims.size() == -1, the dims=[0] by default, which is not consistent
+  // and will cause ToTensorDistAttr‘s error.
+  if (global_dims_ == DDim()) {
+    global_dims_ = phi::make_ddim({});
+  }
   dist_attr_ = ToTensorDistAttr(process_mesh_, placements_, global_dims_);
 
   // If the current rank doesn't in process_mesh, we should create an
@@ -273,6 +284,10 @@ bool DistTensor::valid() const {
 
 bool DistTensor::defined() const { return value_->holder_ != nullptr; }
 
+bool DistTensor::has_allocation() const {
+  return value_->holder_ != nullptr && (value_->holder_->ptr() || numel() != 0);
+}
+
 bool DistTensor::initialized() const {
   return value_->holder_ != nullptr && value_->holder_->ptr();
 }
@@ -316,5 +331,4 @@ void DistTensor::clear() {
   }
 }
 
-}  // namespace distributed
-}  // namespace phi
+}  // namespace phi::distributed

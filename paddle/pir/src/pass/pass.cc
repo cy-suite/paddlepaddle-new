@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/pir/include/pass/pass.h"
+#include <glog/logging.h>
+
 #include "paddle/pir/include/core/ir_context.h"
 #include "paddle/pir/include/core/operation.h"
 #include "paddle/pir/include/core/program.h"
 #include "paddle/pir/include/core/region.h"
 #include "paddle/pir/include/core/verify.h"
+#include "paddle/pir/include/pass/pass.h"
 #include "paddle/pir/include/pass/pass_instrumentation.h"
 #include "paddle/pir/include/pass/pass_manager.h"
 #include "paddle/pir/include/pattern_rewrite/pattern_match.h"
@@ -86,8 +88,13 @@ GreedyRewriteConfig PatternRewritePass::InitializeConfig() {
 }
 
 void PatternRewritePass::Run(Operation* op) {
-  auto [_, num_rewrites] =
-      ApplyPatternsGreedily(op, patterns_, InitializeConfig());
+  VLOG(4) << "Run PatternRewritePass: " << name();
+  GreedyRewriteConfig config = InitializeConfig();
+  if (Has(kValueReplaceHookAttr)) {
+    config.value_replaced_hook =
+        Get<VALUE_REPLACED_HOOK_FUNC>(kValueReplaceHookAttr);
+  }
+  auto [_, num_rewrites] = ApplyPatternsGreedily(op, patterns_, config);
   AddStatistics(num_rewrites);
 }
 
@@ -199,6 +206,10 @@ bool PassManager::Run(Operation* op) {
 bool PassManager::Initialize(IrContext* context) {
   for (auto& pass : passes()) {
     if (!pass->Initialize(context)) return false;
+    if (value_replaced_hook_) {
+      pass->SetNotOwned<VALUE_REPLACED_HOOK_FUNC>(Pass::kValueReplaceHookAttr,
+                                                  &value_replaced_hook_);
+    }
   }
 
   return true;

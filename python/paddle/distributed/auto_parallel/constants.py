@@ -157,6 +157,8 @@ set_field_default_config(SHARDING, "enable_hierarchical_comm", False)
 set_field_default_config(SHARDING, "partition_algor", "greedy_even")
 set_field_default_config(SHARDING, "enable_tuning", False)
 set_field_default_config(SHARDING, "tuning_range", [])
+set_field_default_config(SHARDING, "release_gradients", False)
+set_field_default_config(SHARDING, "comm_buffer_size_MB", -1)
 
 if TYPE_CHECKING:
 
@@ -340,7 +342,11 @@ MP_OPTIMIZATION = "mp_optimization"
 set_field_default_config(
     MP_OPTIMIZATION, "allreduce_matmul_grad_overlapping", False
 )
+set_field_default_config(MP_OPTIMIZATION, "replace_with_c_embedding", False)
 
+set_field_default_config(
+    MP_OPTIMIZATION, "replace_with_parallel_cross_entropy", False
+)
 if TYPE_CHECKING:
 
     class _MPOptimizationConfig(TypedDict, total=False):  # noqa: PYI049

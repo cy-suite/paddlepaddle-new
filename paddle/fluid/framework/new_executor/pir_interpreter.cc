@@ -23,12 +23,12 @@
 #include "paddle/fluid/framework/new_executor/interpreter/interpreter_util.h"
 #include "paddle/fluid/framework/new_executor/interpreter/static_build.h"
 #include "paddle/fluid/framework/operator.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
 #include "paddle/fluid/platform/profiler/supplement_tracing.h"
 #include "paddle/phi/common/place.h"
 #include "paddle/phi/core/kernel_context.h"
 #include "paddle/phi/core/os_info.h"
 #include "paddle/phi/core/platform/device/gpu/gpu_info.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 #include "paddle/phi/core/sparse_coo_tensor.h"
 #include "paddle/phi/core/sparse_csr_tensor.h"
 
@@ -88,6 +88,7 @@ COMMON_DECLARE_bool(enable_pir_in_executor);
 COMMON_DECLARE_bool(enable_pir_in_executor_trace_run);
 COMMON_DECLARE_bool(enable_collect_shape);
 COMMON_DECLARE_int32(low_precision_op_list);
+COMMON_DECLARE_bool(pir_interpreter_record_stream_for_gc_cache);
 
 #define CREATE_INSTR(instr_name)                                   \
   vec_instruction_base_.emplace_back(std::make_unique<instr_name>( \
@@ -108,6 +109,15 @@ void RecordLowPrecisionOp(const InstructionBase* instr_node) {
           op_name, kernel_key.dtype());
     }
   }
+}
+
+bool UseTraceRun(const ExecutionConfig& execution_config,
+                 size_t onednn_op_num,
+                 size_t sync_op_num) {
+  return FLAGS_enable_pir_in_executor_trace_run || onednn_op_num ||
+         execution_config.used_for_inference || execution_config.used_for_sot ||
+         ((execution_config.used_for_jit || execution_config.used_for_cinn) &&
+          (sync_op_num == 0));
 }
 
 PirInterpreter::PirInterpreter(const phi::Place& place,
@@ -472,8 +482,8 @@ void PirInterpreter::ClearLoDTensorArrayInLocalScope() {
   auto vars = local_scope_->LocalVars();
   for (auto var : vars) {
     if (var->IsType<phi::TensorArray>()) {
-      auto* lod_tensor_arr = var->GetMutable<phi::TensorArray>();
-      lod_tensor_arr->clear();
+      auto* dense_tensor_arr = var->GetMutable<phi::TensorArray>();
+      dense_tensor_arr->clear();
     }
   }
 }
@@ -915,7 +925,7 @@ void PirInterpreter::BuildInstruction() {
         continue;
       }
       VLOG(6) << "process " << op_name;
-
+      if (op_name == "pd_op.share_var") continue;
       if (op.isa<paddle::dialect::LegacyKernelOp>()) {  // NOLINT
         CREATE_INSTR(LegacyKernelInstruction);
       } else {
@@ -1140,17 +1150,25 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
   PADDLE_THROW(common::errors::Unimplemented(
       "RecordStreamForGC is only implemented when compiled with GPU."));
 #else
+  if (FLAGS_pir_interpreter_record_stream_for_gc_cache &&
+      instr->SkipRecordStreamForGC()) {
+    return;
+  }
+
   if (!IsInterpretercoreFastGCEnabled() ||
       instr->KernelType() != OpFuncType::kGpuAsync) {
+    instr->SetSkipRecordStreamForGC(true);
     return;
   }
   if (instr->DeviceContext().GetPlace().GetType() ==
       phi::AllocationType::CUSTOM) {
+    instr->SetSkipRecordStreamForGC(true);
     return;
   }
   phi::RecordEvent record(
       "RecordStreamForGC", phi::TracerEventType::UserDefined, 10);
 
+  bool skip_record_stream = true;
   gpuStream_t stream =
       reinterpret_cast<const phi::GPUContext&>(instr->DeviceContext()).stream();
 // TODO(lizhiyu): Only analyse the 'send_v2' for GPT pp strategy right now.
@@ -1176,7 +1194,8 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
     }
   }
 #endif
-  auto TensorRecordStream = [&stream](phi::DenseTensor& tensor) {
+  auto TensorRecordStream = [&stream,
+                             &skip_record_stream](phi::DenseTensor& tensor) {
     auto allocation = tensor.Holder();
     if (allocation == nullptr) {
       return;
@@ -1184,7 +1203,9 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
 
     const phi::Place& place = allocation->place();
     if (phi::is_gpu_place(place)) {
-      memory::RecordStream(allocation, stream);
+      if (memory::RecordStream(allocation, stream)) {
+        skip_record_stream = false;
+      }
     } else if (phi::is_cuda_pinned_place(place)) {
       // TODO(Ruibiao): Here should do something to make sure that the tensor
       // is not freed until the H2D copies done. However, simply launch a
@@ -1240,7 +1261,7 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
     } else if (
         var->IsType<
             operators::reader::
-                OrderedMultiDeviceLoDTensorBlockingQueueHolder>()) {  // NOLINT
+                OrderedMultiDeviceDenseTensorBlockingQueueHolder>()) {  // NOLINT
       // do nothing
     } else if (var->IsType<phi::SelectedRows>()) {
       TensorRecordStream(
@@ -1269,6 +1290,10 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
           "The variable(%s) is not supported in eager deletion.",
           framework::ToTypeName(var->Type())));
     }
+  }
+
+  if (skip_record_stream) {
+    instr->SetSkipRecordStreamForGC(true);
   }
 #endif
 }
@@ -1330,7 +1355,8 @@ void PirInterpreter::CalculateLastLiveOps() {
         // skip no_need_buffer input vars
         if ((ins.count(item.first) &&
              instr->NoNeedBuffer().count(item.first)) ||
-            instr->Name() == "builtin_combine_instruction") {
+            instr->Name() == "builtin_combine_instruction" ||
+            instr->Name() == "pd_op.shadow_feed_tensors") {
           continue;
         }
         gc_check_vars.insert(var_id);
@@ -1343,8 +1369,10 @@ void PirInterpreter::CalculateLastLiveOps() {
           value_exe_info_->GetNameById(static_cast<int>(var_id)));
       PADDLE_ENFORCE_NOT_NULL(
           var,
-          common::errors::NotFound("Var(id=%d) should not be nullptr.",
-                                   static_cast<int>(var_id)));
+          common::errors::NotFound(
+              "Var(id=%d,%s) should not be nullptr.",
+              static_cast<int>(var_id),
+              value_exe_info_->GetNameById(static_cast<int>(var_id))));
       if (var->IsType<phi::DenseTensor>() || var->IsType<phi::SelectedRows>() ||
           var->IsType<phi::TensorArray>() ||
           var->IsType<phi::SparseCooTensor>() ||
@@ -1496,10 +1524,7 @@ paddle::framework::FetchList PirInterpreter::Run(
     PreAnalysis();
     VLOG(4) << "Done PreAnalysis";
 
-    if (FLAGS_enable_pir_in_executor_trace_run || onednn_op_num_ ||
-        execution_config_.used_for_inference ||
-        ((execution_config_.used_for_jit || execution_config_.used_for_cinn) &&
-         (sync_op_num_ == 0))) {
+    if (UseTraceRun(execution_config_, onednn_op_num_, sync_op_num_)) {
       LOG_FIRST_N(INFO, 1) << "pir interpreter is running by trace mode ...";
       TraceRunImpl();
     } else {
@@ -1511,10 +1536,7 @@ paddle::framework::FetchList PirInterpreter::Run(
     is_build_ = true;
     is_shared_results_build_ = true;
   } else {
-    if (FLAGS_enable_pir_in_executor_trace_run || onednn_op_num_ ||
-        execution_config_.used_for_inference ||
-        ((execution_config_.used_for_jit || execution_config_.used_for_cinn) &&
-         (sync_op_num_ == 0))) {
+    if (UseTraceRun(execution_config_, onednn_op_num_, sync_op_num_)) {
       TraceRunImpl();
     } else {
       MultiThreadRunImpl();
@@ -1581,10 +1603,7 @@ FetchList PirInterpreter::Run(const std::vector<std::string>& feed_names,
     VLOG(4) << "Done PreAnalysis";
 
     // Run
-    if (FLAGS_enable_pir_in_executor_trace_run || onednn_op_num_ ||
-        execution_config_.used_for_inference ||
-        ((execution_config_.used_for_jit || execution_config_.used_for_cinn) &&
-         (sync_op_num_ == 0))) {
+    if (UseTraceRun(execution_config_, onednn_op_num_, sync_op_num_)) {
       LOG_FIRST_N(INFO, 1) << "pir interpreter is running by trace mode ...";
       TraceRunImpl();
     } else {
@@ -1596,10 +1615,7 @@ FetchList PirInterpreter::Run(const std::vector<std::string>& feed_names,
     is_build_ = true;
     is_shared_results_build_ = true;
   } else {
-    if (FLAGS_enable_pir_in_executor_trace_run || onednn_op_num_ ||
-        execution_config_.used_for_inference ||
-        ((execution_config_.used_for_jit || execution_config_.used_for_cinn) &&
-         (sync_op_num_ == 0))) {
+    if (UseTraceRun(execution_config_, onednn_op_num_, sync_op_num_)) {
       TraceRunImpl();
     } else {
       MultiThreadRunImpl();

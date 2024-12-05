@@ -207,7 +207,7 @@ class ProgramStats:
             added_var = self.block.create_var(
                 name=var_unique_name,
                 dtype='int32',
-                type=core.VarDesc.VarType.LOD_TENSOR,
+                type=core.VarDesc.VarType.DENSE_TENSOR,
                 persistable=False,
                 stop_gradient=False,
             )
@@ -1252,7 +1252,7 @@ def _get_sub_block_path(
 
     Args:
         sub_block(Block): The sub-block in which to get op path.
-        sub_block_op_desc: The op desc of the sub-block op such as 'while', 'conditional_block' and 'recurrent'.
+        sub_block_op_desc: The op desc of the sub-block op such as 'while', 'conditional_block'.
         no_grad_set(set): The set of no grad var name. no_grad_set will be changed.
         op_path_dict(dict): op_path_dict will be changed.
             key(int) block index
@@ -2763,6 +2763,7 @@ def gradients(
 
         .. code-block:: python
 
+            >>> # doctest: +SKIP("This has diff in xdoctest env")
             >>> import paddle
             >>> import paddle.nn.functional as F
 
@@ -2774,7 +2775,7 @@ def gradients(
             >>> y = F.relu(y)
             >>> z = paddle.static.gradients([y], x)
             >>> print(z)
-            [var x@GRAD : LOD_TENSOR.shape(-1, 2, 8, 8).dtype(float32).stop_gradient(False)]
+            [var x@GRAD : DENSE_TENSOR.shape(-1, 2, 8, 8).dtype(float32).stop_gradient(False)]
     """
     if framework.in_pir_mode():
         check_type(

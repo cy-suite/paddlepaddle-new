@@ -36,12 +36,12 @@ using InferSymbolicShapeCacheValue = std::vector<symbol::ShapeOrDataDimExprs>;
 class IR_API InferSymbolicShapeCacheKey {
  public:
   InferSymbolicShapeCacheKey(
-      const Operation& op,
-      const std::vector<symbol::ShapeOrDataDimExprs>& input_shape_or_datas);
-  InferSymbolicShapeCacheKey(
       const std::string& op_name,
       const std::vector<symbol::ShapeOrDataDimExprs>& input_shape_or_datas,
-      const AttributeMap& attributes);
+      const std::map<std::string, Attribute>& attributes)
+      : op_name_(op_name),
+        input_shape_or_datas_(input_shape_or_datas),
+        attributes_(attributes) {}
   bool operator==(const InferSymbolicShapeCacheKey& other) const;
   std::size_t GetHashValue() const;
   friend std::ostream& operator<<(std::ostream& os,
@@ -51,7 +51,7 @@ class IR_API InferSymbolicShapeCacheKey {
  private:
   std::string op_name_;
   std::vector<symbol::ShapeOrDataDimExprs> input_shape_or_datas_;
-  std::vector<std::pair<std::string, ::pir::Attribute>> attributes_;
+  std::map<std::string, Attribute> attributes_;
   const std::vector<symbol::ShapeOrDataDimExprs>& GetInputShapeOrDatas() const;
   void SetInputShapeOrDatas(
       const std::vector<symbol::ShapeOrDataDimExprs>& input_shape_or_datas);
@@ -101,7 +101,16 @@ class IR_API InferSymbolicShapeContext {
 
   void AddEqualCstr(const symbol::DimExpr& lhs, const symbol::DimExpr& rhs);
 
+  // Add equal constraints for each dim in lhs and rhs.
+  void AddEqualCstr(const std::vector<symbol::DimExpr>& lhs,
+                    const std::vector<symbol::DimExpr>& rhs);
+
   bool IsEqual(const symbol::DimExpr& lhs, const symbol::DimExpr& rhs) const;
+
+  // Returns true if:
+  //    lhs[i] == rhs[i] for all i
+  bool IsEqual(const std::vector<symbol::DimExpr>& lhs,
+               const std::vector<symbol::DimExpr>& rhs) const;
 
   void AddGreatThanOneCstr(const symbol::DimExpr& dim_expr);
 
@@ -186,6 +195,9 @@ class IR_API ShapeConstraintIRAnalysis final
 
   void SetShapeOrDataForValue(Value val,
                               const symbol::ShapeOrDataDimExprs& shape_or_data);
+
+  // Set ShapeOrData of `to` value by ShapeOrData of `from` value.
+  void ShareShapeOrData(Value from, Value to);
 
   bool IsEqual(const symbol::DimExpr& lhs, const symbol::DimExpr& rhs) const;
 

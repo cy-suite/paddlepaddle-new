@@ -31,9 +31,13 @@ from paddle.base.wrapped_decorator import signature_safe_contextmanager
 ALLOW_DYNAMIC_SHAPE_VJP_OPS = [
     "pd_op.abs",
     "pd_op.add",
+    "pd_op.amax",
+    "pd_op.amin",
+    "pd_op.argsort",
     "pd_op.assign",
     "pd_op.batch_norm_",
     "pd_op.cast",
+    "pd_op.ceil",
     "pd_op.concat",
     "pd_op.cos",
     "pd_op.cumprod",
@@ -52,9 +56,13 @@ ALLOW_DYNAMIC_SHAPE_VJP_OPS = [
     "pd_op.gather_nd",
     "pd_op.gelu",
     "pd_op.hardswish",
+    "pd_op.kron",
+    "pd_op.kthvalue",
+    "pd_op.layer_norm",
     "pd_op.leaky_relu",
     "pd_op.log",
     "pd_op.logcumsumexp",
+    "pd_op.logsumexp",
     "pd_op.matmul",
     "pd_op.max",
     "pd_op.maximum",
@@ -86,10 +94,13 @@ ALLOW_DYNAMIC_SHAPE_VJP_OPS = [
     "pd_op.sum",
     "pd_op.swiglu",
     "pd_op.swish",
+    "pd_op.take_along_axis",
     "pd_op.tanh",
+    "pd_op.tile",
     "pd_op.topk",
-    "pd_op.unsqueeze",
     "pd_op.transpose",
+    "pd_op.trunc",
+    "pd_op.unsqueeze",
     "pd_op.where",
 ]
 
@@ -318,9 +329,6 @@ def _check_vjp_dynamic_shape(op, inputs):
     for items in inputs:
         for item in items:
             if item.initialized() and -1 in item.shape:
-                warnings.warn(
-                    f"[Prim] Decomp op does not support dynamic shape -1, but got shape {item.shape} in inputs of op {op.name()} . Prim will skip its vjp op."
-                )
                 return True
 
 

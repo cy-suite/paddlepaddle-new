@@ -66,6 +66,21 @@ std::ostream &operator<<(std::ostream &os, IrNodeTy type) {
   return os;
 }
 
+std::ostream &operator<<(std::ostream &os, StmtNodeTy type) {
+  switch (type) {
+#define __m(t__)                         \
+  case StmtNodeTy::t__:                  \
+    os << "<stmt node: " << #t__ << ">"; \
+    break;
+
+    NODETY_FORALL_STMT(__m)
+#undef __m
+    default:
+      PADDLE_THROW(
+          ::common::errors::InvalidArgument("unknown StmtNodeTy found"));
+  }
+}
+
 Expr Zero(const Type &type) {
   if (type.is_bfloat16()) return Expr(bfloat16(0.f));
   if (type.is_float16()) return Expr(float16(0.f));
@@ -247,34 +262,44 @@ double Expr::get_constant() const {
 
 bool Expr::is_var() const { return As<_Var_>(); }
 
+bool Expr::is_index() const {
+  switch (node_type()) {
+    case ir::IrNodeTy::_Var_:
+      [[fallthrough]];
+    case ir::IrNodeTy::IntImm: {
+      if (type().is_index_type()) return true;
+    }
+    case ir::IrNodeTy::Add:
+      [[fallthrough]];
+    case ir::IrNodeTy::Sub:
+      [[fallthrough]];
+    case ir::IrNodeTy::Mul:
+      [[fallthrough]];
+    case ir::IrNodeTy::Div:
+      [[fallthrough]];
+    case ir::IrNodeTy::Mod:
+      return p_->operand(0).is_index() && p_->operand(1).is_index();
+  }
+  return false;
+}
+
+const IndexExpr Expr::as_index() const {
+  if (is_index()) {
+    return IndexExpr(*this);
+  }
+  PADDLE_THROW(::common::errors::InvalidType("Expr is not IndexExpr!"));
+}
+
+IndexExpr Expr::as_index() {
+  if (is_index()) {
+    return IndexExpr(*this);
+  }
+  PADDLE_THROW(::common::errors::InvalidType("Expr is not IndexExpr!"));
+}
+
 _Buffer_ *Expr::as_buffer() { return As<_Buffer_>(); }
 const _Buffer_ *Expr::as_buffer() const { return As<_Buffer_>(); }
 Buffer Expr::as_buffer_ref() const { return Buffer(&Reference(as_buffer())); }
-
-_LoweredFunc_ *Expr::as_lowered_func() { return As<_LoweredFunc_>(); }
-const _LoweredFunc_ *Expr::as_lowered_func() const {
-  return As<_LoweredFunc_>();
-}
-
-_Module_ *Expr::as_module() { return As<_Module_>(); }
-const _Module_ *Expr::as_module() const { return As<_Module_>(); }
-ir::Module Expr::as_module_ref() const {
-  auto *module = as_module();
-  PADDLE_ENFORCE_NOT_NULL(
-      module,
-      ::common::errors::InvalidArgument(
-          "module is a nullptr. It must not be null"));  // Need check here?
-  // TODO(Superjomn) remove the Reference here.
-  return ir::Module(&Reference(module));
-}
-
-LoweredFunc Expr::as_lowered_func_ref() const {
-  auto *function = as_lowered_func();
-  PADDLE_ENFORCE_NOT_NULL(function,
-                          ::common::errors::InvalidArgument(
-                              "function is a nullptr. It must not be null"));
-  return LoweredFunc(&Reference(function));
-}
 
 _Tensor_ *Expr::as_tensor() { return As<_Tensor_>(); }
 const _Tensor_ *Expr::as_tensor() const { return As<_Tensor_>(); }
@@ -320,17 +345,44 @@ void IrNode::replace(Expr old_op, Expr new_op) {
 }
 
 void IrNode::convert_int32_to_int64() {
-  if (type_ != Int(64))
-    if (type_ != Int(32))
+  if (type_ != Int(64) && type_ != UInt(64))
+    if (type_ != Int(32) && type_ != UInt(32))
       PADDLE_ENFORCE_EQ(type_.is_unk(),
                         true,
                         ::common::errors::InvalidArgument(
                             "Current only support convert int32_t "
                             "to int64_t, but get type is: %s",
                             type_));
-  type_ = Int(64);
+
+  if (type_ == Int(32)) type_ = Int(64);
+  if (type_ == UInt(32)) type_ = UInt(64);
+
   for (Expr &operand : operands) {
     operand->convert_int32_to_int64();
+  }
+}
+
+void IrNode::convert_int64_to_int32() {
+  if (type_ != Int(64) && type_ != UInt(64))
+    if (type_ != Int(32) && type_ != UInt(32))
+      PADDLE_ENFORCE_EQ(type_.is_unk(),
+                        true,
+                        ::common::errors::InvalidArgument(
+                            "Current only support convert int64_t "
+                            "to int32_t, but get type is: %s",
+                            type_));
+
+  if (node_type() == IrNodeTy::IntImm) {
+    auto *int_imm = static_cast<IntImm *>(this);
+    if (int_imm->value >= INT_MAX) return;
+    int_imm->value = int32_t(int_imm->value);
+  }
+
+  if (type_ == Int(64)) type_ = Int(32);
+  if (type_ == UInt(64)) type_ = UInt(32);
+
+  for (Expr &operand : operands) {
+    operand->convert_int64_to_int32();
   }
 }
 

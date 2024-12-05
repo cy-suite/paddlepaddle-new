@@ -100,6 +100,7 @@ if TYPE_CHECKING:
         skip_forward: NotRequired[bool]
         input_names_after_prune: NotRequired[list[str]]
         skip_prune_program: NotRequired[bool]
+        separate_parameters: NotRequired[bool]
 
     class _LoadOptions(TypedDict):
         model_filename: NotRequired[str]
@@ -133,7 +134,8 @@ def copy_decorator_attrs(original_func, decorated_obj):
 
     decorated_obj.__name__ = original_func.__name__
     decorated_obj._decorator_name = decorator_name
-    decorated_obj.__wrapped__ = original_func
+    if not inspect.ismethod(original_func):
+        decorated_obj.__wrapped__ = original_func
     decorated_obj.__doc__ = original_func.__doc__
     if hasattr(original_func, "__module__"):
         decorated_obj.__module__ = original_func.__module__
@@ -333,6 +335,7 @@ def to_static(
                 logging_utils.warn(
                     f"`{class_name}.forward` has already been decorated somewhere. It will be redecorated to replace previous one."
                 )
+            function._original_funcs["forward"] = function.forward
             function.forward = decorated(function.forward)
             return function
         else:
@@ -435,6 +438,9 @@ class _SaveLoadConfig:
         # in the scene of llm-inference, pruning program can cause unexpectable result, an option to skip prune is necessary
         self.skip_prune_program = False
 
+        # if True, the params will be saved separately in multiple files.
+        self.separate_parameters = False
+
     @property
     def output_spec(self):
         return self._output_spec
@@ -510,6 +516,7 @@ def _parse_save_configs(configs: _SaveOptions) -> _SaveLoadConfig:
         "skip_forward",
         "input_names_after_prune",
         "skip_prune_program",
+        "separate_parameters",
     ]
 
     # input check
@@ -530,6 +537,7 @@ def _parse_save_configs(configs: _SaveOptions) -> _SaveLoadConfig:
         "input_names_after_prune", None
     )
     inner_config.skip_prune_program = configs.get("skip_prune_program", False)
+    inner_config.separate_parameters = configs.get("separate_parameters", False)
 
     return inner_config
 
@@ -660,7 +668,9 @@ def _get_output_vars(outputs, output_spec, with_hook=False):
         from paddle.autograd.backward_utils import ValueSet
 
         for var in paddle.utils.flatten(outputs):
-            if isinstance(var, paddle.pir.Value):
+            if isinstance(var, paddle.pir.Value) and var not in ValueSet(
+                result_list
+            ):
                 result_list.append(var)
 
         if output_spec is not None:
@@ -1269,7 +1279,7 @@ def save(
                 )
                 concrete_program = static_function.concrete_program
 
-                if static_function._class_instance is None:
+                if static_function.class_instance is None:
                     warnings.warn(
                         f'`jit.save` will only save the `Program`, not the parameters. If you have to save the parameters, please make sure that {layer} is a member function of `paddle.nn.Layer` and the saved parameters are in `state_dict`'
                     )
@@ -1279,9 +1289,9 @@ def save(
         if isinstance(inner_layer, Layer):
             dygraph_state_dict = inner_layer.to_static_state_dict()
         elif isinstance(attr_func, StaticFunction):
-            if static_func._class_instance:
+            if static_func.class_instance:
                 dygraph_state_dict = (
-                    static_func._class_instance.to_static_state_dict()
+                    static_func.class_instance.to_static_state_dict()
                 )
 
         if dygraph_state_dict:
@@ -1419,6 +1429,7 @@ def save(
                 program=clone_program,
                 clip_extra=configs.clip_extra,
                 skip_prune_program=configs.skip_prune_program,
+                separate_parameters=configs.separate_parameters,
             )
 
         if combine_params:
@@ -1509,6 +1520,7 @@ def save(
             extra_var_info_path = path + INFER_PARAMS_INFO_SUFFIX
             with open(extra_var_info_path, 'wb') as f:
                 pickle.dump(extra_var_info, f, protocol=2)
+    scope.erase(scope.local_var_names())
 
 
 @dygraph_only
@@ -1525,7 +1537,7 @@ def load(
     .. note::
         If you load model saved by ``paddle.static.save_inference_model`` ,
         there will be the following limitations when using it in fine-tuning:
-        1. Imperative mode do not support LoDTensor. All original model's feed targets or parameters that depend on LoD are temporarily unavailable.
+        1. Imperative mode do not support DenseTensor. All original model's feed targets or parameters that depend on LoD are temporarily unavailable.
         2. All saved model's feed targets need to be passed into TranslatedLayer's forward function.
         3. The variable's ``stop_gradient`` information is lost and can not be recovered.
         4. The parameter's ``trainable`` information is lost and can not be recovered.
@@ -1775,9 +1787,9 @@ def set_dynamic_shape(variable, shape_list):
 
 def get_ast_static_function(function):
     if isinstance(function, SymbolicStaticFunction):
-        if function._class_instance:
+        if function.class_instance:
             dygraph_function = types.MethodType(
-                function._dygraph_function, function._class_instance
+                function._dygraph_function, function.class_instance
             )
         else:
             dygraph_function = function._dygraph_function
@@ -1797,3 +1809,19 @@ def get_ast_static_function(function):
             )
             return ast_static_function
     return function
+
+
+def json_to_pdmodel(net, input_spec, load_path, save_path):
+    net1 = paddle.jit.load(load_path)
+    state_dict = {}
+    for val in net1.state_dict().values():
+        name = val.name[: val.name.rfind('_')]
+        state_dict[name] = val
+
+    name_state_dict = {}
+    for name, var in net.to_static_state_dict().items():
+        name_state_dict[name] = state_dict[var.name]
+
+    net.set_state_dict(name_state_dict)
+    with paddle.pir_utils.OldIrGuard():
+        paddle.jit.save(net, save_path, input_spec)

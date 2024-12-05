@@ -22,9 +22,9 @@ limitations under the License. */
 #include "paddle/fluid/framework/data_type.h"
 #include "paddle/fluid/framework/data_type_transform.h"
 #include "paddle/fluid/framework/op_registry.h"
-#include "paddle/fluid/framework/string_array.h"
 #include "paddle/fluid/framework/tensor_util.h"
 #include "paddle/phi/core/platform/device_context.h"
+#include "paddle/phi/core/vocab/string_array.h"
 
 namespace paddle {
 namespace operators {
@@ -114,7 +114,7 @@ class LoadCombineOpKernel : public framework::OpKernel<T> {
         auto *tensor = out_vars[i]->GetMutable<phi::DenseTensor>();
 
         // Get data from fin to tensor
-        paddle::framework::DeserializeFromStream(*buffer, tensor, dev_ctx);
+        phi::DeserializeFromStream(*buffer, tensor, dev_ctx);
 
         auto in_dtype = tensor->dtype();
         auto out_dtype = load_as_fp16 ? phi::DataType::FLOAT16 : in_dtype;

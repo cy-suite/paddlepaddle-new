@@ -25,6 +25,7 @@ import sys
 import tempfile
 import textwrap
 import types
+import weakref
 from importlib.machinery import SourceFileLoader
 from typing import Any
 
@@ -70,7 +71,7 @@ NO_SHAPE_VAR_TYPE = [
 ]
 
 
-def data_layer_not_check(name, shape, dtype='float32', lod_level=0):
+def data_layer_not_check(name, shape, dtype='float32'):
     """
     This function creates a Tensor on the global block. The created Tensor
     doesn't check the dtype and the shape of feed data because dygraph input
@@ -92,8 +93,6 @@ def data_layer_not_check(name, shape, dtype='float32', lod_level=0):
        dtype (np.dtype|VarType|str, optional): The type of the data. Supported
            dtype: bool, float16, float32, float64, int8, int16, int32, int64,
            uint8. Default: float32
-       lod_level (int, optional): The LoD level of the LoDTensor. Usually users
-           don't have to set this value. Default: 0
 
     Returns:
         Tensor: The global Tensor that gives access to the data.
@@ -108,9 +107,8 @@ def data_layer_not_check(name, shape, dtype='float32', lod_level=0):
         name=name,
         shape=shape,
         dtype=dtype,
-        type=core.VarDesc.VarType.LOD_TENSOR,
+        type=core.VarDesc.VarType.DENSE_TENSOR,
         stop_gradient=True,
-        lod_level=lod_level,
         is_data=True,
         need_check_feed=False,
     )
@@ -143,6 +141,25 @@ class UndefinedVar:
 class Dygraph2StaticException(Exception):
     def __init__(self, message):
         super().__init__(message)
+
+
+class WeakMethod:
+    def __init__(self, fn, instance):
+        self.fn = fn
+        self.instance = weakref.ref(instance)
+
+    @property
+    def __func__(self):
+        return self.fn
+
+    @property
+    def __self__(self):
+        return self.instance()
+
+    def __call__(self, *args, **kwargs):
+        if self.__self__ is None:
+            raise RuntimeError("The object has been destroyed")
+        return self.fn(self.__self__, *args, **kwargs)
 
 
 def saw(x):
@@ -213,7 +230,7 @@ def make_hashable(x, error_msg=None):
 # NOTE(Aurelius84): Consider the following paddle inner API as common case to
 # apply @to_static code transformation as usual. Because they contains
 # user-defined layer, like paddle.distributed.auto_parallel.helper.ProxyLayer.
-AS_NOT_INNER_FUNC_LIST = {"paddle.nn.layer.container.Sequential"}
+AS_NOT_INNER_FUNC_LIST = {"paddle.nn.layer.container.Sequential.forward"}
 
 
 def as_not_paddle_func(path):
@@ -221,7 +238,7 @@ def as_not_paddle_func(path):
     Append API or class as ignored case for is_paddle_func, and they
     will be returned False while calling is_paddle_func(func).
     """
-    global INNER_FUNC_WHITE_LIST
+    global AS_NOT_INNER_FUNC_LIST
     AS_NOT_INNER_FUNC_LIST.add(path)
 
 
@@ -237,15 +254,19 @@ def is_paddle_func(func, ignore_white_list=True):
         return (module.__name__ + '.' + func_name) in AS_NOT_INNER_FUNC_LIST
 
     try:
+        if isinstance(func, paddle.nn.Layer):
+            func = func.forward
+        if isinstance(
+            func, paddle.jit.dy2static.program_translator.StaticFunction
+        ):
+            func = func.dygraph_function
         if isinstance(func, functools.partial):
             func = func.func
-
-        func_name = getattr(func, '__name__', None)
         if inspect.ismethod(func):
-            func_name = func.__self__.__class__.__name__
             func = func.__func__
-        elif hasattr(func, '__class__'):  # for nn.Sequential
-            func_name = func.__class__.__name__
+        func_name = getattr(func, '__name__', None)
+        if inspect.ismethod(func) or inspect.isfunction(func):
+            func_name = func.__qualname__
 
         m = inspect.getmodule(func)
         flag = m is not None and m.__name__.startswith(PADDLE_MODULE_PREFIX)
@@ -303,6 +324,7 @@ def wrap_as_closure(tree: gast.AST, closure_vars: list[str]) -> gast.AST:
                 )
             ],
             value=value,
+            type_comment=None,
         )
 
     def create_wrppper_fn_def_node(name, body) -> gast.FunctionDef:
@@ -321,6 +343,7 @@ def wrap_as_closure(tree: gast.AST, closure_vars: list[str]) -> gast.AST:
             decorator_list=[],
             returns=None,
             type_comment=None,
+            type_params=[],
         )
 
     if not isinstance(tree, gast.Module):
@@ -495,6 +518,8 @@ def func_to_source_code(function, dedent=True):
     """
     if isinstance(function, functools.partial):
         function = function.func
+    if isinstance(function, WeakMethod):
+        function = function.__func__
     if not (inspect.isfunction(function) or inspect.ismethod(function)):
         raise TypeError(
             f"The type of 'function' should be a function or method, but received {type(function).__name__}."
@@ -669,13 +694,19 @@ def cse_is_enabled():
 
 
 def prim_is_enabled():
-    core.check_and_set_prim_all_enabled()
+    core.check_and_set_prim_all_enabled(True)
     return core._is_bwd_prim_enabled() or core._is_fwd_prim_enabled()
 
 
 def is_api_in_module_helper(obj, module_prefix):
     m = inspect.getmodule(obj)
     return m is not None and m.__name__.startswith(module_prefix)
+
+
+def auto_layout_is_enabled():
+    return paddle.get_flags(["FLAGS_enable_auto_layout_pass"])[
+        "FLAGS_enable_auto_layout_pass"
+    ]
 
 
 def is_builtin(func, name=None):
