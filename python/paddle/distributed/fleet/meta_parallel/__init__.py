@@ -28,6 +28,7 @@ from .pipeline_parallel import (  # noqa: F401
     PipelineParallel,
     PipelineParallelWithInterleave,
     PipelineParallelWithInterleaveFthenB,
+    PipelineParallelWithInterleaveFthenBMemoryEfficient,
 )
 from .segment_parallel import SegmentParallel  # noqa: F401
 from .sharding_parallel import ShardingParallel  # noqa: F401
