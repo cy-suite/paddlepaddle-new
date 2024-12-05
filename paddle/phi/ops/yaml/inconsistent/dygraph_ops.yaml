@@ -68,6 +68,28 @@
     data_type : weight
   backward : c_embedding_grad
 
+- op : complex_equal
+  args : (Tensor x, Tensor y)
+  output : Tensor(out)
+  infer_meta :
+    func : CompareInferMeta
+    spmd_rule: ElementwiseBinaryInferSpmd
+  kernel :
+    func : complex_equal
+  inplace: (x -> out)
+  traits : paddle::dialect::ForwardOnlyTrait
+
+- op : complex_not_equal
+  args : (Tensor x, Tensor y)
+  output : Tensor(out)
+  infer_meta :
+    func : CompareInferMeta
+    spmd_rule : ElementwiseBinaryInferSpmd
+  kernel :
+    func : complex_not_equal
+  inplace: (x -> out)
+  traits : paddle::dialect::ForwardOnlyTrait
+
 - op : distribute_fpn_proposals
   args : (Tensor fpn_rois, Tensor rois_num, int min_level, int max_level, int refer_level, int refer_scale, bool pixel_offset)
   output : Tensor[](multi_fpn_rois){max_level - min_level + 1}, Tensor[](multi_level_rois_num){max_level - min_level + 1}, Tensor(restore_index)
