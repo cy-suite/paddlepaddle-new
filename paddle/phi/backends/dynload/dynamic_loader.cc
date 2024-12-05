@@ -72,8 +72,7 @@ PHI_DEFINE_string(rccl_dir,
 PD_DEFINE_string(xpti_dir, "", "Specify path for loading libxpti.so.");
 #endif
 
-namespace phi {
-namespace dynload {
+namespace phi::dynload {
 
 struct PathNode {
   PathNode() = default;
@@ -719,6 +718,20 @@ void* GetFlashAttnDsoHandle() {
 #endif
 }
 
+void* GetFlashAttnV3DsoHandle() {
+  std::string flashattn_dir = "";
+  if (!s_py_site_pkg_path.path.empty()) {
+    flashattn_dir = s_py_site_pkg_path.path;
+  }
+#if defined(__APPLE__) || defined(__OSX__)
+  return GetDsoHandleFromSearchPath(flashattn_dir, "libflashattnv3.dylib");
+#elif defined(_WIN32)
+  return GetDsoHandleFromSearchPath(flashattn_dir, "flashattnv3.dll");
+#else
+  return GetDsoHandleFromSearchPath(flashattn_dir, "libflashattnv3.so");
+#endif
+}
+
 void* GetAfsApiDsoHandle() {
   std::string afsapi_dir = "";
   if (!s_py_site_pkg_path.path.empty()) {
@@ -887,5 +900,4 @@ void* GetXPTIDsoHandle() {
   return nullptr;
 #endif
 }
-}  // namespace dynload
-}  // namespace phi
+}  // namespace phi::dynload

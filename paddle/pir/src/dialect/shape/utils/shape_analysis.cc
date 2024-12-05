@@ -211,9 +211,48 @@ void InferSymbolicShapeContext::AddEqualCstr(const symbol::DimExpr& lhs,
   constraints_manager_.AddEqCstr(lhs, rhs);
 }
 
+void InferSymbolicShapeContext::AddEqualCstr(
+    const std::vector<symbol::DimExpr>& lhs,
+    const std::vector<symbol::DimExpr>& rhs) {
+  PADDLE_ENFORCE_EQ(
+      lhs.size(),
+      rhs.size(),
+      common::errors::InvalidArgument(
+          "Mismatch in dimensions: the size of the left-hand side (lhs) is %d, "
+          "but the right-hand side (rhs) is %d. Both sides must have the same "
+          "number "
+          "of dimensions to add a constraint.",
+          lhs.size(),
+          rhs.size()));
+  for (size_t i = 0; i < lhs.size(); i++) {
+    AddEqualCstr(lhs[i], rhs[i]);
+  }
+}
+
 bool InferSymbolicShapeContext::IsEqual(const symbol::DimExpr& lhs,
                                         const symbol::DimExpr& rhs) const {
   return constraints_manager_.IsEqual(lhs, rhs);
+}
+
+bool InferSymbolicShapeContext::IsEqual(
+    const std::vector<symbol::DimExpr>& lhs,
+    const std::vector<symbol::DimExpr>& rhs) const {
+  PADDLE_ENFORCE_EQ(lhs.size(),
+                    rhs.size(),
+                    common::errors::InvalidArgument(
+                        "Dimension mismatch: The left-hand side (lhs) has %d "
+                        "dimensions, while the "
+                        "right-hand side (rhs) has %d dimensions. Both sides "
+                        "must have an equal number "
+                        "of dimensions for comparison.",
+                        lhs.size(),
+                        rhs.size()));
+  for (size_t i = 0; i < lhs.size(); i++) {
+    if (!IsEqual(lhs[i], rhs[i])) {
+      return false;
+    }
+  }
+  return true;
 }
 
 void InferSymbolicShapeContext::AddGreatThanOneCstr(
@@ -520,13 +559,22 @@ void ShapeConstraintIRAnalysis::InferShapeOrDataForValue(Value val) {
         op->dyn_cast<pir::InferSymbolicShapeInterface>();
     if (infer_symbolic_shape_interface) {
       infer_symbolic_shape_interface.InferSymbolicShape(&context_);
+      // Note(ooooo): Temporarily skip check for CombineOp because TensorArray
+      // inputs.
+      if (op->isa<pir::CombineOp>()) {
+        return;
+      }
+      int index = -1;
       for (auto& result_value : op->results()) {
+        index++;
         if (!result_value || !result_value.type()) {
           continue;
         }
         if (!context_.HasShapeOrDataForValue(result_value)) {
           PADDLE_THROW(common::errors::Fatal(
-              op->name() + " HAS ERROR on InferSymbolicShape!"));
+              op->name() +
+              " HAS ERROR on InferSymbolicShape! The result value with index " +
+              std::to_string(index) + " don't has shape or data."));
         }
       }
     } else {
@@ -568,6 +616,12 @@ ShapeConstraintIRAnalysis::GetShapeOrDataForValue(Value val) {
 void ShapeConstraintIRAnalysis::SetShapeOrDataForValue(
     Value val, const symbol::ShapeOrDataDimExprs& shape_or_data) {
   context_.SetShapeOrDataForValue(val, shape_or_data);
+}
+
+void ShapeConstraintIRAnalysis::ShareShapeOrData(Value from, Value to) {
+  if (context_.HasShapeOrDataForValue(from)) {
+    context_.SetShapeOrDataForValue(to, context_.GetShapeOrDataForValue(from));
+  }
 }
 
 bool ShapeConstraintIRAnalysis::IsEqual(const symbol::DimExpr& lhs,
@@ -750,7 +804,6 @@ pir::PrintHooks ShapeConstraintIRAnalysis::PrintHook() {
       }
     }
     printer.os << " }";
-    printer.os << "\t(op_" << op.id() << ")";
   };
   return print_hook;
 }

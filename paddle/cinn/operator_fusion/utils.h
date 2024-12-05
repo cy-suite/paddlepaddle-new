@@ -61,9 +61,9 @@ static size_t GetRank(pir::Value value) {
   return value.type().dyn_cast<pir::DenseTensorType>().dims().size();
 }
 
-// FIXME(Aurelius84): 0D Tensor is not compitable with other rank.
+// FIXME(Aurelius84): 0D Tensor is not compatible with other rank.
 // So we need to add a special case for 0D Tensor.
-static size_t GetCompitableRank(pir::Value value) {
+static size_t GetCompatibleRank(pir::Value value) {
   size_t rank = GetRank(value);
   return rank == 0 ? 1 : rank;
 }
@@ -182,6 +182,34 @@ std::set<T> ToSet(const std::vector<T>& input) {
 template <typename T>
 std::unordered_set<T> ToUnorderedSet(const std::vector<T>& input) {
   std::unordered_set<T> result(input.begin(), input.end());
+  return result;
+}
+
+template <typename T>
+std::vector<T> SetToVector(const std::set<T>& input) {
+  std::vector<T> result(input.begin(), input.end());
+  return result;
+}
+template <typename T>
+std::vector<T> SetToVector(const std::unordered_set<T>& input) {
+  std::vector<T> result(input.begin(), input.end());
+  return result;
+}
+
+template <typename T1, typename T2>
+std::vector<T1> MapKeyToVector(const std::map<T1, T2>& input) {
+  std::vector<T1> result;
+  for (const auto& pair : input) {
+    result.push_back(pair.first);
+  }
+  return result;
+}
+template <typename T1, typename T2>
+std::vector<T1> MapKeyToVector(const std::unordered_map<T1, T2>& input) {
+  std::vector<T1> result;
+  for (const auto& pair : input) {
+    result.push_back(pair.first);
+  }
   return result;
 }
 
@@ -376,7 +404,7 @@ struct ValueDim {
 
 static std::vector<ValueDim> GetAllValueDimFromValue(const pir::Value& v) {
   std::vector<ValueDim> value_dims;
-  size_t rank = GetCompitableRank(v);
+  size_t rank = GetCompatibleRank(v);
   for (size_t i = 0; i < rank; ++i) {
     value_dims.emplace_back(v, i);
   }
@@ -613,5 +641,16 @@ std::vector<Int> ArangeVector(Int start, Int end, Int step = 1) {
   }
   return res;
 }
+
+bool ShapeProductEqual(const std::vector<symbol::DimExpr>& in_shape,
+                       const std::vector<symbol::DimExpr>& out_shape,
+                       int in_start,
+                       int in_end,
+                       int out_start,
+                       int out_end);
+
+std::vector<std::pair<int, int>> PartionReshapeAxes(
+    const std::vector<symbol::DimExpr>& in_shape,
+    const std::vector<symbol::DimExpr>& out_shape);
 
 }  // namespace cinn::fusion
