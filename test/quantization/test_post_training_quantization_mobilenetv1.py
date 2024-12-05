@@ -761,5 +761,41 @@ class TestPostTrainingAvgONNXFormatForMobilenetv1ARMCPU(
         )
 
 
+class TestPostTrainingCsmscForPwgan(TestPostTrainingQuantization):
+    def test_post_training_csmsc_pwgan(self):
+        model = "pwgan_csmsc"
+        algo = "avg"
+        round_type = "round"
+        data_urls = ['https://paddlespeech.bj.bcebos.com/datasets/BZNSYP.rar']
+        data_md5s = ['c4350563bf7dc298f7dd364b2607be83']
+        quantizable_op_type = [
+            "conv2d",
+            "depthwise_conv2d",
+            "mul",
+            "conv2d_transpose",
+            "matmul",
+            "matmul_v2",
+        ]
+        is_full_quantize = False
+        is_use_cache_file = False
+        is_optimize_model = True
+        diff_threshold = 0.05
+        self.run_test(
+            model,
+            'inference.pdmodel',
+            'inference.pdiparams',
+            algo,
+            round_type,
+            data_urls,
+            data_md5s,
+            "pwgan_csmsc",
+            quantizable_op_type,
+            is_full_quantize,
+            is_use_cache_file,
+            is_optimize_model,
+            diff_threshold,
+        )
+
+
 if __name__ == '__main__':
     unittest.main()
