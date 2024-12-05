@@ -250,33 +250,6 @@ def remove_load_store_pass(instrs: list[Instruction], code_options):
                             instr.argval = b_name
                             instr.arg = store_b.arg
 
-    # remove store load
-    loaded_once = find_loaded_once_local_vars(instrs, code_options)
-
-    modified = True
-    while modified:
-        modified = False
-
-        idx = 0
-        while idx + 1 < len(instrs):
-            opcode1 = instrs[idx]
-            opcode2 = instrs[idx + 1]
-
-            if (
-                opcode1 not in jump_target
-                and opcode2 not in jump_target
-                and opcode1.opname == "STORE_FAST"
-                and opcode2.opname == "LOAD_FAST"
-                or opcode2.opname == "LOAD_FAST_CHECK"
-                and opcode1.argval == opcode2.argval
-                and opcode1.argval in loaded_once
-            ):
-                instrs.remove(opcode1)
-                instrs.remove(opcode2)
-                modified = True
-            else:
-                idx += 1
-
 
 def remove_duplicate_resume(instrs: list[Instruction], code_options):
     resumes = list(filter(lambda instr: instr.opname == "RESUME", instrs))
