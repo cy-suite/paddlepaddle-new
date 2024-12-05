@@ -2353,12 +2353,10 @@ class PipelineParallelWithInterleaveFthenB(PipelineParallelWithInterleave):
         return train_loss
 
 
-class PipelineParallelWithInterleaveFthenBMemoryEfficient(
-    PipelineParallelWithInterleaveFthenB
-):
+class VPPFhenBInBalancedMemory(PipelineParallelWithInterleaveFthenB):
     def __init__(self, layers, hcg, strategy):
         super().__init__(layers=layers, hcg=hcg, strategy=strategy)
-        logger.info("Using PipelineParallelWithInterleaveFthenBMemoryEfficient")
+        logger.info("Using VPPFhenBInBalancedMemory")
 
     def forward_backward_pipeline(
         self,
@@ -2375,9 +2373,14 @@ class PipelineParallelWithInterleaveFthenBMemoryEfficient(
         assert (
             self._using_cache
         ), "cache should be enabled for pipeline with interleave"
-        assert (
-            not forward_only
-        ), "forward_only is not supported in PipelineParallelWithInterleaveFthenBMemoryEfficient"
+        if forward_only:
+            return super().forward_backward_pipeline(
+                data,
+                scaler,
+                forward_only,
+                compute_loss,
+                return_micro_batch_loss,
+            )
 
         # init some attributes for this batch run
         self.scaler = scaler

@@ -21,10 +21,10 @@ from .meta_parallel import (
     PipelineParallel,
     PipelineParallelWithInterleave,
     PipelineParallelWithInterleaveFthenB,
-    PipelineParallelWithInterleaveFthenBMemoryEfficient,
     SegmentParallel,
     ShardingParallel,
     TensorParallel,
+    VPPFhenBInBalancedMemory,
 )
 
 _grad_scalar = None
@@ -171,7 +171,7 @@ def distributed_model(model):
                 if strategy.hybrid_configs[
                     "pp_configs"
                 ].best_unbalanced_scheduler:
-                    model = PipelineParallelWithInterleaveFthenBMemoryEfficient(
+                    model = VPPFhenBInBalancedMemory(
                         model, fleet_env._hcg, strategy=strategy
                     )
                 else:
