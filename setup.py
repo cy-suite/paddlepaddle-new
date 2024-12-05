@@ -1469,9 +1469,9 @@ def get_package_data_and_package_dir():
         shutil.copy(env_dict.get("OPENVINO_CPU_PLUGIN_LIB"), libs_path)
         if os.name != 'nt':
             package_data['paddle.libs'] += [
-                'libopenvino.so.2450',
+                'libopenvino.so.2500',
                 'libtbb.so.12',
-                'libopenvino_paddle_frontend.so.2450',
+                'libopenvino_paddle_frontend.so.2500',
                 'libopenvino_intel_cpu_plugin.so',
             ]
         else:

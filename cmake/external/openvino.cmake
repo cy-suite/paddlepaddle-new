@@ -35,14 +35,22 @@ set(TBB_INC_DIR
 # Introduce variables:
 # * CMAKE_INSTALL_LIBDIR
 include(GNUInstallDirs)
-set(LIBDIR "runtime/lib/intel64")
+string(TOLOWER ${CMAKE_SYSTEM_PROCESSOR} ARCH)
+if(ARCH STREQUAL "x86_64"
+   OR ARCH STREQUAL "amd64"
+   OR CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64")
+  set(ARCH intel64)
+elseif(ARCH STREQUAL "i386")
+  set(ARCH ia32)
+endif()
+set(LIBDIR "runtime/lib/${ARCH}")
 set(TBBDIR "runtime/3rdparty/tbb/lib")
 
 set(OPENVINO_LIB_NAME
-    "libopenvino.so.2450"
+    "libopenvino.so.2500"
     CACHE PATH "libopenvino name." FORCE)
 set(OPENVINO_PADDLE_LIB_NAME
-    "libopenvino_paddle_frontend.so.2450"
+    "libopenvino_paddle_frontend.so.2500"
     CACHE PATH "libopenvino_paddle_frontend name." FORCE)
 set(OPENVINO_CPU_PLUGIN_LIB_NAME
     "libopenvino_intel_cpu_plugin.so"
@@ -90,12 +98,13 @@ else()
   set(BUILD_BYPRODUCTS_ARGS "")
 endif()
 
-set(OPENVINO_TAG 2024.5.0)
+set(OPENVINO_COMMIT 07ecdf07d2974410dc1d67d9fa2d3433dcab7865)
 file(TO_NATIVE_PATH ${PADDLE_SOURCE_DIR}/patches/openvino/convert.patch
      native_convert)
 
-set(OPENVINO_PATCH_COMMAND git checkout -- . && git checkout ${OPENVINO_TAG} &&
-                           patch -Np1 -d ${SOURCE_DIR} < ${native_convert})
+set(OPENVINO_PATCH_COMMAND
+    git checkout -- . && git checkout ${OPENVINO_COMMIT} && patch -Np1 -d
+    ${SOURCE_DIR} < ${native_convert} || true)
 
 ExternalProject_Add(
   ${OPENVINO_PROJECT}

@@ -46,7 +46,7 @@ index 0000000000..a2f2b35816
 +}  // namespace ov
 diff --git a/src/frontends/paddle/src/op/atan2.cpp b/src/frontends/paddle/src/op/atan2.cpp
 new file mode 100644
-index 0000000000..0528c67407
+index 0000000000..7a9c9782e1
 --- /dev/null
 +++ b/src/frontends/paddle/src/op/atan2.cpp
 @@ -0,0 +1,88 @@
@@ -54,7 +54,6 @@ index 0000000000..0528c67407
 +// SPDX-License-Identifier: Apache-2.0
 +//
 +#include "openvino/frontend/paddle/node_context.hpp"
-+#include "openvino/opsets/opset6.hpp"
 +#include "openvino/op/add.hpp"
 +#include "openvino/op/atan.hpp"
 +#include "openvino/op/constant.hpp"
@@ -68,6 +67,7 @@ index 0000000000..0528c67407
 +#include "openvino/op/multiply.hpp"
 +#include "openvino/op/select.hpp"
 +#include "openvino/op/subtract.hpp"
++#include "openvino/opsets/opset6.hpp"
 +using namespace std;
 +using namespace ov::op;
 +
@@ -89,7 +89,7 @@ index 0000000000..0528c67407
 +
 +namespace op {
 +NamedOutputs atan2(const NodeContext& node) {
-+//    default_op_checks(node, 2, {"Atan2"});
++    //    default_op_checks(node, 2, {"Atan2"});
 +    auto y = node.get_input("X1");
 +    auto x = node.get_input("X2");
 +
@@ -168,10 +168,10 @@ index 0000000000..c51a2af6f9
 +}  // namespace frontend
 +}  // namespace ov
 diff --git a/src/frontends/paddle/src/op/expand_v2.cpp b/src/frontends/paddle/src/op/expand_v2.cpp
-index d79e49db28..1a1686319d 100644
+index d79e49db28..ea174efa3a 100644
 --- a/src/frontends/paddle/src/op/expand_v2.cpp
 +++ b/src/frontends/paddle/src/op/expand_v2.cpp
-@@ -19,8 +19,14 @@ NamedOutputs expand_v2(const NodeContext& node) {
+@@ -19,8 +19,16 @@ NamedOutputs expand_v2(const NodeContext& node) {
          auto inputs = node.get_ng_inputs("expand_shapes_tensor");
          ov::NodeVector node_vec;
          for (auto& input : inputs) {
@@ -180,7 +180,9 @@ index d79e49db28..1a1686319d 100644
 +                auto unsqueeze_scalar = default_opset::Constant::create(ov::element::i32, {}, {0});
 +                input = std::make_shared<default_opset::Unsqueeze>(input, unsqueeze_scalar);
 +            }
-+            PADDLE_OP_CHECK(node, input.get_partial_shape().rank().get_length() == 1, "the rank of conv input must == 1");
++            PADDLE_OP_CHECK(node,
++                            input.get_partial_shape().rank().get_length() == 1,
++                            "the rank of conv input must == 1");
              auto cast = std::make_shared<Convert>(input, element::i32);
 -            node_vec.push_back(cast);
 +            node_vec.emplace_back(cast);
@@ -245,26 +247,29 @@ index b066fdfbe7..4a674b61d1 100644
                      shape.size() > 0 || node.has_input("ShapeTensor") || node.has_input("ShapeTensorList"),
                      "fill_constant shape not set");
 diff --git a/src/frontends/paddle/src/op/interp.cpp b/src/frontends/paddle/src/op/interp.cpp
-index e7b317f288..e58b17acaa 100644
+index e7b317f288..5ab551dc3b 100644
 --- a/src/frontends/paddle/src/op/interp.cpp
 +++ b/src/frontends/paddle/src/op/interp.cpp
-@@ -3,6 +3,7 @@
- //
+@@ -4,6 +4,7 @@
 
  #include "default_opset.hpp"
-+#include "openvino/opsets/opset4.hpp"
  #include "openvino/frontend/paddle/node_context.hpp"
++#include "openvino/opsets/opset4.hpp"
 
  namespace ov {
-@@ -147,7 +148,7 @@ static NamedOutputs interpolate(const NodeContext& node,
+ namespace frontend {
+@@ -147,8 +148,9 @@ static NamedOutputs interpolate(const NodeContext& node,
      attrs.pads_begin = {0, 0, 0, 0};
      attrs.pads_end = {0, 0, 0, 0};
 
 -    return node.default_single_output_mapping({std::make_shared<Interpolate>(x, target_spatial_shape, scales, attrs)},
-+    return node.default_single_output_mapping({std::make_shared<ov::opset4::Interpolate>(x, target_spatial_shape, scales, attrs)},
-                                               {"Out"});
+-                                              {"Out"});
++    return node.default_single_output_mapping(
++        {std::make_shared<ov::opset4::Interpolate>(x, target_spatial_shape, scales, attrs)},
++        {"Out"});
  }
 
+ NamedOutputs linear_interp_v2(const NodeContext& node) {
 diff --git a/src/frontends/paddle/src/op/reduce_ops.hpp b/src/frontends/paddle/src/op/reduce_ops.hpp
 index 2b59516042..954d1de425 100644
 --- a/src/frontends/paddle/src/op/reduce_ops.hpp
@@ -282,17 +287,17 @@ index 2b59516042..954d1de425 100644
 
 diff --git a/src/frontends/paddle/src/op/scatter.cpp b/src/frontends/paddle/src/op/scatter.cpp
 new file mode 100644
-index 0000000000..8f96ee5f91
+index 0000000000..b689623c9e
 --- /dev/null
 +++ b/src/frontends/paddle/src/op/scatter.cpp
-@@ -0,0 +1,72 @@
+@@ -0,0 +1,47 @@
 +// Copyright (C) 2018-2024 Intel Corporation
 +// SPDX-License-Identifier: Apache-2.0
 +//
-+
 +#include "default_opset.hpp"
 +#include "openvino/frontend/paddle/node_context.hpp"
 +#include "openvino/opsets/opset15.hpp"
++#include "openvino/opsets/opset4.hpp"
 +
 +namespace ov {
 +namespace frontend {
@@ -303,45 +308,21 @@ index 0000000000..8f96ee5f91
 +    auto ids = node.get_input("Ids");
 +    auto updates = node.get_input("Updates");
 +    bool overwrite = node.get_attribute<bool>("overwrite");
-+    // 只有1维或者0维
-+    //  auto ids_shape=std::make_shared<default_opset::ShapeOf>(ids);
 +    ov::NodeVector node_vec;
 +    if (ids.get_shape().size() == 0) {
 +        ids = std::make_shared<default_opset::Unsqueeze>(ids,
 +                                                         default_opset::Constant::create(ov::element::i64, {1}, {0}));
 +    }
-+    auto cast = std::make_shared<default_opset::Convert>(ids, element::i64);
-+    node_vec.push_back(cast);
-+    node_vec.push_back(default_opset::Constant::create(ov::element::i64, {1}, {0}));
-+    auto shape_node = std::make_shared<default_opset::Concat>(node_vec, 0);
-+    // std::vector<int32_t> vec = {static_cast<int32_t>(ids.get_shape()[0]), 1};
-+    // auto shape_node = default_opset::Constant::create(ov::element::i32, ov::Shape{2}, vec);
-+    auto new_ids = std::make_shared<default_opset::Reshape>(ids, shape_node, true);
-+    // const auto dim_node = default_opset::Constant::create(element::i32, {1}, {0});
-+    // auto update_shape = std::make_shared<default_opset::ShapeOf>(updates);
-+    // auto update_shape_1 = std::make_shared<default_opset::ConvertLike>(update_shape, dim_node);
-+    // auto axis_rank = std::make_shared<default_opset::Add>(dim_node, update_shape_1);
-+    // auto new_axis = std::make_shared<default_opset::Mod>(axis_rank, update_shape_1);
 +
-+    // auto const_1_vec = default_opset::Constant::create(element::i32, Shape{1}, {1});
-+    // auto dim_vec = std::make_shared<default_opset::Reshape>(new_axis, const_1_vec, false);
-+    // auto broadcasted_index = std::make_shared<default_opset::Broadcast>(index, update_shape, dim_vec);
++    node_vec.push_back(default_opset::Constant::create(ov::element::i64, {1}, {ids.get_shape()[0]}));
++    node_vec.push_back(default_opset::Constant::create(ov::element::i64, {1}, {1}));
++    auto shape_node = std::make_shared<default_opset::Concat>(node_vec, 0);
++    auto new_ids = std::make_shared<default_opset::Reshape>(ids, shape_node, true);
 +    if (overwrite) {
-+        // 直接更新 并且按顺序 同torch dim=0
-+        // return node.default_single_output_mapping(
-+        //     {std::make_shared<ov::opset12::ScatterElementsUpdate>(x, broadcasted_index, updates, dim_node)},
-+        //     {"Out"});
 +        return node.default_single_output_mapping({std::make_shared<ov::opset15::ScatterNDUpdate>(x, new_ids, updates)},
 +                                                  {"Out"});
 +    } else {
-+        // 变成 sactter_nd tmp=0 然后 叠加更新
 +        auto x_dtype = x.get_element_type();
-+        // const std::vector<element::Type> supported_type =
-+        //     {element::boolean, element::i16, element::i32, element::i64, element::f16, element::f32, element::f64};
-+        // const bool valid_type =
-+        //     std::any_of(supported_type.begin(), supported_type.end(), [x_dtype](const element::Type& type) {
-+        //         return x_dtype == type;
-+        //     });
 +        const auto value_node = default_opset::Constant::create(x_dtype, {1}, {0});
 +        const auto shape_node = std::make_shared<default_opset::ShapeOf>(x);
 +        const auto zero_node = std::make_shared<default_opset::Broadcast>(value_node, shape_node);
@@ -353,11 +334,11 @@ index 0000000000..8f96ee5f91
 +            {"Out"});
 +    }
 +}
-+
 +}  // namespace op
 +}  // namespace paddle
 +}  // namespace frontend
 +}  // namespace ov
+\ No newline at end of file
 diff --git a/src/frontends/paddle/src/op/scatter_nd_add.cpp b/src/frontends/paddle/src/op/scatter_nd_add.cpp
 new file mode 100644
 index 0000000000..7ef842e5a9
@@ -421,7 +402,7 @@ index 0000000000..64bc75c66a
 +}  // namespace frontend
 +}  // namespace ov
 diff --git a/src/frontends/paddle/src/op_table.cpp b/src/frontends/paddle/src/op_table.cpp
-index 769492eb13..b520629a58 100644
+index 769492eb13..3a6b5dda9f 100644
 --- a/src/frontends/paddle/src/op_table.cpp
 +++ b/src/frontends/paddle/src/op_table.cpp
 @@ -39,9 +39,11 @@ OP_CONVERTER(elementwise_sub);
@@ -461,7 +442,7 @@ index 769492eb13..b520629a58 100644
              {"fill_any_like", op::fill_any_like},
              {"fill_constant", op::fill_constant},
              {"fill_constant_batch_size_like", op::fill_constant_batch_size_like},
-@@ -277,7 +287,14 @@ std::map<std::string, CreatorFunction> get_supported_ops() {
+@@ -277,7 +287,13 @@ std::map<std::string, CreatorFunction> get_supported_ops() {
              {"while", op::while_},
              {"write_to_array", op::write_to_array},
              {"where_index", op::where_index},
@@ -472,8 +453,7 @@ index 769492eb13..b520629a58 100644
 +            {"atan2", op::atan2},
 +            {"scatter", op::scatter},
 +            {"scatter_nd_add", op::scatter_nd_add},
-+            {"take_along_axis", op::take_along_axis}
-+            };
++            {"take_along_axis", op::take_along_axis}};
  };
 
  }  // namespace paddle
