@@ -409,8 +409,8 @@ class TestTileTRTPatternCase1(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.tile
         self.api_args = {
-            "x": np.random.randn(1, 2, 3).astype("int32"),
-            "repeat_times": np.array([1, 2, 3, 4]).astype("int32"),
+            "x": np.random.randn(1, 2, 3).astype("int64"),
+            "repeat_times": np.array([1, 2, 3, 4]).astype("int64"),
         }
         self.program_config = {"feed_list": ["x", "repeat_times"]}
         self.min_shape = {"x": [1, 2, 3]}
