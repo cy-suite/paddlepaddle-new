@@ -281,9 +281,11 @@ cudaipc_create_tensor_list(
       int reduce_m_dim = (sm_version == 90)
                              ? (max_m + world_size - 1) / world_size * nnodes * nnodes
                              : max_m;
-      static BuffersHolder<OutT> reduce_buffers_holder{{reduce_m_dim, n_dim},dev_ctx, tp_group};
+      // static BuffersHolder<OutT> reduce_buffers_holder{{reduce_m_dim, n_dim},dev_ctx, tp_group};
+      static BuffersHolder<OutT> reduce_buffers_holder{{max_m, n_dim},dev_ctx, tp_group};
 
-      reduce_buffers = reduce_buffers_holder.get_buffers({reduce_m_dim, n_dim});
+      // reduce_buffers = reduce_buffers_holder.get_buffers({reduce_m_dim, n_dim});
+      reduce_buffers = reduce_buffers_holder.get_buffers({max_m, n_dim});
       // reduce_buffers =
       //     cudaipc_create_tensor_list<OutT>({reduce_m_dim, n_dim});
       reduce_buffer = reduce_buffers[local_rank];
@@ -472,24 +474,6 @@ void GemmRSKernel(const Context& dev_ctx,
                     common::errors::Unavailable(
                         "comm_ctx is nullptr."));
 
-#if 0
-  auto get_non_const_buffers = [](const std::vector<const DenseTensor*>& buffers) {
-    std::vector<DenseTensor*> nonconst_buffers;
-#if 0
-    nonconst_buffers.reserve(buffers.size());
-    std::transform(buffers.begin(), buffers.end(), nonconst_buffers.begin(),
-                   [] (const DenseTensor* p) { return const_cast<DenseTensor*>(p);});
-#endif
-    std::transform(buffers.begin(), buffers.end(), std::back_inserter(nonconst_buffers),
-                   [] (const DenseTensor* p) { return const_cast<DenseTensor*>(p);});
-    return nonconst_buffers;
-  };
-  std::vector<DenseTensor*> nonconst_output_buffers = get_non_const_buffers(output_buffers);
-  std::vector<DenseTensor*> nonconst_reduce_buffers = get_non_const_buffers(reduce_buffers);
-  std::vector<DenseTensor*> nonconst_sync_buffers = get_non_const_buffers(sync_buffers);
-  std::vector<DenseTensor*> nonconst_barrier_buffers = get_non_const_buffers(barrier_buffers);
-#endif
-
   static int num_blocks = 12;
   static bool use_barrier_queue = false;
   // static bool use_gemmk = no_nvlink;
@@ -514,10 +498,6 @@ void GemmRSKernel(const Context& dev_ctx,
   const int32_t n = transpose_weight ? weight.dims()[1] : weight.dims()[0];
   const int32_t wk = transpose_weight ? weight.dims()[0] : weight.dims()[1];
 
-#if 0
-  static int32_t first_flag = 0;
-#endif
-
   auto launcher = [&](const bool get_workspace_size_flag,
                       const bool get_barrier_workspace_size) -> size_t {
     return phi::dynload::gemm_rs(
@@ -535,10 +515,6 @@ void GemmRSKernel(const Context& dev_ctx,
         gemm_rs_wrapper.barrier_buffer_ptrs.data(),
         gemm_rs_wrapper.sync_buffer_ptrs.data(),
         m, n,
-#if 0
-        first_flag == 0 ? 2304 : k,
-        first_flag == 0 ? 2304 : wk,
-#endif
         k,
         wk,
         gemm_rs_wrapper.nnodes,
@@ -570,150 +546,46 @@ void GemmRSKernel(const Context& dev_ctx,
         gemm_rs_wrapper.event_);
   };
 
-#if 0
-  if (first_flag==0) {
-#endif
-    auto get_workspace_size = [&]() -> size_t {
-      return launcher(true, false);
-    };
+  auto get_workspace_size = [&]() -> size_t {
+    return launcher(true, false);
+  };
 
-    auto get_barrier_workspace_size = [&]() -> size_t {
-      return launcher(false, true);
-    };
+  auto get_barrier_workspace_size = [&]() -> size_t {
+    return launcher(false, true);
+  };
 
-    size_t workspace_size = get_workspace_size();
-    size_t barrier_workspace_size = get_barrier_workspace_size();
+  size_t workspace_size = get_workspace_size();
+  size_t barrier_workspace_size = get_barrier_workspace_size();
 
-    gemm_rs_wrapper.lazy_init_gemm_buffer(workspace_size);
-    gemm_rs_wrapper.lazy_init_barrier_buffer(barrier_workspace_size);
-#if 0
-  }
-
-  first_flag = 1;
-#endif
+  gemm_rs_wrapper.lazy_init_gemm_buffer(workspace_size);
+  gemm_rs_wrapper.lazy_init_barrier_buffer(barrier_workspace_size);
 
   auto gemm_rs = [&]() {
     launcher(false, false);
   };
 
-
   gemm_rs();
 
-  // gemm_rs_wrapper.flux_barrier_all_on_stream();
-
-  // if arch == sm90
-  int reduce_m_dim = m / gemm_rs_wrapper.world_size * gemm_rs_wrapper.nnodes * gemm_rs_wrapper.nnodes;
-#if 0
-  DenseTensor full_output = phi::funcs::Slice<T>(dev_ctx,
-                                                 gemm_rs_wrapper.reduce_buffer,
-                                                 {0},
-                                                 {0},
-                                                 {reduce_m_dim});
-#endif
-
-#if 0
-  auto safe_slice = [&](const DenseTensor& input,
-                        const std::vector<int64_t>& axes,
-                        const IntArray& starts,
-                        const IntArray& ends,
-                        DenseTensor* out) -> void {
-    PADDLE_ENFORCE(
-      input.meta().is_contiguous(),
-      "safe_slice input is not contiguous");
-    std::vector<int64_t> infer_flags={1};
-    std::vector<int64_t> decrease_axis = {};
-    MetaTensor meta_out(output);
-    SliceRawInferMeta(
-      input, axes, starts, ends, infer_flags, decrease_axis, &meta_out);
-    phi::SliceStridedKernel<Context>(dev_ctx, input, axes, starts, ends,
-                                     infer_flags, decrease_axis, output);
-    if(!output->meta().is_contiguous()) {
-      phi::SliceKernel<T, Context>(
-        dev_ctx, input, axes, starts, ends, infer_flags, decrease_axis, output);
-    }
-  };
-#endif
-
-  std::vector<int64_t> infer_flags={1};
-  std::vector<int64_t> decrease_axis = {};
-
-  DenseTensor full_output;
-
-#if 0
-  safe_slice(gemm_rs_wrapper.reduce_buffer, {0}, {0}, {reduce_m_dim}, &full_output);
-#endif
-
-  MetaTensor meta_fullout(&full_output);
-  SliceRawInferMeta(
-    gemm_rs_wrapper.reduce_buffer, {0}, {0}, {reduce_m_dim}, infer_flags, decrease_axis, &meta_fullout);
-  phi::SliceStridedKernel<Context>(dev_ctx, gemm_rs_wrapper.reduce_buffer, {0}, {0}, {reduce_m_dim},
-                                   infer_flags, decrease_axis, &full_output);
-
-  if(!full_output.meta().is_contiguous()) {
-    phi::SliceKernel<T, Context>(dev_ctx, gemm_rs_wrapper.reduce_buffer, {0}, {0}, {reduce_m_dim},
-                                     infer_flags, decrease_axis, &full_output);
-  }
-
-  DenseTensor output_4d;
+  // reduce impl
+  // int local_world_size = world_size / gemm_rs_wrapper.nnodes;
+  DenseTensor output_3d;
   phi::ViewShapeKernel(dev_ctx,
-                       full_output,
-                       {gemm_rs_wrapper.nnodes, gemm_rs_wrapper.nnodes, m / gemm_rs_wrapper.world_size, n},
-                       &output_4d);
-
-#if 0
-  DenseTensor output_4d_local_node = phi::funcs::Slice<T>(dev_ctx,
-                                                          output_4d,
-                                                          {0},
-                                                          {gemm_rs_wrapper.node_idx},
-                                                          {gemm_rs_wrapper.node_idx+1});
-#endif
-
-  DenseTensor output_4d_local_node;
-
-#if 0
-  safe_slice(output_4d, {0}, {gemm_rs_wrapper.node_idx}, {gemm_rs_wrapper.node_idx+1}, &output_4d_local_node);
-#endif
-
-  MetaTensor meta_output_4d_local_node(&output_4d_local_node);
-  SliceRawInferMeta(
-    output_4d, {0}, {gemm_rs_wrapper.node_idx}, {gemm_rs_wrapper.node_idx+1},
-    infer_flags, decrease_axis, &meta_output_4d_local_node);
-  phi::SliceStridedKernel<Context>(dev_ctx, output_4d, {0}, {gemm_rs_wrapper.node_idx}, {gemm_rs_wrapper.node_idx+1},
-                                   infer_flags, decrease_axis, &output_4d_local_node);
-
-  if(!output_4d_local_node.meta().is_contiguous()) {
-    phi::SliceKernel<T, Context>(dev_ctx, output_4d, {0}, {gemm_rs_wrapper.node_idx}, {gemm_rs_wrapper.node_idx+1},
-                                     infer_flags, decrease_axis, &output_4d_local_node);
-  }
-
-
+                       gemm_rs_wrapper.reduce_buffer,
+                       // {gemm_rs_wrapper.nnodes, local_world_size, m / gemm_rs_wrapper.world_size, n},
+                       {gemm_rs_wrapper.world_size, m / gemm_rs_wrapper.world_size, n},
+                       &output_3d);
+  
   // nnodes == 1
   // TODO(umiswing): only 1 node, so just hack bcz idk how to do inplace scatter in paddle.
   // DenseTensor output;
   output->Resize(common::make_dim(m / gemm_rs_wrapper.world_size, n));
   dev_ctx.template Alloc<T>(output);
   phi::SumKernel<T>(dev_ctx,
-                    output_4d_local_node,
+                    output_3d,
                     {0},
                     gemm_rs_wrapper.output_dtype,
                     false,
                     output);
-
-#if 0
-  DenseTensor full_output = phi::funcs::Slice<T>(dev_ctx, gemm_rs_wrapper.output_buffer, {0}, {0}, {m});
-
-  DenseTensor output_4d;
-  phi::ViewShapeKernel(dev_ctx,
-                       full_output,
-                       {gemm_rs_wrapper.nnodes, gemm_rs_wrapper.local_world_size, m / gemm_rs_wrapper.world_size, n},
-                       &output_4d);
-  *fake_output = output_4d;
-#endif
-#if 0
-  fake_output->Resize(common::make_ddim({gemm_rs_wrapper.nnodes, m / gemm_rs_wrapper.world_size, n}));
-  dev_ctx.template Alloc<T>(fake_output);
-  phi::SumKernel<T>(dev_ctx, output_4d, {1}, gemm_rs_wrapper.output_dtype, false, fake_output);
-#endif
 }
 
 } // namespace phi
