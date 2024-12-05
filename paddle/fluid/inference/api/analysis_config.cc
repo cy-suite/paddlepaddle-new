@@ -501,9 +501,11 @@ AnalysisConfig::AnalysisConfig(const AnalysisConfig &other) {
   CP_MEMBER(enable_low_precision_io_);
 
   CP_MEMBER(enable_memory_optim_);
+#ifdef PADDLE_WITH_OPENVINO
   // Openvino related.
   CP_MEMBER(use_openvino_);
   CP_MEMBER(openvino_inference_precision_);
+#endif
   // TensorRT related.
   CP_MEMBER(use_tensorrt_);
   CP_MEMBER(tensorrt_workspace_size_);
@@ -745,6 +747,14 @@ void AnalysisConfig::EnableOpenVINOEngine(Precision inference_precision) {
 #endif
 }
 
+bool AnalysisConfig::openvino_engine_enabled() const {
+#ifdef PADDLE_WITH_OPENVINO
+  return use_openvino_;
+#else
+  return false;
+#endif
+}
+
 void AnalysisConfig::EnableTensorRtEngine(int64_t workspace_size,
                                           int max_batch_size,
                                           int min_subgraph_size,
@@ -975,14 +985,14 @@ void AnalysisConfig::Update() {
     pass_builder()->DisableMKLDNN();
   }
 #endif
-
+#ifdef PADDLE_WITH_OPENVINO
   if (use_openvino_) {
     pass_builder()->ClearPasses();
     for (const auto &pass : kOVSubgraphPasses) {
       pass_builder()->AppendPass(pass);
     }
   }
-
+#endif
   if (use_tensorrt_) {
     pass_builder()->ClearPasses();
     for (const auto &pass : kTRTSubgraphPasses) {
@@ -1304,9 +1314,11 @@ std::string AnalysisConfig::Summary() {
   os.InsertRow({"enable_mkldnn", use_mkldnn_ ? "true" : "false"});
   os.InsertRow(
       {"mkldnn_cache_capacity", std::to_string(mkldnn_cache_capacity_)});
+#ifdef PADDLE_WITH_OPENVINO
   os.InsertRow({"use_openvino", use_openvino_ ? "true" : "false"});
   os.InsertRow({"openvino_inference_precision",
                 inference::Precision2String(openvino_inference_precision_)});
+#endif
   os.InsetDivider();
 
   // gpu info

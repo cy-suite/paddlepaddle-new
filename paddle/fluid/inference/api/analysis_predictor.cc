@@ -642,12 +642,14 @@ void AnalysisPredictor::ClearExtraParams() {
         op_desc->SetAttr("predictor_id", predictor_id_);
       }
     }
+#ifdef PADDLE_WITH_OPENVINO
     if (op_desc->Type() == "openvino_engine") {
       if (op_desc->HasAttr("inference_num_threads")) {
         op_desc->SetAttr("inference_num_threads",
                          config_.cpu_math_library_num_threads_);
       }
     }
+#endif
   }
 
   std::vector<std::string> extra_params;

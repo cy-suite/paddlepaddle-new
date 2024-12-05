@@ -158,6 +158,7 @@ void IRPassManager::CreatePasses(Argument *argument,
                 new std::unordered_set<std::string>(
                     argument->bfloat16_enabled_op_types()));
 #endif
+#ifdef PADDLE_WITH_OPENVINO
     } else if (pass_name == "openvino_subgraph_pass") {
       std::string model_program_path = argument->model_program_path();
       std::string model_params_path = argument->model_params_path();
@@ -184,7 +185,7 @@ void IRPassManager::CreatePasses(Argument *argument,
       pass->Set("cpu_math_library_num_threads",
                 new int(cpu_math_library_num_threads));
       pass->Set("inference_precision", new int(inference_precision));
-
+#endif
     } else if (pass_name == "tensorrt_subgraph_pass") {
       pass->Set("workspace_size",
                 new int64_t(argument->tensorrt_workspace_size()));
