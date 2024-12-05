@@ -19,6 +19,7 @@ import unittest
 from test_case_base import (
     TestCaseBase,
     test_instruction_translator_cache_context,
+    test_with_faster_guard,
 )
 
 import paddle
@@ -155,6 +156,7 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
                 self.assert_results(func, 1)
                 self.assert_results(func, 2)
 
+    @test_with_faster_guard
     def test_dynamic_shape_in_list(self):
         with allow_dynamic_shape_guard(
             True
@@ -173,6 +175,7 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
                 )
                 self.assertEqual(ctx.translate_count, 2)
 
+    @test_with_faster_guard
     def test_conv_dynamic_shape_fallback(self):
         with allow_dynamic_shape_guard(
             True

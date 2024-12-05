@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import unittest
 
-from test_case_base import TestCaseBase
+from test_case_base import TestCaseBase, test_with_faster_guard
 
 import paddle
 from paddle.jit import sot
@@ -78,6 +78,7 @@ class CustomLayer(paddle.nn.Layer):
 
 
 class TestMinGraphSize(TestCaseBase):
+    @test_with_faster_guard
     @min_graph_size_guard(10)
     def test_cases(self):
         x = paddle.to_tensor(1)

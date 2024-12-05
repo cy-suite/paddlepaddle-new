@@ -14,7 +14,7 @@
 
 import unittest
 
-from test_case_base import TestCaseBase
+from test_case_base import TestCaseBase, test_with_faster_guard
 
 import paddle
 from paddle import nn
@@ -69,6 +69,7 @@ class TestInit(TestCaseBase):
         self.assert_results(foo, 1, 2)
         self.assert_results(foo2, 1, 2)
 
+    @test_with_faster_guard
     def test_init_python_object(self):
         sot_output = symbolic_translate(bar)([1.0, 2.0])
         dyn_output = bar([1.0, 2.0])

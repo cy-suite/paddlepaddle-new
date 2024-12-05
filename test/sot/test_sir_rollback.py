@@ -18,7 +18,7 @@ import inspect
 import operator
 import unittest
 
-from test_case_base import TestCaseBase
+from test_case_base import TestCaseBase, test_with_faster_guard
 
 import paddle
 from paddle.jit.sot.opcode_translator.executor.function_graph import (
@@ -78,6 +78,7 @@ def fn_with_side_effects(x, y):
 
 
 class TestSideEffectRollback(TestCaseBase):
+    @test_with_faster_guard
     def test_side_effect_rollback(self):
         self.assert_results_with_side_effects(
             fn_with_side_effects, [1, 2, 3], paddle.to_tensor(42)

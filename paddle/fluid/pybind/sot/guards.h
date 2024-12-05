@@ -200,4 +200,15 @@ class RangeMatchGuard : public GuardGroup {
   }
 };
 
+class InstanceCheckGuard : public GuardBase {
+ public:
+  explicit InstanceCheckGuard(const py::object& py_type)
+      : expected_(py_type.ptr()) {}
+
+  bool check(PyObject* value) override;
+
+ private:
+  PyObject* expected_;
+};
+
 #endif

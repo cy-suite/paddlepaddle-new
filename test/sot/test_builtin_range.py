@@ -14,7 +14,7 @@
 
 import unittest
 
-from test_case_base import TestCaseBase
+from test_case_base import TestCaseBase, test_with_faster_guard
 
 import paddle
 
@@ -68,6 +68,7 @@ def test_range_10(stop: int, tensor: paddle.Tensor):
 
 
 class TestRange(TestCaseBase):
+    @test_with_faster_guard
     def test_cases(self):
         start = 3
         stop = 10

@@ -17,6 +17,7 @@ import unittest
 
 import numpy as np
 from numpy.testing import assert_array_equal
+from test_case_base import test_with_faster_guard
 
 import paddle
 from paddle.jit.sot import symbolic_translate
@@ -64,6 +65,7 @@ def run_symbolic_optimizer(inp):
 
 
 class TestBackward(unittest.TestCase):
+    @test_with_faster_guard
     def test(self):
         # TODO(xiongkun) add cache to speedup !
         paddle.seed(2021)
