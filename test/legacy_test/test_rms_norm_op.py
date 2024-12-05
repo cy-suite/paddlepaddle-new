@@ -129,7 +129,7 @@ class TestRMSNormOp(unittest.TestCase):
 
         paddle_rmsnorm_out = paddle.incubate.nn.functional.fused_rms_norm(
             x, gamma, beta, self.epsilon, begin_norm_axis=1
-        )
+        )[0]
         paddle_naive_rmsnorm_out = naive_rms_norm(x, gamma, beta, self.epsilon)
         paddle.enable_static()
         return paddle_rmsnorm_out, paddle_naive_rmsnorm_out
@@ -150,7 +150,7 @@ class TestRMSNormOp(unittest.TestCase):
             quant_round_type=self.quant_round_type,
             quant_max_bound=self.quant_max_bound,
             quant_min_bound=self.quant_min_bound,
-        )
+        )[0]
 
         paddle_naive_rmsnorm_out = naive_rms_norm_int8(
             x,
@@ -183,7 +183,7 @@ class TestRMSNormOp(unittest.TestCase):
             begin_norm_axis=1,
             bias=bias,
             residual=residual,
-        )
+        )[0]
 
         paddle_naive_rmsnorm_out = naive_residual_biasadd_rms_norm(
             x, residual, bias, gamma, beta, self.epsilon
@@ -213,7 +213,7 @@ class TestRMSNormOp(unittest.TestCase):
             quant_round_type=self.quant_round_type,
             quant_max_bound=self.quant_max_bound,
             quant_min_bound=self.quant_min_bound,
-        )
+        )[0]
 
         paddle_naive_rmsnorm_out = naive_residual_biasadd_rms_norm_int8(
             x,
@@ -408,7 +408,7 @@ class TestRMSNormStaticOp(unittest.TestCase):
                 beta_static,
                 self.epsilon,
                 begin_norm_axis=1,
-            )
+            )[0]
             exe = base.Executor(self.place)
             out_s = exe.run(
                 feed={
@@ -458,7 +458,7 @@ class TestRMSNormStaticOp(unittest.TestCase):
                 quant_round_type=self.quant_round_type,
                 quant_max_bound=self.quant_max_bound,
                 quant_min_bound=self.quant_min_bound,
-            )
+            )[0]
             exe = base.Executor(self.place)
             out_s = exe.run(
                 feed={
@@ -511,7 +511,7 @@ class TestRMSNormStaticOp(unittest.TestCase):
                 begin_norm_axis=1,
                 bias=bias_static,
                 residual=residual_static,
-            )
+            )[0]
 
             exe = base.Executor(self.place)
             out_s = exe.run(
@@ -610,7 +610,7 @@ class TestRMSNormOpCPU(unittest.TestCase):
 
         paddle_rmsnorm_out = paddle.incubate.nn.functional.fused_rms_norm(
             x, gamma, beta, self.epsilon, begin_norm_axis=1
-        )
+        )[0]
         paddle_naive_rmsnorm_out = naive_rms_norm(x, gamma, beta, self.epsilon)
         paddle.enable_static()
         return paddle_rmsnorm_out, paddle_naive_rmsnorm_out
@@ -633,7 +633,7 @@ class TestRMSNormOpCPU(unittest.TestCase):
             begin_norm_axis=1,
             bias=bias,
             residual=residual,
-        )
+        )[0]
 
         paddle_naive_rmsnorm_out = naive_residual_biasadd_rms_norm(
             x, residual, bias, gamma, beta, self.epsilon
@@ -731,7 +731,7 @@ class TestRMSNormStaticOpCPU(unittest.TestCase):
                 beta_static,
                 self.epsilon,
                 begin_norm_axis=1,
-            )
+            )[0]
             exe = base.Executor(self.place)
             out_s = exe.run(
                 feed={
@@ -784,7 +784,7 @@ class TestRMSNormStaticOpCPU(unittest.TestCase):
                 begin_norm_axis=1,
                 bias=bias_static,
                 residual=residual_static,
-            )
+            )[0]
 
             exe = base.Executor(self.place)
             out_s = exe.run(
