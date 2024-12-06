@@ -98,13 +98,15 @@ struct AllFunctor {
   }
 };
 
-template<typename T>
+template <typename T>
 struct AllFunctor<std::complex<T>> {
-    template <typename DeviceContext, typename X, typename Y, typename Dim>
-    void operator()(const DeviceContext& place, X* x, Y* y, const Dim& dim) {
-        auto to_bool = [](const std::complex<T>& v) { return v.real() != 0 || v.imag() != 0; };
-        y->device(place) = x->unaryExpr(to_bool).all(dim);
-    }
+  template <typename DeviceContext, typename X, typename Y, typename Dim>
+  void operator()(const DeviceContext& place, X* x, Y* y, const Dim& dim) {
+    auto to_bool = [](const std::complex<T>& v) {
+      return v.real() != 0 || v.imag() != 0;
+    };
+    y->device(place) = x->unaryExpr(to_bool).all(dim);
+  }
 };
 
 //////// Any Functor ///////
