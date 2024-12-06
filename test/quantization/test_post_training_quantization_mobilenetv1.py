@@ -790,7 +790,7 @@ class TestPostTrainingCsmscForPwgan(TestPostTrainingQuantization):
             round_type,
             data_urls,
             data_md5s,
-            "MobileNetV1_infer",
+            "pwg_baker_static_0.4",
             quantizable_op_type,
             is_full_quantize,
             is_use_cache_file,
