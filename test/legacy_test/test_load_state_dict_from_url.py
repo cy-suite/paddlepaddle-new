@@ -50,7 +50,7 @@ class TestLoadStateDictFromUrl(unittest.TestCase):
         weight3 = paddle.hub.load_state_dict_from_url(
             url='https://x2paddle.bj.bcebos.com/resnet18.zip',
             model_dir="./test/test3",
-            file_name="resnet18.pdparams",
+            file_name="resnet18.zip",
             map_location="numpy",
         )
         model3 = self.model
@@ -75,14 +75,12 @@ class TestLoadStateDictFromUrl(unittest.TestCase):
         weight5 = paddle.hub.load_state_dict_from_url(
             url='https://x2paddle.bj.bcebos.com/resnet18.zip',
             model_dir="./test/test4",
-            file_name="resnet18.pdparams",
         )
         model5 = self.model
         model5.set_state_dict(weight5)
         weight6 = paddle.hub.load_state_dict_from_url(
             url='https://paddle-hapi.bj.bcebos.com/models/resnet18.pdparams',
             model_dir="./test/test5",
-            file_name="resnet18.pdparams",
         )
         model6 = self.model
         model6.set_state_dict(weight6)
