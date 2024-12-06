@@ -49,7 +49,7 @@ class TestLoadStateDictFromUrl(unittest.TestCase):
         # Test whether the model loads properly when the model_dir is empty and Test check_hash and map_location
         weight3 = paddle.hub.load_state_dict_from_url(
             url='https://x2paddle.bj.bcebos.com/resnet18.zip',
-            model_dir="./test/test2",
+            model_dir="./test/test3",
             file_name="resnet18.pdparams",
             map_location="numpy",
         )
@@ -74,14 +74,14 @@ class TestLoadStateDictFromUrl(unittest.TestCase):
         # Test map_location is None
         weight5 = paddle.hub.load_state_dict_from_url(
             url='https://x2paddle.bj.bcebos.com/resnet18.zip',
-            model_dir="./test/test2",
+            model_dir="./test/test4",
             file_name="resnet18.pdparams",
         )
         model5 = self.model
         model5.set_state_dict(weight5)
         weight6 = paddle.hub.load_state_dict_from_url(
             url='https://paddle-hapi.bj.bcebos.com/models/resnet18.pdparams',
-            model_dir="./test/test1",
+            model_dir="./test/test5",
             file_name="resnet18.pdparams",
         )
         model6 = self.model
