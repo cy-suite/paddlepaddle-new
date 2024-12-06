@@ -148,7 +148,6 @@ class TestStaticReshard(unittest.TestCase):
 
         if dist_model._engine._cur_rank == 0:
             op_names = [op.name() for op in ops]
-            print(f"liyamei op_names={op_names}")
             assert op_names == [
                 'pd_op.data',
                 'builtin.parameter',
@@ -178,7 +177,6 @@ class TestStaticReshard(unittest.TestCase):
 
         elif dist_model._engine._cur_rank == 1:
             op_names = [op.name() for op in ops]
-            print(f"liyamei 2op_names={op_names}")
             assert op_names == [
                 'pd_op.data',
                 'builtin.parameter',

@@ -104,7 +104,6 @@ class TestReshardNdMeshCrossMesh:
         new_ops_name = [op.name() for op in dist_program.global_block().ops]
 
         rank_id = dist.get_rank()
-        print(f"[liyamei check] new_ops_name:\n{new_ops_name}")
         if rank_id in self._mesh0.process_ids:
             assert (
                 dist_program.global_block().ops[2].name() == "pd_op.share_data_"
