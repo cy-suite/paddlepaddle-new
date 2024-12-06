@@ -165,7 +165,7 @@ def _broadcast_object_list_help(object_list, hcg):
     )
 
 
-def _process_element(hcg, dev, place, element): 
+def _process_element(hcg, dev, place, element):
     if isinstance(element, core.eager.Tensor):
         with framework.no_grad():
             if (
