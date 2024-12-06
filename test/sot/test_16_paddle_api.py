@@ -38,7 +38,7 @@ def paddle_api_function_call_concat(
     return paddle.concat([x, y], axis=axis)
 
 
-def paddle_api_function_breakgraph_when_type_errpr(
+def paddle_api_function_breakgraph_when_type_error(
     x: paddle.Tensor, axis: paddle.Tensor
 ):
     return paddle.nn.functional.softmax(x, axis=axis)
