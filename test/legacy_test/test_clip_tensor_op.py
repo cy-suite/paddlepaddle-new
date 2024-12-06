@@ -24,7 +24,7 @@ from paddle.base import core
 
 class TestClipTensorOp(OpTest):
     def setUp(self):
-        self.ou_type = 'clip_tensor'
+        self.op_type = 'clip_tensor'
         self.python_api = paddle.clip
 
         self.initTestCase()
