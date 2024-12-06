@@ -21,18 +21,7 @@ import numpy as np
 
 import paddle
 import paddle.distributed as dist
-from paddle.base import (
-    default_main_program,
-)
-from paddle.base.framework import (
-    in_dygraph_mode,
-)
-from paddle.distributed.auto_parallel.static.tuner.to_distributed_api_patterns import (
-    clear_used_patterns,
-    get_pattern,
-    match_all_patterns,
-    register_used_patterns,
-)
+from paddle.base.framework import in_dygraph_mode
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +74,11 @@ def record_program_ops_pre_hook(layer, inputs):
     A pre-hook to mark op numbers before enter layer.forward.
     """
     if not in_dygraph_mode():
+        # Because ir_guard._switch_to_pir() will change default_main_program in python/paddle/__init__.py.
+        # In order to avoid errors, we import default_main_program until use.
+        # After fully switching to pir, can move this import to the beginning of the file.
+        from paddle.base import default_main_program
+
         if layer._op_recorder.start < 0:
             layer._op_recorder.start = len(
                 default_main_program().global_block().ops
@@ -222,12 +216,17 @@ def record_program_ops_post_hook(layer, inputs, outputs):
     A post-hook to mark op numbers after enter layer.forward, and record corresponding ops of the layer.
     """
     if not in_dygraph_mode():
+        # Because ir_guard._switch_to_pir() will change default_main_program in python/paddle/__init__.py.
+        # In order to avoid errors, we import default_main_program until use.
+        # After fully switching to pir, can move this import to the beginning of the file.
+        from paddle.base import default_main_program
+
         assert (
             layer._op_recorder.start >= 0
             and layer._op_recorder.is_valid is True
         ), f"{layer._full_name} has not recorded the start of the corresponding ops before"
         end = len(default_main_program().global_block().ops)
-        # some layers, such as llama_rotary_embedding, will not add new ops to program
+        # some layers, such as rotary_embedding, will not add new ops to program
         # assert end > layer._op_recorder.start, f"{layer._full_name} has not added new ops to the program"
         ops = []
         if end > layer._op_recorder.start:
@@ -237,6 +236,9 @@ def record_program_ops_post_hook(layer, inputs, outputs):
                 .global_block()
                 .ops[layer._op_recorder.start : layer._op_recorder.end]
             )
+        logger.debug(
+            f'start: {layer._op_recorder.start}, end: {layer._op_recorder.end}, ops: {ops}'
+        )
         layer._op_recorder.ops = ops
 
 
@@ -651,6 +653,7 @@ def to_distributed(
             ... )
             >>> dist_config = ToDistributedConfig()
             >>> dist_config.input_spec = [input_seq_spec]
+            >>> dist_config.sequence_parallel = True
 
             >>> # wrap model, opt, dataloader by using **to_distributed**
             >>> dist_model, dist_opt, dist_loader = to_distributed(
@@ -672,6 +675,15 @@ def to_distributed(
             ...         dist_opt.step()
             ...         dist_opt.clear_grad()
     """
+    # Because some API(`paddle.randn` etc.) will be used when building pattern,
+    # In order to avoid circle import, we import get_pattern until use.
+    from .static.tuner.to_distributed_api_patterns import (
+        clear_used_patterns,
+        get_pattern,
+        match_all_patterns,
+        register_used_patterns,
+    )
+
     logger.debug(f'input model: {model}')
     # paddle.distributed.init_parallel_env()
 
@@ -708,6 +720,9 @@ def to_distributed(
     op_id_to_layer = {}
     for layer in model.sublayers():
         layer_ops = layer._op_recorder.ops
+        logger.debug(
+            f'layer name: {layer.__class__.__name__}, layer_ops: {layer_ops}'
+        )
         ops_id = []
         for op in layer_ops:
             assert op in op_to_id.keys(), f"{op.name} is not in program"
@@ -715,6 +730,7 @@ def to_distributed(
             op_id_to_layer[op_id] = layer
             ops_id.append(op_id)
         ops_id_to_layer[tuple(ops_id)] = layer
+    logger.debug(f'ops_id_to_layer is: {ops_id_to_layer}')
 
     # step 1.4: pattern recogincation
     DECODER_LAYER_NAME = 'decoder_layer'
@@ -744,6 +760,7 @@ def to_distributed(
                 program_ops_dist_infos[tuple(program_ops_id)] = op_dist_info
             processed_patterns.append(program_ops_dist_infos)
         matched_programs[pattern_name] = processed_patterns
+    logger.debug(f'Matched decoder layer patterns are: {matched_programs}')
 
     # step 2: calculate the optimal parallel strategies based on the network structure
     mesh = cost_model(matched_programs, device_num, node_num)
