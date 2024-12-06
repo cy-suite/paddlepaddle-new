@@ -15,7 +15,7 @@
 import unittest
 
 import numpy as np
-from op_test import OpTest, convert_float_to_uint16
+from op_test import OpTest
 
 import paddle
 from paddle import base
@@ -29,23 +29,24 @@ class TestClipTensorOp(OpTest):
 
         self.initTestCase()
 
-        x = np.random.random(size=self.shape).astype(self.dtype)
-        min = np.random.random(size=self.shape).astype(self.dtype)
-        max = np.random.random(size=self.shape).astype(self.dtype)
+        self.x = np.random.random(size=self.shape).astype(self.dtype)
+        self.min = np.random.random(size=self.shape).astype(self.dtype)
+        self.max = np.random.random(size=self.shape).astype(self.dtype)
 
-        self.inputs = {'X': x, 'Min': min, 'Max': max}
-        self.outputs = {'Out': np.clip(x, min, max)}
-    
+        self.inputs = {'X': self.x, 'Min': self.min, 'Max': self.max}
+        self.outputs = {'Out': np.clip(self.x, self.min, self.max)}
+
     def test_check_output(self):
-        paddle.enable_static()
-        self.check_output()
-        paddle.disable_static()
+        self.check_output(check_eager=True)
 
     def test_check_grad_normal(self):
-        paddle.enable_static()
-        self.check_grad(['X'], 'Out')
-        paddle.disable_static()
-    
+        self.check_grad(
+            ['X'],
+            'Out',
+            check_eager=True,
+            no_grad_set=('Min', 'Max')
+        )
+
     def initTestCase(self):
         self.dtype = 'float32'
         self.shape = (10, 10)

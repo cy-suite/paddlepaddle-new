@@ -44,7 +44,6 @@ void ClipTensorGradKernel(const Context& dev_ctx,
                           const DenseTensor& max,
                           const DenseTensor& out_grad,
                           DenseTensor* x_grad) {
-
   const T* x_data = x.data<T>();
   auto numel = x.numel();
   const T* min_data = min.data<T>();

@@ -30,9 +30,9 @@ void ClipKernel(const Context& dev_ctx,
 
 template <typename T, typename Context>
 void ClipTensorKernel(const Context& dev_ctx,
-                         const DenseTensor& x,
-                         const DenseTensor& min,
-                         const DenseTensor& max,
-                         DenseTensor* out);
+                      const DenseTensor& x,
+                      const DenseTensor& min,
+                      const DenseTensor& max,
+                      DenseTensor* out);
 
 }  // namespace phi

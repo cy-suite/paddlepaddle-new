@@ -27,7 +27,6 @@ void ClipTensorGradKernel(const Context& dev_ctx,
                           const DenseTensor& max,
                           const DenseTensor& out_grad,
                           DenseTensor* x_grad) {
-
   const auto& onednn_engine = dev_ctx.GetEngine();
   auto& astream = OneDNNContext::tls().get_stream();
 
