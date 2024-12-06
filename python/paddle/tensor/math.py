@@ -5635,32 +5635,35 @@ def positive(x: Tensor) -> Tensor:
 
 
 def negative(x: Tensor, name: str | None = None) -> Tensor:
-    """
-    This function computes the negative of the Tensor elementwisely.
+    r"""
+    Returns the negated version of the input Tensor. This is used in `Tensor.__neg__`, applying the
+    unary `-` operator to the tensor.
+
+    .. math::
+        Out = -X
 
     Args:
-        x (Tensor): Input of neg operator, an N-D Tensor, with data type bfloat16, float16, float32, float64, int8, int16, int32,
-            int64, uint8, complex64, complex128.
-        name (str|None, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
+        x (Tensor): The input tensor. The tensor cannot be of type bool.
 
     Returns:
-        out (Tensor): The negative of input Tensor. The shape and data type are the same with input Tensor.
+        Tensor: A tensor with the same shape and data type as the input tensor. The returned tensor
+                is the negative.
 
     Examples:
         .. code-block:: python
 
             >>> import paddle
-
-            >>> x = paddle.to_tensor([-0.4, -0.2, 0.1, 0.3])
+            >>> x = paddle.to_tensor([-1, 0, 1])
             >>> out = paddle.negative(x)
-            >>> out
-            Tensor(shape=[4], dtype=float32, place=Place(cpu), stop_gradient=True,
-            [ 0.40000001,  0.20000000, -0.10000000, -0.30000001])
+            >>> print(out)
+            Tensor(shape=[3], dtype=int64, place=Place(cpu), stop_gradient=True,
+            [1,  0,  -1])
     """
 
-    return scale(
-        x, scale=-1.0, bias=0.0, bias_after_scale=True, act=None, name=name
-    )
+    # Check if the input tensor is of bool type and raise an error
+    if x.dtype == paddle.bool:
+        raise TypeError("The `-` operator, on a bool tensor is not supported.")
+    return -x
 
 
 def atan2(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
