@@ -293,7 +293,7 @@ class Hardswish(Layer):
 
         Hardswish(x)=
             \left\{
-                \begin{array}{cll}
+                \begin{array}{cl}
                 0 &, & \text{if } x \leq -3 \\
                 x &, & \text{if } x \geq 3 \\
                 \frac{x(x+3)}{6} &, & \text{otherwise}
@@ -384,7 +384,7 @@ class Hardtanh(Layer):
 
         Hardtanh(x)=
             \left\{
-                \begin{array}{cll}
+                \begin{array}{cl}
                     max,& & \text{if } x > max \\
                     min,& & \text{if } x < min \\
                     x,& & \text{otherwise}

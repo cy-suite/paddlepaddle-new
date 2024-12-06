@@ -320,7 +320,7 @@ DP_OPTIMIZATION = "dp_optimization"
 set_field_default_config(DP_OPTIMIZATION, "enable", False)
 set_field_default_config(DP_OPTIMIZATION, "fuse_all_reduce_ops", True)
 set_field_default_config(DP_OPTIMIZATION, "fuse_grad_size_in_MB", 32)
-set_field_default_config(DP_OPTIMIZATION, "overlap_comm_cacl", True)
+set_field_default_config(DP_OPTIMIZATION, "overlap_comm_calc", True)
 set_field_default_config(
     DP_OPTIMIZATION, "gradient_sync_after_accumulate", False
 )
@@ -331,7 +331,7 @@ if TYPE_CHECKING:
         enable: bool
         fuse_all_reduce_ops: bool
         fuse_grad_size_in_MB: int
-        overlap_comm_cacl: bool
+        overlap_comm_calc: bool
         gradient_sync_after_accumulate: bool
 
 

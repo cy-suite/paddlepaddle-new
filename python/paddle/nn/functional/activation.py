@@ -279,7 +279,7 @@ def hardtanh(
 
         hardtanh(x)=
             \left\{
-                \begin{array}{cll}
+                \begin{array}{cl}
                     max,& & \text{if } x > max \\
                     min,& & \text{if } x < min \\
                     x,& & \text{otherwise}
@@ -410,7 +410,7 @@ def hardswish(x: Tensor, name: str | None = None) -> Tensor:
 
         hardswish(x)=
             \left\{
-                \begin{array}{cll}
+                \begin{array}{cl}
                 0 &, & \text{if } x \leq -3 \\
                 x &, & \text{if } x \geq 3 \\
                 \frac{x(x+3)}{6} &, & \text{otherwise}
