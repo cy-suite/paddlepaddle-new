@@ -35,7 +35,7 @@ from ...utils.hybrid_parallel_util import (
     fused_allreduce_gradients,
     unwrap_optimizer,
 )
-from ...utils.log_util import logger, sync_rotate_logger
+from ...utils.log_util import get_sync_logger, logger
 from ...utils.mix_precision_utils import MixPrecisionOptimizer
 
 g_profile_optimizer_details_steps = int(
@@ -55,7 +55,7 @@ class HybridParallelClipGrad:
 
     def _global_norm(self, global_norm_var_dist, global_norm_var_not_dist):
         if self.processed_steps < g_profile_optimizer_details_steps:
-            sync_rotate_logger().info("Starting to calculate global norm.")
+            get_sync_logger().info("Starting to calculate global norm.")
         # sharding first
         sharding_flag = self._hcg.get_sharding_parallel_world_size() > 1
         dp_flag = self._hcg.get_data_parallel_world_size() > 1
@@ -106,7 +106,7 @@ class HybridParallelClipGrad:
             )
 
         if self.processed_steps < g_profile_optimizer_details_steps:
-            sync_rotate_logger().info("Finished calculating global norm.")
+            get_sync_logger().info("Finished calculating global norm.")
         self.processed_steps += 1
 
     @no_grad()
@@ -409,7 +409,7 @@ class HybridParallelOptimizer:
 
     def _step(self, parameters_list):
         if self.processed_steps < g_profile_optimizer_details_steps:
-            sync_rotate_logger().info("Starting hybridoptimizer step")
+            get_sync_logger().info("Starting hybridoptimizer step")
 
         mp_group = self._hcg.get_model_parallel_group()
         src_rank = self._hcg.get_model_parallel_group_src_rank()
@@ -447,7 +447,7 @@ class HybridParallelOptimizer:
                 )
 
         if self.processed_steps < g_profile_optimizer_details_steps:
-            sync_rotate_logger().info("Starting mp grad sync")
+            get_sync_logger().info("Starting mp grad sync")
 
         # Grad sync before opt
         if mp_group.nranks > 1 and mp_configs and mp_configs.sync_grad:
@@ -455,7 +455,7 @@ class HybridParallelOptimizer:
                 syc_grad(p)
 
         if self.processed_steps < g_profile_optimizer_details_steps:
-            sync_rotate_logger().info("Finished mp grad sync")
+            get_sync_logger().info("Finished mp grad sync")
 
         self._inner_opt.step()
 
@@ -519,7 +519,7 @@ class HybridParallelOptimizer:
             for p in params:
                 syc_moment(p)
         if self.processed_steps < g_profile_optimizer_details_steps:
-            sync_rotate_logger().info("Finishing hybridoptimizer step")
+            get_sync_logger().info("Finishing hybridoptimizer step")
         self.processed_steps += 1
 
     def _hybrid_sync_grad(self, parameter_list):
