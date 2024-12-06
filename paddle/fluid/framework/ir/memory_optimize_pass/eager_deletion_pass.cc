@@ -26,9 +26,7 @@
 #include "paddle/fluid/framework/ir/graph_helper.h"
 #include "paddle/fluid/framework/ir/memory_optimize_pass/memory_optimization_var_info.h"
 
-namespace paddle {
-namespace framework {
-namespace ir {
+namespace paddle::framework::ir {
 
 // op -> variables which can be deleted after op runs
 using OpToVarNameSetMap = std::unordered_map<details::ComputationOpHandle *,
@@ -129,7 +127,7 @@ static OpToVarNameSetMap ShrinkGCVars(const OpToVarNameSetMap &m,
 
   /**
    * Step 1: Split all variables into phi::DenseTensor and Non-phi::DenseTensor.
-   * We can only calculate memory size of LoDTensors
+   * We can only calculate memory size of DenseTensors
    */
   OpToVarNameSetMap lod_tensors, other_vars;
   SplitIntoLoDTensorAndNonLoDTensorVars(m, vars, &lod_tensors, &other_vars);
@@ -302,9 +300,7 @@ void EagerDeletionPass::ApplyImpl(ir::Graph *graph) const {
   while_op_eager_deletion_pass->Apply(graph);
 }
 
-}  // namespace ir
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework::ir
 
 REGISTER_PASS(eager_deletion_pass, paddle::framework::ir::EagerDeletionPass)
     .RequirePassAttr(paddle::framework::ir::kMemOptVarInfoMapList)

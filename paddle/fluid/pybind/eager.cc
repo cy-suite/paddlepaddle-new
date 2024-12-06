@@ -54,8 +54,7 @@ using phi::distributed::ProcessMesh;
 using phi::distributed::TensorDistAttr;
 using phi::distributed::auto_parallel::str_join;
 
-namespace paddle {
-namespace pybind {
+namespace paddle::pybind {
 
 namespace py = ::pybind11;
 
@@ -781,7 +780,7 @@ Tensor is the basic data structure in PaddlePaddle. There are some ways to creat
  * ** dtype: paddle::DataType,
  * ** dims: vector<int>,
  * ** name: std::string,
- * ** type: paddle::framework::proto::VarType::LodTensor,
+ * ** type: paddle::framework::proto::VarType::DENSE_TENSOR,
  * ** persistable: bool,
  * ** process_mesh: phi::distributed::ProcessMesh,
  * ** placements: std::vector<Placement>)
@@ -1573,5 +1572,4 @@ void BindEagerStringTensor(pybind11::module* module) {
   }
 }
 
-}  // namespace pybind
-}  // namespace paddle
+}  // namespace paddle::pybind

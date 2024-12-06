@@ -1088,7 +1088,7 @@ def get_paddle_extra_install_requirements():
                 "V12": (
                     "nvidia-cuda-runtime-cu12==12.3.101; platform_system == 'Linux' and platform_machine == 'x86_64' | "
                     "nvidia-cuda-cupti-cu12==12.3.101; platform_system == 'Linux' and platform_machine == 'x86_64' | "
-                    "nvidia-cudnn-cu12==9.0.0.312; platform_system == 'Linux' and platform_machine == 'x86_64' | "
+                    "nvidia-cudnn-cu12==9.1.1.17; platform_system == 'Linux' and platform_machine == 'x86_64' | "
                     "nvidia-cublas-cu12==12.3.4.1; platform_system == 'Linux' and platform_machine == 'x86_64' | "
                     "nvidia-cufft-cu12==11.2.1.3; platform_system == 'Linux' and platform_machine == 'x86_64' | "
                     "nvidia-curand-cu12==10.3.5.147; platform_system == 'Linux' and platform_machine == 'x86_64' | "
@@ -1112,7 +1112,7 @@ def get_paddle_extra_install_requirements():
                 ),
                 "V12": (
                     "nvidia-cuda-runtime-cu12==12.3.101 | "
-                    "nvidia-cudnn-cu12==9.0.0.312 | "
+                    "nvidia-cudnn-cu12==9.1.1.17 | "
                     "nvidia-cublas-cu12==12.3.4.1 | "
                     "nvidia-cufft-cu12==11.2.1.3 | "
                     "nvidia-curand-cu12==10.3.5.147 | "
@@ -1362,6 +1362,11 @@ def get_package_data_and_package_dir():
                 os.path.basename(env_dict.get("FLASHATTN_LIBRARIES"))
             ]
             shutil.copy(env_dict.get("FLASHATTN_LIBRARIES"), libs_path)
+        if len(env_dict.get("FLASHATTN_V3_LIBRARIES", "")) > 1:
+            package_data['paddle.libs'] += [
+                os.path.basename(env_dict.get("FLASHATTN_V3_LIBRARIES"))
+            ]
+            shutil.copy(env_dict.get("FLASHATTN_V3_LIBRARIES"), libs_path)
     if env_dict.get("WITH_CINN") == 'ON':
         shutil.copy(
             env_dict.get("CINN_LIB_LOCATION")
@@ -1476,6 +1481,12 @@ def get_package_data_and_package_dir():
                 shutil.copy(xpu_cuda_rt_lib_file, libs_path)
                 package_data['paddle.libs'] += [
                     os.path.basename(xpu_cuda_rt_lib_file)
+                ]
+            xpu_ml_lib_list = glob.glob(env_dict.get("XPU_ML_LIB") + '*')
+            for xpu_ml_lib_file in xpu_ml_lib_list:
+                shutil.copy(xpu_ml_lib_file, libs_path)
+                package_data['paddle.libs'] += [
+                    os.path.basename(xpu_ml_lib_file)
                 ]
             shutil.copy(env_dict.get("XPU_XBLAS_LIB"), libs_path)
             package_data['paddle.libs'] += [env_dict.get("XPU_XBLAS_LIB_NAME")]

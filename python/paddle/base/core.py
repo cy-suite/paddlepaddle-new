@@ -275,7 +275,14 @@ try:
         )
 
     # assign tensor alias
-    libpaddle.LoDTensor = libpaddle.Tensor
+    libpaddle.LoDTensor = libpaddle.DenseTensor
+    libpaddle.Tensor = libpaddle.DenseTensor
+    libpaddle.VarDesc.VarType.LOD_TENSOR = (
+        libpaddle.VarDesc.VarType.DENSE_TENSOR
+    )
+    libpaddle.VarDesc.VarType.LOD_TENSOR_ARRAY = (
+        libpaddle.VarDesc.VarType.DENSE_TENSOR_ARRAY
+    )
 
     from .libpaddle import *  # noqa: F403
     from .libpaddle import (  # noqa: F401
@@ -570,6 +577,15 @@ def _enable_dist_prim_all():
 
 def _enable_auto_recompute():
     flag = os.getenv("FLAGS_enable_auto_recompute")
+
+    # NOTE(chenxi67): open recompute when cinn is enabled
+    from paddle.base.framework import in_cinn_mode
+
+    if in_cinn_mode():
+        if flag and flag.lower() in ("0", "false"):
+            return False
+        else:
+            return True
     if flag and flag.lower() in ("1", "true"):
         return True
     else:
@@ -584,17 +600,23 @@ def _set_prim_forward_blacklist(*args):
             prim_config["forward_blacklist"].add(item)
 
 
-def _reset_prim_forward_blacklist():
-    prim_config["forward_blacklist"] = set()
+# Currently, this function is not utilized anywhere in the codebase.
+# It may be intended for future use or could be removed if unnecessary.
+# def _reset_prim_forward_blacklist():
+#     prim_config["forward_blacklist"] = set()
 
 
 def _set_prim_backward_blacklist(*args):
     ops = set(args)
+    new_ops = set()
     for item in ops:
-        prim_config["backward_blacklist"].add(item)
         if not isinstance(item, str):
-            raise TypeError("all items in set must belong to string")
-    _set_bwd_prim_blacklist(ops)
+            raise TypeError("All items in set must be strings.")
+        if item.startswith("pd_op."):
+            item = item[6:]
+        prim_config["backward_blacklist"].add(item)
+        new_ops.add(item)
+    _set_bwd_prim_blacklist(new_ops)
 
 
 def _set_prim_backward_enabled(value):

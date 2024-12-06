@@ -427,7 +427,7 @@ bool GaussianOpInferSymbolicShape(
 
 bool RandpermOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
-  int64_t n = op->attribute<pir::Int64Attribute>("n").data();
+  int n = op->attribute<pir::Int32Attribute>("n").data();
   std::vector<symbol::DimExpr> out_shape = {n};
   infer_context->SetShapeOrDataForValue(
       op->result(0),
@@ -456,9 +456,22 @@ bool RandintOpInferSymbolicShape(
     return true;
 
   } else {
-    PADDLE_THROW(common::errors::Unimplemented(
-        "Currently shape must comes from FullIntArrayOp in RandintOp's "
-        "InferSymbolicShape."));
+    PADDLE_ENFORCE_EQ(
+        infer_context->HasShapeOrDataForValue(op->operand_source(0)),
+        true,
+        common::errors::PreconditionNotMet(
+            "Shape is not comes from FullIntArrayOp "
+            "should have shape or data"));
+
+    auto shape_dim_expr =
+        infer_context->GetShapeOrDataForValue(op->operand_source(0));
+    ExprVec target_shape = paddle::dialect::details::GetOrCreateExprVecFromData(
+        shape_dim_expr, infer_context);
+
+    symbol::ShapeOrDataDimExprs shape_data{
+        symbol::TensorShapeOrDataDimExprs(target_shape)};
+
+    infer_context->SetShapeOrDataForValue(op->result(0), shape_data);
     return true;
   }
 }
