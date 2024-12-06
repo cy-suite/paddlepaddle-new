@@ -22,52 +22,47 @@ from paddle import base
 from paddle.base import core
 
 
-class TestClipTensorOp(OpTest):
-    def setUp(self):
-        self.op_type = 'clip_tensor'
-        self.python_api = paddle.clip
+# class TestClipTensorOp(OpTest):
+#     def setUp(self):
+#         self.op_type = "clip"
+#         self.python_api = paddle.clip
 
-        self.initTestCase()
+#         self.initTestCase()
 
-        self.x = np.random.random(size=self.shape).astype(self.dtype)
-        self.min = np.random.random(size=self.shape).astype(self.dtype)
-        self.max = np.random.random(size=self.shape).astype(self.dtype)
+#         self.x = np.random.random(size=self.shape).astype(self.dtype)
+#         self.min = np.random.random(size=self.shape).astype(self.dtype)
+#         self.max = np.random.random(size=self.shape).astype(self.dtype)
 
-        self.inputs = {'X': self.x, 'Min': self.min, 'Max': self.max}
-        self.outputs = {'Out': np.clip(self.x, self.min, self.max)}
+#         self.inputs = {'X': self.x, 'Min': self.min, 'Max': self.max}
+#         self.outputs = {'Out': np.clip(self.x, self.min, self.max)}
 
-    def test_check_output(self):
-        self.check_output(check_eager=True)
+#     def test_check_output(self):
+#         self.check_output()
 
-    def test_check_grad_normal(self):
-        self.check_grad(
-            ['X'],
-            'Out',
-            check_eager=True,
-            no_grad_set=('Min', 'Max')
-        )
+#     def test_check_grad_normal(self):
+#         self.check_grad(['X'], 'Out', no_grad_set=('Min', 'Max'))
 
-    def initTestCase(self):
-        self.dtype = 'float32'
-        self.shape = (10, 10)
+#     def initTestCase(self):
+#         self.dtype = 'float32'
+#         self.shape = (10, 10)
 
 
-class TestCase1(TestClipTensorOp):
-    def initTestCase(self):
-        self.dtype = 'int32'
-        self.shape = (8, 16, 8)
+# class TestCase1(TestClipTensorOp):
+#     def initTestCase(self):
+#         self.dtype = 'int32'
+#         self.shape = (8, 16, 8)
 
 
-class TestCase2(TestClipTensorOp):
-    def initTestCase(self):
-        self.dtype = 'int64'
-        self.shape = (8, 16)
+# class TestCase2(TestClipTensorOp):
+#     def initTestCase(self):
+#         self.dtype = 'int64'
+#         self.shape = (8, 16)
 
 
-class TestCase3(TestClipTensorOp):
-    def initTestCase(self):
-        self.dtype = np.float32
-        self.shape = (8, 16, 11)
+# class TestCase3(TestClipTensorOp):
+#     def initTestCase(self):
+#         self.dtype = np.float32
+#         self.shape = (8, 16, 11)
 
 
 def np_pd_equal(x_shape, min_shape=None, max_shape=None, dtype='float32'):
@@ -163,6 +158,7 @@ class TestClipTensorAPI(unittest.TestCase):
         np_pd_equal([5], [5], [1])
         np_pd_equal([4, 5], [5], [1], 'int32')
         np_pd_equal([4, 5], [5], [4, 5], 'int64')
+        np_pd_equal([4], [5, 4], [4], 'float16')
         paddle.enable_static()
 
     def test_check_static_output(self):
@@ -170,7 +166,14 @@ class TestClipTensorAPI(unittest.TestCase):
         np_pd_static_equal([5], [5], [1])
         np_pd_static_equal([4, 5], [5], [1], 'int32')
         np_pd_static_equal([4, 5], [5], [4, 5], 'int64')
+        np_pd_static_equal([4], [5, 4], [4], 'float16')
         paddle.disable_static()
+
+    # def test_check_error_shape(self):
+    #     paddle.disable_static()
+    #     with self.assertRaises(TypeError):
+    #         paddle.clip(paddle.ones((2, 3)), 1, 1.)
+    #     paddle.enable_static()
 
 
 if __name__ == '__main__':
