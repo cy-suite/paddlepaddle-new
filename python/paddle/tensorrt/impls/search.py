@@ -197,7 +197,7 @@ def topk_converter(network, paddle_op, inputs):
 def index_select_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     index_tensor = inputs[1]
-    axis = paddle_op.attrs().get("dim", 0)
+    axis = paddle_op.attrs().get("axis", 0)
 
     gather_layer = network.add_gather(input_tensor, index_tensor, axis)
 

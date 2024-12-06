@@ -298,6 +298,23 @@ class TestIndexSelectCase2TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.index_select
         self.api_args = {
+            "x": np.random.randn(3, 3).astype("float32"),
+            "index": np.array([0, 2], dtype="int64"),
+            "axis": 0,
+        }
+        self.program_config = {"feed_list": ["x", "index"]}
+        self.min_shape = {"x": [1, 3]}
+        self.max_shape = {"x": [5, 3]}
+        self.enable_fp16 = True
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestIndexSelectCase3TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.index_select
+        self.api_args = {
             "x": np.random.randn(3, 3).astype("int64"),
             "index": np.array([0, 2], dtype="int64"),
             "axis": 0,
