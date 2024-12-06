@@ -22,6 +22,7 @@ import numpy as np
 import paddle
 import paddle.distributed as dist
 from paddle import core
+from paddle.autograd import no_grad
 from paddle.base.libpaddle import pir
 from paddle.distributed import fleet
 from paddle.distributed.auto_parallel.static.process_group import (
@@ -275,11 +276,6 @@ class ShardingOptimizerStage1(Optimizer):
                     main_fused_param,
                 ) = self._fuse_group_param(group_idx, group_param_list)
 
-                if dist.get_rank() in mesh.process_ids:
-                    self._cache_slice_param_range_and_size(
-                        group_idx, slice_param_dict, padded_size_dict
-                    )
-
                 dtype = group_grad_list[0].dtype
                 align_size = (
                     fleet.utils.tensor_fusion_helper.alignment[
@@ -293,6 +289,15 @@ class ShardingOptimizerStage1(Optimizer):
                     * core.size_of_dtype(dtype)
                     // core.size_of_dtype(group_param_list[0].dtype)
                 )
+
+                if dist.get_rank() in mesh.process_ids:
+                    self._cache_slice_param_range_and_size(
+                        group_idx,
+                        slice_param_dict,
+                        padded_size_dict,
+                        align_size,
+                    )
+
                 if not self._strategy.sharding.release_gradients:
                     _, fused_grad = paddle._C_ops.coalesce_tensor_(
                         group_grad_list,
@@ -489,7 +494,7 @@ class ShardingOptimizerStage1(Optimizer):
                 ] = param.process_mesh
 
     def _cache_slice_param_range_and_size(
-        self, group_idx, slice_param_dict, padded_size_dict
+        self, group_idx, slice_param_dict, padded_size_dict, align_size
     ):
         for slice_param, param_info in slice_param_dict.items():
             slice_param_name = slice_param.name.replace("slice@", "")
@@ -505,6 +510,11 @@ class ShardingOptimizerStage1(Optimizer):
             self._slice_param_group_info[group_idx][name][
                 "padded_size"
             ] = padded_size
+
+        for name, _ in self._slice_param_group_info[group_idx].items():
+            self._slice_param_group_info[group_idx][name][
+                "align_size"
+            ] = align_size
 
     def _reduce_scatter_overlap(self, group_grad_list, target_block):
         '''
@@ -711,6 +721,7 @@ class ShardingOptimizerStage1(Optimizer):
             raise AttributeError(msg)
         return setattr(self._inner_opt, item, value)
 
+    @no_grad()
     def convert_state_dict_without_tensor_fusion_param(self, state_dict):
         master_opt_param_names = []
         moment_opt_param_names = []
@@ -764,6 +775,7 @@ class ShardingOptimizerStage1(Optimizer):
             if dist.get_rank() in group:
                 self._dy_shard_group = comm_group
 
+    @no_grad()
     def convert_state_dict_with_tensor_fusion_param(self, state_dict):
         moment_suffixs = []
         pow_acc_suffixs = []
@@ -777,9 +789,9 @@ class ShardingOptimizerStage1(Optimizer):
             elif "_master" in name:
                 master_suffixs.append(name.split(".dist")[-1])
 
-        moment_suffixs = list(set(moment_suffixs))
-        pow_acc_suffixs = list(set(pow_acc_suffixs))
-        master_suffixs = list(set(master_suffixs))
+        moment_suffixs = sorted(set(moment_suffixs))
+        pow_acc_suffixs = sorted(set(pow_acc_suffixs))
+        master_suffixs = sorted(set(master_suffixs))
 
         if self._dy_shard_group is None:
             self._create_dy_sharding_group()
@@ -794,10 +806,10 @@ class ShardingOptimizerStage1(Optimizer):
             )
 
             self._re_slicing_opt_param(
-                state_dict, group_info, bucket_info, moment_suffixs
+                state_dict, group_info, bucket_info, master_suffixs
             )
             self._re_slicing_opt_param(
-                state_dict, group_info, bucket_info, master_suffixs
+                state_dict, group_info, bucket_info, moment_suffixs
             )
             self._remove_pow_acc_opt_params(
                 state_dict, group_info, bucket_info, pow_acc_suffixs
@@ -843,19 +855,15 @@ class ShardingOptimizerStage1(Optimizer):
                 global_opt_param = global_opt_param.view([-1])
                 opt_param_list.append(global_opt_param)
 
+                del param_list, global_opt_param
+                paddle.device.cuda.empty_cache()
+
             # Step2: Fuse the optimizer parameters using coalesce_tensor
-            dtype = opt_param_list[0].dtype
-            align_size = (
-                fleet.utils.tensor_fusion_helper.alignment[
-                    get_current_device_type()
-                ]
-                // align[dtype]
-            )
-            align_size = align_size * self._sharding_degree
+            align_size = group_info[next(iter(group_info.keys()))]["align_size"]
 
             _, fused_opt_param = paddle._C_ops.coalesce_tensor(
                 opt_param_list,
-                dtype,
+                opt_param_list[0].dtype,
                 True,
                 False,
                 False,
@@ -866,6 +874,9 @@ class ShardingOptimizerStage1(Optimizer):
                 [],
                 [],
             )
+
+            del opt_param_list
+            paddle.device.cuda.empty_cache()
 
             # Step3: Slice the current rank's optimizer parameters
             param_index = 0
@@ -899,11 +910,13 @@ class ShardingOptimizerStage1(Optimizer):
 
                 param_index += param_info["padded_size"]
                 del state_dict[param_name + param_suffix]
+                paddle.device.cuda.empty_cache()
 
             # release memory
-            del opt_param_list
             del fused_opt_param
+            paddle.device.cuda.empty_cache()
 
+    @no_grad()
     def _all_gather_opt_params(
         self, state_dict, group_info, opt_param_names, opt_suffix
     ):
@@ -926,8 +939,13 @@ class ShardingOptimizerStage1(Optimizer):
         dist.all_gather(
             fused_opt_param_list, fused_opt_param, group=self._dy_shard_group
         )
+        del fused_opt_param
+        paddle.device.cuda.empty_cache()
 
         fused_opt_param = paddle.concat(fused_opt_param_list, axis=0)
+        del fused_opt_param_list
+        paddle.device.cuda.empty_cache()
+
         param_index = 0
         for param_name, param_info in group_info.items():
             opt_param_name = "slice@" + param_name + opt_suffix
@@ -996,6 +1014,7 @@ class ShardingOptimizerStage1(Optimizer):
                 moments[moment_suffix] = []
             moments[moment_suffix].append(name)
 
+        moments = dict(sorted(moments.items()))
         for moment_suffix, moment_names in moments.items():
             self._all_gather_opt_params(
                 state_dict, group_info, moment_names, moment_suffix
@@ -1025,7 +1044,7 @@ class ShardingOptimizerStage1(Optimizer):
         for name in pow_acc_opt_param_names:
             pow_acc_suffix = name.split(".dist")[-1]
             pow_acc_suffixs.append(pow_acc_suffix)
-        pow_acc_suffixs = list(set(pow_acc_suffixs))
+        pow_acc_suffixs = sorted(set(pow_acc_suffixs))
 
         group_size = 0
         for param_name, param_info in group_info.items():
