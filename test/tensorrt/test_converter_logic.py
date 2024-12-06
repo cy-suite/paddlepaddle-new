@@ -92,6 +92,7 @@ class TestEqualFloatTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
         self.max_shape = {"x": [5], "y": [5]}
+        self.enable_fp16 = True
         self.check_trt_result()
 
     def test_trt_result_diff_shapes(self):
@@ -102,6 +103,7 @@ class TestEqualFloatTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1, 3], "y": [3]}
         self.max_shape = {"x": [4, 3], "y": [3]}
+        self.enable_fp16 = True
         self.check_trt_result()
 
 
@@ -142,6 +144,7 @@ class TestNotEqualFloatTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
         self.max_shape = {"x": [5], "y": [5]}
+        self.enable_fp16 = True
         self.check_trt_result()
 
     def test_trt_result_diff_shapes(self):
@@ -152,6 +155,7 @@ class TestNotEqualFloatTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1, 3], "y": [3]}
         self.max_shape = {"x": [4, 3], "y": [3]}
+        self.enable_fp16 = True
         self.check_trt_result()
 
 
@@ -192,6 +196,7 @@ class TestEqual_FloatTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
         self.max_shape = {"x": [5], "y": [5]}
+        self.enable_fp16 = True
         self.check_trt_result()
 
     def test_trt_result_diff_shapes(self):
@@ -202,6 +207,7 @@ class TestEqual_FloatTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1, 3], "y": [3]}
         self.max_shape = {"x": [4, 3], "y": [3]}
+        self.enable_fp16 = True
         self.check_trt_result()
 
 
@@ -242,6 +248,7 @@ class TestNotEqual_FloatTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
         self.max_shape = {"x": [5], "y": [5]}
+        self.enable_fp16 = True
         self.check_trt_result()
 
     def test_trt_result_diff_shapes(self):
@@ -252,6 +259,7 @@ class TestNotEqual_FloatTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1, 3], "y": [3]}
         self.max_shape = {"x": [4, 3], "y": [3]}
+        self.enable_fp16 = True
         self.check_trt_result()
 
 
