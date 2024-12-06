@@ -14,13 +14,13 @@
 
 #include "paddle/phi/kernels/clip_kernel.h"
 
-#include "paddle/phi/backends/gpu/gpu_launch_config.h"
 #include "paddle/phi/backends/gpu/gpu_context.h"
+#include "paddle/phi/backends/gpu/gpu_launch_config.h"
 #include "paddle/phi/common/float16.h"
 #include "paddle/phi/core/kernel_registry.h"
-#include "paddle/phi/kernels/impl/clip_kernel_impl.h"
 #include "paddle/phi/kernels/funcs/broadcast_function.h"
 #include "paddle/phi/kernels/funcs/elementwise_functor.h"
+#include "paddle/phi/kernels/impl/clip_kernel_impl.h"
 
 namespace phi {
 
@@ -33,16 +33,17 @@ struct ClipTensorFunctor {
 
 template <typename T, typename Context>
 void ClipTensorKernel(const Context& dev_ctx,
-                 const DenseTensor& x,
-                 const DenseTensor& min,
-                 const DenseTensor& max,
-                 DenseTensor* out) {
+                      const DenseTensor& x,
+                      const DenseTensor& min,
+                      const DenseTensor& max,
+                      DenseTensor* out) {
   std::vector<const DenseTensor*> ins = {&x, &min, &max};
   std::vector<DenseTensor*> outs = {out};
   dev_ctx.template Alloc<T>(out);
 
   ClipTensorFunctor<T> func;
-  funcs::ElementwiseKernel<T, ClipTensorFunctor<T>, 1>(dev_ctx, ins, &outs, func);
+  funcs::ElementwiseKernel<T, ClipTensorFunctor<T>, 1>(
+      dev_ctx, ins, &outs, func);
 }
 
 }  // namespace phi

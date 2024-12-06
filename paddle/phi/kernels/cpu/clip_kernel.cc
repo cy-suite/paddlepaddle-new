@@ -22,10 +22,10 @@ namespace phi {
 
 template <typename T, typename Context>
 void ClipTensorKernel(const Context& dev_ctx,
-                 const DenseTensor& x,
-                 const DenseTensor& min,
-                 const DenseTensor& max,
-                 DenseTensor* out) {
+                      const DenseTensor& x,
+                      const DenseTensor& min,
+                      const DenseTensor& max,
+                      DenseTensor* out) {
   const T* x_data = x.data<T>();
   const T* min_data = min.data<T>();
   const T* max_data = max.data<T>();
@@ -44,5 +44,11 @@ void ClipTensorKernel(const Context& dev_ctx,
 PD_REGISTER_KERNEL(
     clip, CPU, ALL_LAYOUT, phi::ClipKernel, float, double, int, int64_t) {}
 
-PD_REGISTER_KERNEL(
-    clip_tensor, CPU, ALL_LAYOUT, phi::ClipTensorKernel, float, double, int, int64_t) {}
+PD_REGISTER_KERNEL(clip_tensor,
+                   CPU,
+                   ALL_LAYOUT,
+                   phi::ClipTensorKernel,
+                   float,
+                   double,
+                   int,
+                   int64_t) {}

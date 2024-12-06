@@ -90,12 +90,12 @@ void ClipTensorKernel(const Context& dev_ctx,
 
   if (MINhandler.Has_SRC_0_Scale()) {
     args2.insert({DNNL_ARG_ATTR_SCALES | DNNL_ARG_SRC_0,
-                 MINhandler.Get_SRC_0_Scale_Memory()});
+                  MINhandler.Get_SRC_0_Scale_Memory()});
   }
 
   if (MINhandler.Has_SRC_1_Scale()) {
     args2.insert({DNNL_ARG_ATTR_SCALES | DNNL_ARG_SRC_1,
-                 MINhandler.Get_SRC_1_Scale_Memory()});
+                  MINhandler.Get_SRC_1_Scale_Memory()});
   }
 
   activation_p2->execute(astream, args2);
@@ -129,7 +129,11 @@ void ClipKernel(const Context& dev_ctx,
 }
 }  // namespace phi
 
-PD_REGISTER_KERNEL(
-    clip_tensor, OneDNN, ONEDNN, phi::ClipTensorKernel, float, phi::dtype::float16) {}
+PD_REGISTER_KERNEL(clip_tensor,
+                   OneDNN,
+                   ONEDNN,
+                   phi::ClipTensorKernel,
+                   float,
+                   phi::dtype::float16) {}
 PD_REGISTER_KERNEL(
     clip, OneDNN, ONEDNN, phi::ClipKernel, float, phi::dtype::bfloat16) {}
