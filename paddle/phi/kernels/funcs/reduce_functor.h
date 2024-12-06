@@ -17,6 +17,7 @@
 #include "paddle/common/macros.h"
 #include "paddle/phi/kernels/funcs/eigen/common.h"
 #include "paddle/phi/kernels/funcs/eigen/eigen_function.h"
+#include "paddle/phi/common/complex.h"
 namespace phi {
 namespace funcs {
 
@@ -89,10 +90,29 @@ struct MinFunctor {
 };
 
 //////// All Functor ///////
+template<typename T>
 struct AllFunctor {
   template <typename DeviceContext, typename X, typename Y, typename Dim>
   void operator()(const DeviceContext& place, X* x, Y* y, const Dim& dim) {
     y->device(place) = x->all(dim);
+  }
+};
+
+template<>
+struct AllFunctor<std::complex<float>> {
+  template <typename DeviceContext, typename X, typename Y, typename Dim>
+  void operator()(const DeviceContext& place, X* x, Y* y, const Dim& dim) {
+    auto to_bool = [](const std::complex<float>& v) { return v.real() != 0 || v.imag() != 0; };
+    y->device(place) = x->unaryExpr(to_bool).all(dim);
+  }
+};
+
+template<>
+struct AllFunctor<std::complex<double>> {
+  template <typename DeviceContext, typename X, typename Y, typename Dim>
+  void operator()(const DeviceContext& place, X* x, Y* y, const Dim& dim) {
+    auto to_bool = [](const std::complex<double>& v) { return v.real() != 0 || v.imag() != 0; };
+    y->device(place) = x->unaryExpr(to_bool).all(dim);
   }
 };
 

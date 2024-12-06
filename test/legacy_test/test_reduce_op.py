@@ -962,6 +962,46 @@ class TestAll8DOpWithKeepDim(OpTest):
         self.check_output(check_pir=True)
 
 
+class TestAllComplex64Op(OpTest):
+    def setUp(self):
+        self.op_type = "reduce_all"
+        self.python_api = paddle.all
+        self.inputs = {
+            'X': np.random.randint(0, 2, (2, 5, 3, 2, 2, 3, 4, 2)).astype(
+                "complex64"
+            )
+        }
+        self.attrs = {'dim': (5,), 'keep_dim': True}
+        self.outputs = {
+            'Out': np.expand_dims(
+                self.inputs['X'].all(axis=self.attrs['dim']), axis=5
+            )
+        }
+
+    def test_check_output(self):
+        self.check_output(check_pir=True)
+
+
+class TestAllComplex128Op(OpTest):
+    def setUp(self):
+        self.op_type = "reduce_all"
+        self.python_api = paddle.all
+        self.inputs = {
+            'X': np.random.randint(0, 2, (2, 5, 3, 2, 2, 3, 4, 2)).astype(
+                "complex128"
+            )
+        }
+        self.attrs = {'dim': (5,), 'keep_dim': True}
+        self.outputs = {
+            'Out': np.expand_dims(
+                self.inputs['X'].all(axis=self.attrs['dim']), axis=5
+            )
+        }
+
+    def test_check_output(self):
+        self.check_output(check_pir=True)
+
+
 class TestAllOpError(unittest.TestCase):
 
     def test_errors(self):
