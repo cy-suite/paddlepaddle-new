@@ -345,7 +345,7 @@ def get_mesh() -> paddle.distributed.ProcessMesh:
     return _g_mesh
 
 
-def set_mesh(mesh: paddle.distributed.ProcessMesh):
+def set_mesh(mesh: paddle.distributed.ProcessMesh) -> None:
     """
     Set the global mesh.
 
