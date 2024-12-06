@@ -1427,7 +1427,7 @@ class FleetUtil:
 
                 >>> # below is part of example model
                 >>> label = paddle.static.data(name="click", shape=[-1, 1],\
-                ...     dtype="int64", lod_level=0)
+                ...     dtype="int64")
                 >>> emb = my_slot_net(slots, label) # emb can be fc layer of size 1
                 >>> similarity_norm = paddle.nn.functional.sigmoid(paddle.clip(\
                 ...     emb, min=-15.0, max=15.0), name="similarity_norm")\
@@ -1632,7 +1632,7 @@ class FleetUtil:
 
                 >>> # below is part of model
                 >>> label = paddle.static.data(name="click", shape=[-1, 1],\
-                ...     dtype="int64", lod_level=0)
+                ...     dtype="int64")
                 >>> emb = my_slot_net(slots, label) # emb can be fc layer of size 1
                 >>> similarity_norm = paddle.nn.functional.sigmoid(paddle.clip(\
                 ...     emb, min=-15.0, max=15.0), name="similarity_norm")\
@@ -1699,7 +1699,7 @@ class FleetUtil:
         )
         self.rank0_print(
             f"{print_prefix} global AUC={auc:.6f} BUCKET_ERROR={bucket_error:.6f} MAE={mae:.6f} "
-            f"RMSE={rmse:.6f} Actural_CTR={actual_ctr:.6f} Predicted_CTR={predicted_ctr:.6f} "
+            f"RMSE={rmse:.6f} Actual_CTR={actual_ctr:.6f} Predicted_CTR={predicted_ctr:.6f} "
             f"COPC={copc:.6f} MEAN Q_VALUE={mean_predict_qvalue:.6f} Ins number={total_ins_num}"
         )
 

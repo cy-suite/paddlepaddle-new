@@ -36,11 +36,13 @@ limitations under the License. */
 #include <utility>
 #include <vector>
 
+#include "paddle/common/ddim.h"
 #include "paddle/fluid/framework/compiled_program.h"
 #include "paddle/fluid/framework/convert_utils.h"
 #include "paddle/fluid/framework/custom_operator.h"
 #include "paddle/fluid/framework/data_layout.h"
 #include "paddle/fluid/framework/data_type_transform.h"
+#include "paddle/fluid/framework/dense_tensor_array.h"
 #include "paddle/fluid/framework/details/nan_inf_utils_detail.h"
 #include "paddle/fluid/framework/executor.h"
 #include "paddle/fluid/framework/executor_cache.h"
@@ -53,8 +55,6 @@ limitations under the License. */
 #include "paddle/fluid/framework/ir/cost_model.h"
 #include "paddle/fluid/framework/ir/generate_pass.h"
 #include "paddle/fluid/framework/ir/pass_builder.h"
-#include "paddle/fluid/framework/lod_rank_table.h"
-#include "paddle/fluid/framework/lod_tensor_array.h"
 #include "paddle/fluid/framework/new_executor/collect_shape_manager.h"
 #include "paddle/fluid/framework/new_executor/executor_statistics.h"
 #include "paddle/fluid/framework/new_executor/interpreter/job.h"
@@ -76,9 +76,11 @@ limitations under the License. */
 #include "paddle/fluid/prim/utils/utils.h"
 #include "paddle/phi/common/bfloat16.h"
 #include "paddle/phi/common/float16.h"
+#include "paddle/phi/common/int_array.h"
 #include "paddle/phi/core/framework/reader.h"
 #include "paddle/phi/core/memory/allocation/allocator_strategy.h"
 #include "paddle/phi/core/raw_tensor.h"
+#include "paddle/phi/core/tensor_meta.h"
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
 #include "paddle/phi/core/memory/allocation/auto_growth_best_fit_allocator_v2.h"
 #include "paddle/phi/core/memory/allocation/cuda_ipc_allocator.h"
@@ -233,6 +235,7 @@ limitations under the License. */
 #endif
 
 COMMON_DECLARE_bool(use_mkldnn);
+COMMON_DECLARE_string(prim_backward_blacklist);
 
 // disable auto conversion to list in Python
 PYBIND11_MAKE_OPAQUE(phi::TensorArray);
@@ -251,11 +254,10 @@ DECLARE_FILE_SYMBOLS(aligned_allocator);
 DECLARE_FILE_SYMBOLS(pass_timing);
 DECLARE_FILE_SYMBOLS(op_compatible_info);
 
-namespace paddle {
-namespace pybind {
+namespace paddle::pybind {
 
 PyTypeObject *g_framework_scope_pytype = nullptr;
-PyTypeObject *g_framework_lodtensorarray_pytype = nullptr;
+PyTypeObject *g_framework_densetensorarray_pytype = nullptr;
 PyTypeObject *g_custom_op_kernel_ctx_pytype = nullptr;
 PyTypeObject *g_data_type_pytype = nullptr;
 PyTypeObject *g_tensorrt_engine_params_pytype = nullptr;
@@ -755,10 +757,11 @@ static std::vector<std::vector<pir::Value>> GenerateBackwardBlockForPyLayerOp(
   // 1. construct pylayer grad op
   VLOG(6) << "Prepare Outputs for pylayer_grad";
   std::vector<pir::Type> output_types;
+  // NOTE: the last input of pylayer op is create_stack when called
+  // save_for_backward, whose stop_gradient is always True
   for (size_t i = 0; i < inputs_.size(); ++i) {
-    if (!stop_gradients[i][0]) {
-      output_types.push_back(inputs_[i][0].type());
-    }
+    if (inputs_[i][0].type().isa<pir::InletType>()) break;
+    output_types.push_back(inputs_[i][0].type());
   }
 
   VLOG(6) << "Prepare Inputs for pylayer_grad";
@@ -837,12 +840,9 @@ static std::vector<std::vector<pir::Value>> GenerateBackwardBlockForPyLayerOp(
   VLOG(6) << "Update pylayer_grad op finished";
 
   std::vector<std::vector<pir::Value>> res{inputs_.size()};
-  int grad_op_result_index = 0;
   for (size_t i = 0; i < res.size(); ++i) {
     res[i].resize(1);
-    res[i][0] = !stop_gradients[i][0]
-                    ? pylayer_grad->result(grad_op_result_index++)
-                    : pir::Value();
+    res[i][0] = !stop_gradients[i][0] ? pylayer_grad->result(i) : pir::Value();
   }
   return res;
 }
@@ -936,7 +936,7 @@ void BindVjp(pybind11::module *m) {
             PADDLE_ENFORCE_EQ(inputs[idx].size(),
                               vjp_res[grad_index].size(),
                               common::errors::InvalidArgument(
-                                  "The size of inouts[%d] should be the "
+                                  "The size of inputs[%d] should be the "
                                   "same as vjp_res[%d] size.",
                                   idx,
                                   grad_index));
@@ -1008,7 +1008,7 @@ void BindVjp(pybind11::module *m) {
            )DOC");
 }
 
-void BindDecomp(pybind11::module *m) {
+void BindDecompRule(pybind11::module *m) {
   m->def("sinking_decomp",
          [](pir::Program *program,
             std::vector<pir::Value> &src_vars,
@@ -1033,7 +1033,7 @@ void BindDecomp(pybind11::module *m) {
            return res;
          });
 
-  m->def("call_decomp", [](pir::Operation &fwd_op) {
+  m->def("call_decomp_rule", [](pir::Operation &fwd_op) {
     py::list res;
     std::vector<std::vector<pir::Value>> decomp_res = call_decomp_rule(&fwd_op);
     for (size_t i = 0; i < decomp_res.size(); ++i) {
@@ -1050,7 +1050,7 @@ void BindDecomp(pybind11::module *m) {
     return res;
   });
 
-  m->def("has_decomp", [](pir::Operation &fwd_op) {
+  m->def("has_decomp_rule", [](pir::Operation &fwd_op) {
     return paddle::has_decomp_rule(fwd_op);
   });
 }
@@ -1058,16 +1058,7 @@ void BindDecomp(pybind11::module *m) {
 void BindDecompVjp(pybind11::module *m) {
   m->def("call_decomp_vjp", [](pir::Operation &vjp_op) {
     py::list res;
-    paddle::dialect::DecompVjpInterface decomp_vjp_interface =
-        vjp_op.dyn_cast<paddle::dialect::DecompVjpInterface>();
-    PADDLE_ENFORCE(
-        decomp_vjp_interface,
-        common::errors::InvalidArgument(
-            "[Prim] The decomp_vjp function is not registered in %s vjp_op ",
-            vjp_op.name()));
-    std::vector<std::vector<pir::Value>> decomp_res =
-        decomp_vjp_interface.DecompVjp(&vjp_op);
-
+    std::vector<std::vector<pir::Value>> decomp_res = call_decomp_vjp(&vjp_op);
     for (size_t i = 0; i < decomp_res.size(); ++i) {
       py::list sub_res;
       for (size_t j = 0; j < decomp_res[i].size(); ++j) {
@@ -1078,13 +1069,8 @@ void BindDecompVjp(pybind11::module *m) {
     return res;
   });
 
-  m->def("has_decomp_vjp", [](pir::Operation &vjp_op) {
-    pir::IrContext *ctx = pir::IrContext::Instance();
-    pir::OpInfo vjp_op_info = ctx->GetRegisteredOpInfo(vjp_op.name());
-    auto decomp_vjp_interface_impl =
-        vjp_op_info.GetInterfaceImpl<paddle::dialect::DecompVjpInterface>();
-    return decomp_vjp_interface_impl != nullptr;
-  });
+  m->def("has_decomp_vjp",
+         [](pir::Operation &vjp_op) { return paddle::has_decomp_vjp(vjp_op); });
 }
 
 PYBIND11_MODULE(libpaddle, m) {
@@ -1276,6 +1262,101 @@ PYBIND11_MODULE(libpaddle, m) {
     return ptensor;
   });
 
+  m.def("tensor_from_cuda_array_interface", [](py::object obj) {
+    // We use CUDA Array Interface (Version 2) protocol:
+    // https://numba.pydata.org/numba-doc/dev/cuda/cuda_array_interface.html
+    py::object cuda_array_interface = obj.attr("__cuda_array_interface__");
+    PADDLE_ENFORCE_EQ(py::isinstance<py::dict>(cuda_array_interface),
+                      true,
+                      common::errors::InvalidArgument(
+                          "`__cuda_array_interface` must be a dict"));
+    py::dict cuda_dict = cuda_array_interface.cast<py::dict>();
+
+    // Extract the `obj.__cuda_array_interface__['shape']` attribute
+    PADDLE_ENFORCE_EQ(
+        cuda_dict.contains("shape"),
+        true,
+        common::errors::InvalidArgument(
+            "The 'shape' key is missing in the __cuda_array_interface__  "
+            "dict."));
+    py::object shape_obj = cuda_dict["shape"];
+    PADDLE_ENFORCE_EQ(
+        py::isinstance<py::tuple>(shape_obj) ||
+            py::isinstance<py::list>(shape_obj),
+        true,
+        common::errors::InvalidArgument("Shape must be a tuple or list"));
+    std::vector<int64_t> shapes;
+    shapes = shape_obj.cast<std::vector<int64_t>>();
+    phi::IntArray shapeIntArray = phi::IntArray(shapes);
+
+    // Extract the `obj.__cuda_array_interface__['typestr'] attribute
+    PADDLE_ENFORCE_EQ(
+        cuda_dict.contains("typestr"),
+        true,
+        common::errors::InvalidArgument(
+            "The 'typestr' key is missing in the __cuda_array_interface__  "
+            "dict."));
+    py::object typestr_obj = cuda_dict["typestr"];
+    std::string typestr = typestr_obj.cast<std::string>();
+    phi::DataType dtype = paddle::framework::ConvertToPDDataType(typestr);
+
+    // Extract the `obj.__cuda_array_interface__['data']` attribute
+    PADDLE_ENFORCE_EQ(
+        cuda_dict.contains("data"),
+        true,
+        common::errors::InvalidArgument(
+            "The 'data' key is missing in the __cuda_array_interface__  "
+            "dict."));
+    py::object data_obj = cuda_dict["data"];
+    py::tuple data_tuple = data_obj.cast<py::tuple>();
+
+    // Data tuple(ptr_as_int, read_only_flag).
+    // The ptr_as_int stands for data pointer but in Python it is a integer.
+    // It need to be converted to a large enough integral type first
+    // and then convert to void*
+    void *data_ptr = reinterpret_cast<void *>(data_tuple[0].cast<intptr_t>());
+    PADDLE_ENFORCE_NE(
+        data_tuple[1].cast<bool>(),
+        true,
+        common::errors::InvalidArgument("Read-only array is not supported"));
+
+    // Extract the `obj.__cuda_array_interface__['strides']` attribute
+    phi::IntArray stridesIntArray;
+    if (cuda_dict.contains("strides") && !cuda_dict["strides"].is_none()) {
+      std::vector<int64_t> strides_vec =
+          cuda_dict["strides"].cast<std::vector<int64_t>>();
+
+      // __cuda_array_interface__ strides uses bytes
+      size_t element_size = phi::SizeOf(dtype);
+      for (auto &stride : strides_vec) {
+        PADDLE_ENFORCE_NE(
+            stride % element_size,
+            0,
+            common::errors::InvalidArgument(
+                "strides must be a multiple of the element size."));
+        stride /= element_size;
+      }
+      stridesIntArray = phi::IntArray(strides_vec);
+    } else {
+      DDim ddim_strides =
+          phi::DenseTensorMeta::calc_strides(common::make_ddim(shapes));
+      int rank = ddim_strides.size();
+      const int64_t *ddim_data = ddim_strides.Get();
+      std::vector<int64_t> strides_vec(ddim_data, ddim_data + rank);
+      stridesIntArray = phi::IntArray(strides_vec);
+    }
+    return paddle::from_blob(data_ptr,
+                             shapeIntArray,
+                             stridesIntArray,
+                             dtype,
+                             phi::DataLayout::NCHW,
+                             phi::Place(),
+                             [obj](void *data) {
+                               py::gil_scoped_acquire gil;
+                               obj.dec_ref();
+                             });
+  });
+
   m.def("_create_loaded_parameter",
         [](const py::handle &vec_var_list,
            const Scope &scope,
@@ -1385,7 +1466,7 @@ PYBIND11_MODULE(libpaddle, m) {
            Return the registered kernels in paddle.
 
            Args:
-               lib[string]: the libarary, could be 'phi', 'fluid' and 'all'.
+               lib[string]: the library, could be 'phi', 'fluid' and 'all'.
            )DOC");
 
   m.def(
@@ -1437,7 +1518,7 @@ PYBIND11_MODULE(libpaddle, m) {
            Return the registered kernels in phi.
 
            Args:
-               kernel_registered_type[string]: the libarary, could be 'function', 'structure', and 'all'.
+               kernel_registered_type[string]: the library, could be 'function', 'structure', and 'all'.
            )DOC");
 
   // NOTE(Aganlengzi): KernelFactory static instance is initialized BEFORE
@@ -1525,17 +1606,13 @@ All parameter, weight, gradient are variables in Paddle.
           [](Variable &self) { return self.GetMutable<Vocab>(); },
           py::return_value_policy::reference)
       .def(
-          "get_lod_rank_table",
-          [](Variable &self) { return self.GetMutable<LoDRankTable>(); },
-          py::return_value_policy::reference)
-      .def(
           "get_selected_rows",
           [](Variable &self) -> phi::SelectedRows * {
             return self.GetMutable<phi::SelectedRows>();
           },
           py::return_value_policy::reference)
       .def(
-          "get_lod_tensor_array",
+          "get_dense_tensor_array",
           [](Variable &self) { return self.GetMutable<phi::TensorArray>(); },
           py::return_value_policy::reference)
       .def(
@@ -1825,7 +1902,7 @@ All parameter, weight, gradient are variables in Paddle.
           VLOG(3) << "need skip: " << need_skip << std::endl;
           if (paddle::prim::PrimCommonUtils::IsBwdPrimEnabled()) {
             if ((grad_comp_op_maker != nullptr) && (!need_skip)) {
-              VLOG(3) << "Prim Flag Open: Runing composite grad fun for "
+              VLOG(3) << "Prim Flag Open: Running composite grad fun for "
                       << op_desc.Type();
               grad_op_descs = grad_comp_op_maker(op_desc,
                                                  no_grad_set,
@@ -1838,12 +1915,12 @@ All parameter, weight, gradient are variables in Paddle.
             }
           } else {
             if (grad_op_maker != nullptr) {
-              VLOG(6) << "Prim Flag Close: Runing origin grad fun for "
+              VLOG(6) << "Prim Flag Close: Running origin grad fun for "
                       << op_desc.Type();
               grad_op_descs = grad_op_maker(
                   op_desc, no_grad_set, &grad_to_var, grad_sub_block);
             } else {
-              VLOG(6) << "Prim Flag Close: Runing composite grad fun for "
+              VLOG(6) << "Prim Flag Close: Running composite grad fun for "
                       << op_desc.Type();
               grad_op_descs = grad_comp_op_maker(op_desc,
                                                  no_grad_set,
@@ -2350,6 +2427,9 @@ All parameter, weight, gradient are variables in Paddle.
       .def("ir_program", &framework::interpreter::Plan::IrProgram)
       .def("program", &framework::interpreter::Plan::Program);
 
+  m.def("get_no_need_buffer_values",
+        framework::interpreter::GetNoNeedBufferValues);
+
   m.def("init_gflags", framework::InitGflags);
   m.def("init_glog", framework::InitGLOG);
   m.def("init_memory_method", framework::InitMemoryMethod);
@@ -2476,7 +2556,7 @@ All parameter, weight, gradient are variables in Paddle.
            const std::string &var_name,
            size_t index) -> py::object {
           auto &var = framework::GetFetchVariable(scope, var_name, index);
-          if (data_is_lod_tensor(var)) {  // NOLINT
+          if (data_is_dense_tensor(var)) {  // NOLINT
             return py::cast(PADDLE_GET(phi::DenseTensor, var));
           } else {
             return py::cast(PADDLE_GET(phi::TensorArray, var));
@@ -2486,7 +2566,7 @@ All parameter, weight, gradient are variables in Paddle.
 
   m.def("_is_program_version_supported", IsProgramVersionSupported);
 #if defined(PADDLE_WITH_CUDA)
-  m.def("alloctor_dump", [](const phi::GPUPlace &place) {
+  m.def("allocator_dump", [](const phi::GPUPlace &place) {
     auto allocator = std::dynamic_pointer_cast<
         paddle::memory::allocation::AutoGrowthBestFitAllocator>(
         paddle::memory::allocation::AllocatorFacade::Instance()
@@ -2507,27 +2587,18 @@ All parameter, weight, gradient are variables in Paddle.
   BindAutoParallel(&m);
   BindJitProperty(&m);
 
-  py::class_<framework::LoDRankTable>(m, "LodRankTable")
-      .def("items", [](framework::LoDRankTable &table) {
-        std::vector<std::pair<size_t, size_t>> res;
-        for (auto &item : table.items()) {
-          res.push_back({item.index, item.length});
-        }
-        return res;
-      });
-
-  py::class_<phi::TensorArray> pylodtensorarray(m, "LoDTensorArray", R"DOC(
-    LoDTensorArray is array of LoDTensor, it supports operator[], len() and for-loop iteration.
+  py::class_<phi::TensorArray> pydensetensorarray(m, "DenseTensorArray", R"DOC(
+    DenseTensorArray is array of DenseTensor, it supports operator[], len() and for-loop iteration.
 
     Examples:
         .. code-block:: python
 
             >>> import paddle
-            >>> arr = paddle.framework.core.LoDTensorArray()
+            >>> arr = paddle.framework.core.DenseTensorArray()
 )DOC");
-  g_framework_lodtensorarray_pytype =
-      reinterpret_cast<PyTypeObject *>(pylodtensorarray.ptr());
-  pylodtensorarray
+  g_framework_densetensorarray_pytype =
+      reinterpret_cast<PyTypeObject *>(pydensetensorarray.ptr());
+  pydensetensorarray
       .def(py::init([]() { return std::make_unique<phi::TensorArray>(); }))
       .def(
           "__getitem__",
@@ -2540,7 +2611,7 @@ All parameter, weight, gradient are variables in Paddle.
                                self.size(),
                                common::errors::InvalidArgument(
                                    "The index to set is larger than the size "
-                                   "of LoDTensorArray."));
+                                   "of DenseTensorArray."));
              self[i].ShareDataWith(t);
              self[i].set_lod(t.lod());
            })
@@ -2553,10 +2624,10 @@ All parameter, weight, gradient are variables in Paddle.
           },
           py::arg("tensor"),
           R"DOC(
-             Append a LoDensor to LoDTensorArray.
+             Append a DenseTensor to DenseTensorArray.
 
              Args:
-                   tensor (LoDTensor): The LoDTensor to be appended.
+                   tensor (DenseTensor): The DenseTensor to be appended.
 
              Returns:
                    None.
@@ -2567,8 +2638,8 @@ All parameter, weight, gradient are variables in Paddle.
                         >>> import paddle
                         >>> import numpy as np
 
-                        >>> arr = paddle.framework.core.LoDTensorArray()
-                        >>> t = paddle.framework.core.LoDTensor()
+                        >>> arr = paddle.framework.core.DenseTensorArray()
+                        >>> t = paddle.framework.core.DenseTensor()
                         >>> t.set(np.ndarray([5, 30]), paddle.CPUPlace())
                         >>> arr.append(t)
            )DOC")
@@ -2585,14 +2656,14 @@ All parameter, weight, gradient are variables in Paddle.
           py::return_value_policy::take_ownership);
 
   py::class_<FetchList>(m, "FetchList", R"DOC( FetchList is a
-        vector of paddle::variant<LoDTensor, LoDTensorArray>.
+        vector of paddle::variant<DenseTensor, DenseTensorArray>.
         )DOC")
       .def(
           "_move_to_list",
           [](FetchList &self) -> py::list {
             py::list res(self.size());
             for (size_t i = 0; i < self.size(); ++i) {
-              if (data_is_lod_tensor(self[i])) {
+              if (data_is_dense_tensor(self[i])) {
                 auto &data = PADDLE_GET(phi::DenseTensor, self[i]);
                 res[i] = py::cast(std::move(data));
               } else if (data_is_sparse_coo_tensor(self[i])) {
@@ -2635,7 +2706,7 @@ All parameter, weight, gradient are variables in Paddle.
           py::arg("var"));
 
   py::class_<FetchUnmergedList>(m, "FetchUnmergedList", R"DOC(
-        FetchUnmergedList is 2-D array of FetchType(paddle::variant(LoDTensor, LoDTensorArray)).
+        FetchUnmergedList is 2-D array of FetchType(paddle::variant(DenseTensor, DenseTensorArray)).
         )DOC")
       .def(
           "_move_to_list",
@@ -2644,7 +2715,7 @@ All parameter, weight, gradient are variables in Paddle.
             for (size_t i = 0; i < self.size(); ++i) {
               py::list tmp(self[i].size());
               for (size_t j = 0; j < self[i].size(); ++j) {
-                if (data_is_lod_tensor(self[i][j])) {
+                if (data_is_dense_tensor(self[i][j])) {
                   auto &var = PADDLE_GET(phi::DenseTensor, self[i][j]);
                   tmp[j] = py::cast(std::move(var));
                 } else {
@@ -3244,6 +3315,8 @@ All parameter, weight, gradient are variables in Paddle.
       .value("BFLOAT16", phi::DataType::BFLOAT16)
       .value("FLOAT8_E4M3FN", phi::DataType::FLOAT8_E4M3FN)
       .value("FLOAT8_E5M2", phi::DataType::FLOAT8_E5M2)
+      .value("PSTRING", phi::DataType::PSTRING)
+      .value("ALL_DTYPE", phi::DataType::ALL_DTYPE)
       .export_values();
 
   py::class_<paddle::platform::EngineParams> engine_params(m,
@@ -3279,6 +3352,7 @@ All parameter, weight, gradient are variables in Paddle.
            bool is_shape_tensor,
            paddle::framework::ShapeMode shape_mode) -> py::list {
           py::list res;
+
           paddle::framework::CollectShapeManager::Instance()
               .StatisticShapeRangeInfo();
           auto shape_result =
@@ -3289,6 +3363,9 @@ All parameter, weight, gradient are variables in Paddle.
           }
           return res;
         });
+  m.def("clear_shape_info", []() {
+    paddle::framework::CollectShapeManager::Instance().ClearShapeInfo();
+  });
 
 #if defined(PADDLE_WITH_PSLIB) && !defined(PADDLE_WITH_HETERPS)
   BindHeterWrapper(&m);
@@ -3366,11 +3443,10 @@ All parameter, weight, gradient are variables in Paddle.
 
   BindPir(&m);
   BindVjp(&m);
-  BindDecomp(&m);
+  BindDecompRule(&m);
   BindDecompVjp(&m);
 #ifdef PADDLE_WITH_DISTRIBUTE
   BindDistApi(&m);
 #endif
 }
-}  // namespace pybind
-}  // namespace paddle
+}  // namespace paddle::pybind

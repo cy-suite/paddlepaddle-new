@@ -49,11 +49,10 @@ ir::IndexExpr IterMapToExprNormalizer::ConvertIterSum(ir::IterSum* expr) {
 }
 
 ir::IndexExpr IterMapToExprNormalizer::ConvertIterSplit(ir::IterSplit* expr) {
-  // quick branch
-  if (IsZero(expr->scale) || IsOne(expr->extent)) return ir::IndexExpr(0);
   ir::IndexExpr source;
   ir::IterMark* mark = expr->source.As<ir::IterMark>();
   if (auto opt = mark->source.As<ir::_Var_>()) {
+    if (IsOne(mark->extent)) return ir::IndexExpr(0);
     source = opt;
   } else if (auto opt = mark->source.As<ir::IterSum>()) {
     source = ConvertIterSum(opt);
@@ -62,6 +61,11 @@ ir::IndexExpr IterMapToExprNormalizer::ConvertIterSplit(ir::IterSplit* expr) {
     Visit(&(mark->source), &(mark->source));
     source = mark->source;
   }
+
+  // quick branch
+  if (IsZero(expr->scale) || IsOne(expr->extent))
+    return ir::Zero(expr->extent.type());
+
   if (analyzer_.ProveEQ(expr->extent, mark->extent).value_or(false) &&
       IsOne(expr->lower_factor)) {
     return source * expr->scale;
@@ -500,8 +504,14 @@ std::optional<ir::IndexExpr> IterMapRewriter::TryFuse(
                                          ir::IndexExpr(),
                                          -1,
                                          first_possible_unit_extent_pos);
-    // If not found iter with expected scale, return nullopt.
-    if (matched_pos == -1) return std::nullopt;
+    // If not found iter with expected scale, search above case:
+    // D(i)=2, D(j)=8, Split loop from (j, 0, 8) to (-1, 32)
+    // (i * 8 + j) % 16 ==> (i * 8 + j0 * 32 + j1)
+    if (matched_pos == -1) {
+      matched_pos = FindBaseSplit(*iter_sum, visited, ir::IndexExpr(), -1);
+      // // If not found iter with expected scale again, return nullopt.
+      if (matched_pos == -1) return std::nullopt;
+    }
 
     matched_scale = expected_scale;
     visited[matched_pos] = true;
@@ -642,8 +652,7 @@ void IterMapRewriter::AddToLhs(ir::IterSum* lhs,
   if (sign > 0) {
     lhs->args.push_back(rhs_expr);
   } else {
-    rhs_expr.As<ir::IterSplit>()->scale =
-        ir::Zero(rhs.scale.type()).as_index() - rhs.scale;
+    rhs_expr.As<ir::IterSplit>()->scale = -rhs.scale;
     lhs->args.push_back(rhs_expr);
   }
 }
@@ -676,8 +685,11 @@ void IterMapSimplify(std::vector<Expr>& indices,  // NOLINT
   IterMapRewriter rewriter(input_iters, analyzer);
   IterMapToExprNormalizer converter(analyzer);
   for (auto& value : indices) {
+    VLOG(5) << "before rewrite: " << value;
     rewriter.Rewrite(&value);
+    VLOG(5) << "after rewrite: " << value;
     converter.Convert(&value);
+    VLOG(5) << "after convert: " << value;
   }
 }
 

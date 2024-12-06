@@ -39,7 +39,9 @@ int Internal_PyInterpreterFrame_GetLine(_PyInterpreterFrame *frame);
 static int Internal_PyFrame_OpAlreadyRan(_PyInterpreterFrame *frame,
                                          int opcode,
                                          int oparg);
-#if !PY_3_13_PLUS
+#if PY_3_13_PLUS
+PyObject *get_framelocals_mapping(_PyInterpreterFrame *frame);
+#else
 int Internal_PyFrame_FastToLocalsWithError(_PyInterpreterFrame *frame);
 #endif
 PyFrameObject *Internal_PyFrame_New_NoTrack(PyCodeObject *code);

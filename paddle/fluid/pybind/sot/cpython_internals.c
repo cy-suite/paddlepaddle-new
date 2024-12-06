@@ -14,9 +14,11 @@ limitations under the License. */
 
 #include "paddle/fluid/pybind/sot/cpython_internals.h"
 
-#include <frameobject.h>
-
 #if SOT_IS_SUPPORTED
+
+#if !PY_3_11_PLUS
+#include <frameobject.h>
+#endif
 
 #if PY_3_11_PLUS
 #include <internal/pycore_code.h>
@@ -49,11 +51,7 @@ int Internal_PyUnstable_InterpreterFrame_GetLine(_PyInterpreterFrame *frame) {
 int Internal_PyInterpreterFrame_GetLine(_PyInterpreterFrame *frame) {
 #endif
   int addr = _PyInterpreterFrame_LASTI(frame) * sizeof(_Py_CODEUNIT);
-#if PY_3_13_PLUS
-  return PyCode_Addr2Line(_PyFrame_GetCode(frame), addr);
-#else
-  return PyCode_Addr2Line(frame->f_code, addr);
-#endif
+  return PyCode_Addr2Line(PyFrame_GET_CODE(frame), addr);
 }
 
 static int Internal_PyFrame_OpAlreadyRan(_PyInterpreterFrame *frame,
@@ -62,15 +60,14 @@ static int Internal_PyFrame_OpAlreadyRan(_PyInterpreterFrame *frame,
   // This only works when opcode is a non-quickened form:
   assert(_PyOpcode_Deopt[opcode] == opcode);
   int check_oparg = 0;
+  for (_Py_CODEUNIT *instruction = _PyCode_CODE(PyFrame_GET_CODE(frame));
 #if PY_3_13_PLUS
-  for (_Py_CODEUNIT *instruction = _PyCode_CODE(_PyFrame_GetCode(frame));
        instruction < frame->instr_ptr;
-       instruction++) {
 #else
-  for (_Py_CODEUNIT *instruction = _PyCode_CODE(frame->f_code);
        instruction < frame->prev_instr;
-       instruction++) {
 #endif
+       instruction++) {
+
 #if PY_3_12_PLUS
     int check_opcode = _PyOpcode_Deopt[instruction->op.code];
     check_oparg |= instruction->op.arg;
@@ -171,15 +168,69 @@ void Internal_PyEvalFrameClearAndPop(PyThreadState *tstate,
   }
 }
 
+#if PY_3_13_PLUS
+// This function is used to get the locals mapping of the frame.
+void update_framelocals_mapping(PyObject *mapping,
+                                PyCodeObject *code,
+                                int i,
+                                PyObject *value) {
+  _PyLocals_Kind kind = _PyLocals_GetKind(code->co_localspluskinds, i);
+
+  if (kind & CO_FAST_FREE && !(code->co_flags & CO_OPTIMIZED)) {
+    return;
+  }
+
+  if (kind & CO_FAST_HIDDEN) {
+    return;
+  }
+
+  if (kind & CO_FAST_FREE) {
+    assert(value != NULL && PyCell_Check(value));
+    value = PyCell_GET(value);
+  }
+
+  if (value != NULL) {
+    PyDict_SetItem(
+        mapping, PyTuple_GET_ITEM(code->co_localsplusnames, i), value);
+  }
+}
+
+// simplified version `frame_get_var`, `frame_init_get_vars` and
+// `PyFrame_GetLocals`
+PyObject *get_framelocals_mapping(_PyInterpreterFrame *frame) {
+  PyObject *mapping = PyDict_New();
+
+  // If the frame is not yet executed, return an empty mapping, see
+  // `frame_get_var` function
+  if (!frame->stacktop) {
+    return mapping;
+  }
+
+  PyCodeObject *co = PyFrame_GET_CODE(frame);
+
+  // Get local variables, see `frame_get_var` function
+  int offset = co->co_nlocalsplus - co->co_nfreevars;
+  for (int i = 0; i < offset; i++) {
+    update_framelocals_mapping(mapping, co, i, frame->localsplus[i]);
+  }
+
+  // Get closure variables, see `frame_init_get_vars` function
+  PyObject *closure = ((PyFunctionObject *)frame->f_funcobj)->func_closure;
+  for (int i = 0; i < co->co_nfreevars; ++i) {
+    update_framelocals_mapping(
+        mapping, co, offset + i, PyTuple_GET_ITEM(closure, i));
+  }
+
+  return mapping;
+}
+
+#else
+
 // Initialize frame free variables if needed
 static void Internal_frame_init_get_vars(_PyInterpreterFrame *frame) {
-// COPY_FREE_VARS has no quickened forms, so no need to use _PyOpcode_Deopt
-// here:
-#if PY_3_13_PLUS
-  PyCodeObject *co = _PyFrame_GetCode(frame);
-#else
+  // COPY_FREE_VARS has no quickened forms, so no need to use _PyOpcode_Deopt
+  // here:
   PyCodeObject *co = frame->f_code;
-#endif
   int lasti = _PyInterpreterFrame_LASTI(frame);
   if (!(lasti < 0 && _PyCode_CODE(co)->op.code == COPY_FREE_VARS &&
         PyFunction_Check(frame->f_funcobj))) {
@@ -189,21 +240,13 @@ static void Internal_frame_init_get_vars(_PyInterpreterFrame *frame) {
 
   /* Free vars have not been initialized -- Do that */
   PyObject *closure = ((PyFunctionObject *)frame->f_funcobj)->func_closure;
-#if PY_3_13_PLUS
-  int offset = PyUnstable_Code_GetFirstFree(co);
-#else
   int offset = PyCode_GetFirstFree(co);
-#endif
   for (int i = 0; i < co->co_nfreevars; ++i) {
     PyObject *o = PyTuple_GET_ITEM(closure, i);
     frame->localsplus[offset + i] = Py_NewRef(o);
   }
-// COPY_FREE_VARS doesn't have inline CACHEs, either:
-#if PY_3_13_PLUS
-  frame->instr_ptr = _PyCode_CODE(_PyFrame_GetCode(frame));
-#else
+  // COPY_FREE_VARS doesn't have inline caches, either:
   frame->prev_instr = _PyCode_CODE(frame->f_code);
-#endif
 }
 
 static int Internal_frame_get_var(_PyInterpreterFrame *frame,
@@ -254,7 +297,6 @@ static int Internal_frame_get_var(_PyInterpreterFrame *frame,
   return 1;
 }
 
-#if !PY_3_13_PLUS
 PyObject *Internal_PyFrame_GetLocals(_PyInterpreterFrame *frame,
                                      int include_hidden) {
   /* Merge fast locals into f->f_locals */
@@ -337,9 +379,7 @@ error:
   Py_XDECREF(hidden);
   return NULL;
 }
-#endif  // !PY_3_13_PLUS
 
-#if !PY_3_13_PLUS
 int Internal_PyFrame_FastToLocalsWithError(_PyInterpreterFrame *frame) {
   PyObject *locals = Internal_PyFrame_GetLocals(frame, 0);
   if (locals == NULL) {
@@ -428,7 +468,7 @@ int Internal_PyFrame_FastToLocalsWithError(_PyInterpreterFrame *frame) {
       Py_INCREF(o);
       frame->localsplus[offset + i] = o;
     }
-    // COPY_FREE_VARS doesn't have inline CACHEs, either:
+    // COPY_FREE_VARS doesn't have inline caches, either:
     frame->prev_instr = _PyCode_CODE(frame->f_code);
   }
   for (int i = 0; i < co->co_nlocalsplus; i++) {
@@ -523,11 +563,7 @@ PyFrameObject *Internal_PyFrame_MakeAndSetFrameObject(
   PyErr_Fetch(&error_type, &error_value, &error_traceback);
 #endif
 
-#if PY_3_13_PLUS
-  PyFrameObject *f = Internal_PyFrame_New_NoTrack(_PyFrame_GetCode(frame));
-#else
-  PyFrameObject *f = Internal_PyFrame_New_NoTrack(frame->f_code);
-#endif
+  PyFrameObject *f = Internal_PyFrame_New_NoTrack(PyFrame_GET_CODE(frame));
   if (f == NULL) {
 #if PY_3_12_PLUS
     Py_XDECREF(exc);
@@ -601,10 +637,8 @@ static void Internal_take_ownership(PyFrameObject *f,
   Py_ssize_t size =
       ((char *)&frame->localsplus[frame->stacktop]) - (char *)frame;
 
-#if PY_3_13_PLUS
-  Py_INCREF(_PyFrame_GetCode(frame));
-#elif PY_3_12_PLUS
-  Py_INCREF(frame->f_code);
+#if PY_3_12_PLUS
+  Py_INCREF(PyFrame_GET_CODE(frame));
 #endif
 
   memcpy((_PyInterpreterFrame *)f->_f_frame_data, frame, size);
@@ -612,13 +646,13 @@ static void Internal_take_ownership(PyFrameObject *f,
   f->f_frame = frame;
   frame->owner = FRAME_OWNED_BY_FRAME_OBJECT;
   if (_PyFrame_IsIncomplete(frame)) {
-// This may be a newly-created generator or coroutine frame. Since it's
-// dead anyways, just pretend that the first RESUME ran:
+    // This may be a newly-created generator or coroutine frame. Since it's
+    // dead anyways, just pretend that the first RESUME ran:
+    PyCodeObject *code = PyFrame_GET_CODE(frame);
+
 #if PY_3_13_PLUS
-    PyCodeObject *code = _PyFrame_GetCode(frame);
     frame->instr_ptr = _PyCode_CODE(code) + code->_co_firsttraceable + 1;
 #else
-    PyCodeObject *code = frame->f_code;
     frame->prev_instr = _PyCode_CODE(code) + code->_co_firsttraceable;
 #endif
   }
@@ -650,7 +684,7 @@ static void Internal_take_ownership(PyFrameObject *f,
     } else {
       f->f_back = (PyFrameObject *)Py_NewRef(back);
     }
-#if PY_VERSION_HEX < PY_3_12_0_HEX
+#if !PY_3_12_PLUS
     frame->previous = NULL;
 #endif
   }
@@ -681,8 +715,8 @@ void Internal_PyFrame_Clear(_PyInterpreterFrame *frame) {
    * to have cleared the enclosing generator, if any. */
   assert(frame->owner != FRAME_OWNED_BY_GENERATOR ||
          _PyFrame_GetGenerator(frame)->gi_frame_state == FRAME_CLEARED);
-// GH-99729: Clearing this frame can expose the stack (via finalizers). It's
-// crucial that this frame has been unlinked, and is no longer visible:
+  // GH-99729: Clearing this frame can expose the stack (via finalizers). It's
+  // crucial that this frame has been unlinked, and is no longer visible:
 #if PY_3_13_PLUS
   assert(PyThreadState_GET()->current_frame != frame);
 #else

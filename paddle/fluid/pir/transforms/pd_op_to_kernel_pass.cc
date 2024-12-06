@@ -52,6 +52,12 @@
 #include "paddle/phi/core/kernel_factory.h"
 #include "paddle/pir/include/core/builtin_op.h"
 #include "paddle/pir/include/dialect/control_flow/ir/cf_op.h"
+
+#ifdef PADDLE_WITH_CINN
+#include "paddle/cinn/hlir/dialect/runtime/ir/jit_kernel_op.h"
+#include "paddle/cinn/hlir/framework/pir/utils.h"
+#endif
+
 #ifdef PADDLE_WITH_DNNL
 #include "paddle/fluid/pir/dialect/operator/ir/onednn_op.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_onednn_dialect.h"
@@ -295,48 +301,6 @@ static bool NeedFallBackFromGPUDNN2GPU(pir::Operation* op,
   return false;
 }
 #endif
-
-bool CanRunOnCpuKernel(const std::vector<::pir::Value>& vec_inputs,
-                       ::pir::Operation* op) {
-  bool can_run_cpu = true;
-  for (size_t i = 0; i < vec_inputs.size(); ++i) {
-    auto tmp_in = vec_inputs[i];
-    if (!tmp_in) {
-      continue;
-    }
-
-    if (tmp_in.type().isa<AllocatedDenseTensorType>()) {
-      auto type = tmp_in.type().dyn_cast<AllocatedDenseTensorType>();
-      if (type.place().GetType() != phi::AllocationType::CPU) {
-        can_run_cpu = false;
-        break;
-      }
-
-      if (phi::product(type.dims()) > 4) {
-        can_run_cpu = false;
-        break;
-      }
-    }
-  }
-
-  for (size_t i = 0; i < op->num_results(); ++i) {
-    auto out = op->result(i);
-
-    if (!out || !out.type()) {
-      continue;
-    }
-
-    if (out.type().isa<DenseTensorType>()) {
-      auto type = out.type().dyn_cast<DenseTensorType>();
-      if (phi::product(type.dims()) > 4) {
-        can_run_cpu = false;
-        break;
-      }
-    }
-  }
-
-  return can_run_cpu;
-}
 
 static phi::Backend DeriveBackend(const std::string& op,
                                   const phi::Place& place,
@@ -1523,8 +1487,12 @@ void HandleForPyLayerOp(
   auto old_pylayerop = op_item->dyn_cast<PyLayerOp>();
   std::vector<pir::Type> new_pylayerop_outputs;
   for (size_t i = 0; i < old_pylayerop.num_results(); ++i) {
-    new_pylayerop_outputs.push_back(
-        ConvertOpTypeToKernelType(ctx, old_pylayerop.result(i).type(), place));
+    if (!static_cast<bool>(old_pylayerop.result(i).type())) {
+      new_pylayerop_outputs.push_back(old_pylayerop.result(i).type());
+    } else {
+      new_pylayerop_outputs.push_back(ConvertOpTypeToKernelType(
+          ctx, old_pylayerop.result(i).type(), place));
+    }
   }
 
   // Create PyLayerOp and insert to kernel dialect program
@@ -2140,8 +2108,20 @@ void HandleForSpecialOp(
 
     auto dst_backend = phi::TransToPhiBackend(place);
     auto exec_backend = paddle::dialect::PlaceAttribute::get(ctx, place);
-    if (CanRunOnCpuKernel(in_temps, op_item)) {
+
+    bool run_cpu_kernel = CanGroupOpRunCpuKernel(in_temps, op_item->results());
+#ifdef PADDLE_WITH_CINN
+
+    cinn::dialect::JitKernelOp jit_kernel_op =
+        op_item->dyn_cast<cinn::dialect::JitKernelOp>();
+    const cinn::hlir::framework::pir::CINNKernelInfo& kernel_info =
+        jit_kernel_op.cinn_kernel_info();
+    if (run_cpu_kernel && kernel_info.CX86_fn_ptr == nullptr) {
       // change dst_backend to cpu
+      run_cpu_kernel = false;
+    }
+#endif
+    if (run_cpu_kernel) {
       dst_backend = phi::Backend::CPU;
 
       exec_backend = paddle::dialect::PlaceAttribute::get(
@@ -2265,7 +2245,7 @@ void PushBackOutputTypes(pir::IrContext* ctx,
           data_layout = phi::DataLayout::ONEDNN;
         }
 #endif
-        phi::LoD lod = {{}};
+        phi::LegacyLoD lod = {{}};
         size_t offset = 0;
         auto dense_tensor_dtype = DenseTensorType::get(
             ctx, fp32_dtype, dims, data_layout, lod, offset);
@@ -3086,9 +3066,12 @@ void RemoveRedundantMemcpyAfterShadowFeed(pir::Block* block,
             all_use_is_scalar = false;
             break;
           }
-
-          auto op_info = ctx->GetRegisteredOpInfo(
-              use_op->dyn_cast<PhiKernelOp>().op_name());
+          auto op_name = use_op->dyn_cast<PhiKernelOp>().op_name();
+          if (op_name == "pd_op.share_var") {
+            all_use_is_scalar = false;
+            break;
+          }
+          auto op_info = ctx->GetRegisteredOpInfo(op_name);
 
           if (!op_info) {
             all_use_is_scalar = false;
@@ -3322,18 +3305,23 @@ void ProcessBlock(
   auto inputs_by_data_op = GetInputsByDataOp(block);
   for (auto& [keyword, arg] : block->kwargs()) {
     auto new_arg = new_block->AddKwarg(keyword, arg.type());
-    for (auto& [name, attr] : arg.dyn_cast<pir::BlockArgument>().attributes()) {
+    const pir::BlockArgument& block_arg = arg.dyn_cast<pir::BlockArgument>();
+    for (auto& [name, attr] : block_arg.attributes()) {
       new_arg.set_attribute(name, attr);
     }
     if (auto dense_tensor_type = arg.type().dyn_cast<DenseTensorType>()) {
+      auto place_attr = arg.attribute<PlaceAttribute>("palce");
+      auto var_place = place_attr ? place_attr.data() : phi::Place();
       new_arg.set_type(
-          AllocatedDenseTensorType::get(ctx, phi::Place(), dense_tensor_type));
+          AllocatedDenseTensorType::get(ctx, var_place, dense_tensor_type));
     }
     (*map_value_pair)[arg] = new_arg;
   }
   if (phi::is_accelerat_place(place)) {
     for (auto& [keyword, arg] : block->kwargs()) {
       if (auto dense_tensor_type = arg.type().dyn_cast<DenseTensorType>()) {
+        auto place_attr = arg.attribute<PlaceAttribute>("palce");
+        if (place_attr && place_attr.data() == place) continue;
         auto dtype = dense_tensor_type.dtype();
         phi::KernelKey shadow_key{paddle::experimental::get_accelerat_backend(),
                                   phi::DataLayout::ANY,
@@ -3531,12 +3519,10 @@ void ProcessBlock(
 
 std::unique_ptr<pir::Program> PdOpLowerToKernelPass(pir::Program* prog,
                                                     phi::Place place) {
+  auto program = std::make_unique<pir::Program>(pir::IrContext::Instance());
   if (FLAGS_print_ir) {
     std::cout << "IR before lowering = " << *prog << std::endl;
   }
-
-  auto program = std::make_unique<pir::Program>(pir::IrContext::Instance());
-
   auto block = prog->block();
 
   pir::IrContext* ctx = pir::IrContext::Instance();

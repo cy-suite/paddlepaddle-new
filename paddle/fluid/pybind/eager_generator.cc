@@ -671,7 +671,7 @@ static void PurifyForwardOpProto(const proto::OpProto& op_proto,
     }
   }
 
-  /* ------ Maping forward slot name to fwd position ------ */
+  /* ------ Mapping forward slot name to fwd position ------ */
   size_t in_pos = 0;
   for (const auto& var : *in_vars) {
     VLOG(6) << "Mapping input tensor: " << var.name()
@@ -1877,7 +1877,7 @@ static std::pair<std::string, std::string> GenerateForwardFunctionContents(
   trace_op_body_str += trace_op_str;
   trace_op_body_str += "\n";
 
-  // [Generation] Log memory infomation
+  // [Generation] Log memory information
   const char* LOG_MEMORY_INFO_TEMPLATE =
       " // Log memory information\n"
       "  "
@@ -3349,6 +3349,7 @@ std::map<std::string, std::set<std::string>> op_passing_outs_map = {
      {"ParamOut",
       "Moment1Out",
       "Moment2Out",
+      "Moment2MaxOut",
       "Beta1PowOut",
       "Beta2PowOut",
       "MasterParamOut"}},
@@ -3356,6 +3357,7 @@ std::map<std::string, std::set<std::string>> op_passing_outs_map = {
      {"ParamOut",
       "Moment1Out",
       "Moment2Out",
+      "Moment2MaxOut",
       "Beta1PowOut",
       "Beta2PowOut",
       "MasterParamOut"}},
@@ -3363,6 +3365,7 @@ std::map<std::string, std::set<std::string>> op_passing_outs_map = {
      {"ParamsOut",
       "Moments1Out",
       "Moments2Out",
+      "Moments2MaxOut",
       "Beta1PowsOut",
       "Beta2PowsOut",
       "MasterParamsOut"}},
@@ -3370,6 +3373,7 @@ std::map<std::string, std::set<std::string>> op_passing_outs_map = {
      {"ParamOut",
       "Moment1Out",
       "Moment2Out",
+      "Moment2MaxOut",
       "Beta1PowOut",
       "Beta2PowOut",
       "MasterParamOut"}},
@@ -3549,6 +3553,7 @@ std::map<std::string, std::set<std::string>> op_ins_map = {
       "LearningRate",
       "Moment1",
       "Moment2",
+      "Moment2Max",
       "Beta1Pow",
       "Beta2Pow",
       "MasterParam"}},
@@ -3558,6 +3563,7 @@ std::map<std::string, std::set<std::string>> op_ins_map = {
       "LearningRate",
       "Moment1",
       "Moment2",
+      "Moment2Max",
       "Beta1Pow",
       "Beta2Pow",
       "MasterParam"}},
@@ -3567,6 +3573,7 @@ std::map<std::string, std::set<std::string>> op_ins_map = {
       "LearningRate",
       "Moments1",
       "Moments2",
+      "Moments2Max",
       "Beta1Pows",
       "Beta2Pows",
       "MasterParams",
@@ -3577,6 +3584,7 @@ std::map<std::string, std::set<std::string>> op_ins_map = {
       "LearningRate",
       "Moment1",
       "Moment2",
+      "Moment2Max",
       "Beta1Pow",
       "Beta2Pow",
       "MasterParam"}},
@@ -3728,6 +3736,7 @@ std::map<std::string, std::set<std::string>> op_outs_map = {
      {"ParamOut",
       "Moment1Out",
       "Moment2Out",
+      "Moment2MaxOut",
       "Beta1PowOut",
       "Beta2PowOut",
       "MasterParamOut"}},
@@ -3735,6 +3744,7 @@ std::map<std::string, std::set<std::string>> op_outs_map = {
      {"ParamOut",
       "Moment1Out",
       "Moment2Out",
+      "Moment2MaxOut",
       "Beta1PowOut",
       "Beta2PowOut",
       "MasterParamOut"}},
@@ -3742,6 +3752,7 @@ std::map<std::string, std::set<std::string>> op_outs_map = {
      {"ParamsOut",
       "Moments1Out",
       "Moments2Out",
+      "Moments2MaxOut",
       "Beta1PowsOut",
       "Beta2PowsOut",
       "MasterParamsOut"}},
@@ -3749,6 +3760,7 @@ std::map<std::string, std::set<std::string>> op_outs_map = {
      {"ParamOut",
       "Moment1Out",
       "Moment2Out",
+      "Moment2MaxOut",
       "Beta1PowOut",
       "Beta2PowOut",
       "MasterParamOut"}},

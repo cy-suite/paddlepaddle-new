@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import math
 import re
+import warnings
 from typing import TYPE_CHECKING, Any, overload
 
 import numpy as np
@@ -52,8 +53,8 @@ if TYPE_CHECKING:
 
     from paddle._typing import (
         DTypeLike,
-        NestedNumbericSequence,
-        Numberic,
+        NestedNumericSequence,
+        Numeric,
         ParamAttrLike,
         PlaceLike,
         ShapeLike,
@@ -396,7 +397,7 @@ def linspace(
         else:
             check_type(stop, 'stop', (int, float), 'linspace')
         if isinstance(num, paddle.pir.Value):
-            check_dtype(num.dtype, 'num', ['int32'], 'linspace')
+            check_dtype(num.dtype, 'num', ['int32', 'int64'], 'linspace')
         check_dtype(
             dtype,
             'dtype',
@@ -726,9 +727,9 @@ def _to_tensor_non_static(
             data = _handle_tensor_dtype(data, dtype)
             data.stop_gradient = stop_gradient
             return data
-        elif isinstance(data, core.Tensor):
+        elif isinstance(data, core.DenseTensor):
             # should't expose it to users, just for internal use.
-            # convert core.Tensor/core.LoDTensor to Tensor first
+            # convert core.DenseTensor to Tensor first
             # Currently, there is no copy when places are same
             data = paddle.Tensor(data, place=place)
             data = _handle_tensor_dtype(data, dtype)
@@ -854,7 +855,7 @@ def _to_tensor_static(
 
 
 def to_tensor(
-    data: TensorLike | NestedNumbericSequence,
+    data: TensorLike | NestedNumericSequence,
     dtype: DTypeLike | None = None,
     place: PlaceLike | None = None,
     stop_gradient: bool = True,
@@ -931,6 +932,18 @@ def to_tensor(
     if place is None:
         place = _current_expected_place_()
     if in_dynamic_mode():
+        is_tensor = paddle.is_tensor(data)
+        if not is_tensor and hasattr(data, "__cuda_array_interface__"):
+            if not core.is_compiled_with_cuda():
+                raise RuntimeError(
+                    "PaddlePaddle is not compiled with CUDA, but trying to create a Tensor from a CUDA array."
+                )
+            return core.tensor_from_cuda_array_interface(data)
+        if is_tensor:
+            warnings.warn(
+                "To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach(), "
+                "rather than paddle.to_tensor(sourceTensor)."
+            )
         return _to_tensor_non_static(data, dtype, place, stop_gradient)
 
     # call assign for static graph
@@ -1340,7 +1353,7 @@ def eye(
         name(str|None, optional): For details, please refer to :ref:`api_guide_Name`. Generally, no setting is required. Default: None.
 
     Returns:
-        Tensor: An identity Tensor or LoDTensor of shape [num_rows, num_columns].
+        Tensor: An identity Tensor or DenseTensor of shape [num_rows, num_columns].
 
     Examples:
         .. code-block:: python
@@ -1363,7 +1376,7 @@ def eye(
             assert len(attr.shape) == 0 or (
                 len(attr.shape) == 1 and attr.shape[0] in [1, -1]
             )
-        elif not isinstance(attr, int) or attr < 0:
+        elif not isinstance(attr, (int, np.integer)) or attr < 0:
             raise TypeError(f"{message} should be a non-negative int.")
 
     _check_attr(num_rows, "num_rows")
@@ -1394,7 +1407,7 @@ def eye(
                 'int32',
                 'int64',
                 'complex64',
-                'comple128',
+                'complex128',
             ],
             'eye',
         )
@@ -2665,7 +2678,7 @@ def assign(x: TensorLike, output: paddle.Tensor | None = None) -> paddle.Tensor:
         input = np.array([input])
     elif isinstance(input, (list, tuple)):
         input = np.array(input)
-    # NOTE(Aurelius84): Why we judge core.Tensor?
+    # NOTE(Aurelius84): Why we judge core.DenseTensor?
     # In case of @to_static, a Tensor can be as input of `assign`,
     # but in_dynamic_mode()==False under @to_static, which means
     # isinstance(Tensor, Variable) == False. It will cause return None
@@ -3185,8 +3198,8 @@ def polar(
 @dygraph_only
 def cauchy_(
     x: paddle.Tensor,
-    loc: Numberic = 0,
-    scale: Numberic = 1,
+    loc: Numeric = 0,
+    scale: Numeric = 1,
     name: str | None = None,
 ) -> paddle.Tensor:
     """Fills the tensor with numbers drawn from the Cauchy distribution.
@@ -3257,3 +3270,125 @@ def geometric_(
     x.uniform_(min=float(tiny), max=float(1))
     x.log_().divide_(paddle.log1p(-(probs)))
     return x
+
+
+@inplace_apis_in_dygraph_only
+def set_(
+    x: paddle.Tensor,
+    source: paddle.Tensor | None = None,
+    shape: Sequence[int] | None = None,
+    stride: Sequence[int] | None = None,
+    offset: int = 0,
+    name: str | None = None,
+) -> paddle.Tensor:
+    """
+    set x with specified source Tensor's underlying storage, shape, stride and offset.
+
+    Note that the ``x`` will share the same data with ``source`` Tensor.
+
+    Args:
+        x (Tensor): An arbitrary Tensor. The data type supports ``bfloat16``, ``float16``, ``float32``, ``float64``,
+            ``bool``, ``int8``, ``int16``, ``int32``, ``int64``, ``uint8``, ``complex64`` or ``complex128``.
+        source (Tensor|None, optional): Define the target Tensor to use. The data type supports `bfloat16`, ``float16``,
+            ``float32``, ``float64``, ``bool``, ``int8``, ``int16``, ``int32``, ``int64``, ``uint8``, ``complex64`` or
+            ``complex128``. Default: None, which means to set ``x`` with an empty source tensor.
+        shape (list|tuple|None, optional): Define the target shape. Each element of it should be integer. Default: None,
+            which means it will use the specified ``source``'s shape as default value.
+        stride (list|tuple|None, optional): Define the target stride. Each element of it should be integer. Default: None,
+            and when ``shape`` is also None, it will use the specified ``source``'s stride as default value; when ``shape``
+            is specified, it will use the default stride corresponding to the specified ``shape``.
+        offset (int, optional): Define the target offset from x's holder. Default: 0.
+        name (str|None, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
+
+    Returns:
+        Tensor, the Tensor with the same data type as ``x``.
+
+    Examples:
+        .. code-block:: python
+
+            >>> import paddle
+
+            >>> src = paddle.to_tensor([[11., 22., 33.]])
+            >>> src2 = paddle.to_tensor([11., 22., 33., 44., 55., 66.])
+
+            >>> x = paddle.to_tensor([1., 2., 3., 4., 5.])
+            >>> x.set_()
+            >>> print(x)
+            Tensor(shape=[0], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [])
+
+            >>> x = paddle.to_tensor([1., 2., 3., 4., 5.])
+            >>> x.set_(src)
+            >>> print(x)
+            Tensor(shape=[1, 3], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [[11., 22., 33.]])
+
+            >>> print(x._is_shared_buffer_with(src))
+            True
+
+            >>> x = paddle.to_tensor([1., 2., 3., 4., 5.])
+            >>> x.set_(src, shape=[2, 1])
+            >>> print(x)
+            Tensor(shape=[2, 1], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [[11.],
+             [22.]])
+
+            >>> x = paddle.to_tensor([1., 2., 3., 4., 5.])
+            >>> x.set_(src2, shape=[3], stride=[2])
+            >>> print(x)
+            Tensor(shape=[3], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [11., 33., 55.])
+
+            >>> x = paddle.to_tensor([1., 2., 3., 4., 5.])
+            >>> x.set_(src2, shape=[5], offset=4)
+            >>> print(x)
+            Tensor(shape=[5], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [22., 33., 44., 55., 66.])
+
+    """
+    if in_dynamic_mode():
+        # set_ doesn't have backward op so EagerUtils::CheckInplace will not be
+        # called in eager_generator.cc. Here to keep consistent with other inplace
+        # op, manually check whether x is leaf node and doesn't stop gradient.
+        if x.is_leaf and not x.stop_gradient:
+            raise ValueError(
+                f"(InvalidArgument) Leaf Tensor {x.name} that doesn't stop gradient can't use "
+                "inplace strategy."
+            )
+        if source is None:
+            source = paddle.empty([0], dtype=x.dtype)
+            shape = [0]
+            stride = [0]
+        else:
+            if not isinstance(source, (Variable, core.eager.Tensor)):
+                raise ValueError(
+                    f"Input (source) should be paddle.Tensor but received {type(source)}"
+                )
+            check_dtype(
+                source.dtype,
+                'source',
+                [
+                    'bool',
+                    'float16',
+                    'uint16',
+                    'float32',
+                    'float64',
+                    'int8',
+                    'int16',
+                    'int32',
+                    'int64',
+                    'uint8',
+                    'complex64',
+                    'complex128',
+                ],
+                'set',
+            )
+        if stride is None:
+            if shape is None:
+                stride = source.strides
+            else:
+                stride = paddle.empty(shape).strides
+        if shape is None:
+            shape = source.shape
+
+        return _C_ops.set_(x, source, shape, stride, offset)

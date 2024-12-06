@@ -94,21 +94,32 @@ class NestSequence:
             variable_list.append(value)
         return variable_map, variable_list
 
-    def restore(self, value_list):
+    def restore(self, tensor_result_list):
         """
-        Restores the nested sequence from value list.
+        Restores the nested sequence from tenosr list.
         """
-        assert len(self._var_list) == len(value_list)
+        assert len(self._var_list) == len(tensor_result_list)
 
-        def to_value(x):
+        def to_tensor_result(x):
             if isinstance(x, Value):
-                return value_list[self._var_map[x]]
+                return tensor_result_list[self._var_map[x]]
             return x
 
         return paddle.utils.pack_sequence_as(
             self._raw_input,
-            list(map(to_value, paddle.utils.flatten(self._raw_input))),
+            list(map(to_tensor_result, paddle.utils.flatten(self._raw_input))),
         )
+
+    @cached_property
+    def quick_index_map(self):
+        raw_inputs = self._raw_input
+        if len(raw_inputs) == 1:
+            raw_inputs = raw_inputs[0]
+        assert all(isinstance(v, Value) for v in raw_inputs)
+        return [self._var_map[v] for v in raw_inputs]
+
+    def quick_restore(self, tensor_list):
+        return [tensor_list[idx] for idx in self.quick_index_map]
 
     def __getitem__(self, item):
         return self._var_list[item]
@@ -129,14 +140,15 @@ class RunnableProgram:
     @staticmethod
     def _get_program_all_values(program):
         all_values = []
-        all_values.extend(
-            arg for arg in program.global_block().kwargs().values()
-        )
-        all_values.extend(
-            result
-            for op in program.global_block().ops
-            for result in op.results()
-        )
+
+        def extend_values(block):
+            all_values.extend(block.kwargs().values())
+            for op in block.ops:
+                all_values.extend(op.results())
+                for block in op.blocks():
+                    extend_values(block)
+
+        extend_values(program.global_block())
         return all_values
 
     @staticmethod
@@ -248,8 +260,8 @@ class RunnableProgram:
             self.x_grad_values,
             self.param_grad_values,
             self.out_grad_values,
-            list(self.forward_range),
-            list(self.backward_range),
+            self.forward_range,
+            self.backward_range,
         )
         return [fwd_prog, bwd_prog], prog_attr
 
@@ -445,8 +457,9 @@ class IndicesPreservePass:
 class ValuePreservePass:
     OP_NAME_PREFIX = "preserved_value_"
 
-    def __init__(self, values):
+    def __init__(self, values, use_cinn_pass):
         self.values = values
+        self.use_cinn_pass = use_cinn_pass
 
     def apply(self, program):
         raise RuntimeError("Not implemented.")
@@ -511,9 +524,11 @@ class ValuePreservePass:
         return program
 
 
-class FusedBnAddActPass(ValuePreservePass):
+class FullGraphPreProcessPass(ValuePreservePass):
     def apply(self, program):
         program = paddle.base.libpaddle.pir.apply_bn_add_act_pass(program)
+        if self.use_cinn_pass:
+            program = paddle.base.libpaddle.pir.reduce_as_sum_pass(program)
         return program
 
 
@@ -622,8 +637,7 @@ class PartialProgramLayer:
             self._cuda_graph_vec,
             *attrs,
         )
-        restored_nest_out = self._restore_out(out_vars)
-        return restored_nest_out
+        return self._outputs.quick_restore(out_vars)
 
     @cached_property
     def origin_runnable_program(self) -> RunnableProgram:
@@ -857,7 +871,7 @@ class PartialProgramLayer:
             if exist a op whose inputs is var, then return True
             """
             if var.type not in [
-                core.VarDesc.VarType.LOD_TENSOR,
+                core.VarDesc.VarType.DENSE_TENSOR,
                 core.VarDesc.VarType.SELECTED_ROWS,
             ]:
                 return False
@@ -1031,13 +1045,15 @@ class PartialProgramLayer:
         )
 
         # construct a runnable program.
-        fused_bn_add_act_pass = FusedBnAddActPass(
-            [inputs, params, targets, x_grad_value, p_grad_value, o_grad_value]
+        fused_bn_add_act_pass = FullGraphPreProcessPass(
+            [inputs, params, targets, x_grad_value, p_grad_value, o_grad_value],
+            cinn_is_enabled(self._build_strategy, self._backend),
         )
         forward_index_pass = IndicesPreservePass(
             [forward_end_idx, backward_start_op_index, backward_end_op_index],
             fused_bn_add_act_pass,
         )
+
         program = forward_index_pass(program)
         (
             inputs,
@@ -1204,10 +1220,10 @@ class PartialProgramLayer:
 
     def _set_grad_type(self, params, train_program: RunnableProgram):
         # NOTE: if user set sparse gradient mode, the param's gradient
-        # will be SelectedRows, not LoDTensor. But tracer will just
-        # set param grad Tensor by forward Tensor(LoDTensor)
+        # will be SelectedRows, not DenseTensor. But tracer will just
+        # set param grad Tensor by forward Tensor(DenseTensor)
         # If we don't change grad_var type here, RunProgramOp need
-        # transform SelectedRows to LoDTensor forcibly, it may not
+        # transform SelectedRows to DenseTensor forcibly, it may not
         # be user wanted result.
         forward_params_grads = train_program.param_grad_values
         train_program = train_program.program
@@ -1220,7 +1236,7 @@ class PartialProgramLayer:
                 )
             elif value.is_dense_tensor_type():
                 param._set_grad_type(
-                    paddle.base.core.VarDesc.VarType.LOD_TENSOR
+                    paddle.base.core.VarDesc.VarType.DENSE_TENSOR
                 )
             else:
                 raise NotImplementedError(
