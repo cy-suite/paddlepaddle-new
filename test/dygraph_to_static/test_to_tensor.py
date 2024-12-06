@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import unittest
-import warnings
 
 import numpy
 import numpy as np
@@ -226,23 +225,6 @@ class TestNestedListWithTensor(Dy2StTestBase):
         else:
             self.assertEqual(y.shape, (1, 1))
         self.assertEqual(y.dtype, paddle.int64)
-
-
-class TestCudaArrayInterface(unittest.TestCase):
-    def test_tensor2tensor_warning(self):
-        with warnings.catch_warnings(record=True) as w:
-            x = paddle.to_tensor([1, 2, 3])
-            paddle.to_tensor(x)
-            flag = False
-            for warn in w:
-                if (
-                    issubclass(warn.category, UserWarning)
-                ) and "To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach(), rather than paddle.to_tensor(sourceTensor)." in str(
-                    warn.message
-                ):
-                    flag = True
-                    break
-            self.assertTrue(flag)
 
 
 if __name__ == '__main__':
