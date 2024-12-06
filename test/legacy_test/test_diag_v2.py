@@ -325,6 +325,8 @@ class TestDiagV2BF16OP(OpTest):
     def setUp(self):
         self.op_type = "diag_v2"
         self.python_api = paddle.diag
+        self.prim_op_type = "comp"
+        self.public_python_api = paddle.diag
         self.dtype = np.uint16
         x = np.random.rand(10, 10).astype(np.float32)
         offset = 0
