@@ -221,7 +221,7 @@ class TensorRTConfig:
         self.min_subgraph_size = min_subgraph_size
         self.save_model_dir = save_model_dir
         self.precision_mode = precision_mode
-        self.tensorrt_ops_run_float = ops_run_float
+        self.ops_run_float = ops_run_float
         self.disable_ops = disable_ops
         paddle.framework.set_flags(
             {'FLAGS_trt_min_group_size': min_subgraph_size}
