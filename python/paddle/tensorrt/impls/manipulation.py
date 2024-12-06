@@ -13,6 +13,7 @@
 # limitations under the License.
 
 
+import numpy as np
 import tensorrt as trt
 
 from paddle.tensorrt.converter_utils import (
@@ -905,3 +906,48 @@ def roll_converter(network, paddle_op, inputs):
             )
 
     return layer.get_output(0)
+
+
+@converter_registry.register("pd_op.full_batch_size_like", trt_version="8.x")
+def full_batch_size_like_converter(network, paddle_op, inputs):
+    input_dim_idx = paddle_op.attrs()["input_dim_idx"]
+    output_dim_idx = paddle_op.attrs()["output_dim_idx"]
+    shape = paddle_op.attrs()["shape"]
+    value = paddle_op.attrs()["value"]
+
+    if not (isinstance(value, (float, int))):
+        raise ValueError(
+            "The value for fill_constant_batch_size_like must be a number."
+        )
+
+    input_tensor = inputs[0]
+
+    input_shape_layer = network.add_shape(input_tensor)
+    input_shape_tensor = input_shape_layer.get_output(0)
+
+    batch_size_tensor = network.add_gather(
+        input_shape_tensor,
+        network.add_constant(
+            [1], np.array([input_dim_idx], dtype=np.int32)
+        ).get_output(0),
+    ).get_output(0)
+    shape_tensor_list = []
+    for i, dim in enumerate(shape):
+        if i == output_dim_idx:
+            shape_tensor_list.append(batch_size_tensor)
+        else:
+            shape_tensor_list.append(
+                network.add_constant(
+                    [1], np.array([dim], dtype=np.int32)
+                ).get_output(0)
+            )
+
+    out_shape_tensor = network.add_concatenation(shape_tensor_list).get_output(
+        0
+    )
+
+    fill_layer = network.add_fill(
+        shape=out_shape_tensor, operation=trt.FillOperation.CONSTANT
+    )
+    fill_layer.set_alpha(value)
+    return fill_layer.get_output(0)

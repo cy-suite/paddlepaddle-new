@@ -2150,6 +2150,47 @@ class AssignValueOpPattern
   }
 };
 
+class FullBatchSizeLikeOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::FullBatchSizeLikeOp> {
+ public:
+  using pir::OpRewritePattern<
+      paddle::dialect::FullBatchSizeLikeOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::FullBatchSizeLikeOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+
+    if (!op->HasAttribute("input_dim_idx")) {
+      VLOG(3) << "The fill_constant_batch_size_like op does not have attr "
+                 "input_dim_idx.";
+      return false;
+    }
+
+    if (!op->HasAttribute("output_dim_idx")) {
+      VLOG(3) << "The fill_constant_batch_size_like op does not have attr "
+                 "output_dim_idx.";
+      return false;
+    }
+
+    if (!op->HasAttribute("shape")) {
+      VLOG(3)
+          << "The fill_constant_batch_size_like op does not have attr shape.";
+      return false;
+    }
+
+    pir::Value input = op.operand_source(0);
+    auto input_dtype = pir::GetDataTypeFromValue(input);
+    if (!input_dtype.isa<pir::Float32Type>()) {
+      VLOG(3) << "The fill_constant_batch_size_like op only supports float32.";
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class TrtOpMarkerPass : public pir::PatternRewritePass {
  public:
   TrtOpMarkerPass() : pir::PatternRewritePass("trt_op_marker_pass", 2) {}
@@ -2197,6 +2238,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Softplus)
     ADD_PATTERN(ThresholdedRelu)
     ADD_PATTERN(Flip)
+    ADD_PATTERN(FullBatchSizeLike)
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
 #endif
@@ -2265,6 +2307,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<OneHotOpPattern>(context));
     ps.Add(std::make_unique<AssignValueOpPattern>(context));
     ps.Add(std::make_unique<AssignValue_OpPattern>(context));
+    ps.Add(std::make_unique<FullBatchSizeLikeOpPattern>(context));
     return ps;
   }
 };

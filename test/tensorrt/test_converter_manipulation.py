@@ -21,6 +21,35 @@ import paddle
 from paddle import _C_ops
 
 
+def full_batch_size_like_api(
+    input, shape, dtype, value, input_dim_idx, output_dim_idx, place
+):
+    return _C_ops.full_batch_size_like(
+        input, shape, dtype, value, input_dim_idx, output_dim_idx, place
+    )
+
+
+class TestFullBatchSizeLikeTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = full_batch_size_like_api
+        self.api_args = {
+            "input": np.random.randn(2, 3).astype(np.float32),
+            "shape": [2, -1],
+            "dtype": paddle.float32,
+            "value": 1.0,
+            "input_dim_idx": 0,
+            "output_dim_idx": 1,
+            "place": paddle.CPUPlace(),
+        }
+
+        self.program_config = {"feed_list": ["input"]}
+        self.min_shape = {"input": [1, 3]}
+        self.max_shape = {"input": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
 class TestCast0TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.cast
