@@ -28,200 +28,201 @@ namespace detail {
 #define MAX_REWRITE_LIMIT 10
 
 template <typename PassT>
-void PassAdaptor<PassT>::RunPipeline(
-    ir::LoweredFunc func,
-    const std::vector<std::unique_ptr<PassT>>& passes,
-    bool need_converge) {
-  const auto& RunUntilConverge = [&]() {
-    bool over_rewrite_limit = true;
-    for (int i = 0; i < MAX_REWRITE_LIMIT; ++i) {
-      bool changed = RunWithoutConverge(func, passes);
-      if (!changed) {
-        over_rewrite_limit = false;
-        break;
-      }
-    }
-    if (over_rewrite_limit) {
-      LOG(WARNING) << "Reach max rewrite limit, pass may not converge.";
-    }
-  };
-
-  // TODO(Hongqing-work): remove convert after update all the backend passes.
+LogicalResult PassAdaptor<PassT>::RunPipeline(
+    ir::LoweredFunc func, const std::vector<std::unique_ptr<PassT>>& passes) {
+  // TODO(Hongqing-work): Add instrumentation and AnalysisManager. Remove stmt
+  // convert after update all the backend passes.
   func->body_block = ir::ConvertExprBlockToStmtBlock(func->body);
-  if (need_converge) {
-    RunUntilConverge();
-  } else {
-    RunWithoutConverge(func, passes);
-  }
+  LogicalResult res = Run(func, passes);
   func->body = ir::ConvertStmtBlockToExprBlock(func->body_block);
+  return res;
 }
 
-template void PassAdaptor<FuncPass>::RunPipeline(
-    ir::LoweredFunc, const std::vector<std::unique_ptr<FuncPass>>&, bool);
+template LogicalResult PassAdaptor<FuncPass>::RunPipeline(
+    ir::LoweredFunc, const std::vector<std::unique_ptr<FuncPass>>&);
 
-template void PassAdaptor<BlockPass>::RunPipeline(
-    ir::LoweredFunc, const std::vector<std::unique_ptr<BlockPass>>&, bool);
+template LogicalResult PassAdaptor<BlockPass>::RunPipeline(
+    ir::LoweredFunc, const std::vector<std::unique_ptr<BlockPass>>&);
 
-template void PassAdaptor<StmtPass>::RunPipeline(
-    ir::LoweredFunc, const std::vector<std::unique_ptr<StmtPass>>&, bool);
+template LogicalResult PassAdaptor<StmtPass>::RunPipeline(
+    ir::LoweredFunc, const std::vector<std::unique_ptr<StmtPass>>&);
 
-template void PassAdaptor<ExprPass>::RunPipeline(
-    ir::LoweredFunc, const std::vector<std::unique_ptr<ExprPass>>&, bool);
+template LogicalResult PassAdaptor<ExprPass>::RunPipeline(
+    ir::LoweredFunc, const std::vector<std::unique_ptr<ExprPass>>&);
 
 namespace {
 template <typename PassT, typename IRScopeRefT>
-void RunPasses(const std::vector<std::unique_ptr<PassT>>& passes,
-               IRScopeRefT scope,
-               bool* changed) {
+LogicalResult RunPasses(const std::vector<std::unique_ptr<PassT>>& passes,
+                        IRScopeRefT scope) {
   for (auto& pass : passes) {
-    *changed = pass->Run(scope) || *changed;
+    if ((pass->Run(scope)).failed()) {
+      VLOG(3) << "Failed to run pass: " << pass->name();
+      return LogicalResult::failure();
+    }
   }
+  return LogicalResult::success();
 }
 }  // namespace
 
-bool FuncPassAdaptor::RunWithoutConverge(
+LogicalResult FuncPassAdaptor::Run(
     ir::LoweredFunc func,
     const std::vector<std::unique_ptr<FuncPass>>& passes) {
-  bool changed = false;
-  RunPasses(passes, func, &changed);
-  return changed;
+  return RunPasses(passes, func);
 }
 
 namespace {
-bool RunPassesOnBlock(ir::stmt::BlockRef block,
-                      const std::vector<std::unique_ptr<BlockPass>>& passes) {
-  bool changed = false;
+LogicalResult RunPassesOnBlock(
+    ir::stmt::BlockRef block,
+    const std::vector<std::unique_ptr<BlockPass>>& passes) {
   std::vector<ir::stmt::StmtRef> new_stmts = block->stmts();
   for (ir::stmt::StmtRef inner_stmt : new_stmts) {
     std::vector<ir::stmt::BlockRef> inner_blocks = inner_stmt->block_fields();
     for (ir::stmt::BlockRef inner_block : inner_blocks) {
-      changed = RunPassesOnBlock(inner_block, passes) || changed;
+      if (RunPassesOnBlock(inner_block, passes).failed())
+        return LogicalResult::failure();
     }
     inner_stmt->set_block_fields(inner_blocks);
   }
   block->set_stmts(new_stmts);
-  RunPasses(passes, block, &changed);
-  return changed;
+  return RunPasses(passes, block);
 }
 }  // namespace
 
-bool FuncToBlockPassAdaptor::RunWithoutConverge(
+LogicalResult FuncToBlockPassAdaptor::Run(
     ir::LoweredFunc func,
     const std::vector<std::unique_ptr<BlockPass>>& passes) {
   ir::stmt::BlockRef func_block = func->body_block;
-  bool changed = RunPassesOnBlock(func_block, passes);
+  if (RunPassesOnBlock(func_block, passes).failed())
+    return LogicalResult::failure();
   func->body_block = func_block;
-  return changed;
+  return LogicalResult::success();
 }
 
-bool FuncToStmtPassAdaptor::RunWithoutConverge(
+LogicalResult FuncToStmtPassAdaptor::Run(
     ir::LoweredFunc func,
     const std::vector<std::unique_ptr<StmtPass>>& passes) {
   ir::stmt::BlockRef func_block = func->body_block;
-  bool changed = false;
+  LogicalResult res = LogicalResult::success();
   ir::stmt::Mutate(
       func_block,
       [&](ir::stmt::StmtRef stmt) {},
-      [&](ir::stmt::StmtRef stmt) { RunPasses(passes, stmt, &changed); });
-  return changed;
+      [&](ir::stmt::StmtRef stmt) {
+        if (RunPasses(passes, stmt).failed()) {
+          res = LogicalResult::failure();
+        }
+      });
+  return res;
 }
 
 namespace {
-using ExprMutateFuncT = std::function<bool(ir::Expr expr)>;
+using ExprMutateFuncT = std::function<LogicalResult(ir::Expr expr)>;
 class StmtToExprPassAdaptor : public StmtPass {
  public:
   explicit StmtToExprPassAdaptor(const ExprMutateFuncT& func)
       : StmtPass("stmt to expr pass adaptor"), mutator_(func) {}
-  virtual bool Run(ir::stmt::StmtRef stmt) {
-    mutator_.VisitStmt(stmt);
-    return false;
+  virtual LogicalResult Run(ir::stmt::StmtRef stmt) {
+    return mutator_.VisitStmt(stmt);
   }
 
  private:
-  class LocalExprMutator : public ir::stmt::StmtMutator<> {
+  class LocalExprMutator : public ir::stmt::StmtMutator<LogicalResult> {
    public:
     explicit LocalExprMutator(const ExprMutateFuncT& expr_mutator)
         : expr_mutator_(expr_mutator) {}
 
-    void VisitStmt(ir::stmt::StmtRef stmt) override {
-      ir::stmt::StmtMutator<>::VisitStmt(stmt);
+    LogicalResult VisitStmt(ir::stmt::StmtRef stmt) override {
+      return ir::stmt::StmtMutator<LogicalResult>::VisitStmt(stmt);
     }
 
    private:
     ExprMutateFuncT expr_mutator_;
-#define __(stmt__) void VisitStmt(ir::stmt::stmt__ stmt) override;
+#define __(stmt__) LogicalResult VisitStmt(ir::stmt::stmt__ stmt) override;
     NODETY_FORALL_STMT(__)
 #undef __
   };
   LocalExprMutator mutator_;
 };
 
-void StmtToExprPassAdaptor::LocalExprMutator::VisitStmt(ir::stmt::Let stmt) {
+#define MUTATE_EXPR(expr__) \
+  if (expr_mutator_(expr__).failed()) return LogicalResult::failure();
+
+LogicalResult StmtToExprPassAdaptor::LocalExprMutator::VisitStmt(
+    ir::stmt::Let stmt) {
   ir::Expr symbol = stmt->symbol();
   ir::Expr body = stmt->body();
-  expr_mutator_(symbol);
+  MUTATE_EXPR(symbol);
   if (body.defined()) {
-    expr_mutator_(body);
+    MUTATE_EXPR(body);
   }
   stmt->set_symbol(symbol);
   stmt->set_body(body);
+  return LogicalResult::success();
 }
 
-void StmtToExprPassAdaptor::LocalExprMutator::VisitStmt(ir::stmt::Store stmt) {
+LogicalResult StmtToExprPassAdaptor::LocalExprMutator::VisitStmt(
+    ir::stmt::Store stmt) {
   ir::Expr value = stmt->value();
   ir::Expr tensor = stmt->tensor();
   std::vector<ir::Expr> indices = stmt->indices();
-  expr_mutator_(value);
-  expr_mutator_(tensor);
+  MUTATE_EXPR(value);
+  MUTATE_EXPR(tensor);
   for (ir::Expr indice : indices) {
-    expr_mutator_(indice);
+    MUTATE_EXPR(indice);
   }
   stmt->set_value(value);
   stmt->set_tensor(tensor);
   stmt->set_indices(indices);
+  return LogicalResult::success();
 }
 
-void StmtToExprPassAdaptor::LocalExprMutator::VisitStmt(ir::stmt::Alloc stmt) {
+LogicalResult StmtToExprPassAdaptor::LocalExprMutator::VisitStmt(
+    ir::stmt::Alloc stmt) {
   std::vector<ir::Expr> extents = stmt->extents();
   ir::Expr condition = stmt->condition();
   ir::Expr body = stmt->body();
   for (ir::Expr extent : extents) {
-    expr_mutator_(extent);
+    MUTATE_EXPR(extent);
   }
   if (condition.defined()) {
-    expr_mutator_(condition);
+    MUTATE_EXPR(condition);
   }
   if (body.defined()) {
-    expr_mutator_(body);
+    MUTATE_EXPR(body);
   }
   stmt->set_extents(extents);
   stmt->set_condition(condition);
   stmt->set_body(body);
+  return LogicalResult::success();
 }
 
-void StmtToExprPassAdaptor::LocalExprMutator::VisitStmt(ir::stmt::Free stmt) {
+LogicalResult StmtToExprPassAdaptor::LocalExprMutator::VisitStmt(
+    ir::stmt::Free stmt) {
   ir::Expr destination = stmt->destination();
-  expr_mutator_(destination);
+  MUTATE_EXPR(destination);
   stmt->set_destination(destination);
+  return LogicalResult::success();
 }
 
-void StmtToExprPassAdaptor::LocalExprMutator::VisitStmt(
+LogicalResult StmtToExprPassAdaptor::LocalExprMutator::VisitStmt(
     ir::stmt::IfThenElse stmt) {
   ir::Expr condition = stmt->condition();
-  expr_mutator_(condition);
+  MUTATE_EXPR(condition);
   stmt->set_condition(condition);
+  return LogicalResult::success();
 }
 
-void StmtToExprPassAdaptor::LocalExprMutator::VisitStmt(ir::stmt::For stmt) {
+LogicalResult StmtToExprPassAdaptor::LocalExprMutator::VisitStmt(
+    ir::stmt::For stmt) {
   ir::Expr min = stmt->min();
   ir::Expr extent = stmt->extent();
-  expr_mutator_(min);
-  expr_mutator_(extent);
+  MUTATE_EXPR(min);
+  MUTATE_EXPR(extent);
   stmt->set_min(min);
   stmt->set_extent(extent);
+  return LogicalResult::success();
 }
 
-void StmtToExprPassAdaptor::LocalExprMutator::VisitStmt(
+LogicalResult StmtToExprPassAdaptor::LocalExprMutator::VisitStmt(
     ir::stmt::Schedule stmt) {
   std::vector<ir::Var> iter_vars = stmt->iter_vars();
   std::vector<ir::Expr> iter_values = stmt->iter_values();
@@ -230,52 +231,47 @@ void StmtToExprPassAdaptor::LocalExprMutator::VisitStmt(
 
   for (ir::Var iter_var : iter_vars) {
     if (iter_var->lower_bound.defined()) {
-      expr_mutator_(iter_var->lower_bound);
+      MUTATE_EXPR(iter_var->lower_bound);
     }
     if (iter_var->upper_bound.defined()) {
-      expr_mutator_(iter_var->upper_bound);
+      MUTATE_EXPR(iter_var->upper_bound);
     }
   }
   for (ir::Expr iter_value : iter_values) {
-    expr_mutator_(iter_value);
+    MUTATE_EXPR(iter_value);
   }
   for (ir::Expr read_buffer : read_buffers) {
-    expr_mutator_(read_buffer);
+    MUTATE_EXPR(read_buffer);
   }
   for (ir::Expr write_buffer : write_buffers) {
-    expr_mutator_(write_buffer);
+    MUTATE_EXPR(write_buffer);
   }
 
   stmt->set_iter_vars(iter_vars);
   stmt->set_iter_values(iter_values);
   stmt->set_read_buffers(read_buffers);
   stmt->set_write_buffers(write_buffers);
+  return LogicalResult::success();
 }
 
-void StmtToExprPassAdaptor::LocalExprMutator::VisitStmt(
+LogicalResult StmtToExprPassAdaptor::LocalExprMutator::VisitStmt(
     ir::stmt::Evaluate stmt) {
   ir::Expr value = stmt->value();
-  expr_mutator_(value);
+  MUTATE_EXPR(value);
   stmt->set_value(value);
+  return LogicalResult::success();
 }
+#undef MUTATE_EXPR
 }  // namespace
 
-bool FuncToExprPassAdaptor::RunWithoutConverge(
+LogicalResult FuncToExprPassAdaptor::Run(
     ir::LoweredFunc func,
     const std::vector<std::unique_ptr<ExprPass>>& passes) {
-  bool changed = false;
-  StmtToExprPassAdaptor stmt_to_expr_addaptor([&](ir::Expr expr) {
-    RunPasses(passes, expr, &changed);
-    return false;
-  });
-  ir::stmt::BlockRef func_block = func->body_block;
-  ir::stmt::Mutate(
-      func_block,
-      [&](ir::stmt::StmtRef stmt) {},
-      [&](ir::stmt::StmtRef stmt) { stmt_to_expr_addaptor.Run(stmt); });
-  // TODO(Hongqing-work): modify this after expr mutator can return change
-  // status.
-  return false;
+  std::vector<std::unique_ptr<StmtPass>> stmt_passes;
+  stmt_passes.emplace_back(std::move(std::make_unique<StmtToExprPassAdaptor>(
+      [&](ir::Expr expr) { return RunPasses(passes, expr); })));
+  FuncToStmtPassAdaptor stmt_pass_adaptor;
+  return stmt_pass_adaptor.Run(func, stmt_passes);
 }
 
 }  // namespace detail

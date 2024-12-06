@@ -25,10 +25,8 @@ namespace optim {
 template <typename PassT, typename PassAdaptorT>
 class PassManager {
  public:
-  explicit PassManager(bool need_converge = false)
-      : need_converge_(need_converge) {}
-  virtual void Run(ir::LoweredFunc func) {
-    adaptor_.RunPipeline(func, passes_, need_converge_);
+  virtual LogicalResult Run(ir::LoweredFunc func) {
+    return adaptor_.RunPipeline(func, passes_);
   }
   void AddPass(std::unique_ptr<PassT> pass) {
     passes_.emplace_back(std::move(pass));
@@ -37,7 +35,6 @@ class PassManager {
  private:
   std::vector<std::unique_ptr<PassT>> passes_;
   PassAdaptorT adaptor_;
-  bool need_converge_;
 };
 
 using FuncPassManager = PassManager<FuncPass, detail::FuncPassAdaptor>;

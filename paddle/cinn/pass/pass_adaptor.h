@@ -23,40 +23,43 @@ namespace detail {
 template <typename PassT>
 class PassAdaptor {
  public:
-  void RunPipeline(ir::LoweredFunc func,
-                   const std::vector<std::unique_ptr<PassT>>& passes,
-                   bool need_converge);
+  LogicalResult RunPipeline(ir::LoweredFunc func,
+                            const std::vector<std::unique_ptr<PassT>>& passes);
 
  protected:
-  virtual bool RunWithoutConverge(
+  virtual LogicalResult Run(
       ir::LoweredFunc func,
       const std::vector<std::unique_ptr<PassT>>& passes) = 0;
 };
 
 class FuncPassAdaptor : public PassAdaptor<FuncPass> {
  private:
-  bool RunWithoutConverge(
+  LogicalResult Run(
       ir::LoweredFunc func,
       const std::vector<std::unique_ptr<FuncPass>>& passes) override;
 };
 
 class FuncToBlockPassAdaptor : public PassAdaptor<BlockPass> {
  private:
-  bool RunWithoutConverge(
+  LogicalResult Run(
       ir::LoweredFunc func,
       const std::vector<std::unique_ptr<BlockPass>>& passes) override;
 };
 
+class FuncToExprPassAdaptor;
+
 class FuncToStmtPassAdaptor : public PassAdaptor<StmtPass> {
+  friend class FuncToExprPassAdaptor;
+
  private:
-  bool RunWithoutConverge(
+  LogicalResult Run(
       ir::LoweredFunc func,
       const std::vector<std::unique_ptr<StmtPass>>& passes) override;
 };
 
 class FuncToExprPassAdaptor : public PassAdaptor<ExprPass> {
  private:
-  bool RunWithoutConverge(
+  LogicalResult Run(
       ir::LoweredFunc func,
       const std::vector<std::unique_ptr<ExprPass>>& passes) override;
 };

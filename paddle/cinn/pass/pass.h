@@ -23,7 +23,19 @@
 namespace cinn {
 namespace optim {
 
-enum PassKind { PK_FUNC, PK_BLOCK, PK_STMT, PK_EXPR };
+enum class PassKind { PK_FUNC, PK_BLOCK, PK_STMT, PK_EXPR };
+
+class LogicalResult {
+ public:
+  static LogicalResult success() { return LogicalResult(true); }
+  static LogicalResult failure() { return LogicalResult(false); }
+  bool succeeded() const { return success_; }
+  bool failed() const { return !success_; }
+
+ private:
+  explicit LogicalResult(bool success) : success_(success) {}
+  bool success_;
+};
 
 template <typename IRScopeRefT>
 class Pass {
@@ -32,7 +44,7 @@ class Pass {
       : kind_(kind), name_(name) {}
   virtual ~Pass() {}
 
-  virtual bool Run(IRScopeRefT scope) = 0;
+  virtual LogicalResult Run(IRScopeRefT scope) = 0;
 
   PassKind kind() const { return kind_; }
   const std::string& name() const { return name_; }
@@ -44,27 +56,28 @@ class Pass {
 
 class FuncPass : public Pass<ir::LoweredFunc> {
  public:
-  explicit FuncPass(const std::string& name) : Pass(PK_FUNC, name) {}
+  explicit FuncPass(const std::string& name) : Pass(PassKind::PK_FUNC, name) {}
 
-  virtual bool Run(ir::LoweredFunc f) = 0;
+  virtual LogicalResult Run(ir::LoweredFunc f) = 0;
 };
 
 class BlockPass : public Pass<ir::stmt::BlockRef> {
  public:
-  explicit BlockPass(const std::string& name) : Pass(PK_BLOCK, name) {}
-  virtual bool Run(ir::stmt::BlockRef block) = 0;
+  explicit BlockPass(const std::string& name)
+      : Pass(PassKind::PK_BLOCK, name) {}
+  virtual LogicalResult Run(ir::stmt::BlockRef block) = 0;
 };
 
 class StmtPass : public Pass<ir::stmt::StmtRef> {
  public:
-  explicit StmtPass(const std::string& name) : Pass(PK_STMT, name) {}
-  virtual bool Run(ir::stmt::StmtRef stmt) = 0;
+  explicit StmtPass(const std::string& name) : Pass(PassKind::PK_STMT, name) {}
+  virtual LogicalResult Run(ir::stmt::StmtRef stmt) = 0;
 };
 
 class ExprPass : public Pass<ir::Expr> {
  public:
-  explicit ExprPass(const std::string& name) : Pass(PK_STMT, name) {}
-  virtual bool Run(ir::Expr expr) = 0;
+  explicit ExprPass(const std::string& name) : Pass(PassKind::PK_STMT, name) {}
+  virtual LogicalResult Run(ir::Expr expr) = 0;
 };
 
 }  // namespace optim
