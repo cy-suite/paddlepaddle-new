@@ -220,7 +220,7 @@ class PaddleToTensorRTConverter:
             for operand in op.operands():
                 source = operand.source()
                 if not source.initialized():
-                    _logger.warning(f"Skipping uninitialized source: {source}")
+                    operands.append(None)
                     continue
                 define_op_name = source.get_defining_op().name()
                 if define_op_name == "builtin.combine":
