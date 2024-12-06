@@ -133,6 +133,7 @@ OTHER_PRIM_VJP_OPS = [
     'logcumsumexp_grad',
     'logsumexp_grad',
     'kthvalue_grad',
+    'p_norm_grad',
 ]
 
 # whole vjp list of primitive op vjp
