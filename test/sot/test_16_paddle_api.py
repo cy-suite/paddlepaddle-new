@@ -61,7 +61,7 @@ class TestPaddleApiCall(TestCaseBase):
         self.assert_results(paddle_api_function_call_concat, a, b, 0)
         self.assert_results(paddle_api_function_call_concat, a, b, 1)
 
-    def test_paddle_api_function_breakgraph_when_type_errpr(self):
+    def test_paddle_api_function_breakgraph_when_type_error(self):
         x = paddle.to_tensor([[1, 2], [3, 4]], dtype=paddle.float32)
         axis = paddle.to_tensor(1)
         self.assert_results(
