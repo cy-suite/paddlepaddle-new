@@ -3,3 +3,5 @@ FROM ubuntu:24.04
 ENV WITH_GPU=${WITH_GPU:-ON}
 ENV WITH_AVX=${WITH_AVX:-ON}
 ENV DEBIAN_FRONTEND=noninteractive
+
+ENV HOME /root
