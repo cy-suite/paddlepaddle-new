@@ -806,7 +806,9 @@ class SymbolicVariable(VariableBase):
             self.value = getattr(
                 inputs[0].get_py_value(), self.tracker.method_name
             )(*other_inputs_value)
-            assert isinstance(self.value, (bool, int, float))
+            assert isinstance(
+                self.value, (bool, int, float)
+            ), f"SymbolicVariable.get_py_value() should return bool, int or float, but got {type(self.value)}"
         return self.value
 
     def get_py_type(self):
