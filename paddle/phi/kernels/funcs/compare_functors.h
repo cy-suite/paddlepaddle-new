@@ -47,21 +47,21 @@ struct EqualFunctor {
   }
 };
 
-template <typename OutT, typename T>
-struct EqualFunctor<phi::dtype::complex<T>, OutT> {
-  HOSTDEVICE OutT operator()(const phi::dtype::complex<T>& a,
-                             const phi::dtype::complex<T>& b) const {
-    if (isinf(a.real) || isinf(a.imag) || isinf(b.real) || isinf(b.imag)) {
-      return a == b;
-    }
-    if (isnan(a.real) || isnan(a.imag) || isnan(b.real) || isnan(b.imag)) {
-      return false;
-    }
-    float epsilon = 1e-8f;
-    return std::abs(a.real - b.real) < epsilon &&
-           std::abs(a.imag - b.imag) < epsilon;
-  }
-};
+// template <typename OutT, typename T>
+// struct EqualFunctor<phi::dtype::complex<T>, OutT> {
+//   HOSTDEVICE OutT operator()(const phi::dtype::complex<T>& a,
+//                              const phi::dtype::complex<T>& b) const {
+//     if (isinf(a.real) || isinf(a.imag) || isinf(b.real) || isinf(b.imag)) {
+//       return a == b;
+//     }
+//     if (isnan(a.real) || isnan(a.imag) || isnan(b.real) || isnan(b.imag)) {
+//       return false;
+//     }
+//     float epsilon = 1e-8f;
+//     return std::abs(a.real - b.real) < epsilon &&
+//            std::abs(a.imag - b.imag) < epsilon;
+//   }
+// };
 
 template <typename InT, typename OutT = bool>
 struct NotEqualFunctor {
