@@ -41,9 +41,7 @@ def equal_converter(network, paddle_op, inputs):
     Y = inputs[1]
     dims_x = X.shape
     dims_y = Y.shape
-    axis = paddle_op.attrs()["axis"]
-    if axis < 0:
-        axis = abs(len(dims_x) - len(dims_y))
+    axis = abs(len(dims_x) - len(dims_y))
 
     if len(dims_x) > len(dims_y):
         expand_shape = [1] * len(dims_x)
@@ -65,9 +63,27 @@ def equal_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.not_equal", trt_version="8.x")
 @converter_registry.register("pd_op.not_equal_", trt_version="8.x")
 def not_equal_converter(network, paddle_op, inputs):
-    layer_output = add_elementwise_layer(
-        network, paddle_op, inputs, trt.ElementWiseOperation.EQUAL
-    )
-    not_layer = network.add_unary(layer_output, trt.UnaryOperation.NOT)
+    X = inputs[0]
+    Y = inputs[1]
+    dims_x = X.shape
+    dims_y = Y.shape
+    axis = abs(len(dims_x) - len(dims_y))
+
+    if len(dims_x) > len(dims_y):
+        expand_shape = [1] * len(dims_x)
+        expand_shape[axis:axis+len(dims_y)] = dims_y
+        expand_layer = network.add_shuffle(Y)
+        expand_layer.reshape_dims = tuple(expand_shape)
+        Y = expand_layer.get_output(0)
+    elif len(dims_x) < len(dims_y):
+        expand_shape = [1] * len(dims_y)
+        expand_shape[axis:axis+len(dims_x)] = dims_x
+        expand_layer = network.add_shuffle(X)
+        expand_layer.reshape_dims = tuple(expand_shape)
+        X = expand_layer.get_output(0)
+
+    equal_layer = network.add_elementwise(X, Y, trt.ElementWiseOperation.EQUAL)
+
+    not_layer = network.add_unary(equal_layer.get_output(0), trt.UnaryOperation.NOT)
     layer_output = not_layer.get_output(0)
     return layer_output
