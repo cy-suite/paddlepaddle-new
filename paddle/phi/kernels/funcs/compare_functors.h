@@ -59,7 +59,8 @@ struct EqualFunctor<phi::dtype::complex<T>, OutT> {
     //     isnan(static_cast<T>(b.real)) || isnan(static_cast<T>(b.imag))) {
     //   return static_cast<OutT>(false);
     // }
-    return static_cast<OutT>(a == b);
+    // return static_cast<OutT>(a == b);
+    return a == b;
   }
 };
 
