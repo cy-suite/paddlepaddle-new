@@ -89,10 +89,6 @@ PD_DEFINE_bool(
     BoolFromEnv("FLAGS_cinn_bc_branch_optimize", true),
     "Whether to open the broadcast branch optimization in frontend.");
 
-PD_DEFINE_bool(cinn_bucket_compile,
-               BoolFromEnv("FLAGS_cinn_bucket_compile", true),
-               "Whether to enable bucket compile for dynamic shape.");
-
 PD_DEFINE_bool(cinn_use_common_subexpression_elimination,
                BoolFromEnv("FLAGS_cinn_use_common_subexpression_elimination",
                            false),

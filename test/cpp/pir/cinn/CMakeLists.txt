@@ -64,7 +64,7 @@ if(WITH_TESTING AND WITH_CINN)
       TEST ${test_name}
       PROPERTY ENVIRONMENT)
     set_property(TEST ${test_name}
-                 PROPERTY ENVIRONMENT "FLAGS_cinn_bucket_compile=1" ${env})
+                 PROPERTY ENVIRONMENT ${env})
     set_tests_properties(${test_name} PROPERTIES LABELS "RUN_TYPE=CINN")
   endforeach()
 

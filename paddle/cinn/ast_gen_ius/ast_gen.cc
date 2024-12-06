@@ -21,8 +21,6 @@
 #include "paddle/cinn/lang/compute.h"
 #include "paddle/cinn/optim/replace_var_with_expr.h"
 
-PD_DECLARE_bool(cinn_bucket_compile);
-
 namespace cinn {
 namespace ast_gen_ius {
 
