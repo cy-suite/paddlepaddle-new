@@ -87,6 +87,7 @@ DEFINE_GENERAL_PATTERN(Roll, paddle::dialect::RollOp)
 DEFINE_GENERAL_PATTERN(Softplus, paddle::dialect::SoftplusOp)
 DEFINE_GENERAL_PATTERN(ThresholdedRelu, paddle::dialect::ThresholdedReluOp)
 DEFINE_GENERAL_PATTERN(Flip, paddle::dialect::FlipOp)
+DEFINE_GENERAL_PATTERN(Mish, paddle::dialect::MishOp)
 
 #undef DEFINE_GENERAL_PATTERN
 
@@ -2189,6 +2190,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Softplus)
     ADD_PATTERN(ThresholdedRelu)
     ADD_PATTERN(Flip)
+    ADD_PATTERN(Mish)
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
 #endif
