@@ -1898,12 +1898,12 @@ void AnalysisPredictor::PrepareArgument() {
   }
 
   argument_->SetUseXpu(config_.use_xpu_);
-
+#ifdef PADDLE_WITH_OPENVINO
   argument_->SetUseOpenVINO(config_.use_openvino_);
   argument_->SetCpuMathLibraryNumThreads(config_.cpu_math_library_num_threads_);
   argument_->SetOpenvinoInferencePrecision(static_cast<int>(
       paddle::ConvertPrecision(config_.openvino_inference_precision_)));
-
+#endif
 #ifdef PADDLE_WITH_IPU
   argument_->SetUseIpu(config_.use_ipu());
   argument_->SetIpuDeviceNum(config_.ipu_device_num());
