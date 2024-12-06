@@ -104,10 +104,19 @@ class TestReshardNdMeshCrossMesh:
         new_ops_name = [op.name() for op in dist_program.global_block().ops]
 
         rank_id = dist.get_rank()
+        print(f"[liyamei check] new_ops_name:\n{new_ops_name}")
         if rank_id in self._mesh0.process_ids:
-            assert dist_program.global_block().ops[2].name() == "pd_op.send_v2"
+            assert (
+                dist_program.global_block().ops[2].name() == "pd_op.share_data_"
+            )
+            assert (
+                dist_program.global_block().ops[3].name() == "pd_op.broadcast"
+            )
         else:
-            assert dist_program.global_block().ops[2].name() == "pd_op.recv_v2"
+            assert dist_program.global_block().ops[2].name() == "pd_op.full"
+            assert (
+                dist_program.global_block().ops[3].name() == "pd_op.broadcast"
+            )
             assert (
                 dist_program.global_block().ops[-2].name() == "pd_op.all_reduce"
             )
