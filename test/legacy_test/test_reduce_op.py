@@ -968,11 +968,7 @@ class TestAllComplex64Op(OpTest):
         self.python_api = paddle.all
         real_part = np.random.uniform(-1, 1, (2, 5, 3, 2, 2, 3, 4, 2))
         imag_part = np.random.uniform(-1, 1, (2, 5, 3, 2, 2, 3, 4, 2))
-        self.inputs = {
-            'X': (real_part + 1j * imag_part).astype(
-                "complex64"
-            )
-        }
+        self.inputs = {'X': (real_part + 1j * imag_part).astype("complex64")}
         self.attrs = {'dim': (5,), 'keep_dim': True}
         self.outputs = {
             'Out': np.expand_dims(
@@ -990,11 +986,7 @@ class TestAllComplex128Op(OpTest):
         self.python_api = paddle.all
         real_part = np.random.uniform(-1, 1, (2, 5, 3, 2, 2, 3, 4, 2))
         imag_part = np.random.uniform(-1, 1, (2, 5, 3, 2, 2, 3, 4, 2))
-        self.inputs = {
-            'X': (real_part + 1j * imag_part).astype(
-                "complex128"
-            )
-        }
+        self.inputs = {'X': (real_part + 1j * imag_part).astype("complex128")}
         self.attrs = {'dim': (5,), 'keep_dim': True}
         self.outputs = {
             'Out': np.expand_dims(

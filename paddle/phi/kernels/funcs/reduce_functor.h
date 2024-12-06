@@ -102,7 +102,9 @@ template <>
 struct AllFunctor<std::complex<float>> {
   template <typename DeviceContext, typename X, typename Y, typename Dim>
   void operator()(const DeviceContext& place, X* x, Y* y, const Dim& dim) {
-    auto to_bool = [](const std::complex<float>& v) { return v.real() != 0 || v.imag() != 0; };
+    auto to_bool = [](const std::complex<float>& v) {
+      return v.real() != 0 || v.imag() != 0;
+    };
     y->device(place) = x->unaryExpr(to_bool).all(dim);
   }
 };

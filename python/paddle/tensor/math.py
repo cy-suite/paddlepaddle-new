@@ -5047,9 +5047,9 @@ def all(
                 'int32',
                 'int64',
                 'complex64',
-                'complex128'
+                'complex128',
             ],
-            'all'
+            'all',
         )
         check_type(axis, 'axis', (int, list, tuple, type(None)), 'all')
 
