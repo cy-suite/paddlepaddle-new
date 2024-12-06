@@ -14,6 +14,7 @@
 
 from . import (  # noqa: F401
     base,
+    tensor_patch_methods,
     tracer,
 )
 from .base import (  # noqa: F401
@@ -25,6 +26,7 @@ from .base import (  # noqa: F401
     no_grad,
     no_grad_,
 )
+from .tensor_patch_methods import monkey_patch_tensor
 from .tracer import Tracer  # noqa: F401
 
 __all__ = []

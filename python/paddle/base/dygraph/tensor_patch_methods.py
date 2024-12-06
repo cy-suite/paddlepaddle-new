@@ -1365,7 +1365,9 @@ def monkey_patch_tensor():
             "version": 2,
         }
 
-    def __dlpack__(self, stream=None):
+    def __dlpack__(
+        self, stream=None, max_version=None, dl_device=None, copy=False
+    ):
         """
         Creates a DLPack capsule of the current tensor to be exported to other libraries.
         Args:
