@@ -1191,7 +1191,7 @@ class LogicalCommonOpPattern : public pir::OpRewritePattern<OpType> {
     auto x_dtype = pir::GetDataTypeFromValue(x);
     auto y_dtype = pir::GetDataTypeFromValue(y);
     if (!(x_dtype.isa<pir::BoolType>() && y_dtype.isa<pir::BoolType>())) {
-      VLOG(3) << "pd_op.logical_or op only supports bool datatype";
+      VLOG(3) << op->name() << " op only supports bool datatype";
       return false;
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
