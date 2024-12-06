@@ -129,7 +129,7 @@ class SameStatusReshardFunction(ReshardFunction):
                 op = tmp_value.get_defining_op()
                 op.dist_attr = (
                     paddle.base.libpaddle.pir.create_op_dist_attribute(
-                        dst_mesh, [], [value_dist_attr]
+                        dst_mesh, [], [value_dist_attr], chunk_id
                     )
                 )
 
@@ -144,7 +144,7 @@ class SameStatusReshardFunction(ReshardFunction):
             bcast_mesh = merge_process_meshes([src_mesh, dst_mesh])
             broadcast_op.dist_attr = (
                 paddle.base.libpaddle.pir.create_op_dist_attribute(
-                    bcast_mesh, [src_dist_attr], [dst_dist_attr]
+                    bcast_mesh, [src_dist_attr], [dst_dist_attr], chunk_id
                 )
             )
         if is_send:

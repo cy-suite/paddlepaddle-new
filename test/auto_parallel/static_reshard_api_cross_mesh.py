@@ -148,6 +148,7 @@ class TestStaticReshard(unittest.TestCase):
 
         if dist_model._engine._cur_rank == 0:
             op_names = [op.name() for op in ops]
+            print(f"liyamei op_names={op_names}")
             assert op_names == [
                 'pd_op.data',
                 'builtin.parameter',
@@ -160,8 +161,10 @@ class TestStaticReshard(unittest.TestCase):
                 'pd_op.relu',
                 'pd_op.matmul',
                 'pd_op.add',
-                'pd_op.send_v2',
-                'pd_op.recv_v2',
+                'pd_op.share_data_',
+                'pd_op.broadcast',
+                'pd_op.full',
+                'pd_op.broadcast',
                 'pd_op.add_grad',
                 'pd_op.matmul_grad',
                 'pd_op.relu_grad',
@@ -175,6 +178,7 @@ class TestStaticReshard(unittest.TestCase):
 
         elif dist_model._engine._cur_rank == 1:
             op_names = [op.name() for op in ops]
+            print(f"liyamei 2op_names={op_names}")
             assert op_names == [
                 'pd_op.data',
                 'builtin.parameter',
@@ -182,7 +186,8 @@ class TestStaticReshard(unittest.TestCase):
                 'builtin.parameter',
                 'builtin.parameter',
                 'pd_op.data',
-                'pd_op.recv_v2',
+                'pd_op.full',
+                'pd_op.broadcast',
                 'pd_op.matmul',
                 'pd_op.add',
                 'pd_op.relu',
@@ -202,7 +207,8 @@ class TestStaticReshard(unittest.TestCase):
                 'pd_op.relu_grad',
                 'pd_op.add_grad',
                 'pd_op.matmul_grad',
-                'pd_op.send_v2',
+                'pd_op.share_data_',
+                'pd_op.broadcast',
                 'pd_op.sgd_',
                 'pd_op.sgd_',
                 'pd_op.sgd_',
