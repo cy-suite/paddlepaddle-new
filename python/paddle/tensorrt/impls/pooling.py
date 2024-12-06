@@ -64,7 +64,6 @@ def pool2d_converter(network, paddle_op, inputs):
     elif len(paddings) != 4:
         raise ValueError(f"Unsupported paddings size: {len(paddings)}")
 
-    # 初始化 TensorRT 的 DimsHW 对象
     nv_paddings = trt.DimsHW(paddings[0], paddings[1])
     nv_ksize = trt.DimsHW(kernel_size[0], kernel_size[1])
     nv_strides = trt.DimsHW(strides[0], strides[1])
