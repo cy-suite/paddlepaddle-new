@@ -14,126 +14,16 @@
 
 #include "paddle/cinn/optim/eliminate_common_factor_of_local_index.h"
 
-#include <unordered_map>
-
 #include "paddle/cinn/common/cas.h"
-#include "paddle/cinn/ir/ir.h"
+#include "paddle/cinn/common/ir_util.h"
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
-#include "paddle/cinn/utils/external_func_names.h"
 #include "paddle/cinn/utils/string.h"
 
 namespace cinn {
 namespace optim {
 namespace {
-
-class GatherLocalIndexVisitor : public ir::IRMutator<> {
- public:
-  void operator()(ir::Expr* expr) { ir::IRMutator<>::Visit(expr, expr); }
-
-  const std::unordered_map<std::string, std::vector<std::vector<ir::Expr>>>&
-  local_var_to_indexes() const {
-    return local_var_to_indexes_;
-  }
-
- private:
-  void Visit(const ir::Store* op, Expr* expr) override {
-    auto store = expr->As<ir::Store>();
-
-    ir::IRMutator<>::Visit(op, expr);
-    if (!store->tensor.as_tensor_ref()->buffer.defined()) {
-      return;
-    }
-
-    if (store->tensor.as_tensor_ref()->buffer->memory_type ==
-        ir::MemoryType::GPULocal) {
-      local_var_to_indexes_[store->tensor.as_tensor_ref()->buffer->name]
-          .push_back(store->indices);
-    }
-  }
-
-  void Visit(const ir::Load* op, Expr* expr) override {
-    auto load = expr->As<ir::Load>();
-
-    if (load->is_addr_scalar()) {
-      return;
-    }
-    if (!load->tensor.as_tensor_ref()->buffer.defined()) {
-      return;
-    }
-
-    if (load->tensor.as_tensor_ref()->buffer->memory_type ==
-        ir::MemoryType::GPULocal) {
-      local_var_to_indexes_[load->tensor.as_tensor_ref()->buffer->name]
-          .push_back(load->indices);
-    }
-    ir::IRMutator<>::Visit(op, expr);
-  }
-
-  std::unordered_map<std::string, std::vector<std::vector<ir::Expr>>>
-      local_var_to_indexes_;
-};
-
-class GatherProhibitedLocalVarVisitor : public ir::IRMutator<> {
- public:
-  void operator()(ir::Expr* expr) { ir::IRMutator<>::Visit(expr, expr); }
-
-  const std::unordered_set<std::string>& prohibited_local_vars() const {
-    return prohibited_local_vars_;
-  }
-
- private:
-  void Visit(const ir::Store* op, Expr* expr) override {
-    auto store = expr->As<ir::Store>();
-
-    ir::IRMutator<>::Visit(op, expr);
-    if (!store->tensor.as_tensor_ref()->buffer.defined()) {
-      return;
-    }
-    if (store->tensor.as_tensor_ref()->buffer->memory_type !=
-        ir::MemoryType::GPULocal) {
-      return;
-    }
-    const auto& local_var_name = store->tensor.as_tensor_ref()->buffer->name;
-    if (store->value.As<ir::Call>()) {
-      const auto& call_name = store->value.As<ir::Call>()->name;
-      if (cinn::utils::GetProhibitScheduleExternalFuncNames().count(call_name) >
-          0) {
-        prohibited_local_vars_.insert(local_var_name);
-      }
-    }
-  }
-
-  std::unordered_set<std::string> prohibited_local_vars_;
-};
-
-std::unordered_map<std::string, std::vector<std::vector<ir::Expr>>>
-EraseProhibitedLocalVar(
-    const std::unordered_map<std::string, std::vector<std::vector<ir::Expr>>>&
-        local_var_to_indexes,
-    const std::unordered_set<std::string>& prohibited_local_vars) {
-  std::unordered_map<std::string, std::vector<std::vector<ir::Expr>>> ret{};
-  for (const auto& [local_var, indexes] : local_var_to_indexes) {
-    if (prohibited_local_vars.count(local_var) == 0) {
-      ret[local_var] = indexes;
-    }
-  }
-  return ret;
-}
-
-std::unordered_map<std::string, std::vector<std::vector<ir::Expr>>>
-CollectLocalVarToIndexes(ir::Expr* expr) {
-  GatherLocalIndexVisitor gather_local_index_visitor;
-  gather_local_index_visitor(expr);
-
-  GatherProhibitedLocalVarVisitor gather_prohibited_local_var_visitor;
-  gather_prohibited_local_var_visitor(expr);
-
-  return EraseProhibitedLocalVar(
-      gather_local_index_visitor.local_var_to_indexes(),
-      gather_prohibited_local_var_visitor.prohibited_local_vars());
-}
 
 int ExtractMulNumberFromExpr(const ir::Expr& expr) {
   ir::Expr simplied_expr = cinn::common::AutoSimplify(expr);
@@ -147,7 +37,6 @@ int ExtractMulNumberFromExpr(const ir::Expr& expr) {
     VLOG(6) << "Not supported for calculating gcd, expr = " << expr;
     return 1;
   }
-  PADDLE_THROW(::common::errors::Fatal("Dead code"));
 }
 
 int ExtractAddNumberFromExpr(const ir::Expr& expr) {
@@ -162,14 +51,6 @@ int ExtractAddNumberFromExpr(const ir::Expr& expr) {
     VLOG(6) << "Not supported for calculating offset, expr = " << expr;
     return 0;
   }
-  PADDLE_THROW(::common::errors::Fatal("Dead code"));
-}
-
-int gcd(int a, int b) {
-  if (b == 0) {
-    return a == 0 ? 1 : a;
-  }
-  return gcd(b, a % b);
 }
 
 ir::Expr ExtractSymbolicFromExpr(const ir::Expr& expr) {
@@ -202,10 +83,13 @@ template <>
 struct CommonFactorTrait<Gcd> {
   static const ir::Expr unit;
 
-  // Note (Hongyu Jia): Currently, we only calculates gcd of int factors.
   static ir::Expr Calculate(const ir::Expr& expr1, const ir::Expr& expr2) {
-    return ir::Expr(
-        gcd(ExtractMulNumberFromExpr(expr1), ExtractMulNumberFromExpr(expr2)));
+    int num1 = ExtractMulNumberFromExpr(expr1);
+    int num2 = ExtractMulNumberFromExpr(expr2);
+    if (num1 == 0 && num2 == 0) {
+      return ir::Expr(1);
+    }
+    return ir::Expr(std::gcd(num1, num2));
   }
 
   static ir::Expr Simplify(const ir::Expr& expr, const ir::Expr& factor) {
@@ -274,36 +158,13 @@ void VisitEachRowExpr(const std::vector<std::vector<ir::Expr>>& indexes,
 }
 
 template <typename Op>
-std::vector<ir::Expr> CalculateIndexCommonFactor(
-    const std::string& local_var,
-    const std::vector<std::vector<ir::Expr>>& indexes) {
-  PADDLE_ENFORCE_GE(
-      indexes.size(),
-      2,
-      ::common::errors::InvalidArgument(
-          "We should guarantee indexes.size() >= 2, because local variable "
-          "should at least load and store once. "));
-  for (std::size_t i = 1; i < indexes.size(); ++i) {
-    // NOTE(Hongyu Jia): Ideally, we can guarantee the size of indexes are equal
-    // under flags FLAGS_cinn_bucket_compile=1. However, some unit tests (e.g.
-    // test_resnet_cinn, test_instance_norm_op) are still running with the
-    // deprecated OpScheduler, and the ir::Expr will break this guarantee after
-    // IRGpuScheduleBlockReduce function. So we have to relax the restriction
-    // here.
-    if (indexes[i].size() != indexes[0].size()) {
-      LOG(WARNING)
-          << "Not supported for calculating common factor, local var = "
-          << local_var;
-      return std::vector<ir::Expr>(
-          std::max(indexes[0].size(), indexes[i].size()),
-          CommonFactorTrait<Op>::unit);
-    }
-  }
-  std::size_t var_index_size = indexes[0].size();
-  std::vector<ir::Expr> common_factor_indexes;
+std::vector<ir::Expr> CalculateIndicesCommonFactor(
+    const std::vector<std::vector<ir::Expr>>& indices_list) {
+  std::size_t var_index_size = indices_list[0].size();
+  std::vector<ir::Expr> common_factors;
   for (std::size_t var_idx = 0; var_idx < var_index_size; ++var_idx) {
     std::optional<ir::Expr> common_factor;
-    VisitEachRowExpr(indexes, var_idx, [&](const ir::Expr& expr) {
+    VisitEachRowExpr(indices_list, var_idx, [&](const ir::Expr& expr) {
       if (common_factor.has_value()) {
         common_factor =
             CommonFactorTrait<Op>::Calculate(common_factor.value(), expr);
@@ -311,209 +172,211 @@ std::vector<ir::Expr> CalculateIndexCommonFactor(
         common_factor = expr;
       }
     });
-    common_factor_indexes.push_back(common_factor.value());
+    common_factors.push_back(common_factor.value());
   }
-  return common_factor_indexes;
+  return common_factors;
 }
 
 template <typename Op>
-std::unordered_map<std::string, std::vector<ir::Expr>>
-CalculateLocalVarCommonFactor(
-    const std::unordered_map<std::string, std::vector<std::vector<ir::Expr>>>&
-        local_var_to_indexes) {
-  std::unordered_map<std::string, std::vector<ir::Expr>>
-      local_var_to_common_factor;
-  for (const auto& [local_var, indexes] : local_var_to_indexes) {
-    local_var_to_common_factor[local_var] =
-        CalculateIndexCommonFactor<Op>(local_var, indexes);
+void EliminateCommonFactorHelper(
+    std::vector<std::vector<ir::Expr>>* indices_list) {
+  std::vector<ir::Expr> common_factors =
+      CalculateIndicesCommonFactor<Op>(*indices_list);
+  for (auto& indices : *indices_list) {
+    for (int dim = 0; dim < indices.size(); ++dim) {
+      indices[dim] =
+          CommonFactorTrait<Op>::Simplify(indices[dim], common_factors[dim]);
+    }
   }
-  return local_var_to_common_factor;
 }
 
-template <typename Op>
-class EliminateCommonFactorVisitor : public ir::IRMutator<> {
- public:
-  EliminateCommonFactorVisitor(
-      const std::unordered_map<std::string, std::vector<ir::Expr>>&
-          local_var_to_common_factor)
-      : local_var_to_common_factor_(local_var_to_common_factor) {}
-
+struct CollectLocalBufferToIndices : public ir::IRMutator<> {
   void operator()(ir::Expr* expr) { ir::IRMutator<>::Visit(expr, expr); }
 
  private:
   void Visit(const ir::Store* op, Expr* expr) override {
-    auto store = expr->As<ir::Store>();
-
+    auto* node = expr->As<ir::Store>();
+    Collect(node, &node->indices);
     ir::IRMutator<>::Visit(op, expr);
-    const auto& store_buffer = store->tensor.as_tensor_ref()->buffer;
-    if (!store_buffer.defined()) {
-      return;
-    }
-
-    if (store_buffer->memory_type == ir::MemoryType::GPULocal) {
-      if (local_var_to_common_factor_.count(store_buffer->name) == 0) {
-        return;
-      }
-      const auto& common_factors =
-          local_var_to_common_factor_.at(store_buffer->name);
-      for (std::size_t i = 0; i < store->indices.size(); ++i) {
-        store->indices[i] = CommonFactorTrait<Op>::Simplify(store->indices[i],
-                                                            common_factors[i]);
-      }
-    }
   }
 
   void Visit(const ir::Load* op, Expr* expr) override {
-    auto load = expr->As<ir::Load>();
-
-    if (load->is_addr_scalar()) {
-      return;
-    }
-    const auto& load_buffer = load->tensor.as_tensor_ref()->buffer;
-    if (!load_buffer.defined()) {
-      return;
-    }
-
-    if (load_buffer->memory_type == ir::MemoryType::GPULocal) {
-      if (local_var_to_common_factor_.count(load_buffer->name) == 0) {
-        return;
-      }
-      const auto& common_factors =
-          local_var_to_common_factor_.at(load_buffer->name);
-      for (std::size_t i = 0; i < load->indices.size(); ++i) {
-        load->indices[i] = CommonFactorTrait<Op>::Simplify(load->indices[i],
-                                                           common_factors[i]);
-      }
-    }
+    auto* node = expr->As<ir::Load>();
+    Collect(node, &node->indices);
     ir::IRMutator<>::Visit(op, expr);
   }
-  std::unordered_map<std::string, std::vector<ir::Expr>>
-      local_var_to_common_factor_;
+
+  void Collect(ir::LoadStoreAddrMnger* mgr, std::vector<ir::Expr>* indices) {
+    if (!mgr->is_addr_tensor()) {
+      return;
+    }
+    auto& buffer = mgr->tensor.as_tensor()->buffer;
+    if (buffer->memory_type != ir::MemoryType::GPULocal) {
+      return;
+    }
+    auto [old_iter, is_first_insertion] =
+        buffers.emplace(buffer->name, buffer.operator->());
+    // We expect that all buffers with the same name point to the same _Buffer_
+    // in a function. However, if some transforms didn't follow this rule, we
+    // only keep the first _Buffer_ and make all the other buffers point to the
+    // first _Buffer_.
+    if (!is_first_insertion && buffer.operator->() != old_iter->second) {
+      buffer = ir::Buffer(old_iter->second);
+    }
+    buffer_indices[buffer->name].emplace_back(indices);
+  }
+
+ public:
+  std::unordered_map<std::string, ir::_Buffer_*> buffers;
+  std::unordered_map<std::string, std::vector<std::vector<ir::Expr>*>>
+      buffer_indices;
 };
+
+std::optional<ir::Var> GetSingleVar(const ir::Expr& expr) {
+  std::vector<ir::Expr> res =
+      ir::ir_utils::CollectIRNodesInOrder(expr, [&](const ir::Expr* x) {
+        return x->is_var() && !x->as_var()->is_symbolic_constant;
+      });
+  PADDLE_ENFORCE_LE(
+      res.size(),
+      1UL,
+      ::common::errors::PreconditionNotMet(
+          "There can be at most one loop variable at each dim of local "
+          "buffer's indices. Did you allocate more than one spatial inner loop "
+          "or more than one reduce inner loop?"));
+  if (res.empty()) {
+    return std::nullopt;
+  }
+  return res[0].as_var_ref();
+}
+
+std::vector<std::vector<ir::Expr>> FuseDimsWithCommonVar(
+    const std::vector<ir::Expr>& shape,
+    const std::vector<std::vector<ir::Expr>>& indices_list) {
+  std::vector<bool> is_dim_fused(shape.size());
+  std::vector<std::vector<ir::Expr>> new_indices_list(indices_list.size());
+
+  // Find the dims that contain the same variable as what the start_dim
+  // contains. The result is unified for all indices.
+  const auto FindDimsToFuse = [&](int start_dim) {
+    std::set<int> dims_to_fuse = {start_dim};
+    for (auto& indices : indices_list) {
+      std::optional<ir::Var> opt_var = GetSingleVar(indices[start_dim]);
+      if (!opt_var.has_value()) {
+        continue;
+      }
+      // Only search dims after `start_dim` because previous dims must have
+      // been fused.
+      for (int dim = start_dim + 1; dim < shape.size(); ++dim) {
+        if (is_dim_fused[dim]) {
+          continue;
+        }
+        std::optional<ir::Var> opt_other_var = GetSingleVar(indices[dim]);
+        if (opt_other_var.has_value() &&
+            opt_other_var.value() == opt_var.value()) {
+          dims_to_fuse.insert(dim);
+          is_dim_fused[dim] = true;
+        }
+      }
+    }
+    return dims_to_fuse;
+  };
+
+  // Fuse these `dims_to_fuse` in each indices, and append the fused dims to
+  // the new_indices_list.
+  const auto ApplyDimFusion = [&](const std::set<int>& dims_to_fuse) {
+    std::vector<ir::Expr> tmp_shape;
+    for (int dim : dims_to_fuse) {
+      tmp_shape.emplace_back(shape[dim]);
+    }
+    for (size_t i = 0; i < indices_list.size(); ++i) {
+      std::vector<ir::Expr> tmp_indices;
+      for (int dim : dims_to_fuse) {
+        tmp_indices.emplace_back(indices_list[i][dim]);
+      }
+      ir::Expr index = common::IndiceToAbsOffset(tmp_shape, tmp_indices);
+      new_indices_list[i].emplace_back(index);
+    }
+  };
+
+  for (int dim = 0; dim < shape.size(); ++dim) {
+    if (!is_dim_fused[dim]) {
+      is_dim_fused[dim] = true;
+      std::set<int> dims_to_fuse = FindDimsToFuse(dim);
+      ApplyDimFusion(dims_to_fuse);
+    }
+  }
+
+  return new_indices_list;
+}
 
 }  // namespace
 
-template <typename Op>
-void EliminateCommonFactorHelper(ir::Expr* expr) {
-  std::unordered_map<std::string, std::vector<std::vector<ir::Expr>>>
-      local_var_to_indexes = CollectLocalVarToIndexes(expr);
-  std::unordered_map<std::string, std::vector<ir::Expr>>
-      local_var_to_common_factor =
-          CalculateLocalVarCommonFactor<Op>(local_var_to_indexes);
-  EliminateCommonFactorVisitor<Op> eliminate_common_factor_visitor(
-      local_var_to_common_factor);
-  eliminate_common_factor_visitor(expr);
+std::string Print(const std::vector<std::vector<ir::Expr>>& indices_list) {
+  std::stringstream ss;
+  for (auto& indices : indices_list) {
+    ss << "\n" << utils::Join(indices, ", ");
+  }
+  return ss.str();
 }
 
-class TransformLocalIndicesVisitor : public ir::IRMutator<> {
- public:
-  void operator()(ir::Expr* expr) { ir::IRMutator<>::Visit(expr, expr); }
-
- private:
-  template <typename OpType>
-  void ExtractIterHelper(
-      const ir::Expr& expr,
-      std::unordered_map<std::string, ir::Expr>* name_to_iter) {
-    const auto op = expr.As<OpType>();
-    ExtractIterFromIndice(op->a(), name_to_iter);
-    ExtractIterFromIndice(op->b(), name_to_iter);
-  }
-
-  void ExtractIterFromIndice(
-      const ir::Expr& expr,
-      std::unordered_map<std::string, ir::Expr>* name_to_iter) {
-    if (expr.As<ir::_Var_>()) {
-      const auto var = expr.As<ir::_Var_>();
-      if (name_to_iter->count(var->name) == 0) {
-        (*name_to_iter)[var->name] = expr;
+bool Verify(const std::vector<std::vector<ir::Expr>>& indices_list) {
+  for (auto& indices : indices_list) {
+    for (auto& expr : indices) {
+      if (expr != ir::Expr(0) && !expr.as_var()) {
+        return true;
       }
-    } else if (expr.As<ir::Add>()) {
-      ExtractIterHelper<ir::Add>(expr, name_to_iter);
-    } else if (expr.As<ir::Sub>()) {
-      ExtractIterHelper<ir::Sub>(expr, name_to_iter);
-    } else if (expr.As<ir::Mul>()) {
-      ExtractIterHelper<ir::Mul>(expr, name_to_iter);
-    } else if (expr.As<ir::Div>()) {
-      ExtractIterHelper<ir::Div>(expr, name_to_iter);
-    } else if (expr.As<ir::Mod>()) {
-      ExtractIterHelper<ir::Mod>(expr, name_to_iter);
-    } else {
-      VLOG(4) << "Not support for extract iter: \n" << expr;
-      return;
     }
-    return;
   }
-
-  std::vector<ir::Expr> ConvertIndicesToIters(
-      const std::vector<ir::Expr>& indices) {
-    auto CopyIndiceItersToLocalBuffer =
-        [&](const std::unordered_map<std::string, ir::Expr>& name_to_iter,
-            const std::vector<ir::Expr>& indices) -> std::vector<ir::Expr> {
-      std::vector<ir::Expr> local_buffer_iters;
-      for (std::size_t i = 0; i < loop_vars_.size(); ++i) {
-        VLOG(6) << "loop var name: " << loop_vars_[i]->name;
-        if (name_to_iter.count(loop_vars_[i]->name) > 0) {
-          local_buffer_iters.push_back(name_to_iter.at(loop_vars_[i]->name));
-        }
-      }
-
-      while (local_buffer_iters.size() < indices.size()) {
-        local_buffer_iters.insert(local_buffer_iters.begin(), ir::Expr(0));
-      }
-      return local_buffer_iters;
-    };
-
-    std::unordered_map<std::string, ir::Expr> name_to_iter;
-    for (const auto& indice : indices) {
-      ExtractIterFromIndice(indice, &name_to_iter);
-      VLOG(6) << "extract iter: " << indice
-              << " iter_set size: " << name_to_iter.size();
-    }
-    return CopyIndiceItersToLocalBuffer(name_to_iter, indices);
-  }
-
-  void Visit(const ir::For* op, ir::Expr* expr) override {
-    auto* for_ir = expr->As<ir::For>();
-    loop_vars_.push_back(for_ir->loop_var);
-    IRMutator<>::Visit(op, expr);
-    loop_vars_.pop_back();
-  }
-
-  void Visit(const ir::Store* op, ir::Expr* expr) override {
-    auto store = expr->As<ir::Store>();
-    if (store->tensor.as_tensor_ref()->buffer->memory_type ==
-        ir::MemoryType::GPULocal) {
-      store->indices = ConvertIndicesToIters(store->indices);
-    }
-    ir::IRMutator<>::Visit(op, expr);
-  }
-
-  void Visit(const ir::Load* op, ir::Expr* expr) override {
-    auto load = expr->As<ir::Load>();
-    if (load->tensor.as_tensor_ref()->buffer->memory_type ==
-        ir::MemoryType::GPULocal) {
-      load->indices = ConvertIndicesToIters(load->indices);
-    }
-    ir::IRMutator<>::Visit(op, expr);
-  }
-
-  std::vector<ir::Var> loop_vars_;
-};
-
-void TransformLocalIndicesToIters(ir::Expr* expr) {
-  TransformLocalIndicesVisitor transform_local_indices_visitor;
-  transform_local_indices_visitor(expr);
+  return false;
 }
 
 void EliminateCommonFactorOfLocalIndex(ir::Expr* expr) {
-  VLOG(4) << "Before EliminateCommonFactorOfLocalIndex, Expr = \n" << *expr;
-  EliminateCommonFactorHelper<Gcd>(expr);
-  EliminateCommonFactorHelper<Offset>(expr);
-  EliminateCommonFactorHelper<Symbolic>(expr);
+  // Step 1.
+  CollectLocalBufferToIndices indices_collector;
+  indices_collector(expr);
 
-  TransformLocalIndicesToIters(expr);
+  for (auto& [name, indices_list] : indices_collector.buffer_indices) {
+    PADDLE_ENFORCE_GE(
+        indices_list.size(),
+        2,
+        ::common::errors::PreconditionNotMet(
+            "Size of the indices_list of local buffer [%s] must be >=2, "
+            "because there should be at least one store and one load of it.",
+            name));
 
-  VLOG(4) << "After EliminateCommonFactorOfLocalIndex, Expr = \n" << *expr;
+    // Step 2.
+    ir::_Buffer_* buffer = indices_collector.buffers[name];
+    std::vector<std::vector<ir::Expr>> indices_list_copy;
+    for (auto* indices : indices_list) {
+      indices_list_copy.emplace_back(std::move(*indices));
+    }
+    VLOG(4) << "ECF begin: " << name << Print(indices_list_copy);
+    std::vector<std::vector<ir::Expr>> new_indices_list =
+        FuseDimsWithCommonVar(buffer->shape, indices_list_copy);
+    VLOG(4) << "ECF fused: " << name << Print(new_indices_list);
+
+    // Step 3.
+    EliminateCommonFactorHelper<Gcd>(&new_indices_list);
+    EliminateCommonFactorHelper<Offset>(&new_indices_list);
+    EliminateCommonFactorHelper<Symbolic>(&new_indices_list);
+    VLOG(4) << "ECF simpl: " << name << Print(new_indices_list);
+
+    if (Verify(new_indices_list)) {
+      VLOG(0) << "ECF Failed: " << name << Print(new_indices_list);
+      PADDLE_THROW(::common::errors::PreconditionNotMet(
+          "Failed to eliminate common factors!"));
+    }
+
+    // Step 4.
+    // The buffer's shape here is not important, because this shape will be
+    // finally determined in the next pass. Just assign some placeholders.
+    size_t new_dim_size = new_indices_list[0].size();
+    buffer->shape.assign(new_dim_size, ir::Expr(1));
+    for (size_t i = 0; i < indices_list.size(); ++i) {
+      *indices_list[i] = std::move(new_indices_list[i]);
+    }
+  }
 }
 
 }  // namespace optim

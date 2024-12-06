@@ -455,7 +455,7 @@ class ReplaceUnitVarToZero : public ir::IRMutator<> {
 };
 
 void OptimizeExprGPU(Expr *expr) {
-  VLOG(4) << "Before Optimize Expr:\n" << *expr;
+  VLOG(4) << "Before Optimize Buffer:\n" << *expr;
 
   // Make independent copies for each load/store's indices to prevent cross
   // modification in later passes.
@@ -496,7 +496,7 @@ void OptimizeExprGPU(Expr *expr) {
     TryCastLonglong2Int(expr);
   }
 
-  VLOG(4) << "After Optimize Expr: \n" << *expr;
+  VLOG(4) << "After Optimize Buffer: \n" << *expr;
 }
 
 }  // namespace optim
