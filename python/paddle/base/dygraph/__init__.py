@@ -29,4 +29,4 @@ from .base import (  # noqa: F401
 from .tensor_patch_methods import monkey_patch_tensor
 from .tracer import Tracer  # noqa: F401
 
-__all__ = []
+__all__ = ['monkey_patch_tensor']
