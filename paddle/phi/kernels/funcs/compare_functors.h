@@ -51,15 +51,17 @@ template <typename OutT, typename T>
 struct EqualFunctor<phi::dtype::complex<T>, OutT> {
   HOSTDEVICE OutT operator()(const phi::dtype::complex<T>& a,
                              const phi::dtype::complex<T>& b) const {
-    if (isinf(a.real) || isinf(a.imag) || isinf(b.real) || isinf(b.imag)) {
-      return a == b;
+    if (isinf(static_cast<T>(a.real) || isinf(static_cast<T>(a.imag) || \
+        isinf(static_cast<T>(b.real) || isinf(static_cast<T>(b.imag)) {
+      return static_cast<OutT>(a == b);
     }
-    if (isnan(a.real) || isnan(a.imag) || isnan(b.real) || isnan(b.imag)) {
+    if (isnan(static_cast<T>(a.real) || isnan(static_cast<T>(a.imag) || \
+        isnan(static_cast<T>(b.real) || isnan(static_cast<T>(b.imag)) {
       return false;
     }
     float epsilon = 1e-8f;
-    return std::abs(a.real - b.real) < epsilon &&
-           std::abs(a.imag - b.imag) < epsilon;
+    return fabs(static_cast<double>(a.real - b.real)) < epsilon &&
+           fabs(static_cast<double>(a.imag - b.imag)) < epsilon;
   }
 };
 
