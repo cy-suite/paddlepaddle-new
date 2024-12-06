@@ -5130,7 +5130,18 @@ def any(
             'reduce_all': reduce_all,
         }
         check_variable_and_dtype(
-            x, 'x', ['bool', 'float32', 'float64', 'int32', 'int64'], 'any'
+            x,
+            'x',
+            [
+                'bool',
+                'float32',
+                'float64',
+                'int32',
+                'int64',
+                'complex64',
+                'complex128',
+            ],
+            'any',
         )
         check_type(axis, 'axis', (int, list, tuple, type(None)), 'any')
 

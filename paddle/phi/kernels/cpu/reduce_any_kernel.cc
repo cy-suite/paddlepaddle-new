@@ -14,10 +14,16 @@
 
 #include "paddle/phi/kernels/reduce_any_kernel.h"
 
+#include <type_traits>
+
 #include "paddle/phi/backends/cpu/cpu_context.h"
+#include "paddle/phi/common/complex.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/cpu/reduce.h"
 #include "paddle/phi/kernels/funcs/reduce_functor.h"
+
+using complex64 = ::phi::dtype::complex<float>;
+using complex128 = ::phi::dtype::complex<double>;
 
 namespace phi {
 
@@ -29,8 +35,36 @@ void AnyRawKernel(const Context& dev_ctx,
                   bool reduce_all,
                   DenseTensor* out) {
   reduce_all = recompute_reduce_all(x, dims, reduce_all);
-  phi::BoolReduceKernel<CPUContext, T, phi::funcs::AnyFunctor>(
-      dev_ctx, x, dims, keep_dim, reduce_all, out);
+  if (std::is_same<T, complex64>::value) {
+    DenseTensor bool_tensor;
+    bool_tensor.Resize(x.dims());
+
+    bool* bool_data = dev_ctx.template Alloc<bool>(&bool_tensor);
+    const complex64* data = x.data<complex64>();
+
+    int64_t numel = x.numel();
+    for (int64_t i = 0; i < numel; ++i) {
+      bool_data[i] = (data[i].real != 0 || data[i].imag != 0);
+    }
+    phi::BoolReduceKernel<CPUContext, T, phi::funcs::AnyFunctor>(
+        dev_ctx, bool_tensor, dims, keep_dim, reduce_all, out);
+  } else if (std::is_same<T, complex128>::value) {
+    DenseTensor bool_tensor;
+    bool_tensor.Resize(x.dims());
+
+    bool* bool_data = dev_ctx.template Alloc<bool>(&bool_tensor);
+    const complex128* data = x.data<complex128>();
+
+    int64_t numel = x.numel();
+    for (int64_t i = 0; i < numel; ++i) {
+      bool_data[i] = (data[i].real != 0 || data[i].imag != 0);
+    }
+    phi::BoolReduceKernel<CPUContext, T, phi::funcs::AnyFunctor>(
+        dev_ctx, bool_tensor, dims, keep_dim, reduce_all, out);
+  } else {
+    phi::BoolReduceKernel<CPUContext, T, phi::funcs::AnyFunctor>(
+        dev_ctx, x, dims, keep_dim, reduce_all, out);
+  }
 }
 
 }  // namespace phi
@@ -43,6 +77,8 @@ PD_REGISTER_KERNEL(any_raw,
                    double,
                    int,
                    int64_t,
-                   bool) {
+                   bool,
+                   complex64,
+                   complex128) {
   kernel->OutputAt(0).SetDataType(phi::DataType::BOOL);
 }
