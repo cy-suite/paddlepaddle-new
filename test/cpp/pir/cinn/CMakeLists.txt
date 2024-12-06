@@ -63,8 +63,7 @@ if(WITH_TESTING AND WITH_CINN)
       env
       TEST ${test_name}
       PROPERTY ENVIRONMENT)
-    set_property(TEST ${test_name}
-                 PROPERTY ENVIRONMENT ${env})
+    set_property(TEST ${test_name} PROPERTY ENVIRONMENT ${env})
     set_tests_properties(${test_name} PROPERTIES LABELS "RUN_TYPE=CINN")
   endforeach()
 
