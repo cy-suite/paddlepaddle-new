@@ -5634,7 +5634,7 @@ def positive(x: Tensor) -> Tensor:
     return x
 
 
-def negative(x: Tensor, name: str | None = None) -> Tensor:
+def negative(x: Tensor) -> Tensor:
     r"""
     Returns the negated version of the input Tensor. This is used in `Tensor.__neg__`, applying the
     unary `-` operator to the tensor.
