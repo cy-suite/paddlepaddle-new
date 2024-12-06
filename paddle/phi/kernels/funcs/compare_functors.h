@@ -60,7 +60,7 @@ struct EqualFunctor<phi::dtype::complex<T>, OutT> {
     //   return static_cast<OutT>(false);
     // }
     // return static_cast<OutT>(a == b);
-    return a == b;
+    // return a == b;
   }
 };
 
