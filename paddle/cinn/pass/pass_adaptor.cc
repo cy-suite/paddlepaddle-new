@@ -25,8 +25,6 @@ namespace cinn {
 namespace optim {
 namespace detail {
 
-#define MAX_REWRITE_LIMIT 10
-
 template <typename PassT>
 LogicalResult PassAdaptor<PassT>::RunPipeline(
     ir::LoweredFunc func, const std::vector<std::unique_ptr<PassT>>& passes) {
