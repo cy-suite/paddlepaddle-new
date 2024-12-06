@@ -638,7 +638,7 @@ class _ProgramHolder:
 #   The variable/parameter of the dynamic graph is not in the scope, so before the op
 #   executes the program internally, create persistent variables with the
 #   same name as feed, parameters, and fetch in the scope, and share the
-#   LoDTensor of the op input.
+#   DenseTensor of the op input.
 #
 # 2. Forward and Backward Separation:
 #   Because the dynamic graph op performs the forward and backward separately,
@@ -1008,10 +1008,10 @@ def _run_dygraph(instance, input, program_holder):
 
     # NOTE: [ why need set param's gradient type here ]
     # if user set sparse gradient mode, the param's gradient
-    # will be SelectedRows, not LoDTensor. But tracer will just
-    # set param grad Tensor by forward Tensor(LoDTensor)
+    # will be SelectedRows, not DenseTensor. But tracer will just
+    # set param grad Tensor by forward Tensor(DenseTensor)
     # If we don't change grad_var type here, RunProgramOp need
-    # transform SelectedRows to LoDTensor forcibly, it may not
+    # transform SelectedRows to DenseTensor forcibly, it may not
     # be user wanted result.
     for persistable_var in persistable_vars:
         grad_var_name = persistable_var.name + core.grad_var_suffix()

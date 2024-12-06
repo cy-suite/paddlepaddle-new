@@ -20,12 +20,12 @@ from paddle.tensorrt.converter_utils import (
     add_elementwise_layer,
     add_reduce_layer,
     broadcast,
+    cast_tensor,
+    fill_constant_layer,
     get_axes_for_reduce_op,
     trt_cast,
-    trt_div,
-    trt_floor_div,
-    trt_mul,
-    trt_sub,
+    trt_expand,
+    trt_max,
 )
 from paddle.tensorrt.register import converter_registry
 
@@ -63,7 +63,7 @@ def scale_converter(network, paddle_op, inputs):
 def max_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     axis = paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
-    input_shape = paddle_op.operands()[0].source().shape
+    input_shape = input_tensor.shape
     keepdim = paddle_op.attrs()["keepdim"]
     if network.has_implicit_batch_dimension:
         assert (
@@ -105,11 +105,58 @@ def multiply_converter(network, paddle_op, inputs):
     )
 
 
+@converter_registry.register("pd_op.clip", trt_version="8.x")
+def clip_converter(network, paddle_op, inputs):
+    def _get_constant_or_expand_tensor(
+        op, constant_inputs, input_shape_tensor, rank
+    ):
+        if op.name() == "pd_op.full":
+            value = op.attrs()["value"]
+            return fill_constant_layer(
+                network, input_shape_tensor, rank, value, input_tensor.dtype
+            )
+        else:
+            expanded_tensor = trt_expand(
+                network, constant_inputs, 1, input_shape_tensor, rank
+            )
+            if expanded_tensor.dtype != input_tensor.dtype:
+                expanded_tensor = cast_tensor(
+                    network, expanded_tensor, input_tensor.dtype
+                )
+            return expanded_tensor
+
+    input_tensor = inputs[0]
+    input_shape = input_tensor.shape
+    rank = len(input_shape)
+    input_shape_tensor = network.add_shape(input_tensor).get_output(0)
+
+    # handle min operation
+    min_op = paddle_op.operands()[1].source().get_defining_op()
+    alpha_t = _get_constant_or_expand_tensor(
+        min_op, inputs[1], input_shape_tensor, rank
+    )
+
+    # handle max operation
+    max_op = paddle_op.operands()[2].source().get_defining_op()
+    beta_t = _get_constant_or_expand_tensor(
+        max_op, inputs[2], input_shape_tensor, rank
+    )
+
+    # run the clip operation
+    lower_clip = trt_max(network, input_tensor, alpha_t)
+    layer = network.add_elementwise(
+        lower_clip, beta_t, trt.ElementWiseOperation.MIN
+    )
+    return layer.get_output(0)
+
+
 @converter_registry.register("pd_op.remainder", trt_version="8.x")
 @converter_registry.register("pd_op.remainder_", trt_version="8.x")
 def remainder_converter(network, paddle_op, inputs):
+    from paddle.tensorrt.util import support_fp32_mix_precision
+
     weight_shape = paddle_op.operands()[1].source().shape
-    input_shape = paddle_op.operands()[0].source().shape
+    input_shape = inputs[0].shape
 
     weight_tensor = inputs[1]
     input_tensor = inputs[0]
@@ -129,22 +176,29 @@ def remainder_converter(network, paddle_op, inputs):
         input_tensor.name,
         weight_tensor.name,
     )
-
-    # Check if floor division is needed
     is_floor_div = input_tensor.dtype != trt.DataType.INT32
-
-    # Floor division
-    quotient = (
-        trt_floor_div(network, lhs_val, rhs_val)
-        if is_floor_div
-        else trt_div(network, lhs_val, rhs_val)
-    )
+    if is_floor_div:
+        quotient_layer = network.add_elementwise(
+            lhs_val, rhs_val, trt.ElementWiseOperation.FLOOR_DIV
+        )
+    else:
+        quotient_layer = network.add_elementwise(
+            lhs_val, rhs_val, trt.ElementWiseOperation.DIV
+        )
+    quotient = quotient_layer.get_output(0)
+    support_fp32_mix_precision(paddle_op.name(), quotient_layer)
 
     # Multiply rhs by the quotient
-    product = trt_mul(network, rhs_val, quotient)
-
-    # Subtract the product from lhs to get the remainder
-    remainder = trt_sub(network, lhs_val, product)
+    product_layer = network.add_elementwise(
+        rhs_val, quotient, trt.ElementWiseOperation.PROD
+    )
+    product = product_layer.get_output(0)
+    support_fp32_mix_precision(paddle_op.name(), product_layer)
+    remainder_layer = network.add_elementwise(
+        lhs_val, product, trt.ElementWiseOperation.SUB
+    )
+    remainder = remainder_layer.get_output(0)
+    support_fp32_mix_precision(paddle_op.name(), remainder_layer)
 
     return remainder
 
@@ -185,3 +239,11 @@ def sqrt_converter(network, paddle_op, inputs):
     input_tensor = trt_cast(network, inputs[0], trt.float32)
     layer = network.add_unary(input_tensor, trt.UnaryOperation.LOG)
     return layer.get_output(0)
+
+
+@converter_registry.register("pd_op.maximum", trt_version="8.x")
+def maximum_converter(network, paddle_op, inputs):
+    max_layer = add_elementwise_layer(
+        network, paddle_op, inputs, trt.ElementWiseOperation.MAX
+    )
+    return max_layer

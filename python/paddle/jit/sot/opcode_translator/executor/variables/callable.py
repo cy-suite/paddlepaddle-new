@@ -44,10 +44,12 @@ from ....utils import (
 from ....utils.exceptions import (
     BreakGraphError,
     FallbackError,
+    InnerError,
     SotErrorBase,
 )
 from ..dispatcher import Dispatcher
 from ..guard import (
+    FasterStringifiedExpression,
     StringifiedExpression,
     check_guard,
     object_equal_stringified_guard,
@@ -64,7 +66,12 @@ from ..tracker import (
     Tracker,
 )
 from .base import VariableBase, VariableFactory
-from .basic import ConstantVariable, PrintStmtVariable, SliceVariable
+from .basic import (
+    ConstantVariable,
+    ObjectVariable,
+    PrintStmtVariable,
+    SliceVariable,
+)
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -118,8 +125,11 @@ class FunctionVariable(CallableVariable):
     def get_py_value(self, allow_tensor=False):
         return self.value
 
-    def get_code(self) -> types.CodeType:
-        return self.value.__code__
+    def get_code(self) -> VariableBase:
+        code_obj_var = VariableFactory.from_value(
+            self.value.__code__, self.graph, GetAttrTracker(self, "__code__")
+        )
+        return code_obj_var
 
     def bind(self, instance: VariableBase, name: str):
         method_var = MethodVariable(
@@ -227,6 +237,22 @@ class UserDefinedFunctionVariable(FunctionVariable):
         return {
             "name": self.value.__name__,
         }
+
+
+class UserCodeVariable(FunctionVariable):
+    """
+    UserCodeVariable is a subclass of Function
+    Variable used to wrap a make function variable.
+    """
+
+    def __init__(
+        self, codeobj: ObjectVariable, graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(codeobj, graph, tracker)
+        self.codeobj = codeobj
+
+    def call_function(self, /, *args, **kwargs):
+        raise InnerError("UserCodeVariable call_function is not implemented.")
 
 
 class PaddleApiVariable(FunctionVariable):
@@ -445,13 +471,9 @@ class LayerVariable(CallableVariable):
     def make_stringified_guard(self) -> list[StringifiedExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
         return [
-            StringifiedExpression(
-                f"id({{}}) == {id(self.get_py_value())}",
-                [frame_value_tracer],
-                union_free_vars(frame_value_tracer.free_vars),
-            ),
-            StringifiedExpression(
-                f"{{}}.training == {self.get_py_value().training}",
+            FasterStringifiedExpression(
+                f"id({{0}}) == {id(self.get_py_value())} and {{0}}.training == {self.get_py_value().training}",
+                paddle.framework.core.ValueMatchGuard(self.get_py_value()),
                 [frame_value_tracer],
                 union_free_vars(frame_value_tracer.free_vars),
             ),
@@ -503,13 +525,14 @@ class ContainerLayerVariable(LayerVariable):
         if isinstance(self.value, PD_SEQ_CONTAINERS):
             frame_value_tracer = self.tracker.trace_value_from_frame()
 
-            len_guard = StringifiedExpression(
+            len_guard = FasterStringifiedExpression(
                 f"len({{}}) == {len(self.value)}",
+                paddle.framework.core.LengthMatchGuard(len(self.value)),
                 [frame_value_tracer],
                 frame_value_tracer.free_vars,
             )
 
-            guards = [len_guard]
+            guards: list[StringifiedExpression] = [len_guard]
             for idx, layer in enumerate(self.value):
                 layer_variable = VariableFactory.from_value(
                     layer, self.graph, GetItemTracker(self, idx)
