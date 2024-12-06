@@ -1544,6 +1544,20 @@ def broadcast_tensors(
 
         .. _Introduction to Tensor: ../../guides/beginner/tensor_en.html#chapter5-broadcasting-of-tensor
 
+    The following figure illustrates the process of broadcasting three tensors to the same dimensions.
+    The dimensions of the three tensors are [4, 1, 3], [2, 3], and [4, 2, 1], respectively. During broadcasting,
+    alignment starts from the last dimension, and for each dimension, either the sizes of the two tensors in that dimension are equal,
+    or one of the tensors has a dimension of 1, or one of the tensors lacks that dimension. In the figure below, in the last dimension,
+    Tensor3 has a size of 1, while Tensor1 and Tensor2 have sizes of 3; thus, this dimension is expanded to 3 for all tensors.
+    In the second-to-last dimension, Tensor1 has a size of 2, and Tensor2 and Tensor3 both have sizes of 2; hence, this dimension is expanded to 2 for all tensors.
+    In the third-to-last dimension, Tensor2 lacks this dimension, while Tensor1 and Tensor3 have sizes of 4; consequently,
+    this dimension is expanded to 4 for all tensors. Ultimately, all tensors are expanded to [4, 2, 3].
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/broadcast.png
+       :width: 800
+       :alt: Illustration of BroadCast
+       :align: center
+
     Args:
         input (list|tuple): ``input`` is a Tensor list or Tensor tuple which is with data type bool,
             float16, float32, float64, int32, int64, complex64, complex128. All the Tensors in ``input`` must have same data type.
@@ -5624,7 +5638,22 @@ def strided_slice(
             >>> sliced_2 = paddle.strided_slice(x, axes=axes, starts=[minus_3, 0, 2], ends=ends, strides=strides_2)
             >>> # sliced_2 is x[:, 1:3:1, 0:2:1, 2:4:2].
     """
-    if in_dynamic_or_pir_mode():
+    if in_dynamic_mode():
+        return _C_ops.strided_slice(x, axes, starts, ends, strides)
+    elif in_pir_mode():
+
+        def _convert_to_tensor_list(input):
+            if isinstance(input, paddle.pir.Value):
+                input.stop_gradient = True
+            elif isinstance(input, (list, tuple)):
+                if paddle.utils._contain_var(input):
+                    input = paddle.utils.get_int_tensor_list(input)
+            return input
+
+        starts = _convert_to_tensor_list(starts)
+        ends = _convert_to_tensor_list(ends)
+        strides = _convert_to_tensor_list(strides)
+
         return _C_ops.strided_slice(x, axes, starts, ends, strides)
     else:
         helper = LayerHelper('strided_slice', **locals())
@@ -7313,6 +7342,12 @@ def diagonal_scatter(
 
     Note:
         ``y`` should have the same shape as :ref:`paddle.diagonal <api_paddle_diagonal>`.
+
+    The image below demonstrates the example: A 2D tensor with a shape of [2, 3] is ``diagonal_scatter`` along its main diagonal (``offset = 0``)  within ``axis1 = 0`` and ``axis2 = 1`` using a 1D tensor filled with ones.
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/diagonal_scatter.png
+       :width: 500
+       :alt: legend of diagonal_scatter API
 
     Args:
         x (Tensor): ``x`` is the original Tensor. Must be at least 2-dimensional.
