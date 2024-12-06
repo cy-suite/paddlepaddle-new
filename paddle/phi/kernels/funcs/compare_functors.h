@@ -47,23 +47,23 @@ struct EqualFunctor {
   }
 };
 
-template <typename OutT, typename T>
-struct EqualFunctor<phi::dtype::complex<T>, OutT> {
-  HOSTDEVICE OutT operator()(const phi::dtype::complex<T>& a,
-                             const phi::dtype::complex<T>& b) const {
-    if (isinf(static_cast<T>(a.real)) || isinf(static_cast<T>(a.imag)) ||
-        isinf(static_cast<T>(b.real)) || isinf(static_cast<T>(b.imag))) {
-      return static_cast<OutT>(a == b);
-    }
-    if (isnan(static_cast<T>(a.real)) || isnan(static_cast<T>(a.imag)) ||
-        isnan(static_cast<T>(b.real)) || isnan(static_cast<T>(b.imag))) {
-      return static_cast<OutT>(false);
-    }
-    float epsilon = 1e-6f;
-    return fabs(static_cast<T>(a.real - b.real)) < epsilon &&
-           fabs(static_cast<T>(a.imag - b.imag)) < epsilon;
-  }
-};
+// template <typename OutT, typename T>
+// struct EqualFunctor<phi::dtype::complex<T>, OutT> {
+//   HOSTDEVICE OutT operator()(const phi::dtype::complex<T>& a,
+//                              const phi::dtype::complex<T>& b) const {
+//     if (isinf(static_cast<T>(a.real)) || isinf(static_cast<T>(a.imag)) ||
+//         isinf(static_cast<T>(b.real)) || isinf(static_cast<T>(b.imag))) {
+//       return static_cast<OutT>(a == b);
+//     }
+//     if (isnan(static_cast<T>(a.real)) || isnan(static_cast<T>(a.imag)) ||
+//         isnan(static_cast<T>(b.real)) || isnan(static_cast<T>(b.imag))) {
+//       return static_cast<OutT>(false);
+//     }
+//     float epsilon = 1e-6f;
+//     return fabs(static_cast<T>(a.real - b.real)) < epsilon &&
+//            fabs(static_cast<T>(a.imag - b.imag)) < epsilon;
+//   }
+// };
 
 template <typename InT, typename OutT = bool>
 struct NotEqualFunctor {
