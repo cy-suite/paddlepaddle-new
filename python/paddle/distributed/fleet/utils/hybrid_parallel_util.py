@@ -214,7 +214,6 @@ def broadcast_input_data(hcg, *inputs, **kwargs):
         place = paddle.CustomPlace(dev, dev_idx)
         dev = 'custom'
     else:
-        dev = dev.upper()
         place = eval(f"paddle.{dev.upper()}Place")(dev_idx)
 
     if len(inputs) > 0:
