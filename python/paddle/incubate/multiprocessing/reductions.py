@@ -24,11 +24,7 @@ from collections import OrderedDict
 from multiprocessing.reduction import ForkingPickler
 from multiprocessing.util import register_after_fork
 
-import numpy as np
-
 import paddle
-from paddle.base import core
-from paddle.framework import _current_expected_place_
 
 
 def _supported_check():
@@ -77,15 +73,6 @@ def _cuda_from_cache(key):
     if lodtensor is None:
         return None
     return lodtensor
-
-
-# TODO(@gexiao): fix this
-def _force_cuda_context_init():
-    force_cuda_context_init_tensor = core.eager.Tensor(
-        np.array([1]), _current_expected_place_(), False, False, "force_init"
-    )
-    del force_cuda_context_init_tensor
-    paddle.device.cuda.empty_cache()
 
 
 def _rebuild_tensor(cls, lodtensor, metadata):
@@ -238,16 +225,15 @@ def _reduce_lodtensor(lodtensor):
         lodtensor._shared_incref()
         # TODO, maintain reference for lodtensor
     elif lodtensor._place().is_gpu_place():
-        if (
-            core.get_cuda_current_device_id()
-            != lodtensor._place().gpu_device_id()
-        ):
-            print(
-                f"[Multiprocessing] Current device id is must be changed to solve conflict, before: {core.get_cuda_current_device_id()}, after: {lodtensor._place().gpu_device_id()}."
-            )
-            paddle.set_device(f"gpu:{lodtensor._place().gpu_device_id()}")
-            _force_cuda_context_init()
-        metadata = lodtensor._share_cuda()
+        prev_id = paddle.base.core.get_cuda_current_device_id()
+        cur_id = lodtensor._place().gpu_device_id()
+        if prev_id != cur_id:
+            paddle.base.core.set_cuda_current_device_id(cur_id)
+        try:
+            metadata = lodtensor._share_cuda()
+        finally:
+            if prev_id != cur_id:
+                paddle.base.core.set_cuda_current_device_id(prev_id)
         rebuild = _rebuild_cuda_tensor
     else:
         raise RuntimeError("We only support pass cpu/gpu lodtensor for now!")
@@ -259,7 +245,6 @@ def init_reductions():
     if not _supported_check():
         return
 
-    _force_cuda_context_init()
     ForkingPickler.register(paddle.Tensor, _reduce_tensor)
     ForkingPickler.register(paddle.base.core.eager.Tensor, _reduce_tensor)
     ForkingPickler.register(

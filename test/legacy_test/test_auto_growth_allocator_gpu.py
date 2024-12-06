@@ -19,6 +19,15 @@ import numpy as np
 import paddle
 from paddle import base
 
+# it should be set at the beginning
+if base.is_compiled_with_cuda():
+    paddle.set_flags(
+        {
+            'FLAGS_allocator_strategy': 'auto_growth',
+            'FLAGS_auto_growth_chunk_size_in_mb': 10,
+        }
+    )
+
 
 class TestMemoryLimit(unittest.TestCase):
     def setUp(self):

@@ -23,6 +23,7 @@ import numpy as np
 
 import paddle
 import paddle.distributed as dist
+from paddle.base import core
 from paddle.distributed import fleet
 from paddle.distributed.fleet.meta_optimizers.dygraph_optimizer.dygraph_sharding_optimizer import (
     DygraphShardingOptimizer,
@@ -140,14 +141,17 @@ class SimpleDPNet(paddle.nn.Layer):
 
 
 class FusionWorker(multiprocessing.Process):
-    def __init__(self, worker_id, task_queue, result_queue):
+    def __init__(self, worker_id, device_id, task_queue, result_queue):
         super().__init__()
         self.worker_id = worker_id
+        self.device_id = device_id
         self.task_queue = task_queue
         self.result_queue = result_queue
         self.fusion_storage_helper = None
 
     def run(self):
+        core.set_cuda_current_device_id(self.device_id)
+        paddle.set_device(f"gpu:{self.device_id}")
         while True:
             task = self.task_queue.get()
             if task is None:
@@ -199,7 +203,10 @@ class TestDistMPTraining(unittest.TestCase):
         multiprocessing.set_start_method('spawn')
         self.task_queue = multiprocessing.Queue()
         self.result_queue = multiprocessing.Queue()
-        self.fusion_worker = FusionWorker(0, self.task_queue, self.result_queue)
+        expected_device_id = int(os.getenv("FLAGS_selected_gpus"))
+        self.fusion_worker = FusionWorker(
+            0, expected_device_id, self.task_queue, self.result_queue
+        )
         self.fusion_worker.start()
         self.fusion_buffer_version = 0
 

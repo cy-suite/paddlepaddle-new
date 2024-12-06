@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .reductions import init_reductions  # noqa: F401
+from .reductions import init_reductions
 
 __all__ = []
 
@@ -20,3 +20,5 @@ from multiprocessing import *  # noqa: F403
 
 # Only support linux for now
 # Only support file_system sharing strategy.
+
+init_reductions()
