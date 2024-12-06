@@ -31,8 +31,20 @@ void AnyKernel(const Context& dev_ctx,
 
 }  // namespace phi
 
-PD_REGISTER_KERNEL(
-    any, CPU, ALL_LAYOUT, phi::AnyKernel, float, double, int64_t, int, bool) {
+using complex64 = ::phi::dtype::complex<float>;
+using complex128 = ::phi::dtype::complex<double>;
+
+PD_REGISTER_KERNEL(any,
+                   CPU,
+                   ALL_LAYOUT,
+                   phi::AnyKernel,
+                   float,
+                   double,
+                   int64_t,
+                   int,
+                   bool,
+                   complex64,
+                   complex128) {
   kernel->OutputAt(0).SetDataType(phi::DataType::BOOL);
 }
 
