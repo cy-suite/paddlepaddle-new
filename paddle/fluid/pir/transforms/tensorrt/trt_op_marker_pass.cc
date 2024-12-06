@@ -339,27 +339,6 @@ class Pool2dOpPattern
         op->attribute<pir::StrAttribute>("padding_algorithm").AsString();
 
     auto adaptive = op->attribute<pir::BoolAttribute>("adaptive").data();
-    if (adaptive && pool_type == "avg") {
-      pir::Value input = op.operand_source(0);
-      auto input_shape = pir::GetShapeFromValue(input);
-      int input_dims = input_shape.size();
-      int input_h = input_shape[input_dims - 2];
-      int input_w = input_shape[input_dims - 1];
-      if (input_h <= 0 || input_w <= 0) {
-        VLOG(3) << "Adaptive average pooling with dynamic input shapes is not "
-                   "supported without a plugin.Because window_size can only "
-                   "support dims>=1";
-        return false;
-      } else {
-        int output_h = kernel_size[0];
-        int output_w = kernel_size[1];
-        if (input_h % output_h != 0 || input_w % output_w != 0) {
-          VLOG(3) << "For AdaptiveAvgPool,input dim has to be integer multiple "
-                     "of output dim.";
-          return false;
-        }
-      }
-    }
     // TODO(Lizexu): This piece of code exists in the old IR-TRT implementation
     // but is not covered by unit tests, raising suspicions about its
     // correctness. In the PIR-TRT implementation, following the same approach
