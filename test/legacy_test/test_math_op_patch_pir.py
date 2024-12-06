@@ -820,13 +820,15 @@ class TestMathOpPatchesPir(unittest.TestCase):
                 )
                 a = -x
                 b = x.negative()
-                (a_np, b_np) = exe.run(
+                c = paddle.negative(x)
+                (a_np, b_np, c_np) = exe.run(
                     main_program,
                     feed={"x": x_np},
-                    fetch_list=[a, b],
+                    fetch_list=[a, b, c],
                 )
                 np.testing.assert_array_equal(res, a_np)
                 np.testing.assert_array_equal(res, b_np)
+                np.testing.assert_array_equal(res, c_np)
 
     def test_abs(self):
         # test for real number
