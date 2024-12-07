@@ -190,9 +190,9 @@ for _type_name in {("float32", "complex64"), ("float64", "complex128")}:
     create_unitest_class_with_complex(
         'equal', _type_name, lambda _a, _b: _a == _b, True
     )
-    # create_unitest_class_with_complex(
-    #     'not_equal', _type_name, lambda _a, _b: _a != _b, True
-    # )
+    create_unitest_class_with_complex(
+        'not_equal', _type_name, lambda _a, _b: _a != _b, True
+    )
 
 
 def create_paddle_case(op_type, callback):
