@@ -3179,6 +3179,16 @@ def min(
               [0., 0.]]])
     """
     if in_dynamic_mode():
+        if paddle.isnan(x).any():
+            # Check the return value if scalar
+            if axis is None or (
+                isinstance(axis, (int, tuple))
+                and x.ndim - len(axis if isinstance(axis, tuple) else (axis,))
+                == 0
+            ):
+                return paddle.to_tensor(
+                    paddle.nan, dtype=x.dtype, place=x.place
+                )
         return _C_ops.min(x, axis, keepdim)
     else:
         reduce_all, axis = _get_reduce_axis_with_tensor(axis, x)
