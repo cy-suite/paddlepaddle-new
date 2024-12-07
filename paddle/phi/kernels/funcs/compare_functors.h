@@ -47,8 +47,8 @@ struct EqualFunctor {
   }
 };
 
-template <typename OutT, typename T>
-struct EqualFunctor<phi::dtype::complex<T>, OutT> {
+template <typename T , typename OutT = bool>
+struct EqualFunctor<phi::dtype::complex<T>, OutT = bool> {
   HOSTDEVICE OutT operator()(const phi::dtype::complex<T>& a,
                              const phi::dtype::complex<T>& b) const {
     if (isinf(static_cast<T>(a.real)) || isinf(static_cast<T>(a.imag)) ||
@@ -59,8 +59,9 @@ struct EqualFunctor<phi::dtype::complex<T>, OutT> {
         isnan(static_cast<T>(b.real)) || isnan(static_cast<T>(b.imag))) {
       return static_cast<OutT>(false);
     }
-    return fabs(static_cast<double>(a.real - b.real)) < 1e-8 &&
-           fabs(static_cast<double>(a.imag - b.imag)) < 1e-8;
+    return static_cast<OutT>(
+           fabs(static_cast<double>(a.real - b.real)) < 1e-8 &&
+           fabs(static_cast<double>(a.imag - b.imag)) < 1e-8);
   }
 };
 
