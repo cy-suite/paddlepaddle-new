@@ -456,7 +456,13 @@ class FleetUtil:
 
         if fleet.worker_index() == 0:
             donefile_path = output_path + "/" + donefile_name
-            content = f"{day}\t{xbox_base_key}\t{model_path}\t{pass_id}\t{0}"
+            content = "%s\t%lu\t%s\t%s\t%d" % (
+                day,
+                xbox_base_key,
+                model_path,
+                pass_id,
+                0,
+            )
             configs = {
                 "fs.default.name": hadoop_fs_name,
                 "hadoop.job.ugi": hadoop_fs_ugi,
@@ -671,10 +677,10 @@ class FleetUtil:
         table_id = kwargs.get("table_id", 0)
 
         if pass_id != "-1":
-            suffix_name = f"/{day}/delta-{pass_id}/{table_id:03}_cache"
+            suffix_name = "/%s/delta-%s/%03d_cache" % (day, pass_id, table_id)
             model_path = output_path.rstrip("/") + suffix_name
         else:
-            suffix_name = f"/{day}/base/{table_id:03}_cache"
+            suffix_name = "/%s/base/%03d_cache" % (day, table_id)
             model_path = output_path.rstrip("/") + suffix_name
 
         if fleet.worker_index() == 0:
@@ -689,7 +695,10 @@ class FleetUtil:
                     f"not write because {donefile_path} already exists"
                 )
             else:
-                meta_str = f"file_prefix:part\npart_num:{file_num}\nkey_num:{key_num}\n"
+                meta_str = "file_prefix:part\npart_num:%s\nkey_num:%d\n" % (
+                    file_num,
+                    key_num,
+                )
                 with open(donefile_name, "w") as f:
                     f.write(meta_str)
                 client.upload(donefile_name, model_path)
@@ -1353,9 +1362,9 @@ class FleetUtil:
                 start += split_interval
                 continue
             if is_data_hourly_placed:
-                split_path.append(f"{h:02}")
+                split_path.append("%02d" % h)
             else:
-                split_path.append(f"{h:02}{m:02}")
+                split_path.append("%02d%02d" % (h, m))
             start += split_interval
 
         start = 0
@@ -2014,7 +2023,13 @@ class GPUPSUtil(FleetUtil):
 
         if fleet.worker_index() == 0:
             donefile_path = output_path + "/" + donefile_name
-            content = f"{day}\t{xbox_base_key}\t{model_path}\t{pass_id}\t{0}"
+            content = "%s\t%lu\t%s\t%s\t%d" % (
+                day,
+                xbox_base_key,
+                model_path,
+                pass_id,
+                0,
+            )
             if self._afs.is_file(donefile_path):
                 self._afs.download(donefile_path, donefile_name)
                 pre_content = ""
@@ -2215,10 +2230,10 @@ class GPUPSUtil(FleetUtil):
         table_id = kwargs.get("table_id", 0)
 
         if pass_id != "-1":
-            suffix_name = f"/{day}/delta-{pass_id}/{table_id:03}_cache"
+            suffix_name = "/%s/delta-%s/%03d_cache" % (day, pass_id, table_id)
             model_path = output_path.rstrip("/") + suffix_name
         else:
-            suffix_name = f"/{day}/base/{table_id:03}_cache"
+            suffix_name = "/%s/base/%03d_cache" % (day, table_id)
             model_path = output_path.rstrip("/") + suffix_name
 
         if fleet.worker_index() == 0:
@@ -2229,7 +2244,10 @@ class GPUPSUtil(FleetUtil):
                     f"not write because {donefile_path} already exists"
                 )
             else:
-                meta_str = f"file_prefix:part\npart_num:{file_num}\nkey_num:{key_num}\n"
+                meta_str = "file_prefix:part\npart_num:%s\nkey_num:%d\n" % (
+                    file_num,
+                    key_num,
+                )
                 with open(donefile_name, "w") as f:
                     f.write(meta_str)
                 self._afs.upload(donefile_name, donefile_path)
