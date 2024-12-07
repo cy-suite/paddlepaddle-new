@@ -51,6 +51,7 @@ from ..base.backward import (
 )
 from ..base.framework import Parameter
 from ..base.layer_helper import LayerHelper, LayerHelperBase
+from .fusion_utils import FusionStorage
 from .lr import LRScheduler
 
 if TYPE_CHECKING:
@@ -318,6 +319,12 @@ class Optimizer:
         # create master gradients' states
         self._create_master_grad_states()
 
+        # for fusion storage
+        self._use_fusion_storage = False
+        self._need_refuse = True
+        self.fusion_storage = None
+        self._fuse_buffer_version = 0
+
     def _create_master_grad_states(self):
         # master gradients states
         if in_pir_mode():
@@ -338,6 +345,25 @@ class Optimizer:
 
     def _get_auxiliary_var(self, key):
         return self._auxiliary_vars.get(key, None)
+
+    @imperative_base.no_grad()
+    def _maybe_refuse(self):
+        # only support dygraph mode
+        if not framework.in_dygraph_mode():
+            return
+
+        # TODO(@gexiao): support other optimizer if needed
+        if self.__class__.__name__ != "AdamW":
+            return
+
+        if not self._need_refuse:
+            return
+
+        self.fusion_storage = FusionStorage(
+            self._accumulators, self._master_weights
+        )
+        self._fuse_buffer_version += 1
+        self.reset_need_refuse()
 
     @framework.dygraph_only
     def state_dict(self) -> dict[str, Tensor]:
@@ -982,6 +1008,9 @@ class Optimizer:
             raise Exception(
                 f"Accumulator {name} already exists for parameter {param.name}"
             )
+        else:
+            # once master weights are created, accumulators must be created at the same time
+            self.need_refuse()
         if shape is None:
             shape = param.shape
 
@@ -1279,6 +1308,7 @@ class Optimizer:
                     if isinstance(found_inf, core.eager.Tensor):
                         self._set_auxiliary_var('found_inf', False)
                     if isinstance(parameters_and_grads, list):
+                        self._maybe_refuse()
                         for param_and_grad in parameters_and_grads:
                             # Parameters can be uninitialized in pipeline parallel of semi-auto parallel.
                             # Since gradient clip and parameters update mixed up in one interface, so we
@@ -2054,3 +2084,40 @@ class Optimizer:
                 dtype == core.DataType.FLOAT16
                 or dtype == core.DataType.BFLOAT16
             )
+
+    def use_fusion_storage(self):
+        self._use_fusion_storage = True
+
+    def need_refuse(self):
+        self._need_refuse = self._use_fusion_storage
+
+    def reset_need_refuse(self):
+        self._need_refuse = False
+
+    @property
+    def fused_buffer_version(self):
+        return self._fuse_buffer_version
+
+    @property
+    def fused_states_buffer(self):
+        if self.fusion_storage is None:
+            return None
+        return self.fusion_storage.buffer
+
+    @property
+    def fused_states_buffer_ipc_meta(self):
+        if self.fusion_storage is None:
+            return None
+        return self.fusion_storage.buffer_ipc_meta
+
+    @property
+    def fused_states_accumulators_meta(self):
+        if self.fusion_storage is None:
+            return None
+        return self.fusion_storage.accumulators_meta
+
+    @property
+    def fused_states_master_weights_meta(self):
+        if self.fusion_storage is None:
+            return None
+        return self.fusion_storage.master_weights_meta
