@@ -75,23 +75,24 @@ def create_unitest_class_with_complex(
             self.b_imag_np = numpy.random.random(size=(10, 7)).astype(
                 typename[0]
             )
+            self.a_inf = np.array([1, np.inf, -np.inf])
+            self.b_inf = np.array([1, -np.inf, np.inf])
+            self.a_nan = np.array([1, np.nan, -np.nan])
+            self.b_nan = np.array([1, -np.nan, -np.nan])
             self.callback = callback
             self.op_type = op_type
             self.typename = typename
             self.dtype = typename[1]
+            self.place = base.CPUPlace()
+            if core.is_compiled_with_cuda():
+                self.place = paddle.CUDAPlace(0)
 
         def test_dynamic_api(self):
             with dygraph_guard():
                 a_complex_np = self.a_real_np + 1j * self.a_imag_np
                 b_complex_np = self.b_real_np + 1j * self.b_imag_np
-                a_complex = paddle.complex(
-                    paddle.to_tensor(self.a_real_np),
-                    paddle.to_tensor(self.a_imag_np),
-                )
-                b_complex = paddle.complex(
-                    paddle.to_tensor(self.b_real_np),
-                    paddle.to_tensor(self.b_imag_np),
-                )
+                a_complex = paddle.to_tensor(a_complex_np, dtype=self.dtype)
+                b_complex = paddle.to_tensor(b_complex_np, dtype=self.dtype)
                 c_np = self.callback(a_complex_np, b_complex_np)
                 c = self.callback(a_complex, b_complex)
                 np.testing.assert_allclose(c.numpy(), c_np)
@@ -107,7 +108,7 @@ def create_unitest_class_with_complex(
                     )
                     op = eval(f"paddle.{self.op_type}")
                     c = op(a_complex, b_complex)
-                    exe = paddle.static.Executor(paddle.CPUPlace())
+                    exe = paddle.static.Executor(self.place)
                     c_np = self.callback(
                         self.a_real_np + 1j * self.a_imag_np,
                         self.b_real_np + 1j * self.b_imag_np,
@@ -121,40 +122,32 @@ def create_unitest_class_with_complex(
                     )
                     np.testing.assert_allclose(c_out[0], c_np)
 
-        def test_dygraph_inf_nan_special_case_1(self):
+        def test_dygraph_inf_special_case(self):
             with dygraph_guard():
-                a_inf_nan_array = numpy.array(
-                    [1 + 1j, np.nan + np.inf * 1j, np.nan - np.inf * 1j],
-                    dtype=complex,
+                a_inf_complex_np = self.a_inf + 1j * self.a_inf
+                b_inf_complex_np = self.b_inf + 1j * self.b_inf
+                a_inf_complex = paddle.to_tensor(
+                    a_inf_complex_np, dtype=self.dtype
                 )
-                b_inf_nan_array = numpy.array(
-                    [1 + 1j, -np.inf - np.inf * 1j, np.inf + np.inf * 1j],
-                    dtype=complex,
+                b_inf_complex = paddle.to_tensor(
+                    b_inf_complex_np, dtype=self.dtype
                 )
-                a_inf_nan_pd = paddle.complex(
-                    paddle.to_tensor([1, np.nan, np.nan], dtype=typename[0]),
-                    paddle.to_tensor([1, np.inf, -np.inf], dtype=typename[0]),
-                )
-                b_inf_nan_pd = paddle.complex(
-                    paddle.to_tensor([1, np.nan, np.nan], dtype=typename[0]),
-                    paddle.to_tensor([1, -np.inf, np.inf], dtype=typename[0]),
-                )
-                c = self.callback(a_inf_nan_pd, b_inf_nan_pd)
-                c_np = self.callback(a_inf_nan_array, b_inf_nan_array)
+                c_np = self.callback(a_inf_complex_np, b_inf_complex_np)
+                c = self.callback(a_inf_complex, b_inf_complex)
                 np.testing.assert_allclose(c.numpy(), c_np)
 
-        def test_dygraph_inf_nan_special_case_2(self):
+        def test_dygraph_nan_special_case(self):
             with dygraph_guard():
-                a_inf_nan_array = numpy.array(
-                    [1 + 1j, np.nan + np.inf * 1j, np.nan - np.inf * 1j],
-                    dtype=complex,
+                a_nan_complex_np = self.a_nan + 1j * self.a_nan
+                b_nan_complex_np = self.b_nan + 1j * self.b_nan
+                a_nan_complex = paddle.to_tensor(
+                    a_nan_complex_np, dtype=self.dtype
                 )
-                a_inf_nan_pd = paddle.complex(
-                    paddle.to_tensor([1, np.nan, np.nan], dtype=typename[0]),
-                    paddle.to_tensor([1, np.inf, -np.inf], dtype=typename[0]),
+                b_nan_complex = paddle.to_tensor(
+                    b_nan_complex_np, dtype=self.dtype
                 )
-                c = self.callback(a_inf_nan_pd, a_inf_nan_pd)
-                c_np = self.callback(a_inf_nan_array, a_inf_nan_array)
+                c_np = self.callback(a_nan_complex_np, b_nan_complex_np)
+                c = self.callback(a_nan_complex, b_nan_complex)
                 np.testing.assert_allclose(c.numpy(), c_np)
 
     cls_name = f"{op_type}_{typename[1]}"
