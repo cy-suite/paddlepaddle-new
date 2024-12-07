@@ -116,6 +116,10 @@ void HostMemoryStatUpdate(const std::string& stat_type,
   StatRegistry::GetInstance()->Update("Host" + stat_type, dev_id, increment);
 }
 
+void HostMemoryStatResetPeakValue(const std::string& stat_type,int dev_id) {
+  StatRegistry::GetInstance()->ResetPeakValue("Host" + stat_type, dev_id);
+}
+
 void LogDeviceMemoryStats(const phi::Place& place, const std::string& op_name) {
   if (FLAGS_log_memory_stats && phi::is_gpu_place(place)) {
     VLOG(0) << "After launching op_name: " << op_name << ", "

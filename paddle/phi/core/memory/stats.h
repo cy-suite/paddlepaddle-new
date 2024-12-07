@@ -150,6 +150,7 @@ int64_t HostMemoryStatPeakValue(const std::string& stat_type, int dev_id);
 void HostMemoryStatUpdate(const std::string& stat_type,
                           int dev_id,
                           int64_t increment);
+void HostMemoryStatResetPeakValue(const std::string& stat_type,int dev_id);
 
 void LogDeviceMemoryStats(const phi::Place& place, const std::string& op_name);
 
@@ -195,6 +196,8 @@ void LogDeviceMemoryStats(const phi::Place& place, const std::string& op_name);
   DEVICE_MEMORY_STAT_FUNC(item, id, GetPeakValue)
 #define DEVICE_MEMORY_STAT_UPDATE(item, id, increment) \
   DEVICE_MEMORY_STAT_FUNC(item, id, Update, increment)
+#define DEVICE_MEMORY_STAT_RESET_PEAK_VALUE(item, id) \
+  DEVICE_MEMORY_STAT_FUNC(item, id, ResetPeakValue)
 
 #define HOST_MEMORY_STAT_FUNC(item, id, func, ...)                             \
   [&] {                                                                        \
@@ -215,6 +218,8 @@ void LogDeviceMemoryStats(const phi::Place& place, const std::string& op_name);
   HOST_MEMORY_STAT_FUNC(item, id, GetPeakValue)
 #define HOST_MEMORY_STAT_UPDATE(item, id, increment) \
   HOST_MEMORY_STAT_FUNC(item, id, Update, increment)
+#define HOST_MEMORY_STAT_RESET_PEAK_VALUE(item, id) \
+  HOST_MEMORY_STAT_FUNC(item, id, ResetPeakValue)
 
 #define DEVICE_MEMORY_STAT_DECLARE_WITH_ID(item, id) \
   struct DeviceMemoryStat##item##id : public ThreadLocalStatBase {}
