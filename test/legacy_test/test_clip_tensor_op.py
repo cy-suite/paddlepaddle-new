@@ -166,7 +166,7 @@ class TestClipTensorAPI(unittest.TestCase):
         np_pd_static_equal([5], [5], [1])
         np_pd_static_equal([4, 5], [5], [1], 'int32')
         np_pd_static_equal([4, 5], [5], [4, 5], 'int64')
-        np_pd_static_equal([4], [5, 4], [4], 'float16')
+        np_pd_static_equal([4], [5, 4], [4], 'float32')
         paddle.disable_static()
 
     # def test_check_error_shape(self):
