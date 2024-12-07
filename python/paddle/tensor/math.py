@@ -3752,14 +3752,25 @@ def check_set_clip_var(value, x, fill_value, name):
             raise ValueError(
                 f"The {name} dimension should be equal to the inner dimension of the x, but the {name} dimension is {value.shape}"
             )
-        # else:
+        else:
         #     zero_tensor = paddle.zeros_like(x)
-        #     value = paddle.cast(value, x.dtype)
+            value = paddle.cast(value, x.dtype)
         #     value = paddle.add(zero_tensor, value)
     else:
         value = paddle.full_like(x, value)
     return value
 
+
+def get_clip_tensor(value1, value2, value3):
+    v1_num = value1.numel()
+    v2_num = value2.numel()
+    v3_num = value3.numel()
+    if v1_num >= v2_num and v1_num >= v3_num:
+        return value1
+    elif v2_num >= v1_num and v2_num >= v3_num:
+        return value2
+    else:
+        return value3
 
 def is_clip_tensor(value):
     if paddle.is_tensor(value):
@@ -3829,7 +3840,7 @@ def clip(
         min = check_set_clip_var(min, x, min_, 'min')
         max = check_set_clip_var(max, x, max_, 'max')
 
-        zero_tensor = paddle.full_like(max(min, max, x, key=lambda t: t.numel()), 0, x.dtype)
+        zero_tensor = paddle.full_like(get_clip_tensor(min, max, x), 0, x.dtype)
         x = zero_tensor + x
         min = zero_tensor + min
         max = zero_tensor + max
@@ -3954,7 +3965,7 @@ def clip_(
         min = check_set_clip_var(min, x, fmin, 'min')
         max = check_set_clip_var(max, x, fmax, 'max')
 
-        zero_tensor = paddle.full_like(max(min, max, x, key=lambda t: t.numel()), 0, x.dtype)
+        zero_tensor = paddle.full_like(get_clip_tensor(min, max, x), 0, x.dtype)
         x = zero_tensor + x
         min = zero_tensor + min
         max = zero_tensor + max
