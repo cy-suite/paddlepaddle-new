@@ -49,8 +49,8 @@ struct EqualFunctor {
 
 template <typename T>
 struct EqualFunctor<phi::dtype::complex<T>> {
-  HOSTDEVICE bool operator()(const phi::dtype::complex<T>& a,
-                             const phi::dtype::complex<T>& b) const {
+  HOSTDEVICE bool operator()(const phi::dtype::complex<T> a,
+                             const phi::dtype::complex<T> b) const {
     if (isinf(static_cast<T>(a.real)) || isinf(static_cast<T>(a.imag)) ||
         isinf(static_cast<T>(b.real)) || isinf(static_cast<T>(b.imag))) {
       return static_cast<bool>(a == b);
