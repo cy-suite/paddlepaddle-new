@@ -3845,9 +3845,12 @@ def clip(
         max = max if paddle.is_tensor(max) else paddle.full_like(x, max, x.dtype)
 
         zero_tensor = paddle.full_like(get_clip_tensor(min, max, x), 0, x.dtype)
-        x = zero_tensor + x
-        min = zero_tensor + min
-        max = zero_tensor + max
+        x = paddle.expand(x, zero_tensor.shape)
+        min = paddle.expand(min, zero_tensor.shape)
+        max = paddle.expand(max, zero_tensor.shape)
+        # x = zero_tensor + x
+        # min = zero_tensor + min
+        # max = zero_tensor + max
 
         if in_dynamic_or_pir_mode():
             return _C_ops.clip_tensor(x, min, max)
@@ -3974,9 +3977,12 @@ def clip_(
         max = max if paddle.is_tensor(max) else paddle.full_like(x, max, x.dtype)
 
         zero_tensor = paddle.full_like(get_clip_tensor(min, max, x), 0, x.dtype)
-        x = zero_tensor + x
-        min = zero_tensor + min
-        max = zero_tensor + max
+        x = paddle.expand(x, zero_tensor.shape)
+        min = paddle.expand(min, zero_tensor.shape)
+        max = paddle.expand(max, zero_tensor.shape)
+        # x = zero_tensor + x
+        # min = zero_tensor + min
+        # max = zero_tensor + max
 
         if in_dynamic_mode():
             return _C_ops.clip_tensor_(x, min, max)
