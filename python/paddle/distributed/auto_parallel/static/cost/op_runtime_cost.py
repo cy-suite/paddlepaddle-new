@@ -307,7 +307,8 @@ def measure_program_real_op_cost(
             op.dist_attr.run_time_us = op_runtime_us_final
         (
             logger.info(
-                f"{op_id!s:>4} {op.type!s:>32}  {op_runtime_us_final:.1f} us"
+                "%4s %32s  %.1f us"
+                % (str(op_id), str(op.type), op_runtime_us_final)
             )
             if verbose_level >= 1
             else None

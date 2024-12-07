@@ -125,7 +125,10 @@ class FakeMicroDataset:
                 if isinstance(data, list):
                     assert (
                         len(data) == self._acc_steps
-                    ), f"length of data should be {self._acc_steps}, but it is {len(data)}"
+                    ), "length of data should be %d, but it is %d" % (
+                        self._acc_steps,
+                        len(data),
+                    )
                     output.append(
                         data[micro_step].detach()
                         if data[micro_step] is not None
@@ -141,7 +144,10 @@ class FakeMicroDataset:
         elif isinstance(inputs, list):
             assert (
                 len(inputs) == self._acc_steps
-            ), f"length of data should be {self._acc_steps}, but it is {len(inputs)}"
+            ), "length of data should be %d, but it is %d" % (
+                self._acc_steps,
+                len(inputs),
+            )
             return inputs[micro_step].detach()
         elif inputs is not None:
             self._check_data_valid(inputs)
@@ -153,7 +159,8 @@ class FakeMicroDataset:
         batch_size = data.shape[0]
         assert self._micro_batch_size * self._acc_steps == batch_size, (
             "batch_size needs to be divisible by micro_batch_size. Currently, "
-            f"batch_size = {batch_size}, micro_batch_size = {self._micro_batch_size}, accumulate_steps = {self._acc_steps}."
+            "batch_size = %d, micro_batch_size = %d, accumulate_steps = %d."
+            % (batch_size, self._micro_batch_size, self._acc_steps)
         )
 
 

@@ -327,7 +327,7 @@ class ShardingOptimizer(MetaOptimizerBase):
                 ]
             else:
                 main_program = program_list[self.pp_rank]
-            with open(f"main_{self.role_maker._worker_index()}", 'w') as f:
+            with open("main_%d" % self.role_maker._worker_index(), 'w') as f:
                 f.writelines(str(main_program))
             main_block = main_program.global_block()
             new_params_grads = []
@@ -344,7 +344,7 @@ class ShardingOptimizer(MetaOptimizerBase):
 
         if self.pp_degree > 1:
             pp_optimizer._rename_gradient_var_name(main_block)
-            with open(f"main_{self.role_maker._worker_index()}", 'w') as f:
+            with open("main_%d" % self.role_maker._worker_index(), 'w') as f:
                 f.writelines(str(main_program))
 
         return optimize_ops, params_grads
@@ -645,10 +645,12 @@ class ShardingOptimizer(MetaOptimizerBase):
         main_block = self._main_program.global_block()
         startup_block = self._startup_program.global_block()
         with open(
-            f"start_sharding_{self.role_maker._worker_index()}", 'w'
+            "start_sharding_%d" % self.role_maker._worker_index(), 'w'
         ) as f:
             f.writelines(str(startup_block.program))
-        with open(f"main_sharding_{self.role_maker._worker_index()}", 'w') as f:
+        with open(
+            "main_sharding_%d" % self.role_maker._worker_index(), 'w'
+        ) as f:
             f.writelines(str(main_block.program))
 
     def minimize_impl(
