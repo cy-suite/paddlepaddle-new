@@ -59,7 +59,10 @@ void LinspaceKernel(const Context& ctx,
   T start_value = GetValueOfExpectedType<T, Context>(ctx, start);
   T stop_value = GetValueOfExpectedType<T, Context>(ctx, stop);
   int64_t num = GetValueOfExpectedType<int64_t, Context>(ctx, number);
-
+  if (num == 0) {
+    out->Resize(common::make_ddim({0}));
+    return;
+  }
   PADDLE_ENFORCE_GT(
       num,
       0,

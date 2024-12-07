@@ -33,6 +33,10 @@ void LinspaceKernel(const Context& ctx,
   } else if (number.dtype() == phi::DataType::INT32) {
     num = number.data<int32_t>()[0];
   }
+  if (num == 0) {
+    out->Resize(common::make_ddim({0}));
+    return;
+  }
   auto start_t = phi::funcs::TransDataType(ctx, start, dtype);
   auto stop_t = phi::funcs::TransDataType(ctx, stop, dtype);
 
