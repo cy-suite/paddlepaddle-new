@@ -17,6 +17,7 @@ import unittest
 import numpy
 import numpy as np
 import op_test
+from utils import dygraph_guard, static_guard
 
 import paddle
 from paddle import base
@@ -79,46 +80,45 @@ def create_unitest_class_with_complex(
             self.dtype = typename[1]
 
         def test_dynamic_api(self):
-            paddle.disable_static()
-            a_complex_np = self.a_real_np + 1j * self.a_imag_np
-            b_complex_np = self.b_real_np + 1j * self.b_imag_np
-            a_complex = paddle.complex(
-                paddle.to_tensor(self.a_real_np),
-                paddle.to_tensor(self.a_imag_np),
-            )
-            b_complex = paddle.complex(
-                paddle.to_tensor(self.b_real_np),
-                paddle.to_tensor(self.b_imag_np),
-            )
-            c_np = self.callback(a_complex_np, b_complex_np)
-            c = self.callback(a_complex, b_complex)
-            np.testing.assert_allclose(c.numpy(), c_np)
-            paddle.enable_static()
+            with dygraph_guard():
+                a_complex_np = self.a_real_np + 1j * self.a_imag_np
+                b_complex_np = self.b_real_np + 1j * self.b_imag_np
+                a_complex = paddle.complex(
+                    paddle.to_tensor(self.a_real_np),
+                    paddle.to_tensor(self.a_imag_np),
+                )
+                b_complex = paddle.complex(
+                    paddle.to_tensor(self.b_real_np),
+                    paddle.to_tensor(self.b_imag_np),
+                )
+                c_np = self.callback(a_complex_np, b_complex_np)
+                c = self.callback(a_complex, b_complex)
+                np.testing.assert_allclose(c.numpy(), c_np)
 
         def test_static_api(self):
-            paddle.enable_static()
-            with paddle.static.program_guard(paddle.static.Program()):
-                a_complex = paddle.static.data(
-                    name='a', shape=[10, 7], dtype=self.dtype
-                )
-                b_complex = paddle.static.data(
-                    name='b', shape=[10, 7], dtype=self.dtype
-                )
-                op = eval(f"paddle.{self.op_type}")
-                c = op(a_complex, b_complex)
-                exe = paddle.static.Executor(paddle.CPUPlace())
-                c_np = self.callback(
-                    self.a_real_np + 1j * self.a_imag_np,
-                    self.b_real_np + 1j * self.b_imag_np,
-                )
-                c_out = exe.run(
-                    feed={
-                        'a': self.a_real_np + 1j * self.a_imag_np,
-                        'b': self.b_real_np + 1j * self.b_imag_np,
-                    },
-                    fetch_list=[c],
-                )
-                np.testing.assert_allclose(c_out[0], c_np)
+            with static_guard():
+                with paddle.static.program_guard(paddle.static.Program()):
+                    a_complex = paddle.static.data(
+                        name='a', shape=[10, 7], dtype=self.dtype
+                    )
+                    b_complex = paddle.static.data(
+                        name='b', shape=[10, 7], dtype=self.dtype
+                    )
+                    op = eval(f"paddle.{self.op_type}")
+                    c = op(a_complex, b_complex)
+                    exe = paddle.static.Executor(paddle.CPUPlace())
+                    c_np = self.callback(
+                        self.a_real_np + 1j * self.a_imag_np,
+                        self.b_real_np + 1j * self.b_imag_np,
+                    )
+                    c_out = exe.run(
+                        feed={
+                            'a': self.a_real_np + 1j * self.a_imag_np,
+                            'b': self.b_real_np + 1j * self.b_imag_np,
+                        },
+                        fetch_list=[c],
+                    )
+                    np.testing.assert_allclose(c_out[0], c_np)
 
     cls_name = f"{op_type}_{typename[1]}"
     Cls.__name__ = cls_name
