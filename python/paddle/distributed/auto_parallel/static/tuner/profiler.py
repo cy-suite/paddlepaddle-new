@@ -246,7 +246,7 @@ def profiler(args):
             if eval_step >= args.profile_start_step:
                 duration += end_time - start_time
 
-            print(f"step: {eval_step}, loss_print: {loss[0]:f}")
+            print("step: %d, loss_print: %f" % (eval_step, loss[0]))
             eval_step += 1
 
         avg_tput = (
