@@ -63,6 +63,11 @@ def create_unitest_class_with_complex(
 ):
     class Cls(unittest.TestCase):
         def setUp(self):
+            self.callback = callback
+            self.op_type = op_type
+            self.typename = typename
+            self.dtype = typename[1]
+            self.place = base.CPUPlace()
             self.a_real_np = numpy.random.random(size=(10, 7)).astype(
                 typename[0]
             )
@@ -75,15 +80,10 @@ def create_unitest_class_with_complex(
             self.b_imag_np = numpy.random.random(size=(10, 7)).astype(
                 typename[0]
             )
-            self.a_inf = np.array([1, np.inf, -np.inf])
-            self.b_inf = np.array([1, -np.inf, np.inf])
-            self.a_nan = np.array([1, np.nan, -np.nan])
-            self.b_nan = np.array([1, -np.nan, -np.nan])
-            self.callback = callback
-            self.op_type = op_type
-            self.typename = typename
-            self.dtype = typename[1]
-            self.place = base.CPUPlace()
+            self.a_inf = np.array([1, np.inf, -np.inf], self.dtype)
+            self.b_inf = np.array([1, -np.inf, np.inf], self.dtype)
+            self.a_nan = np.array([1, np.nan, -np.nan], self.dtype)
+            self.b_nan = np.array([1, -np.nan, -np.nan], self.dtype)
             if core.is_compiled_with_cuda():
                 self.place = paddle.CUDAPlace(0)
 
@@ -149,6 +149,56 @@ def create_unitest_class_with_complex(
                 c_np = self.callback(a_nan_complex_np, b_nan_complex_np)
                 c = self.callback(a_nan_complex, b_nan_complex)
                 np.testing.assert_allclose(c.numpy(), c_np)
+
+        def test_static_inf_special_case(self):
+            with static_guard():
+                with paddle.static.program_guard(paddle.static.Program()):
+                    a_inf_complex = paddle.static.data(
+                        name='a', shape=[3], dtype=self.dtype
+                    )
+                    b_inf_complex = paddle.static.data(
+                        name='b', shape=[3], dtype=self.dtype
+                    )
+                    op = eval(f"paddle.{self.op_type}")
+                    c = op(a_inf_complex, b_inf_complex)
+                    exe = paddle.static.Executor(self.place)
+                    c_np = self.callback(
+                        self.a_inf + 1j * self.a_inf,
+                        self.b_inf + 1j * self.b_inf,
+                    )
+                    c_out = exe.run(
+                        feed={
+                            'a': self.a_inf + 1j * self.a_inf,
+                            'b': self.b_inf + 1j * self.b_inf,
+                        },
+                        fetch_list=[c],
+                    )
+                    np.testing.assert_allclose(c_out[0], c_np)
+
+        def test_static_nan_special_case(self):
+            with static_guard():
+                with paddle.static.program_guard(paddle.static.Program()):
+                    a_nan_complex = paddle.static.data(
+                        name='a', shape=[3], dtype=self.dtype
+                    )
+                    b_nan_complex = paddle.static.data(
+                        name='b', shape=[3], dtype=self.dtype
+                    )
+                    op = eval(f"paddle.{self.op_type}")
+                    c = op(a_nan_complex, b_nan_complex)
+                    exe = paddle.static.Executor(self.place)
+                    c_np = self.callback(
+                        self.a_nan + 1j * self.a_nan,
+                        self.b_nan + 1j * self.b_nan,
+                    )
+                    c_out = exe.run(
+                        feed={
+                            'a': self.a_nan + 1j * self.a_nan,
+                            'b': self.b_nan + 1j * self.b_nan,
+                        },
+                        fetch_list=[c],
+                    )
+                    np.testing.assert_allclose(c_out[0], c_np)
 
     cls_name = f"{op_type}_{typename[1]}"
     Cls.__name__ = cls_name
