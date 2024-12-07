@@ -233,7 +233,7 @@ void FusedAttentionKernel(const Context &dev_ctx,
   }
 
   int r = 0;
-  const XPUTypeT *x_calc_ptr = input_x_ptr;
+  const XPUTypeT *x_cacl_ptr = input_x_ptr;
   if (pre_layer_norm) {
     r = xpu::layer_norm(xpu_ctx,
                         input_x_ptr,
@@ -246,7 +246,7 @@ void FusedAttentionKernel(const Context &dev_ctx,
                         ln_mean_ptr,
                         ln_var_ptr);
     PADDLE_ENFORCE_XDNN_SUCCESS(r, "layer_norm");
-    x_calc_ptr = ln_out_ptr;
+    x_cacl_ptr = ln_out_ptr;
   }
 
   // fc
@@ -262,7 +262,7 @@ void FusedAttentionKernel(const Context &dev_ctx,
                          nullptr);
 
   phi::MatMulXPUFunction<XPUTypeT>(xpu_ctx,
-                                   x_calc_ptr,
+                                   x_cacl_ptr,
                                    qkv_weight_ptr,
                                    qkv_before_transpose_ptr,
                                    qkv_fc_info,
