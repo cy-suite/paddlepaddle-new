@@ -51,13 +51,13 @@ template <typename T>
 struct EqualFunctor<phi::dtype::complex<T>> {
   HOSTDEVICE bool operator()(const phi::dtype::complex<T> a,
                              const phi::dtype::complex<T> b) const {
-    if (isinf(static_cast<T>(a.real)) || isinf(static_cast<T>(a.imag)) ||
-        isinf(static_cast<T>(b.real)) || isinf(static_cast<T>(b.imag))) {
-      return static_cast<bool>(a == b);
-    }
     if (isnan(static_cast<T>(a.real)) || isnan(static_cast<T>(a.imag)) ||
         isnan(static_cast<T>(b.real)) || isnan(static_cast<T>(b.imag))) {
       return static_cast<bool>(false);
+    }
+    if (isinf(static_cast<T>(a.real)) || isinf(static_cast<T>(a.imag)) ||
+        isinf(static_cast<T>(b.real)) || isinf(static_cast<T>(b.imag))) {
+      return static_cast<bool>(a.real == b.real && a.imag == b.imag);
     }
     return static_cast<bool>(fabs(static_cast<double>(a.real - b.real)) <
                                  1e-8 &&
