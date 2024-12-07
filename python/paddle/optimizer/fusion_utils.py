@@ -273,6 +273,11 @@ class FusionStorageHelper:
         for k, v in self.master_weights_meta.items():
             var_tmp = self.restore_tensor_from_meta(v)
             state_dict["master_weights"][k] = var_tmp
+        if self.merged_model_params_meta:
+            state_dict["merged_model_params"] = {}
+            for k, v in self.merged_model_params_meta.items():
+                var_tmp = self.restore_tensor_from_meta(v)
+                state_dict["merged_model_params"][k] = var_tmp
         return state_dict
 
     @imperative_base.no_grad()

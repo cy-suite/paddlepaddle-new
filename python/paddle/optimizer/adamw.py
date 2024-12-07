@@ -310,6 +310,7 @@ class AdamW(Optimizer):
         self._need_refuse = True
         self.fusion_storage = None
         self._fuse_buffer_version = 0
+        self.merged_model_params = None
 
     def _set_auxiliary_var(self, key, val):
         self._auxiliary_vars[key] = val
