@@ -51,19 +51,17 @@ template <typename OutT, typename T>
 struct EqualFunctor<phi::dtype::complex<T>, OutT> {
   HOSTDEVICE OutT operator()(const phi::dtype::complex<T>& a,
                              const phi::dtype::complex<T>& b) const {
-    if (phi::dtype::is_floating_point<phi::dtype::complex<T>>::value) {
-      if (isinf(a.real()) || isinf(a.imag()) || isinf(b.real()) ||
-          isinf(b.imag())) {
-        return static_cast<OutT>(a == b);
-      }
-      if (isnan(a.real()) || isnan(a.imag()) || isnan(b.real()) ||
-          isnan(b.imag())) {
-        return static_cast<OutT>(false);
-      }
-      return static_cast<OutT>(phi::dtype::abs(a - b) < 1e-8);
-    } else {
+    if (isinf(static_cast<T>(a.real)) || isinf(static_cast<T>(a.imag)) ||
+        isinf(static_cast<T>(b.real)) || isinf(static_cast<T>(b.imag))) {
       return static_cast<OutT>(a == b);
     }
+    if (isnan(static_cast<T>(a.real)) || isnan(static_cast<T>(a.imag)) ||
+        isnan(static_cast<T>(b.real)) || isnan(static_cast<T>(b.imag))) {
+      return static_cast<OutT>(false);
+    }
+    return fabs(static_cast<double>(a.real - b.real)) < 1e-8 &&
+           fabs(static_cast<double>(a.imag - b.imag)) < 1e-8;
+    // return static_cast<OutT>(false);
   }
 };
 
