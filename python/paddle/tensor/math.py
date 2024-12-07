@@ -3837,8 +3837,12 @@ def clip(
         max_ = float(np.finfo(np.float32).max)
 
     if is_clip_tensor(min) or is_clip_tensor(max):
-        min = check_set_clip_var(min, x, min_, 'min')
-        max = check_set_clip_var(max, x, max_, 'max')
+        # min = check_set_clip_var(min, x, min_, 'min')
+        # max = check_set_clip_var(max, x, max_, 'max')
+        min = paddle.full_like(x, min_, x.dtype) if min is None else min
+        max = paddle.full_like(x, max_, x.dtype) if max is None else max
+        min = min if paddle.is_tensor(min) else paddle.full_like(x, min, x.dtype)
+        max = max if paddle.is_tensor(max) else paddle.full_like(x, max, x.dtype)
 
         zero_tensor = paddle.full_like(get_clip_tensor(min, max, x), 0, x.dtype)
         x = zero_tensor + x
@@ -3962,8 +3966,12 @@ def clip_(
     fmax = float(np.finfo(np.float32).max)
 
     if is_clip_tensor(min) or is_clip_tensor(max):
-        min = check_set_clip_var(min, x, fmin, 'min')
-        max = check_set_clip_var(max, x, fmax, 'max')
+        # min = check_set_clip_var(min, x, fmin, 'min')
+        # max = check_set_clip_var(max, x, fmax, 'max')
+        min = paddle.full_like(x, fmin, x.dtype) if min is None else min
+        max = paddle.full_like(x, fmax, x.dtype) if max is None else max
+        min = min if paddle.is_tensor(min) else paddle.full_like(x, min, x.dtype)
+        max = max if paddle.is_tensor(max) else paddle.full_like(x, max, x.dtype)
 
         zero_tensor = paddle.full_like(get_clip_tensor(min, max, x), 0, x.dtype)
         x = zero_tensor + x
