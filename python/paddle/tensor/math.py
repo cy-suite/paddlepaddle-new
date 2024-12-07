@@ -3741,26 +3741,6 @@ def log10_(x: Tensor, name: str | None = None) -> Tensor:
     if in_dynamic_mode():
         return _C_ops.log10_(x)
 
-
-def check_set_clip_var(value, x, fill_value, name):
-    value = fill_value if value is None else value
-    if paddle.is_tensor(value):
-        if (len(value.shape) == 1 and value.shape[-1] == 0) or (
-            not (len(value.shape) == 1 and value.shape[-1] == 1)
-            and value.shape != x.shape[-len(value.shape) :]
-        ):
-            raise ValueError(
-                f"The {name} dimension should be equal to the inner dimension of the x, but the {name} dimension is {value.shape}"
-            )
-        else:
-        #     zero_tensor = paddle.zeros_like(x)
-            value = paddle.cast(value, x.dtype)
-        #     value = paddle.add(zero_tensor, value)
-    else:
-        value = paddle.full_like(x, value)
-    return value
-
-
 def get_clip_tensor(value1, value2, value3):
     v1_num = math.prod(value1.shape)
     v2_num = math.prod(value2.shape)
@@ -3837,42 +3817,23 @@ def clip(
         max_ = float(np.finfo(np.float32).max)
 
     if is_clip_tensor(min) or is_clip_tensor(max):
-        # min = check_set_clip_var(min, x, min_, 'min')
-        # max = check_set_clip_var(max, x, max_, 'max')
         min = paddle.full_like(x, min_, x.dtype) if min is None else min
         max = paddle.full_like(x, max_, x.dtype) if max is None else max
-        min = min if paddle.is_tensor(min) else paddle.full_like(x, min, x.dtype)
-        max = max if paddle.is_tensor(max) else paddle.full_like(x, max, x.dtype)
+        min = (
+            min if paddle.is_tensor(min) else paddle.full_like(x, min, x.dtype)
+        )
+        max = (
+            max if paddle.is_tensor(max) else paddle.full_like(x, max, x.dtype)
+        )
 
         zero_tensor = paddle.full_like(get_clip_tensor(min, max, x), 0, x.dtype)
         x = paddle.expand(x, zero_tensor.shape)
         min = paddle.expand(min, zero_tensor.shape)
         max = paddle.expand(max, zero_tensor.shape)
-        # x = zero_tensor + x
-        # min = zero_tensor + min
-        # max = zero_tensor + max
 
         if in_dynamic_or_pir_mode():
             return _C_ops.clip_tensor(x, min, max)
         else:
-            check_variable_and_dtype(
-                min,
-                'min',
-                ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
-                'clip_tensor',
-            )
-            check_variable_and_dtype(
-                max,
-                'max',
-                ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
-                'clip_tensor',
-            )
-            check_variable_and_dtype(
-                x,
-                'x',
-                ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
-                'clip_tensor',
-            )
 
             inputs = {'X': x, 'Min': min, 'Max': max}
 
@@ -3969,20 +3930,19 @@ def clip_(
     fmax = float(np.finfo(np.float32).max)
 
     if is_clip_tensor(min) or is_clip_tensor(max):
-        # min = check_set_clip_var(min, x, fmin, 'min')
-        # max = check_set_clip_var(max, x, fmax, 'max')
         min = paddle.full_like(x, fmin, x.dtype) if min is None else min
         max = paddle.full_like(x, fmax, x.dtype) if max is None else max
-        min = min if paddle.is_tensor(min) else paddle.full_like(x, min, x.dtype)
-        max = max if paddle.is_tensor(max) else paddle.full_like(x, max, x.dtype)
+        min = (
+            min if paddle.is_tensor(min) else paddle.full_like(x, min, x.dtype)
+        )
+        max = (
+            max if paddle.is_tensor(max) else paddle.full_like(x, max, x.dtype)
+        )
 
         zero_tensor = paddle.full_like(get_clip_tensor(min, max, x), 0, x.dtype)
         x = paddle.expand(x, zero_tensor.shape)
         min = paddle.expand(min, zero_tensor.shape)
         max = paddle.expand(max, zero_tensor.shape)
-        # x = zero_tensor + x
-        # min = zero_tensor + min
-        # max = zero_tensor + max
 
         if in_dynamic_mode():
             return _C_ops.clip_tensor_(x, min, max)
