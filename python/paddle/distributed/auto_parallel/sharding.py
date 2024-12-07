@@ -928,6 +928,9 @@ class ShardingOptimizerStage1(Optimizer):
                 continue
             if opt_param_name not in opt_param_names:
                 continue
+            print(
+                f"opt_param_name: {opt_param_name} local shape: {state_dict[opt_param_name]._local_value().shape}"
+            )
             opt_param_list.append(state_dict[opt_param_name]._local_value())
 
         if len(opt_param_list) == 0:
@@ -950,7 +953,16 @@ class ShardingOptimizerStage1(Optimizer):
         for param_name, param_info in group_info.items():
             opt_param_name = "slice@" + param_name + opt_suffix
 
-            global_shape = param_info["shape"]
+            global_shape = copy.deepcopy(param_info["shape"])
+            if self._mp_group is not None:
+                mp_placement = param_info["placements"][self._mp_mesh_axis]
+                if isinstance(mp_placement, dist.Shard):
+                    param_tensor_parallel_axis = mp_placement.get_dim()
+                    global_shape[param_tensor_parallel_axis] /= self._mp_degree
+                    global_shape[param_tensor_parallel_axis] = int(
+                        global_shape[param_tensor_parallel_axis]
+                    )
+
             global_size = reduce(operator.mul, global_shape, 1)
             # retrieve the global parameters.
             global_param = fused_opt_param[
