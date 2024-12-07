@@ -3762,9 +3762,9 @@ def check_set_clip_var(value, x, fill_value, name):
 
 
 def get_clip_tensor(value1, value2, value3):
-    v1_num = value1.numel()
-    v2_num = value2.numel()
-    v3_num = value3.numel()
+    v1_num = math.prod(value1.shape)
+    v2_num = math.prod(value2.shape)
+    v3_num = math.prod(value3.shape)
     if v1_num >= v2_num and v1_num >= v3_num:
         return value1
     elif v2_num >= v1_num and v2_num >= v3_num:
