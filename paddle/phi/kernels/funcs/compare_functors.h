@@ -61,7 +61,6 @@ struct EqualFunctor<phi::dtype::complex<T>, OutT> {
     }
     return fabs(static_cast<double>(a.real - b.real)) < 1e-8 &&
            fabs(static_cast<double>(a.imag - b.imag)) < 1e-8;
-    // return static_cast<OutT>(false);
   }
 };
 
