@@ -292,7 +292,7 @@ class FileReader:
     def getDict(self, name, groupId, gpuId, tmpPath="./tmp"):
         fileName = self.getFileName(name, groupId, gpuId, tmpPath)
         if not os.path.isfile(fileName):
-            raise OSError(f"[{fileName}] is not existed!")
+            raise OSError(f"[{fileName}] does not existed!")
 
         data = {}
         with open(fileName, "r") as rf:
