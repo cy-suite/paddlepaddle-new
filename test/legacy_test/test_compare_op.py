@@ -193,6 +193,15 @@ def create_unitest_class_with_complex(
                 c = self.callback(a_complex, b_complex)
                 np.testing.assert_allclose(c.numpy(), c_np)
 
+        def test_dygraph_special_case(self):
+            with dygraph_guard():
+                a_np = np.array(1 + 1j, dtype=self.dtype)
+                a = paddle.to_tensor(1 + 1j, dtype=self.dtype)
+                b = complex(1, 1)
+                c = self.callback(a, b)
+                c_np = self.callback(a, b)
+                np.testing.assert_allclose(c.numpy(), c_np)
+
         def test_static_nan_inf_special_case(self):
             with static_guard():
                 with paddle.static.program_guard(paddle.static.Program()):
