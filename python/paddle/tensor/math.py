@@ -3761,6 +3761,26 @@ def is_clip_tensor(value):
     return False
 
 
+def clip_tensor(x: Tensor, min: Tensor, max: Tensor) -> Tensor:
+    if in_dynamic_or_pir_mode():
+        return _C_ops.clip_tensor(x, min, max)
+    else:
+
+        inputs = {'X': x, 'Min': min, 'Max': max}
+
+        helper = LayerHelper('clip_tensor', **locals())
+        output = helper.create_variable_for_type_inference(
+            dtype=helper.input_dtype('x')
+        )
+        helper.append_op(
+            type='clip_tensor',
+            inputs=inputs,
+            outputs={'Out': [output]},
+        )
+
+        return output
+
+
 def clip(
     x: Tensor,
     min: float | Tensor | None = None,
@@ -3833,23 +3853,7 @@ def clip(
         min = paddle.expand(min, zero_tensor.shape)
         max = paddle.expand(max, zero_tensor.shape)
 
-        if in_dynamic_or_pir_mode():
-            return _C_ops.clip_tensor(x, min, max)
-        else:
-
-            inputs = {'X': x, 'Min': min, 'Max': max}
-
-            helper = LayerHelper('clip_tensor', **locals())
-            output = helper.create_variable_for_type_inference(
-                dtype=helper.input_dtype('x')
-            )
-            helper.append_op(
-                type='clip_tensor',
-                inputs=inputs,
-                outputs={'Out': [output]},
-            )
-
-            return output
+        clip_tensor(x, min, max)
 
     if in_dynamic_or_pir_mode():
         if isinstance(min, Variable):
