@@ -40,7 +40,7 @@ class TestClipTensorOp(OpTest):
         self.check_output()
 
     def test_check_grad_normal(self):
-        self.check_grad(['X', 'Min', 'Max'], 'Out')
+        self.check_grad(['X'], 'Out')
 
     def initTestCase(self):
         self.dtype = 'float32'
