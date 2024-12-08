@@ -225,7 +225,7 @@ class TestDistRunnerBase:
         )
 
         device_id = int(os.getenv("FLAGS_selected_gpus", "0"))
-        eprint(type(self).__name__, f"device_id: {device_id}.")
+        eprint(type(self).__name__, "device_id: %d." % device_id)
         place = base.CUDAPlace(device_id)
 
         exe = base.Executor(place)
