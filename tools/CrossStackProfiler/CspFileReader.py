@@ -281,7 +281,7 @@ class FileReader:
         return self.getFileName("dcgm", groupId, gpuId, tmpPath)
 
     def getFileName(self, name, groupId, gpuId, tmpPath="./tmp"):
-        return os.path.join(tmpPath, "%s_%d_%d.json" % (name, groupId, gpuId))
+        return os.path.join(tmpPath, f"{name}_{groupId}_{gpuId}.json")
 
     def getOpInfoDict(self, groupId, gpuId, tmpPath="./tmp"):
         return self.getDict("opinfo", groupId, gpuId, tmpPath)
