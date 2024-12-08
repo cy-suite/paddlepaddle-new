@@ -967,7 +967,7 @@ class CompileTimeStrategy:
                     if len(orig_shape) >= 2:
                         splited_shape.extend(orig_shape[1:])
 
-                    new_var_name = f"{varname}.block{i}"
+                    new_var_name = "%s.block%d" % (varname, i)
                     slice_var = vars_metatools.VarStruct(
                         name=new_var_name,
                         shape=splited_shape,
@@ -1427,11 +1427,12 @@ def _get_lr_scheduler_program(lr_scheduler, lr_param_dict, lr_decay_steps):
                 1.0, lr_decay_steps, lr_scheduler.gamma, True
             )
             lr_name = lr.name
-            logging.warning(
-                f"ExponentialDecay is set, staircase = True, global learning rate decay step is [ {lr_decay_steps} ], Change decay steps as follow: \n"
+            logging.warn(
+                "ExponentialDecay is set, staircase = True, global learning rate decay step is [ %d ], Change decay steps as follow: \n"
                 "\t strategy = paddle.distributed.fleet.DistributedStrategy() \n "
                 "\t strategy.a_sync = True \n"
                 "\t strategy.a_sync_configs= { 'lr_decay_steps' : YOUR_DECAY_STEP } \n"
+                % lr_decay_steps
             )
     elif isinstance(lr_scheduler, NoamDecay):
         with paddle.static.program_guard(
@@ -1441,8 +1442,9 @@ def _get_lr_scheduler_program(lr_scheduler, lr_param_dict, lr_decay_steps):
                 lr_scheduler.d_model, lr_scheduler.warmup_steps, 1.0
             )
             lr_name = lr.name
-            logging.warning(
-                f"NoamDecay is set, warmup steps is [ {lr_scheduler.warmup_steps} ]"
+            logging.warn(
+                "NoamDecay is set, warmup steps is [ %d ]"
+                % lr_scheduler.warmup_steps
             )
     elif isinstance(lr_scheduler, NaturalExpDecay):
         with paddle.static.program_guard(
@@ -1452,11 +1454,12 @@ def _get_lr_scheduler_program(lr_scheduler, lr_param_dict, lr_decay_steps):
                 1.0, lr_decay_steps, lr_scheduler.gamma, True
             )
             lr_name = lr.name
-            logging.warning(
-                f"NaturalExpDecay is set, staircase = True, global learning rate decay step is [ {lr_decay_steps} ], Change decay steps as follow: \n"
+            logging.warn(
+                "NaturalExpDecay is set, staircase = True, global learning rate decay step is [ %d ], Change decay steps as follow: \n"
                 "\t strategy = paddle.distributed.fleet.DistributedStrategy() \n "
                 "\t strategy.a_sync = True \n"
                 "\t strategy.a_sync_configs= { 'lr_decay_steps' : YOUR_DECAY_STEP } \n"
+                % lr_decay_steps
             )
     elif isinstance(lr_scheduler, InverseTimeDecay):
         with paddle.static.program_guard(
@@ -1466,11 +1469,12 @@ def _get_lr_scheduler_program(lr_scheduler, lr_param_dict, lr_decay_steps):
                 1.0, lr_decay_steps, lr_scheduler.gamma, True
             )
             lr_name = lr.name
-            logging.warning(
-                f"InverseTimeDecay is set, staircase = True, global learning rate decay step is [ {lr_decay_steps} ], Change decay steps as follow: \n"
+            logging.warn(
+                "InverseTimeDecay is set, staircase = True, global learning rate decay step is [ %d ], Change decay steps as follow: \n"
                 "\t strategy = paddle.distributed.fleet.DistributedStrategy() \n "
                 "\t strategy.a_sync = True \n"
                 "\t strategy.a_sync_configs= { 'lr_decay_steps' : YOUR_DECAY_STEP } \n"
+                % lr_decay_steps
             )
     else:
         raise ValueError(
