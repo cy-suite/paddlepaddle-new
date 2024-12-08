@@ -606,6 +606,8 @@ def equal(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
                 "int32",
                 "int64",
                 "uint16",
+                "complex64",
+                "complex128",
             ],
             "equal",
         )
@@ -623,6 +625,8 @@ def equal(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
                 "int32",
                 "int64",
                 "uint16",
+                "complex64",
+                "complex128",
             ],
             "equal",
         )
@@ -1103,6 +1107,8 @@ def not_equal(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
                 "int32",
                 "int64",
                 "uint16",
+                "complex64",
+                "complex128",
             ],
             "not_equal",
         )
@@ -1120,6 +1126,8 @@ def not_equal(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
                 "int32",
                 "int64",
                 "uint16",
+                "complex64",
+                "complex128",
             ],
             "not_equal",
         )
