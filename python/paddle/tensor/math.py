@@ -3756,9 +3756,11 @@ def get_clip_tensor(value1, value2, value3):
 
 def is_clip_tensor(value):
     if paddle.is_tensor(value):
-        if not (len(value.shape) == 1 and value.shape[-1] == 1):
-            return True
-    return False
+        if (len(value.shape) == 1 and value.shape[-1] == 1) or len(value.shape) == 0:
+            return False
+        return True
+    else:
+        return False
 
 
 def clip_tensor(x: Tensor, min: Tensor, max: Tensor) -> Tensor:
@@ -3840,7 +3842,7 @@ def clip(
 
     min = min_ if min is None else min
     max = max_ if max is None else max
-    if paddle.is_tensor(min) or paddle.is_tensor(max):
+    if is_clip_tensor(min) or is_clip_tensor(max):
         # min = paddle.full_like(x, min_, x.dtype) if min is None else min
         # max = paddle.full_like(x, max_, x.dtype) if max is None else max
         min = (
@@ -3899,17 +3901,17 @@ def clip(
         inputs = {'X': x}
         attrs = {'min': min_, 'max': max_}
 
-        # if isinstance(min, Variable):
-            # min.stop_gradient = True
-            # inputs['Min'] = min
-        # elif min is not None:
-        attrs['min'] = min
+        if isinstance(min, Variable):
+            min.stop_gradient = True
+            inputs['Min'] = min
+        elif min is not None:
+            attrs['min'] = min
 
-        # if isinstance(max, Variable):
-            # max.stop_gradient = True
-            # inputs['Max'] = max
-        # elif max is not None:
-        attrs['max'] = max
+        if isinstance(max, Variable):
+            max.stop_gradient = True
+            inputs['Max'] = max
+        elif max is not None:
+            attrs['max'] = max
 
         helper = LayerHelper('clip', **locals())
         output = helper.create_variable_for_type_inference(
@@ -3941,7 +3943,7 @@ def clip_(
     min = fmin if min is None else min
     max = fmax if max is None else max
 
-    if paddle.is_tensor(min) or paddle.is_tensor(max):
+    if is_clip_tensor(min) or is_clip_tensor(max):
         # min = paddle.full_like(x, fmin, x.dtype) if min is None else min
         # max = paddle.full_like(x, fmax, x.dtype) if max is None else max
         min = (
