@@ -3747,11 +3747,11 @@ def get_clip_tensor(value1, value2, value3):
     v2_num = math.prod(value2.shape)
     v3_num = math.prod(value3.shape)
     if v1_num >= v2_num and v1_num >= v3_num:
-        return value1
+        return value1.shape
     elif v2_num >= v1_num and v2_num >= v3_num:
-        return value2
+        return value2.shape
     else:
-        return value3
+        return value3.shape
 
 
 def is_clip_tensor(value):
@@ -3850,12 +3850,14 @@ def clip(
             max if paddle.is_tensor(max) else paddle.full_like(x, max, x.dtype)
         )
 
-        zero_tensor = paddle.full_like(get_clip_tensor(min, max, x), 0, x.dtype)
-        x = paddle.expand(x, zero_tensor.shape)
-        min = paddle.expand(min, zero_tensor.shape)
-        max = paddle.expand(max, zero_tensor.shape)
+        expand_shape = get_clip_tensor(min, max, x)
+        x = paddle.expand(x, expand_shape)
+        min = paddle.expand(min, expand_shape)
+        min = paddle.cast(min, x.dtype)
+        max = paddle.expand(max, expand_shape)
+        max = paddle.cast(max, x.dtype)
 
-        clip_tensor(x, min, max)
+        return clip_tensor(x, min, max)
 
     if in_dynamic_or_pir_mode():
         if isinstance(min, Variable):
@@ -3949,10 +3951,12 @@ def clip_(
             max if paddle.is_tensor(max) else paddle.full_like(x, max, x.dtype)
         )
 
-        zero_tensor = paddle.full_like(get_clip_tensor(min, max, x), 0, x.dtype)
-        x = paddle.expand(x, zero_tensor.shape)
-        min = paddle.expand(min, zero_tensor.shape)
-        max = paddle.expand(max, zero_tensor.shape)
+        expand_shape = get_clip_tensor(min, max, x)
+        x = paddle.expand(x, expand_shape)
+        min = paddle.expand(min, expand_shape)
+        min = paddle.cast(min, x.dtype)
+        max = paddle.expand(max, expand_shape)
+        max = paddle.cast(max, x.dtype)
 
         if in_dynamic_mode():
             return _C_ops.clip_tensor_(x, min, max)

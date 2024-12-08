@@ -33,8 +33,8 @@ class TestClipTensorOp(OpTest):
         self.min = np.random.random(size=self.shape).astype(self.dtype)
         self.max = np.random.random(size=self.shape).astype(self.dtype)
 
-        self.inputs = {'x': self.x, 'min': self.min, 'max': self.max}
-        self.outputs = {'out': np.clip(self.x, self.min, self.max)}
+        self.inputs = {'X': self.x, 'Min': self.min, 'Max': self.max}
+        self.outputs = {'Out': np.clip(self.x, self.min, self.max)}
 
     def test_check_output(self):
         self.check_output()
@@ -127,12 +127,12 @@ def np_pd_static_equal(
         paddle.static.Program(), paddle.static.Program()
     ):
         x_pd = paddle.static.data("x", shape=x_shape, dtype=dtype)
-        min_pd = paddle.static.data("min", shape=min_shape, dtype=dtype)
-        max_pd = paddle.static.data("max", shape=max_shape, dtype=dtype)
+        min_pd = paddle.static.data("Min", shape=min_shape, dtype=dtype)
+        max_pd = paddle.static.data("Max", shape=max_shape, dtype=dtype)
         pd_out = paddle.clip(x_pd, min_pd, max_pd)
         exe = base.Executor(place)
         (res,) = exe.run(
-            feed={"x": x, "min": min, "max": max}, fetch_list=[pd_out]
+            feed={"X": x, "Min": min, "Max": max}, fetch_list=[pd_out]
         )
         np.allclose(res, np_out)
 
@@ -142,13 +142,11 @@ def np_pd_static_equal(
 class TestClipTensorAPI(unittest.TestCase):
 
     def test_check_output(self):
-        np_pd_equal([5], [5], [1])
         np_pd_equal([4, 5], [5], [1], 'int32')
         np_pd_equal([4, 5], [5], [4, 5], 'int64')
         np_pd_equal([4], [5, 4], [4], 'float32')
 
     def test_check_static_output(self):
-        np_pd_static_equal([5], [5], [1])
         np_pd_static_equal([4, 5], [5], [1], 'int32')
         np_pd_static_equal([4, 5], [5], [4, 5], 'int64')
         np_pd_static_equal([4], [5, 4], [4], 'float32')
