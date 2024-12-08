@@ -142,6 +142,12 @@ struct MinFunctor {
   inline T initial() { return static_cast<T>(std::numeric_limits<T>::max()); }
 
   __device__ __forceinline__ T operator()(const T a, const T b) const {
+    if (isnan(a)) {
+      return a;
+    }
+    if (isnan(b)) {
+      return b;
+    }
     return (b < a) ? b : a;
   }
 };
@@ -156,6 +162,12 @@ struct MaxFunctor {
   }
 
   __device__ __forceinline__ T operator()(const T a, const T b) const {
+    if (isnan(a)) {
+      return a;
+    }
+    if (isnan(b)) {
+      return b;
+    }
     return (b > a) ? b : a;
   }
 };
