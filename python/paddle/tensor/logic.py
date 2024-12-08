@@ -581,7 +581,7 @@ def equal(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
             [True , False, False])
     """
     if not isinstance(
-        y, (int, bool, float, complex, Variable, paddle.pir.Value)
+        y, (int, bool, float, Variable, complex, paddle.pir.Value)
     ):
         raise TypeError(
             f"Type of input args must be float, bool, complex, int or Tensor, but received type {type(y)}"
@@ -590,7 +590,8 @@ def equal(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         y = full(shape=[], dtype=x.dtype, fill_value=y)
 
     if isinstance(y, complex):
-        y = paddle.to_tensor(y, shape=[])
+        # full not support for complex yet
+        y = paddle.to_tensor(y)
 
     if in_dynamic_or_pir_mode():
         return _C_ops.equal(x, y)
