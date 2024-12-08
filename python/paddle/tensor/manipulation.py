@@ -3842,6 +3842,21 @@ def unsqueeze(
     Tensor copy in ``dygraph`` mode. If you want to use the Tensor copy version,
     please use `Tensor.clone` like ``unsqueeze_clone_x = x.unsqueeze(-1).clone()``.
 
+    The following figure illustrates how a tensor with a shape of [2, 3] can use the 
+    ``unsqueeze`` method to add an additional dimension at the last position (axis = 2), 
+    transforming it from a 2D tensor into a 3D tensor.
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/unsqueeze.png
+        :width: 700
+        :alt: legend of unsqueeze API
+        :align: center
+
+    Additionally, when adding dimensions at multiple positions, the ``unsqueeze`` method adds 
+    dimensions sequentially in the order specified by the axes. For example, for a tensor 
+    with a shape of [2, 3], adding dimensions at axis = [0, 2] using ``unsqueeze`` will first 
+    insert a dimension before the first axis, changing the shape to [1, 2, 3]. Then, it will 
+    insert a dimension before the third axis, resulting in a final shape of [1, 2, 1, 3].
+
     Args:
         x (Tensor): The input Tensor to be unsqueezed. Supported data type: bfloat16, float16, float32, float64, bool, int8, int32, int64.
         axis (int|list|tuple|Tensor): Indicates the dimensions to be inserted. The data type is ``int32`` .
@@ -7185,6 +7200,15 @@ def unfold(
     Note that the output Tensor will share data with origin Tensor and doesn't
     have a Tensor copy in ``dygraph`` mode.
 
+    The figure below demonstrates how a tensor with element values ranging from 0 to 8 and a shape of [9] is processed
+    using the ``unfold`` method along the first dimension (axis = 0). The method samples the Tensor using a window size 
+    of 2 (size = 2) and a step size of 4 (step = 4).
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/unfold.png
+        :width: 700
+        :alt: legend of unfold API
+        :align: center
+        
     Args:
         x (Tensor): An N-D Tensor. The data type is ``float32``, ``float64``, ``int32``, ``int64`` or ``bool``
         axis (int): The axis along which the input is unfolded.
