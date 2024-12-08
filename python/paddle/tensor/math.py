@@ -3840,7 +3840,7 @@ def clip(
 
     min = min_ if min is None else min
     max = max_ if max is None else max
-    if is_clip_tensor(min) or is_clip_tensor(max):
+    if paddle.is_tensor(min) or paddle.is_tensor(max):
         # min = paddle.full_like(x, min_, x.dtype) if min is None else min
         # max = paddle.full_like(x, max_, x.dtype) if max is None else max
         min = (
@@ -3939,7 +3939,7 @@ def clip_(
     min = fmin if min is None else min
     max = fmax if max is None else max
 
-    if is_clip_tensor(min) or is_clip_tensor(max):
+    if paddle.is_tensor(min) or paddle.is_tensor(max):
         # min = paddle.full_like(x, fmin, x.dtype) if min is None else min
         # max = paddle.full_like(x, fmax, x.dtype) if max is None else max
         min = (

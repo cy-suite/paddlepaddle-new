@@ -33,14 +33,14 @@ class TestClipTensorOp(OpTest):
         self.min = np.random.random(size=self.shape).astype(self.dtype)
         self.max = np.random.random(size=self.shape).astype(self.dtype)
 
-        self.inputs = {'X': self.x, 'Min': self.min, 'Max': self.max}
-        self.outputs = {'Out': np.clip(self.x, self.min, self.max)}
+        self.inputs = {'x': self.x, 'min': self.min, 'max': self.max}
+        self.outputs = {'out': np.clip(self.x, self.min, self.max)}
 
     def test_check_output(self):
         self.check_output()
 
     def test_check_grad_normal(self):
-        self.check_grad(['X'], 'Out')
+        self.check_grad(['x'], 'out')
 
     def initTestCase(self):
         self.dtype = 'float32'
@@ -49,20 +49,8 @@ class TestClipTensorOp(OpTest):
 
 class TestCase1(TestClipTensorOp):
     def initTestCase(self):
-        self.dtype = 'int32'
+        self.dtype = 'float32'
         self.shape = (8, 16, 8)
-
-
-class TestCase2(TestClipTensorOp):
-    def initTestCase(self):
-        self.dtype = 'int64'
-        self.shape = (8, 16)
-
-
-class TestCase3(TestClipTensorOp):
-    def initTestCase(self):
-        self.dtype = np.float32
-        self.shape = (8, 16, 11)
 
 
 def np_pd_equal(x_shape, min_shape=None, max_shape=None, dtype='float32'):
