@@ -73,15 +73,6 @@ class IR_API PassRegistrar {
     PassRegistry::Instance().Insert(
         pass_type, []() { return std::make_unique<PassType>(); });
   }
-
-  // make a new registrar to satisfy python pass
-  explicit PassRegistrar(
-      const char *pass_type,
-      const paddle::drr::DrrPatternContext &pattern_context) {
-    PassRegistry::Instance().Insert(pass_type, [pattern_context, pass_type]() {
-      return std::make_unique<PassType>(pass_type, pattern_context);
-    });
-  }
 };
 
 #define STATIC_ASSERT_PASS_GLOBAL_NAMESPACE(uniq_name, msg)                   \

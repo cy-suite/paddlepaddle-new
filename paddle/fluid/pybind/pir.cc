@@ -2582,14 +2582,13 @@ void BindPassManager(pybind11::module *m) {
               std::shared_ptr<paddle::drr::DrrPatternContext> pattern_ctx) {
              using AutoFinalPass =
                  paddle::drr::AutoDrrPass<paddle::drr::AutoDrrPattern>;
-             // == REGISTER_IR_PASS(pass_name, AutoDrrPass);
-             static ::pir::PassRegistrar<AutoFinalPass> auto_register_pass(
-                 pass_name.data(), *pattern_ctx);
-             auto_register_pass.Touch();
-             // keep reference
-             // add pass to pass manager
-             auto pass_creator = pir::PassRegistry::Instance().Get(pass_name);
-             self.AddPass(std::move(pass_creator));
+             // Instead of using static PassRegistrar which may cause lifetime
+             // issues during program termination, directly register the pass to
+             // PassRegistry. This approach provides better control over object
+             // lifetime management and avoids potential segmentation faults
+             // during static destruction.
+             self.AddPass(
+                 std::make_unique<AutoFinalPass>(pass_name, pattern_ctx));
            })
       .def("passes",
            [](PassManager &self) {
@@ -2659,9 +2658,7 @@ void BindDrrPatternContext(pybind11::module *m) {
     A class that manages DRR (Dynamic Rewrite Rule) pattern context.
 
   )DOC");
-  drr_pattern_context
-      .def(pybind11::init(
-          []() { return std::make_shared<drr::DrrPatternContext>(); }))
+  drr_pattern_context.def(pybind11::init<>())
       .def("SourcePattern", &drr::DrrPatternContext::SourcePattern);
 
   // bind drr::SourcePattern

@@ -63,7 +63,7 @@ class AutoDrrPattern : public DrrPatternBase {
 
  public:
   AutoDrrPattern(const std::string& name,
-                 const DrrPatternContext& pattern_context)
+                 const DrrPatternContext pattern_context)
       : name_(name), pattern_context_(pattern_context) {}
 
   std::string name() const override { return name_; }
@@ -77,20 +77,22 @@ class AutoDrrPattern : public DrrPatternBase {
 template <typename AutoDrrPattern>
 class AutoDrrPass : public pir::PatternRewritePass {
  public:
-  const std::string& name_;
-  const DrrPatternContext pattern_context_;
+  const std::string name_;
+  std::shared_ptr<DrrPatternContext> pattern_context_;
 
-  AutoDrrPass(const std::string& name, const DrrPatternContext& pattern_context)
+  AutoDrrPass(const std::string& name,
+              std::shared_ptr<DrrPatternContext> pattern_context)
       : pir::PatternRewritePass(name, 2),
         name_(name),
         pattern_context_(pattern_context) {}
 
   pir::RewritePatternSet InitializePatterns(pir::IrContext* context) override {
     pir::RewritePatternSet ps(context);
+    DrrPatternContext ctx = *pattern_context_;
     ps.Add(paddle::drr::Create<AutoDrrPattern,
                                const std::string&,
                                const DrrPatternContext>(
-        context, name_, pattern_context_));
+        context, name_, std::move(ctx)));
     return ps;
   }
 };
