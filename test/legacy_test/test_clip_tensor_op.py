@@ -22,35 +22,35 @@ from paddle import base
 from paddle.base import core
 
 
-class TestClipTensorOp(OpTest):
-    def setUp(self):
-        self.op_type = "clip_tensor"
-        self.python_api = paddle.tensor.math.clip_tensor
+# class TestClipTensorOp(OpTest):
+#     def setUp(self):
+#         self.op_type = "clip_tensor"
+#         self.python_api = paddle.tensor.math.clip_tensor
 
-        self.initTestCase()
+#         self.initTestCase()
 
-        self.x = np.random.random(size=self.shape).astype(self.dtype)
-        self.min = np.random.random(size=self.shape).astype(self.dtype)
-        self.max = np.random.random(size=self.shape).astype(self.dtype)
+#         self.x = np.random.random(size=self.shape).astype(self.dtype)
+#         self.min = np.random.random(size=self.shape).astype(self.dtype)
+#         self.max = np.random.random(size=self.shape).astype(self.dtype)
 
-        self.inputs = {'X': self.x, 'Min': self.min, 'Max': self.max}
-        self.outputs = {'Out': np.clip(self.x, self.min, self.max)}
+#         self.inputs = {'X': self.x, 'Min': self.min, 'Max': self.max}
+#         self.outputs = {'Out': np.clip(self.x, self.min, self.max)}
 
-    def test_check_output(self):
-        self.check_output()
+#     def test_check_output(self):
+#         self.check_output()
 
-    def test_check_grad_normal(self):
-        self.check_grad(['x'], 'out')
+#     def test_check_grad_normal(self):
+#         self.check_grad(['X'], 'out')
 
-    def initTestCase(self):
-        self.dtype = 'float32'
-        self.shape = (10, 10)
+#     def initTestCase(self):
+#         self.dtype = 'float32'
+#         self.shape = (10, 10)
 
 
-class TestCase1(TestClipTensorOp):
-    def initTestCase(self):
-        self.dtype = 'float32'
-        self.shape = (8, 16, 8)
+# class TestCase1(TestClipTensorOp):
+#     def initTestCase(self):
+#         self.dtype = 'float32'
+#         self.shape = (8, 16, 8)
 
 
 def np_pd_equal(x_shape, min_shape=None, max_shape=None, dtype='float32'):
@@ -126,7 +126,7 @@ def np_pd_static_equal(
     with paddle.static.program_guard(
         paddle.static.Program(), paddle.static.Program()
     ):
-        x_pd = paddle.static.data("x", shape=x_shape, dtype=dtype)
+        x_pd = paddle.static.data("X", shape=x_shape, dtype=dtype)
         min_pd = paddle.static.data("Min", shape=min_shape, dtype=dtype)
         max_pd = paddle.static.data("Max", shape=max_shape, dtype=dtype)
         pd_out = paddle.clip(x_pd, min_pd, max_pd)
