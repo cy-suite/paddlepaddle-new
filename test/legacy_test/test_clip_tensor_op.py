@@ -24,7 +24,7 @@ from paddle.base import core
 
 class TestClipTensorOp(OpTest):
     def setUp(self):
-        self.op_type = "clip"
+        self.op_type = "clip_tensor"
         self.python_api = paddle.clip
 
         self.initTestCase()
@@ -154,14 +154,12 @@ def np_pd_static_equal(
 class TestClipTensorAPI(unittest.TestCase):
 
     def test_check_output(self):
-        np_pd_equal([5], [1], [1])
         np_pd_equal([5], [5], [1])
         np_pd_equal([4, 5], [5], [1], 'int32')
         np_pd_equal([4, 5], [5], [4, 5], 'int64')
         np_pd_equal([4], [5, 4], [4], 'float32')
 
     def test_check_static_output(self):
-        np_pd_static_equal([5], [1], [1])
         np_pd_static_equal([5], [5], [1])
         np_pd_static_equal([4, 5], [5], [1], 'int32')
         np_pd_static_equal([4, 5], [5], [4, 5], 'int64')

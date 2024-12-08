@@ -3741,6 +3741,7 @@ def log10_(x: Tensor, name: str | None = None) -> Tensor:
     if in_dynamic_mode():
         return _C_ops.log10_(x)
 
+
 def get_clip_tensor(value1, value2, value3):
     v1_num = math.prod(value1.shape)
     v2_num = math.prod(value2.shape)
@@ -3751,6 +3752,7 @@ def get_clip_tensor(value1, value2, value3):
         return value2
     else:
         return value3
+
 
 def is_clip_tensor(value):
     if paddle.is_tensor(value):
