@@ -246,5 +246,21 @@ class TestLinspaceOpError(unittest.TestCase):
                 self.assertRaises(TypeError, test_step_dtype)
 
 
+class TestLinspaceOpEmptyTensor(unittest.TestCase):
+    def test_empty_tensor(self):
+        with paddle_static_guard():
+            with paddle.static.program_guard(
+                paddle.static.Program(), paddle.static.Program()
+            ):
+                out = paddle.linspace(0, 10, 0, dtype='float32')
+                exe = base.Executor(place=base.CPUPlace())
+                res = exe.run(base.default_main_program(), fetch_list=[out])
+                self.assertEqual(res[0].shape, (0,))
+                self.assertEqual(len(res[0]), 0)
+        out = paddle.linspace(0, 10, 0, dtype='float32')
+        self.assertEqual(out.shape, [0])
+        self.assertEqual(len(out.numpy()), 0)
+
+
 if __name__ == "__main__":
     unittest.main()
