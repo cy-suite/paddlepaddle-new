@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <type_traits>
 #include "paddle/phi/common/amp_type_traits.h"
 #include "paddle/phi/common/float16.h"
 #include "paddle/phi/core/enforce.h"
@@ -142,11 +143,13 @@ struct MinFunctor {
   inline T initial() { return static_cast<T>(std::numeric_limits<T>::max()); }
 
   __device__ __forceinline__ T operator()(const T a, const T b) const {
-    if (isnan(a)) {
-      return a;
-    }
-    if (isnan(b)) {
-      return b;
+    if (std::is_floating_point<T>::value) {
+      if (isnan(a)) {
+        return a;
+      }
+      if (isnan(b)) {
+        return b;
+      }
     }
     return (b < a) ? b : a;
   }
@@ -162,11 +165,13 @@ struct MaxFunctor {
   }
 
   __device__ __forceinline__ T operator()(const T a, const T b) const {
-    if (isnan(a)) {
-      return a;
-    }
-    if (isnan(b)) {
-      return b;
+    if (std::is_floating_point<T>::value) {
+      if (isnan(a)) {
+        return a;
+      }
+      if (isnan(b)) {
+        return b;
+      }
     }
     return (b > a) ? b : a;
   }
