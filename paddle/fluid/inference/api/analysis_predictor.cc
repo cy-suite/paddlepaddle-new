@@ -806,7 +806,7 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
 
   auto AddAutoLayoutPasses = [&](pir::PassManager &pass_manager) {
     auto &pass_registry = pir::PassRegistry::Instance();
-    std::vector<std::string> passes = {"auto_layout_pass_warp"};
+    std::vector<std::string> passes = {"auto_layout_pass"};
 
     for (const auto &pass_name : passes) {
       if (std::find(config_.deleted_passes_.begin(),

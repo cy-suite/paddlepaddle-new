@@ -712,7 +712,7 @@ class PartialProgramLayer:
             infer_program = self.origin_runnable_program.clone()
             if auto_layout_is_enabled():
                 pm = paddle.pir.PassManager(2)
-                pm.add_pass("auto_layout_pass_warp", {})
+                pm.add_pass("auto_layout_pass", {})
                 pm.run(infer_program.program)
             for hooker in self._hookers:
                 hooker.after_infer(infer_program)
@@ -725,7 +725,7 @@ class PartialProgramLayer:
             # Author(liujinnan): auto_layout_pass should be applied to the original_program, before append backward. So we put it here.
             if auto_layout_is_enabled():
                 pm = paddle.pir.PassManager(2)
-                pm.add_pass("auto_layout_pass_warp", {})
+                pm.add_pass("auto_layout_pass", {})
                 pm.run(train_program.program)
             train_program = self._append_backward_desc(train_program)
             # Note: Only set grad type once after initializing train program. So we put it here.

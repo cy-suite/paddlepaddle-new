@@ -15,12 +15,16 @@
 #pragma once
 
 #include <memory>
+#include <set>
+#include <string>
 #include "paddle/pir/include/core/dll_decl.h"
 
 namespace pir {
 
 class Pass;
 
-IR_API std::unique_ptr<Pass> CreateAutoLayoutWarpPass();
+// ops_in_NHWC: the op that should be in NHWC layout.
+IR_API std::unique_ptr<Pass> CreateAutoLayoutInsertPass(
+    const std::set<std::string>& ops_in_NHWC);
 
 }  // namespace pir
