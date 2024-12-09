@@ -298,6 +298,7 @@ def to_distributed(
     Examples:
         .. code-block:: python
 
+            >>> # doctest: +SKIP('run in distributed env')
             >>> import math
             >>> import numpy as np
             >>> import paddle
@@ -657,7 +658,6 @@ def to_distributed(
             >>> dist_config = ToDistributedConfig()
             >>> dist_config.sequence_parallel = True
 
-            >>> # doctest: +REQUIRES(env:DISTRIBUTED)
             >>> # wrap model, opt, dataloader by using **to_distributed**
             >>> dist_model, dist_opt, dist_loader = to_distributed(
             ...     model,
