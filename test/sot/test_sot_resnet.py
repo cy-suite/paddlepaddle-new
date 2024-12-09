@@ -28,7 +28,6 @@ def resnet_call(x: paddle.Tensor, net: paddle.nn.Layer):
 
 
 class TestResNet(TestCaseBase):
-    # @test_with_faster_guard
     def test_resnet_eval(self):
         x = paddle.rand((10, 3, 224, 224))
         net = resnet18(pretrained=False)
@@ -42,7 +41,6 @@ class TestResNet(TestCaseBase):
             self.assert_results(resnet_call, x, net)  # cache miss
             self.assertEqual(ctx.translate_count, 2)
 
-    # @test_with_faster_guard
     def test_resnet_train(self):
         x = paddle.rand((10, 3, 224, 224))
         net = resnet18(pretrained=False)
