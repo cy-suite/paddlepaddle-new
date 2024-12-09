@@ -29,7 +29,10 @@ SYCLModule::SYCLModule(const std::string& source_code,
                        const std::string& shared_library,
                        Kind kind)
     : source_code_(source_code), shared_library_(shared_library), kind_(kind) {
-  CHECK(!shared_library.empty());
+  PADDLE_ENFORCE_NE(
+      shared_library.empty(),
+      true,
+      ::common::errors::InvalidArgument("sharede library is not empty !"));
 }
 
 SYCLModule::~SYCLModule() { VLOG(3) << "destructor for SYCLModule"; }
@@ -39,7 +42,11 @@ void* SYCLModule::GetFunction(const std::string& func_name) {
     so_handler_ = dlopen(shared_library_.c_str(), RTLD_NOW | RTLD_GLOBAL);
   }
   VLOG(5) << "getting function " << func_name;
-  CHECK(so_handler_ != nullptr) << "ERROR:" << dlerror();
+  PADDLE_ENFORCE_NE(
+      so_handler_,
+      nullptr,
+      ::common::errors::InvalidArgument(
+          "Errors: SYCL failed to load shared library %s", dlerror()));
   void (*kernel_func)(::sycl::queue & Q,
                       ::sycl::range<3> k0_dimGrid,
                       ::sycl::range<3> k0_dimBlock,
@@ -48,7 +55,11 @@ void* SYCLModule::GetFunction(const std::string& func_name) {
                 ::sycl::range<3> k0_dimGrid,
                 ::sycl::range<3> k0_dimBlock,
                 void** void_args)) dlsym(so_handler_, func_name.c_str());
-  CHECK(kernel_func != nullptr) << "ERROR:" << dlerror() << ":dlsym\n";
+  PADDLE_ENFORCE_NE(
+      kernel_func,
+      nullptr,
+      ::common::errors::InvalidArgument(
+          "Errors: Sycl failed to get function %s", dlerror(), ":dlsym\n"));
   return reinterpret_cast<void*>(kernel_func);
 }
 

@@ -16,8 +16,10 @@
 
 #include <sycl/sycl.hpp>
 #include <vector>
+#include "paddle/cinn/common/macros.h"
 #include "paddle/cinn/common/target.h"
 #include "paddle/cinn/runtime/backend_api.h"
+#include "paddle/common/enforce.h"
 using cinn::common::Arch;
 
 namespace cinn {
@@ -64,14 +66,16 @@ inline const char* SYCLGetErrorString(std::error_code error_code) {
  * \brief Protected SYCL call
  * \param func Expression to call.
  */
-#define SYCL_CALL(func)                                                   \
-  {                                                                       \
-    try {                                                                 \
-      func;                                                               \
-    } catch (const ::sycl::exception& e) {                                \
-      LOG(FATAL) << "SYCL Error, error code"                              \
-                 << " = " << e.get_cl_code() << ", message:" << e.what(); \
-    }                                                                     \
+#define SYCL_CALL(func)                                                 \
+  {                                                                     \
+    try {                                                               \
+      func;                                                             \
+    } catch (const ::sycl::exception& e) {                              \
+      PADDLE_THROW(::common::errors::Fatal(                             \
+          "SYCL Driver Error in Paddle CINN: %s failed with error: %s", \
+          e.get_cl_code(),                                              \
+          e.what()));                                                   \
+    }                                                                   \
   }
 
 class SYCLBackendAPI final : public BackendAPI {

@@ -50,14 +50,15 @@ void cinn_call_sycl_memset(void* v_args, int num_args, int value, size_t count);
 void cinn_call_sycl_memcpy(void* v_args, int num_args, size_t count);
 
 #ifdef CINN_WITH_CNNL
-#define CNRT_CALL(func)                                 \
-  {                                                     \
-    auto status = func;                                 \
-    if (status != cnrtSuccess) {                        \
-      std::stringstream ss;                             \
-      ss << "CNRT Error : " << cnrtGetErrorStr(status); \
-      PADDLE_THROW(phi::errors::Fatal(ss.str()));       \
-    }                                                   \
+#define CNRT_CALL(func)                                  \
+  {                                                      \
+    auto status = func;                                  \
+    if (status != cnrtSuccess) {                         \
+      std::stringstream ss;                              \
+      ss << "CNRT Error : " << cnrtGetErrorStr(status);  \
+      PADDLE_THROW(::common::errors::Fatal(              \
+          ("SYCL Error in Paddle CINN: %s", ss.str()))); \
+    }                                                    \
   }
 
 #define CNNL_CALL(func)                                    \
@@ -66,7 +67,8 @@ void cinn_call_sycl_memcpy(void* v_args, int num_args, size_t count);
     if (status != CNNL_STATUS_SUCCESS) {                   \
       std::stringstream ss;                                \
       ss << "CNNL Error : " << cnnlGetErrorString(status); \
-      PADDLE_THROW(phi::errors::Fatal(ss.str()));          \
+      PADDLE_THROW(::common::errors::Fatal(                \
+          ("SYCL Error in Paddle CINN: %s", ss.str())));   \
     }                                                      \
   }
 

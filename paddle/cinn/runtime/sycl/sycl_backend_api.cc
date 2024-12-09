@@ -37,10 +37,11 @@ void SYCLBackendAPI::Init(Arch arch) {
                                 ::sycl::info::device_type::gpu)[0]
                                 .get_backend());
       },
-      [&](common::X86Arch) { LOG(FATAL) << "SYCL Not supported this arch \n"; },
-      [&](common::ARMArch) { LOG(FATAL) << "SYCL Not supported this arch \n"; },
+      [&](common::X86Arch) { CINN_NOT_IMPLEMENTED },
+      [&](common::ARMArch) { CINN_NOT_IMPLEMENTED },
       [&](common::NVGPUArch) { backend = ::sycl::backend::ext_oneapi_cuda; },
-      [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
+      [&](common::HygonDCUArchHIP) { CINN_NOT_IMPLEMENTED },
+      [&](common::HygonDCUArchSYCL) {
         backend = ::sycl::backend::ext_oneapi_hip;
       });
   // look for matched devices
@@ -59,19 +60,25 @@ void SYCLBackendAPI::Init(Arch arch) {
 
 void SYCLBackendAPI::set_device(int device_id) {
   if (!initialized_) Init(common::UnknownArch{});
-  if (device_id < 0) {
-    LOG(FATAL) << "set valid device id! device id:" << device_id;
-  } else if (device_id > this->devices.size() - 1) {
-    LOG(FATAL) << "set valid device id! device id:" << device_id
-               << " > max device id:" << this->devices.size() - 1;
-  }
+  PADDLE_ENFORCE_GE(device_id,
+                    0UL,
+                    ::common::errors::InvalidArgument(
+                        "please set valid device id! device id", device_id));
+  PADDLE_ENFORCE_LE(
+      device_id,
+      this->devices.size() - 1,
+      ::common::errors::InvalidArgument("set valid device id! device id: ",
+                                        device_id,
+                                        " > max device id:",
+                                        this->devices.size() - 1));
   if (this->contexts[device_id] == nullptr) {
     auto exception_handler = [](::sycl::exception_list exceptions) {
       for (const std::exception_ptr& e : exceptions) {
         try {
           std::rethrow_exception(e);
         } catch (const ::sycl::exception& e) {
-          LOG(INFO) << "Caught asynchronous SYCL exception:\n" << e.what();
+          PADDLE_THROW(::common::errors::Fatal(
+              "Caught asynchronous SYCL exception:\n %s ", e.what()));
         }
       }
     };
@@ -149,7 +156,8 @@ int SYCLBackendAPI::get_device_property(DeviceProperty device_property,
       break;
     }
     case DeviceProperty::MaxBlocksPerSM: {
-      LOG(FATAL) << "SYCL Not supported device property : MaxBlocksPerSM !";
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "SYCL Not supported device property : MaxBlocksPerSM !"));
       break;
     }
     case DeviceProperty::WarpSize: {
@@ -162,7 +170,8 @@ int SYCLBackendAPI::get_device_property(DeviceProperty device_property,
       break;
     }
     default:
-      LOG(FATAL) << "Not supported device property!";
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "SYCL Not supported device property !"));
   }
   return rv;
 }
@@ -173,8 +182,10 @@ void* SYCLBackendAPI::malloc(size_t numBytes) {
   SYCL_CALL(dev_mem = ::sycl::malloc_device(numBytes,
                                             this->devices[now_device_id],
                                             *this->contexts[now_device_id]));
-  if (dev_mem == nullptr)
-    LOG(ERROR) << "allocate sycl device memory failure!" << std::endl;
+  PADDLE_ENFORCE_NE(dev_mem,
+                    nullptr,
+                    ::common::errors::InvalidArgument(
+                        "allocate sycl device memory failure!"));
   return dev_mem;
 }
 
@@ -216,7 +227,6 @@ void SYCLBackendAPI::device_sync() {
   VLOG(3) << "sycl device sync";
   for (auto queues_in_one_device : this->queues) {
     for (auto queue : queues_in_one_device) {
-      // LOG(INFO) << "sycl stream sync";
       SYCL_CALL(queue->wait_and_throw());
     }
   }
@@ -235,6 +245,18 @@ std::string SYCLBackendAPI::GetGpuVersion() {
   ::sycl::device device = this->devices[now_device_id];
   ::sycl::backend backend = device.get_backend();
   switch (backend) {
+    case ::sycl::backend::cuda: {
+      std::string gpu_version = "sm_";
+      std::string version_with_point =
+          device.get_info<::sycl::info::device::driver_version>();
+      size_t pos = version_with_point.find(".");
+      if (pos != std::string::npos) {
+        gpu_version +=
+            version_with_point.substr(0, pos) +
+            version_with_point.substr(pos + 1, version_with_point.size());
+      }
+      return gpu_version;
+    }
     case ::sycl::backend::ext_oneapi_hip: {
       std::string gpu_version =
           device.get_info<::sycl::info::device::version>();
@@ -243,7 +265,8 @@ std::string SYCLBackendAPI::GetGpuVersion() {
       return gpu_version;
     }
     default:
-      LOG(ERROR) << "unknown sycl backend!";
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Error! use unknown sycl backend!"));
   }
 }
 

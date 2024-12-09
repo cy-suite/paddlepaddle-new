@@ -89,7 +89,7 @@ void cinn_call_sycl_memset(void *v_args,
                            size_t count) {
   PADDLE_ENFORCE_EQ(num_args,
                     1,
-                    phi::errors::PreconditionNotMet(
+                    ::common::errors::PreconditionNotMet(
                         "The cinn_call_sycl_memset only accept a output."));
   VLOG(4) << "call cinn_call_sycl_memset with value=" << value
           << ", count=" << count;
@@ -110,7 +110,7 @@ void cinn_call_sycl_memcpy(void *v_args, int num_args, size_t count) {
   PADDLE_ENFORCE_EQ(
       num_args,
       2,
-      phi::errors::PreconditionNotMet(
+      ::common::errors::PreconditionNotMet(
           "The cinn_call_sycl_memcpy only accept a input and a output."));
   VLOG(4) << "call cinn_call_sycl_memcpy with count=" << count;
 
@@ -185,7 +185,7 @@ class CnnlRandGenerator {
 cnnlDataType_t convert_to_cnnl_dtype(void *v_args, int num_args) {
   PADDLE_ENFORCE_GT(num_args,
                     0,
-                    phi::errors::PreconditionNotMet(
+                    ::common::errors::PreconditionNotMet(
                         "the number of arguments must larger than zero"));
   cinn_pod_value_t *args = static_cast<cinn_pod_value_t *>(v_args);
   auto type_code = args[0].operator cinn_buffer_t *()->type.code;
@@ -194,7 +194,7 @@ cnnlDataType_t convert_to_cnnl_dtype(void *v_args, int num_args) {
     auto t = args[i].operator cinn_buffer_t *()->type.code;
     int b = args[0].operator cinn_buffer_t *()->type.bits;
     if (t != type_code || bits != b) {
-      PADDLE_THROW(phi::errors::InvalidArgument(
+      PADDLE_THROW(::common::errors::InvalidArgument(
           "The types of all arguments need to be consistent."));
     }
   }
@@ -208,10 +208,11 @@ cnnlDataType_t convert_to_cnnl_dtype(void *v_args, int num_args) {
   } else if (is_bfloat16) {
     data_type = CNNL_DTYPE_BFLOAT16;
   } else {
-    std::stringstream ss;
-    ss << "unsupported cudnn data type: " << static_cast<int>(type_code)
-       << ", bits = " << bits;
-    PADDLE_THROW(phi::errors::InvalidArgument(ss.str()));
+    PADDLE_THROW(
+        ::common::errors::InvalidArgument("unsupported cudnn data type: ",
+                                          static_cast<int>(type_code),
+                                          ", bits = ",
+                                          bits));
   }
   return data_type;
 }
@@ -223,7 +224,7 @@ std::string debug_cnnl_tensor_format(cnnlTensorLayout_t tensor_format) {
     case CNNL_LAYOUT_NHWC:
       return "NHWC";
     default:
-      PADDLE_THROW(phi::errors::InvalidArgument(
+      PADDLE_THROW(::common::errors::InvalidArgument(
           "Only support NCHW and NHWC data layout\n"));
   }
   return "";
@@ -238,7 +239,7 @@ std::string debug_cnnl_tensor_dtype(cnnlDataType_t tensor_dtype) {
     case CNNL_DTYPE_BFLOAT16:
       return "bfloat16";
     default:
-      PADDLE_THROW(phi::errors::InvalidArgument(
+      PADDLE_THROW(::common::errors::InvalidArgument(
           "Only support float16/bfloat16/float32 now!"));
   }
   return "";
@@ -255,8 +256,8 @@ std::string debug_cnnl_pool_mode(cnnlPoolingMode_t pool_mode) {
     case CNNL_POOLING_FIXED:
       return "fixed";
     default:
-      PADDLE_THROW(
-          phi::errors::InvalidArgument("Pool only support max and avg now!"));
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Pool only support max and avg now!"));
   }
   return "";
 }
@@ -319,7 +320,7 @@ void cinn_call_cnnl_gaussian_random(
         handle, generator, CNNL_DTYPE_FLOAT, NULL, numel, mean, std, ptr));
     CNRT_CALL(cnrtQueueSync(queue));
   } else {
-    PADDLE_THROW(phi::errors::InvalidArgument(
+    PADDLE_THROW(::common::errors::InvalidArgument(
         "gaussian_random_sycl only support float32! Please check."));
   }
   CNRT_CALL(cnrtQueueDestroy(queue));
@@ -356,7 +357,7 @@ void cinn_call_cnnl_uniform_random(
         handle, generator, CNNL_DTYPE_FLOAT, NULL, numel, 0.0f, 1.0f, ptr));
     CNRT_CALL(cnrtQueueSync(queue));
   } else {
-    PADDLE_THROW(phi::errors::InvalidArgument(
+    PADDLE_THROW(::common::errors::InvalidArgument(
         "uniform_random_sycl only support float32! Please check."));
   }
   CNRT_CALL(cnrtQueueDestroy(queue));
@@ -392,7 +393,7 @@ void cinn_call_cnnl_randint(void *v_args, int num_args, int seed) {
         handle, generator, CNNL_DTYPE_INT32, NULL, numel, 0, 1 << 23, ptr));
     CNRT_CALL(cnrtQueueSync(queue));
   } else {
-    PADDLE_THROW(phi::errors::InvalidArgument(
+    PADDLE_THROW(::common::errors::InvalidArgument(
         "randint only support int32! Please check."));
   }
   CNRT_CALL(cnrtQueueDestroy(queue));
@@ -418,7 +419,7 @@ void cinn_call_cnnl_matmul(void *v_args,
   PADDLE_ENFORCE_EQ(
       num_args,
       3,
-      phi::errors::InvalidArgument(
+      ::common::errors::InvalidArgument(
           "Expected number of arguments is 3, but received %d.", num_args));
   cnnlHandle_t handle = CnnlHandle::GetInstance().GetCnnlHandle();
   cinn_pod_value_t *args = static_cast<cinn_pod_value_t *>(v_args);
@@ -464,7 +465,11 @@ void cinn_call_cnnl_matmul(void *v_args,
     std::stringstream ss;
     ss << "unsupported cublas data type: " << static_cast<int>(type_code)
        << ", bytes = " << bytes;
-    PADDLE_THROW(phi::errors::InvalidArgument(ss.str()));
+    PADDLE_THROW(
+        ::common::errors::InvalidArgument("unsupported cublas data type: ",
+                                          static_cast<int>(type_code),
+                                          ", bytes = ",
+                                          bytes));
   }
 
   if (a1 * a2 * b1 * b2 == 1) {
@@ -544,7 +549,6 @@ void cinn_call_cnnl_matmul(void *v_args,
     CNNL_CALL(cnnlDestroyTensorDescriptor(desc_B));
     CNNL_CALL(cnnlDestroyTensorDescriptor(desc_C));
   } else {
-    CHECK((a1 == b1 || a1 == 1 || b1 == 1) && (a2 == b2 || a2 == 1 || b2 == 1));
     cinn::utils::RecordEvent record_run("Call cnnlBatchMatMulBCast",
                                         cinn::utils::EventType::kInstruction);
     cnnlTensorDescriptor_t desc_A, desc_B, desc_C;
@@ -652,7 +656,7 @@ void cinn_call_cnnl_conv2d_forward(void *v_args,
   PADDLE_ENFORCE_EQ(
       num_args,
       3,
-      phi::errors::InvalidArgument(
+      ::common::errors::InvalidArgument(
           "Expected number of argruments is 3, but recived %d.", num_args));
   cnnlHandle_t handle = CnnlHandle::GetInstance().GetCnnlHandle();
   auto Queue = SYCLBackendAPI::Global()->get_now_queue();
@@ -785,7 +789,7 @@ void cinn_call_cnnl_conv2d_backward_data(void *v_args,
   PADDLE_ENFORCE_EQ(
       num_args,
       3,
-      phi::errors::InvalidArgument(
+      ::common::errors::InvalidArgument(
           "Expected number of argruments is 3, but recived %d.", num_args));
   cnnlHandle_t handle = CnnlHandle::GetInstance().GetCnnlHandle();
   auto Queue = SYCLBackendAPI::Global()->get_now_queue();
@@ -913,7 +917,7 @@ void cinn_call_cnnl_conv2d_backward_filter(void *v_args,
   PADDLE_ENFORCE_EQ(
       num_args,
       3,
-      phi::errors::InvalidArgument(
+      ::common::errors::InvalidArgument(
           "Expected number of argruments is 3, but recived %d.", num_args));
   cnnlHandle_t handle = CnnlHandle::GetInstance().GetCnnlHandle();
   auto Queue = SYCLBackendAPI::Global()->get_now_queue();
@@ -1037,7 +1041,7 @@ void cinn_call_cnnl_pool2d_forward(void *v_args,
   PADDLE_ENFORCE_EQ(
       num_args,
       2,
-      phi::errors::InvalidArgument(
+      ::common::errors::InvalidArgument(
           "Expected number of argruments is 2, but recived %d.", num_args));
   cnnlHandle_t handle = CnnlHandle::GetInstance().GetCnnlHandle();
   auto Queue = SYCLBackendAPI::Global()->get_now_queue();
@@ -1173,7 +1177,7 @@ void cinn_call_cnnl_pool2d_backward(void *v_args,
   PADDLE_ENFORCE_EQ(
       num_args,
       4,
-      phi::errors::InvalidArgument(
+      ::common::errors::InvalidArgument(
           "Expected number of argruments is 4, but recived %d.", num_args));
   cnnlHandle_t handle = CnnlHandle::GetInstance().GetCnnlHandle();
   auto Queue = SYCLBackendAPI::Global()->get_now_queue();
