@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import unittest
 
-from test_case_base import TestCaseBase, test_with_faster_guard
+from test_case_base import TestCaseBase
 
 import paddle
 from paddle.jit import sot
@@ -157,7 +157,6 @@ class TestGlobal(TestCaseBase):
             global_func_control1, ["global_dict"]
         )
 
-    @test_with_faster_guard
     def test_global_func_list(self):
         self.assert_results_with_global_check(
             global_func_control2, ["global_list"]
