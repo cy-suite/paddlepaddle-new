@@ -46,10 +46,11 @@ def full_converter(network, paddle_op, inputs):
     shape = paddle_op.attrs()["shape"]
     value = paddle_op.attrs().get("value", 1.0)
     dtype = paddle_op.attrs().get("dtype")
-    if dtype == paddle.int32 or dtype == paddle.int64:
-        out_dtype = np.int32
-    else:
-        out_dtype = np.dtype(_PADDLE_PIR_DTYPE_2_NUMPY_DTYPE[dtype])
+    out_dtype = np.dtype(_PADDLE_PIR_DTYPE_2_NUMPY_DTYPE[dtype])
+    if out_dtype == np.dtype("float64"):
+        out_dtype = np.dtype("float32")
+    if out_dtype == np.dtype("int64"):
+        out_dtype = np.dtype("int32")
     full_layer = network.add_constant(
         shape, np.full(shape, value, dtype=out_dtype)
     )
@@ -113,9 +114,7 @@ def arange_converter(network, paddle_op, inputs):
 
     number_tensor = trt_max(network, quotient_tensor, zero_tensor)
 
-    reshape_start_layer = trt_reshape(network, start, (1,))
-
-    start_tensor = trt_reduce_to_scalar(network, reshape_start_layer)
+    start_tensor = trt_reshape(network, start, ())
 
     fill_layer = network.add_fill(shape=(), op=trt.FillOperation.LINSPACE)
     fill_layer.set_input(0, number_tensor)

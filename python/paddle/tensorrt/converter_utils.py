@@ -260,6 +260,8 @@ def trt_reshape(network, input, new_shape, name="", is_shape_tensor=False):
 
 # resize shape tensor's shape to 1dim
 def resize_to_1d(network, shape_tensor):
+    if shape_tensor is None:
+        return shape_tensor
     if len(shape_tensor.shape) > 1:
         # shape_tensor need 1-dim in trt
         shape_tensor_layer = network.add_shuffle(shape_tensor)

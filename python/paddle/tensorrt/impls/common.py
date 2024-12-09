@@ -51,6 +51,10 @@ def dropout_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.bilinear_interp", trt_version="8.x")
 def bilinear_interp_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
+    input_shape_tensor = network.add_shape(input_tensor).get_output(0)
+    input_rank = (
+        input_shape_tensor.shape
+    )  # The reason is unknown that adding this unused code make input_shape_tensor maintain the correct result.
     data_format = paddle_op.attrs().get("data_format")
     interp_method = paddle_op.attrs().get("interp_method")
     align_corners = paddle_op.attrs().get("align_corners")
@@ -139,7 +143,6 @@ def bilinear_interp_converter(network, paddle_op, inputs):
     else:
         if outsize_tensor is not None:
             outsize_itensors = []
-            input_shape_tensor = network.add_shape(input_tensor).get_output(0)
             batch_dim = get_shape_tensor_element(network, input_shape_tensor, 0)
             outsize_itensors.append(batch_dim)
             if data_format == "NCHW":
@@ -188,11 +191,11 @@ def nearest_interp_converter(network, paddle_op, inputs):
     if trt_version_float >= 8.6:
         if align_corners:
             resize_layer.coordinate_transformation = (
-                trt.ResizeCoordinateTransformation.ALIGN_CORNERS
+                trt.ResizeCoordinateTransformation.ASYMMETRIC
             )
     else:
         resize_layer.coordinate_transformation = (
-            trt.ResizeCoordinateTransformation.ALIGN_CORNERS
+            trt.ResizeCoordinateTransformation.ASYMMETRIC
         )
 
     in_dim = input_tensor.shape
