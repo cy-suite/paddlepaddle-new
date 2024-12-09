@@ -33,16 +33,6 @@ private:
   phi::DataType dtype;
 public:
 
-#if 0
-  BuffersHolder(
-                const GPUContext& dev_ctx_,
-                paddle::distributed::ProcessGroup* tp_group_) :
-    dev_ctx(dev_ctx_),
-    tp_group(tp_group_),
-    world_size(tp_group->GetSize()),
-    ptrs(world_size, nullptr) {}
-#endif
-
   BuffersHolder(const std::vector<int64_t>&shape,
                 const GPUContext& dev_ctx_,
                 paddle::distributed::ProcessGroup* tp_group_) :
@@ -70,13 +60,11 @@ public:
       if (i == tp_group->GetRank()) {
         DenseTensor local_tensor;
         local_tensor =
-            // from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { cudaFree(allocation->ptr()); });
             from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { });
         tensors.emplace_back(local_tensor);
       } else {
         DenseTensor tensor;
         tensor =
-            // from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { cudaIpcCloseMemHandle(allocation->ptr()); });
             from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { });
         tensors.emplace_back(tensor);
       }
@@ -99,7 +87,6 @@ private:
         handle_d.data(), &handle, sizeof(cudaIpcMemHandle_t), cudaMemcpyHostToDevice));
     long int handles_shape = sizeof(cudaIpcMemHandle_t) * tp_group->GetSize();
     DenseTensor handles_d = phi::Empty<uint8_t>(dev_ctx, {handles_shape});
-    // TODO(umiswing): find a better way to wrap func params
     tp_group->AllGather(&handles_d, handle_d, 0, -1, true, true)->Wait();
 
     std::vector<cudaIpcMemHandle_t> handles_h(tp_group->GetSize());
@@ -159,22 +146,12 @@ private:
     PADDLE_ENFORCE_NOT_NULL(
         data, common::errors::InvalidArgument("data can not be nullptr."));
   
-    // TODO(umiswing): this check looks nice
-    // auto data_place = GetPlaceFromPtr(data);
-    // phi::is_gpu_place(place);
-  #if 0
-    PADDLE_ENFORCE(
-        dev_ctx.GetPlace().GetType() == phi::AllocationType::GPU,
-        "gemm_rs not on GPU");
-  #endif
-  
     auto meta =
         phi::DenseTensorMeta(dtype, common::make_ddim(shape), layout);
   
     size_t size = SizeOf(dtype) * (meta.is_scalar ? 1 : product(meta.dims));
   
     auto alloc =
-        // std::make_shared<phi::Allocation>(data, size, alloc_deleter, place/*data_place*/);
         std::make_shared<phi::Allocation>(data, size, deleter, place/*data_place*/);
   
     return DenseTensor(alloc, meta);
