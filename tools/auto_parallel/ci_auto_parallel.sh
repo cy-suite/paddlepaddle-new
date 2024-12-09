@@ -143,7 +143,7 @@ function clean_file(){
     matching_data_dirs=$(find "$target_path" -maxdepth 1 -type d -name "*data*")
     if [ -n "$matching_data_dirs" ]; then
         echo "cleaning data dirs:"
-        echo $matching_data_dirs        
+        echo $matching_data_dirs
         for dir in $matching_data_dirs; do
             rm -rf "$dir"
             echo "deleted $dir"
