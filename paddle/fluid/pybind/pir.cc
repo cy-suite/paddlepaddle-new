@@ -50,6 +50,7 @@
 #include "paddle/fluid/pir/dialect/operator/utils/op_yaml_info_parser.h"
 #include "paddle/fluid/pir/dialect/operator/utils/utils.h"
 #include "paddle/fluid/pir/transforms/general/common_subexpression_elimination_pass.h"
+#include "paddle/fluid/pir/transforms/general/dead_code_elimination_pass.h"
 #include "paddle/fluid/pir/transforms/gpu/fused_bn_add_act_pass.h"
 #include "paddle/fluid/pir/transforms/passes.h"
 #include "paddle/fluid/pir/utils/general_functions.h"
@@ -84,6 +85,7 @@
 #include "paddle/cinn/hlir/dialect/operator/transforms/add_cinn_pass.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/check_infer_symbolic_util.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/pir_to_py_code_converter.h"
+#include "paddle/cinn/hlir/dialect/operator/transforms/reduce_as_to_sum_pass.h"
 #include "paddle/cinn/hlir/framework/pir_compiler.h"
 #include "paddle/pir/include/dialect/shape/utils/shape_analysis.h"
 #endif
@@ -513,6 +515,40 @@ void BindProgram(py::module *m) {
             return op_list;
           },
           return_value_policy::reference)
+      .def(
+          "get_value_by_op_id",
+          [](Program &self, py::object op_ids) {
+            std::vector<int> op_ids_list;
+            if (py::isinstance<py::int_>(op_ids)) {
+              op_ids_list.push_back(op_ids.cast<int>());
+            } else if (py::isinstance<py::list>(op_ids)) {
+              for (auto item : op_ids) {
+                op_ids_list.push_back(item.cast<int>());
+              }
+            } else {
+              PADDLE_THROW(
+                  "Invalid op_ids format. Please provide either a single "
+                  "integer or a list of integers.");
+            }
+
+            std::list<Operation *> all_ops = self.block()->get_recursive_ops();
+            std::vector<pir::Value> value_list;
+
+            for (auto op : all_ops) {
+              if (std::find(op_ids_list.begin(), op_ids_list.end(), op->id()) !=
+                  op_ids_list.end()) {
+                for (auto value : op->results()) {
+                  value_list.push_back(value);
+                }
+              }
+            }
+
+            if (value_list.empty()) {
+              PADDLE_THROW(
+                  "Can't find the corresponding opresult from the op ids");
+            }
+            return value_list;
+          })
       .def("get_output_value_by_name",
            [](Program &self, const std::string &name) {
              return name_analysis::GetOutputValueByName(self, name);
@@ -1595,7 +1631,7 @@ void BindType(py::module *m) {
       });
 
   m->def("create_shaped_type",
-         [](Type &type, const std::vector<int> &shape) -> Type {
+         [](Type &type, const std::vector<int64_t> &shape) -> Type {
            if (type.isa<DenseTensorType>()) {
              DenseTensorType src_type = type.dyn_cast<DenseTensorType>();
              DenseTensorType dst_type =
@@ -2477,6 +2513,26 @@ std::shared_ptr<Program> ApplyCommonSubexpressionEliminationPass(
   return program;
 }
 
+std::shared_ptr<Program> ApplyReduceAsToSumPass(
+    std::shared_ptr<Program> program) {
+#ifdef PADDLE_WITH_CINN
+  pir::PassManager pm(pir::IrContext::Instance(), 2);
+  pm.AddPass(cinn::dialect::ir::CreateReduceAsToSumPass());
+  pm.AddPass(pir::CreateDeadCodeEliminationPass());
+  pm.Run(program.get());
+  if (FLAGS_print_ir) {
+    std::cout << "IR After ReduceAsToSumPass -------------------" << std::endl;
+    std::cout << *program << std::endl;
+  }
+  return program;
+#else
+  PADDLE_THROW(common::errors::Unimplemented(
+      "Currently we only support ReduceAsToSumPass Pass for Pir under "
+      "@to_static, please "
+      "compile PaddlePaddle with CINN"));
+#endif
+}
+
 std::shared_ptr<Program> ApplyFusedBnAddActPass(
     std::shared_ptr<Program> program) {
   pir::PassManager pm(pir::IrContext::Instance(), 3);
@@ -2495,6 +2551,7 @@ void BindIrPass(pybind11::module *m) {
   m->def("infer_symbolic_shape_pass", InferSymbolicShapePass);
   m->def("apply_cse_pass", ApplyCommonSubexpressionEliminationPass);
   m->def("apply_bn_add_act_pass", ApplyFusedBnAddActPass);
+  m->def("reduce_as_sum_pass", ApplyReduceAsToSumPass);
 
   py::class_<Pass, std::shared_ptr<Pass>> pass(*m,
                                                "Pass",
