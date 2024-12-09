@@ -189,6 +189,9 @@ def monkey_patch_math_tensor():
     def ndimension(var: Tensor) -> int:
         return len(var.shape)
 
+    def device(var: Tensor) -> str:
+        return paddle.device.get_device(var.shape)
+
     def dim(var: Tensor) -> int:
         return len(var.shape)
 
@@ -225,6 +228,7 @@ def monkey_patch_math_tensor():
         ('__len__', _len_),
         ('__index__', _index_),
         ('astype', astype),
+        ('device',device),
         ('dim', dim),
         ('ndimension', ndimension),
         ('ndim', _ndim),
