@@ -44,7 +44,7 @@ from paddle.tensorrt.register import converter_registry
 from ..util import get_trt_version_list
 
 
-@converter_registry.register("pd_op.reshape", trt_version="8.x")
+@converter_registry.register("pd_op.reshape", trt_version="trt_version_ge=8.0")
 def reshape_converter(network, paddle_op, inputs):
     x = inputs[0]
     is_constant_shape = False
@@ -87,7 +87,7 @@ def gather_nd_converter(network, paddle_op, inputs):
     return non_zero_layer.get_output(0)
 
 
-@converter_registry.register("pd_op.flatten", trt_version="8.x")
+@converter_registry.register("pd_op.flatten", trt_version="trt_version_ge=8.0")
 def flatten_converter(network, paddle_op, inputs):
     input_val = inputs[0]
     input_val_shape = paddle_op.operands()[0].source().shape
@@ -172,7 +172,7 @@ def flatten_converter(network, paddle_op, inputs):
 
 
 # In the converter, pd_op.concat has three inputs, because builtin.combine has two inputs.
-@converter_registry.register("pd_op.concat", trt_version="8.x")
+@converter_registry.register("pd_op.concat", trt_version="trt_version_ge=8.0")
 def concat_converter(network, paddle_op, inputs):
     input_tensors = inputs[0]
     axis_tensor = inputs[1]
@@ -187,16 +187,19 @@ def concat_converter(network, paddle_op, inputs):
     return concat_layer.get_output(0)
 
 
-@converter_registry.register("pd_op.unsqueeze", trt_version="8.x")
-@converter_registry.register("pd_op.unsqueeze_", trt_version="8.x")
+@converter_registry.register(
+    "pd_op.unsqueeze", trt_version="trt_version_ge=8.0"
+)
+@converter_registry.register(
+    "pd_op.unsqueeze_", trt_version="trt_version_ge=8.0"
+)
 def unsqueeze_converter(network, paddle_op, inputs):
     x = inputs[0]
     input_dims = x.shape
     axes = paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
-    assert len(axes) > 0, (
-        "axes size should be > 0 in when convert unsqueeze op in TensorRT, but received len(axes) = %d."
-        % (len(axes))
-    )
+    assert (
+        len(axes) > 0
+    ), f"axes size should be > 0 in when convert unsqueeze op in TensorRT, but received len(axes) = {len(axes)}."
 
     should_unsqueeze = [False] * (len(input_dims) + len(axes))
     cur_out_rank = len(input_dims)
@@ -236,8 +239,8 @@ def unsqueeze_converter(network, paddle_op, inputs):
     return layer.get_output(0)
 
 
-@converter_registry.register("pd_op.squeeze", trt_version="8.x")
-@converter_registry.register("pd_op.squeeze_", trt_version="8.x")
+@converter_registry.register("pd_op.squeeze", trt_version="trt_version_ge=8.0")
+@converter_registry.register("pd_op.squeeze_", trt_version="trt_version_ge=8.0")
 def squeeze_converter(network, paddle_op, inputs):
     input_val = inputs[0]
     input_shape = input_val.shape
@@ -261,7 +264,7 @@ def squeeze_converter(network, paddle_op, inputs):
     return layer.get_output(0)
 
 
-@converter_registry.register("pd_op.expand", trt_version="8.x")
+@converter_registry.register("pd_op.expand", trt_version="trt_version_ge=8.0")
 def expand_converter(network, paddle_op, inputs):
     input = inputs[0]
     input_dims = input.shape
@@ -283,7 +286,9 @@ def expand_converter(network, paddle_op, inputs):
     return trt_expand(network, input, rank, shape_tensor, shape_rank)
 
 
-@converter_registry.register("pd_op.expand_as", trt_version="8.x")
+@converter_registry.register(
+    "pd_op.expand_as", trt_version="trt_version_ge=8.0"
+)
 def expand_as_converter(network, paddle_op, inputs):
     input = inputs[0]
     input_dims = input.shape
@@ -329,7 +334,7 @@ def cast_converter(network, paddle_op, inputs):
     return cast_layer.get_output(0)
 
 
-@converter_registry.register("pd_op.slice", trt_version="8.x")
+@converter_registry.register("pd_op.slice", trt_version="trt_version_ge=8.0")
 def slice_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     axes = paddle_op.attrs()["axes"]
@@ -337,7 +342,7 @@ def slice_converter(network, paddle_op, inputs):
 
     starts_op = paddle_op.operands()[1].source().get_defining_op()
     ends_op = paddle_op.operands()[2].source().get_defining_op()
-    input_shape_tensor = network.add_shape(input_tensor).get_output(0)
+    input_shape_tensor = trt_shape(network, input_tensor)
     input_rank = len(input_tensor.shape)
 
     starts_tensor = []
@@ -352,10 +357,7 @@ def slice_converter(network, paddle_op, inputs):
         starts = starts_op.attrs()["value"]
         assert len(starts) == len(
             axes
-        ), "The size of this starts: %d must be equal to the axes: %d." % (
-            len(starts),
-            len(axes),
-        )
+        ), f"The size of this starts: {len(starts)} must be equal to the axes: {len(axes)}."
         for idx in range(len(axes)):
             if starts[idx] < 0:
                 starts_tensor[axes[idx]] = trt_max(
@@ -388,10 +390,7 @@ def slice_converter(network, paddle_op, inputs):
         ends = ends_op.attrs()["value"]
         assert len(ends) == len(
             axes
-        ), "The size of this ends: %d must be equal to the axes: %d." % (
-            len(ends),
-            len(axes),
-        )
+        ), f"The size of this ends: {len(ends)} must be equal to the axes: {len(axes)}."
         for idx in range(len(axes)):
             if ends[idx] < 0:
                 ends_tensor[axes[idx]] = trt_max(

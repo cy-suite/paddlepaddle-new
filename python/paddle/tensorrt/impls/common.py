@@ -48,7 +48,9 @@ def dropout_converter(network, paddle_op, inputs):
     return scale_layer.get_output(0)
 
 
-@converter_registry.register("pd_op.bilinear_interp", trt_version="8.x")
+@converter_registry.register(
+    "pd_op.bilinear_interp", trt_version="trt_version_ge=8.0"
+)
 def bilinear_interp_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     input_shape_tensor = network.add_shape(input_tensor).get_output(0)
@@ -165,7 +167,9 @@ def bilinear_interp_converter(network, paddle_op, inputs):
     return resize_layer.get_output(0)
 
 
-@converter_registry.register("pd_op.nearest_interp", trt_version="8.x")
+@converter_registry.register(
+    "pd_op.nearest_interp", trt_version="trt_version_ge=8.0"
+)
 def nearest_interp_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     input_shape_tensor = network.add_shape(input_tensor).get_output(0)

@@ -36,6 +36,7 @@ limitations under the License. */
 #include <utility>
 #include <vector>
 
+#include "paddle/common/ddim.h"
 #include "paddle/fluid/framework/compiled_program.h"
 #include "paddle/fluid/framework/convert_utils.h"
 #include "paddle/fluid/framework/custom_operator.h"
@@ -54,7 +55,6 @@ limitations under the License. */
 #include "paddle/fluid/framework/ir/cost_model.h"
 #include "paddle/fluid/framework/ir/generate_pass.h"
 #include "paddle/fluid/framework/ir/pass_builder.h"
-#include "paddle/fluid/framework/lod_rank_table.h"
 #include "paddle/fluid/framework/new_executor/collect_shape_manager.h"
 #include "paddle/fluid/framework/new_executor/executor_statistics.h"
 #include "paddle/fluid/framework/new_executor/interpreter/job.h"
@@ -76,9 +76,11 @@ limitations under the License. */
 #include "paddle/fluid/prim/utils/utils.h"
 #include "paddle/phi/common/bfloat16.h"
 #include "paddle/phi/common/float16.h"
+#include "paddle/phi/common/int_array.h"
 #include "paddle/phi/core/framework/reader.h"
 #include "paddle/phi/core/memory/allocation/allocator_strategy.h"
 #include "paddle/phi/core/raw_tensor.h"
+#include "paddle/phi/core/tensor_meta.h"
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
 #include "paddle/phi/core/memory/allocation/auto_growth_best_fit_allocator_v2.h"
 #include "paddle/phi/core/memory/allocation/cuda_ipc_allocator.h"
@@ -252,8 +254,7 @@ DECLARE_FILE_SYMBOLS(aligned_allocator);
 DECLARE_FILE_SYMBOLS(pass_timing);
 DECLARE_FILE_SYMBOLS(op_compatible_info);
 
-namespace paddle {
-namespace pybind {
+namespace paddle::pybind {
 
 PyTypeObject *g_framework_scope_pytype = nullptr;
 PyTypeObject *g_framework_densetensorarray_pytype = nullptr;
@@ -756,10 +757,11 @@ static std::vector<std::vector<pir::Value>> GenerateBackwardBlockForPyLayerOp(
   // 1. construct pylayer grad op
   VLOG(6) << "Prepare Outputs for pylayer_grad";
   std::vector<pir::Type> output_types;
+  // NOTE: the last input of pylayer op is create_stack when called
+  // save_for_backward, whose stop_gradient is always True
   for (size_t i = 0; i < inputs_.size(); ++i) {
-    if (!stop_gradients[i][0]) {
-      output_types.push_back(inputs_[i][0].type());
-    }
+    if (inputs_[i][0].type().isa<pir::InletType>()) break;
+    output_types.push_back(inputs_[i][0].type());
   }
 
   VLOG(6) << "Prepare Inputs for pylayer_grad";
@@ -838,12 +840,9 @@ static std::vector<std::vector<pir::Value>> GenerateBackwardBlockForPyLayerOp(
   VLOG(6) << "Update pylayer_grad op finished";
 
   std::vector<std::vector<pir::Value>> res{inputs_.size()};
-  int grad_op_result_index = 0;
   for (size_t i = 0; i < res.size(); ++i) {
     res[i].resize(1);
-    res[i][0] = !stop_gradients[i][0]
-                    ? pylayer_grad->result(grad_op_result_index++)
-                    : pir::Value();
+    res[i][0] = !stop_gradients[i][0] ? pylayer_grad->result(i) : pir::Value();
   }
   return res;
 }
@@ -1263,6 +1262,101 @@ PYBIND11_MODULE(libpaddle, m) {
     return ptensor;
   });
 
+  m.def("tensor_from_cuda_array_interface", [](py::object obj) {
+    // We use CUDA Array Interface (Version 2) protocol:
+    // https://numba.pydata.org/numba-doc/dev/cuda/cuda_array_interface.html
+    py::object cuda_array_interface = obj.attr("__cuda_array_interface__");
+    PADDLE_ENFORCE_EQ(py::isinstance<py::dict>(cuda_array_interface),
+                      true,
+                      common::errors::InvalidArgument(
+                          "`__cuda_array_interface` must be a dict"));
+    py::dict cuda_dict = cuda_array_interface.cast<py::dict>();
+
+    // Extract the `obj.__cuda_array_interface__['shape']` attribute
+    PADDLE_ENFORCE_EQ(
+        cuda_dict.contains("shape"),
+        true,
+        common::errors::InvalidArgument(
+            "The 'shape' key is missing in the __cuda_array_interface__  "
+            "dict."));
+    py::object shape_obj = cuda_dict["shape"];
+    PADDLE_ENFORCE_EQ(
+        py::isinstance<py::tuple>(shape_obj) ||
+            py::isinstance<py::list>(shape_obj),
+        true,
+        common::errors::InvalidArgument("Shape must be a tuple or list"));
+    std::vector<int64_t> shapes;
+    shapes = shape_obj.cast<std::vector<int64_t>>();
+    phi::IntArray shapeIntArray = phi::IntArray(shapes);
+
+    // Extract the `obj.__cuda_array_interface__['typestr'] attribute
+    PADDLE_ENFORCE_EQ(
+        cuda_dict.contains("typestr"),
+        true,
+        common::errors::InvalidArgument(
+            "The 'typestr' key is missing in the __cuda_array_interface__  "
+            "dict."));
+    py::object typestr_obj = cuda_dict["typestr"];
+    std::string typestr = typestr_obj.cast<std::string>();
+    phi::DataType dtype = paddle::framework::ConvertToPDDataType(typestr);
+
+    // Extract the `obj.__cuda_array_interface__['data']` attribute
+    PADDLE_ENFORCE_EQ(
+        cuda_dict.contains("data"),
+        true,
+        common::errors::InvalidArgument(
+            "The 'data' key is missing in the __cuda_array_interface__  "
+            "dict."));
+    py::object data_obj = cuda_dict["data"];
+    py::tuple data_tuple = data_obj.cast<py::tuple>();
+
+    // Data tuple(ptr_as_int, read_only_flag).
+    // The ptr_as_int stands for data pointer but in Python it is a integer.
+    // It need to be converted to a large enough integral type first
+    // and then convert to void*
+    void *data_ptr = reinterpret_cast<void *>(data_tuple[0].cast<intptr_t>());
+    PADDLE_ENFORCE_NE(
+        data_tuple[1].cast<bool>(),
+        true,
+        common::errors::InvalidArgument("Read-only array is not supported"));
+
+    // Extract the `obj.__cuda_array_interface__['strides']` attribute
+    phi::IntArray stridesIntArray;
+    if (cuda_dict.contains("strides") && !cuda_dict["strides"].is_none()) {
+      std::vector<int64_t> strides_vec =
+          cuda_dict["strides"].cast<std::vector<int64_t>>();
+
+      // __cuda_array_interface__ strides uses bytes
+      size_t element_size = phi::SizeOf(dtype);
+      for (auto &stride : strides_vec) {
+        PADDLE_ENFORCE_NE(
+            stride % element_size,
+            0,
+            common::errors::InvalidArgument(
+                "strides must be a multiple of the element size."));
+        stride /= element_size;
+      }
+      stridesIntArray = phi::IntArray(strides_vec);
+    } else {
+      DDim ddim_strides =
+          phi::DenseTensorMeta::calc_strides(common::make_ddim(shapes));
+      int rank = ddim_strides.size();
+      const int64_t *ddim_data = ddim_strides.Get();
+      std::vector<int64_t> strides_vec(ddim_data, ddim_data + rank);
+      stridesIntArray = phi::IntArray(strides_vec);
+    }
+    return paddle::from_blob(data_ptr,
+                             shapeIntArray,
+                             stridesIntArray,
+                             dtype,
+                             phi::DataLayout::NCHW,
+                             phi::Place(),
+                             [obj](void *data) {
+                               py::gil_scoped_acquire gil;
+                               obj.dec_ref();
+                             });
+  });
+
   m.def("_create_loaded_parameter",
         [](const py::handle &vec_var_list,
            const Scope &scope,
@@ -1510,10 +1604,6 @@ All parameter, weight, gradient are variables in Paddle.
       .def(
           "get_map_tensor",
           [](Variable &self) { return self.GetMutable<Vocab>(); },
-          py::return_value_policy::reference)
-      .def(
-          "get_lod_rank_table",
-          [](Variable &self) { return self.GetMutable<LoDRankTable>(); },
           py::return_value_policy::reference)
       .def(
           "get_selected_rows",
@@ -2497,15 +2587,6 @@ All parameter, weight, gradient are variables in Paddle.
   BindAutoParallel(&m);
   BindJitProperty(&m);
 
-  py::class_<framework::LoDRankTable>(m, "LodRankTable")
-      .def("items", [](framework::LoDRankTable &table) {
-        std::vector<std::pair<size_t, size_t>> res;
-        for (auto &item : table.items()) {
-          res.push_back({item.index, item.length});
-        }
-        return res;
-      });
-
   py::class_<phi::TensorArray> pydensetensorarray(m, "DenseTensorArray", R"DOC(
     DenseTensorArray is array of DenseTensor, it supports operator[], len() and for-loop iteration.
 
@@ -3368,5 +3449,4 @@ All parameter, weight, gradient are variables in Paddle.
   BindDistApi(&m);
 #endif
 }
-}  // namespace pybind
-}  // namespace paddle
+}  // namespace paddle::pybind
