@@ -145,29 +145,6 @@ class TestMaxWithTensorAxis2(TestReduceOPTensorAxisBase):
         ]
 
 
-class TestMaxWithNanDynamic(unittest.TestCase):
-    def _test_with_nan(self, func, shape, on_gpu, dtype=np.float32):
-        with dygraph_guard():
-            x_np = np.arange(np.prod(shape), dtype=dtype).reshape(shape)
-            x_np[0, 0] = np.nan
-            x = paddle.to_tensor(x_np)
-            if on_gpu:
-                if not paddle.is_compiled_with_cuda():
-                    return
-                x = x.cuda()
-            out = func(x)
-            self.assertTrue(paddle.isnan(out), "Result should be NaN")
-
-    def test_cpu(self):
-        self._test_with_nan(paddle.max, (2, 3), False)
-
-    @unittest.skipIf(
-        not paddle.is_compiled_with_cuda(), "Paddle is not compiled with CUDA"
-    )
-    def test_gpu(self):
-        self._test_with_nan(paddle.max, (2, 3), True)
-
-
 class TestMaxWithNan(unittest.TestCase):
     def _get_places(self):
         places = []
