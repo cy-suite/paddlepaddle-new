@@ -2027,27 +2027,23 @@
     func : gelu
   backward : gelu_grad
 
-- op : gemm_rs
-  # args: (Tensor input, Tensor weight, Tensor bias, Tensor input_scale, Tensor weight_scale, Tensor output_scale, Tensor[] output_buffers, Tensor[] reduce_buffers, Tensor[] barrier_buffers, Tensor[] sync_buffers, int nnodes, int max_m, int n_dim, bool transpose_weight, bool fuse_reduction, int ring_id, int root_id, int nranks)
+- op : gemm_reduce_scatter
   args: (Tensor input, Tensor weight, Tensor bias, Tensor input_scale, Tensor weight_scale, Tensor output_scale, int nnodes, int max_m, int n_dim, bool transpose_weight, bool fuse_reduction, int ring_id, int root_id, int nranks)
-  # output : Tensor[](output_buffers){nnodes}, Tensor[](reduce_buffers){nnodes}, Tensor[](barrier_buffers){nnodes}, Tensor[](sync_buffers){nnodes}
   output : Tensor(output)
   infer_meta :
-    func : GemmRSInferMeta
-    param: [input, weight, bias, input_scale]
+    func : GemmReduceScatterInferMeta
+    param: [input, weight, transpose_weight]
   kernel :
-    func : gemm_rs
-    # param: [input, weight, bias, input_scale, weight_scale, output_scale, output_buffers, reduce_buffers, barrier_buffers, sync_buffers, nnodes, max_m, n_dim, transpose_weight, fuse_reduction]
+    func : gemm_reduce_scatter
     data_type : input
   optional : bias, input_scale, weight_scale, output_scale
-  # interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : all_gather_gemm
   args : (Tensor input, Tensor weight, Tensor bias, Tensor input_scale, Tensor weight_scale, Tensor output_scale, int nnodes, int full_m, int n_dim, int k_dim, int ring_id, bool fast_accum, bool transpose_weight, bool local_copy)
   output : Tensor(output), Tensor(input_parallel)
   infer_meta :
     func : AllGatherGemmInferMeta
-    param : [input, weight, bias, input_scale]
+    param : [input, weight, transpose_weight]
   kernel :
     func : all_gather_gemm,
     data_type : input

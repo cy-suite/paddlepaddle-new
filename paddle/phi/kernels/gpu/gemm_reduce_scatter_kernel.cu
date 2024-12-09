@@ -423,7 +423,7 @@ cudaipc_create_tensor_list(
 };
 
 template<typename T, typename Context>
-void GemmRSKernel(const Context& dev_ctx,
+void GemmReduceScatterKernel(const Context& dev_ctx,
                   const DenseTensor& input,
                   const DenseTensor& weight,
                   const paddle::optional<DenseTensor>& bias,
@@ -590,10 +590,10 @@ void GemmRSKernel(const Context& dev_ctx,
 
 } // namespace phi
 
-PD_REGISTER_KERNEL(gemm_rs,
+PD_REGISTER_KERNEL(gemm_reduce_scatter,
                    GPU,
                    ALL_LAYOUT,
-                   phi::GemmRSKernel,
+                   phi::GemmReduceScatterKernel,
                    phi::dtype::float16,
                    phi::dtype::bfloat16) {
 }

@@ -4197,6 +4197,71 @@ void FakeQuantizeLSQInferMeta(const MetaTensor& x,
   out->share_lod(x);
 }
 
+void AllGatherGemmInferMeta(const MetaTensor& input,
+                            const MetaTensor& weight,
+                            bool transpose_weight,
+                            MetaTensor* output,
+                            MetaTensor* input_parallel) {
+    PADDLE_ENFORCE_EQ(
+      input.dims().size(),
+      2,
+      phi::errors::InvalidArgument("input should be 2-D tensor. But received input dims: [%s].",
+                                   input.dims()));
+
+    PADDLE_ENFORCE_EQ(
+      weight.dims().size(),
+      2,
+      phi::errors::InvalidArgument("weight should be 2-D tensor. But received weight dims: [%s].",
+                                   weight.dims()));
+
+    const int32_t wk_idx = transpose_weight ? 0 : 1;
+
+    PADDLE_ENFORCE_EQ(
+      input.dims()[1],
+      weight.dims()[wk_idx],
+      phi::errors::InvalidArgument("input and weight should have the same K dimension. But "
+                                   "received input dims: [%s], weight dims: [%s]"
+                                   "transpose_weight: %d.",
+                                   input.dims(),
+                                   weight.dims(),
+                                   transpose_weight));
+
+    output->set_dtype(input.dtype());
+
+    input_parallel->set_dtype(input.dtype());
+}
+
+void GemmReduceScatterInferMeta(const MetaTensor& input,
+                                const MetaTensor& weight,
+                                bool transpose_weight,
+                                MetaTensor* output) {
+    PADDLE_ENFORCE_EQ(
+      input.dims().size(),
+      2,
+      phi::errors::InvalidArgument("input should be 2-D tensor. But received input dims: [%s].",
+                                   input.dims()));
+
+    PADDLE_ENFORCE_EQ(
+      weight.dims().size(),
+      2,
+      phi::errors::InvalidArgument("weight should be 2-D tensor. But received weight dims: [%s].",
+                                   weight.dims()));
+
+    const int32_t wk_idx = transpose_weight ? 0 : 1;
+
+    PADDLE_ENFORCE_EQ(
+      input.dims()[1],
+      weight.dims()[wk_idx],
+      phi::errors::InvalidArgument("input and weight should have the same K dimension. But "
+                                   "received input dims: [%s], weight dims: [%s]"
+                                   "transpose_weight: %d.",
+                                   input.dims(),
+                                   weight.dims(),
+                                   transpose_weight));
+
+    output->set_dtype(input.dtype());
+}
+
 }  // namespace phi
 
 PD_REGISTER_INFER_META_FN(add_raw, phi::ElementwiseRawInferMeta);
