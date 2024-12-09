@@ -35,36 +35,8 @@ void AnyRawKernel(const Context& dev_ctx,
                   bool reduce_all,
                   DenseTensor* out) {
   reduce_all = recompute_reduce_all(x, dims, reduce_all);
-  if (std::is_same<T, complex64>::value) {
-    DenseTensor bool_tensor;
-    bool_tensor.Resize(x.dims());
-
-    bool* bool_data = dev_ctx.template Alloc<bool>(&bool_tensor);
-    const complex64* data = x.data<complex64>();
-
-    int64_t numel = x.numel();
-    for (int64_t i = 0; i < numel; ++i) {
-      bool_data[i] = (data[i].real != 0 || data[i].imag != 0);
-    }
-    phi::BoolReduceKernel<CPUContext, T, phi::funcs::AnyFunctor>(
-        dev_ctx, bool_tensor, dims, keep_dim, reduce_all, out);
-  } else if (std::is_same<T, complex128>::value) {
-    DenseTensor bool_tensor;
-    bool_tensor.Resize(x.dims());
-
-    bool* bool_data = dev_ctx.template Alloc<bool>(&bool_tensor);
-    const complex128* data = x.data<complex128>();
-
-    int64_t numel = x.numel();
-    for (int64_t i = 0; i < numel; ++i) {
-      bool_data[i] = (data[i].real != 0 || data[i].imag != 0);
-    }
-    phi::BoolReduceKernel<CPUContext, T, phi::funcs::AnyFunctor>(
-        dev_ctx, bool_tensor, dims, keep_dim, reduce_all, out);
-  } else {
-    phi::BoolReduceKernel<CPUContext, T, phi::funcs::AnyFunctor>(
-        dev_ctx, x, dims, keep_dim, reduce_all, out);
-  }
+  phi::BoolReduceKernel<CPUContext, T, phi::funcs::AnyFunctor<T>>(
+      dev_ctx, x, dims, keep_dim, reduce_all, out);
 }
 
 }  // namespace phi

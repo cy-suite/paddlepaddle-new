@@ -25,6 +25,10 @@ void AnyKernel(const Context& dev_ctx,
                const std::vector<int64_t>& dims,
                bool keep_dim,
                DenseTensor* out) {
+  if (x.numel() == 0) {
+    out->Resize(common::make_ddim({0}));
+    return;
+  }
   bool reduce_all = recompute_reduce_all(x, dims);
   AnyRawKernel<T>(dev_ctx, x, dims, keep_dim, reduce_all, out);
 }
@@ -49,8 +53,17 @@ PD_REGISTER_KERNEL(any,
 }
 
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
-PD_REGISTER_KERNEL(
-    any, GPU, ALL_LAYOUT, phi::AnyKernel, float, double, int, int64_t, bool) {
+PD_REGISTER_KERNEL(any,
+                   GPU,
+                   ALL_LAYOUT,
+                   phi::AnyKernel,
+                   float,
+                   double,
+                   int,
+                   int64_t,
+                   bool,
+                   complex64,
+                   complex128) {
   kernel->OutputAt(0).SetDataType(phi::DataType::BOOL);
 }
 #endif

@@ -97,40 +97,9 @@ void AnyRawKernel(const Context& dev_ctx,
                   bool reduce_all,
                   DenseTensor* out) {
   reduce_all = recompute_reduce_all(x, dims, reduce_all);
-
-  if (std::is_same<T, complex64>::value) {
-    DenseTensor bool_tensor;
-    bool_tensor.Resize(x.dims());
-
-    bool* bool_data = dev_ctx.template Alloc<bool>(&bool_tensor);
-    const complex64* data = x.data<complex64>();
-
-    int64_t numel = x.numel();
-    for (int64_t i = 0; i < numel; ++i) {
-      bool_data[i] = (data[i].real != 0 || data[i].imag != 0);
-    }
-    auto out_dtype = phi::DataType::BOOL;
-    phi::Reduce<T, kps::LogicalOrFunctor, kps::IdentityFunctor>(
-        dev_ctx, bool_tensor, reduce_all, dims, keep_dim, out_dtype, out);
-  } else if (std::is_same<T, complex128>::value) {
-    DenseTensor bool_tensor;
-    bool_tensor.Resize(x.dims());
-
-    bool* bool_data = dev_ctx.template Alloc<bool>(&bool_tensor);
-    const complex128* data = x.data<complex128>();
-
-    int64_t numel = x.numel();
-    for (int64_t i = 0; i < numel; ++i) {
-      bool_data[i] = (data[i].real != 0 || data[i].imag != 0);
-    }
-    auto out_dtype = phi::DataType::BOOL;
-    phi::Reduce<T, kps::LogicalOrFunctor, kps::IdentityFunctor>(
-        dev_ctx, bool_tensor, reduce_all, dims, keep_dim, out_dtype, out);
-  } else {
-    auto out_dtype = phi::DataType::BOOL;
-    phi::Reduce<T, kps::LogicalOrFunctor, kps::IdentityFunctor>(
-        dev_ctx, x, reduce_all, dims, keep_dim, out_dtype, out);
-  }
+  auto out_dtype = phi::DataType::BOOL;
+  phi::Reduce<T, kps::LogicalOrFunctor, kps::IdentityFunctor>(
+      dev_ctx, x, reduce_all, dims, keep_dim, out_dtype, out);
 }
 
 template <typename T, typename Context>
