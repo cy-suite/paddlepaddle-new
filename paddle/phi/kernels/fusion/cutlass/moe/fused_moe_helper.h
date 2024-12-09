@@ -233,9 +233,7 @@ class MoeHelper {
     DenseTensor expert_scales_tensor_float = Empty<float>(ctx, {num_rows, k});
     float *expert_scales_float = expert_scales_tensor_float.data<float>();
 
-
-    DenseTensor softmax_max_prob_tensor =
-        Empty<float>(ctx, {num_rows, k});
+    DenseTensor softmax_max_prob_tensor = Empty<float>(ctx, {num_rows, k});
     float *softmax_max_prob = softmax_max_prob_tensor.data<float>();
     funcs::SetConstant<GPUContext, float> zero_float;
     zero_float(ctx, &softmax_max_prob_tensor, false);
@@ -243,7 +241,8 @@ class MoeHelper {
     DenseTensor fc1_out_tensor = Empty<T>(ctx, {num_rows * k, inter_size});
     T *fc1_out = fc1_out_tensor.data<T>();
 
-    VLOG(4) << " gemm_method_ :" << gemm_method_<<"   group_moe  "<< group_moe;
+    VLOG(4) << " gemm_method_ :" << gemm_method_ << "   group_moe  "
+            << group_moe;
 
     DenseTensor mixgemm_workspace;
     auto gate_compute = GEMMHelper<float>(
