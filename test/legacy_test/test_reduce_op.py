@@ -1027,7 +1027,9 @@ class TestAllComplex64OpZero(TestAllComplex64Op):
 class TestAllComplex64OpMixed(TestAllComplex64Op):
     def setUp(self):
         super().setUp()
-        special_values = np.array([np.inf, -np.inf, np.nan, 0], dtype=np.float64)
+        special_values = np.array(
+            [np.inf, -np.inf, np.nan, 0], dtype=np.float64
+        )
         real_part = np.random.choice(special_values, (2, 5, 3, 2, 2, 3, 4, 2))
         imag_part = np.random.choice(special_values, (2, 5, 3, 2, 2, 3, 4, 2))
         self.inputs['X'] = (real_part + 1j * imag_part).astype("complex64")
@@ -1101,7 +1103,9 @@ class TestAllComplex128OpZero(TestAllComplex128Op):
 class TestAllComplex128OpMixed(TestAllComplex128Op):
     def setUp(self):
         super().setUp()
-        special_values = np.array([np.inf, -np.inf, np.nan, 0], dtype=np.float64)
+        special_values = np.array(
+            [np.inf, -np.inf, np.nan, 0], dtype=np.float64
+        )
         real_part = np.random.choice(special_values, (2, 5, 3, 2, 2, 3, 4, 2))
         imag_part = np.random.choice(special_values, (2, 5, 3, 2, 2, 3, 4, 2))
         self.inputs['X'] = (real_part + 1j * imag_part).astype("complex128")
