@@ -15,6 +15,7 @@
 import paddle
 from paddle.distributed.auto_parallel.process_mesh import merge_process_meshes
 from paddle.distributed.passes.pass_utils import find_var_used_op_chunk_id
+from paddle.distributed.utils.stream_utils import ExecutionStreamType
 
 from ..process_group import new_process_group
 from .base_reshard_func import ReshardFunction, copy_dist_attr_with_new_member
@@ -141,6 +142,9 @@ class SameStatusReshardFunction(ReshardFunction):
             )
             broadcast_value.set_type(dst_type)
             broadcast_op = broadcast_value.get_defining_op()
+            broadcast_op.set_execution_stream(
+                ExecutionStreamType.DefaultStream.value
+            )
             bcast_mesh = merge_process_meshes([src_mesh, dst_mesh])
             broadcast_op.dist_attr = (
                 paddle.base.libpaddle.pir.create_op_dist_attribute(
