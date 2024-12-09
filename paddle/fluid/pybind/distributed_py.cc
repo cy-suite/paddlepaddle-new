@@ -1300,19 +1300,19 @@ void BindDistributed(py::module *m) {
               [](distributed::AsyncLoad &self,
                  py::handle py_dst_tensor,
                  py::handle py_src_tensor) {
-    auto dst_tensor = CastPyArg2Tensor(py_dst_tensor.ptr(), 0);
-    auto src_tensor = CastPyArg2Tensor(py_src_tensor.ptr(), 0);
-    py::gil_scoped_release release;
+                auto dst_tensor = CastPyArg2Tensor(py_dst_tensor.ptr(), 0);
+                auto src_tensor = CastPyArg2Tensor(py_src_tensor.ptr(), 0);
+                py::gil_scoped_release release;
 
-    auto p_dst_tensor =
-        std::dynamic_pointer_cast<phi::DenseTensor>(dst_tensor.impl());
-    auto *dst_dense = p_dst_tensor.get();
+                auto p_dst_tensor = std::dynamic_pointer_cast<phi::DenseTensor>(
+                    dst_tensor.impl());
+                auto *dst_dense = p_dst_tensor.get();
 
-    auto p_src_tensor =
-        std::dynamic_pointer_cast<phi::DenseTensor>(src_tensor.impl());
-    auto src_dense = *p_src_tensor;
+                auto p_src_tensor = std::dynamic_pointer_cast<phi::DenseTensor>(
+                    src_tensor.impl());
+                auto src_dense = *p_src_tensor;
 
-    return self.Offload(dst_dense, src_dense);
+                return self.Offload(dst_dense, src_dense);
               },
               py::arg("dst"),
               py::arg("src"))
@@ -1324,20 +1324,20 @@ void BindDistributed(py::module *m) {
                  size_t dst_offset,
                  size_t src_offset,
                  size_t offload_size) {
-    auto dst_tensor = CastPyArg2Tensor(py_dst_tensor.ptr(), 0);
-    auto src_tensor = CastPyArg2Tensor(py_src_tensor.ptr(), 0);
-    py::gil_scoped_release release;
+                auto dst_tensor = CastPyArg2Tensor(py_dst_tensor.ptr(), 0);
+                auto src_tensor = CastPyArg2Tensor(py_src_tensor.ptr(), 0);
+                py::gil_scoped_release release;
 
-    auto p_dst_tensor =
-        std::dynamic_pointer_cast<phi::DenseTensor>(dst_tensor.impl());
-    auto *dst_dense = p_dst_tensor.get();
+                auto p_dst_tensor = std::dynamic_pointer_cast<phi::DenseTensor>(
+                    dst_tensor.impl());
+                auto *dst_dense = p_dst_tensor.get();
 
-    auto p_src_tensor =
-        std::dynamic_pointer_cast<phi::DenseTensor>(src_tensor.impl());
-    auto src_dense = *p_src_tensor;
+                auto p_src_tensor = std::dynamic_pointer_cast<phi::DenseTensor>(
+                    src_tensor.impl());
+                auto src_dense = *p_src_tensor;
 
-    return self.OffloadWithOffset(
-        dst_dense, src_dense, dst_offset, src_offset, offload_size);
+                return self.OffloadWithOffset(
+                    dst_dense, src_dense, dst_offset, src_offset, offload_size);
               },
               py::arg("dst"),
               py::arg("src"),
@@ -1349,22 +1349,22 @@ void BindDistributed(py::module *m) {
               [](distributed::AsyncLoad &self,
                  py::handle py_dst_tensor,
                  py::handle py_src_tensor) {
-    auto dst_tensor = CastPyArg2Tensor(py_dst_tensor.ptr(), 0);
-    auto src_tensor = CastPyArg2Tensor(py_src_tensor.ptr(), 0);
-    py::gil_scoped_release release;
+                auto dst_tensor = CastPyArg2Tensor(py_dst_tensor.ptr(), 0);
+                auto src_tensor = CastPyArg2Tensor(py_src_tensor.ptr(), 0);
+                py::gil_scoped_release release;
 
-    auto p_dst_tensor =
-        std::dynamic_pointer_cast<phi::DenseTensor>(dst_tensor.impl());
-    auto *dst_dense = p_dst_tensor.get();
+                auto p_dst_tensor = std::dynamic_pointer_cast<phi::DenseTensor>(
+                    dst_tensor.impl());
+                auto *dst_dense = p_dst_tensor.get();
 
-    auto p_src_tensor =
-        std::dynamic_pointer_cast<phi::DenseTensor>(src_tensor.impl());
-    auto src_dense = *p_src_tensor;
+                auto p_src_tensor = std::dynamic_pointer_cast<phi::DenseTensor>(
+                    src_tensor.impl());
+                auto src_dense = *p_src_tensor;
 
-    return self.Reload(dst_dense, src_dense);
+                return self.Reload(dst_dense, src_dense);
               },
               py::arg("dst"),
-              py::arg("src");
+              py::arg("src"));
 
 #endif
 
@@ -1376,8 +1376,8 @@ void BindDistributed(py::module *m) {
           "create",
           [](const std::vector<int> &ranks,
              int gid) -> std::shared_ptr<distributed::ProcessGroupMPI> {
-    return paddle::distributed::ProcessGroupMPI::CreateProcessGroupMPI(ranks,
-                                                                       gid);
+            return paddle::distributed::ProcessGroupMPI::CreateProcessGroupMPI(
+                ranks, gid);
           },
           py::call_guard<py::gil_scoped_release>())
       .def("get_rank",
@@ -1421,19 +1421,21 @@ void BindDistributed(py::module *m) {
                       py::arg("group_id") = 0,
                       py::call_guard<py::gil_scoped_release>())
           .def_static("group_start",
-                distributed::ProcessGroupBKCL::GroupStart,
-                    py::call_guard<py::gil_scoped_release>())
+                      distributed::ProcessGroupBKCL::GroupStart,
+                      py::call_guard<py::gil_scoped_release>())
           .def_static("group_end",
-                distributed::ProcessGroupBKCL::GroupEnd,
-                    py::call_guard<py::gil_scoped_release>());
+                      distributed::ProcessGroupBKCL::GroupEnd,
+                      py::call_guard<py::gil_scoped_release>());
 #endif
 
   py::class_<distributed::ProcessGroup::Task,
              std::shared_ptr<distributed::ProcessGroup::Task>>(*m, "task")
-      .def("is_completed", &distributed::ProcessGroup::Task::IsCompleted,
-            py::call_guard<py::gil_scoped_release>())
-      .def("is_sync", &distributed::ProcessGroup::Task::IsSync,
-            py::call_guard<py::gil_scoped_release>())
+      .def("is_completed",
+           &distributed::ProcessGroup::Task::IsCompleted,
+           py::call_guard<py::gil_scoped_release>())
+      .def("is_sync",
+           &distributed::ProcessGroup::Task::IsSync,
+           py::call_guard<py::gil_scoped_release>())
       .def("wait",
            &distributed::ProcessGroup::Task::Wait,
            py::arg("timeout") = kWaitTimeout,
@@ -1454,7 +1456,7 @@ void BindDistributed(py::module *m) {
                   py::call_guard<py::gil_scoped_release>())
       .def_static("create_default_device",
                   &ProcessGroupGloo::createDefaultDevice,
-                    py::call_guard<py::gil_scoped_release>());
+                  py::call_guard<py::gil_scoped_release>());
 #endif
 
   m->def(
@@ -1463,10 +1465,10 @@ void BindDistributed(py::module *m) {
          std::vector<bool> is_sparse_gradient,
          std::vector<size_t> group_size_limits,
          std::vector<int64_t> tensor_indices) {
-    auto tensors = CastPyArg2VectorOfTensor(py_tensors.ptr(), 0);
-    py::gil_scoped_release release;
-    return distributed::Eager_AssignGroupBySize(
-        tensors, is_sparse_gradient, group_size_limits, tensor_indices);
+        auto tensors = CastPyArg2VectorOfTensor(py_tensors.ptr(), 0);
+        py::gil_scoped_release release;
+        return distributed::Eager_AssignGroupBySize(
+            tensors, is_sparse_gradient, group_size_limits, tensor_indices);
       },
       py::arg("tensors"),
       py::arg("is_sparse_gradient"),
@@ -1480,9 +1482,9 @@ void BindDistributed(py::module *m) {
       .def(
           "prepare_for_backward",
           [](distributed::EagerReducer &self, py::handle py_tensors) {
-    auto params = CastPyArg2VectorOfTensor(py_tensors.ptr(), 0);
-    py::gil_scoped_release release;
-    self.PrepareForBackward(params);
+            auto params = CastPyArg2VectorOfTensor(py_tensors.ptr(), 0);
+            py::gil_scoped_release release;
+            self.PrepareForBackward(params);
           },
           py::arg("tensors"));
 
