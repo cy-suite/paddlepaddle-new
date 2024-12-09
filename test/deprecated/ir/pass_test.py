@@ -166,17 +166,7 @@ class PassTest(unittest.TestCase):
                 offset = np.argmax(diff_mat > atol)
                 self.assertTrue(
                     is_allclose,
-                    "Output (name: %s, shape: %s, dtype: %s) has diff at %s. The maximum diff is %e, first error element is %d, expected %e, but got %e"
-                    % (
-                        self.fetch_list[i].name,
-                        str(self.fetch_list[i].shape),
-                        self.fetch_list[i].dtype,
-                        str(place),
-                        max_diff,
-                        offset,
-                        a.flatten()[offset],
-                        b.flatten()[offset],
-                    ),
+                    f"Output (name: {self.fetch_list[i].name}, shape: {self.fetch_list[i].shape!s}, dtype: {self.fetch_list[i].dtype}) has diff at {place!s}. The maximum diff is {max_diff}, first error element is {offset}, expected {a.flatten()[offset]}, but got {b.flatten()[offset]}",
                 )
 
     def _check_fused_ops(self, program):
