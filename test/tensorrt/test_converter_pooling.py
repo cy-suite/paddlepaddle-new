@@ -158,6 +158,30 @@ class TestPoolingTRTCase4Pattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestPoolingTRTCase5Pattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = pool2d_api
+        self.api_args = {
+            "x": np.random.randn(1, 16, 56, 56).astype("float32"),
+            "ksize": [2, 2],
+            "strides": [1, 1],
+            "paddings": [0, 0],
+            "ceil_mode": False,
+            "exclusive": True,
+            "data_format": "NCHW",
+            "pooling_type": "avg",
+            "global_pooling": False,
+            "adaptive": True,
+            "padding_algorithm": "EXPLICIT",
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 16, 56, 56]}
+        self.max_shape = {"x": [5, 16, 56, 56]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
 class TestPoolingTRTMarker(TensorRTBaseTest):
     def setUp(self):
         self.python_api = pool2d_api

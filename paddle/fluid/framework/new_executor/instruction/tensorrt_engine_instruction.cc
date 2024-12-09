@@ -412,7 +412,6 @@ void TensorRTEngineInstruction::BindInputTensor(
     const phi::DenseTensor &input_tensor,
     const Scope &scope,
     std::vector<void *> &buffers,
-    std::vector<int> &shape_v,
     int *runtime_batch) {
   auto dev_place = dev_ctx_->GetPlace();
   const int num_bindings = trt_engine_->GetNbBindings();
@@ -488,6 +487,7 @@ void TensorRTEngineInstruction::BindInputTensor(
   if (trt_engine_->engine()->isShapeInferenceIO(input_name.c_str()) &&
       trt_engine_->engine()->getTensorIOMode(input_name.c_str()) ==
           nvinfer1::TensorIOMode::kINPUT) {
+    std::vector<int> shape_v(input_tensor.numel());
     if (input_tensor.dtype() == phi::DataType::INT32) {
       phi::memory_utils::Copy(phi::CPUPlace(),
                               shape_v.data(),
@@ -525,6 +525,7 @@ void TensorRTEngineInstruction::BindInputTensor(
   // If this x is a shape tensor, we need call setInputShapeBinding
   if (trt_engine_->engine()->isShapeBinding(bind_index) &&
       trt_engine_->engine()->bindingIsInput(bind_index)) {
+    std::vector<int> shape_v(input_tensor.numel());
     if (input_tensor.dtype() == phi::DataType::INT32) {
       phi::memory_utils::Copy(phi::CPUPlace(),
                               shape_v.data(),
@@ -715,21 +716,15 @@ void TensorRTEngineInstruction::RunTrt() {
                               "can not find var[%s] in scope", in_var_name));
   auto in_var = scope.FindVar(in_var_name);
   auto &in_variable_array = in_var->Get<VariableRefArray>();
-  std::vector<std::vector<int>> shape_inputs(in_variable_array.size());
 
   for (const auto &index_name_pair : input_names_) {
     size_t i = index_name_pair.first;
+
     if (in_variable_array[i]->IsType<phi::DenseTensor>()) {
       auto input_tensor = in_variable_array[i]->Get<phi::DenseTensor>();
-      // we will use shape_input when input is a shape tensor
-      shape_inputs[i].resize(input_tensor.numel());
       // Bind input tensor to TRT.
-      BindInputTensor(index_name_pair.second,
-                      input_tensor,
-                      scope,
-                      buffers,
-                      shape_inputs[i],
-                      &runtime_batch);
+      BindInputTensor(
+          index_name_pair.second, input_tensor, scope, buffers, &runtime_batch);
     } else {
       PADDLE_THROW(
           common::errors::Unimplemented("Only support Vector<DenseTensor> now "
@@ -749,6 +744,7 @@ void TensorRTEngineInstruction::RunTrt() {
                               "can not find var[%s] in scope", out_var_name));
   auto out_var = scope.FindVar(out_var_name);
   out_variable_array = out_var->GetMutable<VariableRefArray>();
+
   for (const auto &index_name_pair : output_names_) {
     size_t i = index_name_pair.first;
     if (out_variable_array->at(i)->IsType<phi::DenseTensor>()) {

@@ -47,7 +47,7 @@ def full_converter(network, paddle_op, inputs):
     if dtype == paddle.int32 or dtype == paddle.int64:
         out_dtype = np.int32
     else:
-        out_dtype = np.float32
+        out_dtype = dtype
     full_layer = network.add_constant(
         shape, np.full(shape, value, dtype=out_dtype)
     )

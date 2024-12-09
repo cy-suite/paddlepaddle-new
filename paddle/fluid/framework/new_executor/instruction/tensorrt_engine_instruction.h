@@ -49,7 +49,6 @@ class TensorRTEngineInstruction : public InstructionBase {
                        const phi::DenseTensor& input_tensor,
                        const Scope& scope,
                        std::vector<void*>& buffers,  // NOLINT
-                       std::vector<int>& shape_v,    // NOLINT
                        int* runtime_batch);
   void BindOutputTensor(std::string output_name,
                         phi::DenseTensor* output_tensor,
