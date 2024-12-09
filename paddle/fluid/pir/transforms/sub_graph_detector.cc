@@ -189,24 +189,27 @@ struct SubGraph : public std::enable_shared_from_this<SubGraph> {
   }
 
   void Merge(const SubGraphPtr& other) {
+    // VLOG(4) << "Merge other: " << other->DebugString();
+    // VLOG(4) << "Merge to: " << DebugString();
     SubGraphPtr self = shared_from_this();
-    upstreams.insert(other->upstreams.begin(), other->upstreams.end());
-    upstreams.erase(self);
-    upstreams.erase(other);
-    downstreams.insert(other->downstreams.begin(), other->downstreams.end());
-    downstreams.erase(self);
-    downstreams.erase(other);
-    for (auto upstream : upstreams) {
+    for (auto upstream : other->upstreams) {
+      if (upstream == self) continue;
       upstream->downstreams.erase(other);
       upstream->downstreams.insert(self);
+      upstreams.insert(upstream);
     }
-    for (auto downstream : downstreams) {
+    for (auto downstream : other->downstreams) {
+      if (downstream == self) continue;
       downstream->upstreams.erase(other);
       downstream->upstreams.insert(self);
+      downstreams.insert(downstream);
     }
+    upstreams.erase(other);
+    downstreams.erase(other);
     ops.insert(ops.begin(), other->ops.begin(), other->ops.end());
     min_op_id = std::min(self->min_op_id, other->min_op_id);
     max_op_id = std::max(self->max_op_id, other->max_op_id);
+    // VLOG(4) << "Merged: " << DebugString() << "\n";
   }
 
   static std::string UniqueId() {
@@ -216,7 +219,7 @@ struct SubGraph : public std::enable_shared_from_this<SubGraph> {
 
   std::string DebugString() const {
     std::stringstream ss;
-    ss << name << "\n" << OpsDebugStr(ops);
+    ss << name << " (substitute=" << substitute << ")\n" << OpsDebugStr(ops);
     ss << "upstream: ";
     for (const auto& subgraph : upstreams) {
       ss << subgraph->name << ", ";
@@ -246,6 +249,7 @@ struct SubGraph : public std::enable_shared_from_this<SubGraph> {
 using SubGraphPtr = std::shared_ptr<SubGraph>;
 
 bool HasSinkRoute(const SubGraphPtr& source, const SubGraphPtr& target) {
+  // VLOG(4) << "Try Sink from " << source->name << " to " << target->name;
   if (source == target) return true;
   if (source->min_op_id > target->max_op_id) {
     return false;
@@ -256,34 +260,14 @@ bool HasSinkRoute(const SubGraphPtr& source, const SubGraphPtr& target) {
   return false;
 }
 
-bool HasLiftRoute(const SubGraphPtr& source, const SubGraphPtr& target) {
-  if (source == target) return true;
-  if (source->max_op_id < target->min_op_id) {
-    return false;
-  }
-  for (const auto& subgraph : source->upstreams) {
-    if (HasLiftRoute(subgraph, target)) return true;
-  }
-  return false;
-}
-
 bool CanFuseUpstream2Downstream(const SubGraphPtr& upstream,
                                 const SubGraphPtr& downstream) {
   if (upstream == downstream) return false;
   if (!upstream->substitute || !downstream->substitute) return false;
-  PADDLE_ENFORCE(upstream->downstreams.count(downstream) &&
-                     downstream->upstreams.count(upstream),
-                 ::common::errors::InvalidArgument(
-                     "Subgraphs to be fused must have direct relationship."));
   auto up_downstreams = upstream->downstreams;
   up_downstreams.erase(downstream);
   for (const auto& subgraph : up_downstreams) {
     if (HasSinkRoute(subgraph, downstream)) return false;
-  }
-  auto down_upstreams = downstream->upstreams;
-  down_upstreams.erase(upstream);
-  for (const auto& subgraph : down_upstreams) {
-    if (HasLiftRoute(subgraph, upstream)) return false;
   }
   return true;
 }
@@ -386,13 +370,12 @@ std::vector<GroupOpsVec> SubgraphDetector::operator()() {
 }
 
 void SubgraphDetector::SubgraphFusion() {
-  // Merge related subgraphs while ensuring no cycles are created
+  // Merge subgraphs with direct relation while ensuring no cycles are created
   for (const auto& op : sort_ops_) {
     const auto producers = GetProducerOpsReverseSort(op, op2id_);
     for (const auto& producer : producers) {
       auto upstream = GetOpSubgraph(producer);
       auto downstream = GetOpSubgraph(op);
-      std::cout << std::endl;
       if (CanFuseUpstream2Downstream(upstream, downstream)) {
         downstream->Merge(upstream);
         root2subgraph_.erase(FindRoot(producer));
@@ -402,6 +385,23 @@ void SubgraphDetector::SubgraphFusion() {
       }
     }
   }
+  // // Merge subgraphs with same upstream
+  // for (const auto& op : sort_ops_) {
+  //   auto subgraph = GetOpSubgraph(op);
+  //   for (const auto& upstream : subgraph->upstreams) {
+  //     for (const auto& brother : upstream->downstreams) {
+  //       if (brother == subgraph) continue;
+  //       if (CanFuseUpstream2Downstream(subgraph, brother) &&
+  //           CanFuseUpstream2Downstream(brother, subgraph)) {
+  //         subgraph->Merge(brother);
+  //         root2subgraph_.erase(FindRoot(brother->ops.front()));
+  //         for (auto brother_op : brother->ops) {
+  //           op2root_[brother_op] = FindRoot(op);
+  //         }
+  //       }
+  //     }
+  //   }
+  // }
 }
 
 std::vector<SubGraphPtr> SubgraphDetector::GetSubgraphList() {
