@@ -492,6 +492,21 @@ def _pir_overlap_send_recv(program):
                 op.set_bool_attr("use_calc_stream", True)
                 op.set_execution_stream("recv_stream")
                 op.set_scheduling_priority(0)
+            elif (
+                op.name() == "pd_op.broadcast"
+                and op.has_attr("is_send")
+                and op.attrs()["is_send"]
+            ):
+                ring_id = op.attrs()["ring_id"]
+                op.set_execution_stream(f"send_stream_{ring_id}")
+                op.set_scheduling_priority(0)
+            elif (
+                op.name() == "pd_op.broadcast"
+                and op.has_attr("is_recv")
+                and op.attrs()["is_recv"]
+            ):
+                op.set_execution_stream("recv_stream")
+                op.set_scheduling_priority(0)
 
 
 def _insert_sync_for_fthenb_1f1b(program, dist_context=None):

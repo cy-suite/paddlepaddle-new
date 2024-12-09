@@ -22,6 +22,7 @@ from .base_reshard_func import ReshardFunction, copy_dist_attr_with_new_member
 
 
 class SameStatusReshardFunction(ReshardFunction):
+
     def is_suitable(self, src_dist_attr, dst_dist_attr):
         if src_dist_attr.dims_mapping != dst_dist_attr.dims_mapping:
             return False
@@ -47,7 +48,6 @@ class SameStatusReshardFunction(ReshardFunction):
             if src != dst:
                 new_process_group([src, dst])
                 new_process_group([dst, src])
-
         is_send = True
         for src, dst in zip(src_mesh.process_ids, dst_mesh.process_ids):
             if cur_global_rank != src and cur_global_rank != dst:
@@ -142,6 +142,11 @@ class SameStatusReshardFunction(ReshardFunction):
             )
             broadcast_value.set_type(dst_type)
             broadcast_op = broadcast_value.get_defining_op()
+            # set different execution stream later to avoid hang caused by cross communication
+            if is_send:
+                broadcast_op.set_bool_attr("is_send", True)
+            else:
+                broadcast_op.set_bool_attr("is_recv", True)
             broadcast_op.set_execution_stream(
                 ExecutionStreamType.DefaultStream.value
             )
