@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import unittest
 
 import numpy as np
@@ -130,9 +131,10 @@ class TestFusedMoEOp(OpTest):
         fc0_expert_weights_for_ref_list = []
         scale0 = []
         for i in range(self.num_expert):
-            fc0_expert_weights_for_ref_i, fc0_expert_weights_scale_for_ref_i = (
-                weight_quantize(self.bmm_w0[i], algo=self.quant_method)
-            )
+            (
+                fc0_expert_weights_for_ref_i,
+                fc0_expert_weights_scale_for_ref_i,
+            ) = weight_quantize(self.bmm_w0[i], algo=self.quant_method)
             fc0_expert_weights_for_ref_list.append(
                 fc0_expert_weights_for_ref_i.reshape(
                     [self.d_model, self.d_feedforward * 2]
@@ -147,9 +149,10 @@ class TestFusedMoEOp(OpTest):
         fc1_expert_weights_for_ref_list = []
         scale1 = []
         for i in range(self.num_expert):
-            fc1_expert_weights_for_ref_i, fc1_expert_weights_scale_for_ref_i = (
-                weight_quantize(self.bmm_w1[i], algo=self.quant_method)
-            )
+            (
+                fc1_expert_weights_for_ref_i,
+                fc1_expert_weights_scale_for_ref_i,
+            ) = weight_quantize(self.bmm_w1[i], algo=self.quant_method)
             fc1_expert_weights_for_ref_list.append(
                 fc1_expert_weights_for_ref_i.reshape(
                     [self.d_feedforward, self.d_model]
@@ -540,9 +543,10 @@ class TestFusedMoEOpStaticWint8(TestFusedMoEOpStatic):
         fc0_expert_weights_for_ref_list = []
         scale0 = []
         for i in range(self.num_expert):
-            fc0_expert_weights_for_ref_i, fc0_expert_weights_scale_for_ref_i = (
-                weight_quantize(self.bmm_w0[i], algo=self.quant_method)
-            )
+            (
+                fc0_expert_weights_for_ref_i,
+                fc0_expert_weights_scale_for_ref_i,
+            ) = weight_quantize(self.bmm_w0[i], algo=self.quant_method)
             fc0_expert_weights_for_ref_list.append(
                 fc0_expert_weights_for_ref_i.reshape(
                     [self.d_model, self.d_feedforward * 2]
@@ -555,9 +559,10 @@ class TestFusedMoEOpStaticWint8(TestFusedMoEOpStatic):
         fc1_expert_weights_for_ref_list = []
         scale1 = []
         for i in range(self.num_expert):
-            fc1_expert_weights_for_ref_i, fc1_expert_weights_scale_for_ref_i = (
-                weight_quantize(self.bmm_w1[i], algo=self.quant_method)
-            )
+            (
+                fc1_expert_weights_for_ref_i,
+                fc1_expert_weights_scale_for_ref_i,
+            ) = weight_quantize(self.bmm_w1[i], algo=self.quant_method)
             fc1_expert_weights_for_ref_list.append(
                 fc1_expert_weights_for_ref_i.reshape(
                     [self.d_feedforward, self.d_model]
