@@ -238,13 +238,12 @@ struct SubGraph : public std::enable_shared_from_this<SubGraph> {
   };
 
   bool substitute{true};
+  size_t min_op_id;
+  size_t max_op_id;
+  std::string name;
   std::vector<pir::Operation*> ops;
   std::unordered_set<SubGraphPtr, hash> upstreams;
   std::unordered_set<SubGraphPtr, hash> downstreams;
-
-  std::string name;
-  size_t min_op_id;
-  size_t max_op_id;
 };
 using SubGraphPtr = std::shared_ptr<SubGraph>;
 
@@ -409,9 +408,7 @@ std::vector<SubGraphPtr> SubgraphDetector::GetSubgraphList() {
   std::vector<SubGraphPtr> subgraph_list;
   for (const auto& op : sort_ops_) {
     SubGraphPtr subgraph = GetOpSubgraph(op);
-    if (subgraph_set.count(subgraph)) {
-      continue;
-    }
+    if (subgraph_set.count(subgraph)) continue;
     subgraph_set.insert(subgraph);
     subgraph_list.push_back(subgraph);
   }
