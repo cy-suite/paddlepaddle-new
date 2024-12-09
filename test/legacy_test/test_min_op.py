@@ -16,6 +16,8 @@ import sys
 import unittest
 
 sys.path.append("../../legacy_test")
+import os
+
 import numpy as np
 from op_test import check_out_dtype
 from test_sum_op import TestReduceOPTensorAxisBase
@@ -143,31 +145,20 @@ class TestMinAPIWithEmptyTensor(unittest.TestCase):
                 out = paddle.min(x, tensor_axis)
 
 
-class TestMinWithNanDynamic(unittest.TestCase):
-    def _test_with_nan(self, func, shape, on_gpu, dtype=np.float32):
-        with dygraph_guard():
-            x_np = np.arange(np.prod(shape), dtype=dtype).reshape(shape)
-            x_np[0, 0] = np.nan
-            x = paddle.to_tensor(x_np)
-            if on_gpu:
-                if not paddle.is_compiled_with_cuda():
-                    return
-                x = x.cuda()
-            out = func(x)
-            self.assertTrue(paddle.isnan(out), "Result should be NaN")
+class TestMinWithNan(unittest.TestCase):
+    def _get_places(self):
+        places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not paddle.is_compiled_with_cuda()
+        ):
+            places.append(base.CPUPlace())
+        if paddle.is_compiled_with_cuda():
+            places.append(base.CUDAPlace(0))
+        return places
 
-    def test_cpu(self):
-        self._test_with_nan(paddle.min, (2, 3), False)
-
-    @unittest.skipIf(
-        not paddle.is_compiled_with_cuda(), "Paddle is not compiled with CUDA"
-    )
-    def test_gpu(self):
-        self._test_with_nan(paddle.min, (2, 3), True)
-
-
-class TestMaxWithNanStatic(unittest.TestCase):
-    def _test_with_nan(
+    def _test_with_nan_static(
         self, func, shape, dtype=np.float32, place=paddle.CPUPlace()
     ):
         with static_guard():
@@ -182,14 +173,21 @@ class TestMaxWithNanStatic(unittest.TestCase):
                 res = exe.run(feed={'x': x_np}, fetch_list=[out])
                 self.assertTrue(np.isnan(res[0]), "Result should be NaN")
 
-    def test_cpu(self):
-        self._test_with_nan(paddle.min, (2, 3))
+    def _test_with_nan_dynamic(
+        self, func, shape, dtype=np.float32, place=paddle.CPUPlace()
+    ):
+        with dygraph_guard():
+            x_np = np.arange(np.prod(shape), dtype=dtype).reshape(shape)
+            x_np[0, 0] = np.nan
+            x = paddle.to_tensor(x_np, place=place)
+            out = func(x)
+            self.assertTrue(paddle.isnan(out), "Result should be NaN")
 
-    @unittest.skipIf(
-        not paddle.is_compiled_with_cuda(), "Paddle not compiled with CUDA"
-    )
-    def test_gpu(self):
-        self._test_with_nan(paddle.min, (2, 3), place=paddle.CUDAPlace(0))
+    def test_with_nan(self):
+        places = self._get_places()
+        for place in places:
+            self._test_with_nan_dynamic(paddle.min, (2, 3), place=place)
+            self._test_with_nan_static(paddle.min, (2, 3), place=place)
 
 
 if __name__ == '__main__':
