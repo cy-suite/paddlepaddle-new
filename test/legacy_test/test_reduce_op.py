@@ -980,7 +980,7 @@ class TestAllComplex64Op(OpTest):
         self.check_output(check_pir=True)
 
 
-class TestAllComplex640pInf(TestAllComplex64Op):
+class TestAllComplex64OpInf(TestAllComplex64Op):
     def setUp(self):
         super().setUp()
         real_part = np.full((2, 5, 3, 2, 2, 3, 4, 2), np.inf)
@@ -991,7 +991,7 @@ class TestAllComplex640pInf(TestAllComplex64Op):
         )
 
 
-class TestAllComplex640pNegInf(TestAllComplex64Op):
+class TestAllComplex64OpNegInf(TestAllComplex64Op):
     def setUp(self):
         super().setUp()
         real_part = np.full((2, 5, 3, 2, 2, 3, 4, 2), -np.inf)
@@ -1189,7 +1189,7 @@ class TestAnyComplex64Op(OpTest):
         self.check_output(check_pir=True)
 
 
-class TestAnyComplex640pInf(TestAnyComplex64Op):
+class TestAnyComplex64OpInf(TestAnyComplex64Op):
     def setUp(self):
         super().setUp()
         real_part = np.full((2, 5, 3, 2, 2, 3, 4, 2), np.inf)
@@ -1200,7 +1200,7 @@ class TestAnyComplex640pInf(TestAnyComplex64Op):
         )
 
 
-class TestAnyComplex640pNegInf(TestAnyComplex64Op):
+class TestAnyComplex64OpNegInf(TestAnyComplex64Op):
     def setUp(self):
         super().setUp()
         real_part = np.full((2, 5, 3, 2, 2, 3, 4, 2), -np.inf)
