@@ -16,6 +16,9 @@ import logging
 
 import paddle
 import paddle.distributed as dist
+from paddle.distributed.auto_parallel.static.process_group import (
+    new_process_group,
+)
 
 from ..auto_parallel.static.utils import (
     get_logger,
@@ -60,6 +63,9 @@ class AutoParallelReplaceWithParallelCrossEntropyPass(PassBase):
         ring_id = self.model_parallel_group.id
         rank = self.model_parallel_group.rank
         nranks = self.model_parallel_group.nranks
+
+        ranks = list(range(nranks))
+        group = new_process_group(ranks, group_id=ring_id)
 
         for block in main_program.blocks:
             for op in reversed(block.ops):

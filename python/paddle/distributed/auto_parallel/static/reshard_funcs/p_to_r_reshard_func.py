@@ -45,7 +45,6 @@ class PToRReshardFunction(ReshardFunction):
         # if src_reduce_type == paddle.base.core.ReduceType.kRedAvg:
         #     src_reduce_type = paddle.base.core.ReduceType.kRedSum
         #     reduce_mean = True
-
         group = new_process_group(sorted(src_mesh.process_ids))
         reduced_value = paddle._C_ops.all_reduce(
             src_value, group.id, int(src_reduce_type)
