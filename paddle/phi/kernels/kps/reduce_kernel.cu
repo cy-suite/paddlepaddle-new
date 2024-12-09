@@ -13,9 +13,7 @@
 // limitations under the License.
 
 #include <limits>
-#include <type_traits>
 #include "paddle/phi/common/complex.h"
-#include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/enforce.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/gpu/reduce.h"
@@ -313,7 +311,9 @@ PD_REGISTER_KERNEL(all_raw,
                    double,
                    int,
                    int64_t,
-                   bool) {
+                   bool,
+                   complex64,
+                   complex128) {
   kernel->OutputAt(0).SetDataType(phi::DataType::BOOL);
 }
 
