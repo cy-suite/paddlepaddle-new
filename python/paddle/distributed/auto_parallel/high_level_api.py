@@ -279,9 +279,10 @@ def to_distributed(
         device_num(int): the number of devices on each node or machine.
         node_num(int|None, optional): the number of nodes or machines.
         config(ToDistributedConfig| None = None): Configs for input_spec and sequence_parallel.
-            The custom input specs specify the shape, dtype, and name information
+            The custom input specs specify the most likely shape, dtype, and name information
             of each model inputs. If it is not None, the input specs and
-            will be inferred from the custom input specs. The custom
+            will be inferred from the custom input specs. If it is None, will use default with
+            shape of [BATCH_SIZE=4, SEQ_LENGTH=1024], The custom
             input specs should be a list of `paddle.static.InputSpec`. Default: None.
             sequence_parallel indicates whether to use sequence parallel. Default: False.
 
@@ -297,10 +298,8 @@ def to_distributed(
             >>> import paddle
             >>> import paddle.nn.functional as F
             >>> from paddle import nn
-            >>> from paddle.distributed.auto_parallel.high_level_api import (
-            >>>     ToDistributedConfig,
-            >>>     to_distributed,
-            >>> )
+            >>> from paddle.distributed import to_distributed
+            >>> from paddle.distributed.auto_parallel.high_level_api import ToDistributedConfig
 
             >>> EPOCHES = 1
             >>> VOCAB_SIZE = 8000
@@ -328,8 +327,7 @@ def to_distributed(
             ...         self.max_position_embeddings = max_position_embeddings
             ...         self.base = base
             ...         self.inv_freq = 1.0 / (
-            ...             self.base
-            ...             ** (
+            ...             self.base ** (
             ...                 paddle.cast(paddle.arange(0, self.dim, 2), dtype="float32")
             ...                 / self.dim
             ...             )
@@ -700,8 +698,13 @@ def to_distributed(
         layer._op_recorder.hooks.append(post_hook_helper)
 
     # step 1.2: call @to_static, get program, and corresponding static ops of each layer
+    custom_input_spec = (
+        config.input_spec
+        if config.input_spec
+        else [paddle.static.InputSpec([4, 1024], 'float32', 'input_seq', True)]
+    )
     static_func = paddle.jit.to_static(
-        model.forward, input_spec=config.input_spec, full_graph=True
+        model.forward, input_spec=custom_input_spec, full_graph=True
     )
     program = static_func.concrete_program.main_program
     # currently, paddle.jit.to_static has side effects that will affect model.
