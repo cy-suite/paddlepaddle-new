@@ -139,7 +139,7 @@ class TestClipTensorAPI(unittest.TestCase):
                 max = paddle.static.data(
                     name='max1', shape=data_shape, dtype='float16'
                 )
-                out = paddle.clip(images, min, max)
+                out = paddle.tensor.math.clip_tensor(images, min, max)
                 place = paddle.CUDAPlace(0)
                 exe = paddle.static.Executor(place)
                 res1 = exe.run(

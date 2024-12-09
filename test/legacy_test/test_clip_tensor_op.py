@@ -22,35 +22,36 @@ from paddle import base
 from paddle.base import core
 
 
-# class TestClipTensorOp(OpTest):
-#     def setUp(self):
-#         self.op_type = "clip_tensor"
-#         self.python_api = paddle.tensor.math.clip_tensor
+class TestClipTensorOp(OpTest):
+    def setUp(self):
+        self.op_type = "clip_tensor"
+        self.python_api = paddle.tensor.math.clip_tensor
 
-#         self.initTestCase()
+        self.initTestCase()
 
-#         self.x = np.random.random(size=self.shape).astype(self.dtype)
-#         self.min = np.random.random(size=self.shape).astype(self.dtype)
-#         self.max = np.random.random(size=self.shape).astype(self.dtype)
+        self.x = np.random.random(size=self.shape).astype(self.dtype)
+        self.min = np.random.random(size=self.shape).astype(self.dtype)
+        self.max = np.random.random(size=self.shape).astype(self.dtype)
 
-#         self.inputs = {'X': self.x, 'Min': self.min, 'Max': self.max}
-#         self.outputs = {'Out': np.clip(self.x, self.min, self.max)}
+        self.inputs = {'X': self.x, 'Min': self.min, 'Max': self.max}
+        out = np.clip(self.x, self.min, self.max)
+        self.outputs = {'Out': out}
 
-#     def test_check_output(self):
-#         self.check_output(check_pir=True, check_symbol_infer=False)
+    def test_check_output(self):
+        self.check_output(check_pir=True, check_symbol_infer=False)
 
-#     def test_check_grad(self):
-#         self.check_grad(['X'], 'out', check_pir=True)
+    def test_check_grad(self):
+        self.check_grad(['X'], 'Out', check_pir=True)
 
-#     def initTestCase(self):
-#         self.dtype = 'float32'
-#         self.shape = (10, 10)
+    def initTestCase(self):
+        self.dtype = np.float32
+        self.shape = (10, 10)
 
 
-# class TestCase1(TestClipTensorOp):
-#     def initTestCase(self):
-#         self.dtype = 'float32'
-#         self.shape = (8, 16, 8)
+class TestCase1(TestClipTensorOp):
+    def initTestCase(self):
+        self.dtype = np.float32
+        self.shape = (8, 16, 8)
 
 
 if __name__ == '__main__':
