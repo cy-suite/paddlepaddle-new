@@ -341,11 +341,10 @@ class PipelineParallel(MetaParallelBase):
         self.user_hooks_enabled = True
 
     def _init_user_hooks(self):
-        # (TODO:gexiao) support bubble hooks if needed
-        self.bubble_hooks = None
-        # self.bubble_hooks = PipelineHook()
-        # self.bubble_hooks.set_hooks_capacity(2 * self.num_stages - 2)
+        self._init_user_forward_backward_hooks()
+        self._init_user_bubble_hooks()
 
+    def _init_user_forward_backward_hooks(self):
         # initialize forward hooks
         self.forward_hooks = PipelineHook()
         self.forward_hooks.set_hooks_capacity(
@@ -367,6 +366,12 @@ class PipelineParallel(MetaParallelBase):
             )
             * self.accumulate_steps
         )
+
+    def _init_user_bubble_hooks(self):
+        # (TODO:gexiao) support bubble hooks if needed
+        self.bubble_hooks = None
+        # self.bubble_hooks = PipelineHook()
+        # self.bubble_hooks.set_hooks_capacity(2 * self.num_stages - 2)
 
     def _reset_user_hooks_status(self):
         if self.bubble_hooks:
@@ -1212,32 +1217,10 @@ class PipelineParallelWithInterleave(PipelineParallel):
         # reinit user hook since now we have virtual stages
         self._init_user_hooks()
 
-    def _init_user_hooks(self):
+    def _init_user_bubble_hooks(self):
         # initialize bubble hooks
         self.bubble_hooks = PipelineHook()
         self.bubble_hooks.set_hooks_capacity(2 * self.num_stages - 2)
-
-        # initialize forward hooks
-        self.forward_hooks = PipelineHook()
-        self.forward_hooks.set_hooks_capacity(
-            (
-                self._virtual_pp_world_size
-                if self._virtual_pp_world_size is not None
-                else 1
-            )
-            * self.accumulate_steps
-        )
-
-        # initialize backward hooks
-        self.backward_hooks = PipelineHook()
-        self.backward_hooks.set_hooks_capacity(
-            (
-                self._virtual_pp_world_size
-                if self._virtual_pp_world_size is not None
-                else 1
-            )
-            * self.accumulate_steps
-        )
 
     def _check_sanity(self):
         assert (
@@ -2283,33 +2266,11 @@ class PipelineParallelWithInterleaveFthenB(PipelineParallelWithInterleave):
     def __init__(self, layers, hcg, strategy):
         super().__init__(layers=layers, hcg=hcg, strategy=strategy)
 
-    def _init_user_hooks(self):
+    def _init_user_bubble_hooks(self):
         # (TODO:gexiao) support bubble hooks if needed
         self.bubble_hooks = None
         # self.bubble_hooks = PipelineHook()
         # self.bubble_hooks.set_hooks_capacity(2 * self.num_stages - 2)
-
-        # initialize forward hooks
-        self.forward_hooks = PipelineHook()
-        self.forward_hooks.set_hooks_capacity(
-            (
-                self._virtual_pp_world_size
-                if self._virtual_pp_world_size is not None
-                else 1
-            )
-            * self.accumulate_steps
-        )
-
-        # initialize backward hooks
-        self.backward_hooks = PipelineHook()
-        self.backward_hooks.set_hooks_capacity(
-            (
-                self._virtual_pp_world_size
-                if self._virtual_pp_world_size is not None
-                else 1
-            )
-            * self.accumulate_steps
-        )
 
     def _check_sanity(self):
         assert (
@@ -2554,6 +2515,12 @@ class VPPFhenBInBalancedMemory(PipelineParallelWithInterleaveFthenB):
         super().__init__(layers=layers, hcg=hcg, strategy=strategy)
         logger.info("Using VPPFhenBInBalancedMemory")
 
+    def _init_user_bubble_hooks(self):
+        # (TODO:gexiao) support bubble hooks if needed
+        self.bubble_hooks = None
+        # self.bubble_hooks = PipelineHook()
+        # self.bubble_hooks.set_hooks_capacity(2 * self.num_stages - 2)
+
     def forward_backward_pipeline(
         self,
         data,
@@ -2562,6 +2529,7 @@ class VPPFhenBInBalancedMemory(PipelineParallelWithInterleaveFthenB):
         compute_loss=True,
         return_micro_batch_loss=False,
     ):
+        self._reset_user_hooks_status()
         if not compute_loss:
             assert (
                 not forward_only
@@ -2569,6 +2537,7 @@ class VPPFhenBInBalancedMemory(PipelineParallelWithInterleaveFthenB):
         assert (
             self._using_cache
         ), "cache should be enabled for pipeline with interleave"
+        self.user_hooks_enabled = not forward_only
         if forward_only:
             return super().forward_backward_pipeline(
                 data,
@@ -2577,6 +2546,9 @@ class VPPFhenBInBalancedMemory(PipelineParallelWithInterleaveFthenB):
                 compute_loss,
                 return_micro_batch_loss,
             )
+
+        if self.processed_steps < g_profile_pipeline_details_steps:
+            get_sync_logger().info("start forward_backward_pipeline")
 
         # init some attributes for this batch run
         self.scaler = scaler
@@ -2802,4 +2774,9 @@ class VPPFhenBInBalancedMemory(PipelineParallelWithInterleaveFthenB):
             self._p2p_helper.clear_meta_cache()
 
         self.timer_printer()
+
+        if self.processed_steps < g_profile_pipeline_details_steps:
+            get_sync_logger().info("end forward_backward_pipeline")
+        self.processed_steps += 1
+        self._check_user_hooks_status_at_step_end()
         return train_loss
