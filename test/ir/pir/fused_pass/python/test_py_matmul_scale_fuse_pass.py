@@ -35,8 +35,8 @@ class TestMatmulScaleFusePattern(PassTest):
     """
 
     def matmul_scale_fuse_pass(self):
-        python_ctx = pir.DrrPatternContext()
-        python_pat = python_ctx.SourcePattern()
+        ctx = pir.DrrPatternContext()
+        pat = ctx.SourcePattern()
 
         def constraint_function(match_ctx):
             if not pir.value_is_persistable(match_ctx.Tensor("w")):
@@ -44,86 +44,86 @@ class TestMatmulScaleFusePattern(PassTest):
             return abs(match_ctx.Attr("bias")) <= 1e-6
 
         # Source Pattern
-        matmul_op = python_pat.Op(
+        matmul_op = pat.Op(
             "pd_op.matmul",
             {
-                "transpose_x": python_pat.Attr("transpose_x"),
-                "transpose_y": python_pat.Attr("transpose_y"),
+                "transpose_x": pat.Attr("transpose_x"),
+                "transpose_y": pat.Attr("transpose_y"),
             },
         )
 
         matmul_op(
-            [python_pat.Tensor("x"), python_pat.Tensor("w")],
-            [python_pat.Tensor("matmul_out")],
+            [pat.Tensor("x"), pat.Tensor("w")],
+            [pat.Tensor("matmul_out")],
         )
 
-        full_op = python_pat.Op(
+        full_op = pat.Op(
             "pd_op.full",
             {
-                "shape": python_pat.Attr("shape"),
-                "value": python_pat.Attr("value"),
-                "dtype": python_pat.Attr("dtype"),
-                "place": python_pat.Attr("place"),
+                "shape": pat.Attr("shape"),
+                "value": pat.Attr("value"),
+                "dtype": pat.Attr("dtype"),
+                "place": pat.Attr("place"),
             },
         )
 
-        scale_op = python_pat.Op(
+        scale_op = pat.Op(
             "pd_op.scale",
             {
-                "bias": python_pat.Attr("bias"),
-                "bias_after_scale": python_pat.Attr("bias_after_scale"),
+                "bias": pat.Attr("bias"),
+                "bias_after_scale": pat.Attr("bias_after_scale"),
             },
         )
 
-        full_op([], [python_pat.Tensor("full_op")])
+        full_op([], [pat.Tensor("full_op")])
         scale_op(
-            [python_pat.Tensor("matmul_out"), python_pat.Tensor("full_op")],
-            [python_pat.Tensor("scale_out")],
+            [pat.Tensor("matmul_out"), pat.Tensor("full_op")],
+            [pat.Tensor("scale_out")],
         )
 
-        python_pat.AddConstraint(constraint_function)
+        pat.AddConstraint(constraint_function)
 
         # Result Pattern
-        python_res = python_pat.ResultPattern()
+        res = pat.ResultPattern()
 
-        full_op_res = python_res.Op(
+        full_op_res = res.Op(
             "pd_op.full",
             {
-                "shape": python_pat.Attr("shape"),
-                "value": python_pat.Attr("value"),
-                "dtype": python_pat.Attr("dtype"),
-                "place": python_pat.Attr("place"),
+                "shape": pat.Attr("shape"),
+                "value": pat.Attr("value"),
+                "dtype": pat.Attr("dtype"),
+                "place": pat.Attr("place"),
             },
         )
 
-        scale_op_res = python_res.Op(
+        scale_op_res = res.Op(
             "pd_op.scale",
             {
-                "bias": python_res.Float32Attr(0.0),
-                "bias_after_scale": python_pat.Attr("bias_after_scale"),
+                "bias": res.Float32Attr(0.0),
+                "bias_after_scale": pat.Attr("bias_after_scale"),
             },
         )
 
-        matmul_op_res = python_res.Op(
+        matmul_op_res = res.Op(
             "pd_op.matmul",
             {
-                "transpose_x": python_pat.Attr("transpose_x"),
-                "transpose_y": python_pat.Attr("transpose_y"),
+                "transpose_x": pat.Attr("transpose_x"),
+                "transpose_y": pat.Attr("transpose_y"),
             },
         )
 
-        full_op_res([], [python_res.Tensor("full_op_res")])
+        full_op_res([], [res.Tensor("full_op_res")])
         scale_op_res(
-            [python_res.Tensor("w"), python_res.Tensor("full_op_res")],
-            [python_res.Tensor("scale_res_out")],
+            [res.Tensor("w"), res.Tensor("full_op_res")],
+            [res.Tensor("scale_res_out")],
         )
 
         matmul_op_res(
-            [python_res.Tensor("x"), python_res.Tensor("scale_res_out")],
-            [python_res.Tensor("scale_out")],
+            [res.Tensor("x"), res.Tensor("scale_res_out")],
+            [res.Tensor("scale_out")],
         )
 
-        return python_ctx
+        return ctx
 
     def is_program_valid(self, program=None):
         return True

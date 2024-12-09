@@ -81,8 +81,8 @@ slice slice                    \                   squeeze       unsqueeze      
   """
 
     def fused_rotary_position_embedding_pattern(self):
-        python_ctx = pir.DrrPatternContext()
-        python_pat = python_ctx.SourcePattern()
+        ctx = pir.DrrPatternContext()
+        pat = ctx.SourcePattern()
 
         def check_axes(axes):
             expected_axes = [0, 2]
@@ -126,286 +126,284 @@ slice slice                    \                   squeeze       unsqueeze      
             return check_passes
 
         # Source Pattern
-        squeeze = python_pat.Op("pd_op.squeeze")
-        squeeze_1 = python_pat.Op("pd_op.squeeze")
-        gather_nd = python_pat.Op("pd_op.gather_nd")
-        gather_nd_1 = python_pat.Op("pd_op.gather_nd")
-        unsqueeze = python_pat.Op("pd_op.unsqueeze")
-        unsqueeze_1 = python_pat.Op("pd_op.unsqueeze")
-        unsqueeze_2 = python_pat.Op("pd_op.unsqueeze")
-        unsqueeze_4 = python_pat.Op("pd_op.unsqueeze")
+        squeeze = pat.Op("pd_op.squeeze")
+        squeeze_1 = pat.Op("pd_op.squeeze")
+        gather_nd = pat.Op("pd_op.gather_nd")
+        gather_nd_1 = pat.Op("pd_op.gather_nd")
+        unsqueeze = pat.Op("pd_op.unsqueeze")
+        unsqueeze_1 = pat.Op("pd_op.unsqueeze")
+        unsqueeze_2 = pat.Op("pd_op.unsqueeze")
+        unsqueeze_4 = pat.Op("pd_op.unsqueeze")
 
-        add = python_pat.Op("pd_op.add")
-        add_1 = python_pat.Op("pd_op.add")
-        multiply1 = python_pat.Op("pd_op.multiply")
-        multiply2 = python_pat.Op("pd_op.multiply")
-        multiply3 = python_pat.Op("pd_op.multiply")
-        multiply4 = python_pat.Op("pd_op.multiply")
+        add = pat.Op("pd_op.add")
+        add_1 = pat.Op("pd_op.add")
+        multiply1 = pat.Op("pd_op.multiply")
+        multiply2 = pat.Op("pd_op.multiply")
+        multiply3 = pat.Op("pd_op.multiply")
+        multiply4 = pat.Op("pd_op.multiply")
 
-        slice_q = python_pat.Op("pd_op.slice")
-        slice_q_1 = python_pat.Op("pd_op.slice")
-        slice_k = python_pat.Op("pd_op.slice")
-        slice_k_1 = python_pat.Op("pd_op.slice")
+        slice_q = pat.Op("pd_op.slice")
+        slice_q_1 = pat.Op("pd_op.slice")
+        slice_k = pat.Op("pd_op.slice")
+        slice_k_1 = pat.Op("pd_op.slice")
 
-        full_op = python_pat.Op(
+        full_op = pat.Op(
             "pd_op.full",
             {
-                "shape": python_pat.Attr("shape"),
-                "value": python_pat.Attr("value"),
-                "dtype": python_pat.Attr("dtype"),
-                "place": python_pat.Attr("place"),
+                "shape": pat.Attr("shape"),
+                "value": pat.Attr("value"),
+                "dtype": pat.Attr("dtype"),
+                "place": pat.Attr("place"),
             },
         )
-        full_op_1 = python_pat.Op(
-            "pd_op.full", {"value": python_pat.Attr("full_op_1")}
-        )
-        full_op_2 = python_pat.Op("pd_op.full")
-        full_op_3 = python_pat.Op("pd_op.full")
+        full_op_1 = pat.Op("pd_op.full", {"value": pat.Attr("full_op_1")})
+        full_op_2 = pat.Op("pd_op.full")
+        full_op_3 = pat.Op("pd_op.full")
 
-        scale_op = python_pat.Op("pd_op.scale")
-        scale_op_k = python_pat.Op("pd_op.scale")
+        scale_op = pat.Op("pd_op.scale")
+        scale_op_k = pat.Op("pd_op.scale")
 
-        full_1 = python_pat.Op("pd_op.full_int_array")
-        full_2 = python_pat.Op("pd_op.full_int_array")
-        full_3 = python_pat.Op("pd_op.full_int_array")
-        full_4 = python_pat.Op("pd_op.full_int_array")
-        full_5 = python_pat.Op("pd_op.full_int_array")
-        full_6 = python_pat.Op("pd_op.full_int_array")
-        full_7 = python_pat.Op("pd_op.full_int_array")
-        full_8 = python_pat.Op(
-            "pd_op.full_int_array", {"value": python_pat.Attr("full_8_value")}
+        full_1 = pat.Op("pd_op.full_int_array")
+        full_2 = pat.Op("pd_op.full_int_array")
+        full_3 = pat.Op("pd_op.full_int_array")
+        full_4 = pat.Op("pd_op.full_int_array")
+        full_5 = pat.Op("pd_op.full_int_array")
+        full_6 = pat.Op("pd_op.full_int_array")
+        full_7 = pat.Op("pd_op.full_int_array")
+        full_8 = pat.Op(
+            "pd_op.full_int_array", {"value": pat.Attr("full_8_value")}
         )
-        full_9 = python_pat.Op(
-            "pd_op.full_int_array", {"value": python_pat.Attr("full_9_value")}
+        full_9 = pat.Op(
+            "pd_op.full_int_array", {"value": pat.Attr("full_9_value")}
         )
-        full_10 = python_pat.Op(
-            "pd_op.full_int_array", {"value": python_pat.Attr("full_10_value")}
+        full_10 = pat.Op(
+            "pd_op.full_int_array", {"value": pat.Attr("full_10_value")}
         )
-        full_11 = python_pat.Op(
-            "pd_op.full_int_array", {"value": python_pat.Attr("full_11_value")}
+        full_11 = pat.Op(
+            "pd_op.full_int_array", {"value": pat.Attr("full_11_value")}
         )
-        full_12 = python_pat.Op(
-            "pd_op.full_int_array", {"value": python_pat.Attr("full_12_value")}
+        full_12 = pat.Op(
+            "pd_op.full_int_array", {"value": pat.Attr("full_12_value")}
         )
-        full_13 = python_pat.Op(
-            "pd_op.full_int_array", {"value": python_pat.Attr("full_13_value")}
+        full_13 = pat.Op(
+            "pd_op.full_int_array", {"value": pat.Attr("full_13_value")}
         )
-        full_14 = python_pat.Op("pd_op.full_int_array")
+        full_14 = pat.Op("pd_op.full_int_array")
 
-        concat_op = python_pat.Op("pd_op.concat")
-        combine = python_pat.Op("builtin.combine")
-        concat_op_k = python_pat.Op("pd_op.concat")
-        combine_k = python_pat.Op("builtin.combine")
+        concat_op = pat.Op("pd_op.concat")
+        combine = pat.Op("builtin.combine")
+        concat_op_k = pat.Op("pd_op.concat")
+        combine_k = pat.Op("builtin.combine")
 
-        full_13([], [python_pat.Tensor("full_13")])
+        full_13([], [pat.Tensor("full_13")])
         squeeze(
-            [python_pat.Tensor("cos"), python_pat.Tensor("full_13")],
-            [python_pat.Tensor("squeeze_out_cos")],
+            [pat.Tensor("cos"), pat.Tensor("full_13")],
+            [pat.Tensor("squeeze_out_cos")],
         )
 
-        full_12([], [python_pat.Tensor("full_12")])
+        full_12([], [pat.Tensor("full_12")])
         squeeze_1(
-            [python_pat.Tensor("sin"), python_pat.Tensor("full_12")],
-            [python_pat.Tensor("squeeze_out_sin")],
+            [pat.Tensor("sin"), pat.Tensor("full_12")],
+            [pat.Tensor("squeeze_out_sin")],
         )
 
-        full_11([], [python_pat.Tensor("full_11")])
+        full_11([], [pat.Tensor("full_11")])
         unsqueeze(
-            [python_pat.Tensor("position_ids"), python_pat.Tensor("full_11")],
-            [python_pat.Tensor("unsqueeze_s_out_cos")],
+            [pat.Tensor("position_ids"), pat.Tensor("full_11")],
+            [pat.Tensor("unsqueeze_s_out_cos")],
         )
 
         gather_nd(
             [
-                python_pat.Tensor("squeeze_out_cos"),
-                python_pat.Tensor("unsqueeze_s_out_cos"),
+                pat.Tensor("squeeze_out_cos"),
+                pat.Tensor("unsqueeze_s_out_cos"),
             ],
-            [python_pat.Tensor("gather_nd_out_cos")],
+            [pat.Tensor("gather_nd_out_cos")],
         )
 
         gather_nd_1(
             [
-                python_pat.Tensor("squeeze_out_sin"),
-                python_pat.Tensor("unsqueeze_s_out_sin"),
+                pat.Tensor("squeeze_out_sin"),
+                pat.Tensor("unsqueeze_s_out_sin"),
             ],
-            [python_pat.Tensor("gather_nd_out_sin")],
+            [pat.Tensor("gather_nd_out_sin")],
         )
 
-        full_10([], [python_pat.Tensor("full_10")])
+        full_10([], [pat.Tensor("full_10")])
         unsqueeze_1(
             [
-                python_pat.Tensor("gather_nd_out_cos"),
-                python_pat.Tensor("full_10"),
+                pat.Tensor("gather_nd_out_cos"),
+                pat.Tensor("full_10"),
             ],
-            [python_pat.Tensor("unsqueeze_out_cos")],
+            [pat.Tensor("unsqueeze_out_cos")],
         )
 
-        full_8([], [python_pat.Tensor("full_8")])
+        full_8([], [pat.Tensor("full_8")])
         unsqueeze_4(
-            [python_pat.Tensor("position_ids"), python_pat.Tensor("full_8")],
-            [python_pat.Tensor("unsqueeze_s_out_sin")],
+            [pat.Tensor("position_ids"), pat.Tensor("full_8")],
+            [pat.Tensor("unsqueeze_s_out_sin")],
         )
 
-        full_9([], [python_pat.Tensor("full_9")])
+        full_9([], [pat.Tensor("full_9")])
         unsqueeze_2(
             [
-                python_pat.Tensor("gather_nd_out_sin"),
-                python_pat.Tensor("full_9"),
+                pat.Tensor("gather_nd_out_sin"),
+                pat.Tensor("full_9"),
             ],
-            [python_pat.Tensor("unsqueeze_out_sin")],
+            [pat.Tensor("unsqueeze_out_sin")],
         )
 
         multiply1(
-            [python_pat.Tensor("q"), python_pat.Tensor("unsqueeze_out_cos")],
-            [python_pat.Tensor("tmp_25")],
+            [pat.Tensor("q"), pat.Tensor("unsqueeze_out_cos")],
+            [pat.Tensor("tmp_25")],
         )
 
-        full_1([], [python_pat.Tensor("full_1")])
-        full_2([], [python_pat.Tensor("full_2")])
+        full_1([], [pat.Tensor("full_1")])
+        full_2([], [pat.Tensor("full_2")])
         slice_q(
             [
-                python_pat.Tensor("q"),
-                python_pat.Tensor("full_1"),
-                python_pat.Tensor("full_2"),
+                pat.Tensor("q"),
+                pat.Tensor("full_1"),
+                pat.Tensor("full_2"),
             ],
-            [python_pat.Tensor("q_slice_out1")],
+            [pat.Tensor("q_slice_out1")],
         )
 
-        full_3([], [python_pat.Tensor("full_3")])
-        full_4([], [python_pat.Tensor("full_4")])
+        full_3([], [pat.Tensor("full_3")])
+        full_4([], [pat.Tensor("full_4")])
         slice_q_1(
             [
-                python_pat.Tensor("q"),
-                python_pat.Tensor("full_3"),
-                python_pat.Tensor("full_4"),
+                pat.Tensor("q"),
+                pat.Tensor("full_3"),
+                pat.Tensor("full_4"),
             ],
-            [python_pat.Tensor("q_slice_out2")],
+            [pat.Tensor("q_slice_out2")],
         )
 
-        full_op([], [python_pat.Tensor("full_op")])
+        full_op([], [pat.Tensor("full_op")])
         scale_op(
-            [python_pat.Tensor("q_slice_out2"), python_pat.Tensor("full_op")],
-            [python_pat.Tensor("scale_out")],
+            [pat.Tensor("q_slice_out2"), pat.Tensor("full_op")],
+            [pat.Tensor("scale_out")],
         )
 
         combine(
-            [python_pat.Tensor("scale_out"), python_pat.Tensor("q_slice_out1")],
-            [python_pat.Tensor("combine_out")],
+            [pat.Tensor("scale_out"), pat.Tensor("q_slice_out1")],
+            [pat.Tensor("combine_out")],
         )
 
-        full_op_3([], [python_pat.Tensor("full_op_3")])
+        full_op_3([], [pat.Tensor("full_op_3")])
         concat_op(
-            [python_pat.Tensor("combine_out"), python_pat.Tensor("full_op_3")],
-            [python_pat.Tensor("concat_out")],
+            [pat.Tensor("combine_out"), pat.Tensor("full_op_3")],
+            [pat.Tensor("concat_out")],
         )
 
         multiply3(
             [
-                python_pat.Tensor("concat_out"),
-                python_pat.Tensor("unsqueeze_out_sin"),
+                pat.Tensor("concat_out"),
+                pat.Tensor("unsqueeze_out_sin"),
             ],
-            [python_pat.Tensor("tmp_27")],
+            [pat.Tensor("tmp_27")],
         )
 
         add(
-            [python_pat.Tensor("tmp_25"), python_pat.Tensor("tmp_27")],
-            [python_pat.Tensor("out_q")],
+            [pat.Tensor("tmp_25"), pat.Tensor("tmp_27")],
+            [pat.Tensor("out_q")],
         )
 
         multiply2(
-            [python_pat.Tensor("k"), python_pat.Tensor("unsqueeze_out_cos")],
-            [python_pat.Tensor("tmp_29")],
+            [pat.Tensor("k"), pat.Tensor("unsqueeze_out_cos")],
+            [pat.Tensor("tmp_29")],
         )
 
-        full_5([], [python_pat.Tensor("full_5")])
-        full_6([], [python_pat.Tensor("full_6")])
+        full_5([], [pat.Tensor("full_5")])
+        full_6([], [pat.Tensor("full_6")])
         slice_k(
             [
-                python_pat.Tensor("k"),
-                python_pat.Tensor("full_5"),
-                python_pat.Tensor("full_6"),
+                pat.Tensor("k"),
+                pat.Tensor("full_5"),
+                pat.Tensor("full_6"),
             ],
-            [python_pat.Tensor("k_slice_out1")],
+            [pat.Tensor("k_slice_out1")],
         )
 
-        full_7([], [python_pat.Tensor("full_7")])
-        full_14([], [python_pat.Tensor("full_14")])
+        full_7([], [pat.Tensor("full_7")])
+        full_14([], [pat.Tensor("full_14")])
         slice_k_1(
             [
-                python_pat.Tensor("k"),
-                python_pat.Tensor("full_7"),
-                python_pat.Tensor("full_14"),
+                pat.Tensor("k"),
+                pat.Tensor("full_7"),
+                pat.Tensor("full_14"),
             ],
-            [python_pat.Tensor("k_slice_out2")],
+            [pat.Tensor("k_slice_out2")],
         )
 
-        full_op_1([], [python_pat.Tensor("full_op_1")])
+        full_op_1([], [pat.Tensor("full_op_1")])
         scale_op_k(
-            [python_pat.Tensor("k_slice_out2"), python_pat.Tensor("full_op_1")],
-            [python_pat.Tensor("scale_out_k")],
+            [pat.Tensor("k_slice_out2"), pat.Tensor("full_op_1")],
+            [pat.Tensor("scale_out_k")],
         )
 
         combine_k(
             [
-                python_pat.Tensor("scale_out_k"),
-                python_pat.Tensor("k_slice_out1"),
+                pat.Tensor("scale_out_k"),
+                pat.Tensor("k_slice_out1"),
             ],
-            [python_pat.Tensor("combine_out_k")],
+            [pat.Tensor("combine_out_k")],
         )
 
-        full_op_2([], [python_pat.Tensor("full_op_2")])
+        full_op_2([], [pat.Tensor("full_op_2")])
         concat_op_k(
             [
-                python_pat.Tensor("combine_out_k"),
-                python_pat.Tensor("full_op_2"),
+                pat.Tensor("combine_out_k"),
+                pat.Tensor("full_op_2"),
             ],
-            [python_pat.Tensor("concat_out_k")],
+            [pat.Tensor("concat_out_k")],
         )
 
         multiply4(
             [
-                python_pat.Tensor("concat_out_k"),
-                python_pat.Tensor("unsqueeze_out_sin"),
+                pat.Tensor("concat_out_k"),
+                pat.Tensor("unsqueeze_out_sin"),
             ],
-            [python_pat.Tensor("tmp_31")],
+            [pat.Tensor("tmp_31")],
         )
 
         add_1(
-            [python_pat.Tensor("tmp_29"), python_pat.Tensor("tmp_31")],
-            [python_pat.Tensor("out_k")],
+            [pat.Tensor("tmp_29"), pat.Tensor("tmp_31")],
+            [pat.Tensor("out_k")],
         )
 
-        python_pat.AddConstraint(constraint_function)
+        pat.AddConstraint(constraint_function)
 
         # Result Pattern
-        python_res = python_pat.ResultPattern()
+        res = pat.ResultPattern()
 
-        fused_rotary_position_embedding = python_res.Op(
+        fused_rotary_position_embedding = res.Op(
             "pd_op.fused_rotary_position_embedding",
             {
-                "use_neox_rotary_style": python_res.BoolAttr(False),
-                "time_major": python_res.BoolAttr(False),
-                "rotary_emb_base": python_res.Float32Attr(10000.0),
+                "use_neox_rotary_style": res.BoolAttr(False),
+                "time_major": res.BoolAttr(False),
+                "rotary_emb_base": res.Float32Attr(10000.0),
             },
         )
 
         fused_rotary_position_embedding(
             [
-                python_res.Tensor("q"),
-                python_res.Tensor("k"),
-                python_res.InputNoneTensor(),
-                python_res.Tensor("sin"),
-                python_res.Tensor("cos"),
-                python_res.Tensor("position_ids"),
+                res.Tensor("q"),
+                res.Tensor("k"),
+                res.InputNoneTensor(),
+                res.Tensor("sin"),
+                res.Tensor("cos"),
+                res.Tensor("position_ids"),
             ],
             [
-                python_res.Tensor("out_q"),
-                python_res.Tensor("out_k"),
-                python_res.OutputNoneTensor(),
+                res.Tensor("out_q"),
+                res.Tensor("out_k"),
+                res.OutputNoneTensor(),
             ],
         )
 
-        return python_ctx
+        return ctx
 
     def is_program_valid(self, program=None):
         return True

@@ -57,8 +57,8 @@ class TestVitAttentionPattern(PassTest):
     '''
 
     def vit_attention_fuse_pattern(self):
-        python_ctx = pir.DrrPatternContext()
-        python_pat = python_ctx.SourcePattern()
+        ctx = pir.DrrPatternContext()
+        pat = ctx.SourcePattern()
 
         def constraint_function(match_ctx):
             softmax_axis = match_ctx.Int32Attr("axis")
@@ -86,228 +86,216 @@ class TestVitAttentionPattern(PassTest):
             return True
 
         # Source Pattern
-        matmul_1 = python_pat.Op(
+        matmul_1 = pat.Op(
             "pd_op.matmul",
             {
-                "transpose_x": python_pat.Attr("transpose_x_1"),
-                "transpose_y": python_pat.Attr("transpose_y_1"),
+                "transpose_x": pat.Attr("transpose_x_1"),
+                "transpose_y": pat.Attr("transpose_y_1"),
             },
         )
-        matmul_2 = python_pat.Op(
+        matmul_2 = pat.Op(
             "pd_op.matmul",
             {
-                "transpose_x": python_pat.Attr("transpose_x_2"),
-                "transpose_y": python_pat.Attr("transpose_y_2"),
+                "transpose_x": pat.Attr("transpose_x_2"),
+                "transpose_y": pat.Attr("transpose_y_2"),
             },
         )
-        matmul_3 = python_pat.Op(
+        matmul_3 = pat.Op(
             "pd_op.matmul",
             {
-                "transpose_x": python_pat.Attr("transpose_x_3"),
-                "transpose_y": python_pat.Attr("transpose_y_3"),
+                "transpose_x": pat.Attr("transpose_x_3"),
+                "transpose_y": pat.Attr("transpose_y_3"),
             },
         )
 
-        add = python_pat.Op("pd_op.add")
+        add = pat.Op("pd_op.add")
 
-        full_int_array_1 = python_pat.Op(
+        full_int_array_1 = pat.Op(
             "pd_op.full_int_array",
-            {"value": python_pat.Attr("full_int_array_value_1")},
+            {"value": pat.Attr("full_int_array_value_1")},
         )
-        reshape_1 = python_pat.Op("pd_op.reshape")
+        reshape_1 = pat.Op("pd_op.reshape")
 
-        full_int_array_2 = python_pat.Op(
+        full_int_array_2 = pat.Op(
             "pd_op.full_int_array",
-            {"value": python_pat.Attr("full_int_array_value_2")},
+            {"value": pat.Attr("full_int_array_value_2")},
         )
-        reshape_2 = python_pat.Op("pd_op.reshape")
+        reshape_2 = pat.Op("pd_op.reshape")
 
-        transpose_1 = python_pat.Op(
-            "pd_op.transpose", {"perm": python_pat.Attr("perm_1")}
-        )
-        transpose_2 = python_pat.Op(
-            "pd_op.transpose", {"perm": python_pat.Attr("perm_2")}
-        )
-        transpose_3 = python_pat.Op(
-            "pd_op.transpose", {"perm": python_pat.Attr("perm_3")}
-        )
+        transpose_1 = pat.Op("pd_op.transpose", {"perm": pat.Attr("perm_1")})
+        transpose_2 = pat.Op("pd_op.transpose", {"perm": pat.Attr("perm_2")})
+        transpose_3 = pat.Op("pd_op.transpose", {"perm": pat.Attr("perm_3")})
 
-        full_int_array_3 = python_pat.Op(
+        full_int_array_3 = pat.Op(
             "pd_op.full_int_array",
-            {"value": python_pat.Attr("full_int_array_value_3")},
+            {"value": pat.Attr("full_int_array_value_3")},
         )
-        full_int_array_4 = python_pat.Op(
+        full_int_array_4 = pat.Op(
             "pd_op.full_int_array",
-            {"value": python_pat.Attr("full_int_array_value_4")},
+            {"value": pat.Attr("full_int_array_value_4")},
         )
 
-        slice_1 = python_pat.Op(
+        slice_1 = pat.Op(
             "pd_op.slice",
             {
-                "axes": python_pat.Attr("axes_1"),
-                "infer_flags": python_pat.Attr("infer_flags_1"),
-                "decrease_axis": python_pat.Attr("decrease_axis_1"),
+                "axes": pat.Attr("axes_1"),
+                "infer_flags": pat.Attr("infer_flags_1"),
+                "decrease_axis": pat.Attr("decrease_axis_1"),
             },
         )
 
-        full_int_array_5 = python_pat.Op(
+        full_int_array_5 = pat.Op(
             "pd_op.full_int_array",
-            {"value": python_pat.Attr("full_int_array_value_5")},
+            {"value": pat.Attr("full_int_array_value_5")},
         )
-        full_int_array_6 = python_pat.Op(
+        full_int_array_6 = pat.Op(
             "pd_op.full_int_array",
-            {"value": python_pat.Attr("full_int_array_value_6")},
+            {"value": pat.Attr("full_int_array_value_6")},
         )
 
-        slice_2 = python_pat.Op(
+        slice_2 = pat.Op(
             "pd_op.slice",
             {
-                "axes": python_pat.Attr("axes_2"),
-                "infer_flags": python_pat.Attr("infer_flags_2"),
-                "decrease_axis": python_pat.Attr("decrease_axis_2"),
+                "axes": pat.Attr("axes_2"),
+                "infer_flags": pat.Attr("infer_flags_2"),
+                "decrease_axis": pat.Attr("decrease_axis_2"),
             },
         )
 
-        full_int_array_7 = python_pat.Op(
+        full_int_array_7 = pat.Op(
             "pd_op.full_int_array",
-            {"value": python_pat.Attr("full_int_array_value_7")},
+            {"value": pat.Attr("full_int_array_value_7")},
         )
-        full_int_array_8 = python_pat.Op(
+        full_int_array_8 = pat.Op(
             "pd_op.full_int_array",
-            {"value": python_pat.Attr("full_int_array_value_8")},
+            {"value": pat.Attr("full_int_array_value_8")},
         )
 
-        slice_3 = python_pat.Op(
+        slice_3 = pat.Op(
             "pd_op.slice",
             {
-                "axes": python_pat.Attr("axes_3"),
-                "infer_flags": python_pat.Attr("infer_flags_3"),
-                "decrease_axis": python_pat.Attr("decrease_axis_3"),
+                "axes": pat.Attr("axes_3"),
+                "infer_flags": pat.Attr("infer_flags_3"),
+                "decrease_axis": pat.Attr("decrease_axis_3"),
             },
         )
 
-        full_1 = python_pat.Op(
-            "pd_op.full", {"value": python_pat.Attr("full_1_value")}
-        )
+        full_1 = pat.Op("pd_op.full", {"value": pat.Attr("full_1_value")})
 
-        scale = python_pat.Op(
+        scale = pat.Op(
             "pd_op.scale",
             {
-                "bias": python_pat.Attr("scale_bias"),
-                "bias_after_scale": python_pat.Attr("bias_after_scale"),
+                "bias": pat.Attr("scale_bias"),
+                "bias_after_scale": pat.Attr("bias_after_scale"),
             },
         )
 
-        softmax = python_pat.Op(
-            "pd_op.softmax", {"axis": python_pat.Attr("axis")}
-        )
+        softmax = pat.Op("pd_op.softmax", {"axis": pat.Attr("axis")})
 
         matmul_1(
-            [python_pat.Tensor("x1"), python_pat.Tensor("w1")],
-            [python_pat.Tensor("matmul_out_1")],
+            [pat.Tensor("x1"), pat.Tensor("w1")],
+            [pat.Tensor("matmul_out_1")],
         )
 
         add(
-            [python_pat.Tensor("matmul_out_1"), python_pat.Tensor("bias")],
-            [python_pat.Tensor("add_1_out")],
+            [pat.Tensor("matmul_out_1"), pat.Tensor("bias")],
+            [pat.Tensor("add_1_out")],
         )
 
-        full_int_array_1([], [python_pat.Tensor("full_int_array_1")])
+        full_int_array_1([], [pat.Tensor("full_int_array_1")])
         reshape_1(
             [
-                python_pat.Tensor("add_1_out"),
-                python_pat.Tensor("full_int_array_1"),
+                pat.Tensor("add_1_out"),
+                pat.Tensor("full_int_array_1"),
             ],
-            [python_pat.Tensor("reshape_1_out")],
+            [pat.Tensor("reshape_1_out")],
         )
 
         transpose_1(
-            [python_pat.Tensor("reshape_1_out")],
-            [python_pat.Tensor("transpose_1_out")],
+            [pat.Tensor("reshape_1_out")],
+            [pat.Tensor("transpose_1_out")],
         )
 
-        full_int_array_3([], [python_pat.Tensor("full_int_array_3")])
-        full_int_array_4([], [python_pat.Tensor("full_int_array_4")])
+        full_int_array_3([], [pat.Tensor("full_int_array_3")])
+        full_int_array_4([], [pat.Tensor("full_int_array_4")])
         slice_1(
             [
-                python_pat.Tensor("transpose_1_out"),
-                python_pat.Tensor("full_int_array_3"),
-                python_pat.Tensor("full_int_array_4"),
+                pat.Tensor("transpose_1_out"),
+                pat.Tensor("full_int_array_3"),
+                pat.Tensor("full_int_array_4"),
             ],
-            [python_pat.Tensor("slice_out_1")],
+            [pat.Tensor("slice_out_1")],
         )
 
-        full_int_array_5([], [python_pat.Tensor("full_int_array_5")])
-        full_int_array_6([], [python_pat.Tensor("full_int_array_6")])
+        full_int_array_5([], [pat.Tensor("full_int_array_5")])
+        full_int_array_6([], [pat.Tensor("full_int_array_6")])
         slice_2(
             [
-                python_pat.Tensor("transpose_1_out"),
-                python_pat.Tensor("full_int_array_5"),
-                python_pat.Tensor("full_int_array_6"),
+                pat.Tensor("transpose_1_out"),
+                pat.Tensor("full_int_array_5"),
+                pat.Tensor("full_int_array_6"),
             ],
-            [python_pat.Tensor("slice_out_2")],
+            [pat.Tensor("slice_out_2")],
         )
 
-        full_int_array_7([], [python_pat.Tensor("full_int_array_7")])
-        full_int_array_8([], [python_pat.Tensor("full_int_array_8")])
+        full_int_array_7([], [pat.Tensor("full_int_array_7")])
+        full_int_array_8([], [pat.Tensor("full_int_array_8")])
         slice_3(
             [
-                python_pat.Tensor("transpose_1_out"),
-                python_pat.Tensor("full_int_array_7"),
-                python_pat.Tensor("full_int_array_8"),
+                pat.Tensor("transpose_1_out"),
+                pat.Tensor("full_int_array_7"),
+                pat.Tensor("full_int_array_8"),
             ],
-            [python_pat.Tensor("slice_out_3")],
+            [pat.Tensor("slice_out_3")],
         )
 
         transpose_2(
-            [python_pat.Tensor("slice_out_3")],
-            [python_pat.Tensor("transpose_2_out")],
+            [pat.Tensor("slice_out_3")],
+            [pat.Tensor("transpose_2_out")],
         )
 
         matmul_2(
             [
-                python_pat.Tensor("slice_out_2"),
-                python_pat.Tensor("transpose_2_out"),
+                pat.Tensor("slice_out_2"),
+                pat.Tensor("transpose_2_out"),
             ],
-            [python_pat.Tensor("matmul_out_2")],
+            [pat.Tensor("matmul_out_2")],
         )
 
-        full_1([], [python_pat.Tensor("full_1")])
+        full_1([], [pat.Tensor("full_1")])
         scale(
-            [python_pat.Tensor("matmul_out_2"), python_pat.Tensor("full_1")],
-            [python_pat.Tensor("scale_out")],
+            [pat.Tensor("matmul_out_2"), pat.Tensor("full_1")],
+            [pat.Tensor("scale_out")],
         )
 
-        softmax(
-            [python_pat.Tensor("scale_out")], [python_pat.Tensor("softmax_out")]
-        )
+        softmax([pat.Tensor("scale_out")], [pat.Tensor("softmax_out")])
 
         matmul_3(
             [
-                python_pat.Tensor("softmax_out"),
-                python_pat.Tensor("slice_out_1"),
+                pat.Tensor("softmax_out"),
+                pat.Tensor("slice_out_1"),
             ],
-            [python_pat.Tensor("matmul_out_3")],
+            [pat.Tensor("matmul_out_3")],
         )
 
         transpose_3(
-            [python_pat.Tensor("matmul_out_3")],
-            [python_pat.Tensor("transpose_3_out")],
+            [pat.Tensor("matmul_out_3")],
+            [pat.Tensor("transpose_3_out")],
         )
 
-        full_int_array_2([], [python_pat.Tensor("full_int_array_2")])
+        full_int_array_2([], [pat.Tensor("full_int_array_2")])
         reshape_2(
             [
-                python_pat.Tensor("transpose_3_out"),
-                python_pat.Tensor("full_int_array_2"),
+                pat.Tensor("transpose_3_out"),
+                pat.Tensor("full_int_array_2"),
             ],
-            [python_pat.Tensor("reshape_2_out")],
+            [pat.Tensor("reshape_2_out")],
         )
 
-        python_pat.AddConstraint(constraint_function)
+        pat.AddConstraint(constraint_function)
 
         # Result Pattern
-        python_res = python_pat.ResultPattern()
+        res = pat.ResultPattern()
 
         def compute_reshape_w_shape(match_ctx):
             w1_shape = match_ctx.Tensor("w1").shape
@@ -315,14 +303,12 @@ class TestVitAttentionPattern(PassTest):
             dim_2 = w1_shape[1] // 3
             return ([dim_0, 3, dim_2], "vector<int64>")
 
-        reshape_w_shape_attr = python_res.ComputeAttr(compute_reshape_w_shape)
+        reshape_w_shape_attr = res.ComputeAttr(compute_reshape_w_shape)
 
-        res_reshape1 = python_res.Op(
-            "pd_op.reshape", {"shape": reshape_w_shape_attr}
-        )
+        res_reshape1 = res.Op("pd_op.reshape", {"shape": reshape_w_shape_attr})
         res_reshape1(
-            [python_res.Tensor("w1")],
-            [python_res.Tensor("reshape_w_out"), python_res.OutputNoneTensor()],
+            [res.Tensor("w1")],
+            [res.Tensor("reshape_w_out"), res.OutputNoneTensor()],
         )
 
         def compute_reshape_b_shape(match_ctx):
@@ -330,16 +316,14 @@ class TestVitAttentionPattern(PassTest):
             dim = bias_shape[0] // 3
             return ([3, dim], "vector<int64>")
 
-        reshape_b_shape_attr = python_res.ComputeAttr(compute_reshape_b_shape)
+        reshape_b_shape_attr = res.ComputeAttr(compute_reshape_b_shape)
 
-        res_reshape2 = python_res.Op(
-            "pd_op.reshape", {"shape": reshape_b_shape_attr}
-        )
+        res_reshape2 = res.Op("pd_op.reshape", {"shape": reshape_b_shape_attr})
         res_reshape2(
-            [python_res.Tensor("bias")],
+            [res.Tensor("bias")],
             [
-                python_res.Tensor("reshape_bias_out"),
-                python_res.OutputNoneTensor(),
+                res.Tensor("reshape_bias_out"),
+                res.OutputNoneTensor(),
             ],
         )
 
@@ -349,19 +333,19 @@ class TestVitAttentionPattern(PassTest):
                 "int32",
             )
 
-        head_number = python_res.ComputeAttr(compute_head_number)
+        head_number = res.ComputeAttr(compute_head_number)
 
         def compute_alpha(match_ctx):
             return (match_ctx.DoubleAttr("full_1_value"), "float")
 
-        alpha = python_res.ComputeAttr(compute_alpha)
+        alpha = res.ComputeAttr(compute_alpha)
 
-        multihead_matmul_op = python_res.Op(
+        multihead_matmul_op = res.Op(
             "pd_op.multihead_matmul",
             {
-                "transpose_q": python_res.BoolAttr(False),
-                "transpose_k": python_res.BoolAttr(False),
-                "transpose_v": python_res.BoolAttr(False),
+                "transpose_q": res.BoolAttr(False),
+                "transpose_k": res.BoolAttr(False),
+                "transpose_v": res.BoolAttr(False),
                 "alpha": alpha,
                 "head_number": head_number,
             },
@@ -369,15 +353,15 @@ class TestVitAttentionPattern(PassTest):
 
         multihead_matmul_op(
             [
-                python_res.Tensor("x1"),
-                python_res.Tensor("reshape_w_out"),
-                python_res.Tensor("reshape_bias_out"),
-                python_res.InputNoneTensor(),
+                res.Tensor("x1"),
+                res.Tensor("reshape_w_out"),
+                res.Tensor("reshape_bias_out"),
+                res.InputNoneTensor(),
             ],
-            [python_res.Tensor("reshape_2_out")],
+            [res.Tensor("reshape_2_out")],
         )
 
-        return python_ctx
+        return ctx
 
     def is_program_valid(self, program):
         return True

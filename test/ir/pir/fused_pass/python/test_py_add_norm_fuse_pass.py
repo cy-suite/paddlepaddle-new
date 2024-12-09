@@ -41,8 +41,8 @@ class TestRmsNormFusePattern(PassTest):
     """
 
     def fused_rms_norm_pattern(self):
-        python_ctx = pir.DrrPatternContext()
-        python_pat = python_ctx.SourcePattern()
+        ctx = pir.DrrPatternContext()
+        pat = ctx.SourcePattern()
 
         def constraint_function(match_ctx):
             axis = match_ctx.VectorInt64Attr("axis")
@@ -51,48 +51,46 @@ class TestRmsNormFusePattern(PassTest):
             return True
 
         # Source Pattern
-        pow = python_pat.Op("pd_op.pow")
+        pow = pat.Op("pd_op.pow")
 
-        mean = python_pat.Op("pd_op.mean", {"axis": python_pat.Attr("axis")})
+        mean = pat.Op("pd_op.mean", {"axis": pat.Attr("axis")})
 
-        full = python_pat.Op("pd_op.full")
+        full = pat.Op("pd_op.full")
 
-        scale = python_pat.Op("pd_op.scale", {"bias": python_pat.Attr("bias")})
+        scale = pat.Op("pd_op.scale", {"bias": pat.Attr("bias")})
 
-        rsqrt = python_pat.Op("pd_op.rsqrt")
-        multiply1 = python_pat.Op("pd_op.multiply")
-        multiply2 = python_pat.Op("pd_op.multiply")
+        rsqrt = pat.Op("pd_op.rsqrt")
+        multiply1 = pat.Op("pd_op.multiply")
+        multiply2 = pat.Op("pd_op.multiply")
 
         # Operation connections
-        pow([python_pat.Tensor("x")], [python_pat.Tensor("pow_out")])
+        pow([pat.Tensor("x")], [pat.Tensor("pow_out")])
 
-        mean([python_pat.Tensor("pow_out")], [python_pat.Tensor("mean_out")])
+        mean([pat.Tensor("pow_out")], [pat.Tensor("mean_out")])
 
-        full([], [python_pat.Tensor("full_out")])
+        full([], [pat.Tensor("full_out")])
 
         scale(
-            [python_pat.Tensor("mean_out"), python_pat.Tensor("full_out")],
-            [python_pat.Tensor("scale_out")],
+            [pat.Tensor("mean_out"), pat.Tensor("full_out")],
+            [pat.Tensor("scale_out")],
         )
 
-        rsqrt(
-            [python_pat.Tensor("scale_out")], [python_pat.Tensor("rsqrt_out")]
-        )
+        rsqrt([pat.Tensor("scale_out")], [pat.Tensor("rsqrt_out")])
 
         multiply1(
-            [python_pat.Tensor("rsqrt_out"), python_pat.Tensor("x")],
-            [python_pat.Tensor("multiply_out1")],
+            [pat.Tensor("rsqrt_out"), pat.Tensor("x")],
+            [pat.Tensor("multiply_out1")],
         )
 
         multiply2(
-            [python_pat.Tensor("multiply_out1"), python_pat.Tensor("w")],
-            [python_pat.Tensor("multiply_out2")],
+            [pat.Tensor("multiply_out1"), pat.Tensor("w")],
+            [pat.Tensor("multiply_out2")],
         )
 
-        python_pat.AddConstraint(constraint_function)
+        pat.AddConstraint(constraint_function)
 
         # Result Pattern
-        python_res = python_pat.ResultPattern()
+        res = pat.ResultPattern()
 
         def compute_begin_norm_axis(match_ctx):
             axis = match_ctx.VectorInt64Attr("axis")
@@ -102,36 +100,36 @@ class TestRmsNormFusePattern(PassTest):
                 "int32",
             )
 
-        begin_norm_axis = python_res.ComputeAttr(compute_begin_norm_axis)
+        begin_norm_axis = res.ComputeAttr(compute_begin_norm_axis)
 
-        rms_norm = python_res.Op(
+        rms_norm = res.Op(
             "pd_op.rms_norm",
             {
-                "epsilon": python_pat.Attr("bias"),
+                "epsilon": pat.Attr("bias"),
                 "begin_norm_axis": begin_norm_axis,
-                "quant_scale": python_res.Float32Attr(-1.0),
-                "quant_round_type": python_res.Int32Attr(0),
-                "quant_max_bound": python_res.Float32Attr(0.0),
-                "quant_min_bound": python_res.Float32Attr(0.0),
+                "quant_scale": res.Float32Attr(-1.0),
+                "quant_round_type": res.Int32Attr(0),
+                "quant_max_bound": res.Float32Attr(0.0),
+                "quant_min_bound": res.Float32Attr(0.0),
             },
         )
 
         rms_norm(
             [
-                python_res.Tensor("x"),
-                python_res.InputNoneTensor(),
-                python_res.InputNoneTensor(),
-                python_res.Tensor("w"),
-                python_res.InputNoneTensor(),
+                res.Tensor("x"),
+                res.InputNoneTensor(),
+                res.InputNoneTensor(),
+                res.Tensor("w"),
+                res.InputNoneTensor(),
             ],
             [
-                python_res.Tensor("multiply_out2"),
-                python_res.Tensor("residual_out"),
-                python_res.Tensor("inv_var"),
+                res.Tensor("multiply_out2"),
+                res.Tensor("residual_out"),
+                res.Tensor("inv_var"),
             ],
         )
 
-        return python_ctx
+        return ctx
 
     def is_program_valid(self, program=None):
         return True

@@ -55,101 +55,95 @@ class TestFused2EmbeddingEltwiseLayernormPattern(PassTest):
                     return False
             return True
 
-        python_ctx = pir.DrrPatternContext()
-        python_pat = python_ctx.SourcePattern()
+        ctx = pir.DrrPatternContext()
+        pat = ctx.SourcePattern()
 
-        embedding1_op = python_pat.Op("pd_op.embedding")
-        embedding2_op = python_pat.Op("pd_op.embedding")
-        add_op = python_pat.Op("pd_op.add")
+        embedding1_op = pat.Op("pd_op.embedding")
+        embedding2_op = pat.Op("pd_op.embedding")
+        add_op = pat.Op("pd_op.add")
 
-        layer_norm_op = python_pat.Op(
-            "pd_op.layer_norm", {"epsilon": python_pat.Attr("epsilon")}
+        layer_norm_op = pat.Op(
+            "pd_op.layer_norm", {"epsilon": pat.Attr("epsilon")}
         )
 
         embedding1_op(
-            [python_pat.Tensor("x1"), python_pat.Tensor("w1")],
-            [python_pat.Tensor("embedding_1_out")],
+            [pat.Tensor("x1"), pat.Tensor("w1")],
+            [pat.Tensor("embedding_1_out")],
         )
         embedding2_op(
-            [python_pat.Tensor("x2"), python_pat.Tensor("w2")],
-            [python_pat.Tensor("embedding_2_out")],
+            [pat.Tensor("x2"), pat.Tensor("w2")],
+            [pat.Tensor("embedding_2_out")],
         )
 
         add_op(
             [
-                python_pat.Tensor("embedding_1_out"),
-                python_pat.Tensor("embedding_2_out"),
+                pat.Tensor("embedding_1_out"),
+                pat.Tensor("embedding_2_out"),
             ],
-            [python_pat.Tensor("add_out")],
+            [pat.Tensor("add_out")],
         )
         layer_norm_op(
             [
-                python_pat.Tensor("add_out"),
-                python_pat.Tensor("scale"),
-                python_pat.Tensor("bias"),
+                pat.Tensor("add_out"),
+                pat.Tensor("scale"),
+                pat.Tensor("bias"),
             ],
             [
-                python_pat.Tensor("layernorm_out"),
-                python_pat.Tensor("layernorm_mean"),
-                python_pat.Tensor("layernorm_variance"),
+                pat.Tensor("layernorm_out"),
+                pat.Tensor("layernorm_mean"),
+                pat.Tensor("layernorm_variance"),
             ],
         )
 
-        python_pat.AddConstraint(cons_function)
+        pat.AddConstraint(cons_function)
 
         # res pattern
-        python_res = python_pat.ResultPattern()
+        res = pat.ResultPattern()
 
-        combine_op_1 = python_res.Op("builtin.combine")
+        combine_op_1 = res.Op("builtin.combine")
         combine_op_1(
-            [python_res.Tensor("x1"), python_res.Tensor("x2")],
-            [python_res.Tensor("combine1_out")],
+            [res.Tensor("x1"), res.Tensor("x2")],
+            [res.Tensor("combine1_out")],
         )
 
-        combine_op_2 = python_res.Op("builtin.combine")
+        combine_op_2 = res.Op("builtin.combine")
         combine_op_2(
-            [python_res.Tensor("w1"), python_res.Tensor("w2")],
-            [python_res.Tensor("combine2_out")],
+            [res.Tensor("w1"), res.Tensor("w2")],
+            [res.Tensor("combine2_out")],
         )
 
         def compute_dtype(match_ctx):
             return (match_ctx.Tensor("w1").dtype, "datatype")
 
-        cast_op_dtype = python_res.ComputeAttr(compute_dtype)
+        cast_op_dtype = res.ComputeAttr(compute_dtype)
 
-        cast_op_1 = python_res.Op("pd_op.cast", {"dtype": cast_op_dtype})
-        cast_op_2 = python_res.Op("pd_op.cast", {"dtype": cast_op_dtype})
-        fused_embedding_eltwise_layernorm_op = python_res.Op(
+        cast_op_1 = res.Op("pd_op.cast", {"dtype": cast_op_dtype})
+        cast_op_2 = res.Op("pd_op.cast", {"dtype": cast_op_dtype})
+        fused_embedding_eltwise_layernorm_op = res.Op(
             "pd_op.fused_embedding_eltwise_layernorm",
-            {"epsilon": python_pat.Attr("epsilon")},
+            {"epsilon": pat.Attr("epsilon")},
         )
 
         # op forward
-        cast_op_1(
-            [python_res.Tensor("bias")], [python_res.Tensor("casted_bias")]
-        )
-        cast_op_2(
-            [python_res.Tensor("scale")], [python_res.Tensor("casted_scale")]
-        )
+        cast_op_1([res.Tensor("bias")], [res.Tensor("casted_bias")])
+        cast_op_2([res.Tensor("scale")], [res.Tensor("casted_scale")])
         fused_embedding_eltwise_layernorm_op(
             [
-                python_res.Tensor("combine1_out"),
-                python_res.Tensor("combine2_out"),
-                python_res.Tensor("casted_bias"),
-                python_res.Tensor("casted_scale"),
+                res.Tensor("combine1_out"),
+                res.Tensor("combine2_out"),
+                res.Tensor("casted_bias"),
+                res.Tensor("casted_scale"),
             ],
-            [python_res.Tensor("layernorm_out")],
+            [res.Tensor("layernorm_out")],
         )
 
-        return python_ctx
+        return ctx
 
     def is_program_valid(self, program):
         return True
 
     def sample_program(self):
-        python_fused_embedding_ctx = (
-            self.fused_2embedding_eltwise_layernorm_pattern()
-        )
+        fused_embedding_ctx = self.fused_2embedding_eltwise_layernorm_pattern()
         with paddle.pir_utils.IrGuard():
             main_prog = paddle.static.Program()
             start_prog = paddle.static.Program()
@@ -165,7 +159,7 @@ class TestFused2EmbeddingEltwiseLayernormPattern(PassTest):
                 out = paddle.assign(out)
                 self.pass_attr_list = [
                     {
-                        'py_embedding_eltwise_layernorm_fuse_pass': python_fused_embedding_ctx
+                        'py_embedding_eltwise_layernorm_fuse_pass': fused_embedding_ctx
                     }
                 ]
                 self.feeds = {

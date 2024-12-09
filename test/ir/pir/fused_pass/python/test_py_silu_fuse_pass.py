@@ -28,29 +28,29 @@ class TestSiluFusePass(PassTest):
     r""" """
 
     def fused_silu_pass(self):
-        python_ctx = pir.DrrPatternContext()
-        python_pat = python_ctx.SourcePattern()
-        sigmoid_op = python_pat.Op("pd_op.sigmoid")
-        multiply_op = python_pat.Op("pd_op.multiply")
+        ctx = pir.DrrPatternContext()
+        pat = ctx.SourcePattern()
+        sigmoid_op = pat.Op("pd_op.sigmoid")
+        multiply_op = pat.Op("pd_op.multiply")
 
         sigmoid_op(
-            [python_pat.Tensor("sigmoid_in")],
-            [python_pat.Tensor("sigmoid_out")],
+            [pat.Tensor("sigmoid_in")],
+            [pat.Tensor("sigmoid_out")],
         )
         multiply_op(
-            [python_pat.Tensor("sigmoid_in"), python_pat.Tensor("sigmoid_out")],
-            [python_pat.Tensor("multiply_out")],
+            [pat.Tensor("sigmoid_in"), pat.Tensor("sigmoid_out")],
+            [pat.Tensor("multiply_out")],
         )
 
         # res pattern
-        python_res = python_pat.ResultPattern()
-        swish_op = python_res.Op("pd_op.swish")
+        res = pat.ResultPattern()
+        swish_op = res.Op("pd_op.swish")
         swish_op(
-            [python_res.Tensor("sigmoid_in")],
-            [python_res.Tensor("multiply_out")],
+            [res.Tensor("sigmoid_in")],
+            [res.Tensor("multiply_out")],
         )
 
-        return python_ctx
+        return ctx
 
     def is_program_valid(self, program=None):
         return True

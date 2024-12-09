@@ -61,54 +61,52 @@ class TestMatmulOutTransposeFusePattern(PassTest):
                 return False
             return True
 
-        python_ctx = pir.DrrPatternContext()
-        python_pat = python_ctx.SourcePattern()
+        ctx = pir.DrrPatternContext()
+        pat = ctx.SourcePattern()
 
-        matmul_op = python_pat.Op(
+        matmul_op = pat.Op(
             "pd_op.matmul",
             {
-                "transpose_x": python_pat.Attr("transpose_x"),
-                "transpose_y": python_pat.Attr("transpose_y"),
+                "transpose_x": pat.Attr("transpose_x"),
+                "transpose_y": pat.Attr("transpose_y"),
             },
         )
-        transpose_op = python_pat.Op(
-            "pd_op.transpose", {"perm": python_pat.Attr("perm")}
-        )
+        transpose_op = pat.Op("pd_op.transpose", {"perm": pat.Attr("perm")})
 
         matmul_op(
-            [python_pat.Tensor("a"), python_pat.Tensor("b")],
-            [python_pat.Tensor("matmul_op_out")],
+            [pat.Tensor("a"), pat.Tensor("b")],
+            [pat.Tensor("matmul_op_out")],
         )
         transpose_op(
-            [python_pat.Tensor("matmul_op_out")],
-            [python_pat.Tensor("transpose_op_out")],
+            [pat.Tensor("matmul_op_out")],
+            [pat.Tensor("transpose_op_out")],
         )
 
-        python_pat.AddConstraint(cons_function)
+        pat.AddConstraint(cons_function)
 
-        python_res = python_pat.ResultPattern()
+        res = pat.ResultPattern()
 
         def res_transpose_x(match_ctx):
             return (not match_ctx.BoolAttr("transpose_x"), "bool")
 
-        transpose_x = python_res.ComputeAttr(res_transpose_x)
+        transpose_x = res.ComputeAttr(res_transpose_x)
 
         def res_transpose_y(match_ctx):
             return (not match_ctx.BoolAttr("transpose_y"), "bool")
 
-        transpose_y = python_res.ComputeAttr(res_transpose_y)
+        transpose_y = res.ComputeAttr(res_transpose_y)
 
-        fused_matmul_transpose_op = python_res.Op(
+        fused_matmul_transpose_op = res.Op(
             "pd_op.matmul",
             {"transpose_x": transpose_y, "transpose_y": transpose_x},
         )
 
         fused_matmul_transpose_op(
-            [python_res.Tensor("b"), python_res.Tensor("a")],
-            [python_res.Tensor("transpose_op_out")],
+            [res.Tensor("b"), res.Tensor("a")],
+            [res.Tensor("transpose_op_out")],
         )
 
-        return python_ctx
+        return ctx
 
     def is_program_valid(self, program=None):
         return True
