@@ -64,8 +64,19 @@ bool BroadcastOpInferSymbolicShape(
 
 bool ConcatOpInferSymbolicShape(pir::Operation *op,
                                 pir::InferSymbolicShapeContext *infer_context) {
-  const auto input_values = op->operands_source();
-  const auto input_size = input_values.size();
+  VLOG(3) << "Infer symbolic shape for cinn_op.concat. op id:" << op->id();
+  const auto &input_values = op->operands_source();
+  const size_t input_size = input_values.size();
+  PADDLE_ENFORCE_GT(
+      input_size,
+      0,
+      ::common::errors::InvalidArgument(
+          "In cinn.concat op, he number of inputs should greater than 0."));
+  VLOG(3) << "input size :" << input_size;
+  int axis = op->attributes().at("axis").dyn_cast<pir::Int32Attribute>().data();
+  VLOG(3) << "axis :" << axis;
+  size_t shape_rank =
+      infer_context->GetShapeOrDataForValue(input_values.at(0)).shape().size();
 
   const auto IsAllDataValue = [&]() -> bool {
     for (const auto &value : input_values) {
@@ -76,24 +87,50 @@ bool ConcatOpInferSymbolicShape(pir::Operation *op,
     return true;
   };
 
-  if (IsAllDataValue()) {
-    std::vector<symbol::DimExpr> out_data;
-    for (const auto &value : input_values) {
-      const auto &shape_or_data = infer_context->GetShapeOrDataForValue(value);
-      for (size_t i = 0; i < shape_or_data.data().value().size(); ++i) {
-        out_data.emplace_back(shape_or_data.data().value()[i]);
+  if (IsAllDataValue() && (shape_rank == 1)) {
+    VLOG(3) << "All input have data value";
+    std::vector<symbol::DimExpr> out_shape =
+        infer_context->GetShapeOrDataForValue(input_values[0]).shape();
+    std::vector<symbol::DimExpr> out_data =
+        infer_context->GetShapeOrDataForValue(input_values[0]).data().value();
+
+    auto const &PrintShape = [&](const std::vector<symbol::DimExpr> &shape) {
+      for (const auto &dim : shape) {
+        VLOG(3) << dim;
+      }
+    };
+
+    for (size_t i = 1; i < input_size; ++i) {
+      const auto &shape_or_data =
+          infer_context->GetShapeOrDataForValue(input_values[i]);
+      // print shape
+      VLOG(3) << "print shape:";
+      PrintShape(shape_or_data.shape());
+      // print data
+      VLOG(3) << "print data:";
+      PrintShape(shape_or_data.data().value());
+
+      // infer shape
+      for (size_t j = 0; j < shape_rank; ++j) {
+        if (j == static_cast<size_t>(axis)) {
+          out_shape.at(axis) =
+              out_shape.at(axis) + shape_or_data.shape().at(axis);
+        }
+      }
+
+      // infer data and flatten it
+      for (size_t j = 0; j < shape_or_data.data().value().size(); ++j) {
+        out_data.emplace_back(shape_or_data.data().value()[j]);
       }
     }
-    const std::vector<symbol::DimExpr> shape{std::int64_t(out_data.size())};
+
     symbol::ShapeOrDataDimExprs shape_data{
-        symbol::TensorShapeOrDataDimExprs(shape, out_data)};
+        symbol::TensorShapeOrDataDimExprs(out_shape, out_data)};
 
     pir::Value res = op->result(0);
     infer_context->SetShapeOrDataForValue(res, shape_data);
     return true;
   }
-
-  int axis = op->attributes().at("axis").dyn_cast<pir::Int32Attribute>().data();
 
   const auto &GetOutDimExprs = [&]() -> std::vector<symbol::DimExpr> {
     std::vector<symbol::DimExpr> out_dims =
@@ -120,6 +157,7 @@ bool ConcatOpInferSymbolicShape(pir::Operation *op,
   symbol::ShapeOrDataDimExprs shape_data{
       symbol::TensorShapeOrDataDimExprs(GetOutDimExprs())};
 
+  VLOG(3) << "END ConcatOpInferSymbolicShape";
   infer_context->SetShapeOrDataForValue(op->result(0), shape_data);
   return true;
 }
@@ -333,6 +371,7 @@ bool ReshapeOpInferSymbolicShape(
 
 bool SliceOpInferSymbolicShape(pir::Operation *op,
                                pir::InferSymbolicShapeContext *infer_context) {
+  VLOG(3) << "start cinn.slice OpInferSymbolicShape. op id:" << op->id();
   const std::vector<int64_t> starts_raw =
       paddle::dialect::details::GetVectorAttr(op, "starts");
   const std::vector<int64_t> ends_raw =

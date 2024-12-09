@@ -234,7 +234,6 @@ bool YieldStoreOp::InferSymbolicShape(
 
 bool ConcatOp::InferSymbolicShape(
     pir::InferSymbolicShapeContext* infer_context) {
-  VLOG(4) << "Infer symbolic shape for cinn_op.concat";
   return ConcatOpInferSymbolicShape(this->operation(), infer_context);
 }
 
