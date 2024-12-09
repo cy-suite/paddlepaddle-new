@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import dis
 import sys
 from typing import TYPE_CHECKING
 
@@ -40,7 +41,7 @@ def apply_instr_pass(instrs: list[Instruction], code_options):
         supported_passes.append(check_for_iter_jump_to)
 
     if sys.version_info >= (3, 13):
-        supported_passes.append(fuse_double_load_fast)
+        supported_passes.append(fuse_double_super_instrs)
 
     for instr_pass in supported_passes:
         instr_pass(instrs, code_options)
@@ -281,65 +282,41 @@ def check_for_iter_jump_to(instrs: list[Instruction], code_options):
                 raise InnerError("FOR_ITER jump_to is not END_FOR")
 
 
-def fuse_double_load_fast(instrs: list[Instruction], code_options):
+def fuse_double_super_instrs(instrs: list[Instruction], code_options):
     """
-    Some variables are loaded in order, the corresponding LOAD_FAST instructions can be merged into a single LOAD_FAST_LOAD_FAST.
+    Fuse two consecutive LOAD_FAST or STORE_FAST instructions into one.
     """
-    non_local_LOAD = (
-        "LOAD_GLOBAL",
-        "LOAD_CONST",
-    )
-    first_op_index: int = -1
+    co_varnames = code_options['co_varnames']
+    TO_FUSE_INSTS: dict[tuple[str, str], str] = {
+        ("LOAD_FAST", "LOAD_FAST"): "LOAD_FAST_LOAD_FAST",
+        ("STORE_FAST", "STORE_FAST"): "STORE_FAST_STORE_FAST",
+        ("STORE_FAST", "LOAD_FAST"): "STORE_FAST_LOAD_FAST",
+    }
 
-    def able_to_merge(idx: int, instr: Instruction):
+    def able_to_merge(idx: int):
         return (
             idx > 0
-            and instr.opname == "LOAD_FAST"
-            and instrs[idx - 1].opname == "LOAD_FAST"
-            and not instr.is_jump_target
+            and (instrs[idx - 1].opname, instrs[idx].opname)
+            in TO_FUSE_INSTS.keys()
+            and not instrs[idx].is_jump_target
             and not instrs[idx - 1].is_jump_target
+            and co_varnames.index(instrs[idx - 1].argval) < 16
+            and co_varnames.index(instrs[idx].argval) < 16
         )
 
-    def merge_two_LOAD_FAST(prev_instr: Instruction, instr: Instruction):
-        prev_instr.opname = "LOAD_FAST_LOAD_FAST"
-        prev_instr.opcode = 88
+    def merge_two_op(prev_instr: Instruction, instr: Instruction):
+        merge_key = (instrs[idx - 1].opname, instrs[idx].opname)
+        prev_instr.opname = TO_FUSE_INSTS[merge_key]
+        prev_instr.opcode = dis.opmap[prev_instr.opname]
         prev_instr.is_generated = True
         prev_instr.argval = (prev_instr.argval, instr.argval)
         instrs.remove(instr)
 
-    def check_first_op(now_idx: int):
-        nonlocal first_op_index
-        if (
-            instrs[now_idx - 1].opname in non_local_LOAD
-            and instrs[now_idx - 2].opname == "LOAD_FAST"
-        ):
-            first_op_index = now_idx
-
     idx = 0
     # We must manually control the indices, so we cannot use a for loop.
     while idx < len(instrs):
-        instr = instrs[idx]
-
-        if able_to_merge(idx, instr):
-            merge_two_LOAD_FAST(instrs[idx - 1], instr)
+        if able_to_merge(idx):
+            merge_two_op(instrs[idx - 1], instrs[idx])
             continue
-
-        # adjust the order of arithmetic operations to produce new LOAD_FAST_LOAD_FAST, still in progress.
-        # if first_op_index == -1 and instr.opname == "BINARY_OP":
-        #     check_first_op(idx)
-
-        # if (
-        #     first_op_index != -1
-        #     and instr.opname == "BINARY_OP"
-        #     and instrs[idx - 1].opname == "LOAD_FAST"
-        # ):
-        #     instrs[idx - 1], instrs[first_op_index - 1] = (
-        #         instrs[first_op_index - 1],
-        #         instrs[idx - 1],
-        #     )
-        #     merge_two_LOAD_FAST(
-        #         instrs[first_op_index - 2], instrs[first_op_index - 1]
-        #     )
-        #     first_op_index = -1
 
         idx += 1

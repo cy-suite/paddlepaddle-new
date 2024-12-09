@@ -413,7 +413,11 @@ def modify_vars(instructions: list[Instruction], code_options):
                     instrs.argval in namemap
                 ), f"`{instrs.argval}` not in {namemap}"
                 instrs.arg = namemap.index(instrs.argval)
-        elif instrs.opname == "LOAD_FAST_LOAD_FAST":
+        elif instrs.opname in [
+            'LOAD_FAST_LOAD_FAST',
+            'STORE_FAST_STORE_FAST',
+            'STORE_FAST_LOAD_FAST',
+        ]:
             assert (
                 instrs.argval[0] in co_varnames
             ), f"`{instrs.argval[0]}` not in {co_varnames}"
