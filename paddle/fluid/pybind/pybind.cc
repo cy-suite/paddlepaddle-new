@@ -2424,20 +2424,26 @@ All parameter, weight, gradient are variables in Paddle.
   m.def("device_memory_stat_current_value",
         memory::DeviceMemoryStatCurrentValue);
   m.def("device_memory_stat_peak_value", memory::DeviceMemoryStatPeakValue);
-  m.def("device_memory_stat_reset_peak_value", memory::DeviceMemoryStatResetPeakValue);
+  m.def("device_memory_stat_reset_peak_value",
+        memory::DeviceMemoryStatResetPeakValue);
 
   m.def("device_memory_stats", [](int dev_id) {
     py::dict dict;
-    dict["memory.allocated.current"] = memory::DeviceMemoryStatCurrentValue("Allocated", dev_id);
-    dict["memory.allocated.peak"] = memory::DeviceMemoryStatPeakValue("Allocated", dev_id);
-    dict["memory.reserved.current"] = memory::DeviceMemoryStatCurrentValue("Reserved", dev_id);
-    dict["memory.reserved.peak"] = memory::DeviceMemoryStatPeakValue("Reserved", dev_id);
+    dict["memory.allocated.current"] =
+        memory::DeviceMemoryStatCurrentValue("Allocated", dev_id);
+    dict["memory.allocated.peak"] =
+        memory::DeviceMemoryStatPeakValue("Allocated", dev_id);
+    dict["memory.reserved.current"] =
+        memory::DeviceMemoryStatCurrentValue("Reserved", dev_id);
+    dict["memory.reserved.peak"] =
+        memory::DeviceMemoryStatPeakValue("Reserved", dev_id);
     return dict;
   });
 
   m.def("host_memory_stat_current_value", memory::HostMemoryStatCurrentValue);
   m.def("host_memory_stat_peak_value", memory::HostMemoryStatPeakValue);
-  m.def("host_memory_stat_reset_peak_value", memory::HostMemoryStatResetPeakValue);
+  m.def("host_memory_stat_reset_peak_value",
+        memory::HostMemoryStatResetPeakValue);
   m.def(
       "run_cmd",
       [](const std::string &cmd,

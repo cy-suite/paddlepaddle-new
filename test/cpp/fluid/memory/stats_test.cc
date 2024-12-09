@@ -98,12 +98,14 @@ class StatsTest : public ::testing::Test {
   }
 
   void ResetPeakValueTest() {
-    for(long unsigned int i = 0; i < datas_.size(); ++i) {
-      update_func_(stat_type_, 0, datas_[i]);
+    for (int64_t data : datas_) {
+      update_func_(stat_type_, 0, data);
 
-      EXPECT_GE(peak_value_func_(stat_type_, 0), current_value_func_(stat_type_, 0));
+      EXPECT_GE(peak_value_func_(stat_type_, 0),
+                current_value_func_(stat_type_, 0));
       reset_peak_value_func_(stat_type_, 0);
-      EXPECT_EQ(peak_value_func_(stat_type_, 0), current_value_func_(stat_type_, 0));
+      EXPECT_EQ(peak_value_func_(stat_type_, 0),
+                current_value_func_(stat_type_, 0));
     }
   }
 

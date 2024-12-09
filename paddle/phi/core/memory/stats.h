@@ -117,8 +117,10 @@ class Stat : public StatBase {
     int64_t current_value = GetCurrentValue();
     peak_value_.store(current_value, std::memory_order_relaxed);
 
-    std::unordered_map<uint64_t, std::reference_wrapper<ThreadLocalStatType>> thread_local_stats =
-      ThreadDataRegistry<ThreadLocalStatType>::GetInstance().GetAllThreadDataByRef();
+    std::unordered_map<uint64_t, std::reference_wrapper<ThreadLocalStatType>>
+        thread_local_stats =
+            ThreadDataRegistry<ThreadLocalStatType>::GetInstance()
+                .GetAllThreadDataByRef();
 
     for (auto pair : thread_local_stats) {
       pair.second.get().peak = pair.second.get().current;
@@ -143,14 +145,14 @@ int64_t DeviceMemoryStatPeakValue(const std::string& stat_type, int dev_id);
 void DeviceMemoryStatUpdate(const std::string& stat_type,
                             int dev_id,
                             int64_t increment);
-void DeviceMemoryStatResetPeakValue(const std::string& stat_type,int dev_id);
+void DeviceMemoryStatResetPeakValue(const std::string& stat_type, int dev_id);
 
 int64_t HostMemoryStatCurrentValue(const std::string& stat_type, int dev_id);
 int64_t HostMemoryStatPeakValue(const std::string& stat_type, int dev_id);
 void HostMemoryStatUpdate(const std::string& stat_type,
                           int dev_id,
                           int64_t increment);
-void HostMemoryStatResetPeakValue(const std::string& stat_type,int dev_id);
+void HostMemoryStatResetPeakValue(const std::string& stat_type, int dev_id);
 
 void LogDeviceMemoryStats(const phi::Place& place, const std::string& op_name);
 

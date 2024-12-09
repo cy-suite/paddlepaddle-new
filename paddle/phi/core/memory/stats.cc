@@ -97,7 +97,7 @@ void DeviceMemoryStatUpdate(const std::string& stat_type,
   StatRegistry::GetInstance()->Update("Device" + stat_type, dev_id, increment);
 }
 
-void DeviceMemoryStatResetPeakValue(const std::string& stat_type,int dev_id) {
+void DeviceMemoryStatResetPeakValue(const std::string& stat_type, int dev_id) {
   StatRegistry::GetInstance()->ResetPeakValue("Device" + stat_type, dev_id);
 }
 
@@ -116,7 +116,7 @@ void HostMemoryStatUpdate(const std::string& stat_type,
   StatRegistry::GetInstance()->Update("Host" + stat_type, dev_id, increment);
 }
 
-void HostMemoryStatResetPeakValue(const std::string& stat_type,int dev_id) {
+void HostMemoryStatResetPeakValue(const std::string& stat_type, int dev_id) {
   StatRegistry::GetInstance()->ResetPeakValue("Host" + stat_type, dev_id);
 }
 
