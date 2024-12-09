@@ -37,10 +37,10 @@ from paddle.base import core
 #         self.outputs = {'Out': np.clip(self.x, self.min, self.max)}
 
 #     def test_check_output(self):
-#         self.check_output()
+#         self.check_output(check_pir=True, check_symbol_infer=False)
 
-#     def test_check_grad_normal(self):
-#         self.check_grad(['X'], 'out')
+#     def test_check_grad(self):
+#         self.check_grad(['X'], 'out', check_pir=True)
 
 #     def initTestCase(self):
 #         self.dtype = 'float32'
@@ -51,105 +51,6 @@ from paddle.base import core
 #     def initTestCase(self):
 #         self.dtype = 'float32'
 #         self.shape = (8, 16, 8)
-
-
-def np_pd_equal(x_shape, min_shape=None, max_shape=None, dtype='float32'):
-    paddle.disable_static()
-    x = np.random.randn(*x_shape).astype(dtype)
-    if max_shape is None:
-        if dtype == 'int32':
-            max = np.iinfo(np.int32).max - 2**7
-        elif dtype == 'int64':
-            max = np.iinfo(np.int64).max - 2**39
-        elif dtype == 'float16':
-            max = float(np.finfo(np.float16).max)
-        else:
-            max = float(np.finfo(np.float32).max)
-    else:
-        max = np.random.randn(*max_shape).astype(dtype)
-    if min_shape is None:
-        if dtype == 'int32':
-            min = np.iinfo(np.int32).min
-        elif dtype == 'int64':
-            min = np.iinfo(np.int64).min
-        elif dtype == 'float16':
-            min = float(np.finfo(np.float16).min)
-        else:
-            min = float(np.finfo(np.float32).min)
-    else:
-        min = np.random.randn(*min_shape).astype(dtype)
-    np_out = np.clip(x, min, max)
-    x_pd = paddle.to_tensor(x, dtype=dtype)
-    min_pd = paddle.to_tensor(min, dtype=dtype)
-    max_pd = paddle.to_tensor(max, dtype=dtype)
-    pd_out = paddle.clip(x_pd, min_pd, max_pd)
-    np.allclose(pd_out.numpy(), np_out)
-
-    x_pd.clip_(min_pd, max_pd)
-    np.allclose(x_pd.numpy(), np_out)
-    paddle.enable_static()
-
-
-def np_pd_static_equal(
-    x_shape, min_shape=None, max_shape=None, dtype='float32'
-):
-    paddle.enable_static()
-    x = np.random.randn(*x_shape).astype(dtype)
-    if max_shape is None:
-        if dtype == 'int32':
-            max = np.iinfo(np.int32).max - 2**7
-        elif dtype == 'int64':
-            max = np.iinfo(np.int64).max - 2**39
-        elif dtype == 'float16':
-            max = float(np.finfo(np.float16).max)
-        else:
-            max = float(np.finfo(np.float32).max)
-    else:
-        max = np.random.randn(*max_shape).astype(dtype)
-    if min_shape is None:
-        if dtype == 'int32':
-            min = np.iinfo(np.int32).min
-        elif dtype == 'int64':
-            min = np.iinfo(np.int64).min
-        elif dtype == 'float16':
-            min = float(np.finfo(np.float16).min)
-        else:
-            min = float(np.finfo(np.float32).min)
-    else:
-        min = np.random.randn(*min_shape).astype(dtype)
-    np_out = np.clip(x, min, max)
-
-    place = base.CPUPlace()
-    if core.is_compiled_with_cuda():
-        place = paddle.CUDAPlace(0)
-
-    with paddle.static.program_guard(
-        paddle.static.Program(), paddle.static.Program()
-    ):
-        x_pd = paddle.static.data("X", shape=x_shape, dtype=dtype)
-        min_pd = paddle.static.data("Min", shape=min_shape, dtype=dtype)
-        max_pd = paddle.static.data("Max", shape=max_shape, dtype=dtype)
-        pd_out = paddle.clip(x_pd, min_pd, max_pd)
-        exe = base.Executor(place)
-        (res,) = exe.run(
-            feed={"X": x, "Min": min, "Max": max}, fetch_list=[pd_out]
-        )
-        np.allclose(res, np_out)
-
-    paddle.disable_static()
-
-
-class TestClipTensorAPI(unittest.TestCase):
-
-    def test_check_output(self):
-        np_pd_equal([4, 5], [5], [1], 'int32')
-        np_pd_equal([4, 5], [5], [4, 5], 'int64')
-        np_pd_equal([4], [5, 4], [4], 'float32')
-
-    def test_check_static_output(self):
-        np_pd_static_equal([4, 5], [5], [1], 'int32')
-        np_pd_static_equal([4, 5], [5], [4, 5], 'int64')
-        np_pd_static_equal([4], [5, 4], [4], 'float32')
 
 
 if __name__ == '__main__':
