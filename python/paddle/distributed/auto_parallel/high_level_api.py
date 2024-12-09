@@ -259,7 +259,11 @@ def to_distributed(
     device_num: int,
     node_num: int | None = 1,
     config: ToDistributedConfig | None = None,
-) -> tuple[paddle.nn.Layer, paddle.optimizer.Optimizer, paddle.io.DataLoader]:
+) -> tuple[
+    paddle.nn.Layer,
+    paddle.optimizer.Optimizer,
+    paddle.distributed.auto_parallel.ShardDataloader,
+]:
     """
     `to_distributed` can automatically convert neural networks, optimizer, and dataloader
     that do not contain any distributed code into neural networks, optimizers, and dataloader
@@ -293,6 +297,7 @@ def to_distributed(
 
     Examples:
         .. code-block:: python
+
             >>> import math
             >>> import numpy as np
             >>> import paddle
@@ -650,9 +655,9 @@ def to_distributed(
             ...     [BATCH_SIZE, SEQ_LENGTH], 'float32', 'input_seq', True
             ... )
             >>> dist_config = ToDistributedConfig()
-            >>> dist_config.input_spec = [input_seq_spec]
             >>> dist_config.sequence_parallel = True
 
+            >>> # doctest: +REQUIRES(env:DISTRIBUTED)
             >>> # wrap model, opt, dataloader by using **to_distributed**
             >>> dist_model, dist_opt, dist_loader = to_distributed(
             ...     model,
@@ -672,6 +677,8 @@ def to_distributed(
             ...         loss.backward()
             ...         dist_opt.step()
             ...         dist_opt.clear_grad()
+            >>> # This case need to be executed in multi-card environment
+            >>> # python -m paddle.distributed.launch --gpus=0,1,2,3,4,5,6,7 {test_case}.py
     """
     # Because some API(`paddle.randn` etc.) will be used when building pattern,
     # In order to avoid circle import, we import get_pattern until use.
