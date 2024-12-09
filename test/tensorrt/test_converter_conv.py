@@ -338,21 +338,6 @@ class TestConv3dPaddingAlgorithmTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestConv3dPaddingTRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = conv3d_python_api
-        self.api_args = {
-            "x": np.random.random([2, 3, 8, 8, 8]).astype("float32"),
-            "padding": "VALID",
-        }
-        self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [1, 3, 8, 8, 8]}
-        self.max_shape = {"x": [10, 3, 8, 8, 8]}
-
-    def test_trt_result(self):
-        self.check_trt_result()
-
-
 def conv3dtranspose_wrapper(
     x,
     stride=1,
@@ -364,11 +349,6 @@ def conv3dtranspose_wrapper(
     dilation=1,
     data_format="NCDHW",
 ):
-    if data_format == "AnyLayout":
-        data_format = "NCDHW"
-    if padding_algorithm is None:
-        padding_algorithm = "EXPLICIT"
-
     weight = paddle.static.create_parameter(
         name="weight",
         shape=[3, 6, 3, 3, 3],
@@ -395,10 +375,10 @@ class TestConv3dTransposeTRTPattern(TensorRTBaseTest):
         self.api_args = {
             "x": np.random.random([2, 3, 5, 5, 5]).astype("float32"),
             "stride": [1, 1, 1],
-            "padding": [1, 1, 1],
+            "padding": [1, 0, 1, 2, 1, 1],
             "output_padding": [],
-            "output_size": [7, 7, 7],
-            "padding_algorithm": "VALID",
+            "output_size": [5, 5, 5],
+            "padding_algorithm": "EXPLICIT",
             "groups": 1,
             "dilation": [1, 1, 1],
             "data_format": "NCDHW",

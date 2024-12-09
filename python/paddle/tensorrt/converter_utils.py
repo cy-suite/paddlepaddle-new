@@ -522,12 +522,11 @@ def convert_conv3d(network, paddle_op, inputs):
         else:
             raise ValueError("Invalid number of inputs for conv3d_transpose")
 
-    input_shape = paddle_op.operands()[0].source().shape
     filter_shape = paddle_op.operands()[1].source().shape
 
     if len(filter_shape) != 5:
         raise ValueError(
-            f"filter's dims size should be 5, but got {len(filter_shape)}"
+            f"The conv3d filter's dims size should be 5, but got {len(filter_shape)}"
         )
 
     n_output = filter_shape[0]
@@ -536,20 +535,17 @@ def convert_conv3d(network, paddle_op, inputs):
     filter_h = filter_shape[3]
     filter_w = filter_shape[4]
 
-    paddings = paddle_op.attrs().get("paddings", [0, 0, 0])
-    stride = paddle_op.attrs().get("strides", [1, 1, 1])
-    dilation = paddle_op.attrs().get("dilations", [1, 1, 1])
     groups = paddle_op.attrs().get("groups", 1)
-
-    output_padding = paddle_op.attrs().get("output_padding", [0, 0, 0])
+    dilations = paddle_op.attrs().get("dilations", [1, 1, 1])
+    strides = paddle_op.attrs().get("strides", [1, 1, 1])
+    paddings = paddle_op.attrs().get("paddings", [0, 0, 0])
     padding_algorithm = paddle_op.attrs().get("padding_algorithm", "EXPLICIT")
+    output_padding = paddle_op.attrs().get("output_padding", [])
 
     nv_ksize = trt.Dims3(filter_d, filter_h, filter_w)
-    nv_dilations = trt.Dims3(dilation[0], dilation[1], dilation[2])
-    nv_strides = trt.Dims3(stride[0], stride[1], stride[2])
-
-    pre_paddings = trt.Dims(paddings)
-    post_paddings = [0, 0, 0]
+    nv_dilations = trt.Dims3(dilations[0], dilations[1], dilations[2])
+    nv_strides = trt.Dims3(strides[0], strides[1], strides[2])
+    nv_pre_paddings = trt.Dims3(paddings[0], paddings[1], paddings[2])
 
     if paddle_op.name() == "pd_op.conv3d":
         layer = network.add_convolution_nd(
@@ -569,21 +565,28 @@ def convert_conv3d(network, paddle_op, inputs):
         )
 
     layer.stride_nd = nv_strides
-    layer.pre_padding = pre_paddings
+    layer.pre_padding = nv_pre_paddings
 
+    nv_post_paddings = trt.Dims3(paddings[0], paddings[1], paddings[2])
     if output_padding:
-        post_paddings[0] -= output_padding[0]
-        post_paddings[1] -= output_padding[1]
-        post_paddings[2] -= output_padding[2]
+        nv_post_paddings.d[0] -= output_padding[0]
+        nv_post_paddings.d[1] -= output_padding[1]
+        nv_post_paddings.d[2] -= output_padding[2]
 
-    if post_paddings[0] < 0 or post_paddings[1] < 0 or post_paddings[2] < 0:
-        raise ValueError("The value PostPadding should be >= 0.")
-    layer.post_padding = post_paddings
+        if (
+            nv_post_paddings.d[0] < 0
+            or nv_post_paddings.d[1] < 0
+            or nv_post_paddings.d[2] < 0
+        ):
+            raise ValueError(
+                "The value in conv3d_transpose's PostPadding should be >= 0."
+            )
+
+    layer.post_padding = nv_post_paddings
     layer.num_groups = groups
 
     if padding_algorithm == "SAME":
         layer.padding_mode = trt.PaddingMode.SAME_UPPER
-        nv_dilations = trt.Dims3(1, 1, 1)
 
     layer.dilation_nd = nv_dilations
 
