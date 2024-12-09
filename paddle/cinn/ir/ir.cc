@@ -113,8 +113,8 @@ void BinaryNodeVerify(const Expr &a, const Expr &b, absl::string_view ir_name) {
 void Add::Verify() const { BinaryNodeVerify(a(), b(), "Add"); }
 
 Expr Sub::Make(Expr a, Expr b) {
-  if (a.is_index() && b.is_index()) return a.as_index() - b.as_index();
   auto node = make_shared<Sub>(a, b);
+  if (a.is_index() && b.is_index()) node->set_index(true);
   return Expr(node);
 }
 
