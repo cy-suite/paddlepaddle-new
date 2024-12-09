@@ -25,10 +25,6 @@ void AnyKernel(const Context& dev_ctx,
                const std::vector<int64_t>& dims,
                bool keep_dim,
                DenseTensor* out) {
-  if (x.numel() == 0) {
-    out->Resize(common::make_ddim({0}));
-    return;
-  }
   bool reduce_all = recompute_reduce_all(x, dims);
   AnyRawKernel<T>(dev_ctx, x, dims, keep_dim, reduce_all, out);
 }
