@@ -52,7 +52,7 @@ def block_multihead_attention(
     quant_min_bound=-127.0,
     out_scale=-1,
     compute_dtype="default",
-    rope_theta = 10000.0,
+    rope_theta=10000.0,
 ):
     """
     Block Multi-head attention for text summarization.
@@ -433,7 +433,7 @@ def block_multihead_attention_xpu(
     quant_min_bound=-127.0,
     out_scale=-1,
     compute_dtype="default",
-    rope_theta = 10000.0,
+    rope_theta=10000.0,
 ):
     if in_dynamic_mode():
         return _C_ops.block_multihead_attention_xpu(
