@@ -115,12 +115,11 @@ public:
         !fuse_reduction || this->input_dtype == phi::DataType::FLOAT16,
         "Fuse reduction only support float16 type on SM80 due to instruction limitation.");
     this->init_output_buffer();
-    PADDLE_ENFORCE_GPU_SUCCESS(cudaEventCreate(&event_));
+    static CUDAEventHolder event_holder{};
+    this->event_ = event_holder.event;
   }
 
   ~GemmRSHelper() {
-    PADDLE_ENFORCE_GPU_SUCCESS(cudaEventDestroy(event_));
-    PADDLE_ENFORCE_GPU_SUCCESS(cudaStreamDestroy(rs_stream_));
   }
 
   bool
@@ -239,14 +238,7 @@ public:
 
   cudaStream_t
   CreateReduceScatterStream() {
-     cudaStream_t rs_stream = nullptr;
-     int least_priority, greatest_priority;
-     PADDLE_ENFORCE_GPU_SUCCESS(cudaDeviceGetStreamPriorityRange(&least_priority, &greatest_priority));
-     PADDLE_ENFORCE_GPU_SUCCESS(cudaStreamCreateWithPriority(&rs_stream, cudaStreamNonBlocking, greatest_priority));
-     return rs_stream;
-#if 0
      return this->comm_ctx->stream();
-#endif
   }
 
   void

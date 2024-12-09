@@ -69,7 +69,6 @@ int32_t k_dim;
 
   cudaEvent_t cp_event;
   cudaEvent_t ready_event;
-  cudaEvent_t all_gather_event;
 
   AGGemmHelper(
     const phi::GPUContext& dev_ctx_,
@@ -144,14 +143,15 @@ int32_t k_dim;
     // copy stream
     this->num_cp_streams = 1;
     for (int i = 0; i < this->num_cp_streams; ++i) {
-      cudaStream_t cp_stream = nullptr;
-      PADDLE_ENFORCE_GPU_SUCCESS(cudaStreamCreate(&cp_stream));
-      this->cp_streams.push_back(cp_stream);
+      this->cp_streams.push_back(this->comm_ctx->stream());
     }
     // create events
-    PADDLE_ENFORCE_GPU_SUCCESS(cudaEventCreateWithFlags(&this->cp_event, cudaEventDisableTiming));
-    PADDLE_ENFORCE_GPU_SUCCESS(cudaEventCreateWithFlags(&this->ready_event, cudaEventDisableTiming));
-    PADDLE_ENFORCE_GPU_SUCCESS(cudaEventCreateWithFlags(&this->all_gather_event, cudaEventDisableTiming));
+    constexpr bool disable_timing = true;
+    static CUDAEventHolder cp_event_holder{disable_timing};
+    static CUDAEventHolder ready_event_holder{disable_timing};
+
+    this->cp_event = cp_event_holder.event;
+    this->ready_event = ready_event_holder.event;
 
     static BuffersHolder<int32_t> sync_buffers_holder{{this->world_size}, dev_ctx, tp_group};
     this->sync_buffers = sync_buffers_holder.get_buffers({this->world_size});
@@ -171,10 +171,6 @@ int32_t k_dim;
   }
 
   ~AGGemmHelper() {
-    cudaEventDestroy(cp_event);
-    cudaEventDestroy(ready_event);
-    cudaEventDestroy(all_gather_event);
-    cudaStreamDestroy(this->cp_streams[0]);
   }
 };
 

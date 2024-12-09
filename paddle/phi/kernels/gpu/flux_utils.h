@@ -21,6 +21,22 @@ get_ring_mode(AGRingMode ring_mode) {
       return AGRingMode::All2All;
 }
 
+class CUDAEventHolder {
+public:
+  CUDAEventHolder(const bool disable_timing = false) {
+    if(disable_timing) {
+      PADDLE_ENFORCE_GPU_SUCCESS(cudaEventCreateWithFlags(&this->event, cudaEventDisableTiming));
+    } else {
+      PADDLE_ENFORCE_GPU_SUCCESS(cudaEventCreate(&event));
+    }
+  }
+
+  ~CUDAEventHolder() {
+    cudaEventDestroy(event);
+  }
+  cudaEvent_t event;
+};
+
 template<typename BufferT>
 class BuffersHolder {
 private:
