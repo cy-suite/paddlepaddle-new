@@ -2150,7 +2150,8 @@ class AssignValueOpPattern
   }
 };
 
-class UnbindOpPattern : public pir::OpRewritePattern<paddle::dialect::UnbindOp> {
+class UnbindOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::UnbindOp> {
  public:
   using pir::OpRewritePattern<paddle::dialect::UnbindOp>::OpRewritePattern;
 
@@ -2161,9 +2162,12 @@ class UnbindOpPattern : public pir::OpRewritePattern<paddle::dialect::UnbindOp> 
       return false;
     }
 
-    if (!op->HasAttribute("axis")) {
-      VLOG(3) << "pd_op.unbind axis attribute does not exist";
-      return false;
+    if (op->HasAttribute("axis")) {
+      int axis = op->attribute<pir::Int32Attribute>("axis").data();
+      if (axis == 0) {
+        VLOG(3) << "pd_op.unbind does support dynamic shape when axis is 0.";
+        return false;
+      }
     }
 
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));

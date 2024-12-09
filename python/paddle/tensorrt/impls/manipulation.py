@@ -26,6 +26,7 @@ from paddle.tensorrt.converter_utils import (
     get_shape_tensor_element,
     has_dynamic_shape,
     resize_to_1d,
+    squeeze_trt,
     trt_concat,
     trt_expand,
     trt_floor_div,
@@ -38,10 +39,8 @@ from paddle.tensorrt.converter_utils import (
     trt_shape,
     trt_sub,
     trt_sum,
-    squeeze_trt
 )
 from paddle.tensorrt.register import converter_registry
-import numpy as np
 
 from ..util import get_trt_version_list
 
@@ -917,27 +916,29 @@ def unbind_converter(network, paddle_op, inputs):
     if axis < 0:
         axis += input_rank
     axis_tensor = add_1D_constant_layer(network, axis)
-
+    size_tensor = build_size_tensor(
+        network,
+        input_rank,
+        axis_tensor,
+        add_1D_constant_layer(network, 1),
+        trt_shape(network, input_tensor),
+    )
     output_tensors = []
-    for i in range(input_tensor.shape[axis]): 
-        start_tensor = add_1D_constant_layer(network, [i if j == axis else 0 for j in range(input_rank)]) 
-
-        size_tensor = build_size_tensor(
-            network,
-            input_rank,
-            axis_tensor,
-            add_1D_constant_layer(network, 1),
-            trt_shape(network, input_tensor),
+    for i in range(paddle_op.num_results()):
+        start_tensor = add_1D_constant_layer(
+            network, [i if j == axis else 0 for j in range(input_rank)]
         )
-        slice_layer = network.add_slice(input_tensor, 
-                                        (0,) * input_rank, 
-                                        (0,) * input_rank, 
-                                        (1,) * input_rank)
+        slice_layer = network.add_slice(
+            input_tensor,
+            (0,) * input_rank,
+            (0,) * input_rank,
+            (1,) * input_rank,
+        )
         slice_layer.set_input(1, start_tensor)
         slice_layer.set_input(2, size_tensor)
         sliced_tensor = slice_layer.get_output(0)
-        
+
         sliced_tensor = squeeze_trt(network, sliced_tensor, [axis])
         output_tensors.append(sliced_tensor)
-    
+
     return output_tensors
