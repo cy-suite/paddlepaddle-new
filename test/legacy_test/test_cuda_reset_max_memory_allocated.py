@@ -19,8 +19,8 @@ from paddle.base import core
 from paddle.device.cuda import (
     device_count,
     max_memory_allocated,
-    memory_allocated,
     max_memory_reserved,
+    memory_allocated,
     memory_reserved,
     reset_max_memory_allocated,
 )
@@ -33,7 +33,9 @@ class TestResetMaxMemoryAllocated(unittest.TestCase):
             max_alloc_size = 10000
             for i in range(alloc_time):
                 # first alloc
-                shape = paddle.randint(low=max_alloc_size, high=max_alloc_size*2)
+                shape = paddle.randint(
+                    low=max_alloc_size, high=max_alloc_size * 2
+                )
                 tensor = paddle.zeros(shape)
                 peak_memory_allocated_size_first = max_memory_allocated(device)
                 peak_memory_reserved_size_first = max_memory_reserved(device)
@@ -43,17 +45,27 @@ class TestResetMaxMemoryAllocated(unittest.TestCase):
                 # second alloc
                 shape = paddle.randint(low=0, high=max_alloc_size)
                 tensor = paddle.zeros(shape)
-                
+
                 # reset peak memory stats
                 reset_max_memory_allocated(device)
 
                 peak_memory_allocated_size_second = max_memory_allocated(device)
-                self.assertEqual(peak_memory_allocated_size_second, memory_allocated(device))
-                self.assertLess(peak_memory_allocated_size_second, peak_memory_allocated_size_first)
+                self.assertEqual(
+                    peak_memory_allocated_size_second, memory_allocated(device)
+                )
+                self.assertLess(
+                    peak_memory_allocated_size_second,
+                    peak_memory_allocated_size_first,
+                )
 
                 peak_memory_reserved_size_second = max_memory_reserved(device)
-                self.assertEqual(peak_memory_reserved_size_second, memory_reserved(device))
-                self.assertLessEqual(peak_memory_reserved_size_second, peak_memory_reserved_size_first)
+                self.assertEqual(
+                    peak_memory_reserved_size_second, memory_reserved(device)
+                )
+                self.assertLessEqual(
+                    peak_memory_reserved_size_second,
+                    peak_memory_reserved_size_first,
+                )
 
                 del shape
                 del tensor

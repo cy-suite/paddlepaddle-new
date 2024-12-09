@@ -13,6 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, NoReturn, Union
 
 from typing_extensions import TypeAlias
@@ -23,8 +24,6 @@ from paddle.base.wrapped_decorator import signature_safe_contextmanager
 from paddle.utils import deprecated
 
 from .streams import Event, Stream
-
-import logging
 
 if TYPE_CHECKING:
     from paddle import CUDAPlace
@@ -302,6 +301,7 @@ def max_memory_reserved(device: _CudaPlaceLike | None = None) -> int:
     device_id = extract_cuda_device_id(device, op_name=name)
     return core.device_memory_stat_peak_value("Reserved", device_id)
 
+
 def reset_peak_memory_stats(device: _CudaPlaceLike | None = None) -> None:
     '''
     Reset the peak values of GPU memory allocated and reserved to the current values.
@@ -338,9 +338,9 @@ def reset_peak_memory_stats(device: _CudaPlaceLike | None = None) -> None:
 
 def reset_max_memory_allocated(device: _CudaPlaceLike | None = None) -> None:
     '''
-    Reset the peak values of GPU memory allocated to the current values. (Reset the GPU memory reserved 
+    Reset the peak values of GPU memory allocated to the current values. (Reset the GPU memory reserved
     as well)
-    
+
     Warning:
         This function calls `paddle.device.cuda.reset_peak_memory_stats`, which resets both allocated
         and reserved peak memory stats.
@@ -361,7 +361,7 @@ def reset_max_memory_allocated(device: _CudaPlaceLike | None = None) -> None:
             >>> paddle.device.cuda.reset_max_memory_allocated(0)
             >>> paddle.device.cuda.reset_max_memory_allocated("gpu:0")
     '''
-    
+
     name = "paddle.device.cuda.reset_max_memory_allocated"
     if not core.is_compiled_with_cuda():
         raise ValueError(

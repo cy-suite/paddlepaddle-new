@@ -19,8 +19,8 @@ from paddle.base import core
 from paddle.device.cuda import (
     device_count,
     max_memory_allocated,
-    memory_allocated,
     max_memory_reserved,
+    memory_allocated,
     memory_reserved,
     memory_stats,
 )
@@ -33,7 +33,9 @@ class TestMemoryStats(unittest.TestCase):
             max_alloc_size = 10000
             for i in range(alloc_time):
                 # first alloc
-                shape = paddle.randint(low=max_alloc_size, high=max_alloc_size*2)
+                shape = paddle.randint(
+                    low=max_alloc_size, high=max_alloc_size * 2
+                )
                 tensor = paddle.zeros(shape)
                 del shape
                 del tensor
@@ -44,11 +46,23 @@ class TestMemoryStats(unittest.TestCase):
 
                 memory_stats = paddle.device.cuda.memory_stats(device)
 
-                self.assertEqual(memory_stats["memory.allocated.current"], memory_allocated(device))
-                self.assertEqual(memory_stats["memory.allocated.peak"], max_memory_allocated(device))
+                self.assertEqual(
+                    memory_stats["memory.allocated.current"],
+                    memory_allocated(device),
+                )
+                self.assertEqual(
+                    memory_stats["memory.allocated.peak"],
+                    max_memory_allocated(device),
+                )
 
-                self.assertEqual(memory_stats["memory.reserved.current"], memory_reserved(device))
-                self.assertEqual(memory_stats["memory.reserved.peak"], max_memory_reserved(device))
+                self.assertEqual(
+                    memory_stats["memory.reserved.current"],
+                    memory_reserved(device),
+                )
+                self.assertEqual(
+                    memory_stats["memory.reserved.peak"],
+                    max_memory_reserved(device),
+                )
 
                 del shape
                 del tensor
