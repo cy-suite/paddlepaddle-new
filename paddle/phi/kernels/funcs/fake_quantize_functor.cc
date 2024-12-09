@@ -347,6 +347,43 @@ void ClipAndFakeQuantDequantFunctor<Context, T>::operator()(
   }
 }
 
+template <typename Context, typename T>
+void FakeQuantizeDequantizeLSQFunctor<Context, T>::operator()(
+    const Context &ctx,
+    const DenseTensor &x,
+    const DenseTensor &scale,
+    const float lsq_factor,
+    const int bin_cnt,
+    const int round_type,
+    DenseTensor *out) {
+  phi::Transform<Context> trans;
+
+  T scale_v = scale.data<T>()[0];
+  int min_bound = -bin_cnt - static_cast<T>(1);
+  int max_bound = bin_cnt;
+
+  if (round_type == 0) {
+    trans(ctx,
+          x.data<T>(),
+          x.data<T>() + x.numel(),
+          ctx.template Alloc<T>(out),
+          phi::funcs::QuantLSQTensorFunctor<T>(bin_cnt, inverse(scale_v)));
+    auto out_e = phi::EigenVector<T>::Flatten(*out);
+    out_e.device(*ctx.eigen_device()) = out_e * scale_v;
+  } else {
+    T sp = scale_v * max_bound;
+    T sn = scale_v * min_bound;
+    trans(ctx,
+          x.data<T>(),
+          x.data<T>() + x.numel(),
+          ctx.template Alloc<T>(out),
+          phi::ClipFunctor<T>(sn, sp));
+    auto out_e = phi::EigenVector<T>::Flatten(*out);
+    out_e.device(*ctx.eigen_device()) =
+        (out_e * inverse(scale_v)).round() * scale_v;
+  }
+}
+
 template class FindAbsMaxFunctor<CPUContext, float>;
 template class ClipAndFakeQuantFunctor<CPUContext, float>;
 template class FindMovingAverageAbsMaxFunctor<CPUContext, float>;
@@ -355,6 +392,8 @@ template class ChannelClipAndFakeQuantFunctor<CPUContext, float>;
 template class ChannelClipFakeQuantDequantFunctor<CPUContext, float>;
 template class FindRangeAbsMaxFunctor<CPUContext, float>;
 template class ClipAndFakeQuantDequantFunctor<CPUContext, float>;
+template class FakeQuantizeDequantizeLSQFunctor<CPUContext, float>;
+template class FakeQuantizeDequantizeLSQFunctor<CPUContext, double>;
 
 }  // namespace funcs
 }  // namespace phi

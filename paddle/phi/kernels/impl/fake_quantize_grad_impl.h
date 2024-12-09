@@ -14,34 +14,10 @@
 
 #pragma once
 
-#include "paddle/phi/core/dense_tensor.h"
+#include "paddle/phi/kernels/fake_quantize_grad_kernel.h"
+#include "paddle/phi/kernels/funcs/fake_quantize_grad_functor.h"
 
 namespace phi {
-
-template <typename T, typename Context>
-void FakeChannelWiseQuantizeDequantizeAbsMaxGradKernel(const Context& dev_ctx,
-                                                       const DenseTensor& dout,
-                                                       int bit_length,
-                                                       int round_type,
-                                                       int quant_axis,
-                                                       DenseTensor* dx);
-
-template <typename T, typename Context>
-void FakeQuantizeDequantizeAbsMaxGradKernel(const Context& dev_ctx,
-                                            const DenseTensor& dout,
-                                            int bit_length,
-                                            int round_type,
-                                            DenseTensor* dx);
-
-template <typename T, typename Context>
-void FakeQuantizeDequantizeMovingAverageAbsMaxGradKernel(
-    const Context& dev_ctx,
-    const DenseTensor& dout,
-    float moving_rate,
-    int bit_length,
-    bool is_test,
-    int round_type,
-    DenseTensor* dx);
 
 template <typename T, typename Context>
 void FakeQuantizeDequantizeLSQGradKernel(const Context& dev_ctx,
@@ -52,6 +28,18 @@ void FakeQuantizeDequantizeLSQGradKernel(const Context& dev_ctx,
                                          const int bit_length,
                                          const int round_type,
                                          DenseTensor* x_grad,
-                                         DenseTensor* scale_grad);
+                                         DenseTensor* scale_grad) {
+  int bin_cnt = std::pow(2, bit_length - 1) - 1;
+
+  phi::funcs::FakeQuantizeDequantizeGradLSQFunctor<Context, T>()(dev_ctx,
+                                                                 x,
+                                                                 scale,
+                                                                 out_grad,
+                                                                 lsq_factor,
+                                                                 bin_cnt,
+                                                                 round_type,
+                                                                 x_grad,
+                                                                 scale_grad);
+}
 
 }  // namespace phi

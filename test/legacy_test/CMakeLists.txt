@@ -1053,6 +1053,7 @@ set(STATIC_BUILD_TESTS
     test_eig_op
     test_fake_dequantize_op
     test_fake_quantize_op
+    test_fake_quantize_dequantize_lsq_op
     test_ftrl_op
     test_fused_attention_op
     test_fused_attention_op_api
