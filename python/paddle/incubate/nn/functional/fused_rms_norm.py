@@ -153,4 +153,4 @@ def fused_rms_norm(
         },
         outputs=outputs_dict,
     )
-    return (out, residual_out)
+    return (out, residual_out, outputs_dict['inv_var'])

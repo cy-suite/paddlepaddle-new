@@ -166,4 +166,4 @@ def fused_layer_norm(
         },
         outputs=outputs_dict,
     )
-    return (out, residual_out)
+    return (out, residual_out, outputs_dict['mean'], outputs_dict['variance'])

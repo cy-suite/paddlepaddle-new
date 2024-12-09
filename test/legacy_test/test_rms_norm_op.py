@@ -241,7 +241,7 @@ class TestRMSNormOp(unittest.TestCase):
         )
 
         np.testing.assert_allclose(
-            paddle_rmsnorm[0].numpy(),
+            paddle_rmsnorm.numpy(),
             paddle_naive_rmsnorm.numpy(),
             rtol=1e-3,
             atol=1e-3,
@@ -257,7 +257,7 @@ class TestRMSNormOp(unittest.TestCase):
             self.x_np, self.norm_weight_np, self.norm_bias_np, 'float16'
         )
         np.testing.assert_allclose(
-            paddle_rmsnorm[0].numpy(),
+            paddle_rmsnorm.numpy(),
             paddle_naive_rmsnorm.numpy(),
             rtol=2,
             atol=2,
@@ -279,7 +279,7 @@ class TestRMSNormOp(unittest.TestCase):
         )
 
         np.testing.assert_allclose(
-            paddle_rmsnorm[0].numpy(),
+            paddle_rmsnorm.numpy(),
             paddle_naive_rmsnorm.numpy(),
             rtol=1e-3,
             atol=1e-3,
@@ -304,7 +304,7 @@ class TestRMSNormOp(unittest.TestCase):
         )
 
         np.testing.assert_allclose(
-            paddle_rmsnorm[0].numpy(),
+            paddle_rmsnorm.numpy(),
             paddle_naive_rmsnorm.numpy(),
             rtol=2,
             atol=2,
@@ -633,7 +633,7 @@ class TestRMSNormOpCPU(unittest.TestCase):
             begin_norm_axis=1,
             bias=bias,
             residual=residual,
-        )[0]
+        )
 
         paddle_naive_rmsnorm_out = naive_residual_biasadd_rms_norm(
             x, residual, bias, gamma, beta, self.epsilon
@@ -652,7 +652,7 @@ class TestRMSNormOpCPU(unittest.TestCase):
             self.x_np, self.norm_weight_np, self.norm_bias_np, 'float32'
         )
         np.testing.assert_allclose(
-            paddle_rmsnorm[0].numpy(),
+            paddle_rmsnorm.numpy(),
             paddle_naive_rmsnorm.numpy(),
             rtol=1e-3,
             atol=1e-3,
