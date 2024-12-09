@@ -35,6 +35,7 @@ void LinspaceKernel(const Context& ctx,
   }
   if (num == 0) {
     out->Resize(common::make_ddim({0}));
+    ctx.template Alloc<T>(out);
     return;
   }
   auto start_t = phi::funcs::TransDataType(ctx, start, dtype);

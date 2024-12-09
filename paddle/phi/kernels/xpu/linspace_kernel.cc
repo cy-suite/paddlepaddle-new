@@ -61,6 +61,7 @@ void LinspaceKernel(const Context& ctx,
   int64_t num = GetValueOfExpectedType<int64_t, Context>(ctx, number);
   if (num == 0) {
     out->Resize(common::make_ddim({0}));
+    ctx.template Alloc<T>(out);
     return;
   }
   PADDLE_ENFORCE_GT(
