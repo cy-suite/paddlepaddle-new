@@ -773,7 +773,11 @@ def save_inference_model_pir(
     save_vars_pir(
         dirname=save_dirname,
         main_program=program,
-        filename=params_filename,
+        filename=(
+            None
+            if kwargs.get('separate_parameters', False)
+            else params_filename
+        ),
     )
 
 
