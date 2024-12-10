@@ -41,31 +41,28 @@ RUN bash /build_scripts/install_trt.sh
 # # https://github.com/NixOS/patchelf/commit/ba2695a8110abbc8cc6baf0eea819922ee5007fa
 # # So install a newer version here.
 RUN bash /build_scripts/install_patchelf.sh
+RUN apt-get install -y gcc-12 g++-12
+RUN cp gcc gcc.bak && cp g++ g++.bak && rm gcc && rm g++
+RUN ln -s /usr/bin/gcc-12 /usr/local/bin/gcc
+RUN ln -s /usr/bin/g++-12 /usr/local/bin/g++
+RUN ln -s /usr/bin/gcc-12 /usr/bin/gcc
+RUN ln -s /usr/bin/g++-12 /usr/bin/g++
+ENV PATH=/usr/local/gcc-12/bin:$PATH
 
 <install_cudnn>
-#RUN bash /build_scripts/install_nccl2.sh
 RUN rm -rf /build_script
 
-# install cmake
-WORKDIR /home
-RUN wget -q https://cmake.org/files/v3.18/cmake-3.18.0-Linux-x86_64.tar.gz && tar -zxvf cmake-3.18.0-Linux-x86_64.tar.gz && rm cmake-3.18.0-Linux-x86_64.tar.gz
-ENV PATH=/home/cmake-3.18.0-Linux-x86_64/bin:$PATH
-
-# ccache 4.2.0
-RUN wget -q https://paddle-ci.gz.bcebos.com/ccache-4.8.2.tar.gz && \
-    tar xf ccache-4.8.2.tar.gz && mkdir /usr/local/ccache-4.8.2 && cd ccache-4.8.2 && \
-    mkdir build && cd build && \
-    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local/ccache-4.8.2 .. && \
-    make -j8 && make install && \
-    ln -s /usr/local/ccache-4.8.2/bin/ccache /usr/local/bin/ccache && \
-    cd ../../ && rm -rf ccache-4.8.2.tar.gz
+# install cmake && ccache
+RUN apt-get remove --purge cmake && apt-get install -y cmake
+# ccache version 4.9.1
+RUN apt-get install -y ccache
 
 RUN apt-get update && \
   apt-get install -y python3.8 python3.8-dev python3.8-distutils \
   python3.9 python3.9-dev python3.9-distutils \
   python3.10 python3.10-dev python3.10-distutils \
   python3.11 python3.11-dev python3.11-distutils \
-  python3.12 python3.12-dev \
+  python3.12 python3.12-dev python3.12-distutils\
   python3.13 python3.13-dev python3.13-nogil && \
   apt-get install python-is-python3
 RUN rm /usr/bin/python && ln -s /usr/bin/python3.9 /usr/bin/python && \
