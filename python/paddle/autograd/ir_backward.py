@@ -684,6 +684,7 @@ def append_backward_ops(
     with bwd_block:
         while_tuple_ops = []
         for op in clear_effective_forward_ops:
+
             if op_has_vjp(op):
                 # prepare output_grad
                 zero_flag, outputs, output_grads = make_output_with_output_grad(
@@ -698,24 +699,29 @@ def append_backward_ops(
 
                 if op.name() == "cf.tuple_push":
                     stackop = op.operand_source(0).get_defining_op()
-                    with dynamic_shape_prim_vjp_guard(op, inputs):
-                        copy_out = paddle.framework.core.call_vjp(
-                            op,
-                            inputs,
-                            outputs,
-                            output_grads,
-                            input_grad_stopgradients,
-                        )
+                    if stackop.result(2).use_empty():
+                        with dynamic_shape_prim_vjp_guard(op, inputs):
+                            copy_out = paddle.framework.core.call_vjp(
+                                op,
+                                inputs,
+                                outputs,
+                                output_grads,
+                                input_grad_stopgradients,
+                            )
 
-                    pop_op = bwd_block.ops[-1]
-                    while_tuple_ops.append(pop_op)
-                    while_tuple_ops.append(op)
-                    while_tuple_ops.append(stackop)
-                    bwd_ops = [pop_op]
-                    for output, copy_output in zip(inputs[1:], copy_out[1:]):
-                        control_flow_value_to_copyvalue_map[output[0]] = (
-                            copy_output[0]
-                        )
+                        pop_op = bwd_block.ops[-1]
+                        while_tuple_ops.append(pop_op)
+                        while_tuple_ops.append(op)
+                        while_tuple_ops.append(stackop)
+                        bwd_ops = [pop_op]
+                        for output, copy_output in zip(
+                            inputs[1:], copy_out[1:]
+                        ):
+                            control_flow_value_to_copyvalue_map[output[0]] = (
+                                copy_output[0]
+                            )
+                    else:
+                        bwd_ops = [stackop.result(2).first_use().owner()]
                 else:
                     # all(zero_flag) support this op has no contribution for grad
                     # should be delete (prune sub_graph)
@@ -911,7 +917,6 @@ def append_backward_ops(
                         update_input_grad_map(
                             op, input_grads, op.operands_source()
                         )
-
                 update_bwdop_structure(
                     backward_ops, state.op_to_opgrad[op], bwd_ops
                 )
@@ -1224,7 +1229,6 @@ def calc_gradient(
         grad_outputs=grad_outputs,
         no_grad_set=ValueSet(no_grad_set),
     )
-
     inputgrad = []
     for input in inputs:
         inputgrad.append(
