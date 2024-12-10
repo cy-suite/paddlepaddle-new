@@ -149,7 +149,7 @@ struct SquareFunctor {
 /**
  * @brief Default binary min functor
  */
-template <typename T>
+template <typename T, typename Enable = void>
 struct MinFunctor {
   inline T initial() { return static_cast<T>(std::numeric_limits<T>::max()); }
 
@@ -166,11 +166,10 @@ struct MinFunctor {
   }
 };
 
-/**
- * @brief Int32_t binary min functor
- */
-template <>
-struct MinFunctor<int32_t> {
+template <typename T>
+struct MinFunctor<T,
+                  std::enable_if<std::is_same<T, int32_t>::value ||
+                                 std::is_same<T, int64_t>::value>> {
   inline int32_t initial() { return std::numeric_limits<int32_t>::max(); }
 
   __device__ int32_t operator()(const int32_t a, const int32_t b) const {
@@ -178,21 +177,6 @@ struct MinFunctor<int32_t> {
   }
 };
 
-/**
- * @brief Int64_t binary min functor
- */
-template <>
-struct MinFunctor<int64_t> {
-  inline int64_t initial() { return std::numeric_limits<int64_t>::max(); }
-
-  __device__ int64_t operator()(const int64_t a, const int64_t b) const {
-    return (b < a) ? b : a;
-  }
-};
-
-/**
- * @brief Bool binary min functor
- */
 template <>
 struct MinFunctor<bool> {
   inline bool initial() { return false; }
@@ -203,7 +187,7 @@ struct MinFunctor<bool> {
 /**
  * @brief Default binary max functor
  */
-template <typename T>
+template <typename T, typename Enable = void>
 struct MaxFunctor {
   inline T initial() {
     return static_cast<T>(std::numeric_limits<T>::lowest());
@@ -222,11 +206,10 @@ struct MaxFunctor {
   }
 };
 
-/**
- * @brief Int32_t binary max functor
- */
-template <>
-struct MaxFunctor<int32_t> {
+template <typename T>
+struct MaxFunctor<T,
+                  std::enable_if<std::is_same<T, int32_t>::value ||
+                                 std::is_same<T, int64_t>::value>> {
   inline int32_t initial() { return std::numeric_limits<int32_t>::lowest(); }
 
   __device__ int32_t operator()(const int32_t a, const int32_t b) const {
@@ -234,21 +217,6 @@ struct MaxFunctor<int32_t> {
   }
 };
 
-/**
- * @brief Int64_t binary max functor
- */
-template <>
-struct MaxFunctor<int64_t> {
-  inline int64_t initial() { return std::numeric_limits<int64_t>::lowest(); }
-
-  __device__ int64_t operator()(const int64_t a, const int64_t b) const {
-    return (b > a) ? b : a;
-  }
-};
-
-/**
- * @brief Bool binary max functor
- */
 template <>
 struct MaxFunctor<bool> {
   inline bool initial() { return true; }
