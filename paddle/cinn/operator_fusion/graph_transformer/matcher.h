@@ -60,7 +60,7 @@ struct OnlyOneDownstreamMatcher {
 template <typename StmtPattern>
 struct StmtPatternGraphMatcher {
   bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
-    return GetPatternName(node->stmt_pattern()) == StmtPattern::name();
+    return GetPatternType(node->stmt_pattern()) == StmtPattern::type();
   }
 };
 
@@ -226,18 +226,29 @@ struct TransposeOpMatcher {
 
 struct ReshapeOpMatcher {
   bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
-    return (node->sink_op()->name() == "cinn_op.reshape");
+    auto has_dynamic_shape = [](const PatternNodePtr& node) {
+      const auto in_value = node->sink_op()->operand_source(0);
+      const auto out_value = node->sink_op()->result(0);
+      const auto in_shape = GetDimExprsFromValue(in_value);
+      const auto out_shape = GetDimExprsFromValue(out_value);
+      return GetShapeProduct(in_shape, 0, in_shape.size())
+                 .isa<std::int64_t>() &&
+             GetShapeProduct(out_shape, 0, out_shape.size())
+                 .isa<std::int64_t>();
+    };
+    return node->ops().size() == 1 &&
+           node->sink_op()->name() == "cinn_op.reshape" &&
+           has_dynamic_shape(node);
   }
 };
 
 struct ReshapeConnectionMatcher {
   bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
-    bool upstream_match =
-        node->downstream().size() == 1 &&
-        node->downstream()[0]->sink_op()->name() == "cinn_op.reshape" &&
-        node->downstream()[0]->downstream().size() == 1;
-    bool downstream_match = node->sink_op()->name() == "cinn_op.reshape" &&
-                            node->downstream().size() == 1;
+    bool upstream_match = node->downstream().size() == 1 &&
+                          ReshapeOpMatcher()(graph, node->downstream()[0]) &&
+                          node->downstream()[0]->downstream().size() == 1;
+    bool downstream_match =
+        ReshapeOpMatcher()(graph, node) && node->downstream().size() == 1;
     return upstream_match || downstream_match;
   }
 };
@@ -255,7 +266,7 @@ struct LeafReshapeConnectionMatcher {
                          });
     };
     const auto match_downstream = [&graph](const PatternNodePtr& downstream) {
-      return downstream->sink_op()->name() == "cinn_op.reshape" &&
+      return ReshapeOpMatcher()(graph, downstream) &&
              downstream->downstream().size() == 1 &&
              downstream->downstream()[0]->downstream().empty() &&
              downstream->fusion_iters().loop_iters ==

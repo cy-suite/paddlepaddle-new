@@ -1914,7 +1914,7 @@ paddle::Tensor CreateTensorFromVarDesc(
   autograd_meta->SetStopGradient(var_desc.StopGradient());
 
   if (var_type == paddle::framework::proto::VarType::DENSE_TENSOR) {
-    // TODO(jiabin): Maybe support LOD later
+    // TODO(jiabin): Maybe support LegacyLoD later
     std::shared_ptr<phi::DenseTensor> dense_tensor = nullptr;
     if (dims.size() == 1 && dims[0] == 0) {
       std::shared_ptr<phi::Allocation> allocation_ptr = nullptr;
@@ -1998,7 +1998,7 @@ paddle::Tensor CreateTensorFromValue(const pir::Value& value) {
   autograd_meta->SetStopGradient(GetValueBoolAttr(value, kAttrStopGradients));
 
   if (value.type().isa<paddle::dialect::DenseTensorType>()) {
-    // TODO(jiabin): Maybe support LOD later
+    // TODO(jiabin): Maybe support LegacyLoD later
     std::shared_ptr<phi::DenseTensor> dense_tensor = nullptr;
     auto dtype = paddle::dialect::TransToPhiDataType(
         value.type().dyn_cast<paddle::dialect::DenseTensorType>().dtype());
@@ -2795,6 +2795,41 @@ CvtPlacements(Placements placements, int ndim) {
     }
   }
   return {dim_map, partial_status};
+}
+
+void EagerSetDeviceId() {
+  auto expected_place = egr::Controller::Instance().GetExpectedPlace();
+
+  if (phi::is_gpu_place(expected_place)) {
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
+    phi::backends::gpu::SetDeviceId(expected_place.device);
+    VLOG(4) << "CurrentDeviceId: " << phi::backends::gpu::GetCurrentDeviceId()
+            << " from " << (int)expected_place.device;  // NOLINT
+#else
+    PADDLE_THROW(common::errors::PreconditionNotMet(
+        "PaddlePaddle should compile with GPU if use CUDAPlace."));
+#endif
+  } else if (phi::is_custom_place(expected_place)) {
+#if defined(PADDLE_WITH_CUSTOM_DEVICE)
+    phi::DeviceManager::SetDevice(expected_place);
+    VLOG(4) << "CurrentDeviceId: "
+            << phi::DeviceManager::GetDevice(expected_place.GetDeviceType())
+            << " from " << (int)expected_place.device;  // NOLINT
+#else
+    PADDLE_THROW(common::errors::PreconditionNotMet(
+        "PaddlePaddle should compile with CUSTOM_DEVICE if use CustomPlace."));
+#endif
+  } else if (phi::is_xpu_place(expected_place)) {
+#if defined(PADDLE_WITH_XPU)
+    phi::backends::xpu::SetXPUDeviceId(expected_place.device);
+    VLOG(4) << "CurrentDeviceId: "
+            << phi::backends::xpu::GetXPUCurrentDeviceId() << " from "
+            << (int)expected_place.device;  // NOLINT
+#else
+    PADDLE_THROW(common::errors::PreconditionNotMet(
+        "PaddlePaddle should compile with XPU if use XPUPlace."));
+#endif
+  }
 }
 
 }  // namespace paddle::pybind
