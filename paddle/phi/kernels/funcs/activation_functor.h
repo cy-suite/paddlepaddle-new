@@ -2959,7 +2959,9 @@ struct RoundFunctor : public BaseActivationFunctor<T> {
   template <typename Device, typename X, typename Out>
   void operator()(Device d, X x, Out out) const {
     if (decimals == 0) {
-      out.device(d) = (x.isnan() || x.isinf()).select(x, x.round());
+      out.device(d) =
+          (x.isnan() || x.isinf())
+              .select(x, x.round());
     } else if (decimals > 0) {
       auto ten_pow_decimals = static_cast<T>(std::pow(10, decimals));
       out.device(d) = (x.isnan() || x.isinf()).select(
@@ -2967,15 +2969,16 @@ struct RoundFunctor : public BaseActivationFunctor<T> {
           (x * ten_pow_decimals).round() / ten_pow_decimals);
     } else {
       auto ten_pow_decimals = static_cast<T>(std::pow(10, -decimals));
-      out.device(d) = (x.isnan() || x.isinf()).select(
-          x,
-          (x / ten_pow_decimals).round() * ten_pow_decimals);
+      out.device(d) =
+          (x.isnan() || x.isinf())
+              .select(x, (x / ten_pow_decimals).round() * ten_pow_decimals);
     }
   }
 };
 
 template <typename T>
-struct RoundFunctor<phi::dtype::complex<T>> : public BaseActivationFunctor<phi::dtype::complex<T>> {
+struct RoundFunctor<phi::dtype::complex<T>>
+    : public BaseActivationFunctor<phi::dtype::complex<T>> {
   int decimals;
 
   std::vector<std::pair<const char*, int*>> GetAttrs() {
@@ -2988,31 +2991,33 @@ struct RoundFunctor<phi::dtype::complex<T>> : public BaseActivationFunctor<phi::
 
     if (decimals == 0) {
       out.device(d) = x.unaryExpr([](const ComplexT& c) {
-        T real = std::isnan(c.real) || std::isinf(c.real) ? c.real : std::round(c.real);
-        T imag = std::isnan(c.imag) || std::isinf(c.imag) ? c.imag : std::round(c.imag);
+        T real = std::isnan(c.real) || std::isinf(c.real) ? c.real
+                                                          : std::round(c.real);
+        T imag = std::isnan(c.imag) || std::isinf(c.imag) ? c.imag
+                                                          : std::round(c.imag);
         return ComplexT(real, imag);
       });
     } else if (decimals > 0) {
       auto ten_pow_decimals = static_cast<T>(std::pow(10, decimals));
       out.device(d) = x.unaryExpr([ten_pow_decimals](const ComplexT& c) {
-            T real = std::isnan(c.real) || std::isinf(c.real) ?
-                      c.real :
-                      std::round(c.real * ten_pow_decimals) / ten_pow_decimals;
-            T imag = std::isnan(c.imag) || std::isinf(c.imag) ?
-                      c.imag :
-                      std::round(c.imag * ten_pow_decimals) / ten_pow_decimals;
-            return ComplexT(real, imag);
+            T real = std::isnan(c.real) || std::isinf(c.real)
+                     ? c.real
+                     : std::round(c.real * ten_pow_decimals) / ten_pow_decimals;
+        T imag = std::isnan(c.imag) || std::isinf(c.imag)
+                     ? c.imag
+                     : std::round(c.imag * ten_pow_decimals) / ten_pow_decimals;
+        return ComplexT(real, imag);
       });
     } else {
       auto ten_pow_decimals = static_cast<T>(std::pow(10, -decimals));
       out.device(d) = x.unaryExpr([ten_pow_decimals](const ComplexT& c) {
-                T real = std::isnan(c.real) || std::isinf(c.real) ?
-                          c.real :
-                          std::round(c.real / ten_pow_decimals) * ten_pow_decimals;
-                T imag = std::isnan(c.imag) || std::isinf(c.imag) ?
-                          c.imag :
-                          std::round(c.imag / ten_pow_decimals) * ten_pow_decimals;
-            return ComplexT(real, imag);
+        T real = std::isnan(c.real) || std::isinf(c.real)
+                     ? c.real
+                     : std::round(c.real / ten_pow_decimals) * ten_pow_decimals;
+        T imag = std::isnan(c.imag) || std::isinf(c.imag)
+                     ? c.imag
+                     : std::round(c.imag / ten_pow_decimals) * ten_pow_decimals;
+        return ComplexT(real, imag);
       });
     }
   }
@@ -5268,27 +5273,25 @@ struct CudaRoundFunctor<phi::dtype::complex<T>>
     MPType rounded_real, rounded_imag;
 
     if (decimals == 0) {
-          rounded_real = real_special ? real_part : round(real_part);
-          rounded_imag = imag_special ? imag_part : round(imag_part);
+      rounded_real = real_special ? real_part : round(real_part);
+      rounded_imag = imag_special ? imag_part : round(imag_part);
     } else if (decimals > 0) {
       float ten_pow_decimals = powf(10.f, decimals);
       MPType scale = static_cast<MPType>(ten_pow_decimals);
       rounded_real = real_special ? real_part
-                : round(real_part * scale) / ten_pow_decimals;
+                                  : round(real_part * scale) / ten_pow_decimals;
       rounded_imag = imag_special ? imag_part
-                : round(imag_part * scale) / ten_pow_decimals;
+                                  : round(imag_part * scale) / ten_pow_decimals;
     } else {
       float ten_pow_decimals = powf(10.f, -decimals);
       MPType scale = static_cast<MPType>(ten_pow_decimals);
       rounded_real = real_special ? real_part
-                : round(real_part / scale) * ten_pow_decimals;
+                                  : round(real_part / scale) * ten_pow_decimals;
       rounded_imag = imag_special ? imag_part
-                : round(imag_part / scale) * ten_pow_decimals;
-          }
-      return phi::dtype::complex<T>(
-        static_cast<T>(rounded_real),
-        static_cast<T>(rounded_imag)
-        );
+                                  : round(imag_part / scale) * ten_pow_decimals;
+    }
+    return phi::dtype::complex<T>(static_cast<T>(rounded_real),
+                                  static_cast<T>(rounded_imag));
   }
 };
 

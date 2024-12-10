@@ -2778,7 +2778,12 @@ class TestRoundInf(TestRound):
         self.init_shape()
         self.init_decimals()
 
-        x = np.array([np.inf, -np.inf] + list(np.random.uniform(-1, 1, self.shape).astype(self.dtype) * 100))
+        x = np.array(
+            [np.inf, -np.inf]
+            + list(
+                np.random.uniform(-1, 1, self.shape).astype(self.dtype) * 100
+            )
+        )
         out = np.round(x, decimals=self.decimals)
 
         self.inputs = {'X': OpTest.np_dtype_to_base_dtype(x)}
@@ -2807,7 +2812,12 @@ class TestRoundNaN(unittest.TestCase):
         self.init_dtype()
         self.init_shape()
         self.init_decimals()
-        self.x = np.array([np.nan, -np.nan] + list(np.random.uniform(-1, 1, self.shape).astype(self.dtype) * 100))
+        self.x = np.array(
+            [np.nan, -np.nan]
+            + list(
+                np.random.uniform(-1, 1, self.shape).astype(self.dtype) * 100
+            )
+        )
         self.out = np.round(self.x, decimals=self.decimals)
 
     def init_dtype(self):
@@ -2826,14 +2836,18 @@ class TestRoundNaN(unittest.TestCase):
         else:
             place = core.CPUPlace()
         with paddle.static.program_guard(paddle.static.Program()):
-            input = paddle.static.data(name="input", shape=self.x.shape, dtype=self.x.dtype)
+            input = paddle.static.data(
+                name="input", shape=self.x.shape, dtype=self.x.dtype
+            )
             output = self.python_api(input, decimals=self.decimals)
 
             exe = paddle.static.Executor(place)
-            result, = exe.run(feed={'input': self.x}, fetch_list=[output])
+            (result,) = exe.run(feed={'input': self.x}, fetch_list=[output])
             nan_mask = np.isnan(self.out)
             np.testing.assert_array_equal(result[nan_mask], self.out[nan_mask])
-            np.testing.assert_array_equal(result[~nan_mask], self.out[~nan_mask])
+            np.testing.assert_array_equal(
+                result[~nan_mask], self.out[~nan_mask]
+            )
         paddle.disable_static()
 
 
