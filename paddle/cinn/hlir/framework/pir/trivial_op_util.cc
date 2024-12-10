@@ -1061,8 +1061,12 @@ void CheckLoopAlignment(const std::vector<ir::Expr>& roots) {
   if (roots.size() < 2) return;
 
   auto var_equal = [](const ir::Var& lhs, const ir::Var& rhs) {
-    return lhs->upper_bound == rhs->upper_bound &&
-           lhs->lower_bound == rhs->lower_bound;
+    auto index_equal = [](const ir::Expr& lhs, const ir::Expr& rhs) -> bool {
+      return lhs.is_index() && rhs.is_index() ? lhs.as_index() == rhs.as_index()
+                                              : lhs == rhs;
+    };
+    return index_equal(lhs->upper_bound, rhs->upper_bound) &&
+           index_equal(lhs->lower_bound, rhs->lower_bound);
   };
 
   int base_loop_idx = -1;
