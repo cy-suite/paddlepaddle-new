@@ -166,17 +166,33 @@ struct MinFunctor {
   }
 };
 
-template <typename T>
-struct MinFunctor<T,
-                  typename std::enable_if<std::is_same<T, int32_t>::value> ||
-                      std::is_same<T, int64_t>::value> {
-  inline T initial() { return std::numeric_limits<T>::max(); }
+/**
+ * @brief Int32_t binary min functor
+ */
+template <>
+struct MinFunctor<int32_t> {
+  inline int32_t initial() { return std::numeric_limits<int32_t>::max(); }
 
-  __device__ T operator()(const T a, const T b) const {
+  __device__ int32_t operator()(const int32_t a, const int32_t b) const {
     return (b < a) ? b : a;
   }
 };
 
+/**
+ * @brief Int64_t binary min functor
+ */
+template <>
+struct MinFunctor<int64_t> {
+  inline int64_t initial() { return std::numeric_limits<int64_t>::max(); }
+
+  __device__ int64_t operator()(const int64_t a, const int64_t b) const {
+    return (b < a) ? b : a;
+  }
+};
+
+/**
+ * @brief Bool binary min functor
+ */
 template <>
 struct MinFunctor<bool> {
   inline bool initial() { return false; }
@@ -206,17 +222,33 @@ struct MaxFunctor {
   }
 };
 
-template <typename T>
-struct MaxFunctor<T,
-                  typename std::enable_if<std::is_same<T, int32_t>::value> ||
-                      std::is_same<T, int64_t>::value> {
-  inline T initial() { return std::numeric_limits<T>::max(); }
+/**
+ * @brief Int32_t binary max functor
+ */
+template <>
+struct MaxFunctor<int32_t> {
+  inline int32_t initial() { return std::numeric_limits<int32_t>::lowest(); }
 
-  __device__ T operator()(const T a, const T b) const {
+  __device__ int32_t operator()(const int32_t a, const int32_t b) const {
     return (b > a) ? b : a;
   }
 };
 
+/**
+ * @brief Int64_t binary max functor
+ */
+template <>
+struct MaxFunctor<int64_t> {
+  inline int64_t initial() { return std::numeric_limits<int64_t>::lowest(); }
+
+  __device__ int64_t operator()(const int64_t a, const int64_t b) const {
+    return (b > a) ? b : a;
+  }
+};
+
+/**
+ * @brief Bool binary max functor
+ */
 template <>
 struct MaxFunctor<bool> {
   inline bool initial() { return true; }
