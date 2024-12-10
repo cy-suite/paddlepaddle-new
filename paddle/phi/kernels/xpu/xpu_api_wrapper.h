@@ -688,6 +688,13 @@ static void MatMulXPUFunction(
     float beta = 0.f,
     bool is_grad = false,
     xpu::Activation_t act = xpu::Activation_t::LINEAR) {
+  PADDLE_ENFORCE_EQ(
+      true,
+      input == nullptr && beta == 0.f || input != nullptr,
+      common::errors::InvalidArgument(
+          "Matrix_c and beta of MatMulXPUFunction is not set properly with "
+          "input is nullptr and beta is not equal 0!"));
+
   using XPU_TA = typename XPUTypeTrait<TA>::Type;
   using XPU_TB = typename XPUTypeTrait<TB>::Type;
   using XPU_TC = typename XPUTypeTrait<
@@ -842,10 +849,12 @@ static void MatMulXPUFunction(
 
   xpu::ctx_guard RAII_GUARD(xpu_ctx);
   if (batch_size <= 1) {
+    // if input is nullptr, it it recommended to set matrix_c to out
     xblas_fc_api(xpu_ctx,
                  reinterpret_cast<const XPU_TA*>(x),
                  reinterpret_cast<const XPU_TB*>(y),
-                 reinterpret_cast<const XPU_TC*>(input),
+                 input == nullptr ? reinterpret_cast<const XPU_TD*>(out)
+                                  : reinterpret_cast<const XPU_TC*>(input),
                  reinterpret_cast<XPU_TD*>(out),
                  m,
                  n,
