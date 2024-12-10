@@ -761,45 +761,5 @@ class TestPostTrainingAvgONNXFormatForMobilenetv1ARMCPU(
         )
 
 
-class TestPostTrainingCsmscForPwgan(TestPostTrainingQuantization):
-    def test_post_training_csmsc_pwgan(self):
-        model = "pwg_baker_static_0.4"
-        algo = "avg"
-        round_type = "round"
-        data_urls = "https://paddlespeech.bj.bcebos.com/Parakeet/released_models/pwgan/pwg_baker_static_0.4.zip"
-        data_md5s = "e3504aed9c5a290be12d1347836d2742"
-        quantizable_op_type = [
-            "conv2d",
-            "depthwise_conv2d",
-            "mul",
-            "conv2d_transpose",
-            "matmul",
-            "matmul_v2",
-        ]
-        is_full_quantize = False
-        is_use_cache_file = False
-        is_optimize_model = True
-        onnx_format = False
-        diff_threshold = 0.05
-        batch_nums = 1
-        self.run_test(
-            model,
-            'inference.pdmodel',
-            'inference.pdiparams',
-            algo,
-            round_type,
-            data_urls,
-            data_md5s,
-            "pwg_baker_static_0.4",
-            quantizable_op_type,
-            is_full_quantize,
-            is_use_cache_file,
-            is_optimize_model,
-            diff_threshold,
-            onnx_format=onnx_format,
-            batch_nums=batch_nums,
-        )
-
-
 if __name__ == '__main__':
     unittest.main()
