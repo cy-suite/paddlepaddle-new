@@ -81,13 +81,8 @@ class PaddleToTensorRTConverter:
         self.param_dict = param_dict
 
         trt_manager = TensorRTConfigManager()
-        if (
-            self.trt_config is not None
-            and self.trt_config.tensorrt_ops_run_float
-        ):
-            trt_manager.set_force_fp32_ops(
-                self.trt_config.tensorrt_ops_run_float
-            )
+        if self.trt_config is not None and self.trt_config.ops_run_float:
+            trt_manager.set_force_fp32_ops(self.trt_config.ops_run_float)
             _logger.info(f"force_fp32_ops: {trt_manager.get_force_fp32_ops()}")
 
         self.input_info = {}
@@ -441,13 +436,13 @@ class PaddleToTensorRTConverter:
             and version_list[1] >= 2
             and version_list[2] >= 1
         ):
-            if (
-                self.trt_config is not None
-                and self.trt_config.tensorrt_ops_run_float
-            ):
+            if self.trt_config is not None and self.trt_config.ops_run_float:
                 config.set_flag(trt.BuilderFlag.PREFER_PRECISION_CONSTRAINTS)
 
         trt_engine = builder.build_serialized_network(network, config)
+        assert (
+            trt_engine is not None
+        ), 'Failed to build engine. please see ERROR log from trt.Logger'
         trt_params = paddle.base.libpaddle.TRTEngineParams()
         trt_params.min_input_shape = min_shape_map
         trt_params.max_input_shape = max_shape_map
