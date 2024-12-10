@@ -4283,6 +4283,18 @@
   backward : scale_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
+- op : scale_grad_embedding
+  args : (Tensor x, Tensor weight, int64_t padding_idx=-1)
+  output : Tensor
+  infer_meta :
+    func : EmbeddingInferMeta
+    param : [x, weight, padding_idx]
+  kernel :
+    func : embedding {dense, dense -> dense}
+    param : [x, weight, padding_idx]
+    data_type : weight
+  backward : scale_grad_embedding_grad
+
 - op : scatter
   args : (Tensor x, Tensor index, Tensor updates, bool overwrite=true)
   output : Tensor(out)

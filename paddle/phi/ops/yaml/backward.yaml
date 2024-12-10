@@ -2729,6 +2729,18 @@
   output : Tensor(x_grad)
   invoke : scale(out_grad, scale, 0.0f, true)
 
+- backward_op : scale_grad_embedding_grad
+  forward : scale_grad_embedding (Tensor x, Tensor weight, int64_t padding_idx=-1) -> Tensor(out)
+  args : (Tensor x, Tensor weight, Tensor out_grad, int64_t padding_idx=-1)
+  output : Tensor(weight_grad)
+  infer_meta :
+    func : EmbeddingGradInferMeta
+    param : [x, weight]
+  kernel :
+    func : scale_grad_embedding_grad
+    data_type : out_grad
+  no_need_buffer : weight
+
 - backward_op : scatter_grad
   forward : scatter (Tensor x, Tensor index, Tensor updates, bool overwrite=true) -> Tensor(out)
   args : (Tensor index, Tensor updates, Tensor out_grad, bool overwrite)
