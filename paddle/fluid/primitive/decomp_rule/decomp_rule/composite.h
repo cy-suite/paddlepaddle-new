@@ -1435,6 +1435,56 @@ Tensor eye_decomp(const paddle::Scalar& num_rows,
 
   return ConverToOrig<T>(res, dtype);
 }
+
+template <typename T>
+Tensor histogram_decomp(const Tensor& input,
+                        const Tensor& weight,
+                        const int64_t& bins,
+                        const float& min,
+                        const float& max,
+                        const bool& density) {
+  Tensor input_cast = ConverToMT<T>(input);
+  Tensor res = full<T>({bins}, 0, input_cast.dtype());
+  Tensor min_tensor = full_scalar<T>(min, input_cast.dtype());
+  Tensor max_tensor = full_scalar<T>(max, input_cast.dtype());
+  Tensor bins_tensor = full_scalar<T>(bins, DataType::INT64);
+  if (has_dynamic_shape(input_cast.shape())) {
+  } else {
+    Tensor input_ = reshape<T>(input_cast, {-1});
+    Tensor weight_ = weight ? reshape<T>(ConverToMT<T>(weight), {-1})
+                            : full<T>(input_.shape(), 1, input_cast.dtype());
+
+    if (min == 0 && max == 0) {
+      min_tensor = paddle::primitive::min<T>(input_);
+      max_tensor = paddle::primitive::max<T>(input_);
+    }
+    auto bin_width = (max_tensor - min_tensor) / bins_tensor;
+    auto valid_input_tmp = masked_select<T>(input_, input_ >= min_tensor);
+    auto valid_input =
+        masked_select<T>(valid_input_tmp, valid_input_tmp <= max_tensor);
+
+    auto valid_weight_tmp = masked_select<T>(weight_, input_ >= min_tensor);
+    auto valid_weight =
+        masked_select<T>(valid_weight_tmp, valid_input_tmp <= max_tensor);
+
+    auto normalized_input = (valid_input - min_tensor) / bin_width;
+    auto indices = cast<T>(floor<T>(normalized_input), DataType::INT64);
+
+    Tensor zero = full<T>(indices.shape(), DataType::INT64);
+    auto bin_indices_tmp = where<T>(indices < zero, zero, indices);
+    auto bin_indices = where<T>(
+        bin_indices_tmp >= bins_tensor, bins_tensor - 1, bin_indices_tmp);
+
+    res = put_along_axis<T>(res, bin_indices, valid_weight, 0, "add");
+
+    if (density) {
+      auto total_count = sum<T>(res);
+      res = res / (total_count * bin_width);
+    }
+  }
+  return ConverToOrig<T>(res, input.dtype());
+}
+
 }  // namespace details
 
 }  // namespace primitive
