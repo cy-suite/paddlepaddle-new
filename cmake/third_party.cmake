@@ -592,9 +592,18 @@ if(WITH_GPU
   endif()
 endif()
 
-if(WITH_GPU)
-  include(external/flux)
-  list(APPEND third_party_deps extern_flux)
+if(WITH_GPU
+   AND NOT WITH_ARM
+   AND NOT WIN32
+   AND NOT APPLE)
+    foreach(arch ${NVCC_ARCH_BIN})
+      if(${arch} GREATER_EQUAL 90)
+        include(external/flux)
+        list(APPEND third_party_deps extern_flux)
+        set(WITH_FLUX ON)
+        break()
+      endif()
+    endforeach()
 endif()
 
 if(WITH_CUDNN_FRONTEND)

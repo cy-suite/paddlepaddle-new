@@ -305,7 +305,9 @@ if(WITH_FLASHATTN)
   add_dependencies(phi flashattn)
 endif()
 
-add_dependencies(phi flux)
+if(WITH_FLUX)
+  add_dependencies(phi flux)
+endif()
 
 # for inference static library
 if(NOT WITH_SHARED_PHI)

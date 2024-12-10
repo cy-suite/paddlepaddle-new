@@ -173,4 +173,13 @@ private:
     return DenseTensor(alloc, meta);
   }
 };
+
+namespace flux {
+  static void RaiseNotSupportedError() {
+    PADDLE_THROW(common::errors::Unimplemented(
+        "Flux is unsupported, please check "
+        "the GPU compability and CUDA Version."
+        ));
+  }
+} // namespace flux
 } // namespace phi

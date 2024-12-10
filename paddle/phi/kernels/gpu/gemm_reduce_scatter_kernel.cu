@@ -23,6 +23,7 @@
 #include "paddle/phi/core/distributed/nccl_comm_context.h"
 namespace phi {
 
+#ifdef PADDLE_WITH_FLUX
 template<typename InT, typename OutT>
 class GemmRSHelper {
 public:
@@ -256,6 +257,7 @@ public:
   }
 
 };
+#endif
 
 template<typename T, typename Context>
 void GemmReduceScatterKernel(const Context& dev_ctx,
@@ -273,6 +275,14 @@ void GemmReduceScatterKernel(const Context& dev_ctx,
                   int ring_id,
                   int nranks,
                   DenseTensor* output) {
+#ifdef PADDLE_WITH_FLUX
+  int arch =
+      backends::gpu::GetGPUComputeCapability(dev_ctx.GetPlace().GetDeviceId());
+
+  if (arch != 90) {
+    flux::RaiseNotSupportedError();
+  }
+
   PADDLE_ENFORCE_GE(
       ring_id,
       0,
@@ -400,6 +410,9 @@ void GemmReduceScatterKernel(const Context& dev_ctx,
                     helper.output_dtype,
                     false,
                     output);
+#else
+  flux::RaiseNotSupportedError();
+#endif
 }
 
 } // namespace phi

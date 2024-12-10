@@ -18,6 +18,7 @@
 
 namespace phi {
 
+#ifdef PADDLE_WITH_FLUX
 template<typename InT, typename OutT>
 class AGGemmHelper {
 public:
@@ -172,6 +173,7 @@ public:
   ~AGGemmHelper() {
   }
 };
+#endif
 
 template<typename T, typename Context>
 void AllGatherGemmKernel(const Context& dev_ctx,
@@ -191,6 +193,14 @@ void AllGatherGemmKernel(const Context& dev_ctx,
                          const bool transpose_weight,
                          DenseTensor* output,
                          DenseTensor* input_parallel) {
+#ifdef PADDLE_WITH_FLUX
+  int arch =
+      backends::gpu::GetGPUComputeCapability(dev_ctx.GetPlace().GetDeviceId());
+
+  if (arch != 90) {
+    flux::RaiseNotSupportedError();
+  }
+
   constexpr int SPLIT = 1;
 
   auto map = paddle::distributed::ProcessGroupMapFromGid::getInstance();
@@ -356,6 +366,9 @@ void AllGatherGemmKernel(const Context& dev_ctx,
 
   phi::funcs::SetConstant<GPUContext, int32_t> set_functor;
   set_functor(dev_ctx, &(helper.barrier_buffer), int32_t{0});
+#else
+  flux::RaiseNotSupportedError();
+#endif
 }
 
 } // namespace phi
