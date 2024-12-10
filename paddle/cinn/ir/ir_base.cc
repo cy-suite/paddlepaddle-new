@@ -436,9 +436,6 @@ int32_t IndexExpr::length() const {
   switch (node_type()) {
     case ir::IrNodeTy::_Var_:
     case ir::IrNodeTy::IntImm:
-    case ir::IrNodeTy::Max:
-    case ir::IrNodeTy::Min:
-    case ir::IrNodeTy::Load:
       return 1;
     case ir::IrNodeTy::Add:
     case ir::IrNodeTy::Mul:
@@ -461,14 +458,10 @@ bool IndexExpr::IsDynamic() const {
     case ir::IrNodeTy::IntImm: {
       return false;
     }
-    case ir::IrNodeTy::Load:
-      return false;
     case ir::IrNodeTy::Add:
     case ir::IrNodeTy::Mul:
     case ir::IrNodeTy::Div:
-    case ir::IrNodeTy::Mod:
-    case ir::IrNodeTy::Min:
-    case ir::IrNodeTy::Max: {
+    case ir::IrNodeTy::Mod: {
       auto lFlag = operand(0).IsDynamic();
       auto rFlag = operand(1).IsDynamic();
       return lFlag || rFlag;
@@ -520,22 +513,11 @@ IndexExpr Simplify(const IndexExpr &expr) {
       }
       return expr;
     }
-    case ir::IrNodeTy::Load: {
-      auto load = expr.As<ir::Load>();
-      auto res = ir::ir_utils::IRCopy(expr);
-      auto res_load = res.As<ir::Load>();
-      for (size_t i = 0; i < load->indices.size(); ++i) {
-        res_load->indices[i] = Simplify(load->indices[i]);
-      }
-      return res;
-    }
     case ir::IrNodeTy::Add:
     case ir::IrNodeTy::Sub:
     case ir::IrNodeTy::Mul:
     case ir::IrNodeTy::Div:
-    case ir::IrNodeTy::Mod:
-    case ir::IrNodeTy::Min:
-    case ir::IrNodeTy::Max: {
+    case ir::IrNodeTy::Mod: {
       auto lhs = Simplify(expr.operand(0));
       auto rhs = Simplify(expr.operand(1));
       return ConstructIndexExprByNodeType(expr.node_type(), lhs, rhs);

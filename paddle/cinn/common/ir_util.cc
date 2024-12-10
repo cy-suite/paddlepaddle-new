@@ -695,11 +695,6 @@ bool IsSumPartialBySymbol(const ir::IndexExpr &expr,
     }
     case ir::IrNodeTy::Mod:
       return false;
-    case ir::IrNodeTy::Min:
-    case ir::IrNodeTy::Max:
-    case ir::IrNodeTy::Load:
-      // TODO(liujinnan) simplify later.
-      return false;
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(
           "Unsupported type of expr in IsSumPartialBySymbol which is: %s",
@@ -776,11 +771,6 @@ bool IsDivisiblieBySymbol(const ir::IndexExpr &expr,
       if (ty != expr.node_type()) return false;
       return IsDivisiblieBySymbol(expr.operand(0), symbol, expr.node_type());
     }
-    case ir::IrNodeTy::Min:
-    case ir::IrNodeTy::Max:
-    case ir::IrNodeTy::Load:
-      // TODO(liujinnan) simplify later.
-      return false;
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(
           "Unsupported type of expr in IsDivisiblieBySymbol which is: %s",

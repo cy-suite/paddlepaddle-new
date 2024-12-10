@@ -97,10 +97,6 @@ bool operator==(IndexExpr a, IndexExpr b) {
     case ir::IrNodeTy::_Var_: {
       return a.as_var()->name == b.as_var()->name;
     }
-    case ir::IrNodeTy::Min:
-    case ir::IrNodeTy::Max:
-    case ir::IrNodeTy::Load:
-      return ir_utils::IRCompare(a, b);
     case ir::IrNodeTy::Div:
     case ir::IrNodeTy::Mod: {
       return a->operand(0) == b->operand(0) && a->operand(1) == b->operand(1);
