@@ -166,7 +166,7 @@ struct MinFunctor {
   }
 };
 
-template <T>
+template <typename T>
 struct MinFunctor<T,
                   typename std::enable_if<std::is_same<T, int32_t>::value> ||
                       std::is_same<T, int64_t>::value> {
@@ -206,7 +206,7 @@ struct MaxFunctor {
   }
 };
 
-template <T>
+template <typename T>
 struct MaxFunctor<T,
                   typename std::enable_if<std::is_same<T, int32_t>::value> ||
                       std::is_same<T, int64_t>::value> {
