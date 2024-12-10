@@ -106,6 +106,23 @@ class AutoParallelRecomputePIRPass(PassBase):
         return segments
 
     def _apply_single_impl(self, main_program, startup_program, context=None):
+        sr = 3
+        no_recompute_segments = [0, 1]
+        # no_recompute_segments = []
+        refined_ops_patterns = [
+            # {
+            #     "main_ops": ["matmul", "add"],
+            #     "num": -1,
+            #     "pre_ops": [],
+            #     "suf_ops": [],
+            # },
+            {
+                "main_ops": ["flash_attn"],
+                "num": -1,
+                "pre_ops": [],
+                "suf_ops": [],
+            },
+        ]
         segments = self.get_segments(main_program)
         if len(segments) == 0:
             logger.info("No segments found in PIR recompite pass.")
@@ -119,6 +136,89 @@ class AutoParallelRecomputePIRPass(PassBase):
             value_map.add(val, val)
 
         for rc_id, segment in segments.items():
+            print("xxx segments: ", segment)
+
+        for i in sorted(no_recompute_segments, reverse=True):
+            idx = int(i)
+            print("xxx no need rc: ", idx, len(segments))
+            assert idx < len(
+                segments
+            ), f"the no_recompute_segments idx [{i}] should be lower the number of segment [{len(segments)}]"
+            segments.pop(idx)
+            print(
+                "xxx no_recompute_segments remove segments idx :",
+                idx,
+                len(segments),
+            )
+        for rc_id, segment in segments.items():
+            print("xxx need_rc segments: ", segment)
+
+        for rc_id in range(len(segments) - 1, 0, -1):
+            segment = segments[rc_id]
+            seg_ops_len = len(segment)
+            nedd_del = False
+            for i in range(seg_ops_len):
+                op = main_program.global_block().ops[segment[i]]
+                if op.has_attr('chunk_id'):
+                    chunk_id = op.attrs()["chunk_id"]
+                    if chunk_id >= sr:
+
+                        nedd_del = True
+                        break
+            if nedd_del:
+                segments.pop(rc_id)
+                print(
+                    "xxx sr vs chunk_id remove segments idx :",
+                    i,
+                    chunk_id,
+                    len(segments),
+                )
+
+        for refined_ops_pattern in refined_ops_patterns:
+            print("xxx refined_ops_pattern: ", refined_ops_pattern)
+            num = refined_ops_pattern['num']
+            num = (
+                num if num >= 0 else len(fwd_ops)
+            )  # 'num == -1' represents to all ops
+            main_ops = refined_ops_pattern['main_ops']
+            pre_ops = refined_ops_pattern['pre_ops']
+            suf_ops = refined_ops_pattern['suf_ops']
+            # print(num, main_ops, pre_ops, suf_ops)
+            main_start_id = len(pre_ops)
+            main_ops_len = len(main_ops)
+            pattern_ops = pre_ops + main_ops + suf_ops
+            pattern_ops_len = len(pattern_ops)
+            print(pattern_ops, pattern_ops_len)
+            for rc_id, segment in segments.items():
+                pattern_count = 0
+                seg_ops_len = len(segment)
+                right_id = seg_ops_len - 1
+                while right_id - pattern_ops_len + 1 > 0:
+                    left_id = right_id - pattern_ops_len + 1
+                    left_op_id = segment[left_id]
+                    right_op_id = segment[right_id]
+                    fetch_pattern = [
+                        op.name().split('.')[1]
+                        for op in main_program.global_block().ops[
+                            left_op_id : right_op_id + 1
+                        ]
+                    ]
+                    print("xxx fetch_pattern: ", fetch_pattern)
+                    if fetch_pattern == pattern_ops and pattern_count < num:
+                        segment[
+                            left_id
+                            + main_start_id : left_id
+                            + main_start_id
+                            + main_ops_len
+                        ] = []
+                        pattern_count += 1
+                        print("xxx segment del : ", pattern_count, num, segment)
+                        right_id = left_id - 1
+                    else:
+                        right_id -= 1
+
+        for rc_id, segment in segments.items():
+            print("xxx refine segments: ", segment)
             first_bwd_used_op = bwd_ops[-1]
             for idx in segment:
                 op = main_program.global_block().ops[idx]
