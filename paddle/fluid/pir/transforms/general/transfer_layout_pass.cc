@@ -38,7 +38,6 @@
 #include "paddle/pir/include/core/builtin_dialect.h"
 #include "paddle/pir/include/core/ir_context.h"
 #include "paddle/pir/include/core/program.h"
-#include "paddle/pir/include/dialect/shape/utils/shape_analysis.h"
 #include "paddle/pir/include/pass/pass.h"
 #include "paddle/pir/include/pass/pass_manager.h"
 #include "paddle/pir/include/pass/pass_registry.h"
@@ -624,8 +623,6 @@ class TransferLayoutPass : public pir::Pass {
 
     auto module_op = op->dyn_cast<pir::ModuleOp>();
     auto* program = module_op.program();
-
-    auto& shape_analysis = pir::ShapeAnalysisManager::Instance().Get(program);
 
     // MinCut
     VLOG(10) << "---------------------MinCut---------------------";
