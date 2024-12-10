@@ -605,8 +605,7 @@ ShapeConstraintIRAnalysis::GetShapeOrDataForValue(Value val) {
       SetSymbolForValueByStaticShape(val);
     } else {
       VLOG(3) << "InferShapeOrDataForValue,  defining_op: "
-              << val.defining_op()->name() << " id:" << val.defining_op()->id()
-              << " value id: " << val.impl()->id();
+              << val.defining_op()->name() << " id:" << val.defining_op()->id();
       InferShapeOrDataForValue(val);
     }
   }
@@ -657,6 +656,11 @@ void ShapeConstraintIRAnalysis::UpdateShapeOrDataByTransLayout(
     PADDLE_THROW(common::errors::Fatal(
         "Dead code, shouldn't run here for UpdateShapeOrDataByTransLayout!"));
   }
+}
+
+void ShapeConstraintIRAnalysis::AddEqualCstr(const symbol::DimExpr& lhs,
+                                             const symbol::DimExpr& rhs) {
+  context_.AddEqualCstr(lhs, rhs);
 }
 
 bool ShapeConstraintIRAnalysis::IsEqual(const symbol::DimExpr& lhs,

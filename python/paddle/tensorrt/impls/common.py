@@ -48,9 +48,15 @@ def dropout_converter(network, paddle_op, inputs):
     return scale_layer.get_output(0)
 
 
-@converter_registry.register("pd_op.bilinear_interp", trt_version="8.x")
+@converter_registry.register(
+    "pd_op.bilinear_interp", trt_version="trt_version_ge=8.0"
+)
 def bilinear_interp_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
+    input_shape_tensor = network.add_shape(input_tensor).get_output(0)
+    input_rank = (
+        input_shape_tensor.shape
+    )  # The reason is unknown that adding this unused code make input_shape_tensor maintain the correct result.
     data_format = paddle_op.attrs().get("data_format")
     interp_method = paddle_op.attrs().get("interp_method")
     align_corners = paddle_op.attrs().get("align_corners")
@@ -139,7 +145,6 @@ def bilinear_interp_converter(network, paddle_op, inputs):
     else:
         if outsize_tensor is not None:
             outsize_itensors = []
-            input_shape_tensor = network.add_shape(input_tensor).get_output(0)
             batch_dim = get_shape_tensor_element(network, input_shape_tensor, 0)
             outsize_itensors.append(batch_dim)
             if data_format == "NCHW":
@@ -162,9 +167,15 @@ def bilinear_interp_converter(network, paddle_op, inputs):
     return resize_layer.get_output(0)
 
 
-@converter_registry.register("pd_op.nearest_interp", trt_version="8.x")
+@converter_registry.register(
+    "pd_op.nearest_interp", trt_version="trt_version_ge=8.0"
+)
 def nearest_interp_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
+    input_shape_tensor = network.add_shape(input_tensor).get_output(0)
+    input_rank = (
+        input_shape_tensor.shape
+    )  # The reason is unknown that adding this unused code make input_shape_tensor maintain the correct result.
     data_format = paddle_op.attrs().get("data_format")
     interp_method = paddle_op.attrs().get("interp_method")
     align_corners = paddle_op.attrs().get("align_corners")
@@ -211,33 +222,8 @@ def nearest_interp_converter(network, paddle_op, inputs):
             scale_w = float(out_w) / float(in_dim[w_axis])
 
     outsize_tensor = None
-    if trt_version_float >= 8.2:
-        if len(inputs) > 2 and inputs[2] is not None:
-            size_tensor_operand = paddle_op.operands()[2].source()
-            if size_tensor_operand.is_combine():
-                size_tensors = inputs[2]
-                if not isinstance(size_tensors, list):
-                    size_tensors = [size_tensors]
-                    if len(size_tensors) >= 2:
-                        # Extract the first two elements representing height and width
-                        outsize_h = size_tensors[0]
-                        outsize_w = size_tensors[1]
-                        outsize_tensor = network.add_concatenation(
-                            [outsize_h, outsize_w]
-                        ).get_output(0)
-            else:
-                size_tensor_shape = size_tensor_operand.source().shape
-                if size_tensor_shape.size >= 2:
-                    size_tensor = inputs[2]
-                    outsize_h = network.add_slice(
-                        size_tensor, start=[0], shape=[1], stride=[1]
-                    ).get_output(0)
-                    outsize_w = network.add_slice(
-                        size_tensor, start=[1], shape=[1], stride=[1]
-                    ).get_output(0)
-                    outsize_tensor = network.add_concatenation(
-                        [outsize_h, outsize_w]
-                    ).get_output(0)
+    if inputs[2] is not None:
+        outsize_tensor = network.add_concatenation(inputs[2]).get_output(0)
 
     scales = [1.0] * len(input_tensor.shape)
     if data_format == "NCHW":
@@ -254,7 +240,6 @@ def nearest_interp_converter(network, paddle_op, inputs):
         )
     if outsize_tensor is not None:
         outsize_itensors = []
-        input_shape_tensor = network.add_shape(input_tensor).get_output(0)
         batch_dim = get_shape_tensor_element(network, input_shape_tensor, 0)
         outsize_itensors.append(batch_dim)
         if data_format == "NCHW":

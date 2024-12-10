@@ -206,6 +206,8 @@ class IR_API ShapeConstraintIRAnalysis final
   void UpdateShapeOrDataByTransLayout(Value val,
                                       TransLayoutType trans_layout_type);
 
+  void AddEqualCstr(const symbol::DimExpr& lhs, const symbol::DimExpr& rhs);
+
   bool IsEqual(const symbol::DimExpr& lhs, const symbol::DimExpr& rhs) const;
 
   bool IsGreatThanOne(const symbol::DimExpr& dim_expr) const;
