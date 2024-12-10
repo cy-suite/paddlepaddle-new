@@ -193,7 +193,7 @@ struct SubGraph : public std::enable_shared_from_this<SubGraph> {
     return std::string("Subgraph_") + std::to_string(counter++);
   }
 
-  std::string DebugString() const {
+  std::string DebugStr() const {
     std::stringstream ss;
     ss << name << " (substitute=" << substitute << ")";
     ss << "\nupstream: ";
@@ -214,27 +214,26 @@ struct SubGraph : public std::enable_shared_from_this<SubGraph> {
     }
   };
 
+  std::vector<pir::Operation*> ops;
+  std::unordered_set<SubGraphPtr, hash> upstreams;
+  std::unordered_set<SubGraphPtr, hash> downstreams;
+
   bool substitute{true};
   size_t min_op_id;
   size_t max_op_id;
   std::string name;
-  std::vector<pir::Operation*> ops;
-  std::unordered_set<SubGraphPtr, hash> upstreams;
-  std::unordered_set<SubGraphPtr, hash> downstreams;
 };
 using SubGraphPtr = std::shared_ptr<SubGraph>;
 
 void SubGraph::Merge(const SubGraphPtr& other) {
-  VLOG(4) << "Merge other: " << other->DebugString();
-  VLOG(4) << "Merge to: " << DebugString();
   SubGraphPtr self = shared_from_this();
-  for (auto upstream : other->upstreams) {
+  for (const auto& upstream : other->upstreams) {
     if (upstream == self) continue;
     upstream->downstreams.erase(other);
     upstream->downstreams.insert(self);
     upstreams.insert(upstream);
   }
-  for (auto downstream : other->downstreams) {
+  for (const auto& downstream : other->downstreams) {
     if (downstream == self) continue;
     downstream->upstreams.erase(other);
     downstream->upstreams.insert(self);
@@ -245,7 +244,6 @@ void SubGraph::Merge(const SubGraphPtr& other) {
   ops.insert(ops.begin(), other->ops.begin(), other->ops.end());
   min_op_id = std::min(self->min_op_id, other->min_op_id);
   max_op_id = std::max(self->max_op_id, other->max_op_id);
-  VLOG(4) << "Merged: " << DebugString();
 }
 
 bool HasSinkRoute(const SubGraphPtr& source, const SubGraphPtr& target) {
@@ -259,10 +257,23 @@ bool HasSinkRoute(const SubGraphPtr& source, const SubGraphPtr& target) {
   return false;
 }
 
+bool HasLiftRoute(const SubGraphPtr& source, const SubGraphPtr& target) {
+  if (source == target) return true;
+  if (source->max_op_id < target->min_op_id) {
+    return false;
+  }
+  for (const auto& subgraph : source->upstreams) {
+    if (HasLiftRoute(subgraph, target)) return true;
+  }
+  return false;
+}
+
+bool HasRoute(const SubGraphPtr& up, const SubGraphPtr& down) {
+  return HasSinkRoute(up, down) || HasLiftRoute(down, up);
+}
+
 bool CanFuseUpstream2Downstream(const SubGraphPtr& upstream,
                                 const SubGraphPtr& downstream) {
-  if (upstream == downstream) return false;
-  if (!upstream->substitute || !downstream->substitute) return false;
   PADDLE_ENFORCE(upstream->downstreams.count(downstream) &&
                      downstream->upstreams.count(upstream),
                  ::common::errors::InvalidArgument(
@@ -275,29 +286,10 @@ bool CanFuseUpstream2Downstream(const SubGraphPtr& upstream,
   for (const auto& subgraph : up_downstreams) {
     if (HasSinkRoute(subgraph, downstream)) return false;
   }
+  for (const auto& subgraph : down_upstreams) {
+    if (HasLiftRoute(subgraph, upstream)) return false;
+  }
   return true;
-}
-
-bool ExistCycle(const std::vector<SubGraphPtr>& subgraph_list) {
-  std::unordered_map<SubGraphPtr, std::unordered_set<SubGraphPtr>> visited;
-  std::queue<SubGraphPtr> queue;
-  for (auto subgraph : subgraph_list) {
-    if (subgraph->downstreams.empty()) {
-      queue.push(subgraph);
-    }
-  }
-  while (!queue.empty()) {
-    auto subgraph = queue.front();
-    queue.pop();
-    for (const auto& downstream : subgraph->downstreams) {
-      if (visited.count(subgraph) && visited[subgraph].count(downstream)) {
-        return true;
-      }
-      visited[subgraph].insert(downstream);
-      queue.push(downstream);
-    }
-  }
-  return false;
 }
 
 class SubgraphDetector {
@@ -309,27 +301,17 @@ class SubgraphDetector {
   std::vector<GroupOpsVec> BuildGroups();
 
  private:
-  pir::Operation* FindRoot(pir::Operation* op) {
-    auto root = op;
-    while (op2root_[root] != root) {
-      root = op2root_[root];
-    }
-    return root;
-  }
-
   SubGraphPtr GetOpSubgraph(pir::Operation* op) {
-    auto root = FindRoot(op);
     PADDLE_ENFORCE(
-        root2subgraph_.count(root),
+        op2subgraph_.count(op),
         ::common::errors::InvalidArgument(
-            "Can not find op in root2subgraph_: \n%s", OpsDebugStr({op})));
-    return root2subgraph_.at(root);
+            "Can not find op in op2subgraph_: \n%s", OpsDebugStr({op})));
+    return op2subgraph_.at(op);
   }
 
   std::unordered_map<pir::Operation*, int> op2id_;
   std::vector<pir::Operation*> sort_ops_;
-  std::unordered_map<pir::Operation*, pir::Operation*> op2root_;
-  std::unordered_map<pir::Operation*, SubGraphPtr> root2subgraph_;
+  std::unordered_map<pir::Operation*, SubGraphPtr> op2subgraph_;
 };
 
 SubgraphDetector::SubgraphDetector(pir::Block* block,
@@ -346,59 +328,52 @@ SubgraphDetector::SubgraphDetector(pir::Block* block,
   for (const auto& op : sort_ops_) {
     bool substitute = classifier(*op);
     auto subgraph = std::make_shared<SubGraph>(op, op2id_[op], substitute);
-    op2root_[op] = op;
-    root2subgraph_[op] = subgraph;
+    op2subgraph_[op] = subgraph;
   }
   for (const auto& op : sort_ops_) {
-    auto subgraph = root2subgraph_[op];
+    auto subgraph = op2subgraph_[op];
     for (const auto& producer : GetProducerOps(op)) {
-      if (!root2subgraph_.count(producer)) continue;
-      subgraph->upstreams.insert(root2subgraph_[producer]);
-      root2subgraph_[producer]->downstreams.insert(subgraph);
+      if (!op2subgraph_.count(producer)) continue;
+      subgraph->upstreams.insert(op2subgraph_[producer]);
+      op2subgraph_[producer]->downstreams.insert(subgraph);
     }
     for (const auto& consumer : GetConsumerOps(op, op2id_)) {
-      if (!root2subgraph_.count(consumer)) continue;
-      subgraph->downstreams.insert(root2subgraph_[consumer]);
-      root2subgraph_[consumer]->upstreams.insert(subgraph);
+      if (!op2subgraph_.count(consumer)) continue;
+      subgraph->downstreams.insert(op2subgraph_[consumer]);
+      op2subgraph_[consumer]->upstreams.insert(subgraph);
     }
   }
 }
 
 void SubgraphDetector::SubgraphFusion() {
-  // Merge subgraphs with direct relation while ensuring no cycles are created
   VLOG(4) << "Merge subgraphs with direct relation";
   for (const auto& op : sort_ops_) {
-    const auto producers = GetProducerOpsReverseSort(op, op2id_);
-    for (const auto& producer : producers) {
+    auto downstream = GetOpSubgraph(op);
+    if (!downstream->substitute) continue;
+    for (const auto& producer : GetProducerOpsReverseSort(op, op2id_)) {
       auto upstream = GetOpSubgraph(producer);
-      auto downstream = GetOpSubgraph(op);
+      if (upstream == downstream || !upstream->substitute) continue;
       if (CanFuseUpstream2Downstream(upstream, downstream)) {
         downstream->Merge(upstream);
-        root2subgraph_.erase(FindRoot(producer));
         for (auto upstream_op : upstream->ops) {
-          op2root_[upstream_op] = FindRoot(op);
+          op2subgraph_[upstream_op] = downstream;
         }
       }
     }
   }
-  // Merge brother subgraphs with same upstream
   VLOG(4) << "Merge brother subgraphs with same upstream";
   for (const auto& op : sort_ops_) {
     auto subgraph = GetOpSubgraph(op);
     if (!subgraph->substitute) continue;
     for (auto producer : GetProducerOpsReverseSort(op, op2id_)) {
-      if (subgraph->substitute) continue;
       for (auto consumer : GetConsumerOps(producer, op2id_)) {
         auto brother = GetOpSubgraph(consumer);
-        if (!brother->substitute) continue;
-        if (!HasSinkRoute(subgraph, brother) &&
-            !HasSinkRoute(brother, subgraph)) {
+        if (brother == subgraph || !brother->substitute) continue;
+        if (!HasRoute(subgraph, brother) && !HasRoute(brother, subgraph)) {
           subgraph->Merge(brother);
-          auto brother_root = FindRoot(brother->ops.front());
           for (auto brother_op : brother->ops) {
-            op2root_[brother_op] = FindRoot(op);
+            op2subgraph_[brother_op] = subgraph;
           }
-          root2subgraph_.erase(brother_root);
         }
       }
     }
@@ -408,7 +383,7 @@ void SubgraphDetector::SubgraphFusion() {
 std::vector<GroupOpsVec> SubgraphDetector::BuildGroups() {
   std::unordered_set<SubGraphPtr> subgraph_set;
   std::vector<SubGraphPtr> subgraph_list;
-  for (const auto& op : sort_ops_) {
+  for (auto op : sort_ops_) {
     SubGraphPtr subgraph = GetOpSubgraph(op);
     if (subgraph_set.count(subgraph)) continue;
     subgraph_set.insert(subgraph);
@@ -416,9 +391,6 @@ std::vector<GroupOpsVec> SubgraphDetector::BuildGroups() {
   }
   std::reverse(subgraph_list.begin(), subgraph_list.end());
   VLOG(4) << "Subgraph list size: " << subgraph_list.size();
-  PADDLE_ENFORCE(!ExistCycle(subgraph_list),
-                 ::common::errors::PreconditionNotMet(
-                     "Cycle detected after SubGraph Fusion."));
 
   std::vector<GroupOpsVec> groups;
   for (const auto& subgraph : subgraph_list) {
