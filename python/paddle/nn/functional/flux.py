@@ -42,7 +42,7 @@ def all_gather_gemm(
   k_dim = input.shape[1]
   n_dim = weight.shape[1] if transpose_weight else weight.shape[0]
   ring_id = group.id
-  fast_accum = not deepcopy_input_parallel
+  fast_accum = False
   local_copy = False
   bias = None
   input_scale = None
@@ -51,5 +51,5 @@ def all_gather_gemm(
   output, input_parallel = _C_ops.all_gather_gemm(
                                input, weight, bias, input_scale, weight_scale, output_scale,
                                nnodes, full_m, n_dim, k_dim, ring_id,
-                               fast_accum, transpose_weight, local_copy)
+                               fast_accum, deepcopy_input_parallel, transpose_weight)
   return output, input_parallel

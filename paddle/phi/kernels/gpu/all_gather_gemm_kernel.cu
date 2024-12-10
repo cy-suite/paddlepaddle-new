@@ -30,7 +30,7 @@ public:
   int32_t nnodes;
   int32_t full_m;
   int32_t n_dim;
-int32_t k_dim;
+  int32_t k_dim;
   const phi::DataType input_dtype = std::is_same<InT, phi::dtype::float16>::value ?
                                     phi::DataType::FLOAT16 :
                                     phi::DataType::BFLOAT16;
@@ -38,7 +38,6 @@ int32_t k_dim;
                                      phi::DataType::FLOAT16 :
                                      phi::DataType::BFLOAT16;
   const bool transpose_weight;
-  const bool local_copy;
   const bool is_fp8_gemm{false};
   int32_t rank;
   int32_t world_size;
@@ -81,7 +80,6 @@ int32_t k_dim;
     int32_t n_dim,
     int32_t k_dim,
     bool transpose_weight = true,
-    bool local_copy = false,
     AGRingMode ring_mode_ = AGRingMode::Auto)
     : dev_ctx(dev_ctx_),
       comm_ctx(comm_ctx_),
@@ -91,7 +89,6 @@ int32_t k_dim;
       n_dim(n_dim),
       k_dim(k_dim),
       transpose_weight(transpose_weight),
-      local_copy(local_copy),
       rank(tp_group->GetRank()),
       world_size(tp_group->GetSize()),
       local_world_size(world_size / nnodes),
@@ -190,8 +187,8 @@ void AllGatherGemmKernel(const Context& dev_ctx,
                          const int32_t k_dim,
                          const int32_t ring_id,
                          const bool fast_accum,
+                         const bool deepcopy_input_parallel,
                          const bool transpose_weight,
-                         const bool local_copy,
                          DenseTensor* output,
                          DenseTensor* input_parallel) {
   constexpr int SPLIT = 1;
@@ -222,18 +219,10 @@ void AllGatherGemmKernel(const Context& dev_ctx,
                              n_dim,
                              k_dim,
                              transpose_weight,
-                             local_copy,
                              AGRingMode::Auto};
 
   helper.n_dim = n_dim;
 
-  if(local_copy) {
-    PADDLE_ENFORCE_EQ(
-        input.numel() * SizeOf(input.dtype()),
-        helper.chunk_size,
-        common::errors::InvalidArgument(
-            "helper.chunk_size should be equal to input.numel() * SizeOf(input.dtype())"));
-  }
   helper.chunk_size = input.numel() * SizeOf(input.dtype());
   helper.split_chunk_size = helper.chunk_size / SPLIT;
 
@@ -283,29 +272,27 @@ void AllGatherGemmKernel(const Context& dev_ctx,
   /// AG GEMM
   cudaStream_t current_stream = dev_ctx.stream();
 
-  if (!local_copy) {
-    // copy_local
-    helper.chunk_size = input.numel() * SizeOf(input.dtype());
-    helper.split_chunk_size = helper.chunk_size / SPLIT;
-    const void *input_ptr = input.data();
-    void *input_buffer_ptr = helper.input_buffer.data();
+  // copy_local
+  helper.chunk_size = input.numel() * SizeOf(input.dtype());
+  helper.split_chunk_size = helper.chunk_size / SPLIT;
+  const void *input_ptr = input.data();
+  void *input_buffer_ptr = helper.input_buffer.data();
 
-    PADDLE_ENFORCE_GPU_SUCCESS(cudaMemcpyAsync(
-        ptr_offset(input_buffer_ptr, helper.rank * helper.chunk_size),
-        input_ptr,
-        helper.chunk_size,
-        cudaMemcpyDefault,
-        current_stream));
+  PADDLE_ENFORCE_GPU_SUCCESS(cudaMemcpyAsync(
+      ptr_offset(input_buffer_ptr, helper.rank * helper.chunk_size),
+      input_ptr,
+      helper.chunk_size,
+      cudaMemcpyDefault,
+      current_stream));
 
-    for (int j = 0; j < SPLIT; ++j) {
-      phi::dynload::set_ready(helper.barrier_ptrs[helper.rank], helper.rank, j, dev_ctx.stream());
-    }
-    phi::dynload::cudaipc_barrier_all_on_stream_impl_capi(
-        current_stream,
-        helper.sync_buffer_ptrs.data(),
-        helper.rank,
-        helper.world_size);
+  for (int j = 0; j < SPLIT; ++j) {
+    phi::dynload::set_ready(helper.barrier_ptrs[helper.rank], helper.rank, j, dev_ctx.stream());
   }
+  phi::dynload::cudaipc_barrier_all_on_stream_impl_capi(
+      current_stream,
+      helper.sync_buffer_ptrs.data(),
+      helper.rank,
+      helper.world_size);
 
 
   PADDLE_ENFORCE_GPU_SUCCESS(cudaEventRecord(helper.ready_event, current_stream));
@@ -347,7 +334,7 @@ void AllGatherGemmKernel(const Context& dev_ctx,
       dev_ctx, output_buffer, {0}, {0}, {static_cast<int32_t>(input.dims()[0] * helper.world_size)}, infer_flags, decrease_axis, output);
   }
 
-  if (fast_accum) {
+  if (!deepcopy_input_parallel) {
     *input_parallel = helper.input_buffer;
   } else {
     *input_parallel = phi::Empty<T>(dev_ctx, IntArray{full_m, k_dim});

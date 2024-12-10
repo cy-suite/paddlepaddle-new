@@ -2039,7 +2039,7 @@
   optional : bias, input_scale, weight_scale, output_scale
 
 - op : all_gather_gemm
-  args : (Tensor input, Tensor weight, Tensor bias, Tensor input_scale, Tensor weight_scale, Tensor output_scale, int nnodes, int full_m, int n_dim, int k_dim, int ring_id, bool fast_accum, bool transpose_weight, bool local_copy)
+  args : (Tensor input, Tensor weight, Tensor bias, Tensor input_scale, Tensor weight_scale, Tensor output_scale, int nnodes, int full_m, int n_dim, int k_dim, int ring_id, bool fast_accum, bool deepcopy_input_parallel, bool transpose_weight)
   output : Tensor(output), Tensor(input_parallel)
   infer_meta :
     func : AllGatherGemmInferMeta
