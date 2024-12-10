@@ -40,7 +40,7 @@
 namespace {
 
 extern const std::set<std::string> ops_in_NCHW;
-extern const std::set<std::string> op_with_axis;
+extern const std::set<std::string> ops_with_axis;
 
 class AutoLayoutInsertPass : public pir::Pass {
  public:
@@ -208,7 +208,7 @@ class AutoLayoutInsertPass : public pir::Pass {
           DoTransposeOpResult(op, builder);
         }
       } else if (ops_in_NCHW.find(op_name) == ops_in_NCHW.end() &&
-                 op_with_axis.find(op_name) == op_with_axis.end() &&
+                 ops_with_axis.find(op_name) == ops_with_axis.end() &&
                  IsInsertTransposeOpBefore(op)) {
         VLOG(4) << "enter NCHW op: " << op_name;
         DoTransposeOpOperand(op, builder);
@@ -308,7 +308,7 @@ const std::set<std::string> ops_in_NCHW = {"pd_op.max_pool2d_with_index",
                                            "pd_op.deformable_conv",
                                            "pd_op.set_value_with_tensor_",
                                            "pd_op.set_value_with_tensor"};
-const std::set<std::string> op_with_axis = {
+const std::set<std::string> ops_with_axis = {
     "pd_op.all",
     "pd_op.amax",
     "pd_op.amin",
