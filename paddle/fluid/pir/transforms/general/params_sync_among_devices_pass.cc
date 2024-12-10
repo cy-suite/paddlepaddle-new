@@ -19,6 +19,7 @@
 #include "paddle/fluid/pir/dialect/kernel/ir/kernel_attribute.h"
 #include "paddle/fluid/pir/dialect/kernel/ir/kernel_dialect.h"
 #include "paddle/fluid/pir/utils/general_functions.h"
+#include "paddle/phi/common/memory_utils.h"
 #include "paddle/phi/common/place.h"
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/enforce.h"
@@ -57,6 +58,8 @@ class ParamsSyncAmongDevicesPass : public pir::Pass {
 
   void Run(pir::Operation* op) override {
     VLOG(6) << "apply params_sync_among_devices_pass";
+    phi::DeviceContextPool& pool = phi::DeviceContextPool::Instance();
+    phi::DeviceContext* dev_ctx = pool.Get(place_);
     auto module_op = op->dyn_cast<pir::ModuleOp>();
     PADDLE_ENFORCE_NOT_NULL(
         module_op,
@@ -64,34 +67,87 @@ class ParamsSyncAmongDevicesPass : public pir::Pass {
             "params_sync_among_devices_pass should run on module op."));
     auto& block = module_op.block();
     int64_t num_rewrites_{0};
+
+    std::vector<phi::DenseTensor*> dense_tensors;
     for (auto& inner_op : block) {
-      if (inner_op.isa<pir::ParameterOp>() && inner_op.num_results() > 0) {
+      if (inner_op.template isa<pir::ParameterOp>() &&
+          inner_op.num_results() > 0) {
         auto var = inner_op.result(0);
         auto bool_attr =
-            var.attribute<::pir::BoolAttribute>(kAttrIsPersistable);
+            var.template attribute<::pir::BoolAttribute>(kAttrIsPersistable);
         if (!bool_attr || !bool_attr.data()) {
           continue;
         }
         std::string param_name = inner_op.attributes()
                                      .at("parameter_name")
-                                     .dyn_cast<pir::StrAttribute>()
+                                     .template dyn_cast<pir::StrAttribute>()
                                      .AsString();
         auto* param_var = scope_->FindVar(param_name);
         PADDLE_ENFORCE_NOT_NULL(
             param_var,
             common::errors::InvalidArgument("Parameter var [%s] not in scope.",
                                             param_name));
+
         if (param_var->IsType<phi::DenseTensor>()) {
-          auto* param_tensor = param_var->GetMutable<phi::DenseTensor>();
-          paddle::framework::TensorCopySync(
-              *param_tensor, place_, param_tensor);
-          num_rewrites_++;
+          dense_tensors.push_back(param_var->GetMutable<phi::DenseTensor>());
         } else {
           PADDLE_THROW(common::errors::Unimplemented(
               "params_sync_among_devices_pass only support DenseTensor type of "
               "parameter var."));
         }
       }
+    }
+
+    size_t num_threads = 8;
+    const size_t chunk_size =
+        std::max(static_cast<size_t>(1), dense_tensors.size() / num_threads);
+    size_t remain_size = dense_tensors.size() % num_threads;
+    auto process_task = [&](size_t thread_id, auto begin, auto end) -> int64_t {
+      int64_t local_rewrites = 0;
+      cudaStream_t stream;
+      cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+      for (auto it = begin; it != end; ++it) {
+        auto* tensor = *it;
+        auto tensor_tmp = *tensor;
+        void* src_ptr = tensor_tmp.data();
+        tensor->Resize(tensor->dims());
+        void* dst_ptr = dev_ctx->Alloc(tensor, tensor->dtype());
+        PADDLE_ENFORCE_NOT_NULL(
+            dst_ptr,
+            common::errors::InvalidArgument("GPU memory allocation failed."));
+        phi::memory_utils::Copy(place_,
+                                dst_ptr,
+                                phi::CPUPlace(),
+                                src_ptr,
+                                tensor->numel() * phi::SizeOf(tensor->dtype()),
+                                stream);
+        local_rewrites++;
+      }
+
+      cudaStreamSynchronize(stream);
+      cudaStreamDestroy(stream);
+      return local_rewrites;
+    };
+
+    std::vector<std::future<int64_t>> futures;
+    for (size_t i = 0; i < num_threads; ++i) {
+      auto begin = dense_tensors.begin() + i * chunk_size;
+      auto end =
+          (i == num_threads - 1) ? dense_tensors.end() : begin + chunk_size;
+      futures.push_back(
+          std::async(std::launch::async, process_task, i, begin, end));
+    }
+    if (remain_size > 0) {
+      auto begin = dense_tensors.end() - remain_size;
+      futures.push_back(std::async(std::launch::async,
+                                   process_task,
+                                   num_threads,
+                                   begin,
+                                   dense_tensors.end()));
+    }
+
+    for (auto& future : futures) {
+      num_rewrites_ += future.get();
     }
     AddStatistics(num_rewrites_);
   }
