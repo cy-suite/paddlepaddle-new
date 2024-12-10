@@ -529,7 +529,14 @@ if(WITH_COVERAGE)
   list(REMOVE_ITEM TEST_OPS test_cuda_graph_partial_graph_static_run)
 endif()
 foreach(TEST_OP ${TEST_OPS})
-  py_test_modules(${TEST_OP} MODULES ${TEST_OP})
+  if(WITH_XPU)
+    # Because XPU disables stride kernel by default,
+    # we turn it on here to pass some stride tests.
+    py_test_modules(${TEST_OP} MODULES ${TEST_OP} ENVS
+                    FLAGS_use_stride_kernel=true)
+  else()
+    py_test_modules(${TEST_OP} MODULES ${TEST_OP})
+  endif()
 endforeach()
 py_test_modules(
   test_imperative_ocr_attention_model MODULES
