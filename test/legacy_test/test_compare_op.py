@@ -61,7 +61,7 @@ def create_test_class(op_type, typename, callback, check_pir=False):
 def create_unitest_class_with_complex(
     op_type, typename, callback, check_pir=False
 ):
-    class Cls(unittest.TestCase):
+    class Class(unittest.TestCase):
         def setUp(self):
             self.callback = callback
             self.op_type = op_type
@@ -311,8 +311,8 @@ def create_unitest_class_with_complex(
                     np.testing.assert_allclose(c_out[0], c_np)
 
     cls_name = f"{op_type}_{typename[1]}"
-    Cls.__name__ = cls_name
-    globals()[cls_name] = Cls
+    Class.__name__ = cls_name
+    globals()[cls_name] = Class
 
 
 for _type_name in {
