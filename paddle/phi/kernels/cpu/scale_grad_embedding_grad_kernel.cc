@@ -97,10 +97,6 @@ struct ScaleGradEmbeddingGradCPUFunctor {
           count_ids_table[ids_data[i]] = 1;
           ids_unique.push_back(ids_data[i]);
         }
-        printf("i: %d, ids: %d, count: %d\n",
-               i,
-               ids_data[i],
-               count_ids_table[ids_data[i]]);
       }
       for (int64_t i = 0; i < ids_unique.size(); ++i) {
         if (padding_idx_ != kNoPadding && ids_unique[i] == padding_idx_) {
