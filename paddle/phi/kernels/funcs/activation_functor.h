@@ -2971,37 +2971,38 @@ struct RoundFunctor : public BaseActivationFunctor<T> {
 };
 
 template <typename T>
-struct RoundFunctor<phi::dtype::complex<T>> : public BaseActivationFunctor<phi::dtype::complex<T>> {
-    int decimals;
+struct RoundFunctor<phi::dtype::complex<T>>
+    : public BaseActivationFunctor<phi::dtype::complex<T>> {
+  int decimals;
 
-    std::vector<std::pair<const char*, int*>> GetAttrs() {
-        return {{"decimals", &decimals}};
-    }
+  std::vector<std::pair<const char*, int*>> GetAttrs() {
+    return {{"decimals", &decimals}};
+  }
 
-    template <typename Device, typename X, typename Out>
-    void operator()(Device d, X x, Out out) const {
-        using ComplexT = phi::dtype::complex<T>;
+  template <typename Device, typename X, typename Out>
+  void operator()(Device d, X x, Out out) const {
+    using ComplexT = phi::dtype::complex<T>;
 
-        if (decimals == 0) {
-            out.device(d) = x.unaryExpr([](const ComplexT& c) {
-                return ComplexT(std::round(c.real), std::round(c.imag));
-            });
-        } else if (decimals > 0) {
-            auto ten_pow_decimals = static_cast<T>(std::pow(10, decimals));
-            out.device(d) = x.unaryExpr([ten_pow_decimals](const ComplexT& c) {
-                return ComplexT(
-                    std::round(c.real * ten_pow_decimals) / ten_pow_decimals,
-                    std::round(c.imag * ten_pow_decimals) / ten_pow_decimals);
-            });
-        } else {
-            auto ten_pow_decimals = static_cast<T>(std::pow(10, -decimals));
-            out.device(d) = x.unaryExpr([ten_pow_decimals](const ComplexT& c) {
-                return ComplexT(
-                    std::round(c.real / ten_pow_decimals) * ten_pow_decimals,
-                    std::round(c.imag / ten_pow_decimals) * ten_pow_decimals);
-            });
+    if (decimals == 0) {
+      out.device(d) = x.unaryExpr([](const ComplexT& c) {
+        return ComplexT(std::round(c.real), std::round(c.imag));
+      });
+    } else if (decimals > 0) {
+      auto ten_pow_decimals = static_cast<T>(std::pow(10, decimals));
+      out.device(d) = x.unaryExpr([ten_pow_decimals](const ComplexT& c) {
+        return ComplexT(
+            std::round(c.real * ten_pow_decimals) / ten_pow_decimals,
+            std::round(c.imag * ten_pow_decimals) / ten_pow_decimals);
+      });
+    } else {
+      auto ten_pow_decimals = static_cast<T>(std::pow(10, -decimals));
+      out.device(d) = x.unaryExpr([ten_pow_decimals](const ComplexT& c) {
+        return ComplexT(
+            std::round(c.real / ten_pow_decimals) * ten_pow_decimals,
+            std::round(c.imag / ten_pow_decimals) * ten_pow_decimals);
+      });
         }
-    }
+  }
 };
 
 // ceil(x) = ceiling(x)
@@ -5236,36 +5237,35 @@ struct CudaRoundFunctor : public BaseActivationFunctor<T> {
 template <typename T>
 struct CudaRoundFunctor<phi::dtype::complex<T>>
     : public BaseActivationFunctor<phi::dtype::complex<T>> {
-    using MPType = typename phi::dtype::MPTypeTrait<T>::Type;
-    int decimals;
+  using MPType = typename phi::dtype::MPTypeTrait<T>::Type;
+  int decimals;
 
-    std::vector<std::pair<const char*, int*>> GetAttrs() {
-        return {{"decimals", &decimals}};
-    }
+  std::vector<std::pair<const char*, int*>> GetAttrs() {
+    return {{"decimals", &decimals}};
+  }
 
-    __device__ __forceinline__ phi::dtype::complex<T> operator()(
-        const phi::dtype::complex<T> arg_x) const {
-        MPType real_part = static_cast<MPType>(arg_x.real);
-        MPType imag_part = static_cast<MPType>(arg_x.imag);
+  __device__ __forceinline__ phi::dtype::complex<T> operator()(
+      const phi::dtype::complex<T> arg_x) const {
+    MPType real_part = static_cast<MPType>(arg_x.real);
+    MPType imag_part = static_cast<MPType>(arg_x.imag);
 
-        if (decimals == 0) {
-            return phi::dtype::complex<T>(
-                static_cast<T>(round(real_part)),
-                static_cast<T>(round(imag_part)));
-        } else if (decimals > 0) {
-            float ten_pow_decimals = powf(10.f, decimals);
-            MPType scale = static_cast<MPType>(ten_pow_decimals);
-            return phi::dtype::complex<T>(
-                static_cast<T>(round(real_part * scale) / ten_pow_decimals),
-                static_cast<T>(round(imag_part * scale) / ten_pow_decimals));
-        } else {
-            float ten_pow_decimals = powf(10.f, -decimals);
-            MPType scale = static_cast<MPType>(ten_pow_decimals);
-            return phi::dtype::complex<T>(
-                static_cast<T>(round(real_part / scale) * ten_pow_decimals),
-                static_cast<T>(round(imag_part / scale) * ten_pow_decimals));
+    if (decimals == 0) {
+      return phi::dtype::complex<T>(static_cast<T>(round(real_part)),
+                                    static_cast<T>(round(imag_part)));
+    } else if (decimals > 0) {
+      float ten_pow_decimals = powf(10.f, decimals);
+      MPType scale = static_cast<MPType>(ten_pow_decimals);
+      return phi::dtype::complex<T>(
+          static_cast<T>(round(real_part * scale) / ten_pow_decimals),
+          static_cast<T>(round(imag_part * scale) / ten_pow_decimals));
+    } else {
+      float ten_pow_decimals = powf(10.f, -decimals);
+      MPType scale = static_cast<MPType>(ten_pow_decimals);
+      return phi::dtype::complex<T>(
+          static_cast<T>(round(real_part / scale) * ten_pow_decimals),
+          static_cast<T>(round(imag_part / scale) * ten_pow_decimals));
         }
-    }
+  }
 };
 
 // GradFunctor for ceil, floor and round
