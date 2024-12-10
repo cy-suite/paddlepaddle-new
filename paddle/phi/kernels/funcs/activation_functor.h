@@ -2959,14 +2959,12 @@ struct RoundFunctor : public BaseActivationFunctor<T> {
   template <typename Device, typename X, typename Out>
   void operator()(Device d, X x, Out out) const {
     if (decimals == 0) {
-      out.device(d) =
-          (x.isnan() || x.isinf())
-              .select(x, x.round());
+      out.device(d) = (x.isnan() || x.isinf()).select(x, x.round());
     } else if (decimals > 0) {
       auto ten_pow_decimals = static_cast<T>(std::pow(10, decimals));
-      out.device(d) = (x.isnan() || x.isinf()).select(
-          x,
-          (x * ten_pow_decimals).round() / ten_pow_decimals);
+      out.device(d) =
+          (x.isnan() || x.isinf())
+              .select(x, (x * ten_pow_decimals).round() / ten_pow_decimals);
     } else {
       auto ten_pow_decimals = static_cast<T>(std::pow(10, -decimals));
       out.device(d) =
@@ -3000,7 +2998,7 @@ struct RoundFunctor<phi::dtype::complex<T>>
     } else if (decimals > 0) {
       auto ten_pow_decimals = static_cast<T>(std::pow(10, decimals));
       out.device(d) = x.unaryExpr([ten_pow_decimals](const ComplexT& c) {
-            T real = std::isnan(c.real) || std::isinf(c.real)
+        T real = std::isnan(c.real) || std::isinf(c.real)
                      ? c.real
                      : std::round(c.real * ten_pow_decimals) / ten_pow_decimals;
         T imag = std::isnan(c.imag) || std::isinf(c.imag)
