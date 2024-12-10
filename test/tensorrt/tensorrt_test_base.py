@@ -22,10 +22,11 @@ from paddle.base import core
 from paddle.tensorrt.converter import PaddleToTensorRTConverter
 from paddle.tensorrt.export import (
     Input,
+    PrecisionMode,
     TensorRTConfig,
 )
 from paddle.tensorrt.util import (
-    mark_buitlin_op,
+    mark_builtin_op,
     run_pir_pass,
     warmup_shape_infer,
 )
@@ -247,7 +248,7 @@ class TensorRTBaseTest(unittest.TestCase):
             main_program = run_pir_pass(main_program, partition_mode=False)
 
             # Adding marker labels to builtin ops facilitates convert processing, but they ultimately do not enter the TensorRT subgraph.
-            mark_buitlin_op(main_program)
+            mark_builtin_op(main_program)
 
             # run trt_sub_graph_extract_pass()
             program_with_trt = run_pir_pass(main_program, partition_mode=True)
@@ -261,7 +262,7 @@ class TensorRTBaseTest(unittest.TestCase):
                     max_input_shape=self.max_shape,
                 )
                 trt_config = TensorRTConfig(inputs=[input])
-                trt_config.tensorrt_precision_mode = "FP16"
+                trt_config.precision_mode = PrecisionMode.FP16
 
             converter = PaddleToTensorRTConverter(
                 program_with_trt, scope, trt_config

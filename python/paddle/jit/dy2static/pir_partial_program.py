@@ -716,7 +716,6 @@ class PartialProgramLayer:
             if auto_layout_is_enabled():
                 pm = paddle.pir.PassManager(2)
                 pm.add_pass("auto_layout_pass", {})
-                pm.add_pass("auto_layout_simplify_pass", {})
                 pm.run(infer_program.program)
             for hooker in self._hookers:
                 hooker.after_infer(infer_program)
@@ -730,7 +729,6 @@ class PartialProgramLayer:
             if auto_layout_is_enabled():
                 pm = paddle.pir.PassManager(2)
                 pm.add_pass("auto_layout_pass", {})
-                pm.add_pass("auto_layout_simplify_pass", {})
                 pm.run(train_program.program)
             train_program = self._append_backward_desc(train_program)
             # Note: Only set grad type once after initializing train program. So we put it here.
@@ -774,7 +772,7 @@ class PartialProgramLayer:
                         elif kw_name in forward_name_value_map:
                             return forward_name_value_map[kw_name]
                         else:
-                            return None
+                            raise Exception(f"kw_args: {kw_name} not found")
 
                     for [kw_name, kw_value] in (
                         backward_program.global_block().kwargs().items()
@@ -782,10 +780,9 @@ class PartialProgramLayer:
                         forward_matched_value = (
                             get_kwargs_forward_matched_value(kw_name, kw_value)
                         )
-                        if forward_matched_value is not None:
-                            share_symbol_shape_from_forward_to_backward(
-                                forward_matched_value, kw_value
-                            )
+                        share_symbol_shape_from_forward_to_backward(
+                            forward_matched_value, kw_value
+                        )
 
                 if cse_is_enabled():
                     paddle.base.libpaddle.pir.apply_cse_pass(forward_program)
