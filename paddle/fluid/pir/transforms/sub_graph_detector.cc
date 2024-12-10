@@ -265,6 +265,9 @@ bool CanFuseUpstream2Downstream(const SubGraphPtr& upstream,
   if (!upstream->substitute || !downstream->substitute) return false;
   auto up_downstreams = upstream->downstreams;
   up_downstreams.erase(downstream);
+  auto down_upstreams = downstream->upstreams;
+  down_upstreams.erase(upstream);
+  if (up_downstreams.empty() || down_upstreams.empty()) return true;
   for (const auto& subgraph : up_downstreams) {
     if (HasSinkRoute(subgraph, downstream)) return false;
   }
