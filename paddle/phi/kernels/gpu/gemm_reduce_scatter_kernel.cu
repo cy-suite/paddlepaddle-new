@@ -17,7 +17,10 @@
 #include "paddle/phi/kernels/view_kernel.h"
 #include "paddle/phi/kernels/reduce_sum_kernel.h"
 #include "paddle/phi/kernels/impl/slice_kernel_impl.h"
+
 #include "paddle/phi/kernels/gpu/flux_utils.h"
+#include "paddle/phi/core/distributed/utils.h"
+#include "paddle/phi/core/distributed/nccl_comm_context.h"
 namespace phi {
 
 template<typename InT, typename OutT>
@@ -25,7 +28,7 @@ class GemmRSHelper {
 public:
   const phi::GPUContext& dev_ctx;
   paddle::distributed::ProcessGroup* tp_group;
-  const phi::GPUContext* comm_ctx;
+  distributed::NCCLCommContext* comm_ctx;
   const int32_t nnodes;
   const int32_t max_m;
   const int32_t n_dim;
@@ -71,7 +74,7 @@ public:
   GemmRSHelper(
       const phi::GPUContext& dev_ctx,
       paddle::distributed::ProcessGroup* tp_group_,
-      const phi::GPUContext* comm_ctx,
+      distributed::NCCLCommContext* comm_ctx,
       int32_t nnodes,
       int32_t max_m,
       int32_t n_dim,
@@ -238,7 +241,7 @@ public:
 
   cudaStream_t
   CreateReduceScatterStream() {
-     return this->comm_ctx->stream();
+     return this->comm_ctx->GetStream();
   }
 
   void
@@ -291,9 +294,7 @@ void GemmReduceScatterKernel(const Context& dev_ctx,
                     common::errors::Unavailable(
                         "ProcessGroup is nullptr."));
 
-  // umiswing: idk why it's called comm_ctx, but it is the name in source code of process group.
-  // const phi::GPUContext* comm_ctx = static_cast<phi::GPUContext*>(pg->GetDeviceContext(input.place(), /*use_calc_stream=*/false));
-  const phi::GPUContext* comm_ctx = static_cast<phi::GPUContext*>(pg->GetGemmRSContext(input.place()));
+  distributed::NCCLCommContext* comm_ctx = pg->GetOrCreateCommContext(input.place(), distributed::CommType::REDUCE_SCATTER);
 
   PADDLE_ENFORCE_NE(comm_ctx,
                     nullptr,

@@ -13,6 +13,8 @@
 #include "paddle/phi/kernels/impl/slice_kernel_impl.h"
 
 #include "paddle/phi/kernels/gpu/flux_utils.h"
+#include "paddle/phi/core/distributed/utils.h"
+#include "paddle/phi/core/distributed/nccl_comm_context.h"
 
 namespace phi {
 
@@ -23,7 +25,7 @@ public:
 
   using FlagType = int32_t;
   const phi::GPUContext& dev_ctx;
-  const phi::GPUContext* comm_ctx;
+  distributed::NCCLCommContext* comm_ctx;
   paddle::distributed::ProcessGroup* tp_group;
   int32_t nnodes;
   int32_t full_m;
@@ -73,7 +75,7 @@ int32_t k_dim;
   AGGemmHelper(
     const phi::GPUContext& dev_ctx_,
     paddle::distributed::ProcessGroup* tp_group_,
-    const phi::GPUContext* comm_ctx_,
+    distributed::NCCLCommContext* comm_ctx_,
     int32_t nnodes,
     int32_t full_m,
     int32_t n_dim,
@@ -143,7 +145,7 @@ int32_t k_dim;
     // copy stream
     this->num_cp_streams = 1;
     for (int i = 0; i < this->num_cp_streams; ++i) {
-      this->cp_streams.push_back(this->comm_ctx->stream());
+      this->cp_streams.push_back(this->comm_ctx->GetStream());
     }
     // create events
     constexpr bool disable_timing = true;
@@ -203,7 +205,7 @@ void AllGatherGemmKernel(const Context& dev_ctx,
                     common::errors::Unavailable(
                         "ProcessGroup is nullptr."));
 
-  const phi::GPUContext* comm_ctx = static_cast<phi::GPUContext*>(pg->GetGemmRSContext(input.place()));
+  distributed::NCCLCommContext* comm_ctx = pg->GetOrCreateCommContext(input.place(), distributed::CommType::ALLGATHER);
 
   PADDLE_ENFORCE_NE(comm_ctx,
                     nullptr,
