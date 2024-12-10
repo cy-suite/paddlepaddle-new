@@ -24,6 +24,7 @@ from paddle.base import core
 
 class TestClipTensorOp(OpTest):
     def setUp(self):
+        self.max_relative_error = 0.006
         self.op_type = "clip_tensor"
         self.python_api = paddle.tensor.math.clip_tensor
 
@@ -32,6 +33,8 @@ class TestClipTensorOp(OpTest):
         self.x = np.random.random(size=self.shape).astype(self.dtype)
         self.min = np.random.random(size=self.shape).astype(self.dtype)
         self.max = np.random.random(size=self.shape).astype(self.dtype)
+        self.x[np.abs(self.x - self.min) < self.max_relative_error] = 0.5
+        self.x[np.abs(self.x - self.max) < self.max_relative_error] = 0.5
 
         self.inputs = {'X': self.x, 'Min': self.min, 'Max': self.max}
         out = np.clip(self.x, self.min, self.max)
