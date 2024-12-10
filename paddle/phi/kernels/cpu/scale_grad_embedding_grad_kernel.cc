@@ -90,6 +90,7 @@ struct ScaleGradEmbeddingGradCPUFunctor {
 
       std::unordered_map<int64_t, int> count_ids_table;
       std::vector<int64_t> ids_unique;
+      auto ids_unique_num = static_cast<int64_t>(ids_unique.size());
       for (int64_t i = 0; i < ids_num; ++i) {
         if (count_ids_table.find(ids_data[i]) != count_ids_table.end()) {
           count_ids_table[ids_data[i]]++;
@@ -98,7 +99,7 @@ struct ScaleGradEmbeddingGradCPUFunctor {
           ids_unique.push_back(ids_data[i]);
         }
       }
-      for (int64_t i = 0; i < ids_unique.size(); ++i) {
+      for (int64_t i = 0; i < ids_unique_num; ++i) {
         if (padding_idx_ != kNoPadding && ids_unique[i] == padding_idx_) {
           // do nothing
         } else {
