@@ -199,7 +199,7 @@ class ParallelModel:
         layer.register_forward_pre_hook(
             create_pre_hook(origin_weight, param_name)
         )
-        layer.register_forward_pre_hook(
+        layer.register_forward_post_hook(
             create_post_hook(origin_weight, param_name)
         )
 
