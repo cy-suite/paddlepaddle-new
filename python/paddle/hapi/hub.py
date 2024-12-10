@@ -340,7 +340,6 @@ def load_state_dict_from_url(
     check_hash=False,
     file_name=None,
     map_location=None,
-    weights_only=False,
 ) -> str:
     """Download Paddle's model weights (i.e., state_dict)
     from the specified URL and extract the downloaded file if necessary
@@ -351,7 +350,6 @@ def load_state_dict_from_url(
             check_hash (bool, optional) – If True, the filename part of the URL should follow the naming convention filename-<sha256>.ext where <sha256> is the first eight or more digits of the SHA256 hash of the contents of the file. The hash is used to ensure unique names and to verify the contents of the file. Default: False
             file_name (str, optional) – name for the downloaded file. Filename from url will be used if not set.
             map_location (optional) - A function or dictionary that specifies how to remap storage locations.
-            weights_only (bool, optional) - If True, only the weights will be loaded, not the complex serialized objects. Recommended for untrusted sources
     Returns:
         Object, an instance of an object that can be used in a paddle
     Examples:
