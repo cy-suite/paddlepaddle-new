@@ -568,6 +568,7 @@ int64_t IndexExpr::as_int64() const {
 }
 
 bool IndexExpr::is_constant() const { return As<IntImm>(); }
+int64_t IndexExpr::get_constant() const { return As<IntImm>()->value; }
 
 bool IndexExpr::is_var() const { return As<_Var_>(); }
 _Var_ *IndexExpr::as_var() { return As<_Var_>(); }

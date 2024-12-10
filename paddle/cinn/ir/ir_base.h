@@ -169,9 +169,6 @@ const std::vector<std::string> kIrNodeTyReprs(
 #undef __m
 // @}
 
-const std::vector<std::string> kIndexExprList(
-    {"Add", "Sub", "Mul", "Div", "Mod", "Cast", "Load"});
-
 std::ostream& operator<<(std::ostream& os, IrNodeTy type);
 std::ostream& operator<<(std::ostream& os, StmtNodeTy type);
 
@@ -465,9 +462,6 @@ struct Expr : public IrNodeRef {
   bool is_index() const;
 
   //! `is_index_tmp` is used to judge whether the expr is a index temporary.
-  //! When the `is_index` flag is added to a specific IrNode (e.g.
-  //! For::extent,Tensor::shape), this method does not need to be used, use
-  //! is_index() instead.
   bool is_index_tmp() const;
 
   IndexExpr as_index();
@@ -499,6 +493,7 @@ struct IndexExpr : public IrNodeRef {
   int64_t as_int64() const;
 
   bool is_constant() const;
+  int64_t get_constant() const;
 
   const IndexExpr operand(int32_t i) const;
 

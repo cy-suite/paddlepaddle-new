@@ -156,7 +156,6 @@ std::optional<ir::IndexExpr> MultiArgsDivAndMod(const ir::IndexExpr& lhs,
 std::optional<ir::IndexExpr> SimplifyCornerCase(const ir::IndexExpr& expr) {
   switch (expr.node_type()) {
     case ir::IrNodeTy::IntImm:
-      [[fallthrough]];
     case ir::IrNodeTy::_Var_:
       return expr;
     case ir::IrNodeTy::Add:

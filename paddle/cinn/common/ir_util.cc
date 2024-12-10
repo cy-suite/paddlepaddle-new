@@ -681,18 +681,17 @@ bool IsSumPartialBySymbol(const ir::IndexExpr &expr,
     case ir::IrNodeTy::_Var_:
       return expr == symbol;
     case ir::IrNodeTy::Add:
-      return IsSumPartialBySymbol(expr->operand(0), symbol) ||
-             IsSumPartialBySymbol(expr->operand(1), symbol);
+      return IsSumPartialBySymbol(expr.operand(0), symbol) ||
+             IsSumPartialBySymbol(expr.operand(1), symbol);
     case ir::IrNodeTy::Mul: {
-      if (expr->operand(1).is_constant() &&
-          expr->operand(1).get_constant() == -1)
-        return IsSumPartialBySymbol(expr->operand(0), symbol);
+      if (expr.operand(1).is_constant() && expr.operand(1).get_constant() == -1)
+        return IsSumPartialBySymbol(expr.operand(0), symbol);
       else
-        return expr->operand(0) == symbol || expr->operand(1) == symbol;
+        return expr.operand(0) == symbol || expr.operand(1) == symbol;
     }
 
     case ir::IrNodeTy::Div: {
-      return IsSumPartialBySymbol(expr->operand(0), symbol);
+      return IsSumPartialBySymbol(expr.operand(0), symbol);
     }
     case ir::IrNodeTy::Mod:
       return false;
@@ -763,19 +762,19 @@ bool IsDivisiblieBySymbol(const ir::IndexExpr &expr,
     case ir::IrNodeTy::_Var_:
       return expr == symbol;
     case ir::IrNodeTy::Add:
-      return IsDivisiblieBySymbol(expr->operand(0), symbol, ty) &&
-             IsDivisiblieBySymbol(expr->operand(1), symbol, ty);
+      return IsDivisiblieBySymbol(expr.operand(0), symbol, ty) &&
+             IsDivisiblieBySymbol(expr.operand(1), symbol, ty);
     case ir::IrNodeTy::Mul:
-      return IsDivisiblieBySymbol(expr->operand(0), symbol, ty) ||
-             IsDivisiblieBySymbol(expr->operand(1), symbol, ty);
+      return IsDivisiblieBySymbol(expr.operand(0), symbol, ty) ||
+             IsDivisiblieBySymbol(expr.operand(1), symbol, ty);
     case ir::IrNodeTy::Mod:
       // Because S0 % 3 + S0 % 5 is not divisiblie by S0, so we push
       // `expr.node_type()` into third parameter.
-      return IsDivisiblieBySymbol(expr->operand(0), symbol, expr.node_type()) &&
-             IsDivisiblieBySymbol(expr->operand(1), symbol, expr.node_type());
+      return IsDivisiblieBySymbol(expr.operand(0), symbol, expr.node_type()) &&
+             IsDivisiblieBySymbol(expr.operand(1), symbol, expr.node_type());
     case ir::IrNodeTy::Div: {
       if (ty != expr.node_type()) return false;
-      return IsDivisiblieBySymbol(expr->operand(0), symbol, expr.node_type());
+      return IsDivisiblieBySymbol(expr.operand(0), symbol, expr.node_type());
     }
     case ir::IrNodeTy::Min:
     case ir::IrNodeTy::Max:

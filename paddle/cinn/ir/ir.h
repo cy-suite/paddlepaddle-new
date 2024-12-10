@@ -1232,13 +1232,9 @@ struct hash<cinn::ir::IndexExpr> {
       case cinn::ir::IrNodeTy::IntImm:
         return std::hash<int>()(x.as_int64());
       case cinn::ir::IrNodeTy::Add:
-        [[fallthrough]];
       case cinn::ir::IrNodeTy::Sub:
-        [[fallthrough]];
       case cinn::ir::IrNodeTy::Mul:
-        [[fallthrough]];
       case cinn::ir::IrNodeTy::Div:
-        [[fallthrough]];
       case cinn::ir::IrNodeTy::Mod: {
         auto hash_lhs = std::hash<cinn::ir::IndexExpr>()(x.operand(0));
         auto hash_rhs = std::hash<cinn::ir::IndexExpr>()(x.operand(1));
@@ -1292,5 +1288,4 @@ struct hash<cinn::ir::Expr> {
     }
   }
 };
-
 }  // namespace std
