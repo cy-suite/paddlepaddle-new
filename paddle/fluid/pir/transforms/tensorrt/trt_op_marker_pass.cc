@@ -700,8 +700,7 @@ class ScaleOpPattern : public pir::OpRewritePattern<paddle::dialect::ScaleOp> {
     }
     pir::Value x = op.operand_source(0);
     auto x_dtype = pir::GetDataTypeFromValue(x);
-    // TODO(YuanRisheng): The trt(<=8.5) can't support cast layer, we need
-    // support int32 and int64 after we upgrade our trt version
+
     if (!(x_dtype.isa<pir::Float32Type>() || x_dtype.isa<pir::Float64Type>() ||
           x_dtype.isa<pir::Float16Type>() || x_dtype.isa<pir::Int32Type>() ||
           x_dtype.isa<pir::Int64Type>())) {
