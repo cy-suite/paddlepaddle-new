@@ -3001,7 +3001,7 @@ struct RoundFunctor<phi::dtype::complex<T>>
             std::round(c.real / ten_pow_decimals) * ten_pow_decimals,
             std::round(c.imag / ten_pow_decimals) * ten_pow_decimals);
       });
-        }
+    }
   }
 };
 
@@ -5264,7 +5264,7 @@ struct CudaRoundFunctor<phi::dtype::complex<T>>
       return phi::dtype::complex<T>(
           static_cast<T>(round(real_part / scale) * ten_pow_decimals),
           static_cast<T>(round(imag_part / scale) * ten_pow_decimals));
-        }
+    }
   }
 };
 
