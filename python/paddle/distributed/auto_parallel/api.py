@@ -2536,7 +2536,6 @@ class DistModel:
                 'all' : The return value contains the variable in the network and optimizer.
                 Default: 'all'
         """
-
         if use_pir_api():
             scope = paddle.static.global_scope()
             local_state_dict = self.dist_main_program(
