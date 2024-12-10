@@ -272,7 +272,7 @@ class PyLayerBackwardFunction:
         input_grads = [
             input_grad
             for input_grad in flatten(input_grads)
-            if isinstance(input_grad, paddle.pir.Value)
+            if isinstance(input_grad, (paddle.pir.Value, type(None)))
         ]
 
         return input_grads
@@ -374,7 +374,7 @@ def static_pylayer(forward_fn, inputs, backward_fn=None, name=None):
 
     if in_pir_mode():
         fwd_inputs = [
-            inp for inp in inputs if isinstance(inp, paddle.pir.Value)
+            inp for inp in flatten(inputs) if isinstance(inp, paddle.pir.Value)
         ]
         pylayer_op = build_pylayer_op(fwd_inputs)
         outputs = None
@@ -412,7 +412,7 @@ def static_pylayer(forward_fn, inputs, backward_fn=None, name=None):
                 input_grads = [
                     x
                     for x in flatten(input_grads)
-                    if isinstance(x, paddle.pir.Value)
+                    if isinstance(x, (paddle.pir.Value, type(None)))
                 ]
                 if len(input_grads) != len(forward_inputs):
                     raise ValueError(
