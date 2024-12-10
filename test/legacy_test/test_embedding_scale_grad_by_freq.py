@@ -48,7 +48,7 @@ class TestEmbeddingAPIScaleGradByFreq(unittest.TestCase):
             x = paddle.to_tensor(self.x_np)
             w1 = paddle.to_tensor(self.weight_np)
             w1.stop_gradient = False
-            w2 = paddle.to_tensor(self.weight_np)
+            w2 = paddle.to_tensor(np.copy(self.weight_np))
             w2.stop_gradient = False
             unscale_out = embedding(
                 x, w1, padding_idx=self.padding_idx, scale_grad_by_freq=False
@@ -63,7 +63,7 @@ class TestEmbeddingAPIScaleGradByFreq(unittest.TestCase):
             scale_grad_ref = ref_embedding_scale_grad_(self.x_np, unscale_grad)
             np.testing.assert_allclose(scale_grad_ref, scale_grad)
             np.testing.assert_equal(scale_out.numpy(), unscale_out.numpy())
-        paddle.enable_static()
+            paddle.enable_static()
 
     def test_scale_grad_static(self):
         paddle.enable_static()
@@ -92,7 +92,7 @@ class TestEmbeddingAPIScaleGradByFreq(unittest.TestCase):
                     feed={
                         "x": self.x_np,
                         "w1": self.weight_np,
-                        "w2": self.weight_np,
+                        "w2": np.copy(self.weight_np),
                     },
                     fetch_list=[w1_grad, w2_grad, out1, out2],
                     return_numpy=True,

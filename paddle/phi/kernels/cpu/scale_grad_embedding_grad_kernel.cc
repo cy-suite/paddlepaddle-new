@@ -128,7 +128,6 @@ void ScaleGradEmbeddingGradKernel(const Context& ctx,
                                   const DenseTensor& out_grad,
                                   int64_t padding_idx,
                                   DenseTensor* weight_grad) {
-  printf("here!!!!!!!!!!!!!!!!!!!!!\n");
   ScaleGradEmbeddingGradCPUFunctor<T, Context> functor(
       ctx, input, weight, out_grad, padding_idx, weight_grad);
   if (input.dtype() == phi::DataType::INT32) {
