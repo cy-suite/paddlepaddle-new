@@ -521,6 +521,42 @@ class TestPostTrainingavgForMobilenetv1(TestPostTrainingQuantization):
         )
 
 
+class TestPostTrainingavgForPwganCsmsc(TestPostTrainingQuantization):
+    def test_post_training_avg_pwgancsmsc(self):
+        model = "pwgan_csmsc"
+        algo = "avg"
+        round_type = "round"
+        data_urls = [
+            'https://paddlespeech.bj.bcebos.com/Parakeet/released_models/pwgan/pwg_baker_static_0.4.zip'
+        ]
+        data_md5s = ['e3504aed9c5a290be12d1347836d2742']
+        quantizable_op_type = [
+            "conv2d",
+            "depthwise_conv2d",
+            "mul",
+        ]
+        is_full_quantize = False
+        is_use_cache_file = False
+        is_optimize_model = True
+        diff_threshold = 0.025
+        self.run_test(
+            model,
+            'inference.pdmodel',
+            'inference.pdiparams',
+            algo,
+            round_type,
+            data_urls,
+            data_md5s,
+            "pwgan_csmsc",
+            quantizable_op_type,
+            is_full_quantize,
+            is_use_cache_file,
+            is_optimize_model,
+            diff_threshold,
+            batch_nums=2,
+        )
+
+
 class TestPostTraininghistForMobilenetv1(TestPostTrainingQuantization):
     def test_post_training_hist_mobilenetv1(self):
         model = "MobileNet-V1"
