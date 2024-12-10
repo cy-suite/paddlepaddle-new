@@ -957,3 +957,7 @@ class TestNotEqualComplex128Api(unittest.TestCase):
                     fetch_list=[c],
                 )
                 np.testing.assert_allclose(c_out[0], c_np)
+
+
+if __name__ == '__main__':
+    unittest.main()
