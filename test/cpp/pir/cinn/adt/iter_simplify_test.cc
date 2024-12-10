@@ -145,8 +145,8 @@ TEST_F(TestIterSimplify, add) {
 TEST_F(TestIterSimplify, sub) {
   IterMapRewriter rewriter{{i, j, k}, analyzer};
   IterMapToExprNormalizer normalizer{analyzer};
-  auto gt1 = ITER_SUM(ITER_SPLIT(ITER_MARK_VAR(j), ir::IndexExpr(-1)),
-                      ITER_SPLIT(ITER_MARK_VAR(i)));
+  auto gt1 = ITER_SUM(ITER_SPLIT(ITER_MARK_VAR(i)),
+                      ITER_SPLIT(ITER_MARK_VAR(j), ir::IndexExpr(-1)));
   auto gt2 =
       ITER_SUM_WITH_BASE(ir::IndexExpr(5),
                          ITER_SPLIT(ITER_MARK_VAR(i)),
