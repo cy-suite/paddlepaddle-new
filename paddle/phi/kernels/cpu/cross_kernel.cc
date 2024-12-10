@@ -32,6 +32,11 @@ void CrossKernel(const Context& dev_ctx,
   auto* output = out;
   int dim = axis;
 
+  if (input_x.numel() == 0 || input_y.numel() == 0) {
+    output->Resize(input_x.dims());
+    dev_ctx.template Alloc<T>(output);
+    return;
+  }
   auto input_x_dims = input_x.dims();
 
   if (dim != DDim::kMaxRank) {
