@@ -82,7 +82,7 @@ class TestDPPPAPI(test_base.CommunicationTestDistBase):
             "num_hidden_layers": ["2", "4"],
             "sharding_stage": ["0"],
             "test_share_embedding": [
-                "0",
+                "1",
             ],
             "test_position_embedding": [
                 "1",
