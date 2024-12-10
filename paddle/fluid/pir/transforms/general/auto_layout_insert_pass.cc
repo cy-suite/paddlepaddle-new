@@ -188,6 +188,30 @@ class AutoLayoutInsertPass : public pir::Pass {
 
       // Skip special ops.
       if (op->HasTrait<pir::ImmutableLayoutTrait>()) continue;
+      if (op->HasTrait<pir::ElementWiseTrait>()) {
+        int32_t dim_size = -3;
+        bool is_broadcast = false;
+        int32_t inp_size = op->num_operands();
+        for (int32_t i = 0; i < inp_size; ++i) {
+          if (is_broadcast) break;
+          auto type = op->operand_source(i)
+                          .type()
+                          .dyn_cast<paddle::dialect::DenseTensorType>();
+          if (!type) {
+            is_broadcast = true;
+            break;
+          }
+          if (i == 0) {
+            dim_size = type.dims().size();
+          } else {
+            if (dim_size != type.dims().size()) {
+              is_broadcast = true;
+              break;
+            }
+          }
+        }
+        if (is_broadcast) continue;
+      }
       if (op->operands().size() == 0) continue;
 
       // NHWC ops branch, Only support
