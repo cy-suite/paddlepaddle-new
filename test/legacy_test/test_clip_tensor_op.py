@@ -26,7 +26,6 @@ class TestClipTensorOp(OpTest):
     def setUp(self):
         self.max_relative_error = 0.006
         self.op_type = "clip_tensor"
-        self.prim_op_type = 'crim'
         self.python_api = paddle.tensor.math.clip_tensor
 
         self.initTestCase()
