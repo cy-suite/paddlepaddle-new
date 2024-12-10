@@ -118,7 +118,8 @@ class ParallelModel:
         self.tp_parallelizer = None
         self.sharding_parallelizer = None
         self.model = None
-
+        self.share_param_list = {}
+        self.layer_param_placements = {}
         if isinstance(model, ParallelModel):
             self.pp_parallelizer = model.pp_parallelizer
             self.tp_parallelizer = model.tp_parallelizer
@@ -147,8 +148,11 @@ class ParallelModel:
 
         if self.tp_parallelizer is not None:
             assert callable(self.tp_parallelizer)
-            self.model = self.tp_parallelizer(self.model)
-
+            self.model, self.layer_param_placements = self.tp_parallelizer(
+                self.model
+            )
+        for k, v in self.layer_param_placements.items():
+            print(v)
         if self.sharding_parallelizer is not None:
             assert callable(self.sharding_parallelizer)
             self.model = self.sharding_parallelizer(self.model)
@@ -157,7 +161,9 @@ class ParallelModel:
 
         return self.model
 
-    def _process_share_weight_layer(self, layer, origin_weight, param_name):
+    def _process_share_weight_layer(
+        self, layer, origin_weight, param_name, param_placements
+    ):
         ipp = (
             layer.pipeline_stage_index
             if hasattr(layer, "pipeline_stage_index")
@@ -176,7 +182,7 @@ class ParallelModel:
                 share_weight = dist.reshard(
                     origin_weight,
                     mesh,
-                    [dist.Replicate() for _ in range(len(mesh._shape))],
+                    param_placements,
                 )
                 setattr(
                     layer,
@@ -187,7 +193,7 @@ class ParallelModel:
             return forward_pre_hook
 
         def create_post_hook(origin_weight, param_name):
-            def forward_post_hook(layer, input):
+            def forward_post_hook(layer, input, output):
                 setattr(
                     layer,
                     param_name,
@@ -219,6 +225,21 @@ class ParallelModel:
                         if hasattr(layer, "pipeline_stage_index")
                         else 0
                     )
+                    mesh = self.get_mesh(ipp)
+                    param_placements = [
+                        dist.Replicate() for _ in range(len(mesh._shape))
+                    ]
+                    if layer in self.layer_param_placements:
+                        if param_name in self.layer_param_placements[layer]:
+                            param_placements = (
+                                self.layer_param_placements[layer][param_name]
+                                if self.layer_param_placements[layer][
+                                    param_name
+                                ]
+                                is not None
+                                else param_placements
+                            )
+                    print(param_placements)
                     if not param.is_dist():
                         if param_full_name in param_name_to_shard_param:
                             setattr(
@@ -231,16 +252,11 @@ class ParallelModel:
                                     layer,
                                     param_name_to_shard_param[param_full_name],
                                     param_name,
+                                    param_placements,
                                 )
                         else:
-                            mesh = self.get_mesh(ipp)
                             param = dist.shard_tensor(
-                                param,
-                                mesh,
-                                [
-                                    dist.Replicate()
-                                    for _ in range(len(mesh._shape))
-                                ],
+                                param, mesh, param_placements
                             )
                             param_name_to_shard_param[param_full_name] = param
                             param_name_to_pp_stage[param_full_name] = ipp
@@ -254,7 +270,10 @@ class ParallelModel:
                                 layer,
                                 param_name_to_shard_param[param_full_name],
                                 param_name,
+                                param_placements,
                             )
+                        elif param_full_name not in param_name_to_shard_param:
+                            param_name_to_shard_param[param_full_name] = param
 
         for name, layer in model.named_sublayers():
             shard_layer_param(layer)

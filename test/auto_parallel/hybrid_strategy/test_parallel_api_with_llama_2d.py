@@ -20,7 +20,7 @@ import collective.test_communication_api_base as test_base
 
 class TestMPPPAPI(test_base.CommunicationTestDistBase):
     def setUp(self):
-        super().setUp(num_of_devices=4, timeout=120, nnode=1)
+        super().setUp(num_of_devices=4, timeout=180, nnode=1)
         self._default_envs = {
             "dtype": "float32",
             "seed": "2023",
@@ -39,7 +39,7 @@ class TestMPPPAPI(test_base.CommunicationTestDistBase):
             "sequence_parallel": ["true"],
             "prepare_input_output": ["false"],
             "test_share_embedding": [
-                "0",
+                "1",
             ],
             "test_position_embedding": [
                 "1",
@@ -63,7 +63,7 @@ class TestMPPPAPI(test_base.CommunicationTestDistBase):
 
 class TestDPPPAPI(test_base.CommunicationTestDistBase):
     def setUp(self):
-        super().setUp(num_of_devices=4, timeout=120, nnode=1)
+        super().setUp(num_of_devices=4, timeout=180, nnode=1)
         self._default_envs = {
             "dtype": "float32",
             "seed": "2023",
@@ -106,7 +106,7 @@ class TestDPPPAPI(test_base.CommunicationTestDistBase):
 
 class TestDPMPAPI(test_base.CommunicationTestDistBase):
     def setUp(self):
-        super().setUp(num_of_devices=4, timeout=120, nnode=1)
+        super().setUp(num_of_devices=4, timeout=180, nnode=1)
         self._default_envs = {
             "dtype": "float32",
             "seed": "2023",
@@ -126,7 +126,7 @@ class TestDPMPAPI(test_base.CommunicationTestDistBase):
             "prepare_input_output": ["false"],
             "sharding_stage": ["0"],
             "test_share_embedding": [
-                "0",
+                "1",
             ],
             "test_position_embedding": [
                 "1",
