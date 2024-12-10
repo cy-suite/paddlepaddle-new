@@ -766,11 +766,11 @@ void TensorRTEngineInstruction::RunTrt() {
 
 void TensorRTEngineInstruction::Run() {
 #if IS_TRT_VERSION_LT(8500)
-    PADDLE_THROW(
-              common::errors::Unimplemented("PIR-TRT only support TensorRT "
-                                            "version that is >= 8.5,"
-                                            "Please check your TensorRT "
-                                            "in your env.");
+  PADDLE_THROW(
+      common::errors::Unimplemented("PIR-TRT only support TensorRT "
+                                    "version that is >= 8.5,"
+                                    "Please check your TensorRT "
+                                    "in your env."));
 #endif
   PrepareDynamicShape();
   RunTrt();
