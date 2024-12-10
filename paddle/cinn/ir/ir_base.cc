@@ -289,19 +289,14 @@ bool Expr::is_index() const {
 bool Expr::is_index_tmp() const {
   switch (node_type()) {
     case ir::IrNodeTy::_Var_:
-      [[fallthrough]];
     case ir::IrNodeTy::IntImm: {
       if (type().is_index_type()) return true;
       return false;
     }
     case ir::IrNodeTy::Add:
-      [[fallthrough]];
     case ir::IrNodeTy::Sub:
-      [[fallthrough]];
     case ir::IrNodeTy::Mul:
-      [[fallthrough]];
     case ir::IrNodeTy::Div:
-      [[fallthrough]];
     case ir::IrNodeTy::Mod:
       return p_->operand(0).is_index_tmp() && p_->operand(1).is_index_tmp();
   }
@@ -403,16 +398,18 @@ IndexExpr &IndexExpr::operator=(const Var &other) {
   return *this;
 }
 
+const IndexExpr IndexExpr::operand(int32_t i) const {
+  return get()->operand(i).as_index();
+}
+
 int64_t IndexExpr::GetLargestMutiplyPart() const {
   switch (node_type()) {
     case cinn::ir::IrNodeTy::_Var_:
       return 1;
     case cinn::ir::IrNodeTy::Div: {
-      auto binExpr = As<ir::Div>();
-      auto rhs = binExpr->b();
-      if (rhs.type().is_index_type()) {
-        int64_t lhsDiv = binExpr->a().as_index().GetLargestMutiplyPart();
-        int64_t rhsDiv = binExpr->b().as_index().GetLargestMutiplyPart();
+      if (operand(1).type().is_index_type()) {
+        int64_t lhsDiv = operand(0).GetLargestMutiplyPart();
+        int64_t rhsDiv = operand(1).GetLargestMutiplyPart();
         if (lhsDiv % rhsDiv == 0) return std::abs(lhsDiv / rhsDiv);
       }
       return 1;
@@ -422,15 +419,13 @@ int64_t IndexExpr::GetLargestMutiplyPart() const {
       return std::abs(int_imm->value);
     }
     case cinn::ir::IrNodeTy::Mul: {
-      auto binExpr = As<ir::Mul>();
-      return binExpr->a().as_index().GetLargestMutiplyPart() *
-             binExpr->b().as_index().GetLargestMutiplyPart();
+      return operand(0).GetLargestMutiplyPart() *
+             operand(1).GetLargestMutiplyPart();
     }
     case cinn::ir::IrNodeTy::Add:
-      [[fallthrough]];
     case cinn::ir::IrNodeTy::Mod: {
-      return std::gcd(ptr()->operand(0).as_index().GetLargestMutiplyPart(),
-                      ptr()->operand(1).as_index().GetLargestMutiplyPart());
+      return std::gcd(operand(0).GetLargestMutiplyPart(),
+                      operand(1).GetLargestMutiplyPart());
     }
   }
   PADDLE_THROW(::common::errors::Unimplemented("Unsupported type of expr: %s",
@@ -440,24 +435,17 @@ int64_t IndexExpr::GetLargestMutiplyPart() const {
 int32_t IndexExpr::length() const {
   switch (node_type()) {
     case ir::IrNodeTy::_Var_:
-      [[fallthrough]];
     case ir::IrNodeTy::IntImm:
-      [[fallthrough]];
     case ir::IrNodeTy::Max:
-      [[fallthrough]];
     case ir::IrNodeTy::Min:
-      [[fallthrough]];
     case ir::IrNodeTy::Load:
       return 1;
     case ir::IrNodeTy::Add:
-      [[fallthrough]];
     case ir::IrNodeTy::Mul:
-      [[fallthrough]];
     case ir::IrNodeTy::Div:
-      [[fallthrough]];
     case ir::IrNodeTy::Mod: {
-      int lhs_count = ptr()->operand(0).as_index().length();
-      int rhs_count = ptr()->operand(1).as_index().length();
+      int lhs_count = operand(0).length();
+      int rhs_count = operand(1).length();
       return lhs_count + rhs_count + 1;
     }
     default:
@@ -476,18 +464,13 @@ bool IndexExpr::IsDynamic() const {
     case ir::IrNodeTy::Load:
       return false;
     case ir::IrNodeTy::Add:
-      [[fallthrough]];
     case ir::IrNodeTy::Mul:
-      [[fallthrough]];
     case ir::IrNodeTy::Div:
-      [[fallthrough]];
     case ir::IrNodeTy::Mod:
-      [[fallthrough]];
     case ir::IrNodeTy::Min:
-      [[fallthrough]];
     case ir::IrNodeTy::Max: {
-      auto lFlag = ptr()->operand(0).as_index().IsDynamic();
-      auto rFlag = ptr()->operand(1).as_index().IsDynamic();
+      auto lFlag = operand(0).IsDynamic();
+      auto rFlag = operand(1).IsDynamic();
       return lFlag || rFlag;
     }
     default:
@@ -547,20 +530,14 @@ IndexExpr Simplify(const IndexExpr &expr) {
       return res;
     }
     case ir::IrNodeTy::Add:
-      [[fallthrough]];
     case ir::IrNodeTy::Sub:
-      [[fallthrough]];
     case ir::IrNodeTy::Mul:
-      [[fallthrough]];
     case ir::IrNodeTy::Div:
-      [[fallthrough]];
     case ir::IrNodeTy::Mod:
-      [[fallthrough]];
     case ir::IrNodeTy::Min:
-      [[fallthrough]];
     case ir::IrNodeTy::Max: {
-      auto lhs = Simplify(expr->operand(0).as_index());
-      auto rhs = Simplify(expr->operand(1).as_index());
+      auto lhs = Simplify(expr.operand(0));
+      auto rhs = Simplify(expr.operand(1));
       return ConstructIndexExprByNodeType(expr.node_type(), lhs, rhs);
     }
     default:
@@ -596,15 +573,6 @@ bool IndexExpr::is_var() const { return As<_Var_>(); }
 _Var_ *IndexExpr::as_var() { return As<_Var_>(); }
 const _Var_ *IndexExpr::as_var() const { return As<_Var_>(); }
 Var IndexExpr::as_var_ref() const { return Var(&Reference(as_var())); }
-
-const IndexExpr IrNode::operand_as_index(int i) const {
-  PADDLE_ENFORCE_LT(
-      i,
-      operands.size(),
-      ::common::errors::InvalidArgument("The index %d is out of range", i));
-  return operands[i].as_index();
-}
-
 void IrNode::set_type(Type type) { type_ = type; }
 
 void IrNode::replace(Expr old_op, Expr new_op) {

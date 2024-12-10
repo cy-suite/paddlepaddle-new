@@ -189,8 +189,9 @@ static void MergeMulModInsertElements(
     auto mult_ptr = ele.As<ir::Mul>();
     if (mod_ptr) {
       *has_mod = true;
-      mod_exprs->emplace_back(std::make_pair(std::move(mod_ptr->a_as_index()),
-                                             std::move(mod_ptr->b_as_index())));
+      mod_exprs->emplace_back(
+          std::make_pair(std::move(mod_ptr->a().as_index()),
+                         std::move(mod_ptr->b().as_index())));
     } else if (mult_ptr) {
       *has_mult = true;
       mult_exprs->emplace_back(ele);
@@ -207,14 +208,14 @@ static std::optional<ir::IndexExpr> MergeMulModInner(
     const ir::IndexExpr &mod_r_expr) {
   const ir::Mul *mult_ptr = mult_expr.As<ir::Mul>();
   if (!mult_ptr) return std::nullopt;
-  ir::IndexExpr mult_outer = mult_ptr->b_as_index();
-  ir::IndexExpr inner = mult_ptr->a_as_index();
+  ir::IndexExpr mult_outer = mult_ptr->b().as_index();
+  ir::IndexExpr inner = mult_ptr->a().as_index();
 
   while (true) {
     mult_ptr = inner.As<ir::Mul>();
     if (mult_ptr) {
-      inner = mult_ptr->a_as_index();
-      mult_outer = mult_ptr->b_as_index() * mult_outer;
+      inner = mult_ptr->a().as_index();
+      mult_outer = mult_ptr->b().as_index() * mult_outer;
     } else {
       break;
     }
@@ -233,38 +234,39 @@ static std::optional<ir::IndexExpr> MergeMulModInner(
     } else if (inner_div_ptr) {
       ir::IndexExpr overall_mult =
           mult_inner.get() ? mult_inner * mult_outer : mult_outer;
-      VLOG(5) << "inner_div_ptr_b: " << inner_div_ptr->b_as_index();
+      VLOG(5) << "inner_div_ptr_b: " << inner_div_ptr->b().as_index();
       VLOG(5) << "overall_mult: " << overall_mult;
       VLOG(5) << "mod_r_expr: " << mod_r_expr;
       VLOG(5) << "inner_div_ptr_a - mod_l_expr: "
-              << inner_div_ptr->a_as_index() - mod_l_expr;
+              << inner_div_ptr->a().as_index() - mod_l_expr;
       VLOG(5) << "ProveDivisible: "
-              << ProveDivisible(inner_div_ptr->a_as_index() - mod_l_expr,
+              << ProveDivisible(inner_div_ptr->a().as_index() - mod_l_expr,
                                 mod_r_expr);
-      if (overall_mult == inner_div_ptr->b_as_index() &&
+      if (overall_mult == inner_div_ptr->b().as_index() &&
           overall_mult == mod_r_expr &&
-          ProveDivisible(inner_div_ptr->a_as_index() - mod_l_expr,
+          ProveDivisible(inner_div_ptr->a().as_index() - mod_l_expr,
                          mod_r_expr)) {
         // Found!
         return no_opt_sum.get()
-                   ? no_opt_sum * mult_outer + inner_div_ptr->a_as_index()
-                   : inner_div_ptr->a_as_index();
+                   ? no_opt_sum * mult_outer + inner_div_ptr->a().as_index()
+                   : inner_div_ptr->a().as_index();
       } else {
         return std::nullopt;
       }
     } else if (inner_mult_ptr) {
-      mult_inner = mult_inner.get() ? inner_mult_ptr->b_as_index() * mult_inner
-                                    : inner_mult_ptr->b_as_index();
-      search_ptr = inner_mult_ptr->a_as_index();
+      mult_inner = mult_inner.get()
+                       ? inner_mult_ptr->b().as_index() * mult_inner
+                       : inner_mult_ptr->b().as_index();
+      search_ptr = inner_mult_ptr->a().as_index();
     } else if (inner_add_ptr) {
       if (mult_inner.get()) {
         return std::nullopt;
       }
-      auto lhs = inner_add_ptr->a_as_index();
-      auto rhs = inner_add_ptr->b_as_index();
-      if (inner_add_ptr->b_as_index().is_constant()) {
+      auto lhs = inner_add_ptr->a().as_index();
+      auto rhs = inner_add_ptr->b().as_index();
+      if (inner_add_ptr->b().as_index().is_constant()) {
         std::swap(lhs, rhs);
-      } else if (inner_add_ptr->b_as_index().length() < mod_r_expr.length()) {
+      } else if (inner_add_ptr->b().as_index().length() < mod_r_expr.length()) {
         std::swap(lhs, rhs);
       }
       no_opt_sum = no_opt_sum.get() ? no_opt_sum + lhs : lhs;
@@ -720,34 +722,27 @@ ir::IndexExpr SimplifySymbolicAdd(const ir::IndexExpr &lhs,
       return sym * (outter_mul_factor + ir::IndexExpr(1));
     }
     case ir::IrNodeTy::Add: {
-      if (!common::IsSumPartialBySymbol(lhs->operand_as_index(0), sym))
-        return lhs->operand_as_index(0) +
-               SimplifySymbolicAdd(
-                   lhs->operand_as_index(1), sym, outter_mul_factor);
-      return SimplifySymbolicAdd(
-                 lhs->operand_as_index(0), sym, outter_mul_factor) +
-             lhs->operand_as_index(1);
+      if (!common::IsSumPartialBySymbol(lhs.operand(0), sym))
+        return lhs.operand(0) +
+               SimplifySymbolicAdd(lhs.operand(1), sym, outter_mul_factor);
+      return SimplifySymbolicAdd(lhs.operand(0), sym, outter_mul_factor) +
+             lhs.operand(1);
     }
     case ir::IrNodeTy::Mul: {
-      if (lhs->operand_as_index(1).is_constant() &&
-          lhs->operand_as_index(1).as_int64() == -1) {
-        return SimplifySymbolicAdd(
-                   lhs->operand_as_index(0), sym, -outter_mul_factor) *
-               lhs->operand_as_index(1);
+      if (lhs.operand(1).is_constant() && lhs.operand(1).as_int64() == -1) {
+        return SimplifySymbolicAdd(lhs.operand(0), sym, -outter_mul_factor) *
+               lhs.operand(1);
       }
-      if (lhs->operand_as_index(0) == sym)
-        return lhs->operand_as_index(0) *
-               (lhs->operand_as_index(1) + outter_mul_factor);
-      return (lhs->operand_as_index(0) + outter_mul_factor) *
-             lhs->operand_as_index(1);
+      if (lhs.operand(0) == sym)
+        return lhs.operand(0) * (lhs.operand(1) + outter_mul_factor);
+      return (lhs.operand(0) + outter_mul_factor) * lhs.operand(1);
     }
     case ir::IrNodeTy::Mod:
       PADDLE_THROW(::common::errors::Fatal("Error in SimplifySymbolicAdd!"));
     case ir::IrNodeTy::Div: {
-      return SimplifySymbolicAdd(lhs->operand_as_index(0),
-                                 sym,
-                                 lhs->operand_as_index(1) * outter_mul_factor) /
-             lhs->operand_as_index(1);
+      return SimplifySymbolicAdd(
+                 lhs.operand(0), sym, lhs.operand(1) * outter_mul_factor) /
+             lhs.operand(1);
     }
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(
@@ -809,24 +804,19 @@ ir::IndexExpr SimplifySymbolicDivide(const ir::IndexExpr &lhs,
     case ir::IrNodeTy::_Var_:
       return ir::IndexExpr(1);
     case ir::IrNodeTy::Add:
-      return SimplifySymbolicDivide(lhs->operand_as_index(0), sym, ty) +
-             SimplifySymbolicDivide(lhs->operand_as_index(1), sym, ty);
+      return SimplifySymbolicDivide(lhs.operand(0), sym, ty) +
+             SimplifySymbolicDivide(lhs.operand(1), sym, ty);
     case ir::IrNodeTy::Mul: {
-      if (!common::IsDivisiblieBySymbol(lhs->operand_as_index(0), sym, ty))
-        return lhs->operand_as_index(0) *
-               SimplifySymbolicDivide(lhs->operand_as_index(1), sym, ty);
-      return SimplifySymbolicDivide(lhs->operand_as_index(0), sym, ty) *
-             lhs->operand_as_index(1);
+      if (!common::IsDivisiblieBySymbol(lhs.operand(0), sym, ty))
+        return lhs.operand(0) * SimplifySymbolicDivide(lhs.operand(1), sym, ty);
+      return SimplifySymbolicDivide(lhs.operand(0), sym, ty) * lhs.operand(1);
     }
     case ir::IrNodeTy::Mod:
-      return SimplifySymbolicDivide(
-                 lhs->operand_as_index(0), sym, lhs.node_type()) %
-             SimplifySymbolicDivide(
-                 lhs->operand_as_index(1), sym, lhs.node_type());
+      return SimplifySymbolicDivide(lhs.operand(0), sym, lhs.node_type()) %
+             SimplifySymbolicDivide(lhs.operand(1), sym, lhs.node_type());
     case ir::IrNodeTy::Div: {
-      return SimplifySymbolicDivide(
-                 lhs->operand_as_index(0), sym, lhs.node_type()) /
-             lhs->operand_as_index(1);
+      return SimplifySymbolicDivide(lhs.operand(0), sym, lhs.node_type()) /
+             lhs.operand(1);
     }
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(

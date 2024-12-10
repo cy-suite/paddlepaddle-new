@@ -32,15 +32,15 @@ std::optional<ir::IndexExpr> DivMulAddModCornerCase(const ir::IndexExpr& lhs,
 
   // Why inner is lhs of Mul? beacuse we sort by expr length, and the length of
   // inner is longer in this case.
-  auto inner = lhsMul->a_as_index();
-  auto mult_outer = lhsMul->b_as_index();
+  auto inner = lhsMul->a().as_index();
+  auto mult_outer = lhsMul->b().as_index();
 
   // Calculate the outer multiplier
   while (true) {
     auto mulPtr = inner.As<ir::Mul>();
     if (mulPtr) {
-      inner = mulPtr->a_as_index();
-      mult_outer = mulPtr->b_as_index() * mult_outer;
+      inner = mulPtr->a().as_index();
+      mult_outer = mulPtr->b().as_index() * mult_outer;
     } else {
       break;
     }
@@ -49,11 +49,11 @@ std::optional<ir::IndexExpr> DivMulAddModCornerCase(const ir::IndexExpr& lhs,
   // Check if the inner expression is a div
   auto innerDiv = inner.As<ir::Div>();
   if (!innerDiv) return std::nullopt;
-  if (innerDiv->b_as_index() == rhsMod->b_as_index() &&
-      innerDiv->b_as_index() == mult_outer &&
-      ProveDivisible(rhsMod->a_as_index() - innerDiv->a_as_index(),
+  if (innerDiv->b().as_index() == rhsMod->b().as_index() &&
+      innerDiv->b().as_index() == mult_outer &&
+      ProveDivisible(rhsMod->a().as_index() - innerDiv->a().as_index(),
                      mult_outer)) {
-    return innerDiv->a_as_index();
+    return innerDiv->a().as_index();
   }
   return std::nullopt;
 }
@@ -110,18 +110,18 @@ std::optional<ir::IndexExpr> SubModCornerCase(const ir::IndexExpr& lhs,
     // Check if the negation term is a mod
     auto innerMod = beforeNegation.As<ir::Mod>();
     if (!innerMod) continue;
-    if (!ProveDivisible(innerMod->b_as_index(), rhs)) continue;
+    if (!ProveDivisible(innerMod->b().as_index(), rhs)) continue;
 
     // Check if the sum of all other terms is equal to the lhs of mod
     auto diff = ir::IndexExpr(0);
     for (int64_t j = 0; j < e; ++j)
       if (i != j) diff = diff + flatten[j];
-    diff =
-        isNeg ? diff - innerMod->a_as_index() : diff + innerMod->a_as_index();
+    diff = isNeg ? diff - innerMod->a().as_index()
+                 : diff + innerMod->a().as_index();
     if (IsZero(diff)) {
       if (!isDiv) return ir::IndexExpr(0);
-      return isNeg ? innerMod->a_as_index() / rhs
-                   : -(innerMod->a_as_index() / rhs);
+      return isNeg ? innerMod->a().as_index() / rhs
+                   : -(innerMod->a().as_index() / rhs);
     }
 
     // For simplify mod case: ((S0 * 256 + S1) % 512 - S1) % 32 == 0
@@ -160,17 +160,13 @@ std::optional<ir::IndexExpr> SimplifyCornerCase(const ir::IndexExpr& expr) {
     case ir::IrNodeTy::_Var_:
       return expr;
     case ir::IrNodeTy::Add:
-      return SimplifyAddCornerCase(expr->operand_as_index(0),
-                                   expr->operand_as_index(1));
+      return SimplifyAddCornerCase(expr.operand(0), expr.operand(1));
     case ir::IrNodeTy::Mul:
-      return SimplifyMulCornerCase(expr->operand_as_index(0),
-                                   expr->operand_as_index(1));
+      return SimplifyMulCornerCase(expr.operand(0), expr.operand(1));
     case ir::IrNodeTy::Div:
-      return SimplifyDivCornerCase(expr->operand_as_index(0),
-                                   expr->operand_as_index(1));
+      return SimplifyDivCornerCase(expr.operand(0), expr.operand(1));
     case ir::IrNodeTy::Mod:
-      return SimplifyModCornerCase(expr->operand_as_index(0),
-                                   expr->operand_as_index(1));
+      return SimplifyModCornerCase(expr.operand(0), expr.operand(1));
   }
   return std::nullopt;
 }

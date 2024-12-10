@@ -1240,10 +1240,8 @@ struct hash<cinn::ir::IndexExpr> {
       case cinn::ir::IrNodeTy::Div:
         [[fallthrough]];
       case cinn::ir::IrNodeTy::Mod: {
-        auto hash_lhs =
-            std::hash<cinn::ir::IndexExpr>()(x.get()->operand(0).as_index());
-        auto hash_rhs =
-            std::hash<cinn::ir::IndexExpr>()(x.get()->operand(1).as_index());
+        auto hash_lhs = std::hash<cinn::ir::IndexExpr>()(x.operand(0));
+        auto hash_rhs = std::hash<cinn::ir::IndexExpr>()(x.operand(1));
         return cinn::adt::hash_combine(hash_lhs, hash_rhs);
       }
     }

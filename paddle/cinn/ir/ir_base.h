@@ -203,8 +203,6 @@ class IrNode : public cinn::common::Object {
   //! Get i-th operand
   const Expr& operand(int i);
 
-  const IndexExpr operand_as_index(int i) const;
-
   //! Gather all the expression fields in this node for easier visit and mutate.
   virtual std::vector<Expr*> expr_fields() { return {}; }
   virtual std::vector<const Expr*> expr_fields() const { return {}; }
@@ -502,6 +500,8 @@ struct IndexExpr : public IrNodeRef {
 
   bool is_constant() const;
 
+  const IndexExpr operand(int32_t i) const;
+
   Type type() const { return p_->type(); }
 
   int64_t GetLargestMutiplyPart() const;
@@ -580,8 +580,6 @@ struct BinaryOpNode : public ExprNode<T> {
   Expr& b() { return ExprNode<T>::operand(1); }
   const Expr& a() const { return ExprNode<T>::operand(0); }
   const Expr& b() const { return ExprNode<T>::operand(1); }
-  const IndexExpr a_as_index() const { return IrNode::operand_as_index(0); }
-  const IndexExpr b_as_index() const { return IrNode::operand_as_index(1); }
   Type type() const override { return a().type(); }
 
   void replace(Expr old_op, Expr new_op) {
