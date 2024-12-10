@@ -136,6 +136,8 @@ def get_positive_dim(dim, dim_size):
 
 
 def add_elementwise_layer(network, paddle_op, inputs, op_type):
+    from paddle.tensorrt.util import support_fp32_mix_precision
+
     weight_shape = paddle_op.operands()[1].source().shape
     input_shape = paddle_op.operands()[0].source().shape
 
@@ -157,6 +159,7 @@ def add_elementwise_layer(network, paddle_op, inputs, op_type):
         weight_tensor.name,
     )
     layer = network.add_elementwise(lhs_val, rhs_val, op_type)
+    support_fp32_mix_precision(paddle_op.name(), layer)
     return layer.get_output(0)
 
 
@@ -166,6 +169,14 @@ def add_1D_constant_layer(network, data, dtype=np.int32, is_scalar=False):
         data = [data]
     constant_data = np.array(data, dtype=dtype)
     shape = () if is_scalar else (len(data),)
+    constant_layer = network.add_constant(shape, constant_data)
+    return constant_layer.get_output(0)
+
+
+# Create and add ND constant layer
+def add_constant_layer(network, data, shape, dtype=np.int32):
+    constant_data = np.array(data, dtype=dtype)
+    constant_data = np.resize(constant_data, shape)
     constant_layer = network.add_constant(shape, constant_data)
     return constant_layer.get_output(0)
 
@@ -252,9 +263,9 @@ def trt_reshape(network, input, new_shape, name="", is_shape_tensor=False):
 
 # Get element tensor of 1D shape tensor
 def get_shape_tensor_element(network, x, index, is_scalar=False):
-    assert index >= 0, (
-        "The index should be greater or equal than 0, but got %d" % index
-    )
+    assert (
+        index >= 0
+    ), f"The index should be greater or equal than 0, but got {index}"
     index_tensor = add_1D_constant_layer(network, index, is_scalar=is_scalar)
     gather_layer = network.add_gather(input=x, indices=index_tensor, axis=0)
     return gather_layer.get_output(0)
@@ -298,6 +309,12 @@ def trt_floor_div(network, a, b):
 def trt_equal(network, a, b):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.EQUAL)
     return layer.get_output(0)
+
+
+def trt_gather(network, input, indices, axis=0):
+    indices_tensor = add_1D_constant_layer(network, indices)
+    result = network.add_gather(input, indices_tensor, axis).get_output(0)
+    return result
 
 
 def trt_prod(network, a, b):
@@ -378,7 +395,7 @@ def map_trt_dtype(trt_dtype):
         trt.DataType.HALF: np.float16,
         trt.DataType.INT32: np.int32,
         trt.DataType.INT8: np.int8,
-        trt.DataType.BOOL: np.bool,
+        trt.DataType.BOOL: bool,
     }
     if trt_dtype in dtype_map:
         return dtype_map[trt_dtype]
@@ -400,6 +417,8 @@ def trt_reduce_to_scalar(network, tensor):
 
 
 def convert_conv2d(network, paddle_op, inputs):
+    from paddle.tensorrt.util import support_fp32_mix_precision
+
     if (
         paddle_op.name() == "pd_op.conv2d"
         or paddle_op.name() == "pd_op.depthwise_conv2d"
@@ -506,6 +525,7 @@ def convert_conv2d(network, paddle_op, inputs):
         nv_dilations = trt.DimsHW(1, 1)
 
     layer.dilation_nd = nv_dilations
+    support_fp32_mix_precision(paddle_op.name(), layer)
 
     return layer.get_output(0)
 
@@ -627,3 +647,16 @@ def squeeze_trt(network, input_tensor, axes):
     reshape_layer = network.add_shuffle(input_tensor)
     reshape_layer.set_input(1, new_shape_tensor)
     return reshape_layer.get_output(0)
+
+
+# resize shape tensor's shape to 1dim
+def resize_to_1d(network, shape_tensor):
+    if len(shape_tensor.shape) > 1:
+        # shape_tensor need 1-dim in trt
+        shape_tensor_layer = network.add_shuffle(shape_tensor)
+        numel = 1
+        for ele in shape_tensor.shape:
+            numel *= ele
+        shape_tensor_layer.reshape_dims = [numel]
+        shape_tensor = shape_tensor_layer.get_output(0)
+    return shape_tensor

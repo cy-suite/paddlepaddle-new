@@ -260,8 +260,8 @@ class RunnableProgram:
             self.x_grad_values,
             self.param_grad_values,
             self.out_grad_values,
-            list(self.forward_range),
-            list(self.backward_range),
+            self.forward_range,
+            self.backward_range,
         )
         return [fwd_prog, bwd_prog], prog_attr
 
@@ -457,8 +457,9 @@ class IndicesPreservePass:
 class ValuePreservePass:
     OP_NAME_PREFIX = "preserved_value_"
 
-    def __init__(self, values):
+    def __init__(self, values, use_cinn_pass):
         self.values = values
+        self.use_cinn_pass = use_cinn_pass
 
     def apply(self, program):
         raise RuntimeError("Not implemented.")
@@ -523,9 +524,11 @@ class ValuePreservePass:
         return program
 
 
-class FusedBnAddActPass(ValuePreservePass):
+class FullGraphPreProcessPass(ValuePreservePass):
     def apply(self, program):
         program = paddle.base.libpaddle.pir.apply_bn_add_act_pass(program)
+        if self.use_cinn_pass:
+            program = paddle.base.libpaddle.pir.reduce_as_sum_pass(program)
         return program
 
 
@@ -936,10 +939,9 @@ class PartialProgramLayer:
         inputs = train_runnable_program.x_values
         params = train_runnable_program.param_values
         combined_inputs = list(itertools.chain(inputs, params))
-        forward_prog_len = len(program.global_block().ops)
-        forward_end_idx = forward_prog_len - 1
+        forward_end_idx = len(program.global_block().ops)
         forward_end_op = None
-        if forward_prog_len > 0:
+        if forward_end_idx > 0:
             forward_end_op = program.global_block().ops[-1]
         grad_info_map = [None] * len(combined_inputs)
         with backend_guard(self._backend):
@@ -969,7 +971,7 @@ class PartialProgramLayer:
                     "grad_input_",
                 )
                 op_between_forward_and_backward = (
-                    len(program.global_block().ops) - forward_prog_len
+                    len(program.global_block().ops) - forward_end_idx
                 )
 
                 # call grad to get backward ops.
@@ -996,7 +998,7 @@ class PartialProgramLayer:
                     if forward_end_op is not None:
                         for idx, op in enumerate(program.global_block().ops):
                             if op == forward_end_op:
-                                forward_end_idx = idx
+                                forward_end_idx = idx + 1
                                 break
 
             for hooker in self._hookers:
@@ -1030,12 +1032,11 @@ class PartialProgramLayer:
         output_grads_to_append = list(
             filter(lambda x: not is_fake_value(x), x_grad_value + p_grad_value)
         )
-        backward_prog_len = len(program.global_block().ops)
-        backward_end_op_index = backward_prog_len - 1
+        backward_end_op_index = len(program.global_block().ops)
         paddle.base.libpaddle.pir.append_shadow_outputs(
             program,
             output_grads_to_append,
-            backward_prog_len,
+            backward_end_op_index,
             "grad_output_",
         )
 
@@ -1044,17 +1045,15 @@ class PartialProgramLayer:
         )
 
         # construct a runnable program.
-        fused_bn_add_act_pass = FusedBnAddActPass(
-            [inputs, params, targets, x_grad_value, p_grad_value, o_grad_value]
+        fused_bn_add_act_pass = FullGraphPreProcessPass(
+            [inputs, params, targets, x_grad_value, p_grad_value, o_grad_value],
+            cinn_is_enabled(self._build_strategy, self._backend),
         )
         forward_index_pass = IndicesPreservePass(
-            [
-                forward_end_idx + 1,
-                backward_start_op_index + 1,
-                backward_end_op_index + 1,
-            ],
+            [forward_end_idx, backward_start_op_index, backward_end_op_index],
             fused_bn_add_act_pass,
         )
+
         program = forward_index_pass(program)
         (
             inputs,
@@ -1065,17 +1064,17 @@ class PartialProgramLayer:
             o_grad_value,
         ) = fused_bn_add_act_pass.values
         (
-            forward_end_range,
-            backward_start_range,
-            backward_end_op_range,
+            forward_end_idx,
+            backward_start_op_index,
+            backward_end_op_index,
         ) = forward_index_pass.new_indices
 
         return RunnableProgram(
             program,
             (inputs, params, targets),
             (x_grad_value, p_grad_value, o_grad_value),
-            (0, forward_end_range),
-            (backward_start_range, backward_end_op_range),
+            (0, forward_end_idx),
+            (backward_start_op_index, backward_end_op_index),
         )
 
     def _prepare_attributes(self, in_sot_mode=False):

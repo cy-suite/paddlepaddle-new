@@ -131,7 +131,7 @@ inline bool VarIsTensor(const Variable& var) {
   return var.IsType<phi::DenseTensor>() || var.IsType<phi::SelectedRows>();
 }
 
-const phi::DenseTensor* GetLoDTensorOrSelectedRowsValueFromVar(
+const phi::DenseTensor* GetDenseTensorOrSelectedRowsValueFromVar(
     const Variable& var);
 phi::DenseTensor* GetMutableLoDTensorOrSelectedRowsValueFromVar(Variable* var);
 
@@ -230,7 +230,7 @@ class RuntimeInferShapeContext : public InferShapeContext {
 
   void SetSkipLoD(bool skip);
 
-  std::vector<LoD> GetOutputsLod(const std::string& out) const;
+  std::vector<LegacyLoD> GetOutputsLod(const std::string& out) const;
 
   std::vector<DDim> GetOutputsDim(const std::string& name) const;
 
