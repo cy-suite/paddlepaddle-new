@@ -188,6 +188,18 @@ void MatrixPowerKernel(const Context& ctx,
 
   const auto& x_dims = X->dims();
   const int x_ndim = x_dims.size();
+  bool has_zero_dim = false;
+  for (int i = 0; i < x_ndim; i++) {
+    if (x_dims[i] == 0) {
+      has_zero_dim = true;
+      break;
+    }
+  }
+  if (has_zero_dim) {
+    Out->Resize(X->dims());
+    ctx.template Alloc<T>(Out);
+    return;
+  }
   PADDLE_ENFORCE_EQ(
       x_dims[x_ndim - 2],
       x_dims[x_ndim - 1],

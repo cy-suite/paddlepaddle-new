@@ -17,6 +17,7 @@ import unittest
 
 import numpy as np
 from op_test import OpTest
+from utils import dygraph_guard, static_guard
 
 import paddle
 from paddle import base, static
@@ -333,20 +334,6 @@ class TestMatrixPowerAPIError(unittest.TestCase):
         )
         self.assertRaises(ValueError, paddle.linalg.matrix_power, input, 2)
 
-        # The size of input should not be 0
-        input = paddle.static.data(
-            name="input_4", shape=[1, 1, 0, 0], dtype="float32"
-        )
-        self.assertRaises(ValueError, paddle.linalg.matrix_power, input, 2)
-
-        # The size of input should not be 0
-        input = paddle.static.data(
-            name="input_5", shape=[0, 0], dtype="float32"
-        )
-        self.assertRaises(
-            ValueError, paddle.linalg.matrix_power, input, -956301312
-        )
-
     def test_old_ir_errors(self):
         if paddle.framework.use_pir_api():
             return
@@ -407,6 +394,49 @@ class TestMatrixPowerSingularAPI(unittest.TestCase):
                     print("The mat is singular")
                 except ValueError as ex:
                     print("The mat is singular")
+
+
+class TestMatrixPowerEmptyTensor(unittest.TestCase):
+    def _get_places(self):
+        places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not paddle.is_compiled_with_cuda()
+        ):
+            places.append(base.CPUPlace())
+        if paddle.is_compiled_with_cuda():
+            places.append(base.CUDAPlace(0))
+        return places
+
+    def _test_matrix_power_empty_static(self, place):
+        with static_guard():
+            with paddle.static.program_guard(
+                paddle.static.Program(), paddle.static.Program()
+            ):
+                x = paddle.static.data(name='x', shape=[0, 0], dtype='float32')
+                y = paddle.linalg.matrix_power(x, 2)
+                exe = paddle.static.Executor(place)
+                res = exe.run(
+                    feed={'x': np.zeros((0, 0), dtype='float32')},
+                    fetch_list=[y],
+                )
+                assert (
+                    len(res[0].shape) == 2
+                    and res[0].shape[0] == 0
+                    and res[0].shape[1] == 0
+                )
+
+    def _test_matrix_power_empty_dynamtic(self):
+        with dygraph_guard():
+            x = paddle.full((0, 0), 1.0, dtype='float32')
+            y = paddle.linalg.matrix_power(x, 2)
+            assert len(y.shape) == 2 and y.shape[0] == 0 and y.shape[1] == 0
+
+    def test_matrix_power_empty_tensor(self):
+        for place in self._get_places():
+            self._test_matrix_power_empty_static(place)
+        self._test_matrix_power_empty_dynamtic()
 
 
 if __name__ == "__main__":
