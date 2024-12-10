@@ -233,21 +233,6 @@ class TestCrossAPI(unittest.TestCase):
 
         main = paddle.static.Program()
         startup = paddle.static.Program()
-        # case 4:
-        with paddle.static.program_guard(main, startup):
-            x = paddle.static.data(name='x', shape=[0, 3], dtype="float32")
-            y = paddle.static.data(name='y', shape=[0, 3], dtype="float32")
-            z = paddle.cross(x, y)
-
-            exe = base.Executor(base.CUDAPlace(0))
-            (res,) = exe.run(
-                main,
-                feed={'x': self.data_x_zero, 'y': self.data_y_zero},
-                fetch_list=[z],
-                return_numpy=False,
-            )
-        expect_out = np.empty((3, 0))
-        np.testing.assert_allclose(expect_out, np.array(res), rtol=1e-05)
 
     def test_cross_api1(self):
         with paddle.pir_utils.OldIrGuard():

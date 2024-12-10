@@ -84,13 +84,6 @@ void CrossGradKernel(const Context& dev_ctx,
   auto* output_y_grad = y_grad;
   int dim = axis;
 
-  if (input_x.numel() == 0 || input_y.numel() == 0) {
-    output_x_grad->Resize(input_x.dims());
-    output_y_grad->Resize(input_y.dims());
-    dev_ctx.template Alloc<T>(output_x_grad);
-    dev_ctx.template Alloc<T>(output_y_grad);
-    return;
-  }
   auto input_x_dims = input_x.dims();
   if (dim != DDim::kMaxRank) {
     PADDLE_ENFORCE_EQ(

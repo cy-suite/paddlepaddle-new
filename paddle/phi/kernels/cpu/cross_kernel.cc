@@ -32,11 +32,6 @@ void CrossKernel(const Context& dev_ctx,
   auto* output = out;
   int dim = axis;
 
-  if (input_x.numel() == 0 || input_y.numel() == 0) {
-    output->Resize(input_x.dims());
-    dev_ctx.template Alloc<T>(output);
-    return;
-  }
   auto input_x_dims = input_x.dims();
 
   if (dim != DDim::kMaxRank) {
@@ -74,6 +69,11 @@ void CrossKernel(const Context& dev_ctx,
                           "Input(X/Y).dims()[d] is equal to 3. "
                           "But received: Input(X/Y).dims() == [%s].",
                           input_x_dims));
+  }
+  if (input_x.numel() == 0 || input_y.numel() == 0) {
+    output->Resize(input_x.dims());
+    dev_ctx.template Alloc<T>(output);
+    return;
   }
   auto outer_loops = 1;
   for (auto i = 0; i < dim; i++) {
