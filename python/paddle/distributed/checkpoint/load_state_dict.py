@@ -552,7 +552,6 @@ def load_state_dict(
             process_group,
             use_dist,
         )
-        print('rank_to_files', rank_to_files)
 
         if len(missing_keys) > 0:
             logger.warning(
@@ -806,7 +805,7 @@ def load_merged_state_dict(path: str, prefix=None, unique_id=-1, offload=False):
     metadata_files, local_data_files = get_checkpoint_files(
         path, unique_id=unique_id
     )
-    print(metadata_files, local_data_files, flush=1)
+
     metadata_list = []
     for file in metadata_files:
         metadata_list.append(paddle.load(os.path.join(path, file)))
@@ -818,7 +817,6 @@ def load_merged_state_dict(path: str, prefix=None, unique_id=-1, offload=False):
             tensor_key,
             local_tensor_meta,
         ) in metadata.state_dict_metadata.items():
-            print(tensor_key, local_tensor_meta)
             if prefix is None or tensor_key.startswith(prefix):
                 global_shape = compute_global_shape(local_tensor_meta)
                 t = paddle.zeros(global_shape, dtype=local_tensor_meta[0].dtype)
