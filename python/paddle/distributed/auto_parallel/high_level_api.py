@@ -75,7 +75,7 @@ def record_program_ops_pre_hook(layer, inputs):
     """
     if not in_dygraph_mode():
         # Because ir_guard._switch_to_pir() will change default_main_program in python/paddle/__init__.py.
-        # In order to avoid errors, we import default_main_program until use.
+        # In order to avoid errors, we import default_main_program until this hook running.
         # After fully switching to pir, can move this import to the beginning of the file.
         from paddle.base import default_main_program
 
@@ -217,7 +217,7 @@ def record_program_ops_post_hook(layer, inputs, outputs):
     """
     if not in_dygraph_mode():
         # Because ir_guard._switch_to_pir() will change default_main_program in python/paddle/__init__.py.
-        # In order to avoid errors, we import default_main_program until use.
+        # In order to avoid errors, we import default_main_program until this hook running.
         # After fully switching to pir, can move this import to the beginning of the file.
         from paddle.base import default_main_program
 
@@ -316,7 +316,7 @@ def to_distributed(
             >>> SEQ_LENGTH = 1024
             >>> N_HEAD = 32
             >>> NUM_HIDDEN_LAYERS = 4
-            >>> class RandomDataset(paddle.io.Dataset):
+            >>> class RandomDataset(paddle.io.Dataset): # type: ignore[type-arg]
             ...     def __init__(self, inputs, labels, num_samples):
             ...         self.inputs = inputs
             ...         self.labels = labels
@@ -681,7 +681,7 @@ def to_distributed(
             >>> # python -m paddle.distributed.launch --gpus=0,1,2,3,4,5,6,7 {test_case}.py
     """
     # Because some API(`paddle.randn` etc.) will be used when building pattern,
-    # In order to avoid circle import, we import get_pattern until use.
+    # In order to avoid circle import, we import get_pattern until function running.
     from .static.tuner.to_distributed_api_patterns import (
         clear_used_patterns,
         get_pattern,
