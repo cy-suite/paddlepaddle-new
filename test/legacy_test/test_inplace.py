@@ -2383,13 +2383,22 @@ class TestDygraphInplaceResize(unittest.TestCase):
 
             self.assertRaises(ValueError, leaf_inplace_error)
 
+    def test_argument_error(self):
+        with paddle.base.dygraph.guard():
+            x = paddle.to_tensor(self.x_np).astype(self.dtype)
+
+            def argument_error():
+                self.inplace_api_processing(x, 2.0)
+
+            self.assertRaises(ValueError, argument_error)
+
 
 @unittest.skipIf(
     not paddle.base.core.is_compiled_with_cuda()
     or not paddle.base.core.is_float16_supported(paddle.CUDAPlace(0)),
     "core is not compiled with CUDA and not support the float16",
 )
-class TestDygraphInplaceResizeP16(TestDygraphInplaceResize):
+class TestDygraphInplaceResizeFP16(TestDygraphInplaceResize):
     def setUp(self):
         self.init_data()
         self.places = [paddle.CUDAPlace(0)]

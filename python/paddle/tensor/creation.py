@@ -3450,6 +3450,10 @@ def resize_(
             ],
             'resize',
         )
+        if not isinstance(shape, (list, tuple)):
+            raise ValueError(
+                f"Input (shape) should be list or tuple but received {type(shape)}"
+            )
         new_size = math.prod(shape)
         old_size = math.prod(x.shape)
         if (new_size > old_size) and fill_zero:
