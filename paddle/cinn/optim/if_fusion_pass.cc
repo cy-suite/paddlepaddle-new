@@ -23,9 +23,9 @@ using ir::stmt::BlockRef;
 using ir::stmt::IfThenElse;
 using ir::stmt::StmtRef;
 
-bool IfFusionPass::RunOnBlock(BlockRef block) {
+void FuseIfStmtWithSameCondInBlock(BlockRef block) {
   const std::vector<StmtRef>& stmts = block->stmts();
-  if (stmts.size() <= 2) return false;
+  if (stmts.size() <= 2) return;
 
   const auto& IsIfStmtWithSpecCond = [](const StmtRef& stmt, const Expr& cond) {
     if (!stmt.isa<IfThenElse>()) return false;
@@ -54,18 +54,20 @@ bool IfFusionPass::RunOnBlock(BlockRef block) {
       AppendBlockStmts(new_true_case, if_stmt->true_case());
       AppendBlockStmts(new_false_case, if_stmt->false_case());
     }
+    FuseIfStmtWithSameCondInBlock(new_true_case);
+    FuseIfStmtWithSameCondInBlock(new_false_case);
     return IfThenElse(if_stmts[0]->condition(), new_true_case, new_false_case);
   };
 
-  struct CadidateIfStmtGroup {
+  struct CandidateIfStmtGroup {
     int start_if_idx;
     int end_if_idx;
-    CadidateIfStmtGroup(const int& start, const int& end)
+    CandidateIfStmtGroup(const int& start, const int& end)
         : start_if_idx(start), end_if_idx(end) {}
   };
 
-  const auto& candidates = [&]() -> std::vector<CadidateIfStmtGroup> {
-    std::vector<CadidateIfStmtGroup> group_infos;
+  const auto& candidates = [&]() -> std::vector<CandidateIfStmtGroup> {
+    std::vector<CandidateIfStmtGroup> group_infos;
     size_t idx = 0;
     while (idx < stmts.size() - 1) {
       if (!stmts[idx].isa<IfThenElse>()) {
@@ -84,7 +86,8 @@ bool IfFusionPass::RunOnBlock(BlockRef block) {
         }
       }
       if (stmt_num_in_group > 1) {
-        CadidateIfStmtGroup group(start_idx, start_idx + stmt_num_in_group - 1);
+        CandidateIfStmtGroup group(start_idx,
+                                   start_idx + stmt_num_in_group - 1);
         group_infos.push_back(group);
       }
       idx += stmt_num_in_group;
@@ -92,7 +95,7 @@ bool IfFusionPass::RunOnBlock(BlockRef block) {
     return group_infos;
   }();
 
-  if (candidates.empty()) return false;
+  if (candidates.empty()) return;
 
   const auto& new_stmts = [&]() -> std::vector<StmtRef> {
     std::vector<StmtRef> res;
@@ -118,8 +121,15 @@ bool IfFusionPass::RunOnBlock(BlockRef block) {
   }();
 
   block->set_stmts(new_stmts);
+}
 
-  return true;
+LogicalResult IfFusionPass::Run(ir::stmt::BlockRef block) {
+  FuseIfStmtWithSameCondInBlock(block);
+  return LogicalResult::success();
+}
+
+std::unique_ptr<BlockPass> CreateIfFusionPass() {
+  return std::make_unique<IfFusionPass>();
 }
 }  // namespace optim
 }  // namespace cinn

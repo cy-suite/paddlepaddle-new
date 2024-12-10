@@ -41,6 +41,7 @@
 #include "paddle/cinn/optim/unroll_loops.h"
 #include "paddle/cinn/optim/vectorize_for_trans.h"
 #include "paddle/cinn/optim/vectorize_loops.h"
+#include "paddle/cinn/pass/pass_manager.h"
 
 namespace cinn {
 namespace optim {
@@ -104,17 +105,9 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
   Simplify(&copied->body);
   VLOG(10) << "After Optimize Simplify:" << copied;
 
-  cinn::ir::stmt::BlockRef block =
-      cinn::ir::ConvertExprBlockToStmtBlock(copied->body);
-  // TODO(hongqing-work): using pass manager
-  IfFusionPass pass;
-  int num_rewrites = 0;
-  while (num_rewrites < 5) {
-    bool rewrited = ApplyBlockPass(&pass, block);
-    if (!rewrited) break;
-    num_rewrites++;
-  }
-  copied->body = ir::ConvertStmtBlockToExprBlock(block);
+  BlockPassManager pass_manager;
+  pass_manager.AddPass(CreateIfFusionPass());
+  pass_manager.Run(copied);
 
   VectorizeForTrans(&copied->body);
   VLOG(10) << "After Optimize vectorize" << copied;
