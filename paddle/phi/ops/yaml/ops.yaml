@@ -2028,7 +2028,7 @@
   backward : gelu_grad
 
 - op : gemm_reduce_scatter
-  args: (Tensor input, Tensor weight, Tensor bias, Tensor input_scale, Tensor weight_scale, Tensor output_scale, int nnodes, int max_m, int n_dim, bool transpose_weight, bool fuse_reduction, int ring_id, int root_id, int nranks)
+  args: (Tensor input, Tensor weight, Tensor bias, Tensor input_scale, Tensor weight_scale, Tensor output_scale, int nnodes, int max_m, int n_dim, bool transpose_weight, bool fuse_reduction, int ring_id, int nranks)
   output : Tensor(output)
   infer_meta :
     func : GemmReduceScatterInferMeta

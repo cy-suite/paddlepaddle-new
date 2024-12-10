@@ -94,7 +94,8 @@ from .flash_attention import (
 )
 
 from .flux import (
-    gemm_rs,
+    all_gather_gemm,
+    gemm_reduce_scatter,
 )
 
 from .input import embedding, one_hot

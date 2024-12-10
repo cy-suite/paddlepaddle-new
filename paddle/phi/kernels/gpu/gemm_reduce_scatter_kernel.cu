@@ -271,14 +271,8 @@ void GemmReduceScatterKernel(const Context& dev_ctx,
                   bool transpose_weight,
                   bool fuse_reduction,
                   int ring_id,
-                  int root_id,
                   int nranks,
                   DenseTensor* output) {
-  PADDLE_ENFORCE_GE(
-      root_id,
-      0,
-      common::errors::InvalidArgument(
-          "The root_id (%d) for c_scatter_op must be non-negative.", root_id));
   PADDLE_ENFORCE_GE(
       ring_id,
       0,
