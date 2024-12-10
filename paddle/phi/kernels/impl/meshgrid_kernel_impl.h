@@ -26,13 +26,6 @@ template <typename T, typename Context, int Rank>
 void MeshgridForward(const Context& ctx,
                      const std::vector<const DenseTensor*>& ins,
                      std::vector<DenseTensor*> outs) {
-  PADDLE_ENFORCE_EQ(
-      ins.size() > 1,
-      true,
-      common::errors::InvalidArgument(
-          "Expected at least 2 input tensors, but only received d%.",
-          ins.size()));
-
   int64_t size = ins.size();
   std::vector<int64_t> shape(size);
 
@@ -105,7 +98,7 @@ void MeshgridKernel(const Context& ctx,
       break;
     default:
       PADDLE_THROW(common::errors::InvalidArgument(
-          "Excepted Tensor numbers between 1 and 6, but only received d% .",
+          "Excepted Tensor numbers between 1 and 6, but only received %d .",
           rank));
   }
 }
