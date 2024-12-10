@@ -42,6 +42,7 @@ void GetCrossEntropyNotations(int x_ndim,
 SpmdInfo CSoftmaxWithCrossEntropyInferSpmd(const DistMetaTensor& x,
                                            const DistMetaTensor& label,
                                            int ignore_index,
+                                           int ring_id,
                                            int rank,
                                            int nranks) {
   // Step0: Verify input args based on c_softmax_with_cross_entropy logic
@@ -110,6 +111,7 @@ SpmdInfo CSoftmaxWithCrossEntropyGradSpmd(const DistMetaTensor& softmax,
                                           const DistMetaTensor& label,
                                           const DistMetaTensor& loss_grad,
                                           int ignore_index,
+                                          int ring_id,
                                           int rank,
                                           int nranks) {
   EXTRACT_SHAPE_AND_DIST_ATTR_WITH_DIM_CK(softmax);
