@@ -373,6 +373,27 @@ void BoxCoderInferMeta(const MetaTensor& prior_box,
   output_box->set_dtype(target_box.dtype());
 }
 
+void ClipTensorInferMeta(const MetaTensor& x,
+                         const MetaTensor& min,
+                         const MetaTensor& max,
+                         MetaTensor* out) {
+
+  auto x_dims = x.dims();
+  auto min_dims = min.dims();
+  auto max_dims = max.dims();
+  
+  if (common::product(x_dims) >= common::product(min_dims) && common::product(x_dims) >= common::product(max_dims)) {
+    out->set_dims(x.dims());
+  }
+  else if (common::product(min_dims) >= common::product(x_dims) && common::product(min_dims) >= common::product(max_dims)) {
+    out->set_dims(min.dims());
+  }
+  else if (common::product(max_dims) >= common::product(x_dims) && common::product(max_dims) >= common::product(min_dims)) {
+    out->set_dims(max.dims());
+  }
+  out->set_dtype(x.dtype());
+}
+
 void DistributedPushSparseInferMeta(
     const std::vector<const MetaTensor*>& ids,
     const std::vector<const MetaTensor*>& shows,

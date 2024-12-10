@@ -3742,21 +3742,11 @@ def log10_(x: Tensor, name: str | None = None) -> Tensor:
         return _C_ops.log10_(x)
 
 
-def get_clip_tensor(value1, value2, value3):
-    v1_num = math.prod(value1.shape)
-    v2_num = math.prod(value2.shape)
-    v3_num = math.prod(value3.shape)
-    if v1_num >= v2_num and v1_num >= v3_num:
-        return value1.shape
-    elif v2_num >= v1_num and v2_num >= v3_num:
-        return value2.shape
-    else:
-        return value3.shape
-
-
 def is_clip_tensor(value):
     if paddle.is_tensor(value):
-        if (len(value.shape) == 1 and value.shape[-1] == 1) or len(value.shape) == 0:
+        if (len(value.shape) == 1 and value.shape[-1] == 1) or len(
+            value.shape
+        ) == 0:
             return False
         return True
     else:
@@ -3768,7 +3758,7 @@ def clip_tensor(x: Tensor, min: Tensor, max: Tensor) -> Tensor:
         return _C_ops.clip_tensor(x, min, max)
     else:
 
-        inputs = {'X': x, 'Min': min, 'Max': max}
+        inputs = {'x': x, 'min': min, 'max': max}
 
         helper = LayerHelper('clip_tensor', **locals())
         output = helper.create_variable_for_type_inference(
@@ -3777,7 +3767,7 @@ def clip_tensor(x: Tensor, min: Tensor, max: Tensor) -> Tensor:
         helper.append_op(
             type='clip_tensor',
             inputs=inputs,
-            outputs={'Out': [output]},
+            outputs={'out': [output]},
         )
 
         return output
@@ -3843,21 +3833,12 @@ def clip(
     min = min_ if min is None else min
     max = max_ if max is None else max
     if is_clip_tensor(min) or is_clip_tensor(max):
-        # min = paddle.full_like(x, min_, x.dtype) if min is None else min
-        # max = paddle.full_like(x, max_, x.dtype) if max is None else max
         min = (
             min if paddle.is_tensor(min) else paddle.full_like(x, min, x.dtype)
         )
         max = (
             max if paddle.is_tensor(max) else paddle.full_like(x, max, x.dtype)
         )
-
-        expand_shape = get_clip_tensor(min, max, x)
-        x = paddle.expand(x, expand_shape)
-        min = paddle.expand(min, expand_shape)
-        min = paddle.cast(min, x.dtype)
-        max = paddle.expand(max, expand_shape)
-        max = paddle.cast(max, x.dtype)
 
         return clip_tensor(x, min, max)
 
@@ -3866,8 +3847,6 @@ def clip(
             min = min.item(0)
         if isinstance(max, Variable):
             max = max.item(0)
-        # min = min_ if min is None else min
-        # max = max_ if max is None else max
         return _C_ops.clip(x, min, max)
     else:
         if min is not None:
@@ -3927,6 +3906,18 @@ def clip(
         return output
 
 
+def get_clip_tensor(value1, value2, value3):
+    v1_num = math.prod(value1.shape)
+    v2_num = math.prod(value2.shape)
+    v3_num = math.prod(value3.shape)
+    if v1_num >= v2_num and v1_num >= v3_num:
+        return value1.shape
+    elif v2_num >= v1_num and v2_num >= v3_num:
+        return value2.shape
+    else:
+        return value3.shape
+
+
 @inplace_apis_in_dygraph_only
 def clip_(
     x: Tensor,
@@ -3944,22 +3935,17 @@ def clip_(
     max = fmax if max is None else max
 
     if is_clip_tensor(min) or is_clip_tensor(max):
-        # min = paddle.full_like(x, fmin, x.dtype) if min is None else min
-        # max = paddle.full_like(x, fmax, x.dtype) if max is None else max
         min = (
             min if paddle.is_tensor(min) else paddle.full_like(x, min, x.dtype)
         )
         max = (
             max if paddle.is_tensor(max) else paddle.full_like(x, max, x.dtype)
         )
-
-        expand_shape = get_clip_tensor(min, max, x)
-        x = paddle.expand(x, expand_shape)
-        min = paddle.expand(min, expand_shape)
-        min = paddle.cast(min, x.dtype)
-        max = paddle.expand(max, expand_shape)
-        max = paddle.cast(max, x.dtype)
-
+        out_shape = get_clip_tensor(x, min, max)
+        if out_shape != x.shape:
+            raise ValueError(
+                f"The shape of broadcast output {out_shape} is different from that of inplace tensor {x.shape} in the Inplace operation."
+            )
         if in_dynamic_mode():
             return _C_ops.clip_tensor_(x, min, max)
 
@@ -3967,8 +3953,6 @@ def clip_(
         min = min.item(0)
     if isinstance(max, Variable):
         max = max.item(0)
-    # min = fmin if min is None else min
-    # max = fmax if max is None else max
 
     if in_dynamic_mode():
         return _C_ops.clip_(x, min, max)

@@ -31,20 +31,20 @@ class TestClipTensorOp(OpTest):
         self.initTestCase()
 
         self.x = np.random.random(size=self.shape).astype(self.dtype)
-        self.min = np.random.random(size=self.shape).astype(self.dtype)
-        self.max = np.random.random(size=self.shape).astype(self.dtype)
+        self.min = np.full(self.shape, 0.3).astype(self.dtype)
+        self.max = np.full(self.shape, 0.8).astype(self.dtype)
         self.x[np.abs(self.x - self.min) < self.max_relative_error] = 0.5
         self.x[np.abs(self.x - self.max) < self.max_relative_error] = 0.5
 
-        self.inputs = {'X': self.x, 'Min': self.min, 'Max': self.max}
+        self.inputs = {'x': self.x, 'min': self.min, 'max': self.max}
         out = np.clip(self.x, self.min, self.max)
-        self.outputs = {'Out': out}
+        self.outputs = {'out': out}
 
     def test_check_output(self):
-        self.check_output(check_pir=True, check_symbol_infer=False, check_prim_pir=True)
+        self.check_output(check_pir=True, check_symbol_infer=False, check_cinn=True)
 
     def test_check_grad(self):
-        self.check_grad(['X'], 'Out', check_pir=True)
+        self.check_grad(['x'], 'out', check_pir=True, check_cinn=True)
 
     def initTestCase(self):
         self.dtype = np.float32
@@ -54,9 +54,7 @@ class TestClipTensorOp(OpTest):
 class TestCase1(TestClipTensorOp):
     def initTestCase(self):
         self.dtype = np.float32
-        self.shape = (8, 16, 8)
-
+        self.shape = (10, 4, 5)
 
 if __name__ == '__main__':
-    paddle.enable_static()
     unittest.main()

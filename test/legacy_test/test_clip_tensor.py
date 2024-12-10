@@ -33,10 +33,6 @@ def np_pd_equal(x_shape, min_shape=None, max_shape=None, dtype='float32'):
     pd_out = paddle.clip(x_pd, min_pd, max_pd)
     np.allclose(pd_out.numpy(), np_out)
 
-    x_pd.clip_(min_pd, max_pd)
-    np.allclose(x_pd.numpy(), np_out)
-    paddle.enable_static()
-
 
 def np_pd_static_equal(
     x_shape, min_shape=None, max_shape=None, dtype='float32'
@@ -54,13 +50,13 @@ def np_pd_static_equal(
     with paddle.static.program_guard(
         paddle.static.Program(), paddle.static.Program()
     ):
-        x_pd = paddle.static.data("X", shape=x_shape, dtype=dtype)
-        min_pd = paddle.static.data("Min", shape=min_shape, dtype=dtype)
-        max_pd = paddle.static.data("Max", shape=max_shape, dtype=dtype)
+        x_pd = paddle.static.data("x", shape=x_shape, dtype=dtype)
+        min_pd = paddle.static.data("min", shape=min_shape, dtype=dtype)
+        max_pd = paddle.static.data("max", shape=max_shape, dtype=dtype)
         pd_out = paddle.clip(x_pd, min_pd, max_pd)
         exe = base.Executor(place)
         (res,) = exe.run(
-            feed={"X": x, "Min": min, "Max": max}, fetch_list=[pd_out]
+            feed={"x": x, "min": min, "max": max}, fetch_list=[pd_out]
         )
         np.allclose(res, np_out)
 
@@ -89,10 +85,6 @@ class TestClipTensorAPI(unittest.TestCase):
         pd_out = paddle.clip(x_pd, None, max_pd)
         np.allclose(pd_out.numpy(), np_out)
 
-        x_pd.clip_(None, max_pd)
-        np.allclose(x_pd.numpy(), np_out)
-        paddle.enable_static()
-
     def test_check_static_output_int32(self):
         np_pd_static_equal([4], [5, 4], [6, 5, 4], 'int32')
     
@@ -113,11 +105,11 @@ class TestClipTensorAPI(unittest.TestCase):
             place = paddle.CPUPlace()
             if core.is_compiled_with_cuda():
                 place = paddle.CUDAPlace(0)
-            x_pd = paddle.static.data("X", shape=[4, 5], dtype='float32')
-            max_pd = paddle.static.data("Max", shape=[4, 4, 5], dtype='float32')
+            x_pd = paddle.static.data("x", shape=[4, 5], dtype='float32')
+            max_pd = paddle.static.data("max", shape=[4, 4, 5], dtype='float32')
             pd_out = paddle.clip(x_pd, None, max_pd)
             exe = base.Executor(place)
-            res = exe.run(feed={'X': x, 'Max': max}, fetch_list=[pd_out])
+            res = exe.run(feed={'x': x, 'max': max}, fetch_list=[pd_out])
             np.allclose(res[0], np_out)
         paddle.disable_static()
     
@@ -131,26 +123,92 @@ class TestClipTensorAPI(unittest.TestCase):
 
             with paddle.static.program_guard(paddle.static.Program()):
                 images = paddle.static.data(
-                    name='image1', shape=data_shape, dtype='float16'
+                    name='x', shape=data_shape, dtype='float16'
                 )
                 min = paddle.static.data(
-                    name='min1', shape=data_shape, dtype='float16'
+                    name='min', shape=data_shape, dtype='float16'
                 )
                 max = paddle.static.data(
-                    name='max1', shape=data_shape, dtype='float16'
+                    name='max', shape=data_shape, dtype='float16'
                 )
                 out = paddle.tensor.math.clip_tensor(images, min, max)
                 place = paddle.CUDAPlace(0)
                 exe = paddle.static.Executor(place)
                 res1 = exe.run(
                     feed={
-                        "image1": data,
-                        "min1": min1,
-                        "max1": max2,
+                        "x": data,
+                        "min": min1,
+                        "max": max2,
                     },
                     fetch_list=[out],
                 )
             paddle.disable_static()
+    
+
+class TestClipTensor_API(unittest.TestCase):
+    def setUp(self):
+        self.x_shape = [4, 5, 5]
+        self.min_shape = [5, 5]
+        self.max_shape = [4, 5, 5]
+    
+    def test_check_output(self):
+        paddle.disable_static()
+        x = np.random.randn(*self.x_shape).astype('float32')
+        max_np = np.random.randn(*self.max_shape).astype('float32')
+        min_np = np.random.randn(*self.min_shape).astype('float32')
+        np_out = np.clip(x, min_np, max_np)
+        x_pd = paddle.to_tensor(x, dtype='float32')
+        min_pd = paddle.to_tensor(min_np, dtype='float32')
+        max_pd = paddle.to_tensor(max_np, dtype='float32')
+        paddle.clip_(x_pd, min_pd, max_pd)
+        np.allclose(x_pd.numpy(), np_out)
+        paddle.enable_static()
+    
+    def test_check_error_shape(self):
+        paddle.disable_stataic()
+        with self.assertRaises(ValueError):
+            x_pd = paddle.randn([4], dtype='float32')
+            min_pd = paddle.randn([4, 4, 5], dtype='float32')
+            max_pd = paddle.randn([4, 4, 5], dtype='float32')
+            paddle.clip_(x_pd, min_pd, max_pd)
+        paddle.enable_static()
+    
+    def test_check_None(self):
+        paddle.disable_static()
+        x = np.random.randn(4, 5, 5).astype('float32')
+        max_np = np.random.randn(5, 5).astype('float32')
+        min_np = float(np.finfo(np.float32).min)
+        np_out = np.clip(x, min_np, max_np)
+        x_pd = paddle.to_tensor(x, dtype='float32')
+        max_pd = paddle.to_tensor(max_np, dtype='float32')
+        min_pd = paddle.to_tensor(min_np, dtype='float32')
+        paddle.clip_(x_pd, min_pd, max_pd)
+        np.allclose(x_pd.numpy(), np_out)
+
+        x = np.random.randn(4, 5, 5).astype('float32')
+        max_np = float(np.finfo(np.float32).max)
+        min_np = np.random.randn(5, 5).astype('float32')
+        np_out = np.clip(x, min_np, max_np)
+        x_pd = paddle.to_tensor(x, dtype='float32')
+        max_pd = paddle.to_tensor(max_np, dtype='float32')
+        min_pd = paddle.to_tensor(min_np, dtype='float32')
+        paddle.clip_(x_pd, min_pd, max_pd)
+        np.allclose(x_pd.numpy(), np_out)
+        paddle.enable_static()
+
+
+class TestClipTensor_API1(TestClipTensor_API):
+    def setUp(self):
+        self.x_shape = [4, 5, 5]
+        self.min_shape = [5]
+        self.max_shape = [5, 5]
+
+
+class TestClipTensor_API2(TestClipTensor_API):
+    def setUp(self):
+        self.x_shape = [9, 5, 5]
+        self.min_shape = [5, 5]
+        self.max_shape = [9, 5, 5]
 
 
 if __name__ == '__main__':

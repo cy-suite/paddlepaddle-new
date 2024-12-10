@@ -612,14 +612,6 @@
   extra :
     attrs : [bool use_mkldnn = false, str mkldnn_data_type = "float32"]
 
-- op : clip_tensor
-  backward : clip_tensor_grad, clip_tensor_double_grad
-  inputs :
-    {x : X, min : Min, max : Max}
-  outputs :
-    out : Out
-
-
 - op : clip_by_norm
   inputs :
     x : X
