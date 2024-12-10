@@ -26,7 +26,6 @@ from paddle.tensorrt.converter_utils import (
     get_shape_tensor_element,
     has_dynamic_shape,
     resize_to_1d,
-    squeeze_trt,
     trt_concat,
     trt_expand,
     trt_floor_div,
@@ -904,34 +903,52 @@ def roll_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.unbind", trt_version="8.x")
 def unbind_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
+    in_shape_tensor = trt_shape(network, input_tensor)
     input_rank = len(input_tensor.shape)
     axis = paddle_op.attrs().get("axis", 0)
     if axis < 0:
         axis += input_rank
-    axis_tensor = add_1D_constant_layer(network, axis)
-    size_tensor = build_size_tensor(
-        network,
-        input_rank,
-        axis_tensor,
-        add_1D_constant_layer(network, 1),
-        trt_shape(network, input_tensor),
-    )
+
+    in_shape_tensors = []
+    newDims_tensors = []
+    for i in range(input_rank):
+        in_shape_tensors.append(
+            get_shape_tensor_element(network, in_shape_tensor, i)
+        )
+        if i != axis:
+            newDims_tensors.append(
+                get_shape_tensor_element(network, in_shape_tensor, i)
+            )
+
+    newDims_tensor = trt_concat(network, newDims_tensors)
+
+    start_tensors = []
+    size_tensors = in_shape_tensors[:]
+
+    for i in range(input_rank):
+        if axis == i:
+            size_tensors[i] = add_1D_constant_layer(network, 1)
+        start_tensors.append(add_1D_constant_layer(network, 0))
+
+    stride = (1,) * input_rank
+
     output_tensors = []
     for i in range(paddle_op.num_results()):
-        start_tensor = add_1D_constant_layer(
-            network, [i if j == axis else 0 for j in range(input_rank)]
-        )
+        start_tensors[axis] = add_1D_constant_layer(network, i)
+        # 1 slice
         slice_layer = network.add_slice(
             input_tensor,
-            (0,) * input_rank,
-            (0,) * input_rank,
-            (1,) * input_rank,
+            stride,
+            stride,
+            stride,
         )
-        slice_layer.set_input(1, start_tensor)
-        slice_layer.set_input(2, size_tensor)
+        slice_layer.set_input(1, trt_concat(network, start_tensors))
+        slice_layer.set_input(2, trt_concat(network, size_tensors))
         sliced_tensor = slice_layer.get_output(0)
-
-        sliced_tensor = squeeze_trt(network, sliced_tensor, [axis])
-        output_tensors.append(sliced_tensor)
+        # 2 reshape
+        shuffle_layer = network.add_shuffle(sliced_tensor)
+        shuffle_layer.set_input(1, newDims_tensor)
+        reshaped_tensor = shuffle_layer.get_output(0)
+        output_tensors.append(reshaped_tensor)
 
     return output_tensors

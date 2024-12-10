@@ -2164,8 +2164,22 @@ class UnbindOpPattern
 
     if (op->HasAttribute("axis")) {
       int axis = op->attribute<pir::Int32Attribute>("axis").data();
-      if (axis == 0) {
-        VLOG(3) << "pd_op.unbind does support dynamic shape when axis is 0.";
+      pir::Value x = op.operand_source(0);
+      auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
+      auto x_shape = x_type.dims();
+      int rank = x_shape.size();
+      if (axis > rank || axis < -(rank + 1)) {
+        VLOG(3) << "Invalid axis value: " << axis
+                << ". Axis should be in range [-" << (rank + 1) << ", " << rank
+                << "], where rank is " << rank << ".";
+        return false;
+      }
+      if (axis < 0) {
+        axis += rank;
+      }
+      if (x_shape[axis] == -1) {
+        VLOG(3) << "pd_op.unbind does not support dynamic shape when axis is "
+                   "euqal to the dynamic dim.";
         return false;
       }
     }

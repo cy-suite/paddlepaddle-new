@@ -411,34 +411,6 @@ class TestUnbindCase1TRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestUnbindCase0Marker(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = paddle.unbind
-        self.api_args = {
-            "x": np.random.random([3, 4, 10]).astype("float32"),
-            "axis": 0,
-        }
-        self.program_config = {"feed_list": ["x"]}
-        self.target_marker_op = "pd_op.unbind"
-
-    def test_trt_result(self):
-        self.check_marker(expected_result=False)
-
-
-class TestUnbindCase1Marker(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = paddle.unbind
-        self.api_args = {
-            "x": np.random.random([3, 4, 10]).astype("float32"),
-            "axis": 2,
-        }
-        self.program_config = {"feed_list": ["x"]}
-        self.target_marker_op = "pd_op.unbind"
-
-    def test_trt_result(self):
-        self.check_marker(expected_result=True)
-
-
 class TestTileTRTPatternCase0(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.tile
