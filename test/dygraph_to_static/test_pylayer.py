@@ -854,7 +854,85 @@ class TestNestedStructurePyLayer(unittest.TestCase):
 
         model = NestedStructurePyLayerModel()
         dygraph_res = model(input)
-        print(dygraph_res)
+        dygraph_res.backward()
+        dygraph_input_grads = [
+            paddle.assign(input.grad),
+            paddle.assign(model.w0.grad),
+            paddle.assign(model.w1.grad),
+            paddle.assign(model.w2.grad),
+        ]
+        input.clear_grad()
+        model.w0.clear_grad()
+        model.w1.clear_grad()
+        model.w2.clear_grad()
+
+        static_model = paddle.jit.to_static(model, full_graph=True)
+        static_res = static_model(input)
+        static_res.backward()
+        static_input_grads = [
+            paddle.assign(input.grad),
+            paddle.assign(model.w0.grad),
+            paddle.assign(model.w1.grad),
+            paddle.assign(model.w2.grad),
+        ]
+        input.clear_grad()
+        model.w0.clear_grad()
+        model.w1.clear_grad()
+        model.w2.clear_grad()
+        for i, (dygraph_grad, static_grad) in enumerate(
+            zip(dygraph_input_grads, static_input_grads)
+        ):
+            np.testing.assert_allclose(
+                dygraph_grad.numpy(),
+                static_grad.numpy(),
+                rtol=1e-5,
+                atol=0,
+                err_msg=f"dygraph_grad[{i}]: {dygraph_grad} \n static_grad[{i}]: {static_grad}",
+            )
+
+
+class NestedStructureWithNonePyLayer(PyLayer):
+    @staticmethod
+    def forward(ctx, x, y):
+        ctx.save_for_backward(x, y)
+        x1 = paddle.tanh(x[0])
+        y1 = paddle.tanh(x[1])
+        z1 = paddle.tanh(y)
+        return [x1, y1, z1]
+
+    @staticmethod
+    def backward(ctx, *grad1):
+        x0, x1 = ctx.saved_tensor()
+        x_grad = grad1[0] * (1 - paddle.square(x0[0]))
+        z_grad = grad1[2] * (1 - paddle.square(x1))
+
+        return [x_grad, None], z_grad
+
+
+class NestedStructureWithNonePyLayerModel(paddle.nn.Layer):
+    def __init__(self):
+        super().__init__()
+        self.w0 = self.create_parameter(shape=[42, 42])
+        self.w1 = self.create_parameter(shape=[42, 42])
+        self.w2 = self.create_parameter(shape=[42, 42])
+
+    def forward(self, x):
+        y1 = paddle.matmul(x, self.w0)
+        y2 = paddle.matmul(x, self.w1)
+        y2.stop_gradient = True
+        y3 = paddle.matmul(x, self.w2)
+
+        z = NestedStructurePyLayer.apply([y1, y2], y3)
+        return z[0] + z[1] + z[2]
+
+
+class TestNestedStructureWithNonePyLayer(unittest.TestCase):
+    def test_nested_structure(self):
+        input = paddle.randn([2, 42]).astype("float32")
+        input.stop_gradient = False
+
+        model = NestedStructurePyLayerModel()
+        dygraph_res = model(input)
         dygraph_res.backward()
         dygraph_input_grads = [
             paddle.assign(input.grad),
