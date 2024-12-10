@@ -25,6 +25,9 @@ class TestGPUEventTimer(unittest.TestCase):
         if not paddle.is_compiled_with_cuda():
             return
 
+        if paddle.is_compiled_with_rocm():
+            return
+
         set_timers()
         key = "matmul"
         x = paddle.randn([1024, 1024])
