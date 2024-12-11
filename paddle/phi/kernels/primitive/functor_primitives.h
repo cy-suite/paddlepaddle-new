@@ -168,8 +168,7 @@ struct MinFunctor {
 
 template <typename T>
 struct MinFunctor<T,
-                  std::enable_if<std::is_same<T, int32_t>::value ||
-                                 std::is_same<T, int64_t>::value>> {
+                  typename std::enable_if<std::is_integral<T>::value>::type> {
   inline int32_t initial() { return std::numeric_limits<int32_t>::max(); }
 
   __device__ int32_t operator()(const int32_t a, const int32_t b) const {
@@ -208,8 +207,7 @@ struct MaxFunctor {
 
 template <typename T>
 struct MaxFunctor<T,
-                  std::enable_if<std::is_same<T, int32_t>::value ||
-                                 std::is_same<T, int64_t>::value>> {
+                  typename std::enable_if<std::is_integral<T>::value>::type> {
   inline int32_t initial() { return std::numeric_limits<int32_t>::lowest(); }
 
   __device__ int32_t operator()(const int32_t a, const int32_t b) const {
