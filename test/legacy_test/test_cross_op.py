@@ -170,8 +170,8 @@ class TestCrossAPI(unittest.TestCase):
         self.data_y = np.array(
             [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]
         ).astype('float32')
-        self.data_x_zero = np.empty((3, 0))
-        self.data_y_zero = np.empty((3, 0))
+        self.data_x_zero = np.array([]).reshape(0, 3).astype('float32')
+        self.data_y_zero = np.array([]).reshape(0, 3).astype('float32')
 
     def test_cross_api(self):
         self.input_data()
@@ -220,7 +220,7 @@ class TestCrossAPI(unittest.TestCase):
         with paddle.static.program_guard(main, startup):
             x = paddle.static.data(name='x', shape=[0, 3], dtype="float32")
             y = paddle.static.data(name='y', shape=[0, 3], dtype="float32")
-            z = paddle.cross(x, y)
+            z = paddle.cross(x, y, axis=1)
             exe = base.Executor(base.CPUPlace())
             (res,) = exe.run(
                 main,
@@ -228,7 +228,7 @@ class TestCrossAPI(unittest.TestCase):
                 fetch_list=[z],
                 return_numpy=False,
             )
-        expect_out = np.empty((3, 0))
+        expect_out = np.empty((0, 3))
         np.testing.assert_allclose(expect_out, np.array(res), rtol=1e-05)
 
         main = paddle.static.Program()
@@ -257,7 +257,7 @@ class TestCrossAPI(unittest.TestCase):
                 x = paddle.static.data(name="x", shape=[0, 3], dtype="float32")
                 y = paddle.static.data(name='y', shape=[0, 3], dtype='float32')
 
-                y_1 = paddle.cross(x, y, name='result')
+                y_1 = paddle.cross(x, y, axis=1, name='result')
                 self.assertEqual(('result' in y_1.name), True)
 
     def test_dygraph_api(self):
@@ -289,7 +289,7 @@ class TestCrossAPI(unittest.TestCase):
             y = paddle.to_tensor(self.data_y_zero)
             z = paddle.cross(x, y, axis=1)
             np_z = z.numpy()
-        expect_out = np.empty((3, 0))
+        expect_out = np.empty((0, 3))
         np.testing.assert_allclose(expect_out, np_z, rtol=1e-05)
 
 
