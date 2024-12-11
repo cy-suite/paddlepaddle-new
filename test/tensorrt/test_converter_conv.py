@@ -317,6 +317,7 @@ class TestConv3dTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
         self.max_shape = {"x": [10, 3, 8, 8, 8]}
+        self.enable_fp16 = True
 
     def test_trt_result(self):
         self.check_trt_result()
@@ -333,6 +334,7 @@ class TestConv3dPaddingAlgorithmTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
         self.max_shape = {"x": [10, 3, 8, 8, 8]}
+        self.enable_fp16 = True
 
     def test_trt_result(self):
         self.check_trt_result()
@@ -343,18 +345,21 @@ def conv3dtranspose_wrapper(
     stride=1,
     padding=0,
     output_padding=(0, 0, 0),
-    output_size=None,
+    output_size=[],
     padding_algorithm="EXPLICIT",
     groups=1,
     dilation=1,
     data_format="NCDHW",
 ):
+
+    fc = x.shape[1]
     weight = paddle.static.create_parameter(
         name="weight",
-        shape=[3, 6, 3, 3, 3],
+        shape=[fc, 6, 3, 3, 3],
         dtype="float32",
         default_initializer=paddle.nn.initializer.Normal(mean=0.0, std=1.0),
     )
+
     return _C_ops.conv3d_transpose(
         x,
         weight,
@@ -373,19 +378,20 @@ class TestConv3dTransposeTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = conv3dtranspose_wrapper
         self.api_args = {
-            "x": np.random.random([2, 3, 5, 5, 5]).astype("float32"),
+            "x": np.random.random([1, 2, 5, 5, 5]).astype("float32"),
             "stride": [1, 1, 1],
             "padding": [1, 0, 1, 2, 1, 1],
-            "output_padding": [],
-            "output_size": [5, 5, 5],
+            "output_padding": [0, 0, 0],
+            "output_size": [],
             "padding_algorithm": "EXPLICIT",
             "groups": 1,
             "dilation": [1, 1, 1],
             "data_format": "NCDHW",
         }
         self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [1, 3, 5, 5, 5]}
-        self.max_shape = {"x": [4, 3, 5, 5, 5]}
+        self.min_shape = {"x": [1, 2, 5, 5, 5]}
+        self.max_shape = {"x": [4, 2, 5, 5, 5]}
+        self.enable_fp16 = True
 
     def test_trt_result(self):
         self.check_trt_result()
@@ -395,19 +401,20 @@ class TestConv3dTransposePaddingAlgorithmTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = conv3dtranspose_wrapper
         self.api_args = {
-            "x": np.random.random([2, 3, 5, 5, 5]).astype("float32"),
+            "x": np.random.random([1, 2, 5, 5, 5]).astype("float32"),
             "stride": [1, 1, 1],
             "padding": [1, 0, 1, 2, 1, 1],
-            "output_padding": [],
-            "output_size": [5, 5, 5],
+            "output_padding": [0, 0, 0],
+            "output_size": [],
             "padding_algorithm": "SAME",
             "groups": 1,
             "dilation": [1, 1, 1],
             "data_format": "NCDHW",
         }
         self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [1, 3, 5, 5, 5]}
-        self.max_shape = {"x": [4, 3, 5, 5, 5]}
+        self.min_shape = {"x": [1, 2, 5, 5, 5]}
+        self.max_shape = {"x": [4, 2, 5, 5, 5]}
+        self.enable_fp16 = True
 
     def test_trt_result(self):
         self.check_trt_result()
