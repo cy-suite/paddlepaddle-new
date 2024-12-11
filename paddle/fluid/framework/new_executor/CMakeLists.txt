@@ -19,11 +19,13 @@ if(NOT TENSORRT_FOUND OR NOT WITH_TENSORRT)
        ${CMAKE_CURRENT_SOURCE_DIR}/instruction/tensorrt_engine_instruction.cc)
 endif()
 
-set(TENSORRT_VERSION_NUMBER
-    "${TENSORRT_MAJOR_VERSION}${TENSORRT_MINOR_VERSION}")
-if(TENSORRT_FOUND AND ${TENSORRT_VERSION_NUMBER} LESS 85)
-  list(REMOVE_ITEM standalone_executor_srcs
-       ${CMAKE_CURRENT_SOURCE_DIR}/instruction/tensorrt_engine_instruction.cc)
+if(TENSORRT_FOUND)
+  set(TENSORRT_VERSION_NUMBER
+      "${TENSORRT_MAJOR_VERSION}${TENSORRT_MINOR_VERSION}")
+  if(${TENSORRT_VERSION_NUMBER} LESS 85)
+    list(REMOVE_ITEM standalone_executor_srcs
+         ${CMAKE_CURRENT_SOURCE_DIR}/instruction/tensorrt_engine_instruction.cc)
+  endif()
 endif()
 
 set(standalone_executor_deps
