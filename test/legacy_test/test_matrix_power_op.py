@@ -409,34 +409,38 @@ class TestMatrixPowerEmptyTensor(unittest.TestCase):
             places.append(base.CUDAPlace(0))
         return places
 
-    def _test_matrix_power_empty_static(self, place):
+    def _test_matrix_power_with_shape_static(self, place, shape):
         with static_guard():
             with paddle.static.program_guard(
                 paddle.static.Program(), paddle.static.Program()
             ):
-                x = paddle.static.data(name='x', shape=[0, 0], dtype='float32')
+                x = paddle.static.data(name='x', shape=shape, dtype='float32')
                 y = paddle.linalg.matrix_power(x, 2)
                 exe = paddle.static.Executor(place)
                 res = exe.run(
-                    feed={'x': np.zeros((0, 0), dtype='float32')},
+                    feed={'x': np.zeros(shape, dtype='float32')},
                     fetch_list=[y],
                 )
-                assert (
-                    len(res[0].shape) == 2
-                    and res[0].shape[0] == 0
-                    and res[0].shape[1] == 0
-                )
+                assert res[0].shape == shape
 
-    def _test_matrix_power_empty_dynamtic(self):
+    def _test_matrix_power_with_shape_dynamic(self, shape):
         with dygraph_guard():
-            x = paddle.full((0, 0), 1.0, dtype='float32')
+            x = paddle.full(shape, 1.0, dtype='float32')
             y = paddle.linalg.matrix_power(x, 2)
-            assert len(y.shape) == 2 and y.shape[0] == 0 and y.shape[1] == 0
+            assert y.shape == shape
 
     def test_matrix_power_empty_tensor(self):
+        shapes_to_test = [
+            [0, 0],
+            [0, 6],
+            [6, 0],
+            [2, 3, 0, 0],
+        ]
         for place in self._get_places():
-            self._test_matrix_power_empty_static(place)
-        self._test_matrix_power_empty_dynamtic()
+            for shape in shapes_to_test:
+                self._test_matrix_power_with_shape_static(place, shape)
+        for shape in shapes_to_test:
+            self._test_matrix_power_with_shape_dynamic(shape)
 
 
 if __name__ == "__main__":
