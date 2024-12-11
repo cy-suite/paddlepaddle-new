@@ -61,11 +61,11 @@ using dim3 = phi::kps::dim3;
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/enforce.h"
 #include "paddle/phi/core/kernel_utils.h"
+#include "paddle/phi/kernels/full_kernel.h"
 #include "paddle/phi/kernels/funcs/eigen/common.h"
 #include "paddle/phi/kernels/funcs/eigen/eigen_function.h"
 #include "paddle/phi/kernels/funcs/math_function.h"
 #include "paddle/phi/kernels/funcs/reduce_functor.h"
-#include "paddle/phi/kernels/full_kernel.h"
 namespace phi {
 namespace funcs {
 
@@ -1055,15 +1055,12 @@ void ReduceKernel(const KPDevice& dev_ctx,
                     0,
                     common::errors::InvalidArgument(
                         "Tensor need be reduced must not empty."));
-  if(x.numel()==0){
-    if(IsMean) {
+  if (x.numel() == 0) {
+    if (IsMean) {
       DataType dtype = phi::CppTypeToDataType<Ty>::Type();
       double nanValue = std::numeric_limits<double>::quiet_NaN();
-      FullKernel<Ty, KPDevice>(dev_ctx, 
-                              std::vector<int64_t>({}), 
-                              nanValue, 
-                              dtype, 
-                              y);
+      FullKernel<Ty, KPDevice>(
+          dev_ctx, std::vector<int64_t>({}), nanValue, dtype, y);
       return;
     }
   }
@@ -1366,48 +1363,46 @@ void HandleLargeDim(const Context& dev_ctx,
 
 template <typename Functor, typename Context, typename T, typename OutT>
 struct SpecialCaseReduceOp {
-    static void HandleEmptyTensor(const Context& dev_ctx,
-                                  const phi::DenseTensor& input,
-                                  phi::DenseTensor* output) {
-        PADDLE_THROW(common::errors::InvalidArgument(
-            "Unsupported reduction operation for empty tensor."));
-    }
+  static void HandleEmptyTensor(const Context& dev_ctx,
+                                const phi::DenseTensor& input,
+                                phi::DenseTensor* output) {
+    PADDLE_THROW(common::errors::InvalidArgument(
+        "Unsupported reduction operation for empty tensor."));
+  }
 };
-
 
 // Sum操作的特化
 template <typename Context, typename T, typename OutT>
 struct SpecialCaseReduceOp<phi::funcs::SumFunctor, Context, T, OutT> {
-    static void HandleEmptyTensor(const Context& dev_ctx,
-                                  const phi::DenseTensor& input,
-                                  phi::DenseTensor* output) {
-        auto out = dev_ctx.template Alloc<OutT>(output);
-        *out = static_cast<OutT>(0);
-    }
+  static void HandleEmptyTensor(const Context& dev_ctx,
+                                const phi::DenseTensor& input,
+                                phi::DenseTensor* output) {
+    auto out = dev_ctx.template Alloc<OutT>(output);
+    *out = static_cast<OutT>(0);
+  }
 };
 
 // Mean操作的特化
 template <typename Context, typename T, typename OutT>
 struct SpecialCaseReduceOp<phi::funcs::MeanFunctor, Context, T, OutT> {
-    static void HandleEmptyTensor(const Context& dev_ctx,
-                                  const phi::DenseTensor& input,
-                                  phi::DenseTensor* output) {
-        auto out = dev_ctx.template Alloc<OutT>(output);
-        *out = static_cast<OutT>(std::numeric_limits<float>::quiet_NaN());
-    }
+  static void HandleEmptyTensor(const Context& dev_ctx,
+                                const phi::DenseTensor& input,
+                                phi::DenseTensor* output) {
+    auto out = dev_ctx.template Alloc<OutT>(output);
+    *out = static_cast<OutT>(std::numeric_limits<float>::quiet_NaN());
+  }
 };
 
 // Prod操作的特化
 template <typename Context, typename T, typename OutT>
 struct SpecialCaseReduceOp<phi::funcs::ProdFunctor, Context, T, OutT> {
-    static void HandleEmptyTensor(const Context& dev_ctx,
-                                  const phi::DenseTensor& input,
-                                  phi::DenseTensor* output) {
-        auto out = dev_ctx.template Alloc<OutT>(output);
-        *out = static_cast<OutT>(1);
-    }
+  static void HandleEmptyTensor(const Context& dev_ctx,
+                                const phi::DenseTensor& input,
+                                phi::DenseTensor* output) {
+    auto out = dev_ctx.template Alloc<OutT>(output);
+    *out = static_cast<OutT>(1);
+  }
 };
-
 
 ////////////// ReduceKernel
 
@@ -1426,7 +1421,8 @@ void ReduceKernelImpl(const Context& dev_ctx,
                         input.numel()));
 
   if (input.numel() == 0) {
-    SpecialCaseReduceOp<Functor, Context, T, OutT>::HandleEmptyTensor(dev_ctx, input, output);
+    SpecialCaseReduceOp<Functor, Context, T, OutT>::HandleEmptyTensor(
+        dev_ctx, input, output);
     return;
   }
 
