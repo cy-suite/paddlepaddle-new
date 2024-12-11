@@ -49,7 +49,7 @@ public:
   std::vector<int32_t *> sync_buffer_ptrs;
   std::vector<DenseTensor> input_buffers; // InT
   std::vector<DenseTensor> output_buffers; // OutT
-  std::vector<DenseTensor> barrier_buffers; //UINT8 (c10::ScalarType::Byte)
+  std::vector<DenseTensor> barrier_buffers; // int32_t
 
   std::vector<void *> input_buffer_ptrs;
   std::vector<void *> output_buffer_ptrs;

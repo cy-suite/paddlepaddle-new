@@ -220,6 +220,9 @@ ncclComm_t ProcessGroupNCCL::NCCLComm(const Place& place) const {
 phi::distributed::NCCLCommContext* ProcessGroupNCCL::GetOrCreateCommContext(
     const Place& place, CommType comm_type) {
   const auto& key = GetKeyFromPlace(place);
+
+  platform::CUDADeviceGuard cuda_guard(place);
+
   std::string store_key;
   GetStoreKey(key, comm_type, &store_key);
   if (place_to_comm_ctx_.find(key) == place_to_comm_ctx_.end()) {

@@ -32,7 +32,7 @@ public:
   }
 
   ~CUDAEventHolder() {
-    cudaEventDestroy(event);
+    PADDLE_ENFORCE_GPU_SUCCESS(cudaEventDestroy(event));
   }
   cudaEvent_t event;
 };
@@ -61,13 +61,13 @@ public:
     else if(std::is_same<BufferT, phi::dtype::bfloat16>::value) dtype = phi::DataType::BFLOAT16;
     else if(std::is_same<BufferT, uint8_t>::value) dtype = phi::DataType::UINT8;
     else if(std::is_same<BufferT, int32_t>::value) dtype = phi::DataType::INT32;
-    else throw std::runtime_error("cudaipc_create_tensor_list unexpected BufferT");
+    else throw std::runtime_error("BuffersHolder unexpected BufferT");
 
     this->size_in_bytes = calc_size(shape);
     alloc();
   }
 
-  // TODO(umiswing): need to find a way to destruct BuffersHolder
+  // TODO(umiswing): although BuffersHolder object is static, it's better to find a way to destruct it.
 
   std::vector<DenseTensor> get_buffers(const std::vector<int64_t>& shape) {
     reserve(shape);
@@ -132,14 +132,18 @@ private:
   void release() {
     for(int i=0; i<world_size; ++i) {
       if(i != this->tp_group->GetRank()) {
-        cudaIpcCloseMemHandle(this->ptrs[i]);
+        PADDLE_ENFORCE_GPU_SUCCESS(cudaIpcCloseMemHandle(this->ptrs[i]));
       }
     }
     int64_t device_id = dev_ctx.GetPlace().GetDeviceId();
     distributed::BarrierOptions opts{};
     opts.device_id = device_id;
     this->tp_group->Barrier(opts)->Wait();
-    cudaFree(this->ptr);
+    PADDLE_ENFORCE_GPU_SUCCESS(cudaFree(this->ptr));
+
+    for(int i=0; i<world_size; ++i) {
+      this->ptrs[i] = nullptr;
+    }
   }
 
   void reserve(const std::vector<int64_t>& shape) {
@@ -152,7 +156,6 @@ private:
   }
 
   using Deleter = void (*)(phi::Allocation*);
-  using AllocationDeleter = void (*)(phi::Allocation*);
   DenseTensor from_blob(void *data,
                         const std::vector<int64_t>& shape,
                         phi::DataType dtype,

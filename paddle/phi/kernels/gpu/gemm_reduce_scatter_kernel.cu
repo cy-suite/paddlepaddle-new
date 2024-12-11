@@ -51,9 +51,9 @@ public:
   // Symmetrically distributed tensor
   std::vector<DenseTensor> output_buffers; // OutT
   std::vector<DenseTensor> reduce_buffers; // OutT
-  std::vector<DenseTensor> barrier_buffers; //UINT8 (c10::ScalarType::Byte)
+  std::vector<DenseTensor> barrier_buffers; //uint8_t
   // used for the cuda-ipc-barrier
-  std::vector<DenseTensor> sync_buffers; // int32_t (c10::ScalarType::Int)
+  std::vector<DenseTensor> sync_buffers; // int32_t
   DenseTensor output_buffer;
   DenseTensor reduce_buffer;
   DenseTensor barrier_buffer;
