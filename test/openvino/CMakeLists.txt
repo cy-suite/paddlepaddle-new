@@ -47,9 +47,8 @@ set(OPENVINO_MODELS_DIR "${INFERENCE_DEMO_INSTALL_DIR}/openvino")
 
 set(RESNET50_DIR "${OPENVINO_MODELS_DIR}/resnet50")
 download_model(${RESNET50_DIR} "resnet50_model.tar.gz")
-py_test_modules(
-  test_openvino_resnet50 MODULES test_openvino_resnet50 ENVS
-  "OPENVINO_MODEL_DIR=${RESNET50_DIR}/model;FLAGS_enable_pir_api=0")
+py_test_modules(test_openvino_resnet50 MODULES test_openvino_resnet50 ENVS
+                "OPENVINO_MODEL_DIR=${RESNET50_DIR}/model")
 set_tests_properties(test_openvino_resnet50 PROPERTIES TIMEOUT 120)
 
 set(MOBILENET_DIR "${OPENVINO_MODELS_DIR}/mobilenet")
@@ -57,15 +56,14 @@ download_model(${MOBILENET_DIR} "mobilenetv1_model.tar.gz")
 
 py_test_modules(
   test_openvino_mobilenet_fp32 MODULES test_openvino_mobilenet_fp32 ENVS
-  "OPENVINO_MODEL_DIR=${MOBILENET_DIR}/model;FLAGS_enable_pir_api=0")
+  "OPENVINO_MODEL_DIR=${MOBILENET_DIR}/model")
 set_tests_properties(test_openvino_mobilenet_fp32 PROPERTIES TIMEOUT 120)
 
 py_test_modules(
   test_openvino_mobilenet_fp16 MODULES test_openvino_mobilenet_fp16 ENVS
-  "OPENVINO_MODEL_DIR=${MOBILENET_DIR}/model;FLAGS_enable_pir_api=0")
+  "OPENVINO_MODEL_DIR=${MOBILENET_DIR}/model")
 set_tests_properties(test_openvino_mobilenet_fp16 PROPERTIES TIMEOUT 120)
 
-py_test_modules(
-  test_openvino_mobilenet_bs2 MODULES test_openvino_mobilenet_bs2 ENVS
-  "OPENVINO_MODEL_DIR=${MOBILENET_DIR}/model;FLAGS_enable_pir_api=0")
+py_test_modules(test_openvino_mobilenet_bs2 MODULES test_openvino_mobilenet_bs2
+                ENVS "OPENVINO_MODEL_DIR=${MOBILENET_DIR}/model")
 set_tests_properties(test_openvino_mobilenet_bs2 PROPERTIES TIMEOUT 120)

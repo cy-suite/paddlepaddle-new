@@ -84,7 +84,6 @@ class TestOpenVINOResnet50Model(unittest.TestCase):
         ).copy_to_cpu()
         target_result = self.get_paddle_inference_result(self.model_dir, x_data)
         print("result in test_model: \n")
-        print(target_result)
         openvino_result = openvino_result.reshape(-1)
         target_result = target_result.reshape(-1)
         for i in range(0, min(openvino_result.shape[0], 200)):
