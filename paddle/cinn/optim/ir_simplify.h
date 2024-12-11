@@ -36,21 +36,5 @@ void SimplifyForLoops(Expr *expr);
 
 void SimplifyBlocks(Expr *expr);
 
-// We only simplify the `if` branches for the following case:
-// if (xxx == 0) {
-//   if (xxx == 0) {
-//     if (xxx == 0) {}
-//   }
-// }
-// e.g.
-// if ((((f / 28ll) / 28ll) == 0ll)) {
-//   if ((((f / 28ll) % 28ll) == 0ll)) {
-//     if (((f % 28ll) == 0ll)) {
-//       Dosomething();
-//     };
-//   };
-// };
-void SimplifyIf(Expr *expr);
-
 }  // namespace optim
 }  // namespace cinn
