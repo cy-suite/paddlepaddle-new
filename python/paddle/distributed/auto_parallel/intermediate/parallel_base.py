@@ -151,8 +151,6 @@ class ParallelModel:
             self.model, self.layer_param_placements = self.tp_parallelizer(
                 self.model
             )
-        for k, v in self.layer_param_placements.items():
-            print(v)
         if self.sharding_parallelizer is not None:
             assert callable(self.sharding_parallelizer)
             self.model = self.sharding_parallelizer(self.model)
@@ -239,7 +237,6 @@ class ParallelModel:
                                 is not None
                                 else param_placements
                             )
-                    print(param_placements)
                     if not param.is_dist():
                         if param_full_name in param_name_to_shard_param:
                             setattr(
