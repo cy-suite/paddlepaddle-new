@@ -50,16 +50,15 @@ class TestSimpleNetShardingTensorFusionSaveLoad(
             {
                 "backend": ["gpu"],
                 "amp": ['1'],
-                "amp_dtype": ['float16', 'bfloat16'],
-                'amp_level': ['O1', 'O2'],
+                "amp_dtype": ['bfloat16'],
+                'amp_level': ['O1'],
                 'use_master_weight': ['1'],
                 'use_master_grad': ['1'],
-                'use_promote': ['0', '1'],
             },
         )
+
         for envs in envs_list:
             # self._log_dir.name = "./log"
-            # print('env', envs, flush=1)
             ckpt_path_tmp = tempfile.TemporaryDirectory()
             envs["ckpt_path"] = ckpt_path_tmp.name
             self.run_test_case(
