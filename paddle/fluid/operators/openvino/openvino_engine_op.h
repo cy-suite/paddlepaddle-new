@@ -110,7 +110,8 @@ class OpenVINOEngineOp : public framework::OperatorBase {
   void RunOpenvino(const framework::Scope &scope,
                    const phi::Place &dev_place,
                    OpenVINOEngine *engine) const {
-    for (auto x : runtime_input_names_) {
+    for (size_t i = 0; i < runtime_input_names_.size(); ++i) {
+      auto x = runtime_input_names_[i];
       auto &t = inference::analysis::GetFromScope<phi::DenseTensor>(scope, x);
       auto t_shape = common::vectorize<size_t>(t.dims());
       if (t_shape.empty()) {
@@ -126,61 +127,71 @@ class OpenVINOEngineOp : public framework::OperatorBase {
                              inference::openvino::PhiType2OVType(t.dtype()),
                              t_shape,
                              t.data<bool>(),
-                             t.numel());
+                             t.numel(),
+                             i);
       } else if (t.dtype() == phi::DataType::INT16) {
         engine->BindingInput(x,
                              inference::openvino::PhiType2OVType(t.dtype()),
                              t_shape,
                              t.data<int16_t>(),
-                             t.numel());
+                             t.numel(),
+                             i);
       } else if (t.dtype() == phi::DataType::INT32) {
         engine->BindingInput(x,
                              inference::openvino::PhiType2OVType(t.dtype()),
                              t_shape,
                              t.data<int32_t>(),
-                             t.numel());
+                             t.numel(),
+                             i);
       } else if (t.dtype() == phi::DataType::INT64) {
         engine->BindingInput(x,
                              inference::openvino::PhiType2OVType(t.dtype()),
                              t_shape,
                              t.data<int64_t>(),
-                             t.numel());
+                             t.numel(),
+                             i);
       } else if (t.dtype() == phi::DataType::FLOAT16) {
         engine->BindingInput(x,
                              inference::openvino::PhiType2OVType(t.dtype()),
                              t_shape,
                              t.data<phi::dtype::float16>(),
-                             t.numel());
+                             t.numel(),
+                             i);
       } else if (t.dtype() == phi::DataType::FLOAT32) {
         engine->BindingInput(x,
                              inference::openvino::PhiType2OVType(t.dtype()),
                              t_shape,
                              t.data<float>(),
-                             t.numel());
+                             t.numel(),
+                             i);
       } else if (t.dtype() == phi::DataType::FLOAT64) {
         engine->BindingInput(x,
                              inference::openvino::PhiType2OVType(t.dtype()),
                              t_shape,
                              t.data<double>(),
-                             t.numel());
+                             t.numel(),
+                             i);
       } else if (t.dtype() == phi::DataType::UINT8) {
         engine->BindingInput(x,
                              inference::openvino::PhiType2OVType(t.dtype()),
                              t_shape,
                              t.data<uint8_t>(),
-                             t.numel());
+                             t.numel(),
+                             i);
       } else if (t.dtype() == phi::DataType::INT8) {
         engine->BindingInput(x,
                              inference::openvino::PhiType2OVType(t.dtype()),
                              t_shape,
                              t.data<int8_t>(),
-                             t.numel());
+                             t.numel(),
+                             i);
       } else if (t.dtype() == phi::DataType::BFLOAT16) {
         engine->BindingInput(x,
                              inference::openvino::PhiType2OVType(t.dtype()),
                              t_shape,
                              t.data<bfloat16>(),
-                             t.numel());
+                             t.numel(),
+                             i);
       } else {
         PADDLE_THROW(
             common::errors::Fatal("The OV Engine OP only support "
@@ -192,12 +203,6 @@ class OpenVINOEngineOp : public framework::OperatorBase {
     engine->Execute();
     VLOG(1) << "end openvino execute!";
     for (size_t i = 0; i < Outputs("Ys").size(); i++) {
-      std::vector<int> ddim;
-      auto output_shape = engine->GetOuputShapeByName(output_names_[i]);
-      auto ov_type = engine->GetOuputTypeByName(output_names_[i]);
-      for (size_t j = 0; j < output_shape.size(); j++) {
-        ddim.push_back(output_shape[j]);
-      }
       auto y = Outputs("Ys")[i];
       auto *fluid_v = scope.FindVar(y);
       PADDLE_ENFORCE_NOT_NULL(
@@ -205,9 +210,19 @@ class OpenVINOEngineOp : public framework::OperatorBase {
           common::errors::NotFound(
               "Output variable %s is not found in Openvino subgraph.", y));
       auto *fluid_t = fluid_v->GetMutable<phi::DenseTensor>();
+
+      auto ov_output_shape = engine->GetOuputShape(output_names_[i], i);
+      auto phi_type = engine->GetOuputType(
+          output_names_[i],
+          i,
+          inference::openvino::PhiType2OVType(fluid_t->dtype()));
+      std::vector<int> ddim;
+      for (size_t j = 0; j < ov_output_shape.size(); j++) {
+        ddim.push_back(ov_output_shape[j]);
+      }
       fluid_t->Resize(common::make_ddim(ddim));
-      engine->CopyOuputDataByName(output_names_[i],
-                                  fluid_t->mutable_data(dev_place, ov_type));
+      engine->CopyOuputDataByName(
+          output_names_[i], i, fluid_t->mutable_data(dev_place, phi_type));
     }
   }
 
