@@ -1087,11 +1087,12 @@
     out : Out
   attrs :
    sparse : is_sparse
+   scale_grad_by_freq : scale_grad_by_freq
   manual_signature : [embedding_grad]
   extra :
     attrs : [bool is_sparse = false, bool is_distributed = false, bool remote_prefetch = false,
              int trainer_id = 0, int slot = 0, 'int64_t[] height_sections = {}', 'str[] epmap = {}',
-             'str[] table_names = {}']
+             'str[] table_names = {}', bool scale_grad_by_freq = false]
 
 - op : empty
   outputs :

@@ -270,7 +270,7 @@
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : embedding
-  args : (Tensor x, Tensor weight, int64_t padding_idx=-1, bool sparse=false)
+  args : (Tensor x, Tensor weight, int64_t padding_idx=-1, bool sparse=false, bool scale_grad_by_freq=false)
   output : Tensor
   infer_meta :
     func : EmbeddingInferMeta

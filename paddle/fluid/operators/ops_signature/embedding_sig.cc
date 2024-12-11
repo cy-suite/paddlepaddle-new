@@ -27,7 +27,7 @@ KernelSignature EmbeddingGradOpArgumentMapping(
     } else {
       return KernelSignature("embedding_grad",
                              {"Ids", "W", "Out@GRAD"},
-                             {"padding_idx"},
+                             {"padding_idx", "scale_grad_by_freq"},
                              {"W@GRAD"});
     }
   } else {

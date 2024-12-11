@@ -25,6 +25,7 @@ void EmbeddingGradKernel(const Context& ctx,
                          const DenseTensor& weight,
                          const DenseTensor& out_grad,
                          int64_t padding_idx,
+                         bool scale_grad_by_freq,
                          DenseTensor* weight_grad);
 
 template <typename T, typename Context>

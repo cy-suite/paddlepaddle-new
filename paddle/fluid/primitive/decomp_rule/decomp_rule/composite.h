@@ -1154,7 +1154,12 @@ template <typename T>
 Tensor embedding_decomp(const Tensor& x,
                         const Tensor& weight,
                         const int64_t padding_idx,
-                        const bool sparse) {
+                        const bool sparse,
+                        const bool scale_grad_by_freq) {
+  if (scale_grad_by_freq) {
+    PADDLE_THROW(common::errors::Unimplemented(
+        "Decompose rule unimplemented for scale_grad_by_freq = True."));
+  }
   if (weight.dims().size() != 2) {
     PADDLE_THROW(
         common::errors::Unimplemented("Only support weight with 2-D."));

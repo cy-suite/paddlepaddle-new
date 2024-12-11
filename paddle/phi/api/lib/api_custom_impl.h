@@ -52,6 +52,7 @@ void embedding_grad_impl(const Tensor& x,
                          const Tensor& out_grad,
                          int64_t padding_idx,
                          bool sparse,
+                         bool scale_grad_by_freq,
                          Tensor* weight_grad);
 
 void real_grad_impl(const Tensor& out_grad, Tensor* x_grad);

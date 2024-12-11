@@ -24,10 +24,24 @@
 #include "paddle/phi/common/memory_utils.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/core/mixed_vector.h"
+#include "paddle/phi/kernels/empty_kernel.h"
 #include "paddle/phi/kernels/funcs/eigen/common.h"
 #include "paddle/phi/kernels/funcs/embedding_util.h"
 
+#ifdef __NVCC__
+#include "cub/cub.cuh"
+#endif
+#ifdef __HIPCC__
+#include <hipcub/hipcub.hpp>
+namespace cub = hipcub;
+#endif
+
+using phi::PADDLE_CUDA_NUM_THREADS;
 COMMON_DECLARE_int64(embedding_deterministic);
+
+inline int GET_BLOCKS(const int N) {
+  return (N + PADDLE_CUDA_NUM_THREADS - 1) / PADDLE_CUDA_NUM_THREADS;
+}
 
 namespace phi {
 
@@ -65,6 +79,47 @@ __global__ void EmbeddingGrad(T* table,
   }
 }
 
+template <typename IdT>
+__global__ void CountFreqKernel(const IdT* ids_data,
+                                int64_t num_ids,
+                                int64_t num_weights,
+                                int* count_data) {
+  extern __shared__ int buf_count[];
+  for (int i = threadIdx.x; i < num_weights; i += blockDim.x) {
+    buf_count[i] = 0;
+  }
+  __syncthreads();
+
+  const int idx = threadIdx.x + blockIdx.x * blockDim.x;
+  if (idx < num_ids) {
+    phi::CudaAtomicAdd(&buf_count[ids_data[idx]], 1);
+  }
+
+  __syncthreads();
+
+  for (int i = threadIdx.x; i < num_weights; i += blockDim.x) {
+    phi::CudaAtomicAdd(&count_data[i], buf_count[i]);
+  }
+}
+
+template <typename T>
+__global__ void ScaleGradByFreqKernel(const int* count_data,
+                                      int64_t num_weights,
+                                      int64_t num_weight_dim,
+                                      T* table) {
+  using MPType = typename phi::dtype::MPTypeTrait<T>::Type;
+  const int idx = threadIdx.x + blockIdx.x * blockDim.x;
+  if (idx < num_weights) {
+    MPType freq = static_cast<MPType>(count_data[idx]);
+    freq = (freq == static_cast<MPType>(0)) ? 1 : freq;
+    for (int i = 0; i < num_weight_dim; ++i) {
+      MPType scaled_grad =
+          static_cast<MPType>(table[idx * num_weight_dim + i]) / freq;
+      table[idx * num_weight_dim + i] = static_cast<T>(scaled_grad);
+    }
+  }
+}
+
 template <typename T, typename Context>
 struct EmbeddingGradCUDAFunctor {
   EmbeddingGradCUDAFunctor(const Context& dev_ctx,
@@ -72,13 +127,15 @@ struct EmbeddingGradCUDAFunctor {
                            const DenseTensor& weight,
                            const DenseTensor& out_grad,
                            int64_t padding_idx,
+                           bool scale_grad_by_freq,
                            DenseTensor* weight_grad)
       : dev_ctx_(dev_ctx),
         input_(input),
         weight_(weight),
         out_grad_(out_grad),
         padding_idx_(padding_idx),
-        weight_grad_(weight_grad) {}
+        weight_grad_(weight_grad),
+        scale_grad_by_freq_(scale_grad_by_freq) {}
 
   template <typename IdT>
   void apply() {
@@ -119,6 +176,20 @@ struct EmbeddingGradCUDAFunctor {
         EmbeddingGrad<T, IdT><<<grids, threads, 0, dev_ctx_.stream()>>>(
             d_table, d_output, ids, N, K, D);
       }
+
+      if (scale_grad_by_freq_) {
+        DenseTensor count_ids =
+            phi::Empty<int, Context>(dev_ctx_, {static_cast<int64_t>(N)});
+        int* count_ids_data = count_ids.data<int>();
+        auto stream = dev_ctx_.stream();
+        CountFreqKernel<IdT><<<GET_BLOCKS(K),
+                               PADDLE_CUDA_NUM_THREADS,
+                               N * sizeof(int),
+                               stream>>>(ids, K, N, count_ids_data);
+        ScaleGradByFreqKernel<T>
+            <<<GET_BLOCKS(N), PADDLE_CUDA_NUM_THREADS, 0, stream>>>(
+                count_ids_data, N, D, d_table);
+      }
     }
   }
 
@@ -129,6 +200,7 @@ struct EmbeddingGradCUDAFunctor {
   const DenseTensor& out_grad_;
   int64_t padding_idx_;
   DenseTensor* weight_grad_;
+  bool scale_grad_by_freq_;
 };
 
 template <typename T, typename Context>
@@ -137,9 +209,15 @@ void EmbeddingGradKernel(const Context& ctx,
                          const DenseTensor& weight,
                          const DenseTensor& out_grad,
                          int64_t padding_idx,
+                         bool scale_grad_by_freq,
                          DenseTensor* weight_grad) {
-  EmbeddingGradCUDAFunctor<T, Context> functor(
-      ctx, input, weight, out_grad, padding_idx, weight_grad);
+  EmbeddingGradCUDAFunctor<T, Context> functor(ctx,
+                                               input,
+                                               weight,
+                                               out_grad,
+                                               padding_idx,
+                                               scale_grad_by_freq,
+                                               weight_grad);
 
   if (input.dtype() == phi::DataType::INT32) {
     functor.template apply<int>();

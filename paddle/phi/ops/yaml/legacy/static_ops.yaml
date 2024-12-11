@@ -205,7 +205,7 @@
   backward : elementwise_pow_grad
 
 - op : embedding
-  args : (Tensor x, Tensor weight, int64_t padding_idx=-1)
+  args : (Tensor x, Tensor weight, int64_t padding_idx=-1, bool scale_grad_by_freq=false)
   output : Tensor
   infer_meta :
     func : EmbeddingInferMeta

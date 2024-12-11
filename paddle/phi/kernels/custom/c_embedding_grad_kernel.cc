@@ -70,6 +70,7 @@ void CEmbeddingGradKernel(const Context& dev_ctx,
                                          out_grad_tensor_mul_mask,
                                          -1,
                                          false,
+                                         false,  // scale_grad_by_freq
                                          &w_grad_tensor);
     w_grad->ShareDataWith(
         *reinterpret_cast<phi::DenseTensor*>(w_grad_tensor.impl().get()));

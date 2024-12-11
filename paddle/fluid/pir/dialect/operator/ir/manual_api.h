@@ -47,7 +47,8 @@ pir::Value embedding_grad(const pir::Value& x,
                           const pir::Value& weight,
                           const pir::Value& out_grad,
                           int64_t padding_idx = -1,
-                          bool sparse = false);
+                          bool sparse = false,
+                          bool scale_grad_by_freq = false);
 
 pir::Value split_with_num_grad(const std::vector<pir::Value>& out_grad,
                                int axis);

@@ -37,7 +37,8 @@ Tensor embedding_grad(const Tensor& x,
                       const Tensor& weight,
                       const Tensor& out_grad,
                       int64_t padding_idx = -1,
-                      bool sparse = false);
+                      bool sparse = false,
+                      bool scale_grad_by_freq = false);
 
 template <typename T>
 std::tuple<Tensor, Tensor, Tensor> fused_gemm_epilogue_grad(

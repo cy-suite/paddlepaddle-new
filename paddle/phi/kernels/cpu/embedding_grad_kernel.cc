@@ -28,13 +28,15 @@ struct EmbeddingGradCPUFunctor {
                           const DenseTensor& weight,
                           const DenseTensor& out_grad,
                           int64_t padding_idx,
+                          bool scale_grad_by_freq,
                           DenseTensor* weight_grad)
       : dev_ctx_(dev_ctx),
         input_(input),
         weight_(weight),
         out_grad_(out_grad),
         weight_grad_(weight_grad),
-        padding_idx_(padding_idx) {}
+        padding_idx_(padding_idx),
+        scale_grad_by_freq_(scale_grad_by_freq) {}
 
   template <typename IdT>
   void apply() {
@@ -88,6 +90,30 @@ struct EmbeddingGradCPUFunctor {
           }
         }
       }
+
+      if (scale_grad_by_freq_) {
+        std::unordered_map<int64_t, int> count_ids_table;
+        std::vector<int64_t> ids_unique;
+        auto ids_unique_num = static_cast<int64_t>(ids_unique.size());
+        for (int64_t i = 0; i < ids_num; ++i) {
+          if (count_ids_table.find(ids_data[i]) != count_ids_table.end()) {
+            count_ids_table[ids_data[i]]++;
+          } else {
+            count_ids_table[ids_data[i]] = 1;
+            ids_unique.push_back(ids_data[i]);
+          }
+        }
+        for (int64_t i = 0; i < ids_unique_num; ++i) {
+          if (padding_idx_ != kNoPadding && ids_unique[i] == padding_idx_) {
+            // do nothing
+          } else {
+            for (int j = 0; j < D; ++j) {
+              d_table_data[ids_unique[i] * D + j] /=
+                  static_cast<T>(count_ids_table[ids_unique[i]]);
+            }
+          }
+        }
+      }
     }
   }
 
@@ -98,6 +124,7 @@ struct EmbeddingGradCPUFunctor {
   const DenseTensor& out_grad_;
   DenseTensor* weight_grad_;
   int64_t padding_idx_;
+  bool scale_grad_by_freq_;
 };
 
 template <typename T, typename Context>
@@ -106,9 +133,15 @@ void EmbeddingGradKernel(const Context& ctx,
                          const DenseTensor& weight,
                          const DenseTensor& out_grad,
                          int64_t padding_idx,
+                         bool scale_grad_by_freq,
                          DenseTensor* weight_grad) {
-  EmbeddingGradCPUFunctor<T, Context> functor(
-      ctx, input, weight, out_grad, padding_idx, weight_grad);
+  EmbeddingGradCPUFunctor<T, Context> functor(ctx,
+                                              input,
+                                              weight,
+                                              out_grad,
+                                              padding_idx,
+                                              scale_grad_by_freq,
+                                              weight_grad);
   if (input.dtype() == phi::DataType::INT32) {
     functor.template apply<int>();
   } else if (input.dtype() == phi::DataType::INT64) {

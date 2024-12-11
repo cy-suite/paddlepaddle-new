@@ -27,7 +27,14 @@ void EmbeddingGradKernel(const Context& ctx,
                          const DenseTensor& weight,
                          const DenseTensor& out_grad,
                          int64_t padding_idx,
+                         bool scale_grad_by_freq,
                          DenseTensor* weight_grad) {
+  PADDLE_ENFORCE_EQ(
+      scale_grad_by_freq,
+      false,
+      common::errors::Unimplemented(
+          "scale_grad_by_freq = True unimplemented on XPU device."));
+
   using XPUType = typename XPUTypeTrait<T>::Type;
   DDim table_dim;
   table_dim = weight.dims();

@@ -168,6 +168,7 @@ def embedding(
     max_norm: float | None = None,
     norm_type: float = 2.0,
     sparse: bool = False,
+    scale_grad_by_freq: bool = False,
     name: str | None = None,
 ) -> Tensor:
     r"""
@@ -217,6 +218,8 @@ def embedding(
         max_norm(float, optional): If provided, will renormalize the embedding vectors to have a norm larger than
             :attr:`max\_norm` . It will inplace update the input embedding weight in dynamic graph mode. Default: None.
         norm_type(float, optional): The p of the p-norm to compute for the max_norm option. Default: 2.0.
+        scale_grad_by_freq(bool, optional): Indicating whether to scale the gradients by the inverse frequency of the
+            word ids in input `x`. Default: False.
         name(str|None, optional): For detailed information, please refer
            to :ref:`api_guide_Name`. Usually name is no need to set and
            None by default.
@@ -285,8 +288,15 @@ def embedding(
             x, weight, max_norm=max_norm, norm_type=norm_type
         )
 
+    if scale_grad_by_freq and sparse:
+        raise AttributeError(
+            "scale_grad_by_freq = True is not supported with sparse update."
+        )
+
     if in_dynamic_or_pir_mode():
-        return _C_ops.embedding(x, weight, padding_idx, sparse)
+        return _C_ops.embedding(
+            x, weight, padding_idx, sparse, scale_grad_by_freq
+        )
     else:
         helper = LayerHelper('embedding', **locals())
         dtype = helper.input_dtype(input_param_name='weight')
@@ -312,6 +322,7 @@ def embedding(
                 'is_distributed': is_distributed,
                 'remote_prefetch': remote_prefetch,
                 'padding_idx': padding_idx,
+                'scale_grad_by_freq': scale_grad_by_freq,
             },
         )
         return tmp

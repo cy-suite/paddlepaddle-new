@@ -1429,6 +1429,8 @@ struct EmbeddingGradOpTranscriber : public OpTranscriber {
       (*attribute_map)[info.name] = pir::Int64Attribute::get(ctx, -1);
     } else if (info.name == "sparse") {
       (*attribute_map)[info.name] = pir::BoolAttribute::get(ctx, false);
+    } else if (info.name == "scale_grad_by_freq") {
+      (*attribute_map)[info.name] = pir::BoolAttribute::get(ctx, false);
     }
   }
 

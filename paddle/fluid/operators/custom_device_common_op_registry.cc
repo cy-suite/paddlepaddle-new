@@ -314,6 +314,7 @@ class CEmbeddingGradOpCustomDeviceKernel : public framework::OpKernel<T> {
                                            out_grad_tensor_mul_mask,
                                            -1,
                                            false,
+                                           false,  // scale_grad_by_freq
                                            &table_grad_tensor);
       table_grad_t->ShareDataWith(
           *reinterpret_cast<phi::DenseTensor*>(table_grad_tensor.impl().get()));

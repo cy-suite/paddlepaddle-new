@@ -98,8 +98,8 @@
   composite : elementwise_pow_grad(x, y, out_grad, x_grad, y_grad)
 
 - backward_op : embedding_grad
-  forward : embedding (Tensor x, Tensor weight, int64_t padding_idx=-1) -> Tensor(out)
-  args : (Tensor x, Tensor weight, Tensor out_grad, int64_t padding_idx=-1)
+  forward : embedding (Tensor x, Tensor weight, int64_t padding_idx=-1, bool scale_grad_by_freq=false) -> Tensor(out)
+  args : (Tensor x, Tensor weight, Tensor out_grad, int64_t padding_idx=-1, bool scale_grad_by_freq=false)
   output : Tensor(weight_grad)
   infer_meta :
     func : EmbeddingGradInferMeta
