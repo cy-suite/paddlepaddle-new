@@ -158,6 +158,7 @@ class ColWiseParallel(PlanBase):
         ):
             placement[index] = dist.Shard(1)
             assert len(layer.weight.shape) == 2
+            # NOTE(zhangweilong):for share parameter, the parameter should be handled uniformly in the end
             if (
                 self.share_param_list is not None
                 and layer.weight.name in self.share_param_list
@@ -173,6 +174,7 @@ class ColWiseParallel(PlanBase):
         if hasattr(layer, "bias") and layer.bias is not None and shard_bias:
             placement[index] = dist.Shard(0)
             assert len(layer.bias.shape) == 1
+            # NOTE(zhangweilong):for share parameter, the parameter should be handled uniformly in the end
             if (
                 self.share_param_list is not None
                 and layer.bias.name in self.share_param_list
@@ -257,6 +259,7 @@ class RowWiseParallel(PlanBase):
             and shard_weight
         ):
             assert len(layer.weight.shape) == 2
+            # NOTE(zhangweilong):for share parameter, the parameter should be handled uniformly in the end
             if (
                 self.share_param_list is not None
                 and layer.weight.name in self.share_param_list
