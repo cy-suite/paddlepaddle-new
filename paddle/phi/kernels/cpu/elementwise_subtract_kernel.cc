@@ -17,7 +17,10 @@
 #include "paddle/phi/common/bfloat16.h"
 #include "paddle/phi/common/complex.h"
 #include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/core/tensor_utils.h"
 #include "paddle/phi/kernels/cpu/elementwise.h"
+#include "paddle/phi/kernels/funcs/activation_functor.h"
+#include "paddle/phi/kernels/impl/activation_impl.h"
 #include "paddle/phi/kernels/impl/elementwise_kernel_impl.h"
 
 namespace phi {
@@ -27,7 +30,23 @@ void SubtractKernel(const Context& dev_ctx,
                     const DenseTensor& x,
                     const DenseTensor& y,
                     DenseTensor* out) {
+  if (x.numel() == 0 && y.numel() != 0) {
+    out->Resize(y.dims());
+    dev_ctx.template Alloc<T>(out);
+    ActivationImpl<T, T, Context, phi::funcs::NegativeFunctor<T>>(
+        dev_ctx, y, out, phi::funcs::NegativeFunctor<T>());
+    return;
+  }
+
+  if (y.numel() == 0 && x.numel() != 0) {
+    out->Resize(x.dims());
+    dev_ctx.template Alloc<T>(out);
+    phi::Copy(dev_ctx, x, dev_ctx.GetPlace(), false, out);
+    return;
+  }
+
   dev_ctx.template Alloc<T>(out);
+
   if (x.dims() == y.dims()) {
     SameDimsElementwiseCompute<SameDimsSubtractFunctor<CPUContext, T>>()(
         dev_ctx, x, y, out);
