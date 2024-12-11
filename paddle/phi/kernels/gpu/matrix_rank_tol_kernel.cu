@@ -335,6 +335,12 @@ void MatrixRankTolKernel(const Context& dev_ctx,
                          bool use_default_tol,
                          bool hermitian,
                          DenseTensor* out) {
+  if (x.numel() == 0) {
+    out->Resize({1});
+    auto* out_data = dev_ctx.template Alloc<int64_t>(out);
+    out_data[0] = 0;
+    return;
+  }
   auto* x_data = x.data<T>();
   dev_ctx.template Alloc<int64_t>(out);
 
