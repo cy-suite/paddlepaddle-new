@@ -4562,7 +4562,7 @@ def isfinite(x: Tensor, name: str | None = None) -> Tensor:
     Return whether every element of input tensor is finite number or not.
 
     Args:
-        x (Tensor): The input tensor, it's data type should be float16, float32, float64, int32, int64.
+        x (Tensor): The input tensor, it's data type should be float16, float32, float64, int32, int64, complex64, complex128.
         name (str|None, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
 
     Returns:
@@ -4593,6 +4593,8 @@ def isfinite(x: Tensor, name: str | None = None) -> Tensor:
                 'int32',
                 'int64',
                 'uint16',
+                'complex64',
+                'complex128',
             ],
             'isfinite',
         )
@@ -4609,7 +4611,7 @@ def isinf(x: Tensor, name: str | None = None) -> Tensor:
     Return whether every element of input tensor is `+/-INF` or not.
 
     Args:
-        x (Tensor): The input tensor, it's data type should be float16, float32, float64, uint8, int8, int16, int32, int64.
+        x (Tensor): The input tensor, it's data type should be float16, float32, float64, uint8, int8, int16, int32, int64, complex64, complex128.
         name (str|None, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
 
     Returns:
@@ -4643,6 +4645,8 @@ def isinf(x: Tensor, name: str | None = None) -> Tensor:
                 'int64',
                 'uint8',
                 'uint16',
+                'complex64',
+                'complex128',
             ],
             'isinf',
         )
@@ -4657,7 +4661,7 @@ def isnan(x: Tensor, name: str | None = None) -> Tensor:
     Return whether every element of input tensor is `NaN` or not.
 
     Args:
-        x (Tensor): The input tensor, it's data type should be float16, float32, float64, int32, int64.
+        x (Tensor): The input tensor, it's data type should be float16, float32, float64, int32, int64, complex64, complex128.
         name (str|None, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
 
     Returns:
