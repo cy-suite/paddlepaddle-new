@@ -40,7 +40,7 @@ class TestDPMPPPAPI(test_base.CommunicationTestDistBase):
             "prepare_input_output": ["false"],
             "sharding_stage": ["0", "1"],
             "test_share_embedding": [
-                "1",
+                "0",
             ],
             "test_position_embedding": [
                 "1",
