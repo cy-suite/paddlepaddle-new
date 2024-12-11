@@ -675,9 +675,13 @@ class TestIndexPutCase4TRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3]}
         self.max_shape = {"x": [5, 3]}
-        self.enable_fp16 = True
 
-    def test_trt_result(self):
+    def test_trt_result_fp32(self):
+        self.enable_fp16 = False
+        self.check_trt_result()
+
+    def test_trt_result_fp16(self):
+        self.enable_fp16 = True
         self.check_trt_result()
 
 
