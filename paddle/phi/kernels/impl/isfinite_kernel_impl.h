@@ -39,6 +39,14 @@ struct is_other_float
                              std::is_floating_point<T>::value &&
                                  !is_float_or_double<T>::value> {};
 
+// check if complex type
+template <typename T>
+struct is_complex
+    : std::integral_constant<
+          bool,
+          std::is_same<T, phi::dtype::complex<float>>::value ||
+              std::is_same<T, phi::dtype::complex<double>>::value> {};
+
 namespace phi {
 using Tensor = DenseTensor;
 
@@ -63,7 +71,8 @@ template <typename T>
 struct IsfiniteFunctor<
     phi::CPUContext,
     T,
-    typename std::enable_if<!std::is_floating_point<T>::value>::type> {
+    typename std::enable_if<!std::is_floating_point<T>::value &&
+                            !is_complex<T>::value>::type> {
   void operator()(const phi::CPUContext& ctx,
                   const DenseTensor& in,
                   DenseTensor* output) {
@@ -111,6 +120,21 @@ struct IsfiniteFunctor<
   }
 };
 
+template <typename T>
+struct IsfiniteFunctor<phi::CPUContext, phi::dtype::complex<T>> {
+  void operator()(const phi::CPUContext& ctx,
+                  const DenseTensor& in,
+                  DenseTensor* output) {
+    auto* in_a = in.data<phi::dtype::complex<T>>();
+    auto* out_data = ctx.template Alloc<bool>(output);
+    auto num = in.numel();
+    for (int i = 0; i < num; i++) {
+      const phi::dtype::complex<T>& a = in_a[i];
+      out_data[i] = std::isfinite(a.real) && std::isfinite(a.imag);
+    }
+  }
+};
+
 /* IsnanFunctor */
 template <typename DeviceContext, typename T, typename Enable = void>
 struct IsnanFunctor {
@@ -120,10 +144,10 @@ struct IsnanFunctor {
 };
 
 template <typename T>
-struct IsnanFunctor<
-    phi::CPUContext,
-    T,
-    typename std::enable_if<!std::is_floating_point<T>::value>::type> {
+struct IsnanFunctor<phi::CPUContext,
+                    T,
+                    typename std::enable_if<!std::is_floating_point<T>::value &&
+                                            !is_complex<T>::value>::type> {
   void operator()(const phi::CPUContext& ctx,
                   const DenseTensor& in,
                   DenseTensor* output) {
@@ -170,22 +194,17 @@ struct IsnanFunctor<phi::CPUContext,
   }
 };
 
-// CPU
 template <typename T>
-struct IsnanFunctor<
-    phi::CPUContext,
-    std::complex<T>,  // 针对 std::complex<T> 进行特化
-    typename std::enable_if<is_float_or_double<T>::value>::type> {
+struct IsnanFunctor<phi::CPUContext, phi::dtype::complex<T>> {
   void operator()(const phi::CPUContext& ctx,
                   const DenseTensor& in,
                   DenseTensor* output) {
-    auto* in_a = in.data<std::complex<T>>();  // 获取复数数据
+    auto* in_a = in.data<phi::dtype::complex<T>>();
     auto* out_data = ctx.template Alloc<bool>(output);
     auto num = in.numel();
     for (int i = 0; i < num; i++) {
-      const auto& a = in_a[i];
-      out_data[i] = std::isnan(a.real()) ||
-                    std::isnan(a.imag());  // 判断实部或虚部是否为 NaN
+      const phi::dtype::complex<T>& a = in_a[i];
+      out_data[i] = std::isnan(a.real) || std::isnan(a.imag);
     }
   }
 };
@@ -199,10 +218,10 @@ struct IsinfFunctor {
 };
 
 template <typename T>
-struct IsinfFunctor<
-    phi::CPUContext,
-    T,
-    typename std::enable_if<!std::is_floating_point<T>::value>::type> {
+struct IsinfFunctor<phi::CPUContext,
+                    T,
+                    typename std::enable_if<!std::is_floating_point<T>::value &&
+                                            !is_complex<T>::value>::type> {
   void operator()(const phi::CPUContext& ctx,
                   const DenseTensor& in,
                   DenseTensor* output) {
@@ -249,6 +268,21 @@ struct IsinfFunctor<phi::CPUContext,
   }
 };
 
+template <typename T>
+struct IsinfFunctor<phi::CPUContext, phi::dtype::complex<T>> {
+  void operator()(const phi::CPUContext& ctx,
+                  const DenseTensor& in,
+                  DenseTensor* output) {
+    auto* in_a = in.data<phi::dtype::complex<T>>();
+    auto* out_data = ctx.template Alloc<bool>(output);
+    auto num = in.numel();
+    for (int i = 0; i < num; i++) {
+      const phi::dtype::complex<T>& a = in_a[i];
+      out_data[i] = std::isinf(a.real) || std::isinf(a.imag);
+    }
+  }
+};
+
 #if defined(__NVCC__) || defined(__HIPCC__)
 /* IsfiniteFunctor */
 template <typename T>
@@ -273,6 +307,17 @@ __global__ void IsfiniteCUDAKernel(
   unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
   for (int i = idx; i < num; i += blockDim.x * gridDim.x) {
     out_data[i] = true;
+  }
+}
+
+template <typename T>
+__global__ void IsfiniteCUDAKernel(const phi::dtype::complex<T>* in_data,
+                                   int num,
+                                   bool* out_data) {
+  unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
+  for (int i = idx; i < num; i += blockDim.x * gridDim.x) {
+    const phi::dtype::complex<T>& a = in_data[i];
+    out_data[i] = isfinite(a.real) && isfinite(a.imag);
   }
 }
 
@@ -302,18 +347,14 @@ __global__ void IsnanCUDAKernel(
   }
 }
 
-// GPU
 template <typename T>
-__global__ void IsnanCUDAKernel(
-    const std::complex<T>* in_data,
-    int num,
-    bool* out_data,
-    typename std::enable_if<is_float_or_double<T>::value>::type* = 0) {
+__global__ void IsnanCUDAKernel(const phi::dtype::complex<T>* in_data,
+                                int num,
+                                bool* out_data) {
   unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
   for (int i = idx; i < num; i += blockDim.x * gridDim.x) {
-    const std::complex<T>& a = in_data[i];
-    out_data[i] =
-        std::isnan(a.real()) || std::isnan(a.imag());  // 检查实部和虚部
+    const phi::dtype::complex<T>& a = in_data[i];
+    out_data[i] = isnan(a.real) || isnan(a.imag);
   }
 }
 
@@ -344,12 +385,39 @@ __global__ void IsinfCUDAKernel(
 }
 
 template <typename T>
+__global__ void IsinfCUDAKernel(const phi::dtype::complex<T>* in_data,
+                                int num,
+                                bool* out_data) {
+  unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
+  for (int i = idx; i < num; i += blockDim.x * gridDim.x) {
+    const phi::dtype::complex<T>& a = in_data[i];
+    out_data[i] = isinf(a.real) || isinf(a.imag);
+  }
+}
+
+template <typename T>
 struct IsfiniteFunctor<phi::GPUContext, T> {
   void operator()(const phi::GPUContext& dev_ctx,
                   const DenseTensor& in,
                   DenseTensor* output) {
     int num = in.numel();
     const T* in_data = in.data<T>();
+    bool* out_data = dev_ctx.template Alloc<bool>(output);
+    int block = 1024;
+    int grid = (block - 1 + num) / block;
+    grid = (grid > block) ? block : grid;
+    IsfiniteCUDAKernel<T>
+        <<<grid, block, 0, dev_ctx.stream()>>>(in_data, num, out_data);
+  }
+};
+
+template <typename T>
+struct IsfiniteFunctor<phi::GPUContext, phi::dtype::complex<T>> {
+  void operator()(const phi::GPUContext& dev_ctx,
+                  const DenseTensor& in,
+                  DenseTensor* output) {
+    int num = in.numel();
+    const phi::dtype::complex<T>* in_data = in.data<phi::dtype::complex<T>>();
     bool* out_data = dev_ctx.template Alloc<bool>(output);
     int block = 1024;
     int grid = (block - 1 + num) / block;
@@ -376,22 +444,18 @@ struct IsnanFunctor<phi::GPUContext, T> {
 };
 
 template <typename T>
-struct IsnanFunctor<
-    phi::GPUContext,
-    std::complex<T>,
-    typename std::enable_if<is_float_or_double<T>::value>::type> {
+struct IsnanFunctor<phi::GPUContext, phi::dtype::complex<T>> {
   void operator()(const phi::GPUContext& dev_ctx,
                   const DenseTensor& in,
                   DenseTensor* output) {
     int num = in.numel();
-    const std::complex<T>* in_data =
-        in.data<std::complex<T>>();  // 获取复数数据指针
+    const phi::dtype::complex<T>* in_data = in.data<phi::dtype::complex<T>>();
     bool* out_data = dev_ctx.template Alloc<bool>(output);
     int block = 1024;
     int grid = (block - 1 + num) / block;
     grid = (grid > block) ? block : grid;
-    IsnanCUDAKernel<T><<<grid, block, 0, dev_ctx.stream()>>>(
-        in_data, num, out_data);  // 调用处理复数类型的 CUDA 内核
+    IsnanCUDAKernel<T>
+        <<<grid, block, 0, dev_ctx.stream()>>>(in_data, num, out_data);
   }
 };
 
@@ -410,6 +474,23 @@ struct IsinfFunctor<phi::GPUContext, T> {
         <<<grid, block, 0, dev_ctx.stream()>>>(in_data, num, out_data);
   }
 };
+
+template <typename T>
+struct IsinfFunctor<phi::GPUContext, phi::dtype::complex<T>> {
+  void operator()(const phi::GPUContext& dev_ctx,
+                  const DenseTensor& in,
+                  DenseTensor* output) {
+    int num = in.numel();
+    const phi::dtype::complex<T>* in_data = in.data<phi::dtype::complex<T>>();
+    bool* out_data = dev_ctx.template Alloc<bool>(output);
+    int block = 1024;
+    int grid = (block - 1 + num) / block;
+    grid = (grid > block) ? block : grid;
+    IsinfCUDAKernel<T>
+        <<<grid, block, 0, dev_ctx.stream()>>>(in_data, num, out_data);
+  }
+};
+
 #endif
 
 template <typename T, typename Context>
