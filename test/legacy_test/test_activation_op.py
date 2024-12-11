@@ -2779,10 +2779,9 @@ class TestRoundInf(TestRound):
         self.init_decimals()
 
         x = np.array(
-            [np.inf, -np.inf]
-            + list(
-                np.random.uniform(-1, 1, self.shape).astype(self.dtype) * 100
-            )
+            [np.inf, -np.inf,
+             * (np.random.uniform(-1, 1, self.shape).astype(self.dtype) * 100)
+             ]
         )
         out = np.round(x, decimals=self.decimals)
 
@@ -2813,10 +2812,9 @@ class TestRoundNaN(unittest.TestCase):
         self.init_shape()
         self.init_decimals()
         self.x = np.array(
-            [np.nan, -np.nan]
-            + list(
-                np.random.uniform(-1, 1, self.shape).astype(self.dtype) * 100
-            )
+            [np.nan, -np.nan,
+             * (np.random.uniform(-1, 1, self.shape).astype(self.dtype) * 100)
+             ]
         )
         self.out = np.round(self.x, decimals=self.decimals)
 
