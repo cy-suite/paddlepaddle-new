@@ -483,6 +483,9 @@ void ShapeConstraintIRAnalysis::InferShapeOrDataForValue(Value val) {
     } else {
       std::vector<Value> ret;
       for (uint32_t i = 0; i < op->num_regions(); i++) {
+        for (auto& operand : op->operands_source()) {
+          ret.emplace_back(operand);
+        }
         for (auto& block : op->region(i)) {
           for (auto& sub_op : block) {
             for (auto& operand : sub_op.operands_source()) {
