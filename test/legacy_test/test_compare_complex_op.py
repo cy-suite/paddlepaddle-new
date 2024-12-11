@@ -17,8 +17,10 @@ import unittest
 import numpy
 import numpy as np
 import op_test
+from utils import dygraph_guard
 
 import paddle
+from paddle.base import core
 
 
 class TestEqualComplex64Api(op_test.OpTest):
@@ -199,6 +201,29 @@ class TestNotEqualComplex128NanCase(TestNotEqualComplex128Api):
         y = y_real + 1j * y_imag
         self.inputs = {'X': x, 'Y': y}
         self.outputs = {'Out': self.inputs['X'] != self.inputs['Y']}
+
+
+@unittest.skipIf(
+    core.is_compiled_with_xpu(), "core is compiled with XPU, not support..."
+)
+class TestEqualSpecialCase(unittest.TestCase):
+    def test_api_complex64(self):
+        with dygraph_guard():
+            a_np = np.array(1 + 1j, dtype="complex64")
+            a = paddle.to_tensor(1 + 1j, dtype="complex64")
+            b = complex(1, 1)
+            c_np = a_np == b
+            c = a.equal(b)
+            np.testing.assert_allclose(c.numpy(), c_np)
+
+    def test_api_complex128(self):
+        with dygraph_guard():
+            a_np = np.array(1 + 1j, dtype="complex128")
+            a = paddle.to_tensor(1 + 1j, dtype="complex128")
+            b = complex(1, 1)
+            c_np = a_np == b
+            c = a.equal(b)
+            np.testing.assert_allclose(c.numpy(), c_np)
 
 
 if __name__ == '__main__':
