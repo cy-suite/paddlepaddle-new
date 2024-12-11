@@ -18,7 +18,6 @@
 #include "paddle/fluid/framework/new_executor/pir_adaptor/pir_adaptor_util.h"
 #include "paddle/fluid/platform/tensorrt/engine.h"
 #include "paddle/phi/core/platform/device_context.h"
-#if IS_TRT_VERSION_GE(8500)
 namespace pir {
 class Operation;
 }  // namespace pir
@@ -74,5 +73,4 @@ class TensorRTEngineInstruction : public InstructionBase {
 };
 }  // namespace framework
 }  // namespace paddle
-#endif
 #endif
