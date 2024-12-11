@@ -196,10 +196,12 @@ class TestPostTrainingQuantization(unittest.TestCase):
 
     def cache_unzipping(self, target_folder, zip_path):
         if not os.path.exists(target_folder):
-            cmd = (
-                f'mkdir {target_folder} && tar xf {zip_path} -C {target_folder}'
-            )
-            os.system(cmd)
+            if zip_path.endswith('.tar.gz'):
+                cmd = f'mkdir {target_folder} && tar xf {zip_path} -C {target_folder}'
+                os.system(cmd)
+            elif zip_path.endswith('.zip'):
+                cmd = f'mkdir {target_folder} && unzip -o {zip_path} -d {target_folder}'
+                os.system(cmd)
 
     def download_data(self, data_urls, data_md5s, folder_name, is_model=True):
         data_cache_folder = os.path.join(self.cache_folder, folder_name)
@@ -523,7 +525,7 @@ class TestPostTrainingavgForMobilenetv1(TestPostTrainingQuantization):
 
 class TestPostTrainingavgForPwganCsmsc(TestPostTrainingQuantization):
     def test_post_training_avg_pwgancsmsc(self):
-        model = "pwgan_csmsc"
+        model = "pwg_baker_static_0.4"
         algo = "avg"
         round_type = "round"
         data_urls = [
@@ -547,7 +549,7 @@ class TestPostTrainingavgForPwganCsmsc(TestPostTrainingQuantization):
             round_type,
             data_urls,
             data_md5s,
-            "pwgan_csmsc",
+            "pwg_baker_static_0.4",
             quantizable_op_type,
             is_full_quantize,
             is_use_cache_file,
