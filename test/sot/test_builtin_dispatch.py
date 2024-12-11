@@ -134,6 +134,25 @@ def test_log(x: int):
     return math.log(x)
 
 
+@check_no_breakgraph
+def test_builtin_type_check_eq():
+    a = 1
+    b = []
+    c = ()
+    d = {}
+    eq_results = (
+        a == b, a == c, a == d,
+        b == a, b == c, b == d,
+        c == a, c == b, c == d,
+    )  # fmt: skip
+    ne_results = (
+        a != b, a != c, a != d,
+        b != a, b != c, b != d,
+        c != a, c != b, c != d,
+    )  # fmt: skip
+    return eq_results, ne_results
+
+
 class TestBuiltinDispatch(TestCaseBase):
     def test_dispatch_len(self):
         self.assert_results(dispatch_len, paddle.to_tensor([1, 2, 3]))
@@ -274,6 +293,9 @@ class TestBuiltinDispatch(TestCaseBase):
 
     def test_dispatch_max(self):
         self.assert_results(test_max)
+
+    def test_dispatch_builtin_type_check_eq(self):
+        self.assert_results(test_builtin_type_check_eq)
 
 
 def run_getattr(x: paddle.Tensor):
