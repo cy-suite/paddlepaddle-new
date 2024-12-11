@@ -17,6 +17,7 @@ import unittest
 
 import numpy as np
 from op_test import OpTest
+from utils import dygraph_guard, static_guard
 
 import paddle
 from paddle import base, static
@@ -228,6 +229,50 @@ class TestMatrixRankAPI(unittest.TestCase):
                     fetch_list=[rank_pd],
                 )
                 np.testing.assert_allclose(fetches[0], rank_np, rtol=1e-05)
+
+
+class TestMatrixRankEmptyTensor(unittest.TestCase):
+
+    def _get_places(self):
+        places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not paddle.is_compiled_with_cuda()
+        ):
+            places.append(paddle.CPUPlace())
+        if paddle.is_compiled_with_cuda():
+            places.append(paddle.CUDAPlace(0))
+        return places
+
+    def _test_matrix_rank_static(self, place, shape, expected_rank):
+        with static_guard():
+            with paddle.static.program_guard(
+                paddle.static.Program(), paddle.static.Program()
+            ):
+                x = paddle.static.data(name='x', shape=shape, dtype='float32')
+                y = paddle.linalg.matrix_rank(x)
+                exe = paddle.static.Executor(place)
+                res = exe.run(
+                    feed={'x': np.zeros(shape, dtype='float32')}, fetch_list=[y]
+                )
+                assert res[0] == expected_rank
+
+    def _test_matrix_rank_dynamic(self, shape, expected_rank):
+        with dygraph_guard():
+            x = paddle.full(shape, 1.0, dtype='float32')
+            y = paddle.linalg.matrix_rank(x)
+            assert y == expected_rank
+
+    def test_matrix_rank_tensor(self):
+        test_cases = [([0, 0], 0), ([0, 6], 0), ([6, 0], 0), ([2, 3, 0, 0], 0)]
+
+        for place in self._get_places():
+            for shape, expected_rank in test_cases:
+                self._test_matrix_rank_static(place, shape, expected_rank)
+
+        for shape, expected_rank in test_cases:
+            self._test_matrix_rank_dynamic(shape, expected_rank)
 
 
 if __name__ == '__main__':
