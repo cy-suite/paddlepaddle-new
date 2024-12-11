@@ -122,7 +122,7 @@ class TEST_API DDim {
 
   inline int64_t* GetMutable() { return dim_.GetMutable(); }
 
-  inline int size() const { return rank_; }
+  inline int64_t size() const { return rank_; }
 
   std::string to_str() const;
 

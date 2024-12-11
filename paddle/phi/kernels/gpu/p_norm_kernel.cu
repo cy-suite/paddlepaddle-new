@@ -93,7 +93,7 @@ void PNormKernel(const Context& dev_ctx,
   std::vector<int> reduce_axis =
       funcs::details::GetReduceDim(axis_dims, xdim.size(), asvector);
 
-  for (int i = 0; i < xdim.size(); i++) {
+  for (int64_t i = 0; i < xdim.size(); i++) {
     PADDLE_ENFORCE_LT(0,
                       xdim[i],
                       errors::InvalidArgument(
