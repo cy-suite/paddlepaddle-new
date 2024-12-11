@@ -960,14 +960,17 @@ if(WITH_TESTING AND WITH_INFERENCE_API_TEST)
      AND NOT WIN32
      AND NOT WITH_XPU
      AND NOT WITH_ROCM)
-    message(STATUS "test_analyzer_openvino_resnet50")
+    set(OPENVINO_RESNET50_MODEL_DIR
+        "${INFERENCE_DEMO_INSTALL_DIR}/openvino_resnet50")
+    download_data_without_verify(${OPENVINO_RESNET50_MODEL_DIR}
+                                 "resnet50_pdmodel.tar.gz")
     set(OPENVINO_TEST_APP "analyzer_openvino")
     set(OPENVINO_TEST_APP_SRC "analyzer_openvino_tester.cc")
     inference_analysis_api_test_with_fake_data_build(${OPENVINO_TEST_APP}
                                                      ${OPENVINO_TEST_APP_SRC})
     inference_analysis_api_test_with_fake_data_run(
-      test_analyzer_openvino_resnet50 ${IMG_CLASS_TEST_APP}
-      ${RESNET50_MODEL_DIR} true)
+      test_analyzer_openvino_resnet50 ${OPENVINO_TEST_APP}
+      ${OPENVINO_RESNET50_MODEL_DIR} true)
     set_tests_properties(test_analyzer_openvino_resnet50 PROPERTIES TIMEOUT 120)
   endif()
 

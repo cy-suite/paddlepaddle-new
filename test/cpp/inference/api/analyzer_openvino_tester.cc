@@ -17,14 +17,13 @@ limitations under the License. */
 
 #include "test/cpp/inference/api/tester_helper.h"
 
-PD_DEFINE_bool(disable_mkldnn_fc, false, "Disable usage of MKL-DNN's FC op");
-
 namespace paddle {
 namespace inference {
 namespace analysis {
 
 void SetConfig(AnalysisConfig *cfg) {
-  cfg->SetModel(FLAGS_infer_model + "/model", FLAGS_infer_model + "/params");
+  cfg->SetModel(FLAGS_infer_model + "/inference.pdmodel",
+                FLAGS_infer_model + "/inference.pdiparams");
   cfg->DisableGpu();
   cfg->SwitchIrOptim();
   cfg->EnableOpenVINOEngine(AnalysisConfig::Precision::kFloat32);
@@ -34,11 +33,32 @@ void SetConfig(AnalysisConfig *cfg) {
 }
 
 void SetInput(std::vector<std::vector<PaddleTensor>> *inputs) {
-  SetFakeImageInput(inputs, FLAGS_infer_model);
+  SetFakeImageInput(inputs,
+                    FLAGS_infer_model,
+                    true,
+                    "inference.pdmodel",
+                    "inference.pdiparams");
 }
 
+// Easy for profiling independently.
+void profile() {
+  AnalysisConfig cfg;
+  SetConfig(&cfg);
+
+  std::vector<std::vector<PaddleTensor>> outputs;
+
+  std::vector<std::vector<PaddleTensor>> input_slots_all;
+  SetInput(&input_slots_all);
+  TestPrediction(reinterpret_cast<const PaddlePredictor::Config *>(&cfg),
+                 input_slots_all,
+                 &outputs,
+                 FLAGS_num_threads);
+}
+
+TEST(Analyzer_openvino_resnet50, profile) { profile(); }
+
 #ifdef PADDLE_WITH_OPENVINO
-TEST(analyzer_openvino_resnet50, compare_determine) {
+TEST(Analyzer_openvino_resnet50, compare_determine) {
   AnalysisConfig cfg;
   SetConfig(&cfg);
   std::vector<std::vector<PaddleTensor>> input_slots_all;
