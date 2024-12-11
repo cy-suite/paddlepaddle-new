@@ -440,37 +440,21 @@ void embedding_grad_impl(const Tensor& x,
                                     &meta_dense_out);
 
         // 8. DenseTensor Kernel Call
-        if (sparse) {
-          using kernel_signature = void (*)(const phi::DeviceContext&,
-                                            const phi::DenseTensor&,
-                                            const phi::DenseTensor&,
-                                            const phi::DenseTensor&,
-                                            int64_t,
-                                            phi::DenseTensor*);
-          auto* kernel_fn = kernel.GetVariadicKernelFn<kernel_signature>();
-          (*kernel_fn)(*dev_ctx,
-                       *input_x,
-                       *input_weight,
-                       *input_out_grad,
-                       padding_idx,
-                       dense_out);
-        } else {
-          using kernel_signature = void (*)(const phi::DeviceContext&,
-                                            const phi::DenseTensor&,
-                                            const phi::DenseTensor&,
-                                            const phi::DenseTensor&,
-                                            int64_t,
-                                            bool,
-                                            phi::DenseTensor*);
-          auto* kernel_fn = kernel.GetVariadicKernelFn<kernel_signature>();
-          (*kernel_fn)(*dev_ctx,
-                       *input_x,
-                       *input_weight,
-                       *input_out_grad,
-                       padding_idx,
-                       scale_grad_by_freq,
-                       dense_out);
-        }
+        using kernel_signature = void (*)(const phi::DeviceContext&,
+                                          const phi::DenseTensor&,
+                                          const phi::DenseTensor&,
+                                          const phi::DenseTensor&,
+                                          int64_t,
+                                          bool,
+                                          phi::DenseTensor*);
+        auto* kernel_fn = kernel.GetVariadicKernelFn<kernel_signature>();
+        (*kernel_fn)(*dev_ctx,
+                     *input_x,
+                     *input_weight,
+                     *input_out_grad,
+                     padding_idx,
+                     scale_grad_by_freq,
+                     dense_out);
       }
       // 9. Reshard Kernel Output to API output
       ReshardKernelOutputToApiOutput(dev_ctx, shared_dist_out, weight_grad);
