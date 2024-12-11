@@ -307,4 +307,5 @@ def pool2d_converter(network, paddle_op, inputs):
 
     if layer is None:
         raise RuntimeError("Failed to create pooling layer in TensorRT.")
+
     return layer.get_output(0)
