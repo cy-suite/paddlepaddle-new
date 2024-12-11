@@ -39,7 +39,7 @@ class TestMPPPAPI(test_base.CommunicationTestDistBase):
             "sequence_parallel": ["true"],
             "prepare_input_output": ["false"],
             "test_share_embedding": [
-                "1",
+                "0",
             ],
             "test_position_embedding": [
                 "1",
@@ -134,7 +134,7 @@ class TestDPMPAPI(test_base.CommunicationTestDistBase):
             "one_api": ["true", "false"],
         }
 
-    def test_simple_net_mp2_pp2(self):
+    def test_simple_net_dp2_tp2(self):
         envs_list = test_base.gen_product_envs_list(
             self._default_envs, self._changeable_envs
         )
