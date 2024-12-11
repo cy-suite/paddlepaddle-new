@@ -134,7 +134,7 @@ class TestTanhShrinkOpFloatTRTPattern(TensorRTBaseTest):
         self.api_args = {
             "x": np.random.randn(2, 3).astype("float32"),
         }
-    
+
     def test_trt_result(self):
         self.check_trt_result()
 
