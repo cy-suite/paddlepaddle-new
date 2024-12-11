@@ -43,7 +43,18 @@ def c_split(x, process_mesh, need_transpose):
     placements = target_x.placements
     if placements is None:
         placements = [dist.Replicate() for _ in range(len(process_mesh.shape))]
-    placements[index] = dist.Shard(0)
+    if placements[0] == dist.Shard(0):
+        # NOTE(zhangwl):if shard(0) , input shape should be [b,s,h]
+        split_dims = dist.Shard(1)
+    elif placements[0] == dist.Shard(1):
+        # NOTE(zhangwl):if shard(1) , input shape should be [s,b,h]
+        split_dims = dist.Shard(0)
+    else:
+        logging.warning(
+            f"parallel api don't know {target_x.shape} which dimension is batch, default is to cut to the 0th dimension"
+        )
+        split_dims = dist.Shard(0)
+    placements[index] = split_dims
     target_x = dist.reshard(target_x, process_mesh, placements)
     if isinstance(x, tuple):
         x = list(x)
