@@ -188,7 +188,7 @@ class AutoLayoutInsertPass : public pir::Pass {
 
       // Skip special ops.
       if (op->HasTrait<pir::ImmutableLayoutTrait>()) continue;
-      if (op->HasTrait<pir::ElementWiseTrait>()) {
+      if (op->HasTrait<pir::BinaryElementWiseTrait>()) {
         int32_t dim_size = -3;
         bool is_broadcast = false;
         int32_t inp_size = op->num_operands();

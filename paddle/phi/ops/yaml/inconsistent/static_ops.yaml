@@ -15,7 +15,7 @@
   inplace : (x -> out)
   backward : add_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface, paddle::dialect::LayoutTransformationInterface
-  traits : pir::ElementWiseTrait
+  traits : pir::BinaryElementWiseTrait
 
 # this add_n is only for ops_api_gen.py and onednn
 - op : add_n
@@ -245,7 +245,7 @@
     support_trans_dtype : x, y
   backward : divide_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  traits : pir::ElementWiseTrait
+  traits : pir::BinaryElementWiseTrait
 
 - op : einsum
   args : (Tensor[] x, str equation)
@@ -270,7 +270,7 @@
     support_trans_dtype : x, y
   backward : elementwise_pow_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  traits : pir::ElementWiseTrait
+  traits : pir::BinaryElementWiseTrait
 
 - op : embedding
   args : (Tensor x, Tensor weight, int64_t padding_idx=-1, bool sparse=false)
@@ -317,7 +317,7 @@
   data_transform :
     support_trans_dtype : x, y
   inplace: (x -> out)
-  traits : paddle::dialect::ForwardOnlyTrait, pir::ElementWiseTrait
+  traits : paddle::dialect::ForwardOnlyTrait, pir::BinaryElementWiseTrait
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : fused_adam_
@@ -586,7 +586,7 @@
     support_trans_dtype : x, y
   backward : maximum_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  traits : pir::ElementWiseTrait
+  traits : pir::BinaryElementWiseTrait
 
 - op : memcpy
   args : (Tensor x, int dst_place_type)
@@ -635,7 +635,7 @@
     support_trans_dtype : x, y
   backward : multiply_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface, paddle::dialect::LayoutTransformationInterface
-  traits : pir::ElementWiseTrait
+  traits : pir::BinaryElementWiseTrait
 
 - op : nop
   args : (Tensor x)
@@ -646,7 +646,7 @@
     func : nop
   inplace: (x -> out)
   interfaces : paddle::dialect::ParseKernelKeyInterface
-  traits : pir::SideEffectTrait, paddle::dialect::ForwardOnlyTrait, pir::ElementWiseTrait
+  traits : pir::SideEffectTrait, paddle::dialect::ForwardOnlyTrait, pir::BinaryElementWiseTrait
 
 - op : not_equal
   args : (Tensor x, Tensor y)
@@ -788,7 +788,7 @@
   inplace : (x -> out)
   interfaces : paddle::dialect::InferSymbolicShapeInterface
   backward: remainder_grad
-  traits : pir::ElementWiseTrait
+  traits : pir::BinaryElementWiseTrait
 
 - op : row_conv
   args : (Tensor x, Tensor filter)
@@ -963,7 +963,7 @@
     support_trans_dtype : x, y
   backward : subtract_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  traits : pir::ElementWiseTrait
+  traits : pir::BinaryElementWiseTrait
 
 - op : sync_comm_stream
   args : (Tensor[] x, int ring_id = 0)
