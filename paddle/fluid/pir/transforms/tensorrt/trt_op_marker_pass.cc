@@ -91,7 +91,6 @@ DEFINE_GENERAL_PATTERN(ThresholdedRelu, paddle::dialect::ThresholdedReluOp)
 DEFINE_GENERAL_PATTERN(Flip, paddle::dialect::FlipOp)
 DEFINE_GENERAL_PATTERN(Mish, paddle::dialect::MishOp)
 
-
 #undef DEFINE_GENERAL_PATTERN
 
 // Add ReduceCommonOpPattern base class to simplify code
@@ -2125,6 +2124,62 @@ class AssignValueOpPattern
   }
 };
 
+class PowOpPattern : public pir::OpRewritePattern<paddle::dialect::PowOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::PowOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::PowOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    pir::Value x = op.operand_source(0);
+    auto x_dtype = pir::GetDataTypeFromValue(x);
+    if (x_dtype.isa<pir::Int32Type>()) {
+      VLOG(3) << "These operations (pow) do not support int32 "
+                 "datatype.";
+      return false;
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class IndexPutOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::IndexPutOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::IndexPutOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::IndexPutOp op,
+                       pir::PatternRewriter &rewriter) const override {
+#if IS_TRT_VERSION_LT(8510)
+    VLOG(3) << "index_put is not supported when TensorRT < 8.5.1";
+    return false;
+#endif
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    pir::Value value = op.operand_source(2);
+    auto value_shape = pir::GetShapeFromValue(value);
+    int value_num = std::accumulate(
+        value_shape.begin(), value_shape.end(), 1, std::multiplies<int>());
+    if (value_num != 1) {
+      VLOG(3) << " index_put op only support value_num = 1 in tensorrt.";
+      return false;
+    }
+    pir::Value indices = op.operand_source(1);
+    auto indices_dtype = pir::GetDataTypeFromValue(indices);
+    if (!indices_dtype.isa<pir::BoolType>()) {
+      VLOG(3) << " index_put op only support bool indices in tensorrt.";
+      return false;
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class TrtOpMarkerPass : public pir::PatternRewritePass {
  public:
   TrtOpMarkerPass() : pir::PatternRewritePass("trt_op_marker_pass", 2) {}
@@ -2242,6 +2297,8 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<OneHotOpPattern>(context));
     ps.Add(std::make_unique<AssignValueOpPattern>(context));
     ps.Add(std::make_unique<AssignValue_OpPattern>(context));
+    ps.Add(std::make_unique<PowOpPattern>(context));
+    ps.Add(std::make_unique<IndexPutOpPattern>(context));
     return ps;
   }
 };
