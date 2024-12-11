@@ -414,37 +414,61 @@ class TestMatrixPowerEmptyTensor(unittest.TestCase):
             with paddle.static.program_guard(
                 paddle.static.Program(), paddle.static.Program()
             ):
-                x2 = paddle.static.data(name='x', shape=[0, 6], dtype='float32')
-                x3 = paddle.static.data(name='x', shape=[6, 0], dtype='float32')
+                x2 = paddle.static.data(
+                    name='x2', shape=[0, 6], dtype='float32'
+                )
+                x3 = paddle.static.data(
+                    name='x3', shape=[6, 0], dtype='float32'
+                )
                 x4 = paddle.static.data(
-                    name='x', shape=[2, 3, 0, 0], dtype='float32'
+                    name='x4', shape=[0, 0, 2, 3], dtype='float32'
                 )
                 self.assertRaises(TypeError, paddle.linalg.matrix_power, x2)
                 self.assertRaises(TypeError, paddle.linalg.matrix_power, x3)
                 self.assertRaises(TypeError, paddle.linalg.matrix_power, x4)
+
                 x = paddle.static.data(name='x', shape=[0, 0], dtype='float32')
                 y = paddle.linalg.matrix_power(x, 2)
+                x5 = paddle.static.data(
+                    name='x5', shape=[2, 3, 0, 0], dtype='float32'
+                )
+                y5 = paddle.linalg.matrix_power(x5, 2)
                 exe = paddle.static.Executor(place)
                 res = exe.run(
-                    feed={'x': np.zeros((0, 0), dtype='float32')},
-                    fetch_list=[y],
+                    feed={
+                        'x2': np.zeros((0, 6), dtype='float32'),
+                        'x3': np.zeros((6, 0), dtype='float32'),
+                        'x4': np.zeros((0, 0, 2, 3), dtype='float32'),
+                        'x': np.zeros((0, 0), dtype='float32'),
+                        'x5': np.zeros((2, 3, 0, 0), dtype='float32'),
+                    },
+                    fetch_list=[y, y5],
                 )
                 assert (
                     len(res[0].shape) == 2
                     and res[0].shape[0] == 0
                     and res[0].shape[1] == 0
                 )
+                assert (
+                    len(res[1].shape) == 4
+                    and res[1].shape[0] == 2
+                    and res[1].shape[1] == 3
+                )
+                assert res[1].shape[2] == 0 and res[1].shape[3] == 0
 
     def _test_matrix_power_empty_dynamtic(self):
         with dygraph_guard():
             x2 = paddle.full((0, 6), 1.0, dtype='float32')
             x3 = paddle.full((6, 0), 1.0, dtype='float32')
             x4 = paddle.full((2, 3, 0, 0), 1.0, dtype='float32')
+            x5 = paddle.full((0, 0, 2, 3), 1.0, dtype='float32')
             self.assertRaises(TypeError, paddle.linalg.matrix_power, x2)
             self.assertRaises(TypeError, paddle.linalg.matrix_power, x3)
-            self.assertRaises(TypeError, paddle.linalg.matrix_power, x4)
+            self.assertRaises(TypeError, paddle.linalg.matrix_power, x5)
             x = paddle.full((0, 0), 1.0, dtype='float32')
             y = paddle.linalg.matrix_power(x, 2)
+            y4 = paddle.linalg.matrix_power(x4, 2)
+            assert len(y4.shape) == 4 and y4.shape[0] == 2 and y4.shape[1] == 3
             assert len(y.shape) == 2 and y.shape[0] == 0 and y.shape[1] == 0
 
     def test_matrix_power_empty_tensor(self):
