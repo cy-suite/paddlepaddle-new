@@ -17,6 +17,7 @@ import unittest
 import numpy
 import numpy as np
 import op_test
+from utils import dygraph_guard
 
 import paddle
 from paddle import base
@@ -585,6 +586,30 @@ class API_TestElementwise_Greater_Than(unittest.TestCase):
                 exe = paddle.static.Executor(place)
                 (res,) = exe.run(fetch_list=[out])
                 self.assertEqual((res == np.array([False, True])).all(), True)
+
+    def test_api_complex64(self):
+        if not core.is_compiled_with_xpu():
+            with dygraph_guard():
+                a_np = np.array(1 + 1j, dtype="complex64")
+                a = paddle.to_tensor(1 + 1j, dtype="complex64")
+                b = complex(1, 1)
+                c_np = a_np == b
+                c = a.equal(b)
+                np.testing.assert_allclose(c.numpy(), c_np)
+        else:
+            pass
+
+    def test_api_complex128(self):
+        if not core.is_compiled_with_xpu():
+            with dygraph_guard():
+                a_np = np.array(1 + 1j, dtype="complex128")
+                a = paddle.to_tensor(1 + 1j, dtype="complex128")
+                b = complex(1, 1)
+                c_np = a_np == b
+                c = a.equal(b)
+                np.testing.assert_allclose(c.numpy(), c_np)
+        else:
+            pass
 
 
 class TestCompareOpPlace(unittest.TestCase):
