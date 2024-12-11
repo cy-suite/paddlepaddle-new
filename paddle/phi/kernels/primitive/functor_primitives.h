@@ -169,9 +169,9 @@ struct MinFunctor {
 template <typename T>
 struct MinFunctor<T,
                   typename std::enable_if<std::is_integral<T>::value>::type> {
-  inline int32_t initial() { return std::numeric_limits<int32_t>::max(); }
+  inline T initial() { return std::numeric_limits<T>::max(); }
 
-  __device__ int32_t operator()(const int32_t a, const int32_t b) const {
+  __device__ __forceinline__ T operator()(const T a, const T b) const {
     return (b < a) ? b : a;
   }
 };
@@ -180,7 +180,9 @@ template <>
 struct MinFunctor<bool> {
   inline bool initial() { return false; }
 
-  __device__ bool operator()(const bool a, const bool b) const { return a & b; }
+  __device__ __forceinline__ bool operator()(const bool a, const bool b) const {
+    return a & b;
+  }
 };
 
 /**
@@ -208,9 +210,9 @@ struct MaxFunctor {
 template <typename T>
 struct MaxFunctor<T,
                   typename std::enable_if<std::is_integral<T>::value>::type> {
-  inline int32_t initial() { return std::numeric_limits<int32_t>::lowest(); }
+  inline T initial() { return std::numeric_limits<T>::lowest(); }
 
-  __device__ int32_t operator()(const int32_t a, const int32_t b) const {
+  __device__ __forceinline__ T operator()(const T a, const T b) const {
     return (b > a) ? b : a;
   }
 };
@@ -219,7 +221,9 @@ template <>
 struct MaxFunctor<bool> {
   inline bool initial() { return true; }
 
-  __device__ bool operator()(const bool a, const bool b) const { return a | b; }
+  __device__ __forceinline__ bool operator()(const bool a, const bool b) const {
+    return a | b;
+  }
 };
 
 /**
