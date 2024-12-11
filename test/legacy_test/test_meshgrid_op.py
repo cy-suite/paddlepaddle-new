@@ -1,4 +1,4 @@
-#   Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved.
+# Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -490,6 +490,61 @@ class TestMeshgridEager(unittest.TestCase):
                 (tensor_2.grad.numpy() == tensor_eager_2.grad.numpy()).all(),
                 True,
             )
+
+
+class TestMeshgridEmptyTensor(TestMeshgridOp):
+    def _get_places(self):
+        places = [base.CPUPlace()]
+        if paddle.is_compiled_with_cuda():
+            places.append(base.CUDAPlace(0))
+        return places
+
+    def test_api_with_dygraph_empty_input(self):
+        input_1 = np.random.randint(
+            0,
+            100,
+            [
+                100,
+            ],
+        ).astype('float64')
+        input_2 = np.empty([0]).astype('float64')
+
+        with base.dygraph.guard():
+            tensor_1 = paddle.to_tensor(input_1)
+            tensor_2 = paddle.to_tensor(input_2)
+            res_1, res_2 = paddle.tensor.meshgrid([tensor_1, tensor_2])
+
+        np.testing.assert_array_equal(res_1.shape, [100, 0])
+        np.testing.assert_array_equal(res_2.shape, [100, 0])
+
+    def _test_api_with_static_empty_input(self, place):
+        input_1 = np.random.randint(
+            0,
+            100,
+            [
+                100,
+            ],
+        ).astype('float64')
+        input_2 = np.empty([0]).astype('float64')
+
+        with paddle.static.program_guard(paddle.static.Program()):
+            x = paddle.static.data(shape=[100], dtype='float64', name='x')
+            y = paddle.static.data(shape=[0], dtype='float64', name='y')
+
+            exe = base.Executor(place=place)
+            grid_x, grid_y = paddle.tensor.meshgrid((x, y))
+            res_1, res_2 = exe.run(
+                paddle.static.default_main_program(),
+                feed={'x': input_1, 'y': input_2},
+                fetch_list=[grid_x, grid_y],
+            )
+
+        np.testing.assert_array_equal(res_1.shape, [100, 0])
+        np.testing.assert_array_equal(res_2.shape, [100, 0])
+
+    def test_api_with_static_empty_input(self):
+        for place in self._get_places():
+            self._test_api_with_static_empty_input(place)
 
 
 if __name__ == '__main__':
