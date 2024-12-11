@@ -282,13 +282,13 @@ class TestIndexSelectCase1TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.index_select
         self.api_args = {
-            "x": np.random.randn(3, 3).astype("float32"),
+            "x": np.random.randn(2, 3, 3).astype("float32"),
             "index": np.array([0, 2], dtype="int64"),
-            "axis": 0,
+            "axis": 1,
         }
         self.program_config = {"feed_list": ["x", "index"]}
-        self.min_shape = {"x": [1, 3]}
-        self.max_shape = {"x": [5, 3]}
+        self.min_shape = {"x": [1, 3, 3], "index": [1]}
+        self.max_shape = {"x": [5, 3, 3], "index": [5]}
 
     def test_trt_result(self):
         self.check_trt_result()
@@ -298,13 +298,13 @@ class TestIndexSelectCase2TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.index_select
         self.api_args = {
-            "x": np.random.randn(3, 3).astype("float32"),
+            "x": np.random.randn(2, 3, 3).astype("float32"),
             "index": np.array([0, 2], dtype="int64"),
-            "axis": 0,
+            "axis": 1,
         }
         self.program_config = {"feed_list": ["x", "index"]}
-        self.min_shape = {"x": [1, 3]}
-        self.max_shape = {"x": [5, 3]}
+        self.min_shape = {"x": [1, 3, 3], "index": [1]}
+        self.max_shape = {"x": [5, 3, 3], "index": [5]}
         self.enable_fp16 = True
 
     def test_trt_result(self):
@@ -315,13 +315,13 @@ class TestIndexSelectCase3TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.index_select
         self.api_args = {
-            "x": np.random.randn(3, 3).astype("int64"),
-            "index": np.array([0, 2], dtype="int64"),
+            "x": np.random.randn(2, 3, 3).astype("int64"),
+            "index": np.array([0, 1], dtype="int64"),
             "axis": 0,
         }
         self.program_config = {"feed_list": ["x", "index"]}
-        self.min_shape = {"x": [1, 3]}
-        self.max_shape = {"x": [5, 3]}
+        self.min_shape = {"x": [1, 3, 3], "index": [1]}
+        self.max_shape = {"x": [5, 3, 3], "index": [5]}
 
     def test_trt_result(self):
         self.check_trt_result()
