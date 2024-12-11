@@ -226,7 +226,7 @@ class RowWiseParallel(PlanBase):
         self.is_input_parallel = is_input_parallel
 
     def split_input_hook(self, process_mesh):
-        def split_hook(layer, input, output):
+        def split_hook(layer, input):
             return c_split(input, process_mesh, False)
 
         return split_hook
