@@ -24,25 +24,33 @@ void OpenVINOEngine::BindingInput(const std::string& input_name,
                                   ov::element::Type ov_type,
                                   std::vector<size_t> data_shape,
                                   T* data,
-                                  int64_t data_num) {
-  auto model_input = complied_model_.input(input_name);
-  PADDLE_ENFORCE_EQ(model_input.get_element_type() == ov_type,
-                    true,
-                    common::errors::PreconditionNotMet(
-                        "Model input_name[%s] requires input type [%s],but "
-                        "receives type [%s]",
-                        input_name,
-                        OVType2PhiType(model_input.get_element_type()),
-                        OVType2PhiType(ov_type)));
+                                  int64_t data_num,
+                                  int64_t index) {
+  ov::Output<const ov::Node> model_input =
+      HaveInputTensorName(input_name) ? complied_model_.input(input_name)
+                                      : complied_model_.input(index);
+
+  PADDLE_ENFORCE_EQ(
+      model_input.get_element_type() == ov_type,
+      true,
+      common::errors::PreconditionNotMet(
+          "Model input_name[%s]  index[%d] requires input type [%s],but "
+          "receives type [%s]",
+          input_name,
+          index,
+          OVType2PhiType(model_input.get_element_type()),
+          OVType2PhiType(ov_type)));
 
   if (IsModelStatic()) {
-    PADDLE_ENFORCE_EQ(model_input.get_partial_shape().compatible(
-                          ov::PartialShape(data_shape)),
-                      true,
-                      common::errors::PreconditionNotMet(
-                          "Model input_name[%s] requires input_shape is [%s]!",
-                          input_name,
-                          model_input.get_partial_shape().to_string()));
+    PADDLE_ENFORCE_EQ(
+        model_input.get_partial_shape().compatible(
+            ov::PartialShape(data_shape)),
+        true,
+        common::errors::PreconditionNotMet(
+            "Model input_name[%s] index[%d] requires input_shape is [%s]!",
+            input_name,
+            index,
+            model_input.get_partial_shape().to_string()));
   }
 
   try {

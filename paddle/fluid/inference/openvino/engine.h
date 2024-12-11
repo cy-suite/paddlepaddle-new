@@ -111,15 +111,42 @@ class OpenVINOEngine {
                     ov::element::Type ov_type,
                     const std::vector<size_t> data_shape,
                     T* data,
-                    int64_t data_num);
+                    int64_t data_num,
+                    int64_t index);
+  bool HaveInputTensorName(const std::string& tensor_name) {
+    for (const auto& input : complied_model_.inputs()) {
+      if (input.get_names().count(tensor_name)) {
+        return true;
+      }
+    }
+    VLOG(3) << "Cannot find  name [" << tensor_name
+            << "]  in OpenIVNO tensor, we will "
+            << "use index find input tensor";
+    return false;
+  }
+  bool HaveOutputTensorName(const std::string& tensor_name) {
+    for (const auto& output : complied_model_.outputs()) {
+      if (output.get_names().count(tensor_name)) {
+        return true;
+      }
+    }
+    VLOG(3) << "Cannot find  name [" << tensor_name
+            << "]  in OpenIVNO tensor, we will "
+            << "use index find output tensor";
+    return false;
+  }
   bool IsModelStatic();
 
   ov::Model* model() { return model_.get(); }
   ov::CompiledModel compiled_model() { return complied_model_; }
   ov::InferRequest infer_request() { return infer_request_; }
-  ov::Shape GetOuputShapeByName(const std::string& name);
-  phi::DataType GetOuputTypeByName(const std::string& name);
-  void CopyOuputDataByName(const std::string& output_name, void* pd_data);
+  ov::Shape GetOuputShape(const std::string& name, int64_t index);
+  phi::DataType GetOuputType(const std::string& name,
+                             int64_t index,
+                             ov::element::Type ov_paddle_type);
+  void CopyOuputDataByName(const std::string& output_name,
+                           int64_t index,
+                           void* pd_data);
   void Execute();
 
  private:

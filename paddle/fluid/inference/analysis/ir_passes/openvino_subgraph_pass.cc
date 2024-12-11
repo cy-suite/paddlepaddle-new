@@ -64,7 +64,7 @@ void analysis::OpenVINOSubgraphPass::ApplyImpl(
   std::unordered_set<std::string> white_nodes;
   std::vector<Node *> input_nodes;
   std::vector<Node *> output_nodes;
-  for (auto *node : graph->Nodes()) {
+  for (auto *node : framework::ir::TopologySortOperations(*graph)) {
     if (!(node->IsOp())) {
       continue;
     }

@@ -27,19 +27,41 @@ bool OpenVINOEngine::IsModelStatic() {
   return isStatic;
 }
 
-ov::Shape OpenVINOEngine::GetOuputShapeByName(const std::string& output_name) {
-  return infer_request_.get_tensor(output_name).get_shape();
+ov::Shape OpenVINOEngine::GetOuputShape(const std::string& output_name,
+                                        int64_t index) {
+  auto ov_output_shape =
+      HaveOutputTensorName(output_name)
+          ? infer_request_.get_tensor(output_name).get_shape()
+          : infer_request_.get_output_tensor(index).get_shape();
+  return ov_output_shape;
 }
 
-phi::DataType OpenVINOEngine::GetOuputTypeByName(
-    const std::string& output_name) {
-  return OVType2PhiType(
-      infer_request_.get_tensor(output_name).get_element_type());
+phi::DataType OpenVINOEngine::GetOuputType(const std::string& output_name,
+                                           int64_t index,
+                                           ov::element::Type ov_paddle_type) {
+  auto output_ov_type =
+      HaveOutputTensorName(output_name)
+          ? infer_request_.get_tensor(output_name).get_element_type()
+          : infer_request_.get_output_tensor(index).get_element_type();
+  PADDLE_ENFORCE_EQ(
+      output_ov_type == ov_paddle_type,
+      true,
+      common::errors::PreconditionNotMet(
+          "Model output_name[%s]  index[%d] requires output type [%s],but "
+          "receives type [%s]",
+          output_name,
+          index,
+          OVType2PhiType(ov_paddle_type),
+          OVType2PhiType(output_ov_type)));
+  return OVType2PhiType(output_ov_type);
 }
 
 void OpenVINOEngine::CopyOuputDataByName(const std::string& output_name,
+                                         int64_t index,
                                          void* pd_data) {
-  auto ov_tensor = infer_request_.get_tensor(output_name);
+  auto ov_tensor = HaveOutputTensorName(output_name)
+                       ? infer_request_.get_tensor(output_name)
+                       : infer_request_.get_output_tensor(index);
   std::memcpy(pd_data, ov_tensor.data(), ov_tensor.get_byte_size());
 }
 
