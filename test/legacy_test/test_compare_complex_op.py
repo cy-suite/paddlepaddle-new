@@ -85,7 +85,7 @@ class TestEqualComplex64Api(unittest.TestCase):
             a_np = np.array(1 + 1j, dtype=self.dtype)
             a = paddle.to_tensor(1 + 1j, dtype=self.dtype)
             b = complex(1, 1)
-            c_np = a == b
+            c_np = a_np == b
             c = a.equal(b)
             np.testing.assert_allclose(c.numpy(), c_np)
 
