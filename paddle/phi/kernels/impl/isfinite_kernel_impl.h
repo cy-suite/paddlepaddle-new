@@ -170,6 +170,26 @@ struct IsnanFunctor<phi::CPUContext,
   }
 };
 
+// CPU
+template <typename T>
+struct IsnanFunctor<
+    phi::CPUContext,
+    std::complex<T>,  // 针对 std::complex<T> 进行特化
+    typename std::enable_if<is_float_or_double<T>::value>::type> {
+  void operator()(const phi::CPUContext& ctx,
+                  const DenseTensor& in,
+                  DenseTensor* output) {
+    auto* in_a = in.data<std::complex<T>>();  // 获取复数数据
+    auto* out_data = ctx.template Alloc<bool>(output);
+    auto num = in.numel();
+    for (int i = 0; i < num; i++) {
+      const auto& a = in_a[i];
+      out_data[i] = std::isnan(a.real()) ||
+                    std::isnan(a.imag());  // 判断实部或虚部是否为 NaN
+    }
+  }
+};
+
 /* IsinfFunctor */
 template <typename DeviceContext, typename T, typename Enable = void>
 struct IsinfFunctor {
@@ -282,6 +302,21 @@ __global__ void IsnanCUDAKernel(
   }
 }
 
+// GPU
+template <typename T>
+__global__ void IsnanCUDAKernel(
+    const std::complex<T>* in_data,
+    int num,
+    bool* out_data,
+    typename std::enable_if<is_float_or_double<T>::value>::type* = 0) {
+  unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
+  for (int i = idx; i < num; i += blockDim.x * gridDim.x) {
+    const std::complex<T>& a = in_data[i];
+    out_data[i] =
+        std::isnan(a.real()) || std::isnan(a.imag());  // 检查实部和虚部
+  }
+}
+
 /* IsinfFunctor */
 template <typename T>
 __global__ void IsinfCUDAKernel(
@@ -337,6 +372,26 @@ struct IsnanFunctor<phi::GPUContext, T> {
     grid = (grid > block) ? block : grid;
     IsnanCUDAKernel<T>
         <<<grid, block, 0, dev_ctx.stream()>>>(in_data, num, out_data);
+  }
+};
+
+template <typename T>
+struct IsnanFunctor<
+    phi::GPUContext,
+    std::complex<T>,
+    typename std::enable_if<is_float_or_double<T>::value>::type> {
+  void operator()(const phi::GPUContext& dev_ctx,
+                  const DenseTensor& in,
+                  DenseTensor* output) {
+    int num = in.numel();
+    const std::complex<T>* in_data =
+        in.data<std::complex<T>>();  // 获取复数数据指针
+    bool* out_data = dev_ctx.template Alloc<bool>(output);
+    int block = 1024;
+    int grid = (block - 1 + num) / block;
+    grid = (grid > block) ? block : grid;
+    IsnanCUDAKernel<T><<<grid, block, 0, dev_ctx.stream()>>>(
+        in_data, num, out_data);  // 调用处理复数类型的 CUDA 内核
   }
 };
 

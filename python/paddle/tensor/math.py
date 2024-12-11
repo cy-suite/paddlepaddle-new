@@ -4688,6 +4688,8 @@ def isnan(x: Tensor, name: str | None = None) -> Tensor:
                 'int32',
                 'int64',
                 'uint16',
+                'complex64',
+                'complex128',
             ],
             'isnan',
         )

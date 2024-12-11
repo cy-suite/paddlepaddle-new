@@ -1728,7 +1728,16 @@ def flip(
         check_dtype(
             dtype,
             'X',
-            ['float16', 'float32', 'float64', 'int32', 'int64', 'bool'],
+            [
+                'float16',
+                'float32',
+                'float64',
+                'int32',
+                'int64',
+                'bool',
+                'complex64',
+                'complex128',
+            ],
             'flip',
         )
         check_type(axis, 'axis', (list, tuple), 'flip')
