@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import os
-from typing import Generic, TypeVar
+from typing import Generic, List, TypeVar
 
 from typing_extensions import Self
 
@@ -113,7 +113,7 @@ class IntegerEnvironmentVariable(EnvironmentVariable[int]):
         os.environ[self.name] = str(value)
 
 
-class StringListEnvironmentVariable(EnvironmentVariable[list[str]]):
+class StringListEnvironmentVariable(EnvironmentVariable[List[str]]):
     def __init__(self, name: str, default: list[str]):
         super().__init__(name, default)
         assert isinstance(default, list), "default must be a list"
