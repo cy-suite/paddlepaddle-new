@@ -194,10 +194,10 @@ void AllGatherGemmKernel(const Context& dev_ctx,
                          DenseTensor* output,
                          DenseTensor* input_parallel) {
 #ifdef PADDLE_WITH_FLUX
-  int arch =
+  int sm_version =
       backends::gpu::GetGPUComputeCapability(dev_ctx.GetPlace().GetDeviceId());
 
-  if (arch != 90) {
+  if (sm_version != 90 && sm_version != 80) {
     flux::RaiseNotSupportedError();
   }
 

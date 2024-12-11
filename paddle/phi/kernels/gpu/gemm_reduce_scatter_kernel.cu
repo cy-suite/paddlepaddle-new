@@ -276,10 +276,10 @@ void GemmReduceScatterKernel(const Context& dev_ctx,
                   int nranks,
                   DenseTensor* output) {
 #ifdef PADDLE_WITH_FLUX
-  int arch =
+  int sm_version =
       backends::gpu::GetGPUComputeCapability(dev_ctx.GetPlace().GetDeviceId());
 
-  if (arch != 90) {
+  if (sm_version != 90 && sm_version != 80) {
     flux::RaiseNotSupportedError();
   }
 
@@ -396,20 +396,38 @@ void GemmReduceScatterKernel(const Context& dev_ctx,
   gemm_rs();
 
   // reduce impl
-  DenseTensor output_3d;
-  phi::ViewShapeKernel(dev_ctx,
-                       helper.reduce_buffer,
-                       {helper.world_size, m / helper.world_size, n},
-                       &output_3d);
-  
-  output->Resize(common::make_dim(m / helper.world_size, n));
-  dev_ctx.template Alloc<T>(output);
-  phi::SumKernel<T>(dev_ctx,
-                    output_3d,
-                    {0},
-                    helper.output_dtype,
-                    false,
-                    output);
+  if (sm_version == 90) {
+    DenseTensor output_3d;
+    phi::ViewShapeKernel(dev_ctx,
+                         helper.reduce_buffer,
+                         {helper.world_size, m / helper.world_size, n},
+                         &output_3d);
+    
+    output->Resize(common::make_dim(m / helper.world_size, n));
+    dev_ctx.template Alloc<T>(output);
+    phi::SumKernel<T>(dev_ctx,
+                      output_3d,
+                      {0},
+                      helper.output_dtype,
+                      false,
+                      output);
+  } else if (sm_version == 80) {
+    helper.flux_barrier_all_on_stream();
+    DenseTensor output_3d;
+    phi::ViewShapeKernel(dev_ctx,
+                         helper.output_buffer,
+                         {helper.world_size, m / helper.world_size, n},
+                         &output_3d);
+    
+    output->Resize(common::make_dim(m / helper.world_size, n));
+    dev_ctx.template Alloc<T>(output);
+    phi::SumKernel<T>(dev_ctx,
+                      output_3d,
+                      {0},
+                      helper.output_dtype,
+                      false,
+                      output);
+  }
 #else
   flux::RaiseNotSupportedError();
 #endif

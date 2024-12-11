@@ -32,6 +32,8 @@ if(WITH_GPU)
       "${FLUX_INSTALL_DIR}/lib"
       CACHE PATH "flux Library Directory" FORCE)
 
+  list(JOIN FLUX_NVCC_ARCH_BIN " " FLUX_CUDAARCHS)
+
   ExternalProject_Add(
     extern_flux
     ${EXTERNAL_PROJECT_LOG_ARGS}
@@ -42,7 +44,7 @@ if(WITH_GPU)
     PATCH_COMMAND ""
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${FLUX_INSTALL_DIR}
                -DENABLE_NVSHMEM=OFF
-               -DCUDAARCHS=90
+               -DFLUX_CUDAARCHS=${FLUX_CUDAARCHS}
                -DCMAKE_EXPORT_COMPILE_COMMANDS=1
                -DBUILD_THS=OFF
     CMAKE_CACHE_ARGS
