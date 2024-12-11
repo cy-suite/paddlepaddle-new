@@ -459,6 +459,20 @@ struct SimplifyCastMutator : public ir::IRMutator<> {
   }
 };
 
+// struct SimplifyIfMutator : public ir::IRMutator<> {
+//   void operator()(Expr* expr) { ir::IRMutator<ir::Expr*>::Visit(expr, expr);
+//   } void Visit(const ir::IfThenElse* op, Expr* expr) {
+//     auto node = expr->As<ir::IfThenElse>();
+//     auto cond = node->condition.As<ir::EQ>();
+
+//     if(node->false_case.defined()) return;
+//     if (!cond) return;
+//     if (!cond->b().is_constant()) return;
+//     if (cond->b().get_constant() != 0) return;
+
+//   }
+// };
+
 }  // namespace
 
 void Simplify(Expr* expr) {
@@ -480,6 +494,8 @@ void Simplify(Expr* expr) {
 void SimplifyCast(Expr* expr) { SimplifyCastMutator()(expr); }
 void SimplifyForLoops(Expr* expr) { SimplifyForLoopsMutator()(expr); }
 void SimplifyBlocks(Expr* expr) { SimplifyBlocksMutator()(expr); }
+
+// void SimplifyIf(Expr* expr) { SimplifyIfMutator()(expr); }
 
 }  // namespace optim
 }  // namespace cinn

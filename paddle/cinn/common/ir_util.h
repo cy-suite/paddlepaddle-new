@@ -38,8 +38,7 @@ Expr PrecedingAxisToAbsOffset(const std::vector<Expr> &shape,
 
 Expr CastIfNeeded(Expr body, Type type);
 
-ir::IndexExpr MergeMulMod(SymbolicExprAnalyzer *analyzer,
-                          const ir::IndexExpr &base);
+ir::IndexExpr MergeMulMod(const ir::IndexExpr &base);
 
 //! Substitute vars to other expressions.
 //! @param expr The expression to do modification.
@@ -336,6 +335,31 @@ bool ProveDivisible(const ir::IndexExpr &lhs, const ir::IndexExpr &rhs);
  */
 bool IsNegatedIndexExpr(const ir::IndexExpr &candidate,
                         ir::IndexExpr &expr);  // NOLINT
+/*!
+ * \brief Construct index expression by node type with or without simplify.
+ * \param ty The node type of index expression.
+ * \param lhs left operand.
+ * \param rhs right operand.
+ * \param simplify_flag Whether to simplify the result.
+ * \return The constructed index expression.
+ */
+ir::IndexExpr ConstructIndexExprByNodeType(const ir::IrNodeTy &ty,
+                                           const ir::IndexExpr &lhs,
+                                           const ir::IndexExpr &rhs,
+                                           bool simplify_flag = true);
+
+/*!
+ * \brief Change the sequence of `Div` and `Mod` in index expression.
+ * Mathematical formula: `(a / b) % c = (a % (b * c)) / b`
+ * For example:
+ * 1. i / 4 % 8 => i % 32 / 4
+ * 2. i / S0 % S1 => i % (S0 * S1) / S0
+ * 3. (i * 32 + j) / 4 % 8 => (i * 32 + j) % 32 / 4
+ *
+ * \param expr The `IndexExpr` to be change
+ * \return `IndexExpr` after change.
+ */
+ir::IndexExpr ChangeSeqOfDivMod(const ir::IndexExpr &expr);
 
 }  // namespace common
 }  // namespace cinn

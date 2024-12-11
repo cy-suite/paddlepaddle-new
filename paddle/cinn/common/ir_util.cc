@@ -202,7 +202,6 @@ static void MergeMulModInsertElements(
 }
 
 static std::optional<ir::IndexExpr> MergeMulModInner(
-    SymbolicExprAnalyzer *analyzer,
     const ir::IndexExpr &mult_expr,
     const ir::IndexExpr &mod_l_expr,
     const ir::IndexExpr &mod_r_expr) {
@@ -278,8 +277,7 @@ static std::optional<ir::IndexExpr> MergeMulModInner(
   return std::nullopt;
 }
 
-ir::IndexExpr MergeMulMod(SymbolicExprAnalyzer *analyzer,
-                          const ir::IndexExpr &base) {
+ir::IndexExpr MergeMulMod(const ir::IndexExpr &base) {
   ir::IndexExpr simplified_base = base.as_index().Normalize();
   std::vector<ir::IndexExpr> elems = GetFlattenExprs<ir::Add>(simplified_base);
   std::list<ir::IndexExpr> mult_exprs;
@@ -298,7 +296,7 @@ ir::IndexExpr MergeMulMod(SymbolicExprAnalyzer *analyzer,
     bool inner_find_opt = false;
     while (mult_it != mult_exprs.end()) {
       auto ret = MergeMulModInner(
-          analyzer, *mult_it, search_mod_it->first, search_mod_it->second);
+          *mult_it, search_mod_it->first, search_mod_it->second);
       if (ret.has_value()) {
         inner_find_opt = true;
         auto temp_mod_it = search_mod_it;
@@ -358,9 +356,6 @@ Expr IndiceToAbsOffset(const std::vector<Expr> &shape,
                         "equal to the size of indices."));
   Expr res(0);
   ir::TryElevateInt32ToInt64(shape);
-  common::cas_intervals_t var_intervals =
-      common::CollectVarIntervalsOfExprs(indices);
-  common::SymbolicExprAnalyzer analyzer{var_intervals};
 
   for (int32_t i = 0; i < shape.size(); i++) {
     PADDLE_ENFORCE_EQ(
@@ -385,7 +380,7 @@ Expr IndiceToAbsOffset(const std::vector<Expr> &shape,
 
     if (i > 0) {
       if (res.is_index()) {
-        res = MergeMulMod(&analyzer, res.as_index()).as_index().Normalize();
+        res = MergeMulMod(res.as_index()).as_index().Normalize();
       }
     }
   }
@@ -846,6 +841,63 @@ bool IsNegatedIndexExpr(const ir::IndexExpr &candidate,
     }
   }
   return false;
+}
+
+ir::IndexExpr ConstructIndexExprByNodeType(const ir::IrNodeTy &ty,
+                                           const ir::IndexExpr &lhs,
+                                           const ir::IndexExpr &rhs,
+                                           bool simplify_flag) {
+  switch (ty) {
+    case ir::IrNodeTy::Add:
+      return simplify_flag ? lhs + rhs : ir::Add::Make(lhs, rhs);
+    case ir::IrNodeTy::Sub:
+      return simplify_flag ? lhs - rhs : ir::Sub::Make(lhs, rhs);
+    case ir::IrNodeTy::Mul:
+      return simplify_flag ? lhs * rhs : ir::Mul::Make(lhs, rhs);
+    case ir::IrNodeTy::Div:
+      return simplify_flag ? lhs / rhs : ir::Div::Make(lhs, rhs);
+    case ir::IrNodeTy::Mod:
+      return simplify_flag ? lhs % rhs : ir::Mod::Make(lhs, rhs);
+    default:
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Unsupported type in Constructir::IndexExprByNodeType, which is: %s",
+          ty));
+  }
+}
+
+ir::IndexExpr ChangeSeqOfDivMod(const ir::IndexExpr &expr) {
+  switch (expr.node_type()) {
+    case ir::IrNodeTy::IntImm:
+    case ir::IrNodeTy::_Var_: {
+      return expr;
+    }
+    case ir::IrNodeTy::Add:
+    case ir::IrNodeTy::Sub:
+    case ir::IrNodeTy::Mul:
+    case ir::IrNodeTy::Div: {
+      auto lhs = ChangeSeqOfDivMod(expr->operand(0).as_index());
+      auto rhs = ChangeSeqOfDivMod(expr->operand(1).as_index());
+      return ConstructIndexExprByNodeType(expr.node_type(), lhs, rhs, false);
+    }
+    case ir::IrNodeTy::Mod: {
+      if (expr->operand(0).node_type() == ir::IrNodeTy::Div) {
+        auto div_lhs =
+            ChangeSeqOfDivMod(expr->operand(0)->operand(0).as_index());
+        auto div_rhs =
+            ChangeSeqOfDivMod(expr->operand(0)->operand(1).as_index());
+        auto mod_rhs = ChangeSeqOfDivMod(expr->operand(1).as_index());
+        return ir::Div::Make(ir::Mod::Make(div_lhs, (div_rhs * mod_rhs)),
+                             div_rhs);
+      } else {
+        auto lhs = ChangeSeqOfDivMod(expr->operand(0).as_index());
+        auto rhs = ChangeSeqOfDivMod(expr->operand(1).as_index());
+        return ConstructIndexExprByNodeType(expr.node_type(), lhs, rhs, false);
+      }
+    }
+    default:
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Unsupported type of expr in ChangeSeqOfDivMod which is: %s", expr));
+  }
 }
 }  // namespace common
 }  // namespace cinn
