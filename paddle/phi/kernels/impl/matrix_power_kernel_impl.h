@@ -188,7 +188,6 @@ void MatrixPowerKernel(const Context& ctx,
 
   const auto& x_dims = X->dims();
   const int x_ndim = x_dims.size();
-  bool has_zero_dim = false;
   PADDLE_ENFORCE_EQ(
       x_dims[x_ndim - 2],
       x_dims[x_ndim - 1],
