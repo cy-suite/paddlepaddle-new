@@ -113,6 +113,22 @@ class IntegerEnvironmentVariable(EnvironmentVariable[int]):
         os.environ[self.name] = str(value)
 
 
+class StringListEnvironmentVariable(EnvironmentVariable[list[str]]):
+    def __init__(self, name: str, default: list[str]):
+        super().__init__(name, default)
+        assert isinstance(default, list), "default must be a list"
+
+    def get(self) -> list[str]:
+        return os.getenv(self.name, ",".join(self.default)).split(",")
+
+    def set(self, value: list[str]) -> None:
+        assert isinstance(value, list), "value must be a list"
+        assert all(
+            isinstance(x, str) for x in value
+        ), "value must be a list of strings"
+        os.environ[self.name] = ",".join(value)
+
+
 class EnvironmentVariableGuard(Generic[T]):
     variable: EnvironmentVariable[T]
     original_value: T
