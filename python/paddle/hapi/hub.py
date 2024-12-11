@@ -335,23 +335,27 @@ def load(
 
 
 def load_state_dict_from_url(
-    url,
-    model_dir=None,
-    check_hash=False,
-    file_name=None,
-    map_location=None,
-) -> str:
+    url: str,
+    model_dir: str | None = None,
+    check_hash: bool = False,
+    file_name: str | None = None,
+    map_location: (
+        Literal["cpu", "gpu", "xpu", "npu", "numpy", "np"] | None
+    ) = None,
+) -> Any:
     """Download Paddle's model weights (i.e., state_dict)
     from the specified URL and extract the downloaded file if necessary
 
     Args:
-            url (str) – URL of the object to download
-            model_dir (str, optional) – directory in which to save the object
-            check_hash (bool, optional) – If True, the filename part of the URL should follow the naming convention filename-<sha256>.ext where <sha256> is the first eight or more digits of the SHA256 hash of the contents of the file. The hash is used to ensure unique names and to verify the contents of the file. Default: False
-            file_name (str, optional) – name for the downloaded file. Filename from url will be used if not set.
-            map_location (optional) - A function or dictionary that specifies how to remap storage locations.
+        url (str): URL of the object to download.
+        model_dir (Optional[str], optional): Directory in which to save the object.
+        check_hash (bool, optional): If True, the filename part of the URL should follow the naming convention filename-<sha256>.ext where <sha256> is the first eight or more digits of the SHA256 hash of the contents of the file. The hash is used to ensure unique names and to verify the contents of the file. Default: False.
+        file_name (Optional[str], optional): Name for the downloaded file. Filename from URL will be used if not set.
+        map_location (Optional[Literal["cpu", "gpu", "xpu", "npu", "numpy", "np"]], optional): Specifies how to remap storage locations. Default: None.
+
     Returns:
-        Object, an instance of an object that can be used in a paddle
+        Any: A target object that can be used in Paddle.
+
     Examples:
         .. code-block:: python
 
