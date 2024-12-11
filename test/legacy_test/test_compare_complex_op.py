@@ -1,4 +1,4 @@
-# Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
+#   Copyright (c) 2018 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,261 +16,189 @@ import unittest
 
 import numpy
 import numpy as np
-from utils import dygraph_guard, static_guard
+import op_test
 
 import paddle
-from paddle import base
-from paddle.base import core
 
 
-class TestEqualComplex64Api(unittest.TestCase):
+class TestEqualComplex64Api(op_test.OpTest):
     def setUp(self):
         self.op_type = 'equal'
         self.typename = ("float32", "complex64")
         self.dtype = "complex64"
-        self.place = base.CPUPlace()
-        if core.is_compiled_with_cuda():
-            self.place = paddle.CUDAPlace(0)
-        self.a_real_np = numpy.random.random(size=(6, 5, 4, 3)).astype(
-            self.typename[0]
-        )
-        self.a_imag_np = numpy.random.random(size=(6, 5, 4, 3)).astype(
-            self.typename[0]
-        )
-        self.b_real_np = numpy.random.random(size=(6, 5, 4, 3)).astype(
-            self.typename[0]
-        )
-        self.b_imag_np = numpy.random.random(size=(6, 5, 4, 3)).astype(
-            self.typename[0]
-        )
+        self.python_api = paddle.equal
+        x_real = numpy.random.uniform((6, 5, 4, 3)).astype(self.typename[0])
+        x_imag = numpy.random.uniform((6, 5, 4, 3)).astype(self.typename[0])
+        y_real = numpy.random.uniform((6, 5, 4, 3)).astype(self.typename[0])
+        y_imag = numpy.random.uniform((6, 5, 4, 3)).astype(self.typename[0])
+        x = x_real + 1j * x_imag
+        y = y_real + 1j * y_imag
+        self.inputs = {'X': x, 'Y': y}
+        self.outputs = {'Out': self.inputs['X'] == self.inputs['Y']}
 
-    def test_dynamic_api(self):
-        with dygraph_guard():
-            a_complex_np = self.a_real_np + 1j * self.a_imag_np
-            b_complex_np = self.b_real_np + 1j * self.b_imag_np
-            a_complex = paddle.to_tensor(a_complex_np, dtype=self.dtype)
-            b_complex = paddle.to_tensor(b_complex_np, dtype=self.dtype)
-            c_np = a_complex_np == b_complex_np
-            c = a_complex.equal(b_complex)
-            np.testing.assert_allclose(c.numpy(), c_np)
-
-    def test_static_api(self):
-        with static_guard():
-            with paddle.static.program_guard(paddle.static.Program()):
-                a_complex = paddle.static.data(
-                    name='a', shape=[6, 5, 4, 3], dtype=self.dtype
-                )
-                b_complex = paddle.static.data(
-                    name='b', shape=[6, 5, 4, 3], dtype=self.dtype
-                )
-                op = eval(f"paddle.{self.op_type}")
-                c = op(a_complex, b_complex)
-                exe = paddle.static.Executor(self.place)
-                c_np = (
-                    self.a_real_np + 1j * self.a_imag_np
-                    == self.b_real_np + 1j * self.b_imag_np
-                )
-
-                c_out = exe.run(
-                    feed={
-                        'a': self.a_real_np + 1j * self.a_imag_np,
-                        'b': self.b_real_np + 1j * self.b_imag_np,
-                    },
-                    fetch_list=[c],
-                )
-                np.testing.assert_allclose(c_out[0], c_np)
-
-    def test_dygraph_special_case(self):
-        with dygraph_guard():
-            a_np = np.array(1 + 1j, dtype=self.dtype)
-            a = paddle.to_tensor(1 + 1j, dtype=self.dtype)
-            b = complex(1, 1)
-            c_np = a_np == b
-            c = a.equal(b)
-            np.testing.assert_allclose(c.numpy(), c_np)
+    def test_check_output(self):
+        self.check_output(check_pir=True)
 
 
-class TestEqualComplex128Api(unittest.TestCase):
+class TestEqualComplex64InfCase(TestEqualComplex64Api):
+    def setUp(self):
+        super().setUp()
+        x_real = np.array([1, np.inf, -np.inf]).astype(self.typename[0])
+        x_imag = np.array([1, -1, 1]).astype(self.typename[0])
+        y_real = np.array([1, np.inf, -np.inf]).astype(self.typename[0])
+        y_imag = np.array([1, 1, -1]).astype(self.typename[0])
+        x = x_real + 1j * x_imag
+        y = y_real + 1j * y_imag
+        self.inputs = {'X': x, 'Y': y}
+        self.outputs = {'Out': self.inputs['X'] == self.inputs['Y']}
+
+
+class TestEqualComplex64NanCase(TestEqualComplex64Api):
+    def setUp(self):
+        super().setUp()
+        x_real = np.array([1, np.nan, -np.nan]).astype(self.typename[0])
+        x_imag = np.array([1, -1, 1]).astype(self.typename[0])
+        y_real = np.array([1, np.nan, -np.nan]).astype(self.typename[0])
+        y_imag = np.array([1, 1, -1]).astype(self.typename[0])
+        x = x_real + 1j * x_imag
+        y = y_real + 1j * y_imag
+        self.inputs = {'X': x, 'Y': y}
+        self.outputs = {'Out': self.inputs['X'] == self.inputs['Y']}
+
+
+class TestEqualComplex128Api(op_test.OpTest):
     def setUp(self):
         self.op_type = 'equal'
         self.typename = ("float64", "complex128")
         self.dtype = "complex128"
-        self.place = base.CPUPlace()
-        if core.is_compiled_with_cuda():
-            self.place = paddle.CUDAPlace(0)
-        self.a_real_np = numpy.random.random(size=(6, 5, 4, 3)).astype(
-            self.typename[0]
-        )
-        self.a_imag_np = numpy.random.random(size=(6, 5, 4, 3)).astype(
-            self.typename[0]
-        )
-        self.b_real_np = numpy.random.random(size=(6, 5, 4, 3)).astype(
-            self.typename[0]
-        )
-        self.b_imag_np = numpy.random.random(size=(6, 5, 4, 3)).astype(
-            self.typename[0]
-        )
+        self.python_api = paddle.equal
+        x_real = numpy.random.uniform((6, 5, 4, 3)).astype(self.typename[0])
+        x_imag = numpy.random.uniform((6, 5, 4, 3)).astype(self.typename[0])
+        y_real = numpy.random.uniform((6, 5, 4, 3)).astype(self.typename[0])
+        y_imag = numpy.random.uniform((6, 5, 4, 3)).astype(self.typename[0])
+        x = x_real + 1j * x_imag
+        y = y_real + 1j * y_imag
+        self.inputs = {'X': x, 'Y': y}
+        self.outputs = {'Out': self.inputs['X'] == self.inputs['Y']}
 
-    def test_dynamic_api(self):
-        with dygraph_guard():
-            a_complex_np = self.a_real_np + 1j * self.a_imag_np
-            b_complex_np = self.b_real_np + 1j * self.b_imag_np
-            a_complex = paddle.to_tensor(a_complex_np, dtype=self.dtype)
-            b_complex = paddle.to_tensor(b_complex_np, dtype=self.dtype)
-            c_np = a_complex_np == b_complex_np
-            c = a_complex.equal(b_complex)
-            np.testing.assert_allclose(c.numpy(), c_np)
-
-    def test_static_api(self):
-        with static_guard():
-            with paddle.static.program_guard(paddle.static.Program()):
-                a_complex = paddle.static.data(
-                    name='a', shape=[6, 5, 4, 3], dtype=self.dtype
-                )
-                b_complex = paddle.static.data(
-                    name='b', shape=[6, 5, 4, 3], dtype=self.dtype
-                )
-                op = eval(f"paddle.{self.op_type}")
-                c = op(a_complex, b_complex)
-                exe = paddle.static.Executor(self.place)
-                c_np = (
-                    self.a_real_np + 1j * self.a_imag_np
-                    == self.b_real_np + 1j * self.b_imag_np
-                )
-
-                c_out = exe.run(
-                    feed={
-                        'a': self.a_real_np + 1j * self.a_imag_np,
-                        'b': self.b_real_np + 1j * self.b_imag_np,
-                    },
-                    fetch_list=[c],
-                )
-                np.testing.assert_allclose(c_out[0], c_np)
-
-    def test_dygraph_special_case(self):
-        with dygraph_guard():
-            a_np = np.array(1 + 1j, dtype=self.dtype)
-            a = paddle.to_tensor(1 + 1j, dtype=self.dtype)
-            b = complex(1, 1)
-            c_np = a_np == b
-            c = a.equal(b)
-            np.testing.assert_allclose(c.numpy(), c_np)
+    def test_check_output(self):
+        self.check_output(check_pir=True)
 
 
-class TestNotEqualComplex64Api(unittest.TestCase):
+class TestEqualComplex128InfCase(TestEqualComplex128Api):
+    def setUp(self):
+        super().setUp()
+        x_real = np.array([1, np.inf, -np.inf]).astype(self.typename[0])
+        x_imag = np.array([1, -1, 1]).astype(self.typename[0])
+        y_real = np.array([1, np.inf, -np.inf]).astype(self.typename[0])
+        y_imag = np.array([1, 1, -1]).astype(self.typename[0])
+        x = x_real + 1j * x_imag
+        y = y_real + 1j * y_imag
+        self.inputs = {'X': x, 'Y': y}
+        self.outputs = {'Out': self.inputs['X'] == self.inputs['Y']}
+
+
+class TestEqualComplex128NanCase(TestEqualComplex128Api):
+    def setUp(self):
+        super().setUp()
+        x_real = np.array([1, np.nan, -np.nan]).astype(self.typename[0])
+        x_imag = np.array([1, -1, 1]).astype(self.typename[0])
+        y_real = np.array([1, np.nan, -np.nan]).astype(self.typename[0])
+        y_imag = np.array([1, 1, -1]).astype(self.typename[0])
+        x = x_real + 1j * x_imag
+        y = y_real + 1j * y_imag
+        self.inputs = {'X': x, 'Y': y}
+        self.outputs = {'Out': self.inputs['X'] == self.inputs['Y']}
+
+
+class TestNotEqualComplex64Api(op_test.OpTest):
     def setUp(self):
         self.op_type = 'not_equal'
         self.typename = ("float32", "complex64")
         self.dtype = "complex64"
-        self.place = base.CPUPlace()
-        if core.is_compiled_with_cuda():
-            self.place = paddle.CUDAPlace(0)
-        self.a_real_np = numpy.random.random(size=(6, 5, 4, 3)).astype(
-            self.typename[0]
-        )
-        self.a_imag_np = numpy.random.random(size=(6, 5, 4, 3)).astype(
-            self.typename[0]
-        )
-        self.b_real_np = numpy.random.random(size=(6, 5, 4, 3)).astype(
-            self.typename[0]
-        )
-        self.b_imag_np = numpy.random.random(size=(6, 5, 4, 3)).astype(
-            self.typename[0]
-        )
+        self.python_api = paddle.not_equal
+        x_real = numpy.random.uniform((6, 5, 4, 3)).astype(self.typename[0])
+        x_imag = numpy.random.uniform((6, 5, 4, 3)).astype(self.typename[0])
+        y_real = numpy.random.uniform((6, 5, 4, 3)).astype(self.typename[0])
+        y_imag = numpy.random.uniform((6, 5, 4, 3)).astype(self.typename[0])
+        x = x_real + 1j * x_imag
+        y = y_real + 1j * y_imag
+        self.inputs = {'X': x, 'Y': y}
+        self.outputs = {'Out': self.inputs['X'] != self.inputs['Y']}
 
-    def test_dynamic_api(self):
-        with dygraph_guard():
-            a_complex_np = self.a_real_np + 1j * self.a_imag_np
-            b_complex_np = self.b_real_np + 1j * self.b_imag_np
-            a_complex = paddle.to_tensor(a_complex_np, dtype=self.dtype)
-            b_complex = paddle.to_tensor(b_complex_np, dtype=self.dtype)
-            c_np = a_complex_np != b_complex_np
-            c = a_complex.not_equal(b_complex)
-            np.testing.assert_allclose(c.numpy(), c_np)
-
-    def test_static_api(self):
-        with static_guard():
-            with paddle.static.program_guard(paddle.static.Program()):
-                a_complex = paddle.static.data(
-                    name='a', shape=[6, 5, 4, 3], dtype=self.dtype
-                )
-                b_complex = paddle.static.data(
-                    name='b', shape=[6, 5, 4, 3], dtype=self.dtype
-                )
-                op = eval(f"paddle.{self.op_type}")
-                c = op(a_complex, b_complex)
-                exe = paddle.static.Executor(self.place)
-                c_np = (
-                    self.a_real_np + 1j * self.a_imag_np
-                    != self.b_real_np + 1j * self.b_imag_np
-                )
-
-                c_out = exe.run(
-                    feed={
-                        'a': self.a_real_np + 1j * self.a_imag_np,
-                        'b': self.b_real_np + 1j * self.b_imag_np,
-                    },
-                    fetch_list=[c],
-                )
-                np.testing.assert_allclose(c_out[0], c_np)
+    def test_check_output(self):
+        self.check_output(check_pir=True)
 
 
-class TestNotEqualComplex128Api(unittest.TestCase):
+class TestNotEqualComplex64InfCase(TestNotEqualComplex64Api):
+    def setUp(self):
+        super().setUp()
+        x_real = np.array([1, np.inf, -np.inf]).astype(self.typename[0])
+        x_imag = np.array([1, -1, 1]).astype(self.typename[0])
+        y_real = np.array([1, np.inf, -np.inf]).astype(self.typename[0])
+        y_imag = np.array([1, 1, -1]).astype(self.typename[0])
+        x = x_real + 1j * x_imag
+        y = y_real + 1j * y_imag
+        self.inputs = {'X': x, 'Y': y}
+        self.outputs = {'Out': self.inputs['X'] != self.inputs['Y']}
+
+
+class TestNotEqualComplex64NanCase(TestNotEqualComplex64Api):
+    def setUp(self):
+        super().setUp()
+        x_real = np.array([1, np.nan, -np.nan]).astype(self.typename[0])
+        x_imag = np.array([1, -1, 1]).astype(self.typename[0])
+        y_real = np.array([1, np.nan, -np.nan]).astype(self.typename[0])
+        y_imag = np.array([1, 1, -1]).astype(self.typename[0])
+        x = x_real + 1j * x_imag
+        y = y_real + 1j * y_imag
+        self.inputs = {'X': x, 'Y': y}
+        self.outputs = {'Out': self.inputs['X'] != self.inputs['Y']}
+
+
+class TestNotEqualComplex128Api(op_test.OpTest):
     def setUp(self):
         self.op_type = 'not_equal'
         self.typename = ("float64", "complex128")
         self.dtype = "complex128"
-        self.place = base.CPUPlace()
-        if core.is_compiled_with_cuda():
-            self.place = paddle.CUDAPlace(0)
-        self.a_real_np = numpy.random.random(size=(6, 5, 4, 3)).astype(
-            self.typename[0]
-        )
-        self.a_imag_np = numpy.random.random(size=(6, 5, 4, 3)).astype(
-            self.typename[0]
-        )
-        self.b_real_np = numpy.random.random(size=(6, 5, 4, 3)).astype(
-            self.typename[0]
-        )
-        self.b_imag_np = numpy.random.random(size=(6, 5, 4, 3)).astype(
-            self.typename[0]
-        )
+        self.python_api = paddle.not_equal
+        x_real = numpy.random.uniform((6, 5, 4, 3)).astype(self.typename[0])
+        x_imag = numpy.random.uniform((6, 5, 4, 3)).astype(self.typename[0])
+        y_real = numpy.random.uniform((6, 5, 4, 3)).astype(self.typename[0])
+        y_imag = numpy.random.uniform((6, 5, 4, 3)).astype(self.typename[0])
+        x = x_real + 1j * x_imag
+        y = y_real + 1j * y_imag
+        self.inputs = {'X': x, 'Y': y}
+        self.outputs = {'Out': self.inputs['X'] != self.inputs['Y']}
 
-    def test_dynamic_api(self):
-        with dygraph_guard():
-            a_complex_np = self.a_real_np + 1j * self.a_imag_np
-            b_complex_np = self.b_real_np + 1j * self.b_imag_np
-            a_complex = paddle.to_tensor(a_complex_np, dtype=self.dtype)
-            b_complex = paddle.to_tensor(b_complex_np, dtype=self.dtype)
-            c_np = a_complex_np != b_complex_np
-            c = a_complex.not_equal(b_complex)
-            np.testing.assert_allclose(c.numpy(), c_np)
+    def test_check_output(self):
+        self.check_output(check_pir=True)
 
-    def test_static_api(self):
-        with static_guard():
-            with paddle.static.program_guard(paddle.static.Program()):
-                a_complex = paddle.static.data(
-                    name='a', shape=[6, 5, 4, 3], dtype=self.dtype
-                )
-                b_complex = paddle.static.data(
-                    name='b', shape=[6, 5, 4, 3], dtype=self.dtype
-                )
-                op = eval(f"paddle.{self.op_type}")
-                c = op(a_complex, b_complex)
-                exe = paddle.static.Executor(self.place)
-                c_np = (
-                    self.a_real_np + 1j * self.a_imag_np
-                    != self.b_real_np + 1j * self.b_imag_np
-                )
 
-                c_out = exe.run(
-                    feed={
-                        'a': self.a_real_np + 1j * self.a_imag_np,
-                        'b': self.b_real_np + 1j * self.b_imag_np,
-                    },
-                    fetch_list=[c],
-                )
-                np.testing.assert_allclose(c_out[0], c_np)
+class TestNotEqualComplex128InfCase(TestNotEqualComplex128Api):
+    def setUp(self):
+        super().setUp()
+        x_real = np.array([1, np.inf, -np.inf]).astype(self.typename[0])
+        x_imag = np.array([1, -1, 1]).astype(self.typename[0])
+        y_real = np.array([1, np.inf, -np.inf]).astype(self.typename[0])
+        y_imag = np.array([1, 1, -1]).astype(self.typename[0])
+        x = x_real + 1j * x_imag
+        y = y_real + 1j * y_imag
+        self.inputs = {'X': x, 'Y': y}
+        self.outputs = {'Out': self.inputs['X'] != self.inputs['Y']}
+
+
+class TestNotEqualComplex128NanCase(TestNotEqualComplex128Api):
+    def setUp(self):
+        super().setUp()
+        x_real = np.array([1, np.nan, -np.nan]).astype(self.typename[0])
+        x_imag = np.array([1, -1, 1]).astype(self.typename[0])
+        y_real = np.array([1, np.nan, -np.nan]).astype(self.typename[0])
+        y_imag = np.array([1, 1, -1]).astype(self.typename[0])
+        x = x_real + 1j * x_imag
+        y = y_real + 1j * y_imag
+        self.inputs = {'X': x, 'Y': y}
+        self.outputs = {'Out': self.inputs['X'] != self.inputs['Y']}
 
 
 if __name__ == '__main__':
