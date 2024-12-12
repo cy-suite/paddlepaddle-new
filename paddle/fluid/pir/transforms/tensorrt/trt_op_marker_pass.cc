@@ -2106,10 +2106,6 @@ class TemporalShiftOpPattern
         op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-#if IS_TRT_VERSION_LT(8200)
-    VLOG(3) << "temporal_shift is not supported when TensorRT < 8.2";
-    return false;
-#endif
     if (!op->HasAttribute("shift_ratio") || !op->HasAttribute("seg_num")) {
       VLOG(3) << "temporal shift need attributes : shift_ratio and seg_num";
       return false;
