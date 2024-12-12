@@ -249,9 +249,6 @@ class RunnableProgram:
             self.has_splited is False
         ), "Please ensure only split once! don't call split_forward_backward manually."
         self.has_splited = True
-        print("Before split forward backward.")
-        print(self.program)
-        # breakpoint()
         [
             fwd_prog,
             bwd_prog,
