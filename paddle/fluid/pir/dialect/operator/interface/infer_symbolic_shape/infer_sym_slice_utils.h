@@ -366,14 +366,13 @@ inline ExprVec GetStridesSliceDims(
           "The size of axes must equal size of starts, ends, and strides."));
 
   for (size_t i = 0; i < axes.size(); ++i) {
-    auto out_dim = symbol::DimExpr({-1}) * ((starts[i] - ends[i]) / strides[i]);
+    symbol::DimExpr out_dim =
+        (ends[i] - starts[i] - 1 + strides[i]) / strides[i];
     int64_t axis = axes[i];
-
     if (!out_dim.isa<int64_t>() &&
         (!in_dims[axis].isa<int64_t>() || !ends[i].isa<int64_t>())) {
       symbol::List<symbol::DimExpr> min_lists{
-          symbol::DimExpr({-1}) * ((starts[i] - in_dims[axis]) / strides[i]),
-          out_dim};
+          ((starts[i] - in_dims[axis]) / strides[i]), out_dim};
 
       slice_dims[axis] =
           symbol::DimExpr({symbol::Min<symbol::DimExpr>({min_lists})});
@@ -403,10 +402,10 @@ inline ShapeOrData StridedSliceRawInferSymbolicShape(
     return infer_flags_raw.empty() ? std::vector<int64_t>(axes_raw.size(), 1)
                                    : infer_flags_raw;
   }();
+  const ExprVec &in_dims = in_shapeordata.shape();
+  std::vector<int64_t> axes = FormatSliceAxes(axes_raw, in_dims.size());
 
   const auto &GetShapeDimExprs = [&]() -> symbol::ShapeOrDataDimExprs {
-    const ExprVec &in_dims = in_shapeordata.shape();
-    std::vector<int64_t> axes = FormatSliceAxes(axes_raw, in_dims.size());
     ExprVec slice_dims =
         GetStridesSliceDims(in_dims, axes, starts, ends, strides, &infer_flags);
     ExprVec out_dims = GetDecreasedDims(slice_dims, decrease_axis);
@@ -429,9 +428,14 @@ inline ShapeOrData StridedSliceRawInferSymbolicShape(
         symbol::TensorShapeOrDataDimExprs(out_dims)};
   };
 
-  // When `pd.slice` is operating on a tensor which is produced by a `pd.shape`
-  // op, the result should be written into data.
+  // When `pd.strided_slice` is operating on a tensor which is produced by a
+  // `pd.shape` op, the result should be written into data.
   const auto &GetDataDimExprs = [&]() -> symbol::ShapeOrDataDimExprs {
+    PADDLE_ENFORCE_EQ(in_dims.size(),
+                      1,
+                      common::errors::InvalidArgument(
+                          "Currently for strided_slice op, only the rank of "
+                          "shape == 1 is supported."));
     std::vector<symbol::DimExpr> out_data;
 
     // Currently, we DO NOT support the case that any element in `axes` `starts`
@@ -440,8 +444,8 @@ inline ShapeOrData StridedSliceRawInferSymbolicShape(
     PADDLE_ENFORCE_EQ(
         vec_int64.has_value(),
         true,
-        common::errors::InvalidArgument(
-            "for slice op, all the elements in `starts` must be int64_t"));
+        common::errors::InvalidArgument("For stride_slie op, all the elements "
+                                        "in `starts` must be int64_t"));
     std::vector<int64_t> starts_int = vec_int64.value();
 
     vec_int64 = details::VecExpr2Int64(ends);
@@ -449,29 +453,15 @@ inline ShapeOrData StridedSliceRawInferSymbolicShape(
         vec_int64.has_value(),
         true,
         common::errors::InvalidArgument(
-            "for slice op, all the elements in `ends` must be int64_t"));
+            "For stride_slie op, all the elements in `ends` must be int64_t."));
     std::vector<int64_t> ends_int = vec_int64.value();
 
     vec_int64 = details::VecExpr2Int64(strides);
     PADDLE_ENFORCE_EQ(
         vec_int64.has_value(),
         true,
-        common::errors::InvalidArgument(
-            "for slice op, all the elements in `strides` must be int64_t"));
-
-    const int64_t start =
-        starts_int[0] < 0 ? starts_int[0] + in_shapeordata.data().value().size()
-                          : starts_int[0];
-    const int64_t end = [&]() -> int64_t {
-      if (ends_int[0] < 0) {
-        return ends_int[0] + in_shapeordata.data().value().size();
-      }
-      if (ends_int[0] ==
-          static_cast<int64_t>(std::numeric_limits<int>::max())) {
-        return in_shapeordata.data().value().size();
-      }
-      return ends_int[0];
-    }();
+        common::errors::InvalidArgument("For stride_slie op, all the elements "
+                                        "in `strides` must be int64_t."));
 
     const int64_t stride = [&]() -> int64_t {
       if (strides[0].isa<int64_t>()) {
@@ -480,7 +470,42 @@ inline ShapeOrData StridedSliceRawInferSymbolicShape(
       return 1;
     }();
 
-    for (int64_t i = start; i < end; i += stride) {
+    // Normalize slice interval [start, end)
+    int64_t normalize_start = [&]() -> int64_t {
+      // 1.make start belongs: [0, D-1]
+      int64_t up_bound = in_shapeordata.data().value().size() - 1;
+      int64_t low_bound = -in_shapeordata.data().value().size();
+      int64_t start = starts_int.at(0);
+      if (start > up_bound) {
+        start = up_bound;
+      } else if (start < low_bound) {
+        start = low_bound;
+      }
+      return (start < 0) ? start + in_shapeordata.data().value().size() : start;
+    }();
+
+    int64_t normalize_end = [&]() -> int64_t {
+      // 2.make end belongs: [-1, D)
+      int64_t up_bound = in_shapeordata.data().value().size();
+      int64_t low_bound = -in_shapeordata.data().value().size() - 1;
+      int64_t end = ends_int.at(0);
+      if (end > up_bound) {
+        end = up_bound;
+      } else if (end < low_bound) {
+        end = low_bound;
+      }
+      end = (end < 0) ? end + in_shapeordata.data().value().size() : end;
+      if (end < 0) {
+        PADDLE_ENFORCE_EQ((stride < 0),
+                          true,
+                          common::errors::InvalidArgument(
+                              "For stride_slie op, when normalize_end < 0 the "
+                              "stride must be negative."));
+      }
+      return end;
+    }();
+
+    for (int64_t i = normalize_start; i != normalize_end; i += stride) {
       out_data.push_back(in_shapeordata.data().value().at(i));
     }
 
@@ -502,7 +527,6 @@ inline ShapeOrData StridedSliceRawInferSymbolicShape(
           std::vector<symbol::DimExpr>{1}, out_shape.data().value())};
     }
   }
-
   return out_shape;
 }
 
