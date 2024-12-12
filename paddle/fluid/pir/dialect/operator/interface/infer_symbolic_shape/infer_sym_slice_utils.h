@@ -463,13 +463,6 @@ inline ShapeOrData StridedSliceRawInferSymbolicShape(
         common::errors::InvalidArgument("For stride_slie op, all the elements "
                                         "in `strides` must be int64_t."));
 
-    const int64_t stride = [&]() -> int64_t {
-      if (strides[0].isa<int64_t>()) {
-        return strides[0].Get<int64_t>();
-      }
-      return 1;
-    }();
-
     // Normalize slice interval [start, end)
     int64_t normalize_start = [&]() -> int64_t {
       // 1.make start belongs: [0, D-1]
@@ -485,7 +478,7 @@ inline ShapeOrData StridedSliceRawInferSymbolicShape(
     }();
 
     int64_t normalize_end = [&]() -> int64_t {
-      // 2.make end belongs: [-1, D)
+      // 2.make end belongs: [-1, D]
       int64_t up_bound = in_shapeordata.data().value().size();
       int64_t low_bound = -in_shapeordata.data().value().size() - 1;
       int64_t end = ends_int.at(0);
@@ -494,19 +487,28 @@ inline ShapeOrData StridedSliceRawInferSymbolicShape(
       } else if (end < low_bound) {
         end = low_bound;
       }
-      end = (end < 0) ? end + in_shapeordata.data().value().size() : end;
-      if (end < 0) {
-        PADDLE_ENFORCE_EQ((stride < 0),
-                          true,
-                          common::errors::InvalidArgument(
-                              "For stride_slie op, when normalize_end < 0 the "
-                              "stride must be negative."));
-      }
-      return end;
+      return (end < 0) ? end + in_shapeordata.data().value().size() : end;
     }();
 
-    for (int64_t i = normalize_start; i != normalize_end; i += stride) {
-      out_data.push_back(in_shapeordata.data().value().at(i));
+    const int64_t stride = [&]() -> int64_t {
+      if (strides[0].isa<int64_t>()) {
+        stride = strides[0].Get<int64_t>();
+      }
+      return 1;
+    }();
+
+    if (stride < 0 && normalize_start > normalize_end) {
+      for (int64_t i = normalize_start; i > normalize_end; i += stride) {
+        out_data.push_back(in_shapeordata.data().value().at(i));
+      }
+    } else if (stride > 0 && normalize_start < normalize_end) {
+      for (int64_t i = normalize_start; i < normalize_end; i += stride) {
+        out_data.push_back(in_shapeordata.data().value().at(i));
+      }
+    } else {
+      PADDLE_THROW(
+          common::errors::Fatal("For strided_slice op, unable to derive based "
+                                "on the given parameters."));
     }
 
     const ExprVec shape = GetDecreasedDims(
