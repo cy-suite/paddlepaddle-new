@@ -527,7 +527,7 @@ class ValuePreservePass:
             program.global_block().remove_op(op)
 
         self.values = paddle.utils.map_structure(
-            lambda name: name2new_value.get(name, fake_value), names
+            lambda name: name2new_value.get(name, fake_value()), names
         )
         return program
 
