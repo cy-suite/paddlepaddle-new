@@ -49,6 +49,7 @@
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 #include "paddle/fluid/pir/dialect/operator/trait/inplace.h"
 #include "paddle/fluid/pir/dialect/operator/utils/op_yaml_info_parser.h"
+#include "paddle/fluid/pir/dialect/operator/utils/shape_analysis_utils.h"
 #include "paddle/fluid/pir/dialect/operator/utils/utils.h"
 #include "paddle/fluid/pir/drr/include/drr_pattern_base.h"
 #include "paddle/fluid/pir/transforms/general/common_subexpression_elimination_pass.h"
@@ -2546,10 +2547,23 @@ std::shared_ptr<Program> ApplyCommonSubexpressionEliminationPass(
 std::shared_ptr<Program> ApplyReduceAsToSumPass(
     std::shared_ptr<Program> program) {
 #ifdef PADDLE_WITH_CINN
+
+  auto &shape_analysis =
+      pir::ShapeAnalysisManager::Instance().Get(program.get());
+  pir::OriginalAttributesFilter::Instance().SetOriginalAttributesMap(
+      paddle::dialect::GetAllOpOriginalAttributes());
   pir::PassManager pm(pir::IrContext::Instance(), 2);
+  std::cerr << "before reduce as\n"
+            << pir::CustomPrintHelper(*program, shape_analysis.PrintHook())
+            << std::endl;
+  pm.AddPass(pir::CreateShapeOptimizationPass());
   pm.AddPass(cinn::dialect::ir::CreateReduceAsToSumPass());
   pm.AddPass(pir::CreateDeadCodeEliminationPass());
   pm.Run(program.get());
+
+  std::cerr << "after reduce as\n"
+            << pir::CustomPrintHelper(*program, shape_analysis.PrintHook())
+            << std::endl;
   if (FLAGS_print_ir) {
     std::cout << "IR After ReduceAsToSumPass -------------------" << std::endl;
     std::cout << *program << std::endl;

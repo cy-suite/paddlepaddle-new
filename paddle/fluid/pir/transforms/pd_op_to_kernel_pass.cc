@@ -3388,8 +3388,35 @@ void ProcessBlock(
     }
   }
 
+  int64_t mid_output_size = 0;
   for (auto iter = block->begin(); iter != block->end(); ++iter) {
     pir::Operation* op_item = &(*iter);
+    if (op_item->isa<pir::ShadowOutputOp>()) {
+      auto dims = op_item->operand_source(0)
+                      .type()
+                      .dyn_cast<paddle::dialect::DenseTensorType>()
+                      .dims();
+
+      int64_t numel = 1;
+      bool have_dy_shape = false;
+      for (size_t i = 0; i < dims.size(); ++i) {
+        numel *= dims[i];
+
+        if (dims[i] < 0) {
+          have_dy_shape = true;
+        }
+      }
+
+      auto attrs = op_item->attributes();
+      if (!attrs.count("no_need_buffer") && !have_dy_shape) {
+        mid_output_size += numel;
+      }
+
+      // if( )
+      //                               .at("name")
+      //                               .dyn_cast<pir::StrAttribute>()
+      //                               .AsString()
+    }
     VLOG(6) << "op name " << op_item->name();
     if ((op_item->isa<FeedOp>()) &&
         inputs_by_data_op.count(op_item->attributes()
@@ -3513,6 +3540,9 @@ void ProcessBlock(
     AddShadowFeedOpForDataOrFeed(
         place, op_item, op, new_block, ctx, map_op_pair, map_value_pair);
   }
+
+  std::cerr << "mid output size !!!!!!!!!!!!!! " << mid_output_size
+            << std::endl;
 
   RemoveRedundantMemcpyAfterShadowFeed(new_block, ctx);
 }
