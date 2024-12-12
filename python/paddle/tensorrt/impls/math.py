@@ -48,9 +48,7 @@ def scale_converter(network, paddle_op, inputs):
     is_int = x.dtype == trt.int32
     if is_int:
         bias_tensor = add_1D_constant_layer(
-            network,
-            int(bias + 0.5) if bias > 0 else int(bias - 0.5),
-            dtype=np.float32,
+            network, int(bias + 0.5) if bias > 0 else int(bias - 0.5)
         )
     else:
         bias_tensor = add_1D_constant_layer(network, bias, dtype=np.float32)
@@ -66,9 +64,7 @@ def scale_converter(network, paddle_op, inputs):
         has_scale_tensor = False
         if is_int:
             scale_tensor = add_1D_constant_layer(
-                network,
-                int(scale + 0.5 if scale > 0 else scale - 0.5),
-                dtype=np.float32,
+                network, int(scale + 0.5 if scale > 0 else scale - 0.5)
             )
         else:
             scale_tensor = add_1D_constant_layer(
