@@ -154,7 +154,9 @@ struct MinFunctor {
   inline T initial() { return static_cast<T>(std::numeric_limits<T>::max()); }
 
   __device__ __forceinline__ T operator()(const T a, const T b) const {
-    if (std::is_floating_point<T>::value) {
+    if constexpr ((std::is_floating_point<T>::value) &&
+                  (!(std::is_same<T, int32_t>::value ||
+                     (std::is_same<T, int64_t>::value)))) {
       if (isnan(a)) {
         return a;
       }
@@ -162,16 +164,6 @@ struct MinFunctor {
         return b;
       }
     }
-    return (b < a) ? b : a;
-  }
-};
-
-template <typename T>
-struct MinFunctor<T,
-                  typename std::enable_if<std::is_integral<T>::value>::type> {
-  inline T initial() { return std::numeric_limits<T>::max(); }
-
-  __device__ __forceinline__ T operator()(const T a, const T b) const {
     return (b < a) ? b : a;
   }
 };
@@ -195,7 +187,9 @@ struct MaxFunctor {
   }
 
   __device__ __forceinline__ T operator()(const T a, const T b) const {
-    if (std::is_floating_point<T>::value) {
+    if constexpr ((std::is_floating_point<T>::value) &&
+                  (!(std::is_same<T, int32_t>::value ||
+                     (std::is_same<T, int64_t>::value)))) {
       if (isnan(a)) {
         return a;
       }
@@ -203,16 +197,6 @@ struct MaxFunctor {
         return b;
       }
     }
-    return (b > a) ? b : a;
-  }
-};
-
-template <typename T>
-struct MaxFunctor<T,
-                  typename std::enable_if<std::is_integral<T>::value>::type> {
-  inline T initial() { return std::numeric_limits<T>::lowest(); }
-
-  __device__ __forceinline__ T operator()(const T a, const T b) const {
     return (b > a) ? b : a;
   }
 };
