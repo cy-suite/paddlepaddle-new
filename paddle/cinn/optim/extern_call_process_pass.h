@@ -1,4 +1,4 @@
-// Copyright (c) 2021 CINN Authors. All Rights Reserved.
+// Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,13 +15,23 @@
 #pragma once
 
 #include "paddle/cinn/ir/ir.h"
+#include "paddle/cinn/optim/pass/pass.h"
 
 namespace cinn {
 namespace optim {
 
-void ExternCallMultiOutputShallowStore(Expr* e);
+class ExternCallMultiOutputShallowStorePass : public ir::BlockPass {
+ public:
+  LogicalResult Run(ir::stmt::BlockRef block) override;
+};
 
-void ExternCallRemoveTupleGetStatements(Expr* e);
+class ExternCallRemoveTupleGetStatementsPass : public ir::BlockPass {
+ public:
+  LogicalResult Run(ir::stmt::BlockRef block) override;
+};
+
+std::unique_ptr<BlockPass> CreateExternCallMultiOutputShallowStorePass();
+std::unique_ptr<BlockPass> CreateExternCallRemoveTupleGetStatementsPass();
 
 }  // namespace optim
 }  // namespace cinn
