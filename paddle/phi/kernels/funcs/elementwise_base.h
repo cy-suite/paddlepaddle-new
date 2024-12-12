@@ -537,13 +537,13 @@ struct Loader {
     if (is_boundary) {
       kps::ReadData<Type, VecSize, 1, ArgsT, Index, true>(
           args,
-          reinterpret_cast<const _ptr_ Type *>(in[Index]) + offset,
+          static_cast<const _ptr_ Type *>(in[Index]) + offset,
           num,
           read_lens);
     } else {
       kps::ReadData<Type, VecSize, 1, ArgsT, Index, false>(
           args,
-          reinterpret_cast<const _ptr_ Type *>(in[Index]) + offset,
+          static_cast<const _ptr_ Type *>(in[Index]) + offset,
           num,
           read_lens);
     }
