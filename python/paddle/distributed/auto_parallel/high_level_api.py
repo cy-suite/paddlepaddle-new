@@ -708,7 +708,7 @@ def to_distributed(
     custom_input_spec = (
         config.input_spec
         if config.input_spec
-        else [paddle.static.InputSpec([4, 1024], 'float32', 'input_seq', True)]
+        else [paddle.static.InputSpec([8, 512], 'float32', 'input_seq', True)]
     )
     static_func = paddle.jit.to_static(
         model.forward, input_spec=custom_input_spec, full_graph=True
@@ -779,7 +779,9 @@ def to_distributed(
     with_pp = True if "pp" in mesh.dim_names else False
     with_mp = True if "mp" in mesh.dim_names else False
     with_dp = True if "dp" in mesh.dim_names else False
-    with_sp = True if config.sequence_parallel else False
+    with_sp = (
+        True if "mp" in mesh.dim_names and config.sequence_parallel else False
+    )
 
     # step 3: processing tensor parallel if necessary, according to the optimal parallel strategies shard weight tensors in decoder blocks
     if with_mp:
