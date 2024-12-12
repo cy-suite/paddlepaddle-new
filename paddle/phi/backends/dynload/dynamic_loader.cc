@@ -865,5 +865,14 @@ void* GetXPTIDsoHandle() {
   return nullptr;
 #endif
 }
+
+void* GetFluxDsoHandle() {
+  std::string flux_dir = "";
+  if (!s_py_site_pkg_path.path.empty()) {
+    flux_dir = s_py_site_pkg_path.path;
+  }
+  return GetDsoHandleFromSearchPath(flux_dir, "libflux.so");
+}
+
 }  // namespace dynload
 }  // namespace phi

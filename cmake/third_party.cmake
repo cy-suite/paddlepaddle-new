@@ -592,6 +592,29 @@ if(WITH_GPU
   endif()
 endif()
 
+if(WITH_GPU
+   AND NOT WITH_ARM
+   AND NOT WIN32
+   AND NOT APPLE)
+    set(FLUX_NVCC_ARCH_BIN)
+    foreach(arch ${NVCC_ARCH_BIN})
+      if(${arch} GREATER_EQUAL 80)
+        list(APPEND FLUX_NVCC_ARCH_BIN 80)
+      endif()
+      if(${arch} GREATER_EQUAL 90)
+        list(APPEND FLUX_NVCC_ARCH_BIN 90)
+      endif()
+    endforeach()
+    foreach(arch ${NVCC_ARCH_BIN})
+      if(${arch} GREATER_EQUAL 80)
+        include(external/flux)
+        list(APPEND third_party_deps extern_flux)
+        set(WITH_FLUX ON)
+        break()
+      endif()
+    endforeach()
+endif()
+
 if(WITH_CUDNN_FRONTEND)
   include(external/cudnn-frontend) # download cudnn-frontend
   list(APPEND third_party_deps extern_cudnn_frontend)

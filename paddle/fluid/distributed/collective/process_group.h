@@ -27,6 +27,8 @@
 #include "paddle/phi/core/distributed/types.h"
 #include "paddle/phi/core/distributed/utils.h"
 #include "paddle/phi/core/enforce.h"
+#include "paddle/phi/core/distributed/nccl_comm_context.h"
+#include "paddle/phi/core/distributed/utils.h"
 
 constexpr auto kWaitTimeout = std::chrono::milliseconds(0);
 
@@ -113,6 +115,13 @@ class ProcessGroup {
       const Place& place UNUSED, bool use_calc_stream UNUSED) const {
     PADDLE_THROW(phi::errors::Unimplemented(
         "ProcessGroup%s does not support get device_context.",
+        GetBackendName()));
+  }
+
+  virtual phi::distributed::NCCLCommContext* GetOrCreateCommContext(const Place& place UNUSED,
+                                                                    CommType comm_type UNUSED = CommType::UNKNOWN) {
+    PADDLE_THROW(phi::errors::Unimplemented(
+        "ProcessGroup%s does not support get get or create comm_context",
         GetBackendName()));
   }
 

@@ -2027,6 +2027,28 @@
     func : gelu
   backward : gelu_grad
 
+- op : gemm_reduce_scatter
+  args: (Tensor input, Tensor weight, Tensor bias, Tensor input_scale, Tensor weight_scale, Tensor output_scale, int nnodes, int max_m, int n_dim, bool transpose_weight, bool fuse_reduction, int ring_id, int nranks)
+  output : Tensor(output)
+  infer_meta :
+    func : GemmReduceScatterInferMeta
+    param: [input, weight, transpose_weight]
+  kernel :
+    func : gemm_reduce_scatter
+    data_type : input
+  optional : bias, input_scale, weight_scale, output_scale
+
+- op : all_gather_gemm
+  args : (Tensor input, Tensor weight, Tensor bias, Tensor input_scale, Tensor weight_scale, Tensor output_scale, int nnodes, int full_m, int n_dim, int k_dim, int ring_id, bool fast_accum, bool deepcopy_input_parallel, bool transpose_weight)
+  output : Tensor(output), Tensor(input_parallel)
+  infer_meta :
+    func : AllGatherGemmInferMeta
+    param : [input, weight, transpose_weight]
+  kernel :
+    func : all_gather_gemm,
+    data_type : input
+  optional : bias, input_scale, weight_scale, output_scale
+
 - op : generate_proposals
   args : (Tensor scores, Tensor bbox_deltas, Tensor im_shape, Tensor anchors, Tensor variances, int pre_nms_top_n, int post_nms_top_n, float nms_thresh, float min_size, float eta, bool pixel_offset=true)
   output : Tensor(rpn_rois), Tensor(rpn_roi_probs), Tensor(rpn_rois_num)

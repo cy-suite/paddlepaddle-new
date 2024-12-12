@@ -92,6 +92,12 @@ from .flash_attention import (
     scaled_dot_product_attention,
     sdp_kernel,  # noqa: F401
 )
+
+from .flux import (
+    all_gather_gemm,
+    gemm_reduce_scatter,
+)
+
 from .input import embedding, one_hot
 from .loss import (
     adaptive_log_softmax_with_loss,
