@@ -444,17 +444,8 @@ class TestMatrixPowerEmptyTensor(unittest.TestCase):
                     },
                     fetch_list=[y, y5],
                 )
-                assert (
-                    len(res[0].shape) == 2
-                    and res[0].shape[0] == 0
-                    and res[0].shape[1] == 0
-                )
-                assert (
-                    len(res[1].shape) == 4
-                    and res[1].shape[0] == 2
-                    and res[1].shape[1] == 3
-                )
-                assert res[1].shape[2] == 0 and res[1].shape[3] == 0
+                self.assertEqual(res[0].shape, (0, 0))
+                self.assertEqual(res[1].shape, (2, 3, 0, 0))
 
     def _test_matrix_power_empty_dynamtic(self):
         with dygraph_guard():
@@ -468,8 +459,8 @@ class TestMatrixPowerEmptyTensor(unittest.TestCase):
             x = paddle.full((0, 0), 1.0, dtype='float32')
             y = paddle.linalg.matrix_power(x, 2)
             y4 = paddle.linalg.matrix_power(x4, 2)
-            assert len(y4.shape) == 4 and y4.shape[0] == 2 and y4.shape[1] == 3
-            assert len(y.shape) == 2 and y.shape[0] == 0 and y.shape[1] == 0
+            self.assertEqual(y4.shape, [2, 3, 0, 0])
+            self.assertEqual(y.shape, [0, 0])
 
     def test_matrix_power_empty_tensor(self):
         for place in self._get_places():
