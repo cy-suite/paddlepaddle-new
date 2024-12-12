@@ -149,7 +149,7 @@ struct SquareFunctor {
 /**
  * @brief Default binary min functor
  */
-template <typename T, typename Enable = void>
+template <typename T>
 struct MinFunctor {
   inline T initial() { return static_cast<T>(std::numeric_limits<T>::max()); }
 
@@ -188,7 +188,7 @@ struct MinFunctor<bool> {
 /**
  * @brief Default binary max functor
  */
-template <typename T, typename Enable = void>
+template <typename T>
 struct MaxFunctor {
   inline T initial() {
     return static_cast<T>(std::numeric_limits<T>::lowest());
