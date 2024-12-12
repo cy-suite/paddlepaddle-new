@@ -90,6 +90,13 @@ class TestDiagV2OpCase4(TestDiagV2Op):
         )
 
 
+class TestDiagV2OpCase5(TestDiagV2Op):
+    def init_config(self):
+        self.offset = -99
+        self.x = np.random.randint(-10, 10, size=(100, 1)).astype("float64")
+        self.out = np.diag(self.x, self.offset)
+
+
 class TestDiagV2Error(unittest.TestCase):
 
     def test_errors(self):

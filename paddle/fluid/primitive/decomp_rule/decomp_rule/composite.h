@@ -1462,17 +1462,31 @@ Tensor diag_decomp(const Tensor& x,
 
     res = put_along_axis<T>(result, indices, x_padding, 1);
 
-  } else {
+  } else if (rank == 2) {
     std::vector<int64_t> x_dims = cast_x.shape();
     int64_t n = x_dims[0];
     int64_t m = x_dims[1];
     if (offset <= -n || offset >= m) {
       return res;
     }
-    Tensor x_flat = reshape<T>(cast_x, {n * m});
-    int64_t start = offset >= 0 ? offset : -offset * m;
-    Tensor indices = backend::arange<T>(
-        start, n * m, m + 1, DataType::INT64, cast_x.place());
+    Tensor x_flat = reshape<T>(x, {n * m});
+    Tensor x_range;
+    Tensor y_range;
+    if (offset >= 0) {
+      x_range = backend::arange<T>(0, n, 1, DataType::INT64, cast_x.place());
+      y_range =
+          backend::arange<T>(offset, m, 1, DataType::INT64, cast_x.place());
+    } else {
+      x_range =
+          backend::arange<T>(-offset, n, 1, DataType::INT64, cast_x.place());
+      y_range = backend::arange<T>(0, m, 1, DataType::INT64, cast_x.place());
+    }
+    auto min_range_len = std::min(x_range.size(), y_range.size());
+
+    x_range = slice<T>(x_range, {0}, {0}, {min_range_len}, {}, {});
+    y_range = slice<T>(y_range, {0}, {0}, {min_range_len}, {}, {});
+    Tensor indices = x_range * m + y_range;
+
     res = take_along_axis<T>(x_flat, indices, 0);
   }
   return ConverToOrig<T>(res, x.dtype());
