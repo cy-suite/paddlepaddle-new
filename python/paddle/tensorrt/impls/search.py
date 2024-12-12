@@ -200,12 +200,10 @@ def index_select_converter(network, paddle_op, inputs):
     axis = paddle_op.attrs().get("axis", 0)
 
     reshape_layer = network.add_shuffle(index_tensor)
-    reshape_layer.reshape_dims = (1, -1)
+    reshape_layer.reshape_dims = (-1,)
+
     gather_layer = network.add_gather(
         input_tensor, reshape_layer.get_output(0), axis
     )
 
-    output_layer = network.add_shuffle(gather_layer.get_output(0))
-    output_layer.reshape_dims = ()
-
-    return output_layer.get_output(0)
+    return gather_layer.get_output(0)
