@@ -17,7 +17,9 @@
 #include "paddle/phi/backends/xpu/enforce_xpu.h"
 #include "paddle/phi/backends/xpu/xpu_context.h"
 #include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/core/kernel_utils.h"
 #include "paddle/phi/kernels/xpu/reduce.h"
+#include "paddle/phi/kernels/full_kernel.h"
 
 namespace phi {
 
