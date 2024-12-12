@@ -40,7 +40,8 @@ void FullKernel(const Context& dev_ctx,
                 DenseTensor* out) {
   out->Resize(common::make_ddim(shape.GetData()));
   if (out->numel() == 0) {
-    return;  // Handle 0-size Tensor: no allocation or computation needed.
+    dev_ctx.template Alloc<T>(out);
+    return;
   }
   FullValue<T>(dev_ctx, out, val.to<T>());
 }
