@@ -1051,19 +1051,11 @@ void ReduceKernel(const KPDevice& dev_ctx,
                   phi::DenseTensor* y,
                   const TransformOp& transform,
                   const std::vector<int>& origin_reduce_dims) {
-  PADDLE_ENFORCE_GE(x.numel(),
+  PADDLE_ENFORCE_GT(x.numel(),
                     0,
                     common::errors::InvalidArgument(
                         "Tensor need be reduced must not empty."));
-  if (x.numel() == 0) {
-    if (IsMean) {
-      DataType dtype = phi::CppTypeToDataType<Ty>::Type();
-      double nanValue = std::numeric_limits<double>::quiet_NaN();
-      FullKernel<Ty, KPDevice>(
-          dev_ctx, std::vector<int64_t>({}), nanValue, dtype, y);
-      return;
-    }
-  }
+
 #ifdef PADDLE_WITH_XPU_KP
   auto stream = dev_ctx.x_context()->xpu_stream;
 #else
@@ -1359,51 +1351,6 @@ void HandleLargeDim(const Context& dev_ctx,
   output->ResizeAndAllocate(output_dim);
 }
 
-////////////// Handle Special Case
-
-template <typename Functor, typename Context, typename T, typename OutT>
-struct SpecialCaseReduceOp {
-  static void HandleEmptyTensor(const Context& dev_ctx,
-                                const phi::DenseTensor& input,
-                                phi::DenseTensor* output) {
-    PADDLE_THROW(common::errors::InvalidArgument(
-        "Unsupported reduction operation for empty tensor."));
-  }
-};
-
-// Sum操作的特化
-template <typename Context, typename T, typename OutT>
-struct SpecialCaseReduceOp<phi::funcs::SumFunctor, Context, T, OutT> {
-  static void HandleEmptyTensor(const Context& dev_ctx,
-                                const phi::DenseTensor& input,
-                                phi::DenseTensor* output) {
-    auto out = dev_ctx.template Alloc<OutT>(output);
-    *out = static_cast<OutT>(0);
-  }
-};
-
-// Mean操作的特化
-template <typename Context, typename T, typename OutT>
-struct SpecialCaseReduceOp<phi::funcs::MeanFunctor, Context, T, OutT> {
-  static void HandleEmptyTensor(const Context& dev_ctx,
-                                const phi::DenseTensor& input,
-                                phi::DenseTensor* output) {
-    auto out = dev_ctx.template Alloc<OutT>(output);
-    *out = static_cast<OutT>(std::numeric_limits<float>::quiet_NaN());
-  }
-};
-
-// Prod操作的特化
-template <typename Context, typename T, typename OutT>
-struct SpecialCaseReduceOp<phi::funcs::ProdFunctor, Context, T, OutT> {
-  static void HandleEmptyTensor(const Context& dev_ctx,
-                                const phi::DenseTensor& input,
-                                phi::DenseTensor* output) {
-    auto out = dev_ctx.template Alloc<OutT>(output);
-    *out = static_cast<OutT>(1);
-  }
-};
-
 ////////////// ReduceKernel
 
 template <typename Context, typename T, typename OutT, typename Functor>
@@ -1413,18 +1360,12 @@ void ReduceKernelImpl(const Context& dev_ctx,
                       const std::vector<int64_t>& dims,
                       bool keep_dim,
                       bool reduce_all) {
-  PADDLE_ENFORCE_GE(input.numel(),
+  PADDLE_ENFORCE_GT(input.numel(),
                     0,
                     common::errors::InvalidArgument(
                         "The input size (numel) of reduce op should be larger "
                         "than or equal to 0, but received size is %d",
                         input.numel()));
-
-  if (input.numel() == 0) {
-    SpecialCaseReduceOp<Functor, Context, T, OutT>::HandleEmptyTensor(
-        dev_ctx, input, output);
-    return;
-  }
 
   dev_ctx.template Alloc<OutT>(output);
 

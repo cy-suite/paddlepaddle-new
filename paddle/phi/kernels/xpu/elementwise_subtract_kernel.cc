@@ -24,6 +24,19 @@ void SubtractKernel(const Context& dev_ctx,
                     const DenseTensor& x,
                     const DenseTensor& y,
                     DenseTensor* out) {
+  if (x.numel() == 0 && y.numel() != 0) {
+    out->Resize(y.dims());
+    dev_ctx.template Alloc<T>(out);
+    ActivationImpl<T, T, Context, phi::funcs::NegativeFunctor<T>>(
+        dev_ctx, y, out, phi::funcs::NegativeFunctor<T>());
+    return;
+  }
+  if (y.numel() == 0 && x.numel() != 0) {
+    out->Resize(x.dims());
+    dev_ctx.template Alloc<T>(out);
+    phi::Copy(dev_ctx, x, dev_ctx.GetPlace(), false, out);
+    return;
+  }
   using XPUType = typename XPUTypeTrait<T>::Type;
   auto f = [](xpu::Context* ctx,
               const XPUType* x,

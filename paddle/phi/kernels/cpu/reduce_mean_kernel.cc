@@ -16,7 +16,9 @@
 
 #include "paddle/phi/backends/cpu/cpu_context.h"
 #include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/core/kernel_utils.h"
 #include "paddle/phi/kernels/cpu/reduce.h"
+#include "paddle/phi/kernels/full_kernel.h"
 #include "paddle/phi/kernels/funcs/reduce_functor.h"
 
 namespace phi {
@@ -28,6 +30,13 @@ void MeanRawKernel(const Context& dev_ctx,
                    bool keep_dim,
                    bool reduce_all,
                    DenseTensor* out) {
+  if (x.numel() == 0) {
+    DataType dtype = phi::CppTypeToDataType<T>::Type();
+    double nanValue = std::numeric_limits<double>::quiet_NaN();
+    FullKernel<T, Context>(
+        dev_ctx, std::vector<int64_t>({}), nanValue, dtype, out);
+    return;
+  }
   reduce_all = recompute_reduce_all(x, dims, reduce_all);
   auto out_dtype = x.dtype();
   phi::Reduce<CPUContext, T, phi::funcs::MeanFunctor>(

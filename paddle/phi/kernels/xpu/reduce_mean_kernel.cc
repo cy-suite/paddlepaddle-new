@@ -28,6 +28,13 @@ void MeanRawKernel(const Context& dev_ctx,
                    bool keep_dim,
                    bool reduce_all,
                    DenseTensor* out) {
+  if (x.numel() == 0) {
+    DataType dtype = phi::CppTypeToDataType<T>::Type();
+    double nanValue = std::numeric_limits<double>::quiet_NaN();
+    FullKernel<T, Context>(
+        dev_ctx, std::vector<int64_t>({}), nanValue, dtype, out);
+    return;
+  }
   reduce_all = recompute_reduce_all(x, dims, reduce_all);
   using XPUType = typename XPUTypeTrait<T>::Type;
   auto f = [](xpu::Context* ctx,

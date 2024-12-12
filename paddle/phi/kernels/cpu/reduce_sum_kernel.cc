@@ -16,7 +16,9 @@
 
 #include "paddle/phi/backends/cpu/cpu_context.h"
 #include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/core/kernel_utils.h"
 #include "paddle/phi/kernels/cpu/reduce.h"
+#include "paddle/phi/kernels/full_kernel.h"
 #include "paddle/phi/kernels/funcs/reduce_functor.h"
 
 namespace phi {
@@ -29,6 +31,13 @@ void SumRawKernel(const Context& dev_ctx,
                   bool reduce_all,
                   DataType out_dtype,
                   DenseTensor* out) {
+  if (x.numel() == 0) {
+    DataType dtype = phi::CppTypeToDataType<T>::Type();
+    int value = 0;
+    FullKernel<T, Context>(
+        dev_ctx, std::vector<int64_t>({}), value, dtype, out);
+    return;
+  }
   if (out_dtype == DataType::UNDEFINED && out->dtype() != x.dtype()) {
     out_dtype = out->dtype();
   }

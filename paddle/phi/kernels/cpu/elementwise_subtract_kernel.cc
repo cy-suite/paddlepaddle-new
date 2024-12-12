@@ -37,16 +37,13 @@ void SubtractKernel(const Context& dev_ctx,
         dev_ctx, y, out, phi::funcs::NegativeFunctor<T>());
     return;
   }
-
   if (y.numel() == 0 && x.numel() != 0) {
     out->Resize(x.dims());
     dev_ctx.template Alloc<T>(out);
     phi::Copy(dev_ctx, x, dev_ctx.GetPlace(), false, out);
     return;
   }
-
   dev_ctx.template Alloc<T>(out);
-
   if (x.dims() == y.dims()) {
     SameDimsElementwiseCompute<SameDimsSubtractFunctor<CPUContext, T>>()(
         dev_ctx, x, y, out);

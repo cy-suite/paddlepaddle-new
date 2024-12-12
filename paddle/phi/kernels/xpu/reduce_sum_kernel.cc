@@ -28,6 +28,13 @@ void SumRawKernel(const Context& dev_ctx,
                   bool reduce_all,
                   DataType out_dtype,
                   DenseTensor* out) {
+  if (x.numel() == 0) {
+    DataType dtype = phi::CppTypeToDataType<T>::Type();
+    int value = 0;
+    FullKernel<T, Context>(
+        dev_ctx, std::vector<int64_t>({}), value, dtype, out);
+    return;
+  }
   if (out_dtype == DataType::UNDEFINED && out->dtype() != x.dtype()) {
     out_dtype = out->dtype();
   }

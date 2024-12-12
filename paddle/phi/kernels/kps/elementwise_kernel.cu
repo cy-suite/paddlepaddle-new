@@ -42,7 +42,6 @@ void SubtractKernel(const Context& dev_ctx,
         dev_ctx, y, out, phi::funcs::NegativeFunctor<T>());
     return;
   }
-
   if (y.numel() == 0 && x.numel() != 0) {
     out->Resize(x.dims());
     dev_ctx.template Alloc<T>(out);

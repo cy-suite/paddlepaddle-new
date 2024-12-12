@@ -16,6 +16,8 @@
 #include "paddle/phi/common/complex.h"
 #include "paddle/phi/core/enforce.h"
 #include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/core/kernel_utils.h"
+#include "paddle/phi/kernels/full_kernel.h"
 #include "paddle/phi/kernels/gpu/reduce.h"
 #include "paddle/phi/kernels/legacy/reduce_max_kernel.h"
 #include "paddle/phi/kernels/prod_kernel.h"
@@ -42,6 +44,13 @@ void ProdKernel(const Context& dev_ctx,
                 bool keep_dim,
                 bool reduce_all,
                 DenseTensor* out) {
+  if (x.numel() == 0) {
+    DataType dtype = phi::CppTypeToDataType<T>::Type();
+    int value = 1;
+    FullKernel<T, Context>(
+        dev_ctx, std::vector<int64_t>({}), value, dtype, out);
+    return;
+  }
   reduce_all = recompute_reduce_all(x, dims, reduce_all);
   auto out_dtype = x.dtype();
   phi::Reduce<T, kps::MulFunctor, kps::IdentityFunctor>(
@@ -117,6 +126,13 @@ void MeanRawKernel(const Context& dev_ctx,
                    bool keep_dim,
                    bool reduce_all,
                    DenseTensor* out) {
+  if (x.numel() == 0) {
+    DataType dtype = phi::CppTypeToDataType<T>::Type();
+    double nanValue = std::numeric_limits<double>::quiet_NaN();
+    FullKernel<T, Context>(
+        dev_ctx, std::vector<int64_t>({}), nanValue, dtype, out);
+    return;
+  }
   reduce_all = recompute_reduce_all(x, dims, reduce_all);
   auto out_dtype = x.dtype();
   phi::Reduce<T, kps::AddFunctor, kps::IdentityFunctor, true>(
@@ -193,6 +209,13 @@ void SumRawKernel(const Context& dev_ctx,
                   bool reduce_all,
                   DataType out_dtype,
                   DenseTensor* out) {
+  if (x.numel() == 0) {
+    DataType dtype = phi::CppTypeToDataType<T>::Type();
+    int value = 0;
+    FullKernel<T, Context>(
+        dev_ctx, std::vector<int64_t>({}), value, dtype, out);
+    return;
+  }
   reduce_all = recompute_reduce_all(x, dims, reduce_all);
   if (out_dtype == DataType::UNDEFINED && out->dtype() != x.dtype()) {
     out_dtype = out->dtype();
