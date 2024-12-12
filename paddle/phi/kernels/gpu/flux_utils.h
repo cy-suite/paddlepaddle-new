@@ -37,7 +37,6 @@ public:
   cudaEvent_t event;
 };
 
-template<typename BufferT>
 class BuffersHolder {
 private:
   const GPUContext& dev_ctx;
@@ -45,11 +44,12 @@ private:
   size_t world_size;
   std::vector<void*> ptrs;
   size_t size_in_bytes;
+  size_t offset_in_bytes;
   void * ptr;
-  phi::DataType dtype;
+  phi::DenseTensor local_tensor;
 public:
 
-  BuffersHolder(const std::vector<int64_t>&shape,
+  BuffersHolder(const std::vector<std::pair<const phi::DataType, const std::vector<int64_t>>>& shapes,
                 const GPUContext& dev_ctx_,
                 paddle::distributed::ProcessGroup* tp_group_) :
     dev_ctx(dev_ctx_),
@@ -57,34 +57,49 @@ public:
     world_size(tp_group->GetSize()),
     ptrs(world_size, nullptr) {
 
-    if (std::is_same<BufferT, phi::dtype::float16>::value) dtype = phi::DataType::FLOAT16;
-    else if(std::is_same<BufferT, phi::dtype::bfloat16>::value) dtype = phi::DataType::BFLOAT16;
-    else if(std::is_same<BufferT, uint8_t>::value) dtype = phi::DataType::UINT8;
-    else if(std::is_same<BufferT, int32_t>::value) dtype = phi::DataType::INT32;
-    else throw std::runtime_error("BuffersHolder unexpected BufferT");
-
-    this->size_in_bytes = calc_size(shape);
+    this->size_in_bytes = calc_size(shapes);
+    this->offset_in_bytes = 0;
     alloc();
+  }
+
+  void clear() {
+    this->offset_in_bytes = 0;
+  }
+
+  void reserve(const std::vector<std::pair<const phi::DataType, const std::vector<int64_t>>>& shapes) {
+    size_t require_size = calc_size(shapes);
+    if(require_size > this->size_in_bytes) {
+      this->size_in_bytes = require_size;
+      release();
+      alloc();
+    }
+    this->clear();
   }
 
   // TODO(umiswing): although BuffersHolder object is static, it's better to find a way to destruct it.
 
-  std::vector<DenseTensor> get_buffers(const std::vector<int64_t>& shape) {
-    reserve(shape);
-    std::vector<DenseTensor> tensors;
+  std::vector<DenseTensor> get_buffers(const std::pair<phi::DataType, std::vector<int64_t>>& shape) {
+    PADDLE_ENFORCE_LT(
+      this->offset_in_bytes,
+      this->size_in_bytes,
+      common::errors::InvalidArgument("BuffersHolder is full!"));
+    std::vector<DenseTensor> tensors(tp_group->GetSize(), DenseTensor{});
     for (int i = 0; i < tp_group->GetSize(); ++i) {
-      if (i == tp_group->GetRank()) {
-        DenseTensor local_tensor;
-        local_tensor =
-            from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { });
-        tensors.emplace_back(local_tensor);
-      } else {
         DenseTensor tensor;
         tensor =
-            from_blob(ptrs[i], shape, dtype, dev_ctx.GetPlace(), [](phi::Allocation* allocation) { });
-        tensors.emplace_back(tensor);
-      }
+            from_blob(ptr_offset(ptrs[i], this->offset_in_bytes),
+                      shape.second,
+                      shape.first,
+                      dev_ctx.GetPlace(),
+                      [](phi::Allocation* allocation) {});
+        tensors[i] = tensor;
     }
+
+    this->offset_in_bytes += this->calc_size(shape);
+    PADDLE_ENFORCE_LE(
+      this->offset_in_bytes,
+      this->size_in_bytes,
+      common::errors::InvalidArgument("buffer out of bound!"));
 
     return tensors;
 
@@ -92,8 +107,10 @@ public:
 
 private:
   void alloc() {
-    PADDLE_ENFORCE_GPU_SUCCESS(cudaMalloc(&ptr, size_in_bytes));
-    PADDLE_ENFORCE_GPU_SUCCESS(cudaMemset(ptr, 0, size_in_bytes));
+    local_tensor = phi::Empty<uint8_t>(dev_ctx, {static_cast<int64_t>(this->size_in_bytes)});
+    phi::funcs::SetConstant<GPUContext, uint8_t> set_zero;
+    set_zero(this->dev_ctx, &local_tensor, static_cast<int32_t>(0));
+    this->ptr = local_tensor.data();
 
     cudaIpcMemHandle_t handle;
     PADDLE_ENFORCE_GPU_SUCCESS(cudaIpcGetMemHandle(&handle, ptr));
@@ -125,8 +142,20 @@ private:
     this->tp_group->Barrier(opts)->Wait();
   }
 
-  size_t calc_size(const std::vector<int64_t>& shape) {
-    return sizeof(BufferT) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+  size_t calc_numel(const std::vector<int64_t>& shape) {
+    return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+  }
+
+  size_t calc_size(const std::pair<const phi::DataType, const std::vector<int64_t>>& shape) {
+    return SizeOf(shape.first) * calc_numel(shape.second);
+  }
+
+  size_t calc_size(const std::vector<std::pair<const phi::DataType, const std::vector<int64_t>>>& shapes) {
+    size_t size = 0;
+    for(const auto& shape : shapes) {
+      size += calc_size(shape);
+    }
+    return size;
   }
 
   void release() {
@@ -139,19 +168,9 @@ private:
     distributed::BarrierOptions opts{};
     opts.device_id = device_id;
     this->tp_group->Barrier(opts)->Wait();
-    PADDLE_ENFORCE_GPU_SUCCESS(cudaFree(this->ptr));
 
     for(int i=0; i<world_size; ++i) {
       this->ptrs[i] = nullptr;
-    }
-  }
-
-  void reserve(const std::vector<int64_t>& shape) {
-    size_t require_size = calc_size(shape);
-    if(require_size > this->size_in_bytes) {
-      this->size_in_bytes = require_size;
-      release();
-      alloc();
     }
   }
 
@@ -178,6 +197,18 @@ private:
 };
 
 namespace flux {
+  template<typename T>
+  phi::DataType dtype() {
+    if(std::is_same<T, int32_t>::value) return phi::DataType::INT32;
+    if(std::is_same<T, phi::bfloat16>::value) return phi::DataType::BFLOAT16;
+    if(std::is_same<T, phi::float16>::value) return phi::DataType::FLOAT16;
+    if(std::is_same<T, uint8_t>::value) return phi::DataType::UINT8;
+
+    PADDLE_THROW(common::errors::Unimplemented(
+        "unsupported buffer type "
+        ));
+  }
+
   static void RaiseNotSupportedError() {
     PADDLE_THROW(common::errors::Unimplemented(
         "Flux is unsupported, please check "

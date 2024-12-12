@@ -114,9 +114,11 @@ public:
         !(transpose_weight == true && is_fp8_gemm == true),
         "FP8 GEMM does not support transpose weight");
     this->ring_mode = get_ring_mode(ring_mode_);
+    static BuffersHolder holder{get_buffer_shapes(), dev_ctx, tp_group};
+    holder.reserve(get_buffer_shapes());
     // input buffer
-    static BuffersHolder<InT> input_buffers_holder{{full_m, k_dim}, dev_ctx, tp_group};
-    this->input_buffers = input_buffers_holder.get_buffers({full_m, k_dim});
+    this->input_buffers = holder.get_buffers(std::make_pair(flux::dtype<InT>(),
+                                                            std::vector<int64_t>{full_m, k_dim}));
     this->input_buffer = this->input_buffers[this->local_rank];
     for (int i = 0; i < world_size; ++i) {
       if (i / this->local_world_size == rank / this->local_world_size) {
@@ -128,8 +130,8 @@ public:
     }
 
     int num_signals = MAX_NUM_SIGNAL;
-    static BuffersHolder<int32_t> barrier_buffers_holder{{num_signals}, dev_ctx, tp_group};
-    this->barrier_buffers = barrier_buffers_holder.get_buffers({num_signals});
+    this->barrier_buffers = holder.get_buffers(std::make_pair(flux::dtype<int32_t>(),
+                                                              std::vector<int64_t>{num_signals}));
     this->barrier_buffer = this->barrier_buffers[this->local_rank];
     for (int i = 0; i < world_size; ++i) {
       if (i / this->local_world_size == rank / this->local_world_size) {
@@ -153,11 +155,28 @@ public:
     this->cp_event = cp_event_holder.event;
     this->ready_event = ready_event_holder.event;
 
-    static BuffersHolder<int32_t> sync_buffers_holder{{this->world_size}, dev_ctx, tp_group};
-    this->sync_buffers = sync_buffers_holder.get_buffers({this->world_size});
+    this->sync_buffers = holder.get_buffers(std::make_pair(flux::dtype<int32_t>(),
+                                                           std::vector<int64_t>{this->world_size}));
     for(size_t i=0;i<this->sync_buffers.size();i++) {
       this->sync_buffer_ptrs[i] = static_cast<int32_t *>(this->sync_buffers[i].data());
     }
+  }
+
+  std::vector<std::pair<const phi::DataType, const std::vector<int64_t>>>
+  get_buffer_shapes() {
+    std::vector<std::pair<const phi::DataType, const std::vector<int64_t>>> shapes;
+    // input buffer
+    shapes.emplace_back(std::make_pair(flux::dtype<InT>(),
+                                       std::vector<int64_t>{full_m, k_dim}));
+    // barrier buffer
+    int num_signals = MAX_NUM_SIGNAL;
+    shapes.emplace_back(std::make_pair(flux::dtype<int32_t>(),
+                                       std::vector<int64_t>{num_signals}));
+
+    // sync buffer
+    shapes.emplace_back(std::make_pair(flux::dtype<int32_t>(),
+                                       std::vector<int64_t>{this->world_size}));
+    return shapes;
   }
 
   void
