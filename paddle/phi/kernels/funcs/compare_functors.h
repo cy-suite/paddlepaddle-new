@@ -53,8 +53,8 @@ struct EqualFunctor {
 
 template <typename T>
 struct EqualFunctor<phi::dtype::complex<T>> {
-  HOSTDEVICE bool operator()(const phi::dtype::complex<T> a,
-                             const phi::dtype::complex<T> b) const {
+  HOSTDEVICE bool operator()(const phi::dtype::complex<T>& a,
+                             const phi::dtype::complex<T>& b) const {
     if (isnan(static_cast<T>(a.real)) || isnan(static_cast<T>(a.imag)) ||
         isnan(static_cast<T>(b.real)) || isnan(static_cast<T>(b.imag))) {
       printf("\n特化模板 NAN\n");
@@ -80,8 +80,8 @@ struct NotEqualFunctor {
 
 template <typename T>
 struct NotEqualFunctor<phi::dtype::complex<T>> {
-  HOSTDEVICE bool operator()(const phi::dtype::complex<T> a,
-                             const phi::dtype::complex<T> b) const {
+  HOSTDEVICE bool operator()(const phi::dtype::complex<T>& a,
+                             const phi::dtype::complex<T>& b) const {
     return !EqualFunctor<phi::dtype::complex<T>>()(a, b);
   }
 };
