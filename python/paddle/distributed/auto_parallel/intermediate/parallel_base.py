@@ -271,6 +271,7 @@ class ParallelModel:
                             )
                         elif param_full_name not in param_name_to_shard_param:
                             param_name_to_shard_param[param_full_name] = param
+                            param_name_to_pp_stage[param_full_name] = ipp
 
         for name, layer in model.named_sublayers():
             shard_layer_param(layer)
