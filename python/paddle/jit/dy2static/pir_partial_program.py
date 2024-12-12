@@ -62,8 +62,10 @@ def apply_general_passes(
     program, *, enable_cse=True, enable_delete_assert_op=True
 ):
     pm = paddle.pir.PassManager(2)
-    pm.add_pass("common_subexpression_elimination_pass", {})
-    pm.add_pass("delete_assert_op_pass", {})
+    if enable_cse:
+        pm.add_pass("common_subexpression_elimination_pass", {})
+    if enable_delete_assert_op:
+        pm.add_pass("delete_assert_op_pass", {})
     pm.run(program)
 
 

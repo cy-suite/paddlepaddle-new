@@ -14,6 +14,7 @@
 
 #include "paddle/fluid/pir/transforms/general/delete_assert_op_pass.h"
 
+#include "paddle/fluid/pir/dialect/operator/ir/control_flow_op.h"
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 #include "paddle/pir/include/core/builtin_op.h"
 #include "paddle/pir/include/pass/pass.h"
@@ -28,7 +29,13 @@ class DeleteAssertOpPattern
   bool MatchAndRewrite(
       paddle::dialect::AssertOp op,
       pir::PatternRewriter& rewriter) const override {  // NOLINT
+    auto data_defining_op = op.data().defining_op();
     rewriter.EraseOp(op);
+
+    if (data_defining_op && data_defining_op->isa<pir::CombineOp>() &&
+        op.data().use_empty()) {
+      rewriter.EraseOp(data_defining_op);
+    }
     return true;
   }
 };
@@ -41,10 +48,6 @@ class DeleteAssertOpPass : public pir::PatternRewritePass {
     pir::RewritePatternSet ps(context);
     ps.Add<DeleteAssertOpPattern>(context);
     return ps;
-  }
-
-  bool CanApplyOn(pir::Operation* op) const override {
-    return op->isa<::pir::ModuleOp>() && op->num_regions() > 0;
   }
 
  private:
