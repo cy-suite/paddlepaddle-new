@@ -16,7 +16,10 @@ limitations under the License. */
 #include "paddle/phi/backends/xpu/xpu_context.h"
 #include "paddle/phi/backends/xpu/xpu_header.h"
 #include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/core/tensor_utils.h"
 #include "paddle/phi/kernels/xpu/elementwise.h"
+#include "paddle/phi/kernels/funcs/activation_functor.h"
+#include "paddle/phi/kernels/impl/activation_impl.h"
 namespace phi {
 
 template <typename T, typename Context>
