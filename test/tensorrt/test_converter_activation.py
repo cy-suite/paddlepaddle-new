@@ -100,6 +100,20 @@ class TestSoftplusTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestGeluTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.nn.GELU()
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3]}
+        self.max_shape = {"x": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
 class TestSiluFloatTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.nn.functional.silu
