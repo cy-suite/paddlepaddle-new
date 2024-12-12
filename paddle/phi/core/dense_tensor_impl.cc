@@ -40,11 +40,6 @@ size_t DenseTensor::memory_size() const {
 }
 
 void DenseTensor::check_memory_size() const {
-  if (numel() == 0) {
-    // For zero-sized tensors, typically no memory verification is needed,
-    // or consider special handling if necessary.
-    return;
-  }
   PADDLE_ENFORCE_NOT_NULL(
       holder_,
       common::errors::PreconditionNotMet("Tensor holds no memory. "
