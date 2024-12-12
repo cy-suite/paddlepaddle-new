@@ -470,8 +470,9 @@ class ValuePreservePass:
 
         def name_gen():
             nonlocal count
+            name = f"{prefix}{count}"
             count += 1
-            return f"{prefix}{count}"
+            return name
 
         return name_gen
 
