@@ -36,10 +36,14 @@ template <typename InT, typename OutT = bool>
 struct EqualFunctor {
   HOSTDEVICE OutT operator()(const InT a, const InT b) const {
     if (std::is_floating_point<InT>::value) {
-      if (isinf(static_cast<float>(a)) || isinf(static_cast<float>(b)))
+      if (isinf(static_cast<float>(a)) || isinf(static_cast<float>(b))) {
+        printf("\n泛化模板 INF\n");
         return static_cast<OutT>(a == b);
-      if (isnan(static_cast<float>(a)) || isnan(static_cast<float>(b)))
+      }
+      if (isnan(static_cast<float>(a)) || isnan(static_cast<float>(b))) {
+        printf("\n泛化模板 INF\n");
         return static_cast<OutT>(false);
+      }
       return static_cast<OutT>(fabs(static_cast<double>(a - b)) < 1e-8);
     } else {
       return static_cast<OutT>(a == b);
@@ -53,10 +57,12 @@ struct EqualFunctor<phi::dtype::complex<T>> {
                              const phi::dtype::complex<T> b) const {
     if (isnan(static_cast<T>(a.real)) || isnan(static_cast<T>(a.imag)) ||
         isnan(static_cast<T>(b.real)) || isnan(static_cast<T>(b.imag))) {
+      printf("\n特化模板 NAN\n");
       return static_cast<bool>(false);
     }
     if (isinf(static_cast<T>(a.real)) || isinf(static_cast<T>(a.imag)) ||
         isinf(static_cast<T>(b.real)) || isinf(static_cast<T>(b.imag))) {
+      printf("\n特化模板 INF\n");
       return static_cast<bool>(a.real == b.real && a.imag == b.imag);
     }
     return static_cast<bool>(fabs(static_cast<double>(a.real - b.real)) <
