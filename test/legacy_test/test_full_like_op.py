@@ -218,78 +218,54 @@ class TestFullLikeBF16Op(TestFullLikeOp1):
         self.dtype = np.uint16
 
 
-class TestFullKernel(unittest.TestCase):
-    def test_full_kernel_cpu(self):
+class TestFullKernelZeroSize(unittest.TestCase):
+    def test_full_kernel_cpu_zero_size(self):
         paddle.disable_static()
-        shape = [2, 3]
         value = 5
         dtype = "int32"
-        place = paddle.CPUPlace()
-
+        shape = [0, 3]
         tensor = paddle.full(shape, value, dtype=dtype)
         expected = np.full(shape, value, dtype=dtype)
-
-        self.assertTrue(
-            np.array_equal(tensor.numpy(), expected),
-            msg=f"CPU FullKernel output mismatch. Got {tensor.numpy()}, expected {expected}",
-        )
+        self.assertTrue(np.array_equal(tensor.numpy(), expected))
         paddle.enable_static()
 
     @unittest.skipIf(
         not core.is_compiled_with_cuda(), "Paddle is not compiled with CUDA"
     )
-    def test_full_kernel_gpu(self):
+    def test_full_kernel_gpu_zero_size(self):
         paddle.disable_static()
-        shape = [2, 3]
+        paddle.set_device("gpu:0")
         value = 5.5
         dtype = "float32"
-        place = paddle.CUDAPlace(0)
-
+        shape = [0, 3]
         tensor = paddle.full(shape, value, dtype=dtype)
         expected = np.full(shape, value, dtype=dtype)
-
-        self.assertTrue(
-            np.allclose(tensor.numpy(), expected),
-            msg=f"GPU FullKernel output mismatch. Got {tensor.numpy()}, expected {expected}",
-        )
+        self.assertTrue(np.array_equal(tensor.numpy(), expected))
         paddle.enable_static()
 
 
-class TestFullLikeKernel(unittest.TestCase):
-    def test_full_like_kernel_cpu(self):
+class TestFullLikeKernelZeroSize(unittest.TestCase):
+    def test_full_like_kernel_cpu_zero_size(self):
         paddle.disable_static()
-        base_tensor = paddle.to_tensor(
-            np.array([[1, 2], [3, 4]], dtype=np.float32)
-        )
+        base_tensor = paddle.to_tensor(np.empty((0, 2), dtype=np.float32))
         value = 10.0
-
         result = paddle.full_like(base_tensor, value, dtype="float32")
         expected = np.full_like(base_tensor.numpy(), value)
-
-        self.assertTrue(
-            np.array_equal(result.numpy(), expected),
-            msg=f"CPU FullLikeKernel output mismatch. Got {result.numpy()}, expected {expected}",
-        )
+        self.assertTrue(np.array_equal(result.numpy(), expected))
         paddle.enable_static()
 
     @unittest.skipIf(
         not core.is_compiled_with_cuda(), "Paddle is not compiled with CUDA"
     )
-    def test_full_like_kernel_gpu(self):
+    def test_full_like_kernel_gpu_zero_size(self):
         paddle.disable_static()
         base_tensor = paddle.to_tensor(
-            np.array([[1, 2], [3, 4]], dtype=np.float32),
-            place=paddle.CUDAPlace(0),
+            np.empty((0, 3), dtype=np.float32), place=paddle.CUDAPlace(0)
         )
         value = 20.0
-
         result = paddle.full_like(base_tensor, value, dtype="float32")
         expected = np.full_like(base_tensor.numpy(), value)
-
-        self.assertTrue(
-            np.allclose(result.numpy(), expected),
-            msg=f"GPU FullLikeKernel output mismatch. Got {result.numpy()}, expected {expected}",
-        )
+        self.assertTrue(np.array_equal(result.numpy(), expected))
         paddle.enable_static()
 
 

@@ -52,8 +52,9 @@ void FullLikeKernel(const Context& dev_ctx,
                     const Scalar& val,
                     DataType dtype UNUSED,
                     DenseTensor* out) {
-  out->Resize(x.dims());
   if (out->numel() == 0) {
+    dev_ctx.template Alloc<T>(out);
+    out->Resize(x.dims());
     return;
   }
   if (!std::is_same<T, phi::dtype::complex<float>>::value &&
@@ -103,10 +104,10 @@ void FullIntArrayKernel(const Context& dev_ctx,
                         DataType dtype UNUSED,
                         DenseTensor* out) {
   out->Resize(common::make_ddim({static_cast<int64_t>(shape.size())}));
+  T* out_data = dev_ctx.template Alloc<T>(out);
   if (out->numel() == 0) {
     return;
   }
-  T* out_data = dev_ctx.template Alloc<T>(out);
   for (size_t i = 0; i < shape.size(); ++i) {
     int64_t val = shape[i];
     out_data[i] = static_cast<T>(val);
