@@ -1286,20 +1286,29 @@ class _ShardOptimizer(Optimizer):
                     mesh = mesh.get_mesh_with_dim("pp", pp_idx)
                 return mesh
 
-            # reshard moe_gate.weight.grad, its mesh is flatten mesh
-            # (process_id = [0,1,2,3], dim_names = [d0] not process_id = [[0,1],[2,3]], dim_names = [dp,mp])
-            # so moe_gate.weight.grad need to change mesh use api _dist_reshape to control allreduce axis order
+            ipp = 0
+            global_mesh = fleet.auto.get_mesh()
+            if "pp" in global_mesh.dim_names:
+                pp_degree = global_mesh.get_dim_size("pp")
+                for i in range(pp_degree):
+                    if meshs.process_ids == get_mesh(i).process_ids:
+                        ipp = i
+                        break
+
             change_mesh = False
             if any(
                 isinstance(placement, dist.Partial) for placement in placements
-            ) and (meshs.dim_names != get_mesh(0).dim_names):
+            ) and (
+                (meshs.process_ids == get_mesh(ipp).process_ids)
+                and (meshs.dim_names != get_mesh(ipp).dim_names)
+            ):
                 change_mesh = True
 
             if change_mesh:
                 grad = dist.auto_parallel.moe_utils._dist_reshape(
                     grad,
                     grad.shape,
-                    get_mesh(0),
+                    get_mesh(ipp),
                     [
                         dist.Partial(dist.ReduceType.kRedSum),
                         dist.Partial(dist.ReduceType.kRedSum),
@@ -1311,7 +1320,9 @@ class _ShardOptimizer(Optimizer):
                 if isinstance(placements[i], dist.Partial):
                     placements[i] = dist.Replicate()
                     grad = dist.reshard(grad, grad.process_mesh, placements)
-            grad /= self.gradient_accumulation_steps
+            if self.gradient_accumulation_steps > 1:
+                grad /= self.gradient_accumulation_steps
+
             if change_mesh:
                 grad = dist.auto_parallel.moe_utils._dist_reshape(
                     grad, grad.shape, grad_mesh, [dist.Replicate()]
