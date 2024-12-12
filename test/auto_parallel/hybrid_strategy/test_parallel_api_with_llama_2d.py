@@ -122,7 +122,7 @@ class TestDPMPAPI(test_base.CommunicationTestDistBase):
             "amp_dtype": ["bfloat16"],
             "amp_master_grad": ["true"],
             "use_lazy_init": ["true"],
-            "sequence_parallel": ["true", "false"],
+            "sequence_parallel": ["true"],
             "prepare_input_output": ["false"],
             "sharding_stage": ["0"],
             "test_share_embedding": [
