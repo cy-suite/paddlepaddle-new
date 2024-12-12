@@ -354,6 +354,11 @@ void MatrixRankTolKernel(const Context& dev_ctx,
                         "The input Tensor x's shape[-1] should not "
                         "be 0, but shape is %s now.",
                         dim_x));
+  if (x.numel() == 0) {
+    out->Resize({0});
+    dev_ctx.template Alloc<int64_t>(out);
+    return;
+  }
   int k = std::min(rows, cols);
   auto numel = x.numel();
   int batches = numel / (rows * cols);
@@ -481,6 +486,11 @@ void MatrixRankAtolRtolKernel(const Context& dev_ctx,
       errors::InvalidArgument("The input Tensor x's shape[-1] should not "
                               "be 0, but shape is %s now.",
                               dim_x));
+  if (x.numel() == 0) {
+    out->Resize({0});
+    dev_ctx.template Alloc<int64_t>(out);
+    return;
+  }
   int k = std::min(rows, cols);
   auto numel = x.numel();
   int batches = numel / (rows * cols);
