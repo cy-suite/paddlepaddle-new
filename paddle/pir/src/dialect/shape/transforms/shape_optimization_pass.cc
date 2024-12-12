@@ -405,6 +405,11 @@ void InferSymExprForAllValues(ModuleOp module_op) {
       }();
 
   shape_analysis.InitInferContext();
+  //   shape_analysis.MutInferSymbolicShapeContext()->AddEqualCstr(
+  //   symbol::DimExpr("S0"), symbol::DimExpr("S2"));
+  // shape_analysis.MutInferSymbolicShapeContext()->AddEqualCstr(
+  // symbol::DimExpr("S1"), symbol::DimExpr("S3"));
+
   // init the kwarg symbol shape info
   for (const auto& kv : symbol_shape_map) {
     infer_context->SetShapeOrDataForValue(kv.first, kv.second);

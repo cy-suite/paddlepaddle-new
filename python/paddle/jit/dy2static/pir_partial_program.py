@@ -795,6 +795,7 @@ class PartialProgramLayer:
                         op.set_bool_attr("no_need_buffer", True)
 
                 print("forward program", forward_program)
+
                 if cse_is_enabled():
                     paddle.base.libpaddle.pir.apply_cse_pass(forward_program)
                     paddle.base.libpaddle.pir.apply_cse_pass(backward_program)
