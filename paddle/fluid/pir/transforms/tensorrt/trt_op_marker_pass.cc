@@ -1228,6 +1228,8 @@ class LogicalCommonOpPattern : public pir::OpRewritePattern<OpType> {
 using LogicalOrOpPattern = LogicalCommonOpPattern<paddle::dialect::LogicalOrOp>;
 using LogicalOr_OpPattern =
     LogicalCommonOpPattern<paddle::dialect::LogicalOr_Op>;
+using LogicalAndOpPattern =
+    LogicalCommonOpPattern<paddle::dialect::LogicalAndOp>;
 
 class MulticlassNms3OpPattern
     : public pir::OpRewritePattern<paddle::dialect::MulticlassNms3Op> {
@@ -2210,6 +2212,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<LogicalNotOpPattern>(context));
     ps.Add(std::make_unique<LogicalOrOpPattern>(context));
     ps.Add(std::make_unique<LogicalOr_OpPattern>(context));
+    ps.Add(std::make_unique<LogicalAndOpPattern>(context));
     ps.Add(std::make_unique<GroupNormOpPattern>(context));
     ps.Add(std::make_unique<TransposeOpPattern>(context));
     ps.Add(std::make_unique<GatherOpPattern>(context));
