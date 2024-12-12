@@ -73,7 +73,7 @@ class AutoParallelReplaceWithParallelCrossEntropyPass(PassBase):
                     if not placement1[1].is_shard():
                         return
 
-                    process_ids = op.dist_attr.process_mesh.process_ids
+                    process_ids = operand1.dist_attr().process_mesh.process_ids
                     group = new_process_group(sorted(process_ids))
                     ring_id = group.id
                     nranks = group.nranks
