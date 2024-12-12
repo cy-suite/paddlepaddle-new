@@ -36,11 +36,14 @@
 #include "paddle/pir/include/pass/pass.h"
 #include "paddle/pir/include/pass/pass_registry.h"
 #include "paddle/pir/include/pass/utils.h"
+#ifdef PADDLE_WITH_CINN
+#include "paddle/pir/include/dialect/shape/utils/shape_analysis.h"
+#endif
 
 namespace {
 
 extern const std::set<std::string> ops_in_NCHW;
-extern const std::set<std::string> op_with_axis;
+extern const std::set<std::string> ops_with_axis;
 
 class AutoLayoutInsertPass : public pir::Pass {
  public:
@@ -103,9 +106,19 @@ class AutoLayoutInsertPass : public pir::Pass {
             op->dyn_cast<paddle::dialect::InferMetaInterface>()) {
       auto output_types =
           infer_meta_interface.InferMeta(input_values, &p_attribute_map);
+      pir::TransLayoutCallbackFn callback = nullptr;
+#ifdef PADDLE_WITH_CINN
+      auto& shape_analysis =
+          pir::ShapeAnalysisManager::Instance().Get(op->GetParentProgram());
+      callback = [&](pir::Value value, common::DataLayout new_layout) -> void {
+        shape_analysis.UpdateShapeOrDataByTransLayout(
+            value, pir::TransLayoutType::NCHW2NHWC);
+      };
+#endif
       for (size_t i = 0; i < output_types.size(); ++i) {
         op->result(i).set_type(output_types[i]);
-        pir::SetNewLayoutForValue(op->result(i), common::DataLayout::NHWC);
+        pir::SetNewLayoutForValue(
+            op->result(i), common::DataLayout::NHWC, callback);
       }
     } else {
       InferMetaSpecificOp();
@@ -188,6 +201,30 @@ class AutoLayoutInsertPass : public pir::Pass {
 
       // Skip special ops.
       if (op->HasTrait<pir::ImmutableLayoutTrait>()) continue;
+      if (op->HasTrait<pir::BinaryElementWiseTrait>()) {
+        int32_t dim_size = -3;
+        bool is_broadcast = false;
+        int32_t inp_size = op->num_operands();
+        for (int32_t i = 0; i < inp_size; ++i) {
+          if (is_broadcast) break;
+          auto type = op->operand_source(i)
+                          .type()
+                          .dyn_cast<paddle::dialect::DenseTensorType>();
+          if (!type) {
+            is_broadcast = true;
+            break;
+          }
+          if (i == 0) {
+            dim_size = type.dims().size();
+          } else {
+            if (dim_size != type.dims().size()) {
+              is_broadcast = true;
+              break;
+            }
+          }
+        }
+        if (is_broadcast) continue;
+      }
       if (op->operands().size() == 0) continue;
 
       // NHWC ops branch, Only support
@@ -208,7 +245,7 @@ class AutoLayoutInsertPass : public pir::Pass {
           DoTransposeOpResult(op, builder);
         }
       } else if (ops_in_NCHW.find(op_name) == ops_in_NCHW.end() &&
-                 op_with_axis.find(op_name) == op_with_axis.end() &&
+                 ops_with_axis.find(op_name) == ops_with_axis.end() &&
                  IsInsertTransposeOpBefore(op)) {
         VLOG(4) << "enter NCHW op: " << op_name;
         DoTransposeOpOperand(op, builder);
@@ -308,7 +345,7 @@ const std::set<std::string> ops_in_NCHW = {"pd_op.max_pool2d_with_index",
                                            "pd_op.deformable_conv",
                                            "pd_op.set_value_with_tensor_",
                                            "pd_op.set_value_with_tensor"};
-const std::set<std::string> op_with_axis = {
+const std::set<std::string> ops_with_axis = {
     "pd_op.all",
     "pd_op.amax",
     "pd_op.amin",
