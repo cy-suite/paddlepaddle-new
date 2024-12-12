@@ -863,11 +863,11 @@ __global__ void Contiguous2StridedCaseZeroFunc(
   int64_t output_offset = 0;
 
   int64_t coordinate[6] = {threadIdx.x,
-                         threadIdx.y,
-                         threadIdx.z,
-                         blockIdx.x,
-                         blockIdx.y,
-                         blockIdx.z};
+                           threadIdx.y,
+                           threadIdx.z,
+                           blockIdx.x,
+                           blockIdx.y,
+                           blockIdx.z};
 
 #pragma unroll
   for (int dim = RANK - 1; dim >= 0; --dim) {
