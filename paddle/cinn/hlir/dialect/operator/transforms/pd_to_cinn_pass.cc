@@ -23,6 +23,7 @@
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 #include "paddle/fluid/pir/dialect/operator/utils/utils.h"
 #include "paddle/fluid/pir/drr/include/drr_pattern_base.h"
+#include "paddle/fluid/pir/utils/general_functions.h"
 #include "paddle/pir/include/core/builtin_dialect.h"
 #include "paddle/pir/include/core/builtin_op.h"
 #include "paddle/pir/include/pass/pass.h"
@@ -522,11 +523,11 @@ class PowOpPattern : public pir::OpRewritePattern<paddle::dialect::PowOp> {
   void Rewrite(paddle::dialect::PowOp op,
                pir::PatternRewriter &rewriter) const override {
     auto factor = op->attribute("y").dyn_cast<pir::FloatAttribute>().data();
-    auto full_op =
-        rewriter.Build<paddle::dialect::FullOp>(std::vector<int64_t>({1}),
-                                                factor,
-                                                phi::DataType::FLOAT32,
-                                                phi::CPUPlace());
+    auto full_op = rewriter.Build<paddle::dialect::FullOp>(
+        std::vector<int64_t>({1}),
+        factor,
+        pir::GetValueDtype(op->operand_source(0)),
+        phi::CPUPlace());
 
     auto elementwise_pow = rewriter.Build<paddle::dialect::ElementwisePowOp>(
         op->operand_source(0), full_op->result(0));
@@ -969,8 +970,18 @@ class FullWithTensorOpPattern
                   .result(0);
     }
 
-    auto out =
-        rewriter.Build<paddle::dialect::ExpandOp>(value, shape).result(0);
+    const auto &out = [&]() -> pir::Value {
+      const auto &out_type =
+          op->result(0).type().dyn_cast<paddle::dialect::DenseTensorType>();
+      if (out_type.dims().size() == 0) {
+        const auto &dtype =
+            op->attribute<paddle::dialect::DataTypeAttribute>("dtype").data();
+        return rewriter
+            .Build<paddle::dialect::FullOp>(std::vector<int64_t>{}, 0.0, dtype)
+            .result(0);
+      }
+      return rewriter.Build<paddle::dialect::ExpandOp>(value, shape).result(0);
+    }();
 
     rewriter.ReplaceAllUsesWith(op.result(0), out);
 

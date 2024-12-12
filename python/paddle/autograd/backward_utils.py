@@ -31,6 +31,8 @@ from paddle.base.wrapped_decorator import signature_safe_contextmanager
 ALLOW_DYNAMIC_SHAPE_VJP_OPS = [
     "pd_op.abs",
     "pd_op.add",
+    "pd_op.amax",
+    "pd_op.amin",
     "pd_op.argsort",
     "pd_op.assign",
     "pd_op.batch_norm_",
@@ -53,6 +55,7 @@ ALLOW_DYNAMIC_SHAPE_VJP_OPS = [
     "pd_op.gather",
     "pd_op.gather_nd",
     "pd_op.gelu",
+    "pd_op.hardsigmoid",
     "pd_op.hardswish",
     "pd_op.kron",
     "pd_op.kthvalue",
@@ -72,6 +75,7 @@ ALLOW_DYNAMIC_SHAPE_VJP_OPS = [
     "pd_op.prod",
     "pd_op.reduce_as",
     "pd_op.relu",
+    "pd_op.relu6",
     "pd_op.reshape",
     "pd_op.roll",
     "pd_op.rsqrt",
@@ -326,7 +330,11 @@ class State:
 def _check_vjp_dynamic_shape(op, inputs):
     for items in inputs:
         for item in items:
-            if item.initialized() and -1 in item.shape:
+            if (
+                item.is_dense_tensor_type()
+                and item.initialized()
+                and -1 in item.shape
+            ):
                 return True
 
 
@@ -426,18 +434,16 @@ def inverse_sort_op(old_ops):
     # pending edges for its grad_op
 
     pending_count = collections.defaultdict(int)
-    ops = []
-    [ops.append(x) for x in old_ops if x not in ops]
-    ops_set = set(ops)
+    ops_set = set(old_ops)
     sorted_list = []
-    for op in ops:
+    for op in ops_set:
         for x in get_real_op_inputs(op):
             if not pir.is_fake_value(x) and x.get_defining_op() in ops_set:
                 pending_count[x.get_defining_op()] += 1
 
     queue = collections.deque()
 
-    for op in ops:
+    for op in ops_set:
         if pending_count[op] == 0:
             queue.append(op)
 
@@ -450,7 +456,7 @@ def inverse_sort_op(old_ops):
             if pending_count[x_op] == 0:
                 queue.append(x_op)
 
-    if len(sorted_list) != len(ops):
+    if len(sorted_list) != len(ops_set):
         raise ValueError(
             "inverse_sort_op wrong, sorted_list size is not equal to origin_list size"
         )

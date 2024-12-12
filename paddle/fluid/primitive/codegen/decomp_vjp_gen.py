@@ -139,11 +139,14 @@ OTHER_PRIM_VJP_OPS = [
 PRIM_VJP = UNARY_PRIM_VJP_OPS + BINARY_PRIM_VJP_OPS + OTHER_PRIM_VJP_OPS
 
 CUSTOM_VJP = [
+    'amax_grad',
+    'amin_grad',
     'bce_loss_grad',
     'batch_norm_grad',
     'dropout_grad',
     'gelu_grad',
     'group_norm_grad',
+    'hardsigmoid_grad',
     'hardswish_grad',
     'instance_norm_grad',
     'layer_norm_grad',
@@ -152,6 +155,7 @@ CUSTOM_VJP = [
     'minimum_grad',
     'pow_grad',
     'relu_grad',
+    'relu6_grad',
     'sigmoid_grad',
     'silu_grad',
     'softmax_grad',
