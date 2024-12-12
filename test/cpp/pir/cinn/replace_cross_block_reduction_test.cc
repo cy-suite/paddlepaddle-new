@@ -54,8 +54,7 @@ TEST(CrossBlockReductionReplacer, SRLayout) {
   func->temp_bufs = {A->buffer, B->buffer};
 
   VLOG(6) << "Before ReplaceCrossBlockReduction: " << func;
-  auto expr_func = Expr(func);
-  ReplaceCrossBlockReduction(&expr_func);
+  ReplaceCrossBlockReduction(func);
   VLOG(6) << "After ReplaceCrossBlockReduction: " << func;
 
   EXPECT_EQ(utils::GetStreamCnt(func),
@@ -140,8 +139,7 @@ TEST(CrossBlockReductionReplacer, RSLayout) {
   func->temp_bufs = {A->buffer, B->buffer};
 
   VLOG(6) << "Before ReplaceCrossBlockReduction: " << func;
-  auto expr_func = Expr(func);
-  ReplaceCrossBlockReduction(&expr_func);
+  ReplaceCrossBlockReduction(func);
   VLOG(6) << "After ReplaceCrossBlockReduction: " << func;
 
   EXPECT_EQ(utils::GetStreamCnt(func),
@@ -166,7 +164,7 @@ TEST(CrossBlockReductionReplacer, RSLayout) {
               ScheduleBlock(B)
               {
                 i0_0, i1_0, i2 = axis.bind(i, j, reduce_k)
-                B[i0_0, i1_0] = cinn_grid_reduce_max_fp32(Tensor(A, [8,4,32]), 128, ((32 * i0_0) + i1_0))
+                B[i0_0, i1_0] = cinn_grid_reduce_max_fp32(Tensor(A, [8,4,32]), 128, ((i0_0 * 32) + i1_0))
               }
             }
           }

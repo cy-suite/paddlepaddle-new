@@ -29,7 +29,7 @@
 #include "paddle/pir/include/core/utils.h"
 #include "paddle/pir/include/core/value.h"
 
-COMMON_DECLARE_bool(pir_debug);
+COMMON_DECLARE_bool(print_ir);
 
 namespace pir {
 
@@ -188,13 +188,10 @@ void IrPrinter::PrintOperation(const Operation& op) {
 void IrPrinter::PrintOperationWithNoRegion(const Operation& op) {
   // TODO(lyk): add API to get opresults directly
   PrintOpResult(op);
-  os << " =";
+  os << " = ";
+  PrintOpName(op);
 
-  os << " \"" << op.name() << "\"";
-
-  if (VLOG_IS_ON(1) || FLAGS_pir_debug) {
-    os << " [id:" << op.id() << "]";
-  }
+  PrintOpId(op);
 
   // TODO(lyk): add API to get operands directly
   PrintOpOperands(op);
@@ -231,14 +228,14 @@ void IrPrinter::PrintBlock(const Block& block) {
   os << indentation() << "{\n";
   AddIndentation();
   if (!block.kwargs_empty()) {
-    os << indentation() << "^kw:";
-    auto cur = block.kwargs_begin(), end = block.kwargs_end();
-    PrintValue(cur->second);
-    while (++cur != end) {
-      os << ", ";
-      PrintValue(cur->second);
+    os << indentation() << "^kw:\n";
+    AddIndentation();
+    for (auto iter = block.kwargs_begin(); iter != block.kwargs_end(); ++iter) {
+      os << indentation();
+      PrintValue(iter->second);
+      os << "\n";
     }
-    os << "\n";
+    DecreaseIndentation();
   }
   for (auto& item : block) {
     PrintOperation(item);
@@ -270,6 +267,19 @@ void IrPrinter::PrintValue(Value v) {
                arg.is_kwarg()
                    ? "%kwarg_" + arg.keyword()
                    : "%arg_" + std::to_string(cur_block_argument_number_++));
+    auto& arg_attributes = arg.attributes();
+    os << " {";
+    pir::detail::PrintInterleave(
+        arg_attributes.begin(),
+        arg_attributes.end(),
+        [this](std::pair<std::string, Attribute> it) {
+          this->os << it.first;
+          this->os << ":";
+          this->PrintAttribute(it.second);
+        },
+        [this]() { this->os << ","; });
+
+    os << "}";
   }
 }
 
@@ -310,6 +320,15 @@ void IrPrinter::PrintAttributeMap(const Operation& op) {
       [this]() { this->os << ","; });
 
   os << "}";
+}
+
+void IrPrinter::PrintOpName(const Operation& op) {
+  os << "\"" << op.name() << "\"";
+}
+void IrPrinter::PrintOpId(const Operation& op) {
+  if (VLOG_IS_ON(1) || FLAGS_print_ir) {
+    os << " [id:" << op.id() << "]";
+  }
 }
 
 void IrPrinter::PrintOpOperands(const Operation& op) {
@@ -370,10 +389,9 @@ void IrPrinter::PrintOpReturnType(const Operation& op) {
 
 void IrPrinter::AddValueAlias(Value v, const std::string& alias) {
   const void* key = v.impl();
-  PADDLE_ENFORCE_EQ(aliases_.find(key),
-                    aliases_.end(),
-                    common::errors::InvalidArgument("Value already has alias"));
-  aliases_[key] = alias;
+  if (aliases_.find(key) == aliases_.end()) {
+    aliases_[key] = alias;
+  }
 }
 
 class CustomPrinter : public IrPrinter {

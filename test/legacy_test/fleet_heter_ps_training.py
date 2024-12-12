@@ -36,7 +36,7 @@ def net(batch_size=4, lr=0.01):
         batch_size(int): the size of mini-batch for training
         lr(float): learning rate of training
     Returns:
-        avg_cost: LoDTensor of cost.
+        avg_cost: DenseTensor of cost.
     """
     dnn_input_dim, lr_input_dim = 2, 2
 
@@ -45,19 +45,16 @@ def net(batch_size=4, lr=0.01):
             name="dnn_data",
             shape=[-1, 1],
             dtype="int64",
-            lod_level=1,
         )
         lr_data = paddle.static.data(
             name="lr_data",
             shape=[-1, 1],
             dtype="int64",
-            lod_level=1,
         )
         label = paddle.static.data(
             name="click",
             shape=[-1, 1],
             dtype="float32",
-            lod_level=0,
         )
 
         datas = [dnn_data, lr_data, label]
@@ -103,7 +100,7 @@ def net(batch_size=4, lr=0.01):
                 weight_attr=base.ParamAttr(
                     initializer=paddle.nn.initializer.Constant(value=0.01)
                 ),
-                name='dnn-fc-%d' % i,
+                name=f'dnn-fc-{i}',
             )
             dnn_out = fc
 

@@ -1116,12 +1116,12 @@ function check_whl_size() {
     whldiffSize=`echo $(($pr_whl_size - $dev_whl_size))`
     if [ ${whldiffSize} -gt 10 ]; then
        approval_line=`curl -H "Authorization: token ${GITHUB_API_TOKEN}" https://api.github.com/repos/PaddlePaddle/Paddle/pulls/${GIT_PR_ID}/reviews?per_page=10000`
-       APPROVALS=`echo ${approval_line}|python ${PADDLE_ROOT}/tools/check_pr_approval.py 1 22334008 22361972`
+       APPROVALS=`echo ${approval_line}|python ${PADDLE_ROOT}/tools/check_pr_approval.py 1 zhangbo9674 risemeup1 phlrain`
        echo "current pr ${GIT_PR_ID} got approvals: ${APPROVALS}"
        if [ "${APPROVALS}" == "FALSE" ]; then
            echo "=========================================================================================="
            echo "This PR make the release paddlepaddle whl size growth exceeds 10 M."
-           echo "Then you must have one RD (jim19930609 (Recommend) or JiabinYang) approval for this PR\n"
+           echo "Then you must have one RD (zhangbo9674 or risemeup1 or phlrain) approval for this PR\n"
            echo "=========================================================================================="
            exit 6
        fi
@@ -2401,9 +2401,10 @@ set +x
         echo "Starting running xpu tests"
         export XPU_OP_LIST_DIR=$tmp_dir
         ut_startTime_s=`date +%s`
-        test_cases=$(ctest -N -V -LE "(RUN_TYPE=DIST_KUNLUN)" | grep "_xpu" )        # cases list which would be run exclusively
         get_quickly_disable_ut||disable_ut_quickly='disable_ut'   # indicate whether the case was in quickly disable list
+        test_cases=$(ctest -N -V -E "$disable_ut_quickly" -LE "(RUN_TYPE=DIST_KUNLUN)")        # cases list which would be run exclusively
 
+        single_card_test_num=0
         while read -r line; do
             if [[ "$line" == "" ]]; then
                 continue
@@ -2413,6 +2414,17 @@ set +x
                 continue
             fi
             testcase=$(echo "$line"|grep -oEi "\w+$")
+            single_card_test_num=$(($single_card_test_num+1))
+            if [[ $single_card_test_num -gt 1200 ]]; then
+                # too many test cases in single set will lead to ctest "RegularExpression::compile(): Expression too big." error
+                # therefore use a new test set
+                if [[ "$single_card_tests_1" == "" ]]; then
+                    single_card_tests_1="^$testcase$"
+                else
+                    single_card_tests_1="$single_card_tests_1|^$testcase$"
+                fi
+                continue
+            fi
             if [[ "$single_card_tests" == "" ]]; then
                 single_card_tests="^$testcase$"
             else
@@ -2420,6 +2432,7 @@ set +x
             fi
         done <<< "$test_cases";
         card_test "$single_card_tests" 1 4
+        card_test "$single_card_tests_1" 1 4
         failed_test_lists=''
         collect_failed_tests
         xputest_error=0
@@ -4742,7 +4755,7 @@ function main() {
       cicheck_sot)
         check_run_sot_ci
         export WITH_SHARED_PHI=ON
-        PYTHON_VERSIONS=(3.8 3.9 3.10 3.11 3.12)
+        PYTHON_VERSIONS=(3.13 3.8 3.9 3.10 3.11 3.12)
         for PY_VERSION in ${PYTHON_VERSIONS[@]}; do
             ln -sf $(which python${PY_VERSION}) /usr/local/bin/python
             ln -sf $(which pip${PY_VERSION}) /usr/local/bin/pip

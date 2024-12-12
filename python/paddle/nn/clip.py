@@ -158,7 +158,7 @@ def get_tensor_from_selected_rows(x, name=None):
            x.height = 20
            x.value = [[1, 1] [2, 2] [2, 2] [3, 3] [6, 6]]
 
-        Output is LoDTensor:
+        Output is DenseTensor:
            out.shape = [5, 2]
            out.data = [[1, 1],
                        [2, 2],
@@ -172,7 +172,7 @@ def get_tensor_from_selected_rows(x, name=None):
             For more information, please refer to :ref:`api_guide_Name` .
 
     Returns:
-        Variable: LoDTensor transformed from SelectedRows. The data type is same with input.
+        Variable: DenseTensor transformed from SelectedRows. The data type is same with input.
 
     Examples:
         .. code-block:: python
@@ -693,6 +693,7 @@ class ClipGradByGlobalNorm(ClipGradBase):
         # are so many hard code depends on `add_n` in the legacy static
         # manual hybrid-parallel.
         self._async_add_n = None
+        self.should_comm_on_shard_dim = False
 
     def __str__(self) -> str:
         return f"Gradient Clip By GlobalNorm, global_norm={self.clip_norm:f}"
@@ -832,9 +833,21 @@ class ClipGradByGlobalNorm(ClipGradBase):
 
     def _pir_clip(self, params_grads):
         params_and_grads = []
-        sum_square_list = []
-        sum_square_list_fp16 = []
-        sum_square_list_fp32 = []
+
+        # no fusion grad
+        no_fusion_sum_square = []
+        no_fusion_sum_square_fp16 = []
+        no_fusion_sum_square_fp32 = []
+
+        # fusion grad need to commnuicate in dp&mp
+        sum_square_dist = []
+        sum_square_dist_fp16 = []
+        sum_square_dist_fp32 = []
+
+        # fusion grad only need to commnuicate in dp
+        sum_square_not_dist = []
+        sum_square_not_dist_fp16 = []
+        sum_square_not_dist_fp32 = []
 
         auto_parallel_pp = False
         pp_meshes = set()
@@ -889,20 +902,50 @@ class ClipGradByGlobalNorm(ClipGradBase):
                     ),
                 )
             if (
-                sum_square.dtype == DataType.FLOAT16
-                or sum_square.dtype == DataType.BFLOAT16
+                not self.should_comm_on_shard_dim
+                or p.optimize_attr["no_fusion"]
             ):
-                sum_square_list_fp16.append(sum_square)
-            elif sum_square.dtype == DataType.FLOAT32:
-                sum_square_list_fp32.append(sum_square)
+                if (
+                    sum_square.dtype == DataType.FLOAT16
+                    or sum_square.dtype == DataType.BFLOAT16
+                ):
+                    no_fusion_sum_square_fp16.append(sum_square)
+                elif sum_square.dtype == DataType.FLOAT32:
+                    no_fusion_sum_square_fp32.append(sum_square)
+                else:
+                    no_fusion_sum_square.append(sum_square)
+            elif p.is_distributed:
+                if (
+                    sum_square.dtype == DataType.FLOAT16
+                    or sum_square.dtype == DataType.BFLOAT16
+                ):
+                    sum_square_dist_fp16.append(sum_square)
+                elif sum_square.dtype == DataType.FLOAT32:
+                    sum_square_dist_fp32.append(sum_square)
+                else:
+                    sum_square_dist.append(sum_square)
             else:
-                sum_square_list.append(sum_square)
+                if (
+                    sum_square.dtype == DataType.FLOAT16
+                    or sum_square.dtype == DataType.BFLOAT16
+                ):
+                    sum_square_not_dist_fp16.append(sum_square)
+                elif sum_square.dtype == DataType.FLOAT32:
+                    sum_square_not_dist_fp32.append(sum_square)
+                else:
+                    sum_square_not_dist.append(sum_square)
 
         # all parameters have been filterd out
         if (
-            len(sum_square_list)
-            + len(sum_square_list_fp16)
-            + len(sum_square_list_fp32)
+            len(no_fusion_sum_square)
+            + len(no_fusion_sum_square_fp16)
+            + len(no_fusion_sum_square_fp32)
+            + len(sum_square_dist)
+            + len(sum_square_dist_fp16)
+            + len(sum_square_dist_fp32)
+            + len(sum_square_not_dist)
+            + len(sum_square_not_dist_fp16)
+            + len(sum_square_not_dist_fp32)
             == 0
         ):
             return params_grads
@@ -910,21 +953,97 @@ class ClipGradByGlobalNorm(ClipGradBase):
         def async_add_n(var_list):
             return paddle.stack(var_list).sum()
 
-        sum_dtype = 'float64' if len(sum_square_list) > 0 else "float32"
-        global_norm_var = []
-        if len(sum_square_list_fp16) > 0:
-            global_norm_var_fp16 = async_add_n(sum_square_list_fp16)
-            global_norm_var.append(global_norm_var_fp16.astype(sum_dtype))
-        if len(sum_square_list_fp32) > 0:
-            global_norm_var_fp32 = async_add_n(sum_square_list_fp32)
+        sum_dtype = (
+            'float64'
+            if len(no_fusion_sum_square)
+            + len(sum_square_dist)
+            + len(sum_square_not_dist)
+            > 0
+            else "float32"
+        )
+        no_fusion_global_norm = []
+        global_norm_dist = []
+        global_norm_not_dist = []
+        if len(no_fusion_sum_square_fp16) > 0:
+            global_norm_var_fp16 = async_add_n(no_fusion_sum_square_fp16)
+            no_fusion_global_norm.append(global_norm_var_fp16.astype(sum_dtype))
+        if len(sum_square_dist_fp16) > 0:
+            global_norm_var_fp16 = async_add_n(sum_square_dist_fp16)
+            global_norm_dist.append(global_norm_var_fp16.astype(sum_dtype))
+        if len(sum_square_not_dist_fp16) > 0:
+            global_norm_var_fp16 = async_add_n(sum_square_not_dist_fp16)
+            global_norm_not_dist.append(global_norm_var_fp16.astype(sum_dtype))
+
+        if len(no_fusion_sum_square_fp32) > 0:
+            global_norm_var_fp32 = async_add_n(no_fusion_sum_square_fp32)
             if sum_dtype == 'float32':
-                global_norm_var.append(global_norm_var_fp32)
+                no_fusion_global_norm.append(global_norm_var_fp32)
             else:
-                global_norm_var.append(global_norm_var_fp32.astype(sum_dtype))
-        if len(sum_square_list) > 0:
-            global_norm_var_fp64 = async_add_n(sum_square_list)
-            global_norm_var.append(global_norm_var_fp64)
-        global_norm_var = async_add_n(global_norm_var)
+                no_fusion_global_norm.append(
+                    global_norm_var_fp32.astype(sum_dtype)
+                )
+        if len(sum_square_dist_fp32) > 0:
+            global_norm_var_fp32 = async_add_n(sum_square_dist_fp32)
+            if sum_dtype == 'float32':
+                global_norm_dist.append(global_norm_var_fp32)
+            else:
+                global_norm_dist.append(global_norm_var_fp32.astype(sum_dtype))
+        if len(sum_square_not_dist_fp32) > 0:
+            global_norm_var_fp32 = async_add_n(sum_square_not_dist_fp32)
+            if sum_dtype == 'float32':
+                global_norm_not_dist.append(global_norm_var_fp32)
+            else:
+                global_norm_not_dist.append(
+                    global_norm_var_fp32.astype(sum_dtype)
+                )
+        if len(no_fusion_sum_square) > 0:
+            global_norm_var_fp64 = async_add_n(no_fusion_sum_square)
+            no_fusion_global_norm.append(global_norm_var_fp64)
+        if len(sum_square_dist) > 0:
+            global_norm_var_fp64 = async_add_n(sum_square_dist)
+            global_norm_dist.append(global_norm_var_fp64)
+        if len(sum_square_not_dist) > 0:
+            global_norm_var_fp64 = async_add_n(sum_square_dist)
+            global_norm_not_dist.append(global_norm_var_fp64)
+
+        global_norm_var = None
+        if len(no_fusion_global_norm) > 0:
+            global_norm_var = async_add_n(no_fusion_global_norm)
+
+        if len(global_norm_dist) > 0:
+            global_norm_dist_var = async_add_n(global_norm_dist)
+        elif self.should_comm_on_shard_dim and self.has_dist_param:
+            global_norm_dist_var = paddle.full(
+                shape=[1], dtype=sum_dtype, fill_value=0.0
+            )
+
+        if self.should_comm_on_shard_dim and self.has_dist_param:
+            global_norm_dist_var = paddle._C_ops.c_allreduce_sum(
+                global_norm_dist_var, self.sharding_group.id, True, False
+            )
+            global_norm_dist_var = paddle._C_ops.c_allreduce_sum(
+                global_norm_dist_var, self.mp_group.id, True, False
+            )
+            if global_norm_var is None:
+                global_norm_var = global_norm_dist_var
+            else:
+                global_norm_var = global_norm_var + global_norm_dist_var
+
+        if len(global_norm_not_dist) > 0:
+            global_norm_not_dist_var = async_add_n(global_norm_not_dist)
+        elif self.should_comm_on_shard_dim and self.has_not_dist_param:
+            global_norm_not_dist_var = paddle.full(
+                shape=[1], dtype=sum_dtype, fill_value=0.0
+            )
+        if self.should_comm_on_shard_dim and self.has_not_dist_param:
+            global_norm_not_dist_var = paddle._C_ops.c_allreduce_sum(
+                global_norm_not_dist_var, self.sharding_group.id, True, False
+            )
+            if global_norm_var is None:
+                global_norm_var = global_norm_not_dist_var
+            else:
+                global_norm_var = global_norm_var + global_norm_not_dist_var
+
         global_norm_var = paddle.sqrt(global_norm_var)
         max_global_norm = paddle.full(
             shape=[1], dtype=global_norm_var.dtype, fill_value=self.clip_norm
@@ -1207,8 +1326,8 @@ def set_gradient_clip(clip, param_list=None, program=None):
     To specify parameters that require gradient clip.
 
     Args:
-        grad_clip (GradientClipBase, optional): Gradient cliping strategy, it's an instance of
-            some derived class of ``GradientClipBase`` . There are three cliping strategies
+        grad_clip (GradientClipBase, optional): Gradient clipping strategy, it's an instance of
+            some derived class of ``GradientClipBase`` . There are three clipping strategies
             ( :ref:`api_paddle_nn_ClipGradByGlobalNorm` , :ref:`api_paddle_nn_ClipGradByNorm` ,
             :ref:`api_paddle_nn_ClipGradByValue` ). Default value: None, and there is no
             gradient clipping.

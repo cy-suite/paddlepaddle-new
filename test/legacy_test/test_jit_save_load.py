@@ -724,8 +724,8 @@ class TestSaveLoadWithDictInput(unittest.TestCase):
         )
         # net.forward.concrete_program.inputs:
         # (<__main__.LinearNetWithDictInput object at 0x7f2655298a98>,
-        #  {'img': var img : base.VarType.LOD_TENSOR.shape(-1, 8).astype(VarType.FP32)},
-        #  {'label': var label : base.VarType.LOD_TENSOR.shape(-1, 1).astype(VarType.INT64)})
+        #  {'img': var img : base.VarType.DENSE_TENSOR.shape(-1, 8).astype(VarType.FP32)},
+        #  {'label': var label : base.VarType.DENSE_TENSOR.shape(-1, 1).astype(VarType.INT64)})
         self.assertEqual(len(net.forward.concrete_program.inputs), 3)
         temp_dir = tempfile.TemporaryDirectory()
         path = os.path.join(
@@ -1776,8 +1776,11 @@ class TestJitSaveLoadFinetuneLoad(unittest.TestCase):
         result_10 = layer_finetune(inps0)
         result_11 = layer_finetune(inps1)
 
-        self.assertTrue(float((result_00 - result_10).abs().max()) < 1e-5)
-        self.assertTrue(float((result_01 - result_11).abs().max()) < 1e-5)
+        # (result_00 - result_10) is [nan, ...], so the result of (result_00 - result_10).abs().max() is -inf.
+        # Since -inf is always less than 1e-5, the assert will always evaluate to true.
+        # Therefore, this assert should be considered to remove.
+        # self.assertTrue(float((result_00 - result_10).abs().max()) < 1e-5)
+        # self.assertTrue(float((result_01 - result_11).abs().max()) < 1e-5)
 
 
 # NOTE(weixin): When there are multiple test functions in an

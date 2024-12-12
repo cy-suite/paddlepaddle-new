@@ -60,6 +60,8 @@ _PADDLE_DTYPE_2_NUMPY_DTYPE = {
     core.VarDesc.VarType.UINT8: 'uint8',
     core.VarDesc.VarType.COMPLEX64: 'complex64',
     core.VarDesc.VarType.COMPLEX128: 'complex128',
+    core.VarDesc.VarType.STRING: 'pstring',
+    core.VarDesc.VarType.RAW: 'raw',
 }
 
 _NUMPY_DTYPE_2_PADDLE_DTYPE = {
@@ -268,7 +270,7 @@ def check_shape(
         check_dtype(shape.dtype, 'shape', expected_tensor_dtype, op_name)
 
 
-class DataToLoDTensorConverter:
+class DataToDenseTensorConverter:
     def __init__(self, place, lod_level, shape, dtype):
         self.place = place
         self.lod_level = lod_level
@@ -315,7 +317,7 @@ class DataToLoDTensorConverter:
                     raise ValueError(
                         f"Reshape error. What is defined in data layer is {self.shape}, but receive {arr.shape}"
                     )
-        t = core.LoDTensor()
+        t = core.DenseTensor()
         t.set(arr, self.place)
         if self.lod_level > 0:
             t.set_recursive_sequence_lengths(self.lod)
@@ -335,7 +337,7 @@ class BatchedTensorProvider:
             if not in_pir_mode():
                 assert var.lod_level == 0, "lod_level must be 0"
             self.converters.append(
-                DataToLoDTensorConverter(
+                DataToDenseTensorConverter(
                     place=self.place,
                     lod_level=0,
                     shape=var.shape,
@@ -507,7 +509,7 @@ class DataFeeder:
             self.feed_lod_level, self.feed_shapes, self.feed_dtypes
         ):
             converter.append(
-                DataToLoDTensorConverter(
+                DataToDenseTensorConverter(
                     place=self.place,
                     lod_level=lod_level,
                     shape=shape,

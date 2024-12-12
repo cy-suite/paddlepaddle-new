@@ -13,7 +13,6 @@
 # limitations under the License.
 
 
-import numpy as np
 import tensorrt as trt
 
 from paddle.tensorrt.converter_utils import (
@@ -23,15 +22,17 @@ from paddle.tensorrt.converter_utils import (
     cast_tensor,
     fix_negative_indices,
     get_axes_for_reduce_op,
-    get_positive_dim,
     get_shape_tensor_element,
     has_dynamic_shape,
+    resize_to_1d,
     trt_concat,
+    trt_expand,
     trt_floor_div,
+    trt_gather,
     trt_less,
     trt_max,
     trt_min,
-    trt_mul,
+    trt_prod,
     trt_reshape,
     trt_shape,
     trt_sub,
@@ -39,50 +40,56 @@ from paddle.tensorrt.converter_utils import (
 )
 from paddle.tensorrt.register import converter_registry
 
+from ..util import get_trt_version_list
 
-@converter_registry.register("pd_op.reshape", trt_version="8.x")
+
+@converter_registry.register("pd_op.reshape", trt_version="trt_version_ge=8.0")
 def reshape_converter(network, paddle_op, inputs):
-    input_tensor, shape_tensor = inputs
-    input_shape = paddle_op.operands()[0].source().shape
+    x = inputs[0]
+    is_constant_shape = False
+    shape_defining_op = paddle_op.operands()[1].source().get_defining_op()
+    if shape_defining_op.name() == "pd_op.full_int_array":
+        shape = shape_defining_op.attrs()["value"]
+        reshape_dim = shape
+        is_constant_shape = True
+    elif isinstance(inputs[1], list):
+        # shape tensor is a list value
+        shape_tensor = trt_concat(network, inputs[1])
+    else:
+        # shape tensor is a value
+        shape_tensor = inputs[1]
 
-    output_shape = paddle_op.results()[0].shape
-    if network.has_implicit_batch_dimension:
-        output_shape = output_shape[1:]
+    if not is_constant_shape:
+        shape_tensor = resize_to_1d(network, shape_tensor)
 
-    if type(input_tensor) == trt.Weights:
-        input_tensor = network.add_constant(
-            input_shape, input_tensor
-        ).get_output(0)
+    layer = network.add_shuffle(x)
+    if is_constant_shape:
+        layer.reshape_dims = reshape_dim
+    else:
+        layer.set_input(1, shape_tensor)
 
-    shuffle_layer = network.add_shuffle(input_tensor)
+    assert len(layer.get_output(0).shape) >= 0, (
+        'When convert reshape op to TRT reshape layer, the rank of trt reshape output dims is less than 0, '
+        'you should modify trt_config(a TensorRTConfig object) and set trt_config.disable_ops = ["pd_op.reshape"] to forbid this op.'
+    )
 
-    try:
-        reshape_dims = (
-            paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
-        )
-        shuffle_layer.reshape_dims = tuple(reshape_dims)
-    except Exception:
-        shuffle_layer.set_input(1, shape_tensor)
-
-    return shuffle_layer.get_output(0)
+    return layer.get_output(0)
 
 
 @converter_registry.register("pd_op.gather_nd", trt_version="8.x")
 def gather_nd_converter(network, paddle_op, inputs):
     input_tensor, indices_tensor = inputs
-    shuffle_layer = network.add_shuffle(indices_tensor)
-    shuffle_layer.first_transpose = trt.Permutation([1, 0])
-    # import pdb;pdb.set_trace()
     non_zero_layer = network.add_gather_v2(
-        input_tensor, shuffle_layer.get_output(0), trt.GatherMode.ND
+        input_tensor, indices_tensor, trt.GatherMode.ND
     )
+    non_zero_layer.num_elementwise_dims = 0
     return non_zero_layer.get_output(0)
 
 
-@converter_registry.register("pd_op.flatten", trt_version="8.x")
+@converter_registry.register("pd_op.flatten", trt_version="trt_version_ge=8.0")
 def flatten_converter(network, paddle_op, inputs):
     input_val = inputs[0]
-    input_val_shape = input_val.shape
+    input_val_shape = paddle_op.operands()[0].source().shape
     dims = len(input_val_shape)
 
     start_axis = paddle_op.attrs().get("start_axis")
@@ -164,7 +171,7 @@ def flatten_converter(network, paddle_op, inputs):
 
 
 # In the converter, pd_op.concat has three inputs, because builtin.combine has two inputs.
-@converter_registry.register("pd_op.concat", trt_version="8.x")
+@converter_registry.register("pd_op.concat", trt_version="trt_version_ge=8.0")
 def concat_converter(network, paddle_op, inputs):
     input_tensors = inputs[0]
     axis_tensor = inputs[1]
@@ -179,82 +186,121 @@ def concat_converter(network, paddle_op, inputs):
     return concat_layer.get_output(0)
 
 
-@converter_registry.register("pd_op.unsqueeze", trt_version="8.x")
-@converter_registry.register("pd_op.unsqueeze_", trt_version="8.x")
+@converter_registry.register(
+    "pd_op.unsqueeze", trt_version="trt_version_ge=8.0"
+)
+@converter_registry.register(
+    "pd_op.unsqueeze_", trt_version="trt_version_ge=8.0"
+)
 def unsqueeze_converter(network, paddle_op, inputs):
-    input_val = inputs[0]
-    input_shape = paddle_op.operands()[0].source().shape
-    input_shape_size = len(input_shape)
+    x = inputs[0]
+    input_dims = x.shape
+    axes = paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
+    assert (
+        len(axes) > 0
+    ), f"axes size should be > 0 in when convert unsqueeze op in TensorRT, but received len(axes) = {len(axes)}."
 
-    if type(input_val) == trt.Weights:
-        input_val = network.add_constant(input_shape, input_val).get_output(0)
-    axis = paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
-    axis = axis[0]
+    should_unsqueeze = [False] * (len(input_dims) + len(axes))
+    cur_out_rank = len(input_dims)
+    for i in range(len(axes)):
+        cur_out_rank += 1
+        if axes[i] < 0:
+            axes[i] += cur_out_rank
 
-    axis = get_positive_dim(axis, input_shape_size + 1)
-    layer = network.add_shuffle(input_val)
-    layer.reshape_dims = (
-        tuple(input_val.shape)[:axis] + (1,) + tuple(input_val.shape)[axis:]
+        # axes[i] is relative to cur_out_rank
+        # we make [axes[i], cur_out_rank - 2] shift right
+        # and make (axes[i]) to true!
+        for j in range(cur_out_rank - 1, axes[i], -1):
+            should_unsqueeze[j] = should_unsqueeze[j - 1]
+        if axes[i] >= cur_out_rank:
+            should_unsqueeze[cur_out_rank - 1] = True
+        else:
+            should_unsqueeze[axes[i]] = True
+
+    gather_indices = []
+    in_rank_i = 0
+    for i in range(len(should_unsqueeze)):
+        if should_unsqueeze[i]:
+            gather_indices.append(len(input_dims))
+            continue
+        gather_indices.append(in_rank_i)
+        in_rank_i += 1
+
+    layer = network.add_shuffle(x)
+    shape_tensor = trt_shape(network, x)
+    all_one = [1] * len(axes)
+    all_one_tensor = add_1D_constant_layer(network, all_one)
+    concat_inputs = [shape_tensor, all_one_tensor]
+    real_shape_tensor = trt_gather(
+        network, trt_concat(network, concat_inputs), gather_indices
     )
+    layer.set_input(1, real_shape_tensor)
     return layer.get_output(0)
 
 
-@converter_registry.register("pd_op.squeeze", trt_version="8.x")
-@converter_registry.register("pd_op.squeeze_", trt_version="8.x")
+@converter_registry.register("pd_op.squeeze", trt_version="trt_version_ge=8.0")
+@converter_registry.register("pd_op.squeeze_", trt_version="trt_version_ge=8.0")
 def squeeze_converter(network, paddle_op, inputs):
     input_val = inputs[0]
-    input_shape = paddle_op.operands()[0].source().shape
+    input_shape = input_val.shape
     input_shape_size = len(input_shape)
 
-    if type(input_val) == trt.Weights:
+    # If input is weights, convert to TensorRT tensor
+    if isinstance(input_val, trt.Weights):
         input_val = network.add_constant(input_shape, input_val).get_output(0)
 
-    axis = paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
-    axis = axis[0]
+    # Get axis
+    axis = (
+        paddle_op.operands()[1]
+        .source()
+        .get_defining_op()
+        .attrs()
+        .get("value", [])
+    )
 
-    axis = get_positive_dim(axis, input_shape_size + 1)
-    output_shape = []
-    for i, s in enumerate(input_shape):
-        if i == axis and s == 1:
-            continue
-        output_shape.append(s)
+    if not axis:
+        for i in range(input_shape_size):
+            if input_shape[i] == -1:
+                raise RuntimeError(
+                    "The necessary attributes of the squeeze operator axis is missing"
+                )
+            elif input_shape[i] == 1:
+                axis.append(i)
+    else:
+        # Verify that each axis to squeeze has size 1
+        for a in axis:
+            if a < 0:
+                a += input_shape_size
+            if input_shape[a] != 1:
+                raise RuntimeError(
+                    f"Cannot squeeze dimension {a} with size {input_shape[a]}. Only dimensions with size 1 can be squeezed."
+                )
 
+    axes_size = len(axis)
+    if axes_size == 0:
+        raise RuntimeError(
+            f"axis.size should be >0 in pd_op.squeeze op in TensorRT, but received {axes_size}"
+        )
+    # Mark which dimensions to squeeze
+    should_squeeze = [False] * input_shape_size
+    for a in axis:
+        should_squeeze[a] = True
+
+    # Get dimensions to keep
+    gather_indices = [
+        i for i, squeeze in enumerate(should_squeeze) if not squeeze
+    ]
+
+    # Add Shuffle layer
     layer = network.add_shuffle(input_val)
-    layer.reshape_dims = tuple(output_shape)
+    shape_tensor = trt_shape(network, input_val)
+    real_shape_tensor = trt_gather(network, shape_tensor, gather_indices)
+    layer.set_input(1, real_shape_tensor)
+
     return layer.get_output(0)
 
 
-def get_expand_output(network, input, rank, shape_tensor, shape_rank):
-    if rank < shape_rank:
-        one_rank_tensor = add_1D_constant_layer(
-            network, [1] * (shape_rank - rank)
-        )
-        in_shape_tensor = trt_shape(network, input)
-        itensors = [one_rank_tensor, in_shape_tensor]
-        input_shape_tensor = trt_concat(network, itensors)
-    else:
-        input_shape_tensor = trt_shape(network, input)
-
-    new_input_tensor = trt_reshape(network, input, input_shape_tensor, "", True)
-
-    start = [0] * shape_rank
-    starts_tensor = add_1D_constant_layer(network, start)
-    one_tensor = add_1D_constant_layer(network, 1)
-    sizes_tensor = trt_max(network, input_shape_tensor, shape_tensor)
-    input_sub_tensor = trt_sub(network, input_shape_tensor, one_tensor)
-    strides_tensor = trt_min(network, one_tensor, input_sub_tensor)
-
-    slice_layer = network.add_slice(
-        new_input_tensor, start, [0] * len(start), [0] * len(start)
-    )
-    slice_layer.set_input(1, starts_tensor)
-    slice_layer.set_input(2, sizes_tensor)
-    slice_layer.set_input(3, strides_tensor)
-
-    return slice_layer.get_output(0)
-
-
-@converter_registry.register("pd_op.expand", trt_version="8.x")
+@converter_registry.register("pd_op.expand", trt_version="trt_version_ge=8.0")
 def expand_converter(network, paddle_op, inputs):
     input = inputs[0]
     input_dims = input.shape
@@ -273,10 +319,12 @@ def expand_converter(network, paddle_op, inputs):
     else:
         shape_tensor = inputs[1]
         shape_rank = shape_tensor.shape[0]
-    return get_expand_output(network, input, rank, shape_tensor, shape_rank)
+    return trt_expand(network, input, rank, shape_tensor, shape_rank)
 
 
-@converter_registry.register("pd_op.expand_as", trt_version="8.x")
+@converter_registry.register(
+    "pd_op.expand_as", trt_version="trt_version_ge=8.0"
+)
 def expand_as_converter(network, paddle_op, inputs):
     input = inputs[0]
     input_dims = input.shape
@@ -291,7 +339,7 @@ def expand_as_converter(network, paddle_op, inputs):
         shape = paddle_op.attrs().get("target_shape")
         shape_tensor = add_1D_constant_layer(network, shape)
         shape_rank = len(shape)
-    return get_expand_output(network, input, rank, shape_tensor, shape_rank)
+    return trt_expand(network, input, rank, shape_tensor, shape_rank)
 
 
 @converter_registry.register("pd_op.cast", trt_version="8.x")
@@ -322,16 +370,15 @@ def cast_converter(network, paddle_op, inputs):
     return cast_layer.get_output(0)
 
 
-@converter_registry.register("pd_op.slice", trt_version="8.x")
+@converter_registry.register("pd_op.slice", trt_version="trt_version_ge=8.0")
 def slice_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
-    input_shape = paddle_op.operands()[0].source().shape
     axes = paddle_op.attrs()["axes"]
     decrease_axis = paddle_op.attrs().get("decrease_axis")
 
     starts_op = paddle_op.operands()[1].source().get_defining_op()
     ends_op = paddle_op.operands()[2].source().get_defining_op()
-    input_shape_tensor = network.add_shape(input_tensor).get_output(0)
+    input_shape_tensor = trt_shape(network, input_tensor)
     input_rank = len(input_tensor.shape)
 
     starts_tensor = []
@@ -346,10 +393,7 @@ def slice_converter(network, paddle_op, inputs):
         starts = starts_op.attrs()["value"]
         assert len(starts) == len(
             axes
-        ), "The size of this starts: %d must be equal to the axes: %d." % (
-            len(starts),
-            len(axes),
-        )
+        ), f"The size of this starts: {len(starts)} must be equal to the axes: {len(axes)}."
         for idx in range(len(axes)):
             if starts[idx] < 0:
                 starts_tensor[axes[idx]] = trt_max(
@@ -382,10 +426,7 @@ def slice_converter(network, paddle_op, inputs):
         ends = ends_op.attrs()["value"]
         assert len(ends) == len(
             axes
-        ), "The size of this ends: %d must be equal to the axes: %d." % (
-            len(ends),
-            len(axes),
-        )
+        ), f"The size of this ends: {len(ends)} must be equal to the axes: {len(axes)}."
         for idx in range(len(axes)):
             if ends[idx] < 0:
                 ends_tensor[axes[idx]] = trt_max(
@@ -432,26 +473,23 @@ def slice_converter(network, paddle_op, inputs):
     output_tensor = slice_layer.get_output(0)
 
     # Handle decrease_axis
-    if decrease_axis:
-        output_shape = network.add_shape(output_tensor).get_output(0)
-        new_shape_dims = []
-        for i in range(output_shape.shape[0]):
-            if i not in decrease_axis:
-                dim = network.add_slice(output_shape, [i], [1], [1]).get_output(
-                    0
-                )
-                new_shape_dims.append(dim)
-        if len(new_shape_dims) == 0:
-            new_shape_tensor = network.add_constant(
-                [1], np.array([1], dtype=np.int32)
-            )
-        else:
-            new_shape_tensor = network.add_concatenation(new_shape_dims)
-            new_shape_tensor.axis = 0
+    if len(decrease_axis) > 0:
+        gather_indices = []
+        for i in range(input_rank):
+            if i in decrease_axis:
+                continue
+            gather_indices.append(i)
 
-        reshape_layer = network.add_shuffle(output_tensor)
-        reshape_layer.set_input(1, new_shape_tensor.get_output(0))
-        output_tensor = reshape_layer.get_output(0)
+        if len(gather_indices) == 0:
+            # 0-dim tensor situation and shuffle layer will make its shape (1,) -> ()
+            shuffle_layer = network.add_shuffle(output_tensor)
+            shuffle_layer.reshape_dims = ()
+        else:
+            real_size_tensor = trt_gather(network, size_tensor, gather_indices)
+            shuffle_layer = network.add_shuffle(output_tensor)
+            shuffle_layer.set_input(1, real_size_tensor)
+
+        output_tensor = shuffle_layer.get_output(0)
 
     return output_tensor
 
@@ -483,7 +521,7 @@ def split_with_num_converter(network, paddle_op, inputs):
     is_negative_axis = trt_less(network, axis_tensor, zero_tensor)
     is_negative_axis_int = cast_tensor(network, is_negative_axis, trt.int32)
 
-    axis_adjustment = trt_mul(
+    axis_adjustment = trt_prod(
         network, is_negative_axis_int, input_shape_size_tensor
     )
 
@@ -535,7 +573,7 @@ def split_with_num_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.split", trt_version="8.x")
 def split_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
-    input_shape = paddle_op.operands()[0].source().shape
+    input_shape = input_tensor.shape
     input_shape_size = len(input_shape)
 
     axis_op = paddle_op.operands()[2].source().get_defining_op()
@@ -566,7 +604,7 @@ def split_converter(network, paddle_op, inputs):
     is_negative_axis = trt_less(network, axis_tensor, zero_tensor)
     is_negative_axis_int = cast_tensor(network, is_negative_axis, trt.int32)
 
-    axis_adjustment = trt_mul(
+    axis_adjustment = trt_prod(
         network, is_negative_axis_int, input_shape_size_tensor
     )
     axis_tensor = trt_sum(network, axis_tensor, axis_adjustment)
@@ -704,6 +742,62 @@ def stack_converter(network, paddle_op, inputs):
     return output_tensor
 
 
+@converter_registry.register("pd_op.tile", trt_version="8.x")
+def tile_converter(network, paddle_op, inputs):
+    input = inputs[0]
+    input_shape = input.shape
+    input_shape_tensor = network.add_shape(input).get_output(0)
+    rank = len(input_shape)
+
+    repeat_times_op = paddle_op.operands()[1].source().get_defining_op()
+    if repeat_times_op.name() == "pd_op.full_int_array":
+        repeat_times = repeat_times_op.attrs()["value"]
+        repeat_tensor = add_1D_constant_layer(network, repeat_times)
+        repeat_rank = len(repeat_times)
+    else:
+        repeat_tensor = inputs[1]
+        repeat_tensor = resize_to_1d(network, repeat_tensor)
+        repeat_shape = paddle_op.operands()[1].source().shape
+        repeat_rank = repeat_shape[0]
+
+    if rank > repeat_rank:
+        one_rank_tensor = add_1D_constant_layer(
+            network, [1] * (rank - repeat_rank)
+        )
+        repeat_expand_tensor = trt_concat(
+            network, [one_rank_tensor, repeat_tensor]
+        )
+    elif rank < repeat_rank:
+        one_rank_tensor = add_1D_constant_layer(
+            network, [1] * (repeat_rank - rank)
+        )
+        input_shape_tensor = trt_concat(
+            network, [one_rank_tensor, input_shape_tensor]
+        )
+        input = trt_reshape(network, input, input_shape_tensor, "", True)
+        repeat_expand_tensor = repeat_tensor
+    else:
+        repeat_expand_tensor = repeat_tensor
+
+    start = [0] * max(rank, repeat_rank)
+    stride = [1] * max(rank, repeat_rank)
+    output_shape = [0] * max(rank, repeat_rank)
+    output_shape_tensor = trt_prod(
+        network, input_shape_tensor, repeat_expand_tensor
+    )
+
+    slice_layer = network.add_slice(input, start, output_shape, stride)
+    slice_layer.set_input(2, output_shape_tensor)
+
+    version_list = get_trt_version_list()
+    if version_list >= [8, 6, 0]:
+        slice_layer.mode = trt.SampleMode.WRAP
+    else:
+        slice_layer.mode = trt.SliceMode.WRAP
+
+    return slice_layer.get_output(0)
+
+
 @converter_registry.register("pd_op.strided_slice", trt_version="8.x")
 def strided_slice_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
@@ -713,44 +807,34 @@ def strided_slice_converter(network, paddle_op, inputs):
     ends_op = paddle_op.operands()[2].source().get_defining_op()
     strides_op = paddle_op.operands()[3].source().get_defining_op()
 
-    starts = (
-        starts_op.attrs()["value"]
-        if starts_op.name() == "pd_op.full_int_array"
-        else inputs[1]
-    )
-    ends = (
-        ends_op.attrs()["value"]
-        if ends_op.name() == "pd_op.full_int_array"
-        else inputs[2]
-    )
-    strides = (
-        strides_op.attrs()["value"]
-        if strides_op.name() == "pd_op.full_int_array"
-        else inputs[3]
-    )
+    if starts_op.name() == "pd_op.full_int_array":
+        starts = starts_op.attrs()["value"]
 
-    input_shape = paddle_op.operands()[0].source().shape
+    if ends_op.name() == "pd_op.full_int_array":
+        ends = ends_op.attrs()["value"]
+
+    if strides_op.name() == "pd_op.full_int_array":
+        strides = strides_op.attrs()["value"]
+
+    input_shape = input_tensor.shape
     nchw_input_dims = len(input_shape)
 
     trt_start_dims = [0] * nchw_input_dims
-    trt_size_dims = [input_shape[i] for i in range(nchw_input_dims)]
     trt_end_dims = [0] * nchw_input_dims
+    trt_size_dims = [0] * nchw_input_dims
     trt_step_dims = [1] * nchw_input_dims
 
     has_neg_indices = False
-    for i, axis in enumerate(axes):
-        trt_start_dims[axis] = starts[i]
-        trt_end_dims[axis] = ends[i]
-        trt_step_dims[axis] = strides[i]
-        trt_size_dims[axis] = max(
-            0, (ends[i] - starts[i] + strides[i] - 1) // strides[i]
-        )
+
+    for i, trt_axis in enumerate(axes):
+        trt_start_dims[trt_axis] = starts[i]
+        trt_end_dims[trt_axis] = ends[i]
+        trt_step_dims[trt_axis] = strides[i]
         if starts[i] < 0 or ends[i] < 0:
             has_neg_indices = True
 
-    shape_tensor = network.add_shape(input_tensor).get_output(0)
+    shape_tensor = trt_shape(network, input_tensor)
     start_tensor = add_1D_constant_layer(network, trt_start_dims)
-
     if has_neg_indices:
         start_tensor = fix_negative_indices(network, shape_tensor, start_tensor)
 
@@ -760,27 +844,26 @@ def strided_slice_converter(network, paddle_op, inputs):
             get_shape_tensor_element(network, shape_tensor, i)
         )
 
-    for i, axis in enumerate(axes):
+    for i, trt_axis in enumerate(axes):
         if ends[i] >= 0:
-            end_vec_tensor[axis] = network.add_constant(
-                (1,), np.array([ends[i]], dtype=np.int32)
-            ).get_output(0)
+            end_vec_tensor[trt_axis] = add_1D_constant_layer(network, ends[i])
         else:
-            adjusted_end = network.add_constant(
-                (1,), np.array([ends[i]], dtype=np.int32)
-            ).get_output(0)
-            end_vec_tensor[axis] = trt_sum(
-                network, end_vec_tensor[axis], adjusted_end
+            end_vec_tensor[trt_axis] = trt_sum(
+                network,
+                end_vec_tensor[trt_axis],
+                add_1D_constant_layer(network, ends[i]),
             )
 
-    concat_end_tensor = network.add_concatenation(end_vec_tensor).get_output(0)
-    min_tensor = trt_min(network, concat_end_tensor, shape_tensor)
-    size_tensor = trt_sub(network, start_tensor, min_tensor)
-
-    zero_t = add_1D_constant_layer(network, [0] * nchw_input_dims)
+    size_tensor = trt_sub(
+        network,
+        start_tensor,
+        trt_min(network, trt_concat(network, end_vec_tensor), shape_tensor),
+    )
+    zero_t = add_1D_constant_layer(network, 0)
     step_tensor = add_1D_constant_layer(network, trt_step_dims)
-    floor_div_tensor = trt_floor_div(network, size_tensor, step_tensor)
-    size_tensor = trt_sub(network, zero_t, floor_div_tensor)
+    size_tensor = trt_sub(
+        network, zero_t, trt_floor_div(network, size_tensor, step_tensor)
+    )
 
     layer = network.add_slice(
         input_tensor, trt_start_dims, trt_size_dims, trt_step_dims
@@ -788,5 +871,72 @@ def strided_slice_converter(network, paddle_op, inputs):
     layer.set_input(1, start_tensor)
     layer.set_input(2, size_tensor)
     layer.set_input(3, step_tensor)
+    return layer.get_output(0)
+
+
+@converter_registry.register("pd_op.roll", trt_version="8.x")
+def roll_converter(network, paddle_op, inputs):
+    input_tensor = inputs[0]
+    axis = paddle_op.attrs()["axis"]
+
+    shifts_op = paddle_op.operands()[1].source().get_defining_op()
+    if shifts_op.name() == "pd_op.full_int_array":
+        shifts = shifts_op.attrs()["value"]
+    else:
+        shifts = inputs[1]
+
+    axis_size = len(axis)
+    input_shape_tensor = trt_shape(network, input_tensor)
+
+    for i in range(axis_size):
+        axi = axis[i]
+        if isinstance(shifts, trt.ITensor):
+            shift = get_shape_tensor_element(network, shifts, i)
+            input_shift = shift
+        else:
+            shift = shifts[i]
+            input_shift = add_1D_constant_layer(network, shift)
+        input_axis = get_shape_tensor_element(network, input_shape_tensor, axi)
+
+        # 1.sub_value mod input_axis
+        input1 = trt_sub(network, input_axis, input_shift)
+        tmp_div_res = trt_floor_div(network, input1, input_axis)
+        tmp_prod_res = trt_prod(network, tmp_div_res, input_axis)
+        start = trt_sub(network, input1, tmp_prod_res)
+        # 2.avoid start less than 0,start mod input_axis
+        start = trt_sum(network, start, input_axis)
+        tmp_div_res1 = trt_floor_div(network, start, input_axis)
+        tmp_prod_res1 = trt_prod(network, tmp_div_res1, input_axis)
+        start = trt_sub(network, start, tmp_prod_res1)
+        zero_tensor = add_1D_constant_layer(network, 0)
+        step = add_1D_constant_layer(network, 1)
+        # 3.make index_tensor0
+        sub_qutient = trt_sub(network, input_axis, start)
+        quotient_tensor = trt_floor_div(network, sub_qutient, step)
+        start1 = get_shape_tensor_element(network, start, 0, is_scalar=True)
+        fill_layer0 = network.add_fill(shape=(), op=trt.FillOperation.LINSPACE)
+        fill_layer0.set_input(0, quotient_tensor)
+        fill_layer0.set_input(1, start1)
+        fill_layer0.set_input(2, step)
+        index_tensor0 = fill_layer0.get_output(0)
+        # 4.make index_tensor1
+        sub_qutient_tensor = trt_sub(network, start, zero_tensor)
+        quotient_tensor = trt_floor_div(network, sub_qutient_tensor, step)
+        start2 = add_1D_constant_layer(network, 0, is_scalar=True)
+        fill_layer1 = network.add_fill(shape=(), op=trt.FillOperation.LINSPACE)
+        fill_layer1.set_input(0, quotient_tensor)
+        fill_layer1.set_input(1, start2)
+        fill_layer1.set_input(2, step)
+        index_tensor1 = fill_layer1.get_output(0)
+        itensors = [index_tensor0, index_tensor1]
+        concat_input_tensor = trt_concat(network, itensors)
+        if i == 0:
+            layer = network.add_gather(
+                input=input_tensor, indices=concat_input_tensor, axis=axi
+            )
+        else:
+            layer = network.add_gather(
+                input=layer.get_output(0), indices=concat_input_tensor, axis=axi
+            )
 
     return layer.get_output(0)

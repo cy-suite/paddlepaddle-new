@@ -23,6 +23,7 @@ import opcode
 import random
 import sys
 import types
+from enum import Enum
 from functools import cached_property
 from typing import TYPE_CHECKING
 
@@ -42,12 +43,12 @@ from ..instruction_utils import (
     apply_instr_pass,
     calc_stack_effect,
     gen_instr,
+    get_instruction_size,
     instrs_info,
     modify_instrs,
     modify_vars,
 )
 from ..instruction_utils.opcode_info import (
-    PYOPCODE_CACHE_SIZE,
     UNCONDITIONAL_JUMP,
     JumpDirection,
     PopJumpCond,
@@ -141,6 +142,7 @@ def gen_new_opcode(
         types.CodeType: The new code object.
     """
     bytecode, linetable = assemble(instrs, code_options["co_firstlineno"])
+
     if sys.version_info >= (3, 10):
         # Python deprecated co_lnotab in 3.10, use co_linetable instead
         # https://peps.python.org/pep-0626/
@@ -214,13 +216,6 @@ def to_byte(num):
     if num < 0:
         num += 256
     return num
-
-
-def get_instruction_size(instr: Instruction) -> int:
-    cache_size = 0
-    if sys.version_info >= (3, 11):
-        cache_size = PYOPCODE_CACHE_SIZE.get(instr.opname, 0)
-    return 2 * (cache_size + 1)
 
 
 def create_linetable_calculator(firstlineno: int):
@@ -435,45 +430,6 @@ class PyCodeGen:
         self.hooks = []
         if self.disable_eval_frame:
             self.gen_disable_eval_frame()
-        self.fn_name = ResumeFnNameFactory().next()
-
-    def set_function_inputs(self, inputs: list[str], stack_size: int):
-        stack_arg_str = self.fn_name + '_stack_{}'
-
-        self._code_options['co_argcount'] = len(inputs) + stack_size
-        self._code_options['co_varnames'] = list(
-            [stack_arg_str.format(i) for i in range(stack_size)]
-            + inputs
-            + [
-                var_name
-                for var_name in self._origin_code.co_varnames
-                if var_name not in inputs
-            ]
-        )
-
-        self._instructions.extend(
-            [
-                gen_instr('LOAD_FAST', argval=stack_arg_str.format(i))
-                for i in range(stack_size)
-            ]
-        )
-
-    def set_function_outputs(self, outputs: list[str]):
-        for name in outputs:
-            self.gen_load(name)
-        self.gen_build_tuple(len(outputs))
-        self.gen_return()
-
-    def create_function(self) -> types.FunctionType:
-        self.update_code_name(self.fn_name, is_resumed_fn=True)
-        self._code_options['co_flags'] &= ~(
-            inspect.CO_VARARGS | inspect.CO_VARKEYWORDS
-        )
-        new_code = self.gen_pycode()
-        if len(new_code.co_freevars) + len(new_code.co_cellvars) > 0:
-            raise FallbackError("Break graph in closure is not support.")
-        fn = types.FunctionType(new_code, self._f_globals, new_code.co_name)
-        return fn
 
     def insert_prefix_instructions(self):
         """
@@ -719,6 +675,11 @@ class PyCodeGen:
         null_var = self.global_null_variable
         return self.gen_load_object(null_var, "___null_var", push_null=False)
 
+    def gen_push_null(self):
+        if sys.version_info < (3, 11):
+            raise InnerError("gen_push_null is only supported in Python 3.11+")
+        return self.add_instr("PUSH_NULL")
+
     def gen_load_fast(self, name):
         """
         Generate the bytecode for loading a local variable.
@@ -859,8 +820,10 @@ class PyCodeGen:
     def gen_kw_names(self, kw_names: tuple[str, ...] | None):
         if kw_names is None:
             return
-        if sys.version_info < (3, 11):
-            raise InnerError("gen_kw_names is not supported before python3.11")
+        if sys.version_info < (3, 11) or sys.version_info >= (3, 13):
+            raise InnerError(
+                "gen_kw_names is only supported in Python 3.11 and 3.12"
+            )
         if kw_names not in self._code_options["co_consts"]:
             self._code_options["co_consts"].append(kw_names)
         idx = self._code_options["co_consts"].index(kw_names)
@@ -937,7 +900,7 @@ class PyCodeGen:
 
     def gen_dup_top(self):
         if sys.version_info >= (3, 11):
-            return self.add_instr("COPY", arg=0)
+            return self.add_instr("COPY", arg=1)
         return self.add_instr("DUP_TOP")
 
     def gen_swap(self, n):
@@ -964,6 +927,11 @@ class PyCodeGen:
         direction: JumpDirection = JumpDirection.FORWARD,
         suffix: PopJumpCond = PopJumpCond.NONE,
     ) -> Instruction:
+        if sys.version_info >= (3, 13) and suffix in [
+            PopJumpCond.TRUE,
+            PopJumpCond.FALSE,
+        ]:
+            self.add_instr("TO_BOOL")
         if sys.version_info >= (3, 11) and sys.version_info < (3, 12):
             return self.add_instr(
                 f"POP_JUMP_{direction.value}_IF_{suffix.value}", jump_to=jump_to
@@ -1019,3 +987,96 @@ class PyCodeGen:
 
     def pop_instr(self):
         self._instructions.pop()
+
+
+class ResumeFunctionType(Enum):
+    # If breakgraph
+    IF_RESUME = 0
+    # Call breakgraph
+    CALL_RESUME = 1
+    # Loop breakgraph
+    LOOP_BODY_RESUME = 2
+    AFTER_LOOP_RESUME = 3
+    # Loop inline call
+    LOOP_BODY_INLINE_CALL = 4
+
+
+class ResumeFunctionCreator:
+    CODE_CACHE = {}
+
+    def __init__(
+        self, frame: types.FrameType, disable_eval_frame: bool = False
+    ):
+        self.codegen = PyCodeGen(frame, disable_eval_frame)
+        self.name = ResumeFnNameFactory().next()
+
+    def set_inputs(
+        self, inputs: list[str], stack_size: int, null_indices: list[int] = []
+    ):
+        stack_arg_str = self.name + '_stack_{}'
+        assert all(
+            idx < stack_size for idx in null_indices
+        ), "null index out of range"
+
+        self.codegen._code_options['co_argcount'] = (
+            len(inputs) + stack_size - len(null_indices)
+        )
+        self.codegen._code_options['co_varnames'] = list(
+            [
+                stack_arg_str.format(i)
+                for i in range(stack_size)
+                if i not in null_indices
+            ]
+            + inputs
+            + [
+                var_name
+                for var_name in self.codegen._origin_code.co_varnames
+                if var_name not in inputs
+            ]
+        )
+
+        self.codegen._instructions.extend(
+            [
+                (
+                    gen_instr("PUSH_NULL")
+                    if i in null_indices
+                    else gen_instr('LOAD_FAST', argval=stack_arg_str.format(i))
+                )
+                for i in range(stack_size)
+            ]
+        )
+
+    def set_outputs(self, outputs: list[str]):
+        for name in outputs:
+            self.codegen.gen_load(name)
+        self.codegen.gen_build_tuple(len(outputs))
+        self.codegen.gen_return()
+
+    @staticmethod
+    def validate_code(code):
+        if len(code.co_freevars) + len(code.co_cellvars) > 0:
+            raise FallbackError("Break graph in closure is not support.")
+
+    def lookup(self, cache_key):
+        if cache_key in self.CODE_CACHE:
+            cached_code = self.CODE_CACHE[cache_key]
+            ResumeFunctionCreator.validate_code(cached_code)
+            return types.FunctionType(
+                cached_code, self.codegen._f_globals, cached_code.co_name
+            )
+        return None
+
+    def generate(self, cache_key=None) -> types.FunctionType:
+        self.codegen.update_code_name(self.name, is_resumed_fn=True)
+        self.codegen._code_options['co_flags'] &= ~(
+            inspect.CO_VARARGS | inspect.CO_VARKEYWORDS
+        )
+        new_code = self.codegen.gen_pycode()
+        # TODO(SigureMo): cache_key should not be None
+        if cache_key is not None:
+            self.CODE_CACHE[cache_key] = new_code
+        ResumeFunctionCreator.validate_code(new_code)
+        fn = types.FunctionType(
+            new_code, self.codegen._f_globals, new_code.co_name
+        )
+        return fn
