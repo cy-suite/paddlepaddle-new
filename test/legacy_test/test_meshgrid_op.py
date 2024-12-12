@@ -492,59 +492,64 @@ class TestMeshgridEager(unittest.TestCase):
             )
 
 
-class TestMeshgridEmptyTensor(TestMeshgridOp):
+class TestMeshgridEmptyTensor(unittest.TestCase):
     def _get_places(self):
         places = [base.CPUPlace()]
         if paddle.is_compiled_with_cuda():
             places.append(base.CUDAPlace(0))
         return places
 
-    def test_api_with_dygraph_empty_input(self):
-        input_1 = np.random.randint(
-            0,
-            100,
-            [
-                100,
-            ],
-        ).astype('float64')
-        input_2 = np.empty([0]).astype('float64')
+    def _generate_inputs(self, shapes):
+        return [np.random.random(shape).astype('float64') for shape in shapes]
 
-        with base.dygraph.guard():
-            tensor_1 = paddle.to_tensor(input_1)
-            tensor_2 = paddle.to_tensor(input_2)
-            res_1, res_2 = paddle.tensor.meshgrid([tensor_1, tensor_2])
+    def _test_with_shapes(self, shapes, expected_shapes, place=None):
+        inputs = self._generate_inputs(shapes)
 
-        np.testing.assert_array_equal(res_1.shape, [100, 0])
-        np.testing.assert_array_equal(res_2.shape, [100, 0])
+        if place is None:  # Dygraph mode
+            with base.dygraph.guard():
+                tensors = [paddle.to_tensor(inp) for inp in inputs]
+                results = paddle.tensor.meshgrid(tensors)
+        else:  # Static mode
+            with paddle.static.program_guard(paddle.static.Program()):
+                data_tensors = [
+                    paddle.static.data(
+                        shape=shape, dtype='float64', name=f'x{i}'
+                    )
+                    for i, shape in enumerate(shapes)
+                ]
+                exe = base.Executor(place=place)
+                grid_results = paddle.tensor.meshgrid(data_tensors)
+                feed_dict = {f'x{i}': inp for i, inp in enumerate(inputs)}
+                results = exe.run(
+                    paddle.static.default_main_program(),
+                    feed=feed_dict,
+                    fetch_list=grid_results,
+                )
 
-    def _test_api_with_static_empty_input(self, place):
-        input_1 = np.random.randint(
-            0,
-            100,
-            [
-                100,
-            ],
-        ).astype('float64')
-        input_2 = np.empty([0]).astype('float64')
+        for result, expected_shape in zip(results, expected_shapes):
+            np.testing.assert_array_equal(result.shape, expected_shape)
 
-        with paddle.static.program_guard(paddle.static.Program()):
-            x = paddle.static.data(shape=[100], dtype='float64', name='x')
-            y = paddle.static.data(shape=[0], dtype='float64', name='y')
+    def test_api_with_dygraph_empty_tensor_input(self):
+        self._test_with_shapes([(100,), (0,)], [[100, 0], [100, 0]])
 
-            exe = base.Executor(place=place)
-            grid_x, grid_y = paddle.tensor.meshgrid((x, y))
-            res_1, res_2 = exe.run(
-                paddle.static.default_main_program(),
-                feed={'x': input_1, 'y': input_2},
-                fetch_list=[grid_x, grid_y],
-            )
+    def _test_api_with_static_empty_tensor_input(self, place):
+        self._test_with_shapes([(100,), (0,)], [[100, 0], [100, 0]], place)
 
-        np.testing.assert_array_equal(res_1.shape, [100, 0])
-        np.testing.assert_array_equal(res_2.shape, [100, 0])
-
-    def test_api_with_static_empty_input(self):
+    def test_api_with_static_empty_tensor_input(self):
         for place in self._get_places():
-            self._test_api_with_static_empty_input(place)
+            self._test_api_with_static_empty_tensor_input(place)
+
+
+class TestMeshgridEmptyTensor2(TestMeshgridEmptyTensor):
+    def test_api_with_dygraph_empty_tensor_input(self):
+        self._test_with_shapes(
+            [(0,), (0,), (0,)], [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+        )
+
+    def _test_api_with_static_empty_tensor_input(self, place):
+        self._test_with_shapes(
+            [(0,), (0,), (0,)], [[0, 0, 0], [0, 0, 0], [0, 0, 0]], place
+        )
 
 
 if __name__ == '__main__':

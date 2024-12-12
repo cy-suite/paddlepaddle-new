@@ -26,6 +26,13 @@ template <typename T, typename Context, int Rank>
 void MeshgridForward(const Context& ctx,
                      const std::vector<const DenseTensor*>& ins,
                      std::vector<DenseTensor*> outs) {
+  PADDLE_ENFORCE_GT(
+      ins.size(),
+      0,
+      common::errors::InvalidArgument(
+          "Expected at least 1 input tensors, but only received %d.",
+          ins.size()));
+
   int64_t size = ins.size();
   std::vector<int64_t> shape(size);
 
