@@ -114,8 +114,8 @@ public:
         !(transpose_weight == true && is_fp8_gemm == true),
         "FP8 GEMM does not support transpose weight");
     this->ring_mode = get_ring_mode(ring_mode_);
-    static BuffersHolder holder{get_buffer_shapes(), dev_ctx, tp_group};
-    holder.reserve(get_buffer_shapes());
+    static BuffersHolder holder{this->get_buffer_shapes(), dev_ctx, tp_group};
+    holder.reserve(this->get_buffer_shapes());
     // input buffer
     this->input_buffers = holder.get_buffers(std::make_pair(flux::dtype<InT>(),
                                                             std::vector<int64_t>{full_m, k_dim}));

@@ -118,7 +118,6 @@ public:
     PADDLE_ENFORCE(
         !fuse_reduction || this->input_dtype == phi::DataType::FLOAT16,
         "Fuse reduction only support float16 type on SM80 due to instruction limitation.");
-    this->init_output_buffer();
     static CUDAEventHolder event_holder{};
     this->event_ = event_holder.event;
   }
@@ -154,7 +153,7 @@ public:
   }
 
   std::vector<std::pair<const phi::DataType, const std::vector<int64_t>>>
-  get_buffer_shapes() {
+  get_buffer_shapes(int64_t barrier_buffer_size) {
     std::vector<std::pair<const phi::DataType, const std::vector<int64_t>>> shapes;
     // update max_m and allocate buffer
   int64_t device_id = dev_ctx.GetPlace().GetDeviceId();
@@ -169,23 +168,27 @@ public:
       // SM80 does not support the fuse reduction for the bfloat16 data type
       // we have to use the float32 global_red instruction when SM80 && nnodes>1 && input_type=bf16
       // Therefore, in this case, here double the size of the output_buffer.
-      shapes.emplace_back(std::make_pair(phi::flux::dtype<OutT>(),
+      shapes.emplace_back(std::make_pair(flux::dtype<OutT>(),
                                          std::vector<int64_t>{max_m*2, n_dim}));
     } else {
-      shapes.emplace_back(std::make_pair(phi::flux::dtype<OutT>(),
+      shapes.emplace_back(std::make_pair(flux::dtype<OutT>(),
                                          std::vector<int64_t>{max_m, n_dim}));
     }
     // sync buffer
-    shapes.emplace_back(std::make_pair(phi::flux::dtype<int32_t>(),
+    shapes.emplace_back(std::make_pair(flux::dtype<int32_t>(),
                                        std::vector<int64_t>{this->world_size}));
+
+    // barrier buffer
+    shapes.emplace_back(std::make_pair(flux::dtype<uint8_t>(),
+                                       std::vector<int64_t>{barrier_buffer_size}));
     return shapes;
   }
 
   void
-  init_output_buffer() {
+  lazy_init_output_buffer(int64_t barrier_buffer_size) {
   // update max_m and allocate buffer
-  static BuffersHolder holder{this->get_buffer_shapes(), dev_ctx, tp_group};
-  holder.reserve(this->get_buffer_shapes());
+  static BuffersHolder holder{this->get_buffer_shapes(barrier_buffer_size), dev_ctx, tp_group};
+  holder.reserve(this->get_buffer_shapes(barrier_buffer_size));
   int64_t device_id = dev_ctx.GetPlace().GetDeviceId();
   int sm_version = backends::gpu::GetGPUComputeCapability(device_id);
     if (sm_version == 90 || no_nvlink || (sm_version == 80 && nnodes > 1)) {
@@ -232,21 +235,9 @@ public:
     for(size_t i=0;i<sync_buffers.size();i++) {
       sync_buffer_ptrs[i] = static_cast<int32_t *>(sync_buffers[i].data());
     }
-  }
 
-  void
-  lazy_init_barrier_buffer(int64_t buffer_size) {
-    if (buffer_size == 0) {
-      return;
-    }
-
-    static BuffersHolder barrier_buffers_holder{{std::make_pair(flux::dtype<uint8_t>(),
-                                                               std::vector<int64_t>{buffer_size})},
-                                                dev_ctx, tp_group}; 
-    barrier_buffers_holder.reserve({std::make_pair(flux::dtype<uint8_t>(),
-                                                   std::vector<int64_t>{buffer_size})});
-    barrier_buffers = barrier_buffers_holder.get_buffers(std::make_pair(flux::dtype<uint8_t>(),
-                                                                        std::vector<int64_t>{buffer_size}));
+    barrier_buffers = holder.get_buffers(std::make_pair(flux::dtype<uint8_t>(),
+                                                        std::vector<int64_t>{barrier_buffer_size}));
 
     for(size_t i=0;i<barrier_buffers.size();i++) {
       barrier_buffer_ptrs[i] = barrier_buffers[i].data();
@@ -422,8 +413,8 @@ void GemmReduceScatterKernel(const Context& dev_ctx,
   size_t workspace_size = get_workspace_size();
   size_t barrier_workspace_size = get_barrier_workspace_size();
 
+  helper.lazy_init_output_buffer(barrier_workspace_size);
   helper.lazy_init_gemm_buffer(workspace_size);
-  helper.lazy_init_barrier_buffer(barrier_workspace_size);
 
   auto gemm_rs = [&]() {
     launcher(false, false);
