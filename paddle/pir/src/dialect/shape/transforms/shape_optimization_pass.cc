@@ -27,7 +27,6 @@
 #include "paddle/pir/include/dialect/shape/utils/shape_analysis.h"
 #include "paddle/pir/include/pass/pass_manager.h"
 #include "paddle/pir/include/pass/pass_registry.h"
-#include "paddle/pir/src/core/value_impl.h"
 
 COMMON_DECLARE_bool(pir_apply_shape_optimization_pass);
 
@@ -162,7 +161,6 @@ void CheckInferSymWithInferMeta(
     if (!NeedCheckInferSymbolicWithInferMeta(op->name(), i)) continue;
 
     if (res.type().isa<pir::DenseTensorType>()) {
-      VLOG(3) << "check res id:" << res.impl()->id();
       const std::vector<int64_t>& infer_meta_shape =
           common::vectorize(res.type().dyn_cast<pir::DenseTensorType>().dims());
       const std::vector<symbol::DimExpr>& infer_sym_shape =
