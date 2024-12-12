@@ -17,6 +17,7 @@ import unittest
 
 import numpy as np
 from op_test import OpTest
+from utils import dygraph_guard, static_guard
 
 import paddle
 from paddle import base, static
@@ -245,43 +246,33 @@ class TestMatrixRankEmptyTensor(unittest.TestCase):
         return places
 
     def _test_matrix_rank_static(self, place):
-        with paddle.static.program_guard(
-            paddle.static.Program(), paddle.static.Program()
-        ):
-            # Test static graph with empty tensors
-            x_valid = paddle.static.data(
-                name='x_valid', shape=[0, 6, 6], dtype='float32'
-            )
-            x_invalid1 = paddle.static.data(
-                name='x_invalid1', shape=[0, 0], dtype='float32'
-            )
-            x_invalid2 = paddle.static.data(
-                name='x_invalid2', shape=[2, 3, 0, 0], dtype='float32'
-            )
+        with static_guard():
+            with paddle.static.program_guard(
+                paddle.static.Program(), paddle.static.Program()
+            ):
+                x_valid = paddle.static.data(
+                    name='x_valid', shape=[0, 6, 6], dtype='float32'
+                )
 
-            self.assertRaises(TypeError, paddle.linalg.matrix_rank, x_invalid1)
-            self.assertRaises(TypeError, paddle.linalg.matrix_rank, x_invalid2)
+                y_valid = paddle.linalg.matrix_rank(x_valid)
 
-            y_valid = paddle.linalg.matrix_rank(x_valid)
-
-            exe = paddle.static.Executor(place)
-            res_valid = exe.run(
-                feed={'x_valid': np.zeros((0, 6, 6), dtype='float32')},
-                fetch_list=[y_valid],
-            )
-            self.assertEqual(res_valid, 0)
+                exe = paddle.static.Executor(place)
+                res_valid = exe.run(
+                    feed={'x_valid': np.zeros((0, 6, 6), dtype='float32')},
+                    fetch_list=[y_valid],
+                )
+                self.assertEqual(res_valid[0].shape, (0,))
 
     def _test_matrix_rank_dynamic(self):
-        with paddle.disable_static():
+        with dygraph_guard():
             x_valid = paddle.full((0, 6, 6), 1.0, dtype='float32')
             x_invalid1 = paddle.full((0, 0), 1.0, dtype='float32')
             x_invalid2 = paddle.full((2, 3, 0, 0), 1.0, dtype='float32')
-
-            self.assertRaises(TypeError, paddle.linalg.matrix_rank, x_invalid1)
-            self.assertRaises(TypeError, paddle.linalg.matrix_rank, x_invalid2)
+            self.assertRaises(ValueError, paddle.linalg.matrix_rank, x_invalid1)
+            self.assertRaises(ValueError, paddle.linalg.matrix_rank, x_invalid2)
 
             y_valid = paddle.linalg.matrix_rank(x_valid)
-            self.assertEqual(y_valid, 0)
+            self.assertEqual(y_valid.shape, [0])
 
     def test_matrix_rank_tensor(self):
         for place in self._get_places():
