@@ -104,20 +104,14 @@ def can_use_flash_attn(query, key, attn_mask, dropout, is_causal) -> bool:
     # sdpa flash check
     # step1 check tensor place on cuda
     # step2 check tensor shape, flash attn only support shape == 4
-    # step3 check attn_mask, some diff with torch version
-    # step4 check head_dim <= 256
-    # step5 check arch_info > sm80
+    # step3 check head_dim <= 256
+    # step4 check arch_info > sm80
     # step5 check specify sm head dim constraint
     # step6 check causal qk
     # step7 check sm dtype support
     if "gpu" not in paddle.get_device():
         return False
     if query.ndim != 4:
-        return False
-    if attn_mask is not None and attn_mask.dtype not in [
-        paddle.bool,
-        paddle.float32,
-    ]:
         return False
     if query.shape[-1] >= 256:
         return False
