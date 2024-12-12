@@ -708,7 +708,7 @@ def to_distributed(
     custom_input_spec = (
         config.input_spec
         if config.input_spec
-        else [paddle.static.InputSpec([8, 512], 'float32', 'input_seq', True)]
+        else [paddle.static.InputSpec([4, 1024], 'float32', 'input_seq', True)]
     )
     static_func = paddle.jit.to_static(
         model.forward, input_spec=custom_input_spec, full_graph=True
