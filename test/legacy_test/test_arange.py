@@ -231,15 +231,13 @@ class TestArangeImperative(unittest.TestCase):
             start=0,
             end=-9007199254740994,
             step=-9007199254740993,
-            dtype=paddle.int64,
         )
 
         # numpy give wrong result here, so we generate 'x12_expected_data' manually
         # x12_expected_data = np.arange(start=0, stop=-9007199254740994, step=-9007199254740993, dtype=np.int64)
+        x12_expected_data = np.array([0, -9007199254740993])
 
-        np.testing.assert_array_equal(
-            x12.numpy(), np.array([0, -9007199254740993])
-        )
+        np.testing.assert_array_equal(x12.numpy(), x12_expected_data)
         self.assertEqual(x12.numpy().dtype, np.int64)
 
         paddle.enable_static()
