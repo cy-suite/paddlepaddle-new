@@ -61,7 +61,6 @@
 #include "paddle/fluid/pir/transforms/build_cinn_pass.h"
 #include "paddle/fluid/pir/transforms/general/common_subexpression_elimination_pass.h"
 #include "paddle/fluid/pir/transforms/general/dead_code_elimination_pass.h"
-#include "paddle/fluid/pir/transforms/general/delete_assert_op_pass.h"
 #include "paddle/fluid/pir/transforms/gpu/fused_gemm_epilogue_pass.h"
 
 COMMON_DECLARE_bool(cinn_specify_input_dynamic_dim);
