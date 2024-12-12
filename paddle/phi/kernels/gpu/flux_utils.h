@@ -57,7 +57,7 @@ public:
     world_size(tp_group->GetSize()),
     ptrs(world_size, nullptr) {
 
-    this->size_in_bytes = calc_size(shapes);
+    this->size_in_bytes = this->calc_aligned_size(shapes);
     this->offset_in_bytes = 0;
     alloc();
   }
@@ -67,7 +67,7 @@ public:
   }
 
   void reserve(const std::vector<std::pair<const phi::DataType, const std::vector<int64_t>>>& shapes) {
-    size_t require_size = calc_size(shapes);
+    size_t require_size = this->calc_aligned_size(shapes);
     if(require_size > this->size_in_bytes) {
       this->size_in_bytes = require_size;
       release();
@@ -95,7 +95,7 @@ public:
         tensors[i] = tensor;
     }
 
-    this->offset_in_bytes += this->calc_size(shape);
+    this->offset_in_bytes += this->calc_aligned_size(shape);
     PADDLE_ENFORCE_LE(
       this->offset_in_bytes,
       this->size_in_bytes,
@@ -146,14 +146,16 @@ private:
     return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
   }
 
-  size_t calc_size(const std::pair<const phi::DataType, const std::vector<int64_t>>& shape) {
-    return SizeOf(shape.first) * calc_numel(shape.second);
+  size_t calc_aligned_size(const std::pair<const phi::DataType, const std::vector<int64_t>>& shape) {
+    size_t size = SizeOf(shape.first) * calc_numel(shape.second);
+    size += (256 - (size % 256));
+    return size;
   }
 
-  size_t calc_size(const std::vector<std::pair<const phi::DataType, const std::vector<int64_t>>>& shapes) {
+  size_t calc_aligned_size(const std::vector<std::pair<const phi::DataType, const std::vector<int64_t>>>& shapes) {
     size_t size = 0;
     for(const auto& shape : shapes) {
-      size += calc_size(shape);
+      size += this->calc_aligned_size(shape);
     }
     return size;
   }
