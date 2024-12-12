@@ -75,26 +75,19 @@ def assign_value_converter(network, paddle_op, inputs):
     dtype_map = {
         paddle.float32: np.float32,
         paddle.int32: np.int32,
+        paddle.float64: np.float64,
+        paddle.bool: np.bool,
+        paddle.int64: np.int64,
     }
     np_dtype = dtype_map.get(dtype)
     if np_dtype is None:
         raise NotImplementedError(
             f"assign_value_ converter does not support dtype {dtype}"
         )
-    # Initialize a NumPy array with zeros
-    np_values = np.zeros(shape, dtype=np_dtype)
+    arr=np.array(values,dtype=np_dtype).reshape(shape)
+    const_layer=network.add_constant(tuple(shape),arr)
 
-    # Flatten the NumPy array to a 1D array
-    flat_np_values = np_values.flatten()
-    # Assign values from the 'values' list to the flattened array
-    flat_np_values[: len(values)] = values
-    # Reshape the 1D array back to the original shape
-    np_values = flat_np_values.reshape(shape)
-
-    constant_layer = network.add_constant(shape=tuple(shape), weights=np_values)
-    constant_layer.name = paddle_op.name()
-
-    return constant_layer.get_output(0)
+    return const_layer.get_output(0)
 
 
 @converter_registry.register("pd_op.arange", trt_version="8.x")
