@@ -210,8 +210,40 @@ def trunc_net(x):
     return paddle.trunc(x)
 
 
-def p_norm_net(x):
+def p_norm_net1(x):
     return paddle.linalg.norm(x, p=2, axis=-1)
+
+
+def p_norm_net2(x):
+    return paddle.linalg.norm(x, p=2, axis=0)
+
+
+def p_norm_net3(x):
+    return paddle.linalg.norm(x, p=2, axis=1)
+
+
+def p_norm_net4(x):
+    return paddle.linalg.norm(x, p=1, axis=1)
+
+
+def p_norm_net5(x):
+    return paddle.linalg.norm(x, p=3, axis=None)
+
+
+def p_norm_net6(x):
+    return paddle.linalg.norm(x, p=3.5, axis=-1)
+
+
+def p_norm_net7(x):
+    return paddle.linalg.norm(x, p=-1, axis=None)
+
+
+def p_norm_net8(x):
+    return paddle.linalg.norm(x, p=-float("inf"), axis=None)
+
+
+def p_norm_net9(x):
+    return paddle.linalg.norm(x, p=float("inf"), axis=None)
 
 
 class TestPrimPadWithGrad(TestPrimBaseWithGrad):
@@ -1312,7 +1344,124 @@ class TestPrimPNormGrad1(TestPrimBaseWithGrad):
         self.x_shape = [30, 200, 40]
         self.init_x_shape = [None, None, None]
         self.x = np.random.random(self.x_shape).astype(self.dtype)
-        self.net = p_norm_net
+        self.net = p_norm_net1
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimPNormGrad2(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.p_norm"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = p_norm_net2
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimPNormGrad3(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.p_norm"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = p_norm_net3
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimPNormGrad4(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.p_norm"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = p_norm_net4
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimPNormGrad5(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.p_norm"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = p_norm_net5
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimPNormGrad6(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.p_norm"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = p_norm_net6
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimPNormGrad7(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.p_norm"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = p_norm_net7
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimPNormGrad8(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.p_norm"
+        self.dtype = "float32"
+        self.x_shape = [1]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = p_norm_net5
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimPNormGrad9(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.p_norm"
+        self.dtype = "float32"
+        self.x_shape = [1]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = p_norm_net8
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimPNormGrad10(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.p_norm"
+        self.dtype = "float32"
+        self.x_shape = [1]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = p_norm_net9
         self.enable_cinn = False
         self.tol = 1e-6
 
