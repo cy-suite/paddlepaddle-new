@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import unittest
 
 import numpy as np
 from op_test import OpTest, convert_float_to_uint16
+from utils import dygraph_guard, static_guard
 
 import paddle
 from paddle import _C_ops, base
@@ -1327,14 +1329,72 @@ class API_NormTest(unittest.TestCase):
                 ValueError, paddle.norm, data, p='unspport', axis=[-3, -2, -1]
             )
 
-        with base.dygraph.guard():
-            # The size of input in Norm should not be 0.
-            def test_0_size():
-                array = np.array([], dtype=np.float32)
-                x = paddle.to_tensor(np.reshape(array, [0, 0]), dtype='float32')
-                paddle.linalg.norm(x, axis=0)
 
-            self.assertRaises(ValueError, test_0_size)
+paddle.enable_static()
+
+
+class TestMatrixNormEmptyTensor(unittest.TestCase):
+    def _get_places(self):
+        places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not paddle.is_compiled_with_cuda()
+        ):
+            places.append(base.CPUPlace())
+        if paddle.is_compiled_with_cuda():
+            places.append(base.CUDAPlace(0))
+        return places
+
+    def _test_matrix_norm_static(self, place):
+        with static_guard():
+            with paddle.static.program_guard(
+                paddle.static.Program(), paddle.static.Program()
+            ):
+
+                # Valid shapes - expected to succeed
+                x1 = paddle.static.data(
+                    name='x1', shape=[0, 0], dtype='float32'
+                )
+                y1 = paddle.linalg.matrix_norm(x1, p='fro')
+
+                x2 = paddle.static.data(
+                    name='x2', shape=[2, 0], dtype='float32'
+                )
+                y2 = paddle.linalg.matrix_norm(x2, p='fro')
+
+                # Execute and verify
+                exe = paddle.static.Executor(place)
+                res = exe.run(
+                    feed={
+                        'x1': np.zeros((0, 0), dtype='float32'),
+                        'x2': np.ones((2, 0), dtype='float32'),
+                    },
+                    fetch_list=[y1, y2],
+                )
+
+                self.assertEqual(res[0].shape, (0,))
+                expected_norm = np.linalg.norm(np.ones((2, 0)), ord='fro')
+                self.assertAlmostEqual(res[1][0], expected_norm)
+
+    def _test_matrix_norm_dynamic(self):
+        with dygraph_guard():
+
+            # Valid shapes - expected to succeed
+            x1 = paddle.full((0, 0), 1.0, dtype='float32')
+            y1 = paddle.linalg.matrix_norm(x1, p='fro')
+
+            x2 = paddle.full((2, 0), 1.0, dtype='float32')
+            y2 = paddle.linalg.matrix_norm(x2, p='fro')
+
+            self.assertEqual(y1.shape, (0,))
+            expected_norm = np.linalg.norm(np.ones((2, 0)), ord='fro')
+            self.assertAlmostEqual(y2.numpy()[0], expected_norm)
+
+    def test_matrix_norm(self):
+        for place in self._get_places():
+            self._test_matrix_norm_static(place)
+        self._test_matrix_norm_dynamic()
 
 
 if __name__ == '__main__':

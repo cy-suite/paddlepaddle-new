@@ -62,12 +62,31 @@ void PNormKernel(const Context& dev_ctx,
   GetDims(xdim, axis, &pre, &n, &post, asvector);
 
   for (int i = 0; i < xdim.size(); i++) {
-    PADDLE_ENFORCE_LT(0,
-                      xdim[i],
-                      errors::InvalidArgument(
-                          "The dims of Input(X) should be greater than 0."));
+    PADDLE_ENFORCE_GE(
+        0,
+        xdim[i],
+        errors::InvalidArgument(
+            "The dims of Input(X) should be greater than or equal to 0."));
   }
+  if (in_x->numel() == 0) {
+    std::vector<int64_t> out_shape;
+    if (asvector) {
+      out_shape.push_back(1);
+    } else {
+      for (int i = 0; i < xdim.size(); ++i) {
+        if (i != axis || keepdim) {
+          out_shape.push_back(xdim[i]);
+        }
+      }
+    }
 
+    out->Resize(phi::make_ddim(out_shape));
+    dev_ctx.template Alloc<T>(out);
+
+    phi::funcs::set_constant(dev_ctx, out, static_cast<T>(0));
+
+    return;
+  }
   auto* place = dev_ctx.eigen_device();
 
   Eigen::DSizes<int, 3> shape(pre, n, post);
