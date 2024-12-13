@@ -20,47 +20,49 @@ from tensorrt_test_base import TensorRTBaseTest
 import paddle
 
 
-def embedding_warpper_func(x):
-    layer = paddle.nn.Embedding(64, 4)
-    return layer(x)
-
-
-class TestEmbeddingCase1TRTPattern(TensorRTBaseTest):
+class TestOneHotCase1TRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = paddle.nn.functional.embedding
+        self.python_api = paddle.nn.functional.one_hot
         self.api_args = {
-            "x": np.array([[3, 16, 24], [6, 4, 47]]).astype("int64"),
-            "weight": np.random.uniform(-1, 1, [64, 4]).astype('float32'),
+            "x": np.random.randint(0, 2, size=(3, 1)).astype("int64"),
+            "num_classes": np.array([2], dtype="int64"),
         }
-        self.program_config = {"feed_list": ["x", "weight"]}
         self.dynamic_shape_data = {
-            "x": lambda shape: np.random.randint(1, 64, size=shape).astype(
-                np.int64
+            "x": lambda shape: np.random.randint(0, 2, size=shape).astype(
+                "int64"
             ),
+            "num_classes": lambda shape: np.array([2], dtype="int64"),
         }
-        self.min_shape = {"x": [1, 3]}
-        self.max_shape = {"x": [5, 3]}
+        self.program_config = {"feed_list": ["x", "num_classes"]}
+        self.min_shape = {"x": [1, 1]}
+        self.max_shape = {"x": [6, 1]}
 
     def test_trt_result(self):
         self.check_trt_result()
 
 
-class TestEmbeddingCase2TRTPattern(TensorRTBaseTest):
+class TestOneHotCase2TRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = embedding_warpper_func
+        self.python_api = paddle.nn.functional.one_hot
+        self.num_classes = 2
         self.api_args = {
-            "x": np.array([[3, 16, 24], [6, 4, 47]]).astype("int64"),
+            "x": np.random.randint(0, 2, size=(3, 1)).astype(
+                "int64"
+            ),  # Random integers between 0 and num_classes
+            "num_classes": self.num_classes,
         }
         self.dynamic_shape_data = {
-            "x": lambda shape: np.random.randint(1, 64, size=shape).astype(
-                np.int64
-            ),
+            "x": lambda shape: np.random.randint(
+                0, self.num_classes, size=shape
+            )
         }
         self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 1]}
+        self.max_shape = {"x": [6, 1]}
 
     def test_trt_result(self):
-        self.check_marker(expected_result=False)
+        self.check_trt_result()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()

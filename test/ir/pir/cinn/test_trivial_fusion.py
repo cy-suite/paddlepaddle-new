@@ -24,7 +24,6 @@ os.environ['FLAGS_prim_enable_dynamic'] = 'true'
 os.environ['FLAGS_print_ir'] = '1'
 os.environ['FLAGS_enable_pir_api'] = '1'
 os.environ['FLAGS_use_cinn'] = '1'
-os.environ['FLAGS_cinn_bucket_compile'] = '1'
 os.environ['FLAGS_cinn_new_cluster_op_method'] = '1'
 
 import paddle
@@ -65,8 +64,8 @@ class TestTrivialFusion(unittest.TestCase):
 
     def test_generate_shape_concat(self):
         def func(x, y, z):
-            x = paddle.cast(x, 'int32')
-            y = paddle.cast(y, 'int32')
+            x = paddle.cast(x, 'int64')
+            y = paddle.cast(y, 'int64')
             a = paddle.shape(z)[0:1]
             b = paddle.concat([a, x, y], axis=0)
             return b
