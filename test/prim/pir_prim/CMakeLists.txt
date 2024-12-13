@@ -22,7 +22,8 @@ set(TEST_PRIM_PURE_PIR_CASES
     test_decomp_whole_program
     test_dynamic_combine1
     test_dynamic_combine2
-    test_decomp_fallback)
+    test_decomp_fallback
+    test_prim_amax_amin_op)
 
 foreach(target ${TEST_PRIM_PURE_PIR_CASES})
   py_test_modules(
@@ -83,7 +84,6 @@ if(WITH_CINN)
       FLAGS_enable_pir_api=true
       FLAGS_prim_enable_dynamic=true
       FLAGS_prim_vjp_skip_default_ops=false
-      FLAGS_cinn_bucket_compile=True
       FLAGS_pir_apply_shape_optimization_pass=1)
     set_tests_properties(${target} PROPERTIES LABELS "RUN_TYPE=CINN")
   endforeach()

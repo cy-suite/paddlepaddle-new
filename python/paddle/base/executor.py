@@ -180,7 +180,7 @@ def as_numpy(tensor, copy=False):
             "Some of your fetched tensors hold LoD information. \
             They can not be completely cast to Python ndarray. \
             Please set the parameter 'return_numpy' as 'False' to \
-            return LoDTensor itself directly."
+            return DenseTensor itself directly."
         )
     if tensor._is_initialized():
         if copy:
@@ -270,9 +270,8 @@ def check_feed_shape_type(var, feed, num_places=1):
         diff_shape = core.diff_tensor_shape(feed, var.desc, num_places)
         if diff_shape is not None:
             raise ValueError(
-                'The fed Variable %r should have dimensions = %d, shape = '
-                '%r, but received fed shape %r on each device'
-                % (var.name, len(var.shape), var.shape, diff_shape)
+                f'The fed Variable {var.name!r} should have dimensions = {len(var.shape)}, shape = '
+                f'{var.shape!r}, but received fed shape {diff_shape!r} on each device'
             )
         if not dtype_is_compatible_with(feed._dtype(), var.dtype):
             var_dtype_format = (
@@ -318,9 +317,8 @@ def pir_check_feed_shape_type(feed, name, target_shape, dtype, num_places=1):
     diff_shape = core.diff_tensor_shape(feed, target_shape, num_places)
     if diff_shape is not None:
         warnings.warn(
-            'The fed Variable %r should have dimensions = %d, shape = '
-            '%r, but received fed shape %r on each device'
-            % (name, len(target_shape), target_shape, diff_shape)
+            f'The fed Variable {name!r} should have dimensions = {len(target_shape)}, shape = '
+            f'{target_shape!r}, but received fed shape {diff_shape!r} on each device'
         )
     if not dtype_is_compatible_with(feed._dtype(), dtype):
         var_dtype_format = (
@@ -353,7 +351,7 @@ def has_feed_operators(block, feed_targets, feed_holder_name):
         feed_targets: a dictionary of {feed_target_name: feed_target_data}
         feed_holder_name: the name of the variable that holds the data of
             all feed targets. The type of this feed_holder variable is
-            FEED_MINIBATCH, which is essentially vector<LoDTensor>.
+            FEED_MINIBATCH, which is essentially vector<DenseTensor>.
 
     Returns:
         A boolean value that indicates whether a block has feed operators
@@ -1152,6 +1150,21 @@ class _ExecutorCache:
         place = cached_data.place
         scope = cached_data.scope
 
+        def cinn_process(program):
+            from paddle.decomposition import decomp
+
+            if core._enable_dist_prim_all():
+                logging.info("apply decompose in executor")
+                with decomp.prim_guard():
+                    decomp.decompose_dist_program(program)
+
+            if core._enable_auto_recompute():
+                logging.info("apply auto_recompute in executor")
+                program = decomp.auto_recompute_pir_program(program, None)
+
+            apply_cinn_pass(program)
+            return program
+
         if cached_data.plan is None:
             value_map = pir.IrMapping()
             _, is_startup_program = has_fetch_operations_and_is_startup_program(
@@ -1174,6 +1187,10 @@ class _ExecutorCache:
                 fetch_var_name=fetch_var_name,
             )
             default_job = core.Job("default")
+
+            if not is_startup_program and in_cinn_mode():
+                cinn_process(program)
+
             type_to_program = {"default": program}
             plan = core.Plan([default_job], type_to_program)
         else:
@@ -1200,6 +1217,11 @@ class _ExecutorCache:
                     value.block.program, value, fetch_var_name + str(i), i
                 )
 
+            if in_cinn_mode():
+                for job_type in plan.job_types():
+                    ir_program = plan.ir_program(job_type)
+                    cinn_process(ir_program)
+
         new_exe = _StandaloneExecutor(place, plan, scope)
 
         data_op_infos = []
@@ -1216,18 +1238,7 @@ class _ExecutorCache:
                     op.result(0).persistable,
                 )
                 data_op_infos.append(tup)
-        from paddle.decomposition import decomp
 
-        if core._enable_dist_prim_all():
-            with decomp.prim_guard():
-                decomp.decompose_dist_program(program)
-
-        if core._enable_auto_recompute():
-            logging.info("apply auto_recompute in executor")
-            program = decomp.auto_recompute_pir_program(program, None)
-
-        if in_cinn_mode():
-            apply_cinn_pass(program)
         return program, new_exe, data_op_infos
 
 
@@ -2264,13 +2275,11 @@ class Executor:
         if filelist_length < pipeline_num:
             pipeline_num = filelist_length
             print(
-                "Pipeline training: setting the pipeline num to %d is enough because there are only %d files"
-                % (filelist_length, filelist_length)
+                f"Pipeline training: setting the pipeline num to {filelist_length} is enough because there are only {filelist_length} files"
             )
         if filelist_length < pipeline_num * pipeline_opt["concurrency_list"][0]:
             print(
-                "Pipeline training: setting the 1st element in concurrency_list to %d is enough because there are only %d files"
-                % (filelist_length // pipeline_num, filelist_length)
+                f"Pipeline training: setting the 1st element in concurrency_list to {filelist_length // pipeline_num} is enough because there are only {filelist_length} files"
             )
             pipeline_opt["concurrency_list"][0] = (
                 filelist_length // pipeline_num
@@ -2997,7 +3006,7 @@ class Executor:
                             tensor = as_numpy(tensor)
                     except:
                         var = scope.find_var(varname)
-                        tensor = var.get_lod_tensor_array()
+                        tensor = var.get_dense_tensor_array()
                         if return_numpy:
                             tensor = as_numpy(tensor)
                         else:
