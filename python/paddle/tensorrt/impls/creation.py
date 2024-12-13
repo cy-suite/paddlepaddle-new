@@ -75,39 +75,23 @@ def assign_value_converter(network, paddle_op, inputs):
     dtype = attrs['dtype']
     values = attrs['values']
 
-    paddle_dtype_str_map = {
-        paddle.float16: 'float16',
-        paddle.float32: 'float32',
-        paddle.float64: 'float64',
-        paddle.int32: 'int32',
-        paddle.int64: 'int64',
-        paddle.bool: 'bool',
+    paddle_to_np_dtype_map = {
+        paddle.float16: np.float16,
+        paddle.float32: np.float32,
+        paddle.float64: np.float64,
+        paddle.int32: np.int32,
+        paddle.int64: np.int64,
     }
 
-    if dtype in paddle_dtype_str_map:
-        dtype_str = paddle_dtype_str_map[dtype]
-    else:
+    if dtype not in paddle_to_np_dtype_map:
         raise ValueError(
-            f"Unsupported paddle.dtype {dtype} for assign_value op in TRT converter."
+            f"Unsupported dtype {dtype} for assign_value op in TRT converter."
         )
 
-    dtype_map = {
-        'float16': np.float16,
-        'float32': np.float32,
-        'float64': np.float64,
-        'int32': np.int32,
-        'int64': np.int64,
-    }
-
-    if dtype_str not in dtype_map:
-        raise ValueError(
-            f"Unsupported dtype {dtype_str} for assign_value op in TRT converter."
-        )
-
-    np_dtype = dtype_map[dtype_str]
+    np_dtype = paddle_to_np_dtype_map[dtype]
 
     arr = np.array(values, dtype=np_dtype).reshape(shape)
-    if dtype_str == 'int64':
+    if np_dtype == np.int64:
         arr = arr.astype(np.int32)
     const_layer = network.add_constant(tuple(shape), arr)
     if const_layer is None:
