@@ -75,16 +75,18 @@ class BuffersHolder {
         tp_group(tp_group_),
         world_size(tp_group->GetSize()),
         ptrs(world_size, nullptr) {
-    if (std::is_same<BufferT, phi::dtype::float16>::value)
+    if (std::is_same<BufferT, phi::dtype::float16>::value) {
       dtype = phi::DataType::FLOAT16;
-    else if (std::is_same<BufferT, phi::dtype::bfloat16>::value)
+    } else if (std::is_same<BufferT, phi::dtype::bfloat16>::value) {
       dtype = phi::DataType::BFLOAT16;
-    else if (std::is_same<BufferT, uint8_t>::value)
+    } else if (std::is_same<BufferT, uint8_t>::value) {
       dtype = phi::DataType::UINT8;
-    else if (std::is_same<BufferT, int32_t>::value)
+    } else if (std::is_same<BufferT, int32_t>::value) {
       dtype = phi::DataType::INT32;
-    else
-      throw std::runtime_error("BuffersHolder unexpected BufferT");
+    } else {
+      PADDLE_THROW(
+          common::errors::Unimplemented("BuffersHolder unexpected BufferT"));
+    }
 
     this->size_in_bytes = calc_size(shape);
     alloc();
