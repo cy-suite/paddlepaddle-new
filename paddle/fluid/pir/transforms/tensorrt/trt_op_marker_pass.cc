@@ -958,11 +958,6 @@ class FlattenOpPattern
     if (start_axis < 0) {
       start_axis += dims;
     }
-    if (start_axis == 0) {
-      VLOG(3)
-          << "TRT pd_op.flatten not support the batch-dimension being changed";
-      return false;
-    }
 
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
