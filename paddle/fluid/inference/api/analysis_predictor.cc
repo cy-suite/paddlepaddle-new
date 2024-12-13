@@ -427,7 +427,8 @@ bool AnalysisPredictor::Init(
     platform::CudaProfilerStart();
     platform::NvprofEnableRecordEvent();
 #endif
-    platform::EnableProfiler(platform::ProfilerState::kAll);
+    platform::EnableProfiler(config_.use_gpu() ? platform::ProfilerState::kAll
+                                               : platform::ProfilerState::kCPU);
   }
 
   if (!status_is_cloned_) {
@@ -658,6 +659,14 @@ void AnalysisPredictor::ClearExtraParams() {
         op_desc->SetAttr("predictor_id", predictor_id_);
       }
     }
+#ifdef PADDLE_WITH_OPENVINO
+    if (op_desc->Type() == "openvino_engine") {
+      if (op_desc->HasAttr("inference_num_threads")) {
+        op_desc->SetAttr("inference_num_threads",
+                         config_.cpu_math_library_num_threads_);
+      }
+    }
+#endif
   }
 
   std::vector<std::string> extra_params;
@@ -822,8 +831,7 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
 
   auto AddAutoLayoutPasses = [&](pir::PassManager &pass_manager) {
     auto &pass_registry = pir::PassRegistry::Instance();
-    std::vector<std::string> passes = {"auto_layout_pass",
-                                       "auto_layout_simplify_pass"};
+    std::vector<std::string> passes = {"auto_layout_pass"};
 
     for (const auto &pass_name : passes) {
       if (std::find(config_.deleted_passes_.begin(),
@@ -881,6 +889,14 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
       });
       return pass_manager;
     };
+
+    if (config_.cinn_enabled() && !config_.custom_pass_only_) {
+      ::pir::PassManager delete_assert_op_pm(::pir::IrContext::Instance(),
+                                             config_.pm_opt_level_);
+      delete_assert_op_pm.AddPass(
+          pir::PassRegistry::Instance().Get("delete_assert_op_pass"));
+      delete_assert_op_pm.Run(pir_program_.get());
+    }
 
     if (config_.use_gpu() && config_.cinn_enabled()) {
       if (!config_.custom_pass_only_) {
@@ -1974,6 +1990,7 @@ void AnalysisPredictor::PrepareArgument() {
     argument_->SetTensorRtUseDLA(config_.trt_use_dla_);
     argument_->SetTensorRtDLACore(config_.trt_dla_core_);
     argument_->SetTensorRtUseStaticEngine(config_.trt_use_static_engine_);
+
     argument_->SetTensorRtUseCalibMode(config_.trt_use_calib_mode_);
     argument_->SetTensorRtUseCudaGraph(config_.trt_use_cuda_graph_);
     argument_->SetCloseTrtPluginFp16(config_.disable_trt_plugin_fp16_);
@@ -1990,7 +2007,12 @@ void AnalysisPredictor::PrepareArgument() {
   }
 
   argument_->SetUseXpu(config_.use_xpu_);
-
+#ifdef PADDLE_WITH_OPENVINO
+  argument_->SetUseOpenVINO(config_.use_openvino_);
+  argument_->SetCpuMathLibraryNumThreads(config_.cpu_math_library_num_threads_);
+  argument_->SetOpenvinoInferencePrecision(static_cast<int>(
+      paddle::ConvertPrecision(config_.openvino_inference_precision_)));
+#endif
 #ifdef PADDLE_WITH_IPU
   argument_->SetUseIpu(config_.use_ipu());
   argument_->SetIpuDeviceNum(config_.ipu_device_num());

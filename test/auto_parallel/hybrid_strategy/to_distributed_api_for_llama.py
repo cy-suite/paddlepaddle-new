@@ -1,4 +1,4 @@
-# Copyright (c) 2023 PaddlePaddle Authors. All Rights Reserved.
+# Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,10 +21,8 @@ import paddle
 import paddle.distributed as dist
 import paddle.nn.functional as F
 from paddle import nn
-from paddle.distributed.auto_parallel.high_level_api import (
-    ToDistributedConfig,
-    to_distributed,
-)
+from paddle.distributed import to_distributed
+from paddle.distributed.auto_parallel.high_level_api import ToDistributedConfig
 
 EPOCHES = 1
 VOCAB_SIZE = 8000
@@ -615,12 +613,8 @@ class TestLlamaDecoderForSemiAutoParallel:
         paddle.set_device(self._backend)
 
     def test_to_distributed_api(self):
-        # # config: input_spec
-        input_seq_spec = paddle.static.InputSpec(
-            [BATCH_SIZE, SEQ_LENGTH], 'float32', 'input_seq', True
-        )
+        # # config: sequence_parallel
         dist_config = ToDistributedConfig()
-        dist_config.input_spec = [input_seq_spec]
         dist_config.sequence_parallel = True
 
         # # wrap model by using **to_distributed**
