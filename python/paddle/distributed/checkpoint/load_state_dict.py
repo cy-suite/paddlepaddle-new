@@ -53,6 +53,9 @@ PATH_TO_CHECKPOINT_FILES: dict[str, tuple[list, list]] = {}
 
 
 def get_checkpoint_files(path, use_cache=True, unique_id=-1):
+    # if unique_id is -1, all file ends with .metadata and .distcp is returned
+    if unique_id == -1:
+        unique_id = ''
     global PATH_TO_CHECKPOINT_FILES
     if use_cache and path in PATH_TO_CHECKPOINT_FILES:
         return PATH_TO_CHECKPOINT_FILES[path]
@@ -64,7 +67,7 @@ def get_checkpoint_files(path, use_cache=True, unique_id=-1):
     ]
     assert (
         len(metadata_files) > 0
-    ), f"No metadata file found in the checkpoint directory:{path}."
+    ), f"No metadata file ends with '{unique_id}.metadata' found in the checkpoint directory: {path}."
     local_data_files = [
         file
         for file in accessible_files
@@ -72,7 +75,7 @@ def get_checkpoint_files(path, use_cache=True, unique_id=-1):
     ]
     assert (
         len(local_data_files) > 0
-    ), f"No data file found in the checkpoint directory:{path}."
+    ), f"No data file ends with '{unique_id}.distcp' found in the checkpoint directory:{path}."
     if use_cache:
         PATH_TO_CHECKPOINT_FILES[path] = (metadata_files, local_data_files)
     return (metadata_files, local_data_files)
@@ -539,7 +542,9 @@ def load_state_dict(
         if use_dist:
             check_unique_id(unique_id, process_group)
 
-        metadata_files, local_data_files = get_checkpoint_files(path)
+        metadata_files, local_data_files = get_checkpoint_files(
+            path, unique_id=unique_id
+        )
 
         metadata_list = []
         for file in metadata_files:
