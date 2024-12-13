@@ -60,3 +60,10 @@ def one_hot_converter(network, paddle_op, inputs):
     output_tensor = one_hot_layer.get_output(0)
 
     return [output_tensor]
+
+
+@converter_registry.register("pd_op.embedding", trt_version="8.x")
+def embedding_converter(network, paddle_op, inputs):
+    x_tensor, weight = inputs
+    layer = network.add_gather(weight, x_tensor, 0)
+    return layer.get_output(0)

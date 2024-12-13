@@ -63,6 +63,7 @@ DEFINE_GENERAL_PATTERN(Fused_gemm_epilogue,
                        paddle::dialect::FusedGemmEpilogueOp)
 DEFINE_GENERAL_PATTERN(Layer_norm, paddle::dialect::LayerNormOp)
 DEFINE_GENERAL_PATTERN(Add, paddle::dialect::AddOp)
+DEFINE_GENERAL_PATTERN(Isnan, paddle::dialect::IsnanOp)
 DEFINE_GENERAL_PATTERN(Full, paddle::dialect::FullOp)
 DEFINE_GENERAL_PATTERN(Silu, paddle::dialect::SiluOp)
 DEFINE_GENERAL_PATTERN(Conv2d, paddle::dialect::Conv2dOp)
@@ -1409,6 +1410,28 @@ class ArgsortOpPattern
     return true;
   }
 };
+
+class EmbeddingOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::EmbeddingOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::EmbeddingOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::EmbeddingOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (pir::GetDefiningOpForInput(op, 1)->name() == "builtin.parameter") {
+      // trt.Weights don't have the shape info.
+      VLOG(3) << "Skip to convert into TRT while found weight is a parameter "
+                 "in pd_op.embedding.";
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class BilinearInterpV2Pattern
     : public pir::OpRewritePattern<paddle::dialect::BilinearInterpOp> {
  public:
@@ -2192,6 +2215,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(AssignOut)
     ADD_PATTERN(Assign)
     ADD_PATTERN(Tile)
+    ADD_PATTERN(Isnan)
     ADD_PATTERN(Share_Data)
     ADD_PATTERN(Swish)
     ADD_PATTERN(Log)
@@ -2230,6 +2254,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<FlattenOpPattern>(context));
     ps.Add(std::make_unique<CastOpPattern>(context));
     ps.Add(std::make_unique<SplitOpPattern>(context));
+    ps.Add(std::make_unique<EmbeddingOpPattern>(context));
     ps.Add(std::make_unique<SplitWithNumOpPattern>(context));
     ps.Add(std::make_unique<GreaterEqualOpPattern>(context));
     ps.Add(std::make_unique<GreaterThanOpPattern>(context));
