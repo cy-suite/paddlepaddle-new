@@ -26,6 +26,7 @@
 #include "paddle/pir/include/core/op_base.h"
 #include "paddle/pir/include/core/op_trait.h"
 #include "paddle/pir/include/core/operation_utils.h"
+#include "test/cpp/pir/tools/macros_utils.h"
 
 namespace paddle {
 namespace dialect {
@@ -56,4 +57,4 @@ class FakeEngineOp
 }  // namespace dialect
 }  // namespace paddle
 
-IR_DECLARE_EXPLICIT_PLUGIN_TYPE_ID(paddle::dialect::FakeEngineOp)
+IR_DECLARE_EXPLICIT_TEST_TYPE_ID(paddle::dialect::FakeEngineOp)
