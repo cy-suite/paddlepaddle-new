@@ -2784,7 +2784,7 @@ class DistModel:
                                     local_state_dict.pop(ori_p + suffix)
 
         dist_main_program.set_state_dict(
-            local_state_dict, paddle.static.global_scope(), copy_tensor
+            local_state_dict, paddle.static.global_scope()
         )
 
 
