@@ -24,7 +24,9 @@
 #include "paddle/common/errors.h"
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/device_context.h"
+#if defined(PADDLE_WITH_CUDA)
 #include "paddle/phi/core/distributed/nccl_comm_context.h"
+#endif
 #include "paddle/phi/core/distributed/types.h"
 #include "paddle/phi/core/distributed/utils.h"
 #include "paddle/phi/core/enforce.h"
@@ -117,6 +119,7 @@ class ProcessGroup {
         GetBackendName()));
   }
 
+#if defined(PADDLE_WITH_CUDA)
   virtual phi::distributed::NCCLCommContext* GetOrCreateCommContext(
       const Place& place UNUSED,
       CommType comm_type UNUSED = CommType::UNKNOWN) {
@@ -124,6 +127,7 @@ class ProcessGroup {
         "ProcessGroup%s does not support get get or create comm_context",
         GetBackendName()));
   }
+#endif
 
   virtual void StartCoalescing() {}
 
