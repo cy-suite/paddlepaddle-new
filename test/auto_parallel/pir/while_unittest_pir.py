@@ -23,16 +23,10 @@ from paddle.io import DataLoader, Dataset
 
 os.environ["FLAGS_embedding_deterministic"] = "1"
 os.environ["FLAGS_cudnn_deterministic"] = "1"
+
 mesh = dist.ProcessMesh([0, 1], dim_names=["x"])
 data_world_size = mesh.get_dim_size("x")
-seed = 1024
 dim = 3
-
-
-def set_random_seed(seed):
-    random.seed(seed)
-    np.random.seed(seed)
-    paddle.seed(seed)
 
 
 def loss_fn(x, label):
@@ -51,16 +45,6 @@ class RandomDataset(Dataset):
 
     def __len__(self):
         return self.num_samples
-
-
-def create_dataloader():
-    dataset = RandomDataset()
-    dataloader = DataLoader(
-        dataset,
-        batch_size=1,
-        shuffle=False,
-    )
-    return dataloader
 
 
 class Layer(paddle.nn.Layer):
@@ -93,15 +77,19 @@ class DemoModel(paddle.nn.Layer):
 
 
 class TestWhileDemo:
-    def init_env():
-        paddle.seed(2021)
-        np.random.seed(2021)
-        random.seed(2021)
+    def init_env(self):
+        paddle.seed(2024)
+        np.random.seed(2024)
+        random.seed(2024)
 
-    def create_data_loader():
-        cur_rank = paddle.distributed.get_rank()
-        set_random_seed(seed + cur_rank)
-        dataloader = create_dataloader()
+    def create_data_loader(self):
+        dataset = RandomDataset()
+        dataloader = DataLoader(
+            dataset,
+            batch_size=1,
+            shuffle=False,
+        )
+
         dist_dataloader = dist.shard_dataloader(
             dataloader=dataloader,
             meshes=mesh,
