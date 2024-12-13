@@ -103,7 +103,9 @@ if(WITH_DGC)
   list(APPEND PHI_DEPS dgc)
 endif()
 
-list(APPEND PHI_DEPS flux)
+if(WITH_FLUX)
+  list(APPEND PHI_DEPS flux)
+endif()
 
 set(PHI_CORE_SRCS
     ${common_srcs}
