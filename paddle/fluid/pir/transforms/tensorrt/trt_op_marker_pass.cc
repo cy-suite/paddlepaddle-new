@@ -81,6 +81,7 @@ DEFINE_GENERAL_PATTERN(Tile, paddle::dialect::TileOp)
 DEFINE_GENERAL_PATTERN(Share_Data, paddle::dialect::ShareDataOp)
 DEFINE_GENERAL_PATTERN(AssignOut, paddle::dialect::AssignOut_Op)
 DEFINE_GENERAL_PATTERN(Swish, paddle::dialect::SwishOp)
+DEFINE_GENERAL_PATTERN(LeakyRelu, paddle::dialect::LeakyReluOp)
 DEFINE_GENERAL_PATTERN(Log, paddle::dialect::LogOp)
 DEFINE_GENERAL_PATTERN(Floor, paddle::dialect::FloorOp)
 DEFINE_GENERAL_PATTERN(Roll, paddle::dialect::RollOp)
@@ -262,6 +263,7 @@ class ActOpPattern : public pir::OpRewritePattern<OpType> {
 };
 using TanhOpPattern = ActOpPattern<paddle::dialect::TanhOp>;
 using CeluOpPattern = ActOpPattern<paddle::dialect::CeluOp>;
+using LogsigmoidOpPattern = ActOpPattern<paddle::dialect::LogsigmoidOp>;
 
 class Pool2dOpPattern
     : public pir::OpRewritePattern<paddle::dialect::Pool2dOp> {
@@ -2165,7 +2167,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Tile)
     ADD_PATTERN(Share_Data)
     ADD_PATTERN(Swish)
-    ADD_PATTERN(Log)
+    ADD_PATTERN(LeakyRelu)
     ADD_PATTERN(Floor)
     ADD_PATTERN(Roll)
     ADD_PATTERN(Elu)
@@ -2184,6 +2186,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<DeformableConvOpPattern>(context));
     ps.Add(std::make_unique<ArangeOpPattern>(context));
     ps.Add(std::make_unique<SignOpPattern>(context));
+    ps.Add(std::make_unique<LogsigmoidOpPattern>(context));
     ps.Add(std::make_unique<LogicalNotOpPattern>(context));
     ps.Add(std::make_unique<GroupNormOpPattern>(context));
     ps.Add(std::make_unique<TransposeOpPattern>(context));
