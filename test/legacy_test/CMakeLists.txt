@@ -523,20 +523,23 @@ endif()
 
 list(REMOVE_ITEM TEST_OPS "test_stride")
 list(REMOVE_ITEM TEST_OPS "test_graph_reindex")
+if(WITH_XPU)
+  # XPU disables stride by default, so we turn on the flag
+  # manually to pass some stride tests.
+  set(STRIDE_TESTS test_as_strided test_index_select_strided test_tensor_unfold)
+  foreach(STRIDE_TEST_OP ${STRIDE_TESTS})
+    list(REMOVE_ITEM TEST_OPS ${STRIDE_TEST_OP})
+    py_test_modules(${STRIDE_TEST_OP} MODULES ${STRIDE_TEST_OP} ENVS
+                    FLAGS_use_stride_kernel=true)
+  endforeach()
+endif()
 if(WITH_COVERAGE)
   list(REMOVE_ITEM TEST_OPS test_weight_decay)
   list(REMOVE_ITEM TEST_OPS test_cuda_graphed_layer)
   list(REMOVE_ITEM TEST_OPS test_cuda_graph_partial_graph_static_run)
 endif()
 foreach(TEST_OP ${TEST_OPS})
-  if(WITH_XPU)
-    # Because XPU disables stride kernel by default,
-    # we turn it on here to pass some stride tests.
-    py_test_modules(${TEST_OP} MODULES ${TEST_OP} ENVS
-                    FLAGS_use_stride_kernel=true)
-  else()
-    py_test_modules(${TEST_OP} MODULES ${TEST_OP})
-  endif()
+  py_test_modules(${TEST_OP} MODULES ${TEST_OP})
 endforeach()
 py_test_modules(
   test_imperative_ocr_attention_model MODULES
