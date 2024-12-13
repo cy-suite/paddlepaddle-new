@@ -15,6 +15,10 @@
 #pragma once
 
 namespace phi {
+
+// Integration of Flux, a gemm-comm-overlap library as described in the paper
+// https://arxiv.org/pdf/2406.06858
+
 #ifdef PADDLE_WITH_FLUX
 inline void* ptr_offset(void* ptr, ptrdiff_t offset) {
   return static_cast<char*>(ptr) + offset;

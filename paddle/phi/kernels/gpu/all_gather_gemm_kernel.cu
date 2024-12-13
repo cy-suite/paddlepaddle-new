@@ -32,6 +32,9 @@
 
 namespace phi {
 
+// Integration of Flux, a gemm-comm-overlap library as described in the paper
+// https://arxiv.org/pdf/2406.06858
+
 #ifdef PADDLE_WITH_FLUX
 template <typename InT, typename OutT>
 class AGGemmHelper {
