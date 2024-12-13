@@ -35,12 +35,9 @@ class TestPrintOpCPU(unittest.TestCase):
         self.x_tensor = base.core.DenseTensor()
         tensor_np = np.random.random(size=(2, 3)).astype(self.dtype)
         self.x_tensor.set(tensor_np, self.place)
-        self.x_tensor.set_recursive_sequence_lengths([[1, 1]])
 
     def build_network(self, only_forward, **kargs):
-        x = paddle.static.data(
-            'x', shape=[-1, 3], dtype=self.dtype, lod_level=1
-        )
+        x = paddle.static.data('x', shape=[-1, 3], dtype=self.dtype)
         x.stop_gradient = False
         paddle.static.Print(input=x, **kargs)
         loss = paddle.mean(x)
@@ -76,9 +73,7 @@ class TestPrintOpCPU(unittest.TestCase):
     def test_all_parameters(self):
         prog = paddle.static.Program()
         with paddle.static.program_guard(prog, paddle.static.Program()):
-            x = paddle.static.data(
-                'x', shape=[-1, 3], dtype=self.dtype, lod_level=1
-            )
+            x = paddle.static.data('x', shape=[-1, 3], dtype=self.dtype)
             x.stop_gradient = False
 
             for print_tensor_name in [True, False]:
@@ -140,7 +135,6 @@ class TestPrintOpGPU(TestPrintOpCPU):
         self.x_tensor = base.core.DenseTensor()
         tensor_np = np.random.random(size=(2, 3)).astype(self.dtype)
         self.x_tensor.set(tensor_np, self.place)
-        self.x_tensor.set_recursive_sequence_lengths([[1, 1]])
 
 
 @unittest.skipIf(
@@ -153,7 +147,6 @@ class TestPrintOpGPUFP16(TestPrintOpCPU):
         self.x_tensor = base.core.DenseTensor()
         tensor_np = np.random.random(size=(2, 3)).astype(self.dtype)
         self.x_tensor.set(tensor_np, self.place)
-        self.x_tensor.set_recursive_sequence_lengths([[1, 1]])
 
 
 @unittest.skipIf(
@@ -166,7 +159,6 @@ class TestPrintOpGPUBFP16(TestPrintOpCPU):
         self.x_tensor = base.core.DenseTensor()
         tensor_np = convert_float_to_uint16(np.random.random(size=(2, 3)))
         self.x_tensor.set(tensor_np, self.place)
-        self.x_tensor.set_recursive_sequence_lengths([[1, 1]])
 
 
 class TestPrintOpBackward(unittest.TestCase):

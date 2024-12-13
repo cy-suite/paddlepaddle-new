@@ -72,9 +72,7 @@ def train(
     dict_dim = len(word_dict)
     class_dim = 2
 
-    data = paddle.static.data(
-        name="words", shape=[-1, 1], dtype="int64", lod_level=1
-    )
+    data = paddle.static.data(name="words", shape=[-1, 1], dtype="int64")
     label = paddle.static.data(name="label", shape=[-1, 1], dtype="int64")
 
     if not parallel:
@@ -191,7 +189,6 @@ def infer(word_dict, use_cuda, save_dirname=None):
             fetch_list=fetch_targets,
             return_numpy=False,
         )
-        print(results[0].recursive_sequence_lengths())
         np_data = np.array(results[0])
         print("Inference Shape: ", np_data.shape)
         print("Inference results: ", np_data)

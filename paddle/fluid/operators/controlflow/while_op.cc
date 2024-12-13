@@ -257,7 +257,7 @@ class WhileOp : public framework::OperatorBase {
           if (var->IsType<phi::DenseTensor>()) {
             // Clear all lod information for all lod_tensors.
             auto *t = var->GetMutable<phi::DenseTensor>();
-            phi::LoD empty_lod;
+            phi::LegacyLoD empty_lod;
             t->set_lod(empty_lod);
           } else if (var->IsType<phi::TensorArray>()) {
             // Clear elements of all tensor arrays.
@@ -447,7 +447,7 @@ class WhileGradOp : public framework::OperatorBase {
                   inside_array[j].numel(),
                   0,
                   common::errors::InvalidArgument(
-                      "The numel of %d-th element of var %s (LoDTensorArray) "
+                      "The numel of %d-th element of var %s (DenseTensorArray) "
                       "in while block must be 0, but received its numel is %d.",
                       j,
                       inside_og_name,

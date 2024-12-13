@@ -16,8 +16,13 @@ import numpy as np
 import tensorrt as trt
 
 from paddle.tensorrt.converter_utils import (
+    add_constant_layer,
     get_trt_plugin,
-    trt_mul,
+    trt_div,
+    trt_min,
+    trt_prod,
+    trt_sub,
+    trt_sum,
 )
 from paddle.tensorrt.register import converter_registry
 
@@ -30,9 +35,9 @@ activation_type_map = {
 }
 
 
-@converter_registry.register("pd_op.relu", trt_version="8.x")
-@converter_registry.register("pd_op.tanh", trt_version="8.x")
-@converter_registry.register("pd_op.sigmoid", trt_version="8.x")
+@converter_registry.register("pd_op.relu", trt_version="trt_version_ge=8.0")
+@converter_registry.register("pd_op.tanh", trt_version="trt_version_ge=8.0")
+@converter_registry.register("pd_op.sigmoid", trt_version="trt_version_ge=8.0")
 def activation_converter(network, paddle_op, inputs):
     layer = network.add_activation(
         inputs[0], activation_type_map[paddle_op.name()]
@@ -40,7 +45,7 @@ def activation_converter(network, paddle_op, inputs):
     return layer.get_output(0)
 
 
-@converter_registry.register("pd_op.softmax", trt_version="8.x")
+@converter_registry.register("pd_op.softmax", trt_version="trt_version_ge=8.0")
 def softmax_converter(network, paddle_op, inputs):
     axis = paddle_op.attrs().get("axis", 0)
     if axis < 0:
@@ -51,7 +56,7 @@ def softmax_converter(network, paddle_op, inputs):
     return softmax_layer.get_output(0)
 
 
-@converter_registry.register("pd_op.gelu", trt_version="8.x")
+@converter_registry.register("pd_op.gelu", trt_version="trt_version_ge=8.0")
 def gelu_converter(network, paddle_op, inputs):
     input_val = inputs[0]
     approximate = paddle_op.attrs()["approximate"]
@@ -74,7 +79,9 @@ def gelu_converter(network, paddle_op, inputs):
     return layer.get_output(0)
 
 
-@converter_registry.register("pd_op.hardsigmoid", trt_version="8.x")
+@converter_registry.register(
+    "pd_op.hardsigmoid", trt_version="trt_version_ge=8.0"
+)
 def hardsigmoid_converter(network, paddle_op, inputs):
     x = inputs[0]
     slope = paddle_op.attrs()["slope"]
@@ -87,7 +94,9 @@ def hardsigmoid_converter(network, paddle_op, inputs):
     return hardsigmoid_layer.get_output(0)
 
 
-@converter_registry.register("pd_op.hardswish", trt_version="8.x")
+@converter_registry.register(
+    "pd_op.hardswish", trt_version="trt_version_ge=8.0"
+)
 def hardswish_converter(network, paddle_op, inputs):
     x = inputs[0]
     threshold = 6.0
@@ -102,6 +111,16 @@ def hardswish_converter(network, paddle_op, inputs):
         x, hardsigmoid_layer.get_output(0), trt.ElementWiseOperation.PROD
     )
     return hardswish_layer.get_output(0)
+
+
+@converter_registry.register("pd_op.elu", trt_version="8.x")
+@converter_registry.register("pd_op.elu_", trt_version="8.x")
+def elu_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    alpha = paddle_op.attrs()["alpha"]
+    elu_layer = network.add_activation(x, trt.ActivationType.ELU)
+    elu_layer.alpha = alpha
+    return elu_layer.get_output(0)
 
 
 @converter_registry.register("pd_op.softplus", trt_version="8.x")
@@ -127,23 +146,69 @@ def swish_silu_converter(network, paddle_op, inputs):
     layer_output = network.add_activation(
         inputs[0], activation_type_map[paddle_op.name()]
     ).get_output(0)
-    return trt_mul(network, inputs[0], layer_output)
+    return trt_prod(network, inputs[0], layer_output)
 
 
-@converter_registry.register("pd_op.leaky_relu", trt_version="8.x")
-def leaky_relu_converter(network, paddle_op, inputs):
+@converter_registry.register("pd_op.stanh", trt_version="8.x")
+def stanh_converter(network, paddle_op, inputs):
     x = inputs[0]
-    negative_slope = paddle_op.attrs()["negative_slope"]
-    leaky_relu_layer = network.add_activation(x, trt.ActivationType.LEAKY_RELU)
-    leaky_relu_layer.alpha = negative_slope
-    return leaky_relu_layer.get_output(0)
+    scale_a = paddle_op.attrs()["scale_a"]
+    scale_b = paddle_op.attrs()["scale_b"]
+    stanh_layer = network.add_activation(x, trt.ActivationType.SCALED_TANH)
+    stanh_layer.alpha = scale_b
+    stanh_layer.beta = scale_a
+    return stanh_layer.get_output(0)
 
 
-@converter_registry.register("pd_op.logsigmoid", trt_version="8.x")
-def logsigmoid_converter(network, paddle_op, inputs):
+@converter_registry.register("pd_op.mish", trt_version="8.x")
+def mish_converter(network, paddle_op, inputs):
     x = inputs[0]
-    leaky_relu_layer = network.add_activation(x, trt.ActivationType.SIGMOID)
-    unary_layer = network.add_unary(
-        leaky_relu_layer.get_output(0), trt.UnaryOperation.LOG
+    softplus_layer = network.add_activation(x, trt.ActivationType.SOFTPLUS)
+    softplus_output = softplus_layer.get_output(0)
+
+    tanh_layer = network.add_activation(
+        softplus_output, trt.ActivationType.TANH
     )
-    return unary_layer.get_output(0)
+    tanh_output = tanh_layer.get_output(0)
+
+    return trt_prod(network, x, tanh_output)
+
+
+@converter_registry.register("pd_op.celu", trt_version="8.x")
+def celu_converter(network, paddle_op, inputs):
+    input_tensor = inputs[0]
+    alpha = paddle_op.attrs()["alpha"]
+    input_rank = len(input_tensor.shape)
+    constant_shape = trt.Dims([1] * input_rank)
+    alpha_data = add_constant_layer(
+        network, [alpha], constant_shape, dtype="float32"
+    )
+    constant_zero_data = add_constant_layer(
+        network, [0.0], constant_shape, dtype="float32"
+    )
+    constant_one_data = add_constant_layer(
+        network, [1.0], constant_shape, dtype="float32"
+    )
+    input_div_with_alpha = trt_div(network, input_tensor, alpha_data)
+    input_exp_layer = network.add_unary(
+        input_div_with_alpha, trt.UnaryOperation.EXP
+    )
+    input_sub_with_one = trt_sub(
+        network, input_exp_layer.get_output(0), constant_one_data
+    )
+    input_prod_with_alpha = trt_prod(network, input_sub_with_one, alpha_data)
+    min_input = trt_min(network, input_prod_with_alpha, constant_zero_data)
+    relu_layer = network.add_activation(input_tensor, trt.ActivationType.RELU)
+    output_tensor = trt_sum(network, relu_layer.get_output(0), min_input)
+    return output_tensor
+
+
+@converter_registry.register("pd_op.thresholded_relu", trt_version="8.x")
+def thresholded_relu_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    threshold = paddle_op.attrs()["threshold"]
+    thresholded_relu_layer = network.add_activation(
+        x, trt.ActivationType.THRESHOLDED_RELU
+    )
+    thresholded_relu_layer.alpha = threshold
+    return thresholded_relu_layer.get_output(0)
