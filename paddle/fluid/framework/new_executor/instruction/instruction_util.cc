@@ -235,7 +235,8 @@ OpFuncType AnalyseOpFuncType(pir::Operation* op, const phi::Place& place) {
       return OpFuncType::kGpuSync;
     }
 
-    if (op_name.compare(paddle::dialect::ShapeOp::name()) == 0) {
+    if (op_name.compare(paddle::dialect::ShapeOp::name()) == 0 ||
+        op_name.compare(paddle::dialect::Shape64Op::name()) == 0) {
       return OpFuncType::kGpuSync;
     }
   }
@@ -386,7 +387,7 @@ std::unordered_set<pir::Value> GetTuplePushContainer(pir::Block* block) {
   return inner_outputs;
 }
 
-void InsertTuplePushContinerToOuts(
+void InsertTuplePushContainerToOuts(
     pir::Block* block,
     const ValueExecutionInfo& value_exec_info,
     std::unordered_map<pir::Value, std::vector<int>>* outputs) {
@@ -395,7 +396,7 @@ void InsertTuplePushContinerToOuts(
 
   for (pir::Value value : inner_stack_outputs) {
     outputs->emplace(value, GetValueIds(value, value_exec_info));
-    VLOG(6) << "InsertTuplePushContinerToOuts of " << value.impl();
+    VLOG(6) << "InsertTuplePushContainerToOuts of " << value.impl();
   }
 }
 
