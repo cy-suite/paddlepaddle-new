@@ -18,14 +18,14 @@ import paddle
 from paddle.base import core
 from paddle.device.cuda import (
     device_count,
-    max_memory_allocated,
-    memory_allocated,
-    reset_max_memory_allocated,
+    max_memory_reserved,
+    memory_reserved,
+    reset_max_memory_reserved,
 )
 
 
-class TestResetMaxMemoryAllocated(unittest.TestCase):
-    def func_test_reset_max_memory_allocated(self, device=None):
+class TestResetMaxMemoryReserved(unittest.TestCase):
+    def func_test_reset_max_memory_reserved(self, device=None):
         if core.is_compiled_with_cuda():
             alloc_time = 100
             max_alloc_size = 10000
@@ -35,7 +35,7 @@ class TestResetMaxMemoryAllocated(unittest.TestCase):
                     low=max_alloc_size, high=max_alloc_size * 2
                 )
                 tensor = paddle.zeros(shape)
-                peak_memory_allocated_size_first = max_memory_allocated(device)
+                peak_memory_reserved_size_first = max_memory_reserved(device)
 
                 del shape
                 del tensor
@@ -45,30 +45,30 @@ class TestResetMaxMemoryAllocated(unittest.TestCase):
                 tensor = paddle.zeros(shape)
 
                 # reset peak memory stats
-                reset_max_memory_allocated(device)
+                reset_max_memory_reserved(device)
 
-                peak_memory_allocated_size_second = max_memory_allocated(device)
+                peak_memory_reserved_size_second = max_memory_reserved(device)
                 self.assertEqual(
-                    peak_memory_allocated_size_second, memory_allocated(device)
+                    peak_memory_reserved_size_second, memory_reserved(device)
                 )
-                self.assertLess(
-                    peak_memory_allocated_size_second,
-                    peak_memory_allocated_size_first,
+                self.assertLessEqual(
+                    peak_memory_reserved_size_second,
+                    peak_memory_reserved_size_first,
                 )
 
                 del shape
                 del tensor
 
-    def test_reset_max_memory_allocated_for_all_places(self):
+    def test_reset_max_memory_reserved_for_all_places(self):
         if core.is_compiled_with_cuda():
             gpu_num = device_count()
             for i in range(gpu_num):
                 paddle.device.set_device("gpu:" + str(i))
-                self.func_test_reset_max_memory_allocated(core.CUDAPlace(i))
-                self.func_test_reset_max_memory_allocated(i)
-                self.func_test_reset_max_memory_allocated("gpu:" + str(i))
+                self.func_test_reset_max_memory_reserved(core.CUDAPlace(i))
+                self.func_test_reset_max_memory_reserved(i)
+                self.func_test_reset_max_memory_reserved("gpu:" + str(i))
 
-    def test_reset_max_memory_allocated_exception(self):
+    def test_reset_max_memory_reserved_exception(self):
         if core.is_compiled_with_cuda():
             wrong_device = [
                 core.CPUPlace(),
@@ -79,10 +79,10 @@ class TestResetMaxMemoryAllocated(unittest.TestCase):
             ]
             for device in wrong_device:
                 with self.assertRaises(BaseException):  # noqa: B017
-                    reset_max_memory_allocated(device)
+                    reset_max_memory_reserved(device)
         else:
             with self.assertRaises(ValueError):
-                reset_max_memory_allocated()
+                reset_max_memory_reserved()
 
 
 if __name__ == "__main__":
