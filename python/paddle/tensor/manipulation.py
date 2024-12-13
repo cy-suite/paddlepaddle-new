@@ -737,6 +737,15 @@ def shard_index(
             >>> print(shard_label.numpy())
             [[-1]
              [ 1]]
+
+        A two-dimensional tensor with a shape of [2, 1], through the shard_index operation, when index_num = 20, nshards = 2, and shard_id = 0, calculates
+        the shard size shard_size = (20 + 2 - 1) // 2 = 10. For the element values in label, such as 16, because 16 >= 10 (not within the [0, 10) interval
+        of shard 0), its value is set to ignore_value (i.e., -1) according to the formula; while the element value 1, since 0 <= 1 < 10 (within shard 0),
+        the updated value is 1 - 0 * 10 = 1, and finally a new tensor with the same shape [2, 1] but some elements changed (such as shard_label) is obtained.
+            .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/shard_index.png
+               :width: 500
+               :alt: Illustration of Case 2
+               :align: center
     """
     if in_dynamic_or_pir_mode():
         return _C_ops.shard_index(
@@ -7284,6 +7293,14 @@ def index_fill(
                     [ 4,  5,  6],
                     [-1, -1, -1]])
 
+        A two-dimensional tensor with a shape of [3, 3], through the index_fill operation, when axis = 0, the index tensor index is [0, 2], and the fill value value = -1,
+        all elements in the first and third rows are filled with -1, thereby obtaining a new tensor with a shape still [3, 3] but some elements changed. A two-dimensional
+        tensor with the shape [3, 3], by means of the index_fill operation, when axis = 0, the index tensor index is [0, 2], and the fill value value = -1,
+        all the elements in the first and third rows are filled with -1, thus getting a new tensor with the same shape [3, 3] but some elements changed.
+            .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/index_fill.png
+               :width: 500
+               :alt: Illustration of Case 2
+               :align: center
     """
     return _index_fill_impl(x, index, axis, value, False)
 
