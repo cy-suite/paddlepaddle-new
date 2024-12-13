@@ -308,7 +308,7 @@ class TestLogIntTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.log
         self.api_args = {
-            "x": np.random.randn(2, 3).astype("int64"),
+            "x": np.random.randn(2, 3).astype("int32"),
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3]}
