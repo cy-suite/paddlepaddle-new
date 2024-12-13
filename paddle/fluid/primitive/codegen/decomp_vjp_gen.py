@@ -133,7 +133,6 @@ OTHER_PRIM_VJP_OPS = [
     'logcumsumexp_grad',
     'logsumexp_grad',
     'kthvalue_grad',
-    'p_norm_grad',
 ]
 
 # whole vjp list of primitive op vjp
@@ -163,6 +162,7 @@ CUSTOM_VJP = [
     'stack_grad',
     'swiglu',
     'swish_grad',
+    'p_norm_grad',
 ]  # custom vjp list of composite op
 
 VJP_COMPS = PRIM_VJP + CUSTOM_VJP

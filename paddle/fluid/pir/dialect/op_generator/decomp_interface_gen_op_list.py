@@ -179,6 +179,7 @@ CUSTOM_VJP = [
     'swiglu_grad',
     'layer_norm_grad',
     'group_norm_grad',
+    'p_norm_grad',
 ]  # custom vjp list of composite op
 
 # declare belongs to codegen, but implementation not
