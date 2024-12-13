@@ -196,8 +196,9 @@ void DyScheduleImpl::SimpleComputeAt(const Expr& block, const Expr& loop) {
     if (Contains(result, if_expr)) continue;
     if (ir::ir_utils::CollectIRNodesWithoutTensor(if_expr, checker, true)
             .size() > 0) {
-      result =
-          IfThenElse::Make(if_expr.As<ir::IfThenElse>()->condition, result);
+      result = IfThenElse::Make(
+          ir::ir_utils::IRCopy(if_expr.As<ir::IfThenElse>()->condition),
+          result);
       break;
     }
   }
@@ -229,8 +230,17 @@ void DyScheduleImpl::SimpleComputeAt(const Expr& block, const Expr& loop) {
       new_loop.As<ir::For>()->body.As<ir::Block>()->stmts.insert(pos, result);
     }
   } else {
-    new_loop.As<ir::For>()->body =
-        ir::Block::Make({result, new_loop.As<ir::For>()->body});
+    if (new_loop.As<ir::For>()->body.As<ir::Block>()) {
+      std::vector<ir::Expr> new_body{result};
+      for (const auto& stmt :
+           new_loop.As<ir::For>()->body.As<ir::Block>()->stmts) {
+        new_body.push_back(stmt);
+      }
+      new_loop.As<ir::For>()->body = ir::Block::Make(new_body);
+    } else {
+      new_loop.As<ir::For>()->body =
+          ir::Block::Make({result, new_loop.As<ir::For>()->body});
+    }
   }
 
   Expr source_expr{nullptr};
