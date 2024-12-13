@@ -120,22 +120,22 @@ void PyLayerOp::Print(pir::IrPrinter &printer) {
   auto &os = printer.os;
   auto op = operation();
   printer.PrintOpResult(*op);
-  os << " = pd_op.pylayer";
-
-  if (VLOG_IS_ON(1)) {
-    os << " [id:" << op->id() << "]";
-  }
+  os << " = ";
+  printer.PrintOpName(*op);
+  printer.PrintOpId(*op);
 
   printer.PrintOpOperands(*op);
   printer.PrintAttributeMap(*op);
   os << " -> ";
   printer.PrintOpReturnType(*op);
-  os << "{";
+  os << " {\n";
+  printer.AddIndentation();
   for (auto &item : forward_block()) {
-    os << "\n  ";
     printer.PrintOperation(item);
+    os << "\n";
   }
-  os << "\n }";
+  printer.DecreaseIndentation();
+  os << printer.indentation() << "}";
 }
 
 void PyLayerOp::VerifySig() {

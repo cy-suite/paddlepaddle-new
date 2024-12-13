@@ -13,14 +13,18 @@
 // limitations under the License.
 
 #pragma once
-#include "paddle/cinn/ir/ir.h"
 
-namespace cinn {
-namespace optim {
+#include <memory>
+#include <set>
+#include <string>
+#include "paddle/pir/include/core/dll_decl.h"
 
-/*
- * Do fusion with the adjaccnt if-block.
- */
-void IfFusion(Expr *expr);
-}  // namespace optim
-}  // namespace cinn
+namespace pir {
+
+class Pass;
+
+// ops_in_NHWC: the op that should be in NHWC layout.
+IR_API std::unique_ptr<Pass> CreateAutoLayoutInsertPass(
+    const std::set<std::string>& ops_in_NHWC);
+
+}  // namespace pir
