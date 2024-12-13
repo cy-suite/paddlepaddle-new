@@ -948,16 +948,6 @@ class FlattenOpPattern
       VLOG(3) << "flatten op must has start_axis and stop_axis attributes";
       return false;
     }
-    int start_axis = op->attribute<pir::Int32Attribute>("start_axis").data();
-
-    pir::Value x = op.operand_source(0);
-    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
-    auto x_shape = x_type.dims();
-    int dims = x_shape.size();
-
-    if (start_axis < 0) {
-      start_axis += dims;
-    }
 
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
