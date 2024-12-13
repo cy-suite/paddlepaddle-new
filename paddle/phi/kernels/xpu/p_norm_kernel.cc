@@ -58,8 +58,8 @@ void PNormKernel(const Context& dev_ctx,
 
   for (int i = 0; i < xdim.size(); i++) {
     PADDLE_ENFORCE_GE(
-        0,
         xdim[i],
+        0,
         errors::InvalidArgument(
             "The dims of Input(X) should be greater than or equal to 0."));
   }
