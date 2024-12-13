@@ -477,7 +477,8 @@ void ShapeConstraintIRAnalysis::SetSymbolForValueByStaticShape(Value val) {
 void ShapeConstraintIRAnalysis::InferShapeOrDataForValue(Value val) {
   std::unordered_set<Operation*> subgraph_ops;
   std::vector<Operation*> start_ops;
-  const auto& GetRealOperandSource = [&](Operation* op) -> std::vector<Value> {
+  std::function<std::vector<Value>(Operation*)> GetRealOperandSource =
+      [&](Operation* op) -> std::vector<Value> {
     if (op->num_regions() == 0) {
       return op->operands_source();
     } else {
@@ -488,7 +489,7 @@ void ShapeConstraintIRAnalysis::InferShapeOrDataForValue(Value val) {
         }
         for (auto& block : op->region(i)) {
           for (auto& sub_op : block) {
-            for (auto& operand : sub_op.operands_source()) {
+            for (auto& operand : GetRealOperandSource(&sub_op)) {
               ret.emplace_back(operand);
             }
           }
@@ -576,7 +577,8 @@ void ShapeConstraintIRAnalysis::InferShapeOrDataForValue(Value val) {
         if (!context_.HasShapeOrDataForValue(result_value)) {
           PADDLE_THROW(common::errors::Fatal(
               op->name() +
-              " HAS ERROR on InferSymbolicShape! The result value with index " +
+              " HAS ERROR on InferSymbolicShape! The result value with "
+              "index " +
               std::to_string(index) + " don't has shape or data."));
         }
       }
