@@ -31,34 +31,35 @@ void FrobeniusNormKernel(const Context& dev_ctx,
   if (x.numel() == 0) {
     phi::DenseTensor cpu_out;
 
-    if (reduce_all || static_cast<int64_t>(axis.size()) == x.dims().size()) {
+    if (reduce_all || static_cast<int64_t>(dims.size()) == x.dims().size()) {
       cpu_out.Resize({});
     } else if (keep_dim) {
       std::vector<int64_t> out_dims(x.dims().size());
       for (int i = 0; i < x.dims().size(); ++i) {
         out_dims[i] = x.dims()[i];
       }
-      for (int64_t i : axis.GetData()) {
+      for (int64_t i : dims.GetData()) {
         out_dims[i] = 1;
       }
       cpu_out.Resize(phi::make_ddim(out_dims));
     } else {
       std::vector<int64_t> out_dims;
       for (int i = 0; i < x.dims().size(); ++i) {
-        if (std::find(axis.GetData().begin(), axis.GetData().end(), i) ==
-            axis.GetData().end()) {
+        if (std::find(dims.GetData().begin(), dims.GetData().end(), i) ==
+            dims.GetData().end()) {
           out_dims.push_back(x.dims()[i]);
         }
       }
       cpu_out.Resize(phi::make_ddim(out_dims));
     }
 
-    cpu_out.mutable_data<T>(ctx.GetPlace());
+    cpu_out.mutable_data<T>(dev_ctx.GetPlace());
     phi::funcs::SetConstant<Context, T> set_zero;
-    set_zero(ctx, &cpu_out, static_cast<T>(0));
+    set_zero(dev_ctx, &cpu_out, static_cast<T>(0));
     *out = cpu_out;
     return;
   }
+
   reduce_all = recompute_reduce_all(x, dims.GetData(), reduce_all);
   auto out_dtype = x.dtype();
   phi::Reduce<T, kps::AddFunctor, kps::SquareFunctor>(
