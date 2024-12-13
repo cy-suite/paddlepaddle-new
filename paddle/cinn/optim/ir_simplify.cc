@@ -472,7 +472,6 @@ void Simplify(Expr* expr) {
   cinn::common::cas_intervals_t var_intervals;
   SimplifyNoPureMathMutator mutator(var_intervals);
   mutator(expr);
-
   ReplaceFracWithDivMutator()(expr);
   VLOG(3) << "End Simplify " << *expr;
 }

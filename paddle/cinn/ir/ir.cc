@@ -308,6 +308,9 @@ Expr Let::Make(Expr symbol, Expr body) {
   }
   n->symbol = symbol;
   n->body = body;
+
+  if (n->body.is_index()) n->symbol->set_index(true);
+
   n->set_type(n->symbol->type());
   return Expr(n);
 }
@@ -495,6 +498,10 @@ Expr For::Make(Var loop_var,
   node->set_vectorize_info(vector_info);
   node->set_bind_info(bind_info);
 
+  node->extent.set_index(true);
+  node->min.set_index(true);
+  node->loop_var.set_index(true);
+
   if (node->is_vectorized()) {
     PADDLE_ENFORCE_EQ(node->vectorize_info().valid(),
                       true,
@@ -547,6 +554,9 @@ Expr ScheduleBlock::Make(const std::vector<Var> &iter_vars,
   node->write_buffers = write_buffers;
   node->name = name;
   node->body = body;
+  std::for_each(node->iter_vars.begin(), node->iter_vars.end(), [](Var &v) {
+    v.set_index(true);
+  });
   return Expr(node);
 }
 void ScheduleBlock::Verify() const {
@@ -580,6 +590,12 @@ Expr ScheduleBlockRealize::Make(const std::vector<Expr> &iter_values,
   auto node = make_shared<ScheduleBlockRealize>();
   node->iter_values = iter_values;
   node->schedule_block = schedule_block;
+
+  std::for_each(
+      node->iter_values.begin(), node->iter_values.end(), [](Expr &indice) {
+        indice = indice.set_index(true).as_index().Normalize();
+      });
+
   return Expr(node);
 }
 void ScheduleBlockRealize::Verify() const {
@@ -670,6 +686,11 @@ Expr Store::Make(Expr tensor, Expr value, const std::vector<Expr> &indices) {
     node->set_type(
         tensor->type().ElementOf().with_lanes(node->index().type().lanes()));
   }
+
+  std::for_each(node->indices.begin(), node->indices.end(), [](Expr &indice) {
+    indice = indice.set_index(true).as_index().Normalize();
+  });
+
   return Expr(node);
 }
 
@@ -696,6 +717,7 @@ void Store::replace(Expr old_op, Expr new_op) {
   for (int i = 0; i < indices.size(); i++) {
     if (indices[i] == old_op) {
       indices[i] = new_op;
+      indices[i].set_index(true);
     }
   }
 }
@@ -766,6 +788,11 @@ Expr Alloc::Make(Expr dest,
   node->condition = condition;
   node->body = body;
   node->set_type(type);
+
+  std::for_each(node->extents.begin(), node->extents.end(), [](Expr &indice) {
+    indice = indice.set_index(true).as_index().Normalize();
+  });
+
   return Expr(node);
 }
 
@@ -987,6 +1014,11 @@ Expr Load::Make(Expr tensor, const std::vector<Expr> &origin_indices) {
   node->tensor = tensor;
   node->indices = indices;
   node->set_type(node->type());
+
+  std::for_each(node->indices.begin(), node->indices.end(), [](Expr &indice) {
+    indice = indice.set_index(true).as_index().Normalize();
+  });
+
   return Expr(node);
 }
 
@@ -1260,6 +1292,10 @@ Expr Reduce::Make(Reduce::ReduceType reduce_type,
   n->body = body;
   n->reduce_type = reduce_type;
   n->reduce_axis.append(reduce_axis.begin(), reduce_axis.end());
+
+  std::for_each(n->reduce_axis.begin(), n->reduce_axis.end(), [](Var &axis) {
+    axis.set_index(true);
+  });
 
   PADDLE_ENFORCE_EQ(body.type().valid(),
                     true,

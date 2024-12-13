@@ -376,18 +376,20 @@ Expr IndiceToAbsOffset(const std::vector<Expr> &shape,
     optim::SimplifyCast(&indice_cast);
     if (res.defined()) {
       res = RampRelatedAdd(RampRelatedMul(res, shape[i]), indice_cast);
-      if (res.is_index_tmp()) {
-        res.set_index(true);
+      if (res.is_index()) {
         res = res.as_index().Normalize();
       }
     } else {
+      std::cout << "**** expr is not index****: " << res;
       res = indice_cast;
     }
 
     if (i > 0) {
-      if (res.is_index_tmp()) {
-        res.set_index(true);
+      if (res.is_index()) {
+        std::cout << "**** expr is not index****: " << res;
         res = MergeMulMod(&analyzer, res).Normalize();
+      } else {
+        std::cout << "**** expr is not index2****: " << res;
       }
     }
   }
@@ -660,10 +662,11 @@ bool ComparePriority(const ir::IndexExpr &lhs, const ir::IndexExpr &rhs) {
     if (auto rhsVar = rhs.As<ir::_Var_>())
       return std::make_tuple(lhsVar->name.length(), lhsVar->name) <=
              std::make_tuple(rhsVar->name.length(), rhsVar->name);
+
   auto lhsLen = lhs.length();
   auto rhsLen = rhs.length();
   if (lhsLen < rhsLen) return false;
-  // Add < Mul < Div < Mod.
+  // Add < Mul < Div < Mod < Min < Max < Load.
   else if (lhsLen == rhsLen)
     return lhs.node_type() <= rhs.node_type();
   else
@@ -694,6 +697,9 @@ bool IsSumPartialBySymbol(const ir::IndexExpr &expr,
       return IsSumPartialBySymbol(expr.operand(0), symbol);
     }
     case ir::IrNodeTy::Mod:
+    case ir::IrNodeTy::Min:
+    case ir::IrNodeTy::Max:
+    case ir::IrNodeTy::Load:
       return false;
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(
@@ -771,6 +777,10 @@ bool IsDivisiblieBySymbol(const ir::IndexExpr &expr,
       if (ty != expr.node_type()) return false;
       return IsDivisiblieBySymbol(expr.operand(0), symbol, expr.node_type());
     }
+    case ir::IrNodeTy::Min:
+    case ir::IrNodeTy::Max:
+    case ir::IrNodeTy::Load:
+      return false;
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(
           "Unsupported type of expr in IsDivisiblieBySymbol which is: %s",
@@ -828,6 +838,33 @@ bool IsNegatedIndexExpr(const ir::IndexExpr &candidate,
       expr = mul->a();
       return true;
     }
+  }
+  return false;
+}
+
+bool VerifyIndex(const ir::Expr &expr) {
+  switch (expr.node_type()) {
+    case ir::IrNodeTy::_Var_:
+    case ir::IrNodeTy::IntImm: {
+      if (expr.type().is_index_type()) return true;
+      return false;
+    }
+    case ir::IrNodeTy::Load: {
+      bool is_index = true;
+      auto load_op = expr.As<ir::Load>();
+      for (const auto &indice : load_op->indices) {
+        if (!VerifyIndex(indice)) return false;
+      }
+      return true;
+    }
+    case ir::IrNodeTy::Add:
+    case ir::IrNodeTy::Sub:
+    case ir::IrNodeTy::Mul:
+    case ir::IrNodeTy::Div:
+    case ir::IrNodeTy::Mod:
+    case ir::IrNodeTy::Max:
+    case ir::IrNodeTy::Min:
+      return VerifyIndex(expr->operand(0)) && VerifyIndex(expr->operand(1));
   }
   return false;
 }

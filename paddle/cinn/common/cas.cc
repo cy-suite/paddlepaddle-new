@@ -36,6 +36,7 @@ using namespace ir;  // NOLINT
 Expr AutoSimplify(
     const Expr& u,
     const absl::flat_hash_map<std::string, CasInterval>& var_intervals) {
+  bool is_index = u.is_index();
   VLOG(7) << "Begin AutoSimplify: " << u;
   Expr copied = ir::ir_utils::IRCopy(u);
   if (copied.type().is_float()) {
@@ -54,9 +55,10 @@ Expr AutoSimplify(
     }
   }
   copied = CasSimplify(copied, s_var_intervals);
+  // VLOG(7) << "End CasSimplify " << copied;
   copied = detail::ConvertCasToCinn(copied);
-  VLOG(7) << "End AutoSimplify " << copied;
-  return copied;
+  // VLOG(7) << "End AutoSimplify " << copied;
+  return is_index ? copied.set_index(true) : copied;
 }
 
 int gcd(int a, int b) {
@@ -625,7 +627,6 @@ Expr CasSimplifyMutator::SimplifySum(Expr u) {
   if (!temp.As<Sum>()) return temp;
 
   operands = temp.As<Sum>()->operands();
-
   auto args = SimplifySumRec(operands);
   if (args.empty()) return make_const(u.type(), 0);
   if (args.size() == 1) return args[0];
