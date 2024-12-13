@@ -246,8 +246,7 @@ class LayerObjectHelper(LayerHelperBase):
                 dtype = each.dtype
             elif dtype != each.dtype:
                 raise ValueError(
-                    "Data Type mismatch: %d to %d in %s"
-                    % (dtype, each.dtype, self.name)
+                    f"Data Type mismatch: {dtype} to {each.dtype} in {self.name}"
                 )
         return dtype
 
@@ -1758,6 +1757,12 @@ class Layer:
                 if name in d:
                     del d[name]
 
+        if isinstance(
+            value, paddle.jit.dy2static.program_translator.StaticFunction
+        ):
+            object.__setattr__(self, name, value)
+            value._patched_name = name
+            return
         if isinstance(getattr(type(self), name, None), property):
             object.__setattr__(self, name, value)
         params = self.__dict__.get('_parameters', None)
