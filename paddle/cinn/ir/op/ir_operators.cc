@@ -90,7 +90,7 @@ Expr operator>>(Expr a, Expr b) {
 }
 
 Expr BitwiseOrCallImpl(common::UnknownArch,
-                       const Target& target,
+                       const Target &target,
                        Expr a,
                        Expr b) {
   std::stringstream ss;
@@ -98,18 +98,18 @@ Expr BitwiseOrCallImpl(common::UnknownArch,
   PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
 }
 
-Expr BitwiseOrCallImpl(common::X86Arch, const Target& target, Expr a, Expr b) {
+Expr BitwiseOrCallImpl(common::X86Arch, const Target &target, Expr a, Expr b) {
   return lang::CallExtern("bitwise_or", {a, b}, {{"vectorizable", false}});
 }
 
-Expr BitwiseOrCallImpl(common::ARMArch, const Target& target, Expr a, Expr b) {
+Expr BitwiseOrCallImpl(common::ARMArch, const Target &target, Expr a, Expr b) {
   std::stringstream ss;
   ss << "Unsupport arch: " << target.arch_str() << " for bitwise_or.";
   PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
 }
 
 Expr BitwiseOrCallImpl(common::NVGPUArch,
-                       const Target& target,
+                       const Target &target,
                        Expr a,
                        Expr b) {
   Type t_a = a.type();
@@ -118,7 +118,7 @@ Expr BitwiseOrCallImpl(common::NVGPUArch,
 }
 
 Expr BitwiseOrCallImpl(common::HygonDCUArchHIP,
-                       const Target& target,
+                       const Target &target,
                        Expr a,
                        Expr b) {
   Type t_a = a.type();
@@ -127,7 +127,7 @@ Expr BitwiseOrCallImpl(common::HygonDCUArchHIP,
 }
 
 Expr BitwiseOrCallImpl(common::HygonDCUArchSYCL,
-                       const Target& target,
+                       const Target &target,
                        Expr a,
                        Expr b) {
   Type t_a = a.type();
@@ -135,9 +135,9 @@ Expr BitwiseOrCallImpl(common::HygonDCUArchSYCL,
   return lang::CallExtern(func_name, {a, b}, {{"vectorizable", false}});
 }
 
-Expr BitwiseOrCall(const Target& target, Expr a, Expr b) {
+Expr BitwiseOrCall(const Target &target, Expr a, Expr b) {
   return std::visit(
-      [&](const auto& arch) { return BitwiseOrCallImpl(arch, target, a, b); },
+      [&](const auto &arch) { return BitwiseOrCallImpl(arch, target, a, b); },
       target.arch.variant());
 }
 
@@ -164,7 +164,7 @@ Expr operator|(Expr a, Expr b) {
 }
 
 Expr BitwiseAndCallImpl(common::UnknownArch,
-                        const Target& target,
+                        const Target &target,
                         Expr a,
                         Expr b) {
   std::stringstream ss;
@@ -172,18 +172,18 @@ Expr BitwiseAndCallImpl(common::UnknownArch,
   PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
 }
 
-Expr BitwiseAndCallImpl(common::X86Arch, const Target& target, Expr a, Expr b) {
+Expr BitwiseAndCallImpl(common::X86Arch, const Target &target, Expr a, Expr b) {
   return lang::CallExtern("bitwise_and", {a, b}, {{"vectorizable", false}});
 }
 
-Expr BitwiseAndCallImpl(common::ARMArch, const Target& target, Expr a, Expr b) {
+Expr BitwiseAndCallImpl(common::ARMArch, const Target &target, Expr a, Expr b) {
   std::stringstream ss;
   ss << "Unsupport arch: " << target.arch_str() << " for bitwise_and.";
   PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
 }
 
 Expr BitwiseAndCallImpl(common::NVGPUArch,
-                        const Target& target,
+                        const Target &target,
                         Expr a,
                         Expr b) {
   Type t_a = a.type();
@@ -192,7 +192,7 @@ Expr BitwiseAndCallImpl(common::NVGPUArch,
 }
 
 Expr BitwiseAndCallImpl(common::HygonDCUArchHIP,
-                        const Target& target,
+                        const Target &target,
                         Expr a,
                         Expr b) {
   Type t_a = a.type();
@@ -201,7 +201,7 @@ Expr BitwiseAndCallImpl(common::HygonDCUArchHIP,
 }
 
 Expr BitwiseAndCallImpl(common::HygonDCUArchSYCL,
-                        const Target& target,
+                        const Target &target,
                         Expr a,
                         Expr b) {
   Type t_a = a.type();
@@ -209,9 +209,9 @@ Expr BitwiseAndCallImpl(common::HygonDCUArchSYCL,
   return lang::CallExtern(func_name, {a, b}, {{"vectorizable", false}});
 }
 
-Expr BitwiseAndCall(const Target& target, Expr a, Expr b) {
+Expr BitwiseAndCall(const Target &target, Expr a, Expr b) {
   return std::visit(
-      [&](const auto& arch) { return BitwiseAndCallImpl(arch, target, a, b); },
+      [&](const auto &arch) { return BitwiseAndCallImpl(arch, target, a, b); },
       target.arch.variant());
 }
 
@@ -238,7 +238,7 @@ Expr operator&(Expr a, Expr b) {
 }
 
 Expr BitwiseXorCallImpl(common::UnknownArch,
-                        const Target& target,
+                        const Target &target,
                         Expr a,
                         Expr b) {
   std::stringstream ss;
@@ -246,18 +246,18 @@ Expr BitwiseXorCallImpl(common::UnknownArch,
   PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
 }
 
-Expr BitwiseXorCallImpl(common::X86Arch, const Target& target, Expr a, Expr b) {
+Expr BitwiseXorCallImpl(common::X86Arch, const Target &target, Expr a, Expr b) {
   return lang::CallExtern("bitwise_xor", {a, b}, {{"vectorizable", false}});
 }
 
-Expr BitwiseXorCallImpl(common::ARMArch, const Target& target, Expr a, Expr b) {
+Expr BitwiseXorCallImpl(common::ARMArch, const Target &target, Expr a, Expr b) {
   std::stringstream ss;
   ss << "Unsupport arch: " << target.arch_str() << " for bitwise_xor.";
   PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
 }
 
 Expr BitwiseXorCallImpl(common::NVGPUArch,
-                        const Target& target,
+                        const Target &target,
                         Expr a,
                         Expr b) {
   Type t_a = a.type();
@@ -266,7 +266,7 @@ Expr BitwiseXorCallImpl(common::NVGPUArch,
 }
 
 Expr BitwiseXorCallImpl(common::HygonDCUArchHIP,
-                        const Target& target,
+                        const Target &target,
                         Expr a,
                         Expr b) {
   Type t_a = a.type();
@@ -275,7 +275,7 @@ Expr BitwiseXorCallImpl(common::HygonDCUArchHIP,
 }
 
 Expr BitwiseXorCallImpl(common::HygonDCUArchSYCL,
-                        const Target& target,
+                        const Target &target,
                         Expr a,
                         Expr b) {
   Type t_a = a.type();
@@ -283,9 +283,9 @@ Expr BitwiseXorCallImpl(common::HygonDCUArchSYCL,
   return lang::CallExtern(func_name, {a, b}, {{"vectorizable", false}});
 }
 
-Expr BitwiseXorCall(const Target& target, Expr a, Expr b) {
+Expr BitwiseXorCall(const Target &target, Expr a, Expr b) {
   return std::visit(
-      [&](const auto& arch) { return BitwiseXorCallImpl(arch, target, a, b); },
+      [&](const auto &arch) { return BitwiseXorCallImpl(arch, target, a, b); },
       target.arch.variant());
 }
 
@@ -311,42 +311,42 @@ Expr operator^(Expr a, Expr b) {
   return BitwiseXorCall(target, a, b);
 }
 
-Expr BitwiseNotCallImpl(common::UnknownArch, const Target& target, Expr a) {
+Expr BitwiseNotCallImpl(common::UnknownArch, const Target &target, Expr a) {
   std::stringstream ss;
   ss << "Unsupport arch: " << target.arch_str() << " for bitwise_not.";
   PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
 }
 
-Expr BitwiseNotCallImpl(common::X86Arch, const Target& target, Expr a) {
+Expr BitwiseNotCallImpl(common::X86Arch, const Target &target, Expr a) {
   return lang::CallExtern("bitwise_not", {a}, {{"vectorizable", false}});
 }
 
-Expr BitwiseNotCallImpl(common::ARMArch, const Target& target, Expr a) {
+Expr BitwiseNotCallImpl(common::ARMArch, const Target &target, Expr a) {
   std::stringstream ss;
   ss << "Unsupport arch: " << target.arch_str() << " for bitwise_not.";
   PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
 }
 
-Expr BitwiseNotCallImpl(common::NVGPUArch, const Target& target, Expr a) {
+Expr BitwiseNotCallImpl(common::NVGPUArch, const Target &target, Expr a) {
   auto func_name = hlir::GetExternFuncName(target, a->type(), "bitwise_not");
   return lang::CallExtern(func_name, {a}, {{"vectorizable", false}});
 }
 
-Expr BitwiseNotCallImpl(common::HygonDCUArchHIP, const Target& target, Expr a) {
+Expr BitwiseNotCallImpl(common::HygonDCUArchHIP, const Target &target, Expr a) {
   auto func_name = hlir::GetExternFuncName(target, a->type(), "bitwise_not");
   return lang::CallExtern(func_name, {a}, {{"vectorizable", false}});
 }
 
 Expr BitwiseNotCallImpl(common::HygonDCUArchSYCL,
-                        const Target& target,
+                        const Target &target,
                         Expr a) {
   auto func_name = hlir::GetExternFuncName(target, a->type(), "bitwise_not");
   return lang::CallExtern(func_name, {a}, {{"vectorizable", false}});
 }
 
-Expr BitwiseNotCall(const Target& target, Expr a) {
+Expr BitwiseNotCall(const Target &target, Expr a) {
   return std::visit(
-      [&](const auto& arch) { return BitwiseNotCallImpl(arch, target, a); },
+      [&](const auto &arch) { return BitwiseNotCallImpl(arch, target, a); },
       target.arch.variant());
 }
 
