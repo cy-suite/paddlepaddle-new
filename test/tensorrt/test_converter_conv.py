@@ -340,6 +340,7 @@ class TestConv3dPaddingAlgorithmTRTPattern(TensorRTBaseTest):
         self.enable_fp16 = True
 
     def test_trt_result(self):
+
         self.check_trt_result()
 
 
