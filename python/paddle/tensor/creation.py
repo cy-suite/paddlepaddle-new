@@ -1050,7 +1050,8 @@ def fill_constant(
             dtype = paddle.pir.core.vartype_to_datatype[dtype]
 
         if in_dynamic_mode():
-            value = float(value)
+            if not isinstance(value, type(1j)):  # noqa: UP003
+                value = float(value)
             if isinstance(shape, (list, tuple)):
                 shape = paddle.utils.convert_shape_to_list(shape)
         else:
@@ -1475,10 +1476,10 @@ def full(
              [2. 2.]
              [2. 2.]]
     """
-
     if dtype is None:
         dtype = paddle.get_default_dtype()
-
+    if isinstance(fill_value, type(1j)):  # noqa: UP003
+        dtype = "complex64"
     return fill_constant(shape=shape, dtype=dtype, value=fill_value, name=name)
 
 
