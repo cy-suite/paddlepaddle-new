@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import builtins
 import math
 import re
 from typing import TYPE_CHECKING, Any, overload
@@ -1050,11 +1051,15 @@ def fill_constant(
             dtype = paddle.pir.core.vartype_to_datatype[dtype]
 
         if in_dynamic_mode():
-            if not isinstance(value, type(1j)):  # noqa: UP003
+            if not isinstance(value, builtins.complex):
                 value = float(value)
             if isinstance(shape, (list, tuple)):
                 shape = paddle.utils.convert_shape_to_list(shape)
         else:
+            if isinstance(value, builtins.complex):
+                raise ValueError(
+                    "In static mode, the value of fill_constant can not be complex number."
+                )
             paddle.utils.check_shape(shape)
             if isinstance(shape, (list, tuple)):
                 if paddle.utils._contain_var(shape):
@@ -1478,7 +1483,7 @@ def full(
     """
     if dtype is None:
         dtype = paddle.get_default_dtype()
-    if isinstance(fill_value, type(1j)):  # noqa: UP003
+    if isinstance(fill_value, builtins.complex):
         dtype = "complex64"
     return fill_constant(shape=shape, dtype=dtype, value=fill_value, name=name)
 

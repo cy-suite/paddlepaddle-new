@@ -166,6 +166,43 @@ class TestFullAPI(unittest.TestCase):
 
             out_11 = paddle.full(shape=10, dtype="float32", fill_value=1.1)
 
+            out_12 = paddle.full(
+                shape=[1, 2, 3], dtype="complex64", fill_value=1.1 + 1.1j
+            )
+
+            out_13 = paddle.full(
+                shape=[1, 2, 3], dtype="complex128", fill_value=1.1 + 1.1j
+            )
+
+            out_14 = paddle.full(
+                shape=[1, 2, 3], dtype="complex64", fill_value=1.1 + np.inf * 1j
+            )
+
+            out_15 = paddle.full(
+                shape=[1, 2, 3],
+                dtype="complex128",
+                fill_value=1.1 + np.inf * 1j,
+            )
+
+            out_16 = paddle.full(
+                shape=[1, 2, 3], dtype="complex64", fill_value=1.1 - np.inf * 1j
+            )
+
+            out_17 = paddle.full(
+                shape=[1, 2, 3],
+                dtype="complex128",
+                fill_value=1.1 - np.inf * 1j,
+            )
+
+            out_18 = paddle.full(
+                shape=[1, 2, 3], dtype="complex64", fill_value=1.1 + np.nan * 1j
+            )
+
+            out_19 = paddle.full(
+                shape=[1, 2, 3],
+                dtype="complex128",
+                fill_value=1.1 + np.nan * 1j,
+            )
             np.testing.assert_array_equal(
                 out_1, np.full([1, 2], 1.1, dtype="float32")
             )
@@ -199,6 +236,33 @@ class TestFullAPI(unittest.TestCase):
             np.testing.assert_array_equal(
                 out_11, np.full([10], 1.1, dtype="float32")
             )
+            np.testing.assert_allclose(
+                out_12, np.full([1, 2, 3], 1.1 + 1.1j, dtype="complex64")
+            )
+            np.testing.assert_allclose(
+                out_13, np.full([1, 2, 3], 1.1 + 1.1j, dtype="complex128")
+            )
+            np.testing.assert_allclose(
+                out_14, np.full([1, 2, 3], 1.1 + np.inf * 1j, dtype="complex64")
+            )
+            np.testing.assert_allclose(
+                out_15,
+                np.full([1, 2, 3], 1.1 + np.inf * 1j, dtype="complex128"),
+            )
+            np.testing.assert_allclose(
+                out_16, np.full([1, 2, 3], 1.1 - np.inf * 1j, dtype="complex64")
+            )
+            np.testing.assert_allclose(
+                out_17,
+                np.full([1, 2, 3], 1.1 - np.inf * 1j, dtype="complex128"),
+            )
+            np.testing.assert_allclose(
+                out_18, np.full([1, 2, 3], 1.1 + np.nan * 1j, dtype="complex64")
+            )
+            np.testing.assert_allclose(
+                out_19,
+                np.full([1, 2, 3], 1.1 + np.nan * 1j, dtype="complex128"),
+            )
 
 
 class TestFullOpError(unittest.TestCase):
@@ -213,6 +277,14 @@ class TestFullOpError(unittest.TestCase):
             # float32, float64, uint8, int16, int32 or int64
             self.assertRaises(
                 TypeError, paddle.full, shape=[1], fill_value=5, dtype='uint4'
+            )
+
+            self.assertRaises(
+                ValueError,
+                paddle.full,
+                shape=[1],
+                fill_value=1 + 1j,
+                dtype='complex64',
             )
 
             # The shape dtype of full op must be int32 or int64.
@@ -231,6 +303,7 @@ class TestFullOpError(unittest.TestCase):
                 paddle.full(shape=[shape, 2], dtype="float32", fill_value=1)
 
             self.assertRaises(TypeError, test_shape_tensor_list_dtype)
+
         paddle.disable_static()
 
 
