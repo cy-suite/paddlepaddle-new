@@ -128,7 +128,7 @@ void UnifyBroadcastGroupFuncArgs(
               symbol_args_set.insert(symbol_name);
               const auto& arg = ir::Var(symbol_name, cinn::common::Int(64));
               new_args_vec.emplace_back(ir::Argument{arg});
-              int arg_idx = new_args_vec.size();
+              int arg_idx = new_args_vec.size() - 1;
               symbolic_shape_var_index->insert({arg_idx, arg});
               if (arg_type == Dim) {
                 origin_group->mut_symbol_args_map()[arg_idx] =
