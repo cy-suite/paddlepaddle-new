@@ -104,8 +104,6 @@ Module Module::Builder::Build() {
   }
 
   auto res = ir::Module(module_.get());
-
-  res = optim::Optimize(res, module_->target);
   return res;
 }
 

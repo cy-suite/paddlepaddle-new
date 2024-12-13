@@ -5,6 +5,7 @@ file(
 string(REPLACE ".py" "" TEST_OPS "${TEST_OPS}")
 set(GC_ENVS FLAGS_eager_delete_tensor_gb=0.0 FLAGS_fast_eager_deletion_mode=1
             FLAGS_memory_fraction_of_eager_deletion=1.0)
+set(deterministic_ENVS FLAGS_cudnn_deterministic=1)
 set(dist_ENVS http_proxy="" https_proxy="")
 
 file(
@@ -233,15 +234,8 @@ if(APPLE)
   endif()
   message(
     WARNING
-      "These tests has been disabled in OSX before being fixed: \n test_detection_map_op \n test_dist_se_resnext_*"
+      "These tests has been disabled in OSX before being fixed: \n test_dist_se_resnext_*"
   )
-  # this op is not support on mac
-  list(REMOVE_ITEM TEST_OPS test_fusion_seqexpand_concat_fc_op)
-  list(REMOVE_ITEM TEST_OPS test_detection_map_op)
-endif()
-if(NOT WITH_MKLML)
-  # this op is not support on openblas
-  list(REMOVE_ITEM TEST_OPS test_fusion_seqexpand_concat_fc_op)
 endif()
 
 if(NOT WITH_MKL OR NOT WITH_AVX)
@@ -599,8 +593,9 @@ if(WITH_ROCM)
 endif()
 
 if((WITH_GPU) AND (WITH_CUDNN_FRONTEND))
-  py_test_modules(test_fused_dot_product_attention_op MODULES
-                  test_fused_dot_product_attention_op)
+  py_test_modules(
+    test_fused_dot_product_attention_op MODULES
+    test_fused_dot_product_attention_op ENVS ${deterministic_ENVS})
 endif()
 
 set_tests_properties(test_norm_nn_grad PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE")
