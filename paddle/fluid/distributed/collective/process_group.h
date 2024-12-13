@@ -24,11 +24,10 @@
 #include "paddle/common/errors.h"
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/device_context.h"
+#include "paddle/phi/core/distributed/nccl_comm_context.h"
 #include "paddle/phi/core/distributed/types.h"
 #include "paddle/phi/core/distributed/utils.h"
 #include "paddle/phi/core/enforce.h"
-#include "paddle/phi/core/distributed/nccl_comm_context.h"
-#include "paddle/phi/core/distributed/utils.h"
 
 constexpr auto kWaitTimeout = std::chrono::milliseconds(0);
 
@@ -118,8 +117,9 @@ class ProcessGroup {
         GetBackendName()));
   }
 
-  virtual phi::distributed::NCCLCommContext* GetOrCreateCommContext(const Place& place UNUSED,
-                                                                    CommType comm_type UNUSED = CommType::UNKNOWN) {
+  virtual phi::distributed::NCCLCommContext* GetOrCreateCommContext(
+      const Place& place UNUSED,
+      CommType comm_type UNUSED = CommType::UNKNOWN) {
     PADDLE_THROW(phi::errors::Unimplemented(
         "ProcessGroup%s does not support get get or create comm_context",
         GetBackendName()));
