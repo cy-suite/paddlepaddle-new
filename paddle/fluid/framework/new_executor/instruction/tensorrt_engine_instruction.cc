@@ -486,7 +486,7 @@ void TensorRTEngineInstruction::BindInputTensor(
                         "index=%d >= total inputs and outputs=%d",
                         bind_index,
                         num_bindings));
-
+#if IS_TRT_VERSION_GE(8500)
   if (trt_engine_->engine()->isShapeInferenceIO(input_name.c_str()) &&
       trt_engine_->engine()->getTensorIOMode(input_name.c_str()) ==
           nvinfer1::TensorIOMode::kINPUT) {
@@ -521,7 +521,13 @@ void TensorRTEngineInstruction::BindInputTensor(
         input_name.c_str(),
         paddle::platform::Vec2TRT_Dims(input_shape, input_name, true));
   }
-
+#else
+  PADDLE_THROW(
+      common::errors::Unimplemented("PIR-TRT only support TensorRT "
+                                    "version that is >= 8.5,"
+                                    "Please check your TensorRT "
+                                    "in your env."));
+#endif
   *runtime_batch = input_shape[0];
   VLOG(1) << "trt input [" << input_name << "] dtype is "
           << input_tensor.dtype();
@@ -616,6 +622,7 @@ void TensorRTEngineInstruction::BindOutputTensor(
 #endif
   std::vector<int> ddim;
 
+#if IS_TRT_VERSION_GE(8500)
   auto x_name = trt_engine_->engine()->getIOTensorName(bind_index);
   auto dims = trt_context->getTensorShape(x_name);
   int nb_dims = dims.nbDims;
@@ -627,7 +634,13 @@ void TensorRTEngineInstruction::BindOutputTensor(
   for (int i = 0; i < nb_dims; i++) {
     ddim.push_back(dims.d[i]);
   }
-
+#else
+  PADDLE_THROW(
+      common::errors::Unimplemented("PIR-TRT only support TensorRT "
+                                    "version that is >= 8.5,"
+                                    "Please check your TensorRT "
+                                    "in your env."));
+#endif
   auto *fluid_t = output_tensor;
   fluid_t->Resize(common::make_ddim(ddim));
   PADDLE_ENFORCE_LT(bind_index,

@@ -102,6 +102,7 @@
 #include "paddle/cinn/hlir/dialect/operator/transforms/add_cinn_pass.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/check_infer_symbolic_util.h"
 #include "paddle/pir/include/dialect/shape/ir/shape_dialect.h"
+#include "paddle/pir/include/dialect/shape/transforms/shape_optimization_pass.h"
 #include "paddle/pir/include/dialect/shape/utils/shape_analysis.h"
 #endif
 
@@ -126,7 +127,6 @@
 #include "paddle/pir/include/core/block_argument.h"
 #include "paddle/pir/include/core/builtin_attribute.h"
 #include "paddle/pir/include/core/program.h"
-#include "paddle/pir/include/dialect/shape/transforms/shape_optimization_pass.h"
 #include "paddle/pir/include/pass/pass_manager.h"
 #include "paddle/pir/include/pass/pass_registry.h"
 
@@ -426,7 +426,8 @@ bool AnalysisPredictor::Init(
     platform::CudaProfilerStart();
     platform::NvprofEnableRecordEvent();
 #endif
-    platform::EnableProfiler(platform::ProfilerState::kAll);
+    platform::EnableProfiler(config_.use_gpu() ? platform::ProfilerState::kAll
+                                               : platform::ProfilerState::kCPU);
   }
 
   if (!status_is_cloned_) {
@@ -865,10 +866,25 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
       return pass_manager;
     };
 
+    if (config_.cinn_enabled() && !config_.custom_pass_only_) {
+      ::pir::PassManager delete_assert_op_pm(::pir::IrContext::Instance(),
+                                             config_.pm_opt_level_);
+      delete_assert_op_pm.AddPass(
+          pir::PassRegistry::Instance().Get("delete_assert_op_pass"));
+      delete_assert_op_pm.Run(pir_program_.get());
+    }
+
     if (config_.use_gpu() && config_.cinn_enabled()) {
       if (!config_.custom_pass_only_) {
         ::pir::PassManager fused_op_pm(::pir::IrContext::Instance(),
                                        config_.pm_opt_level_);
+        auto &shape_analysis =
+            pir::ShapeAnalysisManager::Instance().Get(pir_program_.get());
+        fused_op_pm.SetValueReplacedHook([&](pir::Value from, pir::Value to) {
+          shape_analysis.ShareShapeOrData(from, to);
+        });
+        // Infer symbol shape for all ops before fused pass
+        fused_op_pm.AddPass(pir::CreateShapeOptimizationPass());
         const std::vector<std::string> FusedOpPasses{// Operator fusion pass
                                                      "conv2d_bn_fuse_pass",
                                                      "conv2d_add_act_fuse_pass",
@@ -902,7 +918,8 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
 
     if (config_.cinn_enabled()) {
       VLOG(4) << "[CINN] Begin ApplyCinnPass";
-      cinn::dialect::ir::ApplyCinnPass(pir_program_.get(), CreatePassMgr);
+      cinn::dialect::ir::ApplyCinnPass(
+          pir_program_.get(), CreatePassMgr, false);
     }
 #endif
 

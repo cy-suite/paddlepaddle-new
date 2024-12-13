@@ -34,6 +34,7 @@ GENERATE_IMPL_DECOMP = [
     "any",
     "bce_loss",
     "bmm",
+    "diag",
     "dropout",
     "elu",
     "embedding",
