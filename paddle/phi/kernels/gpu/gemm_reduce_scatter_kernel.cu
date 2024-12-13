@@ -15,7 +15,9 @@
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/core/kernel_registry.h"
 
+#ifdef PADDLE_WITH_FLUX
 #include "paddle/phi/backends/dynload/flux.h"
+#endif
 #include "paddle/phi/core/distributed/comm_context_manager.h"
 
 #include "paddle/fluid/distributed/collective/process_group.h"
