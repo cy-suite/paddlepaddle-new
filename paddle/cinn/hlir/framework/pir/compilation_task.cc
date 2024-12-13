@@ -102,16 +102,13 @@ void UnifyBroadcastGroupFuncArgs(
     pir::OpLoweringGroupPtr origin_group,
     std::unordered_map<int, ir::Var>* symbolic_shape_var_index) {
   std::vector<ir::Argument> new_args_vec;
-  int cur_arg_idx = 0;
 
   const auto& AddTensorArgs = [&]() {
     const auto& func_args = (*contexts)[0].lowered_funcs_[0]->args;
     for (size_t arg_idx = 0; arg_idx < func_args.size(); ++arg_idx) {
-      if (func_args[arg_idx].is_var()) {
-        break;
+      if (func_args[arg_idx].is_buffer()) {
+        new_args_vec.emplace_back(func_args[arg_idx]);
       }
-      new_args_vec.emplace_back(func_args[arg_idx]);
-      cur_arg_idx++;
     }
   };
 
@@ -131,12 +128,13 @@ void UnifyBroadcastGroupFuncArgs(
               symbol_args_set.insert(symbol_name);
               const auto& arg = ir::Var(symbol_name, cinn::common::Int(64));
               new_args_vec.emplace_back(ir::Argument{arg});
-              symbolic_shape_var_index->insert({cur_arg_idx, arg});
+              int arg_idx = new_args_vec.size();
+              symbolic_shape_var_index->insert({arg_idx, arg});
               if (arg_type == Dim) {
-                origin_group->mut_symbol_args_map()[cur_arg_idx++] =
+                origin_group->mut_symbol_args_map()[arg_idx] =
                     pir::CINNKernelInfo::ArgDimIdx{input_idx, idx};
               } else {
-                origin_group->mut_symbol_args_map()[cur_arg_idx++] =
+                origin_group->mut_symbol_args_map()[arg_idx] =
                     pir::CINNKernelInfo::ArgValueIdx{input_idx, idx};
               }
             }
