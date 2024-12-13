@@ -55,9 +55,8 @@ Expr AutoSimplify(
     }
   }
   copied = CasSimplify(copied, s_var_intervals);
-  // VLOG(7) << "End CasSimplify " << copied;
   copied = detail::ConvertCasToCinn(copied);
-  // VLOG(7) << "End AutoSimplify " << copied;
+  VLOG(7) << "End AutoSimplify " << copied;
   return is_index ? copied.set_index(true) : copied;
 }
 

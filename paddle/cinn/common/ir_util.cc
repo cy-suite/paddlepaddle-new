@@ -380,16 +380,15 @@ Expr IndiceToAbsOffset(const std::vector<Expr> &shape,
         res = res.as_index().Normalize();
       }
     } else {
-      std::cout << "**** expr is not index****: " << res;
+      VLOG(8) << "**** expr is not index ****: " << res;
       res = indice_cast;
     }
 
     if (i > 0) {
       if (res.is_index()) {
-        std::cout << "**** expr is not index****: " << res;
         res = MergeMulMod(&analyzer, res).Normalize();
       } else {
-        std::cout << "**** expr is not index2****: " << res;
+        VLOG(8) << "**** expr is not index2 ****: " << res;
       }
     }
   }
