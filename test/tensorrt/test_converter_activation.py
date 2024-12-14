@@ -172,7 +172,6 @@ def prelu_wrapper2(x, num_parameters, data_format="NCHW"):
 
 class TestPreluCase1TRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.enable_fp16 = True
         self.python_api = prelu_wrapper1
         self.api_args = {
             "x": np.arange(24).reshape([2, 2, 2, 3]).astype("float32"),
@@ -188,7 +187,6 @@ class TestPreluCase1TRTPattern(TensorRTBaseTest):
 
 class TestPreluCase2TRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.enable_fp16 = True
         self.python_api = prelu_wrapper1
         self.api_args = {
             "x": np.arange(24).reshape([2, 2, 2, 3]).astype("float32"),
@@ -205,7 +203,6 @@ class TestPreluCase2TRTPattern(TensorRTBaseTest):
 
 class TestPreluCase3TRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.enable_fp16 = True
         self.python_api = prelu_wrapper1
         self.api_args = {
             "x": np.arange(24).reshape([2, 2, 2, 3]).astype("float32"),
@@ -221,7 +218,6 @@ class TestPreluCase3TRTPattern(TensorRTBaseTest):
 
 class TestPreluCase4TRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.enable_fp16 = True
         self.python_api = prelu_wrapper1
         self.api_args = {
             "x": np.arange(12).reshape([2, 2, 3]).astype("float32"),
