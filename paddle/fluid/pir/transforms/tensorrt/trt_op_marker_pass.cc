@@ -2167,6 +2167,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Tile)
     ADD_PATTERN(Share_Data)
     ADD_PATTERN(Swish)
+    ADD_PATTERN(Log)
     ADD_PATTERN(LeakyRelu)
     ADD_PATTERN(Floor)
     ADD_PATTERN(Roll)
