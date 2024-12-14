@@ -45,11 +45,6 @@ struct DimExprToIrExprVisitor {
     return ir::Sub::Make(ir::Expr(std::int64_t(0)), ConvertToIrExpr(operand));
   }
 
-  ir::Expr operator()(const Reciprocal<DimExpr>& dim_expr) {
-    const auto& [operand] = *dim_expr;
-    return ir::Div::Make(ir::Expr(std::int64_t(1)), ConvertToIrExpr(operand));
-  }
-
   ir::Expr operator()(const Add<DimExpr>& dim_expr) {
     const auto& [operands] = dim_expr;
     if (operands->empty()) {
@@ -69,17 +64,19 @@ struct DimExprToIrExprVisitor {
     }
     ir::Expr product = ConvertToIrExpr(operands->at(0));
     for (std::size_t i = 1; i < operands->size(); ++i) {
-      // Convert Reciprocal<DimExpr>(S0) to (1 / S0) will result in precision
-      // error. For example, (S0 * S1 / S2) != (S0 * S1 * (1 / S2)). So we
-      // should use Div instead of Reciprocal here.
-      if (operands->at(i).isa<Reciprocal<DimExpr>>()) {
-        product = ir::Div::Make(
-            product,
-            ConvertToIrExpr(
-                operands->at(i).dyn_cast<Reciprocal<DimExpr>>()->data));
-      } else {
-        product = ir::Mul::Make(product, ConvertToIrExpr(operands->at(i)));
-      }
+      product = ir::Mul::Make(product, ConvertToIrExpr(operands->at(i)));
+    }
+    return product;
+  }
+
+  ir::Expr operator()(const Div<DimExpr>& dim_expr) {
+    const auto& [operands] = dim_expr;
+    if (operands->empty()) {
+      return ir::Expr(std::int64_t(1));
+    }
+    ir::Expr product = ConvertToIrExpr(operands->at(0));
+    for (std::size_t i = 1; i < operands->size(); ++i) {
+      product = ir::Div::Make(product, ConvertToIrExpr(operands->at(i)));
     }
     return product;
   }

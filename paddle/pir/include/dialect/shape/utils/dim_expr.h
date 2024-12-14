@@ -120,17 +120,17 @@ struct Negative final : public UnaryDimExpr<T> {
 };
 
 template <typename T>
-struct Reciprocal final : public UnaryDimExpr<T> {
-  using UnaryDimExpr<T>::UnaryDimExpr;
-};
-
-template <typename T>
 struct Add final {
   List<T> operands;
 };
 
 template <typename T>
 struct Mul final {
+  List<T> operands;
+};
+
+template <typename T>
+struct Div final {
   List<T> operands;
 };
 
@@ -170,18 +170,18 @@ class DimExpr;
 // DimExpr = std::int64_t
 //         | std::string
 //         | Negative DimExpr
-//         | Reciprocal DimExpr
 //         | Add DimExpr
 //         | Mul DimExpr
+//         | Div DimExpr
 //         | Max DimExpr
 //         | Min DimExpr
 //         | Broadcast DimExpr
 using DimExprBase = std::variant<std::int64_t,
                                  std::string,
                                  Negative<DimExpr>,
-                                 Reciprocal<DimExpr>,
                                  Add<DimExpr>,
                                  Mul<DimExpr>,
+                                 Div<DimExpr>,
                                  Max<DimExpr>,
                                  Min<DimExpr>,
                                  Broadcast<DimExpr>>;

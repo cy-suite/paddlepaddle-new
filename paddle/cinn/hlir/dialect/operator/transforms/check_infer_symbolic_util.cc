@@ -137,9 +137,6 @@ struct ShapeSignatureGenerator {
         [&](const symbol::Negative<symbol::DimExpr>& negative) {
           GetSymbolsForOneDimExpr(negative->data, symbols);
         },
-        [&](const symbol::Reciprocal<symbol::DimExpr>& reciprocal) {
-          GetSymbolsForOneDimExpr(reciprocal->data, symbols);
-        },
         [&](const symbol::Add<symbol::DimExpr>& add) {
           for (const auto& dim_expr : *add.operands) {
             GetSymbolsForOneDimExpr(dim_expr, symbols);
@@ -147,6 +144,11 @@ struct ShapeSignatureGenerator {
         },
         [&](const symbol::Mul<symbol::DimExpr>& mul) {
           for (const auto& dim_expr : *mul.operands) {
+            GetSymbolsForOneDimExpr(dim_expr, symbols);
+          }
+        },
+        [&](const symbol::Div<symbol::DimExpr>& div) {
+          for (const auto& dim_expr : *div.operands) {
             GetSymbolsForOneDimExpr(dim_expr, symbols);
           }
         },

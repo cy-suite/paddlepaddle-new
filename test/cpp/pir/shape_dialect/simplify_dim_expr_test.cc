@@ -51,14 +51,6 @@ TEST(Simplify, NumberAdd) {
   ASSERT_EQ((simplified_dim_expr.Get<std::int64_t>()), 0);
 }
 
-TEST(Simplify, UnitReciprocal) {
-  DimExpr unit{Reciprocal<DimExpr>{DimExpr{1}}};
-
-  DimExpr simplified_dim_expr = SimplifyDimExpr(unit);
-  ASSERT_TRUE((simplified_dim_expr.Has<std::int64_t>()));
-  ASSERT_EQ((simplified_dim_expr.Get<std::int64_t>()), 1);
-}
-
 TEST(Simplify, DoubleNegative) {
   DimExpr inner_expr{Negative<DimExpr>(DimExpr{1})};
   DimExpr expr{Negative<DimExpr>(inner_expr)};
@@ -85,9 +77,19 @@ TEST(Simplify, NumberNaiveMul) {
   ASSERT_EQ((simplified_dim_expr.Get<std::int64_t>()), 25);
 }
 
+TEST(Simplify, NumberNaiveDiv) {
+  List<DimExpr> num_lists{DimExpr(5), DimExpr(5)};
+  DimExpr dim_expr{Div<DimExpr>{num_lists}};
+
+  DimExpr simplified_dim_expr = SimplifyDimExpr(dim_expr);
+  ASSERT_TRUE((simplified_dim_expr.Has<std::int64_t>()));
+  ASSERT_EQ((simplified_dim_expr.Get<std::int64_t>()), 1);
+}
+
 TEST(Simplify, NumberMul) {
-  List<DimExpr> num_lists{DimExpr(5), Reciprocal<DimExpr>(5)};
-  DimExpr dim_expr{Mul<DimExpr>{num_lists}};
+  List<DimExpr> num_lists{DimExpr(1), DimExpr(5)};
+  DimExpr div_expr{Div<DimExpr>{num_lists}};
+  DimExpr dim_expr{Mul<DimExpr>{List<DimExpr>{div_expr, DimExpr(5)}}};
 
   DimExpr simplified_dim_expr = SimplifyDimExpr(dim_expr);
   ASSERT_TRUE((simplified_dim_expr.Has<std::int64_t>()));
@@ -95,8 +97,10 @@ TEST(Simplify, NumberMul) {
 }
 
 TEST(Simplify, NestNumberAddMul) {
-  List<DimExpr> num_lists{DimExpr(5), Reciprocal<DimExpr>(5)};
-  List<DimExpr> sum_lists{DimExpr(0), Mul<DimExpr>{num_lists}};
+  List<DimExpr> num_lists{DimExpr(1), DimExpr(5)};
+  DimExpr div_expr{Div<DimExpr>{num_lists}};
+  List<DimExpr> sum_lists{DimExpr(0),
+                          Mul<DimExpr>{List<DimExpr>{DimExpr(5), div_expr}}};
   DimExpr dim_expr{Add<DimExpr>{sum_lists}};
 
   DimExpr simplified_dim_expr = SimplifyDimExpr(dim_expr);
@@ -126,7 +130,7 @@ TEST(Simplify, SymbolicMul) {
 
 TEST(Simplify, SymbolicMulUnit) {
   DimExpr sym = MakeSymbolic();
-  List<DimExpr> num_lists{Reciprocal<DimExpr>(sym), sym};
+  List<DimExpr> num_lists{sym, Div<DimExpr>{List<DimExpr>{DimExpr(1), sym}}};
   DimExpr dim_expr{Mul<DimExpr>{num_lists}};
 
   DimExpr simplified_dim_expr = SimplifyDimExpr(dim_expr);
@@ -202,11 +206,11 @@ TEST(Simplify, Case1) {
   DimExpr mul_op3 = Broadcast<DimExpr>{{S12, S3, S6, S9}};
 
   DimExpr S0{"S0"};
-  DimExpr mul_op4 = Reciprocal<DimExpr>(S0);
+  DimExpr mul_op4 = Div<DimExpr>{List<DimExpr>{DimExpr(1), S0}};
 
   DimExpr mul_op5 = DimExpr(16);
 
-  DimExpr mul_op6 = Reciprocal<DimExpr>(DimExpr(49));
+  DimExpr mul_op6 = Div<DimExpr>{List<DimExpr>{DimExpr(1), DimExpr(49)}};
 
   List<DimExpr> mul_list{mul_op1, mul_op2, mul_op3, mul_op4, mul_op5, mul_op6};
   DimExpr dim_expr{Mul<DimExpr>{mul_list}};

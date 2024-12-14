@@ -872,6 +872,21 @@ class MapExprToIrTranslator {
     PADDLE_THROW(::common::errors::Fatal("Dead code"));
   }
 
+  ir::Expr Divide(const std::vector<ir::Expr>& ir_exprs) const {
+    if (ir_exprs.size() == 0) {
+      PADDLE_THROW(::common::errors::Fatal("Dead code"));
+    } else if (ir_exprs.size() == 1) {
+      return ir_exprs.at(0);
+    } else {
+      ir::Expr ret = ir_exprs.at(0);
+      for (int i = 1; i < ir_exprs.size(); ++i) {
+        ret = ir::Div::Make(ret, ir_exprs.at(i));
+      }
+      return ret;
+    }
+    PADDLE_THROW(::common::errors::Fatal("Dead code"));
+  }
+
   ir::Expr GetStride(const List<DimExpr>& dims, int start) const {
     PADDLE_ENFORCE_GE(start,
                       -1,
@@ -944,13 +959,6 @@ class MapExprToIrTranslator {
     return ir::Sub::Make(ir::Expr(0), inner_expr);
   }
 
-  ir::Expr TranslateDimExprImpl(
-      const ::symbol::Reciprocal<DimExpr>& dim_expr) const {
-    const auto& [inner_dim_expr] = *dim_expr;
-    ir::Expr inner_expr = TranslateDimExpr(inner_dim_expr);
-    return ir::Div::Make(ir::Expr(1), inner_expr);
-  }
-
   ir::Expr TranslateDimExprImpl(const ::symbol::Add<DimExpr>& dim_expr) const {
     std::vector<ir::Expr> ir_exprs{};
     const auto& [exprs] = dim_expr;
@@ -961,6 +969,15 @@ class MapExprToIrTranslator {
   }
 
   ir::Expr TranslateDimExprImpl(const ::symbol::Mul<DimExpr>& dim_expr) const {
+    std::vector<ir::Expr> ir_exprs{};
+    const auto& [exprs] = dim_expr;
+    for (const auto& expr : *exprs) {
+      ir_exprs.emplace_back(TranslateDimExpr(expr));
+    }
+    return Multiply(ir_exprs);
+  }
+
+  ir::Expr TranslateDimExprImpl(const ::symbol::Div<DimExpr>& dim_expr) const {
     std::vector<ir::Expr> ir_exprs{};
     const auto& [exprs] = dim_expr;
     for (const auto& expr : *exprs) {

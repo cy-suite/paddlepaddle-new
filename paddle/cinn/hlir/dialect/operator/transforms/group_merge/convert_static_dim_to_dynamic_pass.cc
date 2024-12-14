@@ -198,11 +198,6 @@ struct StaticDimToDynamicConverter {
     return AppliedOnceUnaryImpl(dim_expr, symbol);
   }
 
-  bool AppliedOnceImpl(const symbol::Reciprocal<symbol::DimExpr>& dim_expr,
-                       const std::string& symbol) {
-    return AppliedOnceUnaryImpl(dim_expr, symbol);
-  }
-
   template <typename T>
   bool AppliedOnceListImpl(const T& dim_expr, const std::string& symbol) {
     const auto& [operands] = dim_expr;
@@ -218,6 +213,11 @@ struct StaticDimToDynamicConverter {
   }
 
   bool AppliedOnceImpl(const symbol::Mul<symbol::DimExpr>& dim_expr,
+                       const std::string& symbol) {
+    return AppliedOnceListImpl(dim_expr, symbol);
+  }
+
+  bool AppliedOnceImpl(const symbol::Div<symbol::DimExpr>& dim_expr,
                        const std::string& symbol) {
     return AppliedOnceListImpl(dim_expr, symbol);
   }
@@ -297,13 +297,6 @@ struct StaticDimToDynamicConverter {
   }
 
   std::optional<symbol::DimExpr> ConvertDimExprImpl(
-      const symbol::Reciprocal<symbol::DimExpr>& dim_expr,
-      int64_t c,
-      const std::string& symbol) {
-    return ConvertUnaryDimExprImpl(dim_expr, c, symbol);
-  }
-
-  std::optional<symbol::DimExpr> ConvertDimExprImpl(
       const symbol::Add<symbol::DimExpr>& dim_expr,
       int64_t c,
       const std::string& symbol) {
@@ -312,6 +305,13 @@ struct StaticDimToDynamicConverter {
 
   std::optional<symbol::DimExpr> ConvertDimExprImpl(
       const symbol::Mul<symbol::DimExpr>& dim_expr,
+      int64_t c,
+      const std::string& symbol) {
+    return ConvertListDimExprImpl(dim_expr, c, symbol);
+  }
+
+  std::optional<symbol::DimExpr> ConvertDimExprImpl(
+      const symbol::Div<symbol::DimExpr>& dim_expr,
       int64_t c,
       const std::string& symbol) {
     return ConvertListDimExprImpl(dim_expr, c, symbol);
