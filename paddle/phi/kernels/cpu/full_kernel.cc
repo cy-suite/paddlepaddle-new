@@ -46,7 +46,6 @@ void FullComplexKernel(const Context& dev_ctx,
                        const Scalar& imag,
                        DataType dtype UNUSED,
                        DenseTensor* out) {
-  out->Resize(common::make_ddim(shape.GetData()));
   Scalar fill_value = Scalar(complex128(real.to<double>(), imag.to<double>()));
   FullKernel<T>(dev_ctx, shape, fill_value, dtype, out);
 }
