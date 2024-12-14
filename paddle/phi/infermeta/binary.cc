@@ -4200,6 +4200,7 @@ void FakeQuantizeLSQInferMeta(const MetaTensor& x,
 void AllGatherGemmInferMeta(const MetaTensor& input,
                             const MetaTensor& weight,
                             bool transpose_weight,
+                            bool check_can_implement,
                             MetaTensor* output,
                             MetaTensor* input_parallel) {
   PADDLE_ENFORCE_EQ(
@@ -4229,14 +4230,19 @@ void AllGatherGemmInferMeta(const MetaTensor& input,
           weight.dims(),
           transpose_weight));
 
-  output->set_dtype(input.dtype());
-
-  input_parallel->set_dtype(input.dtype());
+  if (check_can_implement) {
+    output->set_dims(common::make_ddim({}));
+    output->set_dtype(DataType::BOOL);
+  } else {
+    output->set_dtype(input.dtype());
+    input_parallel->set_dtype(input.dtype());
+  }
 }
 
 void GemmReduceScatterInferMeta(const MetaTensor& input,
                                 const MetaTensor& weight,
                                 bool transpose_weight,
+                                bool check_can_implement,
                                 MetaTensor* output) {
   PADDLE_ENFORCE_EQ(
       input.dims().size(),
@@ -4265,7 +4271,12 @@ void GemmReduceScatterInferMeta(const MetaTensor& input,
           weight.dims(),
           transpose_weight));
 
-  output->set_dtype(input.dtype());
+  if (check_can_implement) {
+    output->set_dims(common::make_ddim({}));
+    output->set_dtype(DataType::BOOL);
+  } else {
+    output->set_dtype(input.dtype());
+  }
 }
 
 }  // namespace phi

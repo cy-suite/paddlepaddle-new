@@ -157,11 +157,11 @@
     func : all
 
 - op : all_gather_gemm
-  args : (Tensor input, Tensor weight, Tensor bias, Tensor input_scale, Tensor weight_scale, Tensor output_scale, int nnodes, int full_m, int n_dim, int k_dim, int ring_id, bool fast_accum, bool deepcopy_input_parallel, bool transpose_weight)
+  args : (Tensor input, Tensor weight, Tensor bias, Tensor input_scale, Tensor weight_scale, Tensor output_scale, int nnodes, int full_m, int n_dim, int k_dim, int ring_id, bool fast_accum, bool deepcopy_input_parallel, bool transpose_weight, bool check_can_implement)
   output : Tensor(output), Tensor(input_parallel)
   infer_meta :
     func : AllGatherGemmInferMeta
-    param : [input, weight, transpose_weight]
+    param : [input, weight, transpose_weight, check_can_implement]
   kernel :
     func : all_gather_gemm,
     data_type : input
@@ -2039,11 +2039,11 @@
   backward : gelu_grad
 
 - op : gemm_reduce_scatter
-  args: (Tensor input, Tensor weight, Tensor bias, Tensor input_scale, Tensor weight_scale, Tensor output_scale, int nnodes, int max_m, int n_dim, bool transpose_weight, bool fuse_reduction, int ring_id, int nranks)
+  args: (Tensor input, Tensor weight, Tensor bias, Tensor input_scale, Tensor weight_scale, Tensor output_scale, int nnodes, int max_m, int n_dim, bool transpose_weight, bool fuse_reduction, bool check_can_implement, int ring_id, int nranks)
   output : Tensor(output)
   infer_meta :
     func : GemmReduceScatterInferMeta
-    param: [input, weight, transpose_weight]
+    param: [input, weight, transpose_weight, check_can_implement]
   kernel :
     func : gemm_reduce_scatter
     data_type : input

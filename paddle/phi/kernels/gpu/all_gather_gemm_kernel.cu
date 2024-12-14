@@ -129,6 +129,22 @@ class AGGemmHelper {
     PADDLE_ENFORCE(!(transpose_weight == true && is_fp8_gemm == true),
                    "FP8 GEMM does not support transpose weight");
     this->ring_mode = get_ring_mode(ring_mode_);
+
+    // copy stream
+    this->num_cp_streams = 1;
+    for (int i = 0; i < this->num_cp_streams; ++i) {
+      this->cp_streams.push_back(this->comm_ctx->GetStream());
+    }
+    // create events
+    constexpr bool disable_timing = true;
+    static CUDAEventHolder cp_event_holder{disable_timing};
+    static CUDAEventHolder ready_event_holder{disable_timing};
+
+    this->cp_event = cp_event_holder.event;
+    this->ready_event = ready_event_holder.event;
+  }
+
+  void init_buffer() {
     // input buffer
     static BuffersHolder<InT> input_buffers_holder{
         {full_m, k_dim}, dev_ctx, tp_group};
@@ -157,19 +173,6 @@ class AGGemmHelper {
         this->barrier_ptrs[i] = static_cast<FlagType*>(nullptr);
       }
     }
-
-    // copy stream
-    this->num_cp_streams = 1;
-    for (int i = 0; i < this->num_cp_streams; ++i) {
-      this->cp_streams.push_back(this->comm_ctx->GetStream());
-    }
-    // create events
-    constexpr bool disable_timing = true;
-    static CUDAEventHolder cp_event_holder{disable_timing};
-    static CUDAEventHolder ready_event_holder{disable_timing};
-
-    this->cp_event = cp_event_holder.event;
-    this->ready_event = ready_event_holder.event;
 
     static BuffersHolder<int32_t> sync_buffers_holder{
         {this->world_size}, dev_ctx, tp_group};
@@ -209,6 +212,7 @@ void AllGatherGemmKernel(const Context& dev_ctx,
                          const bool fast_accum,
                          const bool deepcopy_input_parallel,
                          const bool transpose_weight,
+                         const bool check_can_implement,
                          DenseTensor* output,
                          DenseTensor* input_parallel) {
 #ifdef PADDLE_WITH_FLUX
@@ -258,11 +262,13 @@ void AllGatherGemmKernel(const Context& dev_ctx,
   auto launcher = [&](const bool return_workspace_size) -> size_t {
     return phi::dynload::ag_gemm(
         const_cast<void*>(input.data()),
-        helper.input_buffer.data(),
+        helper.input_buffer.initialized() ? helper.input_buffer.data()
+                                          : nullptr,
         const_cast<void*>(weight.data()),
         bias.is_initialized() ? const_cast<void*>(bias->data()) : nullptr,
         output_buffer.data(),
-        helper.barrier_buffer.data(),
+        helper.barrier_buffer.initialized() ? helper.barrier_buffer.data()
+                                            : nullptr,
         helper.gemm_buffer.initialized() ? helper.gemm_buffer.data() : nullptr,
         dev_ctx.stream(),
         helper.ready_event,
@@ -279,8 +285,25 @@ void AllGatherGemmKernel(const Context& dev_ctx,
         kDebugRunGemm,
         helper.transpose_weight,
         fast_accum,
-        return_workspace_size);
+        return_workspace_size,
+        check_can_implement);
   };
+
+  if (check_can_implement) {
+    auto can_implement = [&]() -> bool {
+      size_t result = launcher(false);
+      if (result == 1)
+        return true;
+      else
+        return false;
+    };
+    bool result = can_implement();
+    bool* out_data = dev_ctx.template HostAlloc<bool>(output);
+    out_data[0] = result;
+    return;
+  }
+
+  helper.init_buffer();
 
   auto get_workspace_size = [&]() -> size_t { return launcher(true); };
   int64_t workspace_size = get_workspace_size();

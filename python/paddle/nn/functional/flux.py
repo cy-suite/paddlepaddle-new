@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import paddle
 from paddle import _C_ops
 
 
-def gemm_reduce_scatter(input, weight, group):
+def gemm_reduce_scatter_launcher(input, weight, group, check_can_implement):
     transpose_weight = input.shape[1] == weight.shape[0]
     global_M = input.shape[0]
     global_N = weight.shape[1] if transpose_weight else weight.shape[0]
@@ -40,12 +41,30 @@ def gemm_reduce_scatter(input, weight, group):
         global_N,
         transpose_weight,
         fuse_reduction,
+        check_can_implement,
         ring_id,
         nranks,
     )
 
 
-def all_gather_gemm(input, weight, group, deepcopy_input_parallel):
+def gemm_reduce_scatter_can_implement(input, weight, group):
+    output = gemm_reduce_scatter_launcher(input, weight, group, True)
+    assert (
+        paddle.numel(output) == 1
+    ), "The check result should have exactly one element."
+    assert (
+        output.dtype == paddle.bool
+    ), "The check result is not of boolean type."
+    return output.item()
+
+
+def gemm_reduce_scatter(input, weight, group):
+    return gemm_reduce_scatter_launcher(input, weight, group, False)
+
+
+def all_gather_gemm_launcher(
+    input, weight, group, deepcopy_input_parallel, check_can_implement
+):
     nnodes = 1
     transpose_weight = input.shape[1] == weight.shape[0]
     full_m = input.shape[0] * group.nranks
@@ -58,7 +77,7 @@ def all_gather_gemm(input, weight, group, deepcopy_input_parallel):
     input_scale = None
     weight_scale = None
     output_scale = None
-    output, input_parallel = _C_ops.all_gather_gemm(
+    return _C_ops.all_gather_gemm(
         input,
         weight,
         bias,
@@ -73,5 +92,22 @@ def all_gather_gemm(input, weight, group, deepcopy_input_parallel):
         fast_accum,
         deepcopy_input_parallel,
         transpose_weight,
+        check_can_implement,
     )
-    return output, input_parallel
+
+
+def all_gather_gemm_can_implement(input, weight, group):
+    output, _ = all_gather_gemm_launcher(input, weight, group, False, True)
+    assert (
+        paddle.numel(output) == 1
+    ), "The check result should have exactly one element."
+    assert (
+        output.dtype == paddle.bool
+    ), "The check result is not of boolean type."
+    return output.item()
+
+
+def all_gather_gemm(input, weight, group, deepcopy_input_parallel):
+    return all_gather_gemm_launcher(
+        input, weight, group, deepcopy_input_parallel, False
+    )

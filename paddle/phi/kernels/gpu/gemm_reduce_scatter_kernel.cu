@@ -134,7 +134,6 @@ class GemmRSHelper {
         !fuse_reduction || this->input_dtype == phi::DataType::FLOAT16,
         "Fuse reduction only support float16 type on SM80 due to instruction "
         "limitation.");
-    this->init_output_buffer();
     static CUDAEventHolder event_holder{};
     this->event_ = event_holder.event;
   }
@@ -284,10 +283,11 @@ void GemmReduceScatterKernel(const Context& dev_ctx,
                              const int32_t nnodes,
                              const int32_t max_m,
                              const int32_t n_dim,
-                             bool transpose_weight,
-                             bool fuse_reduction,
-                             int ring_id,
-                             int nranks,
+                             const bool transpose_weight,
+                             const bool fuse_reduction,
+                             const bool check_can_implement,
+                             const int ring_id,
+                             const int nranks,
                              DenseTensor* output) {
 #ifdef PADDLE_WITH_FLUX
   int sm_version =
@@ -382,10 +382,27 @@ void GemmReduceScatterKernel(const Context& dev_ctx,
         helper.no_nvlink,
         get_workspace_size_flag,
         get_barrier_workspace_size,
+        check_can_implement,
         dev_ctx.stream(),
         helper.rs_stream_,
         helper.event_);
   };
+
+  if (check_can_implement) {
+    auto can_implement = [&]() -> bool {
+      size_t result = launcher(false, false);
+      if (result == 1)
+        return true;
+      else
+        return false;
+    };
+    bool result = can_implement();
+    bool* out_data = dev_ctx.template HostAlloc<bool>(output);
+    out_data[0] = result;
+    return;
+  }
+
+  helper.init_output_buffer();
 
   auto get_workspace_size = [&]() -> size_t { return launcher(true, false); };
 

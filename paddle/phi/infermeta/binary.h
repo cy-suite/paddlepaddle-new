@@ -724,11 +724,13 @@ void FakeQuantizeLSQInferMeta(const MetaTensor& x,
 void AllGatherGemmInferMeta(const MetaTensor& input,
                             const MetaTensor& weight,
                             bool transpose_weight,
+                            bool check_can_implement,
                             MetaTensor* output,
                             MetaTensor* input_parallel);
 
 void GemmReduceScatterInferMeta(const MetaTensor& input,
                                 const MetaTensor& weight,
                                 bool transpose_weight,
+                                bool check_can_implement,
                                 MetaTensor* output);
 }  // namespace phi
