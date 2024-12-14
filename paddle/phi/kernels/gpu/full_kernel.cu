@@ -64,8 +64,11 @@ void FullComplexKernel(const Context& dev_ctx,
                        const Scalar& imag,
                        DataType dtype UNUSED,
                        DenseTensor* out) {
-  Scalar fill_value = Scalar(complex128(real.to<double>(), imag.to<double>()));
-  FullKernel<T>(dev_ctx, shape, fill_value, dtype, out);
+  FullKernel<T>(dev_ctx,
+                shape,
+                Scalar(complex128(real.to<double>(), imag.to<double>())),
+                dtype,
+                out);
 }
 
 template <typename T, typename Context>
