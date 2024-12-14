@@ -17,7 +17,7 @@ import unittest
 
 import numpy as np
 from op_test import OpTest, convert_float_to_uint16, skip_check_grad_ci
-from utils import static_guard
+from utils import dygraph_guard, static_guard
 
 import paddle
 from paddle import base
@@ -2247,16 +2247,126 @@ class TestAnyAPI(unittest.TestCase):
         paddle.enable_static()
 
 
-class TestAllZeroError(unittest.TestCase):
-    def test_errors(self):
-        with paddle.base.dygraph.guard():
+class TestAllZero(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(123)
+        self.shape = [1, 0, 2]
+        self.dtypes = ["bool", "float", "int", "complex64", "complex128"]
+        self.places = [base.CPUPlace()]
+        if core.is_compiled_with_cuda():
+            self.places.append(base.CUDAPlace(0))
 
-            def test_0_size():
-                array = np.array([], dtype=np.float32)
-                x = paddle.to_tensor(np.reshape(array, [0, 0, 0]), dtype='bool')
-                paddle.all(x, axis=1)
+    def calculate_expected_result(self, axis, keepdim):
+        if axis is None:
+            expected_result = np.array(True)
+        elif isinstance(axis, int):
+            if keepdim:
+                expected_shape = list(self.shape)
+                expected_shape[axis] = 1
+                expected_result = np.ones(expected_shape, dtype=bool)
+            else:
+                expected_shape = list(self.shape)
+                del expected_shape[axis]
+                expected_result = np.ones(expected_shape, dtype=bool)
+        # axis is tuple
+        else:
+            if keepdim:
+                expected_shape = list(self.shape)
+                for i in axis:
+                    expected_shape[i] = 1
+                expected_result = np.ones(expected_shape, dtype=bool)
+            else:
+                expected_shape = list(self.shape)
+                for i in sorted(axis, reverse=True):
+                    del expected_shape[i]
+                expected_result = np.ones(expected_shape, dtype=bool)
 
-            self.assertRaises(ValueError, test_0_size)
+        return expected_result
+
+    def check_result(
+        self, static_result, expected_result, axis, keepdim, dtype, place
+    ):
+        self.assertTrue(
+            (static_result == expected_result).all(),
+            f"Static Mode - Shape: {self.shape}, Axis: {axis}, Keepdim: {keepdim}, Dtype: {dtype}, Place: {place}",
+        )
+
+    def _test_static(self, place, axis, keepdim, dtype):
+        with static_guard():
+            with base.program_guard(
+                paddle.static.Program(), paddle.static.Program()
+            ):
+                input = paddle.static.data(
+                    name="x", shape=self.shape, dtype=dtype
+                )
+                result = paddle.all(x=input, axis=axis, keepdim=keepdim)
+
+                if dtype == "complex64" or dtype == "complex128":
+                    x_np = np.random.randn(*self.shape).astype(
+                        dtype
+                    ) + 1j * np.random.randn(*self.shape).astype(dtype)
+                elif dtype == "bool":
+                    x_np = np.random.randint(0, 2, self.shape).astype(dtype)
+                elif dtype == "float":
+                    x_np = np.random.randn(*self.shape).astype(dtype)
+                elif dtype == "int":
+                    x_np = np.random.randint(0, 2, self.shape).astype(dtype)
+
+                exe = base.Executor(place)
+                fetches = exe.run(
+                    feed={"x": x_np},
+                    fetch_list=[result],
+                )
+                expected_result = self.calculate_expected_result(axis, keepdim)
+                self.check_result(
+                    fetches[0], expected_result, axis, keepdim, dtype, place
+                )
+
+    def _test_dygraph(self, place, axis, keepdim, dtype):
+        with dygraph_guard():
+            if dtype == "complex64" or dtype == "complex128":
+                x_np = np.random.randn(*self.shape).astype(
+                    dtype
+                ) + 1j * np.random.randn(*self.shape).astype(dtype)
+            elif dtype == "bool":
+                x_np = np.random.randint(0, 2, self.shape).astype(dtype)
+            elif dtype == "float":
+                x_np = np.random.randn(*self.shape).astype(dtype)
+            elif dtype == "int":
+                x_np = np.random.randint(0, 2, self.shape).astype(dtype)
+
+            x = paddle.to_tensor(x_np)
+            dygraph_result = paddle.all(x, axis=axis, keepdim=keepdim).numpy()
+            expected_result = self.calculate_expected_result(axis, keepdim)
+            self.check_result(
+                dygraph_result, expected_result, axis, keepdim, dtype, place
+            )
+
+    def _test_all(self, place, axis, keepdim, dtype):
+        self._test_dygraph(place, axis, keepdim, dtype)
+        self._test_static(place, axis, keepdim, dtype)
+
+    def test_zero_size(self):
+        axes_options = [
+            None,
+            0,
+            1,
+            2,
+            -1,
+            -2,
+            [],
+            [0, 1],
+            [0, 2],
+            [1, 2],
+            [-1, -2],
+        ]
+        keepdims_options = [True, False]
+
+        for place in self.places:
+            for dtype in self.dtypes:
+                for axis in axes_options:
+                    for keepdim in keepdims_options:
+                        self._test_all(place, axis, keepdim, dtype)
 
 
 if __name__ == '__main__':

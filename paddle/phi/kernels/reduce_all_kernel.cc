@@ -44,7 +44,7 @@ void AllKernel(const Context& dev_ctx,
   if (x.numel() == 0) {
     MetaTensor meta_out(out);
     ReduceInferMeta(x, dims, keep_dim, &meta_out);
-    VLOG(1) << "out->numel() = " << out->numel();
+    dev_ctx.template Alloc<bool>(out);
     if (out->numel() > 0) {
       const int64_t* dims_data = out->dims().Get();
       int num_dims = out->dims().size();
