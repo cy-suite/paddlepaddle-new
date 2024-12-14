@@ -196,7 +196,6 @@ void MatrixRankAtolRtolKernel(const Context& dev_ctx,
                               const paddle::optional<DenseTensor>& rtol,
                               bool hermitian,
                               DenseTensor* out) {
-  dev_ctx.template Alloc<int64_t>(out);
   auto dim_x = x.dims();
   auto dim_out = out->dims();
   int rows = static_cast<int>(dim_x[dim_x.size() - 2]);
@@ -218,6 +217,7 @@ void MatrixRankAtolRtolKernel(const Context& dev_ctx,
     dev_ctx.template Alloc<int64_t>(out);
     return;
   }
+  dev_ctx.template Alloc<int64_t>(out);
   int k = std::min(rows, cols);
   int batches = static_cast<int>(x.numel() / (rows * cols));
 

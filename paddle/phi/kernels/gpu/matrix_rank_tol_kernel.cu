@@ -461,15 +461,7 @@ void MatrixRankAtolRtolKernel(const Context& dev_ctx,
                               const paddle::optional<DenseTensor>& rtol,
                               bool hermitian,
                               DenseTensor* out) {
-  if (x.numel() == 0) {
-    out->Resize({1});
-    auto* out_data = dev_ctx.template Alloc<int64_t>(out);
-    out_data[0] = 0;
-    return;
-  }
   auto* x_data = x.data<T>();
-  dev_ctx.template Alloc<int64_t>(out);
-
   auto dim_x = x.dims();
   auto dim_out = out->dims();
   int rows = dim_x[dim_x.size() - 2];
@@ -491,6 +483,7 @@ void MatrixRankAtolRtolKernel(const Context& dev_ctx,
     dev_ctx.template Alloc<int64_t>(out);
     return;
   }
+  dev_ctx.template Alloc<int64_t>(out);
   int k = std::min(rows, cols);
   auto numel = x.numel();
   int batches = numel / (rows * cols);
