@@ -128,6 +128,16 @@ TEST(Simplify, SymbolicMul) {
   ASSERT_TRUE((simplified_dim_expr == sym));
 }
 
+TEST(Simplify, SymbolicDiv) {
+  DimExpr sym = MakeSymbolic();
+  List<DimExpr> num_lists{sym, DimExpr(1)};
+  DimExpr dim_expr{Mul<DimExpr>{num_lists}};
+
+  DimExpr simplified_dim_expr = SimplifyDimExpr(dim_expr);
+  ASSERT_TRUE((simplified_dim_expr.Has<std::string>()));
+  ASSERT_TRUE((simplified_dim_expr == sym));
+}
+
 TEST(Simplify, SymbolicMulUnit) {
   DimExpr sym = MakeSymbolic();
   List<DimExpr> num_lists{sym, Div<DimExpr>{List<DimExpr>{DimExpr(1), sym}}};
@@ -138,11 +148,32 @@ TEST(Simplify, SymbolicMulUnit) {
   ASSERT_EQ((simplified_dim_expr.Get<std::int64_t>()), 1);
 }
 
+TEST(Simplify, SymbolicDivUnit) {
+  DimExpr sym = MakeSymbolic();
+  List<DimExpr> num_lists{Mul<DimExpr>{List<DimExpr>{DimExpr(2), sym}}, sym};
+  DimExpr dim_expr{Div<DimExpr>{num_lists}};
+
+  DimExpr simplified_dim_expr = SimplifyDimExpr(dim_expr);
+  ASSERT_TRUE((simplified_dim_expr.Has<std::int64_t>()));
+  ASSERT_EQ((simplified_dim_expr.Get<std::int64_t>()), 2);
+}
+
 TEST(Simplify, NestSymbolicMulAddUnit) {
   DimExpr sym = MakeSymbolic();
   List<DimExpr> sum_lists{DimExpr(6), Negative<DimExpr>{DimExpr(5)}};
   List<DimExpr> product_lists = List<DimExpr>{Add<DimExpr>{sum_lists}, sym};
   DimExpr dim_expr{Mul<DimExpr>{product_lists}};
+
+  DimExpr simplified_dim_expr = SimplifyDimExpr(dim_expr);
+  ASSERT_TRUE((simplified_dim_expr.Has<std::string>()));
+  ASSERT_TRUE((simplified_dim_expr == sym));
+}
+
+TEST(Simplify, NestSymbolicDivAddUnit) {
+  DimExpr sym = MakeSymbolic();
+  List<DimExpr> sum_lists{DimExpr(6), Negative<DimExpr>{DimExpr(5)}};
+  List<DimExpr> product_lists = List<DimExpr>{sym, Add<DimExpr>{sum_lists}};
+  DimExpr dim_expr{Div<DimExpr>{product_lists}};
 
   DimExpr simplified_dim_expr = SimplifyDimExpr(dim_expr);
   ASSERT_TRUE((simplified_dim_expr.Has<std::string>()));
@@ -208,9 +239,9 @@ TEST(Simplify, Case1) {
   DimExpr S0{"S0"};
   DimExpr mul_op4 = Div<DimExpr>{List<DimExpr>{DimExpr(1), S0}};
 
-  DimExpr mul_op5 = DimExpr(16);
+  DimExpr mul_op5 = Div<DimExpr>{List<DimExpr>{DimExpr(1), DimExpr(49)}};
 
-  DimExpr mul_op6 = Div<DimExpr>{List<DimExpr>{DimExpr(1), DimExpr(49)}};
+  DimExpr mul_op6 = DimExpr(16);
 
   List<DimExpr> mul_list{mul_op1, mul_op2, mul_op3, mul_op4, mul_op5, mul_op6};
   DimExpr dim_expr{Mul<DimExpr>{mul_list}};
