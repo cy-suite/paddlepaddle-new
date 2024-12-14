@@ -40,6 +40,18 @@ void FullKernel(const Context& dev_ctx,
 }
 
 template <typename T, typename Context>
+void FullComplexKernel(const Context& dev_ctx,
+                       const IntArray& shape,
+                       const Scalar& real,
+                       const Scalar& imag,
+                       DataType dtype UNUSED,
+                       DenseTensor* out) {
+  out->Resize(common::make_ddim(shape.GetData()));
+  Scalar fill_value = Scalar(complex128(real.to<double>(), imag.to<double>()));
+  FullKernel<T>(dev_ctx, shape, fill_value, dtype, out);
+}
+
+template <typename T, typename Context>
 void FullLikeKernel(const Context& dev_ctx,
                     const DenseTensor& x UNUSED,
                     const Scalar& val,
@@ -117,6 +129,13 @@ PD_REGISTER_KERNEL(full,
                    phi::dtype::float8_e5m2,
                    phi::dtype::float16,
                    phi::dtype::bfloat16,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>) {}
+
+PD_REGISTER_KERNEL(full_complex,
+                   CPU,
+                   ALL_LAYOUT,
+                   phi::FullComplexKernel,
                    phi::dtype::complex<float>,
                    phi::dtype::complex<double>) {}
 

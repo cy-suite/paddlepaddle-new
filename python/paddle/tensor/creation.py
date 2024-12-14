@@ -1056,10 +1056,6 @@ def fill_constant(
             if isinstance(shape, (list, tuple)):
                 shape = paddle.utils.convert_shape_to_list(shape)
         else:
-            if isinstance(value, builtins.complex):
-                raise ValueError(
-                    "In static mode, the value of fill_constant can not be complex number."
-                )
             paddle.utils.check_shape(shape)
             if isinstance(shape, (list, tuple)):
                 if paddle.utils._contain_var(shape):

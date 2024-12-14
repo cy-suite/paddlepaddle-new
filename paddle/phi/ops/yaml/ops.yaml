@@ -2149,6 +2149,19 @@
   interfaces : paddle::dialect::InferSymbolicShapeInterface
   traits : paddle::dialect::ForwardOnlyTrait
 
+- op : full_complex
+  args : (IntArray shape, Scalar(double) real, Scalar(double) imag, DataType dtype=DataType::COMPLEX64, Place place=CPUPlace())
+  output: Tensor(out)
+  infer_meta :
+    func : CreateInferMeta
+    param : [shape, dtype]
+  kernel :
+    func: full_complex
+    param : [shape, real, imag, dtype]
+    data_type : dtype
+    backend : place
+  traits : paddle::dialect::ForwardOnlyTrait
+
 - op : full_int_array
   args : (int64_t[] value, DataType dtype=DataType::FLOAT32, Place place=CPUPlace())
   output: Tensor(out)
