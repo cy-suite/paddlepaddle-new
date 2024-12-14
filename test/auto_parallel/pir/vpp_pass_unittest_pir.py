@@ -276,6 +276,15 @@ class TestVPPPass(unittest.TestCase):
             schedule_mode="VPP", acc_step=4, manual=False, hidden_layer=7
         )
         self.check_result(Tail_removed_loss_vpp, loss_vpp)
+        # random-shard-vpp
+        Random_shards_vpp = self.run_pipeline(
+            schedule_mode="VPP",
+            acc_step=4,
+            manual=False,
+            hidden_layer=7,
+            random_shard=True,
+        )
+        self.check_result(Random_shards_vpp, loss_vpp)
 
     def check_result(self, loss1, loss2):
         return np.array_equal(loss1, loss2)
