@@ -16,9 +16,11 @@
 #include "glog/logging.h"
 #include "paddle/phi/backends/all_context.h"
 #include "paddle/phi/common/complex.h"
+#include "paddle/phi/common/int_array.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/core/meta_tensor.h"
 #include "paddle/phi/infermeta/unary.h"
+#include "paddle/phi/kernels/full_kernel.h"
 
 using complex64 = ::phi::dtype::complex<float>;
 using complex128 = ::phi::dtype::complex<double>;
@@ -42,10 +44,12 @@ void AllKernel(const Context& dev_ctx,
   if (x.numel() == 0) {
     MetaTensor meta_out(out);
     ReduceInferMeta(x, dims, keep_dim, &meta_out);
-    auto* out_data = dev_ctx.template Alloc<bool>(out);
     VLOG(1) << "out->numel() = " << out->numel();
     if (out->numel() > 0) {
-      std::fill(out_data, out_data + out->numel(), 1);
+      const int64_t* dims_data = out->dims().Get();
+      int num_dims = out->dims().size();
+      std::vector<int64_t> vec_dims(dims_data, dims_data + num_dims);
+      phi::Full<bool, Context>(dev_ctx, phi::IntArray(vec_dims), 1, out);
     }
     return;
   }
