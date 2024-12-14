@@ -1478,9 +1478,17 @@ def full(
              [2. 2.]]
     """
     if dtype is None:
-        dtype = paddle.get_default_dtype()
-    if isinstance(fill_value, builtins.complex):
-        dtype = "complex64"
+        if isinstance(fill_value, bool):  # it need to be check before int.
+            dtype = 'bool'
+        elif isinstance(fill_value, (int)):
+            dtype = 'int64'
+        elif isinstance(fill_value, (float)):
+            dtype = "float64"
+        elif isinstance(fill_value, (builtins.complex)):
+            dtype = "complex128"
+        else:
+            dtype = paddle.get_default_dtype()
+
     return fill_constant(shape=shape, dtype=dtype, value=fill_value, name=name)
 
 
