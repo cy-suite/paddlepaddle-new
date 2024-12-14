@@ -33,10 +33,11 @@ void AllKernel(const Context& dev_ctx,
                DenseTensor* out) {
   auto x_dim = x.dims();
   for (int i = 0; i < x_dim.size(); i++) {
-    PADDLE_ENFORCE_LE(0,
-                      x_dim[i],
-                      errors::InvalidArgument(
-                          "The dims of Input(X) should be greater than 0."));
+    PADDLE_ENFORCE_LE(
+        0,
+        x_dim[i],
+        errors::InvalidArgument(
+            "The dims of Input(X) should be greater than or equal to 0."));
   }
   if (x.numel() == 0) {
     MetaTensor meta_out(out);
