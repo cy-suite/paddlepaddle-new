@@ -1356,36 +1356,52 @@ class TestMatrixNormEmptyTensor(unittest.TestCase):
                     name='x1', shape=[0, 0], dtype='float32'
                 )
                 y1 = paddle.linalg.matrix_norm(x1, p='fro')
-
+                y1_p = paddle.linalg.matrix_norm(x1, p=1, axis=[0, -1])
                 x2 = paddle.static.data(
-                    name='x2', shape=[2, 0], dtype='float32'
+                    name='x2', shape=[2, 2, 0], dtype='float32'
                 )
                 y2 = paddle.linalg.matrix_norm(x2, p='fro')
-
+                y2_p = paddle.linalg.matrix_norm(x2, p=1, axis=[0, -1])
+                self.assertRaises(
+                    ValueError, paddle.linalg.matrix_norm, x1, p=2, axis=[0, -1]
+                )
+                self.assertRaises(
+                    ValueError, paddle.linalg.matrix_norm, x2, p=2, axis=[0, -1]
+                )
                 exe = paddle.static.Executor(place)
                 res = exe.run(
                     feed={
                         'x1': np.zeros((0, 0), dtype='float32'),
-                        'x2': np.ones((2, 0), dtype='float32'),
+                        'x2': np.ones((2, 2, 0), dtype='float32'),
                     },
-                    fetch_list=[y1, y2],
+                    fetch_list=[y1, y2, y1_p, y2_p],
                 )
 
                 self.assertEqual(res[0].shape, ())
-                self.assertEqual(res[1].shape, ())
+                self.assertEqual(res[1].shape, tuple(x2.shape))
+                self.assertEqual(res[2].shape, ())
+                self.assertEqual(res[3].shape, ())
 
     def _test_matrix_norm_dynamic(self):
         with dygraph_guard():
 
-            # Valid shapes - expected to succeed
             x1 = paddle.full((0, 0), 1.0, dtype='float32')
             y1 = paddle.linalg.matrix_norm(x1, p='fro')
+            y1_p = paddle.linalg.matrix_norm(x1, p=1, axis=[0, -1])
+            self.assertRaises(
+                ValueError, paddle.linalg.matrix_norm, x1, p=2, axis=[0, -1]
+            )
 
-            x2 = paddle.full((2, 0), 1.0, dtype='float32')
+            x2 = paddle.full((2, 2, 0), 1.0, dtype='float32')
             y2 = paddle.linalg.matrix_norm(x2, p='fro')
-
+            y2_p = paddle.linalg.matrix_norm(x2, p=1, axis=[0, -1])
+            self.assertRaises(
+                ValueError, paddle.linalg.matrix_norm, x2, p=2, axis=[0, -1]
+            )
             self.assertEqual(y1.shape, [0])
-            self.assertEqual(y2.shape, [0])
+            self.assertEqual(y2.shape, x2.shape)
+            self.assertEqual(y1_p.shape, [])
+            self.assertEqual(y2_p.shape, [])
 
     def test_matrix_norm(self):
         for place in self._get_places():
