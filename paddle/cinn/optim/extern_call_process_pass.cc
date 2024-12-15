@@ -47,8 +47,8 @@ void RemoveTupleGetStatements(BlockRef block) {
 
   for (const auto& stmt : stmts) {
     if (stmt.isa<ir::Call>()) {
-      auto* call_op = stmt.as<ir::Call>();
-      if (call_op->is_tuple_get()) {
+      auto* call = stmt.as<ir::Call>();
+      if (call && call->is_extern_call() && call->is_tuple_get()) {
         continue;
       }
     }
