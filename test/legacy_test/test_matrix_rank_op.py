@@ -277,7 +277,6 @@ class TestMatrixRankEmptyTensor(unittest.TestCase):
 
     def _test_matrix_rank_dynamic_gpu(self):
         with dygraph_guard():
-            paddle.set_device("gpu")
             x_valid = paddle.full((0, 6, 6), 1.0, dtype='float32')
             x_invalid1 = paddle.full((0, 0), 1.0, dtype='float32')
             x_invalid2 = paddle.full((2, 3, 0, 0), 1.0, dtype='float32')
