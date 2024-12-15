@@ -14,18 +14,17 @@
 
 #pragma once
 
-#include "paddle/cinn/ir/ir.h"
-#include "paddle/cinn/optim/pass/pass.h"
+#include "paddle/cinn/pass/pass.h"
 
 namespace cinn {
 namespace optim {
 
-class ExternCallMultiOutputShallowStorePass : public ir::BlockPass {
+class ExternCallMultiOutputShallowStorePass : public BlockPass {
  public:
   LogicalResult Run(ir::stmt::BlockRef block) override;
 };
 
-class ExternCallRemoveTupleGetStatementsPass : public ir::BlockPass {
+class ExternCallRemoveTupleGetStatementsPass : public BlockPass {
  public:
   LogicalResult Run(ir::stmt::BlockRef block) override;
 };
