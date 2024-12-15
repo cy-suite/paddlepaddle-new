@@ -578,31 +578,31 @@ struct SimplifyDiv {
         ++it;
       }
     }
-
     if (numerator_operands->empty() && denominator_operands->empty()) {
       return DimExpr{1};
     }
-    if (numerator_operands->empty()) {
-      return Div<DimExpr>{List<DimExpr>{1, Mul<DimExpr>{denominator_operands}}};
-    }
+    DimExpr numerator_expr = (numerator_operands->empty())
+                                 ? DimExpr{1}
+                                 : (numerator_operands->size() == 1
+                                        ? numerator_operands->at(0)
+                                        : Mul<DimExpr>{numerator_operands});
+
     if (denominator_operands->empty()) {
-      return Mul<DimExpr>{numerator_operands};
-    }
-
-    DimExpr numerator_expr = (numerator_operands->size() == 1)
-                                 ? numerator_operands->at(0)
-                                 : Mul<DimExpr>{numerator_operands};
-
-    DimExpr denominator_expr = (denominator_operands->size() == 1)
-                                   ? denominator_operands->at(0)
-                                   : Mul<DimExpr>{denominator_operands};
-
-    if (denominator_operands->size() == 1 &&
-        denominator_operands->at(0).Has<std::int64_t>() &&
-        denominator_operands->at(0).Get<std::int64_t>() == 1) {
       return numerator_expr;
     }
 
+    if (denominator_operands->size() == 1) {
+      const DimExpr& denominator_expr = denominator_operands->at(0);
+      if (denominator_expr.Has<std::int64_t>() &&
+          denominator_expr.Get<std::int64_t>() == 1) {
+        return numerator_expr;  // dim_expr0 / 1 => dim_expr0
+      }
+      return Div<DimExpr>{List<DimExpr>{
+          numerator_expr,
+          denominator_expr}};  // dim_expr0 / 3 or dim_expr0 / dim_expr1
+    }
+
+    DimExpr denominator_expr = Mul<DimExpr>{denominator_operands};
     return Div<DimExpr>{List<DimExpr>{numerator_expr, denominator_expr}};
   }
 };
