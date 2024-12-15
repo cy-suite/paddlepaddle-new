@@ -263,8 +263,21 @@ class TestMatrixRankEmptyTensor(unittest.TestCase):
                 )
                 self.assertEqual(res_valid[0].shape, (0,))
 
-    def _test_matrix_rank_dynamic(self):
+    def _test_matrix_rank_dynamic_cpu(self):
         with dygraph_guard():
+            paddle.set_device("cpu")
+            x_valid = paddle.full((0, 6, 6), 1.0, dtype='float32')
+            x_invalid1 = paddle.full((0, 0), 1.0, dtype='float32')
+            x_invalid2 = paddle.full((2, 3, 0, 0), 1.0, dtype='float32')
+            self.assertRaises(ValueError, paddle.linalg.matrix_rank, x_invalid1)
+            self.assertRaises(ValueError, paddle.linalg.matrix_rank, x_invalid2)
+
+            y_valid = paddle.linalg.matrix_rank(x_valid)
+            self.assertEqual(y_valid.shape, [0])
+
+    def _test_matrix_rank_dynamic_gpu(self):
+        with dygraph_guard():
+            paddle.set_device("gpu")
             x_valid = paddle.full((0, 6, 6), 1.0, dtype='float32')
             x_invalid1 = paddle.full((0, 0), 1.0, dtype='float32')
             x_invalid2 = paddle.full((2, 3, 0, 0), 1.0, dtype='float32')
@@ -277,7 +290,8 @@ class TestMatrixRankEmptyTensor(unittest.TestCase):
     def test_matrix_rank_tensor(self):
         for place in self._get_places():
             self._test_matrix_rank_static(place)
-        self._test_matrix_rank_dynamic()
+        self._test_matrix_rank_dynamic_cpu()
+        self._test_matrix_rank_dynamic_gpu()
 
 
 if __name__ == '__main__':
