@@ -42,8 +42,6 @@ void AllKernel(const Context& dev_ctx,
             "The dims of Input(X) should be greater than or equal to 0."));
   }
   if (x.numel() == 0) {
-    MetaTensor meta_out(out);
-    ReduceInferMeta(x, dims, keep_dim, &meta_out);
     dev_ctx.template Alloc<bool>(out);
     if (out->numel() > 0) {
       const int64_t* dims_data = out->dims().Get();
