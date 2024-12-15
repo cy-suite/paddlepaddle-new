@@ -1069,8 +1069,6 @@ def complete_chunk_id(dist_program, startup_program, pipeline_strategy):
         for i in user_layer_to_mesh:
             pp_stage_layer_num[i] = pp_stage_layer_num[i] + 1
         assert all(value >= vpp_degree for value in pp_stage_layer_num)
-        seg_pp_stages = [i % pp_degree for i in range(num_chunks)]
-        seg_chunk_ids = [i // pp_degree for i in range(num_chunks)]
         seg_layer_num = [0] * num_chunks
         for pp_stage in range(0, pp_degree):
             pp_stage_layer_nums = pp_stage_layer_num[pp_stage]
@@ -1078,8 +1076,9 @@ def complete_chunk_id(dist_program, startup_program, pipeline_strategy):
                 v_chunk_id = i % vpp_degree
                 r_chunk_id = (v_chunk_id) * pp_degree + pp_stage
                 seg_layer_num[r_chunk_id] = seg_layer_num[r_chunk_id] + 1
+    seg_pp_stages = [i % pp_degree for i in range(num_chunks)]
+    seg_chunk_ids = [i // pp_degree for i in range(num_chunks)]
     seg_parts = [0]
-
     for idx, op in enumerate(ops):
         if len(seg_parts) == len(seg_struct_names):
             break
