@@ -1356,7 +1356,6 @@ class TestMatrixNormEmptyTensor(unittest.TestCase):
                     name='x1', shape=[0, 0], dtype='float32'
                 )
                 y1 = paddle.linalg.matrix_norm(x1, p='fro')
-                y1_p = paddle.linalg.matrix_norm(x1, p=1, axis=[0, -1])
                 x2 = paddle.static.data(
                     name='x2', shape=[2, 2, 0], dtype='float32'
                 )
@@ -1373,15 +1372,36 @@ class TestMatrixNormEmptyTensor(unittest.TestCase):
                         'x1': np.zeros((0, 0), dtype='float32'),
                         'x2': np.ones((2, 2, 0), dtype='float32'),
                     },
-                    fetch_list=[y1, y2, y1_p],
+                    fetch_list=[y1, y2],
                 )
 
                 self.assertEqual(res[0].shape, ())
                 self.assertEqual(res[1].shape, tuple(x2.shape))
-                self.assertEqual(res[2].shape, ())
 
-    def _test_matrix_norm_dynamic(self):
+    def _test_matrix_norm_dynamic_gpu(self):
         with dygraph_guard():
+
+            x1 = paddle.full((0, 0), 1.0, dtype='float32')
+            y1 = paddle.linalg.matrix_norm(x1, p='fro')
+            y1_p = paddle.linalg.matrix_norm(x1, p=1, axis=[0, -1])
+            self.assertRaises(
+                ValueError, paddle.linalg.matrix_norm, x1, p=2, axis=[0, -1]
+            )
+
+            x2 = paddle.full((2, 2, 0), 1.0, dtype='float32')
+            y2 = paddle.linalg.matrix_norm(x2, p='fro')
+            y2_p = paddle.linalg.matrix_norm(x2, p=1, axis=[0, -1])
+            self.assertRaises(
+                ValueError, paddle.linalg.matrix_norm, x2, p=2, axis=[0, -1]
+            )
+            self.assertEqual(y1.shape, [0])
+            self.assertEqual(y2.shape, x2.shape)
+            self.assertEqual(y1_p.shape, [])
+            self.assertEqual(y2_p.shape, [])
+
+    def _test_matrix_norm_dynamic_cpu(self):
+        with dygraph_guard():
+            paddle.set_device = 'cpu'
 
             x1 = paddle.full((0, 0), 1.0, dtype='float32')
             y1 = paddle.linalg.matrix_norm(x1, p='fro')
@@ -1404,7 +1424,8 @@ class TestMatrixNormEmptyTensor(unittest.TestCase):
     def test_matrix_norm(self):
         for place in self._get_places():
             self._test_matrix_norm_static(place)
-        self._test_matrix_norm_dynamic()
+        self._test_matrix_norm_dynamic_gpu()
+        self._test_matrix_norm_dynamic_cpu()
 
 
 if __name__ == '__main__':
