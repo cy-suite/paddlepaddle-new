@@ -78,13 +78,5 @@ struct NotEqualFunctor {
   }
 };
 
-template <typename T>
-struct NotEqualFunctor<phi::dtype::complex<T>> {
-  HOSTDEVICE bool operator()(const phi::dtype::complex<T> a,
-                             const phi::dtype::complex<T> b) const {
-    return !EqualFunctor<phi::dtype::complex<T>>()(a, b);
-  }
-};
-
 }  // namespace funcs
 }  // namespace phi
