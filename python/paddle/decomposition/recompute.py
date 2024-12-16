@@ -459,6 +459,8 @@ def auto_recompute(
         return not all(_is_fusible(value_node, user) for user in users)
 
     def _get_node_weight(value_node, placeholder_value_nodes):
+        if value_node.is_no_need_buffer():
+            return 0
         mem_sz = cal_value_node_size(value_node)
 
         # Heuristic to bias towards nodes closer to the backwards pass
