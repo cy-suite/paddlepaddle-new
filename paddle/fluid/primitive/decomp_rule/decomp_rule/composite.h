@@ -1425,6 +1425,56 @@ Tensor eye_decomp(const paddle::Scalar& num_rows,
 
   return ConverToOrig<T>(res, dtype);
 }
+
+template <typename T>
+Tensor diag_decomp(const Tensor& x,
+                   const int& offset = 0,
+                   const float& padding_value = 0.0) {
+  Tensor cast_x = ConverToMT<T>(x);
+  int64_t rank = cast_x.dims().size();
+  Tensor res;
+  if (rank == 1) {
+    std::vector<int64_t> x_dims = cast_x.shape();
+    int64_t n = x_dims[0];
+    int64_t abs_offset = std::abs(offset);
+    int64_t m = n + abs_offset;
+
+    Tensor result =
+        full<T>({m, m}, padding_value, cast_x.dtype(), cast_x.place());
+    Tensor insert_value = cast_x;
+    Tensor indices = backend::arange<T>(
+        abs_offset, abs_offset + n, 1, DataType::INT64, cast_x.place());
+    if (offset >= 0) {
+      insert_value = reshape<T>(insert_value, {n, 1});
+      indices = reshape<T>(indices, {n, 1});
+      res = put_along_axis<T>(result, indices, insert_value, 1);
+    } else {
+      insert_value = reshape<T>(insert_value, {1, n});
+      indices = reshape<T>(indices, {1, n});
+      res = put_along_axis<T>(result, indices, insert_value, 0);
+    }
+  } else {
+    // This is the case for 2D tensor.
+    std::vector<int64_t> x_dims = cast_x.shape();
+    int64_t n = x_dims[0];
+    int64_t m = x_dims[1];
+    if (offset <= -n || offset >= m) {
+      return res;
+    }
+    Tensor x_flat = reshape<T>(cast_x, {n * m});
+    int64_t start = offset >= 0 ? offset : -offset * m;
+    int64_t num =
+        offset >= 0 ? std::min(n, m - offset) : std::min(n + offset, m);
+    int64_t stride = m + 1;
+    int64_t end = start + num * stride;
+
+    Tensor indices =
+        backend::arange<T>(start, end, stride, DataType::INT64, cast_x.place());
+    res = take_along_axis<T>(x_flat, indices, 0);
+  }
+  return ConverToOrig<T>(res, x.dtype());
+}
+
 }  // namespace details
 
 }  // namespace primitive
