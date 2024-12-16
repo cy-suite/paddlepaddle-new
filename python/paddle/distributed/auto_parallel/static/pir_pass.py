@@ -1020,8 +1020,7 @@ def get_user_layer_to_mesh(ops, seg_method, pp_degree, segment_nums):
     per_segment_op_nums = len(pp_stage_list) // segment_nums
 
     user_layer_to_mesh = [
-        sum(pp_stage_list[i : i + per_segment_op_nums])
-        // len(pp_stage_list[i : i + per_segment_op_nums])
+        pp_stage_list[i]
         for i in range(0, len(pp_stage_list), per_segment_op_nums)
     ]
 
