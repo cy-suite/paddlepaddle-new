@@ -156,6 +156,8 @@ class TestGeluCase1TRTPattern(TensorRTBaseTest):
 
     def test_trt_result(self):
         self.check_trt_result()
+
+    def test_trt_result_fp16(self):
         self.check_trt_result(precision_mode="fp16")
 
 
