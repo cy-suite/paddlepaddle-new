@@ -5,6 +5,7 @@ extend-exclude = [
     "patches",
     "build",
     "test/dataset/imikolov_test.py"
+
 ]
 
 [default.extend-words]
@@ -35,10 +36,6 @@ blcok = 'blcok'
 bootom = 'bootom'
 bondary = 'bondary'
 branchs = 'branchs'
-cahe = 'cahe'
-Caculate = 'Caculate'
-caculate = 'caculate'
-calcualtion = 'calcualtion'
 checkings = 'checkings'
 childs = 'childs'
 Conver = 'Conver'
