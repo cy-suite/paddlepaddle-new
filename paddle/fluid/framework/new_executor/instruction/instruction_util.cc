@@ -144,8 +144,23 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
           op_attributes.at("ring_id").dyn_cast<pir::Int32Attribute>().data();
       const auto& comm_context_manager =
           phi::distributed::CommContextManager::GetInstance();
+
+      phi::distributed::CommContext* comm_context = nullptr;
       if (comm_context_manager.Has(std::to_string(ring_id))) {
-        auto comm_context = comm_context_manager.Get(std::to_string(ring_id));
+        comm_context = comm_context_manager.Get(std::to_string(ring_id));
+      } else if (op_name.compare(paddle::dialect::MpAllreduceSum_Op::name()) ==
+                     0 ||
+                 op_name.compare(paddle::dialect::AllReduce_Op::name()) == 0 ||
+                 op_name.compare(paddle::dialect::CIdentity_Op::name()) == 0 ||
+                 op_name.compare(paddle::dialect::CConcatOp::name()) == 0 ||
+                 op_name.compare(paddle::dialect::Broadcast_Op::name()) == 0) {
+        auto map = distributed::ProcessGroupMapFromGid::getInstance();
+        distributed::ProcessGroup* pg = map->get(ring_id);
+        comm_context = static_cast<paddle::distributed::ProcessGroupNCCL*>(pg)
+                           ->GetOrCreateCommContext(place);
+      }
+
+      if (comm_context) {
         dev_ctx = static_cast<platform::DeviceContext*>(
             static_cast<phi::distributed::NCCLCommContext*>(comm_context)
                 ->GetDevContext());
@@ -155,7 +170,10 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
             op_name.compare(paddle::dialect::AllReduce_Op::name()) == 0 ||
             op_name.compare(paddle::dialect::Broadcast_Op::name()) == 0 ||
             op_name.compare(paddle::dialect::BroadcastOp::name()) == 0 ||
-            op_name.compare(paddle::dialect::AllGatherOp::name()) == 0) {
+            op_name.compare(paddle::dialect::AllGatherOp::name()) == 0 ||
+            op_name.compare(paddle::dialect::MpAllreduceSum_Op::name()) == 0 ||
+            op_name.compare(paddle::dialect::CIdentity_Op::name()) == 0 ||
+            op_name.compare(paddle::dialect::CConcatOp::name()) == 0) {
           if (phi::is_gpu_place(place) && execution_stream == kDefaultStream) {
             if (origin_dev_ctx != nullptr) {
               // set stream
@@ -192,7 +210,6 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
   }
   return origin_dev_ctx;
 }
-
 OpFuncType AnalyseOpFuncType(pir::Operation* op, const phi::Place& place) {
   if (phi::is_cpu_place(place)) {
     return OpFuncType::kCpuSync;
