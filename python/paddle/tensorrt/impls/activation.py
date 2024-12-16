@@ -113,6 +113,16 @@ def hardswish_converter(network, paddle_op, inputs):
     return hardswish_layer.get_output(0)
 
 
+@converter_registry.register("pd_op.elu", trt_version="8.x")
+@converter_registry.register("pd_op.elu_", trt_version="8.x")
+def elu_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    alpha = paddle_op.attrs()["alpha"]
+    elu_layer = network.add_activation(x, trt.ActivationType.ELU)
+    elu_layer.alpha = alpha
+    return elu_layer.get_output(0)
+
+
 @converter_registry.register("pd_op.softplus", trt_version="8.x")
 def softplus_converter(network, paddle_op, inputs):
     x = inputs[0]
@@ -139,6 +149,7 @@ def swish_silu_converter(network, paddle_op, inputs):
     return trt_prod(network, inputs[0], layer_output)
 
 
+
 @converter_registry.register("pd_op.selu", trt_version="8.x")
 def selu_converter(network, paddle_op, inputs):
     x = inputs[0]
@@ -148,6 +159,16 @@ def selu_converter(network, paddle_op, inputs):
     selu_layer.alpha = alpha
     selu_layer.beta = scale
     return selu_layer.get_output(0)
+
+@converter_registry.register("pd_op.stanh", trt_version="8.x")
+def stanh_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    scale_a = paddle_op.attrs()["scale_a"]
+    scale_b = paddle_op.attrs()["scale_b"]
+    stanh_layer = network.add_activation(x, trt.ActivationType.SCALED_TANH)
+    stanh_layer.alpha = scale_b
+    stanh_layer.beta = scale_a
+    return stanh_layer.get_output(0)
 
 
 @converter_registry.register("pd_op.mish", trt_version="8.x")
