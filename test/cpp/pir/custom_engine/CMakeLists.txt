@@ -1,3 +1,4 @@
+add_definitions(-DPADDLE_DLL_EXPORT)
 paddle_test(test_custom_engine SRCS test_custom_engine_operation.cc
             custom_engine_op.cc DEPS pir)
 if(WITH_ONNXRUNTIME AND WIN32)
