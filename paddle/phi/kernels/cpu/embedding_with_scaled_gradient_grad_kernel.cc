@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/phi/kernels/scale_grad_embedding_grad_kernel.h"
+#include "paddle/phi/kernels/embedding_with_scaled_gradient_grad_kernel.h"
 
 #include "paddle/phi/backends/cpu/cpu_context.h"
 #include "paddle/phi/common/data_type.h"
@@ -22,13 +22,13 @@
 namespace phi {
 
 template <typename T, typename Context>
-struct ScaleGradEmbeddingGradCPUFunctor {
-  ScaleGradEmbeddingGradCPUFunctor(const Context& dev_ctx,
-                                   const DenseTensor& input,
-                                   const DenseTensor& weight,
-                                   const DenseTensor& out_grad,
-                                   int64_t padding_idx,
-                                   DenseTensor* weight_grad)
+struct EmbeddingWithScaledGradientGradCPUFunctor {
+  EmbeddingWithScaledGradientGradCPUFunctor(const Context& dev_ctx,
+                                            const DenseTensor& input,
+                                            const DenseTensor& weight,
+                                            const DenseTensor& out_grad,
+                                            int64_t padding_idx,
+                                            DenseTensor* weight_grad)
       : dev_ctx_(dev_ctx),
         input_(input),
         weight_(weight),
@@ -90,7 +90,6 @@ struct ScaleGradEmbeddingGradCPUFunctor {
 
       std::unordered_map<int64_t, int> count_ids_table;
       std::vector<int64_t> ids_unique;
-      auto ids_unique_num = static_cast<int64_t>(ids_unique.size());
       for (int64_t i = 0; i < ids_num; ++i) {
         if (count_ids_table.find(ids_data[i]) != count_ids_table.end()) {
           count_ids_table[ids_data[i]]++;
@@ -99,6 +98,7 @@ struct ScaleGradEmbeddingGradCPUFunctor {
           ids_unique.push_back(ids_data[i]);
         }
       }
+      auto ids_unique_num = static_cast<int64_t>(ids_unique.size());
       for (int64_t i = 0; i < ids_unique_num; ++i) {
         if (padding_idx_ != kNoPadding && ids_unique[i] == padding_idx_) {
           // do nothing
@@ -122,13 +122,13 @@ struct ScaleGradEmbeddingGradCPUFunctor {
 };
 
 template <typename T, typename Context>
-void ScaleGradEmbeddingGradKernel(const Context& ctx,
-                                  const DenseTensor& input,
-                                  const DenseTensor& weight,
-                                  const DenseTensor& out_grad,
-                                  int64_t padding_idx,
-                                  DenseTensor* weight_grad) {
-  ScaleGradEmbeddingGradCPUFunctor<T, Context> functor(
+void EmbeddingWithScaledGradientGradKernel(const Context& ctx,
+                                           const DenseTensor& input,
+                                           const DenseTensor& weight,
+                                           const DenseTensor& out_grad,
+                                           int64_t padding_idx,
+                                           DenseTensor* weight_grad) {
+  EmbeddingWithScaledGradientGradCPUFunctor<T, Context> functor(
       ctx, input, weight, out_grad, padding_idx, weight_grad);
   if (input.dtype() == phi::DataType::INT32) {
     functor.template apply<int>();
@@ -141,10 +141,10 @@ void ScaleGradEmbeddingGradKernel(const Context& ctx,
 }
 }  // namespace phi
 
-PD_REGISTER_KERNEL(scale_grad_embedding_grad,
+PD_REGISTER_KERNEL(embedding_with_scaled_gradient_grad,
                    CPU,
                    ALL_LAYOUT,
-                   phi::ScaleGradEmbeddingGradKernel,
+                   phi::EmbeddingWithScaledGradientGradKernel,
                    float,
                    double,
                    phi::dtype::float16,

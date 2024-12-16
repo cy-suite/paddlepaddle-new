@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/phi/kernels/scale_grad_embedding_grad_kernel.h"
+#include "paddle/phi/kernels/embedding_with_scaled_gradient_grad_kernel.h"
 #include "paddle/phi/kernels/funcs/embedding_grad.h"
 
 #include "glog/logging.h"
@@ -103,10 +103,10 @@ __global__ void CountFreqKernel(const IdT* ids_data,
 }
 
 template <typename T>
-__global__ void ScaleGradByFreqKernel(const int* count_data,
-                                      int64_t num_weights,
-                                      int64_t num_weight_dim,
-                                      T* table) {
+__global__ void ScaleGradKernel(const int* count_data,
+                                int64_t num_weights,
+                                int64_t num_weight_dim,
+                                T* table) {
   using MPType = typename phi::dtype::MPTypeTrait<T>::Type;
   const int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < num_weights) {
@@ -121,13 +121,13 @@ __global__ void ScaleGradByFreqKernel(const int* count_data,
 }
 
 template <typename T, typename Context>
-struct ScaleGradEmbeddingGradCUDAFunctor {
-  ScaleGradEmbeddingGradCUDAFunctor(const Context& dev_ctx,
-                                    const DenseTensor& input,
-                                    const DenseTensor& weight,
-                                    const DenseTensor& out_grad,
-                                    int64_t padding_idx,
-                                    DenseTensor* weight_grad)
+struct EmbeddingWithScaledGradientGradCUDAFunctor {
+  EmbeddingWithScaledGradientGradCUDAFunctor(const Context& dev_ctx,
+                                             const DenseTensor& input,
+                                             const DenseTensor& weight,
+                                             const DenseTensor& out_grad,
+                                             int64_t padding_idx,
+                                             DenseTensor* weight_grad)
       : dev_ctx_(dev_ctx),
         input_(input),
         weight_(weight),
@@ -189,9 +189,8 @@ struct ScaleGradEmbeddingGradCUDAFunctor {
       CountFreqKernel<IdT>
           <<<GET_BLOCKS(K), PADDLE_CUDA_NUM_THREADS, N * sizeof(int), stream>>>(
               ids, K, N, count_ids_data);
-      ScaleGradByFreqKernel<T>
-          <<<GET_BLOCKS(N), PADDLE_CUDA_NUM_THREADS, 0, stream>>>(
-              count_ids_data, N, D, d_table);
+      ScaleGradKernel<T><<<GET_BLOCKS(N), PADDLE_CUDA_NUM_THREADS, 0, stream>>>(
+          count_ids_data, N, D, d_table);
     }
   }
 
@@ -205,13 +204,13 @@ struct ScaleGradEmbeddingGradCUDAFunctor {
 };
 
 template <typename T, typename Context>
-void ScaleGradEmbeddingGradKernel(const Context& ctx,
-                                  const DenseTensor& input,
-                                  const DenseTensor& weight,
-                                  const DenseTensor& out_grad,
-                                  int64_t padding_idx,
-                                  DenseTensor* weight_grad) {
-  ScaleGradEmbeddingGradCUDAFunctor<T, Context> functor(
+void EmbeddingWithScaledGradientGradKernel(const Context& ctx,
+                                           const DenseTensor& input,
+                                           const DenseTensor& weight,
+                                           const DenseTensor& out_grad,
+                                           int64_t padding_idx,
+                                           DenseTensor* weight_grad) {
+  EmbeddingWithScaledGradientGradCUDAFunctor<T, Context> functor(
       ctx, input, weight, out_grad, padding_idx, weight_grad);
   if (input.dtype() == phi::DataType::INT32) {
     functor.template apply<int>();
@@ -226,10 +225,10 @@ void ScaleGradEmbeddingGradKernel(const Context& ctx,
 }
 }  // namespace phi
 
-PD_REGISTER_KERNEL(scale_grad_embedding_grad,
+PD_REGISTER_KERNEL(embedding_with_scaled_gradient_grad,
                    GPU,
                    ALL_LAYOUT,
-                   phi::ScaleGradEmbeddingGradKernel,
+                   phi::EmbeddingWithScaledGradientGradKernel,
                    float,
                    double,
                    phi::dtype::float16,

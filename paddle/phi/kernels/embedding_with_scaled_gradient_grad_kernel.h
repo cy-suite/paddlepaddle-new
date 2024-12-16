@@ -19,11 +19,11 @@
 namespace phi {
 
 template <typename T, typename Context>
-void ScaleGradEmbeddingGradKernel(const Context& ctx,
-                                  const DenseTensor& input,
-                                  const DenseTensor& weight,
-                                  const DenseTensor& out_grad,
-                                  int64_t padding_idx,
-                                  DenseTensor* weight_grad);
+void EmbeddingWithScaledGradientGradKernel(const Context& ctx,
+                                           const DenseTensor& input,
+                                           const DenseTensor& weight,
+                                           const DenseTensor& out_grad,
+                                           int64_t padding_idx,
+                                           DenseTensor* weight_grad);
 
 }  // namespace phi

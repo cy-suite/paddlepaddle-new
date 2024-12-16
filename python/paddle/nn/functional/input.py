@@ -294,21 +294,21 @@ def embedding(
                 "scale_grad_by_freq = True is not supported with sparse update."
             )
         if in_dynamic_or_pir_mode():
-            return _C_ops.scale_grad_embedding(x, weight, padding_idx)
+            return _C_ops.embedding_with_scaled_gradient(x, weight, padding_idx)
         else:
-            helper = LayerHelper('scale_grad_embedding', **locals())
+            helper = LayerHelper('embedding_with_scaled_gradient', **locals())
             dtype = helper.input_dtype(input_param_name='weight')
 
             check_variable_and_dtype(
                 x,
                 'input',
                 ['uint8', 'int8', 'int16', 'int32', 'int64'],
-                'scale_grad_embedding',
+                'embedding_with_scaled_gradient',
             )
             tmp = helper.create_variable_for_type_inference(dtype)
 
             helper.append_op(
-                type='scale_grad_embedding',
+                type='embedding_with_scaled_gradient',
                 inputs={'x': x, 'weight': weight},
                 outputs={'out': tmp},
                 attrs={'padding_idx': padding_idx},
