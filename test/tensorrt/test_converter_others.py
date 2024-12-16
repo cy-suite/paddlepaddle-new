@@ -407,7 +407,10 @@ class TestTemporalShiftTRTPatternBasic(TensorRTBaseTest):
         self.min_shape = {"x": [2, 9, 7, 7]}
         self.max_shape = {"x": [8, 9, 7, 7]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 
@@ -424,7 +427,10 @@ class TestTemporalShiftTRTPatternDifferentSegNum(TensorRTBaseTest):
         self.min_shape = {"x": [4, 9, 7, 7]}
         self.max_shape = {"x": [8, 9, 7, 7]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 
@@ -441,7 +447,10 @@ class TestTemporalShiftTRTPatternDifferentShiftRatio(TensorRTBaseTest):
         self.min_shape = {"x": [2, 9, 7, 7]}
         self.max_shape = {"x": [8, 9, 7, 7]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 
@@ -458,7 +467,10 @@ class TestTemporalShiftTRTPatternDifferentDataFormat(TensorRTBaseTest):
         self.min_shape = {"x": [2, 9, 7, 7]}
         self.max_shape = {"x": [8, 9, 7, 7]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 
@@ -475,7 +487,10 @@ class TestTemporalShiftTRTPatternMinMaxShape(TensorRTBaseTest):
         self.min_shape = {"x": [2, 9, 7, 7]}
         self.max_shape = {"x": [10, 9, 7, 7]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 

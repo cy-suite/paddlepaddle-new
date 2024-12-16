@@ -328,7 +328,7 @@ def temporal_shift_converter(network, paddle_op, inputs):
     post_pad = add_1D_constant_layer(network, [0, 1, 0, 0, 0])
     dims = 5
     zeros = add_1D_constant_layer(network, [0] * dims)
-    start = trt_sum(network, zeros, pre_pad)
+    start = trt_sub(network, zeros, pre_pad)
     total_padding = trt_sum(network, pre_pad, post_pad)
     input_shape = trt_shape(network, input_tensor)
     size = trt_sum(network, input_shape, total_padding)
@@ -381,8 +381,8 @@ def temporal_shift_converter(network, paddle_op, inputs):
     slice3_layer.set_input(1, slice_start3)
     slice3_layer.set_input(2, slice_size3)
 
+    concat_inputs = [slice2_layer.get_output(0), slice3_layer.get_output(0)]
     if slice_c == 0:
-        concat_inputs = [slice2_layer.get_output(0), slice3_layer.get_output(0)]
         concat_layer = network.add_concatenation(concat_inputs)
         concat_layer.axis = 2
     else:
@@ -395,14 +395,14 @@ def temporal_shift_converter(network, paddle_op, inputs):
         concat_layer.axis = 2
 
     # Reshape output to [N*T,C,H,W]
-    reshape_layer = network.add_shuffle(concat_layer.get_output(0))
-    reshape_layer.reshape_dims = trt.Dims(inputs[0].shape)
+    reshape_layer3 = network.add_shuffle(concat_layer.get_output(0))
+    reshape_layer3.reshape_dims = trt.Dims(inputs[0].shape)
 
     if data_format == "NHWC":
-        transpose_layer = network.add_shuffle(reshape_layer.get_output(0))
-        transpose_layer.first_transpose = trt.Permutation([0, 2, 3, 1])
-        output_tensor = transpose_layer.get_output(0)
+        transpose_layer2 = network.add_shuffle(reshape_layer3.get_output(0))
+        transpose_layer2.first_transpose = trt.Permutation([0, 2, 3, 1])
+        output_tensor = transpose_layer2.get_output(0)
     else:
-        output_tensor = reshape_layer.get_output(0)
+        output_tensor = reshape_layer3.get_output(0)
 
     return output_tensor
