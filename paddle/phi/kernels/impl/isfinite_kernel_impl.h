@@ -39,6 +39,24 @@ struct is_other_float
                              std::is_floating_point<T>::value &&
                                  !is_float_or_double<T>::value> {};
 
+template <typename T>
+typename std::enable_if<std::is_integral<T>::value, bool>::type
+isfinite(T) {
+  return true; // Integral types are always finite
+}
+
+template <typename T>
+typename std::enable_if<std::is_integral<T>::value, bool>::type
+isnan(T) {
+  return false; // Integral types can never be NaN
+}
+
+template <typename T>
+typename std::enable_if<std::is_integral<T>::value, bool>::type
+isinf(T) {
+  return false; // Integral types can never be infinite
+}
+
 namespace phi {
 using Tensor = DenseTensor;
 
