@@ -371,5 +371,25 @@ class TestTensordotAPIAxesTypeFloat64(TestTensordotAPIAxesType):
         self.dtype = np.float64
 
 
+class TestTensordotAPIZeroSize(TestTensordotAPI):
+    def set_input_shape(self):
+        self.x_shape = [0, 5, 5, 5]
+        self.y_shape = [0, 5, 5, 5]
+
+    def set_input_data(self):
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.y = np.random.random(self.y_shape).astype(self.dtype)
+
+    def set_test_axes(self):
+        self.all_axes = [
+            [[], []],
+        ]
+
+
+class TestTensordotAPIFloat64ZeroSize(TestTensordotAPIZeroSize):
+    def set_dtype(self):
+        self.dtype = np.float64
+
+
 if __name__ == "__main__":
     unittest.main()
