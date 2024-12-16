@@ -28,17 +28,24 @@ using ForEqualFunc =
     std::function<bool(const ForTreeNode&, const ForTreeNode&)>;
 
 /**
- * Determines if two blocks of code with nested for-loops have identical loop extents and can be merged.
+ * Determines if two blocks of code with nested for-loops have identical loop
+ extents and can be merged.
 
- * This pass is applicable in scenarios where there are multiple code blocks with nested for-loops,
- * and we need to determine if these blocks can be consolidated to simplify the code structure.
+ * This pass is applicable in scenarios where there are multiple code blocks
+ with nested for-loops,
+ * and we need to determine if these blocks can be consolidated to simplify the
+ code structure.
 
- * When applied, this pass will not directly modify the IR but serves as a prerequisite check
- * to ensure that loop extents match. If they do, a separate merging process can be safely conducted
+ * When applied, this pass will not directly modify the IR but serves as a
+ prerequisite check
+ * to ensure that loop extents match. If they do, a separate merging process can
+ be safely conducted
  * to combine the blocks into a single block with shared loop structures.
 
- * Performance impact: This pass itself does not directly impact performance but enables further
- * optimizations by identifying mergeable loop structures, which can reduce code size and potentially
+ * Performance impact: This pass itself does not directly impact performance but
+ enables further
+ * optimizations by identifying mergeable loop structures, which can reduce code
+ size and potentially
  * improve cache efficiency by consolidating similar data processing tasks.
 
  * Examples:
