@@ -2017,24 +2017,26 @@ void MatmulKernel(const Context& ctx,
       std::swap(y_dims[y_dims.size() - 1], y_dims[y_dims.size() - 2]);
     }
     std::vector<std::int64_t> out_dims(x_dims.size() - 1 + y_dims.size() - 1);
-    for (size_t i = 0; i < x_dims.size() - 1; ++i) {
+    for (int64_t i = 0; i < x_dims.size() - 1; ++i) {
       out_dims[i] = x_dims[i];
     }
-    for (size_t i = 1; i < y_dims.size(); ++i) {
+    for (int64_t i = 1; i < y_dims.size(); ++i) {
       out_dims[x_dims.size() - 1 + i - 1] = y_dims[i];
     }
     out->Resize(phi::make_ddim(out_dims));
     ctx.template Alloc<T>(out);
     return;
   }
-  PADDLE_ENFORCE_GE(common::product(x.dims()),
-                    0,
-                    common::errors::InvalidArgument(
-                        "The dims of Input(X) should be greater than or equal to 0."));
-  PADDLE_ENFORCE_GE(common::product(y.dims()),
-                    0,
-                    common::errors::InvalidArgument(
-                        "The dims of Input(Y) should be greater than or equal to 0."));
+  PADDLE_ENFORCE_GE(
+      common::product(x.dims()),
+      0,
+      common::errors::InvalidArgument(
+          "The dims of Input(X) should be greater than or equal to 0."));
+  PADDLE_ENFORCE_GE(
+      common::product(y.dims()),
+      0,
+      common::errors::InvalidArgument(
+          "The dims of Input(Y) should be greater than or equal to 0."));
   const std::vector<std::int64_t> x_dims = common::vectorize(x.dims());
   const std::vector<std::int64_t> y_dims = common::vectorize(y.dims());
   MatmulJudgeDtypeKernel<Context, T>(
