@@ -465,6 +465,7 @@ struct Expr : public IrNodeRef {
   const IndexExpr as_index() const;
 
   Expr& set_index(bool flag);
+  const Expr& set_index(bool flag) const;
 
   operator Var();
 

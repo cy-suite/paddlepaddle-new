@@ -372,6 +372,9 @@ Expr IndiceToAbsOffset(const std::vector<Expr> &shape,
             i,
             shape[i].type()));
 
+    // if(VerifyIndex(shape[i]))shape[i].set_index(true);
+    // if(VerifyIndex(indices[i]))indices[i].set_index(true);
+
     Expr indice_cast = indices[i];
     optim::SimplifyCast(&indice_cast);
     if (res.defined()) {
@@ -699,6 +702,7 @@ bool IsSumPartialBySymbol(const ir::IndexExpr &expr,
     case ir::IrNodeTy::Min:
     case ir::IrNodeTy::Max:
     case ir::IrNodeTy::Load:
+    case ir::IrNodeTy::Cast:
       return false;
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(
@@ -779,6 +783,7 @@ bool IsDivisiblieBySymbol(const ir::IndexExpr &expr,
     case ir::IrNodeTy::Min:
     case ir::IrNodeTy::Max:
     case ir::IrNodeTy::Load:
+    case ir::IrNodeTy::Cast:
       return false;
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(
@@ -848,6 +853,8 @@ bool VerifyIndex(const ir::Expr &expr) {
       if (expr.type().is_index_type()) return true;
       return false;
     }
+    case ir::IrNodeTy::Cast:
+      return VerifyIndex(expr->operand(0));
     case ir::IrNodeTy::Load: {
       bool is_index = true;
       auto load_op = expr.As<ir::Load>();

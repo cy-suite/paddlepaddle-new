@@ -55,13 +55,43 @@ Expr Cast::Make(Type t, Expr v) {
                         "The expression is not defined. "
                         "A defined expression is required for casting."));
 
-  if (v.node_type() != ir::IrNodeTy::_Var_ && v.is_index() && t == Int(64)) {
+#define __CAST_TO_TYPE(type__)                  \
+  if (auto *i = v.As<ir::IntImm>()) {           \
+    return Expr(static_cast<type__>(i->value)); \
+  } else if (auto *u = v.As<ir::UIntImm>()) {   \
+    return Expr(static_cast<type__>(u->value)); \
+  }
+
+  if (v.is_constant()) {
+    if (t == type_of<int8_t>()) {
+      __CAST_TO_TYPE(int8_t)
+    } else if (t == type_of<int16_t>()) {
+      __CAST_TO_TYPE(int16_t)
+    } else if (t == type_of<int32_t>()) {
+      __CAST_TO_TYPE(int32_t)
+    } else if (t == type_of<int64_t>()) {
+      __CAST_TO_TYPE(int64_t)
+    } else if (t == type_of<uint8_t>()) {
+      __CAST_TO_TYPE(uint8_t)
+    } else if (t == type_of<uint16_t>()) {
+      __CAST_TO_TYPE(uint16_t)
+    } else if (t == type_of<uint32_t>()) {
+      __CAST_TO_TYPE(uint32_t)
+    } else if (t == type_of<uint64_t>()) {
+      __CAST_TO_TYPE(uint64_t)
+    }
+  }
+#undef __CAST_TO_TYPE
+
+  if (v.node_type() != ir::IrNodeTy::Load && v.is_index() && t == Int(64)) {
     v->convert_int32_to_int64();
     return v;
   }
   auto node = make_shared<Cast>();
   node->v() = v;
   node->set_type(t);
+
+  if (v.is_index()) node->set_index(true);
   return Expr(node);
 }
 
@@ -498,8 +528,8 @@ Expr For::Make(Var loop_var,
   node->set_vectorize_info(vector_info);
   node->set_bind_info(bind_info);
 
-  node->extent.set_index(true);
-  node->min.set_index(true);
+  node->extent = node->extent.set_index(true).as_index().Normalize();
+  node->min.set_index(true).as_index().Normalize();
   node->loop_var.set_index(true);
 
   if (node->is_vectorized()) {
@@ -716,8 +746,7 @@ void Store::replace(Expr old_op, Expr new_op) {
   }
   for (int i = 0; i < indices.size(); i++) {
     if (indices[i] == old_op) {
-      indices[i] = new_op;
-      indices[i].set_index(true);
+      indices[i] = new_op.set_index(true).as_index().Normalize();
     }
   }
 }

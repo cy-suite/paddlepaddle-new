@@ -25,6 +25,7 @@
 #include "paddle/cinn/ir/op/ir_operators.h"
 #include "paddle/cinn/ir/tensor.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
+#include "paddle/cinn/optim/ir_simplify.h"
 #include "paddle/common/enforce.h"
 namespace cinn {
 namespace ir {
@@ -289,6 +290,15 @@ bool Expr::is_index() const {
   return get()->get_index();
 }
 
+const Expr &Expr::set_index(bool flag) const {
+  if (flag && !VerifyIndex(*this)) {
+    PADDLE_THROW(::common::errors::InvalidType(
+        "Expr: %s is not IndexExpr! cannot be set as IndexExpr.", *this));
+  }
+  get()->set_index(flag);
+  return *this;
+}
+
 Expr &Expr::set_index(bool flag) {
   if (flag && !VerifyIndex(*this)) {
     PADDLE_THROW(::common::errors::InvalidType(
@@ -398,6 +408,7 @@ int64_t IndexExpr::GetLargestMutiplyPart() const {
     case ir::IrNodeTy::Min:
     case ir::IrNodeTy::Max:
     case ir::IrNodeTy::Load:
+    case ir::IrNodeTy::Cast:
       return 1;
     case cinn::ir::IrNodeTy::Div: {
       if (operand(1).type().is_index_type()) {
@@ -441,6 +452,9 @@ int32_t IndexExpr::length() const {
       int rhs_count = operand(1).length();
       return lhs_count + rhs_count + 1;
     }
+    case ir::IrNodeTy::Cast: {
+      return operand(0).length() + 1;
+    }
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(
           "Unsupported type in length, which is: %s", node_type()));
@@ -455,6 +469,8 @@ bool IndexExpr::IsDynamic() const {
       return true;
     case ir::IrNodeTy::IntImm:
       return false;
+    case ir::IrNodeTy::Cast:
+      return operand(0).IsDynamic();
     case ir::IrNodeTy::Add:
     case ir::IrNodeTy::Mul:
     case ir::IrNodeTy::Div:
@@ -524,6 +540,10 @@ IndexExpr Simplify(const IndexExpr &expr) {
         return expr;
       }
       return expr;
+    }
+    case ir::IrNodeTy::Cast: {
+      auto v = Simplify(expr.operand(0));
+      return Cast::Make(expr.type(), v);
     }
     case ir::IrNodeTy::Add:
     case ir::IrNodeTy::Sub:

@@ -42,7 +42,12 @@ struct IRCopyVisitor : public ir::IRVisitorRequireReImpl<Expr> {
   bool copy_buffer_node;
 
   Expr Visit(const Expr* op) override {
-    bool is_index = op->is_index();
+    // Because AutoSimplify converts div to frac, VerifyIndex is temporarily
+    // added here to ensure correctness.
+    // This is essentially because visit now allows inplace modification of
+    // Expr, and then visit of IndexExpr will be prohibited, and IndexExpr's own
+    // access method will be used instead.
+    bool is_index = op->is_index() && common::VerifyIndex(*op);
     auto copy = IRVisitorRequireReImpl::Visit(op);
     return copy.set_index(is_index);
   }

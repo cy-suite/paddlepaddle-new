@@ -97,6 +97,10 @@ bool operator==(IndexExpr a, IndexExpr b) {
     case ir::IrNodeTy::_Var_: {
       return a.as_var()->name == b.as_var()->name;
     }
+    case ir::IrNodeTy::Cast:
+    case ir::IrNodeTy::Load: {
+      return ir_utils::IRCompare(a, b);
+    }
     case ir::IrNodeTy::Div:
     case ir::IrNodeTy::Mod: {
       return a->operand(0) == b->operand(0) && a->operand(1) == b->operand(1);
@@ -105,7 +109,12 @@ bool operator==(IndexExpr a, IndexExpr b) {
       return CompareExpressions<ir::Add>(a, b);
     case ir::IrNodeTy::Mul:
       return CompareExpressions<ir::Mul>(a, b);
+    case ir::IrNodeTy::Min:
+      return CompareExpressions<ir::Min>(a, b);
+    case ir::IrNodeTy::Max:
+      return CompareExpressions<ir::Max>(a, b);
   }
+  return false;
 }
 
 bool operator!=(IndexExpr a, IndexExpr b) { return !(a == b); }
