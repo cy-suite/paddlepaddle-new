@@ -18,6 +18,7 @@ import numpy as np
 from tensorrt_test_base import TensorRTBaseTest
 
 import paddle
+from third_party.cccl.cub.benchmarks.scripts.analyze import precision
 
 
 class TestMaxTRTPattern(TensorRTBaseTest):
@@ -404,7 +405,10 @@ class TestMaximumTRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 3, 4], "y": [1, 3, 4]}
         self.max_shape = {"x": [5, 3, 4], "y": [5, 3, 4]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 
@@ -419,7 +423,10 @@ class TestMaximumBroadcastTRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 3, 4], "y": [4]}
         self.max_shape = {"x": [5, 3, 4], "y": [4]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 
@@ -446,7 +453,10 @@ class TestMaximumIntTRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 3, 4], "y": [1, 3, 4]}
         self.max_shape = {"x": [5, 3, 4], "y": [5, 3, 4]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 
@@ -461,7 +471,10 @@ class TestMinimumTRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 3, 4], "y": [1, 3, 4]}
         self.max_shape = {"x": [5, 3, 4], "y": [5, 3, 4]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 
@@ -476,7 +489,10 @@ class TestMinimumBroadcastTRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 3, 4], "y": [4]}
         self.max_shape = {"x": [5, 3, 4], "y": [4]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 
@@ -503,7 +519,10 @@ class TestMinimumIntTRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 3, 4], "y": [1, 3, 4]}
         self.max_shape = {"x": [5, 3, 4], "y": [5, 3, 4]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 
