@@ -18,7 +18,6 @@ import numpy as np
 from tensorrt_test_base import TensorRTBaseTest
 
 import paddle
-from third_party.cccl.cub.benchmarks.scripts.analyze import precision
 
 
 class TestMaxTRTPattern(TensorRTBaseTest):
