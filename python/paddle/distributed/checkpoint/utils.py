@@ -129,7 +129,7 @@ def get_max_id(path):
         match = pattern.match(file)
         if match:
             numbers.append(int(match.group(2)))
-    return max(numbers) if numbers else -1
+    return max(numbers) if numbers else None
 
 
 def check_unique_id(unique_id, process_group):

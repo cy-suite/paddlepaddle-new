@@ -137,7 +137,7 @@ def save_state_dict(
     path: str,
     process_group: Group | None = None,
     coordinator_rank: int = 0,
-    unique_id: int = -1,
+    unique_id: int | None = None,
     async_save: bool = False,
 ) -> None:
     """
@@ -148,7 +148,7 @@ def save_state_dict(
         path(str): The directory to save state_dict.
         process_group(paddle.distributed.collective.Group): ProcessGroup to be used for cross-rank synchronization. Use the default process group which contains all cards.
         coordinator_rank(int): The rank used to save non distributed values. Rank 0 is used by default.
-        unique_id(int): The unique id of ckeckpoint, used to distinguish between different checkpoint versions. Default is -1, in which case the id 0 when save for the first time and increased by 1 each time when calling save_state_dict in the same path.
+        unique_id(int): The unique id of ckeckpoint, used to distinguish between different checkpoint versions. Default is None, in which case the id 0 when save for the first time and increased by 1 each time when calling save_state_dict in the same path.
         async_save(bool): Async save the state_dict, default is False.
 
         Note: If there is already checkpoint in
@@ -186,15 +186,15 @@ def save_state_dict(
             # Init the default global process group
             paddle.distributed.init_parallel_env()
 
-        assert (
-            unique_id >= -1
-        ), f"unique_id should be >= -1, but got {unique_id}"
-
-        if unique_id == -1:
+        if unique_id is None:
             max_unique_id = get_max_id(path)
-            unique_id = max_unique_id + 1
             logger.debug(f"Max unique id: {max_unique_id}")
-
+            if max_unique_id is None:
+                unique_id = 0
+            else:
+                unique_id = max_unique_id
+        else:
+            assert unique_id >= 0, f'{unique_id} should be >= 0'
         if use_dist:
             check_unique_id(unique_id, process_group)
 

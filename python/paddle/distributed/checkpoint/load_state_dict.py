@@ -52,9 +52,9 @@ class ReadItem:
 PATH_TO_CHECKPOINT_FILES: dict[str, tuple[list, list]] = {}
 
 
-def get_checkpoint_files(path, use_cache=True, unique_id=-1):
-    # if unique_id is -1, all file ends with .metadata and .distcp is returned
-    if unique_id == -1:
+def get_checkpoint_files(path, use_cache=True, unique_id=None):
+    # if unique_id is None, all file ends with .metadata and .distcp is returned
+    if unique_id is None:
         unique_id = ''
     global PATH_TO_CHECKPOINT_FILES
     if use_cache and path in PATH_TO_CHECKPOINT_FILES:
@@ -478,8 +478,8 @@ def load_state_dict(
     path: str,
     process_group: Group | None = None,
     coordinator_rank: int = 0,
-    unique_id: int = -1,
-    offload=False,
+    unique_id: int | None = None,
+    offload: bool = False,
 ) -> None:
     """
     Load the state_dict inplace from a checkpoint path.
@@ -489,7 +489,7 @@ def load_state_dict(
         path(str): The directory to load checkpoint files.
         process_group(paddle.distributed.collective.Group): ProcessGroup to be used for cross-rank synchronization. Use the default process group which contains all cards.
         coordinator_rank(int): The rank used to coordinate the checkpoint. Rank0 is used by default.
-        unique_id(int): The unique id of ckeckpoint, used to distinguish between different checkpoint versions. Default is -1, in which case the id the max id of given path, and the newest version checkpoint is loaded.
+        unique_id(int): The unique id of ckeckpoint, used to distinguish between different checkpoint versions. Default is None, in which case the id the max id of given path, and the newest version checkpoint is loaded.
         offload(bool): Whether to offload the checkpoint data from GPU to CPU.
     Example:
         .. code-block:: python
@@ -535,8 +535,10 @@ def load_state_dict(
         if use_dist:
             # sync to avoid some ranks not write path yet
             paddle.distributed.barrier(process_group)
-        if unique_id == -1:
+        if unique_id is None:
             unique_id = get_max_id(path)
+        else:
+            assert unique_id >= 0, f'{unique_id} should be >= 0'
         logger.info(f"The unique_id:{unique_id} is uesed.")
 
         if use_dist:
@@ -765,14 +767,16 @@ def compute_global_shape(local_tensor_indexs):
     return global_shape
 
 
-def load_merged_state_dict(path: str, prefix=None, unique_id=-1, offload=False):
+def load_merged_state_dict(
+    path: str, prefix=None, unique_id=None, offload=False
+):
     """
     Load the distributed checkpoint and merge it to unsharded state_dict.
 
     Args:
         path(str): The directory to load checkpoint files.
         prefix(str): The flat_mapping prefix of state_dict key. e.g., 'model', Default None.
-        unique_id(int): The unique id of ckeckpoint, used to distinguish between different checkpoint versions. Default is -1, in which case the id the max id of given path, and the newest version checkpoint is loaded.
+        unique_id(int): The unique id of ckeckpoint, used to distinguish between different checkpoint versions. Default is None, in which case the id the max id of given path, and the newest version checkpoint is loaded.
         offload(bool): Whether to offload the checkpoint data from GPU to CPU, set to True if GPU memory is not enough.
 
     Returns:
@@ -804,8 +808,10 @@ def load_merged_state_dict(path: str, prefix=None, unique_id=-1, offload=False):
              [24, 25, 26, 27, 28, 29, 30, 31]])}
             >>> # doctest: -SKIP
     """
-    if unique_id == -1:
+    if unique_id is None:
         unique_id = get_max_id(path)
+    else:
+        assert unique_id >= 0, f'{unique_id} should be >= 0'
 
     metadata_files, local_data_files = get_checkpoint_files(
         path, unique_id=unique_id
