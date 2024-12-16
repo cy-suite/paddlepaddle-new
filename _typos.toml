@@ -5,7 +5,6 @@ extend-exclude = [
     "patches",
     "build",
     "test/dataset/imikolov_test.py"
-
 ]
 
 [default.extend-words]
