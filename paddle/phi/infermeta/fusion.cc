@@ -1983,14 +1983,20 @@ void FusedGemmEpilogueGradInferMeta(const MetaTensor& x,
           dout_mat_dims[1],
           y_dims[1]));
 
-  PADDLE_ENFORCE_EQ(
-      dout_mat_dims[0],
-      trans_x ? x_mat_dims[1] : x_mat_dims[0],
-      common::errors::InvalidArgument(
-          "The first dimension of DOut should be equal with X's first"
-          "dimension. But received DOut[0] = [%d], Y[0] = [%d].",
-          dout_mat_dims[0],
-          x_mat_dims[0]));
+  for (size_t i = 0; i + 1 < x_dims.size(); ++i) {
+    if (dout_dims[i] > 0 && x_dims[i] > 0) {
+      PADDLE_ENFORCE_EQ(
+          dout_dims[i],
+          x_dims[i],
+          common::errors::InvalidArgument(
+              "The i dimension of DOut should be equal with i dimension of X."
+              "But received DOut[%d] = [%d], Y[%d] = [%d].",
+              i,
+              dout_dims[i],
+              i,
+              x_dims[i]));
+    }
+  }
 
   if (activation_grad != "none" && !reserve_space) {
     PADDLE_THROW(common::errors::InvalidArgument(
