@@ -18,7 +18,6 @@ import numpy as np
 from tensorrt_test_base import TensorRTBaseTest
 
 import paddle
-from third_party.cutlass.test.unit.gemm.device.simt_sm50 import precision
 
 
 class TestGreaterThanFloat32TRTPattern(TensorRTBaseTest):
