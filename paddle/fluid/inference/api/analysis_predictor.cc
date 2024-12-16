@@ -440,8 +440,6 @@ bool AnalysisPredictor::Init(
   paddle::platform::SetNumThreads(config_.cpu_math_library_num_threads());
 
   std::string model_path = config_.prog_file();
-  load_pir_model_ =
-      model_path.substr(model_path.find_last_of(".") + 1) == "json";
   if (!model_path.empty()) {
     load_pir_model_ =
         model_path.substr(model_path.find_last_of(".") + 1) == "json";

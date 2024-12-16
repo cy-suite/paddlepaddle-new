@@ -58,8 +58,6 @@ class ParamsSyncAmongDevicesPass : public pir::Pass {
 
   void Run(pir::Operation* op) override {
     VLOG(6) << "apply params_sync_among_devices_pass";
-    phi::DeviceContextPool& pool = phi::DeviceContextPool::Instance();
-    phi::DeviceContext* dev_ctx = pool.Get(place_);
     auto module_op = op->dyn_cast<pir::ModuleOp>();
     PADDLE_ENFORCE_NOT_NULL(
         module_op,
@@ -104,28 +102,12 @@ class ParamsSyncAmongDevicesPass : public pir::Pass {
     size_t remain_size = dense_tensors.size() % num_threads;
     auto process_task = [&](size_t thread_id, auto begin, auto end) -> int64_t {
       int64_t local_rewrites = 0;
-      cudaStream_t stream;
-      cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
       for (auto it = begin; it != end; ++it) {
         auto* tensor = *it;
-        auto tensor_tmp = *tensor;
-        void* src_ptr = tensor_tmp.data();
-        tensor->Resize(tensor->dims());
-        void* dst_ptr = dev_ctx->Alloc(tensor, tensor->dtype());
-        PADDLE_ENFORCE_NOT_NULL(
-            dst_ptr,
-            common::errors::InvalidArgument("GPU memory allocation failed."));
-        phi::memory_utils::Copy(place_,
-                                dst_ptr,
-                                phi::CPUPlace(),
-                                src_ptr,
-                                tensor->numel() * phi::SizeOf(tensor->dtype()),
-                                stream);
+        paddle::framework::TensorCopySync(*tensor, place_, tensor);
         local_rewrites++;
       }
 
-      cudaStreamSynchronize(stream);
-      cudaStreamDestroy(stream);
       return local_rewrites;
     };
 
