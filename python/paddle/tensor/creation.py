@@ -3393,7 +3393,10 @@ def set_(
 
 @inplace_apis_in_dygraph_only
 def resize_(
-    x: paddle.Tensor, shape: Sequence[int], fill_zero: bool = False
+    x: paddle.Tensor,
+    shape: Sequence[int],
+    fill_zero: bool = False,
+    name: str | None = None,
 ) -> paddle.Tensor:
     """
     Resize ``x`` with specified ``shape``.
