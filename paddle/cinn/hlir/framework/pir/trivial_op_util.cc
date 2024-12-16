@@ -160,7 +160,7 @@ ir::Expr CopyedReplaceExpr(const Expr& source,
       candidates.size(),
       ::common::errors::InvalidArgument(
           "In ReplaceExpr, the size of Vars to be replaced must be equal to "
-          "the size of cadidate Exprs! Please check."));
+          "the size of candidate Exprs! Please check."));
   auto copyed_source = ir::ir_utils::IRCopy(source);
   if (replaced.empty()) return copyed_source;
   std::map<Var, Expr, ir::CompVar> replacing_map;
@@ -738,7 +738,7 @@ ExprTransformer RemoveOnesTransformer(const std::vector<int32_t>& ones) {
 
 ExprTransformer TransposeForsTransformer(const std::vector<int32_t>& perm) {
   const auto& f = [=](const ir::Expr& root) -> ir::Expr {
-    const auto& iters = GetNonReduceLoopVars(root);
+    const auto& iters = GetAllLoopVars(root);
     PADDLE_ENFORCE_EQ(
         iters.size(),
         perm.size(),
