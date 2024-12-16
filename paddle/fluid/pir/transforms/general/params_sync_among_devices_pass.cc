@@ -96,7 +96,10 @@ class ParamsSyncAmongDevicesPass : public pir::Pass {
       }
     }
 
-    size_t num_threads = 8;
+    // If the size of dense_tensors is less than 8, set num_threads to 1 to
+    // avoid unnecessary overhead. Otherwise, use 8 threads for parallel
+    // processing.
+    size_t num_threads = (dense_tensors.size() < 8) ? 1 : 8;
     const size_t chunk_size =
         std::max(static_cast<size_t>(1), dense_tensors.size() / num_threads);
     size_t remain_size = dense_tensors.size() % num_threads;
