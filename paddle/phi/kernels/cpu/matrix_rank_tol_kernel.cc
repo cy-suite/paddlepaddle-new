@@ -95,16 +95,20 @@ void MatrixRankTolKernel(const Context& dev_ctx,
       rows,
       0,
       errors::InvalidArgument("The input Tensor x's shape[-2] should not "
-                              "be 0, but shape is %s now.",
+                              "be 0, but received %s now.",
                               dim_x));
   PADDLE_ENFORCE_NE(
       cols,
       0,
       errors::InvalidArgument("The input Tensor x's shape[-1] should not "
-                              "be 0, but shape is %s now.",
+                              "be 0, but received %s now.",
                               dim_x));
   if (x.numel() == 0) {
-    out->Resize({0});
+    std::vector<int64_t> out_dims_vec(dim_x.size() - 2);
+    for (int i = 0; i < dim_x.size() - 2; ++i) {
+      out_dims_vec[i] = dim_x[i];
+    }
+    out->Resize(phi::make_ddim(out_dims_vec));
     dev_ctx.template Alloc<int64_t>(out);
     return;
   }
@@ -204,16 +208,20 @@ void MatrixRankAtolRtolKernel(const Context& dev_ctx,
       rows,
       0,
       errors::InvalidArgument("The input Tensor x's shape[-2] should not "
-                              "be 0, but shape is %s now.",
+                              "be 0, but received %s now.",
                               dim_x));
   PADDLE_ENFORCE_NE(
       cols,
       0,
       errors::InvalidArgument("The input Tensor x's shape[-1] should not "
-                              "be 0, but shape is %s now.",
+                              "be 0, but received %s now.",
                               dim_x));
   if (x.numel() == 0) {
-    out->Resize({0});
+    std::vector<int64_t> out_dims_vec(dim_x.size() - 2);
+    for (int i = 0; i < dim_x.size() - 2; ++i) {
+      out_dims_vec[i] = dim_x[i];
+    }
+    out->Resize(phi::make_ddim(out_dims_vec));
     dev_ctx.template Alloc<int64_t>(out);
     return;
   }
