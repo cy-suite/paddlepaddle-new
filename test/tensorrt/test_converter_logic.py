@@ -18,6 +18,7 @@ import numpy as np
 from tensorrt_test_base import TensorRTBaseTest
 
 import paddle
+from third_party.cutlass.test.unit.gemm.device.simt_sm50 import precision
 
 
 class TestGreaterThanFloat32TRTPattern(TensorRTBaseTest):
@@ -151,7 +152,10 @@ class TestAndRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 3], "y": [3]}
         self.max_shape = {"x": [5, 3], "y": [3]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 
@@ -166,7 +170,10 @@ class TestOrRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 3], "y": [3]}
         self.max_shape = {"x": [5, 3], "y": [3]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 
@@ -180,7 +187,10 @@ class TestNotRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 3]}
         self.max_shape = {"x": [5, 3]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 
