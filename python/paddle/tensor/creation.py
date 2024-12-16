@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import math
 import re
+import warnings
 from typing import TYPE_CHECKING, Any, overload
 
 import numpy as np
@@ -396,7 +397,7 @@ def linspace(
         else:
             check_type(stop, 'stop', (int, float), 'linspace')
         if isinstance(num, paddle.pir.Value):
-            check_dtype(num.dtype, 'num', ['int32'], 'linspace')
+            check_dtype(num.dtype, 'num', ['int32', 'int64'], 'linspace')
         check_dtype(
             dtype,
             'dtype',
@@ -726,9 +727,9 @@ def _to_tensor_non_static(
             data = _handle_tensor_dtype(data, dtype)
             data.stop_gradient = stop_gradient
             return data
-        elif isinstance(data, core.Tensor):
+        elif isinstance(data, core.DenseTensor):
             # should't expose it to users, just for internal use.
-            # convert core.Tensor/core.LoDTensor to Tensor first
+            # convert core.DenseTensor to Tensor first
             # Currently, there is no copy when places are same
             data = paddle.Tensor(data, place=place)
             data = _handle_tensor_dtype(data, dtype)
@@ -931,6 +932,18 @@ def to_tensor(
     if place is None:
         place = _current_expected_place_()
     if in_dynamic_mode():
+        is_tensor = paddle.is_tensor(data)
+        if not is_tensor and hasattr(data, "__cuda_array_interface__"):
+            if not core.is_compiled_with_cuda():
+                raise RuntimeError(
+                    "PaddlePaddle is not compiled with CUDA, but trying to create a Tensor from a CUDA array."
+                )
+            return core.tensor_from_cuda_array_interface(data)
+        if is_tensor:
+            warnings.warn(
+                "To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach(), "
+                "rather than paddle.to_tensor(sourceTensor)."
+            )
         return _to_tensor_non_static(data, dtype, place, stop_gradient)
 
     # call assign for static graph
@@ -1340,7 +1353,7 @@ def eye(
         name(str|None, optional): For details, please refer to :ref:`api_guide_Name`. Generally, no setting is required. Default: None.
 
     Returns:
-        Tensor: An identity Tensor or LoDTensor of shape [num_rows, num_columns].
+        Tensor: An identity Tensor or DenseTensor of shape [num_rows, num_columns].
 
     Examples:
         .. code-block:: python
@@ -1394,7 +1407,7 @@ def eye(
                 'int32',
                 'int64',
                 'complex64',
-                'comple128',
+                'complex128',
             ],
             'eye',
         )
@@ -2053,21 +2066,19 @@ def diag_embed(
             f"But received Input's dimensional: {len(input_shape)}.\n"
         )
 
-        assert np.abs(dim1) <= len(input_shape), (
-            "Dim1 is out of range (expected to be in range of [%d, %d], but got %d).\n"
-            % (-(len(input_shape) + 1), len(input_shape), dim1)
-        )
+        assert np.abs(dim1) <= len(
+            input_shape
+        ), f"Dim1 is out of range (expected to be in range of [{-(len(input_shape) + 1)}, {len(input_shape)}], but got {dim1}).\n"
 
-        assert np.abs(dim2) <= len(input_shape), (
-            "Dim2 is out of range (expected to be in range of [%d, %d], but got %d).\n"
-            % (-(len(input_shape) + 1), len(input_shape), dim2)
-        )
+        assert np.abs(dim2) <= len(
+            input_shape
+        ), f"Dim2 is out of range (expected to be in range of [{-(len(input_shape) + 1)}, {len(input_shape)}], but got {dim2}).\n"
 
         dim1_ = dim1 if dim1 >= 0 else len(input_shape) + dim1 + 1
         dim2_ = dim2 if dim2 >= 0 else len(input_shape) + dim2 + 1
         assert dim1_ != dim2_, (
             "dim1 and dim2 cannot be the same dimension."
-            "But received dim1 = %d, dim2 = %d\n" % (dim1, dim2)
+            f"But received dim1 = {dim1}, dim2 = {dim2}\n"
         )
 
     __check_input(input, offset, dim1, dim2)
@@ -2665,7 +2676,7 @@ def assign(x: TensorLike, output: paddle.Tensor | None = None) -> paddle.Tensor:
         input = np.array([input])
     elif isinstance(input, (list, tuple)):
         input = np.array(input)
-    # NOTE(Aurelius84): Why we judge core.Tensor?
+    # NOTE(Aurelius84): Why we judge core.DenseTensor?
     # In case of @to_static, a Tensor can be as input of `assign`,
     # but in_dynamic_mode()==False under @to_static, which means
     # isinstance(Tensor, Variable) == False. It will cause return None

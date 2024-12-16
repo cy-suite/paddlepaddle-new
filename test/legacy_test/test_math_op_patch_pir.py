@@ -17,6 +17,7 @@ import unittest
 import warnings
 
 import numpy as np
+from utils import dygraph_guard, static_guard
 
 import paddle
 from paddle import base
@@ -116,6 +117,7 @@ class TestMathOpPatchesPir(unittest.TestCase):
         res_np_b = x_np @ y_np  # __matmul__
         res_np_c = paddle.matmul(paddle.to_tensor(x_np), paddle.to_tensor(y_np))
         res_np_d = x_np.__matmul__(y_np)
+        res_np_e = y_np.__rmatmul__(x_np)
         paddle.enable_static()
         with paddle.pir_utils.IrGuard():
             main_program, exe, program_guard = new_program()
@@ -125,14 +127,16 @@ class TestMathOpPatchesPir(unittest.TestCase):
                 b = x @ y
                 c = x.matmul(y)
                 d = x.__matmul__(y)
-                (b_np, c_np, d_np) = exe.run(
+                e = y.__rmatmul__(x)
+                (b_np, c_np, d_np, e_np) = exe.run(
                     main_program,
                     feed={"x": x_np, "y": y_np},
-                    fetch_list=[b, c, d],
+                    fetch_list=[b, c, d, e],
                 )
                 np.testing.assert_allclose(res_np_b, b_np, atol=1e-05)
                 np.testing.assert_allclose(res_np_c, c_np, atol=1e-05)
                 np.testing.assert_allclose(res_np_d, d_np, atol=1e-05)
+                np.testing.assert_allclose(res_np_e, e_np, atol=1e-05)
 
     def test_floordiv(self):
         paddle.disable_static()
@@ -221,6 +225,63 @@ class TestMathOpPatchesPir(unittest.TestCase):
                 np.testing.assert_array_equal(res_np_c, c_np)
                 np.testing.assert_array_equal(res_np_d, d_np)
 
+    def test_rxor(self):
+        with dygraph_guard():
+            x_int32 = 5
+            x_bool = True
+            y_np = np.random.randint(0, 2, [2, 3, 5]).astype("int32")
+            y_tensor = paddle.to_tensor(y_np)
+            res_ror_int32 = x_int32 ^ y_tensor
+            res_py_int32 = x_int32 ^ y_tensor.numpy()
+            np.testing.assert_array_equal(res_py_int32, res_ror_int32.numpy())
+            res_ror_bool = x_bool ^ y_tensor
+            res_py_bool = x_bool ^ y_tensor.numpy()
+            np.testing.assert_array_equal(res_py_bool, res_ror_bool.numpy())
+            for x_np in (
+                np.float32(5.0),
+                np.float64(5.0),
+                np.complex64(5),
+                np.complex128(5.0 + 2j),
+            ):
+                with self.assertRaises(TypeError):
+                    x_np ^ y_tensor
+
+        with static_guard():
+            with paddle.pir_utils.IrGuard():
+                main_program, exe, program_guard = new_program()
+                with program_guard:
+                    x_int = 5
+                    y_np = np.random.randint(-100, 100, [2, 3, 5]).astype(
+                        "int32"
+                    )
+                    y = paddle.static.data("y", y_np.shape, dtype=y_np.dtype)
+                    z = x_int ^ y
+                    out = exe.run(
+                        main_program,
+                        feed={'y': y_np},
+                        fetch_list=[z],
+                    )
+                    out_ref = x_int ^ y_np
+                    np.testing.assert_array_equal(out[0], out_ref)
+                    x_bool = True
+                    res_rxor_bool = x_bool ^ y
+                    out_bool = exe.run(
+                        main_program,
+                        feed={'y': y_np},
+                        fetch_list=[res_rxor_bool],
+                    )
+                    res_py_bool = x_bool ^ y_np
+                    np.testing.assert_array_equal(out_bool[0], res_py_bool)
+
+                    for x_invalid in (
+                        np.float32(5.0),
+                        np.float64(5.0),
+                        np.complex64(5),
+                        np.complex128(5.0 + 2j),
+                    ):
+                        with self.assertRaises(TypeError):
+                            x_invalid ^ y
+
     def test_bitwise_or(self):
         paddle.disable_static()
         x_np = np.random.randint(-100, 100, [2, 3, 5]).astype("int32")
@@ -248,6 +309,63 @@ class TestMathOpPatchesPir(unittest.TestCase):
                 np.testing.assert_array_equal(res_np_c, c_np)
                 np.testing.assert_array_equal(res_np_d, d_np)
 
+    def test_ror(self):
+        with dygraph_guard():
+            x_int32 = 5
+            x_bool = True
+            y_np = np.random.randint(0, 2, [2, 3, 5]).astype("int32")
+            y_tensor = paddle.to_tensor(y_np)
+            res_ror_int32 = x_int32 | y_tensor
+            res_py_int32 = x_int32 | y_tensor.numpy()
+            np.testing.assert_array_equal(res_py_int32, res_ror_int32.numpy())
+            res_ror_bool = x_bool | y_tensor
+            res_py_bool = x_bool | y_tensor.numpy()
+            np.testing.assert_array_equal(res_py_bool, res_ror_bool.numpy())
+            for x_np in (
+                np.float32(5.0),
+                np.float64(5.0),
+                np.complex64(5),
+                np.complex128(5.0 + 2j),
+            ):
+                with self.assertRaises(TypeError):
+                    x_np | y_tensor
+
+        with static_guard():
+            with paddle.pir_utils.IrGuard():
+                main_program, exe, program_guard = new_program()
+                with program_guard:
+                    x_int = 5
+                    y_np = np.random.randint(-100, 100, [2, 3, 5]).astype(
+                        "int32"
+                    )
+                    y = paddle.static.data("y", y_np.shape, dtype=y_np.dtype)
+                    z = x_int | y
+                    out = exe.run(
+                        main_program,
+                        feed={'y': y_np},
+                        fetch_list=[z],
+                    )
+                    out_ref = x_int | y_np
+                    np.testing.assert_array_equal(out[0], out_ref)
+                    x_bool = True
+                    res_ror_bool = x_bool | y
+                    out_bool = exe.run(
+                        main_program,
+                        feed={'y': y_np},
+                        fetch_list=[res_ror_bool],
+                    )
+                    res_py_bool = x_bool | y_np
+                    np.testing.assert_array_equal(out_bool[0], res_py_bool)
+
+                    for x_invalid in (
+                        np.float32(5.0),
+                        np.float64(5.0),
+                        np.complex64(5),
+                        np.complex128(5.0 + 2j),
+                    ):
+                        with self.assertRaises(TypeError):
+                            x_invalid | y
+
     def test_bitwise_and(self):
         paddle.disable_static()
         x_np = np.random.randint(-100, 100, [2, 3, 5]).astype("int32")
@@ -257,6 +375,8 @@ class TestMathOpPatchesPir(unittest.TestCase):
             paddle.to_tensor(x_np), paddle.to_tensor(y_np)
         )
         res_np_d = x_np.__and__(y_np)
+        temp = 2
+        res_np_e = temp & y_np
         paddle.enable_static()
         with paddle.pir_utils.IrGuard():
             main_program, exe, program_guard = new_program()
@@ -266,14 +386,16 @@ class TestMathOpPatchesPir(unittest.TestCase):
                 b = x & y
                 c = x.bitwise_and(y)
                 d = x.__and__(y)
-                (b_np, c_np, d_np) = exe.run(
+                e = temp & y
+                (b_np, c_np, d_np, e_np) = exe.run(
                     main_program,
                     feed={"x": x_np, "y": y_np},
-                    fetch_list=[b, c, d],
+                    fetch_list=[b, c, d, e],
                 )
                 np.testing.assert_array_equal(res_np_b, b_np)
                 np.testing.assert_array_equal(res_np_c, c_np)
                 np.testing.assert_array_equal(res_np_d, d_np)
+                np.testing.assert_array_equal(res_np_e, e_np)
 
     def test_positive(self):
         paddle.disable_static()
@@ -501,6 +623,12 @@ class TestMathOpPatchesPir(unittest.TestCase):
                     (output_x,) = exe.run(main_program, fetch_list=[x_T])
                     self.assertEqual(output_x.shape, tuple(out_shape))
 
+    def test_astype_zero_copy_if_same_dtype(self):
+        with paddle.pir_utils.IrGuard():
+            x = paddle.static.data(name='x', shape=[3, 2, 1])
+            y = x.astype(x.dtype)
+            self.assertTrue(x.is_same(y))
+
     def test_mT(self):
         with paddle.pir_utils.IrGuard():
             shape = [1]
@@ -680,6 +808,27 @@ class TestMathOpPatchesPir(unittest.TestCase):
                 )
                 np.testing.assert_array_equal(res, a_np)
                 np.testing.assert_array_equal(res, b_np)
+
+    def test_negative(self):
+        x_np = np.random.uniform(-1, 1, [10, 1024]).astype(np.float32)
+        res = -x_np
+        with paddle.pir_utils.IrGuard():
+            main_program, exe, program_guard = new_program()
+            with program_guard:
+                x = paddle.static.data(
+                    name='x', shape=[10, 1024], dtype="float32"
+                )
+                a = -x
+                b = x.negative()
+                c = paddle.negative(x)
+                (a_np, b_np, c_np) = exe.run(
+                    main_program,
+                    feed={"x": x_np},
+                    fetch_list=[a, b, c],
+                )
+                np.testing.assert_array_equal(res, a_np)
+                np.testing.assert_array_equal(res, b_np)
+                np.testing.assert_array_equal(res, c_np)
 
     def test_abs(self):
         # test for real number

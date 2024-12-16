@@ -90,8 +90,8 @@ void SerializeDenseTensor(framework::Variable* var,
                           VarMsg* var_msg,
                           butil::IOBuf* iobuf) {
   auto* tensor = var->GetMutable<phi::DenseTensor>();
-  var_msg->set_type(::paddle::distributed::LOD_TENSOR);
-  const phi::LoD lod = tensor->lod();
+  var_msg->set_type(::paddle::distributed::DENSE_TENSOR);
+  const phi::LegacyLoD lod = tensor->lod();
   if (!lod.empty()) {
     var_msg->set_lod_level(lod.size());
     for (auto& each : lod) {
@@ -189,7 +189,7 @@ void DeserializeFromMultiVarMsgAndIOBuf(const MultiVarMsg& multi_msg,
        ++recv_var_index) {
     const auto& msg = multi_msg.var_messages(recv_var_index);
     auto* var = scope->Var(msg.varname());
-    if (msg.type() == ::paddle::distributed::LOD_TENSOR) {
+    if (msg.type() == ::paddle::distributed::DENSE_TENSOR) {
       DeserializeDenseTensor(var, msg, io_buffer_itr, ctx);
     } else if (msg.type() == ::paddle::distributed::SELECTED_ROWS) {
       DeserializeSelectedRows(var, msg, io_buffer_itr, ctx);
@@ -211,7 +211,7 @@ void DeserializeFromMultiVarMsgAndIOBuf(const MultiVarMsg& multi_msg,
                       nullptr,
                       common::errors::InvalidArgument(
                           "Not find variable %s in scope.", msg.varname()));
-    if (msg.type() == ::paddle::distributed::LOD_TENSOR) {
+    if (msg.type() == ::paddle::distributed::DENSE_TENSOR) {
       DeserializeDenseTensor(var, msg, io_buffer_itr, ctx);
     } else if (msg.type() == ::paddle::distributed::SELECTED_ROWS) {
       DeserializeSelectedRows(var, msg, io_buffer_itr, ctx);
@@ -231,7 +231,7 @@ void DeserializeDenseTensor(framework::Variable* var,
   }
   tensor->Resize(common::make_ddim(vec_dim));
 
-  phi::LoD lod;
+  phi::LegacyLoD lod;
   for (int i = 0; i < msg.lod_level(); ++i) {
     phi::Vector<size_t> v;
     for (int j = 0; j < msg.lod(i).lod_data_size(); ++j) {

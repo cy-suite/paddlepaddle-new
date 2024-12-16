@@ -68,6 +68,7 @@ BACKENDS_BLACK_LIST = [
 # prim op with one input and one output, with no attribute
 UNARY_PRIM_VJP_OPS = [
     'abs_grad',
+    'ceil_grad',
     'erf_grad',
     'exp_grad',
     'floor_grad',
@@ -93,9 +94,11 @@ BINARY_PRIM_VJP_OPS = [
     'fmax_grad',
     'fmin_grad',
     'dot_grad',
+    'kron_grad',
 ]
 
 OTHER_PRIM_VJP_OPS = [
+    'argsort_grad',
     'assign_grad',
     'atan_grad',
     'atan2_grad',
@@ -122,6 +125,7 @@ OTHER_PRIM_VJP_OPS = [
     'scatter_nd_add_grad',
     'slice_grad',
     'squeeze_grad',
+    'take_along_axis_grad',
     'tile_grad',
     'topk_grad',
     'unsqueeze_grad',
@@ -135,11 +139,14 @@ OTHER_PRIM_VJP_OPS = [
 PRIM_VJP = UNARY_PRIM_VJP_OPS + BINARY_PRIM_VJP_OPS + OTHER_PRIM_VJP_OPS
 
 CUSTOM_VJP = [
+    'amax_grad',
+    'amin_grad',
     'bce_loss_grad',
     'batch_norm_grad',
     'dropout_grad',
     'gelu_grad',
     'group_norm_grad',
+    'hardsigmoid_grad',
     'hardswish_grad',
     'instance_norm_grad',
     'layer_norm_grad',
@@ -148,6 +155,7 @@ CUSTOM_VJP = [
     'minimum_grad',
     'pow_grad',
     'relu_grad',
+    'relu6_grad',
     'sigmoid_grad',
     'silu_grad',
     'softmax_grad',

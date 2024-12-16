@@ -1433,7 +1433,8 @@ PHI_DEFINE_EXPORTED_bool(
  * Since Version: 3.0.0
  * Value Range: bool, default=false
  * Example:
- * Note: If True, using AutoLayoutPass and AutuLayoutSimplifyPass by default
+ * Note: If True, using AutoLayoutInsertPass and AutuLayoutSimplifyPass by
+ * default
  */
 PHI_DEFINE_EXPORTED_bool(enable_auto_layout_pass,
                          false,
@@ -1521,8 +1522,8 @@ PHI_DEFINE_EXPORTED_bool(use_shm_cache,
  * Since Version: 2.6.2
  * Value Range: bool, default=false
  * Example:
- * Note: . If True, mmap_allocator will use file descripor to open shared memory
- * operation.
+ * Note: . If True, mmap_allocator will use file descriptor to open shared
+ * memory operation.
  */
 PHI_DEFINE_EXPORTED_bool(dataloader_use_file_descriptor,
                          false,
@@ -1587,6 +1588,11 @@ PHI_DEFINE_EXPORTED_bool(logging_trunc_pir_py_code,
 PHI_DEFINE_EXPORTED_bool(logging_pir_py_code_dump_symbolic_dims,
                          false,
                          "whether dump symbolic dims into pir py code.");
+
+PHI_DEFINE_EXPORTED_bool(
+    pir_interpreter_record_stream_for_gc_cache,
+    false,
+    "whether PirInterpreter::RecordStreamForGC use cache strategy.");
 
 /**
  * Using PIR API in Python
@@ -1685,16 +1691,8 @@ PHI_DEFINE_EXPORTED_string(
     "",
     "It controls the forward blacklist ops not to be decomposed.");
 
-// PIR and prim related FLAG
-// Example: If prim_backward_blacklist="relu_grad;mean_grad",
-// it will block the decompsitions of `relu` and `mean` backward grads.
-PHI_DEFINE_EXPORTED_string(
-    prim_backward_blacklist,
-    "",
-    "It controls the forward blacklist ops not to be decomposed.");
-
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || \
-    defined(PADDLE_WITH_XPU_BKCL)
+    defined(PADDLE_WITH_XPU_BKCL) || defined(PADDLE_WITH_CUSTOM_DEVICE)
 /**
  * Communication library related FLAG
  * Name: FLAGS_dynamic_static_unified_comm
@@ -2011,3 +2009,21 @@ PHI_DEFINE_EXPORTED_int64(multi_block_attention_min_partition_size,
 PHI_DEFINE_EXPORTED_bool(save_cf_stack_op,
                          false,
                          "Save cf stack op for higher-order derivatives.");
+
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
+/**
+ * FlashAttention related FLAG
+ * Name: FLAGS_flash_attn_version
+ * Value Range: int32, default=2
+ * Example:
+ * Note: Specify the version of FlashAttention to use, options are 2 or 3.
+ *        Version 2 requires Ampere architecture or higher,
+ *        while version 3 requires Hopper architecture.
+ */
+PHI_DEFINE_EXPORTED_int32(
+    flash_attn_version,
+    2,
+    "Specify the version of FlashAttention to use, options are 2 or 3. "
+    "Version 2 requires Ampere architecture or higher, "
+    "while version 3 requires Hopper architecture.");
+#endif

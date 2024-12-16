@@ -22,6 +22,7 @@ limitations under the License. */
 #include "paddle/fluid/jit/serializer.h"
 #include "paddle/fluid/pybind/sot/eval_frame.h"
 #include "paddle/fluid/pybind/sot/eval_frame_tools.h"
+#include "paddle/fluid/pybind/sot/frame_proxy.h"
 #include "paddle/fluid/pybind/sot/guards.h"
 #include "paddle/fluid/pybind/sot/macros.h"
 #include "paddle/phi/common/data_type.h"
@@ -30,8 +31,7 @@ limitations under the License. */
 
 namespace py = pybind11;
 
-namespace paddle {
-namespace pybind {
+namespace paddle::pybind {
 
 PyTypeObject *g_jit_function_pytype = nullptr;
 using Variable = paddle::framework::Variable;
@@ -71,14 +71,17 @@ void BindGuard(pybind11::module *m) {
       .def(py::init<const py::function &>(), py::arg("guard_check_fn"));
   py::class_<GuardGroup, GuardBase, std::shared_ptr<GuardGroup>>(
       *m, "GuardGroup", R"DOC(GuardGroup Class.)DOC")
-      .def(py::init<std::vector<std::shared_ptr<GuardBase>>>(),
+      .def(py::init<const std::vector<std::shared_ptr<GuardBase>> &>(),
            py::arg("guards"));
   py::class_<TypeMatchGuard, GuardBase, std::shared_ptr<TypeMatchGuard>>(
       *m, "TypeMatchGuard", R"DOC(TypeMatchGuard Class.)DOC")
       .def(py::init<const py::type &>(), py::arg("py_type"));
+  py::class_<IdMatchGuard, GuardBase, std::shared_ptr<IdMatchGuard>>(
+      *m, "IdMatchGuard", R"DOC(IdMatchGuard Class.)DOC")
+      .def(py::init<const py::object &>(), py::arg("py_obj"));
   py::class_<LengthMatchGuard, GuardBase, std::shared_ptr<LengthMatchGuard>>(
       *m, "LengthMatchGuard", R"DOC(LengthMatchGuard Class.)DOC")
-      .def(py::init<Py_ssize_t>(), py::arg("length"));
+      .def(py::init<const Py_ssize_t &>(), py::arg("length"));
   py::class_<ValueMatchGuard, GuardBase, std::shared_ptr<ValueMatchGuard>>(
       *m, "ValueMatchGuard", R"DOC(ValueMatchGuard Class.)DOC")
       .def(py::init<const py::object &>(), py::arg("py_value"));
@@ -87,9 +90,27 @@ void BindGuard(pybind11::module *m) {
       .def(py::init<const paddle::framework::proto::VarType &>(),
            py::arg("dtype"))
       .def(py::init<const phi::DataType &>(), py::arg("dtype"));
+  py::class_<AttributeMatchGuard,
+             GuardBase,
+             std::shared_ptr<AttributeMatchGuard>>(
+      *m, "AttributeMatchGuard", R"DOC(AttributeMatchGuard Class.)DOC")
+      .def(py::init<const py::object &, const std::string &>(),
+           py::arg("obj"),
+           py::arg("attr_name"));
+  py::class_<ShapeMatchGuard, GuardBase, std::shared_ptr<ShapeMatchGuard>>(
+      *m, "ShapeMatchGuard", R"DOC(ShapeMatchGuard Class.)DOC")
+      .def(py::init<const std::vector<py::object> &>(), py::arg("shape"));
   py::class_<LayerMatchGuard, GuardBase, std::shared_ptr<LayerMatchGuard>>(
       *m, "LayerMatchGuard", R"DOC(LayerMatchGuard Class.)DOC")
       .def(py::init<const py::object &>(), py::arg("layer_obj"));
+  py::class_<RangeMatchGuard, GuardBase, std::shared_ptr<RangeMatchGuard>>(
+      *m, "RangeMatchGuard", R"DOC(RangeMatchGuard Class.)DOC")
+      .def(py::init<const py::object &>(), py::arg("range_obj"));
+  py::class_<InstanceCheckGuard,
+             GuardBase,
+             std::shared_ptr<InstanceCheckGuard>>(
+      *m, "InstanceCheckGuard", R"DOC(InstanceCheckGuard Class.)DOC")
+      .def(py::init<const py::object &>(), py::arg("isinstance_obj"));
 
   m->def(
       "merge_guard",
@@ -103,6 +124,9 @@ void BindGuard(pybind11::module *m) {
 void BindSot(pybind11::module *m) {
 #if SOT_IS_SUPPORTED
   PyInit__eval_frame();
+#if PY_3_11_PLUS
+  PyInit__frame_proxy();
+#endif
   m->def(
       "set_eval_frame",
       [](const py::object &py_func) {
@@ -152,5 +176,4 @@ void BindSot(pybind11::module *m) {
 #endif
 }
 
-}  // namespace pybind
-}  // namespace paddle
+}  // namespace paddle::pybind

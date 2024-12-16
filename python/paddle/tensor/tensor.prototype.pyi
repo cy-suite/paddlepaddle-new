@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # The `Tensor` template `tensor.prototype.pyi` for `tools/gen_tensor_stub.py` to generate the stub file `tensor.pyi`.
-# Add docstring, attributes, methods and alias with type annotaions for `Tensor` in `tensor.prototype.pyi`
+# Add docstring, attributes, methods and alias with type annotations for `Tensor` in `tensor.prototype.pyi`
 # if not conveniently coding in original place (like c++ source file).
 
 # Import common typings for generated methods
@@ -109,7 +109,7 @@ class AbstractTensor:
             dtype: paddle::framework::proto::VarType::Type,
             dims: vector<int>,
             name: std::string,
-            type: paddle::framework::proto::VarType::LodTensor,
+            type: paddle::framework::proto::VarType::DenseTensor,
             persistable: bool)
         3. (multi-place)
         (should have at least one parameter, one parameter equals to case 4, zero
@@ -171,15 +171,19 @@ class AbstractTensor:
     def __mod__(self, y: _typing.TensorLike) -> Tensor: ...
     def __pow__(self, y: _typing.TensorLike) -> Tensor: ...
     def __and__(self, y: _typing.TensorLike) -> Tensor: ...
+    def __ror__(self, y: _typing.TensorLike) -> Tensor: ...
+    def __rxor__(self, y: _typing.TensorLike) -> Tensor: ...
     def __div__(self, y: _typing.TensorLike) -> Tensor: ...
     def __radd__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
     def __rsub__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
     def __rmul__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
+    def __rmatmul__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
     def __rtruediv__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
     def __rmod__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
     def __rpow__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
     def __rdiv__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
     def __rfloordiv__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
+    def __rand__(self, y: _typing.TensorLike) -> Tensor: ...  # type: ignore
 
     # type cast
     def __bool__(self) -> bool: ...
@@ -222,6 +226,7 @@ class AbstractTensor:
     @data.setter
     def data(self, value: Tensor) -> None: ...
     def data_ptr(self) -> int: ...
+    def dense_dim(self) -> int: ...
     def detach(self) -> Tensor: ...
     def detach_(self) -> Tensor: ...
     @property
@@ -283,6 +288,7 @@ class AbstractTensor:
     def shape(self) -> list[int]: ...
     @property
     def size(self) -> int: ...
+    def sparse_dim(self) -> int: ...
     @property
     def stop_gradient(self) -> bool: ...
     @stop_gradient.setter

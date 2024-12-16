@@ -23,6 +23,7 @@ import numpy as np
 
 import paddle
 from paddle.base.framework import use_pir_api
+from paddle.base.libpaddle import pir
 from paddle.base.wrapped_decorator import (
     wrap_decorator,
 )
@@ -30,7 +31,7 @@ from paddle.framework import core
 from paddle.framework.io_utils import is_belong_to_optimizer, is_parameter
 from paddle.static import Variable
 
-from ..process_mesh import ProcessMesh
+from ..process_mesh import ProcessMesh, merge_process_meshes
 from .dist_attribute import DistTensorSpec, OperatorDistAttr, TensorDistAttr
 
 OpRole = core.op_proto_and_checker_maker.OpRole
@@ -53,6 +54,16 @@ _g_gradient_clip_ops = [
     "elementwise_div",
     "stack",
     "reduce_sum",
+]
+
+partition_skip_op_list = [
+    "builtin.combine",
+    "builtin.split",
+    "pd_op.pylayer",
+    "cf.yield",
+    "cf.tuple_push",
+    "cf.tuple_pop",
+    "cf.stack_create",
 ]
 
 
@@ -544,9 +555,9 @@ def _check_param_dict(param_dict):
                     "The type of key of 'param_dict' should be 'str', "
                     f"but got '{type(name)}'."
                 )
-            if not isinstance(value, paddle.base.LoDTensor):
+            if not isinstance(value, paddle.base.DenseTensor):
                 raise TypeError(
-                    "The type of value of 'param_dict' should be 'LoDTensor', "
+                    "The type of value of 'param_dict' should be 'DenseTensor', "
                     f"but got '{type(value)}'."
                 )
         return param_dict
@@ -572,7 +583,12 @@ def _check_dist_attr(dist_attr):
                     "The type of distributed attribute should be 'dict', "
                     f"but got '{type(value)}'"
                 )
-            attr = ['process_shape', 'process_group', 'dims_mapping']
+            attr = [
+                'process_shape',
+                'process_group',
+                'dims_mapping',
+                'dim_names',
+            ]
             if list(value.keys()) != attr:
                 raise ValueError(
                     "The key of distributed attribute should be "
@@ -854,6 +870,7 @@ def get_dist_attr(program, dist_context=None):
                     "process_shape": process_mesh.shape,
                     "process_group": process_mesh.process_ids,
                     "dims_mapping": var_dist_attr.dims_mapping,
+                    "dim_names": process_mesh.dim_names,
                 }
     else:
         from .dist_context import get_default_distributed_context
@@ -868,10 +885,12 @@ def get_dist_attr(program, dist_context=None):
                 )
                 process_mesh = tensor_dist_attr.process_mesh
                 dims_mapping = tensor_dist_attr.dims_mapping
+                dim_names = tensor_dist_attr.process_mesh.dim_names
                 dist_attr[var.name] = {
                     "process_shape": process_mesh.shape,
                     "process_group": process_mesh.process_ids,
                     "dims_mapping": dims_mapping,
+                    "dim_names": dim_names,
                 }
     return dist_attr
 
@@ -1000,7 +1019,7 @@ def _merge_parameter_with_dist_attr(param_list, dist_attr):
 def _slice_parameter_with_dist_attr(param, dist_attr):
     """Slice parameter with distributed attribute"""
     param = (
-        np.array(param) if isinstance(param, paddle.base.LoDTensor) else param
+        np.array(param) if isinstance(param, paddle.base.DenseTensor) else param
     )
     dims_mapping = dist_attr["dims_mapping"]
     process_shape = dist_attr["process_shape"]
@@ -1088,6 +1107,48 @@ def _merge_parameter(
                 )
                 break
             i += 1
+
+
+def _complete_op_dist_attr(program, block=None):
+    if block is None:
+        block = program.global_block()
+    for op in block.ops:
+        for sub_block in op.blocks():
+            _complete_op_dist_attr(program, block=sub_block)
+        if op.name() in partition_skip_op_list:
+            continue
+
+        if op.dist_attr is None:
+            meshes = []
+            operand_attrs = []
+            result_attrs = []
+            for operand in op.operands_source():
+                tmp_attr = operand.dist_attr()
+                if tmp_attr is None:
+                    operand_attrs.append(pir.Attribute())
+                else:
+                    operand_attrs.append(tmp_attr)
+                    if tmp_attr.process_mesh not in meshes:
+                        meshes.append(tmp_attr.process_mesh)
+
+            for result in op.results():
+                tmp_attr = result.dist_attr()
+                if tmp_attr is None:
+                    result_attrs.append(pir.Attribute())
+                else:
+                    result_attrs.append(tmp_attr)
+                    if tmp_attr.process_mesh not in meshes:
+                        meshes.append(tmp_attr.process_mesh)
+            if len(meshes) > 0:
+                if len(meshes) == 1:
+                    mesh = meshes[0]
+                else:
+                    mesh = merge_process_meshes(meshes)
+                op.dist_attr = pir.create_op_dist_attribute(
+                    mesh,
+                    operand_attrs,
+                    result_attrs,
+                )
 
 
 def _slice_parameter(complete_param, partition_index_list, length):
@@ -1720,7 +1781,7 @@ def to_list(value):
 
 def debug_program(program, path, name):
     filename = os.path.join(
-        path, name + '_program' + ".%d" % (paddle.distributed.get_rank())
+        path, f"{name}_program.{paddle.distributed.get_rank()}"
     )
     with open(filename, 'w') as f:
         f.write(str(program))

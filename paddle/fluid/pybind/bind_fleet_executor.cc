@@ -33,8 +33,7 @@
 
 namespace py = pybind11;
 
-namespace pybind11 {
-namespace detail {
+namespace pybind11::detail {
 
 // Note: use same enum number of float16 in numpy.
 // import numpy as np
@@ -59,11 +58,9 @@ struct npy_format_descriptor<phi::dtype::float16> {
   static constexpr auto name = _("float16");
 };
 
-}  // namespace detail
-}  // namespace pybind11
+}  // namespace pybind11::detail
 
-namespace paddle {
-namespace pybind {
+namespace paddle::pybind {
 
 using paddle::distributed::DependType;
 using paddle::distributed::DistModel;
@@ -269,28 +266,28 @@ void BindFleetExecutor(py::module* m) {
       .def(py::init(&DistModelTensorCreate<int32_t>),
            py::arg("data"),
            py::arg("name") = "",
-           py::arg("lod") = std::vector<std::vector<size_t>>(),
+           py::arg("legacy_lod") = std::vector<std::vector<size_t>>(),
            py::arg("copy") = true)
       .def(py::init(&DistModelTensorCreate<int64_t>),
            py::arg("data"),
            py::arg("name") = "",
-           py::arg("lod") = std::vector<std::vector<size_t>>(),
+           py::arg("legacy_lod") = std::vector<std::vector<size_t>>(),
            py::arg("copy") = true)
       .def(py::init(&DistModelTensorCreate<float>),
            py::arg("data"),
            py::arg("name") = "",
-           py::arg("lod") = std::vector<std::vector<size_t>>(),
+           py::arg("legacy_lod") = std::vector<std::vector<size_t>>(),
            py::arg("copy") = true)
       .def(py::init(&DistModelTensorCreate<phi::dtype::float16>),
            py::arg("data"),
            py::arg("name") = "",
-           py::arg("lod") = std::vector<std::vector<size_t>>(),
+           py::arg("legacy_lod") = std::vector<std::vector<size_t>>(),
            py::arg("copy") = true)
       .def_readwrite("name", &DistModelTensor::name)
       .def_readwrite("shape", &DistModelTensor::shape)
       .def_readwrite("data", &DistModelTensor::data)
       .def_readwrite("dtype", &DistModelTensor::dtype)
-      .def_readwrite("lod", &DistModelTensor::lod)
+      .def_readwrite("legacy_lod", &DistModelTensor::lod)
       .def("as_ndarray", &DistModelTensorGetData);
 
   py::enum_<DistModelDataType>(*m, "DistModelDataType")
@@ -299,5 +296,4 @@ void BindFleetExecutor(py::module* m) {
       .value("INT32", DistModelDataType::INT32)
       .value("FLOAT16", DistModelDataType::FLOAT16);
 }
-}  // namespace pybind
-}  // namespace paddle
+}  // namespace paddle::pybind
