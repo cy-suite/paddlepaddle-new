@@ -60,12 +60,11 @@ ir::Module CreateSwitchWithBroadcastConditionModule(
 namespace detail {
 
 struct BucketStrategyHostFunctionCollector {
-  explicit BucketStrategyHostFunctionCollector(
-      const std::string& module_name)
+  explicit BucketStrategyHostFunctionCollector(const std::string& module_name)
       : host_module_builder_(module_name + "_host",
-                            cinn::common::DefaultHostTarget()),
+                             cinn::common::DefaultHostTarget()),
         device_module_builder_(module_name + "_gpu_device",
-                              cinn::common::DefaultDeviceTarget()),
+                               cinn::common::DefaultDeviceTarget()),
         kernel_args_(KERNEL_ARGS, type_of<void*>()),
         kernel_args_num_(KERNEL_ARGS_NUM, type_of<int>()),
         kernel_stream_(KERNEL_STREAM, type_of<void*>()),
