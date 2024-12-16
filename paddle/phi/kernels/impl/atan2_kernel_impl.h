@@ -17,6 +17,7 @@
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/device_context.h"
 #include "paddle/phi/kernels/atan2_kernel.h"
+#include "paddle/phi/kernels/broadcast_tensors_kernel.h"
 #include "paddle/phi/kernels/funcs/for_range.h"
 
 namespace phi {
@@ -74,23 +75,27 @@ void Atan2Kernel(const Context& ctx,
                  const DenseTensor& x,
                  const DenseTensor& y,
                  DenseTensor* out) {
-  auto numel = x.numel();
-  auto x_data = x.data<T>();
-  auto y_data = y.data<T>();
+  if (x.numel() == 0 || y.numel() == 0) {
+    ctx.template Alloc<typename Atan2Out<T>::type>(out);
+    return;
+  }
 
-  PADDLE_ENFORCE_LE(numel,
-                    y.numel(),
-                    common::errors::InvalidArgument(
-                        "The count (%d) of elements of X shall not "
-                        "greater than count (%d) of elements of Y.",
-                        numel,
-                        y.numel()));
+  std::vector<const DenseTensor*> inputs = {&x, &y};
+  std::vector<DenseTensor> output_tensors(2);
+  for (auto& tensor : output_tensors) {
+    tensor.Resize(out->dims());
+  }
+  std::vector<DenseTensor*> outputs = {&output_tensors[0], &output_tensors[1]};
+  BroadcastTensorsKernel<T, Context>(ctx, inputs, outputs);
+  auto x_broadcasted = *outputs[0];
+  auto y_broadcasted = *outputs[1];
+  out->Resize(x_broadcasted.dims());
+  auto* out_data = ctx.template Alloc<typename Atan2Out<T>::type>(out);
+  auto x_data = x_broadcasted.data<T>();
+  auto y_data = y_broadcasted.data<T>();
 
-  auto* out_data = ctx.template Alloc<typename Atan2Out<T>::type>(
-      out, size_t(x.numel() * sizeof(typename Atan2Out<T>::type)));
-
-  phi::funcs::ForRange<Context> for_range(ctx, numel);
-  phi::Atan2Functor<T> functor(x_data, y_data, out_data, numel);
+  phi::funcs::ForRange<Context> for_range(ctx, out->numel());
+  phi::Atan2Functor<T> functor(x_data, y_data, out_data, out->numel());
   for_range(functor);
 }
 
