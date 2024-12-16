@@ -44,14 +44,11 @@ void AllKernel(const Context& dev_ctx,
   if (x.numel() == 0) {
     dev_ctx.template Alloc<bool>(out);
     if (out->numel() > 0) {
-      const int64_t* dims_data = out->dims().Get();
-      int num_dims = out->dims().size();
-      std::vector<int64_t> vec_dims(dims_data, dims_data + num_dims);
+      std::vector<int64_t> vec_dims = common::vectorize(out->dims());
       phi::Full<bool, Context>(dev_ctx, phi::IntArray(vec_dims), 1, out);
     }
     return;
   }
-
   bool reduce_all = recompute_reduce_all(x, dims);
   AllRawKernel<T>(dev_ctx, x, dims, keep_dim, reduce_all, out);
 }
