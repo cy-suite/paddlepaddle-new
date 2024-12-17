@@ -1297,8 +1297,7 @@ bool AnalysisPredictor::SaveOrLoadPirParameters(bool for_save) {
 
       for (size_t i = 0; i < num_threads; ++i) {
         size_t start_idx = i * chunk_size;
-        size_t end_idx =
-            std::min(start_idx + chunk_size, filter_param_names.size());
+        size_t end_idx = start_idx + chunk_size;
 
         futures.push_back(
             std::async(std::launch::async, process_params, start_idx, end_idx));

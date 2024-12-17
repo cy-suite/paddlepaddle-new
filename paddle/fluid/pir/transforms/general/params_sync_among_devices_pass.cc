@@ -111,8 +111,7 @@ class ParamsSyncAmongDevicesPass : public pir::Pass {
     std::vector<std::future<void>> futures;
     for (size_t i = 0; i < num_threads; ++i) {
       auto start_it = dense_tensors.begin() + i * chunk_size;
-      auto end_it =
-          (i == num_threads - 1) ? dense_tensors.end() : start_it + chunk_size;
+      auto end_it = start_it + chunk_size;
 
       futures.push_back(
           std::async(std::launch::async,
