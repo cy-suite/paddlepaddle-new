@@ -67,8 +67,8 @@ pir::Value full(const std::vector<int64_t>& shape,
   VLOG(5) << " No Type Promotion for full api. ";  // Type Autocast Logic
   VLOG(5) << " No Type Autocast for full api. ";
   CheckDataType(dtype, "dtype", "full");
-  pir::Value real_tmp = full(shape, real, dtype, place);
-  pir::Value imag_tmp = full(shape, imag, dtype, place);
+  pir::Value real_tmp = full(shape, real, phi::DataType::FLOAT32, place);
+  pir::Value imag_tmp = full(shape, imag, phi::DataType::FLOAT32, place);
   return paddle::dialect::complex(real_tmp, imag_tmp);
 }
 
