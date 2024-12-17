@@ -243,7 +243,12 @@ CinnJitInstruction::CinnJitInstruction(
     auto tensor = value_exec_info->GetScope()
                       ->FindVar(var_name)
                       ->GetMutable<phi::DenseTensor>();
-
+    bool check =
+        in && in.type() && in.type().isa<paddle::dialect::DenseTensorType>();
+    PADDLE_ENFORCE_EQ(check,
+                      true,
+                      phi::errors::PreconditionNotMet(
+                          "cinn jit instruction only support DenseTensorType"));
     tensor_args_.push_back(tensor);
     ir_dims_.push_back(
         in.type().dyn_cast<paddle::dialect::DenseTensorType>().dims());
@@ -259,6 +264,12 @@ CinnJitInstruction::CinnJitInstruction(
   // prepare output tensors
   for (size_t i = 0; i < op->num_results(); ++i) {
     pir::Value result = op->result(i);
+    bool check = result && result.type() &&
+                 result.type().isa<paddle::dialect::DenseTensorType>();
+    PADDLE_ENFORCE_EQ(check,
+                      true,
+                      phi::errors::PreconditionNotMet(
+                          "cinn jit instruction only support DenseTensorType"));
     auto var_name = value_exec_info->GetVarName(result);
 
     auto tensor = value_exec_info->GetScope()
