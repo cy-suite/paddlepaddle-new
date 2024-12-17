@@ -3404,7 +3404,7 @@ def resize_(
     Args:
         x (Tensor): An arbitrary Tensor. The data type supports ``bfloat16``, ``float16``, ``float32``, ``float64``,
             ``bool``, ``int8``, ``int16``, ``int32``, ``int64``, ``uint8``, ``complex64`` or ``complex128``.
-        shape (list|tuple, optional): Define the target shape. Each element of it should be integer.
+        shape (list|tuple): Define the target shape. Each element of it should be integer.
         fill_zero (bool, optional): If the size of specified ``shape`` is greater than the original Tensor size, the
             new Tensor will be filled with zero if ``fill_zero`` is True. Default: False, which means the filled value
             will be undetermined.
