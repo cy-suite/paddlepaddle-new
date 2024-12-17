@@ -1333,7 +1333,7 @@ class API_NormTest(unittest.TestCase):
 paddle.enable_static()
 
 
-class TestMatrixNormEmptyTensor(unittest.TestCase):
+class TestMatrixNormZeroSizeTensorTensor(unittest.TestCase):
     def _get_places(self):
         places = []
         if (
