@@ -168,7 +168,6 @@ class TensorRTConfigManager:
 
     def get_force_fp32_ops(self):
         if self.trt_config and self.trt_config.ops_run_float:
-            print("有trt_config.ops_run_float", self.trt_config.ops_run_float)
             return self.trt_config.ops_run_float
         return []
 
