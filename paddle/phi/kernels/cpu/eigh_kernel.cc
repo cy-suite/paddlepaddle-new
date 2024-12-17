@@ -34,7 +34,6 @@ void EighKernel(const Context& dev_ctx,
     out_v->Resize(x_dim);
     dev_ctx.template Alloc<T>(out_w);
     dev_ctx.template Alloc<T>(out_v);
-    DDim();
     return;
   }
   bool is_lower = (uplo == "L");
