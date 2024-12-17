@@ -3538,7 +3538,7 @@ void p_norm_grad(const Tensor& x,
             expand_shape = concat<T>(expand_shape_vec);
           }
           expand_out_grad = reshape<T>(out_grad, expand_shape);
-          expand_out = reshape<T>(out, expand_shape);
+          expand_out = backend::reshape<T>(out, expand_shape);
         } else {
           std::vector<int64_t> expand_shape =
               common::vectorize(out_grad.dims());
