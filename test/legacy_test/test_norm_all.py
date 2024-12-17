@@ -1418,8 +1418,7 @@ class TestMatrixNormZeroSizeTensorTensor(unittest.TestCase):
 
     def _test_matrix_norm_dynamic_cpu(self):
         with dygraph_guard():
-            paddle.set_device = 'cpu'
-
+            paddle.set_device("cpu")
             x1 = paddle.full((0, 0), 1.0, dtype='float32')
             y1_p = paddle.linalg.matrix_norm(x1, p=1, axis=[0, -1])
             self.assertRaises(
