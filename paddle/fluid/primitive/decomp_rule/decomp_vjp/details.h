@@ -3508,10 +3508,10 @@ void p_norm_grad(const Tensor& x,
       }
     } else {
       /* generic case formula:
-          dx = {
-            dy * y^(1-p) * |x|^(p-1) * sgn(x), if p != +-inf,
-            dy * sgn(x) * (x==y), if p == +-inf.
-          }
+        dx = {
+          dy * y^(1-p) * |x|^(p-1) * sgn(x), if p != +-inf,
+          dy * sgn(x) * (x==y), if p == +-inf.
+        }
       */
       Tensor expand_out = out;
       Tensor expand_out_grad = out_grad;
@@ -3529,7 +3529,7 @@ void p_norm_grad(const Tensor& x,
             // only reduce one dimension in forward
             expand_shape = shape64<T>(out_grad);
             std::vector<Tensor> expand_shape_vec;
-            for (int i = 0; i < expand_shape.dims().size(); ++i) {
+            for (int64_t i = 0; i < expand_shape.dims().size(); ++i) {
               expand_shape_vec.push_back(get_slice<T>(expand_shape, i));
             }
             expand_shape_vec.insert(
@@ -3560,11 +3560,13 @@ void p_norm_grad(const Tensor& x,
         x_grad_tmp = x_sign * expand_out_grad;
       } else if (porder == 2.0) {
         // dx = dy * (x / y)
+        VLOG(0) << "div";
         x_grad_tmp = x / expand_out;
         // fill zero to avoid division by zero
         Tensor _zero_tensor;
         // full<T>(common::vectorize(x.dims()), 0.0, x.dtype(), x.place());
         if (has_dynamic_shape(x.shape())) {
+          VLOG(0) << "full_with_tensor";
           _zero_tensor = backend::full_with_tensor<T>(
               shape64<T>(x), 0, x.dtype(), x.place());
         } else {
@@ -3572,8 +3574,11 @@ void p_norm_grad(const Tensor& x,
               full<T>(common::vectorize(x.dims()), 0, x.dtype(), x.place());
         }
 
+        VLOG(0) << "isfinite";
         auto finite_mask = isfinite<T>(x_grad_tmp);
+        VLOG(0) << "where";
         x_grad_tmp = where<T>(finite_mask, x_grad_tmp, _zero_tensor);
+        VLOG(0) << "multiply";
         x_grad_tmp = expand_out_grad * (x_grad_tmp);
 
       } else if (porder == INFINITY || porder == -INFINITY) {
