@@ -99,6 +99,8 @@ class TestFullAPI(unittest.TestCase):
                 shape=10, dtype="complex128", fill_value=1.1 + np.nan * 1j
             )
 
+            out_17 = paddle.full(shape=10, fill_value=1.1 + 1.1j)
+
             exe = base.Executor(place=base.CPUPlace())
             (
                 res_1,
@@ -117,6 +119,7 @@ class TestFullAPI(unittest.TestCase):
                 res_14,
                 res_15,
                 res_16,
+                res_17,
             ) = exe.run(
                 paddle.static.default_main_program(),
                 feed={
@@ -140,6 +143,7 @@ class TestFullAPI(unittest.TestCase):
                     out_14,
                     out_15,
                     out_16,
+                    out_17,
                 ],
             )
 
@@ -197,6 +201,7 @@ class TestFullAPI(unittest.TestCase):
         np.testing.assert_allclose(
             res_16, np.full([10], 1.1 + np.nan * 1j, dtype="complex128")
         )
+        np.testing.assert_allclose(res_17, np.full([10], 1.1 + 1.1j))
         paddle.disable_static()
 
     def test_api_eager(self):
@@ -246,6 +251,13 @@ class TestFullAPI(unittest.TestCase):
                 fill_value=1.1,
             )
 
+            # test for numpy.float64 as fill_value
+            out_10 = paddle.full_like(
+                out_7, dtype=np.float32, fill_value=np.abs(1.1)
+            )
+
+            out_11 = paddle.full(shape=10, dtype="float32", fill_value=1.1)
+
             out_12 = paddle.full(
                 shape=[1, 2, 3], dtype="complex64", fill_value=1.1 + 1.1j
             )
@@ -284,12 +296,8 @@ class TestFullAPI(unittest.TestCase):
                 fill_value=1.1 + np.nan * 1j,
             )
 
-            # test for numpy.float64 as fill_value
-            out_10 = paddle.full_like(
-                out_7, dtype=np.float32, fill_value=np.abs(1.1)
-            )
-
-            out_11 = paddle.full(shape=10, dtype="float32", fill_value=1.1)
+            # test without dtype input for complex
+            out_20 = paddle.full(shape=[1, 2, 3], fill_value=1.1 + 1.1j)
 
             np.testing.assert_array_equal(
                 out_1, np.full([1, 2], 1.1, dtype="float32")
@@ -351,6 +359,7 @@ class TestFullAPI(unittest.TestCase):
                 out_19,
                 np.full([1, 2, 3], 1.1 + np.nan * 1j, dtype="complex128"),
             )
+            np.testing.assert_allclose(out_20, np.full([1, 2, 3], 1.1 + 1.1j))
 
 
 class TestFullOpError(unittest.TestCase):
