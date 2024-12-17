@@ -2726,14 +2726,14 @@ function hybrid_paddlex() {
     -o Global.mode=train \
     -o Global.dataset_dir=./dataset/cls_flowers_examples \
     -o Global.output=resnet50_output \
-    -o Global.device="gpu:0,1"
+    -o Global.device="gpu:${HIP_VISIBLE_DEVICES}" \
+    -o Train.epochs_iters=2
 
     # inference Reset50
-    #python main.py -c paddlex/configs/image_classification/ResNet50.yaml \
-    #-o Global.mode=predict \
-    #-o Predict.model_dir="./resnet50_output/best_model" \
-    #-o Predict.input_path="https://paddle-model-ecology.bj.bcebos.com/paddlex/imgs/demo_image/general_image_classification_001.jpg" \
-    #-o Global.device="gpu:${DEVICE[0]}"
+    python main.py -c paddlex/configs/image_classification/ResNet50.yaml \
+    -o Global.mode=predict \
+    -o Predict.model_dir="./resnet50_output/best_model/inference" \
+    -o Global.device="gpu:${DEVICE[0]}"
     echo "End Reset50"
 
     echo "Start DeepLabv3+"
@@ -2742,14 +2742,14 @@ function hybrid_paddlex() {
     -o Global.mode=train \
     -o Global.dataset_dir=./dataset/seg_optic_examples \
     -o Global.output=deeplabv3p_output \
-    -o Global.device="gpu:0,1"
+    -o Global.device="gpu:${HIP_VISIBLE_DEVICES}" \
+    -o Train.epochs_iters=2
 
     # inference DeepLabv3+
-    #python main.py -c paddlex/configs/semantic_segmentation/Deeplabv3_Plus-R50.yaml \
-    #-o Global.mode=predict \
-    #-o Predict.model_dir="./deeplabv3p_output/best_model/model/" \
-    #-o Predict.input_path="https://paddle-model-ecology.bj.bcebos.com/paddlex/imgs/demo_image/general_semantic_segmentation_001.jpg" \
-    #-o Global.device="gpu:${DEVICE[0]}"
+    python main.py -c paddlex/configs/semantic_segmentation/Deeplabv3_Plus-R50.yaml \
+    -o Global.mode=predict \
+    -o Predict.model_dir="./deeplabv3p_output/best_model/inference" \
+    -o Global.device="gpu:${DEVICE[0]}"
     echo "End DeepLabv3+"
 
 }
