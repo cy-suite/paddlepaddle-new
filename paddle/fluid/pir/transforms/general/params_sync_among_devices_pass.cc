@@ -96,12 +96,10 @@ class ParamsSyncAmongDevicesPass : public pir::Pass {
       }
     }
 
-    // If the size of dense_tensors is less than 8, set num_threads to 1 to
-    // avoid unnecessary overhead. Otherwise, use 8 threads for parallel
-    // processing.
-    size_t num_threads = (dense_tensors.size() < 8) ? 1 : 8;
+    size_t num_threads = 8;
     const size_t chunk_size =
         std::max(static_cast<size_t>(1), dense_tensors.size() / num_threads);
+    num_threads = std::min(num_threads, dense_tensors.size() / chunk_size);
     size_t remain_size = dense_tensors.size() % num_threads;
     auto process_task = [&](size_t thread_id, auto begin, auto end) -> int64_t {
       int64_t local_rewrites = 0;
