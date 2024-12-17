@@ -1203,26 +1203,6 @@ using LogicalOr_OpPattern =
 using LogicalAndOpPattern =
     LogicalCommonOpPattern<paddle::dialect::LogicalAndOp>;
 
-template <typename OpType>
-class AffineChannelOpPattern : public pir::OpRewritePattern<OpType> {
- public:
-  using pir::OpRewritePattern<OpType>::OpRewritePattern;
-  bool MatchAndRewrite(OpType op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->template attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-    if (!op->HasAttribute("data_layout")) {
-      VLOG(3) << op->name() << "must has data_layout";
-      return false;
-    }
-
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
-
 class MulticlassNms3OpPattern
     : public pir::OpRewritePattern<paddle::dialect::MulticlassNms3Op> {
  public:
