@@ -80,22 +80,25 @@ void Atan2Kernel(const Context& ctx,
     return;
   }
 
-  std::vector<const DenseTensor*> inputs = {&x, &y};
-  std::vector<DenseTensor> output_tensors(2);
-  for (auto& tensor : output_tensors) {
-    tensor.Resize(out->dims());
-  }
-  std::vector<DenseTensor*> outputs = {&output_tensors[0], &output_tensors[1]};
-  BroadcastTensorsKernel<T, Context>(ctx, inputs, outputs);
-  auto x_broadcasted = *outputs[0];
-  auto y_broadcasted = *outputs[1];
-  out->Resize(x_broadcasted.dims());
-  auto* out_data = ctx.template Alloc<typename Atan2Out<T>::type>(out);
-  auto x_data = x_broadcasted.data<T>();
-  auto y_data = y_broadcasted.data<T>();
+  const auto* x_data = x.data<T>();
+  const auto* y_data = y.data<T>();
 
-  phi::funcs::ForRange<Context> for_range(ctx, out->numel());
-  phi::Atan2Functor<T> functor(x_data, y_data, out_data, out->numel());
+  DenseTensor x_broadcasted, y_broadcasted;
+  if (x.dims() != y.dims()) {
+    std::vector<const DenseTensor*> inputs = {&x, &y};
+    std::vector<DenseTensor*> outputs = {&x_broadcasted, &y_broadcasted};
+    for (auto* tensor : outputs) {
+      tensor->Resize(out->dims());
+    }
+    BroadcastTensorsKernel<T, Context>(ctx, inputs, outputs);
+    x_data = x_broadcasted.data<T>();
+    y_data = y_broadcasted.data<T>();
+  }
+
+  auto* out_data = ctx.template Alloc<typename Atan2Out<T>::type>(out);
+  const auto numel = out->numel();
+  phi::funcs::ForRange<Context> for_range(ctx, numel);
+  phi::Atan2Functor<T> functor(x_data, y_data, out_data, numel);
   for_range(functor);
 }
 

@@ -249,11 +249,15 @@ class TestAtan2EmptyTensorInput(TestAtan2Broadcasting):
         self._test_with_shapes([(), (0,)])
         self._test_with_shapes([(0,), (0, 0)])
         self._test_with_shapes([(0, 0, 0), (0,)])
+        self._test_with_shapes([(5, 17, 1, 6), (5, 17, 0, 6)])
+        self._test_with_shapes([(5, 17, 6), (0, 5, 17, 6)])
 
     def _test_api_with_static_empty_tensor_input(self, place):
         self._test_with_shapes([(), (0,)], place)
         self._test_with_shapes([(0,), (0, 0)], place)
         self._test_with_shapes([(0, 0, 0), (0,)], place)
+        self._test_with_shapes([(5, 17, 1, 6), (5, 17, 0, 6)], place)
+        self._test_with_shapes([(5, 17, 6), (0, 5, 17, 6)])
 
 
 if __name__ == '__main__':
