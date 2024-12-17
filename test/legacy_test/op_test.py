@@ -525,6 +525,7 @@ class OpTest(unittest.TestCase):
                 not cls.input_shape_is_large
                 and cls.op_type
                 not in check_shape_white_list.NEED_TO_FIX_OP_LIST
+                and not is_xpu_op_test()
             ):
                 raise AssertionError(
                     "Number of element(s) of input should be large than or equal to 100 for "
@@ -902,13 +903,13 @@ class OpTest(unittest.TestCase):
             return paddle.to_tensor(value)
 
     def get_sequence_batch_size_1_input(self, lod=None, shape=None):
-        """Get LoD input data whose batch size is 1.
+        """Get LegacyLoD input data whose batch size is 1.
         All sequence related OP unittests should call this function to contain the case of batch size = 1.
         Args:
             lod (list[list of int], optional): Length-based LoD, length of lod[0] should be 1. Default: [[13]].
             shape (list, optional): Shape of input, shape[0] should be equals to lod[0][0]. Default: [13, 23].
         Returns:
-            tuple (ndarray, lod) : LoD input data whose batch size is 1.
+            tuple (ndarray, lod) : LegacyLoD input data whose batch size is 1.
         """
         if lod is None:
             lod = [[13]]
@@ -937,13 +938,13 @@ class OpTest(unittest.TestCase):
         return False
 
     def get_sequence_instance_size_0_input(self, lod=None, shape=None):
-        """Get LoD input data whose instance size is 0.
+        """Get LegacyLoD input data whose instance size is 0.
         All sequence related OP unittests should call this function to contain the case of instance size is 0.
         Args:
             lod (list[list of int], optional): Length-based LoD, lod[0]'s size must at least eight, lod[0] must at least two zeros at the beginning and at least two zeros at the end, the middle position of lod[0] contains a single zero and multiple zero. Default: [[0, 0, 4, 0, 3, 0, 0, 5, 0, 0]].
             shape (list, optional): Shape of input, shape[0] should be equals to lod[0][0]. Default: [13, 23].
         Returns:
-            tuple (ndarray, lod): LoD input data whose instance size is 0.
+            tuple (ndarray, lod): LegacyLoD input data whose instance size is 0.
         """
         if lod is None:
             lod = [[0, 0, 4, 0, 3, 0, 0, 5, 0, 0]]
@@ -2281,10 +2282,6 @@ class OpTest(unittest.TestCase):
                     ),
                 )
 
-            def _compare_list(self, name, actual, expect):
-                """if expect is a tuple, we need to compare list."""
-                raise NotImplementedError("base class, not implement!")
-
             def compare_single_output_with_expect(self, name, expect):
                 actual, actual_np = self.find_actual_value(name)
                 # expect_np = expect[0] if isinstance(expect, tuple) else expect
@@ -2301,8 +2298,6 @@ class OpTest(unittest.TestCase):
                 )
                 # modify there for fp32 check
                 self._compare_numpy(name, actual_np, expect_np)
-                if isinstance(expect, (tuple, list)):
-                    self._compare_list(name, actual, expect)
 
             def compare_outputs_with_expects(self):
                 for out_name, out_dup in Operator.get_op_outputs(self.op_type):
@@ -2387,14 +2382,6 @@ class OpTest(unittest.TestCase):
                     actual_np = convert_uint16_to_float(actual_np)
                     atol = max(atol, 0.03)
                 return actual_np, expect_np
-
-            def _compare_list(self, name, actual, expect):
-                """if expect is a tuple, we need to compare list."""
-                self.op_test.assertListEqual(
-                    actual.recursive_sequence_lengths(),
-                    expect[1],
-                    "Output (" + name + ") has different lod at " + str(place),
-                )
 
         class DygraphChecker(Checker):
             def init(self):
@@ -2481,23 +2468,6 @@ class OpTest(unittest.TestCase):
                         imperative_expect.value().get_tensor()
                     )
                     return imperative_expect, imperative_expect_t
-
-            def _compare_list(self, name, actual, expect):
-                """if expect is a tuple, we need to compare list."""
-                with base.dygraph.base.guard(place=place):
-                    self.op_test.assertListEqual(
-                        actual.value()
-                        .get_tensor()
-                        .recursive_sequence_lengths(),
-                        expect[1],
-                        "Operator ("
-                        + self.op_type
-                        + ") Output ("
-                        + name
-                        + ") has different lod at "
-                        + str(place)
-                        + " in dygraph mode",
-                    )
 
             def _is_skip_name(self, name):
                 # if in final state and kernel signature don't have name, then skip it.
@@ -2623,23 +2593,6 @@ class OpTest(unittest.TestCase):
                     expect_t = np.array(expect)
                     return expect, expect_t
 
-            def _compare_list(self, name, actual, expect):
-                """if expect is a tuple, we need to compare list."""
-                with paddle.pir.core.program_guard(place=place):
-                    self.op_test.assertListEqual(
-                        actual.value()
-                        .get_tensor()
-                        .recursive_sequence_lengths(),
-                        expect[1],
-                        "Operator ("
-                        + self.op_type
-                        + ") Output ("
-                        + name
-                        + ") has different lod at "
-                        + str(place)
-                        + " in dygraph mode",
-                    )
-
             def _is_skip_name(self, name):
                 # if in final state and kernel signature don't have name, then skip it.
                 if (
@@ -2660,7 +2613,7 @@ class OpTest(unittest.TestCase):
                 self.checker_name = "symbol infer checker"
 
             def infer_and_compare_symbol(self):
-                """infer symbol and compare it with actualy shape and data"""
+                """infer symbol and compare it with actual shape and data"""
                 self.is_python_api_test = True
                 self.op_test._infer_and_compare_symbol(place)
 
@@ -3093,19 +3046,9 @@ class OpTest(unittest.TestCase):
                 def err_msg():
                     offset = np.argmax(diff_mat > max_relative_error)
                     return (
-                        "Operator %s error, %s variable %s (shape: %s, dtype: %s) max gradient diff %e over limit %e, "
-                        "the first error element is %d, expected %e, but got %e."
-                    ) % (
-                        self.op_type,
-                        msg_prefix,
-                        name,
-                        str(a.shape),
-                        self.dtype,
-                        max_diff,
-                        max_relative_error,
-                        offset,
-                        a.flatten()[offset],
-                        b.flatten()[offset],
+                        f"Operator {self.op_type} error, {msg_prefix} variable {name} (shape: {a.shape!s}, dtype: {self.dtype}) "
+                        f"max gradient diff {max_diff:e} over limit {max_relative_error:e}, "
+                        f"the first error element is {offset}, expected {a.flatten()[offset].item():e}, but got {b.flatten()[offset].item():e}."
                     )
 
                 self.assertLessEqual(max_diff, max_relative_error, err_msg())

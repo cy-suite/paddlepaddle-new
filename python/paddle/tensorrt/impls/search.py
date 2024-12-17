@@ -21,7 +21,7 @@ from paddle.tensorrt.converter_utils import (
     trt_cast,
     trt_reshape,
     trt_shape,
-    unsqueeze_trt,
+    trt_unsqueeze,
 )
 from paddle.tensorrt.register import converter_registry
 
@@ -35,7 +35,7 @@ def non_zero_converter(network, paddle_op, inputs):
     return non_zero_layer.get_output(0)
 
 
-@converter_registry.register("pd_op.argmax", trt_version="8.x")
+@converter_registry.register("pd_op.argmax", trt_version="trt_version_ge=8.0")
 def argmax_converter(network, paddle_op, inputs):
     x = inputs[0]
     input_dims = x.shape
@@ -155,18 +155,22 @@ def where_converter(network, paddle_op, inputs):
 def topk_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
 
-    input_shape = paddle_op.operands()[0].source().shape
+    input_shape = input_tensor.shape
 
-    k = paddle_op.attrs().get("k", 1)
     axis = paddle_op.attrs().get("axis", -1)
     largest = paddle_op.attrs().get("largest", True)
     flag = trt.TopKOperation.MAX if largest else trt.TopKOperation.MIN
 
+    k_op = paddle_op.operands()[1].source().get_defining_op()
+    if k_op.name() == "pd_op.full":
+        k = k_op.attrs()["value"]
+    else:
+        raise NotImplementedError("Dynamic k is not supported in TensorRT.")
     input_rank = len(input_shape)
 
     expand_to_2d = input_rank == 1
     if expand_to_2d:
-        input_tensor = unsqueeze_trt(network, input_tensor, [1])
+        input_tensor = trt_unsqueeze(network, input_tensor, [1])
 
     input_type = input_tensor.dtype
     if input_type == trt.DataType.INT32:
@@ -174,7 +178,8 @@ def topk_converter(network, paddle_op, inputs):
 
     if axis < 0:
         axis += input_rank
-    layer = network.add_topk(input_tensor, flag, k, 1 << axis)
+
+    layer = network.add_topk(input_tensor, flag, int(k), 1 << axis)
     values = layer.get_output(0)
     indices = layer.get_output(1)
 

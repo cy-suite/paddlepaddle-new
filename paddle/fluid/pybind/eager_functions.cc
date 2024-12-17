@@ -139,6 +139,7 @@ static PyObject* eager_api_scale(PyObject* self,
   paddle::Tensor ret;
   {
     eager_gil_scoped_release guard;
+    EagerSetDeviceId();
     ret = egr::scale(tensor, scale, bias, bias_after_scale, trace_backward);
   }
   return ToPyObject(ret);
@@ -159,6 +160,7 @@ static PyObject* eager_api_run_backward(PyObject* self,
   }
   {
     eager_gil_scoped_release guard;
+    EagerSetDeviceId();
     egr::Backward(tensors, grad_tensors, retain_graph);
   }
   RETURN_PY_NONE
@@ -189,6 +191,7 @@ static PyObject* eager_api_run_partial_grad(PyObject* self,
   std::vector<paddle::Tensor> result;
   {
     eager_gil_scoped_release guard;
+    EagerSetDeviceId();
     result = egr::Grad(tensors,
                        inputs,
                        grad_tensors,
@@ -216,6 +219,7 @@ static PyObject* eager_api_tensor_copy(PyObject* self,
 
   {
     eager_gil_scoped_release guard;
+    EagerSetDeviceId();
     dst = src.copy_to(place, blocking);
     egr::EagerUtils::autograd_meta(&dst)->SetStopGradient(
         egr::EagerUtils::autograd_meta(&(src))->StopGradient());
@@ -461,6 +465,7 @@ static PyObject* eager_api_jit_function_call(PyObject* self,
   std::vector<paddle::Tensor> outs;
   {
     eager_gil_scoped_release guard;
+    EagerSetDeviceId();
     outs = (*function)(ins);
   }
   return ToPyObject(outs);
@@ -672,6 +677,7 @@ PyObject* eager_api_run_custom_op(PyObject* self,
 
   {
     eager_gil_scoped_release guard;
+    EagerSetDeviceId();
     ctx.ConstructInplaceIndex(inputs, outputs, inplace_map);
     const auto& inplace_reverse_idx_map = ctx.GetInplaceReverseIndexMap();
     for (size_t out_idx = 0; out_idx < outputs.size(); ++out_idx) {
@@ -726,10 +732,11 @@ PyObject* eager_api_run_custom_op(PyObject* self,
               paddle::framework::detail::IsOptionalVar(outputs.at(i)) ||
                   out_tensor->is_dist_tensor(),
               common::errors::InvalidArgument(
-                  "Custom operator's %d-th output is not initialized. "
+                  "Custom operator[%s]'s %d-th output is not initialized. "
                   "Please check your implementation again. If you are "
                   "using inplace optional output, then you must use "
                   "`paddle::Optional` to decorate this output",
+                  op_type,
                   i));
           // We can also consider using `autograd_meta` to tolerant nullptr.
           out_tensor->set_autograd_meta(std::make_shared<egr::AutogradMeta>());
@@ -872,6 +879,7 @@ static PyObject* eager_api_sparse_coo_tensor(PyObject* self,
   paddle::Tensor tensor;
   {
     eager_gil_scoped_release guard;
+    EagerSetDeviceId();
     PADDLE_ENFORCE(
         non_zero_indices.is_dense_tensor(),
         common::errors::Fatal("the non-zero indices must be a DenseTensor."));
@@ -916,6 +924,7 @@ static PyObject* eager_api_sparse_csr_tensor(PyObject* self,
   paddle::Tensor tensor;
   {
     eager_gil_scoped_release guard;
+    EagerSetDeviceId();
     PADDLE_ENFORCE(non_zero_crows.is_dense_tensor(),
                    common::errors::Fatal(
                        "the compressed non-zero rows must be a DenseTensor."));
@@ -996,6 +1005,7 @@ static PyObject* eager_api_async_read(PyObject* self,
 
   {
     eager_gil_scoped_release guard;
+    EagerSetDeviceId();
     PADDLE_ENFORCE_EQ(
         src.is_gpu_pinned(),
         true,
@@ -1175,6 +1185,7 @@ static PyObject* eager_api_async_write(PyObject* self,
   }
   {
     eager_gil_scoped_release guard;
+    EagerSetDeviceId();
     PADDLE_ENFORCE_EQ(
         src.is_gpu(),
         true,
