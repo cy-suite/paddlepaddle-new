@@ -159,6 +159,7 @@ class CinnJitInstruction::FnPtrImpl {
   }
 
   void InferShape(const std::vector<phi::DenseTensor*>& kernel_tensor_args,
+                  const std::vector<phi::DDim>& ir_dim,
                   int32_t input_tensor_size,
                   int32_t output_tensor_size) {
     VLOG(6) << "Start InferShape: " << cinn_kernel_info_.fn_name;
@@ -180,7 +181,7 @@ class CinnJitInstruction::FnPtrImpl {
     for (int i = 0; i < output_tensor_size; ++i) {
       DDim dim(output_tensor_shapes[i],
                kernel_tensor_args[input_tensor_size + i]->dims().size());
-      CheckDims(kernel_tensor_args[input_tensor_size + i]->dims(), dim);
+      CheckDims(ir_dim[input_tensor_size + i], dim);
       kernel_tensor_args[input_tensor_size + i]->Resize(dim);
       free(output_tensor_shapes[i]);
     }
@@ -244,6 +245,8 @@ CinnJitInstruction::CinnJitInstruction(
                       ->GetMutable<phi::DenseTensor>();
 
     tensor_args_.push_back(tensor);
+    ir_dims_.push_back(
+        in.type().dyn_cast<paddle::dialect::DenseTensorType>().dims());
   }
 
   if (op->HasAttribute("exec_backend")) {
@@ -262,6 +265,8 @@ CinnJitInstruction::CinnJitInstruction(
                       ->Var(var_name)
                       ->GetMutable<phi::DenseTensor>();
 
+    ir_dims_.push_back(
+        result.type().dyn_cast<paddle::dialect::DenseTensorType>().dims());
     tensor_args_.push_back(tensor);
     auto alloc_tensor_type =
         result.type().dyn_cast<paddle::dialect::AllocatedDenseTensorType>();
@@ -307,7 +312,7 @@ void CinnJitInstruction::Run() {
 
   if (need_update_shape) {
     fn_ptr_impl_->InferShape(
-        tensor_args_, input_tensor_size, output_tensor_size);
+        tensor_args_, ir_dims_, input_tensor_size, output_tensor_size);
   }
   for (size_t i = 0; i < tensor_args_.size(); ++i) {
     dev_ctx_->Alloc(tensor_args_[i], tensor_args_[i]->dtype());
