@@ -164,18 +164,6 @@ class TestPredictorRunWithTensor(unittest.TestCase):
 
         return [input0_tensor, input1_tensor]
 
-    def get_disorder_output(self, predictor):
-        [input0_tensor, input1_tensor] = self.get_inputs()
-
-        input_names = predictor.get_input_names()
-        input0_tensor.name = input_names[0]
-        input1_tensor.name = input_names[1]
-
-        inputs = [input1_tensor, input0_tensor]
-        outputs = predictor.run(inputs)
-
-        return outputs[0]
-
     def get_inorder_output(self, predictor):
         [input0_tensor, input1_tensor] = self.get_inputs()
 
@@ -228,7 +216,7 @@ class TestPredictorRunWithTensor(unittest.TestCase):
 
         self.pir_setup()
         pir_predictor = self.init_pir_predictor()
-        pir_output = self.get_disorder_output(pir_predictor)
+        pir_output = self.get_inorder_output(pir_predictor)
 
         self.old_combine_ir_setup()
         combine_predictor = self.init_combine_predictor()
