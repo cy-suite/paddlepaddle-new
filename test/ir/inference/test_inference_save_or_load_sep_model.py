@@ -62,7 +62,7 @@ class TestPredictorRunWithTensor(unittest.TestCase):
                 model,
                 os.path.join(
                     self.temp_dir.name,
-                    'test_inference_save_or_load_sep_model/pir/__model__',
+                    'test_inference_save_or_load_sep_model/pir/model',
                 ),
                 separate_parameters=True,
             )
@@ -85,7 +85,7 @@ class TestPredictorRunWithTensor(unittest.TestCase):
                 model,
                 os.path.join(
                     self.temp_dir.name,
-                    'test_inference_save_or_load_sep_model/ir/__model__',
+                    'test_inference_save_or_load_sep_model/ir/model',
                 ),
                 separate_parameters=True,
             )
@@ -186,8 +186,8 @@ class TestPredictorRunWithTensor(unittest.TestCase):
             has_not_pdiparams = any(
                 file.endswith("pdiparams") for file in files
             )
-            has_not_json = any(file.endswith(".json") for file in files)
-            return not (has_not_pdiparams or has_not_json)
+            has_model = "__model__" in files
+            return (not has_not_pdiparams) and has_model
 
         def check_ir_c_folder(folder_path):
             files = os.listdir(folder_path)
@@ -200,7 +200,7 @@ class TestPredictorRunWithTensor(unittest.TestCase):
             has_not_pdiparams = any(
                 file.endswith("pdiparams") for file in files
             )
-            has_json = any(file.endswith(".json") for file in files)
+            has_json = "__model__.json" in files
             return (not has_not_pdiparams) and has_json
 
         return (

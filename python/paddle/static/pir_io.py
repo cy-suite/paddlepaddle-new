@@ -765,7 +765,16 @@ def save_inference_model_pir(
     readable = kwargs.get('readable', False)
     trainable = kwargs.get('trainable', True)
     paddle.core.serialize_pir_program(
-        program, model_path, 1, True, readable, trainable
+        program,
+        (
+            os.path.join(os.path.dirname(model_path), "__model__.json")
+            if kwargs.get('separate_parameters', False)
+            else model_path
+        ),
+        1,
+        True,
+        readable,
+        trainable,
     )
 
     # serialize and save params
