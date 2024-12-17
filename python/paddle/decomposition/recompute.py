@@ -459,10 +459,13 @@ def auto_recompute(
         return not all(_is_fusible(value_node, user) for user in users)
 
     def _get_node_weight(value_node, placeholder_value_nodes):
-        if value_node.get_defining_op().name() in tending_to_recompute_ops:
-            return math.inf
-
         mem_sz = cal_value_node_size(value_node)
+
+        if (
+            value_node.get_defining_op().name() in tending_to_recompute_ops
+            and mem_sz == 0
+        ):
+            return 0.1
 
         # Heuristic to bias towards nodes closer to the backwards pass
         mem_sz = int(
