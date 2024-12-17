@@ -482,7 +482,6 @@ void SubgraphDetector::SubgraphFusion() {
       }
     }
   }
-  ReorderIndexOfSubgraphs();
   VLOG(4) << "Merge brother subgraphs with same upstream";
   for (const auto& op : sort_ops_) {
     auto subgraph = GetOpSubgraph(op);
