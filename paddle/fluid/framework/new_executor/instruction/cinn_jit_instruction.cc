@@ -180,6 +180,7 @@ class CinnJitInstruction::FnPtrImpl {
     for (int i = 0; i < output_tensor_size; ++i) {
       DDim dim(output_tensor_shapes[i],
                kernel_tensor_args[input_tensor_size + i]->dims().size());
+      CheckDims(kernel_tensor_args[input_tensor_size + i]->dims(), dim);
       kernel_tensor_args[input_tensor_size + i]->Resize(dim);
       free(output_tensor_shapes[i]);
     }
@@ -193,6 +194,22 @@ class CinnJitInstruction::FnPtrImpl {
       }
     }
     func_args_.clear();
+  }
+
+  void CheckDims(const DDim& first, const DDim& second) const {
+    for (size_t i = 0; i < first.size(); ++i) {
+      if (first[i] > 0) {
+        PADDLE_ENFORCE_EQ(first[i],
+                          second[i],
+                          phi::errors::PreconditionNotMet(
+                              "Dim MUST be equal"
+                              ", but Get first[%d] is [%d], second[%d] is[%d]",
+                              i,
+                              first[i],
+                              i,
+                              second[i]));
+      }
+    }
   }
 
  private:
