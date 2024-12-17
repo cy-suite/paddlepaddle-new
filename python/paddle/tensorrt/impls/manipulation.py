@@ -953,9 +953,8 @@ def roll_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.index_put", trt_version="8.x")
 def index_put_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
-    indices_tensor = paddle_op.attrs().get("indices")
-    value_tensor = paddle_op.attrs().get("value")
-    accumulate = paddle_op.attrs().get("accumulate")
+    indices_tensor = inputs[1]
+    value_tensor = inputs[2]
 
     input_shape_tensor = trt_shape(input_tensor)
     input_shape = input_tensor.shape
@@ -995,7 +994,7 @@ def index_put_converter(network, paddle_op, inputs):
     # nonzero
     nonzero_layer = network.add_non_zero(bool_indices_tensor)
     indices_tensor = nonzero_layer.get_output(0)
-    permutation = [1, 0]
+    permutation = trt.Permutation([1, 0])
     trans_layer = network.add_shuffle(indices_tensor)
     trans_layer.first_transpose = permutation
     indices_tensor = trans_layer.get_output(0)
@@ -1015,18 +1014,7 @@ def index_put_converter(network, paddle_op, inputs):
     value_slice_layer.mode = trt.SampleMode.CLAMP
     value_tensor = value_slice_layer.get_output(0)
 
-    if accumulate:
-        accumulated_value_tensor = network.add_elementwise(
-            input_tensor, value_tensor, trt.ElementWiseOperation.SUM
-        ).get_output(0)
-        layer = network.add_scatter(
-            accumulated_value_tensor,
-            indices_tensor,
-            value_tensor,
-            trt.ScatterMode.ND,
-        )
-    else:
-        layer = network.add_scatter(
-            input_tensor, indices_tensor, value_tensor, trt.ScatterMode.ND
-        )
+    layer = network.add_scatter(
+        input_tensor, indices_tensor, value_tensor, trt.ScatterMode.ND
+    )
     return layer.get_output(0)
