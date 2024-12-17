@@ -80,11 +80,6 @@ class PaddleToTensorRTConverter:
             param_dict.update({name: weight_array})
         self.param_dict = param_dict
 
-        trt_manager = TensorRTConfigManager()
-        if self.trt_config is not None and self.trt_config.ops_run_float:
-            trt_manager.set_force_fp32_ops(self.trt_config.ops_run_float)
-            _logger.info(f"force_fp32_ops: {trt_manager.get_force_fp32_ops()}")
-
         self.input_info = {}
         self.trt_output_value_map = {}
         self.engine_num = 0
@@ -128,6 +123,10 @@ class PaddleToTensorRTConverter:
 
     def convert_subgraph_to_trt(self, program, group_op):
         from .export import PrecisionMode
+
+        trt_manager = TensorRTConfigManager(self.trt_config)
+        if self.trt_config is not None and self.trt_config.ops_run_float:
+            _logger.info(f"force_fp32_ops: {trt_manager.get_force_fp32_ops()}")
 
         _logger.info(f"start process {group_op}")
 
