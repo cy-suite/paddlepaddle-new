@@ -61,22 +61,14 @@ pir::Value full(const std::vector<int64_t>& shape,
                 double imag,
                 phi::DataType dtype,
                 const phi::Place& place) {
-  // AMP Logic
-  VLOG(5) << " No AMP for full because it has no input. ";
-  // Type Promotion Logic
-  VLOG(5) << " No Type Promotion for full api. ";  // Type Autocast Logic
-  VLOG(5) << " No Type Autocast for full api. ";
   CheckDataType(dtype, "dtype", "full");
   if (dtype == phi::DataType::COMPLEX64) {
-    printf("COMPLEX64,NEED FLOAT32\n");
-  } else if (dtype == phi::DataType::COMPLEX128) {
-    printf("COMPLEX128,NEED FLOAT64\n");
+    dtype = phi::DataType::FLOAT32;
   } else {
-    printf("\n看起来不像我们想要的输入\n");
+    dtype = phi::DataType::FLOAT64;
   }
-
-  pir::Value real_tmp = full(shape, real, phi::DataType::FLOAT32, place);
-  pir::Value imag_tmp = full(shape, imag, phi::DataType::FLOAT32, place);
+  pir::Value real_tmp = full(shape, real, dtype, place);
+  pir::Value imag_tmp = full(shape, imag, dtype, place);
   return paddle::dialect::complex(real_tmp, imag_tmp);
 }
 
