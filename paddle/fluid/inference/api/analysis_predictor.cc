@@ -1259,7 +1259,6 @@ bool AnalysisPredictor::SaveOrLoadPirParameters(bool for_save) {
   } else {
     if (load_separate_params_) {
       std::string params_dir = config_.model_dir();
-      VLOG(6) << "params_dir" << params_dir;
 
       auto process_params = [this, &params_dir, &filter_param_names](
                                 size_t start_idx, size_t end_idx) {
@@ -1269,20 +1268,10 @@ bool AnalysisPredictor::SaveOrLoadPirParameters(bool for_save) {
           const auto &param_name = filter_param_names[j];
           std::string param_file = params_dir + "/" + param_name;
 
-          VLOG(3) << "Loading parameter from: " << param_file;
-
-          std::ifstream f(param_file);
-          if (!f) {
-            std::cerr << "Parameter file " << param_file << " does not exist"
-                      << std::endl;
-            continue;
-          }
-          f.close();
-
           auto *var = sub_scope_->FindVar(param_name);
+          VLOG(4) << "persistable variable's name: " << param_name;
           if (var == nullptr) {
-            std::cerr << "Variable " << param_name << " not found in scope"
-                      << std::endl;
+            VLOG(4) << "Variable " << param_name << " not found in scope";
             continue;
           }
           auto *tensor_temp = var->GetMutable<phi::DenseTensor>();
@@ -1296,9 +1285,13 @@ bool AnalysisPredictor::SaveOrLoadPirParameters(bool for_save) {
       };
 
       size_t num_threads = 8;
-      size_t chunk_size =
-          (filter_param_names.size() + num_threads - 1) / num_threads;
+      size_t chunk_size = std::max(static_cast<size_t>(1),
+                                   filter_param_names.size() / num_threads);
+      num_threads =
+          std::min(num_threads, filter_param_names.size() / chunk_size);
       size_t remain_size = filter_param_names.size() % num_threads;
+      VLOG(4) << "Start Load with multi-thread: " << num_threads
+              << " chund size: " << chunk_size;
 
       std::vector<std::future<std::vector<phi::DenseTensor *>>> futures;
 

@@ -19,7 +19,6 @@
 #include "paddle/fluid/pir/dialect/kernel/ir/kernel_attribute.h"
 #include "paddle/fluid/pir/dialect/kernel/ir/kernel_dialect.h"
 #include "paddle/fluid/pir/utils/general_functions.h"
-#include "paddle/phi/common/memory_utils.h"
 #include "paddle/phi/common/place.h"
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/enforce.h"
@@ -95,42 +94,41 @@ class ParamsSyncAmongDevicesPass : public pir::Pass {
         }
       }
     }
+    num_rewrites_ = dense_tensors.size();
 
     size_t num_threads = 8;
     const size_t chunk_size =
         std::max(static_cast<size_t>(1), dense_tensors.size() / num_threads);
     num_threads = std::min(num_threads, dense_tensors.size() / chunk_size);
     size_t remain_size = dense_tensors.size() % num_threads;
-    auto process_task = [&](size_t thread_id, auto begin, auto end) -> int64_t {
-      int64_t local_rewrites = 0;
-      for (auto it = begin; it != end; ++it) {
-        auto* tensor = *it;
-        paddle::framework::TensorCopySync(*tensor, place_, tensor);
-        local_rewrites++;
-      }
 
-      return local_rewrites;
+    auto sync_handler = [&](const std::vector<phi::DenseTensor*>& tensors) {
+      for (auto* tensor : tensors) {
+        paddle::framework::TensorCopySync(*tensor, place_, tensor);
+      }
     };
 
-    std::vector<std::future<int64_t>> futures;
+    std::vector<std::future<void>> futures;
     for (size_t i = 0; i < num_threads; ++i) {
-      auto begin = dense_tensors.begin() + i * chunk_size;
-      auto end =
-          (i == num_threads - 1) ? dense_tensors.end() : begin + chunk_size;
+      auto start_it = dense_tensors.begin() + i * chunk_size;
+      auto end_it =
+          (i == num_threads - 1) ? dense_tensors.end() : start_it + chunk_size;
+
       futures.push_back(
-          std::async(std::launch::async, process_task, i, begin, end));
+          std::async(std::launch::async,
+                     sync_handler,
+                     std::vector<phi::DenseTensor*>(start_it, end_it)));
     }
     if (remain_size > 0) {
-      auto begin = dense_tensors.end() - remain_size;
-      futures.push_back(std::async(std::launch::async,
-                                   process_task,
-                                   num_threads,
-                                   begin,
-                                   dense_tensors.end()));
+      futures.push_back(std::async(
+          std::launch::async,
+          sync_handler,
+          std::vector<phi::DenseTensor*>(
+              dense_tensors.rbegin(), dense_tensors.rbegin() + remain_size)));
     }
 
     for (auto& future : futures) {
-      num_rewrites_ += future.get();
+      future.wait();
     }
     AddStatistics(num_rewrites_);
   }
