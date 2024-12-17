@@ -3529,7 +3529,7 @@ void p_norm_grad(const Tensor& x,
             // only reduce one dimension in forward
             expand_shape = shape64<T>(out_grad);
             std::vector<Tensor> expand_shape_vec;
-            for (int64_t i = 0; i < expand_shape.dims().size(); ++i) {
+            for (int64_t i = 0; i < expand_shape.size(); ++i) {
               expand_shape_vec.push_back(get_slice<T>(expand_shape, i));
             }
             expand_shape_vec.insert(
