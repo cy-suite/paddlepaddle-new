@@ -91,7 +91,7 @@ class CustomOpDialect : public pir::Dialect {
   std::vector<const char*> op_names_;
 };
 
-class CustomEngineDialect : public pir::Dialect {
+class TEST_API CustomEngineDialect : public pir::Dialect {
  public:
   explicit CustomEngineDialect(pir::IrContext* context);
 
