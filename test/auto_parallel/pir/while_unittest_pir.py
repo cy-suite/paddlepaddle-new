@@ -68,7 +68,7 @@ class DemoModel(paddle.nn.Layer):
 
     def forward(self, inputs, input_type):
         tar = paddle.ones_like(input_type) + 3
-
+        inputs = self.layer_a(inputs)
         while not paddle.equal(input_type, tar).all():
             inputs = self.layer_a(inputs)
             input_type = input_type + 1
@@ -147,6 +147,7 @@ class TestWhileDemo:
         dynamic_loss = self.test_dynamic(dist_dataloader)
 
         self.init_env()
+        dist_dataloader = self.create_data_loader()
         dy2static_loss = self.test_dynamic2static(dist_dataloader)
 
         assert dynamic_loss == dy2static_loss
