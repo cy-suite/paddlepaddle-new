@@ -28,38 +28,29 @@ void FrobeniusNormKernel(const Context& dev_ctx,
                          bool keep_dim,
                          bool reduce_all,
                          DenseTensor* out) {
+  auto dim_x = x.dims();
   if (x.numel() == 0) {
-    phi::DenseTensor cpu_out;
-
-    if (reduce_all || static_cast<int64_t>(dims.size()) == x.dims().size()) {
-      cpu_out.Resize({});
-    } else if (keep_dim) {
-      std::vector<int64_t> out_dims(x.dims().size());
-      for (int i = 0; i < x.dims().size(); ++i) {
-        out_dims[i] = x.dims()[i];
+    if (!keep_dim) {
+      std::vector<int64_t> out_dims_vec(dim_x.size() - 2);
+      for (int i = 0; i < dim_x.size() - 2; ++i) {
+        out_dims_vec[i] = dim_x[i];
       }
-      for (int64_t i : dims.GetData()) {
-        out_dims[i] = 1;
-      }
-      cpu_out.Resize(phi::make_ddim(out_dims));
+      out->Resize(phi::make_ddim(out_dims_vec));
+      dev_ctx.template Alloc<int64_t>(out);
+      return;
     } else {
-      std::vector<int64_t> out_dims;
-      for (int i = 0; i < x.dims().size(); ++i) {
-        if (std::find(dims.GetData().begin(), dims.GetData().end(), i) ==
-            dims.GetData().end()) {
-          out_dims.push_back(x.dims()[i]);
-        }
+      std::vector<int64_t> out_dims_vec(dim_x.size());
+      for (int i = 0; i < dim_x.size() - 2; ++i) {
+        out_dims_vec[i] = dim_x[i];
       }
-      cpu_out.Resize(phi::make_ddim(out_dims));
+      out_dims_vec[dim_x.size() - 2] = 1;
+      out_dims_vec[dim_x.size() - 1] = 1;
+
+      out->Resize(phi::make_ddim(out_dims_vec));
+      dev_ctx.template Alloc<int64_t>(out);
+      return;
     }
-
-    cpu_out.mutable_data<T>(dev_ctx.GetPlace());
-    phi::funcs::SetConstant<Context, T> set_zero;
-    set_zero(dev_ctx, &cpu_out, static_cast<T>(0));
-    *out = cpu_out;
-    return;
   }
-
   reduce_all = recompute_reduce_all(x, dims.GetData(), reduce_all);
   auto out_dtype = x.dtype();
   phi::Reduce<T, kps::AddFunctor, kps::SquareFunctor>(

@@ -45,7 +45,7 @@ void PNormKernel(const Context& dev_ctx,
                  bool asvector,
                  DenseTensor* out) {
   using XPUType = typename XPUTypeTrait<T>::Type;
-  dev_ctx.template Alloc<T>(out);
+
   auto xdim = x.dims();
   if (axis < 0) axis = xdim.size() + axis;
   std::vector<int> r_dim;
@@ -63,23 +63,30 @@ void PNormKernel(const Context& dev_ctx,
         errors::InvalidArgument(
             "The dims of Input(X) should be greater than or equal to 0."));
   }
+  auto dim_x = x.dims();
   if (x.numel() == 0) {
-    std::vector<int64_t> out_shape;
-    if (asvector) {
-      out_shape.push_back(1);
-    } else {
-      for (int i = 0; i < xdim.size(); ++i) {
-        if (i != axis || keepdim) {
-          out_shape.push_back(1);
-        }
+    if (!keepdim) {
+      std::vector<int64_t> out_dims_vec(dim_x.size() - 2);
+      for (int i = 0; i < dim_x.size() - 2; ++i) {
+        out_dims_vec[i] = dim_x[i];
       }
-    }
-    out->Resize(phi::make_ddim(out_shape));
-    dev_ctx.template Alloc<T>(out);
-    phi::funcs::set_constant(dev_ctx, out, static_cast<T>(0));
+      out->Resize(phi::make_ddim(out_dims_vec));
+      dev_ctx.template Alloc<int64_t>(out);
+      return;
+    } else {
+      std::vector<int64_t> out_dims_vec(dim_x.size());
+      for (int i = 0; i < dim_x.size() - 2; ++i) {
+        out_dims_vec[i] = dim_x[i];
+      }
+      out_dims_vec[dim_x.size() - 2] = 1;
+      out_dims_vec[dim_x.size() - 1] = 1;
 
-    return;
+      out->Resize(phi::make_ddim(out_dims_vec));
+      dev_ctx.template Alloc<int64_t>(out);
+      return;
+    }
   }
+  dev_ctx.template Alloc<T>(out);
 
   x_dim.push_back(m);
   x_dim.push_back(t);
