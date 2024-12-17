@@ -1198,16 +1198,15 @@ def scaled_dot_product_attention(
             >>> # doctest: -SKIP
     """
 
-    head_dim = query.shape[3]
-    sdp_func_name = _select_sdp_for_sdpa(
-        query, key, attn_mask, dropout_p, is_causal
-    )
-
     if attn_mask is None:
         # downgraded to ordinary flash attention implementation
         out, _ = flash_attention(query, key, value, dropout_p, is_causal)
         return out
     else:
+        head_dim = query.shape[3]
+        sdp_func_name = _select_sdp_for_sdpa(
+            query, key, attn_mask, dropout_p, is_causal
+        )
         if sdp_func_name == "flash_attn":
             if in_dynamic_or_pir_mode():
                 fixed_seed_offset = None
