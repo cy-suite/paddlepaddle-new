@@ -405,8 +405,6 @@ class TestTensordotAPIZeroSize(TestTensordotAPI):
             [[], []],
         ]
 
-
-class TestTensordotAPIFloat64ZeroSize(TestTensordotAPIZeroSize):
     def set_dtype(self):
         self.dtype = np.float64
 
