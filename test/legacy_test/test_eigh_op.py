@@ -16,7 +16,7 @@ import unittest
 
 import numpy as np
 from op_test import OpTest
-from utils import static_guard
+from utils import dygraph_guard, static_guard
 
 import paddle
 
@@ -322,13 +322,28 @@ class TestEighAPIZeroSize(unittest.TestCase):
                 )
                 valid_eigh_shape_result(self.real_data, actual_w, actual_v)
 
+            main_prog = paddle.static.Program()
+            startup_prog = paddle.static.Program()
+            with paddle.static.program_guard(main_prog, startup_prog):
+                input_x = paddle.static.data(
+                    'input_x', shape=self.x_shape, dtype=self.dtype
+                )
+                output_w, output_v = paddle.linalg.eigh(input_x)
+                exe = paddle.static.Executor(paddle.CPUPlace())
+                actual_w, actual_v = exe.run(
+                    main_prog,
+                    feed={"input_x": self.real_data},
+                    fetch_list=[output_w, output_v],
+                )
+                valid_eigh_shape_result(self.real_data, actual_w, actual_v)
+
     def test_in_dynamic_mode(self):
-        paddle.disable_static()
-        input_real_data = paddle.to_tensor(self.real_data)
-        actual_w, actual_v = paddle.linalg.eigh(input_real_data)
-        valid_eigh_shape_result(
-            self.real_data, actual_w.numpy(), actual_v.numpy()
-        )
+        with dygraph_guard():
+            input_real_data = paddle.to_tensor(self.real_data)
+            actual_w, actual_v = paddle.linalg.eigh(input_real_data)
+            valid_eigh_shape_result(
+                self.real_data, actual_w.numpy(), actual_v.numpy()
+            )
 
 
 class TestEighBatchAPIZeroSize(TestEighAPIZeroSize):

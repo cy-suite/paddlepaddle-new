@@ -16,7 +16,7 @@ import unittest
 
 import numpy as np
 from op_test import OpTest
-from utils import static_guard
+from utils import dygraph_guard, static_guard
 
 import paddle
 
@@ -275,7 +275,7 @@ class TestEigvalshAPIZeroSize(unittest.TestCase):
     def init_input_data(self):
         self.real_data = np.random.random(self.x_shape).astype(self.dtype)
 
-    def check_static_float_result(self):
+    def test_in_static_mode(self):
         with static_guard():
             main_prog = paddle.static.Program()
             startup_prog = paddle.static.Program()
@@ -294,12 +294,29 @@ class TestEigvalshAPIZeroSize(unittest.TestCase):
                 expected_w = np.linalg.eigvalsh(self.real_data)
                 compare_shape_result(actual_w[0], expected_w)
 
+            main_prog = paddle.static.Program()
+            startup_prog = paddle.static.Program()
+            with paddle.static.program_guard(main_prog, startup_prog):
+                input_x = paddle.static.data(
+                    'input_x', shape=self.x_shape, dtype=self.dtype
+                )
+                output_w = paddle.linalg.eigvalsh(input_x)
+                exe = paddle.static.Executor(paddle.CPUPlace())
+                actual_w = exe.run(
+                    main_prog,
+                    feed={"input_x": self.real_data},
+                    fetch_list=[output_w],
+                )
+
+                expected_w = np.linalg.eigvalsh(self.real_data)
+                compare_shape_result(actual_w[0], expected_w)
+
     def test_in_dynamic_mode(self):
-        paddle.disable_static(self.place)
-        input_real_data = paddle.to_tensor(self.real_data)
-        expected_w = np.linalg.eigvalsh(self.real_data)
-        actual_w = paddle.linalg.eigvalsh(input_real_data)
-        compare_shape_result(actual_w.numpy(), expected_w)
+        with dygraph_guard():
+            input_real_data = paddle.to_tensor(self.real_data)
+            expected_w = np.linalg.eigvalsh(self.real_data)
+            actual_w = paddle.linalg.eigvalsh(input_real_data)
+            compare_shape_result(actual_w.numpy(), expected_w)
 
 
 class TestEigvalshBatchAPIZeroSize(TestEigvalshAPIZeroSize):
