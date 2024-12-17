@@ -123,9 +123,6 @@ class TestPredictorRunWithTensor(unittest.TestCase):
             )
         )
         config.enable_use_gpu(256, 0)
-        config.switch_ir_optim(False)
-        # config.enable_memory_optim()
-        config.enable_new_executor()
         predictor = create_predictor(config)
         return predictor
 
@@ -141,9 +138,6 @@ class TestPredictorRunWithTensor(unittest.TestCase):
             ),
         )
         config.enable_use_gpu(256, 0)
-        config.switch_ir_optim(False)
-        # config.enable_memory_optim()
-        config.enable_new_executor()
         predictor = create_predictor(config)
         return predictor
 
@@ -155,13 +149,7 @@ class TestPredictorRunWithTensor(unittest.TestCase):
             ),
         )
         config.enable_use_gpu(256, 0)
-        config.switch_ir_optim(False)
-        # config.enable_memory_optim()
-        config.enable_new_executor()
         config.enable_new_ir()
-        # config.switch_ir_debug(
-        #     True, ['add_shadow_output_after_dead_parameter_pass']
-        # )
         predictor = create_predictor(config)
         return predictor
 
@@ -175,7 +163,6 @@ class TestPredictorRunWithTensor(unittest.TestCase):
         input1_tensor = paddle.to_tensor(input1)
 
         return [input0_tensor, input1_tensor]
-        # return [input0_tensor]
 
     def get_disorder_output(self, predictor):
         [input0_tensor, input1_tensor] = self.get_inputs()
@@ -184,7 +171,6 @@ class TestPredictorRunWithTensor(unittest.TestCase):
         input0_tensor.name = input_names[0]
         input1_tensor.name = input_names[1]
 
-        # disorder
         inputs = [input1_tensor, input0_tensor]
         outputs = predictor.run(inputs)
 
@@ -193,7 +179,6 @@ class TestPredictorRunWithTensor(unittest.TestCase):
     def get_inorder_output(self, predictor):
         [input0_tensor, input1_tensor] = self.get_inputs()
 
-        # inorder
         inputs = [input0_tensor, input1_tensor]
         outputs = predictor.run(inputs)
 
