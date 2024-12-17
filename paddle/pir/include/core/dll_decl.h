@@ -25,3 +25,11 @@
 #endif  // IR_LIBRARY
 #endif  // STATIC_IR
 #endif  // _WIN32
+
+#if defined(_WIN32) && !defined(STATIC_PADDLE)
+#ifndef EXPORT_API
+#define EXPORT_API __declspec(dllexport)
+#endif  // EXPORT_API
+#else
+#define EXPORT_API
+#endif  // _WIN32

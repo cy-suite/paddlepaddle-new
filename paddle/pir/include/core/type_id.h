@@ -108,7 +108,7 @@ TypeId TypeId::get() {
   namespace pir {                                      \
   namespace detail {                                   \
   template <>                                          \
-  class PADDLE_API TypeIdResolver<TYPE_CLASS> {        \
+  class EXPORT_API TypeIdResolver<TYPE_CLASS> {        \
    public:                                             \
     static TypeId Resolve() { return id_; }            \
     static UniqueingId id_;                            \
