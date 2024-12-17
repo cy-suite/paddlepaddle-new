@@ -162,12 +162,13 @@ class TensorRTConfigManager:
         self.trt_config = trt_config
 
     def get_precision_mode(self):
-        if self.trt_config and hasattr(self.trt_config, 'precision_mode'):
+        if self.trt_config and self.trt_config.precision_mode:
             return self.trt_config.precision_mode
         return None
 
     def get_force_fp32_ops(self):
-        if self.trt_config and hasattr(self.trt_config, 'ops_run_float'):
+        if self.trt_config and self.trt_config.ops_run_float:
+            print("有trt_config.ops_run_float", self.trt_config.ops_run_float)
             return self.trt_config.ops_run_float
         return []
 
