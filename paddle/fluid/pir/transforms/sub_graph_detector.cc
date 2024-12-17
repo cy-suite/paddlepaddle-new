@@ -478,6 +478,7 @@ void SubgraphDetector::SubgraphFusion() {
         for (auto upstream_op : upstream->ops) {
           op2subgraph_[upstream_op] = downstream;
         }
+        ReorderIndexOfSubgraphs();
       }
     }
   }
