@@ -42,7 +42,7 @@ void ProgramReader::ReadProgram(Json* program_json, pir::Program* program) {
       program_json->at(REGIONS).size(),
       1,
       common::errors::InvalidArgument(
-          "The redions size of program module should be 1 but got %d.",
+          "The regions size of program module should be 1 but got %d.",
           program_json->at(REGIONS).size()));
   auto& region_json = program_json->at(REGIONS).at(0);
   auto& block_json = region_json.at(BLOCKS).at(0);
@@ -138,7 +138,7 @@ pir::Operation* ProgramReader::ReadParameterOp(Json* op_json) {
   // attr is_distributed; is_parameter; need_clip; parameter_name; persistable;
   // stop_gradient; trainable;
   if (patch_builder->HasOpPatch(PARAMETEROP)) {
-    VLOG(8) << PARAMETEROP << " brefore: " << *op_json;
+    VLOG(8) << PARAMETEROP << " before: " << *op_json;
     Json op_patch = patch_builder->GetJsonOpPatch(PARAMETEROP);
     VLOG(8) << " get op patch:  " << op_patch;
     patch_builder->ApplyOpPatches(PARAMETEROP, op_json, op_patch);
@@ -215,8 +215,8 @@ pir::Operation* ProgramReader::ReadParameterOp(Json* op_json) {
   // prepare opinfo
   pir::OpInfo op_info = ctx_->GetRegisteredOpInfo(pir::ParameterOp::name());
   // deserialize op
-  pir::Operation* op =
-      Operation::Create(inputs, attributes, output_types, op_info);
+  pir::Operation* op = Operation::Create(
+      inputs, attributes, output_types, op_info, 0, {}, false);
 
   id_value_map[value_id_] = op->result(0);
   VLOG(4) << "Finish Read Operation " << op->name() << ".";
@@ -231,7 +231,7 @@ pir::Operation* ProgramReader::ReadOp(Json* op_json) {
     return ReadParameterOp(op_json);
   }
   if (patch_builder->HasOpPatch(op_name)) {
-    VLOG(8) << op_name << " brefore: " << *op_json;
+    VLOG(8) << op_name << " before: " << *op_json;
     Json op_patch = patch_builder->GetJsonOpPatch(op_name);
     VLOG(8) << " get op patch:  " << op_patch;
     attr_patch = patch_builder->GetOpAttrPatchMap(op_patch);
@@ -240,9 +240,8 @@ pir::Operation* ProgramReader::ReadOp(Json* op_json) {
     VLOG(8) << op_name << " has been patched: " << *op_json;
     // Apply patch to op name
     // This happens when changing an op into another dialect
-    if (op_patch.contains("NEW_NAME")) {
-      std::string new_name =
-          op_patch.at("NEW_NAME").template get<std::string>();
+    if (op_patch.contains(NEW_NAME)) {
+      std::string new_name = op_patch.at(NEW_NAME).template get<std::string>();
       VLOG(8) << "change op name from " << op_name << " to " << new_name;
       op_name = new_name;
       op_json->at(ID) = op_name;
@@ -296,8 +295,8 @@ pir::Operation* ProgramReader::ReadOp(Json* op_json) {
     num_regions = op_json->at(REGIONS).size();
   }
   // deserialize op
-  pir::Operation* op =
-      Operation::Create(inputs, attributes, output_types, op_info, num_regions);
+  pir::Operation* op = Operation::Create(
+      inputs, attributes, output_types, op_info, num_regions, {}, false);
 
   // deserialize op's regions
   if (op_json->contains(REGIONS)) {
@@ -334,8 +333,8 @@ pir::AttributeMap ProgramReader::ReadAttributesMap(
     const std::unordered_map<std::string, Json>& attr_patch) {
   pir::AttributeMap attributes;
   // Add new attribute from patch
-  if (attr_patch.count("A_ADD")) {
-    for (auto& attr_json : attr_patch.at("A_ADD")) {
+  if (attr_patch.count(ADD_ATTRS)) {
+    for (auto& attr_json : attr_patch.at(ADD_ATTRS)) {
       attrs_json->insert(attrs_json->end(), attr_json);
     }
     VLOG(8) << "attr has been added: " << *attrs_json;
@@ -358,8 +357,8 @@ pir::AttributeMap ProgramReader::ReadAttributesMap(
   }
   VLOG(6) << "Finish Read pir::AttributeMap.";
   // Add new opresult attribute from patch
-  if (attr_patch.count("OA_ADD")) {
-    for (auto& attr_json : attr_patch.at("OA_ADD")) {
+  if (attr_patch.count(ADD_OPRESULTS_ATTRS)) {
+    for (auto& attr_json : attr_patch.at(ADD_OPRESULTS_ATTRS)) {
       opresult_attrs_json->insert(opresult_attrs_json->end(), attr_json);
     }
     VLOG(8) << "opresult attr has been added: " << *opresult_attrs_json;
@@ -390,7 +389,7 @@ pir::Attribute ProgramReader::ReadAttribute(Json* attr_json) {
   VLOG(6) << "Begin Read Attribute. ";
   auto attr_type = attr_json->at(ATTR_TYPE).at(ID).template get<std::string>();
   if (patch_builder && patch_builder->HasAttrPatch(attr_type)) {
-    VLOG(8) << attr_type << " brefore: " << *attr_json;
+    VLOG(8) << attr_type << " before: " << *attr_json;
     Json attr_patch = patch_builder->GetJsonAttrPatch(attr_type);
     patch_builder->ApplyAttrTypePatches(
         attr_type, &attr_json->at(ATTR_TYPE), attr_patch);
@@ -404,7 +403,7 @@ pir::Type ProgramReader::ReadType(Json* type_json) {
   auto type_name = type_json->at(ID).template get<std::string>();
   VLOG(8) << "Check patches for: " << type_name;
   if (patch_builder && patch_builder->HasTypePatch(type_name)) {
-    VLOG(8) << type_name << " brefore: " << *type_json;
+    VLOG(8) << type_name << " before: " << *type_json;
     Json type_patch = patch_builder->GetJsonTypePatch(type_name);
     patch_builder->ApplyTypePatches(type_name, type_json, type_patch);
     VLOG(8) << type_name << " has been patched: " << *type_json;

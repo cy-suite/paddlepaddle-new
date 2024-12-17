@@ -23,6 +23,7 @@
 #include "paddle/pir/include/dialect/shape/interface/infer_symbolic_shape/infer_symbolic_shape.h"
 #include "paddle/pir/include/dialect/shape/ir/shape_attribute.h"
 #include "paddle/pir/include/dialect/shape/ir/shape_dialect.h"
+#include "paddle/pir/include/dialect/shape/utils/original_attributes_filter.h"
 #include "paddle/pir/include/dialect/shape/utils/shape_analysis.h"
 #include "paddle/pir/include/pass/pass_manager.h"
 #include "paddle/pir/include/pass/pass_registry.h"
@@ -98,14 +99,14 @@ std::string PrintOperationWithNoRegion(Operation* op) {
   }
   os << ")";
 
-  printer.PrintAttributeMap(op);
+  printer.PrintAttributeMap(*op);
   os << " :";
 
   // PrintOpSignature
-  printer.PrintOperandsType(op);
+  printer.PrintOperandsType(*op);
   os << " -> ";
 
-  printer.PrintOpReturnType(op);
+  printer.PrintOpReturnType(*op);
 
   return os.str();
 }
@@ -371,7 +372,10 @@ void InferSymExprForBlock(const Block& block,
       input_shape_or_data.emplace_back(
           infer_context->GetShapeOrDataForValue(input));
     }
-    InferSymbolicShapeCacheKey op_infer_cache_key(op, input_shape_or_data);
+    InferSymbolicShapeCacheKey op_infer_cache_key(
+        op.name(),
+        input_shape_or_data,
+        GetOrderedOriginalAttributes(op.name(), op.attributes()));
     InferSymExprForOp(&op, infer_context, op_infer_cache_key);
     CacheForwardOpSymbolicShape(&op, infer_context, op_infer_cache_key);
     CacheBackwardOpSymbolicShape(&op, infer_context);
@@ -391,10 +395,11 @@ void InferSymExprForAllValues(ModuleOp module_op) {
         std::unordered_map<pir::Value, symbol::ShapeOrDataDimExprs>
             symbol_shape_map;
         for (const auto& [_, value] : module_op.block().kwargs()) {
-          if (infer_context->HasShapeOrDataForValue(value)) {
-            symbol_shape_map.emplace(
-                value, infer_context->GetShapeOrDataForValue(value));
+          if (!infer_context->HasShapeOrDataForValue(value)) {
+            infer_context->SetSymbolForValueByStaticShape(value);
           }
+          symbol_shape_map.emplace(
+              value, infer_context->GetShapeOrDataForValue(value));
         }
         return symbol_shape_map;
       }();

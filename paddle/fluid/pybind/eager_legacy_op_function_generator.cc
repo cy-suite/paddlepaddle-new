@@ -132,7 +132,7 @@ static PyObject * %s(PyObject *self, PyObject *args, PyObject *kwargs)
 
 const char* PYBIND_ITEM_TEMPLATE = R"(  {"%s", (PyCFunction)(void(*)(void))%s, METH_VARARGS | METH_KEYWORDS, "C++ interface function for %s in dygraph."},)";
 
-// These operators will skip automatical code generation and
+// These operators will skip automatic code generation and
 // need to be handwritten in CUSTOM_HANDWRITE_OP_FUNC_FILE
 std::unordered_set<std::string> CUSTOM_HANDWRITE_OPS_SET = {"run_program"};
 
@@ -486,7 +486,7 @@ int run_legacy_generator(int argc, char* argv[]) {
       "\"paddle/fluid/platform/enforce.h\"",
       str + "dygraph_forward_api.h\"",
       "\"paddle/fluid/pybind/eager_utils.h\"",
-      "\"paddle/fluid/platform/profiler/event_tracing.h\"",
+      "\"paddle/phi/core/platform/profiler/event_tracing.h\"",
       "\"paddle/fluid/pybind/exception.h\"",
       "\"paddle/fluid/pybind/op_function_common.h\"",
       "\"paddle/fluid/pybind/eager_legacy_custom_python_api.h\"",

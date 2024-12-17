@@ -35,6 +35,7 @@ from paddle.pir import Value, fake_value, is_fake_value
 from .logging_utils import TranslatorLogger
 from .utils import (
     RETURN_NO_VALUE_MAGIC_NUM,
+    auto_layout_is_enabled,
     backend_guard,
     cinn_is_enabled,
     cse_is_enabled,
@@ -55,6 +56,17 @@ def get_value_name(value):
     if is_fake_value(value):
         return FAKE_VALUE_NAME
     return value.name
+
+
+def apply_general_passes(
+    program, *, enable_cse=True, enable_delete_assert_op=True
+):
+    pm = paddle.pir.PassManager(2)
+    if enable_cse:
+        pm.add_pass("common_subexpression_elimination_pass", {})
+    if enable_delete_assert_op:
+        pm.add_pass("delete_assert_op_pass", {})
+    pm.run(program)
 
 
 class NestSequence:
@@ -93,21 +105,32 @@ class NestSequence:
             variable_list.append(value)
         return variable_map, variable_list
 
-    def restore(self, value_list):
+    def restore(self, tensor_result_list):
         """
-        Restores the nested sequence from value list.
+        Restores the nested sequence from tenosr list.
         """
-        assert len(self._var_list) == len(value_list)
+        assert len(self._var_list) == len(tensor_result_list)
 
-        def to_value(x):
+        def to_tensor_result(x):
             if isinstance(x, Value):
-                return value_list[self._var_map[x]]
+                return tensor_result_list[self._var_map[x]]
             return x
 
         return paddle.utils.pack_sequence_as(
             self._raw_input,
-            list(map(to_value, paddle.utils.flatten(self._raw_input))),
+            list(map(to_tensor_result, paddle.utils.flatten(self._raw_input))),
         )
+
+    @cached_property
+    def quick_index_map(self):
+        raw_inputs = self._raw_input
+        if len(raw_inputs) == 1:
+            raw_inputs = raw_inputs[0]
+        assert all(isinstance(v, Value) for v in raw_inputs)
+        return [self._var_map[v] for v in raw_inputs]
+
+    def quick_restore(self, tensor_list):
+        return [tensor_list[idx] for idx in self.quick_index_map]
 
     def __getitem__(self, item):
         return self._var_list[item]
@@ -128,14 +151,15 @@ class RunnableProgram:
     @staticmethod
     def _get_program_all_values(program):
         all_values = []
-        all_values.extend(
-            arg for arg in program.global_block().kwargs().values()
-        )
-        all_values.extend(
-            result
-            for op in program.global_block().ops
-            for result in op.results()
-        )
+
+        def extend_values(block):
+            all_values.extend(block.kwargs().values())
+            for op in block.ops:
+                all_values.extend(op.results())
+                for block in op.blocks():
+                    extend_values(block)
+
+        extend_values(program.global_block())
         return all_values
 
     @staticmethod
@@ -247,8 +271,8 @@ class RunnableProgram:
             self.x_grad_values,
             self.param_grad_values,
             self.out_grad_values,
-            list(self.forward_range),
-            list(self.backward_range),
+            self.forward_range,
+            self.backward_range,
         )
         return [fwd_prog, bwd_prog], prog_attr
 
@@ -444,33 +468,55 @@ class IndicesPreservePass:
 class ValuePreservePass:
     OP_NAME_PREFIX = "preserved_value_"
 
-    def __init__(self, values):
+    def __init__(self, values, use_cinn_pass):
         self.values = values
+        self.use_cinn_pass = use_cinn_pass
 
     def apply(self, program):
         raise RuntimeError("Not implemented.")
 
-    def __call__(self, program):
-        # create fake values for args
-        all_values = list(
-            filter(
-                lambda x: isinstance(x, Value) and not is_fake_value(x),
-                paddle.utils.flatten(self.values),
-            )
-        )
+    @staticmethod
+    def create_name_generator(prefix):
+        count = 0
 
+        def name_gen():
+            nonlocal count
+            name = f"{prefix}{count}"
+            count += 1
+            return name
+
+        return name_gen
+
+    @staticmethod
+    def attach_preserved_name(value, program, value2name, name_generator):
+        if is_fake_value(value):
+            return None
+        if value in value2name:
+            return value2name[value]
+        name = name_generator()
+        value2name[value] = name
+        paddle.base.libpaddle.pir.append_shadow_output(
+            program,
+            value,
+            name,
+            len(program.global_block().ops),
+        )
+        return name
+
+    def __call__(self, program):
+        # create preserved op for args
         value2name = ValueDict()
-        for idx, v in enumerate(all_values):
-            name = f"{ValuePreservePass.OP_NAME_PREFIX}{idx}"
-            if v in value2name:
-                continue
-            value2name[v] = name
-            paddle.base.libpaddle.pir.append_shadow_output(
-                program,
-                v,
-                name,
-                len(program.global_block().ops),
-            )
+        name_generator = ValuePreservePass.create_name_generator(
+            ValuePreservePass.OP_NAME_PREFIX
+        )
+        names = paddle.utils.map_structure(
+            lambda value: ValuePreservePass.attach_preserved_name(
+                value, program, value2name, name_generator  # noqa: F821
+            ),
+            self.values,
+        )
+        # NOTE(SigureMo): Value maybe removed in pass, don't use value2name after pass
+        del value2name
 
         # apply program pass
         program = self.apply(program)
@@ -492,27 +538,17 @@ class ValuePreservePass:
         for op in to_remove_op:
             program.global_block().remove_op(op)
 
-        # get new values
-        value2new_value = ValueDict(
-            {
-                v: name2new_value.get(name, fake_value())
-                for v, name in value2name.items()
-            }
+        self.values = paddle.utils.map_structure(
+            lambda name: name2new_value.get(name, fake_value()), names
         )
-
-        new_args = paddle.utils.map_structure(
-            lambda x: (
-                value2new_value[x] if not is_fake_value(x) else fake_value()
-            ),
-            self.values,
-        )
-        self.values = new_args
         return program
 
 
-class FusedBnAddActPass(ValuePreservePass):
+class FullGraphPreProcessPass(ValuePreservePass):
     def apply(self, program):
         program = paddle.base.libpaddle.pir.apply_bn_add_act_pass(program)
+        if self.use_cinn_pass:
+            program = paddle.base.libpaddle.pir.reduce_as_sum_pass(program)
         return program
 
 
@@ -591,7 +627,7 @@ class PartialProgramLayer:
         """
         in_vars = self._prepare_inputs(inputs)
         out_vars = self._prepare_outputs()
-        attrs = self._prepare_attributes()
+        attrs = self._prepare_attributes(in_sot_mode=False)
         _legacy_C_ops.pir_run_program(
             self._valid_vars(in_vars),
             self._valid_vars(self._params),
@@ -610,7 +646,7 @@ class PartialProgramLayer:
         In sot, inputs and outputs of partial program only contain tensors, so we can skip some step to speed up
         """
         out_vars = self._prepare_outputs()
-        attrs = self._prepare_attributes()
+        attrs = self._prepare_attributes(in_sot_mode=True)
         _legacy_C_ops.pir_run_program(
             self._valid_vars(inputs),
             self._valid_vars(self._params),
@@ -621,8 +657,7 @@ class PartialProgramLayer:
             self._cuda_graph_vec,
             *attrs,
         )
-        restored_nest_out = self._restore_out(out_vars)
-        return restored_nest_out
+        return self._outputs.quick_restore(out_vars)
 
     @cached_property
     def origin_runnable_program(self) -> RunnableProgram:
@@ -673,6 +708,7 @@ class PartialProgramLayer:
     # whole
     @switch_to_static_graph
     def _create_program(self, is_infer_mode=False):
+
         if is_infer_mode:
 
             def pass_fn(forward_program, backward_program, program_name_attr):
@@ -682,8 +718,14 @@ class PartialProgramLayer:
                     pm, forward_program
                 )
                 pm.run(forward_program)
-                if cse_is_enabled():
-                    paddle.base.libpaddle.pir.apply_cse_pass(forward_program)
+
+                apply_general_passes(
+                    forward_program,
+                    enable_cse=cse_is_enabled(),
+                    enable_delete_assert_op=cinn_is_enabled(
+                        self._build_strategy, self._backend
+                    ),
+                )
 
                 # if-else pass
                 if cinn_is_enabled(self._build_strategy, self._backend):
@@ -697,6 +739,10 @@ class PartialProgramLayer:
 
             # TODO(xiongkun) who to transfer the pruning program?
             infer_program = self.origin_runnable_program.clone()
+            if auto_layout_is_enabled():
+                pm = paddle.pir.PassManager(2)
+                pm.add_pass("auto_layout_pass", {})
+                pm.run(infer_program.program)
             for hooker in self._hookers:
                 hooker.after_infer(infer_program)
             infer_program.apply_pir_program_pass(pass_fn)
@@ -705,6 +751,11 @@ class PartialProgramLayer:
             train_program: RunnableProgram = (
                 self.origin_runnable_program.clone()
             )
+            # Author(liujinnan): auto_layout_pass should be applied to the original_program, before append backward. So we put it here.
+            if auto_layout_is_enabled():
+                pm = paddle.pir.PassManager(2)
+                pm.add_pass("auto_layout_pass", {})
+                pm.run(train_program.program)
             train_program = self._append_backward_desc(train_program)
             # Note: Only set grad type once after initializing train program. So we put it here.
             self._set_grad_type(self._params, train_program)
@@ -759,9 +810,20 @@ class PartialProgramLayer:
                             forward_matched_value, kw_value
                         )
 
-                if cse_is_enabled():
-                    paddle.base.libpaddle.pir.apply_cse_pass(forward_program)
-                    paddle.base.libpaddle.pir.apply_cse_pass(backward_program)
+                apply_general_passes(
+                    forward_program,
+                    enable_cse=cse_is_enabled(),
+                    enable_delete_assert_op=cinn_is_enabled(
+                        self._build_strategy, self._backend
+                    ),
+                )
+                apply_general_passes(
+                    backward_program,
+                    enable_cse=cse_is_enabled(),
+                    enable_delete_assert_op=cinn_is_enabled(
+                        self._build_strategy, self._backend
+                    ),
+                )
                 if cinn_is_enabled(self._build_strategy, self._backend):
                     paddle.base.libpaddle.pir.apply_cinn_pass(forward_program)
                     init_backward_program_shape_analysis(
@@ -819,10 +881,8 @@ class PartialProgramLayer:
         Verify that the program parameter is initialized, prune some unused params,
         and remove redundant op callstack.
         """
-        # 1. Check all params from main program can be found in self._params
+        # Check all params from main program can be found in self._params
         self._check_params_all_inited(main_program)
-        # 2. Prune the parameters not used anywhere in the program.
-        self._prune_unused_params(main_program, outputs)
 
         return main_program
 
@@ -846,7 +906,7 @@ class PartialProgramLayer:
             if exist a op whose inputs is var, then return True
             """
             if var.type not in [
-                core.VarDesc.VarType.LOD_TENSOR,
+                core.VarDesc.VarType.DENSE_TENSOR,
                 core.VarDesc.VarType.SELECTED_ROWS,
             ]:
                 return False
@@ -1020,13 +1080,15 @@ class PartialProgramLayer:
         )
 
         # construct a runnable program.
-        fused_bn_add_act_pass = FusedBnAddActPass(
-            [inputs, params, targets, x_grad_value, p_grad_value, o_grad_value]
+        fused_bn_add_act_pass = FullGraphPreProcessPass(
+            [inputs, params, targets, x_grad_value, p_grad_value, o_grad_value],
+            cinn_is_enabled(self._build_strategy, self._backend),
         )
         forward_index_pass = IndicesPreservePass(
             [forward_end_idx, backward_start_op_index, backward_end_op_index],
             fused_bn_add_act_pass,
         )
+
         program = forward_index_pass(program)
         (
             inputs,
@@ -1050,30 +1112,7 @@ class PartialProgramLayer:
             (backward_start_op_index, backward_end_op_index),
         )
 
-    def _prune_unused_params(self, program, outputs):
-        """
-        Prune the parameters not used anywhere in the program.
-        The `@to_static` may only decorated a sub function which
-        contains some unused parameters created in `__init__`.
-        So prune these parameters to avoid unnecessary operations in
-        `run_program_op`.
-        """
-        required_params = []
-        required_param_values = []
-        block = program.global_block()
-        for param, param_value in zip(self._params, self._param_values):
-            if not param_value.use_empty() or any(
-                out.is_same(param_value) for out in outputs
-            ):
-                required_params.append(param)
-                required_param_values.append(param_value)
-            else:
-                # in pir, we need remove the get_parameter op for unused parameters.
-                block.remove_op(param_value.get_defining_op())
-        self._params = required_params
-        self._param_values = required_param_values
-
-    def _prepare_attributes(self):
+    def _prepare_attributes(self, in_sot_mode=False):
         attrs = [
             'forward_program',
             self.program.forward_program,
@@ -1083,6 +1122,8 @@ class PartialProgramLayer:
             not self.training,
             'program_id',
             self.program_id,
+            'in_sot_mode',
+            in_sot_mode,
         ]
         for key, val in self.program.program_attr.items():
             attrs.append(key)
@@ -1214,10 +1255,10 @@ class PartialProgramLayer:
 
     def _set_grad_type(self, params, train_program: RunnableProgram):
         # NOTE: if user set sparse gradient mode, the param's gradient
-        # will be SelectedRows, not LoDTensor. But tracer will just
-        # set param grad Tensor by forward Tensor(LoDTensor)
+        # will be SelectedRows, not DenseTensor. But tracer will just
+        # set param grad Tensor by forward Tensor(DenseTensor)
         # If we don't change grad_var type here, RunProgramOp need
-        # transform SelectedRows to LoDTensor forcibly, it may not
+        # transform SelectedRows to DenseTensor forcibly, it may not
         # be user wanted result.
         forward_params_grads = train_program.param_grad_values
         train_program = train_program.program
@@ -1230,7 +1271,7 @@ class PartialProgramLayer:
                 )
             elif value.is_dense_tensor_type():
                 param._set_grad_type(
-                    paddle.base.core.VarDesc.VarType.LOD_TENSOR
+                    paddle.base.core.VarDesc.VarType.DENSE_TENSOR
                 )
             else:
                 raise NotImplementedError(

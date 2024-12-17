@@ -24,7 +24,7 @@ cc_test(
 cc_test(
   cpu_helper_test
   SRCS cpu_helper_test.cc
-  DEPS cpu_helper)
+  DEPS phi common)
 cc_test(
   init_test
   SRCS init_test.cc
@@ -59,12 +59,12 @@ endif()
 cc_test(
   timer_test
   SRCS timer_test.cc
-  DEPS timer)
+  DEPS phi common)
 
 cc_test(
   lodtensor_printer_test
   SRCS lodtensor_printer_test.cc
-  DEPS lodtensor_printer)
+  DEPS densetensor_printer)
 
 cc_test(
   profiler_test
@@ -125,4 +125,10 @@ endif()
 cc_test(
   init_phi_test
   SRCS init_phi_test.cc
-  DEPS phi common init_phi)
+  DEPS phi
+       common
+       init_phi
+       op_dialect
+       op_dialect_vjp
+       static_prim_api
+       primitive_backend_static_experimental)

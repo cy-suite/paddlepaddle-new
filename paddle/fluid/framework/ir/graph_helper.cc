@@ -25,8 +25,8 @@ limitations under the License. */
 
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
 #include "paddle/fluid/framework/details/nccl_op_handle.h"
-#include "paddle/fluid/platform/collective_helper.h"
 #include "paddle/phi/core/distributed/nccl_comm_context.h"
+#include "paddle/phi/core/platform/collective_helper.h"
 COMMON_DECLARE_bool(dynamic_static_unified_comm);
 #endif
 #include "paddle/common/flags.h"
@@ -499,7 +499,7 @@ void ReplaceAllReduceOp(const Node &node,
     all_reduce_var_name = "fake_coalesce_" + std::to_string(ops->size());
     proto::VarDesc var_desc;
     var_desc.set_name(all_reduce_var_name);
-    var_desc.mutable_type()->set_type(proto::VarType::LOD_TENSOR);
+    var_desc.mutable_type()->set_type(proto::VarType::DENSE_TENSOR);
     block->mutable_vars()->Add()->CopyFrom(var_desc);
     VLOG(4) << "add variable for check_memory_continue: "
             << all_reduce_var_name;
@@ -557,7 +557,7 @@ void ReplaceAllReduceOp(const Node &node,
   // ### v0 = op0(grad0)
   // ### v1 = op1(grad1)
   // We should add the following dependency to ensure that op0 and op1 both run
-  // afer c_sum_allreduce:
+  // after c_sum_allreduce:
   // ### grad0 =  depend(grad0, fused_grad)
   // ### grad1 = depend(grad1, fused_grad)
   if (is_fused) {

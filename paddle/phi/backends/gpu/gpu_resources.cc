@@ -166,7 +166,7 @@ void InitGpuProperties(Place place,
                           << get_cudnn_major(cudnn_dso_ver) << "."
                           << get_cudnn_minor(cudnn_dso_ver) << ".";
 
-  // Check CUDA/CUDNN version compatiblity
+  // Check CUDA/CUDNN version compatibility
   auto local_cuda_version =
       (*driver_version / 1000) * 10 + (*driver_version % 100) / 10;
   auto compile_cuda_version =
@@ -216,7 +216,7 @@ void InitStream(gpuStream_t* stream) {
 #endif
 }
 
-void DestoryStream(gpuStream_t stream) {
+void DestroyStream(gpuStream_t stream) {
   if (stream != nullptr) {
 #ifdef PADDLE_WITH_HIP
     PADDLE_ENFORCE_GPU_SUCCESS(hipStreamDestroy(stream));

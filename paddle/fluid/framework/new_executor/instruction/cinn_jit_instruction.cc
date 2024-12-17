@@ -20,10 +20,11 @@
 #include "paddle/common/errors.h"
 #include "paddle/common/performance_statistician.h"
 #include "paddle/fluid/framework/new_executor/pir_adaptor/pir_adaptor_util.h"
+#include "paddle/phi/backends/gpu/gpu_info.h"
+#include "paddle/phi/backends/gpu/gpu_resources.h"
 #if defined(PADDLE_WITH_CUDA)
 #include "paddle/cinn/runtime/cinn_runtime.h"
 #endif
-PD_DECLARE_bool(cinn_bucket_compile);
 PD_DECLARE_bool(cinn_measure_kernel_time);
 PD_DECLARE_string(tile_config_policy);
 PD_DECLARE_string(cinn_kernel_execution_label);
@@ -42,8 +43,6 @@ class CinnJitInstruction::FnPtrImpl {
       : cinn_kernel_info_(cinn_kernel_info) {}
 
   void InitFuncArgs(const std::vector<phi::DenseTensor*>& kernel_tensor_args) {
-    func_args_.clear();
-
     // 1. Create placeholders for tensor args
     for (size_t i = 0; i < kernel_tensor_args.size(); ++i) {
       auto* buffer = new cinn_buffer_t();
@@ -114,32 +113,39 @@ class CinnJitInstruction::FnPtrImpl {
       ::common::PerformanceStatistician& ps =
           ::common::PerformanceStatistician::Instance();
       auto data_p = static_cast<void*>(func_args_.data());
-      cudaStream_t stream;
-      cudaStreamCreate(&stream);
-      cudaDeviceSynchronize();
+      phi::gpuStream_t stream;
+      phi::InitStream(&stream);
+      phi::backends::gpu::GpuDeviceSync();
       if (is_gpu) {
         ps.SetGraphNodesNum(25);
         int graph_nodes_num = ps.GetGraphNodesNum();
-        cudaGraph_t graph;
-        cudaGraphExec_t instance;
-        cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
+        phi::gpuGraph_t graph;
+        phi::gpuGraphExec_t instance;
+        phi::gpuStreamBeginCapture(
+            stream, gpuStreamCaptureMode(0));  // StreamCaptureModeGlobal
         for (int ikrnl = 0; ikrnl < graph_nodes_num; ikrnl++) {
           ((lower_func_ptr_g)cinn_kernel_info_.fn_ptr)(
               static_cast<void*>(func_args_.data()), func_args_.size(), stream);
         }
-        cudaStreamEndCapture(stream, &graph);
+        phi::gpuStreamEndCapture(stream, &graph);
+#ifdef PADDLE_WITH_CUDA
         cudaGraphInstantiate(&instance, graph, NULL, NULL, 0);
+#elif defined(PADDLE_WITH_HIP)
+        hipGraphInstantiate(&instance, graph, NULL, NULL, 0);
+#else
+        CINN_NOT_IMPLEMENTED
+#endif
         ps.CudaStart(FLAGS_cinn_kernel_execution_label);
-        cudaGraphLaunch(instance, stream);
+        phi::gpuGraphLaunch(instance, stream);
         ps.CudaEnd(FLAGS_cinn_kernel_execution_label);
-        cudaGraphDestroy(graph);
-        cudaGraphExecDestroy(instance);
-        cudaStreamDestroy(stream);
+        phi::gpuGraphDestroy(graph);
+        phi::gpuGraphExecDestroy(instance);
+        phi::DestroyStream(stream);
       } else {
         ((lower_func_ptr_g)cinn_kernel_info_.CX86_fn_ptr)(
             static_cast<void*>(func_args_.data()), func_args_.size(), stream);
       }
-      cudaDeviceSynchronize();
+      phi::backends::gpu::GpuDeviceSync();
     } else {
       if (is_gpu) {
         ((lower_func_ptr_g)cinn_kernel_info_.fn_ptr)(
@@ -180,6 +186,15 @@ class CinnJitInstruction::FnPtrImpl {
     VLOG(6) << "End InferShape: " << cinn_kernel_info_.fn_name;
   }
 
+  void FreeFuncArgs() {
+    for (auto& arg : func_args_) {
+      if (arg.type_code() == ::cinn_type_code<cinn_buffer_t*>()) {
+        delete cinn_pod_value_to_buffer_p(&arg);
+      }
+    }
+    func_args_.clear();
+  }
+
  private:
   CINNKernelInfo cinn_kernel_info_;
 
@@ -202,6 +217,7 @@ CinnJitInstruction::CinnJitInstruction(
 
   InitInputsOutputsIds(op, *value_exec_info);
 
+  // prepare input tensors
   for (size_t i = 0; i < op->num_operands(); ++i) {
     auto in = op->operand_source(i);
 
@@ -220,6 +236,7 @@ CinnJitInstruction::CinnJitInstruction(
   }
   dev_ctx_ = phi::DeviceContextPool::Instance().Get(place_);
 
+  // prepare output tensors
   for (size_t i = 0; i < op->num_results(); ++i) {
     pir::Value result = op->result(i);
     auto var_name = value_exec_info->GetVarName(result);
@@ -241,10 +258,24 @@ CinnJitInstruction::CinnJitInstruction(
     }
     tensor->Resize(alloc_tensor_type.dims());
   }
+
+  // prepare temp_space tensors
+  for (int64_t size : jit_kernel_op.cinn_kernel_info().temp_space_sizes) {
+    auto& tensor = temp_space_tensors_.emplace_back();
+    tensor.set_type(phi::DataType::UINT8);
+    tensor.Resize({size});
+    if (size < 0) {
+      need_update_shape = true;
+    }
+  }
+  for (auto& tensor : temp_space_tensors_) {
+    tensor_args_.push_back(&tensor);
+  }
+  output_tensor_size += temp_space_tensors_.size();
 }
 
 void CinnJitInstruction::Run() {
-#if defined(PADDLE_WITH_CUDA)
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
   void* running_stream = nullptr;
   bool is_gpu = false;
 
@@ -254,9 +285,10 @@ void CinnJitInstruction::Run() {
         static_cast<void*>(static_cast<phi::GPUContext*>(dev_ctx_)->stream());
   }
 
+  // 1. prepare kernel arguments
   fn_ptr_impl_->InitFuncArgs(tensor_args_);
 
-  if (FLAGS_cinn_bucket_compile && need_update_shape) {
+  if (need_update_shape) {
     fn_ptr_impl_->InferShape(
         tensor_args_, input_tensor_size, output_tensor_size);
   }
@@ -266,9 +298,15 @@ void CinnJitInstruction::Run() {
 
   // 2. exexute kernel
   fn_ptr_impl_->Run(tensor_args_, running_stream, is_gpu);
+
+  // 3. release resource
+  fn_ptr_impl_->FreeFuncArgs();
+  for (auto& tensor : temp_space_tensors_) {
+    tensor.clear();
+  }
 #else
   VLOG(0) << "Not Supported: cinn jit instruction currently does not "
-             "support non-CUDA kernel";
+             "support CUDA/HIP kernel";
 #endif
 }
 

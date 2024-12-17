@@ -36,11 +36,8 @@ namespace paddle {
 namespace dialect {
 
 const std::unordered_set<std::string> LegacyOpList = {
-    LoadCombineOp::name(),
-    CConcatOp::name(),
     CBroadcast_Op::name(),
     CBroadcastOp::name(),
-    CSyncCommStream_Op::name(),
     DistributedPushSparseOp::name(),
     SendV2Op::name(),
     RecvV2Op::name(),
@@ -55,8 +52,6 @@ const std::unordered_set<std::string> LegacyOpList = {
     CAllreduceMaxOp::name(),
     CAllreduceMin_Op::name(),
     CAllgatherOp::name(),
-    CSoftmaxWithCrossEntropyOp::name(),
-    CSoftmaxWithCrossEntropyGradOp::name(),
     CSplitOp::name(),
     PushDenseOp::name(),
     SoftReluOp::name(),
@@ -449,7 +444,8 @@ std::vector<int64_t> ParseValueShape(const pir::Value& shape,
       vec_shape.insert(vec_shape.end(), tmp.begin(), tmp.end());
     }
   } else if (shape.isa<pir::OpResult>() &&
-             shape.defining_op()->isa<paddle::dialect::ShapeOp>() &&
+             (shape.defining_op()->isa<paddle::dialect::ShapeOp>() ||
+              shape.defining_op()->isa<paddle::dialect::Shape64Op>()) &&
              shape.type().isa<paddle::dialect::DenseTensorType>()) {
     // tensor_shape may come from shape op
     // x0.shape = [-1,3]
@@ -553,6 +549,108 @@ StringToDataLayoutMap() {
       {"PSTRING_UNION", phi::DataLayout::PSTRING_UNION},
       {"STRIDED", phi::DataLayout::STRIDED}};
   return data_layout_map;
+}
+
+void SetStopGradient() {}
+
+void SetStopGradient(pir::Value* value) {
+  value->set_attribute(
+      "stop_gradient",
+      pir::BoolAttribute::get(pir::IrContext::Instance(), true));
+}
+
+void SetStopGradient(std::vector<pir::Value>* values) {
+  for (auto& value : *values) {
+    SetStopGradient(&value);
+  }
+}
+
+void SetStopGradient(paddle::optional<pir::Value>* value) {
+  if (value->get_ptr() != nullptr) {
+    SetStopGradient(value->get_ptr());
+  }
+}
+
+void SetStopGradient(paddle::optional<std::vector<pir::Value>>* values) {
+  if (values->get_ptr() != nullptr) {
+    SetStopGradient(values->get_ptr());
+  }
+}
+
+void PushStopGradient(const pir::Value& value, std::vector<bool>* arr) {
+  if (!IsEmptyValue(value)) {
+    arr->push_back(false);
+  } else {
+    arr->push_back(true);
+  }
+}
+
+std::vector<std::vector<bool>> ConstructStopGradient(pir::Operation* op) {
+  std::vector<std::vector<bool>> stop_gradients(op->results().size());
+  for (size_t i = 0; i < op->results().size(); i++) {
+    PushStopGradient(op->result(i), &stop_gradients[i]);
+  }
+  return stop_gradients;
+}
+
+bool CanGroupOpRunCpuKernel(const std::vector<::pir::Value>& vec_inputs,
+                            const std::vector<::pir::Value>& vec_output) {
+  for (size_t i = 0; i < vec_inputs.size(); ++i) {
+    auto tmp_in = vec_inputs[i];
+    if (!tmp_in || !tmp_in.type()) {
+      continue;
+    }
+
+    phi::DDim in_dims;
+
+    if (auto type_info =
+            tmp_in.type()
+                .dyn_cast<paddle::dialect::AllocatedDenseTensorType>()) {
+      auto type = tmp_in.type().dyn_cast<AllocatedDenseTensorType>();
+      in_dims = type.dims();
+      if (type.place().GetType() != phi::AllocationType::CPU) {
+        return false;
+      }
+    } else if (auto type_info =
+                   tmp_in.type().dyn_cast<paddle::dialect::DenseTensorType>()) {
+      in_dims = type_info.dims();
+    }
+
+    // 1. dynamic shape not need lower x86
+    if (::common::contain_unknown_dim(in_dims)) {
+      return false;
+    }
+    // 2. size < 4 not need lower x86
+    if (phi::product(in_dims) > 4) {
+      return false;
+    }
+  }
+
+  for (size_t i = 0; i < vec_output.size(); ++i) {
+    const auto& out = vec_output[i];
+
+    if (!out || !out.type()) {
+      continue;
+    }
+
+    if (out.type().isa<DenseTensorType>()) {
+      auto type = out.type().dyn_cast<DenseTensorType>();
+
+      if (type.dtype().isa<::pir::BFloat16Type>()) {
+        return false;
+      }
+
+      if (::common::contain_unknown_dim(type.dims())) {
+        return false;
+      }
+
+      if (phi::product(type.dims()) > 4) {
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
 
 }  // namespace dialect

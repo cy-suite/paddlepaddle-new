@@ -148,7 +148,7 @@ def scope_guard(scope: core._Scope) -> Generator[None, None, None]:
 def as_numpy(tensor, copy=False):
     """
     Convert a Tensor to a numpy.ndarray, its only support Tensor without LoD information.
-    For higher dimensional sequence data, please use LoDTensor directly.
+    For higher dimensional sequence data, please use DenseTensor directly.
 
     Examples:
         .. code-block:: python
@@ -169,18 +169,18 @@ def as_numpy(tensor, copy=False):
     Returns:
         numpy.ndarray
     """
-    if isinstance(tensor, core.LoDTensorArray):
+    if isinstance(tensor, core.DenseTensorArray):
         return [as_numpy(t, copy) for t in tensor]
     if isinstance(tensor, list):
         return [as_numpy(t, copy) for t in tensor]
-    assert isinstance(tensor, core.LoDTensor)
+    assert isinstance(tensor, core.DenseTensor)
     lod = tensor.lod()
     if len(lod) > 0:
         raise RuntimeError(
             "Some of your fetched tensors hold LoD information. \
             They can not be completely cast to Python ndarray. \
             Please set the parameter 'return_numpy' as 'False' to \
-            return LoDTensor itself directly."
+            return DenseTensor itself directly."
         )
     if tensor._is_initialized():
         if copy:
@@ -257,7 +257,7 @@ def check_feed_shape_type(var, feed, num_places=1):
 
     Args:
         var (Variable): the Variable object
-        feed (LoDTensor): the fed value, which must be a LoDTensor
+        feed (DenseTensor): the fed value, which must be a DenseTensor
         num_places: an integer value indicating the number of places.
             ParallelExecutor will divide data into devices (CPU/GPU) evenly.
     Returns:
@@ -270,9 +270,8 @@ def check_feed_shape_type(var, feed, num_places=1):
         diff_shape = core.diff_tensor_shape(feed, var.desc, num_places)
         if diff_shape is not None:
             raise ValueError(
-                'The fed Variable %r should have dimensions = %d, shape = '
-                '%r, but received fed shape %r on each device'
-                % (var.name, len(var.shape), var.shape, diff_shape)
+                f'The fed Variable {var.name!r} should have dimensions = {len(var.shape)}, shape = '
+                f'{var.shape!r}, but received fed shape {diff_shape!r} on each device'
             )
         if not dtype_is_compatible_with(feed._dtype(), var.dtype):
             var_dtype_format = (
@@ -303,7 +302,7 @@ def pir_check_feed_shape_type(feed, name, target_shape, dtype, num_places=1):
        is compatible with any number.
 
     Args:
-        feed (LoDTensor): the fed value, which must be a LoDTensor
+        feed (DenseTensor): the fed value, which must be a DenseTensor
         name (str): name of the variable
         target_shape (list): the shape that will be compared with feed
         dtype (core.VarDesc.VarType): the dtype that will be compared with feed
@@ -318,9 +317,8 @@ def pir_check_feed_shape_type(feed, name, target_shape, dtype, num_places=1):
     diff_shape = core.diff_tensor_shape(feed, target_shape, num_places)
     if diff_shape is not None:
         warnings.warn(
-            'The fed Variable %r should have dimensions = %d, shape = '
-            '%r, but received fed shape %r on each device'
-            % (name, len(target_shape), target_shape, diff_shape)
+            f'The fed Variable {name!r} should have dimensions = {len(target_shape)}, shape = '
+            f'{target_shape!r}, but received fed shape {diff_shape!r} on each device'
         )
     if not dtype_is_compatible_with(feed._dtype(), dtype):
         var_dtype_format = (
@@ -353,7 +351,7 @@ def has_feed_operators(block, feed_targets, feed_holder_name):
         feed_targets: a dictionary of {feed_target_name: feed_target_data}
         feed_holder_name: the name of the variable that holds the data of
             all feed targets. The type of this feed_holder variable is
-            FEED_MINIBATCH, which is essentially vector<LoDTensor>.
+            FEED_MINIBATCH, which is essentially vector<DenseTensor>.
 
     Returns:
         A boolean value that indicates whether a block has feed operators
@@ -395,7 +393,7 @@ def has_fetch_operators(
         fetch_targets: a dictionary of {fetch_target_name: fetch_target_data}
         fetch_holder_name: the name of the variable that holds the data of
             all fetch targets. The type of this fetch_holder variable is
-            FETCH_LIST, which is essentially vector<LoDTensor>.
+            FETCH_LIST, which is essentially vector<DenseTensor>.
         fetch_op: the operator name of fetch
 
     Return:
@@ -601,7 +599,7 @@ def _fetch_var(name, scope=None, return_numpy=True):
             Default True.
 
     Returns:
-       LodTensor|numpy.ndarray
+       DenseTensor|numpy.ndarray
     """
     assert isinstance(name, str)
     if scope is None:
@@ -629,7 +627,7 @@ def _to_name_str(var):
         elif isinstance(var, Operator):
             return str(id(var))
         elif isinstance(var, Value):
-            return str(id(var))
+            return str(var.id)
         else:
             raise TypeError(str(var) + " should be Variable, Operator or str")
 
@@ -718,7 +716,7 @@ def _get_program_cache_key(feed, fetch_list):
 def _as_lodtensor(data, place, dtype=None):
     """
     Convert numpy.ndarray to Tensor, its only support Tensor without LoD information.
-    For higher dimensional sequence data, please use LoDTensor directly.
+    For higher dimensional sequence data, please use DenseTensor directly.
 
     Examples:
 
@@ -737,7 +735,7 @@ def _as_lodtensor(data, place, dtype=None):
         dtype(core.VarDesc.VarType|str): the expected data type of created tensor
 
     Returns:
-        LoDTensor
+        DenseTensor
     """
     # NOTE(zhiqiu): convert python builtin, like float, int, and list, to numpy ndarray
     if not isinstance(data, np.ndarray):
@@ -762,7 +760,7 @@ def _as_lodtensor(data, place, dtype=None):
             )
 
     # convert numpy.ndarray to tensor
-    tensor = core.LoDTensor()
+    tensor = core.DenseTensor()
     tensor.set(data, place)
     return tensor
 
@@ -840,7 +838,7 @@ class _StandaloneExecutor:
                 after the model runs. The default is None.
             return_numpy(bool): This parameter indicates whether convert the fetched Tensors
                 (the Tensor specified in the fetch list) to numpy.ndarray. if it is False,
-                the type of the return value is a list of :code:`LoDTensor`. The default is True.
+                the type of the return value is a list of :code:`DenseTensor`. The default is True.
         """
         tensors = self._new_exe.run(
             feed_names, enable_job_schedule_profiler
@@ -1152,6 +1150,21 @@ class _ExecutorCache:
         place = cached_data.place
         scope = cached_data.scope
 
+        def cinn_process(program):
+            from paddle.decomposition import decomp
+
+            if core._enable_dist_prim_all():
+                logging.info("apply decompose in executor")
+                with decomp.prim_guard():
+                    decomp.decompose_dist_program(program)
+
+            if core._enable_auto_recompute():
+                logging.info("apply auto_recompute in executor")
+                program = decomp.auto_recompute_pir_program(program, None)
+
+            apply_cinn_pass(program)
+            return program
+
         if cached_data.plan is None:
             value_map = pir.IrMapping()
             _, is_startup_program = has_fetch_operations_and_is_startup_program(
@@ -1174,6 +1187,10 @@ class _ExecutorCache:
                 fetch_var_name=fetch_var_name,
             )
             default_job = core.Job("default")
+
+            if not is_startup_program and in_cinn_mode():
+                cinn_process(program)
+
             type_to_program = {"default": program}
             plan = core.Plan([default_job], type_to_program)
         else:
@@ -1200,6 +1217,11 @@ class _ExecutorCache:
                     value.block.program, value, fetch_var_name + str(i), i
                 )
 
+            if in_cinn_mode():
+                for job_type in plan.job_types():
+                    ir_program = plan.ir_program(job_type)
+                    cinn_process(ir_program)
+
         new_exe = _StandaloneExecutor(place, plan, scope)
 
         data_op_infos = []
@@ -1216,19 +1238,7 @@ class _ExecutorCache:
                     op.result(0).persistable,
                 )
                 data_op_infos.append(tup)
-        from paddle.decomposition import decomp
 
-        if core._enable_dist_prim_all():
-            with decomp.prim_guard():
-                pir_grad_var_to_var = decomp.decompose_dist_program(program)
-            if core._enable_auto_recompute():
-                print("apply auto_recompute in executor", flush=True)
-                program = decomp.auto_recompute_pir_program(
-                    program, pir_grad_var_to_var
-                )
-
-        if in_cinn_mode():
-            apply_cinn_pass(program)
         return program, new_exe, data_op_infos
 
 
@@ -1405,7 +1415,7 @@ class Executor:
                 cur_feed = feed[feed_target_name]
                 var = global_block.var(feed_target_name)
                 if var.dtype != core.VarDesc.VarType.STRINGS:
-                    if not isinstance(cur_feed, core.LoDTensor):
+                    if not isinstance(cur_feed, core.DenseTensor):
                         cur_feed = _as_lodtensor(
                             cur_feed, self.place, var.dtype
                         )
@@ -1466,7 +1476,7 @@ class Executor:
                 # and don't need feed data.
                 continue
             cur_feed = feed[feed_target_name]
-            if not isinstance(cur_feed, core.LoDTensor):
+            if not isinstance(cur_feed, core.DenseTensor):
                 cur_feed = _as_lodtensor(cur_feed, self.place, var_type)
             pir_check_feed_shape_type(
                 cur_feed, feed_target_name, var_shape, var_type
@@ -1778,7 +1788,7 @@ class Executor:
                 it to different scope. default is :code:`paddle.static.global_scope()`
             return_numpy(bool): This parameter indicates whether convert the fetched Tensors
                 (the Tensor specified in the fetch list) to numpy.ndarray. if it is False,
-                the type of the return value is a list of :code:`LoDTensor`. The default is True.
+                the type of the return value is a list of :code:`DenseTensor`. The default is True.
             use_program_cache(bool): This parameter indicates whether the input :code:`Program` is cached.
                 If the parameter is True, the model may run faster in the following cases:
                 the input program is :code:`paddle.static.Program`, and the parameters(program, feed Tensor name
@@ -1801,6 +1811,7 @@ class Executor:
             .. code-block:: python
                 :name: code-example-1
 
+                >>> # doctest: +SKIP("This has diff in xdoctest env")
                 >>> import paddle
                 >>> import numpy
 
@@ -1833,6 +1844,7 @@ class Executor:
             .. code-block:: python
                 :name: code-example-2
 
+                >>> # doctest: +SKIP("This has diff in xdoctest env")
                 >>> # doctest: +REQUIRES(env:GPU)
                 >>> import paddle
                 >>> import numpy as np
@@ -1938,35 +1950,6 @@ class Executor:
             program = default_main_program()
 
         fetch_list = self._check_fetch_list(fetch_list)
-
-        from paddle.distributed.auto_parallel.static.utils import (
-            use_new_executor,
-        )
-
-        if (
-            isinstance(program, Program)
-            and program._pipeline_opt
-            and not use_new_executor()
-        ):
-            if "fleet_opt" in program._pipeline_opt:
-                # Move prepare here for port conflict with nccl in startup program
-                if self._fleet_executor is None:
-                    self._fleet_executor = _prepare_fleet_executor()
-                return self._run_using_fleet_executor(
-                    program=program,
-                    feed=feed,
-                    fetch_list=fetch_list,
-                    with_standalone_executor=self._fleet_executor_with_standalone,
-                    return_numpy=return_numpy,
-                )
-            if "startup_program" in program._pipeline_opt:
-                program = program._pipeline_opt["startup_program"]
-            else:
-                return self._run_pipeline(
-                    program,
-                    fetch_list=fetch_list,
-                    use_program_cache=use_program_cache,
-                )
 
         if isinstance(program, Program) and program._heter_pipeline_opt:
             # print("program._heter_pipeline_opt: {}".format(
@@ -2131,7 +2114,7 @@ class Executor:
 
                 if (
                     vardesc.persistable() is False
-                    and vardesc.type() == core.VarDesc.VarType.LOD_TENSOR
+                    and vardesc.type() == core.VarDesc.VarType.DENSE_TENSOR
                     and vardesc.need_check_feed() is True
                     and varobj.stop_gradient is True
                     and varobj.is_data is True
@@ -2240,7 +2223,9 @@ class Executor:
             else:
                 tensor._copy_from(cpu_tensor, self.place)
 
-        ret = new_exe.run(list(feed.keys()), return_numpy)
+        ret = new_exe.run(
+            list(feed.keys()), return_numpy, self.enable_job_schedule_profiler
+        )
         return ret
 
     def _run_inference(self, exe, feed):
@@ -2290,13 +2275,11 @@ class Executor:
         if filelist_length < pipeline_num:
             pipeline_num = filelist_length
             print(
-                "Pipeline training: setting the pipeline num to %d is enough because there are only %d files"
-                % (filelist_length, filelist_length)
+                f"Pipeline training: setting the pipeline num to {filelist_length} is enough because there are only {filelist_length} files"
             )
         if filelist_length < pipeline_num * pipeline_opt["concurrency_list"][0]:
             print(
-                "Pipeline training: setting the 1st element in concurrency_list to %d is enough because there are only %d files"
-                % (filelist_length // pipeline_num, filelist_length)
+                f"Pipeline training: setting the 1st element in concurrency_list to {filelist_length // pipeline_num} is enough because there are only {filelist_length} files"
             )
             pipeline_opt["concurrency_list"][0] = (
                 filelist_length // pipeline_num
@@ -3023,7 +3006,7 @@ class Executor:
                             tensor = as_numpy(tensor)
                     except:
                         var = scope.find_var(varname)
-                        tensor = var.get_lod_tensor_array()
+                        tensor = var.get_dense_tensor_array()
                         if return_numpy:
                             tensor = as_numpy(tensor)
                         else:

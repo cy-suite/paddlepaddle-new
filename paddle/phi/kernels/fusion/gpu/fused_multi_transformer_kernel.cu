@@ -31,7 +31,7 @@ void FusedMultiTransformerOpKernel(
     const Context &dev_ctx,
     const DenseTensor &x,
     const std::vector<const DenseTensor *> &ln_scales,
-    const std::vector<const DenseTensor *> &ln_biases,
+    const paddle::optional<std::vector<const DenseTensor *>> &ln_biases_in,
     const std::vector<const DenseTensor *> &qkv_weights,
     const paddle::optional<std::vector<const DenseTensor *>> &qkv_biases_in,
     const paddle::optional<std::vector<const DenseTensor *>> &cache_kvs_in,
@@ -45,7 +45,7 @@ void FusedMultiTransformerOpKernel(
     const paddle::optional<std::vector<const DenseTensor *>>
         &out_linear_biases_in,
     const std::vector<const DenseTensor *> &ffn_ln_scales,
-    const std::vector<const DenseTensor *> &ffn_ln_biases,
+    const paddle::optional<std::vector<const DenseTensor *>> &ffn_ln_biases_in,
     const std::vector<const DenseTensor *> &ffn1_weights,
     const paddle::optional<std::vector<const DenseTensor *>> &ffn1_biases_in,
     const std::vector<const DenseTensor *> &ffn2_weights,
@@ -75,6 +75,19 @@ void FusedMultiTransformerOpKernel(
   int seq_len = input_x_dims[1];
   int dim_embed = input_x_dims[2];
   int bsz_seq = bsz * seq_len;
+
+  // Optional Bias input for LayerNorm / RMSNorm
+  std::vector<const DenseTensor *> ln_biases;
+  auto ln_biases_in_ptr = ln_biases_in.get_ptr();
+  if (ln_biases_in_ptr) {
+    ln_biases = *ln_biases_in_ptr;
+  }
+
+  std::vector<const DenseTensor *> ffn_ln_biases;
+  auto ffn_ln_biases_in_ptr = ffn_ln_biases_in.get_ptr();
+  if (ffn_ln_biases_in_ptr) {
+    ffn_ln_biases = *ffn_ln_biases_in_ptr;
+  }
 
   bool use_glu = (act_method == "geglu" || act_method == "swiglu");
 
@@ -178,7 +191,12 @@ void FusedMultiTransformerOpKernel(
   // x: qkv's input [batch_size, seq_len, dim_embed]
   // y: qkv's weight: [3, num_head, dim_head, dim_embed] if not GQA else
   // [num_head + 2 * gqa_group_size, dim_head, dim_embed]
-  auto qkv_biases = qkv_biases_in.get();
+  std::vector<const DenseTensor *> qkv_biases;
+  auto qkv_biases_in_ptr = qkv_biases_in.get_ptr();
+  if (qkv_biases_in_ptr) {
+    qkv_biases = *qkv_biases_in_ptr;
+  }
+
   const auto qkv_w_dims = qkv_weights[0]->dims();
   int num_head, dim_head;
   if (gqa_group_size > 0) {
@@ -217,9 +235,21 @@ void FusedMultiTransformerOpKernel(
   // 3. fmha
   phi::fusion::AttnDropoutParam attn_param(
       true, "upscale_in_train", 0.0, true, true, 0, nullptr);
+
   auto *src_mask = src_mask_in.get_ptr();
-  auto cache_kvs = cache_kvs_in.get();
-  auto pre_caches = pre_caches_in.get();
+
+  std::vector<const DenseTensor *> cache_kvs;
+  auto cache_kvs_in_ptr = cache_kvs_in.get_ptr();
+  if (cache_kvs_in_ptr) {
+    cache_kvs = *cache_kvs_in_ptr;
+  }
+
+  std::vector<const DenseTensor *> pre_caches;
+  auto pre_caches_ptr = pre_caches_in.get_ptr();
+  if (pre_caches_ptr) {
+    pre_caches = *pre_caches_ptr;
+  }
+
   int cache_offset = 0;
   if (pre_caches.size() > 0) {
     cache_offset = pre_caches[0]->dims()[3];
@@ -227,16 +257,18 @@ void FusedMultiTransformerOpKernel(
 
   auto out_seq_len = seq_len;
   if (time_step) {
-    PADDLE_ENFORCE_EQ(time_step->place(),
-                      phi::CPUPlace(),
-                      common::errors::PreconditionNotMet(
-                          "The place of input(TimeStep) must be CPUPlace."));
+    PADDLE_ENFORCE_EQ(
+        time_step->place().GetType(),
+        phi::AllocationType::CPU,
+        common::errors::InvalidArgument(
+            "The place of input(time_step) must be CPU, but got %s.",
+            time_step->place()));
     // cache_seq_len
     int time_step_value = time_step->data<int>()[0];
     PADDLE_ENFORCE_GT(
         time_step_value,
         0,
-        common::errors::PreconditionNotMet(
+        common::errors::InvalidArgument(
             "The value of time_step must > 0, but now is %d", time_step_value));
     PADDLE_ENFORCE_EQ(
         seq_len,
@@ -264,7 +296,7 @@ void FusedMultiTransformerOpKernel(
       mask_broadcast_num_heads = false;
     } else {
       PADDLE_THROW(common::errors::InvalidArgument(
-          "Unknow dimension for attn_mask, the num_head(2nd) "
+          "Unknown dimension for attn_mask, the num_head(2nd) "
           "dimension is invalid, it should be 1 or num_head(%d), "
           "but got %d",
           num_head,
@@ -339,7 +371,12 @@ void FusedMultiTransformerOpKernel(
       dev_ctx.template Alloc<T>(&fmha_out, fmha_out.numel() * sizeof(T));
 
   // 4. out_linear
-  auto out_linear_biases = out_linear_biases_in.get();
+  std::vector<const DenseTensor *> out_linear_biases;
+  auto out_linear_biases_in_ptr = out_linear_biases_in.get_ptr();
+  if (out_linear_biases_in_ptr) {
+    out_linear_biases = *out_linear_biases_in_ptr;
+  }
+
   // (transA, transB, compute_bias) = (false, false, false)
 
   auto out_linear_compute = phi::fusion::GEMMHelper<T>(
@@ -357,7 +394,12 @@ void FusedMultiTransformerOpKernel(
   uint8_t *dropout_mask_out_data = nullptr;
 
   // 6. ffn matmul1
-  auto ffn1_biases = ffn1_biases_in.get();
+  std::vector<const DenseTensor *> ffn1_biases;
+  auto ffn1_biases_in_ptr = ffn1_biases_in.get_ptr();
+  if (ffn1_biases_in_ptr) {
+    ffn1_biases = *ffn1_biases_in_ptr;
+  }
+
   auto ffn1_weight_dim = ffn1_weights[0]->dims();
   // if quant weight,
   // matmul weight is transposed
@@ -388,7 +430,12 @@ void FusedMultiTransformerOpKernel(
       &ffn1_dropout_out, ffn1_dropout_out.numel() * sizeof(T));
 
   // 8. ffn2 matmul
-  auto ffn2_biases = ffn2_biases_in.get();
+  std::vector<const DenseTensor *> ffn2_biases;
+  auto ffn2_biases_in_ptr = ffn2_biases_in.get_ptr();
+  if (ffn2_biases_in_ptr) {
+    ffn2_biases = *ffn2_biases_in_ptr;
+  }
+
   auto ffn2_linear_compute = phi::fusion::GEMMHelper<T>(
       dev_ctx, token_num, dim_embed, tmp_dim_ffn, "None", false);
 
@@ -445,11 +492,11 @@ void FusedMultiTransformerOpKernel(
     }
   }
 
-  int timestep = src_mask->dims()[3] - 1;
+  int time_step_value = out_seq_len - 1;
   int multi_block_attention_min_partition_size =
       static_cast<int>(FLAGS_multi_block_attention_min_partition_size);
   int max_num_partitions =
-      (timestep + multi_block_attention_min_partition_size - 1) /
+      (time_step_value + multi_block_attention_min_partition_size - 1) /
       multi_block_attention_min_partition_size;
 
   phi::DenseTensor partial_max_logits_tensor;
@@ -531,7 +578,7 @@ void FusedMultiTransformerOpKernel(
                                max_seq_len,
                                num_head,
                                dim_head,
-                               src_mask->dims()[3] - 1,
+                               time_step_value,
                                rotary_emb_dims,
                                1. / sqrt(dim_head),
                                mask_broadcast_num_heads,
@@ -559,7 +606,7 @@ void FusedMultiTransformerOpKernel(
                              max_seq_len,
                              num_head,
                              dim_head,
-                             src_mask->dims()[3] - 1,
+                             time_step_value,
                              rotary_emb_dims,
                              1. / sqrt(dim_head),
                              mask_broadcast_num_heads,

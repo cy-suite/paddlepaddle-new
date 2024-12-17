@@ -26,8 +26,7 @@ limitations under the License. */
 #include "paddle/phi/kernels/sparse/empty_kernel.h"
 #include "paddle/phi/kernels/sparse/sparse_utils_kernel.h"
 
-namespace phi {
-namespace sparse {
+namespace phi::sparse {
 
 template <typename T, typename Functor>
 struct BinaryOPWithZeroCompareFunctor {
@@ -327,8 +326,7 @@ DEFINE_COO_ELEMENTWISE_KERNEL(Subtract)
 DEFINE_COO_ELEMENTWISE_KERNEL(Multiply)
 DEFINE_COO_ELEMENTWISE_KERNEL(Divide)
 
-}  // namespace sparse
-}  // namespace phi
+}  // namespace phi::sparse
 
 using complex64 = ::phi::dtype::complex<float>;
 using complex128 = ::phi::dtype::complex<double>;
@@ -401,7 +399,9 @@ PD_REGISTER_KERNEL(multiply_csr_csr,
                    double,
                    int16_t,
                    int,
-                   int64_t) {
+                   int64_t,
+                   complex64,
+                   complex128) {
   kernel->InputAt(0).SetDataLayout(phi::DataLayout::SPARSE_CSR);
   kernel->InputAt(1).SetDataLayout(phi::DataLayout::SPARSE_CSR);
 }
@@ -414,7 +414,9 @@ PD_REGISTER_KERNEL(multiply_coo_coo,
                    double,
                    int16_t,
                    int,
-                   int64_t) {
+                   int64_t,
+                   complex64,
+                   complex128) {
   kernel->InputAt(0).SetDataLayout(phi::DataLayout::SPARSE_COO);
   kernel->InputAt(1).SetDataLayout(phi::DataLayout::SPARSE_COO);
 }
@@ -427,7 +429,9 @@ PD_REGISTER_KERNEL(divide_csr_csr,
                    double,
                    int16_t,
                    int,
-                   int64_t) {
+                   int64_t,
+                   complex64,
+                   complex128) {
   kernel->InputAt(0).SetDataLayout(phi::DataLayout::SPARSE_CSR);
   kernel->InputAt(1).SetDataLayout(phi::DataLayout::SPARSE_CSR);
 }
@@ -440,7 +444,9 @@ PD_REGISTER_KERNEL(divide_coo_coo,
                    double,
                    int16_t,
                    int,
-                   int64_t) {
+                   int64_t,
+                   complex64,
+                   complex128) {
   kernel->InputAt(0).SetDataLayout(phi::DataLayout::SPARSE_COO);
   kernel->InputAt(1).SetDataLayout(phi::DataLayout::SPARSE_COO);
 }

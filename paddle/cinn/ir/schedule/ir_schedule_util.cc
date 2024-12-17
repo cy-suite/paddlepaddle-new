@@ -110,14 +110,7 @@ int GetLoopExtent(const Expr& loop) {
   return static_cast<int>(loop.As<ir::For>()->extent.get_constant());
 }
 
-void SetCudaAxisInfo(Expr* lowered_func) {
-  if (!lowered_func->as_lowered_func()) {
-    LOG(ERROR) << "The input of SetCudaAxisInfo should be lowered_func!";
-    return;
-  }
-
-  auto func_body = lowered_func->as_lowered_func_ref()->body;
-  CudaAxisInfo info;
+void SetCudaAxisInfo(ir::LoweredFunc lowered_func) {
   auto CannotProveLT = [](const ir::Expr& lhs, const ir::Expr& rhs) -> bool {
     std::vector<ir::Expr> exprs{rhs, lhs};
     common::cas_intervals_t var_intervals =
@@ -126,6 +119,8 @@ void SetCudaAxisInfo(Expr* lowered_func) {
     std::optional<bool> proved_lt = analyzer.ProveLT(lhs, rhs);
     return !proved_lt.has_value() || !proved_lt.value();
   };
+  auto func_body = lowered_func->body;
+  CudaAxisInfo info;
   ir::ir_utils::CollectIRNodes(func_body, [&](const Expr* x) {
     if (x->As<ir::For>() && x->As<ir::For>()->bind_info().valid()) {
       PADDLE_ENFORCE_EQ(
@@ -154,7 +149,7 @@ void SetCudaAxisInfo(Expr* lowered_func) {
     }
     return (x->As<ir::For>() && x->As<ir::For>()->bind_info().valid());
   });
-  lowered_func->as_lowered_func_ref()->cuda_axis_info = info;
+  lowered_func->cuda_axis_info = info;
 }
 
 bool Contains(const Expr& container, const Expr& expr) {
@@ -305,21 +300,34 @@ std::vector<int> ValidateFactors(const std::vector<int>& factors,
   int idx = -1;
   for (auto& i : factors) {
     idx++;
-    if (i == 0 || i < -1) {
-      std::ostringstream os;
-      os << "The params in factors of Split should be positive. However, the "
-            "factor at position "
-         << idx << " is " << i << std::endl;
-      throw IRScheduleErrorHandler(primitive, os.str(), module_expr);
-    } else if (i == -1) {
-      if (has_minus_one) {
-        std::ostringstream os;
-        os << "The params in factors of Split should not be less than -1 or "
-              "have "
-              "more than one -1!"
-           << std::endl;
-        throw IRScheduleErrorHandler(primitive, os.str(), module_expr);
-      }
+    PADDLE_ENFORCE_EQ(
+        i != 0 && i >= -1, true, ::common::errors::InvalidArgument([&]() {
+          std::ostringstream os;
+          os << "[IRScheduleError] An Error occurred in the schedule primitive "
+                "<"
+             << primitive << ">.\n"
+             << "[Error info] The params in factors of Split should be "
+                "positive. However, the factor at position "
+             << idx << " is " << i << ".\n"
+             << "[Expr info] The Expr of current schedule is "
+             << module_expr.GetExprs() << ".";
+          return os.str();
+        }()));
+    PADDLE_ENFORCE_EQ(i == -1 && has_minus_one,
+                      false,
+                      ::common::errors::InvalidArgument([&]() {
+                        std::ostringstream os;
+                        os << "[IRScheduleError] An Error occurred in the "
+                              "schedule primitive <"
+                           << primitive << ">.\n"
+                           << "[Error info] The params in factors of Split "
+                              "should not be less than -1 or "
+                           << "have more than one -1!\n"
+                           << "[Expr info] The Expr of current schedule is "
+                           << module_expr.GetExprs() << ".";
+                        return os.str();
+                      }()));
+    if (i == -1) {
       has_minus_one = true;
     } else {
       product *= i;
@@ -327,14 +335,20 @@ std::vector<int> ValidateFactors(const std::vector<int>& factors,
   }
   std::vector<int> validated_factors = factors;
   if (!has_minus_one) {
-    if (product < total_extent) {
-      std::ostringstream os;
-      os << "In Split, the factors' product[" << product
-         << "] should be not larger than or equal "
-            "to original loop's extent["
-         << total_extent << "]!" << std::endl;
-      throw IRScheduleErrorHandler(primitive, os.str(), module_expr);
-    }
+    PADDLE_ENFORCE_GE(
+        product, total_extent, ::common::errors::PreconditionNotMet([&]() {
+          std::ostringstream os;
+          os << "[IRScheduleError] An Error occurred in the schedule primitive "
+                "<"
+             << primitive << ">.\n"
+             << "[Error info] In Split, the factors' product[" << product
+             << "] should be not larger than or equal "
+                "to original loop's extent["
+             << total_extent << "]!\n"
+             << "[Expr info] The Expr of current schedule is "
+             << module_expr.GetExprs() << ".";
+          return os.str();
+        }()));
     return validated_factors;
   } else {
     int minus_one_candidate = static_cast<int>(
@@ -1580,6 +1594,18 @@ std::vector<int> SampleTile(utils::LinearRandomEngine::StateType* rand_seed,
   }
   tile.push_back(extent);
   return tile;
+}
+
+bool ContainDynamicShape(const Expr& expr) {
+  auto loop_nodes = ir::ir_utils::CollectIRNodesWithoutTensor(
+      expr, [&](const Expr* x) { return x->As<ir::For>(); });
+  for (const auto& n : loop_nodes) {
+    auto for_node = n.As<ir::For>();
+    // we only deal static index shape now.
+    if (!for_node->extent.is_index()) return true;
+    if (for_node->extent.as_index().IsDynamic()) return true;
+  }
+  return false;
 }
 }  // namespace ir
 }  // namespace cinn

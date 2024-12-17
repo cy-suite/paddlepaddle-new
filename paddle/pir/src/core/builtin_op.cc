@@ -24,6 +24,27 @@ namespace pir {
 
 const char *ModuleOp::attributes_name[attributes_num] = {"program"};  // NOLINT
 
+bool IsDynamicShapeTypeEqual(Type type1, Type type2) {
+  // Only support DenseTensorType now
+  bool are_equal = false;
+  if (type1.isa<DenseTensorType>() && type2.isa<DenseTensorType>()) {
+    auto type_l = type1.dyn_cast<DenseTensorType>();
+    auto type_r = type2.dyn_cast<DenseTensorType>();
+    auto vec1 = type_l.dims();
+    auto vec2 = type_r.dims();
+    if (vec1.size() != vec2.size()) return false;
+    for (auto i = 0; i < vec1.size(); ++i) {
+      are_equal = ((vec1[i] == -1 || vec2[i] == -1) || (vec1[i] == vec2[i])) |
+                  are_equal;
+    }
+    return static_cast<bool>(type_l.dtype() == type_r.dtype() &&
+                             type_l.data_layout() == type_r.data_layout() &&
+                             type_l.lod() == type_r.lod() &&
+                             type_l.offset() == type_r.offset() && are_equal);
+  }
+  return are_equal;
+}
+
 void PassStopGradientsDefaultly(OperationArgument &argument) {  // NOLINT
   VLOG(10) << "Builder construction stop gradient for OpResults.";
   bool stop_gradient = true;
@@ -34,6 +55,17 @@ void PassStopGradientsDefaultly(OperationArgument &argument) {  // NOLINT
       break;
     }
   }
+  std::vector<pir::Attribute> outs_stop_gradient(
+      argument.output_types.size(),
+      pir::BoolAttribute::get(pir::IrContext::Instance(), stop_gradient));
+  argument.AddAttribute(
+      kStopGradientAttrName,
+      pir::ArrayAttribute::get(pir::IrContext::Instance(), outs_stop_gradient));
+}
+
+void TrueStopGradientsDefaultly(OperationArgument &argument) {  // NOLINT
+  VLOG(10) << "Builder construction stop gradient as True for OpResults.";
+  bool stop_gradient = true;
   std::vector<pir::Attribute> outs_stop_gradient(
       argument.output_types.size(),
       pir::BoolAttribute::get(pir::IrContext::Instance(), stop_gradient));
@@ -171,15 +203,17 @@ void GroupOp::VerifySig() {}
 void GroupOp::Print(IrPrinter &printer) {
   auto &os = printer.os;
   auto op = operation();
-  printer.PrintOpResult(op);
-  os << " = \"" << name() << "\" [id:" << op->id() << "]";
-  printer.PrintOpOperands(op);
+  printer.PrintOpResult(*op);
+  os << " = ";
+  printer.PrintOpName(*op);
+  printer.PrintOpId(*op);
+  printer.PrintOpOperands(*op);
   os << " -> ";
-  printer.PrintOpReturnType(op);
+  printer.PrintOpReturnType(*op);
   os << " {\n";
   printer.AddIndentation();
   for (auto &sub_op : GetOperators()) {
-    printer.PrintOperation(sub_op);
+    printer.PrintOperation(*sub_op);
     os << "\n";
   }
   printer.DecreaseIndentation();
@@ -340,11 +374,12 @@ void CombineOp::VerifySig() const {
           input_num));
 
   // forall i in inputs.size(): inputs[i].type == outputs[0][i].type
-  for (size_t i = 0; i < input_num; ++i) {
+  for (uint64_t i = 0; i < input_num; ++i) {
     auto type = (*this)->operand(i).type();
     PADDLE_ENFORCE_EQ(
-        output_type[i],
-        type,
+        (output_type[i] == type ||
+         IsDynamicShapeTypeEqual(output_type[i], type)),
+        true,
         common::errors::InvalidArgument("The type %s of outputs[0][%d] must be "
                                         "equal to type %s of inputs[%d].",
                                         output_type[i],
@@ -644,7 +679,7 @@ void ConstantTensorOp::VerifySig() const {
       common::errors::InvalidArgument("Type of value must be str attribute"));
 }
 
-ConstantTensorOp ConstantTensorOp::dyn_cast(Operation *op) {
+ConstantTensorOp ConstantTensorOp::dyn_cast(const Operation *op) {
   if (ConstantTensorOp::classof(op)) return ConstantTensorOp(op);
   return ConstantTensorOp(nullptr);
 }

@@ -39,6 +39,7 @@ limitations under the License. */
 #include "paddle/fluid/framework/unused_var_check.h"
 #include "paddle/phi/core/memory/malloc.h"
 #include "paddle/phi/core/platform/device_context.h"
+#include "paddle/phi/core/vocab/string_array.h"
 
 #include "paddle/common/flags.h"
 #include "paddle/common/macros.h"
@@ -130,9 +131,10 @@ inline bool VarIsTensor(const Variable& var) {
   return var.IsType<phi::DenseTensor>() || var.IsType<phi::SelectedRows>();
 }
 
-const phi::DenseTensor* GetLoDTensorOrSelectedRowsValueFromVar(
+const phi::DenseTensor* GetDenseTensorOrSelectedRowsValueFromVar(
     const Variable& var);
-phi::DenseTensor* GetMutableLoDTensorOrSelectedRowsValueFromVar(Variable* var);
+phi::DenseTensor* GetMutableDenseTensorOrSelectedRowsValueFromVar(
+    Variable* var);
 
 class ExecutionContext;
 class OperatorBase;
@@ -229,7 +231,7 @@ class RuntimeInferShapeContext : public InferShapeContext {
 
   void SetSkipLoD(bool skip);
 
-  std::vector<LoD> GetOutputsLod(const std::string& out) const;
+  std::vector<LegacyLoD> GetOutputsLod(const std::string& out) const;
 
   std::vector<DDim> GetOutputsDim(const std::string& name) const;
 
@@ -694,6 +696,13 @@ class ExecutionArgumentMappingContext : public phi::ArgumentMappingContext {
     auto vars = ctx_.MultiOutputVar(name);
     return std::all_of(vars.begin(), vars.end(), [](const Variable* var) {
       return var->IsType<phi::DenseTensor>();
+    });
+  }
+
+  bool IsVocabOutput(const std::string& name) const override {
+    auto vars = ctx_.MultiOutputVar(name);
+    return std::all_of(vars.begin(), vars.end(), [](const Variable* var) {
+      return var->IsType<phi::Vocab>();
     });
   }
 

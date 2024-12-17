@@ -17,8 +17,8 @@ limitations under the License. */
 #include "gtest/gtest.h"
 
 using CPUPlace = phi::CPUPlace;
-using LoD = paddle::framework::LoD;
-using LoDTensorArray = phi::TensorArray;
+using LegacyLoD = phi::LegacyLoD;
+using DenseTensorArray = phi::TensorArray;
 
 template <typename T>
 using BeamSearchDecoder = paddle::operators::BeamSearchDecoder<T>;
@@ -34,8 +34,8 @@ template <typename T>
 void GenerateExample(const std::vector<size_t>& level_0,
                      const std::vector<size_t>& level_1,
                      const std::vector<int>& data,
-                     LoDTensorArray* ids,
-                     LoDTensorArray* scores) {
+                     DenseTensorArray* ids,
+                     DenseTensorArray* scores) {
   PADDLE_ENFORCE_EQ(level_0.back(),
                     level_1.size() - 1,
                     common::errors::InvalidArgument(
@@ -53,7 +53,7 @@ void GenerateExample(const std::vector<size_t>& level_0,
 
   CPUPlace place;
 
-  LoD lod;
+  LegacyLoD lod;
   lod.push_back(level_0);
   lod.push_back(level_1);
 
@@ -87,8 +87,8 @@ void BeamSearchDecodeTestFrame() {
 
   // Construct sample data with 5 steps and 2 source sentences
   // beam_size = 2, start_id = 0, end_id = 1
-  LoDTensorArray ids;
-  LoDTensorArray scores;
+  DenseTensorArray ids;
+  DenseTensorArray scores;
 
   GenerateExample<T>(std::vector<size_t>{0, 1, 2},
                      std::vector<size_t>{0, 1, 2},
@@ -127,7 +127,7 @@ void BeamSearchDecodeTestFrame() {
   phi::DenseTensor score_tensor;
   helper.Backtrace(ids, scores, &id_tensor, &score_tensor);
 
-  LoD lod = id_tensor.lod();
+  LegacyLoD lod = id_tensor.lod();
   std::vector<size_t> expect_source_lod = {0, 2, 4};
   EXPECT_EQ(lod[0], expect_source_lod);
   std::vector<size_t> expect_sentence_lod = {0, 4, 7, 12, 17};

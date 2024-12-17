@@ -30,6 +30,14 @@ def floor_net(x):
     return paddle.floor(x)
 
 
+def fmax_net(x, y):
+    return paddle.fmax(x, y)
+
+
+def fmin_net(x, y):
+    return paddle.fmin(x, y)
+
+
 def gather_net(x, y):
     return paddle.gather(x, y, 1)
 
@@ -46,6 +54,10 @@ def gelu_net2(x):
     return paddle.nn.functional.gelu(x, approximate=False)
 
 
+def hardsigmoid_net(x):
+    return paddle.nn.functional.hardsigmoid(x)
+
+
 def hardswish_net(x):
     return paddle.nn.functional.hardswish(x)
 
@@ -59,6 +71,146 @@ class TestPrimFloorWithGrad(TestPrimBaseWithGrad):
         self.init_x_shape = [None, None, None]
         self.x = np.random.random(self.x_shape).astype(self.dtype)
         self.net = floor_net
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimFmaxWithGrad1(TestPrimTwoWithGrad):
+    def setUp(self):
+        np.random.seed(2023)
+        self.op_name = "pd_op.fmax_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, 40]
+        self.y_shape = [30, 200, 40]
+        self.init_y_shape = [None, None, 40]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.y = np.random.random(self.y_shape).astype(self.dtype)
+        self.y[2, 10, 5:] = np.nan
+        self.net = fmax_net
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimFmaxWithGrad2(TestPrimTwoWithGrad):
+    def setUp(self):
+        np.random.seed(2023)
+        self.op_name = "pd_op.fmax_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, 40]
+        self.y_shape = [30, 200, 40]
+        self.init_y_shape = [30, 200, 40]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.y = np.random.random(self.y_shape).astype(self.dtype)
+        self.x[3, 100, 20:] = np.nan
+        self.net = fmax_net
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimFmaxWithGrad3(TestPrimTwoWithGrad):
+    def setUp(self):
+        np.random.seed(2023)
+        self.op_name = "pd_op.fmax_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [30, 200, 40]
+        self.y_shape = [30, 200, 40]
+        self.init_y_shape = [None, None, 40]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.y = np.random.random(self.y_shape).astype(self.dtype)
+        self.y[2, 10, 5:] = np.nan
+        self.net = fmax_net
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimFmaxWithGrad4(TestPrimTwoWithGrad):
+    def setUp(self):
+        np.random.seed(2023)
+        self.op_name = "pd_op.fmax_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [30, 200, 40]
+        self.y_shape = [30, 200, 40]
+        self.init_y_shape = [None, None, 40]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.y = np.random.random(self.y_shape).astype(self.dtype)
+        self.x[2, 10, 5:] = np.nan
+        self.y[2, 10, 5:] = np.nan
+        self.x[10, 9, :] = self.y[10, 9, :]
+        self.net = fmax_net
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimFminWithGrad1(TestPrimTwoWithGrad):
+    def setUp(self):
+        np.random.seed(2023)
+        self.op_name = "pd_op.fmin_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, 40]
+        self.y_shape = [30, 200, 40]
+        self.init_y_shape = [None, None, 40]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.y = np.random.random(self.y_shape).astype(self.dtype)
+        self.y[2, 10, 5:] = np.nan
+        self.net = fmin_net
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimFminWithGrad2(TestPrimTwoWithGrad):
+    def setUp(self):
+        np.random.seed(2023)
+        self.op_name = "pd_op.fmin_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, 40]
+        self.y_shape = [30, 200, 40]
+        self.init_y_shape = [30, 200, 40]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.y = np.random.random(self.y_shape).astype(self.dtype)
+        self.x[3, 100, 20:] = np.nan
+        self.net = fmin_net
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimFminWithGrad3(TestPrimTwoWithGrad):
+    def setUp(self):
+        np.random.seed(2023)
+        self.op_name = "pd_op.fmin_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [30, 200, 40]
+        self.y_shape = [30, 200, 40]
+        self.init_y_shape = [None, None, 40]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.y = np.random.random(self.y_shape).astype(self.dtype)
+        self.y[2, 10, 5:] = np.nan
+        self.net = fmin_net
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimFminWithGrad4(TestPrimTwoWithGrad):
+    def setUp(self):
+        np.random.seed(2023)
+        self.op_name = "pd_op.fmin_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [30, 200, 40]
+        self.y_shape = [30, 200, 40]
+        self.init_y_shape = [None, None, 40]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.y = np.random.random(self.y_shape).astype(self.dtype)
+        self.x[2, 10, 5:] = np.nan
+        self.y[2, 10, 5:] = np.nan
+        self.x[10, 9, :] = self.y[10, 9, :]
+        self.net = fmin_net
         self.enable_cinn = False
         self.tol = 1e-6
 
@@ -220,6 +372,19 @@ class TestPrimGeluWithGrad4(TestPrimBaseWithGrad):
 
         for dr, d in zip(grad_ref, grad):
             np.testing.assert_allclose(dr, d, rtol=self.rtol, atol=self.atol)
+
+
+class TestPrimHardsigmoidWithGrad(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.hardsigmoid_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = hardsigmoid_net
+        self.enable_cinn = False
+        self.tol = 1e-6
 
 
 class TestPrimHardswishWithGrad(TestPrimBaseWithGrad):

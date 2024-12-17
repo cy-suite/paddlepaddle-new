@@ -746,6 +746,17 @@ if(WITH_TESTING AND WITH_INFERENCE_API_TEST)
         "conv_bn_swish_split_gelu.tar.gz" 2a5e8791e47b221b4f782151d76da9c6)
     endif()
 
+    inference_analysis_test(
+      trt_dynamic_shape_test
+      SRCS
+      trt_dynamic_shape_test.cc
+      EXTRA_DEPS
+      common
+      paddle_inference_shared
+      ARGS
+      --infer_model=${TRT_MODEL_INSTALL_DIR})
+    set_tests_properties(trt_dynamic_shape_test PROPERTIES TIMEOUT 300)
+
     set(TEST_TRT_ERNIE_MODEL "${TRT_MODEL_INSTALL_DIR}/ernie_test")
     if(NOT EXISTS ${TEST_TRT_ERNIE_MODEL}/ernie_model_4.tar.gz)
       inference_download_and_uncompress(
@@ -945,6 +956,23 @@ if(WITH_TESTING AND WITH_INFERENCE_API_TEST)
       test_analyzer_resnet50 ${IMG_CLASS_TEST_APP} ${RESNET50_MODEL_DIR} true)
     set_tests_properties(test_analyzer_resnet50 PROPERTIES TIMEOUT 120)
   endif()
+  if(WITH_OPENVINO
+     AND NOT WIN32
+     AND NOT WITH_XPU
+     AND NOT WITH_ROCM)
+    set(OPENVINO_RESNET50_MODEL_DIR
+        "${INFERENCE_DEMO_INSTALL_DIR}/openvino_resnet50")
+    download_data_without_verify(${OPENVINO_RESNET50_MODEL_DIR}
+                                 "resnet50_pdmodel.tar.gz")
+    set(OPENVINO_TEST_APP "analyzer_openvino")
+    set(OPENVINO_TEST_APP_SRC "analyzer_openvino_tester.cc")
+    inference_analysis_api_test_with_fake_data_build(${OPENVINO_TEST_APP}
+                                                     ${OPENVINO_TEST_APP_SRC})
+    inference_analysis_api_test_with_fake_data_run(
+      test_analyzer_openvino_resnet50 ${OPENVINO_TEST_APP}
+      ${OPENVINO_RESNET50_MODEL_DIR} true)
+    set_tests_properties(test_analyzer_openvino_resnet50 PROPERTIES TIMEOUT 120)
+  endif()
 
   inference_analysis_test(
     test_analyzer_capi_exp
@@ -959,6 +987,31 @@ if(WITH_TESTING AND WITH_INFERENCE_API_TEST)
     paddle_infer_api_errors_test
     SRCS paddle_infer_api_errors_tester.cc
     DEPS ${inference_api_tester_deps} common)
+
+  if(WITH_GPU)
+    inference_analysis_test(
+      paddle_infer_api_test
+      SRCS
+      paddle_infer_api_test.cc
+      EXTRA_DEPS
+      common
+      paddle_inference_shared
+      ARGS
+      --infer_model=${RESNET50_MODEL_DIR})
+    set_tests_properties(paddle_infer_api_test PROPERTIES TIMEOUT 300)
+
+    inference_analysis_test(
+      paddle_infer_api_copy_tensor_tester
+      SRCS
+      paddle_infer_api_copy_tensor_tester.cc
+      EXTRA_DEPS
+      common
+      paddle_inference_shared
+      ARGS
+      --infer_model=${RESNET50_MODEL_DIR})
+    set_tests_properties(paddle_infer_api_copy_tensor_tester PROPERTIES TIMEOUT
+                                                                        300)
+  endif()
 
   if(WITH_GPU AND TENSORRT_FOUND)
     set_tests_properties(test_trt_dynamic_shape_ernie_ser_deser

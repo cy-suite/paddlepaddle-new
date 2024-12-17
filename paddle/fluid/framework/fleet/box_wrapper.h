@@ -42,9 +42,9 @@ limitations under the License. */
 #include "paddle/fluid/framework/data_set.h"
 #include "paddle/fluid/framework/lod_tensor.h"
 #include "paddle/fluid/framework/scope.h"
-#include "paddle/fluid/platform/timer.h"
 #include "paddle/phi/common/place.h"
 #include "paddle/phi/core/platform/device/gpu/gpu_info.h"
+#include "paddle/phi/core/platform/timer.h"
 #include "paddle/utils/string/string_helper.h"
 #define BUF_SIZE 1024 * 1024
 
@@ -1154,7 +1154,7 @@ class BoxHelper {
   bool get_random_replace_done_ = false;
 };
 
-}  // end namespace framework
-}  // end namespace paddle
+}  // namespace framework
+}  // namespace paddle
 
 #include "paddle/fluid/framework/fleet/box_wrapper_impl.h"

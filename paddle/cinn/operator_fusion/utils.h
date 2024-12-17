@@ -61,9 +61,9 @@ static size_t GetRank(pir::Value value) {
   return value.type().dyn_cast<pir::DenseTensorType>().dims().size();
 }
 
-// FIXME(Aurelius84): 0D Tensor is not compitable with other rank.
+// FIXME(Aurelius84): 0D Tensor is not compatible with other rank.
 // So we need to add a special case for 0D Tensor.
-static size_t GetCompitableRank(pir::Value value) {
+static size_t GetCompatibleRank(pir::Value value) {
   size_t rank = GetRank(value);
   return rank == 0 ? 1 : rank;
 }
@@ -89,7 +89,7 @@ static std::string OpsDebugStr(std::vector<pir::Operation*> ops) {
   std::stringstream ss;
   pir::IrPrinter printer(ss);
   for (const auto* op : ops) {
-    printer.PrintOperation(const_cast<pir::Operation*>(op));
+    printer.PrintOperation(*op);
     ss << "(" << op << ")"
        << "\n";
   }
@@ -113,6 +113,13 @@ std::vector<T> ConcatVector(const std::vector<T>& first,
 }
 
 template <typename T>
+std::vector<T> ReverseVector(const std::vector<T>& as) {
+  std::vector<T> result = as;
+  std::reverse(result.begin(), result.end());
+  return result;
+}
+
+template <typename T>
 std::vector<T> ConcatAll(const std::vector<std::vector<T>>& all) {
   std::vector<T> result;
   for (const auto& vec : all) {
@@ -132,12 +139,57 @@ std::vector<T> FilterVector(const std::vector<T>& first, const F& func) {
   return result;
 }
 
+template <typename T, typename F = std::function<bool(T, T)>>
+bool VectorEqual(const std::vector<T>& first,
+                 const std::vector<T>& second,
+                 const F& func = nullptr) {
+  if (first.size() != second.size()) {
+    return false;
+  }
+  for (size_t i = 0; i < first.size(); ++i) {
+    if (func) {
+      if (!func(first[i], second[i])) {
+        return false;
+      }
+    } else {
+      if (first[i] != second[i]) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 template <class A, class B>
 std::vector<B> MapVector(const std::vector<A>& as,
                          const std::function<B(A)>& func) {
   std::vector<B> res;
   for (const auto& a : as) {
     res.push_back(func(a));
+  }
+  return res;
+}
+
+template <class A, class B>
+std::vector<B> MapVectorIfTrue(const std::vector<A>& as,
+                               const std::function<B(A)>& func,
+                               const std::function<bool(A)>& pred) {
+  std::vector<B> res;
+  for (const auto& a : as) {
+    if (pred(a)) {
+      res.push_back(func(a));
+    }
+  }
+  return res;
+}
+
+template <class A>
+std::vector<std::pair<A, int>> Enumerate(const std::vector<A>& inputs) {
+  std::vector<std::pair<A, int>> res;
+  int idx = 0;
+  for (const auto& a : inputs) {
+    res.push_back(std::make_pair(a, idx));
+    idx++;
   }
   return res;
 }
@@ -155,6 +207,65 @@ std::unordered_set<T> ToUnorderedSet(const std::vector<T>& input) {
 }
 
 template <typename T>
+std::vector<T> SetToVector(const std::set<T>& input) {
+  std::vector<T> result(input.begin(), input.end());
+  return result;
+}
+template <typename T>
+std::vector<T> SetToVector(const std::unordered_set<T>& input) {
+  std::vector<T> result(input.begin(), input.end());
+  return result;
+}
+
+template <typename T1, typename T2>
+std::vector<T1> MapKeyToVector(const std::map<T1, T2>& input) {
+  std::vector<T1> result;
+  for (const auto& pair : input) {
+    result.push_back(pair.first);
+  }
+  return result;
+}
+template <typename T1, typename T2>
+std::vector<T1> MapKeyToVector(const std::unordered_map<T1, T2>& input) {
+  std::vector<T1> result;
+  for (const auto& pair : input) {
+    result.push_back(pair.first);
+  }
+  return result;
+}
+
+template <typename Set>
+Set SetUnion(const Set& A, const Set& B) {
+  Set result;
+  std::set_union(A.begin(),
+                 A.end(),
+                 B.begin(),
+                 B.end(),
+                 std::inserter(result, result.begin()));
+  return result;
+}
+template <typename Set>
+Set SetIntersection(const Set& A, const Set& B) {
+  Set result;
+  std::set_intersection(A.begin(),
+                        A.end(),
+                        B.begin(),
+                        B.end(),
+                        std::inserter(result, result.begin()));
+  return result;
+}
+template <typename Set>
+Set SetDifference(const Set& A, const Set& B) {
+  Set result;
+  std::set_difference(A.begin(),
+                      A.end(),
+                      B.begin(),
+                      B.end(),
+                      std::inserter(result, result.begin()));
+  return result;
+}
+
+template <typename T>
 bool IsAnyFirstInSecond(const std::vector<T>& first,
                         const std::vector<T>& second) {
   const auto& second_set = ToSet(second);
@@ -164,6 +275,33 @@ bool IsAnyFirstInSecond(const std::vector<T>& first,
     }
   }
   return false;
+}
+
+template <typename T>
+std::pair<std::vector<T>, std::vector<T>> SplitFirstWhetherInSecond(
+    const std::vector<T>& first, const std::vector<T>& second) {
+  std::vector<T> used;
+  std::vector<T> unused;
+  for (size_t i = 0; i < first.size(); ++i) {
+    if (std::find(second.begin(), second.end(), first[i]) != second.end()) {
+      used.emplace_back(first[i]);
+    } else {
+      unused.emplace_back(first[i]);
+    }
+  }
+  return {used, unused};
+}
+
+template <typename T>
+std::vector<T> GatherFirstNotInSecond(const std::vector<T>& first,
+                                      const std::vector<T>& second) {
+  std::vector<T> result;
+  for (size_t i = 0; i < first.size(); ++i) {
+    if (std::find(second.begin(), second.end(), first[i]) == second.end()) {
+      result.emplace_back(first[i]);
+    }
+  }
+  return result;
 }
 
 template <typename T>
@@ -192,6 +330,40 @@ std::vector<T> UniqueConcatVector(const std::vector<T>& first,
   return result;
 }
 
+template <typename Int, typename T>
+std::vector<Int> GetTransposePerm(const std::vector<T>& source,
+                                  const std::vector<T>& target) {
+  PADDLE_ENFORCE_EQ(source.size(),
+                    target.size(),
+                    ::common::errors::InvalidArgument(
+                        "The size of source and target should be equal."));
+  std::vector<Int> perm;
+  for (size_t i = 0; i < source.size(); ++i) {
+    auto iter = std::find(source.begin(), source.end(), target[i]);
+    PADDLE_ENFORCE_NE(iter,
+                      source.end(),
+                      ::common::errors::InvalidArgument(
+                          "The target should contain all elements in source."));
+    perm.emplace_back(iter - source.begin());
+  }
+  return perm;
+}
+
+template <typename T, typename Int>
+std::vector<T> TransposeVector(const std::vector<T>& v,
+                               const std::vector<Int>& perm) {
+  PADDLE_ENFORCE_EQ(
+      v.size(),
+      perm.size(),
+      ::common::errors::InvalidArgument(
+          "The size of transpose vector and perm should be equal."));
+  std::vector<T> result;
+  for (size_t i = 0; i < perm.size(); ++i) {
+    result.emplace_back(v[perm[i]]);
+  }
+  return result;
+}
+
 struct ValueDim {
   pir::Value v_;
   size_t idx_ = -1;
@@ -204,8 +376,8 @@ struct ValueDim {
       if (v.defining_op() != nullptr) {
         return v.defining_op();
       }
-      // For inputs of the program, the defining_op is nullptr, we use it's user
-      // as the related op.
+      // For inputs of the program, the defining_op is nullptr, we use it's
+      // user as the related op.
       PADDLE_ENFORCE_EQ(v.use_empty(),
                         false,
                         ::common::errors::PreconditionNotMet(
@@ -253,7 +425,7 @@ struct ValueDim {
 
 static std::vector<ValueDim> GetAllValueDimFromValue(const pir::Value& v) {
   std::vector<ValueDim> value_dims;
-  size_t rank = GetCompitableRank(v);
+  size_t rank = GetCompatibleRank(v);
   for (size_t i = 0; i < rank; ++i) {
     value_dims.emplace_back(v, i);
   }
@@ -341,15 +513,27 @@ std::vector<U> VectorFlatMap(
 }
 
 template <typename T>
-bool AnyTargetInCandidate(const std::vector<T>& targets,
-                          const std::vector<T>& candidate) {
-  std::unordered_set<T> pool = ToUnorderedSet(candidate);
-  for (const auto& item : targets) {
+bool AnyFirstInSecond(const std::vector<T>& first,
+                      const std::vector<T>& second) {
+  std::unordered_set<T> pool = ToUnorderedSet(second);
+  for (const auto& item : first) {
     if (pool.find(item) != pool.end()) {
       return true;
     }
   }
   return false;
+}
+
+template <typename T>
+bool AllFirstInSecond(const std::vector<T>& first,
+                      const std::vector<T>& second) {
+  std::unordered_set<T> pool = ToUnorderedSet(second);
+  for (const auto& item : first) {
+    if (pool.find(item) == pool.end()) {
+      return false;
+    }
+  }
+  return true;
 }
 
 static std::vector<pir::Operation*> FindDownstreamOps(pir::Operation* op) {
@@ -469,5 +653,29 @@ inline bool Any(const std::vector<bool> a) {
   }
   return res;
 }
+
+template <typename Int>
+std::vector<Int> ArangeVector(Int start, Int end, Int step = 1) {
+  std::vector<Int> res;
+  for (Int i = start; i < end; i += step) {
+    res.push_back(i);
+  }
+  return res;
+}
+
+symbol::DimExpr GetShapeProduct(const std::vector<symbol::DimExpr>& shape,
+                                int start,
+                                int end);
+
+bool ShapeProductEqual(const std::vector<symbol::DimExpr>& in_shape,
+                       const std::vector<symbol::DimExpr>& out_shape,
+                       int in_start,
+                       int in_end,
+                       int out_start,
+                       int out_end);
+
+std::vector<std::pair<int, int>> PartionReshapeAxes(
+    const std::vector<symbol::DimExpr>& in_shape,
+    const std::vector<symbol::DimExpr>& out_shape);
 
 }  // namespace cinn::fusion

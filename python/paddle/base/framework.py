@@ -212,16 +212,18 @@ class GlobalThreadLocal(threading.local):
         self._in_sot_simulation_mode_ = False
         self._functional_dygraph_context_manager = None
         self._dygraph_tracer_ = _dygraph_tracer_
-        tmp_flags = os.environ.get("FLAGS_enable_pir_api")
-        if tmp_flags is not None:
-            if (
-                tmp_flags == "0"
-                or tmp_flags == 0
-                or tmp_flags == "False"
-                or not tmp_flags
-            ):
-                tmp_flags = False
-            set_flags({"FLAGS_enable_pir_api": bool(tmp_flags)})
+        env_pir_enabled = os.environ.get("FLAGS_enable_pir_api")
+
+        if env_pir_enabled is not None:
+            pir_enabled = env_pir_enabled.lower() not in [
+                'n',
+                'no',
+                'f',
+                'false',
+                'off',
+                '0',
+            ]
+            set_flags({"FLAGS_enable_pir_api": pir_enabled})
         self._use_pir_api_ = get_flags("FLAGS_enable_pir_api")[
             "FLAGS_enable_pir_api"
         ]
@@ -789,7 +791,9 @@ def _dygraph_tracer():
 
 def _current_expected_place_():
     global _global_expected_place_
-    if _global_expected_place_ is None:
+    if _global_expected_place_ is None or isinstance(
+        _global_expected_place_, core.Place
+    ):
         if core.is_compiled_with_cuda():
             try:
                 device_count = core.get_cuda_device_count()
@@ -1169,7 +1173,7 @@ class NameScope:
             self._children[prefix] = [new_child]
         else:
             new_child = NameScope(
-                prefix + "_%d" % len(self._children[prefix]), self
+                f"{prefix}_{len(self._children[prefix])}", self
             )
             self._children[prefix].append(new_child)
         return new_child
@@ -1260,7 +1264,7 @@ class NameStruct:
             self._children[prefix] = [new_child]
         else:
             new_child = NameStruct(
-                prefix + "_%d" % len(self._children[prefix]), self
+                f"{prefix}_{len(self._children[prefix])}", self
             )
             self._children[prefix].append(new_child)
         return new_child
@@ -1348,7 +1352,9 @@ def grad_var_name(var_name):
     return var_name + GRAD_VAR_SUFFIX
 
 
-def convert_np_dtype_to_proto_type(np_dtype: np.dtype | str):
+def convert_np_dtype_to_proto_type(
+    np_dtype: np.dtype | str,
+) -> core.VarDesc.VarType:
     """
     Convert the data type in numpy to the data type in Paddle.
 
@@ -1405,7 +1411,9 @@ def convert_np_dtype_to_proto_type(np_dtype: np.dtype | str):
         raise ValueError(f"Not supported numpy dtype {dtype}")
 
 
-def convert_np_dtype_to_dtype_(np_dtype):
+def convert_np_dtype_to_dtype_(
+    np_dtype: np.dtype | str,
+) -> core.VarDesc.VarType | core.DataType:
     """
     Convert the data type in numpy to the data type in Paddle.
 
@@ -1484,7 +1492,7 @@ def _debug_string_(proto, throw_on_error=True):
 
 
 def _create_tensor(
-    type=core.VarDesc.VarType.LOD_TENSOR,
+    type=core.VarDesc.VarType.DENSE_TENSOR,
     name=None,
     shape=None,
     dtype=None,
@@ -1500,7 +1508,7 @@ def _create_tensor(
         dtype,
         list(shape) if shape else [],
         name,
-        type if type else core.VarDesc.VarType.LOD_TENSOR,
+        type if type else core.VarDesc.VarType.DENSE_TENSOR,
         True if persistable else False,
     )
     eager_tensor.retain_grads()
@@ -1685,7 +1693,7 @@ class Variable(metaclass=VariableMetaClass):
     def __init__(
         self,
         block,
-        type=core.VarDesc.VarType.LOD_TENSOR,
+        type=core.VarDesc.VarType.DENSE_TENSOR,
         name=None,
         shape=None,
         dtype=None,
@@ -1827,8 +1835,8 @@ class Variable(metaclass=VariableMetaClass):
 
         assert (
             self.type == core.VarDesc.VarType.SELECTED_ROWS
-            or self.type == core.VarDesc.VarType.LOD_TENSOR
-        ), "only support a variable with SELECTED_ROWS or LOD_TENSOR to be detached"
+            or self.type == core.VarDesc.VarType.DENSE_TENSOR
+        ), "only support a variable with SELECTED_ROWS or DENSE_TENSOR to be detached"
 
         with unique_name.guard(self.block.program._name_generator):
             output = self.block.create_var(
@@ -1938,7 +1946,7 @@ class Variable(metaclass=VariableMetaClass):
         Get the Gradient of Current Variable
 
         Returns:
-            ndarray or tuple of ndarray: if Variable's type is LoDTensor, return numpy value of the gradient of current Variable, if Variable's type is SelectedRows, return tuple of ndarray, first element of tuple is numpy value of the gradient of current Variable, second element of tuple is numpy value of the rows of current Variable.
+            ndarray or tuple of ndarray: if Variable's type is DenseTensor, return numpy value of the gradient of current Variable, if Variable's type is SelectedRows, return tuple of ndarray, first element of tuple is numpy value of the gradient of current Variable, second element of tuple is numpy value of the rows of current Variable.
 
         Examples:
             .. code-block:: python
@@ -2061,6 +2069,7 @@ class Variable(metaclass=VariableMetaClass):
         Examples:
             .. code-block:: python
 
+                >>> # doctest: +SKIP("This has diff in xdoctest env")
                 >>> import paddle
                 >>> import paddle.static as static
 
@@ -2072,13 +2081,13 @@ class Variable(metaclass=VariableMetaClass):
                 ...                                     shape=[-1, 23, 48],
                 ...                                     dtype='float32')
                 >>> print(new_variable._to_readable_code())
-                var X : LOD_TENSOR.shape(-1, 23, 48).dtype(float32).stop_gradient(False)
+                var X : DENSE_TENSOR.shape(-1, 23, 48).dtype(float32).stop_gradient(False)
         """
-        # VarType.LOD_TENSOR -> LOD_TENSOR
+        # VarType.DENSE_TENSOR -> DENSE_TENSOR
         type_str = str(self.type).split(".")[1]
         if (
             self.type == core.VarDesc.VarType.SELECTED_ROWS
-            or self.type == core.VarDesc.VarType.LOD_TENSOR
+            or self.type == core.VarDesc.VarType.DENSE_TENSOR
         ):
             dtype_str = str(self.dtype).split(".")[1]
             var_str = f"{self.name} : {type_str}.shape{self.shape}.dtype({dtype_str}).stop_gradient({self.stop_gradient})"
@@ -2125,6 +2134,7 @@ class Variable(metaclass=VariableMetaClass):
         Examples:
             .. code-block:: python
 
+                >>> # doctest: +SKIP("This has diff in xdoctest env")
                 >>> import paddle.base as base
                 >>> import paddle
 
@@ -2139,7 +2149,7 @@ class Variable(metaclass=VariableMetaClass):
                 >>> print(new_variable.to_string(True, True))
                 name: "X"
                 type {
-                  type: LOD_TENSOR
+                  type: DENSE_TENSOR
                   lod_tensor {
                     tensor {
                       data_type: FP32
@@ -2423,6 +2433,7 @@ class Variable(metaclass=VariableMetaClass):
         Examples:
             .. code-block:: python
 
+                >>> # doctest: +SKIP("This has diff in xdoctest env")
                 >>> import paddle.base as base
                 >>> cur_program = base.Program()
                 >>> cur_block = cur_program.current_block()
@@ -2430,7 +2441,7 @@ class Variable(metaclass=VariableMetaClass):
                 ...                                     shape=[-1, 23, 48],
                 ...                                     dtype='float32')
                 >>> print("Type of current Var is: {}".format(new_variable.type))
-                Type of current Var is: VarType.LOD_TENSOR
+                Type of current Var is: VarType.DENSE_TENSOR
         """
         return self.desc.type()
 
@@ -2478,7 +2489,7 @@ class Variable(metaclass=VariableMetaClass):
                     self.name + ".tmp"
                 ),
                 dtype=self.dtype,
-                type=core.VarDesc.VarType.LOD_TENSOR,
+                type=core.VarDesc.VarType.DENSE_TENSOR,
                 persistable=False,
                 stop_gradient=False,
             )
@@ -2865,7 +2876,7 @@ class Variable(metaclass=VariableMetaClass):
 
         if not (isinstance(value, np.ndarray) or hasattr(value, "__array__")):
             raise TypeError(
-                f"`value` should be `numpy.ndarray` or `LoDTensor`, but received {type(value)}."
+                f"`value` should be `numpy.ndarray` or `DenseTensor`, but received {type(value)}."
             )
 
         if scope is not None and not isinstance(scope, core._Scope):
@@ -2935,7 +2946,7 @@ class Variable(metaclass=VariableMetaClass):
                 >>> x = paddle.static.data(name='x', shape=[3, 2, 1])
 
                 >>> # get the number of elements of the Variable
-                >>> y = x.size() # type: ignore
+                >>> y = x.size
 
         """
 
@@ -3150,7 +3161,6 @@ class Operator:
     OP_WITHOUT_KERNEL_SET = {
         "feed",
         "fetch",
-        "recurrent",
         "go",
         "conditional_block",
         "pylayer",
@@ -3159,7 +3169,6 @@ class Operator:
         "recv",
         "listen_and_serv",
         "fl_listen_and_serv",
-        "ncclInit",
         "select",
         "checkpoint_notify",
         "gen_bkcl_id",
@@ -3169,9 +3178,6 @@ class Operator:
         "c_comm_init",
         "c_sync_calc_stream",
         "c_sync_comm_stream",
-        "queue_generator",
-        "dequeue",
-        "enqueue",
         "heter_listen_and_serv",
         "c_wait_comm",
         "c_wait_compute",
@@ -3309,8 +3315,7 @@ class Operator:
                             in_args = [in_args]
                         if not in_proto.duplicable and len(in_args) > 1:
                             raise ValueError(
-                                "Input %s expects only one input, but %d are given."
-                                % (in_proto.name, len(in_args))
+                                f"Input {in_proto.name} expects only one input, but {len(in_args)} are given."
                             )
                         in_arg_names = []
                         for index, arg in enumerate(in_args):
@@ -3364,8 +3369,7 @@ class Operator:
                         out_args = [out_args]
                     if not out_proto.duplicable and len(out_args) > 1:
                         raise ValueError(
-                            "Output %s expects only one output, but %d are given."
-                            % (out_proto.name, len(out_args))
+                            f"Output {out_proto.name} expects only one output, but {len(out_args)} are given."
                         )
                     out_arg_names = []
                     for arg in out_args:
@@ -4321,9 +4325,8 @@ class Block:
         )
         if with_details:
             re_add_indent = re.compile(r"\n(.)")
-            res_str = "blocks {\n  idx: %d\n  parent_idx: %d" % (
-                self.idx,
-                self.parent_idx,
+            res_str = (
+                f"blocks {{\n  idx: {self.idx}\n  parent_idx: {self.parent_idx}"
             )
             for var in list(self.vars.values()):
                 res_str += "\n  vars {{\n    {}  }}".format(
@@ -4584,12 +4587,12 @@ class Block:
                 init_ops = []
                 for op in block.ops:
                     if var.name in op.output_arg_names:
-                        # In startup_program, "c_broadcast" and "c_sync_comm_stream"
+                        # In startup_program, "broadcast" and "c_sync_comm_stream"
                         # are treated as initialization ops that cause error.
-                        # Think of "c_broadcast" and "c_sync_comm_stream" as a special case here.
+                        # Think of "broadcast" and "c_sync_comm_stream" as a special case here.
                         # NOTE: "coalesce_tensor" is a special case for rnn with cudnn support
                         if op.type in [
-                            "c_broadcast",
+                            "broadcast",
                             "c_sync_comm_stream",
                             "coalesce_tensor",
                         ]:
@@ -4683,8 +4686,6 @@ class Block:
                 "conditional_block_grad",
                 "pylayer",
                 "pylayer_grad",
-                "recurrent",
-                "recurrent_grad",
                 "while",
                 "while_grad",
             }
@@ -4932,7 +4933,7 @@ class Block:
                     type=v.type,
                     lod_level=(
                         v.lod_level
-                        if v.type == core.VarDesc.VarType.LOD_TENSOR
+                        if v.type == core.VarDesc.VarType.DENSE_TENSOR
                         else None
                     ),
                     stop_gradient=p.stop_gradient,
@@ -5552,7 +5553,7 @@ class IrGraph:
 
         Args:
             name(str): the name of the persistable variable node.
-            vart_type(core.VarDesc.VarType): the type of the persistable variable node.
+            var_type(core.VarDesc.VarType): the type of the persistable variable node.
             shape(list): the shape of the persistable variable node.
             var_dtype(core.VarDesc.VarType): the data type of the persistable variable node.
 
@@ -5573,7 +5574,7 @@ class IrGraph:
 
         Args:
             name(str): the name of the variable node.
-            vart_type(core.VarDesc.VarType): the type of the variable node.
+            var_type(core.VarDesc.VarType): the type of the variable node.
             shape(list): the shape of the variable node.
             var_dtype(core.VarDesc.VarType): the data type of the variable node.
 
@@ -6032,26 +6033,26 @@ class Program:
                         new_var_desc,
                         "shape",
                         [
-                            core.VarDesc.VarType.LOD_TENSOR,
+                            core.VarDesc.VarType.DENSE_TENSOR,
                             core.VarDesc.VarType.SELECTED_ROWS,
-                            core.VarDesc.VarType.LOD_TENSOR_ARRAY,
+                            core.VarDesc.VarType.DENSE_TENSOR_ARRAY,
                         ],
                     ),
                     "dtype": get_var_desc_attr_or_none(
                         new_var_desc,
                         "dtype",
                         [
-                            core.VarDesc.VarType.LOD_TENSOR,
+                            core.VarDesc.VarType.DENSE_TENSOR,
                             core.VarDesc.VarType.SELECTED_ROWS,
-                            core.VarDesc.VarType.LOD_TENSOR_ARRAY,
+                            core.VarDesc.VarType.DENSE_TENSOR_ARRAY,
                         ],
                     ),
                     "lod_level": get_var_desc_attr_or_none(
                         new_var_desc,
                         "lod_level",
                         [
-                            core.VarDesc.VarType.LOD_TENSOR,
-                            core.VarDesc.VarType.LOD_TENSOR_ARRAY,
+                            core.VarDesc.VarType.DENSE_TENSOR,
+                            core.VarDesc.VarType.DENSE_TENSOR_ARRAY,
                         ],
                     ),
                     "error_clip": (
@@ -6848,7 +6849,7 @@ class Program:
         res.blocks = [Block(res, i) for i in range(res.desc.num_blocks())]
         res._sync_with_cpp()
 
-        # Note: The op_role and op_role_var cann't be deleted currently,
+        # Note: The op_role and op_role_var can't be deleted currently,
         # and we will try to remove them in the future.
         common_clipped_attrs_list = ["op_callstack", "with_quant_attr"]
 
@@ -7315,6 +7316,7 @@ class Program:
         Examples:
             .. code-block:: python
 
+                >>> # doctest: +SKIP("This has diff in xdoctest env")
                 >>> import paddle
                 >>> import paddle.static as static
 
@@ -7326,8 +7328,8 @@ class Program:
                 >>> for var in prog.list_vars():
                 ...     print(var)
 
-                >>> # var img : LOD_TENSOR.shape(-1, 1, 28, 28).dtype(float32).stop_gradient(True)
-                >>> # var label : LOD_TENSOR.shape(-1, 1).dtype(int64).stop_gradient(True)
+                >>> # var img : DENSE_TENSOR.shape(-1, 1, 28, 28).dtype(float32).stop_gradient(True)
+                >>> # var label : DENSE_TENSOR.shape(-1, 1).dtype(int64).stop_gradient(True)
         """
         for each_block in self.blocks:
             yield from list(each_block.vars.values())
@@ -7342,6 +7344,7 @@ class Program:
         Examples:
             .. code-block:: python
 
+                >>> # doctest: +SKIP("This has diff in xdoctest env")
                 >>> import paddle
                 >>> import paddle.static as static
 
@@ -7359,8 +7362,8 @@ class Program:
                 >>> # Here will print all parameters in current program, in this example,
                 >>> # the result is like:
                 >>> #
-                >>> # persist trainable param fc_0.w_0 : LOD_TENSOR.shape(13, 10).dtype(float32).stop_gradient(False)
-                >>> # persist trainable param fc_0.b_0 : LOD_TENSOR.shape(10,).dtype(float32).stop_gradient(False)
+                >>> # persist trainable param fc_0.w_0 : DENSE_TENSOR.shape(13, 10).dtype(float32).stop_gradient(False)
+                >>> # persist trainable param fc_0.b_0 : DENSE_TENSOR.shape(10,).dtype(float32).stop_gradient(False)
                 >>> #
                 >>> # Here print(param) will print out all the properties of a parameter,
                 >>> # including name, type and persistable, you can access to specific
@@ -7571,7 +7574,7 @@ class Parameter(Variable, metaclass=ParameterMetaClass):
         block,
         shape,
         dtype,
-        type=core.VarDesc.VarType.LOD_TENSOR,
+        type=core.VarDesc.VarType.DENSE_TENSOR,
         **kwargs,
     ):
         if shape is None:
@@ -7708,7 +7711,7 @@ class EagerParamBase(core.eager.Tensor):
             dtype,
             list(shape) if shape else [],
             name,
-            core.VarDesc.VarType.LOD_TENSOR,
+            core.VarDesc.VarType.DENSE_TENSOR,
             True,
         )
         self.retain_grads()
@@ -8462,5 +8465,39 @@ def auto_complete_op_role(program, op_role):
         yield
     finally:
         if paddle.framework.in_pir_mode() and is_dist_block(block):
-            always_forward_ops = ["pd_op.data", "builtin.parameter"]
+            always_forward_ops = [
+                "pd_op.data",
+                "builtin.parameter",
+                "cf.stack_create",
+                "cf.tuple_push",
+            ]
             set_op_roles(block, op_role, always_forward_ops)
+
+
+# set op when op_role when it is add by apibuilder
+# pir_op_role_guard could not distinguish "always_forward_ops", therefore if
+# there would be always_forward_ops in your region, you should use "auto_complete_op_role"
+@signature_safe_contextmanager
+def pir_op_role_guard(op_role: int - 1) -> Generator[None, None, None]:
+
+    if paddle.framework.in_pir_mode():
+        original_op_rope = pir.get_op_role()
+        pir.set_op_role(op_role)
+    try:
+        yield
+    finally:
+        if paddle.framework.in_pir_mode():
+            pir.set_op_role(original_op_rope)
+
+
+@signature_safe_contextmanager
+def pir_chunk_id_guard(chunk_id: int - 1) -> Generator[None, None, None]:
+
+    if paddle.framework.in_pir_mode():
+        original_chunk_id = pir.get_chunk_id()
+        pir.set_chunk_id(chunk_id)
+    try:
+        yield
+    finally:
+        if paddle.framework.in_pir_mode():
+            pir.set_chunk_id(original_chunk_id)

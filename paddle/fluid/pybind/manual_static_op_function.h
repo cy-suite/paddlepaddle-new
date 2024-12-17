@@ -857,7 +857,7 @@ static PyObject *static_api_run_custom_op(PyObject *self,
         auto ddims = phi::make_ddim(output_shapes[value_index]);
         auto dtype = output_dtypes[value_index];
         phi::DataLayout layout{DataLayout::NCHW};
-        phi::LoD lod;
+        phi::LegacyLoD lod;
         auto type = paddle::dialect::DenseTensorType::get(
             pir::IrContext::Instance(),
             paddle::dialect::TransToIrDataType(dtype),
@@ -885,7 +885,7 @@ static PyObject *static_api_run_custom_op(PyObject *self,
       auto ddims = phi::make_ddim(output_shapes[value_index]);
       auto dtype = output_dtypes[value_index];
       phi::DataLayout layout{DataLayout::NCHW};
-      phi::LoD lod;
+      phi::LegacyLoD lod;
       auto out_type = paddle::dialect::DenseTensorType::get(
           pir::IrContext::Instance(),
           paddle::dialect::TransToIrDataType(dtype),
@@ -966,7 +966,7 @@ static PyObject *builtin_combine_op(PyObject *self,
                                     PyObject *args,
                                     PyObject *kwargs) {
   try {
-    VLOG(6) << "Add buitin_combine op into program";
+    VLOG(6) << "Add builtin_combine op into program";
     VLOG(8) << "args count: " << (PyTuple_Size(args) / 2);
     // Get Value from args
     PyObject *x_obj = PyTuple_GET_ITEM(args, 0);
@@ -974,6 +974,26 @@ static PyObject *builtin_combine_op(PyObject *self,
     CallStackRecorder callstack_recoder("builtin_combine_op");
     callstack_recoder.Record();
     auto static_api_out = paddle::dialect::builtin_combine(x);
+    callstack_recoder.AttachToOps();
+    return ToPyObject(static_api_out);
+  } catch (...) {
+    ThrowExceptionToPython(std::current_exception());
+    return nullptr;
+  }
+}
+
+static PyObject *builtin_split_op(PyObject *self,
+                                  PyObject *args,
+                                  PyObject *kwargs) {
+  try {
+    VLOG(6) << "Add builtin_split op into program";
+    VLOG(8) << "args count: " << (PyTuple_Size(args) / 2);
+    // Get Value from args
+    PyObject *x_obj = PyTuple_GET_ITEM(args, 0);
+    auto x = CastPyArg2Value(x_obj, "builtin_split", 0, false);
+    CallStackRecorder callstack_recoder("builtin_builtin_split");
+    callstack_recoder.Record();
+    auto static_api_out = paddle::dialect::builtin_split(x);
     callstack_recoder.AttachToOps();
     return ToPyObject(static_api_out);
   } catch (...) {
@@ -1147,6 +1167,24 @@ static PyObject *fused_gemm_epilogue(PyObject *self,
   }
 }
 
+static PyObject *share_var(PyObject *self, PyObject *args, PyObject *kwargs) {
+  try {
+    VLOG(6) << "Add share_var op into program";
+    VLOG(8) << "args count: " << (PyTuple_Size(args) / 2);
+    // Get Value from args
+    PyObject *input_obj = PyTuple_GET_ITEM(args, 0);
+    auto inputs = CastPyArg2VectorOfValue(input_obj, "share_var", 0, false);
+    CallStackRecorder callstack_recoder("share_var_op");
+    callstack_recoder.Record();
+    auto share_var_op = paddle::dialect::share_var(inputs);
+    callstack_recoder.AttachToOps();
+    return ToPyObject(share_var_op);
+  } catch (...) {
+    ThrowExceptionToPython(std::current_exception());
+    return nullptr;
+  }
+}
+
 static PyMethodDef ManualOpsAPI[] = {
     {"set_parameter",
      (PyCFunction)(void (*)(void))static_api_set_parameter,
@@ -1216,6 +1254,10 @@ static PyMethodDef ManualOpsAPI[] = {
      (PyCFunction)(void (*)(void))builtin_combine_op,
      METH_VARARGS | METH_KEYWORDS,
      "C++ interface function for builtin_combine_op."},
+    {"builtin_split",
+     (PyCFunction)(void (*)(void))builtin_split_op,
+     METH_VARARGS | METH_KEYWORDS,
+     "C++ interface function for builtin_split_op."},
     {"tensorrt_engine",
      (PyCFunction)(void (*)(void))static_api_tensorrt_engine,
      METH_VARARGS | METH_KEYWORDS,
@@ -1224,6 +1266,10 @@ static PyMethodDef ManualOpsAPI[] = {
      (PyCFunction)(void (*)(void))static_api_array_pop,
      METH_VARARGS | METH_KEYWORDS,
      "C++ interface function for array_pop."},
+    {"share_var",
+     (PyCFunction)(void (*)(void))share_var,
+     METH_VARARGS | METH_KEYWORDS,
+     "C++ interface function for share_var_op."},
     {nullptr, nullptr, 0, nullptr}};
 
 }  // namespace pybind

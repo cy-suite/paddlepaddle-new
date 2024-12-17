@@ -42,6 +42,10 @@ if (WITH_GPU AND TENSORRT_FOUND)
     add_subdirectory(tensorrt)
 endif()
 
+if (WITH_OPENVINO)
+    add_subdirectory(openvino)
+endif()
+
 if(WITH_IPU)
     add_subdirectory(ipu)
 endif()
@@ -81,8 +85,8 @@ op_library(generated_op UNITY SRCS generated_op1.cc generated_op2.cc generated_o
 op_library(run_program_op DEPS executor_cache ${OP_HEADER_DEPS})
 target_link_libraries(run_program_op phi common)
 op_library(quantize_linear_op DEPS phi common)
-op_library(save_combine_op DEPS string_array phi common)
-op_library(load_combine_op DEPS string_array)
+op_library(save_combine_op DEPS phi)
+op_library(load_combine_op DEPS phi)
 
 op_library(activation_op SRCS activation_op.cc DEPS ${OP_HEADER_DEPS})
 
@@ -100,7 +104,7 @@ cc_library(ops_extra_info SRCS ops_extra_info.cc DEPS attribute phi common)
 
 set(COMMON_OP_DEPS ${COMMON_OP_DEPS} phi common)
 set(COMMON_OP_DEPS ${COMMON_OP_DEPS} selected_rows_utils
-lod_tensor lod_rank_table executor static_prim_api)
+lod_tensor executor static_prim_api)
 set(COMMON_OP_DEPS ${COMMON_OP_DEPS} static_prim_api static_utils static_global_utils prim_utils)
 set(COMMON_OP_DEPS ${COMMON_OP_DEPS} box_wrapper ps_gpu_wrapper)
 set(COMMON_OP_DEPS ${COMMON_OP_DEPS} processgroup_comm_utils)

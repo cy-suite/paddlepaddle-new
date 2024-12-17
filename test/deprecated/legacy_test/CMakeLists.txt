@@ -75,9 +75,7 @@ if(NOT WITH_GPU)
 endif()
 
 list(REMOVE_ITEM TEST_OPS test_audio_logmel_feature test_audio_mel_feature)
-list(REMOVE_ITEM TEST_OPS test_fused_dot_product_attention_op)
-list(REMOVE_ITEM TEST_OPS test_fused_dot_product_attention_op_static)
-list(REMOVE_ITEM TEST_OPS test_fuse_dot_product_attention_pass)
+list(REMOVE_ITEM TEST_OPS test_fuse_gemm_epilogue_pass_deprecated)
 
 if(((NOT WITH_ROCM) AND (NOT WITH_GPU)) OR WIN32)
   list(REMOVE_ITEM TEST_OPS test_memcpy_op)
@@ -203,12 +201,7 @@ if(APPLE)
       "These tests has been disabled in OSX before being fixed:\n test_fuse_elewise_add_act_pass_deprecated \n test_dist_se_resnext_*"
   )
   # this op is not support on mac
-  list(REMOVE_ITEM TEST_OPS test_fusion_seqexpand_concat_fc_op)
   list(REMOVE_ITEM TEST_OPS test_fuse_elewise_add_act_pass_deprecated)
-endif()
-if(NOT WITH_MKLML)
-  # this op is not support on openblas
-  list(REMOVE_ITEM TEST_OPS test_fusion_seqexpand_concat_fc_op)
 endif()
 
 if(NOT WITH_MKL OR NOT WITH_AVX)
@@ -476,11 +469,6 @@ foreach(TEST_OP ${TEST_OPS})
   py_test_modules(${TEST_OP} MODULES ${TEST_OP})
 endforeach()
 
-if((WITH_GPU) AND (WITH_CUDNN_FRONTEND))
-  py_test_modules(test_fused_dot_product_attention_op MODULES
-                  test_fused_dot_product_attention_op)
-endif()
-
 set_tests_properties(test_conv2d_api_deprecated PROPERTIES LABELS
                                                            "RUN_TYPE=EXCLUSIVE")
 if(WITH_DISTRIBUTE)
@@ -575,6 +563,11 @@ if(WITH_DISTRIBUTE)
       endif()
     endforeach()
   endif()
+endif()
+
+if((WITH_GPU) AND (CUDA_VERSION GREATER_EQUAL 11.6))
+  py_test_modules(test_fuse_gemm_epilogue_pass_deprecated MODULES
+                  test_fuse_gemm_epilogue_pass_deprecated)
 endif()
 
 if(WIN32)

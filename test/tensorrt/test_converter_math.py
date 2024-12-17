@@ -24,14 +24,12 @@ class TestMaxTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.max
         self.api_args = {
-            "x": np.array([[0.2, 0.3, 0.5, 0.9], [0.1, 0.2, 0.6, 0.7]]).astype(
-                "float32"
-            ),
+            "x": np.random.randn(2, 4).astype(np.float32),
             "axis": [0, 1],
         }
         self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [1, 4], "y": [1, 4]}
-        self.max_shape = {"x": [5, 4], "y": [5, 4]}
+        self.min_shape = {"x": [1, 4]}
+        self.max_shape = {"x": [5, 4]}
 
     def test_trt_result(self):
         self.check_trt_result()
@@ -92,6 +90,361 @@ class TestAddTRTPattern(TensorRTBaseTest):
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1, 3], "y": [1, 3]}
         self.max_shape = {"x": [5, 3], "y": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestRemainderFloatTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.remainder
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype(np.float32),
+            "y": np.random.uniform(low=0.1, high=1, size=(2, 3)).astype(
+                np.float32
+            ),  # Ensure y is non-zero
+        }
+        self.dynamic_shape_data = {
+            "x": lambda shape: np.random.randn(*shape).astype(np.float32),
+            "y": lambda shape: np.random.uniform(
+                low=0.1, high=1, size=shape
+            ).astype(np.float32),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3], "y": [1, 3]}
+        self.max_shape = {"x": [5, 3], "y": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestRemainderIntTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.remainder
+        self.api_args = {
+            "x": np.random.randint(1, 10, size=(2, 3)).astype(np.int32),
+            "y": np.random.randint(1, 10, size=(2, 3)).astype(
+                np.int32
+            ),  # Ensure y is non-zero
+        }
+        self.dynamic_shape_data = {
+            "x": lambda shape: np.random.randint(1, 10, size=shape).astype(
+                np.int32
+            ),
+            "y": lambda shape: np.random.randint(1, 10, size=shape).astype(
+                np.int32
+            ),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3], "y": [1, 3]}
+        self.max_shape = {"x": [5, 3], "y": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestMinTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.min
+        self.api_args = {
+            "x": np.random.randn(2, 4).astype(np.float32),
+            "axis": [0, 1],
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 4]}
+        self.max_shape = {"x": [5, 4]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestSumTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.sum
+        self.api_args = {
+            "x": np.random.randn(2, 4, 6).astype(np.int32),
+            "axis": [1, 1],
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 4, 6]}
+        self.max_shape = {"x": [5, 4, 6]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestSum1TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.sum
+        self.api_args = {
+            "x": np.random.randn(2, 4, 6).astype(np.float32),
+            "axis": [1, 1],
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 4, 6]}
+        self.max_shape = {"x": [5, 4, 6]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestAnyTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.any
+        self.api_args = {
+            "x": np.random.randn(2, 3, 2).astype(np.bool_),
+            "axis": [1, 1],
+            "keepdim": True,
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3, 2]}
+        self.max_shape = {"x": [5, 3, 2]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestAny1TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.any
+        self.api_args = {
+            "x": np.random.randn(2, 3, 2).astype(np.bool_),
+            "axis": [1, 1],
+            "keepdim": False,
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3, 2]}
+        self.max_shape = {"x": [5, 3, 2]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestAllTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.all
+        self.api_args = {
+            "x": np.random.randn(2, 3, 2).astype(np.bool_),
+            "axis": [1, 1],
+            "keepdim": True,
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3, 2]}
+        self.max_shape = {"x": [5, 3, 2]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestAll1TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.all
+        self.api_args = {
+            "x": np.random.randn(2, 3, 2).astype(np.bool_),
+            "axis": [1, 1],
+            "keepdim": False,
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3, 2]}
+        self.max_shape = {"x": [5, 3, 2]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestFloorDivideFloatTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.floor_divide
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("float32"),
+            "y": np.random.randn(2, 3).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3], "y": [1, 3]}
+        self.max_shape = {"x": [5, 3], "y": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestFloorDivideIntTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.floor_divide
+        self.api_args = {
+            "x": np.random.randint(low=1, high=100, size=(2, 3), dtype="int64"),
+            "y": np.random.randint(low=1, high=100, size=(2, 3), dtype="int64"),
+        }
+        self.dynamic_shape_data = {
+            "x": lambda shape: np.random.randint(
+                1, 100, size=shape, dtype="int64"
+            ),
+            "y": lambda shape: np.random.randint(
+                1, 100, size=shape, dtype="int64"
+            ),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3], "y": [1, 3]}
+        self.max_shape = {"x": [5, 3], "y": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestLogFloatTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.log
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3]}
+        self.max_shape = {"x": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestLogIntTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.log
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("int32"),
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3]}
+        self.max_shape = {"x": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestClipTRTPatternCase1(TensorRTBaseTest):
+    '''min/max is attr, and x/min/max is float'''
+
+    def setUp(self):
+        self.python_api = paddle.clip
+        self.api_args = {
+            "x": np.array([[2, 0.3, 0.5, 0.9], [0.1, 0.2, 6, 7]]).astype(
+                "float32"
+            ),
+            "min": 2.2,
+            "max": 5.5,
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 4]}
+        self.max_shape = {"x": [5, 4]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestClipTRTPatternCase2(TensorRTBaseTest):
+    def setUp(self):
+        '''min/max is attr, and x is int, min/max is float'''
+        self.python_api = paddle.clip
+        self.api_args = {
+            "x": np.array([[2, 3, 5, 9], [1, 2, 6, 7]]).astype("int64"),
+            "min": 2.2,
+            "max": 5.5,
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 4]}
+        self.max_shape = {"x": [5, 4]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestClipTRTPatternCase3(TensorRTBaseTest):
+    '''min/max is input, and x/min/max is float'''
+
+    def setUp(self):
+        self.python_api = paddle.clip
+        self.api_args = {
+            "x": np.array([[2, 0.3, 0.5, 0.9], [0.1, 0.2, 6, 7]]).astype(
+                "float32"
+            ),
+            "min": np.array([2.2]).astype("float32"),
+            "max": np.array([5.2]).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x", "min", "max"]}
+        self.min_shape = {"x": [1, 4]}
+        self.max_shape = {"x": [5, 4]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestClipTRTPatternCase4(TensorRTBaseTest):
+    '''min/max is input, and x is int, min/max is float'''
+
+    def setUp(self):
+        self.python_api = paddle.clip
+        self.api_args = {
+            "x": np.array([[2, 3, 5, 9], [1, 2, 6, 7]]).astype("int64"),
+            "min": np.array([2]).astype("float32"),
+            "max": np.array([5]).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x", "min", "max"]}
+        self.min_shape = {"x": [1, 4]}
+        self.max_shape = {"x": [5, 4]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestMaximumTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.maximum
+        self.api_args = {
+            "x": np.random.randn(2, 3, 4).astype("float32"),
+            "y": np.random.randn(2, 3, 4).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3, 4], "y": [1, 3, 4]}
+        self.max_shape = {"x": [5, 3, 4], "y": [5, 3, 4]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestMinimumBroadcastTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.maximum
+        self.api_args = {
+            "x": np.random.randn(2, 3, 4).astype("float32"),
+            "y": np.random.randn(4).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3, 4], "y": [4]}
+        self.max_shape = {"x": [5, 3, 4], "y": [4]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestMinimumIntTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.maximum
+        self.api_args = {
+            "x": np.random.randint(
+                low=1, high=100, size=(2, 3, 4), dtype="int64"
+            ),
+            "y": np.random.randint(
+                low=1, high=100, size=(2, 3, 4), dtype="int64"
+            ),
+        }
+        self.dynamic_shape_data = {
+            "x": lambda shape: np.random.randint(
+                1, 100, size=shape, dtype="int64"
+            ),
+            "y": lambda shape: np.random.randint(
+                1, 100, size=shape, dtype="int64"
+            ),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3, 4], "y": [1, 3, 4]}
+        self.max_shape = {"x": [5, 3, 4], "y": [5, 3, 4]}
 
     def test_trt_result(self):
         self.check_trt_result()

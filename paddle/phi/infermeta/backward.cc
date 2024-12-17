@@ -13,7 +13,6 @@ See the License for the specific language governing permissions and
 limitations under the License. */
 
 #include "paddle/phi/infermeta/backward.h"
-#include "glog/logging.h"
 #include "paddle/phi/common/type_traits.h"
 #include "paddle/phi/core/utils/data_type.h"
 #include "paddle/phi/kernels/funcs/axis_utils.h"
@@ -305,7 +304,6 @@ void CSoftmaxWithCrossEntropyGradInferMeta(const MetaTensor& softmax,
                                            const MetaTensor& label,
                                            const MetaTensor& loss_grad,
                                            int64_t ignore_index,
-                                           int ring_id,
                                            int rank,
                                            int nranks,
                                            MetaTensor* logits_grad,
@@ -1166,6 +1164,9 @@ void MemoryEfficientAttentionGradInferMeta(const MetaTensor& query,
     bias_grad->share_lod(bias);
     bias_grad->set_dtype(bias.dtype());
     bias_grad->set_layout(bias.layout());
+  } else if (bias_grad) {
+    std::vector<int64_t> bias_grad_dims;
+    bias_grad->set_dims(common::make_ddim(bias_grad_dims));
   }
 }
 

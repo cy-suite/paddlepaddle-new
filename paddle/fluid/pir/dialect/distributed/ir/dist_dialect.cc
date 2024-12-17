@@ -22,8 +22,7 @@
 #include "paddle/phi/core/distributed/auto_parallel/utils.h"
 
 REGISTER_FILE_SYMBOLS(dist_dialect);
-namespace paddle {
-namespace dialect {
+namespace paddle::dialect {
 
 DistDialect::DistDialect(pir::IrContext *context)
     : pir::Dialect(name(), context, pir::TypeId::get<DistDialect>()) {
@@ -120,11 +119,10 @@ void DistDialect::PrintAttribute(pir::Attribute attr, std::ostream &os) const {
   }
 }
 
-pir::OpPrintFn DistDialect::PrintOperation(pir::Operation *op) const {
+pir::OpPrintFn DistDialect::PrintOperation(const pir::Operation &op) const {
   return nullptr;
 }
 
-}  // namespace dialect
-}  // namespace paddle
+}  // namespace paddle::dialect
 
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::DistDialect)

@@ -2187,6 +2187,7 @@ TEST(Conv2dGradSPMDRule, Ctor) {
   check_dim_mapping(infered_dist_attrs.second[0], {0, -1, -1, -1});
   check_dim_mapping(infered_dist_attrs.second[1], {-1, -1, -1, -1});
   EXPECT_EQ(is_partial(infered_dist_attrs.first[2]), false);
+  EXPECT_EQ(is_partial(infered_dist_attrs.second[1]), true);
 
   // test 3
   input_dist_attr.set_dims_mapping(std::vector<int64_t>({-1, -1, -1, -1}));
@@ -2208,6 +2209,7 @@ TEST(Conv2dGradSPMDRule, Ctor) {
   check_dim_mapping(infered_dist_attrs.second[0], {-1, -1, -1, -1});
   check_dim_mapping(infered_dist_attrs.second[1], {0, -1, -1, -1});
   EXPECT_EQ(is_partial(infered_dist_attrs.first[2]), false);
+  EXPECT_EQ(is_partial(infered_dist_attrs.second[0]), true);
 
   // test 4
   input_dist_attr.set_dims_mapping(std::vector<int64_t>({0, -1, -1, -1}));
@@ -2229,6 +2231,8 @@ TEST(Conv2dGradSPMDRule, Ctor) {
   check_dim_mapping(infered_dist_attrs.second[0], {0, -1, -1, -1});
   check_dim_mapping(infered_dist_attrs.second[1], {1, -1, -1, -1});
   EXPECT_EQ(is_partial(infered_dist_attrs.first[2]), false);
+  EXPECT_EQ(is_partial(infered_dist_attrs.second[0]), true);
+  EXPECT_EQ(is_partial(infered_dist_attrs.second[1]), true);
 
   // test 5
   input_dist_attr.set_dims_mapping(std::vector<int64_t>({0, 2, -1, -1}));
@@ -2252,6 +2256,40 @@ TEST(Conv2dGradSPMDRule, Ctor) {
   check_dim_mapping(infered_dist_attrs.second[0], {0, 2, -1, -1});
   check_dim_mapping(infered_dist_attrs.second[1], {1, 2, -1, -1});
   EXPECT_EQ(is_partial(infered_dist_attrs.first[2]), true);
+  EXPECT_EQ(is_partial(infered_dist_attrs.second[0]), true);
+  EXPECT_EQ(is_partial(infered_dist_attrs.second[1]), true);
+}
+
+TEST(Dropout, Ctor) {
+  std::vector<int64_t> mesh_shape = {2, 2};
+  std::vector<int64_t> process_ids = {0, 1, 2, 3};
+  std::vector<std::string> dim_names = {"dp", "mp"};
+  ProcessMesh process_mesh(mesh_shape, process_ids, dim_names);
+
+  // test forward
+  auto t_dist_attr = TensorDistAttr();
+  t_dist_attr.set_process_mesh(process_mesh);
+  t_dist_attr.set_dims_mapping({0, -1, -1});
+  t_dist_attr.set_dynamic_dims({false, false, false});
+  phi::distributed::DistMetaTensor x = phi::distributed::DistMetaTensor(
+      common::make_ddim({4, 6, 8}), t_dist_attr);
+  phi::distributed::DistMetaTensor seed_tensor;
+  phi::distributed::SpmdInfo forward_info =
+      phi::distributed::DropoutFwdInferSpmd(
+          x, seed_tensor, 0.5, false, "", 0, true);
+  check_dim_mapping(forward_info.first[0], {0, -1, -1});
+  check_dim_mapping(forward_info.first[1], {});
+  check_dim_mapping(forward_info.second[0], {0, -1, -1});
+  check_dim_mapping(forward_info.second[1], {0, -1, -1});
+  // test backward
+  phi::distributed::DistMetaTensor out_grad = phi::distributed::DistMetaTensor(
+      common::make_ddim({4, 6, 8}), t_dist_attr);
+  phi::distributed::DistMetaTensor mask = out_grad;
+  phi::distributed::SpmdInfo backward_info =
+      phi::distributed::DropoutBwdInferSpmd(mask, out_grad, 0.5, false, "");
+  check_dim_mapping(backward_info.first[0], {0, -1, -1});
+  check_dim_mapping(backward_info.first[1], {0, -1, -1});
+  check_dim_mapping(backward_info.second[0], {0, -1, -1});
 }
 
 }  // namespace auto_parallel

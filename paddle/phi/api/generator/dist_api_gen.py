@@ -423,6 +423,10 @@ KERNEL_CALL_TEMPLATE = """
       using kernel_signature = {};
       auto* kernel_fn = kernel.GetVariadicKernelFn<kernel_signature>();
       (*kernel_fn)({}, {});
+      if (FLAGS_benchmark) {{
+          dev_ctx->Wait();
+          std::cout << \"{} kernel run finish.\" << std::endl;
+      }}
       if(kernel_record_event != nullptr){{
         delete kernel_record_event;
       }}
@@ -540,6 +544,8 @@ ops_infer_shape_in_runtime = [
     "linear_interp",
     "nearest_interp",
     "trilinear_interp",
+    "nonzero",
+    "masked_select",
 ]
 
 
@@ -1735,6 +1741,7 @@ class DistForwardAPI(ForwardAPI):
             kernel_signature,
             ", ".join(input_args),
             ", ".join(self.dense_output_args),
+            self.api,
         )
         global ops_infer_shape_in_runtime
         if self.kernel['func'][0] in ops_infer_shape_in_runtime:

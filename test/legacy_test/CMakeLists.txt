@@ -5,6 +5,7 @@ file(
 string(REPLACE ".py" "" TEST_OPS "${TEST_OPS}")
 set(GC_ENVS FLAGS_eager_delete_tensor_gb=0.0 FLAGS_fast_eager_deletion_mode=1
             FLAGS_memory_fraction_of_eager_deletion=1.0)
+set(deterministic_ENVS FLAGS_cudnn_deterministic=1)
 set(dist_ENVS http_proxy="" https_proxy="")
 
 file(
@@ -14,11 +15,6 @@ file(
 list(REMOVE_ITEM DIST_TEST_OPS "test_dist_op")
 
 string(REPLACE ".py" "" DIST_TEST_OPS "${DIST_TEST_OPS}")
-
-# The following unittest is now in deprecated dir, we can delete this code when we move it from deprecated dir to this dir
-###### start ######
-list(REMOVE_ITEM TEST_OPS test_squared_l2_norm_op)
-###### end ######
 
 list(REMOVE_ITEM TEST_OPS test_fractional_max_pool3d_op)
 list(REMOVE_ITEM TEST_OPS test_householder_product)
@@ -31,12 +27,8 @@ list(REMOVE_ITEM TEST_OPS test_pool_max_op)
 list(REMOVE_ITEM TEST_OPS test_matmul_v2_op)
 
 list(REMOVE_ITEM TEST_OPS test_allgather)
-list(REMOVE_ITEM TEST_OPS test_raw_program_optimizer)
 list(REMOVE_ITEM TEST_OPS test_reducescatter)
 list(REMOVE_ITEM TEST_OPS test_flash_attention)
-
-list(REMOVE_ITEM TEST_OPS test_model)
-list(REMOVE_ITEM TEST_OPS test_callback_early_stop)
 
 if(WITH_COVERAGE)
   list(REMOVE_ITEM TEST_OPS test_unique)
@@ -92,7 +84,6 @@ endif()
 list(REMOVE_ITEM TEST_OPS test_audio_logmel_feature test_audio_mel_feature)
 list(REMOVE_ITEM TEST_OPS test_fused_gemm_epilogue_op)
 list(REMOVE_ITEM TEST_OPS test_fused_gemm_epilogue_grad_op)
-list(REMOVE_ITEM TEST_OPS test_fuse_gemm_epilogue_pass)
 list(REMOVE_ITEM TEST_OPS test_fused_dot_product_attention_op)
 list(REMOVE_ITEM TEST_OPS test_fused_dot_product_attention_op_static)
 list(REMOVE_ITEM TEST_OPS test_fuse_dot_product_attention_pass)
@@ -107,6 +98,13 @@ if(((NOT WITH_ROCM) AND (NOT WITH_GPU)) OR WIN32)
   list(REMOVE_ITEM TEST_OPS test_fleet_executor_multi_devices)
   list(REMOVE_ITEM TEST_OPS test_fleet_exe_dist_model_tensor)
   list(REMOVE_ITEM TEST_OPS test_async_offload_reload)
+endif()
+
+if(WITH_ROCM)
+  add_test(NAME test_hygon_llama_ops
+           COMMAND bash
+                   ${CMAKE_CURRENT_SOURCE_DIR}/hygon_dcu/test_hygon_llama_op.sh)
+  set_tests_properties(test_hygon_llama_ops PROPERTIES TIMEOUT 600)
 endif()
 
 if(NOT WITH_NCCL)
@@ -236,15 +234,8 @@ if(APPLE)
   endif()
   message(
     WARNING
-      "These tests has been disabled in OSX before being fixed: \n test_detection_map_op \n test_dist_se_resnext_*"
+      "These tests has been disabled in OSX before being fixed: \n test_dist_se_resnext_*"
   )
-  # this op is not support on mac
-  list(REMOVE_ITEM TEST_OPS test_fusion_seqexpand_concat_fc_op)
-  list(REMOVE_ITEM TEST_OPS test_detection_map_op)
-endif()
-if(NOT WITH_MKLML)
-  # this op is not support on openblas
-  list(REMOVE_ITEM TEST_OPS test_fusion_seqexpand_concat_fc_op)
 endif()
 
 if(NOT WITH_MKL OR NOT WITH_AVX)
@@ -448,7 +439,6 @@ list(REMOVE_ITEM TEST_OPS test_basic_gru_api)
 list(REMOVE_ITEM TEST_OPS test_basic_gru_unit_op)
 list(REMOVE_ITEM TEST_OPS test_basic_lstm_api)
 list(REMOVE_ITEM TEST_OPS test_basic_lstm_unit_op)
-list(REMOVE_ITEM TEST_OPS test_fuse_bn_add_act_pass)
 list(REMOVE_ITEM TEST_OPS test_conv3d_transpose_op)
 list(REMOVE_ITEM TEST_OPS test_layers)
 list(REMOVE_ITEM TEST_OPS test_install_check)
@@ -603,8 +593,9 @@ if(WITH_ROCM)
 endif()
 
 if((WITH_GPU) AND (WITH_CUDNN_FRONTEND))
-  py_test_modules(test_fused_dot_product_attention_op MODULES
-                  test_fused_dot_product_attention_op)
+  py_test_modules(
+    test_fused_dot_product_attention_op MODULES
+    test_fused_dot_product_attention_op ENVS ${deterministic_ENVS})
 endif()
 
 set_tests_properties(test_norm_nn_grad PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE")
@@ -881,7 +872,12 @@ set_tests_properties(test_dataloader PROPERTIES TIMEOUT 120)
 set_tests_properties(test_pool3d_api PROPERTIES TIMEOUT 120)
 
 set_tests_properties(test_pretrained_model PROPERTIES TIMEOUT 120)
+set_tests_properties(test_model PROPERTIES TIMEOUT 300)
 set_tests_properties(test_pretrained_model PROPERTIES TIMEOUT 600)
+
+if(APPLE)
+  set_tests_properties(test_callback_early_stop PROPERTIES TIMEOUT 300)
+endif()
 
 set_tests_properties(test_dataset_cifar PROPERTIES TIMEOUT 120)
 set_tests_properties(test_dataset_movielens PROPERTIES TIMEOUT 120)
@@ -1180,3 +1176,4 @@ set_tests_properties(test_inplace_softmax_with_cross_entropy PROPERTIES TIMEOUT
 set_tests_properties(test_imperative_selected_rows_to_lod_tensor
                      PROPERTIES TIMEOUT 200)
 set_tests_properties(test_slice_op PROPERTIES TIMEOUT 120)
+set_tests_properties(test_load_state_dict_from_url PROPERTIES TIMEOUT 40)

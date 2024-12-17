@@ -18,17 +18,21 @@ from .envs import (  # noqa: F401
     ENV_COST_MODEL,
     ENV_MIN_GRAPH_SIZE,
     ENV_SOT_ALLOW_DYNAMIC_SHAPE,
+    ENV_SOT_ENABLE_FASTER_GUARD,
+    ENV_SOT_ENABLE_GUARD_TREE,
     ENV_SOT_EXPORT,
     ENV_SOT_LOG_LEVEL,
     ENV_SOT_WITH_CONTROL_FLOW,
     ENV_STRICT_MODE,
+    allow_dynamic_shape_guard,
     cost_model_guard,
+    export_guard,
+    faster_guard_guard,
+    guard_tree_guard,
     min_graph_size_guard,
     sot_step_profiler_guard,
     strict_mode_guard,
-    with_allow_dynamic_shape_guard,
     with_control_flow_guard,
-    with_export_guard,
 )
 from .exceptions import (  # noqa: F401
     BreakGraphError,
@@ -36,6 +40,10 @@ from .exceptions import (  # noqa: F401
     FallbackError,
     InnerError,
     inner_error_default_handler,
+)
+from .info_collector import (  # noqa: F401
+    InfoCollector,
+    NewSymbolHitRateInfo,
 )
 from .magic_methods import magic_method_builtin_dispatch  # noqa: F401
 from .paddle_api_config import (  # noqa: F401

@@ -60,6 +60,10 @@ def relu_net(x):
     return paddle.nn.functional.relu(x)
 
 
+def relu6_net(x):
+    return paddle.nn.functional.relu6(x)
+
+
 def reshape_net(x):
     return paddle.reshape(x, [30, 200 * 40])
 
@@ -162,16 +166,52 @@ def swiglu_net2(x):
     return paddle.incubate.nn.functional.swiglu(x)
 
 
+def swish_net(x):
+    return paddle.nn.functional.swish(x)
+
+
+def take_along_axis_net1(x, y):
+    return paddle.take_along_axis(x, y, 0, True)
+
+
+def take_along_axis_net2(x, y):
+    return paddle.take_along_axis(x, y, 1, True)
+
+
+def take_along_axis_net3(x, y):
+    return paddle.take_along_axis(x, y, 1, False)
+
+
 def tanh_net(x):
     return paddle.tanh(x)
 
 
+def tile_net1(x):
+    return paddle.tile(x, [2, 1, 3, 5, 4])
+
+
+def tile_net2(x):
+    return paddle.tile(x, [2, 2])
+
+
+def tile_net3(x):
+    return paddle.tile(x, [2, 3, 4])
+
+
+def tile_net4(x):
+    return paddle.tile(x, [5])
+
+
 def topk_net(x):
-    return paddle.topk(x, k=3, axis=1)[0]
+    return paddle.topk(x, k=3, axis=-1)[0]
 
 
 def transpose_net(x):
     return paddle.transpose(x, perm=[0, 3, 1, 2])
+
+
+def trunc_net(x):
+    return paddle.trunc(x)
 
 
 class TestPrimPadWithGrad(TestPrimBaseWithGrad):
@@ -325,6 +365,19 @@ class TestPrimReluWithGrad(TestPrimBaseWithGrad):
         self.init_x_shape = [None, None, None]
         self.x = np.random.random(self.x_shape).astype(self.dtype)
         self.net = relu_net
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimRelu6WithGrad(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2023)
+        self.op_name = "pd_op.relu6_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = relu6_net
         self.enable_cinn = False
         self.tol = 1e-6
 
@@ -1022,6 +1075,131 @@ class TestPrimSwigluWithGrad2(TestPrimBaseWithGrad):
         self.tol = 1e-6
 
 
+class TestPrimSwishWithGrad(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2023)
+        self.op_name = "pd_op.swish_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = swish_net
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimTakeAlongAxisWithGrad1(TestPrimTwoWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.take_along_axis_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, None]
+        self.y_shape = [1, 1, 1]
+        self.init_y_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.y = np.array([[[2]]], dtype="int32")
+        self.net = take_along_axis_net1
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+    def base_net(self, flag=None):
+        if flag == "prim":
+            core._set_prim_all_enabled(True)
+        x = paddle.to_tensor(self.x, stop_gradient=False)
+        y = paddle.to_tensor(self.y)
+        y = paddle.broadcast_to(y, [1, 200, 40])
+        if flag == "prim":
+            fn = apply_to_static(
+                self.net,
+                use_cinn=self.enable_cinn,
+                input_spec=[
+                    InputSpec(shape=self.init_x_shape, dtype='float32'),
+                    InputSpec(shape=self.init_y_shape, dtype='int32'),
+                ],
+            )
+            fn.train()
+        else:
+            fn = self.net
+        res = fn(x, y)
+        res.backward()
+        x_grad = x.gradient()
+        if flag == "prim":
+            ops = [
+                op.name()
+                for op in fn.get_concrete_program(x, y)[-1]
+                .program.backward_program.global_block()
+                .ops
+            ]
+            assert self.op_name not in ops
+            core._set_prim_all_enabled(False)
+        return res, [x_grad]
+
+
+class TestPrimTakeAlongAxisWithGrad2(TestPrimTwoWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.take_along_axis_grad"
+        self.dtype = "float32"
+        self.x_shape = [2, 40, 200]
+        self.init_x_shape = [None, None, None]
+        self.y_shape = [2, 1, 1]
+        self.init_y_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.y = np.array([[[1]], [[3]]], dtype="int32")
+        self.net = take_along_axis_net2
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+    def base_net(self, flag=None):
+        if flag == "prim":
+            core._set_prim_all_enabled(True)
+        x = paddle.to_tensor(self.x, stop_gradient=False)
+        y = paddle.to_tensor(self.y)
+        y = paddle.broadcast_to(y, [2, 1, 200])
+        if flag == "prim":
+            fn = apply_to_static(
+                self.net,
+                use_cinn=self.enable_cinn,
+                input_spec=[
+                    InputSpec(shape=self.init_x_shape, dtype='float32'),
+                    InputSpec(shape=self.init_y_shape, dtype='int32'),
+                ],
+            )
+            fn.train()
+        else:
+            fn = self.net
+        res = fn(x, y)
+        res.backward()
+        x_grad = x.gradient()
+        if flag == "prim":
+            ops = [
+                op.name()
+                for op in fn.get_concrete_program(x, y)[-1]
+                .program.backward_program.global_block()
+                .ops
+            ]
+            assert self.op_name not in ops
+            core._set_prim_all_enabled(False)
+        return res, [x_grad]
+
+
+class TestPrimTakeAlongAxisWithGrad3(TestPrimTakeAlongAxisWithGrad2):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.take_along_axis_grad"
+        self.dtype = "float32"
+        self.x_shape = [2, 40, 200]
+        self.init_x_shape = [None, None, None]
+        self.y_shape = [2, 1, 1]
+        self.init_y_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.y = np.array([[[1]], [[3]]], dtype="int32")
+        self.net = take_along_axis_net3
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
 class TestPrimTanhWithGrad(TestPrimBaseWithGrad):
     def setUp(self):
         np.random.seed(2024)
@@ -1031,6 +1209,58 @@ class TestPrimTanhWithGrad(TestPrimBaseWithGrad):
         self.init_x_shape = [None, None, None]
         self.x = np.random.random(self.x_shape).astype(self.dtype)
         self.net = tanh_net
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimTileWithGrad1(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.tile_grad"
+        self.dtype = "float32"
+        self.x_shape = [10, 10, 5]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = tile_net1
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimTileWithGrad2(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.tile_grad"
+        self.dtype = "float32"
+        self.x_shape = [5, 5, 4, 3, 5, 6]
+        self.init_x_shape = [None, None, None, None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = tile_net2
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimTileWithGrad3(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.tile_grad"
+        self.dtype = "float32"
+        self.x_shape = [5, 5, 4, 3, 2]
+        self.init_x_shape = [None, None, None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = tile_net3
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimTileWithGrad4(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.tile_grad"
+        self.dtype = "float32"
+        self.x_shape = [5, 5, 4, 3]
+        self.init_x_shape = [None, None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = tile_net4
         self.enable_cinn = False
         self.tol = 1e-6
 
@@ -1070,6 +1300,19 @@ class TestPrimTransposeWithGrad(TestPrimBaseWithGrad):
         self.init_x_shape = [None, None, None, 70]
         self.x = np.random.random(self.x_shape).astype(self.dtype)
         self.net = transpose_net
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimTruncWithGrad(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2024)
+        self.op_name = "pd_op.trunc_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = trunc_net
         self.enable_cinn = False
         self.tol = 1e-6
 

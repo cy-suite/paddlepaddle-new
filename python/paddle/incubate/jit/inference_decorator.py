@@ -25,6 +25,7 @@ from typing import Callable, Protocol, TypeVar, overload
 from typing_extensions import ParamSpec
 
 import paddle
+from paddle.base.framework import use_pir_api
 from paddle.inference import Config, PrecisionType, create_predictor
 from paddle.nn import Layer
 from paddle.static import InputSpec
@@ -139,6 +140,15 @@ class InferenceEngine:
             )
         self.save_model_dir = os.path.join(self.save_model_dir, func.__name__)
 
+        import paddle.distributed as dist
+
+        n_ranks = dist.get_world_size()
+        if n_ranks > 1:
+            local_rank: int = dist.ParallelEnv().dev_id
+            self.save_model_dir = os.path.join(
+                self.save_model_dir, f"{n_ranks}_{local_rank}"
+            )
+
         self.precision_mode = kwargs.get("precision_mode")
         self.switch_ir_optim = kwargs.get("switch_ir_optim")
         self.switch_ir_debug = kwargs.get("switch_ir_debug")
@@ -148,6 +158,7 @@ class InferenceEngine:
         self.trt_precision_mode = kwargs.get("trt_precision_mode")
         self.trt_use_static = kwargs.get("trt_use_static")
         self.collect_shape = kwargs.get("collect_shape")
+        self.skip_prune_program = kwargs.get("skip_prune_program")
 
         default_delete_pass_lists = [
             "trt_prompt_tuning_embedding_eltwise_layernorm_fuse_pass",
@@ -310,7 +321,9 @@ class InferenceEngine:
             input_spec=input_specs,
             full_graph=True,
         )
-        paddle.jit.save(model, self.save_path, skip_prune_program=True)
+        paddle.jit.save(
+            model, self.save_path, skip_prune_program=self.skip_prune_program
+        )
 
         # save d2s_shapes
         assert len(self.d2s_input_names) == len(self.d2s_input_shapes)
@@ -359,11 +372,14 @@ class InferenceEngine:
     # why we need input_tensor_lists? this is for TensorRT max/min/opt shape.
     def create_predictor(self, input_tensor_lists):
         # create predictor
-        model_file = os.path.join(self.save_model_dir, "infer.pdmodel")
+        if use_pir_api():
+            model_file = os.path.join(self.save_model_dir, "infer.json")
+        else:
+            model_file = os.path.join(self.save_model_dir, "infer.pdmodel")
         params_file = os.path.join(self.save_model_dir, "infer.pdiparams")
 
         config = Config(model_file, params_file)
-        config.enable_memory_optim()
+        config.enable_memory_optim(False)
         config.switch_ir_debug(self.switch_ir_debug)
         config.switch_ir_optim(self.switch_ir_optim)
         if self.exp_enable_use_cutlass:
@@ -380,6 +396,15 @@ class InferenceEngine:
                 gpu_id,
                 get_inference_precision(self.precision_mode),
             )
+        elif 'xpu' in device_num:
+            config.enable_xpu()
+            device_id = int(device_num.split(':')[1])
+            config.set_xpu_device_id(device_id)
+            xpu_config = paddle.inference.XpuConfig()
+            xpu_config.device_id = device_id
+            xpu_config.l3_size = 0
+            xpu_config.conv_autotune_level = 0
+            config.set_xpu_config(xpu_config)
 
         if self.with_trt:
             dynamic_names = []
@@ -463,6 +488,7 @@ def inference(
     enable_new_ir: bool = ...,
     exp_enable_use_cutlass: bool = ...,
     delete_pass_lists: list[str] | None = ...,
+    skip_prune_program: bool = ...,
 ) -> _InferenceDecorator: ...
 
 
@@ -483,6 +509,7 @@ def inference(
     enable_new_ir: bool = ...,
     exp_enable_use_cutlass: bool = ...,
     delete_pass_lists: list[str] | None = ...,
+    skip_prune_program: bool = ...,
 ) -> _LayerT: ...
 
 
@@ -503,6 +530,7 @@ def inference(
     enable_new_ir: bool = ...,
     exp_enable_use_cutlass: bool = ...,
     delete_pass_lists: list[str] | None = ...,
+    skip_prune_program: bool = ...,
 ) -> Callable[_InputT, _RetT]: ...
 
 
@@ -522,6 +550,7 @@ def inference(
     enable_new_ir=False,
     exp_enable_use_cutlass=False,
     delete_pass_lists=None,
+    skip_prune_program=False,
 ):
     """
     Converts dynamic graph APIs into static graph saved in disk. Then will use Paddle Inference to infer based on
@@ -546,6 +575,7 @@ def inference(
         enable_new_ir(bool, optional): Whether to enable new IR. Default is True.
         exp_enable_use_cutlass(bool, optional): Whether to enable use cutlass. Default is False.
         delete_pass_lists(list[str], optional): The list of pass names to delete. Default is None.
+        skip_prune_program(bool, optional): Whether to skip pruning program when converting dynamic graph APIs into static graph. Default is False.
 
     Returns:
         function (callable): the decorated function which can be used for inference.
@@ -606,6 +636,7 @@ def inference(
             enable_new_ir=enable_new_ir,
             exp_enable_use_cutlass=exp_enable_use_cutlass,
             delete_pass_lists=delete_pass_lists,
+            skip_prune_program=skip_prune_program,
         )
 
         # This is the innermost_decorator, ie. when user invoke the function decorated by @paddle.incubate.jit.inference()

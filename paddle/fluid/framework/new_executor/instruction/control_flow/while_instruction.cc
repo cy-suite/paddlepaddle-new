@@ -23,9 +23,9 @@
 #include "paddle/fluid/pir/dialect/operator/interface/op_yaml_info.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_dialect.h"
 #include "paddle/fluid/pir/dialect/operator/utils/op_yaml_info_parser.h"
-#include "paddle/fluid/platform/collective_helper.h"
 #include "paddle/phi/core/infermeta_utils.h"
 #include "paddle/phi/core/meta_tensor.h"
+#include "paddle/phi/core/platform/collective_helper.h"
 #include "paddle/phi/core/platform/device_context.h"
 #include "paddle/phi/core/type_defs.h"
 
@@ -42,8 +42,7 @@
 #include "paddle/fluid/platform/onednn_helper.h"
 #endif
 
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 
 WhileInstruction::WhileInstruction(
     size_t id,
@@ -111,7 +110,7 @@ WhileInstruction::WhileInstruction(
       outputs.emplace(value, outputs_id);
     }
   }
-  InsertTuplePushContinerToOuts(body_block_, *parent_exe_info, &outputs);
+  InsertTuplePushContainerToOuts(body_block_, *parent_exe_info, &outputs);
   InsertInplacedExternalInputsToOuts(
       body_block_, body_outside_inputs, *parent_exe_info, &outputs);
   SetOutputs(outputs);
@@ -237,5 +236,4 @@ void WhileInstruction::Run() {
   VLOG(6) << "while instruction run done";
 }
 
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework

@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import os
+
 import numpy as np
 
 import paddle
@@ -282,17 +284,30 @@ def to_string(var, prefix='Tensor'):
     )
 
 
+def mask_xpu_bf16_tensor(np_tensor):
+    # For XPU, we mask out the 0x8000 added to the tail when converting bf16 to fp32.
+    mask = np.array(0xFFFF0000, dtype='uint32')
+    return (np_tensor.view('uint32') & mask).view('float32')
+
+
 def _format_dense_tensor(tensor, indent):
+    dtype = tensor.dtype
     if (
-        tensor.dtype == paddle.bfloat16
-        or tensor.dtype == core.VarDesc.VarType.BF16
-        or tensor.dtype == core.VarDesc.VarType.FP8_E4M3FN
-        or tensor.dtype == core.VarDesc.VarType.FP8_E5M2
+        dtype == paddle.bfloat16
+        or dtype == core.VarDesc.VarType.BF16
+        or dtype == core.VarDesc.VarType.FP8_E4M3FN
+        or dtype == core.VarDesc.VarType.FP8_E5M2
     ):
         tensor = tensor.astype('float32')
 
     # TODO(zhouwei): will remove 0-D Tensor.numpy() hack
     np_tensor = tensor.numpy(False)
+    if (
+        paddle.is_compiled_with_xpu()
+        and os.getenv("XPU_PADDLE_MASK_BF16_PRINT") is not None
+        and (dtype == paddle.bfloat16 or dtype == core.VarDesc.VarType.BF16)
+    ):
+        np_tensor = mask_xpu_bf16_tensor(np_tensor)
 
     if len(tensor.shape) == 0:
         size = 0
@@ -311,6 +326,23 @@ def _format_dense_tensor(tensor, indent):
         np_tensor, summary, indent=indent, max_width=max_width, signed=signed
     )
     return data
+
+
+def selected_rows_tensor_to_string(tensor, dtype, prefix='Tensor'):
+    indent = len(prefix) + 1
+    if tensor.is_selected_rows():
+        _template = "{prefix}(shape={shape}, dtype={dtype}, place={place}, stop_gradient={stop_gradient}, rows={rows},\n{indent}{data})"
+        data = _format_dense_tensor(tensor, indent)
+        return _template.format(
+            prefix=prefix,
+            shape=tensor.shape,
+            dtype=dtype,
+            place=tensor._place_str,
+            stop_gradient=tensor.stop_gradient,
+            indent=' ' * indent,
+            data=data,
+            rows=tensor.rows(),
+        )
 
 
 def sparse_tensor_to_string(tensor, prefix='Tensor'):
@@ -418,6 +450,9 @@ def tensor_to_string(tensor, prefix='Tensor'):
 
     if tensor.is_sparse():
         return sparse_tensor_to_string(tensor, prefix)
+
+    if tensor.is_selected_rows():
+        return selected_rows_tensor_to_string(tensor, dtype, prefix)
 
     if tensor.is_dist():
         return dist_tensor_to_string(tensor, prefix)

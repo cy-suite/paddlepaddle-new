@@ -23,8 +23,8 @@
 #include "paddle/fluid/framework/fleet/fleet_wrapper.h"
 #include "paddle/fluid/framework/io/fs.h"
 #include "paddle/fluid/framework/threadpool.h"
-#include "paddle/fluid/platform/monitor.h"
-#include "paddle/fluid/platform/timer.h"
+#include "paddle/phi/core/platform/monitor.h"
+#include "paddle/phi/core/platform/timer.h"
 
 #ifdef PADDLE_WITH_PSCORE
 #include "paddle/fluid/distributed/ps/wrapper/fleet.h"
@@ -43,8 +43,7 @@ COMMON_DECLARE_int32(gpugraph_storage_mode);
 COMMON_DECLARE_string(graph_edges_split_mode);
 COMMON_DECLARE_bool(query_dest_rank_by_multi_node);
 
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 
 // constructor
 template <typename T>
@@ -2196,5 +2195,4 @@ void SlotRecordDataset::DynamicAdjustReadersNum(int thread_num) {
   PrepareTrain();
 }
 
-}  // end namespace framework
-}  // end namespace paddle
+}  // namespace paddle::framework

@@ -31,27 +31,39 @@ from paddle.base.wrapped_decorator import signature_safe_contextmanager
 ALLOW_DYNAMIC_SHAPE_VJP_OPS = [
     "pd_op.abs",
     "pd_op.add",
+    "pd_op.amax",
+    "pd_op.amin",
+    "pd_op.argsort",
     "pd_op.assign",
     "pd_op.batch_norm_",
     "pd_op.cast",
+    "pd_op.ceil",
     "pd_op.concat",
     "pd_op.cos",
     "pd_op.cumprod",
     "pd_op.cumsum",
     "pd_op.divide",
+    "pd_op.dot",
     "pd_op.dropout",
     "pd_op.elementwise_pow",
     "pd_op.erf",
     "pd_op.exp",
     "pd_op.expand",
     "pd_op.floor",
+    "pd_op.fmax",
+    "pd_op.fmin",
     "pd_op.gather",
     "pd_op.gather_nd",
     "pd_op.gelu",
+    "pd_op.hardsigmoid",
     "pd_op.hardswish",
+    "pd_op.kron",
+    "pd_op.kthvalue",
+    "pd_op.layer_norm",
     "pd_op.leaky_relu",
     "pd_op.log",
     "pd_op.logcumsumexp",
+    "pd_op.logsumexp",
     "pd_op.matmul",
     "pd_op.max",
     "pd_op.maximum",
@@ -63,6 +75,7 @@ ALLOW_DYNAMIC_SHAPE_VJP_OPS = [
     "pd_op.prod",
     "pd_op.reduce_as",
     "pd_op.relu",
+    "pd_op.relu6",
     "pd_op.reshape",
     "pd_op.roll",
     "pd_op.rsqrt",
@@ -82,10 +95,14 @@ ALLOW_DYNAMIC_SHAPE_VJP_OPS = [
     "pd_op.subtract",
     "pd_op.sum",
     "pd_op.swiglu",
+    "pd_op.swish",
+    "pd_op.take_along_axis",
     "pd_op.tanh",
+    "pd_op.tile",
     "pd_op.topk",
-    "pd_op.unsqueeze",
     "pd_op.transpose",
+    "pd_op.trunc",
+    "pd_op.unsqueeze",
     "pd_op.where",
 ]
 
@@ -313,10 +330,11 @@ class State:
 def _check_vjp_dynamic_shape(op, inputs):
     for items in inputs:
         for item in items:
-            if item.initialized() and -1 in item.shape:
-                warnings.warn(
-                    f"[Prim] Decomp op does not support dynamic shape -1, but got shape {item.shape} in inputs of op {op.name()} . Prim will skip its vjp op."
-                )
+            if (
+                item.is_dense_tensor_type()
+                and item.initialized()
+                and -1 in item.shape
+            ):
                 return True
 
 
