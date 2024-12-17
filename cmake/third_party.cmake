@@ -41,6 +41,38 @@ if(NOT WITH_SETUP_INSTALL)
       "Check submodules of paddle, and run 'git submodule sync --recursive && git submodule update --init --recursive'"
   )
 
+  if(WITH_OPENVINO)
+    execute_process(
+      COMMAND git submodule sync third_party/openvino
+      WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}
+      RESULT_VARIABLE result_var)
+    if(NOT result_var EQUAL 0)
+      message(
+        FATAL_ERROR
+          "Failed to sync openvino submodule, please check your network !")
+    endif()
+    execute_process(
+      COMMAND git checkout .gitmodules
+      WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}/third_party/openvino
+      RESULT_VARIABLE result_var)
+    execute_process(
+      COMMAND git apply ${PADDLE_SOURCE_DIR}/patches/openvino/submodule.patch
+      WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}/third_party/openvino
+      RESULT_VARIABLE result_var)
+    execute_process(
+      COMMAND git submodule sync third_party/openvino
+      WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}
+      RESULT_VARIABLE result_var)
+    execute_process(
+      COMMAND git submodule update --init third_party/openvino
+      WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}
+      RESULT_VARIABLE result_var)
+    if(NOT result_var EQUAL 0)
+      message(
+        FATAL_ERROR
+          "Failed to update openvino submodule, please check your network !")
+    endif()
+  endif()
   # execute_process does not support sequential commands, so we execute echo command separately
   execute_process(
     COMMAND git submodule sync --recursive
