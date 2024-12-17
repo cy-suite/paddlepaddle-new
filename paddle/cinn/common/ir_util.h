@@ -38,8 +38,7 @@ Expr PrecedingAxisToAbsOffset(const std::vector<Expr> &shape,
 
 Expr CastIfNeeded(Expr body, Type type);
 
-ir::IndexExpr MergeMulMod(SymbolicExprAnalyzer *analyzer,
-                          const ir::IndexExpr &base);
+ir::IndexExpr MergeMulMod(const ir::IndexExpr &base);
 
 //! Substitute vars to other expressions.
 //! @param expr The expression to do modification.

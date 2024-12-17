@@ -488,12 +488,14 @@ bool IndexExpr::IsDynamic() const {
 }
 
 static IndexExpr SimplifyMin(const IndexExpr &lhs, const IndexExpr &rhs) {
+  if (lhs == rhs) return lhs;
   if (auto constRes = cinn::common::TryConstFold<ir::Min>(lhs, rhs))
     return constRes.value();
   return Min::Make(lhs, rhs);
 }
 
 static IndexExpr SimplifyMax(const IndexExpr &lhs, const IndexExpr &rhs) {
+  if (lhs == rhs) return lhs;
   if (auto constRes = cinn::common::TryConstFold<ir::Max>(lhs, rhs))
     return constRes.value();
   return Max::Make(lhs, rhs);
@@ -527,7 +529,6 @@ IndexExpr ConstructIndexExprByNodeType(const IrNodeTy &ty,
 IndexExpr Simplify(const IndexExpr &expr) {
   switch (expr.node_type()) {
     case ir::IrNodeTy::IntImm:
-    case ir::IrNodeTy::Load:
       return expr;
     case ir::IrNodeTy::_Var_: {
       auto op = expr.As<ir::_Var_>();
@@ -540,6 +541,10 @@ IndexExpr Simplify(const IndexExpr &expr) {
         return expr;
       }
       return expr;
+    }
+    case ir::IrNodeTy::Load: {
+      auto load = expr.As<ir::Load>();
+      return Load::Make(load->tensor, load->indices).set_index(true);
     }
     case ir::IrNodeTy::Cast: {
       auto v = Simplify(expr.operand(0));

@@ -529,7 +529,7 @@ Expr For::Make(Var loop_var,
   node->set_bind_info(bind_info);
 
   node->extent = node->extent.set_index(true).as_index().Normalize();
-  node->min.set_index(true).as_index().Normalize();
+  node->min = node->min.set_index(true).as_index().Normalize();
   node->loop_var.set_index(true);
 
   if (node->is_vectorized()) {
