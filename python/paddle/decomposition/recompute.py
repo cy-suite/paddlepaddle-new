@@ -467,7 +467,6 @@ def auto_recompute(
         ):
             return 0.1
 
-
         # Heuristic to bias towards nodes closer to the backwards pass
         mem_sz = int(
             mem_sz * (1.1 ** max(min(dist_from_bw[value_node], 100), 1))
