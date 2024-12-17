@@ -639,6 +639,7 @@ std::string TensorRtSubgraphPass::CreateTensorRTOp(
   auto tensorrt_transformer_maskid =
       Get<std::string>("tensorrt_transformer_maskid");
   auto use_dla = Get<bool>("trt_use_dla");
+  // auto use_refittable=Get<bool>("trt_use_refittable");
   auto dla_core = Get<int>("trt_dla_core");
   auto use_inspector = Get<bool>("use_inspector");
   auto inspector_serialize = Get<bool>("inspector_serialize");

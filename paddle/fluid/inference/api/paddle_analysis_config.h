@@ -744,6 +744,8 @@ struct PD_INFER_DECL AnalysisConfig {
   ///
   void Exp_DisableTensorRtOPs(const std::vector<std::string>& ops);
 
+  void EnableTensorRTRefittable(bool trt_use_refittable);
+
   ///
   /// \brief Prevent TensorRtSubgraph running in Paddle-TRT
   /// NOTE: just experimental, not an official stable API, easy to be broken.
@@ -1207,6 +1209,7 @@ struct PD_INFER_DECL AnalysisConfig {
   bool trt_with_interleaved_{false};
   bool trt_mark_output_{false};
   bool trt_forbid_dynamic_op_{false};
+  bool trt_use_refittable_{false};
 
   std::vector<std::string> trt_output_tensor_names_{};
   std::vector<std::string> trt_exclude_var_names_{};

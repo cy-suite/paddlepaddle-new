@@ -240,6 +240,7 @@ struct Argument {
 
   DECL_ARGUMENT_FIELD(use_tensorrt, UseTensorRT, bool);
   DECL_ARGUMENT_FIELD(tensorrt_use_dla, TensorRtUseDLA, bool);
+  DECL_ARGUMENT_FIELD(use_tensorrt_refittable, UseTernsorRTRefittable, bool);
   DECL_ARGUMENT_FIELD(tensorrt_dla_core, TensorRtDLACore, int);
   DECL_ARGUMENT_FIELD(tensorrt_max_batch_size, TensorRtMaxBatchSize, int);
   DECL_ARGUMENT_FIELD(tensorrt_workspace_size, TensorRtWorkspaceSize, int64_t);

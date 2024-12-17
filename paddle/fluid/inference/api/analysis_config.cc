@@ -516,7 +516,8 @@ AnalysisConfig::AnalysisConfig(const AnalysisConfig &other) {
   CP_MEMBER(trt_parameters_run_fp16_);
   CP_MEMBER(trt_parameters_run_int8_);
   CP_MEMBER(trt_parameters_run_bfp16_);
-  CP_MEMBER(trt_forbid_dynamic_op_)
+  CP_MEMBER(trt_forbid_dynamic_op_);
+  CP_MEMBER(trt_use_refittable_);
   CP_MEMBER(trt_output_tensor_names_);
   CP_MEMBER(trt_disabled_ops_);
   CP_MEMBER(trt_use_dla_);
@@ -797,6 +798,10 @@ void AnalysisConfig::MarkTrtEngineOutputs(
 void AnalysisConfig::Exp_DisableTensorRTDynamicShapeOPs(
     bool trt_forbid_dynamic_op) {
   trt_forbid_dynamic_op_ = trt_forbid_dynamic_op;
+}
+
+void AnalysisConfig::EnableTensorRTRefittable(bool trt_use_refittable) {
+  trt_use_refittable_ = trt_use_refittable;
 }
 
 void AnalysisConfig::EnableTensorRTMemoryOptim(bool engine_memory_sharing,
@@ -1127,6 +1132,7 @@ std::string AnalysisConfig::SerializeInfoCache() {
   for (auto &name : trt_parameters_run_bfp16_) ss << name.c_str();
   ss << ";";
   ss << trt_forbid_dynamic_op_;
+  ss << trt_use_refittable_;
 
   for (auto &op : trt_disabled_ops_) ss << op.c_str();
   ss << ";";
@@ -1392,6 +1398,8 @@ std::string AnalysisConfig::Summary() {
       os.InsertRow({"trt_mark_output", trt_mark_output_ ? "true" : "false"});
       os.InsertRow(
           {"trt_forbid_dynamic_op", trt_forbid_dynamic_op_ ? "true" : "false"});
+      os.InsertRow(
+          {"trt_use_refittable", trt_use_refittable_ ? "true" : "false"});
 #endif
     }
   }
