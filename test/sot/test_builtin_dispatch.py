@@ -22,6 +22,7 @@ import weakref
 from test_case_base import (
     TestCaseBase,
     test_instruction_translator_cache_context,
+    test_with_faster_guard,
 )
 
 import paddle
@@ -115,6 +116,16 @@ def test_ord(x: str):
 
 
 @check_no_breakgraph
+def test_min():
+    return min(9, 8, 2, 4, 1, 7, 3, 5, 6)
+
+
+@check_no_breakgraph
+def test_max():
+    return max(9, 8, 2, 4, 1, 7, 3, 5, 6)
+
+
+@check_no_breakgraph
 def test_sqrt(x: int):
     return math.sqrt(x)
 
@@ -124,10 +135,31 @@ def test_log(x: int):
     return math.log(x)
 
 
+@check_no_breakgraph
+def test_builtin_type_check_eq():
+    a = 1
+    b = []
+    c = ()
+    d = {}
+    eq_results = (
+        a == b, a == c, a == d,
+        b == a, b == c, b == d,
+        c == a, c == b, c == d,
+    )  # fmt: skip
+    ne_results = (
+        a != b, a != c, a != d,
+        b != a, b != c, b != d,
+        c != a, c != b, c != d,
+    )  # fmt: skip
+    return eq_results, ne_results
+
+
 class TestBuiltinDispatch(TestCaseBase):
+    @test_with_faster_guard
     def test_dispatch_len(self):
         self.assert_results(dispatch_len, paddle.to_tensor([1, 2, 3]))
 
+    @test_with_faster_guard
     def test_dispatch_bool(self):
         self.assert_results(dispatch_bool, paddle.to_tensor([1, 2, 3]))
 
@@ -167,6 +199,7 @@ class TestBuiltinDispatch(TestCaseBase):
     def test_dispatch_float_floor(self):
         self.assert_results(dispatch_floor, 1.2)
 
+    @test_with_faster_guard
     def test_dispatch_sum(self):
         self.assert_results(test_sum_tuple, 1, 1)
         self.assert_results(test_sum_tuple, paddle.to_tensor(1), 1)
@@ -258,6 +291,15 @@ class TestBuiltinDispatch(TestCaseBase):
 
     def test_dispatch_log(self):
         self.assert_results(test_log, math.e)
+
+    def test_dispatch_min(self):
+        self.assert_results(test_min)
+
+    def test_dispatch_max(self):
+        self.assert_results(test_max)
+
+    def test_dispatch_builtin_type_check_eq(self):
+        self.assert_results(test_builtin_type_check_eq)
 
 
 def run_getattr(x: paddle.Tensor):

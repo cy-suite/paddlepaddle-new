@@ -160,7 +160,7 @@ ir::Expr CopyedReplaceExpr(const Expr& source,
       candidates.size(),
       ::common::errors::InvalidArgument(
           "In ReplaceExpr, the size of Vars to be replaced must be equal to "
-          "the size of cadidate Exprs! Please check."));
+          "the size of candidate Exprs! Please check."));
   auto copyed_source = ir::ir_utils::IRCopy(source);
   if (replaced.empty()) return copyed_source;
   std::map<Var, Expr, ir::CompVar> replacing_map;
@@ -738,7 +738,7 @@ ExprTransformer RemoveOnesTransformer(const std::vector<int32_t>& ones) {
 
 ExprTransformer TransposeForsTransformer(const std::vector<int32_t>& perm) {
   const auto& f = [=](const ir::Expr& root) -> ir::Expr {
-    const auto& iters = GetNonReduceLoopVars(root);
+    const auto& iters = GetAllLoopVars(root);
     PADDLE_ENFORCE_EQ(
         iters.size(),
         perm.size(),
@@ -794,13 +794,34 @@ ExprTransformer InsertForsTransformer(const std::vector<int32_t>& axis,
 ExprTransformer InsertIfForAppendVarsTransformer() {
   const auto& f = [=](const ir::Expr& root) -> ir::Expr {
     const auto vars = GetNonReduceLoopVars(root);
-    std::vector<ir::Expr> conditions;
+    std::vector<std::vector<ir::Var>> neighbor_append_vars;
+    bool last_var_is_append = false;
     for (const auto& var : vars) {
-      if (var->name.find("append") == std::string::npos) {
-        continue;
+      if (var->name.find("append") != std::string::npos &&
+          !(var->upper_bound.is_constant() &&
+            var->upper_bound.as_int64() == 1)) {
+        if (last_var_is_append) {
+          neighbor_append_vars.back().push_back(var);
+        } else {
+          neighbor_append_vars.push_back({var});
+          last_var_is_append = true;
+        }
+      } else {
+        last_var_is_append = false;
       }
-      VLOG(4) << "Insert If for append loop: " << var;
-      conditions.push_back(ir::EQ::Make(var, var->lower_bound));
+    }
+    // Merge if for neighbor append vars
+    std::vector<ir::Expr> conditions;
+    for (const auto& vars : neighbor_append_vars) {
+      ir::Expr lhs = Expr(0);
+      ir::Expr rhs = Expr(1);
+      ir::Expr offset = Expr(1);
+      for (int i = vars.size() - 1; i >= 0; --i) {
+        lhs = lhs + vars[i] * offset;
+        rhs = rhs * vars[i]->lower_bound;
+        offset = offset * (vars[i]->upper_bound - vars[i]->lower_bound);
+      }
+      conditions.push_back(ir::EQ::Make(lhs, rhs));
     }
     std::reverse(conditions.begin(), conditions.end());
 
@@ -930,6 +951,22 @@ std::vector<ir::Var> GetAllLoopVars(const ir::Expr& root) {
   return AppendBound(loop_vars, root);
 }
 
+std::vector<ir::Var> GetReduceLoopVars(const ir::Expr& root) {
+  auto reduce_init = (ExprSetFinderUtils::ChildScheduleBlockRealizes *
+                      ExprSetFinderUtils::ScheduleBlockRealizeIsInit)(root);
+  if (!reduce_init.empty()) {
+    auto father_block = ExprSetFinderUtils::DirectlyFather(root)
+                            .GetSingle((reduce_init[0]))
+                            .As<ir::Block>();
+    PADDLE_ENFORCE(father_block && father_block->stmts.size() == 2,
+                   ::common::errors::InvalidArgument(
+                       "Father block size of reduce init should be 2."));
+    auto reduce_body = father_block->stmts[1];
+    return GetAllLoopVars(reduce_body);
+  }
+  return {};
+}
+
 ir::Expr GetBodyBlock(const ir::Expr& root) {
   const auto& iters = GetNonReduceLoopVars(root);
   if (iters.empty()) {
@@ -1018,6 +1055,54 @@ ir::Expr ReshapeLoop(const ir::Expr& root,
                                                        ones_var)(copied);
 
   return copied;
+}
+
+void CheckLoopAlignment(const std::vector<ir::Expr>& roots) {
+  if (roots.size() < 2) return;
+
+  auto var_equal = [](const ir::Var& lhs, const ir::Var& rhs) {
+    auto index_equal = [](const ir::Expr& lhs, const ir::Expr& rhs) -> bool {
+      return lhs.is_index() && rhs.is_index() ? lhs.as_index() == rhs.as_index()
+                                              : lhs == rhs;
+    };
+    return index_equal(lhs->upper_bound, rhs->upper_bound) &&
+           index_equal(lhs->lower_bound, rhs->lower_bound);
+  };
+
+  int base_loop_idx = -1;
+  int base_reduce_idx = -1;
+  std::vector<ir::Var> base_loop_vars;
+  std::vector<ir::Var> base_reduce_vars;
+  for (size_t i = 0; i < roots.size(); ++i) {
+    const auto loop_vars = GetAllLoopVars(roots[i]);
+    if (base_loop_idx < 0) {
+      base_loop_vars = loop_vars;
+      base_loop_idx = i;
+      continue;
+    }
+    PADDLE_ENFORCE(fusion::VectorEqual(base_loop_vars, loop_vars, var_equal),
+                   ::common::errors::PreconditionNotMet(
+                       "CheckLoopAlignment Failed, The loop vars are not euqal "
+                       "between FusionOps: \n%s\n%s",
+                       roots[base_loop_idx],
+                       roots[i]));
+
+    const auto reduce_vars = GetReduceLoopVars(roots[i]);
+    if (!reduce_vars.empty()) {
+      if (base_reduce_idx < 0) {
+        base_reduce_vars = reduce_vars;
+        base_reduce_idx = i;
+        continue;
+      }
+      PADDLE_ENFORCE(
+          fusion::VectorEqual(base_reduce_vars, reduce_vars, var_equal),
+          ::common::errors::PreconditionNotMet(
+              "CheckLoopAlignment Failed, The reduce vars are not euqal "
+              "between FusionOps: \n%s\n%s",
+              roots[base_reduce_idx],
+              roots[i]));
+    }
+  }
 }
 
 }  // namespace trivial_fusion_detail

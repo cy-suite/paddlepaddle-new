@@ -531,6 +531,12 @@ def transpose(
     The `i`-th dimension  of the returned tensor will correspond to the
     perm[i]-th dimension of `input`.
 
+    The image illustrates the second example of the transpose operation.
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/transpose.png
+        :width: 500
+        :alt: legend of transpose API
+
     Args:
         x (Tensor): The input Tensor. It is a N-D Tensor of data types bool, float32, float64, int32.
         perm (list|tuple): Permute the input according to the data of perm.
@@ -607,8 +613,8 @@ def transpose(
             if dim >= len(x.shape):
                 raise ValueError(
                     "Each element in Input(perm) should be less than Input(x)'s dimension, "
-                    "but %d-th element in Input(perm) is %d which exceeds Input(x)'s "
-                    "dimension %d." % (idx, perm[idx], len(x.shape))
+                    f"but {idx}-th element in Input(perm) is {perm[idx]} which exceeds Input(x)'s "
+                    f"dimension {len(x.shape)}."
                 )
 
         helper = LayerHelper('transpose', **locals())
@@ -742,7 +748,7 @@ def shard_index(
     helper = LayerHelper(op_type, **locals())
     if shard_id < 0 or shard_id >= nshards:
         raise ValueError(
-            'The shard_id(%d) should be in [0, %d)' % (shard_id, nshards)
+            f'The shard_id({shard_id}) should be in [0, {nshards})'
         )
 
     out = helper.create_variable_for_type_inference(dtype=input.dtype)
@@ -1538,6 +1544,20 @@ def broadcast_tensors(
 
         .. _Introduction to Tensor: ../../guides/beginner/tensor_en.html#chapter5-broadcasting-of-tensor
 
+    The following figure illustrates the process of broadcasting three tensors to the same dimensions.
+    The dimensions of the three tensors are [4, 1, 3], [2, 3], and [4, 2, 1], respectively. During broadcasting,
+    alignment starts from the last dimension, and for each dimension, either the sizes of the two tensors in that dimension are equal,
+    or one of the tensors has a dimension of 1, or one of the tensors lacks that dimension. In the figure below, in the last dimension,
+    Tensor3 has a size of 1, while Tensor1 and Tensor2 have sizes of 3; thus, this dimension is expanded to 3 for all tensors.
+    In the second-to-last dimension, Tensor1 has a size of 2, and Tensor2 and Tensor3 both have sizes of 2; hence, this dimension is expanded to 2 for all tensors.
+    In the third-to-last dimension, Tensor2 lacks this dimension, while Tensor1 and Tensor3 have sizes of 4; consequently,
+    this dimension is expanded to 4 for all tensors. Ultimately, all tensors are expanded to [4, 2, 3].
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/broadcast.png
+       :width: 800
+       :alt: Illustration of BroadCast
+       :align: center
+
     Args:
         input (list|tuple): ``input`` is a Tensor list or Tensor tuple which is with data type bool,
             float16, float32, float64, int32, int64, complex64, complex128. All the Tensors in ``input`` must have same data type.
@@ -2208,6 +2228,12 @@ def stack(
                 Out.shape = [0, 2, 1, 2]
                 Out.data = []
 
+    The image below demonstrates the Case 1: three 2-dimensional tensors with shape [1, 2] are stacked in the dimension of axis=0 to form a 3-dimensional tensor with shape [3, 1, 2] .
+
+    .. figure:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/stack/stack-0.png
+       :width: 1000
+       :alt: Legend 1
+       :align: center
 
     Args:
         x (list[Tensor]|tuple[Tensor]): Input ``x`` can be a ``list`` or ``tuple`` of tensors, the Tensors in ``x``
@@ -2762,8 +2788,7 @@ def split(
                 assert input_shape[dim] % num_or_sections == 0, (
                     "The input's size along the split dimension "
                     "must be evenly divisible by Attr(num_or_sections). "
-                    "But %d is not evenly divisible by %d. "
-                    % (num_or_sections, input_shape[dim])
+                    f"But {num_or_sections} is not evenly divisible by {input_shape[dim]}. "
                 )
             return _C_ops.split_with_num(input, num_or_sections, dim)
         else:
@@ -2822,8 +2847,7 @@ def split(
                     if dim_size == -1:
                         assert unk_dim_idx == -1, (
                             "Only one value of 'num_or_section' in split can "
-                            "be -1. But received num_or_section[%d] is also -1."
-                            % idx
+                            f"be -1. But received num_or_section[{idx}] is also -1."
                         )
                         unk_dim_idx = idx
                     temp_out = helper.create_variable_for_type_inference(
@@ -2849,8 +2873,7 @@ def split(
                 assert input_shape[dim] % num_or_sections == 0, (
                     "The input's size along the split dimension "
                     "must be evenly divisible by Attr(num_or_sections). "
-                    "But %d is not evenly divisible by %d. "
-                    % (num_or_sections, input_shape[dim])
+                    f"But {num_or_sections} is not evenly divisible by {input_shape[dim]}. "
                 )
             num = num_or_sections
         else:
@@ -4157,6 +4180,11 @@ def scatter(
     **Scatter Layer**
     Output is obtained by updating the input on selected indices based on updates.
 
+    As shown in the figure, when ``overwrite`` is set to ``True``, the output for the same index is updated in overwrite mode, where ``x[index[i]]`` is directly replaced with ``update[i]`` sequentially; When ``overwrite`` is set to ``False``, the output for the same index is updated in accumulation mode. In this mode, ``x[index[i]]`` is first initialized with elements set to 0. Then, ``update[i]`` is sequentially added to ``x[index[i]]`` to produce the output.
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/scatter.png
+        :alt: Legend - scatter behavior display
+
     .. code-block:: python
         :name: scatter-example-1
 
@@ -4689,6 +4717,12 @@ def broadcast_to(
 
     Both the number of dimensions of ``x`` and the number of elements in ``shape`` should be less than or equal to 6. The dimension to broadcast to must have a value 0.
 
+    The following figure shows the process of broadcasting a one-dimensional tensor of shape [3] to a two-dimensional tensor of shape [2,3] based on the shape specified by 'shape'.
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/broadcast_to.png
+        :width: 500
+        :alt: broadcast_to API
+        :align: center
 
     Args:
         x (Tensor): The input tensor, its data type is bool, float16, float32, float64, int32, int64, uint8 or uint16.
@@ -4916,14 +4950,13 @@ def reshape(x: Tensor, shape: ShapeLike, name: str | None = None) -> Tensor:
                 if dim_size == -1:
                     assert unk_dim_idx == -1, (
                         "Only one dimension value of 'shape' in reshape can "
-                        "be -1. But received shape[%d] is also -1.\n"
+                        f"be -1. But received shape[{dim_idx}] is also -1.\n"
                         "\n\t# N = x.shape()[2]\t\t# N is an int. "
                         "(NOT recommend under @to_static)\n\tN = paddle.shape(x)[2]\t\t"
                         "# N is a Tensor. (Recommend)\n\tz = paddle.reshape([N, -1, 4])"
                         "\t# z.shape is [-1, -1, 4]\n\n"
                         "    If your target shape in Reshape represents dynamic shape, "
                         "please turn it into a Tensor under @to_static. See above example for details."
-                        % dim_idx
                     )
                     unk_dim_idx = dim_idx
                 elif dim_size == 0:
@@ -4931,15 +4964,13 @@ def reshape(x: Tensor, shape: ShapeLike, name: str | None = None) -> Tensor:
                         assert dim_idx < len(x.shape), (
                             "The index of 0 in `shape` must be less than "
                             "the input tensor X's dimensions. "
-                            "But received shape[%d] = 0, X's dimensions = %d."
-                            % (dim_idx, len(x.shape))
+                            f"But received shape[{dim_idx}] = 0, X's dimensions = {len(x.shape)}."
                         )
                 else:
                     assert dim_size > 0, (
                         "Each dimension value of 'shape' in reshape must not "
                         "be negative except one unknown dimension. "
-                        "But received shape[%d] = %s."
-                        % (dim_idx, str(dim_size))
+                        f"But received shape[{dim_idx}] = {dim_size!s}."
                     )
         return attrs_shape
 
@@ -6966,7 +6997,7 @@ def unflatten(
         new_shape = paddle.concat(
             [
                 paddle.shape(x)[:axis],
-                paddle.cast(shape, 'int32'),
+                paddle.cast(shape, 'int64'),
                 paddle.shape(x)[axis + 1 :],
             ]
         )
@@ -7290,6 +7321,12 @@ def diagonal_scatter(
 
     Note:
         ``y`` should have the same shape as :ref:`paddle.diagonal <api_paddle_diagonal>`.
+
+    The image below demonstrates the example: A 2D tensor with a shape of [2, 3] is ``diagonal_scatter`` along its main diagonal (``offset = 0``)  within ``axis1 = 0`` and ``axis2 = 1`` using a 1D tensor filled with ones.
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/diagonal_scatter.png
+       :width: 500
+       :alt: legend of diagonal_scatter API
 
     Args:
         x (Tensor): ``x`` is the original Tensor. Must be at least 2-dimensional.

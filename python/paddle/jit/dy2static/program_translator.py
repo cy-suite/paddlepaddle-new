@@ -132,23 +132,33 @@ def check_view_api_used_by_inplace(program: paddle.pir.Program) -> None:
         a = transpose(b)
         b.add_(c)
     """
+    # TODO(ooooo): Deal with these inplace ops
+    skipped_inplace_ops = [
+        "pd_op.set_value_",
+        "pd_op.set_value_with_tensor_",
+        # It willn't change tensor imdeiately,but it's ouput is dangerous.
+        "pd_op.share_data_",
+    ]
+
+    def val_is_used_by_stride_op(op, val):
+        return op.name() in framework.stride_ops and op.operand_source(
+            0
+        ).is_same(val)
+
+    def is_used_by_inplace_op(op, val, info):
+        return op.name().endswith("_") and any(
+            op.operand_source(index).is_same(val) for index in info.values()
+        )
+
     all_vars_list = program.list_vars()
     for value in all_vars_list:
         uesd_by_stride_ops = []
-        for op in value.all_used_ops()[::-1]:
+        for op in reversed(value.all_used_ops()):
             inplace_info = paddle.core.pir.get_op_inplace_info(op)
-            if op.name() in framework.stride_ops and op.operand_source(
-                0
-            ).is_same(value):
+            if val_is_used_by_stride_op(op, value):
                 uesd_by_stride_ops.append(op)
-            if op.name().endswith("_") and any(
-                op.operand_source(index).is_same(value)
-                for index in inplace_info.keys()
-            ):
-                if (
-                    op.name() == "pd_op.set_value_"
-                    or op.name() == "pd_op.set_value_with_tensor_"
-                ):
+            if is_used_by_inplace_op(op, value, inplace_info):
+                if op.name() in skipped_inplace_ops:
                     continue
                 if value.get_defining_op().name() in framework.stride_ops:
                     show_op_callstack(op)
@@ -351,6 +361,7 @@ class CacheKey:
                 with_hook,
                 is_train,
                 self._pir_flags,
+                use_pir_api(),
             )
         )
 
@@ -423,6 +434,8 @@ class StaticFunction(Generic[_InputT, _RetT]):
         self._cuda_graph_capture_mode = ""
         self._cuda_graph_pool_id = 0
         self._property = kwargs.get("property", False)
+        # Note: Record the patched method name for rollback.
+        self._patched_name = None
         self._get_debug_name()
 
     def _get_debug_name(self) -> str:
@@ -669,24 +682,26 @@ class StaticFunction(Generic[_InputT, _RetT]):
             return self._dygraph_function
 
         # only rollback sub-functions on path of top _dygraph_function
-        func_name = self._dygraph_function.__name__
-        assert (
-            func_name in self.class_instance._original_funcs
-        ), f"Not Found function '{func_name}' in class '{self.class_instance.__class__}'."
-        func = self.class_instance._original_funcs[func_name]
-        setattr(
-            self.class_instance, func_name, func.__get__(self.class_instance)
+        fn_name = (
+            self._patched_name
+            if self._patched_name is not None
+            else self._dygraph_function.__name__
         )
+        assert (
+            fn_name in self.class_instance._original_funcs
+        ), f"Not Found function '{fn_name}' in class '{self.class_instance.__class__}'."
+        func = self.class_instance._original_funcs[fn_name]
+        setattr(self.class_instance, fn_name, func.__get__(self.class_instance))
 
         for sublayer in self.class_instance.sublayers(include_self=False):
             rollback_impl(sublayer)
 
-        return getattr(self.class_instance, func_name)
+        return getattr(self.class_instance, fn_name)
 
     def __deepcopy__(self, memo):
         """
         Customized behavior for copy.deepcopy, return original decorated function instead
-        of a new StaticFunction Object. StaticFunction itself is not copyable becuase it's
+        of a new StaticFunction Object. StaticFunction itself is not copyable because it's
         associated with class_instance.
 
         We add __deepcopy__ here only for the following usage:
@@ -1020,7 +1035,7 @@ class ASTStaticFunction(StaticFunction[_InputT, _RetT]):
         # if specific the `input_spec`, the length of program_cache will always 1,
         # else, return the last one.
         cached_program_len = len(self._program_cache)
-        # If specific `input_spec`, apply convertion from dygraph layers into static Program.
+        # If specific `input_spec`, apply conversion from dygraph layers into static Program.
         # NOTE(jiabin): is_prim_infer indicates this method called by paddle.jit.save and it is worked in prim mode
 
         desired_input_spec = input_spec

@@ -258,6 +258,7 @@ class IR_API ConstantTensorOp : public ConstantOp {
 };
 
 IR_API void PassStopGradientsDefaultly(OperationArgument &argument);  // NOLINT
+IR_API void TrueStopGradientsDefaultly(OperationArgument &argument);  // NOLINT
 IR_API void RefreshStopGradientsDefaultly(Operation *Op);
 }  // namespace pir
 

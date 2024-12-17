@@ -76,6 +76,10 @@ PD_DEFINE_bool(cinn_enable_grid_reduce,
                BoolFromEnv("FLAGS_cinn_enable_grid_reduce", true),
                "Whether to enable the grid reduce method.");
 
+PD_DEFINE_bool(cinn_enable_tile_broadcast,
+               BoolFromEnv("FLAGS_cinn_enable_tile_broadcast", true),
+               "Whether to enable the tile broadcast tactic.");
+
 PD_DEFINE_bool(cinn_use_op_fusion,
                BoolFromEnv("FLAGS_cinn_use_op_fusion", true),
                "Whether to use op fusion pass.");
@@ -88,14 +92,6 @@ PD_DEFINE_bool(
     cinn_bc_branch_optimize,
     BoolFromEnv("FLAGS_cinn_bc_branch_optimize", true),
     "Whether to open the broadcast branch optimization in frontend.");
-
-PD_DEFINE_bool(cinn_bucket_compile,
-               BoolFromEnv("FLAGS_cinn_bucket_compile", true),
-               "Whether to enable bucket compile for dynamic shape.");
-
-PD_DEFINE_bool(group_schedule_tiling_first,
-               BoolFromEnv("FLAGS_group_schedule_tiling_first", true),
-               "Whether to enable new group scheduler tiling first strategy.");
 
 PD_DEFINE_bool(cinn_use_common_subexpression_elimination,
                BoolFromEnv("FLAGS_cinn_use_common_subexpression_elimination",

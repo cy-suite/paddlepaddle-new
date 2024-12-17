@@ -441,6 +441,8 @@ void AsComplexInferMeta(const MetaTensor& input, MetaTensor* output) {
   output->set_dtype(dtype::ToComplex(input.dtype()));
 }
 
+void BarrierInferMeta(const MetaTensor& x, MetaTensor* out) {}
+
 void BatchSizeLikeInferMeta(const MetaTensor& x,
                             const std::vector<int>& shape,
                             int x_batch_size_dim,
@@ -2427,10 +2429,11 @@ void MatrixPowerInferMeta(const MetaTensor& x, int n, MetaTensor* out) {
                         "received a %d dimension tensor.",
                         n_dim));
   for (int i = 0; i < n_dim; ++i)
-    PADDLE_ENFORCE_NE(dims[i],
-                      0,
-                      common::errors::InvalidArgument(
-                          "The size of Input(X) should not be 0."));
+    PADDLE_ENFORCE_GE(
+        dims[i],
+        0,
+        common::errors::InvalidArgument(
+            "The size of Input(X) should greater than or equal to 0."));
   PADDLE_ENFORCE_EQ(dims[n_dim - 2],
                     dims[n_dim - 1],
                     common::errors::InvalidArgument(
@@ -4060,6 +4063,18 @@ void ShapeInferMeta(const MetaTensor& input, MetaTensor* out) {
   out->set_dtype(DataType::INT32);
 }
 
+void Shape64InferMeta(const MetaTensor& input,
+                      MetaTensor* out,
+                      MetaConfig config) {
+  auto in_dim = input.dims();
+  out->set_dims(common::make_ddim({in_dim.size()}));
+  if (config.is_run_mkldnn_kernel) {
+    out->set_dtype(DataType::INT32);
+  } else {
+    out->set_dtype(DataType::INT64);
+  }
+}
+
 void ShareDataInferMeta(const MetaTensor& x, MetaTensor* out) {
   out->set_dims(x.dims());
   out->set_dtype(x.dtype());
@@ -4900,6 +4915,31 @@ void PartialConcatInferMeta(const std::vector<const MetaTensor*>& xs,
   DDim out_dim = common::make_ddim(out_dims);
   out->set_dims(out_dim);
   out->set_dtype(xs[0]->dtype());
+}
+
+void SvdvalsInferMeta(const MetaTensor& x, MetaTensor* s) {
+  auto SDDim = [](const DDim& x_dim, int k) {
+    auto x_vec = common::vectorize(x_dim);
+    x_vec.erase(x_vec.end() - 2, x_vec.end());
+    x_vec.push_back(k);
+    return common::make_ddim(x_vec);
+  };
+
+  auto in_dims = x.dims();
+  int64_t x_rank = in_dims.size();
+
+  PADDLE_ENFORCE_GE(
+      x_rank,
+      2,
+      common::errors::InvalidArgument("The rank of input tensor must be >= 2"));
+
+  int64_t m = in_dims[x_rank - 2];
+  int64_t n = in_dims[x_rank - 1];
+
+  int64_t k = std::min(m, n);
+  s->set_dims(SDDim(in_dims, k));
+  s->share_lod(x);
+  s->set_dtype(x.dtype());
 }
 
 void SvdInferMeta(const MetaTensor& x,
@@ -5913,7 +5953,7 @@ void WeightQuantizeInferMeta(const MetaTensor& x,
                              const int32_t group_size,
                              MetaTensor* out,
                              MetaTensor* scale) {
-#ifndef PADDLE_WITH_HIP
+#ifdef PADDLE_WITH_CUDA
   PADDLE_ENFORCE_EQ(
       ((arch == 70) || (arch == 75) || (arch == 80) || (arch == 86) ||
        (arch == 89) || (arch == 90)),
