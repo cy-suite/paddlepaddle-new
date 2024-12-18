@@ -88,6 +88,9 @@ class TestDiagV2OpCase3(TestDiagV2Op):
 
 
 class TestDiagV2OpCase4(TestDiagV2Op):
+    def init_dtype(self):
+        self.dtype = np.float32
+
     def init_attrs(self):
         super().init_attrs()
         self.padding_value = 2
