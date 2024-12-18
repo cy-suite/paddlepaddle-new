@@ -398,7 +398,7 @@ class TestPowCase0TRTPattern(TensorRTBaseTest):
         self.python_api = paddle.pow
         self.api_args = {
             "x": np.random.randn(2, 3).astype("float32"),
-            "y": np.float32(np.random.randn()),
+            "y": float(np.random.randn()),
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1, 3], "y": [1, 3]}
@@ -418,7 +418,7 @@ class TestPowCase1TRTPattern(TensorRTBaseTest):
         self.python_api = paddle.pow
         self.api_args = {
             "x": np.random.randn(2, 3).astype("int64"),
-            "y": np.int64(np.random.randn()),
+            "y": int(np.random.randn()),
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1, 3], "y": [1, 3]}
@@ -433,7 +433,7 @@ class TestPowCase2TRTPattern(TensorRTBaseTest):
         self.python_api = paddle.pow
         self.api_args = {
             "x": np.random.randn(2, 3).astype("float32"),
-            "y": np.float32(np.random.randn()),
+            "y": float(np.random.randn()),
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1, 3], "y": [1, 3]}
