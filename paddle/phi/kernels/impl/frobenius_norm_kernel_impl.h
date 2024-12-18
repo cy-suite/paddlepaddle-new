@@ -14,7 +14,6 @@
 
 #pragma once
 
-#include "glog/logging.h"
 #include "paddle/phi/kernels/cpu/reduce.h"
 #include "paddle/phi/kernels/frobenius_norm_kernel.h"
 #include "paddle/phi/kernels/funcs/reduce_functor.h"
