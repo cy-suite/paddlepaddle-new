@@ -68,6 +68,12 @@ void {op_name}Op::CacheGradOpSymbolicShape(pir::InferSymbolicShapeContext* infer
 }}
 """
 
+NONEED_CODE_TEMPLATE = """
+void {op_name}Op::CacheGradOpSymbolicShape(pir::InferSymbolicShapeContext* infer_context) {{
+  VLOG(WARNING) << "{op_name} CacheGradOpSymbolicShape is not auto generated!";
+}}
+"""
+
 SHAPE_VAR_NAME_SUFFIX = "_shape"
 
 GET_INPUT_SHAPE_CODE_TEMPLATE = """
@@ -84,6 +90,7 @@ GET_INPUT_GRAD_SHAPE_CODE_TEMPLATE = """
 
 
 cache_grad_op_shape_black_list = {"fused_attention"}
+manual_grad_op_sym_infer_list = {"fuesd_attention"}
 
 
 class CacheGradOpSymbolShapeCodeGen:
@@ -245,6 +252,14 @@ class CacheGradOpSymbolShapeCodeGen:
                     len(create_grad_op_output_shape_code) == 0
                     or op_phi_name in cache_grad_op_shape_black_list
                 ):
+                    if op_phi_name in manual_grad_op_sym_infer_list:
+                        logging.warning(
+                            f"{op_phi_name}'s grad op is defined manually."
+                        )
+                        cache_func_code += NONEED_CODE_TEMPLATE.format(
+                            op_name=to_pascal_case(op_phi_name),
+                        )
+                        continue
                     logging.warning(
                         f"{op_phi_name}'s grad op has some exception, please check it in yaml file."
                     )
