@@ -132,6 +132,10 @@ def add_break_graph_apis(apis: list):
 
 
 def is_directly_run_api(api):
+    from .utils import hashable
+
+    if not hashable(api):
+        return False
     NATIVE_CODE_PURE_FUNCTIONS = {
         paddle.base.libpaddle.is_compiled_with_avx,
         paddle.base.libpaddle.is_compiled_with_cuda,
