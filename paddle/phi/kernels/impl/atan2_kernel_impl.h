@@ -76,6 +76,9 @@ void Atan2Kernel(const Context& ctx,
                  const DenseTensor& y,
                  DenseTensor* out) {
   if (x.numel() == 0 || y.numel() == 0) {
+    std::vector<int64_t> out_dims_array = common::vectorize(out->dims());
+    std::replace(out_dims_array.begin(), out_dims_array.end(), -1, 0);
+    out->Resize(common::make_ddim(out_dims_array));
     ctx.template Alloc<typename Atan2Out<T>::type>(out);
     return;
   }
