@@ -2078,69 +2078,6 @@ class OneHotOpPattern
   }
 };
 
-bool CheckStaticShape(const pir::Operation *op) {
-  std::vector<int32_t> vec_shape;
-  auto shape_attr = op->attribute("shape").dyn_cast<pir::ArrayAttribute>();
-  for (const auto &attr : shape_attr.AsVector()) {
-    vec_shape.push_back(attr.dyn_cast<pir::Int32Attribute>().data());
-  }
-  for (int32_t dim : vec_shape) {
-    if (dim == -1) {
-      VLOG(3) << "pd_op.assign_value_ or pd_op.assign_value cannot support "
-                 "dynamic shape";
-      return false;
-    }
-  }
-  int shape_size = vec_shape.size();
-  int values_count =
-      op->attribute("values").dyn_cast<pir::ArrayAttribute>().size();
-  if (shape_size != values_count) {
-    VLOG(3) << "pd_op.assign_value or pd_op.assign_value shape size is not "
-               "equal to the values size";
-    return false;
-  }
-  return true;
-}
-
-class AssignValue_OpPattern
-    : public pir::OpRewritePattern<paddle::dialect::AssignValue_Op> {
- public:
-  using pir::OpRewritePattern<
-      paddle::dialect::AssignValue_Op>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::AssignValue_Op op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-    if (!CheckStaticShape(op)) {
-      return false;
-    }
-
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
-
-class AssignValueOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::AssignValueOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::AssignValueOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::AssignValueOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-    if (!CheckStaticShape(op)) {
-      return false;
-    }
-
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
-
 class TemporalShiftOpPattern
     : public pir::OpRewritePattern<paddle::dialect::TemporalShiftOp> {
  public:
@@ -2290,8 +2227,6 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<TanhOpPattern>(context));
     ps.Add(std::make_unique<CeluOpPattern>(context));
     ps.Add(std::make_unique<OneHotOpPattern>(context));
-    ps.Add(std::make_unique<AssignValueOpPattern>(context));
-    ps.Add(std::make_unique<AssignValue_OpPattern>(context));
     ps.Add(std::make_unique<TemporalShiftOpPattern>(context));
     return ps;
   }
