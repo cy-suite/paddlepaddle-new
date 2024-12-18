@@ -683,7 +683,7 @@ def squeeze_trt(network, input_tensor, axes):
     return reshape_layer.get_output(0)
 
 
-def UnaryOpConverter(network, paddle_op, inputs):
+def unary_op_converter(network, paddle_op, inputs):
     from paddle.tensorrt import PrecisionMode
 
     input_tensor = inputs[0]
