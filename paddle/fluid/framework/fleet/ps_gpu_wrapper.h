@@ -130,22 +130,6 @@ class AfsWrapper {
     VLOG(1) << "AfsWrapper Init" << handle_ << " ret: " << ret
             << "  fs_name :" << fs_name << "  fs_user :" << fs_user
             << "  pass_wd :" << pass_wd << "  conf :" << conf;
-#if defined(PADDLE_WITH_PSCORE) && defined(PADDLE_WITH_HETERPS) && \
-    defined(PADDLE_WITH_NCCL)
-    const char* launch_mode = std::getenv("NCCL_LAUNCH_MODE");
-    if (launch_mode != nullptr) {
-      if (std::string(launch_mode) == "PARALLEL") {
-        VLOG(0) << "heterps-mode can only set NCCL_LAUNCH_MODE=GROUP for no "
-                   "hang, will change from PARALLEL to GROUP";
-        int res = setenv("NCCL_LAUNCH_MODE", "GROUP", 1);
-        PADDLE_ENFORCE_EQ(res, 0);
-      }
-    } else {
-      VLOG(0) << "heterps-mode can only set NCCL_LAUNCH_MODE=GROUP for no hang";
-      int res = setenv("NCCL_LAUNCH_MODE", "GROUP", 1);
-      PADDLE_ENFORCE_EQ(res, 0);
-    }
-#endif
     return ret;
   }
 
@@ -411,16 +395,15 @@ class PSGPUWrapper {
       const char* launch_mode = std::getenv("NCCL_LAUNCH_MODE");
       if (launch_mode != nullptr) {
         if (std::string(launch_mode) == "PARALLEL") {
-          VLOG(0) << "heterps-mode can only set NCCL_LAUNCH_MODE GROUP for no "
-                     "hang, will change from PARALLEL to GROUP";
-          int res = setenv("NCCL_LAUNCH_MODE", "GROUP", 1);
-          PADDLE_ENFORCE_EQ(res, 0);
+          PADDLE_THROW(common::errors::Unavailable(
+              "on heterps-mode you must export NCCL_LAUNCH_MODE=GROUP for no "
+              "hang, but received [%s]",
+              launch_mode));
         }
       } else {
-        VLOG(0)
-            << "heterps-mode can only set NCCL_LAUNCH_MODE GROUP for no hang";
-        int res = setenv("NCCL_LAUNCH_MODE", "GROUP", 1);
-        PADDLE_ENFORCE_EQ(res, 0);
+        PADDLE_THROW(
+            common::errors::Unavailable("on heterps-mode you must export "
+                                        "NCCL_LAUNCH_MODE=GROUP for no hang"));
       }
 #endif
       resource_ = std::make_shared<HeterPsResource>(dev_ids);
