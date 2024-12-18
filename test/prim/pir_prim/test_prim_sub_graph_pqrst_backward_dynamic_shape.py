@@ -60,6 +60,10 @@ def relu_net(x):
     return paddle.nn.functional.relu(x)
 
 
+def relu6_net(x):
+    return paddle.nn.functional.relu6(x)
+
+
 def reshape_net(x):
     return paddle.reshape(x, [30, 200 * 40])
 
@@ -365,6 +369,19 @@ class TestPrimReluWithGrad(TestPrimBaseWithGrad):
         self.tol = 1e-6
 
 
+class TestPrimRelu6WithGrad(TestPrimBaseWithGrad):
+    def setUp(self):
+        np.random.seed(2023)
+        self.op_name = "pd_op.relu6_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.net = relu6_net
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
 class TestPrimReshapeWithGrad(TestPrimBaseWithGrad):
     def setUp(self):
         np.random.seed(2024)
@@ -437,7 +454,7 @@ class TestPrimScatterWithGrad(TestPrimThreeWithGrad):
 
     def base_net(self, flag=None):
         if flag == "prim":
-            core._set_prim_all_enabled(True)
+            core._set_prim_backward_enabled(True)
         x = paddle.to_tensor(self.x, stop_gradient=False)
         y = paddle.to_tensor(self.y)
         z = paddle.to_tensor(self.z, stop_gradient=False)
@@ -466,7 +483,7 @@ class TestPrimScatterWithGrad(TestPrimThreeWithGrad):
                 .ops
             ]
             assert self.op_name not in ops
-            core._set_prim_all_enabled(False)
+            core._set_prim_backward_enabled(False)
         return res, [x_grad, z_grad]
 
 
@@ -725,7 +742,7 @@ class TestPrimStackWithGrad5(unittest.TestCase):
 
     def base_net(self, flag=None):
         if flag == "prim":
-            core._set_prim_all_enabled(True)
+            core._set_prim_backward_enabled(True)
         x = [paddle.to_tensor(self.x[i], stop_gradient=False) for i in range(4)]
         if flag == "prim":
             fn = apply_to_static(
@@ -757,7 +774,7 @@ class TestPrimStackWithGrad5(unittest.TestCase):
                 .ops
             ]
             assert self.op_name not in ops
-            core._set_prim_all_enabled(False)
+            core._set_prim_backward_enabled(False)
         return res, [x_grad1, x_grad2, x_grad3, x_grad4]
 
     def test_prim_all_dynamic(self):
@@ -1088,7 +1105,7 @@ class TestPrimTakeAlongAxisWithGrad1(TestPrimTwoWithGrad):
 
     def base_net(self, flag=None):
         if flag == "prim":
-            core._set_prim_all_enabled(True)
+            core._set_prim_backward_enabled(True)
         x = paddle.to_tensor(self.x, stop_gradient=False)
         y = paddle.to_tensor(self.y)
         y = paddle.broadcast_to(y, [1, 200, 40])
@@ -1115,7 +1132,7 @@ class TestPrimTakeAlongAxisWithGrad1(TestPrimTwoWithGrad):
                 .ops
             ]
             assert self.op_name not in ops
-            core._set_prim_all_enabled(False)
+            core._set_prim_backward_enabled(False)
         return res, [x_grad]
 
 
@@ -1136,7 +1153,7 @@ class TestPrimTakeAlongAxisWithGrad2(TestPrimTwoWithGrad):
 
     def base_net(self, flag=None):
         if flag == "prim":
-            core._set_prim_all_enabled(True)
+            core._set_prim_backward_enabled(True)
         x = paddle.to_tensor(self.x, stop_gradient=False)
         y = paddle.to_tensor(self.y)
         y = paddle.broadcast_to(y, [2, 1, 200])
@@ -1163,7 +1180,7 @@ class TestPrimTakeAlongAxisWithGrad2(TestPrimTwoWithGrad):
                 .ops
             ]
             assert self.op_name not in ops
-            core._set_prim_all_enabled(False)
+            core._set_prim_backward_enabled(False)
         return res, [x_grad]
 
 

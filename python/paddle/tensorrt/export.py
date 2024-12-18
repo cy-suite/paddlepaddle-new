@@ -37,7 +37,7 @@ from paddle.nn import Layer
 from paddle.tensorrt.converter import PaddleToTensorRTConverter
 from paddle.tensorrt.util import (
     forbid_op_lower_trt,
-    mark_buitlin_op,
+    mark_builtin_op,
     run_pir_pass,
     warmup_shape_infer,
 )
@@ -170,7 +170,7 @@ class TensorRTConfig:
         save_model_dir: str | None = None,
         disable_ops: str | list | None = None,
         precision_mode: PrecisionMode = PrecisionMode.FP32,
-        tensorrt_ops_run_float: str | list | None = None,
+        ops_run_float: str | list | None = None,
     ) -> None:
         """
         A class for configuring TensorRT optimizations.
@@ -190,7 +190,7 @@ class TensorRTConfig:
                 - PrecisionMode.FP16: 16-bit floating point precision.
                 - PrecisionMode.INT8: 8-bit integer precision.
                 - PrecisionMode.BFP16: 16-bit Brain Floating Point precision. Only supported in TensorRT versions greater than 9.0.
-            tensorrt_ops_run_float (str|list, optional):
+            ops_run_float (str|list, optional):
                 A set of operation names that should be executed using FP32 precision regardless of the `tensorrt_precision_mode` setting.
                  The directory where the optimized model will be saved (default is None).
         Returns:
@@ -215,13 +215,13 @@ class TensorRTConfig:
             >>> trt_config = TensorRTConfig(inputs=[input])
             >>> trt_config.disable_ops = "pd_op.dropout"
             >>> trt_config.precision_mode = PrecisionMode.FP16
-            >>> trt_config.tensorrt_ops_run_float = "pd_op.conv2d"
+            >>> trt_config.ops_run_float = "pd_op.conv2d"
         """
         self.inputs = inputs
         self.min_subgraph_size = min_subgraph_size
         self.save_model_dir = save_model_dir
         self.precision_mode = precision_mode
-        self.tensorrt_ops_run_float = tensorrt_ops_run_float
+        self.ops_run_float = ops_run_float
         self.disable_ops = disable_ops
         paddle.framework.set_flags(
             {'FLAGS_trt_min_group_size': min_subgraph_size}
@@ -267,7 +267,7 @@ def convert_to_trt(program, trt_config, scope):
             forbid_op_lower_trt(program, trt_config.disable_ops)
 
         # Adding marker labels to builtin ops facilitates convert processing, but they ultimately do not enter the TensorRT subgraph.
-        mark_buitlin_op(program)
+        mark_builtin_op(program)
 
         # run pir pass (including trt_sub_graph_extract_pass)
         program_with_pir = run_pir_pass(program, partition_mode=True)
