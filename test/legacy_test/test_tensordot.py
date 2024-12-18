@@ -464,5 +464,23 @@ class TestTensordotAPISingleElementAndZeroSize(TestTensordotAPI):
         ]
 
 
+class TestBroadcastWithZeroSize1(unittest.TestCase):
+    def setUp(self):
+        self.x_shape = [5, 0, 3]
+        self.y_shape = [3, 4, 0]
+
+    def set_test_axes(self):
+        self.all_axes = [[], []]
+
+
+class TestBroadcastWithZeroSize2(unittest.TestCase):
+    def setUp(self):
+        self.x_shape = [5, 0, 3]
+        self.y_shape = [3, 0]
+
+    def set_test_axes(self):
+        self.all_axes = [[], []]
+
+
 if __name__ == "__main__":
     unittest.main()
