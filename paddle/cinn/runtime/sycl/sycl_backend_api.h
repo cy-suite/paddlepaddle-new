@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <CL/sycl.hpp>
+#include <sycl/sycl.hpp>
 #include <vector>
 #include "paddle/cinn/common/macros.h"
 #include "paddle/cinn/common/target.h"

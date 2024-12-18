@@ -142,9 +142,6 @@ struct CollectHostFunctionVisitor : public ir::IRMutator<> {
           shared_mem_bytes = codegen_dev.GetDynSharedMemOffset();
 #endif
         },
-<<<<<<< HEAD
-        [&](common::HygonDCUArchSYCL) { CINN_NOT_IMPLEMENTED });
-=======
         [&](common::HygonDCUArchSYCL) {
 #ifdef CINN_WITH_SYCL
           CodeGenSYCL_Dev codegen_dev(
@@ -153,7 +150,6 @@ struct CollectHostFunctionVisitor : public ir::IRMutator<> {
           //shared_mem_bytes = codegen_dev.GetDynSharedMemOffset();
 #endif
         });
->>>>>>> b9fcedb159... fix_paddle
 
     VLOG(6) << "Add a call node for func->name " << func->name << "\n"
             << "grid_dim: (" << func->cuda_axis_info.grid_dim(0) << ", "
