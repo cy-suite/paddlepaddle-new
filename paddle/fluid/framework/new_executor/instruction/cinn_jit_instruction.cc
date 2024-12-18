@@ -25,7 +25,6 @@
 #if defined(PADDLE_WITH_CUDA)
 #include "paddle/cinn/runtime/cinn_runtime.h"
 #endif
-PD_DECLARE_bool(cinn_bucket_compile);
 PD_DECLARE_bool(cinn_measure_kernel_time);
 PD_DECLARE_string(tile_config_policy);
 PD_DECLARE_string(cinn_kernel_execution_label);
@@ -141,7 +140,7 @@ class CinnJitInstruction::FnPtrImpl {
         ps.CudaEnd(FLAGS_cinn_kernel_execution_label);
         phi::gpuGraphDestroy(graph);
         phi::gpuGraphExecDestroy(instance);
-        phi::DestoryStream(stream);
+        phi::DestroyStream(stream);
       } else {
         ((lower_func_ptr_g)cinn_kernel_info_.CX86_fn_ptr)(
             static_cast<void*>(func_args_.data()), func_args_.size(), stream);
@@ -289,7 +288,7 @@ void CinnJitInstruction::Run() {
   // 1. prepare kernel arguments
   fn_ptr_impl_->InitFuncArgs(tensor_args_);
 
-  if (FLAGS_cinn_bucket_compile && need_update_shape) {
+  if (need_update_shape) {
     fn_ptr_impl_->InferShape(
         tensor_args_, input_tensor_size, output_tensor_size);
   }
