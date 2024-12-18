@@ -247,6 +247,9 @@ class ValueSet:
     def __and__(self, other: ValueSet):
         return ValueSet(self._set & other._set)
 
+    def __sub__(self, other: ValueSet):
+        return ValueSet(self._set - other._set)
+
     def __or__(self, other: ValueSet):
         return ValueSet(self._set | other._set)
 

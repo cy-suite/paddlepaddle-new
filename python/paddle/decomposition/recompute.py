@@ -461,13 +461,15 @@ def auto_recompute(
         return not all(_is_fusible(value_node, user) for user in users)
 
     def _get_no_need_buffer_values_from_program(program):
-        no_need_buffer_values = backward_utils.ValueSet()
+        need_buffer_values = backward_utils.ValueSet()
+        all_values = backward_utils.ValueSet()
         for op in program.global_block().ops:
             for op_operand_source in op.operands_source():
+                all_values.add(op_operand_source)
                 if op.is_no_need_buffer(op_operand_source):
-                    no_need_buffer_values.add(op_operand_source)
-                elif op_operand_source in no_need_buffer_values:
-                    no_need_buffer_values.discard(op_operand_source)
+                    continue
+                need_buffer_values.add(op_operand_source)
+        no_need_buffer_values = all_values - need_buffer_values
         return no_need_buffer_values
 
     def _get_node_weight(
