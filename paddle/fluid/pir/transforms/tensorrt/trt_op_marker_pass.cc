@@ -1420,13 +1420,6 @@ class BilinearInterpV2Pattern
         return false;
       }
     }
-    pir::Value size_tensor = op.operand_source(2);
-    if (size_tensor != nullptr) {
-      VLOG(3) << "The Paddle-TRT doesn't support the SizeTensor for "
-                 "BilinearInterpV2";
-      return false;
-    }
-
     auto data_format =
         op->attribute<pir::StrAttribute>("data_format").AsString();
     if (data_format != "NCHW" && data_format != "NHWC") {
@@ -1439,7 +1432,26 @@ class BilinearInterpV2Pattern
       VLOG(3) << "The interp_method of BilinearInterpV2 is not bilinear";
       return false;
     }
-
+#if IS_TRT_VERSION_GE(8200)
+    pir::Value size_tensor = op.operand_source(2);
+    if (size_tensor) {
+      auto size_tensor_type = size_tensor.type();
+      if (size_tensor_type.isa<pir::VectorType>()) {
+        auto vector_type = size_tensor.type().dyn_cast<pir::VectorType>();
+        if (vector_type.size() == 2) {
+          op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+          return true;
+        }
+      }
+    }
+#elif
+    pir::Value size_tensor = op.operand_source(2);
+    if (size_tensor != nullptr) {
+      VLOG(3) << "The Paddle-TRT doesn't support the SizeTensor for "
+                 "BilinearInterpV2";
+      return false;
+    }
+#endif
     pir::Value scale_tensor = op.operand_source(3);
 
     bool has_scale_input = false;
