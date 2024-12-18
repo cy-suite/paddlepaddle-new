@@ -104,17 +104,6 @@ template <typename T>
 TypeId TypeId::get() {
   return detail::TypeIdResolver<T>::Resolve();
 }
-#define IR_DECLARE_EXPLICIT_PLUGIN_TYPE_ID(TYPE_CLASS) \
-  namespace pir {                                      \
-  namespace detail {                                   \
-  template <>                                          \
-  class EXPORT_API TypeIdResolver<TYPE_CLASS> {        \
-   public:                                             \
-    static TypeId Resolve() { return id_; }            \
-    static UniqueingId id_;                            \
-  };                                                   \
-  }                                                    \
-  }  // namespace pir
 
 #define IR_DECLARE_EXPLICIT_TYPE_ID(TYPE_CLASS) \
   namespace pir {                               \

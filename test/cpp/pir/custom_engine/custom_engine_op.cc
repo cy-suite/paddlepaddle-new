@@ -166,4 +166,3 @@ void FakeEngineOp::VerifySig() {
 }  // namespace paddle
 
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::FakeEngineOp)
-PD_REGISTER_PLUGIN_PIR_OPERATIONS(fake_engine_op)

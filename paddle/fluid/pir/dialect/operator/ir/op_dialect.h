@@ -124,13 +124,3 @@ class TEST_API CustomEngineDialect : public pir::Dialect {
 IR_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::OperatorDialect)
 IR_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::CustomOpDialect)
 IR_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::CustomEngineDialect)
-
-namespace paddle {
-namespace dialect {
-#define PD_REGISTER_PLUGIN_PIR_OPERATIONS(opname) \
-  PD_STATIC_ASSERT_GLOBAL_NAMESPACE(              \
-      PD_REGISTER_pir_operation_check_##opname,   \
-      "PD_REGISTER_PLUGIN_PIR_OPERATION must be called in global namespace.");
-
-}  // namespace dialect
-}  // namespace paddle

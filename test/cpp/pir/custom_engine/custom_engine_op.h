@@ -28,6 +28,26 @@
 #include "paddle/pir/include/core/operation_utils.h"
 #include "test/cpp/pir/tools/macros_utils.h"
 
+#if defined(_WIN32)
+#ifndef EXPORT_API
+#define EXPORT_API __declspec(dllexport)
+#endif  // EXPORT_API
+#else
+#define EXPORT_API
+#endif  // _WIN32
+
+#define IR_DECLARE_EXPLICIT_PLUGIN_TYPE_ID(TYPE_CLASS) \
+  namespace pir {                                      \
+  namespace detail {                                   \
+  template <>                                          \
+  class EXPORT_API TypeIdResolver<TYPE_CLASS> {        \
+   public:                                             \
+    static TypeId Resolve() { return id_; }            \
+    static UniqueingId id_;                            \
+  };                                                   \
+  }                                                    \
+  }  // namespace pir
+
 namespace paddle {
 namespace dialect {
 
