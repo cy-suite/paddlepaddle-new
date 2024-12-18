@@ -389,7 +389,9 @@ class PaddleToTensorRTConverter:
         if version_list[0] > 8 or (
             version_list[0] == 8 and version_list[1] >= 6
         ):  # trt version >= 8.6
-            config.builder_optimization_level = 5
+            config.builder_optimization_level = (
+                self.trt_config.optimization_level
+            )
         config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)
 
         if self.trt_config is not None:
