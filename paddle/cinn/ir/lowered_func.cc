@@ -161,6 +161,7 @@ std::vector<Expr> _LoweredFunc_::PrepareAxisRangeAssumptions() const {
     if (dim_size == common::make_const(1)) {
       return;
     }
+    dim_size->convert_int64_to_int32();
     Expr expr_lt = LT::Make(Var(axis), dim_size);
     Expr call_lt = Call::Make(Void(),
                               runtime::intrinsic::cuda_builtin_assume,
