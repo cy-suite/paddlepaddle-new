@@ -26,8 +26,8 @@ bool FusedAttentionGradOpInferSymbolicShape(
                         "GradOp is only callable when is_test is false"));
   bool pre_layer_norm =
       op->attribute<pir::BoolAttribute>("pre_layer_norm").data();
-  auto same_shape_infer = [](pir::Value &dst, pir::Value &src) {
-    auto src_shape = infer_context->GetShapeOrDataForValue(src);
+  auto same_shape_infer = [&](pir::Value &&dst, pir::Value &&src) {
+    auto src_shape = infer_context->GetShapeOrDataForValue(src).shape();
     infer_context->SetShapeOrDataForValue(
         dst,
         symbol::ShapeOrDataDimExprs{
@@ -40,7 +40,7 @@ bool FusedAttentionGradOpInferSymbolicShape(
     }
     if (!paddle::dialect::details::IsFakeValue(op->result(7)) &&
         op->operand_source(12)) {
-      same_shape_infer(op->result(7), op->operand_Source(12));
+      same_shape_infer(op->result(7), op->operand_source(12));
     }
   }
   if (pre_layer_norm && op->operand_source(9)) {
@@ -78,7 +78,7 @@ bool FusedAttentionGradOpInferSymbolicShape(
   same_shape_infer(op->result(19), op->operand_source(26));
   same_shape_infer(op->result(14), op->operand_source(22));
   same_shape_infer(op->result(15), op->operand_source(20));
-  same_shapre_infer(op->result(16), op->operand_source(21));
+  same_shape_infer(op->result(16), op->operand_source(21));
   same_shape_infer(op->result(17), op->operand_source(23));
   same_shape_infer(op->result(18), op->operand_source(25));
   if (!paddle::dialect::details::IsFakeValue(op->result(2)) &&
