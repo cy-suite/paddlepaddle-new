@@ -41,38 +41,47 @@ if(NOT WITH_SETUP_INSTALL)
       "Check submodules of paddle, and run 'git submodule sync --recursive && git submodule update --init --recursive'"
   )
 
-  if(WITH_OPENVINO)
+  execute_process(
+    COMMAND git submodule update --init third_party/openvino
+    WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}
+    RESULT_VARIABLE result_var)
+  execute_process(
+    COMMAND git checkout .gitmodules
+    WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}/third_party/openvino
+    RESULT_VARIABLE result_var)
+  # List of modules to be deleted
+  set(delete_module
+      "thirdparty/zlib/zlib"
+      "thirdparty/gflags/gflags"
+      "thirdparty/gtest/gtest"
+      "thirdparty/ocl/icd_loader"
+      "thirdparty/ocl/cl_headers"
+      "thirdparty/ocl/clhpp_headers"
+      "thirdparty/onnx/onnx"
+      "src/bindings/python/thirdparty/pybind11"
+      "thirdparty/ittapi/ittapi"
+      "cmake/developer_package/ncc_naming_style/ncc"
+      "src/plugins/intel_gpu/thirdparty/onednn_gpu"
+      "thirdparty/open_model_zoo"
+      "thirdparty/json/nlohmann_json"
+      "thirdparty/flatbuffers/flatbuffers"
+      "thirdparty/snappy"
+      "thirdparty/level_zero/level-zero"
+      "src/plugins/intel_npu/thirdparty/level-zero-ext"
+      "src/plugins/intel_npu/thirdparty/yaml-cpp")
+  # Iterate over each module and perform actions
+  foreach(module IN LISTS delete_module)
+    # Remove the module from git cache
     execute_process(
-      COMMAND git submodule sync third_party/openvino
-      WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}
-      RESULT_VARIABLE result_var)
-    if(NOT result_var EQUAL 0)
-      message(
-        FATAL_ERROR
-          "Failed to sync openvino submodule, please check your network !")
-    endif()
-    execute_process(
-      COMMAND git checkout .gitmodules
+      COMMAND git rm --cached ${module}
       WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}/third_party/openvino
-      RESULT_VARIABLE result_var)
-    execute_process(
-      COMMAND git apply ${PADDLE_SOURCE_DIR}/patches/openvino/submodule.patch
-      WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}/third_party/openvino
-      RESULT_VARIABLE result_var)
-    execute_process(
-      COMMAND git submodule sync third_party/openvino
-      WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}
-      RESULT_VARIABLE result_var)
-    execute_process(
-      COMMAND git submodule update --init third_party/openvino
-      WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}
-      RESULT_VARIABLE result_var)
-    if(NOT result_var EQUAL 0)
-      message(
-        FATAL_ERROR
-          "Failed to update openvino submodule, please check your network !")
-    endif()
-  endif()
+      RESULT_VARIABLE git_rm_result)
+  endforeach()
+  execute_process(
+    COMMAND git apply ${PADDLE_SOURCE_DIR}/patches/openvino/submodule.patch
+    WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}/third_party/openvino
+    RESULT_VARIABLE result_var)
+
   # execute_process does not support sequential commands, so we execute echo command separately
   execute_process(
     COMMAND git submodule sync --recursive
