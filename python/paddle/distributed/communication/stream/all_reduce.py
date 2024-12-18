@@ -79,6 +79,7 @@ def _all_reduce_in_static_mode(
         'all_reduce',
     )
 
+    op_type = _get_reduce_op(op, "allreduce")
     ring_id = 0 if group is None else group.id
 
     if not isinstance(ring_id, int):
