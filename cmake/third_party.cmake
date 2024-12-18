@@ -45,10 +45,6 @@ if(NOT WITH_SETUP_INSTALL)
     COMMAND git submodule update --init third_party/openvino
     WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}
     RESULT_VARIABLE result_var)
-  execute_process(
-    COMMAND git checkout .gitmodules
-    WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}/third_party/openvino
-    RESULT_VARIABLE result_var)
   # List of modules to be deleted
   set(delete_module
       "thirdparty/zlib/zlib"
@@ -77,10 +73,6 @@ if(NOT WITH_SETUP_INSTALL)
       WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}/third_party/openvino
       RESULT_VARIABLE git_rm_result)
   endforeach()
-  execute_process(
-    COMMAND git apply ${PADDLE_SOURCE_DIR}/patches/openvino/submodule.patch
-    WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}/third_party/openvino
-    RESULT_VARIABLE result_var)
 
   # execute_process does not support sequential commands, so we execute echo command separately
   execute_process(
