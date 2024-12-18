@@ -25,6 +25,7 @@ logic_type_map = {
     "pd_op.equal": trt.ElementWiseOperation.EQUAL,
     "pd_op.bitwise_and": trt.ElementWiseOperation.AND,
     "pd_op.bitwise_or": trt.ElementWiseOperation.OR,
+    "pd_op.logical_xor": trt.ElementWiseOperation.XOR,
     "pd_op.logical_or": trt.ElementWiseOperation.OR,
     "pd_op.logical_or_": trt.ElementWiseOperation.OR,
     "pd_op.logical_and": trt.ElementWiseOperation.AND,
@@ -36,6 +37,7 @@ logic_type_map = {
 @converter_registry.register("pd_op.equal", trt_version="8.x")
 @converter_registry.register("pd_op.bitwise_and", trt_version="8.x")
 @converter_registry.register("pd_op.bitwise_or", trt_version="8.x")
+@converter_registry.register("pd_op.logical_xor", trt_version="8.x")
 @converter_registry.register("pd_op.logical_or", trt_version="8.x")
 @converter_registry.register("pd_op.logical_or_", trt_version="8.x")
 @converter_registry.register("pd_op.logical_and", trt_version="8.x")
