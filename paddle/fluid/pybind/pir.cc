@@ -1191,7 +1191,27 @@ void BindOperation(py::module *m) {
             self.set_attribute(
                 "chunk_id",
                 Int32Attribute::get(pir::IrContext::Instance(), chunk_id));
-          });
+          })
+      .def("is_no_need_buffer",
+           [](Operation &self, const Value &operand_source) -> bool {
+             paddle::dialect::OpYamlInfoInterface op_info_interface =
+                 self.dyn_cast<paddle::dialect::OpYamlInfoInterface>();
+             std::unique_ptr<paddle::dialect::OpYamlInfoParser> info_parser(
+                 nullptr);
+             if (op_info_interface) {
+               info_parser =
+                   std::make_unique<paddle::dialect::OpYamlInfoParser>(
+                       op_info_interface.GetOpInfo(),
+                       paddle::dialect::IsLegacyOp(self.name()));
+               auto &no_need_buffer_ids = info_parser->NoNeedBufferIds();
+               for (auto no_need_buffer_id : no_need_buffer_ids) {
+                 if (operand_source == self.operand_source(no_need_buffer_id)) {
+                   return true;
+                 }
+               }
+             }
+             return false;
+           });
   py::class_<Operation::BlockContainer> block_container(
       *m, "Operation_BlockContainer", R"DOC(
     The Operation_BlockContainer only use to walk all blocks in the operation.
@@ -1445,27 +1465,6 @@ void BindValue(py::module *m) {
           "get_defining_op",
           [](Value self) -> pir::Operation * { return self.defining_op(); },
           return_value_policy::reference)
-      .def("is_no_need_buffer",
-           [](Value self) -> bool {
-             auto op = self.defining_op();
-             paddle::dialect::OpYamlInfoInterface op_info_interface =
-                 op->dyn_cast<paddle::dialect::OpYamlInfoInterface>();
-             std::unique_ptr<paddle::dialect::OpYamlInfoParser> info_parser(
-                 nullptr);
-             if (op_info_interface) {
-               info_parser =
-                   std::make_unique<paddle::dialect::OpYamlInfoParser>(
-                       op_info_interface.GetOpInfo(),
-                       paddle::dialect::IsLegacyOp(op->name()));
-               auto &no_need_buffer_ids = info_parser->NoNeedBufferIds();
-               for (auto no_need_buffer_id : no_need_buffer_ids) {
-                 if (self == op->operand_source(no_need_buffer_id)) {
-                   return true;
-                 }
-               }
-             }
-             return false;
-           })
       .def("type", &Value::type)
       .def("index",
            [](Value self) -> uint32_t {

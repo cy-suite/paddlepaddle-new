@@ -238,6 +238,12 @@ class ValueSet:
     def pop(self):
         return self._set.pop()._value
 
+    def remove(self, val):
+        self._set.remove(ValueWrapper(val))
+
+    def discard(self, val):
+        self._set.discard(ValueWrapper(val))
+
     def __and__(self, other: ValueSet):
         return ValueSet(self._set & other._set)
 
