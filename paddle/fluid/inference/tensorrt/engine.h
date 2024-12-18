@@ -314,6 +314,9 @@ class TensorRTEngine {
   Weight GetTrtWeight(const std::string& name,
                       const phi::DenseTensor& weight_tensor);
 
+  bool RefitWeights(const std::string& weight_name,
+                    const phi::DenseTensor& new_weight_tensor);
+
   float GetTensorDynamicRange(nvinfer1::ITensor* tensor) {
     return quant_dynamic_range_[tensor];
   }
@@ -507,7 +510,6 @@ class TensorRTEngine {
 
   bool use_varseqlen() { return params_.use_varseqlen; }
   bool use_dla() { return params_.use_dla; }
-
   bool use_refittable() { return params_.use_refittable; }
   bool with_interleaved() { return params_.with_interleaved; }
   const std::string& tensorrt_transformer_posid() {
@@ -596,7 +598,7 @@ class TensorRTEngine {
   infer_ptr<nvinfer1::ICudaEngine> infer_engine_;
   std::unordered_map<PredictorID, infer_ptr<nvinfer1::IExecutionContext>>
       infer_context_;
-  nvinfer1::IRefitter* infer_refitter_;
+  infer_ptr<nvinfer1::IRefitter> infer_refitter_;
   infer_ptr<nvinfer1::IHostMemory> ihost_memory_;
   std::unordered_map<nvinfer1::ITensor*, float> quant_dynamic_range_;
 

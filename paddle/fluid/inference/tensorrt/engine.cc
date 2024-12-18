@@ -16,7 +16,7 @@ limitations under the License. */
 #include <NvInfer.h>
 #include <glog/logging.h>
 #include <string>
-
+#include "NvInferRuntime.h"
 #include "NvInferRuntimeCommon.h"
 #include "cuda_runtime_api.h"  // NOLINT
 
@@ -323,6 +323,10 @@ void TensorRTEngine::FreezeNetwork() {
                 << params_.dla_core;
     }
   }
+  if (use_refittable()) {
+    infer_builder_config_->setFlag(nvinfer1::BuilderFlag::kREFIT);
+    VLOG(3) << "TensorRT Refittable enabled in FreezeNetwork()";
+  }
 
   if (with_dynamic_shape()) {
     LOG(INFO) << "Run Paddle-TRT Dynamic Shape mode.";
@@ -466,6 +470,13 @@ void TensorRTEngine::FreezeNetwork() {
   }
   if (params_.use_inspector) {
     GetEngineInfo(params_.engine_info_path);
+  }
+  if (use_refittable()) {
+    infer_refitter_.reset(createInferRefitter(infer_engine_.get(), logger_));
+    PADDLE_ENFORCE_NOT_NULL(
+        infer_refitter_,
+        common::errors::InvalidArgument(
+            "Failed to create refitter for the TRT engine."));
   }
 }
 
