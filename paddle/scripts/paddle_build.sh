@@ -2724,7 +2724,6 @@ set -x
 function hybrid_paddlex() {
     # PaddleX test
     export DEVICE=($(echo $HIP_VISIBLE_DEVICES | tr "," "\n"))
-    unset HIP_VISIBLE_DEVICES
     git clone --depth=1000 https://gitee.com/paddlepaddle/PaddleX.git
     cd PaddleX
     pip install -e .
