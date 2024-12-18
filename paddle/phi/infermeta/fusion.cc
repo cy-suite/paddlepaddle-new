@@ -1983,7 +1983,7 @@ void FusedGemmEpilogueGradInferMeta(const MetaTensor& x,
           dout_mat_dims[1],
           y_dims[1]));
 
-  for (size_t i = 0; i + 1 < x_dims.size(); ++i) {
+  for (int32_t i = 0; i + 1 < x_dims.size(); ++i) {
     if (dout_dims[i] > 0 && x_dims[i] > 0) {
       PADDLE_ENFORCE_EQ(
           dout_dims[i],
