@@ -90,6 +90,15 @@ class TestTakeAlongAxisDuplicatedIndices(TestTakeAlongAxisOp):
             check_cinn=self.check_cinn, check_pir=True, check_prim_pir=True
         )
 
+    def test_check_grad(self):
+        self.check_grad(
+            ['Input'],
+            'Result',
+            check_cinn=self.check_cinn,
+            check_pir=True,
+            check_prim_pir=True,
+        )
+
 
 class TestTakeAlongAxisFP16Op(TestTakeAlongAxisOp):
     def init_data(self):
