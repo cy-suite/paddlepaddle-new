@@ -1652,6 +1652,9 @@ Expr ConvertCinnToCAS(Expr expr) {
     void operator()(Expr* expr) { Visit(expr); }
     void Visit(Expr* expr) { ir::IRMutator<>::Visit(expr, expr); }
 
+    // Because indice of `Load` is simplify by IndexExpr, we just skip it.
+    void Visit(const Load* op, Expr* expr) override { return; }
+
    private:
     void Visit(const Add* op, Expr* expr) override {
       auto a = op->a();
