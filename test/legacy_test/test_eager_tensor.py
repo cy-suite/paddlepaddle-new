@@ -1867,5 +1867,13 @@ class TestDenseTensorToTensor(unittest.TestCase):
             self.assertEqual(x.data_ptr(), y.data_ptr())
 
 
+class TestSetDynamicAttributeToEagerTensorInstance(unittest.TestCase):
+    def test_set_dynamic_attribute_to_eager_tensor_instance(self):
+        tensor_instance = paddle.to_tensor(1)
+        tensor_instance._custom_id = 0
+        self.assertEqual(tensor_instance._custom_id, 0)
+        self.assertEqual(tensor_instance.__dict__["_custom_id"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()
