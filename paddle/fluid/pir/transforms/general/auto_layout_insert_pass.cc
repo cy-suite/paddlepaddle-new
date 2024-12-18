@@ -276,7 +276,8 @@ class AutoLayoutInsertPass : public pir::Pass {
 
     // For conv2d, only transpose the input.
     if (op->isa<paddle::dialect::Conv2dOp>() ||
-        op->isa<paddle::dialect::Conv2dTransposeOp>()) {
+        op->isa<paddle::dialect::Conv2dTransposeOp>()||
+        op->isa<paddle::dialect::DepthwiseConv2dOp>()) {
       auto inp = op->operand(0);
       if (!JudgeValue(inp.source())) return;
       auto transpose_op =
@@ -333,13 +334,13 @@ const std::set<std::string> ops_in_NCHW = {"pd_op.max_pool2d_with_index",
                                            "pd_op.unpool3d",
                                            "pd_op.unpool",
                                            "pd_op.correlation",
-                                           "pd_op.depthwise_conv2d",
+                                          //  "pd_op.depthwise_conv2d",
                                            "pd_op.grid_sample",
                                            "pd_op.shuffle_channel",
                                            "cf.yield",
                                            "pd_op.reshape",
                                            "pd_op.instance_norm",
-                                           "pd_op.batch_norm_",
+                                          //  "pd_op.batch_norm_",
                                            "pd_op.bilinear_interp",
                                            "pd_op.shape",
                                            "pd_op.deformable_conv",
