@@ -14,8 +14,8 @@ limitations under the License. */
 
 #pragma once
 #ifdef PADDLE_WITH_HETERPS
-
 #include <google/protobuf/text_format.h>
+#include <stdlib.h>
 #include <atomic>
 #include <ctime>
 #include <map>
@@ -130,6 +130,22 @@ class AfsWrapper {
     VLOG(1) << "AfsWrapper Init" << handle_ << " ret: " << ret
             << "  fs_name :" << fs_name << "  fs_user :" << fs_user
             << "  pass_wd :" << pass_wd << "  conf :" << conf;
+#if defined(PADDLE_WITH_PSCORE) && defined(PADDLE_WITH_HETERPS) && \
+    defined(PADDLE_WITH_NCCL)
+    const char* launch_mode = std::getenv("NCCL_LAUNCH_MODE");
+    if (launch_mode != nullptr) {
+      if (std::string(launch_mode) == "PARALLEL") {
+        VLOG(0) << "heterps-mode can only set NCCL_LAUNCH_MODE=GROUP for no "
+                   "hang, will change from PARALLEL to GROUP";
+        int res = setenv("NCCL_LAUNCH_MODE", "GROUP", 1);
+        PADDLE_ENFORCE_EQ(res, 0);
+      }
+    } else {
+      VLOG(0) << "heterps-mode can only set NCCL_LAUNCH_MODE=GROUP for no hang";
+      int res = setenv("NCCL_LAUNCH_MODE", "GROUP", 1);
+      PADDLE_ENFORCE_EQ(res, 0);
+    }
+#endif
     return ret;
   }
 
@@ -390,6 +406,23 @@ class PSGPUWrapper {
     if (s_instance_ != NULL && is_initialized_ == false) {
       VLOG(3) << "PSGPUWrapper Begin InitializeGPU";
       is_initialized_ = true;
+#if defined(PADDLE_WITH_PSCORE) && defined(PADDLE_WITH_HETERPS) && \
+    defined(PADDLE_WITH_NCCL)
+      const char* launch_mode = std::getenv("NCCL_LAUNCH_MODE");
+      if (launch_mode != nullptr) {
+        if (std::string(launch_mode) == "PARALLEL") {
+          VLOG(0) << "heterps-mode can only set NCCL_LAUNCH_MODE GROUP for no "
+                     "hang, will change from PARALLEL to GROUP";
+          int res = setenv("NCCL_LAUNCH_MODE", "GROUP", 1);
+          PADDLE_ENFORCE_EQ(res, 0);
+        }
+      } else {
+        VLOG(0)
+            << "heterps-mode can only set NCCL_LAUNCH_MODE GROUP for no hang";
+        int res = setenv("NCCL_LAUNCH_MODE", "GROUP", 1);
+        PADDLE_ENFORCE_EQ(res, 0);
+      }
+#endif
       resource_ = std::make_shared<HeterPsResource>(dev_ids);
       resource_->enable_p2p();
       keys_tensor.resize(resource_->total_device());
