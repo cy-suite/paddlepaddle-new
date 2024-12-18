@@ -181,7 +181,7 @@ class CinnJitInstruction::FnPtrImpl {
     for (int i = 0; i < output_tensor_size; ++i) {
       DDim dim(output_tensor_shapes[i],
                kernel_tensor_args[input_tensor_size + i]->dims().size());
-      CheckDims(ir_dim[input_tensor_size + i], dim);
+      CheckDims(ir_dim[i], dim);
       kernel_tensor_args[input_tensor_size + i]->Resize(dim);
       free(output_tensor_shapes[i]);
     }
@@ -198,6 +198,13 @@ class CinnJitInstruction::FnPtrImpl {
   }
 
   void CheckDims(const DDim& first, const DDim& second) const {
+    PADDLE_ENFORCE_EQ(
+        first.size(),
+        second.size(),
+        phi::errors::PreconditionNotMet("The rank of dim MUST be same. "
+                                        "But get [%d] and [%d]",
+                                        first.size(),
+                                        second.size()));
     for (size_t i = 0; i < first.size(); ++i) {
       if (first[i] > 0) {
         PADDLE_ENFORCE_EQ(first[i],
@@ -243,15 +250,7 @@ CinnJitInstruction::CinnJitInstruction(
     auto tensor = value_exec_info->GetScope()
                       ->FindVar(var_name)
                       ->GetMutable<phi::DenseTensor>();
-    bool check =
-        in && in.type() && in.type().isa<paddle::dialect::DenseTensorType>();
-    PADDLE_ENFORCE_EQ(check,
-                      true,
-                      phi::errors::PreconditionNotMet(
-                          "cinn jit instruction only support DenseTensorType"));
     tensor_args_.push_back(tensor);
-    ir_dims_.push_back(
-        in.type().dyn_cast<paddle::dialect::DenseTensorType>().dims());
   }
 
   if (op->HasAttribute("exec_backend")) {
