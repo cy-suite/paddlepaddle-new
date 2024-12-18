@@ -16,7 +16,6 @@ limitations under the License. */
 #include <NvInfer.h>
 #include <glog/logging.h>
 #include <string>
-#include "NvInferRuntime.h"
 #include "NvInferRuntimeCommon.h"
 #include "cuda_runtime_api.h"  // NOLINT
 
@@ -472,7 +471,7 @@ void TensorRTEngine::FreezeNetwork() {
     GetEngineInfo(params_.engine_info_path);
   }
   if (use_refittable()) {
-    infer_refitter_.reset(createInferRefitter(infer_engine_.get(), logger_));
+    infer_refitter_.reset(createInferRefitter(infer_engine_.get(), &logger_));
     PADDLE_ENFORCE_NOT_NULL(
         infer_refitter_,
         common::errors::InvalidArgument(
