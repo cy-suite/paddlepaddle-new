@@ -21,13 +21,25 @@ namespace cinn {
 namespace optim {
 
 /**
- * UpdateBufferAxisPass optimizes buffer access by formalizing indices and replacing redundant accesses with zero.
+ * UpdateBufferAxisPass optimizes buffer access by formalizing indices and
+ * replacing redundant accesses with zero.
  *
- * This pass is used in `OptimizeExprGpu` and is applicable in scenarios where buffer accesses in shared or local GPU memory have consistent index expressions across the same axis. In such cases, the pass analyzes the Expr AST to determine if these consistent indices imply that less memory is needed. By setting these redundant indices to zero, the pass can help minimize memory usage.
+ * This pass is used in `OptimizeExprGpu` and is applicable in scenarios
+ * where buffer accesses in shared or local GPU memory have consistent index
+ * expressions across the same axis. In such cases, the pass analyzes the Expr
+ * AST to determine if these consistent indices imply that less memory is
+ * needed. By setting these redundant indices to zero, the pass can help
+ * minimize memory usage.
  *
- * When applied, this pass analyzes buffer access patterns and identifies indices that are consistently accessed with the same expression across the same axis in shared or local GPU memory. It then replaces these indices with zero, which can lead to reduced memory allocation requirements and streamlined memory usage.
+ * When applied, this pass analyzes buffer access patterns and identifies
+ * indices that are consistently accessed with the same expression across the
+ * same axis in shared or local GPU memory. It then replaces these indices with
+ * zero, which can lead to reduced memory allocation requirements and
+ * streamlined memory usage.
  *
- * Performance impact: This pass addresses memory optimization in GPU environments by potentially reducing memory allocation and improving access efficiency, which can enhance overall performance.
+ * Performance impact: This pass addresses memory optimization in GPU
+ * environments by potentially reducing memory allocation and improving access
+ * efficiency, which can enhance overall performance.
  *
  * Examples:
  * 1. Consistent Index Access in GPU Shared Memory:
