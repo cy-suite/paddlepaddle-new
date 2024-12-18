@@ -2782,7 +2782,7 @@ bool Pad3dOpInferSymbolicShape(pir::Operation *op,
   const std::string &data_format =
       op->attribute<pir::StrAttribute>("data_format").AsString();
   const std::vector<symbol::DimExpr> &paddings =
-      paddle::dialect::details::GetDataFromTensorOrList(paddings_shape);
+      paddle::dialect::details::GetDataFromTensorOrTensorList(paddings_shape);
   const std::vector<symbol::DimExpr> &out_dims = [&] {
     std::vector<symbol::DimExpr> out_dims = x_shape;
     PADDLE_ENFORCE_EQ(paddings.size(),

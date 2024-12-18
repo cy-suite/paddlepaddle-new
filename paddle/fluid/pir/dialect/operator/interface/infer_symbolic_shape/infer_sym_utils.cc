@@ -323,7 +323,7 @@ bool GetAxisFromOpInput(pir::Value in_value,
   }
 }
 
-std::vector<symbol::DimExpr> GetDataFromTensorOrList(
+std::vector<symbol::DimExpr> GetDataFromTensorOrTensorList(
     const symbol::ShapeOrDataDimExprs &shape_or_data) {
   if (shape_or_data.isa<TensorListExprs>()) {
     std::vector<symbol::DimExpr> expr_vec;
