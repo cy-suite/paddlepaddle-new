@@ -16,6 +16,7 @@ import tensorrt as trt
 
 from paddle.tensorrt.converter_utils import (
     add_elementwise_layer,
+    trt_cast,
 )
 from paddle.tensorrt.register import converter_registry
 
