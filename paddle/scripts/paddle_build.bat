@@ -682,6 +682,36 @@ for /F %%i in ("%whlsize%") do echo ipipe_log_param_Windows_PR_whl_Size: %%i
 dir /s /b python\dist\*.whl > whl_file.txt
 set /p PADDLE_WHL_FILE_WIN=< whl_file.txt
 
+rem Record the exact size of dll and whl files and save them to disk D
+set dll_file=%cd%\paddle\fluid\pybind\libpaddle.dll
+set "line_dll=0"
+for /F "tokens=4 delims= " %%i in ('dir "%dll_file%"') do (
+    set /a line_dll+=1
+    if !line_dll! equ 3 (
+        set "dllsize=%%i"
+    )
+)
+set dllsize_folder=D:\record\dll_size
+if not exist "%dllsize_folder%" (
+    mkdir %dllsize_folder%
+)
+echo %dllsize% > %dllsize_folder%\%AGILE_PULL_ID%.txt
+
+set whl_folder=%cd%\python\dist
+set "line_whl=0"
+for /F "tokens=4 delims= " %%i in ('dir "%whl_folder%"') do (
+    set /a line_whl+=1
+    if !line_whl! equ 5 (
+        set "whlsize=%%i"
+    )
+)
+set whlsize_folder=D:\record\whl_size
+if not exist "%whlsize_folder%" (
+    mkdir %whlsize_folder%
+)
+echo %whlsize% > %whlsize_folder%\%AGILE_PULL_ID%.txt
+
+
 @ECHO ON
 pip uninstall -y paddlepaddle
 pip uninstall -y paddlepaddle-gpu
