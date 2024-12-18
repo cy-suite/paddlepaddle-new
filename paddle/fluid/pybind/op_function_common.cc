@@ -383,8 +383,6 @@ double CastPyArg2Double(PyObject* obj,
         arg_pos + 1,
         ((PyTypeObject*)obj->ob_type)->tp_name));  // NOLINT
   }
-
-  return 0.0;
 }
 
 phi::dtype::complex<float> CastPyArg2Complex(PyObject* obj,
@@ -407,8 +405,6 @@ phi::dtype::complex<float> CastPyArg2Complex(PyObject* obj,
         arg_pos + 1,
         ((PyTypeObject*)obj->ob_type)->tp_name));  // NOLINT
   }
-
-  return phi::dtype::complex<float>(0, 0);
 }
 
 phi::dtype::complex<double> CastPyArg2Complex128(PyObject* obj,
@@ -426,8 +422,6 @@ phi::dtype::complex<double> CastPyArg2Complex128(PyObject* obj,
         arg_pos + 1,
         ((PyTypeObject*)obj->ob_type)->tp_name));  // NOLINT
   }
-
-  return phi::dtype::complex<double>(0, 0);
 }
 
 void CastPyArg2AttrDouble(PyObject* obj,
@@ -454,8 +448,6 @@ std::string CastPyArg2String(PyObject* obj,
         arg_pos + 1,
         ((PyTypeObject*)obj->ob_type)->tp_name));  // NOLINT
   }
-
-  return "";
 }
 
 void CastPyArg2AttrString(PyObject* obj,
