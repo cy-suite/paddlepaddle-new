@@ -52,7 +52,7 @@ bool FusedAttentionGradOpInferSymbolicShape(
       same_shape_infer(op->result(5), op->operand_source(10));
     }
   }
-  same_shape_infer(op->result(8), op->operand_source(8));
+  same_shape_infer(op->result(8), op->operand_source(1));
   if (!paddle::dialect::details::IsFakeValue(op->result(3)) &&
       op->operand_source(13)) {
     same_shape_infer(op->result(3), op->operand_source(8));
@@ -60,7 +60,7 @@ bool FusedAttentionGradOpInferSymbolicShape(
   if (!paddle::dialect::details::IsFakeValue(op->result(10))) {
     same_shape_infer(op->result(10), op->operand_source(7));
   }
-  same_shape_infer(op->result(9), op->operand_source(6));
+  same_shape_infer(op->result(9), op->operand_source(2));
   if (!paddle::dialect::details::IsFakeValue(op->result(0))) {
     same_shape_infer(op->result(0), op->operand_source(3));
   }
@@ -90,7 +90,7 @@ bool FusedAttentionGradOpInferSymbolicShape(
       op->operand_source(4)) {
     same_shape_infer(op->result(1), op->operand_source(4));
   }
-  same_shape_infer(op->result(20), op->operand_source(7));
+  same_shape_infer(op->result(20), op->operand_source(27));
   return true;
 }
 }  // namespace paddle::dialect
