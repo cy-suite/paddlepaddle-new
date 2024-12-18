@@ -181,7 +181,10 @@ class TestPreluCase1TRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 2, 2, 3]}
         self.max_shape = {"x": [5, 2, 2, 3]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 
@@ -197,7 +200,10 @@ class TestPreluCase2TRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 2, 2, 3]}
         self.max_shape = {"x": [5, 2, 2, 3]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 
@@ -212,7 +218,10 @@ class TestPreluCase3TRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 2, 2, 3]}
         self.max_shape = {"x": [5, 2, 2, 3]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 
@@ -228,7 +237,10 @@ class TestPreluCase4TRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 2, 3]}
         self.max_shape = {"x": [5, 2, 3]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 
