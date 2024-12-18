@@ -1972,7 +1972,6 @@ void FusedGemmEpilogueGradInferMeta(const MetaTensor& x,
           x_dims.size()));
 
   auto dout_mat_dims = common::flatten_to_2d(dout_dims, dout_dims.size() - 1);
-  auto x_mat_dims = common::flatten_to_2d(x_dims, x_dims.size() - 1);
 
   PADDLE_ENFORCE_EQ(
       dout_mat_dims[1],
