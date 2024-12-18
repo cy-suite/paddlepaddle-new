@@ -1009,24 +1009,6 @@ def _set_process_mesh_and_chunk_id(op, chunk_process_mesh, chunk_id, set_mesh):
     )
 
 
-def get_user_layer_to_mesh(ops, seg_method, pp_degree, segment_nums):
-    pp_stage_list = []
-    for op in ops:
-        if _extract_seg_method(op, seg_method) and "pd_op" in op.name():
-            op_mesh = op.dist_attr.process_mesh
-            pp_stage_list.append(
-                get_pp_stage_by_process_mesh(op_mesh, pp_degree)
-            )
-    per_segment_op_nums = len(pp_stage_list) // segment_nums
-
-    user_layer_to_mesh = [
-        pp_stage_list[i]
-        for i in range(0, len(pp_stage_list), per_segment_op_nums)
-    ]
-
-    return user_layer_to_mesh
-
-
 def complete_chunk_id(dist_program, startup_program, pipeline_strategy):
     if not pipeline_strategy.enable:
         return
@@ -1058,31 +1040,42 @@ def complete_chunk_id(dist_program, startup_program, pipeline_strategy):
     non_use_custom_mesh = _analyze_use_custom_mesh(ops, seg_method, pp_degree)
 
     # Step3: Get op index boundary, pp_stage, chunk_id, struct_names of each segment
-    user_layer_to_mesh = get_user_layer_to_mesh(
-        ops, seg_method, pp_degree, len(seg_struct_names)
-    )
-    pp_stage_layer_num = [0] * pp_degree
-    for i in user_layer_to_mesh:
-        pp_stage_layer_num[i] = pp_stage_layer_num[i] + 1
-    assert all(value >= vpp_degree for value in pp_stage_layer_num)
-    seg_layer_num = [0] * num_chunks
-    for pp_stage in range(0, pp_degree):
-        pp_stage_layer_nums = pp_stage_layer_num[pp_stage]
-        for i in range(0, pp_stage_layer_nums):
-            v_chunk_id = i % vpp_degree
-            r_chunk_id = (v_chunk_id) * pp_degree + pp_stage
-            seg_layer_num[r_chunk_id] = seg_layer_num[r_chunk_id] + 1
     seg_pp_stages = [i % pp_degree for i in range(num_chunks)]
     seg_chunk_ids = [i // pp_degree for i in range(num_chunks)]
     seg_parts = [0]
+    last_struct_name = None
+    user_layer_to_stage_id = (
+        []
+    )  # User intent - a list corresponding to the model layer and the device. The key of the list is the number of the layer, and the value is the corresponding pp_stage.
     for idx, op in enumerate(ops):
         if len(seg_parts) == len(seg_struct_names):
             break
         struct_name = _extract_seg_method(op, seg_method)
+        if (
+            "pd_op" in op.name() and last_struct_name != struct_name
+        ):  # When traversing the ops, filter out the ops that need to be skipped. At the same time, according to the struct_name, ensure that the pp_stage of each layer is only recorded once.
+            last_struct_name = struct_name
+            user_layer_to_stage_id.extend(op.dist_attr.process_mesh.process_ids)
         if struct_name == seg_struct_names[len(seg_parts)]:
             seg_parts.append(idx)
     seg_parts.append(len(ops))
-
+    pp_stage_layer_num = [0] * pp_degree
+    for i in user_layer_to_stage_id:
+        pp_stage_layer_num[i] = pp_stage_layer_num[i] + 1
+    assert all(
+        value >= vpp_degree for value in pp_stage_layer_num
+    ), "Make sure each segment is not empty"
+    seg_layer_num = [0] * num_chunks
+    for pp_stage in range(
+        0, pp_degree
+    ):  # Each pp_stage is assigned a number of tiers based on user intent.
+        pp_stage_layer_nums = pp_stage_layer_num[pp_stage]
+        for i in range(
+            0, pp_stage_layer_nums
+        ):  # The pp_stage uses a Round robin scheduling algorithm to allocate layers one by one.
+            v_chunk_id = i % vpp_degree
+            r_chunk_id = (v_chunk_id) * pp_degree + pp_stage
+            seg_layer_num[r_chunk_id] = seg_layer_num[r_chunk_id] + 1
     # Step4: Set the process_mesh of each op
     seg_id = 0
     reshard_ops = []
