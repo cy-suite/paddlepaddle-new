@@ -322,4 +322,33 @@ bool GetAxisFromOpInput(pir::Value in_value,
     return true;
   }
 }
+
+std::vector<symbol::DimExpr> GetDataFromTensorOrList(
+    const symbol::ShapeOrDataDimExprs &shape_or_data) {
+  if (shape_or_data.isa<TensorListExprs>()) {
+    std::vector<symbol::DimExpr> expr_vec;
+    TensorListExprs list =
+        shape_or_data.dyn_cast<symbol::TensorListShapeOrDataDimExprs>();
+    for (size_t i = 0; i < list.size(); i++) {
+      PADDLE_ENFORCE_EQ(list.at(i).data().has_value(),
+                        true,
+                        common::errors::InvalidArgument(
+                            "i-th element of list has no value, please check"));
+      for (auto expr : list.at(i).data().value()) {
+        expr_vec.emplace_back(expr);
+      }
+    }
+    return expr_vec;
+  } else if (shape_or_data.isa<symbol::TensorShapeOrDataDimExprs>()) {
+    if (shape_or_data.data().has_value()) {
+      return shape_or_data.data().value();
+    }
+  } else {
+    PADDLE_THROW(::common::errors::InvalidArgument(
+        "This parameters currently only support "
+        "two types: TensorListShapeOrDataDimExprs and "
+        "TensorShapeOrDataDimExprs"));
+  }
+}
+
 }  // namespace paddle::dialect::details
