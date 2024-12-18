@@ -78,7 +78,9 @@ std::shared_ptr<Program> Program::Clone(IrMapping& ir_mapping) const {
     ir_mapping.Add(value, new_arg);
   }
 
+  int index = 0;
   for (const auto& op : *block()) {
+    std::cerr << "clone " << index++ << "\t" << op.name() << std::endl;
     auto* new_op = op.Clone(ir_mapping, clone_options);
     new_program->block()->push_back(new_op);
 

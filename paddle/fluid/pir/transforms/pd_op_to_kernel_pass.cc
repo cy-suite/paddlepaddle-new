@@ -3389,6 +3389,7 @@ void ProcessBlock(
   }
 
   int64_t mid_output_size = 0;
+  int64_t all_global_size = 0;
   for (auto iter = block->begin(); iter != block->end(); ++iter) {
     pir::Operation* op_item = &(*iter);
     if (op_item->isa<pir::ShadowOutputOp>()) {
@@ -3416,7 +3417,56 @@ void ProcessBlock(
       //                               .at("name")
       //                               .dyn_cast<pir::StrAttribute>()
       //                               .AsString()
+    } else {
+      for (size_t i = 0; i < op_item->num_operands(); ++i) {
+        auto d_in = op_item->operand_source(i);
+
+        if (d_in && d_in.type() &&
+            d_in.type().isa<paddle::dialect::DenseTensorType>()) {
+          auto dims =
+              d_in.type().dyn_cast<paddle::dialect::DenseTensorType>().dims();
+
+          int64_t numel = 1;
+          bool have_dy_shape = false;
+          for (size_t i = 0; i < dims.size(); ++i) {
+            numel *= dims[i];
+
+            if (dims[i] < 0) {
+              have_dy_shape = true;
+            }
+          }
+
+          if (!have_dy_shape) {
+            all_global_size += numel;
+          }
+        }
+      }
+
+      for (size_t i = 0; i < op_item->num_results(); ++i) {
+        auto d_in = op_item->result(i);
+
+        if (d_in && d_in.type() &&
+            d_in.type().isa<paddle::dialect::DenseTensorType>()) {
+          auto dims =
+              d_in.type().dyn_cast<paddle::dialect::DenseTensorType>().dims();
+
+          int64_t numel = 1;
+          bool have_dy_shape = false;
+          for (size_t i = 0; i < dims.size(); ++i) {
+            numel *= dims[i];
+
+            if (dims[i] < 0) {
+              have_dy_shape = true;
+            }
+          }
+
+          if (!have_dy_shape) {
+            all_global_size += numel;
+          }
+        }
+      }
     }
+
     VLOG(6) << "op name " << op_item->name();
     if ((op_item->isa<FeedOp>()) &&
         inputs_by_data_op.count(op_item->attributes()
@@ -3543,6 +3593,8 @@ void ProcessBlock(
 
   std::cerr << "mid output size !!!!!!!!!!!!!! " << mid_output_size
             << std::endl;
+
+  std::cerr << "global size !!!!!!!!!!!!!! " << all_global_size << std::endl;
 
   RemoveRedundantMemcpyAfterShadowFeed(new_block, ctx);
 }
