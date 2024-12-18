@@ -74,7 +74,10 @@ ConvElementwiseAddFusePass::ConvElementwiseAddFusePass() {
       .IsTensor()
       .End()
       .AddAttr("axis")
+#ifdef PADDLE_WITH_TENSORRT
+#else
       .IsNumEQ(1)
+#endif
       .End();
 }
 
