@@ -420,7 +420,7 @@ class TestDequantizeLinearTRTCase0Pattern(TensorRTBaseTest):
         self.python_api = api_dequantize_linear
         self.api_args = {
             "x": np.random.rand(4, 3, 5).astype("float32"),
-            "scales": np.array([0.1]).astype("float32"),
+            "scales": 0.1,
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [4, 3, 5]}
@@ -440,7 +440,7 @@ class TestDequantizeLinearTRTCase1Pattern(TensorRTBaseTest):
         self.python_api = api_dequantize_linear
         self.api_args = {
             "x": np.random.rand(4, 3, 5).astype("int64"),
-            "scales": np.array([0.1]).astype("float32"),
+            "scales": 0.1,
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [4, 3, 5]}
@@ -455,7 +455,22 @@ class TestDequantizeLinearTRTCase2Pattern(TensorRTBaseTest):
         self.python_api = api_dequantize_linear
         self.api_args = {
             "x": np.random.rand(4, 3, 5).astype("float32"),
-            "scales": np.array([0.1]).astype("float32"),
+            "scales": np.random.rand().astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x", "scales"]}
+        self.min_shape = {"x": [4, 3, 5]}
+        self.max_shape = {"x": [6, 3, 5]}
+
+    def test_trt_result(self):
+        self.check_marker(expected_result=False)
+
+
+class TestDequantizeLinearTRTCase3Pattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = api_dequantize_linear
+        self.api_args = {
+            "x": np.random.rand(4, 3, 5).astype("float32"),
+            "scales": 0.1,
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [4, 3, 5]}
