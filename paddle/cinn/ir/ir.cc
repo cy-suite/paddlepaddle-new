@@ -672,6 +672,16 @@ Expr IfThenElse::Make(Expr condition, Expr true_case, Expr false_case) {
   if (false_case.defined() && (!false_case.As<Block>()))
     false_case = ir::Block::Make({false_case});
   auto node = make_shared<IfThenElse>(condition, true_case, false_case);
+
+  if (node->condition.is_cmp() &&
+      common::VerifyIndex(node->condition->operand(0)) &&
+      common::VerifyIndex(node->condition->operand(1))) {
+    node->condition->operands[0] =
+        node->condition->operand(0).set_index(true).as_index().Normalize();
+    node->condition->operands[1] =
+        node->condition->operand(1).set_index(true).as_index().Normalize();
+  }
+
   return Expr(node);
 }
 
@@ -699,6 +709,37 @@ std::vector<Expr *> IfThenElse::expr_fields() {
 }
 std::vector<const Expr *> IfThenElse::expr_fields() const {
   return {&condition, &true_case, &false_case};
+}
+
+Select::Select(Expr condition, Expr true_value, Expr false_value)
+    : ExprNode<Select>(true_value.type()),
+      condition(condition),
+      true_value(true_value),
+      false_value(false_value) {
+  PADDLE_ENFORCE_EQ(
+      true_value.type(),
+      false_value.type(),
+      ::common::errors::InvalidArgument(
+          "The type of true_value and false_value should be the same."));
+  PADDLE_ENFORCE_EQ(condition.type().is_bool(),
+                    true,
+                    ::common::errors::PreconditionNotMet(
+                        "The condition must be of boolean type."));
+  type_ = true_value.type();
+}
+
+Expr Select::Make(Expr condition, Expr true_value, Expr false_value) {
+  auto node = make_shared<Select>(condition, true_value, false_value);
+  if (node->condition.is_cmp() &&
+      common::VerifyIndex(node->condition->operand(0)) &&
+      common::VerifyIndex(node->condition->operand(1))) {
+    node->condition->operands[0] =
+        node->condition->operand(0).set_index(true).as_index().Normalize();
+    node->condition->operands[1] =
+        node->condition->operand(1).set_index(true).as_index().Normalize();
+  }
+
+  return Expr(node);
 }
 
 Expr Store::Make(Expr tensor, Expr value, const std::vector<Expr> &indices) {
