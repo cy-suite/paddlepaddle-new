@@ -61,7 +61,6 @@ GENERATE_IMPL_DECOMP = [
     "meshgrid",
     "numel",
     "p_norm",
-    "pow",
     "reciprocal",
     "relu",
     "relu6",
@@ -103,6 +102,7 @@ GENERATE_IMPL_VJP = [
     'floor_grad',
     'gelu_grad',
     'group_norm_grad',
+    'hardsigmoid_grad',
     'hardswish_grad',
     'leaky_relu_grad',
     'layer_norm_grad',
@@ -116,6 +116,7 @@ GENERATE_IMPL_VJP = [
     'pow_grad',
     'reduce_as_grad',
     'relu_grad',
+    'relu6_grad',
     'reshape_grad',
     'roll_grad',
     'rsqrt_grad',
@@ -131,6 +132,7 @@ GENERATE_IMPL_VJP = [
     'tanh_grad',
     'transpose_grad',
     'unsqueeze_grad',
+    'p_norm_grad',
 ]
 
 # declare belongs to codegen, but implementation not

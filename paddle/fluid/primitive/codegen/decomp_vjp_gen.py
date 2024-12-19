@@ -143,18 +143,21 @@ CUSTOM_VJP = [
     'dropout_grad',
     'gelu_grad',
     'group_norm_grad',
+    'hardsigmoid_grad',
     'hardswish_grad',
     'instance_norm_grad',
     'layer_norm_grad',
     'leaky_relu_grad',
     'mean_grad',
     'relu_grad',
+    'relu6_grad',
     'silu_grad',
     'softmax_grad',
     'softsign_grad',
     'stack_grad',
     'swish_grad',
     'swiglu_grad',
+    'p_norm_grad',
 ]  # custom vjp list of composite op
 
 VJP_COMPS = PRIM_VJP + CUSTOM_VJP
