@@ -70,7 +70,7 @@ void {op_name}Op::CacheGradOpSymbolicShape(pir::InferSymbolicShapeContext* infer
 
 NONEED_CODE_TEMPLATE = """
 void {op_name}Op::CacheGradOpSymbolicShape(pir::InferSymbolicShapeContext* infer_context) {{
-  VLOG(WARNING) << "{op_name} CacheGradOpSymbolicShape is not auto generated!";
+  LOG(WARNING) << "{op_name} CacheGradOpSymbolicShape is not auto generated!";
 }}
 """
 
