@@ -20,8 +20,13 @@ import numpy as np
 import paddle
 from paddle.base import core
 from paddle.tensorrt.converter import PaddleToTensorRTConverter
+from paddle.tensorrt.export import (
+    Input,
+    PrecisionMode,
+    TensorRTConfig,
+)
 from paddle.tensorrt.util import (
-    mark_buitlin_op,
+    mark_builtin_op,
     run_pir_pass,
     warmup_shape_infer,
 )
@@ -149,7 +154,7 @@ class TensorRTBaseTest(unittest.TestCase):
                     new_list_args[sub_arg_name] = self.api_args[arg_name][i]
                 self.api_args[arg_name] = new_list_args
 
-    def check_trt_result(self, rtol=1e-5, atol=1e-5):
+    def check_trt_result(self, rtol=1e-5, atol=1e-5, precision_mode=None):
         paddle.framework.set_flags({"FLAGS_trt_min_group_size": 1})
         with paddle.pir_utils.IrGuard():
             self.prepare_feed()
@@ -242,14 +247,25 @@ class TensorRTBaseTest(unittest.TestCase):
             main_program = run_pir_pass(main_program, partition_mode=False)
 
             # Adding marker labels to builtin ops facilitates convert processing, but they ultimately do not enter the TensorRT subgraph.
-            mark_buitlin_op(main_program)
+            mark_builtin_op(main_program)
 
             # run trt_sub_graph_extract_pass()
             program_with_trt = run_pir_pass(main_program, partition_mode=True)
 
             # run TRTConverter(would lower group_op into tensorrt_engine_op)
+            trt_config = None
+            if precision_mode == "fp16":
+                input = Input(
+                    min_input_shape=self.min_shape,
+                    optim_input_shape=self.min_shape,
+                    max_input_shape=self.max_shape,
+                )
+                trt_config = TensorRTConfig(inputs=[input])
+                trt_config.precision_mode = PrecisionMode.FP16
 
-            converter = PaddleToTensorRTConverter(program_with_trt, scope)
+            converter = PaddleToTensorRTConverter(
+                program_with_trt, scope, trt_config
+            )
             converter.convert_program_to_trt()
 
             # check whether has trt op
