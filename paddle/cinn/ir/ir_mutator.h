@@ -39,6 +39,13 @@ class IRMutator : public IRVisitorRequireReImpl<void, T> {
 #undef __
 };
 
+class ExprMutator : public IRMutator<> {
+  void Visit(const Expr *expr, Expr *op) {
+    if (expr->is_index()) return;
+    IRMutator::Visit(expr, op);
+  }
+};
+
 template <typename T>
 void IRMutator<T>::Visit(const Expr *expr, T op) {
   IRVisitorRequireReImpl<void, T>::Visit(expr, op);
