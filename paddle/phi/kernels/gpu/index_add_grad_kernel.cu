@@ -35,8 +35,8 @@ void IndexAddGradKernel(const Context& ctx,
                         DenseTensor* x_grad,
                         DenseTensor* add_value_grad) {
   // x.shape == out.shape in index_grad op
-  auto input_dim = out_grad->dims();
-  auto add_value_dim = add_value_grad->dims();
+  auto input_dim = out_grad.dims();
+  auto add_value_dim = add_value.dims();
   dim = dim >= 0 ? dim : dim + input_dim.size();
   auto stride_dim = common::stride(input_dim);
   int64_t stride = stride_dim[dim];
@@ -55,7 +55,7 @@ void IndexAddGradKernel(const Context& ctx,
                         phi::DataType::INT32,
                         phi::DataType::INT64));
 
-  int64_t numel = add_value->numel();
+  int64_t numel = add_value.numel();
   if (numel == 0) {
     return;
   }
