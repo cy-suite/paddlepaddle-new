@@ -430,6 +430,22 @@ def auto_recompute(
 
     fusible_ops = recomputable_ops | set(random_ops)
 
+    def _get_bw_no_need_buffer_values(program, backward_op_start_idx):
+        need_buffer_values = backward_utils.ValueSet()
+        all_values = backward_utils.ValueSet()
+        for op in program.global_block().ops[backward_op_start_idx:]:
+            for op_operand_source in op.operands_source():
+                all_values.add(op_operand_source)
+                if op.is_no_need_buffer(op_operand_source):
+                    continue
+                need_buffer_values.add(op_operand_source)
+        bw_no_need_buffer_values = all_values - need_buffer_values
+        return bw_no_need_buffer_values
+
+    bw_no_need_buffer_values = _get_bw_no_need_buffer_values(
+        program, backward_op_start_idx
+    )
+
     def _is_fusible(value_node1, value_node2):
         return (
             value_node1.get_defining_op().name() in fusible_ops
@@ -441,7 +457,9 @@ def auto_recompute(
         cur_value_nodes.add(value_node)
         while len(cur_value_nodes) > 0:
             cur_value_node = cur_value_nodes.pop()
-            users = find_value_node_users(cur_value_node)
+            users = find_value_node_users(
+                cur_value_node, bw_no_need_buffer_values, True
+            )
             for user in users:
                 if user not in required_fw_value_nodes and not _is_fusible(
                     cur_value_node, user
@@ -457,34 +475,19 @@ def auto_recompute(
     def _is_materialized(value_node, placeholder_value_nodes):
         if value_node in placeholder_value_nodes:
             return True
-        users = find_value_node_users(value_node)
+        users = find_value_node_users(
+            value_node, bw_no_need_buffer_values, True
+        )
         return not all(_is_fusible(value_node, user) for user in users)
 
-    def _get_no_need_buffer_values_from_program(program):
-        need_buffer_values = backward_utils.ValueSet()
-        all_values = backward_utils.ValueSet()
-        for op in program.global_block().ops:
-            for op_operand_source in op.operands_source():
-                all_values.add(op_operand_source)
-                if op.is_no_need_buffer(op_operand_source):
-                    continue
-                need_buffer_values.add(op_operand_source)
-        no_need_buffer_values = all_values - need_buffer_values
-        return no_need_buffer_values
-
-    def _get_node_weight(
-        value_node, no_need_buffer_values, placeholder_value_nodes
-    ):
-        if value_node in no_need_buffer_values:
-            return MINIMUM_WEIGHT
-
+    def _get_node_weight(value_node, placeholder_value_nodes):
         mem_sz = cal_value_node_size(value_node)
 
         if (
             value_node.get_defining_op().name() in tending_to_recompute_ops
             and mem_sz == 0
         ):
-            return 0.1
+            return MINIMUM_WEIGHT
 
         # Heuristic to bias towards nodes closer to the backwards pass
         mem_sz = int(
@@ -531,7 +534,6 @@ def auto_recompute(
 
     judge_fusion_loop = JudgeFusionLoop(program, unrecomputable_ops)
     forward_ops = set(program.global_block().ops[: fwd_op_end_idx + 1])
-    no_need_buffer_values = _get_no_need_buffer_values_from_program(program)
 
     for value_node in (
         required_fw_value_nodes
@@ -591,7 +593,6 @@ def auto_recompute(
 
         weight = _get_node_weight(
             value_node,
-            no_need_buffer_values,
             placeholder_value_nodes=inputs | outputs,
         )
 
@@ -601,7 +602,9 @@ def auto_recompute(
         )
         value_id_dict[value_node.id] = value_node
 
-        users = find_value_node_users(value_node)
+        users = find_value_node_users(
+            value_node, bw_no_need_buffer_values, True
+        )
         for user in users:
             DebugPrint(
                 "add edge link from: ",
@@ -916,7 +919,10 @@ def classify_value_node(program, grad_outputs, fwd_op_end_idx):
     )
 
 
-def find_value_node_users(value_node):
+# Sometimes we need to discard no_need_buffer values because they are not REAL tensor users.
+def find_value_node_users(
+    value_node, bw_no_need_buffer_values={}, without_no_need_buffer=False
+):
     '''
     Find all the value nodes which use the same value node to be computed.
     '''
@@ -938,6 +944,9 @@ def find_value_node_users(value_node):
                     else:
                         users.add(result)
         else:
+            if without_no_need_buffer:
+                if value_node in bw_no_need_buffer_values:
+                    continue
             results = op.results()
             for result in results:
                 if len(result.all_used_ops()) == 1 and result.all_used_ops()[
