@@ -1982,7 +1982,7 @@ void FusedGemmEpilogueGradInferMeta(const MetaTensor& x,
           dout_mat_dims[1],
           y_dims[1]));
 
-  for (int32_t i = 0; i + 1 < x_dims.size(); ++i) {
+  for (int32_t i = 0; i + 2 < x_dims.size(); ++i) {
     if (dout_dims[i] > 0 && x_dims[i] > 0) {
       PADDLE_ENFORCE_EQ(
           dout_dims[i],
@@ -1996,6 +1996,19 @@ void FusedGemmEpilogueGradInferMeta(const MetaTensor& x,
               x_dims[i]));
     }
   }
+
+  auto k_from_dout = dout_dims[x_dims.size() - 2];
+  auto k_from_x =
+      trans_x ? x_dims[x_dims.size() - 1] : x_dims[x_dims.size() - 2];
+
+  bool check_k = (k_from_dout > 0 && k_from_x > 0) && (k_from_dout == k_from_x);
+  PADDLE_ENFORCE_EQ(
+      check_k,
+      true,
+      common::errors::InvalidArgument(
+          "K from dout and x is not same, k_from_dout is [%d], k_from_x is[%d]",
+          k_from_dout,
+          k_from_x));
 
   if (activation_grad != "none" && !reserve_space) {
     PADDLE_THROW(common::errors::InvalidArgument(
