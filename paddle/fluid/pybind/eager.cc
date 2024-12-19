@@ -69,7 +69,6 @@ PyObject* TensorNew(PyTypeObject* type, PyObject* args, PyObject* kwargs) {
   if (obj) {
     auto v = reinterpret_cast<TensorObject*>(obj);
     new (&(v->tensor)) paddle::Tensor();
-    v->dict = PyDict_New();
   }
   return obj;
 }
