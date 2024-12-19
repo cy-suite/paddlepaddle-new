@@ -20,6 +20,7 @@ import yaml
 from op_gen import (
     OpCompatParser,
     OpInfoParser,
+    cache_grad_op_shape_black_list,
     to_pascal_case,
 )
 
@@ -68,12 +69,6 @@ void {op_name}Op::CacheGradOpSymbolicShape(pir::InferSymbolicShapeContext* infer
 }}
 """
 
-NONEED_CODE_TEMPLATE = """
-void {op_name}Op::CacheGradOpSymbolicShape(pir::InferSymbolicShapeContext* infer_context) {{
-  LOG(WARNING) << "{op_name} CacheGradOpSymbolicShape is not auto generated!";
-}}
-"""
-
 SHAPE_VAR_NAME_SUFFIX = "_shape"
 
 GET_INPUT_SHAPE_CODE_TEMPLATE = """
@@ -87,10 +82,6 @@ GET_OUT_GRAD_SHAPE_CODE_TEMPLATE = """
 
 GET_INPUT_GRAD_SHAPE_CODE_TEMPLATE = """
   const auto& {input_grad_name}{name_suffix} = GetGradVarShapeFromInput(infer_context, this->operation(), {index});"""
-
-
-cache_grad_op_shape_black_list = {"fused_attention"}
-manual_grad_op_sym_infer_list = {"fused_attention"}
 
 
 class CacheGradOpSymbolShapeCodeGen:
@@ -156,6 +147,8 @@ class CacheGradOpSymbolShapeCodeGen:
                 )
             )
             for op_phi_name in op_info_item.op_phi_name:
+                if op_phi_name in cache_grad_op_shape_black_list:
+                    continue
                 original_attr_map_items_code += (
                     ORIGINAL_ATTR_MAP_ITEM_CODE_TEMPLATE.format(
                         op_name=get_op_name_with_dialect(op_phi_name),
@@ -247,19 +240,7 @@ class CacheGradOpSymbolShapeCodeGen:
                             index=index,
                         )
                     )
-
-                if (
-                    len(create_grad_op_output_shape_code) == 0
-                    or op_phi_name in cache_grad_op_shape_black_list
-                ):
-                    if op_phi_name in manual_grad_op_sym_infer_list:
-                        logging.warning(
-                            f"{op_phi_name}'s grad op is defined manually."
-                        )
-                        cache_func_code += NONEED_CODE_TEMPLATE.format(
-                            op_name=to_pascal_case(op_phi_name),
-                        )
-                        continue
+                if len(create_grad_op_output_shape_code) == 0:
                     logging.warning(
                         f"{op_phi_name}'s grad op has some exception, please check it in yaml file."
                     )
