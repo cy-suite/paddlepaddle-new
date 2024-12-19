@@ -196,6 +196,7 @@ struct IsListLhsBeforeListRhsStruct {
       return false;
     }
     for (std::size_t i = 0; i < lhs_operands->size(); ++i) {
+      if (lhs_operands->at(i) == rhs_operands->at(i)) continue;
       return IsLhsBeforeRhs(lhs_operands->at(i), rhs_operands->at(i));
     }
     return true;
