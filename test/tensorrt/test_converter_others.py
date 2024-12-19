@@ -82,8 +82,8 @@ class TestMulticlassNMS3TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = multiclass_nms3
         self.api_args = {
-            "bboxes": np.random.randn(2, 5, 4).astype(np.float32),
-            "scores": np.random.randn(2, 4, 5).astype(np.float32),
+            "bboxes": np.random.randn(2, 5, 4).astype("float32"),
+            "scores": np.random.randn(2, 4, 5).astype("float32"),
         }
         self.program_config = {"feed_list": ["bboxes", "scores"]}
         self.min_shape = {"bboxes": [1, 5, 4], "scores": [1, 4, 5]}
@@ -97,8 +97,8 @@ class TestMulticlassNMS3Marker(TensorRTBaseTest):
     def setUp(self):
         self.python_api = multiclass_nms3
         self.api_args = {
-            "bboxes": np.random.randn(2, 5, 4, 1).astype(np.float32),
-            "scores": np.random.randn(2, 4, 5, 1).astype(np.float32),
+            "bboxes": np.random.randn(2, 5, 4, 1).astype("float32"),
+            "scores": np.random.randn(2, 4, 5, 1).astype("float32"),
         }
         self.program_config = {"feed_list": ["bboxes", "scores"]}
         self.target_marker_op = "pd_op.multiclass_nms3"
@@ -179,7 +179,7 @@ class TestSetValueTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = set_value
         self.api_args = {
-            "x": np.ones([10, 2]).astype(np.float32),
+            "x": np.ones([10, 2]).astype("float32"),
             "starts": [0],
             "ends": [1],
             "steps": [1],
@@ -202,7 +202,7 @@ class TestSetValueMarkerCase1(TensorRTBaseTest):
     def setUp(self):
         self.python_api = set_value
         self.api_args = {
-            "x": np.ones([10, 2]).astype(np.float32),
+            "x": np.ones([10, 2]).astype("float32"),
             "starts": [0, 0],
             "ends": [1, 1],
             "steps": [1, 1],
@@ -225,7 +225,7 @@ class TestSetValueMarkerCase2(TensorRTBaseTest):
     def setUp(self):
         self.python_api = set_value
         self.api_args = {
-            "x": np.ones([10, 2]).astype(np.float32),
+            "x": np.ones([10, 2]).astype("float32"),
             "starts": [0],
             "ends": [1],
             "steps": [1],
@@ -248,7 +248,7 @@ class TestSetValueMarkerCase3(TensorRTBaseTest):
     def setUp(self):
         self.python_api = set_value
         self.api_args = {
-            "x": np.ones([10, 2]).astype(np.float32),
+            "x": np.ones([10, 2]).astype("float32"),
             "starts": [0],
             "ends": [1],
             "steps": [1],
@@ -271,7 +271,7 @@ class TestSetValueMarkerCase4(TensorRTBaseTest):
     def setUp(self):
         self.python_api = set_value
         self.api_args = {
-            "x": np.ones([10, 2]).astype(np.float32),
+            "x": np.ones([10, 2]).astype("float32"),
             "starts": [0],
             "ends": [1],
             "steps": [1],
@@ -294,8 +294,8 @@ class TestSetValueMarkerCase5(TensorRTBaseTest):
     def setUp(self):
         self.python_api = set_value
         self.api_args = {
-            "x": np.ones([10, 2]).astype(np.float32),
-            "starts": np.zeros([1]).astype(np.int32),
+            "x": np.ones([10, 2]).astype("float32"),
+            "starts": np.zeros([1]).astype("int64"),
             "ends": [1],
             "steps": [1],
             "axes": [1],
@@ -316,7 +316,7 @@ class TestSetValue_TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = set_value_
         self.api_args = {
-            "x": np.ones([10, 2]).astype(np.float32),
+            "x": np.ones([10, 2]).astype("float32"),
             "starts": [0],
             "ends": [1],
             "steps": [1],
@@ -338,8 +338,8 @@ class TestSetValueWithTensorTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = set_value_with_tensor
         self.api_args = {
-            "x": np.ones([2, 3, 3]).astype(np.float32),
-            "values": np.random.randn(2, 2, 3).astype(np.float32),
+            "x": np.ones([2, 3, 3]).astype("float32"),
+            "values": np.random.randn(2, 2, 3).astype("float32"),
             "starts": [0],
             "ends": [2],
             "steps": [1],
@@ -361,8 +361,8 @@ class TestSetValueWithTensorMarkerCase1(TensorRTBaseTest):
     def setUp(self):
         self.python_api = set_value_with_tensor
         self.api_args = {
-            "x": np.ones([2, 3, 3]).astype(np.float32),
-            "values": np.random.randn(2, 2, 3).astype(np.int32),
+            "x": np.ones([2, 3, 3]).astype("float32"),
+            "values": np.random.randn(2, 2, 3).astype("int32"),
             "starts": [0],
             "ends": [2],
             "steps": [1],
@@ -383,8 +383,8 @@ class TestSetValueWithTensor_TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = set_value_with_tensor_
         self.api_args = {
-            "x": np.ones([2, 3, 3]).astype(np.float32),
-            "values": np.random.randn(2, 2, 3).astype(np.float32),
+            "x": np.ones([2, 3, 3]).astype("float32"),
+            "values": np.random.randn(2, 2, 3).astype("float32"),
             "starts": [0],
             "ends": [2],
             "steps": [1],
