@@ -3346,7 +3346,7 @@ void take_along_axis_grad(const Tensor& arr,
                                           out_grad_cast,
                                           axis,
                                           /*reduce*/ "add",
-                                          /*include_self*/ false);
+                                          /*include_self*/ true);
     set_output<T>(ConvertToOrig<T>(arr_grad_tmp, arr.dtype()), arr_grad);
   }
 }
