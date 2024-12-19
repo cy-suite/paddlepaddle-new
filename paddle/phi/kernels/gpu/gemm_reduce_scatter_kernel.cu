@@ -210,8 +210,6 @@ class GemmRSHelper {
     static BuffersHolder<int32_t> sync_buffers_holder{
         {this->world_size}, dev_ctx, tp_group};
     this->sync_buffers = sync_buffers_holder.get_buffers({this->world_size});
-    phi::funcs::SetConstant<GPUContext, int32_t> set_functor;
-    set_functor(this->dev_ctx, &this->sync_buffers[this->rank], 0);
     for (size_t i = 0; i < sync_buffers.size(); i++) {
       sync_buffer_ptrs[i] = static_cast<int32_t*>(sync_buffers[i].data());
     }
