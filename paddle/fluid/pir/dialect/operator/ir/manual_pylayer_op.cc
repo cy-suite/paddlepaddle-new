@@ -20,6 +20,7 @@ paddle::dialect::PyLayerOp
 
 #include "paddle/fluid/pir/dialect/operator/ir/manual_pylayer_op.h"
 
+#include "paddle/fluid/framework/new_executor/instruction/instruction_util.h"
 #include "paddle/fluid/pir/dialect/kernel/ir/kernel_type.h"
 #include "paddle/fluid/pir/dialect/operator/ir/api_builder.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_type.h"
@@ -194,6 +195,59 @@ void PyLayerOp::UpdateOutput() {
   block->Assign(iter, new_pylayer_op);
   PyLayerOp::operator=(new_pylayer_op);
   VerifyRegion();
+}
+
+PyLayerOp PyLayerOp::UpdateInput() {
+  PADDLE_ENFORCE_NOT_NULL(*this,
+                          common::errors::InvalidArgument(
+                              "The pylayer_op in PyLayerOp used to update "
+                              "output can't be nullptr"));
+  auto program_block = parent();
+  PADDLE_ENFORCE_NOT_NULL(
+      program_block,
+      common::errors::InvalidArgument(
+          "The parent block of pylayer_op which used to update "
+          "output can't be nullptr"));
+
+  pir::Block &block = forward_block();
+  std::vector<pir::Value> input_values = inputs();
+
+  std::unordered_set<pir::Value> inner_inputs;
+  inner_inputs = paddle::framework::GetInternalInputs(&block);
+
+  for (size_t arg_id = 0; arg_id < block.args_size();) {
+    if (block.arg(arg_id) && (!inner_inputs.count(block.arg(arg_id)))) {
+      block.EraseArg(arg_id);
+      continue;
+    }
+    ++arg_id;
+  }
+
+  bool need_build_new_pylayer = false;
+  std::vector<pir::Value> new_pylayer_inputs;
+
+  for (auto value : input_values) {
+    if (value && (!inner_inputs.count(value))) {
+      need_build_new_pylayer = true;
+      continue;
+    }
+    new_pylayer_inputs.push_back(value);
+  }
+
+  if (need_build_new_pylayer) {
+    ::pir::IrContext *ctx = ::pir::IrContext::Instance();
+
+    ::pir::Builder builder = ::pir::Builder(ctx, program_block);
+    builder.set_insertion_point(&(**this));
+    auto new_pylayer = builder.Build<PyLayerOp>(new_pylayer_inputs,
+                                                forward_region().TakeBack(),
+                                                backward_function_id());
+    this->ReplaceAllUsesWith(new_pylayer.outputs());
+    pir::Block::Iterator iter = **this;
+    iter = program_block->erase(iter);
+    return *iter;
+  }
+  return *this;
 }
 
 }  // namespace dialect

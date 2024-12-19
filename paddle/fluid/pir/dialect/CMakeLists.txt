@@ -311,7 +311,8 @@ set(op_dialect_deps
     type_info
     string_helper
     global_utils
-    amp)
+    amp
+    standalone_executor)
 if(WITH_ROCM)
   set(op_dialect_deps ${op_dialect_deps} global_utils)
 endif()
