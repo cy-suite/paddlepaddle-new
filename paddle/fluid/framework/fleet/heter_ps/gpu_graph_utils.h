@@ -97,6 +97,7 @@ inline void debug_gpu_memory_info(int gpu_id, const char* desc) {
   size_t avail{0};
   size_t total{0};
   cudaSetDevice(gpu_id);
+  VLOG(0) << "cudaMemGetInfo";
   auto err = cudaMemGetInfo(&avail, &total);
   PADDLE_ENFORCE_EQ(err,
                     cudaSuccess,
@@ -126,6 +127,7 @@ inline void debug_gpu_memory_info(const char* desc) {
   size_t total{0};
   for (int i = 0; i < device_num; ++i) {
     cudaSetDevice(i);
+    VLOG(0) << "cudaMemGetInfo";
     auto err = cudaMemGetInfo(&avail, &total);
     PADDLE_ENFORCE_EQ(
         err,
@@ -154,6 +156,7 @@ inline void show_gpu_mem(const char* desc) {
   size_t total{0};
   for (int i = 0; i < device_num; ++i) {
     cudaSetDevice(i);
+    VLOG(0) << "cudaMemGetInfo";
     auto err = cudaMemGetInfo(&avail, &total);
     PADDLE_ENFORCE_EQ(
         err,
