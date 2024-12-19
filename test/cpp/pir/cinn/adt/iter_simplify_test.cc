@@ -513,9 +513,10 @@ TEST_F(TestIterSimplify, MergeMulMod) {
 
   auto e3 = (S1 / 784 * 28 + S1 % 784 / 28) * 28 + S1 % 28;
 
-  EXPECT_EQ(MergeMulMod(e1), (((S0 * 256) + S1) + (S2 * 1024)));
-  EXPECT_EQ(MergeMulMod(e2), ((((S0 * 256) + S1) + (S2 * 1024)) + -10000));
-  EXPECT_EQ(MergeMulMod(e3), S1);
+  EXPECT_EQ(MergeMulMod(&analyzer, e1), (((S0 * 256) + S1) + (S2 * 1024)));
+  EXPECT_EQ(MergeMulMod(&analyzer, e2),
+            ((((S0 * 256) + S1) + (S2 * 1024)) + -10000));
+  EXPECT_EQ(MergeMulMod(&analyzer, e3), S1);
 }
 }  // namespace common
 }  // namespace cinn
