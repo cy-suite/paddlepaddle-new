@@ -1845,17 +1845,19 @@ template <typename T>
 void hardswish_grad(const Tensor& x, const Tensor& out_grad, Tensor* x_grad) {
   if (x_grad) {
     const Tensor offset = full_scalar<T>(3.0, x.dtype());
+    const Tensor neg_offset = full_scalar<T>(-3.0, x.dtype());
     const Tensor threshold = full_scalar<T>(6.0, x.dtype());
 
     auto factor = full_scalar<T>(0.5, x.dtype());
 
     auto one = full_scalar<T>(1.0, x.dtype());
-    auto t1 = greater_than<T>(x, offset);
-    auto t2 = less_than<T>(x, threshold);
+    auto t1 = greater_than<T>(x, neg_offset);
+    auto t2 = less_than<T>(x, threshold - offset);
     t1 = cast<T>(t1, x.dtype());
     t2 = cast<T>(t2, x.dtype());
 
     auto res = out_grad * (t1 * t2 * (x / offset + factor) + one - t2);
+    // auto res = out_grad * (t1 * t2 * (x / offset + factor) );
     set_output<T>(res, x_grad);
   }
 }
