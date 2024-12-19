@@ -24,19 +24,12 @@ function case_list_unit() {
         echo "文件 testslist.csv 不存在"
         exit -1
     fi
-    if [ -e "${log_path}/blacklist.csv" ]; then
-        rm "${log_path}/blacklist.csv"
-        # wget blacklist
+    if [ ! -f "${log_path}/blacklist.csv" ]; then
         wget -P ${log_path}/ https://paddle-qa.bj.bcebos.com/Auto-Parallel/blacklist.csv --no-proxy || exit 101
-        echo "Deleted existing blacklist.csv and wget new blacklist.csv"
+        echo "\033 ---- wget blacklist.csv \033"
     fi
     blacklist_file=${log_path}/blacklist.csv
-    declare -A blacklist_map
-    while IFS= read -r blacklist_item; do
-        blacklist_item=$(echo "$blacklist_item" | xargs)
-        blacklist_map["$blacklist_item"]=true
-    done < "$blacklist_file"
-    echo "blacklist: $blacklist_map"
+    mapfile -t blacklist < "$blacklist_file"
 
     target_key=${1:-"all"}
     for ((i=2; i<=`awk -F, 'END {print NR}' testslist.csv`; i++)); do
@@ -45,8 +38,8 @@ function case_list_unit() {
         if [[ ${target_key} != "all" ]] && [[ ! ${case_name} =~ ${target_key} ]]; then
             echo "=========== skip $case_name run  ==========="
             continue
-        elif [[ -z "${blacklist_map[$case_name]}" ]]; then
-            echo "skip blacklist case: $case_name"
+        elif [[ " ${blacklist[@]} " == *" ${case_name} "* ]]; then
+            echo "======= skip blacklist case: $case_name run  ======="
             continue
         else
             echo "=========== $case_name run  begin ==========="
