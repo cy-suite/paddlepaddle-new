@@ -217,9 +217,9 @@ class TestDistMPTraining(unittest.TestCase):
             "mp_degree": 1,
             "pp_degree": 1,
         }
-        self.strategy.hybrid_configs[
-            "sharding_configs"
-        ].split_param = g_shard_split_param
+        self.strategy.hybrid_configs["sharding_configs"].split_param = (
+            g_shard_split_param
+        )
 
         fleet.init(is_collective=True, strategy=self.strategy)
         self.data = [
@@ -379,10 +379,11 @@ class TestDistMPTraining(unittest.TestCase):
                 )
 
     def test_sharding_adam_enable_fuse_optimizer_states(self):
-        self.sharding_model(
-            Optimizer="adam",
-            amp_level="O2",
-        )
+        if core.is_compiled_with_cuda():
+            self.sharding_model(
+                Optimizer="adam",
+                amp_level="O2",
+            )
 
     def shutdown(self):
         self.task_queue.put(None)
