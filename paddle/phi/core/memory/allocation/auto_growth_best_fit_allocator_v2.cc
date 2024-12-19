@@ -73,7 +73,6 @@ phi::Allocation *AutoGrowthBestFitAllocatorV2::AllocateImpl(
 #ifdef PADDLE_WITH_HIP
         auto result = hipMemGetInfo(&actual_avail, &actual_total);
 #else
-        VLOG(0) << "cudaMemGetInfo";
         auto result = cudaMemGetInfo(&actual_avail, &actual_total);
 #endif
         if (result != gpuSuccess) {

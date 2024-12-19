@@ -81,7 +81,6 @@ CUDAVirtualMemAllocator::CUDAVirtualMemAllocator(const phi::GPUPlace& place)
 
   size_t actual_avail, actual_total;
   paddle::platform::CUDADeviceGuard guard(place.device);
-  VLOG(0) << "cudaMemGetInfo";
   PADDLE_ENFORCE_GPU_SUCCESS(cudaMemGetInfo(&actual_avail, &actual_total));
 
   virtual_mem_size_ = AlignedSize(actual_total, granularity_);
@@ -171,7 +170,6 @@ phi::Allocation* CUDAVirtualMemAllocator::AllocateImpl(size_t size) {
   if (result != CUDA_SUCCESS) {
     if (result == CUDA_ERROR_OUT_OF_MEMORY) {
       size_t actual_avail, actual_total;
-      VLOG(0) << "cudaMemGetInfo";
       PADDLE_ENFORCE_GPU_SUCCESS(cudaMemGetInfo(&actual_avail, &actual_total));
       size_t actual_allocated = actual_total - actual_avail;
 

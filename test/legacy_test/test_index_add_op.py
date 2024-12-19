@@ -258,20 +258,26 @@ class TestIndexAddAPI(unittest.TestCase):
 
         if self.check_backward:
             dout_tensor = paddle.to_tensor(self.dout_np)
-            paddle.autograd.backward([out], [dout_tensor], retain_graph=True)
+            (input_tensor_grad,) = paddle.autograd.grad(
+                [out], [input_tensor], dout_tensor
+            )
+            (add_value_grad,) = paddle.autograd.grad(
+                [out], [add_value], dout_tensor
+            )
+
             (
                 ref_x_grad,
                 ref_add_value_grad,
             ) = self.compute_index_add_backward_ref()
             np.testing.assert_allclose(
                 ref_x_grad,
-                input_tensor.grad.numpy(),
+                input_tensor_grad.numpy(),
                 rtol=self.rtol,
                 atol=self.atol,
             )
             np.testing.assert_allclose(
                 ref_add_value_grad,
-                add_value.grad.numpy(),
+                add_value_grad.numpy(),
                 rtol=self.rtol,
                 atol=self.atol,
             )

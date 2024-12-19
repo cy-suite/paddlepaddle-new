@@ -269,7 +269,6 @@ static double diffTime(timeval start, timeval end) {
 
 inline void print_mem_usage(std::string time = "after allocation") {
   size_t free_bytes, total_bytes;
-  VLOG(0) << "cudaMemGetInfo";
   check_cuda_error(cudaMemGetInfo(&free_bytes, &total_bytes));
   float free = static_cast<float>(free_bytes) / 1024.0 / 1024.0 / 1024.0;
   float total = static_cast<float>(total_bytes) / 1024.0 / 1024.0 / 1024.0;
