@@ -90,7 +90,7 @@ GET_INPUT_GRAD_SHAPE_CODE_TEMPLATE = """
 
 
 cache_grad_op_shape_black_list = {"fused_attention"}
-manual_grad_op_sym_infer_list = {"fuesd_attention"}
+manual_grad_op_sym_infer_list = {"fused_attention"}
 
 
 class CacheGradOpSymbolShapeCodeGen:
