@@ -68,6 +68,5 @@ void HandleForInplaceOp(pir::Operation* op,
                         InstructionBase* instr);
 
 void ShareVarBuffer(const Variable* src_var, Variable* dst_var);
-
 }  // namespace framework
 }  // namespace paddle
