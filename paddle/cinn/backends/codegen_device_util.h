@@ -147,7 +147,7 @@ struct CollectHostFunctionVisitor : public ir::IRMutator<> {
           sycl::CodeGenSyclDevice codegen_dev(
               cinn::common::DefaultHygonDcuSyclTarget());
           codegen_dev.Compile(ir::LoweredFunc(func));
-      // shared_mem_bytes = codegen_dev.GetDynSharedMemOffset();
+          shared_mem_bytes = codegen_dev.GetDynSharedMemOffset();
 #endif
         });
 

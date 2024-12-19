@@ -31,8 +31,8 @@ Compiler* Compiler::Global() {
   return inst;
 }
 
-std::string Compiler::operator()(const std::string& code,
-                                 const Arch gpu_type) {
+std::string Compiler::operator()(const std::string& code, const Arch gpu_type) {
+  Arch gpu_type = cinn::common::HygonDCUArchSYCL{};
   return CompileToSo(code, gpu_type);
 }
 
@@ -84,37 +84,30 @@ std::string Compiler::CompileToSo(const std::string& source_code,
 
 void Compiler::SetDeviceArchOptions(const Arch gpu_type) {
   std::string gpu_version = SYCLBackendAPI::Global()->GetGpuVersion();
-  gpu_type.Match( 
-    [&](common::NVGPUArch){
-      device_arch_options = "-fsycl";
-      device_arch_options += " -fsycl-targets=nvptx64-nvidia-cuda";
-      device_arch_options +=
-          " -Xsycl-target-backend --offload-arch=" + gpu_version;
-    },
-    [&](common::HygonDCUArchHIP) { 
-            device_arch_options = "-fsycl";
-          device_arch_options += " -fsycl-targets=amdgcn-amd-amdhsa";
-          device_arch_options +=
-          " -Xsycl-target-backend --offload-arch=" + gpu_version;
-          },
-    [&](common::HygonDCUArchSYCL) { 
-          device_arch_options = "-fsycl";
-          device_arch_options += " -fsycl-targets=amdgcn-amd-amdhsa";
-          device_arch_options +=
-          " -Xsycl-target-backend --offload-arch=" + gpu_version;
-          },
-    [&](common::UnknownArch) {
-          PADDLE_THROW(::common::errors::Fatal(
-          "valid gpu value in target! possible options: intel/amd/nvidia/cambricon."));
+  gpu_type.Match(
+      [&](common::NVGPUArch) {
+        device_arch_options = "-fsycl";
+        device_arch_options += " -fsycl-targets=nvptx64-nvidia-cuda";
+        device_arch_options +=
+            " -Xsycl-target-backend --offload-arch=" + gpu_version;
       },
-    [&](common::X86Arch) {
-          PADDLE_THROW(::common::errors::Fatal(
-          "valid gpu value in target! possible options: intel/amd/nvidia/cambricon."));
+      [&](common::HygonDCUArchHIP) {
+        device_arch_options = "-fsycl";
+        device_arch_options += " -fsycl-targets=amdgcn-amd-amdhsa";
+        device_arch_options +=
+            " -Xsycl-target-backend --offload-arch=" + gpu_version;
       },
-    [&](common::ARMArch) {
-          PADDLE_THROW(::common::errors::Fatal(
-          "valid gpu value in target! possible options: intel/amd/nvidia/cambricon."));
-    });
+      [&](common::HygonDCUArchSYCL) {
+        device_arch_options = "-fsycl";
+        device_arch_options += " -fsycl-targets=amdgcn-amd-amdhsa";
+        device_arch_options +=
+            " -Xsycl-target-backend --offload-arch=" + gpu_version;
+      },
+      [&](std::variant<common::UnknownArch, common::X86Arch, common::ARMArch>) {
+        PADDLE_THROW(
+            ::common::errors::Fatal("valid gpu value in target! possible "
+                                    "options: intel/amd/nvidia/cambricon."));
+      });
 }
 
 }  // namespace syclrtc

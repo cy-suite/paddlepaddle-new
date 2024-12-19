@@ -63,7 +63,7 @@ std::string CodeGenSyclDevice::Compile(const ir::Module &module,
       Compile(func);
     }
   } else {
-    LOG(FATAL) << "Not supported OutputKind";
+    PADDLE_THROW(::common::errors::Fatal("SYCL Not supported OutputKind !"));
   }
 
   if (for_syclrtc_) {
@@ -76,7 +76,7 @@ std::string CodeGenSyclDevice::Compile(const ir::Module &module,
 
 void CodeGenSyclDevice::Compile(const ir::Module &module,
                                 const Outputs &outputs) {
-  LOG(FATAL) << "CINN_SYCL_codegen_NOT_IMPLEMENTED";
+  CINN_NOT_IMPLEMENTED
 }
 
 void CodeGenSyclDevice::Compile(const ir::LoweredFunc &func) {
@@ -183,13 +183,13 @@ void CodeGenSyclDevice::PrintFunctionBody(const ir::_LoweredFunc_ *op) {
 
   auto alloca_temp_buffers = op->PrepareAllocTempBufferExprs();
   auto temp_buffer_alias = GenerateBufferAliasExprs(op, op->temp_bufs);
-  auto alis_var_exprs = op->CudaAliasVarExprs();
+  auto alias_var_exprs = op->CudaAliasVarExprs();
 
 #define APPEND_TO_NEW_BODY(field__) \
   new_body.insert(std::end(new_body), std::begin(field__), std::end(field__));
   APPEND_TO_NEW_BODY(alloca_temp_buffers)
   APPEND_TO_NEW_BODY(temp_buffer_alias)
-  APPEND_TO_NEW_BODY(alis_var_exprs)
+  APPEND_TO_NEW_BODY(alias_var_exprs)
 
   new_body.push_back(op->body);
 
@@ -277,8 +277,11 @@ void CodeGenSyclDevice::PrintTempBufferCreation(const ir::Buffer &buffer) {
       break;
 
     default:
-      LOG(FATAL) << "SYCL device codegen not support memory " << buffer->name
-                 << ", type " << buffer->memory_type;
+      PADDLE_THROW(::common::errors::InvalidArgument(
+                       "SYCL device codegen not support memory %s, type %s"),
+                   buffer->name,
+                   ,
+                   buffer->memory_type);
   }
 }
 
