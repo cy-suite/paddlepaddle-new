@@ -149,7 +149,7 @@ void InferSymbolicShapeContext::SetSymbolForValueByStaticShape(Value val) {
   const auto& GetStaticShapeForDenseTensorType =
       [&](DenseTensorType type_info) -> symbol::TensorShapeOrDataDimExprs {
     std::vector<symbol::DimExpr> static_shape;
-    for (int i = 0; i < common::vectorize(type_info.dims()).size(); ++i) {
+    for (int i = 0; i < type_info.dims().size(); ++i) {
       int dim = type_info.dims()[i];
       if (dim >= 0) {
         static_shape.emplace_back(dim);
@@ -578,17 +578,8 @@ void ShapeConstraintIRAnalysis::InferShapeOrDataForValue(Value val) {
         }
       }
     } else {
-      bool is_grad_op = [&]() {
-        std::string suffix = "_grad";
-        const auto& op_name = op->name();
-        if (op_name.size() < suffix.size()) return false;
-        return op_name.compare(
-                   op_name.size() - suffix.size(), suffix.size(), suffix) == 0;
-      }();
-      if (!is_grad_op) {
-        LOG(WARNING) << op->name()
-                     << " DOES NOT have InferSymbolicShapeInterface!";
-      }
+      LOG(WARNING) << op->name()
+                   << " DOES NOT have InferSymbolicShapeInterface!";
       for (auto& result_value : op->results()) {
         if (!result_value || !result_value.type()) {
           continue;
