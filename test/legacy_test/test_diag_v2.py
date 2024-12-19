@@ -368,6 +368,10 @@ class TestDiagV2BF16OP(OpTest):
         )
 
 
+@unittest.skipIf(
+    core.is_compiled_with_xpu(),
+    "xpu does not support complex64",
+)
 class TestDiagV2Complex64OP(TestDiagV2Op):
     def init_dtype(self):
         self.dtype = np.complex64
@@ -380,6 +384,10 @@ class TestDiagV2Complex64OP(TestDiagV2Op):
         self.out = np.diag(self.x, self.offset)
 
 
+@unittest.skipIf(
+    core.is_compiled_with_xpu(),
+    "xpu does not support complex128",
+)
 class TestDiagV2Complex128OP(TestDiagV2Op):
     def init_dtype(self):
         self.dtype = np.complex128
