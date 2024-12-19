@@ -109,24 +109,23 @@ int main()
 
 # Check AVX512F
 set(CMAKE_REQUIRED_FLAGS ${AVX512F_FLAG})
-set(AVX512F_FOUND_EXITCODE
-    1
-    CACHE STRING "Result from TRY_RUN" FORCE)
-check_cxx_source_runs(
-  "
-#include <immintrin.h>
-int main()
-{
-    __m512i a = _mm512_set_epi32 (-1, 2, -3, 4, -1, 2, -3, 4,
-                                  13, -5, 6, -7, 9, 2, -6, 3);
-    __m512i result = _mm512_abs_epi32 (a);
-    return 0;
-}"
-  AVX512F_FOUND)
-if(AVX512F_FOUND)
-  add_definitions(-DPADDLE_WITH_AVX512F)
-endif()
+# set(AVX512F_FOUND_EXITCODE
+#     1
+#     CACHE STRING "Result from TRY_RUN" FORCE)
+# check_cxx_source_runs(
+#   "
+# #include <immintrin.h>
+# int main()
+# {
+#     __m512i a = _mm512_set_epi32 (-1, 2, -3, 4, -1, 2, -3, 4,
+#                                   13, -5, 6, -7, 9, 2, -6, 3);
+#     __m512i result = _mm512_abs_epi32 (a);
+#     return 0;
+# }"
+#   AVX512F_FOUND)
+# if(AVX512F_FOUND)
+#   add_definitions(-DPADDLE_WITH_AVX512F)
+# endif()
 
 set(CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS_RETAINED})
-mark_as_advanced(MMX_FOUND SSE2_FOUND SSE3_FOUND AVX_FOUND AVX2_FOUND
-                 AVX512F_FOUND)
+mark_as_advanced(MMX_FOUND SSE2_FOUND SSE3_FOUND AVX_FOUND AVX2_FOUND)
