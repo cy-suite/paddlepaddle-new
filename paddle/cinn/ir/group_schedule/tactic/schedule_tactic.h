@@ -91,17 +91,7 @@ struct ScheduleContext {
 
 class ScheduleTactic {
  public:
-  // Attribute key to record which tile tactic has been applied on a graph.
-  // Exactly one tile tactic is applied on a graph during scheduling.
-  static constexpr char* kTileMethod = "tile_method";
-
-  virtual void Init(ScheduleContext* context) {
-    PADDLE_THROW(::common::errors::Unimplemented(
-        "ScheduleTactic subclass must implement one of the Init method."));
-  }
-  virtual void Init(ScheduleContext* context, ir::IRSchedule* sch) {
-    Init(context);
-  }
+  virtual void Init(ScheduleContext* context) = 0;
 
   virtual void Apply(ir::IRSchedule* sch, const std::string& block_id) = 0;
 
