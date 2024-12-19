@@ -23,12 +23,22 @@ class IfFoldPass : public StmtPass {
   LogicalResult Run(ir::stmt::StmtRef stmt) override;
 };
 
-/*!
- * \brief Fold consecutive `IfThenElse` stmts if their conditions can be
- * simplified.
+/**
+ * Simplify several consecutively nested `IfThenElse` with equal to 0 conditions
+ * into one with simplified conditions.
  *
- * For example:
- * """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+ * This pass is used when there are nested `IfThenElse` in a block, and their
+ * conditions are all equal to zero, and these conditions can be mathematically
+ * proven to be simplifiable.
+ *
+ * When applied, the continuously nested `IfThenElse` will be converted into an
+ * equivalent `IfThenElse` in IR.
+ *
+ * Performance impact: This pass primarily addresses code size and readability.
+ * By reducing the number of redundant condition checks, it may also slightly
+ * improve branch prediction and reduce instruction cache pressure.
+ *
+ * Examples:
  * case1: All if can be simplified.
  * if ((((((256 * j) + ((1024 * i) + k)) / 56) / 56) == 0)) {
  *   if ((((((256 * j) + ((1024 * i) + k)) / 56) % 56) == 0)) {
@@ -41,7 +51,7 @@ class IfFoldPass : public StmtPass {
  * if (((((i * 1024ll) + k) + (j * 256ll)) == 0)) {
  *   int32 a = 1
  * }
- * """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+ *
  * case2: All if can be simplified and the inner one has false branch.
  * if ((((((256 * j) + ((1024 * i) + k)) / 56) / 56) == 0)) {
  *   if ((((((256 * j) + ((1024 * i) + k)) / 56) % 56) == 0)) {
@@ -60,7 +70,7 @@ class IfFoldPass : public StmtPass {
  * } else {
  *   int32 c = 1
  * }
- * """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+ *
  * case3: The inner one can not be simplified.
  * if ((((((256 * j) + ((1024 * i) + k)) / 56) / 56) == 0)) {
  *   if ((((((256 * j) + ((1024 * i) + k)) / 56) % 56) == 0)) {
@@ -77,9 +87,10 @@ class IfFoldPass : public StmtPass {
  *     int32 a = 1
  *   }
  * }
- * """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
  */
-std::unique_ptr<StmtPass> CreateIfFoldPass();
+std::unique_ptr<StmtPass> CreateIfFoldPass() {
+  return std::make_unique<IfFoldPass>();
+}
 
 }  // namespace optim
 }  // namespace cinn
