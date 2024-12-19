@@ -76,6 +76,13 @@ bool ReduceInferDim(pir::Operation *op,
     input_shapes = *x_shape_or_data.data();
   }
 
+  // 0D tensor
+  infer_context->SetShapeOrDataForValue(op->result(0), x_shape_or_data);
+  if (x_shape_or_data.data().has_value() && x_shape_or_data.shape().empty() &&
+      x_shape_or_data.data().value().size() == 1) {
+    return true;
+  }
+
   const std::vector<symbol::DimExpr> shapes = [&] {
     std::vector<symbol::DimExpr> shapes;
     for (int i = 0; i < x_rank; ++i) {
