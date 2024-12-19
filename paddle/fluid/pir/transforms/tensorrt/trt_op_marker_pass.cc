@@ -1433,8 +1433,8 @@ class BilinearInterpV2Pattern
       return false;
     }
 #if IS_TRT_VERSION_GE(8200)
-    pir::Value size_tensor = op.operand_source(2);
-    if (size_tensor) {
+    auto size_tensor = op.operand_source(2);
+    if (size_tensor.impl()) {
       auto size_tensor_type = size_tensor.type();
       if (size_tensor_type.isa<pir::VectorType>()) {
         auto vector_type = size_tensor.type().dyn_cast<pir::VectorType>();
@@ -1444,9 +1444,9 @@ class BilinearInterpV2Pattern
         }
       }
     }
-#elif
-    pir::Value size_tensor = op.operand_source(2);
-    if (size_tensor != nullptr) {
+#else
+    auto size_tensor = op.operand_source(2);
+    if (size_tensor.impl() != nullptr) {
       VLOG(3) << "The Paddle-TRT doesn't support the SizeTensor for "
                  "BilinearInterpV2";
       return false;
