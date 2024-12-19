@@ -29,6 +29,7 @@
 - min
 - maximum
 - minimum
+- pow
 - prod
 - cumprod
 - roll
@@ -51,3 +52,6 @@
 - sign
 - sigmoid
 - index_put
+- isnan
+- isfinite
+- take_along_axis

@@ -88,7 +88,7 @@ struct MappingTargetExprToDestExprMutator : public ir::IRMutator<> {
 bool CheckIterEq(const std::vector<ir::Var>& up_iter,
                  const std::vector<ir::Var>& down_iter);
 
-ir::Expr CopyedReplaceExpr(const Expr& source,
+ir::Expr CopiedReplaceExpr(const Expr& source,
                            const std::vector<Var>& replaced,
                            const std::vector<Expr>& candidates);
 void SubstitudeTargetExprWithDestExpr(const ir::Expr& source,
@@ -296,6 +296,12 @@ std::vector<ir::Var> GetNonReduceLoopVars(const ir::Expr& root);
 std::vector<ir::Var> GetAllLoopVars(const ir::Expr& root);
 
 ir::Expr GetBodyBlock(const ir::Expr& root);
+
+ir::Expr ReshapeLoop(const ir::Expr& root,
+                     const std::vector<symbol::DimExpr>& in_shape,
+                     const std::vector<symbol::DimExpr>& out_shape);
+
+void CheckLoopAlignment(const std::vector<ir::Expr>& roots);
 
 }  // namespace trivial_fusion_detail
 }  // namespace pir

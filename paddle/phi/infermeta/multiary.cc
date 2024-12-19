@@ -152,6 +152,7 @@ void AdamInferMeta(const MetaTensor& param,
                    const MetaTensor& learning_rate,
                    const MetaTensor& moment1,
                    const MetaTensor& moment2,
+                   const MetaTensor& moment2_max,
                    const MetaTensor& beta1_pow,
                    const MetaTensor& beta2_pow,
                    const MetaTensor& master_param,
@@ -163,9 +164,11 @@ void AdamInferMeta(const MetaTensor& param,
                    int64_t min_row_size_to_use_multithread,
                    bool multi_precision,
                    bool use_global_beta_pow,
+                   bool amsgrad,
                    MetaTensor* param_out,
                    MetaTensor* moment1_out,
                    MetaTensor* moment2_out,
+                   MetaTensor* moment2_max_out,
                    MetaTensor* beta1_pow_out,
                    MetaTensor* beta2_pow_out,
                    MetaTensor* master_param_outs) {
@@ -232,6 +235,10 @@ void AdamInferMeta(const MetaTensor& param,
   moment1_out->set_dtype(moment1.dtype());
   moment2_out->set_dims(param_dims);
   moment2_out->set_dtype(moment2.dtype());
+  if (amsgrad) {
+    moment2_max_out->set_dims(param_dims);
+    moment2_max_out->set_dtype(moment2.dtype());
+  }
 
   beta1_pow_out->set_dims(beta1_pow_dims);
   beta1_pow_out->set_dtype(beta1_pow.dtype());
@@ -328,6 +335,7 @@ void AdamwInferMeta(const MetaTensor& param,
                     const MetaTensor& learning_rate,
                     const MetaTensor& moment1,
                     const MetaTensor& moment2,
+                    const MetaTensor& moment2_max,
                     const MetaTensor& beta1_pow,
                     const MetaTensor& beta2_pow,
                     const MetaTensor& master_param,
@@ -342,9 +350,11 @@ void AdamwInferMeta(const MetaTensor& param,
                     int64_t min_row_size_to_use_multithread,
                     bool multi_precision,
                     bool use_global_beta_pow,
+                    bool amsgrad,
                     MetaTensor* param_out,
                     MetaTensor* moment1_out,
                     MetaTensor* moment2_out,
+                    MetaTensor* moment2_max_out,
                     MetaTensor* beta1_pow_out,
                     MetaTensor* beta2_pow_out,
                     MetaTensor* master_param_outs) {
@@ -353,6 +363,7 @@ void AdamwInferMeta(const MetaTensor& param,
                 learning_rate,
                 moment1,
                 moment2,
+                moment2_max,
                 beta1_pow,
                 beta2_pow,
                 master_param,
@@ -364,9 +375,11 @@ void AdamwInferMeta(const MetaTensor& param,
                 min_row_size_to_use_multithread,
                 multi_precision,
                 use_global_beta_pow,
+                amsgrad,
                 param_out,
                 moment1_out,
                 moment2_out,
+                moment2_max_out,
                 beta1_pow_out,
                 beta2_pow_out,
                 master_param_outs);
@@ -1165,6 +1178,16 @@ void CoalesceTensorInferMeta(const std::vector<const MetaTensor*>& input,
                              MetaConfig config) {
   if (size_of_dtype == -1) {
     size_of_dtype = static_cast<int>(phi::SizeOf(dtype));
+  }
+  PADDLE_ENFORCE_EQ(
+      input.size(),
+      output.size(),
+      common::errors::InvalidArgument(
+          "The size of output meta vector should be equal to input"));
+  for (size_t idx = 0; idx < input.size(); ++idx) {
+    output[idx]->set_dims(input[idx]->dims());
+    output[idx]->set_dtype(input[idx]->dtype());
+    output[idx]->set_layout(input[idx]->layout());
   }
   if (config.is_runtime) {
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
@@ -2097,7 +2120,7 @@ void EditDistanceInferMeta(const MetaTensor& hyps,
         hyp_dims.size() == 2 && hyp_dims[1] == 1,
         true,
         errors::InvalidArgument(
-            "Input(Hyps) must be a 2-D LoDTensor with the 2nd dimension "
+            "Input(Hyps) must be a 2-D DenseTensor with the 2nd dimension "
             "equal to 1. But received: input rank %u, input shape [%s].",
             hyp_dims.size(),
             hyp_dims));
@@ -2105,7 +2128,7 @@ void EditDistanceInferMeta(const MetaTensor& hyps,
         ref_dims.size() == 2 && ref_dims[1] == 1,
         true,
         errors::InvalidArgument(
-            "Input(Refs) must be a 2-D LoDTensor with the 2nd dimension "
+            "Input(Refs) must be a 2-D DenseTensor with the 2nd dimension "
             "equal to 1. But received: input rank %u, input shape [%s].",
             ref_dims.size(),
             ref_dims));
@@ -2376,7 +2399,11 @@ void FusedBiasActInferMeta(const MetaTensor& x,
       }
     }
     if (quant_scale > 0) {
-      out->set_dtype(phi::DataType::INT8);
+      if (fabs(quant_max_bound - 127.0f) < 0.000001) {
+        out->set_dtype(phi::DataType::INT8);
+      } else if (fabs(quant_max_bound - 448.0f) < 0.000001) {
+        out->set_dtype(phi::DataType::FLOAT8_E4M3FN);
+      }
     } else {
       out->set_dtype(x.dtype());
     }
@@ -3856,6 +3883,7 @@ void MergedAdamInferMeta(
     const std::vector<const MetaTensor*>& learning_rate,
     const std::vector<const MetaTensor*>& moment1,
     const std::vector<const MetaTensor*>& moment2,
+    const paddle::optional<std::vector<const MetaTensor*>>& moment2_max,
     const std::vector<const MetaTensor*>& beta1_pow,
     const std::vector<const MetaTensor*>& beta2_pow,
     const paddle::optional<std::vector<const MetaTensor*>>& master_param,
@@ -3864,9 +3892,11 @@ void MergedAdamInferMeta(
     const Scalar& epsilon,
     bool multi_precision,
     bool use_global_beta_pow,
+    bool amsgrad,
     std::vector<MetaTensor*> param_out,
     std::vector<MetaTensor*> moment1_out,
     std::vector<MetaTensor*> moment2_out,
+    std::vector<MetaTensor*> moment2_max_out,
     std::vector<MetaTensor*> beta1_pow_out,
     std::vector<MetaTensor*> beta2_pow_out,
     std::vector<MetaTensor*> master_param_out) {}
@@ -4365,16 +4395,18 @@ void PsroiPoolInferMeta(const MetaTensor& x,
       input_dims.size(),
       4,
       errors::InvalidArgument("The format of input tensor is NCHW"));
-  PADDLE_ENFORCE_EQ(rois_dims.size(),
-                    2,
-                    errors::InvalidArgument(
-                        "ROIs should be a 2-D LoDTensor of shape (num_rois, 4) "
-                        "given as [(x1, y1, x2, y2), ...]"));
-  PADDLE_ENFORCE_EQ(rois_dims[1],
-                    4,
-                    errors::InvalidArgument(
-                        "ROIs should be a 2-D LoDTensor of shape (num_rois, 4) "
-                        "given as [(x1, y1, x2, y2), ...]"));
+  PADDLE_ENFORCE_EQ(
+      rois_dims.size(),
+      2,
+      errors::InvalidArgument(
+          "ROIs should be a 2-D DenseTensor of shape (num_rois, 4) "
+          "given as [(x1, y1, x2, y2), ...]"));
+  PADDLE_ENFORCE_EQ(
+      rois_dims[1],
+      4,
+      errors::InvalidArgument(
+          "ROIs should be a 2-D DenseTensor of shape (num_rois, 4) "
+          "given as [(x1, y1, x2, y2), ...]"));
   if (rois_num) {
     auto rois_num_dims = rois_num.dims();
     PADDLE_ENFORCE_EQ(
@@ -5784,6 +5816,7 @@ void FusedAdamInferMeta(
     const MetaTensor& learning_rate,
     const std::vector<const MetaTensor*>& moments1,
     const std::vector<const MetaTensor*>& moments2,
+    const paddle::optional<std::vector<const MetaTensor*>>& moments2_max,
     const std::vector<const MetaTensor*>& beta1_pows,
     const std::vector<const MetaTensor*>& beta2_pows,
     const paddle::optional<std::vector<const MetaTensor*>>& master_params,
@@ -5796,9 +5829,11 @@ void FusedAdamInferMeta(
     bool use_adamw,
     bool multi_precision,
     bool use_global_beta_pow,
+    bool amsgrad,
     std::vector<MetaTensor*> params_out,
     std::vector<MetaTensor*> moments1_out,
     std::vector<MetaTensor*> moments2_out,
+    std::vector<MetaTensor*> moments2_max_out,
     std::vector<MetaTensor*> beta1_pows_out,
     std::vector<MetaTensor*> beta2_pows_out,
     std::vector<MetaTensor*> master_params_out) {
@@ -5810,6 +5845,10 @@ void FusedAdamInferMeta(
     moments1_out[i]->set_dtype(moments1[i]->dtype());
     moments2_out[i]->set_dims(moments2[i]->dims());
     moments2_out[i]->set_dtype(moments2[i]->dtype());
+    if (amsgrad) {
+      moments2_max_out[i]->set_dims(moments2_max.get()[i]->dims());
+      moments2_max_out[i]->set_dtype(moments2_max.get()[i]->dtype());
+    }
     beta1_pows_out[i]->set_dims(beta1_pows[i]->dims());
     beta1_pows_out[i]->set_dtype(beta1_pows[i]->dtype());
     beta2_pows_out[i]->set_dims(beta2_pows[i]->dims());

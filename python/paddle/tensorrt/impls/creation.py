@@ -16,9 +16,12 @@ import numpy as np
 import tensorrt as trt
 
 import paddle
+from paddle.pir.core import _PADDLE_PIR_DTYPE_2_NUMPY_DTYPE
 from paddle.tensorrt.converter_utils import (
     add_1D_constant_layer,
     cast_tensor,
+    resize_to_1d,
+    trt_cast,
     trt_floor_div,
     trt_max,
     trt_reduce_to_scalar,
@@ -28,7 +31,9 @@ from paddle.tensorrt.converter_utils import (
 from paddle.tensorrt.register import converter_registry
 
 
-@converter_registry.register("pd_op.full_int_array", trt_version="8.x")
+@converter_registry.register(
+    "pd_op.full_int_array", trt_version="trt_version_ge=8.0"
+)
 def full_int_array_converter(network, paddle_op, inputs):
     value = paddle_op.attrs()["value"]
     if len(value) == 0:
@@ -38,12 +43,18 @@ def full_int_array_converter(network, paddle_op, inputs):
     return full_int_array_layer.get_output(0)
 
 
-@converter_registry.register("pd_op.full", trt_version="8.x")
+@converter_registry.register("pd_op.full", trt_version="trt_version_ge=8.0")
 def full_converter(network, paddle_op, inputs):
     shape = paddle_op.attrs()["shape"]
     value = paddle_op.attrs().get("value", 1.0)
+    dtype = paddle_op.attrs().get("dtype")
+    out_dtype = np.dtype(_PADDLE_PIR_DTYPE_2_NUMPY_DTYPE[dtype])
+    if out_dtype == np.dtype("float64"):
+        out_dtype = np.dtype("float32")
+    if out_dtype == np.dtype("int64"):
+        out_dtype = np.dtype("int32")
     full_layer = network.add_constant(
-        shape, np.full(shape, value, dtype=np.float32)
+        shape, np.full(shape, value, dtype=out_dtype)
     )
     return full_layer.get_output(0)
 
@@ -56,6 +67,7 @@ def assign_converter(network, paddle_op, inputs):
     return identity_layer.get_output(0)
 
 
+@converter_registry.register("pd_op.assign_value", trt_version="8.x")
 @converter_registry.register("pd_op.assign_value_", trt_version="8.x")
 def assign_value_converter(network, paddle_op, inputs):
     attrs = paddle_op.attrs()
@@ -63,11 +75,29 @@ def assign_value_converter(network, paddle_op, inputs):
     dtype = attrs['dtype']
     values = attrs['values']
 
-    if dtype == paddle.float32:
-        dtype = np.float32
+    paddle_to_np_dtype_map = {
+        paddle.float16: np.float16,
+        paddle.float32: np.float32,
+        paddle.float64: np.float64,
+        paddle.int32: np.int32,
+        paddle.int64: np.int64,
+    }
 
-    constant_layer = network.add_constant(shape, np.array(values, dtype=dtype))
-    return constant_layer.get_output(0)
+    if dtype not in paddle_to_np_dtype_map:
+        raise ValueError(
+            f"Unsupported dtype {dtype} for assign_value op in TRT converter."
+        )
+
+    np_dtype = paddle_to_np_dtype_map[dtype]
+
+    arr = np.array(values, dtype=np_dtype).reshape(shape)
+    if np_dtype == np.int64:
+        arr = arr.astype(np.int32)
+    const_layer = network.add_constant(tuple(shape), arr)
+    if const_layer is None:
+        raise RuntimeError("Failed to create constant layer for assign_value.")
+
+    return const_layer.get_output(0)
 
 
 @converter_registry.register("pd_op.arange", trt_version="8.x")
@@ -86,9 +116,7 @@ def arange_converter(network, paddle_op, inputs):
 
     number_tensor = trt_max(network, quotient_tensor, zero_tensor)
 
-    reshape_start_layer = trt_reshape(network, start, (1,))
-
-    start_tensor = trt_reduce_to_scalar(network, reshape_start_layer)
+    start_tensor = trt_reshape(network, start, ())
 
     fill_layer = network.add_fill(shape=(), op=trt.FillOperation.LINSPACE)
     fill_layer.set_input(0, number_tensor)
@@ -96,6 +124,69 @@ def arange_converter(network, paddle_op, inputs):
     fill_layer.set_input(2, step)
 
     return fill_layer.get_output(0)
+
+
+@converter_registry.register("pd_op.full_like", trt_version="8.x")
+def full_like_converter(network, paddle_op, inputs):
+    shape = inputs[0].shape
+    ndims = len(shape)
+
+    out_dtype = int(paddle_op.attrs().get("dtype", None))
+    # Reference paddle/phi/common/data_type.h enum DataType
+    if out_dtype == 1:  # paddle.bool
+        out_dtype = trt.int32
+    elif out_dtype == 7:  # paddle.int32
+        out_dtype = trt.int32
+    elif out_dtype == 9:  # paddle.int64
+        out_dtype = trt.int32
+    elif out_dtype == 10:  # paddle.float32
+        out_dtype = trt.float32
+    elif out_dtype == 11:  # paddle.float64
+        out_dtype = trt.float32
+    else:
+        raise RuntimeError(
+            f"cast converter currently doesn't support dtype: {out_dtype}"
+        )
+
+    value_op = paddle_op.operands()[1].source().get_defining_op()
+    if value_op.name() == "pd_op.full":
+        fill_value = value_op.attrs()["value"]
+        value = network.add_constant(
+            (1,),
+            np.array(
+                [
+                    fill_value,
+                ],
+                dtype=np.float32,
+            ),
+        ).get_output(0)
+        value = trt_cast(network, value, out_dtype)
+    else:
+        value = inputs[1]
+
+    shuffle_layer = network.add_shuffle(value)
+    shuffle_layer.reshape_dims = (1,) * ndims
+
+    start_vec = np.zeros((ndims,), dtype=np.int32)
+    start_tensor = network.add_constant((ndims,), start_vec).get_output(0)
+    shape_tensor = network.add_shape(inputs[0]).get_output(0)
+    stride_tensor = network.add_constant(
+        (ndims,), np.ones((ndims,), dtype=np.int32)
+    ).get_output(0)
+
+    slice_layer = network.add_slice(
+        shuffle_layer.get_output(0),
+        start_vec,
+        [1] * ndims,
+        np.ones((ndims,), dtype=np.int32),
+    )
+    slice_layer.mode = trt.SliceMode.FILL
+    slice_layer.set_input(1, start_tensor)
+    slice_layer.set_input(2, shape_tensor)
+    slice_layer.set_input(3, stride_tensor)
+    value = trt_cast(network, value, out_dtype)
+    slice_layer.set_input(4, value)
+    return slice_layer.get_output(0)
 
 
 @converter_registry.register("pd_op.full_with_tensor", trt_version="8.x")
@@ -147,8 +238,6 @@ def full_with_tensor_converter(network, paddle_op, inputs):
             shape_tensor = shape_tensor_list[0]
             if not isinstance(shape_tensor, trt.ITensor):
                 raise TypeError("shape_tensor must be an ITensor")
-            if len(shape_tensor.shape) != 1:
-                raise ValueError("The rank of shape_tensor must be 1")
             tensor_rank = shape_tensor.shape[0]
             shapes_tensor = shape_tensor
         else:
@@ -162,6 +251,7 @@ def full_with_tensor_converter(network, paddle_op, inputs):
             shapes_tensor = concat_layer.get_output(0)
             tensor_rank = len(shape_tensors)
 
+        shapes_tensor = resize_to_1d(network, shapes_tensor)
         fill_layer = network.add_fill(shape=(), op=trt.FillOperation.LINSPACE)
         fill_layer.set_input(0, shapes_tensor)
 
@@ -174,7 +264,7 @@ def full_with_tensor_converter(network, paddle_op, inputs):
         )
     elif dtype == paddle.float32:
         beta_vec = [0.0] * tensor_rank
-        value_input = trt_reduce_to_scalar(network, value_input)
+        value_input = trt_reduce_to_scalar(network, value_input, trt.float32)
         fill_layer.set_input(1, value_input)
         fill_layer.set_input(
             2, add_1D_constant_layer(network, beta_vec, np.float32)

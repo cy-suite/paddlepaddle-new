@@ -17,12 +17,14 @@
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/schedule/ir_schedule_util.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
+#include "paddle/cinn/ir/utils/stmt_converter.h"
 #include "paddle/cinn/optim/call_arg_list_to_pod_value.h"
 #include "paddle/cinn/optim/cast_bool_to_int8.h"
 #include "paddle/cinn/optim/eliminate_broadcast_in_forloop.h"
+#include "paddle/cinn/optim/eliminate_invariant_loop.h"
 #include "paddle/cinn/optim/extern_call_process.h"
 #include "paddle/cinn/optim/fold_cinn_call_arguments.h"
-#include "paddle/cinn/optim/if_fusion.h"
+#include "paddle/cinn/optim/if_fusion_pass.h"
 #include "paddle/cinn/optim/insert_debug_log_callee.h"
 #include "paddle/cinn/optim/ir_simplify.h"
 #include "paddle/cinn/optim/lower_function_call_bind_vars.h"
@@ -37,7 +39,9 @@
 #include "paddle/cinn/optim/transform_gpu_forloop.h"
 #include "paddle/cinn/optim/transform_polyfor_to_for.h"
 #include "paddle/cinn/optim/unroll_loops.h"
+#include "paddle/cinn/optim/vectorize_for_trans.h"
 #include "paddle/cinn/optim/vectorize_loops.h"
+#include "paddle/cinn/pass/pass_manager.h"
 
 namespace cinn {
 namespace optim {
@@ -53,10 +57,13 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
           "Expected expression 'fn' to be defined, but it is undefined."));
 
   auto copied = ir::ir_utils::IRCopy(fn);
+  if (!copied->body.As<ir::Block>()) return copied;
 
   ReplaceConstParamToInteger(&copied->body);
   // Simplify already contains CastSimplify
   Simplify(&copied->body);
+  EliminateInvariantLoop(&copied->body);
+  VLOG(4) << "After Optimize EliminateInvariantLoop:" << copied;
   ReplaceCrossThreadReduction(copied);
   VLOG(4) << "After Optimize ReplaceCrossThreadReduction:" << copied;
   ReplaceCrossBlockReduction(copied);
@@ -69,7 +76,7 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
 #ifdef CINN_WITH_CUDA
         ir::SetCudaAxisInfo(copied);
         if (remove_gpu_for_loops) {
-          RemoveGpuForloopsAxis(copied);
+          RemoveGpuForLoops(copied);
         }
         CudaSyncThreadsDropIfThenElse(copied);
     // CudaTransBufferWithDynamicShape(&copied);
@@ -79,12 +86,13 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
 #ifdef CINN_WITH_HIP
         ir::SetCudaAxisInfo(copied);
         if (remove_gpu_for_loops) {
-          RemoveGpuForloopsAxis(copied);
+          RemoveGpuForLoops(copied);
         }
         CudaSyncThreadsDropIfThenElse(copied);
     // CudaTransBufferWithDynamicShape(&copied);
 #endif
-      });
+      },
+      [&](common::HygonDCUArchSYCL) { CINN_NOT_IMPLEMENTED });
 
   SimplifyBlocks(&copied->body);
   VLOG(4) << "After SimplifyBlocks:" << copied;
@@ -98,22 +106,20 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
   Simplify(&copied->body);
   VLOG(10) << "After Optimize Simplify:" << copied;
 
-  IfFusion(&copied->body);
-  VLOG(10) << "After Optimize IfFusion" << copied;
+  BlockPassManager pass_manager;
+  pass_manager.AddPass(CreateIfFusionPass());
+  pass_manager.Run(copied);
 
-  return copied;
-}
+  VectorizeForTrans(&copied->body);
+  VLOG(10) << "After Optimize vectorize" << copied;
 
-ir::Module Optimize(const ir::Module& module, const Target& target) {
-  auto copied = ir::ir_utils::IRCopy(module);
+  Simplify(&copied->body);
+  VLOG(10) << "After Optimize Simplify" << copied;
 
-  RemoveScheduleBlock(copied);
+  RemoveScheduleBlock(&copied->body);
   VLOG(10) << "After RemoveScheduleBlock:" << copied;
-  LowerFunctionCallBindVars(copied);
-  VLOG(10) << "After LowerFunctionCallBindVars:" << copied;
-  CallArgListToPodValue(copied);
-  VLOG(10) << "After CallArgListToPodValue:" << copied;
-  LowerIntrin(copied, target);
+
+  LowerIntrin(&copied->body, target);
   VLOG(10) << "After LowerIntrin:" << copied;
 
   return copied;

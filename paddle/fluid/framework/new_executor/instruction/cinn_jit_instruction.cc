@@ -20,10 +20,11 @@
 #include "paddle/common/errors.h"
 #include "paddle/common/performance_statistician.h"
 #include "paddle/fluid/framework/new_executor/pir_adaptor/pir_adaptor_util.h"
+#include "paddle/phi/backends/gpu/gpu_info.h"
+#include "paddle/phi/backends/gpu/gpu_resources.h"
 #if defined(PADDLE_WITH_CUDA)
 #include "paddle/cinn/runtime/cinn_runtime.h"
 #endif
-PD_DECLARE_bool(cinn_bucket_compile);
 PD_DECLARE_bool(cinn_measure_kernel_time);
 PD_DECLARE_string(tile_config_policy);
 PD_DECLARE_string(cinn_kernel_execution_label);
@@ -112,32 +113,39 @@ class CinnJitInstruction::FnPtrImpl {
       ::common::PerformanceStatistician& ps =
           ::common::PerformanceStatistician::Instance();
       auto data_p = static_cast<void*>(func_args_.data());
-      cudaStream_t stream;
-      cudaStreamCreate(&stream);
-      cudaDeviceSynchronize();
+      phi::gpuStream_t stream;
+      phi::InitStream(&stream);
+      phi::backends::gpu::GpuDeviceSync();
       if (is_gpu) {
         ps.SetGraphNodesNum(25);
         int graph_nodes_num = ps.GetGraphNodesNum();
-        cudaGraph_t graph;
-        cudaGraphExec_t instance;
-        cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
+        phi::gpuGraph_t graph;
+        phi::gpuGraphExec_t instance;
+        phi::gpuStreamBeginCapture(
+            stream, gpuStreamCaptureMode(0));  // StreamCaptureModeGlobal
         for (int ikrnl = 0; ikrnl < graph_nodes_num; ikrnl++) {
           ((lower_func_ptr_g)cinn_kernel_info_.fn_ptr)(
               static_cast<void*>(func_args_.data()), func_args_.size(), stream);
         }
-        cudaStreamEndCapture(stream, &graph);
+        phi::gpuStreamEndCapture(stream, &graph);
+#ifdef PADDLE_WITH_CUDA
         cudaGraphInstantiate(&instance, graph, NULL, NULL, 0);
+#elif defined(PADDLE_WITH_HIP)
+        hipGraphInstantiate(&instance, graph, NULL, NULL, 0);
+#else
+        CINN_NOT_IMPLEMENTED
+#endif
         ps.CudaStart(FLAGS_cinn_kernel_execution_label);
-        cudaGraphLaunch(instance, stream);
+        phi::gpuGraphLaunch(instance, stream);
         ps.CudaEnd(FLAGS_cinn_kernel_execution_label);
-        cudaGraphDestroy(graph);
-        cudaGraphExecDestroy(instance);
-        cudaStreamDestroy(stream);
+        phi::gpuGraphDestroy(graph);
+        phi::gpuGraphExecDestroy(instance);
+        phi::DestroyStream(stream);
       } else {
         ((lower_func_ptr_g)cinn_kernel_info_.CX86_fn_ptr)(
             static_cast<void*>(func_args_.data()), func_args_.size(), stream);
       }
-      cudaDeviceSynchronize();
+      phi::backends::gpu::GpuDeviceSync();
     } else {
       if (is_gpu) {
         ((lower_func_ptr_g)cinn_kernel_info_.fn_ptr)(
@@ -151,6 +159,7 @@ class CinnJitInstruction::FnPtrImpl {
   }
 
   void InferShape(const std::vector<phi::DenseTensor*>& kernel_tensor_args,
+                  const std::vector<phi::DDim>& ir_dim,
                   int32_t input_tensor_size,
                   int32_t output_tensor_size) {
     VLOG(6) << "Start InferShape: " << cinn_kernel_info_.fn_name;
@@ -172,6 +181,7 @@ class CinnJitInstruction::FnPtrImpl {
     for (int i = 0; i < output_tensor_size; ++i) {
       DDim dim(output_tensor_shapes[i],
                kernel_tensor_args[input_tensor_size + i]->dims().size());
+      CheckDims(ir_dim[i], dim);
       kernel_tensor_args[input_tensor_size + i]->Resize(dim);
       free(output_tensor_shapes[i]);
     }
@@ -185,6 +195,29 @@ class CinnJitInstruction::FnPtrImpl {
       }
     }
     func_args_.clear();
+  }
+
+  void CheckDims(const DDim& first, const DDim& second) const {
+    PADDLE_ENFORCE_EQ(
+        first.size(),
+        second.size(),
+        phi::errors::PreconditionNotMet("The rank of dim MUST be same. "
+                                        "But get [%d] and [%d]",
+                                        first.size(),
+                                        second.size()));
+    for (size_t i = 0; i < first.size(); ++i) {
+      if (first[i] > 0) {
+        PADDLE_ENFORCE_EQ(first[i],
+                          second[i],
+                          phi::errors::PreconditionNotMet(
+                              "Dim MUST be equal"
+                              ", but Get first[%d] is [%d], second[%d] is[%d]",
+                              i,
+                              first[i],
+                              i,
+                              second[i]));
+      }
+    }
   }
 
  private:
@@ -217,7 +250,6 @@ CinnJitInstruction::CinnJitInstruction(
     auto tensor = value_exec_info->GetScope()
                       ->FindVar(var_name)
                       ->GetMutable<phi::DenseTensor>();
-
     tensor_args_.push_back(tensor);
   }
 
@@ -231,12 +263,20 @@ CinnJitInstruction::CinnJitInstruction(
   // prepare output tensors
   for (size_t i = 0; i < op->num_results(); ++i) {
     pir::Value result = op->result(i);
+    bool check = result && result.type() &&
+                 result.type().isa<paddle::dialect::DenseTensorType>();
+    PADDLE_ENFORCE_EQ(check,
+                      true,
+                      phi::errors::PreconditionNotMet(
+                          "cinn jit instruction only support DenseTensorType"));
     auto var_name = value_exec_info->GetVarName(result);
 
     auto tensor = value_exec_info->GetScope()
                       ->Var(var_name)
                       ->GetMutable<phi::DenseTensor>();
 
+    ir_dims_.push_back(
+        result.type().dyn_cast<paddle::dialect::DenseTensorType>().dims());
     tensor_args_.push_back(tensor);
     auto alloc_tensor_type =
         result.type().dyn_cast<paddle::dialect::AllocatedDenseTensorType>();
@@ -267,7 +307,7 @@ CinnJitInstruction::CinnJitInstruction(
 }
 
 void CinnJitInstruction::Run() {
-#if defined(PADDLE_WITH_CUDA)
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
   void* running_stream = nullptr;
   bool is_gpu = false;
 
@@ -277,12 +317,12 @@ void CinnJitInstruction::Run() {
         static_cast<void*>(static_cast<phi::GPUContext*>(dev_ctx_)->stream());
   }
 
-  // 1. prepare kernel argmuments
+  // 1. prepare kernel arguments
   fn_ptr_impl_->InitFuncArgs(tensor_args_);
 
-  if (FLAGS_cinn_bucket_compile && need_update_shape) {
+  if (need_update_shape) {
     fn_ptr_impl_->InferShape(
-        tensor_args_, input_tensor_size, output_tensor_size);
+        tensor_args_, ir_dims_, input_tensor_size, output_tensor_size);
   }
   for (size_t i = 0; i < tensor_args_.size(); ++i) {
     dev_ctx_->Alloc(tensor_args_[i], tensor_args_[i]->dtype());
@@ -298,7 +338,7 @@ void CinnJitInstruction::Run() {
   }
 #else
   VLOG(0) << "Not Supported: cinn jit instruction currently does not "
-             "support non-CUDA kernel";
+             "support CUDA/HIP kernel";
 #endif
 }
 

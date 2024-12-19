@@ -29,7 +29,7 @@ import paddle.distributed.auto_parallel.static.utils as auto_utils
 from paddle import pir, static, utils
 from paddle.base.executor import _to_name_str
 from paddle.base.framework import auto_complete_op_role
-from paddle.distributed import fleet
+from paddle.decomposition import decomp
 from paddle.distributed.fleet.meta_optimizers.common import OpRole
 from paddle.distributed.passes.pass_base import new_pass
 from paddle.distributed.passes.pass_utils import (
@@ -254,12 +254,6 @@ class Engine:
             raise TypeError(
                 "'cluster' must be the object or class `paddle.distributed.auto_parallel.Cluster`"
             )
-
-        if os.getenv("POD_NAME"):
-            self._logger.info(
-                "Distribute training by paddle.distributed.launch"
-            )
-            fleet.init(is_collective=True)
 
         # for compute cost
         # TODO: remove _fwd_main_progs and _orig_optimizer and _pir_main_progs
@@ -646,7 +640,7 @@ class Engine:
             outputs_indices = fetch_indices[group_idx]
             logs_out = {}
             for idx in outputs_indices:
-                logs_out["out%d" % (idx)] = outs[idx]
+                logs_out[f"out{idx}"] = outs[idx]
             logs["outputs"] = logs_out
             group_idx += 1
         # logging user fetches
@@ -811,12 +805,20 @@ class Engine:
         # re-run apply_mix2dist_pass to dist accumulator.
         apply_mix2dist_pass(dist_program)
 
+        if mode == "train" and self._strategy.recompute.enable:
+            auto_parallel_recompute_pir_pass = new_pass(
+                "auto_parallel_recompute_pir", {}
+            )
+            auto_parallel_recompute_pir_pass.apply(
+                [dist_program], [startup_program]
+            )
+
         # Part 2: Parallelism search (for full auto-parallel)
         # NOTE make all parallelis search logic work as Pass,
         # and all the Pass in this Part should be optional to allow consistence in dynamic and static mode.
         if self._strategy.auto_mode == "semi-auto":
             # TODO(xxxx) Step 2.1 Entire Graph Completion in Pir.
-            # dist_program = apply_complition_pass(dist_program)
+            # dist_program = apply_completion_pass(dist_program)
             pass
         elif self._strategy.auto_mode == "random" or "full_random":
             # TODO(caozhou) Step 2.3 Basic Random / MCMC Algorithm for Fully Auto Parallel Search.
@@ -844,7 +846,7 @@ class Engine:
         # TODO(hitywt) Step 3.2: Reshard Pass
         #   resolute the reshard op into special collective operation.
         #   collect the communicator created during resolution.
-        ReshardPasses.apply_reshard_pass(dist_program, params_grads)
+        ReshardPasses.apply_reshard_pass(dist_program, global_params_grads)
 
         # Note(luchang): When using VPP pipeline pass, we need to split the whole graph into
         # multiple chunks and adjust the process mesh accordingly. Here, we need to store the
@@ -904,10 +906,16 @@ class Engine:
         remove_unuseful_comm_op_pass(dense_program)
 
         if core._enable_dist_prim_all():
-            from paddle.decomposition import decomp
-
+            logging.info("apply decompose in auto parallel")
             with decomp.prim_guard():
                 decomp.decompose_dist_program(dense_program)
+
+        if core._enable_auto_recompute():
+            logging.info("apply auto_recompute in auto parallel")
+            dense_program = decomp.auto_recompute_pir_program(
+                dense_program,
+                lambda op: bool(op.has_attr('op_role') and op.op_role == 0),
+            )
 
         if self._strategy.pipeline.enable:
             self._job_plan = pipeline_pass(
@@ -943,7 +951,10 @@ class Engine:
             )
             self._job_plan = core.Plan(jobs, type_to_program)
 
-        if self._strategy.fused_passes.fused_passes_list is not None:
+        if (
+            self._strategy.fused_passes.fused_passes_list is not None
+            and self._strategy.fused_passes.fused_passes_list
+        ):
             pm = pir.PassManager()
             for p in self._strategy.fused_passes.fused_passes_list:
                 # Temporary implementation, it will be refined when auto_parallel refactored
@@ -968,6 +979,7 @@ class Engine:
                 for job_type in self._job_plan.job_types():
                     ir_program = self._job_plan.ir_program(job_type)
                     pm.run(ir_program)
+
         remove_unuseful_comm_op_pass(dense_program)
         self._pir_dense_main_progs[mode] = dense_program
         self._pir_dist_main_progs[mode] = dist_program
@@ -1369,6 +1381,7 @@ class Engine:
                         initial_op = param.get_defining_op()
                         new_param = block.add_kwarg(var_name, param.type())
                         new_param.persistable = True
+                        new_param.place_attr = scope_var.get_tensor()._place()
                         param.replace_all_uses_with(new_param)
                         del_ops.append(op)
                         del_ops.append(initial_op)

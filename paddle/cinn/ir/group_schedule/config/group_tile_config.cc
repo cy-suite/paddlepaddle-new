@@ -150,22 +150,17 @@ std::shared_ptr<ScheduleConfig::BaseInfo> InitBasicInfo(
     const std::shared_ptr<FusionGroupInfo>& group_info) {
   std::shared_ptr<ScheduleConfig::BaseInfo> base_info =
       std::make_shared<ScheduleConfig::BaseInfo>();
-  base_info->data_rank = group_info->loop_ranges.size();
+  base_info->reduce_axis = group_info->reduce_axis;
+  base_info->loop_ranges = group_info->loop_ranges;
   base_info->loop_strides = group_info->loop_strides;
   base_info->can_apply_grid_reduce = group_info->can_apply_grid_reduce;
 
-  std::set<int64_t> reduce_dim_loc;
-  for (int64_t dim : group_info->reduce_axis) {
-    if (dim < 0) {
-      dim += base_info->data_rank;
-    }
-    base_info->reduce_axis.push_back(dim);
-    reduce_dim_loc.insert(dim);
-  }
+  std::set<int64_t> reduce_dim_loc(group_info->reduce_axis.begin(),
+                                   group_info->reduce_axis.end());
 
   base_info->spatial_numel = 1;
   base_info->reduce_numel = 1;
-  for (int64_t i = 0; i < base_info->data_rank; ++i) {
+  for (int64_t i = 0; i < base_info->loop_ranges.size(); ++i) {
     if (reduce_dim_loc.count(i)) {
       if (group_info->loop_ranges[i] == -1)
         base_info->has_dynamic_reduce = true;
@@ -201,7 +196,8 @@ TileConfigMap BuildPureStaticShapeConfig(
   if (last_dim == "R") {
     rd_thread_num = 32;
     int64_t remain_reduce_numel = CeilDiv(reduce_numel, 32);
-    if (remain_reduce_numel <= 8 && spatial_numel > 1) {
+    if ((remain_reduce_numel <= 8 && spatial_numel > 1) ||
+        (spatial_numel > remain_reduce_numel * 128)) {
       sp_thread_num = Trim(spatial_numel, 1, 8);
       reduce_method = WarpReduceMethod();
     } else {
@@ -247,7 +243,7 @@ TileConfigMap BuildPureStaticShapeConfig(
       return 1;
     }
     int64_t expected = spatial_numel / (sm_count * 4);
-    return CeilPow2(Trim(expected, 1, 32));
+    return CeilPow2(Trim(expected, 1, 4));
   }();
 
   int64_t sp_upper_bound = base_info->spatial_numel > 1 ? kMaxNumel : 1;

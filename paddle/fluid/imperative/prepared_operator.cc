@@ -31,6 +31,10 @@
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
 #include "paddle/fluid/distributed/collective/process_group.h"
 #include "paddle/fluid/distributed/collective/process_group_nccl.h"
+#include "paddle/phi/core/distributed/comm_context_manager.h"
+#elif defined(PADDLE_WITH_XPU_BKCL)
+#include "paddle/fluid/distributed/collective/process_group.h"
+#include "paddle/fluid/distributed/collective/process_group_bkcl.h"
 #endif
 #include "paddle/common/flags.h"
 #include "paddle/fluid/framework/library_type.h"
@@ -304,12 +308,18 @@ PreparedOp PrepareImpl(
       if (attrs.find("ring_id") != attrs.end()) {
         auto ring_id_attr = attrs.at("ring_id");
         int ring_id = PADDLE_GET(int, ring_id_attr);
+        const auto& comm_context_manager =
+            phi::distributed::CommContextManager::GetInstance();
         auto map = distributed::ProcessGroupMapFromGid::getInstance();
-        if (map->has(ring_id)) {
+        phi::distributed::CommContext* comm_context = nullptr;
+        if (comm_context_manager.Has(std::to_string(ring_id))) {
+          comm_context = comm_context_manager.Get(std::to_string(ring_id));
+        } else if (map->has(ring_id)) {
           distributed::ProcessGroup* pg = map->get(ring_id);
-          auto comm_context =
-              static_cast<paddle::distributed::ProcessGroupNCCL*>(pg)
-                  ->GetOrCreateCommContext(place);
+          comm_context = static_cast<paddle::distributed::ProcessGroupNCCL*>(pg)
+                             ->GetOrCreateCommContext(place);
+        }
+        if (comm_context) {
           auto original_stream =
               static_cast<phi::GPUContext*>(dev_ctx)->cuda_stream();
           dev_ctx =
@@ -332,6 +342,43 @@ PreparedOp PrepareImpl(
                 instance
                     .GetAllocator(
                         place, static_cast<phi::GPUContext*>(dev_ctx)->stream())
+                    .get());
+          }
+        }
+      }
+#endif
+#if defined(PADDLE_WITH_XPU_BKCL)
+      if (attrs.find("ring_id") != attrs.end()) {
+        auto ring_id_attr = attrs.at("ring_id");
+        int ring_id = PADDLE_GET(int, ring_id_attr);
+        auto map = distributed::ProcessGroupMapFromGid::getInstance();
+        if (map->has(ring_id)) {
+          distributed::ProcessGroup* pg = map->get(ring_id);
+          auto comm_context =
+              static_cast<paddle::distributed::ProcessGroupBKCL*>(pg)
+                  ->GetOrCreateCommContext(place);
+          auto original_stream =
+              static_cast<phi::XPUContext*>(dev_ctx)->stream();
+          dev_ctx =
+              static_cast<phi::distributed::BKCLCommContext*>(comm_context)
+                  ->GetDevContext();
+          dev_ctx->SetCommContext(comm_context);
+          // Note(lizhenxing): In dynamic mode, c_softmax_with_cross_entropy
+          // need use global calculate stream (original_stream). Using the
+          // comm_ctx's stream will lead to synchronization issues, causing
+          // accuracy diff in test_parallel_dygraph_mp_layers.
+          if (phi::is_xpu_place(place) &&
+              ((attrs.find("use_calc_stream") != attrs.end() &&
+                PADDLE_GET_CONST(bool, attrs.at("use_calc_stream"))) ||
+               phi_kernel_name == "c_softmax_with_cross_entropy")) {
+            static_cast<phi::XPUContext*>(dev_ctx)->SetStream(original_stream,
+                                                              false);
+            auto& instance =
+                paddle::memory::allocation::AllocatorFacade::Instance();
+            dev_ctx->SetAllocator(
+                instance
+                    .GetAllocator(
+                        place, static_cast<phi::XPUContext*>(dev_ctx)->stream())
                     .get());
           }
         }

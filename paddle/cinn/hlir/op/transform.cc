@@ -131,7 +131,7 @@ std::shared_ptr<OpStrategy> StrategyForMatMul(
         [&](common::NVGPUArch) {
           out = pe::Matmul(new_A, new_B, trans_a, trans_b, alpha, tensor_name);
         },
-        [&](common::HygonDCUArchHIP) {
+        [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
           out = pe::Matmul(new_A, new_B, trans_a, trans_b, alpha, tensor_name);
         });
 
@@ -484,7 +484,7 @@ std::shared_ptr<OpStrategy> StrategyForMul(
         [&](common::NVGPUArch) {
           out = pe::Matmul(new_A, new_B, false, is_infer, 1.0f, tensor_name);
         },
-        [&](common::HygonDCUArchHIP) {
+        [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
           out = pe::Matmul(new_A, new_B, false, is_infer, 1.0f, tensor_name);
         });
 
@@ -946,7 +946,7 @@ std::shared_ptr<OpStrategy> StrategyForTransposeSymbolic(
   auto input_shape = inputs[0]->shape;
   if (attrs.attr_store.find("axis") != attrs.attr_store.end()) {
     axis = absl::get<std::vector<int>>(attrs.attr_store.at("axis"));
-    PADDLE_ENFORCE_EQ(axis.size(),
+    PADDLE_ENFORCE_LE(axis.size(),
                       output_shapes[0].size(),
                       ::common::errors::InvalidArgument(
                           "axis size is not equal output_shapes size! Please "

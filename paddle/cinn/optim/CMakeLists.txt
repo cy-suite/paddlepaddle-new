@@ -11,6 +11,7 @@ gather_srcs(
   unroll_loops.cc
   transform_polyfor_to_for.cc
   eliminate_broadcast_in_forloop.cc
+  eliminate_invariant_loop.cc
   fold_cinn_call_arguments.cc
   call_arg_list_to_pod_value.cc
   insert_debug_log_callee.cc
@@ -32,11 +33,13 @@ gather_srcs(
   trans_buffer_with_dynamic_shape.cc
   schedule_block_dce.cc
   eliminate_common_factor_of_local_index.cc
-  if_fusion.cc
+  if_fusion_pass.cc
   merge_block_utils.cc
   eliminate_common_global_memory_read.cc
   rearrange_load_instruction.cc
-  check_tensor_buffer_map.cc)
+  check_tensor_buffer_map.cc
+  longlong2int.cc
+  vectorize_for_trans.cc)
 
 if(WITH_CUDA OR WITH_ROCM)
   gather_srcs(cinnapi_src SRCS transform_gpu_forloop.cc)

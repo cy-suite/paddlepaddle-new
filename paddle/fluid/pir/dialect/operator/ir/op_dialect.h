@@ -13,10 +13,14 @@
 // limitations under the License.
 
 #pragma once
+#include <typeindex>
+#include <typeinfo>
 
+#include "paddle/common/macros.h"
 #include "paddle/fluid/pir/dialect/operator/interface/op_yaml_info.h"
 #include "paddle/phi/api/ext/op_meta_info.h"
 #include "paddle/pir/include/core/dialect.h"
+#include "paddle/pir/include/core/ir_context.h"
 #include "paddle/pir/include/core/operation.h"
 #include "paddle/utils/test_macros.h"
 
@@ -87,7 +91,7 @@ class CustomOpDialect : public pir::Dialect {
   std::vector<const char*> op_names_;
 };
 
-class CustomEngineDialect : public pir::Dialect {
+class TEST_API CustomEngineDialect : public pir::Dialect {
  public:
   explicit CustomEngineDialect(pir::IrContext* context);
 
@@ -99,8 +103,8 @@ class CustomEngineDialect : public pir::Dialect {
   pir::OpPrintFn PrintOperation(
       const pir::Operation& op) const override;  // NOLINT
 
-  template <typename ConcreteOp>
-  void RegisterCustomEngineOp();
+  // template <typename ConcreteOp>
+  // static void RegisterCustomEngineOp();
 
   bool HasRegistered(const std::string& op_name) {
     if (std::find(op_names_.begin(), op_names_.end(), op_name) !=
