@@ -25,6 +25,27 @@ def api_wrapper(x):
     return paddle._C_ops.share_data(x)
 
 
+def api_dequantize_linear(x, scales, quant_axis=0):
+    in_accum = paddle.to_tensor(0.0, dtype="float32")
+    in_state = paddle.to_tensor(0.0, dtype="float32")
+    zero_point = paddle.to_tensor(0.0, dtype="float32")
+    dequant_out, out_state, out_accum, out_scale = _C_ops.dequantize_linear(
+        x,
+        scales,
+        zero_point,
+        in_accum,
+        in_state,
+        quant_axis,
+        8,
+        127,
+        -128,
+        0,
+        True,
+        False,
+    )
+    return dequant_out
+
+
 def multiclass_nms3(
     bboxes,
     scores,
@@ -392,6 +413,56 @@ class TestShareDataTRTPattern(TensorRTBaseTest):
 
     def test_trt_result(self):
         self.check_trt_result()
+
+
+class TestDequantizeLinearTRTCase0Pattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = api_dequantize_linear
+        self.api_args = {
+            "x": np.random.rand(4, 3, 5).astype("float32"),
+            "scales": np.array([0.1]).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [4, 3, 5]}
+        self.max_shape = {"x": [6, 3, 5]}
+
+    def test_trt_result_fp32(self):
+        self.enable_fp16 = False
+        self.check_trt_result()
+
+    def test_trt_result_fp16(self):
+        self.enable_fp16 = True
+        self.check_trt_result()
+
+
+class TestDequantizeLinearTRTCase1Pattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = api_dequantize_linear
+        self.api_args = {
+            "x": np.random.rand(4, 3, 5).astype("int64"),
+            "scales": np.array([0.1]).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [4, 3, 5]}
+        self.max_shape = {"x": [6, 3, 5]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestDequantizeLinearTRTCase2Pattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = api_dequantize_linear
+        self.api_args = {
+            "x": np.random.rand(4, 3, 5).astype("float32"),
+            "scales": np.array([0.1]).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [4, 3, 5]}
+        self.max_shape = {"x": [6, 3, 5]}
+
+    def test_trt_result(self):
+        self.check_marker(expected_result=False)
 
 
 if __name__ == '__main__':

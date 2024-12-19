@@ -20,6 +20,7 @@ import tensorrt as trt
 from paddle.base.log_helper import get_logger
 from paddle.tensorrt.converter_utils import (
     add_1D_constant_layer,
+    add_constant_layer,
     fill_constant_layer,
     get_shape_tensor_element,
     get_trt_plugin,
@@ -301,3 +302,21 @@ def share_data_converter(network, paddle_op, inputs):
     identity_layer = network.add_identity(x)
 
     return identity_layer.get_output(0)
+
+
+@converter_registry.register("pd_op.dequantize_linear", trt_version="8.x")
+@converter_registry.register("pd_op.dequantize_linear_", trt_version="8.x")
+def dequantize_linear_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    scale_tensor = inputs[1]
+    axis = paddle_op.attrs().get("quant_axis")
+
+    n_scale = scale_tensor.size
+    scale_data = scale_tensor / 127.0
+    scale_dim = (1, (n_scale))
+    scale = add_constant_layer(network, scale_data, scale_dim, dtype="float32")
+    layer = network.add_dequantize(x, scale)
+    if axis >= 0:
+        layer.axis = axis
+
+    return layer.get_output(0)
