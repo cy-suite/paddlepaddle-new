@@ -40,6 +40,40 @@ paddle::dialect::PyLayerOp
 namespace paddle {
 namespace dialect {
 
+std::unordered_set<pir::Value> GetInternalInputs(pir::Block *block) {
+  std::unordered_set<pir::Value> inner_inputs;
+  for (auto &op : *block) {
+    std::string op_name = op.name();
+    if (op.attributes().count("op_name")) {
+      op_name = op.attributes()
+                    .at("op_name")
+                    .dyn_cast<pir::StrAttribute>()
+                    .AsString();
+    }
+    VLOG(8) << "GetInternalInputs of " << op_name;
+    if (op.num_regions()) {
+      for (size_t i = 0; i < op.num_regions(); ++i) {
+        for (auto &sub_block : op.region(i)) {
+          std::unordered_set<pir::Value> sub_set =
+              GetInternalInputs(&sub_block);
+          inner_inputs.insert(sub_set.begin(), sub_set.end());
+        }
+      }
+    }
+    if (op.isa<pir::TuplePopOp>()) {
+      auto tuple_pop_op = op.dyn_cast<pir::TuplePopOp>();
+      if (tuple_pop_op.has_container()) {
+        inner_inputs.insert(tuple_pop_op.container());
+      }
+    }
+    for (size_t i = 0; i < op.num_operands(); ++i) {
+      inner_inputs.insert(op.operand_source(i));
+      VLOG(10) << op_name << "'s inner_input: " << op.operand_source(i).impl();
+    }
+  }
+  return inner_inputs;
+}
+
 const char *PyLayerOp::attributes_name[1] = {
     kBackwardFunctionIdAttrName};  // NOLINT
 
@@ -213,7 +247,7 @@ PyLayerOp PyLayerOp::UpdateInput() {
   std::vector<pir::Value> input_values = inputs();
 
   std::unordered_set<pir::Value> inner_inputs;
-  inner_inputs = paddle::framework::GetInternalInputs(&block);
+  inner_inputs = GetInternalInputs(&block);
 
   for (size_t arg_id = 0; arg_id < block.args_size();) {
     if (block.arg(arg_id) && (!inner_inputs.count(block.arg(arg_id)))) {
