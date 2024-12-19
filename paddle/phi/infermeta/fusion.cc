@@ -2001,7 +2001,7 @@ void FusedGemmEpilogueGradInferMeta(const MetaTensor& x,
   auto k_from_x =
       trans_x ? x_dims[x_dims.size() - 1] : x_dims[x_dims.size() - 2];
 
-  bool check_k = (k_from_dout > 0 && k_from_x > 0) && (k_from_dout == k_from_x);
+  bool check_k = (k_from_dout < 0 || k_from_x < 0) || (k_from_dout == k_from_x);
   PADDLE_ENFORCE_EQ(
       check_k,
       true,
