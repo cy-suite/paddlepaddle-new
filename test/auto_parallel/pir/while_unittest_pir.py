@@ -150,7 +150,7 @@ class TestWhileDemo:
         dist_dataloader = self.create_data_loader()
         dy2static_loss = self.test_dynamic2static(dist_dataloader)
 
-        assert dynamic_loss == dy2static_loss
+        assert (dynamic_loss == dy2static_loss).all()
 
 
 if __name__ == "__main__":
