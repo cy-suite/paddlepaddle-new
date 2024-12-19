@@ -1045,8 +1045,6 @@ bool ValidCustomCustomRuntimeParams(const CustomRuntimeParams* params) {
 #undef CHECK_INTERFACE
 }
 
-typedef bool (*RegisterDevicePluginFn)(CustomRuntimeParams* runtime_params);
-
 void LoadCustomRuntimeLib(const CustomRuntimeParams& runtime_params,
                           std::unique_ptr<C_DeviceInterface> device_interface,
                           const std::string& dso_lib_path,

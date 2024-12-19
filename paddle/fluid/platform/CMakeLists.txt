@@ -17,7 +17,7 @@ endif()
 cc_library(
   init
   SRCS init.cc
-  DEPS phi common)
+  DEPS phi common custom_load)
 
 #fluid_memory depends on device_context, here add deps individually for
 # avoiding cycle dependencies
