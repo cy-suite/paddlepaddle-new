@@ -276,10 +276,10 @@ PyLayerOp PyLayerOp::UpdateInput() {
     auto new_pylayer = builder.Build<PyLayerOp>(new_pylayer_inputs,
                                                 forward_region().TakeBack(),
                                                 backward_function_id());
-    this->ReplaceAllUsesWith(new_pylayer.outputs());
+    (**this).ReplaceAllUsesWith(new_pylayer.outputs());
     pir::Block::Iterator iter = **this;
     iter = program_block->erase(iter);
-    return *iter;
+    return new_pylayer;
   }
   return *this;
 }
