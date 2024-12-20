@@ -249,4 +249,30 @@ TEST(Simplify, Case1) {
   ASSERT_TRUE((SimplifyDimExpr(dim_expr)) == dim_expr);
 }
 
+TEST(Simplify, Case2) {
+  // Div(Mul(S2, S3, 8, 7, 7), Mul( Div(S0, 7), Div(S1, 7), 8, 7, 7，1, 2))
+  DimExpr S2{"S2"};
+  DimExpr S3{"S3"};
+  DimExpr mul_op1 =
+      Mul<DimExpr>{List<DimExpr>{S2, S3, DimExpr(8), DimExpr(7), DimExpr(7)}};
+
+  DimExpr S0{"S0"};
+  DimExpr S1{"S1"};
+  DimExpr mul_op2 =
+      Mul<DimExpr>{List<DimExpr>{Div<DimExpr>{List<DimExpr>{S0, DimExpr(7)}},
+                                 Div<DimExpr>{List<DimExpr>{S1, DimExpr(7)}},
+                                 DimExpr(8),
+                                 DimExpr(7),
+                                 DimExpr(7),
+                                 DimExpr(1),
+                                 DimExpr(2)}};
+  DimExpr dim_expr{Div<DimExpr>{List<DimExpr>{mul_op1, mul_op2}}};
+
+  DimExpr expected =
+      Div<DimExpr>{List<DimExpr>{Mul<DimExpr>{List<DimExpr>{S2, S3, 7, 7}},
+                                 Mul<DimExpr>{List<DimExpr>{S0, S1, 2}}}};
+
+  ASSERT_TRUE((SimplifyDimExpr(dim_expr)) == expected);
+}
+
 }  // namespace symbol::test

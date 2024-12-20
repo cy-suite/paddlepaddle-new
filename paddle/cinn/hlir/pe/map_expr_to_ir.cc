@@ -983,7 +983,7 @@ class MapExprToIrTranslator {
     for (const auto& expr : *exprs) {
       ir_exprs.emplace_back(TranslateDimExpr(expr));
     }
-    return Multiply(ir_exprs);
+    return Divide(ir_exprs);
   }
 
   ir::Expr TranslateDimExprImpl(const ::symbol::Max<DimExpr>& dim_expr) const {

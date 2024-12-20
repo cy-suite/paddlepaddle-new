@@ -130,8 +130,8 @@ struct Mul final {
 };
 
 template <typename T>
-struct Div final {
-  List<T> operands;
+struct Div final : public BinaryDimExpr<T> {
+  using BinaryDimExpr<T>::BinaryDimExpr;
 };
 
 template <typename T>

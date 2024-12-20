@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "paddle/pir/include/dialect/shape/utils/dim_expr_util.h"
-#include <stack>
 #include "paddle/pir/include/dialect/shape/utils/dim_expr.h"
 
 namespace symbol {
@@ -120,6 +119,25 @@ struct SimplifyOperands {
       return expr;
     } else {
       return Op<DimExpr>{mut_operands};
+    }
+    PADDLE_THROW(common::errors::Fatal("Dead code."));
+  }
+};
+
+template <>
+struct SimplifyOperands<Div> {
+  using dim_expr_type = Div<DimExpr>;
+
+  DimExpr Rewrite(const DimExpr& expr) {
+    const auto& div_expr = expr.Get<Div<DimExpr>>();
+    const auto& lhs = div_expr->lhs;
+    const auto& rhs = div_expr->rhs;
+    const auto& ret_lhs = Simplify(lhs);
+    const auto& ret_rhs = Simplify(rhs);
+    if (lhs == ret_lhs && rhs == ret_rhs) {
+      return expr;
+    } else {
+      return Div<DimExpr>{ret_lhs, ret_rhs};
     }
     PADDLE_THROW(common::errors::Fatal("Dead code."));
   }
@@ -236,10 +254,6 @@ struct IsLhsBeforeRhsStruct<Mul<DimExpr>, Mul<DimExpr>> final
     : public IsListLhsBeforeListRhsStruct<Mul> {};
 
 template <>
-struct IsLhsBeforeRhsStruct<Div<DimExpr>, Div<DimExpr>> final
-    : public IsListLhsBeforeListRhsStruct<Div> {};
-
-template <>
 struct IsLhsBeforeRhsStruct<Broadcast<DimExpr>, Broadcast<DimExpr>> final
     : public IsListLhsBeforeListRhsStruct<Broadcast> {};
 
@@ -345,11 +359,11 @@ struct VisitEachOperandStruct<Div> {
                    std::size_t depth,
                    bool is_inversed) {
     if (expr.Has<Div<DimExpr>>()) {
-      const auto& [operands] = expr.Get<Div<DimExpr>>();
-      Call(operands->at(0), DoEach, depth + 1, is_inversed);
-      for (std::size_t i = 1; i < operands->size(); ++i) {
-        Call(operands->at(i), DoEach, depth + 1, !is_inversed);
-      }
+      const auto& dim_expr = expr.Get<Div<DimExpr>>();
+      const auto& lhs = dim_expr->lhs;
+      const auto& rhs = dim_expr->rhs;
+      Call(lhs, DoEach, depth + 1, is_inversed);
+      Call(rhs, DoEach, depth + 1, !is_inversed);
     } else {
       DoEach(expr, depth, is_inversed);
     }
@@ -463,38 +477,22 @@ struct FlattenOperands<Div> {
     if (!HasNested<Div>(expr)) {
       return expr;
     }
-    List<DimExpr> numerators{};
-    List<DimExpr> denominators{};
-    std::stack<DimExpr> stack;
-    stack.push(expr);
-
-    while (!stack.empty()) {
-      DimExpr current_expr = stack.top();
-      stack.pop();
-      if (current_expr.Has<Div<DimExpr>>()) {
-        const auto& div = current_expr.Get<Div<DimExpr>>();
-        const auto& operands = *div.operands;
-        for (std::size_t i = 0; i < operands.size(); ++i) {
-          const DimExpr& operand = operands[i];
-          bool is_negative = (i > 0);
+    List<DimExpr> num_operands{};
+    List<DimExpr> den_operands{};
+    VisitEachOperand<Div>(
+        expr,
+        [&](const DimExpr& dim_expr, std::size_t depth, bool is_negative) {
           if (is_negative) {
-            denominators->emplace_back(operand);
+            den_operands->emplace_back(dim_expr);
           } else {
-            stack.push(operand);
+            num_operands->emplace_back(dim_expr);
           }
-        }
-      } else {
-        numerators->emplace_back(current_expr);
-      }
-    }
-    DimExpr numerator_expr = (numerators->size() == 1)
-                                 ? numerators->at(0)
-                                 : Mul<DimExpr>{numerators};
-    DimExpr denominator_expr = (denominators->size() == 1)
-                                   ? denominators->at(0)
-                                   : Mul<DimExpr>{denominators};
-
-    return Div<DimExpr>{List<DimExpr>{numerator_expr, denominator_expr}};
+        });
+    DimExpr num_expr = num_operands->size() == 1 ? num_operands->at(0)
+                                                 : Mul<DimExpr>{num_operands};
+    DimExpr den_expr = den_operands->size() == 1 ? den_operands->at(0)
+                                                 : Mul<DimExpr>{den_operands};
+    return Div<DimExpr>{num_expr, den_expr};
   }
 };
 
@@ -541,105 +539,19 @@ struct FoldUnitConstant {
   }
 };
 
-/*
- * Simplify Example:
- * Div(Mul(dim_expr0, dim_expr1), Mul(3, dim_expr0)) => Div(dim_expr1/3)
- */
-struct SimplifyDiv {
-  using dim_expr_type = Div<DimExpr>;
-
-  List<DimExpr> DecomposeOperands(const DimExpr& expr) {
-    if (expr.Has<Mul<DimExpr>>()) {
-      return expr.Get<Mul<DimExpr>>().operands;
-    }
-    return List<DimExpr>{expr};
-  }
-
-  DimExpr Rewrite(const DimExpr& expr) {
-    const auto [operands] = expr.Get<Div<DimExpr>>();
-    List<DimExpr> numerator_operands = DecomposeOperands(operands->at(0));
-    List<DimExpr> denominator_operands;
-
-    for (std::size_t i = 1; i < operands->size(); ++i) {
-      List<DimExpr> current_denominator = DecomposeOperands(operands->at(i));
-      denominator_operands->insert(denominator_operands->end(),
-                                   current_denominator->begin(),
-                                   current_denominator->end());
-    }
-
-    for (auto it = numerator_operands->begin();
-         it != numerator_operands->end();) {
-      auto denom_it = std::find(
-          denominator_operands->begin(), denominator_operands->end(), *it);
-      if (denom_it != denominator_operands->end()) {
-        it = numerator_operands->erase(it);
-        denominator_operands->erase(denom_it);
-      } else {
-        ++it;
-      }
-    }
-    if (numerator_operands->empty() && denominator_operands->empty()) {
-      return DimExpr{1};
-    }
-    DimExpr numerator_expr = (numerator_operands->empty())
-                                 ? DimExpr{1}
-                                 : (numerator_operands->size() == 1
-                                        ? numerator_operands->at(0)
-                                        : Mul<DimExpr>{numerator_operands});
-
-    if (denominator_operands->empty()) {
-      return numerator_expr;
-    }
-
-    if (denominator_operands->size() == 1) {
-      const DimExpr& denominator_expr = denominator_operands->at(0);
-      if (denominator_expr.Has<std::int64_t>() &&
-          denominator_expr.Get<std::int64_t>() == 1) {
-        return numerator_expr;  // dim_expr0 / 1 => dim_expr0
-      }
-      return Div<DimExpr>{List<DimExpr>{
-          numerator_expr,
-          denominator_expr}};  // dim_expr0 / 3 or dim_expr0 / dim_expr1
-    }
-
-    DimExpr denominator_expr = Mul<DimExpr>{denominator_operands};
-    return Div<DimExpr>{List<DimExpr>{numerator_expr, denominator_expr}};
-  }
-};
-
 template <>
 struct FoldUnitConstant<Div> {
   using dim_expr_type = Div<DimExpr>;
 
   DimExpr Rewrite(const DimExpr& expr) {
-    const auto [operands] = expr.Get<Div<DimExpr>>();
-    if (GetConstDimCount<Div>(operands) == 0) {
-      return expr;
-    }
-    const DimExpr& numerator = operands->at(0);
-    DimExpr optimized_numerator = numerator;
-    if (FoldOperandTrait<Div>::IsZeroDimExpr(numerator)) {
+    const auto div_expr = expr.Get<Div<DimExpr>>();
+    if (FoldOperandTrait<Div>::IsZeroDimExpr(div_expr->lhs)) {
       return DimExpr{0};
     }
 
-    List<DimExpr> denominators(operands->begin() + 1, operands->end());
-    List<DimExpr> ret_denominators{};
-    for (const auto& denominator : *denominators) {
-      if (!FoldOperandTrait<Div>::IsUnitDimExpr(denominator)) {
-        ret_denominators->emplace_back(denominator);
-      }
+    if (FoldOperandTrait<Div>::IsUnitDimExpr(div_expr->rhs)) {
+      return div_expr->lhs;
     }
-
-    if (ret_denominators->empty()) {  // x / 1 = x
-      return numerator;
-    }
-
-    List<DimExpr> ret_operands{};
-    ret_operands->emplace_back(numerator);
-    ret_operands->insert(ret_operands->end(),
-                         ret_denominators->begin(),
-                         ret_denominators->end());
-    return Div<DimExpr>{ret_operands};
 
     PADDLE_THROW(common::errors::Fatal("Dead code."));
   }
@@ -680,43 +592,6 @@ struct FoldConstants {
     } else {
       return Op<DimExpr>{ret_operands};
     }
-    PADDLE_THROW(common::errors::Fatal("Dead code."));
-  }
-};
-
-template <>
-struct FoldConstants<Div> {
-  using dim_expr_type = Div<DimExpr>;
-
-  DimExpr Rewrite(const DimExpr& expr) {
-    const auto [operands] = expr.Get<Div<DimExpr>>();
-    if (GetConstDimCount<Div>(operands) <= 1) {
-      return expr;
-    }
-    List<DimExpr> ret_operands{};
-    typename FoldOperandTrait<Div>::const_value_type const_dim =
-        FoldOperandTrait<Div>::MakeUnit();
-    const DimExpr& numerator = operands->at(0);
-    List<DimExpr> denominators(operands->begin() + 1, operands->end());
-
-    for (const auto& operand : *denominators) {
-      if (FoldOperandTrait<Div>::IsConstPattern(operand)) {
-        FoldOperandTrait<Div>::Accumulate(&const_dim, operand);
-      } else {
-        ret_operands->emplace_back(operand);
-      }
-    }
-    if (!FoldOperandTrait<Div>::IsUnit(const_dim)) {
-      FoldOperandTrait<Div>::MakeAndAppendDimExpr(const_dim, &ret_operands);
-    }
-    if (ret_operands->empty()) {  // x / (1 * 1 * 1) => x
-      return numerator;
-    }
-    List<DimExpr> ret_exprs{};
-    ret_exprs->emplace_back(numerator);
-    ret_exprs->insert(
-        ret_exprs->end(), ret_operands->begin(), ret_operands->end());
-    return Div<DimExpr>{ret_exprs};
     PADDLE_THROW(common::errors::Fatal("Dead code."));
   }
 };
@@ -993,7 +868,6 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<FoldUnitConstant<Broadcast>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Add>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Mul>>(&keep_rewrite, &ret);
-    DoPass<FoldConstants<Div>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Max>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Min>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Broadcast>>(&keep_rewrite, &ret);
@@ -1001,7 +875,7 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<FoldInversedPairToUnit<Mul>>(&keep_rewrite, &ret);
     DoPass<FoldRedundantBroadcast>(&keep_rewrite, &ret);
     DoPass<FoldRedundantSymbolicBroadcast>(&keep_rewrite, &ret);
-    DoPass<SimplifyDiv>(&keep_rewrite, &ret);
+    // DoPass<SimplifyDiv>(&keep_rewrite, &ret);
     DoPass<SimplifyBroadcast>(&keep_rewrite, &ret);
     if (expr_before_run_pipeline == ret) break;
   }
@@ -1062,7 +936,20 @@ class SubstituteDimExprHelper final {
   }
 
   std::optional<DimExpr> SubstituteImpl(const Div<DimExpr>& dim_expr) {
-    return SubstituteVariadic(dim_expr);
+    return SubstituteBinary(dim_expr);
+  }
+
+  template <typename T>
+  std::optional<DimExpr> SubstituteBinary(const T& dim_expr) {
+    const auto& lhs = dim_expr->lhs;
+    const auto& rhs = dim_expr->rhs;
+    const auto& substituted_lhs = Substitute(lhs);
+    const auto& substituted_rhs = Substitute(rhs);
+    if (!substituted_lhs.has_value() && !substituted_rhs.has_value())
+      return std::nullopt;
+    if (!substituted_lhs.has_value()) return T{lhs, substituted_rhs.value()};
+    if (!substituted_rhs.has_value()) return T{substituted_lhs.value(), rhs};
+    return T{substituted_lhs.value(), substituted_rhs.value()};
   }
 
   std::optional<DimExpr> SubstituteImpl(const Max<DimExpr>& dim_expr) {
@@ -1240,7 +1127,8 @@ std::unordered_set<std::string> CollectDimExprSymbols(const DimExpr& dim_expr) {
         CollectListDimExprSymbolsImpl(dim_expr.operands, &symbols);
       },
        [&](const Div<DimExpr>& dim_expr) {
-        CollectListDimExprSymbolsImpl(dim_expr.operands, &symbols);
+        CollectUnaryDimExprSymbolsImpl(dim_expr->lhs, &symbols);
+        CollectUnaryDimExprSymbolsImpl(dim_expr->rhs, &symbols);
       },
       [&](const Max<DimExpr>& dim_expr) {
         CollectListDimExprSymbolsImpl(dim_expr.operands, &symbols);
