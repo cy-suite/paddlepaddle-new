@@ -127,4 +127,13 @@ bool InstanceCheckGuard::check(PyObject* value) {
   return PyObject_IsInstance(value, expected_);
 }
 
+bool StringCompareGuard::check(PyObject* value) {
+  std::string expected_str = PyUnicode_AsUTF8(expected_);
+  std::cout << "[StringCheckGuard]" << expected_str << std::endl;
+  std::string str = PyUnicode_AsUTF8(value);
+  std::cout << "[StringCheckGuard]" << str << std::endl;
+
+  return PyUnicode_Compare(value, expected_) == 0;
+}
+
 #endif
