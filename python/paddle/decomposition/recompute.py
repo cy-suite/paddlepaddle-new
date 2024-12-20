@@ -50,7 +50,7 @@ _PADDLE_DTYPE_2_NBYTES = {
 DEFAULT_RECOMPUTABLE_OPS: list[str] = [
     "pd_op.full_int_array",
     "pd_op.full",
-    "pd_op.sum",
+    # "pd_op.sum",
     "pd_op.divide",
     "pd_op.subtract",
     "pd_op.add",
@@ -161,7 +161,7 @@ MAX_DIST_FROM_BW = 3
 def DebugPrint(*args):
     flag = os.getenv("FLAGS_print_auto_recompute_debug")
     if flag and str(flag).lower() in ("1", "true"):
-        print(*args)
+        print(*args, flush=True)
 
 
 class JudgeFusionLoop:
