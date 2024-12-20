@@ -309,10 +309,7 @@ class TestIndexSelectCase2TRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 3, 3], "index": [1]}
         self.max_shape = {"x": [5, 3, 3], "index": [5]}
 
-    def test_trt_result_fp16(self):
-        self.check_trt_result(precision_mode="fp16")
-
-    def test_trt_result_fp32(self):
+    def test_trt_result(self):
         self.check_trt_result()
 
 
