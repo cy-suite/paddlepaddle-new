@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from paddle.base import core
+from paddle.base.executor import global_scope
 from paddle.base.wrapped_decorator import signature_safe_contextmanager
 
 from . import Program
@@ -27,8 +29,19 @@ def monkey_patch_program():
         # be fixed in the future.
         yield
 
+    def state_dict(self, mode="all", scope=None):
+        if scope is not None and not isinstance(scope, core._Scope):
+            raise TypeError(
+                f"`scope` should be None or `paddle.static.Scope'` type, but received {type(scope)}."
+            )
+
+        if scope is None:
+            scope = global_scope()
+        return self._state_dict(mode, scope)
+
     program_attrs = {
         "_lr_schedule_guard": _lr_schedule_guard,
+        "state_dict": state_dict,
     }
 
     global _already_patch_program
