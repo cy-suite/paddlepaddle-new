@@ -222,7 +222,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
             code_name = self.value.__code__.co_name
             location_info = f'File "{filename}", line {lineno}, in {code_name}'
             raise BreakGraphError(
-                f"{location_info} encount breakgraph error caused by\n{indent}{e}"
+                f"{location_info} encountered breakgraph error caused by\n{indent}{e}"
             )
         return output
 
