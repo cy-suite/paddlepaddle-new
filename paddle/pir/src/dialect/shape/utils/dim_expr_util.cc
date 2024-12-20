@@ -55,7 +55,6 @@ struct SimplifyOneOperandTrait;
 /*
  * Simplify Example:
  * Negative(DimExpr(0)) => DimExpr(0)
- * Reciprocal(DimExpr(1)) => DimExpr(1)
  */
 template <template <typename> class Op>
 struct SimplifyUnitOneOperand {
@@ -598,7 +597,7 @@ struct FoldConstants {
 
 /*
  * Simplify Example:
- * Mul(2, Reciprocal(2)) => 1
+ * Mul(2, Div(1, 2)) => 1
  */
 template <template <typename> class Op>
 struct FoldInversedPairToUnit {
