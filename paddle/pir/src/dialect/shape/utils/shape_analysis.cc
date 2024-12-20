@@ -162,6 +162,11 @@ void InferSymbolicShapeContext::SetSymbolForValueByStaticShape(Value val) {
 
   if (value_type.isa<DenseTensorType>()) {
     const DenseTensorType& type_info = value_type.dyn_cast<DenseTensorType>();
+    if (type_info.dims().size() == -1) {
+      LOG(WARNING)
+          << "NOW NOT SUPPORT SetSymbolForValueByStaticShape for dynamic rank";
+      return;
+    }
     SetShapeOrDataForValue(val, GetStaticShapeForDenseTensorType(type_info));
     return;
   }
@@ -174,6 +179,11 @@ void InferSymbolicShapeContext::SetSymbolForValueByStaticShape(Value val) {
         PADDLE_THROW(common::errors::Fatal(
             "Set static shape ONLY SUPPORT inner type DenseTensorType!"));
       } else {
+        if (type_info.dims().size() == -1) {
+          LOG(WARNING) << "NOW NOT SUPPORT SetSymbolForValueByStaticShape for "
+                          "dynamic rank";
+          return;
+        }
         const DenseTensorType& type_info = vec.dyn_cast<DenseTensorType>();
         shape_data_list.emplace_back(
             GetStaticShapeForDenseTensorType(type_info));
@@ -561,7 +571,8 @@ void ShapeConstraintIRAnalysis::InferShapeOrDataForValue(Value val) {
       infer_symbolic_shape_interface.InferSymbolicShape(&context_);
       // Note(ooooo): Temporarily skip check for CombineOp because TensorArray
       // inputs.
-      if (op->isa<pir::CombineOp>()) {
+      if (op->isa<pir::CombineOp>() ||
+          op->isa<paddle::dialect::FusedAttentionOp>()) {
         return;
       }
       int index = -1;
