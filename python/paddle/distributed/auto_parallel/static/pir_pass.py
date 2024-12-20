@@ -1051,8 +1051,8 @@ def complete_chunk_id(dist_program, startup_program, pipeline_strategy):
     seg_struct_names = _get_seg_struct_names(
         dist_program.global_block().ops, seg_method
     )
-
     ops = dist_program.global_block().ops
+
     assert (len(seg_struct_names) % num_chunks == 0) or (
         (len(seg_struct_names) + 1) % num_chunks == 0
         and (len(seg_struct_names) + 1) // num_chunks != 1
