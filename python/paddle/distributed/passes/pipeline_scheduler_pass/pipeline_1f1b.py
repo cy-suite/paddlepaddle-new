@@ -180,7 +180,7 @@ class Pipeline1F1BPass(PipelinePassBase):
 
     def _create_job_list(self):
 
-        if os.getenv("FLAGS_enable_p2p_comm_opt", 1) in [
+        if os.getenv("FLAGS_enable_p2p_comm_opt", 0) in [
             'True',
             'true',
             '1',
@@ -716,7 +716,7 @@ class Pipeline1F1BPass(PipelinePassBase):
             not enable_send_recv_overlap
         ), "PIR does not support 1F1B with enable_send_recv_overlap yet."
 
-        if os.getenv("FLAGS_enable_p2p_comm_opt", 1) in [
+        if os.getenv("FLAGS_enable_p2p_comm_opt", 0) in [
             'True',
             'true',
             '1',

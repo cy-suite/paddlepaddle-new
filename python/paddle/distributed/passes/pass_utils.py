@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import os
 from collections import OrderedDict
 from enum import Enum
 from functools import reduce
@@ -530,7 +531,16 @@ def _pir_overlap_send_recv(program):
             elif op.name() == "pd_op.recv_v2":
                 op.set_bool_attr("dynamic_shape", False)
                 op.set_bool_attr("use_calc_stream", True)
-                op.set_execution_stream(ExecutionStreamType.DefaultStream.value)
+                if os.getenv("FLAGS_enable_p2p_comm_opt", 0) in [
+                    'True',
+                    'true',
+                    '1',
+                ]:
+                    op.set_execution_stream(
+                        ExecutionStreamType.DefaultStream.value
+                    )
+                else:
+                    op.set_execution_stream("recv_stream")
                 op.set_scheduling_priority(0)
 
 
@@ -873,6 +883,7 @@ def _split_program_into_forward_backward_optimize(
     main_program, enable_send_recv_overlap=False
 ):
     _pir_overlap_send_recv(main_program)
+
     forward_complete_op_role(main_program)
     complete_ops = main_program.global_block().ops
 
