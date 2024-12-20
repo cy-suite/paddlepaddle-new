@@ -154,7 +154,7 @@ class TensorRTBaseTest(unittest.TestCase):
                     new_list_args[sub_arg_name] = self.api_args[arg_name][i]
                 self.api_args[arg_name] = new_list_args
 
-    def check_trt_result(self, rtol=1e-5, atol=1e-5, precision_mode="fp32"):
+    def check_trt_result(self, rtol=1e-5, atol=1e-5, precision_mode=None):
         paddle.framework.set_flags({"FLAGS_trt_min_group_size": 1})
         with paddle.pir_utils.IrGuard():
             self.prepare_feed()
@@ -254,13 +254,14 @@ class TensorRTBaseTest(unittest.TestCase):
 
             # run TRTConverter(would lower group_op into tensorrt_engine_op)
             trt_config = None
+
+            input = Input(
+                min_input_shape=self.min_shape,
+                optim_input_shape=self.min_shape,
+                max_input_shape=self.max_shape,
+            )
+            trt_config = TensorRTConfig(inputs=[input])
             if precision_mode == "fp16":
-                input = Input(
-                    min_input_shape=self.min_shape,
-                    optim_input_shape=self.min_shape,
-                    max_input_shape=self.max_shape,
-                )
-                trt_config = TensorRTConfig(inputs=[input])
                 trt_config.precision_mode = PrecisionMode.FP16
 
             converter = PaddleToTensorRTConverter(
