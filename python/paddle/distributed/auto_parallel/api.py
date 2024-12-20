@@ -2211,10 +2211,10 @@ class DistModel:
         if int(os.environ.get('FLAGS_enable_sharding_stage1_tensor_fusion', 0)):
             if isinstance(optimizer, _ShardOptimizer) and use_pir_api():
                 shard_fn = optimizer._shard_fn
-                optimizer = optimizer._inner_opt
-                if isinstance(optimizer._shard_fn, ShardingStage1):
+                inner_opt = optimizer._inner_opt
+                if isinstance(shard_fn, ShardingStage1):
                     optimizer = ShardingOptimizerStage1(
-                        optimizer, shard_fn, self._inner_strategy
+                        inner_opt, shard_fn, self._inner_strategy
                     )
 
         self._engine = Engine(
@@ -2784,9 +2784,14 @@ class DistModel:
                                 for ori_p in ori_params_meta:
                                     local_state_dict.pop(ori_p + suffix)
 
-        dist_main_program.set_state_dict(
-            local_state_dict, paddle.static.global_scope(), copy_tensor
-        )
+        if use_pir_api():
+            dist_main_program.set_state_dict(
+                local_state_dict, paddle.static.global_scope(), copy_tensor
+            )
+        else:
+            dist_main_program.set_state_dict(
+                local_state_dict, paddle.static.global_scope()
+            )
 
 
 def to_static(

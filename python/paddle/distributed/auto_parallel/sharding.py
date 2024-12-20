@@ -768,6 +768,7 @@ class ShardingOptimizerStage1(Optimizer):
         # when the model is saved, we no need to save the slice@ parameters
         for name in slice_param_names:
             del state_dict[name]
+        paddle.device.cuda.empty_cache()
 
         if self._dy_shard_group is None:
             self._create_dy_sharding_group()
@@ -784,6 +785,7 @@ class ShardingOptimizerStage1(Optimizer):
             self._broadcast_pow_acc_opt_params(
                 state_dict, group_info, pow_acc_opt_param_names
             )
+            paddle.device.cuda.empty_cache()
 
     def _create_dy_sharding_group(self):
         mesh = self._shard_fn._mesh
@@ -1015,7 +1017,7 @@ class ShardingOptimizerStage1(Optimizer):
             shard_opt_param = shard_opt_param[tuple(shard_index)]
 
             shard_opt_param = _dtensor_from_local(
-                shard_opt_param,
+                shard_opt_param.clone(),
                 opt_param_mesh,
                 opt_param_placements,
                 shard_opt_param.shape,
