@@ -28,6 +28,45 @@ void SumKernel(const Context& dev_ctx,
                bool keep_dim,
                DenseTensor* out) {
   bool reduce_all = recompute_reduce_all(x, dims);
+  if (x.numel() == 0) {
+    auto x_dims = x.dims();
+    std::vector<int64_t> out_dims;
+    if (reduce_all) {
+      if (keep_dim) {
+        out_dims.resize(x_dims.size(), 1);
+      } else {
+        out_dims = std::vector<int64_t>();
+      }
+    } else {
+      std::set<int64_t> reduce_dims;
+      auto dims_vec = dims.GetData();
+      for (auto dim : dims_vec) {
+        if (dim < 0) {
+          dim += x_dims.size();
+        }
+        reduce_dims.insert(dim);
+      }
+      if (keep_dim) {
+        out_dims.resize(x_dims.size());
+        for (int64_t i = 0; i < x_dims.size(); ++i) {
+          if (reduce_dims.count(i)) {
+            out_dims[i] = 1;
+          } else {
+            out_dims[i] = x_dims[i];
+          }
+        }
+      } else {
+        for (int64_t i = 0; i < x_dims.size(); ++i) {
+          if (!reduce_dims.count(i)) {
+            out_dims.push_back(x_dims[i]);
+          }
+        }
+      }
+    }
+    out->Resize(phi::make_ddim(out_dims));
+    dev_ctx.template Alloc<T>(out);
+    return;
+  }
   SumRawKernel<T, Context>(
       dev_ctx, x, dims, keep_dim, reduce_all, out_dtype, out);
 }
