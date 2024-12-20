@@ -76,6 +76,7 @@ class OneDNNKernelDialect : public pir::Dialect {
 }  // namespace paddle
 
 IR_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::KernelDialect)
+IR_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::CustomKernelDialect)
 #ifdef PADDLE_WITH_DNNL
 IR_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::OneDNNKernelDialect)
 #endif
