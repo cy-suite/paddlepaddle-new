@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import unittest
 
 import numpy as np
@@ -191,12 +190,7 @@ class TestIndexAddAPI(unittest.TestCase):
 
     def setPlace(self):
         self.place = []
-        if (
-            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
-            in ['1', 'true', 'on']
-            or not paddle.is_compiled_with_cuda()
-        ):
-            self.place.append('cpu')
+        self.place.append('cpu')
         if paddle.is_compiled_with_cuda():
             self.place.append('gpu')
 
@@ -237,10 +231,13 @@ class TestIndexAddAPI(unittest.TestCase):
         return x_grad, add_value_grad.numpy()
 
     def run_imperative(self, device):
-        paddle.device.set_device(device)
-        input_tensor = paddle.to_tensor(self.x_np, stop_gradient=False)
-        index = paddle.to_tensor(self.index_np)
-        add_value = paddle.to_tensor(self.add_value_np, stop_gradient=False)
+        input_tensor = paddle.to_tensor(
+            self.x_np, stop_gradient=False, place=device
+        )
+        index = paddle.to_tensor(self.index_np, place=device)
+        add_value = paddle.to_tensor(
+            self.add_value_np, stop_gradient=False, place=device
+        )
 
         out = paddle.index_add(input_tensor, index, self.axis, add_value)
         ref_out = compute_index_add_ref(
