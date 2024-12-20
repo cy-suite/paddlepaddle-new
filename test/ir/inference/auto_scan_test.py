@@ -31,7 +31,6 @@ from program_config import (
     create_fake_model,
     create_fake_pir_model,
     create_quant_model,
-    in_pir_mode,
 )
 
 import paddle
@@ -774,7 +773,13 @@ class TrtLayerAutoScanTest(AutoScanTest):
         return str(dic)
 
     def run_test(
-        self, quant=False, explicit=False, skip_baseline=False, *args, **kwargs
+        self,
+        quant=False,
+        explicit=False,
+        skip_baseline=False,
+        run_pir=False,
+        *args,
+        **kwargs,
     ):
         all_passes = True
 
@@ -790,7 +795,7 @@ class TrtLayerAutoScanTest(AutoScanTest):
             # if program is invalid, we should skip that cases.
             if not self.is_program_valid(prog_config):
                 continue
-            if in_pir_mode():
+            if run_pir:
                 # get pir program from old program
                 startup_program, pir_main_program = create_fake_pir_model(
                     prog_config
@@ -828,6 +833,13 @@ class TrtLayerAutoScanTest(AutoScanTest):
                         )
                         trt_output = exe.run(
                             trt_program, feed=feed_dict, fetch_list=[in_put]
+                        )
+                        np.testing.assert_allclose(
+                            static_out,
+                            trt_output,
+                            rtol=1e-5,
+                            atol=1e-5,
+                            err_msg="Outputs are not within the 1e-2 tolerance",
                         )
             else:
                 with paddle.pir_utils.OldIrGuard():
