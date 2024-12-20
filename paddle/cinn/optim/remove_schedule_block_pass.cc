@@ -16,25 +16,26 @@
 #include "paddle/cinn/optim/replace_var_with_expr.h"
 namespace cinn {
 namespace optim {
+using ir::stmt::BlockRef;
+using ir::stmt::StmtRef;
 
 LogicalResult RemoveScheduleBlockPass::Run(ir::stmt::BlockRef block) {
-  VLOG(4) << "RemoveScheduleBlockPass Run";
-  auto merge_stmt_vector = [&](std::vector<ir::stmt::StmtRef>& dest,
-                               const std::vector<ir::stmt::StmtRef>& source) {
+  const auto& MergeStmtVector = [&](std::vector<StmtRef>& dest,
+                                    const std::vector<StmtRef>& source) {
     dest.insert(dest.end(), source.begin(), source.end());
   };
 
-  const auto& stmts = block->stmts();
-  std::vector<ir::stmt::StmtRef> new_stmts;
-  for (auto& stmt : stmts) {
+  const std::vector<StmtRef>& stmts = block->stmts();
+  std::vector<StmtRef> new_stmts;
+  for (const StmtRef& stmt : stmts) {
     if (!stmt.isa<ir::stmt::Schedule>()) {
       new_stmts.push_back(stmt);
       continue;
     }
-    auto schedule_stmt = stmt.as<ir::stmt::Schedule>();
-    auto iter_values = schedule_stmt->iter_values();
-    auto body = schedule_stmt->body();
-    auto iter_vars = schedule_stmt->iter_vars();
+    const ir::stmt::Schedule schedule_stmt = stmt.as<ir::stmt::Schedule>();
+    const std::vector<Expr> iter_values = schedule_stmt->iter_values();
+    const BlockRef body = schedule_stmt->body();
+    const std::vector<Var> iter_vars = schedule_stmt->iter_vars();
     PADDLE_ENFORCE_EQ(iter_vars.size(),
                       iter_values.size(),
                       ::common::errors::InvalidArgument(
@@ -43,9 +44,9 @@ LogicalResult RemoveScheduleBlockPass::Run(ir::stmt::BlockRef block) {
                           iter_vars.size(),
                           iter_values.size()));
     for (int i = 0; i < iter_vars.size(); i++) {
-      optim::ReplaceVarWithExprInBlock(body, iter_vars[i], iter_values[i], "");
+      optim::ReplaceVarWithExpr(body, iter_vars[i], iter_values[i], "");
     }
-    merge_stmt_vector(new_stmts, body->stmts());
+    MergeStmtVector(new_stmts, body->stmts());
   }
   block->set_stmts(new_stmts);
   return LogicalResult::success();

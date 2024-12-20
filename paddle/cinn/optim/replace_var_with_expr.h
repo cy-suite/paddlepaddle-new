@@ -60,14 +60,14 @@ void ReplaceVarWithExpr(Expr *source,
                         const Expr &expr,
                         const std::string &tensor_name = "");
 
-void ReplaceVarWithExprInStmt(ir::stmt::StmtRef source,
-                              const Var &var,
-                              const Expr &expr,
-                              const std::string &tensor_name = "");
-void ReplaceVarWithExprInBlock(ir::stmt::BlockRef source,
-                               const Var &var,
-                               const Expr &expr,
-                               const std::string &tensor_name = "");
+void ReplaceVarWithExpr(ir::stmt::StmtRef source,
+                        const Var &var,
+                        const Expr &expr,
+                        const std::string &tensor_name = "");
+void ReplaceVarWithExpr(ir::stmt::BlockRef source,
+                        const Var &var,
+                        const Expr &expr,
+                        const std::string &tensor_name = "");
 
 /**
  * Collect the specific tensor's indices.

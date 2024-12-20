@@ -27,56 +27,50 @@
 namespace cinn {
 namespace optim {
 
-struct ReplaceVarWithExprStmtMutator : public ir::stmt::StmtMutator<> {
-  ReplaceVarWithExprStmtMutator(const Var& var,
-                                const Expr& expr,
-                                const std::string& tensor_name)
+struct ReplaceVarWithExprMutator : public ir::IRMutator<>,
+                                   public ir::stmt::StmtMutator<> {
+  ReplaceVarWithExprMutator(const Var& var,
+                            const Expr& expr,
+                            const std::string& tensor_name)
       : var_(var), expr_(expr), tensor_name_(tensor_name) {}
 
+  void operator()(Expr* expr) {
+    if (tensor_name_.empty()) visit_all_ = true;
+    IRMutator::Visit(expr, expr);
+  }
+
   void operator()(ir::stmt::StmtRef stmt) {
-    VLOG(4) << "Enter ReplaceVarWithExprStmtMutator::operator()";
     if (tensor_name_.empty()) visit_all_ = true;
     ir::stmt::StmtMutator<>::VisitStmt(stmt);
-    VLOG(4) << "Exit ReplaceVarWithExprStmtMutator::operator()";
   }
 
   void operator()(ir::stmt::BlockRef block) {
-    VLOG(4) << "Enter ReplaceVarWithExprStmtMutator::operator()";
     if (tensor_name_.empty()) visit_all_ = true;
     ir::stmt::StmtMutator<>::VisitBlock(block);
-    VLOG(4) << "Exit ReplaceVarWithExprStmtMutator::operator()";
   }
 
  private:
-  bool ShouldReplaceExpr(const Expr& expr) {
-    if (!expr.is_var()) {
-      return false;
+  void VisitVar(Var* var) {
+    if (var->get()->name == var_->name && (do_replace_ || visit_all_)) {
+      Expr copied = ir::ir_utils::IRCopy(expr_);
+      *var = copied;
     }
-    if (expr.as_var()->name == var_->name && (do_replace_ || visit_all_)) {
-      return true;
-    }
-    return false;
   }
 
   void VisitExpr(ir::Expr* expr) {
-    VLOG(4) << "Enter VisitExpr(ir::Expr* expr)";
     if (expr->is_var()) {
-      VLOG(4) << "Hit var: " << expr->as_var()->name;
       if (expr->as_var()->name == var_->name && (do_replace_ || visit_all_)) {
-        auto copied = ir::ir_utils::IRCopy(expr_);
+        Expr copied = ir::ir_utils::IRCopy(expr_);
         *expr = copied;
       }
       return;
     }
     for (auto field : (*expr)->expr_fields()) {
-      VLOG(4) << "field: " << *field;
       VisitExpr(field);
     }
-    VLOG(4) << "Exit VisitExpr(ir::Expr* expr)";
   }
 
   void VisitStmt(ir::stmt::Let stmt) override {
-    VLOG(4) << "Enter VisitStmt(ir::stmt::Let stmt)";
     Expr symbol = stmt->symbol();
     VisitExpr(&symbol);
     stmt->set_symbol(symbol);
@@ -85,25 +79,24 @@ struct ReplaceVarWithExprStmtMutator : public ir::stmt::StmtMutator<> {
       VisitExpr(&body);
       stmt->set_body(body);
     }
-    VLOG(4) << "Exit VisitStmt(ir::stmt::Let stmt)";
   }
 
   void VisitStmt(ir::stmt::Store stmt) override {
-    VLOG(4) << "Enter VisitStmt(ir::stmt::Store stmt)";
     auto* tensor = stmt->tensor().as_tensor();
     if (tensor && tensor->name == tensor_name_) {
       do_replace_ = true;
     } else {
       do_replace_ = false;
     }
+
     std::vector<Expr> new_indices = stmt->indices();
     for (Expr& index : new_indices) {
-      VLOG(4) << "index: " << index;
       VisitExpr(&index);
     }
     stmt->set_indices(new_indices);
+
     do_replace_ = false;
-    VLOG(4) << "stmt->tensor(): " << stmt->tensor();
+
     Expr tensor_expr = stmt->tensor();
     VisitExpr(&tensor_expr);
     stmt->set_tensor(tensor_expr);
@@ -111,38 +104,21 @@ struct ReplaceVarWithExprStmtMutator : public ir::stmt::StmtMutator<> {
     Expr value = stmt->value();
     VisitExpr(&value);
     stmt->set_value(value);
-    VLOG(4) << "Exit VisitStmt(ir::stmt::Store stmt)";
   }
 
   void VisitStmt(ir::stmt::For stmt) override {
-    VLOG(4) << "Enter VisitStmt(ir::stmt::For stmt)";
-    VLOG(4) << "stmt->min(): " << stmt->min();
     Expr min = stmt->min();
     VisitExpr(&min);
-    VLOG(4) << "stmt->extent(): " << stmt->extent();
     Expr extent = stmt->extent();
     VisitExpr(&extent);
-    VLOG(4) << "stmt->body(): " << stmt->body();
     VisitBlock(stmt->body());
     if (stmt->loop_var()->name == var_->name && expr_.as_var() && visit_all_) {
-      auto copied = ir::ir_utils::IRCopy(expr_);
+      Expr copied = ir::ir_utils::IRCopy(expr_);
       stmt->set_loop_var(copied.as_var_ref());
     }
-    VLOG(4) << "Exit VisitStmt(ir::stmt::For stmt)";
-  }
-
-  void VisitStmt(ir::stmt::Alloc stmt) override {
-    VLOG(4) << "Enter VisitStmt(ir::stmt::Alloc stmt)";
-    return;
-  }
-
-  void VisitStmt(ir::stmt::Free stmt) override {
-    VLOG(4) << "Enter VisitStmt(ir::stmt::Free stmt)";
-    return;
   }
 
   void VisitStmt(ir::stmt::IfThenElse stmt) override {
-    VLOG(4) << "Enter VisitStmt(ir::stmt::IfThenElse stmt)";
     Expr condition = stmt->condition();
     VisitExpr(&condition);
     ir::stmt::BlockRef true_case = stmt->true_case();
@@ -155,22 +131,14 @@ struct ReplaceVarWithExprStmtMutator : public ir::stmt::StmtMutator<> {
     }
   }
 
-  void VisitStmt(ir::stmt::Evaluate) override {
-    VLOG(4) << "Enter VisitStmt(ir::stmt::Evaluate)";
-    return;
-  }
-
   void VisitStmt(ir::stmt::Schedule stmt) override {
-    VLOG(4) << "Enter VisitStmt(ir::stmt::Schedule stmt)";
     std::vector<Var> vars = stmt->iter_vars();
     for (ir::Var& var : vars) {
-      if (var->lower_bound.defined() && ShouldReplaceExpr(var->lower_bound)) {
-        auto copied = ir::ir_utils::IRCopy(expr_);
-        var->lower_bound = copied;
+      if (var->lower_bound.defined()) {
+        VisitExpr(&var->lower_bound);
       }
-      if (var->upper_bound.defined() && ShouldReplaceExpr(var->upper_bound)) {
-        auto copied = ir::ir_utils::IRCopy(expr_);
-        var->upper_bound = copied;
+      if (var->upper_bound.defined()) {
+        VisitExpr(&var->upper_bound);
       }
     }
     std::vector<Expr> new_read_buffers = stmt->read_buffers();
@@ -187,29 +155,9 @@ struct ReplaceVarWithExprStmtMutator : public ir::stmt::StmtMutator<> {
     VisitBlock(stmt->body());
   }
 
- private:
-  bool do_replace_{false};
-  bool visit_all_{false};
-  const Var& var_;
-  const Expr& expr_;
-  const std::string& tensor_name_;
-};
-
-struct ReplaceVarWithExprMutator : public ir::IRMutator<> {
-  ReplaceVarWithExprMutator(const Var& var,
-                            const Expr& expr,
-                            const std::string& tensor_name)
-      : var_(var), expr_(expr), tensor_name_(tensor_name) {}
-
-  void operator()(Expr* expr) {
-    if (tensor_name_.empty()) visit_all_ = true;
-    IRMutator::Visit(expr, expr);
-  }
-
- private:
   void Visit(const ir::_Var_* expr, Expr* op) override {
     if (expr->name == var_->name && (do_replace_ || visit_all_)) {
-      auto copied = ir::ir_utils::IRCopy(expr_);
+      Expr copied = ir::ir_utils::IRCopy(expr_);
       *op = copied;
     }
   }
@@ -267,6 +215,12 @@ struct ReplaceVarWithExprMutator : public ir::IRMutator<> {
     ir::IRMutator<>::Visit(&node->tensor, &node->tensor);
   }
 
+  void VisitStmt(ir::stmt::Alloc stmt) override { return; }
+
+  void VisitStmt(ir::stmt::Free stmt) override { return; }
+
+  void VisitStmt(ir::stmt::Evaluate) override { return; }
+
  private:
   bool do_replace_{false};
   bool visit_all_{false};
@@ -275,23 +229,19 @@ struct ReplaceVarWithExprMutator : public ir::IRMutator<> {
   const std::string& tensor_name_;
 };
 
-void ReplaceVarWithExprInStmt(ir::stmt::StmtRef source,
-                              const Var& var,
-                              const Expr& expr,
-                              const std::string& tensor_name) {
-  ReplaceVarWithExprStmtMutator mutator(var, expr, tensor_name);
+void ReplaceVarWithExpr(ir::stmt::StmtRef source,
+                        const Var& var,
+                        const Expr& expr,
+                        const std::string& tensor_name) {
+  ReplaceVarWithExprMutator mutator(var, expr, tensor_name);
   mutator(source);
 }
 
-void ReplaceVarWithExprInBlock(ir::stmt::BlockRef source,
-                               const Var& var,
-                               const Expr& expr,
-                               const std::string& tensor_name) {
-  VLOG(4) << "Enter ReplaceVarWithExprInBlock";
-  VLOG(4) << "source: " << source;
-  VLOG(4) << "var: " << var;
-  VLOG(4) << "expr: " << expr;
-  ReplaceVarWithExprStmtMutator mutator(var, expr, tensor_name);
+void ReplaceVarWithExpr(ir::stmt::BlockRef source,
+                        const Var& var,
+                        const Expr& expr,
+                        const std::string& tensor_name) {
+  ReplaceVarWithExprMutator mutator(var, expr, tensor_name);
   mutator(source);
 }
 
