@@ -17,6 +17,8 @@
 #include "paddle/fluid/pir/dialect/operator/ir/op_dialect.h"
 #include "paddle/pir/include/core/ir_context.h"
 
+namespace paddle {
+namespace custom_engine {
 bool ValidCustomCustomEngineParams(const CustomEngineParams* params) {
 #define CHECK_INTERFACE(ptr, required)                                  \
   if (params->interface->ptr == nullptr && required) {                  \
@@ -32,21 +34,16 @@ bool ValidCustomCustomEngineParams(const CustomEngineParams* params) {
 #undef CHECK_INTERFACE
 }
 
-typedef bool (*RegisterDevicePluginEngineFn)(CustomEngineParams* engine_params);
-
-void LoadCustomEngineLib(
-    const CustomEngineParams& engine_params,
-    std::unique_ptr<C_CustomEngineInterface> engine_interface,
-    const std::string& dso_lib_path,
-    void* dso_handle) {
-  if (ValidCustomCustomEngineParams(&engine_params)) {
+void LoadCustomEngineLib(const std::string& dso_lib_path,
+                         CustomEngineParams* engine_params) {
+  if (ValidCustomCustomEngineParams(engine_params)) {
     // pir::IrContext* ctx = pir::IrContext::Instance();
     // paddle::dialect::CustomEngineDialect* custom_engine_dialect =
     //   ctx->GetOrRegisterDialect<paddle::dialect::CustomEngineDialect>();
     // custom_dialect->RegisterCustomOp<CustomEngineOp>();
 
-    paddle::custom_engine::CustomEngineManager::SetCustomEngineInterface(
-        std::move(engine_interface));
+    paddle::custom_engine::CustomEngineManager::Instance()
+        ->SetCustomEngineInterface(engine_params->interface);
 
   } else {
     LOG(WARNING) << "Skipped lib [" << dso_lib_path
@@ -54,3 +51,6 @@ void LoadCustomEngineLib(
                     "compatibility between PaddlePaddle and Custom Engine.";
   }
 }
+
+}  // namespace custom_engine
+}  // namespace paddle

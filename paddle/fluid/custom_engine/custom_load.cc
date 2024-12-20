@@ -61,8 +61,10 @@ void LoadCustomLib(const std::string& dso_lib_path, void* dso_handle) {
     CustomEngineParams engine_params;
     std::memset(&engine_params, 0, sizeof(CustomEngineParams));
     engine_params.size = sizeof(CustomEngineParams);
-    auto engine_interface = std::make_unique<C_CustomEngineInterface>();
-    engine_params.interface = engine_interface.get();
+
+    auto engine_interface = new (C_CustomEngineInterface);
+    engine_params.interface = engine_interface;
+
     std::memset(engine_params.interface, 0, sizeof(C_CustomEngineInterface));
     engine_params.interface->size = sizeof(C_CustomEngineInterface);
 
@@ -72,8 +74,7 @@ void LoadCustomLib(const std::string& dso_lib_path, void* dso_handle) {
                    << "]: InitPluginEngine failed, please check the version "
                       "compatibility between PaddlePaddle and Custom Runtime.";
     } else {
-      LoadCustomEngineLib(
-          engine_params, std::move(engine_interface), dso_lib_path, dso_handle);
+      paddle::custom_engine::LoadCustomEngineLib(dso_lib_path, &engine_params);
       LOG(INFO) << "Succeed in loading custom engine in lib: " << dso_lib_path;
     }
   }

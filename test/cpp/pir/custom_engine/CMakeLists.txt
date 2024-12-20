@@ -1,3 +1,4 @@
+paddle_test(test_custom_engine_loadlib SRCS test_custom_engine_loadlib.cc)
 paddle_test(test_custom_engine SRCS test_custom_engine_operation.cc
             custom_engine_op.cc)
 if(WITH_ONNXRUNTIME AND WIN32)

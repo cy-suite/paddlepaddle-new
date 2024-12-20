@@ -17,14 +17,26 @@
 namespace paddle {
 namespace custom_engine {
 
+CustomEngineManager* CustomEngineManager::Instance() {
+  static CustomEngineManager manager;
+  return &manager;
+}
+
+CustomEngineManager::CustomEngineManager() : interface_(nullptr) {}
+
+CustomEngineManager::~CustomEngineManager() {
+  if (!interface_) {
+    delete interface_;
+  }
+}
 C_CustomEngineInterface* CustomEngineManager::GetCustomEngineInterface() {
-  return interface_.get();
+  return interface_;
 }
 
 void CustomEngineManager::SetCustomEngineInterface(
-    std::unique_ptr<C_CustomEngineInterface> device_interface) {
-  if (device_interface) {
-    interface_ = std::move(device_interface);
+    C_CustomEngineInterface* custom_engine_interface) {
+  if (custom_engine_interface) {
+    interface_ = custom_engine_interface;
   }
 }
 

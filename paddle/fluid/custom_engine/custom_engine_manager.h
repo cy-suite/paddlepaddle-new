@@ -22,21 +22,22 @@ namespace custom_engine {
 
 class CustomEngineManager {
  public:
-  static C_CustomEngineInterface* GetCustomEngineInterface();
+  static CustomEngineManager* Instance();
 
-  static void SetCustomEngineInterface(
-      std::unique_ptr<C_CustomEngineInterface> device_interface);
-  CustomEngineManager() = default;
-  virtual ~CustomEngineManager() {}
+  CustomEngineManager();
+  ~CustomEngineManager();
 
-  static std::unique_ptr<C_CustomEngineInterface> interface_;
+  C_CustomEngineInterface* GetCustomEngineInterface();
+
+  void SetCustomEngineInterface(
+      C_CustomEngineInterface* custom_engine_interface);
+
+ private:
+  C_CustomEngineInterface* interface_;
 };
 
-void LoadCustomEngineLib(
-    const CustomEngineParams& engine_params,
-    std::unique_ptr<C_CustomEngineInterface> engine_interface,
-    const std::string& dso_lib_path,
-    void* dso_handle);
+void LoadCustomEngineLib(const std::string& dso_lib_path,
+                         CustomEngineParams* engine_params);
 
 }  // namespace custom_engine
 }  // namespace paddle
