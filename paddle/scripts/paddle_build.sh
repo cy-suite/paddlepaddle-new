@@ -1438,7 +1438,7 @@ function caught_error() {
             EXIT_CODE=1;
         fi
     done
-}
+} >/dev/null
 
 function case_count(){
     cat <<EOF
@@ -2724,6 +2724,8 @@ function hybrid_paddlex() {
     export DEVICE=($(echo $HIP_VISIBLE_DEVICES | tr "," "\n"))
     git clone --depth=1000 https://gitee.com/paddlepaddle/PaddleX.git
     cd PaddleX
+    export DCU_DEVICES=`echo $HIP_VISIBLE_DEVICES`
+    unset HIP_VISIBLE_DEVICES
     pip install -e .
     paddlex --install PaddleClas
     paddlex --install PaddleSeg
@@ -2738,7 +2740,7 @@ function hybrid_paddlex() {
     -o Global.mode=train \
     -o Global.dataset_dir=./dataset/cls_flowers_examples \
     -o Global.output=resnet50_output \
-    -o Global.device="gpu:${HIP_VISIBLE_DEVICES}" \
+    -o Global.device="gpu:${DCU_DEVICES}" \
     -o Train.epochs_iters=2
 
     # inference Reset50
@@ -2754,7 +2756,7 @@ function hybrid_paddlex() {
     -o Global.mode=train \
     -o Global.dataset_dir=./dataset/seg_optic_examples \
     -o Global.output=deeplabv3p_output \
-    -o Global.device="gpu:${HIP_VISIBLE_DEVICES}" \
+    -o Global.device="gpu:${DCU_DEVICES}" \
     -o Train.epochs_iters=2
 
     # inference DeepLabv3+
