@@ -61,6 +61,9 @@ class AutoParallelReplaceWithParallelCrossEntropyPass(PassBase):
         del_ops = []
         new_ops = []
 
+        ranks = list(range(nranks))
+        group = new_process_group(ranks, group_id=ring_id)
+
         for block in main_program.blocks:
             for op in reversed(block.ops):
                 if op.name() == 'pd_op.cross_entropy_with_softmax':
