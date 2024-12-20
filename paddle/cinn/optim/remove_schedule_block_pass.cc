@@ -18,6 +18,7 @@ namespace cinn {
 namespace optim {
 
 LogicalResult RemoveScheduleBlockPass::Run(ir::stmt::BlockRef block) {
+  VLOG(4) << "RemoveScheduleBlockPass Run";
   auto merge_stmt_vector = [&](std::vector<ir::stmt::StmtRef>& dest,
                                const std::vector<ir::stmt::StmtRef>& source) {
     dest.insert(dest.end(), source.begin(), source.end());

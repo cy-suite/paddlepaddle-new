@@ -34,13 +34,17 @@ struct ReplaceVarWithExprStmtMutator : public ir::stmt::StmtMutator<> {
       : var_(var), expr_(expr), tensor_name_(tensor_name) {}
 
   void operator()(ir::stmt::StmtRef stmt) {
+    VLOG(4) << "Enter ReplaceVarWithExprStmtMutator::operator()";
     if (tensor_name_.empty()) visit_all_ = true;
     ir::stmt::StmtMutator<>::VisitStmt(stmt);
+    VLOG(4) << "Exit ReplaceVarWithExprStmtMutator::operator()";
   }
 
   void operator()(ir::stmt::BlockRef block) {
+    VLOG(4) << "Enter ReplaceVarWithExprStmtMutator::operator()";
     if (tensor_name_.empty()) visit_all_ = true;
     ir::stmt::StmtMutator<>::VisitBlock(block);
+    VLOG(4) << "Exit ReplaceVarWithExprStmtMutator::operator()";
   }
 
  private:
@@ -55,15 +59,37 @@ struct ReplaceVarWithExprStmtMutator : public ir::stmt::StmtMutator<> {
   }
 
   void VisitExpr(ir::Expr* expr) {
-    if (expr->as_var()->name == var_->name && (do_replace_ || visit_all_)) {
-      auto copied = ir::ir_utils::IRCopy(expr_);
-      *expr = copied;
+    VLOG(4) << "Enter VisitExpr(ir::Expr* expr)";
+    if (expr->is_var()) {
+      VLOG(4) << "Hit var: " << expr->as_var()->name;
+      if (expr->as_var()->name == var_->name && (do_replace_ || visit_all_)) {
+        auto copied = ir::ir_utils::IRCopy(expr_);
+        *expr = copied;
+      }
+      return;
     }
+    for (auto field : (*expr)->expr_fields()) {
+      VLOG(4) << "field: " << *field;
+      VisitExpr(field);
+    }
+    VLOG(4) << "Exit VisitExpr(ir::Expr* expr)";
   }
 
-  void VisitStmt(ir::stmt::Let stmt) override { return; }
+  void VisitStmt(ir::stmt::Let stmt) override {
+    VLOG(4) << "Enter VisitStmt(ir::stmt::Let stmt)";
+    Expr symbol = stmt->symbol();
+    VisitExpr(&symbol);
+    stmt->set_symbol(symbol);
+    if (stmt->body().defined()) {
+      Expr body = stmt->body();
+      VisitExpr(&body);
+      stmt->set_body(body);
+    }
+    VLOG(4) << "Exit VisitStmt(ir::stmt::Let stmt)";
+  }
 
   void VisitStmt(ir::stmt::Store stmt) override {
+    VLOG(4) << "Enter VisitStmt(ir::stmt::Store stmt)";
     auto* tensor = stmt->tensor().as_tensor();
     if (tensor && tensor->name == tensor_name_) {
       do_replace_ = true;
@@ -71,49 +97,95 @@ struct ReplaceVarWithExprStmtMutator : public ir::stmt::StmtMutator<> {
       do_replace_ = false;
     }
     std::vector<Expr> new_indices = stmt->indices();
-    for (size_t i = 0; i < new_indices.size(); ++i) {
-      if (ShouldReplaceExpr(new_indices[i])) {
-        auto copied = ir::ir_utils::IRCopy(expr_);
-        new_indices[i] = copied;
-      }
+    for (Expr& index : new_indices) {
+      VLOG(4) << "index: " << index;
+      VisitExpr(&index);
     }
     stmt->set_indices(new_indices);
     do_replace_ = false;
-    if (ShouldReplaceExpr(stmt->tensor())) {
-      auto copied = ir::ir_utils::IRCopy(expr_);
-      stmt->set_tensor(copied);
-    }
+    VLOG(4) << "stmt->tensor(): " << stmt->tensor();
+    Expr tensor_expr = stmt->tensor();
+    VisitExpr(&tensor_expr);
+    stmt->set_tensor(tensor_expr);
 
-    if (ShouldReplaceExpr(stmt->value())) {
-      auto copied = ir::ir_utils::IRCopy(expr_);
-      stmt->set_value(copied);
-    }
+    Expr value = stmt->value();
+    VisitExpr(&value);
+    stmt->set_value(value);
+    VLOG(4) << "Exit VisitStmt(ir::stmt::Store stmt)";
   }
 
   void VisitStmt(ir::stmt::For stmt) override {
-    if (ShouldReplaceExpr(stmt->min())) {
-      auto copied = ir::ir_utils::IRCopy(expr_);
-      stmt->set_min(copied);
-    }
-    if (ShouldReplaceExpr(stmt->extent())) {
-      auto copied = ir::ir_utils::IRCopy(expr_);
-      stmt->set_extent(copied);
-    }
+    VLOG(4) << "Enter VisitStmt(ir::stmt::For stmt)";
+    VLOG(4) << "stmt->min(): " << stmt->min();
+    Expr min = stmt->min();
+    VisitExpr(&min);
+    VLOG(4) << "stmt->extent(): " << stmt->extent();
+    Expr extent = stmt->extent();
+    VisitExpr(&extent);
+    VLOG(4) << "stmt->body(): " << stmt->body();
     VisitBlock(stmt->body());
     if (stmt->loop_var()->name == var_->name && expr_.as_var() && visit_all_) {
-      stmt->set_loop_var(expr_.as_var_ref());
+      auto copied = ir::ir_utils::IRCopy(expr_);
+      stmt->set_loop_var(copied.as_var_ref());
+    }
+    VLOG(4) << "Exit VisitStmt(ir::stmt::For stmt)";
+  }
+
+  void VisitStmt(ir::stmt::Alloc stmt) override {
+    VLOG(4) << "Enter VisitStmt(ir::stmt::Alloc stmt)";
+    return;
+  }
+
+  void VisitStmt(ir::stmt::Free stmt) override {
+    VLOG(4) << "Enter VisitStmt(ir::stmt::Free stmt)";
+    return;
+  }
+
+  void VisitStmt(ir::stmt::IfThenElse stmt) override {
+    VLOG(4) << "Enter VisitStmt(ir::stmt::IfThenElse stmt)";
+    Expr condition = stmt->condition();
+    VisitExpr(&condition);
+    ir::stmt::BlockRef true_case = stmt->true_case();
+    VisitBlock(true_case);
+    stmt->set_true_case(true_case);
+    if (stmt->false_case().defined()) {
+      ir::stmt::BlockRef false_case = stmt->false_case();
+      VisitBlock(false_case);
+      stmt->set_false_case(false_case);
     }
   }
 
-  void VisitStmt(ir::stmt::Alloc stmt) override { return; }
+  void VisitStmt(ir::stmt::Evaluate) override {
+    VLOG(4) << "Enter VisitStmt(ir::stmt::Evaluate)";
+    return;
+  }
 
-  void VisitStmt(ir::stmt::Free stmt) override { return; }
+  void VisitStmt(ir::stmt::Schedule stmt) override {
+    VLOG(4) << "Enter VisitStmt(ir::stmt::Schedule stmt)";
+    std::vector<Var> vars = stmt->iter_vars();
+    for (ir::Var& var : vars) {
+      if (var->lower_bound.defined() && ShouldReplaceExpr(var->lower_bound)) {
+        auto copied = ir::ir_utils::IRCopy(expr_);
+        var->lower_bound = copied;
+      }
+      if (var->upper_bound.defined() && ShouldReplaceExpr(var->upper_bound)) {
+        auto copied = ir::ir_utils::IRCopy(expr_);
+        var->upper_bound = copied;
+      }
+    }
+    std::vector<Expr> new_read_buffers = stmt->read_buffers();
+    for (Expr& read_buffer : new_read_buffers) {
+      VisitExpr(&read_buffer);
+    }
+    stmt->set_read_buffers(new_read_buffers);
 
-  void VisitStmt(ir::stmt::IfThenElse stmt) override { return; }
-
-  void VisitStmt(ir::stmt::Evaluate) override { return; }
-
-  void VisitStmt(ir::stmt::Schedule stmt) override { return; }
+    std::vector<Expr> new_write_buffers = stmt->write_buffers();
+    for (Expr& write_buffer : new_write_buffers) {
+      VisitExpr(&write_buffer);
+    }
+    stmt->set_write_buffers(new_write_buffers);
+    VisitBlock(stmt->body());
+  }
 
  private:
   bool do_replace_{false};
@@ -215,6 +287,10 @@ void ReplaceVarWithExprInBlock(ir::stmt::BlockRef source,
                                const Var& var,
                                const Expr& expr,
                                const std::string& tensor_name) {
+  VLOG(4) << "Enter ReplaceVarWithExprInBlock";
+  VLOG(4) << "source: " << source;
+  VLOG(4) << "var: " << var;
+  VLOG(4) << "expr: " << expr;
   ReplaceVarWithExprStmtMutator mutator(var, expr, tensor_name);
   mutator(source);
 }
