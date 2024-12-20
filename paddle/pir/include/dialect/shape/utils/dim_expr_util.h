@@ -241,28 +241,28 @@ struct FoldOperandTrait<Mul> {
   }
   static bool IsInversedPair(const DimExpr& lhs, const DimExpr& rhs) {
     if (lhs.Has<Div<DimExpr>>()) {
-      const auto& lhs_operand = lhs.Get<Div<DimExpr>>().operands;
-      if (lhs_operand->size() != 2 || !lhs_operand->at(0).Has<std::int64_t>()) {
+      auto div_expr = lhs.Get<Div<DimExpr>>();
+      if (!div_expr->lhs.Has<std::int64_t>()) {
         return false;
       }
-      const auto& [lhs_num, lhs_dem] = GetConstRational(lhs_operand->at(0));
+      const auto& [lhs_num, lhs_dem] = GetConstRational(div_expr->lhs);
       if (lhs_dem != 1) {
         return false;
       }
-      if (lhs_operand->at(1) == rhs) {
+      if (div_expr->rhs == rhs) {
         return true;
       }
     }
     if (rhs.Has<Div<DimExpr>>()) {
-      const auto& rhs_operand = rhs.Get<Div<DimExpr>>().operands;
-      if (rhs_operand->size() != 2 || !rhs_operand->at(0).Has<std::int64_t>()) {
+      auto div_expr = rhs.Get<Div<DimExpr>>();
+      if (!div_expr->lhs.Has<std::int64_t>()) {
         return false;
       }
-      const auto& [rhs_num, rhs_dem] = GetConstRational(rhs_operand->at(0));
+      const auto& [rhs_num, rhs_dem] = GetConstRational(div_expr->lhs);
       if (rhs_dem != 1) {
         return false;
       }
-      if (rhs_operand->at(1) == lhs) {
+      if (div_expr->rhs == lhs) {
         return true;
       }
     }

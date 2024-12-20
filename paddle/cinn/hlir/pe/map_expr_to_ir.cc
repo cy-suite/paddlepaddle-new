@@ -875,14 +875,8 @@ class MapExprToIrTranslator {
   ir::Expr Divide(const std::vector<ir::Expr>& ir_exprs) const {
     if (ir_exprs.size() == 0) {
       PADDLE_THROW(::common::errors::Fatal("Dead code"));
-    } else if (ir_exprs.size() == 1) {
-      return ir_exprs.at(0);
     } else {
-      ir::Expr ret = ir_exprs.at(0);
-      for (int i = 1; i < ir_exprs.size(); ++i) {
-        ret = ir::Div::Make(ret, ir_exprs.at(i));
-      }
-      return ret;
+      return ir::Div::Make(ir_exprs.at(0), ir_exprs.at(1));
     }
     PADDLE_THROW(::common::errors::Fatal("Dead code"));
   }
@@ -979,10 +973,10 @@ class MapExprToIrTranslator {
 
   ir::Expr TranslateDimExprImpl(const ::symbol::Div<DimExpr>& dim_expr) const {
     std::vector<ir::Expr> ir_exprs{};
-    const auto& [exprs] = dim_expr;
-    for (const auto& expr : *exprs) {
-      ir_exprs.emplace_back(TranslateDimExpr(expr));
-    }
+    const auto& lhs = dim_expr->lhs;
+    const auto& rhs = dim_expr->rhs;
+    ir_exprs.emplace_back(TranslateDimExpr(lhs));
+    ir_exprs.emplace_back(TranslateDimExpr(rhs));
     return Divide(ir_exprs);
   }
 

@@ -70,15 +70,9 @@ struct DimExprToIrExprVisitor {
   }
 
   ir::Expr operator()(const Div<DimExpr>& dim_expr) {
-    const auto& [operands] = dim_expr;
-    if (operands->empty()) {
-      return ir::Expr(std::int64_t(1));
-    }
-    ir::Expr product = ConvertToIrExpr(operands->at(0));
-    for (std::size_t i = 1; i < operands->size(); ++i) {
-      product = ir::Div::Make(product, ConvertToIrExpr(operands->at(i)));
-    }
-    return product;
+    const auto& lhs = ConvertToIrExpr(dim_expr->lhs);
+    const auto& rhs = ConvertToIrExpr(dim_expr->rhs);
+    return ir::Div::Make(lhs, rhs);
   }
 
   ir::Expr operator()(const Max<DimExpr>& dim_expr) {

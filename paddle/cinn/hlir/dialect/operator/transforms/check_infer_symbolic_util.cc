@@ -148,9 +148,8 @@ struct ShapeSignatureGenerator {
           }
         },
         [&](const symbol::Div<symbol::DimExpr>& div) {
-          for (const auto& dim_expr : *div.operands) {
-            GetSymbolsForOneDimExpr(dim_expr, symbols);
-          }
+          GetSymbolsForOneDimExpr(div->lhs, symbols);
+          GetSymbolsForOneDimExpr(div->rhs, symbols);
         },
         [&](const symbol::Max<symbol::DimExpr>& max) {
           for (const auto& dim_expr : *max.operands) {

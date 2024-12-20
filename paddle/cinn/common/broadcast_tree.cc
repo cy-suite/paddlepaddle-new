@@ -43,6 +43,15 @@ bool SearchBroadcastImplForUnary(const T& unary, const DoEachT& DoEach) {
   return SearchBroadcast(operand, DoEach);
 }
 
+template <typename T, typename DoEachT>
+bool SearchBroadcastImplForBinary(const T& binary, const DoEachT& DoEach) {
+  const auto& lhs = binary->lhs;
+  const auto& rhs = binary->rhs;
+  if (SearchBroadcast(lhs, DoEach)) return true;
+  if (SearchBroadcast(rhs, DoEach)) return true;
+  return false;
+}
+
 template <typename DoEachT>
 bool SearchBroadcastImpl(const symbol::Negative<symbol::DimExpr>& unary,
                          const DoEachT& DoEach) {
@@ -73,7 +82,7 @@ bool SearchBroadcastImpl(const symbol::Mul<symbol::DimExpr>& variadic,
 template <typename DoEachT>
 bool SearchBroadcastImpl(const symbol::Div<symbol::DimExpr>& variadic,
                          const DoEachT& DoEach) {
-  return SearchBroadcastImplForVariadic(variadic, DoEach);
+  return SearchBroadcastImplForBinary(variadic, DoEach);
 }
 
 template <typename DoEachT>

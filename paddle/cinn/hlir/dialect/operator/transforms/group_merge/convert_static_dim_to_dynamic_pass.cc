@@ -199,6 +199,18 @@ struct StaticDimToDynamicConverter {
   }
 
   template <typename T>
+  bool AppliedOnceBinaryImpl(const T& dim_expr, const std::string& symbol) {
+    const auto& lhs = dim_expr->lhs;
+    const auto& rhs = dim_expr->rhs;
+    return AppliedOnce(lhs, symbol) || AppliedOnce(rhs, symbol);
+  }
+
+  bool AppliedOnceImpl(const symbol::Div<symbol::DimExpr>& dim_expr,
+                       const std::string& symbol) {
+    return AppliedOnceBinaryImpl(dim_expr, symbol);
+  }
+
+  template <typename T>
   bool AppliedOnceListImpl(const T& dim_expr, const std::string& symbol) {
     const auto& [operands] = dim_expr;
     for (const auto& operand : *operands) {
@@ -213,11 +225,6 @@ struct StaticDimToDynamicConverter {
   }
 
   bool AppliedOnceImpl(const symbol::Mul<symbol::DimExpr>& dim_expr,
-                       const std::string& symbol) {
-    return AppliedOnceListImpl(dim_expr, symbol);
-  }
-
-  bool AppliedOnceImpl(const symbol::Div<symbol::DimExpr>& dim_expr,
                        const std::string& symbol) {
     return AppliedOnceListImpl(dim_expr, symbol);
   }
@@ -273,6 +280,24 @@ struct StaticDimToDynamicConverter {
   }
 
   template <typename T>
+  std::optional<symbol::DimExpr> ConvertBinaryDimExprImpl(
+      const T& dim_expr, int64_t c, const std::string& symbol) {
+    const auto& lhs = dim_expr->lhs;
+    const auto& rhs = dim_expr->rhs;
+    const auto& converted_lhs = ConvertDimExpr(lhs, c, symbol);
+    const auto& converted_rhs = ConvertDimExpr(rhs, c, symbol);
+    if (!converted_lhs.has_value() && !converted_rhs.has_value())
+      return std::nullopt;
+    if (converted_lhs.has_value() && converted_rhs.has_value()) {
+      return T{converted_lhs.value(), converted_rhs.value()};
+    }
+    if (converted_lhs.has_value()) {
+      return T{converted_lhs.value(), rhs};
+    }
+    return T{lhs, converted_rhs.value()};
+  }
+
+  template <typename T>
   std::optional<symbol::DimExpr> ConvertListDimExprImpl(
       const T& dim_expr, int64_t c, const std::string& symbol) {
     const auto& [operands] = dim_expr;
@@ -314,7 +339,7 @@ struct StaticDimToDynamicConverter {
       const symbol::Div<symbol::DimExpr>& dim_expr,
       int64_t c,
       const std::string& symbol) {
-    return ConvertListDimExprImpl(dim_expr, c, symbol);
+    return ConvertBinaryDimExprImpl(dim_expr, c, symbol);
   }
 
   std::optional<symbol::DimExpr> ConvertDimExprImpl(

@@ -842,14 +842,10 @@ struct PirToPyCodeConverterHelper {
         [](const symbol::Div<symbol::DimExpr>& div) {
           std::ostringstream ss;
           ss << "self.s_div(";
-          const auto& operands = div.operands;
-          int i = 0;
-          for (const auto& operand : *operands) {
-            if (i++ > 0) {
-              ss << ", ";
-            }
-            ss << PirToPyCodeConverterHelper::ConvertDimExpr(operand);
-          }
+          const auto& lhs = div->lhs;
+          const auto& rhs = div->rhs;
+          ss << PirToPyCodeConverterHelper::ConvertDimExpr(lhs) << ", "
+             << PirToPyCodeConverterHelper::ConvertDimExpr(rhs);
           ss << ")";
           return ss.str();
         },

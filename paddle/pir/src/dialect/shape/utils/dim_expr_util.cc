@@ -836,6 +836,53 @@ struct SimplifyBroadcast {
   }
 };
 
+struct SimplifyDiv {
+  using dim_expr_type = Div<DimExpr>;
+
+  DimExpr Rewrite(const DimExpr& expr) {
+    if (!HasNested<Div>(expr)) {
+      return expr;
+    }
+    const auto div_expr = expr.Get<Div<DimExpr>>();
+    const auto lhs = div_expr->lhs;
+    const auto rhs = div_expr->rhs;
+
+    if (lhs.Has<Mul<DimExpr>>() && rhs.Has<Mul<DimExpr>>()) {
+      const auto& [lhs_operands] = lhs.Get<Mul<DimExpr>>();
+      const auto& [rhs_operands] = rhs.Get<Mul<DimExpr>>();
+      std::unordered_multiset<DimExpr> rhs_set(rhs_operands->begin(),
+                                               rhs_operands->end());
+
+      List<DimExpr> new_lhs_operands{};
+      for (const auto& lhs_operand : *lhs_operands) {
+        auto it = rhs_set.find(lhs_operand);
+        if (it != rhs_set.end()) {
+          rhs_set.erase(it);
+        } else {
+          new_lhs_operands->emplace_back(lhs_operand);
+        }
+      }
+      List<DimExpr> new_rhs_operands(rhs_set.begin(), rhs_set.end());
+      if (new_lhs_operands->empty() && new_rhs_operands->empty()) {
+        return DimExpr{1};
+      }
+      DimExpr new_lhs = new_lhs_operands->size() == 1
+                            ? new_lhs_operands->at(0)
+                            : Mul<DimExpr>{new_lhs_operands};
+      DimExpr new_rhs = new_rhs_operands->size() == 1
+                            ? new_rhs_operands->at(0)
+                            : Mul<DimExpr>{new_rhs_operands};
+      if (new_rhs_operands->empty()) {
+        return new_lhs;
+      }
+      if (new_lhs_operands->empty()) {
+        return Div<DimExpr>{1, new_rhs};
+      }
+      return Div<DimExpr>{new_lhs, new_rhs};
+    }
+  }
+};
+
 template <typename PassT>
 void DoPass(bool* rewrited, DimExpr* expr) {
   const auto old_expr = *expr;
@@ -875,7 +922,7 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<FoldInversedPairToUnit<Mul>>(&keep_rewrite, &ret);
     DoPass<FoldRedundantBroadcast>(&keep_rewrite, &ret);
     DoPass<FoldRedundantSymbolicBroadcast>(&keep_rewrite, &ret);
-    // DoPass<SimplifyDiv>(&keep_rewrite, &ret);
+    DoPass<SimplifyDiv>(&keep_rewrite, &ret);
     DoPass<SimplifyBroadcast>(&keep_rewrite, &ret);
     if (expr_before_run_pipeline == ret) break;
   }

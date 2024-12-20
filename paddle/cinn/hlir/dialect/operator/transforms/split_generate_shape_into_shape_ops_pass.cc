@@ -202,20 +202,12 @@ struct CachedDimExprToValueConverter {
   }
 
   pir::Value ConvertToValueImpl(const symbol::Div<symbol::DimExpr>& dim_expr) {
-    const auto& [operands] = dim_expr;
-    PADDLE_ENFORCE_GT(operands->size(),
-                      0,
-                      ::common::errors::InvalidArgument(
-                          "The size of operands is incorrect."
-                          "Expected size is larger than 0, but receive %d.",
-                          operands->size()));
-    pir::Value prod = ConvertToValue(operands->at(0));
-    for (int i = 1; i < operands->size(); ++i) {
-      pir::Value operand_value = ConvertToValue(operands->at(i));
-      prod =
-          rewriter->Build<paddle::dialect::DivideOp>(prod, operand_value).out();
-    }
-    return prod;
+    const auto& lhs = dim_expr->lhs;
+    const auto& rhs = dim_expr->rhs;
+    pir::Value lhs_value = ConvertToValue(lhs);
+    pir::Value rhs_value = ConvertToValue(rhs);
+    return rewriter->Build<paddle::dialect::DivideOp>(lhs_value, rhs_value)
+        .out();
   }
 
   pir::Value ConvertToValueImpl(const symbol::Max<symbol::DimExpr>& dim_expr) {
