@@ -30,7 +30,6 @@
 #include "paddle/cinn/utils/string.h"
 #endif
 
-#include "paddle/fluid/pir/dialect/operator/ir/op_dialect.h"
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 #include "paddle/fluid/pir/utils/general_functions.h"
 #include "paddle/pir/include/core/builder.h"
@@ -741,9 +740,6 @@ void ReplaceWithGroupOp(pir::Block* block,
 #endif
 #ifdef PADDLE_WITH_DNNL
   ctx->GetOrRegisterDialect<paddle::dialect::OneDNNOperatorDialect>();
-#endif
-#ifdef PADDLE_WITH_CUSTOM_DEVICE
-  ctx->GetOrRegisterDialect<paddle::dialect::CustomEngineDialect>();
 #endif
   ::pir::Builder builder = ::pir::Builder(ctx, block);
   const std::vector<pir::Value> outputs = AnalysisOutputs(group_ops);
