@@ -87,6 +87,9 @@ inline void GetBroadcastDimsArrays(const DDim &x_dims,
       out_dims_array[i] = (std::max)(x_dims_array[i], y_dims_array[i]);
     } else {
       out_dims_array[i] = -1;
+      if (y_dims_array[i] == 0 || x_dims_array[i] == 0) {
+        out_dims_array[i] = 0;
+      }
     }
   }
 }

@@ -806,7 +806,9 @@ void BroadcastKernel(const KPDevice &ctx,
     }
     ctx.template Alloc<OutT>((*outs)[i]);
   }
-
+  if ((*outs).size() == 1 && (*out)[0]->numel() == 0) {
+    return;
+  }
   int max_rank = 0;
   int min_rank = phi::DDim::kMaxRank;
   for (auto *in : ins) {
