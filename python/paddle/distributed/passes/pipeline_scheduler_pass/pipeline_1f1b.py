@@ -728,36 +728,23 @@ class Pipeline1F1BPass(PipelinePassBase):
         assert (
             not enable_send_recv_overlap
         ), "PIR does not support 1F1B with enable_send_recv_overlap yet."
-        import os
 
         if os.getenv("FLAGS_enable_p2p_comm_opt_3", 0) in [
             'True',
             'true',
             '1',
         ]:
+            types = [FORWARD, BACKWARD, OPT, RECV_FORWARD, SEND_BACKWARD]
             sub_program_list = (
                 self._split_program_into_forward_backward_optimize_recv_send(
                     program
                 )
             )
-            types = [FORWARD, BACKWARD, OPT, RECV_FORWARD, SEND_BACKWARD]
         else:
             types = [FORWARD, BACKWARD, OPT]
             sub_program_list = _split_program_into_forward_backward_optimize(
                 program, enable_send_recv_overlap
             )
-        import os
-
-        if os.getenv("FLAGS_enable_p2p_comm_opt_2", 0) in [
-            'True',
-            'true',
-            '1',
-        ]:
-            fwd_program, bwd_program, opt_program = sub_program_list
-            sub_program_list = self._split_program_for_comm(
-                fwd_program, bwd_program, opt_program
-            )
-            types = [FORWARD, BACKWARD, OPT, RECV_FORWARD, SEND_BACKWARD]
 
         for i in range(len(types)):
             logger.debug(
@@ -803,7 +790,6 @@ class Pipeline1F1BPass(PipelinePassBase):
 
         forward_micro_batch_id = 0
         for i in range(micro_batch_in_warmup):
-            # if pp_stage != 0:
             recv_fwd_job = core.Job(RECV_FORWARD)
             recv_fwd_job.set_micro_batch_id(forward_micro_batch_id)
             job_list.append(recv_fwd_job)
@@ -811,12 +797,6 @@ class Pipeline1F1BPass(PipelinePassBase):
             forward_job = core.Job(FORWARD)
             forward_job.set_micro_batch_id(forward_micro_batch_id)
             job_list.append(forward_job)
-            print(
-                f"[liyamei check] job_type={RECV_FORWARD}, micro_batch_id={forward_micro_batch_id}"
-            )
-            print(
-                f"[liyamei check] job_type={FORWARD}, micro_batch_id={forward_micro_batch_id}"
-            )
             forward_micro_batch_id += 1
 
         backward_micro_batch_id = 0
@@ -830,9 +810,6 @@ class Pipeline1F1BPass(PipelinePassBase):
                     or job_type.startswith(RECV_FORWARD)
                     else backward_micro_batch_id
                 )
-                print(
-                    f"[liyamei check] job_type={job_type}, micro_batch_id={micro_batch_id}"
-                )
                 job.set_micro_batch_id(micro_batch_id)
                 job_list.append(job)
             forward_micro_batch_id += 1
@@ -843,16 +820,9 @@ class Pipeline1F1BPass(PipelinePassBase):
             backward_job.set_micro_batch_id(backward_micro_batch_id)
             job_list.append(backward_job)
 
-            # if pp_stage != 0:
             send_bwd_job = core.Job(SEND_BACKWARD)
             send_bwd_job.set_micro_batch_id(backward_micro_batch_id)
             job_list.append(send_bwd_job)
-            print(
-                f"[liyamei check] job_type={BACKWARD}, micro_batch_id={backward_micro_batch_id}"
-            )
-            print(
-                f"[liyamei check] job_type={SEND_BACKWARD}, micro_batch_id={backward_micro_batch_id}"
-            )
 
             backward_micro_batch_id += 1
 

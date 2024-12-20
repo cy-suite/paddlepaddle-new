@@ -1051,6 +1051,7 @@ def complete_chunk_id(dist_program, startup_program, pipeline_strategy):
     seg_struct_names = _get_seg_struct_names(
         dist_program.global_block().ops, seg_method
     )
+
     ops = dist_program.global_block().ops
     assert (len(seg_struct_names) % num_chunks == 0) or (
         (len(seg_struct_names) + 1) % num_chunks == 0
@@ -1082,7 +1083,6 @@ def complete_chunk_id(dist_program, startup_program, pipeline_strategy):
     # Step4: Set the process_mesh of each op
     seg_id = 0
     reshard_ops = []
-
     previous_seg_parts_end_idx = 0
     for seg_id in range(num_chunks):
         start_idx = seg_parts[previous_seg_parts_end_idx]
@@ -1108,8 +1108,6 @@ def complete_chunk_id(dist_program, startup_program, pipeline_strategy):
         )
 
         for idx in range(start_idx, end_idx):
-            if ops[idx].name() in dist_skip_op_list:
-                continue
             if ops[idx].name() == "dist_op.reshard":
                 reshard_ops.append(ops[idx])
                 continue
