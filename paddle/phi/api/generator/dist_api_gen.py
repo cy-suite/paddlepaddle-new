@@ -85,26 +85,24 @@ NCCL_COMMCONTEXT_INIT = """
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
   const auto & comm_context_manager = phi::distributed::CommContextManager::GetInstance();
   phi::distributed::NCCLCommContext* comm_context = nullptr;
-  PADDLE_ENFORCE_EQ(
-        comm_context_manager.Has(std::to_string(ring_id)),
-        true,
-        common::errors::InvalidArgument(
-            "You choose to use new communication library by "
-            "setting environment "
-            "variable FLAGS_dynamic_static_unified_comm True. "
-            "But ring_id(%d) is "
-            "not found in comm_context_manager.",
-            std::to_string(ring_id)));
-  comm_context = static_cast<phi::distributed::NCCLCommContext *>(
-        comm_context_manager.Get(std::to_string(ring_id)));
-  auto kernel_res = phi::KernelFactory::Instance().SelectKernelOrThrowError(
-      "all_to_all", {kernel_backend, kernel_layout, kernel_data_type}, true);
-  if (FLAGS_low_precision_op_list) {
-    phi::KernelFactory::Instance().AddToLowPrecisionKernelList("all_to_all", kernel_data_type);
-  }
-  Backend act_kernel_backend = kernel_res.has_fallback_cpu ? Backend::CPU : kernel_backend;
-  auto* dev_context = GetDeviceContextByBackend(act_kernel_backend);
-  dev_context->SetCommContext(comm_context);
+   if (comm_context_manager.Has(std::to_string(ring_id))){
+    comm_context = static_cast<phi::distributed::NCCLCommContext *>(
+          comm_context_manager.Get(std::to_string(ring_id)));
+    PADDLE_ENFORCE_NE(
+        comm_context,
+        nullptr,
+        common::errors::Unavailable(
+            "NCCLCommContext is nullptr, collective op should "
+            "has ring_id attr."));
+    auto kernel_res = phi::KernelFactory::Instance().SelectKernelOrThrowError(
+        "all_to_all", {kernel_backend, kernel_layout, kernel_data_type}, true);
+    if (FLAGS_low_precision_op_list) {
+      phi::KernelFactory::Instance().AddToLowPrecisionKernelList("all_to_all", kernel_data_type);
+    }
+    Backend act_kernel_backend = kernel_res.has_fallback_cpu ? Backend::CPU : kernel_backend;
+    auto* dev_context = GetDeviceContextByBackend(act_kernel_backend);
+    dev_context->SetCommContext(comm_context);
+   }
 #endif
 """
 
