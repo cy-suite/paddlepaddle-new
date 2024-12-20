@@ -180,7 +180,7 @@ class Pipeline1F1BPass(PipelinePassBase):
 
     def _create_job_list(self):
 
-        if os.getenv("FLAGS_enable_p2p_comm_opt_3", 0) in [
+        if os.getenv("FLAGS_enable_p2p_comm_opt", 1) in [
             'True',
             'true',
             '1',
@@ -652,19 +652,6 @@ class Pipeline1F1BPass(PipelinePassBase):
                             result_in_fwd.persistable
                         )
 
-                        first_used_idx = None
-                        first_used_op = None
-                        for used_op in (
-                            fwd_ops[op_idx].result(idx).all_used_ops()
-                        ):
-                            used_idx = fwd_ops.index(used_op)
-                            if (
-                                first_used_idx is None
-                                or used_idx < first_used_idx
-                            ):
-                                first_used_idx = used_idx
-                                first_used_op = used_op
-
                         fwd_ops[op_idx].result(idx).replace_all_uses_with(
                             new_result_var_in_fwd
                         )
@@ -729,7 +716,7 @@ class Pipeline1F1BPass(PipelinePassBase):
             not enable_send_recv_overlap
         ), "PIR does not support 1F1B with enable_send_recv_overlap yet."
 
-        if os.getenv("FLAGS_enable_p2p_comm_opt_3", 0) in [
+        if os.getenv("FLAGS_enable_p2p_comm_opt", 1) in [
             'True',
             'true',
             '1',
