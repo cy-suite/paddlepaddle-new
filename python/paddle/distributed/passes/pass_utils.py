@@ -45,6 +45,9 @@ __not_shape_var_type__ = [
 ]
 
 logger = get_logger(logging.INFO)
+from paddle.distributed.utils.stream_utils import (
+    ExecutionStreamType,
+)
 
 
 # NOTE: Here stream is just a presentation with different name,
@@ -527,11 +530,6 @@ def _pir_overlap_send_recv(program):
             elif op.name() == "pd_op.recv_v2":
                 op.set_bool_attr("dynamic_shape", False)
                 op.set_bool_attr("use_calc_stream", True)
-                # op.set_execution_stream("recv_stream")
-                from paddle.distributed.utils.stream_utils import (
-                    ExecutionStreamType,
-                )
-
                 op.set_execution_stream(ExecutionStreamType.DefaultStream.value)
                 op.set_scheduling_priority(0)
 
@@ -875,18 +873,6 @@ def _split_program_into_forward_backward_optimize(
     main_program, enable_send_recv_overlap=False
 ):
     _pir_overlap_send_recv(main_program)
-
-    # if os.getenv("FLAGS_enable_p2p_comm_opt", 1) in [
-    #         'True',
-    #         'true',
-    #         '1',
-    #     ]:
-    #     print(f"----[liyamei check] P2PCommPass")
-
-    #     from paddle.distributed.auto_parallel.static.pir_pass import P2PCommPass
-    #     P2PCommPass.apply_p2p_comm_pass(main_program)
-    #     print(f"[liyamei program] after P2PCommPass dist_program\n{main_program}")
-
     forward_complete_op_role(main_program)
     complete_ops = main_program.global_block().ops
 
@@ -1733,33 +1719,21 @@ def _program_for_zero_bubble_vpp(
     return list(type_to_program.keys()), list(type_to_program.values())
 
 
-# def _add_event_dependency(recorder_op, waiter_op):
-#     '''
-#     Add the extra event dependency of the two operators.
-#     This function mainly aims for the cross-programs in pipeline parallelism,
-#     especial for the 'send_v2' 'recv_v2' etc.
-#     '''
-#     if not recorder_op.dist_attr.force_record_event:
-#         recorder_op.dist_attr.force_record_event = True
-#     # NOTE(lizhiyu): Here is the copy of 'waiter_op.dist_attr.events_to_wait' not the reference,
-#     #                because the type of 'events_to_wait' is 'const vector<string>&' while the type of
-#     #                'waiter_wait_list' is python list.
-#     waiter_wait_list = waiter_op.dist_attr.events_to_wait
-#     if recorder_op.dist_attr.event_to_record not in waiter_wait_list:
-#         waiter_wait_list.append(recorder_op.dist_attr.event_to_record)
-#         waiter_op.dist_attr.events_to_wait = waiter_wait_list
-
-
-def _add_event_dependency(recorder_op, waiter_op, name):
+def _add_event_dependency(recorder_op, waiter_op):
     '''
     Add the extra event dependency of the two operators.
     This function mainly aims for the cross-programs in pipeline parallelism,
     especial for the 'send_v2' 'recv_v2' etc.
     '''
-    if not recorder_op.has_attr("force_record_event"):
-        recorder_op.set_bool_attr("force_record_event", True)
-    recorder_op.set_str_attr("event_to_record", name)
-    waiter_op.set_str_array_attr("events_to_wait", [name])
+    if not recorder_op.dist_attr.force_record_event:
+        recorder_op.dist_attr.force_record_event = True
+    # NOTE(lizhiyu): Here is the copy of 'waiter_op.dist_attr.events_to_wait' not the reference,
+    #                because the type of 'events_to_wait' is 'const vector<string>&' while the type of
+    #                'waiter_wait_list' is python list.
+    waiter_wait_list = waiter_op.dist_attr.events_to_wait
+    if recorder_op.dist_attr.event_to_record not in waiter_wait_list:
+        waiter_wait_list.append(recorder_op.dist_attr.event_to_record)
+        waiter_op.dist_attr.events_to_wait = waiter_wait_list
 
 
 def _insert_reshape_op(

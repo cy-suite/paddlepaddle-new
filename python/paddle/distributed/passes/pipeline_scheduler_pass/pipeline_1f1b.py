@@ -356,6 +356,17 @@ class Pipeline1F1BPass(PipelinePassBase):
 
         return types, sub_programs
 
+    def _add_dependency(self, recorder_op, waiter_op, name):
+        '''
+        Add the extra event dependency of the two operators.
+        This function mainly aims for the cross-programs in pipeline parallelism,
+        especial for the 'send_v2' 'recv_v2' etc.
+        '''
+        if not recorder_op.has_attr("force_record_event"):
+            recorder_op.set_bool_attr("force_record_event", True)
+        recorder_op.set_str_attr("event_to_record", name)
+        waiter_op.set_str_array_attr("events_to_wait", [name])
+
     def _split_program_into_forward_backward_optimize_recv_send(
         self, main_program, enable_send_recv_overlap=False
     ):
@@ -498,7 +509,9 @@ class Pipeline1F1BPass(PipelinePassBase):
                             ):
                                 first_used_idx = used_idx
                                 first_used_op = used_op
-                        # _add_event_dependency(bwd_ops[op_idx], first_used_op, name)
+                        self._add_dependency(
+                            bwd_ops[op_idx], first_used_op, name
+                        )
 
                         send_bwd_ops[op_idx].result(idx).replace_all_uses_with(
                             new_result_var_in_send
@@ -651,7 +664,6 @@ class Pipeline1F1BPass(PipelinePassBase):
                             ):
                                 first_used_idx = used_idx
                                 first_used_op = used_op
-                        # _add_event_dependency(recv_fwd_ops[op_idx], first_used_op, name)
 
                         fwd_ops[op_idx].result(idx).replace_all_uses_with(
                             new_result_var_in_fwd
@@ -753,169 +765,6 @@ class Pipeline1F1BPass(PipelinePassBase):
             )
         logger.debug(f"jobs_in_stable_phase = {self.jobs_in_stable_phase}")
         return types, sub_program_list
-
-    def _split_program_for_comm(self, fwd_program, bwd_program, opt_program):
-        fwd_recv_program, fwd_program = self._split_fwd_program_for_comm(
-            fwd_program
-        )
-        bwd_send_program, bwd_program = self._split_bwd_program_for_comm(
-            bwd_program
-        )
-        return (
-            fwd_program,
-            bwd_program,
-            opt_program,
-            fwd_recv_program,
-            bwd_send_program,
-        )
-
-    def _split_fwd_program_for_comm(self, main_program):
-        print(f"[liyamei program] before fwd_program\n{main_program}")
-        place = _get_device()
-        if isinstance(place, paddle.framework.CUDAPlace):
-            place = paddle.framework.CUDAPlace(
-                paddle.distributed.ParallelEnv().dev_id
-            )
-        cur_place = paddle.base.libpaddle.Place()
-        cur_place.set_place(place)
-
-        complete_ops = main_program.global_block().ops
-
-        recv_program = main_program.clone()
-        fwd_program = main_program.clone()
-        recv_ops = recv_program.global_block().ops
-        fwd_ops = fwd_program.global_block().ops
-        fwd_block = fwd_program.global_block()
-
-        for op_idx in range(len(complete_ops) - 1, -1, -1):
-            if complete_ops[op_idx].name() != "pd_op.recv_v2":
-                recv_ops[op_idx].erase()
-            else:
-                for idx in range(fwd_ops[op_idx].num_results()):
-                    # if this op's output is used, create the persistable
-                    # var to be used in other programs.
-                    result_in_fwd = fwd_ops[op_idx].result(idx)
-                    if result_in_fwd.use_empty() is False:
-                        if (
-                            recv_ops[op_idx].name() == "pd_op.data"
-                            or recv_ops[op_idx].name() == "builtin.parameter"
-                        ):
-                            name = recv_ops[op_idx].result(idx).name
-                        else:
-                            result_value = complete_ops[op_idx].result(idx)
-                            used_ops = result_value.all_used_ops()
-                            shadow_output_op_used = None
-                            for used_op in used_ops:
-                                if used_op.name() == "builtin.shadow_output":
-                                    shadow_output_op_used = used_op
-                            if shadow_output_op_used is not None:
-                                name = shadow_output_op_used.attrs()[
-                                    "output_name"
-                                ]
-                                print(
-                                    f"[liyamei check fwd] YES shadow_output_op_used name={name}"
-                                )
-                            else:
-                                name = f"var_{op_idx}_{complete_ops[op_idx].name()}_{idx}"
-                                print(
-                                    f"[liyamei check fwd] NO shadow_output_op_used name={name}"
-                                )
-                            paddle.pir.set_insertion_point_after(
-                                recv_ops[op_idx]
-                            )
-                            paddle._C_ops.set_persistable_value(
-                                recv_ops[op_idx].result(idx), name
-                            )
-
-                        new_result_var_in_fwd = fwd_block.add_kwarg(
-                            name, result_in_fwd.type()
-                        )
-                        new_result_var_in_fwd.place_attr = cur_place
-                        new_result_var_in_fwd.persistable = (
-                            result_in_fwd.persistable
-                        )
-
-                        fwd_ops[op_idx].result(idx).replace_all_uses_with(
-                            new_result_var_in_fwd
-                        )
-
-                fwd_ops[op_idx].erase()
-
-        print(f"[liyamei program] after recv_program\n{recv_program}")
-        print(f"[liyamei program] after fwd_program\n{fwd_program}")
-        return recv_program, fwd_program
-
-    def _split_bwd_program_for_comm(self, main_program):
-        print(f"[liyamei program] before bwd_program\n{main_program}")
-        place = _get_device()
-        if isinstance(place, paddle.framework.CUDAPlace):
-            place = paddle.framework.CUDAPlace(
-                paddle.distributed.ParallelEnv().dev_id
-            )
-        cur_place = paddle.base.libpaddle.Place()
-        cur_place.set_place(place)
-
-        complete_ops = main_program.global_block().ops
-
-        send_program = main_program.clone()
-        bwd_program = main_program.clone()
-        send_ops = send_program.global_block().ops
-        bwd_ops = bwd_program.global_block().ops
-        send_block = send_program.global_block()
-
-        for op_idx in range(len(complete_ops) - 1, -1, -1):
-            if complete_ops[op_idx].name() == "pd_op.send_v2":
-                bwd_ops[op_idx].erase()
-            else:
-                for idx in range(send_ops[op_idx].num_results()):
-                    result_in_send = send_ops[op_idx].result(idx)
-                    if result_in_send.use_empty() is False:
-                        if (
-                            bwd_ops[op_idx].name() == "pd_op.data"
-                            or bwd_ops[op_idx].name() == "builtin.parameter"
-                        ):
-                            name = bwd_ops[op_idx].result(idx).name
-                        else:
-                            result_value = complete_ops[op_idx].result(idx)
-                            used_ops = result_value.all_used_ops()
-                            shadow_output_op_used = None
-                            for used_op in used_ops:
-                                if used_op.name() == "builtin.shadow_output":
-                                    shadow_output_op_used = used_op
-
-                            if shadow_output_op_used is not None:
-                                name = shadow_output_op_used.attrs()[
-                                    "output_name"
-                                ]
-                                print(
-                                    f"[liyamei check bwd] YES shadow_output_op_used name={name}"
-                                )
-                            else:
-                                name = f"var_{op_idx}_{complete_ops[op_idx].name()}_{idx}"
-                                print(
-                                    f"[liyamei check bwd] NO shadow_output_op_used name={name}"
-                                )
-                                paddle.pir.set_insertion_point_after(
-                                    bwd_ops[op_idx]
-                                )
-                                paddle._C_ops.set_persistable_value(
-                                    bwd_ops[op_idx].result(idx), name
-                                )
-
-                        new_result_var_in_send = send_block.add_kwarg(
-                            name, result_in_send.type()
-                        )
-                        new_result_var_in_send.place_attr = cur_place
-                        new_result_var_in_send.persistable = (
-                            result_in_send.persistable
-                        )
-
-                        send_ops[op_idx].result(idx).replace_all_uses_with(
-                            new_result_var_in_send
-                        )
-                send_ops[op_idx].erase()
-
-        return send_program, bwd_program
 
     def _split_program_for_overlapping(self, job_type, program, split_points):
         assert job_type in [
