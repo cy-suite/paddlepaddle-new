@@ -33,7 +33,6 @@ from paddle.base.framework import (
     EagerParamBase,
     Variable,
     default_main_program,
-    in_dygraph_mode,
     in_pir_mode,
     use_pir_api,
 )
@@ -1269,7 +1268,6 @@ class _ShardOptimizer(Optimizer):
     def _append_optimize_op(self, block, param_and_grad):
         if (
             in_auto_parallel_align_mode()  # In align mode, we use enable_delay_scale_loss by default
-            and in_dygraph_mode()
             and param_and_grad[1].is_dist()
         ):
             placements = param_and_grad[1].placements
