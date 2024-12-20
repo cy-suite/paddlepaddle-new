@@ -16,11 +16,11 @@
 #include <string>
 #include "paddle/common/bfs_walker.h"
 #include "paddle/common/topo_walker.h"
+#include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 #include "paddle/pir/include/core/builtin_type.h"
 #include "paddle/pir/include/dialect/shape/interface/infer_symbolic_shape/infer_symbolic_shape.h"
 #include "paddle/pir/include/dialect/shape/utils/dim_expr_util.h"
 #include "paddle/pir/src/core/value_impl.h"
-
 namespace pir {
 
 static std::string GetValueId(Value val) {
@@ -179,12 +179,12 @@ void InferSymbolicShapeContext::SetSymbolForValueByStaticShape(Value val) {
         PADDLE_THROW(common::errors::Fatal(
             "Set static shape ONLY SUPPORT inner type DenseTensorType!"));
       } else {
+        const DenseTensorType& type_info = vec.dyn_cast<DenseTensorType>();
         if (type_info.dims().size() == -1) {
           LOG(WARNING) << "NOW NOT SUPPORT SetSymbolForValueByStaticShape for "
                           "dynamic rank";
           return;
         }
-        const DenseTensorType& type_info = vec.dyn_cast<DenseTensorType>();
         shape_data_list.emplace_back(
             GetStaticShapeForDenseTensorType(type_info));
       }
