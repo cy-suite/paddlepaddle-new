@@ -76,10 +76,20 @@ bool ReduceInferDim(pir::Operation *op,
     input_shapes = *x_shape_or_data.data();
   }
 
-  // 0D tensor
-  infer_context->SetShapeOrDataForValue(op->result(0), x_shape_or_data);
-  if (x_shape_or_data.data().has_value() && x_shape_or_data.shape().empty() &&
-      x_shape_or_data.data().value().size() == 1) {
+  const bool is_processable_scalar = [&]() -> bool {
+    // is 0 dim
+    if (x_shape_or_data.data().has_value() && x_shape_or_data.shape().empty() &&
+        x_shape_or_data.data().value().size() == 1) {
+      if (!op->isa<paddle::dialect::AnyOp>() &&
+          !op->isa<paddle::dialect::AllOp>()) {
+        return true;
+      }
+    }
+    return false;
+  }();
+
+  if (is_processable_scalar) {
+    infer_context->SetShapeOrDataForValue(op->result(0), x_shape_or_data);
     return true;
   }
 
