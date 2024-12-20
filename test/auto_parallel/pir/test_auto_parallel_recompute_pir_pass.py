@@ -21,7 +21,7 @@ class TestSemiAutoParallelLlamaACCTest(test_base.CommunicationTestDistBase):
     def setUp(self):
         super().setUp(num_of_devices=8, timeout=200, nnode=1)
 
-    def test_simple_net_hybrid_strategy_acc(self):
+    def test_simple_net_hybrid_strategy_recompute(self):
         _default_envs = {
             "dp": "2",
             "mp": "2",
@@ -38,6 +38,26 @@ class TestSemiAutoParallelLlamaACCTest(test_base.CommunicationTestDistBase):
         for envs in envs_list:
             self.run_test_case(
                 "auto_parallel_recompute_pir_pass_unittest.py",
+                user_defined_envs=envs,
+            )
+
+    def test_simple_net_hybrid_strategy_refined_recompute(self):
+        _default_envs = {
+            "dp": "2",
+            "mp": "2",
+            "pp": "2",
+            "FLAGS_embedding_deterministic": "1",
+            "FLAGS_cudnn_deterministic": "1",
+        }
+        _changeable_envs = {
+            "backend": ["gpu"],
+        }
+        envs_list = test_base.gen_product_envs_list(
+            _default_envs, _changeable_envs
+        )
+        for envs in envs_list:
+            self.run_test_case(
+                "auto_parallel_refined_recompute_pir_pass_unittest.py",
                 user_defined_envs=envs,
             )
 

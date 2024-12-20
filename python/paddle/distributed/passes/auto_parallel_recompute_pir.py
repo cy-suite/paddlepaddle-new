@@ -125,29 +125,7 @@ class AutoParallelRecomputePIRPass(PassBase):
 
     def _apply_single_impl(self, main_program, startup_program, context=None):
         self.program_ops = list(main_program.global_block().ops)
-        sr = 100
-        # no_recompute_segments = [0, 1]
-        no_recompute_segments = []
-        refined_ops_patterns = [
-            # {
-            #     "main_ops": ["matmul", "add"],
-            #     "num": -1,
-            #     "pre_ops": [],
-            #     "suf_ops": [],
-            # },
-            # {
-            #     "main_ops": ["matmul"],
-            #     "num": -1,
-            #     "pre_ops": [],
-            #     "suf_ops": [],
-            # },
-            {
-                "main_ops": ["flash_attn"],
-                "num": -1,
-                "pre_ops": [],
-                "suf_ops": [],
-            }
-        ]
+        refined_ops_patterns = self.get_attr("refined_ops_patterns")
         segments = self.get_segments()
         if len(segments) == 0:
             logger.info("No segments found in PIR recompite pass.")
@@ -160,47 +138,7 @@ class AutoParallelRecomputePIRPass(PassBase):
         for val in input_value:
             value_map.add(val, val)
 
-        for rc_id, segment in segments.items():
-            print("xxx segments: ", segment)
-
-        for i in sorted(no_recompute_segments, reverse=True):
-            idx = int(i)
-            print("xxx no need rc: ", idx, len(segments))
-            assert idx < len(
-                segments
-            ), f"the no_recompute_segments idx [{i}] should be lower the number of segment [{len(segments)}]"
-            segments.pop(idx)
-            print(
-                "xxx no_recompute_segments remove segments idx :",
-                idx,
-                len(segments),
-            )
-        for rc_id, segment in segments.items():
-            print("xxx need_rc segments: ", segment)
-
-        for rc_id in range(len(segments) - 1, 0, -1):
-            segment = segments[rc_id]
-            seg_ops_len = len(segment)
-            nedd_del = False
-            for i in range(seg_ops_len):
-                op = self.program_ops[segment[i]]
-                if op.has_attr('chunk_id'):
-                    chunk_id = op.attrs()["chunk_id"]
-                    if chunk_id >= sr:
-
-                        nedd_del = True
-                        break
-            if nedd_del:
-                segments.pop(rc_id)
-                print(
-                    "xxx sr vs chunk_id remove segments idx :",
-                    i,
-                    chunk_id,
-                    len(segments),
-                )
-
         for refined_ops_pattern in refined_ops_patterns:
-            print("xxx refined_ops_pattern: ", refined_ops_pattern)
             num = refined_ops_pattern['num']
             num = (
                 num if num >= 0 else len(fwd_ops)
@@ -208,13 +146,13 @@ class AutoParallelRecomputePIRPass(PassBase):
             main_ops = refined_ops_pattern['main_ops']
             pre_ops = refined_ops_pattern['pre_ops']
             suf_ops = refined_ops_pattern['suf_ops']
-            # print(num, main_ops, pre_ops, suf_ops)
             main_start_id = len(pre_ops)
             main_ops_len = len(main_ops)
             pattern_ops = pre_ops + main_ops + suf_ops
             pattern_ops_len = len(pattern_ops)
-            print(pattern_ops, pattern_ops_len)
+
             for rc_id, segment in segments.items():
+                segment.reverse()
                 pattern_count = 0
                 seg_ops_len = len(segment)
                 right_id = seg_ops_len - 1
@@ -228,7 +166,6 @@ class AutoParallelRecomputePIRPass(PassBase):
                             left_op_id : right_op_id + 1
                         ]
                     ]
-                    print("xxx fetch_pattern: ", fetch_pattern)
                     if fetch_pattern == pattern_ops and pattern_count < num:
                         segment[
                             left_id
@@ -237,13 +174,12 @@ class AutoParallelRecomputePIRPass(PassBase):
                             + main_ops_len
                         ] = []
                         pattern_count += 1
-                        print("xxx segment del : ", pattern_count, num, segment)
                         right_id = left_id - 1
                     else:
                         right_id -= 1
+                segment.reverse()
 
         for rc_id, segment in segments.items():
-            print("xxx refine segments: ", segment)
             first_bwd_used_op = bwd_ops[-1]
             for idx in segment:
                 op = self.program_ops[idx]
@@ -272,6 +208,7 @@ class AutoParallelRecomputePIRPass(PassBase):
 
                 if first_bwd_used_op.has_attr('chunk_id'):
                     rc_op.set_int_attr("chunk_id", first_bwd_used_op.chunk_id)
+
             for ori_value in ori_segment_outputs:
                 rc_value = value_map.look_up(ori_value)
                 ori_value.replace_grad_users_with(rc_value, set(bwd_ops))
