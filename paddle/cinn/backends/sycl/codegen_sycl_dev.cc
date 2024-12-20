@@ -238,7 +238,10 @@ void CodeGenSyclDevice::PrintFunctionDeclaration(const ir::_LoweredFunc_ *op) {
 }
 
 void CodeGenSyclDevice::PrintTempBufferCreation(const ir::Buffer &buffer) {
-  CHECK_NE(buffer->type(), Void());
+  PADDLE_ENFORCE_NE(
+      buffer->type(),
+      Void(),
+      ::common::errors::InvalidArgument("this buffer is invalid!"));
   auto print_gpu_memory = [&](const std::string &mark) {
     str_ += mark;
     str_ += GetTypeRepr(buffer->dtype);

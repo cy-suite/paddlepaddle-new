@@ -44,10 +44,10 @@ std::string Compiler::CompileToSo(const std::string& source_code,
                                   const Arch gpu_type) {
   // create the folder to store sycl temporary files
   if (access(prefix_dir.c_str(), F_OK) == -1) {
-    PADDLE_ENFORCE_NE(
-        mkdir(prefix_dir.c_str(), 7),
-        -1,
-        ::common::errors::PreconditionNotMet("Fail to mkdir " + prefix_dir));
+    PADDLE_ENFORCE_NE(mkdir(prefix_dir.c_str(), 7),
+                      -1,
+                      ::common::errors::Fatal(
+                          "SYCL backends error ! Fail to mkdir " + prefix_dir));
   }
   // get unqiue file_path
   compile_num++;
@@ -57,10 +57,11 @@ std::string Compiler::CompileToSo(const std::string& source_code,
   shared_lib_path = filename + ".so";
   // write source file
   std::ofstream ofs(source_file_path.c_str(), std::ios::out);
-  PADDLE_ENFORCE_EQ(ofs.is_open(),
-                    true,
-                    ::common::errors::PreconditionNotMet("Fail to open file %s",
-                                                         source_file_path));
+  PADDLE_ENFORCE_EQ(
+      ofs.is_open(),
+      true,
+      ::common::errors::Fatal("SYCL backends error ! Fail to open file %s",
+                              source_file_path));
   ofs << source_code;
   ofs.close();
   // set compile command
