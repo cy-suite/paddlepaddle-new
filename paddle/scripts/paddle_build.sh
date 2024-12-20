@@ -2705,8 +2705,6 @@ set +x
         done <<< "$test_cases";
         card_test "$eight_cards_tests" -1 1
 
-set -x
-
         ut_endTime_s=`date +%s`
         echo "HYBRID testCase Time: $[ $ut_endTime_s - $ut_startTime_s ]s"
         if [[ "$EXIT_CODE" != "0" ]]; then
