@@ -166,6 +166,11 @@ void CheckInferSymWithInferMeta(
       const std::vector<symbol::DimExpr>& infer_sym_shape =
           infer_context->GetShapeOrDataForValue(res).shape();
 
+      if (res.type().dyn_cast<pir::DenseTensorType>().dims().size() == -1) {
+        LOG(WARNING) << "Warning: Rank of infer_meta_shape is dynamic. "
+                     << "Received infer_sym_shape is " << infer_sym_shape;
+        continue;
+      }
       // Check rank.
       if (infer_meta_shape.size() != infer_sym_shape.size()) {
         std::ostringstream print_stream;

@@ -149,7 +149,7 @@ void InferSymbolicShapeContext::SetSymbolForValueByStaticShape(Value val) {
   const auto& GetStaticShapeForDenseTensorType =
       [&](DenseTensorType type_info) -> symbol::TensorShapeOrDataDimExprs {
     std::vector<symbol::DimExpr> static_shape;
-    for (int i = 0; i < common::vectorize(type_info.dims()).size(); ++i) {
+    for (int i = 0; i < type_info.dims().size(); ++i) {
       int dim = type_info.dims()[i];
       if (dim >= 0) {
         static_shape.emplace_back(dim);
