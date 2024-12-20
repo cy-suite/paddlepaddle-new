@@ -42,6 +42,7 @@ endif()
 if(WIN32)
   list(REMOVE_ITEM TEST_INFERENCE_IR_PASSES
        "test_trt_convert_fused_token_prune")
+  list(REMOVE_ITEM TEST_INFERENCE_IR_PASSES "test_trt_convert_clip_pir")
   list(REMOVE_ITEM TEST_INFERENCE_IR_PASSES
        "test_preln_groupnorm_act_fuse_pass")
   list(REMOVE_ITEM TEST_INFERENCE_IR_PASSES

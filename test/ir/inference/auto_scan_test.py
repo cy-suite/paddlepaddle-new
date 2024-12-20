@@ -37,7 +37,12 @@ import paddle
 import paddle.inference as paddle_infer
 from paddle.base.core import PassVersionChecker
 from paddle.static.log_helper import get_logger
-from paddle.tensorrt.export import Input, TensorRTConfig, convert_to_trt
+
+if os.name != 'nt':
+    try:
+        from paddle.tensorrt.export import Input, TensorRTConfig, convert_to_trt
+    except ImportError:
+        raise RuntimeError("TensorRT package is not available.")
 
 LOGLEVEL = os.environ.get("PADDLE_TEST_LOGLEVEL", "INFO").upper()
 logging = get_logger(
@@ -795,7 +800,7 @@ class TrtLayerAutoScanTest(AutoScanTest):
             # if program is invalid, we should skip that cases.
             if not self.is_program_valid(prog_config):
                 continue
-            if run_pir:
+            if run_pir and os.name != 'nt':
                 # get pir program from old program
                 startup_program, pir_main_program = create_fake_pir_model(
                     prog_config
