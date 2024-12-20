@@ -33,6 +33,7 @@ logger = get_logger(logging.INFO)
 class AutoParallelRecomputePIRPass(PassBase):
     def __init__(self):
         super().__init__()
+        self.program_ops = []
 
     def _check_self(self):
         return True
@@ -40,10 +41,10 @@ class AutoParallelRecomputePIRPass(PassBase):
     def _check_conflict(self, other_pass):
         return True
 
-    def get_fwd_bwd_ops(self, program):
+    def get_fwd_bwd_ops(self):
         fwd_ops = []
         bwd_ops = []
-        for op in program.global_block().ops:
+        for op in self.program_ops:
             if op.op_role == int(OpRole.Forward):
                 fwd_ops.append(op)
             elif op.op_role == int(OpRole.Backward):
@@ -72,7 +73,24 @@ class AutoParallelRecomputePIRPass(PassBase):
             if used_op.name() in dropout_ops
         )
 
-    def get_segments(self, program):
+    def remove_edge_output_op(self, segment):
+        segment_ops = [self.program_ops[idx] for idx in segment]
+        segment_len = len(segment)
+        for idx in range(segment_len - 1, 0, -1):
+            op = segment_ops[idx]
+            user_ops = set()
+            for res in op.results():
+                user_ops = user_ops | set(res.all_used_ops())
+
+            if user_ops & set(segment_ops):
+                continue
+            segment.pop(idx)
+            logger.info(
+                f"Segment remove edge output op: {op.name()}, which does not need recomputation."
+            )
+        return segment
+
+    def get_segments(self):
         # `fwd_recompute_id` indicates the ID assigned to the segment for
         # which the OP requires recompute.
         # A segment comprises all OPs within a program, ranging from the OP
@@ -80,8 +98,8 @@ class AutoParallelRecomputePIRPass(PassBase):
         # these operations share the same `fwd_recompute_id`.
         segment_beg = {}
         segment_end = {}
-        max_op_id = len(program.global_block().ops)
-        for idx, op in enumerate(program.global_block().ops):
+        max_op_id = len(self.program_ops)
+        for idx, op in enumerate(self.program_ops):
             if not op.has_attr("fwd_recompute_id"):
                 continue
             rc_id = op.attrs()["fwd_recompute_id"]
@@ -99,19 +117,26 @@ class AutoParallelRecomputePIRPass(PassBase):
             end_id = segment_end[segment_id]
             assert beg_id <= end_id
             segment = []
-            for p_id in range(beg_id, end_id - 1):
+            for p_id in range(beg_id, end_id + 1):
                 segment.append(p_id)
-            segments[idx] = segment
+            segments[idx] = self.remove_edge_output_op(segment)
             idx += 1
         return segments
 
     def _apply_single_impl(self, main_program, startup_program, context=None):
-        sr = 3
-        no_recompute_segments = [0, 1]
-        # no_recompute_segments = []
+        self.program_ops = list(main_program.global_block().ops)
+        sr = 100
+        # no_recompute_segments = [0, 1]
+        no_recompute_segments = []
         refined_ops_patterns = [
             # {
             #     "main_ops": ["matmul", "add"],
+            #     "num": -1,
+            #     "pre_ops": [],
+            #     "suf_ops": [],
+            # },
+            # {
+            #     "main_ops": ["matmul"],
             #     "num": -1,
             #     "pre_ops": [],
             #     "suf_ops": [],
@@ -121,14 +146,14 @@ class AutoParallelRecomputePIRPass(PassBase):
                 "num": -1,
                 "pre_ops": [],
                 "suf_ops": [],
-            },
+            }
         ]
-        segments = self.get_segments(main_program)
+        segments = self.get_segments()
         if len(segments) == 0:
             logger.info("No segments found in PIR recompite pass.")
             return
 
-        fwd_ops, bwd_ops = self.get_fwd_bwd_ops(main_program)
+        fwd_ops, bwd_ops = self.get_fwd_bwd_ops()
 
         input_value = main_program.list_vars()
         value_map = paddle.pir.IrMapping()
@@ -158,7 +183,7 @@ class AutoParallelRecomputePIRPass(PassBase):
             seg_ops_len = len(segment)
             nedd_del = False
             for i in range(seg_ops_len):
-                op = main_program.global_block().ops[segment[i]]
+                op = self.program_ops[segment[i]]
                 if op.has_attr('chunk_id'):
                     chunk_id = op.attrs()["chunk_id"]
                     if chunk_id >= sr:
@@ -221,7 +246,7 @@ class AutoParallelRecomputePIRPass(PassBase):
             print("xxx refine segments: ", segment)
             first_bwd_used_op = bwd_ops[-1]
             for idx in segment:
-                op = main_program.global_block().ops[idx]
+                op = self.program_ops[idx]
                 bwd_used_op = self.get_first_bwd_used_op(op, bwd_ops)
                 if first_bwd_used_op.id() > bwd_used_op.id():
                     first_bwd_used_op = bwd_used_op
@@ -230,7 +255,7 @@ class AutoParallelRecomputePIRPass(PassBase):
             paddle.pir.set_insertion_point(first_bwd_used_op)
 
             for idx in segment:
-                op = main_program.global_block().ops[idx]
+                op = self.program_ops[idx]
                 ori_segment_outputs.update(op.results())
 
                 if self.is_seed_used_by_dropout(op):
@@ -239,6 +264,7 @@ class AutoParallelRecomputePIRPass(PassBase):
                 rc_op = op.clone(
                     value_map, paddle.pir.CloneOptions(False, True, True)
                 )
+
                 rc_op.set_int_attr("bwd_recompute_id", rc_id)
 
                 if first_bwd_used_op.has_attr('op_role'):
@@ -246,7 +272,6 @@ class AutoParallelRecomputePIRPass(PassBase):
 
                 if first_bwd_used_op.has_attr('chunk_id'):
                     rc_op.set_int_attr("chunk_id", first_bwd_used_op.chunk_id)
-
             for ori_value in ori_segment_outputs:
                 rc_value = value_map.look_up(ori_value)
                 ori_value.replace_grad_users_with(rc_value, set(bwd_ops))
