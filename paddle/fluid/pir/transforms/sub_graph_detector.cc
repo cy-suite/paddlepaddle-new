@@ -442,7 +442,7 @@ void SubgraphDetector::MergeSource2Target(const SubGraphPtr& source,
   }
   // 2. If not satisfy the order, find a index between upstream_max_index
   // and downstream_min_index while not in subgraph_index_set_.
-  VLOG(6) << "Try to find a valid index in subgraph_index_set_";
+  VLOG(6) << "Try to find a valid index not in subgraph_index_set_";
   for (size_t i = upstream_max_index + 1; i < downstream_min_index; ++i) {
     if (!subgraph_index_set_.count(i)) {
       merged->topo_index = i;
