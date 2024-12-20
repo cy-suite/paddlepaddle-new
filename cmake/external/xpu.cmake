@@ -121,9 +121,6 @@ set(XPU_XFT_URL "${XPU_XFT_BASE_URL}/${XPU_XFT_DIR_NAME}.tar.gz")
 set(XPU_XFT_GET_DEPENCE_URL
     "https://baidu-kunlun-public.su.bcebos.com/paddle_depence/get_xft_dependence.sh"
     CACHE STRING "" FORCE)
-set(XFT_COMMAND
-    "wget ${XPU_XFT_GET_DEPENCE_URL} && bash get_xft_dependence.sh ${XPU_XFT_URL} ${XPU_XFT_DIR_NAME}"
-)
 
 if(WITH_XPTI)
   set(XPU_XPTI_URL "${XPU_XPTI_BASE_URL}/${XPU_XPTI_DIR_NAME}.tar.gz")
@@ -172,6 +169,7 @@ if(WITH_XPU_BKCL)
   include_directories(${XPU_BKCL_INC_DIR})
 endif()
 
+set(XFT_COMMAND "get_xft_dependence.sh")
 # 如果本地有了对应的路径，则直接使用，否则下载，现有实现只支持XPU相关库放在同一个位置
 if(DEFINED ENV{XPU_LIB_ROOT})
   message(STATUS "Compile with LOCAL XPU LIBS!")
@@ -199,9 +197,7 @@ if(DEFINED ENV{XPU_LIB_ROOT})
   if(DEFINED ENV{XPU_XFT_DIR_NAME})
     set(XPU_XFT_DIR_NAME "$ENV{XPU_XFT_DIR_NAME}")
     set(XPU_XFT_URL "${XPU_LIB_ROOT}/${XPU_XFT_DIR_NAME}")
-    set(XFT_COMMAND
-        "bash ${CMAKE_SOURCE_DIR}/tools/xpu/pack_custom_xpu_xft.sh ${XPU_XFT_URL}"
-    )
+    set(XFT_COMMAND "${CMAKE_SOURCE_DIR}/tools/xpu/pack_custom_xpu_xft.sh")
   endif()
 endif()
 
@@ -214,7 +210,8 @@ if(WITH_XPU_XRE5)
     DOWNLOAD_COMMAND
       bash ${CMAKE_SOURCE_DIR}/tools/xpu/pack_paddle_dependence.sh
       ${XPU_XRE_URL} ${XPU_XRE_DIR_NAME} ${XPU_XHPC_URL} ${XPU_XHPC_DIR_NAME}
-      ${XPU_XCCL_URL} ${XPU_XCCL_DIR_NAME} 1 && ${XFT_COMMAND} && bash
+      ${XPU_XCCL_URL} ${XPU_XCCL_DIR_NAME} 1 && wget ${XPU_XFT_GET_DEPENCE_URL}
+      && bash ${XFT_COMMAND} ${XPU_XFT_URL} ${XPU_XFT_DIR_NAME} && bash
       ${CMAKE_SOURCE_DIR}/tools/xpu/get_xpti_dependence.sh ${XPU_XPTI_URL}
       ${XPU_XPTI_DIR_NAME}
     DOWNLOAD_NO_PROGRESS 1
