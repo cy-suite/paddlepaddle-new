@@ -55,16 +55,8 @@ namespace optim {
  *   for(j, 0, 10)
  *      B[k,j] = A[k,j]
  */
-void ReplaceVarWithExpr(Expr *source,
-                        const Var &var,
-                        const Expr &expr,
-                        const std::string &tensor_name = "");
-
-void ReplaceVarWithExpr(ir::stmt::StmtRef source,
-                        const Var &var,
-                        const Expr &expr,
-                        const std::string &tensor_name = "");
-void ReplaceVarWithExpr(ir::stmt::BlockRef source,
+template <typename SourceType>
+void ReplaceVarWithExpr(SourceType source,
                         const Var &var,
                         const Expr &expr,
                         const std::string &tensor_name = "");
