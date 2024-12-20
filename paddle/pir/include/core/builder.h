@@ -137,7 +137,7 @@ class Builder {
                           const std::vector<Type> &output_types,
                           pir::OpInfo op_info);
 
-  Operation *Insert(Operation *op);
+  IR_API Operation *Insert(Operation *op);
 
   /// Create an operation of specific op type at the current insertion point.
   template <typename OpTy, typename... Args>
@@ -192,5 +192,21 @@ OpTy Builder::Build(Args &&...args) {
   Operation *op = Build(std::move(argument));
   return OpTy(op);
 }
+
+class BuilderAttrGuard {
+ public:
+  BuilderAttrGuard(std::shared_ptr<Builder> builder, int op_role, int chunk_id);
+
+  ~BuilderAttrGuard();
+
+  // forbid copy and operator=
+  BuilderAttrGuard(const BuilderAttrGuard &guard) = delete;
+  BuilderAttrGuard &operator=(const BuilderAttrGuard &guard) = delete;
+
+ private:
+  std::shared_ptr<Builder> builder_;
+  int pre_op_role_ = -1;
+  int pre_chunk_id_ = -1;
+};
 
 }  // namespace pir

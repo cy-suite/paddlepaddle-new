@@ -19,13 +19,11 @@ import numpy
 import utils
 
 os.environ['FLAGS_cinn_new_group_scheduler'] = '1'
-os.environ['FLAGS_group_schedule_tiling_first'] = '1'
 os.environ['FLAGS_prim_all'] = 'true'
 os.environ['FLAGS_prim_enable_dynamic'] = 'true'
 os.environ['FLAGS_print_ir'] = '1'
 os.environ['FLAGS_enable_pir_api'] = '1'
 os.environ['FLAGS_use_cinn'] = '1'
-os.environ['FLAGS_cinn_bucket_compile'] = '1'
 os.environ['FLAGS_cinn_new_cluster_op_method'] = '1'
 
 import paddle
@@ -275,6 +273,18 @@ class TestAnchorFusion(unittest.TestCase):
             return (x,)
 
         self.check_accuracy_and_kernel_num(init, func, kernel_num=2)
+
+    def test_align_leaf_reshape_to_input(self):
+        def func(x):
+            x = x * 2
+            a = paddle.reshape(x + 2, [1, 6, 1, 8, 1, 4, 1, 8, 1])
+            return x, a
+
+        def init():
+            x = paddle.rand((1, 3, 1, 16, 1, 32, 1))
+            return (x,)
+
+        self.check_accuracy_and_kernel_num(init, func, kernel_num=1)
 
 
 if __name__ == "__main__":

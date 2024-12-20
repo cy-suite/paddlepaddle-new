@@ -19,6 +19,7 @@
 
 #include "paddle/cinn/ir/buffer.h"
 #include "paddle/cinn/ir/ir_base.h"
+#include "paddle/cinn/ir/stmt.h"
 
 namespace cinn {
 namespace ir {
@@ -159,8 +160,10 @@ struct _LoweredFunc_ : public IrNode {
   //! This number doesn't include temp_spaces.
   int num_output_tensors;
 
+  // TODO(Hongqing-work): remove expr body after update all the backend passes.
   //! Body of this function.
   Expr body;
+  stmt::BlockRef body_block;
 
   DeviceAPI device_api{DeviceAPI::UNK};
 
@@ -208,6 +211,9 @@ struct _LoweredFunc_ : public IrNode {
 
   static const IrNodeTy _node_type_ = IrNodeTy::LoweredFunc;
 
+  //! Prepare the assumptions that a gpu axis should be less than its
+  //! corresponding dim size, e.g. threadIdx.x < blockDim.x.
+  std::vector<Expr> PrepareAxisRangeAssumptions() const;
   std::vector<Expr> PrepareCreateTempBufferExprs() const;
   //! Prepare the expressions for `alloc_tmp_buffer_exprs`.
   std::vector<Expr> PrepareAllocTempBufferExprs() const;

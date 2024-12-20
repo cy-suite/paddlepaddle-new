@@ -28,6 +28,8 @@ from ..utils import (
     ENV_SOT_EXPORT,
     Cache,
     GraphLogger,
+    InfoCollector,
+    NewSymbolHitRateInfo,
     Singleton,
     StepInfoManager,
     log,
@@ -104,7 +106,10 @@ class FallbackWrapper:
     def graph_size(self):
         if self.partial_program is None:
             input_spec = convert_meta_to_input_spec(
-                [self.SIR.symbol_meta_map[symbol] for symbol in self.SIR.inputs]
+                tuple(
+                    self.SIR.symbol_meta_map[symbol]
+                    for symbol in self.SIR.inputs
+                )
             )
             (
                 self.concrete_program,
@@ -121,6 +126,24 @@ class FallbackWrapper:
             if self.partial_program.program.num_blocks > 1:
                 return -1
             return len(self.partial_program.program.block(0).ops)
+
+    def collect_new_symbol_hit_rate(self, inputs, outputs):
+        if not InfoCollector().need_collect(NewSymbolHitRateInfo):
+            return
+        input_tensor_ids = []
+        output_tensor_ids = []
+        assert len(inputs) == 1
+        assert isinstance(inputs[0], tuple)
+        for arg in inputs[0]:
+            assert isinstance(arg, paddle.Tensor), f"Expect Tensor, got {arg}"
+            input_tensor_ids.append(id(arg))
+
+        for out in outputs:
+            assert isinstance(out, paddle.Tensor)
+            output_tensor_ids.append(id(out))
+        InfoCollector().attach(
+            NewSymbolHitRateInfo, input_tensor_ids, output_tensor_ids
+        )
 
     def __call__(self, *args, **kwargs):
         with EventGuard(f"FallbackWrapper: {self.SIR.name}"):
@@ -162,6 +185,7 @@ class FallbackWrapper:
                 4,
                 lambda: print("[CompileCache] run sir forward success."),
             )
+            self.collect_new_symbol_hit_rate(args, outputs)
             if ENV_SOT_EXPORT.get() != "" and not self.exported:
                 export(self.SIR, ENV_SOT_EXPORT.get())
                 self.exported = True
@@ -181,7 +205,7 @@ class CompileSIRCache(Cache, metaclass=Singleton):
         self,
         context: SymbolicTraceContext,
         sir_name: str,
-        input_spec: list[InputSpec],
+        input_spec: tuple[InputSpec, ...],
         **kwargs,
     ):
         """
@@ -204,7 +228,7 @@ class CompileSIRCache(Cache, metaclass=Singleton):
         self,
         context: SymbolicTraceContext,
         sir_name: str,
-        input_spec: list[InputSpec],
+        input_spec: tuple[InputSpec, ...],
         **kwargs,
     ):
         """
