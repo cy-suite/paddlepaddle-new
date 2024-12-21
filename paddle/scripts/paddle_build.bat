@@ -673,12 +673,12 @@ call :timestamp "%start%" "%end%" "Build"
 rem Record the exact size of dll and whl files and save them to disk D
 set dll_file=%cd%\paddle\fluid\pybind\libpaddle.dll
 for /F "tokens=1-5" %%a in ('dir "%dll_file%"') do (
-    echo %%e | findstr  "libpaddle.dll" >nul
+    echo "%%e" | findstr  "libpaddle.dll" >nul
     if !errorlevel! equ 0 (
         set dllsize=%%d
         goto dll_break
     )
-    echo %%d | findstr  "libpaddle.dll" >nul
+    echo "%%d" | findstr  "libpaddle.dll" >nul
     if !errorlevel! equ 0 (
         set dllsize=%%c
         goto dll_break
@@ -697,12 +697,12 @@ echo %dllsize% > %dllsize_folder%\%AGILE_PULL_ID%.txt
 
 set whl_folder=%cd%\python\dist
 for /F "tokens=1-5" %%a in ('dir "%whl_folder%"') do (
-    echo %%e | findstr  ".whl" >nul
+    echo "%%e" | findstr  ".whl" >nul
     if !errorlevel! equ 0 (
         set whlsize=%%d
         goto whl_break
     )
-    echo %%d | findstr  ".whl" >nul
+    echo "%%d" | findstr  ".whl" >nul
     if !errorlevel! equ 0 (
         set whlsize=%%c
         goto whl_break
