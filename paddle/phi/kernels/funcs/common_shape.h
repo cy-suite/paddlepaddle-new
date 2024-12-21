@@ -69,8 +69,9 @@ inline void GetBroadcastDimsArrays(const DDim &x_dims,
   }
   for (int i = 0; i < max_dim; ++i) {
     PADDLE_ENFORCE_EQ(
-        x_dims_array[i] == y_dims_array[i] || x_dims_array[i] <= 1 ||
-            y_dims_array[i] <= 1,
+        x_dims_array[i] == y_dims_array[i] ||
+            x_dims_array[i] <= 1 && x_dims_array[i] != 0 ||
+            y_dims_array[i] <= 1 && y_dims_array[i] != 0,
         true,
         common::errors::InvalidArgument(
             "Broadcast dimension mismatch. Operands could "
