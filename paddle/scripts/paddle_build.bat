@@ -676,12 +676,12 @@ for /F "tokens=1-5" %%a in ('dir "%dll_file%"') do (
     echo %%e | findstr  "libpaddle.dll" >nul
     if !errorlevel! equ 0 (
         set dllsize=%%d
-        goto dll_break 
+        goto dll_break
     )
     echo %%d | findstr  "libpaddle.dll" >nul
     if !errorlevel! equ 0 (
         set dllsize=%%c
-        goto dll_break 
+        goto dll_break
     )
 )
 :dll_break
@@ -700,12 +700,12 @@ for /F "tokens=1-5" %%a in ('dir "%whl_folder%"') do (
     echo %%e | findstr  ".whl" >nul
     if !errorlevel! equ 0 (
         set whlsize=%%d
-        goto whl_break 
+        goto whl_break
     )
     echo %%d | findstr  ".whl" >nul
     if !errorlevel! equ 0 (
         set whlsize=%%c
-        goto whl_break 
+        goto whl_break
     )
 )
 :whl_break
