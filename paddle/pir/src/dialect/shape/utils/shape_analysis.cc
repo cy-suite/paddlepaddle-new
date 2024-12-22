@@ -580,7 +580,8 @@ void ShapeConstraintIRAnalysis::InferShapeOrDataForValue(Value val) {
           continue;
         }
         if (result_value.type().isa<DenseTensorType>() &&
-            result_value.type().dims().size() == -1) {
+            result_value.type().dyn_cast<DenseTensorType>().dims().size() ==
+                -1) {
           // skip for check dynamic rank
           continue;
         }
