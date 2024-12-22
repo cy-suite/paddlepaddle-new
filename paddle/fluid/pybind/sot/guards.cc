@@ -128,12 +128,14 @@ bool InstanceCheckGuard::check(PyObject* value) {
 }
 
 bool StringCompareGuard::check(PyObject* value) {
-  std::string expected_str = PyUnicode_AsUTF8(expected_);
-  std::cout << "[StringCheckGuard]" << expected_str << std::endl;
-  std::string str = PyUnicode_AsUTF8(value);
-  std::cout << "[StringCheckGuard]" << str << std::endl;
+  // std::string expected_str = PyUnicode_AsUTF8(expected_);
+  std::cout << "[StringCheckGuard]" << expected_ << std::endl;
+  // std::string str = PyUnicode_AsUTF8(value);
+  std::cout << "[StringCheckGuard]" << value << std::endl;
 
-  return PyUnicode_Compare(value, expected_) == 0;
+  // return PyUnicode_(value, expected_) == 0;
+  return PyUnicode_CompareWithASCIIString(value, &expected_) == 0;
+  // return value->equal(*expected_);
 }
 
 #endif

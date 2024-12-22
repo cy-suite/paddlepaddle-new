@@ -115,7 +115,7 @@ void BindGuard(pybind11::module *m) {
              GuardBase,
              std::shared_ptr<StringCompareGuard>>(
       *m, "StringCompareGuard", R"DOC(StringCompareGuard Class.)DOC")
-      .def(py::init<const py::object &>(), py::arg("str"));
+      .def(py::init<const char &>(), py::arg("str"));
 
   m->def(
       "merge_guard",

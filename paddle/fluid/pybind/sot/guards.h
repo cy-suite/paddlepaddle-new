@@ -217,17 +217,12 @@ class InstanceCheckGuard : public GuardBase {
 
 class StringCompareGuard : public GuardBase {
  public:
-  explicit StringCompareGuard(const py::object& expected)
-      : expected_(expected.ptr()) {
-    Py_INCREF(expected_);
-  }
-
-  ~StringCompareGuard() override { Py_DECREF(expected_); }
+  explicit StringCompareGuard(const char& expected) : expected_(expected) {}
 
   bool check(PyObject* value) override;
 
  private:
-  PyObject* expected_;
+  char expected_;
 };
 
 #endif
