@@ -156,7 +156,10 @@ class TrtConvertAssignTest(TrtLayerAutoScanTest):
         ), 1e-2
 
     def test(self):
+        # test for old ir
         self.run_test()
+        # test for pir
+        self.run_test(run_pir=True)
 
 
 if __name__ == "__main__":
