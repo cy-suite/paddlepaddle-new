@@ -919,7 +919,7 @@ def classify_value_node(program, grad_outputs, fwd_op_end_idx):
     )
 
 
-# Sometimes we need to discard no_need_buffer values because they are not REAL tensor users.
+# Sometimes we need to discard no_need_buffer values because they‘re not REAL tensor users.
 def find_value_node_users(
     value_node, bw_no_need_buffer_values={}, without_no_need_buffer=False
 ):
