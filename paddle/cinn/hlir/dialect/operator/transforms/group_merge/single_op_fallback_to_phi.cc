@@ -222,7 +222,8 @@ class FusionOpSingleReshapePattern
           continue;
         }
         if (reshape_out_shape[i].isa<std::string>()) {
-          if (reshape_x_shape[i] == reshape_out_shape[i]) {
+          if (i < reshape_x_shape.size() &&
+              reshape_x_shape[i] == reshape_out_shape[i]) {
             shape[i] = 0;
             continue;
           }
