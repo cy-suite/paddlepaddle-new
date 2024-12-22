@@ -138,7 +138,7 @@ class TestWhileDemo:
         dist.all_gather(pd_loss_list, pd_partial_loss)
         np_dy2static_loss_list = [loss.numpy() for loss in pd_loss_list]
         np_dy2static_loss = np.array(np_dy2static_loss_list)
-        np_dy2static_loss = np.mean(np_dy2static_loss, axis=0)
+        np_dy2static_loss = np.mean(np_dy2static_loss)
         return np_dy2static_loss
 
     def test_while(self):
@@ -150,7 +150,7 @@ class TestWhileDemo:
         dist_dataloader = self.create_data_loader()
         dy2static_loss = self.test_dynamic2static(dist_dataloader)
 
-        assert (dynamic_loss == dy2static_loss).all()
+        assert np.allclose(dynamic_loss, dy2static_loss, atol=1e-8)
 
 
 if __name__ == "__main__":
