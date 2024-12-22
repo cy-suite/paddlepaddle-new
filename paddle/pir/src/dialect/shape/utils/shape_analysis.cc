@@ -16,7 +16,6 @@
 #include <string>
 #include "paddle/common/bfs_walker.h"
 #include "paddle/common/topo_walker.h"
-#include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 #include "paddle/pir/include/core/builtin_type.h"
 #include "paddle/pir/include/dialect/shape/interface/infer_symbolic_shape/infer_symbolic_shape.h"
 #include "paddle/pir/include/dialect/shape/utils/dim_expr_util.h"
@@ -571,14 +570,17 @@ void ShapeConstraintIRAnalysis::InferShapeOrDataForValue(Value val) {
       infer_symbolic_shape_interface.InferSymbolicShape(&context_);
       // Note(ooooo): Temporarily skip check for CombineOp because TensorArray
       // inputs.
-      if (op->isa<pir::CombineOp>() ||
-          op->isa<paddle::dialect::FusedAttentionOp>()) {
+      if (op->isa<pir::CombineOp>()) {
         return;
       }
       int index = -1;
       for (auto& result_value : op->results()) {
         index++;
         if (!result_value || !result_value.type()) {
+          continue;
+        }
+        if (result_value.type().dims().size() == -1) {
+          // skip for check dynamic rank
           continue;
         }
         if (!context_.HasShapeOrDataForValue(result_value)) {
