@@ -95,6 +95,24 @@ class TestAddTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestElementwisePowTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle._C_ops.elementwise_pow
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype(np.float32),
+            "y": np.random.randn(2, 3).astype(np.float32),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3], "y": [1, 3]}
+        self.max_shape = {"x": [5, 3], "y": [5, 3]}
+
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
+        self.check_trt_result()
+
+
 class TestRemainderFloatTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.remainder
@@ -404,11 +422,14 @@ class TestMaximumTRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 3, 4], "y": [1, 3, 4]}
         self.max_shape = {"x": [5, 3, 4], "y": [5, 3, 4]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 
-class TestMinimumBroadcastTRTPattern(TensorRTBaseTest):
+class TestMaximumBroadcastTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.maximum
         self.api_args = {
@@ -419,11 +440,14 @@ class TestMinimumBroadcastTRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 3, 4], "y": [4]}
         self.max_shape = {"x": [5, 3, 4], "y": [4]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 
-class TestMinimumIntTRTPattern(TensorRTBaseTest):
+class TestMaximumIntTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.maximum
         self.api_args = {
@@ -446,7 +470,76 @@ class TestMinimumIntTRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 3, 4], "y": [1, 3, 4]}
         self.max_shape = {"x": [5, 3, 4], "y": [5, 3, 4]}
 
-    def test_trt_result(self):
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
+        self.check_trt_result()
+
+
+class TestMinimumTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.minimum
+        self.api_args = {
+            "x": np.random.randn(2, 3, 4).astype("float32"),
+            "y": np.random.randn(2, 3, 4).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3, 4], "y": [1, 3, 4]}
+        self.max_shape = {"x": [5, 3, 4], "y": [5, 3, 4]}
+
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
+        self.check_trt_result()
+
+
+class TestMinimumBroadcastTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.minimum
+        self.api_args = {
+            "x": np.random.randn(2, 3, 4).astype("float32"),
+            "y": np.random.randn(4).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3, 4], "y": [4]}
+        self.max_shape = {"x": [5, 3, 4], "y": [4]}
+
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
+        self.check_trt_result()
+
+
+class TestMinimumIntTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.minimum
+        self.api_args = {
+            "x": np.random.randint(
+                low=1, high=100, size=(2, 3, 4), dtype="int64"
+            ),
+            "y": np.random.randint(
+                low=1, high=100, size=(2, 3, 4), dtype="int64"
+            ),
+        }
+        self.dynamic_shape_data = {
+            "x": lambda shape: np.random.randint(
+                1, 100, size=shape, dtype="int64"
+            ),
+            "y": lambda shape: np.random.randint(
+                1, 100, size=shape, dtype="int64"
+            ),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3, 4], "y": [1, 3, 4]}
+        self.max_shape = {"x": [5, 3, 4], "y": [5, 3, 4]}
+
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
         self.check_trt_result()
 
 

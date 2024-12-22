@@ -69,9 +69,7 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
   ReplaceCrossBlockReduction(copied);
   VLOG(4) << "After Optimize ReplaceCrossBlockReduction:" << copied;
 
-  cinn::common::DefaultDeviceTarget().arch.Match(
-      [&](std::variant<common::UnknownArch, common::X86Arch, common::ARMArch>) {
-      },
+  target.arch.Match(
       [&](common::NVGPUArch) {
 #ifdef CINN_WITH_CUDA
         ir::SetCudaAxisInfo(copied);
@@ -91,7 +89,9 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
         CudaSyncThreadsDropIfThenElse(copied);
     // CudaTransBufferWithDynamicShape(&copied);
 #endif
-      });
+      },
+      [&](common::HygonDCUArchSYCL) { CINN_NOT_IMPLEMENTED },
+      [](auto) {});
 
   SimplifyBlocks(&copied->body);
   VLOG(4) << "After SimplifyBlocks:" << copied;
@@ -108,6 +108,13 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
   BlockPassManager pass_manager;
   pass_manager.AddPass(CreateIfFusionPass());
   pass_manager.Run(copied);
+
+  target.arch.Match(
+      [&](common::NVGPUArch) {
+        RearrangeLoadInstruction(&copied->body);
+        VLOG(4) << "After Optimize RearrangeLoadInstruction:" << copied;
+      },
+      [](auto) {});
 
   VectorizeForTrans(&copied->body);
   VLOG(10) << "After Optimize vectorize" << copied;
