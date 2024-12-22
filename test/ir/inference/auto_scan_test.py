@@ -169,6 +169,7 @@ class AutoScanTest(unittest.TestCase):
                 optim_input_shape=origin_shape,
                 max_input_shape=origin_shape,
             )
+            input_config.input_data_type = str(prog_config.inputs[key].dtype)
             inputs.append(input_config)
 
         trt_config = TensorRTConfig(inputs=inputs)
