@@ -663,20 +663,13 @@ bool IsNegatedIndexExpr(const ir::IndexExpr &candidate,
 bool VerifyIndex(const ir::Expr &expr) {
   switch (expr.node_type()) {
     case ir::IrNodeTy::_Var_:
-    case ir::IrNodeTy::IntImm: {
+    case ir::IrNodeTy::IntImm:
+    case ir::IrNodeTy::Load: {
       if (expr.type().is_index_type()) return true;
       return false;
     }
     case ir::IrNodeTy::Cast:
       return VerifyIndex(expr->operand(0));
-    case ir::IrNodeTy::Load: {
-      bool is_index = true;
-      auto load_op = expr.As<ir::Load>();
-      for (const auto &indice : load_op->indices) {
-        if (!VerifyIndex(indice)) return false;
-      }
-      return true;
-    }
     case ir::IrNodeTy::Add:
     case ir::IrNodeTy::Sub:
     case ir::IrNodeTy::Mul:

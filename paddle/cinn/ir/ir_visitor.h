@@ -54,10 +54,9 @@ class IRVisitorRequireReImpl {
         NODETY_FORALL_INDEXEXPR(__)
 
         default:
-          std::stringstream ss;
-          ss << "not supported NodeTy in IndexExpr, the expr->node_type() = "
-             << expr->node_type();
-          PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
+          PADDLE_THROW(::common::errors::InvalidArgument(
+              "not supported NodeTy in IndexExpr, the expr->node_type() = %s",
+              expr->node_type()));
 #undef __
       }
     } else {
@@ -75,10 +74,9 @@ class IRVisitorRequireReImpl {
           NODETY_FORALL(__)
 
         default:
-          std::stringstream ss;
-          ss << "not supported NodeTy, the expr->node_type() = "
-             << expr->node_type();
-          PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
+          PADDLE_THROW(::common::errors::InvalidArgument(
+              "not supported NodeTy, the expr->node_type() = %s",
+              expr->node_type()));
 #undef __
       }
       return RetTy();
@@ -93,10 +91,9 @@ class IRVisitorRequireReImpl {
       NODETY_FORALL_INDEXEXPR(__)
 
       default:
-        std::stringstream ss;
-        ss << "not supported NodeTy in IndexExpr, the expr->node_type() = "
-           << expr->node_type();
-        PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
+        PADDLE_THROW(::common::errors::InvalidArgument(
+            "not supported NodeTy in IndexExpr, the expr->node_type() = %s",
+            expr->node_type()));
 #undef __
     }
   }
