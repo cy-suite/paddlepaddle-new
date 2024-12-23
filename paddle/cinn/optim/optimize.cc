@@ -127,9 +127,9 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
   pass_manager.Run(copied);
   VLOG(10) << "After RemoveScheduleBlock:" << copied;
 
-  StmtPassManager pass_manager;
-  pass_manager.AddPass(CreateIfFoldPass());
-  pass_manager.Run(copied);
+  StmtPassManager stmt_pass_manager;
+  stmt_pass_manager.AddPass(CreateIfFoldPass());
+  stmt_pass_manager.Run(copied);
   VLOG(10) << "After IfFoldPass:" << copied;
 
   LowerIntrin(&copied->body, target);
