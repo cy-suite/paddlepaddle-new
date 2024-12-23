@@ -306,6 +306,13 @@ def pow_op_converter(network, paddle_op, inputs):
     )
 
 
+@converter_registry.register("pd_op.elementwise_pow", trt_version="8.x")
+def elementwise_pow_converter(network, paddle_op, inputs):
+    return add_elementwise_layer(
+        network, paddle_op, inputs, trt.ElementWiseOperation.POW
+    )
+
+
 @converter_registry.register("pd_op.minimum", trt_version="8.x")
 def minimum_converter(network, paddle_op, inputs):
     min_layer = add_elementwise_layer(
