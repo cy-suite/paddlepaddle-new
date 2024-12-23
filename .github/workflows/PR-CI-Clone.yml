@@ -15,21 +15,17 @@ jobs:
       with:
         submodules: 'recursive'
 
-    - name: Modify branch name
-      run: |
-        git checkout -b test
-
     - name: Push Paddle to BOS
       env:
         PR_ID: ${{ github.event.pull_request.number }}
         COMMIT_ID: ${{ github.event.pull_request.head.sha }}
       run: |
+        git checkout -b test
         cd ..
         tar -zcf Paddle.tar.gz Paddle
-        set +x
         wget -q --no-proxy -O bce_whl.tar.gz  https://paddle-docker-tar.bj.bcebos.com/home/bce_whl.tar.gz --no-check-certificate
-        set -x
         tar xf bce_whl.tar.gz
+        pip install protocol
         python3  bce-python-sdk-0.8.27/BosClient.py Paddle.tar.gz xly-devops/PR/Paddle/${PR_ID}/${COMMIT_ID}
 
     # - name: Upload Paddle artifact
