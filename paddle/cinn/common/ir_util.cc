@@ -19,6 +19,7 @@
 #include <unordered_set>
 
 #include "paddle/cinn/common/cas.h"
+#include "paddle/cinn/common/const_fold.h"
 #include "paddle/cinn/common/simplify_special_pattern.h"
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/ir_printer.h"
@@ -835,6 +836,51 @@ bool IsNegatedIndexExpr(const ir::IndexExpr &candidate,
   return false;
 }
 
+bool VerifyIndex(const ir::Expr &expr) {
+  switch (expr.node_type()) {
+    case ir::IrNodeTy::_Var_:
+    case ir::IrNodeTy::IntImm: {
+      if (expr.type().is_index_type()) return true;
+      return false;
+    }
+    case ir::IrNodeTy::Cast:
+      return VerifyIndex(expr->operand(0));
+    case ir::IrNodeTy::Load: {
+      bool is_index = true;
+      auto load_op = expr.As<ir::Load>();
+      for (const auto &indice : load_op->indices) {
+        if (!VerifyIndex(indice)) return false;
+      }
+      return true;
+    }
+    case ir::IrNodeTy::Add:
+    case ir::IrNodeTy::Sub:
+    case ir::IrNodeTy::Mul:
+    case ir::IrNodeTy::Div:
+    case ir::IrNodeTy::Mod:
+    case ir::IrNodeTy::Max:
+    case ir::IrNodeTy::Min:
+      return VerifyIndex(expr->operand(0)) && VerifyIndex(expr->operand(1));
+  }
+  return false;
+}
+
+static ir::IndexExpr SimplifyMin(const ir::IndexExpr &lhs,
+                                 const ir::IndexExpr &rhs) {
+  if (lhs == rhs) return lhs;
+  if (auto constRes = cinn::common::TryConstFold<ir::Min>(lhs, rhs))
+    return constRes.value();
+  return ir::Min::Make(lhs, rhs);
+}
+
+static ir::IndexExpr SimplifyMax(const ir::IndexExpr &lhs,
+                                 const ir::IndexExpr &rhs) {
+  if (lhs == rhs) return lhs;
+  if (auto constRes = cinn::common::TryConstFold<ir::Max>(lhs, rhs))
+    return constRes.value();
+  return ir::Max::Make(lhs, rhs);
+}
+
 ir::IndexExpr ConstructIndexExprByNodeType(const ir::IrNodeTy &ty,
                                            const ir::IndexExpr &lhs,
                                            const ir::IndexExpr &rhs,
@@ -850,6 +896,10 @@ ir::IndexExpr ConstructIndexExprByNodeType(const ir::IrNodeTy &ty,
       return simplify_flag ? lhs / rhs : ir::Div::Make(lhs, rhs);
     case ir::IrNodeTy::Mod:
       return simplify_flag ? lhs % rhs : ir::Mod::Make(lhs, rhs);
+    case ir::IrNodeTy::Min:
+      return simplify_flag ? ir::Min::Make(lhs, rhs) : SimplifyMin(lhs, rhs);
+    case ir::IrNodeTy::Max:
+      return simplify_flag ? ir::Max::Make(lhs, rhs) : SimplifyMax(lhs, rhs);
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(
           "Unsupported type in Constructir::IndexExprByNodeType, which is: %s",
