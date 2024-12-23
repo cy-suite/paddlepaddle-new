@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <set>
+
 #include "paddle/phi/kernels/reduce_sum_kernel.h"
 
 #include "paddle/phi/backends/all_context.h"
