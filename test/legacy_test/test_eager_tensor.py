@@ -1300,7 +1300,7 @@ class TestEagerTensor(unittest.TestCase):
             with warnings.catch_warnings(record=True) as w:
                 x = paddle.to_tensor([1, 2, 3])
                 paddle.to_tensor(x)
-                flag = paddle.tensor.creation._has_warned
+                flag = paddle.tensor.creation._warned_in_to_tensor
                 self.assertTrue(flag)
 
     def test_dlpack_device(self):
