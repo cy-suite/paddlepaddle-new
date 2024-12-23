@@ -50,7 +50,7 @@ _PADDLE_DTYPE_2_NBYTES = {
 DEFAULT_RECOMPUTABLE_OPS: list[str] = [
     "pd_op.full_int_array",
     "pd_op.full",
-    "pd_op.sum",
+    # "pd_op.sum",
     "pd_op.divide",
     "pd_op.subtract",
     "pd_op.add",
@@ -81,11 +81,12 @@ DEFAULT_RECOMPUTABLE_OPS: list[str] = [
     "pd_op.squeeze",
     "pd_op.unsqueeze",
     "pd_op.transpose",
-    "pd_op.prod",
+    # "pd_op.prod",
     "pd_op.log",
     "pd_op.log1p",
     "pd_op.logit",
-    "pd_op.max",
+    # "pd_op.max",
+    # "pd_op.min",
     "pd_op.expand_as",
     "pd_op.split",
     "pd_op.arange",
@@ -132,6 +133,12 @@ DEFAULT_RECOMPUTABLE_OPS: list[str] = [
     "pd_op.sigmoid",
 ]
 
+# define the ops that are tending to recompute.These ops are more likely to save memory and get fused.
+TENDING_TO_RECOMPUTE_OPS: list[str] = [
+    "pd_op.full_int_array",
+    "pd_op.full",
+]
+
 VIEW_OPS: list[str] = []
 
 RANDOM_OPS: list[str] = ["pd_op.randint", "pd_op.uniform", "pd_op.dropout"]
@@ -151,11 +158,13 @@ AGGRESSIVE_RECOMPUTATION = False
 # Restricts the amount of computation recompute can do.
 MAX_DIST_FROM_BW = 3
 
+MINIMUM_WEIGHT = 0.1
+
 
 def DebugPrint(*args):
     flag = os.getenv("FLAGS_print_auto_recompute_debug")
     if flag and str(flag).lower() in ("1", "true"):
-        print(*args)
+        print(*args, flush=True)
 
 
 class JudgeFusionLoop:
@@ -377,6 +386,7 @@ def auto_recompute(
             (%11) = "pd_op.fetch" (%10) {col:(Int32)0,is_persistable:[true],name:"fetch0",stop_gradient:[false]} : (pd_op.tensor<4096x4096xf32>) -> pd_op.tensor<4096x4096xf32>
         }
     '''
+    DebugPrint("program before recompute:", program)
     # 1. find smart recompute needed saved values by min-cut algorithm
     # 1.1 classify value nodes
     import networkx as nx
@@ -415,6 +425,7 @@ def auto_recompute(
 
     random_ops = RANDOM_OPS
     compute_intensive_ops = COMPUTE_INTENSIVE_OPS
+    tending_to_recompute_ops = TENDING_TO_RECOMPUTE_OPS
 
     unrecomputable_ops = random_ops + compute_intensive_ops
 
@@ -450,8 +461,31 @@ def auto_recompute(
         users = find_value_node_users(value_node)
         return not all(_is_fusible(value_node, user) for user in users)
 
-    def _get_node_weight(value_node, placeholder_value_nodes):
+    def _get_no_need_buffer_values_from_program(program):
+        need_buffer_values = backward_utils.ValueSet()
+        all_values = backward_utils.ValueSet()
+        for op in program.global_block().ops:
+            for op_operand_source in op.operands_source():
+                all_values.add(op_operand_source)
+                if op.is_no_need_buffer(op_operand_source):
+                    continue
+                need_buffer_values.add(op_operand_source)
+        no_need_buffer_values = all_values - need_buffer_values
+        return no_need_buffer_values
+
+    def _get_node_weight(
+        value_node, no_need_buffer_values, placeholder_value_nodes
+    ):
+        if value_node in no_need_buffer_values:
+            return MINIMUM_WEIGHT
+
         mem_sz = cal_value_node_size(value_node)
+
+        if (
+            value_node.get_defining_op().name() in tending_to_recompute_ops
+            and mem_sz == 0
+        ):
+            return 0.1
 
         # Heuristic to bias towards nodes closer to the backwards pass
         mem_sz = int(
@@ -467,6 +501,9 @@ def auto_recompute(
         if AGGRESSIVE_RECOMPUTATION:
             return value_node.get_defining_op().name() in unrecomputable_ops
         else:
+            if value_node.get_defining_op().name() in tending_to_recompute_ops:
+                return False
+
             if value_node.get_defining_op().name() not in recomputable_ops:
                 return True
 
@@ -495,6 +532,7 @@ def auto_recompute(
 
     judge_fusion_loop = JudgeFusionLoop(program, unrecomputable_ops)
     forward_ops = set(program.global_block().ops[: fwd_op_end_idx + 1])
+    no_need_buffer_values = _get_no_need_buffer_values_from_program(program)
 
     for value_node in (
         required_fw_value_nodes
@@ -553,7 +591,9 @@ def auto_recompute(
             value_id_dict[value_node.id] = value_node
 
         weight = _get_node_weight(
-            value_node, placeholder_value_nodes=inputs | outputs
+            value_node,
+            no_need_buffer_values,
+            placeholder_value_nodes=inputs | outputs,
         )
 
         # Creates the weights on the "node" edge
@@ -620,7 +660,6 @@ def auto_recompute(
     # (TODO: wanghao107): remove it and fix model
     # saved_values = cut_value_nodes | inputs
     saved_values = cut_value_nodes
-    DebugPrint("program before recompute:", program)
     # 2.patition the joint graph by saved values.
     (
         program_after_recompute,
@@ -726,12 +765,17 @@ def replace_mid_values_with_forward_subgraph(
             define_op = recompute_value.get_defining_op()
             if define_op in marked_recompute_ops or define_op is None:
                 return
+            if define_op.name() in [
+                "builtin.parameter",
+                "pd_op.data",
+            ]:
+                if recompute_value not in needed_saved_values:
+                    needed_saved_values.add(recompute_value)
+                return
             op_inputs = define_op.operands_source()
             if len(op_inputs) == 0 and define_op.name() not in [
                 "pd_op.full",
                 "pd_op.full_int_array",
-                "builtin.parameter",
-                "pd_op.data",
             ]:
 
                 def getIdx(program, op):
@@ -843,39 +887,32 @@ def classify_value_node(program, grad_outputs, fwd_op_end_idx):
 
     required_fw_op_idxs = list(range(0, fwd_op_end_idx + 1))
     required_fw_value_nodes = backward_utils.ValueSet(
-        program.global_block().get_value_from_op_idxs(required_fw_op_idxs)
+        program.global_block().get_values_by_op_idx(required_fw_op_idxs)
     )
 
-    required_bw_ops = set()
-    for grad_output in grad_outputs:
-        required_bw_ops = required_bw_ops | find_child_ops(grad_output)
-        required_bw_ops.add(grad_output.get_defining_op())
-
-    required_bw_op_idxs = []
-    for idx, op in enumerate(all_ops):
-        if op in required_bw_ops:
-            required_bw_op_idxs.append(idx)
+    required_bw_op_idxs = list(range(fwd_op_end_idx + 1, len(all_ops)))
     required_bw_value_nodes = backward_utils.ValueSet(
-        program.global_block().get_value_from_op_idxs(required_bw_op_idxs)
+        program.global_block().get_values_by_op_idx(required_bw_op_idxs)
     )
 
-    unclaimed_ops = {
-        op
-        for op in all_ops
-        if op not in required_fw_ops and op not in required_bw_ops
-    }
+    # TODO(chenxi67) optimize classify algorithm by using unclaimed_ops. Remove them to fasten bw_ops detecting time.
+    # unclaimed_ops = {
+    #     op
+    #     for op in all_ops
+    #     if op not in required_fw_ops and op not in required_bw_ops
+    # }
 
-    unclaimed_op_idxs = []
-    for idx, op in enumerate(all_ops):
-        if op in unclaimed_ops:
-            unclaimed_op_idxs.append(idx)
-    unclaimed_value_nodes = backward_utils.ValueSet(
-        program.global_block().get_value_from_op_idxs(unclaimed_op_idxs)
-    )
+    # unclaimed_op_idxs = []
+    # for idx, op in enumerate(all_ops):
+    #     if op in unclaimed_ops:
+    #         unclaimed_op_idxs.append(idx)
+    # unclaimed_value_nodes = backward_utils.ValueSet(
+    #     program.global_block().get_values_by_op_idx(unclaimed_op_idxs)
+    # )
 
     return (
         required_fw_value_nodes,
-        required_bw_value_nodes | unclaimed_value_nodes,
+        required_bw_value_nodes,
         backward_utils.ValueSet(),
     )
 
@@ -1078,41 +1115,20 @@ def find_parent_ops(value):
 
     def _find_parent_ops(value):
         parent_ops = set()
-        if value in visited:
-            return parent_ops
-        visited.add(value)
-        parent_op = value.get_defining_op()
-        if parent_op is not None:
-            parent_ops.add(parent_op)
-        else:
-            return parent_ops
-        op_inputs = parent_op.operands_source()
-        for op_input in op_inputs:
-            if not value.initialized():
+        stack = [value]
+
+        while stack:
+            current = stack.pop()
+            if current in visited:
                 continue
-            parent_ops = parent_ops | _find_parent_ops(op_input)
+            visited.add(current)
+            parent_op = current.get_defining_op()
+            if parent_op is not None:
+                parent_ops.add(parent_op)
+                op_inputs = parent_op.operands_source()
+                for op_input in op_inputs:
+                    if current.initialized():
+                        stack.append(op_input)
         return parent_ops
 
     return _find_parent_ops(value)
-
-
-def find_child_ops(value):
-    visited = backward_utils.ValueSet()
-
-    def _find_child_ops(value):
-        child_ops = set()
-        if value in visited:
-            return child_ops
-        visited.add(value)
-        used_ops = value.all_used_ops()
-        child_ops |= set(used_ops)
-        op_results = backward_utils.ValueSet()
-        for used_op in used_ops:
-            op_results = op_results | backward_utils.ValueSet(used_op.results())
-        for op_result in op_results:
-            if not op_result.initialized():
-                continue
-            child_ops = child_ops | _find_child_ops(op_result)
-        return child_ops
-
-    return _find_child_ops(value)
