@@ -84,7 +84,22 @@ class IRVisitorRequireReImpl {
       return RetTy();
     }
   }
-  virtual RetTy Visit(const ir::IndexExpr* expr, Args... args) {}
+  virtual RetTy Visit(const ir::IndexExpr* expr, Args... args) {
+    switch (expr->node_type()) {
+#define __(op__)           \
+  case ir::IrNodeTy::op__: \
+    return VisitIndexExpr(expr->As<ir::op__>(), args...);
+
+      NODETY_FORALL_INDEXEXPR(__)
+
+      default:
+        std::stringstream ss;
+        ss << "not supported NodeTy in IndexExpr, the expr->node_type() = "
+           << expr->node_type();
+        PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
+#undef __
+    }
+  }
   // @}
  protected:
   virtual RetTy Visit(const IterMark* op, Args... args) {}
