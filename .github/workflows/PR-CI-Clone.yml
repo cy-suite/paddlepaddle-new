@@ -20,7 +20,7 @@ jobs:
         git branch -m test
 
     - name: tar Paddle
-      runs:|
+      run: |
         tar --exclude=Paddle.tar.gz -zcf Paddle.tar.gz .
 
     - name: Download BOS client
