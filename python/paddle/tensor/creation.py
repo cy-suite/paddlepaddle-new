@@ -64,6 +64,8 @@ if TYPE_CHECKING:
 
 __all__ = []
 
+_has_warned = False
+
 
 def _complex_to_real_dtype(dtype: DTypeLike) -> DTypeLike:
     if dtype == core.VarDesc.VarType.COMPLEX64:
@@ -941,10 +943,14 @@ def to_tensor(
                 )
             return core.tensor_from_cuda_array_interface(data)
         if is_tensor:
-            warnings.warn(
-                "To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach(), "
-                "rather than paddle.to_tensor(sourceTensor)."
-            )
+            global _has_warned
+            if not _has_warned:
+                warnings.warn(
+                    "To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach(), "
+                    "rather than paddle.to_tensor(sourceTensor).",
+                    stacklevel=2,
+                )
+                _has_warned = True
         return _to_tensor_non_static(data, dtype, place, stop_gradient)
 
     # call assign for static graph
