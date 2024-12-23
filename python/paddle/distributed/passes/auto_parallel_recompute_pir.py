@@ -239,6 +239,8 @@ class AutoParallelRecomputePIRPass(PassBase):
                 rc_op = op.clone(
                     value_map, paddle.pir.CloneOptions(False, True, True)
                 )
+                if rc_op.has_attr("fwd_recompute_id"):
+                    rc_op.erase_attr("fwd_recompute_id")
 
                 rc_op.set_int_attr("bwd_recompute_id", rc_id)
 

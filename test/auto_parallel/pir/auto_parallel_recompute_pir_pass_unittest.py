@@ -87,7 +87,7 @@ def create_optimizer(model, lr_scheduler):
     return optimizer
 
 
-class TestLlamaAuto:
+class TestRecomputeLlamaAuto:
     def __init__(self):
         self.config = Config()
         self.dp = int(os.getenv("dp"))
@@ -179,29 +179,38 @@ class TestLlamaAuto:
         fwd_rc_op_num = 0
         for block in program.blocks:
             for op in block.ops:
-                if op.has_attr("fwd_recompute_id"):
-                    idx = op.attrs()["fwd_recompute_id"]
+                if op.has_attr("bwd_recompute_id"):
+                    idx = op.attrs()["bwd_recompute_id"]
                     segment_num.add(idx)
                     fwd_rc_op_num += 1
         return len(segment_num), fwd_rc_op_num
 
-    def run_test_cases(self):
-        self.strategy._recompute.enable = False
-        self.config.recompute = False
-        base_losses, base_model = self.run_llama(self.config)
+    def get_mem_message(self):
+        max_mem_allocated = paddle.device.cuda.max_memory_allocated()
+        max_mem_reserved = paddle.device.cuda.max_memory_reserved()
+        return max_mem_allocated, max_mem_reserved
 
+    def run_test_cases(self):
         self.strategy._recompute.enable = True
         self.config.recompute = True
-        self.config.recompute_granularity = "core_attn"
+        self.config.recompute_granularity = "full"
         losses_1, model_1 = self.run_llama(self.config)
+        max_mem_allocated_1, max_mem_reserved_1 = self.get_mem_message()
 
         self.config.recompute = True
         self.config.recompute_granularity = "full_attn"
         losses_2, model_2 = self.run_llama(self.config)
+        max_mem_allocated_2, max_mem_reserved_2 = self.get_mem_message()
 
         self.config.recompute = True
-        self.config.recompute_granularity = "full"
+        self.config.recompute_granularity = "core_attn"
         losses_3, model_3 = self.run_llama(self.config)
+        max_mem_allocated_3, max_mem_reserved_3 = self.get_mem_message()
+
+        self.strategy._recompute.enable = False
+        self.config.recompute = False
+        base_losses, base_model = self.run_llama(self.config)
+        max_mem_allocated_base, max_mem_reserved_base = self.get_mem_message()
 
         # check loss
         self.check_loss(base_losses, losses_1)
@@ -218,16 +227,29 @@ class TestLlamaAuto:
         segment_num_2, fwd_rc_op_num_2 = self.get_recompute_message(prog_2)
         segment_num_3, fwd_rc_op_num_3 = self.get_recompute_message(prog_3)
 
+        # check segment number
         assert base_segment_num == 0
         assert segment_num_1 == 2
         assert segment_num_2 == 2
         assert segment_num_3 == 2
 
+        # check recompute op number
         assert base_rc_op_num == 0
-        assert fwd_rc_op_num_1 == 60
-        assert fwd_rc_op_num_2 == 206
-        assert fwd_rc_op_num_3 == 290
+        assert fwd_rc_op_num_1 == 144
+        assert fwd_rc_op_num_2 == 102
+        assert fwd_rc_op_num_3 == 30
+
+        # memory check
+        # max_mem_allocated check
+        assert max_mem_allocated_1 < max_mem_allocated_2
+        assert max_mem_allocated_2 < max_mem_allocated_3
+        assert max_mem_allocated_3 < max_mem_allocated_base
+
+        # max_mem_reserved check
+        assert max_mem_reserved_1 < max_mem_reserved_2
+        assert max_mem_reserved_2 < max_mem_reserved_3
+        assert max_mem_reserved_3 < max_mem_reserved_base
 
 
 if __name__ == '__main__':
-    TestLlamaAuto().run_test_cases()
+    TestRecomputeLlamaAuto().run_test_cases()
