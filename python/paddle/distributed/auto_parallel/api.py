@@ -33,6 +33,7 @@ from paddle.base.framework import (
     EagerParamBase,
     Variable,
     default_main_program,
+    in_dygraph_mode,
     in_pir_mode,
     use_pir_api,
 )
@@ -1318,7 +1319,7 @@ class _ShardOptimizer(Optimizer):
                 if isinstance(placements[i], dist.Partial):
                     placements[i] = dist.Replicate()
                     grad = dist.reshard(grad, grad.process_mesh, placements)
-            if self.gradient_accumulation_steps > 1:
+            if self.gradient_accumulation_steps > 1 and in_dygraph_mode():
                 grad /= self.gradient_accumulation_steps
 
             if change_mesh:
