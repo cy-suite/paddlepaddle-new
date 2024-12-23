@@ -953,10 +953,23 @@ def roll_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.index_put", trt_version="8.x")
 def index_put_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
-    indices_tensor = inputs[1]
-    value_tensor = inputs[2]
 
-    input_shape_tensor = trt_shape(input_tensor)
+    indices_op = paddle_op.operands()[1].source().get_defining_op()
+    value_op = paddle_op.operands()[2].source().get_defining_op()
+
+    if indices_op.name() == "pd_op.full_int_array":
+        indices = indices_op.attrs()["value"]
+        indices_tensor = add_1D_constant_layer(network, indices)
+    else:
+        indices_tensor = inputs[1]
+
+    if value_op.name() == "pd_op.full_int_array":
+        value = value_op.attrs()["value"]
+        value_tensor = add_1D_constant_layer(network, value)
+    else:
+        value_tensor = inputs[2]
+
+    input_shape_tensor = trt_shape(network, input_tensor)
     input_shape = input_tensor.shape
     rank = len(input_shape)
     indices_shape = indices_tensor.shape
@@ -989,7 +1002,9 @@ def index_put_converter(network, paddle_op, inputs):
     indices_slice_layer.set_input(2, input_shape_tensor)
     indices_slice_layer.set_input(3, stride_tensor)
     indices_slice_layer.mode = trt.SampleMode.CLAMP
-    bool_indices_tensor = trt_cast(indices_slice_layer.get_output(0), trt.bool)
+    bool_indices_tensor = trt_cast(
+        network, indices_slice_layer.get_output(0), trt.bool
+    )
 
     # nonzero
     nonzero_layer = network.add_non_zero(bool_indices_tensor)

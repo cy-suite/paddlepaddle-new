@@ -606,31 +606,15 @@ class TestSqueezeCase1TRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestIndexPutCase0TRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = paddle.index_put
-        self.api_args = {
-            "x": np.random.random([3, 3]).astype("float32"),
-            "indices": ([0, 1, 2], [1, 2, 1]),
-            "value": [1.0, 1.0, 1.0],
-        }
-        self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [1, 3]}
-        self.max_shape = {"x": [5, 3]}
-
-    def test_trt_result(self):
-        self.check_trt_result()
-
-
 class TestIndexPutCase1TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.index_put
         self.api_args = {
             "x": np.random.random([3, 3]).astype("float32"),
-            "indices": ([0, 1, 2], [1, 2, 1]),
-            "value": [1.0, 1.0, 1.0],
+            "indices": (np.array([0, 1, 2]), np.array([1, 2, 1])),
+            "value": np.ones(3).astype("float32"),
         }
-        self.program_config = {"feed_list": ["x"]}
+        self.program_config = {"feed_list": ["x", "indices", "value"]}
         self.min_shape = {"x": [1, 3]}
         self.max_shape = {"x": [5, 3]}
 
@@ -648,10 +632,10 @@ class TestIndexPutCase2TRTPattern(TensorRTBaseTest):
         self.python_api = paddle.index_put
         self.api_args = {
             "x": np.random.random([3, 3]).astype("int64"),
-            "indices": ([0, 1, 2], [1, 2, 1]),
-            "value": [1.0, 1.0, 1.0],
+            "indices": (np.array([0, 1, 2]), np.array([1, 2, 1])),
+            "value": np.ones(3).astype("int64"),
         }
-        self.program_config = {"feed_list": ["x"]}
+        self.program_config = {"feed_list": ["x", "indices", "value"]}
         self.min_shape = {"x": [1, 3]}
         self.max_shape = {"x": [5, 3]}
 
@@ -664,45 +648,10 @@ class TestIndexPutCase3TRTPattern(TensorRTBaseTest):
         self.python_api = paddle.index_put
         self.api_args = {
             "x": np.random.random([3, 3]).astype("float32"),
-            "indices": (
-                np.array([0, 1, 2]).astype("int64"),
-                np.array([1, 2, 1]).astype("int64"),
-            ),
-            "value": [1.0, 1.0, 1.0],
-        }
-        self.program_config = {"feed_list": ["x", "indices"]}
-        self.min_shape = {"x": [1, 3]}
-        self.max_shape = {"x": [5, 3]}
-
-    def test_trt_result(self):
-        self.check_trt_result()
-
-
-class TestIndexPutCase4TRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = paddle.index_put
-        self.api_args = {
-            "x": np.random.random([3, 3]).astype("float32"),
-            "indices": ([0, 1, 2], [1, 2, 1]),
+            "indices": (np.array([0, 1, 2]), np.array([1, 2, 1])),
             "value": np.ones(3).astype("float32"),
         }
-        self.program_config = {"feed_list": ["x", "value"]}
-        self.min_shape = {"x": [1, 3]}
-        self.max_shape = {"x": [5, 3]}
-
-    def test_trt_result(self):
-        self.check_trt_result()
-
-
-class TestIndexPutCase5TRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = paddle.index_put
-        self.api_args = {
-            "x": np.random.random([3, 3]).astype("float32"),
-            "indices": ([0, 1, 2], [1, 2, 1]),
-            "value": [1.0, 1.0, 1.0],
-        }
-        self.program_config = {"feed_list": ["x"]}
+        self.program_config = {"feed_list": ["x", "indices", "value"]}
         self.min_shape = {"x": [1, 3]}
         self.max_shape = {"x": [5, 3]}
 
