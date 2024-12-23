@@ -112,5 +112,9 @@ LogicalResult IfFoldPass::Run(StmtRef stmt) {
 
   return LogicalResult::success();
 }
+
+std::unique_ptr<StmtPass> CreateIfFoldPass() {
+  return std::make_unique<IfFoldPass>();
+}
 }  // namespace optim
 }  // namespace cinn

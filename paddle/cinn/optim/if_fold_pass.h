@@ -88,9 +88,7 @@ class IfFoldPass : public StmtPass {
  *   }
  * }
  */
-std::unique_ptr<StmtPass> CreateIfFoldPass() {
-  return std::make_unique<IfFoldPass>();
-}
+std::unique_ptr<StmtPass> CreateIfFoldPass();
 
 }  // namespace optim
 }  // namespace cinn
