@@ -36,5 +36,8 @@ void SimplifyForLoops(Expr *expr);
 
 void SimplifyBlocks(Expr *expr);
 
+// Use `IndexExpr` Normalize to simplify the expression.
+Expr ArithSimplify(const Expr &u);
+
 }  // namespace optim
 }  // namespace cinn

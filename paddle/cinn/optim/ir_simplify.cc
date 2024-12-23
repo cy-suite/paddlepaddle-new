@@ -29,6 +29,7 @@
 #include "paddle/cinn/ir/ir_visitor.h"
 #include "paddle/cinn/ir/op/ir_operators.h"
 #include "paddle/cinn/ir/tensor.h"
+#include "paddle/cinn/ir/utils/ir_copy.h"
 #include "paddle/cinn/utils/string.h"
 
 namespace cinn {
@@ -489,27 +490,72 @@ struct SimplifyCastMutator : public ir::IRMutator<> {
   }
 };
 
+class SimplifyCmpMutator : public ir::ExprMutator<> {
+ public:
+  explicit SimplifyCmpMutator(common::SymbolicExprAnalyzer& ana) : ana_(ana) {}
+  void operator()(Expr* expr) { ir::ExprMutator<>::Visit(expr, expr); }
+
+#define DEFINE_VISIT_CMP_OP(OpType, Method)                  \
+  void Visit(const ir::OpType* op, Expr* expr) override {    \
+    auto* node = expr->As<ir::OpType>();                     \
+    if (ana_.Method(node->a(), node->b()).value_or(false)) { \
+      *expr = Expr(1);                                       \
+      return;                                                \
+    }                                                        \
+    ir::ExprMutator<>::Visit(&node->a(), &node->a());        \
+    ir::ExprMutator<>::Visit(&node->b(), &node->b());        \
+  }
+  DEFINE_VISIT_CMP_OP(LE, ProveLE)
+  DEFINE_VISIT_CMP_OP(LT, ProveLT)
+  DEFINE_VISIT_CMP_OP(GE, ProveGE)
+  DEFINE_VISIT_CMP_OP(GT, ProveGT)
+  DEFINE_VISIT_CMP_OP(EQ, ProveEQ)
+  DEFINE_VISIT_CMP_OP(NE, ProveNE)
+
+#undef DEFINE_VISIT_CMP_OP
+
+ private:
+  common::SymbolicExprAnalyzer ana_;
+};
+
 }  // namespace
-
-void Simplify(Expr* expr) {
-  VLOG(3) << "Begin Simplify " << *expr;
-  SimplifyCastMutator()(expr);
-  SimplifyRampMutator()(expr);
-  SimplifyLoadMutator()(expr);
-  SimplifyStoreMutator()(expr);
-  SimplifyIfThenElseMutator()(expr);
-  SimplifySelectMutator()(expr);
-  cinn::common::cas_intervals_t var_intervals;
-  SimplifyNoPureMathMutator mutator(var_intervals);
-  mutator(expr);
-
-  ReplaceFracWithDivMutator()(expr);
-  VLOG(3) << "End Simplify " << *expr;
-}
 
 void SimplifyCast(Expr* expr) { SimplifyCastMutator()(expr); }
 void SimplifyForLoops(Expr* expr) { SimplifyForLoopsMutator()(expr); }
 void SimplifyBlocks(Expr* expr) { SimplifyBlocksMutator()(expr); }
 
+void SimplifyCmp(Expr* expr) {
+  common::cas_intervals_t var_intervals_t =
+      common::CollectVarIntervalsOfExprs({*expr});
+  common::SymbolicExprAnalyzer ana{var_intervals_t};
+  auto mutator = SimplifyCmpMutator(ana);
+  mutator(expr);
+}
+Expr ArithSimplify(const Expr& u) {
+  if (!common::VerifyIndex(u)) return u;
+  auto copied = ir_utils::IRCopy(u);
+  return copied.set_index(true).as_index().Normalize();
+}
+
+void Simplify(Expr* expr) {
+  VLOG(3) << "Begin Simplify " << *expr;
+  SimplifyCmp(expr);
+  VLOG(3) << "1111" << *expr;
+  SimplifyCastMutator()(expr);
+  VLOG(3) << "2222" << *expr;
+  SimplifyRampMutator()(expr);
+  VLOG(3) << "3333" << *expr;
+  SimplifyLoadMutator()(expr);
+  SimplifyStoreMutator()(expr);
+  SimplifyIfThenElseMutator()(expr);
+  SimplifySelectMutator()(expr);
+  VLOG(3) << "4444" << *expr;
+  cinn::common::cas_intervals_t var_intervals;
+  SimplifyNoPureMathMutator mutator(var_intervals);
+  mutator(expr);
+  VLOG(3) << "5555" << *expr;
+  ReplaceFracWithDivMutator()(expr);
+  VLOG(3) << "End Simplify " << *expr;
+}
 }  // namespace optim
 }  // namespace cinn
