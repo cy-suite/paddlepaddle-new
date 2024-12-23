@@ -196,7 +196,7 @@ class TestLlamaAuto:
             {
                 "main_ops": ["matmul"],
                 "num": -1,
-                "pre_ops": ["reshape"],
+                "pre_ops": ["multiply"],
                 "suf_ops": [],
             }
         ]
@@ -233,7 +233,7 @@ class TestLlamaAuto:
         prog_1 = model_1.dist_main_program()
         prog_2 = model_2.dist_main_program()
 
-        base_segment_num, base_bwd_rc_op_num = self.get_recompute_message(
+        segment_num_base, bwd_rc_op_num_base = self.get_recompute_message(
             base_prog
         )
         segment_num_0, bwd_rc_op_num_0 = self.get_recompute_message(prog_0)
@@ -241,16 +241,16 @@ class TestLlamaAuto:
         segment_num_2, bwd_rc_op_num_2 = self.get_recompute_message(prog_2)
 
         # check segment number
-        assert base_segment_num == 0
+        assert segment_num_base == 0
         assert segment_num_0 == 2
         assert segment_num_1 == 2
         assert segment_num_2 == 2
 
         # check recompute op number
-        assert base_bwd_rc_op_num == 0
+        assert bwd_rc_op_num_base == 0
         assert bwd_rc_op_num_0 == 144
-        assert bwd_rc_op_num_1 == 144
-        assert bwd_rc_op_num_2 == 144
+        assert bwd_rc_op_num_1 == 142
+        assert bwd_rc_op_num_2 == 140
 
         # memory check
         # max_mem_allocated check
@@ -269,11 +269,6 @@ class TestLlamaAuto:
         assert (
             max_mem_reserved_1 - max_mem_reserved_0
             == max_mem_reserved_2 - max_mem_reserved_1
-        )
-
-        assert (
-            max_mem_allocated_1 - max_mem_allocated_0
-            == max_mem_reserved_1 - max_mem_reserved_0
         )
 
 

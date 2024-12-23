@@ -123,6 +123,51 @@ class AutoParallelRecomputePIRPass(PassBase):
             idx += 1
         return segments
 
+    def get_op_name(self, op):
+        return op.name().split('.')[1]
+
+    def match_pattern(
+        self,
+        op,
+        visit,
+        fetch_id,
+        fetch_pattern,
+        target_pattern,
+        pre_len,
+        main_len,
+        count,
+        max_count,
+    ):
+        if count >= max_count:
+            return max_count
+        if len(fetch_pattern) > len(target_pattern):
+            return count
+        if self.get_op_name(op) != target_pattern[fetch_id]:
+            return count
+        if fetch_id == len(target_pattern) - 1:
+            for idx in range(pre_len, pre_len + main_len):
+                fetch_op = fetch_pattern[idx]
+                visit[fetch_op] = -1
+            refined_segment = list(set(visit.values()))
+            refined_segment.sort()
+            refined_segment = [idx for idx in refined_segment if idx != -1]
+            return count + 1
+        for res_val in op.results():
+            for user_op in res_val.all_used_ops():
+                fetch_pattern[fetch_id + 1] = user_op
+                count = self.match_pattern(
+                    op=user_op,
+                    visit=visit,
+                    fetch_id=fetch_id + 1,
+                    fetch_pattern=fetch_pattern,
+                    target_pattern=target_pattern,
+                    pre_len=pre_len,
+                    main_len=main_len,
+                    count=count,
+                    max_count=max_count,
+                )
+        return count
+
     def _apply_single_impl(self, main_program, startup_program, context=None):
         self.program_ops = list(main_program.global_block().ops)
         refined_ops_patterns = self.get_attr("refined_ops_patterns")
@@ -146,38 +191,32 @@ class AutoParallelRecomputePIRPass(PassBase):
             main_ops = refined_ops_pattern['main_ops']
             pre_ops = refined_ops_pattern['pre_ops']
             suf_ops = refined_ops_pattern['suf_ops']
-            main_start_id = len(pre_ops)
-            main_ops_len = len(main_ops)
             pattern_ops = pre_ops + main_ops + suf_ops
-            pattern_ops_len = len(pattern_ops)
 
-            for rc_id, segment in segments.items():
-                segment.reverse()
+            for rc_id in segments.keys():
+                op_idx_map = {
+                    self.program_ops[idx]: idx for idx in segments[rc_id]
+                }
                 pattern_count = 0
-                seg_ops_len = len(segment)
-                right_id = seg_ops_len - 1
-                while right_id - pattern_ops_len + 1 > 0:
-                    left_id = right_id - pattern_ops_len + 1
-                    left_op_id = segment[left_id]
-                    right_op_id = segment[right_id]
-                    fetch_pattern = [
-                        op.name().split('.')[1]
-                        for op in main_program.global_block().ops[
-                            left_op_id : right_op_id + 1
-                        ]
-                    ]
-                    if fetch_pattern == pattern_ops and pattern_count < num:
-                        segment[
-                            left_id
-                            + main_start_id : left_id
-                            + main_start_id
-                            + main_ops_len
-                        ] = []
-                        pattern_count += 1
-                        right_id = left_id - 1
-                    else:
-                        right_id -= 1
-                segment.reverse()
+                fetch_pattern = [None] * len(pattern_ops)
+                for idx in segments[rc_id]:
+                    op = self.program_ops[idx]
+                    fetch_pattern[0] = op
+                    pattern_count = self.match_pattern(
+                        op=self.program_ops[idx],
+                        visit=op_idx_map,
+                        fetch_id=0,
+                        fetch_pattern=fetch_pattern,
+                        target_pattern=pattern_ops,
+                        pre_len=len(pre_ops),
+                        main_len=len(main_ops),
+                        count=pattern_count,
+                        max_count=num,
+                    )
+                refined_segment = list(set(op_idx_map.values()))
+                refined_segment.sort()
+                refined_segment = [idx for idx in refined_segment if idx != -1]
+                segments[rc_id] = refined_segment
 
         for rc_id, segment in segments.items():
             first_bwd_used_op = bwd_ops[-1]
