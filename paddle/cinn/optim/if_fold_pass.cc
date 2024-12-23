@@ -17,6 +17,7 @@
 #include <vector>
 #include "paddle/cinn/common/ir_util.h"
 #include "paddle/cinn/ir/ir_printer.h"
+#include "paddle/cinn/ir/op/ir_operators.h"
 #include "paddle/cinn/ir/utils/ir_compare.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
 
@@ -86,7 +87,7 @@ LogicalResult IfFoldPass::Run(StmtRef stmt) {
     VLOG(6) << "v: " << v;
     min_len = std::min(v.length(), min_len);
     if (v.node_type() == ir::IrNodeTy::Div) {
-      expr = expr + v * v->operand(1).as_index();
+      expr = expr + v * v.operand(1);
     } else {
       expr = expr + v;
     }
