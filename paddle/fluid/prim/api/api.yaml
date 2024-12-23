@@ -44,7 +44,6 @@
 - put_along_axis
 - sin
 - cos
-- acos
 - where
 - split
 - reshape
