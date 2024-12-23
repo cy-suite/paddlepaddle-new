@@ -29,12 +29,12 @@ from program_config import (
     OpConfig,
     ProgramConfig,
     create_fake_model,
-    create_fake_pir_model,
     create_quant_model,
 )
 
 import paddle
 import paddle.inference as paddle_infer
+from paddle import pir
 from paddle.base.core import PassVersionChecker
 from paddle.static.log_helper import get_logger
 
@@ -169,6 +169,7 @@ class AutoScanTest(unittest.TestCase):
                 optim_input_shape=origin_shape,
                 max_input_shape=origin_shape,
             )
+            input_config.input_data_type = str(prog_config.inputs[key].dtype)
             inputs.append(input_config)
 
         trt_config = TensorRTConfig(inputs=inputs)
@@ -802,9 +803,12 @@ class TrtLayerAutoScanTest(AutoScanTest):
                 continue
             if run_pir and os.name != 'nt':
                 # get pir program from old program
-                startup_program, pir_main_program = create_fake_pir_model(
-                    prog_config
+                main_program_desc, util_program = create_fake_model(
+                    prog_config, run_pir=True
                 )
+                # transform program from old ir to new ir
+                startup_program = pir.translate_to_pir(util_program.desc)
+                pir_main_program = pir.translate_to_pir(main_program_desc)
                 with paddle.pir_utils.IrGuard():
                     with paddle.static.program_guard(
                         pir_main_program, startup_program
@@ -848,7 +852,17 @@ class TrtLayerAutoScanTest(AutoScanTest):
                         )
             else:
                 with paddle.pir_utils.OldIrGuard():
-                    model, params = create_fake_model(prog_config)
+                    main_program_desc, util_program = create_fake_model(
+                        prog_config
+                    )
+                    model = main_program_desc.serialize_to_string()
+
+                    place = paddle.base.CPUPlace()
+                    executor = paddle.base.Executor(place)
+                    scope = paddle.base.Scope()
+                    with paddle.base.scope_guard(scope):
+                        executor.run(util_program)
+                        params = scope.find_var("out_var_0").get_bytes()
                 if quant:
                     with paddle.pir_utils.OldIrGuard():
                         model, params = create_quant_model(model, params)
@@ -917,7 +931,17 @@ class TrtLayerAutoScanTest(AutoScanTest):
                         continue
 
                     try:
-                        model, params = create_fake_model(prog_config)
+                        with paddle.pir_utils.OldIrGuard():
+                            main_program_desc, util_program = create_fake_model(
+                                prog_config
+                            )
+                            model = main_program_desc.serialize_to_string()
+                            place = paddle.base.CPUPlace()
+                            executor = paddle.base.Executor(place)
+                            scope = paddle.base.Scope()
+                            with paddle.base.scope_guard(scope):
+                                executor.run(util_program)
+                                params = scope.find_var("out_var_0").get_bytes()
                         if quant:
                             model, params = create_quant_model(model, params)
                         feed_data = prog_config.get_feed_data()
