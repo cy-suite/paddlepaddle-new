@@ -10,7 +10,7 @@ jobs:
   clone:
     runs-on: ubuntu-latest
     steps:
-    - name: clone code and submodules
+    - name: Clone Paddle
       uses: actions/checkout@v4
       with:
         submodules: 'recursive'
@@ -19,24 +19,18 @@ jobs:
       run: |
         git checkout -b test
 
-    - name: tar Paddle
-      run: |
-        tar --exclude=Paddle.tar.gz -zcf Paddle.tar.gz .
-
-    - name: Download BOS client
-      run: |
-        set +x
-        wget -q --no-proxy -O bce_whl.tar.gz  https://paddle-docker-tar.bj.bcebos.com/home/bce_whl.tar.gz --no-check-certificate
-        set -x
-        tar xf bce_whl.tar.gz
-        echo "bos_client=bce-python-sdk-0.8.27/BosClient.py" >> $GITHUB_ENV
-
-    - name: Push to BOS
+    - name: Push Paddle to BOS
       env:
         PR_ID: ${{ github.event.pull_request.number }}
         COMMIT_ID: ${{ github.event.pull_request.head.sha }}
       run: |
-        python3  ${{ env.bos_client }} Paddle.tar.gz xly-devops/PR/Paddle/${PR_ID}/${COMMIT_ID}
+        cd ..
+        tar -zcf Paddle.tar.gz Paddle
+        set +x
+        wget -q --no-proxy -O bce_whl.tar.gz  https://paddle-docker-tar.bj.bcebos.com/home/bce_whl.tar.gz --no-check-certificate
+        set -x
+        tar xf bce_whl.tar.gz
+        python3  bce-python-sdk-0.8.27/BosClient.py Paddle.tar.gz xly-devops/PR/Paddle/${PR_ID}/${COMMIT_ID}
 
     # - name: Upload Paddle artifact
     #   uses: actions/upload-artifact@v3
