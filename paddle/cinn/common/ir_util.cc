@@ -928,8 +928,7 @@ ir::IndexExpr ChangeSeqOfDivMod(const ir::IndexExpr &expr) {
         auto div_rhs =
             ChangeSeqOfDivMod(expr->operand(0)->operand(1).as_index());
         auto mod_rhs = ChangeSeqOfDivMod(expr->operand(1).as_index());
-        return ir::Div::Make(ir::Mod::Make(div_lhs, (div_rhs * mod_rhs)),
-                             div_rhs);
+        return div_lhs % (div_rhs * mod_rhs) / div_rhs;
       } else {
         auto lhs = ChangeSeqOfDivMod(expr->operand(0).as_index());
         auto rhs = ChangeSeqOfDivMod(expr->operand(1).as_index());
