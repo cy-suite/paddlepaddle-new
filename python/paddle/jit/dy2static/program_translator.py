@@ -361,6 +361,7 @@ class CacheKey:
                 with_hook,
                 is_train,
                 self._pir_flags,
+                use_pir_api(),
             )
         )
 
@@ -526,7 +527,7 @@ class StaticFunction(Generic[_InputT, _RetT]):
 
         Args:
             *args(tuple): tuple of all input arguments from original decorated function.
-            **kwargs(dict): dict of all input keyward arguments from original decorated function.
+            **kwargs(dict): dict of all input keyword arguments from original decorated function.
 
         Return:
             Outputs of decorated function.
@@ -575,7 +576,7 @@ class StaticFunction(Generic[_InputT, _RetT]):
 
         Args:
             *args(tuple): tuple of all input arguments from original decorated function.
-            **kwargs(dict): dict of all input keyward arguments from original decorated function.
+            **kwargs(dict): dict of all input keyword arguments from original decorated function.
 
         Return:
             Outputs of dygraph function.

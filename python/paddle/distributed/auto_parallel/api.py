@@ -2211,10 +2211,10 @@ class DistModel:
         if int(os.environ.get('FLAGS_enable_sharding_stage1_tensor_fusion', 0)):
             if isinstance(optimizer, _ShardOptimizer) and use_pir_api():
                 shard_fn = optimizer._shard_fn
-                optimizer = optimizer._inner_opt
+                inner_opt = optimizer._inner_opt
                 if isinstance(optimizer._shard_fn, ShardingStage1):
                     optimizer = ShardingOptimizerStage1(
-                        optimizer, shard_fn, self._inner_strategy
+                        inner_opt, shard_fn, self._inner_strategy
                     )
 
         self._engine = Engine(
@@ -2688,6 +2688,7 @@ class DistModel:
         cur_state_dict = self.state_dict(
             split_fusion=False, load_sharded_model=False
         )
+        copy_tensor = False
 
         # For sharding with tensor-fusion, we need to convert the state_dict
         # to include tensor-fusion parameters before calling set_state_dict,
@@ -2703,6 +2704,11 @@ class DistModel:
                 optimizer.convert_state_dict_with_tensor_fusion_param(
                     state_dict
                 )
+                # When using the tensor-fusion strategy, model parameters are shared with
+                # slice@ parameters. When setting the state_dict, we must copy the tensor
+                # instead of changing the handle directly, as this could cause errors in
+                # the slice@ parameters and increase memory usage.
+                copy_tensor = True
 
         for k, v in state_dict.items():
             assert v.is_dist(), f"key {k} value:{v} is not a dist tensor."
