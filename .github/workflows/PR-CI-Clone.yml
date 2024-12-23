@@ -20,6 +20,9 @@ jobs:
         PR_ID: ${{ github.event.pull_request.number }}
         COMMIT_ID: ${{ github.event.pull_request.head.sha }}
       run: |
+        echo "$PWD"
+        echo "$PR_ID"
+        echo "$COMMIT_ID"
         git checkout -b test
         cd ..
         tar -zcf Paddle.tar.gz Paddle
