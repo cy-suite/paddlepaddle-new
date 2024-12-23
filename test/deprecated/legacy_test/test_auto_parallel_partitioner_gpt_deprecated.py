@@ -16,7 +16,6 @@ import collections
 import unittest
 
 import paddle
-import paddle.distributed
 import paddle.nn.functional as F
 from paddle import nn, static, tensor, utils
 from paddle.distributed.auto_parallel.static.completion import Completer
