@@ -38,8 +38,7 @@ Expr PrecedingAxisToAbsOffset(const std::vector<Expr> &shape,
 
 Expr CastIfNeeded(Expr body, Type type);
 
-ir::IndexExpr MergeMulMod(SymbolicExprAnalyzer *analyzer,
-                          const ir::IndexExpr &base);
+ir::IndexExpr MergeMulMod(const ir::IndexExpr &base);
 
 //! Substitute vars to other expressions.
 //! @param expr The expression to do modification.
@@ -361,6 +360,14 @@ ir::IndexExpr ConstructIndexExprByNodeType(const ir::IrNodeTy &ty,
  * \return `IndexExpr` after change.
  */
 ir::IndexExpr ChangeSeqOfDivMod(const ir::IndexExpr &expr);
+
+/*!
+ * \brief Judge type of `expr` is valid type of `IndexExpr` or not.
+ * \param expr The expression to be checked.
+ * \return A boolean value indicating whether the type of `expr` is valid
+ * IndexExpr type.
+ */
+bool VerifyIndex(const ir::Expr &expr);
 
 }  // namespace common
 }  // namespace cinn
