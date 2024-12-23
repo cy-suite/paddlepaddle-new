@@ -974,6 +974,40 @@ class TestWhereDygraphAPINonBoolCondition(unittest.TestCase):
                     x = x.where_(cond_wrong_dtype, x, x)
 
 
+class TestWhereEmptyTensorInput(unittest.TestCase):
+    def _generate_inputs_outputs(self, shapes):
+        cond = np.random.randint(0, 2, size=shapes[0]).astype(bool)
+        x = np.random.random(shapes[1]).astype('float64')
+        y = np.random.random(shapes[2]).astype('float64')
+        out_ref = np.where(cond, x, y)
+        return (cond, x, y), out_ref
+
+    def _test_with_shapes(self, shapes):
+        inputs, out_ref = self._generate_inputs_outputs(shapes)
+
+        with paddle.base.dygraph.guard():
+            tensors = [paddle.to_tensor(inp) for inp in inputs]
+            result = paddle.where(tensors[0], tensors[1], tensors[2])
+
+        np.testing.assert_allclose(out_ref, result, rtol=1e-05)
+
+    def test_api_with_dygraph_empty_tensor_input(self):
+        self._test_with_shapes([(), (0,), (0,)])
+        self._test_with_shapes([(0,), (0, 0), (0, 0)])
+        self._test_with_shapes([(0, 0, 0), (0,), (0,)])
+        self._test_with_shapes([(5, 17, 1, 6), (5, 17, 0, 6), (5, 17, 0, 6)])
+        self._test_with_shapes([(5, 17, 6), (0, 5, 17, 6), (0, 5, 17, 6)])
+
+
+class TestWhereBoolInput(TestWhereEmptyTensorInput):
+    def _generate_inputs_outputs(self, shapes):
+        cond = np.random.randint(0, 2, size=shapes[0]).astype(bool)
+        x = np.random.random(shapes[1]).astype('bool')
+        y = np.random.random(shapes[2]).astype('bool')
+        out_ref = np.where(cond, x, y)
+        return (cond, x, y), out_ref
+
+
 if __name__ == "__main__":
     paddle.enable_static()
     unittest.main()

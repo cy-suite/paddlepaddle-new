@@ -53,4 +53,5 @@ PD_REGISTER_KERNEL(where_grad,
                    float,
                    double,
                    int,
+                   bool,
                    int64_t) {}
