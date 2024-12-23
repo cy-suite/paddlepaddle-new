@@ -85,7 +85,7 @@ NCCL_COMMCONTEXT_INIT = """
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
   const auto & comm_context_manager = phi::distributed::CommContextManager::GetInstance();
   phi::distributed::NCCLCommContext* comm_context = nullptr;
-   if (comm_context_manager.Has(std::to_string(ring_id))){
+  if (comm_context_manager.Has(std::to_string(ring_id))) {{
     comm_context = static_cast<phi::distributed::NCCLCommContext *>(
           comm_context_manager.Get(std::to_string(ring_id)));
     PADDLE_ENFORCE_NE(
@@ -95,14 +95,14 @@ NCCL_COMMCONTEXT_INIT = """
             "NCCLCommContext is nullptr, collective op should "
             "has ring_id attr."));
     auto kernel_res = phi::KernelFactory::Instance().SelectKernelOrThrowError(
-        "all_to_all", {kernel_backend, kernel_layout, kernel_data_type}, true);
-    if (FLAGS_low_precision_op_list) {
-      phi::KernelFactory::Instance().AddToLowPrecisionKernelList("all_to_all", kernel_data_type);
-    }
+        "{}", {{kernel_backend, kernel_layout, kernel_data_type}}, true);
+    if (FLAGS_low_precision_op_list) {{
+      phi::KernelFactory::Instance().AddToLowPrecisionKernelList("{}", kernel_data_type);
+    }}
     Backend act_kernel_backend = kernel_res.has_fallback_cpu ? Backend::CPU : kernel_backend;
     auto* dev_context = GetDeviceContextByBackend(act_kernel_backend);
     dev_context->SetCommContext(comm_context);
-   }
+  }}
 #endif
 """
 
@@ -1344,7 +1344,7 @@ class DistForwardAPI(ForwardAPI):
         )
 
     def generate_nccl_commcontext_init_code(self) -> str:
-        return NCCL_COMMCONTEXT_INIT
+        return NCCL_COMMCONTEXT_INIT.format(self.kernel['func'][0], self.api)
 
     def generate_reshard_input_code(self) -> str:
         input_reshard_code = ""
