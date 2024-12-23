@@ -151,7 +151,7 @@ void InferSymbolicShapeContext::SetSymbolForValueByStaticShape(Value val) {
     std::vector<symbol::DimExpr> static_shape;
     for (int i = 0; i < type_info.dims().size(); ++i) {
       int dim = type_info.dims()[i];
-      if (dim > 0) {
+      if (dim >= 0) {
         static_shape.emplace_back(dim);
       } else {
         static_shape.emplace_back(GetNextSymName());
@@ -622,6 +622,40 @@ void ShapeConstraintIRAnalysis::SetShapeOrDataForValue(
 void ShapeConstraintIRAnalysis::ShareShapeOrData(Value from, Value to) {
   if (context_.HasShapeOrDataForValue(from)) {
     context_.SetShapeOrDataForValue(to, context_.GetShapeOrDataForValue(from));
+  }
+}
+
+void ShapeConstraintIRAnalysis::UpdateShapeOrDataByTransLayout(
+    Value val, TransLayoutType trans_layout_type) {
+  if (context_.HasShapeOrDataForValue(val)) {
+    const auto& cur_shape = context_.GetShapeOrDataForValue(val).shape();
+    PADDLE_ENFORCE_EQ(cur_shape.size(),
+                      4,
+                      common::errors::InvalidArgument(
+                          "Currently, the rank of value must be 4 when update "
+                          "symbolic shape of value by layout transformation, "
+                          "but now rank of value is %d.",
+                          cur_shape.size()));
+    if (trans_layout_type == TransLayoutType::NCHW2NHWC) {
+      std::vector<symbol::DimExpr> new_shape = cur_shape;
+      new_shape[1] = cur_shape[2];
+      new_shape[2] = cur_shape[3];
+      new_shape[3] = cur_shape[1];
+      context_.SetShapeOrDataForValue(
+          val, {symbol::TensorShapeOrDataDimExprs{new_shape}});
+      return;
+    }
+    if (trans_layout_type == TransLayoutType::NHWC2NCHW) {
+      std::vector<symbol::DimExpr> new_shape = cur_shape;
+      new_shape[1] = cur_shape[3];
+      new_shape[2] = cur_shape[1];
+      new_shape[3] = cur_shape[2];
+      context_.SetShapeOrDataForValue(
+          val, {symbol::TensorShapeOrDataDimExprs{new_shape}});
+      return;
+    }
+    PADDLE_THROW(common::errors::Fatal(
+        "Dead code, shouldn't run here for UpdateShapeOrDataByTransLayout!"));
   }
 }
 
