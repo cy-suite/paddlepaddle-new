@@ -512,7 +512,7 @@ struct IndexExpr : public IrNodeRef {
 
   Type type() const { return p_->type(); }
 
-  int64_t GetLargestMutiplyPart() const;
+  int64_t GetLargestMultiplyPart() const;
 
   /*
    * Enum class OptLevel defines optimization levels for the IndexExpr

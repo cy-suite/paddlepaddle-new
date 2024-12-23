@@ -128,6 +128,15 @@ Expr BitwiseOrCallImpl(common::HygonDCUArchHIP,
   return lang::CallExtern(func_name, {a, b}, {{"vectorizable", false}});
 }
 
+Expr BitwiseOrCallImpl(common::HygonDCUArchSYCL,
+                       const Target &target,
+                       Expr a,
+                       Expr b) {
+  Type t_a = a.type();
+  auto func_name = hlir::GetExternFuncName(target, t_a, "bitwise_or");
+  return lang::CallExtern(func_name, {a, b}, {{"vectorizable", false}});
+}
+
 Expr BitwiseOrCall(const Target &target, Expr a, Expr b) {
   return std::visit(
       [&](const auto &arch) { return BitwiseOrCallImpl(arch, target, a, b); },
@@ -185,6 +194,15 @@ Expr BitwiseAndCallImpl(common::NVGPUArch,
 }
 
 Expr BitwiseAndCallImpl(common::HygonDCUArchHIP,
+                        const Target &target,
+                        Expr a,
+                        Expr b) {
+  Type t_a = a.type();
+  auto func_name = hlir::GetExternFuncName(target, t_a, "bitwise_and");
+  return lang::CallExtern(func_name, {a, b}, {{"vectorizable", false}});
+}
+
+Expr BitwiseAndCallImpl(common::HygonDCUArchSYCL,
                         const Target &target,
                         Expr a,
                         Expr b) {
@@ -258,6 +276,15 @@ Expr BitwiseXorCallImpl(common::HygonDCUArchHIP,
   return lang::CallExtern(func_name, {a, b}, {{"vectorizable", false}});
 }
 
+Expr BitwiseXorCallImpl(common::HygonDCUArchSYCL,
+                        const Target &target,
+                        Expr a,
+                        Expr b) {
+  Type t_a = a.type();
+  auto func_name = hlir::GetExternFuncName(target, t_a, "bitwise_xor");
+  return lang::CallExtern(func_name, {a, b}, {{"vectorizable", false}});
+}
+
 Expr BitwiseXorCall(const Target &target, Expr a, Expr b) {
   return std::visit(
       [&](const auto &arch) { return BitwiseXorCallImpl(arch, target, a, b); },
@@ -308,6 +335,13 @@ Expr BitwiseNotCallImpl(common::NVGPUArch, const Target &target, Expr a) {
 }
 
 Expr BitwiseNotCallImpl(common::HygonDCUArchHIP, const Target &target, Expr a) {
+  auto func_name = hlir::GetExternFuncName(target, a->type(), "bitwise_not");
+  return lang::CallExtern(func_name, {a}, {{"vectorizable", false}});
+}
+
+Expr BitwiseNotCallImpl(common::HygonDCUArchSYCL,
+                        const Target &target,
+                        Expr a) {
   auto func_name = hlir::GetExternFuncName(target, a->type(), "bitwise_not");
   return lang::CallExtern(func_name, {a}, {{"vectorizable", false}});
 }
@@ -482,8 +516,8 @@ static IndexExpr SimplifyDiv(const IndexExpr &lhs, const IndexExpr &rhs) {
 
     // (expr1 * c1 * c2 + expr2 * c1 * c3) / c1 ===> expr1 * c2 + expr2 * c3.
     if (lhsAdd) {
-      int64_t llhsFactor = lhsAdd->a().as_index().GetLargestMutiplyPart();
-      int64_t lrhsFactor = lhsAdd->b().as_index().GetLargestMutiplyPart();
+      int64_t llhsFactor = lhsAdd->a().as_index().GetLargestMultiplyPart();
+      int64_t lrhsFactor = lhsAdd->b().as_index().GetLargestMultiplyPart();
       if (llhsFactor % rhsConst->value == 0 &&
           lrhsFactor % rhsConst->value == 0) {
         return lhsAdd->a().as_index() / rhs + lhsAdd->b().as_index() / rhs;
@@ -539,8 +573,8 @@ static IndexExpr SimplifyMod(const IndexExpr &lhs, const IndexExpr &rhs) {
 
     // (expr1 * c1 * c2+ expr2 * c3) % c1 ===> expr2 * c3 % c1.
     if (lhsAdd) {
-      int64_t llhsFactor = lhsAdd->a().as_index().GetLargestMutiplyPart();
-      int64_t lrhsFactor = lhsAdd->b().as_index().GetLargestMutiplyPart();
+      int64_t llhsFactor = lhsAdd->a().as_index().GetLargestMultiplyPart();
+      int64_t lrhsFactor = lhsAdd->b().as_index().GetLargestMultiplyPart();
       if (llhsFactor % rhsConst->value == 0)
         return lhsAdd->b().as_index() % rhs;
       if (lrhsFactor % rhsConst->value == 0)
@@ -548,11 +582,12 @@ static IndexExpr SimplifyMod(const IndexExpr &lhs, const IndexExpr &rhs) {
     }
 
     // expr1 * (c1 * c2) % c1 ===> 0.
-    if (lhs.GetLargestMutiplyPart() % rhsConst->value == 0) return IndexExpr(0);
+    if (lhs.GetLargestMultiplyPart() % rhsConst->value == 0)
+      return IndexExpr(0);
 
     // expr1 % (c1 * c2) % c1 ===> expr1 % c1.
     if (lhsMod) {
-      int64_t llhsFactor = lhsMod->b().as_index().GetLargestMutiplyPart();
+      int64_t llhsFactor = lhsMod->b().as_index().GetLargestMultiplyPart();
       if (llhsFactor % rhsConst->value == 0)
         return lhsMod->a().as_index() % rhs;
     }
