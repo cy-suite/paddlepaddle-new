@@ -225,8 +225,8 @@ class TestLlamaAuto:
 
         assert base_rc_op_num == 0
         assert fwd_rc_op_num_1 == 60
-        assert fwd_rc_op_num_2 == 204
-        assert fwd_rc_op_num_3 == 288
+        assert fwd_rc_op_num_2 == 206
+        assert fwd_rc_op_num_3 == 290
 
 
 if __name__ == '__main__':
