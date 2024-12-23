@@ -199,7 +199,7 @@ class AutoParallelRecomputePIRPass(PassBase):
             # `suf_ops` pattern: it serve only as markers and do require recomputation.
             # `num` : it limits the maximum number of `main_ops` patterns identified
             #         within each segment. A value of -1 represents all patterns.
-            num = refined_ops_pattern['num']
+            num = int(refined_ops_pattern['num'])
             num = num if num >= 0 else len(fwd_ops)
             main_ops = refined_ops_pattern['main_ops']
             pre_ops = refined_ops_pattern['pre_ops']
