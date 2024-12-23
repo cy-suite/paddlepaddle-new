@@ -28,7 +28,7 @@ jobs:
         tar -zcf Paddle.tar.gz Paddle
         wget -q --no-proxy -O bce_whl.tar.gz  https://paddle-docker-tar.bj.bcebos.com/home/bce_whl.tar.gz --no-check-certificate
         tar xf bce_whl.tar.gz
-        export PATH="/home/runner/work/Paddle/bce-python-sdk-0.8.27:$PATH"
+        # export PATH="/home/runner/work/Paddle/bce-python-sdk-0.8.27:$PATH"
         python3  bce-python-sdk-0.8.27/BosClient.py Paddle.tar.gz xly-devops/PR/Paddle/${PR_ID}/${COMMIT_ID}
 
     # - name: Upload Paddle artifact
