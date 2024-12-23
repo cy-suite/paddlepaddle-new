@@ -1380,7 +1380,7 @@ PyObject* eager__for_test_check_cuda_error(PyObject* self,
                                            PyObject* args,
                                            PyObject* kwargs) {
   EAGER_TRY
-
+#ifdef PADDLE_WITH_CUDA
   // 1. wait all kernel finish
   PADDLE_ENFORCE_GPU_SUCCESS(cudaDeviceSynchronize());
 
@@ -1398,7 +1398,7 @@ PyObject* eager__for_test_check_cuda_error(PyObject* self,
 
   cudaFree(cuda_mem);
   delete[] cpu_mem;
-
+#endif
   RETURN_PY_NONE
 
   EAGER_CATCH_AND_THROW_RETURN_NULL
