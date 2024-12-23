@@ -80,6 +80,10 @@ PD_DEFINE_bool(cinn_enable_tile_broadcast,
                BoolFromEnv("FLAGS_cinn_enable_tile_broadcast", true),
                "Whether to enable the tile broadcast tactic.");
 
+PD_DEFINE_bool(cinn_enable_rearrange_load,
+               BoolFromEnv("FLAGS_cinn_enable_rearrange_load", true),
+               "Whether to enable rearranging load instructions.");
+
 PD_DEFINE_bool(cinn_use_op_fusion,
                BoolFromEnv("FLAGS_cinn_use_op_fusion", true),
                "Whether to use op fusion pass.");
@@ -396,6 +400,16 @@ void CheckCompileOptionImpl(cinn::common::NVGPUArch) {
 
 void CheckCompileOptionImpl(cinn::common::HygonDCUArchHIP) {
 #ifdef CINN_WITH_HIP
+  // Do nothing;
+#else
+  PADDLE_THROW(::common::errors::Fatal(
+      "Current CINN version does not support HygonDCU, please try to "
+      "recompile with -DWITH_ROCM."));
+#endif
+}
+
+void CheckCompileOptionImpl(cinn::common::HygonDCUArchSYCL) {
+#ifdef CINN_WITH_SYCL
   // Do nothing;
 #else
   PADDLE_THROW(::common::errors::Fatal(

@@ -538,24 +538,17 @@ Expr ArithSimplify(const Expr& u) {
 }
 
 void Simplify(Expr* expr) {
-  VLOG(3) << "Begin Simplify " << *expr;
   SimplifyCmp(expr);
-  VLOG(3) << "1111" << *expr;
   SimplifyCastMutator()(expr);
-  VLOG(3) << "2222" << *expr;
   SimplifyRampMutator()(expr);
-  VLOG(3) << "3333" << *expr;
   SimplifyLoadMutator()(expr);
   SimplifyStoreMutator()(expr);
   SimplifyIfThenElseMutator()(expr);
   SimplifySelectMutator()(expr);
-  VLOG(3) << "4444" << *expr;
   cinn::common::cas_intervals_t var_intervals;
   SimplifyNoPureMathMutator mutator(var_intervals);
   mutator(expr);
-  VLOG(3) << "5555" << *expr;
   ReplaceFracWithDivMutator()(expr);
-  VLOG(3) << "End Simplify " << *expr;
 }
 }  // namespace optim
 }  // namespace cinn
