@@ -168,7 +168,5 @@ TEST_F(TestIndexExpr, IndexExpr_3) {
             ir::IndexExpr((S4 * 256 + S5 + S6 * 1024)) % 25088);
   EXPECT_EQ(q16.as_index().Normalize(), ir::IndexExpr(S4 * 256 + S5));
 }
-
-TEST_F(TestIndexExpr, IndexExpr_4) {}
 }  // namespace common
 }  // namespace cinn
