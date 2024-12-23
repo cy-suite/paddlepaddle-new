@@ -3120,6 +3120,11 @@ void BindShapeOrDataDimExprs(pybind11::module *m) {
             const std::optional<std::vector<symbol::DimExpr>> &actual_data_ =
                 self.data();
             if (actual_data_.has_value()) {
+              PADDLE_ENFORCE_LE(actual_shape.size(),
+                                1,
+                                common::errors::Unimplemented(
+                                    "Now data dim expr is not supported for "
+                                    "multi-dim shape."));
               const std::vector<symbol::DimExpr> actual_data =
                   actual_data_.value();
               const bool data_status =
