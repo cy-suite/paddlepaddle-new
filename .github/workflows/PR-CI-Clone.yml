@@ -1,4 +1,4 @@
-name: cccccclone
+name: CI-Clone
 
 on:
   push:
@@ -10,14 +10,14 @@ jobs:
   clone:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
+    - name: clone code and submodules
       uses: actions/checkout@v4
       with:
         submodules: 'recursive'
 
     - name: Modify branch name
       run: |
-        git branch -m test
+        git checkout -b test
 
     - name: tar Paddle
       run: |
