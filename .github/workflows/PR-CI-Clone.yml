@@ -25,6 +25,7 @@ jobs:
         echo "$COMMIT_ID"
         git checkout -b test
         cd ..
+        python3 -m pip install bce-python-sdk==0.8.74
         tar -zcf Paddle.tar.gz Paddle
         wget -q --no-proxy -O bce_whl.tar.gz  https://paddle-docker-tar.bj.bcebos.com/home/bce_whl.tar.gz --no-check-certificate
         tar xf bce_whl.tar.gz
