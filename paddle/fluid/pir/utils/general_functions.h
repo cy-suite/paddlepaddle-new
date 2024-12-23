@@ -20,6 +20,7 @@
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/common/place.h"
 #include "paddle/pir/include/core/type.h"
+#include "paddle/pir/include/core/value.h"
 #include "paddle/pir/include/pass/pass.h"
 
 namespace paddle {
@@ -254,5 +255,8 @@ std::vector<Value> GetUsedExternalValue(const Block& block);
  * @return bool
  */
 bool ValueIsPersistable(const pir::Value& value);
+
+phi::DataType GetTensorDtype(pir::Type type);
+phi::DataType GetValueDtype(const pir::Value& val);
 
 }  // namespace pir
