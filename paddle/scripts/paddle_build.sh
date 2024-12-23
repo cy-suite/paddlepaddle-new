@@ -1438,7 +1438,7 @@ function caught_error() {
             EXIT_CODE=1;
         fi
     done
-} >/dev/null
+}
 
 function case_count(){
     cat <<EOF
@@ -1536,7 +1536,10 @@ function card_test() {
         return 0
     fi
 
-    trap 'caught_error' CHLD
+    set +x
+    trap 'caught_error' >/dev/null CHLD
+    set -x
+
     tmpfile_rand=`date +%s%N`
     NUM_PROC=$[CUDA_DEVICE_COUNT/$cardnumber]
     echo "****************************************************************"
