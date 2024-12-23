@@ -20,8 +20,5 @@
 #include "paddle/fluid/custom_engine/custom_engine_manager.h"
 namespace paddle {
 
-typedef bool (*RegisterDevicePluginFn)(CustomRuntimeParams* runtime_params);
-
-typedef bool (*RegisterDevicePluginEngineFn)(CustomEngineParams* engine_params);
 void LoadCustomLib(const std::string& dso_lib_path, void* dso_handle);
 }  // namespace paddle
