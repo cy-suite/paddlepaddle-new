@@ -101,9 +101,11 @@ class TestEmbeddingCase2TRTPattern(TensorRTBaseTest):
             ),
         }
         self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3]}
+        self.max_shape = {"x": [5, 3]}
 
     def test_trt_result(self):
-        self.check_marker(expected_result=False)
+        self.check_trt_result()
 
 
 if __name__ == '__main__':

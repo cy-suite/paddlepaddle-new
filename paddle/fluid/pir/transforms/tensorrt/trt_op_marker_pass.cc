@@ -1421,12 +1421,13 @@ class EmbeddingOpPattern
         op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-    if (pir::GetDefiningOpForInput(op, 1)->name() == "builtin.parameter") {
-      // trt.Weights don't have the shape info.
-      VLOG(3) << "Skip to convert into TRT while found weight is a parameter "
-                 "in pd_op.embedding.";
-      return false;
-    }
+    // if (pir::GetDefiningOpForInput(op, 1)->name() == "builtin.parameter") {
+    //   // trt.Weights don't have the shape info.
+    //   VLOG(3) << "Skip to convert into TRT while found weight is a parameter
+    //   "
+    //              "in pd_op.embedding.";
+    //   return false;
+    // }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
