@@ -2109,6 +2109,12 @@ class PowOpPattern : public pir::OpRewritePattern<paddle::dialect::PowOp> {
  public:
   using pir::OpRewritePattern<paddle::dialect::PowOp>::OpRewritePattern;
   bool MatchAndRewrite(paddle::dialect::PowOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    pir::Value x = op.operand_source(0);
     auto x_dtype = pir::GetDataTypeFromValue(x);
     if (x_dtype.isa<pir::Int32Type>()) {
       VLOG(3) << "These operations (pow) do not support int32 "
