@@ -305,6 +305,7 @@ llvm::Value *CodeGenLLVM::Visit(const ir::Mod *op) {
 }
 
 #define __IR_EMITTER_DEFINE_CMP_VISITOR(__sop, __uop, __fop) \
+  ir::TryElevateInt32ToInt64({op->a(), op->b()});            \
   auto *lhs = Visit(&op->a());                               \
   auto *rhs = Visit(&op->b());                               \
   CHECK(op->a().type() == op->b().type());                   \
@@ -749,17 +750,12 @@ llvm::Value *CodeGenLLVM::Visit(const ir::Call *op) {
 }
 
 llvm::Value *CodeGenLLVM::Visit(const ir::_Module_ *op) {
-  {
-    Expr body_to_verify(&Reference(op));
-    ir::ir_utils::IrVerify(body_to_verify);
-  }
+  { ir::ir_utils::IrVerify(op); }
 
   for (auto &fn : op->functions) {
     VLOG(1) << "JIT Linking function [" << fn.As<ir::_LoweredFunc_>()->name
             << "]";
-    ir::Expr fn_expr(fn);
-
-    auto fnll = Visit(&fn_expr);
+    auto fnll = Visit(fn.As<ir::_LoweredFunc_>());
 
     VLOG(5) << "fn llvm:\n" << DumpToString(*fnll);
   }
@@ -1359,6 +1355,10 @@ int GetNaiveVecAlignmentImpl(common::NVGPUArch, const Target &target) {
 }
 
 int GetNaiveVecAlignmentImpl(common::HygonDCUArchHIP, const Target &target) {
+  return 128;
+}
+
+int GetNaiveVecAlignmentImpl(common::HygonDCUArchSYCL, const Target &target) {
   return 128;
 }
 

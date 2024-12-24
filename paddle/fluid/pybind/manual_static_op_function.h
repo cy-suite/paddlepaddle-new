@@ -156,12 +156,23 @@ PyObject *static_api_full(PyObject *self, PyObject *args, PyObject *kwargs) {
         !PyObject_CheckIRVectorOfValue(shape_obj) &&
         !PyObject_CheckIRValue(value_obj)) {
       std::vector<int64_t> shape = CastPyArg2Longs(shape_obj, "full", 0);
-      double value = CastPyArg2Double(value_obj, "full", 1);
-      CallStackRecorder callstack_recoder("full");
-      callstack_recoder.Record();
-      auto static_api_out = paddle::dialect::full(shape, value, dtype, place);
-      callstack_recoder.AttachToOps();
-      return ToPyObject(static_api_out);
+      if (PyComplex_Check(value_obj)) {
+        phi::dtype::complex<float> complex_value =
+            CastPyArg2Complex(value_obj, "full", 1);
+        CallStackRecorder callstack_recoder("full");
+        callstack_recoder.Record();
+        auto static_api_out = paddle::dialect::full(
+            shape, complex_value.real, complex_value.imag, dtype, place);
+        callstack_recoder.AttachToOps();
+        return ToPyObject(static_api_out);
+      } else {
+        double value = CastPyArg2Double(value_obj, "full", 1);
+        CallStackRecorder callstack_recoder("full");
+        callstack_recoder.Record();
+        auto static_api_out = paddle::dialect::full(shape, value, dtype, place);
+        callstack_recoder.AttachToOps();
+        return ToPyObject(static_api_out);
+      }
     } else {
       pir::Value shape, value;
 
@@ -180,11 +191,21 @@ PyObject *static_api_full(PyObject *self, PyObject *args, PyObject *kwargs) {
       if (PyObject_CheckIRValue(value_obj)) {
         value = CastPyArg2Value(value_obj, "full", 1, false);
       } else {
-        double value_tmp = CastPyArg2Double(value_obj, "full", 1);
-        value = paddle::dialect::full(std::vector<int64_t>{1},
-                                      value_tmp,
-                                      phi::DataType::FLOAT32,
-                                      phi::CPUPlace());
+        if (PyComplex_Check(value_obj)) {
+          phi::dtype::complex<float> complex_value_tmp =
+              CastPyArg2Complex(value_obj, "full", 1);
+          value = paddle::dialect::full(std::vector<int64_t>{1},
+                                        complex_value_tmp.real,
+                                        complex_value_tmp.imag,
+                                        dtype,
+                                        place);
+        } else {
+          double value_tmp = CastPyArg2Double(value_obj, "full", 1);
+          value = paddle::dialect::full(std::vector<int64_t>{1},
+                                        value_tmp,
+                                        phi::DataType::FLOAT32,
+                                        phi::CPUPlace());
+        }
       }
 
       CallStackRecorder callstack_recoder("full_with_tensor");
@@ -857,7 +878,7 @@ static PyObject *static_api_run_custom_op(PyObject *self,
         auto ddims = phi::make_ddim(output_shapes[value_index]);
         auto dtype = output_dtypes[value_index];
         phi::DataLayout layout{DataLayout::NCHW};
-        phi::LoD lod;
+        phi::LegacyLoD lod;
         auto type = paddle::dialect::DenseTensorType::get(
             pir::IrContext::Instance(),
             paddle::dialect::TransToIrDataType(dtype),
@@ -885,7 +906,7 @@ static PyObject *static_api_run_custom_op(PyObject *self,
       auto ddims = phi::make_ddim(output_shapes[value_index]);
       auto dtype = output_dtypes[value_index];
       phi::DataLayout layout{DataLayout::NCHW};
-      phi::LoD lod;
+      phi::LegacyLoD lod;
       auto out_type = paddle::dialect::DenseTensorType::get(
           pir::IrContext::Instance(),
           paddle::dialect::TransToIrDataType(dtype),
@@ -966,7 +987,7 @@ static PyObject *builtin_combine_op(PyObject *self,
                                     PyObject *args,
                                     PyObject *kwargs) {
   try {
-    VLOG(6) << "Add buitin_combine op into program";
+    VLOG(6) << "Add builtin_combine op into program";
     VLOG(8) << "args count: " << (PyTuple_Size(args) / 2);
     // Get Value from args
     PyObject *x_obj = PyTuple_GET_ITEM(args, 0);
@@ -1167,6 +1188,24 @@ static PyObject *fused_gemm_epilogue(PyObject *self,
   }
 }
 
+static PyObject *share_var(PyObject *self, PyObject *args, PyObject *kwargs) {
+  try {
+    VLOG(6) << "Add share_var op into program";
+    VLOG(8) << "args count: " << (PyTuple_Size(args) / 2);
+    // Get Value from args
+    PyObject *input_obj = PyTuple_GET_ITEM(args, 0);
+    auto inputs = CastPyArg2VectorOfValue(input_obj, "share_var", 0, false);
+    CallStackRecorder callstack_recoder("share_var_op");
+    callstack_recoder.Record();
+    auto share_var_op = paddle::dialect::share_var(inputs);
+    callstack_recoder.AttachToOps();
+    return ToPyObject(share_var_op);
+  } catch (...) {
+    ThrowExceptionToPython(std::current_exception());
+    return nullptr;
+  }
+}
+
 static PyMethodDef ManualOpsAPI[] = {
     {"set_parameter",
      (PyCFunction)(void (*)(void))static_api_set_parameter,
@@ -1248,6 +1287,10 @@ static PyMethodDef ManualOpsAPI[] = {
      (PyCFunction)(void (*)(void))static_api_array_pop,
      METH_VARARGS | METH_KEYWORDS,
      "C++ interface function for array_pop."},
+    {"share_var",
+     (PyCFunction)(void (*)(void))share_var,
+     METH_VARARGS | METH_KEYWORDS,
+     "C++ interface function for share_var_op."},
     {nullptr, nullptr, 0, nullptr}};
 
 }  // namespace pybind

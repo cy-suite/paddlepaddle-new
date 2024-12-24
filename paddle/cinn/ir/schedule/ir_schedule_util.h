@@ -78,7 +78,7 @@ bool ContainVar(const std::vector<Expr>& exprs, const std::string& var_name);
  * \brief Given a _LoweredFunc_, set its cuda_axis_info based on its func_body.
  * @param lowered_func A pointer to the given _LoweredFunc_
  */
-void SetCudaAxisInfo(Expr* lowered_func);
+void SetCudaAxisInfo(ir::LoweredFunc lowered_func);
 
 /*!
  * \brief Check if a Expr node contains a ScheduleBlockRealize node.
@@ -1166,7 +1166,9 @@ struct MappingVarToExprMutator : public ir::IRMutator<> {
  private:
   void Visit(const ir::_Var_* expr, Expr* op) override {
     if (replacing_map_.count(op->as_var_ref())) {
+      bool is_index = op->is_index();
       *op = replacing_map_.at(op->as_var_ref());
+      if (is_index) op->set_index(true);
     }
   }
 
@@ -1234,8 +1236,7 @@ struct FindLoopsVisitor {
       Visit(&(expr->As<ir::For>()->body));
       father_loops.pop_back();
     } else if (expr->As<ir::ScheduleBlockRealize>()) {
-      if (!expr->As<ir::ScheduleBlockRealize>()->iter_values.empty() &&
-          (*expr == block_)) {
+      if (*expr == block_) {
         result = father_loops;
         visit_end = true;
         return;
@@ -1373,6 +1374,9 @@ struct RfCreater : public ir::IRMutator<> {
   Expr rf_loop_;
   int rf_axis_;
 };
+
+// Judge the `For` node of input `expr` hold dynamic `extent` or not.
+bool ContainDynamicShape(const Expr& expr);
 
 }  // namespace ir
 }  // namespace cinn

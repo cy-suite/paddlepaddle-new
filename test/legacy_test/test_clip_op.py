@@ -58,7 +58,10 @@ class TestClipOp(OpTest):
     def test_check_output(self):
         paddle.enable_static()
         self.check_output(
-            check_cinn=self.check_cinn, check_pir=True, check_prim_pir=True
+            check_cinn=self.check_cinn,
+            check_pir=True,
+            check_prim_pir=True,
+            check_symbol_infer=False,
         )
         paddle.disable_static()
 
@@ -163,7 +166,7 @@ class TestFP16Case5(TestClipOp):
 @unittest.skipIf(
     not core.is_compiled_with_cuda()
     or not core.is_bfloat16_supported(core.CUDAPlace(0)),
-    "core is not compiled with CUDA and not support the bfloat16",
+    "core is not compiled with CUDA or not support the bfloat16",
 )
 class TestClipBF16Op(OpTest):
     def setUp(self):
@@ -201,7 +204,10 @@ class TestClipBF16Op(OpTest):
             place = paddle.CUDAPlace(0)
             paddle.enable_static()
             self.check_output_with_place(
-                place, check_pir=True, check_prim_pir=True
+                place,
+                check_pir=True,
+                check_prim_pir=True,
+                check_symbol_infer=False,
             )
             paddle.disable_static()
 

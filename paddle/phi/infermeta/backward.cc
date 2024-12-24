@@ -304,7 +304,6 @@ void CSoftmaxWithCrossEntropyGradInferMeta(const MetaTensor& softmax,
                                            const MetaTensor& label,
                                            const MetaTensor& loss_grad,
                                            int64_t ignore_index,
-                                           int ring_id,
                                            int rank,
                                            int nranks,
                                            MetaTensor* logits_grad,
@@ -1165,6 +1164,9 @@ void MemoryEfficientAttentionGradInferMeta(const MetaTensor& query,
     bias_grad->share_lod(bias);
     bias_grad->set_dtype(bias.dtype());
     bias_grad->set_layout(bias.layout());
+  } else if (bias_grad) {
+    std::vector<int64_t> bias_grad_dims;
+    bias_grad->set_dims(common::make_ddim(bias_grad_dims));
   }
 }
 

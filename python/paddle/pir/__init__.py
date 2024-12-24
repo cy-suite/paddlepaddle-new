@@ -15,6 +15,9 @@
 from paddle.base.libpaddle.pir import (  # noqa: F401
     Block,
     CloneOptions,
+    # drr
+    DrrPatternContext,
+    #
     IrMapping,
     Operation,
     OpOperand,
@@ -25,6 +28,7 @@ from paddle.base.libpaddle.pir import (  # noqa: F401
     check_unregistered_ops,
     create_shaped_type,
     fake_value,
+    get_chunk_id,
     get_current_insertion_point,
     get_op_role,
     is_fake_value,
@@ -33,12 +37,14 @@ from paddle.base.libpaddle.pir import (  # noqa: F401
     register_paddle_dialect,
     reset_insertion_point_to_end,
     reset_insertion_point_to_start,
+    set_chunk_id,
     set_insertion_point,
     set_insertion_point_after,
     set_insertion_point_to_block_end,
     set_op_role,
     translate_to_pir,
     translate_to_pir_with_param_map,
+    value_is_persistable,
 )
 from paddle.base.wrapped_decorator import signature_safe_contextmanager
 

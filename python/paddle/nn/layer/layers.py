@@ -246,8 +246,7 @@ class LayerObjectHelper(LayerHelperBase):
                 dtype = each.dtype
             elif dtype != each.dtype:
                 raise ValueError(
-                    "Data Type mismatch: %d to %d in %s"
-                    % (dtype, each.dtype, self.name)
+                    f"Data Type mismatch: {dtype} to {each.dtype} in {self.name}"
                 )
         return dtype
 
@@ -870,7 +869,7 @@ class Layer:
             name=var_name,
             persistable=persistable,
             dtype=dtype,
-            type=core.VarDesc.VarType.LOD_TENSOR,
+            type=core.VarDesc.VarType.DENSE_TENSOR,
         )
 
     # TODO: Add more parameter list when we need them
@@ -927,7 +926,7 @@ class Layer:
             name=var_name,
             persistable=persistable,
             dtype=dtype,
-            type=core.VarDesc.VarType.LOD_TENSOR,
+            type=core.VarDesc.VarType.DENSE_TENSOR,
         )
 
     def parameters(self, include_sublayers: bool = True) -> list[Tensor]:
@@ -1524,11 +1523,10 @@ class Layer:
             (not in_to_static_mode())
             and (not self._forward_pre_hooks)
             and (not self._forward_post_hooks)
-            and (not self._built)
+            and (self.__class__._build_once is Layer._build_once or self._built)
             and in_dygraph_mode()
             and (not in_profiler_mode() or in_sot_simulation_mode())
         ):
-            self._build_once(*inputs, **kwargs)
             return self.forward(*inputs, **kwargs)
         else:
             return self._dygraph_call_func(*inputs, **kwargs)
@@ -1759,6 +1757,12 @@ class Layer:
                 if name in d:
                     del d[name]
 
+        if isinstance(
+            value, paddle.jit.dy2static.program_translator.StaticFunction
+        ):
+            object.__setattr__(self, name, value)
+            value._patched_name = name
+            return
         if isinstance(getattr(type(self), name, None), property):
             object.__setattr__(self, name, value)
         params = self.__dict__.get('_parameters', None)
@@ -1848,7 +1852,7 @@ class Layer:
                             assign(value, getattr(self, name))
                     elif value is not None:
                         raise TypeError(
-                            f"assignment to buffers '{name}' should be of type core.Tensor or None, but got '{type(value).__name__}'"
+                            f"assignment to buffers '{name}' should be of type core.DenseTensor or None, but got '{type(value).__name__}'"
                         )
                     else:
                         # Assigning None will remove the buffer, but if re-assign a new varBase to it,

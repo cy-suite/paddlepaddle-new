@@ -21,7 +21,12 @@ from paddle import _C_ops, _legacy_C_ops
 from paddle.autograd import PyLayer
 from paddle.base.data_feeder import check_dtype, check_variable_and_dtype
 from paddle.distributed import collective
-from paddle.framework import LayerHelper, _create_tensor, in_dynamic_mode
+from paddle.framework import (
+    LayerHelper,
+    _create_tensor,
+    in_dynamic_mode,
+    in_pir_mode,
+)
 from paddle.nn import Layer
 from paddle.nn.utils import dygraph_utils
 
@@ -106,6 +111,8 @@ def _c_identity(tensor, group=None, skip_c_identity_dynamic=False):
 
     if in_dynamic_mode():
         return c_identity_eager.apply(tensor, group, skip_c_identity_dynamic)
+    elif in_pir_mode():
+        return _C_ops.c_identity(tensor, ring_id, True, True)
     else:
         op_type = 'c_identity'
         helper = LayerHelper(op_type, **locals())
@@ -166,6 +173,8 @@ def _c_concat(tensor, group=None):
             'use_model_parallel',
             True,
         )
+    elif in_pir_mode():
+        return _C_ops.c_concat(tensor, rank, nranks, ring_id, True, True)
     else:
         op_type = 'c_concat'
         helper = LayerHelper(op_type, **locals())
@@ -313,6 +322,9 @@ def _mp_allreduce(
             op,
             skip_c_identity_dynamic,
         )
+    elif in_pir_mode():
+        ring_id = 0 if group is None else group.id
+        return _C_ops.mp_allreduce_sum(tensor, ring_id)
     else:
         ring_id = 0 if group is None else group.id
         op_type = 'mp_allreduce_sum'
@@ -353,6 +365,8 @@ def _c_lookup_table(table, index, start_index=0, vocab_size=-1, name=None):
         Tensor.
     """
     if in_dynamic_mode():
+        return _C_ops.c_embedding(table, index, start_index, vocab_size)
+    elif in_pir_mode():
         return _C_ops.c_embedding(table, index, start_index, vocab_size)
     else:
         op_type = 'c_embedding'
@@ -429,8 +443,10 @@ def _c_softmax_with_cross_entropy(
         else group.nranks
     )
 
-    input_dims = len(list(logits.shape))
-    label_dims = len(list(label.shape))
+    input_shape = list(logits.shape)
+    label_shape = list(label.shape)
+    input_dims = len(input_shape)
+    label_dims = len(label_shape)
     if input_dims - 1 != label_dims and input_dims != label_dims:
         raise ValueError(
             f'Expected input_dims - 1 = label_dims or input_dims == label_dims\
@@ -438,6 +454,12 @@ def _c_softmax_with_cross_entropy(
         )
     if input_dims - 1 == label_dims:
         label = paddle.unsqueeze(label, axis=-1)
+        label_shape = list(label.shape)
+    if label_shape[-1] < 1 or label_shape[-1] > input_shape[-1] * nranks:
+        raise ValueError(
+            f'Expected label_shape[-1] >= 1 and label_shape[-1] <= input_shape[-1] * nranks\
+             (got label_shape[-1] = {label_shape[-1]}, input_shape[-1] = {input_shape[-1]})'
+        )
 
     if in_dynamic_mode():
         softmax, loss = _legacy_C_ops.c_softmax_with_cross_entropy(

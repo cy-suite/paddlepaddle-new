@@ -95,7 +95,7 @@ class WriteToArrayInferShape : public framework::InferShapeBase {
         common::errors::NotFound("Input(I) of WriteToArrayOp is not found."));
 
     // TODO(wangchaochaohu) control flow Op do not support runtime infer shape
-    // Later we add [ontext->GetInputDim("I")) == 1] check when it's supported
+    // Later we add [context->GetInputDim("I")) == 1] check when it's supported
 
     if (!context->HasInput("X")) {
       return;
@@ -126,8 +126,8 @@ class WriteToArrayInferVarType : public framework::StaticGraphVarTypeInference {
   void operator()(framework::InferVarTypeContext *ctx) const override {
     auto x_name = Input(ctx, "X")[0];
     auto out_name = Output(ctx, "Out")[0];
-    VLOG(10) << "Set Variable " << out_name << " as LOD_TENSOR_ARRAY";
-    SetType(ctx, out_name, framework::proto::VarType::LOD_TENSOR_ARRAY);
+    VLOG(10) << "Set Variable " << out_name << " as DENSE_TENSOR_ARRAY";
+    SetType(ctx, out_name, framework::proto::VarType::DENSE_TENSOR_ARRAY);
     if (HasVar(ctx, x_name)) {
       SetDataType(ctx, out_name, GetDataType(ctx, x_name));
     }

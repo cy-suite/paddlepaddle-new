@@ -131,8 +131,33 @@ if((WITH_GPU) AND (LINUX))
 endif()
 if((WITH_GPU) AND (LINUX))
   py_test_modules(
-    test_parallel_api_with_llama MODULES test_parallel_api_with_llama ENVS
+    test_parallel_api_with_llama_1d MODULES test_parallel_api_with_llama_1d
+    ENVS
     "http_proxy=;https_proxy=;PYTHONPATH=../..:${PADDLE_BINARY_DIR}/python")
-  set_tests_properties(test_parallel_api_with_llama
-                       PROPERTIES TIMEOUT "300" LABELS "RUN_TYPE=HYBRID")
+  set_tests_properties(test_parallel_api_with_llama_1d
+                       PROPERTIES TIMEOUT "400" LABELS "RUN_TYPE=HYBRID")
+endif()
+if((WITH_GPU) AND (LINUX))
+  py_test_modules(
+    test_parallel_api_with_llama_2d MODULES test_parallel_api_with_llama_2d
+    ENVS
+    "http_proxy=;https_proxy=;PYTHONPATH=../..:${PADDLE_BINARY_DIR}/python")
+  set_tests_properties(test_parallel_api_with_llama_2d
+                       PROPERTIES TIMEOUT "400" LABELS "RUN_TYPE=HYBRID")
+endif()
+if((WITH_GPU) AND (LINUX))
+  py_test_modules(
+    test_parallel_api_with_llama_3d MODULES test_parallel_api_with_llama_3d
+    ENVS
+    "http_proxy=;https_proxy=;PYTHONPATH=../..:${PADDLE_BINARY_DIR}/python")
+  set_tests_properties(test_parallel_api_with_llama_3d
+                       PROPERTIES TIMEOUT "400" LABELS "RUN_TYPE=HYBRID")
+endif()
+if((WITH_GPU) AND (LINUX))
+  py_test_modules(
+    test_to_distributed_api_for_llama MODULES test_to_distributed_api_for_llama
+    ENVS
+    "http_proxy=;https_proxy=;PYTHONPATH=../..:${PADDLE_BINARY_DIR}/python")
+  set_tests_properties(test_to_distributed_api_for_llama
+                       PROPERTIES TIMEOUT "180" LABELS "RUN_TYPE=HYBRID")
 endif()

@@ -235,28 +235,55 @@ struct SimplifyIfThenElseMutator : public ir::IRMutator<> {
 
     auto* condition_int = node->condition.As<ir::IntImm>();
     auto* condition_uint = node->condition.As<ir::UIntImm>();
-    int64_t value;
-    if (condition_int || condition_uint) {
-      if (condition_int) {
-        value = condition_int->value;
-      } else {
-        value = condition_uint->value;
-      }
-      if (value) {
-        *expr = op->true_case;
-      } else {
-        if (op->false_case.defined()) {
-          *expr = op->false_case;
-        } else {
-          // null condition
-          *expr = ir::Block::Make({});
-        }
-      }
-    }
-    if (expr->As<ir::IfThenElse>()) {
-      if (node->true_case.defined()) Visit(&node->true_case, &node->true_case);
-      if (node->false_case.defined())
+
+    // not deterministic
+    if (!condition_int && !condition_uint) {
+      Visit(&node->true_case, &node->true_case);
+      if (node->false_case.defined()) {
         Visit(&node->false_case, &node->false_case);
+      }
+      return;
+    }
+
+    bool value = condition_int ? condition_int->value : condition_uint->value;
+    if (value) {
+      *expr = op->true_case;
+      Visit(expr, expr);
+    } else if (op->false_case.defined()) {
+      *expr = op->false_case;
+      Visit(expr, expr);
+    } else {
+      *expr = ir::Block::Make({});
+    }
+  }
+};
+
+struct SimplifySelectMutator : public ir::IRMutator<> {
+  void operator()(Expr* x) { ir::IRMutator<>::Visit(x, x); }
+
+  using ir::IRMutator<>::Visit;
+
+  void Visit(const Select* op, Expr* expr) override {
+    auto* node = expr->As<ir::Select>();
+    node->condition = cinn::common::AutoSimplify(node->condition);
+
+    auto* condition_int = node->condition.As<ir::IntImm>();
+    auto* condition_uint = node->condition.As<ir::UIntImm>();
+
+    // not deterministic
+    if (!condition_int && !condition_uint) {
+      Visit(&node->true_value, &node->true_value);
+      Visit(&node->false_value, &node->false_value);
+      return;
+    }
+
+    bool value = condition_int ? condition_int->value : condition_uint->value;
+    if (value) {
+      *expr = op->true_value;
+      Visit(expr, expr);
+    } else {
+      *expr = op->false_value;
+      Visit(expr, expr);
     }
   }
 };
@@ -471,12 +498,13 @@ void Simplify(Expr* expr) {
   SimplifyLoadMutator()(expr);
   SimplifyStoreMutator()(expr);
   SimplifyIfThenElseMutator()(expr);
-
+  SimplifySelectMutator()(expr);
   cinn::common::cas_intervals_t var_intervals;
   SimplifyNoPureMathMutator mutator(var_intervals);
   mutator(expr);
 
   ReplaceFracWithDivMutator()(expr);
+  VLOG(3) << "End Simplify " << *expr;
 }
 
 void SimplifyCast(Expr* expr) { SimplifyCastMutator()(expr); }

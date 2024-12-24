@@ -17,7 +17,6 @@
 
 #include "paddle/cinn/adt/adt.h"
 #include "paddle/cinn/common/common.h"
-#include "paddle/cinn/hlir/framework/pir/trivial_op_impl.h"
 #include "paddle/cinn/hlir/pe/reduction.h"
 #include "paddle/cinn/ir/ir.h"
 #include "paddle/cinn/ir/ir_mutator.h"
@@ -25,11 +24,6 @@
 #include "paddle/cinn/lang/compute.h"
 
 namespace cinn {
-
-using hlir::framework::pir::trivial_fusion_detail::ExprSetFinderUtils::
-    ChildIfThenElses;
-using hlir::framework::pir::trivial_fusion_detail::ExprSetFinderUtils::
-    ChildTensorLoads;
 
 namespace optim {
 namespace {
@@ -81,7 +75,8 @@ ir::Expr GetRightOperand(const ir::Expr& expr) {
 }
 
 void RemoveGridReduceAxisFromIfCondition(ir::Expr* expr) {
-  std::vector<ir::Expr> if_exprs = ChildIfThenElses(*expr);
+  std::vector<ir::Expr> if_exprs = ir::ir_utils::CollectIRNodesInOrder(
+      *expr, [](const ir::Expr* x) { return x->As<ir::IfThenElse>(); });
   for (auto& if_expr : if_exprs) {
     auto& condition = if_expr.As<ir::IfThenElse>()->condition;
     optim::ReplaceVarWithExpr(&condition, ir::Var("blockIdx.y"), ir::Expr(0));
@@ -89,7 +84,8 @@ void RemoveGridReduceAxisFromIfCondition(ir::Expr* expr) {
 }
 
 struct BaseMutator : public ir::IRMutator<> {
-  void operator()(ir::Expr* expr) { Visit(expr); }
+  using ir::IRMutator<>::Visit;
+  void operator()(ir::LoweredFunc fn) { Visit(fn.As<ir::_LoweredFunc_>()); }
 
  protected:
   bool IsGridReduce(const ir::ScheduleBlockRealize* block_realize) {
@@ -139,7 +135,9 @@ struct BaseMutator : public ir::IRMutator<> {
 struct CrossBlockReductionReorderer : public BaseMutator {
  private:
   bool IsGridReduceDownstream(const ir::Expr& expr_block) {
-    for (auto& expr_load : ChildTensorLoads(expr_block)) {
+    std::vector<ir::Expr> child_loads = ir::ir_utils::CollectIRNodesInOrder(
+        expr_block, [](const ir::Expr* x) { return x->As<ir::Load>(); });
+    for (auto& expr_load : child_loads) {
       std::string load_tensor_name = expr_load.As<ir::Load>()->name();
       if (downstream_names_.count(load_tensor_name) > 0) {
         return true;
@@ -378,24 +376,23 @@ struct CrossBlockReductionReplacer : public BaseMutator {
         lang::CallExtern(func_name, {rf_tensor, spatial_size, spatial_index});
   }
 
-  void Visit(const ir::_LoweredFunc_* expr, ir::Expr* op) override {
+  void Visit(ir::_LoweredFunc_* fn) override {
     is_after_grid_reduce_ = false;
     func_arg_buffer_names_.clear();
-    for (auto& arg : expr->args) {
+    for (auto& arg : fn->args) {
       if (arg.is_buffer()) {
         func_arg_buffer_names_.insert(arg.buffer_arg()->name);
       }
     }
 
-    IRMutator::Visit(expr, op);
+    IRMutator::Visit(fn);
     if (!is_after_grid_reduce_) {
       return;
     }
 
-    ir::_LoweredFunc_* func_node = op->As<ir::_LoweredFunc_>();
-    ConvertHeapBuffersToFuncArgs(func_node);
-    InsertTempSpaceToFuncArgs(func_node, semaphore_buffer_, true);
-    func_node->temp_bufs.push_back(is_done_tensor_->buffer);
+    ConvertHeapBuffersToFuncArgs(fn);
+    InsertTempSpaceToFuncArgs(fn, semaphore_buffer_, true);
+    fn->temp_bufs.push_back(is_done_tensor_->buffer);
   }
 
   void Visit(const ir::ScheduleBlockRealize* expr, ir::Expr* op) override {
@@ -412,7 +409,10 @@ struct CrossBlockReductionReplacer : public BaseMutator {
         // For trivial ops that are after grid reduce, we need to remove the
         // `blockIdx.y` axis from their if conditions, otherwise they may not
         // be executed in the last done block.
-        RemoveGridReduceAxisFromIfCondition(op);
+        // TODO(liangshuhao): we won't need to remove `blockIdx.y` when we
+        // switch to use cooperative groups.
+        ir::Expr root_compute_body = cur_loops_[0]->body;
+        RemoveGridReduceAxisFromIfCondition(&root_compute_body);
         *op = WrapInLastBlockDone(op);
       }
       return;
@@ -458,9 +458,9 @@ struct CrossBlockReductionReplacer : public BaseMutator {
 
 }  // namespace
 
-void ReplaceCrossBlockReduction(Expr* e) {
-  CrossBlockReductionReorderer()(e);
-  CrossBlockReductionReplacer()(e);
+void ReplaceCrossBlockReduction(ir::LoweredFunc fn) {
+  CrossBlockReductionReorderer()(fn);
+  CrossBlockReductionReplacer()(fn);
 }
 
 }  // namespace optim

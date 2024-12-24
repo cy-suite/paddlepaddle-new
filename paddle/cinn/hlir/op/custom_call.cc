@@ -128,7 +128,7 @@ std::shared_ptr<OpStrategy> StrategyForCustomCall(
         [&](std::variant<common::UnknownArch,
                          common::X86Arch,
                          common::ARMArch>) {},
-        [&](common::HygonDCUArchHIP) {
+        [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
           ir::Var kernel_stream(KERNEL_STREAM, type_of<void *>());
           host_args.push_back(kernel_stream);
           arguments.emplace_back(kernel_stream, ir::Argument::IO::kOutput);
@@ -144,7 +144,7 @@ std::shared_ptr<OpStrategy> StrategyForCustomCall(
         ir::_LoweredFunc_::Make(func_name, arguments, call_extern_api, {});
 
     VLOG(3) << func;
-    *ret = CINNValuePack{{CINNValue(ir::Expr(func))}};
+    *ret = CINNValuePack{{CINNValue(func)}};
   });
 
   framework::CINNSchedule schedule(

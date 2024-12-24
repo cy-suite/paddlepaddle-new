@@ -34,6 +34,8 @@
 #include "paddle/phi/core/platform/cuda_graph_with_memory_pool.h"
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
 #include "paddle/common/flags.h"
+#include "paddle/fluid/distributed/collective/process_group.h"
+#include "paddle/fluid/distributed/collective/process_group_nccl.h"
 #include "paddle/fluid/platform/device/gpu/nccl_helper.h"
 #include "paddle/phi/core/distributed/comm_context_manager.h"
 #include "paddle/phi/core/distributed/nccl_comm_context.h"
@@ -44,8 +46,7 @@ PHI_DECLARE_bool(enable_host_event_recorder_hook);
 PD_DECLARE_bool(log_memory_stats);
 COMMON_DECLARE_string(static_runtime_data_save_path);
 COMMON_DECLARE_bool(save_static_runtime_data);
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 
 ProgramInterpreter::ProgramInterpreter(const phi::Place& place,
                                        const BlockDesc& block,
@@ -194,7 +195,7 @@ FetchList ProgramInterpreter::Run(const std::vector<std::string>& feed_names,
   }
 
   if (HasLocalScope()) {
-    ClearLoDTensorArrayInLocalScope();
+    ClearDenseTensorArrayInLocalScope();
   }
 
   // NOTE (liuchenghao): we need to reset "is_in_op_profiling_mode_" to false.
@@ -280,7 +281,7 @@ FetchList ProgramInterpreter::Run(
   }
 
   if (HasLocalScope()) {
-    ClearLoDTensorArrayInLocalScope();
+    ClearDenseTensorArrayInLocalScope();
   }
 
   if (need_fetch) {
@@ -668,12 +669,12 @@ void ProgramInterpreter::BuildOperatorDependences() {
 // At the end of each step, the holder of phi::DenseTensor in phi::TensorArray
 // is null. Clear these Tensors and leave phi::TensorArray empty, otherwise an
 // exception will occur in the next step
-void ProgramInterpreter::ClearLoDTensorArrayInLocalScope() {
+void ProgramInterpreter::ClearDenseTensorArrayInLocalScope() {
   auto vars = local_scope_->LocalVars();
   for (auto var : vars) {
     if (var->IsType<phi::TensorArray>()) {
-      auto* lod_tensor_arr = var->GetMutable<phi::TensorArray>();
-      lod_tensor_arr->clear();
+      auto* dense_tensor_arr = var->GetMutable<phi::TensorArray>();
+      dense_tensor_arr->clear();
     }
   }
 }
@@ -841,7 +842,7 @@ void ProgramInterpreter::Convert(
   // in this case, a is the input of op1 and op2, we only need to check
   // a after op2, because op2 always uses a after op1.
   for (size_t i = 0; i < last_live_ops_.size(); ++i) {
-    std::set<size_t> minumum_last_live_ops;
+    std::set<size_t> minimum_last_live_ops;
     for (size_t item : last_live_ops_[i]) {
       bool not_before_any = true;
       // find the op that is not executed before any
@@ -857,14 +858,14 @@ void ProgramInterpreter::Convert(
         VLOG(8) << "last live op of var " << i << " "
                 << var_scope_.GetNameById(static_cast<int>(i)) << " : " << item
                 << " " << vec_instruction_[item].OpBase()->Type();
-        minumum_last_live_ops.insert(item);
+        minimum_last_live_ops.insert(item);
         if (!(var_scope_.VarDesc(static_cast<int>(i)) &&
               var_scope_.VarDesc(static_cast<int>(i))->Persistable())) {
           vec_instruction_[item].AddGCCheckVar(i);
         }
       }
     }
-    last_live_ops_[i] = minumum_last_live_ops;
+    last_live_ops_[i] = minimum_last_live_ops;
     vec_meta_info[i].var_ref_count_ =
         static_cast<int>(last_live_ops_[i].size());
   }
@@ -1010,10 +1011,34 @@ void ProgramInterpreter::RunOperator(const Instruction& instr_node) {
           VLOG(4) << "Run function kernel: " << op->Type();
           VLOG(4) << instr_node.InnerRuntimeContext().get() << " "
                   << &instr_node.DeviceContext();
+
+          auto dev_ctx =
+              const_cast<phi::DeviceContext*>(&instr_node.DeviceContext());
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
+          auto attrs = op->Attrs();
+          if (attrs.find("ring_id") != attrs.end()) {
+            auto ring_id_attr = attrs.at("ring_id");
+            int ring_id = PADDLE_GET(int, ring_id_attr);
+            auto map = distributed::ProcessGroupMapFromGid::getInstance();
+            if (map->has(ring_id)) {
+              distributed::ProcessGroup* pg = map->get(ring_id);
+              auto comm_context =
+                  static_cast<paddle::distributed::ProcessGroupNCCL*>(pg)
+                      ->GetOrCreateCommContext(place);
+              dev_ctx =
+                  static_cast<phi::distributed::NCCLCommContext*>(comm_context)
+                      ->GetDevContext();
+              dev_ctx->SetCommContext(comm_context);
+            } else {
+              VLOG(3) << "ring_id " << ring_id
+                      << " not found in ProcessGroupMapFromGid ";
+            }
+          }
+#endif
           phi::KernelContext phi_kernel_context;
           op_with_kernel->BuildPhiKernelContext(
               *instr_node.InnerRuntimeContext().get(),
-              const_cast<phi::DeviceContext*>(&instr_node.DeviceContext()),
+              dev_ctx,
               &phi_kernel_context);
 
           (*kernel)(&phi_kernel_context);
@@ -1047,9 +1072,10 @@ void ProgramInterpreter::RunOperator(const Instruction& instr_node) {
     auto& m = instr_node.InplaceBackMap();
     // NOTE(zhiqiu): same logic as TransferInplaceVarsBack() in operator.cc
     for (auto& p : m) {
-      auto* transformed_tensor = GetMutableLoDTensorOrSelectedRowsValueFromVar(
-          var_scope_.VarRef(p.first));
-      auto* original_tensor = GetMutableLoDTensorOrSelectedRowsValueFromVar(
+      auto* transformed_tensor =
+          GetMutableDenseTensorOrSelectedRowsValueFromVar(
+              var_scope_.VarRef(p.first));
+      auto* original_tensor = GetMutableDenseTensorOrSelectedRowsValueFromVar(
           var_scope_.VarRef(p.second));
       original_tensor->ShareDataWith(*transformed_tensor);
       VLOG(4) << "Transfer inplace variable back form "
@@ -1446,7 +1472,7 @@ void ProgramInterpreter::RecordStreamForGC(const Instruction& instr) {
     } else if (
         var->IsType<
             operators::reader::
-                OrderedMultiDeviceLoDTensorBlockingQueueHolder>()) {  // NOLINT
+                OrderedMultiDeviceDenseTensorBlockingQueueHolder>()) {  // NOLINT
       // do nothing
     } else if (var->IsType<phi::SelectedRows>()) {
       TensorRecordStream(
@@ -1736,5 +1762,4 @@ Variable* ProgramInterpreter::DebugVar(const std::string& name) const {
   PADDLE_THROW(common::errors::Unimplemented(
       "DebugVar is not implemented in ProgramInterpreter."));
 }
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework

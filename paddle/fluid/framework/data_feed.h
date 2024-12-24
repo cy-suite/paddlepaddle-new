@@ -668,17 +668,17 @@ class MiniBatchGpuPack {
   std::shared_ptr<phi::Allocation> slot_buf_ptr_ = nullptr;
 };
 class MiniBatchGpuPackMgr {
-  static const int MAX_DEIVCE_NUM = 16;
+  static const int MAX_DEVICE_NUM = 16;
 
  public:
   MiniBatchGpuPackMgr() {
-    pack_list_.resize(MAX_DEIVCE_NUM);
-    for (int i = 0; i < MAX_DEIVCE_NUM; ++i) {
+    pack_list_.resize(MAX_DEVICE_NUM);
+    for (int i = 0; i < MAX_DEVICE_NUM; ++i) {
       pack_list_[i].clear();
     }
   }
   ~MiniBatchGpuPackMgr() {
-    for (int i = 0; i < MAX_DEIVCE_NUM; ++i) {
+    for (int i = 0; i < MAX_DEVICE_NUM; ++i) {
       for (size_t j = 0; j < pack_list_[i].size(); j++) {
         if (pack_list_[i][j] == nullptr) {
           continue;
@@ -1629,7 +1629,7 @@ class MultiSlotType {
       offset_.reserve(max_batch_size + 1);
     }
     offset_.resize(1);
-    // LoDTensor' lod is counted from 0, the size of lod
+    // DenseTensor' lod is counted from 0, the size of lod
     // is one size larger than the size of data.
     offset_[0] = 0;
   }

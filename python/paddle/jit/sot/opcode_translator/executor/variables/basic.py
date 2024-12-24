@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import operator
+import sys
 import types
 from functools import cached_property, reduce
 from typing import TYPE_CHECKING, Any
@@ -42,9 +43,11 @@ from ....utils import (
     log,
     printable,
 )
+from ....utils.envs import ENV_SOT_BREAK_GRAPH_ON_GET_SYMBOLIC_VALUE
 from ....utils.exceptions import HasNoAttributeError, InnerError
 from ..dispatch_functions import tensor_numel
 from ..guard import (
+    FasterStringifiedExpression,
     StringifiedExpression,
     check_guard,
     object_equal_stringified_guard,
@@ -103,6 +106,13 @@ DTYPE_ABBRS = {
 STATIC_DIM_FREQ_THRESHOLD = 5
 
 
+def method_to_reverse_method(method_name: str) -> str | None:
+    if not method_name.startswith("__") or not method_name.endswith("__"):
+        return None
+    name = method_name[2:-2]
+    return f"__r{name}__"
+
+
 class ConstantVariable(VariableBase):
     """
     ConstantVariable is a subclass of VariableBase used to wrap a Variable of the const type.
@@ -152,6 +162,18 @@ class ConstantVariable(VariableBase):
         return ConstantVariable(
             not bool(self.get_py_value()), self.graph, DummyTracker([self])
         )
+
+    def getitem(self, key):
+        track_vars: list[VariableBase] = [self]
+        if self.get_py_type() is not str:
+            raise InnerError(
+                f"getitem can only be applied to a str variable, but got {self.get_py_type()}"
+            )
+        if isinstance(key, VariableBase):
+            track_vars.append(key)
+            key = key.get_py_value()
+        retval = self.value[key]
+        return ConstantVariable(retval, self.graph, DummyTracker(track_vars))
 
     def str(self):
         return ConstantVariable(
@@ -290,8 +312,9 @@ class TensorDtypeVariable(DataVariable):
                     )
                 ]
             return [
-                StringifiedExpression(
+                FasterStringifiedExpression(
                     f"{{}}.dtype == {dtype_str}",
+                    paddle.framework.core.DtypeMatchGuard(self.value),
                     [tensor_value_tracer],
                     union_free_vars(
                         tensor_value_tracer.free_vars,
@@ -705,15 +728,19 @@ def get_symbolic_from_meta(meta: MetaInfo) -> SymbolicValue:
         value = SymbolicBool()
     elif meta.dtype in [
         paddle.int8,
+        paddle.uint8,
         paddle.int16,
         paddle.int32,
         paddle.int64,
     ]:
         value = SymbolicInt()
     elif meta.dtype in [
+        paddle.bfloat16,
         paddle.float16,
         paddle.float32,
         paddle.float64,
+        paddle.float8_e4m3fn,
+        paddle.float8_e5m2,
     ]:
         value = SymbolicFloat()
     else:
@@ -785,6 +812,8 @@ class SymbolicVariable(VariableBase):
         )
 
     def get_py_value(self, allow_tensor: bool = False) -> bool | int | float:
+        if ENV_SOT_BREAK_GRAPH_ON_GET_SYMBOLIC_VALUE.get():
+            raise BreakGraphError("get_py_value from SymbolicVariable")
         self.need_guard_value = True
         if isinstance(self.value, SymbolicValue):
             assert isinstance(
@@ -792,11 +821,30 @@ class SymbolicVariable(VariableBase):
             ), f"self.value is None, but tracker is not SymbolicOperationTracker. tracker: {self.tracker}"
             inputs = self.tracker.inputs
             assert len(inputs) >= 1
-            other_inputs_value = [x.get_py_value() for x in inputs[1:]]
-            self.value = getattr(
-                inputs[0].get_py_value(), self.tracker.method_name
-            )(*other_inputs_value)
-            assert isinstance(self.value, (bool, int, float))
+            input_values = [x.get_py_value() for x in inputs]
+            value = getattr(input_values[0], self.tracker.method_name)(
+                *input_values[1:]
+            )
+            # TODO(SigureMo): A Temporary solution for the case that the method is not implemented.
+            # e.g. In user code, we have `1 * 0.1`, the lhs is a SymbolicVariable, and the rhs is a float.
+            # We trace the method `__mul__` from the lhs, but actually, python use `float.__rmul__`,
+            # `int.__mul__(float)` is not implemented. So we get NotImplemented here.
+            # We need to find a better way to handle this case.
+            if isinstance(value, type(NotImplemented)):
+                reversed_method = method_to_reverse_method(
+                    self.tracker.method_name
+                )
+                if reversed_method is None:
+                    raise InnerError(
+                        f"Unsupported method {self.tracker.method_name} for SymbolicVariable"
+                    )
+                value = getattr(input_values[1], reversed_method)(
+                    input_values[0], *input_values[2:]
+                )
+            self.value = value
+            assert isinstance(
+                self.value, (bool, int, float)
+            ), f"SymbolicVariable.get_py_value() should return bool, int or float, but got {type(self.value)}"
         return self.value
 
     def get_py_type(self):
@@ -825,6 +873,12 @@ class SymbolicVariable(VariableBase):
     def float(self):
         return ConstantVariable(float(self), self.graph, DummyTracker([self]))
 
+    def __complex__(self) -> complex:
+        return complex(self.get_py_value())
+
+    def complex(self):
+        return ConstantVariable(complex(self), self.graph, DummyTracker([self]))
+
     @property
     def out_var_name(self):
         return f"{self.graph.OUT_VAR_PREFIX}{self.var_name}"
@@ -849,11 +903,12 @@ class SymbolicVariable(VariableBase):
         if self.need_guard_value:
             return super().make_stringified_guard()
         return [
-            StringifiedExpression(
+            FasterStringifiedExpression(
                 f"id(type({{}})) == {id(self.get_py_type())}",
+                paddle.core.TypeMatchGuard(self.get_py_type()),
                 [frame_value_tracer],
                 union_free_vars(frame_value_tracer.free_vars),
-            )
+            ),
         ]
 
     @staticmethod
@@ -1026,8 +1081,9 @@ class SliceVariable(VariableBase):
     def make_stringified_guard(self) -> list[StringifiedExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
         result = [
-            StringifiedExpression(
-                "isinstance({}, slice)",
+            FasterStringifiedExpression(
+                "id(type({{}})) == id(slice)",
+                paddle.framework.core.TypeMatchGuard(slice),
                 [frame_value_tracer],
                 frame_value_tracer.free_vars,
             ),
@@ -1193,6 +1249,9 @@ class NullVariable(VariableBase):
         return func(*args[1:], **kwargs)
 
     def reconstruct(self, codegen: PyCodeGen):
+        if sys.version_info >= (3, 13):
+            codegen.gen_push_null()
+            return
         codegen.gen_load_null_variable()
 
 

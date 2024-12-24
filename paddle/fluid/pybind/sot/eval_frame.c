@@ -18,16 +18,16 @@ limitations under the License. */
 
 #include "paddle/fluid/pybind/sot/cpython_internals.h"
 #include "paddle/fluid/pybind/sot/eval_frame_tools.h"
+#include "paddle/fluid/pybind/sot/frame_proxy.h"
 
 #include <Python.h>
-#include <frameobject.h>
 
-#if PY_3_8_PLUS && PY_VERSION_HEX < PY_3_9_0_HEX
+#if PY_3_8_PLUS && !PY_3_9_PLUS
 #define Py_BUILD_CORE  // internal/pycore_pymem.h need this macro
 #include <internal/pycore_pystate.h>
 #undef Py_BUILD_CORE
 #endif
-#if PY_VERSION_HEX < PY_3_11_0_HEX
+#if !PY_3_11_PLUS
 #include <code.h>
 #endif
 
@@ -35,89 +35,8 @@ limitations under the License. */
 #include <pystate.h>
 
 #if PY_3_11_PLUS
-// To avoid the error: undefined symbol: _PyFrame_GetFrameObject, all we need is
-// to redefine this function based source code in python3.11. The advantage is
-// that we don't need any modification in eval_frame functions.
-typedef _PyInterpreterFrame FrameObject;
 #define CALL_STAT_INC(name) ((void)0)
 
-// clang-format off
-// Define a proxy PyObject to access _PyInterpreterFrame's properties.
-// It will be passed as an argument to the eval frame's callback.
-typedef struct PyInterpreterFrameProxy {
-  PyObject_HEAD
-  _PyInterpreterFrame *frame;
-} PyInterpreterFrameProxy;
-// clang-format on
-
-#define DECLARE_PROXY_PROPERTY(name)                        \
-  static PyObject *PyInterpreterFrameProxy_property_##name( \
-      PyInterpreterFrameProxy *self, void *closure) {       \
-    Py_XINCREF(self->frame->name);                          \
-    return (PyObject *)self->frame->name;                   \
-  }
-
-// clang-format off
-#define REGISTER_PROXY_PROPERTY(name) \
-  { #name, (getter)PyInterpreterFrameProxy_property_##name, NULL, NULL, NULL }
-// clang-format on
-
-DECLARE_PROXY_PROPERTY(f_code)
-DECLARE_PROXY_PROPERTY(f_locals)
-DECLARE_PROXY_PROPERTY(f_globals)
-DECLARE_PROXY_PROPERTY(f_builtins)
-
-// Refer to
-// https://github.com/python/cpython/blob/9414ddf91898892f3f6a672ae946931ee4b3ceb7/Objects/frameobject.c#L953-L961
-static PyObject *PyInterpreterFrameProxy_method_repr(
-    PyInterpreterFrameProxy *self) {
-  int lineno = Internal_PyInterpreterFrame_GetLine(self->frame);
-  PyCodeObject *code = self->frame->f_code;
-  return PyUnicode_FromFormat(
-      "<PyInterpreterFrameProxy at %p, file %R, line %d, code %S>",
-      self,
-      code->co_filename,
-      lineno,
-      code->co_name);
-}
-
-static PyGetSetDef PyInterpreterFrameProxy_properties[] = {
-    REGISTER_PROXY_PROPERTY(f_code),
-    REGISTER_PROXY_PROPERTY(f_locals),
-    REGISTER_PROXY_PROPERTY(f_globals),
-    REGISTER_PROXY_PROPERTY(f_builtins),
-    {NULL} /* Sentinel */
-};
-
-// clang-format off
-static PyTypeObject PyInterpreterFrameProxyType = {
-    PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "paddle.framework.core.PyInterpreterFrameProxy",
-    .tp_doc = PyDoc_STR("A proxy object for _PyInterpreterFrame, "
-                        "it's only define all properties we need."),
-    .tp_repr = (reprfunc)PyInterpreterFrameProxy_method_repr,
-    .tp_basicsize = sizeof(PyInterpreterFrameProxy),
-    .tp_itemsize = 0,
-    .tp_flags = Py_TPFLAGS_DEFAULT,
-    .tp_getset = PyInterpreterFrameProxy_properties,
-};
-// clang-format on
-
-PyInterpreterFrameProxy *PyInterpreterFrameProxy_New(
-    _PyInterpreterFrame *frame) {
-  PyTypeObject *type = &PyInterpreterFrameProxyType;
-  PyInterpreterFrameProxy *self =
-      (PyInterpreterFrameProxy *)type->tp_alloc(type, 0);
-  if (!self) {
-    // VLOG(7) << "Failed to allocate PyInterpreterFrameProxy";
-    return NULL;
-  }
-  self->frame = frame;
-  return self;
-}
-
-#else
-typedef PyFrameObject FrameObject;
 #endif
 
 #ifdef _WIN32
@@ -163,7 +82,7 @@ inline static PyObject *eval_custom_code_py311_plus(PyThreadState *tstate,
                                                     PyCodeObject *code,
                                                     int throw_flag) {
   Py_ssize_t nlocalsplus_new = code->co_nlocalsplus;
-  Py_ssize_t nlocalsplus_old = frame->f_code->co_nlocalsplus;
+  Py_ssize_t nlocalsplus_old = PyFrame_GET_CODE(frame)->co_nlocalsplus;
 #if PY_3_12_PLUS
   int size = code->co_framesize;
 #else
@@ -218,7 +137,8 @@ inline static PyObject *eval_custom_code_py311_plus(PyThreadState *tstate,
     PyDict_SetItem(namemap, name, index);
   }
   for (Py_ssize_t i = 0; i < nlocalsplus_old; ++i) {
-    PyObject *name = PyTuple_GET_ITEM(frame->f_code->co_localsplusnames, i);
+    PyObject *name =
+        PyTuple_GET_ITEM(PyFrame_GET_CODE(frame)->co_localsplusnames, i);
     PyObject *index = PyDict_GetItem(namemap, name);
     if (index == NULL) {
       continue;
@@ -229,11 +149,15 @@ inline static PyObject *eval_custom_code_py311_plus(PyThreadState *tstate,
 
   PyObject *result = eval_frame_default(tstate, shadow, throw_flag);
 #if PY_3_12_PLUS
-  // In Python 3.12+ believes that eval will be cleaned up, but we did not pass
-  // in the frame to _PyEval_EvalFrameDefault, so we need to clean it up.
-  // elaborate on see:
-  // https://github.com/PaddlePaddle/Paddle/pull/61703#issuecomment-1933812625
+// In Python 3.12+ believes that eval will be cleaned up, but we did not pass
+// in the frame to _PyEval_EvalFrameDefault, so we need to clean it up.
+// elaborate on see:
+// https://github.com/PaddlePaddle/Paddle/pull/61703#issuecomment-1933812625
+#if PY_3_13_PLUS
+  Internal_PyEval_FrameClearAndPop(tstate, frame);
+#else
   Internal_PyEvalFrameClearAndPop(tstate, frame);
+#endif
 #else
   // In Python 3.11 we to create our own isolated frame(namely shadow) and
   // release it after completion
@@ -312,7 +236,7 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
     eval_frame_callback_set(callback);
     return out;
   }
-  if (PyBytes_GET_SIZE(frame->f_code->co_exceptiontable)) {
+  if (PyBytes_GET_SIZE(PyFrame_GET_CODE(frame)->co_exceptiontable)) {
     eval_frame_callback_set(callback);
     return eval_frame_default(tstate, frame, throw_flag);
   }
@@ -322,7 +246,14 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
   // original frame. So we pass a PyInterpreterFrame to
   // _PyFrame_FastToLocalsWithError directly. But this is an internal API, so we
   // copy many code from CPython project into our project.
+#if PY_3_13_PLUS
+  PyObject *f_locals = get_framelocals_mapping(frame);
+  if (f_locals == NULL) {
+#else
   if (Internal_PyFrame_FastToLocalsWithError(frame) < 0) {
+#endif
+    return NULL;
+  }
 #else
   if (frame->f_code->co_flags & 0x20) {
     out = eval_frame_default(tstate, frame, throw_flag);
@@ -330,9 +261,9 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
     return out;
   }
   if (PyFrame_FastToLocalsWithError(frame) < 0) {
-#endif
     return NULL;
   }
+#endif
 
   // NOTE:(xiongkun): Handle GeneratorExit exception: (Spend a day)
   // In Python, gen close is also a Python function call that will enter this
@@ -362,7 +293,17 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
   } else {
     /* should calculate guards here if we want */
 #if PY_3_11_PLUS
-    PyObject *args = Py_BuildValue("(O)", PyInterpreterFrameProxy_New(frame));
+    PyInterpreterFrameProxy *frame_proxy = PyInterpreterFrameProxy_New(frame);
+    if (frame_proxy == NULL) {
+#if PY_3_13_PLUS
+      Py_DECREF(f_locals);
+#endif
+      return NULL;
+    }
+#if PY_3_13_PLUS
+    frame_proxy->locals = f_locals;
+#endif
+    PyObject *args = Py_BuildValue("(O)", frame_proxy);
 #else
     PyObject *args = Py_BuildValue("(O)", frame);
 #endif
@@ -370,7 +311,12 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
     Py_DECREF(args);
     if (result == NULL) {
 #if PY_3_12_PLUS
+#if PY_3_13_PLUS
+      Py_DECREF(f_locals);
+      Internal_PyEval_FrameClearAndPop(tstate, frame);
+#else
       Internal_PyEvalFrameClearAndPop(tstate, frame);
+#endif
 #endif
       return NULL;
     }
@@ -379,8 +325,12 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
     Py_DECREF(result);
   }
 
+#if PY_3_13_PLUS
+  Py_DECREF(f_locals);
+#endif
+
   // code status
-  if (is_code_without_graph(code == Py_None ? frame->f_code
+  if (is_code_without_graph(code == Py_None ? PyFrame_GET_CODE(frame)
                                             : (PyCodeObject *)code) &&
       disable_eval_frame == Py_False) {
     out = eval_frame_default(tstate, frame, throw_flag);
@@ -498,13 +448,6 @@ PyMODINIT_FUNC PyInit__eval_frame() {
 
   Py_INCREF(Py_None);
   eval_frame_callback_set(Py_None);
-
-#if PY_3_11_PLUS
-  if (PyType_Ready(&PyInterpreterFrameProxyType) < 0) {
-    // VLOG(7) << "PyInterpreterFrameProxyType has not been ready!";
-  }
-  Py_INCREF(&PyInterpreterFrameProxyType);
-#endif
 
   return NULL;
 }
