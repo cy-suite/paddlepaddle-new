@@ -1,4 +1,4 @@
-// Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
+// Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,18 +14,17 @@
 
 #pragma once
 
-#include "paddle/phi/common/scalar.h"
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/device_context.h"
-#include "paddle/phi/core/selected_rows.h"
 
 namespace phi {
 
 template <typename T, typename Context>
-void ClipKernel(const Context& dev_ctx,
-                const DenseTensor& x,
-                const Scalar& min,
-                const Scalar& max,
-                DenseTensor* out);
+void ClipTensorGradKernel(const Context& dev_ctx,
+                          const DenseTensor& x,
+                          const DenseTensor& min,
+                          const DenseTensor& max,
+                          const DenseTensor& out_grad,
+                          DenseTensor* x_grad);
 
 }  // namespace phi

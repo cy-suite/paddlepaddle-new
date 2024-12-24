@@ -18,37 +18,5 @@
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/impl/clip_kernel_impl.h"
 
-namespace phi {
-
-template <typename T, typename Context>
-void ClipTensorKernel(const Context& dev_ctx,
-                      const DenseTensor& x,
-                      const DenseTensor& min,
-                      const DenseTensor& max,
-                      DenseTensor* out) {
-  const T* x_data = x.data<T>();
-  const T* min_data = min.data<T>();
-  const T* max_data = max.data<T>();
-  auto x_numel = x.numel();
-
-  T* out_data = dev_ctx.template Alloc<T>(out);
-
-  for (int i = 0; i < x_numel; i++) {
-    out_data[i] = x_data[i] < min_data[i] ? min_data[i] : x_data[i];
-    out_data[i] = out_data[i] > max_data[i] ? max_data[i] : out_data[i];
-  }
-}
-
-}  // namespace phi
-
 PD_REGISTER_KERNEL(
     clip, CPU, ALL_LAYOUT, phi::ClipKernel, float, double, int, int64_t) {}
-
-PD_REGISTER_KERNEL(clip_tensor,
-                   CPU,
-                   ALL_LAYOUT,
-                   phi::ClipTensorKernel,
-                   float,
-                   double,
-                   int,
-                   int64_t) {}

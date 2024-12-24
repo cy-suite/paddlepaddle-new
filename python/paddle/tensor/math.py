@@ -3770,7 +3770,7 @@ def clip(
     else:
         min_ = float(np.finfo(np.float32).min)
         max_ = float(np.finfo(np.float32).max)
-    
+
     min = min_ if min is None else min
     max = max_ if max is None else max
 
