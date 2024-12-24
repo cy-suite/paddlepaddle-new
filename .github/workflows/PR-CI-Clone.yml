@@ -33,6 +33,7 @@ jobs:
         WORK: "/home/runner/work/Paddle"
         AK: ${{ secrets.AK }}
         SK: ${{ secrets.SK }}
+        TEST_DDD: ${{ env.BOS_AK }}
         PR_ID: ${{ github.event.pull_request.number }}
         COMMIT_ID: ${{ github.event.pull_request.head.sha }}
       run: |
