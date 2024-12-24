@@ -2613,6 +2613,8 @@ class DistModel:
         # rank and directly load them.
         enable_stage1_tensor_fusion = (
             self._inner_strategy.sharding.enable_stage1_tensor_fusion
+            if self._inner_strategy
+            else False
         )
         if (
             self._engine._optimizer is not None
@@ -2714,6 +2716,8 @@ class DistModel:
         # or we can choose to load the unblanced parameters directly.
         enable_stage1_tensor_fusion = (
             self._inner_strategy.sharding.enable_stage1_tensor_fusion
+            if self._inner_strategy
+            else False
         )
         if self._engine._optimizer is not None and enable_stage1_tensor_fusion:
             optimizer = self._engine._optimizer
