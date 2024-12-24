@@ -19,8 +19,6 @@ jobs:
     - name: Download bos client
       env:
         WORK: "/home/runner/work/Paddle"
-        AK: ${{ secrets.BOS_AK }}
-        SK: ${{ secrets.BOS_SK }}
       run: |
         git checkout -b test
         tar -zcf ${WORK}/Paddle-action.tar.gz ${WORK}/Paddle -P
@@ -33,12 +31,12 @@ jobs:
     - name: Push to Bos
       env:
         WORK: "/home/runner/work/Paddle"
+        AK: ${{ secrets.BOS_AK }}
+        SK: ${{ secrets.BOS_SK }}
         PR_ID: test # ${{ github.event.pull_request.number }}
         COMMIT_ID: test # ${{ github.event.pull_request.head.sha }}
       run: |
-        set -x
         cd $WORK
-        echo $PWD
         python3  $WORK/bos_upload.py $WORK/Paddle-action.tar.gz xly-devops/PR/Paddle/${PR_ID}/${COMMIT_ID}
 
     # - name: Upload Paddle artifact
