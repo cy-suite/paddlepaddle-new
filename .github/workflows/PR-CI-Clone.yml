@@ -1,8 +1,8 @@
-name: PR-CI-Clone
+name: Clone
 
 on:
   push:
-    branches: [ "CI_migrate_new" ]
+    branches: [ "develop" ]
   pull_request:
     branches: [ "develop" ]
 
@@ -46,9 +46,3 @@ jobs:
         tar -zcf Paddle-action.tar.gz Paddle -P
         python -m pip install bce-python-sdk==0.8.74
         python3  bos_upload.py Paddle-action.tar.gz xly-devops/PR/Paddle/${PR_ID}/${COMMIT_ID}
-
-    # - name: Upload Paddle artifact
-    #   uses: actions/upload-artifact@v3
-    #   with:
-    #     name: Paddle
-    #     path: Paddle.tar.gz
