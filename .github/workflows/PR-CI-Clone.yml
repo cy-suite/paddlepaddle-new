@@ -7,7 +7,8 @@ on:
     branches: [ "develop" ]
 
 jobs:
-  clone:
+  Clone:
+    environment: Paddle-CI
     runs-on: ubuntu-latest
     steps:
     - name: Clone paddle
@@ -18,19 +19,22 @@ jobs:
     - name: Download bos client
       env:
         WORK: "/home/runner/work/Paddle"
+        AK: ${{ secrets.BOS_AK }}
+        SK: ${{ secrets.BOS_SK }}
       run: |
         git checkout -b test
         tar -zcf ${WORK}/Paddle.tar.gz ${WORK}/Paddle
-        wget -q --no-proxy -O ${WORK}/bce_whl.tar.gz  https://paddle-docker-tar.bj.bcebos.com/home/bce_whl.tar.gz --no-check-certificate
-        tar xf ${WORK}/bce_whl.tar.gz
+        python -m pip install bce-python-sdk==0.8.74
+        wget -q --no-proxy -O ${WORK}/bos_upload.py  https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
 
     - name: Push to Bos
       env:
+        WORK: "/home/runner/work/Paddle"
         PR_ID: ${{ github.event.pull_request.number }}
         COMMIT_ID: ${{ github.event.pull_request.head.sha }}
       run: |
         python3  BosClient.py Paddle.tar.gz xly-devops/PR/Paddle/${PR_ID}/${COMMIT_ID}
-      working-directory: ${GITHUB_WORKSPACE}/bce-python-sdk-0.8.27
+      working-directory: ${WORK}
 
     # - name: Upload Paddle artifact
     #   uses: actions/upload-artifact@v3
