@@ -24,17 +24,17 @@ jobs:
       run: |
         git checkout -b test
         tar -zcf ${WORK}/Paddle-action.tar.gz ${WORK}/Paddle -P
+        echo $PWD
+        echo $(ls -al)
         python -m pip install bce-python-sdk==0.8.74
         wget -q --no-proxy -O ${WORK}/bos_upload.py  https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
 
     - name: Push to Bos
       env:
-        WORK: "/home/runner/work/Paddle"
         PR_ID: ${{ github.event.pull_request.number }}
         COMMIT_ID: ${{ github.event.pull_request.head.sha }}
       run: |
-        python3  BosClient.py Paddle-action.tar.gz xly-devops/PR/Paddle/${PR_ID}/${COMMIT_ID}
-      working-directory: ${WORK}
+        python3  ../BosClient.py ../Paddle-action.tar.gz xly-devops/PR/Paddle/${PR_ID}/${COMMIT_ID}
 
     # - name: Upload Paddle artifact
     #   uses: actions/upload-artifact@v3
