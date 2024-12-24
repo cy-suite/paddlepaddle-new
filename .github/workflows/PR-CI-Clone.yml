@@ -20,7 +20,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: |
-          ~/work/Paddle/bos_upload.py
+          /home/runner/work/Paddle/bos_upload.py
         key: bos_client
 
     - name: Download bos client
