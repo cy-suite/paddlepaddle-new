@@ -25,17 +25,14 @@ def api_wrapper(x):
     return paddle._C_ops.share_data(x)
 
 
-def api_dequantize_linear(x, scales, quant_axis=0):
-    in_accum = paddle.to_tensor(0.0, dtype="float32")
-    in_state = paddle.to_tensor(0.0, dtype="float32")
-    zero_point = paddle.to_tensor(0.0, dtype="float32")
+def api_dequantize_linear(x, scales, zero_point, in_accum, in_state):
     dequant_out, out_state, out_accum, out_scale = _C_ops.dequantize_linear(
         x,
         scales,
         zero_point,
         in_accum,
         in_state,
-        quant_axis,
+        0,
         8,
         127,
         -128,
@@ -415,14 +412,19 @@ class TestShareDataTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestDequantizeLinearTRTCase0Pattern(TensorRTBaseTest):
+class TestDequantizeLinearTRTCase1Pattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = api_dequantize_linear
         self.api_args = {
             "x": np.random.rand(4, 3, 5).astype("float32"),
-            "scales": 0.1,
+            "scales": np.array(np.random.rand()).astype("float32"),
+            "zero_point": np.array(0.0).astype("float32"),
+            "in_accum": np.array(0.0).astype("float32"),
+            "in_state": np.array(0.0).astype("float32"),
         }
-        self.program_config = {"feed_list": ["x"]}
+        self.program_config = {
+            "feed_list": ["x", "scales", "zero_point", "in_accum", "in_state"]
+        }
         self.min_shape = {"x": [4, 3, 5]}
         self.max_shape = {"x": [6, 3, 5]}
 
@@ -435,44 +437,19 @@ class TestDequantizeLinearTRTCase0Pattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestDequantizeLinearTRTCase1Pattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = api_dequantize_linear
-        self.api_args = {
-            "x": np.random.rand(4, 3, 5).astype("int64"),
-            "scales": 0.1,
-        }
-        self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [4, 3, 5]}
-        self.max_shape = {"x": [6, 3, 5]}
-
-    def test_trt_result(self):
-        self.check_trt_result()
-
-
 class TestDequantizeLinearTRTCase2Pattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = api_dequantize_linear
         self.api_args = {
             "x": np.random.rand(4, 3, 5).astype("float32"),
-            "scales": np.random.rand().astype("float32"),
+            "scales": np.array(np.random.rand()).astype("float32"),
+            "zero_point": np.array(0.0).astype("float32"),
+            "in_accum": np.array(0.0).astype("float32"),
+            "in_state": np.array(0.0).astype("float32"),
         }
-        self.program_config = {"feed_list": ["x", "scales"]}
-        self.min_shape = {"x": [4, 3, 5]}
-        self.max_shape = {"x": [6, 3, 5]}
-
-    def test_trt_result(self):
-        self.check_marker(expected_result=False)
-
-
-class TestDequantizeLinearTRTCase3Pattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = api_dequantize_linear
-        self.api_args = {
-            "x": np.random.rand(4, 3, 5).astype("float32"),
-            "scales": 0.1,
+        self.program_config = {
+            "feed_list": ["x", "scales", "zero_point", "in_accum", "in_state"]
         }
-        self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [4, 3, 5]}
         self.max_shape = {"x": [6, 3, 5]}
 
