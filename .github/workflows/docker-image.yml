@@ -1,4 +1,4 @@
-name: Docker Image CI
+name: PR-CI-Clone
 
 on:
   push:
@@ -7,12 +7,43 @@ on:
     branches: [ "develop" ]
 
 jobs:
-
-  build:
-
+  Clone:
+    # environment: Paddle-CI
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
+    - name: Use organization secret
+      run: echo "The secret value is ${{ secrets.AK }}"
+    - name: Clone paddle
+      uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+
+    - name: Download bos client
+      env:
+        WORK: "/home/runner/work/Paddle"
+      run: |
+        echo "The current path is the repository root directory: $PWD"
+        git checkout -b test
+        cd $WORK
+        echo "current dir is $PWD"
+        tar -zcf Paddle-action.tar.gz Paddle -P
+        python -m pip install bce-python-sdk==0.8.74
+        wget -q --no-proxy -O bos_upload.py  https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
+
+    - name: Push to bos
+      env:
+        WORK: "/home/runner/work/Paddle"
+        AK: ${{ secrets.AK }}
+        SK: ${{ secrets.SK }}
+        TEST_DDD: ${{ env.BOS_AK }}
+        PR_ID: ${{ github.event.pull_request.number }}
+        COMMIT_ID: ${{ github.event.pull_request.head.sha }}
+      run: |
+        cd $WORK
+        python3  bos_upload.py Paddle-action.tar.gz xly-devops/PR/Paddle/${PR_ID}/${COMMIT_ID}
+
+    # - name: Upload Paddle artifact
+    #   uses: actions/upload-artifact@v3
+    #   with:
+    #     name: Paddle
+    #     path: Paddle.tar.gz
