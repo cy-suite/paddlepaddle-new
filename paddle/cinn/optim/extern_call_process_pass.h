@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "paddle/cinn/ir/stmt.h"
 #include "paddle/cinn/pass/pass.h"
 
 namespace cinn {
@@ -21,16 +22,13 @@ namespace optim {
 
 class ExternCallMultiOutputShallowStorePass : public BlockPass {
  public:
-  LogicalResult Run(ir::stmt::BlockRef block) override;
-};
+  ExternCallMultiOutputShallowStorePass()
+      : BlockPass("extern_call_multi_output_shallow_store") {}
 
-class ExternCallRemoveTupleGetStatementsPass : public BlockPass {
- public:
   LogicalResult Run(ir::stmt::BlockRef block) override;
 };
 
 std::unique_ptr<BlockPass> CreateExternCallMultiOutputShallowStorePass();
-std::unique_ptr<BlockPass> CreateExternCallRemoveTupleGetStatementsPass();
 
 }  // namespace optim
 }  // namespace cinn

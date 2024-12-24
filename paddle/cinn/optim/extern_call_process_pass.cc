@@ -13,10 +13,13 @@
 // limitations under the License.
 
 #include "paddle/cinn/optim/extern_call_process_pass.h"
-#include "paddle/cinn/ir/utils/ir_compare.h"
 
 namespace cinn {
 namespace optim {
+using ir::stmt::BlockRef;
+using ir::stmt::Evaluate;
+using ir::stmt::StmtRef;
+using ir::stmt::Store;
 
 namespace {
 
@@ -25,11 +28,11 @@ void ProcessMultiOutputStore(BlockRef block) {
   std::vector<StmtRef> new_stmts;
 
   for (const auto& stmt : stmts) {
-    if (stmt.isa<ir::Store>()) {
-      auto* store_op = stmt.as<ir::Store>();
-      auto* call = store_op->value.As<ir::Call>();
+    if (stmt.isa<Store>()) {
+      const auto& store_op = stmt.as<Store>()->value();
+      const auto& call = store_op.As<ir::Call>();
       if (call && call->is_extern_call() && !call->write_args.empty()) {
-        new_stmts.emplace_back(store_op->value);
+        new_stmts.emplace_back(Evaluate(store_op));
       } else {
         new_stmts.emplace_back(stmt);
       }
@@ -41,41 +44,15 @@ void ProcessMultiOutputStore(BlockRef block) {
   block->set_stmts(new_stmts);
 }
 
-void RemoveTupleGetStatements(BlockRef block) {
-  const auto& stmts = block->stmts();
-  std::vector<StmtRef> new_stmts;
-
-  for (const auto& stmt : stmts) {
-    if (stmt.isa<ir::Call>()) {
-      auto* call = stmt.as<ir::Call>();
-      if (call && call->is_extern_call() && call->is_tuple_get()) {
-        continue;
-      }
-    }
-    new_stmts.emplace_back(stmt);
-  }
-
-  block->set_stmts(new_stmts);
-}
-
 }  // namespace
 
-LogicalResult ExternCallMultiOutputShallowStorePass::Run(ir::stmt::BlockRef block) {
+LogicalResult ExternCallMultiOutputShallowStorePass::Run(BlockRef block) {
   ProcessMultiOutputStore(block);
-  return LogicalResult::success();
-}
-
-LogicalResult ExternCallRemoveTupleGetStatementsPass::Run(ir::stmt::BlockRef block) {
-  RemoveTupleGetStatements(block);
   return LogicalResult::success();
 }
 
 std::unique_ptr<BlockPass> CreateExternCallMultiOutputShallowStorePass() {
   return std::make_unique<ExternCallMultiOutputShallowStorePass>();
-}
-
-std::unique_ptr<BlockPass> CreateExternCallRemoveTupleGetStatementsPass() {
-  return std::make_unique<ExternCallRemoveTupleGetStatementsPass>();
 }
 
 }  // namespace optim

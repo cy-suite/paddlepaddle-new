@@ -100,12 +100,13 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
   VLOG(10) << "After Optimize MapExternCall:" << copied;
 
   // ExternCallMultiOutputShallowStore(&copied->body);
-  BlockPassManager pass_manager;
-  pass_manager.AddPass(CreateExternCallMultiOutputShallowStorePass());
-  pass_manager.AddPass(CreateExternCallRemoveTupleGetStatementsPass());
-  pass_manager.Run(copied);
-  VLOG(10) << "After Optimize ExternCallMultiOutputShallowStore and ExternCallRemoveTupleGetStatements:" << copied;
-  
+  BlockPassManager pass_manager0;
+  pass_manager0.AddPass(CreateExternCallMultiOutputShallowStorePass());
+  pass_manager0.Run(copied);
+  VLOG(10) << "After Optimize ExternCallMultiOutputShallowStore and "
+              "ExternCallRemoveTupleGetStatements:"
+           << copied;
+
   // Simplify already contains CastSimplify
   Simplify(&copied->body);
   VLOG(10) << "After Optimize Simplify:" << copied;
