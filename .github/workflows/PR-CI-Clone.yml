@@ -8,7 +8,7 @@ on:
 
 jobs:
   Clone:
-    environment: Paddle-CI
+    # environment: Paddle-CI
     runs-on: ubuntu-latest
     steps:
     - name: Clone paddle
@@ -20,24 +20,24 @@ jobs:
       env:
         WORK: "/home/runner/work/Paddle"
       run: |
+        echo "The current path is the repository root directory: $PWD"
         git checkout -b test
-        tar -zcf ${WORK}/Paddle-action.tar.gz ${WORK}/Paddle -P
-        echo "current dir is $PWD"
         cd $WORK
         echo "current dir is $PWD"
+        tar -zcf Paddle-action.tar.gz Paddle -P
         python -m pip install bce-python-sdk==0.8.74
-        wget -q --no-proxy -O ${WORK}/bos_upload.py  https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
+        wget -q --no-proxy -O bos_upload.py  https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
 
-    - name: Push to Bos
+    - name: Push to bos
       env:
         WORK: "/home/runner/work/Paddle"
-        AK: ${{ secrets.BOS_AK }}
-        SK: ${{ secrets.BOS_SK }}
+        AK: ${{ secrets.AK }}
+        SK: ${{ secrets.SK }}
         PR_ID: test # ${{ github.event.pull_request.number }}
-        COMMIT_ID: test # ${{ github.event.pull_request.head.sha }}
+        COMMIT_ID:  test # ${{ github.event.pull_request.head.sha }}
       run: |
         cd $WORK
-        python3  $WORK/bos_upload.py $WORK/Paddle-action.tar.gz xly-devops/PR/Paddle/${PR_ID}/${COMMIT_ID}
+        python3  bos_upload.py Paddle-action.tar.gz xly-devops/PR/Paddle/${PR_ID}/${COMMIT_ID}
 
     # - name: Upload Paddle artifact
     #   uses: actions/upload-artifact@v3
