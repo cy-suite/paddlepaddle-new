@@ -24,7 +24,7 @@ jobs:
       run: |
         git checkout -b test
         tar -zcf ${WORK}/Paddle-action.tar.gz ${WORK}/Paddle -P
-        cd /home/runner/work/Paddle
+        cd ..
         echo $(ls)
         python -m pip install bce-python-sdk==0.8.74
         wget -q --no-proxy -O ${WORK}/bos_upload.py  https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
