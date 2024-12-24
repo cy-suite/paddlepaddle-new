@@ -30,7 +30,7 @@
 #include "paddle/cinn/optim/lower_function_call_bind_vars.h"
 #include "paddle/cinn/optim/lower_intrin.h"
 #include "paddle/cinn/optim/map_extern_call.h"
-#include "paddle/cinn/optim/rearrange_load_instruction.h"
+#include "paddle/cinn/optim/rearrange_load_instruction_pass.h"
 #include "paddle/cinn/optim/remove_schedule_block_pass.h"
 #include "paddle/cinn/optim/replace_const_param_to_integer.h"
 #include "paddle/cinn/optim/replace_cross_block_reduction.h"
@@ -103,7 +103,7 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
   VLOG(10) << "After Optimize ExternCallMultiOutputShallowStore:" << copied;
   // Simplify already contains CastSimplify
   Simplify(&copied->body);
-  VLOG(10) << "After Optimize Simplify:" << copied;
+  VLOG(4) << "After Optimize Simplify:" << copied;
 
   BlockPassManager pass_manager;
   pass_manager.AddPass(CreateIfFusionPass());
@@ -111,7 +111,9 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
 
   target.arch.Match(
       [&](common::NVGPUArch) {
-        RearrangeLoadInstruction(&copied->body);
+        StmtPassManager stmt_pass_manager;
+        stmt_pass_manager.AddPass(CreateRearrangeLoadInstructionPass());
+        stmt_pass_manager.Run(copied);
         VLOG(4) << "After Optimize RearrangeLoadInstruction:" << copied;
       },
       [](auto) {});
