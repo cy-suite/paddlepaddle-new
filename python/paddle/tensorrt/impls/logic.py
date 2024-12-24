@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import tensorrt as trt
 import numpy as np
+import tensorrt as trt
 
 from paddle.tensorrt.converter_utils import (
     add_elementwise_layer,
@@ -71,12 +71,8 @@ def bitwise_not_converter(network, paddle_op, inputs):
         layer_output = bitwise_not_layer.get_output(0)
         _ = layer_output.dtype
     else:
-        neg_one_tensor_dims = trt.Dims(
-            [1] * len(input_tensor.shape)
-        )
-        neg_one_value = np.array(
-            [-1], dtype=np.int32
-        )
+        neg_one_tensor_dims = trt.Dims([1] * len(input_tensor.shape))
+        neg_one_value = np.array([-1], dtype=np.int32)
         neg_one_weights = trt.Weights(neg_one_value)
         neg_one_tensor = network.add_constant(
             neg_one_tensor_dims, neg_one_weights
