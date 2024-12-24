@@ -40,6 +40,40 @@ paddle::dialect::PyLayerOp
 namespace paddle {
 namespace dialect {
 
+std::unordered_set<pir::Value> GetInternalInputs(pir::Block *block) {
+  std::unordered_set<pir::Value> inner_inputs;
+  for (auto &op : *block) {
+    std::string op_name = op.name();
+    if (op.attributes().count("op_name")) {
+      op_name = op.attributes()
+                    .at("op_name")
+                    .dyn_cast<pir::StrAttribute>()
+                    .AsString();
+    }
+    VLOG(8) << "GetInternalInputs of " << op_name;
+    if (op.num_regions()) {
+      for (size_t i = 0; i < op.num_regions(); ++i) {
+        for (auto &sub_block : op.region(i)) {
+          std::unordered_set<pir::Value> sub_set =
+              GetInternalInputs(&sub_block);
+          inner_inputs.insert(sub_set.begin(), sub_set.end());
+        }
+      }
+    }
+    if (op.isa<pir::TuplePopOp>()) {
+      auto tuple_pop_op = op.dyn_cast<pir::TuplePopOp>();
+      if (tuple_pop_op.has_container()) {
+        inner_inputs.insert(tuple_pop_op.container());
+      }
+    }
+    for (size_t i = 0; i < op.num_operands(); ++i) {
+      inner_inputs.insert(op.operand_source(i));
+      VLOG(10) << op_name << "'s inner_input: " << op.operand_source(i).impl();
+    }
+  }
+  return inner_inputs;
+}
+
 const char *PyLayerOp::attributes_name[1] = {
     kBackwardFunctionIdAttrName};  // NOLINT
 
@@ -197,7 +231,7 @@ void PyLayerOp::UpdateOutput() {
   VerifyRegion();
 }
 
-void PyLayerOp::UpdateInputOutput() {
+PyLayerOp PyLayerOp::UpdateInput() {
   PADDLE_ENFORCE_NOT_NULL(*this,
                           common::errors::InvalidArgument(
                               "The pylayer_op in PyLayerOp used to update "
@@ -209,18 +243,11 @@ void PyLayerOp::UpdateInputOutput() {
           "The parent block of pylayer_op which used to update "
           "output can't be nullptr"));
 
-  std::unordered_set<pir::Value> global_block_inner_inputs;
-  global_block_inner_inputs =
-      paddle::framework::GetInternalInputs(program_block);
-
   pir::Block &block = forward_block();
   std::vector<pir::Value> input_values = inputs();
-  std::vector<pir::Value> output_values = outputs();
 
   std::unordered_set<pir::Value> inner_inputs;
-  inner_inputs = paddle::framework::GetInternalInputs(&block);
-  std::unordered_set<pir::Value> inner_outputs;
-  inner_outputs = paddle::framework::GetInternalOutputs(&block);
+  inner_inputs = GetInternalInputs(&block);
 
   for (size_t arg_id = 0; arg_id < block.args_size();) {
     if (block.arg(arg_id) && (!inner_inputs.count(block.arg(arg_id)))) {
@@ -231,9 +258,7 @@ void PyLayerOp::UpdateInputOutput() {
   }
 
   bool need_build_new_pylayer = false;
-  std::vector<pir::Type> new_pylayer_output_types;
   std::vector<pir::Value> new_pylayer_inputs;
-  std::vector<pir::Value> new_pylayer_yield_inputs;
 
   for (auto value : input_values) {
     if (value && (!inner_inputs.count(value))) {
@@ -243,71 +268,20 @@ void PyLayerOp::UpdateInputOutput() {
     new_pylayer_inputs.push_back(value);
   }
 
-  std::vector<int> old_pylayer_outputs_map_to_new_pylayer_outputs_index;
-
-  if (block.back().isa<pir::YieldOp>()) {
-    std::vector<pir::Value> yield_inputs = block.back().operands_source();
-    PADDLE_ENFORCE_EQ(
-        yield_inputs.size(),
-        output_values.size(),
-        common::errors::Unimplemented(
-            "YieldOp's input size(%d) must be equal with "
-            "PyLayer's outpus's output size %d. If Pass modify PyLayer's "
-            "block, the Pass should not modify YieldOp, because YieldOp must "
-            "updata with PyLayer outputs together. Otherwise, when updating "
-            "PyLayer outputs, the mapping relationship between the new PyLayer "
-            "and the old PyLayer outputs cannot be known. Therefore, we can't "
-            "use ReplaceAllUsesWith update Value of PyLayer outputs.",
-            yield_inputs.size(),
-            output_values.size()));
-    int index = 0;
-    for (size_t i = 0; i < yield_inputs.size(); i++) {
-      if (yield_inputs[i] && (!inner_outputs.count(yield_inputs[i]))) {
-        PADDLE_ENFORCE_EQ(
-            global_block_inner_inputs.count(output_values[i]),
-            0,
-            common::errors::Unimplemented(
-                "The PyLayer's output not defined in PyLayer's block, "
-                "but used in global block."));
-        need_build_new_pylayer = true;
-        old_pylayer_outputs_map_to_new_pylayer_outputs_index.push_back(-1);
-        continue;
-      }
-      new_pylayer_output_types.push_back(yield_inputs[i].type());
-      new_pylayer_yield_inputs.push_back(yield_inputs[i]);
-      old_pylayer_outputs_map_to_new_pylayer_outputs_index.push_back(index++);
-    }
-  } else {
-    if (!output_values.empty()) {
-      PADDLE_THROW(common::errors::Unimplemented(
-          "The last op of PyLayer block, is not yield_op, but a %s",
-          block.back().name()));
-    }
-  }
-
   if (need_build_new_pylayer) {
     ::pir::IrContext *ctx = ::pir::IrContext::Instance();
-    block.pop_back();
-    ::pir::Builder builder = ::pir::Builder(ctx, &block);
-    builder.SetInsertionPointToBlockEnd(&block);
-    builder.Build<pir::YieldOp>(new_pylayer_yield_inputs);
 
-    ::pir::Builder builder2 = ::pir::Builder(ctx, program_block);
-    builder2.set_insertion_point(&(**this));
-    auto new_pylayer = builder2.Build<PyLayerOp>(new_pylayer_inputs,
-                                                 forward_region().TakeBack(),
-                                                 backward_function_id());
-    for (size_t i = 0;
-         i < old_pylayer_outputs_map_to_new_pylayer_outputs_index.size();
-         i++) {
-      if (old_pylayer_outputs_map_to_new_pylayer_outputs_index[i] != -1) {
-        output_values[i].ReplaceAllUsesWith(new_pylayer.result(
-            old_pylayer_outputs_map_to_new_pylayer_outputs_index[i]));
-      }
-    }
+    ::pir::Builder builder = ::pir::Builder(ctx, program_block);
+    builder.set_insertion_point(&(**this));
+    auto new_pylayer = builder.Build<PyLayerOp>(new_pylayer_inputs,
+                                                forward_region().TakeBack(),
+                                                backward_function_id());
+    (**this).ReplaceAllUsesWith(new_pylayer.outputs());
     pir::Block::Iterator iter = **this;
-    program_block->erase(iter);
+    iter = program_block->erase(iter);
+    return new_pylayer;
   }
+  return *this;
 }
 
 }  // namespace dialect
