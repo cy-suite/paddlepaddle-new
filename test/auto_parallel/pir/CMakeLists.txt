@@ -77,7 +77,7 @@ if(WITH_DISTRIBUTE AND WITH_GPU)
     test_sharding_tensor_fusion_save_load MODULES
     test_sharding_tensor_fusion_save_load ENVS FLAGS_enable_pir_api=1)
   set_tests_properties(test_sharding_tensor_fusion_save_load
-                       PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE" TIMEOUT 300)
+                       PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE" TIMEOUT 500)
 endif()
 py_test_modules(test_pir_1f1b_plan MODULES test_pir_1f1b_plan ENVS
                 FLAGS_enable_pir_api=1)

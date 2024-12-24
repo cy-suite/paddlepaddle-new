@@ -73,6 +73,9 @@ class TestSimpleNetShardingTensorFusionSaveLoad:
             "FLAGS_enable_pir_api"
         )["FLAGS_enable_pir_api"]
         self.num_batch = 2
+        self.save_unbalanced_param = int(
+            os.getenv("save_unbalanced_param", '1')
+        )
 
     def set_random_seed(self, seed):
         random.seed(seed)
@@ -154,6 +157,8 @@ class TestSimpleNetShardingTensorFusionSaveLoad:
         strategy.sharding.enable = True
         strategy.sharding.degree = 2
         strategy.sharding.stage = 1
+        strategy.sharding.enable_stage1_tensor_fusion = True
+        strategy.sharding.save_unbalanced_param = self.save_unbalanced_param
 
         if self._amp:
             layer, opt = paddle.amp.decorate(
