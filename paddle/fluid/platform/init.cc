@@ -30,7 +30,9 @@ limitations under the License. */
 #include "paddle/phi/core/os_info.h"
 #include "paddle/phi/core/platform/device/device_wrapper.h"
 #include "paddle/phi/core/platform/device_context.h"
-
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+#include "paddle/fluid/custom_engine/custom_device_load.h"
+#endif
 #ifdef PADDLE_WITH_XPU
 #include "paddle/phi/backends/xpu/xpu_header.h"
 #include "paddle/phi/core/platform/device/xpu/xpu_info.h"

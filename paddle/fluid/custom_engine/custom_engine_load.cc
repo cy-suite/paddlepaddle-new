@@ -37,11 +37,6 @@ bool ValidCustomCustomEngineParams(const CustomEngineParams* params) {
 void LoadCustomEngineLib(const std::string& dso_lib_path,
                          CustomEngineParams* engine_params) {
   if (ValidCustomCustomEngineParams(engine_params)) {
-    // pir::IrContext* ctx = pir::IrContext::Instance();
-    // paddle::dialect::CustomEngineDialect* custom_engine_dialect =
-    //   ctx->GetOrRegisterDialect<paddle::dialect::CustomEngineDialect>();
-    // custom_dialect->RegisterCustomOp<CustomEngineOp>();
-
     paddle::custom_engine::CustomEngineManager::Instance()
         ->SetCustomEngineInterface(engine_params->interface);
 

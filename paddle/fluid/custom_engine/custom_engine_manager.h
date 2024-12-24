@@ -13,7 +13,8 @@
 // limitations under the License.
 
 #pragma once
-#include <memory>
+#include <cstdint>
+#include <string>
 
 #include "paddle/fluid/custom_engine/custom_engine_ext.h"
 

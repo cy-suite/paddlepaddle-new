@@ -25,9 +25,6 @@ void InitFakeCPUEngine(CustomEngineParams *params) {
          sizeof(C_CustomEngineInterface));
 
   params->interface->graph_engine_build = GraphEngineBuild;
-  params->interface->graph_engine_build();
   params->interface->graph_engine_execute = GraphEngineExecute;
-  params->interface->graph_engine_execute();
   params->interface->custom_engine_op_lower = CustomEngineOpLower;
-  params->interface->custom_engine_op_lower();
 }

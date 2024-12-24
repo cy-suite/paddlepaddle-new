@@ -15,7 +15,7 @@
 #include <glog/logging.h>
 
 #
-#include "paddle/fluid/custom_engine/custom_load.h"
+#include "paddle/fluid/custom_engine/custom_device_load.h"
 namespace paddle {
 
 typedef bool (*RegisterDevicePluginFn)(CustomRuntimeParams* runtime_params);

@@ -15,7 +15,7 @@ endif()
 
 # separate init from device_context to avoid cycle dependencies
 if(WITH_CUSTOM_DEVICE AND NOT WIN32)
-  set(INIT_DEPS phi common custom_load)
+  set(INIT_DEPS phi common custom_device_load)
 else()
   set(INIT_DEPS phi common)
 endif()
