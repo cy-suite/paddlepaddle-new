@@ -25,7 +25,7 @@ jobs:
 
     - name: Download bos client
       env:
-        WORK: "home/runner/work/Paddle"
+        WORK: "/home/runner/work/Paddle"
       if: steps.cache-bos_client.outputs.cache-hit != 'true'
       run: |
         echo "The current path is the repository root directory: $PWD"
@@ -38,7 +38,7 @@ jobs:
 
     - name: Push paddle-action.tar.gz to bos
       env:
-        WORK: "home/runner/work/Paddle"
+        WORK: "/home/runner/work/Paddle"
         AK: ${{ secrets.AK }}
         SK: ${{ secrets.SK }}
         PR_ID: ${{ github.event.pull_request.number }}
