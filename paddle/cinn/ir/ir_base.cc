@@ -16,7 +16,9 @@
 #include <sstream>
 #include "paddle/cinn/common/cinn_value.h"
 #include "paddle/cinn/common/common.h"
+#include "paddle/cinn/common/const_fold.h"
 #include "paddle/cinn/common/ir_util.h"
+#include "paddle/cinn/common/simplify_special_pattern.h"
 #include "paddle/cinn/ir/buffer.h"
 #include "paddle/cinn/ir/ir.h"
 #include "paddle/cinn/ir/ir_printer.h"
@@ -487,7 +489,7 @@ bool IndexExpr::IsDynamic() const {
   }
 }
 
-IndexExpr Simplify(const IndexExpr &expr) {
+IndexExpr Simplify(const IndexExpr &expr, IndexExpr::OptLevel level) {
   switch (expr.node_type()) {
     case ir::IrNodeTy::IntImm:
       return expr;
@@ -508,7 +510,7 @@ IndexExpr Simplify(const IndexExpr &expr) {
       return Load::Make(load->tensor, load->indices).set_index(true);
     }
     case ir::IrNodeTy::Cast: {
-      auto v = Simplify(expr.operand(0));
+      auto v = Simplify(expr.operand(0), level);
       return Cast::Make(expr.type(), v);
     }
     case ir::IrNodeTy::Add:
@@ -518,9 +520,13 @@ IndexExpr Simplify(const IndexExpr &expr) {
     case ir::IrNodeTy::Mod:
     case ir::IrNodeTy::Min:
     case ir::IrNodeTy::Max: {
-      auto lhs = Simplify(expr.operand(0));
-      auto rhs = Simplify(expr.operand(1));
-      return ConstructIndexExprByNodeType(expr.node_type(), lhs, rhs);
+      auto lhs = Simplify(expr.operand(0), level);
+      auto rhs = Simplify(expr.operand(1), level);
+      auto res = ConstructIndexExprByNodeType(expr.node_type(), lhs, rhs);
+      if (level == IndexExpr::OptLevel::Level2 &&
+          expr.node_type() == ir::IrNodeTy::Add)
+        res = common::MergeMulMod(res);
+      return res;
     }
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(
@@ -528,7 +534,9 @@ IndexExpr Simplify(const IndexExpr &expr) {
   }
 }
 
-IndexExpr IndexExpr::Normalize() const { return Simplify(*this); }
+IndexExpr IndexExpr::Normalize(OptLevel level) const {
+  return Simplify(*this, level);
+}
 
 int32_t IndexExpr::as_int32() const {
   PADDLE_ENFORCE_EQ(
