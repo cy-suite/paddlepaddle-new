@@ -527,7 +527,7 @@ class StaticFunction(Generic[_InputT, _RetT]):
 
         Args:
             *args(tuple): tuple of all input arguments from original decorated function.
-            **kwargs(dict): dict of all input keyward arguments from original decorated function.
+            **kwargs(dict): dict of all input keyword arguments from original decorated function.
 
         Return:
             Outputs of decorated function.
@@ -576,7 +576,7 @@ class StaticFunction(Generic[_InputT, _RetT]):
 
         Args:
             *args(tuple): tuple of all input arguments from original decorated function.
-            **kwargs(dict): dict of all input keyward arguments from original decorated function.
+            **kwargs(dict): dict of all input keyword arguments from original decorated function.
 
         Return:
             Outputs of dygraph function.
@@ -1741,10 +1741,6 @@ class ProgramCache:
 
 class PrimHooker(PartialProgramLayerHook):
     def __init__(self, original_program, backend):
-        if len(original_program.blocks) > 1:
-            raise ValueError(
-                'The primitive mode only support one block currently.'
-            )
         self.backend = backend
         self.custom_vjps = set()
         with backend_guard(self.backend):
