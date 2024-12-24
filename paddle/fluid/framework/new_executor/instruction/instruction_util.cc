@@ -52,6 +52,7 @@
 #include "paddle/phi/core/distributed/nccl_comm_context.h"
 #endif
 #include "paddle/phi/core/platform/collective_helper.h"
+COMMON_DECLARE_bool(dynamic_static_unified_comm);
 #endif
 
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
@@ -111,7 +112,8 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
       phi::is_xpu_place(place)) {
     VLOG(6) << "Parse DeviceContext for " << op_name
             << ", execution stream = " << execution_stream;
-    if (execution_stream != kDefaultStream) {
+    if (execution_stream != kDefaultStream && op_name != "pd_op.p_send" &&
+        op_name != "pd_op.p_send") {
       dev_ctx = ctx_manager
                     .Get(std::string(kCustomStream) + "-" + execution_stream,
                          place,
@@ -153,17 +155,31 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
                 .data() == false) {
       int ring_id =
           op_attributes.at("ring_id").dyn_cast<pir::Int32Attribute>().data();
-      const auto& comm_context_manager =
-          phi::distributed::CommContextManager::GetInstance();
-      dev_ctx = static_cast<phi::DeviceContext*>(
-          static_cast<COMM_CONTEXT*>(
-              comm_context_manager.Get(std::to_string(ring_id)))
-              ->GetDevContext());
+      if (FLAGS_dynamic_static_unified_comm) {
+        const auto& comm_context_manager =
+            phi::distributed::CommContextManager::GetInstance();
+        dev_ctx = static_cast<phi::DeviceContext*>(
+            static_cast<COMM_CONTEXT*>(
+                comm_context_manager.Get(std::to_string(ring_id)))
+                ->GetDevContext());
+      } else {
+#if defined(PADDLE_WITH_CUSTOM_DEVICE)
+        PADDLE_ENFORCE(
+            false,
+            common::errors::InvalidArgument(
+                "Custom device does not support old communication context."));
+#else
+        dev_ctx = PLATFORM_COMM_CONTEXT::Instance()
+                      .Get(ring_id, place)
+                      ->dev_context();
+#endif
+      }
       return dev_ctx;
     }
 
     // handle comm op
-    if (op_attributes.count("ring_id") != 0) {
+    if (op_attributes.count("ring_id") != 0 &&
+        FLAGS_dynamic_static_unified_comm) {
       int ring_id =
           op_attributes.at("ring_id").dyn_cast<pir::Int32Attribute>().data();
       const auto& comm_context_manager =
@@ -198,6 +214,8 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
             op_name.compare(paddle::dialect::BroadcastOp::name()) == 0 ||
             op_name.compare(paddle::dialect::AllGatherOp::name()) == 0 ||
             op_name.compare(paddle::dialect::MpAllreduceSumOp::name()) == 0 ||
+            op_name.compare(paddle::dialect::PSendOp::name()) == 0 ||
+            op_name.compare(paddle::dialect::PRecvOp::name()) == 0 ||
             op_name.compare(paddle::dialect::MpAllreduceSum_Op::name()) == 0 ||
             op_name.compare(paddle::dialect::CIdentity_Op::name()) == 0 ||
             op_name.compare(paddle::dialect::CConcatOp::name()) == 0 ||
