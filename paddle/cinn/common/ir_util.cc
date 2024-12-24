@@ -186,10 +186,6 @@ Expr IndiceToAbsOffset(const std::vector<Expr> &shape,
                         "The size of shape should be less than or "
                         "equal to the size of indices."));
   Expr res(0);
-  ir::TryElevateInt32ToInt64(shape);
-  common::cas_intervals_t var_intervals =
-      common::CollectVarIntervalsOfExprs(indices);
-  common::SymbolicExprAnalyzer analyzer{var_intervals};
 
   for (int32_t i = 0; i < shape.size(); i++) {
     PADDLE_ENFORCE_EQ(
