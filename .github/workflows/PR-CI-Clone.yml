@@ -11,6 +11,8 @@ jobs:
     # environment: Paddle-CI
     runs-on: ubuntu-latest
     steps:
+    - name: Use organization secret
+      run: echo "The secret value is ${{ secrets.AK }}"
     - name: Clone paddle
       uses: actions/checkout@v4
       with:
