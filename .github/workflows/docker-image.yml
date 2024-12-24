@@ -28,13 +28,9 @@ jobs:
         WORK: "/home/runner/work/Paddle"
       if: steps.cache-bos_client.outputs.cache-hit != 'true'
       run: |
-        echo "The current path is the repository root directory: $PWD"
-        git checkout -b test
         cd $WORK
-        echo "current dir is $PWD"
-        tar -zcf Paddle-action.tar.gz Paddle -P
-        python -m pip install bce-python-sdk==0.8.74
         wget -q --no-proxy -O bos_upload.py  https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
+        
     - name: Push paddle-action.tar.gz to bos
       env:
         WORK: "/home/runner/work/Paddle"
@@ -43,5 +39,8 @@ jobs:
         PR_ID: ${{ github.event.pull_request.number }}
         COMMIT_ID: ${{ github.event.pull_request.head.sha }}
       run: |
+        git checkout -b test
         cd $WORK
+        tar -zcf Paddle-action.tar.gz Paddle
+        python -m pip install bce-python-sdk==0.8.74
         python3  bos_upload.py Paddle-action.tar.gz xly-devops/PR/Paddle/${PR_ID}/${COMMIT_ID}
