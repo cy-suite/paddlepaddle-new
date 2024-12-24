@@ -22,11 +22,15 @@ jobs:
         AK: ${{ secrets.BOS_AK }}
         SK: ${{ secrets.BOS_SK }}
       run: |
+        set -x
         git checkout -b test
         tar -zcf ${WORK}/Paddle-action.tar.gz ${WORK}/Paddle -P
+        echo $PWD
+        echo $(ls $PWD)
         cd ..
         echo $PWD
-        echo $(ls)
+        echo $(ls $PWD)
+        echo $(ls /home/runner/work/Paddle)
         python -m pip install bce-python-sdk==0.8.74
         wget -q --no-proxy -O ${WORK}/bos_upload.py  https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
 
