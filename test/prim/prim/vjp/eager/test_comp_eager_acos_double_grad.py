@@ -24,7 +24,11 @@ from paddle.base import core
 @param.parameterized_class(
     ('primal', 'cotangent', 'dtype'),
     [
-        (np.random.rand(10, 10), np.random.rand(10, 10), np.float32),
+        (
+            np.random.rand(-0.95, 0.95, size=(10, 10)),
+            np.random.rand(10, 10),
+            np.float32,
+        ),
     ],
 )
 class TestAcosDoubleGradComp(unittest.TestCase):
