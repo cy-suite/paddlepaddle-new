@@ -90,6 +90,18 @@ class TestReluTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestRelu6TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.nn.functional.relu6
+        self.api_args = {"x": np.random.randn(3).astype("float32")}
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1]}
+        self.max_shape = {"x": [5]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
 class TestTanhTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.tanh
