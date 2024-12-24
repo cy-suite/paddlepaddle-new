@@ -109,7 +109,8 @@ static std::vector<CutlassTileConfig> get_candidate_tiles(
     const bool is_weight_only_encoder,
     const bool simt_configs_only,
     const int sm,
-    const int group_size) {
+    const int group_size,
+    const bool is_moe) {
   VLOG(3) << "get_candidate_tiles sm: " << sm;
   std::vector<CutlassTileConfig> simt_configs{
       CutlassTileConfig::CtaShape128x128x8_WarpShape64x64x8};
@@ -117,18 +118,32 @@ static std::vector<CutlassTileConfig> get_candidate_tiles(
   std::vector<CutlassTileConfig> square_configs{
       CutlassTileConfig::CtaShape32x128x64_WarpShape32x32x64,
       CutlassTileConfig::CtaShape64x128x64_WarpShape32x64x64,
+      CutlassTileConfig::CtaShape128x128x64_WarpShape64x32x64,
   };
   std::vector<CutlassTileConfig> quant_B_configs_sm70{
       CutlassTileConfig::CtaShape32x128x64_WarpShape32x32x64,
       CutlassTileConfig::CtaShape64x128x64_WarpShape64x64x64,
   };
-  std::vector<CutlassTileConfig> quant_B_configs_sm80{
-      CutlassTileConfig::CtaShape16x128x64_WarpShape16x32x64,
-      CutlassTileConfig::CtaShape32x128x64_WarpShape32x32x64,
-      CutlassTileConfig::CtaShape64x128x64_WarpShape64x64x64,
-      CutlassTileConfig::CtaShape128x128x64_WarpShape64x64x64,
-      CutlassTileConfig::CtaShape128x256x64_WarpShape64x64x64,
-  };
+  std::vector<CutlassTileConfig> quant_B_configs_sm80;
+  if (is_moe) {
+    quant_B_configs_sm80 = {
+        CutlassTileConfig::CtaShape16x128x64_WarpShape16x32x64,
+        CutlassTileConfig::CtaShape32x128x64_WarpShape32x32x64,
+        CutlassTileConfig::CtaShape64x128x64_WarpShape64x64x64,
+        CutlassTileConfig::CtaShape64x128x64_WarpShape64x32x64,
+        CutlassTileConfig::CtaShape128x128x64_WarpShape64x64x64,
+        CutlassTileConfig::CtaShape128x256x64_WarpShape64x64x64,
+    };
+  } else {
+    quant_B_configs_sm80 = {
+        CutlassTileConfig::CtaShape16x128x64_WarpShape16x32x64,
+        CutlassTileConfig::CtaShape32x128x64_WarpShape32x32x64,
+        CutlassTileConfig::CtaShape64x128x64_WarpShape64x64x64,
+        CutlassTileConfig::CtaShape128x128x64_WarpShape64x64x64,
+        CutlassTileConfig::CtaShape128x128x64_WarpShape128x32x64,
+        CutlassTileConfig::CtaShape128x256x64_WarpShape64x64x64,
+    };
+  }
   std::vector<CutlassTileConfig> quant_B_configs_sm80_finegrained{
       CutlassTileConfig::CtaShape16x128x64_WarpShape16x32x64,
       CutlassTileConfig::CtaShape32x128x64_WarpShape32x32x64,
@@ -164,13 +179,15 @@ static std::vector<CutlassGemmConfig> get_candidate_configs(
     const int group_size,
     const bool is_weight_only,
     const bool is_weight_only_encoder,
-    const bool simt_configs_only) {
+    const bool simt_configs_only,
+    const bool is_moe) {
   std::vector<CutlassTileConfig> tiles =
       get_candidate_tiles(is_weight_only,
                           is_weight_only_encoder,
                           simt_configs_only,
                           sm,
-                          group_size);
+                          group_size,
+                          is_moe);
 
   std::vector<CutlassGemmConfig> candidate_configs;
   const int min_stages = 2;
