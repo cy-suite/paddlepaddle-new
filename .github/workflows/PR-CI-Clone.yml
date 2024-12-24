@@ -29,7 +29,7 @@ jobs:
       if: steps.cache-bos_client.outputs.cache-hit != 'true'
       run: |
         cd $WORK
-        wget -q --no-proxy -O bos_upload.py  https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
+        wget -q --no-proxy  -O bos_upload.py  https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
 
     - name: Push paddle-action.tar.gz to bos
       env:
