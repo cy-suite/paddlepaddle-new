@@ -291,5 +291,24 @@ class TestMishCase4TRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestSeluTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.nn.functional.selu
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3]}
+        self.max_shape = {"x": [5, 3]}
+
+    def test_trt_result_fp32(self):
+        self.enable_fp16 = False
+        self.check_trt_result()
+
+    def test_trt_result_fp16(self):
+        self.enable_fp16 = True
+        self.check_trt_result()
+
+
 if __name__ == '__main__':
     unittest.main()
