@@ -1536,10 +1536,7 @@ function card_test() {
         return 0
     fi
 
-    set +x
-    trap 'caught_error' >/dev/null CHLD
-    set -x
-
+    #trap 'caught_error' >/dev/null CHLD
     tmpfile_rand=`date +%s%N`
     NUM_PROC=$[CUDA_DEVICE_COUNT/$cardnumber]
     echo "****************************************************************"
