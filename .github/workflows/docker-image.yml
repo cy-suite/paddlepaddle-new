@@ -1,10 +1,12 @@
 name: Clone
-run-name: Clone-Paddle-Linux
+
 on:
   push:
     branches: [ "develop" ]
   pull_request:
     branches: [ "develop" ]
+    
+run-name: Clone-Paddle-Linux
 
 jobs:
   Clone:
