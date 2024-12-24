@@ -58,6 +58,5 @@ PD_REGISTER_KERNEL(where,
                    double,
                    int,
                    int64_t,
-                   bool,
                    phi::dtype::float16,
                    phi::dtype::bfloat16) {}
