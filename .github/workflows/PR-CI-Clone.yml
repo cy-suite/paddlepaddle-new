@@ -1,8 +1,9 @@
+
 name: PR-CI-Clone
 
 on:
   push:
-    branches: [ "develop" ]
+    branches: [ "CI_migrate_new" ]
   pull_request:
     branches: [ "develop" ]
 
@@ -11,8 +12,6 @@ jobs:
     # environment: Paddle-CI
     runs-on: ubuntu-latest
     steps:
-    - name: Use organization secret
-      run: echo "The secret value is ${{ secrets.AK }}"
     - name: Clone paddle
       uses: actions/checkout@v4
       with:
@@ -35,7 +34,6 @@ jobs:
         WORK: "/home/runner/work/Paddle"
         AK: ${{ secrets.AK }}
         SK: ${{ secrets.SK }}
-        TEST_DDD: ${{ env.BOS_AK }}
         PR_ID: ${{ github.event.pull_request.number }}
         COMMIT_ID: ${{ github.event.pull_request.head.sha }}
       run: |
