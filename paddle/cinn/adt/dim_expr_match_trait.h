@@ -33,7 +33,7 @@ struct UnaryDimExprMatchTrait {
   }
 };
 
-template <template <typename> class Op, typename t0>
+template <template <typename> class Op, typename T0>
 struct BinaryDimExprMatchTrait {
   using base_type = Op<DimExpr>;
 
@@ -41,8 +41,8 @@ struct BinaryDimExprMatchTrait {
 
   template <template <typename, typename> class Matcher>
   static bool MatchChildren(const base_type& value) {
-    const auto& lhs = std::get<0>(value.tuple());
-    const auto& rhs = std::get<1>(value.tuple());
+    const auto& lhs = value->lhs;
+    const auto& rhs = value->rhs;
     return Matcher<T0, DimExpr>::Call(lhs) && Matcher<T0, DimExpr>::Call(rhs);
   }
 };

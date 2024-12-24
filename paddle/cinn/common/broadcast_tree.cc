@@ -80,9 +80,9 @@ bool SearchBroadcastImpl(const symbol::Mul<symbol::DimExpr>& variadic,
 }
 
 template <typename DoEachT>
-bool SearchBroadcastImpl(const symbol::Div<symbol::DimExpr>& variadic,
+bool SearchBroadcastImpl(const symbol::Div<symbol::DimExpr>& binary,
                          const DoEachT& DoEach) {
-  return SearchBroadcastImplForBinary(variadic, DoEach);
+  return SearchBroadcastImplForBinary(binary, DoEach);
 }
 
 template <typename DoEachT>
