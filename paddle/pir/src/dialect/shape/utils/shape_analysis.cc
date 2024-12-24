@@ -275,6 +275,20 @@ bool InferSymbolicShapeContext::IsBroadcastable(
   return constraints_manager_.IsBroadcastable(lhs, rhs);
 }
 
+void InferSymbolicShapeContext::SubstituteInConstraint(
+    std::unordered_map<symbol::DimExpr, symbol::DimExpr> substitution_pattern) {
+  for (const auto& item : substitution_pattern) {
+    constraints_manager_.SubstituteInConstraint(item.first, item.second);
+  }
+  std::unordered_map<symbol::DimExpr, symbol::DimExpr> new_substitution_pattern;
+  for (const auto& old_pattern : substitution_pattern_) {
+    new_substitution_pattern.emplace(
+        symbol::SubstituteDimExpr(old_pattern.first, substitution_pattern),
+        symbol::SubstituteDimExpr(old_pattern.second, substitution_pattern));
+  }
+  substitution_pattern_ = new_substitution_pattern;
+}
+
 bool InferSymbolicShapeContext::HasPredefinedRange(
     const symbol::DimExpr& dim_expr) const {
   return constraints_manager_.IsBoundedInput(dim_expr);
@@ -358,26 +372,8 @@ InferSymbolicShapeContext::SimplifyBroadcastForShapeOrData(
       });
 }
 
-namespace {
-
-bool CanSubstituteInShapeAnalysis(const symbol::DimExpr& lhs,
-                                  const symbol::DimExpr& rhs) {
-  auto CanSubstitutePredictor = ::common::Overloaded{
-      [](std::int64_t lhs, const auto& rhs) { return true; },
-      [](const std::string& lhs, const std::string& rhs) { return true; },
-      [](const std::string& lhs,
-         const symbol::Broadcast<symbol::DimExpr>& rhs) { return true; },
-      [](const auto& lhs, const auto& rhs) { return false; }};
-  return std::visit(CanSubstitutePredictor, lhs.variant(), rhs.variant()) ||
-         std::visit(CanSubstitutePredictor, rhs.variant(), lhs.variant());
-}
-
-}  // namespace
-
 void InferSymbolicShapeContext::SubstituteDimExpr(
     const symbol::DimExpr& origin, const symbol::DimExpr& substituted) {
-  if (!CanSubstituteInShapeAnalysis(origin, substituted)) return;
-
   substitution_pattern_[origin] = substituted;
   for (auto& val : substitution_pattern_) {
     if (val.second == origin) {
@@ -677,6 +673,11 @@ bool ShapeConstraintIRAnalysis::IsGreatThanOne(
 bool ShapeConstraintIRAnalysis::IsBroadcastable(
     const symbol::DimExpr& lhs, const symbol::DimExpr& rhs) const {
   return context_.IsBroadcastable(lhs, rhs);
+}
+
+void ShapeConstraintIRAnalysis::SubstituteInConstraint(
+    std::unordered_map<symbol::DimExpr, symbol::DimExpr> substitution_pattern) {
+  context_.SubstituteInConstraint(substitution_pattern);
 }
 
 void ShapeConstraintIRAnalysis::PrintShapeOrDatas() const {
