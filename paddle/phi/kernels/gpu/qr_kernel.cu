@@ -56,8 +56,13 @@ void QrKernel(const Context& ctx,
   bool reduced_mode;
   std::tie(compute_q, reduced_mode) = phi::funcs::ParseQrMode(mode);
   auto numel = x.numel();
-  PADDLE_ENFORCE_GT(
-      numel, 0, errors::PreconditionNotMet("The input of QR is empty."));
+  if (numel == 0) {
+    ctx.template Alloc<T>(q);
+    ctx.template Alloc<T>(r);
+    q->Resize(q->dims());
+    r->Resize(r->dims());
+    return;
+  }
   auto x_dims = x.dims();
   int x_rank = x_dims.size();
   int m = x_dims[x_rank - 2];
