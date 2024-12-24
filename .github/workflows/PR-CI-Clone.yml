@@ -21,6 +21,7 @@ jobs:
       with:
         path: |
           /home/runner/work/Paddle/bos_upload.py
+          ~/.cache/pip
         key: bos_client
 
     - name: Download bos client
