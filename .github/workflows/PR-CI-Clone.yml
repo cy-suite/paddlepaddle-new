@@ -36,6 +36,14 @@ jobs:
         python -m pip install bce-python-sdk==0.8.74
         wget -q --no-proxy -O bos_upload.py  https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
 
+    - name: Save bos client to cache
+      id: cache-bos_client
+      uses: actions/cache@v4
+      with:
+        path: |
+          /home/runner/work/Paddle/bos_upload.py
+        key: bos_client
+
     - name: Push paddle-action.tar.gz to bos
       env:
         WORK: "/home/runner/work/Paddle"
