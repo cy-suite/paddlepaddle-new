@@ -181,7 +181,7 @@ def swish_silu_converter(network, paddle_op, inputs):
 
 
 @converter_registry.register("pd_op.tanh_shrink", trt_version="8.x")
-def tanh_shrinkl_converter(network, paddle_op, inputs):
+def tanh_shrink_converter(network, paddle_op, inputs):
     x = inputs[0]
     tanh_layer = network.add_activation(x, trt.ActivationType.TANH)
     subtract_layer = network.add_elementwise(
