@@ -31,8 +31,8 @@ jobs:
     - name: Push to bos
       env:
         WORK: "/home/runner/work/Paddle"
-        AK: ${{ secrets.AK }}
-        SK: ${{ secrets.SK }}
+        AK: ${{ secrets.BOS_AK }}
+        SK: ${{ secrets.BOS_SK }}
         PR_ID: test # ${{ github.event.pull_request.number }}
         COMMIT_ID:  test # ${{ github.event.pull_request.head.sha }}
       run: |
