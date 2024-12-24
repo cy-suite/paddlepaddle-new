@@ -32,17 +32,27 @@ void SumKernel(const Context& dev_ctx,
   bool reduce_all = recompute_reduce_all(x, dims);
   if (x.numel() == 0) {
     auto x_dims = x.dims();
-    std::vector<int64_t> out_dims;
+    std::vector<int> out_dims;
     if (reduce_all) {
       if (keep_dim) {
         out_dims.resize(x_dims.size(), 1);
       } else {
-        out_dims = std::vector<int64_t>();
+        out_dims = std::vector<int>();
       }
     } else {
-      std::set<int64_t> reduce_dims;
+      std::set<int> reduce_dims;
       auto dims_vec = dims.GetData();
       for (auto dim : dims_vec) {
+        PADDLE_ENFORCE_GE(dim, -x_dims.size(),
+                          common::errors::InvalidArgument(
+                              "The dimension index is out of range, "
+                              "expected index >= %d, but received %d.",
+                              -x_dims.size(), dim));
+        PADDLE_ENFORCE_LT(dim, x_dims.size(),
+                          common::errors::InvalidArgument(
+                              "The dimension index is out of range, "
+                              "expected index < %d, but received %d.",
+                              x_dims.size(), dim));
         if (dim < 0) {
           dim += x_dims.size();
         }
@@ -50,7 +60,7 @@ void SumKernel(const Context& dev_ctx,
       }
       if (keep_dim) {
         out_dims.resize(x_dims.size());
-        for (int64_t i = 0; i < x_dims.size(); ++i) {
+        for (int i = 0; i < x_dims.size(); ++i) {
           if (reduce_dims.count(i)) {
             out_dims[i] = 1;
           } else {
@@ -58,7 +68,7 @@ void SumKernel(const Context& dev_ctx,
           }
         }
       } else {
-        for (int64_t i = 0; i < x_dims.size(); ++i) {
+        for (int i = 0; i < x_dims.size(); ++i) {
           if (!reduce_dims.count(i)) {
             out_dims.push_back(x_dims[i]);
           }
