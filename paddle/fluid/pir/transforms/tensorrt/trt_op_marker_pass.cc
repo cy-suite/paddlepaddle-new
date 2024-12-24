@@ -2084,15 +2084,18 @@ class TemporalShiftOpPattern
         op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-    if (!op->HasAttribute("shift_ratio") || !op->HasAttribute("seg_num")) {
-      VLOG(3) << "temporal shift need attributes : shift_ratio and seg_num";
+    if (!op->HasAttribute("shift_ratio")) {
+      VLOG(3) << "temporal shift need attributes : shift_ratio";
+      return false;
+    }
+    if (!op->HasAttribute("seg_num")) {
+      VLOG(3) << "temporal shift need attributes : seg_num";
       return false;
     }
     auto x = op.operand_source(0);
     auto x_shape = pir::GetShapeFromValue(x);
     if (x_shape.size() != 4) {
-      VLOG(3) << "The input and grid tensors must be shape tensors of rank 4 "
-                 "when using TRT TemporalShift layer.";
+      VLOG(3) << "The input and grid tensors must be shape tensors of rank 4.";
       return false;
     }
 
