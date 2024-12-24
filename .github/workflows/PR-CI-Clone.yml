@@ -37,7 +37,7 @@ jobs:
         wget -q --no-proxy -O bos_upload.py  https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
 
     - name: Save bos client to cache
-      id: cache-bos_client
+      id: save-bos_client
       uses: actions/cache@v4
       with:
         path: |
