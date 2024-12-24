@@ -674,8 +674,8 @@ const std::vector<std::string> kPirMkldnnBf16Passes{
     "cpu_bfloat16_placement_pass",
     "cpu_bfloat16_pass",
     "cpu_bfloat16_type_placement_pass",
-    "cpu_bf16_quantize_squash_pass",
     "cpu_special_ops_bf16_pass",
+    "cpu_bf16_quantize_squash_pass",
 };
 
 const std::vector<std::string> kPirCpuPasses{
