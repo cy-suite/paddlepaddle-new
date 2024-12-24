@@ -3776,7 +3776,9 @@ def clip(
 
     def is_clip_tensor(value):
         if paddle.is_tensor(value):
-            if (len(value.shape) == 1 and value.shape[-1] == 1) or len(value.shape) == 0:
+            if (len(value.shape) == 1 and value.shape[-1] == 1) or len(
+                value.shape
+            ) == 0:
                 return False
             return True
         else:
@@ -3813,9 +3815,7 @@ def clip(
         else:
             inputs = {'x': x, 'min': min, 'max': max}
             helper = LayerHelper('clip_tensor', **locals())
-            output = helper.create_variable_for_type_inference(
-                dtype=x.dtype
-            )
+            output = helper.create_variable_for_type_inference(dtype=x.dtype)
             helper.append_op(
                 type='clip_tensor',
                 inputs=inputs,
@@ -3879,7 +3879,10 @@ def clip(
                 dtype=helper.input_dtype('x')
             )
             helper.append_op(
-                type='clip', inputs=inputs, outputs={'Out': [output]}, attrs=attrs
+                type='clip',
+                inputs=inputs,
+                outputs={'Out': [output]},
+                attrs=attrs,
             )
 
             return output
@@ -3904,7 +3907,9 @@ def clip_(
 
     def is_clip_tensor(value):
         if paddle.is_tensor(value):
-            if (len(value.shape) == 1 and value.shape[-1] == 1) or len(value.shape) == 0:
+            if (len(value.shape) == 1 and value.shape[-1] == 1) or len(
+                value.shape
+            ) == 0:
                 return False
             return True
         else:

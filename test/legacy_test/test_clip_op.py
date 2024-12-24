@@ -490,12 +490,12 @@ class TestClipTensorAPI(unittest.TestCase):
             else paddle.CPUPlace()
         )
         self.init_input()
-    
+
     def init_input(self):
         self.x = np.random.random([5, 9, 4]).astype('float32')
         self.min1 = np.random.random([5, 9, 4]).astype('float32')
         self.max1 = np.random.random([5, 9, 4]).astype('float32')
-    
+
     def test_static_api(self):
         x_shape = self.x.shape
         min_shape = self.min1.shape
@@ -503,15 +503,9 @@ class TestClipTensorAPI(unittest.TestCase):
 
         paddle.enable_static()
         with paddle.static.program_guard(paddle.static.Program()):
-            x = paddle.static.data(
-                'x', x_shape, dtype=self.x.dtype
-            )
-            min = paddle.static.data(
-                'min', min_shape, dtype=self.min1.dtype
-            )
-            max = paddle.static.data(
-                'max', max_shape, dtype=self.max1.dtype
-            )
+            x = paddle.static.data('x', x_shape, dtype=self.x.dtype)
+            min = paddle.static.data('min', min_shape, dtype=self.min1.dtype)
+            max = paddle.static.data('max', max_shape, dtype=self.max1.dtype)
             out = paddle.clip(x, min, max)
             exe = paddle.static.Executor(self.place)
             res = exe.run(
@@ -530,7 +524,7 @@ class TestClipTensorAPI(unittest.TestCase):
         np_out = np.clip(self.x, self.min1, self.max1)
         np.allclose(np_out, out.numpy())
         paddle.enable_static()
-    
+
     def test_dygraph_api_inplace(self):
         paddle.disable_static(self.place)
         x = paddle.to_tensor(self.x)
