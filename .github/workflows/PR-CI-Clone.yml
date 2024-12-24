@@ -2,7 +2,7 @@ name: PR-CI-Clone
 
 on:
   push:
-    branches: [ "CI_migrate_new" ]
+    branches: [ "develop" ]
   pull_request:
     branches: [ "develop" ]
 
