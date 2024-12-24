@@ -27,7 +27,7 @@ jobs:
         tar -zcf ${WORK}/Paddle-action.tar.gz ${WORK}/Paddle -P
         echo $PWD
         echo $(ls $PWD)
-        cd ..
+        cd $WORK
         echo $PWD
         echo $(ls $PWD)
         echo $(ls /home/runner/work/Paddle)
@@ -36,12 +36,14 @@ jobs:
 
     - name: Push to Bos
       env:
-        PR_ID: ${{ github.event.pull_request.number }}
-        COMMIT_ID: ${{ github.event.pull_request.head.sha }}
+        WORK: "/home/runner/work/Paddle"
+        PR_ID: test # ${{ github.event.pull_request.number }}
+        COMMIT_ID: test # ${{ github.event.pull_request.head.sha }}
       run: |
+        set -x
         cd /home/runner/work/Paddle
         echo $PWD
-        python3  BosClient.py Paddle-action.tar.gz xly-devops/PR/Paddle/${PR_ID}/${COMMIT_ID}
+        python3  $WORK/BosClient.py $WORK/Paddle-action.tar.gz xly-devops/PR/Paddle/${PR_ID}/${COMMIT_ID}
 
     # - name: Upload Paddle artifact
     #   uses: actions/upload-artifact@v3
