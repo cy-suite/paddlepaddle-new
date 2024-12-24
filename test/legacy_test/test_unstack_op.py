@@ -16,6 +16,7 @@ import unittest
 
 import numpy as np
 from op_test import OpTest, convert_float_to_uint16
+from utils import dygraph_guard, static_guard
 
 import paddle
 from paddle import base
@@ -292,9 +293,8 @@ class TestUnstackEmptyTensorInput(unittest.TestCase):
         out_ref = tuple(np.moveaxis(empty_tensor, axis, 0))
 
         if place is None:  # Dygraph mode
-            with paddle.base.dygraph.guard():
-                tensor = paddle.to_tensor(empty_tensor)
-                result = paddle.unstack(tensor, axis=axis)
+            tensor = paddle.to_tensor(empty_tensor)
+            result = paddle.unstack(tensor, axis=axis)
         else:  # Static mode
             with paddle.static.program_guard(paddle.static.Program()):
                 data_tensor = paddle.static.data(
@@ -316,19 +316,20 @@ class TestUnstackEmptyTensorInput(unittest.TestCase):
             np.testing.assert_array_equal(ref.shape, res.shape)
 
     def test_unstack_with_dygraph_empty_tensor_input(self):
-        self._test_unstack_with_shapes((0,), axis=0)
-        self._test_unstack_with_shapes((5, 0), axis=1)
-        self._test_unstack_with_shapes((5, 0, 10), axis=2)
-        self._test_unstack_with_shapes((7, 11, 0), axis=1)
-        self._test_unstack_with_shapes((0, 11, 22), axis=-2)
+        with dygraph_guard():
+            self._test_unstack_with_shapes((0,), axis=0)
+            self._test_unstack_with_shapes((5, 0), axis=1)
+            self._test_unstack_with_shapes((5, 0, 10), axis=2)
+            self._test_unstack_with_shapes((7, 11, 0), axis=1)
+            self._test_unstack_with_shapes((0, 11, 22), axis=-2)
 
     def _test_unstack_with_static_empty_tensor_input(self, place):
-        paddle.enable_static()
-        self._test_unstack_with_shapes((0,), axis=0, place=place)
-        self._test_unstack_with_shapes((5, 0), axis=1, place=place)
-        self._test_unstack_with_shapes((5, 0, 10), axis=2, place=place)
-        self._test_unstack_with_shapes((7, 11, 0), axis=1, place=place)
-        self._test_unstack_with_shapes((0, 11, 22), axis=-2, place=place)
+        with static_guard():
+            self._test_unstack_with_shapes((0,), axis=0, place=place)
+            self._test_unstack_with_shapes((5, 0), axis=1, place=place)
+            self._test_unstack_with_shapes((5, 0, 10), axis=2, place=place)
+            self._test_unstack_with_shapes((7, 11, 0), axis=1, place=place)
+            self._test_unstack_with_shapes((0, 11, 22), axis=-2, place=place)
 
     def test_unstack_with_static_empty_tensor_input(self):
         for place in self._get_places():

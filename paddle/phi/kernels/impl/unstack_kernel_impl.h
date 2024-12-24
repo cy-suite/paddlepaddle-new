@@ -41,8 +41,7 @@ void UnStackKernel(const Context &dev_ctx,
   if (dy->numel() == 0) {
     for (int i = 0; i < n; i++) {
       dev_ctx.template Alloc<T>((outs)[i]);
-      auto x_grad_dim = (outs)[i]->dims();
-      (outs)[i]->Resize(x_grad_dim);
+      (outs)[i]->Resize((outs)[i]->dims());
     }
     return;
   }
