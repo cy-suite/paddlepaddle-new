@@ -43,16 +43,20 @@ void SumKernel(const Context& dev_ctx,
       std::set<int> reduce_dims;
       auto dims_vec = dims.GetData();
       for (auto dim : dims_vec) {
-        PADDLE_ENFORCE_GE(dim, -x_dims.size(),
+        PADDLE_ENFORCE_GE(dim,
+                          -x_dims.size(),
                           common::errors::InvalidArgument(
                               "The dimension index is out of range, "
                               "expected index >= %d, but received %d.",
-                              -x_dims.size(), dim));
-        PADDLE_ENFORCE_LT(dim, x_dims.size(),
+                              -x_dims.size(),
+                              dim));
+        PADDLE_ENFORCE_LT(dim,
+                          x_dims.size(),
                           common::errors::InvalidArgument(
                               "The dimension index is out of range, "
                               "expected index < %d, but received %d.",
-                              x_dims.size(), dim));
+                              x_dims.size(),
+                              dim));
         if (dim < 0) {
           dim += x_dims.size();
         }
