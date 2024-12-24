@@ -73,8 +73,7 @@ PHI_DEFINE_EXPORTED_bool(gpugraph_enable_print_op_debug,
                          false,
                          "enable print op debug ,default false");
 
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 
 std::atomic<bool> HogwildWorker::quit_flag_(false);
 Barrier g_barrier;
@@ -906,7 +905,7 @@ void HogwildWorker::CreateThreadOperators(const ProgramDesc &program) {
       // add offload
       auto itx = offload_vars_.find(op.get());
       if (itx != offload_vars_.end()) {
-        str_os << ", offload copys: [";
+        str_os << ", offload copies: [";
         for (auto &name : itx->second.copy_vars) {
           str_os << name << ",";
         }
@@ -1776,5 +1775,4 @@ void HogwildWorker::PrintFetchVars() {
   }
 }
 
-}  // end namespace framework
-}  // end namespace paddle
+}  // namespace paddle::framework

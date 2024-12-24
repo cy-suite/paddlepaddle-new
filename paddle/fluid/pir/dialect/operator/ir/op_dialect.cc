@@ -49,25 +49,47 @@ struct CombineOpInferSymbolicShapeInterfaceModel
     : public InferSymbolicShapeInterface::Concept {
   static inline bool InferSymbolicShape(
       pir::Operation* op, pir::InferSymbolicShapeContext* infer_context) {
-    const auto shape_data_list = [&] {
-      symbol::TensorListShapeOrDataDimExprs shape_data_list;
+    if (op->operand(0).type().dyn_cast<DenseTensorType>()) {
+      const auto shape_data_list = [&] {
+        symbol::TensorListShapeOrDataDimExprs shape_data_list;
+        for (size_t i = 0; i < op->num_operands(); ++i) {
+          PADDLE_ENFORCE_NOT_NULL(
+              op->operand(i).type().dyn_cast<DenseTensorType>(),
+              common::errors::InvalidArgument(
+                  "The operand at index %d must be a DenseTensorArray. "
+                  "Currently InferSymbolicShape of CombineOp only accepts "
+                  "inputs that are either all DenseTensors or all "
+                  "DenseTensorArrays.",
+                  i));
+          shape_data_list.emplace_back(
+              infer_context->GetShapeOrDataForValue(op->operand_source(i))
+                  .dyn_cast<symbol::TensorShapeOrDataDimExprs>());
+        }
+        return shape_data_list;
+      }();
+      symbol::ShapeOrDataDimExprs shape_data{shape_data_list};
+      infer_context->SetShapeOrDataForValue(op->result(0), shape_data);
+      return true;
+    } else if (op->operand(0).type().dyn_cast<DenseTensorArrayType>()) {
+      // Note: Return NullShapeOrDataDimExpr for CombineOp with all
+      // DenseTensorArrayType. The logic is designed for add_n_array op.
+      // TODO(ooooo): Actually RankedTensorArrayListShapeOrDataDimExprs is
+      // better.
       for (size_t i = 0; i < op->num_operands(); ++i) {
         PADDLE_ENFORCE_NOT_NULL(
-            op->operand(i).type().dyn_cast<DenseTensorType>(),
+            op->operand(i).type().dyn_cast<DenseTensorArrayType>(),
             common::errors::InvalidArgument(
-                "Currently InferSymbolicShape of CombineOp only support "
-                "DenseTensorType."));
-
-        shape_data_list.emplace_back(
-            infer_context->GetShapeOrDataForValue(op->operand_source(i))
-                .dyn_cast<symbol::TensorShapeOrDataDimExprs>());
+                "The operand at index %d must be a DenseTensorArray. Currently "
+                "InferSymbolicShape of CombineOp only accepts inputs that are "
+                "either all DenseTensors or all DenseTensorArrays.",
+                i));
       }
-      return shape_data_list;
-    }();
-
-    symbol::ShapeOrDataDimExprs shape_data{shape_data_list};
-    infer_context->SetShapeOrDataForValue(op->result(0), shape_data);
-    return true;
+      return true;
+    } else {
+      PADDLE_THROW(common::errors::InvalidArgument(
+          "Currently InferSymbolicShape of CombineOp only accepts "
+          "inputs that are either all DenseTensors or all DenseTensorArrays."));
+    }
   }
 
   CombineOpInferSymbolicShapeInterfaceModel()
@@ -914,7 +936,7 @@ struct CustomOpVjpInterfaceModel : public VjpInterface::Concept {
           auto ddims = phi::make_ddim(output_shapes[value_index]);
           auto dtype = output_dtypes[value_index];
           phi::DataLayout layout{DataLayout::NCHW};
-          phi::LoD lod;
+          phi::LegacyLoD lod;
           auto type = paddle::dialect::DenseTensorType::get(
               pir::IrContext::Instance(),
               paddle::dialect::TransToIrDataType(dtype),
@@ -943,7 +965,7 @@ struct CustomOpVjpInterfaceModel : public VjpInterface::Concept {
         auto ddims = phi::make_ddim(output_shapes[value_index]);
         auto dtype = output_dtypes[value_index];
         phi::DataLayout layout{DataLayout::NCHW};
-        phi::LoD lod;
+        phi::LegacyLoD lod;
         auto out_type = paddle::dialect::DenseTensorType::get(
             pir::IrContext::Instance(),
             paddle::dialect::TransToIrDataType(dtype),
@@ -1141,7 +1163,33 @@ void CustomOpDialect::RegisterCustomOp(const paddle::OpMetaInfo& op_meta) {
                                verify_func,
                                verify_func);
 }
+
+// customEngineDialect
+
+CustomEngineDialect::CustomEngineDialect(pir::IrContext* context)
+    : pir::Dialect(name(), context, pir::TypeId::get<CustomEngineDialect>()) {}
+
+void CustomEngineDialect::PrintType(pir::Type type, std::ostream& os) const {
+  PrintTypeImpl(type, os);
+}
+
+void CustomEngineDialect::PrintAttribute(pir::Attribute attr,
+                                         std::ostream& os) const {
+  PrintAttributeImpl(attr, os);
+}
+
+pir::OpPrintFn CustomEngineDialect::PrintOperation(
+    const pir::Operation& op) const {
+  return nullptr;
+}
+
+// template <typename ConcreteOp>
+// void CustomEngineDialect::RegisterCustomEngineOp() {
+
+// }
+
 }  // namespace paddle::dialect
 
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::OperatorDialect)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::CustomOpDialect)
+IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::CustomEngineDialect)
