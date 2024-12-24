@@ -31,10 +31,10 @@ jobs:
     - name: Push to bos
       env:
         WORK: "/home/runner/work/Paddle"
-        AK: ${{ secrets.BOS_AK }}
-        SK: ${{ secrets.BOS_SK }}
-        PR_ID: test # ${{ github.event.pull_request.number }}
-        COMMIT_ID:  test # ${{ github.event.pull_request.head.sha }}
+        AK: ${{ secrets.AK }}
+        SK: ${{ secrets.SK }}
+        PR_ID: ${{ github.event.pull_request.number }}
+        COMMIT_ID: ${{ github.event.pull_request.head.sha }}
       run: |
         cd $WORK
         python3  bos_upload.py Paddle-action.tar.gz xly-devops/PR/Paddle/${PR_ID}/${COMMIT_ID}
