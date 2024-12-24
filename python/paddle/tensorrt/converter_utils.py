@@ -698,15 +698,17 @@ def unary_op_converter(network, paddle_op, inputs):
     trt_manager = TensorRTConfigManager()
     precision_mode = trt_manager.get_precision_mode()
 
-    if paddle_op.name() not in ["pd_op.logical_not", "pd_op.logical_not_"]:
-        need_cast = org_type in [trt.DataType.INT8, trt.DataType.INT32]
-        if need_cast:
-            identity_layer = network.add_identity(input_tensor)
-            if precision_mode == PrecisionMode.FP32:
-                identity_layer.set_output_type(0, trt.float32)
-            else:
-                identity_layer.set_output_type(0, trt.float16)
-            input_tensor = identity_layer.get_output(0)
+    need_cast = False
+
+    if org_type in [trt.DataType.INT8, trt.DataType.INT32]:
+        need_cast = True
+    if need_cast:
+        identity_layer = network.add_identity(input_tensor)
+        if precision_mode == PrecisionMode.FP32:
+            identity_layer.set_output_type(0, trt.float32)
+        else:
+            identity_layer.set_output_type(0, trt.float16)
+        input_tensor = identity_layer.get_output(0)
 
     if paddle_op.name() in ["pd_op.logical_not", "pd_op.logical_not_"]:
         layer = network.add_unary(input_tensor, trt.UnaryOperation.NOT)
