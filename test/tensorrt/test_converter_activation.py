@@ -195,6 +195,8 @@ class TestTanhShrinkOpFloatTRTPattern(TensorRTBaseTest):
         self.api_args = {
             "x": np.random.randn(2, 3).astype("float32"),
         }
+        self.min_shape = {"x": [1, 3]}
+        self.max_shape = {"x": [5, 3]}
 
     def test_trt_result_fp16(self):
         self.check_trt_result(precision_mode="fp16")
