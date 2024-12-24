@@ -864,6 +864,10 @@ class DygraphFunctionGeneratorBase(FunctionGeneratorBase):
 
         self.forward_apis_dict = forward_apis_dict
         self.grad_api_contents = grad_api_contents
+        self.no_backward = False
+        if grad_api_contents is None:
+            self.no_backward = True
+
         self.use_forward_input = False
         self.use_forward_output = False
         self.use_no_forward = True
@@ -3185,18 +3189,21 @@ class DygraphForwardAndNodesGenerator(GeneratorBase):
                 namespace,
             )
             function_generator.run()
-            if function_generator.use_forward_input:
-                self.use_forward_input_list.add(forward_api_contents['op'])
-            if function_generator.use_forward_output:
-                self.use_forward_output_list.add(forward_api_contents['op'])
-            else:
-                self.use_no_forward_output_list.add(forward_api_contents['op'])
-            if function_generator.use_forward_input_and_output:
-                self.use_forward_input_and_output_list.add(
-                    forward_api_contents['op']
-                )
-            if function_generator.use_no_forward:
-                self.use_no_forward_list.add(forward_api_contents['op'])
+            if not function_generator.no_backward:
+                if function_generator.use_forward_input:
+                    self.use_forward_input_list.add(forward_api_contents['op'])
+                if function_generator.use_forward_output:
+                    self.use_forward_output_list.add(forward_api_contents['op'])
+                else:
+                    self.use_no_forward_output_list.add(
+                        forward_api_contents['op']
+                    )
+                if function_generator.use_forward_input_and_output:
+                    self.use_forward_input_and_output_list.add(
+                        forward_api_contents['op']
+                    )
+                if function_generator.use_no_forward:
+                    self.use_no_forward_list.add(forward_api_contents['op'])
 
             self.forward_definition_str += (
                 function_generator.forward_definition_str + "\n"
@@ -3371,7 +3378,7 @@ if __name__ == "__main__":
         use_no_forward_set = generator.use_no_forward_list
 
         print(
-            "totol size = ",
+            "total size = ",
             len(use_forward_output_set) + len(use_no_forward_output_set),
         )
         print("use_no_forward_set.size = ", len(use_no_forward_set))
@@ -3382,6 +3389,7 @@ if __name__ == "__main__":
         print("use_forward_input_set = ", len(use_forward_input_set))
         print("use_forward_output_set = ", len(use_forward_output_set))
         print("use_no_forward_output_set = ", len(use_no_forward_output_set))
+        print("use_no_forward_set = ", use_no_forward_set)
 
         node_declaration_str += generator.node_declaration_str + "\n"
         node_definition_str += generator.node_definition_str + "\n"
