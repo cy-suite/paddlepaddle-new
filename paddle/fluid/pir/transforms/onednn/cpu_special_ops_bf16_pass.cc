@@ -40,7 +40,7 @@ static pir::Type create_type(pir::Type type,
 }
 
 // For ops like conv and concat, their input is sometimes packed as VectorType,
-// hence current quanitzation doesn't work. Here we deal with them specifically.
+// hence current quantization doesn't work. Here we deal with them specifically.
 class ConcatBf16QuantizePattern
     : public pir::OpRewritePattern<paddle::onednn::dialect::ConcatOp> {
  public:
