@@ -66,7 +66,7 @@ DEFAULT_RECOMPUTABLE_OPS: list[str] = [
     "pd_op.sin",
     "pd_op.cos",
     "pd_op.add_n",
-    "pd_op.any",
+    # "pd_op.any",
     "pd_op.cast",
     "pd_op.concat",
     "pd_op.full_with_tensor",
@@ -80,7 +80,7 @@ DEFAULT_RECOMPUTABLE_OPS: list[str] = [
     "pd_op.slice",
     "pd_op.squeeze",
     "pd_op.unsqueeze",
-    "pd_op.transpose",
+    # "pd_op.transpose",
     # "pd_op.prod",
     "pd_op.log",
     "pd_op.log1p",
@@ -672,6 +672,7 @@ def auto_recompute(
         saved_values,
         inputs,
         outputs,
+        bw_no_need_buffer_values,
         fwd_op_end_idx,
         backward_op_start_idx,
     )
@@ -688,6 +689,7 @@ def partition_joint_graph(
     saved_values: list[pir.Value],
     inputs: list[pir.Value],
     outputs: list[pir.Value],
+    bw_no_need_buffer_values: list[pir.Value],
     fwd_op_end_idx: int,
     backward_op_start_idx: int,
 ) -> tuple[paddle.static.Program, int]:
@@ -718,6 +720,7 @@ def partition_joint_graph(
         saved_values,
         inputs,
         outputs,
+        bw_no_need_buffer_values,
         fwd_op_end_idx,
         backward_op_start_idx,
     )
@@ -920,7 +923,7 @@ def classify_value_node(program, grad_outputs, fwd_op_end_idx):
     )
 
 
-# Sometimes we need to discard no_need_buffer values because they are not REAL tensor users.
+# Sometimes we need to discard no_need_buffer values because they‘re not REAL tensor users.
 def find_value_node_users(
     value_node, bw_no_need_buffer_values={}, without_no_need_buffer=False
 ):
@@ -1066,6 +1069,7 @@ def analyze_mid_hold_values(
     saved_values,
     inputs,
     outputs,
+    no_need_buffer_values,
     fwd_op_end_idx,
     backward_op_start_idx,
 ):
@@ -1076,10 +1080,11 @@ def analyze_mid_hold_values(
         for result in op.results():
             all_used_ops = all_used_op_consider_combine(program, result)
             if (
-                any(op in backward_ops for op in all_used_ops)
+                any(used_op in backward_ops for used_op in all_used_ops)
                 and result not in saved_values
                 and result not in outputs
                 and result not in inputs
+                and result not in no_need_buffer_values
             ):
                 mid_hold_values.add(result)
     return mid_hold_values
