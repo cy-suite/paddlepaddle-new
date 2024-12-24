@@ -15,7 +15,7 @@
 #pragma once
 
 #include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/infer_sym_utils.h"
-
+#include "paddle/phi/kernels/funcs/slice_utils.h"
 namespace paddle::dialect::slice_utils {
 
 inline bool GetExprVecOfStartEnd(
@@ -292,7 +292,7 @@ inline ShapeOrData SliceRawInferSymbolicShape(
   return out_shape;
 }
 
-inline ExprVec GetStridesSliceDims(
+inline ExprVec GetStridedSliceDims(
     const ExprVec &in_dims,
     const std::vector<int64_t> &axes,
     const ExprVec &starts_base,
@@ -311,7 +311,6 @@ inline ExprVec GetStridesSliceDims(
   for (size_t i = 0; i < axes.size(); ++i) {
     int64_t axis = axes.at(i);
     int64_t start_i = 0;
-
     if (starts.at(i).isa<int64_t>()) {
       if (in_dims.at(axis).isa<int64_t>()) {
         starts.at(i) =
@@ -407,7 +406,7 @@ inline ShapeOrData StridedSliceRawInferSymbolicShape(
 
   const auto &GetShapeDimExprs = [&]() -> symbol::ShapeOrDataDimExprs {
     ExprVec slice_dims =
-        GetStridesSliceDims(in_dims, axes, starts, ends, strides, &infer_flags);
+        GetStridedSliceDims(in_dims, axes, starts, ends, strides, &infer_flags);
     ExprVec out_dims = GetDecreasedDims(slice_dims, decrease_axis);
 
     auto IsOne = [](const symbol::DimExpr &expr) {
@@ -492,11 +491,23 @@ inline ShapeOrData StridedSliceRawInferSymbolicShape(
 
     const int64_t stride = [&]() -> int64_t {
       if (strides[0].isa<int64_t>()) {
-        stride = strides[0].Get<int64_t>();
+        return strides[0].Get<int64_t>();
       }
       return 1;
     }();
 
+    int64_t *st_out;
+    int64_t *ed_out;
+    bool *zero_dim_out = nullptr;
+    int64_t dime_size = vec_int64.value().at(0);
+    phi::funcs::normalize_interval(starts_int.at(0),
+                                   ends_int.at(0),
+                                   stride,
+                                   dime_size,
+                                   st_out,
+                                   ed_out,
+                                   zero_dim_out);
+    VLOG(3) << "st_out: " << st_out << " ed_out: " << ed_out;
     if (stride < 0 && normalize_start > normalize_end) {
       for (int64_t i = normalize_start; i > normalize_end; i += stride) {
         out_data.push_back(in_shapeordata.data().value().at(i));
