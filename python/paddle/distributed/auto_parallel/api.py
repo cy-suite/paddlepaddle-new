@@ -2219,10 +2219,9 @@ class DistModel:
             )
             shard_fn = optimizer._shard_fn
             inner_opt = optimizer._inner_opt
-            if isinstance(shard_fn, ShardingStage1):
-                optimizer = ShardingOptimizerStage1(
-                    inner_opt, shard_fn, self._inner_strategy
-                )
+            optimizer = ShardingOptimizerStage1(
+                inner_opt, shard_fn, self._inner_strategy
+            )
 
         self._engine = Engine(
             layer, loss, optimizer, metrics, strategy=self._inner_strategy
