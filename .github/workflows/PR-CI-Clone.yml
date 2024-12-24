@@ -22,15 +22,11 @@ jobs:
         AK: ${{ secrets.BOS_AK }}
         SK: ${{ secrets.BOS_SK }}
       run: |
-        set -x
         git checkout -b test
         tar -zcf ${WORK}/Paddle-action.tar.gz ${WORK}/Paddle -P
-        echo $PWD
-        echo $(ls $PWD)
+        echo "current dir is $PWD"
         cd $WORK
-        echo $PWD
-        echo $(ls $PWD)
-        echo $(ls /home/runner/work/Paddle)
+        echo "current dir is $PWD"
         python -m pip install bce-python-sdk==0.8.74
         wget -q --no-proxy -O ${WORK}/bos_upload.py  https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
 
@@ -41,9 +37,9 @@ jobs:
         COMMIT_ID: test # ${{ github.event.pull_request.head.sha }}
       run: |
         set -x
-        cd /home/runner/work/Paddle
+        cd $WORK
         echo $PWD
-        python3  $WORK/BosClient.py $WORK/Paddle-action.tar.gz xly-devops/PR/Paddle/${PR_ID}/${COMMIT_ID}
+        python3  $WORK/bos_upload.py $WORK/Paddle-action.tar.gz xly-devops/PR/Paddle/${PR_ID}/${COMMIT_ID}
 
     # - name: Upload Paddle artifact
     #   uses: actions/upload-artifact@v3
