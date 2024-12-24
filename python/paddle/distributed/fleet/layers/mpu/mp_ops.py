@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 import paddle
+import paddle.distributed
 from paddle import _C_ops, _legacy_C_ops
 from paddle.autograd import PyLayer
 from paddle.base.data_feeder import check_dtype, check_variable_and_dtype
@@ -275,12 +276,12 @@ class mp_allreduce_eager(PyLayer):
             group.process_group.all_reduce_on_calc_stream(tensor, op_type)
             return tensor
         else:
-            return _legacy_C_ops.c_allreduce_sum_(
+            return _legacy_C_ops.all_reduce_(
                 tensor,
-                'use_calc_stream',
-                use_calc_stream,
                 'ring_id',
                 group.id,
+                'reduce_type',
+                paddle.distributed.ReduceOp.SUM,
             )
 
     @staticmethod
