@@ -19,10 +19,10 @@ PD_DECLARE_bool(cinn_enable_rearrange_load);
 
 namespace cinn {
 namespace optim {
-class RearrangeLoadInstructionPass : public StmtPass {
+class RearrangeLoadInstructionPass : public FuncPass {
  public:
-  RearrangeLoadInstructionPass() : StmtPass("rearrange_load_instruction") {}
-  LogicalResult Run(ir::stmt::StmtRef stmt) override;
+  RearrangeLoadInstructionPass() : FuncPass("rearrange_load_instruction") {}
+  LogicalResult Run(ir::LoweredFunc func) override;
 };
 
 /*
@@ -156,7 +156,7 @@ class RearrangeLoadInstructionPass : public StmtPass {
  *   branch of Select, `var_3[k]` in ScheduleBlock(var_4) has data dependency
  *   with ScheduleBlock(var_3); none of them can be rearranged.
  */
-std::unique_ptr<StmtPass> CreateRearrangeLoadInstructionPass();
+std::unique_ptr<FuncPass> CreateRearrangeLoadInstructionPass();
 
 }  // namespace optim
 }  // namespace cinn

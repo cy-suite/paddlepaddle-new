@@ -111,9 +111,9 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
 
   target.arch.Match(
       [&](common::NVGPUArch) {
-        StmtPassManager stmt_pass_manager;
-        stmt_pass_manager.AddPass(CreateRearrangeLoadInstructionPass());
-        stmt_pass_manager.Run(copied);
+        FuncPassManager func_pass_manager;
+        func_pass_manager.AddPass(CreateRearrangeLoadInstructionPass());
+        func_pass_manager.Run(copied);
         VLOG(4) << "After Optimize RearrangeLoadInstruction:" << copied;
       },
       [](auto) {});

@@ -22,6 +22,7 @@
 #include "paddle/cinn/ir/ir_visitor.h"
 #include "paddle/cinn/ir/stmt_visitors.h"
 #include "paddle/cinn/ir/tensor.h"
+#include "paddle/cinn/ir/utils/stmt_converter.h"
 #include "paddle/phi/core/enforce.h"
 
 PD_DECLARE_bool(cinn_enable_rearrange_load);
@@ -141,8 +142,7 @@ struct LoadCollector : public ir::IRMutator<> {
  private:
   // Collect loads that meet the following criteria:
   // 1) It is loading from global memory. Local loads are simply register
-  // reads
-  //    and do not require rearrangement.
+  //    reads and do not require rearrangement.
   // 2) The value being loaded is not defined locally by a previous store. In
   //    such cases, the value resides in a register rather than in memory,
   //    thus doesn't need rearrangement. This criteria also prevents
@@ -221,9 +221,6 @@ struct LoadReplacer : public ir::IRMutator<>, public ir::stmt::StmtMutator<> {
   }
 
   void VisitStmt(ir::stmt::Let stmt) override {
-    Expr symbol = stmt->symbol();
-    ir::IRMutator<>::Visit(&symbol, &symbol);
-    stmt->set_symbol(symbol);
     if (stmt->body().defined()) {
       Expr body = stmt->body();
       ir::IRMutator<>::Visit(&body, &body);
@@ -307,7 +304,7 @@ struct LoadReplacer : public ir::IRMutator<>, public ir::stmt::StmtMutator<> {
 };
 
 struct RearrangeLoadInstructionMutator : public ir::stmt::StmtMutator<> {
-  void operator()(For stmt) { VisitStmt(stmt); }
+  void operator()(BlockRef block) { VisitBlock(block); }
 
  private:
   // A block is a leaf block if it is inside at least one loop, and all of its
@@ -332,7 +329,7 @@ struct RearrangeLoadInstructionMutator : public ir::stmt::StmtMutator<> {
   }
 
   void DoRearrangeLoadInstruction(BlockRef block) {
-    auto GetStoreInScheduleStmt = [](Schedule schedule_stmt) -> Store {
+    auto GetStoreOfScheduleStmt = [](Schedule schedule_stmt) -> Store {
       bool found = false;
       Store ret;
       for (StmtRef stmt : schedule_stmt->body()->stmts()) {
@@ -345,6 +342,10 @@ struct RearrangeLoadInstructionMutator : public ir::stmt::StmtMutator<> {
           ret = stmt.as<Store>();
         }
       }
+      PADDLE_ENFORCE(found == true,
+                     ::common::errors::InvalidArgument(
+                         "One schedule statement should have one store "
+                         "statement, but not found."));
       return ret;
     };
 
@@ -363,7 +364,7 @@ struct RearrangeLoadInstructionMutator : public ir::stmt::StmtMutator<> {
       if (StmtAndBlockContainmentChecker<IfThenElse>()(stmt)) continue;
       if (!stmt.isa<Schedule>()) continue;
       Schedule schedule_stmt = stmt.as<Schedule>();
-      Store store_stmt = GetStoreInScheduleStmt(schedule_stmt);
+      Store store_stmt = GetStoreOfScheduleStmt(schedule_stmt);
       if (IsLocalBufferInit(store_stmt)) continue;
       collector(const_cast<ir::Expr*>(&store_stmt->value()));
     }
@@ -453,15 +454,16 @@ struct RearrangeLoadInstructionMutator : public ir::stmt::StmtMutator<> {
 }  // namespace
 
 LogicalResult cinn::optim::RearrangeLoadInstructionPass::Run(
-    ir::stmt::StmtRef stmt) {
-  if (FLAGS_cinn_enable_rearrange_load && stmt.isa<For>()) {
+    ir::LoweredFunc func) {
+  if (FLAGS_cinn_enable_rearrange_load) {
+    BlockRef body = func->body_block;
     RearrangeLoadInstructionMutator mutator;
-    mutator(stmt.as<For>());
+    mutator(body);
   }
   return LogicalResult::success();
 }
 
-std::unique_ptr<StmtPass> CreateRearrangeLoadInstructionPass() {
+std::unique_ptr<FuncPass> CreateRearrangeLoadInstructionPass() {
   return std::make_unique<RearrangeLoadInstructionPass>();
 }
 }  // namespace optim
