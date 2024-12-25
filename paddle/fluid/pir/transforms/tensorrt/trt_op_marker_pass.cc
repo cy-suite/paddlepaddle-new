@@ -2099,6 +2099,11 @@ class TemporalShiftOpPattern
       return false;
     }
 
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class InstanceNormOpPattern
     : public pir::OpRewritePattern<paddle::dialect::InstanceNormOp> {
  public:
