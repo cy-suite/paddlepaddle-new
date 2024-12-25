@@ -20,6 +20,36 @@
 namespace cinn {
 namespace optim {
 
+/**
+ * Replace the external call statements that are Store operations involving
+ * multiple output with the external call themselves.
+ *
+ * This pass is applicable in scenarios where the external call statements
+ * containing Store operations that have multiple output arguments. Replacing
+ * them can simplify the IR.
+ *
+ * When applied, this pass will traverse the statements within block and
+ identify
+ * the external call statements which are Store operations with multiple output.
+ * For each matching Store operation, this pass replaces the entire Store
+ expression
+ * with the external call expression itself.
+
+ * Examples:
+ * 1. Multi-Output External Call:
+ *    Input IR:
+ *      Store(target, Call(extern_func, args, write_args))
+ *    Output IR:
+ *      Call(extern_func, args, write_args)
+ *
+ * 2. Single-Output External Call (No Change):
+ *    Input IR:
+ *      Store(target, Call(extern_func, args, {}))
+ *    Output IR:
+ *      Store(target, Call(extern_func, args, {}))
+ */
+std::unique_ptr<BlockPass> CreateExternCallMultiOutputShallowStorePass();
+
 class ExternCallMultiOutputShallowStorePass : public BlockPass {
  public:
   ExternCallMultiOutputShallowStorePass()
@@ -27,8 +57,6 @@ class ExternCallMultiOutputShallowStorePass : public BlockPass {
 
   LogicalResult Run(ir::stmt::BlockRef block) override;
 };
-
-std::unique_ptr<BlockPass> CreateExternCallMultiOutputShallowStorePass();
 
 }  // namespace optim
 }  // namespace cinn
