@@ -38,7 +38,8 @@ from paddle import pir
 from paddle.base.core import PassVersionChecker
 from paddle.static.log_helper import get_logger
 
-if os.name != 'nt':
+# windows and xpu not support tensort
+if os.name != 'nt' and (not os.getenv('WITH_XPU')):
     try:
         from paddle.tensorrt.export import Input, TensorRTConfig, convert_to_trt
     except ImportError:
@@ -291,7 +292,14 @@ class MkldnnAutoScanTest(AutoScanTest):
             if not self.is_program_valid(prog_config):
                 continue
 
-            model, params = create_fake_model(prog_config)
+            main_program_desc, util_program = create_fake_model(prog_config)
+            model = main_program_desc.serialize_to_string()
+            place = paddle.base.CPUPlace()
+            executor = paddle.base.Executor(place)
+            scope = paddle.base.Scope()
+            with paddle.base.scope_guard(scope):
+                executor.run(util_program)
+                params = scope.find_var("out_var_0").get_bytes()
             if quant:
                 model, params = create_quant_model(model, params)
 
@@ -521,7 +529,16 @@ class PassAutoScanTest(AutoScanTest):
                 self.num_invalid_programs += 1
                 continue
             self.num_ran_programs += 1
-            model, params = create_fake_model(prog_config)
+
+            main_program_desc, util_program = create_fake_model(prog_config)
+            model = main_program_desc.serialize_to_string()
+            place = paddle.base.CPUPlace()
+            executor = paddle.base.Executor(place)
+            scope = paddle.base.Scope()
+            with paddle.base.scope_guard(scope):
+                executor.run(util_program)
+                params = scope.find_var("out_var_0").get_bytes()
+
             if quant:
                 model, params = create_quant_model(model, params)
 
@@ -801,7 +818,7 @@ class TrtLayerAutoScanTest(AutoScanTest):
             # if program is invalid, we should skip that cases.
             if not self.is_program_valid(prog_config):
                 continue
-            if run_pir and os.name != 'nt':
+            if run_pir and os.name != 'nt' and (not os.getenv('USE_XPU')):
                 # get pir program from old program
                 main_program_desc, util_program = create_fake_model(
                     prog_config, run_pir=True
@@ -1002,7 +1019,15 @@ class CutlassAutoScanTest(AutoScanTest):
             if not self.is_program_valid(prog_config):
                 continue
 
-            model, params = create_fake_model(prog_config)
+            main_program_desc, util_program = create_fake_model(prog_config)
+            model = main_program_desc.serialize_to_string()
+            place = paddle.base.CPUPlace()
+            executor = paddle.base.Executor(place)
+            scope = paddle.base.Scope()
+            with paddle.base.scope_guard(scope):
+                executor.run(util_program)
+                params = scope.find_var("out_var_0").get_bytes()
+
             feed_data = {}
             for name, tensor_config in prog_config.inputs.items():
                 feed_data[name] = {
