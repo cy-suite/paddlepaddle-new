@@ -31,7 +31,7 @@ DimExpr Simplify(const DimExpr& expr);
 
 /*
  * Simplify Example:
- * Negative(dim_expr) => Negative(Simplify(dim_expr))
+ * Negative(S0) => Negative(Simplify(S0))
  */
 template <template <typename> class Op>
 struct SimplifyOneOperand {
@@ -54,7 +54,7 @@ struct SimplifyOneOperandTrait;
 
 /*
  * Simplify Example:
- * Negative(DimExpr(0)) => DimExpr(0)
+ * Negative(0) => 0
  */
 template <template <typename> class Op>
 struct SimplifyUnitOneOperand {
@@ -75,7 +75,7 @@ struct SimplifyUnitOneOperand {
 
 /*
  * Simplify Example:
- * Negative(Negative(dim_expr)) => dim_expr
+ * Negative(Negative(S0)) => S0
  * Negative(int) => -int
  */
 struct SimplifyDoubleNeg {
@@ -101,8 +101,8 @@ struct SimplifyOneOperandTrait<Negative> {
 
 /*
  * Simplify Example:
- * Add(dim_expr0, dim_expr1, ...) =>
- * Add(Simplify(dim_expr0), Simplify(dim_expr1), ...)
+ * Add(S0, S1, ...) =>
+ * Add(Simplify(S0), Simplify(S1), ...)
  */
 template <template <typename> class Op>
 struct SimplifyOperands {
@@ -118,6 +118,25 @@ struct SimplifyOperands {
       return expr;
     } else {
       return Op<DimExpr>{mut_operands};
+    }
+    PADDLE_THROW(common::errors::Fatal("Dead code."));
+  }
+};
+
+template <>
+struct SimplifyOperands<Div> {
+  using dim_expr_type = Div<DimExpr>;
+
+  DimExpr Rewrite(const DimExpr& expr) {
+    const auto& div_expr = expr.Get<Div<DimExpr>>();
+    const auto& lhs = div_expr->lhs;
+    const auto& rhs = div_expr->rhs;
+    const auto& ret_lhs = Simplify(lhs);
+    const auto& ret_rhs = Simplify(rhs);
+    if (lhs == ret_lhs && rhs == ret_rhs) {
+      return expr;
+    } else {
+      return Div<DimExpr>{ret_lhs, ret_rhs};
     }
     PADDLE_THROW(common::errors::Fatal("Dead code."));
   }
@@ -439,8 +458,8 @@ struct GetInversed<Broadcast> {
 
 /*
  * Simplify Example:
- * Add(dim_expr0, Add(dim_expr1, dim_expr2)) =>
- * Add(dim_expr0, dim_expr1, dim_expr2)
+ * Add(S0, Add(S1, S2)) =>
+ * Add(S0, S1, S2)
  */
 template <template <typename> class Op>
 struct FlattenOperands {
@@ -478,7 +497,7 @@ size_t GetConstDimCount(const List<DimExpr>& exprs) {
 
 /*
  * Simplify Example:
- * Add(dim_expr0, 0) => dim_expr0
+ * Add(S0, 0) => S0
  */
 template <template <typename> class Op>
 struct FoldUnitConstant {
@@ -512,7 +531,7 @@ struct FoldUnitConstant {
 
 /*
  * Simplify Example:
- * Add(dim_expr0, 0, 1, 2) => Add(dim_expr0, 3)
+ * Add(S0, 0, 1, 2) => Add(S0, 3)
  */
 template <template <typename> class Op>
 struct FoldConstants {
@@ -866,6 +885,11 @@ struct FoldOperandTrait<Broadcast> {
   }
 };
 
+/*
+ * Simplify Example:
+ * Div(S0, 1) => S0
+ * Div(0, S0) => 0
+ */
 template <>
 struct FoldUnitConstant<Div> {
   using dim_expr_type = Div<DimExpr>;
@@ -886,7 +910,8 @@ struct FoldUnitConstant<Div> {
 
 /*
  * Simplify Example:
- * Mul(2, Div(1, 2)) => 1
+ * Mul(Div(1, S0), S0) => S0
+ * Mul(S0, Div(1, S0) => S0
  */
 template <template <typename> class Op>
 struct FoldInversedPairToUnit {
@@ -945,7 +970,7 @@ struct FoldInversedPairToUnit {
 
 /*
  * Simplify Example:
- * Broadcast(2, dim_expr) => 2
+ * Broadcast(2, S0) => 2
  */
 struct FoldRedundantSymbolicBroadcast {
   using dim_expr_type = Broadcast<DimExpr>;
@@ -1014,8 +1039,8 @@ struct FoldRedundantSymbolicBroadcast {
 
 /*
  * Simplify Example:
- * Broadcast(dim_expr0, Broadcast(dim_expr1, dim_expr2)) =>
- * Broadcast(dim_expr0, dim_expr1, dim_expr2)
+ * Broadcast(S0, Broadcast(S1, S2)) =>
+ * Broadcast(S0, S1, S1)
  */
 struct FoldRedundantBroadcast {
   using dim_expr_type = Broadcast<DimExpr>;
@@ -1065,7 +1090,7 @@ struct FoldRedundantBroadcast {
 
 /*
  * Simplify Example:
- * Broadcast(dim_expr0, Mul(dim_expr0, dim_expr1)) => Mul(dim_expr0, dim_expr1)
+ * Broadcast(S0, Mul(S0, S1)) => Mul(S0, S1)
  */
 struct SimplifyBroadcast {
   using dim_expr_type = Broadcast<DimExpr>;
@@ -1124,6 +1149,10 @@ struct SimplifyBroadcast {
   }
 };
 
+/*
+ * Simplify Example:
+ *
+ */
 struct SimplifyDiv {
   using dim_expr_type = Div<DimExpr>;
 
@@ -1197,7 +1226,7 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<SimplifyDoubleNeg>(&keep_rewrite, &ret);
     DoPass<SimplifyOperands<Add>>(&keep_rewrite, &ret);
     DoPass<SimplifyOperands<Mul>>(&keep_rewrite, &ret);
-    DoPass<SimplifyOperands<Div>>(&keep_rewrite, &ret);
+    // DoPass<SimplifyOperands<Div>>(&keep_rewrite, &ret);
     DoPass<SimplifyOperands<Broadcast>>(&keep_rewrite, &ret);
     DoPass<SortOperands<Add>>(&keep_rewrite, &ret);
     DoPass<SortOperands<Mul>>(&keep_rewrite, &ret);
@@ -1207,6 +1236,7 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<FlattenOperands<Broadcast>>(&keep_rewrite, &ret);
     DoPass<FoldUnitConstant<Add>>(&keep_rewrite, &ret);
     DoPass<FoldUnitConstant<Mul>>(&keep_rewrite, &ret);
+    DoPass<FoldUnitConstant<Div>>(&keep_rewrite, &ret);
     DoPass<FoldUnitConstant<Broadcast>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Add>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Mul>>(&keep_rewrite, &ret);
