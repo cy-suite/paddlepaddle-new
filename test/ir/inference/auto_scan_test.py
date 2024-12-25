@@ -291,15 +291,15 @@ class MkldnnAutoScanTest(AutoScanTest):
             # if program is invalid, we should skip that cases.
             if not self.is_program_valid(prog_config):
                 continue
-
-            main_program_desc, util_program = create_fake_model(prog_config)
-            model = main_program_desc.serialize_to_string()
-            place = paddle.base.CPUPlace()
-            executor = paddle.base.Executor(place)
-            scope = paddle.base.Scope()
-            with paddle.base.scope_guard(scope):
-                executor.run(util_program)
-                params = scope.find_var("out_var_0").get_bytes()
+            with paddle.pir_utils.OldIrGuard():
+                main_program_desc, util_program = create_fake_model(prog_config)
+                model = main_program_desc.serialize_to_string()
+                place = paddle.base.CPUPlace()
+                executor = paddle.base.Executor(place)
+                scope = paddle.base.Scope()
+                with paddle.base.scope_guard(scope):
+                    executor.run(util_program)
+                    params = scope.find_var("out_var_0").get_bytes()
             if quant:
                 model, params = create_quant_model(model, params)
 
@@ -529,15 +529,15 @@ class PassAutoScanTest(AutoScanTest):
                 self.num_invalid_programs += 1
                 continue
             self.num_ran_programs += 1
-
-            main_program_desc, util_program = create_fake_model(prog_config)
-            model = main_program_desc.serialize_to_string()
-            place = paddle.base.CPUPlace()
-            executor = paddle.base.Executor(place)
-            scope = paddle.base.Scope()
-            with paddle.base.scope_guard(scope):
-                executor.run(util_program)
-                params = scope.find_var("out_var_0").get_bytes()
+            with paddle.pir_utils.OldIrGuard():
+                main_program_desc, util_program = create_fake_model(prog_config)
+                model = main_program_desc.serialize_to_string()
+                place = paddle.base.CPUPlace()
+                executor = paddle.base.Executor(place)
+                scope = paddle.base.Scope()
+                with paddle.base.scope_guard(scope):
+                    executor.run(util_program)
+                    params = scope.find_var("out_var_0").get_bytes()
 
             if quant:
                 model, params = create_quant_model(model, params)
@@ -1018,15 +1018,15 @@ class CutlassAutoScanTest(AutoScanTest):
             # if program is invalid, we should skip that cases.
             if not self.is_program_valid(prog_config):
                 continue
-
-            main_program_desc, util_program = create_fake_model(prog_config)
-            model = main_program_desc.serialize_to_string()
-            place = paddle.base.CPUPlace()
-            executor = paddle.base.Executor(place)
-            scope = paddle.base.Scope()
-            with paddle.base.scope_guard(scope):
-                executor.run(util_program)
-                params = scope.find_var("out_var_0").get_bytes()
+            with paddle.pir_utils.OldIrGuard():
+                main_program_desc, util_program = create_fake_model(prog_config)
+                model = main_program_desc.serialize_to_string()
+                place = paddle.base.CPUPlace()
+                executor = paddle.base.Executor(place)
+                scope = paddle.base.Scope()
+                with paddle.base.scope_guard(scope):
+                    executor.run(util_program)
+                    params = scope.find_var("out_var_0").get_bytes()
 
             feed_data = {}
             for name, tensor_config in prog_config.inputs.items():
