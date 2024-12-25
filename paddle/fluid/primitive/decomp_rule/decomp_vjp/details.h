@@ -3642,6 +3642,7 @@ void angle_grad(const Tensor& x, const Tensor& out_grad, Tensor* x_grad) {
     } else {
       zero_tensor = full<T>(cast_x.shape(), 0, cast_x.dtype(), cast_x.place());
     }
+
     set_output<T>(ConvertToOrig<T>(zero_tensor, x.dtype()), x_grad);
   }
 }
