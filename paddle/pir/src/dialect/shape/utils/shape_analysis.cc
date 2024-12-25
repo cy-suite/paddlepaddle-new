@@ -20,6 +20,7 @@
 #include "paddle/pir/include/dialect/shape/interface/infer_symbolic_shape/infer_symbolic_shape.h"
 #include "paddle/pir/include/dialect/shape/utils/dim_expr_util.h"
 #include "paddle/pir/src/core/value_impl.h"
+
 namespace pir {
 
 static std::string GetValueId(Value val) {
@@ -150,7 +151,7 @@ void InferSymbolicShapeContext::SetSymbolForValueByStaticShape(Value val) {
     std::vector<symbol::DimExpr> static_shape;
     for (int i = 0; i < type_info.dims().size(); ++i) {
       int dim = type_info.dims()[i];
-      if (dim >= 0) {
+      if (dim > 0) {
         static_shape.emplace_back(dim);
       } else {
         static_shape.emplace_back(GetNextSymName());
@@ -161,11 +162,6 @@ void InferSymbolicShapeContext::SetSymbolForValueByStaticShape(Value val) {
 
   if (value_type.isa<DenseTensorType>()) {
     const DenseTensorType& type_info = value_type.dyn_cast<DenseTensorType>();
-    if (type_info.dims().size() == -1) {
-      LOG(WARNING)
-          << "NOW NOT SUPPORT SetSymbolForValueByStaticShape for dynamic rank";
-      return;
-    }
     SetShapeOrDataForValue(val, GetStaticShapeForDenseTensorType(type_info));
     return;
   }
@@ -179,11 +175,6 @@ void InferSymbolicShapeContext::SetSymbolForValueByStaticShape(Value val) {
             "Set static shape ONLY SUPPORT inner type DenseTensorType!"));
       } else {
         const DenseTensorType& type_info = vec.dyn_cast<DenseTensorType>();
-        if (type_info.dims().size() == -1) {
-          LOG(WARNING) << "NOW NOT SUPPORT SetSymbolForValueByStaticShape for "
-                          "dynamic rank";
-          return;
-        }
         shape_data_list.emplace_back(
             GetStaticShapeForDenseTensorType(type_info));
       }
@@ -577,12 +568,6 @@ void ShapeConstraintIRAnalysis::InferShapeOrDataForValue(Value val) {
       for (auto& result_value : op->results()) {
         index++;
         if (!result_value || !result_value.type()) {
-          continue;
-        }
-        if (result_value.type().isa<DenseTensorType>() &&
-            result_value.type().dyn_cast<DenseTensorType>().dims().size() ==
-                -1) {
-          // skip for check dynamic rank
           continue;
         }
         if (!context_.HasShapeOrDataForValue(result_value)) {
