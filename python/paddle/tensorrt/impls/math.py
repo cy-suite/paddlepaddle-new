@@ -275,7 +275,8 @@ def cumsum_converter(network, paddle_op, inputs):
     input_sliced.set_input(2, slice_shape)
 
     # squeeze axis
-    shape_list.pop(axis)
+    if rank > 1:
+        shape_list.pop(axis)
     new_shape = network.add_concatenation(shape_list).get_output(0)
     squeeze_layer = network.add_shuffle(input_sliced.get_output(0))
     squeeze_layer.set_input(1, new_shape)
@@ -300,6 +301,12 @@ def cumsum_converter(network, paddle_op, inputs):
     zero_tensor = network.add_elementwise(
         lhs_val, cast_tensor, trt.ElementWiseOperation.PROD
     ).get_output(0)
+
+    # Set as scalar
+    if rank == 1:
+        shuffle_layer = network.add_shuffle(zero_tensor)
+        shuffle_layer.reshape_dims = trt.Dims()
+        zero_tensor = shuffle_layer.get_output(0)
 
     # Cycle and add according to the axis
     running_sum = loop.add_recurrence(zero_tensor)
