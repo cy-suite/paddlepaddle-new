@@ -20,6 +20,7 @@ clen = 'clen'
 cll = 'cll'
 dout = "dout"
 eles = 'eles'
+entrys = 'entrys'
 grad = "grad"
 kinf = 'kinf'
 kow = 'kow'
