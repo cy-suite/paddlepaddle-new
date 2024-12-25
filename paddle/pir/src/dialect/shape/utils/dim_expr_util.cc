@@ -123,25 +123,6 @@ struct SimplifyOperands {
   }
 };
 
-template <>
-struct SimplifyOperands<Div> {
-  using dim_expr_type = Div<DimExpr>;
-
-  DimExpr Rewrite(const DimExpr& expr) {
-    const auto& div_expr = expr.Get<Div<DimExpr>>();
-    const auto& lhs = div_expr->lhs;
-    const auto& rhs = div_expr->rhs;
-    const auto& ret_lhs = Simplify(lhs);
-    const auto& ret_rhs = Simplify(rhs);
-    if (lhs == ret_lhs && rhs == ret_rhs) {
-      return expr;
-    } else {
-      return Div<DimExpr>{ret_lhs, ret_rhs};
-    }
-    PADDLE_THROW(common::errors::Fatal("Dead code."));
-  }
-};
-
 template <typename T>
 struct GetOrderValue;
 
@@ -436,14 +417,16 @@ struct GetInversed<Add> {
 template <>
 struct GetInversed<Mul> {
   static DimExpr Call(const DimExpr& expr) {
-    PADDLE_THROW(common::errors::Fatal("Dead code."));
+    PADDLE_THROW(common::errors::Fatal(
+        "Integer multiplication and integer division are not reciprocal."));
   }
 };
 
 template <>
 struct GetInversed<Div> {
   static DimExpr Call(const DimExpr& expr) {
-    PADDLE_THROW(common::errors::Fatal("Dead code."));
+    PADDLE_THROW(common::errors::Fatal(
+        "Integer division and integer multiplication are not reciprocal."));
   }
 };
 
@@ -478,38 +461,6 @@ struct FlattenOperands {
           }
         });
     return Op<DimExpr>{ret_operands};
-  }
-};
-
-/*
- * Simplify Example:
- * Div(dim_expr0, Div(dim_expr1, dim_expr2)) =>
- * Div(Mul(dim_expr0, dim_expr1), dim_expr2)
- */
-template <>
-struct FlattenOperands<Div> {
-  using dim_expr_type = Div<DimExpr>;
-
-  DimExpr Rewrite(const DimExpr& expr) {
-    if (!HasNested<Div>(expr)) {
-      return expr;
-    }
-    List<DimExpr> num_operands{};
-    List<DimExpr> den_operands{};
-    VisitEachOperand<Div>(
-        expr,
-        [&](const DimExpr& dim_expr, std::size_t depth, bool is_negative) {
-          if (is_negative) {
-            den_operands->emplace_back(dim_expr);
-          } else {
-            num_operands->emplace_back(dim_expr);
-          }
-        });
-    DimExpr num_expr = num_operands->size() == 1 ? num_operands->at(0)
-                                                 : Mul<DimExpr>{num_operands};
-    DimExpr den_expr = den_operands->size() == 1 ? den_operands->at(0)
-                                                 : Mul<DimExpr>{den_operands};
-    return Div<DimExpr>{num_expr, den_expr};
   }
 };
 
@@ -1253,11 +1204,9 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<SortOperands<Broadcast>>(&keep_rewrite, &ret);
     DoPass<FlattenOperands<Add>>(&keep_rewrite, &ret);
     DoPass<FlattenOperands<Mul>>(&keep_rewrite, &ret);
-    DoPass<FlattenOperands<Div>>(&keep_rewrite, &ret);
     DoPass<FlattenOperands<Broadcast>>(&keep_rewrite, &ret);
     DoPass<FoldUnitConstant<Add>>(&keep_rewrite, &ret);
     DoPass<FoldUnitConstant<Mul>>(&keep_rewrite, &ret);
-    DoPass<FoldUnitConstant<Div>>(&keep_rewrite, &ret);
     DoPass<FoldUnitConstant<Broadcast>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Add>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Mul>>(&keep_rewrite, &ret);
