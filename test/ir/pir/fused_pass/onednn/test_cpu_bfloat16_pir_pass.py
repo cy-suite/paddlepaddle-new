@@ -1120,6 +1120,7 @@ class TestScalePattern(PassTest):
     def test_check_output(self):
         self.check_pass_correct()
 
+
 class TestConcatBfloatQuantizePass(PassTest):
     def is_program_valid(self, program=None):
         return True

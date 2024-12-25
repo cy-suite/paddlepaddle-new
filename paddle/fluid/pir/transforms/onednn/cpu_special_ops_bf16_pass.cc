@@ -68,6 +68,9 @@ class ConcatBf16QuantizePattern
       auto type = pre_op->operand_type(idx);
       // Currently we only process case where elements are all DenseTensor(s)
       if (!type.isa<pir::DenseTensorType>()) return false;
+      // All Tensors should be fp32
+      auto dtype = pir::GetDataTypeFromValue(pre_op->operand_source(idx));
+      if (!dtype.isa<pir::Float32Type>()) return false;
     }
 
     pir::IrContext *ctx = rewriter.ir_context();
