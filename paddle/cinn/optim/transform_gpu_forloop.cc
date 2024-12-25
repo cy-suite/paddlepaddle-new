@@ -28,12 +28,14 @@
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
+#include "paddle/cinn/ir/utils/stmt_converter.h"
 #include "paddle/cinn/optim/eliminate_common_factor_of_local_index.h"
 #include "paddle/cinn/optim/ir_simplify.h"
-#include "paddle/cinn/optim/longlong2int.h"
+#include "paddle/cinn/optim/longlong2int_pass.h"
 #include "paddle/cinn/optim/replace_var_with_expr.h"
 #include "paddle/cinn/optim/resize_buffer.h"
 #include "paddle/cinn/optim/update_buffer_axis_pass.h"
+#include "paddle/cinn/pass/pass_manager.h"
 #include "paddle/cinn/poly/isl_utils.h"
 #include "paddle/cinn/poly/stage.h"
 #include "paddle/cinn/runtime/intrinsic.h"
@@ -493,7 +495,15 @@ void OptimizeExprGPU(Expr *expr) {
   ResizeBufferToMaxVarRange(expr);
 
   if (FLAGS_cinn_longlong2int) {
-    TryCastLonglong2Int(expr);
+    ir::stmt::BlockRef block = ir::ConvertExprBlockToStmtBlock(*expr);
+    if (CanApplyLongLong2Int(block)) {
+      VLOG(10) << "Before LongLong2IntPass: \n" << *expr;
+      StmtPassManager pass_manager;
+      pass_manager.AddPass(CreateLongLong2IntPass());
+      pass_manager.Run(block);
+      *expr = ir::ConvertStmtBlockToExprBlock(block);
+      VLOG(10) << "After LongLong2IntPass: \n" << *expr;
+    }
   }
 
   VLOG(4) << "After Optimize Expr: \n" << *expr;
