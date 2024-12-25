@@ -4,7 +4,7 @@ extend-exclude = [
     "third_party",
     "patches",
     "build",
-    "test/dataset/imikolov_test.py"
+    "test/dataset/imikolov_test.py",
 ]
 
 [default.extend-words]
@@ -97,18 +97,6 @@ doubel = 'doubel'
 dobule = 'dobule'
 Dowloading = 'Dowloading'
 downsteram = 'downsteram'
-enfore = 'enfore'
-entrys = 'entrys'
-envirnment = 'envirnment'
-environnement = 'environnement'
-epoches = 'epoches'
-EPOCHES = 'EPOCHES'
-epslion = 'epslion'
-eqaul = 'eqaul'
-Errorr = 'Errorr'
-exmaple = 'exmaple'
-expection = 'expection'
-excption = 'excption'
 execuate = 'execuate'
 exsit = 'exsit'
 exsits = 'exsits'

@@ -147,5 +147,5 @@ message ValueProto {
 }
 
 message PropertyVals {
-  repeated ValueProto entrys=1;
+  repeated ValueProto entry=1;
 }

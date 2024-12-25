@@ -61,12 +61,12 @@ void Property::Serialization(const std::string &path) {
   return;
 }
 
-int Property::Size() const { return property_.entrys_size(); }
+int Property::Size() const { return property_.entry_size(); }
 
 std::vector<std::string> Property::Names() const {
   std::vector<std::string> res;
   for (int i = 0; i < Size(); i++) {
-    auto entry = property_.entrys(i);
+    auto entry = property_.entry(i);
     if (entry.has_name()) {
       res.push_back(entry.name());
     } else {
@@ -81,7 +81,7 @@ std::unordered_map<std::string, std::shared_ptr<Variable>> Property::Values() {
   std::unordered_map<std::string, std::shared_ptr<Variable>> res;
   using ValueProto = proto::ValueProto;
   for (int i = 0; i < Size(); i++) {
-    auto entry = property_.entrys(i);
+    auto entry = property_.entry(i);
     if (entry.has_name()) {
       auto &n = entry.name();
       // remove Class Name suffix
@@ -122,7 +122,7 @@ std::unordered_map<std::string, std::shared_ptr<Variable>> Property::Values() {
 
 void Property::SetFloat(const float &f) {
   auto type = proto::ValueProto::FLOAT;
-  auto entry = property_.add_entrys();
+  auto entry = property_.add_entry();
   entry->set_type(type);
   entry->set_f(f);
   VLOG(3) << "Property: set_float " << f;
@@ -130,7 +130,7 @@ void Property::SetFloat(const float &f) {
 
 void Property::SetFloat(const std::string &name, const float &f) {
   auto type = proto::ValueProto::FLOAT;
-  auto entry = property_.add_entrys();
+  auto entry = property_.add_entry();
   entry->set_name(name);
   entry->set_type(type);
   entry->set_f(f);
@@ -139,7 +139,7 @@ void Property::SetFloat(const std::string &name, const float &f) {
 
 float Property::GetFloat(const std::string &name) const {
   for (int i = 0; i < Size(); i++) {
-    auto e = property_.entrys(i);
+    auto e = property_.entry(i);
 
     if (e.has_name() && e.name() == name) {
       PADDLE_ENFORCE(e.has_type() && e.type() == proto::ValueProto::FLOAT,
@@ -166,7 +166,7 @@ float Property::GetFloat(const int &idx) const {
       common::errors::OutOfRange(
           "JIT::Property GetFloat: idx=%d out of range %d", idx, Size()));
 
-  auto e = property_.entrys(idx);
+  auto e = property_.entry(idx);
   if (e.has_f()) {
     return e.f();
   }
@@ -178,7 +178,7 @@ float Property::GetFloat(const int &idx) const {
 
 void Property::SetFloats(const std::vector<float> &v) {
   auto type = proto::ValueProto::FLOATS;
-  auto entry = property_.add_entrys();
+  auto entry = property_.add_entry();
   entry->set_type(type);
   for (auto i : v) {
     entry->add_floats(i);
@@ -188,7 +188,7 @@ void Property::SetFloats(const std::vector<float> &v) {
 
 void Property::SetFloats(const std::string &name, const std::vector<float> &v) {
   auto type = proto::ValueProto::FLOATS;
-  auto entry = property_.add_entrys();
+  auto entry = property_.add_entry();
   entry->set_name(name);
   entry->set_type(type);
   for (auto i : v) {
@@ -200,7 +200,7 @@ void Property::SetFloats(const std::string &name, const std::vector<float> &v) {
 
 std::vector<float> Property::GetFloats(const std::string &name) {
   for (int i = 0; i < Size(); i++) {
-    auto e = property_.entrys(i);
+    auto e = property_.entry(i);
 
     if (e.has_name() && e.name() == name) {
       PADDLE_ENFORCE(
@@ -220,7 +220,7 @@ std::vector<float> Property::GetFloats(const std::string &name) {
 
 void Property::SetInt64(const int64_t &i) {
   auto type = proto::ValueProto::INT;
-  auto entry = property_.add_entrys();
+  auto entry = property_.add_entry();
   entry->set_type(type);
   entry->set_i(i);
   VLOG(3) << "Property: set_int " << i;
@@ -228,7 +228,7 @@ void Property::SetInt64(const int64_t &i) {
 
 void Property::SetInt64(const std::string &name, const int64_t &i) {
   auto type = proto::ValueProto::INT;
-  auto entry = property_.add_entrys();
+  auto entry = property_.add_entry();
   entry->set_name(name);
   entry->set_type(type);
   entry->set_i(i);
@@ -237,7 +237,7 @@ void Property::SetInt64(const std::string &name, const int64_t &i) {
 
 int64_t Property::GetInt64(const std::string &name) {
   for (int i = 0; i < Size(); i++) {
-    auto e = property_.entrys(i);
+    auto e = property_.entry(i);
 
     if (e.has_name() && e.name() == name) {
       PADDLE_ENFORCE(e.has_type() && e.type() == proto::ValueProto::INT,
@@ -255,7 +255,7 @@ int64_t Property::GetInt64(const std::string &name) {
 
 void Property::SetInt64s(const std::vector<int64_t> &v) {
   auto type = proto::ValueProto::INTS;
-  auto entry = property_.add_entrys();
+  auto entry = property_.add_entry();
   entry->set_type(type);
   for (auto e : v) {
     entry->add_ints(e);
@@ -266,7 +266,7 @@ void Property::SetInt64s(const std::vector<int64_t> &v) {
 void Property::SetInt64s(const std::string &name,
                          const std::vector<int64_t> &v) {
   auto type = proto::ValueProto::INTS;
-  auto entry = property_.add_entrys();
+  auto entry = property_.add_entry();
   entry->set_name(name);
   entry->set_type(type);
   for (auto i : v) {
@@ -277,7 +277,7 @@ void Property::SetInt64s(const std::string &name,
 
 std::vector<int> Property::GetInt64s(const std::string &name) {
   for (int i = 0; i < Size(); i++) {
-    auto e = property_.entrys(i);
+    auto e = property_.entry(i);
 
     if (e.has_name() && e.name() == name) {
       PADDLE_ENFORCE(
@@ -302,7 +302,7 @@ std::vector<int> Property::GetInt64s(const std::string &name) {
 
 void Property::SetString(const std::string &s) {
   auto type = proto::ValueProto::STRING;
-  auto entry = property_.add_entrys();
+  auto entry = property_.add_entry();
   entry->set_type(type);
   entry->set_s(s);
   VLOG(3) << "Property: set_string with value : " << s;
@@ -310,7 +310,7 @@ void Property::SetString(const std::string &s) {
 
 void Property::SetString(const std::string &name, const std::string &s) {
   auto type = proto::ValueProto::STRING;
-  auto entry = property_.add_entrys();
+  auto entry = property_.add_entry();
   entry->set_name(name);
   entry->set_type(type);
   entry->set_s(s);
@@ -319,7 +319,7 @@ void Property::SetString(const std::string &name, const std::string &s) {
 
 std::string Property::GetString(const std::string &name) {
   for (int i = 0; i < Size(); i++) {
-    auto e = property_.entrys(i);
+    auto e = property_.entry(i);
 
     if (e.has_name() && e.name() == name) {
       PADDLE_ENFORCE(
@@ -337,7 +337,7 @@ std::string Property::GetString(const std::string &name) {
 
 void Property::SetStrings(const std::vector<std::string> &v) {
   auto type = proto::ValueProto::STRINGS;
-  auto entry = property_.add_entrys();
+  auto entry = property_.add_entry();
   entry->set_type(type);
   for (auto const &i : v) {
     entry->add_strings(i);
@@ -348,7 +348,7 @@ void Property::SetStrings(const std::vector<std::string> &v) {
 void Property::SetStrings(const std::string &name,
                           const std::vector<std::string> &v) {
   auto type = proto::ValueProto::STRINGS;
-  auto entry = property_.add_entrys();
+  auto entry = property_.add_entry();
   entry->set_name(name);
   entry->set_type(type);
   for (auto const &i : v) {
@@ -359,7 +359,7 @@ void Property::SetStrings(const std::string &name,
 
 std::vector<std::string> Property::GetStrings(const std::string &name) {
   for (int i = 0; i < Size(); i++) {
-    auto e = property_.entrys(i);
+    auto e = property_.entry(i);
 
     if (e.has_name() && e.name() == name) {
       PADDLE_ENFORCE(
