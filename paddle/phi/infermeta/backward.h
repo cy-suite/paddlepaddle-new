@@ -64,12 +64,6 @@ void ChannelShuffleGradInferMeta(const MetaTensor& out_grad,
                                  const std::string& data_format,
                                  MetaTensor* x_grad);
 
-void ClipTensorGradInferMeta(const MetaTensor& x,
-                            const MetaTensor& min,
-                            const MetaTensor& max,
-                            const MetaTensor& out_grad,
-                            MetaTensor* x_grad);
-
 void ComplexGradInferMeta(const MetaTensor& x,
                           const MetaTensor& y,
                           const MetaTensor& dout,

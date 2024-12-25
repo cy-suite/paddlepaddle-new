@@ -14,11 +14,10 @@
 
 #include "paddle/phi/kernels/clip_tensor_kernel.h"
 
-#include "paddle/phi/kernels/funcs/eigen/common.h"
 #include "paddle/phi/backends/cpu/cpu_context.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/cast_kernel.h"
-#include "paddle/phi/kernels/expand_kernel.h"
+#include "paddle/phi/kernels/funcs/eigen/common.h"
 
 namespace phi {
 
@@ -29,35 +28,19 @@ void ClipTensorKernel(const Context& dev_ctx,
                       const DenseTensor& max,
                       DenseTensor* out) {
   DenseTensor ex_min;
+  MetaTensor meta_min(&ex_min);
+  CastInferMeta(min, x.dtype(), &meta_min);
   DenseTensor ex_max;
-  DenseTensor ex_x;
-  std::vector<int> real_target_shape = common::vectorize<int>(out->dims());
-  if (x.dims() != out->dims()) {
-    phi::ExpandKernel<T, Context>(
-        dev_ctx, x, real_target_shape, &ex_x);
-  } else {
-    ex_x = x;
-  }
-  if (min.dims() != out->dims()) {
-    phi::ExpandKernel<T, Context>(
-        dev_ctx, min, real_target_shape, &ex_min);
-  } else {
-    ex_min = min;
-  }
-  if (max.dims() != out->dims()) {
-    phi::ExpandKernel<T, Context>(
-        dev_ctx, max, real_target_shape, &ex_max);
-  } else {
-    ex_max = max;
-  }
-  phi::CastKernel<T, Context>(dev_ctx, ex_min, ex_x.dtype(), &ex_min);
-  phi::CastKernel<T, Context>(dev_ctx, ex_max, ex_x.dtype(), &ex_max);
-  
-  const T* x_data = ex_x.data<T>();
+  MetaTensor meta_max(&ex_max);
+  CastInferMeta(max, x.dtype(), &meta_max);
+  phi::CastKernel<T, Context>(dev_ctx, min, x.dtype(), &ex_min);
+  phi::CastKernel<T, Context>(dev_ctx, max, x.dtype(), &ex_max);
+
+  const T* x_data = x.data<T>();
   const T* min_data = ex_min.data<T>();
   const T* max_data = ex_max.data<T>();
 
-  auto x_numel = ex_x.numel();
+  auto x_numel = x.numel();
 
   T* out_data = dev_ctx.template Alloc<T>(out);
 
