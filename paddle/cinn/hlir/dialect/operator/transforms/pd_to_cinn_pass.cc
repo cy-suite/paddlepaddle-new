@@ -23,6 +23,7 @@
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 #include "paddle/fluid/pir/dialect/operator/utils/utils.h"
 #include "paddle/fluid/pir/drr/include/drr_pattern_base.h"
+#include "paddle/fluid/pir/utils/general_functions.h"
 #include "paddle/pir/include/core/builtin_dialect.h"
 #include "paddle/pir/include/core/builtin_op.h"
 #include "paddle/pir/include/pass/pass.h"
@@ -238,8 +239,26 @@ class ScaleOpPattern : public pir::OpRewritePattern<paddle::dialect::ScaleOp> {
         mul_in = add_op.result(0);
       }
 
-      auto mul_op = rewriter.Build<paddle::dialect::MultiplyOp>(
-          mul_in, op->operand_source(1));
+      pir::Value rhs_value = [&] {
+        const auto &lhs_dtype =
+            mul_in.type().dyn_cast<paddle::dialect::DenseTensorType>().dtype();
+        const auto &rhs_dtype =
+            op->operand_source(1)
+                .type()
+                .dyn_cast<paddle::dialect::DenseTensorType>()
+                .dtype();
+        if (lhs_dtype != rhs_dtype) {
+          return rewriter
+              .Build<paddle::dialect::CastOp>(
+                  op->operand_source(1),
+                  paddle::dialect::TransToPhiDataType(lhs_dtype))
+              .out();
+        }
+        return op->operand_source(1);
+      }();
+
+      auto mul_op =
+          rewriter.Build<paddle::dialect::MultiplyOp>(mul_in, rhs_value);
 
       rewriter.ReplaceAllUsesWith(op.result(0), mul_op.result(0));
       rewriter.EraseOp(op);
@@ -299,14 +318,14 @@ class ReshapeOpPattern
   bool CanUseStaticOutputShape(paddle::dialect::ReshapeOp op) const {
     std::vector<int64_t> output_shape = GetOutputShape(op);
 
-    int negtive_count = 0;
+    int negative_count = 0;
     for (auto &d : output_shape) {
       if (d < 0) {
-        negtive_count++;
+        negative_count++;
       }
     }
 
-    return negtive_count <= 1;
+    return negative_count <= 1;
   }
 };
 
@@ -504,11 +523,11 @@ class PowOpPattern : public pir::OpRewritePattern<paddle::dialect::PowOp> {
   void Rewrite(paddle::dialect::PowOp op,
                pir::PatternRewriter &rewriter) const override {
     auto factor = op->attribute("y").dyn_cast<pir::FloatAttribute>().data();
-    auto full_op =
-        rewriter.Build<paddle::dialect::FullOp>(std::vector<int64_t>({1}),
-                                                factor,
-                                                phi::DataType::FLOAT32,
-                                                phi::CPUPlace());
+    auto full_op = rewriter.Build<paddle::dialect::FullOp>(
+        std::vector<int64_t>({1}),
+        factor,
+        pir::GetValueDtype(op->operand_source(0)),
+        phi::CPUPlace());
 
     auto elementwise_pow = rewriter.Build<paddle::dialect::ElementwisePowOp>(
         op->operand_source(0), full_op->result(0));
@@ -951,8 +970,18 @@ class FullWithTensorOpPattern
                   .result(0);
     }
 
-    auto out =
-        rewriter.Build<paddle::dialect::ExpandOp>(value, shape).result(0);
+    const auto &out = [&]() -> pir::Value {
+      const auto &out_type =
+          op->result(0).type().dyn_cast<paddle::dialect::DenseTensorType>();
+      if (out_type.dims().size() == 0) {
+        const auto &dtype =
+            op->attribute<paddle::dialect::DataTypeAttribute>("dtype").data();
+        return rewriter
+            .Build<paddle::dialect::FullOp>(std::vector<int64_t>{}, 0.0, dtype)
+            .result(0);
+      }
+      return rewriter.Build<paddle::dialect::ExpandOp>(value, shape).result(0);
+    }();
 
     rewriter.ReplaceAllUsesWith(op.result(0), out);
 
@@ -1092,7 +1121,7 @@ class FlattenOpPattern
                       .dims()
                       .size();
     auto x_shape =
-        rewriter.Build<paddle::dialect::ShapeOp>(op->operand_source(0))
+        rewriter.Build<paddle::dialect::Shape64Op>(op->operand_source(0))
             .result(0);
     for (size_t i = 0; i < x_rank;) {
       if (i == static_cast<size_t>(start_axis)) {

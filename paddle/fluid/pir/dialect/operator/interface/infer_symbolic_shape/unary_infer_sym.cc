@@ -883,7 +883,7 @@ bool DiagOpInferSymbolicShape(pir::Operation *op,
     if (x_shape[0].isa<int64_t>() && x_shape[1].isa<int64_t>()) {
       int64_t size_ = 0;
       if (offset_data >= 0) {
-        if (x_shape[0].dyn_cast<int64_t>() >
+        if (x_shape[0].dyn_cast<int64_t>() <
             x_shape[1].dyn_cast<int64_t>() - offset_data) {
           size_ = x_shape[0].dyn_cast<int64_t>();
         } else {
@@ -3088,6 +3088,19 @@ bool ShapeOpInferSymbolicShape(pir::Operation *op,
   return true;
 }
 
+bool Shape64OpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  const symbol::ShapeOrDataDimExprs &operand_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0));
+  const auto &out_data = operand_shape_or_data.shape();
+  const std::vector<symbol::DimExpr> shape{std::int64_t(out_data.size())};
+  symbol::ShapeOrDataDimExprs shape_or_data{
+      symbol::TensorShapeOrDataDimExprs(shape, out_data)};
+
+  infer_context->SetShapeOrDataForValue(op->result(0), shape_or_data);
+  return true;
+}
+
 bool ShardIndexOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
   const auto &in_shape_or_data =
@@ -3182,6 +3195,10 @@ bool ShapeSrOpInferSymbolicShape(
   return ShapeOpInferSymbolicShape(op, infer_context);
 }
 
+bool Shape64SrOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  return Shape64OpInferSymbolicShape(op, infer_context);
+}
 // bool ShardIndexOpInferSymbolicShape(pir::Operation *op,
 //                                     pir::InferSymbolicShapeContext
 //                                     *infer_context) {
@@ -3224,8 +3241,7 @@ bool SliceOpInferSymbolicShape(pir::Operation *op,
       const symbol::ShapeOrDataDimExprs &se_shape_data =
           infer_context->GetShapeOrDataForValue(
               op->operand_source(operand_idx));
-      if (se_shape_data.data().has_value()) {
-        *expr_vec = se_shape_data.data().value();
+      if (slice_utils::GetExprVecOfStartEnd(se_shape_data, expr_vec)) {
         return true;
       }
       PADDLE_ENFORCE_EQ(
@@ -3745,14 +3761,14 @@ bool TopkOpInferSymbolicShape(pir::Operation *op,
 
   int x_rank = in_dims_sym.size();
 
-  int k = k_shape_or_data.data().value().at(0).Get<int64_t>();
+  symbol::DimExpr k = k_shape_or_data.data().value().at(0);
 
   if (axis < 0) axis += x_rank;
   const auto &out_sym_shape = [&] {
     std::vector<symbol::DimExpr> out_sym_shape;
     for (int i = 0; i < x_rank; ++i) {
       if (i == axis) {
-        out_sym_shape.push_back(symbol::DimExpr(k));
+        out_sym_shape.push_back(k);
       } else {
         out_sym_shape.push_back(in_dims_sym.at(i));
       }

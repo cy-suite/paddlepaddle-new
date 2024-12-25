@@ -64,6 +64,7 @@ partition_skip_op_list = [
     "cf.tuple_push",
     "cf.tuple_pop",
     "cf.stack_create",
+    "cf.has_elements",
 ]
 
 
@@ -583,7 +584,12 @@ def _check_dist_attr(dist_attr):
                     "The type of distributed attribute should be 'dict', "
                     f"but got '{type(value)}'"
                 )
-            attr = ['process_shape', 'process_group', 'dims_mapping']
+            attr = [
+                'process_shape',
+                'process_group',
+                'dims_mapping',
+                'dim_names',
+            ]
             if list(value.keys()) != attr:
                 raise ValueError(
                     "The key of distributed attribute should be "
@@ -865,6 +871,7 @@ def get_dist_attr(program, dist_context=None):
                     "process_shape": process_mesh.shape,
                     "process_group": process_mesh.process_ids,
                     "dims_mapping": var_dist_attr.dims_mapping,
+                    "dim_names": process_mesh.dim_names,
                 }
     else:
         from .dist_context import get_default_distributed_context
@@ -879,10 +886,12 @@ def get_dist_attr(program, dist_context=None):
                 )
                 process_mesh = tensor_dist_attr.process_mesh
                 dims_mapping = tensor_dist_attr.dims_mapping
+                dim_names = tensor_dist_attr.process_mesh.dim_names
                 dist_attr[var.name] = {
                     "process_shape": process_mesh.shape,
                     "process_group": process_mesh.process_ids,
                     "dims_mapping": dims_mapping,
+                    "dim_names": dim_names,
                 }
     return dist_attr
 
@@ -1773,7 +1782,7 @@ def to_list(value):
 
 def debug_program(program, path, name):
     filename = os.path.join(
-        path, name + '_program' + ".%d" % (paddle.distributed.get_rank())
+        path, f"{name}_program.{paddle.distributed.get_rank()}"
     )
     with open(filename, 'w') as f:
         f.write(str(program))
@@ -2737,6 +2746,8 @@ def split_mesh(global_mesh: ProcessMesh, sub_mesh_dim: int):
     )
     sub_mesh_list = []
     for sub_process_ids in splitted_process_ids:
-        sub_mesh_list.append(ProcessMesh(sub_process_ids))
+        sub_mesh_list.append(
+            ProcessMesh(sub_process_ids, global_mesh.dim_names)
+        )
 
     return sub_mesh_list

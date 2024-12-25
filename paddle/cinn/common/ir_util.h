@@ -38,9 +38,6 @@ Expr PrecedingAxisToAbsOffset(const std::vector<Expr> &shape,
 
 Expr CastIfNeeded(Expr body, Type type);
 
-ir::IndexExpr MergeMulMod(SymbolicExprAnalyzer *analyzer,
-                          const ir::IndexExpr &base);
-
 //! Substitute vars to other expressions.
 //! @param expr The expression to do modification.
 //! @param var_map The map from variables to the target expressions.
@@ -255,12 +252,33 @@ bool ComparePriority(const ir::IndexExpr &lhs, const ir::IndexExpr &rhs);
  * 6. `IsSumPartialBySymbol(S0 / 3 + S1, S0)` return true;
  * 7. `IsSumPartialBySymbol(S0 % 3, S0)` return false;
  *
+ * Note: For performance reasons, special patterns will not be matched here.
+ * This can be allowed for extreme optimization.
+ * For example:
+ * `IsSumPartialBySymbol((S0 + S1 / 5 * 25) / 5, S1 % 5)` return false;
+ *
  * \param expr The expression to be checked.
  * \param symbol  The symbol to be checked.
  * \return True means there are sub-parts in the `expr` that can be simplified.
  */
 bool IsSumPartialBySymbol(const ir::IndexExpr &expr,
                           const ir::IndexExpr &symbol);
+
+/*!
+ * \brief Simplify the `lhs` by symbol `sym`. Usually run after
+ * `IsSumPartialBySymbol`
+ *
+ * \param lhs The expression to be simplified.
+ * \param sym  The symbol to be checked.
+ *    it may be `i, j ..` or  `S0, S1 ..` or other symbolic expr.
+ * \param outter_mul_factor The scale of symbolic expr.
+ *    e.g. `S0 * 4` ===> sym == S0, outter_mul_factor == 4
+ * \return The expr after simplification.
+ */
+ir::IndexExpr SimplifySymbolicAdd(
+    const ir::IndexExpr &lhs,
+    const ir::IndexExpr &sym,
+    const ir::IndexExpr &outter_mul_factor = ir::IndexExpr(1));
 
 /*!
  * \brief Determines whether there are sub-parts in the `expr` that can be
@@ -290,6 +308,20 @@ bool IsDivisiblieBySymbol(const ir::IndexExpr &expr,
                           const ir::IrNodeTy &ty);
 
 /*!
+ * \brief Simplify the `lhs` by symbol `sym`. Usually run after
+ * `IsDivisiblieBySymbol`
+ *
+ * \param lhs The expression to be simplified.
+ * \param sym  The symbol to be checked.
+ *    it may be `i, j ..` or  `S0, S1 ..` or other symbolic expr.
+ * \param ty ty is `Mod` or `Div`.
+ * \return The expr after simplification.
+ */
+ir::IndexExpr SimplifySymbolicDivide(const ir::IndexExpr &lhs,
+                                     const ir::IndexExpr &sym,
+                                     const ir::IrNodeTy &ty);
+
+/*!
  * \brief Determine whether `lhs` is divisible by `rhs`, regardless of whether
  * `rhs` is a constant or a symbol.
  * \param lhs lhs is dividend.
@@ -300,8 +332,8 @@ bool ProveDivisible(const ir::IndexExpr &lhs, const ir::IndexExpr &rhs);
 
 /*!
  * \brief Judge whether `candidate` is a negated index expression.
- * \param lhs The expression to be checked.
- * \param rhs The positive part
+ * \param candidate The expression to be checked.
+ * \param expr The positive part
  * \return A boolean value indicating whether `candidate` is negative.
  */
 bool IsNegatedIndexExpr(const ir::IndexExpr &candidate,

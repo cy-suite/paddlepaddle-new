@@ -353,23 +353,37 @@ bool CauseNewSymbolicShape(const ::pir::Operation& op) {
   auto& shape_analysis = ::pir::ShapeAnalysisManager::Instance().Get(
       const_cast<::pir::Operation&>(op).GetParentProgram());
 
-  const auto& isProcessableSlice = [&]() -> bool {
+  const auto& HasData =
+      [&](const symbol::ShapeOrDataDimExprs& shape_or_data) -> bool {
+    if (shape_or_data.isa<symbol::TensorListShapeOrDataDimExprs>()) {
+      bool has_data = true;
+      const symbol::TensorListShapeOrDataDimExprs& list =
+          shape_or_data.dyn_cast<symbol::TensorListShapeOrDataDimExprs>();
+      for (const auto& item : list) {
+        has_data = has_data && item.data().has_value();
+      }
+      return has_data;
+    } else if (shape_or_data.isa<symbol::TensorShapeOrDataDimExprs>()) {
+      return shape_or_data.data().has_value();
+    }
+    PADDLE_THROW(::common::errors::InvalidArgument(
+        "The starts and ends parameters of pd_op.slice currently only support "
+        "two types: TensorListShapeOrDataDimExprs and "
+        "TensorShapeOrDataDimExprs"));
+  };
+
+  const auto& IsProcessableSlice = [&]() -> bool {
     const ::pir::Value& starts_value = op.operand_source(1);
     const ::pir::Value& ends_value = op.operand_source(2);
     const symbol::ShapeOrDataDimExprs& starts_shape_data =
         shape_analysis.GetShapeOrDataForValue(starts_value);
     const symbol::ShapeOrDataDimExprs& ends_shape_data =
         shape_analysis.GetShapeOrDataForValue(ends_value);
-    return starts_shape_data.data().has_value() &&
-           ends_shape_data.data().has_value();
+    return HasData(starts_shape_data) && HasData(ends_shape_data);
   };
 
-  if (op.isa<paddle::dialect::SliceOp>() && !isProcessableSlice()) {
+  if (op.isa<paddle::dialect::SliceOp>() && !IsProcessableSlice()) {
     return true;
-  }
-
-  if (!HaveUnkDim(op)) {
-    return false;
   }
 
   std::unordered_set<std::string> input_exprs = [&]() {
@@ -395,7 +409,6 @@ bool CauseNewSymbolicShape(const ::pir::Operation& op) {
     }
     return false;
   }();
-
   return outputs_have_new_symbol;
 }
 
@@ -431,14 +444,24 @@ bool HasHandledInPass(const ::pir::Operation& op) {
 // 3. it should be handled in pd_to_cinn_pass;
 bool IsSupportInCinn(const ::pir::Operation& op) {
   const bool is_denied = IsDeniedInCinn(op);
-  const bool is_registered = IsRegisteredInCINN(op);
-  const bool is_handled = HasHandledInPass(op);
-  const bool cause_new_symbolic_shape = CauseNewSymbolicShape(op);
-  VLOG(5) << op.name() << ": IsDeniedInCinn = " << is_denied
-          << ", IsRegisteredInCINN = " << is_registered
-          << ", HasHandledInPass = " << is_handled
-          << ", CauseNewSymbolicShape = " << cause_new_symbolic_shape;
-  return !is_denied && is_registered && is_handled && !cause_new_symbolic_shape;
+  if (IsDeniedInCinn(op)) {
+    VLOG(5) << op.name() << "[id:" << op.id() << "] is denied in CINN";
+    return false;
+  }
+  if (!IsRegisteredInCINN(op)) {
+    VLOG(5) << op.name() << "[id:" << op.id() << "] isn't registered in CINN";
+    return false;
+  }
+  if (!HasHandledInPass(op)) {
+    VLOG(5) << op.name() << "[id:" << op.id() << "] isn't handled in CINN";
+    return false;
+  }
+  if (CauseNewSymbolicShape(op)) {
+    VLOG(5) << op.name() << "[id:" << op.id()
+            << "] caused new symbolic shape in CINN";
+    return false;
+  }
+  return true;
 }
 }  // namespace
 
@@ -722,6 +745,29 @@ std::vector<int64_t> GetBroadcastAxis(const phi::DDim& in_shape,
   }
 
   return broadcast_axes;
+}
+
+std::vector<::pir::Value> GetBlockOutsideInput(
+    const std::vector<::pir::Operation*>& op_list) {
+  std::vector<::pir::Value> vec_res;
+  std::unordered_set<::pir::Value> block_inner_output;
+  for (size_t k = 0; k < op_list.size(); ++k) {
+    for (size_t i = 0; i < op_list[k]->num_results(); ++i) {
+      block_inner_output.insert(op_list[k]->result(i));
+    }
+  }
+
+  std::unordered_set<::pir::Value> insert_value;
+  for (size_t k = 0; k < op_list.size(); ++k) {
+    for (size_t i = 0; i < op_list[k]->num_operands(); ++i) {
+      if (!block_inner_output.count(op_list[k]->operand_source(i)) &&
+          !insert_value.count(op_list[k]->operand_source(i))) {
+        vec_res.push_back(op_list[k]->operand_source(i));
+        insert_value.insert(op_list[k]->operand_source(i));
+      }
+    }
+  }
+  return vec_res;
 }
 
 }  // namespace pir

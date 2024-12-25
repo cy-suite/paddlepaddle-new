@@ -79,7 +79,7 @@ from .placement_type import (
     to_placements,
 )
 from .random import determinate_rng, rng_state
-from .sharding import ShardingOptimizerStage1
+from .sharding import ShardingOptimizerStage1, get_placement_with_sharding
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -992,30 +992,6 @@ def shard_layer(
         )
 
 
-def get_placement_with_sharding(param, sharding_axis):
-    shard_axis = -1
-    for placement in param.placements:
-        if isinstance(placement, dist.Shard):
-            # the parameter can't be shard twice with sharding on different mesh now
-            # for example, [Shard(0), Shard(1)], assert here in case
-            assert (
-                shard_axis == -1
-            ), "The parameter can't be shard twice with sharding strategy even in different mesh now."
-            shard_axis = placement.get_dim()
-
-    placement_with_sharding = None
-    for dim in range(param.ndim):
-        if dim != shard_axis:
-            placement_with_sharding = dist.Shard(dim)
-            break
-
-    new_placements = param.placements
-    if placement_with_sharding is not None:
-        new_placements[sharding_axis] = placement_with_sharding
-
-    return new_placements
-
-
 class _ShardOptimizer(Optimizer):
     def __init__(self, optimizer, shard_fn=None, gradient_accumulation_steps=1):
         assert (
@@ -1269,18 +1245,63 @@ class _ShardOptimizer(Optimizer):
     def _append_optimize_op(self, block, param_and_grad):
         if (
             in_auto_parallel_align_mode()  # In align mode, we use enable_delay_scale_loss by default
-            and in_dygraph_mode()
             and param_and_grad[1].is_dist()
         ):
             placements = param_and_grad[1].placements
             meshs = param_and_grad[1].process_mesh
             grad = param_and_grad[1]
+            grad_mesh = grad.process_mesh
+
+            def get_mesh(pp_idx=0):
+                """
+                获得pp_idx的mesh
+                """
+                mesh = fleet.auto.get_mesh()
+                if "pp" in mesh.dim_names:
+                    mesh = mesh.get_mesh_with_dim("pp", pp_idx)
+                return mesh
+
+            ipp = 0
+            global_mesh = fleet.auto.get_mesh()
+            if "pp" in global_mesh.dim_names:
+                pp_degree = global_mesh.get_dim_size("pp")
+                for i in range(pp_degree):
+                    if meshs.process_ids == get_mesh(i).process_ids:
+                        ipp = i
+                        break
+
+            change_mesh = False
+            if any(
+                isinstance(placement, dist.Partial) for placement in placements
+            ) and (
+                (meshs.process_ids == get_mesh(ipp).process_ids)
+                and (meshs.dim_names != get_mesh(ipp).dim_names)
+            ):
+                change_mesh = True
+
+            if change_mesh:
+                grad = dist.auto_parallel.moe_utils._dist_reshape(
+                    grad,
+                    grad.shape,
+                    get_mesh(ipp),
+                    [
+                        dist.Partial(dist.ReduceType.kRedSum),
+                        dist.Partial(dist.ReduceType.kRedSum),
+                    ],
+                )
+                placements = grad.placements
 
             for i in range(len(placements) - 1, -1, -1):
                 if isinstance(placements[i], dist.Partial):
                     placements[i] = dist.Replicate()
-                    grad = dist.reshard(grad, meshs, placements)
-            grad /= self.gradient_accumulation_steps
+                    grad = dist.reshard(grad, grad.process_mesh, placements)
+            if self.gradient_accumulation_steps > 1 and in_dygraph_mode():
+                grad /= self.gradient_accumulation_steps
+
+            if change_mesh:
+                grad = dist.auto_parallel.moe_utils._dist_reshape(
+                    grad, grad.shape, grad_mesh, [dist.Replicate()]
+                )
             param_and_grad = (param_and_grad[0], grad)
         return self._inner_opt._append_optimize_op(block, param_and_grad)
 
@@ -2235,10 +2256,10 @@ class DistModel:
         if int(os.environ.get('FLAGS_enable_sharding_stage1_tensor_fusion', 0)):
             if isinstance(optimizer, _ShardOptimizer) and use_pir_api():
                 shard_fn = optimizer._shard_fn
-                optimizer = optimizer._inner_opt
+                inner_opt = optimizer._inner_opt
                 if isinstance(optimizer._shard_fn, ShardingStage1):
                     optimizer = ShardingOptimizerStage1(
-                        optimizer, shard_fn, self._inner_strategy
+                        inner_opt, shard_fn, self._inner_strategy
                     )
 
         self._engine = Engine(
@@ -2548,6 +2569,7 @@ class DistModel:
         self,
         mode: Literal['opt', 'param', 'all'] = "all",
         split_fusion: bool = True,
+        load_sharded_model: bool = True,
     ) -> dict[str, Tensor]:
         """
         Get the state dict of model and optimizer.
@@ -2559,7 +2581,6 @@ class DistModel:
                 'all' : The return value contains the variable in the network and optimizer.
                 Default: 'all'
         """
-
         if use_pir_api():
             scope = paddle.static.global_scope()
             local_state_dict = self.dist_main_program(
@@ -2626,6 +2647,21 @@ class DistModel:
                                     ] = dist_tensor
                                 dist_state_dict.pop(param)
 
+        # when tensor-fusion is enabled, the optimizer parameters are unbalanced
+        # in their sharding. We need to process the optimizer parameters to make
+        # them evenly balanced
+        if self._engine._optimizer is not None and load_sharded_model:
+            optimizer = self._engine._optimizer
+            if isinstance(
+                optimizer,
+                paddle.static.amp.decorator.OptimizerWithMixedPrecision,
+            ):
+                optimizer = optimizer._optimizer
+            if isinstance(optimizer, ShardingOptimizerStage1):
+                optimizer.convert_state_dict_without_tensor_fusion_param(
+                    dist_state_dict
+                )
+
         mapping_names = [
             (
                 self._parameter_to_structured_name[k]
@@ -2669,7 +2705,8 @@ class DistModel:
             mesh = ProcessMesh(
                 np.array(dist_attr["process_group"]).reshape(
                     dist_attr["process_shape"]
-                )
+                ),
+                dim_names=dist_attr["dim_names"],
             )
             placements = to_placements(dist_attr["dims_mapping"], mesh)
             dist_tensor = dtensor_from_local(local_tensor, mesh, placements)
@@ -2693,7 +2730,31 @@ class DistModel:
     def set_state_dict(self, state_dict: dict[str, Tensor]) -> None:
         local_state_dict = {}
         dist_main_program = self.dist_main_program(mode=self._engine._mode)
-        cur_state_dict = self.state_dict(split_fusion=False)
+        cur_state_dict = self.state_dict(
+            split_fusion=False, load_sharded_model=False
+        )
+        copy_tensor = False
+
+        # For sharding with tensor-fusion, we need to convert the state_dict
+        # to include tensor-fusion parameters before calling set_state_dict,
+        # as stored parameters are processed as if tensor-fusion is not applied
+        if self._engine._optimizer is not None:
+            optimizer = self._engine._optimizer
+            if isinstance(
+                optimizer,
+                paddle.static.amp.decorator.OptimizerWithMixedPrecision,
+            ):
+                optimizer = optimizer._optimizer
+            if isinstance(optimizer, ShardingOptimizerStage1):
+                optimizer.convert_state_dict_with_tensor_fusion_param(
+                    state_dict
+                )
+                # When using the tensor-fusion strategy, model parameters are shared with
+                # slice@ parameters. When setting the state_dict, we must copy the tensor
+                # instead of changing the handle directly, as this could cause errors in
+                # the slice@ parameters and increase memory usage.
+                copy_tensor = True
+
         for k, v in state_dict.items():
             assert v.is_dist(), f"key {k} value:{v} is not a dist tensor."
             if k in cur_state_dict:

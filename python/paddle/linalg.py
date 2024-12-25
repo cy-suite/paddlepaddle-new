@@ -22,6 +22,7 @@ from .tensor.linalg import (
     cov,
     cross,
     det,
+    diagonal,
     eig,
     eigh,
     eigvals,
@@ -46,7 +47,9 @@ from .tensor.linalg import (
     solve,
     svd,
     svd_lowrank,
+    svdvals,
     triangular_solve,
+    vecdot,
     vector_norm,
 )
 
@@ -55,6 +58,7 @@ __all__ = [
     'cholesky_inverse',
     'norm',
     'matrix_norm',
+    'vecdot',
     'vector_norm',
     'cond',
     'cov',
@@ -67,6 +71,7 @@ __all__ = [
     'matrix_rank',
     'matrix_transpose',
     'svd',
+    'svdvals',
     'qr',
     'householder_product',
     'pca_lowrank',
@@ -86,4 +91,5 @@ __all__ = [
     'lstsq',
     'ormqr',
     'fp8_fp8_half_gemm_fused',
+    'diagonal',
 ]

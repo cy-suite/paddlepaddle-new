@@ -7,7 +7,6 @@ gather_srcs(
   replace_var_with_expr.cc
   ir_simplify.cc
   optimize.cc
-  pass.cc
   vectorize_loops.cc
   unroll_loops.cc
   transform_polyfor_to_for.cc
@@ -25,7 +24,7 @@ gather_srcs(
   lower_intrin.cc
   cast_bool_to_int8.cc
   var_mod_simplify.cc
-  remove_schedule_block.cc
+  remove_schedule_block_pass.cc
   replace_cross_block_reduction.cc
   replace_cross_thread_reduction.cc
   replace_mod_to_max.cc
@@ -34,7 +33,7 @@ gather_srcs(
   trans_buffer_with_dynamic_shape.cc
   schedule_block_dce.cc
   eliminate_common_factor_of_local_index.cc
-  if_fusion.cc
+  if_fusion_pass.cc
   merge_block_utils.cc
   eliminate_common_global_memory_read.cc
   rearrange_load_instruction.cc
