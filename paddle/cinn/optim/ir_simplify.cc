@@ -29,6 +29,7 @@
 #include "paddle/cinn/ir/ir_visitor.h"
 #include "paddle/cinn/ir/op/ir_operators.h"
 #include "paddle/cinn/ir/tensor.h"
+#include "paddle/cinn/ir/utils/ir_copy.h"
 #include "paddle/cinn/utils/string.h"
 
 namespace cinn {
@@ -258,6 +259,103 @@ struct SimplifyIfThenElseMutator : public ir::IRMutator<> {
   }
 };
 
+struct SimplifySelectMutator : public ir::IRMutator<> {
+  void operator()(Expr* x) { ir::IRMutator<>::Visit(x, x); }
+
+  using ir::IRMutator<>::Visit;
+
+  void Visit(const Select* op, Expr* expr) override {
+    auto* node = expr->As<ir::Select>();
+
+    auto* condition_int = node->condition.As<ir::IntImm>();
+    auto* condition_uint = node->condition.As<ir::UIntImm>();
+
+    // not deterministic
+    if (!condition_int && !condition_uint) {
+      Visit(&node->true_value, &node->true_value);
+      Visit(&node->false_value, &node->false_value);
+      return;
+    }
+
+    bool value = condition_int ? condition_int->value : condition_uint->value;
+    if (value) {
+      *expr = op->true_value;
+      Visit(expr, expr);
+    } else {
+      *expr = op->false_value;
+      Visit(expr, expr);
+    }
+  }
+};
+
+class SimplifyLogicalMutator : public ir::ExprMutator<> {
+ public:
+  explicit SimplifyLogicalMutator(const common::SymbolicExprAnalyzer& ana)
+      : ana_(ana) {}
+  void operator()(Expr* expr) { ir::ExprMutator<>::Visit(expr, expr); }
+
+#define DEFINE_VISIT_CMP_OP(OpType, Method)                  \
+  void Visit(const ir::OpType* op, Expr* expr) override {    \
+    auto* node = expr->As<ir::OpType>();                     \
+    ir::ExprMutator<>::Visit(&node->a(), &node->a());        \
+    ir::ExprMutator<>::Visit(&node->b(), &node->b());        \
+    if (ana_.Method(node->a(), node->b()).value_or(false)) { \
+      *expr = Expr(1);                                       \
+      return;                                                \
+    }                                                        \
+  }
+  DEFINE_VISIT_CMP_OP(LE, ProveLE)
+  DEFINE_VISIT_CMP_OP(LT, ProveLT)
+  DEFINE_VISIT_CMP_OP(GE, ProveGE)
+  DEFINE_VISIT_CMP_OP(GT, ProveGT)
+  DEFINE_VISIT_CMP_OP(EQ, ProveEQ)
+  DEFINE_VISIT_CMP_OP(NE, ProveNE)
+
+#undef DEFINE_VISIT_CMP_OP
+
+  void Visit(const ir::And* op, Expr* expr) override {
+    auto* node = expr->As<ir::And>();
+    ir::ExprMutator<>::Visit(&node->a(), &node->a());
+    ir::ExprMutator<>::Visit(&node->a(), &node->a());
+    if (common::IsZero(node->a()) || common::IsZero(node->b())) *expr = Expr(0);
+    if (common::IsOne(node->a()) && common::IsOne(node->b())) *expr = Expr(1);
+  }
+
+  void Visit(const ir::Or* op, Expr* expr) override {
+    auto* node = expr->As<ir::Or>();
+    ir::ExprMutator<>::Visit(&node->a(), &node->a());
+    ir::ExprMutator<>::Visit(&node->a(), &node->a());
+    if (common::IsZero(node->a()) && common::IsZero(node->b())) *expr = Expr(0);
+    if (common::IsOne(node->a()) || common::IsOne(node->b())) *expr = Expr(1);
+  }
+
+  void Visit(const ir::Not* op, Expr* expr) override {
+    auto* node = expr->As<ir::Not>();
+    auto v = node->v();
+    ir::ExprMutator<>::Visit(&v, &v);
+    switch (v.node_type()) {
+      case ir::IrNodeTy::IntImm:
+      case ir::IrNodeTy::UIntImm:
+        *expr = common::IsZero(v) ? Expr(1) : Expr(0);
+      case ir::IrNodeTy::Not:
+        *expr = v.As<ir::Not>()->v();
+      case ir::IrNodeTy::LE:
+        *expr = ir::GT::Make(v->operand(0), v->operand(1));
+      case ir::IrNodeTy::LT:
+        *expr = ir::GE::Make(v->operand(0), v->operand(1));
+      case ir::IrNodeTy::GE:
+        *expr = ir::LT::Make(v->operand(0), v->operand(1));
+      case ir::IrNodeTy::GT:
+        *expr = ir::LE::Make(v->operand(0), v->operand(1));
+      default:
+        return;
+    }
+  }
+
+ private:
+  common::SymbolicExprAnalyzer ana_;
+};
+
 struct ReplaceFracWithDivMutator : public ir::IRMutator<> {
   void operator()(Expr* x) { ir::IRMutator<>::Visit(x, x); }
 
@@ -461,13 +559,32 @@ struct SimplifyCastMutator : public ir::IRMutator<> {
 
 }  // namespace
 
+void SimplifyCast(Expr* expr) { SimplifyCastMutator()(expr); }
+void SimplifyForLoops(Expr* expr) { SimplifyForLoopsMutator()(expr); }
+void SimplifyBlocks(Expr* expr) { SimplifyBlocksMutator()(expr); }
+
+void SimplifyLogical(Expr* expr) {
+  common::cas_intervals_t var_intervals_t =
+      common::CollectVarIntervalsOfExprs({*expr});
+  common::SymbolicExprAnalyzer ana{var_intervals_t};
+  auto mutator = SimplifyLogicalMutator(ana);
+  mutator(expr);
+}
+Expr ArithSimplify(const Expr& u) {
+  if (!u.is_index()) return u;
+  auto copied = ir_utils::IRCopy(u);
+  return copied.as_index().Normalize();
+}
+
 void Simplify(Expr* expr) {
   VLOG(3) << "Begin Simplify " << *expr;
   SimplifyCastMutator()(expr);
   SimplifyRampMutator()(expr);
   SimplifyLoadMutator()(expr);
   SimplifyStoreMutator()(expr);
+  SimplifyLogical(expr);
   SimplifyIfThenElseMutator()(expr);
+  SimplifySelectMutator()(expr);
 
   cinn::common::cas_intervals_t var_intervals;
   SimplifyNoPureMathMutator mutator(var_intervals);
@@ -476,10 +593,5 @@ void Simplify(Expr* expr) {
   ReplaceFracWithDivMutator()(expr);
   VLOG(3) << "End Simplify " << *expr;
 }
-
-void SimplifyCast(Expr* expr) { SimplifyCastMutator()(expr); }
-void SimplifyForLoops(Expr* expr) { SimplifyForLoopsMutator()(expr); }
-void SimplifyBlocks(Expr* expr) { SimplifyBlocksMutator()(expr); }
-
 }  // namespace optim
 }  // namespace cinn
