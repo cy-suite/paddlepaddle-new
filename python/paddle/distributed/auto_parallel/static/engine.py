@@ -344,15 +344,15 @@ class Engine:
 
         if isinstance(data, dict):
             data = tuple(data.values())
-            if len(data) != 2:
+            if len(data) > 3:
                 raise ValueError(
-                    f"Data should be a dict with two keys, but received {len(data)}."
+                    f"Data can contain up to three keys : inputs,labels,attention_mask and at least contain inputs and labels , but received {len(data)}."
                 )
             inputs, labels = data
         elif isinstance(data, (list, tuple)):
-            if len(data) != 2:
+            if len(data) > 3:
                 raise ValueError(
-                    f"Data should be a list or tuple with two elements, but received {len(data)}."
+                    f"Data can contain up to three keys : inputs,labels,attention_mask and at least contain inputs and labels, but received {len(data)}."
                 )
             inputs, labels = data
         else:
