@@ -670,22 +670,6 @@ bool VerifyIndex(const ir::Expr &expr) {
   return false;
 }
 
-static ir::IndexExpr SimplifyMin(const ir::IndexExpr &lhs,
-                                 const ir::IndexExpr &rhs) {
-  if (lhs == rhs) return lhs;
-  if (auto constRes = cinn::common::TryConstFold<ir::Min>(lhs, rhs))
-    return constRes.value();
-  return ir::Min::Make(lhs, rhs);
-}
-
-static ir::IndexExpr SimplifyMax(const ir::IndexExpr &lhs,
-                                 const ir::IndexExpr &rhs) {
-  if (lhs == rhs) return lhs;
-  if (auto constRes = cinn::common::TryConstFold<ir::Max>(lhs, rhs))
-    return constRes.value();
-  return ir::Max::Make(lhs, rhs);
-}
-
 ir::IndexExpr ConstructIndexExprByNodeType(const ir::IrNodeTy &ty,
                                            const ir::IndexExpr &lhs,
                                            const ir::IndexExpr &rhs,
@@ -701,10 +685,6 @@ ir::IndexExpr ConstructIndexExprByNodeType(const ir::IrNodeTy &ty,
       return simplify_flag ? lhs / rhs : ir::Div::Make(lhs, rhs);
     case ir::IrNodeTy::Mod:
       return simplify_flag ? lhs % rhs : ir::Mod::Make(lhs, rhs);
-    case ir::IrNodeTy::Min:
-      return simplify_flag ? ir::Min::Make(lhs, rhs) : SimplifyMin(lhs, rhs);
-    case ir::IrNodeTy::Max:
-      return simplify_flag ? ir::Max::Make(lhs, rhs) : SimplifyMax(lhs, rhs);
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(
           "Unsupported type in Constructir::IndexExprByNodeType, which is: %s",
