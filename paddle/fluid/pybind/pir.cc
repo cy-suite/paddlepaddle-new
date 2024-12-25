@@ -30,6 +30,7 @@
 #include "paddle/fluid/framework/executor.h"
 #include "paddle/fluid/framework/ir/pass.h"
 #include "paddle/fluid/framework/program_desc.h"
+#include "paddle/fluid/framework/tensor_util.h"
 #include "paddle/fluid/ir_adaptor/translator/program_translator.h"
 #include "paddle/fluid/ir_adaptor/translator/translate.h"
 #include "paddle/fluid/ir_adaptor/translator/utils.h"
@@ -593,7 +594,7 @@ void BindProgram(py::module *m) {
            })
       .def("num_ops", [](Program &self) { return self.num_ops(); })
       .def(
-          "state_dict",
+          "_state_dict",
           [](std::shared_ptr<Program> self,
              const std::string &mode = "all",
              const framework::Scope &scope = framework::Scope()) {
@@ -635,21 +636,32 @@ void BindProgram(py::module *m) {
                   "The mode is not supported."));
             }
           })
-      .def("set_state_dict",
-           [](std::shared_ptr<Program> self,
-              const std::unordered_map<std::string, phi::DenseTensor>
-                  &state_dict,
-              const framework::Scope &scope = framework::Scope()) {
-             for (auto item : state_dict) {
-               auto var = scope.FindVar(item.first);
-               if (var == nullptr) {
-                 PADDLE_THROW(common::errors::NotFound(
-                     "The variable %s is not found.", item.first));
-               } else {
-                 *var->GetMutable<phi::DenseTensor>() = item.second;
-               }
-             }
-           })
+      .def(
+          "set_state_dict",
+          [](std::shared_ptr<Program> self,
+             const std::unordered_map<std::string, phi::DenseTensor>
+                 &state_dict,
+             const framework::Scope &scope = framework::Scope(),
+             bool copy_tensor = false) {
+            for (auto item : state_dict) {
+              auto var = scope.FindVar(item.first);
+              if (var == nullptr) {
+                PADDLE_THROW(common::errors::NotFound(
+                    "The variable %s is not found.", item.first));
+              } else {
+                if (copy_tensor) {
+                  auto *mutable_tensor = var->GetMutable<phi::DenseTensor>();
+                  paddle::framework::TensorCopy(
+                      item.second, item.second.place(), mutable_tensor);
+                } else {
+                  *var->GetMutable<phi::DenseTensor>() = item.second;
+                }
+              }
+            }
+          },
+          py::arg("state_dict"),
+          py::arg("scope"),
+          py::arg("copy_tensor") = false)
       .def(
           "_prune",
           [](Program &self, std::vector<pir::Value> output_vars) {
@@ -1191,7 +1203,27 @@ void BindOperation(py::module *m) {
             self.set_attribute(
                 "chunk_id",
                 Int32Attribute::get(pir::IrContext::Instance(), chunk_id));
-          });
+          })
+      .def("is_no_need_buffer",
+           [](Operation &self, const Value &operand_source) -> bool {
+             paddle::dialect::OpYamlInfoInterface op_info_interface =
+                 self.dyn_cast<paddle::dialect::OpYamlInfoInterface>();
+             std::unique_ptr<paddle::dialect::OpYamlInfoParser> info_parser(
+                 nullptr);
+             if (op_info_interface) {
+               info_parser =
+                   std::make_unique<paddle::dialect::OpYamlInfoParser>(
+                       op_info_interface.GetOpInfo(),
+                       paddle::dialect::IsLegacyOp(self.name()));
+               auto &no_need_buffer_ids = info_parser->NoNeedBufferIds();
+               for (auto no_need_buffer_id : no_need_buffer_ids) {
+                 if (operand_source == self.operand_source(no_need_buffer_id)) {
+                   return true;
+                 }
+               }
+             }
+             return false;
+           });
   py::class_<Operation::BlockContainer> block_container(
       *m, "Operation_BlockContainer", R"DOC(
     The Operation_BlockContainer only use to walk all blocks in the operation.
@@ -3025,64 +3057,82 @@ void BindShapeOrDataDimExprs(pybind11::module *m) {
       .def("data",
            &symbol::ShapeOrDataDimExprs::data,
            return_value_policy::reference)
-      .def("is_equal",
-           [](symbol::ShapeOrDataDimExprs &self,
-              std::vector<int64_t> expect_shape,
-              std::vector<int64_t> expect_data = {}) -> bool {
-             VLOG(3) << "Start compare shape and data.";
+      .def(
+          "is_equal",
+          [](symbol::ShapeOrDataDimExprs &self,
+             std::vector<int64_t> expect_shape,
+             std::vector<int64_t> expect_data = {}) -> bool {
+            VLOG(3) << "Start compare shape and data.";
 
-             const auto &compare_func =
-                 [&](const std::vector<int64_t> &expect,
-                     const std::vector<symbol::DimExpr> &actual) -> bool {
-               const auto print_expect_and_actual = [&]() {
-                 std::ostringstream sout;
-                 sout << "expect: [";
-                 std::copy(expect.begin(),
-                           expect.end(),
-                           std::ostream_iterator<int64_t>(sout, ","));
-                 sout << "]" << std::endl;
+            const auto &CompareFunc =
+                [&](const std::vector<int64_t> &expect,
+                    const std::vector<symbol::DimExpr> &actual,
+                    const std::string &compare_type) -> bool {
+              const auto PrintExpectAndActual = [&](const std::string &prefix) {
+                std::ostringstream sout;
+                sout << prefix << " expect: [";
+                std::copy(expect.begin(),
+                          expect.end(),
+                          std::ostream_iterator<int64_t>(sout, ","));
+                sout << "]" << std::endl;
 
-                 sout << "actual:" << actual << std::endl;
-                 LOG(ERROR) << sout.str();
-               };
+                sout << prefix << " actual:" << actual << std::endl;
+                LOG(ERROR) << sout.str();
+              };
 
-               if (actual.size() != expect.size()) {
-                 LOG(ERROR) << "expect size " << expect.size()
-                            << " is not equal to actual size " << actual.size()
-                            << " . The detailed infermation is as follows:";
-                 print_expect_and_actual();
-                 return false;
-               } else if (actual.empty()) {
-                 return true;
-               }
+              if (actual.size() != expect.size()) {
+                LOG(ERROR) << compare_type << " expect size " << expect.size()
+                           << " is not equal to actual size " << actual.size()
+                           << " . The detailed infermation is as follows:";
+                PrintExpectAndActual(compare_type);
+                return false;
+              } else if (actual.empty()) {
+                return true;
+              }
 
-               for (size_t i = 0; i < actual.size(); i++) {
-                 if (!actual.at(i).isa<int64_t>()) {
-                   print_expect_and_actual();
-                   PADDLE_THROW(common::errors::InvalidArgument(
-                       "In OpTest, only supports cases where the type of "
-                       "DimExpr "
-                       "is int64_t."));
-                   return false;
-                 }
-                 if (actual.at(i) != expect.at(i)) {
-                   LOG(ERROR) << "expect[" << i << "]: " << expect.at(i)
-                              << " is not equal to actual[" << i
-                              << "]: " << actual.at(i)
-                              << " . The detailed infermation is as follows:";
-                   print_expect_and_actual();
-                   return false;
-                 }
-               }
-               return true;
-             };
+              for (size_t i = 0; i < actual.size(); i++) {
+                if (!actual.at(i).isa<int64_t>()) {
+                  PrintExpectAndActual(compare_type);
+                  PADDLE_THROW(common::errors::InvalidArgument(
+                      "In OpTest, only supports cases where the type of "
+                      "DimExpr "
+                      "is int64_t."));
+                  return false;
+                }
+                if (actual.at(i) != expect.at(i)) {
+                  LOG(ERROR)
+                      << compare_type << " expect[" << i
+                      << "]: " << expect.at(i) << " is not equal to actual["
+                      << i << "]: " << actual.at(i)
+                      << " . The detailed infermation is as follows:";
+                  PrintExpectAndActual(compare_type);
+                  return false;
+                }
+              }
+              return true;
+            };
 
-             // compare shape
-             const std::vector<symbol::DimExpr> &actual_shape = self.shape();
-
-             // TODO(gongshaotian): compare data
-             return compare_func(expect_shape, actual_shape);
-           });
+            // compare shape
+            const std::vector<symbol::DimExpr> &actual_shape = self.shape();
+            const bool shape_status =
+                CompareFunc(expect_shape, actual_shape, "shape");
+            // compare data
+            const std::optional<std::vector<symbol::DimExpr>> &actual_data_ =
+                self.data();
+            if (actual_data_.has_value()) {
+              PADDLE_ENFORCE_LE(actual_shape.size(),
+                                1,
+                                common::errors::Unimplemented(
+                                    "Now data dim expr is not supported for "
+                                    "multi-dim shape."));
+              const std::vector<symbol::DimExpr> actual_data =
+                  actual_data_.value();
+              const bool data_status =
+                  CompareFunc(expect_data, actual_data, "data");
+              return shape_status && data_status;
+            }
+            return shape_status;
+          });
 }
 
 void BindShapeConstraintIRAnalysis(pybind11::module *m) {
