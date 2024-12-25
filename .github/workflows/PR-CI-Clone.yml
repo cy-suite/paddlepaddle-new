@@ -1,13 +1,11 @@
 name: Clone
 
 on:
-  push:
-    branches: [ "develop" ]
   pull_request:
     branches: [ "develop" ]
 
 jobs:
-  Clone:
+  Clone-Paddle:
     runs-on: ubuntu-latest
     steps:
     - name: Clone paddle
