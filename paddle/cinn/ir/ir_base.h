@@ -497,6 +497,8 @@ struct IndexExpr : public IrNodeRef {
   explicit IndexExpr(int32_t x) : IrNodeRef(new IntImm(Int(32), x)) {}
   explicit IndexExpr(int64_t x) : IrNodeRef(new IntImm(Int(64), x)) {}
 
+  explicit IndexExpr(Type t, int64_t x) : IrNodeRef(new IntImm(t, x)) {}
+
   bool is_var() const;
   _Var_* as_var();
   const _Var_* as_var() const;
