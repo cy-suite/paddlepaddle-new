@@ -25,7 +25,7 @@ jobs:
       run: |
         git checkout -b test
         git remote add upstream https://github.com/PaddlePaddle/Paddle.git
-        git pull --no-rebase upstream develop
+        git pull --no-rebase --allow-unrelated-histories upstream develop
 
     - name: Cache bos client
       id: cache_bos_client
