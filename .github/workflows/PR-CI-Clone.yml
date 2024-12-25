@@ -19,15 +19,12 @@ jobs:
       uses: actions/checkout@v4
       with:
         submodules: 'recursive'
-        ref: ${{ github.event.pull_request.head.sha }}
 
     - name: Merge paddle
       run: |
+        git fetch origin pull/${{ github.event.pull_request.number }}/merge
+        git checkout -qf FETCH_HEAD
         git checkout -b test
-        git config --global user.name "PaddleCI"
-        git config --global user.email "paddle_ci@example.com"
-        git remote add upstream https://github.com/PaddlePaddle/Paddle.git
-        git pull --no-rebase --allow-unrelated-histories upstream develop
 
     - name: Cache bos client
       id: cache_bos_client
