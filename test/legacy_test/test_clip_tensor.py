@@ -67,13 +67,13 @@ class TestClipTensorAPI(unittest.TestCase):
 
     def test_check_output_int32(self):
         np_pd_equal([4, 5], [5], [1], 'int32')
-    
+
     def test_check_output_float32(self):
         np_pd_equal([4], [5, 4], [4], 'float32')
-    
+
     def test_check_output_int64(self):
         np_pd_equal([4, 5], [5], [4, 5], 'int64')
-    
+
     def test_check_output_Nonemin(self):
         paddle.disable_static()
         x = np.random.randn(4, 5).astype('float32')
@@ -87,7 +87,7 @@ class TestClipTensorAPI(unittest.TestCase):
 
     def test_check_static_output_int32(self):
         np_pd_static_equal([4], [5, 4], [6, 5, 4], 'int32')
-    
+
     def test_check_static_output_int64(self):
         np_pd_static_equal([4, 5], [5], [4, 5], 'int64')
 
@@ -112,7 +112,7 @@ class TestClipTensorAPI(unittest.TestCase):
             res = exe.run(feed={'x': x, 'max': max}, fetch_list=[pd_out])
             np.allclose(res[0], np_out)
         paddle.disable_static()
-    
+
     def test_fp16(self):
         if base.core.is_compiled_with_cuda():
             paddle.enable_static()
@@ -143,14 +143,14 @@ class TestClipTensorAPI(unittest.TestCase):
                     fetch_list=[out],
                 )
             paddle.disable_static()
-    
+
 
 class TestClipTensor_API(unittest.TestCase):
     def setUp(self):
         self.x_shape = [4, 5, 5]
         self.min_shape = [5, 5]
         self.max_shape = [4, 5, 5]
-    
+
     def test_check_output(self):
         paddle.disable_static()
         x = np.random.randn(*self.x_shape).astype('float32')
@@ -163,7 +163,7 @@ class TestClipTensor_API(unittest.TestCase):
         paddle.clip_(x_pd, min_pd, max_pd)
         np.allclose(x_pd.numpy(), np_out)
         paddle.enable_static()
-    
+
     def test_check_error_shape(self):
         paddle.disable_stataic()
         with self.assertRaises(ValueError):
@@ -172,7 +172,7 @@ class TestClipTensor_API(unittest.TestCase):
             max_pd = paddle.randn([4, 4, 5], dtype='float32')
             paddle.clip_(x_pd, min_pd, max_pd)
         paddle.enable_static()
-    
+
     def test_check_None(self):
         paddle.disable_static()
         x = np.random.randn(4, 5, 5).astype('float32')
