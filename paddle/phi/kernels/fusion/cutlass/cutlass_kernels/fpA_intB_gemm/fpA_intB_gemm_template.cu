@@ -264,14 +264,14 @@ void dispatch_gemm_to_cutlass(const T* A,
       break;
 #if defined(USE_FPAINTB_GEMM_WITH_SM80) || \
     defined(USE_FPAINTB_GEMM_WITH_SM86) || defined(USE_FPAINTB_GEMM_WITH_SM90)
-    case CutlassTileConfig::CtaShape128x128x64_WarpShape128x32x64:
+    case CutlassTileConfig::CtaShape128x128x64_WarpShape64x64x64:
       dispatch_gemm_config<T,
                            WeightType,
                            arch,
                            EpilogueTag,
                            FineGrained,
                            cutlass::gemm::GemmShape<128, 128, 64>,
-                           cutlass::gemm::GemmShape<128, 32, 64>>(
+                           cutlass::gemm::GemmShape<64, 64, 64>>(
           A,
           B,
           weight_scales,
