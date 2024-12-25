@@ -310,6 +310,29 @@ void dispatch_gemm_to_cutlass(const T* A,
           stream,
           occupancy);
       break;
+    case CutlassTileConfig::CtaShape128x128x64_WarpShape128x32x64:
+      dispatch_gemm_config<T,
+                           WeightType,
+                           arch,
+                           EpilogueTag,
+                           FineGrained,
+                           cutlass::gemm::GemmShape<128, 128, 64>,
+                           cutlass::gemm::GemmShape<128, 32, 64>>(
+          A,
+          B,
+          weight_scales,
+          biases,
+          C,
+          m,
+          n,
+          k,
+          group_size,
+          gemm_config,
+          workspace,
+          workspace_bytes,
+          stream,
+          occupancy);
+      break;
     // config for M_16000_N_12288_K_6144 in encoder
     case CutlassTileConfig::CtaShape128x256x64_WarpShape64x64x64:
       dispatch_gemm_config<T,

@@ -124,25 +124,19 @@ static std::vector<CutlassTileConfig> get_candidate_tiles(
       CutlassTileConfig::CtaShape32x128x64_WarpShape32x32x64,
       CutlassTileConfig::CtaShape64x128x64_WarpShape64x64x64,
   };
-  std::vector<CutlassTileConfig> quant_B_configs_sm80;
+  std::vector<CutlassTileConfig> quant_B_configs_sm80{
+      CutlassTileConfig::CtaShape16x128x64_WarpShape16x32x64,
+      CutlassTileConfig::CtaShape32x128x64_WarpShape32x32x64,
+      CutlassTileConfig::CtaShape64x128x64_WarpShape64x64x64,
+      CutlassTileConfig::CtaShape128x128x64_WarpShape64x64x64,
+      CutlassTileConfig::CtaShape128x256x64_WarpShape64x64x64,
+  };
   if (is_moe) {
-    quant_B_configs_sm80 = {
-        CutlassTileConfig::CtaShape16x128x64_WarpShape16x32x64,
-        CutlassTileConfig::CtaShape32x128x64_WarpShape32x32x64,
-        CutlassTileConfig::CtaShape64x128x64_WarpShape64x64x64,
-        CutlassTileConfig::CtaShape64x128x64_WarpShape64x32x64,
-        CutlassTileConfig::CtaShape128x128x64_WarpShape64x64x64,
-        CutlassTileConfig::CtaShape128x256x64_WarpShape64x64x64,
-    };
+    quant_B_configs_sm80.push_back(
+        CutlassTileConfig::CtaShape64x128x64_WarpShape64x32x64);
   } else {
-    quant_B_configs_sm80 = {
-        CutlassTileConfig::CtaShape16x128x64_WarpShape16x32x64,
-        CutlassTileConfig::CtaShape32x128x64_WarpShape32x32x64,
-        CutlassTileConfig::CtaShape64x128x64_WarpShape64x64x64,
-        CutlassTileConfig::CtaShape128x128x64_WarpShape64x64x64,
-        CutlassTileConfig::CtaShape128x128x64_WarpShape128x32x64,
-        CutlassTileConfig::CtaShape128x256x64_WarpShape64x64x64,
-    };
+    quant_B_configs_sm80.push_back(
+        CutlassTileConfig::CtaShape128x128x64_WarpShape128x32x64);
   }
   std::vector<CutlassTileConfig> quant_B_configs_sm80_finegrained{
       CutlassTileConfig::CtaShape16x128x64_WarpShape16x32x64,
