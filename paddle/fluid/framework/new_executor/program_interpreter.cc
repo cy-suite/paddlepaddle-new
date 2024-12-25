@@ -1016,15 +1016,23 @@ void ProgramInterpreter::RunOperator(const Instruction& instr_node) {
               const_cast<phi::DeviceContext*>(&instr_node.DeviceContext());
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
           auto attrs = op->Attrs();
-          if (attrs.find("ring_id") != attrs.end()) {
+          if (!dev_ctx->GetCommContext() &&
+              attrs.find("ring_id") != attrs.end()) {
             auto ring_id_attr = attrs.at("ring_id");
             int ring_id = PADDLE_GET(int, ring_id_attr);
             auto map = distributed::ProcessGroupMapFromGid::getInstance();
-            if (map->has(ring_id)) {
+            const auto& comm_context_manager =
+                phi::distributed::CommContextManager::GetInstance();
+            phi::distributed::CommContext* comm_context = nullptr;
+            if (comm_context_manager.Has(std::to_string(ring_id))) {
+              comm_context = comm_context_manager.Get(std::to_string(ring_id));
+            } else if (map->has(ring_id)) {
               distributed::ProcessGroup* pg = map->get(ring_id);
-              auto comm_context =
+              comm_context =
                   static_cast<paddle::distributed::ProcessGroupNCCL*>(pg)
                       ->GetOrCreateCommContext(place);
+            }
+            if (comm_context) {
               dev_ctx =
                   static_cast<phi::distributed::NCCLCommContext*>(comm_context)
                       ->GetDevContext();
