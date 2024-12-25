@@ -25,9 +25,9 @@
 #if defined(PADDLE_WITH_CUDA)
 #include "paddle/cinn/runtime/cinn_runtime.h"
 #endif
-PD_DECLARE_bool(cinn_measure_kernel_time);
-PD_DECLARE_string(tile_config_policy);
-PD_DECLARE_string(cinn_kernel_execution_label);
+COMMON_DECLARE_bool(cinn_measure_kernel_time);
+COMMON_DECLARE_string(tile_config_policy);
+COMMON_DECLARE_string(cinn_kernel_execution_label);
 
 namespace paddle {
 namespace framework {

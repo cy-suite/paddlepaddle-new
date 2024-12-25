@@ -29,6 +29,8 @@ limitations under the License. */
 #include "paddle/phi/kernels/funcs/eigen/eigen_function.h"
 #include "paddle/phi/kernels/gpudnn/conv_gpudnn_info.h"
 
+COMMON_DECLARE_int64(conv_workspace_size_limit);
+
 namespace phi {
 
 using GPUDNNDataLayout = phi::backends::gpu::DataLayout;

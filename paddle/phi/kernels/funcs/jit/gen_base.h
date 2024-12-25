@@ -25,7 +25,7 @@
 #include "paddle/common/flags.h"
 #include "paddle/phi/kernels/funcs/jit/kernel_base.h"
 
-PHI_DECLARE_bool(dump_jitcode);
+COMMON_DECLARE_bool(dump_jitcode);
 
 namespace phi {
 namespace jit {

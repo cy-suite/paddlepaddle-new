@@ -25,8 +25,10 @@ limitations under the License. */
 #include "gflags/gflags.h"
 #include "utils.h"  // NOLINT
 
-DEFINE_string(dirname, "", "Directory of the inference model.");
-DEFINE_bool(use_gpu, false, "Whether use gpu.");
+// DEFINE_string(dirname, "", "Directory of the inference model.");
+// DEFINE_bool(use_gpu, false, "Whether use gpu.");
+COMMON_DECLARE_string(dirname);
+COMMON_DECLARE_bool(use_gpu);
 
 namespace paddle {
 namespace demo {

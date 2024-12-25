@@ -16,9 +16,6 @@ limitations under the License. */
 
 #include "paddle/common/flags.h"
 #include "paddle/fluid/framework/op_registry.h"
-PHI_DEFINE_EXPORTED_int32(rpc_send_thread_num,
-                          12,
-                          "number of threads for rpc send");
 
 namespace paddle::operators {
 

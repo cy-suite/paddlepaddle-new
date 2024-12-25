@@ -16,10 +16,9 @@
 #include "paddle/common/flags.h"
 #include "paddle/fluid/prim/utils/static/static_global_utils.h"
 
-PHI_DEFINE_EXPORTED_bool(prim_enabled, false, "enable_prim or not");
-PHI_DEFINE_EXPORTED_bool(prim_all, false, "enable prim_all or not");
-PHI_DEFINE_EXPORTED_bool(prim_forward, false, "enable prim_forward or not");
-PHI_DEFINE_EXPORTED_bool(prim_backward, false, "enable prim_backward not");
+COMMON_DECLARE_bool(prim_all);
+COMMON_DECLARE_bool(prim_forward);
+COMMON_DECLARE_bool(prim_backward);
 
 namespace paddle::prim {
 bool PrimCommonUtils::IsBwdPrimEnabled() {

@@ -20,6 +20,9 @@
 #include <unordered_set>
 #include <vector>
 
+COMMON_DECLARE_bool(convert_all_blocks);
+COMMON_DECLARE_bool(all_blocks_convert_trt);
+
 namespace paddle::framework::ir {
 
 #define GET_IR_NODE(node__) GET_IR_NODE_FROM_SUBGRAPH(node__, node__, pattern);

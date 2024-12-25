@@ -24,7 +24,7 @@ limitations under the License. */
 #include "paddle/phi/core/enforce.h"
 #include "paddle/phi/kernels/funcs/jit/kernels.h"
 
-PD_DEFINE_double(acc, 1e-5, "Test accuracy threshold.");
+COMMON_DECLARE_double(acc);
 
 template <typename T>
 void RandomVec(const int n,

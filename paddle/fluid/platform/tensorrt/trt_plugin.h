@@ -30,7 +30,7 @@ namespace nvinfer1 {
 class ITensor;
 }  // namespace nvinfer1
 
-PD_DECLARE_bool(profile);
+COMMON_DECLARE_bool(profile);
 
 namespace paddle::platform {
 

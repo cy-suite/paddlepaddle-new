@@ -32,6 +32,7 @@
 #include "test/cpp/inference/api/tester_helper.h"
 
 PD_DEFINE_string(dirname, "", "dirname to tests.");
+// PD_DECLARE_string(dirname);
 
 namespace paddle {
 

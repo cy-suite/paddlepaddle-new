@@ -18,6 +18,7 @@ limitations under the License. */
 #include <fstream>
 #include <vector>
 
+#include "paddle/common/flags.h"
 #include "paddle/fluid/framework/block_desc.h"
 #include "paddle/fluid/framework/feed_fetch_type.h"
 #include "paddle/fluid/framework/op_registry.h"
@@ -25,16 +26,11 @@ limitations under the License. */
 #include "paddle/fluid/platform/enforce.h"
 #include "paddle/fluid/pybind/pybind.h"
 #include "paddle/phi/core/platform/cpu_helper.h"
-
 // phi
 #include "paddle/phi/kernels/declarations.h"
 
-PD_DEFINE_string(devices,  // NOLINT
-                 "",
-                 "The devices to be used which is joined by comma.");
-PD_DEFINE_int32(math_num_threads,
-                1,
-                "Number of threads used to run math functions.");
+COMMON_DECLARE_string(devices);
+COMMON_DECLARE_int32(math_num_threads);
 
 namespace paddle {
 namespace inference {

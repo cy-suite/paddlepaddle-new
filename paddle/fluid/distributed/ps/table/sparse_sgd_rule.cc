@@ -20,8 +20,6 @@
 
 #include "paddle/common/enforce.h"
 
-PD_DEFINE_bool(enable_show_scale_gradient, true, "enable show scale gradient");
-
 namespace paddle::distributed {
 
 void SparseNaiveSGDRule::LoadConfig(const SparseCommonSGDRuleParameter &param,

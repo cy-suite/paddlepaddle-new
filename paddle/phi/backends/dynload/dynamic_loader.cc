@@ -47,29 +47,14 @@ COMMON_DECLARE_string(curand_dir);
 COMMON_DECLARE_string(cusolver_dir);
 COMMON_DECLARE_string(cusparse_dir);
 COMMON_DECLARE_string(win_cuda_bin_dir);
+
 #ifdef PADDLE_WITH_HIP
-
-PHI_DEFINE_string(miopen_dir,
-                  "",
-                  "Specify path for loading libMIOpen.so. For instance, "
-                  "/opt/rocm/miopen/lib. If empty [default], dlopen "
-                  "will search miopen from LD_LIBRARY_PATH");
-
-PHI_DEFINE_string(rocm_dir,
-                  "",
-                  "Specify path for loading rocm library, such as librocblas, "
-                  "libmiopen, libhipsparse. For instance, /opt/rocm/lib. "
-                  "If default, dlopen will search rocm from LD_LIBRARY_PATH");
-
-PHI_DEFINE_string(rccl_dir,
-                  "",
-                  "Specify path for loading rccl library, such as librccl.so. "
-                  "For instance, /opt/rocm/rccl/lib. If default, "
-                  "dlopen will search rccl from LD_LIBRARY_PATH");
+COMMON_DECLARE_string(miopen_dir);
+COMMON_DECLARE_string(rocm_dir);
+COMMON_DECLARE_string(rccl_dir);
 #endif
-
 #ifdef PADDLE_WITH_XPU
-PD_DEFINE_string(xpti_dir, "", "Specify path for loading libxpti.so.");
+COMMON_DECLARE_string(xpti_dir);
 #endif
 
 namespace phi::dynload {

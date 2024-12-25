@@ -18,6 +18,8 @@ limitations under the License. */
 
 #include "gtest/gtest.h"
 
+COMMON_DECLARE_bool(convert_all_blocks);
+
 namespace paddle::framework::ir {
 class Graph;
 class Node;

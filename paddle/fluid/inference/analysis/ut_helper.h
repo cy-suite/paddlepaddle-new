@@ -28,10 +28,6 @@ namespace inference {
 // Read ProgramDesc from a __model__ file, defined in io.cc
 extern void ReadBinaryFile(const std::string& filename, std::string* contents);
 
-namespace analysis {
-
-PD_DEFINE_string(inference_model_dir, "", "inference test model dir");
-
-}  // namespace analysis
+namespace analysis {}  // namespace analysis
 }  // namespace inference
 }  // namespace paddle

@@ -19,22 +19,6 @@
 #include "paddle/pir/include/core/program.h"
 #include "paddle/pir/include/core/value.h"
 
-PHI_DEFINE_EXPORTED_bool(
-    new_executor_serial_run,
-    false,
-    "Enable serial execution for standalone executor, used for debug.");
-PHI_DEFINE_EXPORTED_bool(
-    new_executor_static_build,
-    false,
-    "Build the interpreterCore statically without running kernels.");
-PHI_DEFINE_EXPORTED_bool(new_executor_use_inplace,
-                         false,
-                         "Use inplace in new executor");
-PHI_DEFINE_EXPORTED_bool(new_executor_use_local_scope,
-                         true,
-                         "Use local_scope in new executor(especially used "
-                         "in UT), can turn off for better performance");
-
 namespace paddle::framework {
 
 InterpreterCore::InterpreterCore(const phi::Place& place,

@@ -22,18 +22,8 @@
 
 #include "paddle/common/flags.h"
 
-PHI_DEFINE_EXPORTED_bool(xpu_top_p_sampling_use_fp16,
-                         false,
-                         "use fp16 to improve the inference performance of "
-                         "top_p_sampling xpu kernel");
-PHI_DEFINE_EXPORTED_bool(
-    xpu_top_p_sampling_heuristic_threshold,
-    20,
-    "threshold of heuristic method used for xpu_top_p_sampling, default 20; if "
-    "heuristic_threshold = -1, xpu_top_p_sampling don't use heuristic method, "
-    "and will fallback to normal top_p_sampling; if heuristic_threshold > 0, "
-    "xpu_top_p_sampling will enable heuristic method");
-
+COMMON_DECLARE_bool(xpu_top_p_sampling_use_fp16);
+COMMON_DECLARE_bool(xpu_top_p_sampling_heuristic_threshold);
 namespace phi {
 
 template <typename T, typename Context>

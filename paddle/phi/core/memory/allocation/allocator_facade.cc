@@ -76,41 +76,12 @@
 
 #include "paddle/common/flags.h"
 
-PHI_DEFINE_EXPORTED_int64(
-    gpu_allocator_retry_time,
-    10000,
-    "The retry time (milliseconds) when allocator fails "
-    "to allocate memory. No retry if this value is not greater than 0");
-
-PHI_DEFINE_EXPORTED_bool(
-    use_system_allocator,
-    false,
-    "Whether to use system allocator to allocate CPU and GPU memory. "
-    "Only used for unittests.");
-
-PHI_DEFINE_EXPORTED_bool(use_virtual_memory_auto_growth,
-                         false,
-                         "Use VirtualMemoryAutoGrowthBestFitAllocator.");
-
-// NOTE(Ruibiao): This FLAGS is just to be compatible with
-// the old single-stream CUDA allocator. It will be removed
-// after StreamSafeCudaAllocator has been fully tested.
-PHI_DEFINE_EXPORTED_bool(use_stream_safe_cuda_allocator,
-                         true,
-                         "Enable StreamSafeCUDAAllocator");
-
-PHI_DEFINE_EXPORTED_bool(use_cuda_managed_memory,
-                         false,
-                         "Whether to use CUDAManagedAllocator to allocate "
-                         "managed memory, only available for auto_growth "
-                         "strategy");
-
-PHI_DEFINE_EXPORTED_bool(
-    use_auto_growth_v2,
-    false,
-    "Whether to use AutoGrowthBestFitAllocatorV2 for auto_growth "
-    "strategy");
-
+COMMON_DECLARE_int64(gpu_allocator_retry_time);
+COMMON_DECLARE_bool(use_system_allocator);
+COMMON_DECLARE_bool(use_virtual_memory_auto_growth);
+COMMON_DECLARE_bool(use_stream_safe_cuda_allocator);
+COMMON_DECLARE_bool(use_cuda_managed_memory);
+COMMON_DECLARE_bool(use_auto_growth_v2);
 COMMON_DECLARE_string(allocator_strategy);
 COMMON_DECLARE_uint64(auto_growth_chunk_size_in_mb);
 COMMON_DECLARE_bool(use_auto_growth_pinned_allocator);

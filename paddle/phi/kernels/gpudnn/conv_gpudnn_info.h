@@ -20,7 +20,7 @@ limitations under the License. */
 
 #include "paddle/phi/backends/gpu/gpu_dnn.h"
 
-PD_DECLARE_int64(conv_workspace_size_limit);
+COMMON_DECLARE_int64(conv_workspace_size_limit);
 COMMON_DECLARE_bool(cudnn_exhaustive_search);
 COMMON_DECLARE_int64(cudnn_exhaustive_search_times);
 

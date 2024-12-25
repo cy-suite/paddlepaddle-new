@@ -19,7 +19,7 @@ limitations under the License. */
 #include "paddle/fluid/framework/op_registry.h"
 #include "paddle/fluid/platform/init.h"
 
-PD_DECLARE_bool(enable_unused_var_check);
+COMMON_DECLARE_bool(enable_unused_var_check);
 
 namespace paddle {
 namespace framework {

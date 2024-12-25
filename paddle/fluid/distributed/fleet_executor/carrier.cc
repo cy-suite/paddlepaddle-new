@@ -28,13 +28,9 @@
 #include "paddle/fluid/framework/scope.h"
 #include "paddle/fluid/framework/variable.h"
 #include "paddle/fluid/framework/variable_helper.h"
-PHI_DEFINE_EXPORTED_bool(
-    fleet_executor_with_standalone,
-    false,
-    "Use standalone executor to run ops. Temporary FLAGS, will be removed "
-    "after all fleet executor cases are modified to run ops with standalone "
-    "executor.");
+
 COMMON_DECLARE_bool(cache_inference_while_scope);
+COMMON_DECLARE_bool(fleet_executor_with_standalone);
 
 namespace paddle::distributed {
 

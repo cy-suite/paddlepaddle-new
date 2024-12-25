@@ -22,6 +22,18 @@
 #include "paddle/fluid/framework/archive.h"
 #include "paddle/utils/string/split.h"
 
+COMMON_DECLARE_int32(pserver_push_dense_merge_limit);
+COMMON_DECLARE_int32(pserver_push_sparse_merge_limit);
+COMMON_DECLARE_int32(pserver_async_push_dense_interval_ms);
+COMMON_DECLARE_int32(pserver_async_push_sparse_interval_ms);
+COMMON_DECLARE_bool(pserver_scale_gradient_by_merge);
+COMMON_DECLARE_int32(pserver_communicate_compress_type);
+COMMON_DECLARE_int32(pserver_max_async_call_num);
+COMMON_DECLARE_int32(pserver_timeout_ms);
+COMMON_DECLARE_int32(pserver_connect_timeout_ms);
+COMMON_DECLARE_int32(pserver_sparse_merge_thread);
+COMMON_DECLARE_int32(pserver_sparse_table_shard_num);
+
 static const int max_port = 65535;
 
 namespace paddle::framework {
@@ -30,54 +42,6 @@ class Variable;
 }  // namespace paddle::framework
 
 namespace paddle::distributed {
-
-PD_DEFINE_int32(pserver_push_dense_merge_limit,
-                12,
-                "limit max push_dense local merge requests");
-
-PD_DEFINE_int32(pserver_push_sparse_merge_limit,
-                12,
-                "limit max push_sparse local merge requests");
-
-PD_DEFINE_int32(pserver_pull_dense_limit,
-                12,
-                "limit max push_sparse local merge requests");
-
-PD_DEFINE_int32(pserver_async_push_dense_interval_ms,
-                10,
-                "async push_dense to server interval");
-
-PD_DEFINE_int32(pserver_async_push_sparse_interval_ms,
-                10,
-                "async push_sparse to server interval");
-
-PD_DEFINE_bool(pserver_scale_gradient_by_merge,
-               false,
-               "scale dense gradient when merged");
-
-PD_DEFINE_int32(pserver_communicate_compress_type,
-                0,
-                "none:0 snappy:1 gzip:2 zlib:3 lz4:4");
-
-PD_DEFINE_int32(pserver_max_async_call_num,
-                13,
-                "max task num in async_call_server");
-
-PD_DEFINE_int32(pserver_timeout_ms,
-                500000,
-                "pserver request server timeout_ms");
-
-PD_DEFINE_int32(pserver_connect_timeout_ms,
-                10000,
-                "pserver connect server timeout_ms");
-
-PD_DEFINE_int32(pserver_sparse_merge_thread,
-                1,
-                "pserver sparse merge thread num");
-
-PD_DEFINE_int32(pserver_sparse_table_shard_num,
-                1000,
-                "sparse table shard for save & load");
 
 inline size_t get_sparse_shard(uint32_t shard_num,
                                uint32_t server_num,

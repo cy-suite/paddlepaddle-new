@@ -23,10 +23,10 @@
 #include "paddle/phi/core/enforce.h"
 #include "paddle/phi/kernels/funcs/jit/kernels.h"
 
-PD_DEFINE_int32(burning, 10, "Burning times.");
-PD_DEFINE_int32(repeat, 3000, "Repeat times.");
-PD_DEFINE_int32(max_size, 1000, "The Max size would be tested.");
-PD_DEFINE_string(filter, "", "The Benchmark name would be run.");  // NOLINT
+COMMON_DECLARE_int32(burning);
+COMMON_DECLARE_int32(repeat);
+COMMON_DECLARE_int32(max_size);
+COMMON_DECLARE_string(filter);
 
 class BenchJITKernel {
  public:

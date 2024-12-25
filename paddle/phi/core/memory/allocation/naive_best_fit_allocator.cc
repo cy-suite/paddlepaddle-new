@@ -31,14 +31,7 @@
 #include "paddle/phi/core/platform/cuda_device_guard.h"
 #endif
 #include "paddle/common/flags.h"
-PHI_DEFINE_EXPORTED_bool(
-    init_allocated_mem,
-    false,
-    "It is a mistake that the values of the memory allocated by "
-    "BuddyAllocator are always zeroed in some op's implementation. "
-    "To find this error in time, we use init_allocated_mem to indicate "
-    "that initializing the allocated memory with a small value "
-    "during unit testing.");
+COMMON_DECLARE_bool(init_allocated_mem);
 COMMON_DECLARE_double(fraction_of_gpu_memory_to_use);
 COMMON_DECLARE_uint64(initial_gpu_memory_in_mb);
 COMMON_DECLARE_uint64(reallocate_gpu_memory_in_mb);

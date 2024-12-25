@@ -23,27 +23,10 @@
 #include "paddle/phi/backends/device_manager.h"
 #include "paddle/phi/core/memory/allocation/aligned_allocator.h"
 
-PHI_DEFINE_EXPORTED_READONLY_bool(
-    free_idle_chunk,
-    false,
-    "Whether to free idle chunk when each allocation is freed. "
-    "If false, all freed allocation would be cached to speed up next "
-    "allocation request. If true, no allocation would be cached. This "
-    "flag only works when FLAGS_allocator_strategy=auto_growth.");
-
-PHI_DEFINE_EXPORTED_READONLY_bool(
-    free_when_no_cache_hit,
-    false,
-    "Whether to free idle chunks when no cache hit. If true, idle "
-    "chunk would be freed when no cache hit; if false, idle "
-    "chunk would be freed when out of memory occurs. This flag "
-    "only works when FLAGS_allocator_strategy=auto_growth.");
-
-PHI_DEFINE_EXPORTED_READONLY_bool(print_allocator_trace_info,
-                                  false,
-                                  "print trace memory info");
-
-PHI_DEFINE_EXPORTED_READONLY_bool(dump_chunk_info, false, "dump chunk info");
+COMMON_DECLARE_bool(free_idle_chunk);
+COMMON_DECLARE_bool(free_when_no_cache_hit);
+COMMON_DECLARE_bool(print_allocator_trace_info);
+COMMON_DECLARE_bool(dump_chunk_info);
 namespace paddle::memory::allocation {
 
 AutoGrowthBestFitAllocator::AutoGrowthBestFitAllocator(

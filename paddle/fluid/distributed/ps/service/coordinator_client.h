@@ -31,13 +31,12 @@
 #include "paddle/fluid/framework/scope.h"
 #include "paddle/fluid/framework/tensor_util.h"
 
+COMMON_DECLARE_int32(pserver_timeout_ms);
+COMMON_DECLARE_int32(pserver_connect_timeout_ms);
+COMMON_DECLARE_uint64(total_fl_client_size);
+COMMON_DECLARE_uint32(coordinator_wait_all_clients_max_time);
 namespace paddle {
 namespace distributed {
-
-PD_DECLARE_int32(pserver_timeout_ms);
-PD_DECLARE_int32(pserver_connect_timeout_ms);
-PD_DECLARE_uint64(total_fl_client_size);
-PD_DECLARE_uint32(coordinator_wait_all_clients_max_time);
 
 using CoordinatorServiceFunc =
     std::function<int32_t(const CoordinatorReqMessage& request,

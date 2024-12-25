@@ -21,6 +21,8 @@
 #include "paddle/fluid/inference/api/paddle_inference_api.h"
 #include "paddle/phi/common/port.h"
 
+PD_DECLARE_string(inference_model_dir);
+
 namespace paddle {
 namespace inference {
 namespace analysis {

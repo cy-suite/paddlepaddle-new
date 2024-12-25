@@ -24,8 +24,8 @@
 #include "paddle/phi/core/platform/cuda_device_guard.h"
 #include "paddle/phi/core/platform/device/gpu/gpu_info.h"
 
-PD_DECLARE_bool(free_idle_chunk);
-PD_DECLARE_bool(free_when_no_cache_hit);
+COMMON_DECLARE_bool(free_idle_chunk);
+COMMON_DECLARE_bool(free_when_no_cache_hit);
 
 namespace paddle::memory::allocation {
 

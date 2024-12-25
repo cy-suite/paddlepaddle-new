@@ -38,9 +38,9 @@
 #include "paddle/phi/core/platform/device_event.h"
 
 COMMON_DECLARE_bool(new_executor_serial_run);
-PD_DECLARE_bool(new_executor_static_build);
-PD_DECLARE_bool(new_executor_use_inplace);
-PD_DECLARE_bool(new_executor_use_local_scope);
+COMMON_DECLARE_bool(new_executor_static_build);
+COMMON_DECLARE_bool(new_executor_use_inplace);
+COMMON_DECLARE_bool(new_executor_use_local_scope);
 
 COMMON_DECLARE_bool(check_nan_inf);
 COMMON_DECLARE_bool(benchmark);

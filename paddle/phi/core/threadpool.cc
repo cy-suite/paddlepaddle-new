@@ -21,9 +21,7 @@
 #include "paddle/phi/core/enforce.h"
 
 COMMON_DECLARE_int32(dist_threadpool_size);
-PD_DEFINE_int32(io_threadpool_size,
-                100,
-                "number of threads used for doing IO, default 100");
+COMMON_DECLARE_int32(io_threadpool_size);
 
 namespace phi {
 

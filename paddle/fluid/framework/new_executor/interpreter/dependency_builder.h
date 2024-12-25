@@ -20,7 +20,7 @@
 #include "paddle/fluid/framework/new_executor/instruction/instruction_base.h"
 #include "paddle/fluid/framework/new_executor/new_executor_defs.h"
 
-PD_DECLARE_bool(new_executor_sequential_run);
+COMMON_DECLARE_bool(new_executor_sequential_run);
 
 namespace paddle {
 namespace framework {

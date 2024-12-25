@@ -17,9 +17,10 @@
 #include "paddle/fluid/framework/convert_utils.h"
 #include "paddle/phi/core/platform/profiler.h"
 
+COMMON_DECLARE_int32(pserver_timeout_ms);
+COMMON_DECLARE_int32(heter_world_size);
+
 namespace paddle::distributed {
-PD_DEFINE_int32(heter_world_size, 100, "group size");  // group max size
-PD_DEFINE_int32(switch_send_recv_timeout_s, 600, "switch_send_recv_timeout_s");
 
 std::shared_ptr<HeterClient> HeterClient::s_instance_ = nullptr;
 std::mutex HeterClient::mtx_;
@@ -136,7 +137,7 @@ void HeterClient::SendAndRecvAsync(
             closure->cntl.ErrorText()));
     VLOG(4) << "call heter_worker success";
   });
-  closure->cntl.set_timeout_ms(FLAGS_pserver_timeout_ms);
+  closure->cntl.set_timeout_ms(paddle_flags::FLAGS_pserver_timeout_ms);
   auto& request_io_buffer = closure->cntl.request_attachment();
   distributed::SerializeToMultiVarMsgAndIOBuf(message_name,
                                               send_var_name_val,
