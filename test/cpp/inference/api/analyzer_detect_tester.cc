@@ -86,7 +86,7 @@ void profile(int cache_capacity = 1) {
   Timer run_timer;
   double elapsed_time = 0;
 
-  int num_times = FLAGS_repeat;
+  int num_times = FLAGS_repeat_times;
   int sample = FLAGS_sample;
   auto predictor = CreatePaddlePredictor<AnalysisConfig>(cfg);
   outputs.resize(sample);

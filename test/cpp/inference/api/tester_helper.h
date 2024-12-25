@@ -60,7 +60,7 @@ PD_DEFINE_bool(enable_int8_qat,
 PD_DEFINE_int32(warmup_batch_size, 100, "batch size for quantization warmup");
 // setting iterations to 0 means processing the whole dataset
 PD_DEFINE_int32(iterations, 0, "number of batches to process");
-PD_DEFINE_int32(repeat, 1, "Running the inference program repeat times.");
+PD_DEFINE_int32(repeat_times, 1, "Running the inference program repeat times.");
 PD_DEFINE_bool(test_all_data, false, "Test the all dataset in data file.");
 PD_DEFINE_int32(num_threads,
                 1,
@@ -528,7 +528,7 @@ void PredictionRun(PaddlePredictor *predictor,
                    int tid,
                    const VarType::Type data_type = VarType::FP32,
                    float *sample_latency = nullptr) {
-  int num_times = FLAGS_repeat;
+  int num_times = FLAGS_repeat_times;
   int iterations = inputs.size();  // process the whole dataset ...
   if (FLAGS_iterations > 0 &&
       FLAGS_iterations < static_cast<int64_t>(inputs.size()))
@@ -809,7 +809,7 @@ void CompareDeterministic(
     const PaddlePredictor::Config *config,
     const std::vector<std::vector<PaddleTensor>> &inputs) {
   int batch_size = FLAGS_batch_size;
-  int num_times = FLAGS_repeat;
+  int num_times = FLAGS_repeat_times;
   auto predictor = CreateTestPredictor(config, FLAGS_use_analysis);
 
   std::vector<PaddleTensor> warmup_outputs, outputs;

@@ -2308,8 +2308,6 @@ PD_DEFINE_bool(profile, false, "Turn on profiler for fluid");  // NOLINT
 
 PD_DEFINE_string(dirname, "", "dirname to tests.");
 
-PD_DEFINE_bool(use_gpu, false, "Whether use gpu.");  // simple_on_word2vec
-
 PHI_DEFINE_EXPORTED_bool(enable_gpu_memory_usage_log,
                          false,
                          "Whether to print the message of gpu memory usage "
