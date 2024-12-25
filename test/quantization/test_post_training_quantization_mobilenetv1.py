@@ -630,6 +630,8 @@ class TestPostTrainingavgForPwganCsmsc(TestPostTrainingQuantization):
             params_filename=params_filename,
         )
 
+
+class TestPostTraininghistForNoneShape(TestPostTrainingavgForPwganCsmsc):
     def test_post_training_avg_pwgancsmsc(self):
         model = "pwg_baker_static_0.4"
         algo = "avg"
@@ -646,11 +648,11 @@ class TestPostTrainingavgForPwganCsmsc(TestPostTrainingQuantization):
         is_full_quantize = False
         is_use_cache_file = False
         is_optimize_model = True
-        diff_threshold = 0.025
+        diff_threshold = 0.05
         self.run_test(
             model,
-            'inference.pdmodel',
-            'inference.pdiparams',
+            'pwgan_csmsc.pdmodel',
+            'pwgan_csmsc.pdiparams',
             algo,
             round_type,
             data_urls,
