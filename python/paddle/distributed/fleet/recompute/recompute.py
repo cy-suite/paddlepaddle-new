@@ -448,9 +448,7 @@ def _recompute_without_reentrant(
                 "Not supported to retrieve a tensor saved by autograd multiple times that is no need to recompute."
             )
 
-        ret = storage[x]
-        del storage[x]
-        return ret
+        return storage.pop(x)
 
     with paddle.autograd.saved_tensors_hooks(pack, unpack):
         outputs = function(*args, **kwargs)
