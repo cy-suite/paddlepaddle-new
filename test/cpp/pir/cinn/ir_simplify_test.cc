@@ -93,7 +93,7 @@ TEST(IRSimplify, if_fold_correct_0) {
     {
       serial for (k, 0, 8)
       {
-        if (((((i * 1024ll) + k) + (j * 256ll)) == 0)) {
+        if (((((i * 1024) + k) + (j * 256)) == 0)) {
           int32 a = 1
         }
       }
@@ -166,7 +166,7 @@ TEST(IRSimplify, if_fold_correct_1) {
     {
       serial for (k, 0, 8)
       {
-        if (((((i * 1024ll) + k) + (j * 256ll)) == 0)) {
+        if (((((i * 1024) + k) + (j * 256)) == 0)) {
           int32 a = 1
           int32 b = 1
         }
@@ -243,7 +243,7 @@ TEST(IRSimplify, if_fold_correct_2) {
     {
       serial for (k, 0, 8)
       {
-        if (((((i * 1024ll) + k) + (j * 256ll)) == 0)) {
+        if (((((i * 1024) + k) + (j * 256)) == 0)) {
           int32 a = 1
           int32 b = 1
         } else {
@@ -324,7 +324,7 @@ TEST(IRSimplify, if_fold_correct_3) {
     {
       serial for (k, 0, 8)
       {
-        if (((((i * 1024ll) + k) + (j * 256ll)) == 0)) {
+        if (((((i * 1024) + k) + (j * 256)) == 0)) {
           if (((((256 * j) + ((1024 * i) + k)) % 56) <= 0)) {
             int32 a = 1
           }
