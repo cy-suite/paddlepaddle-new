@@ -9,27 +9,27 @@ jobs:
     name: Clone Paddle2
     runs-on: ubuntu-latest
     steps:
-    - name: Clone paddle2
-      uses: actions/checkout@v4
-      with:
-        submodules: 'recursive'
+    # - name: Clone paddle2
+    #   uses: actions/checkout@v4
+    #   with:
+    #     submodules: 'recursive'
 
-    - name: Cache bos client
-      id: cache_bos_client
-      uses: actions/cache@v4
-      with:
-        path: |
-          /home/runner/work/Paddle/bos_upload.py
-          ~/.cache/pip
-        key: bos_client_pip
+    # - name: Cache bos client
+    #   id: cache_bos_client
+    #   uses: actions/cache@v4
+    #   with:
+    #     path: |
+    #       /home/runner/work/Paddle/bos_upload.py
+    #       ~/.cache/pip
+    #     key: bos_client_pip
 
-    - name: Download bos client
-      env:
-        WORK: "/home/runner/work/Paddle"
-      if: steps.cache_bos_client.outputs.cache-hit != 'true'
-      run: |
-        cd $WORK
-        wget -q --no-proxy -O bos_upload.py  https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
+    # - name: Download bos client
+    #   env:
+    #     WORK: "/home/runner/work/Paddle"
+    #   if: steps.cache_bos_client.outputs.cache-hit != 'true'
+    #   run: |
+    #     cd $WORK
+    #     wget -q --no-proxy -O bos_upload.py  https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
 
     - name: Push paddle-action.tar.gz to bos
       env:
