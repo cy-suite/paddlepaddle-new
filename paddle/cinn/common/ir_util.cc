@@ -685,6 +685,10 @@ ir::IndexExpr ConstructIndexExprByNodeType(const ir::IrNodeTy &ty,
       return simplify_flag ? lhs / rhs : ir::Div::Make(lhs, rhs);
     case ir::IrNodeTy::Mod:
       return simplify_flag ? lhs % rhs : ir::Mod::Make(lhs, rhs);
+    case ir::IrNodeTy::Min:
+      return ir::Min::Make(lhs, rhs);
+    case ir::IrNodeTy::Max:
+      return ir::Max::Make(lhs, rhs);
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(
           "Unsupported type in Constructir::IndexExprByNodeType, which is: %s",
