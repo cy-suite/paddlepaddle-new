@@ -289,6 +289,36 @@ class TestLogicalOrTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestAndRTPatternErrorType(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.bitwise_and
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("int32"),
+            "y": np.random.randn(3).astype("int32"),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3], "y": [3]}
+        self.max_shape = {"x": [5, 3], "y": [3]}
+
+    def test_trt_result(self):
+        self.check_marker(expected_result=False)
+
+
+class TestOrRTPatternErrorType(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.bitwise_or
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("int32"),
+            "y": np.random.randn(3).astype("int32"),
+        }
+        self.program_config = {"feed_list": ["x", "y"]}
+        self.min_shape = {"x": [1, 3], "y": [3]}
+        self.max_shape = {"x": [5, 3], "y": [3]}
+
+    def test_trt_result(self):
+        self.check_marker(expected_result=False)
+
+
 class TestNotRTINT8(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.bitwise_not
