@@ -343,18 +343,24 @@ class Engine:
             batch_sampler.set_epoch(0)
 
         if isinstance(data, dict):
-            data = tuple(data.values())
-            if len(data) > 3:
+            data = list(data.values())
+            if len(data) == 2:
+                inputs, labels = data
+            elif len(data) == 3:
+                inputs, labels, _ = data
+            else:
                 raise ValueError(
                     f"Data can contain up to three keys : inputs,labels,attention_mask and at least contain inputs and labels , but received {len(data)}."
                 )
-            inputs, labels = data
         elif isinstance(data, (list, tuple)):
-            if len(data) > 3:
+            if len(data) == 2:
+                inputs, labels = data
+            elif len(data) == 3:
+                inputs, labels, _ = data
+            else:
                 raise ValueError(
-                    f"Data can contain up to three keys : inputs,labels,attention_mask and at least contain inputs and labels, but received {len(data)}."
+                    f"Data can contain up to three keys : inputs,labels,attention_mask and at least contain inputs and labels , but received {len(data)}."
                 )
-            inputs, labels = data
         else:
             raise TypeError(
                 f"Data should be a dict or list, but received {type(data)}."
