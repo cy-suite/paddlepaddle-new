@@ -340,10 +340,10 @@ bool IsNegatedIndexExpr(const ir::IndexExpr &candidate,
                         ir::IndexExpr &expr);  // NOLINT
 
 enum IndexType {
-  Invalid = 0,  // invalid expr
-  Valid = 1,    // valid expr
-  Load = 2,     // exist Load
-  Cast = 3      // exist cast
+  kInvalid = 0,  // invalid expr
+  kValid = 1,    // valid expr
+  kLoad = 2,     // exist Load
+  kCast = 3      // exist cast
 };
 
 /*!
