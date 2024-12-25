@@ -613,8 +613,8 @@ def transpose(
             if dim >= len(x.shape):
                 raise ValueError(
                     "Each element in Input(perm) should be less than Input(x)'s dimension, "
-                    "but %d-th element in Input(perm) is %d which exceeds Input(x)'s "
-                    "dimension %d." % (idx, perm[idx], len(x.shape))
+                    f"but {idx}-th element in Input(perm) is {perm[idx]} which exceeds Input(x)'s "
+                    f"dimension {len(x.shape)}."
                 )
 
         helper = LayerHelper('transpose', **locals())
@@ -748,7 +748,7 @@ def shard_index(
     helper = LayerHelper(op_type, **locals())
     if shard_id < 0 or shard_id >= nshards:
         raise ValueError(
-            'The shard_id(%d) should be in [0, %d)' % (shard_id, nshards)
+            f'The shard_id({shard_id}) should be in [0, {nshards})'
         )
 
     out = helper.create_variable_for_type_inference(dtype=input.dtype)
@@ -2788,8 +2788,7 @@ def split(
                 assert input_shape[dim] % num_or_sections == 0, (
                     "The input's size along the split dimension "
                     "must be evenly divisible by Attr(num_or_sections). "
-                    "But %d is not evenly divisible by %d. "
-                    % (num_or_sections, input_shape[dim])
+                    f"But {num_or_sections} is not evenly divisible by {input_shape[dim]}. "
                 )
             return _C_ops.split_with_num(input, num_or_sections, dim)
         else:
@@ -2848,8 +2847,7 @@ def split(
                     if dim_size == -1:
                         assert unk_dim_idx == -1, (
                             "Only one value of 'num_or_section' in split can "
-                            "be -1. But received num_or_section[%d] is also -1."
-                            % idx
+                            f"be -1. But received num_or_section[{idx}] is also -1."
                         )
                         unk_dim_idx = idx
                     temp_out = helper.create_variable_for_type_inference(
@@ -2875,8 +2873,7 @@ def split(
                 assert input_shape[dim] % num_or_sections == 0, (
                     "The input's size along the split dimension "
                     "must be evenly divisible by Attr(num_or_sections). "
-                    "But %d is not evenly divisible by %d. "
-                    % (num_or_sections, input_shape[dim])
+                    f"But {num_or_sections} is not evenly divisible by {input_shape[dim]}. "
                 )
             num = num_or_sections
         else:
@@ -4758,6 +4755,15 @@ def expand(x: Tensor, shape: ShapeLike, name: str | None = None) -> Tensor:
 
     Both the number of dimensions of ``x`` and the number of elements in ``shape`` should be less than or equal to 6. And the number of dimensions of ``x`` should be less than the number of elements in ``shape``. The dimension to expand must have a value 0.
 
+    The image illustrates a typical case of the expand operation.
+    The Original Tensor is a 1D tensor with shape ``[3]`` and values [1, 2, 3]. Using the ``paddle.expand`` method with the parameter ``shape = [2, 3]``, it is broadcasted and expanded into a 2D tensor with shape ``[2, 3]``
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/expand.png
+        :width: 500
+        :alt: legend of expand API
+        :align: center
+
+
     Args:
         x (Tensor): The input Tensor, its data type is bool, float16, float32, float64, int32, int64, uint8, uint16, complex64 or complex128.
         shape (list|tuple|Tensor): The result shape after expanding. The data type is int32. If shape is a list or tuple, all its elements
@@ -4953,14 +4959,13 @@ def reshape(x: Tensor, shape: ShapeLike, name: str | None = None) -> Tensor:
                 if dim_size == -1:
                     assert unk_dim_idx == -1, (
                         "Only one dimension value of 'shape' in reshape can "
-                        "be -1. But received shape[%d] is also -1.\n"
+                        f"be -1. But received shape[{dim_idx}] is also -1.\n"
                         "\n\t# N = x.shape()[2]\t\t# N is an int. "
                         "(NOT recommend under @to_static)\n\tN = paddle.shape(x)[2]\t\t"
                         "# N is a Tensor. (Recommend)\n\tz = paddle.reshape([N, -1, 4])"
                         "\t# z.shape is [-1, -1, 4]\n\n"
                         "    If your target shape in Reshape represents dynamic shape, "
                         "please turn it into a Tensor under @to_static. See above example for details."
-                        % dim_idx
                     )
                     unk_dim_idx = dim_idx
                 elif dim_size == 0:
@@ -4968,15 +4973,13 @@ def reshape(x: Tensor, shape: ShapeLike, name: str | None = None) -> Tensor:
                         assert dim_idx < len(x.shape), (
                             "The index of 0 in `shape` must be less than "
                             "the input tensor X's dimensions. "
-                            "But received shape[%d] = 0, X's dimensions = %d."
-                            % (dim_idx, len(x.shape))
+                            f"But received shape[{dim_idx}] = 0, X's dimensions = {len(x.shape)}."
                         )
                 else:
                     assert dim_size > 0, (
                         "Each dimension value of 'shape' in reshape must not "
                         "be negative except one unknown dimension. "
-                        "But received shape[%d] = %s."
-                        % (dim_idx, str(dim_size))
+                        f"But received shape[{dim_idx}] = {dim_size!s}."
                     )
         return attrs_shape
 
@@ -5638,22 +5641,7 @@ def strided_slice(
             >>> sliced_2 = paddle.strided_slice(x, axes=axes, starts=[minus_3, 0, 2], ends=ends, strides=strides_2)
             >>> # sliced_2 is x[:, 1:3:1, 0:2:1, 2:4:2].
     """
-    if in_dynamic_mode():
-        return _C_ops.strided_slice(x, axes, starts, ends, strides)
-    elif in_pir_mode():
-
-        def _convert_to_tensor_list(input):
-            if isinstance(input, paddle.pir.Value):
-                input.stop_gradient = True
-            elif isinstance(input, (list, tuple)):
-                if paddle.utils._contain_var(input):
-                    input = paddle.utils.get_int_tensor_list(input)
-            return input
-
-        starts = _convert_to_tensor_list(starts)
-        ends = _convert_to_tensor_list(ends)
-        strides = _convert_to_tensor_list(strides)
-
+    if in_dynamic_or_pir_mode():
         return _C_ops.strided_slice(x, axes, starts, ends, strides)
     else:
         helper = LayerHelper('strided_slice', **locals())
@@ -6126,6 +6114,17 @@ def repeat_interleave(
 
     Returns a new tensor which repeats the ``x`` tensor along dimension ``axis`` using
     the entries in ``repeats`` which is a int or a Tensor.
+
+    The image illustrates a typical case of the repeat_interleave operation.
+    Given a tensor ``[[1, 2, 3], [4, 5, 6]]``, with the repeat counts ``repeats = [3, 2, 1]`` and parameter ``axis = 1``, it means that the elements in the 1st column are repeated 3 times, the 2nd column is repeated 2 times, and the 3rd column is repeated 1 time.
+
+    The final output is a 2D tensor: ``[[1, 1, 1, 2, 2, 3], [4, 4, 4, 5, 5, 6]]``.
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/repeat_interleave.png
+        :width: 500
+        :alt: legend of repeat_interleave API
+        :align: center
+
 
     Args:
         x (Tensor): The input Tensor to be operated. The data of ``x`` can be one of float32, float64, int32, int64.

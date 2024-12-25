@@ -80,18 +80,9 @@ class PaddleToTensorRTConverter:
             param_dict.update({name: weight_array})
         self.param_dict = param_dict
 
-        trt_manager = TensorRTConfigManager()
-        if (
-            self.trt_config is not None
-            and self.trt_config.tensorrt_ops_run_float
-        ):
-            trt_manager.set_force_fp32_ops(
-                self.trt_config.tensorrt_ops_run_float
-            )
-            _logger.info(f"force_fp32_ops: {trt_manager.get_force_fp32_ops()}")
-
         self.input_info = {}
         self.trt_output_value_map = {}
+        self.engine_num = 0
 
     def find_graph_inputs_outputs(self, group_op):
         operations = next(iter(group_op.blocks())).ops
@@ -132,6 +123,10 @@ class PaddleToTensorRTConverter:
 
     def convert_subgraph_to_trt(self, program, group_op):
         from .export import PrecisionMode
+
+        trt_manager = TensorRTConfigManager(self.trt_config)
+        if self.trt_config is not None and self.trt_config.ops_run_float:
+            _logger.info(f"force_fp32_ops: {trt_manager.get_force_fp32_ops()}")
 
         _logger.info(f"start process {group_op}")
 
@@ -196,7 +191,7 @@ class PaddleToTensorRTConverter:
             for operand in op.operands():
                 source = operand.source()
                 if not source.initialized():
-                    _logger.warning(f"Skipping uninitialized source: {source}")
+                    operands.append(None)
                     continue
                 define_op_name = source.get_defining_op().name()
                 if define_op_name == "builtin.combine":
@@ -394,7 +389,9 @@ class PaddleToTensorRTConverter:
         if version_list[0] > 8 or (
             version_list[0] == 8 and version_list[1] >= 6
         ):  # trt version >= 8.6
-            config.builder_optimization_level = 5
+            config.builder_optimization_level = (
+                self.trt_config.optimization_level
+            )
         config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)
 
         if self.trt_config is not None:
@@ -441,13 +438,13 @@ class PaddleToTensorRTConverter:
             and version_list[1] >= 2
             and version_list[2] >= 1
         ):
-            if (
-                self.trt_config is not None
-                and self.trt_config.tensorrt_ops_run_float
-            ):
+            if self.trt_config is not None and self.trt_config.ops_run_float:
                 config.set_flag(trt.BuilderFlag.PREFER_PRECISION_CONSTRAINTS)
 
         trt_engine = builder.build_serialized_network(network, config)
+        assert (
+            trt_engine is not None
+        ), 'Failed to build engine. please see ERROR log from trt.Logger'
         trt_params = paddle.base.libpaddle.TRTEngineParams()
         trt_params.min_input_shape = min_shape_map
         trt_params.max_input_shape = max_shape_map
@@ -461,10 +458,12 @@ class PaddleToTensorRTConverter:
             % 10**8
         )
         CACHE_ROOT = get_cache_path()
-        CACHE_FILE = f"{CACHE_ROOT}/engine_{engine_name}.trt"
+        CACHE_FILE = f"{CACHE_ROOT}/engine_{engine_name}_{self.engine_num}.trt"
         with open(CACHE_FILE, "wb") as f:
             f.write(trt_engine)
-        PIR_DUMP_FILE = f"{CACHE_ROOT}/engine_{engine_name}.pir"
+        PIR_DUMP_FILE = (
+            f"{CACHE_ROOT}/engine_{engine_name}_{self.engine_num}.pir"
+        )
         with open(PIR_DUMP_FILE, "w") as f:
             f.write(group_str)
         trt_params.engine_serialized_data = CACHE_FILE
@@ -525,6 +524,7 @@ class PaddleToTensorRTConverter:
         for op in self.program.global_block().ops:
             if op.name() == "cinn_op.group" or op.name() == "builtin.group":
                 _logger.info(f"start process {op.name()}")
+                self.engine_num += 1
                 new_out = self.convert_subgraph_to_trt(self.program, op)
                 orin_out_values = op.results()
                 for o_i in range(len(orin_out_values)):

@@ -165,9 +165,7 @@ def _broadcast_object_list_help(object_list, hcg):
     )
 
 
-def _process_element(hcg, place, element):
-    cur_device = paddle.get_device()
-    dev = cur_device.split(":")[0]
+def _process_element(hcg, dev, place, element):
     if isinstance(element, core.eager.Tensor):
         with framework.no_grad():
             if (
@@ -179,21 +177,21 @@ def _process_element(hcg, place, element):
                 element_gpu._share_buffer_to(element)
             _broadcast_data_help(element, element.shape, element.dtype, hcg)
     elif isinstance(element, (dict, list, tuple)):
-        return _broadcast_nested_data(hcg, place, element)
+        return _broadcast_nested_data(hcg, dev, place, element)
     else:
         _broadcast_object_list_help([element], hcg)
 
 
-def _broadcast_nested_data(hcg, place, data):
+def _broadcast_nested_data(hcg, dev, place, data):
     if isinstance(data, dict):
         return {
-            key: _process_element(hcg, place, value)
+            key: _process_element(hcg, dev, place, value)
             for key, value in data.items()
         }
     elif isinstance(data, list):
-        return [_process_element(hcg, place, item) for item in data]
+        return [_process_element(hcg, dev, place, item) for item in data]
     elif isinstance(data, tuple):
-        return tuple(_process_element(hcg, place, item) for item in data)
+        return tuple(_process_element(hcg, dev, place, item) for item in data)
     else:
         raise TypeError(f"Unsupported data type: {type(data)}")
 
@@ -219,9 +217,9 @@ def broadcast_input_data(hcg, *inputs, **kwargs):
         place = eval(f"paddle.{dev.upper()}Place")(dev_idx)
 
     if len(inputs) > 0:
-        inputs = _broadcast_nested_data(hcg, place, inputs)
+        inputs = _broadcast_nested_data(hcg, dev, place, inputs)
     if len(kwargs) > 0:
-        kwargs = _broadcast_nested_data(hcg, place, kwargs)
+        kwargs = _broadcast_nested_data(hcg, dev, place, kwargs)
     return inputs, kwargs
 
 
@@ -282,6 +280,10 @@ def fused_allreduce_gradients(parameter_list, hcg):
             group = sep_group if group is None else dp_sep_group
 
     logger.debug("dp or sep start fuse allreduce gradients")
+    from paddle.distributed import in_auto_parallel_align_mode
+
+    if in_auto_parallel_align_mode():
+        scale = 1.0
     fused_allreduce_gradients_with_group(parameter_list, group, scale=scale)
 
 

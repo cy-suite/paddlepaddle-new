@@ -52,6 +52,7 @@ from .creation import (  # noqa: F401
     ones,
     ones_like,
     polar,
+    resize_,
     set_,
     to_tensor,
     tril,
@@ -371,6 +372,7 @@ from .math import (  # noqa: F401
     nansum,
     neg,
     neg_,
+    negative,
     nextafter,
     outer,
     polygamma,
@@ -626,6 +628,7 @@ tensor_method_func = [
     'conj',
     'neg',
     'neg_',
+    'negative',
     'lgamma',
     'lgamma_',
     'gammaincc',
@@ -866,6 +869,7 @@ tensor_method_func = [
     'signbit',
     'log_normal_',
     'set_',
+    'resize_',
 ]
 
 # this list used in math_op_patch.py for magic_method bind

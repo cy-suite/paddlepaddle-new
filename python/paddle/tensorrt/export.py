@@ -170,7 +170,8 @@ class TensorRTConfig:
         save_model_dir: str | None = None,
         disable_ops: str | list | None = None,
         precision_mode: PrecisionMode = PrecisionMode.FP32,
-        tensorrt_ops_run_float: str | list | None = None,
+        ops_run_float: str | list | None = None,
+        optimization_level: int | None = 3,
     ) -> None:
         """
         A class for configuring TensorRT optimizations.
@@ -190,9 +191,11 @@ class TensorRTConfig:
                 - PrecisionMode.FP16: 16-bit floating point precision.
                 - PrecisionMode.INT8: 8-bit integer precision.
                 - PrecisionMode.BFP16: 16-bit Brain Floating Point precision. Only supported in TensorRT versions greater than 9.0.
-            tensorrt_ops_run_float (str|list, optional):
+            ops_run_float (str|list, optional):
                 A set of operation names that should be executed using FP32 precision regardless of the `tensorrt_precision_mode` setting.
-                 The directory where the optimized model will be saved (default is None).
+                The directory where the optimized model will be saved (default is None).
+            optimization_level (int, optional):
+                Set TensorRT optimization level (default is 3). Only supported in TensorRT versions greater than 8.6.
         Returns:
             None
 
@@ -215,14 +218,15 @@ class TensorRTConfig:
             >>> trt_config = TensorRTConfig(inputs=[input])
             >>> trt_config.disable_ops = "pd_op.dropout"
             >>> trt_config.precision_mode = PrecisionMode.FP16
-            >>> trt_config.tensorrt_ops_run_float = "pd_op.conv2d"
+            >>> trt_config.ops_run_float = "pd_op.conv2d"
         """
         self.inputs = inputs
         self.min_subgraph_size = min_subgraph_size
         self.save_model_dir = save_model_dir
         self.precision_mode = precision_mode
-        self.tensorrt_ops_run_float = tensorrt_ops_run_float
+        self.ops_run_float = ops_run_float
         self.disable_ops = disable_ops
+        self.optimization_level = optimization_level
         paddle.framework.set_flags(
             {'FLAGS_trt_min_group_size': min_subgraph_size}
         )
