@@ -25,7 +25,7 @@ from paddle.base import core
     ('primal', 'cotangent', 'dtype'),
     [
         (
-            np.random.rand(-0.95, 0.95, size=(10, 10)),
+            np.random.uniform(-0.95, 0.95, size=(10, 10)),
             np.random.rand(10, 10),
             np.float32,
         ),
