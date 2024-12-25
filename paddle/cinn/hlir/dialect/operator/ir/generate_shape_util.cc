@@ -85,8 +85,8 @@ template <typename T>
                                                      const T& dim_expr) {
   std::vector<::pir::Attribute> attr_vecs{};
   attr_vecs.push_back(pir::StrAttribute::get(ctx, GetSerializedTag<T>()));
-  const auto lhs = dim_expr->lhs;
-  const auto rhs = dim_expr->rhs;
+  const auto& lhs = dim_expr->lhs;
+  const auto& rhs = dim_expr->rhs;
   attr_vecs.push_back(ConvertDimExprToAttribute(ctx, lhs));
   attr_vecs.push_back(ConvertDimExprToAttribute(ctx, rhs));
   return pir::ArrayAttribute::get(ctx, attr_vecs);
