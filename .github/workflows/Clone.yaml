@@ -1,4 +1,4 @@
-name: Clone
+name: Clone Paddle
 
 on:
   pull_request:
@@ -6,6 +6,7 @@ on:
 
 jobs:
   Clone-Paddle:
+    name: Clone Paddle
     runs-on: ubuntu-latest
     steps:
     - name: Clone paddle
