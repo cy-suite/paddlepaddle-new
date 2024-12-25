@@ -893,7 +893,7 @@ __global__ __launch_bounds__(THREADS_PER_BLOCK) void gqa_block_attention_kernel(
 #pragma unroll
   for (int i = 0; i < GQA_SUB_PARTITION_SIZE; i++) {
     // qk_maxs[i] = -FLT_MAX;
-    // initialize qk_maxs!!
+    // initialize qk_maxs!!!
     qk_maxs[i] = qk_smem[act_time_step * GQA_SUB_PARTITION_SIZE + i];
   }
 
