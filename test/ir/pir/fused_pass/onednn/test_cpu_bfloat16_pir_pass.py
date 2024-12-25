@@ -1140,8 +1140,10 @@ class TestConcatBfloatQuantizePass(PassTest):
                 )
                 out = paddle.concat((x, y, z))
                 out = paddle.assign(out)
-                self.pass_attr_list = [{'onednn_placement_pass': {}},
-                                       {'cpu_special_ops_bf16_pass': {}}]
+                self.pass_attr_list = [
+                    {'onednn_placement_pass': {}},
+                    {'cpu_special_ops_bf16_pass': {}},
+                ]
                 self.feeds = {
                     "x": np.random.random((5, 5, 5, 5)).astype("float32"),
                     "y": np.random.random((5, 5, 5, 5)).astype("float32"),
