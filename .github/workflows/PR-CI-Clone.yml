@@ -6,6 +6,9 @@ on:
   pull_request_target:
     branches: [ "develop" ]
 
+permissions:
+  contents: read
+
 jobs:
   Clone:
     runs-on: ubuntu-latest
