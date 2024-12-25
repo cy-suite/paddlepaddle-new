@@ -3,6 +3,8 @@ name: Clone
 on:
   push:
     branches: [ "develop" ]
+  pull_request:
+    branches: [ "develop" ]
   pull_request_target:
     branches: [ "develop" ]
 
@@ -23,7 +25,7 @@ jobs:
       run: |
         git checkout -b test
         git remote add upstream https://github.com/PaddlePaddle/Paddle.git
-        git pull upstream develop
+        git pull --no-rebase upstream develop
 
     - name: Cache bos client
       id: cache_bos_client
