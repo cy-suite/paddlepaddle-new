@@ -660,15 +660,16 @@ IndexType VerifyIndex(const ir::Expr &expr) {
   switch (expr.node_type()) {
     case ir::IrNodeTy::_Var_:
     case ir::IrNodeTy::IntImm: {
-      return expr.type().is_index_type() ? IndexType::Valid
-                                         : IndexType::Invalid;
+      return expr.type().is_index_type() ? IndexType::kValid
+                                         : IndexType::kInvalid;
     }
     case ir::IrNodeTy::Load: {
-      return expr.type().is_index_type() ? IndexType::Load : IndexType::Invalid;
+      return expr.type().is_index_type() ? IndexType::kLoad
+                                         : IndexType::kInvalid;
     }
     case ir::IrNodeTy::Cast: {
       IndexType result = VerifyIndex(expr->operand(0));
-      return result == IndexType::Valid ? IndexType::Cast : result;
+      return result == IndexType::kValid ? IndexType::kCast : result;
     }
     case ir::IrNodeTy::Add:
     case ir::IrNodeTy::Sub:
@@ -679,12 +680,12 @@ IndexType VerifyIndex(const ir::Expr &expr) {
     case ir::IrNodeTy::Min: {
       IndexType left = VerifyIndex(expr->operand(0));
       IndexType right = VerifyIndex(expr->operand(1));
-      if (left == IndexType::Invalid || right == IndexType::Invalid)
-        return IndexType::Invalid;
+      if (left == IndexType::kInvalid || right == IndexType::kInvalid)
+        return IndexType::kInvalid;
       return std::max(left, right);
     }
   }
-  return IndexType::Invalid;
+  return IndexType::kInvalid;
 }
 }  // namespace common
 }  // namespace cinn
