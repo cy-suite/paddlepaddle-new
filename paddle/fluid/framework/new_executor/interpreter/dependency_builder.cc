@@ -532,7 +532,7 @@ void DependencyBuilder::ShrinkDownstreamMap() {
       continue;
     }
 
-    std::set<size_t> minumum_nexts;
+    std::set<size_t> minimum_nexts;
     for (size_t item : op_downstream_map_->at(i)) {
       bool not_after_any = true;
       // find the op that is not executed after any
@@ -546,12 +546,12 @@ void DependencyBuilder::ShrinkDownstreamMap() {
       }
       if (not_after_any) {
         VLOG(8) << "downstream op of " << i << ": " << item;
-        minumum_nexts.insert(item);
+        minimum_nexts.insert(item);
       }
     }
     // NOTE(Ruibiao): op_happens_before will not be changed when shrink
     // downstream map
-    (*op_downstream_map_)[i] = minumum_nexts;
+    (*op_downstream_map_)[i] = minimum_nexts;
   }
   VLOG(8) << "Finish shrink downstream map";
   VLOG(8) << "downstream count: " << CountDownstreamMap(*op_downstream_map_);
@@ -783,10 +783,10 @@ void DependencyBuilderSimplify::GetAllbehind() {
     }
   };
   for (size_t i = start_index_; i < op_num_; i++) {
-    auto& behinds = ops_behind_[i];
-    auto& befores = ops_before_[i];
-    for (auto before_op : befores) {
-      for (auto behind_op : behinds) {
+    auto& behind_ops = ops_behind_[i];
+    auto& before_ops = ops_before_[i];
+    for (auto before_op : before_ops) {
+      for (auto behind_op : behind_ops) {
         update_op_happen_before(before_op, behind_op);
       }
     }
@@ -1008,7 +1008,7 @@ void DependencyBuilderSimplify::ShrinkDownstreamMap() {
       continue;
     }
 
-    std::set<size_t> minumum_nexts;
+    std::set<size_t> minimum_nexts;
     for (size_t item : op_downstream_map_.at(i)) {
       bool not_after_any = true;
       // find the op that is not executed  any
@@ -1022,12 +1022,12 @@ void DependencyBuilderSimplify::ShrinkDownstreamMap() {
       }
       if (not_after_any) {
         VLOG(8) << "downstream op of " << i << ": " << item;
-        minumum_nexts.insert(item);
+        minimum_nexts.insert(item);
       }
     }
     // NOTE(Ruibiao): op_happens_before will not be changed when shrink
     // downstream map
-    op_downstream_map_.at(i) = minumum_nexts;
+    op_downstream_map_.at(i) = minimum_nexts;
   }
   VLOG(8) << "Finish shrink downstream map";
   VLOG(8) << "downstream count: " << CountDownstreamMap(op_downstream_map_);

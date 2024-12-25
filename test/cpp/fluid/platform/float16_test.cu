@@ -317,7 +317,7 @@ TEST(float16, conversion_on_gpu) {
   EXPECT_EQ(v_assign.x, 0x3c00);
 }
 
-TEST(float16, lod_tensor_on_gpu) {
+TEST(float16, dense_tensor_on_gpu) {
   phi::DenseTensor src_tensor;
   phi::DenseTensor gpu_tensor;
   phi::DenseTensor dst_tensor;
@@ -341,7 +341,7 @@ TEST(float16, lod_tensor_on_gpu) {
   // GPU DenseTensor to CPU DenseTensor
   framework::TensorCopy(gpu_tensor, CPUPlace(), gpu_ctx, &dst_tensor);
 
-  // Sync before comparing LoDTensors
+  // Sync before comparing DenseTensors
   gpu_ctx.Wait();
   const float16 *dst_ptr = dst_tensor.data<float16>();
   ASSERT_NE(src_ptr, dst_ptr);

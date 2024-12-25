@@ -164,23 +164,26 @@ void where_double_grad(const Tensor& condition,
                        const paddle::optional<Tensor>& grad_y_grad,
                        Tensor* grad_out_grad) {
   if (grad_out_grad) {
+    Tensor ddout;
     if (grad_x_grad && grad_y_grad) {
       // ddz = ddx * cond + (1-cond) * ddy
-      auto condition_mask = cast<T>(condition, grad_x_grad.get().dtype());
-      auto ddout = condition_mask * grad_x_grad.get() +
-                   (1 - condition_mask) * grad_y_grad.get();
-      set_output<T>(ddout, grad_out_grad);
+      ddout = where<T>(condition, grad_x_grad.get(), grad_y_grad.get());
     } else if (grad_x_grad) {
       // ddz = ddx * cond
-      auto condition_mask = cast<T>(condition, grad_x_grad.get().dtype());
-      auto ddout = condition_mask * grad_x_grad.get();
-      set_output<T>(ddout, grad_out_grad);
+      auto zeros = full<T>(common::vectorize(grad_x_grad.get().dims()),
+                           0,
+                           grad_x_grad.get().dtype(),
+                           grad_x_grad.get().place());
+      ddout = where<T>(condition, grad_x_grad.get(), zeros);
     } else if (grad_y_grad) {
-      // ddz = (1-cond) * ddy
-      auto condition_mask = cast<T>(condition, grad_y_grad.get().dtype());
-      auto ddout = (1 - condition_mask) * grad_y_grad.get();
-      set_output<T>(ddout, grad_out_grad);
+      // ddz = (1 - cond) * ddy
+      auto zeros = full<T>(common::vectorize(grad_y_grad.get().dims()),
+                           0,
+                           grad_y_grad.get().dtype(),
+                           grad_y_grad.get().place());
+      ddout = where<T>(condition, zeros, grad_y_grad.get());
     }
+    set_output<T>(ddout, grad_out_grad);
   }
 }
 
@@ -659,8 +662,10 @@ void multiply_double_grad(const Tensor& x,
         if (!axes.size()) {
           set_output<T>(dx, x_grad);
         } else {
-          auto dx_reduce = dx.sum(common::vectorize(axes), dx.dtype(), false);
-          if (dx_reduce.dims().size() != x.dims().size()) {
+          auto dx_reduce = dx.sum(common::vectorize(axes),
+                                  dx.dtype(),
+                                  dx.dims().size() == x.dims().size());
+          if (dx_reduce.dims() != x.dims()) {
             dx_reduce = reshape<T>(dx_reduce, x.shape());
           }
           set_output<T>(dx_reduce, x_grad);
@@ -682,8 +687,10 @@ void multiply_double_grad(const Tensor& x,
         if (!axes.size()) {
           set_output<T>(dy, y_grad);
         } else {
-          auto dy_reduce = dy.sum(common::vectorize(axes), dy.dtype(), false);
-          if (dy_reduce.dims().size() != y.dims().size()) {
+          auto dy_reduce = dy.sum(common::vectorize(axes),
+                                  dy.dtype(),
+                                  dy.dims().size() == y.dims().size());
+          if (dy_reduce.dims() != y.dims()) {
             dy_reduce = reshape<T>(dy_reduce, y.shape());
           }
           set_output<T>(dy_reduce, y_grad);
@@ -754,11 +761,16 @@ void add_triple_grad(const paddle::optional<Tensor>& grad_grad_x,
         if (!reduce_dim.size()) {
           by_pass<T>(grad_grad_out_grad, grad_grad_y_grad);
         } else {
-          auto dddy_reduce_res = grad_grad_out_grad.sum(
-              common::vectorize(reduce_dim), grad_grad_y.get().dtype(), false);
-          auto dddy_tmp = reshape<T>(
-              dddy_reduce_res, common::vectorize(grad_grad_y.get().dims()));
-          set_output<T>(dddy_tmp, grad_grad_y_grad);
+          auto dddy_reduce_res =
+              grad_grad_out_grad.sum(common::vectorize(reduce_dim),
+                                     grad_grad_y.get().dtype(),
+                                     grad_grad_out_grad.dims().size() ==
+                                         grad_grad_y.get().dims().size());
+          if (dddy_reduce_res.dims() != grad_grad_y.get().dims()) {
+            dddy_reduce_res = reshape<T>(
+                dddy_reduce_res, common::vectorize(grad_grad_y.get().dims()));
+          }
+          set_output<T>(dddy_reduce_res, grad_grad_y_grad);
         }
       } else {
         by_pass<T>(grad_grad_out_grad, grad_grad_y_grad);
@@ -774,11 +786,16 @@ void add_triple_grad(const paddle::optional<Tensor>& grad_grad_x,
         if (!reduce_dim.size()) {
           by_pass<T>(grad_grad_out_grad, grad_grad_x_grad);
         } else {
-          auto dddx_reduce_res = grad_grad_out_grad.sum(
-              common::vectorize(reduce_dim), grad_grad_x.get().dtype(), false);
-          auto dddx_tmp = reshape<T>(
-              dddx_reduce_res, common::vectorize(grad_grad_x.get().dims()));
-          set_output<T>(dddx_tmp, grad_grad_x_grad);
+          auto dddx_reduce_res =
+              grad_grad_out_grad.sum(common::vectorize(reduce_dim),
+                                     grad_grad_x.get().dtype(),
+                                     grad_grad_out_grad.dims().size() ==
+                                         grad_grad_x.get().dims().size());
+          if (dddx_reduce_res.dims() != grad_grad_x.get().dims()) {
+            dddx_reduce_res = reshape<T>(
+                dddx_reduce_res, common::vectorize(grad_grad_x.get().dims()));
+          }
+          set_output<T>(dddx_reduce_res, grad_grad_x_grad);
         }
       } else {
         by_pass<T>(grad_grad_out_grad, grad_grad_x_grad);
@@ -1090,6 +1107,44 @@ void take_along_axis_double_grad(const Tensor& indices,
     // ddout = take_along_axis(ddx, index)
     auto grad_out_grad_tmp = take_along_axis<T>(grad_arr_grad, indices, axis);
     set_output<T>(grad_out_grad_tmp, grad_out_grad);
+  }
+}
+
+template <typename T>
+void index_add_double_grad(const Tensor& index,
+                           const Tensor& out_grad,
+                           const paddle::optional<Tensor>& grad_x_grad,
+                           const paddle::optional<Tensor>& grad_add_value_grad,
+                           int axis,
+                           Tensor* grad_out_grad) {
+  if (grad_out_grad) {
+    if (grad_x_grad && grad_add_value_grad) {
+      Tensor grad_out_grad_tmp = grad_x_grad.get();
+      grad_out_grad_tmp = index_add<T>(
+          grad_out_grad_tmp, index, grad_add_value_grad.get(), axis);
+      set_output<T>(grad_out_grad_tmp, grad_out_grad);
+
+    } else if (grad_x_grad) {
+      Tensor grad_out_grad_tmp = grad_x_grad.get();
+      set_output<T>(grad_out_grad_tmp, grad_out_grad);
+
+    } else if (grad_add_value_grad) {
+      Tensor DDadd_value = grad_add_value_grad.get();
+      Tensor grad_out_grad_tmp = full<T>(common::vectorize(out_grad.dims()),
+                                         0,
+                                         DDadd_value.dtype(),
+                                         DDadd_value.place());
+      grad_out_grad_tmp =
+          index_add<T>(grad_out_grad_tmp, index, DDadd_value, axis);
+      set_output<T>(grad_out_grad_tmp, grad_out_grad);
+
+    } else {
+      Tensor grad_out_grad_tmp = full<T>(common::vectorize(out_grad.dims()),
+                                         0,
+                                         out_grad.dtype(),
+                                         out_grad.place());
+      set_output<T>(grad_out_grad_tmp, grad_out_grad);
+    }
   }
 }
 

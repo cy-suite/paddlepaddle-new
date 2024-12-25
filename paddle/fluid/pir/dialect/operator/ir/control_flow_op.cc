@@ -188,11 +188,9 @@ void IfOp::Print(pir::IrPrinter &printer) {
   auto &os = printer.os;
   auto op = operation();
   printer.PrintOpResult(*op);
-  os << " = \"" << name() << "\"";
-
-  if (VLOG_IS_ON(1)) {
-    os << " [id:" << op->id() << "]";
-  }
+  os << " = ";
+  printer.PrintOpName(*op);
+  printer.PrintOpId(*op);
 
   printer.PrintOpOperands(*op);
   printer.PrintAttributeMap(*op);
@@ -950,6 +948,14 @@ void HasElementsOp::VerifySig() {
                         "The type of cf.has_elements' output is not correct."));
 }
 
+bool HasElementsOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  infer_context->SetShapeOrDataForValue(
+      out(),
+      symbol::ShapeOrDataDimExprs(
+          symbol::TensorShapeOrDataDimExprs({symbol::DimExpr(1)})));
+  return true;
+}
 const char *AssertOp::attributes_name[1] = {"summarize"};    // NOLINT
 const char AssertOp::ERROR_INFO_ATTR_NAME[] = "error_info";  // NOLINT
 
