@@ -2629,6 +2629,10 @@ class DistModel:
             ):
                 optimizer = optimizer._optimizer
 
+            assert isinstance(
+                optimizer, ShardingOptimizerStage1
+            ), "The optimizer should be ShardingOptimizerStage1 when stage1 tensor fusion is enabled."
+
             if self._inner_strategy.sharding.save_unbalanced_param:
                 optimizer.convert_state_dict_with_rank_unique_name(
                     dist_state_dict
@@ -2727,6 +2731,10 @@ class DistModel:
                 paddle.static.amp.decorator.OptimizerWithMixedPrecision,
             ):
                 optimizer = optimizer._optimizer
+
+            assert isinstance(
+                optimizer, ShardingOptimizerStage1
+            ), "The optimizer should be ShardingOptimizerStage1 when stage1 tensor fusion is enabled."
 
             if self._inner_strategy.sharding.save_unbalanced_param:
                 optimizer.convert_state_dict_with_origin_name(state_dict)
