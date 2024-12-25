@@ -44,15 +44,7 @@ class c_identity_eager(PyLayer):
         if skip_c_identity_dynamic:
             return tensor
         else:
-            return _legacy_C_ops.c_identity(
-                tensor,
-                'use_calc_stream',
-                True,
-                'ring_id',
-                group.id,
-                'use_model_parallel',
-                True,
-            )
+            return _C_ops.c_identity(tensor, group.id, True, True)
 
     @staticmethod
     def backward(ctx, dy):
@@ -66,19 +58,7 @@ class c_split_eager(PyLayer):
     def forward(ctx, tensor, group, rank, nranks):
         ctx.group = group
         ctx.nranks = nranks
-        return _legacy_C_ops.c_split(
-            tensor,
-            'use_calc_stream',
-            True,
-            'ring_id',
-            group.id,
-            'rank',
-            rank,
-            'nranks',
-            nranks,
-            'use_model_parallel',
-            True,
-        )
+        return _C_ops.c_split(tensor, rank, nranks, group.id, True)
 
     @staticmethod
     def backward(ctx, dy):
