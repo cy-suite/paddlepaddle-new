@@ -1032,15 +1032,17 @@ void ProgramInterpreter::RunOperator(const Instruction& instr_node) {
                   static_cast<paddle::distributed::ProcessGroupNCCL*>(pg)
                       ->GetOrCreateCommContext(place);
             }
-            if (comm_context) {
-              dev_ctx =
-                  static_cast<phi::distributed::NCCLCommContext*>(comm_context)
-                      ->GetDevContext();
-              dev_ctx->SetCommContext(comm_context);
-            } else {
-              VLOG(3) << "ring_id " << ring_id
-                      << " not found in ProcessGroupMapFromGid ";
-            }
+            PADDLE_ENFORCE_NE(
+                comm_context,
+                nullptr,
+                errors::Unavailable(
+                    "NCCLCommContext is nullptr. For op with ring_id attr, "
+                    "comm_context should be set in dev_ctx, but it cannot be "
+                    "get from CommContextManager or ProcessGroup."));
+            dev_ctx =
+                static_cast<phi::distributed::NCCLCommContext*>(comm_context)
+                    ->GetDevContext();
+            dev_ctx->SetCommContext(comm_context);
           }
 #endif
           phi::KernelContext phi_kernel_context;
