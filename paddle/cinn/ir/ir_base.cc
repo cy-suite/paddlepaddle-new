@@ -635,8 +635,9 @@ void IrNode::convert_int64_to_int32() {
                         true,
                         ::common::errors::InvalidArgument(
                             "Current only support convert int64_t "
-                            "to int32_t, but get type is: %s",
-                            type_));
+                            "to int32_t, but get type is: %s, node type is: %s",
+                            type_,
+                            node_type()));
 
   if (node_type() == IrNodeTy::IntImm) {
     auto *int_imm = static_cast<IntImm *>(this);
