@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/fluid/pir/transforms/onednn/cpu_bfloat16_squash_pass.h"
+#include "paddle/fluid/pir/transforms/onednn/cpu_special_ops_bf16_pass.h"
 
 #include "paddle/fluid/pir/dialect/kernel/ir/kernel_type.h"
 #include "paddle/fluid/pir/dialect/operator/ir/onednn_op.h"
