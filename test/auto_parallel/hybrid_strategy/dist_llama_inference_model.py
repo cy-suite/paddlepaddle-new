@@ -42,13 +42,10 @@ class FusedLlamaRMSNorm(nn.Layer):
         )[0]
 
 
-# for distributed tensor model parallel
 def _set_var_distributed(var):
     if var is None:
         return
-
     var.is_distributed = True
-
     if not paddle.in_dynamic_mode():
         # NOTE: use current_block and find_var_recursive to support while_loop
         startup_block = paddle.static.default_startup_program().current_block()
@@ -94,18 +91,10 @@ class FusedMultiTransformerConfig:
         ffn2_weight_attrs=None,
         ffn2_weight_scale_attrs=None,
         ffn2_bias_attrs=None,
-        qkv_out_scale_attrs=None,
-        linear_out_scale_attrs=None,
-        ffn1_out_scale_attrs=None,
-        ffn2_out_scale_attrs=None,
         linear_shift_attrs=None,
         linear_smooth_attrs=None,
         ffn2_shift_attrs=None,
         ffn2_smooth_attrs=None,
-        cache_k_scale_attrs=None,
-        cache_v_scale_attrs=None,
-        cache_k_out_scale_attrs=None,
-        cache_v_out_scale_attrs=None,
         quant_round_type=0,
         quant_max_bound=127.0,
         quant_min_bound=-127.0,
@@ -148,34 +137,13 @@ class FusedMultiTransformerConfig:
         self.ffn1_weight_attrs = ffn1_weight_attrs
         self.ffn1_weight_scale_attrs = ffn1_weight_scale_attrs
         self.ffn1_bias_attrs = ffn1_bias_attrs
-
-        # FP8 attrs
-        self.ffn1_0_weight_attrs = ffn1_0_weight_attrs
-        self.ffn1_1_weight_attrs = ffn1_1_weight_attrs
-        self.ffn1_0_bias_attrs = ffn1_0_bias_attrs
-        self.ffn1_1_bias_attrs = ffn1_1_bias_attrs
-
         self.ffn2_weight_attrs = ffn2_weight_attrs
         self.ffn2_weight_scale_attrs = ffn2_weight_scale_attrs
         self.ffn2_bias_attrs = ffn2_bias_attrs
 
-        self.qkv_out_scale_attrs = qkv_out_scale_attrs
-        self.linear_out_scale_attrs = linear_out_scale_attrs
-        self.ffn1_out_scale_attrs = ffn1_out_scale_attrs
-        self.ffn2_out_scale_attrs = ffn2_out_scale_attrs
         self.linear_shift_attrs = linear_shift_attrs
         self.linear_smooth_attrs = linear_smooth_attrs
         self.ffn2_shift_attrs = ffn2_shift_attrs
-        self.ffn2_smooth_attrs = ffn2_smooth_attrs
-        self.cache_k_scale_attrs = cache_k_scale_attrs
-        self.cache_v_scale_attrs = cache_v_scale_attrs
-        self.cache_k_out_scale_attrs = cache_k_out_scale_attrs
-        self.cache_v_out_scale_attrs = cache_v_out_scale_attrs
-
-        self.quant_type = quant_type
-        self.quant_round_type = quant_round_type
-        self.quant_max_bound = quant_max_bound
-        self.quant_min_bound = quant_min_bound
 
         self.epsilon = epsilon
         self.residual_alpha = residual_alpha
@@ -191,20 +159,6 @@ class FusedMultiTransformerBase(nn.Layer):
         super().__init__()
 
         self.config = config
-
-        assert config.embed_dim > 0, (
-            "Expected embed_dim to be greater than 0, "
-            f"but received {config.embed_dim}"
-        )
-        assert config.num_heads > 0, (
-            "Expected nhead to be greater than 0, "
-            f"but received {config.num_heads}"
-        )
-        assert (
-            config.dim_feedforward > 0
-        ), f"Expected dim_feedforward to be greater than 0, but received {config.dim_feedforward}"
-
-        # self.normalize_before = normalize_before
         self._dtype = self._helper.get_default_dtype()
         if self._dtype == "bfloat16":
             self._fuse_kernel_compute_dtype = "bf16"
@@ -265,8 +219,6 @@ class FusedMultiTransformerBase(nn.Layer):
         self.ffn_ln_scales, self.ffn_ln_biases = [], []
         self.ffn1_biases = []
         self.ffn2_biases = []
-        self.cache_k_scales, self.cache_v_scales = [], []
-        self.cache_k_out_scales, self.cache_v_out_scales = [], []
 
         self.init_weight_shape(config)
 
@@ -281,15 +233,6 @@ class FusedMultiTransformerBase(nn.Layer):
             ffn_ln_bias_attr = self.get_attr(config.ffn_ln_bias_attrs, i)
             ffn1_bias_attr = self.get_attr(config.ffn1_bias_attrs, i)
             ffn2_bias_attr = self.get_attr(config.ffn2_bias_attrs, i)
-
-            cache_k_scale_attr = self.get_attr(config.cache_k_scale_attrs, i)
-            cache_v_scale_attr = self.get_attr(config.cache_v_scale_attrs, i)
-            cache_k_out_scale_attr = self.get_attr(
-                config.cache_k_out_scale_attrs, i
-            )
-            cache_v_out_scale_attr = self.get_attr(
-                config.cache_v_out_scale_attrs, i
-            )
 
             ln_scale = self.create_parameter(
                 attr=ln_scale_attr,
@@ -365,44 +308,6 @@ class FusedMultiTransformerBase(nn.Layer):
                     is_bias=True,
                 )
 
-            cache_scale_dtype = "float32"
-
-            cache_k_scale = None
-            if cache_k_scale_attr:
-                cache_k_scale = self.create_parameter(
-                    shape=[self.kv_num_heads],
-                    attr=cache_k_scale_attr,
-                    dtype=cache_scale_dtype,
-                    is_bias=False,
-                )
-
-            cache_v_scale = None
-            if cache_v_scale_attr:
-                cache_v_scale = self.create_parameter(
-                    shape=[self.kv_num_heads],
-                    attr=cache_v_scale_attr,
-                    dtype=cache_scale_dtype,
-                    is_bias=False,
-                )
-
-            cache_k_out_scale = None
-            if cache_k_out_scale_attr:
-                cache_k_out_scale = self.create_parameter(
-                    shape=[self.kv_num_heads],
-                    attr=cache_k_out_scale_attr,
-                    dtype=cache_scale_dtype,
-                    is_bias=False,
-                )
-
-            cache_v_out_scale = None
-            if cache_v_out_scale_attr:
-                cache_v_out_scale = self.create_parameter(
-                    shape=[self.kv_num_heads],
-                    attr=cache_v_out_scale_attr,
-                    dtype=cache_scale_dtype,
-                    is_bias=False,
-                )
-
             # tensor model parallel
             if config.nranks > 1:
                 # column parallel
@@ -419,11 +324,6 @@ class FusedMultiTransformerBase(nn.Layer):
             self.ffn1_biases.append(ffn1_bias)
             self.ffn2_biases.append(ffn2_bias)
 
-            self.cache_k_scales.append(cache_k_scale)
-            self.cache_v_scales.append(cache_v_scale)
-            self.cache_k_out_scales.append(cache_k_out_scale)
-            self.cache_v_out_scales.append(cache_v_out_scale)
-
             self._add_parameter(ln_scale)
             self._add_parameter(ln_bias)
             self._add_parameter(qkv_bias)
@@ -434,16 +334,8 @@ class FusedMultiTransformerBase(nn.Layer):
             self._add_parameter(ffn1_bias)
             self._add_parameter(ffn2_bias)
 
-            self._add_parameter(cache_k_scale)
-            self._add_parameter(cache_v_scale)
-            self._add_parameter(cache_k_out_scale)
-            self._add_parameter(cache_v_out_scale)
-
         self.dropout_rate = config.dropout_rate
-
-        from paddle.incubate.nn.functional import fused_linear
-
-        self.linear = fused_linear
+        self.linear = paddle.incubate.nn.functional.fused_linear
 
     def init_weight(self):
         self.qkv_weights = []
@@ -473,9 +365,7 @@ class FusedMultiTransformerBase(nn.Layer):
                 dtype=self.create_params_type,
                 is_bias=False,
             )
-
             gate_weight = None
-
             ffn1_weight = self.create_parameter(
                 shape=self.ffn1_weight_shape,
                 attr=ffn1_weight_attr,
@@ -605,7 +495,7 @@ class FusedMultiTransformerBase(nn.Layer):
         return paddle.incubate.nn.functional.blha_get_max_len(
             seq_lens_encoder,
             seq_lens_decoder,
-            cum_offsets,  # cum_offsets.shape[0] used as bsz
+            cum_offsets,
         )
 
     def compute_fmha(
@@ -623,22 +513,10 @@ class FusedMultiTransformerBase(nn.Layer):
         i,
     ):
         bsz = input_ids.shape[0]
-        """
-        qkv: bsz, seq_len, 3, numhead, headsize ->
-        q_out: bsz, numhead, seq_len, headsize
-        kv_out: 2, bsz, numhead, seq_len, headsize
-        """
-
         qkv_out = qkv_out.reshape(
             (3 * (paddle.shape(seq_lens)[0]), self.num_heads, -1, self.head_dim)
         )
         q_out, k_out, v_out = paddle.split(qkv_out, 3, axis=0)
-
-        if pre_caches is not None:
-            k_out = paddle.concat([pre_caches[i][0, :bsz], k_out], axis=2)
-            v_out = paddle.concat([pre_caches[i][1, :bsz], v_out], axis=2)
-
-        # cutlass fmha
         qktv_out = paddle.incubate.nn.functional.variable_length_memory_efficient_attention(
             q_out,
             k_out,
@@ -654,7 +532,6 @@ class FusedMultiTransformerBase(nn.Layer):
         return paddle.reshape(
             qktv_out, (offset_shape, qktv_out_shape[1] * qktv_out_shape[3])
         )
-        # return transpose_remove_padding(qktv_out, seq_lens, padding_offset)
 
     def compute_mmha(
         self,
@@ -710,7 +587,6 @@ class FusedMultiTransformerBase(nn.Layer):
                 attn_mask,
                 i,
             )
-
         else:
             fmha_out = self.compute_mmha(
                 qkv_out,
@@ -721,7 +597,6 @@ class FusedMultiTransformerBase(nn.Layer):
                 rotary_emb_dims,
                 i,
             )
-
         out_linear_out = self.compute_out_linear(fmha_out, i)
 
         return out_linear_out
@@ -754,7 +629,6 @@ class FusedMultiTransformerBase(nn.Layer):
     def compute_bias_residual_layernorm(
         self, ffn2_out, residual_input, i, num_layers
     ):
-
         if i != num_layers - 1:
             norm_out = self.norm_func(
                 ffn2_out,
@@ -777,9 +651,6 @@ class FusedMultiTransformerBase(nn.Layer):
                 residual=residual_input,
             )[0]
         return tmp_out, residual_input
-
-    def pre_process(self, **kwargs):
-        pass
 
     def post_process(self, **kwargs):
         time_step = kwargs.get("time_step", None)
@@ -808,44 +679,7 @@ class FusedMultiTransformerBase(nn.Layer):
         time_step=None,
         **kwargs,
     ):
-        r"""
-        Applies multi transformer layers on the input.
-
-        Parameters:
-            src (Tensor): The input of Transformer layers. It is
-                a tensor with shape `[batch_size, sequence_length, d_model]`.
-                The data type should be float16 or float32.
-            attn_mask (Tensor, optional): A tensor used in multi-head attention
-                to prevents attention to some unwanted positions, usually the
-                paddings or the subsequent positions. It is a tensor with shape
-                `[batch_size, 1, sequence_length, sequence_length]`. It can be
-                None when nothing wanted or needed to be prevented attention to.
-                Default None.
-            caches (list(Tensor)|tuple(Tensor), optional): The cache structure
-                tensors for the inference generation model. It is only used for
-                inference and should be None for training. The shape is
-                `[2, batch_size, num_head, max_seq_len, head_dim]`. Default None.
-            pre_caches (list(Tensor)|tuple(Tensor), optional): The prefix caches
-                for the generation model. The shape is `[2, bsz, num\_head, cache\_len, head\_dim]`. Default None.
-            rotary_embs (Tensor optional): The RoPE embs for the rotary computation. The shape is `[2, bsz, 1, seq\_len, head\_dim]`. Default None.
-            rotary_emb_dims (int, optional): The rotary_emb_dims of rotary computation, and it is 0 when rotary_embs is None,
-                1 when rotary_embs is not None and pos_extra_ids is None, 2 when rotary_embs and pos_extra_ids are both not None. Default 0.
-            seq_lens (Tensor optional): The sequence lengths of this batch. The shape is `[bsz]`. Default None.
-            time_step (Tensor, optional): The time step tensor for the generation
-                model. Which used in decode stage, to represent the time step,
-                that is, the real seq_len of CacheKV. The shape is `[1]`, must be
-                in CPUPlace. Default None.
-
-        Returns:
-            Tensor|tuple: If `caches` is None, return a tensor that has
-            the same shape and data type with `src`, representing the output
-            of Transformer layers. If `caches` is not None, return the
-            tuple (output, caches), which output is the output of
-            Transformer layers, caches is inplace with input `caches`.
-        """
-        self.pre_process(**kwargs)
         kwargs["cum_offsets"] = cum_offsets
-
         if caches is not None:
             assert len(caches) == len(self.qkv_weights) or len(
                 caches
@@ -909,18 +743,11 @@ class FusedMultiTransformerBase(nn.Layer):
         kwargs["multi_block_output"] = tmp_out
         kwargs["seq_lens"] = seq_lens
         kwargs["input_ids"] = input_ids
-
         out = self.post_process(**kwargs)
         return out, caches
 
 
 class LlamaInferenceModel(nn.Layer):
-    """
-    Transformer decoder consisting of *config.num_hidden_layers* layers. Each layer is a [`LlamaDecoderLayer`]
-    Args:
-        config: LlamaConfig
-    """
-
     def __init__(self, config):
         super().__init__()
         self.config = config
@@ -934,7 +761,6 @@ class LlamaInferenceModel(nn.Layer):
         self.epsilon = config.rms_norm_eps
         self.max_position_embeddings = config.max_position_embeddings
         self.quant_type = ""
-
         self.rope_theta = config.rope_theta
         self.use_neox = True
 
@@ -954,8 +780,6 @@ class LlamaInferenceModel(nn.Layer):
                 self.vocab_size,
                 self.hidden_size,
             )
-
-        # get ring_id
         ring_id = -1
         try:
             hcg = fleet.get_hybrid_communicate_group()
@@ -963,16 +787,6 @@ class LlamaInferenceModel(nn.Layer):
             ring_id = model_parallel_group.id
         except:
             pass
-
-        qkv_weight_scale_attrs = None
-        out_proj_weight_scale_attrs = None
-        ffn1_weight_scale_attrs = None
-        ffn2_weight_scale_attrs = None
-
-        qkv_out_scale_attrs = None
-        linear_out_scale_attrs = None
-        ffn1_out_scale_attrs = None
-        ffn2_out_scale_attrs = None
         linear_shift_attrs = None
         linear_smooth_attrs = None
         ffn2_shift_attrs = None
@@ -1036,11 +850,6 @@ class LlamaInferenceModel(nn.Layer):
         ffn1_weight_scale_attrs = None
         ffn2_weight_scale_attrs = None
 
-        cache_k_scale_attrs = None
-        cache_v_scale_attrs = None
-        cache_k_out_scale_attrs = None
-        cache_v_out_scale_attrs = None
-
         transformer_config = FusedMultiTransformerConfig(
             embed_dim=self.hidden_size,
             num_heads=self.num_attention_heads,
@@ -1063,10 +872,6 @@ class LlamaInferenceModel(nn.Layer):
             ffn1_1_weight_attrs=ffn1_1_weight_attrs,
             ffn2_weight_attrs=ffn2_weight_attrs,
             ffn2_weight_scale_attrs=ffn2_weight_scale_attrs,
-            qkv_out_scale_attrs=qkv_out_scale_attrs,
-            linear_out_scale_attrs=linear_out_scale_attrs,
-            ffn1_out_scale_attrs=ffn1_out_scale_attrs,
-            ffn2_out_scale_attrs=ffn2_out_scale_attrs,
             linear_shift_attrs=linear_shift_attrs,
             linear_smooth_attrs=linear_smooth_attrs,
             ffn2_shift_attrs=ffn2_shift_attrs,
@@ -1079,10 +884,6 @@ class LlamaInferenceModel(nn.Layer):
             ffn1_0_bias_attrs=ffn1_0_bias_attrs,
             ffn1_1_bias_attrs=ffn1_1_bias_attrs,
             ffn2_bias_attrs=ffn2_bias_attrs,
-            cache_k_scale_attrs=cache_k_scale_attrs,
-            cache_v_scale_attrs=cache_v_scale_attrs,
-            cache_k_out_scale_attrs=cache_k_out_scale_attrs,
-            cache_v_out_scale_attrs=cache_v_out_scale_attrs,
             epsilon=self.epsilon,
             norm_type="rmsnorm",
             use_neox_rotary_style=self.use_neox,
@@ -1093,17 +894,13 @@ class LlamaInferenceModel(nn.Layer):
                 else True
             ),
         )
-
         self.transformer_block = FusedMultiTransformerBase(transformer_config)
         self.transformer_block.init_weight()
         self.norm = FusedLlamaRMSNorm(config)
-
         self.cache_kvs = None
         self.head_dim_shape_tensor = paddle.ones(
             (self.hidden_size // self.num_attention_heads), dtype="int8"
         )
-
-        self.gradient_checkpointing = False
 
     def forward(
         self,
@@ -1121,13 +918,11 @@ class LlamaInferenceModel(nn.Layer):
         return_dict=False,
         **kwargs,
     ):
-
         past_key_values = kwargs.get("cache", None)
         is_decoder = past_key_values is not None
 
         if inputs_embeds is not None:
             batch, seq_len, hidden_dim = inputs_embeds.shape
-            # merge batch and seq_len dimension.
             inputs_embeds = inputs_embeds.reshape([batch * seq_len, hidden_dim])
 
         output_attentions = (
@@ -1140,7 +935,6 @@ class LlamaInferenceModel(nn.Layer):
             use_cache if use_cache is not None else self.config.use_cache
         )
         cache_kvs = cache_kvs if cache_kvs is not None else self.cache_kvs
-
         return_dict = (
             return_dict
             if return_dict is not None
@@ -1158,8 +952,6 @@ class LlamaInferenceModel(nn.Layer):
             inputs_embeds = self.embed_tokens(ids_remove_padding)
 
         hidden_states = inputs_embeds
-
-        # decoder layers
         all_hidden_states = () if output_hidden_states else None
         all_self_attns = () if output_attentions else None
 
@@ -1184,10 +976,6 @@ class LlamaInferenceModel(nn.Layer):
             time_step=None,
         )
         hidden_states = self.norm(hidden_states)
-
-        if output_hidden_states:
-            all_hidden_states = (*all_hidden_states, hidden_states)
-
         if not return_dict:
             return tuple(
                 v
