@@ -394,5 +394,69 @@ class TestShareDataTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+def affine_channel(x, scale_shape, bias_shape, layout):
+    scale = paddle.static.create_parameter(
+        shape=scale_shape, dtype='float32', name="scale"
+    )
+    bias = paddle.static.create_parameter(
+        shape=bias_shape, dtype='float32', name="bias"
+    )
+    return _C_ops.affine_channel(x, scale, bias, layout)
+
+
+class TestAffineChannelTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = affine_channel
+        self.api_args = {
+            "x": np.random.random((2, 100, 3, 3)).astype("float32"),
+            "scale_shape": [100],
+            "bias_shape": [100],
+            "layout": "NCHW",
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {
+            "x": [1, 100, 3, 3],
+        }
+        self.opt_shape = {
+            "x": [2, 100, 3, 3],
+        }
+        self.max_shape = {
+            "x": [3, 100, 3, 3],
+        }
+
+    def test_fp32_trt_result(self):
+        self.check_trt_result()
+
+    def test_fp16_trt_result(self):
+        self.check_trt_result(precision_mode="fp16")
+
+
+class TestAffineChannelCas1TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = affine_channel
+        self.api_args = {
+            "x": np.random.random((2, 3, 3, 100)).astype("float32"),
+            "scale_shape": [100],
+            "bias_shape": [100],
+            "layout": "NHWC",
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {
+            "x": [1, 3, 3, 100],
+        }
+        self.opt_shape = {
+            "x": [2, 3, 3, 100],
+        }
+        self.max_shape = {
+            "x": [3, 3, 3, 100],
+        }
+
+    def test_fp32_trt_result(self):
+        self.check_trt_result()
+
+    def test_fp16_trt_result(self):
+        self.check_trt_result(precision_mode="fp16")
+
+
 if __name__ == '__main__':
     unittest.main()
