@@ -45,7 +45,7 @@
   output : Tensor(x_grad), Tensor(grad_out_grad)
   infer_meta :
     func : GeneralBinaryGradInferMeta
-    param : [x, x]
+    param : [x, grad_out]
   kernel :
     func : acos_double_grad
   inplace : (grad_x_grad -> grad_out_grad)
