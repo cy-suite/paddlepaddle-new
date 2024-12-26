@@ -1035,7 +1035,7 @@ void ProgramInterpreter::RunOperator(const Instruction& instr_node) {
             PADDLE_ENFORCE_NE(
                 comm_context,
                 nullptr,
-                errors::Unavailable(
+                common::errors::Unavailable(
                     "NCCLCommContext is nullptr. For op with ring_id attr, "
                     "comm_context should be set in dev_ctx, but it cannot be "
                     "get from CommContextManager or ProcessGroup."));
