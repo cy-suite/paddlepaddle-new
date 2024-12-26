@@ -564,11 +564,13 @@ void SimplifyForLoops(Expr* expr) { SimplifyForLoopsMutator()(expr); }
 void SimplifyBlocks(Expr* expr) { SimplifyBlocksMutator()(expr); }
 
 void SimplifyLogical(Expr* expr) {
+  VLOG(7) << "Begin Logical Simplify " << *expr;
   common::cas_intervals_t var_intervals_t =
       common::CollectVarIntervalsOfExprs({*expr});
   common::SymbolicExprAnalyzer ana{var_intervals_t};
   auto mutator = SimplifyLogicalMutator(ana);
   mutator(expr);
+  VLOG(7) << "After Logical Simplify " << *expr;
 }
 Expr ArithSimplify(const Expr& u) {
   if (!u.is_index()) return u;
@@ -577,7 +579,7 @@ Expr ArithSimplify(const Expr& u) {
 }
 
 void Simplify(Expr* expr) {
-  VLOG(3) << "Begin Simplify " << *expr;
+  VLOG(6) << "Begin Simplify " << *expr;
   SimplifyCastMutator()(expr);
   SimplifyRampMutator()(expr);
   SimplifyLoadMutator()(expr);
@@ -591,7 +593,7 @@ void Simplify(Expr* expr) {
   mutator(expr);
 
   ReplaceFracWithDivMutator()(expr);
-  VLOG(3) << "End Simplify " << *expr;
+  VLOG(6) << "End Simplify " << *expr;
 }
 }  // namespace optim
 }  // namespace cinn
