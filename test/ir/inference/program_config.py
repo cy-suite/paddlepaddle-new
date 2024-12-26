@@ -341,7 +341,21 @@ class ProgramConfig:
         return self
 
 
-def create_fake_model(program_config, run_pir=False):
+def convert_to_dynamic_shape(dynamic_shape):
+    min_shape = tuple(next(iter(dynamic_shape.min_input_shape.values())))
+    opt_shape = tuple(next(iter(dynamic_shape.opt_input_shape.values())))
+    max_shape = tuple(next(iter(dynamic_shape.max_input_shape.values())))
+    # tuple(next(iter(dynamic_shape.min_input_shape.values())))
+    result_shape = []
+    for i in range(len(min_shape)):
+        if min_shape[i] == opt_shape[i] == max_shape[i]:
+            result_shape.append(min_shape[i])
+        else:
+            result_shape.append(-1)
+    return tuple(result_shape)
+
+
+def create_fake_model(program_config, run_pir=False, dynamic_shape=None):
     '''Create a Paddle model(in memory) according to the given config.'''
     program_config = copy.deepcopy(program_config)
     program_config._cast()
@@ -363,7 +377,11 @@ def create_fake_model(program_config, run_pir=False):
             var_desc.set_dtype(
                 convert_np_dtype_to_proto_type(tensor_config.dtype)
             )
-            var_desc.set_shape(tensor_config.shape)
+            if dynamic_shape is not None:
+                dynamic_shape = convert_to_dynamic_shape(dynamic_shape)
+                var_desc.set_shape(dynamic_shape)
+            else:
+                var_desc.set_shape(tensor_config.shape)
             var_desc.set_need_check_feed(True)
             if tensor_config.lod is not None:
                 var_desc.set_lod_level(len(tensor_config.lod))
