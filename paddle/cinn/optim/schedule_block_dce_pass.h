@@ -16,9 +16,8 @@
  * This file implements the strategy to remove the unnecessary schedule_block.
  */
 #pragma once
-#include <vector>
-
 #include "paddle/cinn/common/common.h"
+#include "paddle/cinn/pass/pass.h"
 #include "paddle/cinn/ir/ir.h"
 
 namespace cinn {
@@ -56,8 +55,21 @@ namespace optim {
  * be reduced.
  *
  */
-void EliminateDeadScheduleBlock(Expr* e,
-                                const std::vector<std::string>& output_names);
+class EliminateDeadScheduleBlockPass : public BlockPass {
+ public:
+  explicit EliminateDeadScheduleBlockPass(const ::std::vector<std::string>& output_names)
+      : BlockPass("eliminate_dead_schedule_block"),
+        output_names(output_names) {}
+  LogicalResult Run(ir::stmt::BlockRef block) override;
+
+ private:
+  void EliminateDeadScheduleBlock(ir::stmt::BlockRef block);
+
+  std::vector<std::string> output_names;
+};
+
+std::unique_ptr<BlockPass> CreateEliminateDeadScheduleBlockPass(const std::vector<std::string>& output_names);
+
 
 }  // namespace optim
 }  // namespace cinn
