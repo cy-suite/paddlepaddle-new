@@ -7039,8 +7039,17 @@ def as_strided(
 ) -> Tensor:
     """
     View x with specified shape, stride and offset.
+
     Note that the output Tensor will share data with origin Tensor and doesn't
     have a Tensor copy in ``dygraph`` mode.
+
+    Using specific shape, stride, and offset, return a view Tensor of x.
+    Only available in dynamic graph mode, the returned Tensor shares memory with x.
+    The following image illustrates an example: transforming an input Tensor with shape [2,4,6] into a Tensor with shape [8,6] and stride [6,1].
+
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/as_strided.png
+    :alt: Legend
+
     Args:
         x (Tensor): An N-D Tensor. The data type is ``float32``, ``float64``, ``int32``, ``int64`` or ``bool``
         shape (list|tuple): Define the target shape. Each element of it should be integer.
@@ -7048,19 +7057,17 @@ def as_strided(
         offset (int, optional): Define the target Tensor's offset from x's holder. Default: 0.
         name (str|None, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
 
-    Using specific shape, stride, and offset, return a view Tensor of x.
-    Only available in dynamic graph mode, the returned Tensor shares memory with x.
-    The following image illustrates an example: transforming an input Tensor with shape [2,4,6] into a Tensor with shape [8,6] and stride [6,1].
-    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/as_strided.png
-    :alt: Legend
-
     Returns:
         Tensor, A as_strided Tensor with the same data type as ``x``.
+
     Examples:
         .. code-block:: python
+
             >>> import paddle
             >>> paddle.base.set_flags({"FLAGS_use_stride_kernel": True})
+
             >>> x = paddle.rand([2, 4, 6], dtype="float32")
+
             >>> out = paddle.as_strided(x, [8, 6], [6, 1])
             >>> print(out.shape)
             [8, 6]
