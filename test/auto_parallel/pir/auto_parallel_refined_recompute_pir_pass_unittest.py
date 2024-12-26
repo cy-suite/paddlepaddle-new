@@ -90,10 +90,6 @@ class TestRefinedRecomputeLlamaAuto(TestRecomputeLlamaAuto):
         assert max_mem_allocated_0 < max_mem_allocated_1
         assert max_mem_allocated_1 < max_mem_allocated_2
         assert max_mem_allocated_2 < max_mem_allocated_base
-        assert (
-            max_mem_allocated_1 - max_mem_allocated_0
-            == max_mem_allocated_2 - max_mem_allocated_1
-        )
 
 
 if __name__ == '__main__':

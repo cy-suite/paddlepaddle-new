@@ -167,7 +167,6 @@ class TestRecomputeLlamaAuto:
             0, reduce(lambda x, y: x * y, mesh_shape, 1)
         ).reshape(mesh_shape)
         global_mesh = dist.ProcessMesh(mesh_arr, dim_names)
-        print("xxx global_mesh: ", global_mesh)
         dist.auto_parallel.set_mesh(global_mesh)
         paddle.seed(1024)
         np.random.seed(1024)
