@@ -32,6 +32,15 @@ def is_pp_enable():
     return "pp" in global_mesh.dim_names
 
 
+def is_only_dp_enable():
+    global_mesh = dist.auto_parallel.get_mesh()
+    return (
+        "dp" in global_mesh.dim_names
+        and "mp" not in global_mesh.dim_names
+        and "pp" not in global_mesh.dim_names
+    )
+
+
 def get_mesh(pp_idx=None):
     global_mesh = dist.auto_parallel.get_mesh()
     assert global_mesh is not None, "global_mesh is not initialized!"
@@ -118,10 +127,14 @@ class LlamaAttentionAuto(nn.Layer):
             self.hidden_size,
             bias_attr=False,
         )
+        if is_only_dp_enable():
+            shard_spec = [dist.Replicate()]
+        else:
+            shard_spec = [dist.Replicate(), dist.Shard(1)]
         self.q_proj.weight = dist.shard_tensor(
             self.q_proj.weight,
             get_mesh(self.ipp),
-            [dist.Replicate(), dist.Shard(1)],
+            shard_spec,
         )
 
         self.k_proj = nn.Linear(
@@ -132,7 +145,7 @@ class LlamaAttentionAuto(nn.Layer):
         self.k_proj.weight = dist.shard_tensor(
             self.k_proj.weight,
             get_mesh(self.ipp),
-            [dist.Replicate(), dist.Shard(1)],
+            shard_spec,
         )
 
         self.v_proj = nn.Linear(
@@ -143,7 +156,7 @@ class LlamaAttentionAuto(nn.Layer):
         self.v_proj.weight = dist.shard_tensor(
             self.v_proj.weight,
             get_mesh(self.ipp),
-            [dist.Replicate(), dist.Shard(1)],
+            shard_spec,
         )
 
         self.o_proj = nn.Linear(
@@ -151,10 +164,12 @@ class LlamaAttentionAuto(nn.Layer):
             self.hidden_size,
             bias_attr=False,
         )
+        if not is_only_dp_enable():
+            shard_spec = [dist.Replicate(), dist.Shard(0)]
         self.o_proj.weight = dist.shard_tensor(
             self.o_proj.weight,
             get_mesh(self.ipp),
-            [dist.Replicate(), dist.Shard(0)],
+            shard_spec,
         )
 
         if config.rope:
@@ -312,10 +327,14 @@ class LlamaMLPAuto(nn.Layer):
         self.gate_proj = nn.Linear(
             self.hidden_size, self.intermediate_size, bias_attr=False
         )
+        if is_only_dp_enable():
+            shard_spec = [dist.Replicate()]
+        else:
+            shard_spec = [dist.Replicate(), dist.Shard(1)]
         self.gate_proj.weight = dist.shard_tensor(
             self.gate_proj.weight,
             get_mesh(self.ipp),
-            [dist.Replicate(), dist.Shard(1)],
+            shard_spec,
         )
 
         self.up_proj = nn.Linear(
@@ -324,16 +343,18 @@ class LlamaMLPAuto(nn.Layer):
         self.up_proj.weight = dist.shard_tensor(
             self.up_proj.weight,
             get_mesh(self.ipp),
-            [dist.Replicate(), dist.Shard(1)],
+            shard_spec,
         )
 
         self.down_proj = nn.Linear(
             self.intermediate_size, self.hidden_size, bias_attr=False
         )
+        if not is_only_dp_enable():
+            shard_spec = [dist.Replicate(), dist.Shard(0)]
         self.down_proj.weight = dist.shard_tensor(
             self.down_proj.weight,
             get_mesh(self.ipp),
-            [dist.Replicate(), dist.Shard(0)],
+            shard_spec,
         )
 
     def forward(self, x):
@@ -479,10 +500,14 @@ class LlamaModelAuto(nn.Layer):
             self.vocab_size,
             self.hidden_size,
         )
+        if is_only_dp_enable():
+            shard_spec = [dist.Replicate()]
+        else:
+            shard_spec = [dist.Replicate(), dist.Shard(1)]
         self.embed_tokens.weight = dist.shard_tensor(
             self.embed_tokens.weight,
             get_mesh(0),
-            [dist.Replicate(), dist.Shard(1)],
+            shard_spec,
         )
 
         def get_layer_pp_info(layer_index):
@@ -620,10 +645,14 @@ class LlamaModelAuto(nn.Layer):
             inputs_embeds.dtype,
             mesh,
         )  # [bs, 1, seq_len, seq_len]
+        if is_only_dp_enable():
+            shard_spec = [dist.Replicate()]
+        else:
+            shard_spec = [dist.Replicate() for _ in range(len(mesh._shape))]
         attention_mask = dist.shard_tensor(
             attention_mask,
             mesh,
-            [dist.Replicate() for _ in range(len(mesh._shape))],
+            shard_spec,
         )
         if not hasattr(self.config, "sep_parallel_degree"):
             self.config.sep_parallel_degree = -1
@@ -635,7 +664,7 @@ class LlamaModelAuto(nn.Layer):
             position_ids = dist.shard_tensor(
                 position_ids,
                 mesh,
-                [dist.Replicate() for _ in range(len(mesh._shape))],
+                shard_spec,
             )
 
         if self.config.use_flash_attention:
@@ -752,13 +781,17 @@ class LlamaLMHeadAuto(nn.Layer):
         self.config = config
         vocab_size = config.vocab_size
 
+        if is_only_dp_enable():
+            shard_spec = [dist.Replicate()]
+        else:
+            shard_spec = [dist.Replicate(), dist.Shard(1)]
         self.weight = dist.shard_tensor(
             self.create_parameter(
                 shape=[config.hidden_size, vocab_size],
                 dtype=paddle.get_default_dtype(),
             ),
             get_mesh(-1),
-            [dist.Replicate(), dist.Shard(1)],
+            shard_spec,
         )
 
     def forward(self, hidden_states, tensor_parallel_output=None):

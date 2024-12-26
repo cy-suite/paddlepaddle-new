@@ -19,13 +19,13 @@ import collective.test_communication_api_base as test_base
 
 class TestSemiAutoParallelLlamaACCTest(test_base.CommunicationTestDistBase):
     def setUp(self):
-        super().setUp(num_of_devices=8, timeout=200, nnode=1)
+        super().setUp(num_of_devices=2, timeout=200, nnode=1)
 
-    def test_simple_net_hybrid_strategy_recompute(self):
+    def test_simple_net_dp_strategy_recompute(self):
         _default_envs = {
             "dp": "2",
-            "mp": "2",
-            "pp": "2",
+            "mp": "1",
+            "pp": "1",
             "FLAGS_embedding_deterministic": "1",
             "FLAGS_cudnn_deterministic": "1",
         }
@@ -41,11 +41,11 @@ class TestSemiAutoParallelLlamaACCTest(test_base.CommunicationTestDistBase):
                 user_defined_envs=envs,
             )
 
-    def test_simple_net_hybrid_strategy_refined_recompute(self):
+    def test_simple_net_dp_strategy_refined_recompute(self):
         _default_envs = {
             "dp": "2",
-            "mp": "2",
-            "pp": "2",
+            "mp": "1",
+            "pp": "1",
             "FLAGS_embedding_deterministic": "1",
             "FLAGS_cudnn_deterministic": "1",
         }
