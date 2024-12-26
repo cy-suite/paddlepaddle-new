@@ -263,6 +263,7 @@ if(WITH_XPU_XFT)
   set(XPU_XFT_INC_DIR "${XPU_INC_DIR}/xft")
   include_directories(${XPU_XFT_INC_DIR})
   set(XPU_XFT_LIB "${XPU_LIB_DIR}/${XPU_XFT_LIB_NAME}")
+  target_link_libraries(xpulib ${XPU_XFT_LIB})
 endif()
 
 set(XPU_XHPC_INC_DIR "${XPU_INC_DIR}/xhpc")
