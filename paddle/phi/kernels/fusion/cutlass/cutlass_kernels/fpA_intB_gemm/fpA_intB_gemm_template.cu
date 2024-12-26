@@ -609,8 +609,7 @@ void CutlassFpAIntBGemmRunner<T, WeightType>::run_gemm<EpilogueTag,
   auto& gemmConfigManager = phi::GemmConfigManager::Instance();
   constexpr GemmDataType dtype = getGemmDataType<T>();
   constexpr GemmDataType wdtype = getGemmDataType<WeightType>();
-  GemmIDType gemmId{
-      n, k, GemmComputeType::FPAINTBGEMM, dtype, wdtype, num_experts};
+  GemmIDType gemmId{n, k, GemmType::FPAINTBGEMM, dtype, wdtype, num_experts};
   CutlassGemmConfig chosen_config;
   auto chosen_config_optional = gemmConfigManager.getBestConfig(gemmId, m);
   if (chosen_config_optional != std::nullopt) {

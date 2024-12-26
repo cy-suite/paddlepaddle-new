@@ -951,7 +951,7 @@ void MoeGemmRunner<T, WeightType>::run_gemm<EpilogueTag>(
   constexpr GemmDataType dtype = getGemmDataType<T>();
   constexpr GemmDataType wdtype = getGemmDataType<WeightType>();
   GemmIDType gemmId{
-      gemm_n, gemm_k, GemmComputeType::MOEGEMM, dtype, wdtype, num_experts};
+      gemm_n, gemm_k, GemmType::MOEGEMM, dtype, wdtype, num_experts};
   CutlassGemmConfig chosen_config;
   auto chosen_config_optional =
       gemmConfigManager.getBestConfig(gemmId, total_rows);

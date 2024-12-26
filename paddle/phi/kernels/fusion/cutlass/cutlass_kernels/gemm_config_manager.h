@@ -14,6 +14,7 @@
 #pragma once
 
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -22,9 +23,12 @@
 #include <sstream>
 #include <unordered_map>
 
+#include <nlohmann/json.hpp>
 #include "paddle/phi/kernels/fusion/cutlass/cutlass_extensions/ft_gemm_configs.h"
 
 namespace phi {
+
+using json = nlohmann::json;
 
 enum GemmDataType {
   _FLOAT,
@@ -34,7 +38,7 @@ enum GemmDataType {
   _INT4,
 };
 
-enum GemmComputeType {
+enum GemmType {
   FPAINTBGEMM,
   MOEGEMM,
 };
@@ -60,7 +64,7 @@ constexpr GemmDataType getGemmDataType() {
 struct GemmIDType {
   int gemm_n{};
   int gemm_k{};
-  GemmComputeType compute_type;
+  GemmType compute_type;
   GemmDataType dtype{};
   GemmDataType wdtype{};
   int num_experts{};
@@ -80,6 +84,24 @@ struct GemmIDType {
         << static_cast<int>(id.dtype) << "," << static_cast<int>(id.wdtype)
         << "," << id.num_experts;
     return out;
+  }
+
+  friend void to_json(json& j, const GemmIDType& id) {
+    j = json{{"gemm_n", id.gemm_n},
+             {"gemm_k", id.gemm_k},
+             {"compute_type", id.compute_type},
+             {"dtype", id.dtype},
+             {"wdtype", id.wdtype},
+             {"num_experts", id.num_experts}};
+  }
+
+  friend void from_json(const json& j, GemmIDType& id) {
+    j.at("gemm_n").get_to(id.gemm_n);
+    j.at("gemm_k").get_to(id.gemm_k);
+    j.at("compute_type").get_to(id.compute_type);
+    j.at("dtype").get_to(id.dtype);
+    j.at("wdtype").get_to(id.wdtype);
+    j.at("num_experts").get_to(id.num_experts);
   }
 };
 
@@ -126,10 +148,51 @@ class GemmConfigManager {
       auto const iter = profileMap.find(id);
       if (iter == profileMap.end()) {
         std::ostringstream msg;
-        msg << "Cannot find ID (" << id << ") in the profile map. Abort.";
+        msg << "[GemmConfigManager]Cannot find ID (" << id
+            << ") in the profile map. Abort.";
         PADDLE_FATAL(msg.str());
       }
       return iter->second;
+    }
+
+    json serialize() {
+      json j;
+      for (const auto& pair : profileMap) {
+        json mProfileJson;
+        for (const auto& mPair : *(pair.second)) {
+          if (mPair.second.has_value()) {
+            const auto config = mPair.second.value();
+            mProfileJson[std::to_string(mPair.first)] = {
+                {"tile_config", config.tile_config},
+                {"split_k_style", config.split_k_style},
+                {"split_k_factor", config.split_k_factor},
+                {"stages", config.stages}};
+          } else {
+            PADDLE_FATAL("[GemmConfigManager] Serialize Empty Config");
+          }
+        }
+        j.push_back({{"gemm_id", pair.first}, {"m_profile", mProfileJson}});
+      }
+      return j;
+    }
+
+    void deserialize(const json& j) {
+      for (const auto& elem : j) {
+        GemmIDType gemmId = elem["gemm_id"];
+        if (!existsMProfileMap(gemmId)) {
+          createMProfileMap(gemmId);
+        }
+        auto mProfileMap = getMProfileMap(gemmId);
+        for (const auto& mElem : elem["m_profile"].items()) {
+          int m = std::stoi(mElem.key());
+          CutlassGemmConfig config;
+          config.tile_config = mElem.value()["tile_config"];
+          config.split_k_style = mElem.value()["split_k_style"];
+          config.split_k_factor = mElem.value()["split_k_factor"];
+          config.stages = mElem.value()["stages"];
+          mProfileMap->insert({m, config});
+        }
+      }
     }
   };
 
@@ -184,16 +247,43 @@ class GemmConfigManager {
 
   int getMaxProfileM() const { return 256; }
 
+  bool loadFromJson(const std::string& filename) {
+    std::ifstream inFile(filename);
+    if (!inFile.is_open()) {
+      // no gemm profile json file
+      VLOG(4) << "No gemm profile json file";
+      return false;
+    }
+    try {
+      json j;
+      inFile >> j;
+      mGemmProfileMap->deserialize(j);
+      VLOG(4) << "Parse gemm profile json file successfully";
+      return true;
+    } catch (const std::exception& e) {
+      PADDLE_FATAL("[GemmConfigManager] Failed to parse gemm profiles json");
+      return false;
+    }
+  }
+
  private:
-  GemmConfigManager() { mGemmProfileMap = std::make_shared<GemmProfileMap>(); }
-  ~GemmConfigManager() = default;
+  GemmConfigManager() {
+    mGemmProfileMap = std::make_shared<GemmProfileMap>();
+    loadFromJson("gemm_profiles.json");
+  }
+
+  ~GemmConfigManager() {
+    json j = mGemmProfileMap->serialize();
+    std::ofstream outFile("gemm_profiles.json");
+    outFile << j.dump(4);
+    outFile.close();
+  }
+
   GemmConfigManager(const GemmConfigManager&) = delete;
   void operator=(const GemmConfigManager&) = delete;
 
  private:
   GemmProfileMapPtr mGemmProfileMap{};
-  // std::unordered_map<int, std::optional<CutlassGemmConfig>> mProfileMap;
-  // using MProfileMapPtr = std::shared_ptr<mProfileMap>;
 };
 
 }  // namespace phi
