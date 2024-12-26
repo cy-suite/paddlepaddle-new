@@ -276,7 +276,8 @@ bool InferSymbolicShapeContext::IsBroadcastable(
 }
 
 void InferSymbolicShapeContext::SubstituteInConstraint(
-    std::unordered_map<symbol::DimExpr, symbol::DimExpr> substitution_pattern) {
+    const std::unordered_map<symbol::DimExpr, symbol::DimExpr>&
+        substitution_pattern) {
   for (const auto& item : substitution_pattern) {
     constraints_manager_.SubstituteInConstraint(item.first, item.second);
   }
@@ -676,7 +677,8 @@ bool ShapeConstraintIRAnalysis::IsBroadcastable(
 }
 
 void ShapeConstraintIRAnalysis::SubstituteInConstraint(
-    std::unordered_map<symbol::DimExpr, symbol::DimExpr> substitution_pattern) {
+    const std::unordered_map<symbol::DimExpr, symbol::DimExpr>&
+        substitution_pattern) {
   context_.SubstituteInConstraint(substitution_pattern);
 }
 

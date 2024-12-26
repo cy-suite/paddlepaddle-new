@@ -126,7 +126,7 @@ class IR_API InferSymbolicShapeContext {
                        const symbol::DimExpr& rhs) const;
 
   void SubstituteInConstraint(
-      std::unordered_map<symbol::DimExpr, symbol::DimExpr>
+      const std::unordered_map<symbol::DimExpr, symbol::DimExpr>&
           substitution_pattern);
 
   bool HasPredefinedRange(const symbol::DimExpr& dim_expr) const;
@@ -220,7 +220,7 @@ class IR_API ShapeConstraintIRAnalysis final
                        const symbol::DimExpr& rhs) const;
 
   void SubstituteInConstraint(
-      std::unordered_map<symbol::DimExpr, symbol::DimExpr>
+      const std::unordered_map<symbol::DimExpr, symbol::DimExpr>&
           substitution_pattern);
 
   // Used to debug
