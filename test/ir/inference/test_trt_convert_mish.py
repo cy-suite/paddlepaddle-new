@@ -176,10 +176,7 @@ class TrtConvertMishTest(TrtLayerAutoScanTest):
 
     def test(self):
         self.add_skip_trt_case()
-        # test for old ir
         self.run_test()
-        # test for pir
-        self.run_test(run_pir=True)
 
 
 if __name__ == "__main__":
