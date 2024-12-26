@@ -191,7 +191,7 @@ class TestSwishFloatTRTPattern(TensorRTBaseTest):
 
 class TestTanhShrinkOpFloatTRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = paddle.nn.functional.tanhshrink
+        self.python_api = paddle._C_ops.tanh_shrink
         self.api_args = {
             "x": np.random.randn(2, 3).astype("float32"),
         }
