@@ -301,13 +301,11 @@ class TestSeluTRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 3]}
         self.max_shape = {"x": [5, 3]}
 
-    def test_trt_result_fp32(self):
-        self.enable_fp16 = False
+    def test_trt_result(self):
         self.check_trt_result()
 
     def test_trt_result_fp16(self):
-        self.enable_fp16 = True
-        self.check_trt_result()
+        self.check_trt_result(precision_mode="fp16")
 
 
 if __name__ == '__main__':
