@@ -119,9 +119,17 @@ class TestRecomputeLlamaAuto:
             batch_sampler=train_sampler,
             num_workers=0,
         )
+
+        if self.pp == 1:
+            meshes = [get_mesh(0)]
+        elif self.pp > 1:
+            meshes = [get_mesh(0), get_mesh(-1)]
+        else:
+            raise ValueError("pp should be greater or equal to 1")
+
         dist_loader = dist.shard_dataloader(
             dataloader=train_dataloader,
-            meshes=[get_mesh(0), get_mesh(1)],
+            meshes=meshes,
             shard_dims="dp",
         )
         return optimizer, dist_loader
@@ -150,12 +158,7 @@ class TestRecomputeLlamaAuto:
         return md5_losses, model
 
     def init_dist_env(self):
-        order = ["dp", "pp", "mp"]
-        dp_degree = self.dp
-        mp_degree = self.mp
-        pp_degree = self.pp
-        degree = [dp_degree, pp_degree, mp_degree]
-        mesh_dims = list(filter(lambda x: x[1] > 1, list(zip(order, degree))))
+        mesh_dims = [("dp", self.dp), ("pp", self.pp), ("mp", self.mp)]
         if not mesh_dims:
             mesh_dims = [("dp", 1)]
         dim_names = [mesh_dim[0] for mesh_dim in mesh_dims]
@@ -164,6 +167,7 @@ class TestRecomputeLlamaAuto:
             0, reduce(lambda x, y: x * y, mesh_shape, 1)
         ).reshape(mesh_shape)
         global_mesh = dist.ProcessMesh(mesh_arr, dim_names)
+        print("xxx global_mesh: ", global_mesh)
         dist.auto_parallel.set_mesh(global_mesh)
         paddle.seed(1024)
         np.random.seed(1024)
