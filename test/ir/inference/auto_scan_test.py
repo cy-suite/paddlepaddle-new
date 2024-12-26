@@ -167,9 +167,6 @@ class AutoScanTest(unittest.TestCase):
         return result
 
     def transform_to_trt_program(self, pir_program, trt_config):
-        # trt_config = TensorRTConfig(inputs=inputs)
-        # keys = list(prog_config.inputs.keys())
-        # trt_config.input_data_type = prog_config.inputs[keys[0]].dtype
         if trt_config.input_data_type == 'float16':
             trt_config.precision_mode = PrecisionMode.FP16
 

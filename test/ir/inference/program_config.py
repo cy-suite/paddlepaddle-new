@@ -345,7 +345,6 @@ def convert_to_dynamic_shape(dynamic_shape):
     min_shape = tuple(next(iter(dynamic_shape.min_input_shape.values())))
     opt_shape = tuple(next(iter(dynamic_shape.opt_input_shape.values())))
     max_shape = tuple(next(iter(dynamic_shape.max_input_shape.values())))
-    # tuple(next(iter(dynamic_shape.min_input_shape.values())))
     result_shape = []
     for i in range(len(min_shape)):
         if min_shape[i] == opt_shape[i] == max_shape[i]:
