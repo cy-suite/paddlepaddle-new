@@ -346,7 +346,9 @@ void Compiler::RegisterCudaModuleSymbol() {
 
   RuntimeSymbols symbols;
   for (const auto& kernel_fn_name : device_fn_name_) {
+    std::cerr << "kernel funcname " << kernel_fn_name << std::endl;
     auto fn_kernel = cuda_module_->GetFunction(kernel_fn_name);
+    std::cerr << "ptr " << fn_kernel << std::endl;
     PADDLE_ENFORCE_NOT_NULL(fn_kernel,
                             ::common::errors::InvalidArgument(
                                 "Fail to get CUfunction kernel_fn_name"));

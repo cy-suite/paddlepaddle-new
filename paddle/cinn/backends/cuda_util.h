@@ -28,16 +28,16 @@
 #include "paddle/cinn/runtime/cinn_runtime.h"
 #include "paddle/common/enforce.h"
 
-#define CUDA_DRIVER_CALL(func)                                         \
-  {                                                                    \
-    auto status = func;                                                \
-    if (status != CUDA_SUCCESS) {                                      \
-      const char* msg;                                                 \
-      cuGetErrorString(status, &msg);                                  \
-      std::stringstream ss;                                            \
-      ss << "CUDA Driver Error: " #func " failed with error: " << msg; \
-      PADDLE_THROW(::common::errors::Fatal(ss.str()));                 \
-    }                                                                  \
+#define CUDA_DRIVER_CALL(func)                                  \
+  {                                                             \
+    auto status = func;                                         \
+    if (status != CUDA_SUCCESS) {                               \
+      const char* msg;                                          \
+      cuGetErrorString(status, &msg);                           \
+      std::stringstream ss;                                     \
+      ss << "CUDA Driver Error: " #func " failed with error: "; \
+      PADDLE_THROW(::common::errors::Fatal(ss.str()));          \
+    }                                                           \
   }
 
 #define CUDA_CALL(func)                                    \

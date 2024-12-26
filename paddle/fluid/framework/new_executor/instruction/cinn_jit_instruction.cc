@@ -45,8 +45,7 @@ class CinnJitInstruction::FnPtrImpl {
   void InitFuncArgs(const std::vector<phi::DenseTensor*>& kernel_tensor_args) {
     // 1. Create placeholders for tensor args
     for (size_t i = 0; i < kernel_tensor_args.size(); ++i) {
-      auto* buffer = new cinn_buffer_t();
-      func_args_.emplace_back(buffer);
+      func_args_.emplace_back(nullptr);
     }
 
     // 2. Convert symbol args about dynamic shape to cinn_pod_value_t
@@ -82,16 +81,14 @@ class CinnJitInstruction::FnPtrImpl {
               ::common::errors::Fatal("Dead code, only support int32 and int64 "
                                       "for dynamic shape arg now"));
         }};
-
+    symboc_vals_.clear();
     for (const auto& [_, binding_info] : cinn_kernel_info_.symbol_args_map) {
-      func_args_.emplace_back(std::visit(GetSymbolArg, binding_info));
+      symboc_vals_.emplace_back(std::visit(GetSymbolArg, binding_info));
+      func_args_.emplace_back((void*)(&(symboc_vals_.back())));
     }
 
     if (VLOG_IS_ON(4)) {
       VLOG(4) << "Run func_args_ size: " << func_args_.size();
-      for (const auto& args : func_args_) {
-        VLOG(4) << " args type_code: " << args.type_code();
-      }
     }
   }
 
@@ -102,9 +99,12 @@ class CinnJitInstruction::FnPtrImpl {
 
     // Pass real tensor data to cinn_buffer_t func args placeholder
     for (size_t i = 0; i < kernel_tensor_args.size(); ++i) {
-      cinn_pod_value_to_buffer_p(&(func_args_[i]))->memory =
-          reinterpret_cast<uint8_t*>(kernel_tensor_args[i]->data());
+      std::cerr << "i " << i << "\t " << kernel_tensor_args[i]->data()
+                << std::endl;
+      func_args_[i] = kernel_tensor_args[i]->data();
     }
+
+    std::cerr << "func args size " << func_args_.size() << std::endl;
 
     // Launch host kernel
     if (FLAGS_cinn_measure_kernel_time ||
@@ -125,7 +125,7 @@ class CinnJitInstruction::FnPtrImpl {
             stream, gpuStreamCaptureMode(0));  // StreamCaptureModeGlobal
         for (int ikrnl = 0; ikrnl < graph_nodes_num; ikrnl++) {
           ((lower_func_ptr_g)cinn_kernel_info_.fn_ptr)(
-              static_cast<void*>(func_args_.data()), func_args_.size(), stream);
+              func_args_.data(), func_args_.size(), stream);
         }
         phi::gpuStreamEndCapture(stream, &graph);
 #ifdef PADDLE_WITH_CUDA
@@ -143,16 +143,20 @@ class CinnJitInstruction::FnPtrImpl {
         phi::DestroyStream(stream);
       } else {
         ((lower_func_ptr_g)cinn_kernel_info_.CX86_fn_ptr)(
-            static_cast<void*>(func_args_.data()), func_args_.size(), stream);
+            func_args_.data(), func_args_.size(), stream);
       }
       phi::backends::gpu::GpuDeviceSync();
     } else {
       if (is_gpu) {
         ((lower_func_ptr_g)cinn_kernel_info_.fn_ptr)(
-            static_cast<void*>(func_args_.data()), func_args_.size(), stream);
+            reinterpret_cast<void*>(func_args_.data()),
+            (int32_t)(func_args_.size()),
+            stream);
       } else {
         ((lower_func_ptr_g)cinn_kernel_info_.CX86_fn_ptr)(
-            static_cast<void*>(func_args_.data()), func_args_.size(), stream);
+            reinterpret_cast<void*>(func_args_.data()),
+            func_args_.size(),
+            stream);
       }
     }
     VLOG(6) << "End Run: " << cinn_kernel_info_.fn_name;
@@ -173,9 +177,7 @@ class CinnJitInstruction::FnPtrImpl {
 
     // Launch infer_shape_fn_ptr to infer shape of output tensor
     ((infer_shape_func_ptr_g)cinn_kernel_info_.infer_shape_fn_ptr)(
-        static_cast<void*>(func_args_.data()),
-        func_args_.size(),
-        output_tensor_shapes.data());
+        func_args_.data(), func_args_.size(), output_tensor_shapes.data());
 
     // Resize shape of output tensor
     for (int i = 0; i < output_tensor_size; ++i) {
@@ -190,14 +192,7 @@ class CinnJitInstruction::FnPtrImpl {
     VLOG(6) << "End InferShape: " << cinn_kernel_info_.fn_name;
   }
 
-  void FreeFuncArgs() {
-    for (auto& arg : func_args_) {
-      if (arg.type_code() == ::cinn_type_code<cinn_buffer_t*>()) {
-        delete cinn_pod_value_to_buffer_p(&arg);
-      }
-    }
-    func_args_.clear();
-  }
+  void FreeFuncArgs() { func_args_.clear(); }
 
   void CheckDims(const DDim& first, const DDim& second) const {
     PADDLE_ENFORCE_EQ(
@@ -225,7 +220,8 @@ class CinnJitInstruction::FnPtrImpl {
  private:
   CINNKernelInfo cinn_kernel_info_;
 
-  std::vector<cinn_pod_value_t> func_args_;
+  std::vector<void*> func_args_;
+  std::vector<int64_t> symboc_vals_;
 };
 
 CinnJitInstruction::CinnJitInstruction(

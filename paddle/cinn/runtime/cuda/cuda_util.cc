@@ -104,37 +104,57 @@ void cinn_call_cuda_kernel(void *kernel_fn,
           << ", " << block_z << "}, num_args=" << num_args
           << ", shared_memory_bytes=" << shared_memory_bytes
           << ", stream=" << stream << ", kernel_fn=" << kernel_fn;
+  std::cerr << "cinn_call_cuda_kernel, grid_dim={" << grid_x << ", " << grid_y
+            << ", " << grid_z << "}, block_dim={" << block_x << ", " << block_y
+            << ", " << block_z << "}, num_args=" << num_args
+            << ", shared_memory_bytes=" << shared_memory_bytes
+            << ", stream=" << stream << ", kernel_fn=" << kernel_fn
+            << std::endl;
+
+  std::cerr << "args size " << num_args << std::endl;
 
   std::vector<void *> kernel_args;
   {
-    cinn::utils::RecordEvent record_run("prepare_args",
-                                        cinn::utils::EventType::kInstruction);
     kernel_args.reserve(num_args);
-    cinn_pod_value_t *args = static_cast<cinn_pod_value_t *>(v_args);
+    void **args = static_cast<void **>(v_args);
     for (int idx = 0; idx < num_args; ++idx) {
-      if (args[idx].type_code() == ::cinn_type_code<cinn_buffer_t *>()) {
-        kernel_args.emplace_back(
-            &((cinn_buffer_t *)(args[idx]))->memory);  // NOLINT
-      } else {
-        kernel_args.emplace_back(args[idx].data_addr());
-      }
+      std::cerr << "idx " << args[idx] << std::endl;
+      kernel_args.emplace_back(args[idx]);  // NOLINT
     }
   }
 
+  // std::vector<void *> kernel_args;
+  // {
+  //   cinn::utils::RecordEvent record_run("prepare_args",
+  //                                       cinn::utils::EventType::kInstruction);
+  //   kernel_args.reserve(num_args);
+  //   cinn_pod_value_t *args = static_cast<cinn_pod_value_t *>(v_args);
+  //   for (int idx = 0; idx < num_args; ++idx) {
+  //     if (args[idx].type_code() == ::cinn_type_code<cinn_buffer_t *>()) {
+  //       kernel_args.emplace_back(
+  //           &((cinn_buffer_t *)(args[idx]))->memory);  // NOLINT
+  //     } else {
+  //       kernel_args.emplace_back(args[idx].data_addr());
+  //     }
+  //   }
+  // }
+
   {
-    cinn::utils::RecordEvent record_run("cuLaunchKernel",
-                                        cinn::utils::EventType::kInstruction);
-    CUDA_DRIVER_CALL(cuLaunchKernel(static_cast<CUfunction>(kernel_fn),
-                                    grid_x,
-                                    grid_y,
-                                    grid_z,
-                                    block_x,
-                                    block_y,
-                                    block_z,
-                                    shared_memory_bytes,
-                                    static_cast<CUstream>(stream),
-                                    kernel_args.data(),
-                                    nullptr))
+    CUresult res = cuLaunchKernel(static_cast<CUfunction>(kernel_fn),
+                                  grid_x,
+                                  grid_y,
+                                  grid_z,
+                                  block_x,
+                                  block_y,
+                                  block_z,
+                                  0,
+                                  nullptr,
+                                  kernel_args.data(),
+                                  nullptr);
+    if (res != CUDA_SUCCESS) {
+      std::cerr << "launch failed" << std::endl;
+    }
+    std::cerr << "after launch \n";
   }
 }
 
