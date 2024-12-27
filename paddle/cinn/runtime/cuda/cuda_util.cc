@@ -81,7 +81,6 @@ class CublasHandle {
 int64_t cinn_get_value_in_cuda_kernel_args(void *v_args, int idx) {
   KernelArgsNode *args = static_cast<KernelArgsNode *>(v_args);
   return args[idx].symbol_val;
-  // return args[idx].operator int64_t();
 }
 
 void *cinn_get_item_in_cuda_kernel_args(void *v_args, int idx) {
