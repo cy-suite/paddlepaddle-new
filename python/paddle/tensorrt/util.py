@@ -125,6 +125,7 @@ def warmup_shape_infer(
                 )
             )
     paddle.framework.set_flags({"FLAGS_enable_collect_shape": False})
+
     return exe_program
 
 
