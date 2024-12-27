@@ -97,7 +97,7 @@ class LongLong2IntExprPass : public ExprPass {
 std::unique_ptr<StmtPass> CreateLongLong2IntStmtPass();
 
 /**
- * Converts int64 (long long) types to int32 in a Stmt where possible.
+ * Converts int64 (long long) types to int32 in a Expr where possible.
  *
  * IMPORTANT: Before applying this pass, it is MANDATORY to use
  * `CanApplyLongLong2Int` to check for potential overflow issues.
