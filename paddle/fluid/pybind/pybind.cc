@@ -1856,7 +1856,7 @@ All parameter, weight, gradient are variables in Paddle.
         return operators::ExtraInfoUtils::Instance().GetExtraAttrsMap(op_type);
       });
   m.def(
-      "get_attrtibute_type",
+      "get_attribute_type",
       [](const std::string &op_type,
          const std::string &attr_name) -> paddle::framework::proto::AttrType {
         const auto &default_val =
