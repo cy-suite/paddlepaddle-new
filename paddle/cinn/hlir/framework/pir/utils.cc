@@ -147,6 +147,7 @@ class OpTransInfo {
                                                     "embedding",
                                                     "arange",
                                                     "argmax",
+                                                    "argmin",
                                                     "argsort",
                                                     "assign_value",
                                                     "one_hot",
