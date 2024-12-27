@@ -36,7 +36,7 @@ PD_BUILD_OP(custom_op)
 
 namespace paddle::inference::tensorrt {
 
-TEST(CustomPluginCreat0r, StaticShapePlugin) {
+TEST(CustomPluginCreator, StaticShapePlugin) {
   framework::ProgramDesc prog;
   auto *block = prog.MutableBlock(0);
   auto *op = block->AppendOp();
