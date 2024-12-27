@@ -192,8 +192,6 @@ class CinnJitInstruction::FnPtrImpl {
     VLOG(6) << "End InferShape: " << cinn_kernel_info_.fn_name;
   }
 
-  void FreeFuncArgs() { func_args_.clear(); }
-
   void CheckDims(const DDim& first, const DDim& second) const {
     PADDLE_ENFORCE_EQ(
         first.size(),
