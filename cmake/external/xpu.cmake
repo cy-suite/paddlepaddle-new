@@ -170,7 +170,7 @@ if(WITH_XPU_BKCL)
 endif()
 
 set(XFT_COMMAND "get_xft_dependence.sh")
-# If the corresponding path exists locally, use it directly; otherwise, download it. 
+# If the corresponding path exists locally, use it directly; otherwise, download it.
 # The current implementation only supports XPU-related libraries being located in the same directory.
 if(DEFINED ENV{XPU_LIB_ROOT})
   message(STATUS "Compile with LOCAL XPU LIBS!")
