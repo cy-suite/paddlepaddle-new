@@ -43,12 +43,14 @@ class TensorWrapper {
                          bool no_need_buffer = false) {
     // set inplace_version_snapshot_ according to tensor's current inplace
     // version.
-    if (tensor.initialized() && tensor.is_dense_tensor()) {
+    if ((tensor.defined() && tensor.has_allocation()) &&
+        tensor.is_dense_tensor()) {
       phi::DenseTensor* dense_tensor =
           static_cast<phi::DenseTensor*>(tensor.impl().get());
       auto& inplace_version_counter = dense_tensor->InplaceVersionCounter();
       inplace_version_snapshot_ = inplace_version_counter.CurrentVersion();
-    } else if (tensor.initialized() && tensor.is_dist_tensor()) {
+    } else if ((tensor.defined() && tensor.has_allocation()) &&
+               tensor.is_dist_tensor()) {
       phi::DenseTensor* dense_tensor =
           static_cast<phi::distributed::DistTensor*>(tensor.impl().get())
               ->unsafe_mutable_value();
@@ -92,7 +94,8 @@ class TensorWrapper {
     } else {
 #ifndef PADDLE_NO_PYTHON
       if (egr::SavedTensorsHooks::GetInstance().IsEnable() &&
-          tensor.is_dense_tensor() && tensor.initialized()) {
+          tensor.is_dense_tensor() &&
+          (tensor.defined() && tensor.has_allocation())) {
         phi::DenseTensor* dense_tensor =
             static_cast<phi::DenseTensor*>(tensor.impl().get());
         intermidiate_tensor_.set_impl(std::make_shared<phi::DenseTensor>(
@@ -102,7 +105,8 @@ class TensorWrapper {
         unpack_hook_ = egr::SavedTensorsHooks::GetInstance().GetUnPackHook();
         packed_value_ = (*pack_hook)(tensor);
       } else if (egr::SavedTensorsHooks::GetInstance().IsEnable() &&
-                 tensor.is_dist_tensor() && tensor.initialized()) {
+                 tensor.is_dist_tensor() &&
+                 (tensor.defined() && tensor.has_allocation())) {
         intermidiate_tensor_.set_impl(
             std::make_shared<phi::distributed::DistTensor>(
                 tensor.dims(),

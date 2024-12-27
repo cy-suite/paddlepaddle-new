@@ -65,7 +65,7 @@ static void CopyOrAddTensor(paddle::Tensor* tensor,
                 *reinterpret_cast<phi::DenseTensor*>(tensor->impl().get()),
                 *reinterpret_cast<phi::DenseTensor*>(t.impl().get()),
                 reinterpret_cast<phi::DenseTensor*>(tensor->impl().get()));
-          } else {
+          } else if (t.initialized() && tensor->initialized()) {
             paddle::imperative::TensorAdd<paddle::Tensor>(t, tensor);
           }
         } else {
@@ -179,7 +179,8 @@ GradNodeAccumulation::operator()(
   if (!weak_grad_.expired() && !is_new_grad) {
     auto grad = weak_grad_.lock();
     if (grad_out.defined() &&
-        (grad_out.is_dist_tensor() || grad_out.initialized())) {
+        (grad_out.is_dist_tensor() ||
+         (grad_out.defined() && grad_out.has_allocation()))) {
       CopyOrAddTensor(grad.get(), grad_out, is_fake_empty_);
     }
     // else { do nothing since there is no valid value in grad out tensor }

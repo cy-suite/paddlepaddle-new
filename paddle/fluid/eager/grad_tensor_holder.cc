@@ -58,7 +58,8 @@ void GradTensorHolder::CopyValueFromTensor(size_t slot_id,
           rank));
   if (!fill_one) {
     paddle::Tensor& buffer_tensor = buffer_[slot_id][rank];
-    if ((!buffer_tensor.defined() || !buffer_tensor.initialized())) {
+    if ((!buffer_tensor.defined() ||
+         !(buffer_tensor.defined() && buffer_tensor.has_allocation()))) {
       // Perform deep copy here
       buffer_tensor.copy_(t, t.place(), false);
       auto* meta = egr::EagerUtils::autograd_meta(&buffer_tensor);
@@ -112,7 +113,7 @@ void GradTensorHolder::add(size_t slot_id,
                            size_t rank,
                            const paddle::Tensor& t,
                            bool create_graph) {
-  if (!t.initialized()) {
+  if (!(t.defined() && t.has_allocation())) {
     if (t.defined() && t.is_dist_tensor() &&
         phi::distributed::NeedComputationClipForPP(t.impl())) {
       // Pipeline parallel still needs to construct GradNode graph
@@ -152,7 +153,8 @@ void GradTensorHolder::add(size_t slot_id,
   // related code later.
   // This if statement is trying to test neither phi::Tensor nor
   // framework::Variable is initialized.
-  if ((!buffer_tensor.defined() || !buffer_tensor.initialized())) {
+  if ((!buffer_tensor.defined() ||
+       !(buffer_tensor.defined() && buffer_tensor.has_allocation()))) {
     // Simply copy tensor->impl
     VLOG(6) << "Move Tensor for buffer_ slot: " << slot_id
             << ", size: " << buffer_[slot_id].size();
@@ -161,7 +163,7 @@ void GradTensorHolder::add(size_t slot_id,
     VLOG(6) << "Add Tensor for buffer_ slot: " << slot_id
             << ", size: " << buffer_[slot_id].size();
     // Accumulation
-    PADDLE_ENFORCE_EQ(t.initialized(),
+    PADDLE_ENFORCE_EQ((t.defined() && t.has_allocation()),
                       true,
                       common::errors::Fatal(
                           "We can only accumulate initialized tensor, but we "
