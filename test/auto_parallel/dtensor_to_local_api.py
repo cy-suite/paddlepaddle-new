@@ -1,4 +1,4 @@
-# Copyright (c) 2023 PaddlePaddle Authors. All Rights Reserved.
+# Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,9 +29,9 @@ class TestDtensorToLocalAPI:
         self._mesh = dist.ProcessMesh([0, 1], dim_names=["x"])
 
     def run_test_cases(self):
-        self.test_case_forward()
+        self.test_case_forward_backward()
 
-    def test_case_forward(self):
+    def test_case_forward_backward(self):
         a = paddle.ones(self._shape)
         a.stop_gradient = False
 
@@ -42,10 +42,13 @@ class TestDtensorToLocalAPI:
             )
         )
 
-        output_tensor = dist.dtensor_to_local(input_tensor)
-        output_tensor += 2
-        output_tensor.backward()
-        assert not output_tensor.is_dist()
+        tensor1 = dist.dtensor_to_local(input_tensor)
+        assert not tensor1.is_dist()
+
+        tensor2 = tensor1 + 2
+        tensor3 = tensor2 * 3
+        tensor3.register_hook(self.check_grad_mesh(None, None))
+        tensor3.backward()
 
     def check_grad_mesh(self, org_mesh, org_placements):
         def _check_mesh(grad):
