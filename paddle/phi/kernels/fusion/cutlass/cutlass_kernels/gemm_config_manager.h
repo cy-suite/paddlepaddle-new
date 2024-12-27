@@ -86,7 +86,7 @@ struct GemmIDType {
     return out;
   }
 
-  friend void to_json(json& j, const GemmIDType& id) {
+  friend void to_json(json& j, const GemmIDType& id) {  // NOLINT
     j = json{{"gemm_n", id.gemm_n},
              {"gemm_k", id.gemm_k},
              {"compute_type", id.compute_type},
@@ -95,7 +95,7 @@ struct GemmIDType {
              {"num_experts", id.num_experts}};
   }
 
-  friend void from_json(const json& j, GemmIDType& id) {
+  friend void from_json(const json& j, GemmIDType& id) {  // NOLINT
     j.at("gemm_n").get_to(id.gemm_n);
     j.at("gemm_k").get_to(id.gemm_k);
     j.at("compute_type").get_to(id.compute_type);
@@ -162,11 +162,11 @@ class GemmConfigManager {
         for (const auto& mPair : *(pair.second)) {
           if (mPair.second.has_value()) {
             const auto config = mPair.second.value();
-            mProfileJson[std::to_string(mPair.first)] = {
-                {"tile_config", config.tile_config},
-                {"split_k_style", config.split_k_style},
-                {"split_k_factor", config.split_k_factor},
-                {"stages", config.stages}};
+            mProfileJson[std::to_string(mPair.first)] =
+                json{{"tile_config", config.tile_config},
+                     {"split_k_style", config.split_k_style},
+                     {"split_k_factor", config.split_k_factor},
+                     {"stages", config.stages}};
           } else {
             PADDLE_FATAL("[GemmConfigManager] Serialize Empty Config");
           }
