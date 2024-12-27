@@ -34,7 +34,7 @@ struct AbsMaxAndMinGradFunctor {
                   DX* dx,
                   DY* dy,
                   const Dim& dim,
-                  int64_t size) {
+                  int size) {
     dx->device(place) = dy->broadcast(dim) * (*x).sign() *
                         ((*x).abs() == y->broadcast(dim)).template cast<T>();
   }
@@ -58,7 +58,7 @@ struct PNormGradFunctor {
                   DX* dx,
                   DY* dy,
                   const Dim& dim,
-                  int64_t size) {
+                  int size) {
     dx->device(place) =
         (*x).abs().pow(this->porder) * (*x).sign() * dy->broadcast(dim) *
         (*y + y->constant(eps)).pow(-this->porder).broadcast(dim);
@@ -87,7 +87,7 @@ void PNormGradKernel(const Context& dev_ctx,
   auto xdim = in_x->dims();
   bool reduce_all = (in_norm->numel() == 1);
   if (axis < 0) axis = xdim.size() + axis;
-  const std::vector<int64_t> dims = {axis};
+  const std::vector<int> dims = {axis};
 
   if (porder == 0) {
     phi::funcs::SetConstant<Context, T> set_zero;
