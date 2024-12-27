@@ -497,12 +497,16 @@ void OptimizeExprGPU(Expr *expr) {
   if (FLAGS_cinn_longlong2int) {
     ir::stmt::BlockRef block = ir::ConvertExprBlockToStmtBlock(*expr);
     if (CanApplyLongLong2Int(block)) {
-      VLOG(10) << "Before LongLong2IntPass: \n" << *expr;
+      VLOG(10) << "Before LongLong2IntStmtPass: \n" << *expr;
       StmtPassManager pass_manager;
-      pass_manager.AddPass(CreateLongLong2IntPass());
+      pass_manager.AddPass(CreateLongLong2IntStmtPass());
       pass_manager.Run(block);
+      VLOG(10) << "After LongLong2IntStmtPass: \n" << block;
+      ExprPassManager expr_pass_manager;
+      expr_pass_manager.AddPass(CreateLongLong2IntExprPass());
+      expr_pass_manager.Run(block);
+      VLOG(10) << "After LongLong2IntExprPass: \n" << block;
       *expr = ir::ConvertStmtBlockToExprBlock(block);
-      VLOG(10) << "After LongLong2IntPass: \n" << *expr;
     }
   }
 

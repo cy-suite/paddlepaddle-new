@@ -103,9 +103,9 @@ class CastLonglong2Int : public ir::IRMutator<>,
     std::for_each(node->indices.begin(),
                   node->indices.end(),
                   [&](cinn::ir::Expr& e) { e->convert_int64_to_int32(); });
-
     ir::IRMutator<>::Visit(&node->tensor, &node->tensor);
   }
+
   void Visit(const ir::Select* op, Expr* expr) override {
     auto node = expr->As<ir::Select>();
     auto cond = node->condition;
@@ -123,10 +123,6 @@ class CastLonglong2Int : public ir::IRMutator<>,
     std::for_each(indices.begin(), indices.end(), [&](cinn::ir::Expr& e) {
       e->convert_int64_to_int32();
     });
-    Expr value = stmt->value();
-    Expr tensor = stmt->tensor();
-    ir::IRMutator<>::Visit(&value, &value);
-    ir::IRMutator<>::Visit(&tensor, &tensor);
   }
   void VisitStmt(IfThenElse stmt) override {
     Expr cond = stmt->condition();
@@ -136,24 +132,23 @@ class CastLonglong2Int : public ir::IRMutator<>,
       if (cond->operand(1).is_index())
         cond->operand(1)->convert_int64_to_int32();
     }
-    ir::stmt::StmtMutator<>::VisitBlock(stmt->true_case());
-    if (stmt->false_case().defined()) {
-      ir::stmt::StmtMutator<>::VisitBlock(stmt->false_case());
-    }
   }
   void VisitStmt(For stmt) override {
     ir::Var loop_var = stmt->loop_var();
     CastVarWithBound(loop_var);
-    stmt->set_loop_var(loop_var);
     stmt->min()->convert_int64_to_int32();
     stmt->extent()->convert_int64_to_int32();
-    ir::stmt::StmtMutator<>::VisitBlock(stmt->body());
   }
   void VisitStmt(Schedule stmt) override {
     std::vector<Var> iter_vars = stmt->iter_vars();
     std::for_each(iter_vars.begin(), iter_vars.end(), [&](cinn::ir::Var& v) {
       CastVarWithBound(v);
     });
+
+    std::vector<Expr> iter_values = stmt->iter_values();
+    std::for_each(iter_values.begin(),
+                  iter_values.end(),
+                  [&](cinn::ir::Expr& e) { e->convert_int64_to_int32(); });
 
     for (auto& buffer_range : stmt->read_buffers()) {
       if (auto range = buffer_range.As<ir::_BufferRange_>()) {
@@ -179,14 +174,8 @@ class CastLonglong2Int : public ir::IRMutator<>,
     }
     ir::stmt::StmtMutator<>::VisitBlock(stmt->body());
   }
-  void VisitStmt(ir::stmt::Let stmt) override {
-    Expr body = stmt->body();
-    ir::IRMutator<>::Visit(&body, &body);
-  }
-  void VisitStmt(ir::stmt::Evaluate stmt) override {
-    Expr value = stmt->value();
-    ir::IRMutator<>::Visit(&value, &value);
-  }
+  void VisitStmt(ir::stmt::Let stmt) override { return; }
+  void VisitStmt(ir::stmt::Evaluate stmt) override { return; }
 
   void VisitStmt(ir::stmt::Alloc stmt) override { return; }
   void VisitStmt(ir::stmt::Free stmt) override { return; }
@@ -212,19 +201,29 @@ class CastLonglong2Int : public ir::IRMutator<>,
 };
 }  // namespace
 
-LogicalResult LongLong2IntPass::Run(ir::stmt::StmtRef stmt) {
+LogicalResult LongLong2IntStmtPass::Run(ir::stmt::StmtRef stmt) {
   CastLonglong2Int narrow;
   narrow(stmt);
   return LogicalResult::success();
 }
 
-std::unique_ptr<StmtPass> CreateLongLong2IntPass() {
-  return std::make_unique<LongLong2IntPass>();
+LogicalResult LongLong2IntExprPass::Run(ir::Expr expr) {
+  CastLonglong2Int narrow;
+  narrow(&expr);
+  return LogicalResult::success();
+}
+std::unique_ptr<StmtPass> CreateLongLong2IntStmtPass() {
+  return std::make_unique<LongLong2IntStmtPass>();
+}
+
+std::unique_ptr<ExprPass> CreateLongLong2IntExprPass() {
+  return std::make_unique<LongLong2IntExprPass>();
 }
 
 bool CanApplyLongLong2Int(ir::stmt::BlockRef block) {
   CheckOverflow check_overflow;
   return !check_overflow(block);
 }
+
 }  // namespace optim
 }  // namespace cinn
