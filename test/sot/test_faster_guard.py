@@ -147,6 +147,7 @@ class TestFasterGuardGroup(unittest.TestCase):
         epsilon = 1e-13
         guard_float = paddle.framework.core.FloatCloseGuard(expected, epsilon)
         self.assertTrue(guard_float.check(0.018181818181818184))
+        self.assertTrue(guard_float.check(0.018181818181818177))
         self.assertFalse(guard_float.check(0.018181818191818184))
 
 
