@@ -19,34 +19,32 @@
 
 namespace cinn {
 namespace optim {
-using ir::stmt::StmtRef;  
-using ir::stmt::BlockRef;
 using ir::stmt::_Block_;
-using ir::stmt::Let;
-using ir::stmt::Store;
 using ir::stmt::Alloc;
+using ir::stmt::BlockRef;
+using ir::stmt::Evaluate;
+using ir::stmt::For;
 using ir::stmt::Free;
 using ir::stmt::IfThenElse;
-using ir::stmt::For;
-using ir::stmt::Evaluate;
+using ir::stmt::Let;
 using ir::stmt::Schedule;
+using ir::stmt::StmtRef;
+using ir::stmt::Store;
 
-
-class DSBNamesCollectorInStmt: public ir::stmt::StmtVisitor<>{
-  public:
+class DSBNamesCollectorInStmt : public ir::stmt::StmtVisitor<> {
+ public:
   explicit DSBNamesCollectorInStmt(
-                               std::unordered_set<std::string>& dead_schedule_block_names,
-                               std::unordered_set<std::string>& output_names):
-      dead_schedule_block_names_(dead_schedule_block_names),
-      output_names_(output_names) {}
+      std::unordered_set<std::string>* dead_schedule_block_names,
+      std::unordered_set<std::string>* output_names)
+      : dead_schedule_block_names_(dead_schedule_block_names),
+        output_names_(output_names) {}
 
   void operator()(const BlockRef& block) {
-    dead_schedule_block_names_.clear();
+    dead_schedule_block_names_->clear();
     ir::stmt::StmtVisitor<>::VisitBlock(block);
   }
 
-  private:
-
+ private:
   void VisitBlock(const BlockRef& block) override {
     for (const StmtRef& stmt : block->stmts()) {
       StmtVisitor::VisitStmt(stmt);
@@ -60,16 +58,12 @@ class DSBNamesCollectorInStmt: public ir::stmt::StmtVisitor<>{
     }
   }
 
-  void VisitStmt(const For& stmt) override {
-    VisitBlock(stmt->body());
-  }
+  void VisitStmt(const For& stmt) override { VisitBlock(stmt->body()); }
 
-  void VisitStmt(const Schedule& stmt) override {
-    VisitBlock(stmt->body());
-  }
+  void VisitStmt(const Schedule& stmt) override { VisitBlock(stmt->body()); }
 
   void VisitStmt(const Let& stmt) override {
-    if(stmt->body().defined()){
+    if (stmt->body().defined()) {
       UpdateDeadScheduleBlocks(stmt->body());
     }
   }
@@ -78,12 +72,12 @@ class DSBNamesCollectorInStmt: public ir::stmt::StmtVisitor<>{
     UpdateDeadScheduleBlocks(stmt->value());
   }
 
-  void VisitStmt(const Evaluate& stmt) override { }
+  void VisitStmt(const Evaluate& stmt) override {}
 
-  void VisitStmt(const Alloc& stmt) override { }
+  void VisitStmt(const Alloc& stmt) override {}
 
-  void VisitStmt(const Free& stmt) override { }
- 
+  void VisitStmt(const Free& stmt) override {}
+
   void UpdateDeadScheduleBlocks(const ir::Expr& expr) {
     std::unordered_set<std::string> load_buffer_names;
     std::unordered_set<std::string> load_tensor_names;
@@ -104,7 +98,7 @@ class DSBNamesCollectorInStmt: public ir::stmt::StmtVisitor<>{
       return load_tensor_names.count(tensor->name) > 0;
     };
     auto IsOutputTensor = [&](const ir::_Tensor_* tensor) -> bool {
-      return output_names_.count(tensor->name) > 0;
+      return output_names_->count(tensor->name) > 0;
     };
     auto IsDeadStore = [&](const ir::Store* store) -> bool {
       const ir::_Tensor_* tensor = store->tensor.as_tensor();
@@ -116,29 +110,32 @@ class DSBNamesCollectorInStmt: public ir::stmt::StmtVisitor<>{
       if (store != nullptr && IsDeadStore(store)) {
         VLOG(6) << "Find dead schedule block names: \n"
                 << store->tensor.as_tensor()->name;
-        dead_schedule_block_names_.insert(store->tensor.as_tensor()->name);
+        dead_schedule_block_names_->insert(store->tensor.as_tensor()->name);
       }
       return false;
     };
     ir::ir_utils::CollectIRNodes(expr, InsertDeadStoreName);
   }
 
-  std::unordered_set<std::string>& dead_schedule_block_names_;
-  std::unordered_set<std::string>& output_names_;
+  std::unordered_set<std::string>* dead_schedule_block_names_;
+  std::unordered_set<std::string>* output_names_;
 };
 
-class ScheduleBlockDCE : public ir::IRMutator<Expr*>, public ir::stmt::StmtMutator<> {
-  public:
+class ScheduleBlockDCE : public ir::IRMutator<Expr*>,
+                         public ir::stmt::StmtMutator<> {
+ public:
   explicit ScheduleBlockDCE(const std::vector<std::string>& output_names)
       : output_names_(output_names.begin(), output_names.end()) {}
 
   void operator()(BlockRef block) {
-    DSBNamesCollectorInStmt collector(dead_schedule_block_names_, output_names_);
+    DSBNamesCollectorInStmt collector(&dead_schedule_block_names_,
+                                      &output_names_);
     collector(block);
     while (!dead_schedule_block_names_.empty()) {
       Visit(block);
-      DSBNamesCollectorInStmt collector(dead_schedule_block_names_, output_names_);
-    } ;
+      DSBNamesCollectorInStmt collector(&dead_schedule_block_names_,
+                                        &output_names_);
+    }
   }
 
  private:
@@ -151,7 +148,8 @@ class ScheduleBlockDCE : public ir::IRMutator<Expr*>, public ir::stmt::StmtMutat
 
     std::unordered_set<int> need_remove_ids;
     for (int i = 0; i < block->stmts().size(); ++i) {
-      if (IsDeadScheduleBlock(block->stmts()[i]) || IsEmptyStmt((block->stmts()[i]))) {
+      if (IsDeadScheduleBlock(block->stmts()[i]) ||
+          IsEmptyStmt((block->stmts()[i]))) {
         need_remove_ids.insert(i);
       }
     }
@@ -177,7 +175,7 @@ class ScheduleBlockDCE : public ir::IRMutator<Expr*>, public ir::stmt::StmtMutat
       stmt->set_false_case(empty_block);
     }
   }
-  
+
   void VisitStmt(For stmt) override {
     VisitBlock(stmt->body());
     if (IsEmptyBlock(stmt->body())) {
@@ -185,19 +183,17 @@ class ScheduleBlockDCE : public ir::IRMutator<Expr*>, public ir::stmt::StmtMutat
     }
   }
 
-  void VisitStmt(Schedule stmt) override {
-    VisitBlock(stmt->body());
-  }
+  void VisitStmt(Schedule stmt) override { VisitBlock(stmt->body()); }
 
-  void VisitStmt(Alloc) override { }
+  void VisitStmt(Alloc) override {}
 
-  void VisitStmt(Free) override { }
+  void VisitStmt(Free) override {}
 
-  void VisitStmt(Let) override { }
+  void VisitStmt(Let) override {}
 
-  void VisitStmt(Store) override { }
+  void VisitStmt(Store) override {}
 
-  void VisitStmt(Evaluate) override { }
+  void VisitStmt(Evaluate) override {}
 
   bool IsEmptyStmt(const StmtRef stmt) {
     if (stmt->block_fields().empty()) return false;
@@ -217,15 +213,16 @@ class ScheduleBlockDCE : public ir::IRMutator<Expr*>, public ir::stmt::StmtMutat
 
   bool IsEmptyIf(const IfThenElse& stmt) {
     if (stmt->false_case().defined()) {
-      return IsEmptyBlock(stmt->true_case()) && IsEmptyBlock(stmt->false_case());
+      return IsEmptyBlock(stmt->true_case()) &&
+             IsEmptyBlock(stmt->false_case());
     }
     return IsEmptyBlock(stmt->true_case());
   }
 
   bool IsDeadScheduleBlock(const StmtRef& stmt) {
     const Schedule& sbr = stmt.as<Schedule>();
-    return !sbr->block_fields().empty() && dead_schedule_block_names_.count(
-               sbr->name()) > 0;
+    return !sbr->block_fields().empty() &&
+           dead_schedule_block_names_.count(sbr->name()) > 0;
   }
 
  private:
@@ -238,15 +235,16 @@ LogicalResult EliminateDeadScheduleBlockPass::Run(BlockRef stmt) {
   return LogicalResult::success();
 }
 
-std::unique_ptr<BlockPass> CreateEliminateDeadScheduleBlockPass(const std::vector<std::string>& output_names) {
+std::unique_ptr<BlockPass> CreateEliminateDeadScheduleBlockPass(
+    const std::vector<std::string>& output_names) {
   return std::make_unique<EliminateDeadScheduleBlockPass>(output_names);
 }
 
-void EliminateDeadScheduleBlockPass::EliminateDeadScheduleBlock(BlockRef block) {
+void EliminateDeadScheduleBlockPass::EliminateDeadScheduleBlock(
+    BlockRef block) {
   ScheduleBlockDCE eliminator(this->output_names);
   eliminator(block);
 }
-
 
 }  // namespace optim
 }  // namespace cinn

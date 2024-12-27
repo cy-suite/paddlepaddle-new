@@ -17,8 +17,8 @@
  */
 #pragma once
 #include "paddle/cinn/common/common.h"
-#include "paddle/cinn/pass/pass.h"
 #include "paddle/cinn/ir/ir.h"
+#include "paddle/cinn/pass/pass.h"
 
 namespace cinn {
 namespace optim {
@@ -57,7 +57,8 @@ namespace optim {
  */
 class EliminateDeadScheduleBlockPass : public BlockPass {
  public:
-  explicit EliminateDeadScheduleBlockPass(const ::std::vector<std::string>& output_names)
+  explicit EliminateDeadScheduleBlockPass(
+      const ::std::vector<std::string>& output_names)
       : BlockPass("eliminate_dead_schedule_block"),
         output_names(output_names) {}
   LogicalResult Run(ir::stmt::BlockRef block) override;
@@ -68,8 +69,8 @@ class EliminateDeadScheduleBlockPass : public BlockPass {
   std::vector<std::string> output_names;
 };
 
-std::unique_ptr<BlockPass> CreateEliminateDeadScheduleBlockPass(const std::vector<std::string>& output_names);
-
+std::unique_ptr<BlockPass> CreateEliminateDeadScheduleBlockPass(
+    const std::vector<std::string>& output_names);
 
 }  // namespace optim
 }  // namespace cinn
