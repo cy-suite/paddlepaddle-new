@@ -205,7 +205,7 @@ class GemmConfigManager {
 
   std::optional<CutlassGemmConfig> getBestConfig(GemmIDType gemmId, int m) {
     reader_lock lock(mGemmProfileMap->mutex);
-    int mRounded = std::min(std::max(1, nextPowerOfTwo(m)), getMaxProfileM());
+    int mRounded = std::min(nextPowerOfTwo(m), getMaxProfileM());
     if (mGemmProfileMap->existsMProfileMap(gemmId)) {
       auto profileMap = mGemmProfileMap->getMProfileMap(gemmId);
       auto iter = profileMap->find(mRounded);
@@ -221,7 +221,7 @@ class GemmConfigManager {
 
   bool addBestConfig(GemmIDType gemmId, int m, CutlassGemmConfig config) {
     writer_lock lock(mGemmProfileMap->mutex);
-    int mRounded = std::min(std::max(1, nextPowerOfTwo(m)), getMaxProfileM());
+    int mRounded = std::min(nextPowerOfTwo(m), getMaxProfileM());
     if (!mGemmProfileMap->existsMProfileMap(gemmId)) {
       // create map for Gemm ID
       mGemmProfileMap->createMProfileMap(gemmId);
