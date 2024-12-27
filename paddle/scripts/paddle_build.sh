@@ -1431,7 +1431,6 @@ function bind_test() {
 
 EXIT_CODE=0;
 function caught_error() {
-  set +x
   for job in `jobs -p`; do
       # echo "PID => ${job}"
       if ! wait ${job} ; then
@@ -1439,7 +1438,6 @@ function caught_error() {
          EXIT_CODE=1;
       fi
   done
-  set -x
 }
 
 function case_count(){
@@ -1538,7 +1536,7 @@ function card_test() {
         return 0
     fi
 
-    trap 'caught_error' >/dev/null CHLD
+    trap 'caught_error' CHLD
     tmpfile_rand=`date +%s%N`
     NUM_PROC=$[CUDA_DEVICE_COUNT/$cardnumber]
     echo "****************************************************************"
@@ -1580,6 +1578,7 @@ function card_test() {
         fi
     done
     wait; # wait for all subshells to finish
+    trap - CHLD
     ut_endTime_s=`date +%s`
     if (( $2 == -1 )); then
         echo "exclusive TestCases Total Time: $[ $ut_endTime_s - $ut_startTime_s ]s"
