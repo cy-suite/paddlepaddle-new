@@ -305,7 +305,6 @@ def share_data_converter(network, paddle_op, inputs):
 
 @converter_registry.register("pd_op.affine_channel", trt_version="8.x")
 def affine_channel_converter(network, paddle_op, inputs):
-
     x, scale_weights, bias_weights = inputs
     data_layout = paddle_op.attrs().get("data_layout")
 
