@@ -3633,3 +3633,40 @@ def in_auto_parallel_align_mode():
     return paddle.base.framework.get_flags(
         "FLAGS_enable_auto_parallel_align_mode"
     )["FLAGS_enable_auto_parallel_align_mode"]
+
+
+def dtensor_to_local(dist_tensor: Tensor) -> Tensor:
+    """
+    Convert a distributed tensor to a local tensor. ``dtensor_to_local``
+    remove the distributed attribute of the input ``dist_tensor`` and
+    return a local ``paddle.Tensor``.
+
+    Args:
+        dist_tensor (paddle.Tensor): The distributed tensor to be converted.
+
+    Returns:
+        paddle.Tensor: The local tensor of the input ``dist_tensor``.
+
+    Examples:
+        .. code-block:: python
+
+            >>> import paddle
+            >>> import paddle.distributed as dist
+
+            >>> # doctest: +REQUIRES(env:DISTRIBUTED)
+            >>> mesh = dist.ProcessMesh([0, 1], dim_names=["x"])
+            >>> dist_tensor = dist.shard_tensor(paddle.ones([4, 4]), mesh, [dist.Shard(0)])
+            >>> local_tensor = dist.dtensor_to_local(dist_tensor)
+    """
+
+    if paddle.in_dynamic_mode():
+        # if the input is not a distributed
+        # tensor, return it directly
+        if dist_tensor.is_dist() is False:
+            raise ValueError("The input should be a distributed tensor.")
+
+        return paddle.base.core.dtensor_to_local(dist_tensor)
+    else:
+        raise NotImplementedError(
+            "dtensor_to_local is only supported in dygraph mode now."
+        )

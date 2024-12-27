@@ -55,6 +55,8 @@ paddle::Tensor reshard_ad_function(
     const paddle::Tensor& tensor,
     const phi::distributed::TensorDistAttr dist_attr);
 
+paddle::Tensor dtensor_to_local_ad_function(const paddle::Tensor& input);
+
 namespace sparse {
 std::tuple<paddle::Tensor,
            paddle::Tensor&,

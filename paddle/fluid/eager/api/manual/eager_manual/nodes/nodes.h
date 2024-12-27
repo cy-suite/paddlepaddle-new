@@ -443,6 +443,55 @@ class ReshardGradNode : public egr::GradNodeBase {
   egr::TensorWrapper input_;
 };
 
+class DtensorToLocalGradNode : public egr::GradNodeBase {
+ public:
+  DtensorToLocalGradNode() : egr::GradNodeBase() {
+    VLOG(3) << " Construct DtensorToLocalGradNode Node.";
+  }
+
+  DtensorToLocalGradNode(size_t bwd_in_slot_num, size_t bwd_out_slot_num)
+      : egr::GradNodeBase(bwd_in_slot_num, bwd_out_slot_num) {
+    VLOG(3) << " Construct DtensorToLocalGradNode Node, bwd_in_slot_num: "
+            << bwd_in_slot_num << ", bwd_out_slot_num: " << bwd_out_slot_num;
+  }
+
+  ~DtensorToLocalGradNode() override {
+    VLOG(3) << " Destruct DtensorToLocalGradNode Node.";
+  }
+
+  virtual paddle::small_vector<std::vector<paddle::Tensor>,
+                               egr::kSlotSmallVectorSize>
+  operator()(paddle::small_vector<std::vector<paddle::Tensor>,
+                                  egr::kSlotSmallVectorSize>& grads,  // NOLINT
+             bool create_graph = false,
+             bool is_new_grad = false) override;
+
+  void ClearTensorWrappers() override {
+    input_.clear();
+    SetIsTensorWrappersCleared(true);
+  }
+
+  std::string name() override { return "DtensorToLocalGradNode"; }
+
+  std::shared_ptr<GradNodeBase> Copy() const override {
+    {
+      auto copied_node = std::shared_ptr<DtensorToLocalGradNode>(
+          new DtensorToLocalGradNode(*this));
+      return copied_node;
+    }
+  }
+
+  // SetTensorWrapperX
+  // Only input's meta is needed.
+  void SetTensorWrapperNoNeedBuffer_Input(const paddle::Tensor& input) {
+    input_ = egr::TensorWrapper(input, true);
+  }
+
+ private:
+  // TensorWrappers
+  egr::TensorWrapper input_;
+};
+
 namespace sparse {
 class SyncBatchNormGradNode : public egr::GradNodeBase {
  public:
