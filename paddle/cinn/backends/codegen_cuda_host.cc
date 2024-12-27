@@ -31,7 +31,6 @@ using cinn::common::bfloat16;
 using cinn::common::float16;
 
 llvm::Value* CodeGenGpuHost::LowerGPUKernelCall(const ir::Call* call_ir) {
-  // std::cerr << "call ir " << ir::Expr(*call_ir) << std::endl;
   std::vector<llvm::Value*> ll_function_args;
   std::transform(f_->arg_begin(),
                  f_->arg_end(),
@@ -67,7 +66,6 @@ llvm::Value* CodeGenGpuHost::LowerGPUKernelCall(const ir::Call* call_ir) {
   auto ret_type = CinnTypeToLLVMType(Void(), m_);
   std::vector<llvm::Type*> args_type;
   for (auto r_arg : call_ir->read_args) {
-    std::cerr << "r arags " << r_arg << std::endl;
     if (r_arg.is_var()) {
       if (r_arg.as_var()->type().is_cpp_handle() ||
           r_arg.as_var()->type().is_string()) {
@@ -112,7 +110,6 @@ llvm::Value* CodeGenGpuHost::LowerGPUKernelCall(const ir::Call* call_ir) {
     }
   }
   auto func_type = llvm::FunctionType::get(ret_type, args_type, false);
-  std::cerr << "call ir name " << call_ir->name << std::endl;
   auto call_func = m_->getOrInsertFunction(call_ir->name, func_type);
 
   std::vector<llvm::Value*> call_args;

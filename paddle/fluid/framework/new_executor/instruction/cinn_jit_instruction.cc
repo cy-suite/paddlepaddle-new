@@ -45,7 +45,7 @@ class CinnJitInstruction::FnPtrImpl {
   void InitFuncArgs(const std::vector<phi::DenseTensor*>& kernel_tensor_args) {
     // 1. Create placeholders for tensor args
     for (size_t i = 0; i < kernel_tensor_args.size(); ++i) {
-      func_args_.emplace_back(nullptr);
+      func_args_.emplace_back(KernelArgsNode());
     }
 
     // 2. Convert symbol args about dynamic shape to cinn_pod_value_t
@@ -81,10 +81,11 @@ class CinnJitInstruction::FnPtrImpl {
               ::common::errors::Fatal("Dead code, only support int32 and int64 "
                                       "for dynamic shape arg now"));
         }};
-    symboc_vals_.clear();
     for (const auto& [_, binding_info] : cinn_kernel_info_.symbol_args_map) {
-      symboc_vals_.emplace_back(std::visit(GetSymbolArg, binding_info));
-      func_args_.emplace_back((void*)(&(symboc_vals_.back())));
+      func_args_.emplace_back(
+          KernelArgsNode{nullptr,
+                         std::visit(GetSymbolArg, binding_info),
+                         KernelArgsType::int64_args_type});
     }
 
     if (VLOG_IS_ON(4)) {
@@ -99,12 +100,9 @@ class CinnJitInstruction::FnPtrImpl {
 
     // Pass real tensor data to cinn_buffer_t func args placeholder
     for (size_t i = 0; i < kernel_tensor_args.size(); ++i) {
-      std::cerr << "i " << i << "\t " << kernel_tensor_args[i]->data()
-                << std::endl;
-      func_args_[i] = kernel_tensor_args[i]->data();
+      func_args_[i] = KernelArgsNode{
+          kernel_tensor_args[i]->data(), -1, KernelArgsType::void_p_args_type};
     }
-
-    std::cerr << "func args size " << func_args_.size() << std::endl;
 
     // Launch host kernel
     if (FLAGS_cinn_measure_kernel_time ||
@@ -220,8 +218,7 @@ class CinnJitInstruction::FnPtrImpl {
  private:
   CINNKernelInfo cinn_kernel_info_;
 
-  std::vector<void*> func_args_;
-  std::vector<int64_t> symboc_vals_;
+  std::vector<KernelArgsNode> func_args_;
 };
 
 CinnJitInstruction::CinnJitInstruction(
