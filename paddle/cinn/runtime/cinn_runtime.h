@@ -118,8 +118,6 @@ extern cinn_type_t cinn_uint16_t(int num_asterisks = 0);
 extern cinn_type_t cinn_uint32_t(int num_asterisks = 0);
 extern cinn_type_t cinn_uint64_t(int num_asterisks = 0);
 
-extern cinn_type_t cinn_bfloat16_t(int num_asterisks = 0);
-extern cinn_type_t cinn_float16_t(int num_asterisks = 0);
 extern cinn_type_t cinn_float32_t(int num_asterisks = 0);
 extern cinn_type_t cinn_float64_t(int num_asterisks = 0);
 // @}
@@ -480,8 +478,6 @@ struct cinn_pod_value_t {
   //@}
 
   int type_code() const { return type_code_; }
-
-  void* data_addr() const;
 
   void set_type_code(int x) { type_code_ = x; }
   void set_value(union cinn_value_t x) { value_ = x; }
