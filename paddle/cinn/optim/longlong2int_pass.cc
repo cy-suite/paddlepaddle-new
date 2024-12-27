@@ -30,6 +30,25 @@ using ir::stmt::Schedule;
 using ir::stmt::StmtRef;
 using ir::stmt::Store;
 
+void CastVarWithBound(cinn::ir::Var& var) {  // NOLINT
+  if (!var.defined()) return;
+  var->convert_int64_to_int32();
+  auto lb = var->lower_bound;
+  auto ub = var->upper_bound;
+  if (lb.defined()) lb->convert_int64_to_int32();
+  if (ub.defined()) ub->convert_int64_to_int32();
+}
+void CastBufferMeta(cinn::ir::Buffer& bf) {  // NOLINT
+  if (!bf.defined()) return;
+  std::for_each(bf->shape.begin(), bf->shape.end(), [&](cinn::ir::Expr& e) {
+    e->convert_int64_to_int32();
+  });
+  std::for_each(bf->strides.begin(), bf->strides.end(), [&](cinn::ir::Expr& e) {
+    e->convert_int64_to_int32();
+  });
+  bf->elem_offset->convert_int64_to_int32();
+}
+
 class CheckOverflow : public ir::stmt::StmtVisitor<> {
  public:
   bool operator()(const StmtRef& stmt) {
@@ -81,14 +100,9 @@ class CheckOverflow : public ir::stmt::StmtVisitor<> {
   bool is_overflow_ = false;
 };
 
-class CastLonglong2Int : public ir::IRMutator<>,
-                         public ir::stmt::StmtMutator<> {
+class CastLonglong2IntMutator : public ir::IRMutator<> {
  public:
   void operator()(Expr* expr) { ir::IRMutator<>::Visit(expr, expr); }
-  void operator()(StmtRef stmt) { ir::stmt::StmtMutator<>::VisitStmt(stmt); }
-  void operator()(BlockRef block) {
-    ir::stmt::StmtMutator<>::VisitBlock(block);
-  }
 
  private:
   void Visit(const ir::_Tensor_* op, Expr* expr) override {
@@ -118,39 +132,50 @@ class CastLonglong2Int : public ir::IRMutator<>,
     ir::IRMutator<>::Visit(&node->true_value, &node->true_value);
     ir::IRMutator<>::Visit(&node->false_value, &node->false_value);
   }
-  void VisitStmt(Store stmt) override {
-    std::vector<Expr> indices = stmt->indices();
-    std::for_each(indices.begin(), indices.end(), [&](cinn::ir::Expr& e) {
-      e->convert_int64_to_int32();
-    });
-  }
-  void VisitStmt(IfThenElse stmt) override {
-    Expr cond = stmt->condition();
+};
+
+}  // namespace
+
+LogicalResult LongLong2IntStmtPass::Run(ir::stmt::StmtRef stmt) {
+  auto CastStore = [](StmtRef stmt) {
+    Store store_stmt = stmt.as<Store>();
+    for (Expr index : store_stmt->indices()) {
+      index->convert_int64_to_int32();
+    }
+  };
+
+  auto CastIfThenElse = [](StmtRef stmt) {
+    IfThenElse if_stmt = stmt.as<IfThenElse>();
+    Expr cond = if_stmt->condition();
     if (cond.is_cmp()) {
       if (cond->operand(0).is_index())
         cond->operand(0)->convert_int64_to_int32();
       if (cond->operand(1).is_index())
         cond->operand(1)->convert_int64_to_int32();
     }
-  }
-  void VisitStmt(For stmt) override {
-    ir::Var loop_var = stmt->loop_var();
+  };
+
+  auto CastFor = [](StmtRef stmt) {
+    For for_stmt = stmt.as<For>();
+    ir::Var loop_var = for_stmt->loop_var();
     CastVarWithBound(loop_var);
-    stmt->min()->convert_int64_to_int32();
-    stmt->extent()->convert_int64_to_int32();
-  }
-  void VisitStmt(Schedule stmt) override {
-    std::vector<Var> iter_vars = stmt->iter_vars();
+    for_stmt->min()->convert_int64_to_int32();
+    for_stmt->extent()->convert_int64_to_int32();
+  };
+
+  auto CastSchedule = [](StmtRef stmt) {
+    Schedule schedule_stmt = stmt.as<Schedule>();
+    std::vector<Var> iter_vars = schedule_stmt->iter_vars();
     std::for_each(iter_vars.begin(), iter_vars.end(), [&](cinn::ir::Var& v) {
       CastVarWithBound(v);
     });
 
-    std::vector<Expr> iter_values = stmt->iter_values();
+    std::vector<Expr> iter_values = schedule_stmt->iter_values();
     std::for_each(iter_values.begin(),
                   iter_values.end(),
                   [&](cinn::ir::Expr& e) { e->convert_int64_to_int32(); });
 
-    for (auto& buffer_range : stmt->read_buffers()) {
+    for (auto& buffer_range : schedule_stmt->read_buffers()) {
       if (auto range = buffer_range.As<ir::_BufferRange_>()) {
         std::vector<Var> ranges = range->ranges;
         std::for_each(ranges.begin(), ranges.end(), [&](cinn::ir::Var& v) {
@@ -161,7 +186,7 @@ class CastLonglong2Int : public ir::IRMutator<>,
       }
     }
 
-    for (auto& buffer_range : stmt->write_buffers()) {
+    for (auto& buffer_range : schedule_stmt->write_buffers()) {
       if (auto range = buffer_range.As<ir::_BufferRange_>()) {
         std::vector<Var> ranges = range->ranges;
 
@@ -172,43 +197,32 @@ class CastLonglong2Int : public ir::IRMutator<>,
         CastBufferMeta(bf);
       }
     }
-    ir::stmt::StmtMutator<>::VisitBlock(stmt->body());
-  }
-  void VisitStmt(ir::stmt::Let stmt) override { return; }
-  void VisitStmt(ir::stmt::Evaluate stmt) override { return; }
+  };
 
-  void VisitStmt(ir::stmt::Alloc stmt) override { return; }
-  void VisitStmt(ir::stmt::Free stmt) override { return; }
+  switch (stmt->stmt_type()) {
+    case ir::StmtNodeTy::Store:
+      CastStore(stmt);
+      break;
 
-  void CastVarWithBound(cinn::ir::Var& var) {  // NOLINT
-    if (!var.defined()) return;
-    var->convert_int64_to_int32();
-    auto lb = var->lower_bound;
-    auto ub = var->upper_bound;
-    if (lb.defined()) lb->convert_int64_to_int32();
-    if (ub.defined()) ub->convert_int64_to_int32();
-  }
-  void CastBufferMeta(cinn::ir::Buffer& bf) {  // NOLINT
-    if (!bf.defined()) return;
-    std::for_each(bf->shape.begin(), bf->shape.end(), [&](cinn::ir::Expr& e) {
-      e->convert_int64_to_int32();
-    });
-    std::for_each(bf->strides.begin(),
-                  bf->strides.end(),
-                  [&](cinn::ir::Expr& e) { e->convert_int64_to_int32(); });
-    bf->elem_offset->convert_int64_to_int32();
-  }
-};
-}  // namespace
+    case ir::StmtNodeTy::IfThenElse:
+      CastIfThenElse(stmt);
+      break;
 
-LogicalResult LongLong2IntStmtPass::Run(ir::stmt::StmtRef stmt) {
-  CastLonglong2Int narrow;
-  narrow(stmt);
+    case ir::StmtNodeTy::For:
+      CastFor(stmt);
+      break;
+
+    case ir::StmtNodeTy::Schedule:
+      CastSchedule(stmt);
+      break;
+    default:
+      break;
+  }
   return LogicalResult::success();
 }
 
 LogicalResult LongLong2IntExprPass::Run(ir::Expr expr) {
-  CastLonglong2Int narrow;
+  CastLonglong2IntMutator narrow;
   narrow(&expr);
   return LogicalResult::success();
 }
