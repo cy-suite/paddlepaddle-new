@@ -514,13 +514,11 @@ __m(char const*, 6);
 __m(cinn_buffer_t*, 7);
 __m(int8_t, 8);
 __m(bool, 9);
-__m(cinn::common::float16, 10);
 __m(int16_t, 11);
 __m(uint8_t, 12);
 __m(uint16_t, 13);
 __m(uint32_t, 14);
 __m(uint64_t, 15);
-__m(cinn::common::bfloat16, 16);
 #undef __m
 //@}
 #endif  // __cplusplus
