@@ -1859,11 +1859,11 @@ All parameter, weight, gradient are variables in Paddle.
       "get_attrtibute_type",
       [](const std::string &op_type,
          const std::string &attr_name) -> paddle::framework::proto::AttrType {
-        const auto &defalut_val =
+        const auto &default_val =
             operators::ExtraInfoUtils::Instance().GetExtraAttrsMap(op_type).at(
                 attr_name);
         return static_cast<paddle::framework::proto::AttrType>(
-            defalut_val.index() - 1);
+            default_val.index() - 1);
       });
   m.def("_add_skip_comp_ops", &paddle::prim::PrimCommonUtils::AddSkipCompOps);
   m.def("_set_bwd_prim_blacklist",
