@@ -438,32 +438,6 @@ void cinn_args_construct(cinn_pod_value_t* arr, int count, ...) {
   va_end(args);
 }
 
-void* cinn_pod_value_t::data_addr() const {
-  switch (type_code()) {
-    case ::cinn_type_code<bool>():
-    case ::cinn_type_code<int8_t>():
-    case ::cinn_type_code<int16_t>():
-    case ::cinn_type_code<int32_t>():
-    case ::cinn_type_code<int64_t>():
-    case ::cinn_type_code<uint8_t>():
-    case ::cinn_type_code<uint16_t>():
-    case ::cinn_type_code<uint32_t>():
-    case ::cinn_type_code<uint64_t>():
-      return (void*)&value_.v_int64;  // NOLINT
-    case ::cinn_type_code<float>():
-    case ::cinn_type_code<double>():
-      return (void*)&value_.v_float64;  // NOLINT
-    case ::cinn_type_code<void*>():
-      return (void*)&value_.v_handle;  // NOLINT
-    case ::cinn_type_code<cinn_buffer_t*>():
-      return (void*)&value_.v_handle;  // NOLINT
-    default:
-      cinn_print_debug_string("POD value type [%d] not supported", type_code());
-      CINN_RUNTIME_NOT_IMPLEMENTED
-  }
-  return nullptr;
-}
-
 template <>
 cinn_type_t cinn_type_of<bool>() {
   return cinn_bool_t();
