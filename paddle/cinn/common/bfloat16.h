@@ -28,7 +28,6 @@
 #define CINN_CUDA_BF16
 #include <cuda_bf16.h>
 #else
-#include <cmath>
 #include <cstring>
 
 #endif  // __CUDACC__

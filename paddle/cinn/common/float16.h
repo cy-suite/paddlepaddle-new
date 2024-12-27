@@ -35,6 +35,7 @@
 #include <cuda_fp16.h>
 #else
 #include <cmath>
+#include <cstring>
 
 #define CUDA_ARCH_FP16_SUPPORTED(CUDA_ARCH) (CUDA_ARCH >= 600)
 #endif  // __CUDACC__
