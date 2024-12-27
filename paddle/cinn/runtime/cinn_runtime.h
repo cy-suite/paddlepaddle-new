@@ -499,29 +499,29 @@ constexpr int cinn_type_code();
 
 //! Implement the type_code for all the supported types.
 // @{
-// #define __m(T, code__)                \
-//   template <>                         \
-//   constexpr int cinn_type_code<T>() { \
-//     return code__;                    \
-//   }
-// __m(int32_t, 0);
-// __m(int64_t, 1);
-// __m(float, 2);
-// __m(double, 3);
-// __m(void*, 4);
-// __m(char*, 5);
-// __m(char const*, 6);
-// __m(cinn_buffer_t*, 7);
-// __m(int8_t, 8);
-// __m(bool, 9);
-// __m(cinn::common::float16, 10);
-// __m(int16_t, 11);
-// __m(uint8_t, 12);
-// __m(uint16_t, 13);
-// __m(uint32_t, 14);
-// __m(uint64_t, 15);
-// __m(cinn::common::bfloat16, 16);
-// #undef __m
+#define __m(T, code__)                \
+  template <>                         \
+  constexpr int cinn_type_code<T>() { \
+    return code__;                    \
+  }
+__m(int32_t, 0);
+__m(int64_t, 1);
+__m(float, 2);
+__m(double, 3);
+__m(void*, 4);
+__m(char*, 5);
+__m(char const*, 6);
+__m(cinn_buffer_t*, 7);
+__m(int8_t, 8);
+__m(bool, 9);
+__m(cinn::common::float16, 10);
+__m(int16_t, 11);
+__m(uint8_t, 12);
+__m(uint16_t, 13);
+__m(uint32_t, 14);
+__m(uint64_t, 15);
+__m(cinn::common::bfloat16, 16);
+#undef __m
 //@}
 #endif  // __cplusplus
 
