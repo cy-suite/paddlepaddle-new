@@ -163,7 +163,7 @@ class OpDescCreationMethod:
                     raise NotImplementedError(
                         f"A not supported attribute type: {attr.type}."
                     )
-        for attr_name in self.__extra_attrs__.items():
+        for attr_name, default_val in self.__extra_attrs__.items():
             user_defined_attr = kwargs.get(attr_name, None)
             if user_defined_attr is not None:
                 attr_type = int(
