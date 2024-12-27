@@ -181,22 +181,23 @@ TEST_F(TestIndexExpr, Change_Seq_Of_Div_Mod) {
 }
 
 TEST_F(TestIndexExpr, Test_ConstructIndexExprByNodeType) {
-  ir::IndexExpr result_add = ConstructIndexExprByNodeType(
+  ir::Expr result_add = ConstructIndexExprByNodeType(
       ir::IrNodeTy::Add, S4.as_index(), S5.as_index(), true);
-  ir::IndexExpr result_sub = ConstructIndexExprByNodeType(
+  ir::Expr result_sub = ConstructIndexExprByNodeType(
       ir::IrNodeTy::Sub, S4.as_index(), S5.as_index(), false);
-  ir::IndexExpr result_mul = ConstructIndexExprByNodeType(
+  ir::Expr result_mul = ConstructIndexExprByNodeType(
       ir::IrNodeTy::Mul, S4.as_index(), S5.as_index(), true);
-  ir::IndexExpr result_div = ConstructIndexExprByNodeType(
+  ir::Expr result_div = ConstructIndexExprByNodeType(
       ir::IrNodeTy::Div, S4.as_index(), S5.as_index(), true);
-  ir::IndexExpr result_mod = ConstructIndexExprByNodeType(
+  ir::Expr result_mod = ConstructIndexExprByNodeType(
       ir::IrNodeTy::Mod, S4.as_index(), S5.as_index(), true);
-  ir::IndexExpr result_min = ConstructIndexExprByNodeType(
+  ir::Expr result_min = ConstructIndexExprByNodeType(
       ir::IrNodeTy::Min, S4.as_index(), S5.as_index(), false);
-  ir::IndexExpr result_max = ConstructIndexExprByNodeType(
+  ir::Expr result_max = ConstructIndexExprByNodeType(
       ir::IrNodeTy::Max, S4.as_index(), S5.as_index(), false);
+
   EXPECT_EQ(result_add, S4 + S5);
-  EXPECT_EQ(result_min, S4 - S5);
+  EXPECT_EQ(result_sub, S4 - S5);
   EXPECT_EQ(result_mul, S4 * S5);
   EXPECT_EQ(result_div, S4 / S5);
   EXPECT_EQ(result_mod, S4 % S5);
