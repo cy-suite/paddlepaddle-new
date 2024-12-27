@@ -44,6 +44,8 @@ class CinnJitInstruction::FnPtrImpl {
 
   void InitFuncArgs(const std::vector<phi::DenseTensor*>& kernel_tensor_args) {
     // 1. Create placeholders for tensor args
+
+    func_args_.clear();
     for (size_t i = 0; i < kernel_tensor_args.size(); ++i) {
       func_args_.emplace_back(KernelArgsNode());
     }
@@ -327,7 +329,6 @@ void CinnJitInstruction::Run() {
   fn_ptr_impl_->Run(tensor_args_, running_stream, is_gpu);
 
   // 3. release resource
-  fn_ptr_impl_->FreeFuncArgs();
   for (auto& tensor : temp_space_tensors_) {
     tensor.clear();
   }
