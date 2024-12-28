@@ -51,25 +51,7 @@ class TestQrOp(OpTest):
         mode = self.get_mode()
         assert mode != "r", "Cannot be backward in r mode."
         a = np.random.rand(*shape).astype(dtype)
-        m = a.shape[-2]
-        n = a.shape[-1]
-        min_mn = min(m, n)
-        if mode == "reduced":
-            k = min_mn
-        else:
-            k = m
-        q_shape = list(a.shape[:-2])
-        q_shape.extend([m, k])
-        r_shape = list(a.shape[:-2])
-        r_shape.extend([k, n])
-        q = np.zeros(q_shape).astype(dtype)
-        r = np.zeros(r_shape).astype(dtype)
-        batch_size = a.size // (a.shape[-1] * a.shape[-2])
-        for i in range(batch_size):
-            coord = np.unravel_index(i, a.shape[:-2])
-            tmp_q, tmp_r = np.linalg.qr(a[coord], mode=mode)
-            q[coord] = tmp_q
-            r[coord] = tmp_r
+        q, r = np.linalg.qr(a, mode=mode)
         return a, q, r
 
     def test_check_output(self):
@@ -121,6 +103,39 @@ class TestQrOpCase6(TestQrOp):
         return (2, 10, 12)
 
 
+class TestQrOpcomplex(TestQrOp):
+    def get_input_and_output(self):
+        dtype = self.get_dtype()
+        shape = self.get_shape()
+        mode = self.get_mode()
+        assert mode != "r", "Cannot be backward in r mode."
+        a_real = np.random.rand(*shape).astype(dtype)
+        a_imag = np.random.rand(*shape).astype(dtype)
+        a = a_real + 1j * a_imag
+        q, r = np.linalg.qr(a, mode=mode)
+        return a, q, r
+
+
+class TestQrOpcomplexCase1(TestQrOpcomplex):
+    def get_shape(self):
+        return (16, 15)
+
+
+class TestQrOpcomplexCase2(TestQrOpcomplex):
+    def get_shape(self):
+        return (3, 16, 15)
+
+
+# class TestQrOpcomplexCase3(TestQrOpcomplex):
+#     def get_shape(self):
+#         return (10, 12)
+
+
+# class TestQrOpcomplexCase4(TestQrOpcomplex):
+#     def get_shape(self):
+#         return (3, 10, 12)
+
+
 class TestQrAPI(unittest.TestCase):
     def test_dygraph(self):
         def run_qr_dygraph(shape, mode, dtype):
@@ -139,29 +154,22 @@ class TestQrAPI(unittest.TestCase):
                 a = a_real + 1j * a_imag
             else:
                 a = np.random.rand(*shape).astype(np_dtype)
-            m = a.shape[-2]
-            n = a.shape[-1]
-            min_mn = min(m, n)
-            if mode == "reduced" or mode == "r":
-                k = min_mn
-            else:
-                k = m
             places = []
             if (
                 os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
                 in ['1', 'true', 'on']
                 or not core.is_compiled_with_cuda()
             ):
-                places.append(base.CPUPlace())
+                places.append('cpu')
             if core.is_compiled_with_cuda():
-                places.append(base.CUDAPlace(0))
+                places.append('gpu')
             for place in places:
                 if mode == "r":
                     np_r = np.linalg.qr(a, mode=mode)
                 else:
                     np_q, np_r = np.linalg.qr(a, mode=mode)
 
-                x = paddle.to_tensor(a, dtype=dtype)
+                x = paddle.to_tensor(a, dtype=dtype, place=place)
                 if mode == "r":
                     r = paddle.linalg.qr(x, mode=mode)
                     np.testing.assert_allclose(r, np_r, rtol=1e-05, atol=1e-05)
@@ -210,22 +218,15 @@ class TestQrAPI(unittest.TestCase):
                 a = a_real + 1j * a_imag
             else:
                 a = np.random.rand(*shape).astype(np_dtype)
-            m = a.shape[-2]
-            n = a.shape[-1]
-            min_mn = min(m, n)
-            if mode == "reduced" or mode == "r":
-                k = min_mn
-            else:
-                k = m
             places = []
             if (
                 os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
                 in ['1', 'true', 'on']
                 or not core.is_compiled_with_cuda()
             ):
-                places.append(base.CPUPlace())
+                places.append(paddle.CPUPlace())
             if core.is_compiled_with_cuda():
-                places.append(base.CUDAPlace(0))
+                places.append(paddle.CUDAPlace(0))
             for place in places:
                 with static.program_guard(static.Program(), static.Program()):
                     if mode == "r":
@@ -237,7 +238,7 @@ class TestQrAPI(unittest.TestCase):
                     )
                     if mode == "r":
                         r = paddle.linalg.qr(x, mode=mode)
-                        exe = base.Executor(place)
+                        exe = base.Executor(place=place)
                         fetches = exe.run(
                             feed={"input": a},
                             fetch_list=[r],
@@ -247,7 +248,7 @@ class TestQrAPI(unittest.TestCase):
                         )
                     else:
                         q, r = paddle.linalg.qr(x, mode=mode)
-                        exe = base.Executor(place)
+                        exe = base.Executor(place=place)
                         fetches = exe.run(
                             feed={"input": a},
                             fetch_list=[q, r],
