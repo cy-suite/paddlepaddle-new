@@ -133,27 +133,6 @@ void ChannelShuffleGradInferMeta(const MetaTensor& out_grad,
   x_grad->set_dtype(out_grad.dtype());
 }
 
-void ClipTensorGradInferMeta(const MetaTensor& x,
-                             const MetaTensor& min,
-                             const MetaTensor& max,
-                             const MetaTensor& out_grad,
-                             MetaTensor* x_grad) {
-  auto x_dims = x.dims();
-  auto min_dims = min.dims();
-  auto max_dims = max.dims();
-
-  if (common::product(x_dims) >= common::product(min_dims) &&
-      common::product(x_dims) >= common::product(max_dims)) {
-    x_grad->set_dims(x.dims());
-  } else if (common::product(min_dims) >= common::product(x_dims) &&
-             common::product(min_dims) >= common::product(max_dims)) {
-    x_grad->set_dims(min.dims());
-  } else {
-    x_grad->set_dims(max.dims());
-  }
-  x_grad->set_dtype(x.dtype());
-}
-
 void ComplexGradInferMeta(const MetaTensor& x,
                           const MetaTensor& y,
                           const MetaTensor& dout,

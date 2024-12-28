@@ -18,8 +18,8 @@
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/cast_kernel.h"
 #include "paddle/phi/kernels/compare_kernel.h"
-#include "paddle/phi/kernels/expand_kernel.h"
 #include "paddle/phi/kernels/full_kernel.h"
+#include "paddle/phi/kernels/logical_kernel.h"
 #include "paddle/phi/kernels/where_kernel.h"
 
 namespace phi {
@@ -31,35 +31,36 @@ void ClipTensorGradKernel(const Context& dev_ctx,
                           const DenseTensor& max,
                           const DenseTensor& out_grad,
                           DenseTensor* x_grad) {
-  phi::DenseTensor ex_min;
-  phi::DenseTensor ex_max;
-  phi::DenseTensor ex_x;
-  std::vector<int> real_target_shape = common::vectorize<int>(x_grad->dims());
-  if (x.dims() != x_grad->dims()) {
-    phi::ExpandKernel<T, Context>(dev_ctx, x, real_target_shape, &ex_x);
-  } else {
-    ex_x = x;
-  }
-  if (min.dims() != x_grad->dims()) {
-    phi::ExpandKernel<T, Context>(dev_ctx, min, real_target_shape, &ex_min);
-  } else {
-    ex_min = min;
-  }
-  if (max.dims() != x_grad->dims()) {
-    phi::ExpandKernel<T, Context>(dev_ctx, max, real_target_shape, &ex_max);
-  } else {
-    ex_max = max;
-  }
-  phi::CastKernel<T, Context>(dev_ctx, ex_min, ex_x.dtype(), &ex_min);
-  phi::CastKernel<T, Context>(dev_ctx, ex_max, ex_x.dtype(), &ex_max);
+  DenseTensor ex_min;
+  MetaTensor meta_min(&ex_min);
+  CastInferMeta(min, x.dtype(), &meta_min);
+  DenseTensor ex_max;
+  MetaTensor meta_max(&ex_max);
+  CastInferMeta(max, x.dtype(), &meta_max);
+  phi::CastKernel<T, Context>(dev_ctx, min, x.dtype(), &ex_min);
+  phi::CastKernel<T, Context>(dev_ctx, max, x.dtype(), &ex_max);
 
   phi::DenseTensor x_ls_min;
-  phi::LessThanKernel<T, Context>(dev_ctx, ex_min, ex_x, &x_ls_min);
+  MetaTensor meta_x_ls_min(&x_ls_min);
+  UnchangedExceptDtypeInferMeta(x, &meta_x_ls_min);
+  meta_x_ls_min.set_dtype(phi::DataType::BOOL);
+  phi::LessThanKernel<T, Context>(dev_ctx, ex_min, x, &x_ls_min);
+
   phi::DenseTensor x_ls_max;
-  phi::LessThanKernel<T, Context>(dev_ctx, ex_x, ex_max, &x_ls_max);
+  MetaTensor meta_x_ls_max(&x_ls_max);
+  UnchangedExceptDtypeInferMeta(x, &meta_x_ls_max);
+  meta_x_ls_max.set_dtype(phi::DataType::BOOL);
+  phi::LessThanKernel<T, Context>(dev_ctx, x, ex_max, &x_ls_max);
+
   phi::DenseTensor out;
-  EqualKernel<T, Context>(dev_ctx, x_ls_min, x_ls_max, &out);
-  phi::DenseTensor zero_tensor(x_grad->dtype());
+  MetaTensor meta_out(&out);
+  UnchangedExceptDtypeInferMeta(x, &meta_out);
+  meta_out.set_dtype(phi::DataType::BOOL);
+  LogicalAndKernel<T, Context>(dev_ctx, x_ls_min, x_ls_max, &out);
+
+  phi::DenseTensor zero_tensor;
+  MetaTensor meta_zero(&zero_tensor);
+  UnchangedInferMeta(x_grad, &meta_zero);
   FullKernel<T, Context>(dev_ctx,
                          common::vectorize(x_grad->dims()),
                          0.0f,
@@ -76,5 +77,6 @@ PD_REGISTER_KERNEL(clip_tensor_grad,
                    phi::ClipTensorGradKernel,
                    float,
                    phi::dtype::float16,
+                   phi::dtype::bfloat16,
                    int64_t,
                    int) {}

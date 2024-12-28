@@ -420,7 +420,8 @@
   args : (Tensor x, Tensor min, Tensor max, Tensor grad_x_grad)
   output : Tensor(grad_out_grad)
   infer_meta :
-    func : ClipTensorGradInferMeta
+    func : UnchangedInferMeta
+    param : [x]
   kernel :
     func : clip_tensor_grad
     data_type : x
@@ -430,7 +431,8 @@
   args : (Tensor x, Tensor min, Tensor max, Tensor out_grad)
   output : Tensor(x_grad)
   infer_meta :
-    func : ClipTensorGradInferMeta
+    func : UnchangedInferMeta
+    param : [x]
   kernel :
     func : clip_tensor_grad
   backward : clip_tensor_double_grad

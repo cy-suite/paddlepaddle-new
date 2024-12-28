@@ -18,7 +18,6 @@
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/cast_kernel.h"
 #include "paddle/phi/kernels/compare_kernel.h"
-#include "paddle/phi/kernels/expand_kernel.h"
 #include "paddle/phi/kernels/where_kernel.h"
 
 namespace phi {
@@ -29,36 +28,29 @@ void ClipTensorKernel(const Context& dev_ctx,
                       const DenseTensor& min,
                       const DenseTensor& max,
                       DenseTensor* out) {
-  phi::DenseTensor ex_min;
-  phi::DenseTensor ex_max;
-  phi::DenseTensor ex_x;
-  std::vector<int> real_target_shape = common::vectorize<int>(out->dims());
-  if (x.dims() != out->dims()) {
-    phi::ExpandKernel<T, Context>(dev_ctx, x, real_target_shape, &ex_x);
-  } else {
-    ex_x = x;
-  }
-  if (min.dims() != out->dims()) {
-    phi::ExpandKernel<T, Context>(dev_ctx, min, real_target_shape, &ex_min);
-  } else {
-    ex_min = min;
-  }
-  if (max.dims() != out->dims()) {
-    phi::ExpandKernel<T, Context>(dev_ctx, max, real_target_shape, &ex_max);
-  } else {
-    ex_max = max;
-  }
-  phi::CastKernel<T, Context>(dev_ctx, ex_min, ex_x.dtype(), &ex_min);
-  phi::CastKernel<T, Context>(dev_ctx, ex_max, ex_x.dtype(), &ex_max);
+  DenseTensor tem_min;
+  MetaTensor meta_tem_min(&tem_min);
+  CastInferMeta(min, x.dtype(), &meta_tem_min);
+  CastKernel<T, Context>(dev_ctx, min, x.dtype(), &tem_min);
+  DenseTensor tem_max;
+  MetaTensor meta_tem_max(&tem_max);
+  CastInferMeta(max, x.dtype(), &meta_tem_max);
+  CastKernel<T, Context>(dev_ctx, max, x.dtype(), &tem_max);
 
-  phi::DenseTensor x_ls_min;
-  phi::LessThanKernel<T, Context>(dev_ctx, ex_x, ex_min, &x_ls_min);
-  phi::DenseTensor tem_out;
-  phi::WhereKernel<T, Context>(dev_ctx, x_ls_min, ex_min, ex_x, &tem_out);
+  DenseTensor x_ls_min;
+  MetaTensor meta_x_ls_min(&x_ls_min);
+  UnchangedInferMeta(x, &meta_x_ls_min);
+  phi::LessThanKernel<T, Context>(dev_ctx, x, tem_min, &x_ls_min);
+  DenseTensor tem_out;
+  MetaTensor meta_tem_out(&tem_out);
+  UnchangedInferMeta(x, &meta_tem_out);
+  phi::WhereKernel<T, Context>(dev_ctx, x_ls_min, tem_min, x, &tem_out);
 
-  phi::DenseTensor x_ls_max;
-  phi::LessThanKernel<T, Context>(dev_ctx, ex_max, ex_x, &x_ls_max);
-  phi::WhereKernel<T, Context>(dev_ctx, x_ls_max, ex_max, tem_out, out);
+  DenseTensor x_gt_max;
+  MetaTensor meta_x_gt_max(&x_gt_max);
+  UnchangedInferMeta(x, &meta_x_gt_max);
+  phi::GreaterThanKernel<T, Context>(dev_ctx, x, tem_max, &x_gt_max);
+  phi::WhereKernel<T, Context>(dev_ctx, x_gt_max, tem_max, tem_out, out);
 }
 
 }  // namespace phi

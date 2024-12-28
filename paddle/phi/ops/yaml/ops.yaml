@@ -1000,9 +1000,11 @@
   args : (Tensor x, Tensor min, Tensor max)
   output : Tensor(out)
   infer_meta :
-    func : ClipTensorInferMeta
+    func : UnchangedInferMeta
+    param : [x]
   kernel :
     func : clip_tensor
+    data_type : x
   inplace : (x -> out)
   backward : clip_tensor_grad
 
