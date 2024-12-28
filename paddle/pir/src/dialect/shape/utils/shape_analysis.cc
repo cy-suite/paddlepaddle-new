@@ -129,6 +129,9 @@ InferSymbolicShapeContext::GetShapeOrDataForValue(Value val) const {
     return null_shape_or_data;
   }
   if (!HasShapeOrDataForValue(val)) {
+    VLOG(3) << "InferShapeOrDataForValue,  defining_op: "
+            << val.defining_op()->name() << " id:" << val.defining_op()->id()
+            << " value id: " << val.impl()->id();
     PADDLE_THROW(common::errors::Fatal(
         "Fail to GetShapeOrDataForValue on InferSymbolicShape!"));
   }
@@ -151,7 +154,7 @@ void InferSymbolicShapeContext::SetSymbolForValueByStaticShape(Value val) {
     std::vector<symbol::DimExpr> static_shape;
     for (int i = 0; i < type_info.dims().size(); ++i) {
       int dim = type_info.dims()[i];
-      if (dim > 0) {
+      if (dim >= 0) {
         static_shape.emplace_back(dim);
       } else {
         static_shape.emplace_back(GetNextSymName());
@@ -275,6 +278,21 @@ bool InferSymbolicShapeContext::IsBroadcastable(
   return constraints_manager_.IsBroadcastable(lhs, rhs);
 }
 
+void InferSymbolicShapeContext::SubstituteInConstraint(
+    const std::unordered_map<symbol::DimExpr, symbol::DimExpr>&
+        substitution_pattern) {
+  for (const auto& item : substitution_pattern) {
+    constraints_manager_.SubstituteInConstraint(item.first, item.second);
+  }
+  std::unordered_map<symbol::DimExpr, symbol::DimExpr> new_substitution_pattern;
+  for (const auto& old_pattern : substitution_pattern_) {
+    new_substitution_pattern.emplace(
+        symbol::SubstituteDimExpr(old_pattern.first, substitution_pattern),
+        symbol::SubstituteDimExpr(old_pattern.second, substitution_pattern));
+  }
+  substitution_pattern_ = new_substitution_pattern;
+}
+
 bool InferSymbolicShapeContext::HasPredefinedRange(
     const symbol::DimExpr& dim_expr) const {
   return constraints_manager_.IsBoundedInput(dim_expr);
@@ -358,26 +376,8 @@ InferSymbolicShapeContext::SimplifyBroadcastForShapeOrData(
       });
 }
 
-namespace {
-
-bool CanSubstituteInShapeAnalysis(const symbol::DimExpr& lhs,
-                                  const symbol::DimExpr& rhs) {
-  auto CanSubstitutePredictor = ::common::Overloaded{
-      [](std::int64_t lhs, const auto& rhs) { return true; },
-      [](const std::string& lhs, const std::string& rhs) { return true; },
-      [](const std::string& lhs,
-         const symbol::Broadcast<symbol::DimExpr>& rhs) { return true; },
-      [](const auto& lhs, const auto& rhs) { return false; }};
-  return std::visit(CanSubstitutePredictor, lhs.variant(), rhs.variant()) ||
-         std::visit(CanSubstitutePredictor, rhs.variant(), lhs.variant());
-}
-
-}  // namespace
-
 void InferSymbolicShapeContext::SubstituteDimExpr(
     const symbol::DimExpr& origin, const symbol::DimExpr& substituted) {
-  if (!CanSubstituteInShapeAnalysis(origin, substituted)) return;
-
   substitution_pattern_[origin] = substituted;
   for (auto& val : substitution_pattern_) {
     if (val.second == origin) {
@@ -605,7 +605,8 @@ ShapeConstraintIRAnalysis::GetShapeOrDataForValue(Value val) {
       SetSymbolForValueByStaticShape(val);
     } else {
       VLOG(3) << "InferShapeOrDataForValue,  defining_op: "
-              << val.defining_op()->name() << " id:" << val.defining_op()->id();
+              << val.defining_op()->name() << " id:" << val.defining_op()->id()
+              << " value id: " << val.impl()->id();
       InferShapeOrDataForValue(val);
     }
   }
@@ -624,6 +625,45 @@ void ShapeConstraintIRAnalysis::ShareShapeOrData(Value from, Value to) {
   }
 }
 
+void ShapeConstraintIRAnalysis::UpdateShapeOrDataByTransLayout(
+    Value val, TransLayoutType trans_layout_type) {
+  if (context_.HasShapeOrDataForValue(val)) {
+    const auto& cur_shape = context_.GetShapeOrDataForValue(val).shape();
+    PADDLE_ENFORCE_EQ(cur_shape.size(),
+                      4,
+                      common::errors::InvalidArgument(
+                          "Currently, the rank of value must be 4 when update "
+                          "symbolic shape of value by layout transformation, "
+                          "but now rank of value is %d.",
+                          cur_shape.size()));
+    if (trans_layout_type == TransLayoutType::NCHW2NHWC) {
+      std::vector<symbol::DimExpr> new_shape = cur_shape;
+      new_shape[1] = cur_shape[2];
+      new_shape[2] = cur_shape[3];
+      new_shape[3] = cur_shape[1];
+      context_.SetShapeOrDataForValue(
+          val, {symbol::TensorShapeOrDataDimExprs{new_shape}});
+      return;
+    }
+    if (trans_layout_type == TransLayoutType::NHWC2NCHW) {
+      std::vector<symbol::DimExpr> new_shape = cur_shape;
+      new_shape[1] = cur_shape[3];
+      new_shape[2] = cur_shape[1];
+      new_shape[3] = cur_shape[2];
+      context_.SetShapeOrDataForValue(
+          val, {symbol::TensorShapeOrDataDimExprs{new_shape}});
+      return;
+    }
+    PADDLE_THROW(common::errors::Fatal(
+        "Dead code, shouldn't run here for UpdateShapeOrDataByTransLayout!"));
+  }
+}
+
+void ShapeConstraintIRAnalysis::AddEqualCstr(const symbol::DimExpr& lhs,
+                                             const symbol::DimExpr& rhs) {
+  context_.AddEqualCstr(lhs, rhs);
+}
+
 bool ShapeConstraintIRAnalysis::IsEqual(const symbol::DimExpr& lhs,
                                         const symbol::DimExpr& rhs) const {
   return context_.IsEqual(lhs, rhs);
@@ -637,6 +677,12 @@ bool ShapeConstraintIRAnalysis::IsGreatThanOne(
 bool ShapeConstraintIRAnalysis::IsBroadcastable(
     const symbol::DimExpr& lhs, const symbol::DimExpr& rhs) const {
   return context_.IsBroadcastable(lhs, rhs);
+}
+
+void ShapeConstraintIRAnalysis::SubstituteInConstraint(
+    const std::unordered_map<symbol::DimExpr, symbol::DimExpr>&
+        substitution_pattern) {
+  context_.SubstituteInConstraint(substitution_pattern);
 }
 
 void ShapeConstraintIRAnalysis::PrintShapeOrDatas() const {
@@ -804,7 +850,6 @@ pir::PrintHooks ShapeConstraintIRAnalysis::PrintHook() {
       }
     }
     printer.os << " }";
-    printer.os << "\t(op_" << op.id() << ")";
   };
   return print_hook;
 }
@@ -862,34 +907,6 @@ bool IsStaticShape(const Value& value) {
   return false;
 }
 
-static const char* kOpCallStack = "op_callstack";
-static const char* kSymShapeStr = "sym_shape_str";
-static const char* kResultName = "name";
-static const char* kStopGradient = "stop_gradient";
-
-InferSymbolicShapeCacheKey::InferSymbolicShapeCacheKey(
-    const Operation& op,
-    const std::vector<symbol::ShapeOrDataDimExprs>& input_shape_or_datas)
-    : InferSymbolicShapeCacheKey(
-          op.name(), input_shape_or_datas, op.attributes()) {}
-
-InferSymbolicShapeCacheKey::InferSymbolicShapeCacheKey(
-    const std::string& op_name,
-    const std::vector<symbol::ShapeOrDataDimExprs>& input_shape_or_datas,
-    const AttributeMap& attributes)
-    : op_name_(op_name), input_shape_or_datas_(input_shape_or_datas) {
-  // Keep attribute always in order.
-  std::map<std::string, ::pir::Attribute, std::less<>> order_attributes(
-      attributes.begin(), attributes.end());
-  attributes_.reserve(attributes.size());
-  for (const auto& [attr_name, attr_value] : order_attributes) {
-    if (!attr_value || attr_name == kOpCallStack || attr_name == kSymShapeStr ||
-        attr_name == kStopGradient || attr_name == kResultName)
-      continue;
-    attributes_.emplace_back(attr_name, attr_value);
-  }
-}
-
 std::size_t InferSymbolicShapeCacheKey::GetHashValue() const {
   const auto name_hash_func = std::hash<std::string>();
   const auto attr_hash_func = std::hash<pir::Attribute>();
@@ -908,12 +925,7 @@ std::size_t InferSymbolicShapeCacheKey::GetHashValue() const {
 bool InferSymbolicShapeCacheKey::operator==(
     const InferSymbolicShapeCacheKey& other) const {
   if (op_name_ != other.op_name_) return false;
-  if (attributes_.size() != other.attributes_.size()) return false;
-  for (std::size_t i = 0; i < attributes_.size(); ++i) {
-    if (attributes_[i].first != other.attributes_[i].first ||
-        attributes_[i].second != other.attributes_[i].second)
-      return false;
-  }
+  if (attributes_ != other.attributes_) return false;
   if (input_shape_or_datas_.size() != other.input_shape_or_datas_.size())
     return false;
   for (std::size_t i = 0; i < input_shape_or_datas_.size(); ++i) {
@@ -928,11 +940,10 @@ std::ostream& operator<<(std::ostream& os,
   os << "InferSymbolicShapeCacheKey - " << info.op_name_ << std::endl;
   if (!info.attributes_.empty()) {
     os << "  attrs: {";
-    for (std::size_t i = 0; i < info.attributes_.size() - 1; ++i) {
-      ::pir::IrPrinter(os).PrintAttribute(info.attributes_[i].second);
+    for (const auto& attr : info.attributes_) {
+      ::pir::IrPrinter(os).PrintAttribute(attr.second);
       os << ", ";
     }
-    ::pir::IrPrinter(os).PrintAttribute(info.attributes_.back().second);
     os << std::endl;
   }
   if (!info.input_shape_or_datas_.empty()) {
@@ -953,5 +964,4 @@ void InferSymbolicShapeCacheKey::SetInputShapeOrDatas(
     const std::vector<symbol::ShapeOrDataDimExprs>& input_shape_or_datas) {
   this->input_shape_or_datas_ = input_shape_or_datas;
 }
-
 }  // namespace pir

@@ -19,6 +19,7 @@
 #include "paddle/phi/common/scalar.h"
 #include "paddle/phi/core/enforce.h"
 #include "paddle/pir/include/core/builtin_attribute.h"
+#include "paddle/pir/include/core/dll_decl.h"
 
 namespace paddle {
 namespace dialect {
@@ -26,7 +27,7 @@ namespace dialect {
 inline const char kForceBackendAttr[] = "__force_backend__";
 inline const char kCanRunTrtAttr[] = "__l_trt__";
 
-class IntArrayAttribute : public pir::Attribute {
+class IR_API IntArrayAttribute : public pir::Attribute {
  public:
   using Attribute::Attribute;
 
@@ -67,7 +68,7 @@ class ScalarAttribute : public pir::Attribute {
   static std::string name() { return "a_scalar"; }
 };
 
-class DataTypeAttribute : public pir::Attribute {
+class IR_API DataTypeAttribute : public pir::Attribute {
  public:
   using Attribute::Attribute;
 
