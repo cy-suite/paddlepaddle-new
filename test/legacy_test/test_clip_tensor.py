@@ -171,6 +171,7 @@ class TestClipTensorAPI(unittest.TestCase):
             max = np.random.random([10, 1, 10])
             x = paddle.to_tensor(x)
             min = paddle.to_tensor(min)
+            max = paddle.to_tensor(max)
             x.clip_(min, max)
 
 
