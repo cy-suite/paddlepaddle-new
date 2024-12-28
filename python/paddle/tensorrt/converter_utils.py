@@ -453,6 +453,7 @@ def trt_reduce_to_scalar(network, tensor, dtype=trt.int32):
 def convert_conv2d(network, paddle_op, inputs):
     from paddle.tensorrt.util import support_fp32_mix_precision
 
+    bias = None
     if (
         paddle_op.name() == "pd_op.conv2d"
         or paddle_op.name() == "pd_op.depthwise_conv2d"
@@ -469,7 +470,8 @@ def convert_conv2d(network, paddle_op, inputs):
             output_size = None
         else:
             raise ValueError("Invalid number of inputs for conv2d_transpose")
-
+    if paddle_op.name() == "pd_op.fused_conv2d_add_act":
+        input_tensor, filter, bias, _ = inputs
     input_shape = paddle_op.operands()[0].source().shape
     filter_shape = paddle_op.operands()[1].source().shape
 
@@ -521,13 +523,14 @@ def convert_conv2d(network, paddle_op, inputs):
     if (
         paddle_op.name() == "pd_op.conv2d"
         or paddle_op.name() == "pd_op.depthwise_conv2d"
+        or paddle_op.name() == "pd_op.fused_conv2d_add_act"
     ):
         layer = network.add_convolution_nd(
             input=input_tensor,
             num_output_maps=n_output,
             kernel_shape=nv_ksize,
             kernel=filter,
-            bias=None,
+            bias=bias,
         )
     elif (
         paddle_op.name() == "pd_op.conv2d_transpose"

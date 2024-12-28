@@ -53,7 +53,17 @@ def run_pir_pass(program, partition_mode=False):
     pm = pir.PassManager(opt_level=4)
     pm.enable_print_statistics()
     paddle.base.libpaddle.pir.infer_symbolic_shape_pass(pm, program)
+    scope = paddle.static.global_scope()
+    place = paddle.CUDAPlace(0)
     passes = [
+        {
+            'constant_folding_pass': {
+                "__place__": place,
+                "__param_scope__": scope,
+            }
+        },
+        {'dead_code_elimination_pass': {"__param_scope__": scope}},
+        {'conv2d_add_fuse_pass': {}},
         {'trt_op_marker_pass': {}},
     ]
     if partition_mode:
@@ -192,6 +202,7 @@ def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
         "pd_op.batch_norm_",
         "pd_op.layer_norm",
         "pd_op.depthwise_conv2d_transpose",
+        "pd_op.fused_conv2d_add_act",
     ]
     if use_op_name in forbid_cast_op:
         return trt_tensor

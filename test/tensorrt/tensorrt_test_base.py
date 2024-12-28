@@ -235,6 +235,24 @@ class TensorRTBaseTest(unittest.TestCase):
                             max_shape_data[feed_name] = np.random.randn(
                                 *self.max_shape[feed_name]
                             ).astype(self.api_args[feed_name].dtype)
+
+            # add fech op for dead_code_elimination_pass
+            preprocess_fetch_index = 0
+            for op in main_program.global_block().ops[::-1]:
+                for result in op.results():
+                    if result.use_empty():
+                        with paddle.static.program_guard(main_program):
+                            out = paddle._pir_ops.fetch(
+                                result,
+                                str(preprocess_fetch_index),
+                                preprocess_fetch_index,
+                            )
+                            out.persistable = True
+                        preprocess_fetch_index += 1
+
+            # run pir pass(including some constant fold pass, dead code elimination pass, fusion pass and trt_op_marker_pass)
+            main_program = run_pir_pass(main_program, partition_mode=False)
+
             scope = paddle.static.global_scope()
             main_program = warmup_shape_infer(
                 main_program,
@@ -242,14 +260,10 @@ class TensorRTBaseTest(unittest.TestCase):
                 max_shape_feed=max_shape_data,
                 scope=scope,
             )
-
             for op in main_program.global_block().ops[::-1]:
                 # Remove all invalid fetch op
                 if op.name() == "pd_op.fetch":
                     main_program.global_block().remove_op(op)
-
-            # run pir pass(including some fusion pass and trt_op_marker_pass)
-            main_program = run_pir_pass(main_program, partition_mode=False)
 
             # Adding marker labels to builtin ops facilitates convert processing, but they ultimately do not enter the TensorRT subgraph.
             mark_builtin_op(main_program)
