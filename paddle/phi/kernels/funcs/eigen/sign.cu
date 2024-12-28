@@ -38,6 +38,8 @@ template struct EigenSign<Eigen::GpuDevice, float>;
 template struct EigenSign<Eigen::GpuDevice, double>;
 template struct EigenSign<Eigen::GpuDevice, dtype::float16>;
 template struct EigenSign<Eigen::GpuDevice, dtype::bfloat16>;
+template struct EigenSign<Eigen::GpuDevice, dtype::complex<float>>;
+template struct EigenSign<Eigen::GpuDevice, dtype::complex<double>>;
 
 }  // namespace funcs
 }  // namespace phi
