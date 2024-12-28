@@ -80,6 +80,11 @@ void BoxCoderInferMeta(const MetaTensor& prior_box,
                        MetaTensor* output_box,
                        MetaConfig config = MetaConfig());
 
+void ClipTensorInferMeta(const MetaTensor& x,
+                         const MetaTensor& min,
+                         const MetaTensor& max,
+                         MetaTensor* out);
+
 void CollectFpnProposalsInferMeta(
     const std::vector<const MetaTensor*>& multi_level_rois,
     const std::vector<const MetaTensor*>& multi_level_scores,
