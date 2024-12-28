@@ -444,26 +444,6 @@ void OperatorDialect::PrintAttribute(pir::Attribute attr,
   PrintAttributeImpl(attr, os);
 }
 
-pir::Attribute OperatorDialect::ParseAttribute(
-    pir::IrParser& parser) {  // NOLINT
-  std::string type_name = parser.ConsumeToken().val_;
-  std::string attribute_name =
-      type_name.substr(type_name.find('.') + 1, std::string::npos);
-  parser.ConsumeAToken(")");
-  if (attribute_name == "IntArray") {
-    return IntArrayAttribute::Parse(parser);
-  } else if (attribute_name == "DataType") {
-    return DataTypeAttribute::Parse(parser);
-  } else if (attribute_name == "Place") {
-    return PlaceAttribute::Parse(parser);
-  } else if (attribute_name == "DataLayout") {
-    return DataLayoutAttribute::Parse(parser);
-  } else {
-    IR_THROW("No function to parse " + attribute_name + " exists!" +
-             parser.GetErrorLocationInfo());
-  }
-}
-
 pir::OpPrintFn OperatorDialect::PrintOperation(const pir::Operation& op) const {
   if (op.isa<IfOp>() || op.isa<WhileOp>() || op.isa<PyLayerOp>()) {
     return PrintOperationImpl;
