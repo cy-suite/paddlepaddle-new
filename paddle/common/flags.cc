@@ -1319,6 +1319,12 @@ PHI_DEFINE_EXPORTED_bool(eager_communication_connection,
                          false,
                          "enable eager to create nccl comm");
 
+PHI_DEFINE_EXPORTED_int64(
+    tcp_max_syn_backlog,
+    2048,
+    "The maximum length of the queue for completely established sockets "
+    "waiting to be accepted for tcp, default is 2048.");
+
 /**
  * Autotune related FLAG
  * Name: FLAGS_use_autotune
@@ -1368,6 +1374,16 @@ PHI_DEFINE_EXPORTED_bool(enable_fuse_parallel_matmul_pass,
 PHI_DEFINE_EXPORTED_bool(enable_fusion_fallback,
                          false,
                          "Whether enable fallback fusion ops in cinn.");
+
+/**
+ * CINN fusion result check FLAG
+ * Name: FLAGS_enable_fusion_result_check
+ * Since Version: 3.0 beta
+ * Value Range: bool, default=false
+ */
+PHI_DEFINE_EXPORTED_bool(enable_fusion_result_check,
+                         false,
+                         "Whether enable fusion result check in cinn.");
 
 /**
  * CINN TransposeItesr transform fusion FLAG
@@ -1433,7 +1449,8 @@ PHI_DEFINE_EXPORTED_bool(
  * Since Version: 3.0.0
  * Value Range: bool, default=false
  * Example:
- * Note: If True, using AutoLayoutPass and AutuLayoutSimplifyPass by default
+ * Note: If True, using AutoLayoutInsertPass and AutuLayoutSimplifyPass by
+ * default
  */
 PHI_DEFINE_EXPORTED_bool(enable_auto_layout_pass,
                          false,

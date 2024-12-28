@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <limits>
+#include "paddle/phi/common/complex.h"
 #include "paddle/phi/core/enforce.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/gpu/reduce.h"
@@ -28,6 +29,9 @@
 #ifndef PADDLE_WITH_XPU_KP
 #include "paddle/phi/kernels/funcs/eigen/common.h"
 #endif
+
+using complex64 = ::phi::dtype::complex<float>;
+using complex128 = ::phi::dtype::complex<double>;
 
 namespace phi {
 
@@ -174,7 +178,7 @@ void ReduceSumEigen(const KPDevice& dev_ctx,
   }
   auto eigen_reduce_dim =
       EigenDim<ReducedDimSize>::From(common::make_ddim(*reduce_dims));
-  // Caculate
+  // Calculate
   eigen_out_tensor.device(*dev_ctx.eigen_device()) =
       eigen_x_tensor.sum(eigen_reduce_dim);
   out->Resize(origin_out_dims);
@@ -307,7 +311,9 @@ PD_REGISTER_KERNEL(all_raw,
                    double,
                    int,
                    int64_t,
-                   bool) {
+                   bool,
+                   complex64,
+                   complex128) {
   kernel->OutputAt(0).SetDataType(phi::DataType::BOOL);
 }
 
@@ -337,7 +343,9 @@ PD_REGISTER_KERNEL(any_raw,
                    double,
                    int,
                    int64_t,
-                   bool) {
+                   bool,
+                   complex64,
+                   complex128) {
   kernel->OutputAt(0).SetDataType(phi::DataType::BOOL);
 }
 
