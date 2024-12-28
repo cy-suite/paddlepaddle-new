@@ -61,6 +61,7 @@ class TrtConvertMishTest(TrtLayerAutoScanTest):
                             ]
 
                             ops = self.generate_op_config(ops_config)
+                            print(dim1, dim2, dim3)
                             program_config = ProgramConfig(
                                 ops=ops,
                                 weights={},
@@ -80,50 +81,51 @@ class TrtConvertMishTest(TrtLayerAutoScanTest):
 
                             yield program_config
 
-    def sample_predictor_configs(self, program_config):
-        def generate_dynamic_shape(attrs):
-            if self.dim1 == 0:
+    def generate_dynamic_shape(self):
+        if self.dim1 == 0:
+            self.dynamic_shape.min_input_shape = {
+                "input_data": [1],
+            }
+            self.dynamic_shape.max_input_shape = {
+                "input_data": [4],
+            }
+            self.dynamic_shape.opt_input_shape = {
+                "input_data": [2],
+            }
+        else:
+            if self.dim2 == 0 and self.dim3 == 0:
                 self.dynamic_shape.min_input_shape = {
-                    "input_data": [1],
+                    "input_data": [1, 1],
                 }
                 self.dynamic_shape.max_input_shape = {
-                    "input_data": [4],
+                    "input_data": [4, 64],
                 }
                 self.dynamic_shape.opt_input_shape = {
-                    "input_data": [2],
+                    "input_data": [2, 3],
                 }
-            else:
-                if self.dim2 == 0 and self.dim3 == 0:
-                    self.dynamic_shape.min_input_shape = {
-                        "input_data": [1, 1],
-                    }
-                    self.dynamic_shape.max_input_shape = {
-                        "input_data": [4, 64],
-                    }
-                    self.dynamic_shape.opt_input_shape = {
-                        "input_data": [2, 3],
-                    }
-                elif self.dim2 != 0 and self.dim3 != 0:
-                    self.dynamic_shape.min_input_shape = {
-                        "input_data": [1, 1, 1, 1],
-                    }
-                    self.dynamic_shape.max_input_shape = {
-                        "input_data": [4, 64, 128, 128],
-                    }
-                    self.dynamic_shape.opt_input_shape = {
-                        "input_data": [2, 3, 16, 32],
-                    }
-                elif self.dim3 == 0:
-                    self.dynamic_shape.min_input_shape = {
-                        "input_data": [1, 1, 1],
-                    }
-                    self.dynamic_shape.max_input_shape = {
-                        "input_data": [4, 64, 256],
-                    }
-                    self.dynamic_shape.opt_input_shape = {
-                        "input_data": [2, 3, 128],
-                    }
+            elif self.dim2 != 0 and self.dim3 != 0:
+                self.dynamic_shape.min_input_shape = {
+                    "input_data": [1, 1, 1, 1],
+                }
+                self.dynamic_shape.max_input_shape = {
+                    "input_data": [4, 64, 128, 128],
+                }
+                self.dynamic_shape.opt_input_shape = {
+                    "input_data": [2, 3, 16, 32],
+                }
+            elif self.dim3 == 0:
+                self.dynamic_shape.min_input_shape = {
+                    "input_data": [1, 1, 1],
+                }
+                self.dynamic_shape.max_input_shape = {
+                    "input_data": [4, 64, 256],
+                }
+                self.dynamic_shape.opt_input_shape = {
+                    "input_data": [2, 3, 128],
+                }
+        return self.dynamic_shape
 
+    def sample_predictor_configs(self, program_config, run_pir=True):
         def clear_dynamic_shape():
             self.dynamic_shape.min_input_shape = {}
             self.dynamic_shape.max_input_shape = {}
@@ -135,22 +137,22 @@ class TrtConvertMishTest(TrtLayerAutoScanTest):
         attrs = [
             program_config.ops[i].attrs for i in range(len(program_config.ops))
         ]
-
-        # for static_shape
         clear_dynamic_shape()
-        self.trt_param.precision = paddle_infer.PrecisionType.Float32
-        program_config.set_input_type(np.float32)
-        yield self.create_inference_config(), generate_trt_nodes_num(
-            attrs, False
-        ), 1e-5
-        self.trt_param.precision = paddle_infer.PrecisionType.Half
-        program_config.set_input_type(np.float16)
-        yield self.create_inference_config(), generate_trt_nodes_num(
-            attrs, False
-        ), (1e-3, 1e-3)
+        if not run_pir:
+            # for static_shape
+            self.trt_param.precision = paddle_infer.PrecisionType.Float32
+            program_config.set_input_type(np.float32)
+            yield self.create_inference_config(), generate_trt_nodes_num(
+                attrs, False
+            ), 1e-5
+            self.trt_param.precision = paddle_infer.PrecisionType.Half
+            program_config.set_input_type(np.float16)
+            yield self.create_inference_config(), generate_trt_nodes_num(
+                attrs, False
+            ), (1e-3, 1e-3)
 
         # for dynamic_shape
-        generate_dynamic_shape(attrs)
+        self.generate_dynamic_shape()
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
         program_config.set_input_type(np.float32)
         yield self.create_inference_config(), generate_trt_nodes_num(
