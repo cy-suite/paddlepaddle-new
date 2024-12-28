@@ -28,6 +28,9 @@
 
 namespace pir {
 using InferSymbolicShapeCacheValue = std::vector<symbol::ShapeOrDataDimExprs>;
+
+enum TransLayoutType { NCHW2NHWC, NHWC2NCHW, INVALID };
+
 /**
  * This class represents information needed to determine the output
  * shape of an operator, which includes the operator's name, input shapes, and
@@ -122,6 +125,10 @@ class IR_API InferSymbolicShapeContext {
   bool IsBroadcastable(const symbol::DimExpr& lhs,
                        const symbol::DimExpr& rhs) const;
 
+  void SubstituteInConstraint(
+      const std::unordered_map<symbol::DimExpr, symbol::DimExpr>&
+          substitution_pattern);
+
   bool HasPredefinedRange(const symbol::DimExpr& dim_expr) const;
 
   void PrintShapeOrDatas() const;
@@ -199,12 +206,22 @@ class IR_API ShapeConstraintIRAnalysis final
   // Set ShapeOrData of `to` value by ShapeOrData of `from` value.
   void ShareShapeOrData(Value from, Value to);
 
+  // Update Symbol Shape for value by layout transformation.
+  void UpdateShapeOrDataByTransLayout(Value val,
+                                      TransLayoutType trans_layout_type);
+
+  void AddEqualCstr(const symbol::DimExpr& lhs, const symbol::DimExpr& rhs);
+
   bool IsEqual(const symbol::DimExpr& lhs, const symbol::DimExpr& rhs) const;
 
   bool IsGreatThanOne(const symbol::DimExpr& dim_expr) const;
 
   bool IsBroadcastable(const symbol::DimExpr& lhs,
                        const symbol::DimExpr& rhs) const;
+
+  void SubstituteInConstraint(
+      const std::unordered_map<symbol::DimExpr, symbol::DimExpr>&
+          substitution_pattern);
 
   // Used to debug
   void PrintShapeOrDatas() const;

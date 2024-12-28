@@ -306,6 +306,7 @@ void IrPrinter::PrintAttributeMap(const Operation& op) {
 
   // Filter out the callstack attribute
   order_attributes.erase("op_callstack");
+  order_attributes.erase("sym_shape_str");
 
   os << " {";
 
@@ -389,10 +390,9 @@ void IrPrinter::PrintOpReturnType(const Operation& op) {
 
 void IrPrinter::AddValueAlias(Value v, const std::string& alias) {
   const void* key = v.impl();
-  PADDLE_ENFORCE_EQ(aliases_.find(key),
-                    aliases_.end(),
-                    common::errors::InvalidArgument("Value already has alias"));
-  aliases_[key] = alias;
+  if (aliases_.find(key) == aliases_.end()) {
+    aliases_[key] = alias;
+  }
 }
 
 class CustomPrinter : public IrPrinter {

@@ -161,6 +161,9 @@ limitations under the License. */
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
 #include "paddle/fluid/operators/nccl/nccl_gpu_common.h"
 #endif
+#ifdef PADDLE_WITH_CUDA
+#include "paddle/phi/backends/gpu/cuda/gpu_event_timer.h"
+#endif
 #ifndef PADDLE_WITH_HIP
 #include "paddle/phi/core/platform/device/gpu/cuda/cuda_profiler.h"
 #endif
@@ -2429,6 +2432,54 @@ All parameter, weight, gradient are variables in Paddle.
 
   m.def("get_no_need_buffer_values",
         framework::interpreter::GetNoNeedBufferValues);
+#ifdef PADDLE_WITH_CUDA
+  py::class_<phi::GPUEventTimer>(m, "GPUEventTimer")
+      .def(py::init<phi::GPUPlace>(), py::arg("place"))
+      .def(
+          "start",
+          [](phi::GPUEventTimer &timer) { timer.Start(); },
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "stop",
+          [](phi::GPUEventTimer &timer) { timer.Stop(); },
+          py::call_guard<py::gil_scoped_release>())
+      .def("reset",
+           &phi::GPUEventTimer::Reset,
+           py::call_guard<py::gil_scoped_release>())
+      .def("elapsed",
+           &phi::GPUEventTimer::Elapsed,
+           py::arg("reset") = true,
+           py::call_guard<py::gil_scoped_release>())
+      .def(
+          "elapsed_list",
+          [](phi::GPUEventTimer &timer, bool reset) {
+            std::vector<double> values;
+            {
+              py::gil_scoped_release release;
+              values = timer.ElapsedList(reset);
+            }
+            size_t n = values.size();
+            py::array_t<double, py::array::c_style | py::array::forcecast>
+                array(n);
+            auto buffer = array.request();
+            std::memcpy(buffer.ptr, values.data(), sizeof(values[0]) * n);
+            return array;
+          },
+          py::arg("reset") = true)
+      .def("pre_alloc",
+           &phi::GPUEventTimer::PreAlloc,
+           py::arg("n"),
+           py::call_guard<py::gil_scoped_release>())
+      .def("shrink_to_fit",
+           &phi::GPUEventTimer::ShrinkToFit,
+           py::call_guard<py::gil_scoped_release>())
+      .def("size",
+           &phi::GPUEventTimer::Size,
+           py::call_guard<py::gil_scoped_release>())
+      .def("capacity",
+           &phi::GPUEventTimer::Capacity,
+           py::call_guard<py::gil_scoped_release>());
+#endif
 
   m.def("init_gflags", framework::InitGflags);
   m.def("init_glog", framework::InitGLOG);
@@ -2514,8 +2565,13 @@ All parameter, weight, gradient are variables in Paddle.
   m.def("device_memory_stat_current_value",
         memory::DeviceMemoryStatCurrentValue);
   m.def("device_memory_stat_peak_value", memory::DeviceMemoryStatPeakValue);
+  m.def("device_memory_stat_reset_peak_value",
+        memory::DeviceMemoryStatResetPeakValue);
+
   m.def("host_memory_stat_current_value", memory::HostMemoryStatCurrentValue);
   m.def("host_memory_stat_peak_value", memory::HostMemoryStatPeakValue);
+  m.def("host_memory_stat_reset_peak_value",
+        memory::HostMemoryStatResetPeakValue);
   m.def(
       "run_cmd",
       [](const std::string &cmd,
@@ -2613,7 +2669,6 @@ All parameter, weight, gradient are variables in Paddle.
                                    "The index to set is larger than the size "
                                    "of DenseTensorArray."));
              self[i].ShareDataWith(t);
-             self[i].set_lod(t.lod());
            })
       .def(
           "append",
@@ -2687,9 +2742,8 @@ All parameter, weight, gradient are variables in Paddle.
           "append",
           [](FetchList &self, const phi::DenseTensor &t) {
             self.emplace_back();
-            auto &lod_tensor = PADDLE_GET(phi::DenseTensor, self.back());
-            lod_tensor.ShareDataWith(t);
-            lod_tensor.set_lod(t.lod());
+            auto &dense_tensor = PADDLE_GET(phi::DenseTensor, self.back());
+            dense_tensor.ShareDataWith(t);
           },
           py::arg("var"))
 
@@ -2697,10 +2751,10 @@ All parameter, weight, gradient are variables in Paddle.
           "append",
           [](FetchList &self, const phi::TensorArray &t) {
             self.emplace_back();
-            auto &lod_tensor_array = PADDLE_GET(phi::TensorArray, self.back());
+            auto &dense_tensor_array =
+                PADDLE_GET(phi::TensorArray, self.back());
             for (size_t i = 0; i < t.size(); ++i) {
-              lod_tensor_array[i].ShareDataWith(t[i]);
-              lod_tensor_array[i].set_lod(t[i].lod());
+              dense_tensor_array[i].ShareDataWith(t[i]);
             }
           },
           py::arg("var"));
@@ -2801,6 +2855,7 @@ All parameter, weight, gradient are variables in Paddle.
 
 #ifdef PADDLE_WITH_XPU
   m.def("get_xpu_device_count", platform::GetXPUDeviceCount);
+  m.def("xpu_empty_cache", platform::EmptyCache);
 #endif
 
   py::enum_<platform::TracerOption>(m, "TracerOption", py::arithmetic())
