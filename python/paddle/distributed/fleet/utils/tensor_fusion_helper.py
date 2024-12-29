@@ -355,7 +355,8 @@ def build_reduce_scatter_buffer(
     grad_dtype = paddle.float32 if use_main_grad else dtype
 
     param_buffer = paddle.zeros(shape=[total_buffer_size], dtype=dtype)
-    if get_current_device_type() == "gpu":
+    # TODO(@gexiao): Currently only support gpus
+    if core.is_compiled_with_cuda() and not core.is_compiled_with_rocm():
         param_buffer_ipc_meta = param_buffer.value().get_tensor()._share_cuda()
     else:
         param_buffer_ipc_meta = None

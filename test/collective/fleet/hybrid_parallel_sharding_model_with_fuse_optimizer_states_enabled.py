@@ -203,7 +203,12 @@ class TestDistMPTraining(unittest.TestCase):
         multiprocessing.set_start_method('spawn')
         self.task_queue = multiprocessing.Queue()
         self.result_queue = multiprocessing.Queue()
-        expected_device_id = int(os.getenv("FLAGS_selected_gpus"))
+        # TODO(@gexiao): Currently only supports gpu env
+        expected_device_id = (
+            int(os.getenv("FLAGS_selected_gpus"))
+            if core.is_compiled_with_cuda()
+            else 0
+        )
         self.fusion_worker = FusionWorker(
             0, expected_device_id, self.task_queue, self.result_queue
         )
