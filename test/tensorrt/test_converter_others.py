@@ -428,13 +428,8 @@ class TestDequantizeLinearTRTCase1Pattern(TensorRTBaseTest):
         self.min_shape = {"x": [4, 3, 5]}
         self.max_shape = {"x": [6, 3, 5]}
 
-    def test_trt_result_fp32(self):
-        self.enable_fp16 = False
-        self.check_trt_result()
-
-    def test_trt_result_fp16(self):
-        self.enable_fp16 = True
-        self.check_trt_result()
+    def test_trt_result(self):
+        self.check_trt_result(precision_mode="int8")
 
 
 class TestDequantizeLinearTRTCase2Pattern(TensorRTBaseTest):
@@ -454,7 +449,7 @@ class TestDequantizeLinearTRTCase2Pattern(TensorRTBaseTest):
         self.max_shape = {"x": [6, 3, 5]}
 
     def test_trt_result(self):
-        self.check_marker(expected_result=False)
+        self.check_trt_result(precision_mode="int8")
 
 
 if __name__ == '__main__':

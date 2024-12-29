@@ -427,6 +427,16 @@ class PaddleToTensorRTConverter:
                     _logger.warning(
                         "Hardware does not support FP16. Continuing in FP32 mode."
                     )
+        elif (
+            self.trt_config is not None and precision_mode == PrecisionMode.INT8
+        ):
+            if builder.platform_has_fast_int8:
+                config.set_flag(trt.BuilderFlag.INT8)
+                _logger.info("Run Paddle-TRT INT8 mode")
+            else:
+                _logger.warning(
+                    "Hardware does not support INT8. Continuing in FP32 mode."
+                )
         elif self.trt_config is not None:
             _logger.info(
                 f"Default precision mode {self.trt_config.precision_mode}"

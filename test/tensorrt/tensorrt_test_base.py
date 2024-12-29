@@ -268,6 +268,8 @@ class TensorRTBaseTest(unittest.TestCase):
             trt_config = TensorRTConfig(inputs=[input])
             if precision_mode == "fp16":
                 trt_config.precision_mode = PrecisionMode.FP16
+            if precision_mode == "int8":
+                trt_config.precision_mode = PrecisionMode.INT8
 
             converter = PaddleToTensorRTConverter(
                 program_with_trt, scope, trt_config
