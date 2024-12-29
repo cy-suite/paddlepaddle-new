@@ -4,7 +4,11 @@ extend-exclude = [
     "third_party",
     "patches",
     "build",
-    "test/dataset/imikolov_test.py"
+    "test/dataset/imikolov_test.py",
+    # leafs
+    "test/legacy_test/test_dist_tree_index.py",
+    "python/paddle/distributed/fleet/dataset/index_dataset.py",
+    "paddle/fluid/pybind/fleet_py.cc",
 ]
 
 [default.extend-words]
@@ -210,16 +214,6 @@ interated = 'interated'
 Iteraion = 'Iteraion'
 IIT = 'IIT'
 iy = 'iy'
-lable = 'lable'
-lamda = 'lamda'
-labmda = 'labmda'
-lastest = 'lastest'
-Lanuch = 'Lanuch'
-lanuch = 'lanuch'
-leyer = 'leyer'
-learing = 'learing'
-Leafs = 'Leafs'
-leafs = 'leafs'
 occured = 'occured'
 Ocurred = 'Ocurred'
 occures = 'occures'
