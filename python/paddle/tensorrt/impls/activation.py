@@ -45,6 +45,14 @@ def activation_converter(network, paddle_op, inputs):
     return layer.get_output(0)
 
 
+@converter_registry.register("pd_op.relu6", trt_version="trt_version_ge=8.0")
+def relu6_converter(network, paddle_op, inputs):
+    layer = network.add_activation(inputs[0], trt.ActivationType.CLIP)
+    layer.alpha = 0.0
+    layer.beta = 6.0
+    return layer.get_output(0)
+
+
 @converter_registry.register("pd_op.softmax", trt_version="trt_version_ge=8.0")
 def softmax_converter(network, paddle_op, inputs):
     axis = paddle_op.attrs().get("axis", 0)
