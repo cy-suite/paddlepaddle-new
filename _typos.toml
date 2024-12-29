@@ -5,10 +5,6 @@ extend-exclude = [
     "patches",
     "build",
     "test/dataset/imikolov_test.py",
-    # leafs
-    "test/legacy_test/test_dist_tree_index.py",
-    "python/paddle/distributed/fleet/dataset/index_dataset.py",
-    "paddle/fluid/pybind/fleet_py.cc",
 ]
 
 [default.extend-words]
