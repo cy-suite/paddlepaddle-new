@@ -27,7 +27,9 @@ void RollGradKernel(const Context& dev_ctx,
                     const IntArray& shifts,
                     const std::vector<int64_t>& axis,
                     DenseTensor* x_grad) {
-  std::vector<T> out_vec;
+  using Type =
+      typename std::conditional<std::is_same<T, bool>::value, int, T>::type;
+  std::vector<Type> out_vec;
   phi::TensorToVector(out_grad, dev_ctx, &out_vec);
 
   auto shifts_data = shifts.GetData();
@@ -56,6 +58,7 @@ PD_REGISTER_KERNEL(roll_grad,
                    CPU,
                    ALL_LAYOUT,
                    phi::RollGradKernel,
+                   bool,
                    float,
                    double,
                    int,

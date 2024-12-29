@@ -185,6 +185,7 @@ class TestRollAPI(unittest.TestCase):
         self.data_x = np.array(
             [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]
         )
+        self.data_zero_x = np.array([]).reshape(0, 3).astype('float32')
 
     def test_roll_op_api_case1(self):
         paddle.enable_static()
@@ -232,6 +233,25 @@ class TestRollAPI(unittest.TestCase):
         np.testing.assert_allclose(expect_out, np.array(res), rtol=1e-05)
         paddle.disable_static()
 
+    def test_roll_op_api_case3(self):
+        paddle.enable_static()
+        with paddle.static.program_guard(
+            paddle.static.Program(), paddle.static.Program()
+        ):
+            x = paddle.static.data(name='x', shape=[0, 3], dtype='float32')
+            data_x = np.array([]).reshape(0, 3).astype('float32')
+            z = paddle.roll(x, shifts=1)
+            exe = paddle.static.Executor(paddle.CPUPlace())
+            (res,) = exe.run(
+                paddle.static.default_main_program(),
+                feed={'x': data_x},
+                fetch_list=[z],
+                return_numpy=False,
+            )
+            expect_out = np.array([]).reshape(0, 3)
+        np.testing.assert_allclose(expect_out, np.array(res), rtol=1e-05)
+        paddle.disable_static()
+
     def test_dygraph_api(self):
         self.input_data()
         # case 1:
@@ -252,6 +272,14 @@ class TestRollAPI(unittest.TestCase):
         expect_out = np.array(
             [[7.0, 8.0, 9.0], [1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
         )
+        np.testing.assert_allclose(expect_out, np_z, rtol=1e-05)
+
+        # case 3:
+        with base.dygraph.guard():
+            x = paddle.to_tensor(self.data_zero_x)
+            z = paddle.roll(x, shifts=1)
+            np_z = z.numpy()
+        expect_out = np.array([]).reshape(0, 3)
         np.testing.assert_allclose(expect_out, np_z, rtol=1e-05)
 
     def test_roll_op_false(self):

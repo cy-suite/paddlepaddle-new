@@ -28,7 +28,14 @@ void RollKernel(const Context& dev_ctx,
                 const IntArray& shifts,
                 const std::vector<int64_t>& axis,
                 DenseTensor* out) {
-  std::vector<T> out_vec;
+  if (x.numel() == 0) {
+    out->Resize(out->dims());
+    dev_ctx.template Alloc<T>(out);
+    return;
+  }
+  using Type =
+      typename std::conditional<std::is_same<T, bool>::value, int, T>::type;
+  std::vector<Type> out_vec;
   phi::TensorToVector(x, dev_ctx, &out_vec);
 
   auto shifts_data = shifts.GetData();
@@ -67,6 +74,7 @@ PD_REGISTER_KERNEL(roll,
                    CPU,
                    ALL_LAYOUT,
                    phi::RollKernel,
+                   bool,
                    float,
                    double,
                    int,
