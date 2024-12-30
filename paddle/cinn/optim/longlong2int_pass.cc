@@ -19,6 +19,7 @@
 #include "paddle/cinn/ir/ir_visitor.h"
 #include "paddle/cinn/ir/stmt.h"
 #include "paddle/cinn/ir/stmt_visitors.h"
+#include "paddle/cinn/pass/pass_manager.h"
 
 namespace cinn {
 namespace optim {
@@ -237,6 +238,18 @@ std::unique_ptr<ExprPass> CreateLongLong2IntExprPass() {
 bool CanApplyLongLong2Int(ir::stmt::BlockRef block) {
   CheckOverflow check_overflow;
   return !check_overflow(block);
+}
+
+void CastLonglong2Int(ir::stmt::BlockRef block) {
+  if (CanApplyLongLong2Int(block)) {
+    StmtPassManager stmt_pass_manager;
+    stmt_pass_manager.AddPass(CreateLongLong2IntStmtPass());
+    ExprPassManager expr_pass_manager;
+    expr_pass_manager.AddPass(CreateLongLong2IntExprPass());
+
+    stmt_pass_manager.Run(block);
+    expr_pass_manager.Run(block);
+  }
 }
 
 }  // namespace optim
