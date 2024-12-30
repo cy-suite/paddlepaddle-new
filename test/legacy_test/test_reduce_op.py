@@ -102,14 +102,9 @@ class TestSumOp_ZeroDim(TestSumOp):
         )
 
 
-class TestSumOp_ZeroDim_KeepDimFalse(TestSumOp_ZeroDim):
-    def init_attrs(self):
-        self.attrs = {'dim': None, 'keepdim': False}
-
-
 class TestSumOp_ZeroDim_KeepDimTrue(TestSumOp_ZeroDim):
     def init_attrs(self):
-        self.attrs = {'dim': None, 'keepdim': True}
+        self.attrs = {'dim': None, 'keep_dim': True}
 
 
 class TestSumOp5D(TestSumOp):

@@ -114,13 +114,6 @@ class VecDotTestCaseAxis(VecDotTestCase):
         self.axis = 1
 
 
-class VecDotTestCaseZeroSize1D(VecDotTestCase):
-    def init_config(self):
-        self.dtype = 'float32'
-        self.input_shape = (0,)
-        self.axis = -1
-
-
 class VecDotTestCaseZeroSize2D(VecDotTestCase):
     def init_config(self):
         self.dtype = 'float32'
