@@ -187,6 +187,9 @@ class TestRollAPI(unittest.TestCase):
         )
         self.data_x_zero_size1 = np.array([]).reshape(0, 3).astype('float32')
         self.data_x_zero_size2 = np.array([]).reshape(4, 0, 3).astype('float32')
+        self.data_x_bool = np.array(
+            [[True, False, True], [False, True, False], [True, False, True]]
+        ).astype('bool')
 
     def test_roll_op_api_case1(self):
         paddle.enable_static()
@@ -310,6 +313,52 @@ class TestRollAPI(unittest.TestCase):
         np.testing.assert_allclose(expect_out, np.array(res), rtol=1e-05)
         paddle.disable_static()
 
+    def test_roll_op_api_case7(self):
+        paddle.enable_static()
+        with paddle.static.program_guard(
+            paddle.static.Program(), paddle.static.Program()
+        ):
+            x = paddle.static.data(name='x', shape=[3, 3], dtype='bool')
+            data_x = np.array(
+                [[True, False, True], [False, True, False], [True, False, True]]
+            ).astype('bool')
+            z = paddle.roll(x, shifts=1)
+            exe = paddle.static.Executor(paddle.CPUPlace())
+            (res,) = exe.run(
+                paddle.static.default_main_program(),
+                feed={'x': data_x},
+                fetch_list=[z],
+                return_numpy=False,
+            )
+            expect_out = np.array(
+                [[True, True, False], [True, False, True], [False, True, False]]
+            )
+        np.testing.assert_allclose(expect_out, np.array(res), rtol=1e-05)
+        paddle.disable_static()
+
+    def test_roll_op_api_case8(self):
+        paddle.enable_static()
+        with paddle.static.program_guard(
+            paddle.static.Program(), paddle.static.Program()
+        ):
+            x = paddle.static.data(name='x', shape=[3, 3], dtype='bool')
+            data_x = np.array(
+                [[True, False, True], [False, True, False], [True, False, True]]
+            ).astype('bool')
+            z = paddle.roll(x, shifts=1, axis=0)
+            exe = paddle.static.Executor(paddle.CPUPlace())
+            (res,) = exe.run(
+                paddle.static.default_main_program(),
+                feed={'x': data_x},
+                fetch_list=[z],
+                return_numpy=False,
+            )
+            expect_out = np.array(
+                [[True, False, True], [True, False, True], [False, True, False]]
+            )
+        np.testing.assert_allclose(expect_out, np.array(res), rtol=1e-05)
+        paddle.disable_static()
+
     def test_dygraph_api(self):
         self.input_data()
         # case 1:
@@ -362,6 +411,26 @@ class TestRollAPI(unittest.TestCase):
             z = paddle.roll(x, shifts=1, axis=0)
             np_z = z.numpy()
         expect_out = np.array([]).reshape(4, 0, 3)
+        np.testing.assert_allclose(expect_out, np_z, rtol=1e-05)
+
+        # case 7:
+        with base.dygraph.guard():
+            x = paddle.to_tensor(self.data_x_bool)
+            z = paddle.roll(x, shifts=1)
+            np_z = z.numpy()
+        expect_out = np.array(
+            [[True, True, False], [True, False, True], [False, True, False]]
+        )
+        np.testing.assert_allclose(expect_out, np_z, rtol=1e-05)
+
+        # case 8:
+        with base.dygraph.guard():
+            x = paddle.to_tensor(self.data_x_bool)
+            z = paddle.roll(x, shifts=1, axis=0)
+            np_z = z.numpy()
+        expect_out = np.array(
+            [[True, False, True], [True, False, True], [False, True, False]]
+        )
         np.testing.assert_allclose(expect_out, np_z, rtol=1e-05)
 
     def test_roll_op_false(self):
