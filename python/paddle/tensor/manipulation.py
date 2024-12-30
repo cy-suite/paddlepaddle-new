@@ -7487,6 +7487,12 @@ def slice_scatter(
 
     Returns:
         Tensor, same dtype and shape with x
+    The image below demonstrates the  case 2 — a tensor x with shape [3, 9], where a slice scatter operation is performed along axis 1, embedding a value tensor with shape [3, 1] into a specified range. The diagram shows the original tensor, the value tensor, and the resulting tensor after the operation.
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/slice_scatter.png
+       :width: 500
+       :alt: Illustration of Case 2
+       :align: center
+
 
     Examples:
         .. code-block:: python
