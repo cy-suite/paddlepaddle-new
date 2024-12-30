@@ -508,10 +508,10 @@ inline ShapeOrData StridedSliceRawInferSymbolicShape(
                   [](const symbol::DimExpr &e) { return e.isa<int64_t>(); }) &&
       std::all_of(ends_expr.begin(),
                   ends_expr.end(),
+                  [](const symbol::DimExpr &e) { return e.isa<int64_t>(); }) &&
+      std::all_of(strides_expr.begin(),
+                  strides_expr.end(),
                   [](const symbol::DimExpr &e) { return e.isa<int64_t>(); });
-  &&std::all_of(strides_expr.begin(),
-                strides_expr.end(),
-                [](const symbol::DimExpr &e) { return e.isa<int64_t>(); });
   const auto &out_shape =
       in_shapeordata.data().has_value() && starts_ends_all_int
           ? GetDataDimExprs()
