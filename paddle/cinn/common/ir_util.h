@@ -364,5 +364,22 @@ ir::IndexExpr ConstructIndexExprByNodeType(const ir::IrNodeTy &ty,
  * \return `IndexExpr` after change.
  */
 ir::IndexExpr ChangeSeqOfDivMod(const ir::IndexExpr &expr);
+enum IndexType {
+  kInvalid = 0,  // invalid expr
+  kValid = 1,    // valid expr
+  kLoad = 2,     // exist Load
+  kCast = 3      // exist cast
+};
+
+/*!
+ * \brief Judge type of `expr` is valid type of `IndexExpr` or not.
+ * \param expr The expression to be checked.
+ * \return A enum IndexType value indicating whether the type of `expr` is valid
+ * IndexExpr.
+ *
+ * Note: Although load and cast are also legal IndexExpr, we need to know this
+ * information in some scenarios.
+ */
+IndexType VerifyIndex(const ir::Expr &expr);
 }  // namespace common
 }  // namespace cinn
