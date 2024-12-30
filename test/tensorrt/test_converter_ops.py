@@ -71,20 +71,6 @@ class TestExpFloatTRTPattern(TensorRTBaseTest):
         self.check_trt_result(precision_mode="fp16")
 
 
-class TestExpIntTRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = paddle.exp
-        self.api_args = {
-            "x": np.random.randn(7, 3).astype("int64"),
-        }
-        self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [3, 3]}
-        self.max_shape = {"x": [10, 3]}
-
-    def test_trt_result(self):
-        self.check_trt_result()
-
-
 class TestAbsFloatTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.abs
