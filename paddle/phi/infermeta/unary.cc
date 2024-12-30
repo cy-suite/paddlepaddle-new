@@ -1833,18 +1833,20 @@ void FoldInferMeta(const MetaTensor& x,
                         strides[0],
                         strides[1]));
   // check dilations
-  PADDLE_ENFORCE_GE(output_height,
-                    1,
-                    common::errors::InvalidArgument(
-                        "The `output_height` should be greater than or equal to one, "
-                        "but received output_height: %d .",
-                        output_height));
-  PADDLE_ENFORCE_GE(output_width,
-                    1,
-                    common::errors::InvalidArgument(
-                        "The `output_width` should be greater than or equal to one, "
-                        "but received output_width: %d .",
-                        output_width));
+  PADDLE_ENFORCE_GE(
+      output_height,
+      1,
+      common::errors::InvalidArgument(
+          "The `output_height` should be greater than or equal to one, "
+          "but received output_height: %d .",
+          output_height));
+  PADDLE_ENFORCE_GE(
+      output_width,
+      1,
+      common::errors::InvalidArgument(
+          "The `output_width` should be greater than or equal to one, "
+          "but received output_width: %d .",
+          output_width));
   // check output size
   PADDLE_ENFORCE_GT(
       dilation_height,
