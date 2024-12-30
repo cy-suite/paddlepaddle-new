@@ -18,6 +18,7 @@
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/core/tensor_utils.h"
+#include "paddle/phi/kernels/cast_kernel.h"
 #include "paddle/phi/kernels/cpu/roll_kernel_impl.h"
 
 namespace phi {
@@ -34,9 +35,15 @@ void RollKernel(const Context& dev_ctx,
     return;
   }
   using Type =
-      typename std::conditional<std::is_same<T, bool>::value, int, T>::type;
+      typename std::conditional<std::is_same<T, bool>::value, int16_t, T>::type;
   std::vector<Type> out_vec;
-  phi::TensorToVector(x, dev_ctx, &out_vec);
+  DenseTensor tmp_tensor;
+  if (std::is_same<T, bool>::value) {
+    tmp_tensor = phi::Cast<T, Context>(dev_ctx, x, phi::DataType::UINT16);
+  } else {
+    tmp_tensor = x;
+  }
+  phi::TensorToVector(tmp_tensor, dev_ctx, &out_vec);
 
   auto shifts_data = shifts.GetData();
   size_t nums = shifts_data.size();
@@ -65,6 +72,9 @@ void RollKernel(const Context& dev_ctx,
   }
   dev_ctx.template Alloc<T>(out);
   phi::TensorFromVector(out_vec, dev_ctx, out);
+  if (std::is_same<T, bool>::value) {
+    *out = phi::Cast<bool, Context>(dev_ctx, *out, phi::DataType::BOOL);
+  }
   out->Resize(x.dims());
 }
 
