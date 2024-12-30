@@ -42,7 +42,6 @@ class TensorRTBaseTest(unittest.TestCase):
         self.max_shape = None
         self.target_marker_op = ""
         self.dynamic_shape_data = {}
-        self.enable_fp16 = None
 
     def create_fake_program(self):
         if self.python_api is None:
@@ -54,6 +53,8 @@ class TensorRTBaseTest(unittest.TestCase):
         with paddle.static.program_guard(main_program, startup_program):
             api_args = copy.deepcopy(self.api_args)
             for feed_name in self.program_config["feed_list"]:
+                if self.api_args[feed_name] is None:
+                    continue
                 if isinstance(self.api_args[feed_name], dict):
                     new_list_args = []
                     for sub_arg_name, sub_arg_value in self.api_args[
@@ -132,6 +133,8 @@ class TensorRTBaseTest(unittest.TestCase):
         exe = paddle.static.Executor(place)
         feed_data = dict()  # noqa: C408
         for feed_name in self.program_config["feed_list"]:
+            if self.api_args[feed_name] is None:
+                continue
             if isinstance(self.api_args[feed_name], dict):
                 for sub_arg_name, sub_arg_value in self.api_args[
                     feed_name
@@ -155,7 +158,7 @@ class TensorRTBaseTest(unittest.TestCase):
                     new_list_args[sub_arg_name] = self.api_args[arg_name][i]
                 self.api_args[arg_name] = new_list_args
 
-    def check_trt_result(self, rtol=1e-5, atol=1e-5):
+    def check_trt_result(self, rtol=1e-5, atol=1e-5, precision_mode="fp32"):
         paddle.framework.set_flags({"FLAGS_trt_min_group_size": 1})
         with paddle.pir_utils.IrGuard():
             self.prepare_feed()
@@ -180,6 +183,8 @@ class TensorRTBaseTest(unittest.TestCase):
             min_shape_data = dict()  # noqa: C408
             max_shape_data = dict()  # noqa: C408
             for feed_name in self.program_config["feed_list"]:
+                if self.api_args[feed_name] is None:
+                    continue
                 if isinstance(self.api_args[feed_name], dict):
                     # shape_tensor
                     if (
@@ -230,7 +235,6 @@ class TensorRTBaseTest(unittest.TestCase):
                             max_shape_data[feed_name] = np.random.randn(
                                 *self.max_shape[feed_name]
                             ).astype(self.api_args[feed_name].dtype)
-
             scope = paddle.static.global_scope()
             main_program = warmup_shape_infer(
                 main_program,
@@ -255,13 +259,14 @@ class TensorRTBaseTest(unittest.TestCase):
 
             # run TRTConverter(would lower group_op into tensorrt_engine_op)
             trt_config = None
-            if self.enable_fp16:
-                input = Input(
-                    min_input_shape=self.min_shape,
-                    optim_input_shape=self.min_shape,
-                    max_input_shape=self.max_shape,
-                )
-                trt_config = TensorRTConfig(inputs=[input])
+
+            input = Input(
+                min_input_shape=self.min_shape,
+                optim_input_shape=self.min_shape,
+                max_input_shape=self.max_shape,
+            )
+            trt_config = TensorRTConfig(inputs=[input])
+            if precision_mode == "fp16":
                 trt_config.precision_mode = PrecisionMode.FP16
 
             converter = PaddleToTensorRTConverter(
@@ -286,7 +291,6 @@ class TensorRTBaseTest(unittest.TestCase):
                 raise ValueError(
                     "The last op of convert pir Program in test must be split op that is the next op of pd_op.engine."
                 )
-
             output_trt = self.run_program(program_with_trt, trt_fetch_list)
 
         # Check that the results are close to each other within a tolerance of 1e-3
