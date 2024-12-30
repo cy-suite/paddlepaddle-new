@@ -795,8 +795,8 @@ def append_backward_ops(
 
                         update_if_output_stopgradient(
                             grad_op,
-                            grad_op.true_block().ops[-1],
-                            grad_op.false_block().ops[-1],
+                            grad_op.as_if_op().true_block().ops[-1],
+                            grad_op.as_if_op().false_block().ops[-1],
                         )
                         for input_tuple in inputs_used_by_other_op:
                             state.value_to_valuegrad[input_tuple[0]] = []

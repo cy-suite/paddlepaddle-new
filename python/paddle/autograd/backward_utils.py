@@ -707,26 +707,25 @@ def update_if_output_stopgradient(if_op, true_yield_op, false_yield_op):
         raise ValueError("param isnot yield op")
 
     # Check if operands_source sizes match
-    if (
-        true_yield_op.operands_source().size()
-        != false_yield_op.operands_source().size()
+    if len(true_yield_op.operands_source()) != len(
+        false_yield_op.operands_source()
     ):
         raise ValueError("Mismatched yield operands_source sizes")
 
     # Check if op_results size matches operands_source
-    if if_op.op_results().size() != true_yield_op.operands_source().size():
+    if len(if_op.results()) != len(true_yield_op.operands_source()):
         raise ValueError(
             "Mismatched if op_results size with yield operands_source"
         )
 
     # Update if_op's stop_gradient
-    for i in range(true_yield_op.operands_source().size()):
+    for i in range(len(true_yield_op.operands_source())):
         stop_grad1 = true_yield_op.operand_source(i).stop_gradient
         stop_grad2 = false_yield_op.operand_source(i).stop_gradient
 
         # Set to False if either stop_gradient is False
         if not stop_grad1 or not stop_grad2:
-            if_op.op_result(i).stop_gradient = False
+            if_op.result(i).stop_gradient = False
 
 
 def update_while_output_stopgradient(while_op, yield_op):
@@ -742,19 +741,15 @@ def update_while_output_stopgradient(while_op, yield_op):
         raise ValueError("yield_op is not a yield operation")
 
     # Check if operands_source size of yield_op matches op_results size of while_op
-    if while_op.op_results().size() != yield_op.operands_source().size():
+    if len(while_op.results()) != len(yield_op.operands_source()):
         raise ValueError(
             "Mismatched while op_results size with yield operands_source"
         )
 
     # Update while_op's stop_gradient
-    for i in range(yield_op.operands_source().size()):
+    for i in range(1, len(yield_op.operands_source())):
         stop_grad = yield_op.operand_source(i).stop_gradient
 
         # Set to False if stop_gradient is False
         if not stop_grad:
-            while_op.op_result(i).stop_gradient = False
-
-
-# Example usage (assuming appropriate classes and methods)
-# update_while_output_stopgradient(while_op, yield_op)
+            while_op.result(i - 1).stop_gradient = False
