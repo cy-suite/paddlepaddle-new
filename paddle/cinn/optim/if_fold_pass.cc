@@ -83,6 +83,7 @@ LogicalResult IfFoldPass::Run(StmtRef stmt) {
 
   ir::IndexExpr expr(0);
   int32_t min_len = INT32_MAX;
+
   VLOG(6) << "-------------cond_vec start--------------";
   for (auto v : cond_vec) {
     VLOG(6) << "v: " << v;
@@ -94,7 +95,8 @@ LogicalResult IfFoldPass::Run(StmtRef stmt) {
     }
   }
   VLOG(6) << "-------------cond_vec end----------------";
-  expr = common::MergeMulMod(expr);
+
+  expr = expr.Normalize(ir::IndexExpr::OptLevel::Level2);
 
   if (expr != ir::IndexExpr(0) && expr.length() < min_len &&
       inner_op.defined()) {
