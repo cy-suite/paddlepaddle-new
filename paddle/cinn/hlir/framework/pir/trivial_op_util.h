@@ -88,7 +88,7 @@ struct MappingTargetExprToDestExprMutator : public ir::IRMutator<> {
 bool CheckIterEq(const std::vector<ir::Var>& up_iter,
                  const std::vector<ir::Var>& down_iter);
 
-ir::Expr CopyedReplaceExpr(const Expr& source,
+ir::Expr CopiedReplaceExpr(const Expr& source,
                            const std::vector<Var>& replaced,
                            const std::vector<Expr>& candidates);
 void SubstitudeTargetExprWithDestExpr(const ir::Expr& source,
@@ -168,8 +168,6 @@ extern ExprSetFinder ScheduleBlockRealizeIsRoot;
 extern ExprSetFinder ScheduleBlockRealizeIsNotInit;
 
 extern ExprSetFinder ScheduleBlockRealizeIsInit;
-
-extern ExprSetFinder ScheduleBlockRealizeIsSplitTransform;
 
 extern ExprSetFinder IsFor;
 
