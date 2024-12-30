@@ -19,6 +19,10 @@ import logging
 import numpy as np
 import tensorrt as trt
 
+# init tensorrt plugin
+trt_plugin_lib = ctypes.CDLL('libnvinfer_plugin.so')
+trt_plugin_lib.initLibNvInferPlugins(None, "")
+
 import paddle
 from paddle import pir
 from paddle.base.core import clear_shape_info, get_value_shape_range_info
@@ -79,9 +83,6 @@ class PaddleToTensorRTConverter:
         self.input_info = {}
         self.trt_output_value_map = {}
         self.engine_num = 0
-        # init tensorrt plugin
-        trt_plugin_lib = ctypes.CDLL('libnvinfer_plugin.so')
-        trt_plugin_lib.initLibNvInferPlugins(None, "")
 
         if self.trt_config:
             self.input_configs = self.trt_config.inputs
@@ -293,12 +294,15 @@ class PaddleToTensorRTConverter:
                     # input_config.min_input_shape is a dictionary, and the values of input_config.min_input_shape are not nested lists
                     if self.trt_config and i < len(self.trt_config.inputs):
                         input_config = self.trt_config.inputs[i]
-                        if isinstance(
-                            input_config.min_input_shape, dict
-                        ) and not any(
-                            isinstance(v, list)
-                            for v in input_config.min_input_shape.values()
+                        if (
+                            isinstance(input_config.min_input_shape, dict)
+                            and input_config.min_input_shape
+                            and not any(
+                                isinstance(v, list)
+                                for v in input_config.min_input_shape.values()
+                            )
                         ):
+
                             min_shape = next(
                                 iter(input_config.min_input_shape.values())
                             )
