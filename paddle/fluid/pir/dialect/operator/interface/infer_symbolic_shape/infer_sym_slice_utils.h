@@ -363,21 +363,23 @@ inline ExprVec GetStridedSliceDims(
           "The size of axes must equal size of starts, ends, and strides."));
 
   for (size_t i = 0; i < axes.size(); ++i) {
+    symbol::DimExpr out_dim;
+    int64_t stride_int64 = 0;
     if (strides[i].isa<int64_t>()) {
-      int64_t stride_int64 = strides[i].Get<int64_t>();
+      stride_int64 = strides[i].Get<int64_t>();
       if (stride_int64 > 0) {
         symbol::List<symbol::DimExpr> unnegativate_lists{
             (ends[i] - starts[i] + 1 + stride_int64) / stride_int64, 0};
-        symbol::DimExpr out_dim = symbol::DimExpr(
+        out_dim = symbol::DimExpr(
             {symbol::Max<symbol::DimExpr>({unnegativate_lists})});
       } else {
         symbol::List<symbol::DimExpr> unnegativate_lists{
             (ends[i] - starts[i] - 1 + stride_int64) / stride_int64, 0};
-        symbol::DimExpr out_dim = symbol::DimExpr(
+        out_dim = symbol::DimExpr(
             {symbol::Max<symbol::DimExpr>({unnegativate_lists})});
       }
     } else {
-      symbol::DimExpr out_dim = infer_context->GetNextSymName();
+      out_dim = infer_context->GetNextSymName();
     }
     int64_t axis = axes[i];
 
@@ -474,15 +476,17 @@ inline ShapeOrData StridedSliceRawInferSymbolicShape(
 
     vec_int64 = details::VecExpr2Int64(strides);
     std::vector<int64_t> strides_int = vec_int64.value();
+    vec_int64 = details::VecExpr2Int64(in_dims);
+    std::vector<int64_t> in_dims_int = vec_int64.value();
     bool dummy_zero_dim_out = false;
     phi::funcs::normalize_interval(starts_int[0],
                                    ends_int[0],
                                    strides_int[0],
-                                   in_dims[0],
+                                   in_dims_int[0],
                                    &starts_int[0],
                                    &ends_int[0],
                                    &dummy_zero_dim_out);
-    if (ends_int[0] == -in_dims[0] - 1) {
+    if (ends_int[0] == -in_dims_int[0] - 1) {
       ends_int[0] = -1;
     }
     if (strides_int[0] > 0) {
