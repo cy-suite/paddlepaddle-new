@@ -172,6 +172,28 @@ class TestTraceAPICase(unittest.TestCase):
         np.testing.assert_allclose(results[0], target1, rtol=1e-05)
         np.testing.assert_allclose(results[1], target2, rtol=1e-05)
 
+    def test_case_zerodim(self):
+        with paddle.static.program_guard(paddle.static.Program()):
+            case = np.random.randn(2, 0, 0, 0).astype('float32')
+            data1 = paddle.static.data(
+                name='data1', shape=[2, 0, 0, 0], dtype='float32'
+            )
+            out1 = tensor.trace(data1)
+            out2 = tensor.trace(data1, offset=-5, axis1=1, axis2=-1)
+
+            place = core.CPUPlace()
+            exe = base.Executor(place)
+            results = exe.run(
+                paddle.static.default_main_program(),
+                feed={"data1": case},
+                fetch_list=[out1, out2],
+                return_numpy=True,
+            )
+        target1 = np.trace(case)
+        target2 = np.trace(case, offset=-5, axis1=1, axis2=-1)
+        np.testing.assert_allclose(results[0], target1, rtol=1e-05)
+        np.testing.assert_allclose(results[1], target2, rtol=1e-05)
+
 
 if __name__ == "__main__":
     paddle.enable_static()
