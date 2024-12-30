@@ -76,7 +76,7 @@ bool ItersFusionPolicy::ReduceFusionConstraint(
     const PatternNodePtr& upstream, const PatternNodePtr& downstream) {
   auto sink_transform_route = GetItersTransformRoute(upstream, downstream);
   auto lift_transform_route = GetItersTransformRoute(downstream, upstream);
-  if (sink_transform_route == std::nullopt ||
+  if (sink_transform_route == std::nullopt &&
       lift_transform_route == std::nullopt) {
     return false;
   }
@@ -99,6 +99,9 @@ bool ItersFusionPolicy::ReduceFusionConstraint(
   // broadcast op which need reuse reduce axis, we can not apply grid reduce.
   for (const auto& transform : transform_route) {
     if (std::holds_alternative<ReuseItersTransform>(transform)) {
+      VLOG(4) << "Can not fuse reduce with large reduce dims while can not "
+                 "apply grid reduce"
+              << reduce_dims_product.dyn_cast<int64_t>();
       return false;
     }
   }
@@ -289,25 +292,11 @@ std::optional<ItersTransformRoute> ItersFusionPolicy::SearchItersTransformRoute(
     } else {
       return std::nullopt;
     }
-  } else if (!squeezed_source.reduce_iter_nums && target.reduce_iter_nums) {
-    // Trivial -> Reduce ItersTransform
-    // Can fuse with non fake reduce dims or small inner reduce loop
-    auto [target_flatten_iters, _UNUSED] = SplitReduceIters(target);
-    if (!AllFirstInSecond(squeezed_source.loop_iters, target_flatten_iters)) {
-      const auto reduce_dims_product =
-          iters_manager_->GetReduceDimsProduct(target);
-      if (reduce_dims_product.isa<std::int64_t>() &&
-          reduce_dims_product.dyn_cast<std::int64_t>() > 1024 * 8) {
-        VLOG(4) << "Can not fuse trivial to reduce with large reduce dims: "
-                << reduce_dims_product.dyn_cast<std::int64_t>();
-        return std::nullopt;
-      }
-    }
   } else if (squeezed_source.reduce_iter_nums && !target.reduce_iter_nums) {
     VLOG(4) << "Can not transform iters from Reduce to Trivial.";
     return std::nullopt;
   }
-  // else: Search Trivial -> Trivial ItersTransform
+  // else: Search Trivial -> Others ItersTransform
 
   auto source_iters = squeezed_source.loop_iters;
   const auto target_iters = target.loop_iters;

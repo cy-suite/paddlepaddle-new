@@ -197,6 +197,34 @@ class TestReduceFusion(unittest.TestCase):
 
         self.check_accuracy_and_kernel_num(init, func)
 
+    def test_trivial_reduce_anchor_fusion_with_large_reduce_axis(self):
+        def func(x):
+            a = x + 1
+            b = paddle.sum(a, axis=[0])
+            c = paddle.max(a, axis=[0])
+            d = paddle.exp(a)
+            return b, c, d
+
+        def init():
+            x = paddle.rand((1024 * 128, 8), dtype='float32')
+            return (x,)
+
+        self.check_accuracy_and_kernel_num(init, func, kernel_num=1)
+
+    def test_reduce_trivial_anchor_fusion_with_large_reduce_axis(self):
+        def func(x):
+            a = paddle.sum(x, axis=[0])
+            b = a.expand(shape=[1024 * 128, 8])
+            b = paddle.max(b, axis=[0])
+            c = a.expand(shape=[1024 * 128, 8])
+            return b, c
+
+        def init():
+            x = paddle.rand((1024 * 128, 8), dtype='float32')
+            return (x,)
+
+        self.check_accuracy_and_kernel_num(init, func, kernel_num=3)
+
 
 if __name__ == "__main__":
     unittest.main()
