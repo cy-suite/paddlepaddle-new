@@ -104,7 +104,7 @@ class reference_content {
  public:  // structors
   ~reference_content() {}
 
-  explicit reference_content(RefT r) : content_(r) {}
+  reference_content(RefT r) : content_(r) {}  // NOLINT
 
   reference_content(const reference_content& operand)
       : content_(operand.content_) {}
@@ -207,11 +207,11 @@ class optional_base : public optional_tag {
 
   // Creates an optional<T> uninitialized.
   // No-throw
-  explicit optional_base(none_t) : m_initialized(false) {}
+  optional_base(none_t) : m_initialized(false) {}  // NOLINT
 
   // Creates an optional<T> initialized with 'val'.
   // Can throw if T::T(T const&) does
-  explicit optional_base(argument_type val) : m_initialized(false) {
+  optional_base(argument_type val) : m_initialized(false) {  // NOLINT
     construct(val);
   }
 
@@ -475,11 +475,11 @@ class optional : public optional_detail::optional_base<T> {
 
   // Creates an optional<T> uninitialized.
   // No-throw
-  explicit optional(none_t none_) : base(none_) {}
+  optional(none_t none_) : base(none_) {}  // NOLINT
 
   // Creates an optional<T> initialized with 'val'.
   // Can throw if T::T(T const&) does
-  explicit optional(argument_type val) : base(val) {}
+  optional(argument_type val) : base(val) {}  // NOLINT
 
   // Creates an optional<T> initialized with 'val' IFF cond is true, otherwise
   // creates an uninitialized optional.
