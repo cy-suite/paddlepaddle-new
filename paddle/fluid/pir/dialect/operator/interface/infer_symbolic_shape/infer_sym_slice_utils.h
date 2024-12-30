@@ -15,7 +15,7 @@
 #pragma once
 
 #include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/infer_sym_utils.h"
-
+#include "paddle/phi/kernels/funcs/slice_utils.h"
 namespace paddle::dialect::slice_utils {
 
 inline ExprVec GetExprVecFromData(const ShapeOrData &shapeordata) {
@@ -262,13 +262,14 @@ inline ShapeOrData SliceRawInferSymbolicShape(
   return out_shape;
 }
 
-inline ExprVec GetStridesSliceDims(
+inline ExprVec GetStridedSliceDims(
     const ExprVec &in_dims,
     const std::vector<int64_t> &axes,
     const ExprVec &starts_base,
     const ExprVec &ends_base,
     const ExprVec &strides_base,
-    std::vector<int64_t> *infer_flags = nullptr) {
+    std::vector<int64_t> *infer_flags = nullptr,
+    pir::InferSymbolicShapeContext *infer_context) {
   ExprVec starts = starts_base;
   ExprVec ends = ends_base;
   ExprVec strides = strides_base;
@@ -336,17 +337,46 @@ inline ExprVec GetStridesSliceDims(
           "The size of axes must equal size of starts, ends, and strides."));
 
   for (size_t i = 0; i < axes.size(); ++i) {
-    auto out_dim = symbol::DimExpr({-1}) * ((starts[i] - ends[i]) / strides[i]);
+    if (strides[i].isa<int64_t>()) {
+      if (strides[i] > 0) {
+        symbol::List<symbol::DimExpr> unnegativate_lists{
+            (ends[i] - starts[i] + 1 + strides[i]) / strides[i], 0};
+        symbol::DimExpr out_dim = symbol::DimExpr(
+            {symbol::Max<symbol::DimExpr>({unnegativate_lists})});
+      } else {
+        symbol::List<symbol::DimExpr> unnegativate_lists{
+            (ends[i] - starts[i] - 1 + strides[i]) / strides[i], 0};
+        symbol::DimExpr out_dim = symbol::DimExpr(
+            {symbol::Max<symbol::DimExpr>({unnegativate_lists})});
+      }
+    } else {
+      symbol::DimExpr out_dim = infer_context->GetNextSymName();
+    }
     int64_t axis = axes[i];
 
     if (!out_dim.isa<int64_t>() &&
         (!in_dims[axis].isa<int64_t>() || !ends[i].isa<int64_t>())) {
-      symbol::List<symbol::DimExpr> min_lists{
-          symbol::DimExpr({-1}) * ((starts[i] - in_dims[axis]) / strides[i]),
-          out_dim};
+      if (strides[i].isa<int64_t>()) {
+        if (strides[i] > 0) {
+          symbol::List<symbol::DimExpr> min_lists{
+              symbol::DimExpr({-1}) *
+                  ((starts[i] - in_dims[axis]) / strides[i]),
+              out_dim};
 
-      slice_dims[axis] =
-          symbol::DimExpr({symbol::Min<symbol::DimExpr>({min_lists})});
+          slice_dims[axis] =
+              symbol::DimExpr({symbol::Min<symbol::DimExpr>({min_lists})});
+        } else {
+          symbol::List<symbol::DimExpr> min_lists{
+              symbol::DimExpr({-1}) *
+                  ((starts[i] - in_dims[axis]) / strides[i]),
+              out_dim};
+
+          slice_dims[axis] =
+              symbol::DimExpr({symbol::Min<symbol::DimExpr>({min_lists})});
+        }
+      } else {
+        slice_dims[axis] = out_dim;
+      }
     } else {
       slice_dims[axis] = out_dim;
     }
@@ -373,12 +403,12 @@ inline ShapeOrData StridedSliceRawInferSymbolicShape(
     return infer_flags_raw.empty() ? std::vector<int64_t>(axes_raw.size(), 1)
                                    : infer_flags_raw;
   }();
+  const ExprVec &in_dims = in_shapeordata.shape();
+  std::vector<int64_t> axes = FormatSliceAxes(axes_raw, in_dims.size());
 
   const auto &GetShapeDimExprs = [&]() -> symbol::ShapeOrDataDimExprs {
-    const ExprVec &in_dims = in_shapeordata.shape();
-    std::vector<int64_t> axes = FormatSliceAxes(axes_raw, in_dims.size());
-    ExprVec slice_dims =
-        GetStridesSliceDims(in_dims, axes, starts, ends, strides, &infer_flags);
+    ExprVec slice_dims = GetStridedSliceDims(
+        in_dims, axes, starts, ends, strides, &infer_flags, infer_context);
     ExprVec out_dims = GetDecreasedDims(slice_dims, decrease_axis);
 
     auto IsOne = [](const symbol::DimExpr &expr) {
@@ -399,63 +429,52 @@ inline ShapeOrData StridedSliceRawInferSymbolicShape(
         symbol::TensorShapeOrDataDimExprs(out_dims)};
   };
 
-  // When `pd.slice` is operating on a tensor which is produced by a `pd.shape`
-  // op, the result should be written into data.
+  // When `pd.strided_slice` is operating on a tensor which is produced by a
+  // `pd.shape` op, the result should be written into data.
   const auto &GetDataDimExprs = [&]() -> symbol::ShapeOrDataDimExprs {
+    PADDLE_ENFORCE_EQ(in_dims.size(),
+                      1,
+                      common::errors::InvalidArgument(
+                          "Currently for strided_slice op, only the rank of "
+                          "shape == 1 is supported."));
     std::vector<symbol::DimExpr> out_data;
 
     // Currently, we DO NOT support the case that any element in `axes` `starts`
     // or `ends` is a Symbol.
     auto vec_int64 = details::VecExpr2Int64(starts);
-    PADDLE_ENFORCE_EQ(
-        vec_int64.has_value(),
-        true,
-        common::errors::InvalidArgument(
-            "for slice op, all the elements in `starts` must be int64_t"));
     std::vector<int64_t> starts_int = vec_int64.value();
 
     vec_int64 = details::VecExpr2Int64(ends);
-    PADDLE_ENFORCE_EQ(
-        vec_int64.has_value(),
-        true,
-        common::errors::InvalidArgument(
-            "for slice op, all the elements in `ends` must be int64_t"));
     std::vector<int64_t> ends_int = vec_int64.value();
 
     vec_int64 = details::VecExpr2Int64(strides);
-    PADDLE_ENFORCE_EQ(
-        vec_int64.has_value(),
-        true,
-        common::errors::InvalidArgument(
-            "for slice op, all the elements in `strides` must be int64_t"));
-
-    const int64_t start =
-        starts_int[0] < 0 ? starts_int[0] + in_shapeordata.data().value().size()
-                          : starts_int[0];
-    const int64_t end = [&]() -> int64_t {
-      if (ends_int[0] < 0) {
-        return ends_int[0] + in_shapeordata.data().value().size();
-      }
-      if (ends_int[0] ==
-          static_cast<int64_t>(std::numeric_limits<int>::max())) {
-        return in_shapeordata.data().value().size();
-      }
-      return ends_int[0];
-    }();
-
-    const int64_t stride = [&]() -> int64_t {
-      if (strides[0].isa<int64_t>()) {
-        return strides[0].Get<int64_t>();
-      }
-      return 1;
-    }();
-
-    for (int64_t i = start; i < end; i += stride) {
-      out_data.push_back(in_shapeordata.data().value().at(i));
+    std::vector<int64_t> strides_int = vec_int64.value();
+    bool dummy_zero_dim_out = false;
+    phi::funcs::normalize_interval(starts_int[0],
+                                   ends_int[0],
+                                   strides_int[0],
+                                   in_dims[0],
+                                   &starts_int[0],
+                                   &ends_int[0],
+                                   &dummy_zero_dim_out);
+    if (ends_int[0] == -in_dims[0] - 1) {
+      ends_int[0] = -1;
     }
-
+    if (strides_int[0] > 0) {
+      for (int64_t i = starts_int[0], i < ends_int[0]; i += strides_int[0]) {
+        out_data.push_back(in_shapeordata.data().value().at(i));
+      }
+    } else {
+      for (int64_t i = starts_int[0], i > ends_int[0]; i -= strides_int[0]) {
+        out_data.push_back(in_shapeordata.data().value().at(i));
+      }
+    }
     const ExprVec shape = GetDecreasedDims(
         ExprVec{static_cast<int64_t>(out_data.size())}, decrease_axis);
+    if (shape.size() == 1 && shape[0] == 0) {
+      return symbol::ShapeOrDataDimExprs{
+          symbol::TensorShapeOrDataDimExprs(shape)};
+    }
     return symbol::ShapeOrDataDimExprs{
         symbol::TensorShapeOrDataDimExprs(shape, out_data)};
   };
