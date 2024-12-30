@@ -45,7 +45,9 @@ from paddle.autograd.backward_utils import (
     return_map_value,
     return_map_value_list,
     some_in_set,
+    update_if_output_stopgradient,
     update_no_grad_set_by_stopgradient,
+    update_while_output_stopgradient,
     warning_once,
     while_prune_check,
 )
@@ -791,6 +793,11 @@ def append_backward_ops(
                                     input_tuple[1]
                                 )
 
+                        update_if_output_stopgradient(
+                            grad_op,
+                            grad_op.true_block().ops[-1],
+                            grad_op.false_block().ops[-1],
+                        )
                         for input_tuple in inputs_used_by_other_op:
                             state.value_to_valuegrad[input_tuple[0]] = []
                         # update input_grad map
@@ -869,6 +876,10 @@ def append_backward_ops(
                             sub_state,
                             sub_bwd_value_to_block_argument_map,
                             sub_control_flow_value_to_copyvalue_map,
+                        )
+
+                        update_while_output_stopgradient(
+                            grad_op, while_grad_block.ops[-1]
                         )
                         # update input_grad map
                         update_input_grad_map(op, input_grads, origin_inputs)
@@ -1227,7 +1238,7 @@ def calc_gradient(
         grad_outputs=grad_outputs,
         no_grad_set=ValueSet(no_grad_set),
     )
-
+    print(paddle.static.default_main_program())
     inputgrad = []
     for input in inputs:
         inputgrad.append(
@@ -1402,7 +1413,7 @@ def append_backward(loss, parameter_list=None, no_grad_set=None):
         grad_outputs=[],
         no_grad_set=ValueSet(no_grad_set_),
     )
-
+    print(paddle.static.default_main_program())
     input_inputs_grad = []
     for input in parameter_list:
         input_inputs_grad.append(
