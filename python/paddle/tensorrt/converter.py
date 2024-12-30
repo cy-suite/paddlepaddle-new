@@ -84,6 +84,11 @@ class PaddleToTensorRTConverter:
         self.trt_output_value_map = {}
         self.engine_num = 0
 
+        if self.trt_config:
+            self.input_configs = self.trt_config.inputs
+        else:
+            self.input_configs = []
+
     def find_graph_inputs_outputs(self, group_op):
         operations = next(iter(group_op.blocks())).ops
         all_values = {}
@@ -286,16 +291,49 @@ class PaddleToTensorRTConverter:
                         opt_value = self.input_info[value.id]["opt_value"]
                         max_value = self.input_info[value.id]["max_value"]
                 else:
-                    min_shape = get_value_shape_range_info(
-                        value, False, paddle.base.core.ShapeMode.kMIN
-                    )
-                    opt_shape = get_value_shape_range_info(
-                        value, False, paddle.base.core.ShapeMode.kOPT
-                    )
-                    max_shape = get_value_shape_range_info(
-                        value, False, paddle.base.core.ShapeMode.kMAX
-                    )
-
+                    # input_config.min_input_shape is a dictionary, and the values of input_config.min_input_shape are not nested lists
+                    if self.trt_config and i < len(self.trt_config.inputs):
+                        input_config = self.trt_config.inputs[i]
+                        if isinstance(
+                            input_config.min_input_shape, dict
+                        ) and not any(
+                            isinstance(v, list)
+                            for v in input_config.min_input_shape.values()
+                        ):
+                            min_shape = next(
+                                iter(input_config.min_input_shape.values())
+                            )
+                            opt_shape = next(
+                                iter(input_config.optim_input_shape.values())
+                            )
+                            max_shape = next(
+                                iter(input_config.max_input_shape.values())
+                            )
+                        # input_config.min_input_shape is a Dictionary
+                        elif isinstance(input_config.min_input_shape, dict):
+                            min_shape = get_value_shape_range_info(
+                                value, False, paddle.base.core.ShapeMode.kMIN
+                            )
+                            opt_shape = get_value_shape_range_info(
+                                value, False, paddle.base.core.ShapeMode.kOPT
+                            )
+                            max_shape = get_value_shape_range_info(
+                                value, False, paddle.base.core.ShapeMode.kMAX
+                            )
+                        else:
+                            min_shape = input_config.min_input_shape
+                            opt_shape = input_config.optim_input_shape
+                            max_shape = input_config.max_input_shape
+                    else:
+                        min_shape = get_value_shape_range_info(
+                            value, False, paddle.base.core.ShapeMode.kMIN
+                        )
+                        opt_shape = get_value_shape_range_info(
+                            value, False, paddle.base.core.ShapeMode.kOPT
+                        )
+                        max_shape = get_value_shape_range_info(
+                            value, False, paddle.base.core.ShapeMode.kMAX
+                        )
                     if trt_input.is_shape_tensor:
                         min_value = get_value_shape_range_info(
                             value, True, paddle.base.core.ShapeMode.kMIN

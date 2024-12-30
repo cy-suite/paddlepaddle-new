@@ -29,6 +29,7 @@ class TestGreaterThanFloat32TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1, 3], "y": [3]}
+        self.opt_shape = {"x": [2, 3], "y": [3]}
         self.max_shape = {"x": [5, 3], "y": [3]}
 
     def test_trt_result(self):
@@ -44,6 +45,7 @@ class TestGreaterThanInt64TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
+        self.opt_shape = {"x": [2], "y": [2]}
         self.max_shape = {"x": [5], "y": [5]}
 
     def test_trt_result(self):
@@ -59,6 +61,7 @@ class TestLessThanFloat32TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1, 3], "y": [3]}
+        self.opt_shape = {"x": [2, 3], "y": [3]}
         self.max_shape = {"x": [5, 3], "y": [3]}
 
     def test_trt_result(self):
@@ -74,6 +77,7 @@ class TestLessThanInt64TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
+        self.opt_shape = {"x": [2], "y": [2]}
         self.max_shape = {"x": [5], "y": [5]}
 
     def test_trt_result(self):
@@ -89,6 +93,7 @@ class TestEqualFloatTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
+        self.opt_shape = {"x": [2], "y": [2]}
         self.max_shape = {"x": [5], "y": [5]}
 
     def test_trt_result(self):
@@ -104,6 +109,7 @@ class TestEqualIntTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
+        self.opt_shape = {"x": [2], "y": [2]}
         self.max_shape = {"x": [5], "y": [5]}
 
     def test_trt_result(self):
@@ -119,6 +125,7 @@ class TestNotEqualFloatTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
+        self.opt_shape = {"x": [2], "y": [2]}
         self.max_shape = {"x": [5], "y": [5]}
 
     def test_trt_result(self):
@@ -134,6 +141,7 @@ class TestNotEqualIntTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
+        self.opt_shape = {"x": [2], "y": [2]}
         self.max_shape = {"x": [5], "y": [5]}
 
     def test_trt_result(self):
@@ -151,6 +159,7 @@ class TestLogicalOrTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
+        self.opt_shape = {"x": [2], "y": [2]}
         self.max_shape = {"x": [5], "y": [5]}
         self.check_trt_result()
 
@@ -161,6 +170,7 @@ class TestLogicalOrTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1, 3], "y": [3]}
+        self.opt_shape = {"x": [2, 3], "y": [3]}
         self.max_shape = {"x": [4, 3], "y": [3]}
         self.check_trt_result()
 
@@ -190,6 +200,7 @@ class TestLogicalAndTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
+        self.opt_shape = {"x": [2], "y": [2]}
         self.max_shape = {"x": [5], "y": [5]}
         self.check_trt_result()
 
@@ -200,6 +211,7 @@ class TestLogicalAndTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1, 3], "y": [3]}
+        self.opt_shape = {"x": [2, 3], "y": [3]}
         self.max_shape = {"x": [4, 3], "y": [3]}
         self.check_trt_result()
 
@@ -229,6 +241,7 @@ class TestLogicalOr_TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
+        self.opt_shape = {"x": [2], "y": [2]}
         self.max_shape = {"x": [5], "y": [5]}
         self.check_trt_result()
 
@@ -239,6 +252,7 @@ class TestLogicalOr_TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1, 3], "y": [3]}
+        self.opt_shape = {"x": [2, 3], "y": [3]}
         self.max_shape = {"x": [4, 3], "y": [3]}
         self.check_trt_result()
 
@@ -265,6 +279,7 @@ class TestLogicalNotTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [2, 3]}
+        self.opt_shape = {"x": [2, 3]}
         self.max_shape = {"x": [2, 3]}
 
     def test_trt_result(self):
@@ -277,6 +292,7 @@ class TestLogicalNotCase1TRTPattern(TensorRTBaseTest):
         self.api_args = {"x": np.random.random([2]).astype("bool")}
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [2]}
+        self.opt_shape = {"x": [2]}
         self.max_shape = {"x": [2]}
 
     def test_trt_result(self):
@@ -294,6 +310,7 @@ class TestLogicalXorTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1], "y": [1]}
+        self.opt_shape = {"x": [2], "y": [2]}
         self.max_shape = {"x": [5], "y": [5]}
         self.check_trt_result()
 
@@ -304,6 +321,7 @@ class TestLogicalXorTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "y"]}
         self.min_shape = {"x": [1, 3], "y": [3]}
+        self.opt_shape = {"x": [2, 3], "y": [3]}
         self.max_shape = {"x": [4, 3], "y": [3]}
         self.check_trt_result()
 

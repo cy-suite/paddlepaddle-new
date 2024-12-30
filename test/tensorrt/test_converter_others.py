@@ -66,6 +66,7 @@ class TestMulticlassNMS3TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["bboxes", "scores"]}
         self.min_shape = {"bboxes": [1, 5, 4], "scores": [1, 4, 5]}
+        self.opt_shape = {"bboxes": [2, 5, 4], "scores": [2, 4, 5]}
         self.max_shape = {"bboxes": [3, 5, 4], "scores": [3, 4, 5]}
 
     def test_trt_result(self):
@@ -170,6 +171,7 @@ class TestSetValueTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 2]}
+        self.opt_shape = {"x": [2, 2]}
         self.max_shape = {"x": [20, 2]}
 
     def test_trt_result(self):
@@ -193,7 +195,8 @@ class TestSetValueMarkerCase1(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 2]}
-        self.max_shape = {"x": [20, 2]}
+        self.opt_shape = {"x": [2, 2]}
+        self.max_shape = {"x": [5, 2]}
 
     def test_trt_result(self):
         self.check_marker(expected_result=False)
@@ -216,6 +219,7 @@ class TestSetValueMarkerCase2(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 2]}
+        self.opt_shape = {"x": [2, 2]}
         self.max_shape = {"x": [20, 2]}
 
     def test_trt_result(self):
@@ -239,6 +243,7 @@ class TestSetValueMarkerCase3(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 2]}
+        self.opt_shape = {"x": [2, 2]}
         self.max_shape = {"x": [20, 2]}
 
     def test_trt_result(self):
@@ -262,6 +267,7 @@ class TestSetValueMarkerCase4(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 2]}
+        self.opt_shape = {"x": [2, 2]}
         self.max_shape = {"x": [20, 2]}
 
     def test_trt_result(self):
@@ -285,6 +291,7 @@ class TestSetValueMarkerCase5(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "starts"]}
         self.min_shape = {"x": [1, 2]}
+        self.opt_shape = {"x": [2, 2]}
         self.max_shape = {"x": [20, 2]}
 
     def test_trt_result(self):
@@ -307,6 +314,7 @@ class TestSetValue_TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 2]}
+        self.opt_shape = {"x": [2, 2]}
         self.max_shape = {"x": [20, 2]}
 
     def test_trt_result(self):
@@ -329,6 +337,7 @@ class TestSetValueWithTensorTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "values"]}
         self.min_shape = {"x": [1, 3, 3], "values": [1, 2, 3]}
+        self.opt_shape = {"x": [2, 3, 3], "values": [2, 2, 3]}
         self.max_shape = {"x": [4, 3, 3], "values": [4, 2, 3]}
 
     def test_trt_result(self):
@@ -352,6 +361,7 @@ class TestSetValueWithTensorMarkerCase1(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "values"]}
         self.min_shape = {"x": [1, 3, 3], "values": [1, 2, 3]}
+        self.opt_shape = {"x": [2, 3, 3], "values": [2, 2, 3]}
         self.max_shape = {"x": [4, 3, 3], "values": [4, 2, 3]}
 
     def test_trt_result(self):
@@ -374,6 +384,7 @@ class TestSetValueWithTensor_TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "values"]}
         self.min_shape = {"x": [1, 3, 3], "values": [1, 2, 3]}
+        self.opt_shape = {"x": [2, 3, 3], "values": [2, 2, 3]}
         self.max_shape = {"x": [4, 3, 3], "values": [4, 2, 3]}
 
     def test_trt_result(self):
@@ -388,6 +399,7 @@ class TestShareDataTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [4, 3, 5]}
+        self.opt_shape = {"x": [5, 3, 5]}
         self.max_shape = {"x": [6, 3, 5]}
 
     def test_trt_result(self):
@@ -414,15 +426,9 @@ class TestAffineChannelTRTPattern(TensorRTBaseTest):
             "layout": "NCHW",
         }
         self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {
-            "x": [1, 100, 3, 3],
-        }
-        self.opt_shape = {
-            "x": [2, 100, 3, 3],
-        }
-        self.max_shape = {
-            "x": [3, 100, 3, 3],
-        }
+        self.min_shape = {"x": [1, 100, 3, 3]}
+        self.opt_shape = {"x": [2, 100, 3, 3]}
+        self.max_shape = {"x": [3, 100, 3, 3]}
 
     def test_fp32_trt_result(self):
         self.check_trt_result()
@@ -441,15 +447,9 @@ class TestAffineChannelCas1TRTPattern(TensorRTBaseTest):
             "layout": "NHWC",
         }
         self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {
-            "x": [1, 3, 3, 100],
-        }
-        self.opt_shape = {
-            "x": [2, 3, 3, 100],
-        }
-        self.max_shape = {
-            "x": [3, 3, 3, 100],
-        }
+        self.min_shape = {"x": [1, 3, 3, 100]}
+        self.opt_shape = {"x": [2, 3, 3, 100]}
+        self.max_shape = {"x": [3, 3, 3, 100]}
 
     def test_fp32_trt_result(self):
         self.check_trt_result()
