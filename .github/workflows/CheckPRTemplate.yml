@@ -1,12 +1,12 @@
-name: CheckPRTemplate
+name: Check PR Template
 
 on:
-  pull_request:
+  pull_request_target:
     branches: [develop]
     types: [opened, synchronize, reopened, edited]
 
 jobs:
-  approve:
+  check:
     runs-on: ubuntu-latest
     steps:
     - name: Clone paddle
@@ -28,7 +28,7 @@ jobs:
         COMMIT_MESSAGE=$(git log -1 --format=%B $PR_BRANCH_SHA)
         echo "commit_message=$COMMIT_MESSAGE" >> $GITHUB_ENV
 
-    - name: Do check
+    - name: Check PR Template
       env:
         AGILE_PULL_ID: ${{ github.event.pull_request.number }}
         GITHUB_API_TOKEN: ${{ secrets.PADDLE_GITHUB_API_TOKEN }}
