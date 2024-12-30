@@ -1707,6 +1707,14 @@ PHI_DEFINE_EXPORTED_string(
     "",
     "It controls the forward blacklist ops not to be decomposed.");
 
+PHI_DEFINE_EXPORTED_string(disable_logging_op_attr_list,
+                           "",
+                           "Whether to disable logging op attr in PIR.");
+
+PHI_DEFINE_EXPORTED_string(disable_logging_value_attr_list,
+                           "",
+                           "Whether to disable logging value attr in PIR.");
+
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || \
     defined(PADDLE_WITH_XPU_BKCL) || defined(PADDLE_WITH_CUSTOM_DEVICE)
 /**
