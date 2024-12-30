@@ -1006,7 +1006,8 @@ class PadOpPattern : public pir::OpRewritePattern<paddle::dialect::PadOp> {
     }
 
     // Check for the existence of the attributes pad_value and paddings
-    if (!pir::GetDefiningOpForInput(op, 1)->isa<paddle::dialect::FullOp>() || !op->HasAttribute("paddings")) {
+    if (!pir::GetDefiningOpForInput(op, 1)->isa<paddle::dialect::FullOp>() ||
+        !op->HasAttribute("paddings")) {
       VLOG(3) << "PadOp must has 'pad_value' or 'paddings'.";
       return false;
     }

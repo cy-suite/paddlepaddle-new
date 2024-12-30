@@ -581,9 +581,9 @@ class TestPadCase1TRTPattern(TensorRTBaseTest):
         self.opt_shape = {"x": [1, 3, 32, 32]}
         self.max_shape = {"x": [1, 3, 32, 32]}
 
-
     def test_trt_result(self):
         self.check_trt_result()
+
 
 class TestSqueezeTRTPattern(TensorRTBaseTest):
     def setUp(self):
@@ -650,6 +650,7 @@ class TestPadCase4TRTPattern(TensorRTBaseTest):
 
     def test_trt_result(self):
         self.check_trt_result()
+
 
 class TestSqueezeCase1TRTPattern(TensorRTBaseTest):
     def setUp(self):
