@@ -18,6 +18,7 @@ from collections.abc import Sequence
 import numpy as np
 from tensorrt_test_base import TensorRTBaseTest
 
+import paddle
 import paddle.nn.functional as F
 from paddle import Tensor
 
