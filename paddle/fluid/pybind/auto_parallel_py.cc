@@ -801,6 +801,14 @@ void BindAutoParallel(py::module *m) {
       },
       py::return_value_policy::reference);
 
+  m->def(
+      "dtensor_from_local",
+      [](py::handle py_tensor, const TensorDistAttr &dist_attr) {
+        auto tensor = CastPyArg2Tensor(py_tensor.ptr(), 0);
+        return dtensor_from_local_ad_function(tensor, dist_attr);
+      },
+      py::return_value_policy::reference);
+
   // TODO(liuzhenhai): DistributedMapper is not used for now, but
   // dist_mapper_test need the symbols touch DistributedMapper to be linked,
   // remove it later
