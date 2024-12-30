@@ -23,7 +23,9 @@ jobs:
     - name: Get commit message
       id: get_commit_message
       run: |
-        COMMIT_MESSAGE=$(git log -1 --pretty=%B)
+        PR_BRANCH_SHA="${{ github.event.pull_request.head.sha }}"
+        git fetch origin $PR_BRANCH_SHA --depth=1
+        COMMIT_MESSAGE=$(git log -1 --format=%B $PR_BRANCH_SHA)
         echo "commit_message=$COMMIT_MESSAGE" >> $GITHUB_ENV
 
     - name: Do check
@@ -33,7 +35,7 @@ jobs:
         AGILE_COMPILE_BRANCH: develop
         AGILE_CHECKIN_AUTHOR: ${{ github.event.pull_request.user.login }}
         AGILE_REVISION: ${{ github.event.pull_request.head.sha }}
-        AGILE_COMMENTS: "[{\"commit\": $AGILE_REVISION, \"author\": $AGILE_CHECKIN_AUTHOR, \"comment\": ${{ env.commit_message }}}]"
+        AGILE_COMMENTS: "[{\"commit\": ${{ github.event.pull_request.head.sha }}, \"author\": ${{ github.event.pull_request.user.login }}, \"comment\": ${{ env.commit_message }}}]"
         icafe_url: ${{ secrets.icafe_url }}
         icafe_user: ${{ secrets.icafe_user }}
         icafe_pwd: ${{ secrets.icafe_pwd }}
