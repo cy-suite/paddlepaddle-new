@@ -23,7 +23,7 @@
 #include "paddle/phi/core/distributed/auto_parallel/utils.h"
 
 REGISTER_FILE_SYMBOLS(dist_dialect);
-COMMON_DECLARE_string(disable_logging_value_attr_list);
+COMMON_DECLARE_string(disable_logging_tensor_dist_attr_list);
 namespace paddle::dialect {
 
 DistDialect::DistDialect(pir::IrContext *context)
@@ -77,7 +77,7 @@ void PrintIfNotDisabled(const std::string &attr_name,
 
 void DistDialect::PrintAttribute(pir::Attribute attr, std::ostream &os) const {
   std::vector<std::string> attrs_to_disable;
-  if (!FLAGS_disable_logging_value_attr_list.empty()) {
+  if (!FLAGS_disable_logging_tensor_dist_attr_list.empty()) {
     std::istringstream iss(FLAGS_disable_logging_value_attr_list);
     std::string attr;
     while (std::getline(iss, attr, ';')) {
@@ -86,27 +86,14 @@ void DistDialect::PrintAttribute(pir::Attribute attr, std::ostream &os) const {
   }
 
   if (auto process_mesh_attr = attr.dyn_cast<ProcessMeshAttribute>()) {
-    PrintIfNotDisabled(
-        "mesh_shape",
-        [&](std::ostream &os) {
-          os << "mesh_shape:[" +
-                    phi::distributed::auto_parallel::str_join(
-                        process_mesh_attr.shape()) +
-                    "]";
-        },
-        os,
-        attrs_to_disable);
-
-    PrintIfNotDisabled(
-        "process_ids",
-        [&](std::ostream &os) {
-          os << ",process_ids:[" +
-                    phi::distributed::auto_parallel::str_join(
-                        process_mesh_attr.process_ids()) +
-                    "]";
-        },
-        os,
-        attrs_to_disable);
+    os << "mesh_shape:[" +
+              phi::distributed::auto_parallel::str_join(
+                  process_mesh_attr.shape()) +
+              "]";
+    os << ",process_ids:[" +
+              phi::distributed::auto_parallel::str_join(
+                  process_mesh_attr.process_ids()) +
+              "]";
   } else if (auto tensor_dist_attr = attr.dyn_cast<TensorDistAttribute>()) {
     PrintIfNotDisabled(
         "mesh_shape",
@@ -141,58 +128,23 @@ void DistDialect::PrintAttribute(pir::Attribute attr, std::ostream &os) const {
         os,
         attrs_to_disable);
   } else if (auto op_dist_attr = attr.dyn_cast<OperationDistAttribute>()) {
-    PrintIfNotDisabled(
-        "mesh",
-        [&](std::ostream &os) {
-          os << "mesh:{shape:[" +
-                    phi::distributed::auto_parallel::str_join(
-                        op_dist_attr.process_mesh_attr().shape()) +
-                    "]";
-        },
-        os,
-        attrs_to_disable);
-
-    PrintIfNotDisabled(
-        "process_ids",
-        [&](std::ostream &os) {
-          os << ",process_ids:[" +
-                    phi::distributed::auto_parallel::str_join(
-                        op_dist_attr.process_mesh_attr().process_ids()) +
-                    "]}";
-        },
-        os,
-        attrs_to_disable);
-
-    PrintIfNotDisabled(
-        "operands",
-        [&](std::ostream &os) {
-          for (uint32_t i = 0; i < op_dist_attr.num_operands(); ++i) {
-            os << ",operand(" + std::to_string(i) + "):{"
-               << op_dist_attr.operand(i) << "}";
-          }
-        },
-        os,
-        attrs_to_disable);
-
-    PrintIfNotDisabled(
-        "results",
-        [&](std::ostream &os) {
-          for (uint32_t i = 0; i < op_dist_attr.num_results(); ++i) {
-            os << ",result(" + std::to_string(i) + "):{"
-               << op_dist_attr.result(i) << "}";
-          }
-        },
-        os,
-        attrs_to_disable);
-
-    PrintIfNotDisabled(
-        "chunk_id",
-        [&](std::ostream &os) {
-          os << ",chunk_id:" << op_dist_attr.chunk_id();
-        },
-        os,
-        attrs_to_disable);
-
+    os << "{mesh:{shape:[" +
+              phi::distributed::auto_parallel::str_join(
+                  op_dist_attr.process_mesh_attr().shape()) +
+              "]";
+    os << ",process_ids:[" +
+              phi::distributed::auto_parallel::str_join(
+                  op_dist_attr.process_mesh_attr().process_ids()) +
+              "]}";
+    for (uint32_t i = 0; i < op_dist_attr.num_operands(); ++i) {
+      os << ",operand(" + std::to_string(i) + "):{" << op_dist_attr.operand(i)
+         << "}";
+    }
+    for (uint32_t i = 0; i < op_dist_attr.num_results(); ++i) {
+      os << ",result(" + std::to_string(i) + "):{" << op_dist_attr.result(i)
+         << "}";
+    }
+    os << ",chunk_id:" << op_dist_attr.chunk_id();
     os << "}";
   } else {
     os << "error_attribute_type";

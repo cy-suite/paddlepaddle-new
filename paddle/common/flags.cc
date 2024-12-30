@@ -1707,13 +1707,31 @@ PHI_DEFINE_EXPORTED_string(
     "",
     "It controls the forward blacklist ops not to be decomposed.");
 
-PHI_DEFINE_EXPORTED_string(disable_logging_op_attr_list,
-                           "",
-                           "Whether to disable logging op attr in PIR.");
+/**
+ * Remove some redundant information when printing the pir program
+ * Name: logging_pir_py_code_dir
+ * Since Version: 3.0.0
+ * Value Range: string, default=""
+ * Example: FLAGS_disable_logging_op_attr_list="op_dist_attr"
+ * Note: If "dtype", "dtype:float32" will be deleted in Pir program
+ */
+PHI_DEFINE_EXPORTED_string(
+    disable_logging_op_attr_list,
+    "",
+    "Remove some redundant information when printing the pir program");
 
-PHI_DEFINE_EXPORTED_string(disable_logging_value_attr_list,
-                           "",
-                           "Whether to disable logging value attr in PIR.");
+/**
+ * Remove some TensorDistAttr information when printing the pir program
+ * Name: logging_pir_py_code_dir
+ * Since Version: 3.0.0
+ * Value Range: string, default=""
+ * Example: disable_logging_tensor_dist_attr_list="process_ids;mesh_shape"
+ * Note: If "process_ids", "process_ids:[0,1]" will be deleted in Pir program
+ */
+PHI_DEFINE_EXPORTED_string(
+    disable_logging_tensor_dist_attr_list,
+    "",
+    "Remove some TensorDistAttr information when printing the pir program");
 
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || \
     defined(PADDLE_WITH_XPU_BKCL) || defined(PADDLE_WITH_CUSTOM_DEVICE)

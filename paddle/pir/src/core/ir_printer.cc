@@ -381,21 +381,6 @@ void IrPrinter::PrintOperandsType(const Operation& op) {
       op_operand_types.emplace_back();
     }
   }
-  // if (!FLAGS_disable_logging_value_attr_list.empty()) {
-  //   std::vector<std::string> attrs_to_disable =
-  //   ParseFlagsToDisable(FLAGS_disable_logging_value_attr_list);
-  //   // Remove the specified operand type if they exist in op_operand_types
-  //   for (const auto& attr : attrs_to_disable) {
-  //     if (auto process_mesh_attr = attr.dyn_cast<ProcessMeshAttribute>()){
-  //       op_operand_types.erase(std::remove(op_operand_types.begin(),
-  //       op_operand_types.end(), attr), op_operand_types.end());
-  //     }else if (auto process_mesh_attr =
-  //     attr.dyn_cast<ProcessMeshAttribute>()){
-  //       op_operand_types.erase(std::remove(op_operand_types.begin(),
-  //       op_operand_types.end(), attr), op_operand_types.end());
-  //     }
-  //   }
-  // }
   os << " (";
   pir::detail::PrintInterleave(
       op_operand_types.begin(),
