@@ -38,8 +38,8 @@ CustomEngineInstruction::CustomEngineInstruction(
   auto op_attributes = op->attributes();
   op_ = op;
   VLOG(6) << "Start Build custom engine";
-  auto *interface_ = paddle::custom_engine::CustomEngineManager::Instance()
-                         ->GetCustomEngineInterface();
+  interface_ = paddle::custom_engine::CustomEngineManager::Instance()
+                   ->GetCustomEngineInterface();
   if (interface_ && interface_->graph_engine_build) {
     interface_->graph_engine_build(
         reinterpret_cast<C_CustomEngineInstruction>(this));
@@ -69,8 +69,6 @@ CustomEngineInstruction::CustomEngineInstruction(
 }
 
 void CustomEngineInstruction::Run() {
-  auto *interface_ = paddle::custom_engine::CustomEngineManager::Instance()
-                         ->GetCustomEngineInterface();
   if (interface_ && interface_->graph_engine_execute) {
     interface_->graph_engine_execute(
         reinterpret_cast<C_CustomEngineInstruction>(this));

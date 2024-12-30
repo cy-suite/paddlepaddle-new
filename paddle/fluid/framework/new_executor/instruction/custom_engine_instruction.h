@@ -63,6 +63,7 @@ class CustomEngineInstruction : public InstructionBase {
   std::string op_name_ = "custom_engine.base_op";
   ::pir::Operation* op_{nullptr};  // not owned
 
+  C_CustomEngineInterface* interface_;
   const ValueExecutionInfo* value_exec_info_;  // not owned
   void* custom_engine_;                        // not owned
   DeletePtr custom_engine_deleter_{nullptr};   // not owned

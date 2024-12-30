@@ -132,16 +132,14 @@ class CustomEngine {
 };
 
 C_Status GraphEngineExecute(C_CustomEngineInstruction instruction) {
-  std::cout << "%exe --------- " << std::endl;
   paddle::framework::CustomEngineInstruction* instruction_ =
       reinterpret_cast<paddle::framework::CustomEngineInstruction*>(
           instruction);
   CustomEngine* customengine =
       reinterpret_cast<CustomEngine*>(instruction_->CustomEngine());
-  std::cout << "%exe --------- 1 " << std::endl;
+
   customengine->Run(instruction_->DeviceContext(),
                     instruction_->DeviceContext().GetPlace());
-  std::cout << "%exe --------- 2" << std::endl;
   return C_SUCCESS;
 }
 

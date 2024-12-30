@@ -2452,7 +2452,7 @@ void HandleForTensorRTOp(
 void HandleForCustomEngineOp(
     pir::IrContext* ctx,
     pir::Operation* op_item,
-    const phi::KernelKey& kernel_key,
+    phi::KernelKey* kernel_key,
     phi::Place place,
     std::unordered_map<pir::Operation*, pir::Operation*>* map_op_pair,
     std::unordered_map<pir::Value, pir::Value>* map_value_pair,
@@ -2462,7 +2462,7 @@ void HandleForCustomEngineOp(
     struct C_CustomEngineLowerParams lower_params {
       reinterpret_cast<C_IrContext>(ctx),
           reinterpret_cast<C_Operation>(op_item),
-          reinterpret_cast<C_KernelKey>(&kernel_key),
+          reinterpret_cast<C_KernelKey>(kernel_key),
           reinterpret_cast<C_Place>(&place),
           reinterpret_cast<C_Operation_Map>(map_op_pair),
           reinterpret_cast<C_Value_Map>(map_value_pair),
@@ -3499,7 +3499,7 @@ void ProcessBlock(
                             ->GetCustomEngineInterface();
       HandleForCustomEngineOp(ctx,
                               op_item,
-                              kernel_key,
+                              &kernel_key,
                               place,
                               map_op_pair,
                               map_value_pair,
@@ -3578,7 +3578,7 @@ void ProcessBlock(
     AddShadowFeedOpForDataOrFeed(
         place, op_item, op, new_block, ctx, map_op_pair, map_value_pair);
   }
-  std::cout << "kernel_progam " << *(block->parent_program()) << std::endl;
+
   RemoveRedundantMemcpyAfterShadowFeed(new_block, ctx);
 }
 
