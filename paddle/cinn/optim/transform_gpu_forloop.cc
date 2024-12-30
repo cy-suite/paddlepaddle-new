@@ -497,8 +497,9 @@ void OptimizeExprGPU(Expr *expr) {
   if (FLAGS_cinn_longlong2int) {
     ir::stmt::BlockRef block = ir::ConvertExprBlockToStmtBlock(*expr);
     VLOG(10) << "Before CastLonglong2Int: \n" << block;
-    CastLonglong2Int(block);
+    TryCastLonglong2Int(block);
     VLOG(10) << "After CastLonglong2Int: \n" << block;
+    *expr = ir::ConvertStmtBlockToExprBlock(block);
   }
 
   VLOG(4) << "After Optimize Expr: \n" << *expr;

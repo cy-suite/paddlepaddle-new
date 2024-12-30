@@ -86,7 +86,7 @@ namespace optim {
  *   }
  * }
  */
-void CastLonglong2Int(ir::stmt::BlockRef block);
+void TryCastLonglong2Int(ir::stmt::BlockRef block);
 
 }  // namespace optim
 }  // namespace cinn

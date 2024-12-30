@@ -254,7 +254,7 @@ bool CanApplyLongLong2Int(ir::stmt::BlockRef block) {
   return !check_overflow(block);
 }
 
-void CastLonglong2Int(ir::stmt::BlockRef block) {
+void TryCastLonglong2Int(ir::stmt::BlockRef block) {
   if (CanApplyLongLong2Int(block)) {
     StmtPassManager stmt_pass_manager;
     stmt_pass_manager.AddPass(CreateLongLong2IntStmtPass());
