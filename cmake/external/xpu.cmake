@@ -198,7 +198,8 @@ if(DEFINED ENV{XPU_LIB_ROOT})
   if(DEFINED ENV{XPU_XFT_DIR_NAME})
     set(XPU_XFT_DIR_NAME "$ENV{XPU_XFT_DIR_NAME}")
     set(XPU_XFT_URL "${XPU_LIB_ROOT}/${XPU_XFT_DIR_NAME}")
-    set(XFT_COMMAND "${CMAKE_SOURCE_DIR}/tools/xpu/pack_custom_xpu_xft.sh")
+    set(XFT_COMMAND
+        "${CMAKE_SOURCE_DIR}/tools/xpu/get_xft_dependence_from_custom_path.sh")
   endif()
 endif()
 
