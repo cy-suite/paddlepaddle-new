@@ -13,7 +13,12 @@
 # limitations under the License.
 
 import tensorrt as trt
+import numpy as np
 
+import paddle
+from paddle.tensorrt.converter_utils import (
+    get_trt_plugin,
+)
 from paddle.tensorrt.register import converter_registry
 
 
