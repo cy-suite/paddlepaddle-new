@@ -25,7 +25,7 @@
 #include <new>
 #include <type_traits>
 
-#include "none.h"
+#include "utils/none.h"
 
 namespace paddle {
 
@@ -104,7 +104,7 @@ class reference_content {
  public:  // structors
   ~reference_content() {}
 
-  reference_content(RefT r) : content_(r) {}
+  explicit reference_content(RefT r) : content_(r) {}
 
   reference_content(const reference_content& operand)
       : content_(operand.content_) {}
@@ -207,11 +207,13 @@ class optional_base : public optional_tag {
 
   // Creates an optional<T> uninitialized.
   // No-throw
-  optional_base(none_t) : m_initialized(false) {}
+  explicit optional_base(none_t) : m_initialized(false) {}
 
   // Creates an optional<T> initialized with 'val'.
   // Can throw if T::T(T const&) does
-  optional_base(argument_type val) : m_initialized(false) { construct(val); }
+  explicit optional_base(argument_type val) : m_initialized(false) {
+    construct(val);
+  }
 
   // Creates an optional<T> initialized with 'val' IFF cond is true, otherwise
   // creates an uninitialzed optional<T>.
@@ -342,7 +344,7 @@ class optional_base : public optional_tag {
     construct(factory, tag);
   }
 
-  // Constructs using any expression implicitely convertible to the single
+  // Constructs using any expression implicitly convertible to the single
   // argument
   // of a one-argument T constructor.
   // Converting constructions of optional<T> from optional<U> uses this function
@@ -355,7 +357,7 @@ class optional_base : public optional_tag {
     m_initialized = true;
   }
 
-  // Assigns using a form any expression implicitely convertible to the single
+  // Assigns using a form any expression implicitly convertible to the single
   // argument
   // of a T's assignment operator.
   // Converting assignments of optional<T> from optional<U> uses this function
@@ -473,11 +475,11 @@ class optional : public optional_detail::optional_base<T> {
 
   // Creates an optional<T> uninitialized.
   // No-throw
-  optional(none_t none_) : base(none_) {}
+  explicit optional(none_t none_) : base(none_) {}
 
   // Creates an optional<T> initialized with 'val'.
   // Can throw if T::T(T const&) does
-  optional(argument_type val) : base(val) {}
+  explicit optional(argument_type val) : base(val) {}
 
   // Creates an optional<T> initialized with 'val' IFF cond is true, otherwise
   // creates an uninitialized optional.
@@ -495,7 +497,7 @@ class optional : public optional_detail::optional_base<T> {
   // Creates an optional<T> with an expression which can be either
   //  (a) An instance of InPlaceFactory (i.e. in_place(a,b,...,n);
   //  (b) An instance of TypedInPlaceFactory ( i.e. in_place<T>(a,b,...,n);
-  //  (c) Any expression implicitely convertible to the single type
+  //  (c) Any expression implicitly convertible to the single type
   //      of a one-argument T's constructor.
   //  (d*) Weak compilers (BCB) might also resolved Expr as optional<T> and
   //  optional<U>
@@ -623,7 +625,7 @@ inline typename optional<T>::reference_const_type get(optional<T> const& opt) {
 }
 
 template <class T>
-inline typename optional<T>::reference_type get(optional<T>& opt) {
+inline typename optional<T>::reference_type get(const optional<T>& opt) {
   return opt.get();
 }
 
@@ -651,7 +653,7 @@ inline typename optional<T>::reference_const_type get_optional_value_or(
 
 template <class T>
 inline typename optional<T>::reference_type get_optional_value_or(
-    optional<T>& opt, typename optional<T>::reference_type v) {
+    const optional<T>& opt, typename optional<T>::reference_type v) {
   return opt.get_value_or(v);
 }
 
@@ -665,7 +667,7 @@ inline typename optional<T>::pointer_const_type get_pointer(
 }
 
 template <class T>
-inline typename optional<T>::pointer_type get_pointer(optional<T>& opt) {
+inline typename optional<T>::pointer_type get_pointer(const optional<T>& opt) {
   return opt.get_ptr();
 }
 
