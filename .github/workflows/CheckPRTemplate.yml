@@ -20,11 +20,11 @@ jobs:
         path: ~/.cache/pip
         key: checkpr_pip
 
-    # - name: Get commit message
-    #     id: get_commit_message
-    #     run: |
-    #       COMMIT_MESSAGE=$(git log -1 --pretty=%B)
-    #       echo "commit_message=$COMMIT_MESSAGE" >> $GITHUB_ENV
+    - name: Get commit message
+        id: get_commit_message
+        run: |
+          COMMIT_MESSAGE=$(git log -1 --pretty=%B)
+          echo "commit_message=$COMMIT_MESSAGE" >> $GITHUB_ENV
 
     # - name: Do check
     #   env:
