@@ -14,10 +14,12 @@
 
 #include "paddle/phi/kernels/clip_tensor_kernel.h"
 
-#include "paddle/phi/backends/cpu/cpu_context.h"
+#include "paddle/phi/backends/xpu/enforce_xpu.h"
+#include "paddle/phi/backends/xpu/xpu_context.h"
+#include "paddle/phi/backends/xpu/xpu_header.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/cast_kernel.h"
-#include "paddle/phi/kernels/funcs/eigen/common.h"
+#include "paddle/phi/kernels/elementwise_kernel.h"
 
 namespace phi {
 
@@ -30,27 +32,18 @@ void ClipTensorKernel(const Context& dev_ctx,
   DenseTensor tem_min = phi::Cast<T, Context>(dev_ctx, min, x.dtype());
   DenseTensor tem_max = phi::Cast<T, Context>(dev_ctx, max, x.dtype());
 
-  const T* x_data = x.data<T>();
-  const T* min_data = tem_min.data<T>();
-  const T* max_data = tem_max.data<T>();
-
-  auto x_numel = x.numel();
-
-  T* out_data = dev_ctx.template Alloc<T>(out);
-
-  for (int i = 0; i < x_numel; i++) {
-    out_data[i] = x_data[i] < min_data[i] ? min_data[i] : x_data[i];
-    out_data[i] = out_data[i] > max_data[i] ? max_data[i] : out_data[i];
-  }
+  DenseTensor tem_max_out = phi::Maximum<T, Context>(dev_ctx, min, x);
+  MinimumKernel<T, Context>(dev_ctx, tem_max_out, max, out);
 }
 
 }  // namespace phi
 
 PD_REGISTER_KERNEL(clip_tensor,
-                   CPU,
+                   XPU,
                    ALL_LAYOUT,
                    phi::ClipTensorKernel,
                    float,
-                   double,
+                   phi::dtype::float16,
+                   phi::dtype::bfloat16,
                    int,
                    int64_t) {}

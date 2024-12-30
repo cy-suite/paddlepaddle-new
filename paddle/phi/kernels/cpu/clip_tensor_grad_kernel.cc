@@ -27,18 +27,12 @@ void ClipTensorGradKernel(const Context& dev_ctx,
                           const DenseTensor& max,
                           const DenseTensor& out_grad,
                           DenseTensor* x_grad) {
-  DenseTensor ex_min;
-  MetaTensor meta_min(&ex_min);
-  CastInferMeta(min, x.dtype(), &meta_min);
-  DenseTensor ex_max;
-  MetaTensor meta_max(&ex_max);
-  CastInferMeta(max, x.dtype(), &meta_max);
-  phi::CastKernel<T, Context>(dev_ctx, min, x.dtype(), &ex_min);
-  phi::CastKernel<T, Context>(dev_ctx, max, x.dtype(), &ex_max);
+  DenseTensor tem_min = phi::Cast<T, Context>(dev_ctx, min, x.dtype());
+  DenseTensor tem_max = phi::Cast<T, Context>(dev_ctx, max, x.dtype());
 
   const T* x_data = x.data<T>();
-  const T* min_data = ex_min.data<T>();
-  const T* max_data = ex_max.data<T>();
+  const T* min_data = tem_min.data<T>();
+  const T* max_data = tem_max.data<T>();
   auto numel = x.numel();
   auto* dout = out_grad.data<T>();
 

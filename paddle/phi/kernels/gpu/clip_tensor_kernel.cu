@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/phi/kernels/clip_kernel.h"
+#include "paddle/phi/kernels/clip_tensor_kernel.h"
 
 #include "paddle/phi/backends/gpu/gpu_context.h"
 #include "paddle/phi/backends/gpu/gpu_launch_config.h"
@@ -27,7 +27,9 @@ namespace phi {
 template <typename T>
 struct ClipTensorFunctor {
   inline HOSTDEVICE T operator()(const T x, const T min_, const T max_) const {
-    return x < min_ ? min_ : x > max_ ? max_ : x;
+    T x_ = x < min_ ? min_ : x;
+    T x__ = x_ > max_ ? max_ : x_;
+    return x__;
   }
 };
 
@@ -37,16 +39,10 @@ void ClipTensorKernel(const Context& dev_ctx,
                       const DenseTensor& min,
                       const DenseTensor& max,
                       DenseTensor* out) {
-  DenseTensor ex_min;
-  MetaTensor meta_min(&ex_min);
-  CastInferMeta(min, x.dtype(), &meta_min);
-  DenseTensor ex_max;
-  MetaTensor meta_max(&ex_max);
-  CastInferMeta(max, x.dtype(), &meta_max);
-  phi::CastKernel<T, Context>(dev_ctx, min, x.dtype(), &ex_min);
-  phi::CastKernel<T, Context>(dev_ctx, max, x.dtype(), &ex_max);
+  DenseTensor tem_min = phi::Cast<T, Context>(dev_ctx, min, x.dtype());
+  DenseTensor tem_max = phi::Cast<T, Context>(dev_ctx, max, x.dtype());
 
-  std::vector<const DenseTensor*> ins = {&x, &ex_min, &ex_max};
+  std::vector<const DenseTensor*> ins = {&x, &tem_min, &tem_max};
   std::vector<DenseTensor*> outs = {out};
   dev_ctx.template Alloc<T>(out);
 
