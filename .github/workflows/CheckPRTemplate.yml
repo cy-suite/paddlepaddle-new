@@ -35,7 +35,7 @@ jobs:
         AGILE_COMPILE_BRANCH: develop
         AGILE_CHECKIN_AUTHOR: ${{ github.event.pull_request.user.login }}
         AGILE_REVISION: ${{ github.event.pull_request.head.sha }}
-        AGILE_COMMENTS: "[{\"commit\": ${{ github.event.pull_request.head.sha }}, \"author\": ${{ github.event.pull_request.user.login }}, \"comment\": ${{ env.commit_message }}}]"
+        AGILE_COMMENTS: "[{\"commit\": \"${{ github.event.pull_request.head.sha }}\", \"author\": \"${{ github.event.pull_request.user.login }}\", \"comment\": \"${{ env.commit_message }}\"}]"
         icafe_url: ${{ secrets.icafe_url }}
         icafe_user: ${{ secrets.icafe_user }}
         icafe_pwd: ${{ secrets.icafe_pwd }}
@@ -46,7 +46,6 @@ jobs:
         db_name: ${{ secrets.db_name }}
         method: check_pr
       run: |
-        echo $GITHUB_API_TOKEN
         git checkout -b test
         pip install httpx pymysql PyGithub
         python tools/CheckPRTemplate.py;EXCODE=$?
