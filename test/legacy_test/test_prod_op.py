@@ -26,9 +26,13 @@ import paddle
 class TestProdOp(unittest.TestCase):
     def setUp(self):
         self.input = np.random.random(size=(10, 10, 5)).astype(np.float32)
+        real = np.random.random(size=(10, 10, 5)).astype(np.float32)
+        imag = np.random.random(size=(10, 10, 5)).astype(np.float32)
+        self.complex_input = real + 1j * imag
 
     def run_imperative(self):
         input = paddle.to_tensor(self.input)
+        complex_input = paddle.to_tensor(self.complex_input)
         dy_result = paddle.prod(input)
         expected_result = np.prod(self.input)
         np.testing.assert_allclose(
@@ -69,6 +73,30 @@ class TestProdOp(unittest.TestCase):
         expected_result = np.prod(
             self.input, axis=1, keepdims=True, dtype=np.int64
         )
+        np.testing.assert_allclose(
+            dy_result.numpy(), expected_result, rtol=1e-05
+        )
+
+        dy_result = paddle.prod(complex_input)
+        expected_result = np.prod(self.complex_input)
+        np.testing.assert_allclose(
+            dy_result.numpy(), expected_result, rtol=1e-05
+        )
+
+        dy_result = paddle.prod(complex_input, axis=1)
+        expected_result = np.prod(self.complex_input, axis=1)
+        np.testing.assert_allclose(
+            dy_result.numpy(), expected_result, rtol=1e-05
+        )
+
+        dy_result = paddle.prod(complex_input, axis=[0, 1])
+        expected_result = np.prod(self.complex_input, axis=(0, 1))
+        np.testing.assert_allclose(
+            dy_result.numpy(), expected_result, rtol=1e-05, atol=1e-8
+        )
+
+        dy_result = paddle.prod(complex_input, axis=1, keepdim=True)
+        expected_result = np.prod(self.complex_input, axis=1, keepdims=True)
         np.testing.assert_allclose(
             dy_result.numpy(), expected_result, rtol=1e-05
         )
@@ -132,6 +160,47 @@ class TestProdOp(unittest.TestCase):
         np.testing.assert_allclose(
             static_result[6], expected_result, rtol=1e-05
         )
+        complex_input = paddle.static.data(
+            name='complex_input', shape=[10, 10, 5], dtype='complex64'
+        )
+
+        result7 = paddle.prod(complex_input)
+        result8 = paddle.prod(complex_input, axis=1)
+        result9 = paddle.prod(complex_input, axis=-1)
+        result10 = paddle.prod(complex_input, axis=[0, 1])
+        result11 = paddle.prod(complex_input, axis=1, keepdim=True)
+
+        static_complex_result = exe.run(
+            feed={"complex_input": self.complex_input},
+            fetch_list=[
+                result7,
+                result8,
+                result9,
+                result10,
+                result11,
+            ],
+        )
+
+        expected_result = np.prod(self.complex_input)
+        np.testing.assert_allclose(
+            static_complex_result[0], expected_result, rtol=1e-05
+        )
+        expected_result = np.prod(self.complex_input, axis=1)
+        np.testing.assert_allclose(
+            static_complex_result[1], expected_result, rtol=1e-05
+        )
+        expected_result = np.prod(self.complex_input, axis=-1)
+        np.testing.assert_allclose(
+            static_complex_result[2], expected_result, rtol=1e-05
+        )
+        expected_result = np.prod(self.complex_input, axis=(0, 1))
+        np.testing.assert_allclose(
+            static_complex_result[3], expected_result, rtol=1e-05, atol=1e-8
+        )
+        expected_result = np.prod(self.complex_input, axis=1, keepdims=True)
+        np.testing.assert_allclose(
+            static_complex_result[4], expected_result, rtol=1e-05
+        )
 
     def test_cpu(self):
         paddle.disable_static(place=paddle.CPUPlace())
@@ -154,6 +223,7 @@ class TestProdOp(unittest.TestCase):
 class TestProdOpError(unittest.TestCase):
 
     def test_error(self):
+        paddle.enable_static()
         with paddle.static.program_guard(
             paddle.static.Program(), paddle.static.Program()
         ):
