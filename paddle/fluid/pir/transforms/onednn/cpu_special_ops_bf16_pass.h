@@ -1,4 +1,4 @@
-// Copyright (c) 2021 CINN Authors. All Rights Reserved.
+// Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,14 +14,13 @@
 
 #pragma once
 
-#include "paddle/cinn/ir/ir.h"
+#include <memory>
+#include "paddle/pir/include/core/dll_decl.h"
 
-namespace cinn {
-namespace optim {
+namespace pir {
 
-void ExternCallMultiOutputShallowStore(Expr* e);
+class Pass;
 
-void ExternCallRemoveTupleGetStatements(Expr* e);
+IR_API std::unique_ptr<Pass> CreateCPUSpecialOpsBf16Pass();
 
-}  // namespace optim
-}  // namespace cinn
+}  // namespace pir

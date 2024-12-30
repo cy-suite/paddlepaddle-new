@@ -18,6 +18,7 @@
 #include <string>
 
 #include "paddle/fluid/custom_engine/custom_engine_manager.h"
+#include "paddle/fluid/custom_engine/fake_cpu_engine.h"
 #include "paddle/fluid/platform/init.h"
 #include "paddle/phi/backends/custom/fake_cpu_device.h"
 #include "paddle/phi/backends/device_manager.h"
@@ -84,6 +85,7 @@ void InitCustom() {
     }
   }
   EXPECT_GT(static_cast<int>(places.size()), 0);
+
   places.emplace_back(phi::CPUPlace());
   phi::DeviceContextPool::Init(places);
   RegisterEngine();
