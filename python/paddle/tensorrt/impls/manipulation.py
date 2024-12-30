@@ -961,12 +961,15 @@ def pad3d_converter(network, paddle_op, inputs):
     padding_mode = paddle_op.attrs().get("mode", "constant")
     input_dim = len(input_tensor.shape)
     pad_size = paddings.shape[0]
-    assert input_dim * 2 - 4 == pad_size, (
-        "Expected paddings size is {}, but received {}.".format(input_dim * 2 - 4, pad_size)
-    )
+    assert (
+        input_dim * 2 - 4 == pad_size
+    ), f"Expected paddings size is {input_dim * 2 - 4}, but received {pad_size}."
 
     shuffle_index = [4, 2, 0, 5, 3, 1]
-    shuffle_inputs = [network.add_slice(paddings, [i], [1], [1]).get_output(0) for i in shuffle_index]
+    shuffle_inputs = [
+        network.add_slice(paddings, [i], [1], [1]).get_output(0)
+        for i in shuffle_index
+    ]
     paddings = trt_concat(network, shuffle_inputs)
 
     pre_zeros = add_1D_constant_layer(network, [0, 0])
@@ -974,9 +977,13 @@ def pad3d_converter(network, paddle_op, inputs):
     start_slice2 = [3]
     size_slice = [3]
     stride_slice = [1]
-    pre_pad = network.add_slice(paddings, start_slice1, size_slice, stride_slice).get_output(0)
+    pre_pad = network.add_slice(
+        paddings, start_slice1, size_slice, stride_slice
+    ).get_output(0)
     pre_pad = trt_concat(network, [pre_zeros, pre_pad])
-    post_pad = network.add_slice(paddings, start_slice2, size_slice, stride_slice).get_output(0)
+    post_pad = network.add_slice(
+        paddings, start_slice2, size_slice, stride_slice
+    ).get_output(0)
     post_pad = trt_concat(network, [pre_zeros, post_pad])
 
     zeros = add_1D_constant_layer(network, [0] * input_dim)

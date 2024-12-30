@@ -2073,37 +2073,38 @@ class OneHotOpPattern
 };
 
 class Pad3dOpPattern : public pir::OpRewritePattern<paddle::dialect::Pad3dOp> {
-public:
-    using pir::OpRewritePattern<paddle::dialect::Pad3dOp>::OpRewritePattern;
+ public:
+  using pir::OpRewritePattern<paddle::dialect::Pad3dOp>::OpRewritePattern;
 
-    bool MatchAndRewrite(paddle::dialect::Pad3dOp op,
-                          pir::PatternRewriter &rewriter) const override {
-        if (op->HasAttribute(kCanRunTrtAttr) &&
-            op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-            return false;
-        }
-        if (!op->HasAttribute("paddings") ||
-            !pir::GetDefiningOpForInput(op, 1)->isa<paddle::dialect::FullOp>()) {
-            return false;
-        }
-        if (!op->HasAttribute("mode")){
-          auto mode = op->attribute<pir::StrAttribute>("mode").AsString();
-          if (mode != "constant" && mode != "reflect" && mode != "replicate") {
-            VLOG(3) << "The pad3d layer of TRT only support "
-                      "constant/reflect/replicate mode.";
-            return false;
-            }
-        }
-        if (!op->HasAttribute("data_format")){
-          auto data_format = op->attribute<pir::StrAttribute>("data_format").AsString();
-          if (data_format != "NCDHW") {
-            VLOG(3) << "The pad3d layer of TRT only support NCDHW data format.";
-            return false;
-            }
-        }
-        op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-        return true;
+  bool MatchAndRewrite(paddle::dialect::Pad3dOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
     }
+    if (!op->HasAttribute("paddings") ||
+        !pir::GetDefiningOpForInput(op, 1)->isa<paddle::dialect::FullOp>()) {
+      return false;
+    }
+    if (!op->HasAttribute("mode")){
+      auto mode = op->attribute<pir::StrAttribute>("mode").AsString();
+      if (mode != "constant" && mode != "reflect" && mode != "replicate") {
+        VLOG(3) << "The pad3d layer of TRT only support "
+                   "constant/reflect/replicate mode.";
+        return false;
+      }
+    }
+    if (!op->HasAttribute("data_format")){
+      auto data_format =
+          op->attribute<pir::StrAttribute>("data_format").AsString();
+      if (data_format != "NCDHW") {
+        VLOG(3) << "The pad3d layer of TRT only support NCDHW data format.";
+        return false;
+      }
+        }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
 };
 
 class InstanceNormOpPattern
