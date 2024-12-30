@@ -23,7 +23,7 @@
 
 namespace {
 
-// add_grad + matmul_grad + add_ -> matmul + fused_liner_param_grad_add
+// add_grad + matmul_grad + add_ -> matmul + fused_linear_param_grad_add
 class FusedMatmulAddGradAddPattern : public paddle::drr::DrrPatternBase {
  public:
   std::string name() const override { return "FusedMatmulAddGradAddPattern"; }
