@@ -96,7 +96,8 @@ void Simplify(Expr *expr);
 
  * When applied, this pass will check if the cast type matches the type of the
  * value to be be cast. If they are the same, the cast will be removed to
- * simplify the cast expression.
+ * simplify the cast expression. Additionally, if the value being cast is a
+ * constant, the cast expression will be simplified to the cast type as well.
 
  * Performance impact: This pass addresses performance issues related to
  * unnecessary type casting, which can lead to improved runtime efficiency by
@@ -111,9 +112,12 @@ void Simplify(Expr *expr);
  *
  * 2. Type mismatch:
  *    Input IR:
+ *      int x = 5
+ *      Cast<float>(x)
  *      Cast<float>(5)
  *    Output IR:
- *      Cast<float>(5) (remains unchanged)
+ *      Cast<float>(x)  (Type mismatch, remains unchanged)
+ *      5.0             (Constant value will be cast)
  */
 void SimplifyCast(Expr *expr);
 
@@ -135,15 +139,15 @@ void SimplifyCast(Expr *expr);
  * Examples:
  * 1. Trivial loop simplification:
  *    Input IR:
- *      for (int i = 1; i < 2; ++i) { ... }
+ *      for (int i = 1; i < 2; ++i) { doSomething(i); }
  *    Output IR:
- *      ...
+ *      doSomething(1)
  *
  * 2. Non-trivial loop:
  *    Input IR:
- *      for (int i = 0; i < 2; ++i) { ... }
+ *      for (int i = 0; i < 2; ++i) { doSomething(i); }
  *    Output IR:
- *      for (int i = 0; i < 2; ++i) { ... } (remains unchanged)
+ *      for (int i = 0; i < 2; ++i) { doSomething(i); } (remains unchanged)
  */
 void SimplifyForLoops(Expr *expr);
 
@@ -167,15 +171,15 @@ void SimplifyForLoops(Expr *expr);
  * Examples:
  * 1. Single statement block:
  *    Input IR:
- *      Block { Block { ... } }
+ *      Block { Block { stmt0 } }
  *    Output IR:
- *      ...
+ *      Block { stmt0 }
  *
  * 2. Nested blocks:
  *    Input IR:
- *      Block { ... }
+ *      Block { Block { stmt1 }, Block { stmt2 }, stmt3 }
  *    Output IR:
- *      ...
+ *      Block { stmt1, stmt2, stmt3 }
  */
 void SimplifyBlocks(Expr *expr);
 
