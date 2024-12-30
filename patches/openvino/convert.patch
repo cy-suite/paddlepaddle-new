@@ -809,9 +809,9 @@ index cd65591145..df7471fd96 100644
 2.25.1
 
 
-From dbc77d756f3960bb62b6de5c03d8eaed0472be00 Mon Sep 17 00:00:00 2001
+From 3b075c8d66257e5262c4947c8de50ab0698d4853 Mon Sep 17 00:00:00 2001
 From: bukejiyu <395822456@qq.com>
-Date: Fri, 27 Dec 2024 12:23:56 +0000
+Date: Mon, 30 Dec 2024 03:55:16 +0000
 Subject: [PATCH 4/4] update openvino for paddle
 
 ---
@@ -825,9 +825,9 @@ Subject: [PATCH 4/4] update openvino for paddle
  src/frontends/paddle/src/op/slice_ops.hpp     |   4 +-
  src/frontends/paddle/src/op/tile.cpp          |   5 +-
  src/frontends/paddle/src/op_table.cpp         |   4 +-
- src/frontends/paddle/src/op_utils.cpp         |  46 +++++++
+ src/frontends/paddle/src/op_utils.cpp         |  45 +++++++
  src/frontends/paddle/src/op_utils.hpp         |  17 +++
- 12 files changed, 256 insertions(+), 61 deletions(-)
+ 12 files changed, 255 insertions(+), 61 deletions(-)
  create mode 100644 src/frontends/paddle/src/op/reduce_any.cpp
  create mode 100644 src/frontends/paddle/src/op_utils.cpp
  create mode 100644 src/frontends/paddle/src/op_utils.hpp
@@ -1342,10 +1342,10 @@ index d7de21a481..754e0cc5c1 100644
  }  // namespace paddle
 diff --git a/src/frontends/paddle/src/op_utils.cpp b/src/frontends/paddle/src/op_utils.cpp
 new file mode 100644
-index 0000000000..d45c5f6e3b
+index 0000000000..d26873a150
 --- /dev/null
 +++ b/src/frontends/paddle/src/op_utils.cpp
-@@ -0,0 +1,46 @@
+@@ -0,0 +1,45 @@
 +// Copyright (C) 2018-2024 Intel Corporation
 +// SPDX-License-Identifier: Apache-2.0
 +//
@@ -1372,7 +1372,6 @@ index 0000000000..d45c5f6e3b
 +    if (node.size() == 1) {
 +        res = tensor_list[0];
 +    } else {
-+        std::cout << "go here " << node.size() << " \n";
 +        res = std::make_shared<op::default_opset::Concat>(tensor_list, 0);
 +    }
 +    return res;
