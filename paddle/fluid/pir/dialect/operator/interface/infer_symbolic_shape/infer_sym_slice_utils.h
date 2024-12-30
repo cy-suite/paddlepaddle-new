@@ -294,7 +294,7 @@ inline ExprVec GetStridedSliceDims(
     const ExprVec &starts_base,
     const ExprVec &ends_base,
     const ExprVec &strides_base,
-    std::vector<int64_t> *infer_flags = nullptr,
+    std::vector<int64_t> *infer_flags,
     pir::InferSymbolicShapeContext *infer_context) {
   ExprVec starts = starts_base;
   ExprVec ends = ends_base;
@@ -364,14 +364,15 @@ inline ExprVec GetStridedSliceDims(
 
   for (size_t i = 0; i < axes.size(); ++i) {
     if (strides[i].isa<int64_t>()) {
-      if (strides[i] > 0) {
+      int64_t stride_int64 = strides[i].Get<int64_t>();
+      if (stride_int64 > 0) {
         symbol::List<symbol::DimExpr> unnegativate_lists{
-            (ends[i] - starts[i] + 1 + strides[i]) / strides[i], 0};
+            (ends[i] - starts[i] + 1 + stride_int64) / stride_int64, 0};
         symbol::DimExpr out_dim = symbol::DimExpr(
             {symbol::Max<symbol::DimExpr>({unnegativate_lists})});
       } else {
         symbol::List<symbol::DimExpr> unnegativate_lists{
-            (ends[i] - starts[i] - 1 + strides[i]) / strides[i], 0};
+            (ends[i] - starts[i] - 1 + stride_int64) / stride_int64, 0};
         symbol::DimExpr out_dim = symbol::DimExpr(
             {symbol::Max<symbol::DimExpr>({unnegativate_lists})});
       }
@@ -383,16 +384,16 @@ inline ExprVec GetStridedSliceDims(
     if (!out_dim.isa<int64_t>() &&
         (!in_dims[axis].isa<int64_t>() || !ends[i].isa<int64_t>())) {
       if (strides[i].isa<int64_t>()) {
-        if (strides[i] > 0) {
+        if (stride_int64 > 0) {
           symbol::List<symbol::DimExpr> min_lists{
-              (in_dims[axis] - starts[i] + 1 + strides[i]) / strides[i],
+              (in_dims[axis] - starts[i] + 1 + stride_int64) / stride_int64,
               out_dim};
 
           slice_dims[axis] =
               symbol::DimExpr({symbol::Min<symbol::DimExpr>({min_lists})});
         } else {
           symbol::List<symbol::DimExpr> min_lists{
-              (in_dims[axis] - starts[i] + 1 + strides[i]) / strides[i],
+              (in_dims[axis] - starts[i] + 1 + stride_int64) / stride_int64,
               out_dim};
 
           slice_dims[axis] =
@@ -485,11 +486,11 @@ inline ShapeOrData StridedSliceRawInferSymbolicShape(
       ends_int[0] = -1;
     }
     if (strides_int[0] > 0) {
-      for (int64_t i = starts_int[0], i < ends_int[0]; i += strides_int[0]) {
+      for (int64_t i = starts_int[0]; i < ends_int[0]; i += strides_int[0]) {
         out_data.push_back(in_shapeordata.data().value().at(i));
       }
     } else {
-      for (int64_t i = starts_int[0], i > ends_int[0]; i -= strides_int[0]) {
+      for (int64_t i = starts_int[0]; i > ends_int[0]; i -= strides_int[0]) {
         out_data.push_back(in_shapeordata.data().value().at(i));
       }
     }
