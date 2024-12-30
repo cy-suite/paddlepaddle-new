@@ -52,7 +52,7 @@ def not_equal_converter(network, paddle_op, inputs):
     )
     not_layer = network.add_unary(layer_output, trt.UnaryOperation.NOT)
     layer_output = not_layer.get_output(0)
-    return trt_cast(network, layer_output, inputs[0].dtype)
+    return layer_output
 
 
 @converter_registry.register("pd_op.less_equal", trt_version="8.x")
