@@ -21,12 +21,6 @@
 namespace cinn {
 namespace optim {
 
-/**
- * Given Expr AST, translate dynamic shape in buffers to
- * static shape, the pass is just used on Nvidia GPU temporarily.
- */
-void CudaTransBufferWithDynamicShape(ir::Expr* expr);
-
 class TransBufferWithDynamicShapePass : public FuncPass {
  public:
   TransBufferWithDynamicShapePass()
