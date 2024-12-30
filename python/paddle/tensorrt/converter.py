@@ -150,6 +150,7 @@ class PaddleToTensorRTConverter:
         opt_value_map = {}
         max_value_map = {}
         input_names = []
+        new_input_values = []
 
         # Because one of the inputs to pd_op.concat is builtin.combine,
         # during the conversion process using the converter,
@@ -172,7 +173,6 @@ class PaddleToTensorRTConverter:
                 param_name = defining_op.attrs()["parameter_name"]
                 weight = trt.Weights(self.param_dict[param_name])
                 value_to_trt_tensor[value.id] = weight
-                input_names.append("")
             elif defining_op.name() == "builtin.constant":
                 constant_value_name = defining_op.attrs()["value"]
                 constant_tensor = self.scope.var(
@@ -189,12 +189,8 @@ class PaddleToTensorRTConverter:
                 if len(constant_data) == 0:
                     value_to_trt_tensor[value.id] = None
                 else:
-                    constant_shape = value.shape
-                    constant_layer = network.add_constant(
-                        constant_shape, constant_data
-                    )
-                    value_to_trt_tensor[value.id] = constant_layer.get_output(0)
-                input_names.append("")
+                    constant_tensor = trt.Weights(constant_data)
+                    value_to_trt_tensor[value.id] = constant_tensor
             else:
                 shape = value.shape
                 dtype = map_dtype(value.dtype.name)
@@ -206,6 +202,7 @@ class PaddleToTensorRTConverter:
                     name=input_name, dtype=dtype, shape=shape
                 )
                 input_names.append(input_name)
+                new_input_values.append(value)
                 value_to_trt_tensor[value.id] = input_tensor
 
         for op in operations:
@@ -288,8 +285,11 @@ class PaddleToTensorRTConverter:
         # Set TRT min/opt/max input shape and the value of shape tensor
         for i, value in enumerate(origin_input_value):
             trt_input = value_to_trt_tensor[value.id]
-            input_name = input_names[i]
-            if input_name == "":
+            defining_op_name = value.get_defining_op().name()
+            if (
+                defining_op_name == "builtin.parameter"
+                or defining_op_name == "builtin.constant"
+            ):
                 # constant/parameter condition, needn't get min/opt/max shape
                 continue
 
@@ -503,7 +503,7 @@ class PaddleToTensorRTConverter:
         with paddle.pir_utils.IrGuard(), paddle.pir.core.program_guard(program):
             pir.set_insertion_point(group_op)
             out = paddle._C_ops.tensorrt_engine(
-                origin_input_value,
+                new_input_values,
                 trt_params,
                 input_names,
                 out_names,

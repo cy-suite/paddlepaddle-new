@@ -56,6 +56,7 @@ def run_pir_pass(program, partition_mode=False):
     scope = paddle.static.global_scope()
     place = paddle.CUDAPlace(0)
     passes = [
+        {'trt_op_marker_pass': {}},
         {
             'constant_folding_pass': {
                 "__place__": place,
@@ -64,7 +65,7 @@ def run_pir_pass(program, partition_mode=False):
         },
         {'dead_code_elimination_pass': {"__param_scope__": scope}},
         {'conv2d_add_fuse_pass': {}},
-        {'trt_op_marker_pass': {}},
+        {'trt_op_marker_pass': {}},  # for fusion op
     ]
     if partition_mode:
         passes = [{'trt_sub_graph_extract_pass': {}}]
@@ -205,6 +206,8 @@ def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
         "pd_op.fused_conv2d_add_act",
     ]
     if use_op_name in forbid_cast_op:
+        return trt_tensor
+    if paddle_value.get_defining_op().name() == "builtin.constant":
         return trt_tensor
     input_shape = paddle_value.shape
     if type(trt_tensor) == trt.Weights:
