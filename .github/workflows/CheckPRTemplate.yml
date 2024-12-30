@@ -25,7 +25,6 @@ jobs:
         run: |
           COMMIT_MESSAGE=$(git log -1 --pretty=%B)
     #      echo "commit_message=$COMMIT_MESSAGE" >> $GITHUB_ENV
-
     # - name: Do check
     #   env:
     #     AGILE_PULL_ID: ${{ github.event.pull_request.number }}
