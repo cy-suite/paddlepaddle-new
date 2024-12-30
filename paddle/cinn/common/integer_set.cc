@@ -92,7 +92,7 @@ std::optional<bool> SymbolicExprAnalyzer::ProveEQ(const ir::Expr& lhs,
     if (lhs == rhs) {
       return true;
     }
-    ir::Expr diff = optim::ArithSimplify(ir::Sub::Make(lhs, rhs));
+    ir::Expr diff = AutoSimplify(ir::Sub::Make(lhs, rhs), var_intervals_);
     if (diff.is_constant()) {
       return diff.get_constant() == 0;
     }
@@ -149,7 +149,7 @@ std::optional<bool> SymbolicExprAnalyzer::ProveGE(const ir::Expr& lhs,
         rhs == SymbolicExprLimit::negative_inf) {
       return true;
     }
-    ir::Expr diff = optim::ArithSimplify(ir::Sub::Make(lhs, rhs));
+    ir::Expr diff = AutoSimplify(ir::Sub::Make(lhs, rhs), var_intervals_);
     VLOG(6) << "diff of " << ir::Sub::Make(lhs, rhs) << " = " << diff;
     if (diff.is_constant() && diff.get_constant() < 0) {
       return false;
@@ -195,7 +195,7 @@ std::optional<bool> SymbolicExprAnalyzer::ProveGT(const ir::Expr& lhs,
         rhs == SymbolicExprLimit::negative_inf) {
       return true;
     }
-    ir::Expr diff = optim::ArithSimplify(ir::Sub::Make(lhs, rhs));
+    ir::Expr diff = AutoSimplify(ir::Sub::Make(lhs, rhs), var_intervals_);
     VLOG(6) << "diff of " << ir::Sub::Make(lhs, rhs) << " = " << diff;
     if (diff.is_constant() && diff.get_constant() <= 0) {
       return false;
@@ -317,7 +317,7 @@ std::optional<bool> SymbolicExprAnalyzer::ProveDivisible(
         res = OptionalAnd(res, is_ge);
         return res;
       case cinn::ir::IrNodeTy::FracOp:
-        tmp_expr = optim::ArithSimplify(lhs);
+        tmp_expr = cinn::common::AutoSimplify(lhs);
         if (tmp_expr.node_type() == cinn::ir::IrNodeTy::FracOp)
           return std::nullopt;
         return OptionalAnd(ProveDivisible(tmp_expr, rhs), is_ge);
@@ -334,7 +334,7 @@ std::optional<bool> SymbolicExprAnalyzer::ProveDivisible(
                         ProveDivisible(lhs.As<ir::Sub>()->b(), rhs)),
             is_ge);
       case cinn::ir::IrNodeTy::Div:
-        tmp_expr = optim::ArithSimplify(lhs);
+        tmp_expr = cinn::common::AutoSimplify(lhs);
         if (tmp_expr.node_type() == cinn::ir::IrNodeTy::Div)
           return std::nullopt;
         return OptionalAnd(ProveDivisible(tmp_expr, rhs), is_ge);
@@ -460,14 +460,14 @@ ir::Expr SymbolicExprAnalyzer::LowerBound(const ir::Expr& expr) const {
   BoundReplacer bound_replacer(var_intervals_, true);
   ir::Expr bound = ir::ir_utils::IRCopy(expr);
   bound_replacer(&bound);
-  return optim::ArithSimplify(bound);
+  return AutoSimplify(bound);
 }
 
 ir::Expr SymbolicExprAnalyzer::UpperBound(const ir::Expr& expr) const {
   BoundReplacer bound_replacer(var_intervals_, false);
   ir::Expr bound = ir::ir_utils::IRCopy(expr);
   bound_replacer(&bound);
-  return optim::ArithSimplify(bound);
+  return AutoSimplify(bound);
 }
 
 std::optional<bool> ProveEQ(const SingleIntervalIntSet& lhs,
