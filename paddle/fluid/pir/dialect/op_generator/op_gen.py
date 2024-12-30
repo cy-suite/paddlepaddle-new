@@ -80,6 +80,8 @@ need_export_symbol_op_list = [
     'MatmulGradOp',
 ]
 
+cache_grad_op_shape_black_list = {"fused_attention"}
+
 # =====================================
 # String Template for h file code gen
 # =====================================
@@ -1281,7 +1283,7 @@ def AutoCodeGen(
     ops_name_list = []  # all op class name store in this list
     ops_declare_list = []  # all op class declare store in this list
     ops_defined_list = []  # all op class defined store in this list
-    ops_vjp_defined_list = []  # all op vjp static interface defination
+    ops_vjp_defined_list = []  # all op vjp static interface definition
 
     # (4) parse name of ops which have custom vjp rules
     custom_vjp_op_name_list = []
@@ -1343,6 +1345,7 @@ def AutoCodeGen(
             and op_info.backward_name
             and not op_info.is_sparse_op
             and all_op_info_items[op_info.backward_name].kernel_map is not None
+            and op_info.op_phi_name[0] not in cache_grad_op_shape_black_list
         ):
             op_interfaces += [
                 "paddle::dialect::CacheGradOpSymbolicShapeInterface"

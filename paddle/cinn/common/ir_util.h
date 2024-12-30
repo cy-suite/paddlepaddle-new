@@ -38,9 +38,6 @@ Expr PrecedingAxisToAbsOffset(const std::vector<Expr> &shape,
 
 Expr CastIfNeeded(Expr body, Type type);
 
-ir::IndexExpr MergeMulMod(SymbolicExprAnalyzer *analyzer,
-                          const ir::IndexExpr &base);
-
 //! Substitute vars to other expressions.
 //! @param expr The expression to do modification.
 //! @param var_map The map from variables to the target expressions.
@@ -255,6 +252,11 @@ bool ComparePriority(const ir::IndexExpr &lhs, const ir::IndexExpr &rhs);
  * 6. `IsSumPartialBySymbol(S0 / 3 + S1, S0)` return true;
  * 7. `IsSumPartialBySymbol(S0 % 3, S0)` return false;
  *
+ * Note: For performance reasons, special patterns will not be matched here.
+ * This can be allowed for extreme optimization.
+ * For example:
+ * `IsSumPartialBySymbol((S0 + S1 / 5 * 25) / 5, S1 % 5)` return false;
+ *
  * \param expr The expression to be checked.
  * \param symbol  The symbol to be checked.
  * \return True means there are sub-parts in the `expr` that can be simplified.
@@ -337,5 +339,22 @@ bool ProveDivisible(const ir::IndexExpr &lhs, const ir::IndexExpr &rhs);
 bool IsNegatedIndexExpr(const ir::IndexExpr &candidate,
                         ir::IndexExpr &expr);  // NOLINT
 
+enum IndexType {
+  kInvalid = 0,  // invalid expr
+  kValid = 1,    // valid expr
+  kLoad = 2,     // exist Load
+  kCast = 3      // exist cast
+};
+
+/*!
+ * \brief Judge type of `expr` is valid type of `IndexExpr` or not.
+ * \param expr The expression to be checked.
+ * \return A enum IndexType value indicating whether the type of `expr` is valid
+ * IndexExpr.
+ *
+ * Note: Although load and cast are also legal IndexExpr, we need to know this
+ * information in some scenarios.
+ */
+IndexType VerifyIndex(const ir::Expr &expr);
 }  // namespace common
 }  // namespace cinn

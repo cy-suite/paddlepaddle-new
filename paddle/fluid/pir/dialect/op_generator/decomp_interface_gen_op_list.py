@@ -61,7 +61,6 @@ GENERATE_IMPL_DECOMP = [
     "meshgrid",
     "numel",
     "p_norm",
-    "pow",
     "reciprocal",
     "relu",
     "relu6",
@@ -94,6 +93,7 @@ decomp_ops_contain_unused_output = ["squeeze", "unsqueeze"]
 GENERATE_IMPL_VJP = [
     'abs_grad',
     'add_grad',
+    'angle_grad',
     'bce_loss_grad',
     'cos_grad',
     'divide_grad',
@@ -133,6 +133,7 @@ GENERATE_IMPL_VJP = [
     'tanh_grad',
     'transpose_grad',
     'unsqueeze_grad',
+    'p_norm_grad',
 ]
 
 # declare belongs to codegen, but implementation not

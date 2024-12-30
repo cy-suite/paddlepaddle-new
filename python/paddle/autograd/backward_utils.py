@@ -33,6 +33,7 @@ ALLOW_DYNAMIC_SHAPE_VJP_OPS = [
     "pd_op.add",
     "pd_op.amax",
     "pd_op.amin",
+    "pd_op.angle",
     "pd_op.argsort",
     "pd_op.assign",
     "pd_op.batch_norm_",
@@ -104,6 +105,7 @@ ALLOW_DYNAMIC_SHAPE_VJP_OPS = [
     "pd_op.trunc",
     "pd_op.unsqueeze",
     "pd_op.where",
+    "pd_op.p_norm",
 ]
 
 
@@ -238,8 +240,17 @@ class ValueSet:
     def pop(self):
         return self._set.pop()._value
 
+    def remove(self, val):
+        self._set.remove(ValueWrapper(val))
+
+    def discard(self, val):
+        self._set.discard(ValueWrapper(val))
+
     def __and__(self, other: ValueSet):
         return ValueSet(self._set & other._set)
+
+    def __sub__(self, other: ValueSet):
+        return ValueSet(self._set - other._set)
 
     def __or__(self, other: ValueSet):
         return ValueSet(self._set | other._set)
