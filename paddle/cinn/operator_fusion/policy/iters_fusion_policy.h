@@ -36,6 +36,8 @@ struct ItersFusionPolicy final : public PolicyBase {
                             const PatternNodePtr& target);
   bool CheckItersRelation(const PatternNodePtr& source,
                           const PatternNodePtr& target);
+  bool ReduceFusionConstraint(const PatternNodePtr& upstream,
+                              const PatternNodePtr& downstream);
   std::optional<ItersTransformRoute> GetItersTransformRoute(
       const PatternNodePtr& source, const PatternNodePtr& target);
   FusionItersSignature SingleDownstreamItersFusion(
@@ -79,6 +81,7 @@ struct ItersFusionPolicy final : public PolicyBase {
       {ItersTransformType::ReuseIters, true},
       {ItersTransformType::AppendIters, true},
   };
+  static const int64_t reduce_dims_product_limit = 1024 * 8;
 };
 
 std::string DebugStrItersTransformRoute(const ItersTransformRoute& route);

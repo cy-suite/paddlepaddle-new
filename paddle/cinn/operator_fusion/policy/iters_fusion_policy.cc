@@ -72,6 +72,39 @@ bool ItersFusionPolicy::CanFuseSource2Target(const PatternNodePtr& source,
   }
 }
 
+bool ItersFusionPolicy::ReduceFusionConstraint(
+    const PatternNodePtr& upstream, const PatternNodePtr& downstream) {
+  auto sink_transform_route = GetItersTransformRoute(upstream, downstream);
+  auto lift_transform_route = GetItersTransformRoute(downstream, upstream);
+  if (sink_transform_route == std::nullopt ||
+      lift_transform_route == std::nullopt) {
+    return false;
+  }
+  auto transform_route = sink_transform_route == std::nullopt
+                             ? lift_transform_route.value()
+                             : sink_transform_route.value();
+  // 1. If upstream has no reduce iters,
+  // we can always apply grid reduce after fusion.
+  if (upstream->fusion_iters().reduce_iter_nums == 0) return true;
+  // 2. If reduce dims product does not exceed limit,
+  // there is no need to apply grid reduce.
+  auto reduce_dims_product =
+      iters_manager_->GetReduceDimsProduct(upstream->fusion_iters());
+  if (reduce_dims_product.isa<int64_t>() &&
+      reduce_dims_product.dyn_cast<int64_t>() <= reduce_dims_product_limit) {
+    return true;
+  }
+  // 3. Check whether can apply grid reduce after fusion: Traverse all reduce
+  // op in upstream, if their direct/indirect downstreams contains reduce op or
+  // broadcast op which need reuse reduce axis, we can not apply grid reduce.
+  for (const auto& transform : transform_route) {
+    if (std::holds_alternative<ReuseItersTransform>(transform)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 std::optional<ItersTransformRoute> ItersFusionPolicy::GetItersTransformRoute(
     const PatternNodePtr& source, const PatternNodePtr& target) {
   if (routes_.count(source) && routes_[source].count(target)) {
