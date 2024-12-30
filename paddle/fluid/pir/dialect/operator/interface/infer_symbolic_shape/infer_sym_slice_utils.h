@@ -385,16 +385,14 @@ inline ExprVec GetStridedSliceDims(
       if (strides[i].isa<int64_t>()) {
         if (strides[i] > 0) {
           symbol::List<symbol::DimExpr> min_lists{
-              symbol::DimExpr({-1}) *
-                  ((starts[i] - in_dims[axis]) / strides[i]),
+              (in_dims[axis] - starts[i] + 1 + strides[i]) / strides[i],
               out_dim};
 
           slice_dims[axis] =
               symbol::DimExpr({symbol::Min<symbol::DimExpr>({min_lists})});
         } else {
           symbol::List<symbol::DimExpr> min_lists{
-              symbol::DimExpr({-1}) *
-                  ((starts[i] - in_dims[axis]) / strides[i]),
+              (in_dims[axis] - starts[i] + 1 + strides[i]) / strides[i],
               out_dim};
 
           slice_dims[axis] =
@@ -504,10 +502,20 @@ inline ShapeOrData StridedSliceRawInferSymbolicShape(
     return symbol::ShapeOrDataDimExprs{
         symbol::TensorShapeOrDataDimExprs(shape, out_data)};
   };
-
-  const auto &out_shape = in_shapeordata.data().has_value()
-                              ? GetDataDimExprs()
-                              : GetShapeDimExprs();
+  bool starts_ends_all_int =
+      std::all_of(starts_expr.begin(),
+                  starts_expr.end(),
+                  [](const symbol::DimExpr &e) { return e.isa<int64_t>(); }) &&
+      std::all_of(ends_expr.begin(),
+                  ends_expr.end(),
+                  [](const symbol::DimExpr &e) { return e.isa<int64_t>(); });
+  &&std::all_of(strides_expr.begin(),
+                strides_expr.end(),
+                [](const symbol::DimExpr &e) { return e.isa<int64_t>(); });
+  const auto &out_shape =
+      in_shapeordata.data().has_value() && starts_ends_all_int
+          ? GetDataDimExprs()
+          : GetShapeDimExprs();
   if (out_shape.data().has_value() && out_shape.shape().empty()) {  // 0D tensor
     const paddle::dialect::DenseTensorType &tensor_type =
         out.type().dyn_cast<paddle::dialect::DenseTensorType>();
