@@ -701,7 +701,7 @@ class Optimizer:
         """
         Get current learning rate of optimizer.
         If 'LRScheduler' is not used, the return value is all the same.
-        If 'LRScheduler' is used, the return value is the current scheduled learing rete.
+        If 'LRScheduler' is used, the return value is the current scheduled learning rete.
 
         Returns:
             float, The current learning rate of optimizer.
@@ -803,7 +803,7 @@ class Optimizer:
     def _append_optimize_op(self, block, param_and_grad):
         """append optimize operator to block and return all the added optimize_op"""
         raise NotImplementedError(
-            'Class "Optimizer" connot be used directly as an optimizer, please use its subclasses such as "Adam"'
+            'Class "Optimizer" cannot be used directly as an optimizer, please use its subclasses such as "Adam"'
         )
 
     def _create_param_lr(self, param_and_grad):

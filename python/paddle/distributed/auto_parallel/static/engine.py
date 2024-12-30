@@ -640,7 +640,7 @@ class Engine:
             outputs_indices = fetch_indices[group_idx]
             logs_out = {}
             for idx in outputs_indices:
-                logs_out["out%d" % (idx)] = outs[idx]
+                logs_out[f"out{idx}"] = outs[idx]
             logs["outputs"] = logs_out
             group_idx += 1
         # logging user fetches
@@ -804,6 +804,15 @@ class Engine:
 
         # re-run apply_mix2dist_pass to dist accumulator.
         apply_mix2dist_pass(dist_program)
+
+        if mode == "train" and self._strategy.recompute.enable:
+            config = copy.deepcopy(self._strategy.recompute.to_dict())
+            auto_parallel_recompute_pir_pass = new_pass(
+                "auto_parallel_recompute_pir", config
+            )
+            auto_parallel_recompute_pir_pass.apply(
+                [dist_program], [startup_program]
+            )
 
         # Part 2: Parallelism search (for full auto-parallel)
         # NOTE make all parallelis search logic work as Pass,

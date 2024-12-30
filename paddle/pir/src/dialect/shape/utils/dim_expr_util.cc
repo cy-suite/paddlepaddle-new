@@ -196,9 +196,8 @@ struct IsListLhsBeforeListRhsStruct {
       return false;
     }
     for (std::size_t i = 0; i < lhs_operands->size(); ++i) {
-      if (!IsLhsBeforeRhs(lhs_operands->at(i), rhs_operands->at(i))) {
-        return false;
-      }
+      if (lhs_operands->at(i) == rhs_operands->at(i)) continue;
+      return IsLhsBeforeRhs(lhs_operands->at(i), rhs_operands->at(i));
     }
     return true;
   }
@@ -1044,6 +1043,7 @@ DimExpr Simplify(const DimExpr& expr) {
   DimExpr ret = expr;
   for (bool keep_rewrite = true; keep_rewrite;) {
     keep_rewrite = false;
+    const DimExpr expr_before_run_pipeline = ret;
     DoPass<SimplifyOneOperand<Negative>>(&keep_rewrite, &ret);
     DoPass<SimplifyOneOperand<Reciprocal>>(&keep_rewrite, &ret);
     DoPass<SimplifyUnitOneOperand<Negative>>(&keep_rewrite, &ret);
@@ -1071,6 +1071,7 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<FoldRedundantBroadcast>(&keep_rewrite, &ret);
     DoPass<FoldRedundantSymbolicBroadcast>(&keep_rewrite, &ret);
     DoPass<SimplifyBroadcast>(&keep_rewrite, &ret);
+    if (expr_before_run_pipeline == ret) break;
   }
   return ret;
 }
@@ -1249,6 +1250,15 @@ IR_API PriorityComparisonStatus CompareDimExprPriority(const DimExpr& lhs,
     return lhs_priority < rhs_priority ? PriorityComparisonStatus::HIGHER
                                        : PriorityComparisonStatus::LOWER;
   }
+
+  const auto& HasSubset = [&](const DimExpr& lhs, const DimExpr& rhs) {
+    std::unordered_map<DimExpr, DimExpr> subsitute_patterns;
+    subsitute_patterns[rhs] = DimExpr{"NS"};
+    if (SubstituteDimExpr(lhs, subsitute_patterns) != lhs) return true;
+    return false;
+  };
+  if (HasSubset(lhs, rhs)) return PriorityComparisonStatus::LOWER;
+  if (HasSubset(rhs, lhs)) return PriorityComparisonStatus::HIGHER;
 
   auto CompareForEqualPriority = common::Overloaded{
       [](const std::string& lhs, const std::string& rhs) {
