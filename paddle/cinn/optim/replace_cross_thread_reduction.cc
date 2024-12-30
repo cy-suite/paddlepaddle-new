@@ -130,16 +130,8 @@ struct CrossThreadReductionReplacer : public ir::IRMutator<> {
     auto& operand = node->b();
     std::string reduce_func_name = hlir::pe::CrossThreadReduceExternalFuncName(
         store->As<ir::Store>()->value, operand.template As<ir::Load>()->tensor);
-    auto tmp_dtype =
-        operand.template As<ir::Load>()->tensor.as_tensor()->type();
-    auto tmp_buffer = ir::_Buffer_::Make(
-        "shm32_" + hlir::pe::Type2StrForReduce(tmp_dtype) + "_reduce",
-        {ir::Expr(32)});
-    tmp_buffer->dtype = tmp_dtype;
-    tmp_buffer->memory_type = ir::MemoryType::GPUShared;
-    shm_buffer_.insert(tmp_buffer);
-    store->As<ir::Store>()->value = lang::CallExtern(
-        reduce_func_name, {node->b(), tmp_buffer, ir::Expr(return_warp)});
+    store->As<ir::Store>()->value =
+        lang::CallExtern(reduce_func_name, {node->b(), ir::Expr(return_warp)});
   }
 
   template <typename OpT>
