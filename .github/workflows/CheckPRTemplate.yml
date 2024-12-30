@@ -4,9 +4,6 @@ on:
   pull_request:
     branches: [develop]
     types: [opened, synchronize, reopened, edited]
-  pull_request_target:
-    branches: [develop]
-    types: [opened, synchronize, reopened, edited]
 
 jobs:
   approve:
