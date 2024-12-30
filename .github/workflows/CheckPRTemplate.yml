@@ -24,7 +24,7 @@ jobs:
         id: get_commit_message
         run: |
           COMMIT_MESSAGE=$(git log -1 --pretty=%B)
-          echo "commit_message=$COMMIT_MESSAGE" >> $GITHUB_ENV
+    #      echo "commit_message=$COMMIT_MESSAGE" >> $GITHUB_ENV
 
     # - name: Do check
     #   env:
