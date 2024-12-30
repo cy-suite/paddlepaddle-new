@@ -204,7 +204,7 @@ class FunctionSpec:
                         dist_feed_value = paddle._pir_ops.shard_tensor(
                             feed_value, var_spec.mesh, placements
                         )
-                        inputs.append(dist_feed_value)
+                        inputs.append(feed_value)
                         # dist_dense_tensor_type = paddle.base.libpaddle.pir.create_dist_dense_tensor_type_by_dense_tensor(
                         #     feed_value.type(),
                         #     var_spec.local_shape,
