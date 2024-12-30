@@ -614,7 +614,7 @@ class TestPad3dCase1TRTPattern(TensorRTBaseTest):
             "paddings": [1, 0, 1, 2, 0, 0],
             "mode": "constant",
             "value": 0.0,
-            "data_format": "NCDHW"
+            "data_format": "NCDHW",
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 1, 1, 2, 3]}
