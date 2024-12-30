@@ -956,7 +956,7 @@ def pad3d_converter(network, paddle_op, inputs):
         paddings = inputs[1]
     else:
         paddings = paddle_op.attrs().get("paddings")
-        paddings = add_1d_constant_layer(network, paddings)
+        paddings = add_1D_constant_layer(network, paddings)
     value = paddle_op.attrs().get("value", 0.0)
     padding_mode = paddle_op.attrs().get("mode", "constant")
     input_dim = len(input_tensor.shape)

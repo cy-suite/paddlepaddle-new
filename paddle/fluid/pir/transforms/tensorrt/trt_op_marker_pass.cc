@@ -2086,7 +2086,7 @@ class Pad3dOpPattern : public pir::OpRewritePattern<paddle::dialect::Pad3dOp> {
         !pir::GetDefiningOpForInput(op, 1)->isa<paddle::dialect::FullOp>()) {
       return false;
     }
-    if (!op->HasAttribute("mode")){
+    if (!op->HasAttribute("mode")) {
       auto mode = op->attribute<pir::StrAttribute>("mode").AsString();
       if (mode != "constant" && mode != "reflect" && mode != "replicate") {
         VLOG(3) << "The pad3d layer of TRT only support "
@@ -2094,14 +2094,14 @@ class Pad3dOpPattern : public pir::OpRewritePattern<paddle::dialect::Pad3dOp> {
         return false;
       }
     }
-    if (!op->HasAttribute("data_format")){
+    if (!op->HasAttribute("data_format")) {
       auto data_format =
           op->attribute<pir::StrAttribute>("data_format").AsString();
       if (data_format != "NCDHW") {
         VLOG(3) << "The pad3d layer of TRT only support NCDHW data format.";
         return false;
       }
-        }
+    }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
