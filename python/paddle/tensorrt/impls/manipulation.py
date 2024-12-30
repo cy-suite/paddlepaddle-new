@@ -947,3 +947,63 @@ def roll_converter(network, paddle_op, inputs):
             )
 
     return layer.get_output(0)
+
+
+@converter_registry.register("pd_op.pad3d", trt_version="8.x")
+def pad3d_converter(network, paddle_op, inputs):
+    input_tensor = inputs[0]
+    if len(paddle_op.operands()) > 1:
+        paddings = inputs[1]
+    else:
+        paddings = paddle_op.attrs().get("paddings")
+        paddings = add_1d_constant_layer(network, paddings)
+    value = paddle_op.attrs().get("value", 0.0)
+    padding_mode = paddle_op.attrs().get("mode", "constant")
+    input_dim = len(input_tensor.shape)
+    pad_size = paddings.shape[0]
+    assert input_dim * 2 - 4 == pad_size, (
+        "Expected paddings size is {}, but received {}.".format(input_dim * 2 - 4, pad_size)
+    )
+
+    shuffle_index = [4, 2, 0, 5, 3, 1]
+    shuffle_inputs = [network.add_slice(paddings, [i], [1], [1]).get_output(0) for i in shuffle_index]
+    paddings = trt_concat(network, shuffle_inputs)
+
+    pre_zeros = add_1D_constant_layer(network, [0, 0])
+    start_slice1 = [0]
+    start_slice2 = [3]
+    size_slice = [3]
+    stride_slice = [1]
+    pre_pad = network.add_slice(paddings, start_slice1, size_slice, stride_slice).get_output(0)
+    pre_pad = trt_concat(network, [pre_zeros, pre_pad])
+    post_pad = network.add_slice(paddings, start_slice2, size_slice, stride_slice).get_output(0)
+    post_pad = trt_concat(network, [pre_zeros, post_pad])
+
+    zeros = add_1D_constant_layer(network, [0] * input_dim)
+
+    start = trt_sub(network, zeros, pre_pad)
+    total_padding = trt_sum(network, pre_pad, post_pad)
+    input_shape = trt_shape(network, input_tensor)
+    size = trt_sum(network, input_shape, total_padding)
+
+    # Add slice layer
+    stride = [1] * input_dim
+    dummy = stride
+    slice_layer = network.add_slice(input_tensor, dummy, dummy, stride)
+    slice_layer.set_input(1, start)
+    slice_layer.set_input(2, size)
+
+    # Set padding mode
+    if padding_mode == "constant":
+        slice_layer.mode = trt.SliceMode.FILL
+        if value != 0.0:
+            fill_value = add_1D_constant_layer(network, value)
+            slice_layer.set_input(4, fill_value)
+    elif padding_mode == "reflect":
+        slice_layer.mode = trt.SliceMode.REFLECT
+    elif padding_mode == "replicate":
+        slice_layer.mode = trt.SliceMode.CLAMP
+    else:
+        raise ValueError(f"Unsupported mode: {padding_mode}")
+
+    return slice_layer.get_output(0)

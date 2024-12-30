@@ -606,5 +606,27 @@ class TestSqueezeCase1TRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestPad3dCase1TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle._C_ops.pad3d
+        self.api_args = {
+            "x": np.random.random([1, 1, 1, 2, 3]).astype("float32"),
+            "paddings": [1, 0, 1, 2, 0, 0],
+            "mode": "constant",
+            "value": 0.0,
+            "data_format": "NCDHW"
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 1, 1, 2, 3]}
+        self.opt_shape = {"x": [1, 1, 1, 2, 3]}
+        self.max_shape = {"x": [1, 1, 1, 2, 3]}
+
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
+        self.check_trt_result()
+
+
 if __name__ == '__main__':
     unittest.main()
