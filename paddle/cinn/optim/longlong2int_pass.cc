@@ -135,6 +135,17 @@ class CastLonglong2IntMutator : public ir::IRMutator<> {
   }
 };
 
+class LongLong2IntStmtPass : public StmtPass {
+ public:
+  LongLong2IntStmtPass() : StmtPass("longlong2int_stmt") {}
+  LogicalResult Run(ir::stmt::StmtRef stmt) override;
+};
+
+class LongLong2IntExprPass : public ExprPass {
+ public:
+  LongLong2IntExprPass() : ExprPass("longlong2int_expr") {}
+  LogicalResult Run(ir::Expr expr) override;
+};
 }  // namespace
 
 LogicalResult LongLong2IntStmtPass::Run(ir::stmt::StmtRef stmt) {
@@ -235,6 +246,9 @@ std::unique_ptr<ExprPass> CreateLongLong2IntExprPass() {
   return std::make_unique<LongLong2IntExprPass>();
 }
 
+// Check if the given block can be converted from long long to int,
+// A.K.A. the product of the extents of all possible nested loops is within
+// INT_MAX
 bool CanApplyLongLong2Int(ir::stmt::BlockRef block) {
   CheckOverflow check_overflow;
   return !check_overflow(block);
