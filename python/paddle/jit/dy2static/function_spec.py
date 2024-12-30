@@ -368,6 +368,10 @@ def get_buffers(layer_instance, include_sublayer=True):
 
 
 def _replace_value_with_input_spec(args):
+    from paddle.distributed.auto_parallel.static.dist_input_spec import (
+        DistributedInputSpec,
+    )
+
     args_with_spec = []
     for idx, input_var in enumerate(paddle.utils.flatten(args)):
         if isinstance(input_var, np.ndarray):
@@ -375,15 +379,32 @@ def _replace_value_with_input_spec(args):
             input_var.stop_gradient = True
         elif isinstance(input_var, core.eager.Tensor):
             stop_gradient = input_var.stop_gradient
-            input_var = paddle.static.InputSpec.from_tensor(input_var)
+            if input_var.is_dist():
+                input_var = DistributedInputSpec.from_dtensor(input_var)
+            else:
+                input_var = paddle.static.InputSpec.from_tensor(input_var)
             input_var.stop_gradient = stop_gradient
         elif isinstance(
             input_var, (paddle.base.framework.Variable, paddle.pir.Value)
         ):
             stop_gradient = input_var.stop_gradient
-            input_var = paddle.static.InputSpec(
-                input_var.shape, input_var.dtype, input_var.name
-            )
+            if input_var.is_dist():
+                mesh = input_var.dist_attr().process_mesh
+                placements = to_placements(
+                    input_var.dist_attr().dims_mapping, mesh
+                )
+                input_var = DistributedInputSpec(
+                    input_var.shape,
+                    dtype=input_var.dtype,
+                    name=input_var.name,
+                    mesh=mesh,
+                    placements=placements,
+                    local_shape=input_var._local_shape,
+                )
+            else:
+                input_var = paddle.static.InputSpec(
+                    input_var.shape, input_var.dtype, input_var.name
+                )
             input_var.stop_gradient = stop_gradient
 
         args_with_spec.append(input_var)
