@@ -72,7 +72,8 @@ class IR_API TuplePushOp : public Op<TuplePushOp, SideEffectTrait> {
   TuplePopOp tuple_pop_op();
 };
 
-class IR_API TuplePopOp : public Op<TuplePopOp, SideEffectTrait> {
+class IR_API TuplePopOp
+    : public Op<TuplePopOp, SideEffectTrait, pir::InferSymbolicShapeInterface> {
  public:
   using Op::Op;
   static const char *name() { return "cf.tuple_pop"; }
@@ -99,6 +100,8 @@ class IR_API TuplePopOp : public Op<TuplePopOp, SideEffectTrait> {
     return outlet().defining_op<ContainerOpInterface>();
   }
   TuplePushOp tuple_push_op() { return container_interface().tuple_push_op(); }
+
+  bool InferSymbolicShape(pir::InferSymbolicShapeContext *infer_context);
 };
 
 class IR_API StackCreateOp : public Op<StackCreateOp,

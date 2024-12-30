@@ -158,6 +158,19 @@ void TuplePopOp::VerifyRegion() {
   VLOG(4) << "End Verifying for TuplePopOp.";
 }
 
+bool TuplePopOp::InferSymbolicShape(
+    pir::InferSymbolicShapeContext *infer_context) {
+  const auto &stack_create_op = operand_source(0).defining_op<StackCreateOp>();
+  const Value &inlet_of_stack_create = stack_create_op.result(1);
+  Operation *tuple_push_op = inlet_of_stack_create.first_use().owner();
+  for (size_t index = 1; index < tuple_push_op->num_operands(); ++index) {
+    const Value &pushed_value = tuple_push_op->operand_source(index);
+    infer_context->SetShapeOrDataForValue(
+        result(index), infer_context->GetShapeOrDataForValue(pushed_value));
+  }
+  return true;
+}
+
 void StackCreateOp::Build(Builder &builder, OperationArgument &argument) {
   auto stack_type = StackType::get(builder.ir_context());
   auto inlet_type = InletType::get(builder.ir_context());
