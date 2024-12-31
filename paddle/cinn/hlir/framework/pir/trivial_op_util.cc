@@ -182,7 +182,6 @@ void SubstitudeTargetExprWithDestExpr(const ir::Expr& source,
   VLOG(4) << "SubstitideExpr Start";
   VLOG(5) << "Substitide Body : " << *body;
   ir::Expr new_dest = dest;
-  optim::Simplify(&new_dest);
   if (source.type() != dest.type()) {
     VLOG(4) << "Cast the dest" << dest << " to type" << source.type();
     new_dest = ir::Cast::Make(source.type(), dest);
@@ -316,15 +315,6 @@ ExprSetFinder ScheduleBlockRealizeIsInit = FilterMaker(
                       ->name.find("__reduce_init") != std::string::npos);
     },
     "ScheduleBlockRealizeIsInit");
-
-ExprSetFinder ScheduleBlockRealizeIsSplitTransform = FilterMaker(
-    [](const ir::Expr& e) -> bool {
-      return (e.As<ir::ScheduleBlockRealize>() &&
-              e.As<ir::ScheduleBlockRealize>()
-                      ->schedule_block.As<ir::ScheduleBlock>()
-                      ->name.find("_split_transform") != std::string::npos);
-    },
-    "ScheduleBlockRealizeIsSplitTransform");
 
 ExprSetFinder IsFor = FilterMaker(
     [](const ir::Expr& e) -> bool { return e.As<ir::For>(); }, "IsFor");
