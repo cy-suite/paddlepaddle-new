@@ -30,10 +30,9 @@ namespace analyzer {
 // Dep detail: RAW | WAW | WAR
 enum class DepKind { DEP, NO_DEP };
 
-// Var or Tensor
+// Var or Tensor name
 struct DepData {
   std::string name;
-  ir::Expr data;
 };
 
 struct StmtCompare {
@@ -45,10 +44,7 @@ struct StmtCompare {
 
 struct DepDataCompare {
   bool operator()(const DepData& a, const DepData& b) const {
-    if (!a.data.defined() || !b.data.defined()) {
-      return a.name < b.name;
-    }
-    return !(a.data.get() == b.data.get() || a.name == b.name);
+    return a.name < b.name;
   }
 };
 
@@ -71,14 +67,14 @@ class DataDependencyGraph {
     BuildGraphByStmts();
   }
 
-  // Returns DepKind::Dep if there is a path in the data dependency graph from
+  // Returns DepKind::DEP if there is a path in the data dependency graph from
   // node src to node dst. Returns DepKind::NO_DEP otherwise. src and dst, are
   // expected to be from the same block.
   DepKind HasDependency(const ir::stmt::StmtRef& src,
                         const ir::stmt::StmtRef& dst) const;
 
   // Node represents a node in the graph. A Node is a stmt which contains
-  // loads/stores,
+  // loads/stores.
   struct Node {
     // The unique identifier of this node in the graph.
     unsigned id;
@@ -90,7 +86,7 @@ class DataDependencyGraph {
     std::set<DepData, DepDataCompare> stores;
 
     Node() = default;
-    Node(unsigned id, const ir::stmt::StmtRef& stmt) : id(id), stmt(stmt) {}
+    Node(unsigned id, const ir::stmt::StmtRef& stmt);
   };
 
   struct Edge {
