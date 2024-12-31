@@ -33,6 +33,7 @@ jobs:
       - name: Check pre-commit
         run: |
           git checkout -b test
+          echo $(git branch)
           pip --disable-pip-version-check install --upgrade pip
           set +e
           bash -x tools/codestyle/pre_commit.sh;EXCODE=$?
