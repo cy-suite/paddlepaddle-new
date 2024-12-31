@@ -216,7 +216,7 @@ C_Status GraphEngineBuild(C_CustomEngineInstruction instruction) {
   return C_SUCCESS;
 }
 
-void InitFakeCPUEngine(CustomEngineParams* params) {
+void InitPluginCustomEngine(CustomEngineParams* params) {
   memset(reinterpret_cast<void*>(params->interface),
          0,
          sizeof(C_CustomEngineInterface));

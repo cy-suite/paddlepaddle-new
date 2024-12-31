@@ -18,7 +18,6 @@
 #include <string>
 
 #include "paddle/fluid/custom_engine/custom_engine_manager.h"
-#include "paddle/fluid/custom_engine/fake_cpu_engine.h"
 #include "paddle/fluid/platform/init.h"
 #include "paddle/phi/backends/custom/fake_cpu_device.h"
 #include "paddle/phi/backends/device_manager.h"
@@ -64,7 +63,7 @@ void RegisterEngine() {
   std::memset(engine_params.interface, 0, sizeof(C_CustomEngineInterface));
   engine_params.interface->size = sizeof(C_CustomEngineInterface);
 
-  InitFakeCPUEngine(&engine_params);
+  InitPluginCustomEngine(&engine_params);
   paddle::custom_engine::LoadCustomEngineLib("", &engine_params);
 }
 
