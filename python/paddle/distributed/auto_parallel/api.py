@@ -753,7 +753,10 @@ def dtensor_from_local(local_tensor, mesh, placements):
 
 def dtensor_to_local(dist_tensor):
     if paddle.in_dynamic_mode():
-        return dist_tensor._local_value()
+        if dist_tensor.is_dist() is False:
+            raise ValueError("The input should be a distributed tensor.")
+
+        return paddle.base.core.dtensor_to_local(dist_tensor)
     elif paddle.framework.in_pir_mode():
         return paddle._C_ops.dtensor_to_local(dist_tensor)
     else:
@@ -3672,15 +3675,3 @@ def in_auto_parallel_align_mode():
     return paddle.base.framework.get_flags(
         "FLAGS_enable_auto_parallel_align_mode"
     )["FLAGS_enable_auto_parallel_align_mode"]
-
-
-def dtensor_to_local(dist_tensor):
-    if paddle.in_dynamic_mode():
-        if dist_tensor.is_dist() is False:
-            raise ValueError("The input should be a distributed tensor.")
-
-        return paddle.base.core.dtensor_to_local(dist_tensor)
-    else:
-        raise NotImplementedError(
-            "dtensor_to_local is only supported in dygraph mode now."
-        )
