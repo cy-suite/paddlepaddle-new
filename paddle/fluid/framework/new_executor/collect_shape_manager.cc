@@ -127,6 +127,7 @@ void CollectShapeManager::StatisticShapeRangeInfo() {
           std::vector<int32_t> min_shape(shapes[0].begin(), shapes[0].end());
           std::vector<int32_t> max_shape(shapes[0].begin(), shapes[0].end());
           std::vector<int32_t> opt_shape(shapes[0].begin(), shapes[0].end());
+          // Applicable to scenarios where min/opt/max are specified;
           if (shapes.size() == 3) {
             for (size_t d = 0; d < shapes[0].size(); ++d) {
               std::vector<int32_t> dim_values;
@@ -142,6 +143,7 @@ void CollectShapeManager::StatisticShapeRangeInfo() {
             max_data[val] = max_shape;
             opt_data[val] = opt_shape;
           } else {
+            // suitable for scenarios where shape is automatically collected.
             auto ShapeMaxFreq =
                 [](const std::map<int32_t, int32_t> &m) -> int32_t {
               std::vector<std::pair<int32_t, int32_t>> counter;
