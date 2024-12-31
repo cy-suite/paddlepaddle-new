@@ -130,6 +130,5 @@ inline std::optional<ir::Expr> TryConstFold<ir::Max>(ir::Expr a, ir::Expr b) {
   }
   return std::nullopt;
 }
-
 }  // namespace common
 }  // namespace cinn

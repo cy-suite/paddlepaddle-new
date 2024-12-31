@@ -1,4 +1,4 @@
-// Copyright (c) 2024 CINN Authors. All Rights Reserved.
+// Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,12 +13,14 @@
 // limitations under the License.
 
 #pragma once
-#include "paddle/cinn/ir/ir.h"
 
-namespace cinn {
-namespace optim {
+#include <memory>
+#include "paddle/pir/include/core/dll_decl.h"
 
-// Try to change the type of longlong to int in the expr.
-void TryCastLonglong2Int(Expr* expr);
-}  // namespace optim
-}  // namespace cinn
+namespace pir {
+
+class Pass;
+
+IR_API std::unique_ptr<Pass> CreateCPUSpecialOpsBf16Pass();
+
+}  // namespace pir

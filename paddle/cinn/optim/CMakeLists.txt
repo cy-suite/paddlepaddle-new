@@ -16,7 +16,7 @@ gather_srcs(
   call_arg_list_to_pod_value.cc
   insert_debug_log_callee.cc
   lower_function_call_bind_vars.cc
-  extern_call_process.cc
+  extern_call_process_pass.cc
   map_extern_call.cc
   compute_inline_expand.cc
   buffer_assign.cc
@@ -38,7 +38,7 @@ gather_srcs(
   eliminate_common_global_memory_read.cc
   rearrange_load_instruction.cc
   check_tensor_buffer_map.cc
-  longlong2int.cc
+  longlong2int_pass.cc
   vectorize_for_trans.cc)
 
 if(WITH_CUDA OR WITH_ROCM)
