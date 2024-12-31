@@ -11,8 +11,6 @@ jobs:
     steps:
     - name: Clone paddle
       uses: actions/checkout@v4
-      with:
-        ref: refs/pull/${{ github.event.pull_request.number }}/merge
 
     - name: Cache python dependencies
       uses: actions/cache@v4
