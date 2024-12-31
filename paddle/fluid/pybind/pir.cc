@@ -1473,7 +1473,7 @@ void BindValue(py::module *m) {
              }
              return op_list;
            })
-      .def("all_used_ops_consider_cf",
+      .def("all_used_ops_in_same_block",
            [](Value &self) -> py::list {
              py::list op_list;
              for (auto it = self.use_begin(); it != self.use_end(); ++it) {

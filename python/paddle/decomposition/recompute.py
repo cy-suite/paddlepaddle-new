@@ -220,7 +220,7 @@ class JudgeFusionLoop:
         def _get_consumer_ops(op):
             consumers = set()
             for result in op.results():
-                for parent_op in result.all_used_ops_consider_cf():
+                for parent_op in result.all_used_ops_in_same_block():
                     if parent_op is not None:
                         consumers.add(parent_op)
                         self.result_value_set.add(result)
@@ -545,8 +545,8 @@ def auto_recompute(
             continue
 
         if len(
-            value_node.all_used_ops_consider_cf()
-        ) == 1 and value_node.all_used_ops_consider_cf()[0].name() in [
+            value_node.all_used_ops_in_same_block()
+        ) == 1 and value_node.all_used_ops_in_same_block()[0].name() in [
             "builtin.split",
             "builtin.slice",
         ]:
@@ -617,7 +617,7 @@ def auto_recompute(
             nx_graph.add_edge(
                 value_node.id + "_out", user.id + "_in", capacity=math.inf
             )
-        for user in value_node.all_used_ops_consider_cf():
+        for user in value_node.all_used_ops_in_same_block():
             if user in forward_ops:
                 if judge_fusion_loop._has_unfusible_op_on_any_path(
                     value_node.get_defining_op(), user
@@ -939,7 +939,7 @@ def find_value_node_users(
     Find all the value nodes which use the same value node to be computed.
     '''
     users = backward_utils.ValueSet()
-    ops = value_node.all_used_ops_consider_cf()
+    ops = value_node.all_used_ops_in_same_block()
     if without_no_need_buffer:
         if value_node in bw_no_need_buffer_values:
             ops = [op for op in ops if op in forward_ops]
@@ -948,16 +948,18 @@ def find_value_node_users(
             combine_result = op.results()[0]
             for (
                 combine_res_used_op
-            ) in combine_result.all_used_ops_consider_cf():
+            ) in combine_result.all_used_ops_in_same_block():
                 results = combine_res_used_op.results()
                 for result in results:
                     if len(
-                        result.all_used_ops_consider_cf()
-                    ) == 1 and result.all_used_ops_consider_cf()[0].name() in [
+                        result.all_used_ops_in_same_block()
+                    ) == 1 and result.all_used_ops_in_same_block()[
+                        0
+                    ].name() in [
                         "builtin.split",
                         "builtin.slice",
                     ]:
-                        split_results = result.all_used_ops_consider_cf()[
+                        split_results = result.all_used_ops_in_same_block()[
                             0
                         ].results()
                         users |= backward_utils.ValueSet(split_results)
@@ -967,12 +969,12 @@ def find_value_node_users(
             results = op.results()
             for result in results:
                 if len(
-                    result.all_used_ops_consider_cf()
-                ) == 1 and result.all_used_ops_consider_cf()[0].name() in [
+                    result.all_used_ops_in_same_block()
+                ) == 1 and result.all_used_ops_in_same_block()[0].name() in [
                     "builtin.split",
                     "builtin.slice",
                 ]:
-                    split_results = result.all_used_ops_consider_cf()[
+                    split_results = result.all_used_ops_in_same_block()[
                         0
                     ].results()
                     users |= backward_utils.ValueSet(split_results)
@@ -1052,7 +1054,7 @@ def cal_value_nodes_dist_to_backward(all_ops, required_fw_value_nodes):
             continue
         op_results = op.results()
         for op_result in op_results:
-            used_ops = op_result.all_used_ops_consider_cf()
+            used_ops = op_result.all_used_ops_in_same_block()
             if len(used_ops) == 1 and used_ops[0].name() in [
                 "builtin.split",
                 "builtin.slice",
@@ -1074,12 +1076,14 @@ def all_used_op_consider_combine(program, value):
     def filter_unused_combine(op):
         if (
             op.name() == "builtin.combine"
-            and len(op.result(0).all_used_ops_consider_cf()) == 0
+            and len(op.result(0).all_used_ops_in_same_block()) == 0
         ):
             return False
         return True
 
-    return list(filter(filter_unused_combine, value.all_used_ops_consider_cf()))
+    return list(
+        filter(filter_unused_combine, value.all_used_ops_in_same_block())
+    )
 
 
 def analyze_mid_hold_values(
@@ -1110,7 +1114,7 @@ def analyze_mid_hold_values(
 
 
 def get_first_backward_use_op(fwd_op, backward_ops):
-    for user_op in fwd_op.results()[0].all_used_ops_consider_cf():
+    for user_op in fwd_op.results()[0].all_used_ops_in_same_block():
         if user_op in backward_ops:
             return user_op
 
