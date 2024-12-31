@@ -86,23 +86,21 @@ bool ItersFusionPolicy::ReduceFusionConstraint(
   // 1. If upstream has no reduce iters,
   // we can always apply grid reduce after fusion.
   if (upstream->fusion_iters().reduce_iter_nums == 0) return true;
-  // 2. If reduce dims product does not exceed limit,
-  // there is no need to apply grid reduce.
+  // 2. Check whether reduce dims product exceeds limit.
   auto reduce_dims_product =
       iters_manager_->GetReduceDimsProduct(upstream->fusion_iters());
   if (reduce_dims_product.isa<int64_t>() &&
-      reduce_dims_product.dyn_cast<int64_t>() <= reduce_dims_product_limit) {
-    return true;
-  }
-  // 3. Check whether can apply grid reduce after fusion: Traverse all reduce
-  // op in upstream, if their direct/indirect downstreams contains reduce op or
-  // broadcast op which need reuse reduce axis, we can not apply grid reduce.
-  for (const auto& transform : transform_route) {
-    if (std::holds_alternative<ReuseItersTransform>(transform)) {
-      VLOG(4) << "Can not fuse reduce with large reduce dims while can not "
-                 "apply grid reduce"
-              << reduce_dims_product.dyn_cast<int64_t>();
-      return false;
+      reduce_dims_product.dyn_cast<int64_t>() > reduce_dims_product_limit) {
+    // 3. Traverse all reduce op in upstream, if their direct/indirect
+    // downstreams contains reduce op or broadcast op which need reuse
+    // reduce axis, we can not apply grid reduce.
+    for (const auto& transform : transform_route) {
+      if (std::holds_alternative<ReuseItersTransform>(transform)) {
+        VLOG(4) << "Can not fuse reduce with large reduce dims while can not "
+                   "apply grid reduce"
+                << reduce_dims_product.dyn_cast<int64_t>();
+        return false;
+      }
     }
   }
   return true;
