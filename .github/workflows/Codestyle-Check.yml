@@ -6,7 +6,7 @@ on:
 
 jobs:
   pre-commit:
-    if: github.repository_owner == 'PaddlePaddle'
+    # if: github.repository_owner == 'PaddlePaddle'
     runs-on: ubuntu-latest
     env:
       PR_ID: ${{ github.event.pull_request.number }}
