@@ -3829,6 +3829,26 @@ def clip(
             else paddle.full_like(x, float(max), x.dtype)
         )
         out_shape = get_clip_tensor_shape(x, min, max)
+        check_dtype(
+            x,
+            'x',
+            ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
+            'clip',
+        )
+        check_dtype(
+            min.dtype,
+            'min',
+            ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
+            'clip_tensor',
+            '(When the type of min in clip is Variable.)',
+        )
+        check_dtype(
+            max.dtype,
+            'max',
+            ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
+            'clip_tensor',
+            '(When the type of max in clip is Variable.)',
+        )
         x = paddle.broadcast_to(x, out_shape) if x.shape != out_shape else x
         min = (
             paddle.broadcast_to(min, out_shape)
@@ -3842,29 +3862,9 @@ def clip(
             else max
         )
         max.stop_gradient = True
-        if in_dynamic_mode():
+        if in_dynamic_or_pir_mode():
             return _C_ops.clip_tensor(x, min, max)
         else:
-            check_dtype(
-                x,
-                'x',
-                ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
-                'clip',
-            )
-            check_dtype(
-                min.dtype,
-                'min',
-                ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
-                'clip_tensor',
-                '(When the type of min in clip is Variable.)',
-            )
-            check_dtype(
-                max.dtype,
-                'max',
-                ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
-                'clip_tensor',
-                '(When the type of max in clip is Variable.)',
-            )
             inputs = {'x': x, 'min': min, 'max': max}
             helper = LayerHelper('clip_tensor', **locals())
             output = helper.create_variable_for_type_inference(
