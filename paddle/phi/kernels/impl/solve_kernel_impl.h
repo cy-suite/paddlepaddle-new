@@ -200,27 +200,30 @@ void SolveKernel(const Context& dev_ctx,
     auto y_dims = y.dims();
     std::vector<int> out_dims;
     if (y_dims.size() == 1) {
-      out_dims = std::vector<int>(x_dims.Get(), x_dims.Get() + x_dims.size() - 2);
+      out_dims =
+          std::vector<int>(x_dims.Get(), x_dims.Get() + x_dims.size() - 2);
       out_dims.push_back(y_dims[y_dims.size() - 1]);
-      } else {
-        // broadcast
-        std::vector<int> x_shape(x_dims.Get(), x_dims.Get() + x_dims.size() - 2);
-        std::vector<int> y_shape(y_dims.Get(), y_dims.Get() + y_dims.size() - 2);
-        auto x_it = x_shape.rbegin();
-        auto y_it = y_shape.rbegin();
-        while (x_it != x_shape.rend() || y_it != y_shape.rend()) {
-          int x_dim = (x_it != x_shape.rend()) ? *x_it : 1;
-          int y_dim = (y_it != y_shape.rend()) ? *y_it : 1;
-          out_dims.push_back(std::max(x_dim, y_dim));
-          if (x_it != x_shape.rend()) ++x_it;
-          if (y_it != y_shape.rend()) ++y_it;
+    } else {
+      // broadcast
+      std::vector<int> x_shape(x_dims.Get(), x_dims.Get() + x_dims.size() - 2);
+      std::vector<int> y_shape(y_dims.Get(), y_dims.Get() + y_dims.size() - 2);
+      auto x_it = x_shape.rbegin();
+      auto y_it = y_shape.rbegin();
+      while (x_it != x_shape.rend() || y_it != y_shape.rend()) {
+        int x_dim = (x_it != x_shape.rend()) ? *x_it : 1;
+        int y_dim = (y_it != y_shape.rend()) ? *y_it : 1;
+        out_dims.push_back(std::max(x_dim, y_dim));
+        if (x_it != x_shape.rend()) ++x_it;
+        if (y_it != y_shape.rend()) ++y_it;
         }
-        std::reverse(out_dims.begin(), out_dims.end());
-        out_dims.insert(out_dims.end(), y_dims.Get() + y_dims.size() - 2, y_dims.Get() + y_dims.size());
-      }
-      out->Resize(phi::make_ddim(out_dims));
-      dev_ctx.template Alloc<T>(out);
-      return;
+      std::reverse(out_dims.begin(), out_dims.end());
+      out_dims.insert(out_dims.end(),
+                      y_dims.Get() + y_dims.size() - 2,
+                      y_dims.Get() + y_dims.size());
+    }
+    out->Resize(phi::make_ddim(out_dims));
+    dev_ctx.template Alloc<T>(out);
+    return;
   }
   linalg_solve<Context, T>(dev_ctx, x, y, out);
 }

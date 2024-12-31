@@ -945,7 +945,7 @@ class TestSolveOpAPIZeroDimCase1(unittest.TestCase):
             )
             paddle_input_y = paddle.static.data(
                 name="input_y", shape=[6, 0, 0], dtype=self.dtype
-            )   # broadcast
+            )  # broadcast
             paddle_result = paddle.linalg.solve(
                 paddle_input_x, paddle_input_y, left=False
             )
