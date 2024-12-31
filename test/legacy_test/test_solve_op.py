@@ -923,5 +923,73 @@ class TestSolveOpSingularAPI(unittest.TestCase):
                     print("The mat is singular")
 
 
+class TestSolveOpAPIZeroDimCase1(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(2021)
+        self.place = []
+        self.dtype = "float32"
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not core.is_compiled_with_cuda()
+        ):
+            self.place.append(paddle.CPUPlace())
+        if core.is_compiled_with_cuda():
+            self.place.append(paddle.CUDAPlace(0))
+
+    def check_static_result(self, place):
+        paddle.enable_static()
+        with base.program_guard(base.Program(), base.Program()):
+            paddle_input_x = paddle.static.data(
+                name="input_x", shape=[10, 0, 0], dtype=self.dtype
+            )
+            paddle_input_y = paddle.static.data(
+                name="input_y", shape=[6, 0, 0], dtype=self.dtype
+            )   # broadcast
+            paddle_result = paddle.linalg.solve(
+                paddle_input_x, paddle_input_y, left=False
+            )
+
+            np_input_x = np.random.random([10, 0, 0]).astype(self.dtype)
+            np_input_y = np.random.random([10, 0, 0]).astype(self.dtype)
+
+            np_result = np_solve_right(np_input_x, np_input_y)
+
+            exe = base.Executor(place)
+            fetches = exe.run(
+                base.default_main_program(),
+                feed={"input_x": np_input_x, "input_y": np_input_y},
+                fetch_list=[paddle_result],
+            )
+            np.testing.assert_allclose(fetches[0], np_result, rtol=0.0001)
+
+    def test_static(self):
+        for place in self.place:
+            self.check_static_result(place=place)
+
+    def test_dygraph(self):
+        def run(place):
+            paddle.disable_static(place)
+            np.random.seed(2021)
+            input_x_np = np.random.random([10, 0, 0]).astype(self.dtype)
+            input_y_np = np.random.random([10, 0, 0]).astype(self.dtype)
+
+            tensor_input_x = paddle.to_tensor(input_x_np)
+            tensor_input_y = paddle.to_tensor(input_y_np)
+
+            numpy_output = np_solve_right(input_x_np, input_y_np)
+            paddle_output = paddle.linalg.solve(
+                tensor_input_x, tensor_input_y, left=False
+            )
+            np.testing.assert_allclose(
+                numpy_output, paddle_output.numpy(), rtol=0.0001
+            )
+            self.assertEqual(numpy_output.shape, paddle_output.numpy().shape)
+            paddle.enable_static()
+
+        for place in self.place:
+            run(place)
+
+
 if __name__ == "__main__":
     unittest.main()
