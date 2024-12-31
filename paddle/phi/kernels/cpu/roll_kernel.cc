@@ -39,7 +39,7 @@ void RollKernel(const Context& dev_ctx,
   std::vector<Type> out_vec;
   if (std::is_same<T, bool>::value) {
     DenseTensor tmp_int_tensor;
-    tmp_int_tensor = phi::Cast<T>(dev_ctx, x, phi::DataType::INT16);
+    tmp_int_tensor = phi::Cast<T, Context>(dev_ctx, x, phi::DataType::INT16);
     phi::TensorToVector(tmp_int_tensor, dev_ctx, &out_vec);
   } else {
     phi::TensorToVector(x, dev_ctx, &out_vec);
@@ -71,15 +71,14 @@ void RollKernel(const Context& dev_ctx,
     ShiftAlongDim(out_vec.data(), input_dim, dims[i], shifts_data[i]);
   }
   dev_ctx.template Alloc<T>(out);
-
   if (std::is_same<T, bool>::value) {
     DenseTensor tmp_bool_tensor;
     phi::TensorFromVector(out_vec, dev_ctx, &tmp_bool_tensor);
-    *out = phi::Cast<T, Context>(dev_ctx, tmp_bool_tensor, phi::DataType::BOOL);
+    *out =
+        phi::Cast<Type, Context>(dev_ctx, tmp_bool_tensor, phi::DataType::BOOL);
   } else {
     phi::TensorFromVector(out_vec, dev_ctx, out);
   }
-
   out->Resize(x.dims());
 }
 
