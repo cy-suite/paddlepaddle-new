@@ -65,7 +65,7 @@ black_ops_list = [
 
 
 # white ops list whose kernel can be deleted after performance analysis
-# original kernel and its derivative kernel can be deleted when composite_gradinitialized
+# original kernel and its derivative kernel can be deleted when composite_grad
 # kernel performs same to it.
 prim_white_list = [
     "matmul_double_grad",
