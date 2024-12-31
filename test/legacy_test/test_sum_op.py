@@ -679,13 +679,17 @@ class TestSumWithZeroSizeTensor(unittest.TestCase):
         self.pd_api = paddle.sum
         self.np_api = np.sum
         self.x = paddle.randn([10, 0, 0, 0], dtype='float64')  # 0-size tensor
-        self.np_axis = np.array([1, 2], dtype='int64')  # Specify the axis for reduction
+        self.np_axis = np.array(
+            [1, 2], dtype='int64'
+        )
         self.tensor_axis = paddle.to_tensor(self.np_axis, dtype='int64')
 
     def test_dygraph(self):
         self.x.stop_gradient = False
         pd_out = self.pd_api(self.x, self.tensor_axis, keepdim=self.keepdim)
-        np_out = self.np_api(self.x.numpy(), tuple(self.np_axis), keepdims=self.keepdim)
+        np_out = self.np_api(
+            self.x.numpy(), tuple(self.np_axis), keepdims=self.keepdim
+        )
         np.testing.assert_allclose(
             pd_out.numpy() if pd_out.size > 1 else pd_out.item(), np_out
         )
