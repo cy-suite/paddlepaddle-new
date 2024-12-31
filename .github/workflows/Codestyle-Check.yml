@@ -1,7 +1,8 @@
 name: Codestyle-Check
 
 on:
-  workflow_run: [Clone]
+  workflow_run:
+    workflows: [Clone]
     types: [completed]
 
 jobs:
