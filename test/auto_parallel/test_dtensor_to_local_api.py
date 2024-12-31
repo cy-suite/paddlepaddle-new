@@ -30,7 +30,7 @@ class TestDtensorToLocalAPI(test_base.CommunicationTestDistBase):
             "backend": ["gpu"],
         }
 
-    def test_reshard_api(self):
+    def test_dtensor_to_local_api(self):
         envs_list = test_base.gen_product_envs_list(
             self._default_envs, self._changeable_envs
         )

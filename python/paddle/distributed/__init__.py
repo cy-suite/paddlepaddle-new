@@ -35,7 +35,6 @@ from .auto_parallel.api import (
     ShardingStage3,
     Strategy,
     dtensor_from_fn,
-    dtensor_to_local,
     in_auto_parallel_align_mode,  # noqa: F401
     reshard,
     shard_dataloader,
@@ -205,5 +204,4 @@ __all__ = [
     "set_mesh",
     "get_mesh",
     "to_distributed",
-    "dtensor_to_local",
 ]

@@ -88,7 +88,7 @@ DtensorToLocalGradNode::operator()(
       *(static_cast<phi::DenseTensor*>(grad_out.impl().get()));
   grad_input.set_impl(dist_grad_ptr);
 
-  VLOG(5) << "Finish C++ API: reshard_func";
+  VLOG(5) << "Finish C++ API: dtensor_to_local_func";
   VLOG(6) << "gradnode_ptr = " << this;
 
   if (VLOG_IS_ON(4)) {
@@ -114,7 +114,7 @@ DtensorToLocalGradNode::operator()(
   return returns;
 #else
   PADDLE_THROW(common::errors::Unavailable(
-      "ReshardGrad is not supported in this version of Paddle. Try to "
+      "DtensorToLocalGrad is not supported in this version of Paddle. Try to "
       "recompile it with WITH_DISTRIBUTE=ON and reinstall this package."));
   return paddle::small_vector<std::vector<paddle::Tensor>,
                               egr::kSlotSmallVectorSize>(1);

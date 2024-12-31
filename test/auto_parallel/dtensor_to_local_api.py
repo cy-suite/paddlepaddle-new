@@ -17,6 +17,7 @@ import os
 import paddle
 import paddle.distributed as dist
 from paddle.distributed import Partial
+from paddle.distributed.auto_parallel.api import dtensor_to_local
 
 
 class TestDtensorToLocalAPI:
@@ -42,7 +43,7 @@ class TestDtensorToLocalAPI:
             )
         )
 
-        tensor1 = dist.dtensor_to_local(input_tensor)
+        tensor1 = dtensor_to_local(input_tensor)
         assert not tensor1.is_dist()
 
         tensor2 = tensor1 + 2
