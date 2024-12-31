@@ -33,6 +33,7 @@ ALLOW_DYNAMIC_SHAPE_VJP_OPS = [
     "pd_op.add",
     "pd_op.amax",
     "pd_op.amin",
+    "pd_op.angle",
     "pd_op.argsort",
     "pd_op.assign",
     "pd_op.batch_norm_",
@@ -104,6 +105,7 @@ ALLOW_DYNAMIC_SHAPE_VJP_OPS = [
     "pd_op.trunc",
     "pd_op.unsqueeze",
     "pd_op.where",
+    "pd_op.p_norm",
 ]
 
 
@@ -238,8 +240,17 @@ class ValueSet:
     def pop(self):
         return self._set.pop()._value
 
+    def remove(self, val):
+        self._set.remove(ValueWrapper(val))
+
+    def discard(self, val):
+        self._set.discard(ValueWrapper(val))
+
     def __and__(self, other: ValueSet):
         return ValueSet(self._set & other._set)
+
+    def __sub__(self, other: ValueSet):
+        return ValueSet(self._set - other._set)
 
     def __or__(self, other: ValueSet):
         return ValueSet(self._set | other._set)
@@ -434,16 +445,18 @@ def inverse_sort_op(old_ops):
     # pending edges for its grad_op
 
     pending_count = collections.defaultdict(int)
-    ops_set = set(old_ops)
+    ops = []
+    [ops.append(x) for x in old_ops if x not in ops]
+    ops_set = set(ops)
     sorted_list = []
-    for op in ops_set:
+    for op in ops:
         for x in get_real_op_inputs(op):
             if not pir.is_fake_value(x) and x.get_defining_op() in ops_set:
                 pending_count[x.get_defining_op()] += 1
 
     queue = collections.deque()
 
-    for op in ops_set:
+    for op in ops:
         if pending_count[op] == 0:
             queue.append(op)
 
@@ -456,7 +469,7 @@ def inverse_sort_op(old_ops):
             if pending_count[x_op] == 0:
                 queue.append(x_op)
 
-    if len(sorted_list) != len(ops_set):
+    if len(sorted_list) != len(ops):
         raise ValueError(
             "inverse_sort_op wrong, sorted_list size is not equal to origin_list size"
         )
@@ -658,6 +671,7 @@ def get_grad_semantic_info(op):
         "cf.tuple_push",
         "dist_op.moe_global_mesh_tensor",
         "dist_op.moe_sub_mesh_tensors",
+        "dist_op.dist_reshape",
     ]:
         grad_semantic_info = [True for _ in range(len(get_real_op_inputs(op)))]
         if op.name() == "pd_op.if":

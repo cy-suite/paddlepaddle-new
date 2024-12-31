@@ -361,6 +361,7 @@ class CacheKey:
                 with_hook,
                 is_train,
                 self._pir_flags,
+                use_pir_api(),
             )
         )
 
@@ -500,7 +501,7 @@ class StaticFunction(Generic[_InputT, _RetT]):
             if instance is None:
                 return self
             # Note(Aurelius84): To construct new instance of StaticFunction when we
-            # first encouter the bound function of layer and cache it.
+            # first encounter the bound function of layer and cache it.
             new_static_layer = self._clone()
             if (
                 isinstance(instance, layers.Layer)
@@ -526,7 +527,7 @@ class StaticFunction(Generic[_InputT, _RetT]):
 
         Args:
             *args(tuple): tuple of all input arguments from original decorated function.
-            **kwargs(dict): dict of all input keyward arguments from original decorated function.
+            **kwargs(dict): dict of all input keyword arguments from original decorated function.
 
         Return:
             Outputs of decorated function.
@@ -575,7 +576,7 @@ class StaticFunction(Generic[_InputT, _RetT]):
 
         Args:
             *args(tuple): tuple of all input arguments from original decorated function.
-            **kwargs(dict): dict of all input keyward arguments from original decorated function.
+            **kwargs(dict): dict of all input keyword arguments from original decorated function.
 
         Return:
             Outputs of dygraph function.
@@ -1034,7 +1035,7 @@ class ASTStaticFunction(StaticFunction[_InputT, _RetT]):
         # if specific the `input_spec`, the length of program_cache will always 1,
         # else, return the last one.
         cached_program_len = len(self._program_cache)
-        # If specific `input_spec`, apply convertion from dygraph layers into static Program.
+        # If specific `input_spec`, apply conversion from dygraph layers into static Program.
         # NOTE(jiabin): is_prim_infer indicates this method called by paddle.jit.save and it is worked in prim mode
 
         desired_input_spec = input_spec
@@ -1628,7 +1629,7 @@ class ProgramCache:
         self._recent_cache_key = None
 
     def _build_once(self, cache_key):
-        # TODO(Aurelius84): Need a gloabl FLAGS to enable/disable to_prim
+        # TODO(Aurelius84): Need a global FLAGS to enable/disable to_prim
         enable_prim = cache_key.kwargs['build_strategy'].build_cinn_pass
 
         if use_pir_api():
@@ -1740,10 +1741,6 @@ class ProgramCache:
 
 class PrimHooker(PartialProgramLayerHook):
     def __init__(self, original_program, backend):
-        if len(original_program.blocks) > 1:
-            raise ValueError(
-                'The primitive mode only support one block currently.'
-            )
         self.backend = backend
         self.custom_vjps = set()
         with backend_guard(self.backend):
