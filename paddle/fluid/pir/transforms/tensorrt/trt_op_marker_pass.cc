@@ -1177,7 +1177,8 @@ template <typename OpType>
 class LessEqualOpPattern : public pir::OpRewritePattern<OpType> {
  public:
   using pir::OpRewritePattern<OpType>::OpRewritePattern;
-  bool MatchAndRewrite(OpType op, pir::PatternRewriter &rewriter) const override {
+  bool MatchAndRewrite(OpType op,
+                       pir::PatternRewriter &rewriter) const override {
     if (op->HasAttribute(kCanRunTrtAttr) &&
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
