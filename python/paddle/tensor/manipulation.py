@@ -715,6 +715,14 @@ def shard_index(
     That is, the value `v` is set to the new offset within the range represented by the shard `shard_id`
     if it in the range. Otherwise, we reset it to be `ignore_value`.
 
+    As shown below, a [2, 1] 2D tensor is updated with the shard_index operation. Given index_num = 20, nshards = 2, and shard_id = 0, the shard size is shard_size = (20 + 2 - 1) // 2 = 10. 
+    For each label element: if its value is in [0, 10), it's adjusted to its offset; e.g., 1 becomes 1 - 0 * 10 = 1. Otherwise, it's set to the default ignore_value of -1, like 16 becoming -1.
+            
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/shard_index.png
+       :width: 500
+       :alt: Illustration of Case 2
+       :align: center
+
     Args:
         input (Tensor): Input tensor with data type int64 or int32. It's last dimension must be 1.
         index_num (int): An integer represents the integer above the maximum value of `input`.
@@ -738,14 +746,7 @@ def shard_index(
             [[-1]
              [ 1]]
 
-        A two-dimensional tensor with a shape of [2, 1], through the shard_index operation, when index_num = 20, nshards = 2, and shard_id = 0, calculates
-        the shard size shard_size = (20 + 2 - 1) // 2 = 10. For the element values in label, such as 16, because 16 >= 10 (not within the [0, 10) interval
-        of shard 0), its value is set to ignore_value (i.e., -1) according to the formula; while the element value 1, since 0 <= 1 < 10 (within shard 0),
-        the updated value is 1 - 0 * 10 = 1, and finally a new tensor with the same shape [2, 1] but some elements changed (such as shard_label) is obtained.
-            .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/shard_index.png
-               :width: 500
-               :alt: Illustration of Case 2
-               :align: center
+        
     """
     if in_dynamic_or_pir_mode():
         return _C_ops.shard_index(
@@ -7282,6 +7283,13 @@ def index_fill(
     """
     Fill the elements of the input tensor with value by the specific axis and index.
 
+    As shown below, a [3, 3] 2D tensor is updated via the index_fill operation. With axis=0, index=[0, 2] and value=-1, the 1st and 3rd row elements become -1. The resulting tensor, still [3, 3], has updated values.
+    
+    .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/index_fill.png
+       :width: 500
+       :alt: Illustration of Case 2
+       :align: center
+
     Args:
         x (Tensor) : The Destination Tensor. Supported data types are int32, int64, float16, float32, float64.
         index (Tensor): The 1-D Tensor containing the indices to index.
@@ -7313,14 +7321,6 @@ def index_fill(
                     [ 4,  5,  6],
                     [-1, -1, -1]])
 
-        A two-dimensional tensor with a shape of [3, 3], through the index_fill operation, when axis = 0, the index tensor index is [0, 2], and the fill value value = -1,
-        all elements in the first and third rows are filled with -1, thereby obtaining a new tensor with a shape still [3, 3] but some elements changed. A two-dimensional
-        tensor with the shape [3, 3], by means of the index_fill operation, when axis = 0, the index tensor index is [0, 2], and the fill value value = -1,
-        all the elements in the first and third rows are filled with -1, thus getting a new tensor with the same shape [3, 3] but some elements changed.
-            .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/index_fill.png
-               :width: 500
-               :alt: Illustration of Case 2
-               :align: center
     """
     return _index_fill_impl(x, index, axis, value, False)
 
