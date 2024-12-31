@@ -21,8 +21,11 @@ jobs:
           ref: ${{ github.event.pull_request.base.ref }}
           fetch-depth: 1000
 
-      - name: Checkout merge repo
-        uses: actions/checkout@v4
+      - name: Merge PR
+        run: |
+          git fetch origin pull/${PR_ID}/head
+          git checkout -b test FETCH_HEAD
+          git merge --no-edit ${BRANCH}
 
       - name: Setup python3.8
         uses: actions/setup-python@v5
