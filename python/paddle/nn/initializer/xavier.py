@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 
 import paddle
 from paddle import _C_ops
@@ -150,7 +151,16 @@ class XavierInitializer(Initializer):
 
         if in_dygraph_mode():
             if self._uniform:
-                limit = self._gain * math.sqrt(6.0 / float(fan_in + fan_out))
+                if 0 in [fan_in, fan_out]:
+                    warnings.warn(
+                        "Initializing zero-element tensors is a no-op",
+                        stacklevel=2,
+                    )
+                    limit = 0.0
+                else:
+                    limit = self._gain * math.sqrt(
+                        6.0 / float(fan_in + fan_out)
+                    )
                 out_var = _C_ops.uniform(
                     out_var_shape,
                     out_dtype,
@@ -160,7 +170,14 @@ class XavierInitializer(Initializer):
                     _current_expected_place(),
                 )
             else:
-                std = self._gain * math.sqrt(2.0 / float(fan_in + fan_out))
+                if 0 in [fan_in, fan_out]:
+                    warnings.warn(
+                        "Initializing zero-element tensors is a no-op",
+                        stacklevel=2,
+                    )
+                    std = 0.0
+                else:
+                    std = self._gain * math.sqrt(2.0 / float(fan_in + fan_out))
 
                 place = _current_expected_place()
                 out_var = _C_ops.gaussian(
@@ -193,7 +210,16 @@ class XavierInitializer(Initializer):
             return None
         elif in_pir_mode():
             if self._uniform:
-                limit = self._gain * math.sqrt(6.0 / float(fan_in + fan_out))
+                if 0 in [fan_in, fan_out]:
+                    warnings.warn(
+                        "Initializing zero-element tensors is a no-op",
+                        stacklevel=2,
+                    )
+                    limit = 0.0
+                else:
+                    limit = self._gain * math.sqrt(
+                        6.0 / float(fan_in + fan_out)
+                    )
                 out_var = paddle._pir_ops.uniform(
                     out_var.shape,
                     out_dtype,
@@ -203,7 +229,14 @@ class XavierInitializer(Initializer):
                     _current_expected_place(),
                 )
             else:
-                std = self._gain * math.sqrt(2.0 / float(fan_in + fan_out))
+                if 0 in [fan_in, fan_out]:
+                    warnings.warn(
+                        "Initializing zero-element tensors is a no-op",
+                        stacklevel=2,
+                    )
+                    std = 0.0
+                else:
+                    std = self._gain * math.sqrt(2.0 / float(fan_in + fan_out))
                 out_var = _C_ops.gaussian(
                     out_var.shape,
                     0.0,
@@ -222,7 +255,16 @@ class XavierInitializer(Initializer):
             return out_var
         else:
             if self._uniform:
-                limit = self._gain * math.sqrt(6.0 / float(fan_in + fan_out))
+                if 0 in [fan_in, fan_out]:
+                    warnings.warn(
+                        "Initializing zero-element tensors is a no-op",
+                        stacklevel=2,
+                    )
+                    limit = 0.0
+                else:
+                    limit = self._gain * math.sqrt(
+                        6.0 / float(fan_in + fan_out)
+                    )
                 op = block.append_op(
                     type="uniform_random",
                     inputs={},
@@ -237,7 +279,14 @@ class XavierInitializer(Initializer):
                     stop_gradient=True,
                 )
             else:
-                std = self._gain * math.sqrt(2.0 / float(fan_in + fan_out))
+                if 0 in [fan_in, fan_out]:
+                    warnings.warn(
+                        "Initializing zero-element tensors is a no-op",
+                        stacklevel=2,
+                    )
+                    std = 0.0
+                else:
+                    std = self._gain * math.sqrt(2.0 / float(fan_in + fan_out))
                 op = block.append_op(
                     type="gaussian_random",
                     outputs={"Out": out_var},
