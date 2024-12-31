@@ -166,7 +166,7 @@ bool TuplePopOp::InferSymbolicShape(
   for (size_t index = 1; index < tuple_push_op->num_operands(); ++index) {
     const Value &pushed_value = tuple_push_op->operand_source(index);
     infer_context->SetShapeOrDataForValue(
-        result(index), infer_context->GetShapeOrDataForValue(pushed_value));
+        result(index - 1), infer_context->GetShapeOrDataForValue(pushed_value));
   }
   return true;
 }
