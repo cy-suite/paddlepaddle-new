@@ -1,9 +1,8 @@
 name: Codestyle-Check
 
 on:
-  workflow_run:
-    workflows: [Clone]
-    types: [completed]
+  pull_request:
+    branches: [ "develop" ]
 
 jobs:
   pre-commit:
@@ -20,7 +19,7 @@ jobs:
           ref: ${{ github.event.pull_request.base.ref }}
           fetch-depth: 1000
 
-      - name: Merge PR
+      - name: Merge pr
         run: |
           git config --global user.name "PaddleCI"
           git config --global user.email "paddle_ci@example.com"
@@ -36,7 +35,6 @@ jobs:
 
       - name: Check pre-commit
         run: |
-          git branch
           pip --disable-pip-version-check install --upgrade pip
           set +e
           bash -x tools/codestyle/pre_commit.sh;EXCODE=$?
