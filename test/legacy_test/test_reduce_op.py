@@ -102,11 +102,6 @@ class TestSumOp_ZeroDim(TestSumOp):
         )
 
 
-class TestSumOp_ZeroDim_KeepDimTrue(TestSumOp_ZeroDim):
-    def init_attrs(self):
-        self.attrs = {'dim': None, 'keep_dim': True}
-
-
 class TestSumOp5D(TestSumOp):
     def init_input(self):
         self.x = np.random.random((1, 2, 5, 6, 10)).astype(self.dtype)

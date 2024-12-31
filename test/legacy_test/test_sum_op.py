@@ -658,6 +658,90 @@ class TestSumWithTensorAxis1(TestReduceOPTensorAxisBase):
         ]
 
 
+class TestSumWithZeroSizeTensor(unittest.TestCase):
+    def setUp(self):
+        paddle.disable_static()
+        paddle.seed(2022)
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.save_path = os.path.join(self.temp_dir.name, 'reduce_tensor_axis')
+        self.place = (
+            paddle.CUDAPlace(0)
+            if paddle.is_compiled_with_cuda()
+            else paddle.CPUPlace()
+        )
+        self.keepdim = True
+        self.init_data()
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def init_data(self):
+        self.pd_api = paddle.sum
+        self.np_api = np.sum
+        self.x = paddle.randn([10, 0, 0, 0], dtype='float64')  # 0-size tensor
+        self.np_axis = np.array([1, 2], dtype='int64')  # Specify the axis for reduction
+        self.tensor_axis = paddle.to_tensor(self.np_axis, dtype='int64')
+
+    def test_dygraph(self):
+        self.x.stop_gradient = False
+        pd_out = self.pd_api(self.x, self.tensor_axis, keepdim=self.keepdim)
+        np_out = self.np_api(self.x.numpy(), tuple(self.np_axis), keepdims=self.keepdim)
+        np.testing.assert_allclose(
+            pd_out.numpy() if pd_out.size > 1 else pd_out.item(), np_out
+        )
+        pd_out.backward()
+        self.assertEqual(self.x.grad.shape, tuple(self.x.shape))
+
+    def test_static_and_infer(self):
+        paddle.enable_static()
+        main_prog = paddle.static.Program()
+        startup_prog = paddle.static.Program()
+        with paddle.static.program_guard(main_prog, startup_prog):
+            x = paddle.static.data(
+                shape=self.x.shape, name='x', dtype='float32'
+            )
+            if isinstance(self.tensor_axis, paddle.Tensor):
+                axis = paddle.assign(self.np_axis)
+            else:
+                axis = []
+                for i, item in enumerate(self.tensor_axis):
+                    if isinstance(item, int):
+                        axis.append(item)
+                    else:
+                        axis.append(paddle.full([1], self.np_axis[i], 'int64'))
+            linear = paddle.nn.Linear(x.shape[-1], 5)
+            linear_out = linear(x)
+            out = self.pd_api(linear_out, axis, keepdim=self.keepdim)
+
+            sgd = paddle.optimizer.SGD(learning_rate=0.0)
+            sgd.minimize(paddle.mean(out))
+            exe = paddle.static.Executor(self.place)
+            exe.run(startup_prog)
+            static_out = exe.run(
+                feed={'x': self.x.numpy().astype('float32')}, fetch_list=[out]
+            )
+
+            paddle.static.save_inference_model(self.save_path, [x], [out], exe)
+            config = paddle_infer.Config(
+                self.save_path + '.pdmodel', self.save_path + '.pdiparams'
+            )
+            if paddle.is_compiled_with_cuda():
+                config.enable_use_gpu(100, 0)
+            else:
+                config.disable_gpu()
+            predictor = paddle_infer.create_predictor(config)
+            input_names = predictor.get_input_names()
+            input_handle = predictor.get_input_handle(input_names[0])
+            fake_input = self.x.numpy().astype('float32')
+            input_handle.reshape(self.x.shape)
+            input_handle.copy_from_cpu(fake_input)
+            predictor.run()
+            output_names = predictor.get_output_names()
+            output_handle = predictor.get_output_handle(output_names[0])
+            infer_out = output_handle.copy_to_cpu()
+            np.testing.assert_allclose(static_out[0], infer_out)
+
+
 class TestAddNDoubleGradCheck(unittest.TestCase):
     def add_n_wrapper(self, x):
         return paddle.add_n(x)
