@@ -261,6 +261,63 @@ create_test_bf16_class(TestSumOp_withInt)
 create_test_bf16_class(TestSumOp3Dim)
 
 
+class TestSumAPIZeroDimKeepDim(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(123)
+        paddle.enable_static()
+        self.places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not core.is_compiled_with_cuda()
+        ):
+            self.places.append(paddle.CPUPlace())
+        if core.is_compiled_with_cuda():
+            self.places.append(paddle.CUDAPlace(0))
+
+    def test_static(self):
+        for place in self.places:
+            main = paddle.static.Program()
+            startup = paddle.static.Program()
+            with base.program_guard(main, startup):
+                input = paddle.static.data(name="input", shape=[0, 0], dtype="float32")
+                result = paddle.sum(x=input, keepdim=True)
+                input_np = np.random.rand(0, 0).astype("float32")
+
+                exe = paddle.static.Executor(place)
+                fetches = exe.run(
+                    main,
+                    feed={"input": input_np},
+                    fetch_list=[result],
+                )
+                self.assertEqual(fetches[0].shape, (1, 1))
+                self.assertTrue(np.allclose(fetches[0], np.sum(input_np, keepdims=True)))
+
+    def test_dygraph(self):
+        paddle.disable_static()
+        for place in self.places:
+            with base.dygraph.guard(place):
+                np_x = np.random.rand(0, 0).astype("float32")
+                x = paddle.to_tensor(np_x)
+
+                out1 = paddle.sum(x, keepdim=True)
+                np_out1 = out1.numpy()
+                expect_res1 = np.sum(np_x, keepdims=True)
+                self.assertTrue(np.allclose(np_out1, expect_res1))
+
+                out2 = paddle.sum(x, axis=0, keepdim=True)
+                np_out2 = out2.numpy()
+                expect_res2 = np.sum(np_x, axis=0, keepdims=True)
+                self.assertTrue(np.allclose(np_out2, expect_res2))
+
+                out3 = paddle.sum(x, axis=-1, keepdim=True)
+                np_out3 = out3.numpy()
+                expect_res3 = np.sum(np_x, axis=-1, keepdims=True)
+                self.assertTrue(np.allclose(np_out3, expect_res3))
+
+        paddle.enable_static()
+
+
 @skip_check_grad_ci(
     reason="reduce_max is discontinuous non-derivable function,"
     " its gradient check is not supported by unittest framework."
