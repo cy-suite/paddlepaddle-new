@@ -280,7 +280,9 @@ class TestSumAPIZeroDimKeepDim(unittest.TestCase):
             main = paddle.static.Program()
             startup = paddle.static.Program()
             with base.program_guard(main, startup):
-                input = paddle.static.data(name="input", shape=[0, 0], dtype="float32")
+                input = paddle.static.data(
+                    name="input", shape=[0, 0], dtype="float32"
+                )
                 result = paddle.sum(x=input, keepdim=True)
                 input_np = np.random.rand(0, 0).astype("float32")
 
@@ -291,7 +293,9 @@ class TestSumAPIZeroDimKeepDim(unittest.TestCase):
                     fetch_list=[result],
                 )
                 self.assertEqual(fetches[0].shape, (1, 1))
-                self.assertTrue(np.allclose(fetches[0], np.sum(input_np, keepdims=True)))
+                self.assertTrue(
+                    np.allclose(fetches[0], np.sum(input_np, keepdims=True))
+                )
 
     def test_dygraph(self):
         paddle.disable_static()
