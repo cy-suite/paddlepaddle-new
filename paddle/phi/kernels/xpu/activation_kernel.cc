@@ -580,7 +580,7 @@ struct XPUAcosFunctor : public funcs::BaseActivationFunctor<T> {
                   DenseTensor* out) const {
     int ret = xpu_activation_func<Context, T, XPUType>(
         dev_ctx, x, out, xpu::arccos<XPUType>);
-    PADDLE_ENFORCE_XDNN_SUCCESS(ret, "acos");
+    PADDLE_ENFORCE_XDNN_SUCCESS(ret, "arccos");
   }
 };
 
