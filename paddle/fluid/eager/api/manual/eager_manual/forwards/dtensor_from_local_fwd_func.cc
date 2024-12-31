@@ -55,12 +55,13 @@ paddle::Tensor dtensor_from_local_ad_function(
     const auto& input_tensor_impl = input.impl();
     phi::distributed::DistTensor* dist_tensor =
         static_cast<phi::distributed::DistTensor*>(input_tensor_impl.get());
-    PADDLE_ENFORCE_EQ(
-        dist_tensor->initialized(),
-        false,
-        common::errors::InvalidArgument(
-            "Only "
-            "uninitialized ``phi::distributed::DistTensor`` is allowed. "));
+    PADDLE_ENFORCE_EQ(dist_tensor->initialized(),
+                      false,
+                      phi::errors::InvalidArgument(
+                          "Expected the passed `phi::distributed::DistTensor` "
+                          "to be uninitialized "
+                          "when current rank is not in the process mesh. But "
+                          "received an initialized "));
   }
 
   auto dist_out_ptr =
