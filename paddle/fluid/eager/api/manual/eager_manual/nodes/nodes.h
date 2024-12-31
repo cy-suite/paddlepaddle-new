@@ -482,7 +482,6 @@ class DtensorToLocalGradNode : public egr::GradNodeBase {
   }
 
   // SetTensorWrapperX
-  // Only input's meta is needed.
   void SetTensorWrapperNoNeedBuffer_Input(const paddle::Tensor& input) {
     input_ = egr::TensorWrapper(input, true);
   }
@@ -492,13 +491,21 @@ class DtensorToLocalGradNode : public egr::GradNodeBase {
   egr::TensorWrapper input_;
 };
 
-namespace sparse {
-class SyncBatchNormGradNode : public egr::GradNodeBase {
+class DtensorFromLocalGradNode : public egr::GradNodeBase {
  public:
-  SyncBatchNormGradNode() : egr::GradNodeBase() {}
-  SyncBatchNormGradNode(size_t bwd_in_slot_num, size_t bwd_out_slot_num)
-      : egr::GradNodeBase(bwd_in_slot_num, bwd_out_slot_num) {}
-  ~SyncBatchNormGradNode() override = default;
+  DtensorFromLocalGradNode() : egr::GradNodeBase() {
+    VLOG(3) << " Construct DtensorFromLocalGradNode Node.";
+  }
+
+  DtensorFromLocalGradNode(size_t bwd_in_slot_num, size_t bwd_out_slot_num)
+      : egr::GradNodeBase(bwd_in_slot_num, bwd_out_slot_num) {
+    VLOG(3) << " Construct DtensorFromLocalGradNode Node, bwd_in_slot_num: "
+            << bwd_in_slot_num << ", bwd_out_slot_num: " << bwd_out_slot_num;
+  }
+
+  ~DtensorFromLocalGradNode() override {
+    VLOG(3) << " Destruct DtensorFromLocalGradNode Node.";
+  }
 
   virtual paddle::small_vector<std::vector<paddle::Tensor>,
                                egr::kSlotSmallVectorSize>
@@ -506,8 +513,22 @@ class SyncBatchNormGradNode : public egr::GradNodeBase {
                                   egr::kSlotSmallVectorSize>& grads,  // NOLINT
              bool create_graph = false,
              bool is_new_grad = false) override;
-  std::string name() override { return "SyncBatchNormGradNode"; }
 
+  void ClearTensorWrappers() override { SetIsTensorWrappersCleared(true); }
+
+  std::string name() override { return "DtensorFromLocalGradNode"; }
+
+  std::shared_ptr<GradNodeBase> Copy() const override {
+    {
+      auto copied_node = std::shared_ptr<DtensorFromLocalGradNode>(
+          new DtensorFromLocalGradNode(*this));
+      return copied_node;
+    }
+  }
+};
+
+namespace sparse {
+class SyncBatchNormGradNode : public egr::GradNodeBase {
   void ClearTensorWrappers() override {
     x_.clear();
     scale_.clear();

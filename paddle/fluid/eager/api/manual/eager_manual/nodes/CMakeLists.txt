@@ -5,4 +5,5 @@ set(eager_manual_nodes
     ${PADDLE_SOURCE_DIR}/paddle/fluid/eager/api/manual/eager_manual/nodes/multiply_node.cc
     ${PADDLE_SOURCE_DIR}/paddle/fluid/eager/api/manual/eager_manual/nodes/reshard_node.cc
     ${PADDLE_SOURCE_DIR}/paddle/fluid/eager/api/manual/eager_manual/nodes/dtensor_to_local_node.cc
+    ${PADDLE_SOURCE_DIR}/paddle/fluid/eager/api/manual/eager_manual/nodes/dtensor_from_local_node.cc
     PARENT_SCOPE)
