@@ -89,15 +89,20 @@ if(NOT WITH_SETUP_INSTALL)
       RESULT_VARIABLE result_var)
   else()
     execute_process(
-      COMMAND
-        bash -c
-        "for submodule in \$(git submodule status --recursive | awk '{print \$2}'); do \
-      if [ \"\$submodule\" != \"third_party/openvino\" ]; then \
-          git submodule update --init --recursive \$submodule; \
-      fi; \
-    done"
+      COMMAND git submodule status
       WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}
+      OUTPUT_VARIABLE submodule_list
       RESULT_VARIABLE result_var)
+    string(REGEX MATCHALL "third_party/[^ )\n]+" submodule_paths
+                 "${submodule_list}")
+    foreach(submodule IN LISTS submodule_paths)
+      if(NOT submodule STREQUAL "third_party/openvino")
+        execute_process(
+          COMMAND git submodule update --init --recursive ${submodule}
+          WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}
+          RESULT_VARIABLE result_var)
+      endif()
+    endforeach()
   endif()
   if(NOT result_var EQUAL 0)
     if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
