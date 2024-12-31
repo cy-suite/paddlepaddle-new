@@ -3843,7 +3843,7 @@ def unsqueeze(
     please use `Tensor.clone` like ``unsqueeze_clone_x = x.unsqueeze(-1).clone()``.
 
     The following figure illustrates how a tensor with a shape of [2, 3] can use the 
-    ``unsqueeze`` method to add an additional dimension at the last position (axis = 2), 
+    ``unsqueeze`` method to add an additional dimension at the last dimension (axis = 2), 
     transforming it from a 2D tensor into a 3D tensor.
 
     .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/unsqueeze.png
