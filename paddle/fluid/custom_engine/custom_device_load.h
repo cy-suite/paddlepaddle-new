@@ -1,4 +1,4 @@
-// Copyright (c) 2024 CINN Authors. All Rights Reserved.
+// Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,12 +13,12 @@
 // limitations under the License.
 
 #pragma once
-#include "paddle/cinn/ir/ir.h"
+#include "paddle/phi/backends/device_ext.h"
+#include "paddle/phi/backends/device_manager.h"
 
-namespace cinn {
-namespace optim {
+#include "paddle/fluid/custom_engine/custom_engine_ext.h"
+#include "paddle/fluid/custom_engine/custom_engine_manager.h"
+namespace paddle {
 
-// Try to change the type of longlong to int in the expr.
-void TryCastLonglong2Int(Expr* expr);
-}  // namespace optim
-}  // namespace cinn
+void LoadCustomLib(const std::string& dso_lib_path, void* dso_handle);
+}  // namespace paddle
