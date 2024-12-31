@@ -15,16 +15,14 @@ jobs:
       BRANCH: develop
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout base repo
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.ref }}
           fetch-depth: 1000
 
-      - name: Update paddle
-        run: |
-          git fetch origin pull/${PR_ID}/head
-          git checkout -b test FETCH_HEAD
-          git merge --no-edit ${BRANCH}
+      - name: Checkout merge repo
+        uses: actions/checkout@v4
 
       - name: Setup python3.8
         uses: actions/setup-python@v5
@@ -34,6 +32,7 @@ jobs:
 
       - name: Check pre-commit
         run: |
+          git checkout -b test
           pip --disable-pip-version-check install --upgrade pip
           set +e
           bash -x tools/codestyle/pre_commit.sh;EXCODE=$?
