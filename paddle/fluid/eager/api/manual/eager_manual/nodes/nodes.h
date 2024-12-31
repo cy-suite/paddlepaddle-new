@@ -529,6 +529,20 @@ class DtensorFromLocalGradNode : public egr::GradNodeBase {
 
 namespace sparse {
 class SyncBatchNormGradNode : public egr::GradNodeBase {
+ public:
+  SyncBatchNormGradNode() : egr::GradNodeBase() {}
+  SyncBatchNormGradNode(size_t bwd_in_slot_num, size_t bwd_out_slot_num)
+      : egr::GradNodeBase(bwd_in_slot_num, bwd_out_slot_num) {}
+  ~SyncBatchNormGradNode() override = default;
+
+  virtual paddle::small_vector<std::vector<paddle::Tensor>,
+                               egr::kSlotSmallVectorSize>
+  operator()(paddle::small_vector<std::vector<paddle::Tensor>,
+                                  egr::kSlotSmallVectorSize>& grads,  // NOLINT
+             bool create_graph = false,
+             bool is_new_grad = false) override;
+  std::string name() override { return "SyncBatchNormGradNode"; }
+
   void ClearTensorWrappers() override {
     x_.clear();
     scale_.clear();
