@@ -98,7 +98,7 @@ class TestZeroSizeForward(unittest.TestCase):
         ]
 
     def test_forward_eager(self):
-        """Test for single API"""
+        """Test for simple API call"""
         for dtype in self.dtypes:
             for zero_size_shape in self.zero_size_shapes:
                 x = paddle.ones(zero_size_shape, dtype=dtype)
@@ -141,7 +141,7 @@ class TestZeroSizeForward(unittest.TestCase):
                 )
 
     def test_forward_static(self):
-        """Test for single API"""
+        """Test for simple API call"""
 
         def forward_func(x):
             if x.dtype == paddle.bool:
@@ -212,7 +212,7 @@ class TestZeroSizeBackward(unittest.TestCase):
         ]
 
     def test_backward_eager(self):
-        """Test for single API"""
+        """Test for simple API call"""
         for dtype in self.dtypes:
             for zero_size_shape in self.zero_size_shapes:
                 x = paddle.ones(zero_size_shape, dtype=dtype)
@@ -255,7 +255,7 @@ class TestZeroSizeBackward(unittest.TestCase):
                 )
 
     def test_backward_static(self):
-        """Test for single API"""
+        """Test for simple API call"""
 
         def gradient_func(x):
             y = x * 2 + 1
