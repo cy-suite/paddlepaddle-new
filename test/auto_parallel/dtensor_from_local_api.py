@@ -36,6 +36,7 @@ class TestDtensorFromLocalAPI:
 
         tensor1 = a + 3
         assert not tensor1.is_dist()
+        tensor1.register_hook(self.check_grad_mesh(None, None))
 
         mesh = self._mesh
         tensor2 = dtensor_from_local(
@@ -45,8 +46,9 @@ class TestDtensorFromLocalAPI:
         assert tensor2.is_dist()
         assert tensor2.process_mesh == mesh
         assert tensor2.placements == [dist.Shard(0), dist.Replicate()]
-
-        tensor2.register_hook(self.check_grad_mesh(None, None))
+        tensor2.register_hook(
+            self.check_grad_mesh(mesh, [dist.Shard(0), dist.Replicate()])
+        )
 
         tensor3 = tensor2 * 3
         tensor3.register_hook(

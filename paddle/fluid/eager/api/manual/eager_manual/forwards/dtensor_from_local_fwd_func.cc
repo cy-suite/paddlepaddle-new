@@ -89,6 +89,7 @@ paddle::Tensor dtensor_from_local_ad_function(
       egr::EagerUtils::SetHistory(out_autograd_meta, grad_node);
     }
     grad_node->SetGradInMeta(out, 0);
+    grad_node->SetTensorWrapperNoNeedBuffer_Output(out);
   }
 
   return out;

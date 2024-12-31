@@ -73,10 +73,13 @@ DtensorFromLocalGradNode::operator()(
   }
 
   // Backward call dtensor_from_local_func function
-  std::shared_ptr<phi::TensorBase> tensor_base = grad_out.impl();
-  auto dist_tensor =
-      std::static_pointer_cast<phi::distributed::DistTensor>(tensor_base);
-  std::shared_ptr<phi::DenseTensor> local_dense = dist_tensor->shared_value();
+  auto output = egr::EagerUtils::RecoverTensorWrapper(&this->output_);
+  const auto& output_dist_attr =
+      std::static_pointer_cast<phi::distributed::DistTensor>(output.impl())
+          ->dist_attr();
+
+  auto grad_out_ptr = paddle::reshard(grad_out, output_dist_attr);
+  std::shared_ptr<phi::DenseTensor> local_dense = grad_out_ptr->shared_value();
 
   PADDLE_ENFORCE_NE(local_dense,
                     nullptr,

@@ -514,7 +514,10 @@ class DtensorFromLocalGradNode : public egr::GradNodeBase {
              bool create_graph = false,
              bool is_new_grad = false) override;
 
-  void ClearTensorWrappers() override { SetIsTensorWrappersCleared(true); }
+  void ClearTensorWrappers() override {
+    output_.clear();
+    SetIsTensorWrappersCleared(true);
+  }
 
   std::string name() override { return "DtensorFromLocalGradNode"; }
 
@@ -525,6 +528,15 @@ class DtensorFromLocalGradNode : public egr::GradNodeBase {
       return copied_node;
     }
   }
+
+  // SetTensorWrapperX
+  void SetTensorWrapperNoNeedBuffer_Output(const paddle::Tensor& output) {
+    output_ = egr::TensorWrapper(output, true);
+  }
+
+ private:
+  // TensorWrappers
+  egr::TensorWrapper output_;
 };
 
 namespace sparse {
