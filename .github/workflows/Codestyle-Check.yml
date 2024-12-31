@@ -37,7 +37,6 @@ jobs:
 
       - name: Check pre-commit
         run: |
-          git checkout -b test
           git branch
           pip --disable-pip-version-check install --upgrade pip
           set +e
