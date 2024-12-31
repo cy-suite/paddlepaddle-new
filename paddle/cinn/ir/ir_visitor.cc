@@ -106,7 +106,8 @@ bool operator==(IndexExpr a, IndexExpr b) {
     case ir::IrNodeTy::Load: {
       auto lhs = a.As<ir::Load>();
       auto rhs = b.As<ir::Load>();
-      bool equal = lhs->tensor == rhs->tensor;
+      bool equal = lhs->indices.size() == rhs->indices.size();
+      equal &= (lhs->tensor == rhs->tensor);
       for (int32_t i = 0; i < lhs->indices.size(); ++i) {
         equal &= (lhs->indices[i] == rhs->indices[i]);
       }
