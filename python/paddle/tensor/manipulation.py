@@ -715,10 +715,9 @@ def shard_index(
     That is, the value `v` is set to the new offset within the range represented by the shard `shard_id`
     if it in the range. Otherwise, we reset it to be `ignore_value`.
 
-
-    As shown below, a [2, 1] 2D tensor is updated with the shard_index operation. Given index_num = 20, nshards = 2, and shard_id = 0, the shard size is shard_size = (20 + 2 - 1) // 2 = 10. 
+    As shown below, a [2, 1] 2D tensor is updated with the shard_index operation. Given index_num = 20, nshards = 2, and shard_id = 0, the shard size is shard_size = (20 + 2 - 1) // 2 = 10.
     For each label element: if its value is in [0, 10), it's adjusted to its offset; e.g., 1 becomes 1 - 0 * 10 = 1. Otherwise, it's set to the default ignore_value of -1, like 16 becoming -1.
-            
+
     .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/shard_index.png
        :width: 500
        :alt: Illustration of Case 2
@@ -747,7 +746,7 @@ def shard_index(
             [[-1]
              [ 1]]
 
-        
+
     """
     if in_dynamic_or_pir_mode():
         return _C_ops.shard_index(
@@ -7285,7 +7284,7 @@ def index_fill(
     Fill the elements of the input tensor with value by the specific axis and index.
 
     As shown below, a [3, 3] 2D tensor is updated via the index_fill operation. With axis=0, index=[0, 2] and value=-1, the 1st and 3rd row elements become -1. The resulting tensor, still [3, 3], has updated values.
-    
+
     .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/index_fill.png
        :width: 500
        :alt: Illustration of Case 2
