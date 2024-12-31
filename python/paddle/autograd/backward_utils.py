@@ -741,9 +741,9 @@ def update_while_output_stopgradient(while_op, yield_op):
         raise ValueError("yield_op is not a yield operation")
 
     # Check if operands_source size of yield_op matches op_results size of while_op
-    if len(while_op.results()) != len(yield_op.operands_source()):
+    if len(while_op.results()) + 1 != len(yield_op.operands_source()):
         raise ValueError(
-            "Mismatched while op_results size with yield operands_source"
+            f"Mismatched while op_results  size %d with yield operands_source %d. {len(while_op.results()) + 1, len(yield_op.operands_source())}"
         )
 
     # Update while_op's stop_gradient
