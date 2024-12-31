@@ -64,9 +64,10 @@ void AppendContinuousIfCond(const StmtRef& stmt,
     // inner op is a `IfThenElse`, so we need to check its condition.
     if (IsIfWithEqCond(stmt)) {
       auto eq_lhs = stmt.as<IfThenElse>()->condition().As<ir::EQ>()->a();
-      if (eq_lhs.is_index())
+      if (eq_lhs.is_index()) {
         cond_vec->push_back(common::ChangeSeqOfDivMod(
             ir::ir_utils::IRCopy(eq_lhs).as_index().Normalize()));
+      }
     }
     // inner op is other op.
     *inner_op = stmt;
