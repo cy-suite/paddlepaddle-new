@@ -56,7 +56,7 @@ void ClipTensorGradKernel(const Context& dev_ctx,
   MetaTensor meta_out(&out);
   UnchangedExceptDtypeInferMeta(x, &meta_out);
   meta_out.set_dtype(phi::DataType::BOOL);
-  LogicalAndKernel<T, Context>(dev_ctx, x_ls_min, x_ls_max, &out);
+  LogicalAndKernel<bool, Context>(dev_ctx, x_ls_min, x_ls_max, &out);
 
   phi::DenseTensor zero_tensor;
   MetaTensor meta_zero(&zero_tensor);
