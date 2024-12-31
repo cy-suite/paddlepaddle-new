@@ -85,6 +85,7 @@ prim_white_list = [
     "reshape_double_grad",
     "take_along_axis_double_grad",
     "index_add_double_grad",
+    "acos_double_grad",
 ]
 
 # white ops list whose kernel can automatically do type promotion.
@@ -2736,7 +2737,7 @@ class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
                 grad_api_out_args_list.append(f"api_output_{out_index}")
                 fwd_positions_list.append(f"{fwd_position}")
             if inplace_grad_input_str in optional_inplace_var_name:
-                optional_inplace_str = 'VLOG(6) << "No Inplace should happend for wrappered input: {inplace_grad_input_str}";'
+                optional_inplace_str = 'VLOG(6) << "No Inplace should happened for wrappered input: {inplace_grad_input_str}";'
             else:
                 optional_inplace_str = f"""if (api_output_{out_index} != nullptr && can_be_inplaced) {{
       egr::EagerUtils::HandleViewBetweenInputAndOutput({inplace_grad_input_str}, api_output_{out_index});
