@@ -7201,8 +7201,8 @@ def unfold(
     have a Tensor copy in ``dygraph`` mode.
 
     The figure below demonstrates how a tensor with element values ranging from 0 to 8 and a shape of [9] is processed
-    using the ``unfold`` method along the first dimension (axis = 0). The method samples the Tensor using a window size 
-    of 2 (size = 2) and a step size of 4 (step = 4).
+    using the ``unfold`` method along the first dimension (``axis = 0``). The method samples the Tensor using a window size 
+    of 2 (``size = 2``) and a step size of 4 (``step = 4``).
 
     .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/unfold.png
         :width: 700
