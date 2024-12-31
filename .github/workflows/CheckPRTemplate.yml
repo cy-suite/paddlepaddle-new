@@ -8,6 +8,8 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
     - name: Clone paddle
       uses: actions/checkout@v4
@@ -17,14 +19,6 @@ jobs:
       with:
         path: ~/.cache/pip
         key: checkpr_pip
-
-    - name: Get commit message
-      id: get_commit_message
-      run: |
-        PR_BRANCH_SHA="${{ github.event.pull_request.head.sha }}"
-        git fetch origin $PR_BRANCH_SHA --depth=1
-        COMMIT_MESSAGE=$(git log -1 --format=%B $PR_BRANCH_SHA)
-        echo "commit_message=$COMMIT_MESSAGE" >> $GITHUB_ENV
 
     - name: Check PR Template
       env:
@@ -38,10 +32,10 @@ jobs:
         echo "ipipe_log_param_EXCODE: $EXCODE"
         set +x
         if [[ "$EXCODE" != "0" ]];then
-        echo -e "######################################################"
-        echo -e "If you encounter a situation where the PR template does not match the error message, please use the following link to update your PR: [  https://raw.githubusercontent.com/PaddlePaddle/Paddle/develop/.github/PULL_REQUEST_TEMPLATE.md ]"
-        echo -e "##ReferenceDocumentation: ##"
-        echo -e "[ https://github.com/PaddlePaddle/Paddle/wiki/PULL-REQUEST-TEMPLATE--REFERENCE ]"
-        echo -e "[ https://github.com/PaddlePaddle/Paddle/wiki/paddle_ci_manual ]"
-        echo -e "######################################################"
+          echo -e "######################################################"
+          echo -e "If you encounter a situation where the PR template does not match the error message, please use the following link to update your PR: [  https://raw.githubusercontent.com/PaddlePaddle/Paddle/develop/.github/PULL_REQUEST_TEMPLATE.md ]"
+          echo -e "##ReferenceDocumentation: ##"
+          echo -e "[ https://github.com/PaddlePaddle/Paddle/wiki/PULL-REQUEST-TEMPLATE--REFERENCE ]"
+          echo -e "[ https://github.com/PaddlePaddle/Paddle/wiki/paddle_ci_manual ]"
+          echo -e "######################################################"
         fi
