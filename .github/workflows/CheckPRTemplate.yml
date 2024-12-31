@@ -14,20 +14,21 @@ jobs:
     - name: Clone paddle
       uses: actions/checkout@v4
 
-    - name: Cache python dependencies
-      uses: actions/cache@v4
+    - uses: actions/setup-python@v5
       with:
-        path: ~/.cache/pip
-        key: checkpr_pip
+        python-version: '3.13'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        pip install -r httpx
 
     - name: Check PR Template
       env:
         AGILE_PULL_ID: ${{ github.event.pull_request.number }}
         GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        git checkout -b test
-        pip install httpx pymysql PyGithub
-        python tools/CheckPRTemplate.py;EXCODE=$?
+        python tools/CheckPRTemplate.py; EXCODE=$?
         echo "EXCODE: $EXCODE"
         echo "ipipe_log_param_EXCODE: $EXCODE"
         set +x
