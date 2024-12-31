@@ -1,6 +1,7 @@
 name: Codestyle-Check
 
 on:
+  pull_request:
   workflow_run:
     workflows: [Clone]
     types: [completed]
