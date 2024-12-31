@@ -180,6 +180,7 @@ class FunctionSpec:
         flat_input_spec = paddle.utils.flatten(input_with_spec)
 
         inputs = []
+        program_inputs = []
         with ir_static.program_guard(main_program):
             for i, var_spec in enumerate(flat_input_spec):
                 if isinstance(var_spec, paddle.static.InputSpec):
@@ -204,7 +205,7 @@ class FunctionSpec:
                         dist_feed_value = paddle._pir_ops.shard_tensor(
                             feed_value, var_spec.mesh, placements
                         )
-                        inputs.append(feed_value)
+                        inputs.append(dist_feed_value)
                         # dist_dense_tensor_type = paddle.base.libpaddle.pir.create_dist_dense_tensor_type_by_dense_tensor(
                         #     feed_value.type(),
                         #     var_spec.local_shape,
@@ -218,7 +219,11 @@ class FunctionSpec:
                     feed_value = var_spec
                     inputs.append(feed_value)
 
-        return paddle.utils.pack_sequence_as(input_with_spec, inputs)
+                program_inputs.append(feed_value)
+
+        return paddle.utils.pack_sequence_as(
+            input_with_spec, inputs
+        ), paddle.utils.pack_sequence_as(input_with_spec, program_inputs)
 
     @switch_to_static_graph
     def to_static_inputs_with_spec(self, input_with_spec, main_program):
