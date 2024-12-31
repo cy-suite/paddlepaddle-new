@@ -17,6 +17,8 @@
 #include "paddle/cinn/common/cinn_value.h"
 #include "paddle/cinn/common/common.h"
 #include "paddle/cinn/common/const_fold.h"
+#include "paddle/cinn/common/ir_util.h"
+#include "paddle/cinn/common/simplify_special_pattern.h"
 #include "paddle/cinn/ir/buffer.h"
 #include "paddle/cinn/ir/ir.h"
 #include "paddle/cinn/ir/ir_printer.h"
@@ -25,7 +27,6 @@
 #include "paddle/cinn/ir/op/ir_operators.h"
 #include "paddle/cinn/ir/tensor.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
-#include "paddle/cinn/optim/ir_simplify.h"
 #include "paddle/common/enforce.h"
 namespace cinn {
 namespace ir {
@@ -284,13 +285,13 @@ double Expr::get_constant() const {
 bool Expr::is_var() const { return As<_Var_>(); }
 
 bool Expr::is_index() const {
-  // Temporarily use `is_index_tmp`. because `get_index` depends on marking
+  // Temporarily use `VerifyIndex`. because `get_index` depends on marking
   // `indexExpr` in For::make and sch
-  // return is_index_tmp();
-  return get()->get_index();
+  return VerifyIndex(*this);
+  // return get()->get_index();
 }
 
-const Expr &Expr::set_index(bool flag) const {
+Expr &Expr::set_index(bool flag) {
   if (flag && !VerifyIndex(*this)) {
     PADDLE_THROW(::common::errors::InvalidType(
         "Expr: %s is not IndexExpr! cannot be set as IndexExpr.", *this));
@@ -299,7 +300,7 @@ const Expr &Expr::set_index(bool flag) const {
   return *this;
 }
 
-Expr &Expr::set_index(bool flag) {
+const Expr &Expr::set_index(bool flag) const {
   if (flag && !VerifyIndex(*this)) {
     PADDLE_THROW(::common::errors::InvalidType(
         "Expr: %s is not IndexExpr! cannot be set as IndexExpr.", *this));
@@ -487,46 +488,7 @@ bool IndexExpr::IsDynamic() const {
   }
 }
 
-static IndexExpr SimplifyMin(const IndexExpr &lhs, const IndexExpr &rhs) {
-  if (lhs == rhs) return lhs;
-  if (auto constRes = cinn::common::TryConstFold<ir::Min>(lhs, rhs))
-    return constRes.value();
-  return Min::Make(lhs, rhs);
-}
-
-static IndexExpr SimplifyMax(const IndexExpr &lhs, const IndexExpr &rhs) {
-  if (lhs == rhs) return lhs;
-  if (auto constRes = cinn::common::TryConstFold<ir::Max>(lhs, rhs))
-    return constRes.value();
-  return Max::Make(lhs, rhs);
-}
-
-IndexExpr ConstructIndexExprByNodeType(const IrNodeTy &ty,
-                                       const IndexExpr &lhs,
-                                       const IndexExpr &rhs) {
-  switch (ty) {
-    case IrNodeTy::Add:
-      return lhs + rhs;
-    case IrNodeTy::Sub:
-      return lhs - rhs;
-    case IrNodeTy::Mul:
-      return lhs * rhs;
-    case IrNodeTy::Div:
-      return lhs / rhs;
-    case IrNodeTy::Mod:
-      return lhs % rhs;
-    case IrNodeTy::Min:
-      return SimplifyMin(lhs, rhs);
-    case IrNodeTy::Max:
-      return SimplifyMax(lhs, rhs);
-    default:
-      PADDLE_THROW(::common::errors::InvalidArgument(
-          "Unsupported type in ConstructIndexExprByNodeType, which is: %s",
-          ty));
-  }
-}
-
-IndexExpr Simplify(const IndexExpr &expr) {
+IndexExpr Simplify(const IndexExpr &expr, IndexExpr::OptLevel level) {
   switch (expr.node_type()) {
     case ir::IrNodeTy::IntImm:
       return expr;
@@ -547,7 +509,7 @@ IndexExpr Simplify(const IndexExpr &expr) {
       return Load::Make(load->tensor, load->indices).set_index(true);
     }
     case ir::IrNodeTy::Cast: {
-      auto v = Simplify(expr.operand(0));
+      auto v = Simplify(expr.operand(0), level);
       return Cast::Make(expr.type(), v);
     }
     case ir::IrNodeTy::Add:
@@ -557,9 +519,13 @@ IndexExpr Simplify(const IndexExpr &expr) {
     case ir::IrNodeTy::Mod:
     case ir::IrNodeTy::Min:
     case ir::IrNodeTy::Max: {
-      auto lhs = Simplify(expr.operand(0));
-      auto rhs = Simplify(expr.operand(1));
-      return ConstructIndexExprByNodeType(expr.node_type(), lhs, rhs);
+      auto lhs = Simplify(expr.operand(0), level);
+      auto rhs = Simplify(expr.operand(1), level);
+      auto res = ConstructIndexExprByNodeType(expr.node_type(), lhs, rhs);
+      if (level == IndexExpr::OptLevel::Level2 &&
+          expr.node_type() == ir::IrNodeTy::Add)
+        res = common::MergeMulMod(res);
+      return res;
     }
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(
@@ -567,7 +533,9 @@ IndexExpr Simplify(const IndexExpr &expr) {
   }
 }
 
-IndexExpr IndexExpr::Normalize() const { return Simplify(*this); }
+IndexExpr IndexExpr::Normalize(OptLevel level) const {
+  return Simplify(*this, level);
+}
 
 int32_t IndexExpr::as_int32() const {
   PADDLE_ENFORCE_EQ(
@@ -642,12 +610,14 @@ void IrNode::convert_int64_to_int32() {
                         true,
                         ::common::errors::InvalidArgument(
                             "Current only support convert int64_t "
-                            "to int32_t, but get type is: %s",
-                            type_));
+                            "to int32_t, but get type is: %s, node type is: %s",
+                            type_,
+                            node_type()));
 
   if (node_type() == IrNodeTy::IntImm) {
     auto *int_imm = static_cast<IntImm *>(this);
     if (int_imm->value >= INT_MAX) return;
+    int_imm->value = int32_t(int_imm->value);
   }
 
   if (type_ == Int(64)) type_ = Int(32);

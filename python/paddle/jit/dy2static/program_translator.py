@@ -501,7 +501,7 @@ class StaticFunction(Generic[_InputT, _RetT]):
             if instance is None:
                 return self
             # Note(Aurelius84): To construct new instance of StaticFunction when we
-            # first encouter the bound function of layer and cache it.
+            # first encounter the bound function of layer and cache it.
             new_static_layer = self._clone()
             if (
                 isinstance(instance, layers.Layer)
@@ -1629,7 +1629,7 @@ class ProgramCache:
         self._recent_cache_key = None
 
     def _build_once(self, cache_key):
-        # TODO(Aurelius84): Need a gloabl FLAGS to enable/disable to_prim
+        # TODO(Aurelius84): Need a global FLAGS to enable/disable to_prim
         enable_prim = cache_key.kwargs['build_strategy'].build_cinn_pass
 
         if use_pir_api():
@@ -1741,10 +1741,6 @@ class ProgramCache:
 
 class PrimHooker(PartialProgramLayerHook):
     def __init__(self, original_program, backend):
-        if len(original_program.blocks) > 1:
-            raise ValueError(
-                'The primitive mode only support one block currently.'
-            )
         self.backend = backend
         self.custom_vjps = set()
         with backend_guard(self.backend):
