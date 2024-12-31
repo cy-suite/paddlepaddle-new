@@ -124,21 +124,50 @@ void CollectShapeManager::StatisticShapeRangeInfo() {
         for (auto const &it : shape_data) {
           auto val = it.first;
           auto shapes = it.second;
+
           std::vector<int32_t> min_shape(shapes[0].begin(), shapes[0].end());
           std::vector<int32_t> max_shape(shapes[0].begin(), shapes[0].end());
           std::vector<int32_t> opt_shape(shapes[0].begin(), shapes[0].end());
 
           auto ShapeMaxFreq =
               [](const std::map<int32_t, int32_t> &m) -> int32_t {
-            std::vector<std::pair<int32_t, int32_t>> counter;
-            for (auto &it : m) counter.emplace_back(it);
-            std::sort(counter.begin(),
-                      counter.end(),
-                      [](std::pair<int32_t, int32_t> &a,
-                         std::pair<int32_t, int32_t> &b) {
-                        return a.second > b.second;
-                      });
-            return counter[0].first;
+            if (m.empty()) return 0;
+
+            // Check if all frequencies are the same
+            int freq = m.begin()->second;
+            bool same_freq = true;
+            for (const auto &p : m) {
+              if (p.second != freq) {
+                same_freq = false;
+                break;
+              }
+            }
+
+            if (same_freq) {
+              // Return the median value
+              std::vector<int32_t> keys;
+              for (const auto &p : m) {
+                keys.push_back(p.first);
+              }
+              std::sort(keys.begin(), keys.end());
+              size_t n = keys.size();
+              if (n % 2 == 1) {
+                return keys[n / 2];
+              } else {
+                return keys[(n - 1) / 2];  // // Choose the smaller median
+              }
+            } else {
+              // Return the value with the highest frequency
+              std::vector<std::pair<int32_t, int32_t>> counter(m.begin(),
+                                                               m.end());
+              std::sort(counter.begin(),
+                        counter.end(),
+                        [](const std::pair<int32_t, int32_t> &a,
+                           const std::pair<int32_t, int32_t> &b) {
+                          return a.second > b.second;
+                        });
+              return counter[0].first;
+            }
           };
 
           for (size_t d = 0; d < shapes[0].size(); ++d) {
