@@ -1238,7 +1238,7 @@ def calc_gradient(
         grad_outputs=grad_outputs,
         no_grad_set=ValueSet(no_grad_set),
     )
-    print(paddle.static.default_main_program())
+
     inputgrad = []
     for input in inputs:
         inputgrad.append(
@@ -1413,7 +1413,7 @@ def append_backward(loss, parameter_list=None, no_grad_set=None):
         grad_outputs=[],
         no_grad_set=ValueSet(no_grad_set_),
     )
-    print(paddle.static.default_main_program())
+
     input_inputs_grad = []
     for input in parameter_list:
         input_inputs_grad.append(
