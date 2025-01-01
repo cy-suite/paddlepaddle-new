@@ -16,6 +16,7 @@
 #include "paddle/fluid/eager/api/manual/eager_manual/dygraph_forward_api.h"
 #include "paddle/fluid/eager/api/manual/eager_manual/nodes/nodes.h"
 #include "paddle/fluid/eager/api/utils/global_utils.h"
+#include "paddle/phi/core/distributed/auto_parallel/dist_tensor.h"
 #include "paddle/phi/core/distributed/auto_parallel/reshard/reshard_utils.h"
 #include "paddle/phi/core/platform/profiler/event_tracing.h"
 
@@ -51,23 +52,27 @@ paddle::Tensor dtensor_from_local_ad_function(
         new DtensorFromLocalGradNode(1, 1));  // NOLINT
   }
 
-  if (!IsCurRankInMesh(dist_attr.process_mesh())) {
-    const auto& input_tensor_impl = input.impl();
-    phi::distributed::DistTensor* dist_tensor =
-        static_cast<phi::distributed::DistTensor*>(input_tensor_impl.get());
-    PADDLE_ENFORCE_EQ(dist_tensor->initialized(),
-                      false,
-                      phi::errors::InvalidArgument(
-                          "Expected the passed `phi::distributed::DistTensor` "
-                          "to be uninitialized "
-                          "when current rank is not in the process mesh. But "
-                          "received an initialized "));
+  auto dense_tensor_ptr =
+      std::static_pointer_cast<phi::DenseTensor>(input.impl());
+
+  auto process_mesh = dist_attr.process_mesh();
+  auto placements = ToPlacements(dist_attr);
+
+  auto global_dims = common::vectorize(dense_tensor_ptr->dims());
+  for (size_t i = 0; i < placements.size(); i++) {
+    auto placement = placements[i];
+    if (placement->is_shard()) {
+      auto shard_dim =
+          dynamic_cast<const phi::distributed::Shard&>(*placement).get_dim();
+      global_dims[i] = global_dims[i] * process_mesh.shape()[shard_dim];
+    }
   }
 
-  auto dist_out_ptr =
-      std::make_shared<phi::distributed::DistTensor>(input.dims(), dist_attr);
-  *(dist_out_ptr->unsafe_mutable_value()) =
-      *(static_cast<phi::DenseTensor*>(input.impl().get()));
+  auto dist_out_ptr = std::make_shared<phi::distributed::DistTensor>(
+      dense_tensor_ptr,
+      common::make_ddim(global_dims),
+      process_mesh,
+      placements);
 
   auto api_result = paddle::Tensor(dist_out_ptr);
 
