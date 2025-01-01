@@ -28,9 +28,6 @@ from paddle.framework import core
 class TestProdOp(unittest.TestCase):
     def setUp(self):
         self.input = np.random.random(size=(10, 10, 5)).astype(np.float32)
-        real = np.random.random(size=(10, 10, 5)).astype(np.float32)
-        imag = np.random.random(size=(10, 10, 5)).astype(np.float32)
-        self.complex_input = real + 1j * imag
 
     def run_imperative(self, place):
         input = paddle.to_tensor(self.input, place=place)
@@ -74,32 +71,6 @@ class TestProdOp(unittest.TestCase):
         expected_result = np.prod(
             self.input, axis=1, keepdims=True, dtype=np.int64
         )
-        np.testing.assert_allclose(
-            dy_result.numpy(), expected_result, rtol=1e-05
-        )
-
-    def run_complex_imperative(self, place):
-        complex_input = paddle.to_tensor(self.complex_input, place=place)
-        dy_result = paddle.prod(complex_input)
-        expected_result = np.prod(self.complex_input)
-        np.testing.assert_allclose(
-            dy_result.numpy(), expected_result, rtol=1e-05
-        )
-
-        dy_result = paddle.prod(complex_input, axis=1)
-        expected_result = np.prod(self.complex_input, axis=1)
-        np.testing.assert_allclose(
-            dy_result.numpy(), expected_result, rtol=1e-05
-        )
-
-        dy_result = paddle.prod(complex_input, axis=[0, 1])
-        expected_result = np.prod(self.complex_input, axis=(0, 1))
-        np.testing.assert_allclose(
-            dy_result.numpy(), expected_result, rtol=1e-05, atol=1e-8
-        )
-
-        dy_result = paddle.prod(complex_input, axis=1, keepdim=True)
-        expected_result = np.prod(self.complex_input, axis=1, keepdims=True)
         np.testing.assert_allclose(
             dy_result.numpy(), expected_result, rtol=1e-05
         )
@@ -164,22 +135,73 @@ class TestProdOp(unittest.TestCase):
             static_result[6], expected_result, rtol=1e-05
         )
 
-    def run_complex_static(self, use_gpu=False):
+    def test_cpu(self):
+        with dygraph_guard():
+            self.run_imperative(place=paddle.CPUPlace())
+        with static_guard():
+            self.run_static()
+
+    def test_gpu(self):
+        if not paddle.base.core.is_compiled_with_cuda():
+            return
+        with dygraph_guard():
+            self.run_imperative(place=paddle.CUDAPlace(0))
+        with static_guard():
+            self.run_static()
+
+
+@unittest.skipIf(
+    core.is_compiled_with_xpu(),
+    "core is compiled with  XPU",
+)
+class TestProdComplexOp(TestProdOp):
+    def setUp(self):
+        real = np.random.random(size=(10, 10, 5)).astype(np.float32)
+        imag = np.random.random(size=(10, 10, 5)).astype(np.float32)
+        self.input = real + 1j * imag
+
+    def run_imperative(self, place):
+        input = paddle.to_tensor(self.input, place=place)
+        dy_result = paddle.prod(input)
+        expected_result = np.prod(self.input)
+        np.testing.assert_allclose(
+            dy_result.numpy(), expected_result, rtol=1e-05
+        )
+
+        dy_result = paddle.prod(input, axis=1)
+        expected_result = np.prod(self.input, axis=1)
+        np.testing.assert_allclose(
+            dy_result.numpy(), expected_result, rtol=1e-05
+        )
+
+        dy_result = paddle.prod(input, axis=[0, 1])
+        expected_result = np.prod(self.input, axis=(0, 1))
+        np.testing.assert_allclose(
+            dy_result.numpy(), expected_result, rtol=1e-05, atol=1e-8
+        )
+
+        dy_result = paddle.prod(input, axis=1, keepdim=True)
+        expected_result = np.prod(self.input, axis=1, keepdims=True)
+        np.testing.assert_allclose(
+            dy_result.numpy(), expected_result, rtol=1e-05
+        )
+
+    def run_static(self, use_gpu=False):
         with paddle.static.program_guard(paddle.static.Program()):
-            complex_input = paddle.static.data(
-                name='complex_input', shape=[10, 10, 5], dtype='complex64'
+            input = paddle.static.data(
+                name='input', shape=[10, 10, 5], dtype='complex64'
             )
-            result0 = paddle.prod(complex_input)
-            result1 = paddle.prod(complex_input, axis=1)
-            result2 = paddle.prod(complex_input, axis=-1)
-            result3 = paddle.prod(complex_input, axis=[0, 1])
-            result4 = paddle.prod(complex_input, axis=1, keepdim=True)
+            result0 = paddle.prod(input)
+            result1 = paddle.prod(input, axis=1)
+            result2 = paddle.prod(input, axis=-1)
+            result3 = paddle.prod(input, axis=[0, 1])
+            result4 = paddle.prod(input, axis=1, keepdim=True)
 
             place = paddle.CUDAPlace(0) if use_gpu else paddle.CPUPlace()
             exe = paddle.static.Executor(place)
             exe.run(paddle.static.default_startup_program())
             static_complex_result = exe.run(
-                feed={"complex_input": self.complex_input},
+                feed={"input": self.input},
                 fetch_list=[
                     result0,
                     result1,
@@ -189,23 +211,23 @@ class TestProdOp(unittest.TestCase):
                 ],
             )
 
-        expected_result = np.prod(self.complex_input)
+        expected_result = np.prod(self.input)
         np.testing.assert_allclose(
             static_complex_result[0], expected_result, rtol=1e-05
         )
-        expected_result = np.prod(self.complex_input, axis=1)
+        expected_result = np.prod(self.input, axis=1)
         np.testing.assert_allclose(
             static_complex_result[1], expected_result, rtol=1e-05
         )
-        expected_result = np.prod(self.complex_input, axis=-1)
+        expected_result = np.prod(self.input, axis=-1)
         np.testing.assert_allclose(
             static_complex_result[2], expected_result, rtol=1e-05
         )
-        expected_result = np.prod(self.complex_input, axis=(0, 1))
+        expected_result = np.prod(self.input, axis=(0, 1))
         np.testing.assert_allclose(
             static_complex_result[3], expected_result, rtol=1e-05, atol=1e-8
         )
-        expected_result = np.prod(self.complex_input, axis=1, keepdims=True)
+        expected_result = np.prod(self.input, axis=1, keepdims=True)
         np.testing.assert_allclose(
             static_complex_result[4], expected_result, rtol=1e-05
         )
@@ -221,20 +243,8 @@ class TestProdOp(unittest.TestCase):
             return
         with dygraph_guard():
             self.run_imperative(place=paddle.CUDAPlace(0))
-            self.run_complex_imperative(place=paddle.CUDAPlace(0))
         with static_guard():
-            self.run_static(use_gpu=True)
-            self.run_complex_static(use_gpu=True)
-
-    @unittest.skipIf(
-        core.is_compiled_with_xpu(),
-        "core is compiled with  XPU",
-    )
-    def test_complex_cpu(self):
-        with dygraph_guard():
-            self.run_complex_imperative(place=paddle.CPUPlace())
-        with static_guard():
-            self.run_complex_static()
+            self.run_static()
 
 
 class TestProdOpError(unittest.TestCase):
