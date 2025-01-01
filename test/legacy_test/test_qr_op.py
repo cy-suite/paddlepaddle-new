@@ -186,6 +186,8 @@ class TestQrAPI(unittest.TestCase):
                 (5, 5),
                 (5, 3),  # 2-dim Tensors
                 (0, 3, 5),
+                (4, 0, 5),
+                (5, 4, 0),
                 (2, 3, 5),
                 (3, 5, 5),
                 (4, 5, 3),  # 3-dim Tensors
@@ -268,8 +270,8 @@ class TestQrAPI(unittest.TestCase):
                 (5, 5),
                 (5, 3),  # 2-dim Tensors
                 (0, 3, 5),
-                (2, 3, 5),
-                (3, 5, 5),
+                (4, 0, 5),
+                (5, 4, 0),
                 (4, 5, 3),  # 3-dim Tensors
                 (0, 5, 3, 5),
                 (2, 5, 3, 5),
