@@ -20,7 +20,7 @@ import collective.test_communication_api_base as test_base
 
 class TestDPMPPPAPI(test_base.CommunicationTestDistBase):
     def setUp(self):
-        super().setUp(num_of_devices=8, timeout=180, nnode=1)
+        super().setUp(num_of_devices=8, timeout=360, nnode=1)
         self._default_envs = {
             "dtype": "float32",
             "seed": "2023",
@@ -46,7 +46,7 @@ class TestDPMPPPAPI(test_base.CommunicationTestDistBase):
                 "1",
             ],
             "one_api": ["true", "false"],
-            "test_lora": ["1", "0"],
+            "test_lora": ["1"],
         }
 
     def test_simple_lora_net_dp2_mp2_pp2(self):

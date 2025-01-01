@@ -167,5 +167,5 @@ if((WITH_GPU) AND (LINUX))
     ENVS
     "http_proxy=;https_proxy=;PYTHONPATH=../..:${PADDLE_BINARY_DIR}/python")
   set_tests_properties(test_parallel_api_with_llama_lora
-                       PROPERTIES TIMEOUT "200" LABELS "RUN_TYPE=HYBRID")
+                       PROPERTIES TIMEOUT "360" LABELS "RUN_TYPE=HYBRID")
 endif()

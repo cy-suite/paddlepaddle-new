@@ -197,7 +197,6 @@ class TestParallelAPI:
             return
         for name, sub_layer in layer.named_sublayers():
             if len(sub_layer.sublayers()) == 0:
-                print(name, sub_layer)
                 if 'q_proj' in name or 'k_proj' in name or 'v_proj' in name:
                     assert sub_layer.weight.placements == [
                         dist.Replicate(),
@@ -388,7 +387,6 @@ class TestParallelAPI:
                     model = LoRAModel(model, self.lora_config)
             else:
                 model = LoRAModel(model, self.lora_config)
-        print(model)
         model, optimizer, lr_scheduler = self.parallel_model(model)
 
         criterion = LlamaPretrainingCriterion(self.config)
