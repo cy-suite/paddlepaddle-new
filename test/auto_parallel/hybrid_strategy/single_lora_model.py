@@ -87,18 +87,12 @@ class LoRALinear(nn.Linear):
                 shape=[in_features, r],
                 dtype=self._dtype,
                 is_bias=False,
-                default_initializer=nn.initializer.KaimingUniform(
-                    negative_slope=math.sqrt(5), nonlinearity="leaky_relu"
-                ),
             )
             if self.lora_use_mixer:
                 self.lora_AB = self.create_parameter(
                     shape=[r, r],
                     dtype=self._dtype,
                     is_bias=False,
-                    default_initializer=nn.initializer.KaimingUniform(
-                        negative_slope=math.sqrt(5), nonlinearity="leaky_relu"
-                    ),
                 )
             self.lora_B = self.create_parameter(
                 shape=[r, out_features],
@@ -315,10 +309,13 @@ class LoRAModel(nn.Layer):
     def __init__(self, model, lora_config) -> None:
         super().__init__()
         self.model = self.get_lora_model(model, lora_config)
-        self.forward = self.model.forward
+
         self.lora_config = lora_config
         logging.info("Mark only lora and trainable_module as trainable.")
         self.mark_only_lora_as_trainable()
+
+    def forward(self, input_ids):
+        return self.model(input_ids)
 
     def _find_and_replace_module(self, model, module_name, lora_config):
         parent_module = model
