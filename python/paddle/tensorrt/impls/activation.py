@@ -271,4 +271,3 @@ def selu_converter(network, paddle_op, inputs):
     selu_layer.alpha = alpha
     selu_layer.beta = scale
     return selu_layer.get_output(0)
-
