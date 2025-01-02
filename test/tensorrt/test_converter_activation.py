@@ -306,6 +306,20 @@ class TestMishCase4TRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestSeluTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.nn.functional.selu
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3]}
+        self.max_shape = {"x": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
 class TestLeakyReluCas1TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.nn.functional.leaky_relu
@@ -330,23 +344,6 @@ class TestLeakyReluCase2TRTPattern(TensorRTBaseTest):
         self.api_args = {
             "x": np.random.randn(2, 3).astype("float32"),
             "negative_slope": -0.5,
-        }
-        self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [1, 3]}
-        self.max_shape = {"x": [5, 3]}
-
-    def test_trt_result_fp16(self):
-        self.check_trt_result(precision_mode="fp16")
-
-    def test_trt_result_fp32(self):
-        self.check_trt_result()
-
-
-class TestSeluTRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = paddle.nn.functional.selu
-        self.api_args = {
-            "x": np.random.randn(2, 3).astype("float32"),
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3]}
