@@ -5,6 +5,8 @@ extend-exclude = [
     "patches",
     "build",
     "test/dataset/imikolov_test.py",
+    "test/cpp/eager/task_tests/CMakeLists.txt",
+    "test/cpp/eager/task_tests/hook_test_intermidiate.cc",
 ]
 
 [default.extend-words]
