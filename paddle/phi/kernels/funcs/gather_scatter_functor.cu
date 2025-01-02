@@ -22,6 +22,12 @@ namespace funcs {
 
 class TensorAssign {
  public:
+  // Dummy function, unused in actual execution(because specialized Assign
+  // Kernel existed)
+  template <typename tensor_t>
+  __device__ static constexpr tensor_t I() noexcept {
+    return tensor_t(0);
+  }
   template <typename tensor_t>
   constexpr void operator()(tensor_t* self_data, tensor_t* src_data) const {
     *self_data = *src_data;
@@ -31,6 +37,10 @@ static TensorAssign tensor_assign;
 
 class ReduceAdd {
  public:
+  template <typename tensor_t>
+  __device__ static constexpr tensor_t I() noexcept {
+    return tensor_t(0);
+  }
   template <
       typename tensor_t,
       std::enable_if_t<!std::is_same<tensor_t, uint8_t>::value>* = nullptr>
@@ -47,6 +57,10 @@ static ReduceAdd reduce_add;
 
 class ReduceMul {
  public:
+  template <typename tensor_t>
+  __device__ static constexpr tensor_t I() noexcept {
+    return tensor_t(1);
+  }
   template <
       typename tensor_t,
       std::enable_if_t<!std::is_same<tensor_t, uint8_t>::value>* = nullptr>
@@ -63,6 +77,10 @@ static ReduceMul reduce_mul;
 
 class ReduceMax {
  public:
+  template <typename tensor_t>
+  __device__ static constexpr tensor_t I() noexcept {
+    return tensor_t(-std::numeric_limits<tensor_t>::max());
+  }
   template <
       typename tensor_t,
       std::enable_if_t<!std::is_same<tensor_t, uint8_t>::value>* = nullptr>
@@ -79,6 +97,10 @@ static ReduceMax reduce_max;
 
 class ReduceMin {
  public:
+  template <typename tensor_t>
+  __device__ static constexpr tensor_t I() noexcept {
+    return tensor_t(std::numeric_limits<tensor_t>::max());
+  }
   template <
       typename tensor_t,
       std::enable_if_t<!std::is_same<tensor_t, uint8_t>::value>* = nullptr>
@@ -212,14 +234,6 @@ __global__ void GatherScatterGPUKernel(tensor_t* self_data,
                                        int* shared_mem) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= numel) return;
-  if (include_self == false) {
-    if (tid == 0) {
-      for (int i = 0; i < numel_data; i++) {
-        shared_mem[i] = numel + 1;  // thread_ids
-      }
-    }
-    __syncthreads();
-  }
   int64_t i, j, k;  // The i, j, k here is the index of the 3 layers loop
                     // squeezed from the N layers loop.
   /* tid = i * select_dim_size * outer_dim_size + j * outer_dim_size + k */
@@ -284,17 +298,11 @@ __global__ void GatherScatterGPUKernel(tensor_t* self_data,
   }
   bool is_op_done = false;
   if (include_self == false) {
-    phi::CudaAtomicMin(shared_mem + replace_index_self, tid);
-    __syncthreads();
-    if (tid == shared_mem[replace_index_self]) {
-      self_data[replace_index_self] = src_data[replace_index_src];
-      is_op_done = true;
-    }
+    self_data[replace_index_self] = reduce_op.template I<tensor_t>();
     __syncthreads();
   }
-  if (!is_op_done)
-    reduce_op(static_cast<tensor_t*>(self_data + replace_index_self),
-              static_cast<tensor_t*>(src_data + replace_index_src));
+  reduce_op(static_cast<tensor_t*>(self_data + replace_index_self),
+            static_cast<tensor_t*>(src_data + replace_index_src));
 }
 
 template <typename tensor_t,
