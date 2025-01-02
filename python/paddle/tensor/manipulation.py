@@ -7047,8 +7047,9 @@ def as_strided(
     Only available in dynamic graph mode, the returned Tensor shares memory with x.
     The following image illustrates an example: transforming an input Tensor with shape [2,4,6] into a Tensor with shape [8,6] and stride [6,1].
 
+
     .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/as_strided.png
-    :alt: Legend
+         :alt: Legend
 
     Args:
         x (Tensor): An N-D Tensor. The data type is ``float32``, ``float64``, ``int32``, ``int64`` or ``bool``
