@@ -15,6 +15,7 @@
 import unittest
 
 import paddle
+from paddle.framework import core
 
 
 class TestZeroSizeParameter(unittest.TestCase):
@@ -192,6 +193,7 @@ class TestZeroSizeForward(unittest.TestCase):
                 )
 
 
+@unittest.skipIf(core.is_compiled_with_xpu(), "Skip XPU for xpu place issue")
 class TestZeroSizeBackward(unittest.TestCase):
     def setUp(self):
         # Only floating and complex needs gradient
