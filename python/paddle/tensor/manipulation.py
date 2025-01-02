@@ -7043,9 +7043,7 @@ def as_strided(
     Note that the output Tensor will share data with origin Tensor and doesn't
     have a Tensor copy in ``dygraph`` mode.
 
-    Using specific shape, stride, and offset, return a view Tensor of x.
-    Only available in dynamic graph mode, the returned Tensor shares memory with x.
-    The following image illustrates an example: transforming an input Tensor with shape [2,4,6] into a Tensor with shape [8,6] and stride [6,1].
+    The following image illustrates an example: transforming an input Tensor with shape [2,4,6] into a Tensor with ``shape [8,6]`` and ``stride [6,1]``.
 
 
     .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/as_strided.png
