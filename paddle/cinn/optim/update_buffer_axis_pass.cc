@@ -295,9 +295,10 @@ class ReplaceSameAxisToZero : public ir::IRMutator<>,
 void UpdateBufferAxis(BlockRef block) {
   VLOG(6) << "Before UpdateBufferAxisPass, Block = \n" << block;
 
-  AnalyzeBufferAxis analyzeBufferAxis;
-  analyzeBufferAxis(block);
-  for (const auto& p : analyzeBufferAxis.buffer_name_access_same_index_expr) {
+  AnalyzeBufferAxis buffer_axis_analyzer;
+  buffer_axis_analyzer(block);
+  for (const auto& p :
+       buffer_axis_analyzer.buffer_name_access_same_index_expr) {
     VLOG(6) << "Buffer name: " << p.first;
     for (const auto& q : p.second) {
       VLOG(6) << "Index: " << q.first << " Expr: " << q.second;
@@ -305,7 +306,7 @@ void UpdateBufferAxis(BlockRef block) {
   }
 
   ReplaceSameAxisToZero replacer(
-      analyzeBufferAxis.buffer_name_access_same_index_expr);
+      buffer_axis_analyzer.buffer_name_access_same_index_expr);
   replacer(block);
   VLOG(6) << "After UpdateBufferAxisPass, Block = \n" << block;
 }
