@@ -697,7 +697,6 @@ class TensorParallel(ParallelModel):
             layer_param_placements[layer] = {}
             if len(plans) > 0:
                 pp_idx = getattr(layer, "pipeline_stage_index", 0)
-                print("\n tensor_parallel ", name, f" get {len(plans)} \n ")
                 for plan in plans:
                     real_plan, shard_param_list = plan
                     for p in real_plan:
