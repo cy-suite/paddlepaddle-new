@@ -848,7 +848,7 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
 
   if (!config_.use_optimized_model_) {
 #ifdef PADDLE_WITH_CINN
-    auto = [&](pir::PassManager &pass_manager) {
+    auto AddAutoLayoutPasses = [&](pir::PassManager &pass_manager) {
       auto &pass_registry = pir::PassRegistry::Instance();
       std::vector<std::string> passes = {"auto_layout_pass"};
 
@@ -976,7 +976,7 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
     if (config_.use_gpu()) {
       // gpu
       if (!config_.custom_pass_only_) {
-        for (auto &gpu_pass : kPirGpuPasses) {
+        for (auto gpu_pass : kPirGpuPasses) {
           if (FLAGS_enable_auto_layout_pass &&
               gpu_pass == "transfer_layout_pass") {
             gpu_pass = "auto_layout_pass";
