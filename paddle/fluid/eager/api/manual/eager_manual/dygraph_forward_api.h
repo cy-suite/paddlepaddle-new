@@ -16,6 +16,8 @@
 
 #include "paddle/phi/api/include/tensor.h"
 #include "paddle/phi/core/distributed/auto_parallel/dist_attr.h"
+#include "paddle/phi/core/distributed/auto_parallel/placement_types.h"
+#include "paddle/phi/core/distributed/auto_parallel/process_mesh.h"
 
 paddle::Tensor add_n_ad_func(const std::vector<paddle::Tensor>& x);
 
@@ -58,8 +60,9 @@ paddle::Tensor reshard_ad_function(
 paddle::Tensor dtensor_to_local_ad_function(const paddle::Tensor& input);
 
 paddle::Tensor dtensor_from_local_ad_function(
-    const paddle::Tensor& tensor,
-    const phi::distributed::TensorDistAttr dist_attr);
+    const paddle::Tensor& input,
+    const phi::distributed::ProcessMesh& processmesh,
+    const phi::distributed::Placements& placements);
 
 namespace sparse {
 std::tuple<paddle::Tensor,

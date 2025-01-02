@@ -722,23 +722,13 @@ def moe_sub_mesh_tensors(
 
 
 def dtensor_from_local(local_tensor, mesh, placements):
-    global_dims = list(local_tensor.shape)
     if paddle.in_dynamic_mode():
         if local_tensor.is_dist() is True:
             raise ValueError("The input should be a local tensor.")
 
-        sharding_specs = get_shard_spec(mesh, placements, local_tensor.ndim)
-        dist_attr = DistAttr(mesh, sharding_specs)
-        partial_dims = []
-
-        for i, p in enumerate(placements):
-            if isinstance(p, dist.Partial):
-                partial_dims.append(i)
-
-        if len(partial_dims) > 0:
-            dist_attr._set_partial_dims(partial_dims)
-
-        return paddle.base.core.dtensor_from_local(local_tensor, dist_attr)
+        return paddle.base.core.dtensor_from_local(
+            local_tensor, mesh, placements
+        )
 
     # TODO Adopt Mix2Dist Pass to allow the program could be executed actually.
     elif paddle.framework.in_pir_mode():

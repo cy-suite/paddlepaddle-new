@@ -22,7 +22,8 @@
 
 paddle::Tensor dtensor_from_local_ad_function(
     const paddle::Tensor& input,
-    const phi::distributed::TensorDistAttr dist_attr) {
+    const phi::distributed::ProcessMesh& process_mesh,
+    const phi::distributed::Placements& placements) {
 #ifdef PADDLE_WITH_DISTRIBUTE
   VLOG(3) << "Running AD API: "
           << "dtensor_from_local dygraph";
@@ -54,9 +55,6 @@ paddle::Tensor dtensor_from_local_ad_function(
 
   auto dense_tensor_ptr =
       std::static_pointer_cast<phi::DenseTensor>(input.impl());
-
-  auto process_mesh = dist_attr.process_mesh();
-  auto placements = ToPlacements(dist_attr);
 
   auto global_dims = common::vectorize(dense_tensor_ptr->dims());
   for (size_t i = 0; i < placements.size(); i++) {
