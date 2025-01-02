@@ -16,6 +16,7 @@
 #include "paddle/cinn/ir/ir.h"
 #include "paddle/cinn/ir/ir_base.h"
 #include "paddle/cinn/ir/ir_printer.h"
+#include "paddle/common/bfs_walker.h"
 
 namespace cinn {
 namespace ir {
@@ -138,31 +139,6 @@ DataDependencyGraph::Node::Node(unsigned id, const ir::stmt::StmtRef& stmt)
 
 DepKind DataDependencyGraph::HasDependency(const ir::stmt::StmtRef& src,
                                            const ir::stmt::StmtRef& dst) const {
-  // Run BFS traversal to check if src and dst are reachable.
-  auto HasDependencyPath = [&](const unsigned src_id,
-                               const unsigned dst_id) -> DepKind {
-    std::unordered_set<unsigned> visited;
-    std::deque<unsigned> queue;
-    queue.push_back(src_id);
-    while (!queue.empty()) {
-      auto id = queue.front();
-      if (id == dst_id) return DepKind::DEP;
-      // If node has no out edges, or have been visited already,
-      // record node and continue.
-      if (out_edges_.count(id) == 0 || visited.count(id) != 0) {
-        queue.pop_front();
-        visited.insert(id);
-        continue;
-      }
-      for (const auto& edge : out_edges_.at(id)) {
-        queue.push_back(edge.id);
-      }
-      queue.pop_front();
-      visited.insert(id);
-    }
-    return DepKind::NO_DEP;
-  };
-
   PADDLE_ENFORCE_GT(stmt_to_node_ids_.count(src),
                     0,
                     ::common::errors::InvalidArgument(
@@ -174,7 +150,20 @@ DepKind DataDependencyGraph::HasDependency(const ir::stmt::StmtRef& src,
   auto src_id = stmt_to_node_ids_.at(src);
   auto dst_id = stmt_to_node_ids_.at(dst);
 
-  return HasDependencyPath(src_id, dst_id);
+  // Run BFS traversal to check if src and dst are reachable.
+  DepKind res = DepKind::NO_DEP;
+  ::common::BfsWalker<unsigned> bfs_walker(
+      [&](unsigned id, const std::function<void(unsigned)> Visit) {
+        if (out_edges_.count(id) != 0) {
+          for (const auto& edge : out_edges_.at(id)) {
+            Visit(edge.id);
+          }
+        }
+      });
+  bfs_walker(src_id, [&](unsigned id) {
+    if (id == dst_id) res = DepKind::DEP;
+  });
+  return res;
 }
 
 void DataDependencyGraph::BuildGraphByStmts() {
