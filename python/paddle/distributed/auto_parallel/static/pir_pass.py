@@ -94,6 +94,12 @@ def reshard_single_value(program, op, operand, attr):
                     return reshard_var
             # insert reshard
             reshard_var = paddle._C_ops.reshard_v2(prev_var, operand_attr)
+            if prev_var.get_defining_op().id() == 3141:
+                print("==== insert reshard for op[3141] result ====")
+                print("prev_var:", prev_var)
+                print("prev_var_op:", prev_var.get_defining_op())
+                print("operand_attr:", operand_attr)
+                print("op:", op)
             return reshard_var
     return prev_var
 
@@ -1530,6 +1536,7 @@ def fuse_attention_ffn_qkv_pass(
         fusion_w_shape = mm_gate.operand_source(1).shape
         fusion_w_shape[-1] += mm_up.operand_source(1).shape[-1]
         fusion_w_process_mesh = mm_gate.operand_source(1).process_mesh
+        fusion_w_placements = mm_gate.operand_source(1).placements
         # Insert fusion parameter
         with paddle.static.program_guard(main_program, startup_program):
             fused_w = paddle.pir.core.create_parameter(
@@ -1537,10 +1544,7 @@ def fuse_attention_ffn_qkv_pass(
                 shape=fusion_w_shape,
                 name=fusion_w_name,
                 process_mesh=fusion_w_process_mesh,
-                placements=[
-                    paddle.distributed.Replicate(),
-                    paddle.distributed.Shard(1),
-                ],
+                placements=fusion_w_placements,
                 initializer=paddle.nn.initializer.Constant(value=0),
             )
             name2pir_param_map[fusion_w_name] = fused_w
@@ -1563,6 +1567,7 @@ def fuse_attention_ffn_qkv_pass(
             fusion_bias_shape = add_gate.operand_source(1).shape
             fusion_bias_shape[-1] += add_up.operand_source(1).shape[-1]
             fusion_bias_process_mesh = add_gate.operand_source(1).process_mesh
+            fusion_bias_placements = add_gate.operand_source(1).placements
             # Insert fusion parameter
             with paddle.static.program_guard(main_program, startup_program):
                 fused_bias = paddle.pir.core.create_parameter(
@@ -1570,10 +1575,7 @@ def fuse_attention_ffn_qkv_pass(
                     shape=fusion_bias_shape,
                     name=fusion_bias_name,
                     process_mesh=fusion_bias_process_mesh,
-                    placements=[
-                        paddle.distributed.Replicate(),
-                        paddle.distributed.Shard(0),
-                    ],
+                    placements=fusion_bias_placements,
                     initializer=paddle.nn.initializer.Constant(value=0),
                 )
                 name2pir_param_map[fusion_bias_name] = fused_bias
@@ -1652,6 +1654,7 @@ def fuse_attention_ffn_qkv_pass(
             mm_k.operand_source(1).shape[-1] + mm_v.operand_source(1).shape[-1]
         )
         fusion_w_process_mesh = mm_q.operand_source(1).process_mesh
+        fusion_w_placements = mm_q.operand_source(1).placements
         # insert fusion parameter
         with paddle.static.program_guard(main_program, startup_program):
             fused_w = paddle.pir.core.create_parameter(
@@ -1659,10 +1662,7 @@ def fuse_attention_ffn_qkv_pass(
                 shape=fusion_w_shape,
                 name=fusion_w_name,
                 process_mesh=fusion_w_process_mesh,
-                placements=[
-                    paddle.distributed.Replicate(),
-                    paddle.distributed.Shard(1),
-                ],
+                placements=fusion_w_placements,
                 initializer=paddle.nn.initializer.Constant(value=0),
             )
             name2pir_param_map[fusion_w_name] = fused_w
@@ -1699,6 +1699,7 @@ def fuse_attention_ffn_qkv_pass(
                 + add_v.operand_source(1).shape[-1]
             )
             fusion_bias_process_mesh = add_q.operand_source(1).process_mesh
+            fusion_bias_placements = add_q.operand_source(1).placements
             # insert fusion parameter
             with paddle.static.program_guard(main_program, startup_program):
                 fused_bias = paddle.pir.core.create_parameter(
@@ -1706,10 +1707,7 @@ def fuse_attention_ffn_qkv_pass(
                     shape=fusion_bias_shape,
                     name=fusion_bias_name,
                     process_mesh=fusion_bias_process_mesh,
-                    placements=[
-                        paddle.distributed.Replicate(),
-                        paddle.distributed.Shard(0),
-                    ],
+                    placements=fusion_bias_placements,
                     initializer=paddle.nn.initializer.Constant(value=0),
                 )
                 name2pir_param_map[fusion_bias_name] = fused_bias
