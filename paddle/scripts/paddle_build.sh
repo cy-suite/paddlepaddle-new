@@ -229,7 +229,7 @@ function cmake_base() {
         ${PYTHON_FLAGS}
         -DWITH_GPU=${WITH_GPU:-OFF}
         -DWITH_TENSORRT=${WITH_TENSORRT:-ON}
-        -DWITH_OPENVINO=${WITH_OPENVINO:-ON}
+        -DWITH_OPENVINO=${WITH_OPENVINO:-OFF}
         -DWITH_ROCM=${WITH_ROCM:-OFF}
         -DWITH_CINN=${WITH_CINN:-OFF}
         -DWITH_DISTRIBUTE=${distibuted_flag}
@@ -279,7 +279,7 @@ EOF
         ${PYTHON_FLAGS} \
         -DWITH_GPU=${WITH_GPU:-OFF} \
         -DWITH_TENSORRT=${WITH_TENSORRT:-ON} \
-        -DWITH_OPENVINO=${WITH_OPENVINO:-ON} \
+        -DWITH_OPENVINO=${WITH_OPENVINO:-OFF} \
         -DWITH_ROCM=${WITH_ROCM:-OFF} \
         -DWITH_CINN=${WITH_CINN:-OFF} \
         -DWITH_DISTRIBUTE=${distibuted_flag} \
@@ -723,7 +723,7 @@ EOF
         exec_times=0
         exec_time_array=('first' 'second' 'third')
         exec_retry_threshold=10
-        is_retry_execuate=0
+        is_retry_execute=0
         if [ -n "$failed_test_lists" ];then
             mactest_error=1
             need_retry_ut_str=$(echo "$failed_test_lists" | grep -oEi "\-.+\(" | sed 's/(//' | sed 's/- //' )
@@ -768,7 +768,7 @@ EOF
                     done
             else
                 # There are more than 10 failed unit tests, so no unit test retry
-                is_retry_execuate=1
+                is_retry_execute=1
             fi
 
         fi
@@ -868,7 +868,7 @@ set +x
         exec_time_array=('first' 'second' 'third' 'fourth')
         parallel_failed_tests_exec_retry_threshold=120
         exec_retry_threshold=30
-        is_retry_execuate=0
+        is_retry_execute=0
         rerun_ut_startTime_s=`date +%s`
         if [ -n "$failed_test_lists" ];then
             EXIT_CODE=1
@@ -883,21 +883,21 @@ set +x
                 do
                     if [[ "${exec_times}" == "0" ]] ;then
                         if [ $need_retry_ut_count -lt $parallel_failed_tests_exec_retry_threshold ];then
-                            is_retry_execuate=0
+                            is_retry_execute=0
                         else
-                            is_retry_execuate=1
+                            is_retry_execute=1
                         fi
                     elif [[ "${exec_times}" == "1" ]] ;then
                         need_retry_ut_str=$(echo "$failed_test_lists" | grep -oEi "\-.+\(.+\)" | sed 's/(.\+)//' | sed 's/- //' )
                         need_retry_ut_arr=(${need_retry_ut_str})
                         need_retry_ut_count=${#need_retry_ut_arr[@]}
                         if [ $need_retry_ut_count -lt $exec_retry_threshold ];then
-                            is_retry_execuate=0
+                            is_retry_execute=0
                         else
-                            is_retry_execuate=1
+                            is_retry_execute=1
                         fi
                     fi
-                    if [[ "$is_retry_execuate" == "0" ]];then
+                    if [[ "$is_retry_execute" == "0" ]];then
                         set +e
                         retry_unittests_record="$retry_unittests_record$failed_test_lists"
                         failed_test_lists_ult=`echo "${failed_test_lists}" |grep -Po '[^ ].*$'`
@@ -1162,7 +1162,7 @@ function generate_upstream_develop_api_spec() {
         echo "wget develop whl from bos! "
         mkdir -p ${PADDLE_ROOT}/build/python/dist && wget -q -P ${PADDLE_ROOT}/build/python/dist ${dev_url}
     else
-        echo "compile develop whl localy! "
+        echo "compile develop whl locally! "
         if [[ ${cmake_change} ]];then
             rm -rf ${PADDLE_ROOT}/build/third_party
         fi
@@ -1578,6 +1578,7 @@ function card_test() {
         fi
     done
     wait; # wait for all subshells to finish
+    trap - CHLD
     ut_endTime_s=`date +%s`
     if (( $2 == -1 )); then
         echo "exclusive TestCases Total Time: $[ $ut_endTime_s - $ut_startTime_s ]s"
@@ -1788,7 +1789,7 @@ set +x
         exec_time_array=('first' 'second' 'third' 'fourth')
         parallel_failed_tests_exec_retry_threshold=120
         exec_retry_threshold=30
-        is_retry_execuate=0
+        is_retry_execute=0
         rerun_ut_startTime_s=`date +%s`
         if [ -n "$failed_test_lists" ];then
             if [ ${TIMEOUT_DEBUG_HELP:-OFF} == "ON" ];then
@@ -1802,21 +1803,21 @@ set +x
                 do
                     if [[ "${exec_times}" == "0" ]] ;then
                         if [ $need_retry_ut_count -lt $parallel_failed_tests_exec_retry_threshold ];then
-                            is_retry_execuate=0
+                            is_retry_execute=0
                         else
-                            is_retry_execuate=1
+                            is_retry_execute=1
                         fi
                     elif [[ "${exec_times}" == "1" ]] ;then
                         need_retry_ut_str=$(echo "$failed_test_lists" | grep -oEi "\-.+\(.+\)" | sed 's/(.\+)//' | sed 's/- //' )
                         need_retry_ut_arr=(${need_retry_ut_str})
                         need_retry_ut_count=${#need_retry_ut_arr[@]}
                         if [ $need_retry_ut_count -lt $exec_retry_threshold ];then
-                            is_retry_execuate=0
+                            is_retry_execute=0
                         else
-                            is_retry_execuate=1
+                            is_retry_execute=1
                         fi
                     fi
-                    if [[ "$is_retry_execuate" == "0" ]];then
+                    if [[ "$is_retry_execute" == "0" ]];then
                         set +e
                         retry_unittests_record="$retry_unittests_record$failed_test_lists"
                         failed_test_lists_ult=`echo "${failed_test_lists}" |grep -Po '[^ ].*$'`
@@ -1964,7 +1965,7 @@ function show_ut_retry_result() {
     else
         exec_retry_threshold_count=80
     fi
-    if [[ "$is_retry_execuate" != "0" ]]  && [[ "${exec_times}" == "0" ]] ;then
+    if [[ "$is_retry_execute" != "0" ]]  && [[ "${exec_times}" == "0" ]] ;then
         failed_test_lists_ult=`echo "${failed_test_lists}" | grep -Po '[^ ].*$'`
         echo "========================================="
         echo "There are more than ${exec_retry_threshold_count} failed unit tests in parallel test, so no unit test retry!!!"
@@ -1972,7 +1973,7 @@ function show_ut_retry_result() {
         echo "The following tests FAILED: "
         echo "${failed_test_lists_ult}"
         exit 8;
-    elif [[ "$is_retry_execuate" != "0" ]] && [[ "${exec_times}" == "1" ]];then
+    elif [[ "$is_retry_execute" != "0" ]] && [[ "${exec_times}" == "1" ]];then
         failed_test_lists_ult=`echo "${failed_test_lists}" | grep -Po '[^ ].*$'`
         echo "========================================="
         echo "There are more than 10 failed unit tests, so no unit test retry!!!"
@@ -2443,7 +2444,7 @@ set +x
         exec_times=0
         exec_time_array=('first' 'second' 'third' 'fourth')
         exec_retry_threshold=10
-        is_retry_execuate=0
+        is_retry_execute=0
         if [ -n "$failed_test_lists" ];then
             xputest_error=1
             need_retry_ut_str=$(echo "$failed_test_lists" | grep -oEi "\-.+\(" | sed 's/(//' | sed 's/- //' )
@@ -2488,7 +2489,7 @@ set +x
                     done
             else
                 # There are more than 10 failed unit tests, so no unit test retry
-                is_retry_execuate=1
+                is_retry_execute=1
             fi
 
         fi
@@ -2588,7 +2589,7 @@ set +x
         exec_time_array=('first' 'second' 'third' 'fourth')
         parallel_failed_tests_exec_retry_threshold=120
         exec_retry_threshold=30
-        is_retry_execuate=0
+        is_retry_execute=0
         rerun_ut_startTime_s=`date +%s`
         if [ -n "$failed_test_lists" ];then
             need_retry_ut_str=$(echo "$failed_test_lists" | grep -oEi "\-.+\(.+\)" | sed 's/(.\+)//' | sed 's/- //' )
@@ -2599,21 +2600,21 @@ set +x
                 do
                     if [[ "${exec_times}" == "0" ]] ;then
                         if [ $need_retry_ut_count -lt $parallel_failed_tests_exec_retry_threshold ];then
-                            is_retry_execuate=0
+                            is_retry_execute=0
                         else
-                            is_retry_execuate=1
+                            is_retry_execute=1
                         fi
                     elif [[ "${exec_times}" == "1" ]] ;then
                         need_retry_ut_str=$(echo "$failed_test_lists" | grep -oEi "\-.+\(.+\)" | sed 's/(.\+)//' | sed 's/- //' )
                         need_retry_ut_arr=(${need_retry_ut_str})
                         need_retry_ut_count=${#need_retry_ut_arr[@]}
                         if [ $need_retry_ut_count -lt $exec_retry_threshold ];then
-                            is_retry_execuate=0
+                            is_retry_execute=0
                         else
-                            is_retry_execuate=1
+                            is_retry_execute=1
                         fi
                     fi
-                    if [[ "$is_retry_execuate" == "0" ]];then
+                    if [[ "$is_retry_execute" == "0" ]];then
                         set +e
                         retry_unittests_record="$retry_unittests_record$failed_test_lists"
                         failed_test_lists_ult=`echo "${failed_test_lists}" |grep -Po '[^ ].*$'`
@@ -2719,6 +2720,57 @@ set -x
         fi
     fi
 }
+
+
+function hybrid_paddlex() {
+    # PaddleX test
+    export DEVICE=($(echo $HIP_VISIBLE_DEVICES | tr "," "\n"))
+    export DCU_DEVICES=`echo $HIP_VISIBLE_DEVICES`
+    unset HIP_VISIBLE_DEVICES
+    git clone --depth=1000 https://gitee.com/paddlepaddle/PaddleX.git
+    cd PaddleX
+    pip install -e .
+    paddlex --install PaddleClas
+    paddlex --install PaddleSeg
+    wget -q https://paddle-model-ecology.bj.bcebos.com/paddlex/data/cls_flowers_examples.tar -P ./dataset
+    tar -xf ./dataset/cls_flowers_examples.tar -C ./dataset/
+    wget https://paddle-model-ecology.bj.bcebos.com/paddlex/data/seg_optic_examples.tar -P ./dataset
+    tar -xf ./dataset/seg_optic_examples.tar -C ./dataset/
+
+    # train Reset50
+    echo "Start Reset50"
+    python main.py -c paddlex/configs/image_classification/ResNet50.yaml \
+    -o Global.mode=train \
+    -o Global.dataset_dir=./dataset/cls_flowers_examples \
+    -o Global.output=resnet50_output \
+    -o Global.device="gpu:${DCU_DEVICES}" \
+    -o Train.epochs_iters=2
+
+    # inference Reset50
+    python main.py -c paddlex/configs/image_classification/ResNet50.yaml \
+    -o Global.mode=predict \
+    -o Predict.model_dir="./resnet50_output/best_model/inference" \
+    -o Global.device="gpu:${DEVICE[0]}"
+    echo "End Reset50"
+
+    echo "Start DeepLabv3+"
+    # train DeepLabv3+
+    python main.py -c paddlex/configs/semantic_segmentation/Deeplabv3_Plus-R50.yaml \
+    -o Global.mode=train \
+    -o Global.dataset_dir=./dataset/seg_optic_examples \
+    -o Global.output=deeplabv3p_output \
+    -o Global.device="gpu:${DCU_DEVICES}" \
+    -o Train.epochs_iters=2
+
+    # inference DeepLabv3+
+    python main.py -c paddlex/configs/semantic_segmentation/Deeplabv3_Plus-R50.yaml \
+    -o Global.mode=predict \
+    -o Predict.model_dir="./deeplabv3p_output/best_model/inference" \
+    -o Global.device="gpu:${DEVICE[0]}"
+    echo "End DeepLabv3+"
+
+}
+
 
 function parallel_fa_unit() {
     if [ ${WITH_TESTING:-ON} == "ON" ] ; then
@@ -2940,7 +2992,7 @@ set +x
         exec_time_array=('first' 'second' 'third' 'fourth')
         parallel_failed_tests_exec_retry_threshold=120
         exec_retry_threshold=30
-        is_retry_execuate=0
+        is_retry_execute=0
         rerun_ut_startTime_s=`date +%s`
         if [ -n "$failed_test_lists" ];then
             if [ ${TIMEOUT_DEBUG_HELP:-OFF} == "ON" ];then
@@ -2954,21 +3006,21 @@ set +x
                 do
                     if [[ "${exec_times}" == "0" ]] ;then
                         if [ $need_retry_ut_count -lt $parallel_failed_tests_exec_retry_threshold ];then
-                            is_retry_execuate=0
+                            is_retry_execute=0
                         else
-                            is_retry_execuate=1
+                            is_retry_execute=1
                         fi
                     elif [[ "${exec_times}" == "1" ]] ;then
                         need_retry_ut_str=$(echo "$failed_test_lists" | grep -oEi "\-.+\(.+\)" | sed 's/(.\+)//' | sed 's/- //' )
                         need_retry_ut_arr=(${need_retry_ut_str})
                         need_retry_ut_count=${#need_retry_ut_arr[@]}
                         if [ $need_retry_ut_count -lt $exec_retry_threshold ];then
-                            is_retry_execuate=0
+                            is_retry_execute=0
                         else
-                            is_retry_execuate=1
+                            is_retry_execute=1
                         fi
                     fi
-                    if [[ "$is_retry_execuate" == "0" ]];then
+                    if [[ "$is_retry_execute" == "0" ]];then
                         set +e
                         retry_unittests_record="$retry_unittests_record$failed_test_lists"
                         failed_test_lists_ult=`echo "${failed_test_lists}" |grep -Po '[^ ].*$'`
@@ -3061,7 +3113,7 @@ set +x
         exec_time_array=('first' 'second' 'third' 'fourth')
         parallel_failed_tests_exec_retry_threshold=120
         exec_retry_threshold=30
-        is_retry_execuate=0
+        is_retry_execute=0
         rerun_ut_startTime_s=`date +%s`
         if [ -n "$failed_test_lists" ];then
             if [ ${TIMEOUT_DEBUG_HELP:-OFF} == "ON" ];then
@@ -3075,21 +3127,21 @@ set +x
                 do
                     if [[ "${exec_times}" == "0" ]] ;then
                         if [ $need_retry_ut_count -lt $parallel_failed_tests_exec_retry_threshold ];then
-                            is_retry_execuate=0
+                            is_retry_execute=0
                         else
-                            is_retry_execuate=1
+                            is_retry_execute=1
                         fi
                     elif [[ "${exec_times}" == "1" ]] ;then
                         need_retry_ut_str=$(echo "$failed_test_lists" | grep -oEi "\-.+\(.+\)" | sed 's/(.\+)//' | sed 's/- //' )
                         need_retry_ut_arr=(${need_retry_ut_str})
                         need_retry_ut_count=${#need_retry_ut_arr[@]}
                         if [ $need_retry_ut_count -lt $exec_retry_threshold ];then
-                            is_retry_execuate=0
+                            is_retry_execute=0
                         else
-                            is_retry_execuate=1
+                            is_retry_execute=1
                         fi
                     fi
-                    if [[ "$is_retry_execuate" == "0" ]];then
+                    if [[ "$is_retry_execute" == "0" ]];then
                         set +e
                         retry_unittests_record="$retry_unittests_record$failed_test_lists"
                         failed_test_lists_ult=`echo "${failed_test_lists}" |grep -Po '[^ ].*$'`
@@ -4167,19 +4219,19 @@ function run_setup(){
     echo "if you use setup.py to compile,please export envs as following in /paddle ..."
     cat << EOF
     ========================================
-    export CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release} WITH_GPU=${WITH_GPU:-OFF} WITH_SHARED_PHI=${WITH_SHARED_PHI:-OFF} WITH_TENSORRT=${WITH_TENSORRT:-ON} WITH_OPENVINO=${WITH_OPENVINO:-ON} WITH_ROCM=${WITH_ROCM:-OFF} WITH_CINN=${WITH_CINN:-OFF} WITH_DISTRIBUTE=${distibuted_flag} WITH_MKL=${WITH_MKL:-ON} WITH_AVX=${WITH_AVX:-OFF} CUDA_ARCH_NAME=${CUDA_ARCH_NAME:-All} NEW_RELEASE_PYPI=${NEW_RELEASE_PYPI:-OFF} NEW_RELEASE_ALL=${NEW_RELEASE_ALL:-OFF} NEW_RELEASE_JIT=${NEW_RELEASE_JIT:-OFF} WITH_PYTHON=${WITH_PYTHON:-ON} CUDNN_ROOT=/usr/ WITH_TESTING=${WITH_TESTING:-ON} WITH_COVERAGE=${WITH_COVERAGE:-OFF} WITH_INCREMENTAL_COVERAGE=${WITH_INCREMENTAL_COVERAGE:-OFF} CMAKE_MODULE_PATH=/opt/rocm/hip/cmake CMAKE_EXPORT_COMPILE_COMMANDS=ON WITH_INFERENCE_API_TEST=${WITH_INFERENCE_API_TEST:-ON} INFERENCE_DEMO_INSTALL_DIR=${INFERENCE_DEMO_INSTALL_DIR} PY_VERSION=${PY_VERSION:-3.8} CMAKE_INSTALL_PREFIX=${INSTALL_PREFIX:-/paddle/build} WITH_PSCORE=${pscore_flag} WITH_PSLIB=${pslib_flag} WITH_GLOO=${gloo_flag} WITH_XPU=${WITH_XPU:-OFF} WITH_IPU=${WITH_IPU:-OFF} XPU_SDK_ROOT=${XPU_SDK_ROOT:-""} WITH_XPU_BKCL=${WITH_XPU_BKCL:-OFF} -WITH_XPU_XRE5=${WITH_XPU_XRE5:-OFF} WITH_ARM=${WITH_ARM:-OFF} WITH_STRIP=${WITH_STRIP:-ON} ON_INFER=${ON_INFER:-OFF} WITH_HETERPS=${WITH_HETERPS:-OFF} CUDA_ARCH_BIN=${CUDA_ARCH_BIN} WITH_RECORD_BUILDTIME=${WITH_RECORD_BUILDTIME:-OFF} WITH_UNITY_BUILD=${WITH_UNITY_BUILD:-OFF} WITH_ONNXRUNTIME=${WITH_ONNXRUNTIME:-OFF} WITH_CUDNN_FRONTEND=${WITH_CUDNN_FRONTEND:-OFF} -DWITH_CPP_TEST=${WITH_CPP_TEST:-OFF}
+    export CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release} WITH_GPU=${WITH_GPU:-OFF} WITH_SHARED_PHI=${WITH_SHARED_PHI:-OFF} WITH_TENSORRT=${WITH_TENSORRT:-ON} WITH_OPENVINO=${WITH_OPENVINO:-OFF} WITH_ROCM=${WITH_ROCM:-OFF} WITH_CINN=${WITH_CINN:-OFF} WITH_DISTRIBUTE=${distibuted_flag} WITH_MKL=${WITH_MKL:-ON} WITH_AVX=${WITH_AVX:-OFF} CUDA_ARCH_NAME=${CUDA_ARCH_NAME:-All} NEW_RELEASE_PYPI=${NEW_RELEASE_PYPI:-OFF} NEW_RELEASE_ALL=${NEW_RELEASE_ALL:-OFF} NEW_RELEASE_JIT=${NEW_RELEASE_JIT:-OFF} WITH_PYTHON=${WITH_PYTHON:-ON} CUDNN_ROOT=/usr/ WITH_TESTING=${WITH_TESTING:-ON} WITH_COVERAGE=${WITH_COVERAGE:-OFF} WITH_INCREMENTAL_COVERAGE=${WITH_INCREMENTAL_COVERAGE:-OFF} CMAKE_MODULE_PATH=/opt/rocm/hip/cmake CMAKE_EXPORT_COMPILE_COMMANDS=ON WITH_INFERENCE_API_TEST=${WITH_INFERENCE_API_TEST:-ON} INFERENCE_DEMO_INSTALL_DIR=${INFERENCE_DEMO_INSTALL_DIR} PY_VERSION=${PY_VERSION:-3.8} CMAKE_INSTALL_PREFIX=${INSTALL_PREFIX:-/paddle/build} WITH_PSCORE=${pscore_flag} WITH_PSLIB=${pslib_flag} WITH_GLOO=${gloo_flag} WITH_XPU=${WITH_XPU:-OFF} WITH_IPU=${WITH_IPU:-OFF} XPU_SDK_ROOT=${XPU_SDK_ROOT:-""} WITH_XPU_BKCL=${WITH_XPU_BKCL:-OFF} -WITH_XPU_XRE5=${WITH_XPU_XRE5:-OFF} WITH_ARM=${WITH_ARM:-OFF} WITH_STRIP=${WITH_STRIP:-ON} ON_INFER=${ON_INFER:-OFF} WITH_HETERPS=${WITH_HETERPS:-OFF} CUDA_ARCH_BIN=${CUDA_ARCH_BIN} WITH_RECORD_BUILDTIME=${WITH_RECORD_BUILDTIME:-OFF} WITH_UNITY_BUILD=${WITH_UNITY_BUILD:-OFF} WITH_ONNXRUNTIME=${WITH_ONNXRUNTIME:-OFF} WITH_CUDNN_FRONTEND=${WITH_CUDNN_FRONTEND:-OFF} -DWITH_CPP_TEST=${WITH_CPP_TEST:-OFF}
     ========================================
 EOF
     echo "if you use cmake to compile,please Configuring cmake in /paddle/build ..."
     cat <<EOF
     ========================================
-    cmake .. -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release} -DWITH_GPU=${WITH_GPU:-OFF} -DWITH_SHARED_PHI=${WITH_SHARED_PHI:-OFF} -DWITH_TENSORRT=${WITH_TENSORRT:-ON} -DWITH_OPENVINO=${WITH_OPENVINO:-ON} -DWITH_ROCM=${WITH_ROCM:-OFF} -DWITH_CINN=${WITH_CINN:-OFF} -DWITH_DISTRIBUTE=${distibuted_flag} -DWITH_MKL=${WITH_MKL:-ON} -DWITH_AVX=${WITH_AVX:-OFF} -DCUDA_ARCH_NAME=${CUDA_ARCH_NAME:-All} -DNEW_RELEASE_PYPI=${NEW_RELEASE_PYPI:-OFF} -DNEW_RELEASE_ALL=${NEW_RELEASE_ALL:-OFF} -DNEW_RELEASE_JIT=${NEW_RELEASE_JIT:-OFF} -DWITH_PYTHON=${WITH_PYTHON:-ON} -DCUDNN_ROOT=/usr/ -DWITH_TESTING=${WITH_TESTING:-ON} -DWITH_COVERAGE=${WITH_COVERAGE:-OFF} -DWITH_INCREMENTAL_COVERAGE=${WITH_INCREMENTAL_COVERAGE:-OFF} -DCMAKE_MODULE_PATH=/opt/rocm/hip/cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DWITH_INFERENCE_API_TEST=${WITH_INFERENCE_API_TEST:-ON} -DINFERENCE_DEMO_INSTALL_DIR=${INFERENCE_DEMO_INSTALL_DIR} -DPY_VERSION=${PY_VERSION:-3.8} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX:-/paddle/build} -DWITH_PSCORE=${pscore_flag} -DWITH_PSLIB=${pslib_flag} -DWITH_GLOO=${gloo_flag} -DWITH_XPU=${WITH_XPU:-OFF} -DWITH_IPU=${WITH_IPU:-OFF} -DXPU_SDK_ROOT=${XPU_SDK_ROOT:-""} -DWITH_XPU_BKCL=${WITH_XPU_BKCL:-OFF} -DWITH_XPU_XRE5=${WITH_XPU_XRE5:-OFF} -DWITH_ARM=${WITH_ARM:-OFF} -DWITH_STRIP=${WITH_STRIP:-ON} -DON_INFER=${ON_INFER:-OFF} -DWITH_HETERPS=${WITH_HETERPS:-OFF} -DCUDA_ARCH_BIN=${CUDA_ARCH_BIN} -DWITH_RECORD_BUILDTIME=${WITH_RECORD_BUILDTIME:-OFF} -DWITH_UNITY_BUILD=${WITH_UNITY_BUILD:-OFF} -DWITH_ONNXRUNTIME=${WITH_ONNXRUNTIME:-OFF} -DWITH_CUDNN_FRONTEND=${WITH_CUDNN_FRONTEND:-OFF} -DWITH_CPP_TEST=${WITH_CPP_TEST:-OFF}
+    cmake .. -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release} -DWITH_GPU=${WITH_GPU:-OFF} -DWITH_SHARED_PHI=${WITH_SHARED_PHI:-OFF} -DWITH_TENSORRT=${WITH_TENSORRT:-ON} -DWITH_OPENVINO=${WITH_OPENVINO:-OFF} -DWITH_ROCM=${WITH_ROCM:-OFF} -DWITH_CINN=${WITH_CINN:-OFF} -DWITH_DISTRIBUTE=${distibuted_flag} -DWITH_MKL=${WITH_MKL:-ON} -DWITH_AVX=${WITH_AVX:-OFF} -DCUDA_ARCH_NAME=${CUDA_ARCH_NAME:-All} -DNEW_RELEASE_PYPI=${NEW_RELEASE_PYPI:-OFF} -DNEW_RELEASE_ALL=${NEW_RELEASE_ALL:-OFF} -DNEW_RELEASE_JIT=${NEW_RELEASE_JIT:-OFF} -DWITH_PYTHON=${WITH_PYTHON:-ON} -DCUDNN_ROOT=/usr/ -DWITH_TESTING=${WITH_TESTING:-ON} -DWITH_COVERAGE=${WITH_COVERAGE:-OFF} -DWITH_INCREMENTAL_COVERAGE=${WITH_INCREMENTAL_COVERAGE:-OFF} -DCMAKE_MODULE_PATH=/opt/rocm/hip/cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DWITH_INFERENCE_API_TEST=${WITH_INFERENCE_API_TEST:-ON} -DINFERENCE_DEMO_INSTALL_DIR=${INFERENCE_DEMO_INSTALL_DIR} -DPY_VERSION=${PY_VERSION:-3.8} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX:-/paddle/build} -DWITH_PSCORE=${pscore_flag} -DWITH_PSLIB=${pslib_flag} -DWITH_GLOO=${gloo_flag} -DWITH_XPU=${WITH_XPU:-OFF} -DWITH_IPU=${WITH_IPU:-OFF} -DXPU_SDK_ROOT=${XPU_SDK_ROOT:-""} -DWITH_XPU_BKCL=${WITH_XPU_BKCL:-OFF} -DWITH_XPU_XRE5=${WITH_XPU_XRE5:-OFF} -DWITH_ARM=${WITH_ARM:-OFF} -DWITH_STRIP=${WITH_STRIP:-ON} -DON_INFER=${ON_INFER:-OFF} -DWITH_HETERPS=${WITH_HETERPS:-OFF} -DCUDA_ARCH_BIN=${CUDA_ARCH_BIN} -DWITH_RECORD_BUILDTIME=${WITH_RECORD_BUILDTIME:-OFF} -DWITH_UNITY_BUILD=${WITH_UNITY_BUILD:-OFF} -DWITH_ONNXRUNTIME=${WITH_ONNXRUNTIME:-OFF} -DWITH_CUDNN_FRONTEND=${WITH_CUDNN_FRONTEND:-OFF} -DWITH_CPP_TEST=${WITH_CPP_TEST:-OFF}
     ========================================
 EOF
     export CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release}
     export WITH_GPU=${WITH_GPU:-OFF}
     export WITH_TENSORRT=${WITH_TENSORRT:-ON}
-    export WITH_OPENVINO=${WITH_OPENVINO:-ON}
+    export WITH_OPENVINO=${WITH_OPENVINO:-OFF}
     export WITH_ROCM=${WITH_ROCM:-OFF}
     export WITH_CINN=${WITH_CINN:-OFF}
     export WITH_DISTRIBUTE=${distibuted_flag}
@@ -4674,6 +4726,7 @@ function main() {
         ;;
       hyg_dcu_test)
         parallel_test
+	hybrid_paddlex
         ;;
       nv_cicheck_coverage)
         parallel_test

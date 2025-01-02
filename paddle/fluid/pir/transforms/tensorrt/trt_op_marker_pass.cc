@@ -90,7 +90,8 @@ DEFINE_GENERAL_PATTERN(Softplus, paddle::dialect::SoftplusOp)
 DEFINE_GENERAL_PATTERN(ThresholdedRelu, paddle::dialect::ThresholdedReluOp)
 DEFINE_GENERAL_PATTERN(Flip, paddle::dialect::FlipOp)
 DEFINE_GENERAL_PATTERN(Mish, paddle::dialect::MishOp)
-
+DEFINE_GENERAL_PATTERN(AssignValue, paddle::dialect::AssignValueOp)
+DEFINE_GENERAL_PATTERN(AssignValue_, paddle::dialect::AssignValue_Op)
 #undef DEFINE_GENERAL_PATTERN
 
 // Add ReduceCommonOpPattern base class to simplify code
@@ -262,6 +263,8 @@ class ActOpPattern : public pir::OpRewritePattern<OpType> {
 };
 using TanhOpPattern = ActOpPattern<paddle::dialect::TanhOp>;
 using CeluOpPattern = ActOpPattern<paddle::dialect::CeluOp>;
+using LogicalNotOpPattern = ActOpPattern<paddle::dialect::LogicalNotOp>;
+using LogicalNot_OpPattern = ActOpPattern<paddle::dialect::LogicalNot_Op>;
 
 class Pool2dOpPattern
     : public pir::OpRewritePattern<paddle::dialect::Pool2dOp> {
@@ -542,26 +545,6 @@ class SignOpPattern : public pir::OpRewritePattern<paddle::dialect::SignOp> {
     }
 #if IS_TRT_VERSION_LT(8200)
     VLOG(3) << "sign op is only supported by tensorrt8.2 above ";
-    return false;
-#endif
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
-
-class LogicalNotOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::LogicalNotOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::LogicalNotOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::LogicalNotOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-#if IS_TRT_VERSION_LT(8400)
-    VLOG(3) << "logical_not op is only supported by tensorrt8.4 above because "
-               "of cast op ";
     return false;
 #endif
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
@@ -947,21 +930,6 @@ class FlattenOpPattern
       VLOG(3) << "flatten op must has start_axis and stop_axis attributes";
       return false;
     }
-    int start_axis = op->attribute<pir::Int32Attribute>("start_axis").data();
-
-    pir::Value x = op.operand_source(0);
-    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
-    auto x_shape = x_type.dims();
-    int dims = x_shape.size();
-
-    if (start_axis < 0) {
-      start_axis += dims;
-    }
-    if (start_axis == 0) {
-      VLOG(3)
-          << "TRT pd_op.flatten not support the batch-dimension being changed";
-      return false;
-    }
 
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
@@ -1140,7 +1108,7 @@ class GreaterEqualOpPattern
     auto x_dtype = pir::GetDataTypeFromValue(x);
     auto y_dtype = pir::GetDataTypeFromValue(y);
     if (x_dtype.isa<pir::BoolType>() || y_dtype.isa<pir::BoolType>()) {
-      VLOG(3) << "Greate_equal op do not support bool datatype";
+      VLOG(3) << "Greater_equal op do not support bool datatype";
       return false;
     }
 #endif
@@ -1227,6 +1195,8 @@ class LogicalCommonOpPattern : public pir::OpRewritePattern<OpType> {
     return true;
   }
 };
+using LogicalXorOpPattern =
+    LogicalCommonOpPattern<paddle::dialect::LogicalXorOp>;
 using LogicalOrOpPattern = LogicalCommonOpPattern<paddle::dialect::LogicalOrOp>;
 using LogicalOr_OpPattern =
     LogicalCommonOpPattern<paddle::dialect::LogicalOr_Op>;
@@ -1432,13 +1402,6 @@ class BilinearInterpV2Pattern
         return false;
       }
     }
-    pir::Value size_tensor = op.operand_source(2);
-    if (size_tensor != nullptr) {
-      VLOG(3) << "The Paddle-TRT doesn't support the SizeTensor for "
-                 "BilinearInterpV2";
-      return false;
-    }
-
     auto data_format =
         op->attribute<pir::StrAttribute>("data_format").AsString();
     if (data_format != "NCHW" && data_format != "NHWC") {
@@ -1451,7 +1414,26 @@ class BilinearInterpV2Pattern
       VLOG(3) << "The interp_method of BilinearInterpV2 is not bilinear";
       return false;
     }
-
+#if IS_TRT_VERSION_GE(8200)
+    auto size_tensor = op.operand_source(2);
+    if (size_tensor.impl()) {
+      auto size_tensor_type = size_tensor.type();
+      if (size_tensor_type.isa<pir::VectorType>()) {
+        auto vector_type = size_tensor.type().dyn_cast<pir::VectorType>();
+        if (vector_type.size() == 2) {
+          op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+          return true;
+        }
+      }
+    }
+#else
+    auto size_tensor = op.operand_source(2);
+    if (size_tensor.impl() != nullptr) {
+      VLOG(3) << "The Paddle-TRT doesn't support the SizeTensor for "
+                 "BilinearInterpV2";
+      return false;
+    }
+#endif
     pir::Value scale_tensor = op.operand_source(3);
 
     bool has_scale_input = false;
@@ -1757,6 +1739,68 @@ class NotEqualOpPattern
     }
 #endif
 
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+template <typename OpType>
+class BitwiseCommonOpPattern : public pir::OpRewritePattern<OpType> {
+ public:
+  using pir::OpRewritePattern<OpType>::OpRewritePattern;
+
+  bool MatchAndRewrite(OpType op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->template attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    pir::Value input_operand = op.operand_source(0);
+    auto input_type = pir::GetDataTypeFromValue(input_operand);
+    if (!input_type.isa<pir::BoolType>()) {
+      if constexpr (std::is_same_v<OpType, paddle::dialect::BitwiseAndOp>) {
+        VLOG(3) << "the bitwise_and only supports input of BOOL.";
+      } else {
+        VLOG(3) << "the bitwise_or only supports input of BOOL.";
+      }
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+using BitwiseAndOpPattern =
+    BitwiseCommonOpPattern<paddle::dialect::BitwiseAndOp>;
+using BitwiseOrOpPattern = BitwiseCommonOpPattern<paddle::dialect::BitwiseOrOp>;
+
+class BitwiseNotOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::BitwiseNotOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::BitwiseNotOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::BitwiseNotOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+
+    pir::Value input_operand = op.operand_source(0);
+    auto input_type = pir::GetDataTypeFromValue(input_operand);
+    if (input_type.isa<pir::Int8Type>() || input_type.isa<pir::UInt8Type>()) {
+      VLOG(3) << "INT8 / UINT8 type convert to TRT is not supported.";
+      return false;
+    }
+#if IS_TRT_VERSION_LT(8600)
+    pir::Value x = op.operand_source(0);
+    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto x_shape = x_type.dims();
+    int dims = x_shape.size();
+    if (dims < 1) {
+      VLOG(3) << "BOOL type does not support 0-dim input when TensorRT < 8.6.";
+      return false;
+    }
+#endif
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
@@ -2090,61 +2134,31 @@ class OneHotOpPattern
   }
 };
 
-bool CheckStaticShape(const pir::Operation *op) {
-  std::vector<int32_t> vec_shape;
-  auto shape_attr = op->attribute("shape").dyn_cast<pir::ArrayAttribute>();
-  for (const auto &attr : shape_attr.AsVector()) {
-    vec_shape.push_back(attr.dyn_cast<pir::Int32Attribute>().data());
-  }
-  for (int32_t dim : vec_shape) {
-    if (dim == -1) {
-      VLOG(3) << "pd_op.assign_value_ or pd_op.assign_value cannot support "
-                 "dynamic shape";
-      return false;
-    }
-  }
-  int shape_size = vec_shape.size();
-  int values_count =
-      op->attribute("values").dyn_cast<pir::ArrayAttribute>().size();
-  if (shape_size != values_count) {
-    VLOG(3) << "pd_op.assign_value or pd_op.assign_value shape size is not "
-               "equal to the values size";
-    return false;
-  }
-  return true;
-}
-
-class AssignValue_OpPattern
-    : public pir::OpRewritePattern<paddle::dialect::AssignValue_Op> {
+class InstanceNormOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::InstanceNormOp> {
  public:
   using pir::OpRewritePattern<
-      paddle::dialect::AssignValue_Op>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::AssignValue_Op op,
+      paddle::dialect::InstanceNormOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::InstanceNormOp op,
                        pir::PatternRewriter &rewriter) const override {
     if (op->HasAttribute(kCanRunTrtAttr) &&
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-    if (!CheckStaticShape(op)) {
+    pir::Value x = op.operand_source(0);
+    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto x_shape = x_type.dims();
+    if (x_shape.size() != 4) {
+      VLOG(3) << "The instance_norm op only support 4-dimensional input in "
+                 "tensorrt.";
       return false;
     }
 
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
-
-class AssignValueOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::AssignValueOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::AssignValueOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::AssignValueOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-    if (!CheckStaticShape(op)) {
+    pir::Value scale = op.operand_source(1);
+    pir::Value bias = op.operand_source(2);
+    if (scale.impl() == nullptr || bias.impl() == nullptr) {
+      VLOG(3) << "instance_norm op's scale and bias should not be null in "
+                 "tensorrt.";
       return false;
     }
 
@@ -2203,6 +2217,8 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(ThresholdedRelu)
     ADD_PATTERN(Flip)
     ADD_PATTERN(Mish)
+    ADD_PATTERN(AssignValue)
+    ADD_PATTERN(AssignValue_)
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
 #endif
@@ -2214,6 +2230,10 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<ArangeOpPattern>(context));
     ps.Add(std::make_unique<SignOpPattern>(context));
     ps.Add(std::make_unique<LogicalNotOpPattern>(context));
+    ps.Add(std::make_unique<BitwiseAndOpPattern>(context));
+    ps.Add(std::make_unique<BitwiseOrOpPattern>(context));
+    ps.Add(std::make_unique<BitwiseNotOpPattern>(context));
+    ps.Add(std::make_unique<LogicalNot_OpPattern>(context));
     ps.Add(std::make_unique<LogicalOrOpPattern>(context));
     ps.Add(std::make_unique<LogicalOr_OpPattern>(context));
     ps.Add(std::make_unique<LogicalAndOpPattern>(context));
@@ -2237,10 +2257,10 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<MultiplyOpPattern>(context));
     ps.Add(std::make_unique<SubtractOpPattern>(context));
     ps.Add(std::make_unique<DivideOpPattern>(context));
-    ps.Add(std::make_unique<ElementwisePowOpPattern>(context));
     ps.Add(std::make_unique<MinimumOpPattern>(context));
     ps.Add(std::make_unique<MaximumOpPattern>(context));
     ps.Add(std::make_unique<FloorDivideOpPattern>(context));
+    ps.Add(std::make_unique<ElementwisePowOpPattern>(context));
     ps.Add(std::make_unique<MeanOpPattern>(context));
     ps.Add(std::make_unique<RemainderOpPattern>(context));
     ps.Add(std::make_unique<MulticlassNms3OpPattern>(context));
@@ -2268,11 +2288,11 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<SetValueWithTensor_OpPattern>(context));
     ps.Add(std::make_unique<EqualOpPattern>(context));
     ps.Add(std::make_unique<NotEqualOpPattern>(context));
+    ps.Add(std::make_unique<LogicalXorOpPattern>(context));
     ps.Add(std::make_unique<TanhOpPattern>(context));
     ps.Add(std::make_unique<CeluOpPattern>(context));
     ps.Add(std::make_unique<OneHotOpPattern>(context));
-    ps.Add(std::make_unique<AssignValueOpPattern>(context));
-    ps.Add(std::make_unique<AssignValue_OpPattern>(context));
+    ps.Add(std::make_unique<InstanceNormOpPattern>(context));
     return ps;
   }
 };
