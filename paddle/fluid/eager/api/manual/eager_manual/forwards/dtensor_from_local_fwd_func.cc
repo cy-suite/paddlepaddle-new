@@ -62,7 +62,7 @@ paddle::Tensor dtensor_from_local_ad_function(
     if (placement->is_shard()) {
       auto shard_dim =
           dynamic_cast<const phi::distributed::Shard&>(*placement).get_dim();
-      global_dims[i] = global_dims[i] * process_mesh.shape()[shard_dim];
+      global_dims[shard_dim] = global_dims[shard_dim] * process_mesh.shape()[i];
     }
   }
 
