@@ -732,6 +732,6 @@ def get_axis_length(network, input_tensor, axis, is_scalar=False):
     else:
         dynamic_shape = trt_shape(network, input_tensor)
         output_tensor = get_shape_tensor_element(
-            network, dynamic_shape, input_shape[axis], is_scalar
+            network, dynamic_shape, axis, is_scalar
         )
     return output_tensor
