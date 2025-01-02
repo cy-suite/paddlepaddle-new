@@ -65,7 +65,6 @@ class TestLocalViewCompute:
             label = paddle.to_tensor([[2], [-100]], dtype='int64')
 
         local_result = self.local_view_compute(pred.clone(), label.clone())
-        print("local_result:", local_result)
 
         dist_pred = dist.shard_tensor(pred, self._mesh, [dist.Replicate()])
         dist_label = dist.shard_tensor(label, self._mesh, [dist.Replicate()])
