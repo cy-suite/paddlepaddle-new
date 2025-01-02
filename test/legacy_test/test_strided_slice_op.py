@@ -304,12 +304,25 @@ class TestStrideSliceOp19(TestStrideSliceOp):
 # 0-size test case
 class TestStrideSliceOp20(TestStrideSliceOp):
     def initTestCase(self):
-        self.input = np.random.rand(4, 10)
+        self.input = np.random.rand(4, 320)
         self.axes = [1]
         self.starts = [4]
-        self.ends = [320]
+        self.ends = [8]
         self.strides = [4]
         self.infer_flags = [1]
+
+
+class TestStrideSliceOp21(TestStrideSliceOp):
+    def initTestCase(self):
+        self.input = np.random.rand(4, 100)
+        self.axes = [1]
+        self.starts = [-101]
+        self.ends = [-101]
+        self.strides = [1]
+        self.infer_flags = [1]
+
+    def test_check_grad(self):
+        pass
 
 
 class TestStrideSliceOpBool(TestStrideSliceOp):

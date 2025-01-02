@@ -305,55 +305,6 @@ inline ExprVec GetStridedSliceDims(
                static_cast<int64_t>(std::numeric_limits<int>::max());
   };
 
-  for (size_t i = 0; i < axes.size(); ++i) {
-    int64_t axis = axes.at(i);
-    int64_t start_i = 0;
-
-    if (starts.at(i).isa<int64_t>()) {
-      if (in_dims.at(axis).isa<int64_t>()) {
-        starts.at(i) =
-            (starts.at(i).Get<int64_t>() > in_dims.at(axis).Get<int64_t>())
-                ? in_dims.at(axis)
-                : starts.at(i);
-        starts.at(i) =
-            (starts.at(i).Get<int64_t>() < -in_dims.at(axis).Get<int64_t>())
-                ? symbol::DimExpr({-1}) * in_dims.at(axis)
-                : starts.at(i);
-      }
-      start_i = starts.at(i).Get<int64_t>();
-    }
-
-    int64_t end_i = 0;
-    if (ends.at(i).isa<int64_t>()) {
-      if (in_dims.at(axis).isa<int64_t>()) {
-        ends[i] = std::min(ends.at(i).Get<int64_t>(),
-                           in_dims.at(axis).Get<int64_t>());
-      }
-      if (ends.at(i).Get<int64_t>() < 0) {
-        ends[i] = ends.at(i) + in_dims.at(axis);
-      }
-      if (ends.at(i).isa<int64_t>()) {
-        end_i = ends.at(i).Get<int64_t>();
-      }
-    }
-
-    ends.at(i) = IsMaxInt(ends.at(i)) ? in_dims.at(axis) : ends.at(i);
-    bool both_negative_or_positive =
-        (start_i >= 0 && end_i >= 0) || (start_i <= 0 && end_i <= 0);
-    bool start_negative_end_positive = start_i <= 0 && end_i >= 0;
-    bool start_positive_end_negative = start_i >= 0 && end_i <= 0;
-
-    if (both_negative_or_positive) {
-      continue;
-    } else if (start_negative_end_positive) {
-      starts.at(i) = starts.at(i) + in_dims.at(axis);
-    } else if (start_positive_end_negative) {
-      starts.at(i) = starts.at(i) - in_dims.at(axis);
-    } else {
-      PADDLE_THROW(common::errors::Fatal("Dead code"));
-    }
-  }
-
   ExprVec slice_dims(in_dims);
   PADDLE_ENFORCE_EQ(
       (axes.size() == starts.size() && axes.size() == ends.size() &&
@@ -363,52 +314,115 @@ inline ExprVec GetStridedSliceDims(
           "The size of axes must equal size of starts, ends, and strides."));
 
   for (size_t i = 0; i < axes.size(); ++i) {
-    symbol::DimExpr out_dim;
-    int64_t stride_int64 = 0;
-    if (strides[i].isa<int64_t>()) {
-      stride_int64 = strides[i].Get<int64_t>();
-      if (stride_int64 > 0) {
-        symbol::List<symbol::DimExpr> unnegativate_lists{
-            (ends[i] - starts[i] - 1 + stride_int64) / stride_int64, 0};
-        out_dim = symbol::DimExpr(
-            {symbol::Max<symbol::DimExpr>({unnegativate_lists})});
-      } else {
-        symbol::List<symbol::DimExpr> unnegativate_lists{
-            (ends[i] - starts[i] + 1 + stride_int64) / stride_int64, 0};
-        out_dim = symbol::DimExpr(
-            {symbol::Max<symbol::DimExpr>({unnegativate_lists})});
+    int64_t axis = axes.at(i);
+    if (in_dims.at(i).isa<int64_t>() && starts.at(i).isa<int64_t>() &&
+        ends.at(i).isa<int64_t>() && strides.at(i).isa<int64_t>()) {
+      int64_t in_dim = in_dims[axis].Get<int64_t>();
+      int64_t start = starts[i].Get<int64_t>();
+      int64_t end = ends[i].Get<int64_t>();
+      int64_t stride = strides[i].Get<int64_t>();
+      bool dummy_zero_dim_out = false;
+      phi::funcs::normalize_interval(
+          start, end, stride, in_dim, &start, &end, &dummy_zero_dim_out);
+      if (end == -in_dim - 1) {
+        end = -1;
       }
+      int64_t step_size = std::abs(stride);
+      auto out_dim = (std::abs(end - start) + step_size - 1) / step_size;
+      slice_dims[axis] = symbol::DimExpr({out_dim});
     } else {
-      out_dim = infer_context->GetNextSymName();
-    }
-    int64_t axis = axes[i];
+      // TODO(dev): Followed code is risky!
+      int64_t start_i = 0;
 
-    if (!out_dim.isa<int64_t>() &&
-        (!in_dims[axis].isa<int64_t>() || !ends[i].isa<int64_t>())) {
-      if (strides[i].isa<int64_t>()) {
-        if (stride_int64 > 0) {
-          symbol::List<symbol::DimExpr> min_lists{
-              (in_dims[axis] - starts[i] - 1 + stride_int64) / stride_int64,
-              out_dim};
+      if (starts.at(i).isa<int64_t>()) {
+        if (in_dims.at(axis).isa<int64_t>()) {
+          starts.at(i) =
+              (starts.at(i).Get<int64_t>() > in_dims.at(axis).Get<int64_t>())
+                  ? in_dims.at(axis)
+                  : starts.at(i);
+          starts.at(i) =
+              (starts.at(i).Get<int64_t>() < -in_dims.at(axis).Get<int64_t>())
+                  ? symbol::DimExpr({-1}) * in_dims.at(axis)
+                  : starts.at(i);
+        }
+        start_i = starts.at(i).Get<int64_t>();
+      }
 
-          slice_dims[axis] =
-              symbol::DimExpr({symbol::Min<symbol::DimExpr>({min_lists})});
+      int64_t end_i = 0;
+      if (ends.at(i).isa<int64_t>()) {
+        if (in_dims.at(axis).isa<int64_t>()) {
+          ends[i] = std::min(ends.at(i).Get<int64_t>(),
+                             in_dims.at(axis).Get<int64_t>());
+        }
+        if (ends.at(i).Get<int64_t>() < 0) {
+          ends[i] = ends.at(i) + in_dims.at(axis);
+        }
+        if (ends.at(i).isa<int64_t>()) {
+          end_i = ends.at(i).Get<int64_t>();
+        }
+      }
+
+      ends.at(i) = IsMaxInt(ends.at(i)) ? in_dims.at(axis) : ends.at(i);
+      bool both_negative_or_positive =
+          (start_i >= 0 && end_i >= 0) || (start_i <= 0 && end_i <= 0);
+      bool start_negative_end_positive = start_i <= 0 && end_i >= 0;
+      bool start_positive_end_negative = start_i >= 0 && end_i <= 0;
+
+      if (!both_negative_or_positive) {
+        // do nothing
+        if (start_negative_end_positive) {
+          starts.at(i) = starts.at(i) + in_dims.at(axis);
+        } else if (start_positive_end_negative) {
+          starts.at(i) = starts.at(i) - in_dims.at(axis);
         } else {
-          symbol::List<symbol::DimExpr> min_lists{
-              (in_dims[axis] - starts[i] + 1 + stride_int64) / stride_int64,
-              out_dim};
+          PADDLE_THROW(common::errors::Fatal("Dead code"));
+        }
+      }
 
-          slice_dims[axis] =
-              symbol::DimExpr({symbol::Min<symbol::DimExpr>({min_lists})});
+      symbol::DimExpr out_dim;
+      int64_t stride_int64 = 0;
+      if (strides[i].isa<int64_t>()) {
+        stride_int64 = strides[i].Get<int64_t>();
+        if (stride_int64 > 0) {
+          symbol::List<symbol::DimExpr> unnegativate_lists{
+              (ends[i] - starts[i] - 1 + stride_int64) / stride_int64, 0};
+          out_dim = symbol::DimExpr(
+              {symbol::Max<symbol::DimExpr>({unnegativate_lists})});
+        } else {
+          symbol::List<symbol::DimExpr> unnegativate_lists{
+              (ends[i] - starts[i] + 1 + stride_int64) / stride_int64, 0};
+          out_dim = symbol::DimExpr(
+              {symbol::Max<symbol::DimExpr>({unnegativate_lists})});
+        }
+      } else {
+        out_dim = infer_context->GetNextSymName();
+      }
+      if (!out_dim.isa<int64_t>() &&
+          (!in_dims[axis].isa<int64_t>() || !ends[i].isa<int64_t>())) {
+        if (strides[i].isa<int64_t>()) {
+          if (stride_int64 > 0) {
+            symbol::List<symbol::DimExpr> min_lists{
+                (in_dims[axis] - starts[i] - 1 + stride_int64) / stride_int64,
+                out_dim};
+
+            slice_dims[axis] =
+                symbol::DimExpr({symbol::Min<symbol::DimExpr>({min_lists})});
+          } else {
+            symbol::List<symbol::DimExpr> min_lists{
+                (in_dims[axis] - starts[i] + 1 + stride_int64) / stride_int64,
+                out_dim};
+
+            slice_dims[axis] =
+                symbol::DimExpr({symbol::Min<symbol::DimExpr>({min_lists})});
+          }
+        } else {
+          slice_dims[axis] = out_dim;
         }
       } else {
         slice_dims[axis] = out_dim;
       }
-    } else {
-      slice_dims[axis] = out_dim;
     }
   }
-
   return slice_dims;
 }
 
