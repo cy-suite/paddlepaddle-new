@@ -215,7 +215,7 @@ void SolveKernel(const Context& dev_ctx,
         out_dims.push_back(std::max(x_dim, y_dim));
         if (x_it != x_shape.rend()) ++x_it;
         if (y_it != y_shape.rend()) ++y_it;
-        }
+      }
       std::reverse(out_dims.begin(), out_dims.end());
       out_dims.insert(out_dims.end(),
                       y_dims.Get() + y_dims.size() - 2,
