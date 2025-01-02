@@ -154,7 +154,8 @@ DepKind DataDependencyGraph::HasDependency(const ir::stmt::StmtRef& src,
   DepKind res = DepKind::NO_DEP;
   ::common::BfsWalker<unsigned> bfs_walker(
       [&](unsigned id, const std::function<void(unsigned)> Visit) {
-        if (out_edges_.count(id) != 0) {
+        // Skip if node has no out edges, or have been found already.
+        if (out_edges_.count(id) != 0 && res == DepKind::NO_DEP) {
           for (const auto& edge : out_edges_.at(id)) {
             Visit(edge.id);
           }
