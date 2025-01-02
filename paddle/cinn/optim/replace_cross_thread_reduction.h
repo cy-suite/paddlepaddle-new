@@ -33,15 +33,13 @@ namespace optim {
  *
  * 
  * This pass is applicable in scenarios where multiple GPU threads need to perform reduction operations (like sum, max, min)
- * across thread boundaries. These scenarios are common in deep learning workloads, particularly in operations like:
- * - Computing sum/mean across feature dimensions
- * - Global pooling operations
- * - Softmax normalization
- * - Gradient aggregation in distributed training
- *
+ * across thread boundaries. Replace Cross Thread Reduction is applicable to the following scenarios:
+ * - Cross-thread specification operations: Specification operations that involve data exchange and synchronization between multiple GPU threads, such as sum, maximum, and minimum.
+ * - Specification primitives supported by GPU hardware
+ * - Compiler IR features: The IR contains features such as explicit specification loops, accumulation operations, and thread binding.
  * 
  * When applied, this pass will:
- * 1. Identify reduction operations in GPU-bound loops
+ * 1. Identify reducible operations for optimization in cross-thread
  * 2. Replace the original reduction operation with an optimized external function call
  * 3. Create shared memory buffers for intermediate results
  * 4. Transform the reduction pattern based on the selected method (None/Warp/Block/Discrete)
@@ -69,27 +67,36 @@ namespace optim {
  *
  *
  * 1. Sum Reduction:
- *    Input IR:
- *      for (i = 0; i < 1024; i++) {
- *        if (i < n) {
- *          sum += data[i];
- *        }
- *      }
- *
+ * input IR:
+ *   void reduce_sum_kernel(const float* data, float* total_sum, int n) {
+ *     int tid = threadIdx.x;
+ *     int i = blockIdx.x * blockDim.x + threadIdx.x;
+ *    
+ *     float my_sum = 0.0;
+ *     while (i < n) {
+ *       my_sum += data[i];
+ *       i += blockDim.x * gridDim.x;
+ *     }
+ *     shared_sum[tid] = my_sum;
+ *   
+ *     __syncthreads();
+ *   
+ *     for (unsigned int s = 1; s < blockDim.x; s *= 2) {
+ *       if (tid % (2*s) == 0) {
+ *         shared_sum[tid] += shared_sum[tid + s];
+ *       }
+ *       __syncthreads();
+ *     }
+ *   
+ *     if (tid == 0) {
+ *       total_sum[blockIdx.x] = shared_sum[0];
+ *     }
+ *   }
  *    Output IR:
  *      buffer shm32_float_reduce[32];
  *      sum = __cinn_cuda_reduce_sum(data, shm32_float_reduce, false);
  *
- * 2. Max Reduction with Warp:
- *    Input IR:
- *      for (i = 0; i < 32; i++) {
- *        max_val = max(max_val, data[i]);
- *      }
- *
- *    Output IR:
- *      buffer shm32_float_reduce[32];
- *      max_val = __cinn_cuda_reduce_max(data, shm32_float_reduce, true);
- *
+ * Not applicable scenarios:
  * 
  * 1. Non-reduction loop:
  *    for (i = 0; i < n; i++) {
@@ -102,6 +109,10 @@ namespace optim {
  *      sum += data[i];
  *    }
  *    Reason: Exceeds maximum supported thread block size
+ * 3. float sum = 0.0;
+ *    float data[1024];
+ *    __global__ void incorrectReduction() { sum += data[threadIdx.x];}
+ *    Reason： Specification axes are not bound to threads
  */
 void ReplaceCrossThreadReduction(ir::LoweredFunc fn);
 }  // namespace optim
