@@ -625,7 +625,7 @@ inline typename optional<T>::reference_const_type get(optional<T> const& opt) {
 }
 
 template <class T>
-inline typename optional<T>::reference_type get(const optional<T>& opt) {
+inline typename optional<T>::reference_type get(optional<T>& opt) { // NOLINT
   return opt.get();
 }
 
@@ -653,7 +653,7 @@ inline typename optional<T>::reference_const_type get_optional_value_or(
 
 template <class T>
 inline typename optional<T>::reference_type get_optional_value_or(
-    const optional<T>& opt, typename optional<T>::reference_type v) {
+    optional<T>& opt, typename optional<T>::reference_type v) { // NOLINT
   return opt.get_value_or(v);
 }
 
@@ -667,7 +667,7 @@ inline typename optional<T>::pointer_const_type get_pointer(
 }
 
 template <class T>
-inline typename optional<T>::pointer_type get_pointer(const optional<T>& opt) {
+inline typename optional<T>::pointer_type get_pointer(optional<T>& opt) { // NOLINT
   return opt.get_ptr();
 }
 
