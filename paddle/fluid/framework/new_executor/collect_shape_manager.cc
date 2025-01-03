@@ -27,6 +27,7 @@ void CollectShapeManager::CollectShapeInfo(
     framework::InstructionBase *instr,
     framework::ValueExecutionInfo *value_exe_info,
     framework::Scope *scope) {
+  std::lock_guard<std::mutex> lock(info_mutex_);
   is_shape_range_info_ready_ = false;
   const std::unordered_map<::pir::Value, std::vector<int>> &ins =
       instr->Inputs();
