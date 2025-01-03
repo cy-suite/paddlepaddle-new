@@ -27,14 +27,21 @@ void CollectShapeManager::CollectShapeInfo(
     framework::InstructionBase *instr,
     framework::ValueExecutionInfo *value_exe_info,
     framework::Scope *scope) {
-  std::lock_guard<std::mutex> lock(info_mutex_);
   is_shape_range_info_ready_ = false;
-  for (auto &input : instr->Inputs()) {
+  const std::unordered_map<::pir::Value, std::vector<int>> &ins =
+      instr->Inputs();
+  for (auto &input : ins) {
     auto var_name = value_exe_info->GetVarName(input.first);
     auto *var = scope->FindVar(var_name);
     if (!var || !var->IsType<phi::DenseTensor>()) continue;
     auto tensor = var->Get<phi::DenseTensor>();
-    if (!tensor.initialized()) continue;
+    for (auto &item : ins) {
+      if ((ins.count(item.first) && instr->NoNeedBuffer().count(item.first))) {
+        VLOG(3) << "NoNeedBuffer pir::value not initialized.";
+      } else {
+        if (!tensor.initialized()) continue;
+      }
+    }
     paddle::platform::DeviceContextPool &pool =
         paddle::platform::DeviceContextPool::Instance();
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
