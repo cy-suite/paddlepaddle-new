@@ -1049,6 +1049,29 @@ class ObjectVariable(VariableBase):
     def get_py_value(self, allow_tensor=False) -> Any:
         return self.value
 
+    def get_iter(self):
+        """
+        To simplify the problem, we only support the case where the __iter__ method returns a list.
+        """
+        from . import (
+            BuiltinVariable,
+            ConstantVariable,
+            SequenceIterVariable,
+        )
+
+        iter_name_var = ConstantVariable.wrap_literal("__iter__", self.graph)
+        iter_method = BuiltinVariable(
+            getattr, graph=self.graph, tracker=DanglingTracker()
+        )(self, iter_name_var)
+        iter_result = iter_method()
+
+        if iter_result is None or not isinstance(
+            iter_result, SequenceIterVariable
+        ):
+            return super().get_iter()
+
+        return iter_result
+
 
 class SliceVariable(VariableBase):
     """
