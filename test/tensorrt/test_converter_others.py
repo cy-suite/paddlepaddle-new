@@ -500,7 +500,9 @@ def wrapper_temporal_shift(x):
 
 
 def wrapper_temporal_shift_2(x, seg_num, shift_ratio):
-    return paddle.nn.functional.temporal_shift(x=paddle.randn([4, 9, 7, 7]), seg_num=seg_num, shift_ratio=shift_ratio)
+    return paddle.nn.functional.temporal_shift(
+        x=paddle.randn([4, 9, 7, 7]), seg_num=seg_num, shift_ratio=shift_ratio
+    )
 
 
 class TestTemporalShiftTRTPatternError1(TensorRTBaseTest):
