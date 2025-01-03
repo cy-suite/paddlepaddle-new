@@ -426,11 +426,8 @@ class TestZeroSizeBackwardWithGradientAccumulation(unittest.TestCase):
         """Test for simple API call"""
 
         def gradient_func(x):
-            # print(f"x.shape = {x.shape}")
             y1 = x / 2
-            # print(f"y1.shape = {y1.shape}")
             y2 = x + 1
-            # print(f"y2.shape = {y2.shape}")
             out = y1 + y2
             return paddle.grad(out, x)
 
