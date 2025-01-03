@@ -135,28 +135,32 @@ void divide_grad(const Tensor& x,
                  int axis,
                  Tensor* dx,
                  Tensor* dy) {
-  if (dy) {
-    // dy = -(x/y^2) * dout
-    auto dy_res = -out_grad * (x / y / y);
-    if (has_dynamic_shape(y.shape()) || has_dynamic_shape(out_grad.shape()) ||
-        out_grad.dims() != y.dims()) {
-      auto dy_tmp = reduce_as<T>(dy_res, y);
-      set_output<T>(dy_tmp, dy);
-    } else {
-      set_output<T>(dy_res, dy);
+  if (dx || dy) {
+    // dy = -(x/y^2) * dout = -(dout/y) * out
+    auto dout_div_y = out_grad / y;
+    if (dy) {
+      auto dy_res = -dout_div_y * out;
+      if (has_dynamic_shape(y.shape()) || has_dynamic_shape(out_grad.shape()) ||
+          out_grad.dims() != y.dims()) {
+        auto dy_tmp = reduce_as<T>(dy_res, y);
+        set_output<T>(dy_tmp, dy);
+      } else {
+        set_output<T>(dy_res, dy);
+      }
     }
-  }  // indicate we will compute dy
-  if (dx) {
-    // dx = (1/y) * dout
-    auto dx_res = out_grad / y;
-    if (has_dynamic_shape(x.shape()) || has_dynamic_shape(out_grad.shape()) ||
-        out_grad.dims() != x.dims()) {
-      auto dx_tmp = reduce_as<T>(dx_res, x);
-      set_output<T>(dx_tmp, dx);
-    } else {
-      set_output<T>(dx_res, dx);
+
+    // dx = dout/y
+    if (dx) {
+      auto dx_res = dout_div_y;
+      if (has_dynamic_shape(x.shape()) || has_dynamic_shape(out_grad.shape()) ||
+          out_grad.dims() != x.dims()) {
+        auto dx_tmp = reduce_as<T>(dx_res, x);
+        set_output<T>(dx_tmp, dx);
+      } else {
+        set_output<T>(dx_res, dx);
+      }
     }
-  }  // indicate we will compute dx
+  }
 }
 
 template <typename T>
