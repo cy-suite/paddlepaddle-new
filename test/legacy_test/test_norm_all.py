@@ -936,6 +936,24 @@ class API_NormTest(unittest.TestCase):
                 keep_dim=keep,
                 check_dim=True,
             )
+            check_linalg_vector_static(
+                self,
+                p=np.inf,
+                axis=2,
+                shape_x=[1, 14, 5, 14],
+                dtype="complex128",
+                keep_dim=keep,
+                check_dim=True,
+            )
+            check_linalg_vector_static(
+                self,
+                p=0,
+                axis=[1, 3],
+                shape_x=[1, 14, 5, 14],
+                dtype="complex128",
+                keep_dim=keep,
+                check_dim=True,
+            )
             check_linalg_matrix_static(
                 self,
                 p=-np.inf,
@@ -1286,6 +1304,24 @@ class API_NormTest(unittest.TestCase):
                 self,
                 p=-np.inf,
                 axis=[0, 1, 2, 3],
+                shape_x=[1, 14, 5, 14],
+                dtype="complex128",
+                keep_dim=keep,
+                check_dim=True,
+            )
+            check_linalg_vector_dygraph(
+                self,
+                p=np.inf,
+                axis=2,
+                shape_x=[1, 14, 5, 14],
+                dtype="complex128",
+                keep_dim=keep,
+                check_dim=True,
+            )
+            check_linalg_vector_dygraph(
+                self,
+                p=0,
+                axis=[1, 3],
                 shape_x=[1, 14, 5, 14],
                 dtype="complex128",
                 keep_dim=keep,
