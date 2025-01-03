@@ -194,8 +194,12 @@ class TestTraceAPIZerodimCase(unittest.TestCase):
                 (-5, 2, 0),
             ]
             for offset, axis1, axis2 in params:
-                paddle_res = paddle.trace(x, offset=offset, axis1=axis1, axis2=axis2)
-                np_res = np.trace(self.x, offset=offset, axis1=axis1, axis2=axis2)
+                paddle_res = paddle.trace(
+                    x, offset=offset, axis1=axis1, axis2=axis2
+                )
+                np_res = np.trace(
+                    self.x, offset=offset, axis1=axis1, axis2=axis2
+                )
                 self.assertEqual(tuple(paddle_res.shape), np_res.shape)
                 np.testing.assert_allclose(paddle_res, np_res, rtol=1e-6)
         paddle.enable_static()
@@ -216,7 +220,9 @@ class TestTraceAPIZerodimCase(unittest.TestCase):
                 (0, -2, -1),
             ]
             for offset, axis1, axis2 in params:
-                out = tensor.trace(data1, offset=offset, axis1=axis1, axis2=axis2)
+                out = tensor.trace(
+                    data1, offset=offset, axis1=axis1, axis2=axis2
+                )
                 place = core.CPUPlace()
                 exe = base.Executor(place)
                 result = exe.run(
