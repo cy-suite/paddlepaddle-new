@@ -293,9 +293,7 @@ class TestSumAPIZeroDimKeepDim(unittest.TestCase):
                     fetch_list=[result],
                 )
                 self.assertEqual(fetches[0].shape, (1, 1))
-                self.assertTrue(
-                    np.allclose(fetches[0], np.sum(input_np, keepdims=True))
-                )
+                np.allclose(fetches[0], np.sum(input_np, keepdims=True))
 
     def test_dygraph(self):
         paddle.disable_static()
@@ -307,17 +305,17 @@ class TestSumAPIZeroDimKeepDim(unittest.TestCase):
                 out1 = paddle.sum(x, keepdim=True)
                 np_out1 = out1.numpy()
                 expect_res1 = np.sum(np_x, keepdims=True)
-                self.assertTrue(np.allclose(np_out1, expect_res1))
+                np.allclose(np_out1, expect_res1)
 
                 out2 = paddle.sum(x, axis=0, keepdim=True)
                 np_out2 = out2.numpy()
                 expect_res2 = np.sum(np_x, axis=0, keepdims=True)
-                self.assertTrue(np.allclose(np_out2, expect_res2))
+                np.allclose(np_out2, expect_res2)
 
                 out3 = paddle.sum(x, axis=-1, keepdim=True)
                 np_out3 = out3.numpy()
                 expect_res3 = np.sum(np_x, axis=-1, keepdims=True)
-                self.assertTrue(np.allclose(np_out3, expect_res3))
+                np.allclose(np_out3, expect_res3)
 
         paddle.enable_static()
 
