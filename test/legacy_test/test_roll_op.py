@@ -99,6 +99,47 @@ class TestRollFP16OpCase3(TestRollOp):
         self.axis = [-1, 1]
 
 
+class TestRollBollOp(OpTest):
+    def setUp(self):
+        self.python_api = paddle.roll
+        self.op_type = "roll"
+        self.public_python_api = paddle.roll
+        self.prim_op_type = "prim"
+        self.init_dtype_type()
+        self.attrs = {'shifts': self.shifts, 'axis': self.axis}
+        x = np.random.random(self.x_shape).astype(self.dtype)
+        out = np.roll(x, self.attrs['shifts'], self.attrs['axis'])
+        self.inputs = {'X': x}
+        self.outputs = {'Out': out}
+
+    def init_dtype_type(self):
+        self.dtype = np.bool_
+        self.x_shape = (100, 4, 5)
+        self.shifts = [101, -1]
+        self.axis = [0, -2]
+
+    def test_check_output(self):
+        self.check_output(
+            check_prim=True, check_pir=True, check_symbol_infer=False
+        )
+
+
+class TestRollBoolOpCase2(TestRollBollOp):
+    def init_dtype_type(self):
+        self.dtype = np.bool_
+        self.x_shape = (100, 10, 5)
+        self.shifts = [8, -1]
+        self.axis = [-1, -2]
+
+
+class TestRollBoolOpCase3(TestRollBollOp):
+    def init_dtype_type(self):
+        self.dtype = np.bool_
+        self.x_shape = (11, 11)
+        self.shifts = [1, 1]
+        self.axis = [-1, 1]
+
+
 @unittest.skipIf(
     not core.is_compiled_with_cuda()
     or not core.is_bfloat16_supported(core.CUDAPlace(0)),
