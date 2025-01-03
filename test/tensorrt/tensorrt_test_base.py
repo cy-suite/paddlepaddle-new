@@ -115,7 +115,9 @@ class TensorRTBaseTest(unittest.TestCase):
                     api_args[feed_name] = input_data
             actual_args = []
             for name, value in api_args.items():
+                print("name", name)
                 actual_args.append(value)
+            print("*actual args", *actual_args)
             output = self.python_api(*actual_args)
             fetch_list = []
             if isinstance(output, tuple):
