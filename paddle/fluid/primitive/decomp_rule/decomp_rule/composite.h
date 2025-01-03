@@ -1482,6 +1482,30 @@ Tensor diag_decomp(const Tensor& x,
   return ConvertToOrig<T>(res, x.dtype());
 }
 
+template <typename T>
+Tensor allclose_decomp(const Tensor& x,
+                       const Tensor& y,
+                       const paddle::Scalar& rtol,
+                       const paddle::Scalar& atol,
+                       const bool equal_nan) {
+  Tensor left = abs<T>(x - y);
+  Tensor min_diff_tensor = full<T>(y.shape(), 1e-15, DataType::FLOAT64);
+  Tensor rtol_tensor = full_scalar<T>(rtol.to<double>(), DataType::FLOAT64);
+  Tensor atol_tensor = full_scalar<T>(atol.to<double>(), DataType::FLOAT64);
+  Tensor right = atol_tensor + rtol_tensor * y;
+  Tensor diff = abs<T>(right - left);
+  Tensor res_tmp = backend::logical_or<T>(less_equal<T>(left, right),
+                                          less_equal<T>(diff, min_diff_tensor));
+  Tensor res = backend::logical_or<T>(equal<T>(x, y), res_tmp);
+  if (equal_nan) {
+    Tensor x_nan = isnan<T>(x);
+    Tensor y_nan = isnan<T>(y);
+    res = backend::logical_or<T>(
+        res, backend::logical_or<T>(backend::logical_not<T>(x_nan), y_nan));
+  }
+  return backend::all<T>(res);
+}
+
 }  // namespace details
 
 }  // namespace primitive
