@@ -434,52 +434,56 @@ void divide_grad(const Tensor& x,
                  int axis,
                  Tensor* dx,
                  Tensor* dy) {
-  if (dy) {
-    // dy = -(x/y^2) * dout = -out * dout / y
-    auto dy_res = -out * out_grad / y;
-    if (out.dims() != y.dims()) {
-      // Maybe need reduce here
-      phi::DDim reduce_dim = get_reduce_dims(y.dims(), out.dims());
-      if (!reduce_dim.size()) {
+  if (dx || dy) {
+    auto dout_div_y = out_grad / y;
+    // dy = -(x/y^2) * dout = -(dout/y) * out
+    if (dy) {
+      auto dy_res = -out * out_grad / y;
+      if (out.dims() != y.dims()) {
+        // Maybe need reduce here
+        phi::DDim reduce_dim = get_reduce_dims(y.dims(), out.dims());
+        if (!reduce_dim.size()) {
+          set_output<T>(dy_res, dy);
+        } else {
+          auto dy_reduce_res =
+              dy_res.sum(common::vectorize(reduce_dim),
+                         y.dtype(),
+                         dy_res.dims().size() == y.dims().size());
+          if (dy_reduce_res.dims() != y.dims()) {
+            dy_reduce_res =
+                reshape<T>(dy_reduce_res, common::vectorize(y.dims()));
+          }
+          set_output<T>(dy_reduce_res, dy);
+        }
+      } else {
         set_output<T>(dy_res, dy);
-      } else {
-        auto dy_reduce_res =
-            dy_res.sum(common::vectorize(reduce_dim),
-                       y.dtype(),
-                       dy_res.dims().size() == y.dims().size());
-        if (dy_reduce_res.dims() != y.dims()) {
-          dy_reduce_res =
-              reshape<T>(dy_reduce_res, common::vectorize(y.dims()));
-        }
-        set_output<T>(dy_reduce_res, dy);
       }
-    } else {
-      set_output<T>(dy_res, dy);
     }
-  }  // indicate we will compute dy
-  if (dx) {
-    // dx = (1/y) * dout = dout / y
-    auto dx_res = out_grad / y;
-    if (out_grad.dims() != x.dims()) {
-      // Maybe need reduce here
-      auto reduce_dim = get_reduce_dims(x.dims(), out_grad.dims());
-      if (!reduce_dim.size()) {
+
+    // dx = dout/y
+    if (dx) {
+      auto dx_res = dout_div_y;
+      if (out_grad.dims() != x.dims()) {
+        // Maybe need reduce here
+        auto reduce_dim = get_reduce_dims(x.dims(), out_grad.dims());
+        if (!reduce_dim.size()) {
+          set_output<T>(dx_res, dx);
+        } else {
+          auto dx_reduce_res =
+              dx_res.sum(common::vectorize(reduce_dim),
+                         x.dtype(),
+                         dx_res.dims().size() == x.dims().size());
+          if (dx_reduce_res.dims() != x.dims()) {
+            dx_reduce_res =
+                reshape<T>(dx_reduce_res, common::vectorize(x.dims()));
+          }
+          set_output<T>(dx_reduce_res, dx);
+        }
+      } else {
         set_output<T>(dx_res, dx);
-      } else {
-        auto dx_reduce_res =
-            dx_res.sum(common::vectorize(reduce_dim),
-                       x.dtype(),
-                       dx_res.dims().size() == x.dims().size());
-        if (dx_reduce_res.dims() != x.dims()) {
-          dx_reduce_res =
-              reshape<T>(dx_reduce_res, common::vectorize(x.dims()));
-        }
-        set_output<T>(dx_reduce_res, dx);
       }
-    } else {
-      set_output<T>(dx_res, dx);
     }
-  }  // indicate we will compute dx
+  }
 }
 
 template <typename T>
