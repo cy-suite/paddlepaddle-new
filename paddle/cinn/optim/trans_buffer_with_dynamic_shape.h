@@ -46,6 +46,48 @@ class TransBufferWithDynamicShapePass : public FuncPass {
  * Risks and limitations:
  * - Currently only checks shared memory usage against hardware limits for
  * NVIDIA GPUs and Hygon DCU.
+ *
+ * TODO:
+ * - Extend support for ARM and X86 architectures.
+ * - Improve shape simplification for scenarios where runtime-dynamic shapes
+ *   have highly complex expressions.
+ * - Incorporate additional performance metrics and runtime validation in debug
+ * builds.
+ *
+ * Examples:
+ * 1. Dynamic Shape Simplification (Local Memory):
+ *    Input IR:
+ *      `Tensor A[128, dynamic_dim];`
+ *    Output IR:
+ *      `Tensor A[128, upper_bound_dynamic_dim];`
+ *    Explanation:
+ *      The pass calculates an upper bound for `dynamic_dim` and replaces the
+ *      dynamic dimension with a constant value for memory allocation.
+ *
+ * 2. Shared Memory Size Check (Shared Memory):
+ *    Input IR:
+ *      `Tensor B[64, 256]; `
+ *    Output IR:
+ *      `Shared memory check: Ensure total size <= max_shared_memory_per_block`
+ *    Explanation:
+ *      The pass verifies that the total size of `B` does not exceed the shared
+ *      memory limit for the target GPU architecture. If it does, an error is
+ * raised.
+ *
+ * Counter-Examples:
+ * 1. Static Shapes:
+ *    Input IR:
+ *      `Tensor C[64, 128];`
+ *    Explanation:
+ *      If all dimensions are static constants, the pass does not perform any
+ * transformations.
+ *
+ * 2. Unsupported Architectures (e.g., ARM):
+ *    Input IR:
+ *      `Tensor D[512, dynamic_dim];`
+ *    Explanation:
+ *      The pass does not run on unsupported architectures like ARM.
+ *
  */
 std::unique_ptr<FuncPass> CreateTransBufferWithDynamicShapePass();
 
