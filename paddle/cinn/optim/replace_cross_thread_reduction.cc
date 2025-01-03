@@ -65,7 +65,6 @@ struct CrossThreadReductionReplacer : public ir::IRMutator<>,
             if (x->as_var()) {
               reduce_var_names.insert(x->as_var()->name);
             }
-
             return false;
           });
     }
@@ -79,8 +78,9 @@ struct CrossThreadReductionReplacer : public ir::IRMutator<>,
     bool is_thread_binded_inner_loop = false;
     for (int i = 0; i < cur_loops_.size(); ++i) {
       bool is_thread_bind_on_reduce = IsThreadBindOnReduceAxis(cur_loops_[i]);
-      if (is_thread_bind_on_reduce && ir::GetLoopExtent(cur_loops_[i]) == 1)
+      if (is_thread_bind_on_reduce && ir::GetLoopExtent(cur_loops_[i]) == 1) {
         return false;
+      }
       if (is_thread_binded_inner_loop || is_thread_bind_on_reduce) {
         if (ir::GetLoopExtent(cur_loops_[i]) > 1024) {
           return false;
@@ -243,7 +243,6 @@ struct CrossThreadReductionReplacer : public ir::IRMutator<>,
         PADDLE_THROW(::common::errors::InvalidArgument(
             "The node type is not supported in cross thread reduction."));
     }
-
     VisitBlock(stmt->body());
   }
 
@@ -252,11 +251,14 @@ struct CrossThreadReductionReplacer : public ir::IRMutator<>,
     VisitBlock(stmt->body());
     cur_loops_.pop_back();
   }
+  void VisitStmt(ir::stmt::IfThenElse stmt) override {
+    VisitBlock(stmt->true_case());
+    if (stmt->false_case().defined()) VisitBlock(stmt->false_case());
+  }
 
   void VisitStmt(ir::stmt::Alloc) override { return; }
   void VisitStmt(ir::stmt::Free) override { return; }
   void VisitStmt(ir::stmt::Store) override { return; }
-  void VisitStmt(ir::stmt::IfThenElse) override { return; }
   void VisitStmt(ir::stmt::Evaluate) override { return; }
   void VisitStmt(ir::stmt::Let) override { return; }
 
