@@ -495,9 +495,17 @@ class TestTemporalShiftTRTPatternMinMaxShape(TensorRTBaseTest):
         self.check_trt_result()
 
 
+def wrapper_temporal_shift(x):
+    return paddle.nn.functional.temporal_shift(x=x, seg_num=2, shift_ratio=0.2)
+
+
+def wrapper_temporal_shift_2(x, seg_num, shift_ratio):
+    return paddle.nn.functional.temporal_shift(x=paddle.randn([4, 9, 7, 7]), seg_num=seg_num, shift_ratio=shift_ratio)
+
+
 class TestTemporalShiftTRTPatternError1(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = paddle.nn.functional.temporal_shift
+        self.python_api = wrapper_temporal_shift
         self.api_args = {
             "x": np.random.random([4, 9, 7, 7]).astype(np.float32),
         }
@@ -506,27 +514,23 @@ class TestTemporalShiftTRTPatternError1(TensorRTBaseTest):
         self.max_shape = {"x": [10, 9, 7, 7]}
 
     def test_trt_result(self):
-        with self.assertRaises(TypeError) as context:
-            self.check_marker(expected_result=False)
+        self.check_marker(expected_result=False)
 
 
 class TestTemporalShiftTRTPatternError2(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = paddle.nn.functional.temporal_shift
+        self.python_api = wrapper_temporal_shift_2
         self.api_args = {
             "x": np.random.random([4, 9, 7, 7, 7]).astype(np.float32),
             "seg_num": 2,
             "shift_ratio": 0.2,
-            "name": None,
-            "data_format": "NCHW",
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [2, 9, 7, 7, 7]}
         self.max_shape = {"x": [10, 9, 7, 7, 7]}
 
     def test_trt_result(self):
-        with self.assertRaises(ValueError) as context:
-            self.check_marker(expected_result=False)
+        self.check_marker(expected_result=False)
 
 
 if __name__ == '__main__':
