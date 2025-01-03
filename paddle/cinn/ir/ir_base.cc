@@ -27,7 +27,6 @@
 #include "paddle/cinn/ir/op/ir_operators.h"
 #include "paddle/cinn/ir/tensor.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
-#include "paddle/cinn/optim/ir_simplify.h"
 #include "paddle/common/enforce.h"
 namespace cinn {
 namespace ir {
@@ -286,13 +285,13 @@ double Expr::get_constant() const {
 bool Expr::is_var() const { return As<_Var_>(); }
 
 bool Expr::is_index() const {
-  // Temporarily use `is_index_tmp`. because `get_index` depends on marking
+  // Temporarily use `VerifyIndex`. because `get_index` depends on marking
   // `indexExpr` in For::make and sch
-  // return is_index_tmp();
-  return get()->get_index();
+  return VerifyIndex(*this);
+  // return get()->get_index();
 }
 
-const Expr &Expr::set_index(bool flag) const {
+Expr &Expr::set_index(bool flag) {
   if (flag && !VerifyIndex(*this)) {
     PADDLE_THROW(::common::errors::InvalidType(
         "Expr: %s is not IndexExpr! cannot be set as IndexExpr.", *this));
@@ -301,7 +300,7 @@ const Expr &Expr::set_index(bool flag) const {
   return *this;
 }
 
-Expr &Expr::set_index(bool flag) {
+const Expr &Expr::set_index(bool flag) const {
   if (flag && !VerifyIndex(*this)) {
     PADDLE_THROW(::common::errors::InvalidType(
         "Expr: %s is not IndexExpr! cannot be set as IndexExpr.", *this));
@@ -489,45 +488,6 @@ bool IndexExpr::IsDynamic() const {
   }
 }
 
-static IndexExpr SimplifyMin(const IndexExpr &lhs, const IndexExpr &rhs) {
-  if (lhs == rhs) return lhs;
-  if (auto constRes = cinn::common::TryConstFold<ir::Min>(lhs, rhs))
-    return constRes.value();
-  return Min::Make(lhs, rhs);
-}
-
-static IndexExpr SimplifyMax(const IndexExpr &lhs, const IndexExpr &rhs) {
-  if (lhs == rhs) return lhs;
-  if (auto constRes = cinn::common::TryConstFold<ir::Max>(lhs, rhs))
-    return constRes.value();
-  return Max::Make(lhs, rhs);
-}
-
-IndexExpr ConstructIndexExprByNodeType(const IrNodeTy &ty,
-                                       const IndexExpr &lhs,
-                                       const IndexExpr &rhs) {
-  switch (ty) {
-    case IrNodeTy::Add:
-      return lhs + rhs;
-    case IrNodeTy::Sub:
-      return lhs - rhs;
-    case IrNodeTy::Mul:
-      return lhs * rhs;
-    case IrNodeTy::Div:
-      return lhs / rhs;
-    case IrNodeTy::Mod:
-      return lhs % rhs;
-    case IrNodeTy::Min:
-      return SimplifyMin(lhs, rhs);
-    case IrNodeTy::Max:
-      return SimplifyMax(lhs, rhs);
-    default:
-      PADDLE_THROW(::common::errors::InvalidArgument(
-          "Unsupported type in ConstructIndexExprByNodeType, which is: %s",
-          ty));
-  }
-}
-
 IndexExpr Simplify(const IndexExpr &expr, IndexExpr::OptLevel level) {
   switch (expr.node_type()) {
     case ir::IrNodeTy::IntImm:
@@ -650,12 +610,14 @@ void IrNode::convert_int64_to_int32() {
                         true,
                         ::common::errors::InvalidArgument(
                             "Current only support convert int64_t "
-                            "to int32_t, but get type is: %s",
-                            type_));
+                            "to int32_t, but get type is: %s, node type is: %s",
+                            type_,
+                            node_type()));
 
   if (node_type() == IrNodeTy::IntImm) {
     auto *int_imm = static_cast<IntImm *>(this);
     if (int_imm->value >= INT_MAX) return;
+    int_imm->value = int32_t(int_imm->value);
   }
 
   if (type_ == Int(64)) type_ = Int(32);

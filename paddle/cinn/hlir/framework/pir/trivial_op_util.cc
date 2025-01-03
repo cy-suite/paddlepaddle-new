@@ -182,7 +182,6 @@ void SubstitudeTargetExprWithDestExpr(const ir::Expr& source,
   VLOG(4) << "SubstitideExpr Start";
   VLOG(5) << "Substitide Body : " << *body;
   ir::Expr new_dest = dest;
-  optim::Simplify(&new_dest);
   if (source.type() != dest.type()) {
     VLOG(4) << "Cast the dest" << dest << " to type" << source.type();
     new_dest = ir::Cast::Make(source.type(), dest);
@@ -317,15 +316,6 @@ ExprSetFinder ScheduleBlockRealizeIsInit = FilterMaker(
     },
     "ScheduleBlockRealizeIsInit");
 
-ExprSetFinder ScheduleBlockRealizeIsSplitTransform = FilterMaker(
-    [](const ir::Expr& e) -> bool {
-      return (e.As<ir::ScheduleBlockRealize>() &&
-              e.As<ir::ScheduleBlockRealize>()
-                      ->schedule_block.As<ir::ScheduleBlock>()
-                      ->name.find("_split_transform") != std::string::npos);
-    },
-    "ScheduleBlockRealizeIsSplitTransform");
-
 ExprSetFinder IsFor = FilterMaker(
     [](const ir::Expr& e) -> bool { return e.As<ir::For>(); }, "IsFor");
 
@@ -408,7 +398,7 @@ ExprSetFinder FindFather(const ir::Expr& root) {
 ExprSetFinder DirectlyFather(const ir::Expr& root) {
   const auto& f = [root](const auto& child) -> ExprSet {
     ExprSet result = FindFather(root)(child);
-    // VLOG(4) << "Direcly Father of \n" << child << "\nIn root: \n" << root <<
+    // VLOG(4) << "Directly Father of \n" << child << "\nIn root: \n" << root <<
     // "\n is : "; for (const auto& r: result){ VLOG(4) << "\n  RESULT: " << r;
     //}
     return {result[result.size() - 1]};
