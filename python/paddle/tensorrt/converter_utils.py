@@ -567,9 +567,17 @@ def convert_conv2d(network, paddle_op, inputs):
     return layer.get_output(0)
 
 
+def get_input_constant_value(paddle_op, inputs, input_index):
+    input_op = paddle_op.operands()[input_index].source().get_defining_op()
+    if input_op.name() == "builtin.constant":
+        return inputs[input_index].numpy().tolist()
+    else:
+        return None
+
+
 def add_reduce_layer(network, paddle_op, inputs, op_type):
     input_tensor = inputs[0]
-    axis = paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
+    axis = get_input_constant_value(paddle_op, inputs, 1)
     input_shape = paddle_op.operands()[0].source().shape
     keepdim = paddle_op.attrs()["keepdim"]
     if network.has_implicit_batch_dimension:

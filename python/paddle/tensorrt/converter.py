@@ -17,6 +17,10 @@ import hashlib
 import logging
 
 import numpy as np
+
+import paddle
+
+paddle.base.core.register_paddle_plugin()
 import tensorrt as trt
 
 # init tensorrt plugin
@@ -292,7 +296,7 @@ class PaddleToTensorRTConverter:
             ):
                 # constant/parameter condition, needn't get min/opt/max shape
                 continue
-
+            input_name = trt_input.name
             _logger.info(
                 f"set shape of {value}, op is: {value.get_defining_op()}"
             )
@@ -563,5 +567,20 @@ class PaddleToTensorRTConverter:
                     orin_out_values[o_i].replace_all_uses_with(new_out[o_i])
 
                 self.program.global_block().remove_op(op)
+
+        save_one_parameter = (
+            False  # We need to keep at least one parameter for save
+        )
+        for op in self.program.global_block().ops:
+            if op.name() == "builtin.parameter":
+                if not save_one_parameter:
+                    save_one_parameter = True
+                    continue
+                if op.results()[0].use_empty():
+                    self.program.global_block().remove_op(op)
+            if op.name() == "builtin.constant":
+                if op.results()[0].use_empty():
+                    self.program.global_block().remove_op(op)
+
         # Call clear_shape_info to clear the previous shape information
         clear_shape_info()

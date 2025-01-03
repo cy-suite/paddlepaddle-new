@@ -49,7 +49,7 @@ def map_dtype(pd_dtype):
         raise TypeError(f"Unsupported dtype: {pd_dtype}")
 
 
-def run_pir_pass(program, partition_mode=False):
+def run_pir_pass(program, partition_mode=False, disable_passes=[]):
     pm = pir.PassManager(opt_level=4)
     pm.enable_print_statistics()
     paddle.base.libpaddle.pir.infer_symbolic_shape_pass(pm, program)
@@ -72,6 +72,8 @@ def run_pir_pass(program, partition_mode=False):
 
     for pass_item in passes:
         for pass_name, pass_attr in pass_item.items():
+            if pass_name in disable_passes:
+                continue
             pm.add_pass(pass_name, pass_attr)
     pm.run(program)
     return program

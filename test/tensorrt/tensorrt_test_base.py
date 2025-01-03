@@ -42,6 +42,7 @@ class TensorRTBaseTest(unittest.TestCase):
         self.max_shape = None
         self.target_marker_op = ""
         self.dynamic_shape_data = {}
+        self.disable_passes = []
 
     def create_fake_program(self):
         if self.python_api is None:
@@ -251,7 +252,11 @@ class TensorRTBaseTest(unittest.TestCase):
                         preprocess_fetch_index += 1
 
             # run pir pass(including some constant fold pass, dead code elimination pass, fusion pass and trt_op_marker_pass)
-            main_program = run_pir_pass(main_program, partition_mode=False)
+            main_program = run_pir_pass(
+                main_program,
+                partition_mode=False,
+                disable_passes=self.disable_passes,
+            )
 
             scope = paddle.static.global_scope()
             main_program = warmup_shape_infer(
@@ -322,7 +327,11 @@ class TensorRTBaseTest(unittest.TestCase):
             main_program, startup_program, fetch_list = (
                 self.create_fake_program()
             )
-            main_program = run_pir_pass(main_program, partition_mode=False)
+            main_program = run_pir_pass(
+                main_program,
+                partition_mode=False,
+                disable_passes=self.disable_passes,
+            )
             marker_result = False
             for op in main_program.global_block().ops:
                 if op.name() == self.target_marker_op:
