@@ -43,7 +43,6 @@ namespace optim {
  * 3. Update the IR, replacing original indices with simplified versions.
  * 4. Transform local buffer indices into iterator-based forms.
  *       e.g., [i, 0, 0] -> [0, 0, i]
-
  *
  * Key benefits:
  * 1. Reduces computational overhead in index calculations.
