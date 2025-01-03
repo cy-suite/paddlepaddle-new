@@ -44,40 +44,6 @@ using ir::stmt::Store;
 namespace {
 constexpr int MaxRearrangeLoadNum = 8;
 
-// template <typename StmtType>
-// struct StmtAndBlockContainmentChecker
-//     : public ir::stmt::StmtVisitor<bool, bool> {
-//   bool operator()(StmtRef stmt) { return VisitStmt(stmt); }
-//   bool operator()(BlockRef block) { return VisitBlock(block); }
-
-//   bool VisitBlock(const BlockRef& block) override {
-//     for (const StmtRef& inner_stmt : block->stmts()) {
-//       if (VisitStmt(inner_stmt)) return true;
-//     }
-//     return false;
-//   }
-//   bool VisitStmt(const StmtRef& stmt) override {
-//     if (stmt.isa<StmtType>()) return true;
-//     return ir::stmt::StmtVisitor<bool, bool>::VisitStmt(stmt);
-//   }
-//   bool VisitStmt(const Let& stmt) override { return false; }
-//   bool VisitStmt(const Store& stmt) override { return false; }
-//   bool VisitStmt(const Alloc& stmt) override { return false; }
-//   bool VisitStmt(const Free& stmt) override { return false; }
-//   bool VisitStmt(const Evaluate& stmt) override { return false; }
-
-//   bool VisitStmt(const IfThenElse& stmt) override {
-//     return VisitBlock(stmt->true_case()) || VisitBlock(stmt->false_case());
-//   }
-
-//   bool VisitStmt(const For& stmt) override { return VisitBlock(stmt->body());
-//   }
-
-//   bool VisitStmt(const Schedule& stmt) override {
-//     return VisitBlock(stmt->body());
-//   }
-// };
-
 template <typename NodeTy>
 bool ContainsExprNodeInExpr(const ir::Expr& expr) {
   auto res = ir::ir_utils::CollectIRNodes(
