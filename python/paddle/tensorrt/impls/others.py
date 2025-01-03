@@ -309,7 +309,7 @@ def temporal_shift_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     shift_ratio = paddle_op.attrs()["shift_ratio"]
     T = paddle_op.attrs()["seg_num"]
-    data_format = paddle_op.attrs()["data_format"]
+    data_format = paddle_op.attrs().get("data_format", "NCHW")
 
     if data_format == "NHWC":
         # Transpose input to [N, C, H, W]
@@ -398,7 +398,7 @@ def temporal_shift_converter(network, paddle_op, inputs):
 
     # Reshape output to [N*T,C,H,W]
     reshape_layer3 = network.add_shuffle(concat_layer.get_output(0))
-    reshape_layer3.reshape_dims = trt.Dims(inputs[0].shape)
+    reshape_layer3.reshape_dims = trt.Dims([-1, C, H, W])
 
     if data_format == "NHWC":
         transpose_layer2 = network.add_shuffle(reshape_layer3.get_output(0))
