@@ -120,7 +120,7 @@ class TestRollBollOp(OpTest):
 
     def test_check_output(self):
         self.check_output(
-            check_prim=True, check_pir=True, check_symbol_infer=False
+            check_prim=True, check_pir=True, check_symbol_infer=True
         )
 
 
