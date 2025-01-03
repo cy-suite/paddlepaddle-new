@@ -259,6 +259,22 @@ def list_extend_dict():
     return l1
 
 
+class IterableWithList:
+    def __init__(self):
+        self._list = [1, 2, 3]
+
+    def __iter__(self):
+        return self._list.__iter__()
+
+
+@check_no_breakgraph
+def list_within_class(x: paddle.Tensor):
+    my_iterable = IterableWithList()
+    for i in my_iterable:
+        x += i
+    return x
+
+
 class TestListBasic(TestCaseBase):
     def test_list_basic(self):
         self.assert_results(list_getitem_int, 1, paddle.to_tensor(2))
@@ -374,6 +390,9 @@ class TestListMethods(TestCaseBase):
 
     def test_list_extend_dict(self):
         self.assert_results(list_extend_dict)
+
+    def test_list_within_class(self):
+        self.assert_results(list_within_class, paddle.to_tensor(1))
 
 
 if __name__ == "__main__":
