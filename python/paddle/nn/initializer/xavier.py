@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import math
-import warnings
 
 import paddle
 from paddle import _C_ops
@@ -152,10 +151,6 @@ class XavierInitializer(Initializer):
         if in_dygraph_mode():
             if self._uniform:
                 if 0 in [fan_in, fan_out]:
-                    warnings.warn(
-                        "Initializing zero-element tensors is a no-op",
-                        stacklevel=2,
-                    )
                     limit = 0.0
                 else:
                     limit = self._gain * math.sqrt(
@@ -171,10 +166,6 @@ class XavierInitializer(Initializer):
                 )
             else:
                 if 0 in [fan_in, fan_out]:
-                    warnings.warn(
-                        "Initializing zero-element tensors is a no-op",
-                        stacklevel=2,
-                    )
                     std = 0.0
                 else:
                     std = self._gain * math.sqrt(2.0 / float(fan_in + fan_out))
@@ -211,10 +202,6 @@ class XavierInitializer(Initializer):
         elif in_pir_mode():
             if self._uniform:
                 if 0 in [fan_in, fan_out]:
-                    warnings.warn(
-                        "Initializing zero-element tensors is a no-op",
-                        stacklevel=2,
-                    )
                     limit = 0.0
                 else:
                     limit = self._gain * math.sqrt(
@@ -230,10 +217,6 @@ class XavierInitializer(Initializer):
                 )
             else:
                 if 0 in [fan_in, fan_out]:
-                    warnings.warn(
-                        "Initializing zero-element tensors is a no-op",
-                        stacklevel=2,
-                    )
                     std = 0.0
                 else:
                     std = self._gain * math.sqrt(2.0 / float(fan_in + fan_out))
@@ -256,10 +239,6 @@ class XavierInitializer(Initializer):
         else:
             if self._uniform:
                 if 0 in [fan_in, fan_out]:
-                    warnings.warn(
-                        "Initializing zero-element tensors is a no-op",
-                        stacklevel=2,
-                    )
                     limit = 0.0
                 else:
                     limit = self._gain * math.sqrt(
@@ -280,10 +259,6 @@ class XavierInitializer(Initializer):
                 )
             else:
                 if 0 in [fan_in, fan_out]:
-                    warnings.warn(
-                        "Initializing zero-element tensors is a no-op",
-                        stacklevel=2,
-                    )
                     std = 0.0
                 else:
                     std = self._gain * math.sqrt(2.0 / float(fan_in + fan_out))
