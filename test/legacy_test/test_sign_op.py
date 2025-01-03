@@ -25,6 +25,14 @@ from paddle import base
 from paddle.base import core
 
 
+def complex_sign(x):
+    magnitude = np.abs(x)
+    result = np.zeros_like(x, dtype=x.dtype)
+    nonzero = magnitude != 0
+    result[nonzero] = x[nonzero] / magnitude[nonzero]
+    return result
+
+
 class TestSignOp(OpTest):
     def setUp(self):
         self.op_type = "sign"
@@ -58,7 +66,7 @@ class TestSignComplex64Op(OpTest):
         real_part = np.random.uniform(-10, 10, (10, 10))
         imag_part = np.random.uniform(-10, 10, (10, 10))
         self.inputs = {'X': (real_part + 1j * imag_part).astype("complex64")}
-        self.outputs = {'Out': np.sign(self.inputs['X'])}
+        self.outputs = {'Out': complex_sign(self.inputs['X'])}
 
     def test_check_output(self):
         self.check_output(check_pir=True, check_symbol_infer=False)
@@ -71,7 +79,7 @@ class TestSignComplex128Op(OpTest):
         real_part = np.random.uniform(-10, 10, (10, 10))
         imag_part = np.random.uniform(-10, 10, (10, 10))
         self.inputs = {'X': (real_part + 1j * imag_part).astype("complex128")}
-        self.outputs = {'Out': np.sign(self.inputs['X'])}
+        self.outputs = {'Out': complex_sign(self.inputs['X'])}
 
     def test_check_output(self):
         self.check_output(check_pir=True, check_symbol_infer=False)
@@ -203,7 +211,7 @@ class TestSignComplexAPI(TestSignAPI):
             x = paddle.to_tensor(np_x)
             z = paddle.sign(x)
             np_z = z.numpy()
-            z_expected = np.sign(np_x)
+            z_expected = complex_sign(np_x)
             np.testing.assert_allclose(np_z, z_expected, atol=1e-5, rtol=1e-5)
 
     def test_static(self):
@@ -211,8 +219,8 @@ class TestSignComplexAPI(TestSignAPI):
         imag_part = np.random.uniform(-10, 10, (10, 10))
         np_input1 = (real_part + 1j * imag_part).astype("complex64")
         np_input2 = (real_part + 1j * imag_part).astype("complex128")
-        np_out1 = np.sign(np_input1)
-        np_out2 = np.sign(np_input2)
+        np_out1 = complex_sign(np_input1)
+        np_out2 = complex_sign(np_input2)
 
         def run(place):
             with paddle.static.program_guard(
