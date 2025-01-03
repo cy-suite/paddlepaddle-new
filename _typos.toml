@@ -5,6 +5,7 @@ extend-exclude = [
     "patches",
     "build",
     "test/dataset/imikolov_test.py",
+    # Skip `intermidiate` check in these files
     "test/cpp/eager/task_tests/CMakeLists.txt",
     "test/cpp/eager/task_tests/hook_test_intermidiate.cc",
 ]
