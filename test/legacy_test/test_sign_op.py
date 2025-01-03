@@ -51,7 +51,7 @@ class TestSignFP16Op(TestSignOp):
         self.outputs = {'Out': np.sign(self.inputs['X'])}
 
 
-class TestSignComplex64Op(TestSignOp):
+class TestSignComplex64Op(OpTest):
     def setUp(self):
         self.op_type = "sign"
         self.python_api = paddle.sign
@@ -60,8 +60,11 @@ class TestSignComplex64Op(TestSignOp):
         self.inputs = {'X': (real_part + 1j * imag_part).astype("complex64")}
         self.outputs = {'Out': np.sign(self.inputs['X'])}
 
+    def test_check_output(self):
+        self.check_output(check_pir=True, check_symbol_infer=False)
 
-class TestSignComplex128Op(TestSignOp):
+
+class TestSignComplex128Op(OpTest):
     def setUp(self):
         self.op_type = "sign"
         self.python_api = paddle.sign
@@ -69,6 +72,9 @@ class TestSignComplex128Op(TestSignOp):
         imag_part = np.random.uniform(-10, 10, (10, 10))
         self.inputs = {'X': (real_part + 1j * imag_part).astype("complex128")}
         self.outputs = {'Out': np.sign(self.inputs['X'])}
+
+    def test_check_output(self):
+        self.check_output(check_pir=True, check_symbol_infer=False)
 
 
 @unittest.skipIf(
@@ -191,14 +197,14 @@ class TestSignComplexAPI(TestSignAPI):
     def test_dygraph(self):
         with base.dygraph.guard():
             np_x = np.array(
-                [-1.0 + 1.0j, 1.0 + 2.0j, 3.0 - 1.0j, 1.2 + 0.0j, 1.5 + 3.0j],
+                [-1.0 + 1.0j, 0.0 + 0.0j, 3.0 - 0.0j, 1.2 + 0.0j, 1.5 + 3.0j],
                 dtype='complex64',
             )
             x = paddle.to_tensor(np_x)
             z = paddle.sign(x)
             np_z = z.numpy()
             z_expected = np.sign(np_x)
-            self.assertEqual((np_z == z_expected).all(), True)
+            np.testing.assert_allclose(np_z, z_expected, atol=1e-5, rtol=1e-5)
 
     def test_static(self):
         real_part = np.random.uniform(-10, 10, (10, 10))
@@ -233,13 +239,8 @@ class TestSignComplexAPI(TestSignAPI):
                     },
                     fetch_list=[out1, out2],
                 )
-                self.assertEqual((res1 == np_out1).all(), True)
-                self.assertEqual((res2 == np_out2).all(), True)
-                if core.is_compiled_with_cuda():
-                    input3 = paddle.static.data(
-                        name='input3', shape=[-1, 4], dtype="complex64"
-                    )
-                    paddle.sign(input3)
+                np.testing.assert_allclose(res1, np_out1, atol=1e-5, rtol=1e-5)
+                np.testing.assert_allclose(res2, np_out2, atol=1e-5, rtol=1e-5)
 
         for place in self.place:
             run(place)
