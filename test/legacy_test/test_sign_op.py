@@ -202,6 +202,12 @@ class TestSignAPI(unittest.TestCase):
 
 
 class TestSignComplexAPI(TestSignAPI):
+    def setUp(self):
+        self.place = []
+        self.place.append(base.CPUPlace())
+        if core.is_compiled_with_cuda():
+            self.place.append(base.CUDAPlace(0))
+
     def test_dygraph(self):
         with base.dygraph.guard():
             np_x = np.array(
