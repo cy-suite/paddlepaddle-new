@@ -1489,9 +1489,15 @@ Tensor allclose_decomp(const Tensor& x,
                        const paddle::Scalar& atol,
                        const bool equal_nan) {
   Tensor left = abs<T>(x - y);
-  Tensor min_diff_tensor = full<T>(y.shape(), 1e-15, DataType::FLOAT64);
-  Tensor rtol_tensor = full_scalar<T>(rtol.to<double>(), DataType::FLOAT64);
-  Tensor atol_tensor = full_scalar<T>(atol.to<double>(), DataType::FLOAT64);
+  Tensor min_diff_tensor;
+  if (has_dynamic_shape(y.shape())) {
+    min_diff_tensor =
+        backend::full_with_tensor<T>(shape64<T>(y), 1e-15, y.dtype());
+  } else {
+    min_diff_tensor = full<T>(y.shape(), 1e-15, y.dtype());
+  }
+  Tensor rtol_tensor = full_scalar<T>(rtol.to<double>(), y.dtype());
+  Tensor atol_tensor = full_scalar<T>(atol.to<double>(), y.dtype());
   Tensor right = atol_tensor + rtol_tensor * y;
   Tensor diff = abs<T>(right - left);
   Tensor res_tmp = backend::logical_or<T>(less_equal<T>(left, right),

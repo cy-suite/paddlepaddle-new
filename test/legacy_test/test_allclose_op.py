@@ -41,9 +41,9 @@ class TestAllcloseOp(OpTest):
             'Other': self.other,
         }
         self.attrs = {
-            'equal_nan': self.equal_nan,
             "Rtol": self.rtol,
             "Atol": self.atol,
+            'equal_nan': self.equal_nan,
         }
         self.outputs = {
             'Out': np.array(
@@ -230,7 +230,7 @@ class TestAllcloseOpFloat64(TestAllcloseOp):
     def set_args(self):
         self.input = np.array([10.1]).astype("float64")
         self.other = np.array([10]).astype("float64")
-        self.rtol = np.array([0.01]).astype("float64")
+        self.rtol = np.array([0.001]).astype("float64")
         self.atol = np.array([0]).astype("float64")
         self.equal_nan = False
 
