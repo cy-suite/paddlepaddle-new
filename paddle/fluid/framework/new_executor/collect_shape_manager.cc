@@ -34,7 +34,9 @@ void CollectShapeManager::CollectShapeInfo(
     auto *var = scope->FindVar(var_name);
     if (!var || !var->IsType<phi::DenseTensor>()) continue;
     auto tensor = var->Get<phi::DenseTensor>();
-    if (!tensor.initialized()) continue;
+    if (!tensor.initialized() && !instr->NoNeedBuffer().count(input.first)) {
+      continue;
+    }
     paddle::platform::DeviceContextPool &pool =
         paddle::platform::DeviceContextPool::Instance();
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
