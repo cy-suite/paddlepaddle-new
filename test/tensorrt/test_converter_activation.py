@@ -101,6 +101,7 @@ class TestRelu6TRTPattern(TensorRTBaseTest):
         self.api_args = {"x": np.random.randn(3).astype("float32")}
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1]}
+        self.opt_shape = {"x": [2]}
         self.max_shape = {"x": [5]}
 
     def test_trt_result(self):
@@ -333,6 +334,7 @@ class TestSeluTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3]}
+        self.opt_shape = {"x": [2, 3]}
         self.max_shape = {"x": [5, 3]}
 
     def test_trt_result(self):

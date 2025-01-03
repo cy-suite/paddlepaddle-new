@@ -294,6 +294,7 @@ class TestCumsumCase1TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 2, 3]}
+        self.opt_shape = {"x": [2, 2, 3]}
         self.max_shape = {"x": [5, 2, 3]}
 
     def test_trt_result_fp16(self):
@@ -312,6 +313,7 @@ class TestCumsumCase2TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 2, 3]}
+        self.opt_shape = {"x": [2, 2, 3]}
         self.max_shape = {"x": [5, 2, 3]}
 
     def test_trt_result_fp16(self):
@@ -330,6 +332,7 @@ class TestCumsumCase3TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 2, 3]}
+        self.opt_shape = {"x": [2, 2, 3]}
         self.max_shape = {"x": [5, 2, 3]}
 
     def test_trt_result_fp16(self):
@@ -348,6 +351,7 @@ class TestCumsumCase4TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 2, 3]}
+        self.opt_shape = {"x": [2, 2, 3]}
         self.max_shape = {"x": [5, 2, 3]}
 
     def test_trt_result(self):
