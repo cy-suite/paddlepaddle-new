@@ -1057,12 +1057,18 @@ class ObjectVariable(VariableBase):
             BuiltinVariable,
             ConstantVariable,
             SequenceIterVariable,
+            UserDefinedFunctionVariable,
         )
 
+        if not hasattr(self.value, "__iter__"):
+            return super().get_iter()
         iter_name_var = ConstantVariable.wrap_literal("__iter__", self.graph)
         iter_method = BuiltinVariable(
             getattr, graph=self.graph, tracker=DanglingTracker()
         )(self, iter_name_var)
+        # If the target object is a builtin object like list_iterator, the iter_method's fn will be a ObjectVariable instead of UserDefinedFunctionVariable.
+        if not isinstance(iter_method.fn, UserDefinedFunctionVariable):
+            return super().get_iter()
         iter_result = iter_method()
 
         if iter_result is None or not isinstance(
