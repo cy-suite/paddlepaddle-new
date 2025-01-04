@@ -179,7 +179,8 @@ class FunctionSpec:
         """
         flat_input_spec = paddle.utils.flatten(input_with_spec)
 
-        inputs = []
+        # NOTE(zhangbo): Why do we need function_args and program_inputs: The primary function of this module is to construct the corresponding DataOp based on the inputSpec. The output of DataOp serves as the input to the Program and will also become the arguments for subsequent Static functions to construct the static graph. When the input is a DistributedInputSpec, the shard_tensor operation will be performed on the output of DataOp to obtain the corresponding distributed Value. The input to the Program will still be the output of DataOp, but in this case, the arguments for the Static functions will be the output of shard_tensor.
+        function_args = []
         program_inputs = []
         with ir_static.program_guard(main_program):
             for i, var_spec in enumerate(flat_input_spec):
@@ -198,31 +199,23 @@ class FunctionSpec:
                     )
 
                     if isinstance(var_spec, DistributedInputSpec):
-                        # paddle.distributed.shard_tensor(feed_value)
                         placements = to_placements(
                             var_spec.dims_mapping, var_spec
                         )
                         dist_feed_value = paddle._pir_ops.shard_tensor(
                             feed_value, var_spec.mesh, placements
                         )
-                        inputs.append(dist_feed_value)
-                        # dist_dense_tensor_type = paddle.base.libpaddle.pir.create_dist_dense_tensor_type_by_dense_tensor(
-                        #     feed_value.type(),
-                        #     var_spec.local_shape,
-                        #     var_spec.mesh,
-                        #     var_spec.dims_mapping,
-                        # )
-                        # feed_value.set_type(dist_dense_tensor_type)
+                        function_args.append(dist_feed_value)
                     else:
-                        inputs.append(feed_value)
+                        function_args.append(feed_value)
                 else:
                     feed_value = var_spec
-                    inputs.append(feed_value)
+                    function_args.append(feed_value)
 
                 program_inputs.append(feed_value)
 
         return paddle.utils.pack_sequence_as(
-            input_with_spec, inputs
+            input_with_spec, function_args
         ), paddle.utils.pack_sequence_as(input_with_spec, program_inputs)
 
     @switch_to_static_graph
