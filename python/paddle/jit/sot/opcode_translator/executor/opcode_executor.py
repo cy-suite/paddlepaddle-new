@@ -860,23 +860,19 @@ class OpcodeExecutorBase:
         if push_null and CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
             self.stack.push(NullVariable())
 
-    def load_sequence(self):
-        obj = self.stack.pop()
-        assert isinstance(
-            obj, ContainerVariable
-        ), f"{obj.get_py_type()} does not support __iter__ operation."
+    def load_sequence(self, obj):
         self.stack.push(obj.get_iter())
         # skip call
         self._lasti += 1
 
     def load_method(self, method_name):
-        if method_name == "__iter__":
-            self.load_sequence()
+        obj = self.stack.pop()
+        if isinstance(obj, ContainerVariable) and method_name == "__iter__":
+            self.load_sequence(obj)
             return
         method_name_var = ConstantVariable.wrap_literal(
             method_name, self._graph
         )
-        obj = self.stack.pop()
 
         method = BuiltinVariable(
             getattr, graph=self._graph, tracker=DanglingTracker()
