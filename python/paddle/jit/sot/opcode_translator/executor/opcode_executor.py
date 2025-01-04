@@ -863,7 +863,8 @@ class OpcodeExecutorBase:
     def load_sequence(self, obj):
         self.stack.push(obj.get_iter())
         # skip call
-        self._lasti += 1 if sys.version_info >= (3, 13) else 2
+        while self._instructions[self._lasti].opname != "RETURN_VALUE":
+            self._lasti += 1
 
     def load_method(self, method_name):
         obj = self.stack.pop()
