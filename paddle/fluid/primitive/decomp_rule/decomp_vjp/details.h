@@ -136,8 +136,8 @@ void divide_grad(const Tensor& x,
                  Tensor* dx,
                  Tensor* dy) {
   if (dx || dy) {
-    // dy = -(x/y^2) * dout = -(dout/y) * out
     auto dout_div_y = out_grad / y;
+    // dy = -(x/y^2) * dout = -(dout/y) * out
     if (dy) {
       auto dy_res = -dout_div_y * out;
       if (has_dynamic_shape(y.shape()) || has_dynamic_shape(out_grad.shape()) ||

@@ -88,7 +88,7 @@ class TestVjpPrim(unittest.TestCase):
             reshape_op2 = pir_program.global_block().ops[-1]
             reshape_op1 = pir_program.global_block().ops[-2]
             self.assertEqual(len(grad_outs), 2)
-            self.assertEqual(len(pir_program.global_block().ops), 11)
+            self.assertEqual(len(pir_program.global_block().ops), 8)
             self.assertTrue(reshape_op2.result(0).is_same(grad_outs[0][0]))
             self.assertTrue(reshape_op1.result(0).is_same(grad_outs[1][0]))
             paddle.framework.core._set_prim_backward_enabled(False)

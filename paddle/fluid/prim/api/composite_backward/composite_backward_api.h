@@ -436,9 +436,9 @@ void divide_grad(const Tensor& x,
                  Tensor* dy) {
   if (dx || dy) {
     auto dout_div_y = out_grad / y;
-    // dy = -(x/y^2) * dout = -(dout/y) * out
+    // dy = -(x/y^2) * dout = -out * (dout/y)
     if (dy) {
-      auto dy_res = -out * out_grad / y;
+      auto dy_res = -out * dout_div_y;
       if (out.dims() != y.dims()) {
         // Maybe need reduce here
         phi::DDim reduce_dim = get_reduce_dims(y.dims(), out.dims());
