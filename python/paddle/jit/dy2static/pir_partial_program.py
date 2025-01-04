@@ -29,7 +29,6 @@ from paddle.base import core, framework
 from paddle.base.compiler import BuildStrategy
 from paddle.base.data_feeder import check_type, convert_dtype
 from paddle.base.dygraph.base import switch_to_static_graph
-from paddle.distributed.auto_parallel.placement_type import to_placements
 from paddle.distributed.auto_parallel.static.mix_to_dist_pass import (
     apply_mix2dist_pass,
 )
@@ -93,7 +92,6 @@ class NestSequence:
     def __init__(self, raw_input):
         self._raw_input = raw_input
         self._var_map, self._var_list = self._tolist()
-        self._dist_attr = self._parse_dist_attr()
 
     @property
     def var_list(self):
@@ -114,24 +112,6 @@ class NestSequence:
             variable_map[value] = len(variable_list)
             variable_list.append(value)
         return variable_map, variable_list
-
-    def _parse_dist_attr(self):
-        dist_attr = []
-        for var in self._var_list:
-            if var.is_dist():
-                process_mesh = var.dist_attr().process_mesh
-                placements = to_placements(
-                    var.dist_attr().dims_mapping, process_mesh
-                )
-                dist_attr.append(
-                    {
-                        "mesh": process_mesh,
-                        "placements": placements,
-                    }
-                )
-            else:
-                dist_attr.append(None)
-        return dist_attr
 
     def restore(self, tensor_result_list):
         """
@@ -158,19 +138,7 @@ class NestSequence:
         return [self._var_map[v] for v in raw_inputs]
 
     def quick_restore(self, tensor_list):
-        rtn_list = []
-        for idx in self.quick_index_map:
-            if self._var_list[idx].is_dist():
-                rtn_list.append(
-                    paddle.distributed.auto_parallel.api.dtensor_from_local(
-                        tensor_list[idx],
-                        self._dist_attr[idx]["mesh"],
-                        self._dist_attr[idx]["placements"],
-                    )
-                )
-            else:
-                rtn_list.append(tensor_list[idx])
-        return rtn_list
+        return [tensor_list[idx] for idx in self.quick_index_map]
 
     def __getitem__(self, item):
         return self._var_list[item]
@@ -703,13 +671,11 @@ class PartialProgramLayer:
         """
         In sot, inputs and outputs of partial program only contain tensors, so we can skip some step to speed up
         """
-        in_vars = self._prepare_dist_inputs(inputs)
-        params_vars = self._prepare_dist_inputs(self._params)
         out_vars = self._prepare_outputs()
         attrs = self._prepare_attributes(in_sot_mode=True)
         _legacy_C_ops.pir_run_program(
-            self._valid_vars(in_vars),
-            self._valid_vars(params_vars),
+            self._valid_vars(inputs),
+            self._valid_vars(self._params),
             self._valid_vars(out_vars),
             self._create_scope_vec(
                 program_id=self.program_id, use_scope_cache=True
@@ -1204,16 +1170,6 @@ class PartialProgramLayer:
                 )
             )
         return attrs
-
-    def _prepare_dist_inputs(self, inputs):
-        assert isinstance(inputs, (tuple, list))
-        flatten_inputs = paddle.utils.flatten(inputs)
-        input_vars = []
-        for i, value in enumerate(flatten_inputs):
-            if isinstance(value, core.eager.Tensor) and value.is_dist():
-                value = value._local_value()
-            input_vars.append(value)
-        return input_vars
 
     def _prepare_inputs(self, inputs):
         """
