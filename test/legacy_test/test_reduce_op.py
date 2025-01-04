@@ -265,35 +265,25 @@ class TestSumAPIZeroDimKeepDim(unittest.TestCase):
     def setUp(self):
         np.random.seed(123)
         paddle.enable_static()
-        self.places = []
-        if (
-            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
-            in ['1', 'true', 'on']
-            or not core.is_compiled_with_cuda()
-        ):
-            self.places.append(paddle.CPUPlace())
-        if core.is_compiled_with_cuda():
-            self.places.append(paddle.CUDAPlace(0))
 
     def test_static(self):
-        for place in self.places:
-            main = paddle.static.Program()
-            startup = paddle.static.Program()
-            with base.program_guard(main, startup):
-                input = paddle.static.data(
-                    name="input", shape=[0, 0], dtype="float32"
-                )
-                result = paddle.sum(x=input, keepdim=True)
-                input_np = np.random.rand(0, 0).astype("float32")
+        main = paddle.static.Program()
+        startup = paddle.static.Program()
+        with base.program_guard(main, startup):
+            input = paddle.static.data(
+                name="input", shape=[0, 0], dtype="float32"
+            )
+            result = paddle.sum(x=input, keepdim=True)
+            input_np = np.random.rand(0, 0).astype("float32")
 
-                exe = paddle.static.Executor(place)
-                fetches = exe.run(
-                    main,
-                    feed={"input": input_np},
-                    fetch_list=[result],
-                )
-                self.assertEqual(fetches[0].shape, (1, 1))
-                np.allclose(fetches[0], np.sum(input_np, keepdims=True))
+            exe = paddle.static.Executor(place)
+            fetches = exe.run(
+                main,
+                feed={"input": input_np},
+                fetch_list=[result],
+            )
+            self.assertEqual(fetches[0].shape, (1, 1))
+            np.allclose(fetches[0], np.sum(input_np, keepdims=True))
 
     def test_dygraph(self):
         paddle.disable_static()
