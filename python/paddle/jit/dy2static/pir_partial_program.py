@@ -30,7 +30,6 @@ from paddle.base.compiler import BuildStrategy
 from paddle.base.data_feeder import check_type, convert_dtype
 from paddle.base.dygraph.base import switch_to_static_graph
 from paddle.distributed.auto_parallel.placement_type import to_placements
-from paddle.distributed.auto_parallel.process_mesh import ProcessMesh
 from paddle.distributed.auto_parallel.static.mix_to_dist_pass import (
     apply_mix2dist_pass,
 )
@@ -79,55 +78,6 @@ def apply_general_passes(
     pm.run(program)
 
 
-def dtensor_from_local(local_tensor, mesh, placements):
-    # assume the each rank has the same tensor shape for now, just use the local shape to calculate the global shape
-    global_dims = list(local_tensor.shape)
-    for idx, placement in enumerate(placements):
-        if placement.is_shard():
-            shard_dim = placement.get_dim()
-            local_dim_size = global_dims[shard_dim]
-            global_dims[shard_dim] = local_dim_size * mesh.shape[idx]
-
-    place = paddle.framework._current_expected_place()
-    place = paddle.framework._get_paddle_place(place)
-
-    return paddle.Tensor(
-        local_tensor,
-        dims=global_dims,
-        process_mesh=mesh,
-        placements=placements,
-        place=place,
-    )
-
-
-def build_distributed_tensor(local_tensor, dist_attr):
-    assert isinstance(
-        local_tensor, (paddle.Tensor, np.ndarray, paddle.base.Tensor)
-    )
-    if not isinstance(local_tensor, paddle.Tensor):
-        local_tensor = paddle.Tensor(local_tensor)
-    assert isinstance(
-        local_tensor, paddle.Tensor
-    ), f"local tensor:{local_tensor} type {type(local_tensor)} is not paddle.Tensor."
-    assert len(local_tensor.shape) == len(
-        dist_attr["dims_mapping"]
-    ), f"local tensor shape {local_tensor.shape} not equal to dims_mapping shape {dist_attr['dims_mapping']}."
-    global_shape = local_tensor.shape
-    mesh = ProcessMesh(
-        np.array(dist_attr["process_group"]).reshape(
-            dist_attr["process_shape"]
-        ),
-        dim_names=dist_attr["dim_names"],
-    )
-    placements = to_placements(dist_attr["dims_mapping"], mesh)
-    dist_tensor = dtensor_from_local(local_tensor, mesh, placements)
-    assert (
-        dist_tensor._local_value().shape == local_tensor.shape
-    ), f"local tensor shape {dist_tensor._local_value().shape} not equal to local_tensor.shape:{local_tensor.shape}"
-    paddle.assign(local_tensor, dist_tensor._local_value())
-    return dist_tensor
-
-
 class NestSequence:
     """
     A wrapper class that easily to flatten and restore the nest structure of
@@ -143,6 +93,7 @@ class NestSequence:
     def __init__(self, raw_input):
         self._raw_input = raw_input
         self._var_map, self._var_list = self._tolist()
+        self._dist_attr = self._parse_dist_attr()
 
     @property
     def var_list(self):
@@ -163,6 +114,24 @@ class NestSequence:
             variable_map[value] = len(variable_list)
             variable_list.append(value)
         return variable_map, variable_list
+
+    def _parse_dist_attr(self):
+        dist_attr = []
+        for var in self._var_list:
+            if var.is_dist():
+                process_mesh = var.dist_attr().process_mesh
+                placements = to_placements(
+                    var.dist_attr().dims_mapping, process_mesh
+                )
+                dist_attr.append(
+                    {
+                        "mesh": process_mesh,
+                        "placements": placements,
+                    }
+                )
+            else:
+                dist_attr.append(None)
+        return dist_attr
 
     def restore(self, tensor_result_list):
         """
@@ -192,16 +161,12 @@ class NestSequence:
         rtn_list = []
         for idx in self.quick_index_map:
             if self._var_list[idx].is_dist():
-                process_mesh = self._var_list[idx].dist_attr().process_mesh
-                dims_mapping = self._var_list[idx].dist_attr().dims_mapping
-                dist_attr = {
-                    "process_shape": process_mesh.shape,
-                    "process_group": process_mesh.process_ids,
-                    "dims_mapping": dims_mapping,
-                    "dim_names": process_mesh.dim_names,
-                }
                 rtn_list.append(
-                    build_distributed_tensor(tensor_list[idx], dist_attr)
+                    paddle.distributed.auto_parallel.api.dtensor_from_local(
+                        tensor_list[idx],
+                        self._dist_attr[idx]["mesh"],
+                        self._dist_attr[idx]["placements"],
+                    )
                 )
             else:
                 rtn_list.append(tensor_list[idx])
@@ -390,7 +355,7 @@ class RunnableProgram:
 
     def is_distributed_program(self):
         for op in self.program.global_block().ops:
-            if op.dist_attr is None:
+            if op.dist_attr is not None:
                 return True
         return False
 
