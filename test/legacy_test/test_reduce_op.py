@@ -265,25 +265,28 @@ class TestSumAPIZeroDimKeepDim(unittest.TestCase):
     def setUp(self):
         np.random.seed(123)
         paddle.enable_static()
+        self.places = [paddle.CPUPlace()]
+        if paddle.is_compiled_with_cuda():
+            self.places.append(paddle.CUDAPlace(0))
 
     def test_static(self):
-        main = paddle.static.Program()
-        startup = paddle.static.Program()
-        with base.program_guard(main, startup):
-            input = paddle.static.data(
-                name="input", shape=[0, 0], dtype="float32"
-            )
-            result = paddle.sum(x=input, keepdim=True)
-            input_np = np.random.rand(0, 0).astype("float32")
-
-            exe = paddle.static.Executor(place)
-            fetches = exe.run(
-                main,
-                feed={"input": input_np},
-                fetch_list=[result],
-            )
-            self.assertEqual(fetches[0].shape, (1, 1))
-            np.allclose(fetches[0], np.sum(input_np, keepdims=True))
+        for place in self.places:
+            main = paddle.static.Program()
+            startup = paddle.static.Program()
+            with base.program_guard(main, startup):
+                input = paddle.static.data(
+                    name="input", shape=[0, 0], dtype="float32"
+                )
+                result = paddle.sum(x=input, keepdim=True)
+                input_np = np.random.rand(0, 0).astype("float32")
+                exe = paddle.static.Executor(place)
+                fetches = exe.run(
+                    main,
+                    feed={"input": input_np},
+                    fetch_list=[result],
+                )
+                self.assertEqual(fetches[0].shape, (1, 1))
+                np.allclose(fetches[0], np.sum(input_np, keepdims=True))
 
     def test_dygraph(self):
         paddle.disable_static()
