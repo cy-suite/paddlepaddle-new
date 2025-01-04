@@ -788,8 +788,8 @@ class OpcodeExecutorBase:
                 return
         else:
             attr_name = self._code.co_names[instr.arg]
-        attr_name_var = ConstantVariable.wrap_literal(attr_name, self._graph)
         obj = self.stack.pop()
+        attr_name_var = ConstantVariable.wrap_literal(attr_name, self._graph)
         self.stack.push(
             BuiltinVariable(
                 getattr, graph=self._graph, tracker=DanglingTracker()
@@ -863,7 +863,7 @@ class OpcodeExecutorBase:
     def load_sequence(self, obj):
         self.stack.push(obj.get_iter())
         # skip call
-        self._lasti += 1
+        self._lasti += 1 if sys.version_info >= (3, 13) else 2
 
     def load_method(self, method_name):
         obj = self.stack.pop()
