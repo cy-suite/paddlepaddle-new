@@ -1201,8 +1201,6 @@ class PartialProgramLayer:
                     var.stop_gradient = True
                 else:
                     var = value
-                if var.is_dist():
-                    var = var._local_value()
             else:
                 continue
             input_vars.append(var)
