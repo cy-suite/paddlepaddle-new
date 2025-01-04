@@ -29,6 +29,8 @@ from paddle.base import core, framework
 from paddle.base.compiler import BuildStrategy
 from paddle.base.data_feeder import check_type, convert_dtype
 from paddle.base.dygraph.base import switch_to_static_graph
+from paddle.distributed.auto_parallel.placement_type import to_placements
+from paddle.distributed.auto_parallel.process_mesh import ProcessMesh
 from paddle.distributed.auto_parallel.static.mix_to_dist_pass import (
     apply_mix2dist_pass,
 )
@@ -75,6 +77,55 @@ def apply_general_passes(
     if enable_delete_assert_op:
         pm.add_pass("delete_assert_op_pass", {})
     pm.run(program)
+
+
+def dtensor_from_local(local_tensor, mesh, placements):
+    # assume the each rank has the same tensor shape for now, just use the local shape to calculate the global shape
+    global_dims = list(local_tensor.shape)
+    for idx, placement in enumerate(placements):
+        if placement.is_shard():
+            shard_dim = placement.get_dim()
+            local_dim_size = global_dims[shard_dim]
+            global_dims[shard_dim] = local_dim_size * mesh.shape[idx]
+
+    place = paddle.framework._current_expected_place()
+    place = paddle.framework._get_paddle_place(place)
+
+    return paddle.Tensor(
+        local_tensor,
+        dims=global_dims,
+        process_mesh=mesh,
+        placements=placements,
+        place=place,
+    )
+
+
+def build_distributed_tensor(local_tensor, dist_attr):
+    assert isinstance(
+        local_tensor, (paddle.Tensor, np.ndarray, paddle.base.Tensor)
+    )
+    if not isinstance(local_tensor, paddle.Tensor):
+        local_tensor = paddle.Tensor(local_tensor)
+    assert isinstance(
+        local_tensor, paddle.Tensor
+    ), f"local tensor:{local_tensor} type {type(local_tensor)} is not paddle.Tensor."
+    assert len(local_tensor.shape) == len(
+        dist_attr["dims_mapping"]
+    ), f"local tensor shape {local_tensor.shape} not equal to dims_mapping shape {dist_attr['dims_mapping']}."
+    global_shape = local_tensor.shape
+    mesh = ProcessMesh(
+        np.array(dist_attr["process_group"]).reshape(
+            dist_attr["process_shape"]
+        ),
+        dim_names=dist_attr["dim_names"],
+    )
+    placements = to_placements(dist_attr["dims_mapping"], mesh)
+    dist_tensor = dtensor_from_local(local_tensor, mesh, placements)
+    assert (
+        dist_tensor._local_value().shape == local_tensor.shape
+    ), f"local tensor shape {dist_tensor._local_value().shape} not equal to local_tensor.shape:{local_tensor.shape}"
+    paddle.assign(local_tensor, dist_tensor._local_value())
+    return dist_tensor
 
 
 class NestSequence:
@@ -138,7 +189,23 @@ class NestSequence:
         return [self._var_map[v] for v in raw_inputs]
 
     def quick_restore(self, tensor_list):
-        return [tensor_list[idx] for idx in self.quick_index_map]
+        rtn_list = []
+        for idx in self.quick_index_map:
+            if self._var_list[idx].is_dist():
+                process_mesh = self._var_list[idx].dist_attr().process_mesh
+                dims_mapping = self._var_list[idx].dist_attr().dims_mapping
+                dist_attr = {
+                    "process_shape": process_mesh.shape,
+                    "process_group": process_mesh.process_ids,
+                    "dims_mapping": dims_mapping,
+                    "dim_names": process_mesh.dim_names,
+                }
+                rtn_list.append(
+                    build_distributed_tensor(tensor_list[idx], dist_attr)
+                )
+            else:
+                rtn_list.append(tensor_list[idx])
+        return rtn_list
 
     def __getitem__(self, item):
         return self._var_list[item]
@@ -321,17 +388,23 @@ class RunnableProgram:
             f"******** [JIT] PIR backward program after PIR PASS ********\n{origin_bwd} ",
         )
 
+    def is_distributed_program(self):
+        for op in self.program.global_block().ops:
+            if op.dist_attr is None:
+                return True
+        return False
+
     def apply_dist_fwd_pass(self):
-        print("===> apply apply_mix2dist_pass")
-        apply_mix2dist_pass(self.program)
+        if self.is_distributed_program():
+            apply_mix2dist_pass(self.program)
 
     def apply_dist_bwd_pass(self):
-        print("===> apply apply_dist_bwd_pass")
-        apply_mix2dist_pass(self.program)
-        apply_partition_pass(self.program)
-        ReshardPasses.apply_reshard_pass(self.program)
-        paddle.base.libpaddle.pir.apply_dist2dense_pass(self.program)
-        remove_unuseful_comm_op_pass(self.program)
+        if self.is_distributed_program():
+            apply_mix2dist_pass(self.program)
+            apply_partition_pass(self.program)
+            ReshardPasses.apply_reshard_pass(self.program)
+            paddle.base.libpaddle.pir.apply_dist2dense_pass(self.program)
+            remove_unuseful_comm_op_pass(self.program)
 
     # cached property can ensure program is splited only once.
     @cached_property
@@ -665,11 +738,13 @@ class PartialProgramLayer:
         """
         In sot, inputs and outputs of partial program only contain tensors, so we can skip some step to speed up
         """
+        in_vars = self._prepare_dist_inputs(inputs)
+        params_vars = self._prepare_dist_inputs(self._params)
         out_vars = self._prepare_outputs()
         attrs = self._prepare_attributes(in_sot_mode=True)
         _legacy_C_ops.pir_run_program(
-            self._valid_vars(inputs),
-            self._valid_vars(self._params),
+            self._valid_vars(in_vars),
+            self._valid_vars(params_vars),
             self._valid_vars(out_vars),
             self._create_scope_vec(
                 program_id=self.program_id, use_scope_cache=True
@@ -1165,6 +1240,16 @@ class PartialProgramLayer:
             )
         return attrs
 
+    def _prepare_dist_inputs(self, inputs):
+        assert isinstance(inputs, (tuple, list))
+        flatten_inputs = paddle.utils.flatten(inputs)
+        input_vars = []
+        for i, value in enumerate(flatten_inputs):
+            if isinstance(value, core.eager.Tensor) and value.is_dist():
+                value = value._local_value()
+            input_vars.append(value)
+        return input_vars
+
     def _prepare_inputs(self, inputs):
         """
         Prepare inputs, outputs, attrs.
@@ -1195,6 +1280,8 @@ class PartialProgramLayer:
                     var.stop_gradient = True
                 else:
                     var = value
+                if var.is_dist():
+                    var = var._local_value()
             else:
                 continue
             input_vars.append(var)
