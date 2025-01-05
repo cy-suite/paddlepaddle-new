@@ -792,7 +792,7 @@ std::string EagerUtils::TensorStr(const paddle::Tensor& t) {
           "Shape: %s, DistAttr: %s";
       auto dist_t =
           std::static_pointer_cast<phi::distributed::DistTensor>(t.impl());
-      if ((t.defined() && t.has_allocation())) {
+      if (t.initialized()) {
         tensor_info_str += paddle::string::Sprintf(
             DIST_TENSOR_INFO_TEMPLATE,
             t.impl()->type_info().name(),
