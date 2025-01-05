@@ -1290,6 +1290,10 @@ class ConcreteProgram:
                         class_instance,
                         *list(static_inputs),
                     )
+                    program_inputs = (
+                        class_instance,
+                        *list(program_inputs),
+                    )
 
                 # 2. Builds program only once and returns the output Variables.
                 with param_guard(
