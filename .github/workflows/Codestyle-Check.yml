@@ -32,7 +32,7 @@ jobs:
                   "type": "commented",
                   "comment-pattern": [".+/skip-ci codestyle.+", ".+/skip-ci all.+"],
                   "username": ["SigureMo", "risemeup1", "tianshuo78520a", "0x3878f"]
-                },
+                }
               ]
             }
   pre-commit:
