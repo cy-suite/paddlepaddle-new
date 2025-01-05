@@ -24,17 +24,16 @@ limitations under the License. */
 
 #include "paddle/fluid/framework/convert_utils.h"
 #include "paddle/fluid/framework/data_type.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
 #include "paddle/phi/api/lib/data_transform.h"
 #include "paddle/phi/common/complex.h"
 #include "paddle/phi/core/dense_tensor.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 #ifdef PADDLE_WITH_DNNL
 #include "dnnl_debug.h"  // NOLINT
 #endif
 
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 
 template <typename TENSOR>
 void TensorCopyImpl(const TENSOR& src,
@@ -865,6 +864,32 @@ void DeleterBridge(phi::Allocation* alloc) {
   }
 }
 
+phi::DataType ConvertToPDDataType(const std::string& typestr) {
+  static const std::unordered_map<std::string, phi::DataType> type_map = {
+      {"<c8", phi::DataType::COMPLEX64},
+      {"<c16", phi::DataType::COMPLEX128},
+      {"<f2", phi::DataType::BFLOAT16},
+      {"<f4", phi::DataType::FLOAT32},
+      {"<f8", phi::DataType::FLOAT64},
+      {"|u1", phi::DataType::UINT8},
+      {"|i1", phi::DataType::INT8},
+      {"<i2", phi::DataType::INT16},
+      {"<i4", phi::DataType::INT32},
+      {"<i8", phi::DataType::INT64},
+      {"|b1", phi::DataType::BOOL},
+      // NOTE: Paddle not support uint32, uint64, uint16 yet.
+      // {"<u2", phi::DataType::UINT16},
+      // {"<u4", phi::DataType::UINT32},
+      // {"<u8", phi::DataType::UINT64},
+  };
+  auto it = type_map.find(typestr);
+  PADDLE_ENFORCE_NE(
+      it,
+      type_map.end(),
+      common::errors::InvalidArgument("Unsupported typestr: " + typestr));
+  return it->second;
+}
+
 phi::DenseTensor from_blob(void* data,
                            DLManagedTensor* src,
                            const phi::DDim& shape,
@@ -872,13 +897,9 @@ phi::DenseTensor from_blob(void* data,
                            phi::DataType dtype,
                            const phi::Place& place,
                            const Deleter& deleter) {
-  PADDLE_ENFORCE_NOT_NULL(
-      data, phi::errors::InvalidArgument("data can not be nullptr."));
-
   auto meta = phi::DenseTensorMeta(dtype, shape, strides);
-  size_t size = SizeOf(dtype) * (meta.is_scalar ? 1 : product(meta.dims));
-  phi::Allocation::DeleterFnPtr f = nullptr;
 
+  phi::Allocation::DeleterFnPtr f = nullptr;
   if (deleter) {
     auto g = [deleter, src](phi::Allocation* p) {
       if (src->manager_ctx) {
@@ -894,7 +915,18 @@ phi::DenseTensor from_blob(void* data,
     f = DeleterBridge;
   }
 
-  auto alloc = std::make_shared<phi::Allocation>(data, size, f, place);
+  // Calculate the number of elements of underlying storage
+  size_t size = 1;
+  for (auto i = 0; i < shape.size(); ++i) {
+    if (shape[i] == 0) {
+      size = 0;
+      break;
+    }
+    size += strides[i] * (shape[i] - 1);
+  }
+
+  auto alloc =
+      std::make_shared<phi::Allocation>(data, size * SizeOf(dtype), f, place);
   return phi::DenseTensor(alloc, meta);
 }
 
@@ -908,11 +940,11 @@ phi::DenseTensor TensorFromDLPack(DLManagedTensor* src, Deleter deleter) {
   if (src->dl_tensor.device.device_type == kDLCPU) {
     place = phi::CPUPlace();
   } else if (src->dl_tensor.device.device_type == kDLCUDA) {
-    place = phi::GPUPlace();
+    place = phi::GPUPlace(src->dl_tensor.device.device_id);
   } else if (src->dl_tensor.device.device_type == kDLCUDAHost) {
     place = phi::GPUPinnedPlace();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented("Given Place is not supported"));
+    PADDLE_THROW(common::errors::Unimplemented("Given Place is not supported"));
   }
 
   ::DLDataType type = src->dl_tensor.dtype;
@@ -1060,7 +1092,7 @@ std::ostream& print_tensor<phi::dtype::complex<double>>(
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const LoD& lod) {
+std::ostream& operator<<(std::ostream& os, const LegacyLoD& lod) {
   // NOTE(xiongkun):
   // https://stackoverflow.com/questions/5195512/namespaces-and-operator-resolution
   // if we don't redefine, the operator << of phi / framework LoD is not found.
@@ -1068,12 +1100,11 @@ std::ostream& operator<<(std::ostream& os, const LoD& lod) {
   return os;
 }
 
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework
 
 namespace phi {
 
-std::ostream& operator<<(std::ostream& os, const LoD& lod) {
+std::ostream& operator<<(std::ostream& os, const LegacyLoD& lod) {
   paddle::string::operator<<(os, lod);
   return os;
 }

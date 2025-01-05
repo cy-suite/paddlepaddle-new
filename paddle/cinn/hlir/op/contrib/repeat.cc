@@ -157,7 +157,11 @@ std::shared_ptr<framework::OpStrategy> StrategyForRepeat(
     VLOG(3) << "A shape: " << utils::Join(tensor_A->shape, ", ")
             << ", output_shapes: " << utils::Join(output_shapes[0], ", ");
 
-    CHECK_EQ(pack_args.size(), 2U);
+    PADDLE_ENFORCE_EQ(
+        pack_args.size(),
+        2U,
+        ::common::errors::InvalidArgument(
+            "[Error info] The size of pack_args should equal to 2."));
     std::string tensor_name = pack_args[1].operator std::string();
 
     std::vector<ir::Tensor> out = Repeat(tensor_A, repeats, axis, tensor_name);
@@ -209,16 +213,17 @@ std::shared_ptr<framework::OpStrategy> StrategyForRepeat(
                                         std::multiplies<int>());
     if (prod_size > 1) {
       target.arch.Match(
-          [&](common::UnknownArch) { CINN_NOT_IMPLEMENTED; },
+          [&](std::variant<common::UnknownArch, common::ARMArch>) {
+            CINN_NOT_IMPLEMENTED;
+          },
           [&](common::X86Arch) {
             pe::IRScheduleInjectiveCPU(
                 ir_sch, output_shapes.front(), target, true);
           },
-          [&](common::ARMArch) { CINN_NOT_IMPLEMENTED; },
           [&](common::NVGPUArch) {
             pe::IRGpuScheduleInjective(ir_sch, output_shapes.front(), target);
           },
-          [&](common::HygonDCUArchHIP) {
+          [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
             pe::IRGpuScheduleInjective(ir_sch, output_shapes.front(), target);
           });
     }

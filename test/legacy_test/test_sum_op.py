@@ -29,7 +29,6 @@ from paddle import base, enable_static
 from paddle.base import core
 from paddle.base.layer_helper import LayerHelper
 from paddle.framework import in_pir_mode
-from paddle.pir_utils import test_with_pir_api
 
 
 def sum_wrapper(X, use_mkldnn=False):
@@ -258,7 +257,7 @@ class TestSelectedRowsSumBF16OpBigRow(TestSelectedRowsSumBF16Op):
         self.row_numel = 102
 
 
-class TestLoDTensorAndSelectedRowsOp(TestSelectedRowsSumOp):
+class TestDenseTensorAndSelectedRowsOp(TestSelectedRowsSumOp):
     def setUp(self):
         self.height = 10
         self.row_numel = 12
@@ -401,7 +400,7 @@ class TestSumBF16Op(OpTest):
 
 
 class API_Test_Add_n(unittest.TestCase):
-    @test_with_pir_api
+
     def test_api(self):
         with base.program_guard(base.Program(), base.Program()):
             input0 = paddle.tensor.fill_constant(
@@ -472,7 +471,7 @@ class API_Test_Add_n(unittest.TestCase):
 
 
 class TestRaiseSumError(unittest.TestCase):
-    @test_with_pir_api
+
     def test_errors(self):
         with paddle.static.program_guard(
             paddle.static.Program(), paddle.static.Program()
@@ -504,7 +503,7 @@ class TestRaiseSumError(unittest.TestCase):
 
 
 class TestRaiseSumsError(unittest.TestCase):
-    @test_with_pir_api
+
     def test_errors(self):
         with paddle.static.program_guard(
             paddle.static.Program(), paddle.static.Program()
@@ -550,7 +549,7 @@ class TestSumOpError(unittest.TestCase):
 
 
 create_test_sum_fp16_class(TestSelectedRowsSumOp)
-create_test_sum_fp16_class(TestLoDTensorAndSelectedRowsOp)
+create_test_sum_fp16_class(TestDenseTensorAndSelectedRowsOp)
 
 
 class TestReduceOPTensorAxisBase(unittest.TestCase):
@@ -587,7 +586,6 @@ class TestReduceOPTensorAxisBase(unittest.TestCase):
         pd_out.backward()
         self.assertEqual(self.x.gradient().shape, tuple(self.x.shape))
 
-    @test_with_pir_api
     def test_static_and_infer(self):
         paddle.enable_static()
         main_prog = paddle.static.Program()
@@ -664,7 +662,6 @@ class TestAddNDoubleGradCheck(unittest.TestCase):
     def add_n_wrapper(self, x):
         return paddle.add_n(x)
 
-    @test_with_pir_api
     @prog_scope()
     def func(self, place):
         # the shape of input variable should be clearly specified, not include -1.
@@ -714,7 +711,6 @@ class TestAddNTripleGradCheck(unittest.TestCase):
     def add_n_wrapper(self, x):
         return paddle.add_n(x)
 
-    @test_with_pir_api
     @prog_scope()
     def func(self, place):
         # the shape of input variable should be clearly specified, not include -1.
@@ -765,7 +761,6 @@ class TestSumDoubleGradCheck(unittest.TestCase):
     def sum_wrapper(self, x):
         return paddle.sum(x[0], axis=1, keepdim=True)
 
-    @test_with_pir_api
     @prog_scope()
     def func(self, place):
         # the shape of input variable should be clearly specified, not include -1.
@@ -803,7 +798,6 @@ class TestSumTripleGradCheck(unittest.TestCase):
     def sum_wrapper(self, x):
         return paddle.sum(x[0], axis=1, keepdim=True)
 
-    @test_with_pir_api
     @prog_scope()
     def func(self, place):
         # the shape of input variable should be clearly specified, not include -1.

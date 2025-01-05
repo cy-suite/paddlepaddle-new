@@ -22,7 +22,6 @@ import numpy as np
 import paddle
 from paddle import base
 from paddle.base import core
-from paddle.pir_utils import test_with_pir_api
 
 
 class TestRegularizer(unittest.TestCase):
@@ -80,7 +79,7 @@ class TestRegularizer(unittest.TestCase):
             main_prog=main_prog, startup_prog=startup_prog
         ):
             data = paddle.static.data(
-                name="words", shape=[-1, 1], dtype="int64", lod_level=1
+                name="words", shape=[-1, 1], dtype="int64"
             )
             label = paddle.static.data(
                 name="label", shape=[-1, 1], dtype="int64"
@@ -106,7 +105,7 @@ class TestRegularizer(unittest.TestCase):
             main_prog=main_prog, startup_prog=startup_prog
         ):
             data = paddle.static.data(
-                name="words", shape=[-1, 1], dtype="int64", lod_level=1
+                name="words", shape=[-1, 1], dtype="int64"
             )
             label = paddle.static.data(
                 name="label", shape=[-1, 1], dtype="int64"
@@ -126,7 +125,6 @@ class TestRegularizer(unittest.TestCase):
             param_sum = self.run_program(place, [data, label])
         return param_sum
 
-    @test_with_pir_api
     def test_repeated_regularization(self):
         paddle.enable_static()
         l1 = paddle.regularizer.L1Decay(0.1)

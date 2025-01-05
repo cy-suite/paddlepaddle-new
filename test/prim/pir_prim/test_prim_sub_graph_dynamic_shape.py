@@ -22,6 +22,10 @@ from paddle.framework import core
 from paddle.static import InputSpec
 
 
+def addmm_net(input, x, y):
+    return paddle.addmm(input, x, y, alpha=1.0, beta=2.0)
+
+
 def apply_to_static(net, use_cinn, input_spec=None):
     build_strategy = paddle.static.BuildStrategy()
     build_strategy.build_cinn_pass = use_cinn
@@ -86,6 +90,36 @@ def bce_loss_net(x, label):
     return paddle._C_ops.bce_loss(x, label)
 
 
+def batch_norm_net1(x, y, z):
+    var = paddle.ones([40], dtype="float32")
+    mean = paddle.zeros([40], dtype='float32')
+    return paddle.nn.functional.batch_norm(x, mean, var, y, z)
+
+
+def batch_norm_net2(x, y, z):
+    var = paddle.ones([40], dtype="float32")
+    mean = paddle.zeros([40], dtype='float32')
+    return paddle.nn.functional.batch_norm(
+        x, mean, var, y, z, use_global_stats=True
+    )
+
+
+def batch_norm_net3(x, y, z):
+    var = paddle.ones([60], dtype="float32")
+    mean = paddle.zeros([60], dtype='float32')
+    return paddle.nn.functional.batch_norm(
+        x, mean, var, y, z, data_format='NHWC'
+    )
+
+
+def batch_norm_net4(x, y, z):
+    var = paddle.ones([60], dtype="float32")
+    mean = paddle.zeros([60], dtype='float32')
+    return paddle.nn.functional.batch_norm(
+        x, mean, var, y, z, use_global_stats=True, data_format='NHWC'
+    )
+
+
 def swiglu_net1(x, y):
     return paddle.incubate.nn.functional.swiglu(x, y)
 
@@ -96,6 +130,10 @@ def swiglu_net2(x):
 
 def squared_l2_norm_net(x):
     return paddle._C_ops.squared_l2_norm(x)
+
+
+def bmm_net(x, y):
+    return paddle.bmm(x, y)
 
 
 def elu_net(x):
@@ -212,10 +250,6 @@ def softsign_net(x):
     return paddle.nn.functional.softsign(x)
 
 
-def floor_divide_net(x, y):
-    return paddle.floor_divide(x, y)
-
-
 def gelu_net(x):
     return paddle.nn.functional.gelu(x)
 
@@ -298,6 +332,14 @@ def unstack_net5(x):
 
 def unstack_net6(x):
     return paddle.unstack(x, axis=-1)
+
+
+def numel_net(x):
+    return paddle.numel(x)
+
+
+def swish_net(x):
+    return paddle.nn.functional.swish(x)
 
 
 def one_hot_net(x):
@@ -556,6 +598,40 @@ class TestPrimHuberLoss(TestPrimTwo):
         self.tol = 1e-6
 
 
+class TestPrimBmm1(TestPrimTwo):
+    def setUp(self):
+        np.random.seed(2023)
+        self.x_shape = [30, 40, 50]
+        self.y_shape = [30, 50, 60]
+        self.dtype_x = "float32"
+        self.dtype_y = "float32"
+        self.init_x_shape = [None, None, 50]
+        self.init_y_shape = [None, None, 60]
+        self.x = np.random.random(self.x_shape).astype(self.dtype_x)
+        self.y = np.random.random(self.y_shape).astype(self.dtype_y)
+        self.net = bmm_net
+        self.necessary_ops = "pd_op.bmm"
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimBmm2(TestPrimTwo):
+    def setUp(self):
+        np.random.seed(2023)
+        self.x_shape = [30, 40, 50]
+        self.y_shape = [30, 50, 60]
+        self.dtype_x = "float32"
+        self.dtype_y = "float32"
+        self.init_x_shape = [30, None, None]
+        self.init_y_shape = [None, None, 60]
+        self.x = np.random.random(self.x_shape).astype(self.dtype_x)
+        self.y = np.random.random(self.y_shape).astype(self.dtype_y)
+        self.net = bmm_net
+        self.necessary_ops = "pd_op.bmm"
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
 class TestPrimBceLoss(TestPrimTwo):
     def setUp(self):
         np.random.seed(2023)
@@ -627,6 +703,19 @@ class TestPrimInstancenorm(TestPrimBase):
         self.necessary_ops = "pd_op.instance_norm"
         self.enable_cinn = False
         self.tol = 5e-6
+
+
+class TestPrimInstancenormNC(TestPrimBase):
+    def setUp(self):
+        np.random.seed(2023)
+        self.shape_x = [2, 128]
+        self.dtype_x = "float32"
+        self.init_x_shape = [None, None]
+        self.x = np.random.random(self.shape_x).astype(self.dtype_x)
+        self.net = instance_norm_net
+        self.necessary_ops = "pd_op.instance_norm"
+        self.enable_cinn = False
+        self.tol = 2e-5
 
 
 class TestPrimGroupNorm1(TestPrimBase):
@@ -827,6 +916,28 @@ class TestPrimThree(unittest.TestCase):
             np.testing.assert_allclose(ref, actual, rtol=self.tol)
 
 
+class TestPrimAddmm(TestPrimThree):
+    def setUp(self):
+        np.random.seed(2024)
+        paddle.seed(2024)
+        self.shape_x = [30, 50]
+        self.shape_y = [30, 80]
+        self.shape_z = [80, 50]
+        self.dtype_x = "float32"
+        self.dtype_y = "float32"
+        self.dtype_z = "float32"
+        self.init_x_shape = [None, None]
+        self.init_y_shape = [None, None]
+        self.init_z_shape = [None, None]
+        self.x = np.random.random(self.shape_x).astype(self.dtype_x)
+        self.y = np.random.random(self.shape_y).astype(self.dtype_y)
+        self.z = np.random.random(self.shape_z).astype(self.dtype_z)
+        self.net = addmm_net
+        self.necessary_ops = "pd_op.addmm"
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
 class TestPrimLerp1(TestPrimThree):
     def setUp(self):
         np.random.seed(2023)
@@ -886,6 +997,195 @@ class TestPrimLerp3(TestPrimThree):
         self.z = np.random.random(self.shape_z).astype(self.dtype_z)
         self.net = lerp_net
         self.necessary_ops = "pd_op.lerp"
+        self.enable_cinn = False
+        self.tol = 1e-5
+
+
+class TestPrimBatchNorm(TestPrimThree):
+    def setUp(self):
+        np.random.seed(2023)
+        self.shape_x = [30, 40, 50, 60]
+        self.shape_y = [40]
+        self.shape_z = [40]
+        self.dtype_x = "float32"
+        self.dtype_y = "float32"
+        self.dtype_z = "float32"
+        self.init_x_shape = [None, None, None, 60]
+        self.init_y_shape = [None]
+        self.init_z_shape = [None]
+        self.x = np.random.random(self.shape_x).astype(self.dtype_x)
+        self.y = np.random.random(self.shape_y).astype(self.dtype_y)
+        self.z = np.random.random(self.shape_z).astype(self.dtype_z)
+        self.net = batch_norm_net1
+        self.necessary_ops = "pd_op.batch_norm_"
+        self.enable_cinn = False
+        self.tol = 1e-5
+
+
+class TestPrimBatchNorm2(TestPrimThree):
+    def setUp(self):
+        np.random.seed(2023)
+        self.shape_x = [30, 40, 50, 60]
+        self.shape_y = [40]
+        self.shape_z = [40]
+        self.dtype_x = "float32"
+        self.dtype_y = "float32"
+        self.dtype_z = "float32"
+        self.init_x_shape = [None, 40, None, None]
+        self.init_y_shape = [None]
+        self.init_z_shape = [None]
+        self.x = np.random.random(self.shape_x).astype(self.dtype_x)
+        self.y = np.random.random(self.shape_y).astype(self.dtype_y)
+        self.z = np.random.random(self.shape_z).astype(self.dtype_z)
+        self.net = batch_norm_net1
+        self.necessary_ops = "pd_op.batch_norm_"
+        self.enable_cinn = False
+        self.tol = 1e-5
+
+
+class TestPrimBatchNorm3(TestPrimThree):
+    def setUp(self):
+        np.random.seed(2023)
+        self.shape_x = [30, 40, 50, 60]
+        self.shape_y = [40]
+        self.shape_z = [40]
+        self.dtype_x = "float32"
+        self.dtype_y = "float32"
+        self.dtype_z = "float32"
+        self.init_x_shape = [None, None, None, 60]
+        self.init_y_shape = [None]
+        self.init_z_shape = [None]
+        self.x = np.random.random(self.shape_x).astype(self.dtype_x)
+        self.y = np.random.random(self.shape_y).astype(self.dtype_y)
+        self.z = np.random.random(self.shape_z).astype(self.dtype_z)
+        self.net = batch_norm_net2
+        self.necessary_ops = "pd_op.batch_norm_"
+        self.enable_cinn = False
+        self.tol = 1e-5
+
+
+class TestPrimBatchNorm4(TestPrimThree):
+    def setUp(self):
+        np.random.seed(2023)
+        self.shape_x = [30, 40, 50, 60]
+        self.shape_y = [40]
+        self.shape_z = [40]
+        self.dtype_x = "float32"
+        self.dtype_y = "float32"
+        self.dtype_z = "float32"
+        self.init_x_shape = [None, 40, None, None]
+        self.init_y_shape = [None]
+        self.init_z_shape = [None]
+        self.x = np.random.random(self.shape_x).astype(self.dtype_x)
+        self.y = np.random.random(self.shape_y).astype(self.dtype_y)
+        self.z = np.random.random(self.shape_z).astype(self.dtype_z)
+        self.net = batch_norm_net2
+        self.necessary_ops = "pd_op.batch_norm_"
+        self.enable_cinn = False
+        self.tol = 1e-5
+
+
+class TestPrimBatchNorm5(TestPrimThree):
+    def setUp(self):
+        np.random.seed(2023)
+        self.shape_x = [30, 40, 50, 60]
+        self.shape_y = [60]
+        self.shape_z = [60]
+        self.dtype_x = "float32"
+        self.dtype_y = "float32"
+        self.dtype_z = "float32"
+        self.init_x_shape = [None, None, None, 60]
+        self.init_y_shape = [None]
+        self.init_z_shape = [None]
+        self.x = np.random.random(self.shape_x).astype(self.dtype_x)
+        self.y = np.random.random(self.shape_y).astype(self.dtype_y)
+        self.z = np.random.random(self.shape_z).astype(self.dtype_z)
+        self.net = batch_norm_net3
+        self.necessary_ops = "pd_op.batch_norm_"
+        self.enable_cinn = False
+        self.tol = 1e-5
+
+
+class TestPrimBatchNorm6(TestPrimThree):
+    def setUp(self):
+        np.random.seed(2023)
+        self.shape_x = [30, 40, 50, 60]
+        self.shape_y = [60]
+        self.shape_z = [60]
+        self.dtype_x = "float32"
+        self.dtype_y = "float32"
+        self.dtype_z = "float32"
+        self.init_x_shape = [None, 40, None, None]
+        self.init_y_shape = [None]
+        self.init_z_shape = [None]
+        self.x = np.random.random(self.shape_x).astype(self.dtype_x)
+        self.y = np.random.random(self.shape_y).astype(self.dtype_y)
+        self.z = np.random.random(self.shape_z).astype(self.dtype_z)
+        self.net = batch_norm_net3
+        self.necessary_ops = "pd_op.batch_norm_"
+        self.enable_cinn = False
+        self.tol = 1e-5
+
+
+class TestPrimBatchNorm7(TestPrimThree):
+    def setUp(self):
+        np.random.seed(2023)
+        self.shape_x = [30, 40, 50, 60]
+        self.shape_y = [60]
+        self.shape_z = [60]
+        self.dtype_x = "float32"
+        self.dtype_y = "float32"
+        self.dtype_z = "float32"
+        self.init_x_shape = [None, None, None, 60]
+        self.init_y_shape = [None]
+        self.init_z_shape = [None]
+        self.x = np.random.random(self.shape_x).astype(self.dtype_x)
+        self.y = np.random.random(self.shape_y).astype(self.dtype_y)
+        self.z = np.random.random(self.shape_z).astype(self.dtype_z)
+        self.net = batch_norm_net4
+        self.necessary_ops = "pd_op.batch_norm_"
+        self.enable_cinn = False
+        self.tol = 1e-5
+
+
+class TestPrimBatchNorm8(TestPrimThree):
+    def setUp(self):
+        np.random.seed(2023)
+        self.shape_x = [30, 40, 50, 60]
+        self.shape_y = [60]
+        self.shape_z = [60]
+        self.dtype_x = "float32"
+        self.dtype_y = "float32"
+        self.dtype_z = "float32"
+        self.init_x_shape = [None, 40, None, None]
+        self.init_y_shape = [None]
+        self.init_z_shape = [None]
+        self.x = np.random.random(self.shape_x).astype(self.dtype_x)
+        self.y = np.random.random(self.shape_y).astype(self.dtype_y)
+        self.z = np.random.random(self.shape_z).astype(self.dtype_z)
+        self.net = batch_norm_net4
+        self.necessary_ops = "pd_op.batch_norm_"
+        self.enable_cinn = False
+        self.tol = 1e-5
+
+
+class TestPrimBatchNormNC(TestPrimThree):
+    def setUp(self):
+        np.random.seed(2023)
+        self.shape_x = [30, 40]
+        self.shape_y = [40]
+        self.shape_z = [40]
+        self.dtype_x = "float32"
+        self.dtype_y = "float32"
+        self.dtype_z = "float32"
+        self.init_x_shape = [None, None]
+        self.init_y_shape = [None]
+        self.init_z_shape = [None]
+        self.x = np.random.random(self.shape_x).astype(self.dtype_x)
+        self.y = np.random.random(self.shape_y).astype(self.dtype_y)
+        self.z = np.random.random(self.shape_z).astype(self.dtype_z)
+        self.net = batch_norm_net2
+        self.necessary_ops = "pd_op.batch_norm_"
         self.enable_cinn = False
         self.tol = 1e-5
 
@@ -1088,28 +1388,6 @@ class TestPrimSoftsign(TestPrimBase):
         self.tol = 1e-6
 
 
-class TestPrimFloorDivide(TestPrimTwo):
-    def setUp(self):
-        np.random.seed(2024)
-        paddle.seed(2024)
-        self.shape_x = [300, 2048]
-        self.shape_y = [300, 2048]
-        self.dtype_x = int
-        self.dtype_y = int
-        self.init_x_shape = [None, None]
-        self.init_y_shape = [None, None]
-        self.x = np.random.uniform(
-            low=1.0, high=100.0, size=self.shape_x
-        ).astype(self.dtype_x)
-        self.y = np.random.uniform(
-            low=1.0, high=100.0, size=self.shape_x
-        ).astype(self.dtype_x)
-        self.net = floor_divide_net
-        self.necessary_ops = "pd_op.floor_divide"
-        self.enable_cinn = False
-        self.tol = 1e-6
-
-
 class TestPrimGelu(TestPrimBase):
     def setUp(self):
         np.random.seed(2024)
@@ -1170,20 +1448,6 @@ class TestPrimMean(TestPrimBase):
         self.x = np.random.random(self.shape_x).astype(self.dtype_x)
         self.net = mean_net
         self.necessary_ops = "pd_op.mean"
-        self.enable_cinn = False
-        self.tol = 1e-6
-
-
-class TestPrimPow(TestPrimBase):
-    def setUp(self):
-        np.random.seed(2024)
-        paddle.seed(2024)
-        self.shape_x = [2, 300, 2048]
-        self.dtype_x = "float32"
-        self.init_x_shape = [None, None, None]
-        self.x = np.random.random(self.shape_x).astype(self.dtype_x)
-        self.net = pow_net
-        self.necessary_ops = "pd_op.pow"
         self.enable_cinn = False
         self.tol = 1e-6
 
@@ -1428,6 +1692,34 @@ class TestPrimUnstack6(TestPrimBase):
         self.x = np.random.random(self.shape_x).astype(self.dtype_x)
         self.net = unstack_net6
         self.necessary_ops = "pd_op.unstack"
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimNumel(TestPrimBase):
+    def setUp(self):
+        np.random.seed(2024)
+        paddle.seed(2024)
+        self.shape_x = [5, 10, 15]
+        self.dtype_x = "float32"
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.shape_x).astype(self.dtype_x)
+        self.net = numel_net
+        self.necessary_ops = "pd_op.numel"
+        self.enable_cinn = False
+        self.tol = 1e-6
+
+
+class TestPrimSwish(TestPrimBase):
+    def setUp(self):
+        np.random.seed(2024)
+        paddle.seed(2024)
+        self.shape_x = [2, 300, 2048]
+        self.dtype_x = "float32"
+        self.init_x_shape = [None, None, None]
+        self.x = np.random.random(self.shape_x).astype(self.dtype_x)
+        self.net = swish_net
+        self.necessary_ops = "pd_op.swish"
         self.enable_cinn = False
         self.tol = 1e-6
 

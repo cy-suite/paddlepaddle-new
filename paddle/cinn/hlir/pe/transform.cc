@@ -494,10 +494,14 @@ ir::Tensor Concat(const std::vector<ir::Tensor>& input_tensors,
           accumulate_shape = cinn::common::AutoSimplify(
               accumulate_shape + input_tensors[i]->shape[axis]);
           std::vector<Expr> new_indice = indice;
-          new_indice[axis] = indice[axis] - accumulate_shape;
-          ret = ir::Select::Make(indice[axis] < accumulate_shape,
-                                 ret,
-                                 input_tensors[i + 1](new_indice));
+          new_indice[axis] =
+              ir::Cast::Make(accumulate_shape.type(), indice[axis]) -
+              accumulate_shape;
+          ret =
+              ir::Select::Make(ir::Cast::Make(accumulate_shape.type(),
+                                              indice[axis]) < accumulate_shape,
+                               ret,
+                               input_tensors[i + 1](new_indice));
         }
         return ret;
       },
@@ -868,6 +872,14 @@ std::vector<Tensor> MulBaseCallImpl(common::HygonDCUArchHIP,
   MulBaseCallImplNvHygon(A, B, name, target);
 }
 
+std::vector<Tensor> MulBaseCallImpl(common::HygonDCUArchSYCL,
+                                    const Tensor& A,
+                                    const Tensor& B,
+                                    const std::string& name,
+                                    const cinn::common::Target& target) {
+  MulBaseCallImplNvHygon(A, B, name, target);
+}
+
 std::vector<Tensor> MulBaseCall(const Tensor& A,
                                 const Tensor& B,
                                 const std::string& name,
@@ -1203,10 +1215,11 @@ ir::Tensor Reverse(const ir::Tensor& input,
 ir::Tensor Transpose(const ir::Tensor& input,
                      const std::vector<int>& axis,
                      const std::string& output_name) {
-  PADDLE_ENFORCE_EQ(input->shape.size(),
-                    axis.size(),
-                    ::common::errors::InvalidArgument(
-                        "input shape size and axis size is not equal!"));
+  PADDLE_ENFORCE_GE(
+      input->shape.size(),
+      axis.size(),
+      ::common::errors::InvalidArgument("input shape size should be equal to "
+                                        "or greater than the axis's size."));
   for (int idx = 0; idx < axis.size(); ++idx) {
     PADDLE_ENFORCE_EQ(axis[idx] >= 0 && axis[idx] < axis.size(),
                       true,
@@ -1220,10 +1233,10 @@ ir::Tensor Transpose(const ir::Tensor& input,
     }
   }
   // compute output shape
-  std::vector<Expr> shape = input->shape;
-  std::vector<Expr> output_shape;
+  const std::vector<Expr>& shape = input->shape;
+  std::vector<Expr> output_shape = input->shape;
   for (auto idx = 0; idx < axis.size(); ++idx) {
-    output_shape.push_back(shape[axis[idx]]);
+    output_shape[idx] = shape[axis[idx]];
   }
 
   // transpose axis to map output to input
@@ -1235,6 +1248,12 @@ ir::Tensor Transpose(const ir::Tensor& input,
         new_axis.push_back(idy);
       }
     }
+  }
+  // If new_axis size is less than output shape, add axis to the end.
+  // For example: input shape is [2,3,4], axis is [1,0],
+  //              output_shape is [3,2,4], the new_axis is [1,0,2]
+  while (new_axis.size() < output_shape.size()) {
+    new_axis.push_back(new_axis.size());
   }
 
   return lang::Compute(
@@ -1333,7 +1352,7 @@ ir::Tensor SliceSymbolic(const ir::Tensor& A,
   }
 
   std::vector<Expr> new_starts = starts;
-  std::vector<int> axes;
+  std::vector<int64_t> axes;
   std::transform(const_axes.begin(),
                  const_axes.end(),
                  std::back_inserter(axes),
@@ -1342,7 +1361,7 @@ ir::Tensor SliceSymbolic(const ir::Tensor& A,
                  });
 
   for (int i = 0; i < axes.size(); i++) {
-    if (input_shape[axes[i]].is_constant()) {
+    if (input_shape[axes[i]].is_constant() && new_starts[i].is_constant()) {
       if (new_starts[i].as_int64() < -input_shape[axes[i]].as_int64()) {
         new_starts[i] = ir::Expr(0);
       } else if (new_starts[i].as_int64() < 0) {
@@ -1628,6 +1647,9 @@ ir::Tensor ScatterAssign(const ir::Tensor& input,
       [&](common::NVGPUArch) { extern_fun_name.assign("cinn_cuda_find_int"); },
       [&](common::HygonDCUArchHIP) {
         extern_fun_name.assign("cinn_hip_find_int");
+      },
+      [&](common::HygonDCUArchSYCL) {
+        extern_fun_name.assign("cinn_sycl_find_int");
       });
 
   auto pos_axis = axis;
@@ -1736,7 +1758,9 @@ ir::Tensor ScatterAdd(const ir::Tensor& input,
             "HygonDCU now ! Please Check.\n"));
       },
       [&](common::NVGPUArch) { return ScatterAddNvHygon(); },
-      [&](common::HygonDCUArchHIP) { return ScatterAddNvHygon(); });
+      [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
+        return ScatterAddNvHygon();
+      });
 }
 
 }  // namespace pe

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# repo: diffusers_sub_grpah
+# repo: diffusers_sub_graph
 # model: stable_diffusion
 # api:paddle.nn.functional.activation.silu||api:paddle.nn.functional.common.dropout||api:paddle.nn.functional.conv.conv2d||api:paddle.nn.functional.conv.conv2d||method:__add__||method:__truediv__
 import unittest
@@ -63,6 +63,7 @@ class LayerCase(paddle.nn.Layer):
 
 def create_paddle_inputs():
     inputs = (paddle.rand(shape=[16, 32, 12, 12], dtype=paddle.float32),)
+    inputs[0].stop_gradient = False
     return inputs
 
 
@@ -86,6 +87,8 @@ class TestLayer(unittest.TestCase):
                 net = paddle.jit.to_static(net, full_graph=True)
 
         outs = net(*self.inputs)
+        loss = outs[0]
+        loss.backward()
         return (
             outs,
             net.state_dict()["parameter_0"],

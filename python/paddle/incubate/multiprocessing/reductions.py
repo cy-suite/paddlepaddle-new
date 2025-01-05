@@ -183,7 +183,7 @@ def _rebuild_cuda_tensor(
         # you should manually maintain the lifecycle of ipc tensor
         shared_cache[(handle, offset_bytes)] = lodtensor
     else:
-        lodtensor = paddle.base.core.LoDTensor()
+        lodtensor = paddle.base.core.DenseTensor()
         lodtensor._share_buffer_with(
             cache_tensor, (size, type_idx, dims, lod, device_idx)
         )
@@ -224,7 +224,15 @@ def _reduce_lodtensor(lodtensor):
         lodtensor._shared_incref()
         # TODO, maintain reference for lodtensor
     elif lodtensor._place().is_gpu_place():
-        metadata = lodtensor._share_cuda()
+        prev_id = paddle.base.core.get_cuda_current_device_id()
+        cur_id = lodtensor._place().gpu_device_id()
+        if prev_id != cur_id:
+            paddle.base.core.set_cuda_current_device_id(cur_id)
+        try:
+            metadata = lodtensor._share_cuda()
+        finally:
+            if prev_id != cur_id:
+                paddle.base.core.set_cuda_current_device_id(prev_id)
         rebuild = _rebuild_cuda_tensor
     else:
         raise RuntimeError("We only support pass cpu/gpu lodtensor for now!")
@@ -241,4 +249,4 @@ def init_reductions() -> None:
     ForkingPickler.register(
         paddle.base.framework.EagerParamBase, _reduce_tensor
     )
-    ForkingPickler.register(paddle.base.core.LoDTensor, _reduce_lodtensor)
+    ForkingPickler.register(paddle.base.core.DenseTensor, _reduce_lodtensor)

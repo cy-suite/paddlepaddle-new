@@ -456,13 +456,8 @@ class TestReshapeBf16Pass(PassTest):
                 x = paddle.static.data(
                     name='x', shape=[5, 5, 5, 5], dtype='float32'
                 )
-                y = paddle.static.data(
-                    name='y', shape=[5, 5, 5, 5], dtype='float32'
-                )
-                reshape_x = paddle.reshape(x, [5, 125])
-                reshape_y = paddle.reshape(y, [125, 5])
 
-                out = paddle.matmul(reshape_x, reshape_y)
+                out = paddle.reshape(x, [5, 125])
                 out = paddle.assign(out)
                 self.pass_attr_list = [
                     {'onednn_placement_pass': {}},
@@ -472,12 +467,12 @@ class TestReshapeBf16Pass(PassTest):
                 ]
                 self.feeds = {
                     "x": np.random.random((5, 5, 5, 5)).astype("float32"),
-                    "y": np.random.random((5, 5, 5, 5)).astype("float32"),
                 }
                 self.fetch_list = [out]
                 self.valid_op_map = {
-                    "onednn_op.matmul": 1,
-                    "pd_op.add": 0,
+                    "onednn_op.reshape": 1,
+                    "onednn_op.quantize": 1,
+                    "onednn_op.dequantize": 1,
                 }
                 return [main_prog, start_prog]
 
@@ -1085,6 +1080,92 @@ class TestTransposePattern(PassTest):
 
     def test_check_output(self):
         self.check_pass_correct()
+
+
+class TestScalePattern(PassTest):
+    def is_program_valid(self, program=None):
+        return True
+
+    def build_ir_program(self):
+        with paddle.pir_utils.IrGuard():
+            main_prog = paddle.static.Program()
+            start_prog = paddle.static.Program()
+            with paddle.pir.core.program_guard(main_prog, start_prog):
+                x = paddle.static.data(name='x', shape=[5, 5], dtype='float32')
+                out = paddle.scale(x, scale=1e-3, bias=1.0)
+                out = paddle.assign(out)
+                self.pass_attr_list = [
+                    {'onednn_placement_pass': {}},
+                    {'cpu_bfloat16_placement_pass': {}},
+                    {'cpu_bfloat16_pass': {}},
+                    {'cpu_bfloat16_type_placement_pass': {}},
+                ]
+                self.feeds = {
+                    "x": np.random.random((5, 5)).astype("float32"),
+                }
+                self.fetch_list = [out]
+                self.valid_op_map = {
+                    "onednn_op.scale": 1,
+                    "pd_op.scale": 0,
+                }
+                return [main_prog, start_prog]
+
+    def sample_program(self):
+        yield self.build_ir_program(), False
+
+    def setUp(self):
+        self.places.append(paddle.CPUPlace())
+        self.skip_accuracy_verification = True
+
+    def test_check_output(self):
+        self.check_pass_correct()
+
+
+class TestConcatBfloatQuantizePass(PassTest):
+    def is_program_valid(self, program=None):
+        return True
+
+    def build_ir_program(self):
+        with paddle.pir_utils.IrGuard():
+            main_prog = paddle.static.Program()
+            start_prog = paddle.static.Program()
+            with paddle.pir.core.program_guard(main_prog, start_prog):
+                x = paddle.static.data(
+                    name='x', shape=[5, 5, 5, 5], dtype='float32'
+                )
+                y = paddle.static.data(
+                    name='y', shape=[5, 5, 5, 5], dtype='float32'
+                )
+                z = paddle.static.data(
+                    name='z', shape=[5, 5, 5, 5], dtype='float32'
+                )
+                out = paddle.concat((x, y, z))
+                out = paddle.assign(out)
+                self.pass_attr_list = [
+                    {'onednn_placement_pass': {}},
+                    {'cpu_special_ops_bf16_pass': {}},
+                ]
+                self.feeds = {
+                    "x": np.random.random((5, 5, 5, 5)).astype("float32"),
+                    "y": np.random.random((5, 5, 5, 5)).astype("float32"),
+                    "z": np.random.random((5, 5, 5, 5)).astype("float32"),
+                }
+                self.fetch_list = [out]
+                self.valid_op_map = {
+                    "onednn_op.concat": 1,
+                    "onednn_op.dequantize": 1,
+                    "onednn_op.quantize": 3,
+                }
+                return [main_prog, start_prog]
+
+    def sample_program(self):
+        yield self.build_ir_program(), False
+
+    def setUp(self):
+        self.places.append(paddle.CPUPlace())
+
+    def test_check_output(self):
+        self.check_pass_correct(rtol=1e-02, atol=1e-02)
 
 
 if __name__ == "__main__":

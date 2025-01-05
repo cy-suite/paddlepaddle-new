@@ -21,7 +21,6 @@ import paddle
 from paddle import base
 from paddle.base import core
 from paddle.base.framework import Program, program_guard
-from paddle.pir_utils import test_with_pir_api
 
 paddle.enable_static()
 
@@ -218,7 +217,6 @@ class TestDistributeFpnProposals(LayerTest):
                     output_dy_np.append(output_np)
         return output_dy_np
 
-    @test_with_pir_api
     def test_distribute_fpn_proposals(self):
         rois_np = np.random.rand(10, 4).astype('float32')
         rois_num_np = np.array([4, 6]).astype('int32')
@@ -237,7 +235,7 @@ class TestDistributeFpnProposals(LayerTest):
         program = Program()
         with program_guard(program):
             fpn_rois = paddle.static.data(
-                name='data_error', shape=[10, 4], dtype='int32', lod_level=1
+                name='data_error', shape=[10, 4], dtype='int32'
             )
             rois_num = paddle.static.data(
                 name='rois_num', shape=[None], dtype='int32'
@@ -260,7 +258,6 @@ class TestDistributeFpnProposals(LayerTest):
                 name='min_max_level_error1',
                 shape=[10, 4],
                 dtype='float32',
-                lod_level=1,
             )
             self.assertRaises(
                 AssertionError,
@@ -279,7 +276,6 @@ class TestDistributeFpnProposals(LayerTest):
                 name='min_max_level_error2',
                 shape=[10, 4],
                 dtype='float32',
-                lod_level=1,
             )
             self.assertRaises(
                 AssertionError,
@@ -298,7 +294,6 @@ class TestDistributeFpnProposals(LayerTest):
                 name='min_max_level_error3',
                 shape=[10, 4],
                 dtype='float32',
-                lod_level=1,
             )
             self.assertRaises(
                 AssertionError,

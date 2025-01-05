@@ -33,7 +33,7 @@ struct CINNKernelInfo {
   std::string fn_name;
   void* fn_ptr;
   void* infer_shape_fn_ptr;
-  void* CX86_fn_ptr;
+  void* CX86_fn_ptr{nullptr};
 
   struct ArgDimIdx {
     int arg_idx;
@@ -66,6 +66,11 @@ struct CINNKernelInfo {
   //     3: ArgValueIdx{1, 6}
   //   }
   std::map<int, SymbolArgBindInfo> symbol_args_map;
+
+  // Sizes in bytes of the temporary global spaces needed by the kernel.
+  // These spaces are allocated before the kernel is launched, appended to the
+  // kernel's argument list, and released when the kernel completes.
+  std::vector<int64_t> temp_space_sizes;
 };
 
 struct CompatibleInfo {
@@ -108,6 +113,9 @@ struct CompatibleInfo {
 
 std::vector<int64_t> GetBroadcastAxis(const ::common::DDim& in_shape,
                                       const std::vector<int64_t>& out_shape);
+
+std::vector<::pir::Value> GetBlockOutsideInput(
+    const std::vector<::pir::Operation*>& op_list);
 
 class PrettyNamer {
  public:

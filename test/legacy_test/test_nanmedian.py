@@ -20,7 +20,6 @@ from op_test import OpTest, convert_float_to_uint16
 
 import paddle
 from paddle.base import core
-from paddle.pir_utils import test_with_pir_api
 
 np.random.seed(102)
 
@@ -148,7 +147,7 @@ class TestNanmedianModeMin(unittest.TestCase):
             if core.is_compiled_with_cuda()
             else paddle.CPUPlace()
         )
-        self.axis_candiate_list = [
+        self.axis_candidate_list = [
             None,
             0,
             2,
@@ -161,7 +160,6 @@ class TestNanmedianModeMin(unittest.TestCase):
             [0, 2, 1, 3],
         ]
 
-    @test_with_pir_api
     def test_api_static(self):
         data = self.fake_data["col_nan_odd"]
         paddle.enable_static()
@@ -233,7 +231,7 @@ class TestNanmedianModeMin(unittest.TestCase):
         for name, data in self.fake_data.items():
             test_data_case(data, name)
 
-        for axis in self.axis_candiate_list:
+        for axis in self.axis_candidate_list:
             test_axis_case(self.fake_data["row_nan_even"], axis)
             test_axis_case(self.fake_data["col_nan_odd"], axis)
 
@@ -404,7 +402,7 @@ class TestNanmedianModeMean(unittest.TestCase):
             if core.is_compiled_with_cuda()
             else paddle.CPUPlace()
         )
-        self.axis_candiate_list = [
+        self.axis_candidate_list = [
             None,
             0,
             2,
@@ -417,7 +415,6 @@ class TestNanmedianModeMean(unittest.TestCase):
             [0, 2, 1, 3],
         ]
 
-    @test_with_pir_api
     def test_api_static(self):
         data = self.fake_data["col_nan_odd"]
         paddle.enable_static()
@@ -483,7 +480,7 @@ class TestNanmedianModeMean(unittest.TestCase):
         for name, data in self.fake_data.items():
             test_data_case(data, name)
 
-        for axis in self.axis_candiate_list:
+        for axis in self.axis_candidate_list:
             test_axis_case(self.fake_data["row_nan_even"], axis)
             test_axis_case(self.fake_data["col_nan_odd"], axis)
 

@@ -177,7 +177,10 @@ def _convert_into_variable(tensor):
             # But if its shape is empty while created from `create_variable()`, we consider this buffer
             # non-persistable. See case of `dropout_state` in lstm api.
             is_persistable = True
-            if tensor.name.endswith(NON_PERSISTABLE_VAR_NAME_SUFFIX):
+            # NOTE(SigureMo): Why do not use `tensor.name.endswith(NON_PERSISTABLE_VAR_NAME_SUFFIX)`?
+            # Because the tensor maybe copied, the name of the tensor will be appended with a new suffix.
+            # Such as `lstm_0.dropout_state__non_persistable_deepcopy_204`
+            if NON_PERSISTABLE_VAR_NAME_SUFFIX in tensor.name:
                 is_persistable = False
 
             new_var = tensor._to_static_var(
@@ -306,16 +309,12 @@ def disable_dygraph() -> None:
 def _switch_tracer_mode_guard_(
     is_train: bool = True,
 ) -> Generator[None, None, None]:
-    tracer = framework._dygraph_tracer()
-    if tracer:
-        has_grad = tracer._has_grad
-        tracer._has_grad = is_train
-        try:
-            yield
-        finally:
-            tracer._has_grad = has_grad
-    else:
+    has_grad = core._has_grad()
+    core._set_has_grad(is_train)
+    try:
         yield
+    finally:
+        core._set_has_grad(has_grad)
 
 
 @overload
@@ -373,10 +372,6 @@ def no_grad(func=None):
             >>> test_layer()
 
     """
-    if in_to_static_mode():
-        warnings.warn(
-            "paddle.no_grad is only supported for inference model, and not supported for training under @to_static."
-        )
     if func is None:
         return _switch_tracer_mode_guard_(is_train=False)
     else:
@@ -455,14 +450,11 @@ def is_grad_enabled() -> bool:
             >>> paddle.is_grad_enabled()
             False
     """
-    tracer = framework._dygraph_tracer()
-    return tracer._has_grad if tracer else False
+    return core._has_grad()
 
 
 def _set_grad_enabled(mode: bool) -> None:
-    tracer = framework._dygraph_tracer()
-    if tracer:
-        tracer._has_grad = mode
+    core._set_has_grad(mode)
 
 
 class set_grad_enabled(_DecoratorContextManager):

@@ -20,8 +20,6 @@
 
 namespace cinn::fusion {
 
-using PatternNodePtrSet = std::unordered_set<PatternNodePtr>;
-
 using MergePatternFn =
     std::function<StmtPattern(const StmtPattern&, const StmtPattern&)>;
 class PatternGraph {
@@ -37,14 +35,15 @@ class PatternGraph {
   void ReduceLiftReduceTree();
   void ReduceTreeGrown();
   void ReduceTree_Trivial_Fusion();
-  void LiftToAnchorPattern();
-  void AnchorPatternFusion();
+  void LiftToItersPermutationPattern();
+  void LimitedAnchorFusion();
+  void ItersPermutationFusion();
   void SplitRecomputePattern();
   std::vector<PatternNodePtr> ReturnFusionResults();
 
   void RemoveNode(const PatternNodePtr& node);
   void AppendNode(const PatternNodePtr& node);
-  std::string GraphInfo() const;
+  void PrintGraphInfo() const;
   PatternNodePtr MergeNode(const PatternNodePtr& upstream,
                            const PatternNodePtr& downstream,
                            MergePatternFn merge_pattern_fn);
@@ -56,6 +55,9 @@ class PatternGraph {
   }
   const std::vector<pir::Value>& outputs() const { return outputs_; }
   const PolicyManager& policy_manager() const { return policy_manager_; }
+  std::shared_ptr<ItersFusionPolicy> iters_fusion_policy() {
+    return policy_manager_.template GetPolicy<ItersFusionPolicy>();
+  }
 
  private:
   PatternNodePtrSet all_pattern_nodes_;

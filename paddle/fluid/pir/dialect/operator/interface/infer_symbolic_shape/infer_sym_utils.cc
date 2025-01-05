@@ -76,6 +76,23 @@ bool ReduceInferDim(pir::Operation *op,
     input_shapes = *x_shape_or_data.data();
   }
 
+  const bool is_processable_scalar = [&]() -> bool {
+    // is 0 dim
+    if (x_shape_or_data.data().has_value() && x_shape_or_data.shape().empty() &&
+        x_shape_or_data.data().value().size() == 1) {
+      if (!op->isa<paddle::dialect::AnyOp>() &&
+          !op->isa<paddle::dialect::AllOp>()) {
+        return true;
+      }
+    }
+    return false;
+  }();
+
+  if (is_processable_scalar) {
+    infer_context->SetShapeOrDataForValue(op->result(0), x_shape_or_data);
+    return true;
+  }
+
   const std::vector<symbol::DimExpr> shapes = [&] {
     std::vector<symbol::DimExpr> shapes;
     for (int i = 0; i < x_rank; ++i) {
@@ -201,8 +218,9 @@ std::vector<symbol::DimExpr> GetSymShapeForInputValue(
     const std::string &input_name,
     const pir::Value &value,
     pir::InferSymbolicShapeContext *infer_context) {
-  const common::DDim &result_dims =
-      value.type().dyn_cast<pir::DenseTensorType>().dims();
+  const pir::DenseTensorType &value_type =
+      value.type().dyn_cast<pir::DenseTensorType>();
+  const common::DDim &result_dims = value_type.dims();
   const auto &predefined_dim_index_to_expr = [&]() {
     std::unordered_map<int, symbol::DimExpr> index_to_expr;
     if (infer_context->HasPredefinedDimExprForInputName(input_name)) {
@@ -260,4 +278,96 @@ std::vector<symbol::DimExpr> GetSymShapeForInputValue(
 bool IsFakeValue(const pir::Value &value) {
   return value.impl() == nullptr || value.type() == pir::Type();
 }
+
+std::vector<symbol::DimExpr> GetIntArrayFromAttrOrOperand(
+    const pir::Operation *op,
+    pir::InferSymbolicShapeContext *infer_context,
+    const std::string &attr_name,
+    const int &operand_source_index) {
+  if (op->HasAttribute(attr_name)) {
+    std::vector<int> int_operand =
+        paddle::dialect::details::GetVectorAttr<int>(op, attr_name);
+    std::vector<symbol::DimExpr> result;
+    for (const auto &i : int_operand) {
+      result.emplace_back(symbol::DimExpr{i});
+    }
+    return result;
+  } else if (op->operand_source(operand_source_index)) {
+    const auto &shapeordata = infer_context->GetShapeOrDataForValue(
+        op->operand_source(operand_source_index));
+    const std::vector<symbol::DimExpr> &result =
+        GetOrCreateExprVecFromData(shapeordata, infer_context);
+    return result;
+  } else {
+    PADDLE_THROW(common::errors::InvalidArgument(
+        "The IntArray is not from attribute or operand, please check input %s",
+        attr_name));
+  }
+}
+
+bool GetAxisFromOpInput(pir::Value in_value,
+                        pir::InferSymbolicShapeContext *infer_context,
+                        std::vector<int64_t> *axis) {
+  auto axis_gen_op = in_value.defining_op();
+  if (axis_gen_op->isa<paddle::dialect::FullIntArrayOp>()) {
+    std::vector<int64_t> tmp = details::GetVectorAttr(
+        axis_gen_op->dyn_cast<paddle::dialect::FullIntArrayOp>(), "value");
+
+    axis->swap(tmp);
+
+    return true;
+  } else {
+    auto axis_shape_or_data = infer_context->GetShapeOrDataForValue(in_value);
+    std::vector<symbol::DimExpr> dims;
+    if (!axis_shape_or_data.data().has_value()) {
+      return false;
+    }
+    auto dim_exprs = axis_shape_or_data.data().value();
+
+    std::vector<int64_t> tmp_axis;
+    tmp_axis.reserve(dim_exprs.size());
+    for (auto dim : dim_exprs) {
+      if (dim.isa<int64_t>()) {
+        tmp_axis.push_back(dim.Get<int64_t>());
+      } else {
+        return false;
+      }
+    }
+
+    axis->swap(tmp_axis);
+
+    return true;
+  }
+}
+
+std::vector<symbol::DimExpr> GetDataFromTensorOrTensorList(
+    const symbol::ShapeOrDataDimExprs &shape_or_data) {
+  if (shape_or_data.isa<TensorListExprs>()) {
+    std::vector<symbol::DimExpr> expr_vec;
+    TensorListExprs list =
+        shape_or_data.dyn_cast<symbol::TensorListShapeOrDataDimExprs>();
+    for (size_t i = 0; i < list.size(); i++) {
+      PADDLE_ENFORCE_EQ(list.at(i).data().has_value(),
+                        true,
+                        common::errors::InvalidArgument(
+                            "i-th element of list has no value, please check"));
+      for (auto expr : list.at(i).data().value()) {
+        expr_vec.emplace_back(expr);
+      }
+    }
+    return expr_vec;
+  } else if (shape_or_data.isa<symbol::TensorShapeOrDataDimExprs>()) {
+    PADDLE_ENFORCE_EQ(
+        shape_or_data.data().has_value(),
+        true,
+        common::errors::InvalidArgument(
+            "TensorShapeOrDataDimExprs has no value, please check"));
+    return shape_or_data.data().value();
+  }
+  PADDLE_THROW(::common::errors::InvalidArgument(
+      "This parameters currently only support "
+      "two types: TensorListShapeOrDataDimExprs and "
+      "TensorShapeOrDataDimExprs"));
+}
+
 }  // namespace paddle::dialect::details

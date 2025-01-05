@@ -23,9 +23,9 @@
 #include "paddle/fluid/pir/dialect/operator/interface/op_yaml_info.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_dialect.h"
 #include "paddle/fluid/pir/dialect/operator/utils/op_yaml_info_parser.h"
-#include "paddle/fluid/platform/collective_helper.h"
 #include "paddle/phi/core/infermeta_utils.h"
 #include "paddle/phi/core/meta_tensor.h"
+#include "paddle/phi/core/platform/collective_helper.h"
 #include "paddle/phi/core/platform/device_context.h"
 #include "paddle/phi/core/type_defs.h"
 
@@ -41,8 +41,7 @@
 #include "paddle/fluid/platform/onednn_helper.h"
 #endif
 
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 
 IfInstruction::IfInstruction(size_t id,
                              const phi::Place& place,
@@ -122,8 +121,9 @@ IfInstruction::IfInstruction(size_t id,
       is_last_op = false;
     }
   }
-  InsertTuplePushContinerToOuts(&true_branch_block, *value_exec_info, &outputs);
-  InsertTuplePushContinerToOuts(
+  InsertTuplePushContainerToOuts(
+      &true_branch_block, *value_exec_info, &outputs);
+  InsertTuplePushContainerToOuts(
       &if_op.false_block(), *value_exec_info, &outputs);
 
   InsertInplacedExternalInputsToOuts(
@@ -266,5 +266,4 @@ void IfInstruction::Run() {
   // copy output
 }
 
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework

@@ -26,6 +26,7 @@ from paddle.framework import (
     base as imperative_base,
     core,
 )
+from paddle.framework.recall_error import check_naninf
 
 from .log_util import logger
 
@@ -321,9 +322,19 @@ class ShardingGradView:
                 self._param_end - self._rank_begin,
             )
 
+    @property
+    def has_effective_slice_param(self):
+        return self._param_begin < self._param_end
+
 
 def build_reduce_scatter_buffer(
-    parameters, sharding_degree, rank, use_main_grad=False, release_grad=False
+    parameters,
+    sharding_degree,
+    rank,
+    use_main_grad=False,
+    release_grad=False,
+    init_slice_param=False,
+    slice_params={},
 ):
     total_buffer_size = 0
     param2index = {}
@@ -344,6 +355,11 @@ def build_reduce_scatter_buffer(
     grad_dtype = paddle.float32 if use_main_grad else dtype
 
     param_buffer = paddle.zeros(shape=[total_buffer_size], dtype=dtype)
+    # TODO(@gexiao): Currently only support gpus
+    if core.is_compiled_with_cuda() and not core.is_compiled_with_rocm():
+        param_buffer_ipc_meta = param_buffer.value().get_tensor()._share_cuda()
+    else:
+        param_buffer_ipc_meta = None
     grad_buffer = (
         paddle.zeros(shape=[total_buffer_size], dtype=grad_dtype)
         if not release_grad
@@ -364,9 +380,18 @@ def build_reduce_scatter_buffer(
             use_main_grad,
             release_grad,
         )
+        if init_slice_param and grad_view.has_effective_slice_param:
+            assert param.name in slice_params
+            grad_view.fill_slice_param(slice_params[param.name])
         # hack main_grad
         sharding_grad_view[param.name] = grad_view
-    return sharding_grad_view, total_buffer_size, param_buffer, grad_buffer
+    return (
+        sharding_grad_view,
+        total_buffer_size,
+        param_buffer,
+        grad_buffer,
+        param_buffer_ipc_meta,
+    )
 
 
 def get_grad_address(param, use_main_grad):
@@ -395,6 +420,8 @@ class FusedCommBuffer:
         release_grads=False,
         use_reduce_avg=False,
         free_grads_in_comm=False,
+        init_slice_param=False,
+        slice_params={},
     ):
         self._id = id
         self._params = params
@@ -405,6 +432,7 @@ class FusedCommBuffer:
         self._release_grads = release_grads
         self._use_reduce_avg = use_reduce_avg
         self._free_grads_in_comm = free_grads_in_comm
+        self._log_message_printed = False
 
         if self._free_grads_in_comm:
             assert (
@@ -432,6 +460,8 @@ class FusedCommBuffer:
         self._params_step_dict = {}
         self._params_checked_in = 0
         self._grads_to_addr = {}
+
+        self.param_buffer_ipc_meta = None
 
         self._act = act
         if self._act == HOOK_ACTION.ALL_REDUCE:
@@ -488,12 +518,15 @@ class FusedCommBuffer:
                 self.buffer_size,
                 self.param_storage,
                 self.grad_storage,
+                self.param_buffer_ipc_meta,
             ) = build_reduce_scatter_buffer(
                 self._params,
                 self._comm_group.nranks,
                 self._comm_group.rank,
                 use_main_grad=self.use_main_grad,
                 release_grad=self._release_grads,
+                init_slice_param=init_slice_param,
+                slice_params=slice_params,
             )
             # hack, for parameter sync in dygraph sharding optimizer after step
             self._params[0].comm_buffer_ref = weakref.ref(self)
@@ -551,6 +584,9 @@ class FusedCommBuffer:
             )
 
         grad_var = param.main_grad if self.use_main_grad else param.grad
+        assert (
+            grad_var is not None
+        ), f"The current parameter[{param.name}] has no gradient, its stop_grdient is {param.stop_gradient}"
         grad_var.stop_gradient = True
         grad_var.flatten_()
 
@@ -617,6 +653,8 @@ class FusedCommBuffer:
 
     @imperative_base.no_grad
     def sync_params(self, sync=True, param2task={}):
+        if not self.need_reduce_scale_sync():
+            return
         assert self._act == HOOK_ACTION.REDUCE_SCATTER
         full_buffer = self.param_storage
         group = self._comm_group
@@ -649,8 +687,23 @@ class FusedCommBuffer:
         )
         self._comm_grads()
 
+    def need_reduce_scale_sync(self):
+        stop_gradient_values = [param.stop_gradient for param in self.params]
+        if all(stop_gradient_values):
+            return False
+        else:
+            if any(stop_gradient_values) and not self._log_message_printed:
+                logger.info(
+                    "There is at least one parameter whose stop_gradient attribute is True"
+                )
+            self._log_message_printed = True
+            return True
+
     @imperative_base.no_grad
     def _comm_grads(self):
+        if not self.need_reduce_scale_sync():
+            return
+
         reduce_op = (
             paddle.distributed.ReduceOp.AVG
             if self._use_reduce_avg
@@ -663,10 +716,10 @@ class FusedCommBuffer:
 
         need_check = strtobool(os.getenv('FLAGS_pp_check_naninf', '0'))
         if need_check:
-            naninf = paddle.isfinite(self.grad_storage).all()
-            if not naninf.item():
+            err_msg = check_naninf(self.grad_storage)
+            if err_msg is not None:
                 raise ValueError(
-                    f"Tensor contains inf or nan values at rank {paddle.distributed.get_rank()} before gradient communication"
+                    f"{err_msg}. Tensor contains inf or nan values at rank {paddle.distributed.get_rank()} before gradient communication"
                 )
 
         if self._act == HOOK_ACTION.ALL_REDUCE:
@@ -687,6 +740,9 @@ class FusedCommBuffer:
             )
 
         elif self._act == HOOK_ACTION.REDUCE_SCATTER:
+            # In align mode, we scale the grad in advance, so we need a SUM head
+            if paddle.distributed.in_auto_parallel_align_mode():
+                reduce_op = paddle.distributed.ReduceOp.SUM
             shard_size = self.grad_storage._numel() // self._comm_group.nranks
             begin = shard_size * self._comm_group.rank
             end = begin + shard_size
@@ -709,13 +765,14 @@ class FusedCommBuffer:
 
     @imperative_base.no_grad
     def scale_grads(self):
-        assert self._task is not None, "Task is not initialized."
-        self._task.wait()
+        if self.need_reduce_scale_sync():
+            assert self._task is not None, "Task is not initialized."
+            self._task.wait()
 
-        # scale will be skiped when use reduce_avg comm operation
-        if self._scale_after_comm and not self._use_reduce_avg:
-            scale_factor = 1.0 / self._comm_group.nranks
-            self.grad_storage.scale_(scale_factor)
+            # scale will be skiped when use reduce_avg comm operation
+            if self._scale_after_comm and not self._use_reduce_avg:
+                scale_factor = 1.0 / self._comm_group.nranks
+                self.grad_storage.scale_(scale_factor)
 
         self._reset_params_checked_in()
 

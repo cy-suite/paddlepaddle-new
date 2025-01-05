@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
 import typing
 
 __is_metainfo_generated = False
@@ -75,6 +76,8 @@ from .framework.dtype import (
     int16,
     int32,
     int64,
+    pstring,
+    raw,
     uint8,
 )
 
@@ -224,6 +227,7 @@ from .tensor.linalg import (  # noqa: F401
     cdist,
     cholesky,
     cross,
+    diagonal,
     dist,
     dot,
     eigvalsh,
@@ -231,17 +235,21 @@ from .tensor.linalg import (  # noqa: F401
     histogram_bin_edges,
     histogramdd,
     matmul,
+    matrix_transpose,
     mv,
     norm,
     t,
     t_,
     transpose,
     transpose_,
+    vecdot,
 )
 from .tensor.logic import (
     allclose,
     bitwise_and,
     bitwise_and_,
+    bitwise_invert,
+    bitwise_invert_,
     bitwise_not,
     bitwise_not_,
     bitwise_or,
@@ -258,6 +266,8 @@ from .tensor.logic import (
     is_empty,
     is_tensor,
     isclose,
+    less,
+    less_,
     less_equal,
     less_equal_,
     less_than,
@@ -401,7 +411,6 @@ from .tensor.math import (  # noqa: F401
     cumsum_,
     cumulative_trapezoid,
     deg2rad,
-    diagonal,
     diff,
     digamma,
     digamma_,
@@ -488,10 +497,12 @@ from .tensor.math import (  # noqa: F401
     nansum,
     neg,
     neg_,
+    negative,
     nextafter,
     outer,
     polygamma,
     polygamma_,
+    positive,
     pow,
     pow_,
     prod,
@@ -579,10 +590,16 @@ from .tensor.stat import (
     var,
 )
 from .tensor.to_string import set_printoptions
+from .utils.dlpack import (
+    from_dlpack,
+    to_dlpack,
+)
 
 # CINN has to set a flag to include a lib
 if is_compiled_with_cinn():
     import os
+    import sys
+    from importlib import resources
 
     package_dir = os.path.dirname(os.path.abspath(__file__))
     runtime_include_dir = os.path.join(package_dir, "libs")
@@ -590,10 +607,17 @@ if is_compiled_with_cinn():
     if os.path.exists(cuh_file):
         os.environ.setdefault('runtime_include_dir', runtime_include_dir)
 
-    import pkg_resources
+    if sys.version_info >= (3, 9):
 
-    data_file_path = pkg_resources.resource_filename('paddle.cinn_config', '')
-    os.environ['CINN_CONFIG_PATH'] = data_file_path
+        data_file_path = resources.files('paddle.cinn_config')
+        os.environ['CINN_CONFIG_PATH'] = str(data_file_path)
+    else:
+        import pkg_resources
+
+        data_file_path = pkg_resources.resource_filename(
+            'paddle.cinn_config', ''
+        )
+        os.environ['CINN_CONFIG_PATH'] = data_file_path
 
 if __is_metainfo_generated and is_compiled_with_cuda():
     import os
@@ -750,6 +774,14 @@ from .pir_utils import IrGuard
 ir_guard = IrGuard()
 ir_guard._switch_to_pir()
 
+
+# Constants
+newaxis: None = None
+inf = math.inf
+nan = math.nan
+pi = math.pi
+e = math.e
+
 __all__ = [
     'block_diag',
     'iinfo',
@@ -769,6 +801,8 @@ __all__ = [
     'bool',
     'complex64',
     'complex128',
+    'pstring',
+    'raw',
     'addmm',
     'addmm_',
     'allclose',
@@ -853,6 +887,8 @@ __all__ = [
     'full_like',
     'less_than',
     'less_than_',
+    'less',
+    'less_',
     'kron',
     'clip',
     'Tensor',
@@ -896,6 +932,8 @@ __all__ = [
     'bitwise_xor_',
     'bitwise_not',
     'bitwise_not_',
+    'bitwise_invert',
+    'bitwise_invert_',
     'mm',
     'flip',
     'rot90',
@@ -973,6 +1011,7 @@ __all__ = [
     'conj',
     'neg',
     'neg_',
+    'negative',
     'lgamma',
     'lgamma_',
     'gammaincc',
@@ -1166,6 +1205,7 @@ __all__ = [
     'masked_fill_',
     'masked_scatter',
     'masked_scatter_',
+    'matrix_transpose',
     'hypot',
     'hypot_',
     'index_fill',
@@ -1173,4 +1213,13 @@ __all__ = [
     'diagonal_scatter',
     'combinations',
     'signbit',
+    'positive',
+    'from_dlpack',
+    'to_dlpack',
+    'inf',
+    'newaxis',
+    'vecdot',
+    'nan',
+    'pi',
+    'e',
 ]

@@ -15,6 +15,7 @@
 
 import os
 import warnings
+from collections import defaultdict
 from functools import reduce
 
 import paddle
@@ -26,8 +27,13 @@ from paddle.distributed.communication.reduce import (
     ReduceOp,
     is_avg_reduce_op_supported,
 )
+from paddle.framework.recall_error import (
+    SHARDING_PAD_NON_ZERO_ERROR,
+    check_naninf,
+)
 from paddle.utils import strtobool
 
+from ...utils import timer_helper as timer
 from ...utils.log_util import logger
 from ...utils.tensor_fusion_helper import (
     HOOK_ACTION,
@@ -92,6 +98,12 @@ class DygraphShardingOptimizer:
         self.comm_buffer_size_MB = sharding_configs.comm_buffer_size_MB
         self.fuse_optimizer = sharding_configs.fuse_optimizer
         self.use_reduce_avg = sharding_configs.use_reduce_avg
+        self.enable_fuse_optimizer_states = (
+            sharding_configs.enable_fuse_optimizer_states
+        )
+        assert (
+            not self.enable_fuse_optimizer_states
+        ), "enable_fuse_optimizer_states is not supported on sharding optimizer V1 now."
 
         if self.use_reduce_avg and (not is_avg_reduce_op_supported()):
             self.use_reduce_avg = False
@@ -337,16 +349,21 @@ class DygraphShardingOptimizer:
                         )
                         g_var.scale_(1.0 / sharding_nrank)
                         reduce_op = ReduceOp.SUM
+
+                    # In align mode, we scale the grad in advance, so we need a SUM here
+                    if paddle.distributed.in_auto_parallel_align_mode():
+                        reduce_op = ReduceOp.SUM
+
                     param_rank = self._param2rank[param.name]
 
                     need_check = strtobool(
                         os.getenv('FLAGS_pp_check_naninf', '0')
                     )
                     if need_check:
-                        naninf = paddle.isfinite(g_var).all()
-                        if not naninf.item():
+                        err_msg = check_naninf(g_var)
+                        if err_msg is not None:
                             raise ValueError(
-                                f"Tensor contains inf or nan values at rank {paddle.distributed.get_rank()} before gradient communication"
+                                f"{err_msg}. Tensor contains inf or nan values at rank {paddle.distributed.get_rank()} before gradient communication"
                             )
 
                     paddle.distributed.reduce(
@@ -630,6 +647,13 @@ class DygraphShardingOptimizerV2:
         comm_buffer_size_MB = sharding_config.comm_buffer_size_MB
         free_grads_in_comm = sharding_config.free_grads_in_comm
 
+        self._enable_timer = strategy.hybrid_configs["enable_optimizer_timer"]
+
+        if self._enable_timer:
+            if not timer.is_timer_initialized():
+                timer.set_timers()
+            self.timers = timer.get_timers()
+
         # Setting pipeline parallelism overlap
         self.pp_overlap = pp_config.sharding_comm_overlap
         self.sd_release_grads = (
@@ -644,9 +668,14 @@ class DygraphShardingOptimizerV2:
                 "nccl reduce_avg requires paddle compiled with cuda and nccl>=2.10.0, please check compilation setups."
             )
 
+        self.enable_fuse_optimizer_states = (
+            sharding_config.enable_fuse_optimizer_states
+        )
         self._build_comm_buffers(
             acc_steps, comm_buffer_size_MB * 1024 * 1024, free_grads_in_comm
         )
+        if self.enable_fuse_optimizer_states:
+            self._inner_opt.use_fusion_storage()
         # NOTE(shenliang03): Sort the comm_buffers by dst rank,
         # it will improve the performance in reduce communicate. Default
         # g_shard_sort_reduce_root is True.
@@ -730,26 +759,39 @@ class DygraphShardingOptimizerV2:
         ):
             group_size = 2**62
 
+        comm_group = self._hcg.get_sharding_parallel_group()
+
+        color_dict = defaultdict(list)
+        for param in self._parameter_list:
+            color = getattr(param, 'color', -1)
+            color_dict[color].append(param)
+
         # NOTE(shenliang03): If comm_overlap is not used, the parameter list is sorted by data type to
         # to reduce communication overhead.
-        all_params = self._parameter_list
         if not self.comm_overlap:
-            all_params = sorted(all_params, key=lambda x: str(x.dtype))
+            for color, params in color_dict.items():
+                params.sort(key=lambda x: str(x.dtype))
 
-        comm_group = self._hcg.get_sharding_parallel_group()
-        var_groups = assign_group_by_size(all_params, group_size)
-        for group_idx, parameters in var_groups.items():
-            buffer = FusedCommBuffer(
-                group_idx,
-                parameters,
-                comm_group,
-                acc_steps,
-                act=HOOK_ACTION.REDUCE_SCATTER,
-                release_grads=self.sd_release_grads,
-                use_reduce_avg=self.use_reduce_avg,
-                free_grads_in_comm=free_grads_in_comm,
-            )
-            self._comm_buffer_list.append(buffer)
+        all_var_groups = []
+        group_idx = 0
+        for color, params in color_dict.items():
+            logger.info(f"Tensor Fusion Color {color}: ")
+            var_groups = assign_group_by_size(params, group_size)
+            for _, parameters in var_groups.items():
+                buffer = FusedCommBuffer(
+                    group_idx,
+                    parameters,
+                    comm_group,
+                    acc_steps,
+                    act=HOOK_ACTION.REDUCE_SCATTER,
+                    release_grads=self.sd_release_grads,
+                    use_reduce_avg=self.use_reduce_avg,
+                    free_grads_in_comm=free_grads_in_comm,
+                    init_slice_param=self.enable_fuse_optimizer_states,
+                    slice_params=self._slice_params,
+                )
+                group_idx += 1
+                self._comm_buffer_list.append(buffer)
 
     def clear_grad(self, set_to_zero=True):
         """
@@ -781,7 +823,8 @@ class DygraphShardingOptimizerV2:
 
         if self.sd_release_grads and not self.pp_overlap:
             for comm_buffer in self._comm_buffer_list:
-                comm_buffer._clear_grad_storage()
+                if comm_buffer.need_reduce_scale_sync():
+                    comm_buffer._clear_grad_storage()
 
     def filter_parameters(self, parameter_list, hcg):
         parameter_list = [
@@ -795,7 +838,6 @@ class DygraphShardingOptimizerV2:
     def reduce_gradients(self, parameter_list, hcg):
         # TODO merge grad / nrank with dp
         logger.debug("sharding start gradients sync")
-
         # sync here to guarantee cdnn_cluster parallel correct.
         if (
             paddle.is_compiled_with_xpu()
@@ -806,26 +848,36 @@ class DygraphShardingOptimizerV2:
         with framework.no_grad():
             for comm_buffer in self._comm_buffer_list:
                 if self.sd_release_grads and comm_buffer.grad_storage is None:
-                    for param in comm_buffer.params:
-                        comm_buffer._copy_grad_to_buffer(param)
+                    if comm_buffer.need_reduce_scale_sync():
+                        for param in comm_buffer.params:
+                            comm_buffer._copy_grad_to_buffer(param)
 
             if g_sharding_v2_check_zero_padding:
                 self._check_padding_zero()
 
+            if self._enable_timer:
+                self.timers("reduce-gradients").start()
             for comm_buffer in self._comm_buffer_list:
                 if not self.comm_overlap:
                     comm_buffer._comm_grads()
 
                 comm_buffer.scale_grads()
 
+            if self._enable_timer:
+                self.timers("reduce-gradients").stop()
+
     def _check_padding_zero(self):
+        if self._enable_timer:
+            self.timers("check-padding-zero").start()
         for comm_buffer in self._comm_buffer_list:
             for k, v in comm_buffer._sharding_param_grad_view.items():
                 pad_tensor = v._get_padding()
                 if pad_tensor is not None:
                     assert paddle.all(
                         pad_tensor == 0
-                    ).item(), f"The padding of Tensor {k} is not zero"
+                    ).item(), f"{SHARDING_PAD_NON_ZERO_ERROR}. The padding of Tensor {k} is not zero"
+        if self._enable_timer:
+            self.timers("check-padding-zero").stop()
 
     def _forward_pre_hook_function(self, tasks):
         def __impl__(x, y):
@@ -838,6 +890,8 @@ class DygraphShardingOptimizerV2:
         """
         sync parameter across sharding group
         """
+        if self._enable_timer:
+            self.timers("sync-parameters").start()
 
         logger.debug("sharding start sync parameters")
         with framework.no_grad():
@@ -862,6 +916,9 @@ class DygraphShardingOptimizerV2:
             else:
                 for comm_buffer in self._comm_buffer_list:
                     comm_buffer.sync_params()
+
+        if self._enable_timer:
+            self.timers("sync-parameters").stop()
 
     def _update_trainable(self):
         """
@@ -955,11 +1012,16 @@ class DygraphShardingOptimizerV2:
                 if grad_var is not None:
                     params_grads.append((param, grad_var))
 
+            if self._enable_timer:
+                self.timers("apply-optimize").start()
+
             self._apply_optimize(
                 loss=None,
                 startup_program=None,
                 params_grads=params_grads,
             )
+            if self._enable_timer:
+                self.timers("apply-optimize").stop()
 
         # sync parameters across sharding ranks
         self._sharding_sync_parameters()

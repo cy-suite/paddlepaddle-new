@@ -23,12 +23,12 @@
 #include "paddle/fluid/framework/new_executor/interpreter/interpreter_util.h"
 #include "paddle/fluid/framework/new_executor/interpreter/static_build.h"
 #include "paddle/fluid/framework/operator.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
 #include "paddle/fluid/platform/profiler/supplement_tracing.h"
 #include "paddle/phi/common/place.h"
 #include "paddle/phi/core/kernel_context.h"
 #include "paddle/phi/core/os_info.h"
 #include "paddle/phi/core/platform/device/gpu/gpu_info.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 #include "paddle/phi/core/sparse_coo_tensor.h"
 #include "paddle/phi/core/sparse_csr_tensor.h"
 
@@ -45,7 +45,9 @@
 #ifdef PADDLE_WITH_CINN
 #include "paddle/fluid/framework/new_executor/instruction/cinn_jit_instruction.h"
 #endif
-
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+#include "paddle/fluid/framework/new_executor/instruction/custom_engine_instruction.h"
+#endif
 #include "paddle/fluid/framework/new_executor/instruction/builtin_combine_instruction.h"
 #include "paddle/fluid/framework/new_executor/instruction/control_flow/assert_instruction.h"
 #include "paddle/fluid/framework/new_executor/instruction/control_flow/has_elements_instruction.h"
@@ -88,6 +90,7 @@ COMMON_DECLARE_bool(enable_pir_in_executor);
 COMMON_DECLARE_bool(enable_pir_in_executor_trace_run);
 COMMON_DECLARE_bool(enable_collect_shape);
 COMMON_DECLARE_int32(low_precision_op_list);
+COMMON_DECLARE_bool(pir_interpreter_record_stream_for_gc_cache);
 
 #define CREATE_INSTR(instr_name)                                   \
   vec_instruction_base_.emplace_back(std::make_unique<instr_name>( \
@@ -108,6 +111,15 @@ void RecordLowPrecisionOp(const InstructionBase* instr_node) {
           op_name, kernel_key.dtype());
     }
   }
+}
+
+bool UseTraceRun(const ExecutionConfig& execution_config,
+                 size_t onednn_op_num,
+                 size_t sync_op_num) {
+  return FLAGS_enable_pir_in_executor_trace_run || onednn_op_num ||
+         execution_config.used_for_inference || execution_config.used_for_sot ||
+         ((execution_config.used_for_jit || execution_config.used_for_cinn) &&
+          (sync_op_num == 0));
 }
 
 PirInterpreter::PirInterpreter(const phi::Place& place,
@@ -468,12 +480,12 @@ void PirInterpreter::CheckCUDAGraphBeforeRun(
 #endif
 }
 
-void PirInterpreter::ClearLoDTensorArrayInLocalScope() {
+void PirInterpreter::ClearDenseTensorArrayInLocalScope() {
   auto vars = local_scope_->LocalVars();
   for (auto var : vars) {
     if (var->IsType<phi::TensorArray>()) {
-      auto* lod_tensor_arr = var->GetMutable<phi::TensorArray>();
-      lod_tensor_arr->clear();
+      auto* dense_tensor_arr = var->GetMutable<phi::TensorArray>();
+      dense_tensor_arr->clear();
     }
   }
 }
@@ -522,6 +534,7 @@ void PirInterpreter::UpdateSyncOpNum() {
 void PirInterpreter::UpdateNcclOpNum() {
   static std::set<std::string> nccl_op_set = {
       "pd_op.c_softmax_with_cross_entropy",
+      "pd_op.c_softmax_with_multi_label_cross_entropy",
       "pd_op.c_allgather",
       "pd_op.c_allreduce_avg",
       "pd_op.c_allreduce_max",
@@ -542,7 +555,7 @@ void PirInterpreter::UpdateNcclOpNum() {
       "pd_op.send_v2",
       "pd_op.mp_allreduce_sum",
       "pd_op.barrier",
-      "pd_op.alltoall",
+      "pd_op.all_to_all",
       "pd_op.global_gather",
       "pd_op.distributed_fused_lamb",
       "pd_op.margin_cross_entropy",
@@ -559,6 +572,7 @@ void PirInterpreter::UpdateNcclOpNum() {
       "pd_op.all_reduce",
       "pd_op.reduce",
       "pd_op.c_softmax_with_cross_entropy_grad",
+      "pd_op.c_softmax_with_multi_label_cross_entropy_grad",
       "pd_op.c_allgather_grad",
       "pd_op.c_allreduce_max_grad",
       "pd_op.c_allreduce_min_grad",
@@ -594,6 +608,7 @@ void PirInterpreter::UpdateNcclOpNum() {
       "pd_op.all_reduce_grad",
       "pd_op.reduce_grad",
       "pd_op.c_softmax_with_cross_entropy_",
+      "pd_op.c_softmax_with_multi_label_cross_entropy_",
       "pd_op.c_allgather_",
       "pd_op.c_allreduce_avg_",
       "pd_op.c_allreduce_max_",
@@ -631,6 +646,7 @@ void PirInterpreter::UpdateNcclOpNum() {
       "pd_op.all_reduce_",
       "pd_op.reduce_",
       "pd_op.c_softmax_with_cross_entropy_grad_",
+      "pd_op.c_softmax_with_multi_label_cross_entropy_grad_",
       "pd_op.c_allgather_grad_",
       "pd_op.c_allreduce_max_grad_",
       "pd_op.c_allreduce_min_grad_",
@@ -765,6 +781,33 @@ void PirInterpreter::AnalyseExecuteOrderForTrace(
   }
 }
 
+void PirInterpreter::AnalyzeForceSyncOps() {
+  for (auto& ins : vec_instruction_base_) {
+    ins->SetSyncAfterLaunch(FLAGS_benchmark);
+
+    // Analyze force sync op set by FLAGS_force_sync_op
+    int op_id = ins->Id();
+    std::string op_name = ins->Name();
+    std::string unused_prefix = "pd_op.";
+    auto pos = op_name.find(unused_prefix);
+    if (pos != std::string::npos) {
+      op_name.erase(pos, unused_prefix.size());
+    }
+
+    for (auto& pair : execution_config_.force_sync_ops) {
+      int sync_op_id = pair.first;
+      std::string sync_op_name = pair.second;
+      if ((sync_op_id == op_id || sync_op_id == -1) &&
+          (sync_op_name == op_name || sync_op_name == "")) {
+        VLOG(8) << "Force sync op: "
+                << "sync_op_id=" << sync_op_id << ", op_id=" << op_id
+                << ", sync_op_name=" << sync_op_name << ", op_name=" << op_name;
+        ins->SetSyncAfterLaunch(true);
+      }
+    }
+  }
+}
+
 void PirInterpreter::BuildInstruction() {
   VLOG(6) << "Build Instructions for pir ... ";
   vec_instruction_base_.clear();
@@ -888,7 +931,7 @@ void PirInterpreter::BuildInstruction() {
         continue;
       }
       VLOG(6) << "process " << op_name;
-
+      if (op_name == "pd_op.share_var") continue;
       if (op.isa<paddle::dialect::LegacyKernelOp>()) {  // NOLINT
         CREATE_INSTR(LegacyKernelInstruction);
       } else {
@@ -918,9 +961,18 @@ void PirInterpreter::BuildInstruction() {
       vec_instruction_base_.emplace_back(
           std::make_unique<CustomKernelInstruction>(
               op_idx++, place_, &op, *(value_exe_info_.get())));
+    } else if (paddle::dialect::IsCustomEngineOp(&op)) {
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+      CREATE_INSTR(CustomEngineInstruction);
+#else
+      PADDLE_THROW(common::errors::PreconditionNotMet(
+          "Program has CustomEngineOp and must compile Paddle use "
+          "-DWITH_CUSTOM_DEVICE=ON"));
+#endif
     } else {
       PADDLE_THROW(common::errors::Unimplemented(
-          "Now only support pd_kernel, onednn_kernel, custom_kernel, trt_op "
+          "Now only support pd_kernel, onednn_kernel, custom_kernel, trt_op, "
+          "custom_engine_op "
           "and cinn dialect."));
     }
   }
@@ -1113,17 +1165,25 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
   PADDLE_THROW(common::errors::Unimplemented(
       "RecordStreamForGC is only implemented when compiled with GPU."));
 #else
+  if (FLAGS_pir_interpreter_record_stream_for_gc_cache &&
+      instr->SkipRecordStreamForGC()) {
+    return;
+  }
+
   if (!IsInterpretercoreFastGCEnabled() ||
       instr->KernelType() != OpFuncType::kGpuAsync) {
+    instr->SetSkipRecordStreamForGC(true);
     return;
   }
   if (instr->DeviceContext().GetPlace().GetType() ==
       phi::AllocationType::CUSTOM) {
+    instr->SetSkipRecordStreamForGC(true);
     return;
   }
   phi::RecordEvent record(
       "RecordStreamForGC", phi::TracerEventType::UserDefined, 10);
 
+  bool skip_record_stream = true;
   gpuStream_t stream =
       reinterpret_cast<const phi::GPUContext&>(instr->DeviceContext()).stream();
 // TODO(lizhiyu): Only analyse the 'send_v2' for GPT pp strategy right now.
@@ -1149,7 +1209,8 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
     }
   }
 #endif
-  auto TensorRecordStream = [&stream](phi::DenseTensor& tensor) {
+  auto TensorRecordStream = [&stream,
+                             &skip_record_stream](phi::DenseTensor& tensor) {
     auto allocation = tensor.Holder();
     if (allocation == nullptr) {
       return;
@@ -1157,7 +1218,9 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
 
     const phi::Place& place = allocation->place();
     if (phi::is_gpu_place(place)) {
-      memory::RecordStream(allocation, stream);
+      if (memory::RecordStream(allocation, stream)) {
+        skip_record_stream = false;
+      }
     } else if (phi::is_cuda_pinned_place(place)) {
       // TODO(Ruibiao): Here should do something to make sure that the tensor
       // is not freed until the H2D copies done. However, simply launch a
@@ -1213,7 +1276,7 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
     } else if (
         var->IsType<
             operators::reader::
-                OrderedMultiDeviceLoDTensorBlockingQueueHolder>()) {  // NOLINT
+                OrderedMultiDeviceDenseTensorBlockingQueueHolder>()) {  // NOLINT
       // do nothing
     } else if (var->IsType<phi::SelectedRows>()) {
       TensorRecordStream(
@@ -1242,6 +1305,10 @@ void PirInterpreter::RecordStreamForGC(InstructionBase* instr) {
           "The variable(%s) is not supported in eager deletion.",
           framework::ToTypeName(var->Type())));
     }
+  }
+
+  if (skip_record_stream) {
+    instr->SetSkipRecordStreamForGC(true);
   }
 #endif
 }
@@ -1303,7 +1370,8 @@ void PirInterpreter::CalculateLastLiveOps() {
         // skip no_need_buffer input vars
         if ((ins.count(item.first) &&
              instr->NoNeedBuffer().count(item.first)) ||
-            instr->Name() == "builtin_combine_instruction") {
+            instr->Name() == "builtin_combine_instruction" ||
+            instr->Name() == "pd_op.shadow_feed_tensors") {
           continue;
         }
         gc_check_vars.insert(var_id);
@@ -1316,8 +1384,10 @@ void PirInterpreter::CalculateLastLiveOps() {
           value_exe_info_->GetNameById(static_cast<int>(var_id)));
       PADDLE_ENFORCE_NOT_NULL(
           var,
-          common::errors::NotFound("Var(id=%d) should not be nullptr.",
-                                   static_cast<int>(var_id)));
+          common::errors::NotFound(
+              "Var(id=%d,%s) should not be nullptr.",
+              static_cast<int>(var_id),
+              value_exe_info_->GetNameById(static_cast<int>(var_id))));
       if (var->IsType<phi::DenseTensor>() || var->IsType<phi::SelectedRows>() ||
           var->IsType<phi::TensorArray>() ||
           var->IsType<phi::SparseCooTensor>() ||
@@ -1358,7 +1428,7 @@ void PirInterpreter::CalculateLastLiveOps() {
   }
   VLOG(4) << "var_ref_count_.size() : " << var_ref_count_.size();
   for (size_t i = 0; i < last_live_ops_.size(); ++i) {
-    std::set<size_t> minumum_last_live_ops;
+    std::set<size_t> minimum_last_live_ops;
     for (size_t item : last_live_ops_[i]) {
       bool not_before_any = true;
       // find the op that is not executed before any
@@ -1374,11 +1444,11 @@ void PirInterpreter::CalculateLastLiveOps() {
         VLOG(6) << "last live op of var " << i << " "
                 << value_exe_info_->GetNameById(static_cast<int>(i)) << " : "
                 << item << " " << vec_instruction_base_[item]->Name();
-        minumum_last_live_ops.insert(item);
+        minimum_last_live_ops.insert(item);
         vec_instruction_base_[item]->AddGCCheckVar(i);
       }
     }
-    last_live_ops_[i] = minumum_last_live_ops;
+    last_live_ops_[i] = minimum_last_live_ops;
     var_ref_count_[i] = static_cast<int>(last_live_ops_[i].size());
   }
   VLOG(4) << "shrink the last_live_ops list for all vars in skip_gc_vars";
@@ -1469,10 +1539,7 @@ paddle::framework::FetchList PirInterpreter::Run(
     PreAnalysis();
     VLOG(4) << "Done PreAnalysis";
 
-    if (FLAGS_enable_pir_in_executor_trace_run || onednn_op_num_ ||
-        execution_config_.used_for_inference ||
-        ((execution_config_.used_for_jit || execution_config_.used_for_cinn) &&
-         (sync_op_num_ == 0))) {
+    if (UseTraceRun(execution_config_, onednn_op_num_, sync_op_num_)) {
       LOG_FIRST_N(INFO, 1) << "pir interpreter is running by trace mode ...";
       TraceRunImpl();
     } else {
@@ -1484,10 +1551,7 @@ paddle::framework::FetchList PirInterpreter::Run(
     is_build_ = true;
     is_shared_results_build_ = true;
   } else {
-    if (FLAGS_enable_pir_in_executor_trace_run || onednn_op_num_ ||
-        execution_config_.used_for_inference ||
-        ((execution_config_.used_for_jit || execution_config_.used_for_cinn) &&
-         (sync_op_num_ == 0))) {
+    if (UseTraceRun(execution_config_, onednn_op_num_, sync_op_num_)) {
       TraceRunImpl();
     } else {
       MultiThreadRunImpl();
@@ -1495,7 +1559,7 @@ paddle::framework::FetchList PirInterpreter::Run(
   }
 
   if (HasLocalScope()) {
-    ClearLoDTensorArrayInLocalScope();
+    ClearDenseTensorArrayInLocalScope();
   }
 
   // return Fetch Tensors
@@ -1554,10 +1618,7 @@ FetchList PirInterpreter::Run(const std::vector<std::string>& feed_names,
     VLOG(4) << "Done PreAnalysis";
 
     // Run
-    if (FLAGS_enable_pir_in_executor_trace_run || onednn_op_num_ ||
-        execution_config_.used_for_inference ||
-        ((execution_config_.used_for_jit || execution_config_.used_for_cinn) &&
-         (sync_op_num_ == 0))) {
+    if (UseTraceRun(execution_config_, onednn_op_num_, sync_op_num_)) {
       LOG_FIRST_N(INFO, 1) << "pir interpreter is running by trace mode ...";
       TraceRunImpl();
     } else {
@@ -1569,10 +1630,7 @@ FetchList PirInterpreter::Run(const std::vector<std::string>& feed_names,
     is_build_ = true;
     is_shared_results_build_ = true;
   } else {
-    if (FLAGS_enable_pir_in_executor_trace_run || onednn_op_num_ ||
-        execution_config_.used_for_inference ||
-        ((execution_config_.used_for_jit || execution_config_.used_for_cinn) &&
-         (sync_op_num_ == 0))) {
+    if (UseTraceRun(execution_config_, onednn_op_num_, sync_op_num_)) {
       TraceRunImpl();
     } else {
       MultiThreadRunImpl();
@@ -1580,7 +1638,7 @@ FetchList PirInterpreter::Run(const std::vector<std::string>& feed_names,
   }
 
   if (HasLocalScope()) {
-    ClearLoDTensorArrayInLocalScope();
+    ClearDenseTensorArrayInLocalScope();
   }
 
   framework::FetchList fetch_res;
@@ -1900,7 +1958,7 @@ void PirInterpreter::RunInstructionBase(InstructionBase* instr_node) {
         instr_node->Run();
       }
 
-      if (FLAGS_benchmark) {
+      if (instr_node->IsSyncAfterLaunch()) {
         instr_node->DeviceContext().Wait();
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
         PADDLE_ENFORCE_GPU_SUCCESS(platform::GpuGetLastError());
@@ -1949,9 +2007,20 @@ void PirInterpreter::RunInstructionBase(InstructionBase* instr_node) {
     const std::vector<std::string> op_callstack_attr =
         interpreter::GetInstructionCallStack(op->name(), op->attributes());
     framework::InsertCallStackInfo(op->name(), op_callstack_attr, &ex);
-    LOG(WARNING) << " OP id:" << instr_node->Id() << " " << instr_node->Name()
-                 << " raises an EnforceNotMet exception "
-                 << common::demangle(typeid(ex).name());
+    if (op->HasAttribute("origin_id")) {
+      LOG(WARNING)
+          << "Instruction OP id: " << instr_node->Id() << ", Ir OP id: "
+          << op->attribute("origin_id").dyn_cast<pir::Int64Attribute>().data()
+          << ", " << instr_node->Name() << " raises an EnforceNotMet exception "
+          << common::demangle(typeid(ex).name());
+    } else {
+      LOG(WARNING) << "Instruction OP id: " << instr_node->Id()
+                   << ", Ir OP id is null"
+                   << ", " << instr_node->Name()
+                   << " raises an EnforceNotMet exception "
+                   << common::demangle(typeid(ex).name());
+    }
+
     exception_holder_.Catch(std::make_exception_ptr(std::move(ex)));
   } catch (platform::EOFException&) {
     exception_holder_.Catch(std::current_exception());
@@ -1991,6 +2060,9 @@ void PirInterpreter::PreAnalysis() {
   AnalyseExecuteOrderForTrace(ir_dependency_builder_.OpDownstreamMap(),
                               ir_instruction_scheduling_priority_less);
   VLOG(4) << "Done AnalyseExecuteOrderForTrace";
+
+  AnalyzeForceSyncOps();
+  VLOG(4) << "Done AnalyzeForceSyncOps";
 
   UpdateSyncOpNum();
   VLOG(4) << "Done UpdateSyncOpNum";

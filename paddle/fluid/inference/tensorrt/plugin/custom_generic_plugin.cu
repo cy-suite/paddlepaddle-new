@@ -14,7 +14,6 @@
 
 #include "paddle/fluid/inference/tensorrt/plugin/custom_generic_plugin.h"
 #include "paddle/common/enforce.h"
-#include "paddle/fluid/framework/framework.pb.h"
 #include "paddle/fluid/framework/op_kernel_type.h"
 #include "paddle/fluid/framework/phi_utils.h"
 #include "paddle/fluid/inference/tensorrt/op_teller.h"
@@ -22,6 +21,7 @@
 #include "paddle/phi/backends/gpu/gpu_context.h"
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/core/compat/op_utils.h"
+#include "paddle/phi/core/framework/framework.pb.h"
 #include "paddle/phi/core/kernel_context.h"
 #include "paddle/phi/core/kernel_factory.h"
 
@@ -330,7 +330,7 @@ bool CustomGenericPlugin::supportsFormatCombination(
     PADDLE_ENFORCE_EQ(input_num + output_num,
                       format_combination.size(),
                       common::errors::InvalidArgument(
-                          "Expexted %d format_combination, but got %d.",
+                          "Expected %d format_combination, but got %d.",
                           input_num + output_num,
                           format_combination.size()));
     format_combinations.emplace_back(format_combination);

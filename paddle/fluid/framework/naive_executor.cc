@@ -22,15 +22,19 @@
 #include "paddle/fluid/framework/op_registry.h"
 #include "paddle/fluid/framework/scope.h"
 #include "paddle/fluid/framework/variable_helper.h"
-#include "paddle/fluid/platform/denormal.h"
+#include "paddle/phi/core/platform/denormal.h"
 #ifdef PADDLE_WITH_DNNL
 #include "paddle/fluid/platform/onednn_helper.h"
 #endif
 #ifdef PADDLE_WITH_TENSORRT
 #include "paddle/fluid/operators/tensorrt/tensorrt_engine_op.h"
 #endif
+#ifdef PADDLE_WITH_OPENVINO
+#include "paddle/fluid/operators/openvino/openvino_engine_op.h"
+#endif
+
 #ifdef PADDLE_WITH_NVTX
-#include "paddle/fluid/platform/device/gpu/cuda/cuda_profiler.h"
+#include "paddle/phi/core/platform/device/gpu/cuda/cuda_profiler.h"
 #endif
 
 namespace paddle::framework {

@@ -77,6 +77,8 @@ struct MappingTargetExprToDestExprMutator : public ir::IRMutator<> {
   void Visit(const ir::Store* store, Expr* op) override;
   void Visit(const ir::Reduce* reduce, Expr* op) override;
   void Visit(const ir::For* for_node, Expr* op) override;
+  void Visit(const ir::Block* block_node, Expr* op) override;
+  void Visit(const ir::ScheduleBlockRealize* realize, Expr* op) override;
 
  private:
   ir::Expr source_;
@@ -86,7 +88,7 @@ struct MappingTargetExprToDestExprMutator : public ir::IRMutator<> {
 bool CheckIterEq(const std::vector<ir::Var>& up_iter,
                  const std::vector<ir::Var>& down_iter);
 
-ir::Expr CopyedReplaceExpr(const Expr& source,
+ir::Expr CopiedReplaceExpr(const Expr& source,
                            const std::vector<Var>& replaced,
                            const std::vector<Expr>& candidates);
 void SubstitudeTargetExprWithDestExpr(const ir::Expr& source,
@@ -155,15 +157,17 @@ extern ExprSetFinder Store2Value;
 
 extern ExprSetFinder Realizer2ScheduleBlock;
 
+extern ExprSetFinder Realizer2IterValues;
+
 extern ExprSetFinder ScheduleBlock2Body;
 
 extern ExprSetFinder ScheduleBlockRealizeNotRoot;
 
+extern ExprSetFinder ScheduleBlockRealizeIsRoot;
+
 extern ExprSetFinder ScheduleBlockRealizeIsNotInit;
 
 extern ExprSetFinder ScheduleBlockRealizeIsInit;
-
-extern ExprSetFinder ScheduleBlockRealizeIsSplitTransform;
 
 extern ExprSetFinder IsFor;
 
@@ -184,6 +188,8 @@ extern ExprSetFinder ChildTensorLoads;
 extern ExprSetFinder ChildTensorStores;
 
 extern ExprSetFinder ChildFors;
+
+extern ExprSetFinder ChildIfThenElses;
 
 ExprSetFinder IsForIterVar(const ir::Var& var);
 
@@ -220,6 +226,8 @@ ExprTransformer ChangeTensorLoadTransformer(const ir::Tensor& tensor,
 
 void ReplaceTarget(ir::Expr* e, const ir::Expr& t, const ir::Expr dst);
 
+bool IsReduceBool(const ir::Expr& lhs, const ir::Expr& rhs);
+
 ExprTransformer WrapStoreTransformer(const ir::Tensor& tensor,
                                      const std::vector<ir::Expr>& indices);
 
@@ -245,6 +253,15 @@ ExprTransformer SubstitudeByScheduleBlockRealize(const ir::Expr& realize);
 
 ExprTransformer WrapScheduleRealizer(const std::vector<ir::Var>& block_vars,
                                      const std::string& tensor_name);
+
+ExprTransformer TransposeForsTransformer(const std::vector<int32_t>& perm);
+ExprTransformer RemoveOnesTransformer(const std::vector<int32_t>& ones);
+ExprTransformer InsertForsTransformer(const std::vector<int32_t>& axis,
+                                      const std::vector<ir::Var>& vars);
+ExprTransformer InsertIfForAppendVarsTransformer();
+int InplaceMutateSingleExpr(ir::Expr* root,
+                            const ExprSetFinderUtils::ExprSetFinder& finder,
+                            const ExprTransformer& transformer);
 }  // namespace ExprTransformerUtils
 
 std::vector<OpPatternKind> GetOpPatternKindVector(
@@ -269,6 +286,21 @@ static bool IsReduceBody(const ir::Expr& expr_body) {
            ExprSetFinderUtils::ScheduleBlockRealizeIsInit)(expr_body)
               .empty();
 }
+
+std::vector<ir::Var> AppendBound(const std::vector<ir::Var> vars,
+                                 const ir::Expr& root);
+
+std::vector<ir::Var> GetNonReduceLoopVars(const ir::Expr& root);
+std::vector<ir::Var> GetAllLoopVars(const ir::Expr& root);
+
+ir::Expr GetBodyBlock(const ir::Expr& root);
+
+ir::Expr ReshapeLoop(const ir::Expr& root,
+                     const std::vector<symbol::DimExpr>& in_shape,
+                     const std::vector<symbol::DimExpr>& out_shape);
+
+void CheckLoopAlignment(const std::vector<ir::Expr>& roots);
+
 }  // namespace trivial_fusion_detail
 }  // namespace pir
 }  // namespace framework

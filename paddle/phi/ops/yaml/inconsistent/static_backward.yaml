@@ -102,6 +102,7 @@
   infer_meta :
     func : EmbeddingGradInferMeta
     param : [x, weight]
+    spmd_rule : CEmbeddingGradInferSpmd
   kernel :
     func : c_embedding_grad
   no_need_buffer : weight
@@ -112,9 +113,25 @@
   output: Tensor(logits_grad)
   infer_meta :
     func: CSoftmaxWithCrossEntropyGradInferMeta
+    spmd_rule : CSoftmaxWithCrossEntropyGradSpmd
+    param: [softmax, label, loss_grad, ignore_index, rank, nranks]
   kernel:
     func: c_softmax_with_cross_entropy_grad
     data_type: loss_grad
+    param: [softmax, label, loss_grad, ignore_index, rank, nranks]
+
+- backward_op : c_softmax_with_multi_label_cross_entropy_grad
+  forward: c_softmax_with_multi_label_cross_entropy (Tensor logits, Tensor label, Tensor smooth_weight, int64_t ignore_index=-100, bool sum_multi_label_loss=true, int ring_id=0, int rank=0, int nranks=0) -> Tensor(softmax), Tensor(loss)
+  args: (Tensor softmax, Tensor label, Tensor smooth_weight, Tensor loss_grad, int64_t ignore_index=-100, bool sum_multi_label_loss=true, int ring_id=0, int rank=0, int nranks=0)
+  output: Tensor(logits_grad)
+  infer_meta :
+    func: CSoftmaxWithMultiLabelCrossEntropyGradInferMeta
+    spmd_rule : CSoftmaxWithMultiLabelCrossEntropyGradSpmd
+    param: [softmax, label, smooth_weight, loss_grad, ignore_index, sum_multi_label_loss, rank, nranks]
+  kernel:
+    func: c_softmax_with_multi_label_cross_entropy_grad
+    data_type: loss_grad
+    param: [softmax, label, smooth_weight, loss_grad, ignore_index, sum_multi_label_loss, rank, nranks]
 
 - backward_op : divide_double_grad
   forward : divide_grad (Tensor x, Tensor y, Tensor out, Tensor grad_out, int axis = -1) -> Tensor(grad_x), Tensor(grad_y)
@@ -199,6 +216,7 @@
     data_type : x
   optional: ln_scale, ln_bias, qkv_bias, src_mask, out_linear_bias, ln_scale_2, ln_bias_2, qkv_bias_grad, qkv_bias_out_grad, src_mask_out_grad, out_linear_bias_grad, ln_scale_grad, ln_bias_grad, ln_scale_2_grad, ln_bias_2_grad, ln_out_grad, bias_dropout_residual_out_grad, ln_out, ln_mean, ln_var,  ln_mean_2, ln_var_2, bias_dropout_residual_out, qkv_bias, qkv_bias_out, src_mask, src_mask_out, out_linear_bias
   no_need_buffer: qkv_bias_out, qkv_out, qk_out, qktv_out, out_linear_out, src_mask
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - backward_op : fused_feedforward_grad
   forward: fused_feedforward (Tensor x, Tensor dropout1_seed, Tensor dropout2_seed, Tensor linear1_weight, Tensor linear1_bias, Tensor linear2_weight, Tensor linear2_bias, Tensor ln1_scale, Tensor ln1_bias, Tensor ln2_scale, Tensor ln2_bias, bool pre_layer_norm, float ln1_epsilon, float ln2_epsilon, str act_method, float dropout1_prob, float dropout2_prob, str dropout1_implementation, str dropout2_implementation, bool is_test, bool dropout1_fix_seed, bool dropout2_fix_seed, int dropout1_seed_val, int dropout2_seed_val, bool add_residual, int ring_id) -> Tensor(out), Tensor(dropout1_mask), Tensor(dropout2_mask), Tensor(ln1_mean), Tensor(ln1_variance), Tensor(ln2_mean), Tensor(ln2_variance), Tensor(linear1_out), Tensor(ln1_out), Tensor(dropout1_out), Tensor(dropout2_out)
@@ -263,6 +281,34 @@
     func : legacy_matmul_grad
     param: [x, y, out_grad, transpose_x, transpose_y, alpha]
     data_type: out_grad
+
+- backward_op : legacy_reshape_grad
+  forward : legacy_reshape (Tensor x, IntArray shape) -> Tensor(out)
+  args : (Tensor x, Tensor out_grad)
+  output : Tensor(x_grad)
+  infer_meta :
+    func : GradSameWithXInferMeta
+    param : [x, out_grad]
+    spmd_rule: ReshapeGradInferSpmd
+    local_shape : x_grad
+  kernel :
+    func : reshape_grad
+    param : [x, out_grad]
+    data_type: out_grad
+    backend: out_grad
+    layout: out_grad
+  no_need_buffer : x
+
+- backward_op : lod_reset_grad
+  forward: lod_reset(Tensor x, Tensor y, int[] target_lod={}, bool append=false) -> Tensor(out)
+  args: (Tensor x, Tensor out_grad, int[] target_lod={}, bool append=false)
+  output: Tensor(x_grad)
+  infer_meta:
+    func: LodResetGradInferMeta
+  kernel:
+    func: lod_reset_grad
+  no_need_buffer: x
+  inplace: (out_grad -> x_grad)
 
 - backward_op : lookup_table_grad
   forward : lookup_table (Tensor w, Tensor ids, bool is_sparse = false, bool is_distributed = false,
@@ -441,6 +487,16 @@
     func : push_box_sparse
     data_type : out_grad_in
   inplace : (out_grad_in -> out_grad_out)
+
+- backward_op : remainder_grad
+  forward : remainder (Tensor x, Tensor y) -> Tensor(out)
+  args : (Tensor x, Tensor y, Tensor out_grad)
+  output : Tensor(x_grad), Tensor(y_grad)
+  infer_meta :
+    func : GeneralBinaryGradInferMeta
+    param : [x, y]
+  kernel :
+    func : remainder_grad
 
 - backward_op : row_conv_grad
   forward: row_conv (Tensor x, Tensor filter) -> Tensor(out)

@@ -20,7 +20,6 @@ from op_test import OpTest, convert_float_to_uint16
 import paddle
 from paddle import base
 from paddle.base import core
-from paddle.pir_utils import test_with_pir_api
 
 
 class TestCrossOp(OpTest):
@@ -171,8 +170,9 @@ class TestCrossAPI(unittest.TestCase):
         self.data_y = np.array(
             [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]
         ).astype('float32')
+        self.data_x_zero = np.array([]).reshape(0, 3).astype('float32')
+        self.data_y_zero = np.array([]).reshape(0, 3).astype('float32')
 
-    @test_with_pir_api
     def test_cross_api(self):
         self.input_data()
 
@@ -214,6 +214,26 @@ class TestCrossAPI(unittest.TestCase):
         )
         np.testing.assert_allclose(expect_out, np.array(res), rtol=1e-05)
 
+        main = paddle.static.Program()
+        startup = paddle.static.Program()
+        # case 3:
+        with paddle.static.program_guard(main, startup):
+            x = paddle.static.data(name='x', shape=[0, 3], dtype="float32")
+            y = paddle.static.data(name='y', shape=[0, 3], dtype="float32")
+            z = paddle.cross(x, y, axis=1)
+            exe = base.Executor(base.CPUPlace())
+            (res,) = exe.run(
+                main,
+                feed={'x': self.data_x_zero, 'y': self.data_y_zero},
+                fetch_list=[z],
+                return_numpy=False,
+            )
+        expect_out = np.empty((0, 3))
+        np.testing.assert_allclose(expect_out, np.array(res), rtol=1e-05)
+
+        main = paddle.static.Program()
+        startup = paddle.static.Program()
+
     def test_cross_api1(self):
         with paddle.pir_utils.OldIrGuard():
             self.input_data()
@@ -227,6 +247,17 @@ class TestCrossAPI(unittest.TestCase):
                 y = paddle.static.data(name='y', shape=[-1, 3], dtype='float32')
 
                 y_1 = paddle.cross(x, y, name='result')
+                self.assertEqual(('result' in y_1.name), True)
+
+            main = paddle.static.Program()
+            startup = paddle.static.Program()
+
+            # case 2:
+            with paddle.static.program_guard(main, startup):
+                x = paddle.static.data(name="x", shape=[0, 3], dtype="float32")
+                y = paddle.static.data(name='y', shape=[0, 3], dtype='float32')
+
+                y_1 = paddle.cross(x, y, axis=1, name='result')
                 self.assertEqual(('result' in y_1.name), True)
 
     def test_dygraph_api(self):
@@ -250,6 +281,15 @@ class TestCrossAPI(unittest.TestCase):
         expect_out = np.array(
             [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
         )
+        np.testing.assert_allclose(expect_out, np_z, rtol=1e-05)
+
+        # case 3:
+        with base.dygraph.guard():
+            x = paddle.to_tensor(self.data_x_zero)
+            y = paddle.to_tensor(self.data_y_zero)
+            z = paddle.cross(x, y, axis=1)
+            np_z = z.numpy()
+        expect_out = np.empty((0, 3))
         np.testing.assert_allclose(expect_out, np_z, rtol=1e-05)
 
 

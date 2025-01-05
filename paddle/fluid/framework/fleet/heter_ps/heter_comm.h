@@ -19,9 +19,9 @@ limitations under the License. */
 #include "cub/util_allocator.cuh"
 #if defined(PADDLE_WITH_CUDA)
 #include "paddle/fluid/framework/fleet/heter_ps/optimizer.cuh.h"
-#include "paddle/fluid/platform/timer.h"
 #include "paddle/phi/backends/dynload/nccl.h"
 #include "paddle/phi/core/platform/cuda_device_guard.h"
+#include "paddle/phi/core/platform/timer.h"
 #include "thrust/pair.h"
 #elif defined(PADDLE_WITH_XPU_KP)
 #include <xpu/runtime.h>
@@ -814,8 +814,8 @@ class HeterComm {
   bool is_infer_mode_ = false;
 };
 
-}  // end namespace framework
-}  // end namespace paddle
+}  // namespace framework
+}  // namespace paddle
 
 #include "paddle/fluid/framework/fleet/heter_ps/heter_comm_inl.h"
 

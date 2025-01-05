@@ -76,14 +76,15 @@ if(WITH_MKLML)
 endif()
 
 if(WITH_XPU)
-  cc_library(
-    phi_dynload_xpti
-    SRCS xpti.cc
-    DEPS phi common)
+  collect_srcs(backends_srcs SRCS xpti.cc)
 endif()
 
 if(WITH_FLASHATTN)
   list(APPEND DYNLOAD_COMMON_SRCS flashattn.cc)
+endif()
+
+if(WITH_FLASHATTN_V3)
+  list(APPEND DYNLOAD_COMMON_SRCS flashattnv3.cc)
 endif()
 
 if(WITH_PSCORE)

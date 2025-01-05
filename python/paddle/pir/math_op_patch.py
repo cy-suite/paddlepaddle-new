@@ -44,11 +44,13 @@ SUPPORT_PROMOTION_OPS = [
     "__mul__",
     "__rmul__",
     "__mod__",
+    "__rmod__",
     "__div__",
     "__rdiv__",
     "__truediv__",
     "__rtruediv__",
     "__floordiv__",
+    "__rfloordiv__",
     "__pow__",
     "__rpow__",
     "__eq__",
@@ -283,7 +285,8 @@ def monkey_patch_value():
         """
         **Notes**:
 
-        Cast a Value to a specified data type.
+        Convert a value to a specified data type if it differs from the current dtype;
+        otherwise, return the original value.
 
         Args:
 
@@ -314,6 +317,10 @@ def monkey_patch_value():
 
         if not isinstance(dtype, DataType):
             dtype = paddle.pir.core.convert_np_dtype_to_dtype_(dtype)
+
+        if self.dtype == dtype:
+            return self
+
         return _C_ops.cast(self, dtype)
 
     def _scalar_add_(var, value):
@@ -333,6 +340,9 @@ def monkey_patch_value():
 
     def _scalar_neg_(var):
         return paddle.scale(var, -1.0, 0.0)
+
+    def _scalar_abs_(var):
+        return paddle.abs(var)
 
     def _binary_creator_(
         method_name,
@@ -476,19 +486,87 @@ def monkey_patch_value():
 
         return _C_ops.transpose(self, perm)
 
+    @property
+    def _mT_(self):
+        """
+
+        Permute current Value with its last two dimensions reversed.
+
+        If `n` is the dimensions of `x` , `x.mT` is equivalent to `x.transpose([0, 1, ..., n-1, n-2])`.
+
+        Examples:
+            .. code-block:: python
+
+                >>> import paddle
+                >>> paddle.enable_static()
+
+                >>> x = paddle.ones(shape=[2, 3, 5])
+                >>> x_mT = x.mT
+
+                >>> exe = paddle.static.Executor()
+                >>> x_mT_np = exe.run(paddle.static.default_main_program(), fetch_list=[x_mT])[0]
+                >>> print(x_mT_np.shape)
+                (2, 5, 3)
+
+        """
+        if len(self.shape) < 2:
+            raise ValueError(
+                f"Tensor.ndim({len(self.shape)}) is required to be greater than or equal to 2."
+            )
+
+        perm = list(range(len(self.shape)))
+        perm[-1], perm[-2] = perm[-2], perm[-1]
+
+        return _C_ops.transpose(self, perm)
+
     def _int_(self):
-        raise TypeError(
-            "int(Value) is not supported in static graph mode. If you are using @to_static, you can try this:\n"
-            "1. If you want to get the value of Value, you can switch to non-fullgraph mode by setting @to_static(full_graph=True).\n"
-            "2. If you want to run it in full graph mode, you need use Value.astype(paddle.int32), and do not use int(Value)."
-        )
+        error_msg = """\
+            int(Tensor) is not supported in static graph mode. Because it's value is not available during the static mode.
+            It's usually triggered by the logging implicitly, for example:
+                >>> logging.info("The value of x is: {int(x)}")
+                                                          ^ `x` is Tensor, `int(x)` triggers int(Tensor)
+
+                There are two common workarounds available:
+                If you are logging Tensor values, then consider logging only at dynamic graphs, for example:
+
+                    Modify the following code
+                    >>> logging.info("The value of x is: {int(x)}")
+                    to
+                    >>> if paddle.in_dynamic_mode():
+                    ...     logging.info("The value of x is: {int(x)}")
+
+                If you need to convert the Tensor type, for example:
+                    Modify the following code
+                    >>> x = int(x)
+                    to
+                    >>> x = x.astype("int64")
+        """
+
+        raise TypeError(textwrap.dedent(error_msg))
 
     def _float_(self):
-        raise TypeError(
-            "float(Value) is not supported in static graph mode. If you are using @to_static, you can try this:\n"
-            "1. If you want to get the value of Value, you can switch to non-fullgraph mode by setting @to_static(full_graph=True).\n"
-            "2. If you want to run it in full graph mode, you need use Value directly, and do not use float(Value)."
-        )
+        error_msg = """\
+            float(Tensor) is not supported in static graph mode. Because it's value is not available during the static mode.
+            It's usually triggered by the logging implicitly, for example:
+                >>> logging.info("The value of x is: {float(x)}")
+                                                            ^ `x` is Tensor, `float(x)` triggers float(Tensor)
+
+                There are two common workarounds available:
+                If you are logging Tensor values, then consider logging only at dynamic graphs, for example:
+
+                    Modify the following code
+                    >>> logging.info("The value of x is: {float(x)}")
+                    to
+                    >>> if paddle.in_dynamic_mode():
+                    ...     logging.info("The value of x is: {float(x)}")
+
+                If you need to convert the Tensor type, for example:
+                    Modify the following code
+                    >>> x = float(x)
+                    to
+                    >>> x = x.astype("float64")
+        """
+        raise TypeError(textwrap.dedent(error_msg))
 
     def _bool_(self):
         error_msg = """\
@@ -520,6 +598,30 @@ def monkey_patch_value():
                 >>> y = paddle.static.nn.cond(pred, lambda: y + 1, lambda: y - 1)
                 For more info, please refer to https://www.paddlepaddle.org.cn/documentation/docs/zh/api/paddle/static/nn/cond_cn.html
             """
+        raise TypeError(textwrap.dedent(error_msg))
+
+    def _complex_(self):
+        error_msg = """\
+            complex(Tensor) is not supported in static graph mode. Because it's value is not available during the static mode.
+            It's usually triggered by the logging implicitly, for example:
+                >>> logging.info("The value of x is: {complex(x)}")
+                                                              ^ `x` is Tensor, `complex(x)` triggers complex(Tensor)
+
+                There are two common workarounds available:
+                If you are logging Tensor values, then consider logging only at dynamic graphs, for example:
+
+                    Modify the following code
+                    >>> logging.info("The value of x is: {complex(x)}")
+                    to
+                    >>> if paddle.in_dynamic_mode():
+                    ...     logging.info("The value of x is: {complex(x)}")
+
+                If you need to convert the Tensor type, for example:
+                    Modify the following code
+                    >>> x = complex(x)
+                    to
+                    >>> x = x.astype("complex64")
+        """
         raise TypeError(textwrap.dedent(error_msg))
 
     def clone(self):
@@ -935,6 +1037,7 @@ def monkey_patch_value():
         ('astype', astype),
         ('size', _size_),
         ('T', _T_),
+        ('mT', _mT_),
         ('clone', clone),
         ('clear_gradient', clear_gradient),
         ('append', append),
@@ -1020,14 +1123,29 @@ def monkey_patch_value():
             ),
         ),
         (
+            '__rfloordiv__',
+            _binary_creator_(
+                '__rfloordiv__', paddle.tensor.floor_divide, True, None
+            ),
+        ),
+        (
             '__mod__',
             _binary_creator_('__mod__', paddle.tensor.remainder, False, None),
+        ),
+        (
+            '__rmod__',
+            _binary_creator_('__rmod__', paddle.tensor.remainder, True, None),
         ),
         (
             '__matmul__',
             _binary_creator_('__matmul__', paddle.tensor.matmul, False, None),
         ),
+        (
+            '__rmatmul__',
+            _binary_creator_('__rmatmul__', paddle.tensor.matmul, True, None),
+        ),
         ('__neg__', _scalar_neg_),
+        ('__abs__', _scalar_abs_),
         # For compare operators
         (
             '__eq__',
@@ -1058,6 +1176,7 @@ def monkey_patch_value():
         ('__float__', _float_),
         ('__int__', _int_),
         ('__bool__', _bool_),
+        ('__complex__', _complex_),
     ]
 
     global _already_patch_value

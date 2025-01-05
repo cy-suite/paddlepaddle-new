@@ -22,9 +22,9 @@
 #include "paddle/phi/core/platform/device_context.h"
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
 #include "paddle/common/flags.h"
-#include "paddle/fluid/platform/collective_helper.h"
 #include "paddle/phi/core/distributed/comm_context_manager.h"
 #include "paddle/phi/core/distributed/nccl_comm_context.h"
+#include "paddle/phi/core/platform/collective_helper.h"
 COMMON_DECLARE_bool(dynamic_static_unified_comm);
 #endif
 
@@ -332,7 +332,7 @@ template <typename T>
 DownstreamRunType analyse_run_type_for_two_instructions(T* cur_instr,
                                                         T* next_instr,
                                                         const Place& place) {
-  // xpu&ipu memcpy kerenl is synchronous.
+  // xpu&ipu memcpy kernel is synchronous.
   if (phi::is_ipu_place(place) || phi::is_xpu_place(place)) {
     return DownstreamRunType::kDirectRun;
   }

@@ -23,17 +23,14 @@ limitations under the License. */
 #include "paddle/phi/infermeta/spmd_rules/spmd_rule_macro_define.h"
 #include "paddle/phi/infermeta/spmd_rules/utils.h"
 
-namespace phi {
-namespace distributed {
+namespace phi::distributed {
 
 using phi::distributed::auto_parallel::str_join;
 
 ////////////////// Utils Functions //////////////////
-
-SpmdInfo ScatterInferSpmd(const DistMetaTensor& x,
-                          const DistMetaTensor& index,
-                          const DistMetaTensor& updates,
-                          bool overwrite) {
+SpmdInfo ScatterBaseInferSpmd(const DistMetaTensor& x,
+                              const DistMetaTensor& index,
+                              const DistMetaTensor& updates) {
   // Step0: Verify Input Args Based on Scatter Logic
   // extract and check x_ndim, x_shape, x_dist_attr_src and
   // x_dims_mapping_src with the macro
@@ -108,11 +105,23 @@ SpmdInfo ScatterInferSpmd(const DistMetaTensor& x,
           {out_dist_attr}};
 }
 
-SpmdInfo ScatterInferSpmdReverse(const DistMetaTensor& x,
-                                 const DistMetaTensor& index,
-                                 const DistMetaTensor& updates,
-                                 const DistMetaTensor& out,
-                                 bool overwrite) {
+SpmdInfo ScatterInferSpmd(const DistMetaTensor& x,
+                          const DistMetaTensor& index,
+                          const DistMetaTensor& updates,
+                          bool overwrite) {
+  return ScatterBaseInferSpmd(x, index, updates);
+}
+
+SpmdInfo ScatterNdAddInferSpmd(const DistMetaTensor& x,
+                               const DistMetaTensor& index,
+                               const DistMetaTensor& updates) {
+  return ScatterBaseInferSpmd(x, index, updates);
+}
+
+SpmdInfo ScatterBaseInferSpmdReverse(const DistMetaTensor& x,
+                                     const DistMetaTensor& index,
+                                     const DistMetaTensor& updates,
+                                     const DistMetaTensor& out) {
   // Step0: Verify Input Args Based on Scatter Logic
   // extract and check out_ndim, out_shape, out_dist_attr_src and
   // out_dims_mapping_src with the macro
@@ -167,6 +176,21 @@ SpmdInfo ScatterInferSpmdReverse(const DistMetaTensor& x,
           {out_dist_attr_dst}};
 }
 
+SpmdInfo ScatterInferSpmdReverse(const DistMetaTensor& x,
+                                 const DistMetaTensor& index,
+                                 const DistMetaTensor& updates,
+                                 const DistMetaTensor& out,
+                                 bool overwrite) {
+  return ScatterBaseInferSpmdReverse(x, index, updates, out);
+}
+
+SpmdInfo ScatterNdAddInferSpmdReverse(const DistMetaTensor& x,
+                                      const DistMetaTensor& index,
+                                      const DistMetaTensor& updates,
+                                      const DistMetaTensor& out) {
+  return ScatterBaseInferSpmdReverse(x, index, updates, out);
+}
+
 SpmdInfo ScatterGradInferSpmd(const DistMetaTensor& index,
                               const DistMetaTensor& updates,
                               const DistMetaTensor& out_grad,
@@ -208,5 +232,4 @@ SpmdInfo ScatterGradInferSpmd(const DistMetaTensor& index,
           {x_grad_dist_attr, updates_grad_dist_attr}};
 }
 
-}  // namespace distributed
-}  // namespace phi
+}  // namespace phi::distributed

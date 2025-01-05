@@ -20,7 +20,7 @@
 #include "paddle/fluid/framework/new_executor/program_interpreter.h"
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 #include "paddle/fluid/pir/transforms/pd_op_to_kernel_pass.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 #include "paddle/fluid/ir_adaptor/translator/translate.h"
 #include "paddle/fluid/pir/transforms/general/inplace_pass.h"
@@ -87,6 +87,8 @@ StandaloneExecutor::StandaloneExecutor(const phi::Place& place,
     interpreter::ExecutionConfig execution_config;
     execution_config.create_local_scope = false;
     execution_config.skip_gc_vars = job->SkipGcVars();
+    execution_config.force_sync_ops =
+        interpreter::GetForceSyncOps(micro_batch_id, job_type);
 
     // TODO(phlrain) we only support cpu for now
     if (FLAGS_enable_pir_in_executor) {
@@ -157,9 +159,9 @@ StandaloneExecutor::StandaloneExecutor(const phi::Place& place,
                           common::errors::InvalidArgument(
                               "When using pipeline strategy in auto "
                               "prarallelism with new executor, "
-                              "the backward subprogram must be builded in real "
+                              "the backward subprogram must be built in real "
                               "static build mode, but it can not "
-                              "be staticly builded in this case. You can "
+                              "be staticly built in this case. You can "
                               "enable 'GLOG_v=1' to obtain log information."));
       }
     }

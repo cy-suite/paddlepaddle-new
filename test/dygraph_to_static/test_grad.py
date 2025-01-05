@@ -178,5 +178,46 @@ class TestUnuseGradVar(Dy2StTestBase):
         np.testing.assert_array_equal(x.grad.numpy(), [1])
 
 
+class NoGradNet(paddle.nn.Layer):
+    def __init__(self):
+        super().__init__()
+        self.linear = paddle.nn.Linear(3, 4)
+
+    def forward(self, x):
+        with paddle.no_grad():
+            out = self.linear(x)
+        return out
+
+
+class TestNoGrad(Dy2StTestBase):
+    @test_pir_only
+    def test_run(self):
+        net = NoGradNet()
+        net = paddle.jit.to_static(net)
+        x = paddle.rand([2, 3], 'float32')
+        x.stop_gradient = False
+        out = net(x)
+        np.testing.assert_array_equal(out.stop_gradient, True)
+
+
+def grad_with_if_case(x):
+    y = paddle.tanh(x)
+    if x.numel() > 0:
+        return paddle.grad([y], [x])[0]
+    return paddle.ones_like(x, dtype='float32')
+
+
+class TestGradWithIf(Dy2StTestBase):
+    @test_pir_only
+    def test_grad_with_if(self):
+        fn = grad_with_if_case
+        static_fn = paddle.jit.to_static(fn)
+        x = paddle.randn([2, 2])
+        x.stop_gradient = False
+        dx = fn(x)
+        dx_st = static_fn(x)
+        np.testing.assert_allclose(dx, dx_st)
+
+
 if __name__ == '__main__':
     unittest.main()

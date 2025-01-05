@@ -10,17 +10,10 @@
 - any
 - assign_out_
 - assign_value_
-- c_allgather
-- c_allreduce_max
-- c_allreduce_min
-- c_allreduce_prod
 - c_allreduce_sum
-- c_broadcast
 - c_concat
 - c_identity
-- c_reduce_sum
-- c_sync_calc_stream
-- c_sync_comm_stream
+- c_split
 - cast
 - conv2d_transpose
 - conv2d_transpose_bias
@@ -47,7 +40,6 @@
 - full_with_tensor
 - fused_batch_norm_act
 - fused_bn_add_activation
-- fused_multi_transformer
 - fused_softmax_mask
 - fused_softmax_mask_upper_triangle
 - gaussian
@@ -62,6 +54,7 @@
 - memcpy_d2h
 - memcpy_h2d
 - mish
+- mp_allreduce_sum
 - norm
 - one_hot
 - ones

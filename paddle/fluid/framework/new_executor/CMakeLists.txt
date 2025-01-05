@@ -14,6 +14,11 @@ if(NOT WITH_ONEDNN)
     ${CMAKE_CURRENT_SOURCE_DIR}/instruction/onednn/onednn_mixed_instruction.cc)
 endif()
 
+if(NOT WITH_CUSTOM_DEVICE)
+  list(REMOVE_ITEM standalone_executor_srcs
+       ${CMAKE_CURRENT_SOURCE_DIR}/instruction/custom_engine_instruction.cc)
+endif()
+
 if(NOT TENSORRT_FOUND OR NOT WITH_TENSORRT)
   list(REMOVE_ITEM standalone_executor_srcs
        ${CMAKE_CURRENT_SOURCE_DIR}/instruction/tensorrt_engine_instruction.cc)
@@ -24,13 +29,11 @@ set(standalone_executor_deps
     program_translator
     op_dialect_vjp
     global_utils
-    buffered_reader
     framework_io
     garbage_collector
     executor_gc_helper
     phi
-    common
-    framework_proto)
+    common)
 
 if(WITH_CINN)
   set(standalone_executor_deps
@@ -53,7 +56,7 @@ cc_library(
   SRCS ${standalone_executor_srcs}
   DEPS ${standalone_executor_deps})
 
-add_dependencies(standalone_executor xxhash framework_proto)
+add_dependencies(standalone_executor xxhash)
 
 if(WITH_ONEDNN)
   add_dependencies(standalone_executor onednn)

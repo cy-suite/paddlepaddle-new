@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
     import numpy.typing as npt
 
-    from paddle._typing import NestedNumbericSequence
+    from paddle._typing import NestedNumericSequence
 
     _NumpyShapeLike = Union[SupportsIndex, Sequence[SupportsIndex]]
 
@@ -109,7 +109,7 @@ class ProcessMesh(core.ProcessMesh):
 
     def __init__(
         self,
-        mesh: npt.NDArray[Any] | NestedNumbericSequence | None = None,
+        mesh: npt.NDArray[Any] | NestedNumericSequence | None = None,
         dim_names: list[str] | None = None,
         shape: _NumpyShapeLike | None = None,
         process_ids: Iterable[Any] | None = None,
@@ -355,7 +355,7 @@ class ProcessMesh(core.ProcessMesh):
         return not self.__eq__(other)
 
     def __str__(self) -> str:
-        str = f"shape {self.shape}, process_ids {self.process_ids}, dim_nams {self.dim_names}"
+        str = f"shape {self.shape}, process_ids {self.process_ids}, dim_names {self.dim_names}"
         return str
 
     def __hash__(self) -> int:

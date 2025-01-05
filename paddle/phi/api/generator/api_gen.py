@@ -417,6 +417,12 @@ def source_include(header_file_path):
 #include "paddle/phi/api/profiler/event_tracing.h"
 #include "paddle/phi/api/profiler/supplement_tracing.h"
 
+#include "paddle/phi/core/platform/device_context.h"
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
+#include "paddle/phi/core/distributed/comm_context_manager.h"
+#include "paddle/phi/core/distributed/nccl_comm_context.h"
+#endif
+
 #ifdef PADDLE_WITH_DISTRIBUTE
 #include "paddle/phi/infermeta/spmd_rules/rules.h"
 #include "paddle/phi/core/distributed/auto_parallel/reshard/reshard_utils.h"
@@ -424,6 +430,7 @@ def source_include(header_file_path):
 
 PD_DECLARE_bool(conv2d_disable_cudnn);
 COMMON_DECLARE_int32(low_precision_op_list);
+COMMON_DECLARE_bool(benchmark);
 """
 
 

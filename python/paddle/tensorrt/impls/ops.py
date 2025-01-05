@@ -15,19 +15,17 @@ import tensorrt as trt
 
 from paddle.tensorrt.register import converter_registry
 
+ops_type_map = {
+    "pd_op.sqrt": trt.UnaryOperation.SQRT,
+    "pd_op.sqrt_": trt.UnaryOperation.SQRT,
+    "pd_op.floor": trt.UnaryOperation.FLOOR,
+}
 
-@converter_registry.register("pd_op.sqrt", trt_version="8.x")
-@converter_registry.register("pd_op.sqrt_", trt_version="8.x")
+
+@converter_registry.register("pd_op.sqrt", trt_version="trt_version_ge=8.0")
+@converter_registry.register("pd_op.sqrt_", trt_version="trt_version_ge=8.0")
+@converter_registry.register("pd_op.floor", trt_version="8.x")
 def sqrt_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
-
-    sqrt_layer = network.add_unary(input_tensor, trt.UnaryOperation.SQRT)
-    return sqrt_layer.get_output(0)
-
-
-@converter_registry.register("pd_op.sigmoid", trt_version="8.x")
-def sigmoid_converter(network, paddle_op, inputs):
-    sigmoid_layer = network.add_activation(
-        inputs[0], trt.ActivationType.SIGMOID
-    )
-    return sigmoid_layer.get_output(0)
+    layer = network.add_unary(input_tensor, ops_type_map[paddle_op.name()])
+    return layer.get_output(0)

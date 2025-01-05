@@ -27,10 +27,10 @@ struct PatternNode {
       std::function<StmtPattern(const StmtPattern&, const StmtPattern&)>;
 
   explicit PatternNode(const PatternContent& content,
-                       const ShardableAxesSignature& axes)
+                       const FusionItersSignature& fusion_iters)
       : sink_op_(content.op),
         stmt_pattern_(ConvertToStmtPattern(content)),
-        fusion_iters_(FusionItersSignature(content.op, axes)) {}
+        fusion_iters_(fusion_iters) {}
 
   explicit PatternNode(PatternNodePtr fused_up_node,
                        PatternNodePtr fused_down_node,
@@ -50,8 +50,7 @@ struct PatternNode {
 
   std::string DebugStr() const {
     std::stringstream ss;
-    ss << "Node: " << this << ", Pattern: " << GetPatternName(stmt_pattern())
-       << ", ID: " << GetPatternId(stmt_pattern());
+    ss << "Node: " << this << ", ID: " << GetPatternId(stmt_pattern());
     ss << "\n    -u>:  ";
     for (const auto& u : upstream_) {
       ss << GetPatternId(u->stmt_pattern()) << "(" << u << "), ";
@@ -61,24 +60,21 @@ struct PatternNode {
       ss << GetPatternId(d->stmt_pattern()) << "(" << d << "), ";
     }
     ss << "\n" << fusion_iters_.DebugStr();
-    pir::IrPrinter printer(ss);
-    if (GetPatternName(stmt_pattern_) == AnchorPattern::name()) {
-      ss << "\n anchor: ";
-      auto anchor_op =
-          std::get<AnchorPattern>(stmt_pattern_).anchor().defining_op();
-      printer.PrintOperation(const_cast<pir::Operation*>(anchor_op));
-    }
     ss << "\nOps in pattern:" << std::endl;
     ss << OpsDebugStr(GetOpsInPattern(this->stmt_pattern()));
+    ss << "Loop Framework is: " << GetLoopFramework(this->stmt_pattern()).loop;
     return ss.str();
   }
 
   pir::Operation* sink_op() const { return sink_op_; }
+  std::vector<pir::Operation*> ops() const {
+    return GetOpsInPattern(stmt_pattern_);
+  }
   const StmtPattern& stmt_pattern() const { return stmt_pattern_; }
   void set_stmt_pattern(const StmtPattern& pattern) { stmt_pattern_ = pattern; }
   const std::vector<PatternNodePtr>& upstream() const { return upstream_; }
   const std::vector<PatternNodePtr>& downstream() const { return downstream_; }
-  std::string name() const { return GetPatternName(stmt_pattern_); }
+  PatternType type() const { return GetPatternType(stmt_pattern_); }
   std::string id() const { return GetPatternId(stmt_pattern_); }
   void set_return() const { SetReturnInstr(stmt_pattern_); }
   void AddNodeToUpstream(PatternNodePtr node) { upstream_.push_back(node); }
@@ -100,8 +96,8 @@ struct PatternNode {
   FusionItersSignature fusion_iters() const { return fusion_iters_; }
   void set_fusion_iters(const FusionItersSignature& fusion_iters) {
     fusion_iters_ = fusion_iters;
-    VLOG(4) << "set_fusion_iters";
   }
+  FusionTrackerPtr fusion_tracker() { return GetFusionTracker(stmt_pattern_); }
 
  private:
   StmtPattern stmt_pattern_;
@@ -114,4 +110,16 @@ struct PatternNode {
 };
 
 using PatternNodePtr = std::shared_ptr<PatternNode>;
+
+struct PatternNodeCompare {
+  bool operator()(const PatternNodePtr& lhs, const PatternNodePtr& rhs) const {
+    int lhs_id = std::stoi(
+        lhs->id().substr(lhs->id().find_last_of('_') + 1, std::string::npos));
+    int rhs_id = std::stoi(
+        rhs->id().substr(rhs->id().find_last_of('_') + 1, std::string::npos));
+    return lhs->type() == rhs->type() ? lhs_id < rhs_id
+                                      : lhs->type() < rhs->type();
+  }
+};
+using PatternNodePtrSet = std::set<PatternNodePtr, PatternNodeCompare>;
 }  // namespace cinn::fusion

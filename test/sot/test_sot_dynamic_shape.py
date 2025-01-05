@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import math
 import unittest
 
 from test_case_base import (
@@ -24,7 +25,7 @@ from test_case_base import (
 import paddle
 from paddle.jit.sot.psdb import check_no_breakgraph
 from paddle.jit.sot.utils import (
-    with_allow_dynamic_shape_guard,
+    allow_dynamic_shape_guard,
 )
 
 
@@ -58,6 +59,12 @@ def dynamic_shape_in_list(x, shape):
     return x.reshape(shape)
 
 
+def dynamic_shape_int_mul_float(x):
+    y = x * 0.5
+    z = math.sin(y)  # Trigger get_py_value
+    return z
+
+
 class CustomConv(paddle.nn.Conv2D):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -78,7 +85,7 @@ class CustomConv(paddle.nn.Conv2D):
 
 class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
     def test_dynamic_int_input_cache_hit_case1(self):
-        with with_allow_dynamic_shape_guard(
+        with allow_dynamic_shape_guard(
             True
         ), test_instruction_translator_cache_context() as ctx:
             self.assert_results(
@@ -92,7 +99,7 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
                 self.assertEqual(ctx.translate_count, 2)
 
     def test_dynamic_int_input_cache_hit_case2(self):
-        with with_allow_dynamic_shape_guard(
+        with allow_dynamic_shape_guard(
             True
         ), test_instruction_translator_cache_context() as ctx:
             self.assert_results(
@@ -106,7 +113,7 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
                 self.assertEqual(ctx.translate_count, 2)
 
     def test_dynamic_int_input_cache_hit_case3(self):
-        with with_allow_dynamic_shape_guard(
+        with allow_dynamic_shape_guard(
             True
         ), test_instruction_translator_cache_context() as ctx:
             for i in range(0, 6):
@@ -116,7 +123,7 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
                 self.assertEqual(ctx.translate_count, i + 1)
 
     def test_dynamic_shape_input_cache_hit_case1(self):
-        with with_allow_dynamic_shape_guard(
+        with allow_dynamic_shape_guard(
             True
         ), test_instruction_translator_cache_context() as ctx:
             self.assert_results(
@@ -130,7 +137,7 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
                 self.assertEqual(ctx.translate_count, 2)
 
     def test_dynamic_shape_input_cache_hit_case2(self):
-        with with_allow_dynamic_shape_guard(
+        with allow_dynamic_shape_guard(
             True
         ), test_instruction_translator_cache_context() as ctx:
             self.assert_results(
@@ -145,7 +152,7 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
                 self.assertEqual(ctx.translate_count, 2)
 
     def test_dynamic_shape_cast(self):
-        with with_allow_dynamic_shape_guard(
+        with allow_dynamic_shape_guard(
             True
         ), test_instruction_translator_cache_context() as ctx:
             func1 = check_no_breakgraph(lambda n: bool(n))
@@ -156,7 +163,7 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
                 self.assert_results(func, 2)
 
     def test_dynamic_shape_in_list(self):
-        with with_allow_dynamic_shape_guard(
+        with allow_dynamic_shape_guard(
             True
         ), test_instruction_translator_cache_context() as ctx:
             self.assert_results(
@@ -173,14 +180,32 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
                 )
                 self.assertEqual(ctx.translate_count, 2)
 
-    def test_dynamic_shape_fallback(self):
-        with with_allow_dynamic_shape_guard(
+    def test_conv_dynamic_shape_fallback(self):
+        with allow_dynamic_shape_guard(
             True
         ), test_instruction_translator_cache_context() as ctx:
             for i in range(1, 5):
                 conv = CustomConv(3, 3, 3, stride=i)
                 conv(paddle.randn([1, 3, 224, 224]))
                 self.assertEqual(ctx.translate_count, i)
+
+    def test_pad_dynamic_shape_fallback(self):
+        with allow_dynamic_shape_guard(
+            True
+        ), test_instruction_translator_cache_context() as ctx:
+            pad_func = check_no_breakgraph(
+                lambda x, n: paddle.nn.functional.pad(x, [0, n, 0, 0])
+            )
+            for i in range(1, 5):
+                self.assert_results(pad_func, paddle.randn([1, 3, 224, 224]), i)
+                self.assertEqual(ctx.translate_count, i)
+
+    def test_dynamic_shape_int_mul_float(self):
+        with allow_dynamic_shape_guard(
+            True
+        ), test_instruction_translator_cache_context() as ctx:
+            for i in range(1, 6):
+                self.assert_results(dynamic_shape_int_mul_float, i)
 
 
 if __name__ == '__main__':

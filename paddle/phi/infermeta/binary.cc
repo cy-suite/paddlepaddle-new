@@ -192,8 +192,8 @@ void ArrayReadInferMeta(const MetaTensor& array,
 }
 
 void Atan2InferMeta(const MetaTensor& x, const MetaTensor& y, MetaTensor* out) {
-  auto x_dims = x.dims();
-  auto y_dims = y.dims();
+  const auto& x_dims = x.dims();
+  const auto& y_dims = y.dims();
 
   PADDLE_ENFORCE_EQ(
       x_dims.size(),
@@ -499,7 +499,6 @@ void CompareRawInferMeta(const MetaTensor& x,
                                   out_dims_array.data(),
                                   max_dim,
                                   axis);
-
     out->set_dims(common::make_ddim(out_dims_array));
     out->share_lod(x);
   }
@@ -1249,7 +1248,6 @@ void CrossEntropyWithSoftmaxInferMeta(const MetaTensor& logits,
 void CSoftmaxWithCrossEntropyInferMeta(const MetaTensor& logits,
                                        const MetaTensor& label,
                                        int64_t ignore_index,
-                                       int ring_id,
                                        int rank,
                                        int nranks,
                                        MetaTensor* softmax,
@@ -2024,7 +2022,7 @@ void GatherInferMeta(const MetaTensor& x,
 
   auto input_dim = x.dims();
   auto axis_v = axis.to<int>();
-  if (axis_v < 0) axis_v += input_dim.size();
+  if (axis_v < 0) axis_v += static_cast<int>(input_dim.size());
 
   PADDLE_ENFORCE_GE(
       axis_v,
@@ -2150,6 +2148,7 @@ void GatherTreeMeta(const MetaTensor& ids,
                         "The shape of Input(Parents) must be same with the "
                         "shape of Input(Ids)."));
   out->set_dims(ids_dims);
+  out->set_dtype(ids.dtype());
 }
 
 void GridSampleBaseInferMeta(const MetaTensor& x,
@@ -2256,8 +2255,8 @@ void HingeLossInferMeta(const MetaTensor& logits,
 void HistogramInferMeta(const MetaTensor& input,
                         const MetaTensor& weight,
                         int64_t bins,
-                        int min,
-                        int max,
+                        float min,
+                        float max,
                         bool density,
                         MetaTensor* out) {
   PADDLE_ENFORCE_GE(bins,
@@ -2270,7 +2269,7 @@ void HistogramInferMeta(const MetaTensor& input,
       max,
       min,
       common::errors::InvalidArgument("max must be larger or equal to min."
-                                      "But received max is %d, min is %d",
+                                      "But received max is %f, min is %f",
                                       max,
                                       min));
   if (weight) {
@@ -2611,6 +2610,32 @@ void LimitByCapacityInferMeta(const MetaTensor& expert_count,
   out->set_dtype(expert_count.dtype());
 }
 
+void LodResetInferMeta(const MetaTensor& x,
+                       const MetaTensor& y,
+                       const std::vector<int>& target_lod,
+                       bool append,
+                       MetaTensor* out,
+                       MetaConfig config) {
+  if (y.initialized()) {
+    auto level0 = target_lod;
+    PADDLE_ENFORCE_GT(
+        static_cast<int64_t>(level0.size()),
+        0,
+        common::errors::InvalidArgument(
+            "If Input(Y) is not provided, the output's LoD should be "
+            "specified by attribute 'target_lod'. But the size of "
+            "'target_lod' is 0."));
+  } else if (config.is_runtime) {
+    out->share_lod(y);
+  }
+  if (append) {
+    out->share_lod(x);
+  }
+
+  out->set_dims(x.dims());
+  out->set_dtype(x.dtype());
+}
+
 void LogLossInferMeta(const MetaTensor& input,
                       const MetaTensor& label,
                       float epsilon,
@@ -2777,7 +2802,7 @@ void LookupTableInferMeta(const MetaTensor& w,
   PADDLE_ENFORCE_EQ(
       table_dims.size(),
       2,
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "ShapeError: The dimensions of the 'lookup table' must be 2. "
           "But received lookup table's dimensions = %d, "
           "lookup table's shape = [%s].",
@@ -2786,7 +2811,7 @@ void LookupTableInferMeta(const MetaTensor& w,
   PADDLE_ENFORCE_EQ(
       ids_dims[ids_rank - 1],
       1,
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "ShapeError: The last dimensions of the 'Ids' tensor must be 1. "
           "But received Ids's last dimensions = %d, Ids's shape = [%s].",
           ids_dims[ids_rank - 1],

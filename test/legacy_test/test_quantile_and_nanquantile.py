@@ -17,7 +17,6 @@ import unittest
 import numpy as np
 
 import paddle
-from paddle.pir_utils import test_with_pir_api
 
 API_list = [
     (paddle.quantile, np.quantile),
@@ -132,7 +131,7 @@ class TestQuantileAndNanquantile(unittest.TestCase):
                 )
 
     def test_backward(self):
-        def check_grad(x, q, axis, target_gard, apis=None):
+        def check_grad(x, q, axis, target_grad, apis=None):
             x = np.array(x, dtype="float32")
             paddle.disable_static()
             for op, _ in apis or API_list:
@@ -140,7 +139,7 @@ class TestQuantileAndNanquantile(unittest.TestCase):
                 op(x_p, q, axis).sum().backward()
                 np.testing.assert_allclose(
                     x_p.grad.numpy(),
-                    np.array(target_gard, dtype="float32"),
+                    np.array(target_grad, dtype="float32"),
                     rtol=1e-05,
                     equal_nan=True,
                 )
@@ -179,7 +178,7 @@ class TestQuantileAndNanquantile(unittest.TestCase):
                         )[0]
                         np.testing.assert_allclose(
                             o,
-                            np.array(target_gard, dtype="float32"),
+                            np.array(target_grad, dtype="float32"),
                             rtol=1e-05,
                             equal_nan=True,
                         )
@@ -367,7 +366,6 @@ class TestQuantileRuntime(unittest.TestCase):
                         paddle_res.numpy(), np_res, rtol=1e-05
                     )
 
-    @test_with_pir_api
     def test_static(self):
         paddle.enable_static()
         for func, res_func in API_list:

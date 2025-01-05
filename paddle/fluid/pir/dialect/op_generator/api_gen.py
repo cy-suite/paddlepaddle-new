@@ -72,6 +72,48 @@ type_promote_inplace_white_list = {
     "remainder_": ["x", "y"],
 }
 
+# ops support casting int tensor into float32 to do forward calculation
+type_autocast_op_list = {
+    "acos": ["x"],
+    "acosh": ["x"],
+    "asin": ["x"],
+    "asinh": ["x"],
+    "atan": ["x"],
+    "atanh": ["x"],
+    "ceil": ["x"],
+    "cos": ["x"],
+    "cosh": ["x"],
+    "digamma": ["x"],
+    "erf": ["x"],
+    "erfinv": ["x"],
+    "floor": ["x"],
+    "i0": ["x"],
+    "i0e": ["x"],
+    "i1": ["x"],
+    "i1e": ["x"],
+    "lgamma": ["x"],
+    "logcumsumexp": ["x"],
+    "logit": ["x"],
+    "logsumexp": ["x"],
+    "polygamma": ["x"],
+    "reciprocal": ["x"],
+    "rsqrt": ["x"],
+    "sigmoid": ["x"],
+    "sin": ["x"],
+    "sinh": ["x"],
+    "sqrt": ["x"],
+    "stanh": ["x"],
+    "tan": ["x"],
+    "tanh": ["x"],
+}
+
+# ops support casting int tensor into float32 to do forward calculation,
+# and it is valid to cast float32 gradient back to int tensor.
+type_autocast_valid_grad_op_list = {
+    "ceil",
+    "floor",
+}
+
 PD_MANUAL_API_LIST = {
     'embedding_grad',
     'assign',
@@ -140,6 +182,8 @@ API_INNER_CODE_TEMPLATE = """
     {amp_logic}
     // Type Promotion Logic
     {type_promotion_logic}
+    // Type Autocast Logic
+    {type_autocast_logic}
     {check_data_type}
     {handle_optional_inputs}
     {in_combine}
@@ -147,8 +191,14 @@ API_INNER_CODE_TEMPLATE = """
     {set_null_type}
     {handle_optional_outputs}
     {out_split}
+    {set_stop_gradient}
     {return_result}"""
 
+SET_STOP_GRADIENT_TEMPLATE = """
+    if (!egr::Controller::Instance().HasGrad()) {{
+        SetStopGradient({value_list});
+    }}
+"""
 
 AMP_LOGIC_TEMPLATE = """
     if (egr::Controller::Instance().GetCurrentAmpAttrs()->GetAmpLevel() != paddle::imperative::AmpLevel::O0){{
@@ -186,6 +236,18 @@ TYPE_PROMOTION_LOGIC_TEMPLATE = """
     {x_cast}
     auto new_{y} = pir::PromoteCast("{y}", {y}, promotion_type);
 
+    return paddle::dialect::{op_name}({args});
+  }}
+"""
+
+TYPE_AUTOCAST_LOGIC_TEMPLATE = """
+    auto x_dtype = paddle::imperative::GetDataType({x});
+    if (phi::NeedTypeAutoCast("{op_name}", x_dtype)) {{
+    VLOG(5) << "math operation got integer input data type, run type autocast.";
+    LOG_FIRST_N(WARNING, 1) << "math operation got integer input data type, run type autocast, this may cause data type been changed.";
+    //{op_name}
+    if (!{trace_backward}) {{ SetStopGradient({x}); }}
+    auto new_{x} = pir::PromoteCast("{x}", {x}, phi::DataType::FLOAT32);
     return paddle::dialect::{op_name}({args});
   }}
 """
@@ -261,7 +323,7 @@ SET_NULL_TYPE_TEMPLATE = """
     }}"""
 
 COMBINE_OP_TEMPLATE = """
-    auto {op_name} = ApiBuilder::Instance().GetBuilder()->Build<pir::CombineOp>({in_name});"""
+    auto {op_name} = builtin_combine({in_name}).defining_op<pir::CombineOp>();"""
 
 SPLIT_OP_TEMPLATE = """
     auto {op_name} = ApiBuilder::Instance().GetBuilder()->Build<pir::SplitOp>({in_name});"""
@@ -698,6 +760,14 @@ class CodeGen:
                 ret_list.append(f'{op_inst_name}.result({i})')
         return split_op_str, ret_list
 
+    def _gen_set_stop_gradient(self, ret_list):
+        if len(ret_list) > 0:
+            return SET_STOP_GRADIENT_TEMPLATE.format(
+                value_list=', '.join(ret_list)
+            )
+        else:
+            return ''
+
     def _gen_return_result(self, ret_list):
         if len(ret_list) > 1:
             return 'return std::make_tuple({});'.format(', '.join(ret_list))
@@ -846,6 +916,44 @@ class CodeGen:
             )
 
         return type_promotion_logic_str
+
+    def _gen_type_autocast_args(self, op_info, op_name):
+        type_autocast_inputs_call_list = []
+        for name in op_info.input_name_list:
+            if op_name in type_autocast_op_list:
+                if name in type_autocast_op_list[op_name]:
+                    type_autocast_inputs_call_list.append(f"new_{name}")
+                else:
+                    type_autocast_inputs_call_list.append(f"{name}")
+
+        attr_list = op_info.attribute_name_list
+        args = type_autocast_inputs_call_list + attr_list
+        return ', '.join(args)
+
+    def _gen_type_autocast_logic(self, op_info, op_name):
+        if op_name in type_autocast_op_list:
+            x = type_autocast_op_list[op_name][0]
+
+            type_autocast_inputs_call_args_str = self._gen_type_autocast_args(
+                op_info, op_name
+            )
+            trace_backward = op_name in type_autocast_valid_grad_op_list
+            trace_backward = str(trace_backward).lower()
+
+            if op_info.is_sparse_op:
+                op_name += "sp_" if op_name[-1] == "_" else "_sp"
+            type_autocast_logic_str = TYPE_AUTOCAST_LOGIC_TEMPLATE.format(
+                op_name=op_name,
+                x=x,
+                trace_backward=trace_backward,
+                args=type_autocast_inputs_call_args_str,
+            )
+        else:
+            type_autocast_logic_str = (
+                f'\n VLOG(5) << " No Type Autocast for {op_name} api. "; '
+            )
+
+        return type_autocast_logic_str
 
     def _gen_check_data_type(self, op_info, op_name):
         mapping_input_name_to_type = dict(
@@ -1030,6 +1138,9 @@ class CodeGen:
                     type_promotion_logic=self._gen_type_promotion_logic(
                         op_info, op_name
                     ),
+                    type_autocast_logic=self._gen_type_autocast_logic(
+                        op_info, op_name
+                    ),
                     check_data_type=self._gen_check_data_type(
                         op_info, kernel_name
                     ),
@@ -1043,6 +1154,7 @@ class CodeGen:
                     ),
                     set_null_type=self._gen_set_null_type(op_info, kernel_name),
                     out_split=out_split,
+                    set_stop_gradient=self._gen_set_stop_gradient(ret_list),
                     return_result=self._gen_return_result(ret_list),
                 )
                 if_inner_code = if_inner_code.split('\n')
@@ -1094,6 +1206,9 @@ class CodeGen:
                 type_promotion_logic=self._gen_type_promotion_logic(
                     op_info, op_name
                 ),
+                type_autocast_logic=self._gen_type_autocast_logic(
+                    op_info, op_name
+                ),
                 check_data_type=self._gen_check_data_type(op_info, kernel_name),
                 handle_optional_inputs=self._gen_handle_optional_inputs(
                     op_info
@@ -1105,6 +1220,7 @@ class CodeGen:
                 ),
                 set_null_type=self._gen_set_null_type(op_info, op_name),
                 out_split=out_split,
+                set_stop_gradient=self._gen_set_stop_gradient(ret_list),
                 return_result=self._gen_return_result(ret_list),
             )
             if op_info.is_sparse_op:

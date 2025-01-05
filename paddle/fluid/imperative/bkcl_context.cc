@@ -22,9 +22,9 @@
 
 #include "paddle/fluid/framework/convert_utils.h"
 #include "paddle/fluid/framework/variable.h"
-#include "paddle/fluid/platform/collective_helper.h"
 #include "paddle/fluid/platform/device/xpu/bkcl_helper.h"
 #include "paddle/phi/common/place.h"
+#include "paddle/phi/core/platform/collective_helper.h"
 #include "paddle/phi/core/platform/device_context.h"
 #include "paddle/phi/core/platform/gen_comm_id_helper.h"
 #include "paddle/utils/string/split.h"
@@ -173,7 +173,7 @@ void BKCLParallelContext::AllReduceByStream(const framework::Variable &src,
   } else {
     PADDLE_THROW(common::errors::InvalidArgument(
         "XPU unsupported variable type %s for imperative allreduce, only "
-        "LoDTensor are supported.",
+        "DenseTensor are supported.",
         common::demangle(framework::ToTypeName(src.Type()))));
   }
 }

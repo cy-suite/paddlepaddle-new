@@ -13,6 +13,8 @@
 # limitations under the License.
 
 
+import os
+
 import paddle
 from paddle import framework
 from paddle.autograd import no_grad
@@ -28,24 +30,32 @@ from paddle.framework import core
 from paddle.nn import ClipGradByGlobalNorm, clip
 
 from ...base.topology import ParallelMode
+from ...utils import timer_helper as timer
 from ...utils.hybrid_parallel_util import (
     fused_allreduce_gradients,
     unwrap_optimizer,
 )
-from ...utils.log_util import logger, sync_rotate_logger
+from ...utils.log_util import get_sync_logger, logger
 from ...utils.mix_precision_utils import MixPrecisionOptimizer
+
+g_profile_optimizer_details_steps = int(
+    os.getenv("FLAGS_profile_optimizer_details_steps", "0")
+)
 
 __all__ = []
 
 
 class HybridParallelClipGrad:
-    def __init__(self, clip, hcg):
+    def __init__(self, clip, hcg, timers=None):
         self._clip = clip
         self._hcg = hcg
         self.not_sharding_stage1 = True
+        self._timers = timers
+        self.processed_steps = 0
 
     def _global_norm(self, global_norm_var_dist, global_norm_var_not_dist):
-        sync_rotate_logger().info("Starting to calculate global norm.")
+        if self.processed_steps < g_profile_optimizer_details_steps:
+            get_sync_logger().info("Starting to calculate global norm.")
         # sharding first
         sharding_flag = self._hcg.get_sharding_parallel_world_size() > 1
         dp_flag = self._hcg.get_data_parallel_world_size() > 1
@@ -55,12 +65,11 @@ class HybridParallelClipGrad:
         # add all reduce to get global norm of distributed params_and_grads
         if sharding_flag:
             # norm of mp distributed variable
-            if mp_flag:
-                # dist should reduce among sharding group、mp group、pp group
-                paddle.distributed.all_reduce(
-                    global_norm_var_dist,
-                    group=self._hcg.get_sharding_parallel_group(),
-                )
+            # dist should reduce among sharding group、mp group、pp group
+            paddle.distributed.all_reduce(
+                global_norm_var_dist,
+                group=self._hcg.get_sharding_parallel_group(),
+            )
             # not dist only reduce among sharding group and pp group later
             paddle.distributed.all_reduce(
                 global_norm_var_not_dist,
@@ -95,10 +104,14 @@ class HybridParallelClipGrad:
                 group=self._hcg.get_pipe_parallel_group(),
             )
 
-        sync_rotate_logger().info("Finished calculating global norm.")
+        if self.processed_steps < g_profile_optimizer_details_steps:
+            get_sync_logger().info("Finished calculating global norm.")
+        self.processed_steps += 1
 
     @no_grad()
     def _dygraph_clip(self, params_grads):
+        if self._timers:
+            self._timers("dygraph-clip").start()
         sum_square_dist_fp16 = []
         sum_square_dist_bf16 = []
         sum_square_dist_fp32 = []
@@ -200,9 +213,13 @@ class HybridParallelClipGrad:
             + global_norm_not_dist_fp32
         )
 
-        return self._comm_and_clip(
+        result = self._comm_and_clip(
             params_grads, global_norm_var_dist, global_norm_var_not_dist
         )
+        if self._timers:
+            self._timers("dygraph-clip").stop()
+
+        return result
 
     def _comm_and_clip(
         self, params_grads, global_norm_var_dist, global_norm_var_not_dist
@@ -270,6 +287,16 @@ class HybridParallelOptimizer:
                 else DygraphShardingOptimizer
             )
             optimizer = ShardingOptimizer(optimizer, hcg)
+
+        self._enable_timer = strategy.hybrid_configs["enable_optimizer_timer"]
+
+        if self._enable_timer:
+            if not timer.is_timer_initialized():
+                timer.set_timers()
+            self._timers = timer.get_timers()
+        else:
+            self._timers = None
+
         self._inner_opt = optimizer
         self._strategy = strategy
         self._hcg = hcg
@@ -319,11 +346,11 @@ class HybridParallelOptimizer:
                 > 0
             ):
                 inner_opt._grad_clip = HybridParallelClipGrad(
-                    inner_opt._grad_clip, hcg
+                    inner_opt._grad_clip, hcg, self._timers
                 )
             else:
                 inner_opt._grad_clip = HybridParallelClipGrad(
-                    inner_opt._grad_clip, hcg
+                    inner_opt._grad_clip, hcg, self._timers
                 )
                 if inner_opt._parameter_list and isinstance(
                     inner_opt._parameter_list[0], dict
@@ -331,8 +358,9 @@ class HybridParallelOptimizer:
                     for item in inner_opt._param_groups:
                         if "grad_clip" in item.keys():
                             item["grad_clip"] = HybridParallelClipGrad(
-                                inner_opt._grad_clip, hcg
+                                inner_opt._grad_clip, hcg, self._timers
                             )
+        self.processed_steps = 0
 
     def _set_all_gather_overlap_forward(
         self, all_gather_overlap_forward, layers=None
@@ -379,7 +407,8 @@ class HybridParallelOptimizer:
         return False
 
     def _step(self, parameters_list):
-        sync_rotate_logger().info("Starting hybridoptimizer step")
+        if self.processed_steps < g_profile_optimizer_details_steps:
+            get_sync_logger().info("Starting hybridoptimizer step")
 
         mp_group = self._hcg.get_model_parallel_group()
         src_rank = self._hcg.get_model_parallel_group_src_rank()
@@ -416,14 +445,16 @@ class HybridParallelOptimizer:
                     p.grad, src_rank, mp_group, mp_configs.sync_mode
                 )
 
-        sync_rotate_logger().info("Starting mp grad sync")
+        if self.processed_steps < g_profile_optimizer_details_steps:
+            get_sync_logger().info("Starting mp grad sync")
 
         # Grad sync before opt
         if mp_group.nranks > 1 and mp_configs and mp_configs.sync_grad:
             for p in params:
                 syc_grad(p)
 
-        sync_rotate_logger().info("Finished mp grad sync")
+        if self.processed_steps < g_profile_optimizer_details_steps:
+            get_sync_logger().info("Finished mp grad sync")
 
         self._inner_opt.step()
 
@@ -486,7 +517,9 @@ class HybridParallelOptimizer:
         if mp_group.nranks > 1 and mp_configs and mp_configs.sync_moment:
             for p in params:
                 syc_moment(p)
-        sync_rotate_logger().info("Finishing hybridoptimizer step")
+        if self.processed_steps < g_profile_optimizer_details_steps:
+            get_sync_logger().info("Finishing hybridoptimizer step")
+        self.processed_steps += 1
 
     def _hybrid_sync_grad(self, parameter_list):
         dp_parameter_list = parameter_list

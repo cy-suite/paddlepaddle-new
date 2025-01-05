@@ -18,19 +18,13 @@
 #include "paddle/cinn/common/cas.h"
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/common/enforce.h"
-PD_DECLARE_bool(cinn_bucket_compile);
+
 namespace cinn {
 namespace backends {
 
 std::tuple<ir::Module, ir::Module> SplitDeviceAndHostModule(ir::Module module) {
-  if (FLAGS_cinn_bucket_compile) {
-    detail::CollectBucketStrategyHostFunctionVisitor visitor(module->name);
-    Expr expr(module);
-    return visitor(&expr);
-  }
-  detail::CollectHostFunctionVisitor visitor(module->name);
-  Expr expr(module);
-  return visitor(&expr);
+  detail::CollectBucketStrategyHostFunctionVisitor visitor(module->name);
+  return visitor(module);
 }
 
 ir::Module CreateSwitchWithBroadcastConditionModule(
@@ -73,7 +67,7 @@ ir::Module CreateSwitchWithBroadcastConditionModule(
   const auto &CreateSwitchFunction =
       [&](std::vector<ir::Argument> func_arguments,
           const std::vector<ir::Expr> &read_args,
-          std::string name_extend) -> ir::Expr {
+          std::string name_extend) -> ir::LoweredFunc {
     std::vector<ir::Expr> body_stmts(symbolic_arg_define);
     for (int i = 0; i < broadcast_conditions.size(); ++i) {
       ir::Expr callee = ir::Call::Make(Void(),
@@ -93,33 +87,31 @@ ir::Module CreateSwitchWithBroadcastConditionModule(
             ir::IfThenElse::Make(broadcast_conditions[i], callee, false_expr));
       }
     }
-    ir::Expr caller = ir::_LoweredFunc_::Make(wrapper_func_name + name_extend,
-                                              func_arguments,
-                                              ir::Block::Make(body_stmts),
-                                              {});
+    ir::LoweredFunc caller =
+        ir::_LoweredFunc_::Make(wrapper_func_name + name_extend,
+                                func_arguments,
+                                ir::Block::Make(body_stmts),
+                                {});
     return caller;
   };
 
   ir::Module::Builder module_builder(wrapper_func_name + "_switch",
                                      cinn::common::DefaultHostTarget());
-  ir::Expr host_func_caller = CreateSwitchFunction(
+  ir::LoweredFunc host_func_caller = CreateSwitchFunction(
       host_func_arguments, {kernel_args, kernel_args_num, kernel_stream}, "");
-  ir::Expr infer_shape_func_caller =
+  ir::LoweredFunc infer_shape_func_caller =
       CreateSwitchFunction(infer_shape_func_arguments,
                            {kernel_args, kernel_args_num, tensor_shape_args},
                            "_infer_shape");
-  module_builder.AddFunctionWithoutOptim(
-      host_func_caller.as_lowered_func_ref());
-  module_builder.AddFunctionWithoutOptim(
-      infer_shape_func_caller.as_lowered_func_ref());
+  module_builder.AddFunctionWithoutOptim(host_func_caller);
+  module_builder.AddFunctionWithoutOptim(infer_shape_func_caller);
   // no need cx86 func
-  ir::Expr cx86_func_caller =
+  ir::LoweredFunc cx86_func_caller =
       ir::_LoweredFunc_::Make(wrapper_func_name + "_CX86",
                               host_func_arguments,
                               ir::Block::Make({}),
                               {});
-  module_builder.AddFunctionWithoutOptim(
-      cx86_func_caller.as_lowered_func_ref());
+  module_builder.AddFunctionWithoutOptim(cx86_func_caller);
   return module_builder.Build();
 }
 
@@ -165,7 +157,7 @@ static std::string CurTailFnName(const std::string &origin_fn_name) {
   if (origin_fn_name.length() <= MaxStrLength) {
     return origin_fn_name;
   }
-  VLOG(6) << "Funtion name too long. Curtail and concat hash.";
+  VLOG(6) << "Function name too long. Curtail and concat hash.";
   const std::string new_fn_name =
       origin_fn_name.substr(0, MaxStrLength) +
       std::to_string(std::hash<std::string>()(origin_fn_name));
@@ -191,9 +183,9 @@ detail::CollectBucketStrategyHostFunctionVisitor::GenDeviceKernelName(
 }
 
 void detail::CollectBucketStrategyHostFunctionVisitor::ProcessLoweredFunc(
-    ir::Expr func, ir::Expr predicate) {
+    ir::LoweredFunc func, ir::Expr predicate) {
   VLOG(4) << "Process Lowered Func" << func;
-  ir::_LoweredFunc_ *func_node = func.as_lowered_func();
+  ir::_LoweredFunc_ *func_node = func.As<ir::_LoweredFunc_>();
   PADDLE_ENFORCE_NOT_NULL(
       func_node,
       ::common::errors::InvalidArgument(
@@ -204,7 +196,7 @@ void detail::CollectBucketStrategyHostFunctionVisitor::ProcessLoweredFunc(
   }
   // process device func
   device_module_builder.AddFunctionWithoutOptim(
-      CreateDeviceFunction(func, predicate).as_lowered_func_ref());
+      CreateDeviceFunction(func, predicate));
   // process host func
   ir::Var kernel_ptr(GenDeviceKernelName(func_node->name, predicate),
                      type_of<std::string>());
@@ -221,7 +213,12 @@ void detail::CollectBucketStrategyHostFunctionVisitor::ProcessLoweredFunc(
       },
       [&](common::HygonDCUArchHIP) {
 #ifdef CINN_WITH_HIP
-        shared_mem_bytes = hip::CalculateSharedMemory(func);
+        shared_mem_bytes = CalculateSharedMemory(func);
+#endif
+      },
+      [&](common::HygonDCUArchSYCL) {
+#ifdef CINN_WITH_SYCL
+        shared_mem_bytes = Expr(0);
 #endif
       });
 
@@ -243,6 +240,9 @@ void detail::CollectBucketStrategyHostFunctionVisitor::ProcessLoweredFunc(
       },
       [&](common::HygonDCUArchHIP) {
         call_kernel = runtime::intrinsic::call_hip_kernel;
+      },
+      [&](common::HygonDCUArchSYCL) {
+        call_kernel = runtime::intrinsic::call_sycl_kernel;
       });
   ir::Expr call_extern_api =
       ir::Call::Make(Void(),
@@ -262,6 +262,24 @@ void detail::CollectBucketStrategyHostFunctionVisitor::ProcessLoweredFunc(
                      ir::CallType::Extern,
                      ir::FunctionRef(),
                      0);
+
+  // create memset calls for temp_spaces if needed
+  std::vector<ir::Expr> call_kernel_stmts;
+  for (auto &temp_space : func_node->temp_spaces) {
+    if (temp_space.need_zero_init()) {
+      ir::Expr size = common::cast(temp_space.size(), common::UInt(64));
+      ir::Expr call_get_arg =
+          lang::CallExtern(runtime::intrinsic::get_item_in_cuda_kernel_args,
+                           {kernel_args_, ir::Expr(temp_space.arg_idx())});
+      ir::Expr call_memset = lang::CallExtern(
+          runtime::intrinsic::call_cuda_memset,
+          {call_get_arg, ir::Expr(1), ir::Expr(0), size, kernel_stream_});
+      call_kernel_stmts.push_back(call_memset);
+    }
+  }
+  call_kernel_stmts.push_back(call_extern_api);
+  call_extern_api = ir::Block::Make(call_kernel_stmts);
+
   if (buckets_.empty()) {
     buckets_.emplace_back(ir::IfThenElse::Make(predicate, call_extern_api));
   } else {
@@ -270,11 +288,31 @@ void detail::CollectBucketStrategyHostFunctionVisitor::ProcessLoweredFunc(
     buckets_.emplace_back(
         ir::IfThenElse::Make(predicate, call_extern_api, false_expr));
   }
+
+  // create infer shape calls for temp_spaces
+  std::vector<ir::Expr> temp_space_infer_shape_stmts;
+  for (int i = 0; i < func_node->temp_spaces.size(); ++i) {
+    ir::Var tensor_shape_args(TENSOR_SHAPE_ARGS, type_of<int64_t **>());
+    ir::Expr size =
+        common::cast(func_node->temp_spaces[i].size(), common::Int(64));
+    ir::Expr call_set_value =
+        lang::CallExtern(runtime::intrinsic::infer_shape_set_value,
+                         {ir::Expr(func_node->num_output_tensors + i),
+                          ir::Expr(0),
+                          size,
+                          tensor_shape_args});
+    temp_space_infer_shape_stmts.push_back(call_set_value);
+  }
+  if (!temp_space_infer_shape_stmts.empty()) {
+    ir::Expr if_body = ir::Block::Make(temp_space_infer_shape_stmts);
+    temp_space_infer_shape_body_ =
+        ir::IfThenElse::Make(predicate, if_body, temp_space_infer_shape_body_);
+  }
 }
 
 void detail::CollectBucketStrategyHostFunctionVisitor::ProcessArgs(
-    ir::Expr func) {
-  std::vector<ir::Argument> args = func.as_lowered_func_ref()->args;
+    ir::LoweredFunc func) {
+  const std::vector<ir::Argument> &args = func->args;
   for (int i = 0; i < args.size(); ++i) {
     if (args[i].is_var()) {
       ir::Expr call_get_value_in_kernel_args =
@@ -293,11 +331,11 @@ void detail::CollectBucketStrategyHostFunctionVisitor::ProcessArgs(
   }
 }
 
-Expr detail::CollectBucketStrategyHostFunctionVisitor::CreateDeviceFunction(
-    ir::Expr expr, ir::Expr predicate) {
+ir::LoweredFunc
+detail::CollectBucketStrategyHostFunctionVisitor::CreateDeviceFunction(
+    ir::LoweredFunc expr, ir::Expr predicate) {
   auto copied = ir::ir_utils::IRCopy(expr);
-  auto *lowered_func = copied.as_lowered_func();
-  lowered_func->name = GenDeviceKernelName(lowered_func->name, predicate);
+  copied->name = GenDeviceKernelName(copied->name, predicate);
   return copied;
 }
 

@@ -28,12 +28,12 @@ limitations under the License. */
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/text_format.h"
 #include "paddle/fluid/framework/data_feed.h"
-#include "paddle/fluid/framework/data_feed.pb.h"
 #include "paddle/fluid/framework/data_set.h"
 #include "paddle/fluid/framework/dataset_factory.h"
 #include "paddle/fluid/framework/scope.h"
 #include "paddle/fluid/inference/io.h"
 #include "paddle/phi/common/place.h"
+#include "paddle/phi/core/framework/data_feed.pb.h"
 
 #include "paddle/fluid/pybind/data_set_py.h"
 
@@ -140,7 +140,7 @@ class IterableDatasetWrapper {
         }
 
         for (size_t j = 0; j < slots_.size(); ++j) {
-          if (!IsValidLoDTensor(*tensors_[i][j])) {
+          if (!IsValidDenseTensor(*tensors_[i][j])) {
             is_success = false;
             break;
           }
@@ -176,19 +176,9 @@ class IterableDatasetWrapper {
   }
 
  private:
-  bool IsValidLoDTensor(const phi::DenseTensor &tensor) const {
-    auto &lod = tensor.lod();
-    PADDLE_ENFORCE_LE(
-        lod.size(),
-        1,
-        common::errors::InvalidArgument("LoD level must be not larger than 1"));
+  bool IsValidDenseTensor(const phi::DenseTensor &tensor) const {
     if (!drop_last_) return true;
-
-    if (lod.empty()) {
-      return static_cast<size_t>(tensor.dims()[0]) == batch_size_;
-    } else {
-      return lod[0].size() == batch_size_ + 1;
-    }
+    return static_cast<size_t>(tensor.dims()[0]) == batch_size_;
   }
 
  private:

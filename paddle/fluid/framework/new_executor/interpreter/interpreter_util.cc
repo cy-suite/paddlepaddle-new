@@ -20,7 +20,6 @@
 #include "paddle/fluid/distributed/auto_parallel/dist_attr.h"
 #include "paddle/fluid/framework/details/nan_inf_utils.h"
 #include "paddle/fluid/framework/executor_gc_helper.h"
-#include "paddle/fluid/framework/framework.pb.h"
 #include "paddle/fluid/framework/io/save_load_tensor.h"
 #include "paddle/fluid/framework/new_executor/instruction/instruction_base.h"
 #include "paddle/fluid/framework/new_executor/interpreter/data_transfer.h"
@@ -36,9 +35,14 @@
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 #include "paddle/fluid/pir/dialect/operator/utils/op_yaml_info_parser.h"
 #include "paddle/phi/core/distributed/comm_context_manager.h"
+#include "paddle/phi/core/framework/framework.pb.h"
 #include "paddle/phi/core/kernel_context.h"
 #include "paddle/phi/core/kernel_factory.h"
 #include "paddle/phi/core/memory/stats.h"
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
+#include "paddle/fluid/distributed/collective/process_group.h"
+#include "paddle/fluid/distributed/collective/process_group_nccl.h"
+#endif
 
 #ifdef PADDLE_WITH_DNNL
 #include "paddle/fluid/platform/onednn_helper.h"
@@ -244,9 +248,9 @@ bool var_can_be_deleted(const std::string& name, const BlockDesc& block) {
 
   auto type = var_desc->Proto()->type().type();
 
-  return type == proto::VarType::LOD_TENSOR ||
+  return type == proto::VarType::DENSE_TENSOR ||
          type == proto::VarType::SELECTED_ROWS ||
-         type == proto::VarType::LOD_TENSOR_ARRAY ||
+         type == proto::VarType::DENSE_TENSOR_ARRAY ||
          type == proto::VarType::SPARSE_COO ||
          type == proto::VarType::SPARSE_CSR;
 }
@@ -729,7 +733,7 @@ void BuildOpFuncList(const phi::Place& place,
     try {
       if (dynamic_cast<framework::OperatorWithKernel*>(op) == nullptr) {
         VLOG(4) << "HandleOperatorBase";
-        // op is not a operatorwithkernel, so direcly run OperatorBase::Run()
+        // op is not a operatorwithkernel, so directly run OperatorBase::Run()
 
         std::vector<std::shared_ptr<OperatorBase>> following_ops(
             ops.begin() + static_cast<int>(i) + 1, ops.end());
@@ -752,17 +756,6 @@ void BuildOpFuncList(const phi::Place& place,
         VLOG(4) << "get RuntimeContext";
 
         Scope scope, *runtime_scope = &scope;
-        // NOTE(Ruibiao): We do not encourage directly using scope in OP kernel.
-        // But some OPs do have such behavior (e.g., cinn_launch OP). Here
-        // special treatment for them.
-        if (op_with_kernel->Type() == "cinn_launch" ||
-            op_with_kernel->Type() == "cinn_instruction_run") {
-          VLOG(6) << "OP(" << op_with_kernel->Type()
-                  << ") use scope in kernel, "
-                     "so pass a real scope to "
-                     "ExecutionContext";
-          runtime_scope = local_scope;
-        }
 
         // construct the device context
         auto* dev_ctx = ConstructDeviceContext(op, place);
@@ -876,6 +869,40 @@ void BuildOpFuncList(const phi::Place& place,
             op_func_node.phi_kernel_->GetKernelRegisteredType() ==
                 phi::KernelRegisteredType::FUNCTION) {
           VLOG(6) << op_type << " run function kernel";
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
+          auto attrs = op->Attrs();
+          if (attrs.find("ring_id") != attrs.end()) {
+            auto ring_id_attr = attrs.at("ring_id");
+            int ring_id = PADDLE_GET(int, ring_id_attr);
+            auto map = distributed::ProcessGroupMapFromGid::getInstance();
+            if (map->has(ring_id)) {
+              auto original_stream =
+                  static_cast<phi::GPUContext*>(dev_ctx)->cuda_stream();
+              distributed::ProcessGroup* pg = map->get(ring_id);
+              auto comm_context =
+                  static_cast<paddle::distributed::ProcessGroupNCCL*>(pg)
+                      ->GetOrCreateCommContext(place);
+              dev_ctx =
+                  static_cast<phi::distributed::NCCLCommContext*>(comm_context)
+                      ->GetDevContext();
+              dev_ctx->SetCommContext(comm_context);
+
+              static_cast<phi::GPUContext*>(dev_ctx)->SetCUDAStream(
+                  original_stream, false);
+              auto& instance =
+                  paddle::memory::allocation::AllocatorFacade::Instance();
+              dev_ctx->SetAllocator(
+                  instance
+                      .GetAllocator(
+                          place,
+                          static_cast<phi::GPUContext*>(dev_ctx)->stream())
+                      .get());
+            } else {
+              VLOG(3) << "ring_id " << ring_id
+                      << " not found in ProcessGroupMapFromGid ";
+            }
+          }
+#endif
           if (static_build) {
             FakeInitializeOutputsForFunctionKernel(
                 *op,
@@ -924,10 +951,10 @@ void BuildOpFuncList(const phi::Place& place,
           // operator.cc
           for (auto& p : m) {
             auto* transformed_tensor =
-                GetMutableLoDTensorOrSelectedRowsValueFromVar(
+                GetMutableDenseTensorOrSelectedRowsValueFromVar(
                     local_scope->FindVar(var_scope->GetNameById(p.first)));
             auto* original_tensor =
-                GetMutableLoDTensorOrSelectedRowsValueFromVar(
+                GetMutableDenseTensorOrSelectedRowsValueFromVar(
                     local_scope->FindVar(var_scope->GetNameById(p.second)));
 
             // avoid overwriting valid data
@@ -1461,4 +1488,76 @@ const std::vector<std::string> GetInstructionCallStack(
   }
   return vec_str;
 }
+
+bool IsNoNeedBuffer(pir::Operation* op, pir::Value value) {
+  paddle::dialect::OpYamlInfoInterface op_info_interface =
+      op->dyn_cast<paddle::dialect::OpYamlInfoInterface>();
+  std::unique_ptr<paddle::dialect::OpYamlInfoParser> info_parser(nullptr);
+  if (op_info_interface) {
+    info_parser = std::make_unique<paddle::dialect::OpYamlInfoParser>(
+        op_info_interface.GetOpInfo(), paddle::dialect::IsLegacyOp(op->name()));
+    auto& no_need_buffer_ids = info_parser->NoNeedBufferIds();
+    for (auto no_need_buffer_id : no_need_buffer_ids) {
+      if (value == op->operand_source(no_need_buffer_id)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+std::unordered_map<std::string, std::set<std::string>> GetNoNeedBufferValues(
+    const std::unordered_map<std::string, std::shared_ptr<::pir::Program>>&
+        type_to_ir_program) {
+  std::unordered_map<std::string, std::set<std::string>> shadow_output_values;
+  std::set<std::string> no_need_buffer_vars;
+
+  for (auto& pair : type_to_ir_program) {
+    std::shared_ptr<::pir::Program> program = pair.second;
+    // Iterate over the block_args and data_op output, and if all ops in all
+    // programs using this value are of the no_need_buffer type, then insert
+    // this value into the no_need_buffer set.
+    for (const auto& [name, value] : program->block()->kwargs()) {
+      for (auto it = value.use_begin(); it != value.use_end(); ++it) {
+        if (IsNoNeedBuffer(it->owner(), value)) {
+          no_need_buffer_vars.insert(name);
+        } else {
+          no_need_buffer_vars.erase(name);
+        }
+      }
+    }
+    for (auto& op : *program->block()) {
+      if (op.isa<paddle::dialect::DataOp>()) {
+        pir::Value value = op.result(0);
+        std::string name = op.attribute<pir::StrAttribute>("name").AsString();
+        for (auto it = value.use_begin(); it != value.use_end(); ++it) {
+          if (IsNoNeedBuffer(it->owner(), value)) {
+            no_need_buffer_vars.insert(name);
+          } else {
+            no_need_buffer_vars.erase(name);
+          }
+        }
+      }
+      // Retrieve the value names of all shadow_output_op for each program.
+      if (op.isa<pir::ShadowOutputOp>()) {
+        shadow_output_values[pair.first].insert(
+            op.attribute<pir::StrAttribute>("output_name").AsString());
+      }
+    }
+  }
+
+  for (auto& pair : shadow_output_values) {
+    std::set<std::string>& value_set = pair.second;
+    std::set<std::string> intersection;
+    std::set_intersection(value_set.begin(),
+                          value_set.end(),
+                          no_need_buffer_vars.begin(),
+                          no_need_buffer_vars.end(),
+                          std::inserter(intersection, intersection.begin()));
+    value_set = std::move(intersection);
+  }
+
+  return shadow_output_values;
+}
+
 }  // namespace paddle::framework::interpreter

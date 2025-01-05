@@ -26,6 +26,7 @@
 #include <vector>
 #include "paddle/common/enforce.h"
 
+#include "paddle/cinn/adt/adt.h"
 #include "paddle/cinn/common/shared.h"
 #include "paddle/cinn/common/type.h"
 #include "paddle/cinn/ir/function_base.h"
@@ -85,6 +86,7 @@ struct Add : public BinaryOpNode<Add> {
   Add(Expr a, Expr b);
 
   static Expr Make(Expr a, Expr b);
+  static IndexExpr Make(IndexExpr a, IndexExpr b);
 
   void Verify() const override;
 
@@ -98,6 +100,7 @@ struct Sub : public BinaryOpNode<Sub> {
   Sub(Expr a, Expr b) : BinaryOpNode<Sub>(a.type(), a, b) {}
 
   static Expr Make(Expr a, Expr b);
+  static IndexExpr Make(IndexExpr a, IndexExpr b);
 
   void Verify() const override;
 
@@ -111,6 +114,7 @@ struct Mul : public BinaryOpNode<Mul> {
   Mul(Expr a, Expr b) : BinaryOpNode<Mul>(a.type(), a, b) {}
 
   static Expr Make(Expr a, Expr b);
+  static IndexExpr Make(IndexExpr a, IndexExpr b);
 
   void Verify() const override;
 
@@ -124,6 +128,7 @@ struct Div : public BinaryOpNode<Div> {
   Div(Expr a, Expr b) : BinaryOpNode<Div>(a.type(), a, b) {}
 
   static Expr Make(Expr a, Expr b);
+  static IndexExpr Make(IndexExpr a, IndexExpr b);
   void Verify() const override;
 
   static const IrNodeTy _node_type_ = IrNodeTy::Div;
@@ -136,6 +141,7 @@ struct Mod : public BinaryOpNode<Mod> {
   Mod(Expr a, Expr b) : BinaryOpNode<Mod>(a.type(), a, b) {}
 
   static Expr Make(Expr a, Expr b);
+  static IndexExpr Make(IndexExpr a, IndexExpr b);
   void Verify() const override;
   static const IrNodeTy _node_type_ = IrNodeTy::Mod;
 };
@@ -147,6 +153,9 @@ struct Min : public BinaryOpNode<Min> {
   Min(Expr a, Expr b) : BinaryOpNode<Min>(a.type(), a, b) {}
 
   static Expr Make(Expr a, Expr b);
+  // TODO(liiujinnan): simplify Min and Max.
+  static IndexExpr Make(IndexExpr a, IndexExpr b);
+
   void Verify() const override;
   static const IrNodeTy _node_type_ = IrNodeTy::Min;
 };
@@ -158,6 +167,8 @@ struct Max : public BinaryOpNode<Max> {
   Max(Expr a, Expr b) : BinaryOpNode<Max>(a.type(), a, b) {}
 
   static Expr Make(Expr a, Expr b);
+  // TODO(liiujinnan): simplify Min and Max.
+  static IndexExpr Make(IndexExpr a, IndexExpr b);
 
   void Verify() const override;
 
@@ -459,6 +470,14 @@ struct Var : public IrNodeRef {
   Var& operator=(_Var_* x);
   Var& operator=(const _Var_* x);
 
+  bool is_index() const { return get()->get_index(); }
+  Var& set_index(bool flag) {
+    get()->set_index(flag);
+    return *this;
+  }
+  IndexExpr as_index();
+  const IndexExpr as_index() const;
+
   const _Var_* operator->() const { return get(); }
   _Var_* operator->() { return get(); }
   const _Var_* get() const { return static_cast<const _Var_*>(ptr()); }
@@ -577,6 +596,8 @@ struct Load : public ExprNode<Load>, public LoadStoreAddrMnger {
   Type type() const override;
 
   void convert_int32_to_int64() override;
+
+  void convert_int64_to_int32() override;
 
   static const IrNodeTy _node_type_ = IrNodeTy::Load;
 };
@@ -1012,6 +1033,10 @@ struct Block : public ExprNode<Block> {
   static const IrNodeTy _node_type_ = IrNodeTy::Block;
 };
 
+// TODO(liujinnan): Essentially IterExpr is not IndexExpr, so it does not
+// satisfy the `is_index` and `as_index` method. IterExpr is temporarily held by
+// IndexExpr, it will be separated later.
+
 /**
  * \brief IterMark is a special ExprNode, which can be used to mark ther entire
  * ierator. source is a IterSum or iterator. extent is the extent of the
@@ -1024,10 +1049,10 @@ struct IterMark : public ExprNode<IterMark> {
   }
   IterMark& operator=(const IterMark& other);
 
-  static Expr Make(const Expr& source, const Expr& extent);
+  static Expr Make(const Expr& source, const IndexExpr& extent);
   Type type() const { return source.type(); }
   Expr source;
-  Expr extent;
+  IndexExpr extent;
   static const IrNodeTy _node_type_ = IrNodeTy::IterMark;
 };
 
@@ -1049,17 +1074,17 @@ struct IterSplit : public ExprNode<IterSplit> {
   IterSplit& operator=(const IterSplit& other);
 
   static Expr Make(const Expr& source,
-                   const Expr& lower_factor,
-                   const Expr& extent,
-                   const Expr& scale);
-  static Expr Make(const Expr& source, const Expr& scale);
+                   const IndexExpr& lower_factor,
+                   const IndexExpr& extent,
+                   const IndexExpr& scale);
+  static Expr Make(const Expr& source, const IndexExpr& scale);
   static Expr Make(const Expr& source);
 
   Type type() const { return source.type(); }
   Expr source;
-  Expr lower_factor;
-  Expr extent;
-  Expr scale;
+  IndexExpr lower_factor;
+  IndexExpr extent;
+  IndexExpr scale;
   static const IrNodeTy _node_type_ = IrNodeTy::IterSplit;
 };
 
@@ -1070,10 +1095,10 @@ struct IterSplit : public ExprNode<IterSplit> {
 struct IterSum : public ExprNode<IterSum> {
  public:
   IterSum() = default;
-  static Expr Make(const std::vector<Expr>& args, const Expr& base);
+  static Expr Make(const std::vector<Expr>& args, const IndexExpr& base);
   Type type() const { return base.type(); }
   std::vector<Expr> args;
-  Expr base;
+  IndexExpr base;
   static const IrNodeTy _node_type_ = IrNodeTy::IterSum;
 };
 
@@ -1136,26 +1161,6 @@ struct ScheduleBlockRealize : public ExprNode<ScheduleBlockRealize> {
 };
 
 /**
- * Content of a module.
- */
-struct _Module_ : public ExprNode<_Module_> {
-  std::string name;
-  Target target;
-  std::vector<Expr> buffers;
-  std::vector<Expr> functions;
-  std::vector<Expr> submodules;
-  std::vector<Expr> predicates;
-  std::vector<int> priorities;
-  Expr infer_shape_func;
-
-  static ir::Module Make(const std::string& name, Target target);
-
-  void Verify() const override {}
-
-  static const IrNodeTy _node_type_ = IrNodeTy::_Module_;
-};
-
-/**
  * \brief PrimitiveNode holds the concept of Primitive in CINN.
  * A Primitive is a basic Call to some Expr function, it is introduced to create
  * several level of coarsed-grained IR nodes for better IR optimization and
@@ -1211,6 +1216,77 @@ template <>
 struct hash<cinn::ir::Var> {
   std::size_t operator()(const cinn::ir::Var& var) const {
     return std::hash<std::string>()(var->name);
+  }
+};
+
+// Author(liujinnan):
+// Because IRCopy will create a new copy, cannot simply use
+// IRNode* here, otherwise it will cause the following error:
+// hash(a) != hash(b) s.t. a = IRCopy(b)
+// IterExpr is temporarily held by IndexExpr.
+template <>
+struct hash<cinn::ir::IndexExpr> {
+  size_t operator()(const cinn::ir::IndexExpr& x) const {
+    switch (x.node_type()) {
+      case cinn::ir::IrNodeTy::_Var_:
+        return std::hash<std::string>()(x.as_var()->name);
+      case cinn::ir::IrNodeTy::IntImm:
+        return std::hash<int>()(x.as_int64());
+      case cinn::ir::IrNodeTy::Add:
+      case cinn::ir::IrNodeTy::Sub:
+      case cinn::ir::IrNodeTy::Mul:
+      case cinn::ir::IrNodeTy::Div:
+      case cinn::ir::IrNodeTy::Mod: {
+        auto hash_lhs = std::hash<cinn::ir::IndexExpr>()(x.operand(0));
+        auto hash_rhs = std::hash<cinn::ir::IndexExpr>()(x.operand(1));
+        return cinn::adt::hash_combine(hash_lhs, hash_rhs);
+      }
+    }
+    ::common::errors::InvalidArgument("Unsupported index expr type.");
+  }
+};
+
+template <>
+struct hash<cinn::ir::Expr> {
+  size_t operator()(const cinn::ir::Expr& x) const {
+    if (x.is_index()) {
+      return std::hash<cinn::ir::IndexExpr>()(x.as_index());
+    }
+    switch (x.node_type()) {
+      case cinn::ir::IrNodeTy::_Var_:
+        return std::hash<std::string>()(x.as_var()->name);
+      case cinn::ir::IrNodeTy::IntImm:
+        return std::hash<int>()(x.as_int64());
+      case cinn::ir::IrNodeTy::IterMark: {
+        auto iter_mark = x.As<cinn::ir::IterMark>();
+        auto hash_source = std::hash<cinn::ir::Expr>()(iter_mark->source);
+        auto hash_extent = std::hash<cinn::ir::Expr>()(iter_mark->extent);
+        return cinn::adt::hash_combine(hash_source, hash_extent);
+      }
+      case cinn::ir::IrNodeTy::IterSplit: {
+        auto iter_split = x.As<cinn::ir::IterSplit>();
+        auto hash_source = std::hash<cinn::ir::Expr>()(iter_split->source);
+        auto hash_lower_facort =
+            std::hash<cinn::ir::Expr>()(iter_split->lower_factor);
+        auto hash_extent = std::hash<cinn::ir::Expr>()(iter_split->extent);
+        auto hash_scale = std::hash<cinn::ir::Expr>()(iter_split->scale);
+        auto hash_res = cinn::adt::hash_combine(hash_source, hash_lower_facort);
+        hash_res = cinn::adt::hash_combine(hash_res, hash_extent);
+        hash_res = cinn::adt::hash_combine(hash_res, hash_scale);
+        return hash_res;
+      }
+      case cinn::ir::IrNodeTy::IterSum: {
+        auto iter_sum = x.As<cinn::ir::IterSum>();
+        auto hash_res = std::hash<cinn::ir::Expr>()(iter_sum->base);
+        for (auto&& iter_mark : iter_sum->args) {
+          hash_res = cinn::adt::hash_combine(
+              hash_res, std::hash<cinn::ir::Expr>()(iter_mark));
+        }
+        return hash_res;
+      }
+      default:
+        return reinterpret_cast<size_t>(x.get());
+    }
   }
 };
 }  // namespace std

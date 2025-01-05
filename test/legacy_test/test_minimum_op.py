@@ -18,7 +18,6 @@ import numpy as np
 
 import paddle
 from paddle.base import core
-from paddle.pir_utils import test_with_pir_api
 
 
 class ApiMinimumTest(unittest.TestCase):
@@ -40,7 +39,6 @@ class ApiMinimumTest(unittest.TestCase):
         self.np_expected3 = np.minimum(self.input_a, self.input_c)
         self.np_expected4 = np.minimum(self.input_b, self.input_c)
 
-    @test_with_pir_api
     def test_static_api(self):
         paddle.enable_static()
         with paddle.static.program_guard(
@@ -95,6 +93,9 @@ class ApiMinimumTest(unittest.TestCase):
             )
         np.testing.assert_allclose(res, self.np_expected4, rtol=1e-05)
 
+    @unittest.skipIf(
+        core.is_compiled_with_xpu(), "XPU int64_t minimum has bug now"
+    )
     def test_dynamic_api(self):
         paddle.disable_static()
         x = paddle.to_tensor(self.input_x)

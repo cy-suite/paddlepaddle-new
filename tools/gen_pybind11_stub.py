@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import functools
 import keyword
 import logging
@@ -22,6 +23,7 @@ import os
 import re
 import shutil
 import tempfile
+import traceback
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypedDict
 
@@ -43,11 +45,33 @@ from pybind11_stubgen.structs import (
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+# some invalid attr can NOT be parsed.
+# to avoid syntax error, we can only do plain replacement.
+# e.g. {'a': 'b'}, do replace 'a' -> 'b' .
+BAD_ATTR = {
+    # python/paddle/_typing/libs/libpaddle/cinn/ir.pyi
+    'cinn::ir::_paddle.Tensor_': 'typing.Any',
+    # python/paddle/_typing/libs/libpaddle/cinn/common.pyi
+    'None: typing.ClassVar[Type.cpp_type_t]': 'None_: typing.ClassVar[Type.cpp_type_t]',
+}
+
+# add some import modules
+# e.g. {'a': 'b'}, if not found ' a.' in stub file,
+# we insert 'b' after 'from __future__ import annotations'.
+# 'a' should be converted to ' a.'
+EXTRA_IMPORTS = {
+    'paddle': 'import paddle',
+    'typing': 'import typing',
+    'typing_extensions': 'import typing_extensions',
+    'pybind11_stubgen': 'import pybind11_stubgen',
+    'npt': 'import numpy.typing as npt',
+}
+
 # some invalid attr from pybind11.
 # ref:
 # - https://pybind11.readthedocs.io/en/latest/advanced/misc.html#avoiding-cpp-types-in-docstrings
 # - https://pybind11.readthedocs.io/en/latest/advanced/functions.html#default-arguments-revisited
-# we can add some mappings for convertion, e.g. {'paddle::Tensor': 'paddle.Tensor'}
+# we can add some mappings for conversion, e.g. {'paddle::Tensor': 'paddle.Tensor'}
 PYBIND11_ATTR_MAPPING = {}
 
 # some bad full expression pybind11-stubgen can not catch as invalid exp
@@ -60,7 +84,7 @@ PYBIND11_INVALID_FULL_MAPPING = {
     'TensorLike': 'paddle._typing.TensorLike',
     'DTypeLike': 'paddle._typing.DTypeLike',
     'ShapeLike': 'paddle._typing.ShapeLike',
-    'Numberic': 'paddle._typing.Numberic',
+    'Numeric': 'paddle._typing.Numeric',
     'TypeGuard': 'typing_extensions.TypeGuard',
     '_Interpolation': 'paddle.tensor.stat._Interpolation',
     'ParamAttrLike': 'paddle._typing.ParamAttrLike',
@@ -161,7 +185,7 @@ def _patch_pybind11_invalid_name():
 
 
 def _patch_pybind11_invalid_annotation():
-    # patch invalid annotaion as `Value`, e.g. 'capsule' to 'typing_extensions.CapsuleType'
+    # patch invalid annotation as `Value`, e.g. 'capsule' to 'typing_extensions.CapsuleType'
     def wrap_name(func):
         @functools.wraps(func)
         def wrapper(self, arg: Annotation):
@@ -257,6 +281,126 @@ def gen_stub(
         dry_run=args.dry_run,
         writer=Writer(stub_ext=args.stub_extension),
     )
+
+
+def replace_bad_attr(filename: str):
+    def wrap_text(text):
+        """wrap text to avoid bad math"""
+        return ' ' + text
+
+    stub_file = None
+    with open(filename, encoding='utf-8') as f:
+        stub_file = f.read()
+
+    for _bad_attr, _replacement in BAD_ATTR.items():
+        bad_attr = wrap_text(_bad_attr)
+        replacement = wrap_text(_replacement)
+        stub_file = stub_file.replace(bad_attr, replacement)
+
+    with open(filename, 'w', encoding='utf-8') as f:
+        f.write(stub_file)
+
+
+def insert_import_modules(filename: str):
+    def wrap_text(text):
+        """wrap text to avoid bad math"""
+        return ' ' + text + '.'
+
+    future_import = 'from __future__ import annotations\n'
+
+    stub_file = None
+    with open(filename, encoding='utf-8') as f:
+        stub_file = f.read()
+
+    for _module, _import_txt in EXTRA_IMPORTS.items():
+        module = wrap_text(_module)
+        if module in stub_file and _import_txt not in stub_file:
+            stub_file = stub_file.replace(
+                future_import, future_import + _import_txt + '\n'
+            )
+
+    with open(filename, 'w', encoding='utf-8') as f:
+        f.write(stub_file)
+
+
+def check_remove_syntax_error(filename, limit=1000):
+    """
+    Args:
+        filename: xxx.pyi
+        limit: check limit, or raise error
+    """
+    pattern_check = re.compile(
+        rf"File.*{re.escape(filename)}.*line (?P<lineno>\d+)"
+    )
+
+    while limit:
+        limit -= 1
+
+        # read file and check syntax error
+        err = ""
+        source = ""
+        source_lines = []
+        with open(filename, "r", encoding="utf-8") as f:
+            source_lines = f.readlines()
+            source = "".join(source_lines)
+
+            is_valid = True
+
+            try:
+                ast.parse(source, filename)
+            except SyntaxError:
+                is_valid = False
+                err = traceback.format_exc()
+
+            if is_valid:
+                break
+            else:
+                if limit <= 0:
+                    print(f">>> Syntax error detected in file: {filename}")
+
+        print(f">>> Syntax error: find syntax error in file: {filename}")
+
+        # find the line with syntax error
+        match_obj = pattern_check.search(err)
+        if match_obj is not None:
+            line_no = int(match_obj.group("lineno"))
+            print(
+                f">>> Syntax error: remove the error line {line_no}, and continue to check ..."
+            )
+            del source_lines[line_no - 1]
+        else:
+            print(">>> Syntax error: no match obj, just continue ...")
+            break
+
+        # write new lines
+        with open(filename, "w", encoding="utf-8") as f:
+            f.writelines(source_lines)
+
+
+def post_process(output_dir: str):
+    """
+    1. replace some bad attr
+    2. check and remove syntax error lines
+    3. insert some import modules. This should be the last process.
+    """
+    for root, _, files in os.walk(output_dir):
+        if not files:
+            continue
+
+        for f in files:
+            # only patch stub files: *.pyi
+            if not f.endswith('.pyi'):
+                continue
+
+            filename = str(Path(root) / f)
+            # insert modules
+            insert_import_modules(filename)
+
+            replace_bad_attr(filename)
+            check_remove_syntax_error(filename)
+
+            # insert modules if necessary
+            insert_import_modules(filename)
 
 
 def parse_args():
@@ -356,6 +500,9 @@ def generate_stub_file(
                 os.remove(str(_path_dst))
 
         shutil.move(str(source_path), output_dir)
+
+    # post process
+    post_process(output_dir)
 
 
 class _OpsYamlInputs(TypedDict):

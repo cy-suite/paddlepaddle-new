@@ -202,7 +202,6 @@ void CrossEntropyWithSoftmaxInferMeta(const MetaTensor& logits,
 void CSoftmaxWithCrossEntropyInferMeta(const MetaTensor& logits,
                                        const MetaTensor& label,
                                        int64_t ignore_index,
-                                       int ring_id,
                                        int rank,
                                        int nranks,
                                        MetaTensor* softmax,
@@ -418,8 +417,8 @@ void HingeLossInferMeta(const MetaTensor& logits,
 void HistogramInferMeta(const MetaTensor& input,
                         const MetaTensor& weight,
                         int64_t bins,
-                        int min,
-                        int max,
+                        float min,
+                        float max,
                         bool density,
                         MetaTensor* out);
 
@@ -477,6 +476,13 @@ void LimitByCapacityInferMeta(const MetaTensor& expert_count,
                               const MetaTensor& capacity,
                               int n_worker,
                               MetaTensor* out);
+
+void LodResetInferMeta(const MetaTensor& x,
+                       const MetaTensor& y,
+                       const std::vector<int>& target_lod,
+                       bool append,
+                       MetaTensor* out,
+                       MetaConfig config = MetaConfig());
 
 void LogicalBinaryInferMeta(const MetaTensor& x,
                             const MetaTensor& y,

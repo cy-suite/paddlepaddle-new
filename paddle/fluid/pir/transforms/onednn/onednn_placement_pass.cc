@@ -102,7 +102,7 @@ class PatternCreator {
 
 class OneDNNPlacementPass : public pir::PatternRewritePass {
  public:
-  OneDNNPlacementPass() : pir::PatternRewritePass("onednn_placement_pass", 3) {}
+  OneDNNPlacementPass() : pir::PatternRewritePass("onednn_placement_pass", 2) {}
 
   pir::RewritePatternSet InitializePatterns(pir::IrContext *context) override {
     pir::RewritePatternSet ps(context);
@@ -189,7 +189,6 @@ class OneDNNPlacementPass : public pir::PatternRewritePass {
     patternCreator.CreatePatterns<paddle::dialect::SqueezeGrad_Op>(ps);
     patternCreator.CreatePatterns<paddle::dialect::TanhGradOp>(ps);
     patternCreator.CreatePatterns<paddle::dialect::TanhGrad_Op>(ps);
-    patternCreator.CreatePatterns<paddle::dialect::FcOp>(ps);
     patternCreator.CreatePatterns<paddle::dialect::FusionGruOp>(ps);
     patternCreator.CreatePatterns<paddle::dialect::AddNOp>(ps);
     patternCreator.CreatePatterns<paddle::dialect::Cast_Op>(ps);

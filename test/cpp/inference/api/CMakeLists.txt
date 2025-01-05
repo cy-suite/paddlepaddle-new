@@ -666,15 +666,6 @@ if(WITH_TESTING AND WITH_INFERENCE_API_TEST)
       ARGS
       --infer_model=${TRT_MODEL_INSTALL_DIR}/trt_inference_test_models)
     inference_analysis_test(
-      trt_cascade_rcnn_test
-      SRCS
-      trt_cascade_rcnn_test.cc
-      EXTRA_DEPS
-      common
-      paddle_inference_shared
-      ARGS
-      --infer_model=${TRT_MODEL_INSTALL_DIR}/trt_inference_test_models)
-    inference_analysis_test(
       trt_split_converter_test
       SRCS
       trt_split_converter_test.cc
@@ -738,15 +729,6 @@ if(WITH_TESTING AND WITH_INFERENCE_API_TEST)
         ${INFERENCE_DEMO_INSTALL_DIR} ${INFERENCE_URL}/tensorrt_test
         "yolov3_r50_quant_aware.tgz")
     endif()
-    inference_analysis_test(
-      trt_quant_int8_yolov3_r50_test
-      SRCS
-      trt_quant_int8_yolov3_r50_test.cc
-      EXTRA_DEPS
-      common
-      paddle_inference_shared
-      ARGS
-      --infer_model=${TRT_MODEL_QUANT_YOLOV3_DIR})
 
     set(TEST_TRT_DYNAMIC_MODEL2
         "${TRT_MODEL_INSTALL_DIR}/complex_model_dynamic")
@@ -763,6 +745,7 @@ if(WITH_TESTING AND WITH_INFERENCE_API_TEST)
         ${TEST_TRT_DYNAMIC_MODEL} ${INFERENCE_URL}/tensorrt_test
         "conv_bn_swish_split_gelu.tar.gz" 2a5e8791e47b221b4f782151d76da9c6)
     endif()
+
     inference_analysis_test(
       trt_dynamic_shape_test
       SRCS
@@ -772,6 +755,7 @@ if(WITH_TESTING AND WITH_INFERENCE_API_TEST)
       paddle_inference_shared
       ARGS
       --infer_model=${TRT_MODEL_INSTALL_DIR})
+    set_tests_properties(trt_dynamic_shape_test PROPERTIES TIMEOUT 300)
 
     set(TEST_TRT_ERNIE_MODEL "${TRT_MODEL_INSTALL_DIR}/ernie_test")
     if(NOT EXISTS ${TEST_TRT_ERNIE_MODEL}/ernie_model_4.tar.gz)
@@ -879,18 +863,6 @@ if(WITH_TESTING AND WITH_INFERENCE_API_TEST)
       --infer_model=${OCR_INSTALL_DIR}/model)
   endif()
 
-  if(WITH_ONEDNN)
-    inference_analysis_test(
-      test_analyzer_capi_exp_int
-      SRCS
-      analyzer_capi_exp_int_tester.cc
-      EXTRA_DEPS
-      common
-      paddle_inference_c_shared
-      ARGS
-      --infer_model=${INT8_DATA_DIR}/resnet50_pir/model)
-  endif()
-
   # chinese_ner
   set(CHINESE_NER_INSTALL_DIR "${INFERENCE_DEMO_INSTALL_DIR}/chinese_ner")
   download_model_and_data_without_verify(
@@ -984,6 +956,23 @@ if(WITH_TESTING AND WITH_INFERENCE_API_TEST)
       test_analyzer_resnet50 ${IMG_CLASS_TEST_APP} ${RESNET50_MODEL_DIR} true)
     set_tests_properties(test_analyzer_resnet50 PROPERTIES TIMEOUT 120)
   endif()
+  if(WITH_OPENVINO
+     AND NOT WIN32
+     AND NOT WITH_XPU
+     AND NOT WITH_ROCM)
+    set(OPENVINO_RESNET50_MODEL_DIR
+        "${INFERENCE_DEMO_INSTALL_DIR}/openvino_resnet50")
+    download_data_without_verify(${OPENVINO_RESNET50_MODEL_DIR}
+                                 "resnet50_pdmodel.tar.gz")
+    set(OPENVINO_TEST_APP "analyzer_openvino")
+    set(OPENVINO_TEST_APP_SRC "analyzer_openvino_tester.cc")
+    inference_analysis_api_test_with_fake_data_build(${OPENVINO_TEST_APP}
+                                                     ${OPENVINO_TEST_APP_SRC})
+    inference_analysis_api_test_with_fake_data_run(
+      test_analyzer_openvino_resnet50 ${OPENVINO_TEST_APP}
+      ${OPENVINO_RESNET50_MODEL_DIR} true)
+    set_tests_properties(test_analyzer_openvino_resnet50 PROPERTIES TIMEOUT 120)
+  endif()
 
   inference_analysis_test(
     test_analyzer_capi_exp
@@ -993,6 +982,11 @@ if(WITH_TESTING AND WITH_INFERENCE_API_TEST)
     paddle_inference_c_shared
     ARGS
     --infer_model=${RESNET50_MODEL_DIR}/model)
+
+  cc_test(
+    paddle_infer_api_errors_test
+    SRCS paddle_infer_api_errors_tester.cc
+    DEPS ${inference_api_tester_deps} common)
 
   if(WITH_GPU)
     inference_analysis_test(
@@ -1004,6 +998,7 @@ if(WITH_TESTING AND WITH_INFERENCE_API_TEST)
       paddle_inference_shared
       ARGS
       --infer_model=${RESNET50_MODEL_DIR})
+    set_tests_properties(paddle_infer_api_test PROPERTIES TIMEOUT 300)
 
     inference_analysis_test(
       paddle_infer_api_copy_tensor_tester
@@ -1015,17 +1010,10 @@ if(WITH_TESTING AND WITH_INFERENCE_API_TEST)
       ARGS
       --infer_model=${RESNET50_MODEL_DIR})
     set_tests_properties(paddle_infer_api_copy_tensor_tester PROPERTIES TIMEOUT
-                                                                        30)
+                                                                        300)
   endif()
 
-  cc_test(
-    paddle_infer_api_errors_test
-    SRCS paddle_infer_api_errors_tester.cc
-    DEPS ${inference_api_tester_deps} common)
-
   if(WITH_GPU AND TENSORRT_FOUND)
-    set_tests_properties(trt_quant_int8_yolov3_r50_test PROPERTIES TIMEOUT 400)
-    set_tests_properties(trt_cascade_rcnn_test PROPERTIES TIMEOUT 300)
     set_tests_properties(test_trt_dynamic_shape_ernie_ser_deser
                          PROPERTIES TIMEOUT 300)
     set_tests_properties(test_trt_dynamic_shape_ernie_fp16_ser_deser

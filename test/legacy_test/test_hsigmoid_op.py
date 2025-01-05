@@ -20,7 +20,6 @@ from op_test import OpTest, skip_check_grad_ci
 
 import paddle
 import paddle.nn.functional as F
-from paddle.pir_utils import test_with_pir_api
 
 paddle.enable_static()
 np.random.seed(100)
@@ -285,7 +284,7 @@ class TestHSigmoidOpSparse(OpTest):
 @skip_check_grad_ci(
     reason="[skip shape check] The huffman tree is structed separately. It will be complicated if use large shape."
 )
-class TestHSigmoidOpWithCostumTree(OpTest):
+class TestHSigmoidOpWithCustomTree(OpTest):
     def setUp(self):
         self.op_type = "hierarchical_sigmoid"
         self.python_api = python_api
@@ -346,7 +345,7 @@ class TestHSigmoidOpWithCostumTree(OpTest):
 @skip_check_grad_ci(
     reason="[skip shape check] The huffman tree is structed separately. It will be complicated if use large shape."
 )
-class TestHSigmoidOpWithCostumTreeWithoutBias(OpTest):
+class TestHSigmoidOpWithCustomTreeWithoutBias(OpTest):
     def setUp(self):
         self.op_type = "hierarchical_sigmoid"
         self.python_api = python_api
@@ -485,7 +484,6 @@ class TestHSigmoidLossAPI(unittest.TestCase):
             np.testing.assert_allclose(self.out_np, out.numpy(), rtol=1e-05)
         paddle.enable_static()
 
-    @test_with_pir_api
     def test_static_api(self):
         train_program = paddle.static.Program()
         startup_program = paddle.static.Program()
@@ -541,7 +539,6 @@ class TestHSigmoidLossAPI(unittest.TestCase):
             for ret in [ret1, ret2]:
                 np.testing.assert_allclose(self.out_np, ret, rtol=1e-05)
 
-    @test_with_pir_api
     def test_base_api(self):
         train_program = paddle.static.Program()
         startup_program = paddle.static.Program()
@@ -580,7 +577,6 @@ class TestHSigmoidLossAPI(unittest.TestCase):
 
             np.testing.assert_allclose(ret, self.out_np, rtol=1e-05)
 
-    @test_with_pir_api
     def test_static_errors(self):
         with paddle.static.program_guard(
             paddle.static.Program(), paddle.static.Program()

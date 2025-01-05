@@ -15,6 +15,7 @@
 import paddle
 
 from .reshard_funcs.base_reshard_func import is_replicated
+from .utils import _complete_op_dist_attr
 
 dist_skip_op_list = [
     "builtin.combine",
@@ -33,20 +34,21 @@ def verify_dist_block(block):
             continue
         if op.name() == "dist_op.shard_tensor":
             raise RuntimeError("Block still contain shard_tensor_op.")
-        if op.dist_attr is None:
-            raise RuntimeError(
-                f"The op {op} does not have OperatorDistAttr after Mix2Dist Pass."
-            )
-        for result in op.results():
-            if not result.initialized():
+        # Note (luchang): Temp fix, remove unused parameter 'op'.
+        # Will be removed in the future.
+        if op.name() == "builtin.parameter":
+            if op.result(0).use_empty():
+                op.erase()
                 continue
-            if not (result.is_dist() or result.is_combine()):
-                raise RuntimeError(f"The {op}'s output is not dist tensor type")
 
 
-def apply_mix2dist_pass(program):
+def apply_mix2dist_pass(program, block=None):
+    if block is None:
+        block = program.global_block()
     deleted_ops = []
-    for op in program.global_block().ops:
+    for op in block.ops:
+        for inner_block in op.blocks():
+            apply_mix2dist_pass(program, block=inner_block)
         if op.name() != "dist_op.shard_tensor":
             continue
         shard_operand_value = op.operand_source(0)
@@ -132,4 +134,5 @@ def apply_mix2dist_pass(program):
                 )
     for op in deleted_ops:
         op.erase()
-    verify_dist_block(program.global_block())
+    _complete_op_dist_attr(program, block=block)
+    verify_dist_block(block)

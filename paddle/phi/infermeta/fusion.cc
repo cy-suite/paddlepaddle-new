@@ -131,10 +131,22 @@ void GroupNormalizeSiluXPUInferMeta(const MetaTensor& x,
   out->share_lod(x);
 }
 
+void LayerNormalizeReluXPUInferMeta(const MetaTensor& x,
+                                    const MetaTensor& scale,
+                                    const MetaTensor& bias,
+                                    int begin_norm_axis,
+                                    float epsilon,
+                                    MetaTensor* out) {
+  out->set_dims(x.dims());
+  //   y->share_lod(x);
+  out->set_dtype(x.dtype());
+  out->set_layout(x.layout());
+}
+
 void FusedMultiTransformerInferMeta(
     const MetaTensor& x,
     const std::vector<const MetaTensor*>& ln_scales,
-    const std::vector<const MetaTensor*>& ln_biases,
+    const paddle::optional<std::vector<const MetaTensor*>>& ln_biases,
     const std::vector<const MetaTensor*>& qkv_weights,
     const paddle::optional<std::vector<const MetaTensor*>>& qkv_biases,
     const paddle::optional<std::vector<const MetaTensor*>>& cache_kvs,
@@ -147,7 +159,7 @@ void FusedMultiTransformerInferMeta(
     const std::vector<const MetaTensor*>& out_linear_weights,
     const paddle::optional<std::vector<const MetaTensor*>>& out_linear_biases,
     const std::vector<const MetaTensor*>& ffn_ln_scales,
-    const std::vector<const MetaTensor*>& ffn_ln_biases,
+    const paddle::optional<std::vector<const MetaTensor*>>& ffn_ln_biases,
     const std::vector<const MetaTensor*>& ffn1_weights,
     const paddle::optional<std::vector<const MetaTensor*>>& ffn1_biases,
     const std::vector<const MetaTensor*>& ffn2_weights,
@@ -179,25 +191,52 @@ void FusedMultiTransformerInferMeta(
                                       "but received dimensions of"
                                       "Input is [%d]",
                                       x_dim.size()));
-  PADDLE_ENFORCE_EQ(
-      y_dim.size(),
-      4,
-      common::errors::InvalidArgument("The dimensions of qkv_weight must be 4"
-                                      "(3, num_head, dim_head, dim_embed),"
-                                      "but received dimensions of"
-                                      "Input is [%d]",
-                                      y_dim.size()));
-  PADDLE_ENFORCE_EQ(
-      x_dim[2],
-      trans_qkvw ? y_dim[3] : y_dim[0],
-      common::errors::InvalidArgument(
-          "ShapeError: the dimension of x_dim[2] and y_dim[3](trans_qkvw is "
-          "true) or y_dim[0](trans_qkvw is false)"
-          "must be equal. But received: the shape "
-          "of input x = [%s], and the shape of "
-          "input qkv_weight = [%s]",
-          x_dim,
-          y_dim));
+
+  if (gqa_group_size > 0) {
+    PADDLE_ENFORCE_EQ(y_dim.size(),
+                      3,
+                      common::errors::InvalidArgument(
+                          "The dimensions of qkv_weight when use gqa must be 3"
+                          "(num_head + 2 * kv_num_heads, dim_head, dim_embed),"
+                          "but received dimensions of"
+                          "Input is [%d]",
+                          y_dim.size()));
+  } else {
+    PADDLE_ENFORCE_EQ(
+        y_dim.size(),
+        4,
+        common::errors::InvalidArgument("The dimensions of qkv_weight must be 4"
+                                        "(3, num_head, dim_head, dim_embed),"
+                                        "but received dimensions of"
+                                        "Input is [%d]",
+                                        y_dim.size()));
+  }
+
+  if (gqa_group_size > 0) {
+    PADDLE_ENFORCE_EQ(x_dim[2],
+                      trans_qkvw ? y_dim[2] : y_dim[0],
+                      common::errors::InvalidArgument(
+                          "ShapeError: when use gqa, the dimension of x_dim[2] "
+                          "and y_dim[2](trans_qkvw is "
+                          "true) or y_dim[0](trans_qkvw is false)"
+                          "must be equal. But received: the shape "
+                          "of input x = [%s], and the shape of "
+                          "input qkv_weight = [%s]",
+                          x_dim,
+                          y_dim));
+  } else {
+    PADDLE_ENFORCE_EQ(
+        x_dim[2],
+        trans_qkvw ? y_dim[3] : y_dim[0],
+        common::errors::InvalidArgument(
+            "ShapeError: the dimension of x_dim[2] and y_dim[3](trans_qkvw is "
+            "true) or y_dim[0](trans_qkvw is false)"
+            "must be equal. But received: the shape "
+            "of input x = [%s], and the shape of "
+            "input qkv_weight = [%s]",
+            x_dim,
+            y_dim));
+  }
 
   if (cache_kvs && cache_kvs->size() > 0) {
     // [2, batch_size, num_head, max_seq_len, head_size]
@@ -220,20 +259,40 @@ void FusedMultiTransformerInferMeta(
                           "batch size %d, but got %d",
                           x_dim[0],
                           c_dim[1]));  // batch_size
-    PADDLE_ENFORCE_EQ(c_dim[2],
-                      trans_qkvw ? y_dim[1] : y_dim[2],
-                      common::errors::InvalidArgument(
-                          "The third dim of CacheKV must be equal with num "
-                          "head %d, but got %d",
-                          trans_qkvw ? y_dim[1] : y_dim[2],
-                          c_dim[2]));  // num_head
-    PADDLE_ENFORCE_EQ(c_dim[4],
-                      trans_qkvw ? y_dim[2] : y_dim[3],
-                      common::errors::InvalidArgument(
-                          "The fifth dim of CacheKV must be equal with head "
-                          "size %d, but got %d",
-                          trans_qkvw ? y_dim[2] : y_dim[3],
-                          c_dim[4]));  // head_size
+
+    if (gqa_group_size > 0) {
+      PADDLE_ENFORCE_EQ(c_dim[2],
+                        gqa_group_size,
+                        common::errors::InvalidArgument(
+                            "The third dim of CacheKV must be equal with num"
+                            "head %d, but got %d",
+                            gqa_group_size,
+                            c_dim[2]));  // num_head
+
+      PADDLE_ENFORCE_EQ(c_dim[4],
+                        trans_qkvw ? y_dim[1] : y_dim[2],
+                        common::errors::InvalidArgument(
+                            "The fifth dim of CacheKV must be equal with head "
+                            "size %d, but got %d",
+                            trans_qkvw ? y_dim[1] : y_dim[2],
+                            c_dim[4]));  // head_size
+    } else {
+      PADDLE_ENFORCE_EQ(c_dim[2],
+                        trans_qkvw ? y_dim[1] : y_dim[2],
+                        common::errors::InvalidArgument(
+                            "The third dim of CacheKV must be equal with num"
+                            "head %d, but got %d",
+                            trans_qkvw ? y_dim[1] : y_dim[2],
+                            c_dim[2]));  // num_head
+
+      PADDLE_ENFORCE_EQ(c_dim[4],
+                        trans_qkvw ? y_dim[2] : y_dim[3],
+                        common::errors::InvalidArgument(
+                            "The fifth dim of CacheKV must be equal with head "
+                            "size %d, but got %d",
+                            trans_qkvw ? y_dim[2] : y_dim[3],
+                            c_dim[4]));  // head_size
+    }
   }
   out->set_dims(x.dims());
 }
@@ -284,6 +343,7 @@ void BlockMultiheadAttentionInferMeta(const MetaTensor& qkv,
                                       const float quant_min_bound,
                                       const float out_scale,
                                       const std::string& compute_dtype,
+                                      const float rope_theta,
                                       MetaTensor* fmha_out,
                                       MetaTensor* qkv_out,
                                       MetaTensor* key_cache_out,
@@ -429,6 +489,7 @@ void BlockMultiheadAttentionInferXPUMeta(
     const float quant_min_bound,
     const float out_scale,
     const std::string& compute_dtype,
+    const float rope_theta,
     MetaTensor* fmha_out,
     MetaTensor* qkv_out,
     MetaTensor* key_cache_out,
@@ -468,6 +529,7 @@ void BlockMultiheadAttentionInferXPUMeta(
                                    quant_min_bound,
                                    out_scale,
                                    compute_dtype,
+                                   rope_theta,
                                    fmha_out,
                                    qkv_out,
                                    key_cache_out,
@@ -780,6 +842,9 @@ void FcXPUInferMeta(const MetaTensor& x,
     out_shape[i] = static_cast<int>(x.dims()[i]);
   }
   out_shape[in_num_col_dims] = static_cast<int>(w.dims()[0]);
+  if (act_type == 23 /*phi::backends::xpu::Activation_t::SWISH_GLU*/) {
+    out_shape[in_num_col_dims] = out_shape[in_num_col_dims] / 2;
+  }
   out->set_dims(DDim(out_shape.data(), static_cast<int>(out_shape.size())));
   out->set_dtype(out_dtype);
   out->set_layout(x.layout());
@@ -1808,7 +1873,8 @@ void FusedGemmEpilogueInferMeta(const MetaTensor& x,
   auto x_mat_dims =
       common::flatten_to_2d(x_dims, trans_x ? 1 : x_dims.size() - 1);
 
-  int K_from_x = static_cast<int>(trans_x ? x_mat_dims[0] : x_mat_dims[1]);
+  auto x_rank = x_dims.size();
+  int K_from_x = static_cast<int>(trans_x ? x_dims[x_rank - 2] : x_mat_dims[1]);
   int K_from_y = static_cast<int>(trans_y ? y_dims[1] : y_dims[0]);
   bool check_dim = (!config.is_runtime && K_from_x != -1) || config.is_runtime;
   if (check_dim) {
@@ -1823,12 +1889,12 @@ void FusedGemmEpilogueInferMeta(const MetaTensor& x,
   }
 
   std::vector<int64_t> out_dims;
-  out_dims.reserve(static_cast<size_t>(x_dims.size()));
-  if (trans_x) {
-    for (int i = 1; i < x_dims.size(); ++i) out_dims.push_back(x_dims[i]);
-  } else {
-    for (int i = 0; i < x_dims.size() - 1; ++i) out_dims.push_back(x_dims[i]);
+  out_dims.reserve(x_rank);
+
+  for (int i = 0; i + 2 < x_rank; ++i) {
+    out_dims.push_back(x_dims[i]);
   }
+  out_dims.push_back(trans_x ? x_dims[x_rank - 1] : x_dims[x_rank - 2]);
 
   if (trans_y) {
     out_dims.push_back(y_dims[0]);
@@ -1909,7 +1975,6 @@ void FusedGemmEpilogueGradInferMeta(const MetaTensor& x,
           x_dims.size()));
 
   auto dout_mat_dims = common::flatten_to_2d(dout_dims, dout_dims.size() - 1);
-  auto x_mat_dims = common::flatten_to_2d(x_dims, x_dims.size() - 1);
 
   PADDLE_ENFORCE_EQ(
       dout_mat_dims[1],
@@ -1920,14 +1985,33 @@ void FusedGemmEpilogueGradInferMeta(const MetaTensor& x,
           dout_mat_dims[1],
           y_dims[1]));
 
+  for (int32_t i = 0; i + 2 < x_dims.size(); ++i) {
+    if (dout_dims[i] > 0 && x_dims[i] > 0) {
+      PADDLE_ENFORCE_EQ(
+          dout_dims[i],
+          x_dims[i],
+          common::errors::InvalidArgument(
+              "The i dimension of DOut should be equal with i dimension of X."
+              "But received DOut[%d] = [%d], Y[%d] = [%d].",
+              i,
+              dout_dims[i],
+              i,
+              x_dims[i]));
+    }
+  }
+
+  auto k_from_dout = dout_dims[x_dims.size() - 2];
+  auto k_from_x =
+      trans_x ? x_dims[x_dims.size() - 1] : x_dims[x_dims.size() - 2];
+
+  bool check_k = (k_from_dout < 0 || k_from_x < 0) || (k_from_dout == k_from_x);
   PADDLE_ENFORCE_EQ(
-      dout_mat_dims[0],
-      trans_x ? x_mat_dims[1] : x_mat_dims[0],
+      check_k,
+      true,
       common::errors::InvalidArgument(
-          "The first dimension of DOut should be equal with X's first"
-          "dimension. But received DOut[0] = [%d], Y[0] = [%d].",
-          dout_mat_dims[0],
-          x_mat_dims[0]));
+          "K from dout and x is not same, k_from_dout is [%d], k_from_x is[%d]",
+          k_from_dout,
+          k_from_x));
 
   if (activation_grad != "none" && !reserve_space) {
     PADDLE_THROW(common::errors::InvalidArgument(
@@ -1939,8 +2023,11 @@ void FusedGemmEpilogueGradInferMeta(const MetaTensor& x,
     x_grad->set_dims(x_dims);
     x_grad->set_dtype(x.dtype());
   }
-  y_grad->set_dims(y_dims);
-  y_grad->set_dtype(y.dtype());
+
+  if (y_grad) {
+    y_grad->set_dims(y_dims);
+    y_grad->set_dtype(y.dtype());
+  }
 
   if (bias_grad) {
     int64_t dbias_dim = trans_y ? y_dims[0] : y_dims[1];
@@ -4210,7 +4297,7 @@ void Pad2dXPUInferMeta(const MetaTensor& x,
     out_dim = phi::make_ddim(
         {x_dims[0],
          x_dims[1],
-         x_dims[2] + paddings[2] + paddings[3],    // top bootom height
+         x_dims[2] + paddings[2] + paddings[3],    // top bottom height
          x_dims[3] + paddings[0] + paddings[1]});  // left right weight
   } else if (data_format == "NHWC") {
     out_dim = phi::make_ddim({x_dims[0],
@@ -4258,7 +4345,7 @@ void CrossAttentionXPUInferMeta(
                     common::errors::InvalidArgument(
                         "The dim of input_kv should be 3! But received ",
                         input_kv_dims.size()));
-  // sequece length of q and k/v  not requied to be eqaul
+  // sequece length of q and k/v  not required to be equal
   // but batch size and dim should be the same
   PADDLE_ENFORCE_EQ(
       input_q_dims[0],

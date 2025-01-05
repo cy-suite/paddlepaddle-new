@@ -133,12 +133,12 @@ void BindModule(py::module *m) {
                  },
                  [&](common::NVGPUArch) {
 #ifdef CINN_WITH_CUDA
-                   auto func_expr = Expr(func);
-                   ir::SetCudaAxisInfo(&func_expr);
+                   ir::SetCudaAxisInfo(func);
                    optim::OptimizeExprGPU(&(func->body));
 #endif
                  },
-                 [&](common::HygonDCUArchHIP) {
+                 [&](std::variant<common::HygonDCUArchHIP,
+                                  common::HygonDCUArchSYCL>) {
                    PADDLE_THROW(::common::errors::Unimplemented(
                        "CINN old obsolete code!"));
                  });

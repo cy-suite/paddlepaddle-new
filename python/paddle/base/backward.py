@@ -207,7 +207,7 @@ class ProgramStats:
             added_var = self.block.create_var(
                 name=var_unique_name,
                 dtype='int32',
-                type=core.VarDesc.VarType.LOD_TENSOR,
+                type=core.VarDesc.VarType.DENSE_TENSOR,
                 persistable=False,
                 stop_gradient=False,
             )
@@ -1146,7 +1146,7 @@ def _append_backward_ops_with_checkpoints_(
             grad_to_var.update(op_grad_to_var)
 
         ff_ops = ops[segment[0] : segment[1]]
-        var_suffix = ".subprog_%d" % i
+        var_suffix = f".subprog_{i}"
 
         for op in ff_ops:
             if op.has_attr("sub_block"):
@@ -1252,7 +1252,7 @@ def _get_sub_block_path(
 
     Args:
         sub_block(Block): The sub-block in which to get op path.
-        sub_block_op_desc: The op desc of the sub-block op such as 'while', 'conditional_block' and 'recurrent'.
+        sub_block_op_desc: The op desc of the sub-block op such as 'while', 'conditional_block'.
         no_grad_set(set): The set of no grad var name. no_grad_set will be changed.
         op_path_dict(dict): op_path_dict will be changed.
             key(int) block index
@@ -1840,7 +1840,7 @@ def infershape_for_composite(block, grad_op_desc):
                 for name, args in grad_op_desc.outputs().items()
             },
             # NOTE Runtime attr will be ignore as the c++ GetRuntimeAttr
-            # interface cann't be exported to python. Please note the WARNING
+            # interface can't be exported to python. Please note the WARNING
             # message logged in RuntimeAttrs of composite_grad_desc_maker.h
             attrs=grad_op_desc.get_attr_map(),
         )
@@ -1964,7 +1964,6 @@ def _get_no_grad_set_value(no_grad_set):
 
 
 @overload
-@framework.static_only
 def append_backward(
     loss: Tensor,
     parameter_list: Sequence[Tensor | str] | None = ...,
@@ -1974,12 +1973,11 @@ def append_backward(
         | None
     ) = ...,
     checkpoints: None = ...,
-    distop_context: DistributedContext = ...,
+    distop_context: DistributedContext | None = ...,
 ) -> list[tuple[Tensor, Tensor]]: ...
 
 
 @overload
-@framework.static_only
 def append_backward(
     loss: Tensor,
     parameter_list: Sequence[Tensor | str] | None = ...,
@@ -1989,7 +1987,7 @@ def append_backward(
         | None
     ) = ...,
     checkpoints: list[Tensor] = ...,
-    distop_context: DistributedContext = ...,
+    distop_context: DistributedContext | None = ...,
 ) -> tuple[list[tuple[Tensor, Tensor]], list[str]]: ...
 
 
@@ -2765,6 +2763,7 @@ def gradients(
 
         .. code-block:: python
 
+            >>> # doctest: +SKIP("This has diff in xdoctest env")
             >>> import paddle
             >>> import paddle.nn.functional as F
 
@@ -2776,7 +2775,7 @@ def gradients(
             >>> y = F.relu(y)
             >>> z = paddle.static.gradients([y], x)
             >>> print(z)
-            [var x@GRAD : LOD_TENSOR.shape(-1, 2, 8, 8).dtype(float32).stop_gradient(False)]
+            [var x@GRAD : DENSE_TENSOR.shape(-1, 2, 8, 8).dtype(float32).stop_gradient(False)]
     """
     if framework.in_pir_mode():
         check_type(

@@ -14,8 +14,7 @@ limitations under the License. */
 
 #include "paddle/fluid/operators/collective/c_broadcast_op.h"
 
-namespace paddle {
-namespace operators {
+namespace paddle::operators {
 
 class CBroadcastOp : public framework::OperatorWithKernel {
  public:
@@ -43,10 +42,6 @@ class CBroadcastOpMaker : public framework::OpProtoAndCheckerMaker {
     AddAttr<int>("root", "(int default 0) root id for broadcasting.")
         .SetDefault(0);
 
-    AddAttr<bool>(
-        "use_calc_stream",
-        "(bool default false) eject CUDA operations to calculation stream.")
-        .SetDefault(false);
     AddComment(R"DOC(
 CBroadcast Operator
 
@@ -55,21 +50,10 @@ Reference: https://docs.nvidia.com/deeplearning/sdk/nccl-developer-guide/docs/us
   }
 };
 
-}  // namespace operators
-}  // namespace paddle
+}  // namespace paddle::operators
 
 namespace ops = paddle::operators;
 
 REGISTER_OP_WITHOUT_GRADIENT(c_broadcast,
                              ops::CBroadcastOp,
                              ops::CBroadcastOpMaker);
-
-PD_REGISTER_STRUCT_KERNEL(c_broadcast,
-                          CPU,
-                          ALL_LAYOUT,
-                          ops::CBroadcastOpCPUKernel,
-                          float,
-                          double,
-                          int,
-                          int64_t,
-                          phi::dtype::float16) {}

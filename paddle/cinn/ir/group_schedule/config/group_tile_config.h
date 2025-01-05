@@ -33,19 +33,20 @@ using IterSpaceType = std::vector<std::pair<std::string, std::string>>;
 struct ScheduleConfig {
   struct BaseInfo {
     std::vector<int64_t> reduce_axis;
+    std::vector<int64_t> loop_ranges;
     std::vector<int64_t> loop_strides;
-    int64_t data_rank;
     int64_t reduce_numel;
     int64_t spatial_numel;
     bool has_dynamic_spatial{false};
     bool has_dynamic_reduce{false};
-    bool is_reduce_all{false};
+    bool can_apply_grid_reduce{false};
     IterSpaceType iter_space_type;
   };
 
   struct TileConfig {
     int64_t warp_num{1};
     int64_t tree_reduce_num{1};
+    int64_t grid_reduce_num{1};
     int64_t spatial_inner_num{1};
     ReduceMethod reduce_method{NoneReduceMethod()};
   };
@@ -55,6 +56,8 @@ struct ScheduleConfig {
 };
 
 struct BucketInfo {
+  static constexpr int kMaxNumel = INT32_MAX;
+
   struct Dimension {
     int lower_bound;
     int upper_bound;

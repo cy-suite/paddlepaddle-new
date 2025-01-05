@@ -33,6 +33,20 @@
 #include "paddle/pir/include/core/operation.h"
 
 namespace {
+
+bool CheckIfknownShape(pir::Operation* op, size_t index) {
+  bool is_from_tensor = false;
+  std::vector<int64_t> shape = paddle::dialect::ParseValueShape(
+      op->operand_source(index), &is_from_tensor);
+  size_t num_minus = 0;
+  for (auto i : shape) {
+    if (i == -1) num_minus++;
+  }
+  // If all dims are -1, then the shape is actually unknown.
+  if (num_minus == shape.size()) return false;
+  return true;
+}
+
 class OneDNNBf16PlacementPattern : public pir::RewritePattern {
  public:
   explicit OneDNNBf16PlacementPattern(pir::IrContext* context)
@@ -96,10 +110,39 @@ class OneDNNBf16PlacementPattern : public pir::RewritePattern {
         return false;
       }
     }
+    if (op->name() == "onednn_op.scale" || op->name() == "onednn_op.scale_") {
+      bool bias_after_scale =
+          op_attr.at("bias_after_scale").dyn_cast<pir::BoolAttribute>().data();
+      if (bias_after_scale) {
+        // If bias after scale, add quant/dequant for sacle will cause some
+        // error
+        return false;
+      }
+    }
 
-    int i = 0;
-    for (auto& value : op->operands_source()) {
-      pir::Type type = op->operand_type(i++);
+    const std::vector<std::string> permitted_input_names = {
+        "x", "y", "input", "residual_param", "residual_data"};
+    auto op_name = op->name();
+    auto op_info = pir::IrContext::Instance()->GetRegisteredOpInfo(op_name);
+    if (!op_info) return false;
+    paddle::dialect::OpYamlInfoParser yaml_parser(
+        op_info.GetInterfaceImpl<paddle::dialect::OpYamlInfoInterface>()
+            ->get_op_info_(op_name),
+        paddle::dialect::IsLegacyOp(op_name));
+    auto input_names = yaml_parser.InputNames();
+
+    for (size_t i = 0; i < op->num_operands(); i++) {
+      pir::Value value = op->operand_source(i);
+      if (!value) continue;
+      std::string input_name = input_names[i];
+      auto iter = std::find(permitted_input_names.begin(),
+                            permitted_input_names.end(),
+                            input_name);
+      if (iter == permitted_input_names.end()) {
+        continue;
+      }
+      pir::Type type = op->operand_type(i);
+      if (!type) continue;
       if (!type.isa<paddle::dialect::DenseTensorType>()) {
         // We skip pir::VectorType
         // TODO(Lirong, Xinyi): Support pir::VectorType in bf16
@@ -111,6 +154,17 @@ class OneDNNBf16PlacementPattern : public pir::RewritePattern {
         return false;
       }
     }
+
+    // Workaround for reshape & slice when shape is unknown
+    // TODO(Xinyi): Since we can't distinguish when IntArray is produced by
+    // Combine, currently we fix it in a specific way. In future, we may think
+    // out a more generalized method
+    if (op_name == "onednn_op.reshape_" || op_name == "onednn_op.reshape") {
+      return CheckIfknownShape(op, 1);
+    } else if (op_name == "onednn_op.slice") {
+      return CheckIfknownShape(op, 1) && CheckIfknownShape(op, 2);
+    }
+
     return true;
   }
 
@@ -364,24 +418,6 @@ class RemoveUnsupportedOpPattern : public pir::RewritePattern {
       }
     }
 
-    bool unsupported_op = false;
-    int i = 0;
-    for (auto& value : op->operands_source()) {
-      pir::Type type = op->operand_type(i++);
-      if (!type.isa<paddle::dialect::DenseTensorType>()) {
-        return false;
-      }
-      pir::Type op_dtype = pir::GetDataTypeFromValue(value);
-      // Only float input can be converted to bfloat16
-      if (!op_dtype.isa<pir::Float32Type>()) {
-        unsupported_op = true;
-        break;
-      }
-    }
-
-    if (!unsupported_op) {
-      return false;
-    }
     return true;
   }
 
@@ -412,7 +448,7 @@ class RemoveUnsupportedOpPattern : public pir::RewritePattern {
 class OneDNNPlacementBf16Pass : public pir::PatternRewritePass {
  public:
   OneDNNPlacementBf16Pass()
-      : pir::PatternRewritePass("cpu_bfloat16_placement_pass", 3) {}
+      : pir::PatternRewritePass("cpu_bfloat16_placement_pass", 2) {}
 
   pir::RewritePatternSet InitializePatterns(pir::IrContext* context) override {
     pir::RewritePatternSet ps(context);

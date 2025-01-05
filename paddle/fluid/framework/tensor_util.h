@@ -22,10 +22,10 @@ limitations under the License. */
 
 #include "paddle/fluid/framework/data_type.h"
 #include "paddle/fluid/framework/dlpack_tensor.h"
-#include "paddle/fluid/framework/string_array.h"
 #include "paddle/fluid/framework/tensor.h"
 #include "paddle/phi/core/memory/allocation/allocator_facade.h"
 #include "paddle/phi/core/platform/device_context.h"
+#include "paddle/phi/core/vocab/string_array.h"
 
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/memory/memory.h"
@@ -52,6 +52,8 @@ class PrintOptions {
  private:
   PrintOptions() {}
 };
+
+phi::DataType ConvertToPDDataType(const std::string& typestr);
 
 TEST_API void TensorToStream(std::ostream& os,
                              const phi::DenseTensor& tensor,
@@ -421,7 +423,7 @@ inline void TensorToVector(const phi::DenseTensor& src,
   delete[] array;
 }
 
-std::ostream& operator<<(std::ostream& os, const LoD& lod);
+std::ostream& operator<<(std::ostream& os, const LegacyLoD& lod);
 
 template <typename T>
 inline T GetValue(const phi::DenseTensor* x) {

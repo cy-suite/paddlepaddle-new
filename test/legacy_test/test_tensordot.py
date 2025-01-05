@@ -19,7 +19,6 @@ import numpy as np
 
 import paddle
 from paddle.base import core
-from paddle.pir_utils import test_with_pir_api
 
 np.random.seed(2021)
 
@@ -213,7 +212,6 @@ class TestTensordotAPI(unittest.TestCase):
                 np_res = tensordot_np(self.x, self.y, axes)
                 np.testing.assert_allclose(paddle_res, np_res, rtol=1e-6)
 
-    @test_with_pir_api
     def test_static(self):
         paddle.enable_static()
         for axes in self.all_axes:
@@ -235,7 +233,6 @@ class TestTensordotAPI(unittest.TestCase):
                     np_res = tensordot_np(self.x, self.y, axes)
                     np.testing.assert_allclose(paddle_res[0], np_res, rtol=1e-6)
 
-    @test_with_pir_api
     def test_fp16_with_gpu(self):
         paddle.enable_static()
         if paddle.base.core.is_compiled_with_cuda():
@@ -372,6 +369,117 @@ class TestTensordotAPIAxesType(TestTensordotAPI):
 class TestTensordotAPIAxesTypeFloat64(TestTensordotAPIAxesType):
     def set_dtype(self):
         self.dtype = np.float64
+
+
+class TestTensordotAPIZeroSize(TestTensordotAPI):
+    def set_input_shape(self):
+        self.x_shape = [0, 5, 5, 5]
+        self.y_shape = [0, 5, 5, 5]
+
+    def set_input_data(self):
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.y = np.random.random(self.y_shape).astype(self.dtype)
+
+    def set_test_axes(self):
+        self.all_axes = [
+            [[], []],
+        ]
+
+
+class TestTensordotAPIFloat64ZeroSize(TestTensordotAPIZeroSize):
+    def set_dtype(self):
+        self.dtype = np.float64
+
+
+class TestTensordotAPIZeroSize(TestTensordotAPI):
+    def set_input_shape(self):
+        self.x_shape = [0, 5, 5, 5]
+        self.y_shape = [0, 5, 5, 5]
+
+    def set_input_data(self):
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.y = np.random.random(self.y_shape).astype(self.dtype)
+
+    def set_test_axes(self):
+        self.all_axes = [
+            [[], []],
+        ]
+
+    def set_dtype(self):
+        self.dtype = np.float64
+
+
+class TestTensordotAPIZeroSizeMultipleDims1(TestTensordotAPI):
+    def set_input_shape(self):
+        self.x_shape = [0, 0, 5, 5]
+        self.y_shape = [0, 0, 5, 5]
+
+    def set_test_axes(self):
+        self.all_axes = [
+            [[], []],
+        ]
+
+
+class TestTensordotAPIZeroSizeMultipleDims2(TestTensordotAPI):
+    def set_input_shape(self):
+        self.x_shape = [5, 0, 5, 0]
+        self.y_shape = [5, 0, 5, 0]
+
+    def set_test_axes(self):
+        self.all_axes = [
+            [[], []],
+        ]
+
+
+class TestTensordotAPIZeroSizeDifferentDims1(TestTensordotAPI):
+    def set_input_shape(self):
+        self.x_shape = [5, 5, 0, 5]
+        self.y_shape = [5, 5, 0, 5]
+
+    def set_test_axes(self):
+        self.all_axes = [
+            [[], []],
+        ]
+
+
+class TestTensordotAPIZeroSizeDifferentDims2(TestTensordotAPI):
+    def set_input_shape(self):
+        self.x_shape = [5, 5, 5, 0]
+        self.y_shape = [5, 5, 5, 0]
+
+    def set_test_axes(self):
+        self.all_axes = [
+            [[], []],
+        ]
+
+
+class TestTensordotAPISingleElementAndZeroSize(TestTensordotAPI):
+    def set_input_shape(self):
+        self.x_shape = [1, 5, 5, 5]
+        self.y_shape = [0, 5, 5, 5]
+
+    def set_test_axes(self):
+        self.all_axes = [
+            [[], []],
+        ]
+
+
+class TestBroadcastWithZeroSize1(unittest.TestCase):
+    def setUp(self):
+        self.x_shape = [5, 0, 3]
+        self.y_shape = [3, 4, 0]
+
+    def set_test_axes(self):
+        self.all_axes = [[], []]
+
+
+class TestBroadcastWithZeroSize2(unittest.TestCase):
+    def setUp(self):
+        self.x_shape = [5, 0, 3]
+        self.y_shape = [3, 0]
+
+    def set_test_axes(self):
+        self.all_axes = [[], []]
 
 
 if __name__ == "__main__":

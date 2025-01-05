@@ -892,7 +892,9 @@ __global__ __launch_bounds__(THREADS_PER_BLOCK) void gqa_block_attention_kernel(
   float qk_maxs[GQA_SUB_PARTITION_SIZE];
 #pragma unroll
   for (int i = 0; i < GQA_SUB_PARTITION_SIZE; i++) {
-    qk_maxs[i] = -FLT_MAX;
+    // qk_maxs[i] = -FLT_MAX;
+    // initialize qk_maxs!!!
+    qk_maxs[i] = qk_smem[act_time_step * GQA_SUB_PARTITION_SIZE + i];
   }
 
   // threads in one block can process 'K_PER_ITER' keys
@@ -1560,6 +1562,10 @@ void dispatch_blha_impl_blocksize(const Block_AttN_params<T> &params,
                                   StoreFunc store_func,
                                   const int use_cachekv_int8) {
   switch (params.block_size) {
+    case 1:
+      dispatch_blha_impl_key_and_thread<T, Dh, Dh_MAX, 1>(
+          params, stream, load_func, store_func, use_cachekv_int8);
+      break;
     case 32:
       dispatch_blha_impl_key_and_thread<T, Dh, Dh_MAX, 32>(
           params, stream, load_func, store_func, use_cachekv_int8);
@@ -1642,6 +1648,7 @@ void blha(const phi::GPUContext &dev_ctx,
           const int timestep,
           const int rotary_emb_dims,
           float inv_sqrt_dh,
+          const float rope_theta,
           const bool add_qkv_bias = true,
           const bool neox_rotary_style = false,
           const int quant_round_type = 1,
@@ -1684,7 +1691,7 @@ void blha(const phi::GPUContext &dev_ctx,
       mask_broadcast_num_heads = false;
     } else {
       PADDLE_THROW(errors::InvalidArgument(
-          "Unknow dimension for attn_mask, the q_num_head(2nd) "
+          "Unknown dimension for attn_mask, the q_num_head(2nd) "
           "dimension is invalid, it should be 1 or q_num_head(%d), "
           "but got %d",
           q_num_head,
@@ -1731,6 +1738,7 @@ void blha(const phi::GPUContext &dev_ctx,
   params.timestep = timestep + pre_cache_length;
   params.inv_sqrt_dh = inv_sqrt_dh;
   params.rotary_emb_dims = rotary_emb_dims;
+  params.rope_theta = rope_theta;
 
   VLOG(3) << "batch_size: " << batch_size << " q_num_head: " << q_num_head
           << " kv_num_head: " << kv_num_head << " block_size: " << block_size
@@ -3971,7 +3979,7 @@ void qkv_transpose_split(const phi::GPUContext &dev_ctx,
 }
 
 template <typename T, int VecSize>
-__global__ void write_pre_cahe_to_kv_buffer(
+__global__ void write_pre_cache_to_kv_buffer(
     T *k_buf,  // [bsz, num_head, seq_len + pre_cache_length, head_dim]
     T *v_buf,
     const T *pre_key_cache,  // [bsz, num_head, pre_cache_length, head_dim]
@@ -4144,7 +4152,7 @@ void qkv_transpose_split(
     elem_cnt = batch_size * q_head_num * pre_cache_length * size_per_head * 2;
     pack_num = elem_cnt / PackSize;
     GetNumBlocks(pack_num, &grid_size);
-    write_pre_cahe_to_kv_buffer<T, PackSize>
+    write_pre_cache_to_kv_buffer<T, PackSize>
         <<<grid_size, blocksize, 0, dev_ctx.stream()>>>(k_buf,
                                                         v_buf,
                                                         pre_key_cache,
@@ -4169,7 +4177,8 @@ __global__ void GetDecoderTensorKernel(const T *qkv_out,
                                        const int kv_head_num,
                                        const int seq_len,
                                        const int dim_head,
-                                       const int elem_nums) {
+                                       const int elem_nums,
+                                       const int qkv_out_nums) {
   using LoadT = phi::AlignedVector<T, VecSize>;
   LoadT src_vec;
   const int32_t fused_hidden_size = (q_head_num + 2 * kv_head_num) * dim_head;
@@ -4180,6 +4189,7 @@ __global__ void GetDecoderTensorKernel(const T *qkv_out,
     const int bias_idx = i % fused_hidden_size;
     const int ori_token_idx = bi * seq_len - cum_offsets[bi];
     const int src_offset = ori_token_idx * fused_hidden_size + bias_idx;
+    if (src_offset >= qkv_out_nums) continue;
     phi::Load<T, VecSize>(&qkv_out[src_offset], &src_vec);
     phi::Store<T, VecSize>(src_vec, &qkv_out_decoder[i]);
   }
@@ -4228,6 +4238,7 @@ void GetDecoderTensor(const phi::GPUContext &dev_ctx,
   // kv_num_head + q_num_head, dim_head] rope: [2, bsz, 1, seq_len, dim_head] ->
   // [2, bsz, 1, 1, dim_head]
   int elem_nums = qkv_out_decoder->numel();
+  int qkv_out_nums = qkv_out.numel();
   constexpr int PackSize = VEC_16B / sizeof(T);
   PADDLE_ENFORCE_EQ(
       dim_head % PackSize,
@@ -4249,7 +4260,8 @@ void GetDecoderTensor(const phi::GPUContext &dev_ctx,
           kv_num_head,
           seq_len,
           dim_head,
-          elem_nums);
+          elem_nums,
+          qkv_out_nums);
   if (rope_out_emb) {
     elem_nums = rope_out_emb->numel() / 2;
     pack_num = elem_nums / PackSize;

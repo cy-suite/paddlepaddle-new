@@ -22,8 +22,10 @@
 #include "paddle/phi/backends/xpu/xpu_info.h"
 #include "paddle/phi/kernels/funcs/blas/blas.h"
 
+#ifdef PADDLE_WITH_XPU_XRE5
 #include "xblas/cublasLt.h"
 namespace xblas = baidu::xpu::xblas;
+#endif
 
 namespace phi {
 
@@ -170,7 +172,6 @@ static void GetFCInfo(const phi::DDim& x_dims,
   if (y_dims.size() >= 3 && x_dims.size() <= 2) {
     info->is_x_need_broadcast = (mat_dim_b.batch_size_ > 1);
   }
-
   PADDLE_ENFORCE_EQ(mat_dim_a.width_,
                     mat_dim_b.height_,
                     common::errors::InvalidArgument(
@@ -414,7 +415,7 @@ static void xblas_fc_batch_wrapper(xpu::Context* xpu_ctx,
       stride_x,
       reinterpret_cast<const XPUType*>(w),
       stride_w,
-      0.0,
+      beta,
       reinterpret_cast<XPUType*>(y),
       stride_y,
       x_maxptr,
@@ -434,7 +435,7 @@ static void xblas_fc_batch_wrapper(xpu::Context* xpu_ctx,
       stride_x,
       reinterpret_cast<const XPUType*>(w),
       stride_w,
-      0.0,
+      beta,
       reinterpret_cast<XPUType*>(y),
       stride_y,
       x_maxptr,
@@ -505,6 +506,7 @@ static void MatMulXPUFunction(
     T* out,
     const XpuFcInfo& fcinfo,
     float alpha,
+    float beta = 0.f,
     bool is_grad = false,
     xpu::Activation_t act = xpu::Activation_t::LINEAR) {
   using XPUType = typename XPUTypeTrait<T>::Type;
@@ -581,7 +583,7 @@ static void MatMulXPUFunction(
                  ldy,
                  ldout,
                  alpha,
-                 0,
+                 beta,
                  bias,
                  act,
                  scale_x,
@@ -626,7 +628,7 @@ static void MatMulXPUFunction(
                        ldx,                              // int stride_a,
                        y_data,                           // const TW* w,
                        ldy,                              // int stride_b,
-                       0.0,                              // float beta,
+                       beta,                             // float beta,
                        reinterpret_cast<XPUType*>(out),  // TY* y,
                        ldout,                            // int stride_c,
                        max_x,   // const float* x_maxptr,

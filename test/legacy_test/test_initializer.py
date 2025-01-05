@@ -22,7 +22,6 @@ from utils import dygraph_guard, static_guard
 import paddle
 from paddle.base import framework
 from paddle.base.core import VarDesc
-from paddle.pir_utils import test_with_pir_api
 from paddle.regularizer import L2Decay
 
 DELTA = 0.00001
@@ -79,7 +78,6 @@ class TestConstantInitializer(unittest.TestCase):
                 block.create_parameter(
                     dtype=dtype,
                     shape=[5, 10],
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.Constant(),
                 )
@@ -99,7 +97,6 @@ class TestConstantInitializer(unittest.TestCase):
                 block.create_parameter(
                     dtype=dtype,
                     shape=[5, 10],
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.Constant(2.3),
                 )
@@ -133,7 +130,6 @@ class TestUniformInitializer(unittest.TestCase):
                 block.create_parameter(
                     dtype=dtype,
                     shape=[5, 10],
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.Uniform(),
                 )
@@ -156,14 +152,12 @@ class TestUniformInitializer(unittest.TestCase):
                 block.create_parameter(
                     dtype="float32",
                     shape=[5, 10],
-                    lod_level=0,
                     name="param1",
                     initializer=paddle.nn.initializer.Uniform(),
                 )
                 block.create_parameter(
                     dtype="float32",
                     shape=[5, 10],
-                    lod_level=0,
                     name="param2",
                     initializer=paddle.nn.initializer.UniformInitializer(
                         seed=456
@@ -183,7 +177,6 @@ class TestUniformInitializer(unittest.TestCase):
                 block.create_parameter(
                     dtype=dtype,
                     shape=[5, 10],
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.UniformInitializer(
                         -4.2, 3.1, 123
@@ -207,7 +200,6 @@ class TestUniformInitializer(unittest.TestCase):
                 block.create_parameter(
                     dtype=dtype,
                     shape=[5, 10],
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.UniformInitializer(
                         -4.2, float(i), 123
@@ -400,7 +392,6 @@ class TestNormalInitializer(unittest.TestCase):
                 block.create_parameter(
                     dtype="float32",
                     shape=[5, 10],
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.Normal(),
                 )
@@ -420,7 +411,6 @@ class TestNormalInitializer(unittest.TestCase):
                 block.create_parameter(
                     dtype=dtype,
                     shape=[5, 10],
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.NormalInitializer(
                         2.3, 1.9, 123
@@ -444,7 +434,6 @@ class TestNormalInitializer(unittest.TestCase):
                 block.create_parameter(
                     dtype=dtype,
                     shape=[5, 10],
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.NormalInitializer(
                         2.2 + 2.2j, 1.9, 123
@@ -488,7 +477,6 @@ class TestXavierInitializer(unittest.TestCase):
                 param = block.create_parameter(
                     dtype="float32",
                     shape=[5, 10],
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.XavierUniform(),
                 )
@@ -511,7 +499,6 @@ class TestXavierInitializer(unittest.TestCase):
                 param = block.create_parameter(
                     dtype="float32",
                     shape=[5, 10, 15, 20],
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.XavierUniform(),
                 )
@@ -537,7 +524,6 @@ class TestXavierInitializer(unittest.TestCase):
                 param = block.create_parameter(
                     dtype="float32",
                     shape=[5, 10],
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.XavierNormal(),
                 )
@@ -560,7 +546,6 @@ class TestXavierInitializer(unittest.TestCase):
                 param = block.create_parameter(
                     dtype="float32",
                     shape=[5, 10, 15, 20],
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.XavierNormal(),
                 )
@@ -586,7 +571,6 @@ class TestXavierInitializer(unittest.TestCase):
                 block.create_parameter(
                     dtype=dtype,
                     shape=[5, 10],
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.XavierInitializer(
                         uniform=uniform,
@@ -880,7 +864,6 @@ class TestMSRAInitializer(unittest.TestCase):
                 param = block.create_parameter(
                     dtype="float32",
                     shape=[5, 10],
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.KaimingUniform(),
                 )
@@ -903,7 +886,6 @@ class TestMSRAInitializer(unittest.TestCase):
                 param = block.create_parameter(
                     dtype="float32",
                     shape=[5, 10, 15, 20],
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.KaimingUniform(),
                 )
@@ -927,7 +909,6 @@ class TestMSRAInitializer(unittest.TestCase):
                 param = block.create_parameter(
                     dtype="float32",
                     shape=[5, 10],
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.KaimingNormal(),
                 )
@@ -950,7 +931,6 @@ class TestMSRAInitializer(unittest.TestCase):
                 param = block.create_parameter(
                     dtype="float32",
                     shape=[5, 10, 15, 20],
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.KaimingNormal(),
                 )
@@ -972,7 +952,6 @@ class TestMSRAInitializer(unittest.TestCase):
                 block.create_parameter(
                     dtype=dtype,
                     shape=[5, 10],
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.MSRAInitializer(
                         fan_in=12, seed=134
@@ -1237,7 +1216,6 @@ class TestBilinearInitializer(unittest.TestCase):
                 block.create_parameter(
                     dtype=dtype,
                     shape=[8, 1, 3, 3],
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.Bilinear(),
                 )
@@ -1407,7 +1385,6 @@ class TestNumpyArrayInitializer(unittest.TestCase):
                 block.create_parameter(
                     dtype=np_array.dtype,
                     shape=np_array.shape,
-                    lod_level=0,
                     name="param",
                     initializer=paddle.nn.initializer.Assign(np_array),
                 )
@@ -1943,7 +1920,6 @@ class TestOrthogonalInitializer4(unittest.TestCase):
             np.matmul(a, a.T), 9 * np.eye(6), rtol=1e-5, atol=1e-8
         )
 
-    @test_with_pir_api
     def test_orthogonal(self):
         self.config()
         paddle.set_default_dtype(self.dtype)

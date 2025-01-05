@@ -53,6 +53,8 @@ static StmtPattern ConvertToStmtPattern(const PatternContent& content) {
         std::make_shared<InitPatternInstr>(content.op, result.id()));
     return result;
   } else {
+    PADDLE_THROW(::common::errors::InvalidArgument(
+        "Unsupport op for fusion: %s", OpsDebugStr({content.op})));
     auto result =
         UnsupportPattern({content.op}, std::make_shared<FusionTracker>());
     result.tracker_->append(
@@ -86,7 +88,7 @@ template <typename A, typename B>
 B FusePatternIfConnected(A up_pattern,
                          B down_pattern,
                          std::vector<pir::Operation*> connect_ops) {
-  if (AnyTargetInCandidate(connect_ops, down_pattern.ops())) {
+  if (AnyFirstInSecond(connect_ops, down_pattern.ops())) {
     return std::get<B>(MergePatternImpl(up_pattern, down_pattern));
   } else {
     return down_pattern;
@@ -97,15 +99,15 @@ static StmtPattern MergePatternImpl(const TrivialPattern& first,
                                     const ReduceTreePattern& second) {
   auto connect_ops = FindDownstreamOps(first.sink_op());
 
-  auto old_childs = second.childs();
-  std::vector<ReduceTreePattern> new_childs;
-  for (const auto& old_child : old_childs) {
-    new_childs.emplace_back(
+  auto old_children = second.children();
+  std::vector<ReduceTreePattern> new_children;
+  for (const auto& old_child : old_children) {
+    new_children.emplace_back(
         FusePatternIfConnected(first, old_child, connect_ops));
   }
 
   return ReduceTreePattern(
-      new_childs,
+      new_children,
       FusePatternIfConnected(first, second.GetRootPattern(), connect_ops),
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_));
 }
@@ -122,12 +124,11 @@ static StmtPattern MergePatternImpl(
 }
 
 static StmtPattern MergePatternImpl(const TrivialPattern& first,
-                                    const AnchorPattern& second) {
-  return AnchorPattern(
+                                    const ItersPermutationPattern& second) {
+  return ItersPermutationPattern(
       UniqueConcatVector(GetOpsInPattern(first), GetOpsInPattern(second)),
-      second.anchor(),
-      second.anchor_state,
-      std::make_shared<FusionTracker>(first.tracker_, second.tracker_));
+      std::make_shared<FusionTracker>(first.tracker_, second.tracker_),
+      second.loop_dims());
 }
 
 // RR & RT
@@ -147,7 +148,7 @@ static int InsertUpstreamIntoTree(const ReduceTreePattern& upstream,
     return 1;
   }
   int insert_num = 0;
-  for (auto& child : downstream.childs()) {
+  for (auto& child : downstream.children()) {
     insert_num += InsertUpstreamIntoTree(upstream, child);
   }
   return insert_num;
@@ -156,7 +157,7 @@ static int InsertUpstreamIntoTree(const ReduceTreePattern& upstream,
 static StmtPattern MergePatternImpl(const ReduceTreePattern& upstream,
                                     const ReduceTreePattern& downstream) {
   ReduceTreePattern result = ReduceTreePattern(
-      downstream.childs(),
+      downstream.children(),
       downstream.GetRootPattern(),
       std::make_shared<FusionTracker>(upstream.tracker_,
                                       downstream.tracker_));  // copy first.
@@ -176,78 +177,6 @@ static StmtPattern MergePatternImpl(const ReduceTreePattern& first,
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_));
 }
 
-// Anchor Fusion
-static std::vector<ExprPromise> InitExprPromiseImpl(
-    const TrivialPattern& pattern, pir::Value anchor) {
-  return {ExprPromise(anchor, pattern.id())};
-}
-
-static std::vector<ExprPromise> InitExprPromiseImpl(
-    const ReducePattern& pattern, pir::Value anchor) {
-  return {ExprPromise(anchor, pattern.id())};
-}
-
-static std::vector<ExprPromise> InitExprPromiseImpl(
-    const ReduceTreePattern& pattern, pir::Value anchor) {
-  // TODO(@wuzhanfei) this is temporary
-  // now we do not support anchor fusion for reduce op,
-  // so, this is ok currently. but need to be redesigned later
-  return {ExprPromise(anchor, pattern.id())};
-}
-
-template <typename PATTERN>
-std::vector<ExprPromise> InitExprPromiseImpl(const PATTERN& pattern,
-                                             pir::Value anchor) {
-  PADDLE_THROW(::common::errors::Unimplemented(
-      "Can not Init ExprPromise with Unsupport Pattern."));
-}
-
-static std::vector<ExprPromise> InitExprPromise(const StmtPattern& pattern,
-                                                pir::Value anchor) {
-  return std::visit(
-      [anchor](const auto& arg) { return InitExprPromiseImpl(arg, anchor); },
-      pattern);
-}
-
-static StmtPattern MergePatternImpl(const AnchorPattern& source,
-                                    const AnchorPattern& dest) {
-  const auto& contents =
-      UniqueConcatVector(GetOpsInPattern(source), GetOpsInPattern(dest));
-  return AnchorPattern(
-      contents,
-      source.anchor(),
-      AnchorState({}),
-      std::make_shared<FusionTracker>(source.tracker_, dest.tracker_));
-}
-
-static TrivialPattern RecoverAnchorPatternToTrivial(
-    const AnchorPattern& anchor_pattern) {
-  PADDLE_ENFORCE_EQ(anchor_pattern.anchor_state.promise.size(),
-                    1,
-                    ::common::errors::PreconditionNotMet(
-                        "Can only recover AnchorPattern whose anchor_state "
-                        "size is 1 (exact %d)",
-                        anchor_pattern.anchor_state.promise.size()));
-
-  return TrivialPattern(
-      anchor_pattern.ops(),
-      anchor_pattern.anchor().defining_op(),
-      std::make_shared<FusionTracker>(anchor_pattern.tracker_));
-}
-
-static AnchorState GetAnchorState(const AnchorPattern& pattern) {
-  return pattern.anchor_state;
-}
-
-static AnchorState ApplyAnchorTransformRoute(
-    const AnchorState& anchor_state, const AnchorTransformRoute& route) {
-  AnchorState result = anchor_state;
-  for (auto promise : result.promise) {
-    promise.update(route);
-  }
-  return result;
-}
-
 static std::vector<pir::Operation*> GetOutputOpsInPattern(
     const StmtPattern& pattern) {
   struct Visitor {
@@ -260,10 +189,6 @@ static std::vector<pir::Operation*> GetOutputOpsInPattern(
     std::vector<pir::Operation*> operator()(const UnsupportPattern& pattern) {
       PADDLE_THROW(::common::errors::Unimplemented(
           "Get output ops in UnsupportPattern is not implement!"));
-    }
-    std::vector<pir::Operation*> operator()(const AnchorPattern& pattern) {
-      PADDLE_THROW(::common::errors::Unimplemented(
-          "Can't get output ops in AnchorPattern Currently."));
     }
     std::vector<pir::Operation*> operator()(const ReduceTreePattern& pattern) {
       return this->operator()(pattern.GetRootPattern());
@@ -282,6 +207,11 @@ static std::vector<pir::Operation*> GetOutputOpsInPattern(
                                [](const PaddingStmtPattern& pattern) {
                                  return std::visit(Visitor(), pattern.pattern);
                                }));
+    }
+    std::vector<pir::Operation*> operator()(
+        const ItersPermutationPattern& pattern) {
+      PADDLE_THROW(::common::errors::Unimplemented(
+          "Can't get output ops for ItersPermutationPattern Currently."));
     }
   };
   return std::visit(Visitor(), pattern);
@@ -377,8 +307,11 @@ struct LoopValueDimsVisitor {
   std::vector<LoopValueDims> operator()(const UnsupportPattern& pattern) {
     PADDLE_ENFORCE(false, "Not support GetLoopRange.");
   }
-  std::vector<LoopValueDims> operator()(const AnchorPattern& pattern) {
-    return {GetAllValueDimFromValue(pattern.anchor())};
+
+  std::vector<LoopValueDims> operator()(
+      const ItersPermutationPattern& pattern) {
+    PADDLE_THROW(::common::errors::Unimplemented(
+        "Can't get loop value dims for ItersPermutationPattern Currently."));
   }
 };
 
@@ -440,20 +373,28 @@ static bool IsLoopFrameworkEqual(const StmtPattern& lhs,
   const auto& rhs_loops = GetLoopFramework(rhs);
   VLOG(4) << "lhs " << lhs_loops.DebugStr();
   VLOG(4) << "rhs " << rhs_loops.DebugStr();
+
+  // TODO(huangjiyi): support horizontal fusion without reduce dims euqal.
+  const auto get_reduce_loop = [](const MaybeLoopFramework& loop) {
+    LoopExprs reduce_loop;
+    for (int i = 0; i < loop.is_reduce.size(); ++i) {
+      if (loop.is_reduce[i]) {
+        reduce_loop.push_back(loop.loop[i]);
+      }
+    }
+    return reduce_loop;
+  };
+  const auto lhs_reduce_loop = get_reduce_loop(lhs_loops);
+  const auto rhs_reduce_loop = get_reduce_loop(rhs_loops);
+
+  bool reduce_euqal = lhs_reduce_loop.empty() || rhs_reduce_loop.empty()
+                          ? true
+                          : lhs_reduce_loop == rhs_reduce_loop;
+
   const auto& squeezed_lhs_loops = SqueezeLoopFramework(lhs_loops);
   const auto& squeezed_rhs_loops = SqueezeLoopFramework(rhs_loops);
   bool loop_equal = squeezed_lhs_loops.loop == squeezed_rhs_loops.loop;
 
-  // TODO(huangjiyi): support horizontal fusion without reduce dims euqal.
-  auto has_reduce_dim = [](const MaybeLoopFramework& loops) -> bool {
-    return std::any_of(loops.is_reduce.begin(),
-                       loops.is_reduce.end(),
-                       [](bool b) { return b; });
-  };
-  bool reduce_euqal =
-      has_reduce_dim(lhs_loops) && has_reduce_dim(rhs_loops)
-          ? squeezed_lhs_loops.is_reduce == squeezed_rhs_loops.is_reduce
-          : true;
   return loop_equal && reduce_euqal;
 }
 
@@ -526,17 +467,9 @@ struct LoopFrameworkVisitor {
         ::common::errors::Unimplemented("Unsupport for GetLoopRange."));
   }
 
-  MaybeLoopFramework operator()(const AnchorPattern& pattern) {
-    const auto& loops = GetDimExprsFromValue(pattern.anchor());
-    auto anchor_op = pattern.anchor().defining_op();
-    if (GetOpPatternKind(anchor_op) == hlir::framework::kReduction) {
-      const auto& reduce_axes = GetReduceAxisIdx(anchor_op);
-      const auto& reduce_loops = GatherVector(
-          GetDimExprsFromValue(anchor_op->operand(0).source()), reduce_axes);
-      return {ConcatVector(loops, reduce_loops),
-              CreateIsReduceVector(loops.size(), reduce_loops.size())};
-    }
-    return {loops, std::vector<bool>(loops.size(), false)};
+  MaybeLoopFramework operator()(const ItersPermutationPattern& pattern) {
+    const auto loop_dims = pattern.loop_dims();
+    return {loop_dims.first, loop_dims.second};
   }
 };
 
@@ -598,8 +531,8 @@ static StmtPattern MergePatternImpl(const HorizontalFusionPattern& first,
 
 static StmtPattern MergePattern(const StmtPattern& first,
                                 const StmtPattern& second) {
-  VLOG(4) << "MergePattern: " << GetPatternName(first) << " x "
-          << GetPatternName(second);
+  VLOG(4) << "MergePattern: " << GetPatternId(first) << " x "
+          << GetPatternId(second);
   const auto PatternMatch = adt::match{
       [&](const ReduceTreePattern& lhs, const ReduceTreePattern& rhs) {
         return MergePatternImpl(lhs, rhs);
@@ -619,10 +552,7 @@ static StmtPattern MergePattern(const StmtPattern& first,
       [&](const TrivialPattern& lhs, const ReduceTreePlusTrivialPattern& rhs) {
         return MergePatternImpl(lhs, rhs);
       },
-      [&](const TrivialPattern& lhs, const AnchorPattern& rhs) {
-        return MergePatternImpl(lhs, rhs);
-      },
-      [&](const AnchorPattern& lhs, const AnchorPattern& rhs) {
+      [&](const TrivialPattern& lhs, const ItersPermutationPattern& rhs) {
         return MergePatternImpl(lhs, rhs);
       },
       [&](const HorizontalFusionPattern& lhs,

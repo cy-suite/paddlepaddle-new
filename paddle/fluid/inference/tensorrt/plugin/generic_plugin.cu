@@ -14,7 +14,6 @@
 
 #include <map>
 
-#include "paddle/fluid/framework/framework.pb.h"
 #include "paddle/fluid/framework/op_kernel_type.h"
 #include "paddle/fluid/framework/phi_utils.h"
 #include "paddle/fluid/inference/tensorrt/dynamic_shape_infermeta_registry.h"
@@ -22,6 +21,7 @@
 #include "paddle/phi/backends/gpu/gpu_context.h"
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/core/compat/op_utils.h"
+#include "paddle/phi/core/framework/framework.pb.h"
 #include "paddle/phi/core/kernel_context.h"
 #include "paddle/phi/core/kernel_factory.h"
 #include "paddle/phi/kernels/funcs/data_type_transform.h"
@@ -229,7 +229,7 @@ void BuildPhiKernelContextAttr(const framework::OpDesc& op_desc,
                   PADDLE_GET_CONST(std::vector<int>, attr));
               break;
             case phi::AttributeType::DATA_TYPE: {
-              auto data_type = paddle::framework::TransToPhiDataType(
+              auto data_type = phi::TransToPhiDataType(
                   static_cast<framework::proto::VarType::Type>(
                       PADDLE_GET_CONST(int, attr)));
               kernel_context->EmplaceBackAttr(data_type);
@@ -382,7 +382,7 @@ bool GenericPlugin::supportsFormatCombination(
       return (in_out[pos].type == nvinfer1::DataType::kINT32) &&
              (in_out[pos].format == nvinfer1::TensorFormat::kLINEAR);
     // output
-    if (pos == 2)
+    if (pos == 2 || pos == 3)
       return in_out[0].type == in_out[pos].type &&
              in_out[0].format == in_out[pos].format;
   } else if (op_desc_.Type() == "scatter_nd_add") {

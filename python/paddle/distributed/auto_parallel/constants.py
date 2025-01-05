@@ -118,7 +118,7 @@ set_field_default_config(AMP, "custom_black_varnames", [])
 set_field_default_config(AMP, "use_fp16_guard", False)
 set_field_default_config(AMP, "use_bf16_guard", False)
 set_field_default_config(AMP, "use_master_grad", False)
-set_field_default_config(AMP, "use_promote", False)
+set_field_default_config(AMP, "use_promote", True)
 
 if TYPE_CHECKING:
 
@@ -157,6 +157,11 @@ set_field_default_config(SHARDING, "enable_hierarchical_comm", False)
 set_field_default_config(SHARDING, "partition_algor", "greedy_even")
 set_field_default_config(SHARDING, "enable_tuning", False)
 set_field_default_config(SHARDING, "tuning_range", [])
+set_field_default_config(SHARDING, "release_gradients", False)
+set_field_default_config(SHARDING, "comm_buffer_size_MB", 256)
+set_field_default_config(SHARDING, "enable_stage1_tensor_fusion", False)
+set_field_default_config(SHARDING, "save_unbalanced_param", True)
+
 
 if TYPE_CHECKING:
 
@@ -340,7 +345,11 @@ MP_OPTIMIZATION = "mp_optimization"
 set_field_default_config(
     MP_OPTIMIZATION, "allreduce_matmul_grad_overlapping", False
 )
+set_field_default_config(MP_OPTIMIZATION, "replace_with_c_embedding", False)
 
+set_field_default_config(
+    MP_OPTIMIZATION, "replace_with_parallel_cross_entropy", False
+)
 if TYPE_CHECKING:
 
     class _MPOptimizationConfig(TypedDict, total=False):  # noqa: PYI049

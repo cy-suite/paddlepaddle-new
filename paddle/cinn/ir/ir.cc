@@ -15,15 +15,19 @@
 #include "paddle/cinn/ir/ir.h"
 
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 #include "paddle/cinn/common/cinn_value.h"
 #include "paddle/cinn/common/ir_util.h"
+#include "paddle/cinn/common/simplify_special_pattern.h"
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/ir_utils.h"
 #include "paddle/cinn/ir/ir_visitor.h"
 #include "paddle/cinn/ir/module.h"
+#include "paddle/cinn/ir/op/ir_operators.h"
 #include "paddle/cinn/ir/tensor.h"
+#include "paddle/cinn/ir/utils/ir_copy.h"
 #include "paddle/cinn/optim/ir_simplify.h"
 #include "paddle/common/enforce.h"
 #include "paddle/common/errors.h"
@@ -51,6 +55,38 @@ Expr Cast::Make(Type t, Expr v) {
                         "The expression is not defined. "
                         "A defined expression is required for casting."));
 
+#define __CAST_TO_TYPE(type__)                  \
+  if (auto *i = v.As<ir::IntImm>()) {           \
+    return Expr(static_cast<type__>(i->value)); \
+  } else if (auto *u = v.As<ir::UIntImm>()) {   \
+    return Expr(static_cast<type__>(u->value)); \
+  }
+
+  if (v.is_constant()) {
+    if (t == type_of<int8_t>()) {
+      __CAST_TO_TYPE(int8_t)
+    } else if (t == type_of<int16_t>()) {
+      __CAST_TO_TYPE(int16_t)
+    } else if (t == type_of<int32_t>()) {
+      __CAST_TO_TYPE(int32_t)
+    } else if (t == type_of<int64_t>()) {
+      __CAST_TO_TYPE(int64_t)
+    } else if (t == type_of<uint8_t>()) {
+      __CAST_TO_TYPE(uint8_t)
+    } else if (t == type_of<uint16_t>()) {
+      __CAST_TO_TYPE(uint16_t)
+    } else if (t == type_of<uint32_t>()) {
+      __CAST_TO_TYPE(uint32_t)
+    } else if (t == type_of<uint64_t>()) {
+      __CAST_TO_TYPE(uint64_t)
+    }
+  }
+#undef __CAST_TO_TYPE
+
+  if (v.node_type() != ir::IrNodeTy::Load && v.is_index() && t == Int(64)) {
+    v->convert_int32_to_int64();
+    return v;
+  }
   auto node = make_shared<Cast>();
   node->v() = v;
   node->set_type(t);
@@ -65,7 +101,17 @@ void Cast::Verify() const {
 
 Expr Add::Make(Expr a, Expr b) {
   auto node = make_shared<Add>(a, b);
+  // For performance reasons, do not perform frequent simplifications. Just set
+  // the is_index() flag to true. For extreme optimization,
+  // `node->set_index(true)` can be replaced by `a.as_index() + b.as_index()`
+  if (a.is_index() && b.is_index()) node->set_index(true);
   return Expr(node);
+}
+
+IndexExpr Add::Make(IndexExpr a, IndexExpr b) {
+  auto node = make_shared<Add>(a, b);
+  node->set_index(true);
+  return IndexExpr(node);
 }
 
 Add::Add(Expr a, Expr b) : BinaryOpNode<Add>(a.type(), a, b) {}
@@ -96,44 +142,87 @@ void Add::Verify() const { BinaryNodeVerify(a(), b(), "Add"); }
 
 Expr Sub::Make(Expr a, Expr b) {
   auto node = make_shared<Sub>(a, b);
+  if (a.is_index() && b.is_index()) node->set_index(true);
   return Expr(node);
+}
+
+IndexExpr Sub::Make(IndexExpr a, IndexExpr b) {
+  auto node = make_shared<Sub>(a, b);
+  node->set_index(true);
+  return IndexExpr(node);
 }
 
 void Sub::Verify() const { BinaryNodeVerify(a(), b(), "Sub"); }
 
 Expr Mul::Make(Expr a, Expr b) {
-  BinaryNodeVerify(a, b, "Mul");
   auto node = make_shared<Mul>(a, b);
+  if (a.is_index() && b.is_index()) node->set_index(true);
   return Expr(node);
 }
 
-void Max::Verify() const { BinaryNodeVerify(a(), b(), "Max"); }
+IndexExpr Mul::Make(IndexExpr a, IndexExpr b) {
+  auto node = make_shared<Mul>(a, b);
+  node->set_index(true);
+  return IndexExpr(node);
+}
+
+void Mul::Verify() const { BinaryNodeVerify(a(), b(), "Mul"); }
 
 Expr Div::Make(Expr a, Expr b) {
   auto node = make_shared<Div>(a, b);
+  if (a.is_index() && b.is_index()) node->set_index(true);
   return Expr(node);
+}
+
+IndexExpr Div::Make(IndexExpr a, IndexExpr b) {
+  auto node = make_shared<Div>(a, b);
+  node->set_index(true);
+  return IndexExpr(node);
 }
 
 void Div::Verify() const { BinaryNodeVerify(a(), b(), "Div"); }
 
 Expr Mod::Make(Expr a, Expr b) {
   auto node = make_shared<Mod>(a, b);
+  if (a.is_index() && b.is_index()) node->set_index(true);
   return Expr(node);
+}
+
+IndexExpr Mod::Make(IndexExpr a, IndexExpr b) {
+  auto node = make_shared<Mod>(a, b);
+  node->set_index(true);
+  return IndexExpr(node);
 }
 
 void Mod::Verify() const { BinaryNodeVerify(a(), b(), "Mod"); }
 
 Expr Min::Make(Expr a, Expr b) {
   auto node = make_shared<Min>(a, b);
+  if (a.is_index() && b.is_index()) node->set_index(true);
   return Expr(node);
+}
+
+IndexExpr Min::Make(IndexExpr a, IndexExpr b) {
+  auto node = make_shared<Min>(a, b);
+  node->set_index(true);
+  return IndexExpr(node);
 }
 
 void Min::Verify() const { BinaryNodeVerify(a(), b(), "Min"); }
 
 Expr Max::Make(Expr a, Expr b) {
   auto node = make_shared<Max>(a, b);
+  if (a.is_index() && b.is_index()) node->set_index(true);
   return Expr(node);
 }
+
+IndexExpr Max::Make(IndexExpr a, IndexExpr b) {
+  auto node = make_shared<Max>(a, b);
+  node->set_index(true);
+  return IndexExpr(node);
+}
+
+void Max::Verify() const { BinaryNodeVerify(a(), b(), "Max"); }
 
 Expr Minus::Make(Expr a) {
   auto node = make_shared<Minus>(a);
@@ -305,6 +394,7 @@ Expr _Var_::Copy() const {
   n->name = name;
   n->is_reduce_axis = is_reduce_axis;
   n->is_keepdim = is_keepdim;
+  n->set_index(get_index());
   n->lower_bound = lower_bound;
   n->upper_bound = upper_bound;
   n->set_type(type());
@@ -319,7 +409,23 @@ void _Var_::Verify() const {
                         "A valid name is required to identify the variable."));
 }
 
-Expr IterMark::Make(const Expr &source, const Expr &extent) {
+const IndexExpr Var::as_index() const {
+  if (is_index()) {
+    return IndexExpr(*this);
+  }
+  PADDLE_THROW(
+      ::common::errors::InvalidType("Var: %s is not IndexExpr!", *this));
+}
+
+IndexExpr Var::as_index() {
+  if (is_index()) {
+    return IndexExpr(*this);
+  }
+  PADDLE_THROW(
+      ::common::errors::InvalidType("Var: %s is not IndexExpr!", *this));
+}
+
+Expr IterMark::Make(const Expr &source, const IndexExpr &extent) {
   auto *n = make_shared<IterMark>();
   n->source = source;
   n->extent = extent;
@@ -334,9 +440,9 @@ IterMark &IterMark::operator=(const IterMark &other) {
   return *this;
 }
 Expr IterSplit::Make(const Expr &source,
-                     const Expr &lower_factor,
-                     const Expr &extent,
-                     const Expr &scale) {
+                     const IndexExpr &lower_factor,
+                     const IndexExpr &extent,
+                     const IndexExpr &scale) {
   auto *n = make_shared<IterSplit>();
   n->set_type(source.type());
   n->source = source;
@@ -357,7 +463,7 @@ Expr IterSplit::Make(const Expr &source) {
   return Expr(n);
 }
 
-Expr IterSplit::Make(const Expr &source, const Expr &scale) {
+Expr IterSplit::Make(const Expr &source, const IndexExpr &scale) {
   auto *n = make_shared<IterSplit>();
   auto source_mark = source.As<IterMark>();
   n->set_type(source.type());
@@ -376,15 +482,13 @@ IterSplit &IterSplit::operator=(const IterSplit &other) {
   return *this;
 }
 
-Expr IterSum::Make(const std::vector<Expr> &args, const Expr &base) {
+Expr IterSum::Make(const std::vector<Expr> &args, const IndexExpr &base) {
   auto *n = make_shared<IterSum>();
   n->set_type(base.type());
   n->args = std::move(args);
   n->base = base;
   return Expr(n);
 }
-
-void Mul::Verify() const { BinaryNodeVerify(a(), b(), "Mul"); }
 
 Expr For::Make(Var loop_var,
                Expr min,
@@ -412,6 +516,9 @@ Expr For::Make(Var loop_var,
       true,
       ::common::errors::InvalidArgument("The extent is not defined. "
                                         "A valid extent is required."));
+
+  if (!(loop_var->lower_bound.defined())) loop_var->lower_bound = min;
+  if (!(loop_var->upper_bound.defined())) loop_var->upper_bound = extent;
 
   node->loop_var = loop_var;
   node->min = min;
@@ -591,7 +698,7 @@ Expr Store::Make(Expr tensor, Expr value, const std::vector<Expr> &indices) {
   node->tensor = tensor;
   node->value = value;
   node->indices =
-      utils::GetCompitableStoreLoadIndices(tensor.as_tensor_ref(), indices);
+      utils::GetCompatibleStoreLoadIndices(tensor.as_tensor_ref(), indices);
 
   if (tensor->type() != Void()) {
     node->set_type(
@@ -893,7 +1000,7 @@ Expr Load::Make(Expr tensor, const std::vector<Expr> &origin_indices) {
       true,
       ::common::errors::InvalidArgument("The tensor type is not valid. "
                                         "A valid tensor type is required."));
-  const auto indices = utils::GetCompitableStoreLoadIndices(
+  const auto indices = utils::GetCompatibleStoreLoadIndices(
       tensor.as_tensor_ref(), origin_indices);
   PADDLE_ENFORCE_EQ(
       !indices.empty(),
@@ -919,7 +1026,18 @@ Expr Load::Make(Expr tensor, const std::vector<Expr> &origin_indices) {
 
 void Load::convert_int32_to_int64() {
   IrNode::convert_int32_to_int64();
+  for (auto &indice : indices) {
+    indice->convert_int32_to_int64();
+  }
   tensor->convert_int32_to_int64();
+}
+
+void Load::convert_int64_to_int32() {
+  IrNode::convert_int64_to_int32();
+  for (auto &indice : indices) {
+    indice->convert_int64_to_int32();
+  }
+  tensor->convert_int64_to_int32();
 }
 
 Type Load::type() const {
@@ -1200,6 +1318,14 @@ Expr Reduce::Make(Reduce::ReduceType reduce_type,
   }
 
   n->set_type(body.type());
+
+  if (reduce_type == ir::Reduce::kSum &&
+      (body.type().is_int(32) || body.type().is_bool())) {
+    n->body->set_type(Int(64));
+    n->set_type(Int(64));
+    n->init->set_type(Int(64));
+  }
+
   return Expr(n);
 }
 
@@ -1507,6 +1633,5 @@ void Sum::Verify() const {
 void Block::Verify() const {}
 
 void PrimitiveNode::Verify() const {}
-
 }  // namespace ir
 }  // namespace cinn

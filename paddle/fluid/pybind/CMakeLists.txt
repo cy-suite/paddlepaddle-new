@@ -44,9 +44,12 @@ set(PYBIND_DEPS
     fluid_jit
     prim_utils
     detail_op_handle
-    static_tensor_operants
     type_info
     auto_parallel)
+
+if(WITH_GPU)
+  list(APPEND PYBIND_DEPS gpu_event_timer)
+endif()
 
 if(WITH_CINN)
   set(PYBIND_DEPS ${PYBIND_DEPS} pir_transforms cinn_transforms
@@ -65,9 +68,6 @@ if(WITH_RPC)
                   common)
 endif()
 
-if(WITH_GPU)
-  set(PYBIND_DEPS ${PYBIND_DEPS} cuda_profiler)
-endif()
 if(WITH_IPU)
   set(PYBIND_DEPS ${PYBIND_DEPS} ipu_info)
 endif()
@@ -144,7 +144,9 @@ set(PYBIND_SRCS
     auto_parallel_py.cc
     sot/eval_frame_tools.cc
     sot/cpython_internals.c
+    sot/frame_proxy.c
     sot/eval_frame.c
+    sot/guards.cc
     op_callstack_utils.cc
     python_callable_registry.cc)
 

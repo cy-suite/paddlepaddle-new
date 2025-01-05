@@ -18,7 +18,7 @@
 
 import unittest
 
-from test_case_base import TestCaseBase
+from test_case_base import TestCaseBase, test_with_faster_guard
 
 import paddle
 from paddle.jit.sot.psdb import check_no_breakgraph
@@ -175,9 +175,15 @@ def dict_test_fromkeys(x):
 
 
 @check_no_breakgraph
-def dict_test_fromkeys_defalut(x, y):
+def dict_test_fromkeys_default(x, y):
     d = dict.fromkeys(x, y)
     return d
+
+
+@check_no_breakgraph
+def dict_keyword_init():
+    d = dict(x=1, y=2)  # noqa: C408
+    return d["x"] + d["y"]
 
 
 class TestBuildDict(TestCaseBase):
@@ -247,17 +253,21 @@ class TestDictMethods(TestCaseBase):
     def test_dict_noargs(self):
         self.assert_results(dict_no_arguments)
 
+    @test_with_faster_guard
     def test_dict_fromkeys(self):
         self.assert_results(dict_test_fromkeys, (1, 2, 3, 4))
         self.assert_results(dict_test_fromkeys, [1, 2, 3, 4])
-        self.assert_results(dict_test_fromkeys_defalut, (1, 2, 3, 4), 1)
+        self.assert_results(dict_test_fromkeys_default, (1, 2, 3, 4), 1)
         self.assert_results(
-            dict_test_fromkeys_defalut, (1, 2, 3, 4), paddle.to_tensor(1)
+            dict_test_fromkeys_default, (1, 2, 3, 4), paddle.to_tensor(1)
         )
-        self.assert_results(dict_test_fromkeys_defalut, [1, 2, 3, 4], 1)
+        self.assert_results(dict_test_fromkeys_default, [1, 2, 3, 4], 1)
         self.assert_results(
-            dict_test_fromkeys_defalut, [1, 2, 3, 4], paddle.to_tensor(1)
+            dict_test_fromkeys_default, [1, 2, 3, 4], paddle.to_tensor(1)
         )
+
+    def test_dict_keyword_init(self):
+        self.assert_results(dict_keyword_init)
 
 
 if __name__ == "__main__":

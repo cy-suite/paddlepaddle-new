@@ -101,12 +101,11 @@ def dice_loss(
     ), "The rank of input should be greater than or equal to 2."
     assert len(input.shape) == len(label.shape), (
         "The rank of input and label should be equal, "
-        "but received input: %d, label: %d."
-        % (len(input.shape), len(label.shape))
+        f"but received input: {len(input.shape)}, label: {len(label.shape)}."
     )
     assert label.shape[-1] == 1, (
         "The last dimension of label should be 1, "
-        "but received %d." % label.shape[-1]
+        f"but received {label.shape[-1]}."
     )
     assert (
         input.shape[:-1] == label.shape[:-1]
@@ -575,24 +574,9 @@ def edit_distance(
 
     # remove some tokens from input and labels
     if ignored_tokens is not None and len(ignored_tokens) > 0:
-        erased_input = helper.create_variable_for_type_inference(dtype="int64")
-        erased_label = helper.create_variable_for_type_inference(dtype="int64")
-
-        helper.append_op(
-            type="sequence_erase",
-            inputs={"X": [input]},
-            outputs={"Out": [erased_input]},
-            attrs={"tokens": ignored_tokens},
+        raise ValueError(
+            f'Expected ignored_tokens is None (got {ignored_tokens})'
         )
-        input = erased_input
-
-        helper.append_op(
-            type="sequence_erase",
-            inputs={"X": [label]},
-            outputs={"Out": [erased_label]},
-            attrs={"tokens": ignored_tokens},
-        )
-        label = erased_label
 
     if in_dynamic_mode():
         return _C_ops.edit_distance(
@@ -3465,13 +3449,11 @@ def multi_label_soft_margin_loss(
     For each sample in the mini-batch:
 
     .. math::
-        \text{loss}(x, y) = \sum_{ij}\frac{\max(0, 1 - (x[y[j]] - x[i]))}{\text{x.size}(0)}
+        \text{loss}(x, y) = - \frac{1}{C} * \sum_i y[i] * \log((1 + \exp(-x[i]))^{-1})
+            + (1-y[i]) * \log\left(\frac{\exp(-x[i])}{(1 + \exp(-x[i]))}\right)
 
-    where :math:`x \in \left\{0, \; \cdots , \; \text{x.size}(0) - 1\right\}`, \
-    :math:`y \in \left\{0, \; \cdots , \; \text{y.size}(0) - 1\right\}`, \
-    :math:`0 \leq y[j] \leq \text{x.size}(0)-1`, \
-    and :math:`i \neq y[j]` for all :math:`i` and :math:`j`.
-    :math:`y` and :math:`x` must have the same size.
+    where :math:`i \in \left\{0, \; \cdots , \; \text{x.nElement}() - 1\right\}`,
+    :math:`y[i] \in \left\{0, \; 1\right\}`.
 
     Parameters:
         input (Tensor): Input tensor, the data type is float32 or float64. Shape is (N, C), where C is number of classes, and if shape is more than 2D, this is (N, C, D1, D2,..., Dk), k >= 1.

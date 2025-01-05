@@ -9,10 +9,9 @@
 #include "paddle/fluid/framework/new_executor/workqueue/nonblocking_threadpool.h"
 #include "paddle/fluid/framework/new_executor/workqueue/workqueue_utils.h"
 #include "paddle/fluid/platform/enforce.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 
 void WorkQueueOptions::Validate() const {
   PADDLE_ENFORCE_GT(name.size(),
@@ -249,5 +248,4 @@ std::unique_ptr<WorkQueueGroup> CreateWorkQueueGroup(
   return ptr;
 }
 
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework

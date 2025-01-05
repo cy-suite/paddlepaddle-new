@@ -33,6 +33,9 @@ limitations under the License. */
 #include "paddle/phi/core/memory/allocation/allocator.h"
 #include "paddle/phi/core/memory/memcpy.h"
 
+using egr::ConvertAllInputsToDistTensor;
+using egr::InputsContainDistTensor;
+
 #pragma GCC diagnostic ignored "-Wwrite-strings"
 
 COMMON_DECLARE_bool(enable_pir_api);
@@ -92,7 +95,7 @@ Examples:
 
         >>> x = paddle.to_tensor(1.)
         >>> print(x.type)
-        VarType.LOD_TENSOR
+        VarType.DENSE_TENSOR
 )DOC");
 
 PyObject* tensor_properties_get_type(TensorObject* self, void* closure) {
@@ -100,7 +103,7 @@ PyObject* tensor_properties_get_type(TensorObject* self, void* closure) {
   if (!self->tensor.defined() || self->tensor.is_dense_tensor() ||
       self->tensor.is_dist_tensor()) {
     // be same to old dygraph
-    return ToPyObject(paddle::framework::proto::VarType::LOD_TENSOR);
+    return ToPyObject(paddle::framework::proto::VarType::DENSE_TENSOR);
   }
   if (self->tensor.is_selected_rows()) {
     return ToPyObject(paddle::framework::proto::VarType::SELECTED_ROWS);
@@ -581,12 +584,12 @@ PyObject* tensor_properties_get_shape(TensorObject* self, void* closure) {
   if (egr::IsVariableCompatTensor(self->tensor)) {
     auto* var_tensor = static_cast<const egr::VariableCompatTensor*>(
         self->tensor.impl().get());
-    if (var_tensor->IsType<paddle::framework::Vocab>()) {
-      value.emplace_back(static_cast<int64_t>(
-          var_tensor->Get<paddle::framework::Vocab>().size()));
-    } else if (var_tensor->IsType<paddle::framework::Strings>()) {
-      value.emplace_back(static_cast<int64_t>(
-          var_tensor->Get<paddle::framework::Strings>().size()));
+    if (var_tensor->IsType<phi::Vocab>()) {
+      value.emplace_back(
+          static_cast<int64_t>(var_tensor->Get<phi::Vocab>().size()));
+    } else if (var_tensor->IsType<phi::Strings>()) {
+      value.emplace_back(
+          static_cast<int64_t>(var_tensor->Get<phi::Strings>().size()));
     } else {
       PADDLE_THROW(common::errors::Unavailable(
           "VariableCompatTensor only support get shape from Vocab or "
@@ -856,9 +859,9 @@ PyObject* tensor_properties_get_dtype(TensorObject* self, void* closure) {
     if (egr::IsVariableCompatTensor(self->tensor)) {
       auto* var_tensor = static_cast<const egr::VariableCompatTensor*>(
           self->tensor.impl().get());
-      if (var_tensor->IsType<paddle::framework::Vocab>()) {
+      if (var_tensor->IsType<phi::Vocab>()) {
         return ToPyObject(phi::DataType::UNDEFINED);
-      } else if (var_tensor->IsType<paddle::framework::Strings>()) {
+      } else if (var_tensor->IsType<phi::Strings>()) {
         return ToPyObject(phi::DataType::PSTRING);
       } else {
         PADDLE_THROW(common::errors::Unavailable(
@@ -876,9 +879,9 @@ PyObject* tensor_properties_get_dtype(TensorObject* self, void* closure) {
     if (egr::IsVariableCompatTensor(self->tensor)) {
       auto* var_tensor = static_cast<const egr::VariableCompatTensor*>(
           self->tensor.impl().get());
-      if (var_tensor->IsType<paddle::framework::Vocab>()) {
+      if (var_tensor->IsType<phi::Vocab>()) {
         return ToPyObject(framework::proto::VarType::RAW);
-      } else if (var_tensor->IsType<paddle::framework::Strings>()) {
+      } else if (var_tensor->IsType<phi::Strings>()) {
         return ToPyObject(framework::proto::VarType::STRING);
       } else {
         PADDLE_THROW(common::errors::Unavailable(
@@ -924,6 +927,16 @@ PyObject* tensor_properties_get_grad_fn(TensorObject* self, void* closure) {
     Py_INCREF(Py_None);
     return Py_None;
   }
+  EAGER_CATCH_AND_THROW_RETURN_NULL
+}
+
+PyObject* tensor_properties___dict__(TensorObject* self, void*) {
+  EAGER_TRY
+  if (self->dict == nullptr) {
+    self->dict = PyDict_New();
+  }
+  Py_INCREF(self->dict);
+  return self->dict;
   EAGER_CATCH_AND_THROW_RETURN_NULL
 }
 
@@ -1033,6 +1046,7 @@ struct PyGetSetDef variable_properties[] = {  // NOLINT
      nullptr,
      nullptr,
      nullptr},
+    {"__dict__", (getter)tensor_properties___dict__, nullptr, nullptr, nullptr},
     {nullptr, nullptr, nullptr, nullptr, nullptr}};
 
 // variable_properties for core.eager.StringTensor
@@ -1050,6 +1064,7 @@ struct PyGetSetDef string_tensor_variable_properties[] = {  // NOLINT
      nullptr,
      nullptr,
      nullptr},
+    {"__dict__", (getter)tensor_properties___dict__, nullptr, nullptr, nullptr},
     {nullptr, nullptr, nullptr, nullptr, nullptr}};
 
 }  // namespace pybind

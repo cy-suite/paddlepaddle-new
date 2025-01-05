@@ -1,4 +1,3 @@
-
 // Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -60,6 +59,7 @@ DEFINE_GENERAL_PATTERN(Bmm, paddle::dialect::BmmOp)
 DEFINE_GENERAL_PATTERN(Concat, paddle::dialect::ConcatOp)
 DEFINE_GENERAL_PATTERN(Nonzero, paddle::dialect::NonzeroOp)
 DEFINE_GENERAL_PATTERN(Gelu, paddle::dialect::GeluOp)
+DEFINE_GENERAL_PATTERN(Relu6, paddle::dialect::Relu6Op)
 DEFINE_GENERAL_PATTERN(Fused_gemm_epilogue,
                        paddle::dialect::FusedGemmEpilogueOp)
 DEFINE_GENERAL_PATTERN(Layer_norm, paddle::dialect::LayerNormOp)
@@ -70,13 +70,203 @@ DEFINE_GENERAL_PATTERN(Conv2d, paddle::dialect::Conv2dOp)
 DEFINE_GENERAL_PATTERN(FusedConv2dAddAct, paddle::dialect::FusedConv2dAddActOp)
 DEFINE_GENERAL_PATTERN(DepthwiseConv2d, paddle::dialect::DepthwiseConv2dOp)
 DEFINE_GENERAL_PATTERN(Shape, paddle::dialect::ShapeOp)
+DEFINE_GENERAL_PATTERN(Shape64, paddle::dialect::Shape64Op)
 DEFINE_GENERAL_PATTERN(Expand, paddle::dialect::ExpandOp)
+DEFINE_GENERAL_PATTERN(ExpandAs, paddle::dialect::ExpandAsOp)
 DEFINE_GENERAL_PATTERN(Sigmoid, paddle::dialect::SigmoidOp)
 DEFINE_GENERAL_PATTERN(Sqrt, paddle::dialect::SqrtOp)
 DEFINE_GENERAL_PATTERN(Hardsigmoid, paddle::dialect::HardsigmoidOp)
 DEFINE_GENERAL_PATTERN(Hardswish, paddle::dialect::HardswishOp)
-
+DEFINE_GENERAL_PATTERN(Assign, paddle::dialect::AssignOp)
+DEFINE_GENERAL_PATTERN(Tile, paddle::dialect::TileOp)
+DEFINE_GENERAL_PATTERN(Share_Data, paddle::dialect::ShareDataOp)
+DEFINE_GENERAL_PATTERN(AssignOut, paddle::dialect::AssignOut_Op)
+DEFINE_GENERAL_PATTERN(Swish, paddle::dialect::SwishOp)
+DEFINE_GENERAL_PATTERN(Log, paddle::dialect::LogOp)
+DEFINE_GENERAL_PATTERN(Floor, paddle::dialect::FloorOp)
+DEFINE_GENERAL_PATTERN(Roll, paddle::dialect::RollOp)
+DEFINE_GENERAL_PATTERN(Elu, paddle::dialect::EluOp)
+DEFINE_GENERAL_PATTERN(Selu, paddle::dialect::SeluOp)
+DEFINE_GENERAL_PATTERN(Stanh, paddle::dialect::StanhOp)
+DEFINE_GENERAL_PATTERN(Softplus, paddle::dialect::SoftplusOp)
+DEFINE_GENERAL_PATTERN(ThresholdedRelu, paddle::dialect::ThresholdedReluOp)
+DEFINE_GENERAL_PATTERN(Flip, paddle::dialect::FlipOp)
+DEFINE_GENERAL_PATTERN(Mish, paddle::dialect::MishOp)
+DEFINE_GENERAL_PATTERN(AssignValue, paddle::dialect::AssignValueOp)
+DEFINE_GENERAL_PATTERN(AssignValue_, paddle::dialect::AssignValue_Op)
 #undef DEFINE_GENERAL_PATTERN
+
+// Add ReduceCommonOpPattern base class to simplify code
+template <typename OpType>
+class ReduceCommonOpPattern : public pir::OpRewritePattern<OpType> {
+ public:
+  using pir::OpRewritePattern<OpType>::OpRewritePattern;
+  bool MatchAndRewrite(OpType op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->template attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+
+    if (!op->HasAttribute("keepdim")) {
+      VLOG(3) << "the max does not have attr keep_dim ";
+      return false;
+    }
+
+    if constexpr (std::is_same_v<OpType, paddle::dialect::MeanOp> ||
+                  std::is_same_v<OpType, paddle::dialect::AnyOp> ||
+                  std::is_same_v<OpType, paddle::dialect::AllOp>) {
+      if (!op->HasAttribute("axis")) {
+        VLOG(3) << "The axis attribute does not exist";
+        return false;
+      }
+    }
+
+    pir::Value x = op.operand_source(0);
+    auto x_dtype = pir::GetDataTypeFromValue(x);
+    if constexpr (std::is_same_v<OpType, paddle::dialect::AnyOp>) {
+      if (!x_dtype.isa<pir::BoolType>()) {
+        VLOG(3) << "any op input data type must be bool";
+        return false;
+      }
+    } else if constexpr (std::is_same_v<OpType, paddle::dialect::AllOp>) {
+      if (!x_dtype.isa<pir::BoolType>()) {
+        VLOG(3) << "all op input data type must be bool";
+        return false;
+      }
+    } else {
+      if (!(x_dtype.isa<pir::Float32Type>() ||
+            x_dtype.isa<pir::Float64Type>() || x_dtype.isa<pir::Int32Type>() ||
+            x_dtype.isa<pir::Int64Type>())) {
+        if constexpr (std::is_same_v<OpType, paddle::dialect::MinOp>) {
+          VLOG(3) << "min input data type must be int32 or int64 or "
+                     "float32 or "
+                     "float64";
+        } else if constexpr (std::is_same_v<OpType, paddle::dialect::MaxOp>) {
+          VLOG(3) << "max input data type must be int32 or int64 or "
+                     "float32 or "
+                     "float64";
+        } else if constexpr (std::is_same_v<OpType, paddle::dialect::MeanOp>) {
+          VLOG(3) << "mean input data type must be int32 or int64 or "
+                     "float32 or "
+                     "float64";
+        }
+        return false;
+      }
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+// use type aliases to simplify usage
+using MinOpPattern = ReduceCommonOpPattern<paddle::dialect::MinOp>;
+using MaxOpPattern = ReduceCommonOpPattern<paddle::dialect::MaxOp>;
+using MeanOpPattern = ReduceCommonOpPattern<paddle::dialect::MeanOp>;
+using AnyOpPattern = ReduceCommonOpPattern<paddle::dialect::AnyOp>;
+using AllOpPattern = ReduceCommonOpPattern<paddle::dialect::AllOp>;
+using SumOpPattern = ReduceCommonOpPattern<paddle::dialect::SumOp>;
+
+// Add ElementwiseCommonOpPattern base class to simplify code
+template <typename OpType>
+class ElementwiseCommonOpPattern : public pir::OpRewritePattern<OpType> {
+ public:
+  using pir::OpRewritePattern<OpType>::OpRewritePattern;
+  bool MatchAndRewrite(OpType op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->template attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+
+    pir::Value x = op.operand_source(0);
+    pir::Value y = op.operand_source(1);
+    auto x_dtype = pir::GetDataTypeFromValue(x);
+    auto y_dtype = pir::GetDataTypeFromValue(y);
+
+    if constexpr (std::is_same_v<OpType, paddle::dialect::ElementwisePowOp>) {
+      if (x_dtype.isa<pir::Int32Type>() || y_dtype.isa<pir::Int32Type>()) {
+        VLOG(3) << "elementwise_pow do not support int32 datatype.";
+        return false;
+      }
+    }
+
+    if (x_dtype.isa<pir::BoolType>() || y_dtype.isa<pir::BoolType>()) {
+      if constexpr (std::is_same_v<OpType, paddle::dialect::MultiplyOp>) {
+        VLOG(3) << "elementwise_mul do not support boolean datatype.";
+      } else if constexpr (std::is_same_v<OpType,  // NOLINT
+                                          paddle::dialect::SubtractOp>) {
+        VLOG(3) << "elementwise_sub do not support boolean datatype.";
+      } else if constexpr (std::is_same_v<OpType, paddle::dialect::DivideOp>) {
+        VLOG(3) << "elementwise_div do not support boolean datatype.";
+      } else if constexpr (std::is_same_v<OpType,  // NOLINT
+                                          paddle::dialect::ElementwisePowOp>) {
+        VLOG(3) << "elementwise_pow do not support boolean datatype.";
+      } else if constexpr (std::is_same_v<OpType, paddle::dialect::MinimumOp>) {
+        VLOG(3) << "elementwise_min do not support boolean datatype.";
+      } else if constexpr (std::is_same_v<OpType, paddle::dialect::MaximumOp>) {
+        VLOG(3) << "elementwise_max do not support boolean datatype.";
+      } else if constexpr (std::is_same_v<OpType,  // NOLINT
+                                          paddle::dialect::FloorDivideOp>) {
+        VLOG(3) << "elementwise_floordiv do not support boolean datatype.";
+      } else if constexpr (std::is_same_v<OpType,  // NOLINT
+                                          paddle::dialect::RemainderOp>) {
+        VLOG(3) << "elementwise_mod do not support boolean datatype.";
+      } else {
+        VLOG(3) << "elementwise other do not support boolean datatype.";
+      }
+      return false;
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+using MultiplyOpPattern =
+    ElementwiseCommonOpPattern<paddle::dialect::MultiplyOp>;
+using SubtractOpPattern =
+    ElementwiseCommonOpPattern<paddle::dialect::SubtractOp>;
+using DivideOpPattern = ElementwiseCommonOpPattern<paddle::dialect::DivideOp>;
+using ElementwisePowOpPattern =
+    ElementwiseCommonOpPattern<paddle::dialect::ElementwisePowOp>;
+using MinimumOpPattern = ElementwiseCommonOpPattern<paddle::dialect::MinimumOp>;
+using MaximumOpPattern = ElementwiseCommonOpPattern<paddle::dialect::MaximumOp>;
+using FloorDivideOpPattern =
+    ElementwiseCommonOpPattern<paddle::dialect::FloorDivideOp>;
+using RemainderOpPattern =
+    ElementwiseCommonOpPattern<paddle::dialect::RemainderOp>;
+
+template <typename OpType>
+class ActOpPattern : public pir::OpRewritePattern<OpType> {
+ public:
+  using pir::OpRewritePattern<OpType>::OpRewritePattern;
+  bool MatchAndRewrite(OpType op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->template attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+#if IS_TRT_VERSION_LT(8600)
+    pir::Value x = op.operand_source(0);
+    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto x_shape = x_type.dims();
+    int dims = x_shape.size();
+    if (dims < 1) {
+      VLOG(3) << op->name()
+              << " op does not support 0 dim input when TensorRT < 8.6.";
+      return false;
+    }
+#endif
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+using TanhOpPattern = ActOpPattern<paddle::dialect::TanhOp>;
+using CeluOpPattern = ActOpPattern<paddle::dialect::CeluOp>;
+using LogicalNotOpPattern = ActOpPattern<paddle::dialect::LogicalNotOp>;
+using LogicalNot_OpPattern = ActOpPattern<paddle::dialect::LogicalNot_Op>;
 
 class Pool2dOpPattern
     : public pir::OpRewritePattern<paddle::dialect::Pool2dOp> {
@@ -88,6 +278,20 @@ class Pool2dOpPattern
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
+    paddle::dialect::FullIntArrayOp full_int_array_op =
+        pir::GetDefiningOpForInput(op, 1)
+            ->dyn_cast<paddle::dialect::FullIntArrayOp>();
+    if (!full_int_array_op) {
+      VLOG(3) << "Cannot find FullIntArrayOp";
+      return false;
+    }
+    auto attr_value =
+        full_int_array_op->attribute<pir::ArrayAttribute>("value");
+    std::vector<int64_t> kernel_size;
+    for (const auto &attr : attr_value.AsVector()) {
+      kernel_size.push_back(attr.dyn_cast<pir::Int64Attribute>().data());
+    }
+
     auto padding_attr = op->attribute<pir::ArrayAttribute>("paddings");
     std::vector<int32_t> paddings;
     for (const auto &attr : padding_attr.AsVector()) {
@@ -108,47 +312,71 @@ class Pool2dOpPattern
     if (!op->HasAttribute("pooling_type")) {
       VLOG(3) << "The pooling_type attribute does not exist";
       return false;
-    } else {
-      std::string pool_type =
-          op->attribute<pir::StrAttribute>("pooling_type").AsString();
-      if (pool_type != "max" && pool_type != "avg") {
-        VLOG(3) << "Wrong pool op type, the trt do not support the "
-                << pool_type << " pool type.";
-        return false;
-      }
-      if (pool_type == "avg") {
-        if (op->HasAttribute("global_pooling")) {
-          if (!op->attribute<pir::BoolAttribute>("global_pooling").data()) {
-            if (op->HasAttribute("exclusive")) {
-              if (op->attribute<pir::BoolAttribute>("exclusive").data()) {
-                paddle::dialect::FullIntArrayOp full_int_array_op =
-                    pir::GetDefiningOpForInput(op, 1)
-                        ->dyn_cast<paddle::dialect::FullIntArrayOp>();
-                if (!full_int_array_op) {
-                  VLOG(3) << "Cannot find FullIntArrayOp";
+    }
+    std::string pool_type =
+        op->attribute<pir::StrAttribute>("pooling_type").AsString();
+    if (pool_type != "max" && pool_type != "avg") {
+      VLOG(3) << "Wrong pool op type, the trt do not support the " << pool_type
+              << " pool type.";
+      return false;
+    }
+    if (pool_type == "avg") {
+      if (op->HasAttribute("global_pooling")) {
+        if (!op->attribute<pir::BoolAttribute>("global_pooling").data()) {
+          if (op->HasAttribute("exclusive")) {
+            if (op->attribute<pir::BoolAttribute>("exclusive").data()) {
+              for (size_t i = 0; i < kernel_size.size(); ++i) {
+                if (kernel_size[i] <= paddings[i]) {
+                  VLOG(3) << "the padding size should be less than the "
+                             "filter size "
+                             "for exclusive-counting pooling.";
                   return false;
-                } else {
-                  auto attr_value =
-                      full_int_array_op->attribute<pir::ArrayAttribute>(
-                          "value");
-                  std::vector<int64_t> kernel_size;
-                  for (const auto &attr : attr_value.AsVector()) {
-                    kernel_size.push_back(
-                        attr.dyn_cast<pir::Int64Attribute>().data());
-                  }
-                  for (size_t i = 0; i < kernel_size.size(); ++i) {
-                    if (kernel_size[i] <= paddings[i]) {
-                      VLOG(3) << "the padding size should be less than the "
-                                 "filter size "
-                                 "for exclusive-counting pooling.";
-                      return false;
-                    }
-                  }
                 }
               }
             }
           }
         }
+      }
+    }
+
+    auto ceil_mode = op->attribute<pir::BoolAttribute>("ceil_mode").data();
+    auto global_pooling =
+        op->attribute<pir::BoolAttribute>("global_pooling").data();
+    std::string padding_algorithm =
+        op->attribute<pir::StrAttribute>("padding_algorithm").AsString();
+
+    auto adaptive = op->attribute<pir::BoolAttribute>("adaptive").data();
+    // TODO(Lizexu): This piece of code exists in the old IR-TRT implementation
+    // but is not covered by unit tests, raising suspicions about its
+    // correctness. In the PIR-TRT implementation, following the same approach
+    // causes precision issues. For now, we will exclude it from entering
+    // TensorRT.
+    pir::Value input = op.operand_source(0);
+    auto input_type = input.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto input_dims = input_type.dims();
+    int g_post_pad_h = 0;
+    int g_post_pad_w = 0;
+    int input_height = input_dims[input_dims.size() - 2];
+    int input_width = input_dims[input_dims.size() - 1];
+    std::vector<int32_t> strides;
+    auto strides_attr = op->attribute<pir::ArrayAttribute>("strides");
+    for (const auto &attr : strides_attr.AsVector()) {
+      strides.push_back(attr.dyn_cast<pir::Int32Attribute>().data());
+    }
+    if (input_height > 0 &&
+        input_height - kernel_size[0] + 2 * paddings[0] < 0) {
+      g_post_pad_h = strides[0] - 1;
+    }
+    if (input_width > 0 && input_width - kernel_size[1] + 2 * paddings[1] < 0) {
+      g_post_pad_w = strides[1] - 1;
+    }
+    if (!adaptive && !global_pooling && !ceil_mode) {
+      if (padding_algorithm != "SAME" &&
+          ((g_post_pad_h > 0 && input_height > 0) ||
+           (g_post_pad_w > 0 && input_width > 0))) {
+        VLOG(3) << "The pool2d op meets the condition that may cause precision "
+                   "issues in TRT. Skip TRT conversion.";
+        return false;
       }
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
@@ -326,26 +554,6 @@ class SignOpPattern : public pir::OpRewritePattern<paddle::dialect::SignOp> {
   }
 };
 
-class LogicalNotOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::LogicalNotOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::LogicalNotOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::LogicalNotOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-#if IS_TRT_VERSION_LT(8400)
-    VLOG(3) << "logical_not op is only supported by tensorrt8.4 above because "
-               "of cast op ";
-    return false;
-#endif
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
-
 class GroupNormOpPattern
     : public pir::OpRewritePattern<paddle::dialect::GroupNormOp> {
  public:
@@ -479,6 +687,7 @@ class ScaleOpPattern : public pir::OpRewritePattern<paddle::dialect::ScaleOp> {
     }
     pir::Value x = op.operand_source(0);
     auto x_dtype = pir::GetDataTypeFromValue(x);
+
     if (!(x_dtype.isa<pir::Float32Type>() || x_dtype.isa<pir::Float64Type>() ||
           x_dtype.isa<pir::Float16Type>() || x_dtype.isa<pir::Int32Type>() ||
           x_dtype.isa<pir::Int64Type>())) {
@@ -637,21 +846,48 @@ class SliceOpPattern : public pir::OpRewritePattern<paddle::dialect::SliceOp> {
     }
 
     auto axes_attr = op->attribute<pir::ArrayAttribute>("axes");
-
     std::vector<int64_t> axes;
     for (const auto &attr : axes_attr.AsVector()) {
       axes.push_back(attr.dyn_cast<pir::Int64Attribute>().data());
     }
-    pir::Value input = op.operand_source(0);
 
-    auto inputs = input.type().dyn_cast<paddle::dialect::DenseTensorType>();
-    auto inputs_shape = inputs.dims();
-    if (axes.size() !=
-        static_cast<std::vector<int64_t>::size_type>(inputs_shape.size())) {
-      VLOG(3) << "The shape of attributes of the slice operator axes "
-                 "and starts are not equal.";
+    size_t starts_size = axes.size();
+    size_t ends_size = axes.size();
+    if (pir::GetDefiningOpForInput(op, 1)
+            ->isa<paddle::dialect::FullIntArrayOp>()) {
+      paddle::dialect::FullIntArrayOp full_int_array_op_start =
+          pir::GetDefiningOpForInput(op, 1)
+              ->dyn_cast<paddle::dialect::FullIntArrayOp>();
+      auto starts_attr =
+          full_int_array_op_start->attribute<pir::ArrayAttribute>("value");
+      std::vector<int64_t> starts;
+      for (const auto &attr : starts_attr.AsVector()) {
+        starts.push_back(attr.dyn_cast<pir::Int64Attribute>().data());
+      }
+      starts_size = starts.size();
+    }
+
+    if (pir::GetDefiningOpForInput(op, 2)
+            ->isa<paddle::dialect::FullIntArrayOp>()) {
+      paddle::dialect::FullIntArrayOp full_int_array_op_end =
+          pir::GetDefiningOpForInput(op, 2)
+              ->dyn_cast<paddle::dialect::FullIntArrayOp>();
+      auto ends_attr =
+          full_int_array_op_end->attribute<pir::ArrayAttribute>("value");
+      std::vector<int64_t> ends;
+      for (const auto &attr : ends_attr.AsVector()) {
+        ends.push_back(attr.dyn_cast<pir::Int64Attribute>().data());
+      }
+      ends_size = ends.size();
+    }
+    if (starts_size != axes.size() || ends_size != axes.size()) {
+      VLOG(3) << "The size of axes and starts are not equal. "
+                 "Axes size: "
+              << axes.size() << ", Starts size: " << starts_size
+              << ", Ends size: " << ends_size;
       return false;
     }
+
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
@@ -696,36 +932,7 @@ class FlattenOpPattern
       VLOG(3) << "flatten op must has start_axis and stop_axis attributes";
       return false;
     }
-    int start_axis = op->attribute<pir::Int32Attribute>("start_axis").data();
-    int stop_axis = op->attribute<pir::Int32Attribute>("stop_axis").data();
 
-    pir::Value x = op.operand_source(0);
-    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
-    auto x_shape = x_type.dims();
-    int dims = x_shape.size();
-    if (dims == 0) {
-      VLOG(3) << "Flatten op does not support input's dim is 0 in tensorrt "
-                 "static shape mode.";
-    }
-    if (start_axis < 0) {
-      start_axis += dims;
-    }
-
-    if (start_axis == 0) {
-      VLOG(3) << "TRT flatten_contiguous_range not support the "
-                 "batch-dimension being changed";
-      return false;
-    }
-    if (stop_axis < 0) {
-      stop_axis += dims;
-    }
-    for (int i = start_axis; i <= stop_axis; ++i) {
-      if (x_shape[i] < 0) {
-        VLOG(3) << "On TRT static shape,flatten_contiguous_range input dim "
-                   "should be > 0";
-        return false;
-      }
-    }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
@@ -768,12 +975,16 @@ class SplitOpPattern : public pir::OpRewritePattern<paddle::dialect::SplitOp> {
       return false;
     }
 
-    paddle::dialect::FullOp full_op =
-        pir::GetDefiningOpForInput(op, 2)->dyn_cast<paddle::dialect::FullOp>();
-    if (!full_op) {
-      VLOG(3) << "Can not find full op";
+    pir::Value axis_tensor = op.operand_source(2);
+    if (!axis_tensor) {
+      VLOG(3) << "pd_op.split can not find axis input";
       return false;
-    } else {
+    }
+    auto out_vector_type = op.result(0).type().dyn_cast<pir::VectorType>();
+    if (pir::GetDefiningOpForInput(op, 2)->isa<paddle::dialect::FullOp>()) {
+      paddle::dialect::FullOp full_op =
+          pir::GetDefiningOpForInput(op, 2)
+              ->dyn_cast<paddle::dialect::FullOp>();
       auto axis = full_op->attribute<paddle::dialect::ScalarAttribute>("value")
                       .data()
                       .to<int>();
@@ -781,29 +992,25 @@ class SplitOpPattern : public pir::OpRewritePattern<paddle::dialect::SplitOp> {
                          .type()
                          .dyn_cast<paddle::dialect::DenseTensorType>()
                          .dims();
-      auto out_vector_type = op.result(0).type().dyn_cast<pir::VectorType>();
 
-      paddle::dialect::FullIntArrayOp full_sections_op =
-          pir::GetDefiningOpForInput(op, 1)
-              ->dyn_cast<paddle::dialect::FullIntArrayOp>();
-      if (!full_sections_op) {
-        VLOG(3) << "Can not find FullIntArrayOp";
-        return false;
-      }
-
-      auto sections = full_sections_op->attribute<pir::ArrayAttribute>("value");
-
-      std::vector<int64_t> output_lengths;
-      for (const auto &attr : sections.AsVector()) {
-        output_lengths.push_back(attr.dyn_cast<pir::Int64Attribute>().data());
-      }
       axis += (axis < 0) ? x_shape.size() : 0;
 
       if (x_shape[axis] == -1) {
         VLOG(3) << "The (" << axis << ") dim of input should not be -1";
         return false;
       }
+    }
 
+    if (pir::GetDefiningOpForInput(op, 1)
+            ->isa<paddle::dialect::FullIntArrayOp>()) {
+      paddle::dialect::FullIntArrayOp full_sections_op =
+          pir::GetDefiningOpForInput(op, 1)
+              ->dyn_cast<paddle::dialect::FullIntArrayOp>();
+      auto sections = full_sections_op->attribute<pir::ArrayAttribute>("value");
+      std::vector<int64_t> output_lengths;
+      for (const auto &attr : sections.AsVector()) {
+        output_lengths.push_back(attr.dyn_cast<pir::Int64Attribute>().data());
+      }
       if (output_lengths.size() != out_vector_type.size()) {
         VLOG(3) << "The output_length should be equal to the output size.";
         return false;
@@ -814,6 +1021,7 @@ class SplitOpPattern : public pir::OpRewritePattern<paddle::dialect::SplitOp> {
     return true;
   }
 };
+
 class SplitWithNumOpPattern
     : public pir::OpRewritePattern<paddle::dialect::SplitWithNumOp> {
  public:
@@ -825,33 +1033,38 @@ class SplitWithNumOpPattern
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-    paddle::dialect::FullOp full_op =
-        pir::GetDefiningOpForInput(op, 1)->dyn_cast<paddle::dialect::FullOp>();
-    if (!full_op) {
-      VLOG(3) << "Can not find full op";
+
+    pir::Value axis_tensor = op.operand_source(1);
+    if (!axis_tensor) {
+      VLOG(3) << "pd_op.split_with_num can not find axis input";
       return false;
-    } else {
-      auto axis = full_op->attribute<paddle::dialect::ScalarAttribute>("value")
+    }
+    if (pir::GetDefiningOpForInput(op, 1)
+            ->isa<paddle::dialect::FullIntArrayOp>()) {
+      paddle::dialect::FullIntArrayOp full_int_array_op =
+          pir::GetDefiningOpForInput(op, 1)
+              ->dyn_cast<paddle::dialect::FullIntArrayOp>();
+      auto axis = full_int_array_op
+                      ->attribute<paddle::dialect::ScalarAttribute>("value")
                       .data()
                       .to<int>();
       auto x_shape = op.operand_source(0)
                          .type()
                          .dyn_cast<paddle::dialect::DenseTensorType>()
                          .dims();
-      auto out_vector_type = op.result(0).type().dyn_cast<pir::VectorType>();
 
       axis += (axis < 0) ? x_shape.size() : 0;
       if (x_shape[axis] == -1) {
         VLOG(3) << "The (" << axis << ") dim of input should not be -1";
         return false;
       }
-
       if (!op->HasAttribute("num")) {
         VLOG(3) << "split_with_num op must has num attributes";
         return false;
       }
       int num = op->attribute<pir::Int32Attribute>("num").data();
       std::vector<int64_t> output_lengths;
+
       if (num > 0) {
         int64_t in_axis_dim = x_shape[axis];
         if (in_axis_dim % num != 0) {
@@ -865,16 +1078,18 @@ class SplitWithNumOpPattern
           output_lengths.push_back(out_axis_dim);
         }
       }
-
+      auto out_vector_type = op.result(0).type().dyn_cast<pir::VectorType>();
       if (out_vector_type.size() != output_lengths.size()) {
         VLOG(3) << "The output_length should be equal to the output size.";
         return false;
       }
-      op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-      return true;
     }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
   }
 };
+
 class GreaterEqualOpPattern
     : public pir::OpRewritePattern<paddle::dialect::GreaterEqualOp> {
  public:
@@ -895,7 +1110,7 @@ class GreaterEqualOpPattern
     auto x_dtype = pir::GetDataTypeFromValue(x);
     auto y_dtype = pir::GetDataTypeFromValue(y);
     if (x_dtype.isa<pir::BoolType>() || y_dtype.isa<pir::BoolType>()) {
-      VLOG(3) << "Greate_equal op do not support bool datatype";
+      VLOG(3) << "Greater_equal op do not support bool datatype";
       return false;
     }
 #endif
@@ -903,196 +1118,92 @@ class GreaterEqualOpPattern
     return true;
   }
 };
-class MultiplyOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::MultiplyOp> {
+
+class GreaterThanOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::GreaterThanOp> {
  public:
-  using pir::OpRewritePattern<paddle::dialect::MultiplyOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::MultiplyOp op,
+  using pir::OpRewritePattern<paddle::dialect::GreaterThanOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::GreaterThanOp op,
                        pir::PatternRewriter &rewriter) const override {
     if (op->HasAttribute(kCanRunTrtAttr) &&
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
+#if IS_TRT_VERSION_LT(8400)
+    VLOG(3) << "pd_op.greater_than op is not supported when TensorRT < 8.4";
+    return false;
+#else
     pir::Value x = op.operand_source(0);
     pir::Value y = op.operand_source(1);
     auto x_dtype = pir::GetDataTypeFromValue(x);
     auto y_dtype = pir::GetDataTypeFromValue(y);
     if (x_dtype.isa<pir::BoolType>() || y_dtype.isa<pir::BoolType>()) {
-      VLOG(3) << "elementwise_mul do not support boolean datatype.";
+      VLOG(3) << "pd_op.greater_than op do not support bool datatype";
       return false;
     }
-
+#endif
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
 };
 
-class SubtractOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::SubtractOp> {
+class LessThanOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::LessThanOp> {
  public:
-  using pir::OpRewritePattern<paddle::dialect::SubtractOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::SubtractOp op,
+  using pir::OpRewritePattern<paddle::dialect::LessThanOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::LessThanOp op,
                        pir::PatternRewriter &rewriter) const override {
     if (op->HasAttribute(kCanRunTrtAttr) &&
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
+#if IS_TRT_VERSION_LT(8400)
+    VLOG(3) << "pd_op.less_than op is not supported when TensorRT < 8.4";
+    return false;
+#else
     pir::Value x = op.operand_source(0);
     pir::Value y = op.operand_source(1);
     auto x_dtype = pir::GetDataTypeFromValue(x);
     auto y_dtype = pir::GetDataTypeFromValue(y);
     if (x_dtype.isa<pir::BoolType>() || y_dtype.isa<pir::BoolType>()) {
-      VLOG(3) << "elementwise_sub do not support boolean datatype.";
+      VLOG(3) << "pd_op.less_than op do not support bool datatype";
       return false;
     }
-
+#endif
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
 };
 
-class DivideOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::DivideOp> {
+template <typename OpType>
+class LogicalCommonOpPattern : public pir::OpRewritePattern<OpType> {
  public:
-  using pir::OpRewritePattern<paddle::dialect::DivideOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::DivideOp op,
+  using pir::OpRewritePattern<OpType>::OpRewritePattern;
+  bool MatchAndRewrite(OpType op,
                        pir::PatternRewriter &rewriter) const override {
     if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+        op->template attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
     pir::Value x = op.operand_source(0);
     pir::Value y = op.operand_source(1);
     auto x_dtype = pir::GetDataTypeFromValue(x);
     auto y_dtype = pir::GetDataTypeFromValue(y);
-    if (x_dtype.isa<pir::BoolType>() || y_dtype.isa<pir::BoolType>()) {
-      VLOG(3) << "elementwise_div do not support boolean datatype.";
-      return false;
-    }
-
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
-
-class ElementwisePowOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::ElementwisePowOp> {
- public:
-  using pir::OpRewritePattern<
-      paddle::dialect::ElementwisePowOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::ElementwisePowOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-    pir::Value x = op.operand_source(0);
-    pir::Value y = op.operand_source(1);
-    auto x_dtype = pir::GetDataTypeFromValue(x);
-    auto y_dtype = pir::GetDataTypeFromValue(y);
-    if (x_dtype.isa<pir::BoolType>() || x_dtype.isa<pir::Int32Type>() ||
-        y_dtype.isa<pir::BoolType>() || y_dtype.isa<pir::Int32Type>()) {
-      VLOG(3) << "elementwise_pow do not support"
-                 "boolean datatype and int32 datatype.";
+    if (!(x_dtype.isa<pir::BoolType>() && y_dtype.isa<pir::BoolType>())) {
+      VLOG(3) << op->name() << " op only supports bool datatype";
       return false;
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
 };
-class MinimumOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::MinimumOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::MinimumOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::MinimumOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-    pir::Value x = op.operand_source(0);
-    pir::Value y = op.operand_source(1);
-    auto x_dtype = pir::GetDataTypeFromValue(x);
-    auto y_dtype = pir::GetDataTypeFromValue(y);
-    if (x_dtype.isa<pir::BoolType>() || y_dtype.isa<pir::BoolType>()) {
-      VLOG(3) << "elementwise_min do not support boolean datatype.";
-      return false;
-    }
-
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
-class MaximumOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::MaximumOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::MaximumOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::MaximumOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-    pir::Value x = op.operand_source(0);
-    pir::Value y = op.operand_source(1);
-    auto x_dtype = pir::GetDataTypeFromValue(x);
-    auto y_dtype = pir::GetDataTypeFromValue(y);
-    if (x_dtype.isa<pir::BoolType>() || y_dtype.isa<pir::BoolType>()) {
-      VLOG(3) << "elementwise_max do not support boolean datatype.";
-      return false;
-    }
-
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
-
-class FloorDivideOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::FloorDivideOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::FloorDivideOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::FloorDivideOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-    pir::Value x = op.operand_source(0);
-    pir::Value y = op.operand_source(1);
-    auto x_dtype = pir::GetDataTypeFromValue(x);
-    auto y_dtype = pir::GetDataTypeFromValue(y);
-    if (x_dtype.isa<pir::BoolType>() || y_dtype.isa<pir::BoolType>()) {
-      VLOG(3) << "elementwise_floordiv do not support boolean datatype.";
-      return false;
-    }
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
-
-class RemainderOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::RemainderOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::RemainderOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::RemainderOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-    pir::Value x = op.operand_source(0);
-    pir::Value y = op.operand_source(1);
-    auto x_dtype = pir::GetDataTypeFromValue(x);
-    auto y_dtype = pir::GetDataTypeFromValue(y);
-    if (x_dtype.isa<pir::BoolType>() || y_dtype.isa<pir::BoolType>()) {
-      VLOG(3) << "elementwise_mod do not support boolean datatype.";
-      return false;
-    }
-
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
+using LogicalXorOpPattern =
+    LogicalCommonOpPattern<paddle::dialect::LogicalXorOp>;
+using LogicalOrOpPattern = LogicalCommonOpPattern<paddle::dialect::LogicalOrOp>;
+using LogicalOr_OpPattern =
+    LogicalCommonOpPattern<paddle::dialect::LogicalOr_Op>;
+using LogicalAndOpPattern =
+    LogicalCommonOpPattern<paddle::dialect::LogicalAndOp>;
 
 class MulticlassNms3OpPattern
     : public pir::OpRewritePattern<paddle::dialect::MulticlassNms3Op> {
@@ -1165,12 +1276,13 @@ class ArgmaxOpPattern
                  "data in arg_max.";
       return false;
     }
-    auto x = op.x();
-    auto x_tensor_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
-    auto data_type = paddle::dialect::TransToPhiDataType(x_tensor_type.dtype());
-    if (!(data_type == phi::DataType::FLOAT32 ||
-          data_type == phi::DataType::FLOAT16 ||
-          data_type == phi::DataType::FLOAT64)) {
+    pir::Value x = op.x();
+    auto data_type = pir::GetDataTypeFromValue(x);
+    if (!(data_type.isa<pir::Float32Type>() ||
+          data_type.isa<pir::Float16Type>() ||
+          data_type.isa<pir::Float64Type>())) {
+      VLOG(3) << "At present, pd_op.argmax only support float32 or float16 or "
+                 "float64 into trt.";
       return false;
     }
     int axis = static_cast<int>(op.axis()
@@ -1182,32 +1294,627 @@ class ArgmaxOpPattern
     phi::DataType dtype =
         op.attribute<paddle::dialect::DataTypeAttribute>("dtype").data();
     if (axis == 0 || flatten ||
-        (dtype != phi::DataType::INT32 && dtype != phi::DataType::INT64))
+        (dtype != phi::DataType::INT32 && dtype != phi::DataType::INT64)) {
+      VLOG(3) << "Skipping TRT conversion in pd_op.argmax: axis is zero, "
+                 "flatten is True, or dtype isn't int32/int64";
       return false;
+    }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
 };
-class MaxOpPattern : public pir::OpRewritePattern<paddle::dialect::MaxOp> {
+
+class ArgminOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::ArgminOp> {
  public:
-  using pir::OpRewritePattern<paddle::dialect::MaxOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::MaxOp op,
+  using pir::OpRewritePattern<paddle::dialect::ArgminOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::ArgminOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (!op.axis().defining_op()->isa<paddle::dialect::FullOp>()) {
+      VLOG(3) << "Skip to convert into TRT while found axis is not a constant "
+                 "data in arg_mix.";
+      return false;
+    }
+    pir::Value x = op.x();
+    auto data_type = pir::GetDataTypeFromValue(x);
+    if (!(data_type.isa<pir::Float32Type>() ||
+          data_type.isa<pir::Float16Type>() ||
+          data_type.isa<pir::Float64Type>())) {
+      VLOG(3) << "At present, pd_op.argmin only support float32 or float16 or "
+                 "float64 into trt.";
+      return false;
+    }
+    int axis = static_cast<int>(op.axis()
+                                    .defining_op()
+                                    ->attribute<pir::DoubleAttribute>("value")
+                                    .data());
+
+    bool flatten = op.attribute<pir::BoolAttribute>("flatten").data();
+    phi::DataType dtype =
+        op.attribute<paddle::dialect::DataTypeAttribute>("dtype").data();
+    if (axis == 0 || flatten ||
+        (dtype != phi::DataType::INT32 && dtype != phi::DataType::INT64)) {
+      VLOG(3) << "Skipping TRT conversion in pd_op.argmin: axis is zero, "
+                 "flatten is True, or dtype isn't int32/int64";
+      return false;
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class ArgsortOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::ArgsortOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::ArgsortOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::ArgsortOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    const std::vector<std::string> required_attrs = {"axis", "descending"};
+    for (const auto &attr : required_attrs) {
+      if (!op->HasAttribute(attr)) {
+        VLOG(3) << "pd_op.argsort " << attr << " attribute does not exist";
+        return false;
+      }
+    }
+    pir::Value x = op.x();
+    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto x_shape = x_type.dims();
+    int axis = op->attribute<pir::Int32Attribute>("axis").data();
+    if (axis < 0) {
+      axis += x_shape.size();
+    }
+    if (x_shape[axis] > 3840) {
+      VLOG(3)
+          << "In pd_op.argsort,the axis dim of input should be less than 3840";
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+class BilinearInterpV2Pattern
+    : public pir::OpRewritePattern<paddle::dialect::BilinearInterpOp> {
+ public:
+  using pir::OpRewritePattern<
+      paddle::dialect::BilinearInterpOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::BilinearInterpOp op,
                        pir::PatternRewriter &rewriter) const override {
     if (op->HasAttribute(kCanRunTrtAttr) &&
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-    if (!op->HasAttribute("keepdim")) {
-      VLOG(3) << "the max does not have attr keep_dim ";
+    const std::vector<std::string> required_attrs = {"data_format",
+                                                     "interp_method",
+                                                     "align_corners",
+                                                     "scale",
+                                                     "out_h",
+                                                     "out_w"};
+    for (const auto &attr : required_attrs) {
+      if (!op->HasAttribute(attr)) {
+        VLOG(3) << "BilinearInterpV2 " << attr << " attribute does not exist";
+        return false;
+      }
+    }
+    auto data_format =
+        op->attribute<pir::StrAttribute>("data_format").AsString();
+    if (data_format != "NCHW" && data_format != "NHWC") {
+      VLOG(3) << "BilinearInterpV2: data format must be NCHW or NHWC";
+      return false;
+    }
+    auto interp_method =
+        op->attribute<pir::StrAttribute>("interp_method").AsString();
+    if (interp_method != "bilinear") {
+      VLOG(3) << "The interp_method of BilinearInterpV2 is not bilinear";
+      return false;
+    }
+#if IS_TRT_VERSION_GE(8200)
+    auto size_tensor = op.operand_source(2);
+    if (size_tensor.impl()) {
+      auto size_tensor_type = size_tensor.type();
+      if (size_tensor_type.isa<pir::VectorType>()) {
+        auto vector_type = size_tensor.type().dyn_cast<pir::VectorType>();
+        if (vector_type.size() == 2) {
+          op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+          return true;
+        }
+      }
+    }
+#else
+    auto size_tensor = op.operand_source(2);
+    if (size_tensor.impl() != nullptr) {
+      VLOG(3) << "The Paddle-TRT doesn't support the SizeTensor for "
+                 "BilinearInterpV2";
+      return false;
+    }
+#endif
+    pir::Value scale_tensor = op.operand_source(3);
+
+    bool has_scale_input = false;
+    if (scale_tensor) {
+      has_scale_input = true;
+    }
+
+    if (has_scale_input) {
+      VLOG(3) << "BilinearInterpV2 has scale input can not into trt,support "
+                 "scale attribute into trt";
+      return false;
+    }
+    if (!has_scale_input && op->HasAttribute("scale")) {
+      std::vector<float> scale;
+      auto scale_attr = op->attribute<pir::ArrayAttribute>("scale");
+      for (const auto &attr : scale_attr.AsVector()) {
+        scale.push_back(attr.dyn_cast<pir::FloatAttribute>().data());
+      }
+      if (scale.size() <= 1) {
+        if (!op->HasAttribute("out_h") || !op->HasAttribute("out_w")) {
+          VLOG(3) << "BilinearInterpV2 doesn't have scale_tensor and the scale "
+                     "size <=1 and without"
+                     "out_h / out_w, it will return false";
+          return false;
+        }
+        auto out_h = op->attribute<pir::Int32Attribute>("out_h").data();
+        auto out_w = op->attribute<pir::Int32Attribute>("out_w").data();
+        if (!(out_h <= 0 && out_w <= 0)) {
+          if (out_h <= 0) {
+            VLOG(3) << "BilinearInterpV2 out_h must be greater than 0 if scale "
+                       "is not set.";
+            return false;
+          }
+          if (out_w <= 0) {
+            VLOG(3) << "BilinearInterpV2 out_w must be greater than 0 if scale "
+                       "is not set.";
+            return false;
+          }
+        }
+      } else {
+        for (size_t i = 0; i < scale.size(); i++) {
+          if (scale[i] <= 0) {
+            VLOG(3) << "BilinearInterpV2  dynamic shape not support Attr(scale["
+                    << i << "]" << scale[i]
+                    << " less than 1 and Input(Scale) Vector not set.";
+            return false;
+          }
+        }
+      }
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class NearestInterV2Pattern
+    : public pir::OpRewritePattern<paddle::dialect::NearestInterpOp> {
+ public:
+  using pir::OpRewritePattern<
+      paddle::dialect::NearestInterpOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::NearestInterpOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    const std::vector<std::string> required_attrs = {"data_format",
+                                                     "interp_method",
+                                                     "align_corners",
+                                                     "scale",
+                                                     "out_h",
+                                                     "out_w"};
+    for (const auto &attr : required_attrs) {
+      if (!op->HasAttribute(attr)) {
+        VLOG(3) << "NearestInterV2 " << attr << " attribute does not exist";
+        return false;
+      }
+    }
+
+    auto data_format =
+        op->attribute<pir::StrAttribute>("data_format").AsString();
+    if (data_format != "NCHW" && data_format != "NHWC") {
+      VLOG(3) << "NearestInterV2: data format must be NCHW or NHWC";
+      return false;
+    }
+    auto interp_method =
+        op->attribute<pir::StrAttribute>("interp_method").AsString();
+    if (interp_method != "nearest") {
+      VLOG(3) << "The interp_method of NearestInterV2 is not nearest";
+      return false;
+    }
+
+#if IS_TRT_VERSION_GE(8200)
+    pir::Value size_tensor = op.operand_source(2);
+    if (size_tensor) {
+      auto size_tensor_type = size_tensor.type();
+      if (size_tensor_type.isa<pir::VectorType>()) {
+        auto vector_type = size_tensor.type().dyn_cast<pir::VectorType>();
+        if (vector_type.size() == 2) {
+          op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+          return true;
+        }
+      }
+    }
+#endif
+
+    if (op->HasAttribute("scale")) {
+      std::vector<float> scale;
+      auto scale_attr = op->attribute<pir::ArrayAttribute>("scale");
+      for (const auto &attr : scale_attr.AsVector()) {
+        scale.push_back(attr.dyn_cast<pir::FloatAttribute>().data());
+      }
+      auto out_h = op->attribute<pir::Int32Attribute>("out_h").data();
+      auto out_w = op->attribute<pir::Int32Attribute>("out_w").data();
+      if (!(out_h > 0 && out_w > 0)) {
+        if (scale.size() < 2) {
+          VLOG(3) << "NearestInterV2 scale attribute size < 2";
+          return false;
+        }
+        if (scale[0] <= 0.f || scale[1] <= 0.f) {
+          VLOG(3) << "scale factor must be greater than 0 if out_h or out_w is "
+                     "not set.";
+          return false;
+        }
+      }
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class ClipPattern : public pir::OpRewritePattern<paddle::dialect::ClipOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::ClipOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::ClipOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    pir::Value x = op.operand_source(0);
+    auto x_shape = pir::GetShapeFromValue(x);
+    if (x_shape.size() == 0) {
+      VLOG(3) << " clip op does not support input's dim is 0 in tensorrt.";
+      return false;
+    }
+    auto min_tensor = op.operand_source(1);
+    if (!min_tensor) {
+      VLOG(3) << "clip op does not have input min tensor";
+      return false;
+    }
+    auto max_tensor = op.operand_source(2);
+    if (!max_tensor) {
+      VLOG(3) << "clip op does not have input max tensor";
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class GridSampleOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::GridSampleOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::GridSampleOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::GridSampleOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+#if IS_TRT_VERSION_LT(8510)
+    VLOG(3) << "grid_sample is not supported when TensorRT < 8.5.1";
+    return false;
+#else
+    if (!op->HasAttribute("mode") || !op->HasAttribute("padding_mode") ||
+        !op->HasAttribute("align_corners")) {
+      VLOG(3)
+          << "grid_sample need attributes: mode, padding_mode, align_corners";
+      return false;
+    }
+    auto x = op.operand_source(0);
+    auto grid = op.operand_source(1);
+    auto x_shape = pir::GetShapeFromValue(x);
+    auto grid_shape = pir::GetShapeFromValue(grid);
+
+    if (x_shape.size() != 4 || grid_shape.size() != 4) {
+      VLOG(3) << "The input and grid tensors must be shape tensors of rank 4 "
+                 "when using TRT GridSample layer.";
+      return false;
+    }
+#endif
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class StackOpPattern : public pir::OpRewritePattern<paddle::dialect::StackOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::StackOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::StackOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+
+    pir::Value x = op.operand_source(0);
+    int rank = 1;
+    auto x_type = x.type();
+    if (x_type.isa<pir::VectorType>()) {
+      rank = x_type.dyn_cast<pir::VectorType>().size();
+    } else {
+      auto x_shape = pir::GetShapeFromValue(x);
+      rank = x_shape.size();
+    }
+
+    int axis = 1;
+    if (op->HasAttribute("axis")) {
+      axis = op->attribute<pir::Int32Attribute>("axis").data();
+    } else {
+      axis = -1;
+    }
+    if (axis > rank || axis < -(rank + 1)) {
+      VLOG(3) << "Invalid axis value: " << axis
+              << ". Axis should be in range [-" << (rank + 1) << ", " << rank
+              << "], where rank is " << rank << ".";
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class WherePattern : public pir::OpRewritePattern<paddle::dialect::WhereOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::WhereOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::WhereOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    pir::Value x = op.operand_source(1);
+    pir::Value y = op.operand_source(2);
+    if (x == nullptr || y == nullptr) {
+      VLOG(3) << "pd_op.where x or y tensor value is null";
+      return false;
+    }
+#if IS_TRT_VERSION_LT(8400)
+    VLOG(3) << "where is not supported when TensorRT < 8.4";
+    return false;
+#endif
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class EqualOpPattern : public pir::OpRewritePattern<paddle::dialect::EqualOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::EqualOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::EqualOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+#if IS_TRT_VERSION_LT(8600)
+    pir::Value x = op.operand_source(0);
+    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto x_shape = x_type.dims();
+    int dims = x_shape.size();
+    if (dims < 1) {
+      VLOG(3)
+          << "pd_op.equal op does not support 0 dim input when TensorRT < 8.6.";
+      return false;
+    }
+#endif
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class NotEqualOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::NotEqualOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::NotEqualOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::NotEqualOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+#if IS_TRT_VERSION_LT(8600)
+    pir::Value x = op.operand_source(0);
+    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto x_shape = x_type.dims();
+    int dims = x_shape.size();
+    if (dims < 1) {
+      VLOG(3) << "pd_op.not_equal op does not support 0 dim input when "
+                 "TensorRT < 8.6.";
+      return false;
+    }
+#endif
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+template <typename OpType>
+class BitwiseCommonOpPattern : public pir::OpRewritePattern<OpType> {
+ public:
+  using pir::OpRewritePattern<OpType>::OpRewritePattern;
+
+  bool MatchAndRewrite(OpType op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->template attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    pir::Value input_operand = op.operand_source(0);
+    auto input_type = pir::GetDataTypeFromValue(input_operand);
+    if (!input_type.isa<pir::BoolType>()) {
+      if constexpr (std::is_same_v<OpType, paddle::dialect::BitwiseAndOp>) {
+        VLOG(3) << "the bitwise_and only supports input of BOOL.";
+      } else {
+        VLOG(3) << "the bitwise_or only supports input of BOOL.";
+      }
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+using BitwiseAndOpPattern =
+    BitwiseCommonOpPattern<paddle::dialect::BitwiseAndOp>;
+using BitwiseOrOpPattern = BitwiseCommonOpPattern<paddle::dialect::BitwiseOrOp>;
+
+class BitwiseNotOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::BitwiseNotOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::BitwiseNotOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::BitwiseNotOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+
+    pir::Value input_operand = op.operand_source(0);
+    auto input_type = pir::GetDataTypeFromValue(input_operand);
+    if (input_type.isa<pir::Int8Type>() || input_type.isa<pir::UInt8Type>()) {
+      VLOG(3) << "INT8 / UINT8 type convert to TRT is not supported.";
+      return false;
+    }
+#if IS_TRT_VERSION_LT(8600)
+    pir::Value x = op.operand_source(0);
+    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto x_shape = x_type.dims();
+    int dims = x_shape.size();
+    if (dims < 1) {
+      VLOG(3) << "BOOL type does not support 0-dim input when TensorRT < 8.6.";
+      return false;
+    }
+#endif
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class FullLikeOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::FullLikeOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::FullLikeOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::FullLikeOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
     pir::Value x = op.operand_source(0);
     auto x_dtype = pir::GetDataTypeFromValue(x);
-    if (!(x_dtype.isa<pir::Float32Type>() || x_dtype.isa<pir::Float64Type>() ||
-          x_dtype.isa<pir::Int32Type>() || x_dtype.isa<pir::Int64Type>())) {
-      VLOG(3) << "max input data type must be int32 or int64 or "
-                 "float32 or "
-                 "float64";
+    bool hasAttr = op->HasAttribute("dtype");
+    auto dtype =
+        op->attribute<paddle::dialect::DataTypeAttribute>("dtype").data();
+
+    if (dtype == phi::DataType::BOOL ||
+        (!hasAttr && x_dtype.isa<pir::BoolType>())) {
+      op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+      VLOG(3) << "the pd_op.full_like supports input of BOOL by trt8.4 above";
+      return true;
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class FullWithTensorPattern
+    : public pir::OpRewritePattern<paddle::dialect::FullWithTensorOp> {
+ public:
+  using pir::OpRewritePattern<
+      paddle::dialect::FullWithTensorOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::FullWithTensorOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    pir::Value value = op.operand_source(0);
+    if (value == nullptr) {
+      VLOG(3) << "pd_op.full_with_tensor value is null";
+      return false;
+    }
+#if IS_TRT_VERSION_LT(8500)
+    if (pir::GetDefiningOpForInput(op, 1)
+            ->isa<paddle::dialect::FullIntArrayOp>()) {
+      paddle::dialect::FullIntArrayOp full_int_array =
+          pir::GetDefiningOpForInput(op, 1)
+              ->dyn_cast<paddle::dialect::FullIntArrayOp>();
+      auto shape_attr = full_int_array->attribute<pir::ArrayAttribute>("value");
+      if (shape_attr.size() == 1) {
+        VLOG(3) << "pd_op.full_with_tensor shape is not support when TensorRT "
+                   "< 8.5.0";
+        return false;
+      }
+    } else {
+      pir::Value shape = op.operand_source(1);
+      if (shape != nullptr) {
+        VLOG(3) << "pd_op.full_with_tensor shape is not support when TensorRT "
+                   "< 8.5.0";
+        return false;
+      }
+    }
+#endif
+    auto dtype =
+        op->attribute<paddle::dialect::DataTypeAttribute>("dtype").data();
+    if (dtype != phi::DataType::INT32 && dtype != phi::DataType::INT64 &&
+        dtype != phi::DataType::FLOAT32) {
+      VLOG(3) << "pd_op.full_with_tensor only support int32, int64, float32";
+      return false;
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class StridedSliceOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::StridedSliceOp> {
+ public:
+  using pir::OpRewritePattern<
+      paddle::dialect::StridedSliceOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::StridedSliceOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (!op->HasAttribute("axes")) {
+      VLOG(3) << "The necessary attribute of the pd_op.strided_slice operator "
+                 "axes are missing.";
+      return false;
+    }
+    if (!op.operand_source(1) || !op.operand_source(2) ||
+        !op.operand_source(3)) {
+      VLOG(3) << "pd_op.strided_slice must has starts,ends and strides input";
+      return false;
+    }
+    if (!pir::GetDefiningOpForInput(op, 1)
+             ->isa<paddle::dialect::FullIntArrayOp>() ||
+        !pir::GetDefiningOpForInput(op, 2)
+             ->isa<paddle::dialect::FullIntArrayOp>() ||
+        !pir::GetDefiningOpForInput(op, 3)
+             ->isa<paddle::dialect::FullIntArrayOp>()) {
+      VLOG(3) << "pd_op.strided_slice's starts/ends/strides input must be "
+                 "constant value";
       return false;
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
@@ -1215,34 +1922,266 @@ class MaxOpPattern : public pir::OpRewritePattern<paddle::dialect::MaxOp> {
   }
 };
 
-class MeanOpPattern : public pir::OpRewritePattern<paddle::dialect::MeanOp> {
+class TopkOpPattern : public pir::OpRewritePattern<paddle::dialect::TopkOp> {
  public:
-  using pir::OpRewritePattern<paddle::dialect::MeanOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::MeanOp op,
+  using pir::OpRewritePattern<paddle::dialect::TopkOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::TopkOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (!op->HasAttribute("axis")) {
+      VLOG(3) << "pd_op.topk must has axis attribute";
+      return false;
+    }
+    if (!pir::GetDefiningOpForInput(op, 1)->isa<paddle::dialect::FullOp>()) {
+      VLOG(3) << "The 'k' input of pd_op.topk must be an integer";
+      return false;
+    }
+
+    if (op->HasAttribute("sorted")) {
+      bool sorted = op->attribute<pir::BoolAttribute>("sorted").data();
+      if (!sorted) {
+        VLOG(3)
+            << "pd_op.topk does not support results not sorted in tensorrt.";
+        return false;
+      }
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class CumsumOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::CumsumOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::CumsumOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::CumsumOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+
+    if (!pir::GetDefiningOpForInput(op, 1)->isa<paddle::dialect::FullOp>()) {
+      VLOG(3) << "The 'axis' input of pd_op.cumsum must be an integer";
+      return false;
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+bool CheckSetValue(const pir::Operation *op, int starts_input_loc = 1) {
+  paddle::dialect::FullIntArrayOp starts_defining_op =
+      pir::GetDefiningOpForInput(op, starts_input_loc)
+          ->dyn_cast<paddle::dialect::FullIntArrayOp>();
+  paddle::dialect::FullIntArrayOp ends_defining_op =
+      pir::GetDefiningOpForInput(op, starts_input_loc + 1)
+          ->dyn_cast<paddle::dialect::FullIntArrayOp>();
+  paddle::dialect::FullIntArrayOp steps_defining_op =
+      pir::GetDefiningOpForInput(op, starts_input_loc + 2)
+          ->dyn_cast<paddle::dialect::FullIntArrayOp>();
+  if (!starts_defining_op || !ends_defining_op || !steps_defining_op) {
+    VLOG(3) << "SetValueOp Input : starts/ends/steps, is not initialized with "
+               "constant "
+               "value, this op will not be translated to TRT Layer.";
+    return false;
+  }
+  auto starts = starts_defining_op->attribute<pir::ArrayAttribute>("value");
+  auto ends = ends_defining_op->attribute<pir::ArrayAttribute>("value");
+  auto steps = steps_defining_op->attribute<pir::ArrayAttribute>("value");
+  auto axes = op->attribute<pir::ArrayAttribute>("axes");
+  if (starts.size() != 1UL || ends.size() != 1UL || steps.size() != 1UL ||
+      axes.size() != 1UL) {
+    VLOG(3) << "the set_value op"
+            << "has more than one element in starts/ends/steps/axes/values, it "
+               "can not "
+               "enter into trt.";
+    return false;
+  }
+  auto decrease_axes = op->attribute<pir::ArrayAttribute>("decrease_axes");
+  if (decrease_axes.size() != 0) {
+    VLOG(3) << "the set_value op doesn't support decrease_axes attribute "
+               "currently, it can not "
+               "enter into trt.";
+    return false;
+  }
+  return true;
+}
+
+bool SetValueOpMatchAndRewrite(const pir::Operation *op) {
+  if (op->HasAttribute(kCanRunTrtAttr) &&
+      op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+    return false;
+  }
+  bool in_trt = CheckSetValue(op);
+  if (!in_trt) {
+    return false;
+  }
+
+  auto values = op->attribute<pir::ArrayAttribute>("values").AsVector();
+  if (values.size() != 1UL) {
+    VLOG(3) << "the set_value op"
+            << "has more than one element in values, it can not "
+               "enter into trt.";
+    return false;
+  }
+  auto value = values[0];
+  auto value_dtype =
+      value.dyn_cast<paddle::dialect::ScalarAttribute>().data().dtype();
+  if (value_dtype != phi::DataType::FLOAT32 &&
+      value_dtype != phi::DataType::FLOAT64) {
+    VLOG(3) << "SetValueOp only support float32/float64 value when translate "
+               "to trt.";
+    return false;
+  }
+  return true;
+}
+
+class SetValueOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::SetValueOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::SetValueOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::SetValueOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    bool in_trt = SetValueOpMatchAndRewrite(op);
+    if (!in_trt) {
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class SetValue_OpPattern
+    : public pir::OpRewritePattern<paddle::dialect::SetValue_Op> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::SetValue_Op>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::SetValue_Op op,
+                       pir::PatternRewriter &rewriter) const override {
+    bool in_trt = SetValueOpMatchAndRewrite(op);
+    if (!in_trt) {
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class SetValueWithTensorOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::SetValueWithTensorOp> {
+ public:
+  using pir::OpRewritePattern<
+      paddle::dialect::SetValueWithTensorOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::SetValueWithTensorOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    bool in_trt = CheckSetValue(op, 2);
+    if (!in_trt) {
+      return false;
+    }
+    pir::Value values = op.operand_source(1);
+    auto values_dtype = pir::GetDataTypeFromValue(values);
+    if (!values_dtype.isa<pir::Float32Type>() &&
+        !values_dtype.isa<pir::Float64Type>()) {
+      VLOG(3) << "SetValueWithTensorOp only support float32/float64 value when "
+                 "translate "
+                 "to trt.";
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class SetValueWithTensor_OpPattern
+    : public pir::OpRewritePattern<paddle::dialect::SetValueWithTensor_Op> {
+ public:
+  using pir::OpRewritePattern<
+      paddle::dialect::SetValueWithTensor_Op>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::SetValueWithTensor_Op op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    bool in_trt = CheckSetValue(op, 2);
+    if (!in_trt) {
+      return false;
+    }
+    pir::Value values = op.operand_source(1);
+    auto values_dtype = pir::GetDataTypeFromValue(values);
+    if (!values_dtype.isa<pir::Float32Type>() &&
+        !values_dtype.isa<pir::Float64Type>()) {
+      VLOG(3) << "SetValueWithTensorOp only support float32/float64 value when "
+                 "translate "
+                 "to trt.";
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class OneHotOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::OneHotOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::OneHotOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::OneHotOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+#if IS_TRT_VERSION_LT(8510)
+    VLOG(3) << "pd_op.one_hot is not supported when TensorRT<8.5.1";
+    return false;
+    pir::Value input = op.operand_source(0);
+    auto input_type = pir::GetDataTypeFromValue(input);
+    if (!input_type.isa<pir::Float32Type>() ||
+        !input_type.isa<pir::Int32Type>() ||
+        !input_type.isa<pir::Int64Type>()) {
+      VLOG(3) << "pd_op.one_hot only support int32,int64,float.";
+      return false;
+    }
+#endif
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class InstanceNormOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::InstanceNormOp> {
+ public:
+  using pir::OpRewritePattern<
+      paddle::dialect::InstanceNormOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::InstanceNormOp op,
                        pir::PatternRewriter &rewriter) const override {
     if (op->HasAttribute(kCanRunTrtAttr) &&
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-
-    if (!op->HasAttribute("axis")) {
-      VLOG(3) << "The axis attribute does not exist";
+    pir::Value x = op.operand_source(0);
+    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto x_shape = x_type.dims();
+    if (x_shape.size() != 4) {
+      VLOG(3) << "The instance_norm op only support 4-dimensional input in "
+                 "tensorrt.";
       return false;
     }
 
-    if (!op->HasAttribute("keepdim")) {
-      VLOG(3) << "The keepdim attribute does not exist";
-      return false;
-    }
-
-    pir::Value input = op.operand_source(0);
-    auto input_type = pir::GetDataTypeFromValue(input);
-    if (!input_type.isa<pir::Int32Type>() &&
-        !input_type.isa<pir::Int64Type>() &&
-        !input_type.isa<pir::Float32Type>() &&
-        !input_type.isa<pir::Float64Type>()) {
-      VLOG(3) << "The input type of pd_op.mean is not int32 or int64 or "
-                 "float32 or float64";
+    pir::Value scale = op.operand_source(1);
+    pir::Value bias = op.operand_source(2);
+    if (scale.impl() == nullptr || bias.impl() == nullptr) {
+      VLOG(3) << "instance_norm op's scale and bias should not be null in "
+                 "tensorrt.";
       return false;
     }
 
@@ -1279,12 +2218,32 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(DepthwiseConv2d)
     ADD_PATTERN(Nonzero)
     ADD_PATTERN(Gelu)
+    ADD_PATTERN(Relu6)
     ADD_PATTERN(Shape)
+    ADD_PATTERN(Shape64)
     ADD_PATTERN(Expand)
+    ADD_PATTERN(ExpandAs)
     ADD_PATTERN(Sigmoid)
     ADD_PATTERN(Sqrt)
     ADD_PATTERN(Hardsigmoid)
     ADD_PATTERN(Hardswish)
+    ADD_PATTERN(AssignOut)
+    ADD_PATTERN(Assign)
+    ADD_PATTERN(Tile)
+    ADD_PATTERN(Share_Data)
+    ADD_PATTERN(Swish)
+    ADD_PATTERN(Log)
+    ADD_PATTERN(Floor)
+    ADD_PATTERN(Roll)
+    ADD_PATTERN(Elu)
+    ADD_PATTERN(Selu)
+    ADD_PATTERN(Stanh)
+    ADD_PATTERN(Softplus)
+    ADD_PATTERN(ThresholdedRelu)
+    ADD_PATTERN(Flip)
+    ADD_PATTERN(Mish)
+    ADD_PATTERN(AssignValue)
+    ADD_PATTERN(AssignValue_)
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
 #endif
@@ -1296,6 +2255,13 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<ArangeOpPattern>(context));
     ps.Add(std::make_unique<SignOpPattern>(context));
     ps.Add(std::make_unique<LogicalNotOpPattern>(context));
+    ps.Add(std::make_unique<BitwiseAndOpPattern>(context));
+    ps.Add(std::make_unique<BitwiseOrOpPattern>(context));
+    ps.Add(std::make_unique<BitwiseNotOpPattern>(context));
+    ps.Add(std::make_unique<LogicalNot_OpPattern>(context));
+    ps.Add(std::make_unique<LogicalOrOpPattern>(context));
+    ps.Add(std::make_unique<LogicalOr_OpPattern>(context));
+    ps.Add(std::make_unique<LogicalAndOpPattern>(context));
     ps.Add(std::make_unique<GroupNormOpPattern>(context));
     ps.Add(std::make_unique<TransposeOpPattern>(context));
     ps.Add(std::make_unique<GatherOpPattern>(context));
@@ -1311,18 +2277,48 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<SplitOpPattern>(context));
     ps.Add(std::make_unique<SplitWithNumOpPattern>(context));
     ps.Add(std::make_unique<GreaterEqualOpPattern>(context));
+    ps.Add(std::make_unique<GreaterThanOpPattern>(context));
+    ps.Add(std::make_unique<LessThanOpPattern>(context));
     ps.Add(std::make_unique<MultiplyOpPattern>(context));
     ps.Add(std::make_unique<SubtractOpPattern>(context));
     ps.Add(std::make_unique<DivideOpPattern>(context));
-    ps.Add(std::make_unique<ElementwisePowOpPattern>(context));
     ps.Add(std::make_unique<MinimumOpPattern>(context));
     ps.Add(std::make_unique<MaximumOpPattern>(context));
     ps.Add(std::make_unique<FloorDivideOpPattern>(context));
+    ps.Add(std::make_unique<ElementwisePowOpPattern>(context));
     ps.Add(std::make_unique<MeanOpPattern>(context));
     ps.Add(std::make_unique<RemainderOpPattern>(context));
     ps.Add(std::make_unique<MulticlassNms3OpPattern>(context));
     ps.Add(std::make_unique<ArgmaxOpPattern>(context));
+    ps.Add(std::make_unique<ArgminOpPattern>(context));
+    ps.Add(std::make_unique<ArgsortOpPattern>(context));
     ps.Add(std::make_unique<MaxOpPattern>(context));
+    ps.Add(std::make_unique<MinOpPattern>(context));
+    ps.Add(std::make_unique<AllOpPattern>(context));
+    ps.Add(std::make_unique<AnyOpPattern>(context));
+    ps.Add(std::make_unique<SumOpPattern>(context));
+    ps.Add(std::make_unique<BilinearInterpV2Pattern>(context));
+    ps.Add(std::make_unique<NearestInterV2Pattern>(context));
+    ps.Add(std::make_unique<ClipPattern>(context));
+    ps.Add(std::make_unique<GridSampleOpPattern>(context));
+    ps.Add(std::make_unique<StackOpPattern>(context));
+    ps.Add(std::make_unique<WherePattern>(context));
+    ps.Add(std::make_unique<FullLikeOpPattern>(context));
+    ps.Add(std::make_unique<FullWithTensorPattern>(context));
+    ps.Add(std::make_unique<StridedSliceOpPattern>(context));
+    ps.Add(std::make_unique<TopkOpPattern>(context));
+    ps.Add(std::make_unique<CumsumOpPattern>(context));
+    ps.Add(std::make_unique<SetValueOpPattern>(context));
+    ps.Add(std::make_unique<SetValue_OpPattern>(context));
+    ps.Add(std::make_unique<SetValueWithTensorOpPattern>(context));
+    ps.Add(std::make_unique<SetValueWithTensor_OpPattern>(context));
+    ps.Add(std::make_unique<EqualOpPattern>(context));
+    ps.Add(std::make_unique<NotEqualOpPattern>(context));
+    ps.Add(std::make_unique<LogicalXorOpPattern>(context));
+    ps.Add(std::make_unique<TanhOpPattern>(context));
+    ps.Add(std::make_unique<CeluOpPattern>(context));
+    ps.Add(std::make_unique<OneHotOpPattern>(context));
+    ps.Add(std::make_unique<InstanceNormOpPattern>(context));
     return ps;
   }
 };

@@ -90,6 +90,18 @@ void CollectFpnProposalsInferMeta(
     MetaTensor* rois_num,
     MetaConfig config = MetaConfig());
 
+void CSoftmaxWithMultiLabelCrossEntropyInferMeta(
+    const MetaTensor& logits,
+    const MetaTensor& label,
+    const MetaTensor& smooth_weight,
+    int64_t ignore_index,
+    bool sum_multi_label_loss,
+    int rank,
+    int nranks,
+    MetaTensor* softmax,
+    MetaTensor* loss,
+    MetaConfig config = MetaConfig());
+
 void DistributedPushSparseInferMeta(
     const std::vector<const MetaTensor*>& ids,
     const std::vector<const MetaTensor*>& shows,
@@ -152,18 +164,25 @@ void InstanceNormInferMeta(const MetaTensor& x,
                            MetaTensor* saved_variance,
                            MetaConfig config = MetaConfig());
 
+void FasterTokenizerInferMeta(const MetaTensor& vocab,
+                              const MetaTensor& text,
+                              const MetaTensor& text_pair,
+                              bool do_lower_case,
+                              bool is_split_into_words,
+                              int max_seq_len,
+                              bool pad_to_max_seq_len,
+                              MetaTensor* input_ids,
+                              MetaTensor* segment_ids,
+                              MetaConfig config = MetaConfig());
+
 void GlobalGatherInferMeta(const MetaTensor& x,
                            const MetaTensor& local_count,
                            const MetaTensor& global_count,
-                           int ring_id,
-                           bool use_calc_stream,
                            MetaTensor* out);
 
 void GlobalScatterInferMeta(const MetaTensor& x,
                             const MetaTensor& local_count,
                             const MetaTensor& global_count,
-                            int ring_id,
-                            bool use_calc_stream,
                             MetaTensor* out);
 
 void AddGroupNormSiluInferMeta(const MetaTensor& x,
@@ -380,7 +399,7 @@ void TdmSamplerInferMeta(const MetaTensor& x,
                          const MetaTensor& layer,
                          bool output_positive,
                          const std::vector<int>& neg_samples_num_list,
-                         const std::vector<int>& layer_offset_lod,
+                         const std::vector<int>& layer_offset,
                          int seed,
                          int dtype,
                          MetaTensor* out,

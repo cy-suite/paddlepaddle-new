@@ -18,20 +18,12 @@
 
 #include "paddle/cinn/ir/ir_base.h"
 #include "paddle/cinn/ir/ir_printer.h"
+#include "paddle/cinn/ir/module.h"
 
 namespace cinn {
 namespace ir {
 
 namespace ir_utils {
-bool EqualIntImmm(const Expr& lhs, const Expr& rhs) {
-  if (lhs == rhs) return true;
-  if (auto* plhs = lhs.As<ir::IntImm>()) {
-    auto* prhs = rhs.As<ir::IntImm>();
-    return plhs->type() == prhs->type() && plhs->value == prhs->value;
-  }
-  return false;
-}
-
 bool IrEqualVisitor::Compare(const Expr& lhs, const Expr& rhs) {
   if (lhs.get() == rhs.get()) {  // the same object, including both are null
     return true;
@@ -46,8 +38,11 @@ bool IrEqualVisitor::Compare(const Expr& lhs, const Expr& rhs) {
     VLOG(7) << "Not equal on Expr, someone not defined";
   }
   bool equal = lhs->node_type() == rhs->node_type();
-  equal = equal && IRVisitorRequireReImpl<bool, const Expr*>::Visit(&lhs, &rhs);
-
+  if (lhs.is_index() && rhs.is_index())
+    equal = equal && lhs.as_index() == rhs.as_index();
+  else
+    equal =
+        equal && IRVisitorRequireReImpl<bool, const Expr*>::Visit(&lhs, &rhs);
   if (!equal) {
     VLOG(7) << "Not equal on Expr, lhs:[type:"
             << kIrNodeTyReprs[static_cast<int>(lhs->node_type())] << "]\n"
@@ -56,6 +51,14 @@ bool IrEqualVisitor::Compare(const Expr& lhs, const Expr& rhs) {
             << rhs;
   }
   return equal;
+}
+
+bool IrEqualVisitor::Compare(const Module& lhs, const Module& rhs) {
+  return Visit(lhs.As<_Module_>(), rhs.As<_Module_>());
+}
+
+bool IrEqualVisitor::Compare(const LoweredFunc& lhs, const LoweredFunc& rhs) {
+  return Visit(lhs.As<_LoweredFunc_>(), rhs.As<_LoweredFunc_>());
 }
 
 bool IrEqualVisitor::Compare(const std::string& lhs, const std::string& rhs) {
@@ -262,8 +265,7 @@ bool IrEqualVisitor::Visit(const _Tensor_* lhs, const Expr* other) {
   return flag && Compare(lhs->name, rhs->name);
 }
 
-bool IrEqualVisitor::Visit(const _LoweredFunc_* lhs, const Expr* other) {
-  auto* rhs = other->As<_LoweredFunc_>();
+bool IrEqualVisitor::Visit(const _LoweredFunc_* lhs, const _LoweredFunc_* rhs) {
   if (lhs->name != rhs->name) {
     VLOG(6) << "Not equal, lhs name=" << lhs->name
             << ", rhs name=" << rhs->name;
@@ -306,8 +308,7 @@ bool IrEqualVisitor::Visit(const _LoweredFunc_* lhs, const Expr* other) {
          Compare(lhs->argument_prepare_exprs, rhs->argument_prepare_exprs);
 }
 
-bool IrEqualVisitor::Visit(const _Module_* lhs, const Expr* other) {
-  auto* rhs = other->As<_Module_>();
+bool IrEqualVisitor::Visit(const _Module_* lhs, const _Module_* rhs) {
   bool flag = Compare(lhs->buffers, rhs->buffers) &&
               Compare(lhs->functions, rhs->functions) &&
               Compare(lhs->submodules, rhs->submodules);
@@ -404,20 +405,14 @@ bool IrEqualVisitor::Visit(const _Dim_* lhs, const Expr* other) {
 bool IrEqualVisitor::Visit(const IterMark* lhs, const Expr* other) {
   auto* rhs = other->As<IterMark>();
   if (!Compare(lhs->source, rhs->source)) return false;
-  if (EqualIntImmm(lhs->extent, rhs->extent)) return true;
-  return Compare(lhs->extent, rhs->extent);
+  return lhs->extent == rhs->extent;
 }
 
 bool IrEqualVisitor::Visit(const IterSplit* lhs, const Expr* other) {
   auto* rhs = other->As<IterSplit>();
   if (!Compare(lhs->source, rhs->source)) return false;
-  if (EqualIntImmm(lhs->extent, rhs->extent) &&
-      EqualIntImmm(lhs->lower_factor, rhs->lower_factor) &&
-      EqualIntImmm(lhs->scale, rhs->scale))
-    return true;
-  return Compare(lhs->extent, rhs->extent) &&
-         Compare(lhs->lower_factor, rhs->lower_factor) &&
-         Compare(lhs->scale, rhs->scale);
+  return lhs->extent == rhs->extent && lhs->lower_factor == rhs->lower_factor &&
+         lhs->scale == rhs->scale;
 }
 
 bool IrEqualVisitor::Visit(const IterSum* lhs, const Expr* other) {
@@ -425,7 +420,7 @@ bool IrEqualVisitor::Visit(const IterSum* lhs, const Expr* other) {
   for (size_t i = 0; i < lhs->args.size(); ++i) {
     if (!Compare(lhs->args.at(i), rhs->args.at(i))) return false;
   }
-  return Compare(lhs->base, rhs->base);
+  return lhs->base == rhs->base;
 }
 
 bool IRCompare(const Expr& lhs, const Expr& rhs, bool allow_name_suffix_diff) {

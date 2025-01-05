@@ -644,10 +644,6 @@ PHI_DEFINE_EXPORTED_uint64(
     "The real chunk size is max(request_size, "
     "FLAGS_auto_growth_chunk_size_in_mb).");
 
-PHI_DEFINE_EXPORTED_bool(custom_device_mem_record,
-                         false,
-                         "Enable mem record event on custom device");
-
 #endif
 
 /**
@@ -1110,11 +1106,11 @@ PHI_DEFINE_EXPORTED_string(cinn_subgraph_graphviz_dir,
  * Since Version: 3.0 Beta
  * Value Range: bool, default=false
  * Example: FLAGS_cinn_specify_input_dynamic_dim=true will use file set by
- * FLAGS_cinn_input_dynamic_dim_spec_file to specify input dynamic dimention.
+ * FLAGS_cinn_input_dynamic_dim_spec_file to specify input dynamic dimension.
  */
 PHI_DEFINE_EXPORTED_bool(cinn_specify_input_dynamic_dim,
                          false,
-                         "Whether to specify input dynamic dimention.");
+                         "Whether to specify input dynamic dimension.");
 
 /*
  * CINN related FLAG
@@ -1122,13 +1118,13 @@ PHI_DEFINE_EXPORTED_bool(cinn_specify_input_dynamic_dim,
  * Since Version: 3.0 Beta
  * Value Range: string, default=""
  * Example: FLAGS_cinn_input_dynamic_dim_spec_file="./config.json",
- * FLAGS_cinn_specify_input_dynamic_dim=true would use input dynamic dimention
- * predefined in ./config.json to specify input dynamic dimention.
+ * FLAGS_cinn_specify_input_dynamic_dim=true would use input dynamic dimension
+ * predefined in ./config.json to specify input dynamic dimension.
  */
 PHI_DEFINE_EXPORTED_string(
     cinn_input_dynamic_dim_spec_file,
     "",
-    "File path of predefined input dynamic dimention specification.");
+    "File path of predefined input dynamic dimension specification.");
 
 #endif
 
@@ -1319,6 +1315,16 @@ PHI_DEFINE_EXPORTED_bool(
     "Default cuda is asynchronous device, set to True will"
     "force op run in synchronous mode.");
 
+PHI_DEFINE_EXPORTED_bool(eager_communication_connection,
+                         false,
+                         "enable eager to create nccl comm");
+
+PHI_DEFINE_EXPORTED_int64(
+    tcp_max_syn_backlog,
+    2048,
+    "The maximum length of the queue for completely established sockets "
+    "waiting to be accepted for tcp, default is 2048.");
+
 /**
  * Autotune related FLAG
  * Name: FLAGS_use_autotune
@@ -1370,6 +1376,49 @@ PHI_DEFINE_EXPORTED_bool(enable_fusion_fallback,
                          "Whether enable fallback fusion ops in cinn.");
 
 /**
+ * CINN fusion result check FLAG
+ * Name: FLAGS_enable_fusion_result_check
+ * Since Version: 3.0 beta
+ * Value Range: bool, default=false
+ */
+PHI_DEFINE_EXPORTED_bool(enable_fusion_result_check,
+                         false,
+                         "Whether enable fusion result check in cinn.");
+
+/**
+ * CINN TransposeItesr transform fusion FLAG
+ * Name: FLAGS_enable_transpose_iters_in_fusion
+ * Since Version: 3.0 beta
+ * Value Range: bool, default=true
+ */
+PHI_DEFINE_EXPORTED_bool(
+    enable_transpose_iters_in_fusion,
+    true,
+    "Whether enable use transpose iters transform in cinn fusion.");
+
+/**
+ * CINN ReuseIters transform fusion FLAG
+ * Name: FLAGS_enable_reuse_iters_in_fusion
+ * Since Version: 3.0 beta
+ * Value Range: bool, default=true
+ */
+PHI_DEFINE_EXPORTED_bool(
+    enable_reuse_iters_in_fusion,
+    true,
+    "Whether enable use reuse iters transform in cinn fusion.");
+
+/**
+ * CINN AppendIters transform fusion FLAG
+ * Name: FLAGS_enable_append_iters_in_fusion
+ * Since Version: 3.0 beta
+ * Value Range: bool, default=true
+ */
+PHI_DEFINE_EXPORTED_bool(
+    enable_append_iters_in_fusion,
+    true,
+    "Whether enable use append iters transform in cinn fusion.");
+
+/**
  * Conv Search cache max number related FLAG
  * Name: FLAGS_search_cache_max_number
  * Since Version: 2.3.0
@@ -1393,6 +1442,19 @@ PHI_DEFINE_EXPORTED_bool(
     einsum_opt,
     false,
     "EinsumOp backward will be speedup at the expense of more gpu memory.");
+
+/**
+ * Performance related FLAG
+ * Name: enable_auto_layout_pass
+ * Since Version: 3.0.0
+ * Value Range: bool, default=false
+ * Example:
+ * Note: If True, using AutoLayoutInsertPass and AutuLayoutSimplifyPass by
+ * default
+ */
+PHI_DEFINE_EXPORTED_bool(enable_auto_layout_pass,
+                         false,
+                         "Whether enable auto_layout_pass.");
 
 /**
  * JitLayer related FLAG
@@ -1476,8 +1538,8 @@ PHI_DEFINE_EXPORTED_bool(use_shm_cache,
  * Since Version: 2.6.2
  * Value Range: bool, default=false
  * Example:
- * Note: . If True, mmap_allocator will use file descripor to open shared memory
- * operation.
+ * Note: . If True, mmap_allocator will use file descriptor to open shared
+ * memory operation.
  */
 PHI_DEFINE_EXPORTED_bool(dataloader_use_file_descriptor,
                          false,
@@ -1543,6 +1605,11 @@ PHI_DEFINE_EXPORTED_bool(logging_pir_py_code_dump_symbolic_dims,
                          false,
                          "whether dump symbolic dims into pir py code.");
 
+PHI_DEFINE_EXPORTED_bool(
+    pir_interpreter_record_stream_for_gc_cache,
+    false,
+    "whether PirInterpreter::RecordStreamForGC use cache strategy.");
+
 /**
  * Using PIR API in Python
  * Name: enable_pir_api
@@ -1551,7 +1618,7 @@ PHI_DEFINE_EXPORTED_bool(logging_pir_py_code_dump_symbolic_dims,
  * Example:
  * Note: If True, PIR API will be used in Python
  */
-PHI_DEFINE_EXPORTED_bool(enable_pir_api, false, "Enable PIR API in Python");
+PHI_DEFINE_EXPORTED_bool(enable_pir_api, true, "Enable PIR API in Python");
 
 /**
  * Using PIR in executor FLAG
@@ -1583,18 +1650,6 @@ PHI_DEFINE_EXPORTED_string(
     ir_inplace_kernel_blacklist,
     "",
     "It controls the ir inplace kernel subset do not use.");
-/**
- * Specify the directory of saving PIR subgraph from @to_static
- * Name: pir_subgraph_saving_dir
- * Since Version: 2.6.0
- * Value Range: str, default=""
- * Example:
- * Note: "/workspace/my_path", it will save into my_path dir;
- */
-PHI_DEFINE_EXPORTED_string(
-    pir_subgraph_saving_dir,
-    "",
-    "Specify the directory of saving PIR subgraph from @to_static.");
 
 PHI_DEFINE_EXPORTED_bool(enable_record_memory, false, "Enable memory recorder");
 
@@ -1619,9 +1674,6 @@ PHI_DEFINE_EXPORTED_int32(
 
 PHI_DEFINE_EXPORTED_bool(print_ir, false, "Whether print ir debug str.");
 
-PHI_DEFINE_EXPORTED_bool(pir_debug,
-                         false,
-                         "Whether print more pir debug info.");
 PHI_DEFINE_EXPORTED_bool(
     prim_skip_dynamic,
     true,
@@ -1643,8 +1695,21 @@ PHI_DEFINE_EXPORTED_string(
     "",
     "It controls the forward blacklist ops not to be decomposed.");
 
+/**
+ * Remove some redundant information when printing the pir program
+ * Name: disable_logging_op_attr_list
+ * Since Version: 3.0.0
+ * Value Range: string, default=""
+ * Example: FLAGS_disable_logging_op_attr_list="op_dist_attr"
+ * Note: If "dtype", "dtype:float32" will be deleted in Pir program
+ */
+PHI_DEFINE_EXPORTED_string(
+    disable_logging_op_attr_list,
+    "",
+    "Remove some redundant information when printing the pir program");
+
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || \
-    defined(PADDLE_WITH_XPU_BKCL)
+    defined(PADDLE_WITH_XPU_BKCL) || defined(PADDLE_WITH_CUSTOM_DEVICE)
 /**
  * Communication library related FLAG
  * Name: FLAGS_dynamic_static_unified_comm
@@ -1844,6 +1909,10 @@ PHI_DEFINE_EXPORTED_bool(
     false,
     "Enable xqa optim in block_multihead_attention kernel (GQA).");
 
+PHI_DEFINE_EXPORTED_bool(cuda_core_int8_gemm,
+                         false,
+                         "Enable speed up int8 gemm calculations when m<=4");
+
 PHI_DEFINE_EXPORTED_string(
     mkl_dir,  // NOLINT
     "",
@@ -1953,3 +2022,25 @@ PHI_DEFINE_EXPORTED_bool(fused_multi_transformer_op_use_mbfmha,
 PHI_DEFINE_EXPORTED_int64(multi_block_attention_min_partition_size,
                           1024,
                           "The minimum partition size for flash decoding");
+
+PHI_DEFINE_EXPORTED_bool(save_cf_stack_op,
+                         false,
+                         "Save cf stack op for higher-order derivatives.");
+
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
+/**
+ * FlashAttention related FLAG
+ * Name: FLAGS_flash_attn_version
+ * Value Range: int32, default=2
+ * Example:
+ * Note: Specify the version of FlashAttention to use, options are 2 or 3.
+ *        Version 2 requires Ampere architecture or higher,
+ *        while version 3 requires Hopper architecture.
+ */
+PHI_DEFINE_EXPORTED_int32(
+    flash_attn_version,
+    2,
+    "Specify the version of FlashAttention to use, options are 2 or 3. "
+    "Version 2 requires Ampere architecture or higher, "
+    "while version 3 requires Hopper architecture.");
+#endif

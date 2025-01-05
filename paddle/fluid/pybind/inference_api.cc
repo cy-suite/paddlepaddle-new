@@ -892,6 +892,10 @@ void BindAnalysisConfig(py::module *m) {
       .def("enable_low_precision_io",
            &AnalysisConfig::EnableLowPrecisionIO,
            py::arg("x") = true)
+      .def("enable_openvino_engine",
+           &AnalysisConfig::EnableOpenVINOEngine,
+           py::arg("inference_precision") = AnalysisConfig::Precision::kFloat32)
+      .def("openvino_engine_enabled", &AnalysisConfig::openvino_engine_enabled)
       .def("enable_tensorrt_engine",
            &AnalysisConfig::EnableTensorRtEngine,
            py::arg("workspace_size") = 1 << 30,
@@ -1018,24 +1022,7 @@ void BindAnalysisConfig(py::module *m) {
            py::arg("custom_pass_only") = false)
       .def("set_optimization_level",
            &AnalysisConfig::SetOptimizationLevel,
-           py::arg("opt_level") = 2)
-      .def("set_dist_config", &AnalysisConfig::SetDistConfig)
-      .def("dist_config", &AnalysisConfig::dist_config);
-
-  py::class_<DistConfig>(*m, "DistConfig")
-      .def(py::init<>())
-      .def("set_carrier_id", &DistConfig::SetCarrierId)
-      .def("set_comm_init_config", &DistConfig::SetCommInitConfig)
-      .def("set_endpoints", &DistConfig::SetEndpoints)
-      .def("set_ranks", &DistConfig::SetRanks)
-      .def("enable_dist_model", &DistConfig::EnableDistModel)
-      .def("carrier_id", &DistConfig::carrier_id)
-      .def("current_endpoint", &DistConfig::current_endpoint)
-      .def("trainer_endpoints", &DistConfig::trainer_endpoints)
-      .def("nranks", &DistConfig::nranks)
-      .def("rank", &DistConfig::rank)
-      .def("comm_init_config", &DistConfig::comm_init_config)
-      .def("use_dist_model", &DistConfig::use_dist_model);
+           py::arg("opt_level") = 2);
 }
 
 void BindXpuConfig(py::module *m) {
@@ -1130,15 +1117,14 @@ void BindPaddleInferPredictor(py::module *m) {
       .def("get_output_handle", &paddle_infer::Predictor::GetOutputHandle)
       .def(
           "run",
-          [](paddle_infer::Predictor &self, py::handle py_in_tensor_list) {
+          [](paddle_infer::Predictor &self,
+             const std::vector<paddle::Tensor> &in_tensor_list) {
 #if defined(PADDLE_WITH_CUSTOM_DEVICE) && !defined(PADDLE_NO_PYTHON)
             pybind11::gil_scoped_release release;
 #endif
-            auto in_tensor_list =
-                CastPyArg2VectorOfTensor(py_in_tensor_list.ptr(), 0);
             std::vector<paddle::Tensor> outputs;
             self.Run(in_tensor_list, &outputs);
-            return py::handle(ToPyObject(outputs));
+            return outputs;
           },
           py::arg("inputs"))
       .def("run",
