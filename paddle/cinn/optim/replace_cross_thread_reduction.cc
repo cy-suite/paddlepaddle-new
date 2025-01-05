@@ -202,15 +202,15 @@ struct CrossThreadReductionReplacer : public ir::IRMutator<>,
     PADDLE_ENFORCE_EQ(original_update_body->stmts().size(),
                       1,
                       ::common::errors::InvalidArgument(
-                          "The size of stmts is incorrect."
+                          "The size of statements is incorrect."
                           "Expected size is 1, but receive %d.",
                           original_update_body->stmts().size()));
-    PADDLE_ENFORCE_EQ(
-        original_update_body->stmts()[0].isa<ir::stmt::Store>(),
-        true,
-        ::common::errors::InvalidArgument(
-            "The stmt in schedule's body should be store stmt, but get %s.",
-            original_update_body->stmts()[0]->stmt_type()));
+    PADDLE_ENFORCE_EQ(original_update_body->stmts()[0].isa<ir::stmt::Store>(),
+                      true,
+                      ::common::errors::InvalidArgument(
+                          "The stmt in schedule's body should be store "
+                          "statement, but get %s.",
+                          original_update_body->stmts()[0]->stmt_type()));
     original_update_stmt =
         original_update_body->stmts()[0].as<ir::stmt::Store>();
 
