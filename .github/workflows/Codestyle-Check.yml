@@ -5,8 +5,39 @@ on:
     branches: [ "develop" ]
 
 jobs:
+  check-bypass:
+    name: Check Bypass
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      can-skip: ${{ steps.check-bypass.outputs.can-skip }}
+    steps:
+      - id: check-bypass
+        name: Check Bypass
+        uses: PFCCLab/ci-bypass@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          non-pull-request-event-strategy: 'always-skipped'
+          type: 'composite'
+          composite-rule: |
+            {
+              "any": [
+                {
+                  "type": "labeled",
+                  "label": ["skip-ci: codestyle", "skip-ci: all"],
+                  "username": ["SigureMo", "risemeup1", "tianshuo78520a", "0x3878f"]
+                },
+                {
+                  "type": "commented",
+                  "comment-pattern": [".+/skip-ci codestyle.+", ".+/skip-ci all.+"],
+                  "username": ["SigureMo", "risemeup1", "tianshuo78520a", "0x3878f"]
+                },
+              ]
+            }
   pre-commit:
-    if: github.repository_owner == 'PaddlePaddle'
+    needs: check-bypass
+    if: github.repository_owner == 'PaddlePaddle' && ${{ needs.check-bypass.outputs.can-skip != 'true' }}
     runs-on: ubuntu-latest
     env:
       PR_ID: ${{ github.event.pull_request.number }}
