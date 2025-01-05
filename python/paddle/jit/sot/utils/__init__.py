@@ -44,11 +44,13 @@ from .exceptions import (  # noqa: F401
 from .info_collector import (  # noqa: F401
     InfoCollector,
     NewSymbolHitRateInfo,
+    SubGraphRelationInfo,
 )
 from .magic_methods import magic_method_builtin_dispatch  # noqa: F401
 from .paddle_api_config import (  # noqa: F401
     get_tensor_methods,
     is_break_graph_tensor_methods,
+    is_directly_run_api,
     is_inplace_api,
     is_not_supported_paddle_layer,
 )

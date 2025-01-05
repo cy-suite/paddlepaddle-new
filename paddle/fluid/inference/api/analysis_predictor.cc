@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <memory>
 #include <set>
@@ -26,6 +27,7 @@
 #include <vector>
 
 #include "paddle/common/enforce.h"
+#include "paddle/common/errors.h"
 #include "paddle/fluid/framework/feed_fetch_method.h"
 #include "paddle/fluid/framework/feed_fetch_type.h"
 #include "paddle/fluid/framework/feed_hook.h"
@@ -439,8 +441,21 @@ bool AnalysisPredictor::Init(
   paddle::platform::SetNumThreads(config_.cpu_math_library_num_threads());
 
   std::string model_path = config_.prog_file();
-  load_pir_model_ =
-      model_path.substr(model_path.find_last_of(".") + 1) == "json";
+  if (!model_path.empty()) {
+    load_pir_model_ =
+        model_path.substr(model_path.find_last_of(".") + 1) == "json";
+  } else if (!config_.model_dir().empty()) {
+    std::string model_dir = config_.model_dir();
+    load_pir_model_ = false;
+    for (const auto &entry : std::filesystem::directory_iterator(model_dir)) {
+      if (entry.is_regular_file() &&
+          entry.path().filename() == "__model__.json") {
+        load_pir_model_ = true;
+        config_.SetProgFile(config_.model_dir() + "/__model__.json");
+        break;
+      }
+    }
+  }
   if (load_pir_model_) {
     config_.use_pir_ = true;
     config_.use_new_executor_ = true;
@@ -1229,6 +1244,11 @@ bool AnalysisPredictor::SaveOrLoadPirParameters(bool for_save) {
               << " persistable is false, will ignore it when load variables.";
     }
   }
+  bool load_separate_params_ = true;
+  if (!for_save && config_.model_dir().empty()) {
+    // Combine model
+    load_separate_params_ = false;
+  }
 
   if (for_save) {
     std::string optimized_params =
@@ -1239,8 +1259,72 @@ bool AnalysisPredictor::SaveOrLoadPirParameters(bool for_save) {
         const_tensor_out, param_names, optimized_params, true, false, true);
     LOG(INFO) << "Optimized params saved to " << optimized_params;
   } else {
-    pir::LoadCombineFunction(
-        config_.params_file(), filter_param_names, &tensor_out, false, place_);
+    if (load_separate_params_) {
+      std::string params_dir = config_.model_dir();
+
+      auto process_params = [this, &params_dir, &filter_param_names](
+                                size_t start_idx, size_t end_idx) {
+        std::vector<phi::DenseTensor *> local_tensor_out;
+
+        for (size_t j = start_idx; j < end_idx; ++j) {
+          const auto &param_name = filter_param_names[j];
+          std::string param_file = params_dir + "/" + param_name;
+
+          auto *var = sub_scope_->FindVar(param_name);
+          VLOG(4) << "persistable variable's name: " << param_name;
+          if (var == nullptr) {
+            VLOG(4) << "Variable " << param_name << " not found in scope";
+            continue;
+          }
+          auto *tensor_temp = var->GetMutable<phi::DenseTensor>();
+
+          pir::LoadFunction(param_file, -1, {}, false, tensor_temp, place_);
+
+          local_tensor_out.push_back(tensor_temp);
+        }
+
+        return local_tensor_out;
+      };
+
+      size_t num_threads = 8;
+      size_t chunk_size = std::max(static_cast<size_t>(1),
+                                   filter_param_names.size() / num_threads);
+      num_threads =
+          std::min(num_threads, filter_param_names.size() / chunk_size);
+      size_t remain_size = filter_param_names.size() % num_threads;
+      VLOG(4) << "Start Load with multi-thread: " << num_threads
+              << " chund size: " << chunk_size;
+
+      std::vector<std::future<std::vector<phi::DenseTensor *>>> futures;
+
+      for (size_t i = 0; i < num_threads; ++i) {
+        size_t start_idx = i * chunk_size;
+        size_t end_idx = start_idx + chunk_size;
+
+        futures.push_back(
+            std::async(std::launch::async, process_params, start_idx, end_idx));
+      }
+      if (remain_size > 0) {
+        futures.push_back(std::async(std::launch::async,
+                                     process_params,
+                                     filter_param_names.size() - remain_size,
+                                     filter_param_names.size()));
+      }
+
+      std::vector<phi::DenseTensor *> tensor_out;
+      for (auto &future : futures) {
+        auto local_tensor_out = future.get();
+        tensor_out.insert(
+            tensor_out.end(), local_tensor_out.begin(), local_tensor_out.end());
+      }
+
+    } else {
+      pir::LoadCombineFunction(config_.params_file(),
+                               filter_param_names,
+                               &tensor_out,
+                               false,
+                               place_);
+    }
   }
   return true;
 }
@@ -2943,6 +3027,11 @@ uint64_t AnalysisPredictor::TryShrinkMemory() {
 }
 
 void AnalysisPredictor::ClearIntermediateTensor() {
+  if (config_.new_ir_enabled()) {
+    PADDLE_THROW(common::errors::PreconditionNotMet(
+        "Don't need to use this API [ClearIntermediateTensor] when PIR is "
+        "enabled."));
+  }
   PADDLE_ENFORCE_NOT_NULL(inference_program_.get(),
                           common::errors::PreconditionNotMet(
                               "The inference program should be loaded first."));
@@ -3044,6 +3133,14 @@ AnalysisPredictor::~AnalysisPredictor() {  // NOLINT
       }
       framework::global_transfer_scope_key().erase(sub_scope_);
     }
+    for (auto &var_name : scope_->LocalVarNames()) {
+      auto *var = scope_->FindVar(var_name);
+      if (var->IsType<phi::DenseTensor>()) {
+        auto *tensor = var->GetMutable<phi::DenseTensor>();
+        tensor->clear();
+      }
+    }
+
     scope_->DeleteScope(sub_scope_);
   }
 

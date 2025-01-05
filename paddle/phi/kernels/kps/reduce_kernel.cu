@@ -178,7 +178,7 @@ void ReduceSumEigen(const KPDevice& dev_ctx,
   }
   auto eigen_reduce_dim =
       EigenDim<ReducedDimSize>::From(common::make_ddim(*reduce_dims));
-  // Caculate
+  // Calculate
   eigen_out_tensor.device(*dev_ctx.eigen_device()) =
       eigen_x_tensor.sum(eigen_reduce_dim);
   out->Resize(origin_out_dims);
@@ -415,5 +415,7 @@ PD_REGISTER_KERNEL(prod,
                    int,
                    int64_t,
                    phi::dtype::float16,
-                   phi::dtype::bfloat16) {}
+                   phi::dtype::bfloat16,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>) {}
 #endif
