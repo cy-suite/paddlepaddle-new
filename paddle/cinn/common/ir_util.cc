@@ -258,7 +258,7 @@ void Substitute(Expr *expr, const std::map<const ir::_Var_ *, Expr> &var_map) {
 }
 
 bool is_zero(Expr v) {
-  v = optim::ArithSimplify(v);
+  v = AutoSimplify(v);
   auto *int_n = v.As<ir::IntImm>();
   auto *float_n = v.As<ir::FloatImm>();
 
@@ -274,7 +274,7 @@ Expr CastIfNeeded(Expr body, Type type) {
 
 bool MathEqual(const Expr &a, const Expr &b) {
   auto c = a - b;
-  c = optim::ArithSimplify(c);
+  c = AutoSimplify(c);
   return is_zero(c);
 }
 
