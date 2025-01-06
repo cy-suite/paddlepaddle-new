@@ -66,7 +66,8 @@ class ConcatBf16QuantizePattern
     for (size_t idx = 0; idx < combine_inputs.size(); idx++) {
       // Check if it's already quantized
       auto pre_pre_op = pir::GetDefiningOpForInput(pre_op, idx);
-      if (pre_pre_op && pre_pre_op->name() == "onednn_op.quantize") return false;
+      if (pre_pre_op && pre_pre_op->name() == "onednn_op.quantize")
+        return false;
     }
 
     pir::IrContext *ctx = rewriter.ir_context();
