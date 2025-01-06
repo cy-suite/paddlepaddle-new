@@ -354,7 +354,7 @@ void EagerUtils::HandleViewBetweenInputAndOutput(
 void EagerUtils::HandleViewBetweenInputAndOutput(
     const paddle::Tensor& input_tensor, paddle::Tensor* view_output_tensor) {
   PADDLE_ENFORCE_EQ(
-      (input_tensor.defined() && input_tensor.has_allocation()),
+      input_tensor.has_allocation(),
       true,
       common::errors::InvalidArgument("Tensor %s has not been initialized!",
                                       input_tensor.name()));
@@ -556,8 +556,7 @@ void EagerUtils::FillZeroForEmptyOptionalGradInput(
     const std::vector<GradSlotMeta>& grad_in_metas) {
   for (size_t i = 0; i < in_grads->size(); i++) {
     paddle::Tensor& grad = (*in_grads)[i];
-    if (!(grad.defined() && grad.has_allocation()) &&
-        grad_in_metas[i].HasTensorMeta()) {
+    if (!grad.has_allocation() && grad_in_metas[i].HasTensorMeta()) {
       if (grad_in_metas[i].IsDistMeta()) {
         grad.set_impl(std::make_shared<phi::distributed::DistTensor>(
             grad_in_metas[i].DistTensorGlobalDims(),
@@ -592,9 +591,8 @@ void EagerUtils::FillZeroForEmptyOptionalGradOutput(
       continue;
     }
     paddle::Tensor& grad = (*output_grads)[i];
-    if (!(grad.defined() && grad.has_allocation()) &&
-        grad_output_metas[i].HasTensorMeta()) {
-      if (grad.defined() && grad.is_selected_rows()) {
+    if (!grad.has_allocation() && grad_output_metas[i].HasTensorMeta()) {
+      if (grad.is_selected_rows()) {
         continue;
       }
       if (grad_output_metas[i].IsDistMeta()) {
@@ -816,7 +814,7 @@ std::string EagerUtils::TensorStr(const paddle::Tensor& t) {
                                                    dist_t->dist_attr());
       }
     } else {
-      if ((t.defined() && t.has_allocation())) {
+      if (t.has_allocation()) {
         tensor_info_str += paddle::string::Sprintf(TENSOR_INFO_TEMPLATE,
                                                    t.impl()->type_info().name(),
                                                    t.dtype(),
@@ -849,10 +847,10 @@ std::string EagerUtils::TensorStr(const paddle::Tensor& t) {
                                              GradNodeStr(t),
                                              ad_meta->StopGradient());
       auto* data_ptr = dynamic_cast<phi::DenseTensor*>(t.impl().get());
-      if ((t.defined() && t.has_allocation()) && data_ptr) {
+      if (t.has_allocation() && data_ptr) {
         return paddle::string::Sprintf(TENSOR_PRINT_TEMPLATE,
                                        tensor_name_str,
-                                       (t.defined() && t.has_allocation()),
+                                       t.has_allocation(),
                                        t.impl(),
                                        tensor_info_str,
                                        *data_ptr,
@@ -860,7 +858,7 @@ std::string EagerUtils::TensorStr(const paddle::Tensor& t) {
       } else {
         return paddle::string::Sprintf(TENSOR_PRINT_TEMPLATE,
                                        tensor_name_str,
-                                       (t.defined() && t.has_allocation()),
+                                       t.has_allocation(),
                                        t.impl(),
                                        tensor_info_str,
                                        "None",
@@ -868,10 +866,10 @@ std::string EagerUtils::TensorStr(const paddle::Tensor& t) {
       }
     } else {
       auto* data_ptr = dynamic_cast<phi::DenseTensor*>(t.impl().get());
-      if ((t.defined() && t.has_allocation()) && data_ptr) {
+      if (t.has_allocation() && data_ptr) {
         return paddle::string::Sprintf(TENSOR_PRINT_TEMPLATE,
                                        tensor_name_str,
-                                       (t.defined() && t.has_allocation()),
+                                       t.has_allocation(),
                                        t.impl(),
                                        tensor_info_str,
                                        *data_ptr,
@@ -879,7 +877,7 @@ std::string EagerUtils::TensorStr(const paddle::Tensor& t) {
       } else {
         return paddle::string::Sprintf(TENSOR_PRINT_TEMPLATE,
                                        tensor_name_str,
-                                       (t.defined() && t.has_allocation()),
+                                       t.has_allocation(),
                                        t.impl(),
                                        tensor_info_str,
                                        "None",
@@ -901,14 +899,14 @@ std::string EagerUtils::TensorStr(const paddle::Tensor& t) {
                                              ad_meta->StopGradient());
       return paddle::string::Sprintf(TENSOR_PRINT_TEMPLATE,
                                      tensor_name_str,
-                                     (t.defined() && t.has_allocation()),
+                                     t.has_allocation(),
                                      t.impl(),
                                      tensor_info_str,
                                      ad_info_str);
     } else {
       return paddle::string::Sprintf(TENSOR_PRINT_TEMPLATE,
                                      tensor_name_str,
-                                     (t.defined() && t.has_allocation()),
+                                     t.has_allocation(),
                                      t.impl(),
                                      tensor_info_str,
                                      "None");
@@ -919,16 +917,14 @@ std::string EagerUtils::TensorStr(const paddle::Tensor& t) {
         "TensorInfo: [ %s ]}";
     return paddle::string::Sprintf(TENSOR_PRINT_TEMPLATE,
                                    tensor_name_str,
-                                   (t.defined() && t.has_allocation()),
+                                   t.has_allocation(),
                                    t.impl(),
                                    tensor_info_str);
   } else if (VLOG_IS_ON(4)) {
     const char* TENSOR_PRINT_TEMPLATE =
         "{ Name: %s, Initialized: %d, Ptr: %d }";
-    return paddle::string::Sprintf(TENSOR_PRINT_TEMPLATE,
-                                   tensor_name_str,
-                                   (t.defined() && t.has_allocation()),
-                                   t.impl());
+    return paddle::string::Sprintf(
+        TENSOR_PRINT_TEMPLATE, tensor_name_str, t.has_allocation(), t.impl());
   } else {
     return "[ Not specified tensor log level ]";
   }

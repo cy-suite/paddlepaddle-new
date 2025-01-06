@@ -1600,29 +1600,26 @@ static std::pair<std::string, std::string> GenerateForwardFunctionContents(
                                     LegalizeVarName(input_name));
       } else {
         const char* FWD_INS_CONTENT_TEMPLATE =
-            "  if(%s.defined() && %s.has_allocation()) "
+            "  if(%s.has_allocation()) "
             "ins[\"%s\"] = egr::EagerUtils::TrySyncToVars(%s);\n";
         dispensable_ins_contents_str +=
             paddle::string::Sprintf(FWD_INS_CONTENT_TEMPLATE,
                                     LegalizeVarName(input_name),
-                                    LegalizeVarName(input_name),
                                     input_name,
                                     LegalizeVarName(input_name));
         const char* FWD_AMP_TENSORS_VECTOR_TEMPLATE =
-            "    if(%s.defined() && %s.has_allocation()) "
+            "    if(%s.has_allocation()) "
             "amp_tensors_vector.push_back({ %s });\n";
         dispensable_amp_tensors_vector_str +=
             paddle::string::Sprintf(FWD_AMP_TENSORS_VECTOR_TEMPLATE,
                                     LegalizeVarName(input_name),
-                                    LegalizeVarName(input_name),
                                     LegalizeVarName(input_name));
         const char* DISPENSABLE_AMP_AUTO_CAST_TEMPLATE =
-            "    auto NEW_%s = ((%s.defined() && %s.has_allocation()) ? "
+            "    auto NEW_%s = ((%s.has_allocation()) ? "
             "egr::AmpAutoCast(\"%s\", "
             "%s, amp_dst_dtype, \"%s\") : %s);\n";
         dispensable_amp_auto_cast_str +=
             paddle::string::Sprintf(DISPENSABLE_AMP_AUTO_CAST_TEMPLATE,
-                                    LegalizeVarName(input_name),
                                     LegalizeVarName(input_name),
                                     LegalizeVarName(input_name),
                                     input_name,
@@ -2193,7 +2190,7 @@ static std::string GenerateSingleOpBase(
       "  // Check backward inplace info\n"
       "  bool %s = false;\n"
       "  %s\n"
-      "  if (%s.defined() && %s.has_allocation()) {\n"
+      "  if (%s.has_allocation()) {\n"
       "    VLOG(10) << %s.name() << \"(%s) use_count: \" << "
       "%s.impl().use_count();\n"
       "    if (%s.impl().use_count() == 1 || (%s.impl().use_count() == 2 && "
@@ -2248,7 +2245,6 @@ static std::string GenerateSingleOpBase(
                                     tensor_wrapper_str,
                                     bwd_inplace_input_name,
                                     bwd_inplace_input_name,
-                                    bwd_inplace_input_name,
                                     grad_input_name,
                                     bwd_inplace_input_name,
                                     bwd_inplace_input_name,
@@ -2284,7 +2280,6 @@ static std::string GenerateSingleOpBase(
             paddle::string::Sprintf(CHECK_BACKWARD_INPLACE_TEMPLATE,
                                     can_be_inplaced_name,
                                     hooked_grads_tensor_str,
-                                    bwd_inplace_input_name,
                                     bwd_inplace_input_name,
                                     bwd_inplace_input_name,
                                     grad_input_name,

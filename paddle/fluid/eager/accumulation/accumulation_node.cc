@@ -67,6 +67,10 @@ static void CopyOrAddTensor(paddle::Tensor* tensor,
                 reinterpret_cast<phi::DenseTensor*>(tensor->impl().get()));
           } else if (t.initialized() && tensor->initialized()) {
             paddle::imperative::TensorAdd<paddle::Tensor>(t, tensor);
+          } else {
+            PADDLE_THROW(common::errors::PreconditionNotMet(
+                "DenseTensor 't' and 'tensor' should be "
+                "both initialized when accumulating gradient."));
           }
         } else {
           // TODO(jiabin): Support Other TensorBase later

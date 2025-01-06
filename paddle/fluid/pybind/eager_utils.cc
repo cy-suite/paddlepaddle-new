@@ -1003,8 +1003,7 @@ PyObject* ToPyObject(const std::vector<paddle::Tensor>& value,
   PyGILState_Release(gstate);
 
   for (size_t i = 0; i < value.size(); i++) {
-    if (!(value[i].defined() && value[i].has_allocation()) &&
-        return_py_none_if_not_initialize) {
+    if (!value[i].has_allocation() && return_py_none_if_not_initialize) {
       Py_INCREF(Py_None);
       PyList_SET_ITEM(result, static_cast<Py_ssize_t>(i), Py_None);
     } else {
@@ -2514,7 +2513,7 @@ paddle::Tensor PyTensorHook::operator()(const paddle::Tensor& var) {
   PyObject* res = nullptr;
   try {
     bool return_py_none_if_not_initialize = true;
-    if (var.defined() && (!var.defined() && !var.has_allocation())) {
+    if (var.defined() && !var.has_allocation()) {
       return_py_none_if_not_initialize = !var.is_dist_tensor();
     }
     PyObject* p_tmp_var = ToPyObject(var, return_py_none_if_not_initialize);
