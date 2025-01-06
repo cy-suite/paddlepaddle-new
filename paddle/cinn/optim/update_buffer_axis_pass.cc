@@ -83,7 +83,7 @@ class AnalyzeBufferAxis : public ir::IRMutator<>,
 
  private:
   void VisitStmt(For stmt) override {
-    if (stmt->bind_info().valid()) {
+    if (stmt->is_gpu_block_binded()) {
       var_bind_threads.insert(stmt->loop_var()->name);
       StmtMutator::VisitBlock(stmt->body());
       var_bind_threads.erase(stmt->loop_var()->name);
