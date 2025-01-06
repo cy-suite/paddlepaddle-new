@@ -19,7 +19,7 @@ jobs:
     permissions:
       contents: read
     env:
-      USERNAMES: 'SigureMo,risemeup1,tianshuo78520a,0x3878f,swgu98'
+      CI_TEAM_MEMBERS: '["SigureMo", "risemeup1", "tianshuo78520a", "0x3878f", "swgu98", "luotao1"]'
     outputs:
       can-skip: ${{ steps.check-bypass.outputs.can-skip }}
     steps:
@@ -36,12 +36,12 @@ jobs:
                 {
                   "type": "labeled",
                   "label": ["skip-ci: ${{ inputs.workflow-name }}", "skip-ci: all"],
-                  "username": ${{ env.USERNAMES.split(',') }}
+                  "username": ${{ env.CI_TEAM_MEMBERS }}
                 },
                 {
                   "type": "commented",
                   "comment-pattern": [".+/skip-ci ${{ inputs.workflow-name }}.+", ".+/skip-ci all.+"],
-                  "username": ${{ env.USERNAMES.split(',') }}
+                  "username": ${{ env.CI_TEAM_MEMBERS }}
                 }
               ]
             }
