@@ -1,4 +1,4 @@
-// Copyright (c) 2021 CINN Authors. All Rights Reserved.
+// Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,13 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/cinn/poly/graph.h"
+#include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/kernels/impl/load_combine_kernel_impl.h"
 
-#include <gtest/gtest.h>
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
 
-#include "paddle/cinn/ir/op/ir_operators.h"
-#include "paddle/cinn/lang/buffer.h"
+PD_REGISTER_KERNEL(load_combine,
+                   Custom,
+                   ALL_LAYOUT,
+                   phi::LoadCombineKernel,
+                   float,
+                   double,
+                   int,
+                   int8_t,
+                   int64_t) {}
 
-namespace cinn {
-namespace poly {}  // namespace poly
-}  // namespace cinn
+#endif
