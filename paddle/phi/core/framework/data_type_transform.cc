@@ -66,10 +66,11 @@ static void XPUTransDataType(
     }                                                  \
   } while (0)
 
-  if (dst_type == proto::VarType::FP32 && dst_type == proto::VarType::FP16 &&
-      dst_type == proto::VarType::BOOL && dst_type == proto::VarType::INT16 &&
-      dst_type == proto::VarType::INT32 && dst_type == proto::VarType::INT64) {
-    _ForEachDataType_(XPUCastCallback);
+  if (dst_type == proto::VarType::FP32 || dst_type == proto::VarType::FP16 ||
+      dst_type == proto::VarType::BOOL || dst_type == proto::VarType::INT16 ||
+      dst_type == proto::VarType::INT32 || dst_type == proto::VarType::INT64 ||
+      dst_type == proto::VarType::FP64) {
+    _ForEachDataTypeForXPU_(XPUCastCallback);
   } else {
     PADDLE_THROW(common::errors::Unimplemented(
         "Data type (%s) is not supported in XPU when casting data type.",
@@ -164,6 +165,9 @@ void TransDataType(const phi::DenseTensor& in,
       break;
     case proto::VarType::FP32:
       XPUTransDataType<float>(in, out, dst_type, ctx);
+      break;
+    case proto::VarType::FP64:
+      XPUTransDataType<double>(in, out, dst_type, ctx);
       break;
     case proto::VarType::BOOL:
       XPUTransDataType<bool>(in, out, dst_type, ctx);
