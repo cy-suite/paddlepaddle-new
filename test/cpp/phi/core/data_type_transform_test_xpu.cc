@@ -35,22 +35,37 @@ void TransformTest(const phi::KernelKey& kernel_type_for_var,
       in.mutable_data<InT>(common::make_ddim({data_number}), cpu_place);
   memcpy(in_ptr, cpu_data, sizeof(InT) * data_number);
 
-  // copy from cpu tensor to xpu tensor
-  paddle::framework::TensorCopy(in, xpu_place, context, &in_xpu);
-  context.Wait();
+  // test case 1: on xpu
+  {
+    // copy from cpu tensor to xpu tensor
+    paddle::framework::TensorCopy(in, xpu_place, context, &in_xpu);
+    context.Wait();
 
-  // call trans data
-  phi::TransDataType(
-      kernel_type_for_var, expected_kernel_type, in_xpu, &out_xpu);
+    // call trans data
+    phi::TransDataType(
+        kernel_type_for_var, expected_kernel_type, in_xpu, &out_xpu);
 
-  // copy from xpu tensor to cpu tensor
-  paddle::framework::TensorCopy(out_xpu, cpu_place, context, &out);
-  context.Wait();
+    // copy from xpu tensor to cpu tensor
+    paddle::framework::TensorCopy(out_xpu, cpu_place, context, &out);
+    context.Wait();
 
-  // check result
-  OutT* out_ptr = out.data<OutT>();
-  for (int i = 0; i < data_number; ++i) {
-    EXPECT_EQ(out_ptr[i], static_cast<OutT>(cpu_data[i]));
+    // check result
+    OutT* out_ptr = out.data<OutT>();
+    for (int i = 0; i < data_number; ++i) {
+      EXPECT_EQ(out_ptr[i], static_cast<OutT>(cpu_data[i]));
+    }
+  }
+
+  // test case 2: on cpu
+  {
+    // call trans data
+    phi::TransDataType(kernel_type_for_var, expected_kernel_type, in, &out);
+
+    // check result
+    OutT* out_ptr = out.data<OutT>();
+    for (int i = 0; i < data_number; ++i) {
+      EXPECT_EQ(out_ptr[i], static_cast<OutT>(cpu_data[i]));
+    }
   }
 }
 
