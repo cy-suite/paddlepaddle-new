@@ -84,9 +84,8 @@ class TestVjpPrim(unittest.TestCase):
                     out_grads,
                     stop_gradients,
                 )
-            print(pir_program)
-            reshape_op2 = pir_program.global_block().ops[-1]
-            reshape_op1 = pir_program.global_block().ops[-2]
+            reshape_op2 = pir_program.global_block().ops[-5]
+            reshape_op1 = pir_program.global_block().ops[-1]
             self.assertEqual(len(grad_outs), 2)
             self.assertEqual(len(pir_program.global_block().ops), 9)
             self.assertTrue(reshape_op2.result(0).is_same(grad_outs[0][0]))
