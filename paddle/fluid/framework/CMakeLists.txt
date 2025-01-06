@@ -11,7 +11,7 @@ function(windows_symbolic TARGET)
     if(NOT EXISTS ${final_path}/${src}.cc OR NOT EXISTS ${final_path}/${src}.cu)
       message(
         FATAL
-        " ${src}.cc and ${src}.cu must exsits, and ${src}.cu must be symbolic file."
+        " ${src}.cc and ${src}.cu must exists, and ${src}.cu must be symbolic file."
       )
     endif()
 
@@ -492,6 +492,10 @@ set(NAIVE_EXECUTOR_DEPS
 
 if(TENSORRT_FOUND)
   set(NAIVE_EXECUTOR_DEPS ${NAIVE_EXECUTOR_DEPS} tensorrt_engine_op)
+endif()
+
+if(WITH_OPENVINO)
+  set(NAIVE_EXECUTOR_DEPS ${NAIVE_EXECUTOR_DEPS} openvino_engine_op)
 endif()
 
 cc_library(
