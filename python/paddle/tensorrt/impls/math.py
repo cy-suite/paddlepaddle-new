@@ -294,7 +294,7 @@ def all_converter(network, paddle_op, inputs):
 def cumsum_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     dtype = input_tensor.dtype
-    axis = paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
+    axis = get_input_constant_value(paddle_op, inputs, 1)[0]
     input_shape = input_tensor.shape
     rank = len(input_shape)
 

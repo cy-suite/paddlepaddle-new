@@ -49,11 +49,12 @@ def map_dtype(pd_dtype):
         raise TypeError(f"Unsupported dtype: {pd_dtype}")
 
 
-def run_pir_pass(program, partition_mode=False, disable_passes=[]):
+def run_pir_pass(program, partition_mode=False, disable_passes=[], scope=None):
     pm = pir.PassManager(opt_level=4)
     pm.enable_print_statistics()
     paddle.base.libpaddle.pir.infer_symbolic_shape_pass(pm, program)
-    scope = paddle.static.global_scope()
+    if scope is None:
+        scope = paddle.static.global_scope()
     place = paddle.CUDAPlace(0)
     passes = [
         {'trt_op_marker_pass': {}},
@@ -63,7 +64,6 @@ def run_pir_pass(program, partition_mode=False, disable_passes=[]):
                 "__param_scope__": scope,
             }
         },
-        {'dead_code_elimination_pass': {"__param_scope__": scope}},
         {'conv2d_add_fuse_pass': {}},
         {'trt_op_marker_pass': {}},  # for fusion op
     ]
@@ -76,6 +76,13 @@ def run_pir_pass(program, partition_mode=False, disable_passes=[]):
                 continue
             pm.add_pass(pass_name, pass_attr)
     pm.run(program)
+
+    # delete unused op
+    for op in program.global_block().ops:
+        if op.name() == "builtin.constant" or op.name() == "builtin.parameter":
+            if op.results()[0].use_empty():
+                program.global_block().remove_op(op)
+
     return program
 
 

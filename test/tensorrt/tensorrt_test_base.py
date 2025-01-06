@@ -237,20 +237,6 @@ class TensorRTBaseTest(unittest.TestCase):
                                 *self.max_shape[feed_name]
                             ).astype(self.api_args[feed_name].dtype)
 
-            # add fech op for dead_code_elimination_pass
-            preprocess_fetch_index = 0
-            for op in main_program.global_block().ops[::-1]:
-                for result in op.results():
-                    if result.use_empty():
-                        with paddle.static.program_guard(main_program):
-                            out = paddle._pir_ops.fetch(
-                                result,
-                                str(preprocess_fetch_index),
-                                preprocess_fetch_index,
-                            )
-                            out.persistable = True
-                        preprocess_fetch_index += 1
-
             # run pir pass(including some constant fold pass, dead code elimination pass, fusion pass and trt_op_marker_pass)
             main_program = run_pir_pass(
                 main_program,
