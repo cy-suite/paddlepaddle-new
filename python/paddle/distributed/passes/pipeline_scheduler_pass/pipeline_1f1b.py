@@ -27,7 +27,6 @@ from ..pass_base import register_pass
 from ..pass_utils import (
     AutoParallelStreamType,
     _add_event_dependency,
-    _pir_overlap_send_recv,
     _program_for_fthenb_and_1f1b,
     _split_program_into_forward_backward_optimize,
     forward_complete_op_role,
@@ -47,6 +46,7 @@ logger = get_logger(logging.INFO)
 
 @register_pass("pipeline_scheduler_1F1B")
 class Pipeline1F1BPass(PipelinePassBase):
+
     def __init__(self):
         super().__init__()
         self.jobs_in_stable_phase = [BACKWARD, FORWARD]
@@ -356,360 +356,6 @@ class Pipeline1F1BPass(PipelinePassBase):
 
         return types, sub_programs
 
-    def _add_dependency(self, recorder_op, waiter_op, name):
-        '''
-        Add the extra event dependency of the two operators.
-        This function mainly aims for the cross-programs in pipeline parallelism,
-        especial for the 'send_v2' 'recv_v2' etc.
-        '''
-        if not recorder_op.has_attr("force_record_event"):
-            recorder_op.set_bool_attr("force_record_event", True)
-        recorder_op.set_str_attr("event_to_record", name)
-        waiter_op.set_str_array_attr("events_to_wait", [name])
-
-    def _split_program_into_forward_backward_optimize_recv_send(
-        self, main_program, enable_send_recv_overlap=False
-    ):
-        _pir_overlap_send_recv(main_program)
-
-        forward_complete_op_role(main_program)
-        complete_ops = main_program.global_block().ops
-
-        recv_fwd_program = main_program.clone()
-        fwd_program = main_program.clone()
-        bwd_program = main_program.clone()
-        send_bwd_program = main_program.clone()
-        opt_program = main_program.clone()
-
-        recv_fwd_ops = recv_fwd_program.global_block().ops
-        fwd_ops = fwd_program.global_block().ops
-        bwd_ops = bwd_program.global_block().ops
-        send_bwd_ops = send_bwd_program.global_block().ops
-        opt_ops = opt_program.global_block().ops
-
-        opt_block = opt_program.global_block()
-        send_bwd_block = send_bwd_program.global_block()
-        bwd_block = bwd_program.global_block()
-        fwd_block = fwd_program.global_block()
-
-        place = _get_device()
-        if isinstance(place, paddle.framework.CUDAPlace):
-            place = paddle.framework.CUDAPlace(
-                paddle.distributed.ParallelEnv().dev_id
-            )
-        cur_place = paddle.base.libpaddle.Place()
-        cur_place.set_place(place)
-
-        region = "opt"
-        for op_idx in range(len(complete_ops) - 1, -1, -1):
-            if complete_ops[op_idx].op_role != -1:
-                if complete_ops[op_idx].op_role == 1:
-                    region = "bwd"
-                elif complete_ops[op_idx].op_role == 0:
-                    region = "fwd"
-                elif complete_ops[op_idx].op_role == 2:
-                    region = "opt"
-
-            if region == "opt":
-                recv_fwd_ops[op_idx].erase()
-                fwd_ops[op_idx].erase()
-                bwd_ops[op_idx].erase()
-                send_bwd_ops[op_idx].erase()
-            elif (
-                region == "bwd"
-                and complete_ops[op_idx].name() == "pd_op.send_v2"
-            ):
-                recv_fwd_ops[op_idx].erase()
-                fwd_ops[op_idx].erase()
-                bwd_ops[op_idx].erase()
-                for idx in range(opt_ops[op_idx].num_results()):
-                    result_in_opt = opt_ops[op_idx].result(idx)
-
-                    if result_in_opt.use_empty() is False:
-                        name = (
-                            f"var_{op_idx}_{complete_ops[op_idx].name()}_{idx}"
-                        )
-                        paddle.pir.set_insertion_point_after(
-                            send_bwd_ops[op_idx]
-                        )
-                        paddle._C_ops.set_persistable_value(
-                            send_bwd_ops[op_idx].result(idx), name
-                        )
-
-                        new_result_var_in_opt = opt_block.add_kwarg(
-                            name, result_in_opt.type()
-                        )
-                        new_result_var_in_opt.place_attr = cur_place
-                        new_result_var_in_opt.persistable = (
-                            result_in_opt.persistable
-                        )
-
-                        opt_ops[op_idx].result(idx).replace_all_uses_with(
-                            new_result_var_in_opt
-                        )
-
-                opt_ops[op_idx].erase()
-            elif (
-                region == "bwd"
-                and complete_ops[op_idx].name() != "pd_op.send_v2"
-            ):
-                recv_fwd_ops[op_idx].erase()
-                fwd_ops[op_idx].erase()
-
-                for idx in range(send_bwd_ops[op_idx].num_results()):
-                    result_in_send_bwd = send_bwd_ops[op_idx].result(idx)
-                    result_in_opt = opt_ops[op_idx].result(idx)
-
-                    if (
-                        result_in_send_bwd.use_empty() is False
-                        or result_in_opt.use_empty() is False
-                    ):
-                        if (
-                            bwd_ops[op_idx].name() == "pd_op.data"
-                            or bwd_ops[op_idx].name() == "builtin.parameter"
-                        ):
-                            name = bwd_ops[op_idx].result(idx).name
-                        else:
-                            result_value = complete_ops[op_idx].result(idx)
-                            used_ops = result_value.all_used_ops()
-                            shadow_output_op_used = None
-                            for used_op in used_ops:
-                                if used_op.name() == "builtin.shadow_output":
-                                    shadow_output_op_used = used_op
-                            if shadow_output_op_used is not None:
-                                name = shadow_output_op_used.attrs()[
-                                    "output_name"
-                                ]
-                            else:
-                                name = f"bwd_var_{op_idx}_{complete_ops[op_idx].name()}_{idx}"
-                                paddle.pir.set_insertion_point_after(
-                                    bwd_ops[op_idx]
-                                )
-                                paddle._C_ops.set_persistable_value(
-                                    bwd_ops[op_idx].result(idx), name
-                                )
-                    if result_in_send_bwd.use_empty() is False:
-                        new_result_var_in_send = send_bwd_block.add_kwarg(
-                            name, result_in_send_bwd.type()
-                        )
-                        new_result_var_in_send.place_attr = cur_place
-                        new_result_var_in_send.persistable = (
-                            result_in_send_bwd.persistable
-                        )
-
-                        first_used_idx = None
-                        first_used_op = None
-                        for used_op in (
-                            send_bwd_ops[op_idx].result(idx).all_used_ops()
-                        ):
-                            used_idx = send_bwd_ops.index(used_op)
-                            if (
-                                first_used_idx is None
-                                or used_idx < first_used_idx
-                            ):
-                                first_used_idx = used_idx
-                                first_used_op = used_op
-                        self._add_dependency(
-                            bwd_ops[op_idx], first_used_op, name
-                        )
-
-                        send_bwd_ops[op_idx].result(idx).replace_all_uses_with(
-                            new_result_var_in_send
-                        )
-                    if result_in_opt.use_empty() is False:
-                        new_result_var_in_opt = opt_block.add_kwarg(
-                            name, result_in_opt.type()
-                        )
-                        new_result_var_in_opt.place_attr = cur_place
-                        new_result_var_in_opt.persistable = (
-                            result_in_opt.persistable
-                        )
-
-                        opt_ops[op_idx].result(idx).replace_all_uses_with(
-                            new_result_var_in_opt
-                        )
-                opt_ops[op_idx].erase()
-                send_bwd_ops[op_idx].erase()
-            elif (
-                region == "fwd"
-                and complete_ops[op_idx].name() != "pd_op.recv_v2"
-            ):
-                recv_fwd_ops[op_idx].erase()
-
-                for idx in range(send_bwd_ops[op_idx].num_results()):
-                    result_in_bwd = bwd_ops[op_idx].result(idx)
-                    result_in_send_bwd = send_bwd_ops[op_idx].result(idx)
-                    result_in_opt = opt_ops[op_idx].result(idx)
-
-                    if (
-                        result_in_bwd.use_empty() is False
-                        or result_in_send_bwd.use_empty() is False
-                        or result_in_opt.use_empty() is False
-                    ):
-                        if (
-                            fwd_ops[op_idx].name() == "pd_op.data"
-                            or fwd_ops[op_idx].name() == "builtin.parameter"
-                        ):
-                            name = fwd_ops[op_idx].result(idx).name
-                        else:
-                            result_value = complete_ops[op_idx].result(idx)
-                            used_ops = result_value.all_used_ops()
-                            shadow_output_op_used = None
-                            for used_op in used_ops:
-                                if used_op.name() == "builtin.shadow_output":
-                                    shadow_output_op_used = used_op
-                            if shadow_output_op_used is not None:
-                                name = shadow_output_op_used.attrs()[
-                                    "output_name"
-                                ]
-                            else:
-                                name = f"fwd_var_{op_idx}_{complete_ops[op_idx].name()}_{idx}"
-                                paddle.pir.set_insertion_point_after(
-                                    fwd_ops[op_idx]
-                                )
-                                paddle._C_ops.set_persistable_value(
-                                    fwd_ops[op_idx].result(idx), name
-                                )
-
-                    if result_in_bwd.use_empty() is False:
-                        new_result_var_in_bwd = bwd_block.add_kwarg(
-                            name, result_in_bwd.type()
-                        )
-                        new_result_var_in_bwd.place_attr = cur_place
-                        new_result_var_in_bwd.persistable = (
-                            result_in_bwd.persistable
-                        )
-
-                        bwd_ops[op_idx].result(idx).replace_all_uses_with(
-                            new_result_var_in_bwd
-                        )
-                    if result_in_send_bwd.use_empty() is False:
-                        new_result_var_in_send = send_bwd_block.add_kwarg(
-                            name, result_in_send_bwd.type()
-                        )
-                        new_result_var_in_send.place_attr = cur_place
-                        new_result_var_in_send.persistable = (
-                            result_in_send_bwd.persistable
-                        )
-
-                        send_bwd_ops[op_idx].result(idx).replace_all_uses_with(
-                            new_result_var_in_send
-                        )
-                    if result_in_opt.use_empty() is False:
-                        new_result_var_in_opt = opt_block.add_kwarg(
-                            name, result_in_opt.type()
-                        )
-                        new_result_var_in_opt.place_attr = cur_place
-                        new_result_var_in_opt.persistable = (
-                            result_in_opt.persistable
-                        )
-
-                        opt_ops[op_idx].result(idx).replace_all_uses_with(
-                            new_result_var_in_opt
-                        )
-                bwd_ops[op_idx].erase()
-                opt_ops[op_idx].erase()
-                send_bwd_ops[op_idx].erase()
-
-            elif (
-                region == "fwd"
-                and complete_ops[op_idx].name() == "pd_op.recv_v2"
-            ):
-                for idx in range(complete_ops[op_idx].num_results()):
-                    result_in_fwd = fwd_ops[op_idx].result(idx)
-                    result_in_bwd = bwd_ops[op_idx].result(idx)
-                    result_in_send_bwd = send_bwd_ops[op_idx].result(idx)
-                    result_in_opt = opt_ops[op_idx].result(idx)
-
-                    if (
-                        result_in_fwd.use_empty() is False
-                        or result_in_bwd.use_empty() is False
-                        or result_in_send_bwd.use_empty() is False
-                        or result_in_opt.use_empty() is False
-                    ):
-                        result_value = complete_ops[op_idx].result(idx)
-                        used_ops = result_value.all_used_ops()
-                        shadow_output_op_used = None
-                        for used_op in used_ops:
-                            if used_op.name() == "builtin.shadow_output":
-                                shadow_output_op_used = used_op
-                        if shadow_output_op_used is not None:
-                            name = shadow_output_op_used.attrs()["output_name"]
-                        else:
-                            name = f"recv_fwd_var_{op_idx}_{complete_ops[op_idx].name()}_{idx}"
-                            paddle.pir.set_insertion_point_after(
-                                recv_fwd_ops[op_idx]
-                            )
-                            paddle._C_ops.set_persistable_value(
-                                recv_fwd_ops[op_idx].result(idx), name
-                            )
-                    if result_in_fwd.use_empty() is False:
-                        new_result_var_in_fwd = fwd_block.add_kwarg(
-                            name, result_in_fwd.type()
-                        )
-                        new_result_var_in_fwd.place_attr = cur_place
-                        new_result_var_in_fwd.persistable = (
-                            result_in_fwd.persistable
-                        )
-
-                        fwd_ops[op_idx].result(idx).replace_all_uses_with(
-                            new_result_var_in_fwd
-                        )
-
-                        if result_in_bwd.use_empty() is False:
-                            self.type_to_skip_gc_vars.setdefault(
-                                FORWARD, set()
-                            ).add(name)
-
-                    if result_in_bwd.use_empty() is False:
-                        new_result_var_in_bwd = bwd_block.add_kwarg(
-                            name, result_in_bwd.type()
-                        )
-                        new_result_var_in_bwd.place_attr = cur_place
-                        new_result_var_in_bwd.persistable = (
-                            result_in_bwd.persistable
-                        )
-
-                        bwd_ops[op_idx].result(idx).replace_all_uses_with(
-                            new_result_var_in_bwd
-                        )
-                    if result_in_send_bwd.use_empty() is False:
-                        new_result_var_in_send = send_bwd_block.add_kwarg(
-                            name, result_in_send_bwd.type()
-                        )
-                        new_result_var_in_send.place_attr = cur_place
-                        new_result_var_in_send.persistable = (
-                            result_in_send_bwd.persistable
-                        )
-
-                        send_bwd_ops[op_idx].result(idx).replace_all_uses_with(
-                            new_result_var_in_send
-                        )
-                    if result_in_opt.use_empty() is False:
-                        new_result_var_in_opt = opt_block.add_kwarg(
-                            name, result_in_opt.type()
-                        )
-                        new_result_var_in_opt.place_attr = cur_place
-                        new_result_var_in_opt.persistable = (
-                            result_in_opt.persistable
-                        )
-
-                        opt_ops[op_idx].result(idx).replace_all_uses_with(
-                            new_result_var_in_opt
-                        )
-                fwd_ops[op_idx].erase()
-                bwd_ops[op_idx].erase()
-                opt_ops[op_idx].erase()
-                send_bwd_ops[op_idx].erase()
-
-        return (
-            fwd_program,
-            bwd_program,
-            opt_program,
-            recv_fwd_program,
-            send_bwd_program,
-        )
-
     def _partial_pir_programs(self, program):
         enable_send_recv_overlap = self.get_attr("enable_send_recv_overlap")
         assert (
@@ -721,12 +367,10 @@ class Pipeline1F1BPass(PipelinePassBase):
             'true',
             '1',
         ]:
-            types = [FORWARD, BACKWARD, OPT, RECV_FORWARD, SEND_BACKWARD]
-            sub_program_list = (
-                self._split_program_into_forward_backward_optimize_recv_send(
-                    program
-                )
-            )
+            types = [RECV_FORWARD, FORWARD, BACKWARD, SEND_BACKWARD, OPT]
+            prog_splitter = ProgramSplitter(program, types)
+            sub_program_list = prog_splitter._split_programs()
+
         else:
             types = [FORWARD, BACKWARD, OPT]
             sub_program_list = _split_program_into_forward_backward_optimize(
@@ -817,3 +461,190 @@ class Pipeline1F1BPass(PipelinePassBase):
         opt_job.set_micro_batch_id(0)
         job_list.append(opt_job)
         return job_list
+
+
+class ProgramSplitter:
+
+    def __init__(self, main_program, job_types):
+        assert job_types == [
+            RECV_FORWARD,
+            FORWARD,
+            BACKWARD,
+            SEND_BACKWARD,
+            OPT,
+        ]
+        self._overlap_send_recv(main_program)
+        forward_complete_op_role(main_program)
+        self.job_types = job_types
+        self.complete_ops = main_program.global_block().ops
+        self.programs = self._clone_programs(main_program)
+        self.ops_dict = {
+            key: prog.global_block().ops for key, prog in self.programs.items()
+        }
+        self.blocks_dict = {
+            key: prog.global_block() for key, prog in self.programs.items()
+        }
+
+        self.cur_place = self._get_cur_place()
+
+    def _overlap_send_recv(self, program):
+        # TODO: This function should not be in ProgramSplitter,
+        # remove this to pipeline_pass_base.py after vpp fixed.
+        for block in program.blocks:
+            for op in block.ops:
+                if op.name() == "pd_op.send_v2":
+                    op.set_bool_attr("dynamic_shape", False)
+                    op.set_bool_attr("use_calc_stream", True)
+                    ring_id = op.attrs()["ring_id"]
+                    op.set_execution_stream("send_recv_stream")
+                    op.set_scheduling_priority(0)
+                elif op.name() == "pd_op.recv_v2":
+                    op.set_bool_attr("dynamic_shape", False)
+                    op.set_bool_attr("use_calc_stream", True)
+                    op.set_execution_stream("send_recv_stream")
+                    op.set_scheduling_priority(0)
+
+    def _clone_programs(self, program):
+        prog_dict = {}
+        for job_type in self.job_types:
+            prog_dict[job_type] = program.clone()
+        return prog_dict
+
+    def _get_cur_place(self):
+        place = _get_device()
+        if isinstance(place, paddle.framework.CUDAPlace):
+            place = paddle.framework.CUDAPlace(
+                paddle.distributed.ParallelEnv().dev_id
+            )
+        cur_place = paddle.base.libpaddle.Place()
+        cur_place.set_place(place)
+        return cur_place
+
+    def _split_programs(self):
+        region = "opt"
+        for op_idx in range(len(self.complete_ops) - 1, -1, -1):
+            op = self.complete_ops[op_idx]
+            if op.op_role != -1:
+                if op.op_role == 1:
+                    region = "bwd"
+                elif op.op_role == 0:
+                    region = "fwd"
+                elif op.op_role == 2:
+                    region = "opt"
+
+            if region == "opt":
+                self._erase_op_from_other_programs(op_idx, OPT)
+            elif region == "bwd" and op.name() == "pd_op.send_v2":
+                self._handle_func(op_idx, SEND_BACKWARD, self.job_types[4:])
+                self._erase_op_from_other_programs(op_idx, SEND_BACKWARD)
+            elif region == "bwd" and op.name() != "pd_op.send_v2":
+                self._handle_func(op_idx, BACKWARD, self.job_types[3:])
+                self._erase_op_from_other_programs(op_idx, BACKWARD)
+            elif region == "fwd" and op.name() != "pd_op.recv_v2":
+                self._handle_func(op_idx, FORWARD, self.job_types[2:])
+                self._erase_op_from_other_programs(op_idx, FORWARD)
+            elif region == "fwd" and op.name() == "pd_op.recv_v2":
+                self._handle_func(op_idx, RECV_FORWARD, self.job_types[1:])
+                self._erase_op_from_other_programs(op_idx, RECV_FORWARD)
+        progs = []
+        for job_type in self.job_types:
+            progs.append(self.programs[job_type])
+        return progs
+
+    def _erase_op_from_other_programs(self, op_idx, keep_job_type):
+        for job_type in self.job_types:
+            if job_type != keep_job_type:
+                self.ops_dict[job_type][op_idx].erase()
+
+    def _handle_func(self, op_idx, cur_job_type, suffixed_job_types):
+        for idx in range(self.complete_ops[op_idx].num_results()):
+            if self._result_is_used(suffixed_job_types, op_idx, idx):
+                var_name = self._get_or_create_var_name(
+                    self.ops_dict[cur_job_type], op_idx, idx
+                )
+            for job_type in suffixed_job_types:
+                if self._result_is_used([job_type], op_idx, idx):
+                    self._add_dependency_if_necessary(
+                        cur_job_type, job_type, op_idx, idx, var_name
+                    )
+                    self._add_kwarg_and_replace(
+                        self.blocks_dict[job_type],
+                        self.ops_dict[job_type],
+                        op_idx,
+                        idx,
+                        var_name,
+                    )
+
+    def _add_dependency_if_necessary(
+        self, cur_job_type, next_job_type, op_idx, rst_idx, var_name
+    ):
+        if not (
+            cur_job_type == BACKWARD and next_job_type == SEND_BACKWARD
+        ) and not (cur_job_type == RECV_FORWARD and next_job_type == FORWARD):
+            return
+
+        first_used_idx = None
+        first_used_op = None
+        for used_op in (
+            self.ops_dict[next_job_type][op_idx].result(rst_idx).all_used_ops()
+        ):
+            used_idx = self.ops_dict[next_job_type].index(used_op)
+            if first_used_idx is None or used_idx < first_used_idx:
+                first_used_idx = used_idx
+                first_used_op = used_op
+        self._add_dependency(
+            self.ops_dict[cur_job_type][op_idx], first_used_op, var_name
+        )
+
+    def _add_dependency(self, recorder_op, waiter_op, name):
+        '''
+        Add the extra event dependency of the two operators.
+        This function mainly aims for the cross-programs in pipeline parallelism,
+        especial for the 'send_v2' 'recv_v2' etc.
+        '''
+        if not recorder_op.has_attr("force_record_event"):
+            recorder_op.set_bool_attr("force_record_event", True)
+        recorder_op.set_str_attr("event_to_record", name)
+        waiter_op.set_str_array_attr("events_to_wait", [name])
+
+    def _result_is_used(self, job_types, op_idx, rst_idx):
+        is_used = False
+        for job_type in job_types:
+            is_used = (
+                is_used
+                or self.ops_dict[job_type][op_idx].result(rst_idx).use_empty()
+                is False
+            )
+        return is_used
+
+    def _get_or_create_var_name(self, cur_sub_ops, op_idx, rst_idx):
+        var_name = None
+        # case1: get var_name in current sub-program
+        op = cur_sub_ops[op_idx]
+        if op.name() == "pd_op.data" or op.name() == "builtin.parameter":
+            var_name = op.result(rst_idx).name
+        else:
+            # case2: get var_name from shadow_output in complete program
+            result_var = self.complete_ops[op_idx].result(rst_idx)
+            shadow_output_op = None
+            for used_op in result_var.all_used_ops():
+                if used_op.name() == "builtin.shadow_output":
+                    shadow_output_op = used_op
+            if shadow_output_op is not None:
+                var_name = shadow_output_op.attrs()["output_name"]
+
+        if var_name is None:
+            # case3: create var_name in current sub-program
+            paddle.pir.set_insertion_point_after(op)
+            var_name = (
+                f"var_{op_idx}_{self.complete_ops[op_idx].name()}_{rst_idx}"
+            )
+            paddle._C_ops.set_persistable_value(op.result(rst_idx), var_name)
+        return var_name
+
+    def _add_kwarg_and_replace(self, block, ops, op_idx, rst_idx, var_name):
+        ori_result = ops[op_idx].result(rst_idx)
+        new_result_var = block.add_kwarg(var_name, ori_result.type())
+        new_result_var.place_attr = self.cur_place
+        new_result_var.persistable = ori_result.persistable
+        ops[op_idx].result(rst_idx).replace_all_uses_with(new_result_var)
