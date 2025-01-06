@@ -1143,6 +1143,7 @@ class TestConcatBfloatQuantizePass(PassTest):
                 out = paddle.assign(out)
                 self.pass_attr_list = [
                     {'onednn_placement_pass': {}},
+                    {'cpu_bfloat16_placement_pass': {}},
                     {'cpu_special_ops_bf16_pass': {}},
                 ]
                 self.feeds = {
