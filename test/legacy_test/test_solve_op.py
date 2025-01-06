@@ -969,14 +969,14 @@ class TestSolveOpAPIZeroDimCase(unittest.TestCase):
                 place=place,
                 x_shape=[10, 0, 0],
                 y_shape=[6, 0, 0],
-                np_y_shape=[10, 0, 0]
+                np_y_shape=[10, 0, 0],
             )
             with self.assertRaises(ValueError) as context:
                 self.check_static_result(
                     place=place,
                     x_shape=[10, 0, 0],
                     y_shape=[10],
-                    np_y_shape=[10]
+                    np_y_shape=[10],
                 )
 
     def test_dygraph(self):
