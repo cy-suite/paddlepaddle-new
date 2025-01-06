@@ -416,7 +416,7 @@ class Pipeline1F1BPass(PipelinePassBase):
 
         types = [RECV_FORWARD, FORWARD, BACKWARD, SEND_BACKWARD, OPT]
         prog_splitter = ProgramSplitter(program, types)
-        sub_program_list = prog_splitter._split_programs()
+        sub_program_list = prog_splitter.split_programs()
 
         for i in range(len(types)):
             logger.debug(
@@ -474,8 +474,7 @@ class ProgramSplitter:
         self.cur_place = self._get_cur_place()
 
     def _overlap_send_recv(self, program):
-        # TODO: This function should not be in ProgramSplitter,
-        # remove this to pipeline_pass_base.py after vpp fixed.
+        # TODO(liym27): This function should not be in ProgramSplitter, move it to pipeline_pass_base.py after vpp fixed.
         for block in program.blocks:
             for op in block.ops:
                 if op.name() == "pd_op.send_v2":
@@ -506,7 +505,7 @@ class ProgramSplitter:
         cur_place.set_place(place)
         return cur_place
 
-    def _split_programs(self):
+    def split_programs(self):
         region = "opt"
         for op_idx in range(len(self.complete_ops) - 1, -1, -1):
             op = self.complete_ops[op_idx]
