@@ -195,7 +195,6 @@ class TestSimpleNetForSemiAutoParallel:
 
     def test_c_embedding_with_pir_fp16(self):
         paddle.disable_static()
-        paddle.base.set_flags({'FLAGS_enable_pir_api': 1})
         data_loader = self.create_data_loader()
         dist_loader = dist.shard_dataloader(
             dataloader=data_loader,
@@ -217,8 +216,9 @@ class TestSimpleNetForSemiAutoParallel:
         dist_model.train()
         dist_program = dist_model._engine._pir_dist_main_progs["train"]
         # check the dtype of c_embedding_grad is float16, consistent with c_embedding.
-        dtype_name = dist_program.global_block().ops[-5].result(0).dtype.name
-        np.testing.assert_equal(dtype_name, "FLOAT16")
+        op_check = dist_program.global_block().ops[-5]
+        np.testing.assert_equal(op_check.name(), "pd_op.c_embedding_grad")
+        np.testing.assert_equal(op_check.result(0).dtype.name, "FLOAT16")
 
     def run_test_case(self):
         self.test_mp_demo_net()
