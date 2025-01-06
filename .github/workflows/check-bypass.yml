@@ -12,19 +12,14 @@ on:
         description: "Whether the workflow can be skipped."
         value: ${{ jobs.check-bypass.outputs.can-skip }}
 
-usernames: &usernames
-  - SigureMo
-  - risemeup1
-  - tianshuo78520a
-  - 0x3878f
-  - swgu98
-
 jobs:
   check-bypass:
     name: Check Bypass
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      USERNAMES: 'SigureMo,risemeup1,tianshuo78520a,0x3878f,swgu98'
     outputs:
       can-skip: ${{ steps.check-bypass.outputs.can-skip }}
     steps:
@@ -41,12 +36,12 @@ jobs:
                 {
                   "type": "labeled",
                   "label": ["skip-ci: ${{ inputs.workflow-name }}", "skip-ci: all"],
-                  "username": *usernames
+                  "username": ${{ env.USERNAMES.split(',') }}
                 },
                 {
                   "type": "commented",
                   "comment-pattern": [".+/skip-ci ${{ inputs.workflow-name }}.+", ".+/skip-ci all.+"],
-                  "username": *usernames
+                  "username": ${{ env.USERNAMES.split(',') }}
                 }
               ]
             }
