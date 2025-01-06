@@ -923,7 +923,7 @@ class TestSolveOpSingularAPI(unittest.TestCase):
                     print("The mat is singular")
 
 
-class TestSolveOpAPIZeroDimCase1(unittest.TestCase):
+class TestSolveOpAPIZeroDimCase(unittest.TestCase):
     def setUp(self):
         np.random.seed(2021)
         self.place = []
@@ -937,23 +937,23 @@ class TestSolveOpAPIZeroDimCase1(unittest.TestCase):
         if core.is_compiled_with_cuda():
             self.place.append(paddle.CUDAPlace(0))
 
-    def check_static_result(self, place):
+    def check_static_result(self, place, x_shape, y_shape, np_y_shape):
         paddle.enable_static()
         with base.program_guard(base.Program(), base.Program()):
             paddle_input_x = paddle.static.data(
-                name="input_x", shape=[10, 0, 0], dtype=self.dtype
+                name="input_x", shape=x_shape, dtype=self.dtype
             )
             paddle_input_y = paddle.static.data(
-                name="input_y", shape=[6, 0, 0], dtype=self.dtype
-            )  # broadcast
+                name="input_y", shape=y_shape, dtype=self.dtype
+            )
             paddle_result = paddle.linalg.solve(
                 paddle_input_x, paddle_input_y, left=False
             )
 
-            np_input_x = np.random.random([10, 0, 0]).astype(self.dtype)
-            np_input_y = np.random.random([10, 0, 0]).astype(self.dtype)
+            np_input_x = np.random.random(x_shape).astype(self.dtype)
+            np_input_y = np.random.random(np_y_shape).astype(self.dtype)
 
-            np_result = np_solve_right(np_input_x, np_input_y)
+            np_result = np.linalg.solve(np_input_x, np_input_y)
 
             exe = base.Executor(place)
             fetches = exe.run(
@@ -965,19 +965,21 @@ class TestSolveOpAPIZeroDimCase1(unittest.TestCase):
 
     def test_static(self):
         for place in self.place:
-            self.check_static_result(place=place)
+            self.check_static_result(place=place, x_shape=[10, 0, 0], y_shape=[6, 0, 0], np_y_shape=[10, 0, 0])
+            with self.assertRaises(ValueError) as context:
+                self.check_static_result(place=place, x_shape=[10, 0, 0], y_shape=[10], np_y_shape=[10])
 
     def test_dygraph(self):
-        def run(place):
+        def run(place, x_shape, y_shape):
             paddle.disable_static(place)
             np.random.seed(2021)
-            input_x_np = np.random.random([10, 0, 0]).astype(self.dtype)
-            input_y_np = np.random.random([10, 0, 0]).astype(self.dtype)
+            input_x_np = np.random.random(x_shape).astype(self.dtype)
+            input_y_np = np.random.random(y_shape).astype(self.dtype)
 
             tensor_input_x = paddle.to_tensor(input_x_np)
             tensor_input_y = paddle.to_tensor(input_y_np)
 
-            numpy_output = np_solve_right(input_x_np, input_y_np)
+            numpy_output = np.linalg.solve(input_x_np, input_y_np)
             paddle_output = paddle.linalg.solve(
                 tensor_input_x, tensor_input_y, left=False
             )
@@ -988,7 +990,9 @@ class TestSolveOpAPIZeroDimCase1(unittest.TestCase):
             paddle.enable_static()
 
         for place in self.place:
-            run(place)
+            run(place, x_shape=[10, 0, 0], y_shape=[10, 0, 0])
+            with self.assertRaises(ValueError) as context:
+                run(place, x_shape=[10, 0, 0], y_shape=[10])
 
 
 if __name__ == "__main__":

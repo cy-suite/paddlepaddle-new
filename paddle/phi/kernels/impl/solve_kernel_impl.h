@@ -212,7 +212,11 @@ void SolveKernel(const Context& dev_ctx,
       while (x_it != x_shape.rend() || y_it != y_shape.rend()) {
         int x_dim = (x_it != x_shape.rend()) ? *x_it : 1;
         int y_dim = (y_it != y_shape.rend()) ? *y_it : 1;
-        out_dims.push_back(std::max(x_dim, y_dim));
+        if (x_dim == 0 || y_dim == 0) {
+          out_dims.push_back(0);
+        } else {
+          out_dims.push_back(std::max(x_dim, y_dim));
+        }
         if (x_it != x_shape.rend()) ++x_it;
         if (y_it != y_shape.rend()) ++y_it;
       }
