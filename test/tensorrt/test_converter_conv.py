@@ -398,19 +398,29 @@ class TestConv3dZeroPaddingDimensionTRTPattern(TensorRTBaseTest):
 
 
 def depthwise_conv3d_transpose_wrapper(x):
-    conv = paddle.nn.Conv3DTranspose(in_channels=2, out_channels=2, kernel_size=(3, 3, 3), groups=2)
+    conv = paddle.nn.Conv3DTranspose(
+        in_channels=2, out_channels=2, kernel_size=(3, 3, 3), groups=2
+    )
     return conv(x)
 
 
 def depthwise_conv3d_transpose_python_api(
     x, padding="SAME", stride=(1, 1, 1), dilation=(1, 1, 1)
 ):
-    conv = paddle.nn.Conv3DTranspose(in_channels=2, out_channels=2, kernel_size=(3, 3, 3), groups=2)
+    conv = paddle.nn.Conv3DTranspose(
+        in_channels=2, out_channels=2, kernel_size=(3, 3, 3), groups=2
+    )
     return conv(x)
 
 
 def depthwise_conv3d_transpose_wrapper_outpadding(x, output_padding):
-    conv = paddle.nn.Conv3DTranspose(in_channels=3, out_channels=3, kernel_size=(3, 3, 3), stride=2, output_padding=output_padding)
+    conv = paddle.nn.Conv3DTranspose(
+        in_channels=3,
+        out_channels=3,
+        kernel_size=(3, 3, 3),
+        stride=2,
+        output_padding=output_padding
+    )
     return conv(x)
 
 
@@ -426,7 +436,9 @@ def conv3d_transpose_with_error(x, padding=None):
 class TestDepthwiseConv3dTransposeTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = depthwise_conv3d_transpose_wrapper
-        self.api_args = {"x": np.random.random([3, 2, 8, 8, 8]).astype("float32")}
+        self.api_args = {
+            "x": np.random.random([3, 2, 8, 8, 8]).astype("float32")
+        }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 2, 8, 8, 8]}
         self.max_shape = {"x": [10, 2, 8, 8, 8]}
