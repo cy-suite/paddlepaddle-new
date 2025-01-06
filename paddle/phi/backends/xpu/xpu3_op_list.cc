@@ -428,7 +428,10 @@ XPUOpMap& get_kl3_ops() {
                      phi::DataType::BFLOAT16,
                      phi::DataType::FLOAT32,
                      phi::DataType::BOOL})},
-      {"exp_grad", XPUKernelSet({phi::DataType::FLOAT32})},
+      {"exp_grad",
+       XPUKernelSet({phi::DataType::FLOAT32,
+                     phi::DataType::FLOAT16,
+                     phi::DataType::BFLOAT16})},
       {"exp",
        XPUKernelSet({phi::DataType::FLOAT32,
                      phi::DataType::FLOAT16,
@@ -1302,7 +1305,9 @@ XPUOpMap& get_kl3_ops() {
                      phi::DataType::FLOAT16,
                      phi::DataType::BFLOAT16})},
       {"tanh_grad",
-       XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
+       XPUKernelSet({phi::DataType::FLOAT32,
+                     phi::DataType::FLOAT16,
+                     phi::DataType::BFLOAT16})},
       {"tan", XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
       {"tanh", XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
       {"temporal_shift", XPUKernelSet({phi::DataType::FLOAT32})},
@@ -1541,6 +1546,8 @@ XPUOpMap& get_kl3_ops() {
                      phi::DataType::FLOAT64,
                      phi::DataType::INT32,
                      phi::DataType::INT64})},
+      {"blha_get_max_len",
+       XPUKernelSet({phi::DataType::INT32, phi::DataType::INT64})},
   };
 
   return s_xpu3_kernels;
