@@ -45,12 +45,6 @@ class DSBNamesCollectorInStmt : public ir::stmt::StmtVisitor<> {
   }
 
  private:
-  void VisitBlock(const BlockRef& block) override {
-    for (const StmtRef& stmt : block->stmts()) {
-      StmtVisitor::VisitStmt(stmt);
-    }
-  }
-
   void VisitStmt(const IfThenElse& stmt) override {
     VisitBlock(stmt->true_case());
     if (stmt->false_case().defined()) {
@@ -63,9 +57,7 @@ class DSBNamesCollectorInStmt : public ir::stmt::StmtVisitor<> {
   void VisitStmt(const Schedule& stmt) override { VisitBlock(stmt->body()); }
 
   void VisitStmt(const Let& stmt) override {
-    if (stmt->body().defined()) {
-      UpdateDeadScheduleBlocks(stmt->body());
-    }
+    UpdateDeadScheduleBlocks(stmt->body());
   }
 
   void VisitStmt(const Store& stmt) override {
@@ -81,14 +73,13 @@ class DSBNamesCollectorInStmt : public ir::stmt::StmtVisitor<> {
   void UpdateDeadScheduleBlocks(const ir::Expr& expr) {
     std::unordered_set<std::string> load_buffer_names;
     std::unordered_set<std::string> load_tensor_names;
-    auto InsertLoadTensorAndBufferNames = [&](const ir::Expr* x) -> bool {
+    auto InsertLoadTensorAndBufferNames = [&](const ir::Expr* x) -> void {
       if (const ir::Load* load = x->As<ir::Load>()) {
         load_buffer_names.insert(load->tensor.as_tensor()->buffer->name);
         load_tensor_names.insert(load->tensor.as_tensor()->name);
       }
-      return false;
     };
-    ir::ir_utils::CollectIRNodes(expr, InsertLoadTensorAndBufferNames);
+    InsertLoadTensorAndBufferNames(&expr);
 
     auto IsShareBufferWithLoadedTensor =
         [&](const ir::_Tensor_* tensor) -> bool {
@@ -105,24 +96,22 @@ class DSBNamesCollectorInStmt : public ir::stmt::StmtVisitor<> {
       return !IsOutputTensor(tensor) && !IsLoadedTensor(tensor) &&
              !IsShareBufferWithLoadedTensor(tensor);
     };
-    auto InsertDeadStoreName = [&](const ir::Expr* x) -> bool {
+    auto InsertDeadStoreName = [&](const ir::Expr* x) -> void {
       const ir::Store* store = x->As<ir::Store>();
       if (store != nullptr && IsDeadStore(store)) {
         VLOG(6) << "Find dead schedule block names: \n"
                 << store->tensor.as_tensor()->name;
         dead_schedule_block_names_->insert(store->tensor.as_tensor()->name);
       }
-      return false;
     };
-    ir::ir_utils::CollectIRNodes(expr, InsertDeadStoreName);
+    InsertDeadStoreName(&expr);
   }
 
   std::unordered_set<std::string>* dead_schedule_block_names_;
   std::unordered_set<std::string>* output_names_;
 };
 
-class ScheduleBlockDCE : public ir::IRMutator<Expr*>,
-                         public ir::stmt::StmtMutator<> {
+class ScheduleBlockDCE {
  public:
   explicit ScheduleBlockDCE(const std::vector<std::string>& output_names)
       : output_names_(output_names.begin(), output_names.end()) {}
@@ -132,30 +121,29 @@ class ScheduleBlockDCE : public ir::IRMutator<Expr*>,
                                       &output_names_);
     collector(block);
     while (!dead_schedule_block_names_.empty()) {
-      Visit(block);
+      VisitBlock(block);
       DSBNamesCollectorInStmt collector(&dead_schedule_block_names_,
                                         &output_names_);
     }
   }
 
  private:
-  void Visit(BlockRef block) { ir::stmt::StmtMutator<>::VisitBlock(block); }
-
-  void VisitBlock(BlockRef block) override {
-    for (const StmtRef& stmt : block->stmts()) {
-      StmtMutator::VisitStmt(stmt);
-    }
-
+  void VisitBlock(BlockRef block) {
+    const auto& stmts = block->stmts();
     std::unordered_set<int> need_remove_ids;
     for (int i = 0; i < block->stmts().size(); ++i) {
-      if (IsDeadScheduleBlock(block->stmts()[i]) ||
-          IsEmptyStmt((block->stmts()[i]))) {
+      if ((stmts[i].isa<Schedule>() && VisitStmt(stmts[i].as<Schedule>())) ||
+          (stmts[i].isa<IfThenElse>() &&
+           VisitStmt(stmts[i].as<IfThenElse>())) ||
+          (stmts[i].isa<For>() && VisitStmt(stmts[i].as<For>()))) {
         need_remove_ids.insert(i);
       }
     }
+
     if (!need_remove_ids.empty()) {
       std::vector<StmtRef> new_stmts;
       for (int i = 0; i < block->stmts().size(); ++i) {
+        VLOG(6) << "[TEST] Remove dead schedule block: \n" << i << "\n";
         if (need_remove_ids.count(i) == 0) {
           new_stmts.push_back(block->stmts()[i]);
         }
@@ -164,38 +152,25 @@ class ScheduleBlockDCE : public ir::IRMutator<Expr*>,
     }
   }
 
-  void VisitStmt(IfThenElse stmt) override {
+  bool VisitStmt(IfThenElse stmt) {
     VisitBlock(stmt->true_case());
     if (stmt->false_case().defined()) {
       VisitBlock(stmt->false_case());
     }
-    if (IsEmptyIf(stmt)) {
-      const BlockRef empty_block = _Block_::Make({});
-      stmt->set_true_case(empty_block);
-      stmt->set_false_case(empty_block);
-    }
+    return (IsEmptyIf(stmt));
   }
 
-  void VisitStmt(For stmt) override {
+  bool VisitStmt(For stmt) {
     VisitBlock(stmt->body());
-    if (IsEmptyBlock(stmt->body())) {
-      stmt->set_body(ir::stmt::_Block_::Make({}));
-    }
+    return (IsEmptyBlock(stmt->body()));
   }
 
-  void VisitStmt(Schedule stmt) override { VisitBlock(stmt->body()); }
+  bool VisitStmt(const Schedule& stmt) {
+    return !stmt->block_fields().empty() &&
+           dead_schedule_block_names_.count(stmt->name()) > 0;
+  }
 
-  void VisitStmt(Alloc) override {}
-
-  void VisitStmt(Free) override {}
-
-  void VisitStmt(Let) override {}
-
-  void VisitStmt(Store) override {}
-
-  void VisitStmt(Evaluate) override {}
-
-  bool IsEmptyStmt(const StmtRef stmt) {
+  bool IsEmptyStmt(const StmtRef& stmt) {
     if (stmt->block_fields().empty()) return false;
     for (const BlockRef& block : stmt->block_fields()) {
       if (!IsEmptyBlock(block)) return false;
@@ -203,7 +178,7 @@ class ScheduleBlockDCE : public ir::IRMutator<Expr*>,
     return true;
   }
 
-  bool IsEmptyBlock(const BlockRef block) {
+  bool IsEmptyBlock(const BlockRef& block) {
     if (block->stmts().empty()) return false;
     for (const StmtRef& stmt : block->stmts()) {
       if (!IsEmptyStmt(stmt)) return false;
@@ -217,12 +192,6 @@ class ScheduleBlockDCE : public ir::IRMutator<Expr*>,
              IsEmptyBlock(stmt->false_case());
     }
     return IsEmptyBlock(stmt->true_case());
-  }
-
-  bool IsDeadScheduleBlock(const StmtRef& stmt) {
-    const Schedule& sbr = stmt.as<Schedule>();
-    return !sbr->block_fields().empty() &&
-           dead_schedule_block_names_.count(sbr->name()) > 0;
   }
 
  private:

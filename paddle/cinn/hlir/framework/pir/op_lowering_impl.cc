@@ -374,8 +374,6 @@ std::vector<ir::LoweredFunc> OpLowererImpl::PostProcess(
     if (func_body.As<ir::Block>()) {
       VLOG(6) << "Before CreateEliminateDeadScheduleBlockPass: \n" << func_body;
       ir::stmt::BlockRef _block = ir::ConvertExprBlockToStmtBlock(func_body);
-      VLOG(6) << "Expr2Stmt: \n" << _block;
-
       optim::BlockPassManager pass_manager;
       pass_manager.AddPass(
           optim::CreateEliminateDeadScheduleBlockPass(group->output_names()));

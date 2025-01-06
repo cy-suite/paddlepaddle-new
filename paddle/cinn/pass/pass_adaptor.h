@@ -14,7 +14,6 @@
 
 #pragma once
 
-#include "paddle/cinn/ir/utils/stmt_converter.h"
 #include "paddle/cinn/pass/pass.h"
 
 namespace cinn {
