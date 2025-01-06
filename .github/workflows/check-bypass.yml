@@ -7,6 +7,10 @@ on:
     secrets:
       github-token:
         required: true
+    outputs:
+      can-skip:
+        description: "Whether the workflow can be skipped."
+        value: ${{ jobs.check-bypass.outputs.can-skip }}
 
 jobs:
   check-bypass:
