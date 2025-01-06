@@ -110,6 +110,7 @@ struct PDNode {
   // Assertions, helper functions to simplify the pattern definition.
   PDNode* assert_is_op();
   PDNode* assert_is_op(const std::string& op_type);
+  PDNode* assert_is_op(const std::string& op_type, int reduce_type);
   PDNode* assert_is_not_op_type(const std::string& op_type);
   PDNode* assert_is_var();
   PDNode* assert_var_dtype(proto::VarType::Type dtype);
@@ -117,18 +118,34 @@ struct PDNode {
   PDNode* assert_var_not_persistable();
   PDNode* assert_is_persistable_var();
   PDNode* assert_is_op_output(const std::string& op_type);
+  PDNode* assert_is_op_output(const std::string& op_type, int reduce_type);
   PDNode* assert_is_op_output(const std::string& op_type,
                               const std::string& argument);
+  PDNode* assert_is_op_output(const std::string& op_type,
+                              const std::string& argument,
+                              int reduce_type);
   PDNode* assert_is_op_input(const std::string& op_type);
+  PDNode* assert_is_op_input(const std::string& op_type, int reduce_type);
   PDNode* assert_is_op_input(const std::string& op_type,
                              const std::string& argument);
+  PDNode* assert_is_op_input(const std::string& op_type,
+                             const std::string& argument,
+                             int reduce_type);
   PDNode* assert_is_op_nth_input(const std::string& op_type,
                                  const std::string& argument,
                                  int nth);
+  PDNode* assert_is_op_nth_input(const std::string& op_type,
+                                 const std::string& argument,
+                                 int nth,
+                                 int reduce_type);
   PDNode* assert_is_not_op_input(const std::string& argument);
   PDNode* assert_is_op_nth_output(const std::string& op_type,
                                   const std::string& argument,
                                   int nth);
+  PDNode* assert_is_op_nth_output(const std::string& op_type,
+                                  const std::string& argument,
+                                  int nth,
+                                  int reduce_type);
   PDNode* assert_is_only_input_of_op(const std::string& op_type);
   PDNode* assert_is_only_output_of_op(const std::string& op_type);
   PDNode* assert_op_has_n_inputs(const std::string& op_type, size_t n);
@@ -2336,8 +2353,8 @@ struct FusedFeedForwardFwd : public PatternBase {
   // Mode parallelism
   PATTERN_DECL_NODE(c_identity_op);
   PATTERN_DECL_NODE(c_identity_out);
-  PATTERN_DECL_NODE(c_allreduce_sum_op);
-  PATTERN_DECL_NODE(c_allreduce_sum_out);
+  PATTERN_DECL_NODE(all_reduce_sum_op);
+  PATTERN_DECL_NODE(all_reduce_sum_out);
   // Linear 1 and Dropout 1: matmul_v2 + elementwise_add + dropout
   FEEDFORWARD_LINEAR_DROPOUT_NODE(1);
   // Activation Grad: gelu or relu
@@ -2399,8 +2416,8 @@ struct FusedFeedForwardBwd : public PatternBase {
   // Mode parallelism
   PATTERN_DECL_NODE(c_identity_op);
   PATTERN_DECL_NODE(c_identity_out);
-  PATTERN_DECL_NODE(c_allreduce_sum_op);
-  PATTERN_DECL_NODE(c_allreduce_sum_out);
+  PATTERN_DECL_NODE(all_reduce_sum_op);
+  PATTERN_DECL_NODE(all_reduce_sum_out);
   // Linear 1 and Dropout 1: matmul_v2_grad + elementwise_add_grad +
   // dropout_grad
   FEEDFORWARD_LINEAR_DROPOUT_GRAD_NODE(1);

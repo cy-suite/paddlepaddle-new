@@ -485,7 +485,7 @@ void ReplaceAllReduceOp(const Node &node,
   // Even if PADDLE_WITH_NCCL is defined, if the program runs on CPU,
   // nccl_ctxs_ in NCCLOpHandleBase will be nullptr, and calling the
   // GetComm() method will report an error.
-  // There is bugs in all_reduce_op_handle method on CPU devices, skip
+  // There is bugs in all_reduce_sum_op_handle method on CPU devices, skip
   // this case in temporary.
   if (dynamic_cast<details::NCCLOpHandleBase *>(&op_handle)->GetNcclContext() ==
       nullptr) {
@@ -525,12 +525,12 @@ void ReplaceAllReduceOp(const Node &node,
     all_reduce_var_name = in_var_handles[0]->Name();
   }
 
-  // add c_allreduce_sum OP
+  // add all_reduce(sum) OP
   ops->emplace_back();
   OpDesc &all_reduce_op_desc = ops->back();
-  all_reduce_op_desc.SetType("c_allreduce_sum");
-  all_reduce_op_desc.SetInput("X", {all_reduce_var_name});
-  all_reduce_op_desc.SetOutput("Out", {all_reduce_var_name});
+  all_reduce_op_desc.SetType("all_reduce");
+  all_reduce_op_desc.SetInput("x", {all_reduce_var_name});
+  all_reduce_op_desc.SetOutput("out", {all_reduce_var_name});
   int ring_id = -1;
   if (FLAGS_dynamic_static_unified_comm) {
     ring_id = phi::distributed::CommContextManager::GetInstance().GetRingId(
@@ -542,7 +542,8 @@ void ReplaceAllReduceOp(const Node &node,
     VLOG(3) << "Old NCCLCommContext gets ring_id: " << ring_id;
   }
   all_reduce_op_desc.SetAttr("ring_id", ring_id);
-  all_reduce_op_desc.SetAttr("use_calc_stream", false);
+  all_reduce_op_desc.SetAttr("reduce_type",
+                             static_cast<int>(phi::ReduceType::kRedSum));
   all_reduce_op_desc.SetAttr(OpProtoAndCheckerMaker::OpRoleAttrName(),
                              (static_cast<int>(OpRole::kBackward)));
 
@@ -633,7 +634,7 @@ static void GetGraphOpDesc(const std::vector<Node *> &nodes,
     if ((n->Name() == "allreduce" || n->Name() == "fused_all_reduce") &&
         dynamic_cast<details::NCCLOpHandleBase *>(
             &(n->Wrapper<details::OpHandleBase>())) != nullptr) {
-      VLOG(4) << "convert op node " << n->Name() << " to desc c_allreduce_sum";
+      VLOG(4) << "convert op node " << n->Name() << " to desc all_reduce_sum";
       ReplaceAllReduceOp(*n, block, ops);
       VLOG(4) << n->ToString();
       continue;

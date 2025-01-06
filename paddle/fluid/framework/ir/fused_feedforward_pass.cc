@@ -319,9 +319,9 @@ ir::Graph *FusedFeedForwardPass::FusedFeedForwardFwd(
     int ring_id = -1;
     if (use_mp) {
       GET_IR_NODE_FROM_SUBGRAPH(
-          c_allreduce_sum_op, c_allreduce_sum_op, fused_feedforward_pattern);
+          all_reduce_sum_op, all_reduce_sum_op, fused_feedforward_pattern);
       ring_id =
-          PADDLE_GET_CONST(int, c_allreduce_sum_op->Op()->GetAttr("ring_id"));
+          PADDLE_GET_CONST(int, all_reduce_sum_op->Op()->GetAttr("ring_id"));
     }
     fused_feedforward_op_desc.SetAttr("ring_id", ring_id);
 
@@ -367,9 +367,9 @@ ir::Graph *FusedFeedForwardPass::FusedFeedForwardFwd(
       GET_IR_NODE_FROM_SUBGRAPH(
           c_identity_op, c_identity_op, fused_feedforward_pattern);
       GET_IR_NODE_FROM_SUBGRAPH(
-          c_allreduce_sum_op, c_allreduce_sum_op, fused_feedforward_pattern);
+          all_reduce_sum_op, all_reduce_sum_op, fused_feedforward_pattern);
       nodes_to_remove.insert(c_identity_op);
-      nodes_to_remove.insert(c_allreduce_sum_op);
+      nodes_to_remove.insert(all_reduce_sum_op);
     }
     if (use_dropout_1) {
       GET_IR_NODE_FROM_SUBGRAPH(
@@ -592,9 +592,9 @@ ir::Graph *FusedFeedForwardPass::FusedFeedForwardBwd(
     int ring_id = -1;
     if (use_mp) {
       GET_IR_NODE_FROM_SUBGRAPH(
-          c_allreduce_sum_op, c_allreduce_sum_op, fused_feedforward_pattern);
+          all_reduce_sum_op, all_reduce_sum_op, fused_feedforward_pattern);
       ring_id =
-          PADDLE_GET_CONST(int, c_allreduce_sum_op->Op()->GetAttr("ring_id"));
+          PADDLE_GET_CONST(int, all_reduce_sum_op->Op()->GetAttr("ring_id"));
     }
     fused_feedforward_op_desc.SetAttr("ring_id", ring_id);
 
@@ -720,9 +720,9 @@ ir::Graph *FusedFeedForwardPass::FusedFeedForwardBwd(
       GET_IR_NODE_FROM_SUBGRAPH(
           c_identity_op, c_identity_op, fused_feedforward_pattern);
       GET_IR_NODE_FROM_SUBGRAPH(
-          c_allreduce_sum_op, c_allreduce_sum_op, fused_feedforward_pattern);
+          all_reduce_sum_op, all_reduce_sum_op, fused_feedforward_pattern);
       nodes_to_remove.insert(c_identity_op);
-      nodes_to_remove.insert(c_allreduce_sum_op);
+      nodes_to_remove.insert(all_reduce_sum_op);
     }
     if (use_dropout_1) {
       GET_IR_NODE_FROM_SUBGRAPH(

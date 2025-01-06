@@ -420,6 +420,15 @@ PDNode *PDNode::assert_is_op(const std::string &op_type) {
   return this;
 }
 
+PDNode *PDNode::assert_is_op(const std::string &op_type, int reduce_type) {
+  asserts_.emplace_back([op_type, reduce_type](Node *x) {
+    return x && x->IsOp() && x->Op()->Type() == op_type &&
+           PADDLE_GET_CONST(int, x->Op()->GetAttr("reduce_type")) ==
+               reduce_type;
+  });
+  return this;
+}
+
 PDNode *PDNode::assert_is_not_op_type(const std::string &op_type) {
   asserts_.emplace_back([op_type](Node *x) {
     return x && x->IsOp() && x->Op()->Type() != op_type;
@@ -474,6 +483,25 @@ PDNode *PDNode::assert_is_op_nth_input(const std::string &op_type,
   return this;
 }
 
+PDNode *PDNode::assert_is_op_nth_input(const std::string &op_type,
+                                       const std::string &argument,
+                                       int nth,
+                                       int reduce_type) {
+  assert_is_var();
+  assert_is_op_input(op_type);
+  asserts_.emplace_back([=](Node *x) {
+    for (auto *op : x->outputs) {
+      if (op->IsOp() && op->Op()->Type() == op_type &&
+          PADDLE_GET_CONST(int, op->Op()->GetAttr("reduce_type")) ==
+              reduce_type &&
+          IsNthInput(x, op, argument, nth))
+        return true;
+    }
+    return false;
+  });
+  return this;
+}
+
 PDNode *PDNode::assert_is_op_nth_output(const std::string &op_type,
                                         const std::string &argument,
                                         int nth) {
@@ -481,6 +509,24 @@ PDNode *PDNode::assert_is_op_nth_output(const std::string &op_type,
   asserts_.emplace_back([=](Node *x) {
     for (auto *op : x->inputs) {
       if (op->IsOp() && op->Op()->Type() == op_type &&
+          IsNthOutput(x, op, argument, nth))
+        return true;
+    }
+    return false;
+  });
+  return this;
+}
+
+PDNode *PDNode::assert_is_op_nth_output(const std::string &op_type,
+                                        const std::string &argument,
+                                        int nth,
+                                        int reduce_type) {
+  assert_is_var();
+  asserts_.emplace_back([=](Node *x) {
+    for (auto *op : x->inputs) {
+      if (op->IsOp() && op->Op()->Type() == op_type &&
+          PADDLE_GET_CONST(int, op->Op()->GetAttr("reduce_type")) ==
+              reduce_type &&
           IsNthOutput(x, op, argument, nth))
         return true;
     }
@@ -531,9 +577,33 @@ PDNode *PDNode::assert_is_op_output(const std::string &op_type) {
 }
 
 PDNode *PDNode::assert_is_op_output(const std::string &op_type,
+                                    int reduce_type) {
+  assert_is_var();
+  asserts_.emplace_back([=](Node *x) {
+    for (auto *op : x->inputs) {
+      if (op && op->IsOp() && op->Op() && op->Op()->Type() == op_type &&
+          PADDLE_GET_CONST(int, op->Op()->GetAttr("reduce_type")) ==
+              reduce_type) {
+        return true;
+      }
+    }
+    return false;
+  });
+  return this;
+}
+
+PDNode *PDNode::assert_is_op_output(const std::string &op_type,
                                     const std::string &argument) {
   assert_is_var();
   assert_is_op_nth_output(op_type, argument, 0);
+  return this;
+}
+
+PDNode *PDNode::assert_is_op_output(const std::string &op_type,
+                                    const std::string &argument,
+                                    int reduce_type) {
+  assert_is_var();
+  assert_is_op_nth_output(op_type, argument, 0, reduce_type);
   return this;
 }
 
@@ -542,6 +612,22 @@ PDNode *PDNode::assert_is_op_input(const std::string &op_type) {
   asserts_.emplace_back([=](Node *x) {
     for (auto *op : x->outputs) {
       if (op && op->IsOp() && op->Op() && op->Op()->Type() == op_type) {
+        return true;
+      }
+    }
+    return false;
+  });
+  return this;
+}
+
+PDNode *PDNode::assert_is_op_input(const std::string &op_type,
+                                   int reduce_type) {
+  assert_is_var();
+  asserts_.emplace_back([=](Node *x) {
+    for (auto *op : x->outputs) {
+      if (op && op->IsOp() && op->Op() && op->Op()->Type() == op_type &&
+          PADDLE_GET_CONST(int, op->Op()->GetAttr("reduce_type")) ==
+              reduce_type) {
         return true;
       }
     }
@@ -564,6 +650,14 @@ PDNode *PDNode::assert_is_op_input(const std::string &op_type,
                                    const std::string &argument) {
   assert_is_var();
   assert_is_op_nth_input(op_type, argument, 0);
+  return this;
+}
+
+PDNode *PDNode::assert_is_op_input(const std::string &op_type,
+                                   const std::string &argument,
+                                   int reduce_type) {
+  assert_is_var();
+  assert_is_op_nth_input(op_type, argument, 0, reduce_type);
   return this;
 }
 
@@ -4570,14 +4664,19 @@ PDNode *patterns::FusedFeedForwardFwd::operator()(
 
   // Model parallel, do nothing in forward.
   if (use_mp) {
-    out_var->assert_is_op_input("c_allreduce_sum", "X");
-    auto *c_allreduce_sum_op = pattern->NewNode(c_allreduce_sum_op_repr())
-                                   ->assert_is_op("c_allreduce_sum");
-    auto *c_allreduce_sum_out_var =
-        pattern->NewNode(c_allreduce_sum_out_repr())
-            ->assert_is_op_output("c_allreduce_sum", "Out");
-    c_allreduce_sum_op->LinksFrom({out_var}).LinksTo({c_allreduce_sum_out_var});
-    out_var = c_allreduce_sum_out_var;
+    out_var->assert_is_op_input(
+        "all_reduce", "x", static_cast<int>(phi::ReduceType::kRedSum));
+    auto *all_reduce_sum_op =
+        pattern->NewNode(all_reduce_sum_op_repr())
+            ->assert_is_op("all_reduce",
+                           static_cast<int>(phi::ReduceType::kRedSum));
+    auto *all_reduce_sum_out_var =
+        pattern->NewNode(all_reduce_sum_out_repr())
+            ->assert_is_op_output("all_reduce",
+                                  "out",
+                                  static_cast<int>(phi::ReduceType::kRedSum));
+    all_reduce_sum_op->LinksFrom({out_var}).LinksTo({all_reduce_sum_out_var});
+    out_var = all_reduce_sum_out_var;
   }
 
   out_var->assert_is_op_input("elementwise_add", "X");
@@ -4852,17 +4951,21 @@ PDNode *patterns::FusedFeedForwardBwd::operator()(
       .LinksTo({matmul_in_grad_1, matmul_w_grad_1});
   out_grad = matmul_in_grad_1;
 
-  // Model parallel, all_reduce in backward.
+  // Model parallel, all_reduce(sum) in backward.
   if (use_mp) {
-    out_grad->assert_is_op_input("c_allreduce_sum", "X");
-    auto *c_allreduce_sum_op = pattern->NewNode(c_allreduce_sum_op_repr())
-                                   ->assert_is_op("c_allreduce_sum");
-    auto *c_allreduce_sum_out_grad =
-        pattern->NewNode(c_allreduce_sum_out_repr())
-            ->assert_is_op_output("c_allreduce_sum", "Out");
-    c_allreduce_sum_op->LinksFrom({out_grad})
-        .LinksTo({c_allreduce_sum_out_grad});
-    out_grad = c_allreduce_sum_out_grad;
+    out_grad->assert_is_op_input(
+        "all_reduce", "x", static_cast<int>(phi::ReduceType::kRedSum));
+    auto *all_reduce_sum_op =
+        pattern->NewNode(all_reduce_sum_op_repr())
+            ->assert_is_op("all_reduce",
+                           static_cast<int>(phi::ReduceType::kRedSum));
+    auto *all_reduce_sum_out_grad =
+        pattern->NewNode(all_reduce_sum_out_repr())
+            ->assert_is_op_output("all_reduce",
+                                  "out",
+                                  static_cast<int>(phi::ReduceType::kRedSum));
+    all_reduce_sum_op->LinksFrom({out_grad}).LinksTo({all_reduce_sum_out_grad});
+    out_grad = all_reduce_sum_out_grad;
   }
 
   // pre LayerNorm
