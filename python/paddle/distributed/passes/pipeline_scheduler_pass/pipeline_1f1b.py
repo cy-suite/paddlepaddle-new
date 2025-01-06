@@ -43,9 +43,16 @@ logger = get_logger(logging.INFO)
 
 @register_pass("pipeline_scheduler_1F1B")
 class Pipeline1F1BPass(PipelinePassBase):
+
     def __init__(self):
         super().__init__()
         self.jobs_in_stable_phase = [BACKWARD, FORWARD]
+        self.jobs_in_stable_phase_in_pir = [
+            BACKWARD,
+            RECV_FORWARD,
+            SEND_BACKWARD,
+            FORWARD,
+        ]
         self.set_attr("enable_backward_forward_overlap", 0)
 
     # Backward-forward overlapping splits and rearranges jobs for pattern Bi-Fj.
@@ -174,6 +181,54 @@ class Pipeline1F1BPass(PipelinePassBase):
         )
 
     def _create_job_list(self):
+        if self._in_pir_mode:
+            return self._create_job_list_in_pir()
+
+        num_micro_batches = self.get_attr("num_micro_batches")
+        pp_stage = self.get_attr("pp_stage")
+        pp_degree = self.get_attr("pp_degree")
+
+        job_list = []
+        assert (
+            pp_degree <= num_micro_batches
+        ), "Num of micro batches should larger than or equal to pp degree."
+
+        micro_batch_in_warmup = pp_degree - pp_stage
+        micro_batch_in_1f1b = num_micro_batches - micro_batch_in_warmup
+
+        forward_micro_batch_id = 0
+        for i in range(micro_batch_in_warmup):
+            forward_job = core.Job(FORWARD)
+            forward_job.set_micro_batch_id(forward_micro_batch_id)
+            job_list.append(forward_job)
+            forward_micro_batch_id += 1
+
+        backward_micro_batch_id = 0
+        for i in range(micro_batch_in_1f1b):
+            for job_type in self.jobs_in_stable_phase:
+                job = core.Job(job_type)
+                micro_batch_id = (
+                    forward_micro_batch_id
+                    if job_type.startswith(FORWARD)
+                    else backward_micro_batch_id
+                )
+                job.set_micro_batch_id(micro_batch_id)
+                job_list.append(job)
+            forward_micro_batch_id += 1
+            backward_micro_batch_id += 1
+
+        for i in range(micro_batch_in_warmup):
+            backward_job = core.Job(BACKWARD)
+            backward_job.set_micro_batch_id(backward_micro_batch_id)
+            job_list.append(backward_job)
+            backward_micro_batch_id += 1
+
+        opt_job = core.Job(OPT)
+        opt_job.set_micro_batch_id(0)
+        job_list.append(opt_job)
+        return job_list
+
+    def _create_job_list_in_pir(self):
         num_micro_batches = self.get_attr("num_micro_batches")
         pp_stage = self.get_attr("pp_stage")
         pp_degree = self.get_attr("pp_degree")
@@ -198,9 +253,8 @@ class Pipeline1F1BPass(PipelinePassBase):
             forward_micro_batch_id += 1
 
         backward_micro_batch_id = 0
-        jobs_in_stable_phase = [BACKWARD, RECV_FORWARD, SEND_BACKWARD, FORWARD]
         for i in range(micro_batch_in_1f1b):
-            for job_type in jobs_in_stable_phase:
+            for job_type in self.jobs_in_stable_phase_in_pir:
                 job = core.Job(job_type)
                 micro_batch_id = (
                     forward_micro_batch_id
@@ -368,7 +422,9 @@ class Pipeline1F1BPass(PipelinePassBase):
             logger.debug(
                 f"type = {types[i]}, sub_programs = {sub_program_list[i]}\n"
             )
-        logger.debug(f"jobs_in_stable_phase = {self.jobs_in_stable_phase}")
+        logger.debug(
+            f"jobs_in_stable_phase = {self.jobs_in_stable_phase_in_pir}"
+        )
         return types, sub_program_list
 
     def _split_program_for_overlapping(self, job_type, program, split_points):
