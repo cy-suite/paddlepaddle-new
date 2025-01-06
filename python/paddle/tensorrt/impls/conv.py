@@ -13,7 +13,10 @@
 # limitations under the License.
 
 
-from paddle.tensorrt.converter_utils import convert_conv2d
+from paddle.tensorrt.converter_utils import (
+    convert_conv2d,
+    convert_conv3d,
+)
 from paddle.tensorrt.register import converter_registry
 
 
