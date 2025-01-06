@@ -419,7 +419,7 @@ def depthwise_conv3d_transpose_wrapper_outpadding(x, output_padding):
         out_channels=3,
         kernel_size=(3, 3, 3),
         stride=2,
-        output_padding=output_padding
+        output_padding=output_padding,
     )
     return conv(x)
 
