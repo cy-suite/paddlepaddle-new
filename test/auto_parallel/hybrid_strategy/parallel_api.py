@@ -250,6 +250,31 @@ class TestParallelAPI:
                             dist.Shard(0),
                         ]
 
+    def check_lora(self, layer):
+        if not self.test_lora:
+            return
+        for name, sub_layer in layer.named_sublayers():
+            if len(sub_layer.sublayers()) == 0:
+                if 'q_proj' in name or 'k_proj' in name or 'v_proj' in name:
+                    assert sub_layer.weight.stop_gradient
+                    assert not sub_layer.lora_A.stop_gradient
+                if 'gate_proj' in name or 'up_proj' in name:
+                    assert sub_layer.weight.stop_gradient
+                    assert not sub_layer.lora_A.stop_gradient
+                if (
+                    'embed_tokens' in name or 'lm_head' in name
+                ) and not self.share_embedding:
+                    assert sub_layer.weight.stop_gradient
+                if 'o_proj' in name:
+                    assert (
+                        sub_layer.weight.stop_gradient
+                    ), f'{name} , {sub_layer.weight.name} , {sub_layer.weight}'
+                    assert not sub_layer.lora_B.stop_gradient
+                    # assert sub_layer.bias.stop_gradient is None
+                if 'down_proj' in name:
+                    assert sub_layer.weight.stop_gradient
+                    assert not sub_layer.lora_B.stop_gradient
+
     def parallel_model(self, layer):
         dp_config = None
         mp_config = None
@@ -369,6 +394,7 @@ class TestParallelAPI:
                 config=config,
             )
         self.check_mp(layer)
+        self.check_lora(layer)
         return layer, optimizer, lr_scheduler
 
     def run_llama(self, to_static=0):
