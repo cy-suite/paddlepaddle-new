@@ -120,8 +120,8 @@ class AutoParallelRecomputePIRPass(PassBase):
         # The key is the id of the segment, which is used to uniquely identify each segment.
         # The value is a list of indices of the segment OPs in `self.program_ops`.
 
-        # Start segment ID from 1.
-        segment_id_base = min(segment_beg.keys()) - 1
+        # Start segment ID from 0.
+        segment_id_base = min(segment_beg.keys())
         segments = {}
         assert len(segment_beg.keys()) == len(segment_end.keys())
         for idx, beg_id in segment_beg.items():
@@ -175,33 +175,37 @@ class AutoParallelRecomputePIRPass(PassBase):
         return
 
     def get_need_refined_segment_ids(self, refined_num, segment_num):
-        refined_ids = []
         hcg = dist.fleet.get_hybrid_communicate_group()
         pp_size = hcg.get_pipe_parallel_world_size()
-        if pp_size == 1 or not self.get_attr("pipeline_enable"):
-            if refined_num == -1 or refined_num > segment_num:
-                refined_num = segment_num
-            return set(range(1, refined_num + 1))
-        else:
-            vp_size = self.get_attr("vpp_degree")
-            assert segment_num % (pp_size * vp_size) == 0, (
-                "segment_num must be divisible by pp_size * vp_size,"
-                f" but got segment_num: {segment_num}, pp_size: {pp_size}, vp_size: {vp_size}"
-            )
-            chunk_size = segment_num // (pp_size * vp_size)
-            chunk_list = [
-                list(range(i * chunk_size, (i + 1) * chunk_size))
-                for i in range(pp_size * vp_size)
-            ]
+        vp_size = self.get_attr("vpp_degree")
+        if refined_num == 0:
+            return []
+        if refined_num < 0 or refined_num > segment_num:
+            return list(range(segment_num))
+        # If `vp_size` == 1, it can not select model chunk for pp,
+        # so if `refined_num` > 0, it selects the all segments to skip recompute.
+        if pp_size == 1 or vp_size == 1:
+            return list(range(segment_num))
+        refined_ids = []
+        assert segment_num % (pp_size * vp_size) == 0, (
+            "segment_num must be divisible by pp_size * vp_size,"
+            f" but got segment_num: {segment_num}, pp_size: {pp_size}, vp_size: {vp_size}"
+        )
+        chunk_size = segment_num // (pp_size * vp_size)
+        chunk_list = [
+            list(range(i * chunk_size, (i + 1) * chunk_size))
+            for i in range(pp_size * vp_size)
+        ]
 
-            stage_chunk_list = [[] for _ in range(pp_size)]
-            for i in range(pp_size * vp_size):
-                stage_chunk_list[i % pp_size].append(chunk_list[i])
+        stage_chunk_list = [[] for _ in range(pp_size)]
+        for i in range(pp_size * vp_size):
+            stage_chunk_list[i % pp_size].append(chunk_list[i])
 
-            for i in range(pp_size):
-                refined_ids += stage_chunk_list[i][-refined_num:]
+        for i in range(pp_size):
+            for id_list in stage_chunk_list[i][-refined_num:]:
+                refined_ids += id_list
 
-            return set(refined_ids)
+        return list(set(refined_ids))
 
     def _apply_single_impl(self, main_program, startup_program, context=None):
         self.program_ops = list(main_program.global_block().ops)
@@ -220,14 +224,16 @@ class AutoParallelRecomputePIRPass(PassBase):
         for refined_ops_pattern in refined_ops_patterns:
             # 3.1 get the refined pattern information.
             # refined_ops_patterns = pre_ops + main_ops + suf_ops
-            # `main_ops` pattern: it does not participate in backward recomputation
-            #                     and needs to be removed from the segment.
+            # `main_ops` pattern: it does not participate in backward recomputation and needs to be removed
+            #                     from the segment.
             # `pre_ops` pattern: it serve only as markers and do require recomputation.
             # `suf_ops` pattern: it serve only as markers and do require recomputation.
-            # `num` : it limits the maximum number of `main_ops` patterns identified
-            #         within each segment. A value of -1 represents all patterns.
+            # `num` : it determines the number of times to bypass recomputation for the specified segment.
+            #         `-1` indicates no recomputation across all segments, maximizing memory usage.
+            #         `0` enforces recomputation at every stage, minimizing memory usage.
+            #         It can be set to any value within the range `[1, ..., segment_nums]`.
+            #         If `num` exceeds `segment_nums`, it will behave as if set to `-1`.
             num = int(refined_ops_pattern['num'])
-            num = num if num >= 0 else len(fwd_ops)
             main_ops = refined_ops_pattern['main_ops']
             pre_ops = refined_ops_pattern['pre_ops']
             suf_ops = refined_ops_pattern['suf_ops']
