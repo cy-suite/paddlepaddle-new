@@ -29,11 +29,12 @@ import paddle.distributed.auto_parallel.static.utils as auto_utils
 from paddle import pir, static, utils
 from paddle.base.executor import _to_name_str
 from paddle.base.framework import auto_complete_op_role
+from paddle.decomposition import decomp
 from paddle.distributed.fleet.meta_optimizers.common import OpRole
 from paddle.distributed.passes.pass_base import new_pass
 from paddle.distributed.passes.pass_utils import (
     _split_program_into_forward_backward_optimize,
-    set_pir_skip_gc_vars,
+    set_skip_gc_vars,
 )
 from paddle.framework import (
     IrGraph,
@@ -639,7 +640,7 @@ class Engine:
             outputs_indices = fetch_indices[group_idx]
             logs_out = {}
             for idx in outputs_indices:
-                logs_out["out%d" % (idx)] = outs[idx]
+                logs_out[f"out{idx}"] = outs[idx]
             logs["outputs"] = logs_out
             group_idx += 1
         # logging user fetches
@@ -803,13 +804,21 @@ class Engine:
 
         # re-run apply_mix2dist_pass to dist accumulator.
         apply_mix2dist_pass(dist_program)
+        if mode == "train" and self._strategy.recompute.enable:
+            config = copy.deepcopy(self._strategy.recompute.to_dict())
+            auto_parallel_recompute_pir_pass = new_pass(
+                "auto_parallel_recompute_pir", config
+            )
+            auto_parallel_recompute_pir_pass.apply(
+                [dist_program], [startup_program]
+            )
 
         # Part 2: Parallelism search (for full auto-parallel)
         # NOTE make all parallelis search logic work as Pass,
         # and all the Pass in this Part should be optional to allow consistence in dynamic and static mode.
         if self._strategy.auto_mode == "semi-auto":
             # TODO(xxxx) Step 2.1 Entire Graph Completion in Pir.
-            # dist_program = apply_complition_pass(dist_program)
+            # dist_program = apply_completion_pass(dist_program)
             pass
         elif self._strategy.auto_mode == "random" or "full_random":
             # TODO(caozhou) Step 2.3 Basic Random / MCMC Algorithm for Fully Auto Parallel Search.
@@ -837,7 +846,7 @@ class Engine:
         # TODO(hitywt) Step 3.2: Reshard Pass
         #   resolute the reshard op into special collective operation.
         #   collect the communicator created during resolution.
-        ReshardPasses.apply_reshard_pass(dist_program)
+        ReshardPasses.apply_reshard_pass(dist_program, global_params_grads)
 
         # Note(luchang): When using VPP pipeline pass, we need to split the whole graph into
         # multiple chunks and adjust the process mesh accordingly. Here, we need to store the
@@ -897,20 +906,15 @@ class Engine:
         remove_unuseful_comm_op_pass(dense_program)
 
         if core._enable_dist_prim_all():
-            from paddle.decomposition import decomp
-
+            logging.info("apply decompose in auto parallel")
             with decomp.prim_guard():
                 decomp.decompose_dist_program(dense_program)
 
         if core._enable_auto_recompute():
-            from paddle.decomposition import decomp
-
             logging.info("apply auto_recompute in auto parallel")
             dense_program = decomp.auto_recompute_pir_program(
                 dense_program,
-                lambda op: bool(
-                    op.has_attr('op_role') and op.attrs()["op_role"] == 0
-                ),
+                lambda op: bool(op.has_attr('op_role') and op.op_role == 0),
             )
 
         if self._strategy.pipeline.enable:
@@ -939,7 +943,7 @@ class Engine:
             opt_job.set_micro_batch_id(0)
             jobs.append(opt_job)
 
-            type_to_program = set_pir_skip_gc_vars(
+            type_to_program = set_skip_gc_vars(
                 self._strategy.gradient_merge.k_steps,
                 job_types,
                 sub_programs,
@@ -1508,7 +1512,7 @@ class Engine:
     # distributed training combined with prim mechanism (prim is behind of distributed)
     # for local main subprogram after distributed partition,
     # mark _need_decomp=True to tag this program needs to be decomposed
-    # get _grad_var_to_var from distributed context and set it to main program for futher decomposing in static executor
+    # get _grad_var_to_var from distributed context and set it to main program for further decomposing in static executor
     def _mark_prim(self, mode):
         if os.getenv("FLAGS_enable_prim_after_distribute") in [
             'True',

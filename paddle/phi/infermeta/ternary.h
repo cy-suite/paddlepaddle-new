@@ -90,6 +90,18 @@ void CollectFpnProposalsInferMeta(
     MetaTensor* rois_num,
     MetaConfig config = MetaConfig());
 
+void CSoftmaxWithMultiLabelCrossEntropyInferMeta(
+    const MetaTensor& logits,
+    const MetaTensor& label,
+    const MetaTensor& smooth_weight,
+    int64_t ignore_index,
+    bool sum_multi_label_loss,
+    int rank,
+    int nranks,
+    MetaTensor* softmax,
+    MetaTensor* loss,
+    MetaConfig config = MetaConfig());
+
 void DistributedPushSparseInferMeta(
     const std::vector<const MetaTensor*>& ids,
     const std::vector<const MetaTensor*>& shows,
@@ -387,7 +399,7 @@ void TdmSamplerInferMeta(const MetaTensor& x,
                          const MetaTensor& layer,
                          bool output_positive,
                          const std::vector<int>& neg_samples_num_list,
-                         const std::vector<int>& layer_offset_lod,
+                         const std::vector<int>& layer_offset,
                          int seed,
                          int dtype,
                          MetaTensor* out,

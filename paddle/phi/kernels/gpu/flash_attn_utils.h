@@ -100,7 +100,7 @@ static std::vector<int64_t> GetAttnSparseMaskDims(
         rank,
         4,
         common::errors::InvalidArgument(
-            "The number of dimenstions of startend_row_indices is expected to "
+            "The number of dimensions of startend_row_indices is expected to "
             "be greater or equal to 4, but recieved %d. The shape of "
             "startend_row_indices is [%s]",
             rank,
@@ -285,10 +285,15 @@ struct FlashAttnFwdParamsV2 : public FlashAttnParamsBase {
     // with the same size.
     rng_state = Empty<int64_t>(ctx, {2});
 
-    auto seed_offset_pair = GenerateRNGState(
-        ctx, fixed_seed_offset, rng_name, batch_size, num_heads);
-    seed = seed_offset_pair.first;
-    offset = seed_offset_pair.second;
+    if (_dropout > 0.0f) {
+      auto seed_offset_pair = GenerateRNGState(
+          ctx, fixed_seed_offset, rng_name, batch_size, num_heads);
+      seed = seed_offset_pair.first;
+      offset = seed_offset_pair.second;
+    } else {
+      seed = 0;
+      offset = 0;
+    }
 
     seed_offset->Resize({2});
     int64_t* seed_offset_data = ctx.template HostAlloc<int64_t>(seed_offset);
@@ -391,7 +396,7 @@ static void CheckFlashAttnStatus(const bool status) {
 static void RaiseNotSupportedError(int version = 2) {
   PADDLE_THROW(common::errors::Unimplemented(
       "FlashAttentio%d is unsupported, please check "
-      "the GPU compability and CUDA Version.",
+      "the GPU compatibility and CUDA Version.",
       version));
 }
 

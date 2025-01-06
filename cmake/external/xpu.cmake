@@ -22,6 +22,7 @@ set(XPU_API_LIB_NAME "libxpuapi.so")
 set(XPU_RT_LIB_NAME "libxpurt.so")
 set(XPU_CUDA_LIB_NAME "libxpucuda.so")
 set(XPU_CUDA_RT_LIB_NAME "libcudart.so")
+set(XPU_ML_LIB_NAME "libxpuml.so")
 set(XPU_XFT_LIB_NAME "libxft.so")
 set(XPU_XPTI_LIB_NAME "libxpti.so")
 set(XPU_XBLAS_LIB_NAME "libxpu_blas.so")
@@ -29,16 +30,16 @@ set(XPU_XFA_LIB_NAME "libxpu_flash_attention.so")
 set(XPU_XPUDNN_LIB_NAME "libxpu_dnn.so")
 
 if(NOT DEFINED XPU_XHPC_BASE_DATE)
-  set(XPU_XHPC_BASE_DATE "dev/20241118")
+  set(XPU_XHPC_BASE_DATE "release/3.1.0")
 endif()
-set(XPU_XCCL_BASE_VERSION "3.0.0.5") # For XRE5
+set(XPU_XCCL_BASE_VERSION "3.0.1.6") # For XRE5
 if(NOT DEFINED XPU_XFT_BASE_VERSION)
   set(XPU_XFT_BASE_VERSION "20230602")
 endif()
 
 if(NOT DEFINED XPU_XRE_BASE_VERSION)
   if(WITH_XPU_XRE5)
-    set(XPU_XRE_BASE_VERSION "5.0.21.8")
+    set(XPU_XRE_BASE_VERSION "5.0.21.14")
   else()
     set(XPU_XRE_BASE_VERSION "4.32.0.1")
   endif()
@@ -146,6 +147,7 @@ set(XPU_XBLAS_LIB "${XPU_LIB_DIR}/${XPU_XBLAS_LIB_NAME}")
 set(XPU_RT_LIB "${XPU_LIB_DIR}/${XPU_RT_LIB_NAME}")
 set(XPU_CUDA_LIB "${XPU_LIB_DIR}/${XPU_CUDA_LIB_NAME}")
 set(XPU_CUDA_RT_LIB "${XPU_LIB_DIR}/${XPU_CUDA_RT_LIB_NAME}")
+set(XPU_ML_LIB "${XPU_LIB_DIR}/${XPU_ML_LIB_NAME}")
 set(XPU_XFA_LIB "${XPU_LIB_DIR}/${XPU_XFA_LIB_NAME}")
 set(XPU_XPUDNN_LIB "${XPU_LIB_DIR}/${XPU_XPUDNN_LIB_NAME}")
 
@@ -167,6 +169,40 @@ if(WITH_XPU_BKCL)
   include_directories(${XPU_BKCL_INC_DIR})
 endif()
 
+set(XFT_COMMAND "get_xft_dependence.sh")
+# If the corresponding path exists locally, use it directly; otherwise, download it.
+# The current implementation only supports XPU-related libraries being located in the same directory.
+if(DEFINED ENV{XPU_LIB_ROOT})
+  message(STATUS "Compile with LOCAL XPU LIBS!")
+  set(XPU_LIB_ROOT "$ENV{XPU_LIB_ROOT}")
+
+  # XRE
+  if(DEFINED ENV{XPU_XRE_DIR_NAME})
+    set(XPU_XRE_URL "${XPU_LIB_ROOT}/$ENV{XPU_XRE_DIR_NAME}")
+    set(XPU_XRE_DIR_NAME "$ENV{XPU_XRE_DIR_NAME}")
+  endif()
+
+  # XCCL
+  if(DEFINED ENV{XCCL_DIR_NAME})
+    set(XPU_XCCL_URL "${XPU_LIB_ROOT}/$ENV{XCCL_DIR_NAME}")
+    set(XCCL_DIR_NAME "$ENV{XCCL_DIR_NAME}")
+  endif()
+
+  # XHPC
+  if(DEFINED ENV{XPU_XHPC_DIR_NAME})
+    set(XPU_XHPC_URL "${XPU_LIB_ROOT}/$ENV{XPU_XHPC_DIR_NAME}")
+    set(XPU_XHPC_DIR_NAME "$ENV{XPU_XHPC_DIR_NAME}")
+  endif()
+
+  # XFT
+  if(DEFINED ENV{XPU_XFT_DIR_NAME})
+    set(XPU_XFT_DIR_NAME "$ENV{XPU_XFT_DIR_NAME}")
+    set(XPU_XFT_URL "${XPU_LIB_ROOT}/${XPU_XFT_DIR_NAME}")
+    set(XFT_COMMAND
+        "${CMAKE_SOURCE_DIR}/tools/xpu/get_xft_dependence_from_custom_path.sh")
+  endif()
+endif()
+
 if(WITH_XPU_XRE5)
   ExternalProject_Add(
     ${XPU_PROJECT}
@@ -177,7 +213,7 @@ if(WITH_XPU_XRE5)
       bash ${CMAKE_SOURCE_DIR}/tools/xpu/pack_paddle_dependence.sh
       ${XPU_XRE_URL} ${XPU_XRE_DIR_NAME} ${XPU_XHPC_URL} ${XPU_XHPC_DIR_NAME}
       ${XPU_XCCL_URL} ${XPU_XCCL_DIR_NAME} 1 && wget ${XPU_XFT_GET_DEPENCE_URL}
-      && bash get_xft_dependence.sh ${XPU_XFT_URL} ${XPU_XFT_DIR_NAME} && bash
+      && bash ${XFT_COMMAND} ${XPU_XFT_URL} ${XPU_XFT_DIR_NAME} && bash
       ${CMAKE_SOURCE_DIR}/tools/xpu/get_xpti_dependence.sh ${XPU_XPTI_URL}
       ${XPU_XPTI_DIR_NAME}
     DOWNLOAD_NO_PROGRESS 1
@@ -190,6 +226,7 @@ if(WITH_XPU_XRE5)
     BUILD_BYPRODUCTS ${XPU_XFA_LIB}
     BUILD_BYPRODUCTS ${XPU_RT_LIB}
     BUILD_BYPRODUCTS ${XPU_CUDA_RT_LIB}
+    BUILD_BYPRODUCTS ${XPU_ML_LIB}
     BUILD_BYPRODUCTS ${XPU_BKCL_LIB})
 else()
   ExternalProject_Add(
@@ -221,12 +258,6 @@ set_property(TARGET shared_xpuapi PROPERTY IMPORTED_LOCATION "${XPU_API_LIB}")
 # for cc_library(xxx SRCS xxx.c DEPS xpulib)
 generate_dummy_static_lib(LIB_NAME "xpulib" GENERATOR "xpu.cmake")
 
-if(WITH_XPU_XRE5)
-  target_link_libraries(xpulib ${XPU_API_LIB} ${XPU_RT_LIB} ${XPU_CUDA_RT_LIB})
-else()
-  target_link_libraries(xpulib ${XPU_API_LIB} ${XPU_RT_LIB})
-endif()
-
 if(WITH_XPU_XFT)
   message(STATUS "Compile with XPU XFT!")
   add_definitions(-DPADDLE_WITH_XPU_XFT)
@@ -234,6 +265,7 @@ if(WITH_XPU_XFT)
   set(XPU_XFT_INC_DIR "${XPU_INC_DIR}/xft")
   include_directories(${XPU_XFT_INC_DIR})
   set(XPU_XFT_LIB "${XPU_LIB_DIR}/${XPU_XFT_LIB_NAME}")
+  target_link_libraries(xpulib ${XPU_XFT_LIB})
 endif()
 
 set(XPU_XHPC_INC_DIR "${XPU_INC_DIR}/xhpc")
@@ -272,13 +304,20 @@ if(WITH_XPU_XRE5)
     xpulib
     ${XPU_RT_LIB}
     ${XPU_CUDA_RT_LIB}
-    ${XPU_BKCL_LIB}
     ${XPU_XBLAS_LIB}
     ${XPU_API_LIB}
     ${XPU_XFA_LIB}
     ${XPU_XPUDNN_LIB})
 else()
-  target_link_libraries(xpulib ${XPU_RT_LIB} ${XPU_BKCL_LIB} ${XPU_API_LIB})
+  target_link_libraries(xpulib ${XPU_RT_LIB} ${XPU_API_LIB})
+endif()
+
+if(WITH_XPU_BKCL)
+  if(WITH_XPU_XRE5)
+    target_link_libraries(xpulib ${XPU_ML_LIB} ${XPU_BKCL_LIB})
+  else()
+    target_link_libraries(xpulib ${XPU_BKCL_LIB})
+  endif()
 endif()
 
 add_dependencies(xpulib ${XPU_PROJECT})

@@ -158,7 +158,7 @@ def get_tensor_from_selected_rows(x, name=None):
            x.height = 20
            x.value = [[1, 1] [2, 2] [2, 2] [3, 3] [6, 6]]
 
-        Output is LoDTensor:
+        Output is DenseTensor:
            out.shape = [5, 2]
            out.data = [[1, 1],
                        [2, 2],
@@ -743,7 +743,7 @@ class ClipGradByGlobalNorm(ClipGradBase):
             else:
                 sum_square_list.append(sum_square)
 
-        # all parameters have been filterd out
+        # all parameters have been filtered out
         if (
             len(sum_square_list)
             + len(sum_square_list_fp16)
@@ -935,7 +935,7 @@ class ClipGradByGlobalNorm(ClipGradBase):
                 else:
                     sum_square_not_dist.append(sum_square)
 
-        # all parameters have been filterd out
+        # all parameters have been filtered out
         if (
             len(no_fusion_sum_square)
             + len(no_fusion_sum_square_fp16)
@@ -965,7 +965,7 @@ class ClipGradByGlobalNorm(ClipGradBase):
         global_norm_dist = []
         global_norm_not_dist = []
         if len(no_fusion_sum_square_fp16) > 0:
-            global_norm_var_fp16 = async_add_n(sum_square_dist_fp16)
+            global_norm_var_fp16 = async_add_n(no_fusion_sum_square_fp16)
             no_fusion_global_norm.append(global_norm_var_fp16.astype(sum_dtype))
         if len(sum_square_dist_fp16) > 0:
             global_norm_var_fp16 = async_add_n(sum_square_dist_fp16)
@@ -1135,7 +1135,7 @@ class ClipGradByGlobalNorm(ClipGradBase):
                     'FP16 and BF16 are not supported at the same time.'
                 )
 
-            # all parameters have been filterd out
+            # all parameters have been filtered out
             if (
                 len(sum_square_list)
                 + len(sum_square_list_fp16)
@@ -1326,8 +1326,8 @@ def set_gradient_clip(clip, param_list=None, program=None):
     To specify parameters that require gradient clip.
 
     Args:
-        grad_clip (GradientClipBase, optional): Gradient cliping strategy, it's an instance of
-            some derived class of ``GradientClipBase`` . There are three cliping strategies
+        grad_clip (GradientClipBase, optional): Gradient clipping strategy, it's an instance of
+            some derived class of ``GradientClipBase`` . There are three clipping strategies
             ( :ref:`api_paddle_nn_ClipGradByGlobalNorm` , :ref:`api_paddle_nn_ClipGradByNorm` ,
             :ref:`api_paddle_nn_ClipGradByValue` ). Default value: None, and there is no
             gradient clipping.

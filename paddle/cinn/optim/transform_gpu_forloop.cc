@@ -28,19 +28,21 @@
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
+#include "paddle/cinn/ir/utils/stmt_converter.h"
 #include "paddle/cinn/optim/eliminate_common_factor_of_local_index.h"
 #include "paddle/cinn/optim/ir_simplify.h"
-#include "paddle/cinn/optim/longlong2int.h"
+#include "paddle/cinn/optim/longlong2int_pass.h"
 #include "paddle/cinn/optim/replace_var_with_expr.h"
 #include "paddle/cinn/optim/resize_buffer.h"
 #include "paddle/cinn/optim/update_buffer_axis_pass.h"
+#include "paddle/cinn/pass/pass_manager.h"
 #include "paddle/cinn/poly/isl_utils.h"
 #include "paddle/cinn/poly/stage.h"
 #include "paddle/cinn/runtime/intrinsic.h"
 #include "paddle/cinn/utils/string.h"
 #include "paddle/common/enforce.h"
 
-PD_DECLARE_bool(cinn_longlong2int_for_integer);
+PD_DECLARE_bool(cinn_longlong2int);
 namespace cinn {
 namespace optim {
 
@@ -400,7 +402,7 @@ class LocalAxisVisitor : public ir::IRMutator<> {
                                              "threadIdx.z"};
 };
 
-class ReplaceVarToZero : public ir::IRMutator<> {
+class ReplaceUnitVarToZero : public ir::IRMutator<> {
  public:
   void operator()(ir::Expr *expr) { ir::IRMutator<>::Visit(expr, expr); }
 
@@ -457,38 +459,47 @@ class ReplaceVarToZero : public ir::IRMutator<> {
 void OptimizeExprGPU(Expr *expr) {
   VLOG(4) << "Before Optimize Expr:\n" << *expr;
 
-  // copy var nodes to prevent one modification leading to multiple changes
+  // Make independent copies for each load/store's indices to prevent cross
+  // modification in later passes.
   RestructureVarNodes restructure_var_nodes;
   restructure_var_nodes(expr);
 
-  // replace var to bind expr
+  // Replace iter_vars used in ScheduleBlocks to their corresponding iter_values
+  // in ScheduleBlockRealizes.
   ReplaceIndexToBindExpr replace_index_to_bind_expr;
   replace_index_to_bind_expr(expr);
 
   // resize buffer axis
   UpdateBufferAxisPass(expr);
 
-  // replace var name with block/thread
+  // Replace variables bound on block/thread to the actual blockIdx/threadIdx.
   ReplaceLoopVarToGpu replace_loop_var_to_gpu;
   replace_loop_var_to_gpu(expr);
 
-  // update shared buffer axis
+  // Replace blockIdx in shared memory's indices to zero, because shared memory
+  // cannot be accessed from another block.
   SharedAxisVisitor shared_axis_visitor;
   shared_axis_visitor(expr);
 
-  // update local buffer axis
+  // Replace blockIdx/threadIdx in local buffer's indices to zero, because local
+  // buffers cannot be accessed from another block/thread.
   LocalAxisVisitor local_axis_visitor;
   local_axis_visitor(expr);
+
+  // Replace variables that are in range [0, 1) to zero.
+  ReplaceUnitVarToZero replace_unit_var_to_zero;
+  replace_unit_var_to_zero(expr);
 
   EliminateCommonFactorOfLocalIndex(expr);
 
   ResizeBufferToMaxVarRange(expr);
 
-  ReplaceVarToZero replace_var_to_zero;
-  replace_var_to_zero(expr);
-
-  if (FLAGS_cinn_longlong2int_for_integer) {
-    TryCastLonglong2Int(expr);
+  if (FLAGS_cinn_longlong2int) {
+    ir::stmt::BlockRef block = ir::ConvertExprBlockToStmtBlock(*expr);
+    VLOG(10) << "Before CastLonglong2Int: \n" << block;
+    TryCastLonglong2Int(block);
+    VLOG(10) << "After CastLonglong2Int: \n" << block;
+    *expr = ir::ConvertStmtBlockToExprBlock(block);
   }
 
   VLOG(4) << "After Optimize Expr: \n" << *expr;

@@ -14,19 +14,16 @@ limitations under the License. */
 
 #include "paddle/fluid/operators/collective/c_reduce_op.h"
 
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 class OpDesc;
 template <typename T>
 class EmptyGradOpMaker;
-}  // namespace framework
-namespace imperative {
+}  // namespace paddle::framework
+namespace paddle::imperative {
 class OpBase;
-}  // namespace imperative
-}  // namespace paddle
+}  // namespace paddle::imperative
 
-namespace paddle {
-namespace operators {
+namespace paddle::operators {
 
 class CReduceMinOpMaker : public CReduceOpMaker {
  protected:
@@ -34,21 +31,10 @@ class CReduceMinOpMaker : public CReduceOpMaker {
 };
 
 DEFINE_C_REDUCE_CPU_KERNEL(CReduceMin, kRedMin)
-}  // namespace operators
-}  // namespace paddle
+}  // namespace paddle::operators
 
 namespace ops = paddle::operators;
 
 REGISTER_OP_WITHOUT_GRADIENT(c_reduce_min,
                              ops::CReduceOp,
                              ops::CReduceMinOpMaker);
-
-PD_REGISTER_STRUCT_KERNEL(c_reduce_min,
-                          CPU,
-                          ALL_LAYOUT,
-                          ops::CReduceMinCPUKernel,
-                          float,
-                          double,
-                          int,
-                          int64_t,
-                          phi::dtype::float16) {}

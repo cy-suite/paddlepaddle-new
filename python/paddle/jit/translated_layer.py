@@ -51,7 +51,7 @@ def _load_program_desc(model_file_path):
     program_desc = core.ProgramDesc(program_desc_str)
     if not core._is_program_version_supported(program_desc._version()):
         raise ValueError(
-            "Unsupported program version: %d\n" % program_desc._version()
+            f"Unsupported program version: {program_desc._version()}\n"
         )
     return program_desc
 
@@ -1008,8 +1008,8 @@ def _run_dygraph(instance, input, program_holder):
 
     # NOTE: [ why need set param's gradient type here ]
     # if user set sparse gradient mode, the param's gradient
-    # will be SelectedRows, not LoDTensor. But tracer will just
-    # set param grad Tensor by forward Tensor(LoDTensor)
+    # will be SelectedRows, not DenseTensor. But tracer will just
+    # set param grad Tensor by forward Tensor(DenseTensor)
     # If we don't change grad_var type here, RunProgramOp need
     # transform SelectedRows to DenseTensor forcibly, it may not
     # be user wanted result.
