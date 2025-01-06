@@ -4297,7 +4297,7 @@ void Pad2dXPUInferMeta(const MetaTensor& x,
     out_dim = phi::make_ddim(
         {x_dims[0],
          x_dims[1],
-         x_dims[2] + paddings[2] + paddings[3],    // top bootom height
+         x_dims[2] + paddings[2] + paddings[3],    // top bottom height
          x_dims[3] + paddings[0] + paddings[1]});  // left right weight
   } else if (data_format == "NHWC") {
     out_dim = phi::make_ddim({x_dims[0],
@@ -4345,7 +4345,7 @@ void CrossAttentionXPUInferMeta(
                     common::errors::InvalidArgument(
                         "The dim of input_kv should be 3! But received ",
                         input_kv_dims.size()));
-  // sequece length of q and k/v  not requied to be eqaul
+  // sequece length of q and k/v  not required to be equal
   // but batch size and dim should be the same
   PADDLE_ENFORCE_EQ(
       input_q_dims[0],

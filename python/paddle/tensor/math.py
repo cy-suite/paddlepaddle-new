@@ -4788,7 +4788,16 @@ def prod(
         check_variable_and_dtype(
             x,
             'x/input',
-            ['float32', 'float64', 'int32', 'int64', "float16", "uint16"],
+            [
+                'float32',
+                'float64',
+                'int32',
+                'int64',
+                "float16",
+                "uint16",
+                "complex64",
+                "complex128",
+            ],
             'reduce_prod',
         )
         out = helper.create_variable_for_type_inference(
@@ -5734,8 +5743,17 @@ def atan2(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 
     """
 
+    x_shape = list(x.shape)
+    y_shape = list(y.shape)
     if in_dynamic_or_pir_mode():
-        return _C_ops.atan2(x, y)
+        broadcast_x = x
+        broadcast_y = y
+        if x_shape != y_shape:
+            broadcast_shape = paddle.broadcast_shape(x_shape, y_shape)
+            broadcast_x = paddle.broadcast_to(broadcast_x, broadcast_shape)
+            broadcast_y = paddle.broadcast_to(broadcast_y, broadcast_shape)
+
+        return _C_ops.atan2(broadcast_x, broadcast_y)
     else:
         check_variable_and_dtype(
             x,

@@ -23,10 +23,6 @@ import paddle
 paddle.base.core.register_paddle_plugin()
 import tensorrt as trt
 
-# init tensorrt plugin
-trt_plugin_lib = ctypes.CDLL('libnvinfer_plugin.so')
-trt_plugin_lib.initLibNvInferPlugins(None, "")
-
 import paddle
 from paddle import pir
 from paddle.base.core import clear_shape_info, get_value_shape_range_info
@@ -90,6 +86,9 @@ class PaddleToTensorRTConverter:
         self.input_info = {}
         self.trt_output_value_map = {}
         self.engine_num = 0
+        # init tensorrt plugin
+        trt_plugin_lib = ctypes.CDLL('libnvinfer_plugin.so')
+        trt_plugin_lib.initLibNvInferPlugins(None, "")
 
     def find_graph_inputs_outputs(self, group_op):
         operations = next(iter(group_op.blocks())).ops

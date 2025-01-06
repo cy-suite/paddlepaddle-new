@@ -205,7 +205,7 @@ Expr MakeCacheBlock(const std::vector<IterRange>& buffer_ranges,
                     DeviceAPI device_api);
 
 /**
- * Fidn cache tensor block's insertion point in the whole AST(root).
+ * Find cache tensor block's insertion point in the whole AST(root).
  * @param root The whole AST.
  * @param info The information of cache block.
  * @param is_write Are we inserting a write cache tensor or a read cache tensor.
@@ -1166,9 +1166,7 @@ struct MappingVarToExprMutator : public ir::IRMutator<> {
  private:
   void Visit(const ir::_Var_* expr, Expr* op) override {
     if (replacing_map_.count(op->as_var_ref())) {
-      bool is_index = op->is_index();
       *op = replacing_map_.at(op->as_var_ref());
-      if (is_index) op->set_index(true);
     }
   }
 
