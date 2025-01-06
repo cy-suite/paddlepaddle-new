@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import logging
-import os
 from collections import OrderedDict
 from enum import Enum
 from functools import reduce
@@ -279,57 +278,6 @@ def set_skip_gc_vars(num_micro_batches, job_types, sub_programs, jobs):
         return _set_skip_gc_vars_in_old_ir(
             num_micro_batches, job_types, sub_programs, jobs
         )
-
-def _set_skip_gc_vars_in_pir(num_micro_batches, job_types, sub_programs, jobs):
-    assert num_micro_batches >= 1, "num_micro_batches needs to be >= 1"
-    type_to_program = dict(zip(job_types, sub_programs))
-
-    # step1: Get all required vars of every sub_program that are non-persistable and not in op's no_need_buffer.
-    type_to_required_vars = {}
-    no_need_buffer_vars = core.get_no_need_buffer_values(type_to_program)
-    for job_type, program in type_to_program.items():
-        required_vars = set()
-        persistable_vars = set()
-        for key in program.global_block().kwargs():
-            required_vars.add(key)
-        for op in program.global_block().ops:
-            for var in op.operands_source():
-                if var.has_name:
-                    required_vars.add(var.name)
-                    if var.persistable:
-                        persistable_vars.add(var.name)
-            for var in op.results():
-                if var.has_name:
-                    required_vars.add(var.name)
-                    if var.persistable:
-                        persistable_vars.add(var.name)
-        if job_type in no_need_buffer_vars:
-            required_vars -= no_need_buffer_vars[job_type]
-        required_vars -= persistable_vars
-        type_to_required_vars[job_type] = required_vars
-
-    # step2: Set `skip_gc_vars` for each job
-    suffixed_required_vars = [set() for i in range(num_micro_batches)]
-    num_jobs = len(jobs)
-    for job_id in reversed(range(num_jobs)):
-        job = jobs[job_id]
-        job_type = job.type()
-        required_vars = type_to_required_vars[job_type]
-        micro_batch_id = job.micro_batch_id()
-        skip_gc_vars = required_vars & suffixed_required_vars[micro_batch_id]
-        logger.debug(
-            f"Skip gc vars for {job_type}-({micro_batch_id}): {skip_gc_vars}"
-        )
-
-        if job_type in ["send_backward"]:
-            assert (
-                len(skip_gc_vars) == 0
-            ), f"When enabling pipeline parallelism strategy, the skip_gc_vars for {job_type} subprogram must be empty, but it is {skip_gc_vars}."
-
-        job.set_skip_gc_vars(skip_gc_vars)
-        suffixed_required_vars[micro_batch_id] |= required_vars
-
-    return type_to_program
 
 
 def _set_skip_gc_vars_in_old_ir(

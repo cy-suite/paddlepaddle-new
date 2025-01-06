@@ -32,24 +32,21 @@ from ..pass_utils import (
 )
 from .pipeline_pass_base import PipelinePassBase
 
+RECV_FORWARD = "recv_forward"
 FORWARD = "forward"
 BACKWARD = "backward"
-OPT = "optimizer"
-RECV_FORWARD = "recv_forward"
 SEND_BACKWARD = "send_backward"
-
+OPT = "optimizer"
 
 logger = get_logger(logging.INFO)
 
 
 @register_pass("pipeline_scheduler_1F1B")
 class Pipeline1F1BPass(PipelinePassBase):
-
     def __init__(self):
         super().__init__()
         self.jobs_in_stable_phase = [BACKWARD, FORWARD]
         self.set_attr("enable_backward_forward_overlap", 0)
-        self.type_to_skip_gc_vars = {}
 
     # Backward-forward overlapping splits and rearranges jobs for pattern Bi-Fj.
     # For example: jobs = {..., BACKWARD-i, FORWARD-j, ...}, i < j
@@ -398,7 +395,6 @@ class Pipeline1F1BPass(PipelinePassBase):
 
 
 class ProgramSplitter:
-
     def __init__(self, main_program, job_types):
         assert job_types == [
             RECV_FORWARD,

@@ -33,7 +33,6 @@ class PipelinePassBase(PassBase):
         self._in_pir_mode = paddle.base.framework.get_flags(
             "FLAGS_enable_pir_api"
         )["FLAGS_enable_pir_api"]
-        self.type_to_skip_gc_vars = {}
 
     def _check_self(self):
         return True
