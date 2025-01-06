@@ -46,9 +46,6 @@ __not_shape_var_type__ = [
 ]
 
 logger = get_logger(logging.INFO)
-from paddle.distributed.utils.stream_utils import (
-    ExecutionStreamType,
-)
 
 
 # NOTE: Here stream is just a presentation with different name,
@@ -242,27 +239,6 @@ def _get_required_vars_of_program(program):
     """
     Get all vars in the program that are non-persistable and not in op's no_need_buffer.
     """
-    if paddle.base.framework.get_flags("FLAGS_enable_pir_api")[
-        "FLAGS_enable_pir_api"
-    ]:
-        return _get_required_vars_of_program_in_pir(program)
-    else:
-        return _get_required_vars_of_program_in_old_ir(program)
-
-
-def _get_required_vars_of_program_in_pir(program):
-    required_vars = set(program.list_vars())
-    no_need_buffer_vars = core.get_no_need_buffer_values(program)
-    required_vars -= no_need_buffer_vars
-    persistable_vars = set()
-    for var in required_vars:
-        if var.persistable:
-            persistable_vars.add(var)
-    required_vars -= persistable_vars
-    return required_vars
-
-
-def _get_required_vars_of_program_in_old_ir(program):
     required_vars = set()
     for block in program.blocks:
         for op in block.ops:
@@ -603,21 +579,7 @@ def _pir_overlap_send_recv(program):
             elif op.name() == "pd_op.recv_v2":
                 op.set_bool_attr("dynamic_shape", False)
                 op.set_bool_attr("use_calc_stream", True)
-                if os.getenv("FLAGS_enable_p2p_comm_opt", 0) in [
-                    'True',
-                    'true',
-                    '1',
-                ]:
-                    # and os.getenv("FLAGS_1f1b", 0) in [
-                    #     'True',
-                    #     'true',
-                    #     '1',
-                    # ]:
-                    op.set_execution_stream(
-                        ExecutionStreamType.DefaultStream.value
-                    )
-                else:
-                    op.set_execution_stream("recv_stream")
+                op.set_execution_stream("recv_stream")
                 op.set_scheduling_priority(0)
 
 

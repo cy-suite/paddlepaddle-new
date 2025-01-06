@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import logging
-import os
 
 import paddle
 from paddle.base import core
@@ -28,7 +27,6 @@ from ..pass_utils import (
     AutoParallelStreamType,
     _add_event_dependency,
     _program_for_fthenb_and_1f1b,
-    _split_program_into_forward_backward_optimize,
     forward_complete_op_role,
     split_program,
 )
@@ -179,14 +177,6 @@ class Pipeline1F1BPass(PipelinePassBase):
         )
 
     def _create_job_list(self):
-
-        if os.getenv("FLAGS_enable_p2p_comm_opt", 0) in [
-            'True',
-            'true',
-            '1',
-        ]:
-            return self._create_job_list_send_recv()
-
         num_micro_batches = self.get_attr("num_micro_batches")
         pp_stage = self.get_attr("pp_stage")
         pp_degree = self.get_attr("pp_degree")
@@ -201,18 +191,24 @@ class Pipeline1F1BPass(PipelinePassBase):
 
         forward_micro_batch_id = 0
         for i in range(micro_batch_in_warmup):
+            recv_fwd_job = core.Job(RECV_FORWARD)
+            recv_fwd_job.set_micro_batch_id(forward_micro_batch_id)
+            job_list.append(recv_fwd_job)
+
             forward_job = core.Job(FORWARD)
             forward_job.set_micro_batch_id(forward_micro_batch_id)
             job_list.append(forward_job)
             forward_micro_batch_id += 1
 
         backward_micro_batch_id = 0
+        jobs_in_stable_phase = [BACKWARD, RECV_FORWARD, SEND_BACKWARD, FORWARD]
         for i in range(micro_batch_in_1f1b):
-            for job_type in self.jobs_in_stable_phase:
+            for job_type in jobs_in_stable_phase:
                 job = core.Job(job_type)
                 micro_batch_id = (
                     forward_micro_batch_id
                     if job_type.startswith(FORWARD)
+                    or job_type.startswith(RECV_FORWARD)
                     else backward_micro_batch_id
                 )
                 job.set_micro_batch_id(micro_batch_id)
@@ -224,6 +220,11 @@ class Pipeline1F1BPass(PipelinePassBase):
             backward_job = core.Job(BACKWARD)
             backward_job.set_micro_batch_id(backward_micro_batch_id)
             job_list.append(backward_job)
+
+            send_bwd_job = core.Job(SEND_BACKWARD)
+            send_bwd_job.set_micro_batch_id(backward_micro_batch_id)
+            job_list.append(send_bwd_job)
+
             backward_micro_batch_id += 1
 
         opt_job = core.Job(OPT)
@@ -362,20 +363,9 @@ class Pipeline1F1BPass(PipelinePassBase):
             not enable_send_recv_overlap
         ), "PIR does not support 1F1B with enable_send_recv_overlap yet."
 
-        if os.getenv("FLAGS_enable_p2p_comm_opt", 0) in [
-            'True',
-            'true',
-            '1',
-        ]:
-            types = [RECV_FORWARD, FORWARD, BACKWARD, SEND_BACKWARD, OPT]
-            prog_splitter = ProgramSplitter(program, types)
-            sub_program_list = prog_splitter._split_programs()
-
-        else:
-            types = [FORWARD, BACKWARD, OPT]
-            sub_program_list = _split_program_into_forward_backward_optimize(
-                program, enable_send_recv_overlap
-            )
+        types = [RECV_FORWARD, FORWARD, BACKWARD, SEND_BACKWARD, OPT]
+        prog_splitter = ProgramSplitter(program, types)
+        sub_program_list = prog_splitter._split_programs()
 
         for i in range(len(types)):
             logger.debug(
@@ -405,62 +395,6 @@ class Pipeline1F1BPass(PipelinePassBase):
             and op.dist_attr.execution_stream
             == AutoParallelStreamType.CALC_STREAM.value
         )
-
-    def _create_job_list_send_recv(self):
-        num_micro_batches = self.get_attr("num_micro_batches")
-        pp_stage = self.get_attr("pp_stage")
-        pp_degree = self.get_attr("pp_degree")
-
-        job_list = []
-        assert (
-            pp_degree <= num_micro_batches
-        ), "Num of micro batches should larger than or equal to pp degree."
-
-        micro_batch_in_warmup = pp_degree - pp_stage
-        micro_batch_in_1f1b = num_micro_batches - micro_batch_in_warmup
-
-        forward_micro_batch_id = 0
-        for i in range(micro_batch_in_warmup):
-            recv_fwd_job = core.Job(RECV_FORWARD)
-            recv_fwd_job.set_micro_batch_id(forward_micro_batch_id)
-            job_list.append(recv_fwd_job)
-
-            forward_job = core.Job(FORWARD)
-            forward_job.set_micro_batch_id(forward_micro_batch_id)
-            job_list.append(forward_job)
-            forward_micro_batch_id += 1
-
-        backward_micro_batch_id = 0
-        jobs_in_stable_phase = [BACKWARD, RECV_FORWARD, SEND_BACKWARD, FORWARD]
-        for i in range(micro_batch_in_1f1b):
-            for job_type in jobs_in_stable_phase:
-                job = core.Job(job_type)
-                micro_batch_id = (
-                    forward_micro_batch_id
-                    if job_type.startswith(FORWARD)
-                    or job_type.startswith(RECV_FORWARD)
-                    else backward_micro_batch_id
-                )
-                job.set_micro_batch_id(micro_batch_id)
-                job_list.append(job)
-            forward_micro_batch_id += 1
-            backward_micro_batch_id += 1
-
-        for i in range(micro_batch_in_warmup):
-            backward_job = core.Job(BACKWARD)
-            backward_job.set_micro_batch_id(backward_micro_batch_id)
-            job_list.append(backward_job)
-
-            send_bwd_job = core.Job(SEND_BACKWARD)
-            send_bwd_job.set_micro_batch_id(backward_micro_batch_id)
-            job_list.append(send_bwd_job)
-
-            backward_micro_batch_id += 1
-
-        opt_job = core.Job(OPT)
-        opt_job.set_micro_batch_id(0)
-        job_list.append(opt_job)
-        return job_list
 
 
 class ProgramSplitter:
