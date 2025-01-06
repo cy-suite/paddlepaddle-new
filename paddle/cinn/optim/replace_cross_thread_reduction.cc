@@ -42,8 +42,7 @@ struct BufferCmp {
 };
 
 thread_local std::set<ir::Buffer, BufferCmp> shm_buffer_;
-struct CrossThreadReductionReplacer : public ir::IRMutator<>,
-                                      public ir::stmt::StmtMutator<> {
+struct CrossThreadReductionReplacer {
   void operator()(ir::LoweredFunc fn) { Visit(fn.As<ir::_LoweredFunc_>()); }
 
  private:
@@ -174,10 +173,11 @@ struct CrossThreadReductionReplacer : public ir::IRMutator<>,
                method);
   }
 
-  void Visit(ir::Expr* expr) { ir::IRMutator<>::Visit(expr, expr); }
-
-  void Visit(ir::_LoweredFunc_* fn) override {
-    VisitBlock(fn->body_block);
+  void Visit(ir::_LoweredFunc_* fn) {
+    ir::stmt::Mutate(
+        fn->body_block,
+        [&](ir::stmt::StmtRef stmt) { PreCall(stmt); },
+        [&](ir::stmt::StmtRef stmt) { PostCall(stmt); });
     if (std::find_if(fn->temp_bufs.begin(),
                      fn->temp_bufs.end(),
                      [&](const ir::Buffer& buf) -> bool {
@@ -191,9 +191,31 @@ struct CrossThreadReductionReplacer : public ir::IRMutator<>,
     shm_buffer_.clear();
   }
 
-  void VisitStmt(ir::stmt::Schedule stmt) override {
+  void PreCall(ir::stmt::StmtRef stmt) {
+    switch (stmt->stmt_type()) {
+      case ir::StmtNodeTy::Schedule:
+        VisitStmt(stmt.as<ir::stmt::Schedule>());
+        break;
+      case ir::StmtNodeTy::For:
+        cur_loops_.push_back(stmt.as<ir::stmt::For>());
+        break;
+      default:
+        break;
+    }
+  }
+
+  void PostCall(ir::stmt::StmtRef stmt) {
+    switch (stmt->stmt_type()) {
+      case ir::StmtNodeTy::For:
+        cur_loops_.pop_back();
+        break;
+      default:
+        break;
+    }
+  }
+
+  void VisitStmt(ir::stmt::Schedule stmt) {
     if (!CanReplace(stmt)) {
-      VisitBlock(stmt->body());
       return;
     }
     ir::stmt::BlockRef original_update_body = stmt->body();
@@ -243,24 +265,7 @@ struct CrossThreadReductionReplacer : public ir::IRMutator<>,
         PADDLE_THROW(::common::errors::InvalidArgument(
             "The node type is not supported in cross thread reduction."));
     }
-    VisitBlock(stmt->body());
   }
-
-  void VisitStmt(ir::stmt::For stmt) override {
-    cur_loops_.push_back(stmt);
-    VisitBlock(stmt->body());
-    cur_loops_.pop_back();
-  }
-  void VisitStmt(ir::stmt::IfThenElse stmt) override {
-    VisitBlock(stmt->true_case());
-    if (stmt->false_case().defined()) VisitBlock(stmt->false_case());
-  }
-
-  void VisitStmt(ir::stmt::Alloc) override { return; }
-  void VisitStmt(ir::stmt::Free) override { return; }
-  void VisitStmt(ir::stmt::Store) override { return; }
-  void VisitStmt(ir::stmt::Evaluate) override { return; }
-  void VisitStmt(ir::stmt::Let) override { return; }
 
  private:
   std::vector<ir::stmt::For> cur_loops_;
