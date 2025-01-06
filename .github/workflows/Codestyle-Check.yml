@@ -6,7 +6,7 @@ on:
 
 jobs:
   check-bypass:
-    uses: ./.github/workflows/reusables/check-bypass.yml
+    uses: ./.github/workflows/check-bypass.yml
     with:
       workflow-name: 'codestyle'
     secrets:
