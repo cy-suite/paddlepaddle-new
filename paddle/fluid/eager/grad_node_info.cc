@@ -106,7 +106,7 @@ void GradNodeBase::SetGradInMeta(const paddle::Tensor& fwd_out,
   }
 
   if (!fwd_out.has_allocation()) {
-    if (fwd_out.is_dist_tensor() &&
+    if (fwd_out.defined() && fwd_out.is_dist_tensor() &&
         phi::distributed::NeedComputationClipForPP(fwd_out.impl())) {
       VLOG(3) << "Tensor " << fwd_out.name() << " is DistTensor,"
               << " and needs computation clip for pipeline parallel."
@@ -196,7 +196,7 @@ void GradNodeBase::SetGradInMeta(const std::vector<paddle::Tensor>& fwd_out,
     }
 
     if (!fwd_out_tensor.has_allocation()) {
-      if (fwd_out_tensor.is_dist_tensor() &&
+      if (fwd_out_tensor.defined() && fwd_out_tensor.is_dist_tensor() &&
           phi::distributed::NeedComputationClipForPP(fwd_out_tensor.impl())) {
         VLOG(3) << "Tensor " << fwd_out_tensor.name() << " is DistTensor,"
                 << " and needs computation clip for pipeline parallel."
@@ -295,8 +295,8 @@ void GradNodeBase::SetGradInMeta(const std::vector<paddle::Tensor*>& fwd_out,
       meta.SetStopGradient(fwd_out_meta->StopGradient());
     }
 
-    if (!(fwd_out_tensor.has_allocation())) {
-      if (fwd_out_tensor.is_dist_tensor() &&
+    if (!fwd_out_tensor.has_allocation()) {
+      if (fwd_out_tensor.defined() && fwd_out_tensor.is_dist_tensor() &&
           phi::distributed::NeedComputationClipForPP(fwd_out_tensor.impl())) {
         VLOG(3) << "Tensor " << fwd_out_tensor.name() << " is DistTensor,"
                 << " and needs computation clip for pipeline parallel."
