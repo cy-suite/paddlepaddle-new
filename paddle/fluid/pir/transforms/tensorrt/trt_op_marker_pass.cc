@@ -1228,7 +1228,8 @@ class ComparisonCommonOpPattern : public pir::OpRewritePattern<OpType> {
     return true;
   }
 };
-using LessEqualOpPattern = ComparisonCommonOpPattern<paddle::dialect::LessEqualOp>;
+using LessEqualOpPattern =
+    ComparisonCommonOpPattern<paddle::dialect::LessEqualOp>;
 using LessEqual_OpPattern =
     ComparisonCommonOpPattern<paddle::dialect::LessEqual_Op>;
 
