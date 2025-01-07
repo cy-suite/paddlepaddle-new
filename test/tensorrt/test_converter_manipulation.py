@@ -607,11 +607,18 @@ class TestSqueezeCase1TRTPattern(TensorRTBaseTest):
 
 
 def wrapper_pad_error1(x):
-    return paddle.nn.functional.pad(x, pad=[0, 0, 0, 0, 0, 0, 1, 1, 0, 0], mode='constant', value=0)
+    return paddle.nn.functional.pad(
+        x, pad=[0, 0, 0, 0, 0, 0, 1, 1, 0, 0], mode='constant', value=0
+    )
 
 
 def wrapper_pad_error2(x, padding, mode, pad_value):
-    return paddle.nn.functional.pad(x=paddle.to_tensor(np.random.randn(1, 1, 1, 2, 3).astype("float32")), pad=[0, 0, 0, 0, 0, 0, 1, 1, 0, 0], mode='constant', value=0)
+    return paddle.nn.functional.pad(
+        x=paddle.to_tensor(np.random.randn(1, 1, 1, 2, 3).astype("float32")),
+        pad=[0, 0, 0, 0, 0, 0, 1, 1, 0, 0],
+        mode='constant',
+        value=0
+    )
 
 
 class TestPadCase1TRTPattern(TensorRTBaseTest):
@@ -641,7 +648,7 @@ class TestPadCase2TRTPattern(TensorRTBaseTest):
             "x": np.random.randn(1, 1, 1, 2, 3).astype("float32"),
             "paddings": [0, 0, 0, 0, 0, 0, 1, 1, 0, 0],
             "mode": "constant",
-            "pad_value": 0.,
+            "pad_value": 0.0,
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 1, 1, 2, 3]}

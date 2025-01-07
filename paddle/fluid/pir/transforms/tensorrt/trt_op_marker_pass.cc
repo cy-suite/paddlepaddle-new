@@ -984,9 +984,10 @@ class PadOpPattern : public pir::OpRewritePattern<paddle::dialect::PadOp> {
       paddle::dialect::FullOp full_op =
           pir::GetDefiningOpForInput(op, 1)
               ->dyn_cast<paddle::dialect::FullOp>();
-      auto pad_value = full_op->attribute<paddle::dialect::ScalarAttribute>("value")
-                      .data()
-                      .to<float>();
+      auto pad_value =
+          full_op->attribute<paddle::dialect::ScalarAttribute>("value")
+              .data()
+              .to<float>();
       if (pad_value != 0.0f) {
         VLOG(3) << "The pad layer of TRT only support zero.";
         return false;
@@ -994,7 +995,7 @@ class PadOpPattern : public pir::OpRewritePattern<paddle::dialect::PadOp> {
     }
     auto paddings_attr = op->attribute<pir::ArrayAttribute>("paddings");
     std::vector<int> paddings;
-    for (const auto& attr : paddings_attr.AsVector()) {
+    for (const auto &attr : paddings_attr.AsVector()) {
       paddings.push_back(attr.dyn_cast<pir::Int32Attribute>().data());
     }
     int pad_size = paddings.size();
