@@ -36,7 +36,7 @@ class TestDtensorFromLocalAPI(test_base.CommunicationTestDistBase):
         )
         for envs in envs_list:
             self.run_test_case(
-                "dy_local_view_compute.py",
+                "local_view_compute.py",
                 user_defined_envs=envs,
             )
 
