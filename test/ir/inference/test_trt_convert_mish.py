@@ -61,7 +61,6 @@ class TrtConvertMishTest(TrtLayerAutoScanTest):
                             ]
 
                             ops = self.generate_op_config(ops_config)
-                            print(dim1, dim2, dim3)
                             program_config = ProgramConfig(
                                 ops=ops,
                                 weights={},
@@ -125,7 +124,7 @@ class TrtConvertMishTest(TrtLayerAutoScanTest):
                 }
         return self.dynamic_shape
 
-    def sample_predictor_configs(self, program_config, run_pir=True):
+    def sample_predictor_configs(self, program_config, run_pir=False):
         def clear_dynamic_shape():
             self.dynamic_shape.min_input_shape = {}
             self.dynamic_shape.max_input_shape = {}
@@ -178,7 +177,7 @@ class TrtConvertMishTest(TrtLayerAutoScanTest):
 
     def test(self):
         self.add_skip_trt_case()
-        self.run_test()
+        self.run_test(run_pir=True)
 
 
 if __name__ == "__main__":
