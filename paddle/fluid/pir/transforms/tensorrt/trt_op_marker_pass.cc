@@ -1175,6 +1175,7 @@ class LessThanOpPattern
   }
 };
 
+template <typename OpType>
 class LogicalCommonOpPattern : public pir::OpRewritePattern<OpType> {
  public:
   using pir::OpRewritePattern<OpType>::OpRewritePattern;
