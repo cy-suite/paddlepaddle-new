@@ -341,26 +341,40 @@ class Engine:
             # of BatchSampler when `Shuffle=True`. It may cause difference of data feeding
             # between dynamic and to_static mode.
             batch_sampler.set_epoch(0)
-
+        atttention_mask = None
         if isinstance(data, dict):
-            data = tuple(data.values())
-            if len(data) != 2:
+            data = list(data.values())
+            if len(data) == 2:
+                (
+                    inputs,
+                    labels,
+                ) = data
+            elif len(data) == 3:
+                inputs, labels, attention_mask = data
+            else:
                 raise ValueError(
                     f"Data should be a dict with two keys, but received {len(data)}."
                 )
-            inputs, labels = data
         elif isinstance(data, (list, tuple)):
-            if len(data) != 2:
+            if len(data) == 2:
+                (
+                    inputs,
+                    labels,
+                ) = data
+            elif len(data) == 3:
+                inputs, labels, attention_mask = data
+            else:
                 raise ValueError(
-                    f"Data should be a list or tuple with two elements, but received {len(data)}."
+                    f"Data should be a dict with two keys, but received {len(data)}."
                 )
-            inputs, labels = data
         else:
             raise TypeError(
                 f"Data should be a dict or list, but received {type(data)}."
             )
 
         inputs = auto_utils.to_list(inputs)
+        if atttention_mask is not None:
+            inputs.append(atttention_mask)
         labels = auto_utils.to_list(labels)
 
         if inputs is not None:
