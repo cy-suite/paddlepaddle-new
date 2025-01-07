@@ -405,6 +405,7 @@ class TestTemporalShiftTRTPatternBasic(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [2, 9, 7, 7]}
+        self.opt_shape = {"x": [2, 9, 7, 7]}
         self.max_shape = {"x": [8, 9, 7, 7]}
 
     def test_trt_result_fp16(self):
@@ -425,6 +426,7 @@ class TestTemporalShiftTRTPatternZeroSlice(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [2, 2, 7, 7]}
+        self.opt_shape = {"x": [2, 2, 7, 7]}
         self.max_shape = {"x": [8, 2, 7, 7]}
 
     def test_trt_result_fp16(self):
@@ -445,6 +447,7 @@ class TestTemporalShiftTRTPatternDifferentSegNum(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [4, 9, 7, 7]}
+        self.opt_shape = {"x": [4, 9, 7, 7]}
         self.max_shape = {"x": [8, 9, 7, 7]}
 
     def test_trt_result_fp16(self):
@@ -465,6 +468,7 @@ class TestTemporalShiftTRTPatternDifferentShiftRatio(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [2, 9, 7, 7]}
+        self.opt_shape = {"x": [2, 9, 7, 7]}
         self.max_shape = {"x": [8, 9, 7, 7]}
 
     def test_trt_result_fp16(self):
@@ -486,6 +490,7 @@ class TestTemporalShiftTRTPatternDifferentDataFormat(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [2, 9, 7, 7]}
+        self.opt_shape = {"x": [2, 9, 7, 7]}
         self.max_shape = {"x": [8, 9, 7, 7]}
 
     def test_trt_result_fp16(self):
@@ -506,6 +511,7 @@ class TestTemporalShiftTRTPatternMinMaxShape(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [2, 9, 7, 7]}
+        self.opt_shape = {"x": [2, 9, 7, 7]}
         self.max_shape = {"x": [10, 9, 7, 7]}
 
     def test_trt_result_fp16(self):
@@ -533,6 +539,7 @@ class TestTemporalShiftTRTPatternError1(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [2, 9, 7, 7]}
+        self.opt_shape = {"x": [2, 9, 7, 7]}
         self.max_shape = {"x": [10, 9, 7, 7]}
 
     def test_trt_result(self):
@@ -549,6 +556,7 @@ class TestTemporalShiftTRTPatternError2(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [2, 9, 7, 7, 7]}
+        self.opt_shape = {"x": [2, 9, 7, 7, 7]}
         self.max_shape = {"x": [10, 9, 7, 7, 7]}
 
     def test_trt_result(self):
