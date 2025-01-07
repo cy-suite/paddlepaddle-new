@@ -617,7 +617,7 @@ def wrapper_pad_error2(x, padding, mode, pad_value):
         x=paddle.to_tensor(np.random.randn(1, 1, 1, 2, 3).astype("float32")),
         pad=[0, 0, 0, 0, 0, 0, 1, 1, 0, 0],
         mode='constant',
-        value=0
+        value=0,
     )
 
 
