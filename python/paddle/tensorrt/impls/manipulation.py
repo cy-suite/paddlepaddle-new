@@ -955,9 +955,10 @@ def pad3d_converter(network, paddle_op, inputs):
     if len(paddle_op.operands()) > 1:
         paddings = inputs[1]
     else:
-        paddings = paddle_op.attrs().get("paddings")
-        paddings = add_1D_constant_layer(network, paddings)
-    value = paddle_op.attrs().get("value", 0.0)
+        paddings_v = paddle_op.attrs().get("paddings")
+        paddings = add_1D_constant_layer(network, paddings_v)
+
+    value = paddle_op.attrs().get("pad_value", 0.0)
     padding_mode = paddle_op.attrs().get("mode", "constant")
     input_dim = len(input_tensor.shape)
     pad_size = paddings.shape[0]
@@ -1002,15 +1003,13 @@ def pad3d_converter(network, paddle_op, inputs):
 
     # Set padding mode
     if padding_mode == "constant":
-        slice_layer.mode = trt.SliceMode.FILL
+        slice_layer.mode = trt.SampleMode.FILL
         if value != 0.0:
-            fill_value = add_1D_constant_layer(network, value)
+            fill_value = add_1D_constant_layer(network, value, dtype=np.float32)
             slice_layer.set_input(4, fill_value)
     elif padding_mode == "reflect":
-        slice_layer.mode = trt.SliceMode.REFLECT
+        slice_layer.mode = trt.SampleMode.REFLECT
     elif padding_mode == "replicate":
-        slice_layer.mode = trt.SliceMode.CLAMP
-    else:
-        raise ValueError(f"Unsupported mode: {padding_mode}")
+        slice_layer.mode = trt.SampleMode.CLAMP
 
     return slice_layer.get_output(0)

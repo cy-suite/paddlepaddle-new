@@ -2082,11 +2082,11 @@ class Pad3dOpPattern : public pir::OpRewritePattern<paddle::dialect::Pad3dOp> {
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-    if (!op->HasAttribute("paddings") ||
-        !pir::GetDefiningOpForInput(op, 1)->isa<paddle::dialect::FullOp>()) {
+    if (!op->HasAttribute("paddings") &&
+        !pir::GetDefiningOpForInput(op, 1)->isa<paddle::dialect::FullIntArrayOp>()) {
       return false;
     }
-    if (!op->HasAttribute("mode")) {
+    if (op->HasAttribute("mode")) {
       auto mode = op->attribute<pir::StrAttribute>("mode").AsString();
       if (mode != "constant" && mode != "reflect" && mode != "replicate") {
         VLOG(3) << "The pad3d layer of TRT only support "
@@ -2094,7 +2094,7 @@ class Pad3dOpPattern : public pir::OpRewritePattern<paddle::dialect::Pad3dOp> {
         return false;
       }
     }
-    if (!op->HasAttribute("data_format")) {
+    if (op->HasAttribute("data_format")) {
       auto data_format =
           op->attribute<pir::StrAttribute>("data_format").AsString();
       if (data_format != "NCDHW") {
