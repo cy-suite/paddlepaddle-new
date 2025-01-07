@@ -47,6 +47,26 @@ namespace {}  // namespace
 
 using framework::ir::Node;
 
+std::string GenerateEngineKey(
+    const std::unordered_set<const Node *> nodes2remove, int64_t precision) {
+  std::vector<std::string> engine_inputs;
+  std::string engine_hash_key = "";
+  for (auto *node : nodes2remove) {
+    for (auto *x : node->inputs) {
+      engine_hash_key += RenameVarBeUnique(x->Name(), std::to_string(x->id()));
+      engine_hash_key += "#";
+    }
+    for (auto *x : node->outputs) {
+      engine_hash_key += RenameVarBeUnique(x->Name(), std::to_string(x->id()));
+      engine_hash_key += "#";
+    }
+  }
+  engine_hash_key += std::to_string(precision);
+  auto engine_key = std::to_string(std::hash<std::string>()(engine_hash_key));
+  VLOG(2) << "OV engine hash key: " << engine_hash_key;
+  VLOG(2) << "OV engine key: " << engine_key;
+  return engine_key;
+}
 void analysis::OpenVINOSubgraphPass::ApplyImpl(
     framework::ir::Graph *graph) const {
   framework::ir::FusePassBase::Init("openvino_subgraph_pass", graph);
@@ -114,6 +134,9 @@ void analysis::OpenVINOSubgraphPass::ApplyImpl(
     }
     nodes2remove.insert(node);
   }
+  auto inference_precision = Get<int>("inference_precision");
+  auto engine_key = GenerateEngineKey(nodes2remove, inference_precision);
+
   framework::ir::GraphSafeRemoveNodes(graph, nodes2remove);
   auto *scope = param_scope();
   for (auto &var_name : repetitive_params) {
@@ -129,10 +152,7 @@ void analysis::OpenVINOSubgraphPass::ApplyImpl(
   params.model_params_path = model_params_path;
   params.model_opt_cache_dir = model_opt_cache_dir;
   params.cpu_math_library_num_threads = cpu_math_library_num_threads;
-  auto inference_precision = Get<int>("inference_precision");
   params.inference_precision = inference_precision;
-
-  std::string engine_key{"openvino"};
   openvino::OpenVINOEngine *ov_engine =
       inference::Singleton<inference::openvino::OVEngineManager>::Global()
           .Create(engine_key, params);
@@ -149,6 +169,7 @@ void analysis::OpenVINOSubgraphPass::ApplyImpl(
   auto *openvino_node = graph->CreateOpNode(&openvino_desc);
   std::vector<std::string> input_names;
   std::vector<std::string> output_names;
+  std::vector<int> origin_fetch_outputs_dtype;
   for (auto *i : input_nodes) {
     i->outputs.push_back(openvino_node);
     input_names.push_back(i->Name());
@@ -156,7 +177,10 @@ void analysis::OpenVINOSubgraphPass::ApplyImpl(
   for (auto *o : output_nodes) {
     o->inputs.push_back(openvino_node);
     output_names.push_back(o->Name());
+    origin_fetch_outputs_dtype.push_back(
+        static_cast<int>(o->Var()->GetDataType()));
   }
+
   openvino_node->inputs = std::move(input_nodes);
   openvino_node->outputs = std::move(output_nodes);
 
@@ -165,6 +189,7 @@ void analysis::OpenVINOSubgraphPass::ApplyImpl(
       "Xs", std::vector<std::string>(input_names.begin(), input_names.end()));
   op_desc->SetOutput(
       "Ys", std::vector<std::string>(output_names.begin(), output_names.end()));
+  op_desc->SetAttr("origin_fetch_outputs_dtype", origin_fetch_outputs_dtype);
 }
 
 }  // namespace analysis

@@ -61,7 +61,7 @@ class OpenVINOEngineOp : public framework::OperatorBase {
   std::vector<std::string> input_names_;
   std::vector<std::string> output_names_;
   std::vector<std::string> runtime_input_names_;
-  std::string engine_key_ = "openvino";
+  std::string engine_key_;
   std::string model_opt_cache_dir_;
   std::string model_program_path_;
   std::string model_params_path_;
@@ -202,20 +202,23 @@ class OpenVINOEngineOp : public framework::OperatorBase {
     VLOG(1) << "start openvino execute ";
     engine->Execute();
     VLOG(1) << "end openvino execute!";
+    std::vector<int> origin_fetch_outputs_dtype =
+        Attr<std::vector<int>>("origin_fetch_outputs_dtype");
     for (size_t i = 0; i < Outputs("Ys").size(); i++) {
       auto y = Outputs("Ys")[i];
+      auto ori_var_type = static_cast<framework::proto::VarType_Type>(
+          origin_fetch_outputs_dtype[i]);
       auto *fluid_v = scope.FindVar(y);
       PADDLE_ENFORCE_NOT_NULL(
           fluid_v,
           common::errors::NotFound(
               "Output variable %s is not found in Openvino subgraph.", y));
       auto *fluid_t = fluid_v->GetMutable<phi::DenseTensor>();
-
       auto ov_output_shape = engine->GetOuputShape(output_names_[i], i);
       auto phi_type = engine->GetOuputType(
           output_names_[i],
           i,
-          inference::openvino::PhiType2OVType(fluid_t->dtype()));
+          inference::openvino::VarType2OVType(ori_var_type));
       std::vector<int> ddim;
       for (size_t j = 0; j < ov_output_shape.size(); j++) {
         ddim.push_back(ov_output_shape[j]);
