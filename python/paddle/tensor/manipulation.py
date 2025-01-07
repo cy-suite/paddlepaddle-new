@@ -5306,7 +5306,7 @@ def atleast_2d(*inputs, name=None):
         :alt: legend of atleast_2d API
         :align: center
 
-    In each case, the function returns the tensors (or a list of tensors) as views with at least 2 dimensions.
+    In each case, the function returns the tensors (or a list of tensors) in views with at least 2 dimensions.
 
     Args:
         inputs (Tensor|list(Tensor)): One or more tensors. The data type is ``float16``, ``float32``, ``float64``, ``int16``, ``int32``, ``int64``, ``int8``, ``uint8``, ``complex64``, ``complex128``, ``bfloat16`` or ``bool``.
