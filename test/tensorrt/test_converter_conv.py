@@ -335,7 +335,7 @@ class TestConv3dPaddingAlgorithmTRTPattern(TensorRTBaseTest):
         self.python_api = conv3d_python_api
         self.api_args = {
             "x": np.random.random([2, 3, 8, 8, 8]).astype("float32"),
-            "padding": "SAME",
+            "paddings": "SAME",
             "stride": (1, 1, 1),
         }
         self.program_config = {"feed_list": ["x"]}
@@ -351,7 +351,7 @@ class TestConv3dPaddingSizeTRTPattern(TensorRTBaseTest):
         self.python_api = conv3d_python_error_api
         self.api_args = {
             "x": np.random.random([2, 3, 8, 8, 8]).astype("float32"),
-            "padding": [1, 1, 1, 1],
+            "paddings": [1, 1, 1, 1],
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
@@ -366,7 +366,7 @@ class TestConv3dNegativePaddingTRTPattern(TensorRTBaseTest):
         self.python_api = conv3d_python_error_api
         self.api_args = {
             "x": np.random.random([2, 3, 8, 8, 8]).astype("float32"),
-            "padding": [-1, 1, 1],
+            "paddings": [-1, 1, 1],
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
@@ -381,7 +381,7 @@ class TestConv3dZeroPaddingDimensionTRTPattern(TensorRTBaseTest):
         self.python_api = conv3d_python_api
         self.api_args = {
             "x": np.random.random([2, 3, 8, 8, 8]).astype("float32"),
-            "padding": [0, 0, 0],
+            "paddings": [0, 0, 0],
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
@@ -492,7 +492,7 @@ class TestConv3dTransposePaddingSizeTRTPattern(TensorRTBaseTest):
         self.python_api = conv3d_transpose_with_error
         self.api_args = {
             "x": np.random.random([2, 3, 8, 8, 8]).astype("float32"),
-            "padding": [1, 1, 1, 1],
+            "paddings": [1, 1, 1, 1],
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
@@ -521,7 +521,7 @@ class TestConv3dTransposeInvalidDilationsTRTPattern(TensorRTBaseTest):
         self.python_api = conv3d_transpose_with_error
         self.api_args = {
             "x": np.random.random([2, 3, 8, 8, 8]).astype("float32"),
-            "dilation": [2, 1, 1],
+            "dilations": [2, 1, 1],
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
