@@ -733,4 +733,9 @@ PD_REGISTER_SPMD_RULE(nonzero,
 
 // add_n
 PD_REGISTER_SPMD_RULE(add_n, PD_INFER_SPMD(phi::distributed::AddNInferSpmd));
+
+// clip
+PD_REGISTER_SPMD_RULE(clip,
+                      PD_INFER_SPMD(phi::distributed::ClipInferSpmd),
+                      PD_INFER_SPMD(phi::distributed::ClipInferSpmdReverse));
 }  // namespace phi::distributed
