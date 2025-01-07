@@ -19,10 +19,35 @@
 #include "paddle/phi/backends/cpu/cpu_context.h"
 #include "paddle/phi/common/complex.h"
 #include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/kernels/diagonal_kernel.h"
+#include "paddle/phi/kernels/fill_diagonal_tensor_kernel.h"
 #include "paddle/phi/kernels/funcs/complex_functors.h"
+#include "paddle/phi/kernels/funcs/math_function.h"
 #include "paddle/phi/kernels/funcs/parse_qr_mode.h"
 
 namespace phi {
+
+template <class T, class Context>
+static DenseTensor Fill(const Context& ctx,
+                        std::vector<int> shape,
+                        float fill_value) {
+  DenseTensor ret;
+  ret.Resize(common::make_ddim(shape));
+  ctx.template Alloc<T>(&ret);
+  funcs::SetConstant<Context, T>()(ctx, &ret, T(fill_value));
+  return ret;
+}
+
+template <class T, class Context>
+static DenseTensor identity_matrix(const Context& ctx, common::DDim shape) {
+  DenseTensor M = Fill<T, Context>(ctx, common::vectorize<int>(shape), 0);
+  size_t rank = M.dims().size();
+  DenseTensor M_diag_tmp = Diagonal<T, Context>(ctx, M, 0, rank - 2, rank - 1);
+  DenseTensor M_diag =
+      Fill<T, Context>(ctx, common::vectorize<int>(M_diag_tmp.dims()), 1);
+  M = FillDiagonalTensor<T, Context>(ctx, M, M_diag, 0, rank - 2, rank - 1);
+  return M;
+}
 
 template <typename T, typename Context>
 struct QrFunctor {
@@ -179,7 +204,11 @@ void QrKernel(const Context& ctx,
   if (x.numel() == 0) {
     ctx.template Alloc<T>(q);
     ctx.template Alloc<T>(r);
-    q->Resize(q->dims());
+    if (q->numel() == 0) {
+      q->Resize(q->dims());
+    } else {
+      *q = identity_matrix<T, Context>(ctx, q->dims());
+    }
     r->Resize(r->dims());
     return;
   }
