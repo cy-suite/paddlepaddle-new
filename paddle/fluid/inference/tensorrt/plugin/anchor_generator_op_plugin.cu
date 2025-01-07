@@ -667,6 +667,10 @@ nvinfer1::IPluginV2Ext* AnchorGeneratorPluginDynamicCreator::deserializePlugin(
 }
 #endif
 
+int PIRAnchorGeneratorPluginDynamic::initialize() TRT_NOEXCEPT { return 0; }
+
+nvinfer1::
+
 }  // namespace plugin
 }  // namespace tensorrt
 }  // namespace inference

@@ -94,6 +94,7 @@ DEFINE_GENERAL_PATTERN(Flip, paddle::dialect::FlipOp)
 DEFINE_GENERAL_PATTERN(Mish, paddle::dialect::MishOp)
 DEFINE_GENERAL_PATTERN(AssignValue, paddle::dialect::AssignValueOp)
 DEFINE_GENERAL_PATTERN(AssignValue_, paddle::dialect::AssignValue_Op)
+DEFINE_GENERAL_PATTERN(Anchor_Generator, paddle::dialect::AnchorGeneratorOp)
 #undef DEFINE_GENERAL_PATTERN
 
 // Add ReduceCommonOpPattern base class to simplify code
@@ -2244,6 +2245,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Mish)
     ADD_PATTERN(AssignValue)
     ADD_PATTERN(AssignValue_)
+    ADD_PATTERN(Anchor_Generator)
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
 #endif
