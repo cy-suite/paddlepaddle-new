@@ -59,6 +59,7 @@ DEFINE_GENERAL_PATTERN(Bmm, paddle::dialect::BmmOp)
 DEFINE_GENERAL_PATTERN(Concat, paddle::dialect::ConcatOp)
 DEFINE_GENERAL_PATTERN(Nonzero, paddle::dialect::NonzeroOp)
 DEFINE_GENERAL_PATTERN(Gelu, paddle::dialect::GeluOp)
+DEFINE_GENERAL_PATTERN(Relu6, paddle::dialect::Relu6Op)
 DEFINE_GENERAL_PATTERN(Fused_gemm_epilogue,
                        paddle::dialect::FusedGemmEpilogueOp)
 DEFINE_GENERAL_PATTERN(Layer_norm, paddle::dialect::LayerNormOp)
@@ -85,6 +86,7 @@ DEFINE_GENERAL_PATTERN(Log, paddle::dialect::LogOp)
 DEFINE_GENERAL_PATTERN(Floor, paddle::dialect::FloorOp)
 DEFINE_GENERAL_PATTERN(Roll, paddle::dialect::RollOp)
 DEFINE_GENERAL_PATTERN(Elu, paddle::dialect::EluOp)
+DEFINE_GENERAL_PATTERN(Selu, paddle::dialect::SeluOp)
 DEFINE_GENERAL_PATTERN(Stanh, paddle::dialect::StanhOp)
 DEFINE_GENERAL_PATTERN(Softplus, paddle::dialect::SoftplusOp)
 DEFINE_GENERAL_PATTERN(ThresholdedRelu, paddle::dialect::ThresholdedReluOp)
@@ -1975,6 +1977,27 @@ class TopkOpPattern : public pir::OpRewritePattern<paddle::dialect::TopkOp> {
   }
 };
 
+class CumsumOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::CumsumOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::CumsumOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::CumsumOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+
+    if (!pir::GetDefiningOpForInput(op, 1)->isa<paddle::dialect::FullOp>()) {
+      VLOG(3) << "The 'axis' input of pd_op.cumsum must be an integer";
+      return false;
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 bool CheckSetValue(const pir::Operation *op, int starts_input_loc = 1) {
   paddle::dialect::FullIntArrayOp starts_defining_op =
       pir::GetDefiningOpForInput(op, starts_input_loc)
@@ -2219,6 +2242,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(DepthwiseConv2d)
     ADD_PATTERN(Nonzero)
     ADD_PATTERN(Gelu)
+    ADD_PATTERN(Relu6)
     ADD_PATTERN(Shape)
     ADD_PATTERN(Shape64)
     ADD_PATTERN(Expand)
@@ -2236,6 +2260,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Floor)
     ADD_PATTERN(Roll)
     ADD_PATTERN(Elu)
+    ADD_PATTERN(Selu)
     ADD_PATTERN(Stanh)
     ADD_PATTERN(Softplus)
     ADD_PATTERN(ThresholdedRelu)
@@ -2308,6 +2333,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<FullWithTensorPattern>(context));
     ps.Add(std::make_unique<StridedSliceOpPattern>(context));
     ps.Add(std::make_unique<TopkOpPattern>(context));
+    ps.Add(std::make_unique<CumsumOpPattern>(context));
     ps.Add(std::make_unique<SetValueOpPattern>(context));
     ps.Add(std::make_unique<SetValue_OpPattern>(context));
     ps.Add(std::make_unique<SetValueWithTensorOpPattern>(context));

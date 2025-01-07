@@ -34,7 +34,7 @@ from paddle.distributed.fleet.meta_optimizers.common import OpRole
 from paddle.distributed.passes.pass_base import new_pass
 from paddle.distributed.passes.pass_utils import (
     _split_program_into_forward_backward_optimize,
-    set_pir_skip_gc_vars,
+    set_skip_gc_vars,
 )
 from paddle.framework import (
     IrGraph,
@@ -804,7 +804,6 @@ class Engine:
 
         # re-run apply_mix2dist_pass to dist accumulator.
         apply_mix2dist_pass(dist_program)
-
         if mode == "train" and self._strategy.recompute.enable:
             config = copy.deepcopy(self._strategy.recompute.to_dict())
             auto_parallel_recompute_pir_pass = new_pass(
@@ -944,7 +943,7 @@ class Engine:
             opt_job.set_micro_batch_id(0)
             jobs.append(opt_job)
 
-            type_to_program = set_pir_skip_gc_vars(
+            type_to_program = set_skip_gc_vars(
                 self._strategy.gradient_merge.k_steps,
                 job_types,
                 sub_programs,
@@ -1513,7 +1512,7 @@ class Engine:
     # distributed training combined with prim mechanism (prim is behind of distributed)
     # for local main subprogram after distributed partition,
     # mark _need_decomp=True to tag this program needs to be decomposed
-    # get _grad_var_to_var from distributed context and set it to main program for futher decomposing in static executor
+    # get _grad_var_to_var from distributed context and set it to main program for further decomposing in static executor
     def _mark_prim(self, mode):
         if os.getenv("FLAGS_enable_prim_after_distribute") in [
             'True',
