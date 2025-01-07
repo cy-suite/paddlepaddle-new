@@ -39,7 +39,9 @@ class IR_API YieldOp : public Op<YieldOp, SideEffectTrait> {
 ///
 /// \brief Push a value tuple to a container.
 ///
-class IR_API TuplePushOp : public Op<TuplePushOp, SideEffectTrait> {
+class IR_API TuplePushOp : public Op<TuplePushOp,
+                                     SideEffectTrait,
+                                     pir::InferSymbolicShapeInterface> {
  public:
   using Op::Op;
   static const char *name() { return "cf.tuple_push"; }
@@ -70,6 +72,8 @@ class IR_API TuplePushOp : public Op<TuplePushOp, SideEffectTrait> {
     return inlet().defining_op<ContainerOpInterface>();
   }
   TuplePopOp tuple_pop_op();
+
+  bool InferSymbolicShape(pir::InferSymbolicShapeContext *infer_context);
 };
 
 class IR_API TuplePopOp
