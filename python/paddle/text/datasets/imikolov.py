@@ -54,6 +54,7 @@ class Imikolov(Dataset):
 
         .. code-block:: python
 
+            >>> # doctest: +TIMEOUT(60)
             >>> import paddle
             >>> from paddle.text.datasets import Imikolov
 
