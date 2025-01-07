@@ -2289,8 +2289,6 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<TanhOpPattern>(context));
     ps.Add(std::make_unique<CeluOpPattern>(context));
     ps.Add(std::make_unique<OneHotOpPattern>(context));
-    ps.Add(std::make_unique<AssignValueOpPattern>(context));
-    ps.Add(std::make_unique<AssignValue_OpPattern>(context));
     ps.Add(std::make_unique<PadOpPattern>(context));
     return ps;
   }
