@@ -981,23 +981,21 @@ class TestSolveOpAPIZeroDimCase(unittest.TestCase):
 
     def test_dygraph(self):
         def run(place, x_shape, y_shape):
-            paddle.disable_static(place)
-            np.random.seed(2021)
-            input_x_np = np.random.random(x_shape).astype(self.dtype)
-            input_y_np = np.random.random(y_shape).astype(self.dtype)
+            with base.dygraph.guard(place):
+                input_x_np = np.random.random(x_shape).astype(self.dtype)
+                input_y_np = np.random.random(y_shape).astype(self.dtype)
 
-            tensor_input_x = paddle.to_tensor(input_x_np)
-            tensor_input_y = paddle.to_tensor(input_y_np)
+                tensor_input_x = paddle.to_tensor(input_x_np)
+                tensor_input_y = paddle.to_tensor(input_y_np)
 
-            numpy_output = np.linalg.solve(input_x_np, input_y_np)
-            paddle_output = paddle.linalg.solve(
-                tensor_input_x, tensor_input_y, left=False
-            )
-            np.testing.assert_allclose(
-                numpy_output, paddle_output.numpy(), rtol=0.0001
-            )
-            self.assertEqual(numpy_output.shape, paddle_output.numpy().shape)
-            paddle.enable_static()
+                numpy_output = np.linalg.solve(input_x_np, input_y_np)
+                paddle_output = paddle.linalg.solve(
+                    tensor_input_x, tensor_input_y, left=False
+                )
+                np.testing.assert_allclose(
+                    numpy_output, paddle_output.numpy(), rtol=0.0001
+                )
+                self.assertEqual(numpy_output.shape, paddle_output.numpy().shape)
 
         for place in self.place:
             run(place, x_shape=[10, 0, 0], y_shape=[10, 0, 0])
