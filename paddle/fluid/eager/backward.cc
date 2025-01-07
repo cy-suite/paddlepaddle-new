@@ -180,7 +180,8 @@ std::vector<paddle::Tensor> RunBackward(
 
     // copy grad tensor since we should totally run grad without affect forward
     // value
-    if (!grad_tensors.empty() && grad_tensors[i].initialized()) {
+    if (!grad_tensors.empty() &&
+        (grad_tensors[i].defined() && grad_tensors[i].has_allocation())) {
       PADDLE_ENFORCE(
           grad_tensors.size() == tensors.size(),
           common::errors::Fatal(
@@ -343,6 +344,23 @@ std::vector<paddle::Tensor> RunBackward(
           if (!next_node_shared || !next_node_shared.get() ||
               grad_output_tensors[i].empty()) {
             continue;
+          }
+
+          PADDLE_ENFORCE_LT(
+              j,
+              grad_output_tensors[i].size(),
+              common::errors::Fatal(
+                  "Rank of grad_output_tensors should be less than "
+                  "grad_output_tensors[i].size(), which is: %d. This error may "
+                  "indicate autoprune or autograd api error. ",
+                  grad_output_tensors.size()));
+          paddle::Tensor& grad_output_tensor = grad_output_tensors[i][j];
+
+          if ((!grad_output_tensor.defined() ||
+               !grad_output_tensor.has_allocation())) {
+            VLOG(7) << "We get grad_output_tensor with slot: " << i
+                    << ", rank: " << j
+                    << " as undefined tensor or without allocation.";
           }
 
           PADDLE_ENFORCE_LT(
