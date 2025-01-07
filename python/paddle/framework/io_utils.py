@@ -215,7 +215,7 @@ def _pickle_loads_mac(path, f):
 
 def _pack_loaded_dict(load_obj):
     if isinstance(load_obj, dict):
-        unpack_info = 'UnpackBigParamInfo@@'
+        unpack_info = 'UnpackBigParamInfor@@'  # typos: disable-line
         if unpack_info in load_obj:
             removes = []
             for key, value in load_obj[unpack_info].items():
@@ -269,7 +269,7 @@ def _unpack_saved_dict(saved_obj, protocol):
                 saved_obj.pop(key)
                 for part in value['slices']:
                     saved_obj[part] = temp_saved_obj[part]
-        saved_obj['UnpackBigParamInfo@@'] = unpack_info
+        saved_obj['UnpackBigParamInfor@@'] = unpack_info  # typos: disable-line
     return saved_obj
 
 
