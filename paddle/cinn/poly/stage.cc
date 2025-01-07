@@ -31,7 +31,7 @@
 #include "paddle/cinn/ir/utils/ir_nodes_collector.h"
 #include "paddle/cinn/ir/utils/ir_replace.h"
 #include "paddle/cinn/lang/compute.h"
-#include "paddle/cinn/optim/ir_simplify.h"
+#include "paddle/cinn/optim/ir_simplify_pass.h"
 #include "paddle/cinn/optim/replace_var_with_expr.h"
 #include "paddle/cinn/poly/compute_at_transform.h"
 #include "paddle/cinn/poly/isl_utils.h"

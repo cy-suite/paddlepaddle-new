@@ -14,6 +14,8 @@
 
 #pragma once
 #include "paddle/cinn/ir/ir.h"
+#include "paddle/cinn/ir/stmt.h"
+#include "paddle/cinn/pass/pass.h"
 
 namespace cinn {
 namespace optim {
@@ -84,7 +86,15 @@ namespace optim {
  *    Output IR:
  *      true_value
  */
-void Simplify(Expr *expr);
+void Simplify(ir::Expr *expr);
+
+class SimplifyPass : public BlockPass {
+ public:
+  SimplifyPass() : BlockPass("simplify_pass") {}
+
+  LogicalResult Run(ir::stmt::BlockRef block) override;
+};
+std::unique_ptr<BlockPass> CreateSimplifyPass();
 
 /**
  * Simplify type casting expressions.
@@ -121,6 +131,14 @@ void Simplify(Expr *expr);
  */
 void SimplifyCast(Expr *expr);
 
+class SimplifyCastPass : public BlockPass {
+ public:
+  SimplifyCastPass() : BlockPass("simplify_cast_pass") {}
+
+  LogicalResult Run(ir::stmt::BlockRef block) override;
+};
+std::unique_ptr<BlockPass> CreateSimplifyCastPass();
+
 /**
  * Simplify for loop structures in the IR.
  *
@@ -150,6 +168,14 @@ void SimplifyCast(Expr *expr);
  *      for (int i = 0; i < 2; ++i) { doSomething(i); } (remains unchanged)
  */
 void SimplifyForLoops(Expr *expr);
+
+class SimplifyForLoopsPass : public BlockPass {
+ public:
+  SimplifyForLoopsPass() : BlockPass("simplify_for_loops_pass") {}
+
+  LogicalResult Run(ir::stmt::BlockRef block) override;
+};
+std::unique_ptr<BlockPass> CreateSimplifyForLoopsPass();
 
 /**
  * Simplify block structures in the IR.

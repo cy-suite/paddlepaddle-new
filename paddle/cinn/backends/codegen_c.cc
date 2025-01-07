@@ -22,7 +22,7 @@
 #include "paddle/cinn/ir/lowered_func.h"
 #include "paddle/cinn/ir/op/ir_operators.h"
 #include "paddle/cinn/ir/utils/ir_verify.h"
-#include "paddle/cinn/optim/ir_simplify.h"
+#include "paddle/cinn/optim/ir_simplify_pass.h"
 #include "paddle/cinn/runtime/cpu/thread_backend.h"
 #include "paddle/cinn/runtime/intrinsic.h"
 #include "paddle/cinn/utils/string.h"

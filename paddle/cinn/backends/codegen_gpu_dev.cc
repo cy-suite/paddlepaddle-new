@@ -25,7 +25,7 @@
 #include "paddle/cinn/common/ir_util.h"
 #include "paddle/cinn/ir/op/ir_operators.h"
 #include "paddle/cinn/ir/utils/ir_verify.h"
-#include "paddle/cinn/optim/ir_simplify.h"
+#include "paddle/cinn/optim/ir_simplify_pass.h"
 #include "paddle/common/enforce.h"
 #include "paddle/common/errors.h"
 namespace cinn {

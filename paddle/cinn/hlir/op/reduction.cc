@@ -27,7 +27,7 @@
 #include "paddle/cinn/hlir/pe/transform.h"
 #include "paddle/cinn/ir/op/ir_operators.h"
 #include "paddle/cinn/ir/schedule/ir_schedule.h"
-#include "paddle/cinn/optim/ir_simplify.h"
+#include "paddle/cinn/optim/ir_simplify_pass.h"
 #include "paddle/cinn/runtime/flags.h"
 
 PD_DECLARE_bool(cinn_enable_map_expr);

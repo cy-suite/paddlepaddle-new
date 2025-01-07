@@ -32,7 +32,7 @@
 #include "paddle/cinn/ir/ir.h"
 #include "paddle/cinn/ir/ir_base.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
-#include "paddle/cinn/optim/ir_simplify.h"
+#include "paddle/cinn/optim/ir_simplify_pass.h"
 #include "paddle/cinn/optim/replace_var_with_expr.h"
 #include "paddle/cinn/poly/isl_utils.h"
 #include "paddle/cinn/utils/string.h"

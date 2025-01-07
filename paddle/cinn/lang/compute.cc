@@ -17,7 +17,7 @@
 #include "paddle/cinn/backends/extern_func_protos.h"
 #include "paddle/cinn/common/common.h"
 #include "paddle/cinn/ir/operation.h"
-#include "paddle/cinn/optim/ir_simplify.h"
+#include "paddle/cinn/optim/ir_simplify_pass.h"
 #include "paddle/cinn/poly/dim.h"
 #include "paddle/cinn/poly/domain.h"
 #include "paddle/cinn/poly/stage.h"
