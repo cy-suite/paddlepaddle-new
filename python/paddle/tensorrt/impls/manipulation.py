@@ -953,7 +953,6 @@ def roll_converter(network, paddle_op, inputs):
 def numel_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     shape_tensor = network.add_shape(input_tensor).get_output(0)
-    # Make keep_dims=Flase to return a 0D Tensor
     layer = network.add_reduce(
         shape_tensor, trt.ReduceOperation.PROD, axes=1, keep_dims=False
     )
