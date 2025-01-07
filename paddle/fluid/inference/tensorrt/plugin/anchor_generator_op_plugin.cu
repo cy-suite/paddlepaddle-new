@@ -669,7 +669,215 @@ nvinfer1::IPluginV2Ext* AnchorGeneratorPluginDynamicCreator::deserializePlugin(
 
 int PIRAnchorGeneratorPluginDynamic::initialize() TRT_NOEXCEPT { return 0; }
 
-nvinfer1::
+nvinfer1::DimsExprs PIRAnchorGeneratorPluginDynamic::getOutputDimensions(
+    int outputIndex,
+    const nvinfer1::DimsExprs* inputs,
+    int nbInputs,
+    nvinfer1::IExprBuilder& exprBuilder) TRT_NOEXCEPT {
+  nvinfer1::DimsExprs ret{};
+  ret.nbDims = 4;
+  ret.d[0] = inputs[0].d[2];  // feature height
+  ret.d[1] = inputs[0].d[3];  // feature width
+  ret.d[2] = exprBuilder.constant(num_anchors_);
+  ret.d[3] = exprBuilder.constant(4);
+  return ret;
+}
+
+bool PIRAnchorGeneratorPluginDynamic::supportsFormatCombination(
+    int pos,
+    const nvinfer1::PluginTensorDesc* inOut,
+    int nbInputs,
+    int nbOutputs) TRT_NOEXCEPT {
+  // input can be any, doesn't matter
+  // anchor generator doesn't read input raw data, only need the shape info
+  auto type = inOut[pos].type;
+  auto format = inOut[pos].format;
+#if IS_TRT_VERSION_GE(7234)
+  if (pos == 0) return true;
+#else
+  if (pos == 0) return format == nvinfer1::TensorFormat::kLINEAR;
+#endif
+  return (type == nvinfer1::DataType::kFLOAT &&
+          format == nvinfer1::TensorFormat::kLINEAR);
+}
+
+void PIRAnchorGeneratorPluginDynamic::configurePlugin(
+    const nvinfer1::DynamicPluginTensorDesc* in,
+    int nbInputs,
+    const nvinfer1::DynamicPluginTensorDesc* out,
+    int nbOutputs) TRT_NOEXCEPT {}
+
+size_t PIRAnchorGeneratorPluginDynamic::getWorkspaceSize(
+    const nvinfer1::PluginTensorDesc* inputs,
+    int nbInputs,
+    const nvinfer1::PluginTensorDesc* outputs,
+    int nbOutputs) const TRT_NOEXCEPT {
+  return 0;
+}
+
+template <typename T>
+int PIRAnchorGeneratorPluginDynamic::enqueue_impl(
+    const nvinfer1::PluginTensorDesc* inputDesc,
+    const nvinfer1::PluginTensorDesc* outputDesc,
+    const void* const* inputs,
+    void* const* outputs,
+    void* workspace,
+    cudaStream_t stream) {
+  const int height = inputDesc[0].dims.d[2];
+  const int width = inputDesc[0].dims.d[3];
+  const int box_num = height * width * num_anchors_;
+  const int block = 512;
+  const int gen_anchor_grid = (box_num + block - 1) / block;
+  T* anchors = static_cast<T*>(outputs[0]);
+  T* vars = static_cast<T*>(outputs[1]);
+  const T* anchor_sizes_device = static_cast<const T*>(anchor_sizes_device_);
+  const T* aspect_ratios_device = static_cast<const T*>(aspect_ratios_device_);
+  const T* stride_device = static_cast<const T*>(stride_device_);
+  const T* variances_device = static_cast<const T*>(variances_device_);
+  phi::GenAnchors<T>
+      <<<gen_anchor_grid, block, 0, stream>>>(anchors,
+                                              aspect_ratios_device,
+                                              aspect_ratios_.size(),
+                                              anchor_sizes_device,
+                                              anchor_sizes_.size(),
+                                              stride_device,
+                                              stride_.size(),
+                                              height,
+                                              width,
+                                              offset_);
+  const int var_grid = (box_num * 4 + block - 1) / block;
+  phi::SetVariance<T><<<var_grid, block, 0, stream>>>(
+      vars, variances_device, variances_.size(), box_num * 4);
+  return cudaGetLastError() != cudaSuccess;
+}
+
+int PIRAnchorGeneratorPluginDynamic::enqueue(
+    const nvinfer1::PluginTensorDesc* inputDesc,
+    const nvinfer1::PluginTensorDesc* outputDesc,
+    const void* const* inputs,
+    void* const* outputs,
+    void* workspace,
+    cudaStream_t stream) TRT_NOEXCEPT {
+  assert(outputDesc[0].type == nvinfer1::DataType::kFLOAT);
+  assert(outputDesc[1].type == nvinfer1::DataType::kFLOAT);
+  return enqueue_impl<float>(
+      inputDesc, outputDesc, inputs, outputs, workspace, stream);
+}
+
+nvinfer1::DataType PIRAnchorGeneratorPluginDynamic::getOutputDataType(
+    int index,
+    const nvinfer1::DataType* inputTypes,
+    int nbInputs) const TRT_NOEXCEPT {
+  return inputTypes[0];
+}
+
+const char* PIRAnchorGeneratorPluginDynamic::getPluginType() const
+    TRT_NOEXCEPT {
+  return "anchor_generator_plugin_dynamic";
+}
+
+int PIRAnchorGeneratorPluginDynamic::getNbOutputs() const TRT_NOEXCEPT {
+  return 2;
+}
+
+void PIRAnchorGeneratorPluginDynamic::terminate() TRT_NOEXCEPT {}
+
+size_t PIRAnchorGeneratorPluginDynamic::getSerializationSize() const
+    TRT_NOEXCEPT {
+  size_t serialize_size = 0;
+  serialize_size += SerializedSize(anchor_sizes_);
+  serialize_size += SerializedSize(aspect_ratios_);
+  serialize_size += SerializedSize(stride_);
+  serialize_size += SerializedSize(variances_);
+  serialize_size += SerializedSize(offset_);
+  serialize_size += SerializedSize(num_anchors_);
+  return serialize_size;
+}
+
+void PIRAnchorGeneratorPluginDynamic::serialize(void* buffer) const
+    TRT_NOEXCEPT {
+  SerializeValue(&buffer, anchor_sizes_);
+  SerializeValue(&buffer, aspect_ratios_);
+  SerializeValue(&buffer, stride_);
+  SerializeValue(&buffer, variances_);
+  SerializeValue(&buffer, offset_);
+  SerializeValue(&buffer, num_anchors_);
+}
+
+void PIRAnchorGeneratorPluginDynamic::destroy() TRT_NOEXCEPT {}
+
+void PIRAnchorGeneratorPluginDynamicCreator::setPluginNamespace(
+    const char* lib_namespace) TRT_NOEXCEPT {
+  namespace_ = std::string(lib_namespace);
+}
+
+const char* PIRAnchorGeneratorPluginDynamicCreator::getPluginNamespace() const
+    TRT_NOEXCEPT {
+  return namespace_.c_str();
+}
+
+const char* PIRAnchorGeneratorPluginDynamicCreator::getPluginName() const
+    TRT_NOEXCEPT {
+  return "anchor_generator_plugin_dynamic";
+}
+
+const char* PIRAnchorGeneratorPluginDynamicCreator::getPluginVersion() const
+    TRT_NOEXCEPT {
+  return "1";
+}
+
+const nvinfer1::PluginFieldCollection*
+PIRAnchorGeneratorPluginDynamicCreator::getFieldNames() TRT_NOEXCEPT {
+  return &field_collection_;
+}
+
+nvinfer1::IPluginV2Ext* PIRAnchorGeneratorPluginDynamicCreator::createPlugin(
+    const char* name, const nvinfer1::PluginFieldCollection* fc) TRT_NOEXCEPT {
+  const nvinfer1::PluginField* fields = fc->fields;
+  std::vector<float> anchor_sizes, aspect_ratios, stride, variances;
+  float offset = .5;
+  int num_anchors = -1;
+  for (int i = 0; i < fc->nbFields; ++i) {
+    const std::string field_name(fc->fields[i].name);
+    const auto length = fc->fields[i].length;
+    if (field_name.compare("anchor_sizes")) {
+      const auto* data = static_cast<const float*>(fc->fields[i].data);
+      anchor_sizes.insert(anchor_sizes.end(), data, data + length);
+    } else if (field_name.compare("aspect_ratios")) {
+      const auto* data = static_cast<const float*>(fc->fields[i].data);
+      aspect_ratios.insert(aspect_ratios.end(), data, data + length);
+    } else if (field_name.compare("stride")) {
+      const auto* data = static_cast<const float*>(fc->fields[i].data);
+      stride.insert(stride.end(), data, data + length);
+    } else if (field_name.compare("variances")) {
+      const auto* data = static_cast<const float*>(fc->fields[i].data);
+      variances.insert(variances.end(), data, data + length);
+    } else if (field_name.compare("offset")) {
+      offset = *static_cast<const float*>(fc->fields[i].data);
+    } else if (field_name.compare("num_anchors")) {
+      num_anchors = *static_cast<const int*>(fc->fields[i].data);
+    } else {
+      assert(false && "unknown plugin field name.");
+    }
+  }
+  return new PIRAnchorGeneratorPluginDynamic(nvinfer1::DataType::kFLOAT,
+                                             anchor_sizes,
+                                             aspect_ratios,
+                                             stride,
+                                             variances,
+                                             offset,
+                                             num_anchors);
+}
+
+nvinfer1::IPluginV2Ext*
+PIRAnchorGeneratorPluginDynamicCreator::deserializePlugin(
+    const char* name,
+    const void* serial_data,
+    size_t serial_length) TRT_NOEXCEPT {
+  auto plugin = new PIRAnchorGeneratorPluginDynamic(serial_data, serial_length);
+  plugin->setPluginNamespace(namespace_.c_str());
+  return plugin;
+}
 
 }  // namespace plugin
 }  // namespace tensorrt
