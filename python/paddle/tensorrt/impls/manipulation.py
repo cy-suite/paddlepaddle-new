@@ -957,4 +957,13 @@ def pad_converter(network, paddle_op, inputs):
     pre_pad = [paddings[pad_size - 4], paddings[pad_size - 2]]
     post_pad = [paddings[pad_size - 3], paddings[pad_size - 1]]
     layer = network.add_padding_nd(input_tensor, pre_pad, post_pad)
+
+
+@converter_registry.register("pd_op.numel", trt_version="8.x")
+def numel_converter(network, paddle_op, inputs):
+    input_tensor = inputs[0]
+    shape_tensor = network.add_shape(input_tensor).get_output(0)
+    layer = network.add_reduce(
+        shape_tensor, trt.ReduceOperation.PROD, axes=1, keep_dims=False
+    )
     return layer.get_output(0)
