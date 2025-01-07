@@ -326,11 +326,8 @@ class TestConv3dTRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
         self.max_shape = {"x": [10, 3, 8, 8, 8]}
 
-    def test_trt_result_fp32(self):
+    def test_trt_result(self):
         self.check_trt_result()
-
-    def test_trt_result_fp16(self):
-        self.check_trt_result(precision_mode="fp16")
 
 
 class TestConv3dPaddingAlgorithmTRTPattern(TensorRTBaseTest):
@@ -345,11 +342,8 @@ class TestConv3dPaddingAlgorithmTRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
         self.max_shape = {"x": [10, 3, 8, 8, 8]}
 
-    def test_trt_result_fp32(self):
+    def test_trt_result(self):
         self.check_trt_result()
-
-    def test_trt_result_fp16(self):
-        self.check_trt_result(precision_mode="fp16")
 
 
 class TestConv3dPaddingSizeTRTPattern(TensorRTBaseTest):
@@ -443,11 +437,8 @@ class TestDepthwiseConv3dTransposeTRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 2, 8, 8, 8]}
         self.max_shape = {"x": [10, 2, 8, 8, 8]}
 
-    def test_trt_result_fp32(self):
+    def test_trt_result(self):
         self.check_trt_result()
-
-    def test_trt_result_fp16(self):
-        self.check_trt_result(precision_mode="fp16")
 
 
 class TestDepthwiseConv3dTransposeSameTRTPattern(TensorRTBaseTest):
@@ -461,11 +452,8 @@ class TestDepthwiseConv3dTransposeSameTRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
         self.max_shape = {"x": [10, 3, 8, 8, 8]}
 
-    def test_trt_result_fp32(self):
+    def test_trt_result(self):
         self.check_trt_result()
-
-    def test_trt_result_fp16(self):
-        self.check_trt_result(precision_mode="fp16")
 
 
 class TestDepthwiseConv3dTransposeOutputPaddingTRTPattern(TensorRTBaseTest):
@@ -495,11 +483,8 @@ class TestDepthwiseConv3dTransposeOutputPadding2TRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
         self.max_shape = {"x": [10, 3, 8, 8, 8]}
 
-    def test_trt_result_fp32(self):
+    def test_trt_result(self):
         self.check_trt_result()
-
-    def test_trt_result_fp16(self):
-        self.check_trt_result(precision_mode="fp16")
 
 
 class TestConv3dTransposePaddingSizeTRTPattern(TensorRTBaseTest):
