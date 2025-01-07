@@ -145,10 +145,6 @@ PD_REGISTER_SPMD_RULE(
     PD_INFER_SPMD(phi::distributed::ElementwiseUnaryInferSpmd),
     PD_INFER_SPMD(phi::distributed::ElementwiseUnaryInferSpmdReverse));
 PD_REGISTER_SPMD_RULE(
-    clip,
-    PD_INFER_SPMD(phi::distributed::ElementwiseUnaryInferSpmd),
-    PD_INFER_SPMD(phi::distributed::ElementwiseUnaryInferSpmdReverse));
-PD_REGISTER_SPMD_RULE(
     conj,
     PD_INFER_SPMD(phi::distributed::ElementwiseUnaryInferSpmd),
     PD_INFER_SPMD(phi::distributed::ElementwiseUnaryInferSpmdReverse));
