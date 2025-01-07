@@ -988,7 +988,7 @@ class TestPrimAllclose2(TestPrimTwo):
         )
         self.x.ravel()[indices] = np.nan
         self.y.ravel()[indices] = np.nan
-        self.net = allclose_net1
+        self.net = allclose_net2
         self.necessary_ops = "pd_op.allclose"
         self.enable_cinn = False
         self.tol = 1e-6
