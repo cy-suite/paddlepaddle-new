@@ -163,6 +163,7 @@ struct Argument {
   // Model specified with program and parameters files.
   DECL_ARGUMENT_FIELD(model_program_path, ModelProgramPath, std::string);
   DECL_ARGUMENT_FIELD(model_params_path, ModelParamsPath, std::string);
+  DECL_ARGUMENT_FIELD(refit_params_path, RefitParamsPath, std::string);
   DECL_ARGUMENT_FIELD(model_from_memory, ModelFromMemory, bool);
   DECL_ARGUMENT_FIELD(save_optimized_model, SaveOptimizedModel, bool);
   DECL_ARGUMENT_FIELD(optimized_model_save_path,
@@ -240,7 +241,6 @@ struct Argument {
 
   DECL_ARGUMENT_FIELD(use_tensorrt, UseTensorRT, bool);
   DECL_ARGUMENT_FIELD(tensorrt_use_dla, TensorRtUseDLA, bool);
-  DECL_ARGUMENT_FIELD(use_tensorrt_refittable, UseTernsorRTRefittable, bool);
   DECL_ARGUMENT_FIELD(tensorrt_dla_core, TensorRtDLACore, int);
   DECL_ARGUMENT_FIELD(tensorrt_max_batch_size, TensorRtMaxBatchSize, int);
   DECL_ARGUMENT_FIELD(tensorrt_workspace_size, TensorRtWorkspaceSize, int64_t);

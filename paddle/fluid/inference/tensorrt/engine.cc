@@ -322,7 +322,7 @@ void TensorRTEngine::FreezeNetwork() {
                 << params_.dla_core;
     }
   }
-  if (use_refittable()) {
+  if (!refit_params_path().empty()) {
     infer_builder_config_->setFlag(nvinfer1::BuilderFlag::kREFIT);
     VLOG(3) << "TensorRT Refittable enabled in FreezeNetwork()";
   }
@@ -470,7 +470,7 @@ void TensorRTEngine::FreezeNetwork() {
   if (params_.use_inspector) {
     GetEngineInfo(params_.engine_info_path);
   }
-  if (use_refittable()) {
+  if (!refit_params_path().empty()) {
     infer_refitter_.reset(createInferRefitter(infer_engine_.get(), &logger_));
     PADDLE_ENFORCE_NOT_NULL(
         infer_refitter_,

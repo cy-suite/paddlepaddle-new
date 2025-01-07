@@ -1978,7 +1978,7 @@ void AnalysisPredictor::PrepareArgument() {
     argument_->SetTensorRtDisabledOPs(config_.trt_disabled_ops_);
     argument_->SetTRTExcludeVarNames(config_.trt_exclude_var_names_);
     argument_->SetTRTForbidDynamicOp(config_.trt_forbid_dynamic_op_);
-    argument_->SetUseTernsorRTRefittable(config_.trt_use_refittable_);
+    argument_->SetRefitParamsPath(config_.refit_params_path_);
 
     argument_->SetTensorRtUseDLA(config_.trt_use_dla_);
     argument_->SetTensorRtDLACore(config_.trt_dla_core_);

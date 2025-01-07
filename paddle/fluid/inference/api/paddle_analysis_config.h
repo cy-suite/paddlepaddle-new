@@ -731,6 +731,8 @@ struct PD_INFER_DECL AnalysisConfig {
   ///
   const std::string& shape_range_info_path() const;
 
+  const std::string& refit_params_path() const;
+
   ///
   /// \brief A boolean state telling whether to collect shape info.
   ///
@@ -744,7 +746,7 @@ struct PD_INFER_DECL AnalysisConfig {
   ///
   void Exp_DisableTensorRtOPs(const std::vector<std::string>& ops);
 
-  void EnableTensorRTRefittable(bool trt_use_refittable);
+  void TensorRTRefitParamsPath(const std::string& refit_params_path);
 
   ///
   /// \brief Prevent TensorRtSubgraph running in Paddle-TRT
@@ -1148,6 +1150,7 @@ struct PD_INFER_DECL AnalysisConfig {
  protected:
   // Model paths.
   std::string model_dir_;
+  std::string refit_params_path_;
   mutable std::string prog_file_;
   mutable std::string params_file_;
 
@@ -1209,7 +1212,6 @@ struct PD_INFER_DECL AnalysisConfig {
   bool trt_with_interleaved_{false};
   bool trt_mark_output_{false};
   bool trt_forbid_dynamic_op_{false};
-  bool trt_use_refittable_{false};
 
   std::vector<std::string> trt_output_tensor_names_{};
   std::vector<std::string> trt_exclude_var_names_{};

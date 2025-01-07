@@ -145,8 +145,6 @@ class TensorRTEngine {
 
     bool use_dla{false};
 
-    bool use_refittable{false};
-
     int dla_core{0};
 
     ShapeMapType min_input_shape;
@@ -163,6 +161,7 @@ class TensorRTEngine {
     // From tensorrt_subgraph_pass, only used for OpConverter.
     //
     bool use_varseqlen{false};
+    std::string refit_params_path;
     bool with_interleaved{false};
     std::string tensorrt_transformer_posid;
     std::string tensorrt_transformer_maskid;
@@ -510,7 +509,7 @@ class TensorRTEngine {
 
   bool use_varseqlen() { return params_.use_varseqlen; }
   bool use_dla() { return params_.use_dla; }
-  bool use_refittable() { return params_.use_refittable; }
+  const std::string& refit_params_path() { return params_.refit_params_path; }
   bool with_interleaved() { return params_.with_interleaved; }
   const std::string& tensorrt_transformer_posid() {
     return params_.tensorrt_transformer_posid;
