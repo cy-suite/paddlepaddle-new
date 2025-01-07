@@ -252,11 +252,13 @@ def convert_to_trt(program, trt_config, scope):
     with paddle.pir_utils.IrGuard():
         min_shape_feed = {}
         max_shape_feed = {}
+        opt_shape_feed = {}
         for i, input_instance in enumerate(trt_config.inputs):
             # get fake inputs
-            min_data, _, max_data = input_instance.generate_input_data()
+            min_data, opt_data, max_data = input_instance.generate_input_data()
             program_with_output = program.list_vars()[-1]
             min_shape_feed[feed_name[i]] = min_data
+            opt_shape_feed[feed_name[i]] = opt_data
             max_shape_feed[feed_name[i]] = max_data
 
         # run pir pass (including trt_op_marker_pass)
@@ -271,6 +273,7 @@ def convert_to_trt(program, trt_config, scope):
         program = warmup_shape_infer(
             program_with_pir,
             min_shape_feed=min_shape_feed,
+            opt_shape_feed=opt_shape_feed,
             max_shape_feed=max_shape_feed,
             scope=scope,
         )
