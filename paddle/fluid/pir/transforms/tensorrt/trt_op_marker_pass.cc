@@ -2306,8 +2306,8 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<SplitWithNumOpPattern>(context));
     ps.Add(std::make_unique<GreaterEqualOpPattern>(context));
     ps.Add(std::make_unique<GreaterThanOpPattern>(context));
-    ps.Add(std::make_unique<LessEqual1OpPattern>(context));
-    ps.Add(std::make_unique<LessEqual2OpPattern>(context));
+    ps.Add(std::make_unique<LessEqualOpPattern>(context));
+    ps.Add(std::make_unique<LessEqual_OpPattern>(context));
     ps.Add(std::make_unique<LessThanOpPattern>(context));
     ps.Add(std::make_unique<MultiplyOpPattern>(context));
     ps.Add(std::make_unique<SubtractOpPattern>(context));
