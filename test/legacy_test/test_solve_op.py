@@ -995,7 +995,9 @@ class TestSolveOpAPIZeroDimCase(unittest.TestCase):
                 np.testing.assert_allclose(
                     numpy_output, paddle_output.numpy(), rtol=0.0001
                 )
-                self.assertEqual(numpy_output.shape, paddle_output.numpy().shape)
+                self.assertEqual(
+                    numpy_output.shape, paddle_output.numpy().shape
+                )
 
         for place in self.place:
             run(place, x_shape=[10, 0, 0], y_shape=[10, 0, 0])
