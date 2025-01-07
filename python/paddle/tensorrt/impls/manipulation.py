@@ -949,9 +949,5 @@ def pad_converter(network, paddle_op, inputs):
     pad_size = len(paddings)
     pre_pad = [paddings[pad_size - 4], paddings[pad_size - 2]]
     post_pad = [paddings[pad_size - 3], paddings[pad_size - 1]]
-    pre_pad_dims = trt.DimsHW(*pre_pad)
-    post_pad_dims = trt.DimsHW(*post_pad)
-    layer = network.add_padding_nd(input_tensor, pre_pad_dims, post_pad_dims)
-    if not layer:
-        raise RuntimeError("Failed to add padding layer to TensorRT network.")
+    layer = network.add_padding_nd(input_tensor, pre_pad, post_pad)
     return layer.get_output(0)
