@@ -101,7 +101,8 @@ class OneDNNBf16PlacementPattern : public pir::RewritePattern {
       auto mkldnn_data_type = op_attr.at("mkldnn_data_type")
                                   .dyn_cast<pir::StrAttribute>()
                                   .AsString();
-      if (mkldnn_data_type == "int8") {
+      // Reduce repetitive match
+      if (mkldnn_data_type != "float32") {
         return false;
       }
     }
@@ -159,16 +160,12 @@ class OneDNNBf16PlacementPattern : public pir::RewritePattern {
                   .dyn_cast<paddle::dialect::DenseTensorType>()
                   .dtype();
           // Only float input can be converted to bfloat16
-          if (!input_dtype.isa<pir::Float32Type>()) {
-            return false;
-          }
+          if (!input_dtype.isa<pir::Float32Type>()) return false;
         }
       } else if (type.isa<paddle::dialect::DenseTensorType>()) {
         pir::Type op_dtype = pir::GetDataTypeFromValue(value);
         // Only float input can be converted to bfloat16
-        if (!op_dtype.isa<pir::Float32Type>()) {
-          return false;
-        }
+        if (!op_dtype.isa<pir::Float32Type>()) return false;
       } else {
         return false;
       }
