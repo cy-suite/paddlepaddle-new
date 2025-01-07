@@ -1,4 +1,4 @@
-// Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
+// Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,29 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
-#include <memory>
-#include <unordered_map>
+#include "paddle/cinn/operator_fusion/policy/anchor_fusion_policy.h"
 
-namespace cinn::fusion {
-
-enum PolicyKind {
-  GeneralTopo = 1,
-  RelativeJudge = 2,
-  ItersFusion = 3,
-  AnchorFusion = 4
-};
-
-struct PolicyKindHash {
-  std::size_t operator()(const PolicyKind& t) const {
-    return static_cast<std::size_t>(t);
-  }
-};
-
-class PolicyBase {};
-
-using PolicyPtr = std::shared_ptr<PolicyBase>;
-
-using PolicyMap = std::unordered_map<PolicyKind, PolicyPtr, PolicyKindHash>;
-
-}  // namespace cinn::fusion
+namespace cinn::fusion {}  // namespace cinn::fusion

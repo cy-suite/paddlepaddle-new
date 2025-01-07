@@ -330,6 +330,15 @@ std::vector<T> UniqueConcatVector(const std::vector<T>& first,
   return result;
 }
 
+template <typename Int>
+std::vector<Int> ArangeVector(Int start, Int end, Int step = 1) {
+  std::vector<Int> res;
+  for (Int i = start; i < end; i += step) {
+    res.push_back(i);
+  }
+  return res;
+}
+
 template <typename Int, typename T>
 std::vector<Int> GetTransposePerm(const std::vector<T>& source,
                                   const std::vector<T>& target) {
@@ -347,6 +356,11 @@ std::vector<Int> GetTransposePerm(const std::vector<T>& source,
     perm.emplace_back(iter - source.begin());
   }
   return perm;
+}
+
+template <typename Int>
+std::vector<Int> GetReversePerm(const std::vector<Int>& perm) {
+  return GetTransposePerm<Int, Int>(perm, ArangeVector<Int>(0, perm.size()));
 }
 
 template <typename T, typename Int>
@@ -654,14 +668,27 @@ inline bool Any(const std::vector<bool> a) {
   return res;
 }
 
+std::shared_ptr<pir::ShapeConstraintIRAnalysis> GetShapeAnalysisFromValue(
+    const pir::Value& value);
+
 template <typename Int>
-std::vector<Int> ArangeVector(Int start, Int end, Int step = 1) {
-  std::vector<Int> res;
-  for (Int i = start; i < end; i += step) {
-    res.push_back(i);
+std::vector<symbol::DimExpr> GetValueDims(const pir::Value& value,
+                                          std::vector<Int> axes) {
+  auto shape_analysis = GetShapeAnalysisFromValue(value);
+  const auto rank = GetRank(value);
+  std::vector<symbol::DimExpr> dims;
+  for (const auto& axis : axes) {
+    PADDLE_ENFORCE_LT(
+        axis,
+        rank,
+        ::common::errors::InvalidArgument("Given axis out of range."));
+    dims.push_back(
+        shape_analysis->GetProductDimExpr(value, {static_cast<int>(axis)}));
   }
-  return res;
+  return dims;
 }
+
+std::vector<symbol::DimExpr> GetValueAllDims(const pir::Value& value);
 
 symbol::DimExpr GetShapeProduct(const std::vector<symbol::DimExpr>& shape,
                                 int start,

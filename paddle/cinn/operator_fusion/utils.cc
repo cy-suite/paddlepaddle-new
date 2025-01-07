@@ -177,6 +177,27 @@ std::vector<std::pair<size_t, size_t>> GetNonBroadCastDims(pir::Operation* op) {
   return res;
 }
 
+std::shared_ptr<pir::ShapeConstraintIRAnalysis> GetShapeAnalysisFromValue(
+    const pir::Value& value) {
+  pir::Operation* related_op = value.defining_op();
+  if (value.defining_op() == nullptr) {
+    // For inputs of the program, the defining_op is nullptr,
+    // we use it's user as the related op.
+    PADDLE_ENFORCE_EQ(value.use_empty(),
+                      false,
+                      ::common::errors::PreconditionNotMet(
+                          "Value is an input value, it should have a use."));
+    related_op = value.first_use().owner();
+  }
+  return pir::ShapeAnalysisManager::Instance()
+      .Get(related_op->GetParentProgram())
+      .shared_from_this();
+}
+
+std::vector<symbol::DimExpr> GetValueAllDims(const pir::Value& value) {
+  return GetValueDims(value, ArangeVector<int>(0, GetRank(value)));
+}
+
 symbol::DimExpr GetShapeProduct(const std::vector<symbol::DimExpr>& shape,
                                 int start,
                                 int end) {

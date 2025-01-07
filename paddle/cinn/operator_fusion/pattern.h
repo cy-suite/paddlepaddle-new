@@ -20,6 +20,7 @@
 #include <vector>
 #include "glog/logging.h"
 #include "paddle/cinn/operator_fusion/fusion_tracker/tracker.h"
+#include "paddle/cinn/operator_fusion/pir_graph_analyzing/loop_axis_mapping.h"
 #include "paddle/cinn/operator_fusion/utils.h"
 #include "paddle/pir/include/core/operation.h"
 
@@ -54,6 +55,8 @@ struct PatternBase {
   std::vector<pir::Operation*> ops() const { return ops_; }
   FusionTrackerPtr tracker_;
   void update_tracker() const {}
+  std::vector<symbol::DimExpr> loops_;
+  std::vector<symbol::DimExpr> loops() const { return loops_; }
 };
 
 #define DEFINE_PATTERN_STATIC_ATTR(pattern)                         \
