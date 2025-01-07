@@ -45,7 +45,9 @@ from paddle.autograd.backward_utils import (
     return_map_value,
     return_map_value_list,
     some_in_set,
+    update_if_output_stopgradient,
     update_no_grad_set_by_stopgradient,
+    update_while_output_stopgradient,
     warning_once,
     while_prune_check,
 )
@@ -696,24 +698,29 @@ def append_backward_ops(
 
                 if op.name() == "cf.tuple_push":
                     stackop = op.operand_source(0).get_defining_op()
-                    with dynamic_shape_prim_vjp_guard(op, inputs):
-                        copy_out = paddle.framework.core.call_vjp(
-                            op,
-                            inputs,
-                            outputs,
-                            output_grads,
-                            input_grad_stopgradients,
-                        )
+                    if stackop.result(2).use_empty():
+                        with dynamic_shape_prim_vjp_guard(op, inputs):
+                            copy_out = paddle.framework.core.call_vjp(
+                                op,
+                                inputs,
+                                outputs,
+                                output_grads,
+                                input_grad_stopgradients,
+                            )
 
-                    pop_op = bwd_block.ops[-1]
-                    while_tuple_ops.append(pop_op)
-                    while_tuple_ops.append(op)
-                    while_tuple_ops.append(stackop)
-                    bwd_ops = [pop_op]
-                    for output, copy_output in zip(inputs[1:], copy_out[1:]):
-                        control_flow_value_to_copyvalue_map[output[0]] = (
-                            copy_output[0]
-                        )
+                        pop_op = bwd_block.ops[-1]
+                        while_tuple_ops.append(pop_op)
+                        while_tuple_ops.append(op)
+                        while_tuple_ops.append(stackop)
+                        bwd_ops = [pop_op]
+                        for output, copy_output in zip(
+                            inputs[1:], copy_out[1:]
+                        ):
+                            control_flow_value_to_copyvalue_map[output[0]] = (
+                                copy_output[0]
+                            )
+                    else:
+                        bwd_ops = [stackop.result(2).first_use().owner()]
                 else:
                     # all(zero_flag) support this op has no contribution for grad
                     # should be delete (prune sub_graph)
@@ -786,6 +793,11 @@ def append_backward_ops(
                                     input_tuple[1]
                                 )
 
+                        update_if_output_stopgradient(
+                            grad_op,
+                            grad_op.as_if_op().true_block().ops[-1],
+                            grad_op.as_if_op().false_block().ops[-1],
+                        )
                         for input_tuple in inputs_used_by_other_op:
                             state.value_to_valuegrad[input_tuple[0]] = []
                         # update input_grad map
@@ -864,6 +876,10 @@ def append_backward_ops(
                             sub_state,
                             sub_bwd_value_to_block_argument_map,
                             sub_control_flow_value_to_copyvalue_map,
+                        )
+
+                        update_while_output_stopgradient(
+                            grad_op, while_grad_block.ops[-1]
                         )
                         # update input_grad map
                         update_input_grad_map(op, input_grads, origin_inputs)
@@ -1097,7 +1113,7 @@ def calc_gradient_helper(
     grad_outputs: Value | Sequence[Value | None] | None = None,
     no_grad_set: set[Value] | None = None,
 ) -> ValueDict:
-    block = outputs[0].get_defining_op().get_parent_block()
+    block = paddle.base.libpaddle.pir.get_current_insertion_point().block()
     state = State(block)
     if all_stop_gradient_true(block):
         logging.warning(

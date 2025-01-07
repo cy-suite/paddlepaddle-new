@@ -19,6 +19,8 @@ import sys
 import numpy as np
 import tensorrt as trt
 
+from paddle.tensorrt.util import TensorRTConfigManager
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
 if parent_dir not in sys.path:
@@ -271,6 +273,21 @@ def trt_reshape(network, input, new_shape, name="", is_shape_tensor=False):
     return reshape_layer.get_output(0)
 
 
+# resize shape tensor's shape to 1dim
+def resize_to_1d(network, shape_tensor):
+    if shape_tensor is None:
+        return shape_tensor
+    if len(shape_tensor.shape) > 1:
+        # shape_tensor need 1-dim in trt
+        shape_tensor_layer = network.add_shuffle(shape_tensor)
+        numel = 1
+        for ele in shape_tensor.shape:
+            numel *= ele
+        shape_tensor_layer.reshape_dims = [numel]
+        shape_tensor = shape_tensor_layer.get_output(0)
+    return shape_tensor
+
+
 # Get element tensor of 1D shape tensor
 def get_shape_tensor_element(network, x, index, is_scalar=False):
     assert (
@@ -278,7 +295,8 @@ def get_shape_tensor_element(network, x, index, is_scalar=False):
     ), f"The index should be greater or equal than 0, but got {index}"
     index_tensor = add_1D_constant_layer(network, index, is_scalar=is_scalar)
     gather_layer = network.add_gather(input=x, indices=index_tensor, axis=0)
-    return gather_layer.get_output(0)
+    shape_tensor = resize_to_1d(network, gather_layer.get_output(0))
+    return shape_tensor
 
 
 def trt_less(network, a, b):
@@ -329,6 +347,11 @@ def trt_gather(network, input, indices, axis=0):
 
 def trt_prod(network, a, b):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.PROD)
+    return layer.get_output(0)
+
+
+def trt_pow(network, a, b):
+    layer = network.add_elementwise(a, b, trt.ElementWiseOperation.POW)
     return layer.get_output(0)
 
 
@@ -414,7 +437,7 @@ def map_trt_dtype(trt_dtype):
 
 
 # Reduce the given tensor in the TensorRT network to a scalar
-def trt_reduce_to_scalar(network, tensor):
+def trt_reduce_to_scalar(network, tensor, dtype=trt.int32):
     if len(tensor.shape) == 0:
         return tensor
     axes = 0
@@ -423,7 +446,8 @@ def trt_reduce_to_scalar(network, tensor):
     reduce_layer = network.add_reduce(
         tensor, trt.ReduceOperation.SUM, axes, keep_dims=False
     )
-    return reduce_layer.get_output(0)
+    scalar = trt_cast(network, reduce_layer.get_output(0), dtype)
+    return scalar
 
 
 def convert_conv2d(network, paddle_op, inputs):
@@ -659,14 +683,55 @@ def squeeze_trt(network, input_tensor, axes):
     return reshape_layer.get_output(0)
 
 
-# resize shape tensor's shape to 1dim
-def resize_to_1d(network, shape_tensor):
-    if len(shape_tensor.shape) > 1:
-        # shape_tensor need 1-dim in trt
-        shape_tensor_layer = network.add_shuffle(shape_tensor)
-        numel = 1
-        for ele in shape_tensor.shape:
-            numel *= ele
-        shape_tensor_layer.reshape_dims = [numel]
-        shape_tensor = shape_tensor_layer.get_output(0)
-    return shape_tensor
+def unary_op_converter(network, paddle_op, inputs):
+    from paddle.tensorrt import PrecisionMode
+
+    input_tensor = inputs[0]
+    layer = None
+    org_type = input_tensor.dtype
+
+    trt_type_mapping = {
+        trt.DataType.INT8: trt.int8,
+        trt.DataType.INT32: trt.int32,
+    }
+
+    trt_manager = TensorRTConfigManager()
+    precision_mode = trt_manager.get_precision_mode()
+
+    need_cast = org_type in [trt.DataType.INT8, trt.DataType.INT32]
+    if need_cast:
+        identity_layer = network.add_identity(input_tensor)
+        if precision_mode == PrecisionMode.FP32:
+            identity_layer.set_output_type(0, trt.float32)
+        else:
+            identity_layer.set_output_type(0, trt.float16)
+        input_tensor = identity_layer.get_output(0)
+
+    if paddle_op.name() in ["pd_op.logical_not", "pd_op.logical_not_"]:
+        layer = network.add_unary(input_tensor, trt.UnaryOperation.NOT)
+        input_tensor = layer.get_output(0)
+    else:
+        raise NotImplementedError(
+            f"Unsupported unary operation: {paddle_op.name()}"
+        )
+    if need_cast:
+        restore_layer = network.add_identity(input_tensor)
+        restore_layer.set_output_type(0, trt_type_mapping[org_type])
+        input_tensor = restore_layer.get_output(0)
+
+    return input_tensor
+
+
+# get the length of the specified axis for input_tensor
+def get_axis_length(network, input_tensor, axis, is_scalar=False):
+    input_shape = input_tensor.shape
+    if input_shape[axis] >= 0:
+        output_tensor = add_1D_constant_layer(
+            network, input_shape[axis], is_scalar=is_scalar
+        )
+    else:
+        dynamic_shape = trt_shape(network, input_tensor)
+        output_tensor = get_shape_tensor_element(
+            network, dynamic_shape, axis, is_scalar
+        )
+    return output_tensor
