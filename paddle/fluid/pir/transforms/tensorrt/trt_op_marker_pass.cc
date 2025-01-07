@@ -2083,7 +2083,8 @@ class Pad3dOpPattern : public pir::OpRewritePattern<paddle::dialect::Pad3dOp> {
       return false;
     }
     if (!op->HasAttribute("paddings") &&
-        !pir::GetDefiningOpForInput(op, 1)->isa<paddle::dialect::FullIntArrayOp>()) {
+        !pir::GetDefiningOpForInput(op, 1)
+             ->isa<paddle::dialect::FullIntArrayOp>()) {
       return false;
     }
     if (op->HasAttribute("mode")) {
