@@ -433,11 +433,21 @@ def depthwise_conv3d_transpose_wrapper_outpadding(x, output_padding):
     return conv(x)
 
 
-def conv3d_transpose_with_error(x, padding=None):
+def conv3d_transpose_with_error(x, output_padding):
     conv = paddle.nn.Conv3DTranspose(
         in_channels=3,
         out_channels=3,
         kernel_size=(3, 3, 3),
+    )
+    return conv(x)
+
+
+def conv3d_transpose_with_error2(x, output_padding):
+    conv = paddle.nn.Conv3DTranspose(
+        in_channels=3,
+        out_channels=3,
+        kernel_size=(3, 3, 3),
+        dilation=2,
     )
     return conv(x)
 
@@ -533,10 +543,10 @@ class TestConv3dTransposeNoDilationsTRTPattern(TensorRTBaseTest):
 
 class TestConv3dTransposeInvalidDilationsTRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = conv3d_transpose_with_error
+        self.python_api = conv3d_transpose_with_error2
         self.api_args = {
             "x": np.random.random([2, 3, 8, 8, 8]).astype("float32"),
-            "dilations": [2, 1, 1],
+            "output_padding": [0, 0, 0],
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
