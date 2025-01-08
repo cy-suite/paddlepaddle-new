@@ -7283,7 +7283,7 @@ def index_fill(
     """
     Fill the elements of the input tensor with value by the specific axis and index.
 
-    As shown below, a [3, 3] 2D tensor is updated via the index_fill operation. With axis=0, index=[0, 2] and value=-1, the 1st and 3rd row elements become -1. The resulting tensor, still [3, 3], has updated values.
+    As shown below, a ``[3, 3]`` 2D tensor is updated via the index_fill operation. With ``axis=0``, ``index=[0, 2]`` and ``value=-1``, the 1st and 3rd row elements become ``-1``. The resulting tensor, still [3, 3], has updated values.
 
     .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/images/api_legend/index_fill.png
        :width: 500
