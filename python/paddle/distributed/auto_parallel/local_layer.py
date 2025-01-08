@@ -41,29 +41,57 @@ class LocalLayer(Layer):
     Examples:
         .. code-block:: python
 
-            import paddle
-            import paddle.distributed as dist
-            from paddle import nn
+            >>> import paddle
+            >>> import paddle.distributed as dist
+            >>> from paddle.distributed import Placement, ProcessMesh, LocalLayer
 
-            class CustomLayer(LocalLayer):
-                def __init__(self, mesh):
-                    super().__init__(
-                        out_dist_attrs=[(mesh, [dist.Partial(dist.ReduceType.kRedSum)])]
-                    )
-                    self.fc = nn.Linear(16, 8)
+            >>> class CustomLayer(dist.LocalLayer):
+            ...     def __init__(self, out_dist_attrs):
+            ...         super().__init__(out_dist_attrs)
+            ...         self.local_result = None
 
-                def forward(self, x):
-                    return self.fc(x)
+            ...     def forward(self, x):
+            ...         mask = paddle.zeros_like(x)
+            ...         if dist.get_rank() == 0:
+            ...             mask[1:3] = 1
+            ...         else:
+            ...             mask[4:7] = 1
 
-            # doctest: +REQUIRES(env:DISTRIBUTED)
-            mesh = dist.ProcessMesh([0, 1], dim_names=["x"])
-            custom_layer = CustomLayer(mesh)
-            input_tensor = dist.auto_parallel.api.dtensor_from_local(
-                paddle.randn([4, 16]), mesh, [dist.Replicate()]
-            )
+            ...         x = x * mask
+            ...         mask_sum = paddle.sum(x)
+            ...         mask_sum = mask_sum / mask.sum()
+            ...         self.local_result = mask_sum
+            ...         return mask_sum
 
-            output_tensor = custom_layer(input_tensor)
-            print(output_tensor)
+            >>> # doctest: +REQUIRES(env:DISTRIBUTED)
+            >>> dist.init_parallel_env()
+            >>> mesh = ProcessMesh([0, 1], dim_names=["x"])
+            >>> out_dist_attrs = [
+            ...     (mesh, [dist.Partial(dist.ReduceType.kRedSum)]),
+            ... ]
+
+            >>> local_input = paddle.arange(0, 10, dtype='float32')
+            >>> input_dist = dist.auto_parallel.api.dtensor_from_local(
+            ...     local_input,
+            ...     mesh,
+            ...     [dist.Replicate()]
+            ... )
+            >>> custom_layer = CustomLayer(out_dist_attrs)
+            >>> output_dist = custom_layer(input_dist)
+
+            >>> local_value = custom_layer.local_result
+            >>> gathered_values = []
+            >>> dist.all_gather(gathered_values, local_value)
+
+            >>> print(f"[Rank 0] local_loss={gathered_values[0]}")
+            [Rank 0] local_loss=1.5
+            >>> print(f"[Rank 1] local_loss={gathered_values[1]}")
+            [Rank 1] local_loss=5.0
+            >>> print(f"global_loss (distributed)={output_dist}")
+            global_loss (distributed)=6.5
+            >>> # This case needs to be executed in a multi-card environment
+            >>> # export CUDA_VISIBLE_DEVICES=0,1
+            >>> # python -m paddle.distributed.launch {test_case}.py
     """
 
     def __init__(
