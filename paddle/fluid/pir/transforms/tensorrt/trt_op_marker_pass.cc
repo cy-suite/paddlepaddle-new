@@ -2174,8 +2174,9 @@ class TemporalShiftOpPattern
       VLOG(3) << "temporal shift need attributes : shift_ratio and seg_num";
       return false;
     }
-    auto x = op.operand_source(0);
-    auto x_shape = pir::GetShapeFromValue(x);
+    pir::Value x = op.operand_source(0);
+    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto x_shape = x_type.dims();
     if (x_shape.size() != 4) {
       VLOG(3) << "The input and grid tensors must be shape tensors of rank 4.";
       return false;
