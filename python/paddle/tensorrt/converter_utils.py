@@ -571,6 +571,10 @@ def get_input_constant_value(paddle_op, inputs, input_index):
     input_op = paddle_op.operands()[input_index].source().get_defining_op()
     if input_op.name() == "builtin.constant":
         return inputs[input_index].numpy().tolist()
+    elif input_op.name() == "pd_op.full_int_array":
+        return input_op.attrs()["value"]
+    elif input_op.name() == "pd_op.full":
+        return [input_op.attrs()["value"]]
     else:
         return None
 

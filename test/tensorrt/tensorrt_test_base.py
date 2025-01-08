@@ -43,7 +43,9 @@ class TensorRTBaseTest(unittest.TestCase):
         self.max_shape = None
         self.target_marker_op = ""
         self.dynamic_shape_data = {}
-        self.disable_passes = []
+        self.disable_passes = [
+            "constant_folding_pass",
+        ]
 
     def create_fake_program(self):
         if self.python_api is None:

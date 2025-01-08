@@ -29,10 +29,6 @@ class TestFlattenTRTPattern(TensorRTBaseTest):
         self.min_shape = {}
         self.opt_shape = {}
         self.max_shape = {}
-        # we test full, but these passes delete full op
-        self.disable_passes = [
-            "constant_folding_pass",
-        ]
 
     def test_trt_result(self):
         self.check_trt_result()
@@ -119,9 +115,6 @@ class TestArangeTRTPattern(TensorRTBaseTest):
         self.min_shape = {}
         self.opt_shape = {}
         self.max_shape = {}
-        self.disable_passes = [
-            "constant_folding_pass",
-        ]
 
     def test_trt_result(self):
         self.check_trt_result()
@@ -219,10 +212,6 @@ class TestFullWithTensorTRTPattern(TensorRTBaseTest):
         self.min_shape = {}
         self.opt_shape = {}
         self.max_shape = {}
-        # we test full, but these passes delete full op
-        self.disable_passes = [
-            "constant_folding_pass",
-        ]
 
     def test_trt_result(self):
         self.check_trt_result()
@@ -240,10 +229,6 @@ class TestFullWithTensorCase1TRTPattern(TensorRTBaseTest):
         self.min_shape = {}
         self.opt_shape = {}
         self.max_shape = {}
-        # we test full, but these passes delete full op
-        self.disable_passes = [
-            "constant_folding_pass",
-        ]
 
     def test_trt_result(self):
         self.check_trt_result()
