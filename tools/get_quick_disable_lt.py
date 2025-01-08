@@ -61,11 +61,16 @@ def download_file():
             url = "https://sys-p0.bj.bcebos.com/prec/{}".format(
                 'disable_ut_xpu_kl2'
             )
+            external_xpu = get_disable_ut_by_url(url)
         else:
-            url = "https://sys-p0.bj.bcebos.com/prec/{}".format(
-                'disable_ut_xpu_kl3'
-            )
-        external_xpu = get_disable_ut_by_url(url)
+            import os
+
+            paddle_root = os.getenv('PADDLE_ROOT')
+            file_path = paddle_root + "/tools/xpu/disable_ut_xpu_kl3.local"
+            with open(file_path, 'r') as file:
+                data = file.read()
+            external_xpu = data.strip().split('\n')
+            external_xpu = '^' + '$|^'.join(external_xpu) + '$'
         disabled_ut_list = disabled_ut_list + "|" + external_xpu
 
     print(disabled_ut_list)
