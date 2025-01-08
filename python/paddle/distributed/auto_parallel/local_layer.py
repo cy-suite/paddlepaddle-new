@@ -71,10 +71,11 @@ class LocalLayer(Layer):
             ... ]
 
             >>> local_input = paddle.arange(0, 10, dtype='float32')
+            >>> local_input = local_input + dist.get_rank()
             >>> input_dist = dist.auto_parallel.api.dtensor_from_local(
             ...     local_input,
             ...     mesh,
-            ...     [dist.Replicate()]
+            ...     [dist.Shard(0)]
             ... )
             >>> custom_layer = CustomLayer(out_dist_attrs)
             >>> output_dist = custom_layer(input_dist)
@@ -86,9 +87,9 @@ class LocalLayer(Layer):
             >>> print(f"[Rank 0] local_loss={gathered_values[0]}")
             [Rank 0] local_loss=1.5
             >>> print(f"[Rank 1] local_loss={gathered_values[1]}")
-            [Rank 1] local_loss=5.0
+            [Rank 1] local_loss=6.0
             >>> print(f"global_loss (distributed)={output_dist}")
-            global_loss (distributed)=6.5
+            global_loss (distributed)=7.5
             >>> # This case needs to be executed in a multi-card environment
             >>> # export CUDA_VISIBLE_DEVICES=0,1
             >>> # python -m paddle.distributed.launch {test_case}.py
