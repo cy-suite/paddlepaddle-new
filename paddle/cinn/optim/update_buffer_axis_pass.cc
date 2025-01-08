@@ -85,11 +85,11 @@ class AnalyzeBufferAxis : public ir::IRMutator<>,
   void VisitStmt(For stmt) override {
     if (stmt->is_gpu_block_binded()) {
       var_bind_threads.insert(stmt->loop_var()->name);
-      StmtMutator::VisitBlock(stmt->body());
+      VisitBlock(stmt->body());
       var_bind_threads.erase(stmt->loop_var()->name);
       return;
     }
-    StmtMutator::VisitBlock(stmt->body());
+    VisitBlock(stmt->body());
   }
 
   // Analyze the buffer access inside store
@@ -99,10 +99,14 @@ class AnalyzeBufferAxis : public ir::IRMutator<>,
         tensor->buffer->memory_type == ir::MemoryType::Heap) {
       return;
     }
+    ir::Expr value = stmt->value();
+    ir::IRMutator<>::Visit(&value, &value);
+    stmt->set_value(value);
+
     std::vector<ir::Expr> indices = stmt->indices();
     FormalizeSingleIndex(tensor, &indices);
-    AnalyzeTensorAxis(indices, tensor);
     stmt->set_indices(indices);
+    AnalyzeTensorAxis(indices, tensor);
   }
 
   void VisitStmt(Schedule stmt) override {
@@ -111,7 +115,7 @@ class AnalyzeBufferAxis : public ir::IRMutator<>,
     for (int i = 0; i < iter_vars.size(); ++i) {
       iter_var_to_bind_expr_[iter_vars[i]->name] = iter_values[i];
     }
-    StmtMutator::VisitBlock(stmt->body());
+    VisitBlock(stmt->body());
   }
 
   void VisitStmt(IfThenElse stmt) override {
@@ -123,7 +127,7 @@ class AnalyzeBufferAxis : public ir::IRMutator<>,
 
   void VisitStmt(Let stmt) override {
     ir::Expr expr = stmt->body();
-    IRMutator::Visit(&expr, &expr);
+    ir::IRMutator<>::Visit(&expr, &expr);
     stmt->set_body(expr);
   }
 
@@ -225,7 +229,9 @@ class ReplaceSameAxisToZero : public ir::IRMutator<>,
 
   void operator()(ir::Expr* expr) { ir::IRMutator<>::Visit(expr, expr); }
 
-  void operator()(BlockRef block) { StmtMutator::VisitBlock(block); }
+  void operator()(BlockRef block) {
+    ir::stmt::StmtMutator<>::VisitBlock(block);
+  }
 
  private:
   // Analyze the buffer access inside store
