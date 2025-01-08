@@ -213,6 +213,16 @@ void ExecutionEngine::Link(const ir::Module &module) {
   }
 }
 
+template <>
+void ExecutionEngine::Link<CodeGenGpuHost>(const ir::Module &module) {
+  if (module.functions().size() == 0) {
+    return;
+  }
+  utils::RecordEvent("ExecutionEngine Link", utils::EventType::kOrdinary);
+  auto ir_emitter = std::make_unique<CodeGenGpuHost>(m.get(), b.get());
+  ir_emitter->Compile(module);
+}
+
 bool ExecutionEngine::AddModule(std::unique_ptr<llvm::Module> module,
                                 std::unique_ptr<llvm::LLVMContext> context) {
   utils::RecordEvent("ExecutionEngine AddModule", utils::EventType::kOrdinary);
