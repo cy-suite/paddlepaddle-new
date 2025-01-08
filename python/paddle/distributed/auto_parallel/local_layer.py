@@ -21,8 +21,7 @@ import paddle.distributed as dist
 from paddle.nn import Layer
 
 if TYPE_CHECKING:
-    from paddle.distributed import Placement
-    from paddle.distributed.auto_parallel.process_mesh import ProcessMesh
+    from paddle.distributed import Placement, ProcessMesh
 
 
 class LocalLayer(Layer):
@@ -80,8 +79,8 @@ class LocalLayer(Layer):
             >>> custom_layer = CustomLayer(out_dist_attrs)
             >>> output_dist = custom_layer(input_dist)
 
-            >>> local_value = custom_layer.local_result
-            >>> gathered_values = []
+            >>> local_value: Tensor = custom_layer.local_result
+            >>> gathered_values: List = []
             >>> dist.all_gather(gathered_values, local_value)
 
             >>> print(f"[Rank 0] local_loss={gathered_values[0]}")
@@ -97,7 +96,7 @@ class LocalLayer(Layer):
 
     def __init__(
         self, out_dist_attrs: list[tuple[ProcessMesh, list[Placement]]]
-    ):
+    ) -> None:
         super().__init__()
         self.out_dist_attrs = out_dist_attrs
 
