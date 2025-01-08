@@ -180,7 +180,8 @@ std::vector<paddle::Tensor> RunBackward(
 
     // copy grad tensor since we should totally run grad without affect forward
     // value
-    if (!grad_tensors.empty() && grad_tensors[i].has_allocation()) {
+    if (!grad_tensors.empty() &&
+        (grad_tensors[i].defined() && grad_tensors[i].has_allocation())) {
       PADDLE_ENFORCE(
           grad_tensors.size() == tensors.size(),
           common::errors::Fatal(
