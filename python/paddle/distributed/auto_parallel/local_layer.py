@@ -40,8 +40,10 @@ class LocalLayer(Layer):
     Examples:
         .. code-block:: python
 
+            >>> from typing import List
             >>> import paddle
             >>> import paddle.distributed as dist
+            >>> from paddle import Tensor
             >>> from paddle.distributed import Placement, ProcessMesh, LocalLayer
 
             >>> class CustomLayer(dist.LocalLayer):
