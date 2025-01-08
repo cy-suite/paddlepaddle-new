@@ -667,6 +667,7 @@ class TestPadCase1TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "pad_value"]}
         self.min_shape = {"x": [1, 1, 1, 2, 3]}
+        self.opt_shape = {"x": [1, 1, 1, 2, 3]}
         self.max_shape = {"x": [5, 1, 1, 2, 3]}
 
     def test_trt_result_fp16(self):
@@ -687,6 +688,7 @@ class TestPadCase2TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 1, 1, 2, 3]}
+        self.opt_shape = {"x": [1, 1, 1, 2, 3]}
         self.max_shape = {"x": [5, 1, 1, 2, 3]}
 
     def test_trt_result_fp16(self):
@@ -704,6 +706,7 @@ class TestPadError1TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 1, 1, 2, 3]}
+        self.opt_shape = {"x": [1, 1, 1, 2, 3]}
         self.max_shape = {"x": [5, 1, 1, 2, 3]}
 
     def test_trt_result(self):
@@ -721,6 +724,7 @@ class TestPadError2TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "pad_value"]}
         self.min_shape = {"x": [1, 1, 1, 2, 3]}
+        self.opt_shape = {"x": [1, 1, 1, 2, 3]}
         self.max_shape = {"x": [5, 1, 1, 2, 3]}
 
     def test_trt_result(self):
@@ -738,6 +742,7 @@ class TestPadError3TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "pad_value"]}
         self.min_shape = {"x": [1, 1, 1, 2, 3]}
+        self.opt_shape = {"x": [1, 1, 1, 2, 3]}
         self.max_shape = {"x": [5, 1, 1, 2, 3]}
 
     def test_trt_result(self):
@@ -755,6 +760,7 @@ class TestPadError4TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x", "pad_value"]}
         self.min_shape = {"x": [1, 1, 1, 2, 3]}
+        self.opt_shape = {"x": [1, 1, 1, 2, 3]}
         self.max_shape = {"x": [5, 1, 1, 2, 3]}
 
     def test_trt_result(self):
